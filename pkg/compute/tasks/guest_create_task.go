@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -51,7 +52,7 @@ func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, obj db.IS
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, models.VM_DISK_FAILED, "allocation failed")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
-	logclient.AddActionLog(guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DISK_FAILED, data.String())
 	self.SetStageFailed(ctx, data.String())
 }
@@ -80,7 +81,7 @@ func (self *GuestCreateTask) OnCdromPreparedFailed(ctx context.Context, obj db.I
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, models.VM_DISK_FAILED, "")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
-	logclient.AddActionLog(guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DISK_FAILED, fmt.Sprintf("cdrom_failed %s", data))
 	self.SetStageFailed(ctx, fmt.Sprintf("cdrom_failed %s", data))
 }
@@ -100,15 +101,15 @@ func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj 
 }
 
 func (self *GuestCreateTask) notifyServerCreated(ctx context.Context, guest *models.SGuest) {
-	guest.NotifyServerEvent(notifyclient.SERVER_CREATED, notifyclient.PRIORITY_IMPORTANT, true)
-	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_CREATED_ADMIN, notifyclient.PRIORITY_IMPORTANT)
+	guest.NotifyServerEvent(self.UserCred, notifyclient.SERVER_CREATED, notify.NotifyPriorityImportant, true)
+	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_CREATED_ADMIN, notify.NotifyPriorityImportant)
 }
 
 func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	guest.SetStatus(self.UserCred, models.VM_DEPLOY_FAILED, "deploy_failed")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
-	logclient.AddActionLog(guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DEPLOY_FAILED, data.String())
 	self.SetStageFailed(ctx, data.String())
 }

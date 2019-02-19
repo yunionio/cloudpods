@@ -7,16 +7,14 @@ import (
 
 func init() {
 	type DiskListOptions struct {
-		Zone   string `help:"Zone ID"`
-		Offset int    `help:"List offset"`
-		Limit  int    `help:"List limit"`
+		Zone string `help:"Zone ID"`
 	}
 	shellutils.R(&DiskListOptions{}, "disk-list", "List disks", func(cli *huawei.SRegion, args *DiskListOptions) error {
-		disks, total, e := cli.GetDisks(args.Zone, args.Offset, args.Limit)
+		disks, e := cli.GetDisks(args.Zone)
 		if e != nil {
 			return e
 		}
-		printList(disks, total, args.Offset, args.Limit, []string{})
+		printList(disks, 0, 0, 0, nil)
 		return nil
 	})
 

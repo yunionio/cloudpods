@@ -78,6 +78,14 @@ func (s *SBaseStorage) GetId() string {
 	return s.StorageId
 }
 
+func (s *SBaseStorage) GetName(generateName func() string) string {
+	if len(s.StorageName) > 0 {
+		return s.StorageName
+	} else {
+		return generateName()
+	}
+}
+
 func (s *SBaseStorage) GetPath() string {
 	return s.Path
 }
@@ -168,10 +176,13 @@ func (s *SBaseStorage) CreateDiskByDiskinfo(ctx context.Context, params interfac
 
 	switch {
 	case createParams.DiskInfo.Contains("snapshot"):
+		log.Infof("CreateDiskFromSnpashot %s", createParams)
 		return s.CreateDiskFromSnpashot(ctx, disk, createParams)
 	case createParams.DiskInfo.Contains("image_id"):
+		log.Infof("CreateDiskFromTemplate %s", createParams)
 		return s.CreateDiskFromTemplate(ctx, disk, createParams)
 	case createParams.DiskInfo.Contains("size"):
+		log.Infof("CreateRawDisk %s", createParams)
 		return s.CreateRawDisk(ctx, disk, createParams)
 	default:
 		return nil, fmt.Errorf("Not fount")

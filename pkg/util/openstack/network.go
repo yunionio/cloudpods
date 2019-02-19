@@ -73,8 +73,9 @@ func (network *SNetwork) Delete() error {
 	return network.wire.zone.region.DeleteNetwork(network.ID)
 }
 
-func (network *SRegion) DeleteNetwork(networkId string) error {
-	return cloudprovider.ErrNotImplemented
+func (region *SRegion) DeleteNetwork(networkId string) error {
+	_, err := region.Delete("network", "/v2.0/subnets/"+networkId, "")
+	return err
 }
 
 func (network *SNetwork) GetIWire() cloudprovider.ICloudWire {
@@ -126,7 +127,7 @@ func (region *SRegion) GetNetwork(networkId string) (*SNetwork, error) {
 }
 
 func (region *SRegion) GetNetworks(vpcId string) ([]SNetwork, error) {
-	_, resp, err := region.Get("network", "/v2.0/subnets", "", nil)
+	_, resp, err := region.List("network", "/v2.0/subnets", "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +153,19 @@ func (network *SNetwork) Refresh() error {
 	return jsonutils.Update(network, new)
 }
 
-func (network *SRegion) CreateNetwork(zoneId string, vpcId string, name string, cidr string, desc string) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+func (region *SRegion) CreateNetwork(vpcId string, name string, cidr string, desc string) (string, error) {
+	params := map[string]map[string]interface{}{
+		"subnet": {
+			"name":        name,
+			"network_id":  vpcId,
+			"cidr":        cidr,
+			"description": desc,
+			"ip_version":  4,
+		},
+	}
+	_, resp, err := region.Post("network", "/v2.0/subnets", "", jsonutils.Marshal(params))
+	if err != nil {
+		return "", err
+	}
+	return resp.GetString("subnet", "id")
 }

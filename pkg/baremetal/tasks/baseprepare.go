@@ -115,7 +115,8 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 				Mtu:   1500,
 			}
 			task.sendNicInfo(ipmiNic, -1, types.NIC_TYPE_IPMI, true, "")
-			err = ipmitool.SetLanUserPasswd(sshIPMI, lanChannel, ipmiUser, ipmiPasswd)
+			rootId := ipmitool.GetRootId(ipmiSysInfo)
+			err = ipmitool.SetLanUserPasswd(sshIPMI, lanChannel, rootId, ipmiUser, ipmiPasswd)
 			if err != nil {
 				log.Errorf("Lan channel %d set user password error: %v", lanChannel, err)
 			}
@@ -267,15 +268,18 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 	updateInfo["storage_info"] = diskInfo
 	updateInfo["sys_info"] = sysInfo
 	updateInfo["sn"] = sysInfo.SN
-	task.collectDiskInfo(updateInfo, diskInfo)
+	size, diskType := task.collectDiskInfo(diskInfo)
+	updateInfo["storage_size"] = size
+	updateInfo["storage_type"] = diskType
 	updateData := jsonutils.Marshal(updateInfo)
 	updateData.(*jsonutils.JSONDict).Update(ipmiInfo.ToPrepareParams())
-	log.Infof("=== prepare update info: %s", updateData.PrettyString())
 	_, err = modules.Hosts.Update(task.getClientSession(), task.baremetal.GetId(), updateData)
 	if err != nil {
 		log.Errorf("Update baremetal info error: %v", err)
 	}
-	// task.sendStorageInfo(size)
+	if err := task.sendStorageInfo(size); err != nil {
+		log.Errorf("sendStorageInfo error: %v", err)
+	}
 	for i := range nicsInfo {
 		if nicsInfo[i].Mac.String() == adminNic.GetMac().String() {
 			if i != 0 {
@@ -486,7 +490,7 @@ func (task *sBaremetalPrepareTask) doNicWireProbe(cli *ssh.Client, nic *types.SN
 	return nil
 }
 
-func (task *sBaremetalPrepareTask) collectDiskInfo(updateInfo map[string]interface{}, diskInfo []*baremetal.BaremetalStorage) {
+func (task *sBaremetalPrepareTask) collectDiskInfo(diskInfo []*baremetal.BaremetalStorage) (int64, string) {
 	cnt := 0
 	rotateCnt := 0
 	var size int64 = 0
@@ -505,8 +509,7 @@ func (task *sBaremetalPrepareTask) collectDiskInfo(updateInfo map[string]interfa
 	} else {
 		diskType = "hybrid"
 	}
-	updateInfo["storage_size"] = size
-	updateInfo["storage_type"] = diskType
+	return size, diskType
 }
 
 func SetIPMILanPortShared(cli ipmitool.IPMIExecutor, sysInfo *types.SIPMISystemInfo) {

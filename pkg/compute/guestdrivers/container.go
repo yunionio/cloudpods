@@ -9,6 +9,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -47,6 +48,14 @@ func (self *SContainerDriver) newUnsupportOperationError(option string) error {
 
 func (self *SContainerDriver) GetHypervisor() string {
 	return models.HYPERVISOR_CONTAINER
+}
+
+func (self *SContainerDriver) GetDefaultSysDiskBackend() string {
+	return models.STORAGE_LOCAL
+}
+
+func (self *SContainerDriver) GetMinimalSysDiskSizeGb() int {
+	return options.Options.DefaultDiskSizeMB / 1024
 }
 
 func (self *SContainerDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
@@ -174,4 +183,8 @@ func (self *SContainerDriver) RequestRebuildRootDisk(ctx context.Context, guest 
 
 func (self *SContainerDriver) GetRandomNetworkTypes() []string {
 	return []string{models.NETWORK_TYPE_CONTAINER, models.NETWORK_TYPE_GUEST}
+}
+
+func (self *SContainerDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
+	return fmt.Errorf("Not Implement")
 }

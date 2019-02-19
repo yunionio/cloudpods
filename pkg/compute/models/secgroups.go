@@ -501,8 +501,7 @@ func (self *SSecurityGroup) StartDeleteSecurityGroupTask(ctx context.Context, us
 }
 
 func (self *SSecurityGroup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	log.Infof("SecurityGroup delete do nothing")
-	return nil
+	return self.SSharableVirtualResourceBase.DoPendingDelete(ctx, userCred)
 }
 
 func (self *SSecurityGroup) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {

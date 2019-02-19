@@ -32,6 +32,14 @@ func (self *SQcloudGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_QCLOUD
 }
 
+func (self *SQcloudGuestDriver) GetDefaultSysDiskBackend() string {
+	return models.STORAGE_CLOUD_BASIC
+}
+
+func (self *SQcloudGuestDriver) GetMinimalSysDiskSizeGb() int {
+	return 50
+}
+
 func (self *SQcloudGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
 	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i++ {
@@ -39,7 +47,13 @@ func (self *SQcloudGuestDriver) ChooseHostStorage(host *models.SHost, backend st
 			return &storages[i]
 		}
 	}
-	for _, stype := range []string{"cloud_basic", "cloud_premium", "cloud_ssd", "local_basic", "local_ssd"} {
+	for _, stype := range []string{
+		models.STORAGE_CLOUD_BASIC,
+		models.STORAGE_CLOUD_PREMIUM,
+		models.STORAGE_CLOUD_SSD,
+		models.STORAGE_LOCAL_BASIC,
+		models.STORAGE_LOCAL_SSD,
+	} {
 		for i := 0; i < len(storages); i++ {
 			if storages[i].StorageType == stype {
 				return &storages[i]
@@ -167,6 +181,7 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			if createErr != nil {
 				return nil, createErr
 			}
+			guest.SetExternalId(iVM.GetGlobalId())
 
 			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
 			err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800)
@@ -336,7 +351,7 @@ func (self *SQcloudGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gue
 				}
 				externalIds = append(externalIds, extID)
 			}
-			return nil, iVM.AssignSecurityGroups(externalIds)
+			return nil, iVM.SetSecurityGroups(externalIds)
 		}
 
 		iDisks, err := iVM.GetIDisks()

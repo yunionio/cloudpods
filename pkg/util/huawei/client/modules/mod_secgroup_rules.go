@@ -1,18 +1,16 @@
 package modules
 
 import (
-	"net/http"
-
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 )
 
 type SSecgroupRuleManager struct {
-	ResourceManager
+	SResourceManager
 }
 
-func NewSecgroupRuleManager(regionId string, projectId string, signer auth.Signer) *SSecgroupRuleManager {
-	return &SSecgroupRuleManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewSecgroupRuleManager(regionId string, projectId string, signer auth.Signer, debug bool) *SSecgroupRuleManager {
+	return &SSecgroupRuleManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameVPC,
 		Region:        regionId,
 		ProjectId:     projectId,

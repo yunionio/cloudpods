@@ -3,6 +3,7 @@ package fsdriver
 import (
 	"fmt"
 	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -20,6 +21,35 @@ func newGuestRootFsDriver(rootFs IDiskPartition) *sGuestRootFsDriver {
 	return &sGuestRootFsDriver{
 		rootFs: rootFs,
 	}
+}
+
+func (d *sGuestRootFsDriver) DeployFiles(deploys []jsonutils.JSONObject) error {
+	caseInsensitive := d.IsFsCaseInsensitive()
+	for _, deploy := range deploys {
+		var modAppend = false
+		if action, _ := deploy.GetString("action"); action == "append" {
+			modAppend = true
+		}
+		sPath, err := deploy.GetString("path")
+		if err != nil {
+			return err
+		}
+		dirname := filepath.Dir(sPath)
+		if !d.GetPartition().Exists(sPath, caseInsensitive) {
+			modeRWXOwner := syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
+			err := d.GetPartition().Mkdir(dirname, modeRWXOwner, caseInsensitive)
+			if err != nil {
+				return err
+			}
+		}
+		if content, err := deploy.GetString("content"); err != nil {
+			err := d.GetPartition().FilePutContents(sPath, content, modAppend, caseInsensitive)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (d *sGuestRootFsDriver) GetPartition() IDiskPartition {
@@ -106,7 +136,6 @@ func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *sshkeys
 		if err := rootFs.FilePutContents(authFile, newKeys, false, false); err != nil {
 			return fmt.Errorf("Put keys to %s: %v", authFile, err)
 		}
-		log.Infof("after merge keys=====%s, put to: %s", newKeys, authFile)
 		if err := rootFs.Chown(authFile, int(fStat.Uid), int(fStat.Gid), false); err != nil {
 			return fmt.Errorf("Chown %s to uid: %d, gid: %d: %v", authFile, fStat.Uid, fStat.Gid, err)
 		}

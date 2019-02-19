@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 
+	yaml "gopkg.in/yaml.v2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
@@ -15,9 +16,11 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/util/coreosutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/fstabutils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
@@ -513,6 +516,10 @@ func NewDebianRootFs(part IDiskPartition) IRootFsDriver {
 	return driver
 }
 
+func (d *SDebianRootFs) String() string {
+	return "DebianRootFs"
+}
+
 func (d *SDebianRootFs) GetName() string {
 	return "Debian"
 }
@@ -556,6 +563,10 @@ func (d *SCirrosRootFs) GetName() string {
 	return "Cirros"
 }
 
+func (d *SCirrosRootFs) String() string {
+	return "CirrosRootFs"
+}
+
 func (d *SCirrosRootFs) DistroName() string {
 	return d.GetName()
 }
@@ -584,6 +595,10 @@ func NewCirrosNewRootFs(part IDiskPartition) IRootFsDriver {
 
 func (d *SCirrosNewRootFs) GetName() string {
 	return "Cirros"
+}
+
+func (d *SCirrosNewRootFs) String() string {
+	return "CirrosNewRootFs"
 }
 
 func (d *SCirrosNewRootFs) DistroName() string {
@@ -619,6 +634,10 @@ func (d *SUbuntuRootFs) RootSignatures() []string {
 
 func (d *SUbuntuRootFs) GetName() string {
 	return "Ubuntu"
+}
+
+func (d *SUbuntuRootFs) String() string {
+	return "UbuntuRootFs"
 }
 
 func (d *SUbuntuRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
@@ -833,6 +852,10 @@ func NewCentosRootFs(part IDiskPartition) IRootFsDriver {
 	return &SCentosRootFs{sRedhatLikeRootFs: newRedhatLikeRootFs(part)}
 }
 
+func (c *SCentosRootFs) String() string {
+	return "CentosRootFs"
+}
+
 func (c *SCentosRootFs) GetName() string {
 	return "CentOS"
 }
@@ -884,6 +907,10 @@ func NewFedoraRootFs(part IDiskPartition) IRootFsDriver {
 	return &SFedoraRootFs{sRedhatLikeRootFs: newRedhatLikeRootFs(part)}
 }
 
+func (c *SFedoraRootFs) String() string {
+	return "FedoraRootFs"
+}
+
 func (c *SFedoraRootFs) GetName() string {
 	return "Fedora"
 }
@@ -921,6 +948,10 @@ func (d *SRhelRootFs) GetName() string {
 	return "RHEL"
 }
 
+func (d *SRhelRootFs) String() string {
+	return "RhelRootFs"
+}
+
 func (d *SRhelRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
 	rel, _ := rootFs.FileGetContents("/etc/redhat-release", false)
 	var version string
@@ -933,12 +964,76 @@ func (d *SRhelRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
 	return newReleaseInfo(d.GetName(), version, d.GetArch(rootFs))
 }
 
-/*type SGentooRootFs struct {
+type SGentooRootFs struct {
 	*sLinuxRootFs
 }
 
 func NewGentooRootFs(part IDiskPartition) IRootFsDriver {
 	return &SGentooRootFs{sLinuxRootFs: newLinuxRootFs(part)}
+}
+
+func (d *SGentooRootFs) GetName() string {
+	return "Gentoo"
+}
+
+func (d *SGentooRootFs) String() string {
+	return "GentooRootFs"
+}
+
+func (d *SGentooRootFs) RootSignatures() []string {
+	sig := d.sLinuxRootFs.RootSignatures()
+	if sig != nil {
+		return append(sig, "/etc/gentoo-release")
+	} else {
+		return []string{"/etc/gentoo-release"}
+	}
+}
+
+func (d *SGentooRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string) error {
+	spath := "/etc/conf.d/hostname"
+	content := fmt.Sprintf(`hostname="%s"\n`, hn)
+	return rootFs.FilePutContents(spath, content, false, false)
+}
+
+func (l *SGentooRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+	if err := l.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
+		return err
+	}
+
+	var (
+		fn   = "/etc/conf.d/net"
+		cmds = ""
+	)
+
+	for _, nic := range nics {
+		nicIndex, _ := nic.Int("index")
+		if jsonutils.QueryBoolean(nic, "virtual", false) {
+			cmds += fmt.Sprintf(`config_eth%d="`, nicIndex)
+			cmds += fmt.Sprintf("%s netmask 255.255.255.255", netutils2.PSEUDO_VIP)
+			cmds += `"\n`
+		} else {
+			cmds += fmt.Sprintf(`config_eth%d="dhcp"\n`, nicIndex)
+		}
+	}
+	if err := rootFs.FilePutContents(fn, cmds, false, false); err != nil {
+		return err
+	}
+	for _, nic := range nics {
+		nicIndex, _ := nic.Int("index")
+		netname := fmt.Sprintf("net.eth%d", nicIndex)
+		procutils.NewCommand("ln", "-s", "net.lo",
+			fmt.Sprintf("%s/etc/init.d/%s", rootFs.GetMountPath(), netname)).Run()
+		procutils.NewCommand("chroot",
+			rootFs.GetMountPath(), "rc-update", "add", netname, "default").Run()
+	}
+	return nil
+}
+
+func (d *SGentooRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
+	return &SReleaseInfo{
+		Distro: "Gentoo",
+		Arch:   d.GetArch(rootFs),
+	}
 }
 
 type SArchLinuxRootFs struct {
@@ -949,6 +1044,34 @@ func NewArchLinuxRootFs(part IDiskPartition) IRootFsDriver {
 	return &SArchLinuxRootFs{sLinuxRootFs: newLinuxRootFs(part)}
 }
 
+func (d *SArchLinuxRootFs) GetName() string {
+	return "ArchLinux"
+}
+
+func (d *SArchLinuxRootFs) String() string {
+	return "ArchLinuxRootFs"
+}
+
+func (d *SArchLinuxRootFs) RootSignatures() []string {
+	sig := d.sLinuxRootFs.RootSignatures()
+	if sig != nil {
+		return append(sig, "/etc/arch-release")
+	} else {
+		return []string{"/etc/arch-release"}
+	}
+}
+
+func (d *SArchLinuxRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string) error {
+	return rootFs.FilePutContents("/etc/hostname", hn, false, false)
+}
+
+func (d *SArchLinuxRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
+	return &SReleaseInfo{
+		Distro: "ArchLinux",
+		Arch:   d.GetArch(rootFs),
+	}
+}
+
 type SOpenWrtRootFs struct {
 	*sLinuxRootFs
 }
@@ -957,10 +1080,183 @@ func NewOpenWrtRootFs(part IDiskPartition) IRootFsDriver {
 	return &SOpenWrtRootFs{sLinuxRootFs: newLinuxRootFs(part)}
 }
 
+func (d *SOpenWrtRootFs) GetName() string {
+	return "OpenWRT"
+}
+
+func (d *SOpenWrtRootFs) String() string {
+	return "OpenWrtRootFs"
+}
+
+func (d *SOpenWrtRootFs) RootSignatures() []string {
+	return []string{"/bin", "/etc/", "/lib", "/sbin", "/overlay", "/etc/openwrt_release", "/etc/openwrt_version"}
+}
+
+func (d *SOpenWrtRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string) error {
+	spath := "/etc/config/system"
+	bcont, err := rootFs.FileGetContents(spath, false)
+	if err != nil {
+		return err
+	}
+	cont := string(bcont)
+	re := regexp.MustCompile("option hostname [^\n]+")
+	cont = re.ReplaceAllString(cont, fmt.Sprintf("option hostname %s", hn, cont))
+	return rootFs.FilePutContents(spath, cont, false, false)
+}
+
+func (d *SOpenWrtRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
+	ver, _ := rootFs.FileGetContents("/etc/openwrt_version", false)
+	return &SReleaseInfo{
+		Distro:  "OpenWRT",
+		Version: string(ver),
+		Arch:    d.GetArch(rootFs),
+	}
+}
+
 type SCoreOsRootFs struct {
-	*SGuestRootFsDriver
+	*sGuestRootFsDriver
+	config *coreosutils.SCloudConfig
 }
 
 func NewCoreOsRootFs(part IDiskPartition) IRootFsDriver {
-	return &SCoreOsRootFs{SGuestRootFsDriver: newGuestRootFsDriver(part)}
-}*/
+	return &SCoreOsRootFs{sGuestRootFsDriver: newGuestRootFsDriver(part)}
+}
+
+func (d *SCoreOsRootFs) GetName() string {
+	return "CoreOs"
+}
+
+func (d *SCoreOsRootFs) String() string {
+	return "CoreOsRootFs"
+}
+
+func (d *SCoreOsRootFs) GetOs() string {
+	return "Linux"
+}
+
+func (d *SCoreOsRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
+	return &SReleaseInfo{
+		Distro:  "CoreOS",
+		Version: "stable",
+	}
+}
+
+func (d *SCoreOsRootFs) RootSignatures() []string {
+	return []string{"cloud-config.yml"}
+}
+
+func (d *SCoreOsRootFs) PrepareFsForTemplate(rootFs IDiskPartition) error {
+	return nil
+}
+
+func (d *SCoreOsRootFs) GetConfig() *coreosutils.SCloudConfig {
+	if d.config == nil {
+		d.config = coreosutils.NewCloudConfig()
+		d.config.YunionInit()
+		d.config.SetTimezone("Asia/Shanghai")
+	}
+	return d.config
+}
+
+func (d *SCoreOsRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string) error {
+	d.GetConfig().SetHostname(hn)
+	return nil
+}
+
+func (d *SCoreOsRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pubkeys *sshkeys.SSHKeys) error {
+	return nil
+}
+
+func (d *SCoreOsRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain string, ips []string) error {
+	d.GetConfig().SetEtcHosts("localhost")
+	return nil
+}
+
+func (d *SCoreOsRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+	cont := "[Match]\n"
+	cont += "Name=eth*\n\n"
+	cont += "[Network]\n"
+	cont += "DHCP=yes\n"
+	runtime := true
+	d.GetConfig().AddUnits("00-dhcp.network", nil, nil, &runtime, cont, "", nil)
+	return nil
+}
+
+func (d *SCoreOsRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []jsonutils.JSONObject) error {
+	dataDiskIdx := 0
+	for i := 1; i < len(disks); i++ {
+		diskId, _ := disks[i].GetString("disk_id")
+		dev := fmt.Sprintf("UUID=%s", diskId)
+		fs, _ := disks[i].GetString("fs")
+		if len(fs) > 0 {
+			if fs == "swap" {
+				d.GetConfig().AddSwap(dev)
+			} else {
+				mtPath, _ := disks[i].GetString("mountpoint")
+				if len(mtPath) == 0 {
+					mtPath = "/data"
+					if dataDiskIdx > 0 {
+						mtPath += fmt.Sprintf("%d", dataDiskIdx)
+					}
+					dataDiskIdx += 1
+				}
+				d.GetConfig().AddPartition(dev, mtPath, fs)
+			}
+		}
+	}
+	return nil
+}
+
+func (d *SCoreOsRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, publicKey, password string) (string, error) {
+	keys := []string{}
+	if len(publicKey) > 0 {
+		keys = append(keys, publicKey)
+	}
+	d.GetConfig().AddUser("core", password, keys, false)
+	if len(publicKey) > 0 {
+		return seclib2.EncryptBase64(publicKey, password)
+	} else {
+		return utils.EncryptAESBase64(gid, password)
+	}
+}
+
+func (d *SCoreOsRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser bool, windowsDefaultAdminUser bool) string {
+	return "core"
+}
+
+func (d *SCoreOsRootFs) DeployFiles(deploys []jsonutils.JSONObject) error {
+	for _, deploy := range deploys {
+		spath, _ := deploy.GetString("path")
+		content, _ := deploy.GetString("content")
+		d.GetConfig().AddWriteFile(spath, content, "", "", false)
+	}
+	return nil
+}
+
+func (d *SCoreOsRootFs) CommitChanges(IDiskPartition) error {
+	ocont, err := d.rootFs.FileGetContents("/cloud-config.yml", false)
+	if err != nil {
+		return err
+	}
+	ocfg := coreosutils.NewCloudConfig()
+	err = yaml.Unmarshal(ocont, ocfg)
+	if err != nil {
+		log.Errorln(err)
+	}
+	conf := d.GetConfig()
+	if len(ocfg.Users) > 0 {
+		for _, u := range ocfg.Users {
+			if conf.HasUser(u.Name) {
+				conf.AddUser(u.Name, u.Passwd, u.SshAuthorizedKeys, true)
+			}
+		}
+	}
+	if len(ocfg.WriteFiles) > 0 {
+		for _, f := range ocfg.WriteFiles {
+			if !conf.HasWriteFile(f.Path) {
+				conf.AddWriteFile(f.Path, f.Content, f.Permissions, f.Owner, f.Encoding == "base64")
+			}
+		}
+	}
+	return d.rootFs.FilePutContents("/cloud-config.yml", conf.String(), false, false)
+}

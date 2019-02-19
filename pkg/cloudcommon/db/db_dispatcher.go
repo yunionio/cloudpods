@@ -753,8 +753,16 @@ func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mc
 	if data != nil {
 		projId = jsonutils.GetAnyString(data, []string{"project", "tenant", "project_id", "tenant_id"})
 	}
+	ownerProjId := manager.GetOwnerId(userCred)
 	if len(projId) == 0 {
-		return manager.GetOwnerId(userCred), nil
+		return ownerProjId, nil
+	}
+	t, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, projId)
+	if t == nil {
+		return "", httperrors.NewNotFoundError("Project %s not found", projId)
+	}
+	if t.GetId() == ownerProjId {
+		return ownerProjId, nil
 	}
 	var isAllow bool
 	if consts.IsRbacEnabled() {
@@ -768,10 +776,6 @@ func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mc
 	}
 	if !isAllow {
 		return "", httperrors.NewForbiddenError("Delegation not allowed")
-	}
-	t, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, projId)
-	if t == nil {
-		return "", httperrors.NewNotFoundError("Project %s not found", projId)
 	}
 	return t.GetId(), nil
 }
@@ -811,8 +815,19 @@ func FetchModelObjects(modelManager IModelManager, query *sqlchemy.SQuery, targe
 	return nil
 }
 
+func DoCreate(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject, ownerProjId string) (IModel, error) {
+	lockman.LockClass(ctx, manager, ownerProjId)
+	defer lockman.ReleaseClass(ctx, manager, ownerProjId)
+
+	return doCreateItem(manager, ctx, userCred, ownerProjId, nil, data)
+}
+
 func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) (IModel, error) {
-	dataDict := data.(*jsonutils.JSONDict)
+	dataDict, ok := data.(*jsonutils.JSONDict)
+	if !ok {
+		log.Errorf("doCreateItem: fail to decode json data %s", data)
+		return nil, fmt.Errorf("fail to decode json data %s", data)
+	}
 	var err error
 
 	generateName, _ := dataDict.GetString("generate_name")
@@ -892,25 +907,21 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		return nil, httperrors.NewForbiddenError("Not allow to create item")
 	}
 
-	model, err := func() (IModel, error) {
-		lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
-		defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
-
-		return doCreateItem(dispatcher.modelManager, ctx, userCred, ownerProjId, query, data)
-	}()
-
+	model, err := DoCreate(dispatcher.modelManager, ctx, userCred, query, data, ownerProjId)
 	if err != nil {
 		log.Errorf("fail to doCreateItem %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	lockman.LockObject(ctx, model)
-	defer lockman.ReleaseObject(ctx, model)
+	func() {
+		lockman.LockObject(ctx, model)
+		defer lockman.ReleaseObject(ctx, model)
 
-	model.PostCreate(ctx, userCred, ownerProjId, query, data)
+		model.PostCreate(ctx, userCred, ownerProjId, query, data)
+	}()
 
 	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(ctx), userCred)
-	logclient.AddActionLog(model, logclient.ACT_CREATE, "", userCred, true)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CREATE, "", userCred, true)
 	dispatcher.modelManager.OnCreateComplete(ctx, []IModel{model}, userCred, query, data)
 	return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
 }
@@ -1191,13 +1202,13 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 
 	if err != nil {
 		log.Errorf("validate update condition error: %s", err)
-		logclient.AddActionLog(item, logclient.ACT_UPDATE, err.Error(), userCred, false)
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, err.Error(), userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
 	dataDict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
-		logclient.AddActionLog(item, logclient.ACT_UPDATE, "Invalid data JSONObject", userCred, false)
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, "Invalid data JSONObject", userCred, false)
 		return nil, httperrors.NewInternalServerError("Invalid data JSONObject")
 	}
 
@@ -1205,7 +1216,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	if len(name) > 0 {
 		err = alterNameValidator(item, name)
 		if err != nil {
-			logclient.AddActionLog(item, logclient.ACT_UPDATE, err.Error(), userCred, false)
+			logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, err.Error(), userCred, false)
 			return nil, err
 		}
 	}
@@ -1214,7 +1225,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 	if err != nil {
 		errMsg := fmt.Sprintf("validate update data error: %s", err)
 		log.Errorf(errMsg)
-		logclient.AddActionLog(item, logclient.ACT_UPDATE, errMsg, userCred, false)
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, errMsg, userCred, false)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
@@ -1225,7 +1236,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		err = filterData.Unmarshal(item)
 		if err != nil {
 			errMsg := fmt.Sprintf("unmarshal fail: %s", err)
-			logclient.AddActionLog(item, logclient.ACT_UPDATE, errMsg, userCred, false)
+			logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, errMsg, userCred, false)
 			log.Errorf(errMsg)
 			return httperrors.NewGeneralError(err)
 		}
@@ -1241,10 +1252,10 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		if len(diffStr) > 0 {
 			item.PostUpdate(ctx, userCred, query, dataDict)
 			OpsLog.LogEvent(item, ACT_UPDATE, diffStr, userCred)
-			logclient.AddActionLog(item, logclient.ACT_UPDATE, diffStr, userCred, true)
+			logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, diffStr, userCred, true)
 		}
 	} else {
-		logclient.AddActionLog(item, logclient.ACT_UPDATE, "", userCred, true)
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, "", userCred, true)
 	}
 
 	item.PostUpdate(ctx, userCred, query, data)
@@ -1290,11 +1301,11 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 	if err != nil {
 		msg := fmt.Sprintf("save update error %s", err)
 		log.Errorf(msg)
-		logclient.AddActionLog(item, logclient.ACT_DELETE, msg, userCred, false)
+		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_DELETE, msg, userCred, false)
 		return httperrors.NewGeneralError(err)
 	}
 	OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(ctx), userCred)
-	logclient.AddActionLog(item, logclient.ACT_DELETE, item.GetShortDesc(ctx), userCred, true)
+	logclient.AddActionLogWithContext(ctx, item, logclient.ACT_DELETE, item.GetShortDesc(ctx), userCred, true)
 	return nil
 }
 

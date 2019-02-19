@@ -25,7 +25,7 @@ func (self *GuestUndeployTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	self.SetStage("OnGuestUndeployComplete", nil)
 	if len(targetHostId) == 0 {
 		if len(guest.BackupHostId) > 0 {
-			self.SetStage("OnMasetHostUndeployGuestComplete", nil)
+			self.SetStage("OnMasterHostUndeployGuestComplete", nil)
 		}
 		targetHostId = guest.HostId
 	}
@@ -43,7 +43,7 @@ func (self *GuestUndeployTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	}
 }
 
-func (self *GuestUndeployTask) OnMasetHostUndeployGuestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+func (self *GuestUndeployTask) OnMasterHostUndeployGuestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStage("OnGuestUndeployComplete", nil)
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
 	if host != nil {

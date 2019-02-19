@@ -330,7 +330,8 @@ func (self *SManagedVirtualizationHostDriver) RequestRebuildDiskOnStorage(ctx co
 }
 
 func (driver *SManagedVirtualizationHostDriver) IsReachStoragecacheCapacityLimit(host *models.SHost, cachedImages []models.SCachedimage) bool {
-	if len(cachedImages) >= host.GetHostDriver().GetStoragecacheQuota(host) {
+	quota := host.GetHostDriver().GetStoragecacheQuota(host)
+	if quota > 0 && len(cachedImages) >= quota {
 		return true
 	}
 	return false

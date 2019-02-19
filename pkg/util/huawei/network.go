@@ -1,12 +1,11 @@
 package huawei
 
 import (
-	"strconv"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/huawei/client/modules"
 	"yunion.io/x/pkg/util/netutils"
 )
 
@@ -121,7 +120,7 @@ func (self *SNetwork) GetIsPublic() bool {
 }
 
 func (self *SNetwork) Delete() error {
-	return self.wire.region.deleteNetwork(self.GetId())
+	return self.wire.region.deleteNetwork(self.VpcID, self.GetId())
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {
@@ -134,22 +133,19 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 	return &network, err
 }
 
-func (self *SRegion) GetNetwroks(vpcId string, limit int, marker string) ([]SNetwork, int, error) {
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090592.html
+func (self *SRegion) GetNetwroks(vpcId string) ([]SNetwork, error) {
 	querys := map[string]string{}
 	if len(vpcId) > 0 {
 		querys["vpc_id"] = vpcId
 	}
 
-	if len(marker) > 0 {
-		querys["marker"] = marker
-	}
-
-	querys["limit"] = strconv.Itoa(limit)
 	networks := make([]SNetwork, 0)
-	err := DoList(self.ecsClient.Subnets.List, querys, &networks)
-	return networks, len(networks), err
+	err := doListAllWithMarker(self.ecsClient.Subnets.List, querys, &networks)
+	return networks, err
 }
 
-func (self *SRegion) deleteNetwork(networkId string) error {
-	return DoDelete(self.ecsClient.Subnets.Delete, networkId, nil, nil)
+func (self *SRegion) deleteNetwork(vpcId string, networkId string) error {
+	ctx := &modules.SManagerContext{InstanceId: vpcId, InstanceManager: self.ecsClient.Vpcs}
+	return DoDeleteWithSpec(self.ecsClient.Subnets.DeleteInContextWithSpec, ctx, networkId, "", nil)
 }

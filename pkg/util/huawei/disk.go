@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"strconv"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -233,6 +233,8 @@ func (self *SDisk) GetTemplateId() string {
 	return self.VolumeImageMetadata.ImageID
 }
 
+// Bootable 表示硬盘是否为启动盘。
+// 启动盘 != 系统盘(必须是启动盘且挂载在root device上)
 func (self *SDisk) GetDiskType() string {
 	if self.Bootable == "true" {
 		return models.DISK_TYPE_SYS
@@ -263,6 +265,14 @@ func (self *SDisk) GetCacheMode() string {
 func (self *SDisk) GetMountpoint() string {
 	if len(self.Attachments) > 0 {
 		return self.Attachments[0].Device
+	}
+
+	return ""
+}
+
+func (self *SDisk) GetMountServerId() string {
+	if len(self.Attachments) > 0 {
+		return self.Attachments[0].ServerID
 	}
 
 	return ""
@@ -306,21 +316,9 @@ func (self *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot
 }
 
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	snapshots := make([]SSnapshot, 0)
-	limit := 20
-	offset := 0
-	for {
-		if parts, count, err := self.storage.zone.region.GetSnapshots(self.ID, "", offset, limit); err != nil {
-			log.Errorf("GetDisks fail %s", err)
-			return nil, err
-		} else {
-			snapshots = append(snapshots, parts...)
-			if count < limit {
-				break
-			}
-
-			offset += limit
-		}
+	snapshots, err := self.storage.zone.region.GetSnapshots(self.ID, "")
+	if err != nil {
+		return nil, err
 	}
 
 	isnapshots := make([]cloudprovider.ICloudSnapshot, len(snapshots))
@@ -335,8 +333,55 @@ func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
 	return self.storage.zone.region.resizeDisk(self.GetId(), sizeGb)
 }
 
+func (self *SDisk) Detach() error {
+	err := self.storage.zone.region.DetachDisk(self.GetMountServerId(), self.GetId())
+	if err != nil {
+		log.Debugf("detach server %s disk %s failed: %s", self.GetMountServerId(), self.GetId(), err)
+		return err
+	}
+
+	return cloudprovider.WaitStatus(self, models.DISK_READY, 5*time.Second, 60*time.Second)
+}
+
+func (self *SDisk) Attach(device string) error {
+	err := self.storage.zone.region.AttachDisk(self.GetMountServerId(), self.GetId(), device)
+	if err != nil {
+		log.Debugf("attach server %s disk %s failed: %s", self.GetMountServerId(), self.GetId(), err)
+		return err
+	}
+
+	return cloudprovider.WaitStatus(self, models.DISK_READY, 5*time.Second, 60*time.Second)
+}
+
+// 在线卸载磁盘 https://support.huaweicloud.com/usermanual-ecs/zh-cn_topic_0036046828.html
+// 对于挂载在系统盘盘位（也就是“/dev/sda”或“/dev/vda”挂载点）上的磁盘，当前仅支持离线卸载
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	return self.storage.zone.region.resetDisk(self.GetId(), snapshotId)
+	mountpoint := self.GetMountpoint()
+	if mountpoint == "/dev/sda" || mountpoint == "/dev/vda" {
+		err := self.Detach()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	diskId, err := self.storage.zone.region.resetDisk(self.GetId(), snapshotId)
+	if err != nil {
+		return diskId, err
+	}
+
+	err = cloudprovider.WaitStatus(self, models.DISK_READY, 5*time.Second, 300*time.Second)
+	if err != nil {
+		return "", err
+	}
+
+	if mountpoint == "/dev/sda" || mountpoint == "/dev/vda" {
+		err := self.Attach(mountpoint)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return diskId, nil
 }
 
 // 华为云不支持重置
@@ -350,18 +395,16 @@ func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	return &disk, err
 }
 
-func (self *SRegion) GetDisks(zoneId string, offset int, limit int) ([]SDisk, int, error) {
-	querys := map[string]string{}
+// https://support.huaweicloud.com/api-evs/zh-cn_topic_0058762430.html
+func (self *SRegion) GetDisks(zoneId string) ([]SDisk, error) {
+	queries := map[string]string{}
 	if len(zoneId) > 0 {
-		querys["availability_zone"] = zoneId
+		queries["availability_zone"] = zoneId
 	}
 
-	querys["limit"] = strconv.Itoa(limit)
-	querys["offset"] = strconv.Itoa(offset)
-
 	disks := make([]SDisk, 0)
-	err := DoList(self.ecsClient.Disks.List, querys, &disks)
-	return disks, len(disks), err
+	err := doListAllWithOffset(self.ecsClient.Disks.List, queries, &disks)
+	return disks, err
 }
 
 // https://support.huaweicloud.com/api-evs/zh-cn_topic_0058762427.html

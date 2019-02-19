@@ -28,6 +28,14 @@ func (self *SHuaweiGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_HUAWEI
 }
 
+func (self *SHuaweiGuestDriver) GetDefaultSysDiskBackend() string {
+	return models.STORAGE_HUAWEI_SATA
+}
+
+func (self *SHuaweiGuestDriver) GetMinimalSysDiskSizeGb() int {
+	return 10
+}
+
 func (self *SHuaweiGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
 	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i += 1 {
@@ -115,6 +123,8 @@ func (self *SHuaweiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			if createErr != nil {
 				return nil, createErr
 			}
+			guest.SetExternalId(iVM.GetGlobalId())
+
 			log.Debugf("VMcreated %s, wait status ready ...", iVM.GetGlobalId())
 			err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800)
 			if err != nil {
@@ -184,11 +194,11 @@ func (self *SHuaweiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 
 			log.Debugf("VMrebuildRoot %s new diskID %s, wait status ready ...", iVM.GetGlobalId(), diskId)
 
-			err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*1800)
+			err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800)
 			if err != nil {
 				return nil, err
 			}
-			log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
+			log.Debugf("VMrebuildRoot %s, and status is %s", iVM.GetGlobalId(), iVM.GetStatus())
 
 			maxWaitSecs := 300
 			waited := 0

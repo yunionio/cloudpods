@@ -13,7 +13,7 @@ https://support.huaweicloud.com/usermanual-vpc/zh-cn_topic_0073379079.html
 
 import (
 	"net"
-	"strconv"
+	"sort"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/secrules"
@@ -68,6 +68,33 @@ func compatibleSecurityGroupRule(r SecurityGroupRule) bool {
 	}
 
 	return true
+}
+
+// 将安全组规则全部转换为等价的allow规则
+func SecurityRuleSetToAllowSet(srs secrules.SecurityRuleSet) secrules.SecurityRuleSet {
+	inRuleSet := secrules.SecurityRuleSet{}
+	outRuleSet := secrules.SecurityRuleSet{}
+
+	for _, rule := range srs {
+		if rule.Direction == secrules.SecurityRuleIngress {
+			inRuleSet = append(inRuleSet, rule)
+		}
+
+		if rule.Direction == secrules.SecurityRuleEgress {
+			outRuleSet = append(outRuleSet, rule)
+		}
+	}
+
+	sort.Sort(inRuleSet)
+	sort.Sort(outRuleSet)
+
+	inRuleSet = inRuleSet.AllowList()
+	outRuleSet = outRuleSet.AllowList()
+
+	ret := secrules.SecurityRuleSet{}
+	ret = append(ret, inRuleSet...)
+	ret = append(ret, outRuleSet...)
+	return ret
 }
 
 func (self *SSecurityGroup) GetId() string {
@@ -194,7 +221,7 @@ func (self *SSecurityGroup) GetSecurityRule(ruleId string, withRuleId bool) (sec
 	} else {
 		desc = remoteRule.Description
 	}
-	// todo: icmp 可能不兼容
+	// todo: icmp 可能不兼容。华为云能指定icmp code，但是onecloud端不支持
 	rule := secrules.SecurityRule{
 		Priority:    1,
 		Action:      secrules.SecurityRuleAllow,
@@ -226,21 +253,17 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	return &securitygroup, err
 }
 
-func (self *SRegion) GetSecurityGroups(vpcId string, limit int, marker string) ([]SSecurityGroup, int, error) {
+// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090617.html
+func (self *SRegion) GetSecurityGroups(vpcId string) ([]SSecurityGroup, error) {
 	querys := map[string]string{}
 	if len(vpcId) > 0 {
 		querys["vpc_id"] = vpcId
 	}
 
-	if len(marker) > 0 {
-		querys["marker"] = marker
-	}
-
-	querys["limit"] = strconv.Itoa(limit)
 	securitygroups := make([]SSecurityGroup, 0)
-	err := DoList(self.ecsClient.SecurityGroups.List, querys, &securitygroups)
+	err := doListAllWithMarker(self.ecsClient.SecurityGroups.List, querys, &securitygroups)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	vpcCache := map[string]*SVpc{}
@@ -258,14 +281,13 @@ func (self *SRegion) GetSecurityGroups(vpcId string, limit int, marker string) (
 		} else {
 			vpc, err := self.getVpc(securitygroup.VpcID)
 			if err != nil {
-				return nil, 0, err
+				return nil, err
 			}
 
 			vpcCache[securitygroup.VpcID] = vpc
 			securitygroup.vpc = vpc
 		}
-
 	}
 
-	return securitygroups, len(securitygroups), err
+	return securitygroups, nil
 }

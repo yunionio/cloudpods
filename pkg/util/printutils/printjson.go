@@ -59,6 +59,9 @@ func PrintJSONList(list *modules.ListResult, columns []string) {
 		rows = append(rows, row)
 	}
 	fmt.Print(pt.GetString(rows))
+	if list.Total == 0 {
+		list.Total = len(list.Data)
+	}
 	title := fmt.Sprintf("Total: %d", list.Total)
 	if list.Limit == 0 && list.Total > len(list.Data) {
 		list.Limit = len(list.Data)

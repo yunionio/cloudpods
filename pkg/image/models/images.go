@@ -348,16 +348,34 @@ func (self *SImage) GetPath(format string) string {
 }
 
 func (self *SImage) OnSaveFailed(ctx context.Context, userCred mcclient.TokenCredential, msg string) {
-	log.Errorf(msg)
-	self.SetStatus(userCred, IMAGE_STATUS_QUEUED, msg)
-	db.OpsLog.LogEvent(self, db.ACT_SAVE_FAIL, msg, userCred)
-	logclient.AddActionLog(self, logclient.ACT_IMAGE_SAVE, nil, userCred, false)
+	self.saveFailed(userCred, msg)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_IMAGE_SAVE, nil, userCred, false)
+}
+
+func (self *SImage) OnSaveTaskFailed(task taskman.ITask, userCred mcclient.TokenCredential, msg string) {
+	self.saveFailed(userCred, msg)
+	logclient.AddActionLogWithStartable(task, self, logclient.ACT_IMAGE_SAVE, nil, userCred, false)
 }
 
 func (self *SImage) OnSaveSuccess(ctx context.Context, userCred mcclient.TokenCredential, msg string) {
+	self.saveSuccess(userCred, msg)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_IMAGE_SAVE, nil, userCred, true)
+}
+
+func (self *SImage) OnSaveTaskSuccess(task taskman.ITask, userCred mcclient.TokenCredential, msg string) {
+	self.saveSuccess(userCred, msg)
+	logclient.AddActionLogWithStartable(task, self, logclient.ACT_IMAGE_SAVE, nil, userCred, true)
+}
+
+func (self *SImage) saveSuccess(userCred mcclient.TokenCredential, msg string) {
 	self.SetStatus(userCred, IMAGE_STATUS_ACTIVE, msg)
 	db.OpsLog.LogEvent(self, db.ACT_SAVE, msg, userCred)
-	logclient.AddActionLog(self, logclient.ACT_IMAGE_SAVE, nil, userCred, true)
+}
+
+func (self *SImage) saveFailed(userCred mcclient.TokenCredential, msg string) {
+	log.Errorf(msg)
+	self.SetStatus(userCred, IMAGE_STATUS_QUEUED, msg)
+	db.OpsLog.LogEvent(self, db.ACT_SAVE_FAIL, msg, userCred)
 }
 
 func (self *SImage) saveImageFromStream(localPath string, reader io.Reader) (*streamutils.SStreamProperty, error) {
@@ -533,7 +551,7 @@ func (self *SImage) CustomizeDelete(ctx context.Context, userCred mcclient.Token
 		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
 		purge = jsonutils.QueryBoolean(query, "purge", false)
 	}
-	if self.Status != IMAGE_STATUS_ACTIVE {
+	if self.Status != IMAGE_STATUS_ACTIVE && self.Status != IMAGE_STATUS_CONVERTING {
 		overridePendingDelete = true
 	}
 	return self.startDeleteImageTask(ctx, userCred, "", purge, overridePendingDelete)
@@ -827,6 +845,7 @@ func (self *SImage) MakeSubImages() error {
 	if self.GetImageType() == ImageTypeISO {
 		return nil
 	}
+	log.Debugf("[MakeSubImages] convert image to %#v", options.Options.TargetImageFormats)
 	for _, format := range options.Options.TargetImageFormats {
 		if !qemuimg.IsSupportedImageFormat(format) {
 			continue
@@ -848,6 +867,9 @@ func (self *SImage) MakeSubImages() error {
 func (self *SImage) ConvertAllSubformats() error {
 	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
 	for i := 0; i < len(subimgs); i += 1 {
+		if !utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) {
+			continue
+		}
 		err := subimgs[i].DoConvert(self)
 		if err != nil {
 			return err
@@ -877,7 +899,7 @@ func (self *SImage) StopTorrents() {
 func (self *SImage) seedTorrents() {
 	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
 	for i := 0; i < len(subimgs); i += 1 {
-		subimgs[i].seedTorrent()
+		subimgs[i].seedTorrent(self.Id)
 	}
 }
 
@@ -1016,7 +1038,7 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 	for i := 0; i < len(subimgs); i += 1 {
 		subimgs[i].checkStatus(useFast)
-		if subimgs[i].Status != IMAGE_STATUS_ACTIVE || subimgs[i].TorrentStatus != IMAGE_STATUS_ACTIVE {
+		if (subimgs[i].Status != IMAGE_STATUS_ACTIVE || subimgs[i].TorrentStatus != IMAGE_STATUS_ACTIVE) && utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) {
 			needConvert = true
 		}
 	}
@@ -1024,7 +1046,7 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 		if needConvert {
 			log.Infof("Image %s is active and need convert", self.Name)
 			self.StartImageConvertTask(ctx, userCred, "")
-		} else {
+		} else if options.Options.EnableTorrentService {
 			self.seedTorrents()
 		}
 	}
@@ -1057,5 +1079,22 @@ func (self *SImage) PerformMarkPublicProtected(
 			return nil, httperrors.NewGeneralError(err)
 		}
 	}
+	return nil, nil
+}
+
+func (self *SImage) AllowPerformUpdateTorrentStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return true
+}
+
+func (self *SImage) PerformUpdateTorrentStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	formatStr, _ := query.GetString("format")
+	if len(formatStr) == 0 {
+		return nil, httperrors.NewInputParameterError("missing parameter format")
+	}
+	subimg := ImageSubformatManager.FetchSubImage(self.Id, formatStr)
+	if subimg == nil {
+		return nil, httperrors.NewResourceNotFoundError("format %s not found", formatStr)
+	}
+	subimg.SetStatusSeeding(true)
 	return nil, nil
 }

@@ -1,16 +1,15 @@
 package modules
 
 import (
-	"net/http"
-
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/requests"
 )
 
 type SImageManager struct {
-	ResourceManager
+	SResourceManager
 }
 
 type imageProject struct {
@@ -23,14 +22,14 @@ func (self *imageProject) Process(request requests.IRequest) {
 	request.AddHeaderParam("X-Project-Id", self.projectId)
 }
 
-func NewImageManager(regionId string, projectId string, signer auth.Signer) *SImageManager {
+func NewImageManager(regionId string, projectId string, signer auth.Signer, debug bool) *SImageManager {
 	var requestHook imageProject
 	if len(projectId) > 0 {
 		requestHook = imageProject{projectId: projectId}
 	}
 
-	return &SImageManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}, requestHook: &requestHook},
+	return &SImageManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager2(signer, debug, &requestHook),
 		ServiceName:   ServiceNameIMS,
 		Region:        regionId,
 		ProjectId:     "",
@@ -67,9 +66,9 @@ func (self *SImageManager) Get(id string, querys map[string]string) (jsonutils.J
 
 // https://support.huaweicloud.com/api-ims/zh-cn_topic_0020092108.html
 // 删除image只能用这个manager
-func NewOpenstackImageManager(regionId string, signer auth.Signer) *SImageManager {
-	return &SImageManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewOpenstackImageManager(regionId string, signer auth.Signer, debug bool) *SImageManager {
+	return &SImageManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameIMS,
 		Region:        regionId,
 		ProjectId:     "",

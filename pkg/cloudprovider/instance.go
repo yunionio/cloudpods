@@ -11,6 +11,7 @@ import (
 type SDiskInfo struct {
 	StorageType string
 	SizeGB      int
+	Name        string
 }
 
 type SManagedVMCreateConfig struct {

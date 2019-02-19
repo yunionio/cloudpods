@@ -129,18 +129,17 @@ func (r *SRemoteFile) fetch(preChksum string) bool {
 					fetchSucc = false
 				}
 			}
-
-			if !fetchSucc {
-				retryCnt += 1
-			} else if r.localPath != r.tmpPath {
-				if fileutils2.Exists(r.localPath) {
-					if err := syscall.Unlink(r.localPath); err != nil {
-						log.Errorln(err)
-					}
-				}
-				if err := syscall.Rename(r.tmpPath, r.localPath); err != nil {
+		}
+		if !fetchSucc {
+			retryCnt += 1
+		} else if r.localPath != r.tmpPath {
+			if fileutils2.Exists(r.localPath) {
+				if err := syscall.Unlink(r.localPath); err != nil {
 					log.Errorln(err)
 				}
+			}
+			if err := syscall.Rename(r.tmpPath, r.localPath); err != nil {
+				log.Errorln(err)
 			}
 		}
 	}
@@ -183,8 +182,8 @@ func (r *SRemoteFile) download(getData bool, preChksum string) bool {
 		log.Errorln(err)
 		return false
 	} else {
+		defer resp.Body.Close()
 		if resp.StatusCode < 300 {
-			defer resp.Body.Close()
 			if getData {
 				var reader = resp.Body
 

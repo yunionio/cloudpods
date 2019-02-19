@@ -27,6 +27,10 @@ func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, b
 	return nil
 }
 
+func (self *SQcloudProviderFactory) IsPublicCloud() bool {
+	return true
+}
+
 func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	appID, _ := data.GetString("app_id")
 	if len(appID) == 0 {
@@ -86,11 +90,11 @@ type SQcloudProvider struct {
 	client *qcloud.SQcloudClient
 }
 
-func (self *SQcloudProvider) IsPublicCloud() bool {
-	return true
+func (self *SQcloudProvider) IsOnPremiseInfrastructure() bool {
+	return false
 }
 
-func (self *SQcloudProvider) IsOnPremiseInfrastructure() bool {
+func (self *SQcloudProvider) SyncSkuFromCloud() bool {
 	return false
 }
 
@@ -136,4 +140,8 @@ func (self *SQcloudProvider) GetBalance() (float64, error) {
 
 func (self *SQcloudProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SQcloudProvider) SupportPrepaidResources() bool {
+	return true
 }

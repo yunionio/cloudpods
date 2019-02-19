@@ -29,6 +29,14 @@ func (self *SAwsGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_AWS
 }
 
+func (self *SAwsGuestDriver) GetDefaultSysDiskBackend() string {
+	return models.STORAGE_GP2_SSD
+}
+
+func (self *SAwsGuestDriver) GetMinimalSysDiskSizeGb() int {
+	return 10
+}
+
 func (self *SAwsGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
 	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i += 1 {
@@ -37,7 +45,13 @@ func (self *SAwsGuestDriver) ChooseHostStorage(host *models.SHost, backend strin
 		}
 	}
 
-	for _, stype := range []string{"gp2", "io1", "st1", "sc1", "standard"} {
+	for _, stype := range []string{
+		models.STORAGE_GP2_SSD,
+		models.STORAGE_IO1_SSD,
+		models.STORAGE_ST1_HDD,
+		models.STORAGE_SC1_HDD,
+		models.STORAGE_STANDARD_HDD,
+	} {
 		for i := 0; i < len(storages); i += 1 {
 			if storages[i].StorageType == stype {
 				return &storages[i]
@@ -118,6 +132,8 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 			if createErr != nil {
 				return nil, createErr
 			}
+
+			guest.SetExternalId(iVM.GetGlobalId())
 
 			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
 			err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800)

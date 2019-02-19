@@ -19,6 +19,10 @@ type SLocalGuestFS struct {
 	mountPath string
 }
 
+func (f *SLocalGuestFS) GetMountPath() string {
+	return f.mountPath
+}
+
 func (f *SLocalGuestFS) SupportSerialPorts() bool {
 	return false
 }
@@ -32,10 +36,10 @@ func (f *SLocalGuestFS) GetLocalPath(sPath string, caseInsensitive bool) string 
 			files, _ := ioutil.ReadDir(fullPath)
 			for _, file := range files {
 				var f = file.Name()
-				if f == seg || (caseInsensitive && (strings.ToLower(f)) == strings.ToLower(seg)) ||
-					(seg[len(seg)-1] == '*' && strings.HasPrefix(f, seg[:len(seg)-1])) ||
-					(caseInsensitive && strings.HasPrefix(strings.ToLower(f),
-						strings.ToLower(seg[:]))) {
+				if f == seg || (caseInsensitive && strings.ToLower(f) == strings.ToLower(seg)) ||
+					(seg[len(seg)-1] == '*' && (strings.HasPrefix(f, seg[:len(seg)-1]) ||
+						(caseInsensitive && strings.HasPrefix(strings.ToLower(f),
+							strings.ToLower(seg[:len(seg)-1]))))) {
 					realSeg = f
 					break
 				}

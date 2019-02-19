@@ -29,12 +29,12 @@ func (self *BaremetalUnmaintenanceTask) OnInit(ctx context.Context, obj db.IStan
 	if err != nil {
 		if len(action) > 0 {
 			msg := fmt.Sprintf("unmaintenance error %s", err.Error())
-			logclient.AddActionLog(baremetal, action, msg, self.UserCred, false)
+			logclient.AddActionLogWithStartable(self, baremetal, action, msg, self.UserCred, false)
 		}
 		self.SetStageFailed(ctx, err.Error())
 	} else {
 		if len(action) > 0 {
-			logclient.AddActionLog(baremetal, action, "", self.UserCred, true)
+			logclient.AddActionLogWithStartable(self, baremetal, action, "", self.UserCred, true)
 		}
 	}
 }

@@ -43,8 +43,8 @@ func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 		allFull = true
 	)
 
-	for _, d := range options.HostOptions.LocalImagePath {
-		s := NewLocalStorage(ret, d)
+	for i, d := range options.HostOptions.LocalImagePath {
+		s := NewLocalStorage(ret, d, i)
 		if s.Accessible() {
 			ret.Storages = append(ret.Storages, s)
 			if allFull && s.GetFreeSizeMb() > MINIMAL_FREE_SPACE {

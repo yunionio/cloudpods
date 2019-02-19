@@ -139,6 +139,44 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
+func (manager *SCloudproviderManager) GetPublicProviderIds() []string {
+	return manager.GetProviderIds(true)
+}
+
+func (manager *SCloudproviderManager) GetPrivateProviderIds() []string {
+	return manager.GetProviderIds(false)
+}
+
+func (manager *SCloudproviderManager) GetProviderIds(isPublic bool) []string {
+	providerIds := []string{}
+	q := manager.Query("id")
+	account := CloudaccountManager.Query().SubQuery()
+	q = q.Join(account, sqlchemy.Equals(
+		account.Field("id"), q.Field("cloudaccount_id")),
+	)
+	if isPublic {
+		q = q.Filter(sqlchemy.IsTrue(account.Field("is_public_cloud")))
+	} else {
+		q = q.Filter(sqlchemy.IsFalse(account.Field("is_public_cloud")))
+	}
+	rows, err := q.Rows()
+	if err != nil {
+		log.Errorf("Get providerIds err: %v", err)
+		return providerIds
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var providerId string
+		err = rows.Scan(&providerId)
+		if err != nil {
+			log.Errorf("Get providerId err: %v", err)
+			return providerIds
+		}
+		providerIds = append(providerIds, providerId)
+	}
+	return providerIds
+}
+
 func (self *SCloudprovider) CleanSchedCache() {
 	hosts := []SHost{}
 	q := HostManager.Query().Equals("manager_id", self.Id)
@@ -710,4 +748,38 @@ func (self *SCloudprovider) GetDetailsBalance(ctx context.Context, userCred mccl
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewFloat(balance), "balance")
 	return ret, nil
+}
+
+func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	accountStr, _ := query.GetString("account")
+	if len(accountStr) > 0 {
+		queryDict := query.(*jsonutils.JSONDict)
+		queryDict.Remove("account")
+		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), accountStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		q = q.Equals("cloudaccount_id", accountObj.GetId())
+	}
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	managerStr, _ := query.GetString("manager")
+	if len(managerStr) > 0 {
+		providerObj, err := manager.FetchByIdOrName(userCred, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		q = q.Equals("id", providerObj.GetId())
+	}
+	return q, nil
 }

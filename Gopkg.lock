@@ -1676,7 +1676,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d6ade8116269bb2ef419e7e16e109c1316821e067823794a9470c65b1340705f"
+  digest = "1:37d4e9b3030c077522fc5669b497a25ce53429da77d5e592226658e57cc604bb"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1710,7 +1710,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "4d8dfcd77e8817d5dc37eacf4b6b098429c7d259"
+  revision = "5fbe7b39e5f599aa49f6f597d57da460d93c26ff"
 
 [[projects]]
   branch = "master"
@@ -1722,11 +1722,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6ea9ac8f317e7dd79309bb1633642bc9d1822011c5175bd241552534d216ac6d"
+  digest = "1:cec4892868ae1c9fec0d2cace79d4c43e620345cc3c070d004dec09caf197208"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "e4f0f5201b4acad185ebfb76e65905fe5ae7c1b1"
+  revision = "f39549642b91f03f0b46403f9856d4750e3e59eb"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1826,6 +1826,7 @@
     "golang.org/x/net/ipv4",
     "golang.org/x/sys/unix",
     "gopkg.in/gin-gonic/gin.v1",
+    "gopkg.in/yaml.v2",
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",

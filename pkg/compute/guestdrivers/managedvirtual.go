@@ -49,6 +49,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		disk := disks[i].GetDisk()
 		storage := disk.GetStorage()
 		if i == 0 {
+			config.SysDisk.Name = disk.Name
 			config.SysDisk.StorageType = storage.StorageType
 			config.SysDisk.SizeGB = disk.DiskSize / 1024
 			cache := storage.GetStoragecache()
@@ -64,6 +65,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 			dataDisk := cloudprovider.SDiskInfo{
 				SizeGB:      disk.DiskSize / 1024,
 				StorageType: storage.StorageType,
+				Name:        disk.Name,
 			}
 			config.DataDisks = append(config.DataDisks, dataDisk)
 		}
@@ -147,6 +149,12 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 			log.Errorf("host.GetIHost fail %s", err)
 			return nil, err
 		}
+
+		// 创建失败时external id为空。此时直接返回即可。不需要再调用公有云api
+		if len(guest.ExternalId) == 0 {
+			return nil, nil
+		}
+
 		ivm, err := ihost.GetIVMById(guest.ExternalId)
 		if err != nil {
 			if err == cloudprovider.ErrNotFound {
@@ -461,7 +469,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 				}
 				externalIds = append(externalIds, extID)
 			}
-			return nil, iVM.AssignSecurityGroups(externalIds)
+			return nil, iVM.SetSecurityGroups(externalIds)
 		}
 
 		iDisks, err := iVM.GetIDisks()

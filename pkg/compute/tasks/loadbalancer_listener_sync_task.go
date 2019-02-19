@@ -24,7 +24,7 @@ func init() {
 func (self *LoadbalancerListenerSyncTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason string) {
 	lblis.SetStatus(self.GetUserCred(), models.LB_SYNC_CONF_FAILED, reason)
 	db.OpsLog.LogEvent(lblis, db.ACT_SYNC_CONF, reason, self.UserCred)
-	logclient.AddActionLog(lblis, logclient.ACT_SYNC_CONF, reason, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_SYNC_CONF, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(lblis.Id, lblis.Name, models.LB_SYNC_CONF_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
@@ -44,7 +44,7 @@ func (self *LoadbalancerListenerSyncTask) OnInit(ctx context.Context, obj db.ISt
 
 func (self *LoadbalancerListenerSyncTask) OnLoadbalancerListenerSyncComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lblis, db.ACT_SYNC_CONF, lblis.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLog(lblis, logclient.ACT_SYNC_CONF, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_SYNC_CONF, nil, self.UserCred, true)
 	self.SetStage("OnLoadbalancerListenerSyncStatusComplete", nil)
 	lblis.StartLoadBalancerListenerSyncstatusTask(ctx, self.GetUserCred(), self.GetParams(), self.GetTaskId())
 }

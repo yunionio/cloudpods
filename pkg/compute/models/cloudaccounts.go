@@ -52,8 +52,8 @@ type SCloudaccount struct {
 	LastSync   time.Time `get:"admin" list:"admin"` // = Column(DateTime, nullable=True)
 
 	// Sysinfo jsonutils.JSONObject `get:"admin"` // Column(JSONEncodedDict, nullable=True)
-
-	Provider string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
+	IsPublicCloud bool   `nullable:"false" get:"user" create:"required" list:"user"`
+	Provider      string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
 }
 
 func (self *SCloudaccountManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -146,6 +146,7 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 	if err := providerDriver.ValidateCreateCloudaccountData(ctx, userCred, data); err != nil {
 		return nil, err
 	}
+	data.Set("is_public_cloud", jsonutils.NewBool(providerDriver.IsPublicCloud()))
 	// check duplication
 	// url, account, provider must be unique
 	account, _ := data.GetString("account")
@@ -319,6 +320,18 @@ func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, u
 		params.Add(jsonutils.Marshal(syncRange), "sync_range")
 	}
 
+	providerDriver, _ := cloudprovider.GetProviderDriver(self.Provider)
+	isPublicCloud := providerDriver.IsPublicCloud()
+	if self.IsPublicCloud != isPublicCloud {
+		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+			self.IsPublicCloud = isPublicCloud
+			return nil
+		})
+		if err != nil {
+			log.Errorf("Update cloudaccount %s public attr error: %v", self.Name, err)
+		}
+	}
+
 	if cloudProviders == nil {
 		cloudProviders = self.GetCloudproviders()
 	}
@@ -329,10 +342,13 @@ func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, u
 			taskItems = append(taskItems, &cloudProviders[i])
 		}
 	}
+	originState := self.Status
+	self.MarkStartSync(userCred)
 
 	task, err := taskman.TaskManager.NewParallelTask(ctx, "CloudAccountSyncInfoTask", taskItems, userCred, params, "", "", nil)
 	if err != nil {
 		log.Errorf("CloudAccountSyncInfoTask newTask error %s", err)
+		self.SetStatus(userCred, originState, err.Error())
 	} else {
 		task.ScheduleRun(nil)
 	}
@@ -812,4 +828,40 @@ func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mc
 		return nil, httperrors.NewInvalidStatusError("no subaccount")
 	}
 	return providers[0].PerformChangeProject(ctx, userCred, query, data)
+}
+
+func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	accountStr, _ := query.GetString("account")
+	if len(accountStr) > 0 {
+		queryDict := query.(*jsonutils.JSONDict)
+		queryDict.Remove("account")
+		accountObj, err := manager.FetchByIdOrName(userCred, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), accountStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		q = q.Equals("id", accountObj.GetId())
+	}
+
+	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	managerStr, _ := query.GetString("manager")
+	if len(managerStr) > 0 {
+		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		provider := providerObj.(*SCloudprovider)
+		q = q.Equals("id", provider.CloudaccountId)
+	}
+	return q, nil
 }

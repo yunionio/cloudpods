@@ -12,6 +12,8 @@ type Client struct {
 	domainId  string
 	projectId string
 
+	debug bool
+
 	// 标记初始化状态
 	init bool
 
@@ -76,32 +78,32 @@ func (self *Client) InitWithAccessKey(regionId, projectId, accessKey, secretKey 
 
 func (self *Client) initManagers() {
 	if !self.init {
-		self.Servers = modules.NewServerManager(self.regionId, self.projectId, self.signer)
-		self.NovaServers = modules.NewNovaServerManager(self.regionId, self.projectId, self.signer)
-		self.Snapshots = modules.NewSnapshotManager(self.regionId, self.projectId, self.signer)
-		self.OsSnapshots = modules.NewOsSnapshotManager(self.regionId, self.projectId, self.signer)
-		self.Images = modules.NewImageManager(self.regionId, self.projectId, self.signer)
-		self.OpenStackImages = modules.NewOpenstackImageManager(self.regionId, self.signer)
-		self.Projects = modules.NewProjectManager(self.signer)
-		self.Regions = modules.NewRegionManager(self.signer)
-		self.Zones = modules.NewZoneManager(self.regionId, self.projectId, self.signer)
-		self.Vpcs = modules.NewVpcManager(self.regionId, self.projectId, self.signer)
-		self.Eips = modules.NewEipManager(self.regionId, self.projectId, self.signer)
-		self.Disks = modules.NewDiskManager(self.regionId, self.projectId, self.signer)
-		self.Domains = modules.NewDomainManager(self.signer)
-		self.Keypairs = modules.NewKeypairManager(self.regionId, self.projectId, self.signer)
-		self.Orders = modules.NewOrderManager(self.regionId, self.signer)
-		self.SecurityGroupRules = modules.NewSecgroupRuleManager(self.regionId, self.projectId, self.signer)
-		self.SecurityGroups = modules.NewSecurityGroupManager(self.regionId, self.projectId, self.signer)
-		self.NovaSecurityGroups = modules.NewNovaSecurityGroupManager(self.regionId, self.projectId, self.signer)
-		self.Subnets = modules.NewSubnetManager(self.regionId, self.projectId, self.signer)
-		self.Users = modules.NewUserManager(self.signer)
-		self.Interface = modules.NewInterfaceManager(self.regionId, self.projectId, self.signer)
-		self.Jobs = modules.NewJobManager(self.regionId, self.projectId, self.signer)
-		self.Balances = modules.NewBalanceManager(self.signer)
-		self.Bandwidths = modules.NewBandwidthManager(self.regionId, self.projectId, self.signer)
-		self.Port = modules.NewPortManager(self.regionId, self.projectId, self.signer)
-		self.Flavors = modules.NewFlavorManager(self.regionId, self.projectId, self.signer)
+		self.Servers = modules.NewServerManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.NovaServers = modules.NewNovaServerManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Snapshots = modules.NewSnapshotManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.OsSnapshots = modules.NewOsSnapshotManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Images = modules.NewImageManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.OpenStackImages = modules.NewOpenstackImageManager(self.regionId, self.signer, self.debug)
+		self.Projects = modules.NewProjectManager(self.signer, self.debug)
+		self.Regions = modules.NewRegionManager(self.signer, self.debug)
+		self.Zones = modules.NewZoneManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Vpcs = modules.NewVpcManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Eips = modules.NewEipManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Disks = modules.NewDiskManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Domains = modules.NewDomainManager(self.signer, self.debug)
+		self.Keypairs = modules.NewKeypairManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Orders = modules.NewOrderManager(self.regionId, self.signer, self.debug)
+		self.SecurityGroupRules = modules.NewSecgroupRuleManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.SecurityGroups = modules.NewSecurityGroupManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.NovaSecurityGroups = modules.NewNovaSecurityGroupManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Subnets = modules.NewSubnetManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Users = modules.NewUserManager(self.signer, self.debug)
+		self.Interface = modules.NewInterfaceManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Jobs = modules.NewJobManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Balances = modules.NewBalanceManager(self.signer, self.debug)
+		self.Bandwidths = modules.NewBandwidthManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Port = modules.NewPortManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Flavors = modules.NewFlavorManager(self.regionId, self.projectId, self.signer, self.debug)
 	}
 
 	self.init = true
@@ -112,8 +114,8 @@ func NewClient() (*Client, error) {
 	return nil, nil
 }
 
-func NewClientWithAccessKey(regionId, projectId, accessKey, secretKey string) (*Client, error) {
-	c := &Client{}
+func NewClientWithAccessKey(regionId, projectId, accessKey, secretKey string, debug bool) (*Client, error) {
+	c := &Client{debug: debug}
 	err := c.InitWithAccessKey(regionId, projectId, accessKey, secretKey)
 	return c, err
 }

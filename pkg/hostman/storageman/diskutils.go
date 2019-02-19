@@ -96,6 +96,11 @@ func (d *SKVMGuestDisk) findPartitions() error {
 			d.partitions = append(d.partitions, part)
 		}
 	}
+
+	// XXX: HACK reverse partitions
+	for i, j := 0, len(d.partitions)-1; i < j; i, j = i+1, j-1 {
+		d.partitions[i], d.partitions[j] = d.partitions[j], d.partitions[i]
+	}
 	return nil
 }
 
@@ -121,7 +126,7 @@ func (d *SKVMGuestDisk) Disconnect() bool {
 	}
 }
 
-func (d *SKVMGuestDisk) Mount() fsdriver.IRootFsDriver {
+func (d *SKVMGuestDisk) MountKvmRootfs() fsdriver.IRootFsDriver {
 	for i := 0; i < len(d.partitions); i++ {
 		if d.partitions[i].Mount() {
 			if fs := guestfs.DetectRootFs(d.partitions[i]); fs != nil {
@@ -135,7 +140,7 @@ func (d *SKVMGuestDisk) Mount() fsdriver.IRootFsDriver {
 	return nil
 }
 
-func (d *SKVMGuestDisk) Umount(fd fsdriver.IRootFsDriver) {
+func (d *SKVMGuestDisk) UmountKvmRootfs(fd fsdriver.IRootFsDriver) {
 	if part := fd.GetPartition(); part != nil {
 		part.Umount()
 	}

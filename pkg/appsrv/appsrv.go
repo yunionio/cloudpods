@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/trace"
+	"yunion.io/x/pkg/util/signalutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appctx"
@@ -37,8 +40,8 @@ type Application struct {
 	cors              *Cors
 	middlewares       []MiddlewareFunc
 
-	// record Http server for handle shotdown
-	server *http.Server
+	isExiting       bool
+	idleConnsClosed chan struct{}
 }
 
 const (
@@ -235,6 +238,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_CUR_ROOT, hand.path)
 						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_CUR_PATH, segs[len(hand.path):])
 						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_PARAMS, params)
+						ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_START_TIME, time.Now().UTC())
 						if hand.metadata != nil {
 							ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_METADATA, hand.metadata)
 						}
@@ -328,31 +332,73 @@ func (app *Application) initServer(addr string) *http.Server {
 	return s
 }
 
+func (app *Application) registerCleanShutdown(s *http.Server, onStop func()) {
+	app.idleConnsClosed = make(chan struct{})
+
+	// dump goroutine stack
+	signalutils.RegisterSignal(func() {
+		utils.DumpAllGoroutineStack(log.Logger().Out)
+	}, syscall.SIGUSR1)
+
+	quitSignals := []os.Signal{syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM}
+	signalutils.RegisterSignal(func() {
+		if app.isExiting {
+			log.Infof("Quit signal received!!! clean up in progress, be patient...")
+			return
+		}
+		app.isExiting = true
+		log.Infof("Quit signal received!!! do cleanup...")
+
+		if err := s.Shutdown(context.Background()); err != nil {
+			// Error from closing listeners, or context timeout:
+			log.Errorf("HTTP server Shutdown: %v", err)
+		}
+		if onStop != nil {
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						log.Errorf("app exiting error: %s", r)
+					}
+				}()
+				onStop()
+			}()
+		}
+		close(app.idleConnsClosed)
+	}, quitSignals...)
+
+	signalutils.StartTrap()
+}
+
+func (app *Application) waitCleanShutdown() {
+	<-app.idleConnsClosed
+	log.Infof("Service stopped.")
+}
+
 func (app *Application) ListenAndServe(addr string) {
-	app.server = app.initServer(addr)
-	err := app.server.ListenAndServe()
-	if err != nil {
-		log.Infof("ListAndServer: %s", err)
-	}
-}
-
-func (app *Application) IsInServe() bool {
-	return app.server != nil
-}
-
-func (app *Application) ShutDown(ctx context.Context) error {
-	if app.server != nil {
-		return app.server.Shutdown(ctx)
-	}
-	return fmt.Errorf("Not init http server ??")
+	app.ListenAndServeWithCleanup(addr, nil)
 }
 
 func (app *Application) ListenAndServeTLS(addr string, certFile, keyFile string) {
+	app.ListenAndServeTLSWithCleanup(addr, certFile, keyFile, nil)
+}
+
+func (app *Application) ListenAndServeWithCleanup(addr string, onStop func()) {
+	app.ListenAndServeTLSWithCleanup(addr, "", "", onStop)
+}
+
+func (app *Application) ListenAndServeTLSWithCleanup(addr string, certFile, keyFile string, onStop func()) {
 	s := app.initServer(addr)
-	err := s.ListenAndServeTLS(certFile, keyFile)
+	app.registerCleanShutdown(s, onStop)
+	var err error
+	if len(certFile) == 0 && len(keyFile) == 0 {
+		err = s.ListenAndServe()
+	} else {
+		err = s.ListenAndServeTLS(certFile, keyFile)
+	}
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatalf("ListAndServer fail: %s", err)
 	}
+	app.waitCleanShutdown()
 }
 
 func isJsonContentType(r *http.Request) bool {

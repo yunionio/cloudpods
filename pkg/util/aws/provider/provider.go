@@ -21,6 +21,10 @@ func (self *SAwsProviderFactory) ValidateChangeBandwidth(instanceId string, band
 	return nil
 }
 
+func (self *SAwsProviderFactory) IsPublicCloud() bool {
+	return true
+}
+
 func (self *SAwsProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	accessKeyID, _ := data.GetString("access_key_id")
 	if len(accessKeyID) == 0 {
@@ -101,11 +105,11 @@ func (self *SAwsProvider) GetVersion() string {
 	return aws.AWS_API_VERSION
 }
 
-func (self *SAwsProvider) IsPublicCloud() bool {
-	return true
+func (self *SAwsProvider) IsOnPremiseInfrastructure() bool {
+	return false
 }
 
-func (self *SAwsProvider) IsOnPremiseInfrastructure() bool {
+func (self *SAwsProvider) SyncSkuFromCloud() bool {
 	return false
 }
 
@@ -123,4 +127,8 @@ func (self *SAwsProvider) GetBalance() (float64, error) {
 
 func (self *SAwsProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SAwsProvider) SupportPrepaidResources() bool {
+	return true
 }

@@ -2,12 +2,18 @@ package logclient
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
+	"yunion.io/x/pkg/util/timeutils"
 
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -26,6 +32,7 @@ const (
 	ACT_CLOUD_SYNC                   = "同步"
 	ACT_CREATE                       = "创建"
 	ACT_DELETE                       = "删除"
+	ACT_PENDING_DELETE               = "预删除"
 	ACT_DISABLE                      = "禁用"
 	ACT_ENABLE                       = "启用"
 	ACT_GUEST_ATTACH_ISOLATED_DEVICE = "挂载透传设备"
@@ -85,21 +92,37 @@ type IObject interface {
 	Keyword() string
 }
 
+type IVirtualObject interface {
+	IObject
+	GetOwnerProjectId() string
+}
+
 type IModule interface {
 	Create(session *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 }
 
 // save log to db.
-func AddActionLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
-	addLog(model, action, iNotes, userCred, success, &modules.Actions)
+func AddSimpleActionLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
+	addLog(model, action, iNotes, userCred, success, time.Time{}, &modules.Actions)
+}
+
+func AddActionLogWithContext(ctx context.Context, model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
+	addLog(model, action, iNotes, userCred, success, appctx.AppContextStartTime(ctx), &modules.Actions)
+}
+
+func AddActionLogWithStartable(task cloudcommon.IStartable, model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
+	addLog(model, action, iNotes, userCred, success, task.GetStartTime(), &modules.Actions)
 }
 
 // add websocket log to notify active browser users
 func PostWebsocketNotify(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool) {
-	addLog(model, action, iNotes, userCred, success, &modules.Websockets)
+	addLog(model, action, iNotes, userCred, success, time.Time{}, &modules.Websockets)
 }
 
-func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, api IModule) {
+func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.TokenCredential, success bool, startTime time.Time, api IModule) {
+	if !consts.OpsLogEnabled() {
+		return
+	}
 
 	token := userCred
 	notes := stringutils.Interface2String(iNotes)
@@ -122,6 +145,7 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	}
 
 	logentry := jsonutils.NewDict()
+
 	logentry.Add(jsonutils.NewString(objName), "obj_name")
 	logentry.Add(jsonutils.NewString(model.Keyword()), "obj_type")
 	logentry.Add(jsonutils.NewString(objId), "obj_id")
@@ -130,6 +154,25 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	logentry.Add(jsonutils.NewString(token.GetUserName()), "user")
 	logentry.Add(jsonutils.NewString(token.GetTenantId()), "tenant_id")
 	logentry.Add(jsonutils.NewString(token.GetTenantName()), "tenant")
+	logentry.Add(jsonutils.NewString(token.GetDomainId()), "domain_id")
+	logentry.Add(jsonutils.NewString(token.GetDomainName()), "domain")
+	logentry.Add(jsonutils.NewString(strings.Join(token.GetRoles(), ",")), "roles")
+
+	service := consts.GetServiceType()
+	if len(service) > 0 {
+		logentry.Add(jsonutils.NewString(service), "service")
+	}
+
+	if !startTime.IsZero() {
+		logentry.Add(jsonutils.NewString(timeutils.FullIsoTime(startTime)), "start_time")
+	}
+
+	if virtualModel, ok := model.(IVirtualObject); ok {
+		ownerProjId := virtualModel.GetOwnerProjectId()
+		if len(ownerProjId) > 0 {
+			logentry.Add(jsonutils.NewString(ownerProjId), "owner_tenant_id")
+		}
+	}
 
 	if !success {
 		// 失败日志

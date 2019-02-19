@@ -94,7 +94,15 @@ func (s *Client) GetConfig() ClientConfig {
 	return s.config
 }
 
+func (s *Client) RawRun(cmds ...string) ([]string, error) {
+	return s.run(false, cmds...)
+}
+
 func (s *Client) Run(cmds ...string) ([]string, error) {
+	return s.run(true, cmds...)
+}
+
+func (s *Client) run(parseOutput bool, cmds ...string) ([]string, error) {
 	ret := []string{}
 	for _, cmd := range cmds {
 		session, err := s.client.NewSession()
@@ -113,7 +121,11 @@ func (s *Client) Run(cmds ...string) ([]string, error) {
 			log.Errorf("%v", err)
 			return nil, err
 		}
-		ret = append(ret, ParseOutput(stdOut.Bytes())...)
+		if parseOutput {
+			ret = append(ret, ParseOutput(stdOut.Bytes())...)
+		} else {
+			ret = append(ret, stdOut.String())
+		}
 	}
 
 	return ret, nil

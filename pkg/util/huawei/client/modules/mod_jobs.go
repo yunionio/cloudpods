@@ -2,7 +2,6 @@ package modules
 
 import (
 	"fmt"
-	"net/http"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
@@ -10,12 +9,12 @@ import (
 )
 
 type SJobManager struct {
-	ResourceManager
+	SResourceManager
 }
 
-func NewJobManager(regionId string, projectId string, signer auth.Signer) *SJobManager {
-	return &SJobManager{ResourceManager: ResourceManager{
-		BaseManager:   BaseManager{signer: signer, httpClient: &http.Client{}},
+func NewJobManager(regionId string, projectId string, signer auth.Signer, debug bool) *SJobManager {
+	return &SJobManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   "",
 		Region:        regionId,
 		ProjectId:     projectId,

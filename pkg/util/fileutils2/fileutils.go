@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 
@@ -446,7 +447,14 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 		log.Infof("gdisk: %s %s", stdoutPut, stderrOutPut)
 		if err = proc.Wait(); err != nil {
 			log.Errorln(err)
-			return err
+			if exiterr, ok := err.(*exec.ExitError); ok {
+				ws := exiterr.Sys().(syscall.WaitStatus)
+				if ws.ExitStatus() != 1 {
+					return err
+				}
+			} else {
+				return err
+			}
 		}
 	}
 	if len(parts) > 0 && (label == "gpt" ||

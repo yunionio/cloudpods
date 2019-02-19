@@ -24,7 +24,7 @@ func init() {
 func (self *LoadbalancerCreateTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, reason string) {
 	lb.SetStatus(self.GetUserCred(), models.LB_CREATE_FAILED, reason)
 	db.OpsLog.LogEvent(lb, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLog(lb, logclient.ACT_CREATE, reason, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_CREATE, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(lb.Id, lb.Name, models.LB_CREATE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
@@ -45,7 +45,7 @@ func (self *LoadbalancerCreateTask) OnInit(ctx context.Context, obj db.IStandalo
 func (self *LoadbalancerCreateTask) OnLoadbalancerCreateComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
 	lb.SetStatus(self.GetUserCred(), models.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lb, db.ACT_ALLOCATE, lb.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLog(lb, logclient.ACT_CREATE, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStage("OnLoadbalancerStartComplete", nil)
 	lb.StartLoadBalancerStartTask(ctx, self.GetUserCred(), self.GetTaskId())
 }

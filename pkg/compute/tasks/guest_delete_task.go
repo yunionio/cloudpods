@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -182,6 +183,7 @@ func (self *GuestDeleteTask) OnPendingDeleteComplete(ctx context.Context, obj db
 		self.NotifyServerDeleted(ctx, guest)
 	}
 	self.SetStage("on_sync_guest_conf_complete", nil)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_PENDING_DELETE, nil, self.UserCred, true)
 	guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
 }
 
@@ -232,7 +234,7 @@ func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SG
 func (self *GuestDeleteTask) OnFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
 	guest.SetStatus(self.UserCred, models.VM_DELETE_FAIL, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
-	logclient.AddActionLog(guest, logclient.ACT_DELETE, err, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELETE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, err.String())
 }
 
@@ -252,11 +254,12 @@ func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.I
 }
 
 func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGuest) {
+	isPendingDeleted := guest.PendingDeleted
 	guest.RealDelete(ctx, self.UserCred)
 	guest.RemoveAllMetadata(ctx, self.UserCred)
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, nil, self.UserCred)
-	logclient.AddActionLog(guest, logclient.ACT_DELETE, nil, self.UserCred, true)
-	if !guest.IsSystem && !guest.PendingDeleted {
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELETE, nil, self.UserCred, true)
+	if !guest.IsSystem && !isPendingDeleted {
 		self.NotifyServerDeleted(ctx, guest)
 	}
 	models.HostManager.ClearSchedDescCache(guest.HostId)
@@ -264,6 +267,6 @@ func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGue
 }
 
 func (self *GuestDeleteTask) NotifyServerDeleted(ctx context.Context, guest *models.SGuest) {
-	guest.NotifyServerEvent(notifyclient.SERVER_DELETED, notifyclient.PRIORITY_IMPORTANT, false)
-	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_DELETED_ADMIN, notifyclient.PRIORITY_IMPORTANT)
+	guest.NotifyServerEvent(self.UserCred, notifyclient.SERVER_DELETED, notify.NotifyPriorityImportant, false)
+	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_DELETED_ADMIN, notify.NotifyPriorityImportant)
 }

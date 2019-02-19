@@ -23,6 +23,10 @@ func (self *SAliyunProviderFactory) ValidateChangeBandwidth(instanceId string, b
 	return nil
 }
 
+func (self *SAliyunProviderFactory) IsPublicCloud() bool {
+	return true
+}
+
 func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	accessKeyID, _ := data.GetString("access_key_id")
 	if len(accessKeyID) == 0 {
@@ -90,11 +94,11 @@ type SAliyunProvider struct {
 	client *aliyun.SAliyunClient
 }
 
-func (self *SAliyunProvider) IsPublicCloud() bool {
-	return true
+func (self *SAliyunProvider) IsOnPremiseInfrastructure() bool {
+	return false
 }
 
-func (self *SAliyunProvider) IsOnPremiseInfrastructure() bool {
+func (self *SAliyunProvider) SyncSkuFromCloud() bool {
 	return false
 }
 
@@ -140,4 +144,8 @@ func (self *SAliyunProvider) GetBalance() (float64, error) {
 
 func (self *SAliyunProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SAliyunProvider) SupportPrepaidResources() bool {
+	return true
 }

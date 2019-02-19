@@ -91,12 +91,15 @@ func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict
 		defer kvmDisk.Disconnect()
 		log.Infof("Kvm Disk Connect Success !!")
 
-		if root := kvmDisk.Mount(); root != nil {
-			defer kvmDisk.Umount(root)
+		if root := kvmDisk.MountKvmRootfs(); root != nil {
+			defer kvmDisk.UmountKvmRootfs(root)
 			return guestfs.DeployGuestFs(root, guestDesc, deployInfo)
+		} else {
+			return nil, fmt.Errorf("Kvm Disk Mount error")
 		}
+	} else {
+		return nil, fmt.Errorf("Kvm disk connecterror")
 	}
-	return nil, fmt.Errorf("Kvm disk connect or mount error")
 }
 
 func (d *SBaseDisk) GetDiskSetupScripts(diskIndex int) string {

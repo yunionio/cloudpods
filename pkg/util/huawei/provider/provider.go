@@ -17,6 +17,10 @@ func (self *SHuaweiProviderFactory) ValidateChangeBandwidth(instanceId string, b
 	return nil
 }
 
+func (self *SHuaweiProviderFactory) IsPublicCloud() bool {
+	return true
+}
+
 func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	accessKeyID, _ := data.GetString("access_key_id")
 	if len(accessKeyID) == 0 {
@@ -53,7 +57,7 @@ func (self *SHuaweiProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 }
 
 func (self *SHuaweiProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := huawei.NewHuaweiClient(providerId, providerName, url, account, secret)
+	client, err := huawei.NewHuaweiClient(providerId, providerName, url, account, secret, false)
 	if err != nil {
 		return nil, err
 	}
@@ -93,11 +97,11 @@ func (self *SHuaweiProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	return info, nil
 }
 
-func (self *SHuaweiProvider) IsPublicCloud() bool {
-	return true
+func (self *SHuaweiProvider) IsOnPremiseInfrastructure() bool {
+	return false
 }
 
-func (self *SHuaweiProvider) IsOnPremiseInfrastructure() bool {
+func (self *SHuaweiProvider) SyncSkuFromCloud() bool {
 	return false
 }
 
@@ -123,4 +127,8 @@ func (self *SHuaweiProvider) GetBalance() (float64, error) {
 
 func (self *SHuaweiProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
+}
+
+func (self *SHuaweiProvider) SupportPrepaidResources() bool {
+	return true
 }

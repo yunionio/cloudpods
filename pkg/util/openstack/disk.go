@@ -2,6 +2,7 @@ package openstack
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -104,7 +105,7 @@ func (disk *SDisk) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (region *SRegion) GetDisks(category string) ([]SDisk, error) {
-	_, resp, err := region.CinderGet("/volumes/detail", "", nil)
+	_, resp, err := region.CinderList("/volumes/detail", "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -126,11 +127,11 @@ func (disk *SDisk) GetId() string {
 }
 
 func (disk *SDisk) Delete(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return disk.storage.zone.region.DeleteDisk(disk.ID)
 }
 
 func (disk *SDisk) Resize(ctx context.Context, sizeMb int64) error {
-	return cloudprovider.ErrNotImplemented
+	return disk.storage.zone.region.ResizeDisk(disk.ID, sizeMb)
 }
 
 func (disk *SDisk) GetName() string {
@@ -179,8 +180,8 @@ func (disk *SDisk) Refresh() error {
 	return jsonutils.Update(disk, new)
 }
 
-func (disk *SDisk) ResizeDisk(newSize int64) error {
-	return disk.storage.zone.region.ResizeDisk(disk.ID, newSize)
+func (disk *SDisk) ResizeDisk(sizeMb int64) error {
+	return disk.storage.zone.region.ResizeDisk(disk.ID, sizeMb)
 }
 
 func (disk *SDisk) GetDiskFormat() string {
@@ -226,8 +227,22 @@ func (disk *SDisk) GetMountpoint() string {
 	return ""
 }
 
-func (disk *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int, desc string) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+func (region *SRegion) CreateDisk(zoneName string, category string, name string, sizeGb int, desc string) (*SDisk, error) {
+	params := map[string]map[string]interface{}{
+		"volume": {
+			"size":              sizeGb,
+			"volume_type":       category,
+			"name":              name,
+			"description":       desc,
+			"availability_zone": zoneName,
+		},
+	}
+	_, resp, err := region.CinderCreate("/volumes", "", jsonutils.Marshal(params))
+	if err != nil {
+		return nil, err
+	}
+	disk := &SDisk{}
+	return disk, resp.Unmarshal(disk, "volume")
 }
 
 func (region *SRegion) GetDisk(diskId string) (*SDisk, error) {
@@ -239,20 +254,39 @@ func (region *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	return disk, resp.Unmarshal(disk, "volume")
 }
 
-func (disk *SRegion) DeleteDisk(diskId string) error {
-	return cloudprovider.ErrNotImplemented
+func (region *SRegion) DeleteDisk(diskId string) error {
+	_, err := region.CinderDelete("/volumes/"+diskId, "")
+	return err
 }
 
-func (disk *SRegion) ResizeDisk(diskId string, sizeMb int64) error {
-	return cloudprovider.ErrNotImplemented
+func (region *SRegion) ResizeDisk(diskId string, sizeMb int64) error {
+	params := map[string]map[string]interface{}{
+		"os-extend": {
+			"new_size": sizeMb / 1024,
+		},
+	}
+	_, _, err := region.CinderAction(fmt.Sprintf("/volumes/%s/action", diskId), "", jsonutils.Marshal(params))
+	return err
 }
 
-func (disk *SRegion) ResetDisk(diskId, snapshotId string) error {
-	return cloudprovider.ErrNotImplemented
+func (region *SRegion) ResetDisk(diskId, snapshotId string) error {
+	//目前测试接口不能使用
+	return cloudprovider.ErrNotSupported
+	// params := map[string]map[string]interface{}{
+	// 	"revert": {
+	// 		"snapshot_id": snapshotId,
+	// 	},
+	// }
+	// _, _, err := region.CinderAction(fmt.Sprintf("/volumes/%s/action", diskId), "3.40", jsonutils.Marshal(params))
+	// return err
 }
 
 func (disk *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	snapshot, err := disk.storage.zone.region.CreateSnapshot(disk.ID, name, desc)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot, cloudprovider.WaitStatus(snapshot, models.SNAPSHOT_READY, time.Second*5, time.Minute*5)
 }
 
 func (disk *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
@@ -264,7 +298,7 @@ func (disk *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (disk *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	return "", disk.storage.zone.region.ResetDisk(disk.ID, snapshotId)
+	return disk.ID, disk.storage.zone.region.ResetDisk(disk.ID, snapshotId)
 }
 
 func (disk *SDisk) GetBillingType() string {
@@ -280,9 +314,5 @@ func (disk *SDisk) GetAccessPath() string {
 }
 
 func (disk *SDisk) Rebuild(ctx context.Context) error {
-	return disk.storage.zone.region.RebuildDisk(disk.ID)
-}
-
-func (region *SRegion) RebuildDisk(diskId string) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }

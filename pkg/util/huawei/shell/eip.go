@@ -7,15 +7,13 @@ import (
 
 func init() {
 	type EipListOptions struct {
-		Marker string `help:"marker"`
-		Limit  int    `help:"List limit"`
 	}
 	shellutils.R(&EipListOptions{}, "eip-list", "List eips", func(cli *huawei.SRegion, args *EipListOptions) error {
-		eips, total, e := cli.GetEips(args.Marker, args.Limit)
+		eips, e := cli.GetEips()
 		if e != nil {
 			return e
 		}
-		printList(eips, total, 0, args.Limit, []string{})
+		printList(eips, 0, 0, 0, nil)
 		return nil
 	})
 

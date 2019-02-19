@@ -2,6 +2,7 @@ package shell
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/onecloud/pkg/util/huawei"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -9,15 +10,13 @@ import (
 
 func init() {
 	type InstanceListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
 	}
 	shellutils.R(&InstanceListOptions{}, "instance-list", "List intances", func(cli *huawei.SRegion, args *InstanceListOptions) error {
-		instances, total, e := cli.GetInstances(args.Offset, args.Limit)
+		instances, e := cli.GetInstances()
 		if e != nil {
 			return e
 		}
-		printList(instances, total, args.Offset, args.Limit, []string{})
+		printList(instances, 0, 0, 0, nil)
 		return nil
 	})
 
@@ -110,11 +109,11 @@ func init() {
 
 	shellutils.R(&InstanceRebuildRootOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *huawei.SRegion, args *InstanceRebuildRootOptions) error {
 		ctx := context.Background()
-		err := cli.ChangeRoot(ctx, args.ID, args.Image, args.Password, args.PublicKey)
+		jobId, err := cli.ChangeRoot(ctx, args.ID, args.Image, args.Password, args.PublicKey)
 		if err != nil {
 			return err
 		}
-		// fmt.Printf("New diskID is %s", diskID)
+		fmt.Printf("ChangeRoot jobID is %s", jobId)
 		return nil
 	})
 

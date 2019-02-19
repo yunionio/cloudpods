@@ -24,6 +24,10 @@ func InitApp(options *CommonOptions, dbAccess bool) *appsrv.Application {
 }
 
 func ServeForever(app *appsrv.Application, options *CommonOptions) {
+	ServeForeverWithCleanup(app, options, nil)
+}
+
+func ServeForeverWithCleanup(app *appsrv.Application, options *CommonOptions, onStop func()) {
 	AppDBInit(app)
 	addr := net.JoinHostPort(options.Address, strconv.Itoa(options.Port))
 	proto := "http"
@@ -33,9 +37,9 @@ func ServeForever(app *appsrv.Application, options *CommonOptions) {
 	log.Infof("Start listen on %s://%s", proto, addr)
 	if options.EnableSsl {
 		certfile := options.SslCertfile
-		if len(options.SslCafile) > 0 {
+		if len(options.SslCaCerts) > 0 {
 			var err error
-			certfile, err = seclib2.MergeCaCertFiles(options.SslCafile, options.SslCertfile)
+			certfile, err = seclib2.MergeCaCertFiles(options.SslCaCerts, options.SslCertfile)
 			if err != nil {
 				log.Fatalf("fail to merge ca+cert content: %s", err)
 			}
@@ -47,9 +51,8 @@ func ServeForever(app *appsrv.Application, options *CommonOptions) {
 		if len(options.SslKeyfile) == 0 {
 			log.Fatalf("Missing ssl-keyfile")
 		}
-		app.ListenAndServeTLS(addr, certfile, options.SslKeyfile)
+		app.ListenAndServeTLSWithCleanup(addr, certfile, options.SslKeyfile, onStop)
 	} else {
-		app.ListenAndServe(addr)
+		app.ListenAndServeWithCleanup(addr, onStop)
 	}
-	select {} // for quit handler
 }

@@ -35,11 +35,14 @@ var (
 
 type SLocalStorage struct {
 	SBaseStorage
+
+	Index int
 }
 
-func NewLocalStorage(manager *SStorageManager, path string) *SLocalStorage {
+func NewLocalStorage(manager *SStorageManager, path string, index int) *SLocalStorage {
 	var ret = new(SLocalStorage)
 	ret.SBaseStorage = *NewBaseStorage(manager, path)
+	ret.Index = index
 	ret.StartSnapshotRecycle()
 	return ret
 }
@@ -64,9 +67,13 @@ func (s *SLocalStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
 	return path.Join(s.GetSnapshotDir(), diskId+options.HostOptions.SnapshotDirSuffix, snapshotId)
 }
 
+func (s *SLocalStorage) GetComposedName() string {
+	return fmt.Sprintf("host_%s_%s_storage_%d", s.Manager.host.GetMasterIp(), s.StorageType(), s.Index)
+}
+
 func (s *SLocalStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := jsonutils.NewDict()
-	content.Set("name", jsonutils.NewString(s.StorageName))
+	content.Set("name", jsonutils.NewString(s.GetName(s.GetComposedName)))
 	content.Set("capacity", jsonutils.NewInt(int64(s.GetAvailSizeMb())))
 	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
 	content.Set("medium_type", jsonutils.NewString(s.GetMediumType()))
@@ -212,8 +219,8 @@ func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath str
 		if kvmDisk.Connect() {
 			defer kvmDisk.Disconnect()
 
-			if root := kvmDisk.Mount(); root != nil {
-				defer kvmDisk.Umount(root)
+			if root := kvmDisk.MountKvmRootfs(); root != nil {
+				defer kvmDisk.UmountKvmRootfs(root)
 
 				osInfo = root.GetOs()
 				relInfo = root.GetReleaseInfo(root.GetPartition())

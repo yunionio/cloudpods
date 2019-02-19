@@ -501,10 +501,10 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 }
 
 func (self *SRegion) AssignSecurityGroup(secgroupId, instanceId string) error {
-	return self.AssignSecurityGroups([]string{secgroupId}, instanceId)
+	return self.SetSecurityGroups([]string{secgroupId}, instanceId)
 }
 
-func (self *SRegion) AssignSecurityGroups(secgroupIds []string, instanceId string) error {
+func (self *SRegion) SetSecurityGroups(secgroupIds []string, instanceId string) error {
 	params := map[string]string{"InstanceId": instanceId}
 	for _, secgroupId := range secgroupIds {
 		params["SecurityGroupId"] = secgroupId

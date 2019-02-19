@@ -28,11 +28,13 @@ type IDiskPartition interface {
 
 	Mount() bool
 	Umount() bool
+	GetMountPath() string
 }
 
 type IRootFsDriver interface {
 	GetPartition() IDiskPartition
 	GetName() string
+	String() string
 
 	IsFsCaseInsensitive() bool
 	RootSignatures() []string
@@ -52,6 +54,7 @@ type IRootFsDriver interface {
 	EnableSerialConsole(IDiskPartition, *jsonutils.JSONDict) error
 	DisableSerialConsole(IDiskPartition) error
 	CommitChanges(IDiskPartition) error
+	DeployFiles(deploys []jsonutils.JSONObject) error
 
 	PrepareFsForTemplate(IDiskPartition) error
 }

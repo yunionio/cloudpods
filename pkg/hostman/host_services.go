@@ -1,7 +1,6 @@
 package hostman
 
 import (
-	"context"
 	"os"
 
 	"yunion.io/x/log"
@@ -23,8 +22,6 @@ import (
 
 type SHostService struct {
 	service.SServiceBase
-
-	isExiting bool
 }
 
 func (host *SHostService) StartService() {
@@ -36,28 +33,6 @@ func (host *SHostService) StartService() {
 	if err := hostInstance.Init(); err != nil {
 		log.Fatalf(err.Error())
 	}
-
-	host.RegisterSIGUSR1()
-	host.RegisterQuitSignals(func() { // register quit handler
-		if host.isExiting {
-			return
-		} else {
-			host.isExiting = true
-		}
-
-		if app.IsInServe() {
-			if err := app.ShutDown(context.Background()); err != nil {
-				log.Errorln(err.Error())
-			}
-		}
-
-		hostinfo.Stop()
-		storageman.Stop()
-		hostmetrics.Stop()
-		guestman.Stop()
-		hostutils.GetWorkManager().Stop()
-		os.Exit(0)
-	})
 
 	if err := storageman.Init(hostInstance); err != nil {
 		log.Fatalf(err.Error())
@@ -82,7 +57,13 @@ func (host *SHostService) StartService() {
 	cronManager.AddJob2(
 		"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
 
-	cloudcommon.ServeForever(app, &options.HostOptions.CommonOptions)
+	cloudcommon.ServeForeverWithCleanup(app, &options.HostOptions.CommonOptions, func() {
+		hostinfo.Stop()
+		storageman.Stop()
+		hostmetrics.Stop()
+		guestman.Stop()
+		hostutils.GetWorkManager().Stop()
+	})
 }
 
 func (host *SHostService) initHandlers(app *appsrv.Application) {

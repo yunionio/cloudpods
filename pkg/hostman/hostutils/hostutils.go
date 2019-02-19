@@ -24,6 +24,7 @@ type IHost interface {
 	GetZone() string
 	GetHostId() string
 	GetMediumType() string
+	GetMasterIp() string
 
 	IsKvmSupport() bool
 	IsNestedVirtualization() bool

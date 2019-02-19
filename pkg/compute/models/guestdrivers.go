@@ -20,6 +20,9 @@ type IGuestDriver interface {
 	GetMaxVMemSizeGB() int
 	GetMaxSecurityGroupCount() int
 
+	GetDefaultSysDiskBackend() string
+	GetMinimalSysDiskSizeGb() int
+
 	IsSupportedBillingCycle(bc billing.SBillingCycle) bool
 
 	RequestRenewInstance(guest *SGuest, bc billing.SBillingCycle) (time.Time, error)

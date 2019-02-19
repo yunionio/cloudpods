@@ -82,7 +82,7 @@ func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
 }
 
 func (self *SRegion) getSubnetIdsByInstanceId(instanceId string) ([]string, error) {
-	ctx := &modules.ManagerContext{InstanceManager: self.ecsClient.NovaServers, InstanceId: instanceId}
+	ctx := &modules.SManagerContext{InstanceManager: self.ecsClient.NovaServers, InstanceId: instanceId}
 	interfaces := make([]Interface, 0)
 	err := DoListInContext(self.ecsClient.Interface.ListInContext, ctx, nil, &interfaces)
 	if err != nil {

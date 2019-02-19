@@ -896,8 +896,8 @@ func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 	return self.host.zone.region.AssignSecurityGroup(secgroupId, self.InstanceId)
 }
 
-func (self *SInstance) AssignSecurityGroups(secgroupIds []string) error {
-	return self.host.zone.region.AssignSecurityGroups(secgroupIds, self.InstanceId)
+func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
+	return self.host.zone.region.SetSecurityGroups(secgroupIds, self.InstanceId)
 }
 
 func (self *SInstance) GetBillingType() string {

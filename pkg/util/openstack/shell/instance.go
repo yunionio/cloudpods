@@ -42,4 +42,23 @@ func init() {
 		return nil
 	})
 
+	type InstanceDeployOptions struct {
+		ID       string `help:"Instance ID"`
+		Password string `help:"Instance password"`
+		Name     string `help:"Instance name"`
+	}
+
+	shellutils.R(&InstanceDeployOptions{}, "instance-deploy", "Deploy instance", func(cli *openstack.SRegion, args *InstanceDeployOptions) error {
+		return cli.DeployVM(args.ID, args.Name, args.Password, "", false, "")
+	})
+
+	type InstanceChangeConfigOptions struct {
+		ID        string `help:"Instance ID"`
+		FLAVOR_ID string `help:"Flavor ID"`
+	}
+
+	shellutils.R(&InstanceChangeConfigOptions{}, "instance-change-config", "Change instance config", func(cli *openstack.SRegion, args *InstanceChangeConfigOptions) error {
+		return cli.ChageConfig(args.ID, args.FLAVOR_ID)
+	})
+
 }

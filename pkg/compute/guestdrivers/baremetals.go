@@ -34,6 +34,14 @@ func (self *SBaremetalGuestDriver) GetHypervisor() string {
 	return models.HYPERVISOR_BAREMETAL
 }
 
+func (self *SBaremetalGuestDriver) GetDefaultSysDiskBackend() string {
+	return models.STORAGE_LOCAL
+}
+
+func (self *SBaremetalGuestDriver) GetMinimalSysDiskSizeGb() int {
+	return options.Options.DefaultDiskSizeMB / 1024
+}
+
 func (self *SBaremetalGuestDriver) GetMaxSecurityGroupCount() int {
 	//暂不支持绑定安全组
 	return 0
@@ -342,7 +350,7 @@ func (self *SBaremetalGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Con
 				return err
 			}
 			db.OpsLog.LogEvent(disk, db.ACT_UPDATE_STATUS, notes, task.GetUserCred())
-			logclient.AddActionLog(disk, logclient.ACT_VM_SYNC_STATUS, nil, task.GetUserCred(), false)
+			logclient.AddActionLogWithStartable(task, disk, logclient.ACT_VM_SYNC_STATUS, nil, task.GetUserCred(), false)
 			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.GetUserCred())
 			if disks[i].Contains("dev") {
 				dev, _ := disks[i].GetString("dev")
@@ -387,7 +395,7 @@ func (self *SBaremetalGuestDriver) StartGuestDetachdiskTask(ctx context.Context,
 }
 
 func (self *SBaremetalGuestDriver) StartGuestAttachDiskTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {
-	return fmt.Errorf("Cannot attach disk from a baremetal serer")
+	return fmt.Errorf("Cannot attach disk to a baremetal serer")
 }
 
 func (self *SBaremetalGuestDriver) StartSuspendTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict, parentTaskId string) error {

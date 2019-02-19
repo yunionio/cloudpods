@@ -3,12 +3,15 @@ package huawei
 import (
 	"fmt"
 
+	"reflect"
+	"strings"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/responses"
+	"yunion.io/x/pkg/utils"
 )
 
 // 常用的方法
@@ -18,6 +21,7 @@ type createFunc func(params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 type updateFunc func(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 type updateFunc2 func(ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error)
 type deleteFunc func(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
+type deleteFunc2 func(ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error)
 type listInCtxFunc func(ctx manager.IManagerContext, querys map[string]string) (*responses.ListResult, error)
 type listInCtxWithSpecFunc func(ctx manager.IManagerContext, spec string, querys map[string]string, responseKey string) (*responses.ListResult, error)
 
@@ -25,7 +29,7 @@ func unmarshalResult(resp jsonutils.JSONObject, respErr error, result interface{
 	if respErr != nil {
 		switch e := respErr.(type) {
 		case *httputils.JSONClientError:
-			if e.Code == 404 {
+			if e.Code == 404 || utils.IsInStringArray(e.Class, NOT_FOUND_CODES) {
 				return cloudprovider.ErrNotFound
 			}
 			return e
@@ -46,28 +50,85 @@ func unmarshalResult(resp jsonutils.JSONObject, respErr error, result interface{
 	return err
 }
 
-func DoList(doList listFunc, querys map[string]string, result interface{}) error {
-	ret, err := doList(querys)
-	if err != nil {
-		return err
-	}
+var pageLimit = 1000
 
-	obj := responses.ListResult2JSON(ret)
-	err = obj.Unmarshal(result, "data")
-	if err != nil {
-		log.Errorf("unmarshal json error %s", err)
-		return err
+func doListAllWithOffset(doList listFunc, queries map[string]string, result interface{}) error {
+	startIndex := 0
+	resultValue := reflect.Indirect(reflect.ValueOf(result))
+	queries["limit"] = fmt.Sprintf("%d", pageLimit)
+	queries["offset"] = fmt.Sprintf("%d", startIndex)
+	for {
+		total, part, err := doListPart(doList, queries, result)
+		if err != nil {
+			return err
+		}
+		if (total > 0 && resultValue.Len() >= total) || (total == 0 && pageLimit > part) {
+			break
+		}
+		queries["offset"] = fmt.Sprintf("%d", startIndex+resultValue.Len())
 	}
-
 	return nil
 }
 
-func DoGet(doGet getFunc, id string, querys map[string]string, result interface{}) error {
+func doListAllWithMarker(doList listFunc, queries map[string]string, result interface{}) error {
+	resultValue := reflect.Indirect(reflect.ValueOf(result))
+	queries["limit"] = fmt.Sprintf("%d", pageLimit)
+	for {
+		total, part, err := doListPart(doList, queries, result)
+		if err != nil {
+			return err
+		}
+		if (total > 0 && resultValue.Len() >= total) || (total == 0 && pageLimit > part) {
+			break
+		}
+		lastValue := resultValue.Index(resultValue.Len() - 1)
+		markerValue := lastValue.FieldByNameFunc(func(key string) bool {
+			if strings.ToLower(key) == "id" {
+				return true
+			}
+			return false
+		})
+		queries["marker"] = markerValue.String()
+	}
+	return nil
+}
+
+func doListAll(doList listFunc, queries map[string]string, result interface{}) error {
+	total, _, err := doListPart(doList, queries, result)
+	if err != nil {
+		return err
+	}
+	resultValue := reflect.Indirect(reflect.ValueOf(result))
+	if total > 0 && resultValue.Len() < total {
+		log.Warningf("INCOMPLETE QUERY, total %d queried %d", total, resultValue.Len())
+	}
+	return nil
+}
+
+func doListPart(doList listFunc, queries map[string]string, result interface{}) (int, int, error) {
+	ret, err := doList(queries)
+	if err != nil {
+		return 0, 0, err
+	}
+	resultValue := reflect.Indirect(reflect.ValueOf(result))
+	elemType := resultValue.Type().Elem()
+	for i := range ret.Data {
+		elemPtr := reflect.New(elemType)
+		err = ret.Data[i].Unmarshal(elemPtr.Interface())
+		if err != nil {
+			return 0, 0, err
+		}
+		resultValue.Set(reflect.Append(resultValue, elemPtr.Elem()))
+	}
+	return ret.Total, len(ret.Data), nil
+}
+
+func DoGet(doGet getFunc, id string, queries map[string]string, result interface{}) error {
 	if len(id) == 0 {
 		return fmt.Errorf(" id should not be empty")
 	}
 
-	ret, err := doGet(id, querys)
+	ret, err := doGet(id, queries)
 	return unmarshalResult(ret, err, result)
 }
 
@@ -109,4 +170,13 @@ func DoDelete(deleteFunc deleteFunc, id string, params jsonutils.JSONObject, res
 
 	ret, err := deleteFunc(id, params)
 	return unmarshalResult(ret, err, result)
+}
+
+func DoDeleteWithSpec(deleteFunc deleteFunc2, ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject) error {
+	if len(id) == 0 {
+		return fmt.Errorf(" id should not be empty")
+	}
+
+	_, err := deleteFunc(ctx, id, spec, params, "")
+	return err
 }

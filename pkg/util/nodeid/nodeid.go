@@ -171,20 +171,20 @@ func getLinux() ([]string, error) {
 	return ret, nil
 }
 
-func GetNodeId() (string, error) {
+func GetNodeId() ([]byte, error) {
 	var f func() ([]string, error)
 	if runtime.GOOS == "linux" {
 		f = getLinux
 	} else {
-		return "", fmt.Errorf("Unsupported OS")
+		return nil, fmt.Errorf("Unsupported OS")
 	}
 
 	ret, e := f()
 	if e != nil || len(ret) < 2 {
 		log.Debugf("service info %s", ret)
-		return "", fmt.Errorf("Fail to generate Node ID")
+		return nil, fmt.Errorf("Fail to generate Node ID")
 	}
 
 	sn := md5.Sum([]byte(ret[0] + ret[1]))
-	return fmt.Sprintf("%x", sn), nil
+	return sn[0:], nil
 }

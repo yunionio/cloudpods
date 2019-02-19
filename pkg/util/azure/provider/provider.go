@@ -23,6 +23,10 @@ func (self *SAzureProviderFactory) ValidateChangeBandwidth(instanceId string, ba
 	return fmt.Errorf("Changing %s bandwidth is not supported", azure.CLOUD_PROVIDER_AZURE)
 }
 
+func (self *SAzureProviderFactory) IsPublicCloud() bool {
+	return true
+}
+
 func (self *SAzureProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	directoryID, _ := data.GetString("directory_id")
 	if len(directoryID) == 0 {
@@ -79,11 +83,11 @@ type SAzureProvider struct {
 	client *azure.SAzureClient
 }
 
-func (self *SAzureProvider) IsPublicCloud() bool {
-	return true
+func (self *SAzureProvider) IsOnPremiseInfrastructure() bool {
+	return false
 }
 
-func (self *SAzureProvider) IsOnPremiseInfrastructure() bool {
+func (self *SAzureProvider) SyncSkuFromCloud() bool {
 	return false
 }
 
@@ -129,4 +133,8 @@ func (self *SAzureProvider) GetBalance() (float64, error) {
 
 func (self *SAzureProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SAzureProvider) SupportPrepaidResources() bool {
+	return true
 }

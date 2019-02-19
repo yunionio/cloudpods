@@ -25,6 +25,10 @@ func (self *SOpenStackProviderFactory) ValidateChangeBandwidth(instanceId string
 	return nil
 }
 
+func (self *SOpenStackProviderFactory) IsPublicCloud() bool {
+	return false
+}
+
 func (self *SOpenStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	projectName, _ := data.GetString("project_name")
 	if len(projectName) == 0 {
@@ -94,16 +98,16 @@ type SOpenStackProvider struct {
 	client *openstack.SOpenStackClient
 }
 
-func (self *SOpenStackProvider) IsPublicCloud() bool {
-	return false
-}
-
 func (self *SOpenStackProvider) GetVersion() string {
 	return ""
 }
 
 func (self *SOpenStackProvider) IsOnPremiseInfrastructure() bool {
 	return false
+}
+
+func (self *SOpenStackProvider) SyncSkuFromCloud() bool {
+	return true
 }
 
 func (self *SOpenStackProvider) GetId() string {
@@ -136,4 +140,8 @@ func (self *SOpenStackProvider) GetBalance() (float64, error) {
 
 func (self *SOpenStackProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SOpenStackProvider) SupportPrepaidResources() bool {
+	return false
 }

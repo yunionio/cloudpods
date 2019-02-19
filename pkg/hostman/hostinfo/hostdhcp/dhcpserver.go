@@ -9,10 +9,10 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/dhcp"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/util/dhcp"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 

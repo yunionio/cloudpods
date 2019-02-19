@@ -56,7 +56,7 @@ func init() {
 	})
 
 	R(&HostStorageDetailOptions{}, "host-storage-detach", "Detach a storage from a host", func(s *mcclient.ClientSession, args *HostStorageDetailOptions) error {
-		result, err := modules.Hoststorages.Detach(s, args.HOST, args.STORAGE)
+		result, err := modules.Hoststorages.Detach(s, args.HOST, args.STORAGE, nil)
 		if err != nil {
 			return err
 		}

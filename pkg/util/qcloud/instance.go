@@ -749,7 +749,7 @@ func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 	return self.host.zone.region.instanceOperation(self.InstanceId, "ModifyInstancesAttribute", params)
 }
 
-func (self *SInstance) AssignSecurityGroups(secgroupIds []string) error {
+func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	params := map[string]string{}
 	for i := 0; i < len(secgroupIds); i++ {
 		params[fmt.Sprintf("SecurityGroups.%d", i)] = secgroupIds[i]

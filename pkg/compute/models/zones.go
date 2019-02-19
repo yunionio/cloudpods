@@ -630,11 +630,30 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 	managerStr, _ := query.GetString("manager")
 	if len(managerStr) > 0 {
-		provider := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
-		if provider == nil {
-			return nil, httperrors.NewResourceNotFoundError("Cloud provider/manager %s not found", managerStr)
+		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
 		}
+		provider := providerObj.(*SCloudprovider)
 		subq := CloudregionManager.Query("id").Equals("provider", provider.Provider).SubQuery()
+		q = q.In("cloudregion_id", subq)
+	}
+	accountStr, _ := query.GetString("account")
+	if len(accountStr) > 0 {
+		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		account := accountObj.(*SCloudaccount)
+		subq := CloudregionManager.Query("id").Equals("provider", account.Provider).SubQuery()
 		q = q.In("cloudregion_id", subq)
 	}
 	providerStr, _ := query.GetString("provider")
@@ -691,7 +710,7 @@ func (self *SZone) getMaxDataDiskCount() int {
 }
 
 func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
+	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
 	var regionId string
 	if len(regionStr) > 0 {
 		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
