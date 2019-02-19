@@ -192,7 +192,7 @@ func (h *DHCPHandler) findNetworkConf(filterUseIp bool) (*types.SNetworkConfig, 
 			"filter.1")
 		params.Add(jsonutils.JSONTrue, "filter_any")
 	}
-	params.Add(jsonutils.JSONTrue, "is_private")
+	params.Add(jsonutils.JSONTrue, "is_on_premise")
 	session := h.baremetalManager.GetClientSession()
 	ret, err := modules.Networks.List(session, params)
 	if err != nil {
