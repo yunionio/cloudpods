@@ -181,6 +181,7 @@ var LB_HEALTH_CHECK_TYPES_UDP = validators.NewChoices(
 )
 
 const (
+	LB_HEALTH_CHECK_HTTP_CODE_1xx     = "http_1xx"
 	LB_HEALTH_CHECK_HTTP_CODE_2xx     = "http_2xx"
 	LB_HEALTH_CHECK_HTTP_CODE_3xx     = "http_3xx"
 	LB_HEALTH_CHECK_HTTP_CODE_4xx     = "http_4xx"
@@ -189,6 +190,7 @@ const (
 )
 
 var LB_HEALTH_CHECK_HTTP_CODES = validators.NewChoices(
+	LB_HEALTH_CHECK_HTTP_CODE_1xx,
 	LB_HEALTH_CHECK_HTTP_CODE_2xx,
 	LB_HEALTH_CHECK_HTTP_CODE_3xx,
 	LB_HEALTH_CHECK_HTTP_CODE_4xx,

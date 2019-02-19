@@ -2,6 +2,7 @@ package qcloud
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/nelsonken/cos-go-sdk-v5/cos"
 
@@ -31,6 +32,173 @@ type SRegion struct {
 	Latitude      float64
 	Longitude     float64
 	fetchLocation bool
+}
+
+func (self *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
+	lbs, err := self.GetLoadbalancers(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	ilbs := make([]cloudprovider.ICloudLoadbalancer, len(lbs))
+	for i := range lbs {
+		lbs[i].region = self
+		ilbs[i] = &lbs[i]
+	}
+
+	return ilbs, nil
+}
+
+// 腾讯云不支持acl
+func (self *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
+	return []cloudprovider.ICloudLoadbalancerAcl{}, nil
+}
+
+func (self *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
+	lbs, err := self.GetLoadbalancers(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	icerts := []cloudprovider.ICloudLoadbalancerCertificate{}
+	for _, lb := range lbs {
+		listeners, err := lb.GetLoadbalancerListeners("HTTPS")
+		if err != nil {
+			return nil, err
+		}
+
+		certIds := []string{}
+		for _, listener := range listeners {
+			if len(listener.Certificate.CERTID) > 0 && !utils.IsInStringArray(listener.Certificate.CERTID, certIds) {
+				certIds = append(certIds, listener.Certificate.CERTID)
+			}
+
+			if len(listener.Certificate.CERTCAID) > 0 && !utils.IsInStringArray(listener.Certificate.CERTCAID, certIds) {
+				certIds = append(certIds, listener.Certificate.CERTCAID)
+			}
+
+			for _, rule := range listener.Rules {
+				if len(rule.Certificate.CERTID) > 0 && !utils.IsInStringArray(rule.Certificate.CERTID, certIds) {
+					certIds = append(certIds, rule.Certificate.CERTID)
+				}
+
+				if len(rule.Certificate.CERTCAID) > 0 && !utils.IsInStringArray(rule.Certificate.CERTCAID, certIds) {
+					certIds = append(certIds, rule.Certificate.CERTCAID)
+				}
+			}
+		}
+
+		for _, cid := range certIds {
+			icert, err := self.GetILoadBalancerCertificateById(cid)
+			if err != nil {
+				return nil, err
+			}
+
+			icerts = append(icerts, icert)
+		}
+	}
+
+	return icerts, nil
+}
+
+func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	certs, _, err := self.GetCertificates(certId, true, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	icerts := []cloudprovider.ICloudLoadbalancerCertificate{}
+	for i := 0; i < len(certs); i++ {
+		cert := SLBCertificate{region: self, SCertificate: certs[i]}
+		icerts = append(icerts, &cert)
+	}
+
+	if len(certs) == 1 {
+		return icerts[0], nil
+	} else {
+		return nil, fmt.Errorf("GetILoadBalancerCertificateById %d certificate found, expect 1", len(certs))
+	}
+}
+
+func (self *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
+	lbs, err := self.GetLoadbalancers([]string{loadbalancerId})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(lbs) == 1 {
+		lbs[0].region = self
+		return &lbs[0], nil
+	} else {
+		return nil, fmt.Errorf("GetILoadBalancerById %d loadbalancer found", len(lbs))
+	}
+}
+
+func (self *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, nil
+}
+
+// https://cloud.tencent.com/document/api/214/30692
+// todo: 1. 支持跨地域绑定负载均衡 及 https://cloud.tencent.com/document/product/214/12014
+// todo: 2. 支持指定Project。 ProjectId可以通过 DescribeProject 接口获取。不填则属于默认项目。
+func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
+	LoadBalancerType := "INTERNAL"
+	if loadbalancer.AddressType == "public" {
+		LoadBalancerType = "OPEN"
+	}
+	params := map[string]string{
+		"LoadBalancerType": LoadBalancerType,
+		"LoadBalancerName": loadbalancer.Name,
+		"VpcId":            loadbalancer.VpcID,
+		"SubnetId":         loadbalancer.NetworkID,
+	}
+
+	resp, err := self.clbRequest("CreateLoadBalancer", params)
+	if err != nil {
+		return nil, err
+	}
+
+	requestId, err := resp.GetString("RequestId")
+	if err != nil {
+		return nil, err
+	}
+
+	lbs, err := resp.GetArray("LoadBalancerIds")
+	if err != nil || len(lbs) != 1 {
+		log.Debugf("CreateILoadBalancer %s", resp.String())
+		return nil, err
+	}
+
+	err = self.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	return self.GetLoadbalancer(lbs[0].String())
+}
+
+func (self *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+// todo:目前onecloud端只能指定服务器端证书。需要兼容客户端证书？
+func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
+	certId, err := self.CreateCertificate(cert.Certificate, "SVR", cert.PrivateKey, cert.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	certs, _, err := self.GetCertificates(certId, false, 10, 0)
+	if len(certs) != 1 || err != nil {
+		log.Debugf("CreateILoadBalancerCertificate failed. %d certificate matched", len(certs))
+		return nil, err
+	}
+
+	return &SLBCertificate{region: self, SCertificate: certs[0]}, nil
 }
 
 func (self *SRegion) GetId() string {
@@ -439,6 +607,20 @@ func (self *SRegion) cbsRequest(apiName string, params map[string]string) (jsonu
 	return self.client.cbsRequest(apiName, params)
 }
 
+func (self *SRegion) clbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.clbRequest(apiName, params)
+}
+
+func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.lbRequest(apiName, params)
+}
+
+func (self *SRegion) wssRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	return self.client.wssRequest(apiName, params)
+}
+
 func (self *SRegion) GetNetworks(ids []string, vpcId string, offset int, limit int) ([]SNetwork, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
@@ -590,44 +772,4 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 		return "", err
 	}
 	return instance.InstanceState, nil
-}
-
-func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbalancerCertificate) (cloudprovider.ICloudLoadbalancerCertificate, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) GetILoadBalancerAcls() ([]cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) GetILoadBalancerCertificates() ([]cloudprovider.ICloudLoadbalancerCertificate, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
-func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
-	return nil, cloudprovider.ErrNotImplemented
 }
