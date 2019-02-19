@@ -37,8 +37,10 @@ func (s *ConnectionServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var srv http.Handler
 	protocol := sessionObj.GetProtocol()
 	switch protocol {
-	case session.VNC, session.SPICE, session.WMKS:
+	case session.VNC, session.SPICE:
 		srv, err = NewWebsockifyServer(sessionObj)
+	case session.WMKS:
+		srv, err = NewWebsocketProxyServer(sessionObj)
 	default:
 		srv, err = NewTTYServer(sessionObj)
 	}
