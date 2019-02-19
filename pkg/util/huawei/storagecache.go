@@ -159,6 +159,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	// create bucket
 	input := &obs.CreateBucketInput{}
 	input.Bucket = bucketName
+	input.Location = self.region.GetId()
 	_, err = obsClient.CreateBucket(input)
 	if err != nil {
 		return "", err
