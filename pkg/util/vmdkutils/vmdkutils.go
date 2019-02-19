@@ -28,7 +28,9 @@ func (info SVMDKInfo) Size() int64 {
 }
 
 const (
-	extentPatternString = `^RW \d+ VMFS\w* \"(?P<fn>[^"]+)`
+	//RW 20971520 VMFS "89334fec-7013-46cb-8d7b-8271cbe1a175_1-flat.vmdk"
+	//RW 62914560 SESPARSE "89334fec-7013-46cb-8d7b-8271cbe1a175-sesparse.vmdk"
+	extentPatternString = `^RW \d+ (VMFS|SESPARSE)\w* \"(?P<fn>[^"]+)`
 )
 
 var (
@@ -48,7 +50,7 @@ func ParseStream(stream io.Reader) (*SVMDKInfo, error) {
 		matches := extentPatternRegexp.FindStringSubmatch(line)
 		if len(matches) > 0 {
 			// log.Debugf("%#v", matches)
-			info.ExtentFile = matches[1]
+			info.ExtentFile = matches[2]
 			findExtent = true
 		} else {
 			equalPos := strings.IndexByte(line, '=')
