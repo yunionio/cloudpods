@@ -93,6 +93,10 @@
   version = "1.4.0"
 
 [[constraint]]
+  name = "github.com/koding/websocketproxy"
+  branch = "master"
+
+[[constraint]]
   branch = "master"
   name = "github.com/gosuri/uitable"
 

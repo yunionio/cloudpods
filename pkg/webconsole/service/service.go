@@ -58,11 +58,15 @@ func start() {
 	// api handler
 	root.PathPrefix(webconsole.ApiPathPrefix).Handler(app)
 
+	srv := server.NewConnectionServer()
 	// websocket command text console handler
-	root.Handle(webconsole.ConnectPathPrefix, server.NewConnectionServer())
+	root.Handle(webconsole.ConnectPathPrefix, srv)
 
 	// websockify graphic console handler
-	root.Handle(webconsole.WebsockifyPathPrefix, server.NewConnectionServer())
+	root.Handle(webconsole.WebsockifyPathPrefix, srv)
+
+	// websocketproxy handler
+	root.Handle(webconsole.WebsocketProxyPathPrefix, srv)
 
 	addr := net.JoinHostPort(o.Options.Address, strconv.Itoa(o.Options.Port))
 	log.Infof("Start listen on %s", addr)
