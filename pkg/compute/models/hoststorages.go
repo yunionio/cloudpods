@@ -190,7 +190,7 @@ func (self *SHoststorage) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.
 	wasted := storage.GetUsedCapacity(tristate.False)
 	extra.Add(jsonutils.NewInt(int64(used)), "used_capacity")
 	extra.Add(jsonutils.NewInt(int64(wasted)), "waste_capacity")
-	extra.Add(jsonutils.NewInt(int64(storage.Capacity-used-wasted)), "free_capacity")
+	extra.Add(jsonutils.NewInt(int64(storage.GetFreeCapacity())), "free_capacity")
 	extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
 	extra.Add(jsonutils.NewString(storage.MediumType), "medium_type")
 	extra.Add(jsonutils.NewBool(storage.Enabled), "enabled")

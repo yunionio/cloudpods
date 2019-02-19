@@ -22,9 +22,10 @@ import (
 )
 
 const (
-	ApiPathPrefix        = "/webconsole/"
-	ConnectPathPrefix    = "/connect/"
-	WebsockifyPathPrefix = "/websockify/"
+	ApiPathPrefix            = "/webconsole/"
+	ConnectPathPrefix        = "/connect/"
+	WebsockifyPathPrefix     = "/websockify/"
+	WebsocketProxyPathPrefix = "/wsproxy/"
 )
 
 func InitHandlers(app *appsrv.Application) {
