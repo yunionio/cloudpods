@@ -340,14 +340,31 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	usable := jsonutils.QueryBoolean(query, "usable", false)
 	if usable {
+		hosts := HostManager.Query().SubQuery()
 		hostwires := HostwireManager.Query().SubQuery()
 		networks := NetworkManager.Query().SubQuery()
+		providers := CloudproviderManager.Query().SubQuery()
 
-		hostQ := hostwires.Query(sqlchemy.DISTINCT("host_id", hostwires.Field("host_id")))
-		hostQ = hostQ.Join(networks, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
-		hostQ = hostQ.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		hostQ1 := hosts.Query(hosts.Field("id"))
+		hostQ1 = hostQ1.Join(providers, sqlchemy.Equals(hosts.Field("manager_id"), providers.Field("id")))
+		hostQ1 = hostQ1.Join(hostwires, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
+		hostQ1 = hostQ1.Join(networks, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
+		hostQ1 = hostQ1.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
+		hostQ1 = hostQ1.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
+		hostQ1 = hostQ1.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		hostQ1 = hostQ1.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 
-		q = q.In("id", hostQ.SubQuery())
+		hostQ2 := hosts.Query(hosts.Field("id"))
+		hostQ2 = hostQ2.Join(hostwires, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
+		hostQ2 = hostQ2.Join(networks, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
+		hostQ2 = hostQ2.Filter(sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")))
+		hostQ2 = hostQ2.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		hostQ2 = hostQ2.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("id"), hostQ1.SubQuery()),
+			sqlchemy.In(q.Field("id"), hostQ2.SubQuery()),
+		))
 	}
 
 	if query.Contains("baremetal") {
