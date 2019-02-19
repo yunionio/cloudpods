@@ -801,6 +801,14 @@
   version = "v1.1.5"
 
 [[projects]]
+  branch = "master"
+  digest = "1:81abe06bccf5e35235e8d6387508a4f3417393216e62bd4c2e383bbebd4b4fbb"
+  name = "github.com/koding/websocketproxy"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "7ed82d81a28c9ba1ed6fd1157ce714760f214c98"
+
+[[projects]]
   digest = "1:0a69a1c0db3591fcefb47f115b224592c8dfa4368b7ba9fae509d5e16cdc95c8"
   name = "github.com/konsorten/go-windows-terminal-sequences"
   packages = ["."]
@@ -1749,6 +1757,7 @@
     "github.com/anacrolix/torrent",
     "github.com/anacrolix/torrent/bencode",
     "github.com/anacrolix/torrent/metainfo",
+    "github.com/anacrolix/torrent/storage",
     "github.com/aokoli/goutils",
     "github.com/aws/aws-sdk-go/aws",
     "github.com/aws/aws-sdk-go/aws/credentials",
@@ -1794,6 +1803,7 @@
     "github.com/jinzhu/gorm",
     "github.com/jinzhu/gorm/dialects/mysql",
     "github.com/json-iterator/go",
+    "github.com/koding/websocketproxy",
     "github.com/kr/pty",
     "github.com/mholt/caddy",
     "github.com/mholt/caddy/startupshutdown",

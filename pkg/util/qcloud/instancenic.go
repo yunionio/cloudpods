@@ -25,7 +25,7 @@ func (self *SInstanceNic) GetDriver() string {
 }
 
 func (self *SInstanceNic) GetINetwork() cloudprovider.ICloudNetwork {
-	networkId := self.instance.VirtualPrivateCloud.VpcId
+	networkId := self.instance.VirtualPrivateCloud.SubnetId
 	wires, err := self.instance.host.GetIWires()
 	if err != nil {
 		return nil

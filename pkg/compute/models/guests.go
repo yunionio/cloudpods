@@ -2146,7 +2146,7 @@ func getCloudNicNetwork(vnic cloudprovider.ICloudNic, host *SHost) (*SNetwork, e
 			return nil, fmt.Errorf("Cannot find inetwork for vnics %s %s", vnic.GetMAC(), vnic.GetIP())
 		} else {
 			// find network by IP
-			return host.getNetworkOfIPOnHost(vnic.GetIP())
+			return host.getNetworkOfIPOnHost(ip)
 		}
 	}
 	localNetObj, err := NetworkManager.FetchByExternalId(vnet.GetGlobalId())

@@ -251,6 +251,7 @@ func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendDeleteTask(ctx context.
 func (man *SLoadbalancerBackendManager) getLoadbalancerBackendsByLoadbalancerBackendgroup(loadbalancerBackendgroup *SLoadbalancerBackendGroup) ([]SLoadbalancerBackend, error) {
 	loadbalancerBackends := []SLoadbalancerBackend{}
 	q := man.Query().Equals("backend_group_id", loadbalancerBackendgroup.Id)
+	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
 	if err := db.FetchModelObjects(man, q, &loadbalancerBackends); err != nil {
 		return nil, err
 	}
@@ -298,7 +299,7 @@ func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Con
 				syncResult.Delete()
 			}
 		} else {
-			err = removed[i].Delete(ctx, userCred)
+			err = removed[i].PendingDelete()
 			if err != nil {
 				syncResult.DeleteError(err)
 			} else {
@@ -366,6 +367,9 @@ func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx cont
 
 	lbb.BackendGroupId = loadbalancerBackendgroup.Id
 	lbb.ExternalId = extLoadbalancerBackend.GetGlobalId()
+
+	lbb.CloudregionId = loadbalancerBackendgroup.CloudregionId
+	lbb.ManagerId = loadbalancerBackendgroup.ManagerId
 
 	if err := lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend); err != nil {
 		return nil, err
