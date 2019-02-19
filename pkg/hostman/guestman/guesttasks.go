@@ -522,7 +522,7 @@ func NewGuestStreamDisksTask(ctx context.Context, guest *SKVMGuestInstance, call
 }
 
 func (s *SGuestStreamDisksTask) Start() {
-	s.Monitor.GetBlockJobs(s.onInitCheckStreamJobs)
+	s.Monitor.GetBlockJobCounts(s.onInitCheckStreamJobs)
 }
 
 func (s *SGuestStreamDisksTask) onInitCheckStreamJobs(jobs int) {
@@ -592,7 +592,7 @@ func (s *SGuestStreamDisksTask) startWaitBlockStream(res string) {
 				s.c = nil
 				return
 			case <-time.After(time.Second * 1):
-				s.Monitor.GetBlockJobs(s.checkStreamJobs)
+				s.Monitor.GetBlockJobCounts(s.checkStreamJobs)
 			}
 		}
 	}

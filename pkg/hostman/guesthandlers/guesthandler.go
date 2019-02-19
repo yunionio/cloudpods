@@ -161,9 +161,6 @@ func guestMonitor(ctx context.Context, sid string, body jsonutils.JSONObject) (i
 			return nil, err
 		} else {
 			var res = <-c
-			if len(res) > 1 {
-				res = res[1 : len(res)-1]
-			}
 			lines := strings.Split(res, "\\r\\n")
 
 			return strDict{"results": strings.Join(lines, "\n")}, nil

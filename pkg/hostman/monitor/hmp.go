@@ -11,6 +11,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
 
 type HmpMonitor struct {
@@ -299,13 +300,39 @@ func (m *HmpMonitor) GetMigrateStatus(callback StringCallback) {
 	m.Query("info migrate", cb)
 }
 
-func (m *HmpMonitor) GetBlockJobs(callback func(jobs int)) {
+func (m *HmpMonitor) GetBlockJobCounts(callback func(jobs int)) {
 	cb := func(output string) {
 		lines := strings.Split(output, "\n")
 		if lines[0] == "No active jobs" {
 			callback(0)
 		} else {
 			callback(len(lines))
+		}
+	}
+
+	m.Query("info block-jobs", cb)
+}
+
+func (m *HmpMonitor) GetBlockJobs(callback func(*jsonutils.JSONArray)) {
+	cb := func(output string) {
+		lines := strings.Split(output, "\n")
+		if lines[0] == "No active jobs" {
+			callback(nil)
+		} else {
+			res := jsonutils.NewArray()
+			re := regexp.MustCompile(`Type (?P<type>\w+), device (?P<device>\w+)`)
+			for i := 0; i < len(lines); i++ {
+				m := regutils2.GetParams(re, lines[i])
+				if len(m) > 0 {
+					jobType, _ := m["type"]
+					device, _ := m["device"]
+					jobInfo := jsonutils.NewDict()
+					jobInfo.Set("type", jsonutils.NewString(jobType))
+					jobInfo.Set("device", jsonutils.NewString(device))
+					res.Add(jobInfo)
+				}
+			}
+			callback(res)
 		}
 	}
 

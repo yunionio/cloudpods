@@ -2250,7 +2250,7 @@ func (self *SGuest) AllowPerformSwitchToBackup(ctx context.Context, userCred mcc
 }
 
 func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status == VM_BLOCK_STREAM {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
 		return nil, httperrors.NewBadRequestError("Cannot swith to backup when guest in status %s", self.Status)
 	}
 	if len(self.BackupHostId) == 0 {
