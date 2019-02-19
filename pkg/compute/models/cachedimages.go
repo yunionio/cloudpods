@@ -424,18 +424,22 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 func (image *SCachedimage) requestRefreshExternalImage(ctx context.Context, userCred mcclient.TokenCredential) (*cloudprovider.SImage, error) {
 	caches := image.getValidStoragecache()
 	if caches == nil || len(caches) == 0 {
+		log.Errorf("requestRefreshExternalImage: no valid storage cache")
 		return nil, fmt.Errorf("no valid storage cache")
 	}
 	iCache, err := caches[0].GetIStorageCache()
 	if err != nil {
+		log.Errorf("GetIStorageCache fail %s", err)
 		return nil, err
 	}
 	iImage, err := iCache.GetIImageById(image.ExternalId)
 	if err != nil {
+		log.Errorf("iCache.GetIImageById fail %s", err)
 		return nil, err
 	}
 	err = image.syncWithCloudImage(ctx, userCred, iImage)
 	if err != nil {
+		log.Errorf("image.syncWithCloudImage fail %s", err)
 		return nil, err
 	}
 	return image.GetImage()
