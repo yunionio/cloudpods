@@ -34,7 +34,7 @@ func getBmAgentUrl(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	ipAddr, _ := body.GetString("ip")
-	n, _ := models.NetworkManager.GetNetworkOfIP(ipAddr, "baremetal", tristate.None)
+	n, _ := models.NetworkManager.GetOnPremiseNetworkOfIP(ipAddr, "baremetal", tristate.None)
 	if n == nil {
 		httperrors.NotFoundError(w, "Network not found")
 		return

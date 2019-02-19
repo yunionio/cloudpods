@@ -595,20 +595,26 @@ func (self *SNetwork) isAddressUsed(address string) bool {
 	return false
 }
 
-func (manager *SNetworkManager) GetNetworkOfIP(ipAddr string, serverType string, isPublic tristate.TriState) (*SNetwork, error) {
+func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverType string, isPublic tristate.TriState) (*SNetwork, error) {
 	address, err := netutils.NewIPV4Addr(ipAddr)
 	if err != nil {
 		return nil, err
 	}
 	q := manager.Query()
+	wires := WireManager.Query().SubQuery()
+	vpcs := VpcManager.Query().SubQuery()
+	q = q.Join(wires, sqlchemy.Equals(q.Field("wire_id"), wires.Field("id")))
+	q = q.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
+	q = q.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
 	if len(serverType) > 0 {
-		q = q.Equals("server_type", serverType)
+		q = q.Filter(sqlchemy.Equals(q.Field("server_type"), serverType))
 	}
 	if isPublic.IsTrue() {
-		q = q.IsTrue("is_public")
+		q = q.Filter(sqlchemy.IsTrue(q.Field("is_public")))
 	} else if isPublic.IsFalse() {
-		q = q.IsFalse("is_public")
+		q = q.Filter(sqlchemy.IsFalse(q.Field("is_public")))
 	}
+
 	nets := make([]SNetwork, 0)
 	err = db.FetchModelObjects(manager, q, &nets)
 	if err != nil {

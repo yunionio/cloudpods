@@ -1342,7 +1342,7 @@ func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, 
 	host.SetModelManager(manager)
 
 	if izone == nil {
-		wire, err := WireManager.GetWireOfIp(extHost.GetAccessIp())
+		wire, err := WireManager.GetOnPremiseWireOfIp(extHost.GetAccessIp())
 		if err != nil {
 			msg := fmt.Sprintf("fail to find wire for host %s %s: %s", extHost.GetName(), extHost.GetAccessIp(), err)
 			log.Errorf(msg)
@@ -2783,13 +2783,13 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 		}
 		sw = iWire.(*SWire)
 	} else if len(ipAddr) > 0 && len(wire) == 0 {
-		ipWire, err := WireManager.GetWireOfIp(ipAddr)
+		ipWire, err := WireManager.GetOnPremiseWireOfIp(ipAddr)
 		if err != nil {
 			return httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
 		}
 		sw = ipWire
 	} else if len(wire) > 0 && len(ipAddr) > 0 {
-		ipWire, err := WireManager.GetWireOfIp(ipAddr)
+		ipWire, err := WireManager.GetOnPremiseWireOfIp(ipAddr)
 		if err != nil {
 			return httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
 		}

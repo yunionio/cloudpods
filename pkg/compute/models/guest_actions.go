@@ -2708,7 +2708,7 @@ func (self *SGuest) importNics(ctx context.Context, userCred mcclient.TokenCrede
 		return httperrors.NewInputParameterError("Empty import nics")
 	}
 	for _, nic := range nics {
-		net, err := NetworkManager.GetNetworkOfIP(nic.Ip, "", tristate.None)
+		net, err := NetworkManager.GetOnPremiseNetworkOfIP(nic.Ip, "", tristate.None)
 		if err != nil {
 			return httperrors.NewNotFoundError("Not found network by ip %s", nic.Ip)
 		}
