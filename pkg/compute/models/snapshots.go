@@ -17,7 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
- )
+)
 
 const (
 	// create by
@@ -137,7 +137,6 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		sq := cloudproviderTbl.Query(cloudproviderTbl.Field("id")).Equals("provider", provider)
 		q = q.In("manager_id", sq)
 	}*/
-
 
 	/*if managerStr := jsonutils.GetAnyString(query, []string{"manager", "manager_id"}); len(managerStr) > 0 {
 		managerObj, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)

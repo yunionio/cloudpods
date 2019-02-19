@@ -127,7 +127,7 @@ func GetPublicProviders() []string {
 func GetPrivateProviders() []string {
 	providers := make([]string, 0)
 	for p, d := range providerTable {
-		if ! d.IsPublicCloud() {
+		if !d.IsPublicCloud() {
 			providers = append(providers, p)
 		}
 	}
@@ -137,7 +137,7 @@ func GetPrivateProviders() []string {
 func GetOnPremiseProviders() []string {
 	providers := make([]string, 0)
 	for p, d := range providerTable {
-		if ! d.IsPublicCloud() && d.IsOnPremise() {
+		if !d.IsPublicCloud() && d.IsOnPremise() {
 			providers = append(providers, p)
 		}
 	}

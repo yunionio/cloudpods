@@ -35,8 +35,8 @@ func init() {
 		Account  string `help:"List objects belonging to the cloud account"`
 		Provider string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|Openstack"`
 
-		IsPrivate *bool `help:"show private cloud regions only" json:"is_private" token:"private"`
-		IsPublic  *bool `help:"show public cloud regions only" json:"is_public" token:"public"`
+		PublicCloud  *bool `help:"List objects belonging to public cloud" json:"public_cloud"`
+		PrivateCloud *bool `help:"List objects belonging to private cloud" json:"private_cloud"`
 
 		Usable    *bool `help:"List regions where networks are usable"`
 		UsableVpc *bool `help:"List regions where VPC are usable"`

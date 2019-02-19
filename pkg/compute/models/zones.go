@@ -600,8 +600,8 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
 		subq = subq.Filter(sqlchemy.OR(
-				sqlchemy.In(regions.Field("provider"), cloudprovider.GetPrivateProviders()),
-				sqlchemy.IsNullOrEmpty(regions.Field("provider")),
+			sqlchemy.In(regions.Field("provider"), cloudprovider.GetPrivateProviders()),
+			sqlchemy.IsNullOrEmpty(regions.Field("provider")),
 		))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
