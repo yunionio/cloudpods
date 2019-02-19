@@ -41,6 +41,7 @@ func NewImageManager(regionId string, projectId string, signer auth.Signer, debu
 	}}
 }
 
+//https://support.huaweicloud.com/api-ims/zh-cn_topic_0020091566.html
 func (self *SImageManager) Get(id string, querys map[string]string) (jsonutils.JSONObject, error) {
 	if querys == nil {
 		querys = make(map[string]string, 0)
@@ -48,9 +49,9 @@ func (self *SImageManager) Get(id string, querys map[string]string) (jsonutils.J
 
 	querys["id"] = id
 	// 这里默认使用private
-	if t, exists := querys["__imagetype"]; !exists || len(t) == 0 {
-		querys["__imagetype"] = "private"
-	}
+	// if t, exists := querys["__imagetype"]; !exists || len(t) == 0 {
+	// 	querys["__imagetype"] = "private"
+	// }
 
 	ret, err := self.ListInContext(nil, querys)
 	if err != nil {
