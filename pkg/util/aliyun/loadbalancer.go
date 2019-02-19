@@ -237,9 +237,9 @@ func (lb *SLoadbalancer) GetLoadbalancerSpec() string {
 func (lb *SLoadbalancer) GetChargeType() string {
 	switch lb.InternetChargeType {
 	case "paybybandwidth":
-		return "bandwidth"
+		return models.LB_CHARGE_TYPE_BY_BANDWIDTH
 	case "paybytraffic":
-		return "traffic"
+		return models.LB_CHARGE_TYPE_BY_TRAFFIC
 	}
 	return "unknown"
 }
