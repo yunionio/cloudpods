@@ -39,6 +39,7 @@ func init() {
 const (
 	LB_CHARGE_TYPE_BY_TRAFFIC   = "traffic"
 	LB_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
+	LB_CHARGE_TYPE_BY_HOUR      = "hour"
 )
 
 // TODO build errors on pkg/httperrors/errors.go
@@ -66,7 +67,8 @@ type SLoadbalancer struct {
 	ChargeType       string `list:"user" get:"user" create:"optional"`
 	LoadbalancerSpec string `list:"user" get:"user" create:"optional"`
 
-	BackendGroupId string `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" update:"user"`
+	BackendGroupId string               `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" update:"user"`
+	LBInfo         jsonutils.JSONObject `charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_optional"`
 }
 
 func (man *SLoadbalancerManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -551,6 +553,10 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 		lb.ProjectId = provider.ProjectId
 	}
 
+	if extLb.GetMetadata() != nil {
+		lb.LBInfo = extLb.GetMetadata()
+	}
+
 	if err := man.TableSpec().Insert(&lb); err != nil {
 		log.Errorf("newFromCloudRegion fail %s", err)
 		return nil, err
@@ -580,6 +586,10 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		lb.Name = extLb.GetName()
 		lb.LoadbalancerSpec = extLb.GetLoadbalancerSpec()
 		lb.ChargeType = extLb.GetChargeType()
+
+		if extLb.GetMetadata() != nil {
+			lb.LBInfo = extLb.GetMetadata()
+		}
 
 		if projectSync && len(projectId) > 0 {
 			lb.ProjectId = projectId

@@ -42,6 +42,23 @@ type SLoadbalancerHTTPRateLimiter struct {
 	HTTPRequestRatePerSrc int `nullable:"false" list:"user" create:"optional" update:"user"`
 }
 
+type SLoadbalancerHealthCheck struct {
+	HealthCheck     string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+
+	HealthCheckDomain   string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckURI      string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckHttpCode string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+
+	HealthCheckRise     int `nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckFall     int `nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckTimeout  int `nullable:"false" list:"user" create:"optional" update:"user"`
+	HealthCheckInterval int `nullable:"false" list:"user" create:"optional" update:"user"`
+
+	HealthCheckReq string `list:"user" create:"optional" update:"user"`
+	HealthCheckExp string `list:"user" create:"optional" update:"user"`
+}
+
 type SLoadbalancerTCPListener struct{}
 type SLoadbalancerUDPListener struct{}
 
@@ -90,26 +107,12 @@ type SLoadbalancerListener struct {
 	AclType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	AclId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 
-	HealthCheck     string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-
-	HealthCheckDomain   string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckURI      string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckHttpCode string `charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-
-	HealthCheckRise     int `nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckFall     int `nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckTimeout  int `nullable:"false" list:"user" create:"optional" update:"user"`
-	HealthCheckInterval int `nullable:"false" list:"user" create:"optional" update:"user"`
-
-	HealthCheckReq string `list:"user" create:"optional" update:"user"`
-	HealthCheckExp string `list:"user" create:"optional" update:"user"`
-
 	SLoadbalancerTCPListener
 	SLoadbalancerUDPListener
 	SLoadbalancerHTTPListener
 	SLoadbalancerHTTPSListener
 
+	SLoadbalancerHealthCheck
 	SLoadbalancerHTTPRateLimiter
 }
 
@@ -218,9 +221,17 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		}
 	}
 	{
-		if backendGroup, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && backendGroup.LoadbalancerId != lb.Id {
+		if lbbg, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != lb.Id {
 			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
-				backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lb.Id)
+				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, lb.Id)
+		} else {
+			// 腾讯云backend group只能1v1关联
+			if lb.GetProviderName() == CLOUD_PROVIDER_QCLOUD {
+				count := lbbg.RefCount()
+				if count > 0 {
+					return nil, fmt.Errorf("backendgroup aready related with other listener/rule")
+				}
+			}
 		}
 	}
 	{
@@ -763,6 +774,18 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(lb *SLoadba
 		lblis.Gzip = extListener.GzipEnabled()
 	}
 	groupId := extListener.GetBackendGroupId()
+	// 腾讯云兼容代码。主要目的是在关联listen时回写一个fake的backend group external id
+	if len(groupId) > 0 && len(lblis.BackendGroupId) > 0 {
+		ilbbg, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
+		lbbg := ilbbg.(*SLoadbalancerBackendGroup)
+		if err == nil && (len(lbbg.ExternalId) == 0 || lbbg.ExternalId != groupId) {
+			err = lbbg.SetExternalId(groupId)
+			if err != nil {
+				log.Errorf("Update loadbalancer BackendGroup(%s) external id failed: %s", lbbg.GetId(), err)
+			}
+		}
+	}
+
 	if len(groupId) == 0 {
 		lblis.BackendGroupId = lb.BackendGroupId
 	} else if group, err := LoadbalancerBackendGroupManager.FetchByExternalId(groupId); err == nil {
