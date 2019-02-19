@@ -80,7 +80,7 @@ func (self *SAliyunProviderFactory) GetProvider(providerId, providerName, url, a
 	}
 	return &SAliyunProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(self),
-		client: client,
+		client:        client,
 	}, nil
 }
 

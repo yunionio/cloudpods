@@ -615,7 +615,24 @@ func (manager *SWireManager) GetWireOfIp(ipAddr string) (*SWire, error) {
 }
 
 func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	var err error
+
+	q, err = managedResourceFilterByAccount(q, query, "vpc_id", func() *sqlchemy.SQuery {
+		vpcs := VpcManager.Query().SubQuery()
+		subq := vpcs.Query(vpcs.Field("id"))
+		return subq
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	q = managedResourceFilterByCloudType(q, query, "vpc_id", func() *sqlchemy.SQuery {
+		vpcs := VpcManager.Query().SubQuery()
+		subq := vpcs.Query(vpcs.Field("id"))
+		return subq
+	})
+
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -647,7 +664,7 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("vpc_id", sq.SubQuery())
 	}
 
-	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	/*managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
 	if len(managerStr) > 0 {
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 		if err != nil {
@@ -688,7 +705,7 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
 
 		q = q.Filter(sqlchemy.In(q.Field("vpc_id"), subq.SubQuery()))
-	}
+	}*/
 
 	return q, err
 }

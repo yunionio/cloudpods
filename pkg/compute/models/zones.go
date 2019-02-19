@@ -596,29 +596,65 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		return nil, err
 	}
 
-	if jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private", false) {
-		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("external_id")),
-			sqlchemy.IsEmpty(q.Field("external_id"))))
+	if jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private", false) || jsonutils.QueryBoolean(query, "private_cloud", false) {
+		regions := CloudregionManager.Query().SubQuery()
+		subq := regions.Query(regions.Field("id"))
+		subq = subq.Filter(sqlchemy.OR(
+				sqlchemy.In(regions.Field("provider"), cloudprovider.GetPrivateProviders()),
+				sqlchemy.IsNullOrEmpty(regions.Field("provider")),
+		))
+		q = q.In("cloudregion_id", subq.SubQuery())
 	}
-	if jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public", false) {
-		q = q.Filter(sqlchemy.AND(sqlchemy.IsNotNull(q.Field("external_id")),
-			sqlchemy.IsNotEmpty(q.Field("external_id"))))
+	if jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public", false) || jsonutils.QueryBoolean(query, "public_cloud", false) {
+		regions := CloudregionManager.Query().SubQuery()
+		subq := regions.Query(regions.Field("id"))
+		subq = subq.Filter(sqlchemy.In(regions.Field("provider"), cloudprovider.GetPublicProviders()))
+		q = q.In("cloudregion_id", subq.SubQuery())
+	}
+	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+		regions := CloudregionManager.Query().SubQuery()
+		subq := regions.Query(regions.Field("id"))
+		subq = subq.Filter(sqlchemy.OR(
+			sqlchemy.In(regions.Field("provider"), cloudprovider.GetOnPremiseProviders()),
+			sqlchemy.IsNullOrEmpty(regions.Field("provider")),
+		))
+		q = q.In("cloudregion_id", subq.SubQuery())
+	}
+	if jsonutils.QueryBoolean(query, "is_managed", false) {
+		q = q.IsNotEmpty("external_id")
 	}
 
 	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {
 		usableNet := jsonutils.QueryBoolean(query, "usable", false)
 		usableVpc := jsonutils.QueryBoolean(query, "usable_vpc", false)
 
-		networks := NetworkManager.Query().SubQuery()
-		wires := WireManager.Query().SubQuery()
-		vpcs := VpcManager.Query().SubQuery()
-		providers := CloudproviderManager.Query().SubQuery()
-		zones := ZoneManager.Query().SubQuery()
+		sq1 := manager.usableZoneQ1(
+			CloudproviderManager.Query().SubQuery(),
+			VpcManager.Query().SubQuery(),
+			WireManager.Query().SubQuery(),
+			NetworkManager.Query().SubQuery(),
+			usableNet, usableVpc)
 
-		sq1 := manager.usableZoneQ1(providers, vpcs, wires, networks, usableNet, usableVpc)
-		sq2 := manager.usableZoneQ2(vpcs, wires, networks, usableNet, usableVpc)
-		sq3 := manager.usableZoneQ3(providers, vpcs, wires, networks, zones, usableNet, usableVpc)
-		sq4 := manager.usableZoneQ4(vpcs, wires, networks, zones, usableNet, usableVpc)
+		sq2 := manager.usableZoneQ2(
+			VpcManager.Query().SubQuery(),
+			WireManager.Query().SubQuery(),
+			NetworkManager.Query().SubQuery(),
+			usableNet, usableVpc)
+
+		sq3 := manager.usableZoneQ3(
+			CloudproviderManager.Query().SubQuery(),
+			VpcManager.Query().SubQuery(),
+			WireManager.Query().SubQuery(),
+			NetworkManager.Query().SubQuery(),
+			ZoneManager.Query().SubQuery(),
+			usableNet, usableVpc)
+
+		sq4 := manager.usableZoneQ4(
+			VpcManager.Query().SubQuery(),
+			WireManager.Query().SubQuery(),
+			NetworkManager.Query().SubQuery(),
+			ZoneManager.Query().SubQuery(),
+			usableNet, usableVpc)
 
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("id"), sq1),
@@ -628,6 +664,7 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		))
 		q = q.Equals("status", ZONE_ENABLE)
 	}
+
 	managerStr, _ := query.GetString("manager")
 	if len(managerStr) > 0 {
 		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)

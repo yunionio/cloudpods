@@ -872,5 +872,18 @@ func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlc
 		provider := providerObj.(*SCloudprovider)
 		q = q.Equals("id", provider.CloudaccountId)
 	}
+
+	if jsonutils.QueryBoolean(query, "public_cloud", false) {
+		q = q.IsTrue("is_public_cloud")
+	}
+
+	if jsonutils.QueryBoolean(query, "private_cloud", false) {
+		q = q.IsFalse("is_public_cloud")
+	}
+
+	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+		q = q.IsTrue("is_on_premise").IsFalse("is_public_cloud")
+	}
+
 	return q, nil
 }

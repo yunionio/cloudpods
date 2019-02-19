@@ -5,24 +5,23 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
+	"strconv"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -32,8 +31,9 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 const (
@@ -259,6 +259,19 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		return nil, fmt.Errorf("invalid querystring format")
 	}
 
+	var err error
+	q, err = managedResourceFilterByAccount(q, query, "storage_id", func() *sqlchemy.SQuery {
+		hosts := HostManager.Query().SubQuery()
+		return hosts.Query(hosts.Field("id"))
+	})
+	if err != nil {
+		return nil, err
+	}
+	q = managedResourceFilterByCloudType(q, query, "storage_id", func() *sqlchemy.SQuery {
+		hosts := HostManager.Query().SubQuery()
+		return hosts.Query(hosts.Field("id"))
+	})
+
 	billingTypeStr, _ := queryDict.GetString("billing_type")
 	if len(billingTypeStr) > 0 {
 		if billingTypeStr == BILLING_TYPE_POSTPAID {
@@ -274,7 +287,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		queryDict.Remove("billing_type")
 	}
 
-	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +411,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
-	managerFilter, _ := queryDict.GetString("manager")
+	/*managerFilter, _ := queryDict.GetString("manager")
 	if len(managerFilter) > 0 {
 		managerI, _ := CloudproviderManager.FetchByIdOrName(userCred, managerFilter)
 		if managerI == nil {
@@ -438,7 +451,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
 
 		q = q.Filter(sqlchemy.In(q.Field("host_id"), subq.SubQuery()))
-	}
+	}*/
 
 	regionFilter, _ := queryDict.GetString("region")
 	if len(regionFilter) > 0 {

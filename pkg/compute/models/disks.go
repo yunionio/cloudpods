@@ -132,6 +132,18 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		return nil, fmt.Errorf("invalid querystring format")
 	}
 
+	var err error
+	storages := StorageManager.Query().SubQuery()
+	q, err = managedResourceFilterByAccount(q, query, "storage_id", func() *sqlchemy.SQuery {
+		return storages.Query(storages.Field("id"))
+	})
+	if err != nil {
+		return nil, err
+	}
+	q = managedResourceFilterByCloudType(q, query, "storage_id", func() *sqlchemy.SQuery {
+		return storages.Query(storages.Field("id"))
+	})
+
 	billingTypeStr, _ := queryDict.GetString("billing_type")
 	if len(billingTypeStr) > 0 {
 		if billingTypeStr == BILLING_TYPE_POSTPAID {
@@ -147,7 +159,7 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		queryDict.Remove("billing_type")
 	}
 
-	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -162,24 +174,45 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		}
 	}
 
-	storages := StorageManager.Query().SubQuery()
 	if jsonutils.QueryBoolean(query, "share", false) {
 		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.NotIn(storages.Field("storage_type"), STORAGE_LOCAL_TYPES))
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	}
-	publicProviderIds := CloudproviderManager.GetPublicProviderIds()
-	if jsonutils.QueryBoolean(query, "public_cloud", false) {
-		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.In(storages.Field("manager_id"), publicProviderIds))
+
+	/*if jsonutils.QueryBoolean(query, "public_cloud", false) {
+		sq :=
+		sq = sq.Filter(sqlchemy.In(storages.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
+
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
-	} else if jsonutils.QueryBoolean(query, "private_cloud", false) {
-		sq := storages.Query(storages.Field("id")).Filter(
+	}
+
+	if jsonutils.QueryBoolean(query, "private_cloud", false) {
+		sq := storages.Query(storages.Field("id"))
+		sq = sq.Filter(
 			sqlchemy.OR(
-				sqlchemy.NotIn(storages.Field("manager_id"), publicProviderIds),
+				sqlchemy.In(storages.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()),
 				sqlchemy.IsNullOrEmpty(storages.Field("manager_id")),
 			),
 		)
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	}
+
+	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+		sq := storages.Query(storages.Field("id"))
+		sq = sq.Filter(
+			sqlchemy.OR(
+				sqlchemy.In(storages.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
+				sqlchemy.IsNullOrEmpty(storages.Field("manager_id")),
+			),
+		)
+		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
+	}
+
+	if jsonutils.QueryBoolean(query, "is_managed", false) {
+		sq := storages.Query(storages.Field("id"))
+		sq = sq.Filter(sqlchemy.IsNotEmpty(storages.Field("manager_id")))
+		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
+	}*/
 
 	if jsonutils.QueryBoolean(query, "local", false) {
 		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.In(storages.Field("storage_type"), STORAGE_LOCAL_TYPES))
@@ -211,7 +244,7 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.Filter(sqlchemy.Equals(q.Field("storage_id"), storageObj.GetId()))
 	}
 
-	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	/* managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
 	if len(managerStr) > 0 {
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 		if err != nil {
@@ -249,7 +282,7 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		sq = sq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), provier))
 
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq.SubQuery()))
-	}
+	}*/
 
 	if diskType := jsonutils.GetAnyString(query, []string{"type", "disk_type"}); diskType != "" {
 		q = q.Filter(sqlchemy.Equals(q.Field("disk_type"), diskType))

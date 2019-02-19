@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"net"
 	"reflect"
 	"strings"
@@ -103,7 +102,14 @@ type SRouteTable struct {
 }
 
 func (man *SRouteTableManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	var err error
+	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	q = managedResourceFilterByCloudType(q, query, "", nil)
+
+	q, err = man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +124,7 @@ func (man *SRouteTableManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 		return nil, err
 	}
 
-	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	/*managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
 	if len(managerStr) > 0 {
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 		if err != nil {
@@ -159,7 +165,7 @@ func (man *SRouteTableManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
 
 		q = q.Filter(sqlchemy.In(q.Field("vpc_id"), subq.SubQuery()))
-	}
+	}*/
 
 	return q, nil
 }

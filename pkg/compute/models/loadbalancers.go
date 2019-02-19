@@ -70,7 +70,14 @@ type SLoadbalancer struct {
 }
 
 func (man *SLoadbalancerManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	var err error
+	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	q = managedResourceFilterByCloudType(q, query, "", nil)
+
+	q, err = man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}

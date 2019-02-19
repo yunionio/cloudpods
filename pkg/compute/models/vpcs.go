@@ -543,9 +543,14 @@ func (self *SVpc) PerformPurge(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	queryDict := query.(*jsonutils.JSONDict)
+	var err error
+	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	q = managedResourceFilterByCloudType(q, query, "", nil)
 
-	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	/*managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
 	if len(managerStr) > 0 {
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 		if err != nil {
@@ -556,14 +561,14 @@ func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 		}
 		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
 		queryDict.Remove("manager_id")
-	}
+	}*/
 
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
 
-	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	/* accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
 	if len(accountStr) > 0 {
 		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
 		if err != nil {
@@ -580,7 +585,7 @@ func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	if len(providerStr) > 0 {
 		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
 		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}
+	}*/
 
 	return q, nil
 }

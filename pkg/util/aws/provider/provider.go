@@ -83,7 +83,7 @@ func (self *SAwsProviderFactory) GetProvider(providerId, providerName, url, acco
 	}
 	return &SAwsProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(self),
-		client: client,
+		client:        client,
 	}, nil
 }
 

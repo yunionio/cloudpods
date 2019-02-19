@@ -113,3 +113,33 @@ func (provider *SBaseProvider) GetFactory() ICloudProviderFactory {
 func NewBaseProvider(factory ICloudProviderFactory) SBaseProvider {
 	return SBaseProvider{factory: factory}
 }
+
+func GetPublicProviders() []string {
+	providers := make([]string, 0)
+	for p, d := range providerTable {
+		if d.IsPublicCloud() {
+			providers = append(providers, p)
+		}
+	}
+	return providers
+}
+
+func GetPrivateProviders() []string {
+	providers := make([]string, 0)
+	for p, d := range providerTable {
+		if ! d.IsPublicCloud() {
+			providers = append(providers, p)
+		}
+	}
+	return providers
+}
+
+func GetOnPremiseProviders() []string {
+	providers := make([]string, 0)
+	for p, d := range providerTable {
+		if ! d.IsPublicCloud() && d.IsOnPremise() {
+			providers = append(providers, p)
+		}
+	}
+	return providers
+}

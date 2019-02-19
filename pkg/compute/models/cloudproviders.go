@@ -12,14 +12,15 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/yunioncloud/pkg/tristate"
 )
 
 const (
@@ -138,42 +139,35 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (manager *SCloudproviderManager) GetPublicProviderIds() []string {
-	return manager.GetProviderIds(true)
+func (manager *SCloudproviderManager) GetPublicProviderIdsQuery() *sqlchemy.SSubQuery {
+	return manager.GetProviderIdsQuery(tristate.True, tristate.None)
 }
 
-func (manager *SCloudproviderManager) GetPrivateProviderIds() []string {
-	return manager.GetProviderIds(false)
+func (manager *SCloudproviderManager) GetPrivateProviderIdsQuery() *sqlchemy.SSubQuery {
+	return manager.GetProviderIdsQuery(tristate.False, tristate.None)
 }
 
-func (manager *SCloudproviderManager) GetProviderIds(isPublic bool) []string {
-	providerIds := []string{}
+func (manager *SCloudproviderManager) GetOnPremiseProviderIdsQuery() *sqlchemy.SSubQuery {
+	return manager.GetProviderIdsQuery(tristate.False, tristate.True)
+}
+
+func (manager *SCloudproviderManager) GetProviderIdsQuery(isPublic tristate.TriState, isOnPremise tristate.TriState) *sqlchemy.SSubQuery {
 	q := manager.Query("id")
 	account := CloudaccountManager.Query().SubQuery()
 	q = q.Join(account, sqlchemy.Equals(
 		account.Field("id"), q.Field("cloudaccount_id")),
 	)
-	if isPublic {
+	if isPublic.IsTrue() {
 		q = q.Filter(sqlchemy.IsTrue(account.Field("is_public_cloud")))
-	} else {
+	} else if isPublic.IsFalse() {
 		q = q.Filter(sqlchemy.IsFalse(account.Field("is_public_cloud")))
 	}
-	rows, err := q.Rows()
-	if err != nil {
-		log.Errorf("Get providerIds err: %v", err)
-		return providerIds
+	if isOnPremise.IsTrue() {
+		q = q.Filter(sqlchemy.IsTrue(account.Field("is_on_premise")))
+	} else if isOnPremise.IsFalse() {
+		q = q.Filter(sqlchemy.IsTrue(account.Field("is_on_premise")))
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var providerId string
-		err = rows.Scan(&providerId)
-		if err != nil {
-			log.Errorf("Get providerId err: %v", err)
-			return providerIds
-		}
-		providerIds = append(providerIds, providerId)
-	}
-	return providerIds
+	return q.SubQuery()
 }
 
 func (self *SCloudprovider) CleanSchedCache() {
@@ -758,5 +752,25 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 		}
 		q = q.Equals("id", providerObj.GetId())
 	}
+
+	if jsonutils.QueryBoolean(query, "public_cloud", false) {
+		cloudaccounts := CloudaccountManager.Query().SubQuery()
+		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudaccounts.Field("id"), q.Field("cloudaccount_id")))
+		q = q.Filter(sqlchemy.IsTrue(cloudaccounts.Field("is_public_cloud")))
+	}
+
+	if jsonutils.QueryBoolean(query, "private_cloud", false) {
+		cloudaccounts := CloudaccountManager.Query().SubQuery()
+		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudaccounts.Field("id"), q.Field("cloudaccount_id")))
+		q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("is_public_cloud")))
+	}
+
+	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+		cloudaccounts := CloudaccountManager.Query().SubQuery()
+		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudaccounts.Field("id"), q.Field("cloudaccount_id")))
+		q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("is_public_cloud")))
+		q = q.Filter(sqlchemy.IsTrue(cloudaccounts.Field("is_on_premise")))
+	}
+
 	return q, nil
 }

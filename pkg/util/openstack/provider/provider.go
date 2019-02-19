@@ -104,7 +104,7 @@ func (self *SOpenStackProviderFactory) GetProvider(providerId, providerName, url
 	}
 	return &SOpenStackProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(self),
-		client: client,
+		client:        client,
 	}, nil
 }
 

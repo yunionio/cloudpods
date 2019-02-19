@@ -196,6 +196,13 @@ func (self *SHost) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	q = managedResourceFilterByCloudType(q, query, "", nil)
+
 	queryDict := query.(*jsonutils.JSONDict)
 
 	resType, _ := query.GetString("resource_type")
@@ -215,10 +222,11 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		}
 	}
 
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
+
 	anyMac, _ := query.GetString("any_mac")
 	if len(anyMac) > 0 {
 		anyMac := netutils.FormatMacAddr(anyMac)
@@ -298,7 +306,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	// zone
 	// cachedimage
 
-	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	/*managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
 	if len(managerStr) > 0 {
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 		if err != nil {
@@ -328,7 +336,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	if len(providerStr) > 0 {
 		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
 		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}
+	}*/
 
 	usable := jsonutils.QueryBoolean(query, "usable", false)
 	if usable {

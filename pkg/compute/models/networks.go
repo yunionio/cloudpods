@@ -1386,7 +1386,29 @@ func (manager *SNetworkManager) CustomizeFilterList(ctx context.Context, q *sqlc
 }
 
 func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	var err error
+
+	q, err = managedResourceFilterByAccount(q, query, "wire_id", func() *sqlchemy.SQuery {
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+
+		subq := wires.Query(wires.Field("id"))
+		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		return subq
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	q = managedResourceFilterByCloudType(q, query, "wire_id", func() *sqlchemy.SQuery {
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		subq := wires.Query(wires.Field("id"))
+		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		return subq
+	})
+
+	q, err = manager.SSharableVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -1430,7 +1452,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
 
-	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	/*managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
 	if len(managerStr) > 0 {
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 		if err != nil {
@@ -1484,9 +1506,9 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
 
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
-	}
+	}*/
 
-	if query.Contains("is_private") && jsonutils.QueryBoolean(query, "is_private", false) {
+	/*if query.Contains("is_private") && jsonutils.QueryBoolean(query, "is_private", false) {
 		wires := WireManager.Query().SubQuery()
 		vpcs := VpcManager.Query().SubQuery()
 		subq := wires.Query(wires.Field("id"))
@@ -1502,7 +1524,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
 		subq = subq.Filter(sqlchemy.IsNotEmpty(vpcs.Field("manager_id")))
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
-	}
+	}*/
 
 	return q, nil
 }
