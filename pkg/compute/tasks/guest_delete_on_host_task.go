@@ -20,17 +20,17 @@ type GuestDeleteOnHostTask struct {
 }
 
 func (self *GuestDeleteOnHostTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
 	hostId, err := self.Params.GetString("host_id")
 	if err != nil {
-		self.SetStageFailed(ctx, "Missing param host id")
+		self.OnFail(ctx, guest, "Missing param host id")
 		return
 	}
 	host := models.HostManager.FetchHostById(hostId)
 	if host == nil {
-		self.SetStageFailed(ctx, "Host is nil")
+		self.OnFail(ctx, guest, "Host is nil")
 		return
 	}
-	guest := obj.(*models.SGuest)
 
 	self.SetStage("OnStopGuest", nil)
 	self.Params.Set("is_force", jsonutils.JSONTrue)
@@ -52,7 +52,7 @@ func (self *GuestDeleteOnHostTask) OnStopGuest(ctx context.Context, guest *model
 		storage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
 		if storage != nil && !isPurge {
 			if err := host.GetHostDriver().RequestDeallocateBackupDiskOnHost(ctx, host, storage, disk, self); err != nil {
-				self.SetStageFailed(ctx, err.Error())
+				self.OnFail(ctx, guest, err.Error())
 				return
 			}
 		}
@@ -61,7 +61,7 @@ func (self *GuestDeleteOnHostTask) OnStopGuest(ctx context.Context, guest *model
 			return nil
 		})
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.OnFail(ctx, guest, err.Error())
 			return
 		}
 	}
@@ -75,15 +75,27 @@ func (self *GuestDeleteOnHostTask) OnStopGuest(ctx context.Context, guest *model
 
 func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	hostId, _ := self.Params.GetString("host_id")
+	oldStatus, _ := self.Params.GetString("old_status")
 	if guest.BackupHostId == hostId {
 		_, err := models.GuestManager.TableSpec().Update(guest, func() error {
 			guest.BackupHostId = ""
+			if len(oldStatus) > 0 {
+				guest.Status = oldStatus
+			}
 			return nil
 		})
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.OnFail(ctx, guest, err.Error())
 			return
 		}
 	}
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *GuestDeleteOnHostTask) OnFail(ctx context.Context, guest *models.SGuest, reason string) {
+	failedStatus, _ := self.Params.GetString("failed_status")
+	if len(failedStatus) > 0 {
+		guest.SetStatus(self.UserCred, failedStatus, reason)
+	}
+	self.SetStageFailed(ctx, reason)
 }
