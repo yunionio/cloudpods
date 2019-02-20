@@ -516,6 +516,7 @@ func (self *SGuest) NotifyServerEvent(userCred mcclient.TokenCredential, event s
 	}
 	kwargs := jsonutils.NewDict()
 	kwargs.Add(jsonutils.NewString(self.Name), "name")
+	kwargs.Add(jsonutils.NewString(self.Hypervisor), "hypervisor")
 	if loginInfo {
 		kwargs.Add(jsonutils.NewString(self.getNotifyIps()), "ips")
 		osName := meta["os_name"]
@@ -545,6 +546,7 @@ func (self *SGuest) NotifyServerEvent(userCred mcclient.TokenCredential, event s
 func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, priority notify.TNotifyPriority) {
 	kwargs := jsonutils.NewDict()
 	kwargs.Add(jsonutils.NewString(self.Name), "name")
+	kwargs.Add(jsonutils.NewString(self.Hypervisor), "hypervisor")
 	tc, _ := self.GetTenantCache(ctx)
 	if tc != nil {
 		kwargs.Add(jsonutils.NewString(tc.Name), "tenant")
