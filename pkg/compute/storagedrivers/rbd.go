@@ -33,7 +33,7 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 			return nil, httperrors.NewMissingParameterError(v)
 		}
 		value, _ := data.GetString(v)
-		conf.Add(jsonutils.NewString(value), strings.TrimLeft(v, "rbd_"))
+		conf.Add(jsonutils.NewString(value), strings.TrimPrefix(v, "rbd_"))
 	}
 	if key, _ := data.GetString("rbd_key"); len(key) > 0 {
 		conf.Add(jsonutils.NewString(key), "key")

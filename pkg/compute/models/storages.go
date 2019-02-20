@@ -129,7 +129,7 @@ type SStorage struct {
 	StoragecacheId string `width:"36" charset:"ascii" nullable:"true" list:"admin" get:"admin" update:"admin" create:"optional"`
 
 	Enabled bool   `nullable:"false" default:"true" list:"user" create:"optional"`
-	Status  string `width:"36" charset:"ascii" nullable:"false" default:"offline" list:"user" create:"optional"`
+	Status  string `width:"36" charset:"ascii" nullable:"false" default:"offline" update:"admin" list:"user" create:"optional"`
 
 	// indicating whether system disk can be allocated in this storage
 	IsSysDiskStore bool `nullable:"false" default:"true" list:"user" create:"optional" update:"admin"`

@@ -1,0 +1,94 @@
+package storageman
+
+import (
+	"context"
+	"fmt"
+	"sync"
+
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/qemutils"
+)
+
+type SRbdImageCache struct {
+	imageId string
+	cond    *sync.Cond
+	Manager IImageCacheManger
+}
+
+func NewRbdImageCache(imageId string, imagecacheManager IImageCacheManger) *SRbdImageCache {
+	imageCache := new(SRbdImageCache)
+	imageCache.imageId = imageId
+	imageCache.Manager = imagecacheManager
+	imageCache.cond = sync.NewCond(new(sync.Mutex))
+	return imageCache
+}
+
+func (r *SRbdImageCache) GetName() string {
+	imageCacheManger := r.Manager.(*SRbdImageCacheManager)
+	return fmt.Sprintf("%s%s", imageCacheManger.Prefix, r.imageId)
+}
+
+func (r *SRbdImageCache) GetPath() string {
+	imageCacheManger := r.Manager.(*SRbdImageCacheManager)
+	storage := imageCacheManger.storage.(*SRbdStorage)
+	return fmt.Sprintf("rbd:%s/%s%s", imageCacheManger.GetPath(), r.GetName(), storage.getStorageConfString())
+}
+
+func (r *SRbdImageCache) Load() bool {
+	log.Debugf("loading rbd imagecache %s", r.GetPath())
+	origin, err := qemuimg.NewQemuImage(r.GetPath())
+	if err != nil {
+		return false
+	}
+	return origin.IsValid()
+}
+
+func (r *SRbdImageCache) Acquire(ctx context.Context, zone, srcUrl, format string) bool {
+	localImageCache := storageManager.LocalStorageImagecacheManager.AcquireImage(ctx, r.imageId, zone, srcUrl, format)
+	if localImageCache == nil {
+		log.Errorf("failed to acquireimage %s ", r.imageId)
+		return false
+	}
+	log.Debugf("convert local image %s to rbd pool %s", r.imageId, r.Manager.GetPath())
+
+	_, err := procutils.NewCommand(qemutils.GetQemuImg(), "convert", "-O", "raw", localImageCache.GetPath(), r.GetName()).Run()
+	if err != nil {
+		log.Errorf("failed to convert image %s", options.HostOptions.ServersPath)
+	}
+	return r.Load()
+}
+
+func (r *SRbdImageCache) Release() {
+	return
+}
+
+func (r *SRbdImageCache) Remove(ctx context.Context) error {
+	imageCacheManger := r.Manager.(*SRbdImageCacheManager)
+	storage := imageCacheManger.storage.(*SRbdStorage)
+	if err := storage.deleteImage(r.Manager.GetPath(), r.GetName()); err != nil {
+		return err
+	}
+
+	go func() {
+		_, err := modules.Storagecachedimages.Detach(hostutils.GetComputeSession(ctx),
+			r.Manager.GetId(), r.imageId, nil)
+		if err != nil {
+			log.Errorf("Fail to delete host cached image: %s", err)
+		}
+	}()
+	return nil
+}
+
+func (r *SRbdImageCache) GetDesc() *remotefile.SImageDesc {
+	return nil
+}
+
+func (r *SRbdImageCache) GetImageId() string {
+	return r.imageId
+}

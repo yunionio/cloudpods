@@ -26,17 +26,6 @@ const (
 	CHECK_TIMEOUT = 3600 * time.Second
 )
 
-type IImageCache interface {
-	GetPath() string
-	Load() bool
-	Acquire(ctx context.Context, zone, srcUrl, format string) bool
-	Release()
-	Remove(ctx context.Context) error
-	GetImageId() string
-
-	GetDesc() *remotefile.SImageDesc
-}
-
 type SLocalImageCache struct {
 	imageId string
 	Manager IImageCacheManger
@@ -63,6 +52,10 @@ func (l *SLocalImageCache) GetDesc() *remotefile.SImageDesc {
 }
 
 func (l *SLocalImageCache) GetImageId() string {
+	return l.imageId
+}
+
+func (l *SLocalImageCache) GetName() string {
 	return l.imageId
 }
 
@@ -269,9 +262,4 @@ func (l *SLocalImageCache) GetSize() int64 {
 	} else {
 		return fi.Size()
 	}
-}
-
-type SRbdImageCache struct {
-	imageId string
-	Manager IImageCacheManger
 }
