@@ -133,13 +133,14 @@ func isInCache(pairs []sStoragecacheSyncPair, localCacheId string) bool {
 func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, syncRange *models.SSyncRange) {
 	regions := driver.GetIRegions()
 
-	// 华为云有点特殊一个provider只对应一个region
-	providerPrefix := provider.Provider
-	if providerPrefix == models.CLOUD_PROVIDER_HUAWEI {
-		providerPrefix = providerPrefix + "/" + strings.Split(provider.Name, "_")[0]
+	// region external id 是以provider 做为前缀.因此可以通过该判断条件过滤出同一个provider的regions列表
+	// 但是华为云有点特殊一个provider只对应一个region,因此需要进一步指定region名字，才能找到provider对应的region
+	externalIdPrefix := provider.Provider
+	if externalIdPrefix == models.CLOUD_PROVIDER_HUAWEI {
+		externalIdPrefix = externalIdPrefix + "/" + strings.Split(provider.Name, "_")[0]
 	}
 
-	localRegions, remoteRegions, result := models.CloudregionManager.SyncRegions(ctx, task.UserCred, providerPrefix, regions)
+	localRegions, remoteRegions, result := models.CloudregionManager.SyncRegions(ctx, task.UserCred, externalIdPrefix, regions)
 	msg := result.Result()
 	log.Infof("SyncRegion result: %s", msg)
 	if result.IsError() {
