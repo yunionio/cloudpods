@@ -1712,8 +1712,8 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		diskIdx += 1
 	}
 
-	provider, e := self.GetHost().GetProviderDriver()
-	if e != nil || !provider.IsPublicCloud() {
+	provider, e := self.GetHost().GetProviderFactory()
+	if e != nil || !provider.IsOnPremise() {
 		for storageId, needSize := range diskSizes {
 			iStorage, err := StorageManager.FetchById(storageId)
 			if err != nil {

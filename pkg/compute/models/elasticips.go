@@ -85,12 +85,19 @@ type SElasticip struct {
 }
 
 func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	var err error
+	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	q = managedResourceFilterByCloudType(q, query, "", nil)
+
+	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
 
-	managerFilter, _ := query.GetString("manager")
+	/*managerFilter, _ := query.GetString("manager")
 	if len(managerFilter) > 0 {
 		managerI, err := CloudproviderManager.FetchByIdOrName(userCred, managerFilter)
 		if err != nil {
@@ -101,7 +108,7 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 			}
 		}
 		q = q.Equals("manager_id", managerI.GetId())
-	}
+	}*/
 
 	regionFilter, _ := query.GetString("region")
 	if len(regionFilter) > 0 {
@@ -116,7 +123,7 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 		q = q.Equals("cloudregion_id", regionObj.GetId())
 	}
 
-	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	/*accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
 	if len(accountStr) > 0 {
 		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
 		if err != nil {
@@ -133,7 +140,7 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 	if len(providerStr) > 0 {
 		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
 		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}
+	}*/
 
 	if query.Contains("usable") {
 		usable := jsonutils.QueryBoolean(query, "usable", false)
@@ -799,13 +806,6 @@ func (self *SElasticip) AllowPerformChangeBandwidth(ctx context.Context, userCre
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "change-bandwidth")
 }
 
-func (self *SElasticip) GetProviderDriver() (cloudprovider.ICloudProviderFactory, error) {
-	if provider := self.GetCloudprovider(); provider != nil {
-		return provider.GetProviderDriver()
-	}
-	return nil, fmt.Errorf("failed to find provider for eip %s", self.Name)
-}
-
 func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status != EIP_STATUS_READY {
 		return nil, httperrors.NewInvalidStatusError("cannot change bandwidth in status %s", self.Status)
@@ -816,12 +816,12 @@ func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcc
 		return nil, httperrors.NewInputParameterError("Invalid bandwidth")
 	}
 
-	dirver, err := self.GetProviderDriver()
+	factory, err := self.GetProviderFactory()
 	if err != nil {
 		return nil, err
 	}
 
-	if err := dirver.ValidateChangeBandwidth(self.AssociateId, bandwidth); err != nil {
+	if err := factory.ValidateChangeBandwidth(self.AssociateId, bandwidth); err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}
 

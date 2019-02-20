@@ -52,8 +52,10 @@ type SCloudaccount struct {
 	LastSync   time.Time `get:"admin" list:"admin"` // = Column(DateTime, nullable=True)
 
 	// Sysinfo jsonutils.JSONObject `get:"admin"` // Column(JSONEncodedDict, nullable=True)
-	IsPublicCloud bool   `nullable:"false" get:"user" create:"required" list:"user"`
-	Provider      string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
+	IsPublicCloud bool `nullable:"false" get:"user" create:"optional" list:"user" default:"true"`
+	IsOnPremise   bool `nullable:"false" get:"user" create:"optional" list:"user" default:"false"`
+
+	Provider string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
 }
 
 func (self *SCloudaccountManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -142,11 +144,12 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 	if !cloudprovider.IsSupported(provider) {
 		return nil, httperrors.NewInputParameterError("Unsupported provider %s", provider)
 	}
-	providerDriver, _ := cloudprovider.GetProviderDriver(provider)
+	providerDriver, _ := cloudprovider.GetProviderFactory(provider)
 	if err := providerDriver.ValidateCreateCloudaccountData(ctx, userCred, data); err != nil {
 		return nil, err
 	}
 	data.Set("is_public_cloud", jsonutils.NewBool(providerDriver.IsPublicCloud()))
+	data.Set("is_on_premise", jsonutils.NewBool(providerDriver.IsOnPremise()))
 	// check duplication
 	// url, account, provider must be unique
 	account, _ := data.GetString("account")
@@ -250,7 +253,7 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		return nil, httperrors.NewInvalidStatusError("Account disabled")
 	}
 
-	providerDriver, _ := cloudprovider.GetProviderDriver(self.Provider)
+	providerDriver, _ := self.GetProviderFactory()
 	account, err := providerDriver.ValidateUpdateCloudaccountCredential(ctx, userCred, data, self.Account)
 	if err != nil {
 		return nil, err
@@ -314,23 +317,28 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	return nil, nil
 }
 
-func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, userCred mcclient.TokenCredential, cloudProviders []SCloudprovider, syncRange *SSyncRange, parentTaskId string) error {
-	params := jsonutils.NewDict()
-	if syncRange != nil {
-		params.Add(jsonutils.Marshal(syncRange), "sync_range")
-	}
-
-	providerDriver, _ := cloudprovider.GetProviderDriver(self.Provider)
-	isPublicCloud := providerDriver.IsPublicCloud()
-	if self.IsPublicCloud != isPublicCloud {
+func (self *SCloudaccount) syncAttributes(factory cloudprovider.ICloudProviderFactory) error {
+	if self.IsPublicCloud != factory.IsPublicCloud() || self.IsOnPremise != factory.IsOnPremise() {
 		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
-			self.IsPublicCloud = isPublicCloud
+			self.IsPublicCloud = factory.IsPublicCloud()
+			self.IsOnPremise = factory.IsOnPremise()
 			return nil
 		})
 		if err != nil {
 			log.Errorf("Update cloudaccount %s public attr error: %v", self.Name, err)
 		}
 	}
+	return nil
+}
+
+func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, userCred mcclient.TokenCredential, cloudProviders []SCloudprovider, syncRange *SSyncRange, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	if syncRange != nil {
+		params.Add(jsonutils.Marshal(syncRange), "sync_range")
+	}
+
+	providerDriver, _ := self.GetProviderFactory()
+	self.syncAttributes(providerDriver)
 
 	if cloudProviders == nil {
 		cloudProviders = self.GetCloudproviders()
@@ -367,26 +375,27 @@ func (self *SCloudaccount) MarkStartSync(userCred mcclient.TokenCredential) {
 	self.SetStatus(userCred, CLOUD_PROVIDER_START_SYNC, "")
 }
 
-func (self *SCloudaccount) GetDriver() (cloudprovider.ICloudProvider, error) {
+func (self *SCloudaccount) GetProviderFactory() (cloudprovider.ICloudProviderFactory, error) {
+	return cloudprovider.GetProviderFactory(self.Provider)
+}
+
+func (self *SCloudaccount) GetProvider() (cloudprovider.ICloudProvider, error) {
 	if !self.Enabled {
 		return nil, fmt.Errorf("Cloud provider is not enabled")
 	}
-
 	secret, err := self.getPassword()
 	if err != nil {
 		return nil, fmt.Errorf("Invalid password %s", err)
 	}
-	// log.Debugf("XXXXX secret: %s", secret)
-
 	return cloudprovider.GetProvider(self.Id, self.Name, self.AccessUrl, self.Account, secret, self.Provider)
 }
 
 func (self *SCloudaccount) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	secret, err := self.getPassword()
+	provider, err := self.GetProvider()
 	if err != nil {
 		return nil, err
 	}
-	return getSubAccounts(self.Name, self.AccessUrl, self.Account, secret, self.Provider)
+	return provider.GetSubAccounts()
 }
 
 func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclient.TokenCredential, subAccount cloudprovider.SSubAccount, autoCreateProject bool) (*SCloudprovider, bool, error) {
@@ -495,13 +504,13 @@ func (self *SCloudaccount) startImportSubAccountTask(ctx context.Context, userCr
 	return nil
 }
 
-func getSubAccounts(name, accessUrl, account, secret, provider string) ([]cloudprovider.SSubAccount, error) {
+/*func getSubAccounts(name, accessUrl, account, secret, provider string) ([]cloudprovider.SSubAccount, error) {
 	iprovider, err := cloudprovider.GetProvider("", name, accessUrl, account, secret, provider)
 	if err != nil {
 		return nil, err
 	}
 	return iprovider.GetSubAccounts()
-}
+}*/
 
 /*func (self *SCloudaccount) SaveSysInfo(info jsonutils.JSONObject) {
 	self.GetModelManager().TableSpec().Update(self, func() error {
@@ -743,7 +752,7 @@ func (manager *SCloudaccountManager) InitializeData() error {
 }
 
 func (self *SCloudaccount) GetBalance() (float64, error) {
-	driver, err := self.GetDriver()
+	driver, err := self.GetProvider()
 	if err != nil {
 		return 0.0, err
 	}
@@ -863,5 +872,18 @@ func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlc
 		provider := providerObj.(*SCloudprovider)
 		q = q.Equals("id", provider.CloudaccountId)
 	}
+
+	if jsonutils.QueryBoolean(query, "public_cloud", false) {
+		q = q.IsTrue("is_public_cloud")
+	}
+
+	if jsonutils.QueryBoolean(query, "private_cloud", false) {
+		q = q.IsFalse("is_public_cloud")
+	}
+
+	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+		q = q.IsTrue("is_on_premise").IsFalse("is_public_cloud")
+	}
+
 	return q, nil
 }

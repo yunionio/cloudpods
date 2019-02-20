@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"path"
 	"strings"
@@ -1051,7 +1050,7 @@ func (self *SStorage) GetIStorage() (cloudprovider.ICloudStorage, error) {
 		return nil, err
 	}
 	var iRegion cloudprovider.ICloudRegion
-	if provider.IsOnPremiseInfrastructure() {
+	if provider.GetFactory().IsOnPremise() {
 		iRegion, err = provider.GetOnPremiseIRegion()
 	} else {
 		region := self.GetRegion()
@@ -1127,7 +1126,14 @@ func (manager *SStorageManager) InitializeData() error {
 }
 
 func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	var err error
+	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	q = managedResourceFilterByCloudType(q, query, "", nil)
+
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -1162,7 +1168,7 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 			Filter(sqlchemy.IsTrue(q.Field("enabled")))
 	}
 
-	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	/*managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
 	if len(managerStr) > 0 {
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 		if err != nil {
@@ -1191,7 +1197,7 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	if len(providerStr) > 0 {
 		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
 		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}
+	}*/
 
 	return q, err
 }

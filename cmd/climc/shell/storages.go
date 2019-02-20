@@ -12,6 +12,7 @@ import (
 func init() {
 	type StorageListOptions struct {
 		options.BaseListOptions
+
 		Share  *bool  `help:"Share storage list"`
 		Local  *bool  `help:"Local storage list"`
 		Usable *bool  `help:"Usable storage list"`
