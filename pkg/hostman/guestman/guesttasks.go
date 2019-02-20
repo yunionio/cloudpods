@@ -452,7 +452,7 @@ func (s *SGuestResumeTask) onStartRunning() {
 	if options.HostOptions.SetVncPassword {
 		s.SetVncPassword()
 	}
-	s.syncMetadata()
+	s.SyncMetadataInfo()
 	s.SyncStatus()
 	timeutils2.AddTimeout(time.Second*5, s.SetCgroup)
 	disksIdx := s.GetNeedMergeBackingFileDiskIndexs()
@@ -479,18 +479,6 @@ func (s *SGuestResumeTask) onStreamComplete(disksIdx []int) {
 	} else {
 		s.streamDisksComplete(s.ctx)
 	}
-}
-
-func (s *SGuestResumeTask) syncMetadata() {
-	meta := jsonutils.NewDict()
-	meta.Set("__qemu_version", jsonutils.NewString(s.GetQemuVersionStr()))
-	meta.Set("__vnc_port", jsonutils.NewInt(int64(s.GetVncPort())))
-
-	if len(s.VncPassword) > 0 {
-		meta.Set("__vnc_password", jsonutils.NewString(s.VncPassword))
-	}
-
-	s.SyncMetadata(meta)
 }
 
 func (s *SGuestResumeTask) removeStatefile() {

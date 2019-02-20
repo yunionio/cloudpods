@@ -75,13 +75,9 @@ func (self *GuestDeleteOnHostTask) OnStopGuest(ctx context.Context, guest *model
 
 func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	hostId, _ := self.Params.GetString("host_id")
-	oldStatus, _ := self.Params.GetString("old_status")
 	if guest.BackupHostId == hostId {
 		_, err := models.GuestManager.TableSpec().Update(guest, func() error {
 			guest.BackupHostId = ""
-			if len(oldStatus) > 0 {
-				guest.Status = oldStatus
-			}
 			return nil
 		})
 		if err != nil {
@@ -89,6 +85,11 @@ func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *m
 			return
 		}
 	}
+	self.SetStage("OnSync", nil)
+	guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
+}
+
+func (self *GuestDeleteOnHostTask) OnSync(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }
 

@@ -642,6 +642,9 @@ func (m *SGuestManager) StartDriveMirror(ctx context.Context, params interface{}
 		return nil, hostutils.ParamsError
 	}
 	guest := guestManger.Servers[mirrorParams.Sid]
+	if err := guest.SaveDesc(mirrorParams.Desc); err != nil {
+		return nil, err
+	}
 	task := NewDriveMirrorTask(ctx, guest, mirrorParams.NbdServerUri, "top", nil)
 	task.Start()
 	return nil, nil

@@ -360,8 +360,6 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 				}
 			}
 		}
-	} else if event.Event == `"BLOCK_JOB_ERROR"` && s.IsMaster() {
-		modules.Servers.PerformAction(hostutils.GetComputeSession(context.Background()), s.GetId(), "mirror-job-failed", nil)
 	}
 }
 
@@ -388,6 +386,11 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 		s.startDiskBackupMirror(ctx)
 		if ctx != nil {
 			s.DoResumeTask(ctx)
+		} else {
+			if options.HostOptions.SetVncPassword {
+				s.SetVncPassword()
+			}
+			s.SyncMetadataInfo()
 		}
 	} else {
 		s.DoResumeTask(ctx)
@@ -475,6 +478,9 @@ func (s *SKVMGuestInstance) IsMirrorJobSucc() bool {
 		return false
 	case v := <-res:
 		if v != nil {
+			if len(v.Value()) == 0 {
+				return true
+			}
 			mirrorSuccCount := 0
 			for _, val := range v.Value() {
 				jobType, _ := val.GetString("type")
@@ -1068,6 +1074,18 @@ func (s *SKVMGuestInstance) SetVncPassword() {
 	}
 	timeutils2.AddTimeout(time.Second*3,
 		func() { s.Monitor.SetVncPassword(s.GetVdiProtocol(), password, callback) })
+}
+
+func (s *SKVMGuestInstance) SyncMetadataInfo() {
+	meta := jsonutils.NewDict()
+	meta.Set("__qemu_version", jsonutils.NewString(s.GetQemuVersionStr()))
+	meta.Set("__vnc_port", jsonutils.NewInt(int64(s.GetVncPort())))
+
+	if len(s.VncPassword) > 0 {
+		meta.Set("__vnc_password", jsonutils.NewString(s.VncPassword))
+	}
+
+	s.SyncMetadata(meta)
 }
 
 func (s *SKVMGuestInstance) ListStateFilePaths() []string {

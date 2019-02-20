@@ -311,8 +311,12 @@ func guestDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("backup_nbd_server_uri")
 	}
+	desc, err := body.Get("desc")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("desc")
+	}
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StartDriveMirror,
-		&guestman.SDriverMirror{sid, backupNbdServerUri})
+		&guestman.SDriverMirror{sid, backupNbdServerUri, desc})
 	return nil, nil
 }
 
