@@ -10,6 +10,7 @@ import (
 func init() {
 	type SnapshotsListOptions struct {
 		options.BaseListOptions
+
 		Disk        string `help:"Disk snapshots" json:"disk_id"`
 		FakeDeleted bool   `help:"Show fake deleted snapshot or not"`
 		Local       *bool  `help:"Show local snapshots"`

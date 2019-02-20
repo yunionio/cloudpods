@@ -13,12 +13,32 @@ import (
 type SHuaweiProviderFactory struct {
 }
 
+func (self *SHuaweiProviderFactory) GetId() string {
+	return huawei.CLOUD_PROVIDER_HUAWEI
+}
+
+func (self *SHuaweiProviderFactory) GetName() string {
+	return huawei.CLOUD_PROVIDER_HUAWEI_CN
+}
+
 func (self *SHuaweiProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	return nil
 }
 
 func (self *SHuaweiProviderFactory) IsPublicCloud() bool {
 	return true
+}
+
+func (self *SHuaweiProviderFactory) IsOnPremise() bool {
+	return false
+}
+
+func (self *SHuaweiProviderFactory) IsSupportPrepaidResources() bool {
+	return true
+}
+
+func (self *SHuaweiProviderFactory) NeedSyncSkuFromCloud() bool {
+	return false
 }
 
 func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
@@ -61,11 +81,10 @@ func (self *SHuaweiProviderFactory) GetProvider(providerId, providerName, url, a
 	if err != nil {
 		return nil, err
 	}
-	return &SHuaweiProvider{client: client}, nil
-}
-
-func (self *SHuaweiProviderFactory) GetId() string {
-	return huawei.CLOUD_PROVIDER_HUAWEI
+	return &SHuaweiProvider{
+		SBaseProvider: cloudprovider.NewBaseProvider(self),
+		client:        client,
+	}, nil
 }
 
 func init() {
@@ -74,19 +93,12 @@ func init() {
 }
 
 type SHuaweiProvider struct {
+	cloudprovider.SBaseProvider
 	client *huawei.SHuaweiClient
 }
 
 func (self *SHuaweiProvider) GetVersion() string {
 	return self.client.GetVersion()
-}
-
-func (self *SHuaweiProvider) GetId() string {
-	return huawei.CLOUD_PROVIDER_HUAWEI
-}
-
-func (self *SHuaweiProvider) GetName() string {
-	return huawei.CLOUD_PROVIDER_HUAWEI_CN
 }
 
 func (self *SHuaweiProvider) GetSysInfo() (jsonutils.JSONObject, error) {
@@ -95,14 +107,6 @@ func (self *SHuaweiProvider) GetSysInfo() (jsonutils.JSONObject, error) {
 	info.Add(jsonutils.NewInt(int64(len(regions))), "region_count")
 	info.Add(jsonutils.NewString(huawei.HUAWEI_API_VERSION), "api_version")
 	return info, nil
-}
-
-func (self *SHuaweiProvider) IsOnPremiseInfrastructure() bool {
-	return false
-}
-
-func (self *SHuaweiProvider) SyncSkuFromCloud() bool {
-	return false
 }
 
 func (self *SHuaweiProvider) GetIRegions() []cloudprovider.ICloudRegion {
@@ -127,8 +131,4 @@ func (self *SHuaweiProvider) GetBalance() (float64, error) {
 
 func (self *SHuaweiProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
-}
-
-func (self *SHuaweiProvider) SupportPrepaidResources() bool {
-	return true
 }

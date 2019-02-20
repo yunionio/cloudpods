@@ -360,14 +360,29 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 	if err != nil {
 		return nil, err
 	}
-	if jsonutils.QueryBoolean(query, "is_private", false) {
-		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("external_id")),
-			sqlchemy.IsEmpty(q.Field("external_id"))))
+
+	if jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public_cloud", false) {
+		q = q.In("provider", cloudprovider.GetPublicProviders())
 	}
-	if jsonutils.QueryBoolean(query, "is_public", false) {
-		q = q.Filter(sqlchemy.AND(sqlchemy.IsNotNull(q.Field("external_id")),
-			sqlchemy.IsNotEmpty(q.Field("external_id"))))
+
+	if jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private_cloud", false) {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("provider"), cloudprovider.GetPrivateProviders()),
+			sqlchemy.IsNullOrEmpty(q.Field("provider")),
+		))
 	}
+
+	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("provider"), cloudprovider.GetOnPremiseProviders()),
+			sqlchemy.IsNullOrEmpty(q.Field("provider")),
+		))
+	}
+
+	if jsonutils.QueryBoolean(query, "is_managed", false) {
+		q = q.IsNotEmpty("external_id")
+	}
+
 	managerStr, _ := query.GetString("manager")
 	if len(managerStr) > 0 {
 		managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)

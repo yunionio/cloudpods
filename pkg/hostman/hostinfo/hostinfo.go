@@ -724,7 +724,7 @@ func (h *SHostInfo) fetchAccessNetworkInfo() {
 	}
 	params := jsonutils.NewDict()
 	params.Set("ip", jsonutils.NewString(masterIp))
-	params.Set("is_private", jsonutils.JSONTrue)
+	params.Set("is_on_premise", jsonutils.JSONTrue)
 	params.Set("limit", jsonutils.NewInt(0))
 	wire, err := hostutils.GetWireOfIp(context.Background(), params)
 	if err != nil {

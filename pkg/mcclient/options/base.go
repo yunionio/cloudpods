@@ -187,9 +187,13 @@ type BaseListOptions struct {
 	ExportKeys       string   `help:"Export field keys"`
 	ExportTexts      string   `help:"Export field displayname texts" json:"-"`
 
-	Manager  string `help:"List objects belonging to the cloud provider"`
-	Account  string `help:"List objects belonging to the cloud account"`
-	Provider string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|Openstack"`
+	Manager      string `help:"List objects belonging to the cloud provider" json:"manager,omitempty"`
+	Account      string `help:"List objects belonging to the cloud account" json:"account,omitempty"`
+	Provider     string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|Openstack" json:"provider,omitempty"`
+	PublicCloud  *bool  `help:"List objects belonging to public cloud" json:"public_cloud"`
+	PrivateCloud *bool  `help:"List objects belonging to private cloud" json:"private_cloud"`
+	IsOnPremise  *bool  `help:"List objects belonging to on premise infrastructures" token:"on-premise" json:"is_on_premise"`
+	IsManaged    *bool  `help:"List objects managed by external providers" token:"managed" json:"is_managed"`
 }
 
 func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {

@@ -94,10 +94,18 @@ func (self *SSnapshotManager) AllowListItems(ctx context.Context, userCred mccli
 }
 
 func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	var err error
+	q, err = managedResourceFilterByAccount(q, query, "", nil)
 	if err != nil {
 		return nil, err
 	}
+	q = managedResourceFilterByCloudType(q, query, "", nil)
+
+	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
 	if jsonutils.QueryBoolean(query, "fake_deleted", false) {
 		q = q.Equals("fake_deleted", true)
 	} else {
@@ -124,25 +132,13 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		q = q.In("disk_id", sq)
 	}
 
-	if provider, err := query.GetString("provider"); err == nil {
+	/*if provider, err := query.GetString("provider"); err == nil {
 		cloudproviderTbl := CloudproviderManager.Query().SubQuery()
 		sq := cloudproviderTbl.Query(cloudproviderTbl.Field("id")).Equals("provider", provider)
 		q = q.In("manager_id", sq)
-	}
+	}*/
 
-	publicProviderIds := CloudproviderManager.GetPublicProviderIds()
-	if jsonutils.QueryBoolean(query, "public_cloud", false) {
-		q = q.Filter(sqlchemy.In(q.Field("manager_id"), publicProviderIds))
-	} else if jsonutils.QueryBoolean(query, "private_cloud", false) {
-		q = q.Filter(
-			sqlchemy.OR(
-				sqlchemy.NotIn(q.Field("manager_id"), publicProviderIds),
-				sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
-			),
-		)
-	}
-
-	if managerStr := jsonutils.GetAnyString(query, []string{"manager", "manager_id"}); len(managerStr) > 0 {
+	/*if managerStr := jsonutils.GetAnyString(query, []string{"manager", "manager_id"}); len(managerStr) > 0 {
 		managerObj, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -164,7 +160,7 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		}
 		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
 		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}
+	}*/
 
 	return q, nil
 }
