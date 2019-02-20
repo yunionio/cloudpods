@@ -12,14 +12,13 @@ import (
 func init() {
 	type NetworkListOptions struct {
 		options.BaseListOptions
+
 		Ip         string `help:"search networks that contain this IP"`
 		Zone       string `help:"search networks in a zone"`
 		Wire       string `help:"search networks belongs to a wire" json:"-"`
 		Vpc        string `help:"search networks belongs to a VPC"`
 		Region     string `help:"search networks belongs to a CloudRegion" json:"cloudregion"`
 		ServerType string `help:"search networks belongs to a ServerType" choices:"guest|baremetal|container|pxe|ipmi"`
-		Private    *bool  `help:"show private cloud networks only" json:"is_private"`
-		Public     *bool  `help:"show public cloud networks only" json:"is_public"`
 	}
 	R(&NetworkListOptions{}, "network-list", "List networks", func(s *mcclient.ClientSession, opts *NetworkListOptions) error {
 		params, err := options.ListStructToParams(opts)

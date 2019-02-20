@@ -4,9 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/sqlchemy"
+
+	"database/sql"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SManagedResourceBase struct {
@@ -28,7 +33,7 @@ func (self *SManagedResourceBase) GetCloudaccount() *SCloudaccount {
 	return cp.GetCloudaccount()
 }
 
-func (self *SManagedResourceBase) GetProviderDriver() (cloudprovider.ICloudProviderFactory, error) {
+func (self *SManagedResourceBase) GetProviderFactory() (cloudprovider.ICloudProviderFactory, error) {
 	provider := self.GetCloudprovider()
 	if provider == nil {
 		if len(self.ManagerId) > 0 {
@@ -36,7 +41,7 @@ func (self *SManagedResourceBase) GetProviderDriver() (cloudprovider.ICloudProvi
 		}
 		return nil, fmt.Errorf("Resource is self managed")
 	}
-	return provider.GetProviderDriver()
+	return provider.GetProviderFactory()
 }
 
 func (self *SManagedResourceBase) GetDriver() (cloudprovider.ICloudProvider, error) {
@@ -47,7 +52,7 @@ func (self *SManagedResourceBase) GetDriver() (cloudprovider.ICloudProvider, err
 		}
 		return nil, fmt.Errorf("Resource is self managed")
 	}
-	return provider.GetDriver()
+	return provider.GetProvider()
 }
 
 func (self *SManagedResourceBase) GetProviderName() string {
@@ -60,6 +65,134 @@ func (self *SManagedResourceBase) GetProviderName() string {
 
 func (self *SManagedResourceBase) IsManaged() bool {
 	return len(self.ManagerId) > 0
+}
+
+func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+	queryDict := query.(*jsonutils.JSONDict)
+
+	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	if len(managerStr) > 0 {
+		queryDict.Remove("manager")
+		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
+			queryDict.Remove("manager_id")
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.Equals(sq.Field("manager_id"), provider.GetId()))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+			queryDict.Remove(filterField)
+		}
+	}
+
+	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	if len(accountStr) > 0 {
+		queryDict.Remove("account")
+		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+			queryDict.Remove("manager_id")
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+			queryDict.Remove(filterField)
+		}
+	}
+
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		queryDict.Remove("provider")
+		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+			queryDict.Remove("manager_id")
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+			queryDict.Remove(filterField)
+		}
+	}
+
+	return q, nil
+}
+
+func managedResourceFilterByCloudType(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) *sqlchemy.SQuery {
+	if jsonutils.QueryBoolean(query, "public_cloud", false) || jsonutils.QueryBoolean(query, "is_public", false) {
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
+
+	if jsonutils.QueryBoolean(query, "private_cloud", false) || jsonutils.QueryBoolean(query, "is_private", false) {
+		if len(filterField) == 0 {
+			q = q.Filter(
+				sqlchemy.OR(
+					sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()),
+					sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
+				),
+			)
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(
+				sqlchemy.OR(
+					sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()),
+					sqlchemy.IsNullOrEmpty(sq.Field("manager_id")),
+				),
+			)
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
+
+	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+		if len(filterField) == 0 {
+			q = q.Filter(
+				sqlchemy.OR(
+					sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
+					sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
+				),
+			)
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(
+				sqlchemy.OR(
+					sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
+					sqlchemy.IsNullOrEmpty(sq.Field("manager_id")),
+				),
+			)
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
+
+	if jsonutils.QueryBoolean(query, "is_managed", false) {
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.IsNotEmpty(q.Field("manager_id")))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.IsNotEmpty(sq.Field("manager_id")))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
+
+	return q
 }
 
 /*func (self *SManagedResourceBase) getExtraDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {

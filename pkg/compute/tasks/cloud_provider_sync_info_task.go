@@ -61,7 +61,7 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 
 	notes := fmt.Sprintf("Start sync cloud provider %s status ...", provider.Name)
 	log.Infof(notes)
-	driver, err := provider.GetDriver()
+	driver, err := provider.GetProvider()
 	if err != nil {
 		reason := fmt.Sprintf("Invalid cloud provider %s", err)
 		taskFail(ctx, self, provider, reason)
@@ -104,7 +104,7 @@ func syncCloudProviderInfo(ctx context.Context, provider *models.SCloudprovider,
 	log.Infof(notes)
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_START, "", task.UserCred)
 
-	if driver.IsOnPremiseInfrastructure() {
+	if driver.GetFactory().IsOnPremise() {
 		syncOnPremiseCloudProviderInfo(ctx, provider, task, driver, syncRange)
 	} else {
 		syncPublicCloudProviderInfo(ctx, provider, task, driver, syncRange)
@@ -160,7 +160,7 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 
 		localZones, remoteZones := syncRegionZones(ctx, provider, task, &localRegions[i], remoteRegions[i])
 
-		if !driver.SyncSkuFromCloud() {
+		if !driver.GetFactory().NeedSyncSkuFromCloud() {
 			syncRegionSkus(ctx, provider, task, &localRegions[i])
 		}
 
@@ -181,7 +181,7 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 					storageCachePairs = append(storageCachePairs, newPairs...)
 				}
 
-				if driver.SyncSkuFromCloud() {
+				if driver.GetFactory().NeedSyncSkuFromCloud() {
 					syncRegionSkusFromCloud(ctx, provider, task, &localZones[i], remoteRegions[i], remoteZones[j])
 				}
 			}

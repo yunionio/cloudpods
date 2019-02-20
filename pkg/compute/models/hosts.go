@@ -196,6 +196,13 @@ func (self *SHost) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	q = managedResourceFilterByCloudType(q, query, "", nil)
+
 	queryDict := query.(*jsonutils.JSONDict)
 
 	resType, _ := query.GetString("resource_type")
@@ -215,10 +222,11 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		}
 	}
 
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
+
 	anyMac, _ := query.GetString("any_mac")
 	if len(anyMac) > 0 {
 		anyMac := netutils.FormatMacAddr(anyMac)
@@ -298,7 +306,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	// zone
 	// cachedimage
 
-	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	/*managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
 	if len(managerStr) > 0 {
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 		if err != nil {
@@ -328,18 +336,35 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	if len(providerStr) > 0 {
 		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
 		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}
+	}*/
 
 	usable := jsonutils.QueryBoolean(query, "usable", false)
 	if usable {
+		hosts := HostManager.Query().SubQuery()
 		hostwires := HostwireManager.Query().SubQuery()
 		networks := NetworkManager.Query().SubQuery()
+		providers := CloudproviderManager.Query().SubQuery()
 
-		hostQ := hostwires.Query(sqlchemy.DISTINCT("host_id", hostwires.Field("host_id")))
-		hostQ = hostQ.Join(networks, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
-		hostQ = hostQ.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		hostQ1 := hosts.Query(hosts.Field("id"))
+		hostQ1 = hostQ1.Join(providers, sqlchemy.Equals(hosts.Field("manager_id"), providers.Field("id")))
+		hostQ1 = hostQ1.Join(hostwires, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
+		hostQ1 = hostQ1.Join(networks, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
+		hostQ1 = hostQ1.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
+		hostQ1 = hostQ1.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
+		hostQ1 = hostQ1.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		hostQ1 = hostQ1.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 
-		q = q.In("id", hostQ.SubQuery())
+		hostQ2 := hosts.Query(hosts.Field("id"))
+		hostQ2 = hostQ2.Join(hostwires, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
+		hostQ2 = hostQ2.Join(networks, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
+		hostQ2 = hostQ2.Filter(sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")))
+		hostQ2 = hostQ2.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		hostQ2 = hostQ2.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("id"), hostQ1.SubQuery()),
+			sqlchemy.In(q.Field("id"), hostQ2.SubQuery()),
+		))
 	}
 
 	if query.Contains("baremetal") {
@@ -1894,7 +1919,7 @@ func (self *SHost) GetIHostAndProvider() (cloudprovider.ICloudHost, cloudprovide
 		return nil, nil, fmt.Errorf("No cloudprovide for host: %s", err)
 	}
 	var iregion cloudprovider.ICloudRegion
-	if provider.IsOnPremiseInfrastructure() {
+	if provider.GetFactory().IsOnPremise() {
 		iregion, err = provider.GetOnPremiseIRegion()
 	} else {
 		region := self.GetRegion()

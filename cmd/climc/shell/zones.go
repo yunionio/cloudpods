@@ -13,8 +13,6 @@ func init() {
 		Region    string `help:"cloud region ID or Name" json:"-"`
 		Usable    *bool  `help:"List all zones where networks are usable"`
 		UsableVpc *bool  `help:"List all zones where vpc are usable"`
-		Private   *bool  `help:"show all zones in private cloud regions only"`
-		Public    *bool  `help:"show all zones in public cloud regions only"`
 	}
 	R(&ZoneListOptions{}, "zone-list", "List zones", func(s *mcclient.ClientSession, args *ZoneListOptions) error {
 		params, err := options.ListStructToParams(args)

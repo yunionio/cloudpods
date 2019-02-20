@@ -261,6 +261,19 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		return nil, fmt.Errorf("invalid querystring format")
 	}
 
+	var err error
+	q, err = managedResourceFilterByAccount(q, query, "storage_id", func() *sqlchemy.SQuery {
+		hosts := HostManager.Query().SubQuery()
+		return hosts.Query(hosts.Field("id"))
+	})
+	if err != nil {
+		return nil, err
+	}
+	q = managedResourceFilterByCloudType(q, query, "storage_id", func() *sqlchemy.SQuery {
+		hosts := HostManager.Query().SubQuery()
+		return hosts.Query(hosts.Field("id"))
+	})
+
 	billingTypeStr, _ := queryDict.GetString("billing_type")
 	if len(billingTypeStr) > 0 {
 		if billingTypeStr == BILLING_TYPE_POSTPAID {
@@ -276,7 +289,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		queryDict.Remove("billing_type")
 	}
 
-	q, err := manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +413,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
-	managerFilter, _ := queryDict.GetString("manager")
+	/*managerFilter, _ := queryDict.GetString("manager")
 	if len(managerFilter) > 0 {
 		managerI, _ := CloudproviderManager.FetchByIdOrName(userCred, managerFilter)
 		if managerI == nil {
@@ -440,7 +453,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
 
 		q = q.Filter(sqlchemy.In(q.Field("host_id"), subq.SubQuery()))
-	}
+	}*/
 
 	regionFilter, _ := queryDict.GetString("region")
 	if len(regionFilter) > 0 {
@@ -1792,7 +1805,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 	recycle := false
 
-	if provider.SupportPrepaidResources() && self.IsPrepaidRecycle() {
+	if provider.GetFactory().IsSupportPrepaidResources() && self.IsPrepaidRecycle() {
 		recycle = true
 	}
 
@@ -1838,7 +1851,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 		self.IsEmulated = extVM.IsEmulated()
 
-		if provider.SupportPrepaidResources() && !recycle {
+		if provider.GetFactory().IsSupportPrepaidResources() && !recycle {
 			self.BillingType = extVM.GetBillingType()
 			self.ExpiredAt = extVM.GetExpiredAt()
 		}
@@ -1888,7 +1901,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		}
 	}
 
-	if provider.SupportPrepaidResources() && recycle {
+	if provider.GetFactory().IsSupportPrepaidResources() && recycle {
 		vhost := self.GetHost()
 		err = vhost.syncWithCloudPrepaidVM(extVM, host, projectSync)
 		if err != nil {
@@ -1918,7 +1931,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.IsEmulated = extVM.IsEmulated()
 
-	if provider.SupportPrepaidResources() {
+	if provider.GetFactory().IsSupportPrepaidResources() {
 		guest.BillingType = extVM.GetBillingType()
 		guest.ExpiredAt = extVM.GetExpiredAt()
 	}

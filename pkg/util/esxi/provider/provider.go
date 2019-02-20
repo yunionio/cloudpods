@@ -23,11 +23,27 @@ func (self *SESXiProviderFactory) GetId() string {
 	return esxi.CLOUD_PROVIDER_VMWARE
 }
 
+func (self *SESXiProviderFactory) GetName() string {
+	return esxi.CLOUD_PROVIDER_VMWARE
+}
+
 func (self *SESXiProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	return fmt.Errorf("Changing %s bandwidth is not supported", esxi.CLOUD_PROVIDER_VMWARE)
 }
 
 func (self *SESXiProviderFactory) IsPublicCloud() bool {
+	return false
+}
+
+func (self *SESXiProviderFactory) IsOnPremise() bool {
+	return true
+}
+
+func (self *SESXiProviderFactory) IsSupportPrepaidResources() bool {
+	return false
+}
+
+func (self *SESXiProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
 
@@ -103,7 +119,10 @@ func (self *SESXiProviderFactory) GetProvider(providerId, providerName, urlStr, 
 	if err != nil {
 		return nil, err
 	}
-	return &SESXiProvider{client: client}, nil
+	return &SESXiProvider{
+		SBaseProvider: cloudprovider.NewBaseProvider(self),
+		client:        client,
+	}, nil
 }
 
 func init() {
@@ -112,23 +131,8 @@ func init() {
 }
 
 type SESXiProvider struct {
+	cloudprovider.SBaseProvider
 	client *esxi.SESXiClient
-}
-
-func (self *SESXiProvider) IsOnPremiseInfrastructure() bool {
-	return true
-}
-
-func (self *SESXiProvider) SyncSkuFromCloud() bool {
-	return false
-}
-
-func (self *SESXiProvider) GetId() string {
-	return esxi.CLOUD_PROVIDER_VMWARE
-}
-
-func (self *SESXiProvider) GetName() string {
-	return esxi.CLOUD_PROVIDER_VMWARE
 }
 
 func (self *SESXiProvider) GetSysInfo() (jsonutils.JSONObject, error) {
@@ -157,8 +161,4 @@ func (self *SESXiProvider) GetBalance() (float64, error) {
 
 func (self *SESXiProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return self.client, nil
-}
-
-func (self *SESXiProvider) SupportPrepaidResources() bool {
-	return false
 }
