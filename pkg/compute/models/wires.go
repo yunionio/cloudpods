@@ -601,8 +601,8 @@ func (manager *SWireManager) FetchWireById(wireId string) *SWire {
 	return wireObj.(*SWire)
 }
 
-func (manager *SWireManager) GetWireOfIp(ipAddr string) (*SWire, error) {
-	net, err := NetworkManager.GetNetworkOfIP(ipAddr, "", tristate.None)
+func (manager *SWireManager) GetOnPremiseWireOfIp(ipAddr string) (*SWire, error) {
+	net, err := NetworkManager.GetOnPremiseNetworkOfIP(ipAddr, "", tristate.None)
 	if err != nil {
 		return nil, err
 	}
