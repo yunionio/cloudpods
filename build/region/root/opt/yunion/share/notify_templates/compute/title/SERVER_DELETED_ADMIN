@@ -1,1 +1,1 @@
-用户{{ .tenant }}的云主机{{ .name }}已经删除
+项目{{ .tenant }}的{{ .hypervisor }}主机{{ .name }}已经删除

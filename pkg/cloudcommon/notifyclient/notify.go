@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -165,25 +166,34 @@ func NotifyGeneralSystemError(data jsonutils.JSONObject) {
 	SystemNotify(notify.NotifyPriorityCritical, SYSTEM_ERROR, data)
 }
 
-type sSystemErrorMsg struct {
-	Id     string
-	Name   string
-	Event  string
-	Reason string
+type SSystemEventMsg struct {
+	Id      string
+	Name    string
+	Event   string
+	Reason  string
+	Created time.Time
 }
 
 func NotifySystemError(idstr string, name string, event string, reason string) {
-	msg := sSystemErrorMsg{
-		Id:     idstr,
-		Name:   name,
-		Event:  event,
-		Reason: reason,
+	msg := SSystemEventMsg{
+		Id:      idstr,
+		Name:    name,
+		Event:   event,
+		Reason:  reason,
+		Created: time.Now(),
 	}
 	SystemNotify(notify.NotifyPriorityCritical, SYSTEM_ERROR, jsonutils.Marshal(msg))
 }
 
-func NotifySystemWarning(data jsonutils.JSONObject) {
-	SystemNotify(notify.NotifyPriorityImportant, SYSTEM_WARNING, data)
+func NotifySystemWarning(idstr string, name string, event string, reason string) {
+	msg := SSystemEventMsg{
+		Id:      idstr,
+		Name:    name,
+		Event:   event,
+		Reason:  reason,
+		Created: time.Now(),
+	}
+	SystemNotify(notify.NotifyPriorityImportant, SYSTEM_WARNING, jsonutils.Marshal(msg))
 }
 
 func FetchNotifyAdminRecipients(ctx context.Context, region string, users []string, groups []string) {
