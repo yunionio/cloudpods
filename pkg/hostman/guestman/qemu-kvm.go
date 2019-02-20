@@ -345,7 +345,7 @@ func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
 }
 
 func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
-	if event.Event == "BLOCK_JOB_READY" && s.IsMaster() {
+	if event.Event == `"BLOCK_JOB_READY"` && s.IsMaster() {
 		if itype, ok := event.Data["type"]; ok {
 			stype, _ := itype.(string)
 			if stype == "mirror" {
@@ -355,13 +355,11 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 					s.mirrorJobSuccCount = new(int)
 					*s.mirrorJobSuccCount = 1
 				}
-				if *s.mirrorJobSuccCount == s.DiskCount() {
+				if *s.mirrorJobSuccCount >= s.DiskCount() {
 					hostutils.UpdateServerStatus(context.Background(), s.GetId(), "running")
 				}
 			}
 		}
-	} else if event.Event == "BLOCK_JOB_ERROR" && s.IsMaster() {
-		modules.Servers.PerformAction(hostutils.GetComputeSession(context.Background()), s.GetId(), "mirror-job-failed", nil)
 	}
 }
 
@@ -381,11 +379,19 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 		body.Set("live_migrate_dest_port", migratePort)
 		hostutils.TaskComplete(ctx, body)
 	} else if jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
-		if len(appctx.AppContextTaskId(ctx)) > 0 {
+		if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
 			s.startQemuBuiltInNbdServer(ctx)
 		}
-	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) && ctx == nil {
-		return
+	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) {
+		s.startDiskBackupMirror(ctx)
+		if ctx != nil {
+			s.DoResumeTask(ctx)
+		} else {
+			if options.HostOptions.SetVncPassword {
+				s.SetVncPassword()
+			}
+			s.SyncMetadataInfo()
+		}
 	} else {
 		s.DoResumeTask(ctx)
 	}
@@ -402,14 +408,42 @@ func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
 	s.Monitor = nil
 }
 
+func (s *SKVMGuestInstance) startDiskBackupMirror(ctx context.Context) {
+	if ctx == nil || len(appctx.AppContextTaskId(ctx)) == 0 {
+		status := "running"
+		if !s.IsMirrorJobSucc() {
+			status = "block_stream"
+		}
+		hostutils.UpdateServerStatus(context.Background(), s.GetId(), status)
+	} else {
+		metadata, _ := s.Desc.Get("metadata")
+		if metadata == nil || !metadata.Contains("backup_nbd_server_uri") {
+			hostutils.TaskFailed(ctx, "Missing dest nbd location")
+		}
+		nbdUri, _ := metadata.GetString("backup_nbd_server_uri")
+
+		onSucc := func() {
+			cb := func(res string) { log.Infof("On backup mirror server(%s) resume start", s.Id) }
+			s.Monitor.SimpleCommand("cont", cb)
+		}
+		NewDriveMirrorTask(ctx, s, nbdUri, "top", onSucc).Start()
+	}
+}
+
 func (s *SKVMGuestInstance) startQemuBuiltInNbdServer(ctx context.Context) {
+	if ctx == nil || len(appctx.AppContextTaskId(ctx)) == 0 {
+		return
+	}
+
 	nbdServerPort := s.manager.GetFreePortByBase(BUILT_IN_NBD_SERVER_PORT_BASE)
 	var onNbdServerStarted = func(res string) {
 		if len(res) > 0 {
-			log.Errorln("Start Qemu Builtin nbd server error %s", res)
+			log.Errorf("Start Qemu Builtin nbd server error %s", res)
 			hostutils.TaskFailed(ctx, res)
 		} else {
-			hostutils.TaskComplete(ctx, nil)
+			res := jsonutils.NewDict()
+			res.Set("nbd_server_port", jsonutils.NewInt(int64(nbdServerPort)))
+			hostutils.TaskComplete(ctx, res)
 		}
 	}
 	s.Monitor.StartNbdServer(nbdServerPort, true, true, onNbdServerStarted)
@@ -435,7 +469,31 @@ func (s *SKVMGuestInstance) DiskCount() int {
 }
 
 func (s *SKVMGuestInstance) IsMirrorJobSucc() bool {
-	return s.mirrorJobSuccCount != nil && *s.mirrorJobSuccCount == s.DiskCount()
+	res := make(chan *jsonutils.JSONArray)
+	s.Monitor.GetBlockJobs(func(jobs *jsonutils.JSONArray) {
+		res <- jobs
+	})
+	select {
+	case <-time.After(time.Second * 3):
+		return false
+	case v := <-res:
+		if v != nil {
+			if len(v.Value()) == 0 {
+				return true
+			}
+			mirrorSuccCount := 0
+			for _, val := range v.Value() {
+				jobType, _ := val.GetString("type")
+				jobStatus, _ := val.GetString("status")
+				if jobType == "mirror" && jobStatus == "ready" {
+					mirrorSuccCount += 1
+				}
+			}
+			return mirrorSuccCount == s.DiskCount()
+		} else {
+			return false
+		}
+	}
 }
 
 func (s *SKVMGuestInstance) CleanStartupTask() {
@@ -503,7 +561,7 @@ func (s *SKVMGuestInstance) DoResumeTask(ctx context.Context) {
 
 func (s *SKVMGuestInstance) SyncStatus() {
 	if s.IsRunning() {
-		s.Monitor.GetBlockJobs(s.CheckBlockOrRunning)
+		s.Monitor.GetBlockJobCounts(s.CheckBlockOrRunning)
 		return
 	}
 	var status = "ready"
@@ -538,16 +596,17 @@ func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 }
 
 func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params jsonutils.JSONObject) {
-	hostutils.DelayTask(ctx, s.asyncScriptStart, params)
+	hostutils.DelayTaskWithoutReqctx(ctx, s.asyncScriptStart, params)
 }
 
 func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
 	disks, _ := s.Desc.GetArray("disks")
 	if len(disks) > 0 {
-		storageId, _ := disks[0].GetString("storage_id")
-		diskId, _ := disks[0].GetString("disk_id")
-
-		disk := storageman.GetManager().GetStorageDisk(storageId, diskId)
+		diskPath, _ := disks[0].GetString("path")
+		disk := storageman.GetManager().GetDiskByPath(diskPath)
+		if disk == nil {
+			return nil, fmt.Errorf("Cannot find disk index 0")
+		}
 		return disk.DeployGuestFs(disk.GetPath(), s.Desc, deployInfo)
 	} else {
 		return nil, fmt.Errorf("Guest dosen't have disk ??")
@@ -1015,6 +1074,18 @@ func (s *SKVMGuestInstance) SetVncPassword() {
 	}
 	timeutils2.AddTimeout(time.Second*3,
 		func() { s.Monitor.SetVncPassword(s.GetVdiProtocol(), password, callback) })
+}
+
+func (s *SKVMGuestInstance) SyncMetadataInfo() {
+	meta := jsonutils.NewDict()
+	meta.Set("__qemu_version", jsonutils.NewString(s.GetQemuVersionStr()))
+	meta.Set("__vnc_port", jsonutils.NewInt(int64(s.GetVncPort())))
+
+	if len(s.VncPassword) > 0 {
+		meta.Set("__vnc_password", jsonutils.NewString(s.VncPassword))
+	}
+
+	s.SyncMetadata(meta)
 }
 
 func (s *SKVMGuestInstance) ListStateFilePaths() []string {

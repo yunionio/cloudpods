@@ -23,7 +23,8 @@ type Monitor interface {
 
 	QueryStatus(StringCallback)
 	GetVersion(StringCallback)
-	GetBlockJobs(func(jobs int))
+	GetBlockJobCounts(func(jobs int))
+	GetBlockJobs(func(*jsonutils.JSONArray))
 
 	GetBlocks(callback func(*jsonutils.JSONArray))
 	EjectCdrom(dev string, callback StringCallback)

@@ -179,6 +179,11 @@ func (n *SNetInterface) String() string {
 	return n.name
 }
 
+func (n *SNetInterface) Exist() bool {
+	_, err := net.InterfaceByName(n.name)
+	return err == nil
+}
+
 func (n *SNetInterface) FetchInter() *net.Interface {
 	inter, err := net.InterfaceByName(n.name)
 	if err != nil {
