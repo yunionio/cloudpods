@@ -62,9 +62,12 @@ func (dc *SDatacenter) scanDatastores() error {
 	if dc.istorages == nil {
 		var stores []mo.Datastore
 		dsList := dc.getDatacenter().Datastore
-		err := dc.manager.references2Objects(dsList, DATASTORE_PROPS, &stores)
-		if err != nil {
-			return err
+		if dsList != nil {
+			err := dc.manager.references2Objects(dsList, DATASTORE_PROPS, &stores)
+			if err != nil {
+				log.Errorf("references2Objects dsList fail %s", err)
+				return err
+			}
 		}
 		dc.istorages = make([]cloudprovider.ICloudStorage, len(stores))
 		for i := 0; i < len(stores); i += 1 {
@@ -114,10 +117,12 @@ func (dc *SDatacenter) getDcObj() *object.Datacenter {
 
 func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference) ([]cloudprovider.ICloudVM, error) {
 	var vms []mo.VirtualMachine
-	err := dc.manager.references2Objects(vmRefs, VIRTUAL_MACHINE_PROPS, &vms)
-	if err != nil {
-		log.Errorf("references2Objects fail %s", err)
-		return nil, err
+	if vmRefs != nil {
+		err := dc.manager.references2Objects(vmRefs, VIRTUAL_MACHINE_PROPS, &vms)
+		if err != nil {
+			log.Errorf("references2Objects fail %s", err)
+			return nil, err
+		}
 	}
 
 	retVms := make([]cloudprovider.ICloudVM, len(vms))
