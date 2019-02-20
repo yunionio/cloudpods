@@ -36,7 +36,7 @@ func (self *GuestSyncConfTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	if fw_only, _ := self.GetParams().Bool("fw_only"); fw_only {
+	if fwOnly, _ := self.GetParams().Bool("fw_only"); fwOnly {
 		db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF, nil, self.UserCred)
 		self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
 	} else if data.Contains("task") {

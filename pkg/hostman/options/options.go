@@ -51,9 +51,7 @@ type SHostOptions struct {
 
 	DefaultQemuVersion string `help:"Default qemu version" default:"2.9.1"`
 
-	// XXX: Need configure
-	// dhcp_relay = ('10.168.222.236', 67) => dhcp_relay = ['10.168.222.236', '67']
-	GoDhcpRelay     []string `help:"DHCP relay upstream"`
+	DhcpRelay       []string `help:"DHCP relay upstream"`
 	DhcpLeaseTime   int      `default:"100663296" help:"DHCP lease time in seconds"`
 	DhcpRenewalTime int      `default:"67108864" help:"DHCP renewal time in seconds"`
 

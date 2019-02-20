@@ -432,10 +432,10 @@ func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.Tok
 	return nil, nil
 }
 
-func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, fw_only bool, parentTaskId string) error {
+func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCredential, fwOnly bool, parentTaskId string) error {
 
 	data := jsonutils.NewDict()
-	if fw_only {
+	if fwOnly {
 		data.Add(jsonutils.JSONTrue, "fw_only")
 	} else if err := self.SetStatus(userCred, VM_SYNC_CONFIG, ""); err != nil {
 		log.Errorf(err.Error())
@@ -2250,7 +2250,7 @@ func (self *SGuest) AllowPerformSwitchToBackup(ctx context.Context, userCred mcc
 }
 
 func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status == VM_BLOCK_STREAM {
+	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
 		return nil, httperrors.NewBadRequestError("Cannot swith to backup when guest in status %s", self.Status)
 	}
 	if len(self.BackupHostId) == 0 {
@@ -2370,6 +2370,9 @@ func (self *SGuest) PerformDeleteBackup(ctx context.Context, userCred mcclient.T
 	taskData := jsonutils.NewDict()
 	taskData.Set("pruge", jsonutils.NewBool(jsonutils.QueryBoolean(data, "purge", false)))
 	taskData.Set("host_id", jsonutils.NewString(self.BackupHostId))
+	taskData.Set("failed_status", jsonutils.NewString(VM_BACKUP_DELETE_FAILED))
+
+	self.SetStatus(userCred, VM_DELETING_BACKUP, "delete backup server")
 	if task, err := taskman.TaskManager.NewTask(
 		ctx, "GuestDeleteOnHostTask", self, userCred, taskData, "", "", nil); err != nil {
 		log.Errorf(err.Error())

@@ -46,6 +46,8 @@ func NewDHCPRelay(guestDHCPConn *dhcp.Conn, addrs []string) (*SDHCPRelay, error)
 		log.Errorln(err)
 		return nil, err
 	}
+
+	log.Infof("Set Relay To Address: %s, %d", addr, port)
 	relay.destaddr = net.ParseIP(addr)
 	relay.destport = port
 	relay.cache = sync.Map{}
@@ -66,7 +68,7 @@ func (r *SDHCPRelay) Start() {
 func (r *SDHCPRelay) Setup(addr string) error {
 	var err error
 	r.srcaddr = addr
-	log.Infof("DHCP Relay Bind addr %s port %d", r.srcaddr, DEFAULT_DHCP_RELAY_PORT)
+	log.Infof("DHCP Relay Server Bind addr %s port %d", r.srcaddr, DEFAULT_DHCP_RELAY_PORT)
 	r.server, r.conn, err = dhcp.NewDHCPServer2(r.srcaddr, DEFAULT_DHCP_RELAY_PORT)
 	if err != nil {
 		log.Errorln(err)
@@ -94,7 +96,7 @@ func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Int
 }
 
 func (r *SDHCPRelay) Relay(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
-	log.Infof("Receive DHCP Relay Rquest FROM %s", pkt.CHAddr())
+	log.Infof("Receive DHCP Relay Rquest FROM %s %s", pkt.SIAddr(), pkt.CHAddr())
 
 	// clean cache first
 	var now = time.Now().Add(time.Second * -30)

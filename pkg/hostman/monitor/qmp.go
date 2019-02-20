@@ -149,7 +149,7 @@ func (m *QmpMonitor) read(r io.Reader) {
 			m.callBack(res)
 		} else if val, ok := objmap["return"]; ok {
 			var res = &Response{}
-			res.Return = *val
+			res.Return = []byte(*val)
 			if id, ok := objmap["id"]; ok {
 				res.Id = string(*id)
 			}
@@ -305,10 +305,11 @@ func (m *QmpMonitor) HumanMonitorCommand(cmd string, callback StringCallback) {
 		}
 
 		cb = func(res *Response) {
+			log.Debugf("Monitor ret: %s", res.Return)
 			if res.ErrorVal != nil {
 				callback(res.ErrorVal.Error())
 			} else {
-				callback(string(res.Return))
+				callback(strings.Trim(string(res.Return), `""`))
 			}
 		}
 	)
@@ -595,7 +596,7 @@ func (m *QmpMonitor) GetMigrateStatus(callback StringCallback) {
 	m.Query(cmd, cb)
 }
 
-func (m *QmpMonitor) GetBlockJobs(callback func(jobs int)) {
+func (m *QmpMonitor) GetBlockJobCounts(callback func(jobs int)) {
 	var cb = func(res *Response) {
 		if res.ErrorVal != nil {
 			log.Errorln(res.ErrorVal.Error())
@@ -608,6 +609,25 @@ func (m *QmpMonitor) GetBlockJobs(callback func(jobs int)) {
 			} else {
 				jobs, _ := ret.GetArray()
 				callback(len(jobs))
+			}
+		}
+	}
+	m.Query(&Command{Execute: "query-block-jobs"}, cb)
+}
+
+func (m *QmpMonitor) GetBlockJobs(callback func(*jsonutils.JSONArray)) {
+	var cb = func(res *Response) {
+		if res.ErrorVal != nil {
+			log.Errorln(res.ErrorVal.Error())
+			callback(nil)
+		} else {
+			ret, err := jsonutils.Parse(res.Return)
+			if err != nil {
+				log.Errorf("Parse qmp res error: %s", err)
+				callback(nil)
+			} else {
+				jobs, _ := ret.(*jsonutils.JSONArray)
+				callback(jobs)
 			}
 		}
 	}
