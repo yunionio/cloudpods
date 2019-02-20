@@ -74,10 +74,9 @@ func (m *SGuestManager) VerifyExistingGuests(pendingDelete bool) {
 	params.Set("limit", jsonutils.NewInt(0))
 	params.Set("admin", jsonutils.JSONTrue)
 	params.Set("system", jsonutils.JSONTrue)
+	params.Set("host", jsonutils.NewString(m.host.GetHostId()))
 	params.Set("pending_delete", jsonutils.NewBool(pendingDelete))
 	params.Set("get_backup_guests_on_host", jsonutils.JSONTrue)
-	params.Set("filter.0", jsonutils.NewString(
-		fmt.Sprintf("host_id.equals(%s)", m.host.GetHostId())))
 	if len(m.CandidateServers) > 0 {
 		keys := make([]string, len(m.CandidateServers))
 		var index = 0
@@ -314,7 +313,7 @@ func (m *SGuestManager) CpusetBalance(ctx context.Context, params interface{}) (
 
 func (m *SGuestManager) Status(sid string) string {
 	if guest, ok := m.Servers[sid]; ok {
-		if guest.IsMaster() && !guest.IsMirrorJobSucc() {
+		if guest.Monitor != nil && guest.IsMaster() && !guest.IsMirrorJobSucc() {
 			return "block_stream"
 		}
 		if guest.IsRunning() {
@@ -643,6 +642,9 @@ func (m *SGuestManager) StartDriveMirror(ctx context.Context, params interface{}
 		return nil, hostutils.ParamsError
 	}
 	guest := guestManger.Servers[mirrorParams.Sid]
+	if err := guest.SaveDesc(mirrorParams.Desc); err != nil {
+		return nil, err
+	}
 	task := NewDriveMirrorTask(ctx, guest, mirrorParams.NbdServerUri, "top", nil)
 	task.Start()
 	return nil, nil

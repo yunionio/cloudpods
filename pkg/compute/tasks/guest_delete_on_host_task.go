@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -18,23 +20,23 @@ type GuestDeleteOnHostTask struct {
 }
 
 func (self *GuestDeleteOnHostTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
 	hostId, err := self.Params.GetString("host_id")
 	if err != nil {
-		self.SetStageFailed(ctx, "Missing param host id")
+		self.OnFail(ctx, guest, "Missing param host id")
 		return
 	}
 	host := models.HostManager.FetchHostById(hostId)
 	if host == nil {
-		self.SetStageFailed(ctx, "Host is nil")
+		self.OnFail(ctx, guest, "Host is nil")
 		return
 	}
-	guest := obj.(*models.SGuest)
 
 	self.SetStage("OnStopGuest", nil)
 	self.Params.Set("is_force", jsonutils.JSONTrue)
 	if err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self); err != nil {
-		self.SetStageFailed(ctx, err.Error())
-		return
+		log.Errorf("RequestStopGuestForDelete fail %s", err)
+		self.OnStopGuest(ctx, guest, nil)
 	}
 }
 
@@ -50,7 +52,7 @@ func (self *GuestDeleteOnHostTask) OnStopGuest(ctx context.Context, guest *model
 		storage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
 		if storage != nil && !isPurge {
 			if err := host.GetHostDriver().RequestDeallocateBackupDiskOnHost(ctx, host, storage, disk, self); err != nil {
-				self.SetStageFailed(ctx, err.Error())
+				self.OnFail(ctx, guest, err.Error())
 				return
 			}
 		}
@@ -59,7 +61,7 @@ func (self *GuestDeleteOnHostTask) OnStopGuest(ctx context.Context, guest *model
 			return nil
 		})
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.OnFail(ctx, guest, err.Error())
 			return
 		}
 	}
@@ -79,9 +81,22 @@ func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *m
 			return nil
 		})
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.OnFail(ctx, guest, err.Error())
 			return
 		}
 	}
+	self.SetStage("OnSync", nil)
+	guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
+}
+
+func (self *GuestDeleteOnHostTask) OnSync(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *GuestDeleteOnHostTask) OnFail(ctx context.Context, guest *models.SGuest, reason string) {
+	failedStatus, _ := self.Params.GetString("failed_status")
+	if len(failedStatus) > 0 {
+		guest.SetStatus(self.UserCred, failedStatus, reason)
+	}
+	self.SetStageFailed(ctx, reason)
 }

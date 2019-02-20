@@ -452,7 +452,7 @@ func (s *SGuestResumeTask) onStartRunning() {
 	if options.HostOptions.SetVncPassword {
 		s.SetVncPassword()
 	}
-	s.syncMetadata()
+	s.SyncMetadataInfo()
 	s.SyncStatus()
 	timeutils2.AddTimeout(time.Second*5, s.SetCgroup)
 	disksIdx := s.GetNeedMergeBackingFileDiskIndexs()
@@ -479,18 +479,6 @@ func (s *SGuestResumeTask) onStreamComplete(disksIdx []int) {
 	} else {
 		s.streamDisksComplete(s.ctx)
 	}
-}
-
-func (s *SGuestResumeTask) syncMetadata() {
-	meta := jsonutils.NewDict()
-	meta.Set("__qemu_version", jsonutils.NewString(s.GetQemuVersionStr()))
-	meta.Set("__vnc_port", jsonutils.NewInt(int64(s.GetVncPort())))
-
-	if len(s.VncPassword) > 0 {
-		meta.Set("__vnc_password", jsonutils.NewString(s.VncPassword))
-	}
-
-	s.SyncMetadata(meta)
 }
 
 func (s *SGuestResumeTask) removeStatefile() {
@@ -522,7 +510,7 @@ func NewGuestStreamDisksTask(ctx context.Context, guest *SKVMGuestInstance, call
 }
 
 func (s *SGuestStreamDisksTask) Start() {
-	s.Monitor.GetBlockJobs(s.onInitCheckStreamJobs)
+	s.Monitor.GetBlockJobCounts(s.onInitCheckStreamJobs)
 }
 
 func (s *SGuestStreamDisksTask) onInitCheckStreamJobs(jobs int) {
@@ -592,7 +580,7 @@ func (s *SGuestStreamDisksTask) startWaitBlockStream(res string) {
 				s.c = nil
 				return
 			case <-time.After(time.Second * 1):
-				s.Monitor.GetBlockJobs(s.checkStreamJobs)
+				s.Monitor.GetBlockJobCounts(s.checkStreamJobs)
 			}
 		}
 	}

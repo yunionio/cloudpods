@@ -32,7 +32,10 @@ func NewGuestDHCPServer(iface string, relay []string) (*SGuestDHCPServer, error)
 		guestdhcp = new(SGuestDHCPServer)
 	)
 
-	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(DEFAULT_DHCP_BIND_ADDR, options.HostOptions.DhcpServerPort)
+	log.Infof("DHCP Server Bind: %s %d",
+		DEFAULT_DHCP_BIND_ADDR, options.HostOptions.DhcpServerPort)
+	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(
+		DEFAULT_DHCP_BIND_ADDR, options.HostOptions.DhcpServerPort)
 	if err != nil {
 		return nil, err
 	}

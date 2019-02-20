@@ -340,9 +340,11 @@ func (self *SKVMGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest *
 }
 
 func (self *SKVMGuestDriver) RequestSyncToBackup(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	body := jsonutils.NewDict()
-	body.Set("backup_nbd_server_uri", jsonutils.NewString(guest.GetMetadata("backup_nbd_server_uri", task.GetUserCred())))
 	host := guest.GetHost()
+	desc := guest.GetDriver().GetJsonDescAtHost(ctx, task.GetUserCred(), guest, host)
+	body := jsonutils.NewDict()
+	body.Add(desc, "desc")
+	body.Set("backup_nbd_server_uri", jsonutils.NewString(guest.GetMetadata("backup_nbd_server_uri", task.GetUserCred())))
 	url := fmt.Sprintf("%s/servers/%s/drive-mirror", host.ManagerUri, guest.Id)
 	header := self.getTaskRequestHeader(task)
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)

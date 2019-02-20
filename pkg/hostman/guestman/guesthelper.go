@@ -45,6 +45,7 @@ type SLiveMigrate struct {
 type SDriverMirror struct {
 	Sid          string
 	NbdServerUri string
+	Desc         jsonutils.JSONObject
 }
 
 type SReloadDisk struct {

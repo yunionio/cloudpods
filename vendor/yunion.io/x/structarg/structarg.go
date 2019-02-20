@@ -888,7 +888,11 @@ func (this *ArgumentParser) parseKeyValue(key, value string) error {
 	arg := this.findOptionalArgument(key)
 	if arg != nil {
 		if arg.IsMulti() {
-			value = strings.Trim(value, "[]")
+			if value[0] == '(' {
+				value = strings.Trim(value, "()")
+			} else {
+				value = strings.Trim(value, "[]")
+			}
 			values := utils.FindWords([]byte(value), 0)
 			for _, v := range values {
 				e := arg.SetValue(v)

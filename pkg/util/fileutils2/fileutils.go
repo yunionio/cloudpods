@@ -488,7 +488,7 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 			return fmt.Errorf("%s", output)
 		}
 		if len(part[6]) > 0 {
-			err := ResizePartitionFs(part[7], part[6])
+			err, _ := ResizePartitionFs(part[7], part[6], false)
 			if err != nil {
 				return err
 			}
@@ -498,12 +498,26 @@ func ResizeDiskFs(diskPath string, sizeMb int) error {
 }
 
 func FsckExtFs(fpath string) bool {
-	cmd := []string{"e2fsck", "-f", "-p", fpath}
-	if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
+	log.Debugf("Exec command: %v", []string{"e2fsck", "-f", "-p", fpath})
+	cmd := exec.Command("e2fsck", "-f", "-p", fpath)
+	if err := cmd.Start(); err != nil {
 		log.Errorln(err)
 		return false
+	} else {
+		err = cmd.Wait()
+		if err != nil {
+			if exiterr, ok := err.(*exec.ExitError); ok {
+				ws := exiterr.Sys().(syscall.WaitStatus)
+				if ws.ExitStatus() < 4 {
+					return true
+				}
+			}
+			log.Errorln(err)
+			return false
+		} else {
+			return true
+		}
 	}
-	return true
 }
 
 func FsckXfsFs(fpath string) bool {
@@ -515,9 +529,9 @@ func FsckXfsFs(fpath string) bool {
 	return true
 }
 
-func ResizePartitionFs(fpath, fs string) error {
+func ResizePartitionFs(fpath, fs string, raiseError bool) (error, bool) {
 	if len(fs) == 0 {
-		return nil
+		return nil, false
 	}
 	var (
 		cmds  = [][]string{}
@@ -531,7 +545,11 @@ func ResizePartitionFs(fpath, fs string) error {
 		}
 	} else if strings.HasPrefix(fs, "ext") {
 		if !FsckExtFs(fpath) {
-			return fmt.Errorf("Failed to fsck ext fs %s", fpath)
+			if raiseError {
+				return fmt.Errorf("Failed to fsck ext fs %s", fpath), false
+			} else {
+				return nil, false
+			}
 		}
 		cmds = [][]string{{"resize2fs", fpath}}
 	} else if fs == "xfs" {
@@ -540,7 +558,7 @@ func ResizePartitionFs(fpath, fs string) error {
 			_, err = procutils.NewCommand("umount", "-f", tmpPoint).Run()
 			if err != nil {
 				log.Errorln(err)
-				return err
+				return err, false
 			}
 		}
 		FsckXfsFs(fpath)
@@ -559,11 +577,15 @@ func ResizePartitionFs(fpath, fs string) error {
 			_, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run()
 			if err != nil {
 				log.Errorln(err)
-				return err
+				if raiseError {
+					return err, false
+				} else {
+					return nil, false
+				}
 			}
 		}
 	}
-	return nil
+	return nil, true
 }
 
 func GetDevUuid(dev string) map[string]string {
