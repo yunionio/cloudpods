@@ -190,14 +190,15 @@ func (catalog KeystoneServiceCatalogV2) getRegions() []string {
 
 func (catalog KeystoneServiceCatalogV2) getServiceEndpoint(service, region, zone string) (KeystoneEndpointV2, error) {
 	var selected KeystoneEndpointV2
+	var findService bool
 	for i := 0; i < len(catalog); i++ {
 		if service == catalog[i].Type {
+			findService = true
+			if len(catalog[i].Endpoints) == 0 {
+				continue
+			}
 			if len(region) == 0 {
-				if len(catalog[i].Endpoints) >= 1 {
-					selected = catalog[i].Endpoints[0]
-				} else {
-					return selected, fmt.Errorf("No default region")
-				}
+				selected = catalog[i].Endpoints[0]
 			} else {
 				regionEps := make([]KeystoneEndpointV2, 0)
 				zoneEps := make([]KeystoneEndpointV2, 0)
@@ -222,7 +223,11 @@ func (catalog KeystoneServiceCatalogV2) getServiceEndpoint(service, region, zone
 			return selected, nil
 		}
 	}
-	return selected, fmt.Errorf("No such service %s", service)
+	if findService {
+		return selected, fmt.Errorf("No default region")
+	} else {
+		return selected, fmt.Errorf("No such service %s", service)
+	}
 }
 
 func (catalog KeystoneServiceCatalogV2) GetServiceURL(service, region, zone, endpointType string) (string, error) {
