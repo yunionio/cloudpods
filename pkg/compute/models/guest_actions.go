@@ -1366,15 +1366,17 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 
 	netDesc, err := data.Get("net_desc")
 	if err != nil {
-		return nil, httperrors.NewBadRequestError(err.Error())
+		log.Errorf("net_desc not found")
+		return nil, httperrors.NewInputParameterError("missing net_desc")
 	}
 	conf, err := parseNetworkInfo(userCred, netDesc)
 	if err != nil {
+		log.Errorf("parseNetworkInfo fail %s", err)
 		return nil, err
 	}
 	err = isValidNetworkInfo(userCred, conf)
 	if err != nil {
-		return nil, httperrors.NewBadRequestError(err.Error())
+		return nil, err
 	}
 	host := self.GetHost()
 
@@ -1492,7 +1494,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 		}
 		err = isValidNetworkInfo(userCred, conf)
 		if err != nil {
-			return nil, httperrors.NewBadRequestError(err.Error())
+			return nil, err
 		}
 		var inicCnt, enicCnt, ibw, ebw int
 		if isExitNetworkInfo(conf) {
