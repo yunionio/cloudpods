@@ -226,7 +226,7 @@ func BatchDo(ids []string, do func(id string) (jsonutils.JSONObject, error)) []S
 			if e != nil {
 				ecls, ok := e.(*httputils.JSONClientError)
 				if ok {
-					results <- SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.NewString(ecls.Details)}
+					results <- SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.Marshal(ecls)}
 				} else {
 					results <- SubmitResult{Status: 400, Id: id, Data: jsonutils.NewString(e.Error())}
 				}
