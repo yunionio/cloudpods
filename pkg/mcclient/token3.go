@@ -271,6 +271,9 @@ func (catalog KeystoneServiceCatalogV3) GetServiceURLs(service, region, zone, en
 	}
 	for i := 0; i < len(catalog); i++ {
 		if service == catalog[i].Type {
+			if len(catalog[i].Endpoints) == 0 {
+				continue
+			}
 			var selected []string
 			regeps := make(map[string][]string)
 			regionzone := ""
