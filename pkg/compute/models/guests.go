@@ -66,6 +66,8 @@ const (
 	VM_DEPLOYING_BACKUP_FAILED = "deploging_backup_fail"
 	VM_DELETING_BACKUP         = "deleting_backup"
 	VM_BACKUP_DELETE_FAILED    = "backup_delete_fail"
+	VM_SWITCH_TO_BACKUP        = "switch_to_backup"
+	VM_SWITCH_TO_BACKUP_FAILED = "switch_to_backup_fail"
 
 	VM_ATTACH_DISK_FAILED = "attach_disk_fail"
 	VM_DETACH_DISK_FAILED = "detach_disk_fail"
