@@ -2254,12 +2254,13 @@ func (self *SGuest) AllowPerformSwitchToBackup(ctx context.Context, userCred mcc
 }
 
 func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(self.Status, []string{VM_READY, VM_RUNNING}) {
+	if self.Status == VM_BLOCK_STREAM {
 		return nil, httperrors.NewBadRequestError("Cannot swith to backup when guest in status %s", self.Status)
 	}
 	if len(self.BackupHostId) == 0 {
 		return nil, httperrors.NewBadRequestError("Guest no backup host")
 	}
+	self.SetStatus(userCred, VM_SWITCH_TO_BACKUP, "Switch to backup")
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSwitchToBackupTask", self, userCred, nil, "", "", nil); err != nil {
 		log.Errorf(err.Error())
 		return nil, err
