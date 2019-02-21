@@ -136,14 +136,16 @@ func (a *authManager) verify(token string) (mcclient.TokenCredential, error) {
 }
 
 func (a *authManager) authAdmin() error {
+	var token mcclient.TokenCredential
 	var err error
-	a.adminCredential, err = a.client.Authenticate(
+	token, err = a.client.Authenticate(
 		a.info.Username, a.info.Passwd,
 		a.info.Domain, a.info.Project)
 	if err != nil {
 		log.Errorf("Admin auth failed: %s", err)
 		return err
 	}
+	a.adminCredential = token
 	return nil
 }
 
