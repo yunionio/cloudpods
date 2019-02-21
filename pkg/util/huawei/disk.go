@@ -448,8 +448,11 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 	return disk.ID, err
 }
 
+// https://support.huaweicloud.com/api-evs/zh-cn_topic_0058762428.html
+// 默认删除云硬盘关联的所有快照
 func (self *SRegion) DeleteDisk(diskId string) error {
-	return DoDelete(self.ecsClient.Disks.Delete, diskId, nil, nil)
+	queries := map[string]string{"cascade": "true"}
+	return DoDeleteWithSpec(self.ecsClient.Disks.DeleteInContextWithSpec, nil, diskId, "", queries, nil)
 }
 
 /*

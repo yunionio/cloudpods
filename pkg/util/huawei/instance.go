@@ -1112,7 +1112,7 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string, device string)
 // 默认非强制卸载。delete_flag=0
 func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	path := fmt.Sprintf("detachvolume/%s", diskId)
-	return DoDeleteWithSpec(self.ecsClient.Servers.DeleteInContextWithSpec, nil, instanceId, path, nil)
+	return DoDeleteWithSpec(self.ecsClient.Servers.DeleteInContextWithSpec, nil, instanceId, path, nil, nil)
 }
 
 // 目前无接口支持
