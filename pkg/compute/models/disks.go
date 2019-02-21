@@ -1348,10 +1348,19 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 	if err != nil {
 		return nil, err
 	}
+
+	if self.GetCloudprovider().Provider == CLOUD_PROVIDER_HUAWEI && self.GetSnapshotCount() > 0 {
+		return nil, httperrors.NewForbiddenError("not allow to purge. Virtual disk must not have snapshots")
+	}
+
 	return nil, self.StartDiskDeleteTask(ctx, userCred, "", true, false)
 }
 
 func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if self.GetCloudprovider().Provider == CLOUD_PROVIDER_HUAWEI && self.GetSnapshotCount() > 0 {
+		return httperrors.NewForbiddenError("not allow to delete. Virtual disk must not have snapshots")
+	}
+
 	return self.StartDiskDeleteTask(ctx, userCred, "", false,
 		jsonutils.QueryBoolean(query, "override_pending_delete", false))
 }
