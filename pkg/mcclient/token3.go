@@ -270,7 +270,7 @@ func (catalog KeystoneServiceCatalogV3) GetServiceURLs(service, region, zone, en
 		endpointType = "internalURL"
 	}
 	for i := 0; i < len(catalog); i++ {
-		if service == catalog[i].Type {
+		if service == catalog[i].Type && len(catalog[i].Endpoints) > 0 {
 			var selected []string
 			regeps := make(map[string][]string)
 			regionzone := ""

@@ -191,7 +191,7 @@ func (catalog KeystoneServiceCatalogV2) getRegions() []string {
 func (catalog KeystoneServiceCatalogV2) getServiceEndpoint(service, region, zone string) (KeystoneEndpointV2, error) {
 	var selected KeystoneEndpointV2
 	for i := 0; i < len(catalog); i++ {
-		if service == catalog[i].Type {
+		if service == catalog[i].Type && len(catalog[i].Endpoints) > 0 {
 			if len(region) == 0 {
 				if len(catalog[i].Endpoints) >= 1 {
 					selected = catalog[i].Endpoints[0]
