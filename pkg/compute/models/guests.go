@@ -1400,6 +1400,11 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 	}
 	extra.Add(isGpu, "is_gpu")
 
+	if len(self.BackupHostId) > 0 {
+		backupHost := HostManager.FetchHostById(self.BackupHostId)
+		extra.Set("backup_host_name", jsonutils.NewString(backupHost.Name))
+	}
+
 	if self.IsPrepaidRecycle() {
 		extra.Add(jsonutils.JSONTrue, "is_prepaid_recycle")
 	} else {

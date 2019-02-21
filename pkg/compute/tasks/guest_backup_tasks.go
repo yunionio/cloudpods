@@ -231,7 +231,7 @@ func (self *GuestCreateBackupTask) OnGuestStart(ctx context.Context, guest *mode
 	self.SetStage("OnSyncToBackup", nil)
 	err := guest.GuestStartAndSyncToBackup(ctx, self.UserCred, nil, self.GetTaskId())
 	if err != nil {
-		self.SetStageFailed(ctx, fmt.Sprintf("Guest sycn to backup error %s", err.Error()))
+		self.TaskFailed(ctx, guest, fmt.Sprintf("Guest sycn to backup error %s", err.Error()))
 	}
 }
 
