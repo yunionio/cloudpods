@@ -196,11 +196,22 @@ func NotifySystemWarning(idstr string, name string, event string, reason string)
 	SystemNotify(notify.NotifyPriorityImportant, SYSTEM_WARNING, jsonutils.Marshal(msg))
 }
 
-func FetchNotifyAdminRecipients(ctx context.Context, region string, users []string, groups []string) {
+func FetchNotifyAdminRecipients(ctx context.Context, region string, domain string, users []string, groups []string) {
 	s := auth.GetAdminSession(ctx, region, "v1")
+
+	query := jsonutils.NewDict()
+	if len(domain) > 0 {
+		domainId, err := modules.Domains.GetId(s, domain, nil)
+		if err != nil {
+			log.Errorf("fail to find domainId for domain %s", domain)
+			return
+		}
+		query.Add(jsonutils.NewString(domainId), "domain_id")
+	}
+
 	notifyAdminUsers = make([]string, 0)
 	for _, u := range users {
-		uId, err := modules.UsersV3.GetId(s, u, nil)
+		uId, err := modules.UsersV3.GetId(s, u, query)
 		if err != nil {
 			log.Warningf("fetch user %s fail: %s", u, err)
 		} else {
@@ -209,7 +220,7 @@ func FetchNotifyAdminRecipients(ctx context.Context, region string, users []stri
 	}
 	notifyAdminGroups = make([]string, 0)
 	for _, g := range groups {
-		gId, err := modules.Groups.GetId(s, g, nil)
+		gId, err := modules.Groups.GetId(s, g, query)
 		if err != nil {
 			log.Errorf("fetch group %s fail: %s", g, err)
 		} else {

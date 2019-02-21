@@ -36,6 +36,7 @@ type CommonOptions struct {
 	ApplicationID      string `help:"Application ID"`
 	RequestWorkerCount int    `default:"4" help:"Request worker thread count, default is 4"`
 
+	NotifyAdminDomain string   `help:"domain of notify admin users or groups"`
 	NotifyAdminUsers  []string `default:"sysadmin" help:"System administrator user ID or name to notify system events"`
 	NotifyAdminGroups []string `help:"System administrator group ID or name to notify system events"`
 
