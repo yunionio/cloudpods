@@ -58,7 +58,11 @@ func init() {
 	}
 
 	shellutils.R(&InstanceChangeConfigOptions{}, "instance-change-config", "Change instance config", func(cli *openstack.SRegion, args *InstanceChangeConfigOptions) error {
-		return cli.ChageConfig(args.ID, args.FLAVOR_ID)
+		instance, err := cli.GetInstance(args.ID)
+		if err != nil {
+			return err
+		}
+		return cli.ChangeConfig(instance, args.FLAVOR_ID)
 	})
 
 }
