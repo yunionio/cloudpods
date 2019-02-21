@@ -56,7 +56,7 @@ func taskFail(ctx context.Context, task *CloudProviderSyncInfoTask, provider *mo
 
 func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	provider := obj.(*models.SCloudprovider)
-	provider.MarkStartSync(self.UserCred)
+	provider.SetStatus(self.UserCred, models.CLOUD_PROVIDER_SYNCING, "start syncing")
 	// do sync
 
 	notes := fmt.Sprintf("Start sync cloud provider %s status ...", provider.Name)
@@ -78,16 +78,24 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 		provider.SaveSysInfo(sysinfo, version)
 	}
 
-	syncRangeJson, _ := self.Params.Get("sync_range")
-	if syncRangeJson != nil {
-		syncRange := models.SSyncRange{}
-		err = syncRangeJson.Unmarshal(&syncRange)
-		if err == nil && syncRange.NeedSyncInfo() {
-			syncRange.Normalize()
-			syncCloudProviderInfo(ctx, provider, self, driver, &syncRange)
-		}
-	}
+	self.SetStage("OnSyncCLoudProviderInfoComplete", nil)
 
+	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
+		syncRangeJson, _ := self.Params.Get("sync_range")
+		if syncRangeJson != nil {
+			syncRange := models.SSyncRange{}
+			err = syncRangeJson.Unmarshal(&syncRange)
+			if err == nil && syncRange.NeedSyncInfo() {
+				syncRange.Normalize()
+				syncCloudProviderInfo(ctx, provider, self, driver, &syncRange)
+			}
+		}
+		return nil, nil
+	})
+}
+
+func (self *CloudProviderSyncInfoTask) OnSyncCLoudProviderInfoComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
+	provider := obj.(*models.SCloudprovider)
 	provider.SetStatus(self.UserCred, models.CLOUD_PROVIDER_CONNECTED, "")
 	provider.CleanSchedCache()
 	self.SetStageComplete(ctx, nil)
@@ -198,11 +206,6 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 		result := storageCachePairs[i].syncCloudImages(ctx, task.GetUserCred())
 		msg := result.Result()
 		log.Infof("syncCloudImages result: %s", msg)
-		// skip errors
-		// if result.IsError() {
-		//	logSyncFailed(provider, task, msg)
-		//	return
-		// }
 	}
 }
 
@@ -578,7 +581,7 @@ func syncStorageCaches(ctx context.Context, provider *models.SCloudprovider, tas
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	err = localStorage.SetStoragecache(localCache)
+	err = localStorage.SetStoragecache(task.GetUserCred(), localCache)
 	if err != nil {
 		msg := fmt.Sprintf("localStorage %s set cache failed: %s", localStorage.GetName(), err)
 		log.Errorf(msg)

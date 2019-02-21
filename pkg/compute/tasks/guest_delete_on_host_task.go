@@ -56,7 +56,7 @@ func (self *GuestDeleteOnHostTask) OnStopGuest(ctx context.Context, guest *model
 				return
 			}
 		}
-		_, err := models.DiskManager.TableSpec().Update(disk, func() error {
+		_, err := db.Update(disk, func() error {
 			disk.BackupStorageId = ""
 			return nil
 		})
@@ -76,7 +76,7 @@ func (self *GuestDeleteOnHostTask) OnStopGuest(ctx context.Context, guest *model
 func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	hostId, _ := self.Params.GetString("host_id")
 	if guest.BackupHostId == hostId {
-		_, err := models.GuestManager.TableSpec().Update(guest, func() error {
+		_, err := db.Update(guest, func() error {
 			guest.BackupHostId = ""
 			return nil
 		})

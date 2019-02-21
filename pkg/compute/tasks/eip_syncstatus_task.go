@@ -38,7 +38,7 @@ func (self *EipSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		return
 	}
 
-	err = eip.SyncWithCloudEip(self.UserCred, extEip, "", false)
+	err = eip.SyncWithCloudEip(ctx, self.UserCred, extEip, "", false)
 	if err != nil {
 		msg := fmt.Sprintf("fail to sync eip status %s", err)
 		eip.SetStatus(self.UserCred, models.EIP_STATUS_UNKNOWN, msg)

@@ -338,7 +338,7 @@ func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx c
 	return syncResult
 }
 
-func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(extRule cloudprovider.ICloudLoadbalancerListenerRule) {
+func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userCred mcclient.TokenCredential, extRule cloudprovider.ICloudLoadbalancerListenerRule) {
 	lbr.Name = extRule.GetName()
 	lbr.Domain = extRule.GetDomain()
 	lbr.Path = extRule.GetPath()
@@ -348,7 +348,7 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(extRu
 			ilbbg, err := LoadbalancerBackendGroupManager.FetchById(lbr.BackendGroupId)
 			lbbg := ilbbg.(*SLoadbalancerBackendGroup)
 			if err == nil && (len(lbbg.ExternalId) == 0 || lbbg.ExternalId != groupId) {
-				err = lbbg.SetExternalId(groupId)
+				err = lbbg.SetExternalId(userCred, groupId)
 				if err != nil {
 					log.Errorf("Update loadbalancer BackendGroup(%s) external id failed: %s", lbbg.GetId(), err)
 				}
@@ -368,7 +368,7 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 	lbr.ExternalId = extRule.GetGlobalId()
 	lbr.ListenerId = listener.Id
 
-	lbr.constructFieldsFromCloudListenerRule(extRule)
+	lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
 	lbr.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		lbr.ProjectId = projectId
@@ -378,8 +378,8 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 }
 
 func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, extRule cloudprovider.ICloudLoadbalancerListenerRule, projectId string, projectSync bool) error {
-	_, err := lbr.GetModelManager().TableSpec().Update(lbr, func() error {
-		lbr.constructFieldsFromCloudListenerRule(extRule)
+	_, err := db.Update(lbr, func() error {
+		lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
 
 		if projectSync && len(projectId) > 0 {
 			lbr.ProjectId = projectId
@@ -399,7 +399,7 @@ func (manager *SLoadbalancerListenerRuleManager) InitializeData() error {
 	for i := 0; i < len(rules); i++ {
 		rule := &rules[i]
 		if listener := rule.GetLoadbalancerListener(); listener != nil && len(listener.CloudregionId) > 0 {
-			_, err := listener.GetModelManager().TableSpec().Update(rule, func() error {
+			_, err := db.Update(rule, func() error {
 				rule.CloudregionId = listener.CloudregionId
 				rule.ManagerId = listener.ManagerId
 				return nil

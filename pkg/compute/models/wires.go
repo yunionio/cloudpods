@@ -226,7 +226,7 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SWire) syncWithCloudWire(extWire cloudprovider.ICloudWire) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.Name = extWire.GetName()
 		self.Bandwidth = extWire.GetBandwidth() // 10G
 
@@ -525,8 +525,8 @@ func (manager *SWireManager) InitializeData() error {
 	}
 	for _, w := range wires {
 		if len(w.VpcId) == 0 {
-			manager.TableSpec().Update(&w, func() error {
-				w.VpcId = "default"
+			db.Update(&w, func() error {
+				w.VpcId = DEFAULT_VPC_ID
 				return nil
 			})
 		}

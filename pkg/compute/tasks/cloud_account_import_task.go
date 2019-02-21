@@ -20,7 +20,7 @@ func init() {
 func (self *CloudAccountImportTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	cloudAccount := obj.(*models.SCloudaccount)
 
-	cloudAccount.MarkStartSync(self.UserCred)
+	cloudAccount.SetStatus(self.UserCred, models.CLOUD_PROVIDER_SYNCING, "account sync")
 
 	autoCreateProject := jsonutils.QueryBoolean(self.Params, "auto_create_project", false)
 	autoSync := jsonutils.QueryBoolean(self.Params, "auto_sync", false)

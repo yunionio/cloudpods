@@ -419,13 +419,14 @@ func (lbagent *SLoadbalancerAgent) AllowPerformHb(ctx context.Context, userCred 
 }
 
 func (lbagent *SLoadbalancerAgent) PerformHb(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	_, err := lbagent.GetModelManager().TableSpec().Update(lbagent, func() error {
+	diff, err := db.Update(lbagent, func() error {
 		lbagent.HbLastSeen = time.Now()
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
+	db.OpsLog.LogEvent(lbagent, db.ACT_UPDATE, diff, userCred)
 	return nil, nil
 }
 
@@ -453,13 +454,14 @@ func (lbagent *SLoadbalancerAgent) PerformParamsPatch(ctx context.Context, userC
 		return nil, err
 	}
 	{
-		_, err := lbagent.GetModelManager().TableSpec().Update(lbagent, func() error {
+		diff, err := db.Update(lbagent, func() error {
 			lbagent.Params = &params
 			return nil
 		})
 		if err != nil {
 			return nil, err
 		}
+		db.OpsLog.LogEvent(lbagent, db.ACT_UPDATE, diff, userCred)
 	}
 	return nil, nil
 }

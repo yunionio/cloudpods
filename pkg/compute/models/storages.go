@@ -270,7 +270,7 @@ func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 	self.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 	storageConf, _ := data.Get("storage_conf")
 	if storageConf != nil {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := db.Update(self, func() error {
 			self.StorageConf = storageConf
 			return nil
 		})
@@ -292,7 +292,7 @@ func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 			monHost, _ := storages[i].StorageConf.GetString("mon_host")
 			key, _ := storages[i].StorageConf.GetString("key")
 			if monHost == nMonHost && nKey == key {
-				_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+				_, err := db.Update(self, func() error {
 					self.StoragecacheId = storages[i].StoragecacheId
 					return nil
 				})
@@ -327,7 +327,7 @@ func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 			log.Errorln(err)
 			return
 		}
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := db.Update(self, func() error {
 			self.StoragecacheId = sc.Id
 			self.Status = STORAGE_ONLINE
 			return nil
@@ -343,7 +343,7 @@ func (self *SStorage) SetStatus(userCred mcclient.TokenCredential, status string
 		return nil
 	}
 	oldStatus := self.Status
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.Status = status
 		return nil
 	})
@@ -369,7 +369,7 @@ func (self *SStorage) AllowPerformEnable(ctx context.Context, userCred mcclient.
 
 func (self *SStorage) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !self.Enabled {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := db.Update(self, func() error {
 			self.Enabled = true
 			return nil
 		})
@@ -388,7 +388,7 @@ func (self *SStorage) AllowPerformDisable(ctx context.Context, userCred mcclient
 
 func (self *SStorage) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Enabled {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := db.Update(self, func() error {
 			self.Enabled = false
 			return nil
 		})
@@ -546,7 +546,7 @@ func (self *SStorage) GetZoneId() string {
 	}
 	host := self.GetMasterHost()
 	if host != nil {
-		_, err := StorageManager.TableSpec().Update(self, func() error {
+		_, err := db.Update(self, func() error {
 			self.ZoneId = host.ZoneId
 			return nil
 		})
@@ -747,7 +747,7 @@ func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mccli
 }
 
 func (self *SStorage) syncWithCloudStorage(extStorage cloudprovider.ICloudStorage) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.Name = extStorage.GetName()
 		self.Status = extStorage.GetStatus()
 		self.StorageType = extStorage.GetStorageType()
@@ -997,15 +997,19 @@ func (self *SStorage) GetAllAttachingHosts() []SHost {
 	return ret
 }
 
-func (self *SStorage) SetStoragecache(cache *SStoragecache) error {
+func (self *SStorage) SetStoragecache(userCred mcclient.TokenCredential, cache *SStoragecache) error {
 	if self.StoragecacheId == cache.Id {
 		return nil
 	}
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	diff, err := db.Update(self, func() error {
 		self.StoragecacheId = cache.Id
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+	return nil
 }
 
 func (self *SStorage) AllowPerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1098,7 +1102,7 @@ func (manager *SStorageManager) InitializeData() error {
 			} else {
 				log.Fatalf("Cannot locate zoneId for storage %s", s.Name)
 			}
-			manager.TableSpec().Update(&s, func() error {
+			db.Update(&s, func() error {
 				s.ZoneId = zoneId
 				return nil
 			})
@@ -1114,7 +1118,7 @@ func (manager *SStorageManager) InitializeData() error {
 				if err := StoragecacheManager.TableSpec().Insert(storagecache); err != nil {
 					log.Fatalf("Cannot Add storagecache for %s", s.Name)
 				} else {
-					manager.TableSpec().Update(&s, func() error {
+					db.Update(&s, func() error {
 						s.StoragecacheId = storagecache.Id
 						return nil
 					})

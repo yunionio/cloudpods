@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SDnsRecordManager struct {
@@ -378,8 +379,8 @@ func (rec *SDnsRecord) ValidateUpdateData(ctx context.Context, userCred mcclient
 	return rec.SAdminSharableVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (rec *SDnsRecord) AddInfo(userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
-	return rec.SAdminSharableVirtualResourceBase.AddInfo(userCred, DnsRecordManager, rec, data)
+func (rec *SDnsRecord) AddInfo(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	return rec.SAdminSharableVirtualResourceBase.AddInfo(ctx, userCred, DnsRecordManager, rec, data)
 }
 
 func (rec *SDnsRecord) AllowPerformAddRecords(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -397,7 +398,7 @@ func (rec *SDnsRecord) PerformAddRecords(ctx context.Context, userCred mcclient.
 	if oldType != "" && oldType != newType {
 		return nil, httperrors.NewNotAcceptableError("Cannot mix different types of records, %s != %s", oldType, newType)
 	}
-	err = rec.AddInfo(userCred, data)
+	err = rec.AddInfo(ctx, userCred, data)
 	return nil, err
 }
 
@@ -406,7 +407,7 @@ func (rec *SDnsRecord) AllowPerformRemoveRecords(ctx context.Context, userCred m
 }
 
 func (rec *SDnsRecord) PerformRemoveRecords(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := rec.SAdminSharableVirtualResourceBase.RemoveInfo(userCred, DnsRecordManager, rec, data, false)
+	err := rec.SAdminSharableVirtualResourceBase.RemoveInfo(ctx, userCred, DnsRecordManager, rec, data, false)
 	return nil, err
 }
 
@@ -416,7 +417,7 @@ func (rec *SDnsRecord) AllowPerformEnable(ctx context.Context, userCred mcclient
 
 func (rec *SDnsRecord) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !rec.Enabled {
-		_, err := rec.GetModelManager().TableSpec().Update(rec, func() error {
+		diff, err := db.Update(rec, func() error {
 			rec.Enabled = true
 			return nil
 		})
@@ -424,6 +425,8 @@ func (rec *SDnsRecord) PerformEnable(ctx context.Context, userCred mcclient.Toke
 			log.Errorf("enabling dnsrecords for %s failed: %s", rec.Name, err)
 			return nil, err
 		}
+		db.OpsLog.LogEvent(rec, db.ACT_ENABLE, diff, userCred)
+		logclient.AddActionLogWithContext(ctx, rec, logclient.ACT_ENABLE, diff, userCred, true)
 	}
 	return nil, nil
 }
@@ -434,7 +437,7 @@ func (rec *SDnsRecord) AllowPerformDisable(ctx context.Context, userCred mcclien
 
 func (rec *SDnsRecord) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if rec.Enabled {
-		_, err := rec.GetModelManager().TableSpec().Update(rec, func() error {
+		diff, err := db.Update(rec, func() error {
 			rec.Enabled = false
 			return nil
 		})
@@ -442,6 +445,8 @@ func (rec *SDnsRecord) PerformDisable(ctx context.Context, userCred mcclient.Tok
 			log.Errorf("disabling dnsrecords for %s failed: %s", rec.Name, err)
 			return nil, err
 		}
+		db.OpsLog.LogEvent(rec, db.ACT_DISABLE, diff, userCred)
+		logclient.AddActionLogWithContext(ctx, rec, logclient.ACT_DISABLE, diff, userCred, true)
 	}
 	return nil, nil
 }

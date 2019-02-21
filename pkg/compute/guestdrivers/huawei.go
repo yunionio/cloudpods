@@ -123,7 +123,7 @@ func (self *SHuaweiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			if createErr != nil {
 				return nil, createErr
 			}
-			guest.SetExternalId(iVM.GetGlobalId())
+			guest.SetExternalId(task.GetUserCred(), iVM.GetGlobalId())
 
 			log.Debugf("VMcreated %s, wait status ready ...", iVM.GetGlobalId())
 			err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800)

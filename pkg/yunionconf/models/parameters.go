@@ -201,7 +201,7 @@ func (model *SParameter) CustomizeDelete(ctx context.Context, userCred mcclient.
 }
 
 func (model *SParameter) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	_, err := model.GetModelManager().TableSpec().Update(model, func() error {
+	_, err := db.Update(model, func() error {
 		model.Deleted = true
 		model.DeletedAt = timeutils.UtcNow()
 		return nil

@@ -115,7 +115,7 @@ func (manager *SMetadataManager) RemoveAll(ctx context.Context, model IModel, us
 	changes := make([]sMetadataChange, 0)
 	for _, rec := range records {
 		if len(rec.Value) > 0 {
-			_, err := manager.TableSpec().Update(&rec, func() error {
+			_, err := Update(&rec, func() error {
 				rec.Value = ""
 				return nil
 			})
@@ -163,7 +163,7 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 				return err
 			}
 		} else {
-			_, err := manager.TableSpec().Update(&record, func() error {
+			_, err := Update(&record, func() error {
 				record.Value = valStr
 				return nil
 			})

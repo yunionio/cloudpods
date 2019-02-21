@@ -285,14 +285,14 @@ func (self *GuestMigrateTask) setGuest(ctx context.Context, guest *models.SGuest
 		guestDisks := guest.GetDisks()
 		for i := 0; i < len(guestDisks); i++ {
 			disk := guestDisks[i].GetDisk()
-			disk.GetModelManager().TableSpec().Update(disk, func() error {
+			db.Update(disk, func() error {
 				disk.Status = models.DISK_READY
 				disk.StorageId = targetStorage.Id
 				return nil
 			})
 			snapshots := models.SnapshotManager.GetDiskSnapshots(disk.Id)
 			for _, snapshot := range snapshots {
-				snapshot.GetModelManager().TableSpec().Update(snapshot, func() error {
+				db.Update(&snapshot, func() error {
 					snapshot.StorageId = targetStorage.Id
 					return nil
 				})

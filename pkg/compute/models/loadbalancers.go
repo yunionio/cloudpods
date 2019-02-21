@@ -587,7 +587,7 @@ func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred m
 }
 
 func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, extLb cloudprovider.ICloudLoadbalancer, projectId string, projectSync bool) error {
-	_, err := lb.GetModelManager().TableSpec().Update(lb, func() error {
+	_, err := db.Update(lb, func() error {
 		lb.Address = extLb.GetAddress()
 		lb.Status = extLb.GetStatus()
 		lb.Name = extLb.GetName()
@@ -616,7 +616,7 @@ func (lb *SLoadbalancer) setCloudregionId() error {
 	if region == nil {
 		return fmt.Errorf("failed to find region for zone: %s", lb.ZoneId)
 	}
-	_, err := lb.GetModelManager().TableSpec().Update(lb, func() error {
+	_, err := db.Update(lb, func() error {
 		lb.CloudregionId = region.Id
 		return nil
 	})

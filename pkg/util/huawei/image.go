@@ -126,7 +126,7 @@ func (self *SImage) GetImageType() string {
 }
 
 func (self *SImage) GetSize() int64 {
-	return int64(self.ImageSize) * 1024 * 1024 * 1024
+	return int64(self.MinDisk) * 1024 * 1024 * 1024
 }
 
 func (self *SImage) GetOsType() string {

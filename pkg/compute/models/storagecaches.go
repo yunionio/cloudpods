@@ -173,7 +173,7 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(cloudCache cloudpr
 }
 
 func (self *SStoragecache) syncWithCloudStoragecache(cloudCache cloudprovider.ICloudStoragecache) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.Name = cloudCache.GetName()
 
 		self.Path = cloudCache.GetPath()

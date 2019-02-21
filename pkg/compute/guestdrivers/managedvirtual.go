@@ -331,7 +331,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 
 	uuid, _ := data.GetString("uuid")
 	if len(uuid) > 0 {
-		guest.SetExternalId(uuid)
+		guest.SetExternalId(task.GetUserCred(), uuid)
 	}
 
 	recycle := false
@@ -354,7 +354,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 		}
 		for i := 0; i < len(diskInfo); i += 1 {
 			disk := disks[i].GetDisk()
-			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
+			_, err = db.Update(disk, func() error {
 				disk.DiskSize = diskInfo[i].Size
 				disk.ExternalId = diskInfo[i].Uuid
 				disk.DiskType = diskInfo[i].DiskType
@@ -388,7 +388,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 			}
 			db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), task.GetUserCred())
 			guestdisk := guest.GetGuestDisk(disk.Id)
-			_, err = guestdisk.GetModelManager().TableSpec().Update(guestdisk, func() error {
+			_, err = db.Update(guestdisk, func() error {
 				guestdisk.Driver = diskInfo[i].Driver
 				guestdisk.CacheMode = diskInfo[i].CacheMode
 				return nil
@@ -464,7 +464,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 				if err != nil {
 					return nil, err
 				}
-				if err = secgroupCache.SetExternalId(extID); err != nil {
+				if err = secgroupCache.SetExternalId(task.GetUserCred(), extID); err != nil {
 					return nil, err
 				}
 				externalIds = append(externalIds, extID)

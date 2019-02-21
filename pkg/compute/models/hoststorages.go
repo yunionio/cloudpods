@@ -133,7 +133,7 @@ func (self *SHoststorage) PostCreate(ctx context.Context, userCred mcclient.Toke
 			log.Errorf("Host Storage Post Create Error: %s", err)
 			// panic(err) ???
 		}
-		self.SyncStorageStatus()
+		self.SyncStorageStatus(userCred)
 	}
 }
 
@@ -153,11 +153,11 @@ func (self *SHoststorage) PreDelete(ctx context.Context, userCred mcclient.Token
 			log.Errorf("Host Storage Post Create Error: %s", err)
 			// panic(err) ???
 		}
-		self.SyncStorageStatus()
+		self.SyncStorageStatus(userCred)
 	}
 }
 
-func (self *SHoststorage) SyncStorageStatus() {
+func (self *SHoststorage) SyncStorageStatus(userCred mcclient.TokenCredential) {
 	storage := self.GetStorage()
 	hostQuery := HostManager.Query().SubQuery()
 	count := HoststorageManager.Query().Join(hostQuery,
@@ -170,10 +170,7 @@ func (self *SHoststorage) SyncStorageStatus() {
 		status = STORAGE_OFFLINE
 	}
 	if status != storage.Status {
-		storage.GetModelManager().TableSpec().Update(storage, func() error {
-			storage.Status = status
-			return nil
-		})
+		storage.SetStatus(userCred, status, "SyncStorageStatus")
 	}
 }
 
@@ -247,10 +244,14 @@ func (manager *SHoststorageManager) GetStorages(hostId string) ([]SHoststorage, 
 	return hoststorage, nil
 }
 
-func (self *SHoststorage) syncWithCloudHostStorage(extStorage cloudprovider.ICloudStorage) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+func (self *SHoststorage) syncWithCloudHostStorage(userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage) error {
+	diff, err := db.Update(self, func() error {
 		self.MountPoint = extStorage.GetMountPoint()
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_SYNC_UPDATE, diff, userCred)
+	return nil
 }

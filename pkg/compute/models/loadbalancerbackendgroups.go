@@ -399,25 +399,30 @@ func (lbbg *SLoadbalancerBackendGroup) constructFieldsFromCloudBackendgroup(lb *
 }
 
 func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, projectId string, projectSync bool) error {
-	_, err := lbbg.GetModelManager().TableSpec().Update(lbbg, func() error {
-
+	diff, err := db.UpdateWithLock(ctx, lbbg, func() error {
 		lbbg.constructFieldsFromCloudBackendgroup(lb, extLoadbalancerBackendgroup)
 		if projectSync && len(projectId) > 0 {
 			lbbg.ProjectId = projectId
 		}
-
-		if extLoadbalancerBackendgroup.IsDefault() {
-			_, err := lb.GetModelManager().TableSpec().Update(lb, func() error {
-				lb.BackendGroupId = lbbg.Id
-				return nil
-			})
-			if err != nil {
-				log.Errorf("failed to set backendgroup id for lb %s error: %v", lb.Name, err)
-			}
-		}
-
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(lbbg, db.ACT_UPDATE, diff, userCred)
+
+	if extLoadbalancerBackendgroup.IsDefault() {
+		diff, err := db.UpdateWithLock(ctx, lb, func() error {
+			lb.BackendGroupId = lbbg.Id
+			return nil
+		})
+		if err != nil {
+			log.Errorf("failed to set backendgroup id for lb %s error: %v", lb.Name, err)
+			return err
+		}
+		db.OpsLog.LogEvent(lb, db.ACT_UPDATE, diff, userCred)
+	}
+
 	return err
 }
 
@@ -442,7 +447,7 @@ func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgrou
 	}
 
 	if extLoadbalancerBackendgroup.IsDefault() {
-		_, err := lb.GetModelManager().TableSpec().Update(lb, func() error {
+		_, err := db.Update(lb, func() error {
 			lb.BackendGroupId = lbbg.Id
 			return nil
 		})
@@ -462,7 +467,7 @@ func (man *SLoadbalancerBackendGroupManager) initBackendGroupType() error {
 		return err
 	}
 	for i := 0; i < len(backendgroups); i++ {
-		_, err := man.TableSpec().Update(&backendgroups[i], func() error {
+		_, err := db.Update(&backendgroups[i], func() error {
 			backendgroups[i].Type = LB_BACKENDGROUP_TYPE_NORMAL
 			return nil
 		})
@@ -490,7 +495,7 @@ func (manager *SLoadbalancerBackendGroupManager) initBackendGroupRegion() error 
 	for i := 0; i < len(groups); i++ {
 		group := &groups[i]
 		if lb := group.GetLoadbalancer(); lb != nil && len(lb.CloudregionId) > 0 {
-			_, err := group.GetModelManager().TableSpec().Update(group, func() error {
+			_, err := db.Update(group, func() error {
 				group.CloudregionId = lb.CloudregionId
 				group.ManagerId = lb.ManagerId
 				return nil

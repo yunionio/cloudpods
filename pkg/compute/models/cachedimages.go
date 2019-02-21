@@ -196,7 +196,7 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 			return nil, err
 		}
 	} else { // update
-		diff, err := manager.TableSpec().Update(&imageCache, func() error {
+		diff, err := db.Update(&imageCache, func() error {
 			imageCache.Size = size
 			imageCache.Info = info
 			imageCache.LastSync = timeutils.UtcNow()
@@ -312,7 +312,7 @@ func (self *SCachedimage) addRefCount() {
 	if self.GetStatus() != "active" {
 		return
 	}
-	_, err := CachedimageManager.TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.RefCount += 1
 		self.LastRef = timeutils.UtcNow()
 		return nil
@@ -387,7 +387,7 @@ func (self *SCachedimage) canDeleteLastCache() bool {
 }
 
 func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, image cloudprovider.ICloudImage) error {
-	diff, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Name = image.GetName()
 		self.Size = image.GetSize()
 		self.ExternalId = image.GetGlobalId()
@@ -397,15 +397,18 @@ func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mccli
 		self.LastSync = time.Now().UTC()
 		return nil
 	})
-	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+	db.OpsLog.LogEvent(self, db.ACT_SYNC_UPDATE, diff, userCred)
 	return err
 }
 
 func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, image cloudprovider.ICloudImage) (*SCachedimage, error) {
+	lockman.LockClass(ctx, manager, "")
+	defer lockman.ReleaseClass(ctx, manager, "")
+
 	cachedImage := SCachedimage{}
 	cachedImage.SetModelManager(manager)
 
-	cachedImage.Name = image.GetName()
+	cachedImage.Name = db.GenerateName(manager, "", image.GetName())
 	cachedImage.Size = image.GetSize()
 	sImage := cloudprovider.CloudImage2Image(image)
 	cachedImage.Info = jsonutils.Marshal(&sImage)

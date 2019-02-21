@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -77,7 +78,7 @@ func (self *SBaseHostDriver) FinishUnconvert(ctx context.Context, userCred mccli
 	if adminNic == nil {
 		return fmt.Errorf("admin nic is nil")
 	}
-	host.GetModelManager().TableSpec().Update(host, func() error {
+	db.Update(host, func() error {
 		host.AccessIp = adminNic.IpAddr
 		host.Enabled = true
 		host.HostType = models.HOST_TYPE_BAREMETAL
@@ -96,7 +97,7 @@ func (self *SBaseHostDriver) CleanSchedCache(host *models.SHost) error {
 	return host.ClearSchedDescCache()
 }
 func (self *SBaseHostDriver) FinishConvert(userCred mcclient.TokenCredential, host *models.SHost, guest *models.SGuest, hostType string) error {
-	_, err := guest.GetModelManager().TableSpec().Update(guest, func() error {
+	_, err := db.Update(guest, func() error {
 		guest.VmemSize = 0
 		guest.VcpuCount = 0
 		return nil
@@ -106,14 +107,14 @@ func (self *SBaseHostDriver) FinishConvert(userCred mcclient.TokenCredential, ho
 	}
 	for _, guestdisk := range guest.GetDisks() {
 		disk := guestdisk.GetDisk()
-		disk.GetModelManager().TableSpec().Update(disk, func() error {
+		db.Update(disk, func() error {
 			disk.DiskSize = 0
 			return nil
 		})
 	}
 	bs := host.GetBaremetalstorage().GetStorage()
 	bs.SetStatus(userCred, models.STORAGE_OFFLINE, "")
-	host.GetModelManager().TableSpec().Update(host, func() error {
+	db.Update(host, func() error {
 		host.CpuReserved = 0
 		host.MemReserved = 0
 		host.AccessIp = guest.GetRealIps()[0]

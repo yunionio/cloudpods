@@ -734,7 +734,7 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 	return localListeners, remoteListeners, syncResult
 }
 
-func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener) {
+func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener) {
 	lblis.Name = extListener.GetName()
 	lblis.ListenerType = extListener.GetListenerType()
 	lblis.ListenerPort = extListener.GetListenerPort()
@@ -779,7 +779,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(lb *SLoadba
 		ilbbg, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
 		lbbg := ilbbg.(*SLoadbalancerBackendGroup)
 		if err == nil && (len(lbbg.ExternalId) == 0 || lbbg.ExternalId != groupId) {
-			err = lbbg.SetExternalId(groupId)
+			err = lbbg.SetExternalId(userCred, groupId)
 			if err != nil {
 				log.Errorf("Update loadbalancer BackendGroup(%s) external id failed: %s", lbbg.GetId(), err)
 			}
@@ -794,8 +794,8 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(lb *SLoadba
 }
 
 func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string, projectSync bool) error {
-	_, err := lblis.GetModelManager().TableSpec().Update(lblis, func() error {
-		lblis.constructFieldsFromCloudListener(lb, extListener)
+	_, err := db.UpdateWithLock(ctx, lblis, func() error {
+		lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
 		if projectSync && len(projectId) > 0 {
 			lblis.ProjectId = projectId
 		}
@@ -810,7 +810,7 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 
 	lblis.LoadbalancerId = lb.Id
 	lblis.ExternalId = extListener.GetGlobalId()
-	lblis.constructFieldsFromCloudListener(lb, extListener)
+	lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
 
 	lblis.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
@@ -829,7 +829,7 @@ func (manager *SLoadbalancerListenerManager) InitializeData() error {
 	for i := 0; i < len(listeners); i++ {
 		listener := &listeners[i]
 		if lb := listener.GetLoadbalancer(); lb != nil && len(lb.CloudregionId) > 0 {
-			_, err := listener.GetModelManager().TableSpec().Update(listener, func() error {
+			_, err := db.Update(listener, func() error {
 				listener.CloudregionId = lb.CloudregionId
 				listener.ManagerId = lb.ManagerId
 				return nil

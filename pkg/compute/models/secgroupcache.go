@@ -164,10 +164,14 @@ func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCre
 	return secgroupCache
 }
 
-func (self *SSecurityGroupCache) SetExternalId(externalId string) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+func (self *SSecurityGroupCache) SetExternalId(userCred mcclient.TokenCredential, externalId string) error {
+	diff, err := db.Update(self, func() error {
 		self.ExternalId = externalId
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+	return nil
 }

@@ -106,7 +106,7 @@ func (self *SImageSubformat) Save(image *SImage) error {
 		return nil // httperrors.NewInvalidStatusError("cannot save in status %s", self.Status)
 	}
 	location := image.GetPath(self.Format)
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.Status = IMAGE_STATUS_SAVING
 		self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, location)
 		return nil
@@ -135,7 +135,7 @@ func (self *SImageSubformat) Save(image *SImage) error {
 		log.Errorf("fileutils2.fastChecksum fail %s", err)
 		return err
 	}
-	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err = db.Update(self, func() error {
 		self.Status = IMAGE_STATUS_ACTIVE
 		self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, location)
 		self.Checksum = checksum
@@ -159,7 +159,7 @@ func (self *SImageSubformat) SaveTorrent() error {
 	}
 	imgPath := self.getLocalLocation()
 	torrentPath := filepath.Join(options.Options.TorrentStoreDir, fmt.Sprintf("%s.torrent", filepath.Base(imgPath)))
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.TorrentStatus = IMAGE_STATUS_SAVING
 		self.TorrentLocation = fmt.Sprintf("%s%s", LocalFilePrefix, torrentPath)
 		return nil
@@ -178,7 +178,7 @@ func (self *SImageSubformat) SaveTorrent() error {
 		log.Errorf("fileutils2.Md5 fail %s", err)
 		return err
 	}
-	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err = db.Update(self, func() error {
 		self.TorrentStatus = IMAGE_STATUS_ACTIVE
 		self.TorrentLocation = fmt.Sprintf("%s%s", LocalFilePrefix, torrentPath)
 		self.TorrentChecksum = checksum
@@ -281,7 +281,7 @@ func (self *SImageSubformat) isTorrentActive() bool {
 }
 
 func (self *SImageSubformat) setStatus(status string) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.Status = status
 		return nil
 	})
@@ -289,7 +289,7 @@ func (self *SImageSubformat) setStatus(status string) error {
 }
 
 func (self *SImageSubformat) setTorrentStatus(status string) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.TorrentStatus = status
 		return nil
 	})
@@ -306,7 +306,7 @@ func (self *SImageSubformat) checkStatus(useFast bool) {
 			if err != nil {
 				log.Errorf("checkStatus fileutils2.FastChecksum fail %s", err)
 			} else {
-				_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+				_, err := db.Update(self, func() error {
 					self.FastHash = fastHash
 					return nil
 				})

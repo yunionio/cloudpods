@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 const (
@@ -251,7 +252,7 @@ func (self *SCloudprovider) CanSync() bool {
 	}
 }
 
-func (self *SCloudprovider) syncProject(ctx context.Context) error {
+func (self *SCloudprovider) syncProject(ctx context.Context, userCred mcclient.TokenCredential) error {
 	if len(self.ProjectId) > 0 {
 		_, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
 		if err != nil && err != sql.ErrNoRows {
@@ -293,16 +294,22 @@ func (self *SCloudprovider) syncProject(ctx context.Context) error {
 		projectId = tenant.Id
 	}
 
-	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
-		self.ProjectId = projectId
-		return nil
-	})
+	return self.saveProject(userCred, projectId)
+}
 
-	if err != nil {
-		log.Errorf("update projectId fail: %s", err)
-		return err
+func (self *SCloudprovider) saveProject(userCred mcclient.TokenCredential, projectId string) error {
+	if projectId != self.ProjectId {
+		diff, err := db.Update(self, func() error {
+			self.ProjectId = projectId
+			return nil
+		})
+		if err != nil {
+			log.Errorf("update projectId fail: %s", err)
+			return err
+		}
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+		logclient.AddSimpleActionLog(self, db.ACT_UPDATE, diff, userCred, true)
 	}
-
 	return nil
 }
 
@@ -456,6 +463,7 @@ func (self *SCloudprovider) StartSyncCloudProviderInfoTask(ctx context.Context, 
 		log.Errorf("startSyncCloudProviderInfoTask newTask error %s", err)
 		return err
 	}
+	self.markStartSync(userCred)
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -479,11 +487,7 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 		return nil, nil
 	}
 
-	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
-		self.ProjectId = tenant.Id
-		return nil
-	})
-
+	err = self.saveProject(userCred, tenant.Id)
 	if err != nil {
 		log.Errorf("Update cloudprovider error: %v", err)
 		return nil, httperrors.NewGeneralError(err)
@@ -492,8 +496,8 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 	return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{FullSync: true, ProjectSync: true}, "")
 }
 
-func (self *SCloudprovider) MarkStartSync(userCred mcclient.TokenCredential) {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+func (self *SCloudprovider) markStartSync(userCred mcclient.TokenCredential) {
+	_, err := db.Update(self, func() error {
 		self.LastSync = timeutils.UtcNow()
 		return nil
 	})
@@ -527,7 +531,7 @@ func (self *SCloudprovider) savePassword(secret string) error {
 		return err
 	}
 
-	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err = db.Update(self, func() error {
 		self.Secret = sec
 		return nil
 	})
@@ -539,7 +543,7 @@ func (self *SCloudprovider) GetCloudaccount() *SCloudaccount {
 }
 
 func (self *SCloudprovider) SaveSysInfo(info jsonutils.JSONObject, version string) {
-	self.GetModelManager().TableSpec().Update(self, func() error {
+	db.Update(self, func() error {
 		self.Sysinfo = info
 		self.Version = version
 		return nil
@@ -665,7 +669,7 @@ func (manager *SCloudproviderManager) InitializeData() error {
 					log.Errorf("migrateVcenterInfo fail %s", err)
 					return err
 				}
-				_, err = VCenterManager.TableSpec().Update(&vc, func() error {
+				_, err = db.Update(&vc, func() error {
 					return vc.MarkDelete()
 				})
 				if err != nil {
@@ -691,7 +695,7 @@ func (manager *SCloudproviderManager) InitializeData() error {
 		return err
 	}
 	for i := 0; i < len(providers); i += 1 {
-		_, err := CloudproviderManager.TableSpec().Update(&providers[i], func() error {
+		_, err := db.Update(&providers[i], func() error {
 			providers[i].ProjectId = auth.AdminCredential().GetProjectId()
 			return nil
 		})

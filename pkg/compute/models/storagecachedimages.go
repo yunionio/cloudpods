@@ -280,7 +280,7 @@ func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mccl
 		[]string{CACHED_IMAGE_STATUS_READY, CACHED_IMAGE_STATUS_DELETING, CACHED_IMAGE_STATUS_CACHE_FAILED}) {
 		return httperrors.NewInvalidStatusError("Cannot uncache in status %s", self.Status)
 	}
-	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err = db.Update(self, func() error {
 		self.Status = CACHED_IMAGE_STATUS_DELETING
 		return nil
 	})
@@ -321,7 +321,7 @@ func (self *SStoragecachedimage) SetStatus(userCred mcclient.TokenCredential, st
 		return nil
 	}
 	oldStatus := self.Status
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.Status = status
 		return nil
 	})
@@ -339,7 +339,7 @@ func (self *SStoragecachedimage) SetStatus(userCred mcclient.TokenCredential, st
 }
 
 func (self *SStoragecachedimage) AddDownloadRefcount() error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.DownloadRefcnt += 1
 		self.LastDownload = time.Now()
 		return nil
@@ -348,7 +348,7 @@ func (self *SStoragecachedimage) AddDownloadRefcount() error {
 }
 
 func (self *SStoragecachedimage) SetExternalId(externalId string) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.ExternalId = externalId
 		return nil
 	})

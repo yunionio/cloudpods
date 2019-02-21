@@ -253,13 +253,14 @@ func (lbacl *SLoadbalancerAcl) PerformPatch(ctx context.Context, userCred mcclie
 			}
 		}
 	}
-	_, err := lbacl.GetModelManager().TableSpec().Update(lbacl, func() error {
+	diff, err := db.Update(lbacl, func() error {
 		lbacl.AclEntries = &aclEntries
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
+	db.OpsLog.LogEvent(lbacl, db.ACT_UPDATE, diff, userCred)
 	return nil, nil
 }
 
@@ -396,7 +397,7 @@ func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Cont
 }
 
 func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, projectId string, projectSync bool) error {
-	_, err := acl.GetModelManager().TableSpec().Update(acl, func() error {
+	diff, err := db.UpdateWithLock(ctx, acl, func() error {
 		acl.Name = extAcl.GetName()
 		acl.AclEntries = &SLoadbalancerAclEntries{}
 		for _, entry := range extAcl.GetAclEntries() {
@@ -407,5 +408,9 @@ func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, u
 		}
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(acl, db.ACT_SYNC_UPDATE, diff, userCred)
+	return nil
 }

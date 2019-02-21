@@ -28,13 +28,13 @@ func (self *GuestBatchCreateTask) OnScheduleFailCallback(obj IScheduleModel, rea
 	self.SSchedTask.OnScheduleFailCallback(obj, reason)
 	guest := obj.(*models.SGuest)
 	if guest.DisableDelete.IsTrue() {
-		guest.SetDisableDelete(false)
+		guest.SetDisableDelete(self.UserCred, false)
 	}
 }
 
 func (self *GuestBatchCreateTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave string) {
 	guest := obj.(*models.SGuest)
-	guest.SetHostIdWithBackup(master, slave)
+	guest.SetHostIdWithBackup(self.UserCred, master, slave)
 	self.SaveScheduleResult(ctx, obj, master)
 }
 
@@ -82,7 +82,7 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 		return
 	}
 
-	guest.GetDriver().PrepareDiskRaidConfig(host, self.Params)
+	guest.GetDriver().PrepareDiskRaidConfig(self.UserCred, host, self.Params)
 	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, self.Params, &pendingUsage, true)
 	self.SetPendingUsage(&pendingUsage)
 

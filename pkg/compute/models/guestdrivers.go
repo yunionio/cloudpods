@@ -35,7 +35,7 @@ type IGuestDriver interface {
 
 	ValidateCreateHostData(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *SHost, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 
-	PrepareDiskRaidConfig(host *SHost, params *jsonutils.JSONDict) error
+	PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *SHost, params *jsonutils.JSONDict) error
 
 	GetNamedNetworkConfiguration(guest *SGuest, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig) (*SNetwork, string, int8, IPAddlocationDirection)
 

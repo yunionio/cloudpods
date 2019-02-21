@@ -204,6 +204,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 				if externalId != storage.ExternalId {
 					msg := "inconsistent storage !!!!"
 					log.Errorf(msg)
+					fakeHost.RealDelete(ctx, userCred)
 					return errors.New(msg)
 				}
 			}
@@ -232,6 +233,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	err = StorageManager.TableSpec().Insert(&fakeStorage)
 	if err != nil {
 		log.Errorf("fail to insert fake storage %s", err)
+		fakeHost.RealDelete(ctx, userCred)
 		return err
 	}
 
@@ -242,7 +244,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 		return err
 	}
 
-	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err = db.Update(self, func() error {
 		// clear billing information
 		self.BillingType = BILLING_TYPE_POSTPAID
 		self.BillingCycle = ""
@@ -251,7 +253,6 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 		self.HostId = fakeHost.Id
 		return nil
 	})
-
 	if err != nil {
 		log.Errorf("clear billing information fail: %s", err)
 		fakeHost.RealDelete(ctx, userCred)
@@ -262,7 +263,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 		disk := guestdisks[i].GetDisk()
 
 		if disk.BillingType == BILLING_TYPE_PREPAID {
-			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
+			_, err = db.Update(disk, func() error {
 				disk.BillingType = BILLING_TYPE_POSTPAID
 				disk.BillingCycle = ""
 				disk.ExpiredAt = time.Time{}
@@ -440,7 +441,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 		return errors.New(msg)
 	}
 
-	_, err = server.GetModelManager().TableSpec().Update(server, func() error {
+	_, err = db.Update(server, func() error {
 		// recover billing information
 		server.BillingType = BILLING_TYPE_PREPAID
 		server.BillingCycle = host.BillingCycle
@@ -481,7 +482,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 		oStorage := oHostStorage.GetStorage()
 
 		if storage.StorageType == STORAGE_LOCAL {
-			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
+			_, err = db.Update(disk, func() error {
 				disk.BillingType = BILLING_TYPE_PREPAID
 				disk.BillingCycle = host.BillingCycle
 				disk.ExpiredAt = host.ExpiredAt
@@ -498,6 +499,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 	err = host.RealDelete(ctx, userCred)
 	if err != nil {
 		log.Errorf("fail to delete fake host")
+		logclient.AddActionLogWithContext(ctx, server, logclient.ACT_UNDO_RECYCLE_PREPAID, err, userCred, false)
 		return err
 	}
 
@@ -637,7 +639,7 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 		return err
 	}
 
-	err = guest.SetExternalId(host.RealExternalId)
+	err = guest.SetExternalId(userCred, host.RealExternalId)
 	if err != nil {
 		log.Errorf("guest.SetExternalId fail %s", err)
 		return err
@@ -670,7 +672,7 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 	guestdisks := guest.GetDisks()
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
-		err = disk.SetExternalId(idisks[i].GetGlobalId())
+		err = disk.SetExternalId(userCred, idisks[i].GetGlobalId())
 		if err != nil {
 			log.Errorf("disk.SetExternalId fail %s", err)
 			return err
@@ -741,7 +743,7 @@ func (self *SHost) startPrepaidRecycleHostRenewTask(ctx context.Context, userCre
 }
 
 func (self *SHost) DoSaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		if self.BillingType != BILLING_TYPE_PREPAID {
 			self.BillingType = BILLING_TYPE_PREPAID
 		}

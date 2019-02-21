@@ -265,7 +265,7 @@ func (rt *SRouteTable) PerformAddRoutes(ctx context.Context, userCred mcclient.T
 			}
 		}
 	}
-	_, err := rt.GetModelManager().TableSpec().Update(rt, func() error {
+	_, err := db.Update(rt, func() error {
 		rt.Routes = &routes
 		return nil
 	})
@@ -296,7 +296,7 @@ func (rt *SRouteTable) PerformDelRoutes(ctx context.Context, userCred mcclient.T
 			}
 		}
 	}
-	_, err := rt.GetModelManager().TableSpec().Update(rt, func() error {
+	_, err := db.Update(rt, func() error {
 		rt.Routes = &routes
 		return nil
 	})
@@ -431,7 +431,7 @@ func (self *SRouteTable) SyncWithCloudRouteTable(userCred mcclient.TokenCredenti
 	if err != nil {
 		return err
 	}
-	_, err = man.TableSpec().Update(self, func() error {
+	_, err = db.Update(self, func() error {
 		self.CloudregionId = routeTable.CloudregionId
 		self.VpcId = vpc.Id
 		self.Type = routeTable.Type

@@ -103,7 +103,7 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 
 func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		_, err := models.LoadbalancerManager.TableSpec().Update(lb, func() error {
+		_, err := db.Update(lb, func() error {
 			if lb.AddressType == models.LB_ADDR_TYPE_INTRANET {
 				// TODO support use reserved ip address
 				// TODO prefer ip address from server_type loadbalancer?

@@ -92,7 +92,7 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 		return
 	}
 	oldStatus := disk.Status
-	_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
+	_, err = db.Update(disk, func() error {
 		disk.Status = models.DISK_READY
 		disk.DiskSize = int(sizeMb)
 		return nil

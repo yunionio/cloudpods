@@ -158,7 +158,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 				return nil, createErr
 			}
 
-			guest.SetExternalId(iVM.GetGlobalId())
+			guest.SetExternalId(task.GetUserCred(), iVM.GetGlobalId())
 
 			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
 			if err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
@@ -247,7 +247,7 @@ func (self *SAzureGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gues
 			if err != nil {
 				return nil, err
 			}
-			if err = secgroupCache.SetExternalId(extID); err != nil {
+			if err = secgroupCache.SetExternalId(task.GetUserCred(), extID); err != nil {
 				return nil, err
 			}
 			return nil, iVM.AssignSecurityGroup(extID)

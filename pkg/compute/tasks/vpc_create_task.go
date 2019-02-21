@@ -41,7 +41,7 @@ func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 		self.TaskFailed(ctx, vpc, err)
 		return
 	}
-	vpc.SetExternalId(ivpc.GetGlobalId())
+	vpc.SetExternalId(self.UserCred, ivpc.GetGlobalId())
 
 	err = cloudprovider.WaitStatus(ivpc, models.VPC_STATUS_AVAILABLE, 10*time.Second, 300*time.Second)
 	if err != nil {

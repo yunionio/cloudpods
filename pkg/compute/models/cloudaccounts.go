@@ -16,6 +16,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -56,6 +57,10 @@ type SCloudaccount struct {
 	IsOnPremise   bool `nullable:"false" get:"user" create:"optional" list:"user" default:"false"`
 
 	Provider string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
+
+	AutoSync         bool `default:"false" create:"admin_optional" list:"admin"`
+	MaxSyncIntvlSecs int  `default:"86400" create:"admin_optional" list:"admin"`
+	MinSyncIntvlSecs int  `default:"60" create:"admin_optional" list:"admin"`
 }
 
 func (self *SCloudaccountManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -202,7 +207,7 @@ func (self *SCloudaccount) savePassword(secret string) error {
 		return err
 	}
 
-	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err = db.Update(self, func() error {
 		self.Secret = sec
 		return nil
 	})
@@ -281,7 +286,7 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		if account.Account != self.Account {
 			for _, cloudprovider := range self.GetCloudproviders() {
 				if cloudprovider.Account == self.Account {
-					_, err = cloudprovider.GetModelManager().TableSpec().Update(&cloudprovider, func() error {
+					_, err = db.Update(&cloudprovider, func() error {
 						cloudprovider.Account = account.Account
 						return nil
 					})
@@ -291,7 +296,7 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 				}
 			}
 		}
-		_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err = db.Update(self, func() error {
 			self.Account = account.Account
 			return nil
 		})
@@ -319,7 +324,7 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 
 func (self *SCloudaccount) syncAttributes(factory cloudprovider.ICloudProviderFactory) error {
 	if self.IsPublicCloud != factory.IsPublicCloud() || self.IsOnPremise != factory.IsOnPremise() {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := db.Update(self, func() error {
 			self.IsPublicCloud = factory.IsPublicCloud()
 			self.IsOnPremise = factory.IsOnPremise()
 			return nil
@@ -350,21 +355,18 @@ func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, u
 			taskItems = append(taskItems, &cloudProviders[i])
 		}
 	}
-	originState := self.Status
-	self.MarkStartSync(userCred)
-
 	task, err := taskman.TaskManager.NewParallelTask(ctx, "CloudAccountSyncInfoTask", taskItems, userCred, params, "", "", nil)
 	if err != nil {
 		log.Errorf("CloudAccountSyncInfoTask newTask error %s", err)
-		self.SetStatus(userCred, originState, err.Error())
-	} else {
-		task.ScheduleRun(nil)
+		return err
 	}
+	self.markStartSync(userCred)
+	task.ScheduleRun(nil)
 	return nil
 }
 
-func (self *SCloudaccount) MarkStartSync(userCred mcclient.TokenCredential) {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+func (self *SCloudaccount) markStartSync(userCred mcclient.TokenCredential) {
+	_, err := db.Update(self, func() error {
 		self.LastSync = timeutils.UtcNow()
 		return nil
 	})
@@ -417,13 +419,12 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 			return nil, isNew, err
 		}
 
-		_, err = CloudproviderManager.TableSpec().Update(provider, func() error {
-			provider.Name = subAccount.Name
+		_, err = db.UpdateWithLock(ctx, provider, func() error {
+			// provider.Name = subAccount.Name
 			provider.Enabled = true
 			provider.HealthStatus = subAccount.HealthStatus
 			return nil
 		})
-
 		if err != nil {
 			log.Errorf("Update cloudprovider error: %v", err)
 			return nil, isNew, err
@@ -434,23 +435,33 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 	// not found, create a new cloudprovider
 	isNew = true
 
-	newCloudprovider := SCloudprovider{}
-	newCloudprovider.Account = subAccount.Account
-	newCloudprovider.Secret = self.Secret
-	newCloudprovider.CloudaccountId = self.Id
-	newCloudprovider.Provider = self.Provider
-	newCloudprovider.AccessUrl = self.AccessUrl
-	newCloudprovider.Enabled = true
-	newCloudprovider.Status = CLOUD_PROVIDER_CONNECTED
-	newCloudprovider.HealthStatus = subAccount.HealthStatus
-	newCloudprovider.Name = subAccount.Name
-	if !autoCreateProject {
-		newCloudprovider.ProjectId = auth.AdminCredential().GetProjectId()
-	}
+	newCloudprovider, err := func() (*SCloudprovider, error) {
+		lockman.LockClass(ctx, CloudproviderManager, "")
+		defer lockman.ReleaseClass(ctx, CloudproviderManager, "")
 
-	newCloudprovider.SetModelManager(CloudproviderManager)
+		newCloudprovider := SCloudprovider{}
+		newCloudprovider.Account = subAccount.Account
+		newCloudprovider.Secret = self.Secret
+		newCloudprovider.CloudaccountId = self.Id
+		newCloudprovider.Provider = self.Provider
+		newCloudprovider.AccessUrl = self.AccessUrl
+		newCloudprovider.Enabled = true
+		newCloudprovider.Status = CLOUD_PROVIDER_CONNECTED
+		newCloudprovider.HealthStatus = subAccount.HealthStatus
+		newCloudprovider.Name = db.GenerateName(CloudproviderManager, "", subAccount.Name)
+		if !autoCreateProject {
+			newCloudprovider.ProjectId = auth.AdminCredential().GetProjectId()
+		}
 
-	err := CloudproviderManager.TableSpec().Insert(&newCloudprovider)
+		newCloudprovider.SetModelManager(CloudproviderManager)
+
+		err := CloudproviderManager.TableSpec().Insert(&newCloudprovider)
+		if err != nil {
+			return nil, err
+		} else {
+			return &newCloudprovider, nil
+		}
+	}()
 	if err != nil {
 		log.Errorf("insert new cloudprovider fail %s", err)
 		return nil, isNew, err
@@ -464,14 +475,14 @@ func (self *SCloudaccount) ImportSubAccount(ctx context.Context, userCred mcclie
 	newCloudprovider.savePassword(passwd)
 
 	if autoCreateProject {
-		err = newCloudprovider.syncProject(ctx)
+		err = newCloudprovider.syncProject(ctx, userCred)
 		if err != nil {
 			log.Errorf("syncproject fail %s", err)
 			return nil, isNew, err
 		}
 	}
 
-	return &newCloudprovider, isNew, nil
+	return newCloudprovider, isNew, nil
 }
 
 func (self *SCloudaccount) AllowPerformImport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -503,21 +514,6 @@ func (self *SCloudaccount) startImportSubAccountTask(ctx context.Context, userCr
 	task.ScheduleRun(nil)
 	return nil
 }
-
-/*func getSubAccounts(name, accessUrl, account, secret, provider string) ([]cloudprovider.SSubAccount, error) {
-	iprovider, err := cloudprovider.GetProvider("", name, accessUrl, account, secret, provider)
-	if err != nil {
-		return nil, err
-	}
-	return iprovider.GetSubAccounts()
-}*/
-
-/*func (self *SCloudaccount) SaveSysInfo(info jsonutils.JSONObject) {
-	self.GetModelManager().TableSpec().Update(self, func() error {
-		self.Sysinfo = info
-		return nil
-	})
-}*/
 
 func (manager *SCloudaccountManager) FetchCloudaccountById(accountId string) *SCloudaccount {
 	providerObj, err := manager.FetchById(accountId)
@@ -721,7 +717,7 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 		}
 	}
 
-	_, err = CloudproviderManager.TableSpec().Update(cloudprovider, func() error {
+	_, err = db.Update(cloudprovider, func() error {
 		cloudprovider.CloudaccountId = account.Id
 		return nil
 	})

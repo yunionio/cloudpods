@@ -165,7 +165,7 @@ func (man *SLoadbalancerCertificateManager) InitializeData() error {
 			d := sha256.Sum256(c.Raw)
 			fp = LB_TLS_CERT_FINGERPRINT_ALGO_SHA256 + ":" + hex.EncodeToString(d[:])
 		}
-		_, err := man.TableSpec().Update(lbcert, func() error {
+		_, err := db.Update(lbcert, func() error {
 			lbcert.Fingerprint = fp
 			return nil
 		})
@@ -378,7 +378,7 @@ func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(
 }
 
 func (lbcert *SLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, extCertificate cloudprovider.ICloudLoadbalancerCertificate, projectId string, projectSync bool) error {
-	_, err := lbcert.GetModelManager().TableSpec().Update(lbcert, func() error {
+	diff, err := db.UpdateWithLock(ctx, lbcert, func() error {
 		lbcert.Name = extCertificate.GetName()
 		lbcert.CommonName = extCertificate.GetCommonName()
 		lbcert.SubjectAlternativeNames = extCertificate.GetSubjectAlternativeNames()
@@ -391,5 +391,9 @@ func (lbcert *SLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx
 
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(lbcert, db.ACT_SYNC_UPDATE, diff, userCred)
+	return nil
 }

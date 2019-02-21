@@ -406,7 +406,7 @@ func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SZone) syncWithCloudZone(extZone cloudprovider.ICloudZone, region *SCloudregion) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.Name = extZone.GetName()
 		self.Status = extZone.GetStatus()
 
@@ -465,13 +465,13 @@ func (manager *SZoneManager) InitializeData() error {
 	}
 	for _, z := range zones {
 		if len(z.CloudregionId) == 0 {
-			manager.TableSpec().Update(&z, func() error {
-				z.CloudregionId = "default"
+			db.Update(&z, func() error {
+				z.CloudregionId = DEFAULT_REGION_ID
 				return nil
 			})
 		}
 		if z.Status == ZONE_INIT || z.Status == ZONE_DISABLE {
-			manager.TableSpec().Update(&z, func() error {
+			db.Update(&z, func() error {
 				z.Status = ZONE_ENABLE
 				return nil
 			})

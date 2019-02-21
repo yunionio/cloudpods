@@ -646,11 +646,14 @@ func (self *SHost) SaveUpdates(doUpdate func() error) (map[string]sqlchemy.SUpda
 }
 
 func (self *SHost) saveUpdates(doUpdate func() error, doSchedClean bool) (map[string]sqlchemy.SUpdateDiff, error) {
-	diff, err := self.GetModelManager().TableSpec().Update(self, doUpdate)
-	if err == nil && doSchedClean {
+	diff, err := db.Update(self, doUpdate)
+	if err != nil {
+		return nil, err
+	}
+	if doSchedClean {
 		self.ClearSchedDescCache()
 	}
-	return diff, err
+	return diff, nil
 }
 
 func (self *SHost) AllowPerformUpdateStorage(
@@ -685,6 +688,7 @@ func (self *SHost) PerformUpdateStorage(
 		if err != nil {
 			return nil, fmt.Errorf("Create baremetal storage error: %v", err)
 		}
+		db.OpsLog.LogEvent(&storage, db.ACT_CREATE, storage.GetShortDesc(ctx), userCred)
 		// 2. create host storage
 		bmStorage := SHoststorage{}
 		bmStorage.HostId = self.Id
@@ -695,17 +699,19 @@ func (self *SHost) PerformUpdateStorage(
 		if err != nil {
 			return nil, fmt.Errorf("Create baremetal hostStorage error: %v", err)
 		}
+		db.OpsLog.LogAttachEvent(ctx, self, &storage, userCred, bmStorage.GetShortDesc(ctx))
 		return nil, nil
 	}
 	storage := bs.GetStorage()
 	if capacity != int64(storage.Capacity) {
-		_, err := storage.GetModelManager().TableSpec().Update(storage, func() error {
+		diff, err := db.Update(storage, func() error {
 			storage.Capacity = int(capacity)
 			return nil
 		})
 		if err != nil {
 			return nil, fmt.Errorf("Update baremetal storage error: %v", err)
 		}
+		db.OpsLog.LogEvent(storage, db.ACT_UPDATE, diff, userCred)
 	}
 	return nil, nil
 }
@@ -1462,7 +1468,7 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 
 	for i := 0; i < len(commondb); i += 1 {
 		log.Infof("host %s is still connected with %s, to update ...", self.Id, commondb[i].Id)
-		err := self.syncWithCloudHostStorage(&commondb[i], commonext[i])
+		err := self.syncWithCloudHostStorage(userCred, &commondb[i], commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -1486,10 +1492,10 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 	return localStorages, remoteStorages, syncResult
 }
 
-func (self *SHost) syncWithCloudHostStorage(localStorage *SStorage, extStorage cloudprovider.ICloudStorage) error {
+func (self *SHost) syncWithCloudHostStorage(userCred mcclient.TokenCredential, localStorage *SStorage, extStorage cloudprovider.ICloudStorage) error {
 	// do nothing
 	hs := self.GetHoststorageOfId(localStorage.Id)
-	return hs.syncWithCloudHostStorage(extStorage)
+	return hs.syncWithCloudHostStorage(userCred, extStorage)
 }
 
 func (self *SHost) isAttach2Storage(storage *SStorage) bool {
@@ -2844,7 +2850,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 		}
 	} else {
 		var changed = false
-		_, err := NetInterfaceManager.TableSpec().Update(netif, func() error {
+		_, err := db.Update(netif, func() error {
 			if netif.BaremetalId != self.Id {
 				changed = true
 				netif.BaremetalId = self.Id
@@ -2902,7 +2908,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				}
 			} else {
 				hw := ihw.(*SHostwire)
-				HostwireManager.TableSpec().Update(hw, func() error {
+				db.Update(hw, func() error {
 					hw.Bridge = bridge
 					hw.Interface = strInterface
 					hw.MacAddr = mac
@@ -3363,10 +3369,7 @@ func (self *SHost) PerformUndoConvert(ctx context.Context, userCred mcclient.Tok
 		if guest.Hypervisor != HYPERVISOR_BAREMETAL {
 			return nil, httperrors.NewNotAcceptableError("Not an converted hypervisor")
 		}
-		_, err := guest.GetModelManager().TableSpec().Update(&guest, func() error {
-			guest.DisableDelete = tristate.False
-			return nil
-		})
+		err := guest.SetDisableDelete(userCred, false)
 		if err != nil {
 			return nil, err
 		}
@@ -3389,10 +3392,10 @@ func (self *SHost) GetDriverWithDefault() IHostDriver {
 	return GetHostDriver(hostType)
 }
 
-func (self *SHost) UpdateDiskConfig(layouts []baremetal.Layout) error {
+func (self *SHost) UpdateDiskConfig(userCred mcclient.TokenCredential, layouts []baremetal.Layout) error {
 	bs := self.GetBaremetalstorage()
 	if bs != nil {
-		_, err := bs.GetModelManager().TableSpec().Update(bs, func() error {
+		diff, err := db.Update(bs, func() error {
 			if len(layouts) != 0 {
 				bs.Config = jsonutils.Marshal(layouts).(*jsonutils.JSONArray)
 				var size int64
@@ -3410,6 +3413,7 @@ func (self *SHost) UpdateDiskConfig(layouts []baremetal.Layout) error {
 			log.Errorln(err)
 			return err
 		}
+		db.OpsLog.LogEvent(bs, db.ACT_UPDATE, diff, userCred)
 	}
 	return nil
 }

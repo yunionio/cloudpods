@@ -181,7 +181,7 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			if createErr != nil {
 				return nil, createErr
 			}
-			guest.SetExternalId(iVM.GetGlobalId())
+			guest.SetExternalId(task.GetUserCred(), iVM.GetGlobalId())
 
 			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
 			err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800)
@@ -346,7 +346,7 @@ func (self *SQcloudGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gue
 				if err != nil {
 					return nil, err
 				}
-				if err = secgroupCache.SetExternalId(extID); err != nil {
+				if err = secgroupCache.SetExternalId(task.GetUserCred(), extID); err != nil {
 					return nil, err
 				}
 				externalIds = append(externalIds, extID)

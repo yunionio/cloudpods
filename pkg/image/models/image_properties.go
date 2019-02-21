@@ -116,7 +116,7 @@ func (manager *SImagePropertyManager) NewProperty(ctx context.Context, userCred 
 }
 
 func (self *SImageProperty) UpdateValue(ctx context.Context, userCred mcclient.TokenCredential, value string) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.Value = value
 		return nil
 	})

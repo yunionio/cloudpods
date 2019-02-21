@@ -299,7 +299,7 @@ func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Con
 				syncResult.Delete()
 			}
 		} else {
-			err = removed[i].PendingDelete()
+			err = removed[i].MarkPendingDelete(userCred)
 			if err != nil {
 				syncResult.DeleteError(err)
 			} else {
@@ -352,7 +352,7 @@ func (lbb *SLoadbalancerBackend) constructFieldsFromCloudLoadbalancerBackend(ext
 }
 
 func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, projectId string, projectSync bool) error {
-	_, err := lbb.GetModelManager().TableSpec().Update(lbb, func() error {
+	_, err := db.UpdateWithLock(ctx, lbb, func() error {
 		if projectSync && len(projectId) > 0 {
 			lbb.ProjectId = projectId
 		}
@@ -392,7 +392,7 @@ func (manager *SLoadbalancerBackendManager) InitializeData() error {
 	for i := 0; i < len(backends); i++ {
 		backend := &backends[i]
 		if group := backend.GetLoadbalancerBackendGroup(); group != nil && len(group.CloudregionId) > 0 {
-			_, err := backend.GetModelManager().TableSpec().Update(backend, func() error {
+			_, err := db.Update(backend, func() error {
 				backend.CloudregionId = group.CloudregionId
 				backend.ManagerId = group.ManagerId
 				return nil

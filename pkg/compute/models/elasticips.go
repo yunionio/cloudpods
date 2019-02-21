@@ -229,7 +229,7 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudEip(userCred, commonext[i], projectId, projectSync)
+		err = commondb[i].SyncWithCloudEip(ctx, userCred, commonext[i], projectId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -283,8 +283,8 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SElasticip) SyncWithCloudEip(userCred mcclient.TokenCredential, ext cloudprovider.ICloudEIP, projectId string, projectSync bool) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudEIP, projectId string, projectSync bool) error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
 
 		// self.Name = ext.GetName()
 		self.Bandwidth = ext.GetBandwidth()
@@ -304,11 +304,16 @@ func (self *SElasticip) SyncWithCloudEip(userCred mcclient.TokenCredential, ext 
 	})
 	if err != nil {
 		log.Errorf("SyncWithCloudEip fail %s", err)
+		return err
 	}
-	return err
+	db.OpsLog.LogEvent(self, db.ACT_SYNC_UPDATE, diff, userCred)
+	return nil
 }
 
 func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, region *SCloudregion, projectId string) (*SElasticip, error) {
+	lockman.LockClass(ctx, manager, "")
+	defer lockman.ReleaseClass(ctx, manager, "")
+
 	eip := SElasticip{}
 	eip.SetModelManager(manager)
 
@@ -333,7 +338,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(&eip, db.ACT_SYNC_CLOUD_EIP, eip.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(&eip, db.ACT_SYNC_CREATE, eip.GetShortDesc(ctx), userCred)
 	return &eip, nil
 }
 
@@ -385,7 +390,7 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 	if vm == nil {
 		log.Errorf("dissociate VM not exists???")
 	}
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.AssociateId = ""
 		self.AssociateType = ""
 		return nil
@@ -411,7 +416,7 @@ func (self *SElasticip) AssociateVM(ctx context.Context, userCred mcclient.Token
 	if len(self.AssociateType) > 0 {
 		return fmt.Errorf("EIP has been associated!!")
 	}
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.AssociateType = "server"
 		self.AssociateId = vm.Id
 		return nil
@@ -852,7 +857,7 @@ func (self *SElasticip) DoChangeBandwidth(userCred mcclient.TokenCredential, ban
 	changes := jsonutils.NewDict()
 	changes.Add(jsonutils.NewInt(int64(self.Bandwidth)), "obw")
 
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.Bandwidth = bandwidth
 		return nil
 	})

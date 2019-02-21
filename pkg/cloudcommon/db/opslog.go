@@ -29,6 +29,9 @@ const (
 	ACT_ATTACH  = "attach"
 	ACT_DETACH  = "detach"
 
+	ACT_SYNC_UPDATE = "sync_update"
+	ACT_SYNC_CREATE = "sync_create"
+
 	ACT_START_CREATE_BACKUP  = "start_create_backup"
 	ACT_CREATE_BACKUP        = "create_backup"
 	ACT_CREATE_BACKUP_FAILED = "create_backup_failed"

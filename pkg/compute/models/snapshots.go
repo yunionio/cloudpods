@@ -280,7 +280,7 @@ func (self *SSnapshotManager) AddRefCount(snapshotId string, count int) {
 	iSnapshot, _ := self.FetchById(snapshotId)
 	if iSnapshot != nil {
 		snapshot := iSnapshot.(*SSnapshot)
-		_, err := self.TableSpec().Update(snapshot, func() error {
+		_, err := db.Update(snapshot, func() error {
 			snapshot.RefCount += count
 			return nil
 		})
@@ -418,7 +418,7 @@ func (self *SSnapshot) AllowPerformDeleted(ctx context.Context, userCred mcclien
 }
 
 func (self *SSnapshot) PerformDeleted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	self.GetModelManager().TableSpec().Update(self, func() error {
+	db.Update(self, func() error {
 		self.OutOfChain = true
 		return nil
 	})
@@ -492,7 +492,7 @@ func (self *SSnapshot) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SSnapshot) FakeDelete() error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.FakeDeleted = true
 		return nil
 	})
@@ -532,7 +532,7 @@ func TotalSnapshotCount(projectId string, rangeObj db.IStandaloneModel, provider
 
 // Only sync snapshot status
 func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot, projectId string, projectSync bool, region *SCloudregion) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.Name = ext.GetName()
 		self.Status = ext.GetStatus()
 		self.DiskType = ext.GetDiskType()

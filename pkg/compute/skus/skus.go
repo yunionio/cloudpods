@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -153,7 +154,7 @@ func (self *SkusZone) doCreate(data models.SServerSku) error {
 }
 
 func (self *SkusZone) doUpdate(odata *models.SServerSku, sku jsonutils.JSONObject) error {
-	_, err := models.ServerSkuManager.TableSpec().Update(odata, func() error {
+	_, err := db.Update(odata, func() error {
 		if err := sku.Unmarshal(&odata); err != nil {
 			return err
 		}

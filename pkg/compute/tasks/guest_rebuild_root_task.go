@@ -49,7 +49,7 @@ func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, gues
 	gds := guest.CategorizeDisks()
 	imageId, _ := self.Params.GetString("image_id")
 	oldStatus := gds.Root.Status
-	_, err := gds.Root.GetModelManager().TableSpec().Update(gds.Root, func() error {
+	_, err := db.Update(gds.Root, func() error {
 		gds.Root.TemplateId = imageId
 		gds.Root.Status = models.DISK_REBUILD
 		return nil
@@ -139,7 +139,7 @@ func (self *GuestRebuildRootTask) OnRebuildAllDisksComplete(ctx context.Context,
 		return
 	}
 	if guest.OsType != osprof.OSType {
-		_, err := guest.GetModelManager().TableSpec().Update(guest, func() error {
+		_, err := db.Update(guest, func() error {
 			guest.OsType = osprof.OSType
 			return nil
 		})

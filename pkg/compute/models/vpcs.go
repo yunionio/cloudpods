@@ -228,7 +228,7 @@ func (manager *SVpcManager) getVpcsByRegion(region *SCloudregion, provider *SClo
 func (self *SVpc) setDefault(def bool) error {
 	var err error
 	if self.IsDefault != def {
-		_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err = db.Update(self, func() error {
 			self.IsDefault = def
 			return nil
 		})
@@ -305,7 +305,7 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SVpc) SyncWithCloudVpc(extVPC cloudprovider.ICloudVpc) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		extVPC.Refresh()
 		self.Name = extVPC.GetName()
 		self.Status = extVPC.GetStatus()
@@ -378,7 +378,7 @@ func (manager *SVpcManager) InitializeData() error {
 	} else {
 		vpc := vpcObj.(*SVpc)
 		if vpc.Status != VPC_STATUS_AVAILABLE {
-			_, err = manager.TableSpec().Update(vpc, func() error {
+			_, err = db.Update(vpc, func() error {
 				vpc.Status = VPC_STATUS_AVAILABLE
 				return nil
 			})

@@ -75,6 +75,8 @@ const (
 
 	ACT_RECYCLE_PREPAID      = "池化预付费主机"
 	ACT_UNDO_RECYCLE_PREPAID = "取消池化预付费主机"
+
+	ACT_FETCH = "下载密钥"
 )
 
 // golang 不支持 const 的string array, http://t.cn/EzAvbw8

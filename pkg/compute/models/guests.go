@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -682,20 +683,30 @@ func (guest *SGuest) GetHost() *SHost {
 	return nil
 }
 
-func (guest *SGuest) SetHostId(hostId string) error {
-	_, err := guest.GetModelManager().TableSpec().Update(guest, func() error {
-		guest.HostId = hostId
-		return nil
-	})
-	return err
+func (guest *SGuest) SetHostId(userCred mcclient.TokenCredential, hostId string) error {
+	if guest.HostId != hostId {
+		diff, err := db.Update(guest, func() error {
+			guest.HostId = hostId
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		db.OpsLog.LogEvent(guest, db.ACT_UPDATE, diff, userCred)
+	}
+	return nil
 }
 
-func (guest *SGuest) SetHostIdWithBackup(master, slave string) error {
-	_, err := guest.GetModelManager().TableSpec().Update(guest, func() error {
+func (guest *SGuest) SetHostIdWithBackup(userCred mcclient.TokenCredential, master, slave string) error {
+	diff, err := db.Update(guest, func() error {
 		guest.HostId = master
 		guest.BackupHostId = slave
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(guest, db.ACT_UPDATE, diff, userCred)
 	return err
 }
 
@@ -1807,9 +1818,6 @@ func (self *SGuest) GetIsolatedDevices() []SIsolatedDevice {
 }
 
 func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, projectId string, projectSync bool) error {
-	lockman.LockObject(ctx, self)
-	defer lockman.ReleaseObject(ctx, self)
-
 	recycle := false
 
 	if provider.GetFactory().IsSupportPrepaidResources() && self.IsPrepaidRecycle() {
@@ -1817,7 +1825,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	}
 
 	metaData := extVM.GetMetadata()
-	diff, err := GuestManager.TableSpec().Update(self, func() error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extVM.Refresh()
 		// self.Name = extVM.GetName()
 		self.Status = extVM.GetStatus()
@@ -1892,7 +1900,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	if diff != nil {
 		diffStr := sqlchemy.UpdateDiffString(diff)
 		if len(diffStr) > 0 {
-			db.OpsLog.LogEvent(self, db.ACT_UPDATE, diffStr, userCred)
+			db.OpsLog.LogEvent(self, db.ACT_SYNC_UPDATE, diffStr, userCred)
 		}
 	}
 	if metaData != nil {
@@ -2634,7 +2642,7 @@ func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.Toke
 	if len(self.BackupHostId) > 0 {
 		backupHost := HostManager.FetchHostById(self.BackupHostId)
 		backupStorage := self.GetDriver().ChooseHostStorage(backupHost, diskConfig.Backend)
-		_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
+		diff, err := db.Update(disk, func() error {
 			disk.BackupStorageId = backupStorage.Id
 			return nil
 		})
@@ -2642,6 +2650,7 @@ func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.Toke
 			log.Errorf("Disk save backup storage error")
 			return disk, err
 		}
+		db.OpsLog.LogEvent(disk, db.ACT_UPDATE, diff, userCred)
 	}
 	err = self.attach2Disk(ctx, disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint)
 	return disk, err
@@ -2683,7 +2692,7 @@ func (self *SGuest) attachIsolatedDevice(ctx context.Context, userCred mcclient.
 	if dev.HostId != self.HostId {
 		return fmt.Errorf("Isolated device and guest are not located in the same host")
 	}
-	_, err := IsolatedDeviceManager.TableSpec().Update(dev, func() error {
+	_, err := db.Update(dev, func() error {
 		dev.GuestId = self.Id
 		return nil
 	})
@@ -2960,7 +2969,7 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 			if err != nil {
 				return nil, fmt.Errorf("SyncSecurityGroup fail %s", err)
 			}
-			if err := secgroupCache.SetExternalId(externalSecgroupId); err != nil {
+			if err := secgroupCache.SetExternalId(userCred, externalSecgroupId); err != nil {
 				return nil, fmt.Errorf("failed to set externalId for secgroup %s(%s) externalId %s: error: %v", secgroup.Name, secgroup.Id, externalSecgroupId, err)
 			}
 			secgroupIds.Add(jsonutils.NewString(externalSecgroupId))
@@ -3478,20 +3487,24 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	return desc
 }
 
-func (self *SGuest) saveOsType(osType string) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+func (self *SGuest) saveOsType(userCred mcclient.TokenCredential, osType string) error {
+	diff, err := db.Update(self, func() error {
 		self.OsType = osType
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 	return err
 }
 
 func (self *SGuest) SaveDeployInfo(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
-	log.Infof("------SaveDeployInfo: %s", data.PrettyString())
+	// log.Infof("------SaveDeployInfo: %s", data.PrettyString())
 	info := make(map[string]interface{})
 	if data.Contains("os") {
 		osName, _ := data.GetString("os")
-		self.saveOsType(osName)
+		self.saveOsType(userCred, osName)
 		info["os_name"] = osName
 	}
 	if data.Contains("account") {
@@ -3673,7 +3686,7 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 				continue
 			}
 		}
-		guests[i].SetDisableDelete(false)
+		guests[i].SetDisableDelete(userCred, false)
 		guests[i].StartDeleteGuestTask(ctx, userCred, "", false, false)
 	}
 }
@@ -3744,7 +3757,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 			}
 		} else {
 			// do nothing
-			err := eip.SyncWithCloudEip(userCred, extEip, projectId, false)
+			err := eip.SyncWithCloudEip(ctx, userCred, extEip, projectId, false)
 			if err != nil {
 				result.UpdateError(err)
 			} else {
@@ -3802,8 +3815,8 @@ func (self *SGuest) DeleteEip(ctx context.Context, userCred mcclient.TokenCreden
 	return nil
 }
 
-func (self *SGuest) SetDisableDelete(val bool) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+func (self *SGuest) SetDisableDelete(userCred mcclient.TokenCredential, val bool) error {
+	diff, err := db.Update(self, func() error {
 		if val {
 			self.DisableDelete = tristate.True
 		} else {
@@ -3811,6 +3824,11 @@ func (self *SGuest) SetDisableDelete(val bool) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+	logclient.AddSimpleActionLog(self, logclient.ACT_UPDATE, diff, userCred, true)
 	return err
 }
 
@@ -3936,7 +3954,7 @@ func (self *SGuest) GuestDisksHasSnapshot() bool {
 }
 
 func (self *SGuest) OnScheduleToHost(ctx context.Context, userCred mcclient.TokenCredential, hostId string) error {
-	err := self.SetHostId(hostId)
+	err := self.SetHostId(userCred, hostId)
 	if err != nil {
 		return err
 	}

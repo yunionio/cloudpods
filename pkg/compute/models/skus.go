@@ -669,7 +669,7 @@ func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
 
 	for i := range skus {
 		sku := skus[i]
-		_, err = manager.TableSpec().Update(&sku, func() error {
+		_, err = db.Update(&sku, func() error {
 			return sku.MarkDelete()
 		})
 
@@ -757,7 +757,7 @@ func (self *SServerSku) constructSku(extSku cloudprovider.ICloudSku) {
 }
 
 func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku cloudprovider.ICloudSku, zone *SZone, provider *SCloudprovider) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.constructSku(extSku)
 		return nil
 	})

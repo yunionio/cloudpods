@@ -467,7 +467,7 @@ func (self *STask) GetRequestContext() appctx.AppContextData {
 }
 
 func (self *STask) SaveRequestContext(data *appctx.AppContextData) {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		params := self.Params.CopyExcludes(REQUEST_CONTEXT_KEY)
 		params.Add(jsonutils.Marshal(data), REQUEST_CONTEXT_KEY)
 		self.Params = params
@@ -483,7 +483,7 @@ func (self *STask) SaveParams(data *jsonutils.JSONDict) error {
 }
 
 func (self *STask) SetStage(stageName string, data *jsonutils.JSONDict) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		params := jsonutils.NewDict()
 		params.Update(self.Params)
 		if data != nil {
@@ -624,7 +624,7 @@ func (self *STask) GetPendingUsage(quota quotas.IQuota) error {
 }
 
 func (self *STask) SetPendingUsage(quota quotas.IQuota) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		params := self.Params.CopyExcludes(PENDING_USAGE_KEY)
 		params.Add(jsonutils.Marshal(quota), PENDING_USAGE_KEY)
 		self.Params = params
@@ -637,7 +637,7 @@ func (self *STask) SetPendingUsage(quota quotas.IQuota) error {
 }
 
 func (self *STask) ClearPendingUsage() error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		params := self.Params.CopyExcludes(PENDING_USAGE_KEY)
 		self.Params = params
 		return nil

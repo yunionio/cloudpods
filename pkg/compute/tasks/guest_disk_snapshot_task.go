@@ -61,14 +61,14 @@ func (self *GuestDiskSnapshotTask) OnDiskSnapshotComplete(ctx context.Context, g
 			log.Infof("OnDiskSnapshotComplete called with data no location")
 			return
 		}
-		models.SnapshotManager.TableSpec().Update(snapshot, func() error {
+		db.Update(snapshot, func() error {
 			snapshot.Location = location
 			snapshot.Status = models.SNAPSHOT_READY
 			return nil
 		})
 	} else {
 		extSnapshotId, _ := data.GetString("snapshot_id")
-		models.SnapshotManager.TableSpec().Update(snapshot, func() error {
+		db.Update(snapshot, func() error {
 			snapshot.ExternalId = extSnapshotId
 			snapshot.Status = models.SNAPSHOT_READY
 			return nil
@@ -108,7 +108,7 @@ func (self *GuestDiskSnapshotTask) TaskFailed(ctx context.Context, guest *models
 	snapshotId, _ := self.Params.GetString("snapshot_id")
 	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
 	snapshot := iSnapshot.(*models.SSnapshot)
-	models.SnapshotManager.TableSpec().Update(snapshot, func() error {
+	db.Update(snapshot, func() error {
 		snapshot.Status = models.SNAPSHOT_FAILED
 		return nil
 	})
@@ -244,7 +244,7 @@ func (self *SnapshotDeleteTask) OnDeleteSnapshot(ctx context.Context, snapshot *
 				FakeDelete = true
 			}
 			if FakeDelete {
-				models.SnapshotManager.TableSpec().Update(snapshot, func() error {
+				db.Update(snapshot, func() error {
 					snapshot.OutOfChain = true
 					return nil
 				})

@@ -107,7 +107,7 @@ func (manager *STenantCacheManager) Save(ctx context.Context, idStr string, name
 	}
 	if err == nil {
 		obj := objo.(*STenant)
-		_, err = manager.TableSpec().Update(obj, func() error {
+		_, err = Update(obj, func() error {
 			obj.Id = idStr
 			obj.Name = name
 			obj.Domain = domain

@@ -123,7 +123,7 @@ func (self *SOpenStackGuestDriver) RequestDeployGuestOnHost(ctx context.Context,
 			}
 
 			// 避免部署失败后，不能删除openstack平台机器
-			guest.SetExternalId(iVM.GetGlobalId())
+			guest.SetExternalId(task.GetUserCred(), iVM.GetGlobalId())
 
 			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
 			err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800)
@@ -273,7 +273,7 @@ func (self *SOpenStackGuestDriver) RequestSyncConfigOnHost(ctx context.Context, 
 				if err != nil {
 					return nil, err
 				}
-				if err = secgroupCache.SetExternalId(extID); err != nil {
+				if err = secgroupCache.SetExternalId(task.GetUserCred(), extID); err != nil {
 					return nil, err
 				}
 				externalIds = append(externalIds, extID)

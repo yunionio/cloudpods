@@ -27,7 +27,7 @@ func (self *SVirtualizedGuestDriver) GetMaxVMemSizeGB() int {
 	return 512
 }
 
-func (self *SVirtualizedGuestDriver) PrepareDiskRaidConfig(host *models.SHost, params *jsonutils.JSONDict) error {
+func (self *SVirtualizedGuestDriver) PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *models.SHost, params *jsonutils.JSONDict) error {
 	// do nothing
 	return nil
 }

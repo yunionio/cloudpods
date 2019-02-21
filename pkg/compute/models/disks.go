@@ -480,7 +480,7 @@ func (disk *SDisk) SetStorageByHost(hostId string, diskConfig *SDiskConfig) erro
 	if err != nil {
 		return err
 	}
-	_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
+	_, err = db.Update(disk, func() error {
 		disk.StorageId = storage.Id
 		return nil
 	})
@@ -999,8 +999,9 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	if provider.GetFactory().IsSupportPrepaidResources() && len(guests) == 1 && guests[0].IsPrepaidRecycle() {
 		recycle = true
 	}
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
-		extDisk.Refresh()
+	extDisk.Refresh()
+
+	_, err := db.Update(self, func() error {
 		// self.Name = extDisk.GetName()
 		self.Status = extDisk.GetStatus()
 		self.DiskFormat = extDisk.GetDiskFormat()
@@ -1499,12 +1500,17 @@ func (self *SDisk) SetDiskReady(ctx context.Context, userCred mcclient.TokenCred
 	}
 }
 
-func (self *SDisk) SwitchToBackup() error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+func (self *SDisk) SwitchToBackup(userCred mcclient.TokenCredential) error {
+	diff, err := db.Update(self, func() error {
 		self.StorageId, self.BackupStorageId = self.BackupStorageId, self.StorageId
 		return nil
 	})
-	return err
+	if err != nil {
+		log.Errorf("SwitchToBackup fail %s", err)
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+	return nil
 }
 
 func (self *SDisk) ClearHostSchedCache() error {
@@ -1670,7 +1676,7 @@ func (disk *SDisk) StratCreateBackupTask(ctx context.Context, userCred mcclient.
 }
 
 func (self *SDisk) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		if self.BillingType != BILLING_TYPE_PREPAID {
 			self.BillingType = BILLING_TYPE_PREPAID
 		}

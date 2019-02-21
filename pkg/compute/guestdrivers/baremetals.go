@@ -55,7 +55,7 @@ func (self *SBaremetalGuestDriver) GetMaxVMemSizeGB() int {
 	return 4096
 }
 
-func (self *SBaremetalGuestDriver) PrepareDiskRaidConfig(host *models.SHost, params *jsonutils.JSONDict) error {
+func (self *SBaremetalGuestDriver) PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *models.SHost, params *jsonutils.JSONDict) error {
 	baremetalStorage := models.ConvertStorageInfo2BaremetalStorages(host.StorageInfo)
 	if baremetalStorage == nil {
 		return fmt.Errorf("Convert storage info error")
@@ -68,7 +68,7 @@ func (self *SBaremetalGuestDriver) PrepareDiskRaidConfig(host *models.SHost, par
 		if err != nil {
 			return err
 		}
-		return host.UpdateDiskConfig(layouts)
+		return host.UpdateDiskConfig(userCred, layouts)
 	} else {
 		var nConfs = make([]*baremetal.BaremetalDiskConfig, 0)
 		for i := 0; i < len(confs); i++ {
@@ -84,7 +84,7 @@ func (self *SBaremetalGuestDriver) PrepareDiskRaidConfig(host *models.SHost, par
 		if err != nil {
 			return err
 		}
-		return host.UpdateDiskConfig(layouts)
+		return host.UpdateDiskConfig(userCred, layouts)
 	}
 }
 
@@ -338,7 +338,7 @@ func (self *SBaremetalGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Con
 			disk := iDisk.(*models.SDisk)
 			diskSize, _ := disks[i].Int("size")
 			notes := fmt.Sprintf("%s=>%s", disk.Status, models.DISK_READY)
-			_, err := disk.GetModelManager().TableSpec().Update(disk, func() error {
+			_, err := db.Update(disk, func() error {
 				if disk.DiskSize < int(diskSize) {
 					disk.DiskSize = int(diskSize)
 				}
@@ -422,7 +422,7 @@ func (self *SBaremetalGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context
 	}
 	baremetal := guest.GetHost()
 	if baremetal != nil {
-		return baremetal.UpdateDiskConfig(nil)
+		return baremetal.UpdateDiskConfig(userCred, nil)
 	}
 	return nil
 }
