@@ -39,7 +39,7 @@ func (self *GuestSwitchToBackupTask) OnEnsureMasterGuestStoped(ctx context.Conte
 	self.SetStage("OnBackupGuestStoped", nil)
 	err := guest.GetDriver().RequestStopOnHost(ctx, guest, backupHost, self)
 	if err != nil {
-		self.SetStageFailed(ctx, fmt.Sprintf("Stop backup guest error: %s", err))
+		self.OnFail(ctx, guest, fmt.Sprintf("Stop backup guest error: %s", err))
 	}
 }
 
@@ -56,13 +56,15 @@ func (self *GuestSwitchToBackupTask) OnBackupGuestStoped(ctx context.Context, gu
 				}
 			}
 			db.OpsLog.LogEvent(guest, db.ACT_SWITCH_FAILED, fmt.Sprintf("Switch to backup disk error: %s", err), self.UserCred)
-			self.SetStageFailed(ctx, fmt.Sprintf("Switch to backup disk error: %s", err))
+			self.OnFail(ctx, guest, fmt.Sprintf("Switch to backup disk error: %s", err))
+			return
 		}
 	}
 	err := guest.SwitchToBackup()
 	if err != nil {
 		db.OpsLog.LogEvent(guest, db.ACT_SWITCH_FAILED, fmt.Sprintf("Switch to backup guest error: %s", err), self.UserCred)
-		self.SetStageFailed(ctx, fmt.Sprintf("Switch to backup guest error: %s", err))
+		self.OnFail(ctx, guest, fmt.Sprintf("Switch to backup guest error: %s", err))
+		return
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_SWITCHED, fmt.Sprintf("Switch to backup guest error: %s", err), self.UserCred)
 	self.SetStage("OnNewMasterStarted", nil)
@@ -71,6 +73,11 @@ func (self *GuestSwitchToBackupTask) OnBackupGuestStoped(ctx context.Context, gu
 
 func (self *GuestSwitchToBackupTask) OnNewMasterStarted(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *GuestSwitchToBackupTask) OnFail(ctx context.Context, guest *models.SGuest, reason string) {
+	guest.SetStatus(self.UserCred, models.VM_SWITCH_TO_BACKUP_FAILED, reason)
+	self.SetStageFailed(ctx, reason)
 }
 
 /********************* GuestStartAndSyncToBackupTask *********************/
