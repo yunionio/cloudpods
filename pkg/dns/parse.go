@@ -36,7 +36,7 @@ func parseRequest(state request.Request) (r *recordRequest, err error) {
 	if guest := models.GuestnetworkManager.GetGuestByAddress(srcIP); guest != nil {
 		r.srcProjectId = guest.ProjectId
 		r.srcInCloud = true
-	} else if network, _ := models.NetworkManager.GetNetworkOfIP(srcIP, "", tristate.None); network != nil {
+	} else if network, _ := models.NetworkManager.GetOnPremiseNetworkOfIP(srcIP, "", tristate.None); network != nil {
 		r.srcProjectId = network.ProjectId
 		r.srcInCloud = true
 	}
