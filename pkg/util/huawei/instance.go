@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/modules"
 	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -555,9 +556,28 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	return self.host.zone.region.GetInstanceVNCUrl(self.GetId())
 }
 
+func (self *SInstance) NextDeviceName() (string, error) {
+	currents := []string{}
+	for _, item := range self.OSExtendedVolumesVolumesAttached {
+		currents = append(currents, strings.ToLower(item.Device))
+	}
+
+	for i := 0; i < 25; i++ {
+		device := fmt.Sprintf("/dev/sd%s", string(98+i))
+		if ok, _ := utils.InStringArray(device, currents); !ok {
+			return device, nil
+		}
+	}
+
+	return "", fmt.Errorf("disk devicename out of index, current deivces: %s", currents)
+}
+
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
-	// todo: calc device
-	return self.host.zone.region.AttachDisk(self.GetId(), diskId, "")
+	device, err := self.NextDeviceName()
+	if err != nil {
+		return err
+	}
+	return self.host.zone.region.AttachDisk(self.GetId(), diskId, device)
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
@@ -1073,12 +1093,15 @@ func (self *SRegion) GetInstanceVNCUrl(instanceId string) (jsonutils.JSONObject,
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0022472987.html
-// todo: 指定device
 // XEN平台虚拟机device为必选参数。
 func (self *SRegion) AttachDisk(instanceId string, diskId string, device string) error {
 	params := jsonutils.NewDict()
 	volumeObj := jsonutils.NewDict()
 	volumeObj.Add(jsonutils.NewString(diskId), "volumeId")
+	if len(device) > 0 {
+		volumeObj.Add(jsonutils.NewString(device), "device")
+	}
+
 	params.Add(volumeObj, "volumeAttachment")
 
 	_, err := self.ecsClient.Servers.PerformAction2("attachvolume", instanceId, params, "")

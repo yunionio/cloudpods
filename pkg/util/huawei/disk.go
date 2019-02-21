@@ -95,7 +95,6 @@ type SDisk struct {
 	ConsistencygroupID  string              `json:"consistencygroup_id"`
 	UpdatedAt           string              `json:"updated_at"`
 
-	/*下面这些字段也许不需要*/
 	ExpiredTime time.Time
 }
 
@@ -183,7 +182,17 @@ func (self *SDisk) GetBillingType() string {
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
-	return self.ExpiredTime
+	var expiredTime time.Time
+	if self.Metadata.Billing == "1" {
+		res, err := self.storage.zone.region.GetOrderResourceDetail(self.GetId())
+		if err != nil {
+			log.Debugf(err.Error())
+		}
+
+		expiredTime = res.ExpireTime
+	}
+
+	return expiredTime
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
@@ -340,7 +349,19 @@ func (self *SDisk) Detach() error {
 		return err
 	}
 
-	return cloudprovider.WaitStatus(self, models.DISK_READY, 5*time.Second, 60*time.Second)
+	return cloudprovider.WaitCreated(5*time.Second, 60*time.Second, func() bool {
+		err := self.Refresh()
+		if err != nil {
+			log.Debugf(err.Error())
+			return false
+		}
+
+		if self.Status == "available" {
+			return true
+		}
+
+		return false
+	})
 }
 
 func (self *SDisk) Attach(device string) error {
@@ -357,7 +378,7 @@ func (self *SDisk) Attach(device string) error {
 // 对于挂载在系统盘盘位（也就是“/dev/sda”或“/dev/vda”挂载点）上的磁盘，当前仅支持离线卸载
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
 	mountpoint := self.GetMountpoint()
-	if mountpoint == "/dev/sda" || mountpoint == "/dev/vda" {
+	if len(mountpoint) > 0 {
 		err := self.Detach()
 		if err != nil {
 			return "", err
@@ -374,7 +395,7 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 		return "", err
 	}
 
-	if mountpoint == "/dev/sda" || mountpoint == "/dev/vda" {
+	if len(mountpoint) > 0 {
 		err := self.Attach(mountpoint)
 		if err != nil {
 			return "", err
