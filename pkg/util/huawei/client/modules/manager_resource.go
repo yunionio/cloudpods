@@ -118,26 +118,26 @@ func (self *SResourceManager) ListInContext(ctx manager.IManagerContext, queries
 	return self.ListInContextWithSpec(ctx, "", queries, self.KeywordPlural)
 }
 
-func (self *SResourceManager) ListInContextWithSpec(ctx manager.IManagerContext, spec string, querys map[string]string, responseKey string) (*responses.ListResult, error) {
+func (self *SResourceManager) ListInContextWithSpec(ctx manager.IManagerContext, spec string, queries map[string]string, responseKey string) (*responses.ListResult, error) {
 	request := self.newRequest("GET", "", spec, ctx)
-	for k, v := range querys {
+	for k, v := range queries {
 		request.AddQueryParam(k, v)
 	}
 
 	return self._list(request, responseKey)
 }
 
-func (self *SResourceManager) Get(id string, querys map[string]string) (jsonutils.JSONObject, error) {
-	return self.GetInContext(nil, id, querys)
+func (self *SResourceManager) Get(id string, queries map[string]string) (jsonutils.JSONObject, error) {
+	return self.GetInContext(nil, id, queries)
 }
 
-func (self *SResourceManager) GetInContext(ctx manager.IManagerContext, id string, querys map[string]string) (jsonutils.JSONObject, error) {
-	return self.GetInContextWithSpec(ctx, id, "", querys, self.Keyword)
+func (self *SResourceManager) GetInContext(ctx manager.IManagerContext, id string, queries map[string]string) (jsonutils.JSONObject, error) {
+	return self.GetInContextWithSpec(ctx, id, "", queries, self.Keyword)
 }
 
-func (self *SResourceManager) GetInContextWithSpec(ctx manager.IManagerContext, id string, spec string, querys map[string]string, responseKey string) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) GetInContextWithSpec(ctx manager.IManagerContext, id string, spec string, queries map[string]string, responseKey string) (jsonutils.JSONObject, error) {
 	request := self.newRequest("GET", id, spec, ctx)
-	for k, v := range querys {
+	for k, v := range queries {
 		request.AddQueryParam(k, v)
 	}
 
@@ -186,11 +186,15 @@ func (self *SResourceManager) Delete(id string, params jsonutils.JSONObject) (js
 }
 
 func (self *SResourceManager) DeleteInContext(ctx manager.IManagerContext, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return self.DeleteInContextWithSpec(ctx, id, "", params, self.Keyword)
+	return self.DeleteInContextWithSpec(ctx, id, "", nil, params, self.Keyword)
 }
 
-func (self *SResourceManager) DeleteInContextWithSpec(ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
+func (self *SResourceManager) DeleteInContextWithSpec(ctx manager.IManagerContext, id string, spec string, queries map[string]string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error) {
 	request := self.newRequest("DELETE", id, spec, ctx)
+	for k, v := range queries {
+		request.AddQueryParam(k, v)
+	}
+
 	content := getContent(params)
 	if len(content) > 0 {
 		request.SetContent([]byte(content))

@@ -18,16 +18,16 @@ type IBaseManager interface {
 
 type IManager interface {
 	IBaseManager
-	// 获取资源列表 GET <base_url>/cloudservers/?<querys>
-	List(querys map[string]string) (*responses.ListResult, error)
-	// 根据上文获取资源列表 GET <base_url>/cloudservers/<cloudserver_id>/nics?<querys>
-	ListInContext(ctx IManagerContext, querys map[string]string) (*responses.ListResult, error)
-	ListInContextWithSpec(ctx IManagerContext, spec string, querys map[string]string, responseKey string) (*responses.ListResult, error)
+	// 获取资源列表 GET <base_url>/cloudservers/?<queries>
+	List(queries map[string]string) (*responses.ListResult, error)
+	// 根据上文获取资源列表 GET <base_url>/cloudservers/<cloudserver_id>/nics?<queries>
+	ListInContext(ctx IManagerContext, queries map[string]string) (*responses.ListResult, error)
+	ListInContextWithSpec(ctx IManagerContext, spec string, queries map[string]string, responseKey string) (*responses.ListResult, error)
 
-	// 查询单个资源 GET <base_url>/cloudservers/<cloudserver_id>?<querys>
-	Get(id string, querys map[string]string) (jsonutils.JSONObject, error)
-	// 根据上文获取资源查询单个资源 GET <base_url>/cloudservers/<cloudserver_id>/nics/<nic_id>?<querys>
-	GetInContext(ctx IManagerContext, id string, querys map[string]string) (jsonutils.JSONObject, error)
+	// 查询单个资源 GET <base_url>/cloudservers/<cloudserver_id>?<queries>
+	Get(id string, queries map[string]string) (jsonutils.JSONObject, error)
+	// 根据上文获取资源查询单个资源 GET <base_url>/cloudservers/<cloudserver_id>/nics/<nic_id>?<queries>
+	GetInContext(ctx IManagerContext, id string, queries map[string]string) (jsonutils.JSONObject, error)
 
 	// 创建单个资源 POST <base_url>/cloudservers
 	Create(params jsonutils.JSONObject) (jsonutils.JSONObject, error)
@@ -48,7 +48,7 @@ type IManager interface {
 	// 根据上文删除单个资源 DELETE <base_url>/cloudservers/<cloudserver_id>/nics/<nic_id>
 	DeleteInContext(ctx IManagerContext, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	// 根据上文和spec删除单个资源
-	DeleteInContextWithSpec(ctx IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error)
+	DeleteInContextWithSpec(ctx IManagerContext, id string, spec string, queries map[string]string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error)
 	// 批量执行操作 POST <base_url>/cloudservers/<action>
 	// BatchPerformAction(action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 	// 执行操作 POST <base_url>/cloudservers/<cloudserver_id>/<action>
