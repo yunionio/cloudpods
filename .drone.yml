@@ -1,0 +1,27 @@
+workspace:
+  base: /go
+  path: src/yunion.io/x/onecloud
+
+branches: [ release/*, ci/* ]
+
+clone:
+  git:
+    image: plugins/git
+    tags: true
+
+pipeline:
+  build:
+    image: golang:latest
+    commands:
+      - make
+
+  release-img:
+    image: plugins/docker
+    repo: registry.cn-beijing.aliyuncs.com/yunionio/onecloud
+    registry: registry.cn-beijing.aliyuncs.com
+    mirror: https://lms7sxqp.mirror.aliyuncs.com
+    secrets: [ docker_username, docker_password  ]
+    tags:
+      - "${DRONE_TAG}"
+    when:
+      event: tag
