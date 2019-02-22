@@ -167,6 +167,12 @@ func NewSchedData(sjson *simplejson.Json, count int64, byTest bool) (*SchedData,
 	if backupHostID, ok := sjson.CheckGet("prefer_backup_host_id"); ok {
 		if backHost, err := backupHostID.String(); err == nil {
 			data.BackupHostID = backHost
+			candidates = append(candidates, backHost)
+		}
+	} else if backupHostID, ok := sjson.CheckGet("prefer_backup_host"); ok {
+		if backHost, err := backupHostID.String(); err == nil {
+			data.BackupHostID = backHost
+			candidates = append(candidates, backHost)
 		}
 	}
 
