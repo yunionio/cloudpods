@@ -14,6 +14,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
@@ -196,11 +197,45 @@ func NotifySystemWarning(idstr string, name string, event string, reason string)
 	SystemNotify(notify.NotifyPriorityImportant, SYSTEM_WARNING, jsonutils.Marshal(msg))
 }
 
+func parseIdName(idName string) (string, string) {
+	pos := strings.Index(idName, "\\")
+	if pos > 0 {
+		return idName[:pos], idName[pos+1:]
+	} else {
+		return "", idName
+	}
+}
+
+var (
+	domainCache = make(map[string]string)
+)
+
+func getIdentityId(s *mcclient.ClientSession, idName string, manager modules.Manager) (string, error) {
+	domain, idName := parseIdName(idName)
+
+	query := jsonutils.NewDict()
+	if len(domain) > 0 {
+		domainId, ok := domainCache[domain]
+		if !ok {
+			var err error
+			domainId, err = modules.Domains.GetId(s, domain, nil)
+			if err != nil {
+				log.Errorf("fail to find domainId for domain %s: %s", domain, err)
+				return "", err
+			}
+			domainCache[domain] = domainId
+		}
+		query.Add(jsonutils.NewString(domainId), "domain_id")
+	}
+	return manager.GetId(s, idName, query)
+}
+
 func FetchNotifyAdminRecipients(ctx context.Context, region string, users []string, groups []string) {
 	s := auth.GetAdminSession(ctx, region, "v1")
+
 	notifyAdminUsers = make([]string, 0)
 	for _, u := range users {
-		uId, err := modules.UsersV3.GetId(s, u, nil)
+		uId, err := getIdentityId(s, u, &modules.UsersV3)
 		if err != nil {
 			log.Warningf("fetch user %s fail: %s", u, err)
 		} else {
@@ -209,9 +244,9 @@ func FetchNotifyAdminRecipients(ctx context.Context, region string, users []stri
 	}
 	notifyAdminGroups = make([]string, 0)
 	for _, g := range groups {
-		gId, err := modules.Groups.GetId(s, g, nil)
+		gId, err := getIdentityId(s, g, &modules.Groups)
 		if err != nil {
-			log.Errorf("fetch group %s fail: %s", g, err)
+			log.Warningf("fetch group %s fail: %s", g, err)
 		} else {
 			notifyAdminGroups = append(notifyAdminGroups, gId)
 		}
