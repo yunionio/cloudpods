@@ -264,14 +264,14 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	}
 
 	var err error
-	q, err = managedResourceFilterByAccount(q, query, "storage_id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByAccount(q, query, "host_id", func() *sqlchemy.SQuery {
 		hosts := HostManager.Query().SubQuery()
 		return hosts.Query(hosts.Field("id"))
 	})
 	if err != nil {
 		return nil, err
 	}
-	q = managedResourceFilterByCloudType(q, query, "storage_id", func() *sqlchemy.SQuery {
+	q = managedResourceFilterByCloudType(q, query, "host_id", func() *sqlchemy.SQuery {
 		hosts := HostManager.Query().SubQuery()
 		return hosts.Query(hosts.Field("id"))
 	})
