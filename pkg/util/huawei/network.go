@@ -147,5 +147,5 @@ func (self *SRegion) GetNetwroks(vpcId string) ([]SNetwork, error) {
 
 func (self *SRegion) deleteNetwork(vpcId string, networkId string) error {
 	ctx := &modules.SManagerContext{InstanceId: vpcId, InstanceManager: self.ecsClient.Vpcs}
-	return DoDeleteWithSpec(self.ecsClient.Subnets.DeleteInContextWithSpec, ctx, networkId, "", nil)
+	return DoDeleteWithSpec(self.ecsClient.Subnets.DeleteInContextWithSpec, ctx, networkId, "", nil, nil)
 }
