@@ -48,7 +48,7 @@ func InitAuth(options *CommonOptions, authComplete auth.AuthCompletedCallback) {
 	if len(users) == 0 && len(groups) == 0 {
 		users = []string{"sysadmin"}
 	}
-	notifyclient.FetchNotifyAdminRecipients(context.Background(), options.Region, options.NotifyAdminDomain, users, groups)
+	notifyclient.FetchNotifyAdminRecipients(context.Background(), options.Region, users, groups)
 
 	authComplete()
 
