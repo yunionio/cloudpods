@@ -1332,6 +1332,11 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	extra.Add(self.getDisksInfoDetails(), "disks_info")
 	extra.Add(jsonutils.NewString(self.getIsolatedDeviceDetails()), "isolated_devices")
 
+	if len(self.BackupHostId) > 0 {
+		backupHost := HostManager.FetchHostById(self.BackupHostId)
+		extra.Set("backup_host_name", jsonutils.NewString(backupHost.Name))
+	}
+
 	host := self.GetHost()
 	if host != nil {
 		info := host.getCloudProviderInfo()
@@ -1399,11 +1404,6 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		isGpu = jsonutils.JSONTrue
 	}
 	extra.Add(isGpu, "is_gpu")
-
-	if len(self.BackupHostId) > 0 {
-		backupHost := HostManager.FetchHostById(self.BackupHostId)
-		extra.Set("backup_host_name", jsonutils.NewString(backupHost.Name))
-	}
 
 	if self.IsPrepaidRecycle() {
 		extra.Add(jsonutils.JSONTrue, "is_prepaid_recycle")
