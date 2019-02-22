@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -395,6 +396,11 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		}
 		manager := managerObj.(*SCloudprovider)
 		q = q.Equals("provider", manager.Provider)
+		if manager.Provider == CLOUD_PROVIDER_HUAWEI {
+			region := strings.Split(manager.Name, "_")[0]
+			prefix := CLOUD_PROVIDER_HUAWEI + "/" + region
+			q = q.Startswith("external_id", prefix)
+		}
 	}
 	accountStr, _ := query.GetString("account")
 	if len(accountStr) > 0 {
