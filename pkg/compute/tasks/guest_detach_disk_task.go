@@ -83,7 +83,7 @@ func (self *GuestDetachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 		purge = true
 	}
 	if !keepDisk && disk.GetGuestDiskCount() == 0 && disk.AutoDelete {
-		self.SetStage("on_disk_delete_complete", nil)
+		self.SetStage("OnDiskDeleteComplete", nil)
 		db.OpsLog.LogEvent(disk, db.ACT_DELETE, "", self.UserCred)
 		err := guest.GetDriver().RequestDeleteDetachedDisk(ctx, disk, self, purge)
 		if err != nil {
