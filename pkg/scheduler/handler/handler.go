@@ -261,7 +261,7 @@ func doSyncSchedule(c *gin.Context) {
 	count := schedInfo.Data.Count
 	var resp interface{}
 	if schedInfo.Data.Backup {
-		resp = transToBackupSchedResult(result, schedInfo.Data.BackupHostID, count)
+		resp = transToBackupSchedResult(result, schedInfo.Data.HostID, schedInfo.Data.BackupHostID, count)
 	} else {
 		resp = transToRegionSchedResult(result.Data, count)
 	}
