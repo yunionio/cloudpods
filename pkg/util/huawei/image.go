@@ -37,7 +37,7 @@ type SImage struct {
 	storageCache *SStoragecache
 
 	Schema             string    `json:"schema"`
-	MinDisk            int64     `json:"min_disk"`
+	MinDiskGB          int64     `json:"min_disk"`
 	CreatedAt          time.Time `json:"created_at"`
 	ImageSourceType    string    `json:"__image_source_type"`
 	ContainerFormat    string    `json:"container_format"`
@@ -150,7 +150,7 @@ func (self *SImage) GetOsArch() string {
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
-	return int(self.MinDisk)
+	return int(self.MinDiskGB)
 }
 
 func (self *SImage) GetImageFormat() string {
