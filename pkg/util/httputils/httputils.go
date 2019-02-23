@@ -116,7 +116,7 @@ func GetTimeoutClient(timeout time.Duration) *http.Client {
 var defaultHttpClient *http.Client
 
 func init() {
-	defaultHttpClient = GetClient(true)
+	defaultHttpClient = GetTimeoutClient(time.Second * 10)
 }
 
 func GetDefaultClient() *http.Client {
