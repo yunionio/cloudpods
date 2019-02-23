@@ -723,7 +723,12 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
 	}
-	return nil, self.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage, nil)
+
+	guests := self.GetGuests()
+	if len(guests) != 1 {
+		return nil, httperrors.NewBadRequestError("Cann't resize disk when attach to mutil guest")
+	}
+	return nil, self.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage, &guests[0])
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
