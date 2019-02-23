@@ -41,7 +41,7 @@ func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
 	return []string{models.NETWORK_TYPE_GUEST}
 }
 
-func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) error {
+func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) (*models.SGuestnetwork, error) {
 	var wirePattern *regexp.Regexp
 	if len(netConfig.Wire) > 0 {
 		wirePattern = regexp.MustCompile(netConfig.Wire)
@@ -61,8 +61,6 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 			continue
 		}
 
-		log.Debugf("Wire %#v", wire)
-
 		// !!
 		if wirePattern != nil && !wirePattern.MatchString(wire.Id) && !wirePattern.MatchString(wire.Name) {
 			continue
@@ -79,14 +77,14 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 		}
 	}
 	if len(netsAvaiable) == 0 {
-		return fmt.Errorf("No appropriate host virtual network...")
+		return nil, fmt.Errorf("No appropriate host virtual network...")
 	}
 	selNet := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, netTypes)
 	if selNet == nil {
-		return fmt.Errorf("Not enough address in virtual network")
+		return nil, fmt.Errorf("Not enough address in virtual network")
 	}
-	err := guest.Attach2Network(ctx, userCred, selNet, pendingUsage, netConfig.Address, netConfig.Mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, -1, netConfig.Reserved, models.IPAllocationDefault, false, netConfig.Ifname)
-	return err
+	gn, err := guest.Attach2Network(ctx, userCred, selNet, pendingUsage, netConfig.Address, netConfig.Mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, -1, netConfig.Reserved, models.IPAllocationDefault, false, netConfig.Ifname)
+	return gn, err
 }
 
 func (self *SVirtualizedGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
