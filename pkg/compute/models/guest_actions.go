@@ -1380,7 +1380,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	}
 	host := self.GetHost()
 
-	_, err = func() (jsonutils.JSONObject, error) {
+	ngn, err := func() (*SGuestnetwork, error) {
 		lockman.LockRawObject(ctx, GuestnetworkManager.KeywordPlural(), "")
 		defer lockman.ReleaseRawObject(ctx, GuestnetworkManager.KeywordPlural(), "")
 
@@ -1408,17 +1408,27 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 			return nil, err
 		}
 		conf.Ifname = gn.Ifname
-		err = self.attach2NetworkDesc(ctx, userCred, host, conf, nil)
+		ngn, err := self.attach2NetworkDesc(ctx, userCred, host, conf, nil)
 		if err != nil {
 			return nil, httperrors.NewBadRequestError(err.Error())
 		}
 
-		return nil, nil
+		return ngn, nil
 	}()
 
 	if err != nil {
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_NIC, err, userCred, false)
 		return nil, err
 	}
+
+	notes := jsonutils.NewDict()
+	if gn != nil {
+		notes.Add(jsonutils.NewString(gn.IpAddr), "prev_ip")
+	}
+	if ngn != nil {
+		notes.Add(jsonutils.NewString(ngn.IpAddr), "ip")
+	}
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_NIC, notes, userCred, true)
 
 	err = self.StartSyncTask(ctx, userCred, true, "")
 	return nil, err
@@ -1516,7 +1526,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 			return nil, httperrors.NewOutOfQuotaError(err.Error())
 		}
 		host := self.GetHost()
-		err = self.attach2NetworkDesc(ctx, userCred, host, conf, pendingUsage)
+		_, err = self.attach2NetworkDesc(ctx, userCred, host, conf, pendingUsage)
 		if err != nil {
 			QuotaManager.CancelPendingUsage(ctx, userCred, projectId, nil, pendingUsage)
 			return nil, httperrors.NewBadRequestError(err.Error())
@@ -2720,7 +2730,7 @@ func (self *SGuest) importNics(ctx context.Context, userCred mcclient.TokenCrede
 		if err != nil {
 			return httperrors.NewNotFoundError("Not found network by ip %s", nic.Ip)
 		}
-		err = self.attach2NetworkDesc(ctx, userCred, self.GetHost(), nic.ToNetConfig(net), nil)
+		_, err = self.attach2NetworkDesc(ctx, userCred, self.GetHost(), nic.ToNetConfig(net), nil)
 		if err != nil {
 			return err
 		}
