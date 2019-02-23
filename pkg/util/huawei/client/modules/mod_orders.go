@@ -26,12 +26,13 @@ func (self *orderCtx) GetPath() string {
 	return fmt.Sprintf("%s/common", self.domainId)
 }
 
+// 客户运营能力API的Endpoint为“bss.cn-north-1.myhuaweicloud.com”。该Endpoint为全局Endpoint，中国站所有区域均可使用。
 // https://support.huaweicloud.com/api-oce/zh-cn_topic_0084961226.html
-func NewOrderManager(regionId string, signer auth.Signer, debug bool) *SOrderManager {
+func NewOrderManager(signer auth.Signer, debug bool) *SOrderManager {
 	return &SOrderManager{SResourceManager: SResourceManager{
 		SBaseManager:  NewBaseManager(signer, debug),
 		ServiceName:   ServiceNameBSS,
-		Region:        regionId,
+		Region:        "cn-north-1",
 		ProjectId:     "",
 		version:       "v1.0",
 		Keyword:       "",
