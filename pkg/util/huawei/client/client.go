@@ -92,7 +92,7 @@ func (self *Client) initManagers() {
 		self.Disks = modules.NewDiskManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Domains = modules.NewDomainManager(self.signer, self.debug)
 		self.Keypairs = modules.NewKeypairManager(self.regionId, self.projectId, self.signer, self.debug)
-		self.Orders = modules.NewOrderManager(self.regionId, self.signer, self.debug)
+		self.Orders = modules.NewOrderManager(self.signer, self.debug)
 		self.SecurityGroupRules = modules.NewSecgroupRuleManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.SecurityGroups = modules.NewSecurityGroupManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.NovaSecurityGroups = modules.NewNovaSecurityGroupManager(self.regionId, self.projectId, self.signer, self.debug)
