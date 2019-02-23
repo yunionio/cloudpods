@@ -757,7 +757,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		err = cloudprovider.WaitCreated(10*time.Second, 180*time.Second, func() bool {
 			order, e := self.GetOrder(_id)
 			if e != nil {
-				log.Debugf(err.Error())
+				log.Debugf(e.Error())
 				return false
 			}
 
