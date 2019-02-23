@@ -48,7 +48,7 @@ func (self *GuestMigrateTask) OnStartSchedule(obj IScheduleModel) {
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, "", self.UserCred)
 }
 
-func (self *GuestMigrateTask) OnScheduleFailCallback(obj IScheduleModel, reason string) {
+func (self *GuestMigrateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {
 	// do nothing
 }
 
