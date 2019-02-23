@@ -84,13 +84,13 @@ type SInstance struct {
 	HostName                string
 	ImageId                 string
 	InnerIpAddress          SIpAddress
-	InstanceChargeType      InstanceChargeType
+	InstanceChargeType      TChargeType
 	InstanceId              string
 	InstanceName            string
 	InstanceNetworkType     string
 	InstanceType            string
 	InstanceTypeFamily      string
-	InternetChargeType      string
+	InternetChargeType      TInternetChargeType
 	InternetMaxBandwidthIn  int
 	InternetMaxBandwidthOut int
 	IoOptimized             bool
@@ -901,24 +901,11 @@ func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 }
 
 func (self *SInstance) GetBillingType() string {
-	switch self.InstanceChargeType {
-	case PrePaidInstanceChargeType:
-		return models.BILLING_TYPE_PREPAID
-	case PostPaidInstanceChargeType:
-		return models.BILLING_TYPE_POSTPAID
-	default:
-		return models.BILLING_TYPE_PREPAID
-	}
+	return convertChargeType(self.InstanceChargeType)
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
-	if !self.ExpiredTime.IsZero() {
-		now := time.Now()
-		if self.ExpiredTime.Sub(now) < time.Hour*24*365*6 {
-			return self.ExpiredTime
-		}
-	}
-	return time.Time{}
+	return convertExpiredAt(self.ExpiredTime)
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {

@@ -252,6 +252,7 @@ type ICloudNic interface {
 
 type ICloudEIP interface {
 	ICloudResource
+	IBillingResource
 
 	GetIpAddr() string
 	GetMode() string
@@ -274,6 +275,7 @@ type ICloudEIP interface {
 
 type ICloudSecurityGroup interface {
 	ICloudResource
+
 	GetDescription() string
 	GetRules() ([]secrules.SecurityRule, error)
 	GetVpcId() string
