@@ -825,6 +825,17 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 		if self.ResourceType == HostResourceTypePrepaidRecycle && self.GetGuestCount() > 0 {
 			return nil
 		}
+
+		if len(self.ManagerId) > 0 {
+			providerObj, _ := CloudproviderManager.FetchById(self.ManagerId)
+			if providerObj == nil {
+				return nil
+			}
+			provider := providerObj.(*SCloudprovider)
+			if !provider.IsAvailable() {
+				return nil
+			}
+		}
 	}
 	spec := self.GetHardwareSpecification()
 	spec.Remove("storage_info")

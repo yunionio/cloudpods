@@ -116,7 +116,7 @@ func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []string {
 	return []string{models.NETWORK_TYPE_BAREMETAL, models.NETWORK_TYPE_GUEST}
 }
 
-func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) error {
+func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) (*models.SGuestnetwork, error) {
 	netifs := host.GetNetInterfaces()
 	netsAvaiable := make([]models.SNetwork, 0)
 	netifIndexs := make(map[string]*models.SNetInterface, 0)
@@ -152,14 +152,14 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 		}
 	}
 	if len(netsAvaiable) == 0 {
-		return fmt.Errorf("No appropriate host virtual network...")
+		return nil, fmt.Errorf("No appropriate host virtual network...")
 	}
 	net := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, netTypes)
 	if net != nil {
 		netif := netifIndexs[net.Id]
 		return guest.Attach2Network(ctx, userCred, net, pendingUsage, "", netif.Mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netif.Index, false, models.IPAllocationStepup, false, "")
 	}
-	return fmt.Errorf("No appropriate host virtual network...")
+	return nil, fmt.Errorf("No appropriate host virtual network...")
 }
 
 func (self *SBaremetalGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
