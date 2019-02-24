@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -102,7 +103,11 @@ func GetAddrPort(urlStr string) (string, int, error) {
 
 func GetClient(insecure bool) *http.Client {
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
+		DialContext: (&net.Dialer{
+			Timeout: 5 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: insecure},
 	}
 	return &http.Client{Transport: tr}
 }
@@ -116,7 +121,7 @@ func GetTimeoutClient(timeout time.Duration) *http.Client {
 var defaultHttpClient *http.Client
 
 func init() {
-	defaultHttpClient = GetTimeoutClient(time.Second * 10)
+	defaultHttpClient = GetClient(true)
 }
 
 func GetDefaultClient() *http.Client {
