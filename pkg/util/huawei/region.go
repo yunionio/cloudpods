@@ -590,6 +590,11 @@ func (self *SRegion) addSecurityGroupRules(secGrpId string, rule *secrules.Secur
 		protocal = ""
 	}
 
+	// imcp协议默认为any
+	if rule.Protocol == secrules.PROTO_ICMP {
+		return self.addSecurityGroupRule(secGrpId, direction, "-1", "-1", protocal, rule.IPNet.String())
+	}
+
 	if len(rule.Ports) > 0 {
 		for _, port := range rule.Ports {
 			portStr := fmt.Sprintf("%d", port)
@@ -610,7 +615,6 @@ func (self *SRegion) addSecurityGroupRules(secGrpId string, rule *secrules.Secur
 	return nil
 }
 
-// todo: icmp协议目前存在差异，华为云能指定icmp code，onecloud不支持
 func (self *SRegion) addSecurityGroupRule(secGrpId, direction, portStart, portEnd, protocol, ipNet string) error {
 	params := jsonutils.NewDict()
 	secgroupObj := jsonutils.NewDict()

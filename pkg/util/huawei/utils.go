@@ -125,7 +125,8 @@ func doListPart(doList listFunc, queries map[string]string, result interface{}) 
 
 func DoGet(doGet getFunc, id string, queries map[string]string, result interface{}) error {
 	if len(id) == 0 {
-		return fmt.Errorf(" id should not be empty")
+		resultType := reflect.Indirect(reflect.ValueOf(result)).Type()
+		return fmt.Errorf(" Get %s id should not be empty", resultType.Name())
 	}
 
 	ret, err := doGet(id, queries)
