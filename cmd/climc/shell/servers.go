@@ -154,9 +154,16 @@ func init() {
 		return nil
 	})
 
-	R(&options.ServerIdsOptions{}, "server-switch-to-backup", "Switch geust master to backup host", func(s *mcclient.ClientSession, opts *options.ServerIdsOptions) error {
-		ret := modules.Servers.BatchPerformAction(s, opts.ID, "switch-to-backup", nil)
-		printBatchResults(ret, modules.Servers.GetColumns(s))
+	R(&options.ServerSwitchToBackupOptions{}, "server-switch-to-backup", "Switch geust master to backup host", func(s *mcclient.ClientSession, opts *options.ServerSwitchToBackupOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		ret, err := modules.Servers.PerformAction(s, opts.ID, "switch-to-backup", params)
+		if err != nil {
+			return err
+		}
+		printObject(ret)
 		return nil
 	})
 
