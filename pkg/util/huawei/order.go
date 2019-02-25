@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -138,6 +139,8 @@ func (self *SRegion) GetAllResByOrderId(orderId string) ([]SResource, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	log.Debugf("GetAllResByOrderId %s", order.Resources)
 	return order.Resources, nil
 }
 
@@ -166,7 +169,9 @@ func (self *SRegion) getAllResIdsByType(orderId string, resourceType string) ([]
 
 	ids := make([]string, 0)
 	for _, r := range res {
-		ids = append(ids, r.ResourceID)
+		if len(r.ResourceID) > 0 {
+			ids = append(ids, r.ResourceID)
+		}
 	}
 
 	return ids, nil
