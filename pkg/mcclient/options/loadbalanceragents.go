@@ -10,6 +10,7 @@ import (
 type LoadbalancerAgentParamsOptions struct {
 	KeepalivedConfTmpl string
 	HaproxyConfTmpl    string
+	TelegrafConfTmpl   string
 
 	VrrpPriority          *int // required
 	VrrpVirtualRouterId   *int // required
