@@ -2383,7 +2383,7 @@ func (self *SGuest) PerformDeleteBackup(ctx context.Context, userCred mcclient.T
 	}
 
 	taskData := jsonutils.NewDict()
-	taskData.Set("pruge", jsonutils.NewBool(jsonutils.QueryBoolean(data, "purge", false)))
+	taskData.Set("purge", jsonutils.NewBool(jsonutils.QueryBoolean(data, "purge", false)))
 	taskData.Set("host_id", jsonutils.NewString(self.BackupHostId))
 	taskData.Set("failed_status", jsonutils.NewString(VM_BACKUP_DELETE_FAILED))
 

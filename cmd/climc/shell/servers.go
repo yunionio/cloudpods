@@ -167,7 +167,11 @@ func init() {
 	})
 
 	R(&options.ServerDeleteBackupOptions{}, "server-delete-backup", "Guest delete backup", func(s *mcclient.ClientSession, opts *options.ServerDeleteBackupOptions) error {
-		ret, err := modules.Servers.PerformAction(s, opts.ID, "delete-backup", nil)
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		ret, err := modules.Servers.PerformAction(s, opts.ID, "delete-backup", params)
 		if err != nil {
 			return err
 		}
