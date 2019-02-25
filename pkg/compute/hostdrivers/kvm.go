@@ -46,7 +46,7 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 		return err
 	}
 	cacheImage := obj.(*models.SCachedimage)
-	srcHostCacheImage, err := cacheImage.ChooseSourceStoragecacheInRange(models.HOST_TYPE_HYPERVISOR, []string{host.Id}, []*models.SZone{host.GetZone()})
+	srcHostCacheImage, err := cacheImage.ChooseSourceStoragecacheInRange(models.HOST_TYPE_HYPERVISOR, []string{host.Id}, []interface{}{host.GetZone()})
 	if err != nil {
 		return err
 	}
