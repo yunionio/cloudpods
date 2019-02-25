@@ -53,8 +53,7 @@ type SKVMGuestInstance struct {
 	Monitor monitor.Monitor
 	manager *SGuestManager
 
-	startupTask        *SGuestResumeTask
-	mirrorJobSuccCount *int
+	startupTask *SGuestResumeTask
 }
 
 func NewKVMGuestInstance(id string, manager *SGuestManager) *SKVMGuestInstance {
@@ -349,14 +348,11 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 		if itype, ok := event.Data["type"]; ok {
 			stype, _ := itype.(string)
 			if stype == "mirror" {
-				if s.mirrorJobSuccCount != nil {
-					*s.mirrorJobSuccCount += 1
-				} else {
-					s.mirrorJobSuccCount = new(int)
-					*s.mirrorJobSuccCount = 1
-				}
-				if *s.mirrorJobSuccCount >= s.DiskCount() {
-					hostutils.UpdateServerStatus(context.Background(), s.GetId(), "running")
+				if s.IsMirrorJobSucc() {
+					_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), "running")
+					if err != nil {
+						log.Errorln("onReceiveQMPEvent update server status error: %s", err)
+					}
 				}
 			}
 		}
