@@ -175,13 +175,7 @@ func (self *SStorage) AllowDeleteItem(ctx context.Context, userCred mcclient.Tok
 func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	storageType, _ := data.GetString("storage_type")
 	mediumType, _ := data.GetString("medium_type")
-	/*
-		capacity, _ := data.Int("capacity")
-		if capacity < 0 {
-			return nil, httperrors.NewInputParameterError("Invalid capacity")
-		}
-		data.Set("capacity", jsonutils.NewInt(capacity))
-	*/
+
 	if !utils.IsInStringArray(storageType, STORAGE_TYPES) {
 		return nil, httperrors.NewInputParameterError("Invalid storage type %s", storageType)
 	}
@@ -207,72 +201,9 @@ func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred
 	if err != nil {
 		return nil, err
 	}
-	/*
-		if storageType == STORAGE_RBD {
-			conf, err := manager.ValidateRbdConfData(data)
-			if err != nil {
-				return nil, httperrors.NewBadRequestError("Vaildata rbd conf error: %s", err.Error())
-			}
-			data.Set("storage_conf", conf)
-			// data.Set("capacity", rbdConf)
-		} else if storageType == STORAGE_NFS {
-			conf, err := manager.ValidataNfsConfdata(data)
-			if err != nil {
-				return nil, httperrors.NewBadRequestError("Vaildata nfs conf error: %s", err.Error())
-			}
-			data.Set("storage_conf", conf)
-		}
-	*/
+
 	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
-
-/*
-func (manager *SStorageManager) ValidataNfsConfdata(data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	conf := jsonutils.NewDict()
-	if nfsHost, err := data.GetString("nfs_host"); err != nil {
-		return nil, httperrors.NewInputParameterError("Get nfs conf host error: %s", err.Error())
-	} else {
-		conf.Set("nfs_host", jsonutils.NewString(nfsHost))
-	}
-	if nfsSharedDir, err := data.GetString("nfs_shared_dir"); err != nil {
-		return nil, httperrors.NewInputParameterError("Get nfs conf shared dir error: %s", err.Error())
-	} else {
-		conf.Set("nfs_shared_dir", jsonutils.NewString(nfsSharedDir))
-	}
-	return conf, nil
-}
-*/
-
-/*
-func (manager *SStorageManager) ValidateRbdConfData(data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	conf := jsonutils.NewDict()
-	for k, v := range data.Value() {
-		if strings.HasPrefix(k, fmt.Sprintf("%s_", STORAGE_RBD)) {
-			k = k[len(STORAGE_RBD)+1:]
-			if len(k) > 0 {
-				conf.Set(k, v)
-			}
-		}
-	}
-	requireFields := []string{"mon_host", "key", "pool"}
-	for _, field := range requireFields {
-		if !conf.Contains(field) {
-			return nil, httperrors.NewMissingParameterError(field)
-		}
-	}
-	storages := make([]SStorage, 0)
-	err := manager.Query().Equals("storage_type", STORAGE_RBD).All(&storages)
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(storages); i++ {
-		if conf.Equals(storages[i].StorageConf) {
-			return nil, httperrors.NewDuplicateResourceError("This RBD Storage[%s/%s] has already exist", storages[i].Name, conf.String())
-		}
-	}
-	// TODO??? ensure rbd pool can use and get capacity
-	return conf, nil
-}*/
 
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
 	if self.GetHostCount() > 0 || self.GetDiskCount() > 0 || self.GetSnapshotCount() > 0 {
@@ -288,76 +219,6 @@ func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 	if storageDriver != nil {
 		storageDriver.PostCreate(ctx, userCred, self, data)
 	}
-
-	/*
-		storageConf, _ := data.Get("storage_conf")
-		if storageConf != nil {
-			_, err := self.GetModelManager().TableSpec().Update(self, func() error {
-				self.StorageConf = storageConf
-				return nil
-			})
-			if err != nil {
-				log.Errorln(err)
-				return
-			}
-		}
-		if self.StorageType == STORAGE_RBD {
-			var storages = make([]SStorage, 0)
-			err := StorageManager.Query().Equals("storage_type", STORAGE_RBD).All(&storages)
-			if err != nil {
-				log.Errorln(err)
-				return
-			}
-			nMonHost, _ := storageConf.GetString("mon_host")
-			nKey, _ := storageConf.GetString("key")
-			for i := 0; i < len(storages); i++ {
-				monHost, _ := storages[i].StorageConf.GetString("mon_host")
-				key, _ := storages[i].StorageConf.GetString("key")
-				if monHost == nMonHost && nKey == key {
-					_, err := self.GetModelManager().TableSpec().Update(self, func() error {
-						self.StoragecacheId = storages[i].StoragecacheId
-						return nil
-					})
-					if err != nil {
-						log.Errorln(err)
-						return
-					}
-					break
-				}
-			}
-			if len(self.StoragecacheId) == 0 {
-				sc := &SStoragecache{}
-				sc.SetModelManager(StoragecacheManager)
-				sc.Name = fmt.Sprintf("imagecache-%s", self.Id)
-				pool, _ := storageConf.GetString("pool")
-				sc.Path = fmt.Sprintf("rbd:%s", pool)
-				err := StorageManager.TableSpec().Insert(sc)
-				if err != nil {
-					log.Errorln(err)
-				}
-			}
-		} else if self.StorageType == STORAGE_NFS {
-			sc := &SStoragecache{}
-			sc.Path = options.Options.NfsDefaultImageCacheDir
-			sc.ExternalId = self.Id
-			sc.Name = "nfs-" + self.Name + time.Now().Format("2006-01-02 15:04:05")
-			if err := StoragecacheManager.TableSpec().Insert(sc); err != nil {
-				log.Errorln(err)
-				return
-			}
-			if err := StoragecacheManager.Query().Equals("external_id", self.Id).First(sc); err != nil {
-				log.Errorln(err)
-				return
-			}
-			_, err := self.GetModelManager().TableSpec().Update(self, func() error {
-				self.StoragecacheId = sc.Id
-				self.Status = STORAGE_ONLINE
-				return nil
-			})
-			if err != nil {
-				log.Errorln(err)
-			}
-		}*/
 }
 
 func (self *SStorage) SetStatus(userCred mcclient.TokenCredential, status string, reason string) error {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/ceph/go-ceph/rados"
@@ -12,14 +13,19 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/pkg/utils"
 )
 
 const (
-	RBD_FEATURE = 2
-	RBD_ORDER   = 22 //为rbd对应到rados中每个对象的大小，默认为4MB
+	RBD_FEATURE     = 3
+	RBD_ORDER       = 22  //为rbd对应到rados中每个对象的大小，默认为4MB
+	DEFAULT_TIMEOUT = 240 //4 minutes
 )
 
 var (
@@ -64,7 +70,7 @@ func (s *SRbdStorage) GetImgsaveBackupPath() string {
 //Tip Configuration values containing :, @, or = can be escaped with a leading \ character.
 func (s *SRbdStorage) getStorageConfString() string {
 	conf := ""
-	for _, key := range []string{"mon_host", "key", "rados_osd_op_timeout", "rados_mon_op_timeout", "client_mount_timeout", "rbd_default_format"} {
+	for _, key := range []string{"mon_host", "key"} {
 		if value, _ := s.StorageConf.GetString(key); len(value) > 0 {
 			if key == "mon_host" {
 				value = strings.Replace(value, ",", `\;`, -1)
@@ -76,6 +82,13 @@ func (s *SRbdStorage) getStorageConfString() string {
 			}
 			conf += fmt.Sprintf(":%s=%s", key, value)
 		}
+	}
+	for _, key := range []string{"rados_osd_op_timeout", "rados_mon_op_timeout", "client_mount_timeout"} {
+		var timeout int64
+		if timeout, _ = s.StorageConf.Int(key); timeout == 0 {
+			timeout = DEFAULT_TIMEOUT
+		}
+		conf += fmt.Sprintf(":%s=%d", key, timeout)
 	}
 	return conf
 }
@@ -122,6 +135,7 @@ func (s *SRbdStorage) deleteImage(pool string, name string) error {
 	return err
 }
 
+// 比较费时
 func (s *SRbdStorage) copyImage(srcPool string, srcImage string, destPool string, destImage string) error {
 	_, err := s.withImage(srcPool, srcImage, func(src *rbd.Image) (interface{}, error) {
 		imageSize, err := src.GetSize()
@@ -136,6 +150,41 @@ func (s *SRbdStorage) copyImage(srcPool string, srcImage string, destPool string
 			return nil, src.Copy(*dest)
 		})
 		return nil, err
+	})
+	return err
+}
+
+// 速度快
+func (s *SRbdStorage) cloneImage(srcPool string, srcImage string, destPool string, destImage string) error {
+	_, err := s.withImage(srcPool, srcImage, func(src *rbd.Image) (interface{}, error) {
+		snapshot, err := src.CreateSnapshot(destImage)
+		if err != nil {
+			log.Errorf("create snapshot error: %v", err)
+			return nil, err
+		}
+		names, err := src.GetSnapshotNames()
+
+		defer snapshot.Remove()
+		isProtect, err := snapshot.IsProtected()
+		if err != nil {
+			return nil, err
+		}
+		if !isProtect {
+			if err := snapshot.Protect(); err != nil {
+				log.Errorf("snapshot protect error: %v", err)
+				return nil, err
+			}
+		}
+		defer snapshot.Unprotect()
+
+		return s.withIOContext(destPool, func(ioctx *rados.IOContext) (interface{}, error) {
+			dest, err := src.Clone(destImage, ioctx, destImage, RBD_FEATURE, RBD_ORDER)
+			if err != nil {
+				return nil, err
+			}
+			defer dest.Close()
+			return nil, dest.Flatten()
+		})
 	})
 	return err
 }
@@ -206,6 +255,13 @@ func (s *SRbdStorage) createImage(pool string, name string, sizeMb uint64) error
 		}
 		defer image.Close()
 		return nil, nil
+	})
+	return err
+}
+
+func (s *SRbdStorage) renameImage(pool string, src string, dest string) error {
+	_, err := s.withImage(pool, src, func(image *rbd.Image) (interface{}, error) {
+		return nil, image.Rename(dest)
 	})
 	return err
 }
@@ -299,7 +355,130 @@ func (s *SRbdStorage) Accessible() bool {
 }
 
 func (s *SRbdStorage) SaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	data, ok := params.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	rbdImageCache := storageManager.GetStoragecacheById(s.GetStoragecacheId())
+	if rbdImageCache == nil {
+		return nil, fmt.Errorf("failed to find storage image cache for storage %s", s.GetStorageName())
+	}
+
+	imagePath, _ := data.GetString("image_path")
+	compress := jsonutils.QueryBoolean(data, "compress", true)
+	format, _ := data.GetString("format")
+	imageId, _ := data.GetString("image_id")
+	imageName := "image_cache_" + imageId
+	if err := s.renameImage(rbdImageCache.GetPath(), imagePath, imageName); err != nil {
+		return nil, err
+	}
+
+	imagePath = fmt.Sprintf("rbd:%s/%s%s", rbdImageCache.GetPath(), imageName, s.getStorageConfString())
+
+	if err := s.saveToGlance(ctx, imageId, imagePath, compress, format); err != nil {
+		log.Errorf("Save to glance failed: %s", err)
+		s.onSaveToGlanceFailed(ctx, imageId)
+	}
+
+	rbdImageCache.LoadImageCache(imageId)
+	_, err := hostutils.RemoteStoragecacheCacheImage(ctx, rbdImageCache.GetId(), imageId, "ready", imagePath)
+	if err != nil {
+		log.Errorf("ail to remote cache image: %v", err)
+	}
 	return nil, nil
+}
+
+func (s *SRbdStorage) onSaveToGlanceFailed(ctx context.Context, imageId string) {
+	params := jsonutils.NewDict()
+	params.Set("status", jsonutils.NewString("killed"))
+	_, err := modules.Images.Update(hostutils.GetImageSession(ctx, s.GetZone()),
+		imageId, params)
+	if err != nil {
+		log.Errorln(err)
+	}
+}
+
+func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath string, compress bool, format string) error {
+	var (
+		kvmDisk = NewKVMGuestDisk(imagePath)
+		osInfo  string
+		relInfo *fsdriver.SReleaseInfo
+	)
+
+	if err := func() error {
+		if kvmDisk.Connect() {
+			defer kvmDisk.Disconnect()
+
+			if root := kvmDisk.MountKvmRootfs(); root != nil {
+				defer kvmDisk.UmountKvmRootfs(root)
+
+				osInfo = root.GetOs()
+				relInfo = root.GetReleaseInfo(root.GetPartition())
+				if compress {
+					if err := root.PrepareFsForTemplate(root.GetPartition()); err != nil {
+						log.Errorln(err)
+						return err
+					}
+				}
+			}
+
+			if compress {
+				kvmDisk.Zerofree()
+			}
+		}
+		return nil
+	}(); err != nil {
+		return err
+	}
+
+	tmpImageFile := fmt.Sprintf("/tmp/%s.img", imageId)
+	if len(format) == 0 {
+		format = options.HostOptions.DefaultImageSaveFormat
+	}
+
+	_, err := procutils.NewCommand(qemutils.GetQemuImg(), "convert", "-f", "raw", "-O", format, imagePath, tmpImageFile).Run()
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Open(tmpImageFile)
+	if err != nil {
+		return err
+	}
+
+	defer os.Remove(tmpImageFile)
+
+	finfo, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	size := finfo.Size()
+
+	var params = jsonutils.NewDict()
+	if len(osInfo) > 0 {
+		params.Set("os_type", jsonutils.NewString(osInfo))
+	}
+	if relInfo != nil {
+		params.Set("os_distribution", jsonutils.NewString(relInfo.Distro))
+		if len(relInfo.Version) > 0 {
+			params.Set("os_version", jsonutils.NewString(relInfo.Version))
+		}
+		if len(relInfo.Arch) > 0 {
+			params.Set("os_arch", jsonutils.NewString(relInfo.Arch))
+		}
+		if len(relInfo.Version) > 0 {
+			params.Set("os_language", jsonutils.NewString(relInfo.Language))
+		}
+	}
+	params.Set("image_id", jsonutils.NewString(imageId))
+
+	_, err = modules.Images.Upload(hostutils.GetImageSession(ctx, s.GetZone()),
+		params, f, size)
+	f.Close()
+	// TODO
+	// notify_template_ready
+	return err
 }
 
 func (s *SRbdStorage) CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string) error {

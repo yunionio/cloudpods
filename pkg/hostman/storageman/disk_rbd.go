@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/pkg/utils"
 )
 
 type SRBDDisk struct {
@@ -121,7 +122,8 @@ func (d *SRBDDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) 
 	}
 	storage := d.Storage.(*SRbdStorage)
 	pool, _ := storage.GetStorageConf().GetString("pool")
-	if err := storage.copyImage(pool, d.Id, imageCache.GetPath(), imageName); err != nil {
+	if err := storage.cloneImage(pool, d.Id, imageCache.GetPath(), imageName); err != nil {
+		log.Errorf("clone image %s from pool %s to %s/%s error: %v", d.Id, pool, imageCache.GetPath(), imageName, err)
 		return nil, err
 	}
 	return jsonutils.Marshal(map[string]string{"backup": imageName}), nil
@@ -174,7 +176,7 @@ func (d *SRBDDisk) createFromTemplate(ctx context.Context, imageId, format strin
 	defer imageCacheManager.ReleaseImage(imageId)
 	storage := d.Storage.(*SRbdStorage)
 	destPool, _ := storage.StorageConf.GetString("pool")
-	if err := storage.copyImage(imageCacheManager.GetPath(), imageCache.GetName(), destPool, d.Id); err != nil {
+	if err := storage.cloneImage(imageCacheManager.GetPath(), imageCache.GetName(), destPool, d.Id); err != nil {
 		return nil, err
 	}
 	return d.GetDiskDesc(), nil
@@ -190,7 +192,28 @@ func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFromat string,
 	if err := storage.createImage(pool, diskId, uint64(sizeMb)); err != nil {
 		return nil, err
 	}
+
+	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
+		d.FormatFs(fsFormat, diskId)
+	}
+
 	return d.GetDiskDesc(), nil
+}
+
+func (d *SRBDDisk) FormatFs(fsFormat, uuid string) {
+	log.Infof("Make disk %s fs %s", uuid, fsFormat)
+	gd := NewKVMGuestDisk(d.GetPath())
+	if gd.Connect() {
+		defer gd.Disconnect()
+		if err := gd.MakePartition(fsFormat); err == nil {
+			err = gd.FormatPartition(fsFormat, uuid)
+			if err != nil {
+				log.Errorln(err)
+			}
+		} else {
+			log.Errorln(err)
+		}
+	}
 }
 
 func (d *SRBDDisk) PostCreateFromImageFuse() {

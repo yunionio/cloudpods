@@ -39,6 +39,12 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 		conf.Add(jsonutils.NewString(key), "key")
 	}
 
+	if timeout, _ := data.Int("rbd_timeout"); timeout > 0 {
+		conf.Add(jsonutils.NewInt(timeout), "rados_osd_op_timeout")
+		conf.Add(jsonutils.NewInt(timeout), "rados_mon_op_timeout")
+		conf.Add(jsonutils.NewInt(timeout), "client_mount_timeout")
+	}
+
 	storages := []models.SStorage{}
 	q := models.StorageManager.Query().Equals("storage_type", models.STORAGE_RBD)
 	if err := db.FetchModelObjects(models.StorageManager, q, &storages); err != nil {
