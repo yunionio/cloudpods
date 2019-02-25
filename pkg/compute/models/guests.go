@@ -1335,6 +1335,7 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	if len(self.BackupHostId) > 0 {
 		backupHost := HostManager.FetchHostById(self.BackupHostId)
 		extra.Set("backup_host_name", jsonutils.NewString(backupHost.Name))
+		extra.Set("backup_host_status", jsonutils.NewString(backupHost.Status))
 	}
 
 	host := self.GetHost()
