@@ -419,27 +419,23 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 		return errors.New(msg)
 	}
 
-	iHost, err := oHost.GetIHost()
-	if err != nil {
-		msg := fmt.Sprint("fail to find ihost %s", err)
-		log.Errorf(msg)
-		return errors.New(msg)
+	guestdisks := server.GetDisks()
+
+	// check disk data integrity
+	for i := 0; i < len(guestdisks); i += 1 {
+		disk := guestdisks[i].GetDisk()
+		storage := disk.GetStorage()
+		if storage.StorageType == STORAGE_LOCAL {
+			oHostStorage := oHost.GetHoststorageByExternalId(storage.ExternalId)
+			if oHostStorage == nil {
+				msg := fmt.Sprintf("oHost.GetHoststorageByExternalId not found %s", storage.ExternalId)
+				log.Errorf(msg)
+				return errors.New(msg)
+			}
+		}
 	}
 
-	iVM, err := iHost.GetIVMById(server.ExternalId)
-	if err != nil {
-		msg := fmt.Sprintf("fail to GetIVMById %s", err)
-		log.Errorf(msg)
-		return errors.New(msg)
-	}
-
-	idisks, err := iVM.GetIDisks()
-	if err != nil {
-		msg := fmt.Sprintf("iVM.GetIDisks fail %s", err)
-		log.Errorf(msg)
-		return errors.New(msg)
-	}
-
+	// check passed, do convert
 	_, err = server.GetModelManager().TableSpec().Update(server, func() error {
 		// recover billing information
 		server.BillingType = BILLING_TYPE_PREPAID
@@ -454,38 +450,24 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 		return err
 	}
 
-	guestdisks := server.GetDisks()
-
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
 		storage := disk.GetStorage()
-		idisk := findIdiskById(idisks, disk.ExternalId)
-		if idisk == nil {
-			msg := fmt.Sprintf("fail to find idisk by ID %s: %s", disk.ExternalId, err)
-			log.Errorf(msg)
-			return errors.New(msg)
-		}
-		istorage, err := idisk.GetIStorage()
-		if err != nil {
-			log.Errorf("idisk.GetIStorage fail %s", err)
-			return err
-		}
-
-		oHostStorage := oHost.GetHoststorageByExternalId(istorage.GetGlobalId())
-		if oHostStorage == nil {
-			msg := fmt.Sprintf("oHost.GetHoststorageByExternalId not found %s", istorage.GetGlobalId())
-			log.Errorf(msg)
-			return errors.New(msg)
-		}
-
-		oStorage := oHostStorage.GetStorage()
 
 		if storage.StorageType == STORAGE_LOCAL {
+			oHostStorage := oHost.GetHoststorageByExternalId(storage.ExternalId)
+			if oHostStorage == nil {
+				msg := fmt.Sprintf("oHost.GetHoststorageByExternalId not found %s", storage.ExternalId)
+				log.Errorf(msg)
+				return errors.New(msg)
+			}
+			oStorage := oHostStorage.GetStorage()
 			_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
 				disk.BillingType = BILLING_TYPE_PREPAID
 				disk.BillingCycle = host.BillingCycle
 				disk.ExpiredAt = host.ExpiredAt
 				disk.StorageId = oStorage.Id
+				disk.AutoDelete = true
 				return nil
 			})
 			if err != nil {

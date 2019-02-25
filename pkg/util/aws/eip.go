@@ -296,3 +296,11 @@ func (self *SRegion) DissociateEip(eipId string, instanceId string) error {
 func (self *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
 	return cloudprovider.ErrNotSupported
 }
+
+func (self *SEipAddress) GetBillingType() string {
+	return models.BILLING_TYPE_POSTPAID
+}
+
+func (self *SEipAddress) GetExpiredAt() time.Time {
+	return time.Time{}
+}

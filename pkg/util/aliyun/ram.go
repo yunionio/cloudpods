@@ -3,24 +3,18 @@ package aliyun
 import (
 	"time"
 
-	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-func ramRequest(client *sdk.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
-	return jsonRequest(client, "ram.aliyuncs.com", ALIYUN_RAM_API_VERSION, apiName, params)
-}
-
 func (self *SAliyunClient) ramRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	cli, err := self.getDefaultClient()
 	if err != nil {
 		return nil, err
 	}
-	return ramRequest(cli, apiName, params)
+	return jsonRequest(cli, "ram.aliyuncs.com", ALIYUN_RAM_API_VERSION, apiName, params, self.Debug)
 }
 
 type SRole struct {

@@ -12,12 +12,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-type TInternetChargeType string
-
-const (
-	InternetChargeByTraffic = TInternetChargeType("PayByTraffic")
-)
-
 type PublicIPAddressSku struct {
 	Name string
 }
@@ -239,4 +233,12 @@ func (self *SEipAddress) Refresh() error {
 		return err
 	}
 	return jsonutils.Update(self, eip)
+}
+
+func (self *SEipAddress) GetBillingType() string {
+	return models.BILLING_TYPE_POSTPAID
+}
+
+func (self *SEipAddress) GetExpiredAt() time.Time {
+	return time.Time{}
 }
