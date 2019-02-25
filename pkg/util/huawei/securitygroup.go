@@ -203,6 +203,16 @@ func (self *SSecurityGroup) GetSecurityRule(ruleId string, withRuleId bool) (sec
 		protocol = remoteRule.Protocol
 	}
 
+	var portStart int
+	var portEnd int
+	if protocol == secrules.PROTO_ICMP {
+		portStart = -1
+		portEnd = -1
+	} else {
+		portStart = int(remoteRule.PortRangeMin)
+		portEnd = int(remoteRule.PortRangeMax)
+	}
+
 	ipNet := &net.IPNet{}
 	if len(remoteRule.RemoteIPPrefix) > 0 {
 		_, ipNet, err = net.ParseCIDR(remoteRule.RemoteIPPrefix)
@@ -221,15 +231,15 @@ func (self *SSecurityGroup) GetSecurityRule(ruleId string, withRuleId bool) (sec
 	} else {
 		desc = remoteRule.Description
 	}
-	// todo: icmp 可能不兼容。华为云能指定icmp code，但是onecloud端不支持
+
 	rule := secrules.SecurityRule{
 		Priority:    1,
 		Action:      secrules.SecurityRuleAllow,
 		IPNet:       ipNet,
 		Protocol:    protocol,
 		Direction:   direction,
-		PortStart:   int(remoteRule.PortRangeMin),
-		PortEnd:     int(remoteRule.PortRangeMax),
+		PortStart:   portStart,
+		PortEnd:     portEnd,
 		Ports:       nil,
 		Description: desc,
 	}
