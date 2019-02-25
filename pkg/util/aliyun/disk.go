@@ -33,7 +33,7 @@ type SDisk struct {
 	Description                   string
 	DetachedTime                  time.Time
 	Device                        string
-	DiskChargeType                InstanceChargeType
+	DiskChargeType                TChargeType
 	DiskId                        string
 	DiskName                      string
 	EnableAutoSnapshot            bool
@@ -373,18 +373,11 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 }
 
 func (self *SDisk) GetBillingType() string {
-	switch self.DiskChargeType {
-	case PrePaidInstanceChargeType:
-		return models.BILLING_TYPE_PREPAID
-	case PostPaidInstanceChargeType:
-		return models.BILLING_TYPE_POSTPAID
-	default:
-		return models.BILLING_TYPE_PREPAID
-	}
+	return convertChargeType(self.DiskChargeType)
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
-	return self.ExpiredTime
+	return convertExpiredAt(self.ExpiredTime)
 }
 
 func (self *SDisk) GetAccessPath() string {

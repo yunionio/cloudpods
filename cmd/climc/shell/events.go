@@ -85,6 +85,16 @@ func init() {
 		return doComputeEventList(s, &nargs)
 	})
 
+	R(&TypeEventListOptions{}, "disk-event", "Show operation event logs of disk", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"disk"}}
+		return doComputeEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "eip-event", "Show operation event logs of elastic IP", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"eip"}}
+		return doComputeEventList(s, &nargs)
+	})
+
 	R(&TypeEventListOptions{}, "host-event", "Show operation event logs of host", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
 		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"host"}}
 		return doComputeEventList(s, &nargs)

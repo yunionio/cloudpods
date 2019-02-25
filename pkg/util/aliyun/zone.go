@@ -11,12 +11,12 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
-type InstanceChargeType string
+type TChargeType string
 
 const (
-	PrePaidInstanceChargeType  InstanceChargeType = "PrePaid"
-	PostPaidInstanceChargeType InstanceChargeType = "PostPaid"
-	DefaultInstanceChargeType                     = PostPaidInstanceChargeType
+	PrePaidInstanceChargeType  TChargeType = "PrePaid"
+	PostPaidInstanceChargeType TChargeType = "PostPaid"
+	DefaultInstanceChargeType              = PostPaidInstanceChargeType
 )
 
 type SpotStrategyType string

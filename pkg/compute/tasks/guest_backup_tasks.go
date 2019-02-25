@@ -172,7 +172,7 @@ func (self *GuestCreateBackupTask) GetSchedParams() *jsonutils.JSONDict {
 	return schedDesc
 }
 
-func (self *GuestCreateBackupTask) OnScheduleFailCallback(obj IScheduleModel, reason string) {
+func (self *GuestCreateBackupTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {
 	// do nothing
 }
 

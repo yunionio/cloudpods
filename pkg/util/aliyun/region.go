@@ -90,7 +90,7 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
+	return jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.client.Debug)
 }
 
 func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -98,7 +98,7 @@ func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params)
+	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params, self.Debug)
 }
 
 type LBRegion struct {
@@ -148,7 +148,7 @@ func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonut
 }
 
 func (self *SRegion) _lbRequest(client *sdk.Client, apiName string, domain string, params map[string]string) (jsonutils.JSONObject, error) {
-	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params)
+	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params, self.Debug)
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -219,7 +219,7 @@ func (self *SRegion) getStoragecache() *SStoragecache {
 	return self.storageCache
 }
 
-func (self *SRegion) _fetchZones(chargeType InstanceChargeType, spotStrategy SpotStrategyType) error {
+func (self *SRegion) _fetchZones(chargeType TChargeType, spotStrategy SpotStrategyType) error {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	if len(chargeType) > 0 {

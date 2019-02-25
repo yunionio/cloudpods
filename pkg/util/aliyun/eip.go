@@ -34,12 +34,29 @@ const (
 	EIP_INSTANCE_TYPE_HAVIP = "HaVip"       // ：HAVIP
 )
 
+/*
+{
+	"AllocationId":"eip-2zeddtan63ou44dtyt9s3",
+	"AllocationTime":"2019-02-23T06:48:36Z",
+	"Bandwidth":"100",
+	"ChargeType":"PostPaid",
+	"ExpiredTime":"",
+	"InstanceId":"",
+	"InstanceType":"",
+	"InternetChargeType":"PayByTraffic",
+	"IpAddress":"39.105.131.32",
+	"OperationLocks":{"LockReason":[]},
+	"RegionId":"cn-beijing",
+	"Status":"Available"
+}
+*/
+
 type SEipAddress struct {
 	region *SRegion
 
 	AllocationId string
 
-	InternetChargeType string
+	InternetChargeType TInternetChargeType
 
 	IpAddress string
 	Status    string
@@ -51,6 +68,9 @@ type SEipAddress struct {
 	AllocationTime time.Time
 
 	OperationLocks string
+
+	ChargeType  TChargeType
+	ExpiredTime time.Time
 }
 
 func (self *SEipAddress) GetId() string {
@@ -132,6 +152,14 @@ func (self *SEipAddress) GetManagerId() string {
 	return self.region.client.providerId
 }
 
+func (self *SEipAddress) GetBillingType() string {
+	return convertChargeType(self.ChargeType)
+}
+
+func (self *SEipAddress) GetExpiredAt() time.Time {
+	return convertExpiredAt(self.ExpiredTime)
+}
+
 func (self *SEipAddress) Delete() error {
 	return self.region.DeallocateEIP(self.AllocationId)
 }
@@ -142,9 +170,9 @@ func (self *SEipAddress) GetBandwidth() int {
 
 func (self *SEipAddress) GetInternetChargeType() string {
 	switch self.InternetChargeType {
-	case string(InternetChargeByTraffic):
+	case InternetChargeByTraffic:
 		return models.EIP_CHARGE_TYPE_BY_TRAFFIC
-	case string(InternetChargeByBandwidth):
+	case InternetChargeByBandwidth:
 		return models.EIP_CHARGE_TYPE_BY_BANDWIDTH
 	default:
 		return models.EIP_CHARGE_TYPE_BY_TRAFFIC
@@ -192,8 +220,6 @@ func (region *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddre
 		log.Errorf("DescribeEipAddresses fail %s", err)
 		return nil, 0, err
 	}
-
-	// log.Errorf("%s", body)
 
 	eips := make([]SEipAddress, 0)
 	err = body.Unmarshal(&eips, "EipAddresses", "EipAddress")

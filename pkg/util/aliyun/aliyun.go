@@ -50,7 +50,10 @@ func NewAliyunClient(providerId string, providerName string, accessKey string, s
 	return &client, nil
 }
 
-func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	if debug {
+		log.Debugf("request %s %s %s %s", domain, apiVersion, apiName, params)
+	}
 	for i := 1; i < 4; i++ {
 		resp, err := _jsonRequest(client, domain, apiVersion, apiName, params)
 		retry := false
@@ -68,8 +71,14 @@ func jsonRequest(client *sdk.Client, domain, apiVersion, apiName string, params 
 			}
 		}
 		if retry {
+			if debug {
+				log.Debugf("Retry %d...", i)
+			}
 			time.Sleep(time.Second * time.Duration(i*10))
 			continue
+		}
+		if debug {
+			log.Debugf("Response: %s", resp)
 		}
 		return resp, err
 	}
@@ -128,7 +137,7 @@ func (self *SAliyunClient) ecsRequest(apiName string, params map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
+	return jsonRequest(cli, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.Debug)
 }
 
 func (self *SAliyunClient) fetchRegions() error {

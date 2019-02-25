@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 const (
@@ -38,7 +39,7 @@ type IScheduleTask interface {
 	SetStageFailed(ctx context.Context, reason string)
 
 	OnStartSchedule(obj IScheduleModel)
-	OnScheduleFailCallback(obj IScheduleModel, reason string)
+	OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string)
 	OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict)
 	SaveScheduleResult(ctx context.Context, obj IScheduleModel, hostId string)
 	SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave string)
@@ -58,9 +59,10 @@ func (self *SSchedTask) OnStartSchedule(obj IScheduleModel) {
 	obj.SetStatus(self.GetUserCred(), SCHEDULE, "")
 }
 
-func (self *SSchedTask) OnScheduleFailCallback(obj IScheduleModel, reason string) {
+func (self *SSchedTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {
 	obj.SetStatus(self.GetUserCred(), SCHEDULE_FAILED, reason)
 	db.OpsLog.LogEvent(obj, db.ACT_ALLOCATE_FAIL, reason, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, reason, self.GetUserCred(), false)
 	notifyclient.NotifySystemError(obj.GetId(), obj.GetName(), SCHEDULE_FAILED, reason)
 }
 
@@ -153,7 +155,7 @@ func onObjScheduleFail(
 	if len(msg) > 0 {
 		reason = fmt.Sprintf("%s: %s", reason, msg)
 	}
-	task.OnScheduleFailCallback(obj, reason)
+	task.OnScheduleFailCallback(ctx, obj, reason)
 }
 
 func onSchedulerResults(

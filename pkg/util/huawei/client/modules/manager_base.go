@@ -143,7 +143,7 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 		h, b, e := httputils.JSONRequest(self.httpClient, ctx, httputils.THttpMethod(request.GetMethod()), request.BuildUrl(), header, jsonBody, self.debug)
 		if e == nil {
 			if self.debug {
-				log.Debugf("response: %s body: %s", h, b.String())
+				log.Debugf("response: %s body: %s", h, b)
 			}
 			return h, b, e
 		}

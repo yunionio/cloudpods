@@ -920,6 +920,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if rootDiskConfig.SizeMb == 0 {
 			rootDiskConfig.SizeMb = GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024
 		}
+		log.Debugf("ROOT DISK: %#v", rootDiskConfig)
 		data.Set("disk.0", jsonutils.Marshal(rootDiskConfig))
 
 		for i := 0; i < len(dataDiskDefs); i += 1 {
@@ -3688,7 +3689,7 @@ func (self *SGuest) GetRealIps() []string {
 	return self.getRealIPs()
 }
 
-func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, projectId string) compare.SyncResult {
+func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEip cloudprovider.ICloudEIP, projectId string) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	eip, err := self.GetEip()
@@ -3746,7 +3747,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 			}
 		} else {
 			// do nothing
-			err := eip.SyncWithCloudEip(userCred, extEip, projectId, false)
+			err := eip.SyncWithCloudEip(userCred, provider, extEip, projectId, false)
 			if err != nil {
 				result.UpdateError(err)
 			} else {
