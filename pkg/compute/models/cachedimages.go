@@ -290,7 +290,6 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 			q = q.Filter(sqlchemy.Equals(host.Field("manager_id"), v.Id))
 		}
 	}
-	q.DebugQuery()
 
 	err := db.FetchModelObjects(StoragecachedimageManager, q, &scimgs)
 	if err != nil {
