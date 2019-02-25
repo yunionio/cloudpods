@@ -47,6 +47,7 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile,
 		DialContext: (&net.Dialer{
 			Timeout: 5 * time.Second,
 		}).DialContext,
+		IdleConnTimeout:     5 * time.Second,
 		TLSHandshakeTimeout: 10 * time.Second,
 	}
 

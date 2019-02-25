@@ -107,6 +107,7 @@ func GetClient(insecure bool) *http.Client {
 		DialContext: (&net.Dialer{
 			Timeout: 5 * time.Second,
 		}).DialContext,
+		IdleConnTimeout:     5 * time.Second,
 		TLSHandshakeTimeout: 10 * time.Second,
 		TLSClientConfig:     &tls.Config{InsecureSkipVerify: insecure},
 	}
