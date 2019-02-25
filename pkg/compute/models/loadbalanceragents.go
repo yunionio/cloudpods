@@ -79,9 +79,10 @@ type SLoadbalancerAgentParamsHaproxy struct {
 }
 
 type SLoadbalancerAgentParamsTelegraf struct {
-	InfluxDbOutputUrl    string
-	InfluxDbOutputName   string
-	HaproxyInputInterval int
+	InfluxDbOutputUrl       string
+	InfluxDbOutputName      string
+	InfluxDbOutputUnsafeSsl bool
+	HaproxyInputInterval    int
 }
 
 type SLoadbalancerAgentParams struct {
@@ -524,6 +525,7 @@ listen stats
 [[outputs.influxdb]]
 	urls = ["{{ .telegraf.influx_db_output_url }}"]
 	database = "{{ .telegraf.influx_db_output_name }}"
+	insecure_skip_verify = {{ .telegraf.influx_db_output_unsafe_ssl }}
 
 [[inputs.haproxy]]
 	interval = "{{ .telegraf.haproxy_input_interval }}s"

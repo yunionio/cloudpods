@@ -26,9 +26,10 @@ type LoadbalancerAgentParamsOptions struct {
 	HaproxyLogTcp         string `choices:"true|false"`
 	HaproxyLogNormal      string `choices:"true|false"`
 
-	TelegrafInfluxDbOutputUrl    string
-	TelegrafInfluxDbOutputName   string
-	TelegrafHaproxyInputInterval int
+	TelegrafInfluxDbOutputUrl       string
+	TelegrafInfluxDbOutputName      string
+	TelegrafInfluxDbOutputUnsafeSsl *bool
+	TelegrafHaproxyInputInterval    int
 }
 
 func (opts *LoadbalancerAgentParamsOptions) setPrefixedParams(params *jsonutils.JSONDict, pref string) {
