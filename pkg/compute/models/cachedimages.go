@@ -283,7 +283,7 @@ func (self *SCachedimage) addRefCount() {
 	}
 }
 
-func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, excludes []string, rangeObjs interface{}) (*SStoragecachedimage, error) {
+func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, excludes []string, rangeObjs []interface{}) (*SStoragecachedimage, error) {
 	storageCachedImage := StoragecachedimageManager.Query().SubQuery()
 	storage := StorageManager.Query().SubQuery()
 	hostStorage := HoststorageManager.Query().SubQuery()
@@ -307,16 +307,15 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 		q = q.Filter(sqlchemy.Equals(host.Field("host_type"), hostType))
 	}
 
-	switch v := rangeObjs.(type) {
-	case []*SZone:
-		for _, obj := range v {
-			q = q.Filter(sqlchemy.Equals(host.Field("zone_id"), obj.Id))
-		}
-	case []*SCloudprovider:
-		for _, obj := range v {
-			q = q.Filter(sqlchemy.Equals(host.Field("manager_id"), obj.Id))
+	for _, rangeObj := range rangeObjs {
+		switch v := rangeObj.(type) {
+		case *SZone:
+			q = q.Filter(sqlchemy.Equals(host.Field("zone_id"), v.Id))
+		case *SCloudprovider:
+			q = q.Filter(sqlchemy.Equals(host.Field("manager_id"), v.Id))
 		}
 	}
+
 	err := db.FetchModelObjects(StoragecachedimageManager, q, &scimgs)
 	if err != nil {
 		return nil, err
