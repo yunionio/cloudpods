@@ -2,6 +2,7 @@ package storageman
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -13,11 +14,17 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/pkg/utils"
 )
 
 const (
 	RBD_FEATURE = 2
 	RBD_ORDER   = 22 //为rbd对应到rados中每个对象的大小，默认为4MB
+)
+
+var (
+	ErrNoSuchImage = errors.New("no such image")
+	ErrNoSuchSnapshot = errors.New("no such snapshot")
 )
 
 type SRbdStorage struct {
@@ -93,8 +100,15 @@ func (s *SRbdStorage) resizeImage(pool string, name string, sizeMb uint64) error
 
 func (s *SRbdStorage) deleteImage(pool string, name string) error {
 	_, err := s.withImage(pool, name, false, func(image *rbd.Image) error {
-		return image.Remove()
+		err := image.Remove()
+		if err != nil {
+			log.Errorf("remove image %s from pool %s error: %v", name, pool, err)
+		}
+		return err
 	})
+	if err == ErrNoSuchImage {
+		return nil
+	}
 	return err
 }
 
@@ -118,6 +132,14 @@ func (s *SRbdStorage) copyImage(srcPool string, srcImage string, destPool string
 
 func (s *SRbdStorage) withImage(pool string, name string, closeImage bool, doFunc func(*rbd.Image) error) (*rbd.ImageInfo, error) {
 	stat, err := s.withIOContext(pool, func(ioctx *rados.IOContext) (interface{}, error) {
+		names, err := rbd.GetImageNames()
+		if err != nil {
+			return nil, err
+		}
+		if !utils.IsInStringArray(name, names) {
+			reutrn nil, ErrNoSuchImage
+		}
+
 		image := rbd.GetImage(ioctx, name)
 		if err := image.Open(); err != nil {
 			log.Errorf("open image %s name error: %v", name, err)

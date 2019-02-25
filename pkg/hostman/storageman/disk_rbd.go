@@ -6,6 +6,7 @@ import (
 
 	"github.com/ceph/go-ceph/rbd"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -90,7 +91,23 @@ func (d *SRBDDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JS
 	if err := storage.resizeImage(pool, d.Id, uint64(sizeMb)); err != nil {
 		return nil, err
 	}
+
+	if err := d.ResizeFs(); err != nil {
+		return nil, err
+	}
+
 	return d.GetDiskDesc(), nil
+}
+
+func (d *SRBDDisk) ResizeFs() error {
+	disk := NewKVMGuestDisk(d.GetPath())
+	if disk.Connect() {
+		defer disk.Disconnect()
+		if err := disk.ResizePartition(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *SRBDDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -120,6 +137,15 @@ func (d *SRBDDisk) CreateFromTemplate(ctx context.Context, imageId string, forma
 	if err != nil {
 		return nil, err
 	}
+
+	retSize, _ := ret.Int("disk_size")
+	log.Infof("REQSIZE: %d, RETSIZE: %d", size, retSize)
+	if size > retSize {
+		params := jsonutils.NewDict()
+		params.Set("size", jsonutils.NewInt(size))
+		return d.Resize(ctx, params)
+	}
+
 	return ret, nil
 }
 
