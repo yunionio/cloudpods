@@ -1500,7 +1500,13 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 func (self *SHost) syncWithCloudHostStorage(localStorage *SStorage, extStorage cloudprovider.ICloudStorage) error {
 	// do nothing
 	hs := self.GetHoststorageOfId(localStorage.Id)
-	return hs.syncWithCloudHostStorage(extStorage)
+	err := hs.syncWithCloudHostStorage(extStorage)
+	if err != nil {
+		return err
+	}
+	s := hs.GetStorage()
+	err = s.syncWithCloudStorage(extStorage)
+	return err
 }
 
 func (self *SHost) isAttach2Storage(storage *SStorage) bool {
