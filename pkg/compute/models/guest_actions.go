@@ -2260,8 +2260,16 @@ func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient
 	if len(self.BackupHostId) == 0 {
 		return nil, httperrors.NewBadRequestError("Guest no backup host")
 	}
+	oldStatus := self.Status
 	self.SetStatus(userCred, VM_SWITCH_TO_BACKUP, "Switch to backup")
-	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSwitchToBackupTask", self, userCred, nil, "", "", nil); err != nil {
+	deleteBackup := jsonutils.QueryBoolean(data, "delete_backup", false)
+	purgeBackup := jsonutils.QueryBoolean(data, "purge_backup", false)
+
+	taskData := jsonutils.NewDict()
+	taskData.Set("old_status", jsonutils.NewString(oldStatus))
+	taskData.Set("delete_backup", jsonutils.NewBool(deleteBackup))
+	taskData.Set("purge_backup", jsonutils.NewBool(purgeBackup))
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSwitchToBackupTask", self, userCred, taskData, "", "", nil); err != nil {
 		log.Errorf(err.Error())
 		return nil, err
 	} else {
@@ -2319,16 +2327,17 @@ func (manager *SGuestManager) PerformDirtyServerVerify(ctx context.Context, user
 	}
 
 	if guest.HostId != hostId && guest.BackupHostId != hostId {
-		return nil, guest.StartGuestDeleteOnHostTask(ctx, userCred, hostId)
+		return nil, guest.StartGuestDeleteOnHostTask(ctx, userCred, hostId, false, "")
 	}
 	return nil, nil
 }
 
-func (self *SGuest) StartGuestDeleteOnHostTask(ctx context.Context, userCred mcclient.TokenCredential, hostId string) error {
+func (self *SGuest) StartGuestDeleteOnHostTask(ctx context.Context, userCred mcclient.TokenCredential, hostId string, purge bool, parentTaskId string) error {
 	taskData := jsonutils.NewDict()
 	taskData.Set("host_id", jsonutils.NewString(hostId))
+	taskData.Set("purge", jsonutils.NewBool(purge))
 	if task, err := taskman.TaskManager.NewTask(
-		ctx, "GuestDeleteOnHostTask", self, userCred, taskData, "", "", nil); err != nil {
+		ctx, "GuestDeleteOnHostTask", self, userCred, taskData, parentTaskId, "", nil); err != nil {
 		log.Errorf(err.Error())
 		return err
 	} else {

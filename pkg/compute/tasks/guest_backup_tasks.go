@@ -67,8 +67,15 @@ func (self *GuestSwitchToBackupTask) OnBackupGuestStoped(ctx context.Context, gu
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_SWITCHED, "Switch to backup", self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_SWITCH_TO_BACKUP, "Switch to backup", self.UserCred, true)
-	self.SetStage("OnNewMasterStarted", nil)
-	guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
+
+	self.SetStage("OnSwitched", nil)
+	if jsonutils.QueryBoolean(self.Params, "purge_backup", false) {
+		guest.StartGuestDeleteOnHostTask(ctx, self.UserCred, guest.BackupHostId, true, self.GetTaskId())
+	} else if jsonutils.QueryBoolean(self.Params, "delete_backup", false) {
+		guest.StartGuestDeleteOnHostTask(ctx, self.UserCred, guest.BackupHostId, false, self.GetTaskId())
+	} else {
+		self.OnSwitched(ctx, guest, nil)
+	}
 }
 
 func (self *GuestSwitchToBackupTask) OnNewMasterStarted(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -80,6 +87,20 @@ func (self *GuestSwitchToBackupTask) OnFail(ctx context.Context, guest *models.S
 	db.OpsLog.LogEvent(guest, db.ACT_SWITCH_FAILED, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_SWITCH_TO_BACKUP, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
+}
+
+func (self *GuestSwitchToBackupTask) OnSwitched(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	oldStatus, _ := self.Params.GetString("old_status")
+	if utils.IsInStringArray(oldStatus, models.VM_RUNNING_STATUS) {
+		self.SetStage("OnNewMasterStarted", nil)
+		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
+	} else {
+		self.SetStageComplete(ctx, nil)
+	}
+}
+
+func (self *GuestSwitchToBackupTask) OnSwitchedFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.OnFail(ctx, guest, data.String())
 }
 
 /********************* GuestStartAndSyncToBackupTask *********************/
