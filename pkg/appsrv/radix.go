@@ -2,47 +2,28 @@ package appsrv
 
 import (
 	"fmt"
+	"path"
+	"regexp"
 	"strings"
 )
 
 type RadixNode struct {
-	data      interface{}
-	fullPath  []string
-	next      []*RadixNode
-	parent    *RadixNode
-	matchNext *RadixNode
-	// matchTable []string
-	segment string
+	data        interface{}
+	stringNodes map[string]*RadixNode
+	regexpNodes map[string]*RadixNode
+	segNames    map[int]string
 }
 
 func NewRadix() *RadixNode {
-	return &RadixNode{data: nil,
-		fullPath:  nil,
-		next:      make([]*RadixNode, 0),
-		matchNext: nil,
-		parent:    nil,
-		segment:   ""}
-}
-
-func (r *RadixNode) String() string {
-	return strings.Join(r.Segments(), "/")
-}
-
-func (r *RadixNode) Segments() []string {
-	return r.appendSegment(make([]string, 0))
-}
-
-func (r *RadixNode) appendSegment(segs []string) []string {
-	if r.parent != nil {
-		segs = r.parent.appendSegment(segs)
+	return &RadixNode{
+		data:        nil,
+		stringNodes: make(map[string]*RadixNode, 0),
+		regexpNodes: make(map[string]*RadixNode, 0),
+		segNames:    nil,
 	}
-	if len(r.segment) > 0 {
-		segs = append(segs, r.segment)
-	}
-	return segs
 }
 
-func isMatchSegment(seg string) bool {
+func isRegexSegment(seg string) bool {
 	if len(seg) > 2 && seg[0] == '<' && seg[len(seg)-1] == '>' {
 		return true
 	} else {
@@ -51,121 +32,120 @@ func isMatchSegment(seg string) bool {
 }
 
 func (r *RadixNode) Add(segments []string, data interface{}) error {
-	return r.add(segments, segments, data)
+	err := r.add(segments, data, 1, nil)
+	return fmt.Errorf("Add Node error: %s %s", err, strings.Join(segments, "/"))
 }
 
-func (r *RadixNode) add(path []string, segments []string, data interface{}) error {
-	// log.Debugf("add %#v %#v", path, segments)
-
+func (r *RadixNode) add(segments []string, data interface{}, depth int, segNames map[int]string) error {
 	if len(segments) == 0 {
 		if r.data != nil {
-			return fmt.Errorf("Duplicate data for node %s", r.String())
+			return fmt.Errorf("Duplicate data for node")
 		} else {
-			r.data = data
-			r.fullPath = make([]string, len(path))
-			copy(r.fullPath, path)
+			if depth == 1 {
+				node := NewRadix()
+				node.data = data
+				r.regexpNodes[".*"] = node
+			} else {
+				r.data = data
+				r.segNames = segNames
+			}
 			return nil
 		}
-	}
-	var nextNode *RadixNode = nil
-	if isMatchSegment(segments[0]) {
-		if r.matchNext != nil {
-			/* if r.matchNext.segment != segments[0] {
-			    return fmt.Errorf("%s has been registered, %s conflict with %s", r.matchNext.String(), r.matchNext.segment, segments[0])
-			} */
-			nextNode = r.matchNext
-			// nextNode.matchTable = append(nextNode.matchTable, segments[0])
-		} else {
-			nextNode = NewRadix()
-			nextNode.segment = "<*>"
-			nextNode.parent = r
-			// nextNode.matchTable = []string{segments[0]}
-			r.matchNext = nextNode
-		}
 	} else {
-		for i := 0; i < len(r.next); i += 1 {
-			if r.next[i].segment == segments[0] {
-				nextNode = r.next[i]
-				break
+		var nextNode *RadixNode
+		if isRegexSegment(segments[0]) {
+			var (
+				regStr     string
+				segName    string
+				segStr     = segments[0][1 : len(segments[0])-1]
+				splitIndex = strings.IndexByte(segStr, ':')
+			)
+
+			if splitIndex < 0 {
+				regStr = ".*" // match anything
+				segName = "<" + segStr + ">"
+			} else {
+				regStr = segStr[splitIndex+1:]
+				segName = "<" + segStr[0:splitIndex] + ">"
+			}
+
+			if segNames == nil {
+				segNames = make(map[int]string, 0)
+			}
+			segNames[depth-1] = segName
+
+			if node, ok := r.regexpNodes[regStr]; ok {
+				nextNode = node
+			} else {
+				nextNode = NewRadix()
+				r.regexpNodes[regStr] = nextNode
+			}
+		} else {
+			if node, ok := r.stringNodes[segments[0]]; ok {
+				nextNode = node
+			} else {
+				nextNode = NewRadix()
+				r.stringNodes[segments[0]] = nextNode
 			}
 		}
-		if nextNode == nil {
-			nextNode = NewRadix()
-			nextNode.segment = segments[0]
-			nextNode.parent = r
-			r.next = append(r.next, nextNode)
-		}
+		return nextNode.add(segments[1:], data, depth+1, segNames)
 	}
-	return nextNode.add(path, segments[1:], data)
 }
 
 func (r *RadixNode) Match(segments []string, params map[string]string) interface{} {
-	data, allPaths := r.match(segments)
-	// log.Debugf("%#v", allPaths)
-	for i := 0; i < len(segments); i += 1 {
-		for j := 0; j < len(allPaths); j += 1 {
-			if i < len(allPaths[j]) && isMatchSegment(allPaths[j][i]) {
-				params[allPaths[j][i]] = segments[i]
-			}
-		}
+	node := r.match(segments, true)
+	if node == nil {
+		return nil
 	}
-	return data
+	for index, segName := range node.segNames {
+		params[segName] = segments[index]
+	}
+	return node.data
 }
 
-func (r *RadixNode) match(segments []string) (interface{}, [][]string) {
+func (r *RadixNode) match(segments []string, isRoot bool) *RadixNode {
 	if len(segments) == 0 {
-		return r.data, r.getAllFullPaths()
-	} else {
-		var retData interface{} = nil
-		var retPath [][]string = nil
-		exactMatch := false
-		for _, node := range r.next {
-			if node.segment == segments[0] {
-				retData, retPath = node.match(segments[1:])
-				if retData != nil {
-					exactMatch = true
-				}
-				break
-			}
-		}
-		if retData != nil {
-			return retData, retPath
+		return r
+	}
+
+	if len(r.stringNodes) == 0 && len(r.regexpNodes) == 0 {
+		if isRoot {
+			return nil
 		} else {
-			if !exactMatch && r.matchNext != nil {
-				retData, retPath = r.matchNext.match(segments[1:])
-				return retData, retPath
-			} else {
-				return r.data, r.getAllFullPaths()
+			return r
+		}
+	}
+
+	if node, ok := r.stringNodes[segments[0]]; ok {
+		if rnode := node.match(segments[1:], false); rnode != nil && rnode.data != nil {
+			return rnode
+		}
+	}
+	for regstr, node := range r.regexpNodes {
+		if regexp.MustCompile(regstr).MatchString(segments[0]) {
+			if rnode := node.match(segments[1:], false); rnode != nil && rnode.data != nil {
+				return rnode
 			}
 		}
 	}
+	return nil
 }
 
-func (r *RadixNode) Walk(f func(path string, data interface{})) {
+func (r *RadixNode) Walk(f func(spath string, data interface{})) {
+	r.walk("/", f)
+}
+
+func (r *RadixNode) walk(fullPath string, f func(spath string, data interface{})) {
 	if r.data != nil {
-		f(r.String(), r.data)
+		f(fullPath, r.data)
 	}
-	for _, node := range r.next {
-		node.Walk(f)
-	}
-	if r.matchNext != nil {
-		r.matchNext.Walk(f)
-	}
-}
 
-func (r *RadixNode) getAllFullPaths() [][]string {
-	if r.fullPath != nil {
-		return [][]string{r.fullPath}
-	} else {
-		ret := make([][]string, 0)
-		for _, node := range r.next {
-			fp := node.getAllFullPaths()
-			ret = append(ret, fp...)
-		}
-		if r.matchNext != nil {
-			fp := r.matchNext.getAllFullPaths()
-			ret = append(ret, fp...)
-		}
-		return ret
+	for key, node := range r.stringNodes {
+		curPath := path.Join(fullPath, key)
+		node.walk(curPath, f)
+	}
+	for key, node := range r.regexpNodes {
+		curPath := path.Join(fullPath, key)
+		node.walk(curPath, f)
 	}
 }

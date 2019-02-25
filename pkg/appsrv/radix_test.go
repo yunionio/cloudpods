@@ -7,15 +7,23 @@ import (
 
 func TestRadixNode(t *testing.T) {
 	r := NewRadix()
-	r.Add([]string{}, "root")
 	r.Add([]string{"layer1"}, "layer1")
 	r.Add([]string{"layer1", "layer1.1", "layer1.1.1", "layer1.1.1.1"}, "layer1.1.1.1")
 	r.Add([]string{"layer1", "layer1.2", "layer1.2.1"}, "layer1.2.1")
 	r.Add([]string{"layer1", "<layer1.x>"}, "layer1.*")
 	r.Add([]string{"layer1", "layer1.0"}, "layer1.0")
 	r.Add([]string{"layer1", "<layer1.x>", "layer1.*.1"}, "layer1.*.1")
+
+	r.Add([]string{"layer1", "<phone_number:^1[0-9-]{10}$>", "layer1.2.1"}, "layer1.*.1_CHINA_MOBILE_REG")
+	r.Add([]string{"layer1", "layer1.0", "<phone_number:^1[0-9-]{10}$>"}, "layer1.1.*_CHINA_MOBILE_REG")
+
+	var ret interface{}
+	f := func(path string, data interface{}) {
+		t.Logf("%s %s", path, data)
+	}
+	r.Walk(f)
 	params := make(map[string]string)
-	ret := r.Match([]string{"layer1", "layer1.0"}, params)
+	ret = r.Match([]string{"layer1", "layer1.0"}, params)
 	if ret.(string) != "layer1.0" {
 		t.Error("0 Unexpect result:", ret, "!= layer1.0")
 	}
@@ -51,6 +59,16 @@ func TestRadixNode(t *testing.T) {
 	if ret.(string) != "layer1.*.1" {
 		t.Error("8 Unexpect result:", ret, "!= layer1.*.1")
 	}
+	ret = r.Match([]string{"layer1", "12345678901", "layer1.2.1"}, params)
+	if ret.(string) != "layer1.*.1_CHINA_MOBILE_REG" {
+		t.Error("11 Unexpect result:", ret, "!= layer1.*.1_CHINA_MOBILE_REG")
+	}
+	ret = r.Match([]string{"layer1", "layer1.0", "12345678901"}, params)
+	if ret.(string) != "layer1.1.*_CHINA_MOBILE_REG" {
+		t.Error("12 Unexpect result:", ret, "!= layer1.1.*_CHINA_MOBILE_REG")
+	}
+
+	r.Add([]string{}, "root")
 	ret = r.Match([]string{"layer2"}, params)
 	if ret.(string) != "root" {
 		t.Error("9 Unexpect result:", ret, "!= root")
@@ -65,6 +83,12 @@ func TestRadixMatchParams(t *testing.T) {
 	r.Add([]string{"POST", "clouds", "<cls_action>"}, "classAction")
 	r.Add([]string{"POST", "clouds", "<resid>", "sync"}, "objectSyncAction")
 	r.Add([]string{"POST", "clouds", "<resid>", "<obj_action>"}, "objectAction")
+	r.Add([]string{"POST", "clouds", "<resid2:.*>", "<obj_action2:.*>", "over"}, "objectAction2")
+	f := func(path string, data interface{}) {
+		t.Logf("%s %s", path, data)
+	}
+	r.Walk(f)
+
 	cases := []struct {
 		in        []string
 		out       interface{}
@@ -90,6 +114,14 @@ func TestRadixMatchParams(t *testing.T) {
 			out: "classAction",
 			outParams: map[string]string{
 				"<cls_action>": "start",
+			},
+		},
+		{
+			in:  []string{"POST", "clouds", "start", "test", "over"},
+			out: "objectAction2",
+			outParams: map[string]string{
+				"<resid2>":      "start",
+				"<obj_action2>": "test",
 			},
 		},
 	}
