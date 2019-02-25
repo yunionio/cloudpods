@@ -48,16 +48,14 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 
 	disk.SetStatus(self.GetUserCred(), models.DISK_START_RESIZE, "")
 	if masterGuest == nil {
-		for _, guest := range disk.GetGuests() {
-			guest.SetStatus(self.GetUserCred(), models.VM_RESIZE_DISK, "")
-		}
+		masterGuest.SetStatus(self.GetUserCred(), models.VM_RESIZE_DISK, "")
 	}
 	self.StartResizeDisk(ctx, host, storage, disk, masterGuest)
 }
 
 func (self *DiskResizeTask) StartResizeDisk(ctx context.Context, host *models.SHost, storage *models.SStorage, disk *models.SDisk, guest *models.SGuest) {
 	log.Infof("Resizing disk on host %s ...", host.GetName())
-	self.SetStage("on_disk_resize_complete", nil)
+	self.SetStage("OnDiskResizeComplete", nil)
 	sizeMb, _ := self.GetParams().Int("size")
 	if err := host.GetHostDriver().RequestResizeDiskOnHost(ctx, host, storage, disk, guest, sizeMb, self); err != nil {
 		log.Errorf("request_resize_disk_on_host: %v", err)
@@ -108,6 +106,21 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 	self.CleanHostSchedCache(disk)
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE, disk.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, nil, self.UserCred, true)
+	self.OnDiskResized(ctx, disk)
+}
+
+func (self *DiskResizeTask) OnDiskResized(ctx context.Context, disk *models.SDisk) {
+	guestId, _ := self.Params.GetString("guest_id")
+	if len(guestId) > 0 {
+		self.SetStage("TaskComplete", nil)
+		masterGuest := models.GuestManager.FetchGuestById(guestId)
+		masterGuest.StartSyncTask(ctx, self.UserCred, false, self.GetId())
+	} else {
+		self.TaskComplete(ctx, disk, nil)
+	}
+}
+
+func (self *DiskResizeTask) TaskComplete(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, disk.GetShortDesc(ctx))
 	self.finalReleasePendingUsage(ctx)
 }
@@ -116,5 +129,10 @@ func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk
 	disk.SetDiskReady(ctx, self.GetUserCred(), data.String())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, disk.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, data.String(), self.UserCred, false)
+	guestId, _ := self.Params.GetString("guest_id")
+	if len(guestId) > 0 {
+		masterGuest := models.GuestManager.FetchGuestById(guestId)
+		masterGuest.SetStatus(self.UserCred, models.VM_RESIZE_DISK_FAILED, data.String())
+	}
 	self.SetStageFailed(ctx, data.String())
 }
