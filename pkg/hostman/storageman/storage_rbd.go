@@ -23,7 +23,7 @@ const (
 )
 
 var (
-	ErrNoSuchImage = errors.New("no such image")
+	ErrNoSuchImage    = errors.New("no such image")
 	ErrNoSuchSnapshot = errors.New("no such snapshot")
 )
 
@@ -81,63 +81,73 @@ func (s *SRbdStorage) getStorageConfString() string {
 }
 
 func (s *SRbdStorage) getImageSizeMb(pool string, name string) uint64 {
-	stat, err := s.withImage(pool, name, true, func(image *rbd.Image) error {
-		return nil
+	size, err := s.withImage(pool, name, func(image *rbd.Image) (interface{}, error) {
+		size, err := image.GetSize()
+		if err != nil {
+			return nil, err
+		}
+		return size / 1024 / 1024, nil
 	})
 	if err != nil {
 		log.Errorf("get image error: %v", err)
 		return 0
 	}
-	return stat.Size / 1024 / 1024
+	return size.(uint64)
 }
 
 func (s *SRbdStorage) resizeImage(pool string, name string, sizeMb uint64) error {
-	_, err := s.withImage(pool, name, true, func(image *rbd.Image) error {
-		return image.Resize(sizeMb * 1024 * 1024)
+	_, err := s.withImage(pool, name, func(image *rbd.Image) (interface{}, error) {
+		return nil, image.Resize(sizeMb * 1024 * 1024)
 	})
 	return err
 }
 
 func (s *SRbdStorage) deleteImage(pool string, name string) error {
-	_, err := s.withImage(pool, name, false, func(image *rbd.Image) error {
-		err := image.Remove()
-		if err != nil {
-			log.Errorf("remove image %s from pool %s error: %v", name, pool, err)
-		}
-		return err
-	})
-	if err == ErrNoSuchImage {
-		return nil
-	}
-	return err
-}
-
-func (s *SRbdStorage) copyImage(srcPool string, srcImage string, destPool string, destImage string) error {
-	_, err := s.withImage(srcPool, srcImage, true, func(src *rbd.Image) error {
-		imageSize, err := src.GetSize()
-		if err != nil {
-			return err
-		}
-		if err := s.createImage(destPool, destImage, imageSize/1024/1024); err != nil {
-			log.Errorf("create image dest pool: %s dest image: %s image size: %dMb error: %v", destPool, destImage, imageSize/1024/1024, err)
-			return err
-		}
-		_, err = s.withImage(destPool, destImage, true, func(dest *rbd.Image) error {
-			return src.Copy(*dest)
-		})
-		return err
-	})
-	return err
-}
-
-func (s *SRbdStorage) withImage(pool string, name string, closeImage bool, doFunc func(*rbd.Image) error) (*rbd.ImageInfo, error) {
-	stat, err := s.withIOContext(pool, func(ioctx *rados.IOContext) (interface{}, error) {
-		names, err := rbd.GetImageNames()
+	_, err := s.withIOContext(pool, func(ioctx *rados.IOContext) (interface{}, error) {
+		names, err := rbd.GetImageNames(ioctx)
 		if err != nil {
 			return nil, err
 		}
 		if !utils.IsInStringArray(name, names) {
-			reutrn nil, ErrNoSuchImage
+			return nil, nil
+		}
+
+		image := rbd.GetImage(ioctx, name)
+		if err := image.Remove(); err != nil {
+			log.Errorf("remove image %s from pool %s error: %v", name, pool, err)
+			return nil, err
+		}
+		return nil, nil
+	})
+	return err
+}
+
+func (s *SRbdStorage) copyImage(srcPool string, srcImage string, destPool string, destImage string) error {
+	_, err := s.withImage(srcPool, srcImage, func(src *rbd.Image) (interface{}, error) {
+		imageSize, err := src.GetSize()
+		if err != nil {
+			return nil, err
+		}
+		if err := s.createImage(destPool, destImage, imageSize/1024/1024); err != nil {
+			log.Errorf("create image dest pool: %s dest image: %s image size: %dMb error: %v", destPool, destImage, imageSize/1024/1024, err)
+			return nil, err
+		}
+		_, err = s.withImage(destPool, destImage, func(dest *rbd.Image) (interface{}, error) {
+			return nil, src.Copy(*dest)
+		})
+		return nil, err
+	})
+	return err
+}
+
+func (s *SRbdStorage) withImage(pool string, name string, doFunc func(*rbd.Image) (interface{}, error)) (interface{}, error) {
+	return s.withIOContext(pool, func(ioctx *rados.IOContext) (interface{}, error) {
+		names, err := rbd.GetImageNames(ioctx)
+		if err != nil {
+			return nil, err
+		}
+		if !utils.IsInStringArray(name, names) {
+			return nil, ErrNoSuchImage
 		}
 
 		image := rbd.GetImage(ioctx, name)
@@ -145,23 +155,9 @@ func (s *SRbdStorage) withImage(pool string, name string, closeImage bool, doFun
 			log.Errorf("open image %s name error: %v", name, err)
 			return nil, err
 		}
-		stat, err := image.Stat()
-		if err != nil {
-			log.Errorf("get image %s stat error: %v", name, err)
-			return nil, err
-		}
-		if closeImage {
-			defer image.Close()
-		}
-		if err := doFunc(image); err != nil {
-			return nil, err
-		}
-		return stat, nil
+		defer image.Close()
+		return doFunc(image)
 	})
-	if err != nil {
-		return nil, err
-	}
-	return stat.(*rbd.ImageInfo), nil
 }
 
 func (s *SRbdStorage) withIOContext(pool string, doFunc func(*rados.IOContext) (interface{}, error)) (interface{}, error) {
@@ -215,27 +211,26 @@ func (s *SRbdStorage) createImage(pool string, name string, sizeMb uint64) error
 }
 
 func (s *SRbdStorage) createSnapshot(pool string, diskId string, snapshotId string) error {
-	_, err := s.withImage(pool, diskId, true, func(image *rbd.Image) error {
-		_, err := image.CreateSnapshot(snapshotId)
-		return err
+	_, err := s.withImage(pool, diskId, func(image *rbd.Image) (interface{}, error) {
+		return image.CreateSnapshot(snapshotId)
 	})
 	return err
 }
 
 func (s *SRbdStorage) deleteSnapshot(pool string, diskId string, snapshotId string) error {
-	_, err := s.withImage(pool, diskId, true, func(image *rbd.Image) error {
+	_, err := s.withImage(pool, diskId, func(image *rbd.Image) (interface{}, error) {
 		snapshots, err := image.GetSnapshotNames()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, snapshot := range snapshots {
 			if len(snapshotId) == 0 || snapshot.Name == snapshotId {
 				if err := image.GetSnapshot(snapshot.Name).Remove(); err != nil {
-					return err
+					return nil, err
 				}
 			}
 		}
-		return nil
+		return nil, nil
 	})
 	return err
 }
@@ -312,5 +307,10 @@ func (s *SRbdStorage) CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, di
 }
 
 func (s *SRbdStorage) DeleteSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	return nil, nil
+	diskId, ok := params.(string)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	pool, _ := s.GetStorageConf().GetString("pool")
+	return nil, s.deleteSnapshot(pool, diskId, "")
 }

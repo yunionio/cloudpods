@@ -69,7 +69,30 @@ func (c *SRbdImageCacheManager) GetPath() string {
 }
 
 func (c *SRbdImageCacheManager) PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {
-	return nil, nil
+	body, ok := data.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+
+	imageId, err := body.GetString("image_id")
+	if err != nil {
+		return nil, err
+	}
+	format, _ := body.GetString("format")
+	srcUrl, _ := body.GetString("src_url")
+	zone, _ := body.GetString("zone")
+
+	cache := c.AcquireImage(ctx, imageId, zone, srcUrl, format)
+
+	res := map[string]interface{}{
+		"image_id": imageId,
+		"path":     cache.GetPath(),
+	}
+	if desc := cache.GetDesc(); desc != nil {
+		res["name"] = desc.Name
+		res["size"] = desc.Size
+	}
+	return jsonutils.Marshal(res), nil
 }
 
 func (c *SRbdImageCacheManager) DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error) {

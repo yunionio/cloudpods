@@ -55,11 +55,14 @@ func (r *SRbdImageCache) Acquire(ctx context.Context, zone, srcUrl, format strin
 		log.Errorf("failed to acquireimage %s ", r.imageId)
 		return false
 	}
-	log.Debugf("convert local image %s to rbd pool %s", r.imageId, r.Manager.GetPath())
+	if !r.Load() {
+		log.Debugf("convert local image %s to rbd pool %s", r.imageId, r.Manager.GetPath())
 
-	_, err := procutils.NewCommand(qemutils.GetQemuImg(), "convert", "-O", "raw", localImageCache.GetPath(), r.GetName()).Run()
-	if err != nil {
-		log.Errorf("failed to convert image %s", options.HostOptions.ServersPath)
+		_, err := procutils.NewCommand(qemutils.GetQemuImg(), "convert", "-O", "raw", localImageCache.GetPath(), r.GetPath()).Run()
+		if err != nil {
+			log.Errorf("failed to convert image %s", options.HostOptions.ServersPath)
+			return false
+		}
 	}
 	return r.Load()
 }

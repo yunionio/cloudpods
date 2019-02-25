@@ -7,8 +7,8 @@ import (
 	"github.com/ceph/go-ceph/rbd"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
-	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 )
 
@@ -30,8 +30,8 @@ func (d *SRBDDisk) Probe() error {
 	storage := d.Storage.(*SRbdStorage)
 	storageConf := d.Storage.GetStorageConf()
 	pool, _ := storageConf.GetString("pool")
-	_, err := storage.withImage(pool, d.Id, true, func(image *rbd.Image) error {
-		return nil
+	_, err := storage.withImage(pool, d.Id, func(image *rbd.Image) (interface{}, error) {
+		return image.GetSize()
 	})
 	return err
 }
@@ -65,7 +65,7 @@ func (d *SRBDDisk) GetDiskDesc() jsonutils.JSONObject {
 }
 
 func (d *SRBDDisk) GetDiskSetupScripts(idx int) string {
-	return fmt.Sprintf(`DISK_%d=%s\n`, idx, d.GetPath())
+	return fmt.Sprintf("DISK_%d=%s\n", idx, d.GetPath())
 }
 
 func (d *SRBDDisk) DeleteAllSnapshot() error {
@@ -111,11 +111,24 @@ func (d *SRBDDisk) ResizeFs() error {
 }
 
 func (d *SRBDDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	return nil, nil
+	if err := d.Probe(); err != nil {
+		return nil, err
+	}
+	imageName := fmt.Sprintf("image_cache_%s_%s", d.Id, appctx.AppContextTaskId(ctx))
+	imageCache := storageManager.GetStoragecacheById(d.Storage.GetStoragecacheId())
+	if imageCache == nil {
+		return nil, fmt.Errorf("failed to find image cache for prepare save to glance")
+	}
+	storage := d.Storage.(*SRbdStorage)
+	pool, _ := storage.GetStorageConf().GetString("pool")
+	if err := storage.copyImage(pool, d.Id, imageCache.GetPath(), imageName); err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(map[string]string{"backup": imageName}), nil
 }
 
 func (d *SRBDDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	return nil, nil
+	return nil, fmt.Errorf("Not impl")
 }
 
 func (d *SRBDDisk) CleanupSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
@@ -125,11 +138,11 @@ func (d *SRBDDisk) CleanupSnapshots(ctx context.Context, params interface{}) (js
 }
 
 func (d *SRBDDisk) PrepareMigrate(liveMigrate bool) (string, error) {
-	return "", nil
+	return "", fmt.Errorf("Not support")
 }
 
 func (d *SRBDDisk) CreateFromUrl(context.Context, string) error {
-	return nil
+	return fmt.Errorf("Not impl")
 }
 
 func (d *SRBDDisk) CreateFromTemplate(ctx context.Context, imageId string, format string, size int64) (jsonutils.JSONObject, error) {
@@ -168,7 +181,7 @@ func (d *SRBDDisk) createFromTemplate(ctx context.Context, imageId, format strin
 }
 
 func (d *SRBDDisk) CreateFromImageFuse(context.Context, string) error {
-	return nil
+	return fmt.Errorf("Not support")
 }
 
 func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string, encryption bool, diskId string, back string) (jsonutils.JSONObject, error) {
@@ -181,7 +194,7 @@ func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFromat string,
 }
 
 func (d *SRBDDisk) PostCreateFromImageFuse() {
-
+	log.Errorf("Not support PostCreateFromImageFuse")
 }
 
 func (d *SRBDDisk) CreateSnapshot(snapshotId string) error {
@@ -194,8 +207,4 @@ func (d *SRBDDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingDel
 	storage := d.Storage.(*SRbdStorage)
 	pool, _ := storage.StorageConf.GetString("pool")
 	return storage.deleteSnapshot(pool, d.Id, snapshotId)
-}
-
-func (d *SRBDDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict, deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
-	return nil, nil
 }
