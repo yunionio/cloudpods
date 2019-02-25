@@ -3,21 +3,20 @@ package huawei
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
-	"strconv"
-
-	"sort"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/modules"
-	"yunion.io/x/pkg/util/osprofile"
-	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -83,25 +82,26 @@ type SysTag struct {
 type SInstance struct {
 	host *SHost
 
-	ID                               string                             `json:"id"`
-	Name                             string                             `json:"name"`
-	Addresses                        map[string][]IpAddress             `json:"addresses"`
-	Flavor                           Flavor                             `json:"flavor"`
-	AccessIPv4                       string                             `json:"accessIPv4"`
-	AccessIPv6                       string                             `json:"accessIPv6"`
-	Status                           string                             `json:"status"`
-	Progress                         string                             `json:"progress"`
-	HostID                           string                             `json:"hostId"`
-	Updated                          string                             `json:"updated"`
-	Created                          time.Time                          `json:"created"`
-	Metadata                         VMMetadata                         `json:"metadata"`
-	Tags                             []string                           `json:"tags"`
-	Description                      string                             `json:"description"`
-	Locked                           bool                               `json:"locked"`
-	ConfigDrive                      string                             `json:"config_drive"`
-	TenantID                         string                             `json:"tenant_id"`
-	UserID                           string                             `json:"user_id"`
-	KeyName                          string                             `json:"key_name"`
+	ID          string                 `json:"id"`
+	Name        string                 `json:"name"`
+	Addresses   map[string][]IpAddress `json:"addresses"`
+	Flavor      Flavor                 `json:"flavor"`
+	AccessIPv4  string                 `json:"accessIPv4"`
+	AccessIPv6  string                 `json:"accessIPv6"`
+	Status      string                 `json:"status"`
+	Progress    string                 `json:"progress"`
+	HostID      string                 `json:"hostId"`
+	Updated     string                 `json:"updated"`
+	Created     time.Time              `json:"created"`
+	Metadata    VMMetadata             `json:"metadata"`
+	Tags        []string               `json:"tags"`
+	Description string                 `json:"description"`
+	Locked      bool                   `json:"locked"`
+	ConfigDrive string                 `json:"config_drive"`
+	TenantID    string                 `json:"tenant_id"`
+	UserID      string                 `json:"user_id"`
+	KeyName     string                 `json:"key_name"`
+
 	OSExtendedVolumesVolumesAttached []OSExtendedVolumesVolumesAttached `json:"os-extended-volumes:volumes_attached"`
 	OSEXTSTSTaskState                string                             `json:"OS-EXT-STS:task_state"`
 	OSEXTSTSPowerState               int64                              `json:"OS-EXT-STS:power_state"`

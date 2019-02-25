@@ -3,7 +3,6 @@ package tasks
 import (
 	"context"
 	"fmt"
-
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -767,7 +766,7 @@ func syncVMEip(ctx context.Context, provider *models.SCloudprovider, task *Cloud
 		logSyncFailed(provider, task, msg)
 		return
 	}
-	result := localVM.SyncVMEip(ctx, task.UserCred, eip, provider.ProjectId)
+	result := localVM.SyncVMEip(ctx, task.UserCred, provider, eip, provider.ProjectId)
 	msg := result.Result()
 	log.Infof("syncVMEip for VM %s result: %s", localVM.Name, msg)
 	if result.IsError() {

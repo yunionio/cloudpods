@@ -18,12 +18,12 @@ func init() {
 	})
 
 	type EipAllocateOptions struct {
-		Name string `help:"eip name"`
+		NAME string `help:"eip name"`
 		BW   int    `help:"Bandwidth limit in Mbps"`
 		BGP  string `help:"bgp type" choices:"5_telcom|5_union|5_bgp|5_sbgp"`
 	}
 	shellutils.R(&EipAllocateOptions{}, "eip-create", "Allocate an EIP", func(cli *huawei.SRegion, args *EipAllocateOptions) error {
-		eip, err := cli.AllocateEIP(args.Name, args.BW, huawei.InternetChargeByTraffic, args.BGP)
+		eip, err := cli.AllocateEIP(args.NAME, args.BW, huawei.InternetChargeByTraffic, args.BGP)
 		if err != nil {
 			return err
 		}

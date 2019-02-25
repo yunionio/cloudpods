@@ -50,7 +50,7 @@ type PublicipInfo struct {
 	IPVersion       int64  `json:"ip_version"`
 }
 
-type Profile struct {
+type SProfile struct {
 	UserID    string `json:"user_id"`
 	ProductID string `json:"product_id"`
 	RegionID  string `json:"region_id"`
@@ -61,21 +61,21 @@ type Profile struct {
 type SEipAddress struct {
 	region *SRegion
 
-	ID                  string  `json:"id"`
-	Status              string  `json:"status"`
-	Profile             Profile `json:"profile"`
-	Type                string  `json:"type"`
-	PublicIPAddress     string  `json:"public_ip_address"`
-	PrivateIPAddress    string  `json:"private_ip_address"`
-	TenantID            string  `json:"tenant_id"`
-	CreateTime          string  `json:"create_time"`
-	BandwidthID         string  `json:"bandwidth_id"`
-	BandwidthShareType  string  `json:"bandwidth_share_type"`
-	BandwidthSize       int64   `json:"bandwidth_size"`
-	BandwidthName       string  `json:"bandwidth_name"`
-	EnterpriseProjectID string  `json:"enterprise_project_id"`
-	IPVersion           int64   `json:"ip_version"`
-	PortId              string  `json:"port_id"`
+	ID                  string    `json:"id"`
+	Status              string    `json:"status"`
+	Profile             *SProfile `json:"profile,omitempty"`
+	Type                string    `json:"type"`
+	PublicIPAddress     string    `json:"public_ip_address"`
+	PrivateIPAddress    string    `json:"private_ip_address"`
+	TenantID            string    `json:"tenant_id"`
+	CreateTime          string    `json:"create_time"`
+	BandwidthID         string    `json:"bandwidth_id"`
+	BandwidthShareType  string    `json:"bandwidth_share_type"`
+	BandwidthSize       int64     `json:"bandwidth_size"`
+	BandwidthName       string    `json:"bandwidth_name"`
+	EnterpriseProjectID string    `json:"enterprise_project_id"`
+	IPVersion           int64     `json:"ip_version"`
+	PortId              string    `json:"port_id"`
 }
 
 func (self *SEipAddress) GetId() string {
@@ -178,6 +178,18 @@ func (self *SEipAddress) GetInternetChargeType() string {
 
 func (self *SEipAddress) GetManagerId() string {
 	return self.region.client.providerId
+}
+
+func (self *SEipAddress) GetBillingType() string {
+	if self.Profile == nil {
+		return models.BILLING_TYPE_POSTPAID
+	} else {
+		return models.BILLING_TYPE_PREPAID
+	}
+}
+
+func (self *SEipAddress) GetExpiredAt() time.Time {
+	return time.Time{}
 }
 
 func (self *SEipAddress) Delete() error {
