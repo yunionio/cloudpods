@@ -2285,7 +2285,7 @@ func (manager *SGuestManager) PerformDirtyServerStart(ctx context.Context, userC
 	}
 	hostId, _ := data.GetString("host_id")
 	if len(hostId) == 0 {
-		return nil, httperrors.NewBadGatewayError("Missing host_id or host id is nil?")
+		return nil, httperrors.NewBadRequestError("Missing host_id or host id is nil?")
 	}
 
 	if guest.HostId == hostId {
@@ -2297,11 +2297,44 @@ func (manager *SGuestManager) PerformDirtyServerStart(ctx context.Context, userC
 		err := guest.GuestStartAndSyncToBackup(ctx, userCred, nil, "")
 		return nil, err
 	}
-	// else { // 这里是清除这台机器最后的机会
-	// 	err := guest.StartUndeployGuestTask(ctx, userCred, "", hostId)
-	// 	return nil, err
-	// }
 	return nil, nil
+}
+
+func (manager *SGuestManager) AllowPerformDirtyServerVerify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowClassPerform(userCred, manager, "dirty-server-verify")
+}
+
+func (manager *SGuestManager) PerformDirtyServerVerify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	guestId, err := data.GetString("guest_id")
+	if err != nil {
+		return nil, httperrors.NewBadRequestError("Missing guest_id")
+	}
+	guest := manager.FetchGuestById(guestId)
+	if guest == nil {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", guestId)
+	}
+	hostId, _ := data.GetString("host_id")
+	if len(hostId) == 0 {
+		return nil, httperrors.NewBadRequestError("Missing host_id or host id is nil?")
+	}
+
+	if guest.HostId != hostId && guest.BackupHostId != hostId {
+		return nil, guest.StartGuestDeleteOnHostTask(ctx, userCred, hostId)
+	}
+	return nil, nil
+}
+
+func (self *SGuest) StartGuestDeleteOnHostTask(ctx context.Context, userCred mcclient.TokenCredential, hostId string) error {
+	taskData := jsonutils.NewDict()
+	taskData.Set("host_id", jsonutils.NewString(hostId))
+	if task, err := taskman.TaskManager.NewTask(
+		ctx, "GuestDeleteOnHostTask", self, userCred, taskData, "", "", nil); err != nil {
+		log.Errorf(err.Error())
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
 }
 
 func (guest *SGuest) GuestStartAndSyncToBackup(ctx context.Context, userCred mcclient.TokenCredential,
