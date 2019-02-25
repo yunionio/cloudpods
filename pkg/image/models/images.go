@@ -114,8 +114,8 @@ type SImage struct {
 	Checksum   string `width:"32" charset:"ascii" nullable:"true" get:"user" list:"user"`
 	FastHash   string `width:"32" charset:"ascii" nullable:"true" get:"user"`
 	Owner      string `width:"255" charset:"ascii" nullable:"true" get:"user"`
-	MinDisk    int32  `nullable:"false" default:"0" get:"user" create:"optional" update:"user"`
-	MinRam     int32  `nullable:"false" default:"0" get:"user" create:"optional" update:"user"`
+	MinDiskMB  int32  `name:"min_disk" nullable:"false" default:"0" get:"user" create:"optional" update:"user"`
+	MinRamMB   int32  `name:"min_ram" nullable:"false" default:"0" get:"user" create:"optional" update:"user"`
 	Protected  *bool  `nullable:"true" list:"user" get:"user" create:"optional" update:"user"`
 }
 
@@ -392,15 +392,14 @@ func (self *SImage) SaveImageFromStream(reader io.Reader) error {
 
 	sp, err := self.saveImageFromStream(localPath, reader)
 
-	virtualSize := int64(0)
+	virtualSizeBytes := int64(0)
 	format := ""
 	img, err := qemuimg.NewQemuImage(localPath)
 	if err != nil {
 		return err
-	} else {
-		format = string(img.Format)
-		virtualSize = img.SizeBytes
 	}
+	format = string(img.Format)
+	virtualSizeBytes = img.SizeBytes
 
 	fastChksum, err := fileutils2.FastCheckSum(localPath)
 	if err != nil {
@@ -415,8 +414,8 @@ func (self *SImage) SaveImageFromStream(reader io.Reader) error {
 		if len(format) > 0 {
 			self.DiskFormat = format
 		}
-		if virtualSize > 0 {
-			self.VirtualSize = virtualSize
+		if virtualSizeBytes > 0 {
+			self.MinDiskMB = int32(virtualSizeBytes / 1024 / 1024)
 		}
 		return nil
 	})

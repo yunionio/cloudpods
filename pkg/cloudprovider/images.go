@@ -25,13 +25,13 @@ type SImage struct {
 	DiskFormat string
 	Id         string
 	IsPublic   bool
-	MinDisk    int
-	MinRam     int
+	MinDiskMB  int `json:"min_disk"`
+	MinRamMB   int `json:"min_ram"`
 	Name       string
 	Owner      string
 	Properties map[string]string
 	Protected  bool
-	Size       int64
+	SizeBytes  int64 `json:"size"`
 	Status     string
 	// UpdatedAt       time.Time
 }
@@ -43,8 +43,8 @@ func CloudImage2Image(image ICloudImage) SImage {
 		DiskFormat: image.GetImageFormat(),
 		Id:         image.GetId(),
 		IsPublic:   image.GetImageType() != CachedImageTypeCustomized,
-		MinDisk:    image.GetMinOsDiskSizeGb(),
-		MinRam:     0,
+		MinDiskMB:  image.GetMinOsDiskSizeGb() * 1024,
+		MinRamMB:   0,
 		Name:       image.GetName(),
 		Properties: map[string]string{
 			"os_type":         image.GetOsType(),
@@ -53,7 +53,7 @@ func CloudImage2Image(image ICloudImage) SImage {
 			"os_arch":         image.GetOsArch(),
 		},
 		Protected: true,
-		Size:      image.GetSize(),
+		SizeBytes: image.GetSize(),
 		Status:    image.GetImageStatus(),
 	}
 }
