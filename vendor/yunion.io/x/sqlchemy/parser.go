@@ -15,12 +15,9 @@ func structField2ColumnSpec(field *reflectutils.SStructFieldValue) IColumnSpec {
 		return nil
 	}
 	fieldType := field.Value.Type()
-	var retCol = getFiledTypeCol(fieldType, fieldname, tagmap)
+	var retCol = getFiledTypeCol(fieldType, fieldname, tagmap, false)
 	if retCol == nil && fieldType.Kind() == reflect.Ptr {
-		retCol = getFiledTypeCol(fieldType.Elem(), fieldname, tagmap)
-		if retCol != nil {
-			retCol.SetIsPointer()
-		}
+		retCol = getFiledTypeCol(fieldType.Elem(), fieldname, tagmap, true)
 	}
 	if retCol == nil {
 		panic("unsupported colume data type %s" + fieldType.Name())
@@ -28,69 +25,69 @@ func structField2ColumnSpec(field *reflectutils.SStructFieldValue) IColumnSpec {
 	return retCol
 }
 
-func getFiledTypeCol(fieldType reflect.Type, fieldname string, tagmap map[string]string) IColumnSpec {
+func getFiledTypeCol(fieldType reflect.Type, fieldname string, tagmap map[string]string, isPointer bool) IColumnSpec {
 	switch fieldType {
 	case gotypes.StringType:
-		col := NewTextColumn(fieldname, tagmap)
+		col := NewTextColumn(fieldname, tagmap, isPointer)
 		return &col
 	case gotypes.IntType, gotypes.Int32Type:
 		tagmap[TAG_WIDTH] = "11"
-		col := NewIntegerColumn(fieldname, "INT", false, tagmap)
+		col := NewIntegerColumn(fieldname, "INT", false, tagmap, isPointer)
 		return &col
 	case gotypes.Int8Type:
 		tagmap[TAG_WIDTH] = "4"
-		col := NewIntegerColumn(fieldname, "TINYINT", false, tagmap)
+		col := NewIntegerColumn(fieldname, "TINYINT", false, tagmap, isPointer)
 		return &col
 	case gotypes.Int16Type:
 		tagmap[TAG_WIDTH] = "6"
-		col := NewIntegerColumn(fieldname, "SMALLINT", false, tagmap)
+		col := NewIntegerColumn(fieldname, "SMALLINT", false, tagmap, isPointer)
 		return &col
 	case gotypes.Int64Type:
 		tagmap[TAG_WIDTH] = "20"
-		col := NewIntegerColumn(fieldname, "BIGINT", false, tagmap)
+		col := NewIntegerColumn(fieldname, "BIGINT", false, tagmap, isPointer)
 		return &col
 	case gotypes.UintType, gotypes.Uint32Type:
 		tagmap[TAG_WIDTH] = "11"
-		col := NewIntegerColumn(fieldname, "INT", true, tagmap)
+		col := NewIntegerColumn(fieldname, "INT", true, tagmap, isPointer)
 		return &col
 	case gotypes.Uint8Type:
 		tagmap[TAG_WIDTH] = "4"
-		col := NewIntegerColumn(fieldname, "TINYINT", true, tagmap)
+		col := NewIntegerColumn(fieldname, "TINYINT", true, tagmap, isPointer)
 		return &col
 	case gotypes.Uint16Type:
 		tagmap[TAG_WIDTH] = "6"
-		col := NewIntegerColumn(fieldname, "SMALLINT", true, tagmap)
+		col := NewIntegerColumn(fieldname, "SMALLINT", true, tagmap, isPointer)
 		return &col
 	case gotypes.Uint64Type:
 		tagmap[TAG_WIDTH] = "20"
-		col := NewIntegerColumn(fieldname, "BIGINT", true, tagmap)
+		col := NewIntegerColumn(fieldname, "BIGINT", true, tagmap, isPointer)
 		return &col
 	case gotypes.BoolType:
 		tagmap[TAG_WIDTH] = "1"
-		col := NewBooleanColumn(fieldname, tagmap)
+		col := NewBooleanColumn(fieldname, tagmap, isPointer)
 		return &col
 	case tristate.TriStateType:
 		tagmap[TAG_WIDTH] = "1"
-		col := NewTristateColumn(fieldname, tagmap)
+		col := NewTristateColumn(fieldname, tagmap, isPointer)
 		return &col
 	case gotypes.Float32Type, gotypes.Float64Type:
 		if _, ok := tagmap[TAG_WIDTH]; ok {
-			col := NewDecimalColumn(fieldname, tagmap)
+			col := NewDecimalColumn(fieldname, tagmap, isPointer)
 			return &col
 		} else {
 			colType := "FLOAT"
 			if fieldType == gotypes.Float64Type {
 				colType = "DOUBLE"
 			}
-			col := NewFloatColumn(fieldname, colType, tagmap)
+			col := NewFloatColumn(fieldname, colType, tagmap, isPointer)
 			return &col
 		}
 	case gotypes.TimeType:
-		col := NewDateTimeColumn(fieldname, tagmap)
+		col := NewDateTimeColumn(fieldname, tagmap, isPointer)
 		return &col
 	default:
 		if fieldType.Implements(gotypes.ISerializableType) {
-			col := NewCompoundColumn(fieldname, tagmap)
+			col := NewCompoundColumn(fieldname, tagmap, isPointer)
 			return &col
 		}
 	}
