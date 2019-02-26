@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/regutils"
@@ -37,7 +38,6 @@ type IColumnSpec interface {
 	// IsEqual(v1, v2 interface{}) bool
 	Tags() map[string]string
 
-	SetIsPointer()
 	IsPointer() bool
 }
 
@@ -52,10 +52,6 @@ type SBaseColumn struct {
 	isUnique      bool
 	isIndex       bool
 	tags          map[string]string
-}
-
-func (c *SBaseColumn) SetIsPointer() {
-	c.isPointer = true
 }
 
 func (c *SBaseColumn) IsPointer() bool {
@@ -172,7 +168,7 @@ func definitionBuffer(c IColumnSpec) bytes.Buffer {
 	return buf
 }
 
-func NewBaseColumn(name string, sqltype string, tagmap map[string]string) SBaseColumn {
+func NewBaseColumn(name string, sqltype string, tagmap map[string]string, isPointer bool) SBaseColumn {
 	var val string
 	var ok bool
 	dbName := ""
@@ -218,6 +214,7 @@ func NewBaseColumn(name string, sqltype string, tagmap map[string]string) SBaseC
 		isUnique:      isUnique,
 		isIndex:       isIndex,
 		tags:          tagmap,
+		isPointer:     isPointer,
 	}
 }
 
@@ -234,13 +231,16 @@ func (c *SBaseWidthColumn) ColType() string {
 	}
 }
 
-func NewBaseWidthColumn(name string, sqltype string, tagmap map[string]string) SBaseWidthColumn {
+func NewBaseWidthColumn(name string, sqltype string, tagmap map[string]string, isPointer bool) SBaseWidthColumn {
 	width := 0
 	tagmap, v, ok := utils.TagPop(tagmap, TAG_WIDTH)
 	if ok {
 		width, _ = strconv.Atoi(v)
 	}
-	wc := SBaseWidthColumn{SBaseColumn: NewBaseColumn(name, sqltype, tagmap), width: width}
+	wc := SBaseWidthColumn{
+		SBaseColumn: NewBaseColumn(name, sqltype, tagmap, isPointer),
+		width:       width,
+	}
 	return wc
 }
 
@@ -293,8 +293,12 @@ func (c *SBooleanColumn) IsZero(val interface{}) bool {
 	}
 }
 
-func NewBooleanColumn(name string, tagmap map[string]string) SBooleanColumn {
-	bc := SBooleanColumn{SBaseWidthColumn: NewBaseWidthColumn(name, "TINYINT", tagmap)}
+func NewBooleanColumn(name string, tagmap map[string]string, isPointer bool) SBooleanColumn {
+	bc := SBooleanColumn{SBaseWidthColumn: NewBaseWidthColumn(name, "TINYINT", tagmap, isPointer)}
+	if !bc.IsPointer() && len(bc.Default()) > 0 && bc.ConvertFromString(bc.Default()) == "1" {
+		log.Warningf("Non-pointer boolean type should not set default value: %s(%s)", name, tagmap)
+		bc.defaultString = ""
+	}
 	return bc
 }
 
@@ -337,8 +341,8 @@ func (c *STristateColumn) IsZero(val interface{}) bool {
 	}
 }
 
-func NewTristateColumn(name string, tagmap map[string]string) STristateColumn {
-	bc := STristateColumn{SBaseWidthColumn: NewBaseWidthColumn(name, "TINYINT", tagmap)}
+func NewTristateColumn(name string, tagmap map[string]string, isPointer bool) STristateColumn {
+	bc := STristateColumn{SBaseWidthColumn: NewBaseWidthColumn(name, "TINYINT", tagmap, isPointer)}
 	return bc
 }
 
@@ -384,7 +388,7 @@ func (c *SIntegerColumn) ColType() string {
 	return str
 }
 
-func NewIntegerColumn(name string, sqltype string, unsigned bool, tagmap map[string]string) SIntegerColumn {
+func NewIntegerColumn(name string, sqltype string, unsigned bool, tagmap map[string]string, isPointer bool) SIntegerColumn {
 	autoinc := false
 	tagmap, v, ok := utils.TagPop(tagmap, TAG_AUTOINCREMENT)
 	if ok {
@@ -395,10 +399,11 @@ func NewIntegerColumn(name string, sqltype string, unsigned bool, tagmap map[str
 	if ok {
 		autover = utils.ToBool(v)
 	}
-	c := SIntegerColumn{SBaseWidthColumn: NewBaseWidthColumn(name, sqltype, tagmap),
-		IsAutoIncrement: autoinc,
-		IsAutoVersion:   autover,
-		IsUnsigned:      unsigned,
+	c := SIntegerColumn{
+		SBaseWidthColumn: NewBaseWidthColumn(name, sqltype, tagmap, isPointer),
+		IsAutoIncrement:  autoinc,
+		IsAutoVersion:    autover,
+		IsUnsigned:       unsigned,
 	}
 	if autoinc {
 		c.isPrimary = true // autoincrement column must be primary key
@@ -446,8 +451,8 @@ func (c *SFloatColumn) IsZero(val interface{}) bool {
 	return true
 }
 
-func NewFloatColumn(name string, sqlType string, tagmap map[string]string) SFloatColumn {
-	return SFloatColumn{SBaseColumn: NewBaseColumn(name, sqlType, tagmap)}
+func NewFloatColumn(name string, sqlType string, tagmap map[string]string, isPointer bool) SFloatColumn {
+	return SFloatColumn{SBaseColumn: NewBaseColumn(name, sqlType, tagmap, isPointer)}
 }
 
 type SDecimalColumn struct {
@@ -487,7 +492,7 @@ func (c *SDecimalColumn) IsZero(val interface{}) bool {
 	return true
 }
 
-func NewDecimalColumn(name string, tagmap map[string]string) SDecimalColumn {
+func NewDecimalColumn(name string, tagmap map[string]string, isPointer bool) SDecimalColumn {
 	tagmap, v, ok := utils.TagPop(tagmap, TAG_PRECISION)
 	if !ok {
 		panic(fmt.Sprintf("Field %q of float misses precision tag", name))
@@ -496,8 +501,10 @@ func NewDecimalColumn(name string, tagmap map[string]string) SDecimalColumn {
 	if err != nil {
 		panic(fmt.Sprintf("Field precision of %q shoud be integer (%q)", name, v))
 	}
-	return SDecimalColumn{SBaseWidthColumn: NewBaseWidthColumn(name, "DECIMAL", tagmap),
-		Precision: prec}
+	return SDecimalColumn{
+		SBaseWidthColumn: NewBaseWidthColumn(name, "DECIMAL", tagmap, isPointer),
+		Precision:        prec,
+	}
 }
 
 type STextColumn struct {
@@ -550,7 +557,7 @@ func (c *STextColumn) IsZero(val interface{}) bool {
 	}
 }
 
-func NewTextColumn(name string, tagmap map[string]string) STextColumn {
+func NewTextColumn(name string, tagmap map[string]string, isPointer bool) STextColumn {
 	var width int
 	var sqltype string
 	widthStr, _ := tagmap[TAG_WIDTH]
@@ -576,8 +583,10 @@ func NewTextColumn(name string, tagmap map[string]string) STextColumn {
 	} else if charset != "utf8" && charset != "ascii" {
 		panic(fmt.Sprintf("Unsupported charset %s for %s", charset, name))
 	}
-	return STextColumn{SBaseWidthColumn: NewBaseWidthColumn(name, sqltype, tagmap),
-		Charset: charset}
+	return STextColumn{
+		SBaseWidthColumn: NewBaseWidthColumn(name, sqltype, tagmap, isPointer),
+		Charset:          charset,
+	}
 }
 
 /*type SStringColumn struct {
@@ -623,7 +632,7 @@ func (c *SDateTimeColumn) IsZero(val interface{}) bool {
 
 }
 
-func NewDateTimeColumn(name string, tagmap map[string]string) SDateTimeColumn {
+func NewDateTimeColumn(name string, tagmap map[string]string, isPointer bool) SDateTimeColumn {
 	createdAt := false
 	updatedAt := false
 	tagmap, v, ok := utils.TagPop(tagmap, TAG_CREATE_TIMESTAMP)
@@ -634,8 +643,10 @@ func NewDateTimeColumn(name string, tagmap map[string]string) SDateTimeColumn {
 	if ok {
 		updatedAt = utils.ToBool(v)
 	}
-	dtc := SDateTimeColumn{NewBaseColumn(name, "DATETIME", tagmap),
-		createdAt, updatedAt}
+	dtc := SDateTimeColumn{
+		NewBaseColumn(name, "DATETIME", tagmap, isPointer),
+		createdAt, updatedAt,
+	}
 	return dtc
 }
 
@@ -668,8 +679,8 @@ func (c *CompoundColumn) ConvertFromValue(val interface{}) interface{} {
 	}
 }
 
-func NewCompoundColumn(name string, tagmap map[string]string) CompoundColumn {
-	dtc := CompoundColumn{NewTextColumn(name, tagmap)}
+func NewCompoundColumn(name string, tagmap map[string]string, isPointer bool) CompoundColumn {
+	dtc := CompoundColumn{NewTextColumn(name, tagmap, isPointer)}
 	return dtc
 }
 

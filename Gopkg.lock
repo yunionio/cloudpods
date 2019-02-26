@@ -1722,11 +1722,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0e3c8da76b7b7ba0f67ef0737d361e117b65bd328bfbcb28fb030268df587ca9"
+  digest = "1:b5a46ce3c4591a9d02662732fe09301a8ebfaf05ebd1d8925385d2e55519df4f"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "0b1ca973f3e5140dee7e773fc51cfc8c07ce0f69"
+  revision = "0aabcd7bbb728b02d10920325cc15b373e7b0538"
 
 [[projects]]
   branch = "master"
@@ -1819,6 +1819,7 @@
     "github.com/shirou/gopsutil/process",
     "github.com/stretchr/testify/assert",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common",
+    "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile",
     "github.com/tredoe/osutil/user/crypt/sha512_crypt",

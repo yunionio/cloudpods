@@ -68,11 +68,11 @@ func (info *SSqlColumnInfo) toColumnSpec() IColumnSpec {
 		tagmap[TAG_DEFAULT] = info.Default
 	}
 	if strings.HasSuffix(typeStr, "CHAR") {
-		c := NewTextColumn(info.Field, tagmap)
+		c := NewTextColumn(info.Field, tagmap, false)
 		return &c
 	} else if strings.HasSuffix(typeStr, "TEXT") {
 		tagmap[TAG_TEXT_LENGTH] = typeStr[:len(typeStr)-4]
-		c := NewTextColumn(info.Field, tagmap)
+		c := NewTextColumn(info.Field, tagmap, false)
 		return &c
 	} else if strings.HasSuffix(typeStr, "INT") {
 		if info.Extra == "auto_increment" {
@@ -82,10 +82,10 @@ func (info *SSqlColumnInfo) toColumnSpec() IColumnSpec {
 		if strings.HasSuffix(info.Type, " unsigned") {
 			unsigned = true
 		}
-		c := NewIntegerColumn(info.Field, typeStr, unsigned, tagmap)
+		c := NewIntegerColumn(info.Field, typeStr, unsigned, tagmap, false)
 		return &c
 	} else if typeStr == "FLOAT" || typeStr == "DOUBLE" {
-		c := NewFloatColumn(info.Field, typeStr, tagmap)
+		c := NewFloatColumn(info.Field, typeStr, tagmap, false)
 		return &c
 	} else if typeStr == "DECIMAL" {
 		if len(matches) > 3 {
@@ -94,10 +94,10 @@ func (info *SSqlColumnInfo) toColumnSpec() IColumnSpec {
 				tagmap[TAG_PRECISION] = fmt.Sprintf("%d", precision)
 			}
 		}
-		c := NewDecimalColumn(info.Field, tagmap)
+		c := NewDecimalColumn(info.Field, tagmap, false)
 		return &c
 	} else if typeStr == "DATETIME" {
-		c := NewDateTimeColumn(info.Field, tagmap)
+		c := NewDateTimeColumn(info.Field, tagmap, false)
 		return &c
 	} else {
 		log.Errorf("unsupported type %s", typeStr)
@@ -189,7 +189,7 @@ func diffIndexes2(exists []STableIndex, defs []STableIndex) (diff []STableIndex)
 				break
 			}
 		}
-		if ! findDef {
+		if !findDef {
 			diff = append(diff, exists[i])
 		}
 	}
