@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/hashcache"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
@@ -45,6 +47,8 @@ var InstanceFamilies = map[string]string{
 	SkuCategoryHighMemory:          "hr1",
 }
 
+var Cache *hashcache.Cache
+
 type SServerSkuManager struct {
 	db.SStandaloneResourceBaseManager
 }
@@ -61,6 +65,8 @@ func init() {
 		),
 	}
 	ServerSkuManager.NameRequireAscii = false
+
+	Cache = hashcache.NewCache(2048, time.Second*300)
 }
 
 // SServerSku 实际对应的是instance type清单. 这里的Sku实际指的是instance type。
@@ -167,20 +173,50 @@ func (self *SServerSku) AllowGetDetails(ctx context.Context, userCred mcclient.T
 
 func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	count := skuRelatedGuestCount(self)
+	// count
+	var count int
+	countKey := self.GetId() + ".total_guest_count"
+	v := Cache.Get(countKey)
+	if v == nil {
+		count = skuRelatedGuestCount(self)
+		Cache.Set(countKey, count)
+	} else {
+		count = v.(int)
+	}
+
 	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
+
+	// zone
 	if len(self.ZoneId) > 0 {
-		zone, err := ZoneManager.FetchById(self.ZoneId)
-		if err == nil {
-			extra.Add(jsonutils.NewString(zone.GetName()), "zone_name")
+		var zoneName string
+		v := Cache.Get(self.ZoneId)
+		if v == nil {
+			zone, err := ZoneManager.FetchById(self.ZoneId)
+			if err == nil {
+				zoneName = zone.GetName()
+				Cache.Set(zone.GetId(), zoneName)
+			}
+		} else {
+			zoneName = v.(string)
 		}
+
+		extra.Add(jsonutils.NewString(zoneName), "zone_name")
 	}
 
-	region, err := CloudregionManager.FetchById(self.CloudregionId)
-	if err == nil {
-		extra.Add(jsonutils.NewString(region.GetName()), "region_name")
+	// region
+	var regionName string
+	v = Cache.Get(self.CloudregionId)
+	if v == nil {
+		region, err := CloudregionManager.FetchById(self.CloudregionId)
+		if err == nil {
+			regionName = region.GetName()
+			Cache.Set(region.GetId(), regionName)
+		}
+	} else {
+		regionName = v.(string)
 	}
 
+	extra.Add(jsonutils.NewString(regionName), "region_name")
 	return extra
 }
 
