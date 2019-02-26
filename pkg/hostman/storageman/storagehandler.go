@@ -70,11 +70,16 @@ func storageAttach(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	imagecachePath, _ := body.GetString("imagecache_path")
 	storageManager.InitSharedStorageImageCache(storageType, storagecacheId, imagecachePath, storage)
 
-	storageId, _ := body.GetString("id")
+	storageId, _ := body.GetString("storage_id")
 	storageName, _ := body.GetString("name")
 	storageConf, _ := body.Get("storage_conf")
 	storage.SetStorageInfo(storageId, storageName, storageConf)
-	return nil, nil
+	resp, err := storage.SyncStorageInfo()
+	if err != nil {
+		return nil, err
+	}
+	storageManager.Storages = append(storageManager.Storages, storage)
+	return resp, nil
 }
 
 func storageDetach(ctx context.Context, body jsonutils.JSONObject) (interface{}, error) {

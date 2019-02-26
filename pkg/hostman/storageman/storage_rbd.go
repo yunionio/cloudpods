@@ -162,8 +162,6 @@ func (s *SRbdStorage) cloneImage(srcPool string, srcImage string, destPool strin
 			log.Errorf("create snapshot error: %v", err)
 			return nil, err
 		}
-		names, err := src.GetSnapshotNames()
-
 		defer snapshot.Remove()
 		isProtect, err := snapshot.IsProtected()
 		if err != nil {
@@ -384,7 +382,7 @@ func (s *SRbdStorage) SaveToGlance(ctx context.Context, params interface{}) (jso
 	rbdImageCache.LoadImageCache(imageId)
 	_, err := hostutils.RemoteStoragecacheCacheImage(ctx, rbdImageCache.GetId(), imageId, "ready", imagePath)
 	if err != nil {
-		log.Errorf("ail to remote cache image: %v", err)
+		log.Errorf("Fail to remote cache image: %v", err)
 	}
 	return nil, nil
 }
@@ -482,7 +480,7 @@ func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 }
 
 func (s *SRbdStorage) CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string) error {
-	return nil
+	return fmt.Errorf("Not support")
 }
 
 func (s *SRbdStorage) DeleteSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {

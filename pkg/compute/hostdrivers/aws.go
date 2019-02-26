@@ -3,9 +3,11 @@ package hostdrivers
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SAwsHostDriver struct {
@@ -19,6 +21,10 @@ func init() {
 
 func (self *SAwsHostDriver) GetHostType() string {
 	return models.HOST_TYPE_AWS
+}
+
+func (self *SAwsHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
+	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }
 
 func (self *SAwsHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {

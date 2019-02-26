@@ -51,9 +51,13 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 		return nil, httperrors.NewGeneralError(err)
 	}
 
+	inputHost, _ := conf.GetString("mon_host")
+	inputPool, _ := conf.GetString("pool")
 	for i := 0; i < len(storages); i++ {
-		if conf.Equals(storages[i].StorageConf) {
-			return nil, httperrors.NewDuplicateResourceError("This RBD Storage[%s/%s] has already exist", storages[i].Name, conf.String())
+		host, _ := storages[i].StorageConf.GetString("mon_host")
+		pool, _ := storages[i].StorageConf.GetString("pool")
+		if inputHost == host && inputPool == pool {
+			return nil, httperrors.NewDuplicateResourceError("This RBD Storage[%s/%s] has already exist", storages[i].Name, inputPool)
 		}
 	}
 
@@ -75,7 +79,7 @@ func (self *SRbdStorageDriver) PostCreate(ctx context.Context, userCred mcclient
 		rbdHost, _ := storages[i].StorageConf.GetString("mon_host")
 		rbdKey, _ := storages[i].StorageConf.GetString("key")
 		if newRbdHost == rbdHost && newRbdKey == rbdKey {
-			_, err := storage.GetModelManager().TableSpec().Update(self, func() error {
+			_, err := storage.GetModelManager().TableSpec().Update(storage, func() error {
 				storage.StoragecacheId = storages[i].StoragecacheId
 				return nil
 			})
