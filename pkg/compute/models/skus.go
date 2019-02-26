@@ -169,6 +169,18 @@ func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclie
 	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	count := skuRelatedGuestCount(self)
 	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
+	if len(self.ZoneId) > 0 {
+		zone, err := ZoneManager.FetchById(self.ZoneId)
+		if err == nil {
+			extra.Add(jsonutils.NewString(zone.GetName()), "zone_name")
+		}
+	}
+
+	region, err := CloudregionManager.FetchById(self.CloudregionId)
+	if err == nil {
+		extra.Add(jsonutils.NewString(region.GetName()), "region_name")
+	}
+
 	return extra
 }
 
@@ -305,32 +317,32 @@ func (self *SServerSkuManager) AllowGetPropertyInstanceSpecs(ctx context.Context
 
 func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	q := self.Query()
+	// 未明确指定provider或者public_cloud时，默认查询私有云
 	provider, _ := query.GetString("provider")
-	if inWhiteList(provider) {
+	public_cloud, _ := query.Bool("public_cloud")
+	if len(provider) > 0 {
+		q = q.Equals("provider", provider)
+	} else if public_cloud {
+		q = q.IsNotEmpty("provider")
+	} else {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.IsNull(q.Field("provider")),
 			sqlchemy.IsEmpty(q.Field("provider")),
 		))
-	} else {
-		q = q.Equals("provider", provider)
 	}
 
 	// 如果是查询私有云需要忽略zone参数
 	zone := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
-	if !inWhiteList(provider) {
-		if len(zone) > 0 {
-			zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zone)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zone)
-				}
-				return nil, httperrors.NewGeneralError(err)
+	if public_cloud && len(zone) > 0 {
+		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zone)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zone)
 			}
-
-			q = q.Equals("zone_id", zoneObj.GetId())
-		} else {
-			return nil, httperrors.NewMissingParameterError("zone")
+			return nil, httperrors.NewGeneralError(err)
 		}
+
+		q = q.Equals("zone_id", zoneObj.GetId())
 	}
 
 	skus := make([]SServerSku, 0)
@@ -520,17 +532,20 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 
 func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	provider := jsonutils.GetAnyString(query, []string{"provider"})
+	public_cloud, _ := query.Bool("public_cloud")
 	queryDict := query.(*jsonutils.JSONDict)
-	if provider == "" {
+	if provider == "all" {
+		// provider 参数为all时。表示查询所有instance type.
+		queryDict.Remove("provider")
+	} else if len(provider) > 0 {
+		q = q.Equals("provider", provider)
+	} else if public_cloud {
+		q = q.IsNotEmpty("provider")
+	} else {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.IsNull(q.Field("provider")),
 			sqlchemy.IsEmpty(q.Field("provider")),
 		))
-	} else if provider == "all" {
-		// provider 参数为all时。表示查询所有instance type.
-		queryDict.Remove("provider")
-	} else {
-		q = q.Equals("provider", provider)
 	}
 
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
@@ -538,6 +553,12 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 		return nil, err
 	}
 
+	regionTable := CloudregionManager.Query().SubQuery()
+	zoneTable := ZoneManager.Query().SubQuery()
+	q = q.Join(regionTable, sqlchemy.Equals(regionTable.Field("id"), q.Field("cloudregion_id")))
+	q = q.Join(zoneTable, sqlchemy.Equals(zoneTable.Field("id"), q.Field("zone_id")))
+
+	// region filter
 	regionStr := jsonutils.GetAnyString(query, []string{"region", "cloudregion", "region_id", "cloudregion_id"})
 	if len(regionStr) > 0 {
 		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
@@ -550,6 +571,32 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 		q = q.Equals("cloudregion_id", regionObj.GetId())
 	}
 
+	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
+	var zoneObj db.IModel
+	if len(zoneStr) > 0 {
+		zoneObj, err = ZoneManager.FetchByIdOrName(nil, zoneStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zoneStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+
+		// 当查询私有云时，需要忽略zone参数
+		if len(zoneObj.(*SZone).ExternalId) > 0 {
+			q = q.Equals("zone_id", zoneObj.GetId())
+		}
+	}
+
+	queryDict.Remove("zone")
+	queryDict.Remove("zone_id")
+
+	// city filter
+	city, _ := query.GetString("city")
+	if len(city) > 0 {
+		q = q.Filter(sqlchemy.Equals(regionTable.Field("city"), city))
+	}
+
 	// 可用资源状态
 	postpaid, _ := query.GetString("postpaid_status")
 	if len(postpaid) > 0 {
@@ -559,22 +606,6 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	prepaid, _ := query.GetString("prepaid_status")
 	if len(prepaid) > 0 {
 		q.Equals("prepaid_status", prepaid)
-	}
-
-	// 当查询私有云时，需要忽略zone参数
-	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
-	if !inWhiteList(provider) && len(zoneStr) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(nil, zoneStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zoneStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		q = q.Equals("zone_id", zoneObj.GetId())
-	} else {
-		queryDict.Remove("zone")
-		queryDict.Remove("zone_id")
 	}
 
 	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
