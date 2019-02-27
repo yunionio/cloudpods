@@ -23,6 +23,11 @@ func TestRadixNode(t *testing.T) {
 	}
 	r.Walk(f)
 	params := make(map[string]string)
+
+	ret = r.Match([]string{"layer1", "layer1.0", "layer2.0"}, params)
+	if ret.(string) != "layer1.0" {
+		t.Error("0 Unexpect result:", ret, "!= layer1.0")
+	}
 	ret = r.Match([]string{"layer1", "layer1.0"}, params)
 	if ret.(string) != "layer1.0" {
 		t.Error("0 Unexpect result:", ret, "!= layer1.0")
@@ -73,6 +78,13 @@ func TestRadixNode(t *testing.T) {
 	if ret.(string) != "root" {
 		t.Error("9 Unexpect result:", ret, "!= root")
 	}
+
+	r.Add([]string{"<phone_number:^1[0-9-]{10}$>"}, "phonelayer1")
+	ret = r.Match([]string{"12345678900"}, params)
+	if ret.(string) != "phonelayer1" {
+		t.Error("13 Unexpect result:", ret, "!= phonelayer1")
+	}
+
 	if r.Add([]string{"layer1"}, "layer1") == nil {
 		t.Error("10 Add duplicate data should fail")
 	}

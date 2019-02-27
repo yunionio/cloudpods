@@ -5,6 +5,8 @@ import (
 	"path"
 	"regexp"
 	"strings"
+
+	"yunion.io/x/log"
 )
 
 type RadixNode struct {
@@ -44,14 +46,8 @@ func (r *RadixNode) add(segments []string, data interface{}, depth int, segNames
 		if r.data != nil {
 			return fmt.Errorf("Duplicate data for node")
 		} else {
-			if depth == 1 {
-				node := NewRadix()
-				node.data = data
-				r.regexpNodes[".*"] = node
-			} else {
-				r.data = data
-				r.segNames = segNames
-			}
+			r.data = data
+			r.segNames = segNames
 			return nil
 		}
 	} else {
@@ -96,7 +92,7 @@ func (r *RadixNode) add(segments []string, data interface{}, depth int, segNames
 }
 
 func (r *RadixNode) Match(segments []string, params map[string]string) interface{} {
-	node := r.match(segments, true)
+	node, _ := r.match(segments)
 	if node == nil {
 		return nil
 	}
@@ -106,32 +102,41 @@ func (r *RadixNode) Match(segments []string, params map[string]string) interface
 	return node.data
 }
 
-func (r *RadixNode) match(segments []string, isRoot bool) *RadixNode {
+func (r *RadixNode) match(segments []string) (*RadixNode, bool) {
 	if len(segments) == 0 {
-		return r
-	}
-
-	if len(r.stringNodes) == 0 && len(r.regexpNodes) == 0 {
-		if isRoot {
-			return nil
-		} else {
-			return r
-		}
+		return r, true
+	} else if len(r.stringNodes) == 0 && len(r.regexpNodes) == 0 {
+		return r, false
 	}
 
 	if node, ok := r.stringNodes[segments[0]]; ok {
-		if rnode := node.match(segments[1:], false); rnode != nil && rnode.data != nil {
-			return rnode
+		if rnode, _ := node.match(segments[1:]); rnode != nil && rnode.data != nil {
+			return rnode, true
 		}
 	}
+
+	var nodeTmp *RadixNode
 	for regstr, node := range r.regexpNodes {
 		if regexp.MustCompile(regstr).MatchString(segments[0]) {
-			if rnode := node.match(segments[1:], false); rnode != nil && rnode.data != nil {
-				return rnode
+			if rnode, fullMatch := node.match(segments[1:]); rnode != nil && rnode.data != nil {
+				if fullMatch {
+					return rnode, fullMatch
+				} else {
+					if nodeTmp != nil {
+						log.Errorf("segments %v match mutil node", segments)
+						continue
+					}
+					nodeTmp = rnode
+				}
 			}
 		}
 	}
-	return nil
+
+	if nodeTmp != nil {
+		return nodeTmp, false
+	} else {
+		return r, false
+	}
 }
 
 func (r *RadixNode) Walk(f func(spath string, data interface{})) {
