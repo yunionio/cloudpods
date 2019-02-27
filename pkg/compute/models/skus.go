@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -163,6 +164,26 @@ func skuRelatedGuestCount(self *SServerSku) int {
 	return q.Count()
 }
 
+func getNameAndExtId(resId string, query func() (string, string, error)) (string, string) {
+	nKey := resId + ".Name"
+	eKey := resId + ".ExtId"
+	name := Cache.Get(nKey)
+	extId := Cache.Get(eKey)
+	var err error
+	if name == nil || extId == nil {
+		name, extId, err = query()
+		if err != nil {
+			log.Debugf(err.Error())
+			return "", ""
+		}
+
+		Cache.Set(nKey, name)
+		Cache.Set(eKey, extId)
+	}
+
+	return name.(string), extId.(string)
+}
+
 func (self *SServerSkuManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
@@ -188,35 +209,52 @@ func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclie
 
 	// zone
 	if len(self.ZoneId) > 0 {
-		var zoneName string
-		v := Cache.Get(self.ZoneId)
-		if v == nil {
+		name, extId := getNameAndExtId(self.ZoneId, func() (string, string, error) {
 			zone, err := ZoneManager.FetchById(self.ZoneId)
-			if err == nil {
-				zoneName = zone.GetName()
-				Cache.Set(zone.GetId(), zoneName)
+			if err != nil {
+				return "", "", err
 			}
-		} else {
-			zoneName = v.(string)
-		}
 
-		extra.Add(jsonutils.NewString(zoneName), "zone_name")
+			szone, ok := zone.(*SZone)
+			if !ok || szone == nil {
+				return "", "", fmt.Errorf("%s zone not found", self.ZoneId)
+			}
+
+			_id := ""
+			segs := strings.Split(szone.ExternalId, "/")
+			if len(segs) > 0 {
+				_id = segs[len(segs)-1]
+			}
+
+			return zone.GetName(), _id, nil
+		})
+
+		extra.Add(jsonutils.NewString(name), "zone_name")
+		extra.Add(jsonutils.NewString(extId), "zone_exteranl_id")
 	}
 
 	// region
-	var regionName string
-	v = Cache.Get(self.CloudregionId)
-	if v == nil {
+	name, extId := getNameAndExtId(self.CloudregionId, func() (string, string, error) {
 		region, err := CloudregionManager.FetchById(self.CloudregionId)
-		if err == nil {
-			regionName = region.GetName()
-			Cache.Set(region.GetId(), regionName)
+		if err != nil {
+			return "", "", err
 		}
-	} else {
-		regionName = v.(string)
-	}
 
-	extra.Add(jsonutils.NewString(regionName), "region_name")
+		sregion, ok := region.(*SCloudregion)
+		if !ok || sregion == nil {
+			return "", "", fmt.Errorf("%s region not found", self.CloudregionId)
+		}
+
+		_id := ""
+		segs := strings.Split(sregion.ExternalId, "/")
+		if len(segs) > 0 {
+			_id = segs[len(segs)-1]
+		}
+		return region.GetName(), _id, nil
+	})
+
+	extra.Add(jsonutils.NewString(name), "region_name")
+	extra.Add(jsonutils.NewString(extId), "region_exteranl_id")
 	return extra
 }
 
