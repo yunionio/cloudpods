@@ -6,7 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type SLBListenerRule struct {
@@ -81,7 +81,7 @@ func (self *SLBListenerRule) GetPath() string {
 
 func (self *SLBListenerRule) GetBackendGroup() *SLBBackendGroup {
 	t := self.listener.GetListenerType()
-	if t == models.LB_LISTENER_TYPE_HTTP || t == models.LB_LISTENER_TYPE_HTTPS {
+	if t == consts.LB_LISTENER_TYPE_HTTP || t == consts.LB_LISTENER_TYPE_HTTPS {
 		return &SLBBackendGroup{
 			lb:       self.listener.lb,
 			listener: self.listener,

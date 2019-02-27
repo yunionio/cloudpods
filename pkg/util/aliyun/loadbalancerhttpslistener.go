@@ -5,7 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type SLoadbalancerHTTPSListener struct {
@@ -73,11 +73,11 @@ func (listerner *SLoadbalancerHTTPSListener) GetGlobalId() string {
 func (listerner *SLoadbalancerHTTPSListener) GetStatus() string {
 	switch listerner.Status {
 	case "starting", "running":
-		return models.LB_STATUS_ENABLED
+		return consts.LB_STATUS_ENABLED
 	case "configuring", "stopping", "stopped":
-		return models.LB_STATUS_DISABLED
+		return consts.LB_STATUS_DISABLED
 	default:
-		return models.LB_STATUS_UNKNOWN
+		return consts.LB_STATUS_UNKNOWN
 	}
 }
 
@@ -307,7 +307,7 @@ func (listerner *SLoadbalancerHTTPSListener) CreateILoadBalancerListenerRule(rul
 		Url:      rule.Path,
 		RuleName: rule.Name,
 	}
-	if len(rule.BackendGroupID) > 0 { //&& rule.BackendGroupType == models.LB_BACKENDGROUP_TYPE_NORMAL {
+	if len(rule.BackendGroupID) > 0 { //&& rule.BackendGroupType == consts.LB_BACKENDGROUP_TYPE_NORMAL {
 		_rule.VServerGroupId = rule.BackendGroupID
 	}
 	listenerRule, err := listerner.lb.region.CreateLoadbalancerListenerRule(listerner.ListenerPort, listerner.lb.LoadBalancerId, _rule)
