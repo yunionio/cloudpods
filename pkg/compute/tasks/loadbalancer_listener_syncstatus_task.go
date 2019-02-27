@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -22,10 +23,10 @@ func init() {
 }
 
 func (self *LoadbalancerListenerSyncstatusTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason string) {
-	lblis.SetStatus(self.GetUserCred(), models.LB_STATUS_UNKNOWN, reason)
+	lblis.SetStatus(self.GetUserCred(), consts.LB_STATUS_UNKNOWN, reason)
 	db.OpsLog.LogEvent(lblis, db.ACT_SYNC_STATUS, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_SYNC_STATUS, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lblis.Id, lblis.Name, models.LB_SYNC_CONF_FAILED, reason)
+	notifyclient.NotifySystemError(lblis.Id, lblis.Name, consts.LB_SYNC_CONF_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 

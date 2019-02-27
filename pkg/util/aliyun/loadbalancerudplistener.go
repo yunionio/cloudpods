@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type SLoadbalancerUDPListener struct {
@@ -55,11 +56,11 @@ func (listerner *SLoadbalancerUDPListener) GetGlobalId() string {
 func (listerner *SLoadbalancerUDPListener) GetStatus() string {
 	switch listerner.Status {
 	case "starting", "running":
-		return models.LB_STATUS_ENABLED
+		return consts.LB_STATUS_ENABLED
 	case "configuring", "stopping", "stopped":
-		return models.LB_STATUS_DISABLED
+		return consts.LB_STATUS_DISABLED
 	default:
-		return models.LB_STATUS_UNKNOWN
+		return consts.LB_STATUS_UNKNOWN
 	}
 }
 

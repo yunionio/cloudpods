@@ -6,8 +6,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type ListenerProtocol string
@@ -77,9 +78,9 @@ func (lb *SLoadbalancer) GetGlobalId() string {
 
 func (lb *SLoadbalancer) GetStatus() string {
 	if lb.LoadBalancerStatus == "active" {
-		return models.LB_STATUS_ENABLED
+		return consts.LB_STATUS_ENABLED
 	}
-	return models.LB_STATUS_DISABLED
+	return consts.LB_STATUS_DISABLED
 }
 
 func (lb *SLoadbalancer) GetMetadata() *jsonutils.JSONDict {
@@ -194,14 +195,14 @@ func (lb *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloud
 
 func (lb *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.SLoadbalancerBackendGroup) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	switch group.GroupType {
-	case models.LB_BACKENDGROUP_TYPE_NORMAL:
+	case consts.LB_BACKENDGROUP_TYPE_NORMAL:
 		group, err := lb.region.CreateLoadbalancerBackendGroup(group.Name, lb.LoadBalancerId, group.Backends)
 		if err != nil {
 			return nil, err
 		}
 		group.lb = lb
 		return group, nil
-	case models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
+	case consts.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
 		group, err := lb.region.CreateLoadbalancerMasterSlaveBackendGroup(group.Name, lb.LoadBalancerId, group.Backends)
 		if err != nil {
 			return nil, err
@@ -215,13 +216,13 @@ func (lb *SLoadbalancer) CreateILoadBalancerBackendGroup(group *cloudprovider.SL
 
 func (lb *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
 	switch listener.ListenerType {
-	case models.LB_LISTENER_TYPE_TCP:
+	case consts.LB_LISTENER_TYPE_TCP:
 		return lb.region.CreateLoadbalancerTCPListener(lb, listener)
-	case models.LB_LISTENER_TYPE_UDP:
+	case consts.LB_LISTENER_TYPE_UDP:
 		return lb.region.CreateLoadbalancerUDPListener(lb, listener)
-	case models.LB_LISTENER_TYPE_HTTP:
+	case consts.LB_LISTENER_TYPE_HTTP:
 		return lb.region.CreateLoadbalancerHTTPListener(lb, listener)
-	case models.LB_LISTENER_TYPE_HTTPS:
+	case consts.LB_LISTENER_TYPE_HTTPS:
 		return lb.region.CreateLoadbalancerHTTPSListener(lb, listener)
 	}
 	return nil, fmt.Errorf("unsupport listener type %s", listener.ListenerType)
@@ -237,9 +238,9 @@ func (lb *SLoadbalancer) GetLoadbalancerSpec() string {
 func (lb *SLoadbalancer) GetChargeType() string {
 	switch lb.InternetChargeType {
 	case "paybybandwidth":
-		return models.LB_CHARGE_TYPE_BY_BANDWIDTH
+		return consts.LB_CHARGE_TYPE_BY_BANDWIDTH
 	case "paybytraffic":
-		return models.LB_CHARGE_TYPE_BY_TRAFFIC
+		return consts.LB_CHARGE_TYPE_BY_TRAFFIC
 	}
 	return "unknown"
 }

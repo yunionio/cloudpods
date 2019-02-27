@@ -1,7 +1,7 @@
-package models
+package consts
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/util/choices"
 )
 
 // Load balancer status transition (for spec status)
@@ -46,7 +46,7 @@ const (
 	LB_STATUS_UNKNOWN = "unknown"
 )
 
-var LB_STATUS_SPEC = validators.NewChoices(
+var LB_STATUS_SPEC = choices.NewChoices(
 	LB_STATUS_ENABLED,
 	LB_STATUS_DISABLED,
 )
@@ -60,7 +60,7 @@ const (
 	LB_BACKENDGROUP_TYPE_MASTER_SLAVE = "master_slave"
 )
 
-var LB_BACKENDGROUP_TYPE = validators.NewChoices(
+var LB_BACKENDGROUP_TYPE = choices.NewChoices(
 	LB_BACKENDGROUP_TYPE_DEFAULT,
 	LB_BACKENDGROUP_TYPE_NORMAL,
 	LB_BACKENDGROUP_TYPE_MASTER_SLAVE,
@@ -78,7 +78,7 @@ const (
 	LB_ADDR_TYPE_INTERNET = "internet"
 )
 
-var LB_ADDR_TYPES = validators.NewChoices(
+var LB_ADDR_TYPES = choices.NewChoices(
 	LB_ADDR_TYPE_INTERNET,
 	LB_ADDR_TYPE_INTRANET,
 )
@@ -88,7 +88,7 @@ const (
 	LB_NETWORK_TYPE_VPC     = "vpc"
 )
 
-var LB_NETWORK_TYPES = validators.NewChoices(
+var LB_NETWORK_TYPES = choices.NewChoices(
 	LB_NETWORK_TYPE_CLASSIC,
 	LB_NETWORK_TYPE_VPC,
 )
@@ -101,7 +101,7 @@ const (
 	LB_LISTENER_TYPE_HTTPS = "https"
 )
 
-var LB_LISTENER_TYPES = validators.NewChoices(
+var LB_LISTENER_TYPES = choices.NewChoices(
 	LB_LISTENER_TYPE_TCP,
 	LB_LISTENER_TYPE_UDP,
 	LB_LISTENER_TYPE_HTTP,
@@ -113,7 +113,7 @@ const (
 	LB_ACL_TYPE_WHITE = "white"
 )
 
-var LB_ACL_TYPES = validators.NewChoices(
+var LB_ACL_TYPES = choices.NewChoices(
 	LB_ACL_TYPE_BLACK,
 	LB_ACL_TYPE_WHITE,
 )
@@ -128,7 +128,7 @@ const (
 	LB_TLS_CERT_PUBKEY_ALGO_ECDSA = "ECDSA"
 )
 
-var LB_TLS_CERT_PUBKEY_ALGOS = validators.NewChoices(
+var LB_TLS_CERT_PUBKEY_ALGOS = choices.NewChoices(
 	LB_TLS_CERT_PUBKEY_ALGO_RSA,
 	LB_TLS_CERT_PUBKEY_ALGO_ECDSA,
 )
@@ -141,7 +141,7 @@ const (
 	LB_TLS_CIPHER_POLICY_1_2_strict = "tls_cipher_policy_1_2_strict"
 )
 
-var LB_TLS_CIPHER_POLICIES = validators.NewChoices(
+var LB_TLS_CIPHER_POLICIES = choices.NewChoices(
 	LB_TLS_CIPHER_POLICY_1_0,
 	LB_TLS_CIPHER_POLICY_1_1,
 	LB_TLS_CIPHER_POLICY_1_2,
@@ -153,7 +153,7 @@ const (
 	LB_STICKY_SESSION_TYPE_SERVER = "server"
 )
 
-var LB_STICKY_SESSION_TYPES = validators.NewChoices(
+var LB_STICKY_SESSION_TYPES = choices.NewChoices(
 	LB_STICKY_SESSION_TYPE_INSERT,
 	LB_STICKY_SESSION_TYPE_SERVER,
 )
@@ -165,18 +165,18 @@ const (
 	LB_HEALTH_CHECK_HTTP = "http"
 )
 
-var LB_HEALTH_CHECK_TYPES = validators.NewChoices(
+var LB_HEALTH_CHECK_TYPES = choices.NewChoices(
 	LB_HEALTH_CHECK_TCP,
 	LB_HEALTH_CHECK_UDP,
 	LB_HEALTH_CHECK_HTTP,
 )
 
-var LB_HEALTH_CHECK_TYPES_TCP = validators.NewChoices(
+var LB_HEALTH_CHECK_TYPES_TCP = choices.NewChoices(
 	LB_HEALTH_CHECK_TCP,
 	LB_HEALTH_CHECK_HTTP,
 )
 
-var LB_HEALTH_CHECK_TYPES_UDP = validators.NewChoices(
+var LB_HEALTH_CHECK_TYPES_UDP = choices.NewChoices(
 	LB_HEALTH_CHECK_UDP,
 )
 
@@ -189,7 +189,7 @@ const (
 	LB_HEALTH_CHECK_HTTP_CODE_DEFAULT = "http_2xx,http_3xx"
 )
 
-var LB_HEALTH_CHECK_HTTP_CODES = validators.NewChoices(
+var LB_HEALTH_CHECK_HTTP_CODES = choices.NewChoices(
 	LB_HEALTH_CHECK_HTTP_CODE_1xx,
 	LB_HEALTH_CHECK_HTTP_CODE_2xx,
 	LB_HEALTH_CHECK_HTTP_CODE_3xx,
@@ -202,7 +202,7 @@ const (
 	LB_BOOL_OFF = "off"
 )
 
-var LB_BOOL_VALUES = validators.NewChoices(
+var LB_BOOL_VALUES = choices.NewChoices(
 	LB_BOOL_ON,
 	LB_BOOL_OFF,
 )
@@ -219,7 +219,7 @@ const (
 	LB_SCHEDULER_TCH = "tch" // 4-tuple-based consistent hash
 )
 
-var LB_SCHEDULER_TYPES = validators.NewChoices(
+var LB_SCHEDULER_TYPES = choices.NewChoices(
 	LB_SCHEDULER_RR,
 	LB_SCHEDULER_WRR,
 	LB_SCHEDULER_WLC,
@@ -233,7 +233,7 @@ const (
 	LB_BACKEND_HOST  = "host"
 )
 
-var LB_BACKEND_TYPES = validators.NewChoices(
+var LB_BACKEND_TYPES = choices.NewChoices(
 	LB_BACKEND_GUEST,
 	LB_BACKEND_HOST,
 )
@@ -244,8 +244,14 @@ const (
 	LB_BACKEND_ROLE_SLAVE   = "slave"
 )
 
-var LB_BACKEND_ROLES = validators.NewChoices(
+var LB_BACKEND_ROLES = choices.NewChoices(
 	LB_BACKEND_ROLE_MASTER,
 	LB_BACKEND_ROLE_DEFAULT,
 	LB_BACKEND_ROLE_SLAVE,
+)
+
+const (
+	LB_CHARGE_TYPE_BY_TRAFFIC   = "traffic"
+	LB_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
+	LB_CHARGE_TYPE_BY_HOUR      = "hour"
 )
