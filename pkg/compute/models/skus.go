@@ -588,7 +588,7 @@ func (manager *SServerSkuManager) FetchSkuByNameAndHypervisor(name string, hyper
 		switch hypervisor {
 		case HYPERVISOR_BAREMETAL, HYPERVISOR_CONTAINER:
 			return nil, httperrors.NewNotImplementedError("%s not supported", hypervisor)
-		case HYPERVISOR_KVM, HYPERVISOR_ESXI, HYPERVISOR_XEN, HOST_TYPE_HYPERV:
+		case HYPERVISOR_KVM, HYPERVISOR_ESXI, HYPERVISOR_XEN, HOST_TYPE_HYPERV, HYPERVISOR_OPENSTACK:
 			q = q.Filter(sqlchemy.OR(
 				sqlchemy.IsEmpty(q.Field("provider")),
 				sqlchemy.IsNull(q.Field("provider")),
