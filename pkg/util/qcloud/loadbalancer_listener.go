@@ -8,15 +8,15 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 var HTTP_CODES = []string{
-	models.LB_HEALTH_CHECK_HTTP_CODE_1xx,
-	models.LB_HEALTH_CHECK_HTTP_CODE_2xx,
-	models.LB_HEALTH_CHECK_HTTP_CODE_3xx,
-	models.LB_HEALTH_CHECK_HTTP_CODE_4xx,
-	models.LB_HEALTH_CHECK_HTTP_CODE_5xx,
+	consts.LB_HEALTH_CHECK_HTTP_CODE_1xx,
+	consts.LB_HEALTH_CHECK_HTTP_CODE_2xx,
+	consts.LB_HEALTH_CHECK_HTTP_CODE_3xx,
+	consts.LB_HEALTH_CHECK_HTTP_CODE_4xx,
+	consts.LB_HEALTH_CHECK_HTTP_CODE_5xx,
 }
 
 type certificate struct {
@@ -212,7 +212,7 @@ func (self *SLBListener) GetGlobalId() string {
 
 // 腾讯云负载均衡没有启用禁用操作
 func (self *SLBListener) GetStatus() string {
-	return models.LB_STATUS_ENABLED
+	return consts.LB_STATUS_ENABLED
 }
 
 func (self *SLBListener) Refresh() error {
@@ -245,15 +245,15 @@ func (self *SLBListener) GetMetadata() *jsonutils.JSONDict {
 func (self *SLBListener) GetListenerType() string {
 	switch self.Protocol {
 	case "TCP":
-		return models.LB_LISTENER_TYPE_TCP
+		return consts.LB_LISTENER_TYPE_TCP
 	case "UDP":
-		return models.LB_LISTENER_TYPE_UDP
+		return consts.LB_LISTENER_TYPE_UDP
 	case "HTTP":
-		return models.LB_LISTENER_TYPE_HTTP
+		return consts.LB_LISTENER_TYPE_HTTP
 	case "HTTPS":
-		return models.LB_LISTENER_TYPE_HTTPS
+		return consts.LB_LISTENER_TYPE_HTTPS
 	case "TCP_SSL":
-		return models.LB_LISTENER_TYPE_TCP
+		return consts.LB_LISTENER_TYPE_TCP
 	default:
 		return ""
 	}
@@ -266,18 +266,18 @@ func (self *SLBListener) GetListenerPort() int {
 func (self *SLBListener) GetScheduler() string {
 	switch strings.ToLower(self.Scheduler) {
 	case "wrr":
-		return models.LB_SCHEDULER_WRR
+		return consts.LB_SCHEDULER_WRR
 	case "ip_hash":
-		return models.LB_SCHEDULER_SCH
+		return consts.LB_SCHEDULER_SCH
 	case "least_conn":
-		return models.LB_SCHEDULER_WLC
+		return consts.LB_SCHEDULER_WLC
 	default:
 		return ""
 	}
 }
 
 func (self *SLBListener) GetAclStatus() string {
-	return models.LB_BOOL_OFF
+	return consts.LB_BOOL_OFF
 }
 
 func (self *SLBListener) GetAclType() string {
@@ -290,17 +290,17 @@ func (self *SLBListener) GetAclId() string {
 
 func (self *SLBListener) GetHealthCheck() string {
 	if self.HealthCheck.HealthSwitch == 0 {
-		return models.LB_BOOL_OFF
+		return consts.LB_BOOL_OFF
 	} else {
-		return models.LB_BOOL_ON
+		return consts.LB_BOOL_ON
 	}
 }
 
 func (self *SLBListener) GetHealthCheckType() string {
 	if len(self.HealthCheck.HTTPCheckMethod) > 0 {
-		return models.LB_HEALTH_CHECK_HTTP
+		return consts.LB_HEALTH_CHECK_HTTP
 	} else {
-		return models.LB_HEALTH_CHECK_TCP
+		return consts.LB_HEALTH_CHECK_TCP
 	}
 }
 
@@ -331,7 +331,7 @@ func (self *SLBListener) GetHealthCheckExp() string {
 func (self *SLBListener) GetBackendGroup() *SLBBackendGroup {
 	t := self.GetListenerType()
 	// http、https类型的监听不能直接绑定服务器
-	if t == models.LB_LISTENER_TYPE_HTTP || t == models.LB_LISTENER_TYPE_HTTPS {
+	if t == consts.LB_LISTENER_TYPE_HTTP || t == consts.LB_LISTENER_TYPE_HTTPS {
 		return nil
 	} else {
 		return &SLBBackendGroup{lb: self.lb, listener: self}
@@ -380,21 +380,21 @@ func (self *SLBListener) GetILoadbalancerListenerRules() ([]cloudprovider.ICloud
 
 func (self *SLBListener) GetStickySession() string {
 	if self.SessionExpireTime == 0 {
-		return models.LB_BOOL_OFF
+		return consts.LB_BOOL_OFF
 	} else {
-		return models.LB_BOOL_ON
+		return consts.LB_BOOL_ON
 	}
 }
 
 // 支持基于 cookie 插入的会话保持能力 https://cloud.tencent.com/document/product/214/6154
 func (self *SLBListener) GetStickySessionType() string {
-	return models.LB_STICKY_SESSION_TYPE_INSERT
+	return consts.LB_STICKY_SESSION_TYPE_INSERT
 }
 
 // https://cloud.tencent.com/document/product/214/2736
 // 经测试应用型负载均衡返回都是 tgw_l7_route。
 func (self *SLBListener) GetStickySessionCookie() string {
-	if self.GetListenerType() == models.LB_LISTENER_TYPE_HTTPS {
+	if self.GetListenerType() == consts.LB_LISTENER_TYPE_HTTPS {
 		return "tgw_l7_route"
 	}
 
@@ -413,7 +413,7 @@ https://cloud.tencent.com/document/product/214/6151
 */
 func (self *SLBListener) XForwardedForEnabled() bool {
 	switch self.GetListenerType() {
-	case models.LB_LISTENER_TYPE_HTTP, models.LB_LISTENER_TYPE_HTTPS:
+	case consts.LB_LISTENER_TYPE_HTTP, consts.LB_LISTENER_TYPE_HTTPS:
 		return true
 	default:
 		return false
@@ -424,7 +424,7 @@ func (self *SLBListener) XForwardedForEnabled() bool {
 // 负载均衡开启Gzip配置及检测方法说明 https://cloud.tencent.com/document/product/214/5404
 func (self *SLBListener) GzipEnabled() bool {
 	switch self.GetListenerType() {
-	case models.LB_LISTENER_TYPE_HTTP, models.LB_LISTENER_TYPE_HTTPS:
+	case consts.LB_LISTENER_TYPE_HTTP, consts.LB_LISTENER_TYPE_HTTPS:
 		return true
 	default:
 		return false
@@ -647,7 +647,7 @@ func (self *SRegion) UpdateLoadbalancerListener(t LB_TYPE, lbid string, listener
 
 func getHealthCheck(listener *cloudprovider.SLoadbalancerListener) *healthCheck {
 	var hc *healthCheck
-	if listener.HealthCheck == models.LB_BOOL_ON {
+	if listener.HealthCheck == consts.LB_BOOL_ON {
 		hc = &healthCheck{
 			HealthSwitch: 1,
 			UnHealthNum:  listener.HealthCheckFail,
@@ -683,13 +683,13 @@ func getCertificate(listener *cloudprovider.SLoadbalancerListener) *certificate 
 
 func getProtocol(listener *cloudprovider.SLoadbalancerListener) string {
 	switch listener.ListenerType {
-	case models.LB_LISTENER_TYPE_HTTPS:
+	case consts.LB_LISTENER_TYPE_HTTPS:
 		return "HTTPS"
-	case models.LB_LISTENER_TYPE_HTTP:
+	case consts.LB_LISTENER_TYPE_HTTP:
 		return "HTTP"
-	case models.LB_LISTENER_TYPE_TCP:
+	case consts.LB_LISTENER_TYPE_TCP:
 		return "TCP"
-	case models.LB_LISTENER_TYPE_UDP:
+	case consts.LB_LISTENER_TYPE_UDP:
 		return "UDP"
 	case "tcp_ssl":
 		return "TCP_SSL"
@@ -700,13 +700,13 @@ func getProtocol(listener *cloudprovider.SLoadbalancerListener) string {
 
 func getClassicLBProtocol(listener *cloudprovider.SLoadbalancerListener) int {
 	switch listener.ListenerType {
-	case models.LB_LISTENER_TYPE_HTTP:
+	case consts.LB_LISTENER_TYPE_HTTP:
 		return 1
-	case models.LB_LISTENER_TYPE_HTTPS:
+	case consts.LB_LISTENER_TYPE_HTTPS:
 		return 4
-	case models.LB_LISTENER_TYPE_TCP:
+	case consts.LB_LISTENER_TYPE_TCP:
 		return 2
-	case models.LB_LISTENER_TYPE_UDP:
+	case consts.LB_LISTENER_TYPE_UDP:
 		return 3
 	default:
 		return 0 // 非法值
@@ -716,11 +716,11 @@ func getClassicLBProtocol(listener *cloudprovider.SLoadbalancerListener) int {
 func getScheduler(listener *cloudprovider.SLoadbalancerListener) *string {
 	var sch string
 	switch listener.Scheduler {
-	case models.LB_SCHEDULER_WRR:
+	case consts.LB_SCHEDULER_WRR:
 		sch = "WRR"
-	case models.LB_SCHEDULER_WLC:
+	case consts.LB_SCHEDULER_WLC:
 		sch = "LEAST_CONN"
-	case models.LB_SCHEDULER_SCH:
+	case consts.LB_SCHEDULER_SCH:
 		sch = "IP_HASH"
 	default:
 		return nil

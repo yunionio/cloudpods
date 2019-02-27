@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -22,10 +23,10 @@ func init() {
 }
 
 func (self *LoadbalancerCertificateDeleteTask) taskFail(ctx context.Context, lbcert *models.SLoadbalancerCertificate, reason string) {
-	lbcert.SetStatus(self.GetUserCred(), models.LB_STATUS_DELETE_FAILED, reason)
+	lbcert.SetStatus(self.GetUserCred(), consts.LB_STATUS_DELETE_FAILED, reason)
 	db.OpsLog.LogEvent(lbcert, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_DELETE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbcert.Id, lbcert.Name, models.LB_STATUS_DELETE_FAILED, reason)
+	notifyclient.NotifySystemError(lbcert.Id, lbcert.Name, consts.LB_STATUS_DELETE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 

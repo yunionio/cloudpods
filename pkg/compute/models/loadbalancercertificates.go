@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -90,15 +91,15 @@ func (man *SLoadbalancerCertificateManager) validateCertKey(ctx context.Context,
 		// x509.PublicKeyAlgorithm.String() is only available since go1.10
 		switch cert.PublicKeyAlgorithm {
 		case x509.RSA:
-			certPubKeyAlgo = LB_TLS_CERT_PUBKEY_ALGO_RSA
+			certPubKeyAlgo = consts.LB_TLS_CERT_PUBKEY_ALGO_RSA
 		case x509.ECDSA:
-			certPubKeyAlgo = LB_TLS_CERT_PUBKEY_ALGO_ECDSA
+			certPubKeyAlgo = consts.LB_TLS_CERT_PUBKEY_ALGO_ECDSA
 		default:
 			certPubKeyAlgo = fmt.Sprintf("algo %#v", cert.PublicKeyAlgorithm)
 		}
-		if !LB_TLS_CERT_PUBKEY_ALGOS.Has(certPubKeyAlgo) {
+		if !consts.LB_TLS_CERT_PUBKEY_ALGOS.Has(certPubKeyAlgo) {
 			return nil, httperrors.NewInputParameterError("invalid cert pubkey algorithm: %s, want %s",
-				certPubKeyAlgo, LB_TLS_CERT_PUBKEY_ALGOS.String())
+				certPubKeyAlgo, consts.LB_TLS_CERT_PUBKEY_ALGOS.String())
 		}
 	}
 	err := pkeyV.MatchCertificate(cert)
@@ -117,7 +118,7 @@ func (man *SLoadbalancerCertificateManager) validateCertKey(ctx context.Context,
 	data.Set("public_key_algorithm", jsonutils.NewString(certPubKeyAlgo))
 	data.Set("public_key_bit_len", jsonutils.NewInt(int64(certV.PublicKeyBitLen())))
 	data.Set("signature_algorithm", jsonutils.NewString(cert.SignatureAlgorithm.String()))
-	data.Set("fingerprint", jsonutils.NewString(LB_TLS_CERT_FINGERPRINT_ALGO_SHA256+":"+certV.FingerprintSha256String()))
+	data.Set("fingerprint", jsonutils.NewString(consts.LB_TLS_CERT_FINGERPRINT_ALGO_SHA256+":"+certV.FingerprintSha256String()))
 	return data, nil
 }
 
@@ -163,7 +164,7 @@ func (man *SLoadbalancerCertificateManager) InitializeData() error {
 				continue
 			}
 			d := sha256.Sum256(c.Raw)
-			fp = LB_TLS_CERT_FINGERPRINT_ALGO_SHA256 + ":" + hex.EncodeToString(d[:])
+			fp = consts.LB_TLS_CERT_FINGERPRINT_ALGO_SHA256 + ":" + hex.EncodeToString(d[:])
 		}
 		_, err := man.TableSpec().Update(lbcert, func() error {
 			lbcert.Fingerprint = fp
@@ -204,7 +205,7 @@ func (lbcert *SLoadbalancerCertificate) ValidateUpdateData(ctx context.Context, 
 func (lbcert *SLoadbalancerCertificate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbcert.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 
-	lbcert.SetStatus(userCred, LB_CREATING, "")
+	lbcert.SetStatus(userCred, consts.LB_CREATING, "")
 	if err := lbcert.StartLoadBalancerCertificateCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancercertificate error: %v", err)
 	}
@@ -275,7 +276,7 @@ func (lbcert *SLoadbalancerCertificate) PerformPurge(ctx context.Context, userCr
 }
 
 func (lbcert *SLoadbalancerCertificate) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	lbcert.SetStatus(userCred, LB_STATUS_DELETING, "")
+	lbcert.SetStatus(userCred, consts.LB_STATUS_DELETING, "")
 	return lbcert.StartLoadBalancerCertificateDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -321,7 +322,7 @@ func (man *SLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx con
 	for i := 0; i < len(removed); i++ {
 		err = removed[i].ValidateDeleteCondition(ctx)
 		if err != nil { // cannot delete
-			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+			err = removed[i].SetStatus(userCred, consts.LB_STATUS_UNKNOWN, "sync to delete")
 			if err != nil {
 				syncResult.DeleteError(err)
 			} else {

@@ -5,13 +5,15 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/utils"
 )
 
 type SAliyunRegionDriver struct {
@@ -44,14 +46,14 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx c
 
 func (self *SAliyunRegionDriver) ValidateDeleteLoadbalancerBackendCondition(ctx context.Context, lbb *models.SLoadbalancerBackend) error {
 	backendGroup := lbb.GetLoadbalancerBackendGroup()
-	if backendGroup.Type == models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE {
+	if backendGroup.Type == consts.LB_BACKENDGROUP_TYPE_MASTER_SLAVE {
 		return httperrors.NewUnsupportOperationError("backend %s belong master slave backendgroup, not allow delete", lbb.Name)
 	}
 	return nil
 }
 
 func (self *SAliyunRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup) error {
-	if lbbg.Type == models.LB_BACKENDGROUP_TYPE_DEFAULT {
+	if lbbg.Type == consts.LB_BACKENDGROUP_TYPE_DEFAULT {
 		return httperrors.NewUnsupportOperationError("not allow to delete default backend group")
 	}
 	return nil
@@ -60,9 +62,9 @@ func (self *SAliyunRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition
 func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backends []cloudprovider.SLoadbalancerBackend) (*jsonutils.JSONDict, error) {
 	groupType, _ := data.GetString("type")
 	switch groupType {
-	case "", models.LB_BACKENDGROUP_TYPE_NORMAL:
+	case "", consts.LB_BACKENDGROUP_TYPE_NORMAL:
 		break
-	case models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
+	case consts.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
 		if len(backends) != 2 {
 			return nil, httperrors.NewInputParameterError("master slave backendgorup must contain two backend")
 		}
@@ -81,10 +83,10 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx 
 }
 
 func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendType string, lb *models.SLoadbalancer, backendGroup *models.SLoadbalancerBackendGroup, backend db.IModel) (*jsonutils.JSONDict, error) {
-	if backendType != models.LB_BACKEND_GUEST {
+	if backendType != consts.LB_BACKEND_GUEST {
 		return nil, httperrors.NewUnsupportOperationError("internal error: unexpected backend type %s", backendType)
 	}
-	if !utils.IsInStringArray(backendGroup.Type, []string{models.LB_BACKENDGROUP_TYPE_DEFAULT, models.LB_BACKENDGROUP_TYPE_NORMAL}) {
+	if !utils.IsInStringArray(backendGroup.Type, []string{consts.LB_BACKENDGROUP_TYPE_DEFAULT, consts.LB_BACKENDGROUP_TYPE_NORMAL}) {
 		return nil, httperrors.NewUnsupportOperationError("backendgroup %s not support this operation", backendGroup.Name)
 	}
 	guest := backend.(*models.SGuest)
@@ -118,7 +120,7 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx 
 	if !ok {
 		return nil, httperrors.NewMissingParameterError("backend_group")
 	}
-	if backendgroup.Type != models.LB_BACKENDGROUP_TYPE_NORMAL {
+	if backendgroup.Type != consts.LB_BACKENDGROUP_TYPE_NORMAL {
 		return nil, httperrors.NewInputParameterError("backend group type must be normal")
 	}
 	return data, nil
@@ -130,7 +132,7 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		return nil, httperrors.NewMissingParameterError("backend_group")
 	}
 	listenerType, _ := data.GetString("listener_type")
-	if utils.IsInStringArray(listenerType, []string{models.LB_LISTENER_TYPE_HTTP, models.LB_LISTENER_TYPE_HTTPS}) && !utils.IsInStringArray(backendgroup.Type, []string{models.LB_BACKENDGROUP_TYPE_DEFAULT, models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE}) {
+	if utils.IsInStringArray(listenerType, []string{consts.LB_LISTENER_TYPE_HTTP, consts.LB_LISTENER_TYPE_HTTPS}) && !utils.IsInStringArray(backendgroup.Type, []string{consts.LB_BACKENDGROUP_TYPE_DEFAULT, consts.LB_BACKENDGROUP_TYPE_MASTER_SLAVE}) {
 		return nil, httperrors.NewUnsupportOperationError("http or https listener only supportd default or master_slave backendgroup")
 	}
 
@@ -154,11 +156,11 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		"health_check_timeout":  validators.NewRangeValidator("health_check_timeout", 1, 300),
 		"health_check_interval": validators.NewRangeValidator("health_check_interval", 1, 50),
 	}
-	if !utils.IsInStringArray(listenerType, []string{models.LB_LISTENER_TYPE_UDP, models.LB_LISTENER_TYPE_TCP}) {
+	if !utils.IsInStringArray(listenerType, []string{consts.LB_LISTENER_TYPE_UDP, consts.LB_LISTENER_TYPE_TCP}) {
 		keyV["client_idle_timeout"] = validators.NewRangeValidator("client_idle_timeout", 1, 60)
 	}
 
-	if backendgroup.Type == models.LB_BACKENDGROUP_TYPE_DEFAULT {
+	if backendgroup.Type == consts.LB_BACKENDGROUP_TYPE_DEFAULT {
 		keyV["backend_server_port"] = validators.NewPortValidator("backend_server_port")
 	}
 
@@ -192,11 +194,11 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 
 	backendgroup, ok := backendGroup.(*models.SLoadbalancerBackendGroup)
 	if ok {
-		if utils.IsInStringArray(listenerType, []string{models.LB_LISTENER_TYPE_HTTP, models.LB_LISTENER_TYPE_HTTPS}) && !utils.IsInStringArray(backendgroup.Type, []string{models.LB_BACKENDGROUP_TYPE_DEFAULT, models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE}) {
+		if utils.IsInStringArray(listenerType, []string{consts.LB_LISTENER_TYPE_HTTP, consts.LB_LISTENER_TYPE_HTTPS}) && !utils.IsInStringArray(backendgroup.Type, []string{consts.LB_BACKENDGROUP_TYPE_DEFAULT, consts.LB_BACKENDGROUP_TYPE_MASTER_SLAVE}) {
 			return nil, httperrors.NewUnsupportOperationError("http or https listener only supportd default or master_slave backendgroup")
 		}
 
-		if backendgroup.Type == models.LB_BACKENDGROUP_TYPE_DEFAULT {
+		if backendgroup.Type == consts.LB_BACKENDGROUP_TYPE_DEFAULT {
 			keyV["backend_server_port"] = validators.NewPortValidator("backend_server_port")
 		}
 
@@ -206,7 +208,7 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 		}
 	}
 
-	if !utils.IsInStringArray(listenerType, []string{models.LB_LISTENER_TYPE_UDP, models.LB_LISTENER_TYPE_TCP}) {
+	if !utils.IsInStringArray(listenerType, []string{consts.LB_LISTENER_TYPE_UDP, consts.LB_LISTENER_TYPE_TCP}) {
 		keyV["client_idle_timeout"] = validators.NewRangeValidator("client_idle_timeout", 1, 60)
 	}
 

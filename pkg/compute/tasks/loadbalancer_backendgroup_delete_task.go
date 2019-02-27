@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -22,10 +23,10 @@ func init() {
 }
 
 func (self *LoadbalancerBackendGroupDeleteTask) taskFail(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, reason string) {
-	lbbg.SetStatus(self.GetUserCred(), models.LB_STATUS_DELETE_FAILED, reason)
+	lbbg.SetStatus(self.GetUserCred(), consts.LB_STATUS_DELETE_FAILED, reason)
 	db.OpsLog.LogEvent(lbbg, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_DELETE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lbbg.Id, lbbg.Name, models.LB_STATUS_DELETE_FAILED, reason)
+	notifyclient.NotifySystemError(lbbg.Id, lbbg.Name, consts.LB_STATUS_DELETE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 

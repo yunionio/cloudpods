@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -94,7 +95,7 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	domainV := validators.NewDomainNameValidator("domain")
 	pathV := validators.NewURLPathValidator("path")
 	keyV := map[string]validators.IValidator{
-		"status": validators.NewStringChoicesValidator("status", LB_STATUS_SPEC).Default(LB_STATUS_ENABLED),
+		"status": validators.NewStringChoicesValidator("status", consts.LB_STATUS_SPEC).Default(consts.LB_STATUS_ENABLED),
 
 		"listener":      listenerV,
 		"backend_group": backendGroupV,
@@ -113,7 +114,7 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	data.Set("cloudregion_id", jsonutils.NewString(listener.CloudregionId))
 	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
 	listenerType := listener.ListenerType
-	if listenerType != LB_LISTENER_TYPE_HTTP && listenerType != LB_LISTENER_TYPE_HTTPS {
+	if listenerType != consts.LB_LISTENER_TYPE_HTTP && listenerType != consts.LB_LISTENER_TYPE_HTTPS {
 		return nil, fmt.Errorf("listener type must be http/https, got %s", listenerType)
 	}
 	{
@@ -148,7 +149,7 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 func (lbr *SLoadbalancerListenerRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbr.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 
-	lbr.SetStatus(userCred, LB_CREATING, "")
+	lbr.SetStatus(userCred, consts.LB_CREATING, "")
 	if err := lbr.StartLoadBalancerListenerRuleCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancer listener rule error: %v", err)
 	}
@@ -174,7 +175,7 @@ func (lbr *SLoadbalancerListenerRule) PerformPurge(ctx context.Context, userCred
 }
 
 func (lbr *SLoadbalancerListenerRule) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	lbr.SetStatus(userCred, LB_STATUS_DELETING, "")
+	lbr.SetStatus(userCred, consts.LB_STATUS_DELETING, "")
 	return lbr.StartLoadBalancerListenerRuleDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -303,7 +304,7 @@ func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx c
 	for i := 0; i < len(removed); i++ {
 		err = removed[i].ValidateDeleteCondition(ctx)
 		if err != nil { // cannot delete
-			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+			err = removed[i].SetStatus(userCred, consts.LB_STATUS_UNKNOWN, "sync to delete")
 			if err != nil {
 				syncResult.DeleteError(err)
 			} else {

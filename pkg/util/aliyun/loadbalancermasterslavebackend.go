@@ -5,7 +5,8 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/compute/models"
+
+	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type SLoadbalancerMasterSlaveBackend struct {
@@ -54,7 +55,7 @@ func (backend *SLoadbalancerMasterSlaveBackend) GetPort() int {
 }
 
 func (backend *SLoadbalancerMasterSlaveBackend) GetBackendType() string {
-	return models.LB_BACKEND_GUEST
+	return consts.LB_BACKEND_GUEST
 }
 
 func (backend *SLoadbalancerMasterSlaveBackend) GetBackendRole() string {

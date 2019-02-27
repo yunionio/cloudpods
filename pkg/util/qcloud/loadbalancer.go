@@ -8,8 +8,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 const (
@@ -57,7 +58,7 @@ func (self *SLoadbalancer) GetLoadbalancerSpec() string {
 }
 
 func (self *SLoadbalancer) GetChargeType() string {
-	return models.LB_CHARGE_TYPE_BY_HOUR
+	return consts.LB_CHARGE_TYPE_BY_HOUR
 }
 
 // https://cloud.tencent.com/document/product/214/30689
@@ -124,7 +125,7 @@ func onecloudHealthCodeToQcloud(codes string) int {
 // 应用型负载均衡 https监听默认开启SNI。传统型不支持设置SNI
 func (self *SLoadbalancer) CreateILoadBalancerListener(listener *cloudprovider.SLoadbalancerListener) (cloudprovider.ICloudLoadbalancerListener, error) {
 	sniSwitch := 0
-	if listener.ListenerType == models.LB_LISTENER_TYPE_HTTPS {
+	if listener.ListenerType == consts.LB_LISTENER_TYPE_HTTPS {
 		sniSwitch = 1
 	}
 
@@ -201,11 +202,11 @@ func (self *SLoadbalancer) GetGlobalId() string {
 func (self *SLoadbalancer) GetStatus() string {
 	switch self.Status {
 	case 0:
-		return models.LB_STATUS_INIT
+		return consts.LB_STATUS_INIT
 	case 1:
-		return models.LB_STATUS_ENABLED
+		return consts.LB_STATUS_ENABLED
 	default:
-		return models.LB_STATUS_UNKNOWN
+		return consts.LB_STATUS_UNKNOWN
 	}
 }
 
@@ -240,16 +241,16 @@ func (self *SLoadbalancer) GetAddress() string {
 func (self *SLoadbalancer) GetAddressType() string {
 	switch self.LoadBalancerType {
 	case LB_ADDR_TYPE_INTERNAL:
-		return models.LB_ADDR_TYPE_INTRANET
+		return consts.LB_ADDR_TYPE_INTRANET
 	case LB_ADDR_TYPE_OPEN:
-		return models.LB_ADDR_TYPE_INTERNET
+		return consts.LB_ADDR_TYPE_INTERNET
 	default:
 		return ""
 	}
 }
 
 func (self *SLoadbalancer) GetNetworkType() string {
-	return models.LB_NETWORK_TYPE_VPC
+	return consts.LB_NETWORK_TYPE_VPC
 }
 
 func (self *SLoadbalancer) GetNetworkId() string {
@@ -302,7 +303,7 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.IClo
 	for i := range listeners {
 		listener := listeners[i]
 		t := listener.GetListenerType()
-		if t == models.LB_LISTENER_TYPE_HTTP || t == models.LB_LISTENER_TYPE_HTTPS {
+		if t == consts.LB_LISTENER_TYPE_HTTP || t == consts.LB_LISTENER_TYPE_HTTPS {
 			rules := listener.Rules
 			for i := range rules {
 				rule := rules[i]
