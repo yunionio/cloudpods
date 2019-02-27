@@ -988,3 +988,135 @@ func (task *SGuestOnlineResizeDiskTask) OnResizeSucc(result string) {
 	params.Add(jsonutils.NewInt(task.sizeMB), "disk_size")
 	hostutils.TaskComplete(task.ctx, params)
 }
+
+/**
+ *  GuestHotplugCpuMem
+**/
+
+type SGuestHotplugCpuMemTask struct {
+	*SKVMGuestInstance
+
+	ctx         context.Context
+	addCpuCount int
+	addMemSize  int
+
+	originalCpuCount int
+	addedCpuCount    int
+
+	memSlotNewIndex *int
+}
+
+func NewGuestHotplugCpuMemTask(
+	ctx context.Context, s *SKVMGuestInstance, addCpuCount, addMemSize int,
+) *SGuestHotplugCpuMemTask {
+	return &SGuestHotplugCpuMemTask{
+		SKVMGuestInstance: s,
+		ctx:               ctx,
+		addCpuCount:       addCpuCount,
+		addMemSize:        addMemSize,
+	}
+}
+
+// First at all add cpu count, second add mem size
+func (task *SGuestHotplugCpuMemTask) Start() {
+	if task.addCpuCount > 0 {
+		task.startAddCpu()
+	} else if task.addMemSize > 0 {
+		task.startAddMem()
+	} else {
+		task.onSucc()
+	}
+}
+
+func (task *SGuestHotplugCpuMemTask) startAddCpu() {
+	if task.addCpuCount > 0 {
+		task.Monitor.GetCpuCount(task.onGetCpuCount)
+	}
+
+}
+
+func (task *SGuestHotplugCpuMemTask) onGetCpuCount(count int) {
+	task.originalCpuCount = count
+	task.doAddCpu()
+}
+
+func (task *SGuestHotplugCpuMemTask) doAddCpu() {
+	if task.addedCpuCount < task.addCpuCount {
+		task.Monitor.AddCpu(task.originalCpuCount+task.addedCpuCount, task.onAddCpu)
+	} else {
+		task.startAddMem()
+	}
+}
+
+func (task *SGuestHotplugCpuMemTask) onAddCpu(reason string) {
+	if len(reason) > 0 {
+		log.Errorln(reason)
+		task.onFail(reason)
+		return
+	}
+	task.addedCpuCount += 1
+	task.doAddCpu()
+}
+
+func (task *SGuestHotplugCpuMemTask) startAddMem() {
+	if task.addMemSize > 0 {
+		task.Monitor.GeMemtSlotIndex(task.onGetSlotIndex)
+	} else {
+		task.onSucc()
+	}
+}
+
+// index little then zero indicate guest not take up slot
+func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
+	var newIndex int
+	if index < 0 {
+		newIndex = 0
+	} else {
+		newIndex = index + 1
+	}
+	task.memSlotNewIndex = &newIndex
+	params := map[string]string{
+		"id":   fmt.Sprintf("mem%d", *task.memSlotNewIndex),
+		"size": fmt.Sprintf("%dM", task.addMemSize),
+	}
+	task.Monitor.ObjectAdd("memory-backend-ram", params, task.onAddMemObject)
+}
+
+func (task *SGuestHotplugCpuMemTask) onAddMemObject(reason string) {
+	if len(reason) > 0 {
+		log.Errorln(reason)
+		cb := func(res string) { log.Infof("%s", res) }
+		task.Monitor.ObjectDel(fmt.Sprintf("mem%d", *task.memSlotNewIndex), cb)
+		task.onFail(reason)
+		return
+	}
+	params := map[string]interface{}{
+		"id":     fmt.Sprintf("dimm%d", *task.memSlotNewIndex),
+		"memdev": fmt.Sprintf("mem%d", *task.memSlotNewIndex),
+	}
+	task.Monitor.DeviceAdd("pc-dimm", params, task.onAddMemDevice)
+}
+
+func (task *SGuestHotplugCpuMemTask) onAddMemDevice(reason string) {
+	if len(reason) > 0 {
+		log.Errorln(reason)
+		task.onFail(reason)
+		return
+	}
+	task.onSucc()
+}
+
+func (task *SGuestHotplugCpuMemTask) onFail(reason string) {
+	body := jsonutils.NewDict()
+	if task.addedCpuCount < task.addCpuCount {
+		body.Set("add_cpu_failed", jsonutils.JSONTrue)
+		body.Set("added_cpu", jsonutils.NewInt(int64(task.addedCpuCount)))
+	} else if task.memSlotNewIndex != nil {
+		body.Set("add_mem_failed", jsonutils.JSONTrue)
+	}
+	hostutils.TaskFailed2(task.ctx, reason, body)
+}
+
+func (task *SGuestHotplugCpuMemTask) onSucc() {
+	hostutils.TaskComplete(task.ctx, nil)
+}

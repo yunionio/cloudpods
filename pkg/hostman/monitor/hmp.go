@@ -66,18 +66,22 @@ func (m *HmpMonitor) read(r io.Reader) {
 		} else {
 			// remove reader timeout
 			m.connected = true
+			m.timeout = false
 			m.rwc.SetReadDeadline(time.Time{})
+			go m.query()
+			go m.OnMonitorConnected()
 		}
 	}
 	log.Errorln("Scan over ...")
-	if err := scanner.Err(); err != nil {
-		log.Errorln(err)
-		if m.connected {
-			m.connected = false
-			m.OnMonitorDisConnect(err)
-		} else {
-			m.OnMonitorTimeout(err)
-		}
+	err := scanner.Err()
+	if err != nil {
+		log.Infof("HMP Disconnected: %s", err)
+	}
+	if m.timeout {
+		m.OnMonitorTimeout(err)
+	} else if m.connected {
+		m.connected = false
+		m.OnMonitorDisConnect(err)
 	}
 	m.reading = false
 }
@@ -91,6 +95,10 @@ func (m *HmpMonitor) callBack(res string) {
 	m.callbackQueue = m.callbackQueue[1:]
 	m.mutex.Unlock()
 	if cb != nil {
+		pos := strings.Index(res, "\r\n")
+		if pos > 0 {
+			res = res[pos+2:]
+		}
 		go cb(res)
 	}
 }
@@ -161,8 +169,8 @@ func (m *HmpMonitor) QueryStatus(callback StringCallback) {
 }
 
 func (m *HmpMonitor) parseStatus(callback StringCallback) StringCallback {
-	return func(res string) {
-		strs := strings.Split(res, "\r\n")
+	return func(output string) {
+		strs := strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")
 		for _, str := range strs {
 			if strings.HasPrefix(str, "VM status:") {
 				callback(strings.TrimSpace(str[len("VM status:"):]))
@@ -185,8 +193,8 @@ func (m *HmpMonitor) GetVersion(callback StringCallback) {
 }
 
 func (m *HmpMonitor) GetBlocks(callback func(*jsonutils.JSONArray)) {
-	var cb = func(res string) {
-		var lines = strings.Split(res, "\r\n")
+	var cb = func(output string) {
+		var lines = strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")
 		var mergedOutput = []string{}
 
 		// merge output
@@ -250,6 +258,10 @@ func (m *HmpMonitor) DeviceDel(idstr string, callback StringCallback) {
 	m.Query(fmt.Sprintf("device_del %s", idstr), callback)
 }
 
+func (m *HmpMonitor) ObjectDel(idstr string, callback StringCallback) {
+	m.Query(fmt.Sprintf("object_del %s", idstr), callback)
+}
+
 func (m *HmpMonitor) DriveAdd(bus string, params map[string]string, callback StringCallback) {
 	var paramsKvs = []string{}
 	for k, v := range params {
@@ -288,7 +300,7 @@ func (m *HmpMonitor) GetMigrateStatus(callback StringCallback) {
 		log.Infof("Query migrate status: %s", output)
 
 		var status string
-		for _, line := range strings.Split(output, "\n") {
+		for _, line := range strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n") {
 			if strings.HasPrefix(line, "Migration status") {
 				status = line[strings.LastIndex(line, " ")+1:]
 				break
@@ -302,7 +314,7 @@ func (m *HmpMonitor) GetMigrateStatus(callback StringCallback) {
 
 func (m *HmpMonitor) GetBlockJobCounts(callback func(jobs int)) {
 	cb := func(output string) {
-		lines := strings.Split(output, "\n")
+		lines := strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")
 		if lines[0] == "No active jobs" {
 			callback(0)
 		} else {
@@ -315,7 +327,7 @@ func (m *HmpMonitor) GetBlockJobCounts(callback func(jobs int)) {
 
 func (m *HmpMonitor) GetBlockJobs(callback func(*jsonutils.JSONArray)) {
 	cb := func(output string) {
-		lines := strings.Split(output, "\n")
+		lines := strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")
 		if lines[0] == "No active jobs" {
 			callback(nil)
 		} else {
@@ -382,4 +394,33 @@ func (m *HmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, ca
 func (m *HmpMonitor) ResizeDisk(driveName string, sizeMB int64, callback StringCallback) {
 	cmd := fmt.Sprintf("block_resize %s %d", driveName, sizeMB)
 	m.Query(cmd, callback)
+}
+
+func (m *HmpMonitor) GetCpuCount(callback func(count int)) {
+	var cb = func(output string) {
+		cpus := strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")
+		callback(len(cpus))
+	}
+	m.Query("info cpus", cb)
+}
+
+func (m *HmpMonitor) AddCpu(cpuIndex int, callback StringCallback) {
+	m.Query(fmt.Sprintf("cpu-add %d", cpuIndex), callback)
+}
+
+func (m *HmpMonitor) GeMemtSlotIndex(callback func(index int)) {
+	var cb = func(output string) {
+		memInfos := strings.Split(strings.TrimSuffix(output, "\r\n"), "\r\n")
+		var count int
+		for _, line := range memInfos {
+			if strings.HasPrefix(line, "slot:") {
+				count += 1
+			}
+		}
+		if count == 0 {
+			count = -1
+		}
+		callback(count)
+	}
+	m.Query("info memory-devices", cb)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -24,7 +25,7 @@ func init() {
 func (self *GuestChangeConfigTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	_, err := self.Params.Get("resize")
 	if err == nil {
-		self.SetStage("on_disks_resize_complete", nil)
+		self.SetStage("OnDisksResizeComplete", nil)
 		self.OnDisksResizeComplete(ctx, obj, data)
 	} else {
 		guest := obj.(*models.SGuest)
@@ -100,7 +101,7 @@ func (self *GuestChangeConfigTask) DoCreateDisksTask(ctx context.Context, guest 
 		return
 	}
 	data := (iCreateData).(*jsonutils.JSONDict)
-	self.SetStage("on_create_disks_complete", nil)
+	self.SetStage("OnCreateDisksComplete", nil)
 	guest.StartGuestCreateDiskTask(ctx, self.UserCred, data, self.GetTaskId())
 }
 
@@ -135,11 +136,6 @@ func (self *GuestChangeConfigTask) startGuestChangeCpuMemSpec(ctx context.Contex
 		self.markStageFailed(ctx, guest, fmt.Sprintf("guest.GetDriver().RequestChangeVmConfig fail %s", err))
 		return
 	}
-}
-
-func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
-	self.markStageFailed(ctx, guest, fmt.Sprintf("guest.GetDriver().RequestChangeVmConfig fail %s", err))
 }
 
 func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -200,8 +196,15 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 	self.OnGuestChangeCpuMemSpecFinish(ctx, guest)
 }
 
+func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if err := guest.GetDriver().OnGuestChangeCpuMemFailed(ctx, guest, data.(*jsonutils.JSONDict), self); err != nil {
+		log.Errorln(err)
+	}
+	self.markStageFailed(ctx, guest, fmt.Sprintf("guest.GetDriver().RequestChangeVmConfig fail %s", data))
+}
+
 func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecFinish(ctx context.Context, guest *models.SGuest) {
-	self.SetStage("on_sync_config_complete", nil)
+	self.SetStage("OnSyncConfigComplete", nil)
 	err := guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
 	if err != nil {
 		self.markStageFailed(ctx, guest, fmt.Sprintf("StartSyncstatus fail %s", err))
