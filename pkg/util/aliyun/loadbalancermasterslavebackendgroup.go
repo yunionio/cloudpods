@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type SLoadbalancerMasterSlaveBackendGroup struct {
@@ -28,7 +29,7 @@ func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetGlobalId() string {
 }
 
 func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetStatus() string {
-	return models.LB_STATUS_ENABLED
+	return consts.LB_STATUS_ENABLED
 }
 
 func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetMetadata() *jsonutils.JSONDict {
@@ -48,7 +49,7 @@ func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) IsDefault() bool {
 }
 
 func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetType() string {
-	return models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE
+	return consts.LB_BACKENDGROUP_TYPE_MASTER_SLAVE
 }
 
 func (region *SRegion) GetLoadbalancerMasterSlaveBackendgroups(loadbalancerId string) ([]SLoadbalancerMasterSlaveBackendGroup, error) {

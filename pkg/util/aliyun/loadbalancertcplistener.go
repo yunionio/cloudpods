@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type SLoadbalancerTCPListener struct {
@@ -56,11 +57,11 @@ func (listerner *SLoadbalancerTCPListener) GetGlobalId() string {
 func (listerner *SLoadbalancerTCPListener) GetStatus() string {
 	switch listerner.Status {
 	case "starting", "running":
-		return models.LB_STATUS_ENABLED
+		return consts.LB_STATUS_ENABLED
 	case "configuring", "stopping", "stopped":
-		return models.LB_STATUS_DISABLED
+		return consts.LB_STATUS_DISABLED
 	default:
-		return models.LB_STATUS_UNKNOWN
+		return consts.LB_STATUS_UNKNOWN
 	}
 }
 
@@ -237,11 +238,11 @@ func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, list
 		params["AclType"] = listener.AccessControlListType
 	}
 	switch listener.BackendGroupType {
-	case models.LB_BACKENDGROUP_TYPE_NORMAL:
+	case consts.LB_BACKENDGROUP_TYPE_NORMAL:
 		params["VServerGroupId"] = listener.BackendGroupID
-	case models.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
+	case consts.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
 		params["MasterSlaveServerGroupId"] = listener.BackendGroupID
-	case models.LB_BACKENDGROUP_TYPE_DEFAULT:
+	case consts.LB_BACKENDGROUP_TYPE_DEFAULT:
 		params["BackendServerPort"] = fmt.Sprintf("%d", listener.BackendServerPort)
 	}
 	if len(listener.Name) > 0 {
@@ -251,7 +252,7 @@ func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, list
 		params["EstablishedTimeout"] = fmt.Sprintf("%d", listener.EstablishedTimeout)
 	}
 
-	if utils.IsInStringArray(listener.ListenerType, []string{models.LB_LISTENER_TYPE_TCP, models.LB_LISTENER_TYPE_UDP}) {
+	if utils.IsInStringArray(listener.ListenerType, []string{consts.LB_LISTENER_TYPE_TCP, consts.LB_LISTENER_TYPE_UDP}) {
 		if listener.HealthCheckTimeout >= 1 && listener.HealthCheckTimeout <= 300 {
 			params["HealthCheckConnectTimeout"] = fmt.Sprintf("%d", listener.HealthCheckTimeout)
 		}

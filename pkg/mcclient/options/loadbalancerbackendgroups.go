@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -54,8 +54,8 @@ func NewBackend(s string, index int) (*SBackend, error) {
 			}
 			backend.Port = port
 		case "backend_type":
-			if utils.IsInStringArray(value[1], []string{models.LB_BACKEND_GUEST, models.LB_BACKEND_HOST}) {
-				return nil, fmt.Errorf("invalid backend type %s only support %s %s", value[1], models.LB_BACKEND_GUEST, models.LB_BACKEND_HOST)
+			if utils.IsInStringArray(value[1], []string{consts.LB_BACKEND_GUEST, consts.LB_BACKEND_HOST}) {
+				return nil, fmt.Errorf("invalid backend type %s only support %s %s", value[1], consts.LB_BACKEND_GUEST, consts.LB_BACKEND_HOST)
 			}
 			backend.BackendType = value[1]
 		case "id":

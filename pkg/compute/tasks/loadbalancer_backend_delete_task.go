@@ -8,6 +8,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -20,7 +21,7 @@ func init() {
 }
 
 func (self *LoadbalancerBackendDeleteTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, reason string) {
-	lbb.SetStatus(self.GetUserCred(), models.LB_STATUS_DELETE_FAILED, reason)
+	lbb.SetStatus(self.GetUserCred(), consts.LB_STATUS_DELETE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 

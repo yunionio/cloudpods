@@ -1665,11 +1665,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9a92b34083e218c123d21a4b0d74228df6b186de9dcd6489e5b4cf68f4e90104"
+  digest = "1:5ef22fef33e8bfb5e66901f9adba50f5d594ad20263a132fdc62801033eb7712"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "c40afc81cccc4618168f722c64deba7cfbb1f8bd"
+  revision = "ff8561d72c32ba4eb91ee660f6f2ca9e6f64d268"
 
 [[projects]]
   branch = "master"
@@ -1722,11 +1722,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b5a46ce3c4591a9d02662732fe09301a8ebfaf05ebd1d8925385d2e55519df4f"
+  digest = "1:cb0b3f303fb24e8a173183b30480ccb690996b6e28e1c52e58e8fc6d2cf51eb8"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "0aabcd7bbb728b02d10920325cc15b373e7b0538"
+  revision = "dfa73ef1a72202e8cbc68dbb7bd155cec4894928"
 
 [[projects]]
   branch = "master"
