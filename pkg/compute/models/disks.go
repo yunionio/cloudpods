@@ -1395,7 +1395,8 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if self.GetCloudprovider().Provider == CLOUD_PROVIDER_HUAWEI && self.GetSnapshotCount() > 0 {
+	provider := self.GetCloudprovider()
+	if provider != nil && provider.Provider == CLOUD_PROVIDER_HUAWEI && self.GetSnapshotCount() > 0 {
 		return httperrors.NewForbiddenError("not allow to delete. Virtual disk must not have snapshots")
 	}
 

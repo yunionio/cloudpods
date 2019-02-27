@@ -228,10 +228,10 @@ func (h *SHostInfo) prepareEnv() error {
 		return err
 	}
 
-	err = h.resetIptables()
-	if err != nil {
-		return err
-	}
+	// err = h.resetIptables()
+	// if err != nil {
+	// 	return err
+	// }
 
 	if options.HostOptions.EnableKsm {
 		h.EnableKsm(900)
