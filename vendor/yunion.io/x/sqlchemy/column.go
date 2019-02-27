@@ -297,7 +297,7 @@ func NewBooleanColumn(name string, tagmap map[string]string, isPointer bool) SBo
 	bc := SBooleanColumn{SBaseWidthColumn: NewBaseWidthColumn(name, "TINYINT", tagmap, isPointer)}
 	if !bc.IsPointer() && len(bc.Default()) > 0 && bc.ConvertFromString(bc.Default()) == "1" {
 		log.Warningf("Non-pointer boolean type should not set default value: %s(%s)", name, tagmap)
-		bc.defaultString = ""
+		// bc.defaultString = ""
 	}
 	return bc
 }
