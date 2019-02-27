@@ -11,7 +11,7 @@ import (
 func doStatsHandler(stats *jsonutils.JSONArray, method, path string, hi, total *SHandlerInfo) {
 	s := jsonutils.NewDict()
 	s.Add(jsonutils.NewString(method), "method")
-	s.Add(jsonutils.NewString("/"+path), "path")
+	s.Add(jsonutils.NewString(path), "path")
 	s.Add(jsonutils.NewString(hi.GetName(nil)), "name")
 	s.Add(jsonutils.NewInt(hi.counter2XX.hit), "hit.2XX")
 	s.Add(jsonutils.NewFloat(hi.counter2XX.duration), "duration.2XX")

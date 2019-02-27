@@ -388,7 +388,10 @@ func (app *Application) ListenAndServeWithCleanup(addr string, onStop func()) {
 
 func (app *Application) ListenAndServeTLSWithCleanup(addr string, certFile, keyFile string, onStop func()) {
 	s := app.initServer(addr)
-	app.registerCleanShutdown(s, onStop)
+	if onStop != nil {
+		app.registerCleanShutdown(s, onStop)
+	}
+
 	var err error
 	if len(certFile) == 0 && len(keyFile) == 0 {
 		err = s.ListenAndServe()

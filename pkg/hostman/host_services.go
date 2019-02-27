@@ -16,6 +16,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostmetrics"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/metadata"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 )
@@ -52,6 +53,11 @@ func (host *SHostService) StartService() {
 	})
 	host.initHandlers(app)
 	<-hostinfo.Instance().IsRegistered // wait host and guest init
+
+	// Init Metadata handler
+	go metadata.StartService(
+		cloudcommon.InitApp(&options.HostOptions.CommonOptions, false),
+		options.HostOptions.Address, options.HostOptions.Port+1000)
 
 	cronManager := cronman.GetCronJobManager(false)
 	cronManager.AddJob2(

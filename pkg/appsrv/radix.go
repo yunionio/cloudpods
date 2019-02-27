@@ -33,7 +33,10 @@ func isRegexSegment(seg string) bool {
 
 func (r *RadixNode) Add(segments []string, data interface{}) error {
 	err := r.add(segments, data, 1, nil)
-	return fmt.Errorf("Add Node error: %s %s", err, strings.Join(segments, "/"))
+	if err != nil {
+		return fmt.Errorf("Add Node error: %s %s", err, strings.Join(segments, "/"))
+	}
+	return nil
 }
 
 func (r *RadixNode) add(segments []string, data interface{}, depth int, segNames map[int]string) error {
