@@ -12,17 +12,38 @@ import (
 type RadixNode struct {
 	data        interface{}
 	stringNodes map[string]*RadixNode
-	regexpNodes map[string]*RadixNode
+	regexpNodes []*RegexpNode
 	segNames    map[int]string
+}
+
+type RegexpNode struct {
+	node   *RadixNode
+	regStr string
 }
 
 func NewRadix() *RadixNode {
 	return &RadixNode{
 		data:        nil,
 		stringNodes: make(map[string]*RadixNode, 0),
-		regexpNodes: make(map[string]*RadixNode, 0),
+		regexpNodes: make([]*RegexpNode, 0),
 		segNames:    nil,
 	}
+}
+
+func NewRegexpNode(node *RadixNode, regStr string) *RegexpNode {
+	return &RegexpNode{
+		node:   node,
+		regStr: regStr,
+	}
+}
+
+func isRegstrInRegexpNodes(regNodes []*RegexpNode, regStr string) (*RadixNode, bool) {
+	for i := 0; i < len(regNodes); i++ {
+		if regNodes[i].regStr == regStr {
+			return regNodes[i].node, true
+		}
+	}
+	return nil, false
 }
 
 func isRegexSegment(seg string) bool {
@@ -73,11 +94,12 @@ func (r *RadixNode) add(segments []string, data interface{}, depth int, segNames
 			}
 			segNames[depth-1] = segName
 
-			if node, ok := r.regexpNodes[regStr]; ok {
+			if node, ok := isRegstrInRegexpNodes(r.regexpNodes, regStr); ok {
 				nextNode = node
 			} else {
 				nextNode = NewRadix()
-				r.regexpNodes[regStr] = nextNode
+				regNode := NewRegexpNode(nextNode, regStr)
+				r.regexpNodes = append(r.regexpNodes, regNode)
 			}
 		} else {
 			if node, ok := r.stringNodes[segments[0]]; ok {
@@ -116,9 +138,9 @@ func (r *RadixNode) match(segments []string) (*RadixNode, bool) {
 	}
 
 	var nodeTmp *RadixNode
-	for regstr, node := range r.regexpNodes {
-		if regexp.MustCompile(regstr).MatchString(segments[0]) {
-			if rnode, fullMatch := node.match(segments[1:]); rnode != nil && rnode.data != nil {
+	for _, regNode := range r.regexpNodes {
+		if regexp.MustCompile(regNode.regStr).MatchString(segments[0]) {
+			if rnode, fullMatch := regNode.node.match(segments[1:]); rnode != nil && rnode.data != nil {
 				if fullMatch {
 					return rnode, fullMatch
 				} else {
@@ -152,8 +174,8 @@ func (r *RadixNode) walk(fullPath string, f func(spath string, data interface{})
 		curPath := path.Join(fullPath, key)
 		node.walk(curPath, f)
 	}
-	for key, node := range r.regexpNodes {
-		curPath := path.Join(fullPath, key)
-		node.walk(curPath, f)
+	for _, regNode := range r.regexpNodes {
+		curPath := path.Join(fullPath, regNode.regStr)
+		regNode.node.walk(curPath, f)
 	}
 }
