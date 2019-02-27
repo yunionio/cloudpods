@@ -649,3 +649,7 @@ func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAc
 func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (region *SRegion) GetProjects() ([]cloudprovider.ICloudProject, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}

@@ -39,6 +39,10 @@ func (self *SESXiProviderFactory) IsOnPremise() bool {
 	return true
 }
 
+func (self *SESXiProviderFactory) IsProjectRegional() bool {
+	return false
+}
+
 func (self *SESXiProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }

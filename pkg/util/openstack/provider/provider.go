@@ -44,6 +44,10 @@ func (self *SOpenStackProviderFactory) IsSupportPrepaidResources() bool {
 	return false
 }
 
+func (self *SOpenStackProviderFactory) IsProjectRegional() bool {
+	return false
+}
+
 func (self *SOpenStackProviderFactory) NeedSyncSkuFromCloud() bool {
 	return true
 }

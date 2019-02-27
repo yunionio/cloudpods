@@ -155,6 +155,10 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 		if len(syncRange.Region) > 0 && !utils.IsInStringArray(localRegions[i].Id, syncRange.Region) {
 			continue
 		}
+		if driver.GetFactory().IsProjectRegional() || i == 0 {
+			syncRegionProjects(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
+		}
+
 		syncRegionEips(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
 
 		localZones, remoteZones := syncRegionZones(ctx, provider, task, &localRegions[i], remoteRegions[i])
@@ -389,6 +393,25 @@ func syncRegionSnapshots(ctx context.Context, provider *models.SCloudprovider, t
 		return
 	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.GetUserCred())
+}
+
+func syncRegionProjects(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) {
+	projects, err := remoteRegion.GetProjects()
+	if err != nil {
+		msg := fmt.Sprintf("GetIProjects for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+
+	result := models.ExternalProjectManager.SyncProjects(ctx, task.UserCred, provider, localRegion, projects, syncRange.ProjectSync)
+	msg := result.Result()
+	log.Infof("SyncProjects for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_PROJECT_COMPLETE, msg, task.UserCred)
 }
 
 func syncRegionEips(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) {

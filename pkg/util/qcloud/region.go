@@ -602,6 +602,10 @@ func (self *SRegion) cvmRequest(apiName string, params map[string]string) (jsonu
 	return self.client.jsonRequest(apiName, params)
 }
 
+func (self *SRegion) accountRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	return self.client.accountRequestRequest(apiName, params)
+}
+
 func (self *SRegion) cbsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
 	return self.client.cbsRequest(apiName, params)
@@ -772,4 +776,26 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 		return "", err
 	}
 	return instance.InstanceState, nil
+}
+
+func (region *SRegion) GetProjects() ([]cloudprovider.ICloudProject, error) {
+	projects := []SProject{}
+	params := map[string]string{"allList": "1"}
+	body, err := region.accountRequest("DescribeProject", params)
+	if err != nil {
+		return nil, err
+	}
+	if err := body.Unmarshal(&projects); err != nil {
+		return nil, err
+	}
+	projects = append(projects, SProject{
+		ProjectId:   "0",
+		ProjectName: "默认项目",
+		CreateTime:  time.Time{},
+	})
+	iprojects := []cloudprovider.ICloudProject{}
+	for i := 0; i < len(projects); i++ {
+		iprojects = append(iprojects, &projects[i])
+	}
+	return iprojects, nil
 }

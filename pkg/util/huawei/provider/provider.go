@@ -37,6 +37,10 @@ func (self *SHuaweiProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
+func (self *SHuaweiProviderFactory) IsProjectRegional() bool {
+	return true
+}
+
 func (self *SHuaweiProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }

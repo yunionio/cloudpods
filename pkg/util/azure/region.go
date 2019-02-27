@@ -555,3 +555,15 @@ func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAc
 func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (region *SRegion) GetProjects() ([]cloudprovider.ICloudProject, error) {
+	resourceGroups, err := region.GetResourceGroups()
+	if err != nil {
+		return nil, err
+	}
+	iprojects := []cloudprovider.ICloudProject{}
+	for i := 0; i < len(resourceGroups); i++ {
+		iprojects = append(iprojects, &resourceGroups[i])
+	}
+	return iprojects, nil
+}

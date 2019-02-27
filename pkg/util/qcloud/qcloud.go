@@ -78,6 +78,11 @@ func cbsRequest(client *common.Client, apiName string, params map[string]string)
 	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params)
 }
 
+func accountRequest(client *common.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	domain := "account.api.qcloud.com"
+	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params)
+}
+
 // loadbalancer服务 api 3.0
 func clbRequest(client *common.Client, apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	domain := apiDomain("clb", params)
@@ -294,6 +299,14 @@ func (client *SQcloudClient) cbsRequest(apiName string, params map[string]string
 		return nil, err
 	}
 	return cbsRequest(cli, apiName, params)
+}
+
+func (client *SQcloudClient) accountRequestRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return accountRequest(cli, apiName, params)
 }
 
 func (client *SQcloudClient) clbRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {

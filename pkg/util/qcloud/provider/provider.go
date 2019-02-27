@@ -44,6 +44,10 @@ func (self *SQcloudProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
+func (self *SQcloudProviderFactory) IsProjectRegional() bool {
+	return false
+}
+
 func (self *SQcloudProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }

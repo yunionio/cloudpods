@@ -37,6 +37,10 @@ func (self *SAwsProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
+func (self *SAwsProviderFactory) IsProjectRegional() bool {
+	return false
+}
+
 func (self *SAwsProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }

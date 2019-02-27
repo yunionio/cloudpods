@@ -39,6 +39,10 @@ func (self *SAzureProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
+func (self *SAzureProviderFactory) IsProjectRegional() bool {
+	return false
+}
+
 func (self *SAzureProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }

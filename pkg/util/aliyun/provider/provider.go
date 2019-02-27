@@ -34,6 +34,10 @@ func (self *SAliyunProviderFactory) IsOnPremise() bool {
 	return false
 }
 
+func (self *SAliyunProviderFactory) IsProjectRegional() bool {
+	return false
+}
+
 func (self *SAliyunProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }

@@ -77,6 +77,8 @@ type ICloudRegion interface {
 	GetSkus(zoneId string) ([]ICloudSku, error)
 
 	GetProvider() string
+
+	GetProjects() ([]ICloudProject, error)
 }
 
 type ICloudZone interface {
@@ -560,4 +562,8 @@ type ICloudSku interface {
 	GetGpuSpec() string
 	GetGpuCount() int
 	GetGpuMaxCount() int
+}
+
+type ICloudProject interface {
+	ICloudResource
 }
