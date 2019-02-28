@@ -11,6 +11,7 @@ func init() {
 	type ZoneListOptions struct {
 		options.BaseListOptions
 		Region    string `help:"cloud region ID or Name" json:"-"`
+		City      string `help:"Filter zone by city of cloudregions"`
 		Usable    *bool  `help:"List all zones where networks are usable"`
 		UsableVpc *bool  `help:"List all zones where vpc are usable"`
 	}
