@@ -135,8 +135,13 @@ func init() {
 		return doK8sEventList(s, &nargs)
 	})
 
-	R(&TypeEventListOptions{}, "kube-node-event", "Show operation event logs of kubernetes node", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
-		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"kube_node"}}
+	R(&TypeEventListOptions{}, "kubecluster-event", "Show operation event logs of kubernetes cluster", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"kubecluster"}}
+		return doK8sEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "kubemachine-event", "Show operation event logs of kubernetes machine", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"kubemachine"}}
 		return doK8sEventList(s, &nargs)
 	})
 }
