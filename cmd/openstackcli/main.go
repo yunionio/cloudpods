@@ -13,13 +13,14 @@ import (
 )
 
 type BaseOptions struct {
-	Help       bool   `help:"Show help"`
-	AuthURL    string `help:"Auth URL" default:"$OPENSTACK_AUTH_URL"`
-	Username   string `help:"Username" default:"$OPENSTACK_USERNAME"`
-	Password   string `help:"Password" default:"$OPENSTACK_PASSWORD"`
-	Project    string `help:"Project" default:"$OPENSTACK_PROJECT"`
-	RegionID   string `help:"RegionId" default:"$OPENSTACK_REGION_ID"`
-	SUBCOMMAND string `help:"openstackcli subcommand" subcommand:"true"`
+	Help         bool   `help:"Show help"`
+	AuthURL      string `help:"Auth URL" default:"$OPENSTACK_AUTH_URL"`
+	Username     string `help:"Username" default:"$OPENSTACK_USERNAME"`
+	Password     string `help:"Password" default:"$OPENSTACK_PASSWORD"`
+	Project      string `help:"Project" default:"$OPENSTACK_PROJECT"`
+	EndpointType string `help:"Project" default:"$OPENSTACK_ENDPOINT_TYPE|internal"`
+	RegionID     string `help:"RegionId" default:"$OPENSTACK_REGION_ID"`
+	SUBCOMMAND   string `help:"openstackcli subcommand" subcommand:"true"`
 }
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
@@ -75,7 +76,7 @@ func newClient(options *BaseOptions) (*openstack.SRegion, error) {
 		return nil, fmt.Errorf("Missing Password")
 	}
 
-	cli, err := openstack.NewOpenStackClient("", "", options.AuthURL, options.Username, options.Password, options.Project)
+	cli, err := openstack.NewOpenStackClient("", "", options.AuthURL, options.Username, options.Password, options.Project, options.EndpointType)
 	if err != nil {
 		return nil, err
 	}
