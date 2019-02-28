@@ -182,6 +182,8 @@ type ClusterK8sVersions struct {
 	PROVIDER string `help:"cluster provider" choices:"system|onecloud"`
 }
 
+type ClusterCheckOptions struct{}
+
 type IdentsOptions struct {
 	ID []string `help:"ID of models to operate"`
 }
