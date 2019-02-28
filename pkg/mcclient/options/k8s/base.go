@@ -5,7 +5,7 @@ import (
 )
 
 type ClusterBaseOptions struct {
-	Cluster string `default:"$K8S_CLUSTER|default" help:"Kubernetes cluster name"`
+	Cluster string `default:"$K8S_CLUSTER" help:"Kubernetes cluster name"`
 }
 
 func (o ClusterBaseOptions) Params() *jsonutils.JSONDict {
