@@ -121,6 +121,15 @@ func initKubeCluster() {
 		return nil
 	})
 
+	R(&o.ClusterCheckOptions{}, cmdN("check-system-ready"), "Check system cluster status", func(s *mcclient.ClientSession, args *o.ClusterCheckOptions) error {
+		ret, err := k8s.KubeClusters.PerformClassAction(s, "check-system-ready", nil)
+		if err != nil {
+			return err
+		}
+		fmt.Println(ret.String())
+		return nil
+	})
+
 	R(&o.IdentOptions{}, cmdN("apply-addons"), "Apply base requirements addons", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
 		ret, err := k8s.KubeClusters.PerformAction(s, args.ID, "apply-addons", nil)
 		if err != nil {
