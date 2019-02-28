@@ -53,6 +53,8 @@ const (
 	DEFAULT_PROCESS_TIMEOUT     = 15 * time.Second
 )
 
+var quitHandlerRegisted bool
+
 func NewApplication(name string, connMax int, db bool) *Application {
 	app := Application{name: name,
 		context:           context.Background(),
@@ -333,6 +335,12 @@ func (app *Application) initServer(addr string) *http.Server {
 }
 
 func (app *Application) registerCleanShutdown(s *http.Server, onStop func()) {
+	if quitHandlerRegisted {
+		log.Warningf("Application quit handler registed, duplicated!!!")
+		return
+	} else {
+		quitHandlerRegisted = true
+	}
 	app.idleConnsClosed = make(chan struct{})
 
 	// dump goroutine stack
@@ -388,9 +396,7 @@ func (app *Application) ListenAndServeWithCleanup(addr string, onStop func()) {
 
 func (app *Application) ListenAndServeTLSWithCleanup(addr string, certFile, keyFile string, onStop func()) {
 	s := app.initServer(addr)
-	if onStop != nil {
-		app.registerCleanShutdown(s, onStop)
-	}
+	app.registerCleanShutdown(s, onStop)
 
 	var err error
 	if len(certFile) == 0 && len(keyFile) == 0 {
