@@ -28,14 +28,15 @@ type SOpenStackClient struct {
 	username        string
 	password        string
 	project         string
+	endpointType    string
 	client          *mcclient.Client
 	tokenCredential mcclient.TokenCredential
 	iregions        []cloudprovider.ICloudRegion
 }
 
-func NewOpenStackClient(providerID string, providerName string, authURL string, username string, password string, project string) (*SOpenStackClient, error) {
+func NewOpenStackClient(providerID string, providerName string, authURL string, username string, password string, project string, endpointType string) (*SOpenStackClient, error) {
 	cli := &SOpenStackClient{providerID: providerID, providerName: providerName,
-		authURL: authURL, username: username, password: password, project: project}
+		authURL: authURL, username: username, password: password, project: project, endpointType: endpointType}
 	return cli, cli.fetchRegions()
 }
 
@@ -66,14 +67,14 @@ func (cli *SOpenStackClient) Request(region, service, method string, url string,
 		header.Set("X-Openstack-Nova-API-Version", microversion)
 	}
 	ctx := context.Background()
-	session := cli.client.NewSession(ctx, region, "", "internal", cli.tokenCredential, "")
+	session := cli.client.NewSession(ctx, region, "", cli.endpointType, cli.tokenCredential, "")
 	return session.JSONRequest(service, "", httputils.THttpMethod(method), url, header, body)
 }
 
 func (cli *SOpenStackClient) getVersion(region string, service string) (string, string, error) {
 	ctx := context.Background()
-	session := cli.client.NewSession(ctx, region, "", "internal", cli.tokenCredential, "")
-	uri, err := session.GetServiceURL(service, "internal")
+	session := cli.client.NewSession(ctx, region, "", cli.endpointType, cli.tokenCredential, "")
+	uri, err := session.GetServiceURL(service, cli.endpointType)
 	if err != nil {
 		return "", "", err
 	}

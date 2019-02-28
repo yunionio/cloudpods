@@ -46,7 +46,12 @@ func (self *SOpenStackProviderFactory) ValidateCreateCloudaccountData(ctx contex
 	if len(authURL) == 0 {
 		return httperrors.NewMissingParameterError("auth_url")
 	}
-	data.Set("account", jsonutils.NewString(fmt.Sprintf("%s/%s", projectName, username)))
+	account := fmt.Sprintf("%s/%s", projectName, username)
+	if endpointType, _ := data.GetString("endpoint_type"); len(endpointType) > 0 {
+		account = fmt.Sprintf("%s/%s", account, endpointType)
+	}
+
+	data.Set("account", jsonutils.NewString(account))
 	data.Set("secret", jsonutils.NewString(password))
 	data.Set("access_url", jsonutils.NewString(authURL))
 	return nil
@@ -59,7 +64,7 @@ func (self *SOpenStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx 
 		if len(accountInfo) < 2 {
 			return nil, httperrors.NewMissingParameterError("project_name")
 		}
-		projectName = accountInfo[1]
+		projectName = accountInfo[0]
 	}
 	username, _ := data.GetString("username")
 	if len(username) == 0 {
@@ -69,8 +74,14 @@ func (self *SOpenStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx 
 	if len(password) == 0 {
 		return nil, httperrors.NewMissingParameterError("password")
 	}
+
+	_account := fmt.Sprintf("%s/%s", projectName, username)
+	if endpointType, _ := data.GetString("endpoint_type"); len(endpointType) > 0 {
+		_account = fmt.Sprintf("%s/%s", _account, endpointType)
+	}
+
 	account := &cloudprovider.SCloudaccount{
-		Account: fmt.Sprintf("%s/%s", projectName, username),
+		Account: _account,
 		Secret:  password,
 	}
 	return account, nil
@@ -81,8 +92,11 @@ func (self *SOpenStackProviderFactory) GetProvider(providerId, providerName, url
 	if len(accountInfo) < 2 {
 		return nil, fmt.Errorf("Missing username or project name %s", account)
 	}
-	project, username := accountInfo[0], accountInfo[1]
-	client, err := openstack.NewOpenStackClient(providerId, providerName, url, username, password, project)
+	project, username, endpointType := accountInfo[0], accountInfo[1], "internal"
+	if len(accountInfo) == 3 {
+		endpointType = accountInfo[2]
+	}
+	client, err := openstack.NewOpenStackClient(providerId, providerName, url, username, password, project, endpointType)
 	if err != nil {
 		return nil, err
 	}
