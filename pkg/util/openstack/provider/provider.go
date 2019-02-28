@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -16,6 +17,8 @@ import (
 type SOpenStackProviderFactory struct {
 	// providerTable map[string]*SOpenStackProvider
 }
+
+var EndpointTypes = []string{"admin", "internal", "public"}
 
 func (self *SOpenStackProviderFactory) GetId() string {
 	return openstack.CLOUD_PROVIDER_OPENSTACK
@@ -48,6 +51,9 @@ func (self *SOpenStackProviderFactory) ValidateCreateCloudaccountData(ctx contex
 	}
 	account := fmt.Sprintf("%s/%s", projectName, username)
 	if endpointType, _ := data.GetString("endpoint_type"); len(endpointType) > 0 {
+		if !utils.IsInStringArray(endpointType, EndpointTypes) {
+			return httperrors.NewInputParameterError("Unsupport endpoint_type %s only support %s", endpointType, EndpointTypes)
+		}
 		account = fmt.Sprintf("%s/%s", account, endpointType)
 	}
 
@@ -76,7 +82,17 @@ func (self *SOpenStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx 
 	}
 
 	_account := fmt.Sprintf("%s/%s", projectName, username)
-	if endpointType, _ := data.GetString("endpoint_type"); len(endpointType) > 0 {
+	endpointType, _ := data.GetString("endpoint_type")
+	if len(endpointType) == 0 {
+		if accountInfo := strings.Split(cloudaccount, "/"); len(accountInfo) == 3 {
+			endpointType = accountInfo[2]
+		}
+	}
+
+	if len(endpointType) > 0 {
+		if !utils.IsInStringArray(endpointType, EndpointTypes) {
+			return nil, httperrors.NewInputParameterError("Unsupport endpoint_type %s only support %s", endpointType, EndpointTypes)
+		}
 		_account = fmt.Sprintf("%s/%s", _account, endpointType)
 	}
 
