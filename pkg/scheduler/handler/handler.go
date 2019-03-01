@@ -50,6 +50,8 @@ func schedulerActionHandler(c *gin.Context) {
 	switch act {
 	case "test":
 		doSchedulerTest(c)
+	case "forecast":
+		doSchedulerForecast(c)
 	case "candidate-list":
 		doCandidateList(c)
 	case "cleanup":
@@ -115,6 +117,33 @@ func transToSchedTestResult(result *core.SchedResultItemList, limit int64) inter
 		Limit:  limit,
 		Offset: 0,
 	}
+}
+
+func doSchedulerForecast(c *gin.Context) {
+	if !schedman.IsReady() {
+		c.AbortWithError(http.StatusBadRequest, fmt.Errorf("Global scheduler not init"))
+		return
+	}
+
+	sjson, err := simplejson.NewFromReader(c.Request.Body)
+	if err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	schedInfo, err := api.NewSchedInfo(sjson, true)
+	if err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	schedInfo.IsSuggestion = true
+	schedInfo.ShowSuggestionDetails = true
+	result, err := schedman.Schedule(schedInfo)
+	if err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	c.JSON(http.StatusOK, transToSchedForecastResult(result, schedInfo))
 }
 
 func doCandidateList(c *gin.Context) {

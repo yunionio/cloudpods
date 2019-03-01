@@ -900,3 +900,14 @@ type SchedTestResult struct {
 	Limit  int64       `json:"limit"`
 	Offset int64       `json:"offset"`
 }
+
+type ForecastInfo struct {
+	Filter  string `json:"filter"`
+	Message string `json:"message"`
+	Count   int64  `json:"count"`
+}
+
+type SchedForecastResult struct {
+	CanCreate bool           `json:"can_create"`
+	Infos     []ForecastInfo `json:"infos"`
+}
