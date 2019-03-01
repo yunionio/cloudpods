@@ -34,7 +34,7 @@ type SZone struct {
 
 	ZoneName string
 
-	hosts map[string][]string
+	cachedHosts map[string][]string
 
 	Hosts map[string]map[string]HostState
 }
