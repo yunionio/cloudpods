@@ -1125,6 +1125,24 @@ func (manager *SStorageManager) InitializeData() error {
 	return nil
 }
 
+func (manager *SStorageManager) IsStorageTypeExist(storageType string) (string, bool) {
+	storages := []SStorage{}
+	q := manager.Query()
+	q = q.Filter(
+		sqlchemy.OR(
+			sqlchemy.Equals(q.Field("id"), storageType),
+			sqlchemy.Equals(q.Field("storage_type"), storageType),
+		),
+	)
+	if err := db.FetchModelObjects(manager, q, &storages); err != nil {
+		return "", false
+	}
+	if len(storages) == 0 {
+		return "", false
+	}
+	return storages[0].StorageType, true
+}
+
 func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	var err error
 	q, err = managedResourceFilterByAccount(q, query, "", nil)
