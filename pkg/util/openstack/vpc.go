@@ -123,7 +123,7 @@ func (vpc *SVpc) fetchWires() error {
 			return err
 		}
 	}
-	wire := SWire{zone: vpc.region.izones[0].(*SZone), vpc: vpc}
+	wire := SWire{region: vpc.region, vpc: vpc}
 	vpc.iwires = []cloudprovider.ICloudWire{&wire}
 	return nil
 }

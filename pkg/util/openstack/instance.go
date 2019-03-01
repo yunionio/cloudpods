@@ -137,7 +137,7 @@ func (region *SRegion) GetSecurityGroupsByInstance(instanceId string) ([]Securit
 
 func (region *SRegion) GetInstances(zoneName string, hostName string) ([]SInstance, error) {
 	_, maxVersion, _ := region.GetVersion("compute")
-	_, resp, err := region.Get("compute", "/servers/detail", maxVersion, nil)
+	_, resp, err := region.Get("compute", "/servers/detail?all_tenants=True", maxVersion, nil)
 	if err != nil {
 		return nil, err
 	}

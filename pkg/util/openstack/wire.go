@@ -9,8 +9,9 @@ import (
 )
 
 type SWire struct {
-	zone *SZone
-	vpc  *SVpc
+	region *SRegion
+
+	vpc *SVpc
 
 	inetworks []cloudprovider.ICloudNetwork
 }
@@ -20,7 +21,7 @@ func (wire *SWire) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (wire *SWire) GetId() string {
-	return fmt.Sprintf("%s-%s", wire.vpc.GetId(), wire.zone.GetId())
+	return fmt.Sprintf("%s-%s", wire.vpc.GetId(), wire.region.GetId())
 }
 
 func (wire *SWire) GetName() string {
@@ -40,7 +41,7 @@ func (wire *SWire) Refresh() error {
 }
 
 func (wire *SWire) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", wire.vpc.GetGlobalId(), wire.zone.GetGlobalId())
+	return fmt.Sprintf("%s-%s", wire.vpc.GetGlobalId(), wire.region.GetGlobalId())
 }
 
 func (wire *SWire) GetIVpc() cloudprovider.ICloudVpc {
@@ -48,7 +49,7 @@ func (wire *SWire) GetIVpc() cloudprovider.ICloudVpc {
 }
 
 func (wire *SWire) GetIZone() cloudprovider.ICloudZone {
-	return wire.zone
+	return nil
 }
 
 func (wire *SWire) GetBandwidth() int {

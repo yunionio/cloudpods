@@ -218,12 +218,12 @@ func (region *SRegion) fetchInfrastructure() error {
 		return err
 	}
 	for i := 0; i < len(region.ivpcs); i++ {
+		vpc := region.ivpcs[i].(*SVpc)
+		wire := &SWire{region: region, vpc: vpc}
+		vpc.addWire(wire)
 		for j := 0; j < len(region.izones); j++ {
 			zone := region.izones[j].(*SZone)
-			vpc := region.ivpcs[i].(*SVpc)
-			wire := SWire{zone: zone, vpc: vpc}
-			zone.addWire(&wire)
-			vpc.addWire(&wire)
+			zone.addWire(wire)
 		}
 	}
 	return nil
