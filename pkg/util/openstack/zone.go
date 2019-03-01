@@ -2,6 +2,7 @@ package openstack
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -9,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/version"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/pkg/utils"
 )
 
 type ZoneState struct {
@@ -160,6 +162,15 @@ func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 			return nil, err
 		}
 		for i := 0; i < len(hosts); i++ {
+			//过滤非此zone底下的host
+			if !utils.IsInStringArray(hosts[i].HypervisorHostname, zone.hosts) {
+				continue
+			}
+			// 过滤vmware的机器
+			hypervisor := strings.ToLower(hosts[i].HypervisorType)
+			if strings.Index(hypervisor, "vmware") != -1 {
+				continue
+			}
 			hosts[i].zone = zone
 			ihosts = append(ihosts, &hosts[i])
 		}

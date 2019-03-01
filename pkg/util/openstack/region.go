@@ -189,7 +189,6 @@ func (region *SRegion) fetchZones() error {
 				}
 			}
 		}
-		log.Errorf("hosts: %s", zones[i].hosts)
 		zones[i].region = region
 		region.izones = append(region.izones, &zones[i])
 	}
