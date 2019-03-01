@@ -2,6 +2,7 @@ package openstack
 
 import (
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -18,6 +19,12 @@ const (
 	HYPERVISORS_VERSION = "2.28"
 )
 
+type HostState struct {
+	Available bool
+	Active    bool
+	UpdatedAt time.Time
+}
+
 type SZone struct {
 	region *SRegion
 
@@ -26,6 +33,10 @@ type SZone struct {
 
 	ZoneName  string
 	ZoneState ZoneState
+
+	hosts []string
+
+	Hosts map[string]map[string]HostState
 }
 
 func (zone *SZone) GetMetadata() *jsonutils.JSONDict {
