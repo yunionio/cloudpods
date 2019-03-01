@@ -168,6 +168,7 @@ func (region *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error)
 }
 
 func (region *SRegion) fetchZones() error {
+	zone := &SZone{region: region, ZoneName: region.Name, hosts: map[string][]string{}}
 	_, resp, err := region.Get("compute", "/os-availability-zone/detail", "", jsonutils.NewDict())
 	if err != nil {
 		return err
@@ -176,22 +177,20 @@ func (region *SRegion) fetchZones() error {
 	if err := resp.Unmarshal(&zones, "availabilityZoneInfo"); err != nil {
 		return err
 	}
-	region.izones = []cloudprovider.ICloudZone{}
 	for i := 0; i < len(zones); i++ {
 		if zones[i].ZoneName == "internal" {
 			continue
 		}
-		zones[i].hosts = []string{}
+		zone.hosts[zones[i].ZoneName] = []string{}
 		for hostname, hostInfo := range zones[i].Hosts {
 			for k := range hostInfo {
 				if k == "nova-compute" {
-					zones[i].hosts = append(zones[i].hosts, hostname)
+					zone.hosts[zones[i].ZoneName] = append(zone.hosts[zones[i].ZoneName], hostname)
 				}
 			}
 		}
-		zones[i].region = region
-		region.izones = append(region.izones, &zones[i])
 	}
+	region.izones = []cloudprovider.ICloudZone{zone}
 	return nil
 }
 
@@ -218,12 +217,12 @@ func (region *SRegion) fetchInfrastructure() error {
 		return err
 	}
 	for i := 0; i < len(region.ivpcs); i++ {
-		vpc := region.ivpcs[i].(*SVpc)
-		wire := &SWire{region: region, vpc: vpc}
-		vpc.addWire(wire)
 		for j := 0; j < len(region.izones); j++ {
 			zone := region.izones[j].(*SZone)
-			zone.addWire(wire)
+			vpc := region.ivpcs[i].(*SVpc)
+			wire := SWire{zone: zone, vpc: vpc}
+			zone.addWire(&wire)
+			vpc.addWire(&wire)
 		}
 	}
 	return nil

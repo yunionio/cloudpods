@@ -95,7 +95,7 @@ func (host *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 }
 
 func (host *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	instances, err := host.zone.region.GetInstances(host.zone.ZoneName, host.GetName())
+	instances, err := host.zone.region.GetInstances(host.GetName())
 	if err != nil {
 		return nil, err
 	}

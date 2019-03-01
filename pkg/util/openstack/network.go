@@ -70,7 +70,7 @@ func (network *SNetwork) GetStatus() string {
 }
 
 func (network *SNetwork) Delete() error {
-	return network.wire.region.DeleteNetwork(network.ID)
+	return network.wire.zone.region.DeleteNetwork(network.ID)
 }
 
 func (network *SRegion) DeleteNetwork(networkId string) error {
@@ -145,7 +145,7 @@ func (region *SRegion) GetNetworks(vpcId string) ([]SNetwork, error) {
 
 func (network *SNetwork) Refresh() error {
 	log.Debugf("network refresh %s", network.Name)
-	new, err := network.wire.region.GetNetwork(network.ID)
+	new, err := network.wire.zone.region.GetNetwork(network.ID)
 	if err != nil {
 		return err
 	}

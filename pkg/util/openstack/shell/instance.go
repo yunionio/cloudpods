@@ -9,11 +9,10 @@ import (
 
 func init() {
 	type InstanceListOptions struct {
-		ZoneID string `help:"Zone ID for filter instance list"`
-		Host   string `help:"Host name for filter instance list"`
+		Host string `help:"Host name for filter instance list"`
 	}
 	shellutils.R(&InstanceListOptions{}, "instance-list", "List instances", func(cli *openstack.SRegion, args *InstanceListOptions) error {
-		instances, err := cli.GetInstances(args.ZoneID, args.Host)
+		instances, err := cli.GetInstances(args.Host)
 		if err != nil {
 			return err
 		}

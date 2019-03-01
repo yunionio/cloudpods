@@ -10,7 +10,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/version"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/utils"
 )
 
 type ZoneState struct {
@@ -33,10 +32,9 @@ type SZone struct {
 	iwires    []cloudprovider.ICloudWire
 	istorages []cloudprovider.ICloudStorage
 
-	ZoneName  string
-	ZoneState ZoneState
+	ZoneName string
 
-	hosts []string
+	hosts map[string][]string
 
 	Hosts map[string]map[string]HostState
 }
@@ -58,14 +56,11 @@ func (zone *SZone) GetGlobalId() string {
 }
 
 func (zone *SZone) IsEmulated() bool {
-	return false
+	return true
 }
 
 func (zone *SZone) GetStatus() string {
-	if zone.ZoneState.Available {
-		return models.ZONE_ENABLE
-	}
-	return models.ZONE_SOLDOUT
+	return models.ZONE_ENABLE
 }
 
 func (zone *SZone) Refresh() error {
@@ -162,10 +157,6 @@ func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 			return nil, err
 		}
 		for i := 0; i < len(hosts); i++ {
-			//过滤非此zone底下的host
-			if !utils.IsInStringArray(hosts[i].HypervisorHostname, zone.hosts) {
-				continue
-			}
 			// 过滤vmware的机器
 			hypervisor := strings.ToLower(hosts[i].HypervisorType)
 			if strings.Index(hypervisor, "vmware") != -1 {
@@ -188,7 +179,7 @@ func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 		return nil, err
 	}
 	for i := 0; i < len(_hosts); i++ {
-		if _hosts[i].Zone == zone.ZoneName && _hosts[i].Service == "compute" {
+		if _hosts[i].Service == "compute" {
 			host := SHost{HostName: _hosts[i].HostName, Zone: _hosts[i].Zone, zone: zone}
 			ihosts = append(ihosts, &host)
 		}
