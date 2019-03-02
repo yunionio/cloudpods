@@ -168,7 +168,8 @@ func (region *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error)
 }
 
 func (region *SRegion) fetchZones() error {
-	_, resp, err := region.Get("compute", "/os-availability-zone", "", jsonutils.NewDict())
+	zone := &SZone{region: region, ZoneName: region.Name, cachedHosts: map[string][]string{}}
+	_, resp, err := region.Get("compute", "/os-availability-zone/detail", "", jsonutils.NewDict())
 	if err != nil {
 		return err
 	}
@@ -176,14 +177,20 @@ func (region *SRegion) fetchZones() error {
 	if err := resp.Unmarshal(&zones, "availabilityZoneInfo"); err != nil {
 		return err
 	}
-	region.izones = []cloudprovider.ICloudZone{}
 	for i := 0; i < len(zones); i++ {
 		if zones[i].ZoneName == "internal" {
 			continue
 		}
-		zones[i].region = region
-		region.izones = append(region.izones, &zones[i])
+		zone.cachedHosts[zones[i].ZoneName] = []string{}
+		for hostname, hostInfo := range zones[i].Hosts {
+			for k := range hostInfo {
+				if k == "nova-compute" {
+					zone.cachedHosts[zones[i].ZoneName] = append(zone.cachedHosts[zones[i].ZoneName], hostname)
+				}
+			}
+		}
 	}
+	region.izones = []cloudprovider.ICloudZone{zone}
 	return nil
 }
 
