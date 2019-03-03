@@ -3,23 +3,22 @@ package sqlchemy
 import (
 	"regexp"
 	"strings"
-
 )
 
 type STableConstraint struct {
-	name string
-	columns []string
+	name         string
+	columns      []string
 	foreignTable string
-	foreignKeys []string
+	foreignKeys  []string
 }
 
 const (
-	indexPattern = `(?P<unique>UNIQUE\s+)?KEY ` + "`" + `(?P<name>\w+)` + "`" + ` \((?P<cols>` + "`" + `\w+` + "`" + `(\(\d+\))?(,\s*` + "`" + `\w+` + "`" + `(\(\d+\))?)*)\)`
+	indexPattern      = `(?P<unique>UNIQUE\s+)?KEY ` + "`" + `(?P<name>\w+)` + "`" + ` \((?P<cols>` + "`" + `\w+` + "`" + `(\(\d+\))?(,\s*` + "`" + `\w+` + "`" + `(\(\d+\))?)*)\)`
 	constraintPattern = `CONSTRAINT ` + "`" + `(?P<name>\w+)` + "`" + ` FOREIGN KEY \((?P<cols>` + "`" + `\w+` + "`" + `(,\s*` + "`" + `\w+` + "`" + `)*)\) REFERENCES ` + "`" + `(?P<table>\w+)` + "`" + ` \((?P<fcols>` + "`" + `\w+` + "`" + `(,\s*` + "`" + `\w+` + "`" + `)*)\)`
 )
 
 var (
-	indexRegexp = regexp.MustCompile(indexPattern)
+	indexRegexp      = regexp.MustCompile(indexPattern)
 	constraintRegexp = regexp.MustCompile(constraintPattern)
 )
 
@@ -45,10 +44,10 @@ func parseConstraints(defStr string) []STableConstraint {
 	tcs := make([]STableConstraint, len(matches))
 	for i := range matches {
 		tcs[i] = STableConstraint{
-			name: matches[i][1],
+			name:         matches[i][1],
 			foreignTable: matches[i][4],
-			columns: fetchColumns(matches[i][2]),
-			foreignKeys: fetchColumns(matches[i][5]),
+			columns:      fetchColumns(matches[i][2]),
+			foreignKeys:  fetchColumns(matches[i][5]),
 		}
 	}
 	return tcs
@@ -59,9 +58,9 @@ func parseIndexes(defStr string) []STableIndex {
 	tcs := make([]STableIndex, len(matches))
 	for i := range matches {
 		tcs[i] = STableIndex{
-			name: matches[i][2],
+			name:     matches[i][2],
 			isUnique: len(matches[i][1]) > 0,
-			columns: fetchColumns(matches[i][3]),
+			columns:  fetchColumns(matches[i][3]),
 		}
 	}
 	return tcs

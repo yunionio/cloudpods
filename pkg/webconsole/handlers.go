@@ -62,8 +62,7 @@ func fetchK8sEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) (*
 	}
 
 	data := jsonutils.NewDict()
-	data.Add(jsonutils.JSONTrue, "directly")
-	ret, err := k8s.Clusters.PerformAction(adminSession, cluster, "generate-kubeconfig", data)
+	ret, err := k8s.KubeClusters.GetSpecific(adminSession, cluster, "kubeconfig", data)
 	if err != nil {
 		return nil, err
 	}

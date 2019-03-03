@@ -15,6 +15,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -90,7 +91,7 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params)
+	return jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.client.Debug)
 }
 
 func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -98,7 +99,7 @@ func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params)
+	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params, self.Debug)
 }
 
 type LBRegion struct {
@@ -148,7 +149,7 @@ func (self *SRegion) lbRequest(apiName string, params map[string]string) (jsonut
 }
 
 func (self *SRegion) _lbRequest(client *sdk.Client, apiName string, domain string, params map[string]string) (jsonutils.JSONObject, error) {
-	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params)
+	return jsonRequest(client, domain, ALIYUN_API_VERSION_LB, apiName, params, self.Debug)
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -219,7 +220,7 @@ func (self *SRegion) getStoragecache() *SStoragecache {
 	return self.storageCache
 }
 
-func (self *SRegion) _fetchZones(chargeType InstanceChargeType, spotStrategy SpotStrategyType) error {
+func (self *SRegion) _fetchZones(chargeType TChargeType, spotStrategy SpotStrategyType) error {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	if len(chargeType) > 0 {
@@ -847,7 +848,7 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 	if err != nil {
 		return nil, err
 	}
-	return iLoadbalancer, cloudprovider.WaitStatus(iLoadbalancer, models.LB_STATUS_ENABLED, time.Second*5, time.Minute*5)
+	return iLoadbalancer, cloudprovider.WaitStatus(iLoadbalancer, consts.LB_STATUS_ENABLED, time.Second*5, time.Minute*5)
 }
 
 func (region *SRegion) AddAccessControlListEntry(aclId string, entrys []cloudprovider.SLoadbalancerAccessControlListEntry) error {

@@ -58,6 +58,94 @@ func (o ClusterCreateOptions) Params() *jsonutils.JSONDict {
 	return params
 }
 
+type KubeClusterCreateOptions struct {
+	NAME          string   `help:"Name of cluster"`
+	ClusterType   string   `help:"Cluster cluster type" choices:"default|serverless"`
+	CloudType     string   `help:"Cluster cloud type" choices:"private|public|hybrid"`
+	Mode          string   `help:"Cluster mode type" choices:"customize|managed"`
+	Provider      string   `help:"Cluster provider" choices:"onecloud|aws|aliyun|azure|qcloud"`
+	ServiceCidr   string   `help:"Cluster service CIDR, e.g. 10.43.0.0/16"`
+	ServiceDomain string   `help:"Cluster service domain, e.g. cluster.local"`
+	Vip           string   `help:"Cluster api server static loadbalancer vip"`
+	Version       string   `help:"Cluster kubernetes version"`
+	Machine       []string `help:"Machine create desc, e.g. host01:baremetal:controlplane"`
+}
+
+func parseMachineDesc(desc string) (*MachineCreateOptions, error) {
+	matchType := func(p string) bool {
+		switch p {
+		case "baremetal", "vm":
+			return true
+		default:
+			return false
+		}
+	}
+	matchRole := func(p string) bool {
+		switch p {
+		case "controlplane", "node":
+			return true
+		default:
+			return false
+		}
+	}
+	mo := new(MachineCreateOptions)
+	for _, part := range strings.Split(desc, ":") {
+		switch {
+		case matchType(part):
+			mo.Type = part
+		case matchRole(part):
+			mo.ROLE = part
+		default:
+			mo.Instance = part
+		}
+	}
+	if mo.ROLE == "" {
+		return nil, fmt.Errorf("Machine role is empty")
+	}
+	if mo.Type == "" {
+		return nil, fmt.Errorf("Machine type is empty")
+	}
+	return mo, nil
+}
+
+func (o KubeClusterCreateOptions) Params() (*jsonutils.JSONDict, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(o.NAME), "name")
+	if o.ClusterType != "" {
+		params.Add(jsonutils.NewString(o.ClusterType), "cluster_type")
+	}
+	if o.CloudType != "" {
+		params.Add(jsonutils.NewString(o.CloudType), "cloud_type")
+	}
+	if o.Mode != "" {
+		params.Add(jsonutils.NewString(o.Mode), "mode")
+	}
+	if o.Provider != "" {
+		params.Add(jsonutils.NewString(o.Provider), "provider")
+	}
+	if o.ServiceCidr != "" {
+		params.Add(jsonutils.NewString(o.ServiceCidr), "service_cidr")
+	}
+	if o.ServiceDomain != "" {
+		params.Add(jsonutils.NewString(o.ServiceDomain), "service_domain")
+	}
+	if o.Vip != "" {
+		params.Add(jsonutils.NewString(o.Vip), "vip")
+	}
+	if len(o.Machine) != 0 {
+		machineObjs := jsonutils.NewArray()
+		for _, m := range o.Machine {
+			machine, err := parseMachineDesc(m)
+			if err != nil {
+				return nil, err
+			}
+			machineObjs.Add(machine.Params())
+		}
+		params.Add(machineObjs, "machines")
+	}
+	return params, nil
+}
+
 type ClusterImportOptions struct {
 	NAME       string `help:"Name of cluster to import"`
 	KUBECONFIG string `help:"Kubernetes auth config"`
@@ -89,6 +177,12 @@ func (o ClusterUpdateOptions) Params() *jsonutils.JSONDict {
 type IdentOptions struct {
 	ID string `help:"ID or name of the model"`
 }
+
+type ClusterK8sVersions struct {
+	PROVIDER string `help:"cluster provider" choices:"system|onecloud"`
+}
+
+type ClusterCheckOptions struct{}
 
 type IdentsOptions struct {
 	ID []string `help:"ID of models to operate"`
@@ -122,6 +216,25 @@ func (o ClusterKubeconfigOptions) Params() *jsonutils.JSONDict {
 		params.Add(jsonutils.JSONTrue, "directly")
 	}
 	return params
+}
+
+type KubeClusterAddMachinesOptions struct {
+	IdentOptions
+	Machine []string `help:"Node spec, 'host:[role]' e.g: --machine host01:controlplane:baremetal --node-config host02:node:baremetal"`
+}
+
+func (o KubeClusterAddMachinesOptions) Params() (*jsonutils.JSONDict, error) {
+	params := jsonutils.NewDict()
+	machinesArray := jsonutils.NewArray()
+	for _, config := range o.Machine {
+		opt, err := parseMachineDesc(config)
+		if err != nil {
+			return nil, err
+		}
+		machinesArray.Add(jsonutils.Marshal(opt))
+	}
+	params.Add(machinesArray, "machines")
+	return params, nil
 }
 
 type ClusterAddNodesOptions struct {
@@ -192,6 +305,21 @@ func (o ClusterDeleteNodesOptions) Params() (*jsonutils.JSONDict, error) {
 		nodesArray.Add(jsonutils.NewString(node))
 	}
 	params.Add(nodesArray, "nodes")
+	return params, nil
+}
+
+type KubeClusterDeleteMachinesOptions struct {
+	IdentOptions
+	Machines []string `help:"Machine id or name"`
+}
+
+func (o KubeClusterDeleteMachinesOptions) Params() (*jsonutils.JSONDict, error) {
+	params := jsonutils.NewDict()
+	machinesArray := jsonutils.NewArray()
+	for _, m := range o.Machines {
+		machinesArray.Add(jsonutils.NewString(m))
+	}
+	params.Add(machinesArray, "machines")
 	return params, nil
 }
 

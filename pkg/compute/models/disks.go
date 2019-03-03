@@ -724,7 +724,12 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
 	}
-	return nil, self.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage, nil)
+
+	guests := self.GetGuests()
+	if len(guests) != 1 {
+		return nil, httperrors.NewBadRequestError("Cann't resize disk when attach to mutil guest")
+	}
+	return nil, self.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage, &guests[0])
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
@@ -1269,7 +1274,7 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 		// diskConfig.ImageDiskFormat = image.DiskFormat
 		CachedimageManager.ImageAddRefCount(image.Id)
 		if diskConfig.SizeMb == 0 {
-			diskConfig.SizeMb = image.MinDisk // MB
+			diskConfig.SizeMb = image.MinDiskMB // MB
 		}
 	}
 	return nil
@@ -1376,10 +1381,20 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 	if err != nil {
 		return nil, err
 	}
+
+	if self.GetCloudprovider().Provider == CLOUD_PROVIDER_HUAWEI && self.GetSnapshotCount() > 0 {
+		return nil, httperrors.NewForbiddenError("not allow to purge. Virtual disk must not have snapshots")
+	}
+
 	return nil, self.StartDiskDeleteTask(ctx, userCred, "", true, false)
 }
 
 func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	provider := self.GetCloudprovider()
+	if provider != nil && provider.Provider == CLOUD_PROVIDER_HUAWEI && self.GetSnapshotCount() > 0 {
+		return httperrors.NewForbiddenError("not allow to delete. Virtual disk must not have snapshots")
+	}
+
 	return self.StartDiskDeleteTask(ctx, userCred, "", false,
 		jsonutils.QueryBoolean(query, "override_pending_delete", false))
 }

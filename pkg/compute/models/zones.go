@@ -710,6 +710,13 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		subq := CloudregionManager.Query("id").Equals("provider", providerStr).SubQuery()
 		q = q.In("cloudregion_id", subq)
 	}
+
+	city, _ := query.GetString("city")
+	if len(city) > 0 {
+		subq := CloudregionManager.Query("id").Equals("city", city).SubQuery()
+		q = q.In("cloudregion_id", subq)
+	}
+
 	return q, nil
 }
 

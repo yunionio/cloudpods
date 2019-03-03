@@ -445,7 +445,7 @@ func syncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider 
 		log.Errorf(msg)
 		return
 	}
-	result := localVM.SyncVMEip(ctx, userCred, eip, provider.ProjectId)
+	result := localVM.SyncVMEip(ctx, userCred, provider, eip, provider.ProjectId)
 	msg := result.Result()
 	log.Infof("syncVMEip for VM %s result: %s", localVM.Name, msg)
 	if result.IsError() {

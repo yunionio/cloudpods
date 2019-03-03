@@ -1325,7 +1325,7 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 	err := model.ValidateDeleteCondition(ctx)
 	if err != nil {
 		log.Errorf("validate delete condition error: %s", err)
-		return nil, httperrors.NewNotAcceptableError(err.Error())
+		return nil, err
 	}
 
 	err = model.CustomizeDelete(ctx, userCred, query, data)

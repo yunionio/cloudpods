@@ -25,6 +25,18 @@ func init() {
 		return nil
 	})
 
+	type ImageShowOptions struct {
+		ID string `help:"image ID"`
+	}
+	shellutils.R(&ImageShowOptions{}, "image-show", "Show image", func(cli *aliyun.SRegion, args *ImageShowOptions) error {
+		img, err := cli.GetImage(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(img)
+		return nil
+	})
+
 	type ImageDeleteOptions struct {
 		ID string `help:"ID or Name to delete"`
 	}

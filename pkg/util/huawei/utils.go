@@ -21,7 +21,7 @@ type createFunc func(params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 type updateFunc func(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
 type updateFunc2 func(ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error)
 type deleteFunc func(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
-type deleteFunc2 func(ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error)
+type deleteFunc2 func(ctx manager.IManagerContext, id string, spec string, queries map[string]string, params jsonutils.JSONObject, responseKey string) (jsonutils.JSONObject, error)
 type listInCtxFunc func(ctx manager.IManagerContext, querys map[string]string) (*responses.ListResult, error)
 type listInCtxWithSpecFunc func(ctx manager.IManagerContext, spec string, querys map[string]string, responseKey string) (*responses.ListResult, error)
 
@@ -125,7 +125,8 @@ func doListPart(doList listFunc, queries map[string]string, result interface{}) 
 
 func DoGet(doGet getFunc, id string, queries map[string]string, result interface{}) error {
 	if len(id) == 0 {
-		return fmt.Errorf(" id should not be empty")
+		resultType := reflect.Indirect(reflect.ValueOf(result)).Type()
+		return fmt.Errorf(" Get %s id should not be empty", resultType.Name())
 	}
 
 	ret, err := doGet(id, queries)
@@ -172,11 +173,11 @@ func DoDelete(deleteFunc deleteFunc, id string, params jsonutils.JSONObject, res
 	return unmarshalResult(ret, err, result)
 }
 
-func DoDeleteWithSpec(deleteFunc deleteFunc2, ctx manager.IManagerContext, id string, spec string, params jsonutils.JSONObject) error {
+func DoDeleteWithSpec(deleteFunc deleteFunc2, ctx manager.IManagerContext, id string, spec string, queries map[string]string, params jsonutils.JSONObject) error {
 	if len(id) == 0 {
 		return fmt.Errorf(" id should not be empty")
 	}
 
-	_, err := deleteFunc(ctx, id, spec, params, "")
+	_, err := deleteFunc(ctx, id, spec, queries, params, "")
 	return err
 }

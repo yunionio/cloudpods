@@ -68,7 +68,7 @@ func init() {
 			"Aliyun":    {"access_key_id", "access_key_secret"},
 			"Azure":     {"directory_id", "client_id", "client_secret", "environment"},
 			"Qcloud":    {"app_id", "secret_id", "secret_key"},
-			"OpenStack": {"project_name", "username", "password", "auth_url"},
+			"OpenStack": {"project_name", "username", "password", "auth_url", "endpoint_type"},
 			"Huawei":    {"access_key_id", "access_key_secret", "environment"},
 			"Aws":       {"access_key_id", "access_key_secret", "environment"},
 		}
@@ -228,6 +228,7 @@ func init() {
 		ProjectName     string `help:"OpenStack project_name"`
 		Username        string `help:"OpenStack|VMware username"`
 		Password        string `help:"OpenStack|VMware password"`
+		EndpointType    string `help:"OpenStack endpointType"`
 		ClientID        string `help:"Azure tenant_id"`
 		ClientSecret    string `help:"Azure clinet_secret"`
 	}

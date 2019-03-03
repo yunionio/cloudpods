@@ -13,13 +13,7 @@ pipeline:
   build:
     image: golang:latest
     commands:
-      - make cmd/climc
-      - make cmd/cloudir
-      - make cmd/glance
-      - make cmd/region
-      - make cmd/region-dns
-      - make cmd/scheduler
-      - make cmd/yunionconf
+      - make
 
   release-img:
     image: plugins/docker

@@ -29,7 +29,7 @@ func NewVirtualResourceBaseManager(dt interface{}, tableName string, keyword str
 type SVirtualResourceBase struct {
 	SStatusStandaloneResourceBase
 
-	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"false" index:"true" list:"admin"`
+	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"false" index:"true" list:"user"`
 
 	IsSystem bool `nullable:"true" default:"false" list:"admin" create:"optional"`
 

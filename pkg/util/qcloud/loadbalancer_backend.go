@@ -5,7 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type SLBBackend struct {
@@ -88,11 +88,11 @@ func (self *SLBBackend) GetPort() int {
 }
 
 func (self *SLBBackend) GetBackendType() string {
-	return models.LB_BACKEND_GUEST
+	return consts.LB_BACKEND_GUEST
 }
 
 func (self *SLBBackend) GetBackendRole() string {
-	return models.LB_BACKEND_ROLE_DEFAULT
+	return consts.LB_BACKEND_ROLE_DEFAULT
 }
 
 func (self *SLBBackend) GetBackendId() string {

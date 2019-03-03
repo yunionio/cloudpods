@@ -49,20 +49,23 @@ func (self *GuestDeleteOnHostTask) OnStopGuest(ctx context.Context, guest *model
 
 	for _, guestDiks := range disks {
 		disk := guestDiks.GetDisk()
-		storage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
+		storage := host.GetStorageByFilePath(disk.AccessPath)
+		// storage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
 		if storage != nil && !isPurge {
 			if err := host.GetHostDriver().RequestDeallocateBackupDiskOnHost(ctx, host, storage, disk, self); err != nil {
 				self.OnFail(ctx, guest, err.Error())
 				return
 			}
 		}
-		_, err := db.Update(disk, func() error {
-			disk.BackupStorageId = ""
-			return nil
-		})
-		if err != nil {
-			self.OnFail(ctx, guest, err.Error())
-			return
+		if disk.BackupStorageId == storage.Id {
+			_, err := db.Update(disk, func() error {
+				disk.BackupStorageId = ""
+				return nil
+			})
+			if err != nil {
+				self.OnFail(ctx, guest, err.Error())
+				return
+			}
 		}
 	}
 	if !isPurge {

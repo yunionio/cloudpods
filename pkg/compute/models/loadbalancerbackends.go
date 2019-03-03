@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -76,7 +77,7 @@ func (man *SLoadbalancerBackendManager) ListItemFilter(ctx context.Context, q *s
 
 func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerProjId)
-	backendTypeV := validators.NewStringChoicesValidator("backend_type", LB_BACKEND_TYPES)
+	backendTypeV := validators.NewStringChoicesValidator("backend_type", consts.LB_BACKEND_TYPES)
 	keyV := map[string]validators.IValidator{
 		"backend_group": backendGroupV,
 		"backend_type":  backendTypeV,
@@ -96,7 +97,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	var baseName string
 	var backendV *validators.ValidatorModelIdOrName
 	switch backendType {
-	case LB_BACKEND_GUEST:
+	case consts.LB_BACKEND_GUEST:
 		backendV = validators.NewModelIdOrNameValidator("backend", "server", ownerProjId)
 		err := backendV.Validate(data)
 		if err != nil {
@@ -104,7 +105,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 		}
 		guest := backendV.Model.(*SGuest)
 		baseName = guest.Name
-	case LB_BACKEND_HOST:
+	case consts.LB_BACKEND_HOST:
 		if !db.IsAdminAllowCreate(userCred, man) {
 			return nil, fmt.Errorf("only sysadmin can specify host as backend")
 		}
@@ -206,7 +207,7 @@ func (lbb *SLoadbalancerBackend) ValidateUpdateData(ctx context.Context, userCre
 
 func (lbb *SLoadbalancerBackend) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbb.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
-	lbb.SetStatus(userCred, LB_CREATING, "")
+	lbb.SetStatus(userCred, consts.LB_CREATING, "")
 	if err := lbb.StartLoadBalancerBackendCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancer backend error: %v", err)
 	}
@@ -236,7 +237,7 @@ func (lbb *SLoadbalancerBackend) PerformPurge(ctx context.Context, userCred mccl
 }
 
 func (lbb *SLoadbalancerBackend) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	lbb.SetStatus(userCred, LB_STATUS_DELETING, "")
+	lbb.SetStatus(userCred, consts.LB_STATUS_DELETING, "")
 	return lbb.StartLoadBalancerBackendDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -354,7 +355,7 @@ func (lbb *SLoadbalancerBackend) syncRemoveCloudLoadbalancerBackend(ctx context.
 
 	err := lbb.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
-		err = lbb.SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+		err = lbb.SetStatus(userCred, consts.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
 		err = lbb.MarkPendingDelete(userCred)
 	}

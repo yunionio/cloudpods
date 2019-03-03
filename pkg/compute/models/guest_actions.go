@@ -1383,7 +1383,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	}
 	host := self.GetHost()
 
-	_, err = func() (jsonutils.JSONObject, error) {
+	ngn, err := func() (*SGuestnetwork, error) {
 		lockman.LockRawObject(ctx, GuestnetworkManager.KeywordPlural(), "")
 		defer lockman.ReleaseRawObject(ctx, GuestnetworkManager.KeywordPlural(), "")
 
@@ -1411,17 +1411,27 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 			return nil, err
 		}
 		conf.Ifname = gn.Ifname
-		err = self.attach2NetworkDesc(ctx, userCred, host, conf, nil)
+		ngn, err := self.attach2NetworkDesc(ctx, userCred, host, conf, nil)
 		if err != nil {
 			return nil, httperrors.NewBadRequestError(err.Error())
 		}
 
-		return nil, nil
+		return ngn, nil
 	}()
 
 	if err != nil {
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_NIC, err, userCred, false)
 		return nil, err
 	}
+
+	notes := jsonutils.NewDict()
+	if gn != nil {
+		notes.Add(jsonutils.NewString(gn.IpAddr), "prev_ip")
+	}
+	if ngn != nil {
+		notes.Add(jsonutils.NewString(ngn.IpAddr), "ip")
+	}
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_NIC, notes, userCred, true)
 
 	err = self.StartSyncTask(ctx, userCred, true, "")
 	return nil, err
@@ -1519,7 +1529,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 			return nil, httperrors.NewOutOfQuotaError(err.Error())
 		}
 		host := self.GetHost()
-		err = self.attach2NetworkDesc(ctx, userCred, host, conf, pendingUsage)
+		_, err = self.attach2NetworkDesc(ctx, userCred, host, conf, pendingUsage)
 		if err != nil {
 			QuotaManager.CancelPendingUsage(ctx, userCred, projectId, nil, pendingUsage)
 			return nil, httperrors.NewBadRequestError(err.Error())
@@ -2270,8 +2280,16 @@ func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient
 	if len(self.BackupHostId) == 0 {
 		return nil, httperrors.NewBadRequestError("Guest no backup host")
 	}
+	oldStatus := self.Status
 	self.SetStatus(userCred, VM_SWITCH_TO_BACKUP, "Switch to backup")
-	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSwitchToBackupTask", self, userCred, nil, "", "", nil); err != nil {
+	deleteBackup := jsonutils.QueryBoolean(data, "delete_backup", false)
+	purgeBackup := jsonutils.QueryBoolean(data, "purge_backup", false)
+
+	taskData := jsonutils.NewDict()
+	taskData.Set("old_status", jsonutils.NewString(oldStatus))
+	taskData.Set("delete_backup", jsonutils.NewBool(deleteBackup))
+	taskData.Set("purge_backup", jsonutils.NewBool(purgeBackup))
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSwitchToBackupTask", self, userCred, taskData, "", "", nil); err != nil {
 		log.Errorf(err.Error())
 		return nil, err
 	} else {
@@ -2295,7 +2313,7 @@ func (manager *SGuestManager) PerformDirtyServerStart(ctx context.Context, userC
 	}
 	hostId, _ := data.GetString("host_id")
 	if len(hostId) == 0 {
-		return nil, httperrors.NewBadGatewayError("Missing host_id or host id is nil?")
+		return nil, httperrors.NewBadRequestError("Missing host_id or host id is nil?")
 	}
 
 	if guest.HostId == hostId {
@@ -2307,11 +2325,45 @@ func (manager *SGuestManager) PerformDirtyServerStart(ctx context.Context, userC
 		err := guest.GuestStartAndSyncToBackup(ctx, userCred, nil, "")
 		return nil, err
 	}
-	// else { // 这里是清除这台机器最后的机会
-	// 	err := guest.StartUndeployGuestTask(ctx, userCred, "", hostId)
-	// 	return nil, err
-	// }
 	return nil, nil
+}
+
+func (manager *SGuestManager) AllowPerformDirtyServerVerify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowClassPerform(userCred, manager, "dirty-server-verify")
+}
+
+func (manager *SGuestManager) PerformDirtyServerVerify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	guestId, err := data.GetString("guest_id")
+	if err != nil {
+		return nil, httperrors.NewBadRequestError("Missing guest_id")
+	}
+	guest := manager.FetchGuestById(guestId)
+	if guest == nil {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", guestId)
+	}
+	hostId, _ := data.GetString("host_id")
+	if len(hostId) == 0 {
+		return nil, httperrors.NewBadRequestError("Missing host_id or host id is nil?")
+	}
+
+	if guest.HostId != hostId && guest.BackupHostId != hostId {
+		return nil, guest.StartGuestDeleteOnHostTask(ctx, userCred, hostId, false, "")
+	}
+	return nil, nil
+}
+
+func (self *SGuest) StartGuestDeleteOnHostTask(ctx context.Context, userCred mcclient.TokenCredential, hostId string, purge bool, parentTaskId string) error {
+	taskData := jsonutils.NewDict()
+	taskData.Set("host_id", jsonutils.NewString(hostId))
+	taskData.Set("purge", jsonutils.NewBool(purge))
+	if task, err := taskman.TaskManager.NewTask(
+		ctx, "GuestDeleteOnHostTask", self, userCred, taskData, parentTaskId, "", nil); err != nil {
+		log.Errorf(err.Error())
+		return err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil
 }
 
 func (guest *SGuest) GuestStartAndSyncToBackup(ctx context.Context, userCred mcclient.TokenCredential,
@@ -2383,7 +2435,7 @@ func (self *SGuest) PerformDeleteBackup(ctx context.Context, userCred mcclient.T
 	}
 
 	taskData := jsonutils.NewDict()
-	taskData.Set("pruge", jsonutils.NewBool(jsonutils.QueryBoolean(data, "purge", false)))
+	taskData.Set("purge", jsonutils.NewBool(jsonutils.QueryBoolean(data, "purge", false)))
 	taskData.Set("host_id", jsonutils.NewString(self.BackupHostId))
 	taskData.Set("failed_status", jsonutils.NewString(VM_BACKUP_DELETE_FAILED))
 
@@ -2730,7 +2782,7 @@ func (self *SGuest) importNics(ctx context.Context, userCred mcclient.TokenCrede
 		if err != nil {
 			return httperrors.NewNotFoundError("Not found network by ip %s", nic.Ip)
 		}
-		err = self.attach2NetworkDesc(ctx, userCred, self.GetHost(), nic.ToNetConfig(net), nil)
+		_, err = self.attach2NetworkDesc(ctx, userCred, self.GetHost(), nic.ToNetConfig(net), nil)
 		if err != nil {
 			return err
 		}

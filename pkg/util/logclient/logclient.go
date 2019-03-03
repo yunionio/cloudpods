@@ -70,6 +70,8 @@ const (
 	ACT_RESET_DISK                   = "回滚磁盘"
 	ACT_SYNC_STATUS                  = "同步状态"
 	ACT_SYNC_CONF                    = "同步配置"
+	ACT_CREATE_BACKUP                = "创建备份机"
+	ACT_SWITCH_TO_BACKUP             = "主备切换"
 
 	ACT_IMAGE_SAVE = "上传镜像"
 
@@ -77,6 +79,8 @@ const (
 	ACT_UNDO_RECYCLE_PREPAID = "取消池化预付费主机"
 
 	ACT_FETCH = "下载密钥"
+
+	ACT_VM_CHANGE_NIC = "更改网卡配置"
 )
 
 // golang 不支持 const 的string array, http://t.cn/EzAvbw8

@@ -105,10 +105,11 @@ const (
 	VM_SYNC_CONFIG    = "sync_config"
 	VM_SYNC_FAIL      = "sync_fail"
 
-	VM_RESIZE_DISK      = "resize_disk"
-	VM_START_SAVE_DISK  = "start_save_disk"
-	VM_SAVE_DISK        = "save_disk"
-	VM_SAVE_DISK_FAILED = "save_disk_failed"
+	VM_RESIZE_DISK        = "resize_disk"
+	VM_RESIZE_DISK_FAILED = "resize_disk_fail"
+	VM_START_SAVE_DISK    = "start_save_disk"
+	VM_SAVE_DISK          = "save_disk"
+	VM_SAVE_DISK_FAILED   = "save_disk_failed"
 
 	VM_RESTORING_SNAPSHOT = "restoring_snapshot"
 	VM_RESTORE_DISK       = "restore_disk"
@@ -265,14 +266,14 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	}
 
 	var err error
-	q, err = managedResourceFilterByAccount(q, query, "storage_id", func() *sqlchemy.SQuery {
+	q, err = managedResourceFilterByAccount(q, query, "host_id", func() *sqlchemy.SQuery {
 		hosts := HostManager.Query().SubQuery()
 		return hosts.Query(hosts.Field("id"))
 	})
 	if err != nil {
 		return nil, err
 	}
-	q = managedResourceFilterByCloudType(q, query, "storage_id", func() *sqlchemy.SQuery {
+	q = managedResourceFilterByCloudType(q, query, "host_id", func() *sqlchemy.SQuery {
 		hosts := HostManager.Query().SubQuery()
 		return hosts.Query(hosts.Field("id"))
 	})
@@ -931,6 +932,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if rootDiskConfig.SizeMb == 0 {
 			rootDiskConfig.SizeMb = GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024
 		}
+		log.Debugf("ROOT DISK: %#v", rootDiskConfig)
 		data.Set("disk.0", jsonutils.Marshal(rootDiskConfig))
 
 		for i := 0; i < len(dataDiskDefs); i += 1 {
@@ -1343,6 +1345,12 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	extra.Add(self.getDisksInfoDetails(), "disks_info")
 	extra.Add(jsonutils.NewString(self.getIsolatedDeviceDetails()), "isolated_devices")
 
+	if len(self.BackupHostId) > 0 {
+		backupHost := HostManager.FetchHostById(self.BackupHostId)
+		extra.Set("backup_host_name", jsonutils.NewString(backupHost.Name))
+		extra.Set("backup_host_status", jsonutils.NewString(backupHost.HostStatus))
+	}
+
 	host := self.GetHost()
 	if host != nil {
 		info := host.getCloudProviderInfo()
@@ -1410,11 +1418,6 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		isGpu = jsonutils.JSONTrue
 	}
 	extra.Add(isGpu, "is_gpu")
-
-	if len(self.BackupHostId) > 0 {
-		backupHost := HostManager.FetchHostById(self.BackupHostId)
-		extra.Set("backup_host_name", jsonutils.NewString(backupHost.Name))
-	}
 
 	if self.IsPrepaidRecycle() {
 		extra.Add(jsonutils.JSONTrue, "is_prepaid_recycle")
@@ -2071,12 +2074,12 @@ func (self *SGuest) getOSProfile() osprofile.SOSProfile {
 func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork,
 	pendingUsage quotas.IQuota,
 	address string, mac string, driver string, bwLimit int, virtual bool, index int8,
-	reserved bool, allocDir IPAddlocationDirection, requireDesignatedIP bool, ifName string) error {
+	reserved bool, allocDir IPAddlocationDirection, requireDesignatedIP bool, ifName string) (*SGuestnetwork, error) {
 	/*
 		allow a guest attach to a network 2 times
 	*/
 	if self.getAttach2NetworkCount(network) > MAX_GUESTNIC_TO_SAME_NETWORK {
-		return fmt.Errorf("Guest has been attached to network %s", network.Name)
+		return nil, fmt.Errorf("Guest has been attached to network %s", network.Name)
 	}
 	if index < 0 {
 		index = self.getMaxNicIndex()
@@ -2092,7 +2095,7 @@ func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenC
 		index, address, mac, driver, bwLimit, virtual, reserved,
 		allocDir, requireDesignatedIP, ifName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	network.updateDnsRecord(guestnic, true)
 	network.updateGuestNetmap(guestnic)
@@ -2108,7 +2111,7 @@ func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenC
 		}
 		err = QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, pendingUsage, &cancelUsage)
 		if err != nil {
-			return err
+			log.Warningf("QuotaManager.CancelPendingUsage fail %s", err)
 		}
 	}
 	notes := jsonutils.NewDict()
@@ -2117,7 +2120,7 @@ func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenC
 	}
 	notes.Add(jsonutils.NewString(address), "ip_addr")
 	db.OpsLog.LogAttachEvent(ctx, self, network, userCred, notes)
-	return nil
+	return guestnic, nil
 }
 
 type sRemoveGuestnic struct {
@@ -2236,7 +2239,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 				continue
 			}
 		}
-		err = self.Attach2Network(ctx, userCred, add.net, nil, add.nic.GetIP(),
+		_, err = self.Attach2Network(ctx, userCred, add.net, nil, add.nic.GetIP(),
 			add.nic.GetMAC(), add.nic.GetDriver(), 0, false, -1, add.reserve, IPAllocationDefault, true, "")
 		if err != nil {
 			result.AddError(err)
@@ -2496,14 +2499,15 @@ func (self *SGuest) CreateNetworksOnHost(ctx context.Context, userCred mcclient.
 	}*/
 	if len(netJsonArray) == 0 {
 		netConfig := self.getDefaultNetworkConfig()
-		return self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
+		_, err := self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
+		return err
 	}
 	for idx := 0; idx < len(netJsonArray); idx += 1 {
 		netConfig, err := parseNetworkInfo(userCred, netJsonArray[idx])
 		if err != nil {
 			return err
 		}
-		err = self.attach2NetworkDesc(ctx, userCred, host, netConfig, pendingUsage)
+		_, err = self.attach2NetworkDesc(ctx, userCred, host, netConfig, pendingUsage)
 		if err != nil {
 			return err
 		}
@@ -2511,41 +2515,42 @@ func (self *SGuest) CreateNetworksOnHost(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SGuest) attach2NetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) error {
+func (self *SGuest) attach2NetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) (*SGuestnetwork, error) {
+	var gn *SGuestnetwork
 	var err1, err2 error
 	if len(netConfig.Network) > 0 {
-		err1 = self.attach2NamedNetworkDesc(ctx, userCred, host, netConfig, pendingUsage)
+		gn, err1 = self.attach2NamedNetworkDesc(ctx, userCred, host, netConfig, pendingUsage)
 		if err1 == nil {
-			return nil
+			return gn, nil
 		}
 	}
-	err2 = self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
+	gn, err2 = self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
 	if err2 == nil {
-		return nil
+		return gn, nil
 	}
 	if err1 != nil {
-		return fmt.Errorf("%s/%s", err1, err2)
+		return nil, fmt.Errorf("%s/%s", err1, err2)
 	} else {
-		return err2
+		return nil, err2
 	}
 }
 
-func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) error {
+func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) (*SGuestnetwork, error) {
 	driver := self.GetDriver()
 	net, mac, idx, allocDir := driver.GetNamedNetworkConfiguration(self, userCred, host, netConfig)
 	if net != nil {
-		err := self.Attach2Network(ctx, userCred, net, pendingUsage, netConfig.Address, mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, idx, netConfig.Reserved, allocDir, false, netConfig.Ifname)
+		gn, err := self.Attach2Network(ctx, userCred, net, pendingUsage, netConfig.Address, mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, idx, netConfig.Reserved, allocDir, false, netConfig.Ifname)
 		if err != nil {
-			return err
+			return nil, err
 		} else {
-			return nil
+			return gn, nil
 		}
 	} else {
-		return fmt.Errorf("Network %s not available", netConfig.Network)
+		return nil, fmt.Errorf("Network %s not available", netConfig.Network)
 	}
 }
 
-func (self *SGuest) attach2RandomNetwork(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) error {
+func (self *SGuest) attach2RandomNetwork(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) (*SGuestnetwork, error) {
 	driver := self.GetDriver()
 	return driver.Attach2RandomNetwork(self, ctx, userCred, host, netConfig, pendingUsage)
 }
@@ -3675,7 +3680,7 @@ func (self *SGuest) GetRealIps() []string {
 	return self.getRealIPs()
 }
 
-func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, projectId string) compare.SyncResult {
+func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEip cloudprovider.ICloudEIP, projectId string) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	eip, err := self.GetEip()
@@ -3733,7 +3738,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 			}
 		} else {
 			// do nothing
-			err := eip.SyncWithCloudEip(ctx, userCred, extEip, projectId, false)
+			err := eip.SyncWithCloudEip(ctx, userCred, provider, extEip, projectId, false)
 			if err != nil {
 				result.UpdateError(err)
 			} else {

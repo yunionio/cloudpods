@@ -84,6 +84,9 @@ func (joint *SGuestdisk) Slave() db.IStandaloneModel {
 
 func (self *SGuestdisk) getExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	disk := self.GetDisk()
+	if storage := disk.GetStorage(); storage != nil {
+		extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
+	}
 	extra.Add(jsonutils.NewInt(int64(disk.DiskSize)), "disk_size")
 	extra.Add(jsonutils.NewString(disk.Status), "status")
 	extra.Add(jsonutils.NewString(disk.DiskType), "disk_type")

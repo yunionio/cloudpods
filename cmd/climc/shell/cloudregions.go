@@ -34,6 +34,7 @@ func init() {
 		Manager  string `help:"List objects belonging to the cloud provider"`
 		Account  string `help:"List objects belonging to the cloud account"`
 		Provider string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|Openstack"`
+		City     string `help:"List regions in the specified city"`
 
 		PublicCloud  *bool `help:"List objects belonging to public cloud" json:"public_cloud"`
 		PrivateCloud *bool `help:"List objects belonging to private cloud" json:"private_cloud"`

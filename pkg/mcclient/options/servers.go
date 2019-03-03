@@ -47,7 +47,13 @@ type ServerIdsOptions struct {
 
 type ServerDeleteBackupOptions struct {
 	ID    string `help:"ID of the server" json:"-"`
-	Purge bool   `help:"Purge Guest Backup" json:"purge"`
+	Purge *bool  `help:"Purge Guest Backup" json:"purge"`
+}
+
+type ServerSwitchToBackupOptions struct {
+	ID           string `help:"ID of the server" json:"-"`
+	PurgeBackup  *bool  `help:"Purge Guest Backup" json:"purge_backup"`
+	DeleteBackup *bool  `help:"Delete Guest Backup" json:"delete_backup"`
 }
 
 type ServerShowOptions struct {

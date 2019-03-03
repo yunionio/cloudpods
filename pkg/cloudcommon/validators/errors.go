@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -66,7 +67,7 @@ func newInvalidTypeError(key string, typ string, err error) error {
 	return newError(ERR_INVALID_TYPE, "expecting %s type for %q: %s", typ, key, err)
 }
 
-func newInvalidChoiceError(key string, choices Choices, choice string) error {
+func newInvalidChoiceError(key string, choices choices.Choices, choice string) error {
 	return newError(ERR_INVALID_CHOICE, "invalid %q, want %s, got %s", key, choices, choice)
 }
 

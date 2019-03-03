@@ -150,6 +150,14 @@ func (self *SEipAddress) GetBandwidth() int {
 	return 0
 }
 
+func (self *SEipAddress) GetBillingType() string {
+	return models.BILLING_TYPE_POSTPAID
+}
+
+func (self *SEipAddress) GetExpiredAt() time.Time {
+	return time.Time{}
+}
+
 func (self *SEipAddress) GetInternetChargeType() string {
 	if len(self.InstanceId) > 0 {
 		if instance, err := self.region.GetInstance(self.InstanceId); err == nil {

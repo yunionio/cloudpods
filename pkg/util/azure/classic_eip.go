@@ -2,6 +2,7 @@ package azure
 
 import (
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -141,4 +142,12 @@ func (region *SRegion) GetClassicEips() ([]SClassicEipAddress, error) {
 		}
 	}
 	return result, nil
+}
+
+func (self *SClassicEipAddress) GetBillingType() string {
+	return models.BILLING_TYPE_POSTPAID
+}
+
+func (self *SClassicEipAddress) GetExpiredAt() time.Time {
+	return time.Time{}
 }

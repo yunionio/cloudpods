@@ -66,6 +66,7 @@ type SElasticip struct {
 	db.SVirtualResourceBase
 
 	SManagedResourceBase
+	SBillingResourceBase
 
 	Mode string `width:"32" charset:"ascii" list:"user"`
 
@@ -76,7 +77,7 @@ type SElasticip struct {
 
 	Bandwidth int `list:"user" create:"required"`
 
-	ChargeType string `list:"user" create:"required"`
+	ChargeType string `name:"charge_type" list:"user" create:"required"`
 	BgpType    string `list:"user" create:"optional"` // 目前只有华为云此字段是必需填写的。
 
 	AutoDellocate tristate.TriState `default:"false" get:"user" create:"optional" update:"user"`
@@ -173,7 +174,7 @@ func (self *SElasticip) GetRegion() *SCloudregion {
 func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc := self.SVirtualResourceBase.GetShortDesc(ctx)
 
-	desc.Add(jsonutils.NewString(self.ChargeType), "charge_type")
+	// desc.Add(jsonutils.NewString(self.ChargeType), "charge_type")
 
 	desc.Add(jsonutils.NewInt(int64(self.Bandwidth)), "bandwidth")
 	desc.Add(jsonutils.NewString(self.Mode), "mode")
@@ -191,7 +192,13 @@ func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 
 	billingInfo.SCloudProviderInfo = self.getCloudProviderInfo()
 
+	billingInfo.SBillingBaseInfo = self.getBillingBaseInfo()
+
 	billingInfo.InternetChargeType = self.ChargeType
+
+	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
+		billingInfo.PriceKey = priceKey
+	}
 
 	desc.Update(jsonutils.Marshal(billingInfo))
 
@@ -233,7 +240,7 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudEip(ctx, userCred, commonext[i], projectId, projectSync)
+		err = commondb[i].SyncWithCloudEip(ctx, userCred, provider, commonext[i], projectId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -301,7 +308,7 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudEIP, projectId string, projectSync bool) error {
+func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudEIP, projectId string, projectSync bool) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 
 		// self.Name = ext.GetName()
@@ -317,6 +324,12 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 			self.ProjectId = projectId
 		}
 		self.ChargeType = ext.GetInternetChargeType()
+
+		factory, _ := provider.GetProviderFactory()
+		if factory != nil && factory.IsSupportPrepaidResources() {
+			self.BillingType = ext.GetBillingType()
+			self.ExpiredAt = ext.GetExpiredAt()
+		}
 
 		return nil
 	})

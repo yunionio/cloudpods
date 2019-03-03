@@ -431,3 +431,31 @@ func (w *SWindowsRootFs) deploySetupCompleteScripts(uname, passwd string) bool {
 	}
 	return true
 }
+
+func (w *SWindowsRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []jsonutils.JSONObject) error {
+	if len(disks) == 1 {
+		return nil
+	}
+
+	bootScript := strings.Join([]string{
+		`set MOUNT_DISK_SCRIPT=%SystemRoot%\mountdisk.bat`,
+		`if exist %MOUNT_DISK_SCRIPT% (`,
+		`    call %MOUNT_DISK_SCRIPT%`,
+		`    del %MOUNT_DISK_SCRIPT%`,
+		`)`,
+	}, "\r\n")
+	w.appendGuestBootScript(bootScript)
+	logPath := w.guestDebugLogPath
+	mountScript := strings.Join([]string{
+		w.MakeGuestDebugCmd("mount disk step 1"),
+		`cscript %SystemRoot%\mountdisk.js --debug ` + logPath,
+		`del %SystemRoot%\mountdisk.js`,
+		w.MakeGuestDebugCmd("mount disk step 2"),
+	}, "\r\n")
+
+	if w.putGuestScriptContents("/windows/mountdisk.bat", mountScript) != nil {
+		return nil
+	}
+	w.putGuestScriptContents("/windows/mountdisk.js", WinScriptMountDisk)
+	return nil
+}

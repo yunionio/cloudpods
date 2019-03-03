@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -38,6 +39,7 @@ func NewTableSpecFromStruct(s interface{}, name string) *STableSpec {
 		name:       name,
 		structType: st,
 	}
+	log.Infof("struct2TableSpec for table %s", name)
 	struct2TableSpec(val, table)
 	return table
 }

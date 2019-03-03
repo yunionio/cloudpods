@@ -19,6 +19,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -154,7 +155,7 @@ func (lbacl *SLoadbalancerAcl) ValidateUpdateData(ctx context.Context, userCred 
 
 func (lbacl *SLoadbalancerAcl) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbacl.SSharableVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
-	lbacl.SetStatus(userCred, LB_SYNC_CONF, "")
+	lbacl.SetStatus(userCred, consts.LB_SYNC_CONF, "")
 	lbacl.StartLoadBalancerAclSyncTask(ctx, userCred, "")
 }
 
@@ -170,7 +171,7 @@ func (lbacl *SLoadbalancerAcl) StartLoadBalancerAclSyncTask(ctx context.Context,
 func (lbacl *SLoadbalancerAcl) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lbacl.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 
-	lbacl.SetStatus(userCred, LB_CREATING, "")
+	lbacl.SetStatus(userCred, consts.LB_CREATING, "")
 	if err := lbacl.StartLoadBalancerAclCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalanceracl error: %v", err)
 	}
@@ -292,7 +293,7 @@ func (lbacl *SLoadbalancerAcl) PerformPurge(ctx context.Context, userCred mcclie
 }
 
 func (lbacl *SLoadbalancerAcl) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	lbacl.SetStatus(userCred, LB_STATUS_DELETING, "")
+	lbacl.SetStatus(userCred, consts.LB_STATUS_DELETING, "")
 	return lbacl.StartLoadBalancerAclDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -378,7 +379,7 @@ func (self *SLoadbalancerAcl) syncRemoveCloudLoadbalanceAcl(ctx context.Context,
 
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
-		err = self.SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+		err = self.SetStatus(userCred, consts.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
 		err = self.Delete(ctx, userCred)
 	}

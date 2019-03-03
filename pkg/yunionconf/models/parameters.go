@@ -56,10 +56,12 @@ func isAdminQuery(query jsonutils.JSONObject) bool {
 
 func getNamespaceInContext(userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (namespace string, namespaceId string, err error) {
 	// 优先匹配上线文中的参数, /users/<user_id>/parameters  /services/<service_id>/parameters
-	if uid, _ := query.GetString("user_id"); len(uid) > 0 {
-		return NAMESPACE_USER, uid, nil
-	} else if sid, _ := query.GetString("service_id"); len(sid) > 0 {
-		return NAMESPACE_SERVICE, sid, nil
+	if query != nil {
+		if uid, _ := query.GetString("user_id"); len(uid) > 0 {
+			return NAMESPACE_USER, uid, nil
+		} else if sid, _ := query.GetString("service_id"); len(sid) > 0 {
+			return NAMESPACE_SERVICE, sid, nil
+		}
 	}
 
 	// 匹配/parameters中的参数

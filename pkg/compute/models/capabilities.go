@@ -126,6 +126,7 @@ func getStorageTypes(zone *SZone, isSysDisk bool) []string {
 	if isSysDisk {
 		q = q.Filter(sqlchemy.IsTrue(storages.Field("is_sys_disk_store")))
 	}
+	q = q.Filter(sqlchemy.NotEquals(hosts.Field("host_type"), HOST_TYPE_BAREMETAL))
 	q = q.Distinct()
 	rows, err := q.Rows()
 	if err != nil {

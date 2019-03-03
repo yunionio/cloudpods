@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,9 +18,10 @@ import (
 	"github.com/moul/http2curl"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/trace"
+
+	"yunion.io/x/onecloud/pkg/appctx"
 )
 
 type THttpMethod string
@@ -102,7 +104,12 @@ func GetAddrPort(urlStr string) (string, int, error) {
 
 func GetClient(insecure bool) *http.Client {
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
+		DialContext: (&net.Dialer{
+			Timeout: 5 * time.Second,
+		}).DialContext,
+		IdleConnTimeout:     5 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig:     &tls.Config{InsecureSkipVerify: insecure},
 	}
 	return &http.Client{Transport: tr}
 }

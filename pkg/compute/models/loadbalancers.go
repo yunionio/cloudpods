@@ -15,6 +15,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -35,12 +36,6 @@ func init() {
 		),
 	}
 }
-
-const (
-	LB_CHARGE_TYPE_BY_TRAFFIC   = "traffic"
-	LB_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
-	LB_CHARGE_TYPE_BY_HOUR      = "hour"
-)
 
 // TODO build errors on pkg/httperrors/errors.go
 // NewGetManagerError
@@ -100,20 +95,20 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 	addressType, _ := data.GetString("address_type")
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", "")
 	managerIdV := validators.NewModelIdOrNameValidator("manager_id", "cloudprovider", "")
-	if addressType == LB_ADDR_TYPE_INTERNET {
+	if addressType == consts.LB_ADDR_TYPE_INTERNET {
 		networkV.Optional(true)
 	} else {
 		zoneV.Optional(true)
 		managerIdV.Optional(true)
 	}
 	addressV := validators.NewIPv4AddrValidator("address")
-	addressTypeV := validators.NewStringChoicesValidator("address_type", LB_ADDR_TYPES)
+	addressTypeV := validators.NewStringChoicesValidator("address_type", consts.LB_ADDR_TYPES)
 	{
 		keyV := map[string]validators.IValidator{
-			"status": validators.NewStringChoicesValidator("status", LB_STATUS_SPEC).Default(LB_STATUS_ENABLED),
+			"status": validators.NewStringChoicesValidator("status", consts.LB_STATUS_SPEC).Default(consts.LB_STATUS_ENABLED),
 
 			"address":      addressV.Optional(true),
-			"address_type": addressTypeV.Default(LB_ADDR_TYPE_INTRANET),
+			"address_type": addressTypeV.Default(consts.LB_ADDR_TYPE_INTRANET),
 			"network":      networkV,
 			"zone":         zoneV,
 			"manager_id":   managerIdV,
@@ -125,7 +120,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		}
 	}
 	var region *SCloudregion
-	if addressTypeV.Value == LB_ADDR_TYPE_INTRANET {
+	if addressTypeV.Value == consts.LB_ADDR_TYPE_INTRANET {
 		network := networkV.Model.(*SNetwork)
 		if ipAddr := addressV.IP; ipAddr != nil {
 			ipS := ipAddr.String()
@@ -168,8 +163,8 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		}
 		data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
 		// TODO validate network is of classic type
-		data.Set("network_type", jsonutils.NewString(LB_NETWORK_TYPE_CLASSIC))
-		data.Set("address_type", jsonutils.NewString(LB_ADDR_TYPE_INTRANET))
+		data.Set("network_type", jsonutils.NewString(consts.LB_NETWORK_TYPE_CLASSIC))
+		data.Set("address_type", jsonutils.NewString(consts.LB_ADDR_TYPE_INTRANET))
 	} else {
 		zone := zoneV.Model.(*SZone)
 		region = zone.GetRegion()
@@ -181,8 +176,8 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		data.Set("address", jsonutils.NewString(""))
 		data.Set("network_id", jsonutils.NewString(""))
 		data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
-		data.Set("network_type", jsonutils.NewString(LB_NETWORK_TYPE_VPC))
-		data.Set("address_type", jsonutils.NewString(LB_ADDR_TYPE_INTERNET))
+		data.Set("network_type", jsonutils.NewString(consts.LB_NETWORK_TYPE_VPC))
+		data.Set("address_type", jsonutils.NewString(consts.LB_ADDR_TYPE_INTERNET))
 	}
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
 		return nil, err
@@ -198,7 +193,7 @@ func (lb *SLoadbalancer) PerformStatus(ctx context.Context, userCred mcclient.To
 	if _, err := lb.SVirtualResourceBase.PerformStatus(ctx, userCred, query, data); err != nil {
 		return nil, err
 	}
-	if lb.Status == LB_STATUS_ENABLED {
+	if lb.Status == consts.LB_STATUS_ENABLED {
 		return nil, lb.StartLoadBalancerStartTask(ctx, userCred, "")
 	}
 	return nil, lb.StartLoadBalancerStopTask(ctx, userCred, "")
@@ -233,7 +228,7 @@ func (lb *SLoadbalancer) PerformSyncstatus(ctx context.Context, userCred mcclien
 func (lb *SLoadbalancer) StartLoadBalancerSyncstatusTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(lb.Status), "origin_status")
-	lb.SetStatus(userCred, LB_SYNC_STATUS, "")
+	lb.SetStatus(userCred, consts.LB_SYNC_STATUS, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerSyncstatusTask", lb, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -248,7 +243,7 @@ func (lb *SLoadbalancer) PostCreate(ctx context.Context, userCred mcclient.Token
 	// NOTE this means lb.UpdateVersion will be 0, then 1 after creation
 	// NOTE need ways to notify error
 
-	lb.SetStatus(userCred, LB_CREATING, "")
+	lb.SetStatus(userCred, consts.LB_CREATING, "")
 	if err := lb.StartLoadBalancerCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancer error: %v", err)
 	}
@@ -330,7 +325,7 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		}
 		params.ZoneID = iZone.GetId()
 	}
-	if lb.AddressType == LB_ADDR_TYPE_INTRANET {
+	if lb.AddressType == consts.LB_ADDR_TYPE_INTRANET {
 		vpc := lb.GetVpc()
 		if vpc == nil {
 			return nil, fmt.Errorf("failed to find vpc for lb %s", lb.Name)
@@ -416,7 +411,7 @@ func (lb *SLoadbalancer) GetExtraDetails(ctx context.Context, userCred mcclient.
 }
 
 func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	lb.SetStatus(userCred, LB_STATUS_DELETING, "")
+	lb.SetStatus(userCred, consts.LB_STATUS_DELETING, "")
 	return lb.StartLoadBalancerDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -574,7 +569,7 @@ func (lb *SLoadbalancer) syncRemoveCloudLoadbalancer(ctx context.Context, userCr
 
 	err := lb.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
-		err = lb.SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+		err = lb.SetStatus(userCred, consts.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
 		err = lb.Delete(ctx, userCred)
 	}

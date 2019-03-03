@@ -107,7 +107,9 @@ type SchedData struct {
 	// vm backup schedule
 	// Schedule server with backup server
 	Backup bool `json:"backup"`
-	// Backup server should be scheduled
+	// Backup master host
+	PreferHostId string `json:"prefer_host_id"`
+	// Backup host should be scheduled
 	BackupHostID string `json:"backup_host_id"`
 }
 
@@ -138,33 +140,49 @@ func NewSchedData(sjson *simplejson.Json, count int64, byTest bool) (*SchedData,
 
 	candidates := make([]string, 0)
 
-	if hostID, ok := sjson.CheckGet("prefer_host_id"); ok {
-		if str, err := hostID.String(); err == nil {
-			candidates = append(candidates, str)
-		}
-	} else if hostID, ok := sjson.CheckGet("prefer_host"); ok {
-		if str, err := hostID.String(); err == nil {
-			candidates = append(candidates, str)
-		}
-	}
-
-	if baremetalID, ok := sjson.CheckGet("prefer_baremetal_id"); ok {
-		if str, err := baremetalID.String(); err == nil {
-			candidates = append(candidates, str)
-		}
-	} else if baremetalID, ok := sjson.CheckGet("prefer_baremetal"); ok {
-		if str, err := baremetalID.String(); err == nil {
-			candidates = append(candidates, str)
-		}
-	}
-
 	if backupObj, ok := sjson.CheckGet("backup"); ok {
 		if backup, err := backupObj.Bool(); err == nil && backup {
 			data.Backup = true
 		}
 	}
 
+	if hostID, ok := sjson.CheckGet("prefer_host_id"); ok {
+		if str, err := hostID.String(); err == nil {
+			if !data.Backup {
+				candidates = append(candidates, str)
+			} else {
+				data.PreferHostId = str
+			}
+		}
+	} else if hostID, ok := sjson.CheckGet("prefer_host"); ok {
+		if str, err := hostID.String(); err == nil {
+			if !data.Backup {
+				candidates = append(candidates, str)
+			} else {
+				data.PreferHostId = str
+			}
+		}
+	}
+
+	if baremetalID, ok := sjson.CheckGet("prefer_baremetal_id"); ok {
+		if str, err := baremetalID.String(); err == nil {
+			if !data.Backup {
+				candidates = append(candidates, str)
+			}
+		}
+	} else if baremetalID, ok := sjson.CheckGet("prefer_baremetal"); ok {
+		if str, err := baremetalID.String(); err == nil {
+			if !data.Backup {
+				candidates = append(candidates, str)
+			}
+		}
+	}
+
 	if backupHostID, ok := sjson.CheckGet("prefer_backup_host_id"); ok {
+		if backHost, err := backupHostID.String(); err == nil {
+			data.BackupHostID = backHost
+		}
+	} else if backupHostID, ok := sjson.CheckGet("prefer_backup_host"); ok {
 		if backHost, err := backupHostID.String(); err == nil {
 			data.BackupHostID = backHost
 		}

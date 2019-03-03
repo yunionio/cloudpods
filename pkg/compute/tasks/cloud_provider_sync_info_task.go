@@ -116,6 +116,42 @@ func syncOutOfPremiseCloudProviderInfo(ctx context.Context, provider *models.SCl
 
 		cloudProviderRegions[i].DoSync(ctx, task.UserCred, syncRange)
 	}
+}
 
+func syncVMDisks(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, driver cloudprovider.ICloudProvider, host *models.SHost, localVM *models.SGuest, remoteVM cloudprovider.ICloudVM, syncRange *models.SSyncRange) {
+	disks, err := remoteVM.GetIDisks()
+	if err != nil {
+		msg := fmt.Sprintf("GetIDisks for VM %s failed %s", remoteVM.GetName(), err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	result := localVM.SyncVMDisks(ctx, task.UserCred, driver, host, disks, provider.ProjectId, syncRange.ProjectSync)
+	msg := result.Result()
+	notes := fmt.Sprintf("syncVMDisks for VM %s result: %s", localVM.Name, msg)
+	log.Infof(notes)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
+	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+}
+
+func syncVMEip(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localVM *models.SGuest, remoteVM cloudprovider.ICloudVM) {
+	eip, err := remoteVM.GetIEIP()
+	if err != nil {
+		msg := fmt.Sprintf("GetIEIP for VM %s failed %s", remoteVM.GetName(), err)
+		log.Errorf(msg)
+		logSyncFailed(provider, task, msg)
+		return
+	}
+	result := localVM.SyncVMEip(ctx, task.UserCred, provider, eip, provider.ProjectId)
+	msg := result.Result()
+	log.Infof("syncVMEip for VM %s result: %s", localVM.Name, msg)
+	if result.IsError() {
+		logSyncFailed(provider, task, msg)
+		return
+	}
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 }*/

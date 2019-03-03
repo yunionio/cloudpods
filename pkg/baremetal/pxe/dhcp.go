@@ -215,6 +215,7 @@ func (h *DHCPHandler) findNetworkConf(filterUseIp bool) (*types.SNetworkConfig, 
 func (h *DHCPHandler) createOrUpdateBaremetal() (jsonutils.JSONObject, error) {
 	session := h.baremetalManager.GetClientSession()
 	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(models.HOST_TYPE_BAREMETAL), "host_type")
 	params.Add(jsonutils.NewString(h.ClientMac.String()), "any_mac")
 	ret, err := modules.Hosts.List(session, params)
 	if err != nil {

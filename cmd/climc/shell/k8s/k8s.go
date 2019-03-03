@@ -15,6 +15,8 @@ import (
 func init() {
 	// cluster resources
 	initCluster()
+	initKubeCluster()
+	initKubeMachine()
 	initNode()
 
 	// helm resources

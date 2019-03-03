@@ -6,12 +6,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/utils"
 )
 
 type SKVMRegionDriver struct {
@@ -46,7 +48,7 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx cont
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backends []cloudprovider.SLoadbalancerBackend) (*jsonutils.JSONDict, error) {
 	for _, backend := range backends {
 		switch backend.BackendType {
-		case models.LB_BACKEND_GUEST:
+		case consts.LB_BACKEND_GUEST:
 			if backend.ZoneId != lb.ZoneId {
 				return nil, fmt.Errorf("zone of host %q (%s) != zone of loadbalancer %q (%s)",
 					backend.HostName, backend.ZoneId, lb.Name, lb.ZoneId)
@@ -58,7 +60,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx con
 
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendType string, lb *models.SLoadbalancer, backendGroup *models.SLoadbalancerBackendGroup, backend db.IModel) (*jsonutils.JSONDict, error) {
 	switch backendType {
-	case models.LB_BACKEND_GUEST:
+	case consts.LB_BACKEND_GUEST:
 		guest := backend.(*models.SGuest)
 		{
 			// guest zone must match that of loadbalancer's
@@ -104,7 +106,7 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 func (self *SKVMRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		_, err := db.Update(lb, func() error {
-			if lb.AddressType == models.LB_ADDR_TYPE_INTRANET {
+			if lb.AddressType == consts.LB_ADDR_TYPE_INTRANET {
 				// TODO support use reserved ip address
 				// TODO prefer ip address from server_type loadbalancer?
 				req := &models.SLoadbalancerNetworkRequestData{
@@ -140,10 +142,10 @@ func (self *SKVMRegionDriver) RequestStopLoadbalancer(ctx context.Context, userC
 
 func (self *SKVMRegionDriver) RequestSyncstatusLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {
 	originStatus, _ := task.GetParams().GetString("origin_status")
-	if utils.IsInStringArray(originStatus, []string{models.LB_STATUS_ENABLED, models.LB_STATUS_DISABLED}) {
+	if utils.IsInStringArray(originStatus, []string{consts.LB_STATUS_ENABLED, consts.LB_STATUS_DISABLED}) {
 		lb.SetStatus(userCred, originStatus, "")
 	} else {
-		lb.SetStatus(userCred, models.LB_STATUS_ENABLED, "")
+		lb.SetStatus(userCred, consts.LB_STATUS_ENABLED, "")
 	}
 	task.ScheduleRun(nil)
 	return nil
@@ -191,7 +193,7 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.
 				Address:        backend.Address,
 				Port:           backend.Port,
 			}
-			loadbalancerBackend.Status = models.LB_STATUS_ENABLED
+			loadbalancerBackend.Status = consts.LB_STATUS_ENABLED
 			loadbalancerBackend.ProjectId = userCred.GetProjectId()
 			loadbalancerBackend.Name = fmt.Sprintf("%s-%s-%s", lbbg.Name, backend.BackendType, backend.Name)
 			if err := models.LoadbalancerBackendManager.TableSpec().Insert(&loadbalancerBackend); err != nil {
@@ -248,10 +250,10 @@ func (self *SKVMRegionDriver) RequestStopLoadbalancerListener(ctx context.Contex
 
 func (self *SKVMRegionDriver) RequestSyncstatusLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	originStatus, _ := task.GetParams().GetString("origin_status")
-	if utils.IsInStringArray(originStatus, []string{models.LB_STATUS_ENABLED, models.LB_STATUS_DISABLED}) {
+	if utils.IsInStringArray(originStatus, []string{consts.LB_STATUS_ENABLED, consts.LB_STATUS_DISABLED}) {
 		lblis.SetStatus(userCred, originStatus, "")
 	} else {
-		lblis.SetStatus(userCred, models.LB_STATUS_ENABLED, "")
+		lblis.SetStatus(userCred, consts.LB_STATUS_ENABLED, "")
 	}
 	task.ScheduleRun(nil)
 	return nil

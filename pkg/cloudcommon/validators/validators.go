@@ -14,10 +14,12 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/util/choices"
 )
 
 type ValidatorFunc func(*jsonutils.JSONDict) error
@@ -106,12 +108,12 @@ func (v *Validator) validateEx(data *jsonutils.JSONDict) (err error, isSet bool)
 
 type ValidatorStringChoices struct {
 	Validator
-	Choices    Choices
+	Choices    choices.Choices
 	defaultVal string
 	Value      string
 }
 
-func NewStringChoicesValidator(key string, choices Choices) *ValidatorStringChoices {
+func NewStringChoicesValidator(key string, choices choices.Choices) *ValidatorStringChoices {
 	v := &ValidatorStringChoices{
 		Validator: Validator{Key: key},
 		Choices:   choices,
@@ -150,14 +152,14 @@ func (v *ValidatorStringChoices) Validate(data *jsonutils.JSONDict) error {
 
 type ValidatorStringMultiChoices struct {
 	Validator
-	Choices    Choices
+	Choices    choices.Choices
 	defaultVal string
 	Value      string
 	sep        string
 	keepDup    bool
 }
 
-func NewStringMultiChoicesValidator(key string, choices Choices) *ValidatorStringMultiChoices {
+func NewStringMultiChoicesValidator(key string, choices choices.Choices) *ValidatorStringMultiChoices {
 	v := &ValidatorStringMultiChoices{
 		Validator: Validator{Key: key},
 		Choices:   choices,

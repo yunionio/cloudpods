@@ -181,6 +181,7 @@ func (l *sLinuxRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []jsonuti
 	var rec string
 	var modeRwxOwner = syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
 	var fstab = fstabutils.FSTabFile(string(fstabcont))
+	fstab.RemoveDevices(len(disks))
 
 	for i := 1; i < len(disks); i++ {
 		diskId, err := disks[i].GetString("disk_id")
@@ -190,25 +191,27 @@ func (l *sLinuxRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []jsonuti
 		dev := fmt.Sprintf("UUID=%s", diskId)
 		if !fstab.IsExists(dev) {
 			fs, _ := disks[i].GetString("fs")
-			if fs == "swap" {
-				rec = fmt.Sprintf("%s none %s sw 0 0", dev, fs)
-			} else {
-				mtPath, _ := disks[i].GetString("mountpoint")
-				if len(mtPath) == 0 {
-					mtPath = "/data"
-					if dataDiskIdx > 0 {
-						mtPath += fmt.Sprintf("%d", dataDiskIdx)
+			if len(fs) > 0 {
+				if fs == "swap" {
+					rec = fmt.Sprintf("%s none %s sw 0 0", dev, fs)
+				} else {
+					mtPath, _ := disks[i].GetString("mountpoint")
+					if len(mtPath) == 0 {
+						mtPath = "/data"
+						if dataDiskIdx > 0 {
+							mtPath += fmt.Sprintf("%d", dataDiskIdx)
+						}
+						dataDiskIdx += 1
 					}
-					dataDiskIdx += 1
-				}
-				rec = fmt.Sprintf("%s %s %s defaults 2 2", dev, mtPath, fs)
-				if !l.rootFs.Exists(mtPath, false) {
-					if err := l.rootFs.Mkdir(mtPath, modeRwxOwner, false); err != nil {
-						return err
+					rec = fmt.Sprintf("%s %s %s defaults 2 2", dev, mtPath, fs)
+					if !l.rootFs.Exists(mtPath, false) {
+						if err := l.rootFs.Mkdir(mtPath, modeRwxOwner, false); err != nil {
+							return err
+						}
 					}
 				}
+				fstab.AddFsrec(rec)
 			}
-			fstab.AddFsrec(rec)
 		}
 	}
 	cf := fstab.ToConf()

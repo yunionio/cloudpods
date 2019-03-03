@@ -3,20 +3,20 @@ package huawei
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
-	"strconv"
-
-	"sort"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/modules"
-	"yunion.io/x/pkg/util/osprofile"
 )
 
 const (
@@ -82,25 +82,26 @@ type SysTag struct {
 type SInstance struct {
 	host *SHost
 
-	ID                               string                             `json:"id"`
-	Name                             string                             `json:"name"`
-	Addresses                        map[string][]IpAddress             `json:"addresses"`
-	Flavor                           Flavor                             `json:"flavor"`
-	AccessIPv4                       string                             `json:"accessIPv4"`
-	AccessIPv6                       string                             `json:"accessIPv6"`
-	Status                           string                             `json:"status"`
-	Progress                         string                             `json:"progress"`
-	HostID                           string                             `json:"hostId"`
-	Updated                          string                             `json:"updated"`
-	Created                          time.Time                          `json:"created"`
-	Metadata                         VMMetadata                         `json:"metadata"`
-	Tags                             []string                           `json:"tags"`
-	Description                      string                             `json:"description"`
-	Locked                           bool                               `json:"locked"`
-	ConfigDrive                      string                             `json:"config_drive"`
-	TenantID                         string                             `json:"tenant_id"`
-	UserID                           string                             `json:"user_id"`
-	KeyName                          string                             `json:"key_name"`
+	ID          string                 `json:"id"`
+	Name        string                 `json:"name"`
+	Addresses   map[string][]IpAddress `json:"addresses"`
+	Flavor      Flavor                 `json:"flavor"`
+	AccessIPv4  string                 `json:"accessIPv4"`
+	AccessIPv6  string                 `json:"accessIPv6"`
+	Status      string                 `json:"status"`
+	Progress    string                 `json:"progress"`
+	HostID      string                 `json:"hostId"`
+	Updated     string                 `json:"updated"`
+	Created     time.Time              `json:"created"`
+	Metadata    VMMetadata             `json:"metadata"`
+	Tags        []string               `json:"tags"`
+	Description string                 `json:"description"`
+	Locked      bool                   `json:"locked"`
+	ConfigDrive string                 `json:"config_drive"`
+	TenantID    string                 `json:"tenant_id"`
+	UserID      string                 `json:"user_id"`
+	KeyName     string                 `json:"key_name"`
+
 	OSExtendedVolumesVolumesAttached []OSExtendedVolumesVolumesAttached `json:"os-extended-volumes:volumes_attached"`
 	OSEXTSTSTaskState                string                             `json:"OS-EXT-STS:task_state"`
 	OSEXTSTSPowerState               int64                              `json:"OS-EXT-STS:power_state"`
@@ -555,9 +556,28 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 	return self.host.zone.region.GetInstanceVNCUrl(self.GetId())
 }
 
+func (self *SInstance) NextDeviceName() (string, error) {
+	currents := []string{}
+	for _, item := range self.OSExtendedVolumesVolumesAttached {
+		currents = append(currents, strings.ToLower(item.Device))
+	}
+
+	for i := 0; i < 25; i++ {
+		device := fmt.Sprintf("/dev/sd%s", string(98+i))
+		if ok, _ := utils.InStringArray(device, currents); !ok {
+			return device, nil
+		}
+	}
+
+	return "", fmt.Errorf("disk devicename out of index, current deivces: %s", currents)
+}
+
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
-	// todo: calc device
-	return self.host.zone.region.AttachDisk(self.GetId(), diskId, "")
+	device, err := self.NextDeviceName()
+	if err != nil {
+		return err
+	}
+	return self.host.zone.region.AttachDisk(self.GetId(), diskId, device)
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
@@ -734,10 +754,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		ids, err = self.GetAllSubTaskEntityIDs(self.ecsClient.Servers.ServiceType(), _id, "server_id")
 	} else {
 		// 包年包月
-		err = cloudprovider.WaitCreated(10*time.Second, 180*time.Second, func() bool {
+		err = cloudprovider.WaitCreated(10*time.Second, 300*time.Second, func() bool {
+			log.Debugf("WaitCreated %s", _id)
 			order, e := self.GetOrder(_id)
 			if e != nil {
-				log.Debugf(err.Error())
+				log.Debugf(e.Error())
 				return false
 			}
 
@@ -1073,12 +1094,15 @@ func (self *SRegion) GetInstanceVNCUrl(instanceId string) (jsonutils.JSONObject,
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0022472987.html
-// todo: 指定device
 // XEN平台虚拟机device为必选参数。
 func (self *SRegion) AttachDisk(instanceId string, diskId string, device string) error {
 	params := jsonutils.NewDict()
 	volumeObj := jsonutils.NewDict()
 	volumeObj.Add(jsonutils.NewString(diskId), "volumeId")
+	if len(device) > 0 {
+		volumeObj.Add(jsonutils.NewString(device), "device")
+	}
+
 	params.Add(volumeObj, "volumeAttachment")
 
 	_, err := self.ecsClient.Servers.PerformAction2("attachvolume", instanceId, params, "")
@@ -1089,7 +1113,7 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string, device string)
 // 默认非强制卸载。delete_flag=0
 func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	path := fmt.Sprintf("detachvolume/%s", diskId)
-	return DoDeleteWithSpec(self.ecsClient.Servers.DeleteInContextWithSpec, nil, instanceId, path, nil)
+	return DoDeleteWithSpec(self.ecsClient.Servers.DeleteInContextWithSpec, nil, instanceId, path, nil, nil)
 }
 
 // 目前无接口支持

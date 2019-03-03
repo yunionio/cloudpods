@@ -5,8 +5,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -42,12 +44,20 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile,
 
 	tr := &http.Transport{
 		TLSClientConfig: tlsConf,
+		DialContext: (&net.Dialer{
+			Timeout: 5 * time.Second,
+		}).DialContext,
+		IdleConnTimeout:     5 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
 	}
 
 	client := Client{authUrl: authUrl,
-		timeout:  timeout,
-		debug:    debug,
-		httpconn: &http.Client{Transport: tr}}
+		timeout: timeout,
+		debug:   debug,
+		httpconn: &http.Client{
+			Transport: tr,
+		},
+	}
 	return &client
 }
 

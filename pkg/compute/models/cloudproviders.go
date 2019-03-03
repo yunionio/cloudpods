@@ -858,3 +858,13 @@ func (provider *SCloudprovider) SyncCallSyncCloudproviderRegions(userCred mcclie
 	provider.syncCloudproviderRegions(userCred, syncRange, &wg)
 	wg.Wait()
 }
+
+func (self *SCloudprovider) IsAvailable() bool {
+	if !self.Enabled {
+		return false
+	}
+	if !utils.IsInStringArray(self.Status, CLOUD_PROVIDER_VALID_STATUS) {
+		return false
+	}
+	return true
+}
