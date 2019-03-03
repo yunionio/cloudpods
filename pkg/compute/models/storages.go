@@ -1127,13 +1127,7 @@ func (manager *SStorageManager) InitializeData() error {
 
 func (manager *SStorageManager) IsStorageTypeExist(storageType string) (string, bool) {
 	storages := []SStorage{}
-	q := manager.Query()
-	q = q.Filter(
-		sqlchemy.OR(
-			sqlchemy.Equals(q.Field("id"), storageType),
-			sqlchemy.Equals(q.Field("storage_type"), storageType),
-		),
-	)
+	q := manager.Query().Equals("storage_type", storageType)
 	if err := db.FetchModelObjects(manager, q, &storages); err != nil {
 		return "", false
 	}
