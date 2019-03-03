@@ -125,9 +125,9 @@ func (region *SRegion) GetSecurityGroupsByInstance(instanceId string) ([]Securit
 	return secgroups, resp.Unmarshal(&secgroups, "security_groups")
 }
 
-func (region *SRegion) GetInstances(zoneName string, hostName string) ([]SInstance, error) {
+func (region *SRegion) GetInstances(hostName string) ([]SInstance, error) {
 	_, maxVersion, _ := region.GetVersion("compute")
-	_, resp, err := region.List("compute", "/servers/detail", maxVersion, nil)
+	_, resp, err := region.List("compute", "/servers/detail?all_tenants=True", maxVersion, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -136,10 +136,8 @@ func (region *SRegion) GetInstances(zoneName string, hostName string) ([]SInstan
 		return nil, err
 	}
 	for i := 0; i < len(instances); i++ {
-		if len(zoneName) == 0 || instances[i].AvailabilityZone == zoneName {
-			if len(hostName) == 0 || hostName == instances[i].Host {
-				result = append(result, instances[i])
-			}
+		if len(hostName) == 0 || hostName == instances[i].Host {
+			result = append(result, instances[i])
 		}
 	}
 	return result, nil
