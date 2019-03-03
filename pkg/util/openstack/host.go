@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/version"
+	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -101,7 +102,7 @@ func (host *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 }
 
 func (host *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	instances, err := host.zone.region.GetInstances(host.zone.ZoneName, host.GetName())
+	instances, err := host.zone.region.GetInstances(host.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -126,6 +127,17 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	network, err := host.zone.region.GetNetwork(desc.ExternalNetworkId)
 	if err != nil {
 		return nil, err
+	}
+
+	zoneName := ""
+	for zone, hosts := range host.zone.cachedHosts {
+		if utils.IsInStringArray(host.GetName(), hosts) {
+			zoneName = zone
+			break
+		}
+	}
+	if len(zoneName) == 0 {
+		return nil, fmt.Errorf("failed to find zone info for host %s", host.GetName())
 	}
 
 	secgroups := []map[string]string{}
@@ -172,7 +184,7 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		if err != nil {
 			break
 		}
-		_disk, err = host.zone.region.CreateDisk(host.zone.ZoneName, storage.Name, "", disk.SizeGB, disk.Name)
+		_disk, err = host.zone.region.CreateDisk(zoneName, storage.Name, "", disk.SizeGB, disk.Name)
 		if err != nil {
 			break
 		}
@@ -203,7 +215,7 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 			"adminPass": desc.Password,
 			//"description":       desc.Description,
 			"accessIPv4":        desc.IpAddr,
-			"availability_zone": fmt.Sprintf("%s:%s", host.zone.ZoneName, host.GetName()),
+			"availability_zone": fmt.Sprintf("%s:%s", zoneName, host.GetName()),
 			"networks": []map[string]string{
 				{
 					"uuid":     network.NetworkID,
