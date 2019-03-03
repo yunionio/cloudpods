@@ -455,6 +455,10 @@ func (manager *SNetworkManager) getNetworksByWire(wire *SWire) ([]SNetwork, erro
 }
 
 func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork, projectId string, projectSync bool) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
+	ownerProjId := getSyncOwnerProjectId(manager, userCred, projectId, projectSync)
+	lockman.LockClass(ctx, manager, ownerProjId)
+	defer lockman.ReleaseClass(ctx, manager, ownerProjId)
+
 	localNets := make([]SNetwork, 0)
 	remoteNets := make([]cloudprovider.ICloudNetwork, 0)
 	syncResult := compare.SyncResult{}
@@ -477,18 +481,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		/*err = removed[i].ValidateDeleteCondition(ctx)
-		if err != nil { // cannot delete
-			syncResult.DeleteError(err)
-		} else {
-			err = removed[i].Delete(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
-		}*/
-		err = removed[i].SetStatus(userCred, NETWORK_STATUS_UNKNOWN, "Sync to remove")
+		err = removed[i].syncRemoveCloudNetwork(ctx, userCred)
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
@@ -500,16 +493,18 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localNets = append(localNets, commondb[i])
 			remoteNets = append(remoteNets, commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudNetwork(userCred, added[i], wire, projectId)
+		new, err := manager.newFromCloudNetwork(ctx, userCred, added[i], wire, ownerProjId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			localNets = append(localNets, *new)
 			remoteNets = append(remoteNets, added[i])
 			syncResult.Add()
@@ -517,6 +512,20 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 	}
 
 	return localNets, remoteNets, syncResult
+}
+
+func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil { // cannot delete
+		err = self.SetStatus(userCred, NETWORK_STATUS_UNKNOWN, "Sync to remove")
+	} else {
+		err = self.Delete(ctx, userCred)
+
+	}
+	return err
 }
 
 func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, projectId string, projectSync bool) error {
@@ -543,15 +552,15 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 		log.Errorf("syncWithCloudNetwork error %s", err)
 		return err
 	}
-	db.OpsLog.LogEvent(self, db.ACT_SYNC_UPDATE, diff, userCred)
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
 
-func (manager *SNetworkManager) newFromCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, wire *SWire, projectId string) (*SNetwork, error) {
+func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, wire *SWire, projectId string) (*SNetwork, error) {
 	net := SNetwork{}
 	net.SetModelManager(manager)
 
-	net.Name = extNet.GetName()
+	net.Name = db.GenerateName(manager, projectId, extNet.GetName())
 	net.Status = extNet.GetStatus()
 	net.ExternalId = extNet.GetGlobalId()
 	net.WireId = wire.Id
@@ -564,15 +573,16 @@ func (manager *SNetworkManager) newFromCloudNetwork(userCred mcclient.TokenCrede
 
 	net.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
-	net.ProjectId = userCred.GetProjectId()
-	if len(projectId) > 0 {
-		net.ProjectId = projectId
-	}
+	net.ProjectId = projectId
+
 	err := manager.TableSpec().Insert(&net)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)
 		return nil, err
 	}
+
+	db.OpsLog.LogEvent(&net, db.ACT_CREATE, net.GetShortDesc(ctx), userCred)
+
 	return &net, nil
 }
 
@@ -1635,8 +1645,8 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 		return nil, httperrors.NewBadRequestError(note, self.Name, net.Name)
 	}
 
-	lockman.LockClass(ctx, NetworkManager, userCred.GetProjectId())
-	defer lockman.ReleaseClass(ctx, NetworkManager, userCred.GetProjectId())
+	lockman.LockClass(ctx, NetworkManager, NetworkManager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, NetworkManager, NetworkManager.GetOwnerId(userCred))
 
 	_, err = db.Update(net, func() error {
 		net.GuestIpStart = startIp
@@ -1759,8 +1769,8 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 		return nil, httperrors.NewInputParameterError("Split IP %s out of range", splitIp)
 	}
 
-	lockman.LockClass(ctx, NetworkManager, userCred.GetProjectId())
-	defer lockman.ReleaseClass(ctx, NetworkManager, userCred.GetProjectId())
+	lockman.LockClass(ctx, NetworkManager, NetworkManager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, NetworkManager, NetworkManager.GetOwnerId(userCred))
 
 	if len(name) > 0 {
 		if err := db.NewNameValidator(NetworkManager, userCred.GetProjectId(), name); err != nil {

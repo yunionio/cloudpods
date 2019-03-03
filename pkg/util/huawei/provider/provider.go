@@ -117,10 +117,6 @@ func (self *SHuaweiProvider) GetIRegionById(extId string) (cloudprovider.ICloudR
 	return self.client.GetIRegionById(extId)
 }
 
-func (self *SHuaweiProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SHuaweiProvider) GetBalance() (float64, error) {
 	balance, err := self.client.QueryAccountBalance()
 	if err != nil {
@@ -131,4 +127,8 @@ func (self *SHuaweiProvider) GetBalance() (float64, error) {
 
 func (self *SHuaweiProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
+}
+
+func (self *SHuaweiProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetCloudRegionExternalIdPrefix()
 }

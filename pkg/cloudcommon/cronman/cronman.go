@@ -90,7 +90,7 @@ func GetCronJobManager(idDbWorker bool) *SCronJobManager {
 	if manager == nil {
 		manager = &SCronJobManager{
 			jobs:    make([]*SCronJob, 0),
-			workers: appsrv.NewWorkerManager("CronJobWorkers", 4, 1024, idDbWorker),
+			workers: appsrv.NewWorkerManager("CronJobWorkers", 1, 1024, idDbWorker),
 		}
 	}
 
@@ -98,13 +98,18 @@ func GetCronJobManager(idDbWorker bool) *SCronJobManager {
 }
 
 func (self *SCronJobManager) AddJob1(name string, interval time.Duration, jobFunc TCronJobFunction) {
+	self.AddJob1WithStartRun(name, interval, jobFunc, false)
+}
+
+func (self *SCronJobManager) AddJob1WithStartRun(name string, interval time.Duration, jobFunc TCronJobFunction, startRun bool) {
 	t := Timer1{
 		dur: interval,
 	}
 	job := SCronJob{
-		Name:  name,
-		job:   jobFunc,
-		Timer: &t,
+		Name:     name,
+		job:      jobFunc,
+		Timer:    &t,
+		StartRun: startRun,
 	}
 	if !self.running {
 		self.jobs = append(self.jobs, &job)

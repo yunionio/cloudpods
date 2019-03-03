@@ -141,7 +141,3 @@ func (self *SOpenStackProvider) GetIRegionById(extId string) (cloudprovider.IClo
 func (self *SOpenStackProvider) GetBalance() (float64, error) {
 	return 0.0, nil
 }
-
-func (self *SOpenStackProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}

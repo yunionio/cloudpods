@@ -1817,6 +1817,13 @@ func (self *SGuest) GetIsolatedDevices() []SIsolatedDevice {
 	return IsolatedDeviceManager.findAttachedDevicesOfGuest(self)
 }
 
+func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	return self.SetStatus(userCred, VM_UNKNOWN, "Sync lost")
+}
+
 func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, projectId string, projectSync bool) error {
 	recycle := false
 
@@ -1824,7 +1831,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		recycle = true
 	}
 
-	metaData := extVM.GetMetadata()
+	// metaData := extVM.GetMetadata()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extVM.Refresh()
 		// self.Name = extVM.GetName()
@@ -1897,24 +1904,8 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		log.Errorf("%s", err)
 		return err
 	}
-	if diff != nil {
-		diffStr := sqlchemy.UpdateDiffString(diff)
-		if len(diffStr) > 0 {
-			db.OpsLog.LogEvent(self, db.ACT_SYNC_UPDATE, diffStr, userCred)
-		}
-	}
-	if metaData != nil {
-		meta := make(map[string]string, 0)
-		if err := metaData.Unmarshal(meta); err != nil {
-			log.Errorf("Get VM Metadata error: %v", err)
-		} else {
-			for key, value := range meta {
-				if err := self.SetMetadata(ctx, key, value, userCred); err != nil {
-					log.Errorf("set guest %s mata %s => %s error: %v", self.Name, key, value, err)
-				}
-			}
-		}
-	}
+
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
 	if provider.GetFactory().IsSupportPrepaidResources() && recycle {
 		vhost := self.GetHost()
@@ -1934,7 +1925,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.Status = extVM.GetStatus()
 	guest.ExternalId = extVM.GetGlobalId()
-	guest.Name = extVM.GetName()
+	guest.Name = db.GenerateName(manager, projectId, extVM.GetName())
 	guest.VcpuCount = extVM.GetVcpuCount()
 	guest.BootOrder = extVM.GetBootOrder()
 	guest.Vga = extVM.GetVga()
@@ -1983,10 +1974,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		guest.VmemSize = extVM.GetVmemSizeMB()
 	}
 
-	guest.ProjectId = userCred.GetProjectId()
-	if len(projectId) > 0 {
-		guest.ProjectId = projectId
-	}
+	guest.ProjectId = projectId
 
 	extraSecgroups := []*SSecurityGroup{}
 	if metaData != nil && metaData.Contains("secgroupIds") {
@@ -2020,20 +2008,8 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		}
 	}
 
-	if metaData != nil {
-		meta := make(map[string]string, 0)
-		if err := metaData.Unmarshal(meta); err != nil {
-			log.Errorf("Get VM Metadata error: %v", err)
-		} else {
-			for key, value := range meta {
-				if err := guest.SetMetadata(ctx, key, value, userCred); err != nil {
-					log.Errorf("set guest %s mata %s => %s error: %v", guest.Name, key, value, err)
-				}
-			}
-		}
-	}
+	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
 
-	db.OpsLog.LogEvent(&guest, db.ACT_SYNC_CLOUD_SERVER, guest.GetShortDesc(ctx), userCred)
 	return &guest, nil
 }
 

@@ -672,6 +672,10 @@ func (man *SLoadbalancerListenerManager) getLoadbalancerListenersByLoadbalancer(
 }
 
 func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, listeners []cloudprovider.ICloudLoadbalancerListener, syncRange *SSyncRange) ([]SLoadbalancerListener, []cloudprovider.ICloudLoadbalancerListener, compare.SyncResult) {
+	syncOwnerId := getSyncOwnerProjectId(man, userCred, provider.ProjectId, syncRange.ProjectSync)
+	lockman.LockClass(ctx, man, syncOwnerId)
+	defer lockman.ReleaseClass(ctx, man, syncOwnerId)
+
 	localListeners := []SLoadbalancerListener{}
 	remoteListeners := []cloudprovider.ICloudLoadbalancerListener{}
 	syncResult := compare.SyncResult{}
@@ -694,21 +698,11 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 	}
 
 	for i := 0; i < len(removed); i++ {
-		err = removed[i].ValidateDeleteCondition(ctx)
-		if err != nil { // cannot delete
-			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+		err = removed[i].syncRemoveCloudLoadbalancerListener(ctx, userCred)
+		if err != nil {
+			syncResult.DeleteError(err)
 		} else {
-			err = removed[i].Delete(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+			syncResult.Delete()
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
@@ -716,16 +710,18 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localListeners = append(localListeners, commondb[i])
 			remoteListeners = append(remoteListeners, commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		new, err := man.newFromCloudLoadbalancerListener(ctx, userCred, lb, added[i], provider.ProjectId)
+		new, err := man.newFromCloudLoadbalancerListener(ctx, userCred, lb, added[i], syncOwnerId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			localListeners = append(localListeners, *new)
 			remoteListeners = append(remoteListeners, added[i])
 			syncResult.Add()
@@ -735,7 +731,7 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 }
 
 func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener) {
-	lblis.Name = extListener.GetName()
+	// lblis.Name = extListener.GetName()
 	lblis.ListenerType = extListener.GetListenerType()
 	lblis.ListenerPort = extListener.GetListenerPort()
 	lblis.Scheduler = extListener.GetScheduler()
@@ -793,15 +789,34 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 	}
 }
 
+func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, lblis)
+	defer lockman.ReleaseObject(ctx, lblis)
+
+	err := lblis.ValidateDeleteCondition(ctx)
+	if err != nil { // cannot delete
+		err = lblis.SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+	} else {
+		err = lblis.Delete(ctx, userCred)
+	}
+	return err
+}
+
 func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string, projectSync bool) error {
-	_, err := db.UpdateWithLock(ctx, lblis, func() error {
+	diff, err := db.UpdateWithLock(ctx, lblis, func() error {
 		lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
 		if projectSync && len(projectId) > 0 {
 			lblis.ProjectId = projectId
 		}
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+
+	db.OpsLog.LogSyncUpdate(lblis, diff, userCred)
+
+	return nil
 }
 
 func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string) (*SLoadbalancerListener, error) {
@@ -810,13 +825,21 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 
 	lblis.LoadbalancerId = lb.Id
 	lblis.ExternalId = extListener.GetGlobalId()
+
+	lblis.Name = db.GenerateName(man, projectId, extListener.GetName())
+
 	lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
 
-	lblis.ProjectId = userCred.GetProjectId()
-	if len(projectId) > 0 {
-		lblis.ProjectId = projectId
+	lblis.ProjectId = projectId
+
+	err := man.TableSpec().Insert(lblis)
+	if err != nil {
+		return nil, err
 	}
-	return lblis, man.TableSpec().Insert(lblis)
+
+	db.OpsLog.LogEvent(lblis, db.ACT_CREATE, lblis.GetShortDesc(ctx), userCred)
+
+	return lblis, nil
 }
 
 func (manager *SLoadbalancerListenerManager) InitializeData() error {

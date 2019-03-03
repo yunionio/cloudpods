@@ -156,8 +156,8 @@ func (self *SCachedimage) GetImage() (*cloudprovider.SImage, error) {
 }
 
 func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SCachedimage, error) {
-	lockman.LockClass(ctx, manager, userCred.GetProjectId())
-	defer lockman.ReleaseClass(ctx, manager, userCred.GetProjectId())
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
 
 	imgId, _ := info.GetString("id")
 	if len(imgId) == 0 {
@@ -397,13 +397,13 @@ func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mccli
 		self.LastSync = time.Now().UTC()
 		return nil
 	})
-	db.OpsLog.LogEvent(self, db.ACT_SYNC_UPDATE, diff, userCred)
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return err
 }
 
 func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, image cloudprovider.ICloudImage) (*SCachedimage, error) {
-	lockman.LockClass(ctx, manager, "")
-	defer lockman.ReleaseClass(ctx, manager, "")
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
 
 	cachedImage := SCachedimage{}
 	cachedImage.SetModelManager(manager)

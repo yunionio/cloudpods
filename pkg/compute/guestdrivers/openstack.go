@@ -3,10 +3,10 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -15,7 +15,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/pkg/util/compare"
 )
 
 type SOpenStackGuestDriver struct {
@@ -91,7 +90,15 @@ func (self *SOpenStackGuestDriver) ValidateCreateData(ctx context.Context, userC
 	return data, nil
 }
 
-func (self *SOpenStackGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (self *SOpenStackGuestDriver) GetGuestInitialStateAfterCreate() string {
+	return models.VM_RUNNING
+}
+
+func (self *SOpenStackGuestDriver) GetGuestInitialStateAfterRebuild() string {
+	return models.VM_READY
+}
+
+/*func (self *SOpenStackGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
 	if err != nil {
 		log.Errorf("GetDeployConfigOnHost error: %v", err)
@@ -240,7 +247,7 @@ func (self *SOpenStackGuestDriver) RequestDeployGuestOnHost(ctx context.Context,
 	}
 
 	return nil
-}
+}*/
 
 func (self *SOpenStackGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {

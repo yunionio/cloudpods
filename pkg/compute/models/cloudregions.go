@@ -183,18 +183,30 @@ func (manager *SCloudregionManager) GetRegionByProvider(provider string) ([]SClo
 	return regions, nil
 }
 
-func (manager *SCloudregionManager) SyncRegions(ctx context.Context, userCred mcclient.TokenCredential, externalIdPrefix string, regions []cloudprovider.ICloudRegion) ([]SCloudregion, []cloudprovider.ICloudRegion, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, "")
-	defer lockman.ReleaseClass(ctx, manager, "")
+func (manager *SCloudregionManager) SyncRegions(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	cloudProvider *SCloudprovider,
+	externalIdPrefix string,
+	regions []cloudprovider.ICloudRegion,
+) (
+	[]SCloudregion,
+	[]cloudprovider.ICloudRegion,
+	[]SCloudproviderregion,
+	compare.SyncResult,
+) {
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
 
 	syncResult := compare.SyncResult{}
 	localRegions := make([]SCloudregion, 0)
 	remoteRegions := make([]cloudprovider.ICloudRegion, 0)
+	cloudProviderRegions := make([]SCloudproviderregion, 0)
 
 	dbRegions, err := manager.GetRegionByExternalIdPrefix(externalIdPrefix)
 	if err != nil {
 		syncResult.Error(err)
-		return nil, nil, syncResult
+		return nil, nil, nil, syncResult
 	}
 	log.Debugf("Region with provider %s %d", externalIdPrefix, len(dbRegions))
 
@@ -206,10 +218,10 @@ func (manager *SCloudregionManager) SyncRegions(ctx context.Context, userCred mc
 	if err != nil {
 		log.Errorf("compare regions fail %s", err)
 		syncResult.Error(err)
-		return nil, nil, syncResult
+		return nil, nil, nil, syncResult
 	}
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].syncRemoveCloudRegion(ctx, userCred)
+		err = removed[i].syncRemoveCloudRegion(ctx, userCred, cloudProvider)
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
@@ -222,6 +234,9 @@ func (manager *SCloudregionManager) SyncRegions(ctx context.Context, userCred mc
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
+			cpr := CloudproviderRegionManager.FetchByIdsOrCreate(cloudProvider.Id, commondb[i].Id)
+			cloudProviderRegions = append(cloudProviderRegions, *cpr)
 			localRegions = append(localRegions, commondb[i])
 			remoteRegions = append(remoteRegions, commonext[i])
 			syncResult.Update()
@@ -232,28 +247,36 @@ func (manager *SCloudregionManager) SyncRegions(ctx context.Context, userCred mc
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
+			cpr := CloudproviderRegionManager.FetchByIdsOrCreate(cloudProvider.Id, new.Id)
+			cloudProviderRegions = append(cloudProviderRegions, *cpr)
 			localRegions = append(localRegions, *new)
 			remoteRegions = append(remoteRegions, added[i])
 			syncResult.Add()
 		}
 	}
-	return localRegions, remoteRegions, syncResult
+	return localRegions, remoteRegions, cloudProviderRegions, syncResult
 }
 
-func (self *SCloudregion) syncRemoveCloudRegion(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SCloudregion) syncRemoveCloudRegion(ctx context.Context, userCred mcclient.TokenCredential, cloudProvider *SCloudprovider) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	// err := self.ValidateDeleteCondition(ctx)
+	// if err == nil {
+	// 	err = self.Delete(ctx, userCred)
+	// }
+
+	err := self.SetStatus(userCred, CLOUD_REGION_STATUS_OUTOFSERVICE, "Out of sync")
 	if err == nil {
-		err = self.Delete(ctx, userCred)
+		_, err = self.PerformDisable(ctx, userCred, nil, nil)
 	}
-	if err != nil {
-		err = self.SetStatus(userCred, CLOUD_REGION_STATUS_OUTOFSERVICE, "Out of sync")
-		if err == nil {
-			_, err = self.PerformDisable(ctx, userCred, nil, nil)
-		}
+
+	cpr := CloudproviderRegionManager.FetchByIds(cloudProvider.Id, self.Id)
+	if cpr != nil {
+		err = cpr.Detach(ctx, userCred)
 	}
+
 	return err
 }
 
@@ -272,7 +295,7 @@ func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mccl
 		log.Errorf("syncWithCloudRegion %s", err)
 		return err
 	}
-	db.OpsLog.LogEvent(self, db.ACT_SYNC_UPDATE, diff, userCred)
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
 

@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -912,6 +913,10 @@ func (manager *SDiskManager) getDisksByStorage(storage *SStorage) ([]SDisk, erro
 }
 
 func (manager *SDiskManager) syncCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, vdisk cloudprovider.ICloudDisk, index int, projectId string, projectSync bool) (*SDisk, error) {
+	ownerProjId := getSyncOwnerProjectId(manager, userCred, projectId, projectSync)
+	lockman.LockClass(ctx, manager, ownerProjId)
+	defer lockman.ReleaseClass(ctx, manager, ownerProjId)
+
 	diskObj, err := manager.FetchByExternalId(vdisk.GetGlobalId())
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -923,7 +928,7 @@ func (manager *SDiskManager) syncCloudDisk(ctx context.Context, userCred mcclien
 				return nil, err
 			}
 			storage := storageObj.(*SStorage)
-			return manager.newFromCloudDisk(ctx, userCred, provider, vdisk, storage, -1, projectId)
+			return manager.newFromCloudDisk(ctx, userCred, provider, vdisk, storage, -1, ownerProjId)
 		} else {
 			return nil, err
 		}
@@ -938,6 +943,10 @@ func (manager *SDiskManager) syncCloudDisk(ctx context.Context, userCred mcclien
 }
 
 func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, storage *SStorage, disks []cloudprovider.ICloudDisk, projectId string, projectSync bool) ([]SDisk, []cloudprovider.ICloudDisk, compare.SyncResult) {
+	syncOwnerId := getSyncOwnerProjectId(manager, userCred, projectId, projectSync)
+	lockman.LockClass(ctx, manager, syncOwnerId)
+	defer lockman.ReleaseClass(ctx, manager, syncOwnerId)
+
 	localDisks := make([]SDisk, 0)
 	remoteDisks := make([]cloudprovider.ICloudDisk, 0)
 	syncResult := compare.SyncResult{}
@@ -960,8 +969,8 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		removed[i].SetStatus(userCred, DISK_UNKNOWN, "missing original disk after sync")
-		if err != nil { // cannot delete
+		err = removed[i].syncRemoveCloudDisk(ctx, userCred)
+		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
 			syncResult.Delete()
@@ -973,6 +982,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localDisks = append(localDisks, commondb[i])
 			remoteDisks = append(remoteDisks, commonext[i])
 			syncResult.Update()
@@ -980,10 +990,11 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudDisk(ctx, userCred, provider, added[i], storage, -1, projectId)
+		new, err := manager.newFromCloudDisk(ctx, userCred, provider, added[i], storage, -1, syncOwnerId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			localDisks = append(localDisks, *new)
 			remoteDisks = append(remoteDisks, added[i])
 			syncResult.Add()
@@ -991,6 +1002,13 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	}
 
 	return localDisks, remoteDisks, syncResult
+}
+
+func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	return self.SetStatus(userCred, DISK_UNKNOWN, "missing original disk after sync")
 }
 
 func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, extDisk cloudprovider.ICloudDisk, index int, projectId string, projectSync bool) error {
@@ -1001,7 +1019,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	}
 	extDisk.Refresh()
 
-	_, err := db.Update(self, func() error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extDisk.GetName()
 		self.Status = extDisk.GetStatus()
 		self.DiskFormat = extDisk.GetDiskFormat()
@@ -1036,18 +1054,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		return err
 	}
 
-	if metaData := extDisk.GetMetadata(); metaData != nil {
-		meta := make(map[string]string, 0)
-		if err := metaData.Unmarshal(meta); err != nil {
-			log.Errorf("Get VM Metadata error: %v", err)
-		} else {
-			for key, value := range meta {
-				if err := self.SetMetadata(ctx, key, value, userCred); err != nil {
-					log.Errorf("set disk %s mata %s => %s error: %v", self.Name, key, value, err)
-				}
-			}
-		}
-	}
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
 	return nil
 }
@@ -1056,14 +1063,13 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	disk := SDisk{}
 	disk.SetModelManager(manager)
 
-	disk.Name = extDisk.GetName()
+	disk.Name = db.GenerateName(manager, projectId, extDisk.GetName())
 	disk.Status = extDisk.GetStatus()
 	disk.ExternalId = extDisk.GetGlobalId()
 	disk.StorageId = storage.Id
-	disk.ProjectId = userCred.GetProjectId()
-	if len(projectId) > 0 {
-		disk.ProjectId = projectId
-	}
+
+	disk.ProjectId = projectId
+
 	disk.DiskFormat = extDisk.GetDiskFormat()
 	disk.DiskSize = extDisk.GetDiskSizeMB()
 	disk.AutoDelete = extDisk.GetIsAutoDelete()
@@ -1086,20 +1092,8 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 		return nil, err
 	}
 
-	if metaData := extDisk.GetMetadata(); metaData != nil {
-		meta := make(map[string]string)
-		if err := metaData.Unmarshal(meta); err != nil {
-			log.Errorf("Get VM Metadata error: %v", err)
-		} else {
-			for key, value := range meta {
-				if err := disk.SetMetadata(ctx, key, value, userCred); err != nil {
-					log.Errorf("set disk %s mata %s => %s error: %v", disk.Name, key, value, err)
-				}
-			}
-		}
-	}
+	db.OpsLog.LogEvent(&disk, db.ACT_CREATE, disk.GetShortDesc(ctx), userCred)
 
-	db.OpsLog.LogEvent(&disk, db.ACT_SYNC_CLOUD_DISK, disk.GetShortDesc(ctx), userCred)
 	return &disk, nil
 }
 

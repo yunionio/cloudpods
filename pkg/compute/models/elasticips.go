@@ -199,6 +199,10 @@ func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 }
 
 func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP, projectId string, projectSync bool) compare.SyncResult {
+	ownerProjId := getSyncOwnerProjectId(manager, userCred, projectId, projectSync)
+	lockman.LockClass(ctx, manager, ownerProjId)
+	defer lockman.ReleaseClass(ctx, manager, ownerProjId)
+
 	// localEips := make([]SElasticip, 0)
 	// remoteEips := make([]cloudprovider.ICloudEIP, 0)
 	syncResult := compare.SyncResult{}
@@ -221,7 +225,7 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].SetStatus(userCred, EIP_STATUS_UNKNOWN, "sync to delete")
+		err = removed[i].syncRemoveCloudEip(ctx, userCred)
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
@@ -233,19 +237,33 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		_, err := manager.newFromCloudEip(ctx, userCred, added[i], region, projectId)
+		new, err := manager.newFromCloudEip(ctx, userCred, added[i], region, ownerProjId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			syncResult.Add()
 		}
 	}
 
 	return syncResult
+}
+
+func (self *SElasticip) syncRemoveCloudEip(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return self.SetStatus(userCred, EIP_STATUS_UNKNOWN, "sync to delete")
+	} else {
+		return self.Delete(ctx, userCred)
+	}
 }
 
 func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudEIP) error {
@@ -306,18 +324,15 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 		log.Errorf("SyncWithCloudEip fail %s", err)
 		return err
 	}
-	db.OpsLog.LogEvent(self, db.ACT_SYNC_UPDATE, diff, userCred)
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }
 
 func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, region *SCloudregion, projectId string) (*SElasticip, error) {
-	lockman.LockClass(ctx, manager, "")
-	defer lockman.ReleaseClass(ctx, manager, "")
-
 	eip := SElasticip{}
 	eip.SetModelManager(manager)
 
-	eip.Name = extEip.GetName()
+	eip.Name = db.GenerateName(manager, projectId, extEip.GetName())
 	eip.Status = extEip.GetStatus()
 	eip.ExternalId = extEip.GetGlobalId()
 	eip.IpAddr = extEip.GetIpAddr()
@@ -327,10 +342,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip.CloudregionId = region.Id
 	eip.ChargeType = extEip.GetInternetChargeType()
 
-	eip.ProjectId = userCred.GetProjectId()
-	if len(projectId) > 0 {
-		eip.ProjectId = projectId
-	}
+	eip.ProjectId = projectId
 
 	err := manager.TableSpec().Insert(&eip)
 	if err != nil {
@@ -338,7 +350,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(&eip, db.ACT_SYNC_CREATE, eip.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(&eip, db.ACT_CREATE, eip.GetShortDesc(ctx), userCred)
 	return &eip, nil
 }
 

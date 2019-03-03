@@ -3,15 +3,11 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/pkg/utils"
 )
@@ -103,7 +99,15 @@ func (self *SAwsGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mode
 	return nil
 }
 
-func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (self *SAwsGuestDriver) GetGuestInitialStateAfterCreate() string {
+	return models.VM_READY
+}
+
+func (self *SAwsGuestDriver) GetGuestInitialStateAfterRebuild() string {
+	return models.VM_READY
+}
+
+/*func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
 	if err != nil {
 		log.Errorf("GetDeployConfigOnHost error: %v", err)
@@ -230,7 +234,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 	}
 
 	return nil
-}
+}*/
 
 func (self *SAwsGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
 	return false

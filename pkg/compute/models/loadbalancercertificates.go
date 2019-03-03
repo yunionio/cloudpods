@@ -16,6 +16,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -299,6 +300,10 @@ func (man *SLoadbalancerCertificateManager) getLoadbalancerCertificatesByRegion(
 }
 
 func (man *SLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, certificates []cloudprovider.ICloudLoadbalancerCertificate, syncRange *SSyncRange) compare.SyncResult {
+	ownerProjId := getSyncOwnerProjectId(man, userCred, provider.ProjectId, syncRange.ProjectSync)
+	lockman.LockClass(ctx, man, ownerProjId)
+	defer lockman.ReleaseClass(ctx, man, ownerProjId)
+
 	syncResult := compare.SyncResult{}
 
 	dbCertificates, err := man.getLoadbalancerCertificatesByRegion(region, provider)
@@ -319,21 +324,11 @@ func (man *SLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx con
 	}
 
 	for i := 0; i < len(removed); i++ {
-		err = removed[i].ValidateDeleteCondition(ctx)
-		if err != nil { // cannot delete
-			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+		err = removed[i].syncRemoveCloudLoadbalancerCertificate(ctx, userCred)
+		if err != nil {
+			syncResult.DeleteError(err)
 		} else {
-			err = removed[i].Delete(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+			syncResult.Delete()
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
@@ -341,14 +336,16 @@ func (man *SLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx con
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		_, err := man.newFromCloudLoadbalancerCertificate(ctx, userCred, provider, added[i], region, provider.ProjectId)
+		local, err := man.newFromCloudLoadbalancerCertificate(ctx, userCred, provider, added[i], region, ownerProjId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, local, added[i])
 			syncResult.Add()
 		}
 	}
@@ -359,7 +356,7 @@ func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(
 	lbcert := SLoadbalancerCertificate{}
 	lbcert.SetModelManager(man)
 
-	lbcert.Name = extCertificate.GetName()
+	lbcert.Name = db.GenerateName(man, projectId, extCertificate.GetName())
 	lbcert.ExternalId = extCertificate.GetGlobalId()
 	lbcert.ManagerId = provider.Id
 	lbcert.CloudregionId = region.Id
@@ -369,12 +366,22 @@ func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(
 	lbcert.Fingerprint = extCertificate.GetFingerprint()
 	lbcert.NotAfter = extCertificate.GetExpireTime()
 
-	lbcert.ProjectId = userCred.GetProjectId()
-	if len(projectId) > 0 {
-		lbcert.ProjectId = projectId
-	}
+	lbcert.ProjectId = projectId
 
 	return &lbcert, man.TableSpec().Insert(&lbcert)
+}
+
+func (lbcert *SLoadbalancerCertificate) syncRemoveCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, lbcert)
+	defer lockman.ReleaseObject(ctx, lbcert)
+
+	err := lbcert.ValidateDeleteCondition(ctx)
+	if err != nil { // cannot delete
+		err = lbcert.SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+	} else {
+		err = lbcert.Delete(ctx, userCred)
+	}
+	return err
 }
 
 func (lbcert *SLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, extCertificate cloudprovider.ICloudLoadbalancerCertificate, projectId string, projectSync bool) error {
@@ -394,6 +401,6 @@ func (lbcert *SLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx
 	if err != nil {
 		return err
 	}
-	db.OpsLog.LogEvent(lbcert, db.ACT_SYNC_UPDATE, diff, userCred)
+	db.OpsLog.LogSyncUpdate(lbcert, diff, userCred)
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -342,6 +343,9 @@ func (manager *SZoneManager) GetZonesByRegion(region *SCloudregion) ([]SZone, er
 }
 
 func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zones []cloudprovider.ICloudZone) ([]SZone, []cloudprovider.ICloudZone, compare.SyncResult) {
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+
 	localZones := make([]SZone, 0)
 	remoteZones := make([]cloudprovider.ICloudZone, 0)
 	syncResult := compare.SyncResult{}
@@ -364,38 +368,30 @@ func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.To
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].ValidateDeleteCondition(ctx)
-		if err != nil { // cannot delete
-			err = removed[i].SetStatus(userCred, ZONE_DISABLE, "sync to delete")
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+		err = removed[i].syncRemoveCloudZone(ctx, userCred)
+		if err != nil {
+			syncResult.DeleteError(err)
 		} else {
-			err = removed[i].Delete(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+			syncResult.Delete()
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudZone(commonext[i], region)
+		err = commondb[i].syncWithCloudZone(ctx, userCred, commonext[i], region)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localZones = append(localZones, commondb[i])
 			remoteZones = append(remoteZones, commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudZone(added[i], region)
+		new, err := manager.newFromCloudZone(ctx, userCred, added[i], region)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			localZones = append(localZones, *new)
 			remoteZones = append(remoteZones, added[i])
 			syncResult.Add()
@@ -405,8 +401,21 @@ func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.To
 	return localZones, remoteZones, syncResult
 }
 
-func (self *SZone) syncWithCloudZone(extZone cloudprovider.ICloudZone, region *SCloudregion) error {
-	_, err := db.Update(self, func() error {
+func (self *SZone) syncRemoveCloudZone(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil { // cannot delete
+		err = self.SetStatus(userCred, ZONE_DISABLE, "sync to delete")
+	} else {
+		err = self.Delete(ctx, userCred)
+	}
+	return err
+}
+
+func (self *SZone) syncWithCloudZone(ctx context.Context, userCred mcclient.TokenCredential, extZone cloudprovider.ICloudZone, region *SCloudregion) error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Name = extZone.GetName()
 		self.Status = extZone.GetStatus()
 
@@ -418,15 +427,17 @@ func (self *SZone) syncWithCloudZone(extZone cloudprovider.ICloudZone, region *S
 	})
 	if err != nil {
 		log.Errorf("syncWithCloudZone error %s", err)
+		return err
 	}
-	return err
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	return nil
 }
 
-func (manager *SZoneManager) newFromCloudZone(extZone cloudprovider.ICloudZone, region *SCloudregion) (*SZone, error) {
+func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mcclient.TokenCredential, extZone cloudprovider.ICloudZone, region *SCloudregion) (*SZone, error) {
 	zone := SZone{}
 	zone.SetModelManager(manager)
 
-	zone.Name = extZone.GetName()
+	zone.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extZone.GetName())
 	zone.Status = extZone.GetStatus()
 	zone.ExternalId = extZone.GetGlobalId()
 
@@ -439,6 +450,7 @@ func (manager *SZoneManager) newFromCloudZone(extZone cloudprovider.ICloudZone, 
 		log.Errorf("newFromCloudZone fail %s", err)
 		return nil, err
 	}
+	db.OpsLog.LogEvent(&zone, db.ACT_CREATE, zone.GetShortDesc(ctx), userCred)
 	return &zone, nil
 }
 

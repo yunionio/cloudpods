@@ -3,16 +3,14 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/pkg/utils"
 )
 
 type SHuaweiGuestDriver struct {
@@ -93,6 +91,15 @@ func (self *SHuaweiGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	return nil
 }
 
+func (self *SHuaweiGuestDriver) GetGuestInitialStateAfterCreate() string {
+	return models.VM_RUNNING
+}
+
+func (self *SHuaweiGuestDriver) GetGuestInitialStateAfterRebuild() string {
+	return models.VM_RUNNING
+}
+
+/*
 func (self *SHuaweiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
 	if err != nil {
@@ -239,7 +246,7 @@ func (self *SHuaweiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 	}
 
 	return nil
-}
+}*/
 
 func (self *SHuaweiGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle) bool {
 	months := bc.GetMonths()

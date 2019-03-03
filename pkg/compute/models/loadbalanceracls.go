@@ -15,6 +15,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -319,6 +320,10 @@ func (man *SLoadbalancerAclManager) getLoadbalancerAclsByRegion(region *SCloudre
 }
 
 func (man *SLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, acls []cloudprovider.ICloudLoadbalancerAcl, syncRange *SSyncRange) compare.SyncResult {
+	ownerProjId := getSyncOwnerProjectId(man, userCred, provider.ProjectId, syncRange.ProjectSync)
+	lockman.LockClass(ctx, man, ownerProjId)
+	defer lockman.ReleaseClass(ctx, man, ownerProjId)
+
 	syncResult := compare.SyncResult{}
 
 	dbAcls, err := man.getLoadbalancerAclsByRegion(region, provider)
@@ -339,21 +344,11 @@ func (man *SLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, us
 	}
 
 	for i := 0; i < len(removed); i++ {
-		err = removed[i].ValidateDeleteCondition(ctx)
-		if err != nil { // cannot delete
-			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+		err = removed[i].syncRemoveCloudLoadbalanceAcl(ctx, userCred)
+		if err != nil {
+			syncResult.DeleteError(err)
 		} else {
-			err = removed[i].Delete(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+			syncResult.Delete()
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
@@ -361,33 +356,45 @@ func (man *SLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, us
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		_, err := man.newFromCloudLoadbalancerAcl(ctx, userCred, provider, added[i], region)
+		local, err := man.newFromCloudLoadbalancerAcl(ctx, userCred, provider, added[i], region, ownerProjId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, local, added[i])
 			syncResult.Add()
 		}
 	}
 	return syncResult
 }
 
-func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extAcl cloudprovider.ICloudLoadbalancerAcl, region *SCloudregion) (*SLoadbalancerAcl, error) {
+func (self *SLoadbalancerAcl) syncRemoveCloudLoadbalanceAcl(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil { // cannot delete
+		err = self.SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+	} else {
+		err = self.Delete(ctx, userCred)
+	}
+	return err
+}
+
+func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extAcl cloudprovider.ICloudLoadbalancerAcl, region *SCloudregion, projectId string) (*SLoadbalancerAcl, error) {
 	acl := SLoadbalancerAcl{}
 	acl.SetModelManager(man)
 
 	acl.ExternalId = extAcl.GetGlobalId()
-	acl.Name = extAcl.GetName()
+	acl.Name = db.GenerateName(man, projectId, extAcl.GetName())
 	acl.ManagerId = provider.Id
 	acl.CloudregionId = region.Id
 
-	acl.ProjectId = userCred.GetProjectId()
-	if len(provider.ProjectId) > 0 {
-		acl.ProjectId = provider.ProjectId
-	}
+	acl.ProjectId = projectId
 
 	acl.AclEntries = &SLoadbalancerAclEntries{}
 	for _, entry := range extAcl.GetAclEntries() {
@@ -411,6 +418,6 @@ func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, u
 	if err != nil {
 		return err
 	}
-	db.OpsLog.LogEvent(acl, db.ACT_SYNC_UPDATE, diff, userCred)
+	db.OpsLog.LogSyncUpdate(acl, diff, userCred)
 	return nil
 }

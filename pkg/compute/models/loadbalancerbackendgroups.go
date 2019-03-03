@@ -326,6 +326,10 @@ func (man *SLoadbalancerBackendGroupManager) getLoadbalancerBackendgroupsByLoadb
 }
 
 func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, lbbgs []cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *SSyncRange) ([]SLoadbalancerBackendGroup, []cloudprovider.ICloudLoadbalancerBackendGroup, compare.SyncResult) {
+	syncOwnerId := getSyncOwnerProjectId(man, userCred, provider.ProjectId, syncRange.ProjectSync)
+	lockman.LockClass(ctx, man, syncOwnerId)
+	defer lockman.ReleaseClass(ctx, man, syncOwnerId)
+
 	localLbgs := []SLoadbalancerBackendGroup{}
 	remoteLbbgs := []cloudprovider.ICloudLoadbalancerBackendGroup{}
 	syncResult := compare.SyncResult{}
@@ -348,21 +352,11 @@ func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx c
 	}
 
 	for i := 0; i < len(removed); i++ {
-		err = removed[i].ValidateDeleteCondition(ctx)
-		if err != nil { // cannot delete
-			err = removed[i].SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+		err = removed[i].syncRemoveCloudLoadbalancerBackendgroup(ctx, userCred)
+		if err != nil {
+			syncResult.DeleteError(err)
 		} else {
-			err = removed[i].Delete(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+			syncResult.Delete()
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
@@ -370,16 +364,18 @@ func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx c
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localLbgs = append(localLbgs, commondb[i])
 			remoteLbbgs = append(remoteLbbgs, commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		new, err := man.newFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, added[i], provider.ProjectId)
+		new, err := man.newFromCloudLoadbalancerBackendgroup(ctx, userCred, lb, added[i], syncOwnerId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			localLbgs = append(localLbgs, *new)
 			remoteLbbgs = append(remoteLbbgs, added[i])
 			syncResult.Add()
@@ -388,7 +384,7 @@ func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx c
 	return localLbgs, remoteLbbgs, syncResult
 }
 
-func (lbbg *SLoadbalancerBackendGroup) constructFieldsFromCloudBackendgroup(lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup) {
+/*func (lbbg *SLoadbalancerBackendGroup) constructFieldsFromCloudBackendgroup(lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup) {
 	// 对于腾讯云,backend group 名字以本地为准
 	if lbbg.GetProviderName() != CLOUD_PROVIDER_QCLOUD || len(lbbg.Name) == 0 {
 		lbbg.Name = extLoadbalancerBackendgroup.GetName()
@@ -396,11 +392,25 @@ func (lbbg *SLoadbalancerBackendGroup) constructFieldsFromCloudBackendgroup(lb *
 
 	lbbg.Type = extLoadbalancerBackendgroup.GetType()
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
+}*/
+
+func (lbbg *SLoadbalancerBackendGroup) syncRemoveCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, lbbg)
+	defer lockman.ReleaseObject(ctx, lbbg)
+
+	err := lbbg.ValidateDeleteCondition(ctx)
+	if err != nil { // cannot delete
+		err = lbbg.SetStatus(userCred, LB_STATUS_UNKNOWN, "sync to delete")
+	} else {
+		err = lbbg.Delete(ctx, userCred)
+	}
+	return err
 }
 
 func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, projectId string, projectSync bool) error {
 	diff, err := db.UpdateWithLock(ctx, lbbg, func() error {
-		lbbg.constructFieldsFromCloudBackendgroup(lb, extLoadbalancerBackendgroup)
+		lbbg.Type = extLoadbalancerBackendgroup.GetType()
+		lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 		if projectSync && len(projectId) > 0 {
 			lbbg.ProjectId = projectId
 		}
@@ -409,7 +419,7 @@ func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx
 	if err != nil {
 		return err
 	}
-	db.OpsLog.LogEvent(lbbg, db.ACT_UPDATE, diff, userCred)
+	db.OpsLog.LogSyncUpdate(lbbg, diff, userCred)
 
 	if extLoadbalancerBackendgroup.IsDefault() {
 		diff, err := db.UpdateWithLock(ctx, lb, func() error {
@@ -436,15 +446,24 @@ func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgrou
 	lbbg.CloudregionId = lb.CloudregionId
 	lbbg.ManagerId = lb.ManagerId
 
-	lbbg.constructFieldsFromCloudBackendgroup(lb, extLoadbalancerBackendgroup)
-	lbbg.ProjectId = userCred.GetProjectId()
-	if len(projectId) > 0 {
-		lbbg.ProjectId = projectId
-	}
+	/*lbbg.constructFieldsFromCloudBackendgroup(lb, extLoadbalancerBackendgroup)
+	if lbbg.GetProviderName() != CLOUD_PROVIDER_QCLOUD || len(lbbg.Name) == 0 {
+
+	}*/
+
+	lbbg.Name = db.GenerateName(man, projectId, extLoadbalancerBackendgroup.GetName())
+
+	lbbg.Type = extLoadbalancerBackendgroup.GetType()
+	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
+
+	lbbg.ProjectId = projectId
+
 	err := man.TableSpec().Insert(lbbg)
 	if err != nil {
 		return nil, err
 	}
+
+	db.OpsLog.LogEvent(lbbg, db.ACT_CREATE, lbbg.GetShortDesc(ctx), userCred)
 
 	if extLoadbalancerBackendgroup.IsDefault() {
 		_, err := db.Update(lb, func() error {

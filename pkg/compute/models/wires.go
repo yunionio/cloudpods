@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -161,6 +162,9 @@ func (manager *SWireManager) getWiresByVpcAndZone(vpc *SVpc, zone *SZone) ([]SWi
 }
 
 func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, wires []cloudprovider.ICloudWire) ([]SWire, []cloudprovider.ICloudWire, compare.SyncResult) {
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+
 	localWires := make([]SWire, 0)
 	remoteWires := make([]cloudprovider.ICloudWire, 0)
 	syncResult := compare.SyncResult{}
@@ -183,39 +187,30 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].markNetworkUnknown(userCred)
+		err = removed[i].syncRemoveCloudWire(ctx, userCred)
 		if err != nil { // cannot delete
 			syncResult.DeleteError(err)
 		} else {
 			syncResult.Delete()
 		}
-		/* err = removed[i].ValidateDeleteCondition(ctx)
-		if err != nil { // cannot delete
-			syncResult.DeleteError(err)
-		} else {
-			err = removed[i].Delete(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
-		}*/
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudWire(commonext[i])
+		err = commondb[i].syncWithCloudWire(ctx, userCred, commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localWires = append(localWires, commondb[i])
 			remoteWires = append(remoteWires, commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudWire(added[i], vpc)
+		new, err := manager.newFromCloudWire(ctx, userCred, added[i], vpc)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			localWires = append(localWires, *new)
 			remoteWires = append(remoteWires, added[i])
 			syncResult.Add()
@@ -225,9 +220,22 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 	return localWires, remoteWires, syncResult
 }
 
-func (self *SWire) syncWithCloudWire(extWire cloudprovider.ICloudWire) error {
-	_, err := db.Update(self, func() error {
-		self.Name = extWire.GetName()
+func (self *SWire) syncRemoveCloudWire(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil { // cannot delete
+		err = self.markNetworkUnknown(userCred)
+	} else {
+		err = self.Delete(ctx, userCred)
+	}
+	return err
+}
+
+func (self *SWire) syncWithCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire) error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
+		// self.Name = extWire.GetName()
 		self.Bandwidth = extWire.GetBandwidth() // 10G
 
 		self.IsEmulated = extWire.IsEmulated()
@@ -237,6 +245,7 @@ func (self *SWire) syncWithCloudWire(extWire cloudprovider.ICloudWire) error {
 	if err != nil {
 		log.Errorf("syncWithCloudWire error %s", err)
 	}
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return err
 }
 
@@ -251,11 +260,11 @@ func (self *SWire) markNetworkUnknown(userCred mcclient.TokenCredential) error {
 	return nil
 }
 
-func (manager *SWireManager) newFromCloudWire(extWire cloudprovider.ICloudWire, vpc *SVpc) (*SWire, error) {
+func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire, vpc *SVpc) (*SWire, error) {
 	wire := SWire{}
 	wire.SetModelManager(manager)
 
-	wire.Name = extWire.GetName()
+	wire.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extWire.GetName())
 	wire.ExternalId = extWire.GetGlobalId()
 	wire.Bandwidth = extWire.GetBandwidth()
 	wire.VpcId = vpc.Id
@@ -277,6 +286,8 @@ func (manager *SWireManager) newFromCloudWire(extWire cloudprovider.ICloudWire, 
 		log.Errorf("newFromCloudWire fail %s", err)
 		return nil, err
 	}
+
+	db.OpsLog.LogEvent(&wire, db.ACT_CREATE, wire.GetShortDesc(ctx), userCred)
 	return &wire, nil
 }
 

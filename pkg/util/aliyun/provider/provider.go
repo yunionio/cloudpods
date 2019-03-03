@@ -125,7 +125,3 @@ func (self *SAliyunProvider) GetBalance() (float64, error) {
 	}
 	return balance.AvailableAmount, nil
 }
-
-func (self *SAliyunProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}

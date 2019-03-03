@@ -1232,6 +1232,9 @@ func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SClou
 }
 
 func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost, projectSync bool) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+
 	localHosts := make([]SHost, 0)
 	remoteHosts := make([]cloudprovider.ICloudHost, 0)
 	syncResult := compare.SyncResult{}
@@ -1257,41 +1260,30 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 		if removed[i].IsPrepaidRecycleResource() {
 			continue
 		}
-		err = removed[i].ValidateDeleteCondition(ctx)
-		if err != nil { // cannot delete
-			err = removed[i].SetStatus(userCred, HOST_OFFLINE, "sync to delete")
-			if err == nil {
-				_, err = removed[i].PerformDisable(ctx, userCred, nil, nil)
-			}
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+		err = removed[i].syncRemoveCloudHost(ctx, userCred)
+		if err != nil {
+			syncResult.DeleteError(err)
 		} else {
-			err = removed[i].Delete(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+			syncResult.Delete()
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudHost(commonext[i], projectSync)
+		err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i], projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localHosts = append(localHosts, commondb[i])
 			remoteHosts = append(remoteHosts, commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudHost(added[i], zone)
+		new, err := manager.newFromCloudHost(ctx, userCred, added[i], zone)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			localHosts = append(localHosts, *new)
 			remoteHosts = append(remoteHosts, added[i])
 			syncResult.Add()
@@ -1301,9 +1293,25 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 	return localHosts, remoteHosts, syncResult
 }
 
-func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost, projectSync bool) error {
-	_, err := self.SaveUpdates(func() error {
-		self.Name = extHost.GetName()
+func (self *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil {
+		err = self.SetStatus(userCred, HOST_OFFLINE, "sync to delete")
+		if err == nil {
+			_, err = self.PerformDisable(ctx, userCred, nil, nil)
+		}
+	} else {
+		err = self.Delete(ctx, userCred)
+	}
+	return err
+}
+
+func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, projectSync bool) error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
+		// self.Name = extHost.GetName()
 
 		self.Status = extHost.GetStatus()
 		self.HostStatus = extHost.GetHostStatus()
@@ -1331,7 +1339,10 @@ func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost, projectSy
 	})
 	if err != nil {
 		log.Errorf("syncWithCloudZone error %s", err)
+		return err
 	}
+
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
 	if projectSync {
 		if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
@@ -1339,7 +1350,7 @@ func (self *SHost) syncWithCloudHost(extHost cloudprovider.ICloudHost, projectSy
 		}
 	}
 
-	return err
+	return nil
 }
 
 func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SHost, projectSync bool) error {
@@ -1368,11 +1379,12 @@ func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SH
 	return err
 }
 
-func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, izone *SZone) (*SHost, error) {
+func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, izone *SZone) (*SHost, error) {
 	host := SHost{}
 	host.SetModelManager(manager)
 
 	if izone == nil {
+		// onpremise host
 		wire, err := WireManager.GetOnPremiseWireOfIp(extHost.GetAccessIp())
 		if err != nil {
 			msg := fmt.Sprintf("fail to find wire for host %s %s: %s", extHost.GetName(), extHost.GetAccessIp(), err)
@@ -1382,10 +1394,10 @@ func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, 
 		izone = wire.GetZone()
 	}
 
-	host.Name = extHost.GetName()
+	host.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extHost.GetName())
 	host.ExternalId = extHost.GetGlobalId()
 	host.ZoneId = izone.Id
-	// host.ManagerId = extHost.GetManagerId()
+
 	host.HostType = extHost.GetHostType()
 
 	host.Status = extHost.GetStatus()
@@ -1418,6 +1430,8 @@ func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, 
 		return nil, err
 	}
 
+	db.OpsLog.LogEvent(&host, db.ACT_CREATE, host.GetShortDesc(ctx), userCred)
+
 	if err := manager.ClearSchedDescCache(host.Id); err != nil {
 		log.Errorf("ClearSchedDescCache for host %s error %v", host.Name, err)
 	}
@@ -1426,6 +1440,9 @@ func (manager *SHostManager) newFromCloudHost(extHost cloudprovider.ICloudHost, 
 }
 
 func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, storages []cloudprovider.ICloudStorage) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
+	lockman.LockClass(ctx, StorageManager, StorageManager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, StorageManager, StorageManager.GetOwnerId(userCred))
+
 	localStorages := make([]SStorage, 0)
 	remoteStorages := make([]cloudprovider.ICloudStorage, 0)
 	syncResult := compare.SyncResult{}
@@ -1457,8 +1474,7 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 
 	for i := 0; i < len(removed); i += 1 {
 		log.Infof("host %s not connected with %s any more, to detach...", self.Id, removed[i].Id)
-		hs := self.GetHoststorageOfId(removed[i].Id)
-		err := hs.Detach(ctx, userCred)
+		err := self.syncRemoveCloudHostStorage(ctx, userCred, &removed[i])
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
@@ -1468,14 +1484,15 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 
 	for i := 0; i < len(commondb); i += 1 {
 		log.Infof("host %s is still connected with %s, to update ...", self.Id, commondb[i].Id)
-		err := self.syncWithCloudHostStorage(userCred, &commondb[i], commonext[i])
+		err := self.syncWithCloudHostStorage(ctx, userCred, &commondb[i], commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
+			localStorages = append(localStorages, commondb[i])
+			remoteStorages = append(remoteStorages, commonext[i])
 			syncResult.Update()
 		}
-		localStorages = append(localStorages, commondb[i])
-		remoteStorages = append(remoteStorages, commonext[i])
 	}
 
 	for i := 0; i < len(added); i += 1 {
@@ -1484,6 +1501,7 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, local, added[i])
 			localStorages = append(localStorages, *local)
 			remoteStorages = append(remoteStorages, added[i])
 			syncResult.Add()
@@ -1492,10 +1510,28 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 	return localStorages, remoteStorages, syncResult
 }
 
-func (self *SHost) syncWithCloudHostStorage(userCred mcclient.TokenCredential, localStorage *SStorage, extStorage cloudprovider.ICloudStorage) error {
+func (self *SHost) syncRemoveCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, localStorage *SStorage) error {
+	hs := self.GetHoststorageOfId(localStorage.Id)
+	err := hs.ValidateDeleteCondition(ctx)
+	if err == nil {
+		log.Errorf("sync remove hoststorage fail: %s", err)
+		err = hs.Detach(ctx, userCred)
+	} else {
+
+	}
+	return err
+}
+
+func (self *SHost) syncWithCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, localStorage *SStorage, extStorage cloudprovider.ICloudStorage) error {
 	// do nothing
 	hs := self.GetHoststorageOfId(localStorage.Id)
-	return hs.syncWithCloudHostStorage(userCred, extStorage)
+	err := hs.syncWithCloudHostStorage(userCred, extStorage)
+	if err != nil {
+		return err
+	}
+	s := hs.GetStorage()
+	err = s.syncWithCloudStorage(ctx, userCred, extStorage)
+	return err
 }
 
 func (self *SHost) isAttach2Storage(storage *SStorage) bool {
@@ -1530,7 +1566,7 @@ func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.To
 		if err == sql.ErrNoRows {
 			// no cloud storage found, this may happen for on-premise host
 			// create the storage right now
-			storageObj, err = StorageManager.newFromCloudStorage(extStorage, self.GetZone())
+			storageObj, err = StorageManager.newFromCloudStorage(ctx, userCred, extStorage, self.GetZone())
 			if err != nil {
 				log.Errorf("create by cloud storage fail %s", err)
 				return nil, err
@@ -1546,6 +1582,9 @@ func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SHost) SyncHostWires(ctx context.Context, userCred mcclient.TokenCredential, wires []cloudprovider.ICloudWire) compare.SyncResult {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
 	syncResult := compare.SyncResult{}
 
 	dbWires := make([]SWire, 0)
@@ -1575,8 +1614,7 @@ func (self *SHost) SyncHostWires(ctx context.Context, userCred mcclient.TokenCre
 
 	for i := 0; i < len(removed); i += 1 {
 		log.Infof("host %s not connected with %s any more, to detach...", self.Id, removed[i].Id)
-		hw := self.getHostwireOfId(removed[i].Id)
-		err := hw.Detach(ctx, userCred)
+		err := self.syncRemoveCloudHostWire(ctx, userCred, &removed[i])
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
@@ -1605,6 +1643,12 @@ func (self *SHost) SyncHostWires(ctx context.Context, userCred mcclient.TokenCre
 	}
 
 	return syncResult
+}
+
+func (self *SHost) syncRemoveCloudHostWire(ctx context.Context, userCred mcclient.TokenCredential, localwire *SWire) error {
+	hw := self.getHostwireOfId(localwire.Id)
+	err := hw.Detach(ctx, userCred)
+	return err
 }
 
 func (self *SHost) syncWithCloudHostWire(extWire cloudprovider.ICloudWire) error {
@@ -1638,6 +1682,10 @@ func (self *SHost) newCloudHostWire(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, projectId string, projectSync bool) ([]SGuest, []cloudprovider.ICloudVM, compare.SyncResult) {
+	syncOwnerId := getSyncOwnerProjectId(GuestManager, userCred, projectId, projectSync)
+	lockman.LockClass(ctx, GuestManager, syncOwnerId)
+	defer lockman.ReleaseClass(ctx, GuestManager, syncOwnerId)
+
 	localVMs := make([]SGuest, 0)
 	remoteVMs := make([]cloudprovider.ICloudVM, 0)
 	syncResult := compare.SyncResult{}
@@ -1656,7 +1704,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err := removed[i].SetStatus(userCred, VM_UNKNOWN, "Sync lost")
+		err := removed[i].syncRemoveCloudVM(ctx, userCred)
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
@@ -1665,10 +1713,11 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], projectId, projectSync)
+		err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], syncOwnerId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localVMs = append(localVMs, commondb[i])
 			remoteVMs = append(remoteVMs, commonext[i])
 			syncResult.Update()
@@ -1687,10 +1736,11 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 				continue
 			}
 		}
-		new, err := GuestManager.newCloudVM(ctx, userCred, iprovider, self, added[i], projectId)
+		new, err := GuestManager.newCloudVM(ctx, userCred, iprovider, self, added[i], syncOwnerId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			localVMs = append(localVMs, *new)
 			remoteVMs = append(remoteVMs, added[i])
 			syncResult.Add()
@@ -3045,6 +3095,7 @@ func (self *SHost) DisableNetif(ctx context.Context, userCred mcclient.TokenCred
 func (self *SHost) Attach2Network(ctx context.Context, userCred mcclient.TokenCredential, netif *SNetInterface, net *SNetwork, ipAddr, allocDir string, reserved, requireDesignatedIp bool) error {
 	lockman.LockObject(ctx, net)
 	defer lockman.ReleaseObject(ctx, net)
+
 	usedAddr := net.GetUsedAddresses()
 	freeIp, err := net.GetFreeIP(ctx, userCred, usedAddr, nil, ipAddr, IPAddlocationDirection(allocDir), reserved)
 	if err != nil {
@@ -3321,6 +3372,7 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 	func() {
 		lockman.LockObject(ctx, guest)
 		defer lockman.ReleaseObject(ctx, guest)
+
 		guest.PostCreate(ctx, userCred, ownerProjId, nil, params)
 	}()
 	log.Infof("Host convert to %s", guest.GetName())

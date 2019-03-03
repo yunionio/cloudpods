@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -136,27 +137,30 @@ func (self *SStoragecache) getHostId() (string, error) {
 	return ret, nil
 }
 
-func (manager *SStoragecacheManager) SyncWithCloudStoragecache(cloudCache cloudprovider.ICloudStoragecache) (*SStoragecache, error) {
+func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache) (*SStoragecache, error) {
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+
 	localCacheObj, err := manager.FetchByExternalId(cloudCache.GetGlobalId())
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return manager.newFromCloudStoragecache(cloudCache)
+			return manager.newFromCloudStoragecache(ctx, userCred, cloudCache)
 		} else {
 			log.Errorf("%s", err)
 			return nil, err
 		}
 	} else {
 		localCache := localCacheObj.(*SStoragecache)
-		localCache.syncWithCloudStoragecache(cloudCache)
+		localCache.syncWithCloudStoragecache(ctx, userCred, cloudCache)
 		return localCache, nil
 	}
 }
 
-func (manager *SStoragecacheManager) newFromCloudStoragecache(cloudCache cloudprovider.ICloudStoragecache) (*SStoragecache, error) {
+func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache) (*SStoragecache, error) {
 	local := SStoragecache{}
 	local.SetModelManager(manager)
 
-	local.Name = cloudCache.GetName()
+	local.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), cloudCache.GetName())
 	local.ExternalId = cloudCache.GetGlobalId()
 
 	local.IsEmulated = cloudCache.IsEmulated()
@@ -169,11 +173,13 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(cloudCache cloudpr
 		return nil, err
 	}
 
+	db.OpsLog.LogEvent(&local, db.ACT_CREATE, local.GetShortDesc(ctx), userCred)
+
 	return &local, nil
 }
 
-func (self *SStoragecache) syncWithCloudStoragecache(cloudCache cloudprovider.ICloudStoragecache) error {
-	_, err := db.Update(self, func() error {
+func (self *SStoragecache) syncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache) error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Name = cloudCache.GetName()
 
 		self.Path = cloudCache.GetPath()
@@ -183,7 +189,11 @@ func (self *SStoragecache) syncWithCloudStoragecache(cloudCache cloudprovider.IC
 
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	return nil
 }
 
 func (self *SStoragecache) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
@@ -457,6 +467,12 @@ func (cache *SStoragecache) SyncCloudImages(
 	userCred mcclient.TokenCredential,
 	iStoragecache cloudprovider.ICloudStoragecache,
 ) compare.SyncResult {
+	lockman.LockObject(ctx, cache)
+	defer lockman.ReleaseObject(ctx, cache)
+
+	lockman.LockClass(ctx, StoragecachedimageManager, StoragecachedimageManager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, StoragecachedimageManager, StoragecachedimageManager.GetOwnerId(userCred))
+
 	syncResult := compare.SyncResult{}
 
 	localCachedImages := cache.getCachedImages()
@@ -482,19 +498,11 @@ func (cache *SStoragecache) SyncCloudImages(
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		image := removed[i].GetCachedimage()
-		err := removed[i].Detach(ctx, userCred)
+		err := removed[i].syncRemoveCloudImage(ctx, userCred)
 		if err != nil {
-			log.Errorf("storagecachedimage %s %s detach fail %s", removed[i].StoragecacheId, removed[i].CachedimageId, err)
 			syncResult.DeleteError(err)
 		} else {
 			syncResult.Delete()
-			if image != nil && image.getStoragecacheCount() == 0 {
-				err = image.Delete(ctx, userCred)
-				if err != nil {
-					log.Errorf("image delete error %s", err)
-				}
-			}
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {

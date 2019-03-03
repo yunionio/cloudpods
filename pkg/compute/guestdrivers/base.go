@@ -11,6 +11,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -234,4 +235,28 @@ func (self *SBaseGuestDriver) IsSupportEip() bool {
 
 func (self *SBaseGuestDriver) NeedStopForChangeSpec() bool {
 	return true
+}
+
+func (self *SBaseGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (self *SBaseGuestDriver) RemoteDeployGuestForDeploy(ctx context.Context, guest *models.SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (self *SBaseGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.Context, guest *models.SGuest, ihost cloudprovider.ICloudHost, task taskman.ITask, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
+func (self *SBaseGuestDriver) GetGuestInitialStateAfterCreate() string {
+	return models.VM_READY
+}
+
+func (self *SBaseGuestDriver) GetGuestInitialStateAfterRebuild() string {
+	return models.VM_READY
+}
+
+func (self *SBaseGuestDriver) GetLinuxDefaultAccount() string {
+	return "root"
 }

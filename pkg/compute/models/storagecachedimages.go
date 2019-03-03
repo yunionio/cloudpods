@@ -288,8 +288,8 @@ func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mccl
 }
 
 func (manager *SStoragecachedimageManager) Register(ctx context.Context, userCred mcclient.TokenCredential, cacheId, imageId string, status string) *SStoragecachedimage {
-	lockman.LockClass(ctx, manager, userCred.GetProjectId())
-	defer lockman.ReleaseClass(ctx, manager, userCred.GetProjectId())
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
 
 	cachedimage := manager.GetStoragecachedimage(cacheId, imageId)
 	if cachedimage != nil {
@@ -357,6 +357,24 @@ func (self *SStoragecachedimage) SetExternalId(externalId string) error {
 
 func (self SStoragecachedimage) GetExternalId() string {
 	return self.ExternalId
+}
+
+func (self *SStoragecachedimage) syncRemoveCloudImage(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	image := self.GetCachedimage()
+	err := self.Detach(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	if image != nil && image.getStoragecacheCount() == 0 {
+		err = image.Delete(ctx, userCred)
+		if err != nil {
+			log.Errorf("image delete error %s", err)
+		}
+	}
+	return nil
 }
 
 func (self *SStoragecachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, image cloudprovider.ICloudImage) error {

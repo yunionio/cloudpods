@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -683,6 +684,9 @@ func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
 }
 
 func (manager *SServerSkuManager) SyncCloudSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, skus []cloudprovider.ICloudSku) compare.SyncResult {
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+
 	syncResult := compare.SyncResult{}
 	dbSkus := manager.GetSkuCountByZone(zone.Id)
 
@@ -695,11 +699,14 @@ func (manager *SServerSkuManager) SyncCloudSkusByRegion(ctx context.Context, use
 		syncResult.Error(err)
 		return syncResult
 	}
+
 	for i := 0; i < len(removed); i++ {
-		if err := removed[i].ValidateDeleteCondition(ctx); err == nil {
-			removed[i].Delete(ctx, userCred)
+		err := removed[i].syncRemoveCloudSku(ctx, userCred)
+		if err != nil {
+			syncResult.DeleteError(err)
+		} else {
+			syncResult.Delete()
 		}
-		syncResult.Delete()
 	}
 
 	for i := 0; i < len(commondb); i++ {
@@ -756,12 +763,44 @@ func (self *SServerSku) constructSku(extSku cloudprovider.ICloudSku) {
 	self.Name = extSku.GetName()
 }
 
+func (self *SServerSku) setPrepaidPostpaidStatus(userCred mcclient.TokenCredential, prepaidStatus, postpaidStatus string) error {
+	if prepaidStatus != self.PrepaidStatus || postpaidStatus != self.PostpaidStatus {
+		diff, err := db.Update(self, func() error {
+			self.PrepaidStatus = prepaidStatus
+			self.PostpaidStatus = postpaidStatus
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, sqlchemy.UpdateDiffString(diff), userCred)
+	}
+	return nil
+}
+
+func (self *SServerSku) syncRemoveCloudSku(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	err := self.ValidateDeleteCondition(ctx)
+	if err == nil {
+		err = self.Delete(ctx, userCred)
+	} else {
+		err = self.setPrepaidPostpaidStatus(userCred, SkuStatusSoldout, SkuStatusSoldout)
+	}
+	return err
+}
+
 func (self *SServerSku) syncWithCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku cloudprovider.ICloudSku, zone *SZone, provider *SCloudprovider) error {
-	_, err := db.Update(self, func() error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.constructSku(extSku)
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	return nil
 }
 
 func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred mcclient.TokenCredential, extSku cloudprovider.ICloudSku, zone *SZone, provider *SCloudprovider) error {
@@ -772,8 +811,16 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 		Provider:      provider.Provider,
 	}
 	sku.constructSku(extSku)
-	sku.Name = extSku.GetName()
+	sku.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extSku.GetName())
 	sku.ExternalId = extSku.GetGlobalId()
 	sku.SetModelManager(manager)
-	return manager.TableSpec().Insert(sku)
+	err := manager.TableSpec().Insert(sku)
+	if err != nil {
+		log.Errorf("insert fail %s", err)
+		return err
+	}
+
+	db.OpsLog.LogEvent(sku, db.ACT_CREATE, sku.GetShortDesc(ctx), userCred)
+
+	return nil
 }

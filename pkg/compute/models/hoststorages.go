@@ -252,6 +252,6 @@ func (self *SHoststorage) syncWithCloudHostStorage(userCred mcclient.TokenCreden
 	if err != nil {
 		return err
 	}
-	db.OpsLog.LogEvent(self, db.ACT_SYNC_UPDATE, diff, userCred)
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return nil
 }

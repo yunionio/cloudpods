@@ -764,6 +764,9 @@ func (self *SHost) DoSaveRenewInfo(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SHost) SyncWithRealPrepaidVM(ctx context.Context, userCred mcclient.TokenCredential, iVM cloudprovider.ICloudVM) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
 	exp := iVM.GetExpiredAt()
 	if self.ExpiredAt != exp {
 		return self.DoSaveRenewInfo(ctx, userCred, nil, &exp)

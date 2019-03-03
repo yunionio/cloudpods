@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -237,6 +238,9 @@ func (self *SVpc) setDefault(def bool) error {
 }
 
 func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, vpcs []cloudprovider.ICloudVpc) ([]SVpc, []cloudprovider.ICloudVpc, compare.SyncResult) {
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+
 	localVPCs := make([]SVpc, 0)
 	remoteVPCs := make([]cloudprovider.ICloudVpc, 0)
 	syncResult := compare.SyncResult{}
@@ -259,42 +263,30 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		// err = removed[i].ValidateDeleteCondition(ctx)
-		// if err != nil { // cannot delete
-		removed[i].markAllNetworksUnknown(userCred)
-		_, err = removed[i].PerformDisable(ctx, userCred, nil, nil)
-		if err == nil {
-			err = removed[i].SetStatus(userCred, VPC_STATUS_UNKNOWN, "sync to delete")
-		}
+		err = removed[i].syncRemoveCloudVpc(ctx, userCred)
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
 			syncResult.Delete()
 		}
-		// } else {
-		// 	err = removed[i].Delete(ctx, userCred)
-		// 	if err != nil {
-		//		syncResult.DeleteError(err)
-		//	} else {
-		//		syncResult.Delete()
-		//	}
-		// }
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudVpc(commonext[i])
+		err = commondb[i].SyncWithCloudVpc(ctx, userCred, commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localVPCs = append(localVPCs, commondb[i])
 			remoteVPCs = append(remoteVPCs, commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudVpc(added[i], region)
+		new, err := manager.newFromCloudVpc(ctx, userCred, added[i], region)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			localVPCs = append(localVPCs, *new)
 			remoteVPCs = append(remoteVPCs, added[i])
 			syncResult.Add()
@@ -304,10 +296,27 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 	return localVPCs, remoteVPCs, syncResult
 }
 
-func (self *SVpc) SyncWithCloudVpc(extVPC cloudprovider.ICloudVpc) error {
-	_, err := db.Update(self, func() error {
+func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil { // cannot delete
+		self.markAllNetworksUnknown(userCred)
+		_, err := self.PerformDisable(ctx, userCred, nil, nil)
+		if err == nil {
+			err = self.SetStatus(userCred, VPC_STATUS_UNKNOWN, "sync to delete")
+		}
+	} else {
+		err = self.Delete(ctx, userCred)
+	}
+	return err
+}
+
+func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc) error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extVPC.Refresh()
-		self.Name = extVPC.GetName()
+		// self.Name = extVPC.GetName()
 		self.Status = extVPC.GetStatus()
 		self.CidrBlock = extVPC.GetCidrBlock()
 		self.IsDefault = extVPC.GetIsDefault()
@@ -317,14 +326,18 @@ func (self *SVpc) SyncWithCloudVpc(extVPC cloudprovider.ICloudVpc) error {
 
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	return nil
 }
 
-func (manager *SVpcManager) newFromCloudVpc(extVPC cloudprovider.ICloudVpc, region *SCloudregion) (*SVpc, error) {
+func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc, region *SCloudregion) (*SVpc, error) {
 	vpc := SVpc{}
 	vpc.SetModelManager(manager)
 
-	vpc.Name = extVPC.GetName()
+	vpc.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extVPC.GetName())
 	vpc.Status = extVPC.GetStatus()
 	vpc.ExternalId = extVPC.GetGlobalId()
 	vpc.IsDefault = extVPC.GetIsDefault()
@@ -340,6 +353,9 @@ func (manager *SVpcManager) newFromCloudVpc(extVPC cloudprovider.ICloudVpc, regi
 		log.Errorf("newFromCloudVpc fail %s", err)
 		return nil, err
 	}
+
+	db.OpsLog.LogEvent(&vpc, db.ACT_CREATE, vpc.GetShortDesc(ctx), userCred)
+
 	return &vpc, nil
 }
 
@@ -588,4 +604,24 @@ func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	}*/
 
 	return q, nil
+}
+
+func (self *SVpc) SyncRemoteWires(ctx context.Context, userCred mcclient.TokenCredential) error {
+	ivpc, err := self.GetIVpc()
+	if err != nil {
+		return err
+	}
+
+	provider := CloudproviderManager.FetchCloudproviderById(self.ManagerId)
+	syncVpcWires(ctx, userCred, provider, self, ivpc, &SSyncRange{})
+
+	hosts := HostManager.GetHostsByManagerAndRegion(provider.Id, self.CloudregionId)
+	for i := 0; i < len(hosts); i += 1 {
+		ihost, err := hosts[i].GetIHost()
+		if err != nil {
+			return err
+		}
+		syncHostWires(ctx, userCred, provider, &hosts[i], ihost)
+	}
+	return nil
 }
