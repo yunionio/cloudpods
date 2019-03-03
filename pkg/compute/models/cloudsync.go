@@ -8,12 +8,12 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/sqlchemy"
 )
 
 type SSyncableBaseResource struct {
@@ -72,7 +72,7 @@ func syncRegionZones(ctx context.Context, userCred mcclient.TokenCredential, pro
 	return localZones, remoteZones, nil
 }
 
-/*func syncRegionSkus(localRegion *SCloudregion) {
+func syncRegionSkus(localRegion *SCloudregion) {
 	if localRegion == nil {
 		log.Debugf("local region is nil skipped.")
 		return
@@ -81,7 +81,7 @@ func syncRegionZones(ctx context.Context, userCred mcclient.TokenCredential, pro
 	regionId := localRegion.GetId()
 	if len(regionId) > 0 && ServerSkuManager.GetSkuCountByRegion(regionId) == 0 {
 		// 提前同步instance type.如果同步失败可能导致vm 内存显示为0
-		if err := skus.SyncSkusByRegion(localRegion); err != nil {
+		if err := syncSkusByRegion(localRegion); err != nil {
 			msg := fmt.Sprintf("Get Skus for region %s failed %s", localRegion.GetName(), err)
 			log.Errorf(msg)
 			// 暂时不终止同步
@@ -89,7 +89,7 @@ func syncRegionZones(ctx context.Context, userCred mcclient.TokenCredential, pro
 			return
 		}
 	}
-}*/
+}
 
 func syncRegionEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
 	eips, err := remoteRegion.GetIEips()
@@ -642,7 +642,7 @@ func syncPublicCloudProviderInfo(
 	localZones, remoteZones, _ := syncRegionZones(ctx, userCred, provider, localRegion, remoteRegion)
 
 	if !driver.GetFactory().NeedSyncSkuFromCloud() {
-		// syncRegionSkus(localRegion)
+		syncRegionSkus(localRegion)
 	}
 
 	// no need to lock public cloud region as cloud region for public cloud is readonly

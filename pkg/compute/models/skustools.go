@@ -1,4 +1,4 @@
-package skus
+package models
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -140,11 +139,11 @@ func (self *SkusZone) Init() error {
 	return nil
 }
 
-func (self *SkusZone) doCreate(data models.SServerSku) error {
+func (self *SkusZone) doCreate(data SServerSku) error {
 	data.CloudregionId = self.RegionId
 	data.ZoneId = self.ZoneId
 	data.Provider = self.Provider
-	if err := models.ServerSkuManager.TableSpec().Insert(&data); err != nil {
+	if err := ServerSkuManager.TableSpec().Insert(&data); err != nil {
 		log.Debugf("SkusZone doCreate fail: %s", err.Error())
 		return err
 	}
@@ -153,7 +152,7 @@ func (self *SkusZone) doCreate(data models.SServerSku) error {
 	return nil
 }
 
-func (self *SkusZone) doUpdate(odata *models.SServerSku, sku jsonutils.JSONObject) error {
+func (self *SkusZone) doUpdate(odata *SServerSku, sku jsonutils.JSONObject) error {
 	_, err := db.Update(odata, func() error {
 		if err := sku.Unmarshal(&odata); err != nil {
 			return err
@@ -178,12 +177,12 @@ func (self *SkusZone) SyncToLocalDB() error {
 	for _, sku := range self.skus {
 		name, _ := sku.GetString("name")
 
-		if obj, err := models.ServerSkuManager.FetchByZoneId(self.ZoneId, name); err != nil {
+		if obj, err := ServerSkuManager.FetchByZoneId(self.ZoneId, name); err != nil {
 			if err != sql.ErrNoRows {
 				log.Debugf("SyncToLocalDB zone %s name %s : %s", self.ZoneId, name, err.Error())
 				return err
 			}
-			data := models.SServerSku{}
+			data := SServerSku{}
 			if e := sku.Unmarshal(&data); e != nil {
 				log.Debugf("sku Unmarshal failed: %s, %s", sku, e.Error())
 				return e
@@ -192,7 +191,7 @@ func (self *SkusZone) SyncToLocalDB() error {
 				return err
 			}
 		} else {
-			odata, ok := obj.(*models.SServerSku)
+			odata, ok := obj.(*SServerSku)
 			if !ok {
 				return fmt.Errorf("SkusZone model assertion error. %s", obj)
 			}
@@ -212,7 +211,7 @@ func (self *SkusZone) getExternalZone() (string, string, string) {
 	if len(parts) == 3 {
 		// provider, region, zone
 		return parts[0], parts[1], parts[2]
-	} else if len(parts) == 2 && parts[0] == models.CLOUD_PROVIDER_AZURE {
+	} else if len(parts) == 2 && parts[0] == CLOUD_PROVIDER_AZURE {
 		// azure 没有zone的概念
 		return parts[0], parts[1], parts[1]
 	}
@@ -228,7 +227,7 @@ type SkusZoneList struct {
 	failed    int
 }
 
-func (self *SkusZoneList) initData(provider string, region models.SCloudregion, zones []models.SZone) {
+func (self *SkusZoneList) initData(provider string, region SCloudregion, zones []SZone) {
 	for _, z := range zones {
 		log.Debugf("SkusZoneList initData provider %s zone %s", provider, z.GetId())
 		skusZone := &SkusZone{
@@ -253,13 +252,13 @@ func (self *SkusZoneList) Refresh(providerIds *[]string) error {
 	}
 
 	for _, p := range pIds {
-		regions, e := models.CloudregionManager.GetRegionByProvider(p)
+		regions, e := CloudregionManager.GetRegionByProvider(p)
 		if e != nil {
 			return e
 		}
 
 		for _, r := range regions {
-			zones, e := models.ZoneManager.GetZonesByRegion(&r)
+			zones, e := ZoneManager.GetZonesByRegion(&r)
 			if e != nil {
 				return e
 			}
@@ -308,7 +307,7 @@ func (self *SkusZoneList) SyncToLocalDB() error {
 // 全量同步sku列表.
 func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	if isStart {
-		if models.ServerSkuManager.GetSkuCountByProvider("") > 0 {
+		if ServerSkuManager.GetSkuCountByProvider("") > 0 {
 			return
 		}
 	}
@@ -323,7 +322,7 @@ func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bo
 
 	// 清理无效的sku
 	log.Debugf("DeleteInvalidSkus in processing...")
-	models.ServerSkuManager.PendingDeleteInvalidSku()
+	ServerSkuManager.PendingDeleteInvalidSku()
 }
 
 // 同步指定provider sku列表
@@ -342,9 +341,9 @@ func SyncSkusByProviderIds(providerIds []string) error {
 }
 
 // 同步指定region sku列表
-func SyncSkusByRegion(region *models.SCloudregion) error {
+func syncSkusByRegion(region *SCloudregion) error {
 	skulist := SkusZoneList{}
-	zones, err := models.ZoneManager.GetZonesByRegion(region)
+	zones, err := ZoneManager.GetZonesByRegion(region)
 	if err != nil {
 		return err
 	}
