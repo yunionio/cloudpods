@@ -119,7 +119,3 @@ func (region *SFakeOnPremiseRegion) CreateILoadBalancerAcl(acl *SLoadbalancerAcc
 func (region *SFakeOnPremiseRegion) GetSkus(zoneId string) ([]ICloudSku, error) {
 	return nil, ErrNotSupported
 }
-
-func (region *SFakeOnPremiseRegion) GetProjects() ([]ICloudProject, error) {
-	return nil, ErrNotSupported
-}

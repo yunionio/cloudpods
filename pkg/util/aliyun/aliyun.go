@@ -242,3 +242,10 @@ func (self *SAliyunClient) GetIStorageById(id string) (cloudprovider.ICloudStora
 	}
 	return nil, cloudprovider.ErrNotFound
 }
+
+func (region *SAliyunClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	// 阿里云并未公布资源组的api地址
+	// params := map[string]string{}
+	// body, err := region.ecsRequest("ListResourceGroups", params)
+	return nil, cloudprovider.ErrNotImplemented
+}

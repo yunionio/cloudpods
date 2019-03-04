@@ -2,6 +2,7 @@ package qcloud
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"context"
@@ -823,5 +824,5 @@ func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCy
 }
 
 func (self *SInstance) GetProjectId() string {
-	return ""
+	return strconv.Itoa(self.Placement.ProjectId)
 }

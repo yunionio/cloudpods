@@ -35,8 +35,7 @@ type SExternalProject struct {
 	db.SStandaloneResourceBase
 	SManagedResourceBase
 
-	ProjectId     string `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin"`
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	ProjectId string `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin"`
 }
 
 func (self *SExternalProject) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -53,20 +52,13 @@ func (self *SExternalProject) ValidateUpdateData(ctx context.Context, userCred m
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (manager *SExternalProjectManager) getProjectsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SExternalProject, error) {
+func (manager *SExternalProjectManager) getProjectsByProvider(provider *SCloudprovider) ([]SExternalProject, error) {
 	projects := []SExternalProject{}
-	factory, err := provider.GetProviderFactory()
-	if err != nil {
-		return nil, err
-	}
 	q := manager.Query()
-	if factory.IsProjectRegional() {
-		q = q.Equals("cloudregion_id", region.Id)
-	}
 	if provider != nil {
 		q = q.Equals("manager_id", provider.Id)
 	}
-	err = db.FetchModelObjects(manager, q, &projects)
+	err := db.FetchModelObjects(manager, q, &projects)
 	if err != nil {
 		return nil, err
 	}
@@ -87,10 +79,10 @@ func (manager *SExternalProjectManager) GetProject(externalId string, providerId
 	return project, q.First(project)
 }
 
-func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, projects []cloudprovider.ICloudProject, projectSync bool) compare.SyncResult {
+func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, projects []cloudprovider.ICloudProject) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 
-	dbProjects, err := manager.getProjectsByRegion(region, provider)
+	dbProjects, err := manager.getProjectsByProvider(provider)
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult
@@ -116,7 +108,7 @@ func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCr
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudProject(ctx, userCred, provider, commonext[i], projectSync)
+		err = commondb[i].SyncWithCloudProject(ctx, userCred, provider, commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -124,7 +116,7 @@ func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCr
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		_, err := manager.newFromCloudProject(ctx, userCred, provider, added[i], region, projectSync)
+		_, err := manager.newFromCloudProject(ctx, userCred, provider, added[i])
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -134,7 +126,7 @@ func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCr
 	return syncResult
 }
 
-func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudProject, projectSync bool) error {
+func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudProject) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Name = ext.GetName()
 		self.IsEmulated = ext.IsEmulated()
@@ -146,7 +138,7 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 	return err
 }
 
-func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extProject cloudprovider.ICloudProject, region *SCloudregion, projectSync bool) (*SExternalProject, error) {
+func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extProject cloudprovider.ICloudProject) (*SExternalProject, error) {
 	project := SExternalProject{}
 	project.SetModelManager(manager)
 
@@ -156,16 +148,7 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	project.ManagerId = provider.Id
 	project.ProjectId = provider.ProjectId
 
-	factory, err := provider.GetProviderFactory()
-	if err != nil {
-		return nil, err
-	}
-
-	if factory.IsProjectRegional() {
-		project.CloudregionId = region.Id
-	}
-
-	err = manager.TableSpec().Insert(&project)
+	err := manager.TableSpec().Insert(&project)
 	if err != nil {
 		log.Errorf("newFromCloudProject fail %s", err)
 		return nil, err

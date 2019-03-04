@@ -470,3 +470,25 @@ func (client *SQcloudClient) QueryAccountBalance() (*SAccountBalance, error) {
 	balance.AvailableAmount = balanceCent / 100.0
 	return &balance, nil
 }
+
+func (client *SQcloudClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	projects := []SProject{}
+	params := map[string]string{"allList": "1"}
+	body, err := client.accountRequestRequest("DescribeProject", params)
+	if err != nil {
+		return nil, err
+	}
+	if err := body.Unmarshal(&projects); err != nil {
+		return nil, err
+	}
+	projects = append(projects, SProject{
+		ProjectId:   "0",
+		ProjectName: "默认项目",
+		CreateTime:  time.Time{},
+	})
+	iprojects := []cloudprovider.ICloudProject{}
+	for i := 0; i < len(projects); i++ {
+		iprojects = append(iprojects, &projects[i])
+	}
+	return iprojects, nil
+}

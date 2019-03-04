@@ -183,3 +183,7 @@ func (cli *SOpenStackClient) GetRegions() []SRegion {
 	}
 	return regions
 }
+
+func (cli *SOpenStackClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}

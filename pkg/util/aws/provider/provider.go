@@ -37,10 +37,6 @@ func (self *SAwsProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
-func (self *SAwsProviderFactory) IsProjectRegional() bool {
-	return false
-}
-
 func (self *SAwsProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
@@ -135,4 +131,8 @@ func (self *SAwsProvider) GetBalance() (float64, error) {
 
 func (self *SAwsProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SAwsProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return self.client.GetIProjects()
 }

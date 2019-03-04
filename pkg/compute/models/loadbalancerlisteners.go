@@ -736,6 +736,7 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 }
 
 func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener) {
+	lblis.ManagerId = lb.ManagerId
 	lblis.Name = extListener.GetName()
 	lblis.ListenerType = extListener.GetListenerType()
 	lblis.ListenerPort = extListener.GetListenerPort()
@@ -797,8 +798,15 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(lb *SLoadba
 func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string, projectSync bool) error {
 	_, err := lblis.GetModelManager().TableSpec().Update(lblis, func() error {
 		lblis.constructFieldsFromCloudListener(lb, extListener)
-		if projectSync && len(projectId) > 0 {
-			lblis.ProjectId = projectId
+		if projectSync && lblis.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+			if extProjectId := extListener.GetProjectId(); len(extProjectId) > 0 {
+				extProject, err := ExternalProjectManager.GetProject(extProjectId, lblis.ManagerId)
+				if err != nil {
+					log.Errorf(err.Error())
+				} else {
+					lblis.ProjectId = extProject.ProjectId
+				}
+			}
 		}
 		return nil
 	})
@@ -813,10 +821,21 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 	lblis.ExternalId = extListener.GetGlobalId()
 	lblis.constructFieldsFromCloudListener(lb, extListener)
 
+	lblis.ProjectSource = db.PROJECT_SOURCE_CLOUD
 	lblis.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		lblis.ProjectId = projectId
 	}
+
+	if extProjectId := extListener.GetProjectId(); len(extProjectId) > 0 {
+		externalProject, err := ExternalProjectManager.GetProject(extProjectId, lblis.ManagerId)
+		if err != nil {
+			log.Errorf(err.Error())
+		} else {
+			lblis.ProjectId = externalProject.ProjectId
+		}
+	}
+
 	return lblis, man.TableSpec().Insert(lblis)
 }
 

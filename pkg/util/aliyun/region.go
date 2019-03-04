@@ -893,10 +893,3 @@ func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAc
 func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
-
-func (region *SRegion) GetProjects() ([]cloudprovider.ICloudProject, error) {
-	// 阿里云并未公布资源组的api地址
-	// params := map[string]string{}
-	// body, err := region.ecsRequest("ListResourceGroups", params)
-	return nil, cloudprovider.ErrNotImplemented
-}

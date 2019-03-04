@@ -81,8 +81,6 @@ type ICloudRegion interface {
 	GetSkus(zoneId string) ([]ICloudSku, error)
 
 	GetProvider() string
-
-	GetProjects() ([]ICloudProject, error)
 }
 
 type ICloudZone interface {
@@ -413,6 +411,7 @@ type ICloudHostNetInterface interface {
 
 type ICloudLoadbalancer interface {
 	ICloudResource
+	IVirtualResource
 
 	GetAddress() string
 	GetAddressType() string
@@ -440,6 +439,7 @@ type ICloudLoadbalancer interface {
 
 type ICloudLoadbalancerListener interface {
 	ICloudResource
+	IVirtualResource
 
 	GetListenerType() string
 	GetListenerPort() int
@@ -537,6 +537,7 @@ type ICloudLoadbalancerCertificate interface {
 
 type ICloudLoadbalancerAcl interface {
 	ICloudResource
+	IVirtualResource
 
 	GetAclEntries() []SLoadbalancerAccessControlListEntry
 	Sync(acl *SLoadbalancerAccessControlList) error

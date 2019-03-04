@@ -149,14 +149,13 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 
 	storageCachePairs := make([]sStoragecacheSyncPair, 0)
 
+	syncProjects(ctx, driver, provider, task)
+
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.UserCred)
 	// logclient.AddActionLog(provider, getAction(task.Params), "", task.UserCred, true)
 	for i := 0; i < len(localRegions); i += 1 {
 		if len(syncRange.Region) > 0 && !utils.IsInStringArray(localRegions[i].Id, syncRange.Region) {
 			continue
-		}
-		if driver.GetFactory().IsProjectRegional() || i == 0 {
-			syncRegionProjects(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
 		}
 
 		syncRegionEips(ctx, provider, task, &localRegions[i], remoteRegions[i], syncRange)
@@ -395,18 +394,18 @@ func syncRegionSnapshots(ctx context.Context, provider *models.SCloudprovider, t
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, task.GetUserCred())
 }
 
-func syncRegionProjects(ctx context.Context, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask, localRegion *models.SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *models.SSyncRange) {
-	projects, err := remoteRegion.GetProjects()
+func syncProjects(ctx context.Context, driver cloudprovider.ICloudProvider, provider *models.SCloudprovider, task *CloudProviderSyncInfoTask) {
+	projects, err := driver.GetIProjects()
 	if err != nil {
-		msg := fmt.Sprintf("GetIProjects for region %s failed %s", remoteRegion.GetName(), err)
+		msg := fmt.Sprintf("GetIProjects for provider %s failed %s", provider.GetName(), err)
 		log.Errorf(msg)
 		logSyncFailed(provider, task, msg)
 		return
 	}
 
-	result := models.ExternalProjectManager.SyncProjects(ctx, task.UserCred, provider, localRegion, projects, syncRange.ProjectSync)
+	result := models.ExternalProjectManager.SyncProjects(ctx, task.UserCred, provider, projects)
 	msg := result.Result()
-	log.Infof("SyncProjects for region %s result: %s", localRegion.Name, msg)
+	log.Infof("SyncProjects for provider %s result: %s", provider.Name, msg)
 	if result.IsError() {
 		logSyncFailed(provider, task, msg)
 		return

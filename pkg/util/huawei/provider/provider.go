@@ -37,10 +37,6 @@ func (self *SHuaweiProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
-func (self *SHuaweiProviderFactory) IsProjectRegional() bool {
-	return true
-}
-
 func (self *SHuaweiProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
@@ -135,4 +131,8 @@ func (self *SHuaweiProvider) GetBalance() (float64, error) {
 
 func (self *SHuaweiProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
+}
+
+func (self *SHuaweiProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return self.client.GetIProjects()
 }

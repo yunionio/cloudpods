@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -384,5 +385,5 @@ func (self *SDisk) Rebuild(ctx context.Context) error {
 }
 
 func (self *SDisk) GetProjectId() string {
-	return ""
+	return strconv.Itoa(self.Placement.ProjectId)
 }

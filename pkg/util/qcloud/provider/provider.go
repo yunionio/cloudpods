@@ -44,10 +44,6 @@ func (self *SQcloudProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
-func (self *SQcloudProviderFactory) IsProjectRegional() bool {
-	return false
-}
-
 func (self *SQcloudProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
@@ -149,4 +145,8 @@ func (self *SQcloudProvider) GetBalance() (float64, error) {
 
 func (self *SQcloudProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SQcloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return self.client.GetIProjects()
 }

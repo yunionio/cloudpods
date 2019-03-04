@@ -384,9 +384,19 @@ func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Cont
 	acl.ManagerId = provider.Id
 	acl.CloudregionId = region.Id
 
+	acl.ProjectSource = db.PROJECT_SOURCE_CLOUD
 	acl.ProjectId = userCred.GetProjectId()
 	if len(provider.ProjectId) > 0 {
 		acl.ProjectId = provider.ProjectId
+	}
+
+	if extProjectId := extAcl.GetProjectId(); len(extProjectId) > 0 {
+		externalProject, err := ExternalProjectManager.GetProject(extProjectId, acl.ManagerId)
+		if err != nil {
+			log.Errorf(err.Error())
+		} else {
+			acl.ProjectId = externalProject.ProjectId
+		}
 	}
 
 	acl.AclEntries = &SLoadbalancerAclEntries{}
@@ -403,8 +413,15 @@ func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, u
 		for _, entry := range extAcl.GetAclEntries() {
 			*acl.AclEntries = append(*acl.AclEntries, &SLoadbalancerAclEntry{Cidr: entry.CIDR, Comment: entry.Comment})
 		}
-		if projectSync && len(projectId) > 0 {
-			acl.ProjectId = projectId
+		if projectSync && acl.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+			if extProjectId := extAcl.GetProjectId(); len(extProjectId) > 0 {
+				extProject, err := ExternalProjectManager.GetProject(extProjectId, acl.ManagerId)
+				if err != nil {
+					log.Errorf(err.Error())
+				} else {
+					acl.ProjectId = extProject.ProjectId
+				}
+			}
 		}
 		return nil
 	})

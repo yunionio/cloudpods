@@ -34,7 +34,6 @@ type ICloudProviderFactory interface {
 	IsOnPremise() bool
 	IsSupportPrepaidResources() bool
 	NeedSyncSkuFromCloud() bool
-	IsProjectRegional() bool
 }
 
 type ICloudProvider interface {
@@ -44,6 +43,7 @@ type ICloudProvider interface {
 	GetVersion() string
 
 	GetIRegions() []ICloudRegion
+	GetIProjects() ([]ICloudProject, error)
 	GetIRegionById(id string) (ICloudRegion, error)
 
 	GetOnPremiseIRegion() (ICloudRegion, error)

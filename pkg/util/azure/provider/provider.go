@@ -39,10 +39,6 @@ func (self *SAzureProviderFactory) IsSupportPrepaidResources() bool {
 	return true
 }
 
-func (self *SAzureProviderFactory) IsProjectRegional() bool {
-	return false
-}
-
 func (self *SAzureProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
@@ -141,4 +137,8 @@ func (self *SAzureProvider) GetBalance() (float64, error) {
 
 func (self *SAzureProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SAzureProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return self.client.GetIProjects()
 }

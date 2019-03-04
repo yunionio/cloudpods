@@ -439,7 +439,3 @@ func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error)
 	}
 	return iskus, nil
 }
-
-func (region *SRegion) GetProjects() ([]cloudprovider.ICloudProject, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
