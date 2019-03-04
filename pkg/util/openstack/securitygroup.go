@@ -353,5 +353,5 @@ func (region *SRegion) CreateSecurityGroup(name, description string) (*SSecurity
 }
 
 func (secgroup *SSecurityGroup) GetProjectId() string {
-	return ""
+	return secgroup.TenantID
 }

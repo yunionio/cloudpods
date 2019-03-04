@@ -318,5 +318,5 @@ func (disk *SDisk) Rebuild(ctx context.Context) error {
 }
 
 func (disk *SDisk) GetProjectId() string {
-	return ""
+	return disk.TenantID
 }

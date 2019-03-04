@@ -615,5 +615,5 @@ func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCy
 }
 
 func (instance *SInstance) GetProjectId() string {
-	return ""
+	return instance.TenantID
 }

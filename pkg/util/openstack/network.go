@@ -171,5 +171,5 @@ func (region *SRegion) CreateNetwork(vpcId string, name string, cidr string, des
 }
 
 func (network *SNetwork) GetProjectId() string {
-	return ""
+	return network.TenantID
 }

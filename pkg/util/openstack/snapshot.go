@@ -165,5 +165,5 @@ func (region *SRegion) CreateSnapshot(diskId, name, desc string) (*SSnapshot, er
 }
 
 func (self *SSnapshot) GetProjectId() string {
-	return ""
+	return self.ProjectID
 }
