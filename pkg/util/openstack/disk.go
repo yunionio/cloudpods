@@ -316,3 +316,7 @@ func (disk *SDisk) GetAccessPath() string {
 func (disk *SDisk) Rebuild(ctx context.Context) error {
 	return cloudprovider.ErrNotSupported
 }
+
+func (disk *SDisk) GetProjectId() string {
+	return ""
+}

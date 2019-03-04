@@ -25,6 +25,10 @@ type ICloudResource interface {
 	GetMetadata() *jsonutils.JSONDict
 }
 
+type IVirtualResource interface {
+	GetProjectId() string
+}
+
 type IBillingResource interface {
 	GetBillingType() string
 	GetExpiredAt() time.Time
@@ -191,6 +195,7 @@ type ICloudHost interface {
 type ICloudVM interface {
 	ICloudResource
 	IBillingResource
+	IVirtualResource
 
 	GetCreateTime() time.Time
 	GetIHost() ICloudHost
@@ -255,6 +260,7 @@ type ICloudNic interface {
 type ICloudEIP interface {
 	ICloudResource
 	IBillingResource
+	IVirtualResource
 
 	GetIpAddr() string
 	GetMode() string
@@ -304,6 +310,7 @@ type ICloudRoute interface {
 type ICloudDisk interface {
 	ICloudResource
 	IBillingResource
+	IVirtualResource
 
 	GetIStorage() (ICloudStorage, error)
 
@@ -336,6 +343,8 @@ type ICloudDisk interface {
 
 type ICloudSnapshot interface {
 	ICloudResource
+	IVirtualResource
+
 	GetSize() int32
 	GetDiskId() string
 	GetDiskType() string

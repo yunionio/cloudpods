@@ -1004,6 +1004,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	if provider.GetFactory().IsSupportPrepaidResources() && len(guests) == 1 && guests[0].IsPrepaidRecycle() {
 		recycle = true
 	}
+	storage := self.GetStorage()
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		extDisk.Refresh()
 		// self.Name = extDisk.GetName()
@@ -1030,8 +1031,15 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		}
 
 		// self.ProjectId = userCred.GetProjectId()
-		if projectSync && len(projectId) > 0 {
-			self.ProjectId = projectId
+		if projectSync && self.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+			if extProjectId := extDisk.GetProjectId(); len(extProjectId) > 0 {
+				extProject, err := ExternalProjectManager.GetProject(extProjectId, storage.ManagerId)
+				if err != nil {
+					log.Errorf(err.Error())
+				} else {
+					self.ProjectId = extProject.ProjectId
+				}
+			}
 		}
 		return nil
 	})
@@ -1064,9 +1072,18 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	disk.Status = extDisk.GetStatus()
 	disk.ExternalId = extDisk.GetGlobalId()
 	disk.StorageId = storage.Id
+	disk.ProjectSource = db.PROJECT_SOURCE_CLOUD
 	disk.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		disk.ProjectId = projectId
+	}
+	if extProjectId := extDisk.GetProjectId(); len(extProjectId) > 0 {
+		externalProject, err := ExternalProjectManager.GetProject(extProjectId, storage.ManagerId)
+		if err != nil {
+			log.Errorf(err.Error())
+		} else {
+			disk.ProjectId = externalProject.ProjectId
+		}
 	}
 	disk.DiskFormat = extDisk.GetDiskFormat()
 	disk.DiskSize = extDisk.GetDiskSizeMB()

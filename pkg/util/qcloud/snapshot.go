@@ -217,3 +217,7 @@ func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
 	}
 	return body.GetString("SnapshotId")
 }
+
+func (self *SSnapshot) GetProjectId() string {
+	return ""
+}

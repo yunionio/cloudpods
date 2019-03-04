@@ -1155,3 +1155,7 @@ func (self *SRegion) UnsubscribeInstance(instanceId string, domianId string) (js
 	self.ecsClient.Orders.SetDomainId(domianId)
 	return self.ecsClient.Orders.PerformAction("resources/delete", "", unsubObj)
 }
+
+func (self *SInstance) GetProjectId() string {
+	return ""
+}

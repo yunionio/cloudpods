@@ -821,3 +821,7 @@ func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCy
 	}
 	return nil
 }
+
+func (self *SInstance) GetProjectId() string {
+	return ""
+}

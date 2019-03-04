@@ -718,3 +718,7 @@ func (self *SVirtualMachine) createDiskInternal(ctx context.Context, sizeMb int,
 func (self *SVirtualMachine) Renew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }
+
+func (self *SVirtualMachine) GetProjectId() string {
+	return ""
+}

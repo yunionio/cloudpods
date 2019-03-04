@@ -3,16 +3,14 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/pkg/util/compare"
 )
 
@@ -75,6 +73,20 @@ func (manager *SExternalProjectManager) getProjectsByRegion(region *SCloudregion
 	return projects, nil
 }
 
+func (manager *SExternalProjectManager) GetProject(externalId string, providerId string) (*SExternalProject, error) {
+	project := &SExternalProject{}
+	project.SetModelManager(manager)
+	q := manager.Query().Equals("external_id", externalId).Equals("manager_id", providerId)
+	count := q.Count()
+	if count == 0 {
+		return nil, fmt.Errorf("no external project record %s for provider %s", externalId, providerId)
+	}
+	if count > 1 {
+		return nil, fmt.Errorf("dumplicate external project record %s for provider %s", externalId, providerId)
+	}
+	return project, q.First(project)
+}
+
 func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, projects []cloudprovider.ICloudProject, projectSync bool) compare.SyncResult {
 	syncResult := compare.SyncResult{}
 
@@ -125,41 +137,13 @@ func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCr
 func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudProject, projectSync bool) error {
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		self.Name = ext.GetName()
-		self.ExternalId = ext.GetGlobalId()
 		self.IsEmulated = ext.IsEmulated()
-		self.ProjectId = userCred.GetProjectId()
-		if projectSync {
-			projectId, err := ExternalProjectManager.syncProject(ctx, userCred, self.Name)
-			if err != nil {
-				return err
-			}
-			self.ProjectId = projectId
-		}
 		return nil
 	})
 	if err != nil {
 		log.Errorf("SyncWithCloudProject fail %s", err)
 	}
 	return err
-}
-
-func (manager *SExternalProjectManager) syncProject(ctx context.Context, userCred mcclient.TokenCredential, projectName string) (string, error) {
-	project, err := db.TenantCacheManager.FetchByName(userCred, projectName)
-	if err == nil {
-		return project.GetId(), nil
-	}
-	if err == sql.ErrNoRows {
-		s := auth.GetAdminSession(ctx, options.Options.Region, "")
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(projectName), "name")
-		params.Add(jsonutils.NewString("auto create from external_project"), "description")
-		result, err := modules.Projects.Create(s, params)
-		if err != nil {
-			return "", err
-		}
-		return result.GetString("id")
-	}
-	return "", err
 }
 
 func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extProject cloudprovider.ICloudProject, region *SCloudregion, projectSync bool) (*SExternalProject, error) {
@@ -170,15 +154,7 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	project.ExternalId = extProject.GetGlobalId()
 	project.IsEmulated = extProject.IsEmulated()
 	project.ManagerId = provider.Id
-
-	project.ProjectId = userCred.GetProjectId()
-	if projectSync {
-		projectId, err := manager.syncProject(ctx, userCred, project.Name)
-		if err != nil {
-			return nil, err
-		}
-		project.ProjectId = projectId
-	}
+	project.ProjectId = provider.ProjectId
 
 	factory, err := provider.GetProviderFactory()
 	if err != nil {

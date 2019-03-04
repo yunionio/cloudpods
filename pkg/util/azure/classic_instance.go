@@ -535,3 +535,7 @@ func (self *SClassicInstance) CreateDisk(ctx context.Context, sizeMb int, uuid s
 func (self *SClassicInstance) Renew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }
+
+func (self *SClassicInstance) GetProjectId() string {
+	return ""
+}

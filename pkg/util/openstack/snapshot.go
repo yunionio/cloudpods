@@ -163,3 +163,7 @@ func (region *SRegion) CreateSnapshot(diskId, name, desc string) (*SSnapshot, er
 	snapshot := &SSnapshot{region: region}
 	return snapshot, resp.Unmarshal(snapshot, "snapshot")
 }
+
+func (self *SSnapshot) GetProjectId() string {
+	return ""
+}

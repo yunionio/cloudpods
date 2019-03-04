@@ -381,7 +381,7 @@ func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpTy
 			bgpType = "5_sbgp"
 		case "cn-northeast-1":
 			bgpType = "5_telcom"
-		case "cn-north-4","ap-southeast-1", "ap-southeast-2", "eu-west-0":
+		case "cn-north-4", "ap-southeast-1", "ap-southeast-2", "eu-west-0":
 			bgpType = "5_bgp"
 		default:
 			bgpType = "5_bgp"

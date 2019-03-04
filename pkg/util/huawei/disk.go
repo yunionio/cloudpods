@@ -482,3 +482,7 @@ func (self *SRegion) resetDisk(diskId, snapshotId string) (string, error) {
 	_, err := self.ecsClient.OsSnapshots.PerformAction2("rollback", snapshotId, params, "")
 	return diskId, err
 }
+
+func (self *SDisk) GetProjectId() string {
+	return ""
+}
