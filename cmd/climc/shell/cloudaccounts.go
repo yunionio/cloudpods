@@ -276,8 +276,8 @@ func init() {
 	})
 
 	type CloudaccountEnableAutoSyncOptions struct {
-		ID                 string `help:"ID or name of cloud account" json:"-"`
-		SyncInervalSeconds int    `help:"new sync interval in seconds"`
+		ID                  string `help:"ID or name of cloud account" json:"-"`
+		SyncIntervalSeconds int    `help:"new sync interval in seconds"`
 	}
 	R(&CloudaccountEnableAutoSyncOptions{}, "cloud-account-enable-auto-sync", "Enable automatic sync for this account", func(s *mcclient.ClientSession, args *CloudaccountEnableAutoSyncOptions) error {
 		params, err := options.StructToParams(args)

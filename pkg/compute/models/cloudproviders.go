@@ -838,7 +838,7 @@ func (provider *SCloudprovider) GetEnabledCloudproviderRegions() []SCloudprovide
 func (provider *SCloudprovider) syncCloudproviderRegions(userCred mcclient.TokenCredential, syncRange *SSyncRange, wg *sync.WaitGroup) {
 	cprs := provider.GetEnabledCloudproviderRegions()
 	for i := range cprs {
-		if cprs[i].LastSyncEndAt.IsZero() || time.Now().Sub(cprs[i].LastSyncEndAt) > time.Duration(cprs[i].getSyncIntervalSeconds(nil))*time.Second {
+		if cprs[i].needSync() {
 			var waitChan chan bool = nil
 			if wg != nil {
 				wg.Add(1)

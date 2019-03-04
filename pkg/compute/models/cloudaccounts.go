@@ -61,7 +61,7 @@ type SCloudaccount struct {
 	Provider string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
 
 	EnableAutoSync      bool `default:"false" create:"admin_optional" list:"admin"`
-	SyncIntervalSeconds int  `default:"900" create:"admin_optional" list:"admin" update:"admin"`
+	SyncIntervalSeconds int  `create:"admin_optional" list:"admin" update:"admin"`
 
 	Balance float64   `list:"admin"`
 	ProbeAt time.Time `list:"admin"`
@@ -163,6 +163,15 @@ func (self *SCloudaccount) PerformDisable(ctx context.Context, userCred mcclient
 }
 
 func (self *SCloudaccount) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if data.Contains("sync_interval_seconds") {
+		syncIntervalSecs, _ := data.Int("sync_interval_seconds")
+		if syncIntervalSecs == 0 {
+			syncIntervalSecs = int64(options.Options.DefaultSyncIntervalSeconds)
+		} else if syncIntervalSecs < int64(options.Options.MinimalSyncIntervalSeconds) {
+			syncIntervalSecs = int64(options.Options.MinimalSyncIntervalSeconds)
+		}
+		data.Set("sync_interval_seconds", jsonutils.NewInt(syncIntervalSecs))
+	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
@@ -205,6 +214,14 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		//log.Debugf("ValidateCreateData %s", err.Error())
 		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
 	}
+
+	syncIntervalSecs, _ := data.Int("sync_interval_seconds")
+	if syncIntervalSecs == 0 {
+		syncIntervalSecs = int64(options.Options.DefaultSyncIntervalSeconds)
+	} else if syncIntervalSecs < int64(options.Options.MinimalSyncIntervalSeconds) {
+		syncIntervalSecs = int64(options.Options.MinimalSyncIntervalSeconds)
+	}
+	data.Set("sync_interval_seconds", jsonutils.NewInt(syncIntervalSecs))
 
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
@@ -256,9 +273,6 @@ func (self *SCloudaccount) PerformSync(ctx context.Context, userCred mcclient.To
 	}
 	if self.EnableAutoSync {
 		return nil, httperrors.NewInvalidStatusError("Account auto sync enabled")
-	}
-	if self.Status != CLOUD_PROVIDER_CONNECTED {
-		return nil, httperrors.NewInvalidStatusError("Account is disconnected")
 	}
 	syncRange := SSyncRange{}
 	err := data.Unmarshal(&syncRange)
@@ -885,7 +899,9 @@ func (self *SCloudaccount) PerformEnableAutoSync(ctx context.Context, userCred m
 
 func (self *SCloudaccount) enableAutoSync(ctx context.Context, userCred mcclient.TokenCredential, syncIntervalSecs int) error {
 	diff, err := db.Update(self, func() error {
-		self.SyncIntervalSeconds = syncIntervalSecs
+		if syncIntervalSecs > 0 {
+			self.SyncIntervalSeconds = syncIntervalSecs
+		}
 		self.EnableAutoSync = true
 		return nil
 	})
@@ -957,6 +973,16 @@ func (account *SCloudaccount) markAccountConnected(ctx context.Context, userCred
 	return account.SetStatus(userCred, CLOUD_PROVIDER_CONNECTED, "")
 }
 
+func (account *SCloudaccount) needSync() bool {
+	if account.LastSyncEndAt.IsZero() {
+		return true
+	}
+	if time.Now().Sub(account.LastSyncEndAt) > time.Duration(account.getSyncIntervalSeconds())*time.Second {
+		return true
+	}
+	return false
+}
+
 func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	log.Debugf("AutoSyncCloudaccountTask")
 
@@ -982,14 +1008,14 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Contex
 	}
 
 	for i := range accounts {
-		if accounts[i].LastSyncEndAt.IsZero() || time.Now().Sub(accounts[i].LastSyncEndAt) > time.Duration(accounts[i].getSyncIntervalSeconds())*time.Second {
+		if accounts[i].needSync() {
 			accounts[i].SubmitSyncAccountTask(ctx, userCred, nil, true)
 		}
 	}
 }
 
 func (account *SCloudaccount) getSyncIntervalSeconds() int {
-	if account.SyncIntervalSeconds > 0 {
+	if account.SyncIntervalSeconds > options.Options.MinimalSyncIntervalSeconds {
 		return account.SyncIntervalSeconds
 	}
 	return options.Options.MinimalSyncIntervalSeconds

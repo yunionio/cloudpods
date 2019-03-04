@@ -307,6 +307,7 @@ func zoneExtra(zone *SZone, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	region := zone.GetRegion()
 	if region != nil {
 		extra.Add(jsonutils.NewString(region.Name), "cloudregion")
+		extra.Add(jsonutils.NewString(region.Provider), "provider")
 	}
 	return extra
 }

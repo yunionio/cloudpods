@@ -8,9 +8,9 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/timeutils"
 )
 
@@ -46,6 +46,7 @@ type SCloudproviderregion struct {
 	Enabled bool `nullable:"false" list:"admin" update:"admin"`
 
 	// SyncIntervalSeconds int `list:"admin"`
+	SyncResults jsonutils.JSONObject `list:"admin"`
 }
 
 func (joint *SCloudproviderregion) Master() db.IStandaloneModel {
@@ -98,16 +99,10 @@ func (self *SCloudproviderregion) GetExtraDetails(ctx context.Context, userCred 
 }
 
 func (self *SCloudproviderregion) getSyncIntervalSeconds(account *SCloudaccount) int {
-	//if self.SyncIntervalSeconds > 0 {
-	//	return self.SyncIntervalSeconds
-	//}
 	if account == nil {
 		account = self.GetAccount()
 	}
-	if account.SyncIntervalSeconds > 0 {
-		return account.SyncIntervalSeconds
-	}
-	return options.Options.MinimalSyncIntervalSeconds
+	return account.getSyncIntervalSeconds()
 }
 
 func (self *SCloudproviderregion) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
@@ -201,10 +196,11 @@ func (self *SCloudproviderregion) markSyncing(userCred mcclient.TokenCredential)
 	return nil
 }
 
-func (self *SCloudproviderregion) markEndSync(userCred mcclient.TokenCredential) error {
+func (self *SCloudproviderregion) markEndSync(userCred mcclient.TokenCredential, syncResults SSyncResultSet) error {
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_IDLE
 		self.LastSyncEndAt = timeutils.UtcNow()
+		self.SyncResults = jsonutils.Marshal(syncResults)
 		return nil
 	})
 	if err != nil {
@@ -212,6 +208,22 @@ func (self *SCloudproviderregion) markEndSync(userCred mcclient.TokenCredential)
 		return err
 	}
 	return nil
+}
+
+type SSyncResultSet map[string]*compare.SyncResult
+
+func (set SSyncResultSet) Add(manager db.IModelManager, result compare.SyncResult) {
+	key := manager.KeywordPlural()
+	if _, ok := set[key]; !ok {
+		set[key] = &compare.SyncResult{}
+	}
+	res := set[key]
+	res.AddCnt += result.AddCnt
+	res.AddErrCnt += result.AddErrCnt
+	res.UpdateCnt += result.UpdateCnt
+	res.UpdateErrCnt += result.UpdateErrCnt
+	res.DelCnt += result.DelCnt
+	res.DelErrCnt += result.DelErrCnt
 }
 
 func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange) error {
@@ -229,15 +241,20 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 		return err
 	}
 
+	syncResults := SSyncResultSet{}
+
 	if localRegion.isManaged() {
 		remoteRegion, err := driver.GetIRegionById(localRegion.ExternalId)
 		if err == nil {
-			err = syncPublicCloudProviderInfo(ctx, userCred, provider, driver, localRegion, remoteRegion, syncRange)
+			err = syncPublicCloudProviderInfo(ctx, userCred, syncResults, provider, driver, localRegion, remoteRegion, syncRange)
 		}
 	} else {
-		err = syncOnPremiseCloudProviderInfo(ctx, userCred, provider, driver, syncRange)
+		err = syncOnPremiseCloudProviderInfo(ctx, userCred, syncResults, provider, driver, syncRange)
 	}
-	err = self.markEndSync(userCred)
+
+	log.Debugf("%s", jsonutils.Marshal(syncResults))
+
+	err = self.markEndSync(userCred, syncResults)
 	if err != nil {
 		log.Errorf("mark end sync failed...")
 		return err
@@ -262,4 +279,58 @@ func (self *SCloudproviderregion) submitSyncTask(userCred mcclient.TokenCredenti
 			waitChan <- true
 		}
 	})
+}
+
+func (cpr *SCloudproviderregion) needSync() bool {
+	if cpr.LastSyncEndAt.IsZero() {
+		return true
+	}
+	account := cpr.GetAccount()
+	intval := cpr.getSyncIntervalSeconds(account)
+	isEmpty := false
+	if account.IsOnPremise {
+		isEmpty = cpr.isEmptyOnPremise()
+	} else {
+		isEmpty = cpr.isEmptyPublicCloud()
+	}
+	if isEmpty {
+		intval = intval * 8 // no need to check empty region
+		log.Debugf("empty region %s! no need to check so frequently")
+	}
+	if time.Now().Sub(cpr.LastSyncEndAt) > time.Duration(intval)*time.Second {
+		return true
+	}
+	return false
+}
+
+func (cpr *SCloudproviderregion) isEmptyOnPremise() bool {
+	if cpr.SyncResults == nil {
+		return false
+	}
+	syncResults := SSyncResultSet{}
+	err := cpr.SyncResults.Unmarshal(&syncResults)
+	if err != nil {
+		return false
+	}
+	result := syncResults[HostManager.KeywordPlural()]
+	if result != nil && (result.UpdateCnt > 0 || result.AddCnt > 0) {
+		return false
+	}
+	return true
+}
+
+func (cpr *SCloudproviderregion) isEmptyPublicCloud() bool {
+	if cpr.SyncResults == nil {
+		return false
+	}
+	syncResults := SSyncResultSet{}
+	err := cpr.SyncResults.Unmarshal(&syncResults)
+	if err != nil {
+		return false
+	}
+	result := syncResults[NetworkManager.KeywordPlural()]
+	if result != nil && (result.UpdateCnt > 0 || result.AddCnt > 0) {
+		return false
+	}
+	return true
 }
