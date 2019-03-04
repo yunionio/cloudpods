@@ -138,12 +138,13 @@ func doSchedulerForecast(c *gin.Context) {
 
 	schedInfo.IsSuggestion = true
 	schedInfo.ShowSuggestionDetails = true
+	schedInfo.SuggestionAll = true
 	result, err := schedman.Schedule(schedInfo)
 	if err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	c.JSON(http.StatusOK, transToSchedForecastResult(result, schedInfo))
+	c.JSON(http.StatusOK, transToSchedForecastResult(result))
 }
 
 func doCandidateList(c *gin.Context) {

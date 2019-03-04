@@ -208,10 +208,11 @@ type SchedLog struct {
 	Candidate string
 	Action    string
 	Message   string
+	IsFailed  bool
 }
 
-func NewSchedLog(candidate, action, message string) SchedLog {
-	return SchedLog{candidate, action, message}
+func NewSchedLog(candidate, action, message string, isFailed bool) SchedLog {
+	return SchedLog{candidate, action, message, isFailed}
 }
 
 func (log *SchedLog) String() string {
@@ -219,6 +220,15 @@ func (log *SchedLog) String() string {
 }
 
 type SchedLogList []SchedLog
+
+func (logList SchedLogList) Get(index string) *SchedLog {
+	for _, l := range logList {
+		if l.Candidate == index {
+			return &l
+		}
+	}
+	return nil
+}
 
 func (logList SchedLogList) Len() int {
 	return len(logList)
@@ -255,11 +265,11 @@ func NewSchedLogManager() *SchedLogManager {
 	}
 }
 
-func (m *SchedLogManager) Append(candidate, action, message string) {
+func (m *SchedLogManager) Append(candidate, action, message string, isFailed bool) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	m.Logs = append(m.Logs, NewSchedLog(candidate, action, message))
+	m.Logs = append(m.Logs, NewSchedLog(candidate, action, message, isFailed))
 }
 
 func (m *SchedLogManager) Appends(logs []SchedLog) {
@@ -267,6 +277,16 @@ func (m *SchedLogManager) Appends(logs []SchedLog) {
 	defer m.lock.Unlock()
 
 	m.Logs = append(m.Logs, logs...)
+}
+
+func (m *SchedLogManager) FailedLogs() SchedLogList {
+	var logs SchedLogList
+	for _, l := range m.Logs {
+		if l.IsFailed {
+			logs = append(logs, l)
+		}
+	}
+	return logs
 }
 
 func (m *SchedLogManager) Read() []string {
@@ -291,11 +311,15 @@ func (m *SchedLogManager) Read() []string {
 
 		log := m.Logs[startIndex]
 		actions := []string{}
+		var isFailed bool
 		for ; startIndex < endIndex; startIndex++ {
 			actions = append(actions, m.Logs[startIndex].Action)
+			if m.Logs[startIndex].IsFailed {
+				isFailed = true
+			}
 		}
 
-		newLog := SchedLog{log.Candidate, strings.Join(actions, ","), log.Message}
+		newLog := NewSchedLog(log.Candidate, strings.Join(actions, ","), log.Message, isFailed)
 		return newLog.String()
 	}
 

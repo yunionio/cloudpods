@@ -901,13 +901,20 @@ type SchedTestResult struct {
 	Offset int64       `json:"offset"`
 }
 
-type ForecastInfo struct {
-	Filter  string `json:"filter"`
-	Message string `json:"message"`
-	Count   int64  `json:"count"`
+type ForecastFilter struct {
+	Filter   string   `json:"filter"`
+	Messages []string `json:"messages"`
+	Count    int64    `json:"count"`
+}
+
+type ForecastResult struct {
+	Candidate string `json:"candidate"`
+	Count     int64  `json:"count"`
+	Capacity  int64  `json:"capacity"`
 }
 
 type SchedForecastResult struct {
-	CanCreate bool           `json:"can_create"`
-	Infos     []ForecastInfo `json:"infos"`
+	CanCreate bool              `json:"can_create"`
+	Filters   []*ForecastFilter `json:"filters"`
+	Results   []ForecastResult  `json:"results"`
 }
