@@ -21,6 +21,10 @@ type SImage struct {
 	createAt time.Time
 }
 
+func (self *SImage) GetMinRamSizeMb() int {
+	return 0
+}
+
 func (self *SImage) getDatacenter() *object.Datacenter {
 	return self.cache.datastore.datacenter.getDcObj()
 }

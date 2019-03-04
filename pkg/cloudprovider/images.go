@@ -44,7 +44,7 @@ func CloudImage2Image(image ICloudImage) SImage {
 		Id:         image.GetId(),
 		IsPublic:   image.GetImageType() != CachedImageTypeCustomized,
 		MinDiskMB:  image.GetMinOsDiskSizeGb() * 1024,
-		MinRamMB:   0,
+		MinRamMB:   image.GetMinRamSizeMb(),
 		Name:       image.GetName(),
 		Properties: map[string]string{
 			"os_type":         image.GetOsType(),

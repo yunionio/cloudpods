@@ -60,6 +60,10 @@ type SImage struct {
 	Usage                string
 }
 
+func (self *SImage) GetMinRamSizeMb() int {
+	return 0
+}
+
 func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 	if len(self.Architecture) > 0 {

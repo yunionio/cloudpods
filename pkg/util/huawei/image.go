@@ -48,7 +48,7 @@ type SImage struct {
 	SupportKVMFPGAType string    `json:"__support_kvm_fpga_type"`
 	ID                 string    `json:"id"`
 	Isregistered       string    `json:"__isregistered"`
-	MinRAM             int64     `json:"min_ram"`
+	MinRamMB           int       `json:"min_ram"`
 	Lazyloading        string    `json:"__lazyloading"`
 	Owner              string    `json:"owner"`
 	OSType             string    `json:"__os_type"`
@@ -64,6 +64,10 @@ type SImage struct {
 	Self               string    `json:"self"`
 	DiskFormat         string    `json:"disk_format"`
 	Status             string    `json:"status"`
+}
+
+func (self *SImage) GetMinRamSizeMb() int {
+	return self.MinRamMB
 }
 
 func (self *SImage) GetId() string {
@@ -254,7 +258,7 @@ func (self *SRegion) GetImageByName(name string) (*SImage, error) {
 */
 func (self *SRegion) ImportImageJob(name string, osDist string, osVersion string, osArch string, bucket string, key string, minDiskGB int64) (string, error) {
 	os_version, err := stdVersion(osDist, osVersion, osArch)
-	log.Debugf("%s %s %s: %s", osDist, osVersion, osArch, os_version)
+	log.Debugf("%s %s %s: %s.min_disk %d GB", osDist, osVersion, osArch, os_version, minDiskGB)
 	if err != nil {
 		log.Debugf(err.Error())
 	}

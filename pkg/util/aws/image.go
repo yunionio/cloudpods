@@ -82,6 +82,10 @@ type SImage struct {
 	OSBuildId string
 }
 
+func (self *SImage) GetMinRamSizeMb() int {
+	return 0
+}
+
 func (self *SImage) GetId() string {
 	return self.ImageId
 }
