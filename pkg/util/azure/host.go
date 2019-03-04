@@ -180,7 +180,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 		err = self.zone.region.client.Create(jsonutils.Marshal(instance), &instance)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceType, err)
-			return "", fmt.Errorf("Failed to create, specification %s not supported", instanceType)
+			return "", fmt.Errorf("Failed to create specification %s.%s", instanceType, err.Error())
 		}
 		return instance.ID, nil
 	}
@@ -188,14 +188,14 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 	for _, profile := range self.zone.region.getHardwareProfile(cpu, memMB) {
 		instance.Properties.HardwareProfile.VMSize = profile
 		log.Debugf("Try HardwareProfile : %s", profile)
-		err := self.zone.region.client.Create(jsonutils.Marshal(instance), &instance)
+		err = self.zone.region.client.Create(jsonutils.Marshal(instance), &instance)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", profile, err)
 			continue
 		}
 		return instance.ID, nil
 	}
-	return "", fmt.Errorf("Failed to create, specification not supported")
+	return "", fmt.Errorf("Failed to create, %s", err.Error())
 }
 
 func (self *SHost) GetAccessIp() string {
