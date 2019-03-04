@@ -92,11 +92,7 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 }
 
 func (info *RemoteConsoleInfo) getQcloudUrl() (string, error) {
-	base := "https://img.qcloud.com/qcloud/app/active_vnc/index.html"
-	params := url.Values{
-		"InstanceVncUrl": {info.Url},
-	}
-	return fmt.Sprintf("%s?%s", base, params.Encode()), nil
+	return "https://img.qcloud.com/qcloud/app/active_vnc/index.html?InstanceVncUrl=" + info.Url, nil
 }
 
 func (info *RemoteConsoleInfo) getAliyunUrl() (string, error) {
