@@ -145,6 +145,11 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		return err
 	}
 
+	userName := "root"
+	if desc.ImageType == "system" && desc.OsType == "Windows" {
+		userName = "Administrator"
+	}
+
 	action, err := config.GetString("action")
 	if err != nil {
 		return err
