@@ -543,3 +543,7 @@ func (self *SRegion) DeleteSecurityGroup(vpcId, secGrpId string) error {
 	}
 	return nil
 }
+
+func (self *SSecurityGroup) GetProjectId() string {
+	return ""
+}

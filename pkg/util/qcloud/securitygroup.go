@@ -508,3 +508,7 @@ func (self *SRegion) CreateSecurityGroup(name, description string) (*SSecurityGr
 	}
 	return &secgroup, nil
 }
+
+func (self *SSecurityGroup) GetProjectId() string {
+	return ""
+}

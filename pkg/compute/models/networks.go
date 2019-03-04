@@ -520,6 +520,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 }
 
 func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, projectId string, projectSync bool) error {
+	vpc := self.GetWire().getVpc()
 	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
 		extNet.Refresh()
 		self.Name = extNet.GetName()
@@ -534,8 +535,15 @@ func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, ex
 		self.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
 		self.ProjectId = userCred.GetProjectId()
-		if projectSync && len(projectId) > 0 {
-			self.ProjectId = projectId
+		if projectSync && self.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+			if extProjectId := extNet.GetProjectId(); len(extProjectId) > 0 {
+				extProject, err := ExternalProjectManager.GetProject(extProjectId, vpc.ManagerId)
+				if err != nil {
+					log.Errorf(err.Error())
+				} else {
+					self.ProjectId = extProject.ProjectId
+				}
+			}
 		}
 		return nil
 	})
@@ -562,10 +570,22 @@ func (manager *SNetworkManager) newFromCloudNetwork(userCred mcclient.TokenCrede
 
 	net.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
+	net.ProjectSource = db.PROJECT_SOURCE_CLOUD
 	net.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		net.ProjectId = projectId
 	}
+
+	vpc := wire.getVpc()
+	if extProjectId := extNet.GetProjectId(); len(extProjectId) > 0 {
+		externalProject, err := ExternalProjectManager.GetProject(extProjectId, vpc.ManagerId)
+		if err != nil {
+			log.Errorf(err.Error())
+		} else {
+			net.ProjectId = externalProject.ProjectId
+		}
+	}
+
 	err := manager.TableSpec().Insert(&net)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)

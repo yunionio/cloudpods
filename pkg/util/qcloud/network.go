@@ -131,3 +131,7 @@ func (self *SRegion) CreateNetwork(zoneId string, vpcId string, name string, cid
 	}
 	return body.GetString("Subnet", "SubnetId")
 }
+
+func (self *SNetwork) GetProjectId() string {
+	return ""
+}

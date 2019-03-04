@@ -301,3 +301,7 @@ func (self *SRegion) GetSecurityGroups(vpcId string) ([]SSecurityGroup, error) {
 
 	return securitygroups, nil
 }
+
+func (self *SSecurityGroup) GetProjectId() string {
+	return ""
+}

@@ -487,3 +487,7 @@ func (region *SRegion) AssiginSecurityGroup(instanceId, secgroupId string) error
 	}
 	return region.AttachSecurityToInterfaces(secgroupId, nicIds)
 }
+
+func (self *SSecurityGroup) GetProjectId() string {
+	return ""
+}

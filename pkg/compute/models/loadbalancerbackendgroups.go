@@ -403,8 +403,15 @@ func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx
 	_, err := lbbg.GetModelManager().TableSpec().Update(lbbg, func() error {
 
 		lbbg.constructFieldsFromCloudBackendgroup(lb, extLoadbalancerBackendgroup)
-		if projectSync && len(projectId) > 0 {
-			lbbg.ProjectId = projectId
+		if projectSync && lbbg.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+			if extProjectId := extLoadbalancerBackendgroup.GetProjectId(); len(extProjectId) > 0 {
+				extProject, err := ExternalProjectManager.GetProject(extProjectId, lb.ManagerId)
+				if err != nil {
+					log.Errorf(err.Error())
+				} else {
+					lbbg.ProjectId = extProject.ProjectId
+				}
+			}
 		}
 
 		if extLoadbalancerBackendgroup.IsDefault() {
@@ -433,10 +440,21 @@ func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgrou
 	lbbg.ManagerId = lb.ManagerId
 
 	lbbg.constructFieldsFromCloudBackendgroup(lb, extLoadbalancerBackendgroup)
+	lbbg.ProjectSource = db.PROJECT_SOURCE_CLOUD
 	lbbg.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		lbbg.ProjectId = projectId
 	}
+
+	if extProjectId := extLoadbalancerBackendgroup.GetProjectId(); len(extProjectId) > 0 {
+		externalProject, err := ExternalProjectManager.GetProject(extProjectId, lb.ManagerId)
+		if err != nil {
+			log.Errorf(err.Error())
+		} else {
+			lbbg.ProjectId = externalProject.ProjectId
+		}
+	}
+
 	err := man.TableSpec().Insert(lbbg)
 	if err != nil {
 		return nil, err

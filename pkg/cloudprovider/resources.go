@@ -283,6 +283,7 @@ type ICloudEIP interface {
 
 type ICloudSecurityGroup interface {
 	ICloudResource
+	IVirtualResource
 
 	GetDescription() string
 	GetRules() ([]secrules.SecurityRule, error)
@@ -383,6 +384,7 @@ type ICloudWire interface {
 
 type ICloudNetwork interface {
 	ICloudResource
+	IVirtualResource
 
 	GetIWire() ICloudWire
 	// GetStatus() string
@@ -497,6 +499,7 @@ type ICloudLoadbalancerListenerRule interface {
 
 type ICloudLoadbalancerBackendGroup interface {
 	ICloudResource
+	IVirtualResource
 
 	IsDefault() bool
 	GetType() string
@@ -510,6 +513,7 @@ type ICloudLoadbalancerBackendGroup interface {
 
 type ICloudLoadbalancerBackend interface {
 	ICloudResource
+	IVirtualResource
 
 	GetWeight() int
 	GetPort() int
@@ -520,6 +524,7 @@ type ICloudLoadbalancerBackend interface {
 
 type ICloudLoadbalancerCertificate interface {
 	ICloudResource
+	IVirtualResource
 
 	Sync(name, privateKey, publickKey string) error
 	Delete() error

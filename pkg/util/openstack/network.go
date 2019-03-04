@@ -169,3 +169,7 @@ func (region *SRegion) CreateNetwork(vpcId string, name string, cidr string, des
 	}
 	return resp.GetString("subnet", "id")
 }
+
+func (network *SNetwork) GetProjectId() string {
+	return ""
+}

@@ -351,3 +351,7 @@ func (region *SRegion) CreateSecurityGroup(name, description string) (*SSecurity
 	secgroup := &SSecurityGroup{}
 	return secgroup, resp.Unmarshal(secgroup, "security_group")
 }
+
+func (secgroup *SSecurityGroup) GetProjectId() string {
+	return ""
+}

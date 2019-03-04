@@ -269,8 +269,15 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCr
 		self.Name = extSec.GetName()
 		self.Description = extSec.GetDescription()
 		self.ProjectId = userCred.GetProjectId()
-		if projectSync && len(projectId) > 0 {
-			self.ProjectId = projectId
+		if projectSync && self.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+			if extProjectId := extSec.GetProjectId(); len(extProjectId) > 0 {
+				extProject, err := ExternalProjectManager.GetProject(extProjectId, vpc.ManagerId)
+				if err != nil {
+					log.Errorf(err.Error())
+				} else {
+					self.ProjectId = extProject.ProjectId
+				}
+			}
 		}
 		return nil
 	}); err != nil {
@@ -301,9 +308,20 @@ func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCre
 	secgroup.Name = extSec.GetName()
 	secgroup.ExternalId = extSec.GetGlobalId()
 	secgroup.Description = extSec.GetDescription()
+
+	secgroup.ProjectSource = db.PROJECT_SOURCE_CLOUD
 	secgroup.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		secgroup.ProjectId = projectId
+	}
+
+	if extProjectId := extSec.GetProjectId(); len(extProjectId) > 0 {
+		externalProject, err := ExternalProjectManager.GetProject(extProjectId, vpc.ManagerId)
+		if err != nil {
+			log.Errorf(err.Error())
+		} else {
+			secgroup.ProjectId = externalProject.ProjectId
+		}
 	}
 
 	if err := manager.TableSpec().Insert(&secgroup); err != nil {

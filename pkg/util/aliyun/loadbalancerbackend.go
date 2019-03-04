@@ -84,3 +84,7 @@ func (region *SRegion) GetLoadbalancerBackends(backendgroupId string) ([]SLoadba
 	backends := []SLoadbalancerBackend{}
 	return backends, body.Unmarshal(&backends, "BackendServers", "BackendServer")
 }
+
+func (backend *SLoadbalancerBackend) GetProjectId() string {
+	return ""
+}
