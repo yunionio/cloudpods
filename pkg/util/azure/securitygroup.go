@@ -489,5 +489,5 @@ func (region *SRegion) AssiginSecurityGroup(instanceId, secgroupId string) error
 }
 
 func (self *SSecurityGroup) GetProjectId() string {
-	return ""
+	return getResourceGroup(self.ID)
 }

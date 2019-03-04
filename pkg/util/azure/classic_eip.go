@@ -153,5 +153,5 @@ func (self *SClassicEipAddress) GetExpiredAt() time.Time {
 }
 
 func (self *SClassicEipAddress) GetProjectId() string {
-	return ""
+	return getResourceGroup(self.ID)
 }

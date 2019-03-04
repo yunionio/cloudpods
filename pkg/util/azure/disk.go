@@ -343,5 +343,5 @@ func (self *SDisk) Rebuild(ctx context.Context) error {
 }
 
 func (self *SDisk) GetProjectId() string {
-	return ""
+	return getResourceGroup(self.ID)
 }

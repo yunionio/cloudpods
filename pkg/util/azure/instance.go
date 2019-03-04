@@ -1045,5 +1045,5 @@ func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 }
 
 func (self *SInstance) GetProjectId() string {
-	return ""
+	return getResourceGroup(self.ID)
 }

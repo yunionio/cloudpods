@@ -244,5 +244,5 @@ func (self *SEipAddress) GetExpiredAt() time.Time {
 }
 
 func (self *SEipAddress) GetProjectId() string {
-	return ""
+	return getResourceGroup(self.ID)
 }

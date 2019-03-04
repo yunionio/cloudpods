@@ -114,5 +114,5 @@ func (self *SNetwork) GetAllocTimeoutSeconds() int {
 }
 
 func (self *SNetwork) GetProjectId() string {
-	return ""
+	return getResourceGroup(self.ID)
 }

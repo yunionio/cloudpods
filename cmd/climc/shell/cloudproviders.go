@@ -20,7 +20,6 @@ func init() {
 			params, err = args.BaseListOptions.Params()
 			if err != nil {
 				return err
-
 			}
 		}
 		result, err := modules.Cloudproviders.List(s, params)

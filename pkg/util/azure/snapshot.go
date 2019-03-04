@@ -174,5 +174,5 @@ func (self *SSnapshot) GetDiskType() string {
 }
 
 func (self *SSnapshot) GetProjectId() string {
-	return ""
+	return getResourceGroup(self.ID)
 }

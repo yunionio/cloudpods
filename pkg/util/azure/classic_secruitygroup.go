@@ -361,5 +361,5 @@ func (region *SRegion) syncClassicSecurityGroup(secgroupId, name, desc string, r
 }
 
 func (self *SClassicSecurityGroup) GetProjectId() string {
-	return ""
+	return getResourceGroup(self.ID)
 }
