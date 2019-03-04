@@ -258,7 +258,7 @@ func (self *SRegion) GetImageByName(name string) (*SImage, error) {
 */
 func (self *SRegion) ImportImageJob(name string, osDist string, osVersion string, osArch string, bucket string, key string, minDiskGB int64) (string, error) {
 	os_version, err := stdVersion(osDist, osVersion, osArch)
-	log.Debugf("%s %s %s: %s", osDist, osVersion, osArch, os_version)
+	log.Debugf("%s %s %s: %s.min_disk %d GB", osDist, osVersion, osArch, os_version, minDiskGB)
 	if err != nil {
 		log.Debugf(err.Error())
 	}
