@@ -1,6 +1,7 @@
 package qcloud
 
 import (
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -15,11 +16,14 @@ type SProject struct {
 }
 
 func (p *SProject) GetId() string {
-	return p.ProjectId
+	if strings.Index(p.ProjectId, ".") != -1 {
+		return strings.Split(p.ProjectId, ".")[0]
+	}
+	return ""
 }
 
 func (p *SProject) GetGlobalId() string {
-	return p.ProjectId
+	return p.GetId()
 }
 
 func (p *SProject) GetMetadata() *jsonutils.JSONDict {
