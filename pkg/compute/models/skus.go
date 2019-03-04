@@ -590,9 +590,7 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	}
 
 	regionTable := CloudregionManager.Query().SubQuery()
-	zoneTable := ZoneManager.Query().SubQuery()
 	q = q.Join(regionTable, sqlchemy.Equals(regionTable.Field("id"), q.Field("cloudregion_id")))
-	q = q.Join(zoneTable, sqlchemy.Equals(zoneTable.Field("id"), q.Field("zone_id")))
 
 	// region filter
 	regionStr := jsonutils.GetAnyString(query, []string{"region", "cloudregion", "region_id", "cloudregion_id"})
@@ -609,7 +607,9 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 
 	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
 	var zoneObj db.IModel
-	if len(zoneStr) > 0 {
+	if (public_cloud || len(provider) > 0) && len(zoneStr) > 0 {
+		zoneTable := ZoneManager.Query().SubQuery()
+		q = q.Join(zoneTable, sqlchemy.Equals(zoneTable.Field("id"), q.Field("zone_id")))
 		zoneObj, err = ZoneManager.FetchByIdOrName(nil, zoneStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
