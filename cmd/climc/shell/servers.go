@@ -46,6 +46,36 @@ func init() {
 		return nil
 	})
 
+	type ServerTaskShowOptions struct {
+		ID       string `help:"ID or name of server" json:"-"`
+		Since    string `help:"show tasks since this time point"`
+		Open     bool   `help:"show tasks that are not completed" json:"-"`
+		Complete bool   `help:"show tasks that has been completed" json:"-"`
+	}
+	R(&ServerTaskShowOptions{}, "server-tasks", "Show tasks of a server", func(s *mcclient.ClientSession, opts *ServerTaskShowOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		if opts.Open {
+			params.Add(jsonutils.JSONTrue, "is_open")
+		} else if opts.Complete {
+			params.Add(jsonutils.JSONFalse, "is_open")
+		}
+		result, err := modules.Servers.GetSpecific(s, opts.ID, "tasks", params)
+		if err != nil {
+			return err
+		}
+		tasks, err := result.GetArray("tasks")
+		if err != nil {
+			return err
+		}
+		listResult := modules.ListResult{}
+		listResult.Data = tasks
+		printList(&listResult, nil)
+		return nil
+	})
+
 	R(&options.ServerIdOptions{}, "server-metadata", "Show metadata of a server", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
 		result, err := modules.Servers.GetMetadata(s, opts.ID, nil)
 		if err != nil {

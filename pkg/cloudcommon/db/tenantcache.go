@@ -88,7 +88,7 @@ func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context,
 		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
 			return nil, sql.ErrNoRows
 		}
-		log.Errorf("fetch project fail %s", err)
+		log.Errorf("fetch project %s fail %s", idStr, err)
 		return nil, err
 	}
 	tenantId, err := tenant.GetString("id")

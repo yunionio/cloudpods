@@ -251,6 +251,13 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		return nil, nil, syncResult
 	}
 
+	for i := range dbVPCs {
+		if taskman.TaskManager.IsInTask(&dbVPCs[i]) {
+			syncResult.Error(fmt.Errorf("object in task"))
+			return nil, nil, syncResult
+		}
+	}
+
 	removed := make([]SVpc, 0)
 	commondb := make([]SVpc, 0)
 	commonext := make([]cloudprovider.ICloudVpc, 0)

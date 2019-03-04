@@ -469,6 +469,13 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		return nil, nil, syncResult
 	}
 
+	for i := range dbNets {
+		if taskman.TaskManager.IsInTask(&dbNets[i]) {
+			syncResult.Error(fmt.Errorf("object in task"))
+			return nil, nil, syncResult
+		}
+	}
+
 	removed := make([]SNetwork, 0)
 	commondb := make([]SNetwork, 0)
 	commonext := make([]cloudprovider.ICloudNetwork, 0)

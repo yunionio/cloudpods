@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 )
 
 type SWireManager struct {
@@ -173,6 +174,13 @@ func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
+	}
+
+	for i := range dbWires {
+		if taskman.TaskManager.IsInTask(&dbWires[i]) {
+			syncResult.Error(fmt.Errorf("object in task"))
+			return nil, nil, syncResult
+		}
 	}
 
 	removed := make([]SWire, 0)

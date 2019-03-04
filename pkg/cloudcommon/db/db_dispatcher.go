@@ -310,7 +310,7 @@ func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchem
 	return q, nil
 }
 
-func query2List(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
+func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
 	listF := listFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
 	if len(fieldFilter) > 0 && IsAdminAllowList(userCred, manager) {
@@ -481,7 +481,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			q = q.Offset(int(offset))
 		}
 	}
-	retList, err := query2List(manager, ctx, userCred, q, queryDict)
+	retList, err := Query2List(manager, ctx, userCred, q, queryDict)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}

@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/compute/sshkeys"
@@ -3945,4 +3946,28 @@ func (self *SGuest) OnScheduleToHost(ctx context.Context, userCred mcclient.Toke
 	db.OpsLog.LogEvent(self, db.ACT_SCHEDULE, notes, userCred)
 
 	return nil
+}
+
+func (guest *SGuest) AllowGetDetailsTasks(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGetSpec(userCred, guest, "tasks")
+}
+
+func (guest *SGuest) GetDetailsTasks(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	since := time.Time{}
+	if query.Contains("since") {
+		since, _ = query.GetTime("since")
+	}
+	var isOpen *bool = nil
+	if query.Contains("is_open") {
+		isOpenVal, _ := query.Bool("is_open")
+		isOpen = &isOpenVal
+	}
+	q := taskman.TaskManager.QueryTasksOfObject(guest, since, isOpen)
+	objs, err := db.Query2List(taskman.TaskManager, ctx, userCred, q, query)
+	if err != nil {
+		return nil, err
+	}
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewArray(objs...), "tasks")
+	return ret, nil
 }

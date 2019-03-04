@@ -220,6 +220,13 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 		return syncResult
 	}
 
+	for i := range dbEips {
+		if taskman.TaskManager.IsInTask(&dbEips[i]) {
+			syncResult.Error(fmt.Errorf("object in task"))
+			return syncResult
+		}
+	}
+
 	removed := make([]SElasticip, 0)
 	commondb := make([]SElasticip, 0)
 	commonext := make([]cloudprovider.ICloudEIP, 0)

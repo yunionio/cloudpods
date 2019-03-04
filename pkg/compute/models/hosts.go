@@ -1703,6 +1703,13 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 
 	dbVMs := self.GetGuests()
 
+	for i := range dbVMs {
+		if taskman.TaskManager.IsInTask(&dbVMs[i]) {
+			syncResult.Error(fmt.Errorf("object in task"))
+			return nil, nil, syncResult
+		}
+	}
+
 	removed := make([]SGuest, 0)
 	commondb := make([]SGuest, 0)
 	commonext := make([]cloudprovider.ICloudVM, 0)

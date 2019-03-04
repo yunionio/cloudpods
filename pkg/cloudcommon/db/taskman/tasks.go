@@ -21,6 +21,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"database/sql"
+	"yunion.io/x/pkg/util/timeutils"
 )
 
 const (
@@ -676,4 +678,79 @@ func (task *STask) GetTaskRequestHeader() http.Header {
 
 func (task *STask) GetStartTime() time.Time {
 	return task.CreatedAt
+}
+
+func (manager *STaskManager) QueryTasksOfObject(obj db.IStandaloneModel, since time.Time, isOpen *bool) *sqlchemy.SQuery {
+	subq1 := manager.Query("id")
+	subq1 = subq1.Equals("obj_name", obj.Keyword())
+	subq1 = subq1.Equals("obj_id", obj.GetId())
+	if !since.IsZero() {
+		subq1 = subq1.GE("created_at", since)
+	}
+	if isOpen != nil {
+		if *isOpen {
+			subq1 = subq1.Filter(sqlchemy.NOT(
+				sqlchemy.In(subq1.Field("stage"), []string{"complete", "failed"}),
+			))
+		} else if !*isOpen {
+			subq1 = subq1.In("stage", []string{"complete", "failed"})
+		}
+	}
+
+	taskObjs := TaskObjectManager.Query().SubQuery()
+	subq2 := manager.Query("id").Distinct()
+	subq2 = subq2.Join(taskObjs, sqlchemy.Equals(taskObjs.Field("task_id"), subq2.Field("id")))
+	subq2 = subq2.Filter(sqlchemy.Equals(subq2.Field("obj_id"), MULTI_OBJECTS_ID))
+	subq2 = subq2.Filter(sqlchemy.Equals(subq2.Field("obj_name"), obj.Keyword()))
+	subq2 = subq2.Filter(sqlchemy.Equals(taskObjs.Field("obj_id"), obj.GetId()))
+	if !since.IsZero() {
+		subq2 = subq2.Filter(sqlchemy.GE(subq2.Field("created_at"), since))
+	}
+	if isOpen != nil {
+		if *isOpen {
+			subq2 = subq2.Filter(sqlchemy.NOT(
+				sqlchemy.In(subq2.Field("stage"), []string{"complete", "failed"}),
+			))
+		} else if !*isOpen {
+			subq2 = subq2.In("stage", []string{"complete", "failed"})
+		}
+	}
+
+	q := manager.Query()
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.In(q.Field("id"), subq1.SubQuery()),
+		sqlchemy.In(q.Field("id"), subq2.SubQuery()),
+	))
+	q = q.Desc("created_at")
+
+	return q
+}
+
+func (manager *STaskManager) IsInTask(obj db.IStandaloneModel) bool {
+	tasks, err := manager.FetchIncompleteTasksOfObject(obj)
+	if err == nil && len(tasks) == 0 {
+		return false
+	}
+	return true
+}
+
+func (manager *STaskManager) FetchIncompleteTasksOfObject(obj db.IStandaloneModel) ([]STask, error) {
+	isOpen := true
+	return manager.FetchTasksOfObjectLatest(obj, 1*time.Hour, &isOpen)
+}
+
+func (manager *STaskManager) FetchTasksOfObjectLatest(obj db.IStandaloneModel, interval time.Duration, isOpen *bool) ([]STask, error) {
+	since := timeutils.UtcNow().Add(-1 * interval)
+	return manager.FetchTasksOfObject(obj, since, isOpen)
+}
+
+func (manager *STaskManager) FetchTasksOfObject(obj db.IStandaloneModel, since time.Time, isOpen *bool) ([]STask, error) {
+	q := manager.QueryTasksOfObject(obj, since, isOpen)
+
+	tasks := make([]STask, 0)
+	err := db.FetchModelObjects(manager, q, &tasks)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	return tasks, nil
 }
