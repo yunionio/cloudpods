@@ -1029,10 +1029,7 @@ func (task *SGuestHotplugCpuMemTask) Start() {
 }
 
 func (task *SGuestHotplugCpuMemTask) startAddCpu() {
-	if task.addCpuCount > 0 {
-		task.Monitor.GetCpuCount(task.onGetCpuCount)
-	}
-
+	task.Monitor.GetCpuCount(task.onGetCpuCount)
 }
 
 func (task *SGuestHotplugCpuMemTask) onGetCpuCount(count int) {
@@ -1066,14 +1063,8 @@ func (task *SGuestHotplugCpuMemTask) startAddMem() {
 	}
 }
 
-// index little then zero indicate guest not take up slot
 func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
-	var newIndex int
-	if index < 0 {
-		newIndex = 0
-	} else {
-		newIndex = index + 1
-	}
+	var newIndex = index
 	task.memSlotNewIndex = &newIndex
 	params := map[string]string{
 		"id":   fmt.Sprintf("mem%d", *task.memSlotNewIndex),
@@ -1082,12 +1073,16 @@ func (task *SGuestHotplugCpuMemTask) onGetSlotIndex(index int) {
 	task.Monitor.ObjectAdd("memory-backend-ram", params, task.onAddMemObject)
 }
 
+func (task *SGuestHotplugCpuMemTask) onAddMemFailed(reason string) {
+	log.Errorln(reason)
+	cb := func(res string) { log.Infof("%s", res) }
+	task.Monitor.ObjectDel(fmt.Sprintf("mem%d", *task.memSlotNewIndex), cb)
+	task.onFail(reason)
+}
+
 func (task *SGuestHotplugCpuMemTask) onAddMemObject(reason string) {
 	if len(reason) > 0 {
-		log.Errorln(reason)
-		cb := func(res string) { log.Infof("%s", res) }
-		task.Monitor.ObjectDel(fmt.Sprintf("mem%d", *task.memSlotNewIndex), cb)
-		task.onFail(reason)
+		task.onAddMemFailed(reason)
 		return
 	}
 	params := map[string]interface{}{
@@ -1099,8 +1094,7 @@ func (task *SGuestHotplugCpuMemTask) onAddMemObject(reason string) {
 
 func (task *SGuestHotplugCpuMemTask) onAddMemDevice(reason string) {
 	if len(reason) > 0 {
-		log.Errorln(reason)
-		task.onFail(reason)
+		task.onAddMemFailed(reason)
 		return
 	}
 	task.onSucc()

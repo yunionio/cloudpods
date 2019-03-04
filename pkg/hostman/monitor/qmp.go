@@ -773,9 +773,6 @@ func (m *QmpMonitor) GeMemtSlotIndex(callback func(index int)) {
 				count += 1
 			}
 		}
-		if count == 0 {
-			count = -1
-		}
 		callback(count)
 	}
 	m.HumanMonitorCommand("info memory-devices", cb)

@@ -263,13 +263,18 @@ func (self *SKVMGuestDriver) NeedStopForChangeSpec() bool {
 
 func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
 	if jsonutils.QueryBoolean(task.GetParams(), "guest_online", false) {
+		addCpu := vcpuCount - int64(guest.VcpuCount)
+		addMem := vmemSize - int64(guest.VmemSize)
+		if addCpu < 0 || addMem < 0 {
+			return fmt.Errorf("KVM guest doesn't support online reduce cpu or mem")
+		}
 		header := task.GetTaskRequestHeader()
 		body := jsonutils.NewDict()
 		if vcpuCount > int64(guest.VcpuCount) {
-			body.Set("add_cpu", jsonutils.NewInt(vcpuCount-int64(guest.VcpuCount)))
+			body.Set("add_cpu", jsonutils.NewInt(addCpu))
 		}
 		if vmemSize > int64(guest.VmemSize) {
-			body.Set("add_mem", jsonutils.NewInt(vmemSize-int64(guest.VmemSize)))
+			body.Set("add_mem", jsonutils.NewInt(addMem))
 		}
 		host := guest.GetHost()
 		url := fmt.Sprintf("%s/servers/%s/hotplug-cpu-mem", host.ManagerUri, guest.Id)

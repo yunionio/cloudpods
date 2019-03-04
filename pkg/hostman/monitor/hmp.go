@@ -417,10 +417,16 @@ func (m *HmpMonitor) GeMemtSlotIndex(callback func(index int)) {
 				count += 1
 			}
 		}
-		if count == 0 {
-			count = -1
-		}
 		callback(count)
 	}
 	m.Query("info memory-devices", cb)
+}
+
+func (m *HmpMonitor) ObjectAdd(objectType string, params map[string]string, callback StringCallback) {
+	var paramsKvs = []string{}
+	for k, v := range params {
+		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, v))
+	}
+	cmd := fmt.Sprintf("object_add %s,%s", objectType, strings.Join(paramsKvs, ","))
+	m.Query(cmd, callback)
 }
