@@ -533,7 +533,10 @@ func (self *SImage) CustomizeDelete(ctx context.Context, userCred mcclient.Token
 		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
 		purge = jsonutils.QueryBoolean(query, "purge", false)
 	}
-	if self.Status != IMAGE_STATUS_ACTIVE && self.Status != IMAGE_STATUS_CONVERTING {
+	if utils.IsInStringArray(self.Status, []string{
+		IMAGE_STATUS_KILLED,
+		IMAGE_STATUS_QUEUED,
+	}) {
 		overridePendingDelete = true
 	}
 	return self.startDeleteImageTask(ctx, userCred, "", purge, overridePendingDelete)
@@ -868,7 +871,7 @@ func (self *SImage) getLocalLocation() string {
 }
 
 func (self *SImage) getQemuImage() (*qemuimg.SQemuImage, error) {
-	return qemuimg.NewQemuImage(self.getLocalLocation())
+	return qemuimg.NewQemuImageWithIOLevel(self.getLocalLocation(), qemuimg.IONiceIdle)
 }
 
 func (self *SImage) StopTorrents() {
