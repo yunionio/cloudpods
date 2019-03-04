@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
 )
 
 type IHost interface {
@@ -37,6 +38,10 @@ type IHost interface {
 
 func GetComputeSession(ctx context.Context) *mcclient.ClientSession {
 	return auth.GetAdminSession(ctx, options.HostOptions.Region, "v2")
+}
+
+func GetK8sSession(ctx context.Context) *mcclient.ClientSession {
+	return auth.GetAdminSession(ctx, options.HostOptions.Region, "")
 }
 
 func GetImageSession(ctx context.Context, zone string) *mcclient.ClientSession {
@@ -64,6 +69,22 @@ func TaskComplete(ctx context.Context, params jsonutils.JSONObject) {
 		modules.ComputeTasks.TaskComplete(GetComputeSession(ctx), taskId.(string), params)
 	} else {
 		log.Errorln("Reqeuest task complete missing task id")
+	}
+}
+
+func K8sTaskFailed(ctx context.Context, reason string) {
+	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
+		k8s.KubeTasks.TaskFailed(GetK8sSession(ctx), taskId.(string), reason)
+	} else {
+		log.Errorf("Reqeuest k8s task failed missing task id, with reason(%s)", reason)
+	}
+}
+
+func K8sTaskComplete(ctx context.Context, params jsonutils.JSONObject) {
+	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
+		k8s.KubeTasks.TaskComplete(GetK8sSession(ctx), taskId.(string), params)
+	} else {
+		log.Errorln("Reqeuest k8s task complete missing task id")
 	}
 }
 
@@ -123,6 +144,7 @@ func Response(ctx context.Context, w http.ResponseWriter, res interface{}) {
 
 var (
 	wm          *workmanager.SWorkManager
+	k8sWm       *workmanager.SWorkManager
 	ParamsError = fmt.Errorf("Delay task parse params error")
 )
 
@@ -134,10 +156,15 @@ func DelayTask(ctx context.Context, task workmanager.DelayTaskFunc, params inter
 	wm.DelayTask(ctx, task, params)
 }
 
+func DelayKubeTask(ctx context.Context, task workmanager.DelayTaskFunc, params interface{}) {
+	k8sWm.DelayTask(ctx, task, params)
+}
+
 func DelayTaskWithoutReqctx(ctx context.Context, task workmanager.DelayTaskFunc, params interface{}) {
 	wm.DelayTaskWithoutReqctx(ctx, task, params)
 }
 
 func init() {
 	wm = workmanager.NewWorkManger(TaskFailed, TaskComplete)
+	k8sWm = workmanager.NewWorkManger(K8sTaskFailed, K8sTaskComplete)
 }
