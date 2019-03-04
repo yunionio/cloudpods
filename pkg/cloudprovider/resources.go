@@ -105,6 +105,7 @@ type ICloudImage interface {
 	GetOsVersion() string
 	GetOsArch() string
 	GetMinOsDiskSizeGb() int
+	GetMinRamSizeMb() int
 	GetImageFormat() string
 	GetCreateTime() time.Time
 }

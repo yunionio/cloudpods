@@ -52,6 +52,10 @@ type SImage struct {
 	visibility      string
 }
 
+func (image *SImage) GetMinRamSizeMb() int {
+	return image.MinRAM
+}
+
 func (region *SRegion) GetImages(name string, status string, imageIds []string) ([]SImage, error) {
 	params := url.Values{}
 	if utils.IsInStringArray(status, []string{QUEUED, SAVING, ACTIVE, KILLED, DELETED, PENDING_DELETE, DEACTIVATED, UPLOADING, IMPORTING}) {
