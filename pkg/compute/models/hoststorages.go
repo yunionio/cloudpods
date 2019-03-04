@@ -96,7 +96,7 @@ func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, user
 	}
 	storage := storageTmp.(*SStorage)
 	if storage.StorageType == STORAGE_RBD {
-		pool, _ := data.GetString("poll")
+		pool, _ := data.GetString("pool")
 		data.Add(jsonutils.NewString(fmt.Sprintf("rbd:%s", pool)), "mount_point")
 	}
 	return manager.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)

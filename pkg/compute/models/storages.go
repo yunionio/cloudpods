@@ -298,7 +298,7 @@ func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 			sc.Name = fmt.Sprintf("imagecache-%s", self.Id)
 			pool, _ := storageConf.GetString("pool")
 			sc.Path = fmt.Sprintf("rbd:%s", pool)
-			err := StorageManager.TableSpec().Insert(sc)
+			err := StoragecacheManager.TableSpec().Insert(sc)
 			if err != nil {
 				log.Errorln(err)
 			}
