@@ -48,7 +48,7 @@ type SImage struct {
 	SupportKVMFPGAType string    `json:"__support_kvm_fpga_type"`
 	ID                 string    `json:"id"`
 	Isregistered       string    `json:"__isregistered"`
-	MinRAM             int64     `json:"min_ram"`
+	MinRamMB           int       `json:"min_ram"`
 	Lazyloading        string    `json:"__lazyloading"`
 	Owner              string    `json:"owner"`
 	OSType             string    `json:"__os_type"`
@@ -64,6 +64,10 @@ type SImage struct {
 	Self               string    `json:"self"`
 	DiskFormat         string    `json:"disk_format"`
 	Status             string    `json:"status"`
+}
+
+func (self *SImage) GetMinRamSizeMb() int {
+	return self.MinRamMB
 }
 
 func (self *SImage) GetId() string {
