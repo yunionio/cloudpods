@@ -184,10 +184,12 @@ func getNameAndExtId(resId string, manager db.IModelManager) (string, string, er
 		}
 
 		_extId := ""
-		if m, ok := imodel.(*db.SStandaloneResourceBase); ok {
-			_extId = m.ExternalId
+		if region, ok := imodel.(*SCloudregion); ok {
+			_extId = region.ExternalId
+		} else if zone, ok := imodel.(*SZone); ok {
+			_extId = zone.ExternalId
 		} else {
-			return "", "", fmt.Errorf("res %s is not a standalone resource", resId)
+			return "", "", fmt.Errorf("res %s not a region/zone resource", resId)
 		}
 
 		segs = strings.Split(_extId, "/")
