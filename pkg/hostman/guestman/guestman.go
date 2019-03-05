@@ -114,6 +114,7 @@ func (m *SGuestManager) OnVerifyExistingGuestsSucc(servers []jsonutils.JSONObjec
 	} else {
 		var unknownServerrs = make([]*SKVMGuestInstance, 0)
 		for _, server := range m.CandidateServers {
+			go server.RequestVerifyDirtyServer()
 			log.Errorf("Server %s not found on this host", server.GetName())
 			unknownServerrs = append(unknownServerrs, server)
 		}

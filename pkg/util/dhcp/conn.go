@@ -70,15 +70,15 @@ type Conn struct {
 }
 
 // NewConn creates a Conn bound to the given UDP ip:port.
-func NewConn(addr string) (*Conn, error) {
-	return newConn(addr, newPortableConn)
+func NewConn(addr string, disableBroadcast bool) (*Conn, error) {
+	return newConn(addr, disableBroadcast, newPortableConn)
 }
 
-func NewSocketConn(addr string) (*Conn, error) {
-	return newConn(addr, newSocketConn)
+func NewSocketConn(addr string, disableBroadcast bool) (*Conn, error) {
+	return newConn(addr, disableBroadcast, newSocketConn)
 }
 
-func newConn(addr string, n func(net.IP, int) (conn, error)) (*Conn, error) {
+func newConn(addr string, disableBroadcast bool, n func(net.IP, int, bool) (conn, error)) (*Conn, error) {
 	if addr == "" {
 		addr = "0.0.0.0:67"
 	}
@@ -100,7 +100,7 @@ func newConn(addr string, n func(net.IP, int) (conn, error)) (*Conn, error) {
 		}
 	}
 
-	c, err := n(udpAddr.IP, udpAddr.Port)
+	c, err := n(udpAddr.IP, udpAddr.Port, disableBroadcast)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ type portableConn struct {
 	conn *ipv4.PacketConn
 }
 
-func newPortableConn(_ net.IP, port int) (conn, error) {
+func newPortableConn(_ net.IP, port int, _ bool) (conn, error) {
 	c, err := net.ListenPacket("udp4", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
@@ -273,15 +273,21 @@ type socketConn struct {
 	sock int
 }
 
-func newSocketConn(addr net.IP, port int) (conn, error) {
+func newSocketConn(addr net.IP, port int, disableBroadcast bool) (conn, error) {
+	var broadcastOpt = 1
+	if disableBroadcast {
+		broadcastOpt = 0
+	}
 	sock, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM, 0)
 	if err != nil {
 		return nil, err
 	}
-	if err = syscall.SetsockoptInt(sock, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
+	err = syscall.SetsockoptInt(sock, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+	if err != nil {
 		return nil, err
 	}
-	if err = syscall.SetsockoptInt(sock, syscall.SOL_SOCKET, syscall.SO_BROADCAST, 1); err != nil {
+	err = syscall.SetsockoptInt(sock, syscall.SOL_SOCKET, syscall.SO_BROADCAST, broadcastOpt)
+	if err != nil {
 		return nil, err
 	}
 	byteAddr := [4]byte{}
@@ -296,6 +302,11 @@ func newSocketConn(addr net.IP, port int) (conn, error) {
 	if err = syscall.SetNonblock(sock, false); err != nil {
 		return nil, err
 	}
+
+	// Its equal syscall.CloseOnExec
+	// most file descriptors are getting set to close-on-exec
+	// apart from syscall open, socket etc.
+	syscall.Syscall(syscall.SYS_FCNTL, uintptr(sock), syscall.F_SETFD, syscall.FD_CLOEXEC)
 	return &socketConn{sock}, nil
 }
 

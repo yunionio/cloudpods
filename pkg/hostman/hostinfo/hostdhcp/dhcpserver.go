@@ -35,7 +35,7 @@ func NewGuestDHCPServer(iface string, relay []string) (*SGuestDHCPServer, error)
 	log.Infof("DHCP Server Bind: %s %d",
 		DEFAULT_DHCP_BIND_ADDR, options.HostOptions.DhcpServerPort)
 	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(
-		DEFAULT_DHCP_BIND_ADDR, options.HostOptions.DhcpServerPort)
+		DEFAULT_DHCP_BIND_ADDR, options.HostOptions.DhcpServerPort, false)
 	if err != nil {
 		return nil, err
 	}
@@ -61,9 +61,9 @@ func (s *SGuestDHCPServer) Start() {
 	}()
 }
 
-func (s *SGuestDHCPServer) RelaySetup(addr string) error {
+func (s *SGuestDHCPServer) RelaySetup(addr string, masterIp net.IP) error {
 	if s.relay != nil {
-		return s.relay.Setup(addr)
+		return s.relay.Setup(addr, masterIp)
 	}
 	return nil
 }

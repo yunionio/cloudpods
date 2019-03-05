@@ -21,8 +21,8 @@ func NewDHCPServer(address string, port int) *DHCPServer {
 	}
 }
 
-func NewDHCPServer2(address string, port int) (*DHCPServer, *Conn, error) {
-	conn, err := NewSocketConn(fmt.Sprintf("%s:%d", address, port))
+func NewDHCPServer2(address string, port int, disableBroadcast bool) (*DHCPServer, *Conn, error) {
+	conn, err := NewSocketConn(fmt.Sprintf("%s:%d", address, port), disableBroadcast)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -40,7 +40,7 @@ type DHCPHandler interface {
 func (s *DHCPServer) ListenAndServe(handler DHCPHandler) error {
 	if s.conn == nil {
 		dhcpAddr := fmt.Sprintf("%s:%d", s.Address, s.Port)
-		dhcpConn, err := NewConn(dhcpAddr)
+		dhcpConn, err := NewConn(dhcpAddr, false)
 		if err != nil {
 			return fmt.Errorf("Listen DHCP connection error: %v", err)
 		}
