@@ -145,8 +145,12 @@ func (a *authManager) authAdmin() error {
 		log.Errorf("Admin auth failed: %s", err)
 		return err
 	}
-	a.adminCredential = token
-	return nil
+	if token != nil {
+		a.adminCredential = token
+		return nil
+	} else {
+		return fmt.Errorf("Auth token is nil")
+	}
 }
 
 func (a *authManager) reAuth() {

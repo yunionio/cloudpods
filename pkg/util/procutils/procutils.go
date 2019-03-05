@@ -5,6 +5,7 @@ import (
 	"context"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"yunion.io/x/log"
@@ -87,6 +88,9 @@ func RunCommandWithTimeout(name string, args ...string) ([]byte, error) {
 
 func RunCommandWithContext(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setsid: true,
+	}
 
 	var buf bytes.Buffer
 	cmd.Stdout = &buf

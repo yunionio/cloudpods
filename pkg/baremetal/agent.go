@@ -89,6 +89,25 @@ func (agent *SBaremetalAgent) GetListenIP() (net.IP, error) {
 	return nil, fmt.Errorf("Not found ListenAddress %s on %s", o.Options.ListenAddress, o.Options.ListenInterface)
 }
 
+func (agent *SBaremetalAgent) GetDHCPServerListenIP() (net.IP, error) {
+	ips, err := agent.GetListenIPs()
+	if err != nil {
+		return nil, err
+	}
+
+	// baremetal dhcp server can't bind address 0.0.0.0:67, conflict with host agent
+	// but can bind specific ip address, because socket set reuseaddr option
+	if o.Options.ListenAddress == "" || o.Options.ListenAddress == "0.0.0.0" {
+		return ips[0], nil
+	}
+	for _, ip := range ips {
+		if ip.String() == o.Options.ListenAddress {
+			return ip, nil
+		}
+	}
+	return nil, fmt.Errorf("Not found ListenAddress %s on %s", o.Options.ListenAddress, o.Options.ListenInterface)
+}
+
 func (agent *SBaremetalAgent) GetAccessIP() (net.IP, error) {
 	ips, err := agent.GetListenIPs()
 	if err != nil {
@@ -110,7 +129,7 @@ func (agent *SBaremetalAgent) GetDHCPServerIP() (net.IP, error) {
 	if len(listenIP) == 0 || listenIP == "0.0.0.0" {
 		return agent.GetAccessIP()
 	}
-	return agent.GetListenIP()
+	return agent.GetDHCPServerListenIP()
 }
 
 func getIfaceIPs(iface *net.Interface) ([]net.IP, error) {
