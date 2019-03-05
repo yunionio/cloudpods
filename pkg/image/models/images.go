@@ -37,10 +37,10 @@ type TImageType string
 const (
 	// https://docs.openstack.org/glance/pike/user/statuses.html
 	//
-	IMAGE_STATUS_QUEUED     = "queued"
-	IMAGE_STATUS_SAVING     = "saving"
-	IMAGE_STATUS_ACTIVE     = "active"
-	IMAGE_STATUS_CONVERTING = "converting"
+	IMAGE_STATUS_QUEUED = "queued"
+	IMAGE_STATUS_SAVING = "saving"
+	IMAGE_STATUS_ACTIVE = "active"
+	// IMAGE_STATUS_CONVERTING = "converting"
 
 	IMAGE_STATUS_DEACTIVATED    = "deactivated"
 	IMAGE_STATUS_KILLED         = "killed"
@@ -533,7 +533,10 @@ func (self *SImage) CustomizeDelete(ctx context.Context, userCred mcclient.Token
 		overridePendingDelete = jsonutils.QueryBoolean(query, "override_pending_delete", false)
 		purge = jsonutils.QueryBoolean(query, "purge", false)
 	}
-	if self.Status != IMAGE_STATUS_ACTIVE && self.Status != IMAGE_STATUS_CONVERTING {
+	if utils.IsInStringArray(self.Status, []string{
+		IMAGE_STATUS_KILLED,
+		IMAGE_STATUS_QUEUED,
+	}) {
 		overridePendingDelete = true
 	}
 	return self.startDeleteImageTask(ctx, userCred, "", purge, overridePendingDelete)
@@ -868,7 +871,7 @@ func (self *SImage) getLocalLocation() string {
 }
 
 func (self *SImage) getQemuImage() (*qemuimg.SQemuImage, error) {
-	return qemuimg.NewQemuImage(self.getLocalLocation())
+	return qemuimg.NewQemuImageWithIOLevel(self.getLocalLocation(), qemuimg.IONiceIdle)
 }
 
 func (self *SImage) StopTorrents() {
@@ -951,31 +954,31 @@ func (manager *SImageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 func isActive(localPath string, size int64, chksum string, fastHash string, useFastHash bool) bool {
 	if len(localPath) == 0 || !fileutils2.Exists(localPath) {
-		log.Errorf("invalid file")
+		log.Errorf("invalid file: %s", localPath)
 		return false
 	}
 	if size != fileutils2.FileSize(localPath) {
-		log.Errorf("size mistmatch")
+		log.Errorf("size mistmatch: %s", localPath)
 		return false
 	}
 	if useFastHash && len(fastHash) > 0 {
 		fhash, err := fileutils2.FastCheckSum(localPath)
 		if err != nil {
-			log.Errorf("IsActive fastChecksum fail %s", err)
+			log.Errorf("IsActive fastChecksum fail %s for %s", err, localPath)
 			return false
 		}
 		if fastHash != fhash {
-			log.Errorf("IsActive fastChecksum mismatch")
+			log.Errorf("IsActive fastChecksum mismatch for %s", localPath)
 			return false
 		}
 	} else {
 		md5sum, err := fileutils2.MD5(localPath)
 		if err != nil {
-			log.Errorf("IsActive md5 fail %s", err)
+			log.Errorf("IsActive md5 fail %s for %s", err, localPath)
 			return false
 		}
 		if chksum != md5sum {
-			log.Errorf("IsActive checksum mismatch")
+			log.Errorf("IsActive checksum mismatch: %s", localPath)
 			return false
 		}
 	}
