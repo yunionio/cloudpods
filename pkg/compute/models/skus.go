@@ -175,7 +175,13 @@ func getNameAndExtId(resId string, manager db.IModelManager) (string, string, er
 			return "", "", err
 		}
 
-		name = imodel.GetName()
+		_name := imodel.GetName()
+		segs := strings.Split(_name, " ")
+		if len(segs) > 1 {
+			name = strings.Join(segs[1:], " ")
+		} else {
+			name = _name
+		}
 
 		_extId := ""
 		if region, ok := imodel.(*SCloudregion); ok {
@@ -186,7 +192,7 @@ func getNameAndExtId(resId string, manager db.IModelManager) (string, string, er
 			return "", "", fmt.Errorf("res %s not a region/zone resource", resId)
 		}
 
-		segs := strings.Split(_extId, "/")
+		segs = strings.Split(_extId, "/")
 		if len(segs) > 0 {
 			extId = segs[len(segs)-1]
 		}
