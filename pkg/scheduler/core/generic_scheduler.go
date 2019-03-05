@@ -165,12 +165,13 @@ func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
 	showDetails := u.SchedInfo.ShowSuggestionDetails
 	id := c.IndexKey()
 	r := &SchedResultItem{
-		ID:       id,
-		Count:    count,
-		Capacity: u.GetCapacity(id),
-		Name:     fmt.Sprintf("%v", c.Get("Name")),
-		Score:    u.GetScore(id).DigitString(),
-		Data:     u.GetFiltedData(id, count),
+		ID:         id,
+		Count:      count,
+		Capacity:   u.GetCapacity(id),
+		Name:       fmt.Sprintf("%v", c.Get("Name")),
+		Score:      u.GetScore(id).DigitString(),
+		Data:       u.GetFiltedData(id, count),
+		Candidater: c,
 	}
 
 	if showDetails {
@@ -233,6 +234,8 @@ type SchedResultItem struct {
 
 	CapacityDetails map[string]int64 `json:"capacity_details"`
 	ScoreDetails    string           `json:"score_details"`
+
+	Candidater Candidater `json:"-"`
 }
 
 func GetCapacities(u *Unit, id string) (res map[string]int64) {
@@ -505,7 +508,7 @@ func unitFitsOnCandidate(
 
 		candidateLogIndex := fmt.Sprintf("%v:%s", candidate.Get("Name"), candidate.IndexKey())
 
-		return NewSchedLog(candidateLogIndex, stage, fmt.Sprintf("%v %v", sFit, message))
+		return NewSchedLog(candidateLogIndex, stage, fmt.Sprintf("%v %v", sFit, message), !fit)
 	}
 
 	for _, predicate := range predicates {
