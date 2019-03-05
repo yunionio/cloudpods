@@ -60,7 +60,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 				img := scimg.GetCachedimage()
 				config.OsDistribution, _ = img.Info.GetString("properties", "os_distribution")
 				config.OsVersion, _ = img.Info.GetString("properties", "os_version")
-				config.OsType = img.Info.GetString("properties", "os_type")
+				config.OsType, _ = img.Info.GetString("properties", "os_type")
 				config.ImageType = img.ImageType
 			}
 		} else {

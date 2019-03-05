@@ -182,7 +182,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, userName, desc.Password, action)
 
 			return data, nil
 		})
@@ -212,7 +212,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, userName, desc.Password, action)
 
 			return data, nil
 		})
@@ -273,7 +273,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, userName, desc.Password, action)
 
 			return data, nil
 		})
