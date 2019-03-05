@@ -535,7 +535,7 @@ func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, ex
 		self.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
 		self.ProjectId = userCred.GetProjectId()
-		if projectSync && self.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
 			if extProjectId := extNet.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, vpc.ManagerId)
 				if err != nil {
@@ -570,7 +570,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(userCred mcclient.TokenCrede
 
 	net.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
-	net.ProjectSource = db.PROJECT_SOURCE_CLOUD
+	net.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	net.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		net.ProjectId = projectId

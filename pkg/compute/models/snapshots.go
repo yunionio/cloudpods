@@ -536,7 +536,7 @@ func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, 
 		self.Name = ext.GetName()
 		self.Status = ext.GetStatus()
 		self.DiskType = ext.GetDiskType()
-		if projectSync && self.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
 			if extProjectId := ext.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, self.ManagerId)
 				if err != nil {
@@ -576,7 +576,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	snapshot.ManagerId = provider.Id
 	snapshot.CloudregionId = region.Id
 
-	snapshot.ProjectSource = db.PROJECT_SOURCE_CLOUD
+	snapshot.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	snapshot.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		snapshot.ProjectId = projectId

@@ -1853,7 +1853,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.VmemSize = extVM.GetVmemSizeMB()
 		}
 
-		if projectSync && self.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
 			if extProjectId := extVM.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, host.ManagerId)
 				if err != nil {
@@ -1985,7 +1985,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		guest.VmemSize = extVM.GetVmemSizeMB()
 	}
 
-	guest.ProjectSource = db.PROJECT_SOURCE_CLOUD
+	guest.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	guest.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		guest.ProjectId = projectId

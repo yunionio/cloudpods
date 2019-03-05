@@ -371,7 +371,7 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 	lbr.ManagerId = listener.ManagerId
 
 	lbr.constructFieldsFromCloudListenerRule(extRule)
-	lbr.ProjectSource = db.PROJECT_SOURCE_CLOUD
+	lbr.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	lbr.ProjectId = listener.ProjectId
 
 	return lbr, man.TableSpec().Insert(lbr)

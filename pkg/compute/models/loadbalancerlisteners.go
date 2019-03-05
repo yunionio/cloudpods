@@ -798,7 +798,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(lb *SLoadba
 func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string, projectSync bool) error {
 	_, err := lblis.GetModelManager().TableSpec().Update(lblis, func() error {
 		lblis.constructFieldsFromCloudListener(lb, extListener)
-		if projectSync && lblis.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+		if projectSync && lblis.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
 			if extProjectId := extListener.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, lblis.ManagerId)
 				if err != nil {
@@ -821,7 +821,7 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 	lblis.ExternalId = extListener.GetGlobalId()
 	lblis.constructFieldsFromCloudListener(lb, extListener)
 
-	lblis.ProjectSource = db.PROJECT_SOURCE_CLOUD
+	lblis.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	lblis.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		lblis.ProjectId = projectId

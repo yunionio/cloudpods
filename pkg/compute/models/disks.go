@@ -1031,7 +1031,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		}
 
 		// self.ProjectId = userCred.GetProjectId()
-		if projectSync && self.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
 			if extProjectId := extDisk.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, storage.ManagerId)
 				if err != nil {
@@ -1072,7 +1072,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	disk.Status = extDisk.GetStatus()
 	disk.ExternalId = extDisk.GetGlobalId()
 	disk.StorageId = storage.Id
-	disk.ProjectSource = db.PROJECT_SOURCE_CLOUD
+	disk.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	disk.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		disk.ProjectId = projectId

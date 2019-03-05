@@ -354,7 +354,7 @@ func (lbb *SLoadbalancerBackend) constructFieldsFromCloudLoadbalancerBackend(ext
 
 func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, projectId string, projectSync bool) error {
 	_, err := lbb.GetModelManager().TableSpec().Update(lbb, func() error {
-		if projectSync && lbb.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+		if projectSync && lbb.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
 			if extProjectId := extLoadbalancerBackend.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, lbb.ManagerId)
 				if err != nil {
@@ -383,7 +383,7 @@ func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx cont
 		return nil, err
 	}
 
-	lbb.ProjectSource = db.PROJECT_SOURCE_CLOUD
+	lbb.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	lbb.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		lbb.ProjectId = projectId

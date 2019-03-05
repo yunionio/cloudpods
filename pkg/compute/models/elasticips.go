@@ -302,7 +302,7 @@ func (self *SElasticip) SyncWithCloudEip(userCred mcclient.TokenCredential, prov
 		// self.ManagerId = ext.GetManagerId()
 		self.IsEmulated = ext.IsEmulated()
 		self.ProjectId = userCred.GetProjectId()
-		if projectSync && self.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
 			if extProjectId := ext.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, self.ManagerId)
 				if err != nil {
@@ -342,7 +342,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip.CloudregionId = region.Id
 	eip.ChargeType = extEip.GetInternetChargeType()
 
-	eip.ProjectSource = db.PROJECT_SOURCE_CLOUD
+	eip.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	eip.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		eip.ProjectId = projectId

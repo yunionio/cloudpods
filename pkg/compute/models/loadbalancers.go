@@ -550,7 +550,7 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 		}
 	}
 
-	lb.ProjectSource = db.PROJECT_SOURCE_CLOUD
+	lb.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	lb.ProjectId = userCred.GetProjectId()
 	if len(provider.ProjectId) > 0 {
 		lb.ProjectId = provider.ProjectId
@@ -603,7 +603,7 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 			lb.LBInfo = extLb.GetMetadata()
 		}
 
-		if projectSync && lb.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+		if projectSync && lb.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
 			if extProjectId := extLb.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, lb.ManagerId)
 				if err != nil {

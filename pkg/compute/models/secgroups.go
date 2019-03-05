@@ -269,7 +269,7 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCr
 		self.Name = extSec.GetName()
 		self.Description = extSec.GetDescription()
 		self.ProjectId = userCred.GetProjectId()
-		if projectSync && self.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
 			if extProjectId := extSec.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, vpc.ManagerId)
 				if err != nil {
@@ -309,7 +309,7 @@ func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCre
 	secgroup.ExternalId = extSec.GetGlobalId()
 	secgroup.Description = extSec.GetDescription()
 
-	secgroup.ProjectSource = db.PROJECT_SOURCE_CLOUD
+	secgroup.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	secgroup.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		secgroup.ProjectId = projectId

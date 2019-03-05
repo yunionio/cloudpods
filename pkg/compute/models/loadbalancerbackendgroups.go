@@ -403,7 +403,7 @@ func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx
 	_, err := lbbg.GetModelManager().TableSpec().Update(lbbg, func() error {
 
 		lbbg.constructFieldsFromCloudBackendgroup(lb, extLoadbalancerBackendgroup)
-		if projectSync && lbbg.ProjectSource != db.PROJECT_SOURCE_LOCAL {
+		if projectSync && lbbg.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
 			if extProjectId := extLoadbalancerBackendgroup.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, lb.ManagerId)
 				if err != nil {
@@ -440,7 +440,7 @@ func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgrou
 	lbbg.ManagerId = lb.ManagerId
 
 	lbbg.constructFieldsFromCloudBackendgroup(lb, extLoadbalancerBackendgroup)
-	lbbg.ProjectSource = db.PROJECT_SOURCE_CLOUD
+	lbbg.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	lbbg.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		lbbg.ProjectId = projectId

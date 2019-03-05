@@ -35,7 +35,15 @@ type SExternalProject struct {
 	db.SStandaloneResourceBase
 	SManagedResourceBase
 
-	ProjectId string `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin"`
+	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin"`
+}
+
+func (manager *SExternalProjectManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowList(userCred, manager)
+}
+
+func (self *SExternalProject) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+	return db.IsAdminAllowUpdate(userCred, self)
 }
 
 func (self *SExternalProject) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -43,11 +51,11 @@ func (self *SExternalProject) ValidateUpdateData(ctx context.Context, userCred m
 		_project, err := db.TenantCacheManager.FetchByIdOrName(userCred, project)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewTenantNotFoundError("project %s not find", project)
+				return nil, httperrors.NewTenantNotFoundError("tenant %s not find", project)
 			}
 			return nil, err
 		}
-		data.Set("project_id", jsonutils.NewString(_project.GetId()))
+		data.Set("tenant_id", jsonutils.NewString(_project.GetId()))
 	}
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
@@ -63,6 +71,27 @@ func (manager *SExternalProjectManager) getProjectsByProvider(provider *SCloudpr
 		return nil, err
 	}
 	return projects, nil
+}
+
+func (self *SExternalProject) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	tenant, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
+	if err == nil {
+		extra.Add(jsonutils.NewString(tenant.GetName()), "tenant")
+	}
+	return extra
+}
+
+func (self *SExternalProject) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	return self.getMoreDetails(ctx, userCred, query, extra)
+}
+
+func (self *SExternalProject) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return self.getMoreDetails(ctx, userCred, query, extra), nil
 }
 
 func (manager *SExternalProjectManager) GetProject(externalId string, providerId string) (*SExternalProject, error) {
