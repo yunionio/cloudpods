@@ -25,8 +25,8 @@ func (self *ImageConvertTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 
 	self.SetStage("OnConvertComplete", nil)
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
-		image.SetStatus(self.UserCred, models.IMAGE_STATUS_CONVERTING, "start convert")
-		defer image.SetStatus(self.UserCred, models.IMAGE_STATUS_ACTIVE, "convert failed")
+		// image.SetStatus(self.UserCred, models.IMAGE_STATUS_CONVERTING, "start convert")
+		// defer image.SetStatus(self.UserCred, models.IMAGE_STATUS_ACTIVE, "convert failed")
 		err := image.ConvertAllSubformats()
 		return nil, err
 	})
