@@ -292,11 +292,17 @@ func (self *SDisk) GetAccessPath() string {
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	if _, err := self.storage.zone.region.GetDisk(self.GetId()); err == cloudprovider.ErrNotFound {
+	if disk, err := self.storage.zone.region.GetDisk(self.GetId()); err == cloudprovider.ErrNotFound {
 		log.Errorf("Failed to find disk %s when delete", self.GetId())
 		return nil
+	} else if disk.Status != "deleting" {
+		err := self.storage.zone.region.DeleteDisk(self.GetId())
+		if err != nil {
+			return err
+		}
 	}
-	return self.storage.zone.region.DeleteDisk(self.GetId())
+
+	return cloudprovider.WaitDeleted(self, 10*time.Second, 120*time.Second)
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {

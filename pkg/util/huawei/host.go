@@ -244,7 +244,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 		vmId, err := self.zone.region.CreateInstance(name, imgId, instanceType, networkId, secgroupId, secgroup.VpcID, self.zone.GetId(), desc, disks, ipAddr, keypair, passwd, userData, bc)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceType, err)
-			return "", fmt.Errorf("Failed to create specification %s.%s", instanceType, err.Error())
+			return "", fmt.Errorf("create %s failed:%s", instanceType, ErrMessage(err))
 		} else {
 			return vmId, nil
 		}
@@ -271,5 +271,5 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 		}
 	}
 
-	return "", fmt.Errorf("Failed to create, %s", err.Error())
+	return "", fmt.Errorf("create failed: %s", ErrMessage(err))
 }
