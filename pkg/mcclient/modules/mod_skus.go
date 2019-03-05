@@ -31,7 +31,7 @@ func init() {
 			"Sys_disk_min_size_mb", "Sys_disk_max_size_mb", "Attached_disk_type",
 			"Attached_disk_size_gb", "Attached_disk_count", "Data_disk_types",
 			"Data_disk_max_count", "Nic_max_count", "Cloudregion_id", "Zone_id",
-			"Provider", "Postpaid_status", "Prepaid_status", "region_name", "Zone_name"},
+			"Provider", "Postpaid_status", "Prepaid_status", "Region", "Region_ext_id", "Zone", "Zone_ext_id"},
 		[]string{"Total_guest_count"})}
 
 	register(&CloudmetaSkus)
