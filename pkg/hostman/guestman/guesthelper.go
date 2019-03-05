@@ -48,6 +48,12 @@ type SDriverMirror struct {
 	Desc         jsonutils.JSONObject
 }
 
+type SGuestHotplugCpuMem struct {
+	Sid         string
+	AddCpuCount int64
+	AddMemSize  int64
+}
+
 type SReloadDisk struct {
 	Sid  string
 	Disk storageman.IDisk

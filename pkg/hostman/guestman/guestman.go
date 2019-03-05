@@ -191,6 +191,11 @@ func (m *SGuestManager) IsGuestExist(sid string) bool {
 	}
 }
 
+func (m *SGuestManager) GetGuestById(sid string) *SKVMGuestInstance {
+	guest, _ := guestManger.Servers[sid]
+	return guest
+}
+
 func (m *SGuestManager) LoadExistingGuests() {
 	files, err := ioutil.ReadDir(m.ServersPath)
 	if err != nil {
@@ -648,6 +653,16 @@ func (m *SGuestManager) StartDriveMirror(ctx context.Context, params interface{}
 	}
 	task := NewDriveMirrorTask(ctx, guest, mirrorParams.NbdServerUri, "top", nil)
 	task.Start()
+	return nil, nil
+}
+
+func (m *SGuestManager) HotplugCpuMem(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	hotplugParams, ok := params.(*SGuestHotplugCpuMem)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	guest := guestManger.Servers[hotplugParams.Sid]
+	NewGuestHotplugCpuMemTask(ctx, guest, int(hotplugParams.AddCpuCount), int(hotplugParams.AddMemSize)).Start()
 	return nil, nil
 }
 
