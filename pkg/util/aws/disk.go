@@ -480,3 +480,7 @@ func (self *SDisk) Rebuild(ctx context.Context) error {
 	_, err := self.storage.zone.region.resetDisk(self.DiskId, "")
 	return err
 }
+
+func (self *SDisk) GetProjectId() string {
+	return ""
+}

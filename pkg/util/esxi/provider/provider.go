@@ -162,3 +162,7 @@ func (self *SESXiProvider) GetBalance() (float64, error) {
 func (self *SESXiProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return self.client, nil
 }
+
+func (self *SESXiProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return nil, cloudprovider.ErrNotSupported
+}

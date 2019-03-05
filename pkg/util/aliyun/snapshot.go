@@ -179,3 +179,7 @@ func (self *SRegion) DeleteSnapshot(snapshotId string) error {
 	_, err := self.ecsRequest("DeleteSnapshot", params)
 	return err
 }
+
+func (self *SSnapshot) GetProjectId() string {
+	return ""
+}

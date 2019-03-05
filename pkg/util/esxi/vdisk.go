@@ -244,3 +244,7 @@ func (disk *SVirtualDisk) GetExpiredAt() time.Time {
 func (disk *SVirtualDisk) Rebuild(ctx context.Context) error {
 	return disk.vm.rebuildDisk(ctx, disk)
 }
+
+func (disk *SVirtualDisk) GetProjectId() string {
+	return ""
+}

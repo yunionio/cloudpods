@@ -207,3 +207,7 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset i
 	}
 	return subnets, len(subnets), nil
 }
+
+func (self *SNetwork) GetProjectId() string {
+	return ""
+}

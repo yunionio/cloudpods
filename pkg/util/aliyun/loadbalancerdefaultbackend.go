@@ -62,3 +62,7 @@ func (backend *SLoadbalancerDefaultBackend) GetBackendRole() string {
 func (backend *SLoadbalancerDefaultBackend) GetBackendId() string {
 	return backend.ServerId
 }
+
+func (backend *SLoadbalancerDefaultBackend) GetProjectId() string {
+	return ""
+}

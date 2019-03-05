@@ -255,3 +255,7 @@ func (region *SRegion) SyncLoadbalancerUDPListener(lb *SLoadbalancer, listener *
 func (listerner *SLoadbalancerUDPListener) Sync(lblis *cloudprovider.SLoadbalancerListener) error {
 	return listerner.lb.region.SyncLoadbalancerUDPListener(listerner.lb, lblis)
 }
+
+func (listerner *SLoadbalancerUDPListener) GetProjectId() string {
+	return ""
+}

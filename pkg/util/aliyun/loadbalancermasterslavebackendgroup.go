@@ -161,3 +161,7 @@ func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) AddBackendServer(serve
 func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) RemoveBackendServer(serverId string, weight, port int) error {
 	return cloudprovider.ErrNotSupported
 }
+
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetProjectId() string {
+	return ""
+}

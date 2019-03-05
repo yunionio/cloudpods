@@ -112,3 +112,7 @@ func (self *SClassicNetwork) Refresh() error {
 func (self *SClassicNetwork) GetAllocTimeoutSeconds() int {
 	return 120 // 2 minutes
 }
+
+func (self *SClassicNetwork) GetProjectId() string {
+	return ""
+}

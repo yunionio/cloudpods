@@ -474,3 +474,7 @@ func (self *SRegion) GetSecurityGroups(vpcId string, secgroupId string, offset i
 
 	return securityGroups, len(securityGroups), nil
 }
+
+func (self *SSecurityGroup) GetProjectId() string {
+	return ""
+}

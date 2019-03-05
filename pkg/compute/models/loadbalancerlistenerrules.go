@@ -368,23 +368,21 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 
 	lbr.ExternalId = extRule.GetGlobalId()
 	lbr.ListenerId = listener.Id
+	lbr.ManagerId = listener.ManagerId
 
 	lbr.constructFieldsFromCloudListenerRule(extRule)
-	lbr.ProjectId = userCred.GetProjectId()
-	if len(projectId) > 0 {
-		lbr.ProjectId = projectId
-	}
+	lbr.ProjectSrc = db.PROJECT_SOURCE_CLOUD
+	lbr.ProjectId = listener.ProjectId
 
 	return lbr, man.TableSpec().Insert(lbr)
 }
 
 func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, extRule cloudprovider.ICloudLoadbalancerListenerRule, projectId string, projectSync bool) error {
+	listener := lbr.GetLoadbalancerListener()
 	_, err := lbr.GetModelManager().TableSpec().Update(lbr, func() error {
 		lbr.constructFieldsFromCloudListenerRule(extRule)
-
-		if projectSync && len(projectId) > 0 {
-			lbr.ProjectId = projectId
-		}
+		lbr.ManagerId = listener.ManagerId
+		lbr.ProjectId = listener.ProjectId
 		return nil
 	})
 	return err

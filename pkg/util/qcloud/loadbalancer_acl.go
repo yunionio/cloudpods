@@ -40,3 +40,7 @@ func (self *SLBACL) GetMetadata() *jsonutils.JSONDict {
 func (self *SLBACL) GetAclEntries() *jsonutils.JSONArray {
 	return nil
 }
+
+func (self *SLBACL) GetProjectId() string {
+	return ""
+}

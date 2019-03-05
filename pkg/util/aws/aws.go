@@ -204,3 +204,7 @@ func (self *SAwsClient) QueryAccountBalance() (*SAccountBalance, error) {
 	// todo: aws 貌似没有余额？
 	panic("implement me")
 }
+
+func (self *SAwsClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}

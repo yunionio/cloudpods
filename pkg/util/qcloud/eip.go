@@ -330,3 +330,7 @@ func (region *SRegion) UpdateInstanceBandwidth(instanceId string, bw int) error 
 	_, err := region.cvmRequest("ResetInstancesInternetMaxBandwidth", params)
 	return err
 }
+
+func (self *SEipAddress) GetProjectId() string {
+	return ""
+}

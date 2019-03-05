@@ -613,3 +613,7 @@ func (instance *SInstance) Renew(bc billing.SBillingCycle) error {
 func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }
+
+func (instance *SInstance) GetProjectId() string {
+	return instance.TenantID
+}

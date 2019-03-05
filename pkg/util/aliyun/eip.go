@@ -326,3 +326,7 @@ func (region *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
 	}
 	return err
 }
+
+func (self *SEipAddress) GetProjectId() string {
+	return ""
+}

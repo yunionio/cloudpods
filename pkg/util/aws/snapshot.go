@@ -200,3 +200,7 @@ func (self *SRegion) DeleteSnapshot(snapshotId string) error {
 	_, err := self.ec2Client.DeleteSnapshot(params)
 	return err
 }
+
+func (self *SSnapshot) GetProjectId() string {
+	return ""
+}

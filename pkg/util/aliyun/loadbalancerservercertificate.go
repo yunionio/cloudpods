@@ -113,3 +113,7 @@ func (region *SRegion) GetLoadbalancerServerCertificates() ([]SLoadbalancerServe
 	certificates := []SLoadbalancerServerCertificate{}
 	return certificates, body.Unmarshal(&certificates, "ServerCertificates", "ServerCertificate")
 }
+
+func (certificate *SLoadbalancerServerCertificate) GetProjectId() string {
+	return ""
+}

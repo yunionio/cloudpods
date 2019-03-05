@@ -768,3 +768,27 @@ type SAccountBalance struct {
 func (self *SAzureClient) QueryAccountBalance() (*SAccountBalance, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func getResourceGroup(id string) string {
+	if info := strings.Split(id, "/resourceGroups/"); len(info) == 2 {
+		if resourcegroupInfo := strings.Split(info[1], "/"); len(resourcegroupInfo) > 0 {
+			return strings.ToLower(resourcegroupInfo[0])
+		}
+	}
+	return ""
+}
+
+func (self *SAzureClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	resourceGroups := []SResourceGroup{}
+	if err := self.List("resourcegroups", &resourceGroups); err != nil {
+		return nil, err
+	}
+	iprojects := []cloudprovider.ICloudProject{}
+	for i := 0; i < len(resourceGroups); i++ {
+		if groupInfo := strings.Split(resourceGroups[i].ID, "/"); len(groupInfo) > 0 {
+			resourceGroups[i].ID = strings.ToLower(groupInfo[len(groupInfo)-1])
+		}
+		iprojects = append(iprojects, &resourceGroups[i])
+	}
+	return iprojects, nil
+}

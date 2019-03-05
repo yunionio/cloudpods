@@ -77,3 +77,7 @@ func (self *SClassicSnapshot) GetRegionId() string {
 func (self *SClassicSnapshot) GetDiskType() string {
 	return ""
 }
+
+func (self *SClassicSnapshot) GetProjectId() string {
+	return ""
+}

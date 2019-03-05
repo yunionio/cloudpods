@@ -13,6 +13,7 @@ import (
 )
 
 type BaseOptions struct {
+	Debug      bool   `help:"debug mode"`
 	Help       bool   `help:"Show help"`
 	AppID      string `help:"AppID" default:"$QCLOUD_APPID"`
 	SecretID   string `help:"Secret" default:"$QCLOUD_SECRET_ID"`
@@ -75,7 +76,7 @@ func newClient(options *BaseOptions) (*qcloud.SRegion, error) {
 		account = fmt.Sprintf("%s/%s", account, options.AppID)
 	}
 
-	if cli, err := qcloud.NewQcloudClient("", "", account, options.SecretKey); err != nil {
+	if cli, err := qcloud.NewQcloudClient("", "", account, options.SecretKey, options.Debug); err != nil {
 		return nil, err
 	} else if region := cli.GetRegion(options.RegionId); region == nil {
 		return nil, fmt.Errorf("No such region %s", options.RegionId)
