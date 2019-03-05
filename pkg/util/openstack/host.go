@@ -156,7 +156,7 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		return nil, err
 	}
 
-	sysDiskSizeGB := image.Size / 1024 / 1024
+	sysDiskSizeGB := image.Size / 1024 / 1024 / 1024
 	if desc.SysDisk.SizeGB < sysDiskSizeGB {
 		desc.SysDisk.SizeGB = sysDiskSizeGB
 	}
