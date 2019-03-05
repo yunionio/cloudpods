@@ -42,7 +42,8 @@ var (
 		"live-migrate":         guestLiveMigrate,
 		"resume":               guestResume,
 		// "start-nbd-server":     guestStartNbdServer,
-		"drive-mirror": guestDriveMirror,
+		"drive-mirror":    guestDriveMirror,
+		"hotplug-cpu-mem": guestHotplugCpuMem,
 	}
 )
 
@@ -317,6 +318,22 @@ func guestDriveMirror(ctx context.Context, sid string, body jsonutils.JSONObject
 	}
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().StartDriveMirror,
 		&guestman.SDriverMirror{sid, backupNbdServerUri, desc})
+	return nil, nil
+}
+
+func guestHotplugCpuMem(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	if !guestman.GetGuestManager().IsGuestExist(sid) {
+		return nil, httperrors.NewNotFoundError("Guest %s not found", sid)
+	}
+
+	if guestman.GetGuestManager().Status(sid) != "running" {
+		return nil, httperrors.NewBadRequestError("Guest %s not running", sid)
+	}
+
+	addCpuCount, _ := body.Int("add_cpu")
+	addMemSize, _ := body.Int("add_mem")
+	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().HotplugCpuMem,
+		&guestman.SGuestHotplugCpuMem{sid, addCpuCount, addMemSize})
 	return nil, nil
 }
 

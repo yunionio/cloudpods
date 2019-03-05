@@ -114,6 +114,7 @@ func (m *SGuestManager) OnVerifyExistingGuestsSucc(servers []jsonutils.JSONObjec
 	} else {
 		var unknownServerrs = make([]*SKVMGuestInstance, 0)
 		for _, server := range m.CandidateServers {
+			go server.RequestVerifyDirtyServer()
 			log.Errorf("Server %s not found on this host", server.GetName())
 			unknownServerrs = append(unknownServerrs, server)
 		}
@@ -188,6 +189,11 @@ func (m *SGuestManager) IsGuestExist(sid string) bool {
 	} else {
 		return true
 	}
+}
+
+func (m *SGuestManager) GetGuestById(sid string) *SKVMGuestInstance {
+	guest, _ := guestManger.Servers[sid]
+	return guest
 }
 
 func (m *SGuestManager) LoadExistingGuests() {
@@ -647,6 +653,16 @@ func (m *SGuestManager) StartDriveMirror(ctx context.Context, params interface{}
 	}
 	task := NewDriveMirrorTask(ctx, guest, mirrorParams.NbdServerUri, "top", nil)
 	task.Start()
+	return nil, nil
+}
+
+func (m *SGuestManager) HotplugCpuMem(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	hotplugParams, ok := params.(*SGuestHotplugCpuMem)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	guest := guestManger.Servers[hotplugParams.Sid]
+	NewGuestHotplugCpuMemTask(ctx, guest, int(hotplugParams.AddCpuCount), int(hotplugParams.AddMemSize)).Start()
 	return nil, nil
 }
 

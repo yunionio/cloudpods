@@ -51,6 +51,14 @@ func TaskFailed(ctx context.Context, reason string) {
 	}
 }
 
+func TaskFailed2(ctx context.Context, reason string, params *jsonutils.JSONDict) {
+	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
+		modules.ComputeTasks.TaskFailed3(GetComputeSession(ctx), taskId.(string), reason, params)
+	} else {
+		log.Errorf("Reqeuest task failed missing task id, with reason(%s)", reason)
+	}
+}
+
 func TaskComplete(ctx context.Context, params jsonutils.JSONObject) {
 	if taskId := ctx.Value(appctx.APP_CONTEXT_KEY_TASK_ID); taskId != nil {
 		modules.ComputeTasks.TaskComplete(GetComputeSession(ctx), taskId.(string), params)

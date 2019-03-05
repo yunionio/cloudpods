@@ -49,7 +49,13 @@ func (man ComputeTasksManager) TaskFailed(session *mcclient.ClientSession, taskI
 }
 
 func (man ComputeTasksManager) TaskFailed2(session *mcclient.ClientSession, taskId string, reason string) {
-	params := jsonutils.NewDict()
+	man.TaskFailed3(session, taskId, reason, nil)
+}
+
+func (man ComputeTasksManager) TaskFailed3(session *mcclient.ClientSession, taskId string, reason string, params *jsonutils.JSONDict) {
+	if params == nil {
+		params = jsonutils.NewDict()
+	}
 	params.Add(jsonutils.NewString("error"), "__status__")
 	params.Add(jsonutils.NewString(reason), "__reason__")
 	man.TaskComplete(session, taskId, params)

@@ -178,6 +178,7 @@ func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 
 	desc.Add(jsonutils.NewInt(int64(self.Bandwidth)), "bandwidth")
 	desc.Add(jsonutils.NewString(self.Mode), "mode")
+	desc.Add(jsonutils.NewString(self.IpAddr), "ip_addr")
 
 	// region := self.GetRegion()
 	// if len(region.ExternalId) > 0 {

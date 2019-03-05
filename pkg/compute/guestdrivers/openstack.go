@@ -75,6 +75,10 @@ func (self *SOpenStackGuestDriver) GetChangeConfigStatus() ([]string, error) {
 	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
+func (self *SOpenStackGuestDriver) IsNeedRestartForResetLoginInfo() bool {
+	return false
+}
+
 func (self *SOpenStackGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{models.VM_RUNNING}, nil
 }

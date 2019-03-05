@@ -79,7 +79,7 @@ func (self *SRbdStorageDriver) PostCreate(ctx context.Context, userCred mcclient
 		rbdHost, _ := storages[i].StorageConf.GetString("mon_host")
 		rbdKey, _ := storages[i].StorageConf.GetString("key")
 		if newRbdHost == rbdHost && newRbdKey == rbdKey {
-			_, err := storage.GetModelManager().TableSpec().Update(storage, func() error {
+			_, err := db.Update(storage, func() error {
 				storage.StoragecacheId = storages[i].StoragecacheId
 				return nil
 			})
@@ -99,7 +99,7 @@ func (self *SRbdStorageDriver) PostCreate(ctx context.Context, userCred mcclient
 			log.Errorf("insert storagecache for storage %s error: %v", storage.Name, err)
 			return
 		}
-		_, err := storage.GetModelManager().TableSpec().Update(storage, func() error {
+		_, err := db.Update(storage, func() error {
 			storage.StoragecacheId = sc.Id
 			return nil
 		})

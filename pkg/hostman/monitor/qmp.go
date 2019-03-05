@@ -471,6 +471,10 @@ func (m *QmpMonitor) DeviceDel(idstr string, callback StringCallback) {
 	// m.Query(cmd, cb)
 }
 
+func (m *QmpMonitor) ObjectDel(idstr string, callback StringCallback) {
+	m.HumanMonitorCommand(fmt.Sprintf("object_del %s", idstr), callback)
+}
+
 func (m *QmpMonitor) DriveAdd(bus string, params map[string]string, callback StringCallback) {
 	var paramsKvs = []string{}
 	for k, v := range params {
@@ -722,4 +726,54 @@ func (m *QmpMonitor) StartNbdServer(port int, exportAllDevice, writable bool, ca
 func (m *QmpMonitor) ResizeDisk(driveName string, sizeMB int64, callback StringCallback) {
 	cmd := fmt.Sprintf("block_resize %s %d", driveName, sizeMB)
 	m.HumanMonitorCommand(cmd, callback)
+}
+
+func (m *QmpMonitor) GetCpuCount(callback func(count int)) {
+	var cb = func(res string) {
+		cpus := strings.Split(res, "\\n")
+		count := 0
+		for _, cpuInfo := range cpus {
+			if len(strings.TrimSpace(cpuInfo)) > 0 {
+				count += 1
+			}
+		}
+		callback(count)
+	}
+	m.HumanMonitorCommand("info cpus", cb)
+}
+
+func (m *QmpMonitor) AddCpu(cpuIndex int, callback StringCallback) {
+	var (
+		cb = func(res *Response) {
+			callback(m.actionResult(res))
+		}
+		cmd = &Command{
+			Execute: "cpu-add",
+			Args:    map[string]interface{}{"id": cpuIndex},
+		}
+	)
+	m.Query(cmd, cb)
+}
+
+func (m *QmpMonitor) ObjectAdd(objectType string, params map[string]string, callback StringCallback) {
+	var paramsKvs = []string{}
+	for k, v := range params {
+		paramsKvs = append(paramsKvs, fmt.Sprintf("%s=%s", k, v))
+	}
+	cmd := fmt.Sprintf("object_add %s,%s", objectType, strings.Join(paramsKvs, ","))
+	m.HumanMonitorCommand(cmd, callback)
+}
+
+func (m *QmpMonitor) GeMemtSlotIndex(callback func(index int)) {
+	var cb = func(res string) {
+		memInfos := strings.Split(res, "\\n")
+		var count int
+		for _, line := range memInfos {
+			if strings.HasPrefix(strings.TrimSpace(line), "slot:") {
+				count += 1
+			}
+		}
+		callback(count)
+	}
+	m.HumanMonitorCommand("info memory-devices", cb)
 }

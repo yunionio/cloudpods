@@ -29,7 +29,8 @@ type SDHCPRelay struct {
 
 	guestDHCPConn *dhcp.Conn
 
-	srcaddr string
+	srcaddr     string
+	nicMasterIp net.IP
 
 	destaddr net.IP
 	destport int
@@ -65,11 +66,12 @@ func (r *SDHCPRelay) Start() {
 	}()
 }
 
-func (r *SDHCPRelay) Setup(addr string) error {
+func (r *SDHCPRelay) Setup(addr string, masterIp net.IP) error {
 	var err error
 	r.srcaddr = addr
+	r.nicMasterIp = masterIp
 	log.Infof("DHCP Relay Server Bind addr %s port %d", r.srcaddr, DEFAULT_DHCP_RELAY_PORT)
-	r.server, r.conn, err = dhcp.NewDHCPServer2(r.srcaddr, DEFAULT_DHCP_RELAY_PORT)
+	r.server, r.conn, err = dhcp.NewDHCPServer2(r.srcaddr, DEFAULT_DHCP_RELAY_PORT, true)
 	if err != nil {
 		log.Errorln(err)
 		return err
@@ -79,6 +81,11 @@ func (r *SDHCPRelay) Setup(addr string) error {
 }
 
 func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
+	// Prevent receiving packets that send by host dhcp server
+	if addr.IP.Equal(r.nicMasterIp) {
+		return nil, nil
+	}
+
 	log.Infof("Receive DHCP Relay Reply TO %s", pkt.CHAddr())
 	v, ok := r.cache.Load(pkt.TransactionID())
 	if ok {

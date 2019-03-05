@@ -193,6 +193,18 @@ func (s *SKVMGuestInstance) DirtyServerRequestStart() {
 	}
 }
 
+func (s *SKVMGuestInstance) RequestVerifyDirtyServer() {
+	hostId, _ := s.Desc.GetString("host_id")
+	var body = jsonutils.NewDict()
+	body.Set("guest_id", jsonutils.NewString(s.Id))
+	body.Set("host_id", jsonutils.NewString(hostId))
+	_, err := modules.Servers.PerformClassAction(
+		hostutils.GetComputeSession(context.Background()), "dirty-server-verify", body)
+	if err != nil {
+		log.Errorf("Dirty server request start error: %s", err)
+	}
+}
+
 // Delay Process
 func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	data, ok := params.(*jsonutils.JSONDict)
@@ -273,7 +285,7 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 		log.Infof("Server dirty shotdown %s", s.GetName())
 		if jsonutils.QueryBoolean(s.Desc, "is_master", false) ||
 			jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
-			s.DirtyServerRequestStart()
+			go s.DirtyServerRequestStart()
 		} else {
 			s.StartGuest(context.Background(), jsonutils.NewDict())
 		}

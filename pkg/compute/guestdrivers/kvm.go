@@ -11,11 +11,13 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SKVMGuestDriver struct {
@@ -255,10 +257,33 @@ func (self *SKVMGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, gues
 	return nil
 }
 
+func (self *SKVMGuestDriver) NeedStopForChangeSpec() bool {
+	return false
+}
+
 func (self *SKVMGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
-	// pass
-	task.ScheduleRun(nil)
-	return nil
+	if jsonutils.QueryBoolean(task.GetParams(), "guest_online", false) {
+		addCpu := vcpuCount - int64(guest.VcpuCount)
+		addMem := vmemSize - int64(guest.VmemSize)
+		if addCpu < 0 || addMem < 0 {
+			return fmt.Errorf("KVM guest doesn't support online reduce cpu or mem")
+		}
+		header := task.GetTaskRequestHeader()
+		body := jsonutils.NewDict()
+		if vcpuCount > int64(guest.VcpuCount) {
+			body.Set("add_cpu", jsonutils.NewInt(addCpu))
+		}
+		if vmemSize > int64(guest.VmemSize) {
+			body.Set("add_mem", jsonutils.NewInt(addMem))
+		}
+		host := guest.GetHost()
+		url := fmt.Sprintf("%s/servers/%s/hotplug-cpu-mem", host.ManagerUri, guest.Id)
+		_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
+		return err
+	} else {
+		task.ScheduleRun(nil)
+		return nil
+	}
 }
 
 func (self *SKVMGuestDriver) RequestSoftReset(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
@@ -350,6 +375,38 @@ func (self *SKVMGuestDriver) RequestSyncToBackup(ctx context.Context, guest *mod
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, body, false)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+// kvm guest must add cpu first
+// if body has add_cpu_failed indicate dosen't exec add mem
+// 1. cpu added part of request --> add_cpu_failed: true && added_cpu: count
+// 2. cpu added all of request add mem failed --> add_mem_failed: true
+func (self *SKVMGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, guest *models.SGuest, data *jsonutils.JSONDict, task taskman.ITask) error {
+	var cpuAdded int64
+	if jsonutils.QueryBoolean(data, "add_cpu_failed", false) {
+		cpuAdded, _ = data.Int("added_cpu")
+	} else if jsonutils.QueryBoolean(data, "add_mem_failed", false) {
+		vcpuCount, _ := task.GetParams().Int("vcpu_count")
+		if vcpuCount-int64(guest.VcpuCount) > 0 {
+			cpuAdded = vcpuCount - int64(guest.VcpuCount)
+		}
+	}
+	if cpuAdded > 0 {
+		_, err := db.Update(guest, func() error {
+			guest.VcpuCount = guest.VcpuCount + int8(cpuAdded)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR,
+			fmt.Sprintf("Change config task failed but added cpu count %d", cpuAdded), task.GetUserCred())
+		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_VM_CHANGE_FLAVOR,
+			fmt.Sprintf("Change config task failed but added cpu count %d", cpuAdded), task.GetUserCred(), false)
+
+		models.HostManager.ClearSchedDescCache(guest.HostId)
 	}
 	return nil
 }

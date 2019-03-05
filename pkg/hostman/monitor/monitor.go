@@ -26,13 +26,19 @@ type Monitor interface {
 	GetBlockJobCounts(func(jobs int))
 	GetBlockJobs(func(*jsonutils.JSONArray))
 
+	GetCpuCount(func(count int))
+	AddCpu(cpuIndex int, callback StringCallback)
+	GeMemtSlotIndex(func(index int))
+
 	GetBlocks(callback func(*jsonutils.JSONArray))
 	EjectCdrom(dev string, callback StringCallback)
 	ChangeCdrom(dev string, path string, callback StringCallback)
 
 	DriveDel(idstr string, callback StringCallback)
 	DeviceDel(idstr string, callback StringCallback)
+	ObjectDel(idstr string, callback StringCallback)
 
+	ObjectAdd(objectType string, params map[string]string, callback StringCallback)
 	DriveAdd(bus string, params map[string]string, callback StringCallback)
 	DeviceAdd(dev string, params map[string]interface{}, callback StringCallback)
 

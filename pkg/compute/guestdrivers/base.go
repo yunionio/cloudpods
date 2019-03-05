@@ -260,3 +260,7 @@ func (self *SBaseGuestDriver) GetGuestInitialStateAfterRebuild() string {
 func (self *SBaseGuestDriver) GetLinuxDefaultAccount() string {
 	return "root"
 }
+
+func (self *SBaseGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, guest *models.SGuest, data *jsonutils.JSONDict, task taskman.ITask) error {
+	return nil
+}
