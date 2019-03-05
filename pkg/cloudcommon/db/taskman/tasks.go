@@ -317,7 +317,6 @@ func (manager *STaskManager) execTask(taskId string, data jsonutils.JSONObject) 
 }
 
 func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject, isMulti bool) {
-	var err error
 	ctxData := task.GetRequestContext()
 	ctx := ctxData.GetContext()
 
@@ -328,9 +327,12 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		taskStatus, _ := data.GetString("__status__")
 		if len(taskStatus) > 0 && taskStatus != "OK" {
 			taskFailed = true
-			data, err = data.Get("__reason__")
-			if err != nil {
-				data = jsonutils.NewString(fmt.Sprintf("Task failed due to unknown remote errors! %s", odata))
+			if vdata, ok := data.(*jsonutils.JSONDict); ok {
+				reason, err := vdata.Get("__reason__") // only dict support Get
+				if err != nil {
+					reason = jsonutils.NewString(fmt.Sprintf("Task failed due to unknown remote errors! %s", odata))
+					vdata.Set("__reason__", reason)
+				}
 			}
 		}
 	} else {

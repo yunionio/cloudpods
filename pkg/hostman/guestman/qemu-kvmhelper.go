@@ -404,10 +404,10 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	cmd += fmt.Sprintf(" -machine %s,accel=%s", s.getMachine(), accel)
 	cmd += " -k en-us"
 	// #cmd += " -g 800x600"
-	cmd += fmt.Sprintf(" -smp %d", cpu)
+	cmd += fmt.Sprintf(" -smp %d,maxcpus=128", cpu)
 	cmd += fmt.Sprintf(" -name %s", name)
 	// #cmd += fmt.Sprintf(" -uuid %s", self.desc["uuid"])
-	cmd += fmt.Sprintf(" -m %d", mem)
+	cmd += fmt.Sprintf(" -m %dM,slots=4,maxmem=262144M", mem)
 
 	if options.HostOptions.HugepagesOption == "native" {
 		cmd += fmt.Sprintf(" -mem-prealloc -mem-path %s", fmt.Sprintf("/dev/hugepages/%s", uuid))

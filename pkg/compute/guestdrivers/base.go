@@ -235,3 +235,7 @@ func (self *SBaseGuestDriver) IsSupportEip() bool {
 func (self *SBaseGuestDriver) NeedStopForChangeSpec() bool {
 	return true
 }
+
+func (self *SBaseGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, guest *models.SGuest, data *jsonutils.JSONDict, task taskman.ITask) error {
+	return nil
+}

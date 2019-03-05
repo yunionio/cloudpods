@@ -28,6 +28,8 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -1582,6 +1584,10 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInvalidStatusError("Not allow to change config")
 	}
 
+	if len(self.BackupHostId) > 0 {
+		return nil, httperrors.NewBadRequestError("Guest have backup not allow to change config")
+	}
+
 	changeStatus, err := self.GetDriver().GetChangeConfigStatus()
 	if err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
@@ -1749,6 +1755,20 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if self.Status != VM_RUNNING && jsonutils.QueryBoolean(data, "auto_start", false) {
 		confs.Add(jsonutils.NewBool(true), "auto_start")
 	}
+	if self.Status == VM_RUNNING {
+		confs.Set("guest_online", jsonutils.JSONTrue)
+	}
+
+	// schedulr forecast
+	schedDesc := self.confToSchedDesc(addCpu, addMem, addDisk)
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	canChangeConf, err := modules.SchedManager.DoScheduleForecast(s, schedDesc, 1)
+	if err != nil {
+		return nil, err
+	}
+	if !canChangeConf {
+		return nil, httperrors.NewBadRequestError("Host resource is not enough")
+	}
 
 	log.Debugf("%s", confs.String())
 
@@ -1778,6 +1798,20 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 	self.StartChangeConfigTask(ctx, userCred, confs, "", pendingUsage)
 	return nil, nil
+}
+
+func (self *SGuest) confToSchedDesc(addCpu, addMem, addDisk int) *jsonutils.JSONDict {
+	desc := jsonutils.NewDict()
+	desc.Set("vmem_size", jsonutils.NewInt(int64(addMem)))
+	desc.Set("vcpu_count", jsonutils.NewInt(int64(addCpu)))
+	guestDisks := self.GetDisks()
+	diskInfo := guestDisks[0].ToDiskInfo()
+	diskInfo.Size = int64(addDisk)
+	desc.Set("disk.0", jsonutils.Marshal(diskInfo))
+	desc.Set("prefer_host_id", jsonutils.NewString(self.HostId))
+	desc.Set("hypervisor", jsonutils.NewString(self.GetHypervisor()))
+	desc.Set("owner_tenant_id", jsonutils.NewString(self.ProjectId))
+	return desc
 }
 
 func (self *SGuest) StartChangeConfigTask(ctx context.Context, userCred mcclient.TokenCredential,
