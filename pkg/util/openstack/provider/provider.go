@@ -171,3 +171,7 @@ func (self *SOpenStackProvider) GetIRegionById(extId string) (cloudprovider.IClo
 func (self *SOpenStackProvider) GetBalance() (float64, error) {
 	return 0.0, nil
 }
+
+func (self *SOpenStackProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return self.client.GetIProjects()
+}

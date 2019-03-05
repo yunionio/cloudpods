@@ -6,114 +6,39 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
-	type SchedulerTestOptions struct {
-		Mem                 int64    `help:"Memory size (MB), default 512" metavar:"MEMORY" default:"512"`
-		Ncpu                int64    `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>"`
-		Disk                []string `help:"Disk descriptions" nargs:"+"`
-		BaremetalDiskConfig []string `help:"Baremetal disk layout configuration"`
-		Net                 []string `help:"Network descriptions" metavar:"NETWORK"`
-		IsolatedDevice      []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
-		Group               []string `help:"Group of virtual server"`
-		SchedTag            []string `help:"Schedule policy, key = SchedTag name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
-		Zone                string   `help:"Preferred zone where virtual server should be created"`
-		Host                string   `help:"Preferred host where virtual server should be created"`
-		Project             string   `help:"Owner project ID or Name"`
-		Hypervisor          string   `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun"`
-		Count               int64    `help:"Create multiple simultaneously, default 1" default:"1"`
-		Log                 bool     `help:"Record to schedule history"`
-		SuggestionLimit     int64    `help:"Number of schedule candidate informations" default:"50"`
-		SuggestionAll       bool     `help:"Show all schedule candidate informations"`
-		Details             bool     `help:"Show suggestion details"`
-	}
-	R(&SchedulerTestOptions{}, "scheduler-test", "Emulate schedule process",
-		func(s *mcclient.ClientSession, args *SchedulerTestOptions) error {
-			params := jsonutils.NewDict()
-			data := jsonutils.NewDict()
-			params.Add(jsonutils.JSONTrue, "suggestion")
-			if args.Mem > 0 {
-				data.Add(jsonutils.NewInt(args.Mem), "vmem_size")
-			}
-			if args.Ncpu > 0 {
-				data.Add(jsonutils.NewInt(args.Ncpu), "vcpu_count")
-			}
-			for i, d := range args.Disk {
-				data.Add(jsonutils.NewString(d), fmt.Sprintf("disk.%d", i))
-			}
-			for i, n := range args.Net {
-				data.Add(jsonutils.NewString(n), fmt.Sprintf("net.%d", i))
-			}
-			for i, g := range args.IsolatedDevice {
-				data.Add(jsonutils.NewString(g), fmt.Sprintf("isolated_device.%d", i))
-			}
-			if len(args.Group) > 0 {
-				for i, g := range args.Group {
-					data.Add(jsonutils.NewString(g), fmt.Sprintf("group.%d", i))
-				}
-			}
-			if len(args.Host) > 0 {
-				data.Add(jsonutils.NewString(args.Host), "prefer_host")
-			} else {
-				if len(args.Zone) > 0 {
-					data.Add(jsonutils.NewString(args.Zone), "prefer_zone")
-				}
-				if len(args.SchedTag) > 0 {
-					for i, aggr := range args.SchedTag {
-						data.Add(jsonutils.NewString(aggr), fmt.Sprintf("aggregate.%d", i))
-					}
-				}
-			}
-			if len(args.Project) > 0 {
-				ret, err := modules.Projects.Get(s, args.Project, nil)
-				if err != nil {
-					return err
-				}
-				projectId, err := ret.GetString("id")
-				if err != nil {
-					return err
-				}
-				data.Add(jsonutils.NewString(projectId), "owner_tenant_id")
-			}
-			if len(args.Hypervisor) > 0 {
-				data.Add(jsonutils.NewString(args.Hypervisor), "hypervisor")
-				if args.Hypervisor == "baremetal" {
-					for i, c := range args.BaremetalDiskConfig {
-						params.Add(jsonutils.NewString(c), fmt.Sprintf("baremetal_disk_config.%d", i))
-					}
-				}
-			}
-			params.Add(jsonutils.NewInt(args.Count), "count")
-			if args.Log {
-				params.Add(jsonutils.JSONTrue, "record_to_history")
-			} else {
-				params.Add(jsonutils.JSONFalse, "record_to_history")
-			}
-			params.Add(jsonutils.NewInt(args.SuggestionLimit), "suggestion_limit")
-			if args.SuggestionAll {
-				params.Add(jsonutils.JSONTrue, "suggestion_all")
-			} else {
-				params.Add(jsonutils.JSONFalse, "suggestion_all")
-			}
-
-			if args.Details {
-				params.Add(jsonutils.JSONTrue, "suggestion_details")
-			} else {
-				params.Add(jsonutils.JSONFalse, "suggestion_details")
-			}
-			params.Add(data, "scheduler")
-			result, err := modules.SchedManager.Test(s, params)
+	R(&options.SchedulerTestOptions{}, "scheduler-test", "Emulate schedule process",
+		func(s *mcclient.ClientSession, args *options.SchedulerTestOptions) error {
+			params, err := args.Params(s)
 			if err != nil {
 				return err
 			}
-
 			listFields := []string{"id", "name", "capacity", "count", "score"}
 			if args.Details {
 				listFields = append(listFields, "capacity_details", "score_details")
 			}
-
+			result, err := modules.SchedManager.Test(s, params)
+			if err != nil {
+				return err
+			}
 			printList(modules.JSON2ListResult(result), listFields)
+			return nil
+		})
+
+	R(&options.SchedulerForecastOptions{}, "scheduler-forecast", "Forecat scheduler result",
+		func(s *mcclient.ClientSession, args *options.SchedulerForecastOptions) error {
+			params, err := args.Params(s)
+			if err != nil {
+				return err
+			}
+			result, err := modules.SchedManager.DoForecast(s, params)
+			if err != nil {
+				return err
+			}
+			fmt.Println(result.YAMLString())
 			return nil
 		})
 

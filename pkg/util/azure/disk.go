@@ -341,3 +341,7 @@ func (self *SDisk) Rebuild(ctx context.Context) error {
 	// TODO
 	return cloudprovider.ErrNotSupported
 }
+
+func (self *SDisk) GetProjectId() string {
+	return getResourceGroup(self.ID)
+}

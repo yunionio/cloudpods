@@ -43,6 +43,10 @@ type SImage struct {
 	IsSupportCloudinit bool            //	镜像是否支持cloud-init
 }
 
+func (self *SImage) GetMinRamSizeMb() int {
+	return 0
+}
+
 func (self *SRegion) GetImages(status string, owner string, imageIds []string, name string, offset int, limit int) ([]SImage, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50

@@ -43,6 +43,7 @@ type ICloudProvider interface {
 	GetVersion() string
 
 	GetIRegions() []ICloudRegion
+	GetIProjects() ([]ICloudProject, error)
 	GetIRegionById(id string) (ICloudRegion, error)
 
 	GetOnPremiseIRegion() (ICloudRegion, error)

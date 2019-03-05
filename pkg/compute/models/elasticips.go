@@ -326,9 +326,19 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 		self.ExternalId = ext.GetGlobalId()
 		// self.ManagerId = ext.GetManagerId()
 		self.IsEmulated = ext.IsEmulated()
-		self.ProjectId = userCred.GetProjectId()
-		if projectSync && len(projectId) > 0 {
-			self.ProjectId = projectId
+		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
+			self.ProjectSrc = db.PROJECT_SOURCE_CLOUD
+			if len(projectId) > 0 {
+				self.ProjectId = projectId
+			}
+			if extProjectId := ext.GetProjectId(); len(extProjectId) > 0 {
+				extProject, err := ExternalProjectManager.GetProject(extProjectId, self.ManagerId)
+				if err != nil {
+					log.Errorf(err.Error())
+				} else {
+					self.ProjectId = extProject.ProjectId
+				}
+			}
 		}
 		self.ChargeType = ext.GetInternetChargeType()
 
@@ -362,7 +372,17 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip.CloudregionId = region.Id
 	eip.ChargeType = extEip.GetInternetChargeType()
 
+	eip.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	eip.ProjectId = projectId
+
+	if extProjectId := extEip.GetProjectId(); len(extProjectId) > 0 {
+		externalProject, err := ExternalProjectManager.GetProject(extProjectId, eip.ManagerId)
+		if err != nil {
+			log.Errorf(err.Error())
+		} else {
+			eip.ProjectId = externalProject.ProjectId
+		}
+	}
 
 	err := manager.TableSpec().Insert(&eip)
 	if err != nil {

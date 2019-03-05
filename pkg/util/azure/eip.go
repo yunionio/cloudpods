@@ -242,3 +242,7 @@ func (self *SEipAddress) GetBillingType() string {
 func (self *SEipAddress) GetExpiredAt() time.Time {
 	return time.Time{}
 }
+
+func (self *SEipAddress) GetProjectId() string {
+	return getResourceGroup(self.ID)
+}

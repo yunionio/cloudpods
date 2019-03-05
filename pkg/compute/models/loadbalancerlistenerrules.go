@@ -365,11 +365,13 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 
 	lbr.ExternalId = extRule.GetGlobalId()
 	lbr.ListenerId = listener.Id
+	lbr.ManagerId = listener.ManagerId
 
 	lbr.Name = db.GenerateName(man, projectId, extRule.GetName())
 	lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
 
-	lbr.ProjectId = projectId
+	lbr.ProjectSrc = listener.ProjectSrc
+	lbr.ProjectId = listener.ProjectId
 
 	return lbr, man.TableSpec().Insert(lbr)
 }
@@ -388,12 +390,12 @@ func (lbr *SLoadbalancerListenerRule) syncRemoveCloudLoadbalancerListenerRule(ct
 }
 
 func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, extRule cloudprovider.ICloudLoadbalancerListenerRule, projectId string, projectSync bool) error {
+	listener := lbr.GetLoadbalancerListener()
 	diff, err := db.UpdateWithLock(ctx, lbr, func() error {
 		lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
-
-		if projectSync && len(projectId) > 0 {
-			lbr.ProjectId = projectId
-		}
+		lbr.ManagerId = listener.ManagerId
+		lbr.ProjectSrc = listener.ProjectSrc
+		lbr.ProjectId = listener.ProjectId
 		return nil
 	})
 	if err != nil {

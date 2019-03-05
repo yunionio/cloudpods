@@ -30,3 +30,31 @@ func (self *SRegion) CreateResourceGroup(groupName string) (*SResourceGroup, err
 	resourceGroup := SResourceGroup{Name: groupName, Location: self.Name}
 	return &resourceGroup, self.client.Create(jsonutils.Marshal(resourceGroup), &resourceGroup)
 }
+
+func (r *SResourceGroup) GetName() string {
+	return r.Name
+}
+
+func (r *SResourceGroup) GetId() string {
+	return r.ID
+}
+
+func (r *SResourceGroup) GetGlobalId() string {
+	return r.ID
+}
+
+func (r *SResourceGroup) GetStatus() string {
+	return ""
+}
+
+func (r *SResourceGroup) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
+func (r *SResourceGroup) IsEmulated() bool {
+	return false
+}
+
+func (r *SResourceGroup) Refresh() error {
+	return nil
+}

@@ -1869,8 +1869,19 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.VmemSize = extVM.GetVmemSizeMB()
 		}
 
-		if projectSync && len(projectId) > 0 {
-			self.ProjectId = projectId
+		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
+			self.ProjectSrc = db.PROJECT_SOURCE_CLOUD
+			if len(projectId) > 0 {
+				self.ProjectId = projectId
+			}
+			if extProjectId := extVM.GetProjectId(); len(extProjectId) > 0 {
+				extProject, err := ExternalProjectManager.GetProject(extProjectId, host.ManagerId)
+				if err != nil {
+					log.Errorf(err.Error())
+				} else {
+					self.ProjectId = extProject.ProjectId
+				}
+			}
 		}
 
 		self.Hypervisor = extVM.GetHypervisor()
@@ -1978,7 +1989,16 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		guest.VmemSize = extVM.GetVmemSizeMB()
 	}
 
+	guest.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	guest.ProjectId = projectId
+	if extProjectId := extVM.GetProjectId(); len(extProjectId) > 0 {
+		externalProject, err := ExternalProjectManager.GetProject(extProjectId, host.ManagerId)
+		if err != nil {
+			log.Errorf(err.Error())
+		} else {
+			guest.ProjectId = externalProject.ProjectId
+		}
+	}
 
 	extraSecgroups := []*SSecurityGroup{}
 	if metaData != nil && metaData.Contains("secgroupIds") {

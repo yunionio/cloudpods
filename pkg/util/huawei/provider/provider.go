@@ -132,3 +132,7 @@ func (self *SHuaweiProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 func (self *SHuaweiProvider) GetCloudRegionExternalIdPrefix() string {
 	return self.client.GetCloudRegionExternalIdPrefix()
 }
+
+func (self *SHuaweiProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return self.client.GetIProjects()
+}

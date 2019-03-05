@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"fmt"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -238,4 +239,8 @@ func (vsw *SVSwitch) dissociateWithSNAT() error {
 		}
 	}
 	return nil
+}
+
+func (self *SVSwitch) GetProjectId() string {
+	return ""
 }

@@ -223,3 +223,7 @@ func (disk *SClassicDisk) GetAccessPath() string {
 func (self *SClassicDisk) Rebuild(ctx context.Context) error {
 	return cloudprovider.ErrNotSupported
 }
+
+func (self *SClassicDisk) GetProjectId() string {
+	return ""
+}

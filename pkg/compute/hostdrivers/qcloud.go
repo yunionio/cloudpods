@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -20,6 +21,10 @@ func init() {
 
 func (self *SQcloudHostDriver) GetHostType() string {
 	return models.HOST_TYPE_QCLOUD
+}
+
+func (self *SQcloudHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
+	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }
 
 func (self *SQcloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {

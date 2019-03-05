@@ -138,3 +138,7 @@ func (acl *SLoadbalancerAcl) Sync(_acl *cloudprovider.SLoadbalancerAccessControl
 	}
 	return nil
 }
+
+func (acl *SLoadbalancerAcl) GetProjectId() string {
+	return ""
+}

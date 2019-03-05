@@ -1043,3 +1043,7 @@ func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, 
 func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 	return cloudprovider.ErrNotSupported
 }
+
+func (self *SInstance) GetProjectId() string {
+	return getResourceGroup(self.ID)
+}

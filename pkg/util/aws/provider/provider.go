@@ -128,3 +128,7 @@ func (self *SAwsProvider) GetBalance() (float64, error) {
 	}
 	return balance.AvailableAmount, nil
 }
+
+func (self *SAwsProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return self.client.GetIProjects()
+}

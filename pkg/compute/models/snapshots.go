@@ -550,8 +550,19 @@ func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mccli
 		// self.Name = ext.GetName()
 		self.Status = ext.GetStatus()
 		self.DiskType = ext.GetDiskType()
-		if projectSync && len(projectId) > 0 {
-			self.ProjectId = projectId
+		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
+			self.ProjectSrc = db.PROJECT_SOURCE_CLOUD
+			if len(projectId) > 0 {
+				self.ProjectId = projectId
+			}
+			if extProjectId := ext.GetProjectId(); len(extProjectId) > 0 {
+				extProject, err := ExternalProjectManager.GetProject(extProjectId, self.ManagerId)
+				if err != nil {
+					log.Errorf(err.Error())
+				} else {
+					self.ProjectId = extProject.ProjectId
+				}
+			}
 		}
 		self.CloudregionId = region.Id
 		return nil
@@ -585,7 +596,17 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	snapshot.ManagerId = provider.Id
 	snapshot.CloudregionId = region.Id
 
+	snapshot.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	snapshot.ProjectId = projectId
+
+	if extProjectId := extSnapshot.GetProjectId(); len(extProjectId) > 0 {
+		externalProject, err := ExternalProjectManager.GetProject(extProjectId, snapshot.ManagerId)
+		if err != nil {
+			log.Errorf(err.Error())
+		} else {
+			snapshot.ProjectId = externalProject.ProjectId
+		}
+	}
 
 	err := manager.TableSpec().Insert(&snapshot)
 	if err != nil {

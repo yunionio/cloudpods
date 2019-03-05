@@ -102,3 +102,7 @@ func (region *SRegion) RemoveBackendServer(loadbalancerId, serverId string) erro
 func (backendgroup *SLoadbalancerDefaultBackendGroup) RemoveBackendServer(serverId string, weight, port int) error {
 	return backendgroup.lb.region.RemoveBackendServer(backendgroup.lb.LoadBalancerId, serverId)
 }
+
+func (backendgroup *SLoadbalancerDefaultBackendGroup) GetProjectId() string {
+	return ""
+}

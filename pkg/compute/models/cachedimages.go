@@ -175,7 +175,7 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 
 	name = db.GenerateName(manager, "", name)
 
-	err := manager.Query().Equals("id", imgId).First(&imageCache)
+	err := manager.RawQuery().Equals("id", imgId).First(&imageCache)
 	if err != nil {
 		if err == sql.ErrNoRows { // insert
 			imageCache.Id = imgId
@@ -200,6 +200,12 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 			imageCache.Size = size
 			imageCache.Info = info
 			imageCache.LastSync = timeutils.UtcNow()
+			if imageCache.Deleted == true {
+				imageCache.Deleted = false
+				imageCache.DeletedAt = time.Time{}
+				imageCache.RefCount = 0
+				imageCache.UpdateVersion = 0
+			}
 			return nil
 		})
 		if err != nil {

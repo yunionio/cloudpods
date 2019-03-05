@@ -125,3 +125,7 @@ func (self *SAliyunProvider) GetBalance() (float64, error) {
 	}
 	return balance.AvailableAmount, nil
 }
+
+func (self *SAliyunProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return self.client.GetIProjects()
+}

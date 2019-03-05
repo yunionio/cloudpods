@@ -92,6 +92,28 @@ func syncRegionSkus(localRegion *SCloudregion) {
 	}
 }
 
+func syncProjects(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, driver cloudprovider.ICloudProvider, provider *SCloudprovider) {
+	projects, err := driver.GetIProjects()
+	if err != nil {
+		msg := fmt.Sprintf("GetIProjects for provider %s failed %s", provider.GetName(), err)
+		log.Errorf(msg)
+		// logSyncFailed(provider, task, msg)
+		return
+	}
+
+	result := ExternalProjectManager.SyncProjects(ctx, userCred, provider, projects)
+
+	syncResults.Add(ExternalProjectManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncProjects for provider %s result: %s", provider.Name, msg)
+	if result.IsError() {
+		// logSyncFailed(provider, task, msg)
+		return
+	}
+	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_PROJECT_COMPLETE, msg, task.UserCred)
+}
+
 func syncRegionEips(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
 	eips, err := remoteRegion.GetIEips()
 	if err != nil {
@@ -709,6 +731,8 @@ func syncPublicCloudProviderInfo(
 		provider.Name, provider.Provider, remoteRegion.GetName(), remoteRegion.GetId())
 
 	storageCachePairs := make([]sStoragecacheSyncPair, 0)
+
+	syncProjects(ctx, userCred, syncResults, driver, provider)
 
 	localZones, remoteZones, _ := syncRegionZones(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 

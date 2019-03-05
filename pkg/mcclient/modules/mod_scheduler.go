@@ -74,6 +74,15 @@ func (this *SchedulerManager) Test(s *mcclient.ClientSession, params jsonutils.J
 	return obj, err
 }
 
+func (this *SchedulerManager) DoForecast(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	url := newSchedURL("forecast")
+	_, obj, err := this.jsonRequest(s, "POST", url, nil, params)
+	if err != nil {
+		return nil, err
+	}
+	return obj, err
+}
+
 func (this *SchedulerManager) Cleanup(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	url := newSchedURL("cleanup")
 	return this._post(s, url, params, "")

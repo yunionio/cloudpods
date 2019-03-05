@@ -131,6 +131,8 @@ const (
 	ACT_SYNC_HOST_COMPLETE = "sync_host_end"
 	ACT_SYNC_HOST_FAILED   = "sync_host_fail"
 
+	ACT_SYNC_PROJECT_COMPLETE = "sync_project_end"
+
 	ACT_SYNC_LB_START    = "sync_lb_start"
 	ACT_SYNCING_LB       = "syncing_lb"
 	ACT_SYNC_LB_COMPLETE = "sync_lb_end"
@@ -142,9 +144,10 @@ const (
 	ACT_UNCACHE_IMAGE_FAIL = "uncache_image_fail"
 	ACT_UNCACHED_IMAGE     = "uncached_image"
 
-	ACT_SYNC_CLOUD_DISK   = "sync_cloud_disk"
-	ACT_SYNC_CLOUD_SERVER = "sync_cloud_server"
-	ACT_SYNC_CLOUD_EIP    = "sync_cloud_eip"
+	ACT_SYNC_CLOUD_DISK    = "sync_cloud_disk"
+	ACT_SYNC_CLOUD_SERVER  = "sync_cloud_server"
+	ACT_SYNC_CLOUD_EIP     = "sync_cloud_eip"
+	ACT_SYNC_CLOUD_PROJECT = "sync_cloud_project"
 
 	ACT_PENDING_DELETE = "pending_delete"
 	ACT_CANCEL_DELETE  = "cancel_delete"

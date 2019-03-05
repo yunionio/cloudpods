@@ -91,7 +91,7 @@ func (self *SQcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 }
 
 func (self *SQcloudProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := qcloud.NewQcloudClient(providerId, providerName, account, secret)
+	client, err := qcloud.NewQcloudClient(providerId, providerName, account, secret, false)
 	if err != nil {
 		return nil, err
 	}
@@ -141,4 +141,8 @@ func (self *SQcloudProvider) GetBalance() (float64, error) {
 		return 0.0, err
 	}
 	return balance.AvailableAmount, nil
+}
+
+func (self *SQcloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return self.client.GetIProjects()
 }

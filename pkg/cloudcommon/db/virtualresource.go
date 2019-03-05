@@ -17,6 +17,11 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
+const (
+	PROJECT_SOURCE_LOCAL = "local"
+	PROJECT_SOURCE_CLOUD = "cloud"
+)
+
 type SVirtualResourceBaseManager struct {
 	SStatusStandaloneResourceBaseManager
 }
@@ -29,7 +34,8 @@ func NewVirtualResourceBaseManager(dt interface{}, tableName string, keyword str
 type SVirtualResourceBase struct {
 	SStatusStandaloneResourceBase
 
-	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"false" index:"true" list:"user"`
+	ProjectId  string `name:"tenant_id" width:"128" charset:"ascii" nullable:"false" index:"true" list:"user"`
+	ProjectSrc string `width:"10" charset:"ascii" nullable:"false" list:"user" default:""`
 
 	IsSystem bool `nullable:"true" default:"false" list:"admin" create:"optional"`
 
@@ -215,6 +221,10 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	}
 	if tobj.GetId() == model.ProjectId {
 		// do nothing
+		Update(model, func() error {
+			model.ProjectSrc = PROJECT_SOURCE_LOCAL
+			return nil
+		})
 		return nil, nil
 	}
 	q := model.GetModelManager().Query().Equals("name", model.GetName())
@@ -231,6 +241,7 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	}
 	diff, err := Update(model, func() error {
 		model.ProjectId = tobj.GetId()
+		model.ProjectSrc = PROJECT_SOURCE_LOCAL
 		return nil
 	})
 	if err != nil {

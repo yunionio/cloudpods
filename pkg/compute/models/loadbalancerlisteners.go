@@ -732,6 +732,7 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 }
 
 func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener) {
+	lblis.ManagerId = lb.ManagerId
 	// lblis.Name = extListener.GetName()
 	lblis.ListenerType = extListener.GetListenerType()
 	lblis.ListenerPort = extListener.GetListenerPort()
@@ -806,8 +807,19 @@ func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx cont
 func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string, projectSync bool) error {
 	diff, err := db.UpdateWithLock(ctx, lblis, func() error {
 		lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
-		if projectSync && len(projectId) > 0 {
-			lblis.ProjectId = projectId
+		if projectSync && lblis.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
+			lblis.ProjectSrc = db.PROJECT_SOURCE_CLOUD
+			if len(projectId) > 0 {
+				lblis.ProjectId = projectId
+			}
+			if extProjectId := extListener.GetProjectId(); len(extProjectId) > 0 {
+				extProject, err := ExternalProjectManager.GetProject(extProjectId, lblis.ManagerId)
+				if err != nil {
+					log.Errorf(err.Error())
+				} else {
+					lblis.ProjectId = extProject.ProjectId
+				}
+			}
 		}
 		return nil
 	})
@@ -831,7 +843,17 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 
 	lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
 
+	lblis.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	lblis.ProjectId = projectId
+
+	if extProjectId := extListener.GetProjectId(); len(extProjectId) > 0 {
+		externalProject, err := ExternalProjectManager.GetProject(extProjectId, lblis.ManagerId)
+		if err != nil {
+			log.Errorf(err.Error())
+		} else {
+			lblis.ProjectId = externalProject.ProjectId
+		}
+	}
 
 	err := man.TableSpec().Insert(lblis)
 	if err != nil {

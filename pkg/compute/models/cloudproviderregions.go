@@ -294,8 +294,9 @@ func (cpr *SCloudproviderregion) needSync() bool {
 		isEmpty = cpr.isEmptyPublicCloud()
 	}
 	if isEmpty {
-		intval = intval * 8 // no need to check empty region
-		log.Debugf("empty region %s! no need to check so frequently")
+		intval = intval * 16 // no need to check empty region
+		region := cpr.GetRegion()
+		log.Debugf("empty region %s! no need to check so frequently", region.GetName())
 	}
 	if time.Now().Sub(cpr.LastSyncEndAt) > time.Duration(intval)*time.Second {
 		return true

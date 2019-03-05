@@ -23,6 +23,16 @@ var (
 	ErrUnsupportedFormat = errors.New("unsupported format")
 )
 
+type TIONiceLevel int
+
+const (
+	// The scheduling class. 0 for none, 1 for real time, 2 for best-effort, 3 for idle.
+	IONiceNone       = TIONiceLevel(0)
+	IONiceRealTime   = TIONiceLevel(1)
+	IONiceBestEffort = TIONiceLevel(2)
+	IONiceIdle       = TIONiceLevel(3)
+)
+
 type SQemuImage struct {
 	Path            string
 	Password        string
@@ -34,14 +44,23 @@ type SQemuImage struct {
 	Compat          string
 	Encryption      bool
 	Subformat       string
+	IoLevel         TIONiceLevel
 }
 
 func NewQemuImage(path string) (*SQemuImage, error) {
 	return NewEncryptedQemuImage(path, "")
 }
 
+func NewQemuImageWithIOLevel(path string, ioLevel TIONiceLevel) (*SQemuImage, error) {
+	return NewEncryptedQemuImageWithIOLevel(path, "", IONiceNone)
+}
+
 func NewEncryptedQemuImage(path string, password string) (*SQemuImage, error) {
-	qemuImg := SQemuImage{Path: path, Password: password}
+	return NewEncryptedQemuImageWithIOLevel(path, password, IONiceNone)
+}
+
+func NewEncryptedQemuImageWithIOLevel(path string, password string, ioLevel TIONiceLevel) (*SQemuImage, error) {
+	qemuImg := SQemuImage{Path: path, Password: password, IoLevel: ioLevel}
 	err := qemuImg.parse()
 	if err != nil {
 		return nil, err
@@ -132,7 +151,7 @@ func (img *SQemuImage) parse() error {
 			}
 		}
 	}
-	if img.Format == RAW {
+	if img.Format == RAW && fileutils2.IsFile(img.Path) {
 		// test if it is an ISO
 		blkType := fileutils2.GetBlkidType(img.Path)
 		if utils.IsInStringArray(blkType, []string{"iso9660", "udf"}) {
@@ -154,7 +173,8 @@ func (img *SQemuImage) doConvert(name string, format TImageFormat, options []str
 	if !img.IsValid() {
 		return fmt.Errorf("self is not valid")
 	}
-	cmdline := []string{"convert"}
+	cmdline := []string{"-c", strconv.Itoa(int(img.IoLevel)),
+		qemutils.GetQemuImg(), "convert"}
 	if compact {
 		cmdline = append(cmdline, "-c")
 	}
@@ -170,7 +190,7 @@ func (img *SQemuImage) doConvert(name string, format TImageFormat, options []str
 	}
 	cmdline = append(cmdline, img.Path, name)
 	log.Infof("XXXX qemu-img command: %s", cmdline)
-	cmd := exec.Command(qemutils.GetQemuImg(), cmdline...)
+	cmd := exec.Command("ionice", cmdline...)
 	if len(img.Password) > 0 || len(password) > 0 {
 		input := ""
 		if len(img.Password) > 0 {
@@ -358,7 +378,8 @@ func (img *SQemuImage) create(sizeMB int, format TImageFormat, options []string)
 	if img.IsValid() {
 		return fmt.Errorf("create: the image is valid??? %s", img.Format)
 	}
-	args := []string{"create", "-f", format.String()}
+	args := []string{"-c", strconv.Itoa(int(img.IoLevel)),
+		qemutils.GetQemuImg(), "create", "-f", format.String()}
 	if len(options) > 0 {
 		args = append(args, "-o", strings.Join(options, ","))
 	}
@@ -366,8 +387,7 @@ func (img *SQemuImage) create(sizeMB int, format TImageFormat, options []string)
 	if sizeMB > 0 {
 		args = append(args, fmt.Sprintf("%dM", sizeMB))
 	}
-	log.Debugf("%s %s", qemutils.GetQemuImg(), args)
-	cmd := exec.Command(qemutils.GetQemuImg(), args...)
+	cmd := exec.Command("ionice", args...)
 	err := cmd.Run()
 	if err != nil {
 		log.Errorf("create error %s", err)
@@ -414,7 +434,8 @@ func (img *SQemuImage) Resize(sizeMB int) error {
 	if !img.IsValid() {
 		return fmt.Errorf("self is not valid")
 	}
-	cmd := exec.Command(qemutils.GetQemuImg(), "resize", img.Path, fmt.Sprintf("%dM", sizeMB))
+	cmd := exec.Command("ionice", "-c", strconv.Itoa(int(img.IoLevel)),
+		qemutils.GetQemuImg(), "resize", img.Path, fmt.Sprintf("%dM", sizeMB))
 	err := cmd.Run()
 	if err != nil {
 		log.Errorf("resize fail %s", err)
@@ -427,12 +448,13 @@ func (img *SQemuImage) Rebase(backPath string, force bool) error {
 	if !img.IsValid() {
 		return fmt.Errorf("self is not valid")
 	}
-	args := []string{"rebase"}
+	args := []string{"-c", strconv.Itoa(int(img.IoLevel)),
+		qemutils.GetQemuImg(), "rebase"}
 	if force {
 		args = append(args, "-u")
 	}
 	args = append(args, "-b", backPath, img.Path)
-	cmd := exec.Command(qemutils.GetQemuImg(), args...)
+	cmd := exec.Command("ionice", args...)
 	err := cmd.Run()
 	if err != nil {
 		log.Errorf("rebase fail %s", err)

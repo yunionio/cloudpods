@@ -1024,6 +1024,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 	}
 	extDisk.Refresh()
 
+	storage := self.GetStorage()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extDisk.GetName()
 		self.Status = extDisk.GetStatus()
@@ -1048,9 +1049,19 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 			self.ExpiredAt = extDisk.GetExpiredAt()
 		}
 
-		// self.ProjectId = userCred.GetProjectId()
-		if projectSync && len(projectId) > 0 {
-			self.ProjectId = projectId
+		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
+			self.ProjectSrc = db.PROJECT_SOURCE_CLOUD
+			if len(projectId) > 0 {
+				self.ProjectId = projectId
+			}
+			if extProjectId := extDisk.GetProjectId(); len(extProjectId) > 0 {
+				extProject, err := ExternalProjectManager.GetProject(extProjectId, storage.ManagerId)
+				if err != nil {
+					log.Errorf(err.Error())
+				} else {
+					self.ProjectId = extProject.ProjectId
+				}
+			}
 		}
 		return nil
 	})
@@ -1073,7 +1084,16 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	disk.ExternalId = extDisk.GetGlobalId()
 	disk.StorageId = storage.Id
 
+	disk.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	disk.ProjectId = projectId
+	if extProjectId := extDisk.GetProjectId(); len(extProjectId) > 0 {
+		externalProject, err := ExternalProjectManager.GetProject(extProjectId, storage.ManagerId)
+		if err != nil {
+			log.Errorf(err.Error())
+		} else {
+			disk.ProjectId = externalProject.ProjectId
+		}
+	}
 
 	disk.DiskFormat = extDisk.GetDiskFormat()
 	disk.DiskSize = extDisk.GetDiskSizeMB()
@@ -1202,8 +1222,8 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 			diskConfig.Mountpoint = p
 		} else if p == "autoextend" {
 			diskConfig.SizeMb = -1
-		} else if utils.IsInStringArray(p, STORAGE_TYPES) {
-			diskConfig.Backend = p
+		} else if storageType, exist := StorageManager.IsStorageTypeExist(p); exist {
+			diskConfig.Backend = storageType
 		} else if strings.HasPrefix(p, "snapshot-") {
 			// HACK: use snapshot creat disk format snapshot-id
 			// example: snapshot-3140cecb-ccc4-4865-abae-3a5ba8c69d9b

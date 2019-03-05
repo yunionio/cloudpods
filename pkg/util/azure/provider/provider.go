@@ -134,3 +134,7 @@ func (self *SAzureProvider) GetBalance() (float64, error) {
 	}
 	return balance.AvailableAmount, nil
 }
+
+func (self *SAzureProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return self.client.GetIProjects()
+}

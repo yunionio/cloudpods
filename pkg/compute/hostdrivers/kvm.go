@@ -7,11 +7,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -27,6 +29,66 @@ func init() {
 
 func (self *SKVMHostDriver) GetHostType() string {
 	return models.HOST_TYPE_HYPERVISOR
+}
+
+func (self *SKVMHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
+	if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_LOCAL, models.STORAGE_RBD}) {
+		return httperrors.NewUnsupportOperationError("Unsupport attach %s storage for %s host", storage.StorageType, host.HostType)
+	}
+	if storage.StorageType == models.STORAGE_RBD {
+		if host.HostStatus != models.HOST_ONLINE {
+			return httperrors.NewInvalidStatusError("Attach rbd storage require host status is online")
+		}
+		pool, _ := storage.StorageConf.GetString("pool")
+		data.Set("mount_point", jsonutils.NewString(fmt.Sprintf("rbd:%s", pool)))
+	}
+	return nil
+}
+
+func (self *SKVMHostDriver) RequestAttachStorage(ctx context.Context, hoststorage *models.SHoststorage, host *models.SHost, storage *models.SStorage, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		if storage.StorageType == models.STORAGE_RBD {
+			log.Infof("Attach SharedStorage[%s] on host %s ...", storage.Name, host.Name)
+			url := fmt.Sprintf("%s/storages/attach", host.ManagerUri)
+			headers := mcclient.GetTokenHeaders(task.GetUserCred())
+			data := map[string]interface{}{
+				"mount_point":  hoststorage.MountPoint,
+				"name":         storage.Name,
+				"storage_id":   storage.Id,
+				"storage_conf": storage.StorageConf,
+				"storage_type": storage.StorageType,
+			}
+			if len(storage.StoragecacheId) > 0 {
+				storagecache := models.StoragecacheManager.FetchStoragecacheById(storage.StoragecacheId)
+				if storagecache != nil {
+					data["imagecache_path"] = storage.GetStorageCachePath(hoststorage.MountPoint, storagecache.Path)
+					data["storagecache_id"] = storagecache.Id
+				}
+			}
+			_, resp, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, headers, jsonutils.Marshal(data), false)
+			return resp, err
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SKVMHostDriver) RequestDetachStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		if storage.StorageType == models.STORAGE_RBD && host.HostStatus == models.HOST_ONLINE {
+			log.Infof("Detach SharedStorage[%s] on host %s ...", storage.Name, host.Name)
+			url := fmt.Sprintf("%s/storages/detach", host.ManagerUri)
+			headers := mcclient.GetTokenHeaders(task.GetUserCred())
+			body := jsonutils.NewDict()
+			mountPoint, _ := task.GetParams().GetString("mount_point")
+			body.Set("mount_point", jsonutils.NewString(mountPoint))
+			body.Set("name", jsonutils.NewString(storage.Name))
+			_, resp, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, headers, body, false)
+			return resp, err
+		}
+		return nil, nil
+	})
+	return nil
 }
 
 func (self *SKVMHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
