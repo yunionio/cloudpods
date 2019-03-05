@@ -405,6 +405,8 @@ func (self *SKVMGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, gues
 			fmt.Sprintf("Change config task failed but added cpu count %d", cpuAdded), task.GetUserCred())
 		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_VM_CHANGE_FLAVOR,
 			fmt.Sprintf("Change config task failed but added cpu count %d", cpuAdded), task.GetUserCred(), false)
+
+		models.HostManager.ClearSchedDescCache(guest.HostId)
 	}
 	return nil
 }

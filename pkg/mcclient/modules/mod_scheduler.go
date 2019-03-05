@@ -57,6 +57,21 @@ func (this *SchedulerManager) DoSchedule(s *mcclient.ClientSession, params jsonu
 	return candidates, nil
 }
 
+func (this *SchedulerManager) DoScheduleForecast(s *mcclient.ClientSession, params jsonutils.JSONObject, count int) (bool, error) {
+	body := jsonutils.NewDict()
+	body.Add(params, this.Keyword)
+	if count <= 0 {
+		count = 1
+	}
+	body.Add(jsonutils.NewInt(int64(count)), "count")
+	res, err := this.DoForecast(s, body)
+	if err != nil {
+		return false, err
+	}
+	canCreate := jsonutils.QueryBoolean(res, "can_create", false)
+	return canCreate, nil
+}
+
 func newSchedURL(action string) string {
 	return fmt.Sprintf("/scheduler/%s", action)
 }
