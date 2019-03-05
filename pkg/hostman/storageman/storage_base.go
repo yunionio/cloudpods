@@ -18,11 +18,15 @@ var (
 
 type IStorage interface {
 	GetId() string
+	GetStorageName() string
 	GetZone() string
 
 	SetStorageInfo(storageId, storageName string, conf jsonutils.JSONObject)
 	SyncStorageInfo() (jsonutils.JSONObject, error)
 	StorageType() string
+	GetStorageConf() *jsonutils.JSONDict
+	GetStoragecacheId() string
+	SetStoragecacheId(storagecacheId string)
 
 	SetPath(string)
 	GetPath() string
@@ -78,6 +82,18 @@ func (s *SBaseStorage) GetId() string {
 	return s.StorageId
 }
 
+func (s *SBaseStorage) GetStorageName() string {
+	return s.StorageName
+}
+
+func (s *SBaseStorage) GetStoragecacheId() string {
+	return s.StoragecacheId
+}
+
+func (s *SBaseStorage) SetStoragecacheId(storagecacheId string) {
+	s.StoragecacheId = storagecacheId
+}
+
 func (s *SBaseStorage) GetName(generateName func() string) string {
 	if len(s.StorageName) > 0 {
 		return s.StorageName
@@ -100,6 +116,10 @@ func (s *SBaseStorage) GetZone() string {
 
 func (s *SBaseStorage) GetCapacity() int {
 	return s.GetAvailSizeMb()
+}
+
+func (s *SBaseStorage) GetStorageConf() *jsonutils.JSONDict {
+	return s.StorageConf
 }
 
 func (s *SBaseStorage) GetAvailSizeMb() int {

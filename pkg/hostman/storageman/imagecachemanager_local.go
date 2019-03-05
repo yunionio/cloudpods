@@ -14,40 +14,6 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 )
 
-type IImageCacheManger interface {
-	GetId() string
-	GetPath() string
-	SetStoragecacheId(string)
-
-	// for diskhandler
-	PrefetchImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
-	DeleteImageCache(ctx context.Context, data interface{}) (jsonutils.JSONObject, error)
-
-	AcquireImage(ctx context.Context, imageId, zone, srcUrl, format string) IImageCache
-	ReleaseImage(imageId string)
-	LoadImageCache(imageId string)
-}
-
-type SBaseImageCacheManager struct {
-	storagemanager  *SStorageManager
-	storagecacaheId string
-	cachePath       string
-	cachedImages    map[string]IImageCache
-	mutex           *sync.Mutex
-}
-
-func (c *SBaseImageCacheManager) GetPath() string {
-	return c.cachePath
-}
-
-func (c *SBaseImageCacheManager) GetId() string {
-	return c.storagecacaheId
-}
-
-func (c *SBaseImageCacheManager) SetStoragecacheId(scid string) {
-	c.storagecacaheId = scid
-}
-
 type SLocalImageCacheManager struct {
 	SBaseImageCacheManager
 	limit      int
@@ -183,21 +149,3 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 }
 
 // TODO: AgentImageCacheManager
-type SAgentImageCacheManager struct {
-	storagemanager *SStorageManager
-}
-
-func NewAgentImageCacheManager(storagemanager *SStorageManager) *SAgentImageCacheManager {
-	return &SAgentImageCacheManager{storagemanager}
-}
-
-type SRbdImageCacheManager struct {
-	SBaseImageCacheManager
-	pool, prefix string
-	storage      IStorage
-}
-
-func NewRbdImageCacheManager() *SRbdImageCacheManager {
-	// TODO
-	return nil
-}

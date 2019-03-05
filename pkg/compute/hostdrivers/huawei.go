@@ -3,7 +3,9 @@ package hostdrivers
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SHuaweiHostDriver struct {
@@ -17,6 +19,10 @@ func init() {
 
 func (self *SHuaweiHostDriver) GetHostType() string {
 	return models.HOST_TYPE_HUAWEI
+}
+
+func (self *SHuaweiHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
+	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }
 
 // 系统盘必须至少40G
