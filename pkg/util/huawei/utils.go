@@ -181,3 +181,12 @@ func DoDeleteWithSpec(deleteFunc deleteFunc2, ctx manager.IManagerContext, id st
 	_, err := deleteFunc(ctx, id, spec, queries, params, "")
 	return err
 }
+
+func ErrMessage(err error) string {
+	switch v := err.(type) {
+	case *httputils.JSONClientError:
+		return fmt.Sprintf("%d(%s):%s", v.Code, v.Class, v.Details)
+	default:
+		return err.Error()
+	}
+}
