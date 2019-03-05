@@ -81,3 +81,7 @@ func (self *SLBCertificate) GetFingerprint() string {
 func (self *SLBCertificate) GetExpireTime() time.Time {
 	return self.CERTEndTime
 }
+
+func (self *SLBCertificate) GetProjectId() string {
+	return ""
+}

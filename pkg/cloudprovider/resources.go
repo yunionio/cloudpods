@@ -25,6 +25,10 @@ type ICloudResource interface {
 	GetMetadata() *jsonutils.JSONDict
 }
 
+type IVirtualResource interface {
+	GetProjectId() string
+}
+
 type IBillingResource interface {
 	GetBillingType() string
 	GetExpiredAt() time.Time
@@ -190,6 +194,7 @@ type ICloudHost interface {
 type ICloudVM interface {
 	ICloudResource
 	IBillingResource
+	IVirtualResource
 
 	GetCreateTime() time.Time
 	GetIHost() ICloudHost
@@ -254,6 +259,7 @@ type ICloudNic interface {
 type ICloudEIP interface {
 	ICloudResource
 	IBillingResource
+	IVirtualResource
 
 	GetIpAddr() string
 	GetMode() string
@@ -276,6 +282,7 @@ type ICloudEIP interface {
 
 type ICloudSecurityGroup interface {
 	ICloudResource
+	IVirtualResource
 
 	GetDescription() string
 	GetRules() ([]secrules.SecurityRule, error)
@@ -303,6 +310,7 @@ type ICloudRoute interface {
 type ICloudDisk interface {
 	ICloudResource
 	IBillingResource
+	IVirtualResource
 
 	GetIStorage() (ICloudStorage, error)
 
@@ -335,6 +343,8 @@ type ICloudDisk interface {
 
 type ICloudSnapshot interface {
 	ICloudResource
+	IVirtualResource
+
 	GetSize() int32
 	GetDiskId() string
 	GetDiskType() string
@@ -373,6 +383,7 @@ type ICloudWire interface {
 
 type ICloudNetwork interface {
 	ICloudResource
+	IVirtualResource
 
 	GetIWire() ICloudWire
 	// GetStatus() string
@@ -401,6 +412,7 @@ type ICloudHostNetInterface interface {
 
 type ICloudLoadbalancer interface {
 	ICloudResource
+	IVirtualResource
 
 	GetAddress() string
 	GetAddressType() string
@@ -428,6 +440,7 @@ type ICloudLoadbalancer interface {
 
 type ICloudLoadbalancerListener interface {
 	ICloudResource
+	IVirtualResource
 
 	GetListenerType() string
 	GetListenerPort() int
@@ -487,6 +500,7 @@ type ICloudLoadbalancerListenerRule interface {
 
 type ICloudLoadbalancerBackendGroup interface {
 	ICloudResource
+	IVirtualResource
 
 	IsDefault() bool
 	GetType() string
@@ -500,6 +514,7 @@ type ICloudLoadbalancerBackendGroup interface {
 
 type ICloudLoadbalancerBackend interface {
 	ICloudResource
+	IVirtualResource
 
 	GetWeight() int
 	GetPort() int
@@ -510,6 +525,7 @@ type ICloudLoadbalancerBackend interface {
 
 type ICloudLoadbalancerCertificate interface {
 	ICloudResource
+	IVirtualResource
 
 	Sync(name, privateKey, publickKey string) error
 	Delete() error
@@ -522,6 +538,7 @@ type ICloudLoadbalancerCertificate interface {
 
 type ICloudLoadbalancerAcl interface {
 	ICloudResource
+	IVirtualResource
 
 	GetAclEntries() []SLoadbalancerAccessControlListEntry
 	Sync(acl *SLoadbalancerAccessControlList) error
@@ -561,4 +578,8 @@ type ICloudSku interface {
 	GetGpuSpec() string
 	GetGpuCount() int
 	GetGpuMaxCount() int
+}
+
+type ICloudProject interface {
+	ICloudResource
 }

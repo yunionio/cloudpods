@@ -602,6 +602,10 @@ func (self *SRegion) cvmRequest(apiName string, params map[string]string) (jsonu
 	return self.client.jsonRequest(apiName, params)
 }
 
+func (self *SRegion) accountRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	return self.client.accountRequestRequest(apiName, params)
+}
+
 func (self *SRegion) cbsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
 	return self.client.cbsRequest(apiName, params)

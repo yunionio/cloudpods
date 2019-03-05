@@ -169,3 +169,7 @@ func (self *SRegion) GetLBBackends(t LB_TYPE, lbId, listenerId, ruleId string) (
 		return nil, fmt.Errorf("GetLBBackends unsupported loadbalancer type %d", t)
 	}
 }
+
+func (self *SLBBackend) GetProjectId() string {
+	return ""
+}

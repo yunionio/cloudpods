@@ -151,3 +151,7 @@ func (self *SClassicEipAddress) GetBillingType() string {
 func (self *SClassicEipAddress) GetExpiredAt() time.Time {
 	return time.Time{}
 }
+
+func (self *SClassicEipAddress) GetProjectId() string {
+	return getResourceGroup(self.ID)
+}

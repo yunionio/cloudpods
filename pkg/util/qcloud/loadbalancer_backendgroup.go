@@ -222,3 +222,7 @@ func (self *SLBBackendGroup) GetBackends() ([]SLBBackend, error) {
 
 	return backends, nil
 }
+
+func (self *SLBBackendGroup) GetProjectId() string {
+	return ""
+}

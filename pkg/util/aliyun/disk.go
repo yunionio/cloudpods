@@ -406,3 +406,7 @@ func (self *SRegion) rebuildDisk(diskId string) error {
 	}
 	return nil
 }
+
+func (self *SDisk) GetProjectId() string {
+	return ""
+}

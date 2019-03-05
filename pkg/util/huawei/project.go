@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"fmt"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/huawei/client"
 )
@@ -56,4 +58,8 @@ func (self *SHuaweiClient) GetProjectById(projectId string) (SProject, error) {
 
 func (self *SHuaweiClient) GetProjects() ([]SProject, error) {
 	return self.fetchProjects()
+}
+
+func (self *SHuaweiClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }

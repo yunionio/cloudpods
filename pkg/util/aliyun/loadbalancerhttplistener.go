@@ -342,3 +342,7 @@ func (region *SRegion) SyncLoadbalancerHTTPListener(lb *SLoadbalancer, listener 
 func (listerner *SLoadbalancerHTTPListener) Sync(lblis *cloudprovider.SLoadbalancerListener) error {
 	return listerner.lb.region.SyncLoadbalancerHTTPListener(listerner.lb, lblis)
 }
+
+func (listerner *SLoadbalancerHTTPListener) GetProjectId() string {
+	return ""
+}

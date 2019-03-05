@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -381,4 +382,8 @@ func (disk *SDisk) GetAccessPath() string {
 func (self *SDisk) Rebuild(ctx context.Context) error {
 	// TODO
 	return cloudprovider.ErrNotSupported
+}
+
+func (self *SDisk) GetProjectId() string {
+	return strconv.Itoa(self.Placement.ProjectId)
 }

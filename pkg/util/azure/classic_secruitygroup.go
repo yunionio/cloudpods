@@ -359,3 +359,7 @@ func (region *SRegion) syncClassicSecurityGroup(secgroupId, name, desc string, r
 	}
 	return region.syncClassicSecgroupRules(secgroupId, rules)
 }
+
+func (self *SClassicSecurityGroup) GetProjectId() string {
+	return getResourceGroup(self.ID)
+}

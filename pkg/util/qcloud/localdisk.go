@@ -139,3 +139,7 @@ func (self *SLocalDisk) Rebuild(ctx context.Context) error {
 	// TODO
 	return cloudprovider.ErrNotSupported
 }
+
+func (disk *SLocalDisk) GetProjectId() string {
+	return ""
+}

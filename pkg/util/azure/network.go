@@ -112,3 +112,7 @@ func (self *SNetwork) Refresh() error {
 func (self *SNetwork) GetAllocTimeoutSeconds() int {
 	return 120 // 2 minutes
 }
+
+func (self *SNetwork) GetProjectId() string {
+	return getResourceGroup(self.ID)
+}

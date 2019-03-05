@@ -169,3 +169,7 @@ func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
 	err := DoCreate(self.ecsClient.Snapshots.Create, params, &snapshot)
 	return snapshot.ID, err
 }
+
+func (self *SSnapshot) GetProjectId() string {
+	return ""
+}

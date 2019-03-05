@@ -2,6 +2,7 @@ package qcloud
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -216,4 +217,8 @@ func (self *SRegion) CreateSnapshot(diskId, name, desc string) (string, error) {
 		return "", err
 	}
 	return body.GetString("SnapshotId")
+}
+
+func (self *SSnapshot) GetProjectId() string {
+	return strconv.Itoa(self.Placement.ProjectId)
 }

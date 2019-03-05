@@ -550,9 +550,19 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 		}
 	}
 
+	lb.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	lb.ProjectId = userCred.GetProjectId()
 	if len(provider.ProjectId) > 0 {
 		lb.ProjectId = provider.ProjectId
+	}
+
+	if extProjectId := extLb.GetProjectId(); len(extProjectId) > 0 {
+		externalProject, err := ExternalProjectManager.GetProject(extProjectId, lb.ManagerId)
+		if err != nil {
+			log.Errorf(err.Error())
+		} else {
+			lb.ProjectId = externalProject.ProjectId
+		}
 	}
 
 	if extLb.GetMetadata() != nil {
@@ -593,8 +603,15 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 			lb.LBInfo = extLb.GetMetadata()
 		}
 
-		if projectSync && len(projectId) > 0 {
-			lb.ProjectId = projectId
+		if projectSync && lb.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
+			if extProjectId := extLb.GetProjectId(); len(extProjectId) > 0 {
+				extProject, err := ExternalProjectManager.GetProject(extProjectId, lb.ManagerId)
+				if err != nil {
+					log.Errorf(err.Error())
+				} else {
+					lb.ProjectId = extProject.ProjectId
+				}
+			}
 		}
 		return nil
 	})

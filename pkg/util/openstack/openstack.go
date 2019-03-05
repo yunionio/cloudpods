@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/version"
 )
@@ -182,4 +183,26 @@ func (cli *SOpenStackClient) GetRegions() []SRegion {
 		regions[i] = *region
 	}
 	return regions
+}
+
+func (cli *SOpenStackClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	if len(cli.iregions) > 0 {
+		region := cli.iregions[0].(*SRegion)
+		s := cli.client.NewSession(context.Background(), region.Name, "", cli.endpointType, cli.tokenCredential, "")
+		result, err := modules.Projects.List(s, jsonutils.NewDict())
+		if err != nil {
+			return nil, err
+		}
+		iprojects := []cloudprovider.ICloudProject{}
+		for i := 0; i < len(result.Data); i++ {
+			project := &SProject{}
+			if err := result.Data[i].Unmarshal(project); err != nil {
+				return nil, err
+			}
+			iprojects = append(iprojects, project)
+		}
+		return iprojects, nil
+	}
+
+	return nil, cloudprovider.ErrNotImplemented
 }

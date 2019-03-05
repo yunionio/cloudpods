@@ -336,3 +336,7 @@ func (lb *SLoadbalancer) GetILoadBalancerListeners() ([]cloudprovider.ICloudLoad
 	}
 	return listeners, nil
 }
+
+func (lb *SLoadbalancer) GetProjectId() string {
+	return ""
+}

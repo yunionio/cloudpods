@@ -578,3 +578,7 @@ func (self *SRegion) WaitLBTaskSuccess(requestId string, interval time.Duration,
 
 	return cloudprovider.ErrTimeout
 }
+
+func (self *SLoadbalancer) GetProjectId() string {
+	return strconv.Itoa(int(self.ProjectID))
+}

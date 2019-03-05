@@ -370,9 +370,19 @@ func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(
 	lbcert.Fingerprint = extCertificate.GetFingerprint()
 	lbcert.NotAfter = extCertificate.GetExpireTime()
 
+	lbcert.ProjectSrc = db.PROJECT_SOURCE_CLOUD
 	lbcert.ProjectId = userCred.GetProjectId()
 	if len(projectId) > 0 {
 		lbcert.ProjectId = projectId
+	}
+
+	if extProjectId := extCertificate.GetProjectId(); len(extProjectId) > 0 {
+		externalProject, err := ExternalProjectManager.GetProject(extProjectId, lbcert.ManagerId)
+		if err != nil {
+			log.Errorf(err.Error())
+		} else {
+			lbcert.ProjectId = externalProject.ProjectId
+		}
 	}
 
 	return &lbcert, man.TableSpec().Insert(&lbcert)
@@ -386,8 +396,15 @@ func (lbcert *SLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx
 		lbcert.Fingerprint = extCertificate.GetFingerprint()
 		lbcert.NotAfter = extCertificate.GetExpireTime()
 
-		if projectSync && len(projectId) > 0 {
-			lbcert.ProjectId = projectId
+		if projectSync && lbcert.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
+			if extProjectId := extCertificate.GetProjectId(); len(extProjectId) > 0 {
+				extProject, err := ExternalProjectManager.GetProject(extProjectId, lbcert.ManagerId)
+				if err != nil {
+					log.Errorf(err.Error())
+				} else {
+					lbcert.ProjectId = extProject.ProjectId
+				}
+			}
 		}
 
 		return nil

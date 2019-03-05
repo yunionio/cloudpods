@@ -129,3 +129,7 @@ func (self *SAliyunProvider) GetBalance() (float64, error) {
 func (self *SAliyunProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (self *SAliyunProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
+	return self.client.GetIProjects()
+}
