@@ -1,3 +1,5 @@
+// +build linux
+
 package storageman
 
 import (
@@ -35,6 +37,21 @@ func NewRbdImageCacheManager(manager *SStorageManager, cachePath string, storage
 	imageCacheManager.mutex = new(sync.Mutex)
 	imageCacheManager.loadCache()
 	return imageCacheManager
+}
+
+type SRbdImageCacheManagerFactory struct {
+}
+
+func (factory *SRbdImageCacheManagerFactory) NewImageCacheManager(manager *SStorageManager, cachePath string, storage IStorage, storagecacheId string) IImageCacheManger {
+	return NewRbdImageCacheManager(manager, cachePath, storage, storagecacheId)
+}
+
+func (factory *SRbdImageCacheManagerFactory) StorageType() string {
+	return storagetypes.STORAGE_RBD
+}
+
+func init() {
+	registerimageCacheManagerFactory(&SRbdImageCacheManagerFactory{})
 }
 
 func (c *SRbdImageCacheManager) loadCache() {

@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -63,19 +64,23 @@ func (manager *SSecurityGroupCacheManager) FilterById(q *sqlchemy.SQuery, idStr 
 	return q.Equals("id", idStr)
 }
 
-func (manager *SSecurityGroupCacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (sql *sqlchemy.SQuery, err error) {
-	sql, err = manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+func (manager *SSecurityGroupCacheManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
 	if defsecgroup, _ := query.GetString("secgroup"); len(defsecgroup) > 0 {
-		if secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup); secgroup != nil {
-			sql = sql.Equals("secgroup_id", secgroup.GetId())
-		} else {
-			return nil, httperrors.NewNotFoundError("Security Group %s not found", defsecgroup)
+		secgroup, err := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(SecurityGroupManager.Keyword(), defsecgroup)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
 		}
+		q = q.Equals("secgroup_id", secgroup.GetId())
 	}
-	return sql, nil
+	return q, nil
 }
 
 func (self *SSecurityGroupCache) GetIRegion() (cloudprovider.ICloudRegion, error) {
