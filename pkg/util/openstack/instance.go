@@ -298,8 +298,10 @@ func (instance *SInstance) GetStatus() string {
 		return models.VM_MIGRATING
 	case INSTANCE_STATUS_PAUSED, INSTANCE_STATUS_SUSPENDED:
 		return models.VM_SUSPEND
-	case INSTANCE_STATUS_RESIZE, INSTANCE_STATUS_VERIFY_RESIZE:
+	case INSTANCE_STATUS_RESIZE:
 		return models.VM_CHANGE_FLAVOR
+	case INSTANCE_STATUS_VERIFY_RESIZE:
+		return INSTANCE_STATUS_VERIFY_RESIZE
 	case INSTANCE_STATUS_SHELVED, INSTANCE_STATUS_SHELVED_OFFLOADED, INSTANCE_STATUS_SHUTOFF, INSTANCE_STATUS_SOFT_DELETED:
 		return models.VM_READY
 	default:
@@ -412,7 +414,13 @@ func (region *SRegion) ChangeConfig(instance *SInstance, flavorId string) error 
 	}
 	_, maxVersion, _ := region.GetVersion("compute")
 	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/action", instance.ID), maxVersion, jsonutils.Marshal(params))
-	return err
+	if err != nil {
+		return err
+	}
+	if err := cloudprovider.WaitStatus(instance, INSTANCE_STATUS_VERIFY_RESIZE, time.Second*3, time.Minute*4); err != nil {
+		return err
+	}
+	return region.instanceOperation(instance.ID, "confirmResize")
 }
 
 func (instance *SInstance) AttachDisk(ctx context.Context, diskId string) error {
