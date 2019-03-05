@@ -329,6 +329,17 @@
   version = "v0.2.1"
 
 [[projects]]
+  branch = "master"
+  digest = "1:371dbf7f04fe7ddbcf65b88aef026278e21c9a7df810339bbe94abcf830e0627"
+  name = "github.com/ceph/go-ceph"
+  packages = [
+    "rados",
+    "rbd",
+  ]
+  pruneopts = "UT"
+  revision = "e32f9f0f2e941422937c0a6c4f0a61b8f0c82995"
+
+[[projects]]
   digest = "1:09cdbb058b09d19b9888aca007b30de99ff6d17e27cec0501b2376b21f8a47cd"
   name = "github.com/coredns/coredns"
   packages = [
@@ -1684,7 +1695,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:37d4e9b3030c077522fc5669b497a25ce53429da77d5e592226658e57cc604bb"
+  digest = "1:204f1b178847f36dd976b909c0cf720c60b5f144c8390601928cd75abd4a894f"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1718,7 +1729,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "5fbe7b39e5f599aa49f6f597d57da460d93c26ff"
+  revision = "857664cbfc1ceb07fcdbacbd8dfe5563ad2a96df"
 
 [[projects]]
   branch = "master"
@@ -1768,6 +1779,8 @@
     "github.com/aws/aws-sdk-go/service/s3/s3manager",
     "github.com/bitly/go-simplejson",
     "github.com/c-bata/go-prompt",
+    "github.com/ceph/go-ceph/rados",
+    "github.com/ceph/go-ceph/rbd",
     "github.com/coredns/coredns/core/dnsserver",
     "github.com/coredns/coredns/coremain",
     "github.com/coredns/coredns/plugin",
