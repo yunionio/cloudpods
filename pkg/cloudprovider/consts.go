@@ -5,10 +5,12 @@ import (
 )
 
 const (
-	CloudVMStatusRunning = "running"
-	CloudVMStatusSuspend = "suspend"
-	CloudVMStatusStopped = "stopped"
-	CloudVMStatusOther   = "other"
+	CloudVMStatusRunning      = "running"
+	CloudVMStatusSuspend      = "suspend"
+	CloudVMStatusStopped      = "stopped"
+	CloudVMStatusChangeFlavor = "change_flavor"
+	CloudVMStatusDeploying    = "deploying"
+	CloudVMStatusOther        = "other"
 )
 
 var ErrNotFound = errors.New("id not found")

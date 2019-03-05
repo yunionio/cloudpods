@@ -296,6 +296,10 @@ func (region *SRegion) delSecurityGroupRule(ruleId string) error {
 }
 
 func (region *SRegion) addSecurityGroupRules(secgroupId string, rule *secrules.SecurityRule) error {
+	if rule.Action == secrules.SecurityRuleDeny {
+		// openstack 不支持deny规则
+		return nil
+	}
 	direction := "ingress"
 	if rule.Direction == secrules.SecurityRuleEgress {
 		direction = "egress"
