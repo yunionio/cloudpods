@@ -447,7 +447,7 @@ func (o *SOVSBridgeDriver) GetOfRules(nic jsonutils.JSONObject) []SRule {
 }
 
 func (o *SOVSBridgeDriver) GetMetadataServerPort() int {
-	return options.HostOptions.Port
+	return options.HostOptions.Port + 1000
 }
 
 func (o *SOVSBridgeDriver) RegisterHostlocalServer(mac, ip string) error {

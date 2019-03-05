@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -175,13 +174,11 @@ func diskDelete(ctx context.Context, storage storageman.IStorage, diskId string,
 }
 
 func diskResize(ctx context.Context, storage storageman.IStorage, diskId string, disk storageman.IDisk, body jsonutils.JSONObject) (interface{}, error) {
-	log.Errorln(body.String())
 	diskInfo, err := body.Get("disk")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("disk")
 	}
 	serverId, _ := diskInfo.GetString("server_id")
-	log.Errorln(serverId, guestman.GetGuestManager().Status(serverId))
 	if len(serverId) > 0 && guestman.GetGuestManager().Status(serverId) == "running" {
 		sizeMb, _ := diskInfo.Int("size")
 		return guestman.GetGuestManager().OnlineResizeDisk(ctx, serverId, diskId, sizeMb)

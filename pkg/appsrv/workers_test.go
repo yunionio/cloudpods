@@ -10,7 +10,7 @@ func TestWorkerManager(t *testing.T) {
 	enableDebug()
 	startTime := time.Now()
 	// end := make(chan int)
-	wm := NewWorkerManager("testwm", 2, 10)
+	wm := NewWorkerManager("testwm", 2, 10, false)
 	counter := 0
 	for i := 0; i < 10; i += 1 {
 		wm.Run(func() {
@@ -27,7 +27,7 @@ func TestWorkerManager(t *testing.T) {
 }
 
 func TestWorkerManagerError(t *testing.T) {
-	wm := NewWorkerManager("testwm", 2, 10)
+	wm := NewWorkerManager("testwm", 2, 10, false)
 	errCbFactory := func(wg *sync.WaitGroup, errMark *bool) func(error) {
 		return func(error) {
 			defer wg.Done()
