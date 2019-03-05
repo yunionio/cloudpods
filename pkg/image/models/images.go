@@ -954,31 +954,31 @@ func (manager *SImageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 func isActive(localPath string, size int64, chksum string, fastHash string, useFastHash bool) bool {
 	if len(localPath) == 0 || !fileutils2.Exists(localPath) {
-		log.Errorf("invalid file")
+		log.Errorf("invalid file: %s", localPath)
 		return false
 	}
 	if size != fileutils2.FileSize(localPath) {
-		log.Errorf("size mistmatch")
+		log.Errorf("size mistmatch: %s", localPath)
 		return false
 	}
 	if useFastHash && len(fastHash) > 0 {
 		fhash, err := fileutils2.FastCheckSum(localPath)
 		if err != nil {
-			log.Errorf("IsActive fastChecksum fail %s", err)
+			log.Errorf("IsActive fastChecksum fail %s for %s", err, localPath)
 			return false
 		}
 		if fastHash != fhash {
-			log.Errorf("IsActive fastChecksum mismatch")
+			log.Errorf("IsActive fastChecksum mismatch for %s", localPath)
 			return false
 		}
 	} else {
 		md5sum, err := fileutils2.MD5(localPath)
 		if err != nil {
-			log.Errorf("IsActive md5 fail %s", err)
+			log.Errorf("IsActive md5 fail %s for %s", err, localPath)
 			return false
 		}
 		if chksum != md5sum {
-			log.Errorf("IsActive checksum mismatch")
+			log.Errorf("IsActive checksum mismatch: %s", localPath)
 			return false
 		}
 	}
