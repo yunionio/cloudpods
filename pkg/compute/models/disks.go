@@ -1207,8 +1207,8 @@ func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info 
 			diskConfig.Mountpoint = p
 		} else if p == "autoextend" {
 			diskConfig.SizeMb = -1
-		} else if utils.IsInStringArray(p, STORAGE_TYPES) {
-			diskConfig.Backend = p
+		} else if storageType, exist := StorageManager.IsStorageTypeExist(p); exist {
+			diskConfig.Backend = storageType
 		} else if strings.HasPrefix(p, "snapshot-") {
 			// HACK: use snapshot creat disk format snapshot-id
 			// example: snapshot-3140cecb-ccc4-4865-abae-3a5ba8c69d9b
