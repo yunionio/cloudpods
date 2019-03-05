@@ -11,6 +11,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/regiondrivers"
+	_ "yunion.io/x/onecloud/pkg/compute/storagedrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks"
 	_ "yunion.io/x/onecloud/pkg/util/aliyun/provider"
 	_ "yunion.io/x/onecloud/pkg/util/aws/provider"

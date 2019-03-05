@@ -1114,15 +1114,17 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 		if !utils.IsInStringArray(storagetype, storagetypes.Local) {
 			storage := storageManager.NewSharedStorageInstance(mountPoint, storagetype)
 			if storage != nil {
+				storage.SetStoragecacheId(storagecacheId)
+				storage.SetStorageInfo(storageId, storageName, storageConf)
 				storageManager.Storages = append(storageManager.Storages, storage)
 				storageManager.InitSharedStorageImageCache(
 					storagetype, storagecacheId, imagecachePath, storage)
-				storage.SetStorageInfo(storageId, storageName, storageConf)
 			}
 		} else {
 			// Storage type local
 			storage := storageManager.GetStorageByPath(mountPoint)
 			if storage != nil {
+				storage.SetStoragecacheId(storagecacheId)
 				storage.SetStorageInfo(storageId, storageName, storageConf)
 			} else {
 				// XXX hack: storage type baremetal is a converted host，reserve storage
