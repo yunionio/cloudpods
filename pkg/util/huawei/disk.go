@@ -296,7 +296,13 @@ func (self *SDisk) Delete(ctx context.Context) error {
 		log.Errorf("Failed to find disk %s when delete", self.GetId())
 		return nil
 	}
-	return self.storage.zone.region.DeleteDisk(self.GetId())
+
+	err := self.storage.zone.region.DeleteDisk(self.GetId())
+	if err != nil {
+		return err
+	}
+
+	return cloudprovider.WaitDeleted(self, 5*time.Second, 120*time.Second)
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
