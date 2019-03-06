@@ -216,6 +216,7 @@ func (h *DHCPHandler) createOrUpdateBaremetal() (jsonutils.JSONObject, error) {
 	session := h.baremetalManager.GetClientSession()
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(h.ClientMac.String()), "any_mac")
+	params.Add(jsonutils.JSONTrue, "is_baremetal")
 	ret, err := modules.Hosts.List(session, params)
 	if err != nil {
 		return nil, err

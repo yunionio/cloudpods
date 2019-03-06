@@ -25,6 +25,8 @@ func init() {
 		HostType  string `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv|aliyun|azure|qcloud|aws|huawei"`
 		AnyMac    string `help:"Mac matches one of the host's interface"`
 
+		IsBaremetal *bool `help:"filter host list by is_baremetal=true|false"`
+
 		ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 
 		Usable *bool `help:"List all zones that is usable"`

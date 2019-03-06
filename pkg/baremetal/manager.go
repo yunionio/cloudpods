@@ -600,11 +600,16 @@ func (b *SBaremetalInstance) NeedPXEBoot() bool {
 		taskNeedPXEBoot = true
 	}
 	ret := false
-	if taskNeedPXEBoot || (task == nil && len(serverId) == 0) {
+	if taskNeedPXEBoot || (task == nil && len(serverId) == 0 && b.GetHostType() == "baremetal") {
 		ret = true
 	}
 	log.Infof("Check task %s, server %s NeedPXEBoot: %v", taskName, serverId, ret)
 	return ret
+}
+
+func (b *SBaremetalInstance) GetHostType() string {
+	hostType, _ := b.desc.GetString("host_type")
+	return hostType
 }
 
 func (b *SBaremetalInstance) GetIPMINic(cliMac net.HardwareAddr) *types.SNic {
