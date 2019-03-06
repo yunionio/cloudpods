@@ -145,6 +145,18 @@ func (this *UserManagerV3) DoJoinGroups(s *mcclient.ClientSession, uid string, p
 	return ret, nil
 }
 
+func (this *UserManagerV3) FetchId(s *mcclient.ClientSession, user string, domain string) (string, error) {
+	userQuery := jsonutils.NewDict()
+	if len(domain) > 0 {
+		domainId, err := Domains.GetId(s, domain, nil)
+		if err != nil {
+			return "", err
+		}
+		userQuery.Add(jsonutils.NewString(domainId), "domain_id")
+	}
+	return this.GetId(s, user, userQuery)
+}
+
 var (
 	Users   UserManager
 	UsersV3 UserManagerV3
