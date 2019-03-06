@@ -260,7 +260,7 @@ func (h *DHCPHandler) updateBaremetal(id string) (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(h.ClientMac.String()), "access_mac")
 	params.Add(jsonutils.NewString(h.baremetalManager.GetZoneId()), "zone_id")
-	params.Add(jsonutils.NewString("baremetal"), "host_type")
+	// params.Add(jsonutils.NewString("baremetal"), "host_type")
 	params.Add(jsonutils.JSONTrue, "is_baremetal")
 	session := h.baremetalManager.GetClientSession()
 	desc, err := modules.Hosts.Update(session, id, params)
