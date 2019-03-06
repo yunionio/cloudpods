@@ -14,19 +14,10 @@ func init() {
 	}
 
 	R(&CloudSkuRateListOptions{}, "cloud-sku-rate-list", "list cloud-sku-rates", func(s *mcclient.ClientSession, args *CloudSkuRateListOptions) error {
-		dataIds := jsonutils.NewArray()
-		for _, n := range args.ParamIds {
-			dataIds.Add(jsonutils.NewString(n))
-		}
-
-		dataKeys := jsonutils.NewArray()
-		for _, n := range args.ParamKeys {
-			dataKeys.Add(jsonutils.NewString(n))
-		}
 
 		params := jsonutils.NewDict()
-		params.Add(dataIds, "param_ids")
-		params.Add(dataKeys, "param_keys")
+		params.Add(jsonutils.NewStringArray(args.ParamIds), "param_ids")
+		params.Add(jsonutils.NewStringArray(args.ParamKeys), "param_keys")
 
 		result, err := modules.CloudSkuRates.List(s, params)
 		if err != nil {
