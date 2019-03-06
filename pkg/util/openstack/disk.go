@@ -230,11 +230,11 @@ func (disk *SDisk) GetMountpoint() string {
 func (region *SRegion) CreateDisk(zoneName string, category string, name string, sizeGb int, desc string) (*SDisk, error) {
 	params := map[string]map[string]interface{}{
 		"volume": {
-			"size":              sizeGb,
-			"volume_type":       category,
-			"name":              name,
-			"description":       desc,
-			"availability_zone": zoneName,
+			"size":        sizeGb,
+			"volume_type": category,
+			"name":        name,
+			"description": desc,
+			//"availability_zone": zoneName,
 		},
 	}
 	_, resp, err := region.CinderCreate("/volumes", "", jsonutils.Marshal(params))
