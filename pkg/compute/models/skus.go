@@ -130,6 +130,17 @@ func inWhiteList(provider string) bool {
 	}
 }
 
+func excludeSkus(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	// 排除掉华为云对镜像有特殊要求的sku
+	return q.Filter(
+		sqlchemy.OR(
+			sqlchemy.NotEquals(q.Field("provider"), CLOUD_PROVIDER_HUAWEI),
+			sqlchemy.AND(
+				sqlchemy.Equals(q.Field("provider"), CLOUD_PROVIDER_HUAWEI),
+				sqlchemy.NotIn(q.Field("instance_type_family"), []string{"e1", "e2", "e3", "d1", "d2", "i3", "h2", "g1", "g3", "p2v", "p1", "pi1", "fp1", "fp1c"}),
+			)))
+}
+
 func genInstanceType(family string, cpu, mem_mb int64) (string, error) {
 	if cpu <= 0 {
 		return "", fmt.Errorf("cpu_core_count should great than zero")
@@ -314,6 +325,8 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 	} else {
 		q = q.Equals("provider", provider)
 	}
+
+	q = excludeSkus(q)
 
 	// 如果是查询私有云需要忽略zone参数
 	zone := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
@@ -537,6 +550,8 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	if err != nil {
 		return nil, err
 	}
+
+	q = excludeSkus(q)
 
 	regionStr := jsonutils.GetAnyString(query, []string{"region", "cloudregion", "region_id", "cloudregion_id"})
 	if len(regionStr) > 0 {
