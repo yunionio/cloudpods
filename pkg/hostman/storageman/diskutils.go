@@ -179,5 +179,5 @@ func (d *SKVMGuestDisk) Zerofree() {
 	for _, part := range d.partitions {
 		part.Zerofree()
 	}
-	log.Infof("Zerofree takes %f seconds", time.Now().Sub(startTime).Seconds())
+	log.Infof("Zerofree %d partitions takes %f seconds", len(d.partitions), time.Now().Sub(startTime).Seconds())
 }
