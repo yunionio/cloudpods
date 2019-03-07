@@ -2850,7 +2850,9 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 		}
 		netif.Rate = rate
 		netif.NicType = nicType
-		netif.Index = index
+		if index >= 0 {
+			netif.Index = index
+		}
 		if !linkUp.IsNone() {
 			netif.LinkUp = linkUp.Bool()
 		}
@@ -2904,7 +2906,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				bridge = fmt.Sprintf("br%s", sw.GetName())
 			}
 			var isMaster = netif.NicType == NIC_TYPE_ADMIN
-			ihw, err := db.FetchJointByIds(HostwireManager, self.Id, sw.Id, nil)
+			ihw, err := HostwireManager.FetchByIdsAndMac(self.Id, sw.Id, mac)
 			if err != nil {
 				hw := &SHostwire{}
 				hw.Bridge = bridge
@@ -2918,11 +2920,11 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 					return err
 				}
 			} else {
-				hw := ihw.(*SHostwire)
+				hw := ihw
 				HostwireManager.TableSpec().Update(hw, func() error {
 					hw.Bridge = bridge
 					hw.Interface = strInterface
-					hw.MacAddr = mac
+					// hw.MacAddr = mac
 					hw.IsMaster = isMaster
 					return nil
 				})
@@ -2988,7 +2990,7 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 	if wire == nil {
 		return fmt.Errorf("No wire attached")
 	}
-	hw, err := db.FetchJointByIds(HostwireManager, self.Id, wire.Id, nil)
+	hw, err := HostwireManager.FetchByIdsAndMac(self.Id, wire.Id, netif.Mac)
 	if hw == nil {
 		return fmt.Errorf("host not attach to this wire")
 	}
@@ -3113,7 +3115,7 @@ func (self *SHost) RemoveNetif(ctx context.Context, userCred mcclient.TokenCrede
 		log.Infof("Remove wire")
 		others := self.GetNetifsOnWire(wire)
 		if len(others) == 0 {
-			hw, _ := db.FetchJointByIds(HostwireManager, self.Id, wire.Id, nil)
+			hw, _ := HostwireManager.FetchByIdsAndMac(self.Id, wire.Id, netif.Mac)
 			if hw != nil {
 				db.OpsLog.LogDetachEvent(ctx, self, wire, userCred, jsonutils.NewString(fmt.Sprintf("disable netif %s", self.AccessMac)))
 				log.Infof("Detach host wire because of remove netif %s", netif.Mac)
