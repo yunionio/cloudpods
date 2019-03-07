@@ -30,7 +30,7 @@ func (self *SEnabledStatusStandaloneResourceBase) AllowPerformEnable(ctx context
 
 func (self *SEnabledStatusStandaloneResourceBase) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !self.Enabled {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := Update(self, func() error {
 			self.Enabled = true
 			return nil
 		})
@@ -50,7 +50,7 @@ func (self *SEnabledStatusStandaloneResourceBase) AllowPerformDisable(ctx contex
 
 func (self *SEnabledStatusStandaloneResourceBase) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Enabled {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := Update(self, func() error {
 			self.Enabled = false
 			return nil
 		})

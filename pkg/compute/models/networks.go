@@ -455,6 +455,10 @@ func (manager *SNetworkManager) getNetworksByWire(wire *SWire) ([]SNetwork, erro
 }
 
 func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork, projectId string, projectSync bool) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
+	ownerProjId := getSyncOwnerProjectId(manager, userCred, projectId, projectSync)
+	lockman.LockClass(ctx, manager, ownerProjId)
+	defer lockman.ReleaseClass(ctx, manager, ownerProjId)
+
 	localNets := make([]SNetwork, 0)
 	remoteNets := make([]cloudprovider.ICloudNetwork, 0)
 	syncResult := compare.SyncResult{}
@@ -463,6 +467,13 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
+	}
+
+	for i := range dbNets {
+		if taskman.TaskManager.IsInTask(&dbNets[i]) {
+			syncResult.Error(fmt.Errorf("object in task"))
+			return nil, nil, syncResult
+		}
 	}
 
 	removed := make([]SNetwork, 0)
@@ -477,18 +488,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		/*err = removed[i].ValidateDeleteCondition(ctx)
-		if err != nil { // cannot delete
-			syncResult.DeleteError(err)
-		} else {
-			err = removed[i].Delete(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
-		}*/
-		err = removed[i].SetStatus(userCred, NETWORK_STATUS_UNKNOWN, "Sync to remove")
+		err = removed[i].syncRemoveCloudNetwork(ctx, userCred)
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
@@ -496,20 +496,22 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudNetwork(userCred, commonext[i], projectId, projectSync)
+		err = commondb[i].SyncWithCloudNetwork(ctx, userCred, commonext[i], projectId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localNets = append(localNets, commondb[i])
 			remoteNets = append(remoteNets, commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudNetwork(userCred, added[i], wire, projectId)
+		new, err := manager.newFromCloudNetwork(ctx, userCred, added[i], wire, ownerProjId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			localNets = append(localNets, *new)
 			remoteNets = append(remoteNets, added[i])
 			syncResult.Add()
@@ -519,9 +521,23 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 	return localNets, remoteNets, syncResult
 }
 
-func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, projectId string, projectSync bool) error {
+func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil { // cannot delete
+		err = self.SetStatus(userCred, NETWORK_STATUS_UNKNOWN, "Sync to remove")
+	} else {
+		err = self.Delete(ctx, userCred)
+
+	}
+	return err
+}
+
+func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, projectId string, projectSync bool) error {
 	vpc := self.GetWire().getVpc()
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extNet.Refresh()
 		self.Name = extNet.GetName()
 		self.Status = extNet.GetStatus()
@@ -534,8 +550,11 @@ func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, ex
 
 		self.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
-		self.ProjectId = userCred.GetProjectId()
 		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
+			self.ProjectSrc = db.PROJECT_SOURCE_CLOUD
+			if len(projectId) > 0 {
+				self.ProjectId = projectId
+			}
 			if extProjectId := extNet.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, vpc.ManagerId)
 				if err != nil {
@@ -549,15 +568,17 @@ func (self *SNetwork) SyncWithCloudNetwork(userCred mcclient.TokenCredential, ex
 	})
 	if err != nil {
 		log.Errorf("syncWithCloudNetwork error %s", err)
+		return err
 	}
-	return err
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	return nil
 }
 
-func (manager *SNetworkManager) newFromCloudNetwork(userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, wire *SWire, projectId string) (*SNetwork, error) {
+func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, wire *SWire, projectId string) (*SNetwork, error) {
 	net := SNetwork{}
 	net.SetModelManager(manager)
 
-	net.Name = extNet.GetName()
+	net.Name = db.GenerateName(manager, projectId, extNet.GetName())
 	net.Status = extNet.GetStatus()
 	net.ExternalId = extNet.GetGlobalId()
 	net.WireId = wire.Id
@@ -571,10 +592,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(userCred mcclient.TokenCrede
 	net.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
 	net.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-	net.ProjectId = userCred.GetProjectId()
-	if len(projectId) > 0 {
-		net.ProjectId = projectId
-	}
+	net.ProjectId = projectId
 
 	vpc := wire.getVpc()
 	if extProjectId := extNet.GetProjectId(); len(extProjectId) > 0 {
@@ -591,6 +609,9 @@ func (manager *SNetworkManager) newFromCloudNetwork(userCred mcclient.TokenCrede
 		log.Errorf("newFromCloudZone fail %s", err)
 		return nil, err
 	}
+
+	db.OpsLog.LogEvent(&net, db.ACT_CREATE, net.GetShortDesc(ctx), userCred)
+
 	return &net, nil
 }
 
@@ -1565,7 +1586,7 @@ func (manager *SNetworkManager) InitializeData() error {
 	}
 	for _, n := range networks {
 		if len(n.ExternalId) == 0 && len(n.WireId) > 0 && n.Status == NETWORK_STATUS_INIT {
-			manager.TableSpec().Update(&n, func() error {
+			db.Update(&n, func() error {
 				n.Status = NETWORK_STATUS_AVAILABLE
 				return nil
 			})
@@ -1653,10 +1674,10 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 		return nil, httperrors.NewBadRequestError(note, self.Name, net.Name)
 	}
 
-	lockman.LockClass(ctx, NetworkManager, userCred.GetProjectId())
-	defer lockman.ReleaseClass(ctx, NetworkManager, userCred.GetProjectId())
+	lockman.LockClass(ctx, NetworkManager, NetworkManager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, NetworkManager, NetworkManager.GetOwnerId(userCred))
 
-	_, err = NetworkManager.TableSpec().Update(net, func() error {
+	_, err = db.Update(net, func() error {
 		net.GuestIpStart = startIp
 		net.GuestIpEnd = endIp
 		return nil
@@ -1675,7 +1696,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range guestnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if self.isAddressInRange(addr) {
-			_, err = GuestnetworkManager.TableSpec().Update(&gn, func() error {
+			_, err = db.Update(&gn, func() error {
 				gn.NetworkId = net.Id
 				return nil
 			})
@@ -1694,7 +1715,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range hostnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if self.isAddressInRange(addr) {
-			_, err = HostnetworkManager.TableSpec().Update(&gn, func() error {
+			_, err = db.Update(&gn, func() error {
 				gn.NetworkId = net.Id
 				return nil
 			})
@@ -1713,7 +1734,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range reservedips {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if self.isAddressInRange(addr) {
-			_, err = ReservedipManager.TableSpec().Update(&gn, func() error {
+			_, err = db.Update(&gn, func() error {
 				gn.NetworkId = net.Id
 				return nil
 			})
@@ -1732,7 +1753,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range groupnetwroks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if self.isAddressInRange(addr) {
-			_, err = GroupnetworkManager.TableSpec().Update(&gn, func() error {
+			_, err = db.Update(&gn, func() error {
 				gn.NetworkId = net.Id
 				return nil
 			})
@@ -1777,8 +1798,8 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 		return nil, httperrors.NewInputParameterError("Split IP %s out of range", splitIp)
 	}
 
-	lockman.LockClass(ctx, NetworkManager, userCred.GetProjectId())
-	defer lockman.ReleaseClass(ctx, NetworkManager, userCred.GetProjectId())
+	lockman.LockClass(ctx, NetworkManager, NetworkManager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, NetworkManager, NetworkManager.GetOwnerId(userCred))
 
 	if len(name) > 0 {
 		if err := db.NewNameValidator(NetworkManager, userCred.GetProjectId(), name); err != nil {
@@ -1813,7 +1834,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	}
 	network.SetModelManager(NetworkManager)
 
-	self.GetModelManager().TableSpec().Update(self, func() error {
+	db.Update(self, func() error {
 		self.GuestIpEnd = iSplitIp.StepDown().String()
 		return nil
 	})
@@ -1827,7 +1848,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range guestnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if network.isAddressInRange(addr) {
-			_, err := GuestnetworkManager.TableSpec().Update(&gn, func() error {
+			_, err := db.Update(&gn, func() error {
 				gn.NetworkId = network.Id
 				return nil
 			})
@@ -1846,7 +1867,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range hostnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if network.isAddressInRange(addr) {
-			_, err = HostnetworkManager.TableSpec().Update(&gn, func() error {
+			_, err = db.Update(&gn, func() error {
 				gn.NetworkId = network.Id
 				return nil
 			})
@@ -1865,7 +1886,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range reservedips {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if network.isAddressInRange(addr) {
-			_, err = ReservedipManager.TableSpec().Update(&gn, func() error {
+			_, err = db.Update(&gn, func() error {
 				gn.NetworkId = network.Id
 				return nil
 			})
@@ -1884,7 +1905,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	for _, gn := range groupnetworks {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
 		if network.isAddressInRange(addr) {
-			_, err = GroupnetworkManager.TableSpec().Update(&gn, func() error {
+			_, err = db.Update(&gn, func() error {
 				gn.NetworkId = network.Id
 				return nil
 			})

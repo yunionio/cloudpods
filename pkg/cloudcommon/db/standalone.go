@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
@@ -257,10 +258,17 @@ func (model SStandaloneResourceBase) GetExternalId() string {
 	return model.ExternalId
 }
 
-func (model *SStandaloneResourceBase) SetExternalId(idstr string) error {
-	_, err := model.GetModelManager().TableSpec().Update(model, func() error {
-		model.ExternalId = idstr
-		return nil
-	})
-	return err
+func (model *SStandaloneResourceBase) SetExternalId(userCred mcclient.TokenCredential, idstr string) error {
+	if model.ExternalId != idstr {
+		diff, err := Update(model, func() error {
+			model.ExternalId = idstr
+			return nil
+		})
+		if err != nil {
+			OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
+			logclient.AddSimpleActionLog(model, ACT_UPDATE, diff, userCred, true)
+		}
+		return err
+	}
+	return nil
 }

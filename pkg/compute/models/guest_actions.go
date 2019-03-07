@@ -332,15 +332,16 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 				kwargs.Set("delete_public_key", jsonutils.NewString(okey.PublicKey))
 			}
 
-			_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+			diff, err := db.Update(self, func() error {
 				self.KeypairId = kpId
 				return nil
 			})
-
 			if err != nil {
 				log.Errorf("update keypair fail: %s", err)
 				return nil, httperrors.NewInternalServerError(err.Error())
 			}
+
+			db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 
 			kwargs.Set("reset_password", jsonutils.JSONTrue)
 		}
@@ -780,6 +781,21 @@ func (self *SGuest) AllowPerformRevokeSecgroup(ctx context.Context, userCred mcc
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "revoke-secgroup")
 }
 
+func (self *SGuest) saveDefaultSecgroupId(userCred mcclient.TokenCredential, secGrpId string) error {
+	if secGrpId != self.SecgrpId {
+		diff, err := db.Update(self, func() error {
+			self.SecgrpId = "default"
+			return nil
+		})
+		if err != nil {
+			log.Errorf("saveDefaultSecgroupId fail %s", err)
+			return err
+		}
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+	}
+	return nil
+}
+
 func (self *SGuest) revokeSecgroup(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup) error {
 	if secgroup == nil {
 		return fmt.Errorf("failed to revoke null secgroup")
@@ -789,11 +805,7 @@ func (self *SGuest) revokeSecgroup(ctx context.Context, userCred mcclient.TokenC
 	}
 	secgroups := self.GetSecgroups()
 	if len(secgroups) <= 1 {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
-			self.SecgrpId = "default"
-			return nil
-		})
-		return err
+		return self.saveDefaultSecgroupId(userCred, "default")
 	}
 	for _, _secgroup := range secgroups {
 		// 从guestsecgroups中移除一个安全组，并将guest的 secgroupId 设为此安全组ID
@@ -802,11 +814,7 @@ func (self *SGuest) revokeSecgroup(ctx context.Context, userCred mcclient.TokenC
 			if err != nil {
 				return err
 			}
-			_, err = self.GetModelManager().TableSpec().Update(self, func() error {
-				self.SecgrpId = _secgroup.Id
-				return nil
-			})
-			return err
+			return self.saveDefaultSecgroupId(userCred, _secgroup.Id)
 		}
 	}
 	return nil
@@ -864,14 +872,13 @@ func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient
 		return nil, err
 	}
 
-	if err := SecurityGroupManager.ValidateName(secgrpV.Model.GetName()); err != nil {
+	err := SecurityGroupManager.ValidateName(secgrpV.Model.GetName())
+	if err != nil {
 		return nil, httperrors.NewInputParameterError("The secgroup name %s does not meet the requirements, please change the name", secgrpV.Model.GetName())
 	}
 
-	if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
-		self.SecgrpId = secgrpV.Model.GetId()
-		return nil
-	}); err != nil {
+	err = self.saveDefaultSecgroupId(userCred, secgrpV.Model.GetId())
+	if err != nil {
 		return nil, err
 	}
 
@@ -921,23 +928,19 @@ func (self *SGuest) PerformSetSecgroup(ctx context.Context, userCred mcclient.To
 		setSecgroupNames = append(setSecgroupNames, secgrp.GetName())
 	}
 
-	if err := self.RevokeAllSecgroups(ctx, userCred); err != nil {
+	err := self.RevokeAllSecgroups(ctx, userCred)
+	if err != nil {
 		return nil, err
 	}
 
 	for i := 0; i < len(setSecgroups); i++ {
 		if i == 0 {
-			_, err := self.GetModelManager().TableSpec().Update(self, func() error {
-				self.SecgrpId = setSecgroups[i].Id
-				return nil
-			})
-			if err != nil {
-				return nil, err
-			}
+			err = self.saveDefaultSecgroupId(userCred, setSecgroups[i].Id)
 		} else {
-			if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, setSecgroups[i]); err != nil {
-				return nil, httperrors.NewInputParameterError(err.Error())
-			}
+			_, err = GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, setSecgroups[i])
+		}
+		if err != nil {
+			return nil, httperrors.NewInputParameterError(err.Error())
 		}
 	}
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_SETSECGROUP, fmt.Sprintf("secgroups: %s", strings.Join(setSecgroupNames, ",")), userCred, true)
@@ -962,7 +965,7 @@ func (self *SGuest) PerformPurge(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (self *SGuest) setKeypairId(userCred mcclient.TokenCredential, keypairId string) error {
-	diff, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	diff, err := db.Update(self, func() error {
 		self.KeypairId = keypairId
 		return nil
 	})
@@ -1220,7 +1223,7 @@ func (self *SGuest) StartGuestDetachdiskTask(ctx context.Context, userCred mccli
 	if utils.IsInStringArray(disk.Status, []string{DISK_INIT, DISK_ALLOC_FAILED}) {
 		//删除非正常状态下的disk
 		taskData.Add(jsonutils.JSONFalse, "keep_disk")
-		disk.GetModelManager().TableSpec().Update(disk, func() error {
+		db.Update(disk, func() error {
 			disk.AutoDelete = true
 			return nil
 		})
@@ -1268,7 +1271,7 @@ func (self *SGuest) detachIsolateDevice(ctx context.Context, userCred mcclient.T
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_GUEST_DETACH_ISOLATED_DEVICE, msg, userCred, false)
 		return httperrors.NewBadRequestError(msg)
 	}
-	_, err := dev.GetModelManager().TableSpec().Update(dev, func() error {
+	_, err := db.Update(dev, func() error {
 		dev.GuestId = ""
 		return nil
 	})
@@ -1566,13 +1569,16 @@ func (self *SGuest) PerformChangeBandwidth(ctx context.Context, userCred mcclien
 	}
 
 	if guestnic.BwLimit != int(bandwidth) {
-		GuestnetworkManager.TableSpec().Update(guestnic, func() error {
+		diff, err := db.Update(guestnic, func() error {
 			guestnic.BwLimit = int(bandwidth)
 			return nil
 		})
-		err := self.StartSyncTask(ctx, userCred, false, "")
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_BANDWIDTH, err, userCred, err == nil)
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+		db.OpsLog.LogEvent(self, db.ACT_CHANGE_BANDWIDTH, diff, userCred)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_BANDWIDTH, diff, userCred, true)
+		return nil, self.StartSyncTask(ctx, userCred, false, "")
 	}
 	return nil, nil
 }
@@ -2287,12 +2293,16 @@ func (self *SGuest) PerformUserData(ctx context.Context, userCred mcclient.Token
 	return nil, nil
 }
 
-func (self *SGuest) SwitchToBackup() error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+func (self *SGuest) SwitchToBackup(userCred mcclient.TokenCredential) error {
+	diff, err := db.Update(self, func() error {
 		self.HostId, self.BackupHostId = self.BackupHostId, self.HostId
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+	return nil
 }
 
 func (self *SGuest) AllowPerformSwitchToBackup(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -2612,7 +2622,7 @@ func (self *SGuest) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SGuest) doSaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		if self.BillingType != BILLING_TYPE_PREPAID {
 			self.BillingType = BILLING_TYPE_PREPAID
 		}

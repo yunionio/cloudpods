@@ -151,10 +151,10 @@ func (self *SHoststorage) StartHostStorageDetachTask(ctx context.Context, userCr
 
 func (self *SHoststorage) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	self.StartHostStorageDetachTask(ctx, userCred)
-	self.SyncStorageStatus()
+	self.SyncStorageStatus(userCred)
 }
 
-func (self *SHoststorage) SyncStorageStatus() {
+func (self *SHoststorage) SyncStorageStatus(userCred mcclient.TokenCredential) {
 	storage := self.GetStorage()
 	status := STORAGE_OFFLINE
 	for _, host := range storage.GetAttachedHosts() {
@@ -163,10 +163,7 @@ func (self *SHoststorage) SyncStorageStatus() {
 		}
 	}
 	if status != storage.Status {
-		storage.GetModelManager().TableSpec().Update(storage, func() error {
-			storage.Status = status
-			return nil
-		})
+		storage.SetStatus(userCred, status, "SyncStorageStatus")
 	}
 }
 
@@ -240,10 +237,14 @@ func (manager *SHoststorageManager) GetStorages(hostId string) ([]SHoststorage, 
 	return hoststorage, nil
 }
 
-func (self *SHoststorage) syncWithCloudHostStorage(extStorage cloudprovider.ICloudStorage) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+func (self *SHoststorage) syncWithCloudHostStorage(userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage) error {
+	diff, err := db.Update(self, func() error {
 		self.MountPoint = extStorage.GetMountPoint()
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	return nil
 }

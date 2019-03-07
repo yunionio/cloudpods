@@ -41,7 +41,7 @@ func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 		self.TaskFailed(ctx, vpc, err)
 		return
 	}
-	vpc.SetExternalId(ivpc.GetGlobalId())
+	vpc.SetExternalId(self.UserCred, ivpc.GetGlobalId())
 
 	err = cloudprovider.WaitStatus(ivpc, models.VPC_STATUS_AVAILABLE, 10*time.Second, 300*time.Second)
 	if err != nil {
@@ -49,23 +49,16 @@ func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 		return
 	}
 
-	err = vpc.SyncWithCloudVpc(ivpc)
+	err = vpc.SyncWithCloudVpc(ctx, self.UserCred, ivpc)
 	if err != nil {
 		self.TaskFailed(ctx, vpc, err)
 		return
 	}
 
-	provider := models.CloudproviderManager.FetchCloudproviderById(vpc.ManagerId)
-	syncVpcWires(ctx, provider, self, vpc, ivpc, &models.SSyncRange{})
-
-	hosts := models.HostManager.GetHostsByManagerAndRegion(provider.Id, vpc.CloudregionId)
-	for i := 0; i < len(hosts); i += 1 {
-		ihost, err := hosts[i].GetIHost()
-		if err != nil {
-			self.TaskFailed(ctx, vpc, err)
-			return
-		}
-		syncHostWires(ctx, provider, self, &hosts[i], ihost)
+	err = vpc.SyncRemoteWires(ctx, self.UserCred)
+	if err != nil {
+		self.TaskFailed(ctx, vpc, err)
+		return
 	}
 
 	self.SetStageComplete(ctx, nil)

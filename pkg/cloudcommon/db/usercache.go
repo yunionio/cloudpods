@@ -62,7 +62,7 @@ func (manager *SUserCacheManager) Save(ctx context.Context, idStr string, name s
 		return nil, err
 	}
 	if err == nil {
-		_, err = manager.TableSpec().Update(obj, func() error {
+		_, err = Update(obj, func() error {
 			obj.Id = idStr
 			obj.Name = name
 			obj.Domain = domain

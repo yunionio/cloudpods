@@ -36,7 +36,7 @@ func (self *BaremetalMaintenanceTask) OnEnterMaintenantModeSucc(ctx context.Cont
 	if len(action) > 0 {
 		logclient.AddActionLogWithStartable(self, baremetal, action, "", self.UserCred, true)
 	}
-	baremetal.GetModelManager().TableSpec().Update(baremetal, func() error {
+	db.Update(baremetal, func() error {
 		baremetal.IsMaintenance = true
 		return nil
 	})

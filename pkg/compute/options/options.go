@@ -78,6 +78,12 @@ type ComputeOptions struct {
 
 	MinimalIpAddrReusedIntervalSeconds int `help:"Minimal seconds when a release IP address can be reallocate" default:"30"`
 
+	CloudSyncWorkerCount         int `help:"how many current synchronization threads" default:"2"`
+	CloudAutoSyncIntervalSeconds int `help:"frequency to check auto sync tasks" default:"30"`
+	DefaultSyncIntervalSeconds   int `help:"minimal synchronization interval, default 1 minutes" default:"900"`
+	MinimalSyncIntervalSeconds   int `help:"minimal synchronization interval, default 1 minutes" default:"60"`
+	MaxCloudAccountErrorCount    int `help:"maximal consecutive error count allow for a cloud account" default:"5"`
+
 	cloudcommon.CommonOptions
 	cloudcommon.DBOptions
 }

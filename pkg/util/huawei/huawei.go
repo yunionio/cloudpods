@@ -133,6 +133,14 @@ func (self *SHuaweiClient) fetchRegions() error {
 	return nil
 }
 
+func (self *SHuaweiClient) GetCloudRegionExternalIdPrefix() string {
+	if len(self.projectId) > 0 {
+		return self.iregions[0].GetGlobalId()
+	} else {
+		return CLOUD_PROVIDER_HUAWEI
+	}
+}
+
 func (self *SHuaweiClient) UpdateAccount(accessKey, secret string) error {
 	if self.accessKey != accessKey || self.secret != secret {
 		self.accessKey = accessKey

@@ -172,10 +172,6 @@ func (self *SOpenStackProvider) GetBalance() (float64, error) {
 	return 0.0, nil
 }
 
-func (self *SOpenStackProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SOpenStackProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return self.client.GetIProjects()
 }

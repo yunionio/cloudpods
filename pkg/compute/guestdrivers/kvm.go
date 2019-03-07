@@ -394,7 +394,7 @@ func (self *SKVMGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, gues
 		}
 	}
 	if cpuAdded > 0 {
-		_, err := guest.GetModelManager().TableSpec().Update(guest, func() error {
+		_, err := db.Update(guest, func() error {
 			guest.VcpuCount = guest.VcpuCount + int8(cpuAdded)
 			return nil
 		})

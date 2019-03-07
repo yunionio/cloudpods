@@ -41,7 +41,7 @@ func (self *BaremetalServerRebuildRootTask) StartRebuildRootDisk(ctx context.Con
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILDING_ROOT, imageId, self.UserCred)
 	gds := guest.CategorizeDisks()
 	oldStatus := gds.Root.Status
-	_, err := gds.Root.GetModelManager().TableSpec().Update(gds.Root, func() error {
+	_, err := db.Update(gds.Root, func() error {
 		gds.Root.TemplateId = imageId
 		gds.Root.Status = models.DISK_REBUILD
 		return nil
