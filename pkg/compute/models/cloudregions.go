@@ -299,7 +299,7 @@ func (self *SCloudregion) PerformDefaultVpc(ctx context.Context, userCred mcclie
 	}
 	vpcStr, _ := data.GetString("vpc")
 	if len(vpcStr) == 0 {
-		return nil, httperrors.NewInputParameterError("no vpc id")
+		return nil, httperrors.NewMissingParameterError("vpc")
 	}
 	findVpc := false
 	for _, vpc := range vpcs {

@@ -207,7 +207,7 @@ func (model *SVirtualResourceBase) AllowPerformChangeOwner(ctx context.Context, 
 func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	tenant := jsonutils.GetAnyString(data, []string{"project", "tenant", "project_id", "tenant_id"})
 	if len(tenant) == 0 {
-		return nil, httperrors.NewInputParameterError("missing parameter tenant")
+		return nil, httperrors.NewMissingParameterError("tenant_id")
 	}
 	tobj, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, tenant)
 	if tobj == nil {

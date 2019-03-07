@@ -376,7 +376,7 @@ func (self *SStoragecache) AllowPerformUncacheImage(ctx context.Context, userCre
 func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	imageStr, _ := data.GetString("image")
 	if len(imageStr) == 0 {
-		return nil, httperrors.NewInputParameterError("missing image id or name")
+		return nil, httperrors.NewMissingParameterError("image")
 	}
 
 	isForce := jsonutils.QueryBoolean(data, "is_force", false)

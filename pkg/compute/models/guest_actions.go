@@ -249,7 +249,7 @@ func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.To
 		return nil, err
 	}
 	if image.DiskFormat != "qcow2" {
-		return nil, httperrors.NewBadRequestError("Live migrate only support image fromat qocw2")
+		return nil, httperrors.NewBadRequestError("Live migrate only support image format qocw2")
 	}
 	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_SUSPEND}) {
 		cdrom := self.getCdrom()
@@ -1369,7 +1369,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	netDesc, err := data.Get("net_desc")
 	if err != nil {
 		log.Errorf("net_desc not found")
-		return nil, httperrors.NewInputParameterError("missing net_desc")
+		return nil, httperrors.NewMissingParameterError("net_desc")
 	}
 	conf, err := parseNetworkInfo(userCred, netDesc)
 	if err != nil {
@@ -2008,7 +2008,7 @@ func (self *SGuest) AllowPerformSendkeys(ctx context.Context, userCred mcclient.
 
 func (self *SGuest) PerformSendkeys(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Hypervisor != HYPERVISOR_KVM {
-		return nil, httperrors.NewUnsupportOperationError("Not allow for hypervisor %s", self.Hypervisor)
+		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
 	}
 	if self.Status != VM_RUNNING {
 		return nil, httperrors.NewInvalidStatusError("Cannot send keys in status %s", self.Status)
@@ -2096,7 +2096,7 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 	}
 	eipStr := jsonutils.GetAnyString(data, []string{"eip", "eip_id"})
 	if len(eipStr) == 0 {
-		return nil, httperrors.NewInputParameterError("missing eip or eip_id")
+		return nil, httperrors.NewMissingParameterError("eip_id")
 	}
 	eipObj, err := ElasticipManager.FetchByIdOrName(userCred, eipStr)
 	if err != nil {
@@ -2178,7 +2178,7 @@ func (self *SGuest) AllowPerformCreateEip(ctx context.Context, userCred mcclient
 func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	bw, err := data.Int("bandwidth")
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("Missing bandwidth")
+		return nil, httperrors.NewMissingParameterError("bandwidth")
 	}
 
 	chargeType, _ := data.GetString("charge_type")
@@ -2238,7 +2238,7 @@ func (self *SGuest) AllowPerformUserData(ctx context.Context, userCred mcclient.
 func (self *SGuest) PerformUserData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userData, err := data.GetString("user_data")
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("missing user_data %s", err)
+		return nil, httperrors.NewMissingParameterError("user_data")
 	}
 	err = self.setUserData(ctx, userCred, userData)
 	if err != nil {
@@ -2297,7 +2297,7 @@ func (manager *SGuestManager) AllowPerformDirtyServerStart(ctx context.Context, 
 func (manager *SGuestManager) PerformDirtyServerStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	guestId, err := data.GetString("guest_id")
 	if err != nil {
-		return nil, httperrors.NewBadRequestError("Missing guest_id")
+		return nil, httperrors.NewMissingParameterError("guest_id")
 	}
 	guest := manager.FetchGuestById(guestId)
 	if guest == nil {
@@ -2305,7 +2305,7 @@ func (manager *SGuestManager) PerformDirtyServerStart(ctx context.Context, userC
 	}
 	hostId, _ := data.GetString("host_id")
 	if len(hostId) == 0 {
-		return nil, httperrors.NewBadRequestError("Missing host_id or host id is nil?")
+		return nil, httperrors.NewMissingParameterError("host_id")
 	}
 
 	if guest.HostId == hostId {
@@ -2327,7 +2327,7 @@ func (manager *SGuestManager) AllowPerformDirtyServerVerify(ctx context.Context,
 func (manager *SGuestManager) PerformDirtyServerVerify(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	guestId, err := data.GetString("guest_id")
 	if err != nil {
-		return nil, httperrors.NewBadRequestError("Missing guest_id")
+		return nil, httperrors.NewMissingParameterError("guest_id")
 	}
 	guest := manager.FetchGuestById(guestId)
 	if guest == nil {
@@ -2335,7 +2335,7 @@ func (manager *SGuestManager) PerformDirtyServerVerify(ctx context.Context, user
 	}
 	hostId, _ := data.GetString("host_id")
 	if len(hostId) == 0 {
-		return nil, httperrors.NewBadRequestError("Missing host_id or host id is nil?")
+		return nil, httperrors.NewMissingParameterError("host_id")
 	}
 
 	if guest.HostId != hostId && guest.BackupHostId != hostId {
@@ -2485,7 +2485,7 @@ func (self *SGuest) AllowPerformSetExtraOption(ctx context.Context, userCred mcc
 func (self *SGuest) PerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	key, err := data.GetString("key")
 	if err != nil {
-		return nil, httperrors.NewBadRequestError("Option key required")
+		return nil, httperrors.NewMissingParameterError("key")
 	}
 	value, _ := data.GetString("value")
 	extraOptions := self.GetExtraOptions(userCred)
@@ -2513,7 +2513,7 @@ func (self *SGuest) AllowPerformDelExtraOption(ctx context.Context, userCred mcc
 func (self *SGuest) PerformDelExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	key, err := data.GetString("key")
 	if err != nil {
-		return nil, httperrors.NewBadRequestError("Option key required")
+		return nil, httperrors.NewMissingParameterError("key")
 	}
 	extraOptions := self.GetExtraOptions(userCred)
 	extraOptions.Remove(key)
