@@ -17,6 +17,8 @@ type SDiskInfo struct {
 type SManagedVMCreateConfig struct {
 	Name                string
 	ExternalImageId     string
+	ImageType           string
+	OsType              string
 	OsDistribution      string
 	OsVersion           string
 	InstanceType        string // InstanceType 不为空时，直接采用InstanceType创建机器。

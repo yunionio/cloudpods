@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -137,6 +138,14 @@ func (self *SAliyunGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return models.VM_READY
 }
 
+func (self *SAliyunGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+	userName := "root"
+	if desc.ImageType == "system" && desc.OsType == "Windows" {
+		userName = "Administrator"
+	}
+	return userName
+}
+
 /* func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
 	if err != nil {
@@ -148,6 +157,11 @@ func (self *SAliyunGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	desc := cloudprovider.SManagedVMCreateConfig{}
 	if err := desc.GetConfig(config); err != nil {
 		return err
+	}
+
+	userName := "root"
+	if desc.ImageType == "system" && desc.OsType == "Windows" {
+		userName = "Administrator"
 	}
 
 	action, err := config.GetString("action")
@@ -182,7 +196,7 @@ func (self *SAliyunGuestDriver) GetGuestInitialStateAfterRebuild() string {
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, userName, desc.Password, action)
 
 			return data, nil
 		})
@@ -212,7 +226,7 @@ func (self *SAliyunGuestDriver) GetGuestInitialStateAfterRebuild() string {
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, userName, desc.Password, action)
 
 			return data, nil
 		})
@@ -273,7 +287,7 @@ func (self *SAliyunGuestDriver) GetGuestInitialStateAfterRebuild() string {
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, userName, desc.Password, action)
 
 			return data, nil
 		})

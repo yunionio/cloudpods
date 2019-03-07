@@ -3,13 +3,16 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/pkg/utils"
 )
 
 type SAwsGuestDriver struct {
@@ -19,6 +22,39 @@ type SAwsGuestDriver struct {
 func init() {
 	driver := SAwsGuestDriver{}
 	models.RegisterGuestDriver(&driver)
+}
+
+func fetchAwsUserName(desc cloudprovider.SManagedVMCreateConfig) string {
+	// 非公有云官方镜像
+	if desc.ImageType != "system" {
+		return "root"
+	}
+
+	// 公有云官方镜像
+	dist := strings.ToLower(desc.OsDistribution)
+	if strings.Contains(dist, "centos") {
+		return "centos"
+	} else if strings.Contains(dist, "ubuntu") {
+		return "ubuntu"
+	} else if strings.Contains(dist, "windows") {
+		return "Administrator"
+	} else if strings.Contains(dist, "debian") {
+		return "admin"
+	} else if strings.Contains(dist, "suse") {
+		return "ec2-user"
+	} else if strings.Contains(dist, "fedora") {
+		return "ec2-user"
+	} else if strings.Contains(dist, "rhel") || strings.Contains(dist, "redhat") {
+		return "ec2-user"
+	} else if strings.Contains(dist, "amazon linux") {
+		return "ec2-user"
+	} else {
+		return "ec2-user"
+	}
+}
+
+func (self *SAwsGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+	return fetchAwsUserName(desc)
 }
 
 func (self *SAwsGuestDriver) GetHypervisor() string {
@@ -128,6 +164,8 @@ func (self *SAwsGuestDriver) GetGuestInitialStateAfterRebuild() string {
 		return err
 	}
 
+	username := fetchAwsUserName(desc)
+
 	switch action {
 	case "create":
 		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
@@ -152,7 +190,7 @@ func (self *SAwsGuestDriver) GetGuestInitialStateAfterRebuild() string {
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, username, desc.Password, action)
 			return data, nil
 		})
 	case "deploy":
@@ -172,7 +210,7 @@ func (self *SAwsGuestDriver) GetGuestInitialStateAfterRebuild() string {
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, username, desc.Password, action)
 			return data, nil
 		})
 	case "rebuild":
@@ -224,7 +262,7 @@ func (self *SAwsGuestDriver) GetGuestInitialStateAfterRebuild() string {
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, username, desc.Password, action)
 
 			return data, nil
 		})

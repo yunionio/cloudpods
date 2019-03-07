@@ -3,6 +3,7 @@ package huawei
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -178,7 +179,8 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", err
 	}
 
-	minDiskGB, _ := _image.Int("min_disk")
+	minDiskMB, _ := _image.Int("min_disk")
+	minDiskGB := int(math.Ceil(float64(minDiskMB) / 1024))
 	// 在使用OBS桶的外部镜像文件制作镜像时生效且为必选字段。取值为40～1024GB。
 	if minDiskGB < 40 {
 		minDiskGB = 40
@@ -225,7 +227,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		log.Debugf("uploadImage Match remote name %s", imageName)
 	}
 
-	jobId, err := self.region.ImportImageJob(imageName, osDist, osVersion, osArch, bucketName, imageId, minDiskGB)
+	jobId, err := self.region.ImportImageJob(imageName, osDist, osVersion, osArch, bucketName, imageId, int64(minDiskGB))
 
 	if err != nil {
 		log.Errorf("ImportImage error %s %s %s %s", jobId, imageId, bucketName, err)

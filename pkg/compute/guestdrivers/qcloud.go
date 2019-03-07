@@ -153,6 +153,19 @@ func (self *SQcloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return models.VM_READY
 }
 
+func (self *SQcloudGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+	userName := "root"
+	if desc.ImageType == "system" {
+		if desc.OsDistribution == "Ubuntu" {
+			userName = "ubuntu"
+		}
+		if desc.OsType == "Windows" {
+			userName = "Administrator"
+		}
+	}
+	return userName
+}
+
 /* func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
 	if err != nil {
@@ -164,6 +177,16 @@ func (self *SQcloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	desc := cloudprovider.SManagedVMCreateConfig{}
 	if err := desc.GetConfig(config); err != nil {
 		return err
+	}
+
+	userName := "root"
+	if desc.ImageType == "system" {
+		if desc.OsDistribution == "Ubuntu" {
+			userName = "ubuntu"
+		}
+		if desc.OsType == "Windows" {
+			userName = "Administrator"
+		}
 	}
 
 	action, err := config.GetString("action")
@@ -214,7 +237,7 @@ func (self *SQcloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, userName, desc.Password, action)
 			return data, nil
 		})
 	} else if action == "deploy" {
@@ -243,7 +266,7 @@ func (self *SQcloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, userName, desc.Password, action)
 			return data, nil
 		})
 	} else if action == "rebuild" {
@@ -304,7 +327,7 @@ func (self *SQcloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, userName, desc.Password, action)
 
 			return data, nil
 		})

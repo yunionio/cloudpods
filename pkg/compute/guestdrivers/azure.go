@@ -132,7 +132,7 @@ func (self *SAzureGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return models.VM_READY
 }
 
-func (self *SAzureGuestDriver) GetLinuxDefaultAccount() string {
+func (self *SAzureGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	return ansible.PUBLIC_CLOUD_ANSIBLE_USER
 }
 

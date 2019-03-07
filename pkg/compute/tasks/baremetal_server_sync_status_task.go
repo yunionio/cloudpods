@@ -23,9 +23,7 @@ func (self *BaremetalServerSyncStatusTask) OnInit(ctx context.Context, obj db.IS
 	guest := obj.(*models.SGuest)
 	baremetal := guest.GetHost()
 	if baremetal == nil {
-		kwargs := jsonutils.NewDict()
-		kwargs.Set("status", jsonutils.NewString(models.VM_INIT))
-		guest.PerformStatus(ctx, self.UserCred, nil, kwargs)
+		guest.SetStatus(self.UserCred, models.VM_INIT, "BaremetalServerSyncStatusTask")
 		self.SetStageComplete(ctx, nil)
 		return
 	}
@@ -41,24 +39,31 @@ func (self *BaremetalServerSyncStatusTask) OnInit(ctx context.Context, obj db.IS
 
 func (self *BaremetalServerSyncStatusTask) OnGuestStatusTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	var status string
+	var hostStatus string
 	if data.Contains("status") {
 		statusStr, _ := data.GetString("status")
 		switch statusStr {
 		case "running":
 			status = models.VM_RUNNING
+			hostStatus = models.HOST_STATUS_RUNNING
 		case "stopped", "ready":
 			status = models.VM_READY
+			hostStatus = models.HOST_STATUS_READY
 		case "admin":
 			status = models.VM_ADMIN
+			hostStatus = models.HOST_STATUS_RUNNING
 		default:
 			status = models.VM_INIT
+			hostStatus = models.HOST_STATUS_UNKNOWN
 		}
 	} else {
 		status = models.VM_UNKNOWN
+		hostStatus = models.HOST_STATUS_UNKNOWN
 	}
-	kwargs := jsonutils.NewDict()
-	kwargs.Set("status", jsonutils.NewString(status))
-	guest.PerformStatus(ctx, self.UserCred, nil, kwargs)
+	guest.SetStatus(self.UserCred, status, "BaremetalServerSyncStatusTask")
+	host := guest.GetHost()
+	host.SetStatus(self.UserCred, hostStatus, "BaremetalServerSyncStatusTask")
+
 	self.SetStageComplete(ctx, nil)
 }
 

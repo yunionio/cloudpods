@@ -257,8 +257,12 @@ func (self *SBaseGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return models.VM_READY
 }
 
-func (self *SBaseGuestDriver) GetLinuxDefaultAccount() string {
-	return "root"
+func (self *SBaseGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+	userName := "root"
+	if desc.ImageType == "system" && desc.OsType == "Windows" {
+		userName = "Administrator"
+	}
+	return userName
 }
 
 func (self *SBaseGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, guest *models.SGuest, data *jsonutils.JSONDict, task taskman.ITask) error {

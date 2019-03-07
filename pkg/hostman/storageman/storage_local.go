@@ -219,17 +219,21 @@ func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath str
 		if kvmDisk.Connect() {
 			defer kvmDisk.Disconnect()
 
-			if root := kvmDisk.MountKvmRootfs(); root != nil {
-				defer kvmDisk.UmountKvmRootfs(root)
+			var err error
+			func() {
+				if root := kvmDisk.MountKvmRootfs(); root != nil {
+					defer kvmDisk.UmountKvmRootfs(root)
 
-				osInfo = root.GetOs()
-				relInfo = root.GetReleaseInfo(root.GetPartition())
-				if compress {
-					if err := root.PrepareFsForTemplate(root.GetPartition()); err != nil {
-						log.Errorln(err)
-						return err
+					osInfo = root.GetOs()
+					relInfo = root.GetReleaseInfo(root.GetPartition())
+					if compress {
+						err = root.PrepareFsForTemplate(root.GetPartition())
 					}
 				}
+			}()
+			if err != nil {
+				log.Errorln(err)
+				return err
 			}
 
 			if compress {

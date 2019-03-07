@@ -61,6 +61,8 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 				img := scimg.GetCachedimage()
 				config.OsDistribution, _ = img.Info.GetString("properties", "os_distribution")
 				config.OsVersion, _ = img.Info.GetString("properties", "os_version")
+				config.OsType, _ = img.Info.GetString("properties", "os_type")
+				config.ImageType = img.ImageType
 			}
 		} else {
 			dataDisk := cloudprovider.SDiskInfo{
@@ -114,9 +116,9 @@ func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Contex
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	return nil
-}
+// func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+// 	return nil
+// }
 
 func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
 	ihost, e := host.GetIHost()
@@ -143,7 +145,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Conte
 	return result, e
 }
 
-func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
 	if err != nil {
 		log.Errorf("GetDeployConfigOnHost error: %v", err)
@@ -194,7 +196,7 @@ func (self *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterRebuild() s
 	return models.VM_READY
 }
 
-func (self *SManagedVirtualizedGuestDriver) GetLinuxDefaultAccount() string {
+func (self *SManagedVirtualizedGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	return "root"
 }
 
@@ -253,7 +255,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		return nil, err
 	}
 
-	account := guest.GetDriver().GetLinuxDefaultAccount()
+	account := guest.GetDriver().GetLinuxDefaultAccount(desc)
 
 	data := fetchIVMinfo(desc, iVM, guest.Id, account, desc.Password, "create")
 	return data, nil
@@ -288,7 +290,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx conte
 		return nil, err
 	}
 
-	account := guest.GetDriver().GetLinuxDefaultAccount()
+	account := guest.GetDriver().GetLinuxDefaultAccount(desc)
 	data := fetchIVMinfo(desc, iVM, guest.Id, account, desc.Password, "deploy")
 
 	return data, nil
@@ -354,7 +356,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx 
 		}
 	}
 
-	account := guest.GetDriver().GetLinuxDefaultAccount()
+	account := guest.GetDriver().GetLinuxDefaultAccount(desc)
 	data := fetchIVMinfo(desc, iVM, guest.Id, account, desc.Password, "rebuild")
 
 	return data, nil
