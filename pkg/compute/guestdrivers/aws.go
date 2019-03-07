@@ -3,7 +3,7 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
-    "strings"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -26,32 +26,32 @@ func init() {
 }
 
 func fetchAwsUserName(desc cloudprovider.SManagedVMCreateConfig) string {
-    // 非公有云官方镜像
-    if desc.ImageType != "system" {
-        return "root"
-    }
+	// 非公有云官方镜像
+	if desc.ImageType != "system" {
+		return "root"
+	}
 
-    // 公有云官方镜像
-    dist := strings.ToLower(desc.OsDistribution)
-    if strings.Contains(dist, "centos") {
-        return "centos"
-    } else if strings.Contains(dist, "ubuntu") {
-        return "ubuntu"
-    } else if strings.Contains(dist, "windows") {
-        return "Administrator"
-    } else if strings.Contains(dist, "debian") {
-        return "admin"
-    } else if strings.Contains(dist, "suse") {
-        return "ec2-user"
-    } else if strings.Contains(dist, "fedora") {
-        return "ec2-user"
-    } else if strings.Contains(dist, "rhel") || strings.Contains(dist, "redhat")  {
-        return "ec2-user"
-    } else if strings.Contains(dist, "amazon linux") {
-        return "ec2-user"
-    } else {
-        return "ec2-user"
-    }
+	// 公有云官方镜像
+	dist := strings.ToLower(desc.OsDistribution)
+	if strings.Contains(dist, "centos") {
+		return "centos"
+	} else if strings.Contains(dist, "ubuntu") {
+		return "ubuntu"
+	} else if strings.Contains(dist, "windows") {
+		return "Administrator"
+	} else if strings.Contains(dist, "debian") {
+		return "admin"
+	} else if strings.Contains(dist, "suse") {
+		return "ec2-user"
+	} else if strings.Contains(dist, "fedora") {
+		return "ec2-user"
+	} else if strings.Contains(dist, "rhel") || strings.Contains(dist, "redhat") {
+		return "ec2-user"
+	} else if strings.Contains(dist, "amazon linux") {
+		return "ec2-user"
+	} else {
+		return "ec2-user"
+	}
 }
 
 func (self *SAwsGuestDriver) GetHypervisor() string {
@@ -153,7 +153,7 @@ func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest
 		return err
 	}
 
-    username := fetchAwsUserName(desc)
+	username := fetchAwsUserName(desc)
 
 	switch action {
 	case "create":
