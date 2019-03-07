@@ -40,9 +40,9 @@ func normalizeOsDistribution(osDist string, imageName string) string {
 	osDist = strings.ToLower(osDist)
 	if strings.Contains(osDist, "centos") {
 		return "CentOS"
-    } else if strings.Contains(osDist, "redhat") || strings.Contains(osDist, "rhel") {
-	    return "RHEL"
-    } else if strings.Contains(osDist, "ubuntu") {
+	} else if strings.Contains(osDist, "redhat") || strings.Contains(osDist, "rhel") {
+		return "RHEL"
+	} else if strings.Contains(osDist, "ubuntu") {
 		return "Ubuntu"
 	} else if strings.Contains(osDist, "suse") {
 		return "SUSE"
