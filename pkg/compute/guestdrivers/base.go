@@ -233,7 +233,7 @@ func (self *SBaseGuestDriver) IsSupportEip() bool {
 	return false
 }
 
-func (self *SBaseGuestDriver) NeedStopForChangeSpec() bool {
+func (self *SBaseGuestDriver) NeedStopForChangeSpec(guest *models.SGuest) bool {
 	return true
 }
 

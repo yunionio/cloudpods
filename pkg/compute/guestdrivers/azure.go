@@ -299,6 +299,6 @@ func (self *SAzureGuestDriver) IsSupportedBillingCycle(bc billing.SBillingCycle)
 	return false
 }
 
-func (self *SAzureGuestDriver) NeedStopForChangeSpec() bool {
+func (self *SAzureGuestDriver) NeedStopForChangeSpec(guest *models.SGuest) bool {
 	return false
 }
