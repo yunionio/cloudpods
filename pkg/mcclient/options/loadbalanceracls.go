@@ -63,7 +63,7 @@ type LoadbalancerAclCreateOptions struct {
 }
 
 type LoadbalancerAclGetOptions struct {
-	ID string
+	ID string `json:-`
 }
 
 type LoadbalancerAclListOptions struct {

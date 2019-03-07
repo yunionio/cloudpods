@@ -84,11 +84,11 @@ type LoadbalancerAgentListOptions struct {
 }
 
 type LoadbalancerAgentGetOptions struct {
-	ID string
+	ID string `json:-`
 }
 
 type LoadbalancerAgentUpdateOptions struct {
-	ID   string
+	ID   string `json:-`
 	Name string
 
 	HbTimeout *int
@@ -103,15 +103,15 @@ type LoadbalancerAgentUpdateOptions struct {
 }
 
 type LoadbalancerAgentDeleteOptions struct {
-	ID string
+	ID string `json:-`
 }
 
 type LoadbalancerAgentActionHbOptions struct {
-	ID string
+	ID string `json:-`
 }
 
 type LoadbalancerAgentActionPatchParamsOptions struct {
-	ID string
+	ID string `json:-`
 
 	LoadbalancerAgentParamsOptions
 }
