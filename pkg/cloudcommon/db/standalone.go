@@ -264,7 +264,7 @@ func (model *SStandaloneResourceBase) SetExternalId(userCred mcclient.TokenCrede
 			model.ExternalId = idstr
 			return nil
 		})
-		if err != nil {
+		if err == nil {
 			OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
 			logclient.AddSimpleActionLog(model, ACT_UPDATE, diff, userCred, true)
 		}
