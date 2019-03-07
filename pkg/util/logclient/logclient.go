@@ -78,6 +78,8 @@ const (
 	ACT_RECYCLE_PREPAID      = "池化预付费主机"
 	ACT_UNDO_RECYCLE_PREPAID = "取消池化预付费主机"
 
+	ACT_FETCH = "下载密钥"
+
 	ACT_VM_CHANGE_NIC = "更改网卡配置"
 )
 

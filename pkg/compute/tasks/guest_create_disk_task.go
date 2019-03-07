@@ -251,7 +251,7 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 
 		vdisk := idisks[len(idisks)-1]
 
-		_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
+		_, err = db.Update(disk, func() error {
 			disk.DiskSize = vdisk.GetDiskSizeMB()
 			disk.AccessPath = vdisk.GetAccessPath()
 			disk.ExternalId = vdisk.GetGlobalId()

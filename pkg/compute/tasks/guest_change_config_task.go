@@ -148,7 +148,7 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 	addCpu := int(vcpuCount - int64(guest.VcpuCount))
 	addMem := int(vmemSize - int64(guest.VmemSize))
 
-	_, err := guest.GetModelManager().TableSpec().Update(guest, func() error {
+	_, err := db.Update(guest, func() error {
 		if vcpuCount > 0 {
 			guest.VcpuCount = int8(vcpuCount)
 		}

@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/sqlchemy"
 )
 
@@ -47,10 +48,14 @@ func (model *SSharableVirtualResourceBase) AllowPerformPrivate(ctx context.Conte
 
 func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !model.IsPublic {
-		_, err := model.GetModelManager().TableSpec().Update(model, func() error {
+		diff, err := Update(model, func() error {
 			model.IsPublic = true
 			return nil
 		})
+		if err == nil {
+			OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
+			logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, diff, userCred, true)
+		}
 		return nil, err
 	}
 	return nil, nil
@@ -58,10 +63,14 @@ func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, us
 
 func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if model.IsPublic {
-		_, err := model.GetModelManager().TableSpec().Update(model, func() error {
+		diff, err := Update(model, func() error {
 			model.IsPublic = false
 			return nil
 		})
+		if err == nil {
+			OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
+			logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, diff, userCred, true)
+		}
 		return nil, err
 	}
 	return nil, nil

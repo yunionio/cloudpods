@@ -144,7 +144,7 @@ func (manager *SImageManager) InitializeData() error {
 	}
 	for i := 0; i < len(images); i += 1 {
 		if len(images[i].ProjectId) == 0 {
-			manager.TableSpec().Update(&images[i], func() error {
+			db.Update(&images[i], func() error {
 				images[i].ProjectId = images[i].Owner
 				return nil
 			})
@@ -406,7 +406,7 @@ func (self *SImage) SaveImageFromStream(reader io.Reader) error {
 		return err
 	}
 
-	self.GetModelManager().TableSpec().Update(self, func() error {
+	db.Update(self, func() error {
 		self.Size = sp.Size
 		self.Checksum = sp.CheckSum
 		self.FastHash = fastChksum
@@ -665,7 +665,7 @@ func (self *SImage) DoPendingDelete(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return err
 	}
-	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err = db.Update(self, func() error {
 		self.Status = IMAGE_STATUS_PENDING_DELETE
 		return nil
 	})
@@ -677,7 +677,7 @@ func (self *SImage) DoCancelPendingDelete(ctx context.Context, userCred mcclient
 	if err != nil {
 		return err
 	}
-	_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err = db.Update(self, func() error {
 		self.Status = IMAGE_STATUS_ACTIVE
 		return nil
 	})
@@ -831,7 +831,7 @@ func (self *SImage) MigrateSubImage() error {
 			if err != nil {
 				return err
 			}
-			_, err = self.GetModelManager().TableSpec().Update(self, func() error {
+			_, err = db.Update(self, func() error {
 				self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, newLocalpath)
 				return nil
 			})
@@ -1019,7 +1019,7 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 			if err != nil {
 				log.Errorf("DoCheckStatus fileutils2.FastChecksum fail %s", err)
 			} else {
-				_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+				_, err := db.Update(self, func() error {
 					self.FastHash = fastHash
 					return nil
 				})
@@ -1072,7 +1072,7 @@ func (self *SImage) PerformMarkPublicProtected(
 	isPublic := jsonutils.QueryBoolean(data, "is-public", false)
 	protected := jsonutils.QueryBoolean(data, "protected", false)
 	if isPublic != self.IsPublic || (self.Protected == nil && protected) || (self.Protected != nil && *self.Protected != protected) {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := db.Update(self, func() error {
 			self.IsPublic = isPublic
 			self.Protected = &protected
 			return nil

@@ -264,7 +264,7 @@ func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, err
 }
 
 func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string, projectSync bool) error {
-	if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	if _, err := db.Update(self, func() error {
 		extSec.Refresh()
 		self.Name = extSec.GetName()
 		self.Description = extSec.GetDescription()
@@ -286,7 +286,7 @@ func (self *SSecurityGroup) SyncWithCloudSecurityGroup(userCred mcclient.TokenCr
 	}
 
 	if secgroupcache := SecurityGroupCacheManager.Register(context.Background(), userCred, self.Id, extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); secgroupcache != nil {
-		if err := secgroupcache.SetExternalId(self.ExternalId); err != nil {
+		if err := secgroupcache.SetExternalId(userCred, self.ExternalId); err != nil {
 			log.Errorf("set secgroupcache %s externalId error: %v", secgroupcache.Id, err)
 		}
 	}
@@ -329,7 +329,7 @@ func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCre
 	}
 
 	if secgroupcache := SecurityGroupCacheManager.Register(context.Background(), userCred, secgroup.Id, extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); secgroupcache != nil {
-		if err := secgroupcache.SetExternalId(secgroup.ExternalId); err != nil {
+		if err := secgroupcache.SetExternalId(userCred, secgroup.ExternalId); err != nil {
 			log.Errorf("set secgroupcache %s externalId error: %v", secgroupcache.Id, err)
 		}
 	}
@@ -338,6 +338,9 @@ func (manager *SSecurityGroupManager) newFromCloudVpc(userCred mcclient.TokenCre
 }
 
 func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string, projectSync bool) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+
 	localSecgroups := make([]SSecurityGroup, 0)
 	remoteSecgroups := make([]cloudprovider.ICloudSecurityGroup, 0)
 	syncResult := compare.SyncResult{}
@@ -351,6 +354,7 @@ func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCre
 	commondb := make([]SSecurityGroup, 0)
 	commonext := make([]cloudprovider.ICloudSecurityGroup, 0)
 	added := make([]cloudprovider.ICloudSecurityGroup, 0)
+
 	if err := compare.CompareSets(dbSecgroups, secgroups, &removed, &commondb, &commonext, &added); err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
@@ -403,7 +407,7 @@ func (manager *SSecurityGroupManager) DelaySync(ctx context.Context, userCred mc
 		defer lockman.ReleaseObject(ctx, secgrp)
 
 		if secgrp.IsDirty {
-			if _, err := secgrp.GetModelManager().TableSpec().Update(secgrp, func() error {
+			if _, err := db.Update(secgrp, func() error {
 				secgrp.IsDirty = false
 				return nil
 			}); err != nil {
@@ -420,7 +424,7 @@ func (manager *SSecurityGroupManager) DelaySync(ctx context.Context, userCred mc
 }
 
 func (self *SSecurityGroup) DoSync(ctx context.Context, userCred mcclient.TokenCredential) {
-	if _, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	if _, err := db.Update(self, func() error {
 		self.IsDirty = true
 		return nil
 	}); err != nil {
@@ -476,7 +480,7 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		return err
 	}
 	for i := 0; i < len(guests); i += 1 {
-		GuestManager.TableSpec().Update(&guests[i], func() error {
+		db.Update(&guests[i], func() error {
 			guests[i].SecgrpId = "default"
 			return nil
 		})

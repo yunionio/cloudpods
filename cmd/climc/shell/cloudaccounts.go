@@ -116,8 +116,9 @@ func init() {
 		Name      string `help:"New name to update"`
 		AccessUrl string `help:"New access url"`
 
-		BalanceKey       string `help:"update cloud balance account key, such as Azure EA key"`
-		RemoveBalanceKey bool   `help:"remove cloud blance account key"`
+		SyncIntervalSeconds int    `help:"auto synchornize interval in seconds"`
+		BalanceKey          string `help:"update cloud balance account key, such as Azure EA key"`
+		RemoveBalanceKey    bool   `help:"remove cloud blance account key"`
 
 		Desc string `help:"Description"`
 	}
@@ -133,6 +134,9 @@ func init() {
 			params.Add(jsonutils.NewString(args.BalanceKey), "balance_key")
 		} else if args.RemoveBalanceKey {
 			params.Add(jsonutils.NewString(""), "balance_key")
+		}
+		if args.SyncIntervalSeconds > 0 {
+			params.Add(jsonutils.NewInt(int64(args.SyncIntervalSeconds)), "sync_interval_seconds")
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
@@ -264,6 +268,35 @@ func init() {
 			params.Add(jsonutils.NewStringArray(args.Host), "host")
 		}
 		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "sync", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type CloudaccountEnableAutoSyncOptions struct {
+		ID                  string `help:"ID or name of cloud account" json:"-"`
+		SyncIntervalSeconds int    `help:"new sync interval in seconds"`
+	}
+	R(&CloudaccountEnableAutoSyncOptions{}, "cloud-account-enable-auto-sync", "Enable automatic sync for this account", func(s *mcclient.ClientSession, args *CloudaccountEnableAutoSyncOptions) error {
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "enable-auto-sync", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type CloudaccountDisableAutoSyncOptions struct {
+		ID string `help:"ID or name of cloud account" json:"-"`
+	}
+	R(&CloudaccountDisableAutoSyncOptions{}, "cloud-account-disable-auto-sync", "Disable automatic sync for this account", func(s *mcclient.ClientSession, args *CloudaccountDisableAutoSyncOptions) error {
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "disable-auto-sync", nil)
 		if err != nil {
 			return err
 		}

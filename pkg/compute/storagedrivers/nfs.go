@@ -6,6 +6,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -49,7 +51,7 @@ func (self *SNfsStorageDriver) PostCreate(ctx context.Context, userCred mcclient
 		log.Errorf("insert storagecache for storage %s error: %v", storage.Name, err)
 		return
 	}
-	_, err := storage.GetModelManager().TableSpec().Update(storage, func() error {
+	_, err := db.Update(storage, func() error {
 		storage.StoragecacheId = sc.Id
 		storage.Status = models.STORAGE_ONLINE
 		return nil

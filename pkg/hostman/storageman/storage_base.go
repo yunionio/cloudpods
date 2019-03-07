@@ -6,6 +6,7 @@ import (
 	"sync"
 	"syscall"
 
+	"strings"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -15,6 +16,29 @@ var (
 	_RECYCLE_BIN_     = "recycle_bin"
 	_IMGSAVE_BACKUPS_ = "imgsave_backups"
 )
+
+type IStorageFactory interface {
+	NewStorage(manager *SStorageManager, mountPoint string) IStorage
+	StorageType() string
+}
+
+var (
+	storagesFactories = make([]IStorageFactory, 0)
+)
+
+func registerStorageFactory(factory IStorageFactory) {
+	storagesFactories = append(storagesFactories, factory)
+}
+
+func NewStorage(manager *SStorageManager, mountPoint, storageType string) IStorage {
+	for i := range storagesFactories {
+		if storageType == storagesFactories[i].StorageType() || strings.HasPrefix(mountPoint, storagesFactories[i].StorageType()) {
+			return storagesFactories[i].NewStorage(manager, mountPoint)
+		}
+	}
+	log.Errorf("no storage driver for %s found", storageType)
+	return nil
+}
 
 type IStorage interface {
 	GetId() string

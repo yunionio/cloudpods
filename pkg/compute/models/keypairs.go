@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/pkg/utils"
 )
@@ -201,7 +202,7 @@ func (keypair *SKeypair) GetDetailsPrivatekey(ctx context.Context, userCred mccl
 		retval.Add(jsonutils.NewString(keypair.PrivateKey), "private_key")
 		retval.Add(jsonutils.NewString(keypair.Name), "name")
 		retval.Add(jsonutils.NewString(keypair.Scheme), "scheme")
-		_, err := keypair.GetModelManager().TableSpec().Update(keypair, func() error {
+		_, err := db.Update(keypair, func() error {
 			keypair.PrivateKey = ""
 			return nil
 		})
@@ -210,6 +211,7 @@ func (keypair *SKeypair) GetDetailsPrivatekey(ctx context.Context, userCred mccl
 		}
 
 		db.OpsLog.LogEvent(keypair, db.ACT_FETCH, nil, userCred)
+		logclient.AddActionLogWithContext(ctx, keypair, logclient.ACT_FETCH, nil, userCred, true)
 	}
 	return retval, nil
 }

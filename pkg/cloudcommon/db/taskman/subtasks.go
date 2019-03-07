@@ -67,7 +67,7 @@ func (manager *SSubTaskmanager) GetInitSubtasks(taskId string, stage string) []S
 }
 
 func (self *SSubTask) SaveResults(failed bool, result jsonutils.JSONObject) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		if failed {
 			self.Status = SUBTASK_FAIL
 		} else {

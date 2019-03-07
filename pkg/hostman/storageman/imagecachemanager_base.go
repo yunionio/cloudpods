@@ -5,7 +5,29 @@ import (
 	"sync"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 )
+
+type IImageCacheMangerFactory interface {
+	NewImageCacheManager(manager *SStorageManager, cachePath string, storage IStorage, storagecacheId string) IImageCacheManger
+	StorageType() string
+}
+
+var (
+	imageCacheManagerFactories = make(map[string]IImageCacheMangerFactory)
+)
+
+func registerimageCacheManagerFactory(factory IImageCacheMangerFactory) {
+	imageCacheManagerFactories[factory.StorageType()] = factory
+}
+
+func NewImageCacheManager(manager *SStorageManager, cachePath string, storage IStorage, storagecacheId string, storageType string) IImageCacheManger {
+	if factory, ok := imageCacheManagerFactories[storageType]; ok {
+		return factory.NewImageCacheManager(manager, cachePath, storage, storagecacheId)
+	}
+	log.Errorf("no image cache manager driver for %s found", storageType)
+	return nil
+}
 
 type IImageCacheManger interface {
 	GetId() string

@@ -389,7 +389,7 @@ func (manager *SIsolatedDeviceManager) ReleaseDevicesOfGuest(ctx context.Context
 		return fmt.Errorf("fail to find attached devices")
 	}
 	for _, dev := range devs {
-		_, err := manager.TableSpec().Update(&dev, func() error {
+		_, err := db.Update(&dev, func() error {
 			dev.GuestId = ""
 			return nil
 		})

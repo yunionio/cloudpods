@@ -41,7 +41,7 @@ type SGuestcdrom struct {
 
 func (self *SGuestcdrom) insertIso(imageId string) bool {
 	if len(self.ImageId) == 0 {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := db.Update(self, func() error {
 			self.ImageId = imageId
 			self.Name = ""
 			self.Path = ""
@@ -60,7 +60,7 @@ func (self *SGuestcdrom) insertIso(imageId string) bool {
 
 func (self *SGuestcdrom) insertIsoSucc(imageId string, path string, size int, name string) bool {
 	if self.ImageId == imageId {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := db.Update(self, func() error {
 			self.Name = name
 			self.Path = path
 			self.Size = size
@@ -78,7 +78,7 @@ func (self *SGuestcdrom) insertIsoSucc(imageId string, path string, size int, na
 
 func (self *SGuestcdrom) ejectIso() bool {
 	if len(self.ImageId) > 0 {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := db.Update(self, func() error {
 			self.ImageId = ""
 			self.Name = ""
 			self.Path = ""

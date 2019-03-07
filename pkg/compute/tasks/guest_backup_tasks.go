@@ -48,19 +48,19 @@ func (self *GuestSwitchToBackupTask) OnBackupGuestStoped(ctx context.Context, gu
 	disks := guest.GetDisks()
 	for i := 0; i < len(disks); i++ {
 		disk := disks[i].GetDisk()
-		err := disk.SwitchToBackup()
+		err := disk.SwitchToBackup(self.UserCred)
 		if err != nil {
 			if i > 0 {
 				for j := 0; j < i; j++ {
 					disk = disks[j].GetDisk()
-					disk.SwitchToBackup()
+					disk.SwitchToBackup(self.UserCred)
 				}
 			}
 			self.OnFail(ctx, guest, fmt.Sprintf("Switch to backup disk error: %s", err))
 			return
 		}
 	}
-	err := guest.SwitchToBackup()
+	err := guest.SwitchToBackup(self.UserCred)
 	if err != nil {
 		self.OnFail(ctx, guest, fmt.Sprintf("Switch to backup guest error: %s", err))
 		return
@@ -210,7 +210,7 @@ func (self *GuestCreateBackupTask) SaveScheduleResult(ctx context.Context, obj I
 		self.TaskFailed(ctx, guest, "target host not found?")
 		return
 	}
-	guest.SetHostIdWithBackup(guest.HostId, targetHostId)
+	guest.SetHostIdWithBackup(self.UserCred, guest.HostId, targetHostId)
 	db.OpsLog.LogEvent(guest, db.ACT_CREATE_BACKUP, fmt.Sprintf("guest backup start create on host %s", targetHostId), self.UserCred)
 
 	// backup disk only support disk backend local
@@ -226,7 +226,7 @@ func (self *GuestCreateBackupTask) StartCreateBackupDisks(ctx context.Context, g
 	guestDisks := guest.GetDisks()
 	for i := 0; i < len(guestDisks); i++ {
 		disk := guestDisks[i].GetDisk()
-		disk.GetModelManager().TableSpec().Update(disk, func() error {
+		db.Update(disk, func() error {
 			disk.BackupStorageId = storageId
 			return nil
 		})

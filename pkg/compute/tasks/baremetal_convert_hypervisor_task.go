@@ -6,8 +6,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/tristate"
-
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -65,10 +63,7 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeployCompleteFailed(ctx cont
 	guestId, _ := self.Params.GetString("server_id")
 	guestObj, _ := models.GuestManager.FetchById(guestId)
 	guest := guestObj.(*models.SGuest)
-	guest.GetModelManager().TableSpec().Update(guest, func() error {
-		guest.DisableDelete = tristate.False
-		return nil
-	})
+	guest.SetDisableDelete(self.UserCred, false)
 	self.SetStage("OnGuestDeleteComplete", nil)
 	guest.StartDeleteGuestTask(ctx, self.UserCred, self.GetTaskId(), false, true)
 	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_CONVERT_HYPER, "convert deploy failed", self.UserCred, false)

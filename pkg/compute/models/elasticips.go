@@ -207,6 +207,10 @@ func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 }
 
 func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP, projectId string, projectSync bool) compare.SyncResult {
+	ownerProjId := getSyncOwnerProjectId(manager, userCred, projectId, projectSync)
+	lockman.LockClass(ctx, manager, ownerProjId)
+	defer lockman.ReleaseClass(ctx, manager, ownerProjId)
+
 	// localEips := make([]SElasticip, 0)
 	// remoteEips := make([]cloudprovider.ICloudEIP, 0)
 	syncResult := compare.SyncResult{}
@@ -215,6 +219,13 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult
+	}
+
+	for i := range dbEips {
+		if taskman.TaskManager.IsInTask(&dbEips[i]) {
+			syncResult.Error(fmt.Errorf("object in task"))
+			return syncResult
+		}
 	}
 
 	removed := make([]SElasticip, 0)
@@ -229,7 +240,7 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 	}
 
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].SetStatus(userCred, EIP_STATUS_UNKNOWN, "sync to delete")
+		err = removed[i].syncRemoveCloudEip(ctx, userCred)
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
@@ -237,23 +248,37 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudEip(userCred, provider, commonext[i], projectId, projectSync)
+		err = commondb[i].SyncWithCloudEip(ctx, userCred, provider, commonext[i], projectId, projectSync)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		_, err := manager.newFromCloudEip(ctx, userCred, added[i], region, projectId)
+		new, err := manager.newFromCloudEip(ctx, userCred, added[i], region, ownerProjId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			syncResult.Add()
 		}
 	}
 
 	return syncResult
+}
+
+func (self *SElasticip) syncRemoveCloudEip(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return self.SetStatus(userCred, EIP_STATUS_UNKNOWN, "sync to delete")
+	} else {
+		return self.Delete(ctx, userCred)
+	}
 }
 
 func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudEIP) error {
@@ -291,8 +316,8 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SElasticip) SyncWithCloudEip(userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudEIP, projectId string, projectSync bool) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudEIP, projectId string, projectSync bool) error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
 
 		// self.Name = ext.GetName()
 		self.Bandwidth = ext.GetBandwidth()
@@ -302,8 +327,11 @@ func (self *SElasticip) SyncWithCloudEip(userCred mcclient.TokenCredential, prov
 		self.ExternalId = ext.GetGlobalId()
 		// self.ManagerId = ext.GetManagerId()
 		self.IsEmulated = ext.IsEmulated()
-		self.ProjectId = userCred.GetProjectId()
 		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
+			self.ProjectSrc = db.PROJECT_SOURCE_CLOUD
+			if len(projectId) > 0 {
+				self.ProjectId = projectId
+			}
 			if extProjectId := ext.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, self.ManagerId)
 				if err != nil {
@@ -325,15 +353,17 @@ func (self *SElasticip) SyncWithCloudEip(userCred mcclient.TokenCredential, prov
 	})
 	if err != nil {
 		log.Errorf("SyncWithCloudEip fail %s", err)
+		return err
 	}
-	return err
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	return nil
 }
 
 func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, region *SCloudregion, projectId string) (*SElasticip, error) {
 	eip := SElasticip{}
 	eip.SetModelManager(manager)
 
-	eip.Name = extEip.GetName()
+	eip.Name = db.GenerateName(manager, projectId, extEip.GetName())
 	eip.Status = extEip.GetStatus()
 	eip.ExternalId = extEip.GetGlobalId()
 	eip.IpAddr = extEip.GetIpAddr()
@@ -344,10 +374,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip.ChargeType = extEip.GetInternetChargeType()
 
 	eip.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-	eip.ProjectId = userCred.GetProjectId()
-	if len(projectId) > 0 {
-		eip.ProjectId = projectId
-	}
+	eip.ProjectId = projectId
 
 	if extProjectId := extEip.GetProjectId(); len(extProjectId) > 0 {
 		externalProject, err := ExternalProjectManager.GetProject(extProjectId, eip.ManagerId)
@@ -364,7 +391,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(&eip, db.ACT_SYNC_CLOUD_EIP, eip.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(&eip, db.ACT_CREATE, eip.GetShortDesc(ctx), userCred)
 	return &eip, nil
 }
 
@@ -416,7 +443,7 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 	if vm == nil {
 		log.Errorf("dissociate VM not exists???")
 	}
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.AssociateId = ""
 		self.AssociateType = ""
 		return nil
@@ -442,7 +469,7 @@ func (self *SElasticip) AssociateVM(ctx context.Context, userCred mcclient.Token
 	if len(self.AssociateType) > 0 {
 		return fmt.Errorf("EIP has been associated!!")
 	}
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.AssociateType = "server"
 		self.AssociateId = vm.Id
 		return nil
@@ -883,7 +910,7 @@ func (self *SElasticip) DoChangeBandwidth(userCred mcclient.TokenCredential, ban
 	changes := jsonutils.NewDict()
 	changes.Add(jsonutils.NewInt(int64(self.Bandwidth)), "obw")
 
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.Bandwidth = bandwidth
 		return nil
 	})

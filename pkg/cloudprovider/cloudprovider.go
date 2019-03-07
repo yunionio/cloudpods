@@ -51,6 +51,10 @@ type ICloudProvider interface {
 	GetBalance() (float64, error)
 
 	GetSubAccounts() ([]SSubAccount, error)
+
+	// region external id 是以provider 做为前缀.因此可以通过该判断条件过滤出同一个provider的regions列表
+	// 但是华为云有点特殊一个provider只对应一个region,因此需要进一步指定region名字，才能找到provider对应的region
+	GetCloudRegionExternalIdPrefix() string
 }
 
 var providerTable map[string]ICloudProviderFactory
@@ -109,6 +113,14 @@ type SBaseProvider struct {
 
 func (provider *SBaseProvider) GetFactory() ICloudProviderFactory {
 	return provider.factory
+}
+
+func (self *SBaseProvider) GetOnPremiseIRegion() (ICloudRegion, error) {
+	return nil, ErrNotImplemented
+}
+
+func (self *SBaseProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.factory.GetId()
 }
 
 func NewBaseProvider(factory ICloudProviderFactory) SBaseProvider {

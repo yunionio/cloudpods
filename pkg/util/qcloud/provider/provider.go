@@ -143,10 +143,6 @@ func (self *SQcloudProvider) GetBalance() (float64, error) {
 	return balance.AvailableAmount, nil
 }
 
-func (self *SQcloudProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SQcloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return self.client.GetIProjects()
 }

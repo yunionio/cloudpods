@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -226,7 +227,7 @@ func (self *SStorage) SetStatus(userCred mcclient.TokenCredential, status string
 		return nil
 	}
 	oldStatus := self.Status
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.Status = status
 		return nil
 	})
@@ -252,7 +253,7 @@ func (self *SStorage) AllowPerformEnable(ctx context.Context, userCred mcclient.
 
 func (self *SStorage) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !self.Enabled {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := db.Update(self, func() error {
 			self.Enabled = true
 			return nil
 		})
@@ -271,7 +272,7 @@ func (self *SStorage) AllowPerformDisable(ctx context.Context, userCred mcclient
 
 func (self *SStorage) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Enabled {
-		_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+		_, err := db.Update(self, func() error {
 			self.Enabled = false
 			return nil
 		})
@@ -429,7 +430,7 @@ func (self *SStorage) GetZoneId() string {
 	}
 	host := self.GetMasterHost()
 	if host != nil {
-		_, err := StorageManager.TableSpec().Update(self, func() error {
+		_, err := db.Update(self, func() error {
 			self.ZoneId = host.ZoneId
 			return nil
 		})
@@ -553,6 +554,9 @@ func (manager *SStorageManager) scanLegacyStorages() error {
 }
 
 func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, storages []cloudprovider.ICloudStorage) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+
 	localStorages := make([]SStorage, 0)
 	remoteStorages := make([]cloudprovider.ICloudStorage, 0)
 	syncResult := compare.SyncResult{}
@@ -585,41 +589,30 @@ func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mccli
 		if removed[i].IsPrepaidRecycleResource() {
 			continue
 		}
-		err = removed[i].ValidateDeleteCondition(ctx)
-		if err != nil { // cannot delete
-			err = removed[i].SetStatus(userCred, STORAGE_OFFLINE, "sync to delete")
-			if err == nil {
-				_, err = removed[i].PerformDisable(ctx, userCred, nil, nil)
-			}
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+		err = removed[i].syncRemoveCloudStorage(ctx, userCred)
+		if err != nil {
+			syncResult.DeleteError(err)
 		} else {
-			err = removed[i].Delete(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+			syncResult.Delete()
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudStorage(commonext[i])
+		err = commondb[i].syncWithCloudStorage(ctx, userCred, commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localStorages = append(localStorages, commondb[i])
 			remoteStorages = append(remoteStorages, commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudStorage(added[i], zone)
+		new, err := manager.newFromCloudStorage(ctx, userCred, added[i], zone)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			localStorages = append(localStorages, *new)
 			remoteStorages = append(remoteStorages, added[i])
 			syncResult.Add()
@@ -629,9 +622,25 @@ func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mccli
 	return localStorages, remoteStorages, syncResult
 }
 
-func (self *SStorage) syncWithCloudStorage(extStorage cloudprovider.ICloudStorage) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
-		self.Name = extStorage.GetName()
+func (self *SStorage) syncRemoveCloudStorage(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil { // cannot delete
+		err = self.SetStatus(userCred, STORAGE_OFFLINE, "sync to delete")
+		if err == nil {
+			_, err = self.PerformDisable(ctx, userCred, nil, nil)
+		}
+	} else {
+		err = self.Delete(ctx, userCred)
+	}
+	return err
+}
+
+func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage) error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
+		// self.Name = extStorage.GetName()
 		self.Status = extStorage.GetStatus()
 		self.StorageType = extStorage.GetStorageType()
 		self.MediumType = extStorage.GetMediumType()
@@ -650,14 +659,15 @@ func (self *SStorage) syncWithCloudStorage(extStorage cloudprovider.ICloudStorag
 	if err != nil {
 		log.Errorf("syncWithCloudZone error %s", err)
 	}
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	return err
 }
 
-func (manager *SStorageManager) newFromCloudStorage(extStorage cloudprovider.ICloudStorage, zone *SZone) (*SStorage, error) {
+func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, zone *SZone) (*SStorage, error) {
 	storage := SStorage{}
 	storage.SetModelManager(manager)
 
-	storage.Name = extStorage.GetName()
+	storage.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extStorage.GetName())
 	storage.Status = extStorage.GetStatus()
 	storage.ExternalId = extStorage.GetGlobalId()
 	storage.ZoneId = zone.Id
@@ -679,6 +689,9 @@ func (manager *SStorageManager) newFromCloudStorage(extStorage cloudprovider.ICl
 		log.Errorf("newFromCloudStorage fail %s", err)
 		return nil, err
 	}
+
+	db.OpsLog.LogEvent(&storage, db.ACT_CREATE, storage.GetShortDesc(ctx), userCred)
+
 	return &storage, nil
 }
 
@@ -880,15 +893,19 @@ func (self *SStorage) GetAllAttachingHosts() []SHost {
 	return ret
 }
 
-func (self *SStorage) SetStoragecache(cache *SStoragecache) error {
+func (self *SStorage) SetStoragecache(userCred mcclient.TokenCredential, cache *SStoragecache) error {
 	if self.StoragecacheId == cache.Id {
 		return nil
 	}
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	diff, err := db.Update(self, func() error {
 		self.StoragecacheId = cache.Id
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
+	return nil
 }
 
 func (self *SStorage) AllowPerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -981,7 +998,7 @@ func (manager *SStorageManager) InitializeData() error {
 			} else {
 				log.Fatalf("Cannot locate zoneId for storage %s", s.Name)
 			}
-			manager.TableSpec().Update(&s, func() error {
+			db.Update(&s, func() error {
 				s.ZoneId = zoneId
 				return nil
 			})
@@ -997,7 +1014,7 @@ func (manager *SStorageManager) InitializeData() error {
 				if err := StoragecacheManager.TableSpec().Insert(storagecache); err != nil {
 					log.Fatalf("Cannot Add storagecache for %s", s.Name)
 				} else {
-					manager.TableSpec().Update(&s, func() error {
+					db.Update(&s, func() error {
 						s.StoragecacheId = storagecache.Id
 						return nil
 					})
