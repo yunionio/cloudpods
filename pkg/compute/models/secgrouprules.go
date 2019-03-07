@@ -134,7 +134,7 @@ func (self *SSecurityGroupRule) BeforeInsert() {
 func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	defsecgroup, _ := data.GetString("secgroup")
 	if len(defsecgroup) == 0 {
-		return nil, httperrors.NewInputParameterError("Missing Security Group info")
+		return nil, httperrors.NewMissingParameterError("secgroup")
 	}
 	secgroup, _ := SecurityGroupManager.FetchByIdOrName(userCred, defsecgroup)
 	if secgroup == nil {

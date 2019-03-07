@@ -256,7 +256,7 @@ func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSO
 		} else {
 			targetStorageId, _ := disks[0].GetString("target_storage_id")
 			if len(targetStorageId) == 0 {
-				return nil, httperrors.NewInputParameterError("Disk desc missing target storage id")
+				return nil, httperrors.NewMissingParameterError("target_storage_id")
 			}
 			params.TargetStorageId = targetStorageId
 		}

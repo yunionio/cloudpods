@@ -501,7 +501,7 @@ func (manager *SElasticipManager) getEipByExtEip(ctx context.Context, userCred m
 func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id"})
 	if len(regionStr) == 0 {
-		return nil, httperrors.NewInputParameterError("Missing region/region_id")
+		return nil, httperrors.NewMissingParameterError("region_id")
 	}
 	region, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
 	if err != nil {
@@ -515,7 +515,7 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 
 	managerStr := jsonutils.GetAnyString(data, []string{"manager", "manager_id"})
 	if len(managerStr) == 0 {
-		return nil, httperrors.NewInputParameterError("Missing manager/manager_id")
+		return nil, httperrors.NewMissingParameterError("manager_id")
 	}
 
 	provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
@@ -621,7 +621,7 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 
 	instanceId := jsonutils.GetAnyString(data, []string{"instance", "instance_id"})
 	if len(instanceId) == 0 {
-		return nil, httperrors.NewInputParameterError("Missing instance_id")
+		return nil, httperrors.NewMissingParameterError("instance_id")
 	}
 	instanceType := jsonutils.GetAnyString(data, []string{"instance_type"})
 	if len(instanceType) == 0 {
