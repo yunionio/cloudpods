@@ -36,34 +36,39 @@ const (
 type SImage struct {
 	storageCache *SStoragecache
 
-	Schema             string    `json:"schema"`
-	MinDiskGB          int64     `json:"min_disk"`
-	CreatedAt          time.Time `json:"created_at"`
-	ImageSourceType    string    `json:"__image_source_type"`
-	ContainerFormat    string    `json:"container_format"`
-	File               string    `json:"file"`
-	UpdatedAt          time.Time `json:"updated_at"`
-	Protected          bool      `json:"protected"`
-	Checksum           string    `json:"checksum"`
-	SupportKVMFPGAType string    `json:"__support_kvm_fpga_type"`
-	ID                 string    `json:"id"`
-	Isregistered       string    `json:"__isregistered"`
-	MinRamMB           int       `json:"min_ram"`
-	Lazyloading        string    `json:"__lazyloading"`
-	Owner              string    `json:"owner"`
-	OSType             string    `json:"__os_type"`
-	Imagetype          string    `json:"__imagetype"`
-	Visibility         string    `json:"visibility"`
-	VirtualEnvType     string    `json:"virtual_env_type"`
-	Platform           string    `json:"__platform"`
-	SizeGB             int       `json:"size"`
-	ImageSize          int64     `json:"__image_size"`
-	OSBit              string    `json:"__os_bit"`
-	OSVersion          string    `json:"__os_version"`
-	Name               string    `json:"name"`
-	Self               string    `json:"self"`
-	DiskFormat         string    `json:"disk_format"`
-	Status             string    `json:"status"`
+	Schema               string    `json:"schema"`
+	MinDiskGB            int64     `json:"min_disk"`
+	CreatedAt            time.Time `json:"created_at"`
+	ImageSourceType      string    `json:"__image_source_type"`
+	ContainerFormat      string    `json:"container_format"`
+	File                 string    `json:"file"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	Protected            bool      `json:"protected"`
+	Checksum             string    `json:"checksum"`
+	ID                   string    `json:"id"`
+	Isregistered         string    `json:"__isregistered"`
+	MinRamMB             int       `json:"min_ram"`
+	Lazyloading          string    `json:"__lazyloading"`
+	Owner                string    `json:"owner"`
+	OSType               string    `json:"__os_type"`
+	Imagetype            string    `json:"__imagetype"`
+	Visibility           string    `json:"visibility"`
+	VirtualEnvType       string    `json:"virtual_env_type"`
+	Platform             string    `json:"__platform"`
+	SizeGB               int       `json:"size"`
+	ImageSize            int64     `json:"__image_size"`
+	OSBit                string    `json:"__os_bit"`
+	OSVersion            string    `json:"__os_version"`
+	Name                 string    `json:"name"`
+	Self                 string    `json:"self"`
+	DiskFormat           string    `json:"disk_format"`
+	Status               string    `json:"status"`
+	SupportKVMFPGAType   string    `json:"__support_kvm_fpga_type"`
+	SupportKVMNVMEHIGHIO string    `json:"__support_nvme_highio"`
+	SupportLargeMemory   string    `json:"__support_largememory"`
+	SupportDiskIntensive string    `json:"__support_diskintensive"`
+	SupportXENGPUType    string    `json:"__support_xen_gpu_type"`
+	SupportKVMGPUType    string    `json:"__support_kvm_gpu_type"`
 }
 
 func (self *SImage) GetMinRamSizeMb() int {
@@ -200,6 +205,34 @@ func (self *SRegion) GetImage(imageId string) (SImage, error) {
 	return image, err
 }
 
+func excludeImage(image SImage) bool {
+	if len(image.SupportDiskIntensive) > 0 {
+		return true
+	}
+
+	if len(image.SupportKVMFPGAType) > 0 {
+		return true
+	}
+
+	if len(image.SupportKVMGPUType) > 0 {
+		return true
+	}
+
+	if len(image.SupportKVMNVMEHIGHIO) > 0 {
+		return true
+	}
+
+	if len(image.SupportLargeMemory) > 0 {
+		return true
+	}
+
+	if len(image.SupportXENGPUType) > 0 {
+		return true
+	}
+
+	return false
+}
+
 // https://support.huaweicloud.com/api-ims/zh-cn_topic_0060804959.html
 func (self *SRegion) GetImages(status string, imagetype TImageOwnerType, name string, envType string) ([]SImage, error) {
 	queries := map[string]string{}
@@ -223,7 +256,18 @@ func (self *SRegion) GetImages(status string, imagetype TImageOwnerType, name st
 
 	images := make([]SImage, 0)
 	err := doListAllWithMarker(self.ecsClient.Images.List, queries, &images)
-	return images, err
+
+	// 排除掉需要特定镜像才能创建的实例类型
+	// https://support.huaweicloud.com/eu-west-0-api-ims/zh-cn_topic_0031617666.html#ZH-CN_TOPIC_0031617666__table48545918250
+	// https://support.huaweicloud.com/productdesc-ecs/zh-cn_topic_0088142947.html
+	filtedImages := make([]SImage, 0)
+	for i := range images {
+		if !excludeImage(images[i]) {
+			filtedImages = append(filtedImages, images[i])
+		}
+	}
+
+	return filtedImages, err
 }
 
 func (self *SRegion) DeleteImage(imageId string) error {
