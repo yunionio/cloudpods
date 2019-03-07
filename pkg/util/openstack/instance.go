@@ -380,8 +380,11 @@ func (instance *SInstance) DeployVM(ctx context.Context, name string, password s
 }
 
 func (instance *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
-	return "", instance.host.zone.region.ReplaceSystemDisk(instance.ID, imageId, passwd, publicKey, sysSizeGB)
-
+	sysDiskId := ""
+	if len(instance.VolumesAttached) > 0 {
+		sysDiskId = instance.VolumesAttached[0].ID
+	}
+	return sysDiskId, instance.host.zone.region.ReplaceSystemDisk(instance.ID, imageId, passwd, publicKey, sysSizeGB)
 }
 
 func (instance *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
