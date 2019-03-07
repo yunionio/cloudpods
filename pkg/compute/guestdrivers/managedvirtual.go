@@ -60,6 +60,8 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 				img := scimg.GetCachedimage()
 				config.OsDistribution, _ = img.Info.GetString("properties", "os_distribution")
 				config.OsVersion, _ = img.Info.GetString("properties", "os_version")
+				config.OsType, _ = img.Info.GetString("properties", "os_type")
+				config.ImageType = img.ImageType
 			}
 		} else {
 			dataDisk := cloudprovider.SDiskInfo{
@@ -228,6 +230,10 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 		status = cloudprovider.CloudVMStatusStopped
 	case models.VM_STOPPING:
 		status = cloudprovider.CloudVMStatusRunning
+	case models.VM_CHANGE_FLAVOR:
+		status = cloudprovider.CloudVMStatusChangeFlavor
+	case models.VM_DEPLOYING:
+		status = cloudprovider.CloudVMStatusDeploying
 	default:
 		status = cloudprovider.CloudVMStatusOther
 	}

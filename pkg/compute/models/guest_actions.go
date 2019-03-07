@@ -356,9 +356,11 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	if utils.IsInStringArray(self.Status, deployStatus) {
-		if (doRestart && self.Status == VM_RUNNING) ||
-			jsonutils.QueryBoolean(kwargs, "auto_start", false) {
+		if (doRestart && self.Status == VM_RUNNING) || (self.Status != VM_RUNNING && (jsonutils.QueryBoolean(kwargs, "auto_start", false) || jsonutils.QueryBoolean(kwargs, "restart", false))) {
 			kwargs.Set("restart", jsonutils.JSONTrue)
+		} else {
+			// 避免前端直接传restart参数, 越过校验
+			kwargs.Set("restart", jsonutils.JSONFalse)
 		}
 		err := self.StartGuestDeployTask(ctx, userCred, kwargs, "deploy", "")
 		if err != nil {
@@ -1725,7 +1727,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 
 	provider, e := self.GetHost().GetProviderFactory()
-	if e != nil || !provider.IsOnPremise() {
+	if e != nil || provider.IsOnPremise() {
 		for storageId, needSize := range diskSizes {
 			iStorage, err := StorageManager.FetchById(storageId)
 			if err != nil {

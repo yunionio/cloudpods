@@ -203,3 +203,7 @@
 [[constraint]]
   name = "github.com/shirou/gopsutil"
   version = "2.18.10"
+
+[[constraint]]
+  name="github.com/ceph/go-ceph"
+  branch = "master"

@@ -3,6 +3,7 @@ package hostinfo
 import (
 	"bufio"
 	"context"
+	"net"
 	"os"
 	"regexp"
 	"strconv"
@@ -193,7 +194,7 @@ func (n *SNIC) EnableDHCPRelay() bool {
 
 func (n *SNIC) SetupDhcpRelay() error {
 	if n.EnableDHCPRelay() {
-		if err := n.dhcpServer.RelaySetup(n.Ip); err != nil {
+		if err := n.dhcpServer.RelaySetup(n.Ip, net.ParseIP(hostInfo.GetMasterIp())); err != nil {
 			return err
 		}
 	}

@@ -99,6 +99,9 @@ func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (strin
 }
 
 func (region *SRegion) CreateFlavor(name string, cpu int, memoryMb int, diskGB int) (*SFlavor, error) {
+	if diskGB < 30 {
+		diskGB = 30
+	}
 	params := map[string]map[string]interface{}{
 		"flavor": {
 			"name":  name,

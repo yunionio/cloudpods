@@ -3,6 +3,7 @@ package storageman
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -42,6 +43,21 @@ func (d *SKVMGuestDisk) Connect() bool {
 
 	var cmd []string
 	if strings.HasPrefix(d.imagePath, "rbd:") || d.getImageFormat() == "raw" {
+		//qemu-nbd 连接ceph时 /etc/ceph/ceph.conf 必须存在
+		if strings.HasPrefix(d.imagePath, "rbd:") {
+			if !fileutils2.Exists("/etc/ceph") {
+				if err := os.Mkdir("/etc/ceph", 0755); err != nil {
+					log.Errorf("failed to mkdir /etc/ceph error: %v", err)
+					return false
+				}
+			}
+			if !fileutils2.IsFile("/etc/ceph/ceph.conf") {
+				if _, err := os.Create("/etc/ceph/ceph.conf"); err != nil {
+					log.Errorf("failed to create /etc/ceph/ceph.conf error: %v", err)
+					return false
+				}
+			}
+		}
 		cmd = []string{qemutils.GetQemuNbd(), "-c", d.nbdDev, "-f", "raw", d.imagePath}
 	} else {
 		cmd = []string{qemutils.GetQemuNbd(), "-c", d.nbdDev, d.imagePath}
@@ -163,5 +179,5 @@ func (d *SKVMGuestDisk) Zerofree() {
 	for _, part := range d.partitions {
 		part.Zerofree()
 	}
-	log.Infof("Zerofree takes %f seconds", time.Now().Sub(startTime).Seconds())
+	log.Infof("Zerofree %d partitions takes %f seconds", len(d.partitions), time.Now().Sub(startTime).Seconds())
 }

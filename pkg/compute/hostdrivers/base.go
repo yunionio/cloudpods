@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -19,6 +20,18 @@ type SBaseHostDriver struct {
 
 func (self *SBaseHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return data, nil
+}
+
+func (self *SBaseHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
+	return httperrors.NewNotImplementedError("Not Implement ValidateAttachStorage")
+}
+
+func (self *SBaseHostDriver) RequestAttachStorage(ctx context.Context, hoststorage *models.SHoststorage, host *models.SHost, storage *models.SStorage, task taskman.ITask) error {
+	return httperrors.NewNotImplementedError("Not Implement RequestAttachStorage")
+}
+
+func (self *SBaseHostDriver) RequestDetachStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, task taskman.ITask) error {
+	return httperrors.NewNotImplementedError("Not Implement RequestDetachStorage")
 }
 
 func (self *SBaseHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {

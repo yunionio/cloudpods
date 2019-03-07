@@ -2,19 +2,17 @@ package models
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SHoststorageManager struct {
@@ -91,83 +89,78 @@ func (self *SHoststorage) GetStorage() *SStorage {
 func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	storageId, _ := data.GetString("storage_id")
 	if len(storageId) == 0 {
-		return nil, httperrors.NewInputParameterError("missing storage_id")
+		return nil, httperrors.NewMissingParameterError("storage_id")
 	}
 	storageTmp, _ := StorageManager.FetchById(storageId)
 	if storageTmp == nil {
-		return nil, httperrors.NewInputParameterError("invalid storage_id %s", storageId)
+		return nil, httperrors.NewResourceNotFoundError("failed to find storage %s to attach host", storageId)
 	}
 	storage := storageTmp.(*SStorage)
-	if storage.StorageType == STORAGE_RBD {
-		pool, _ := data.GetString("pool")
-		data.Add(jsonutils.NewString(fmt.Sprintf("rbd:%s", pool)), "mount_point")
+
+	hostId, _ := data.GetString("host_id")
+	if len(hostId) == 0 {
+		return nil, httperrors.NewMissingParameterError("host_id")
 	}
+	hostTmp, _ := HostManager.FetchById(hostId)
+	if hostTmp == nil {
+		return nil, httperrors.NewResourceNotFoundError("failed to find host %s to attach storage", hostId)
+	}
+	host := hostTmp.(*SHost)
+
+	if err := host.GetHostDriver().ValidateAttachStorage(host, storage, data); err != nil {
+		return nil, err
+	}
+
 	return manager.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
 func (self *SHoststorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SHostJointsBase.PostCreate(ctx, userCred, ownerProjId, query, data)
-	storage := self.GetStorage()
-	if !utils.IsInStringArray(storage.StorageType, STORAGE_LOCAL_TYPES) {
-		host := storage.GetMasterHost()
-		log.Infof("Attach SharedStorage[%s] on host %s ...", storage.Name, host.Name)
-		url := fmt.Sprintf("%s/storages/attach", host.ManagerUri)
-		headers := mcclient.GetTokenHeaders(userCred)
-		body := jsonutils.NewDict()
-		body.Set("mount_point", jsonutils.NewString(self.MountPoint))
-		body.Set("name", jsonutils.NewString(storage.Name))
-		body.Set("storage_id", jsonutils.NewString(storage.Id))
-		body.Set("storage_conf", storage.StorageConf)
-		body.Set("storage_type", jsonutils.NewString(storage.StorageType))
-		if len(storage.StoragecacheId) > 0 {
-			storagecache := StoragecacheManager.FetchStoragecacheById(storage.StoragecacheId)
-			if storagecache != nil {
-				body.Set("imagecache_path", jsonutils.NewString(
-					storage.GetStorageCachePath(self.MountPoint, storagecache.Path)))
-				body.Set("storagecache_id", jsonutils.NewString(storagecache.Id))
-			}
-		}
-		_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
-			ctx, "POST", url, headers, body, false)
-		if err != nil {
-			log.Errorf("Host Storage Post Create Error: %s", err)
-			// panic(err) ???
-		}
-		self.SyncStorageStatus()
+
+	if err := self.StartHostStorageAttachTask(ctx, userCred); err != nil {
+		log.Errorf("failed to attach storage error: %v", err)
+		self.Detach(ctx, userCred)
 	}
 }
 
-func (self *SHoststorage) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	storage := self.GetStorage()
-	if !utils.IsInStringArray(storage.StorageType, STORAGE_LOCAL_TYPES) {
-		host := storage.GetMasterHost()
-		log.Infof("Attach SharedStorage[%s] on host %s ...", storage.Name, host.Name)
-		url := fmt.Sprintf("%s/storages/detach", host.ManagerUri)
-		headers := mcclient.GetTokenHeaders(userCred)
-		body := jsonutils.NewDict()
-		body.Set("mount_point", jsonutils.NewString(self.MountPoint))
-		body.Set("name", jsonutils.NewString(storage.Name))
-		_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
-			ctx, "POST", url, headers, body, false)
-		if err != nil {
-			log.Errorf("Host Storage Post Create Error: %s", err)
-			// panic(err) ???
-		}
-		self.SyncStorageStatus()
+func (self *SHoststorage) StartHostStorageAttachTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	host := self.GetHost()
+	params := jsonutils.NewDict()
+	params.Set("storage_id", jsonutils.NewString(self.StorageId))
+	task, err := taskman.TaskManager.NewTask(ctx, "HostStorageAttachTask", host, userCred, params, "", "", nil)
+	if err != nil {
+		return err
 	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SHoststorage) StartHostStorageDetachTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if host := self.GetHost(); host.HostStatus == HOST_ONLINE {
+		params := jsonutils.NewDict()
+		params.Set("storage_id", jsonutils.NewString(self.StorageId))
+		params.Set("mount_point", jsonutils.NewString(self.MountPoint))
+		task, err := taskman.TaskManager.NewTask(ctx, "HostStorageDetachTask", host, userCred, params, "", "", nil)
+		if err != nil {
+			return err
+		}
+		task.ScheduleRun(nil)
+	}
+	return nil
+}
+
+func (self *SHoststorage) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	self.StartHostStorageDetachTask(ctx, userCred)
+	self.SyncStorageStatus()
 }
 
 func (self *SHoststorage) SyncStorageStatus() {
 	storage := self.GetStorage()
-	hostQuery := HostManager.Query().SubQuery()
-	count := HoststorageManager.Query().Join(hostQuery,
-		sqlchemy.AND(sqlchemy.Equals(hostQuery.Field("id"), self.HostId),
-			sqlchemy.Equals(hostQuery.Field("host_status"), "online"))).Count()
-	status := storage.Status
-	if count >= 1 {
-		status = STORAGE_ONLINE
-	} else {
-		status = STORAGE_OFFLINE
+	status := STORAGE_OFFLINE
+	for _, host := range storage.GetAttachedHosts() {
+		if host.HostStatus == HOST_ONLINE {
+			status = STORAGE_ONLINE
+		}
 	}
 	if status != storage.Status {
 		storage.GetModelManager().TableSpec().Update(storage, func() error {

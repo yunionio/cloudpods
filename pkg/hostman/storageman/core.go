@@ -250,7 +250,7 @@ func (s *SStorageManager) NewSharedStorageInstance(mountPoint, storageType strin
 	} else if storageType == storagetypes.STORAGE_RBD ||
 		strings.HasPrefix(mountPoint, storagetypes.STORAGE_RBD) {
 		// TODO
-		// return NewRBDStorage(s, mountPoint)
+		return NewRBDStorage(s, mountPoint)
 	}
 	return nil
 }
@@ -260,12 +260,24 @@ func (s *SStorageManager) InitSharedStorageImageCache(storageType, storagecacheI
 		// TODO
 		// s.InitNfsStorageImagecache(storagecacheId, imagecachePath)
 	} else if storageType == storagetypes.STORAGE_RBD {
-		if s.GetStoragecacheById(storagecacheId) == nil {
-			// TODO
-			// s.AddRbdStorageImagecache(imagecachePath, rbdStorage, storagecacheId)
+		if rbdStorage := s.GetStoragecacheById(storagecacheId); rbdStorage == nil {
+			// Done
+			s.AddRbdStorageImagecache(imagecachePath, storage, storagecacheId)
 		}
 	}
+}
 
+func (s *SStorageManager) AddRbdStorageImagecache(imagecachePath string, storage IStorage, storagecacheId string) {
+	if s.RbdStorageImagecacheManagers == nil {
+		s.RbdStorageImagecacheManagers = map[string]IImageCacheManger{}
+	}
+	if _, ok := s.RbdStorageImagecacheManagers[storagecacheId]; !ok {
+		if imagecache := NewRbdImageCacheManager(s, imagecachePath, storage, storagecacheId); imagecache != nil {
+			s.RbdStorageImagecacheManagers[storagecacheId] = imagecache
+			return
+		}
+		log.Errorf("failed init storagecache %s for storage %s", storagecacheId, storage.GetStorageName())
+	}
 }
 
 var storageManager *SStorageManager

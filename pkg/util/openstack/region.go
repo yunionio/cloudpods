@@ -171,12 +171,16 @@ func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, 
 }
 
 func (region *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
-	vpc, err := region.GetVpc(id)
+	ivpcs, err := region.GetIVpcs()
 	if err != nil {
 		return nil, err
 	}
-	vpc.region = region
-	return vpc, nil
+	for i := 0; i < len(ivpcs); i++ {
+		if ivpcs[i].GetGlobalId() == id {
+			return ivpcs[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (region *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error) {

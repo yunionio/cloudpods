@@ -26,6 +26,10 @@ func (self *SAzureHostDriver) GetHostType() string {
 	return models.HOST_TYPE_AZURE
 }
 
+func (self *SAzureHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
+	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
+}
+
 func (self *SAzureHostDriver) ValidateUpdateDisk(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if data.Contains("name") {
 		return nil, httperrors.NewInputParameterError("cannot support change azure disk name")

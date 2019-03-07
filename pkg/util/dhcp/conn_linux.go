@@ -37,10 +37,10 @@ type linuxConn struct {
 // Unlike NewConn, NewSnooperConn does not bind to the ip:port,
 // enabling the Conn to coexist with other services on the machine.
 func NewSnooperConn(addr string) (*Conn, error) {
-	return newConn(addr, newLinuxConn)
+	return newConn(addr, false, newLinuxConn)
 }
 
-func newLinuxConn(_ net.IP, port int) (conn, error) {
+func newLinuxConn(_ net.IP, port int, disableBroadcast bool) (conn, error) {
 	if port == 0 {
 		return nil, errors.New("must specify a listen port")
 	}
