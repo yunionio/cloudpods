@@ -223,6 +223,11 @@ func (h *SHostInfo) prepareEnv() error {
 		return fmt.Errorf("Failed to find chntpw tool")
 	}
 
+	output, err = procutils.NewCommand("pvscan").Run()
+	if err != nil {
+		log.Errorf("Failed exec lvm command pvscan: %s", output)
+	}
+
 	if err := hostbridge.Prepare(options.HostOptions.BridgeDriver); err != nil {
 		log.Errorln(err)
 		return err
