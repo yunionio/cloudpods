@@ -32,7 +32,11 @@ func init() {
 	registerCompute(&ComputeTasks)
 }
 
-func (man ComputeTasksManager) TaskComplete(session *mcclient.ClientSession, taskId string, params jsonutils.JSONObject) {
+type ITaskResourceManager interface {
+	PerformClassAction(session *mcclient.ClientSession, action string, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
+}
+
+func TaskComplete(man ITaskResourceManager, session *mcclient.ClientSession, taskId string, params jsonutils.JSONObject) {
 	for i := 0; i < 3; i++ {
 		_, err := man.PerformClassAction(session, taskId, params)
 		if err == nil {
@@ -42,6 +46,17 @@ func (man ComputeTasksManager) TaskComplete(session *mcclient.ClientSession, tas
 		log.Errorf("Sync task %s complete error: %v", taskId, err)
 		time.Sleep(5 * time.Second)
 	}
+}
+
+func TaskFailed(man ITaskResourceManager, session *mcclient.ClientSession, taskId string, reason string) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString("error"), "__status__")
+	params.Add(jsonutils.NewString(reason), "__reason__")
+	TaskComplete(man, session, taskId, params)
+}
+
+func (man ComputeTasksManager) TaskComplete(session *mcclient.ClientSession, taskId string, params jsonutils.JSONObject) {
+	TaskComplete(&man, session, taskId, params)
 }
 
 func (man ComputeTasksManager) TaskFailed(session *mcclient.ClientSession, taskId string, err error) {

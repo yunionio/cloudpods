@@ -1,4 +1,4 @@
-package hostman
+package kubehandlers
 
 import (
 	"context"
@@ -20,7 +20,7 @@ type sKubeConf struct {
 
 var keyWords = []string{"kubeagent"}
 
-func addKubeAgentHandler(prefix string, app *appsrv.Application) {
+func AddKubeAgentHandler(prefix string, app *appsrv.Application) {
 	for _, keyword := range keyWords {
 		app.AddHandler("POST", fmt.Sprintf("%s/%s/<action>", prefix, keyword),
 			auth.Authenticate(dispatcher))
@@ -53,11 +53,11 @@ func dispatcher(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		hostutils.DelayTask(ctx, startAgent, &sKubeConf{dm, am})
+		hostutils.DelayKubeTask(ctx, startAgent, &sKubeConf{dm, am})
 	case "restart":
-		hostutils.DelayTask(ctx, restartAgent, nil)
+		hostutils.DelayKubeTask(ctx, restartAgent, nil)
 	case "stop":
-		hostutils.DelayTask(ctx, stopAgent, nil)
+		hostutils.DelayKubeTask(ctx, stopAgent, nil)
 	default:
 		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Not found"))
 		return
