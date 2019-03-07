@@ -106,6 +106,16 @@ func (self *SHuaweiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 		return err
 	}
 
+	userName := "root"
+	if desc.ImageType == "system" {
+		if desc.OsDistribution == "Ubuntu" {
+			userName = "ubuntu"
+		}
+		if desc.OsType == "Windows" {
+			userName = "Administrator"
+		}
+	}
+
 	action, err := config.GetString("action")
 	if err != nil {
 		return err
@@ -138,7 +148,7 @@ func (self *SHuaweiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, userName, desc.Password, action)
 
 			return data, nil
 		})
@@ -167,7 +177,7 @@ func (self *SHuaweiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, userName, desc.Password, action)
 
 			return data, nil
 		})
@@ -228,7 +238,7 @@ func (self *SHuaweiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 				}
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, "root", desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, userName, desc.Password, action)
 
 			return data, nil
 		})
