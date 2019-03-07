@@ -414,19 +414,16 @@ func (manager *SVpcManager) InitializeData() error {
 func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	regionId, err := data.GetString("cloudregion_id")
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("No cloudregion_id")
+		return nil, httperrors.NewMissingParameterError("cloudregion_id")
 	}
 	region := CloudregionManager.FetchRegionById(regionId)
 	if region == nil {
 		return nil, httperrors.NewInputParameterError("Invalid cloudregion_id")
 	}
 	if region.isManaged() {
-		managerStr, _ := data.GetString("manager_id")
+		managerStr := jsonutils.GetAnyString(data, []string{"manager_id", "manager"})
 		if len(managerStr) == 0 {
-			managerStr, _ = data.GetString("manager")
-			if len(managerStr) == 0 {
-				return nil, httperrors.NewInputParameterError("cloud provider/manager must be provided")
-			}
+			return nil, httperrors.NewMissingParameterError("manager_id")
 		}
 		managerObj := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
 		if err != nil {

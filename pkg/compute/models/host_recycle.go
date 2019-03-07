@@ -692,7 +692,7 @@ func (self *SHost) AllowPerformRenewPrepaidRecycle(ctx context.Context, userCred
 func (self *SHost) PerformRenewPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	durationStr := jsonutils.GetAnyString(data, []string{"duration"})
 	if len(durationStr) == 0 {
-		return nil, httperrors.NewInputParameterError("missing duration")
+		return nil, httperrors.NewMissingParameterError("duration")
 	}
 
 	bc, err := billing.ParseBillingCycle(durationStr)

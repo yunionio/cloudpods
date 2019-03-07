@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/log"
 
 	"database/sql"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -66,7 +67,7 @@ func (self *SDynamicschedtag) AllowDeleteItem(ctx context.Context, userCred mccl
 func validateDynamicSchedtagInputData(data *jsonutils.JSONDict, create bool) error {
 	condStr := jsonutils.GetAnyString(data, []string{"condition"})
 	if len(condStr) == 0 && create {
-		return httperrors.NewInputParameterError("empty condition")
+		return httperrors.NewMissingParameterError("condition")
 	}
 	if len(condStr) > 0 && !conditionparser.IsValid(condStr) {
 		return httperrors.NewInputParameterError("invalid condition")
@@ -74,7 +75,7 @@ func validateDynamicSchedtagInputData(data *jsonutils.JSONDict, create bool) err
 
 	schedStr := jsonutils.GetAnyString(data, []string{"schedtag", "schedtag_id"})
 	if len(schedStr) == 0 && create {
-		return httperrors.NewInputParameterError("missing schedtag")
+		return httperrors.NewMissingParameterError("schedtag_id")
 	}
 	if len(schedStr) > 0 {
 		schedObj, err := SchedtagManager.FetchByIdOrName(nil, schedStr)

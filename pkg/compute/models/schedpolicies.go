@@ -50,7 +50,7 @@ func validateSchedpolicyInputData(data *jsonutils.JSONDict, create bool) error {
 
 	strategyStr := jsonutils.GetAnyString(data, []string{"strategy"})
 	if len(strategyStr) == 0 && create {
-		return httperrors.NewInputParameterError("missing strategy")
+		return httperrors.NewMissingParameterError("strategy")
 	}
 
 	if len(strategyStr) > 0 && !utils.IsInStringArray(strategyStr, STRATEGY_LIST) {

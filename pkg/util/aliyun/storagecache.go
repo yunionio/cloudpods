@@ -14,7 +14,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -336,7 +335,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 	} else if imageList, err := bucket.ListObjects(oss.Prefix(fmt.Sprintf("%sexport", strings.Replace(extId, "-", "", -1)))); err != nil {
 		return nil, err
 	} else if len(imageList.Objects) != 1 {
-		return nil, httperrors.NewResourceNotFoundError("exported image not find")
+		return nil, fmt.Errorf("exported image not find")
 	} else if err := bucket.DownloadFile(imageList.Objects[0].Key, tmpImageFile.Name(), 12*1024*1024, oss.Routines(3), oss.Progress(&OssProgressListener{})); err != nil {
 		return nil, err
 	} else {
