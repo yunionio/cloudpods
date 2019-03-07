@@ -1125,11 +1125,11 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 
 	wireId, _ := data.GetString("wire_id")
 	if len(wireId) == 0 {
-		return nil, httperrors.NewInputParameterError("missing wire_id")
+		return nil, httperrors.NewMissingParameterError("wire_id")
 	}
 	wire := WireManager.FetchWireById(wireId)
 	if wire == nil {
-		return nil, httperrors.NewInputParameterError("wire_id %s not valid", wireId)
+		return nil, httperrors.NewResourceNotFoundError("wire %s not found", wireId)
 	}
 	vpc := wire.getVpc()
 	if vpc == nil {

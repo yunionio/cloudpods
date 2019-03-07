@@ -214,7 +214,7 @@ func (self *SSecurityGroup) AllowPerformClone(ctx context.Context, userCred mccl
 
 func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if name, _ := data.GetString("name"); len(name) == 0 {
-		return nil, httperrors.NewInputParameterError("Missing name params")
+		return nil, httperrors.NewMissingParameterError("name")
 	} else {
 		sql := SecurityGroupManager.Query()
 		sql = SecurityGroupManager.FilterByName(sql, name)

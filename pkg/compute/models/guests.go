@@ -777,7 +777,7 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 
 	if data.Contains("name") {
 		if name, _ := data.GetString("name"); len(name) < 2 {
-			return nil, httperrors.NewInputParameterError("name is to short")
+			return nil, httperrors.NewInputParameterError("name is too short")
 		}
 	}
 	return self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
@@ -885,7 +885,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			}
 
 			if vmemSize == 0 {
-				return nil, httperrors.NewInputParameterError("Missing memory size")
+				return nil, httperrors.NewMissingParameterError("vmem_size")
 			}
 			if vcpuCount == 0 {
 				vcpuCount = 1

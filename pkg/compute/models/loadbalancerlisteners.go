@@ -306,10 +306,10 @@ func (man *SLoadbalancerListenerManager) checkTypeV(listenerType string) validat
 func (man *SLoadbalancerListenerManager) validateAcl(aclStatusV *validators.ValidatorStringChoices, aclTypeV *validators.ValidatorStringChoices, aclV *validators.ValidatorModelIdOrName, data *jsonutils.JSONDict) error {
 	if aclStatusV.Value == consts.LB_BOOL_ON {
 		if aclV.Model == nil {
-			return httperrors.NewInputParameterError("missing acl")
+			return httperrors.NewMissingParameterError("acl")
 		}
 		if len(aclTypeV.Value) == 0 {
-			return httperrors.NewInputParameterError("missing acl_type")
+			return httperrors.NewMissingParameterError("acl_type")
 		}
 	} else {
 		data.Set("acl_id", jsonutils.NewString(""))

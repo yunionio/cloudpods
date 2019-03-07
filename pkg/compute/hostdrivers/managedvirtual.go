@@ -13,7 +13,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SManagedVirtualizationHostDriver struct {
@@ -147,7 +146,7 @@ func (self *SManagedVirtualizationHostDriver) RequestSaveUploadImageOnHost(ctx c
 	}
 	iStoragecache := iStorage.GetIStoragecache()
 	if iStoragecache == nil {
-		return httperrors.NewResourceNotFoundError("fail to find iStoragecache for storage: %s", iStorage.GetName())
+		return fmt.Errorf("fail to find iStoragecache for storage: %s", iStorage.GetName())
 	}
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		snapshot, err := iDisk.CreateISnapshot(ctx, fmt.Sprintf("Snapshot-%s", imageId), "PrepareSaveImage")
