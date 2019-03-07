@@ -134,6 +134,7 @@ func excludeSkus(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 	// 排除掉华为云对镜像有特殊要求的sku
 	return q.Filter(
 		sqlchemy.OR(
+			sqlchemy.IsNullOrEmpty(q.Field("provider")),
 			sqlchemy.NotEquals(q.Field("provider"), CLOUD_PROVIDER_HUAWEI),
 			sqlchemy.AND(
 				sqlchemy.Equals(q.Field("provider"), CLOUD_PROVIDER_HUAWEI),
