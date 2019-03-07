@@ -32,6 +32,8 @@ var serviceMap = map[string]ISystemService{
 	"openvswitch":   NewOpenvswitchService(),
 	"fluentbit":     NewFluentbitService(),
 	"kube_agent":    NewKubeAgentService(),
+	"lxcfs":         NewLxcfsService(),
+	"docker":        NewDockerService(),
 }
 
 func GetService(name string) ISystemService {
