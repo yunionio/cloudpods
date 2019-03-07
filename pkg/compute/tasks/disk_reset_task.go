@@ -88,7 +88,7 @@ func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.
 
 	externalId, _ := data.GetString("exteranl_disk_id")
 	if disk.DiskSize != snapshot.Size || (len(externalId) > 0 && externalId != disk.GetExternalId()) {
-		_, err := models.DiskManager.TableSpec().Update(disk, func() error {
+		_, err := db.Update(disk, func() error {
 			disk.DiskSize = snapshot.Size
 			disk.ExternalId = externalId
 			return nil
@@ -150,7 +150,7 @@ func (self *DiskCleanUpSnapshotsTask) OnCleanUpSnapshots(ctx context.Context, di
 			continue
 		}
 		snapshot := iSnapshot.(*models.SSnapshot)
-		models.SnapshotManager.TableSpec().Update(snapshot, func() error {
+		db.Update(snapshot, func() error {
 			snapshot.OutOfChain = true
 			return nil
 		})

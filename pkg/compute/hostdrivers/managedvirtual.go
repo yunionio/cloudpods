@@ -231,10 +231,7 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 		if err != nil {
 			return nil, err
 		}
-		_, err = disk.GetModelManager().TableSpec().Update(disk, func() error {
-			disk.ExternalId = iDisk.GetGlobalId()
-			return nil
-		})
+		err = disk.SetExternalId(task.GetUserCred(), iDisk.GetGlobalId())
 		if err != nil {
 			log.Errorf("Update disk externalId err: %v", err)
 			return nil, err

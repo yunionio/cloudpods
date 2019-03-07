@@ -86,7 +86,7 @@ func (self *DiskCreateTask) OnStartAllocateFailed(ctx context.Context, disk *mod
 
 func (self *DiskCreateTask) OnDiskReady(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	diskSize, _ := data.Int("disk_size")
-	if _, err := disk.GetModelManager().TableSpec().Update(disk, func() error {
+	if _, err := db.Update(disk, func() error {
 		disk.DiskSize = int(diskSize)
 		disk.DiskFormat, _ = data.GetString("disk_format")
 		disk.AccessPath, _ = data.GetString("disk_path")

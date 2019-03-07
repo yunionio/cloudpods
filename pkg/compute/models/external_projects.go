@@ -7,11 +7,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/util/compare"
 )
 
 type SExternalProjectManager struct {
@@ -109,6 +111,9 @@ func (manager *SExternalProjectManager) GetProject(externalId string, providerId
 }
 
 func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, projects []cloudprovider.ICloudProject) compare.SyncResult {
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+
 	syncResult := compare.SyncResult{}
 
 	dbProjects, err := manager.getProjectsByProvider(provider)
@@ -129,7 +134,7 @@ func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCr
 	}
 
 	for i := 0; i < len(removed); i++ {
-		err = removed[i].Delete(ctx, userCred)
+		err = removed[i].syncRemoveCloudProject(ctx, userCred)
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
@@ -155,16 +160,25 @@ func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCr
 	return syncResult
 }
 
+func (self *SExternalProject) syncRemoveCloudProject(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	return self.Delete(ctx, userCred)
+}
+
 func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudProject) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Name = ext.GetName()
 		self.IsEmulated = ext.IsEmulated()
 		return nil
 	})
 	if err != nil {
 		log.Errorf("SyncWithCloudProject fail %s", err)
+		return err
 	}
-	return err
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	return nil
 }
 
 func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extProject cloudprovider.ICloudProject) (*SExternalProject, error) {
@@ -183,6 +197,6 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(&project, db.ACT_SYNC_CLOUD_PROJECT, project.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(&project, db.ACT_CREATE, project.GetShortDesc(ctx), userCred)
 	return &project, nil
 }

@@ -149,7 +149,7 @@ func (m *SLoadbalancernetworkManager) SyncLoadbalancerNetwork(ctx context.Contex
 	for i := 0; i < len(lns); i++ {
 		if i == 0 {
 			if lns[i].IpAddr != req.Address {
-				_, err := lns[i].GetModelManager().TableSpec().Update(&lns[i], func() error {
+				_, err := db.Update(&lns[i], func() error {
 					lns[i].IpAddr = req.Address
 					return nil
 				})

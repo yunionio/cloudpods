@@ -227,7 +227,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		log.Debugf("uploadImage Match remote name %s", imageName)
 	}
 
-	jobId, err := self.region.ImportImageJob(imageName, osDist, osVersion, osArch, bucketName, imageId, minDiskGB)
+	jobId, err := self.region.ImportImageJob(imageName, osDist, osVersion, osArch, bucketName, imageId, int64(minDiskGB))
 
 	if err != nil {
 		log.Errorf("ImportImage error %s %s %s %s", jobId, imageId, bucketName, err)

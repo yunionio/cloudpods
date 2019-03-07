@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -280,7 +281,7 @@ func (self *SSnapshotManager) AddRefCount(snapshotId string, count int) {
 	iSnapshot, _ := self.FetchById(snapshotId)
 	if iSnapshot != nil {
 		snapshot := iSnapshot.(*SSnapshot)
-		_, err := self.TableSpec().Update(snapshot, func() error {
+		_, err := db.Update(snapshot, func() error {
 			snapshot.RefCount += count
 			return nil
 		})
@@ -418,7 +419,7 @@ func (self *SSnapshot) AllowPerformDeleted(ctx context.Context, userCred mcclien
 }
 
 func (self *SSnapshot) PerformDeleted(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	self.GetModelManager().TableSpec().Update(self, func() error {
+	db.Update(self, func() error {
 		self.OutOfChain = true
 		return nil
 	})
@@ -492,7 +493,7 @@ func (self *SSnapshot) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SSnapshot) FakeDelete() error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.FakeDeleted = true
 		return nil
 	})
@@ -530,13 +531,30 @@ func TotalSnapshotCount(projectId string, rangeObj db.IStandaloneModel, provider
 	return q.Count()
 }
 
+func (self *SSnapshot) syncRemoveCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	err := self.ValidateDeleteCondition(ctx)
+	if err != nil {
+		err = self.SetStatus(userCred, SNAPSHOT_UNKNOWN, "sync to delete")
+	} else {
+		err = self.Delete(ctx, userCred)
+	}
+	return err
+}
+
 // Only sync snapshot status
-func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot, projectId string, projectSync bool, region *SCloudregion) error {
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
-		self.Name = ext.GetName()
+func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot, projectId string, projectSync bool, region *SCloudregion) error {
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
+		// self.Name = ext.GetName()
 		self.Status = ext.GetStatus()
 		self.DiskType = ext.GetDiskType()
 		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
+			self.ProjectSrc = db.PROJECT_SOURCE_CLOUD
+			if len(projectId) > 0 {
+				self.ProjectId = projectId
+			}
 			if extProjectId := ext.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, self.ManagerId)
 				if err != nil {
@@ -551,15 +569,17 @@ func (self *SSnapshot) SyncWithCloudSnapshot(userCred mcclient.TokenCredential, 
 	})
 	if err != nil {
 		log.Errorf("SyncWithCloudSnapshot fail %s", err)
+		return err
 	}
-	return err
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	return nil
 }
 
 func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion, projectId string, provider *SCloudprovider) (*SSnapshot, error) {
 	snapshot := SSnapshot{}
 	snapshot.SetModelManager(manager)
 
-	snapshot.Name = extSnapshot.GetName()
+	snapshot.Name = db.GenerateName(manager, projectId, extSnapshot.GetName())
 	snapshot.Status = extSnapshot.GetStatus()
 	snapshot.ExternalId = extSnapshot.GetGlobalId()
 	if len(extSnapshot.GetDiskId()) > 0 {
@@ -577,10 +597,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	snapshot.CloudregionId = region.Id
 
 	snapshot.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-	snapshot.ProjectId = userCred.GetProjectId()
-	if len(projectId) > 0 {
-		snapshot.ProjectId = projectId
-	}
+	snapshot.ProjectId = projectId
 
 	if extProjectId := extSnapshot.GetProjectId(); len(extProjectId) > 0 {
 		externalProject, err := ExternalProjectManager.GetProject(extProjectId, snapshot.ManagerId)
@@ -596,7 +613,9 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 		log.Errorf("newFromCloudEip fail %s", err)
 		return nil, err
 	}
-	db.OpsLog.LogEvent(&snapshot, db.ACT_SNAPSHOT_DONE, snapshot.GetShortDesc(ctx), userCred)
+
+	db.OpsLog.LogEvent(&snapshot, db.ACT_CREATE, snapshot.GetShortDesc(ctx), userCred)
+
 	return &snapshot, nil
 }
 
@@ -614,6 +633,10 @@ func (manager *SSnapshotManager) getProviderSnapshotsByRegion(region *SCloudregi
 }
 
 func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshot, projectId string, projectSync bool) compare.SyncResult {
+	syncOwnerProjId := getSyncOwnerProjectId(manager, userCred, projectId, projectSync)
+	lockman.LockClass(ctx, manager, syncOwnerProjId)
+	defer lockman.ReleaseClass(ctx, manager, syncOwnerProjId)
+
 	syncResult := compare.SyncResult{}
 	dbSnapshots, err := manager.getProviderSnapshotsByRegion(region, provider)
 	if err != nil {
@@ -631,7 +654,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		return syncResult
 	}
 	for i := 0; i < len(removed); i += 1 {
-		err = removed[i].SetStatus(userCred, SNAPSHOT_UNKNOWN, "sync to delete")
+		err = removed[i].syncRemoveCloudSnapshot(ctx, userCred)
 		if err != nil {
 			syncResult.DeleteError(err)
 		} else {
@@ -639,18 +662,20 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudSnapshot(userCred, commonext[i], projectId, projectSync, region)
+		err = commondb[i].SyncWithCloudSnapshot(ctx, userCred, commonext[i], projectId, projectSync, region)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		_, err := manager.newFromCloudSnapshot(ctx, userCred, added[i], region, projectId, provider)
+		local, err := manager.newFromCloudSnapshot(ctx, userCred, added[i], region, syncOwnerProjId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, local, added[i])
 			syncResult.Add()
 		}
 	}

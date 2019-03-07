@@ -244,7 +244,8 @@ func (s *SStorageManager) GetStoragecacheById(scId string) IImageCacheManger {
 }
 
 func (s *SStorageManager) NewSharedStorageInstance(mountPoint, storageType string) IStorage {
-	if storageType == storagetypes.STORAGE_NFS {
+	return NewStorage(s, mountPoint, storageType)
+	/*if storageType == storagetypes.STORAGE_NFS {
 		// TODO
 		// return NewNFSStorage(s, mountPoint)
 	} else if storageType == storagetypes.STORAGE_RBD ||
@@ -252,7 +253,7 @@ func (s *SStorageManager) NewSharedStorageInstance(mountPoint, storageType strin
 		// TODO
 		return NewRBDStorage(s, mountPoint)
 	}
-	return nil
+	return nil*/
 }
 
 func (s *SStorageManager) InitSharedStorageImageCache(storageType, storagecacheId, imagecachePath string, storage IStorage) {
@@ -272,7 +273,7 @@ func (s *SStorageManager) AddRbdStorageImagecache(imagecachePath string, storage
 		s.RbdStorageImagecacheManagers = map[string]IImageCacheManger{}
 	}
 	if _, ok := s.RbdStorageImagecacheManagers[storagecacheId]; !ok {
-		if imagecache := NewRbdImageCacheManager(s, imagecachePath, storage, storagecacheId); imagecache != nil {
+		if imagecache := NewImageCacheManager(s, imagecachePath, storage, storagecacheId, storagetypes.STORAGE_RBD); imagecache != nil {
 			s.RbdStorageImagecacheManagers[storagecacheId] = imagecache
 			return
 		}

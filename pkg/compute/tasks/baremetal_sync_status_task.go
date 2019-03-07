@@ -48,7 +48,7 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnInit(ctx context.Context, obj db
 		if !guest.IsSystem {
 			first = true
 		}
-		guest.GetModelManager().TableSpec().Update(guest, func() error {
+		db.Update(guest, func() error {
 			guest.IsSystem = true
 			guest.VmemSize = 0
 			guest.VcpuCount = 0
@@ -57,7 +57,7 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnInit(ctx context.Context, obj db
 		bs := baremetal.GetBaremetalstorage().GetStorage()
 		bs.SetStatus(self.UserCred, models.STORAGE_OFFLINE, "")
 		if first && baremetal.Name != guest.Name {
-			baremetal.GetModelManager().TableSpec().Update(baremetal, func() error {
+			db.Update(baremetal, func() error {
 				if models.HostManager.IsNewNameUnique(guest.Name, self.UserCred, nil) {
 					baremetal.Name = guest.Name
 				} else {

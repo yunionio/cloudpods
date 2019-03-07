@@ -100,6 +100,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.GroupnetworkManager,
 		models.GroupguestManager,
 		models.StoragecachedimageManager,
+		models.CloudproviderRegionManager,
 	} {
 		db.RegisterModelManager(manager)
 		// log.Infof("Register handler %s", manager.KeywordPlural())

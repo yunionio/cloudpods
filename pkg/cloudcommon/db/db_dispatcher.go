@@ -310,7 +310,7 @@ func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchem
 	return q, nil
 }
 
-func query2List(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
+func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
 	listF := listFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
 	if len(fieldFilter) > 0 && IsAdminAllowList(userCred, manager) {
@@ -481,7 +481,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			q = q.Offset(int(offset))
 		}
 	}
-	retList, err := query2List(manager, ctx, userCred, q, queryDict)
+	retList, err := Query2List(manager, ctx, userCred, q, queryDict)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1231,7 +1231,7 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 
 	item.PreUpdate(ctx, userCred, query, dataDict)
 
-	diff, err := manager.TableSpec().Update(item, func() error {
+	diff, err := Update(item, func() error {
 		filterData := dataDict.CopyIncludes(updateFields(manager, userCred)...)
 		err = filterData.Unmarshal(item)
 		if err != nil {
@@ -1293,24 +1293,23 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 }
 
 func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IModel) error {
-	manager := item.GetModelManager()
 	// log.Debugf("Ready to delete %s %s %#v", jsonutils.Marshal(item), item, manager)
-	_, err := manager.TableSpec().Update(item, func() error {
+	_, err := Update(item, func() error {
 		return item.MarkDelete()
 	})
 	if err != nil {
 		msg := fmt.Sprintf("save update error %s", err)
 		log.Errorf(msg)
-		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_DELETE, msg, userCred, false)
+		// logclient.AddActionLogWithContext(ctx, item, logclient.ACT_DELETE, msg, userCred, false)
 		return httperrors.NewGeneralError(err)
 	}
 	OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(ctx), userCred)
-	logclient.AddActionLogWithContext(ctx, item, logclient.ACT_DELETE, item.GetShortDesc(ctx), userCred, true)
+	logclient.AddSimpleActionLog(item, logclient.ACT_DELETE, item.GetShortDesc(ctx), userCred, true)
 	return nil
 }
 
 func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	log.Debugf("deleteItem %s", jsonutils.Marshal(model))
+	// log.Debugf("deleteItem %s", jsonutils.Marshal(model))
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {

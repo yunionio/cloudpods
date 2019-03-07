@@ -3,10 +3,8 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 
@@ -147,17 +145,34 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 	return data, nil
 }
 
-func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (self *SQcloudGuestDriver) GetGuestInitialStateAfterCreate() string {
+	return models.VM_RUNNING
+}
+
+func (self *SQcloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
+	return models.VM_READY
+}
+
+func (self *SQcloudGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+	userName := "root"
+	if desc.ImageType == "system" {
+		if desc.OsDistribution == "Ubuntu" {
+			userName = "ubuntu"
+		}
+		if desc.OsType == "Windows" {
+			userName = "Administrator"
+		}
+	}
+	return userName
+}
+
+/* func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
 	if err != nil {
 		log.Errorf("GetDeployConfigOnHost error: %v", err)
 		return err
 	}
 	log.Debugf("RequestDeployGuestOnHost: %s", config)
-	/* onfinish, err := config.GetString("on_finish")
-	if err != nil {
-		return err
-	} */
 
 	desc := cloudprovider.SManagedVMCreateConfig{}
 	if err := desc.GetConfig(config); err != nil {
@@ -191,7 +206,7 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			if createErr != nil {
 				return nil, createErr
 			}
-			guest.SetExternalId(iVM.GetGlobalId())
+			guest.SetExternalId(task.GetUserCred(), iVM.GetGlobalId())
 
 			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
 			err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800)
@@ -323,7 +338,7 @@ func (self *SQcloudGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 	}
 
 	return nil
-}
+} */
 
 func (self *SQcloudGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
@@ -356,7 +371,7 @@ func (self *SQcloudGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gue
 				if err != nil {
 					return nil, err
 				}
-				if err = secgroupCache.SetExternalId(extID); err != nil {
+				if err = secgroupCache.SetExternalId(task.GetUserCred(), extID); err != nil {
 					return nil, err
 				}
 				externalIds = append(externalIds, extID)

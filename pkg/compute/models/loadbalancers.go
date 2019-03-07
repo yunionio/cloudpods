@@ -458,6 +458,10 @@ func (man *SLoadbalancerManager) getLoadbalancersByRegion(region *SCloudregion, 
 }
 
 func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, lbs []cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) ([]SLoadbalancer, []cloudprovider.ICloudLoadbalancer, compare.SyncResult) {
+	ownerProjId := getSyncOwnerProjectId(man, userCred, provider.ProjectId, syncRange.ProjectSync)
+	lockman.LockClass(ctx, man, ownerProjId)
+	defer lockman.ReleaseClass(ctx, man, ownerProjId)
+
 	localLbs := []SLoadbalancer{}
 	remoteLbs := []cloudprovider.ICloudLoadbalancer{}
 	syncResult := compare.SyncResult{}
@@ -480,21 +484,11 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 	}
 
 	for i := 0; i < len(removed); i++ {
-		err = removed[i].ValidateDeleteCondition(ctx)
-		if err != nil { // cannot delete
-			err = removed[i].SetStatus(userCred, consts.LB_STATUS_UNKNOWN, "sync to delete")
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+		err = removed[i].syncRemoveCloudLoadbalancer(ctx, userCred)
+		if err != nil {
+			syncResult.DeleteError(err)
 		} else {
-			err = removed[i].Delete(ctx, userCred)
-			if err != nil {
-				syncResult.DeleteError(err)
-			} else {
-				syncResult.Delete()
-			}
+			syncResult.Delete()
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
@@ -502,16 +496,18 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
+			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localLbs = append(localLbs, commondb[i])
 			remoteLbs = append(remoteLbs, commonext[i])
 			syncResult.Update()
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		new, err := man.newFromCloudLoadbalancer(ctx, userCred, provider, added[i], region)
+		new, err := man.newFromCloudLoadbalancer(ctx, userCred, provider, added[i], region, ownerProjId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
+			syncMetadata(ctx, userCred, new, added[i])
 			localLbs = append(localLbs, *new)
 			remoteLbs = append(remoteLbs, added[i])
 			syncResult.Add()
@@ -520,7 +516,7 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 	return localLbs, remoteLbs, syncResult
 }
 
-func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extLb cloudprovider.ICloudLoadbalancer, region *SCloudregion) (*SLoadbalancer, error) {
+func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extLb cloudprovider.ICloudLoadbalancer, region *SCloudregion, projectId string) (*SLoadbalancer, error) {
 	lb := SLoadbalancer{}
 	lb.SetModelManager(man)
 
@@ -529,7 +525,7 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	lb.Address = extLb.GetAddress()
 	lb.AddressType = extLb.GetAddressType()
 	lb.NetworkType = extLb.GetNetworkType()
-	lb.Name = extLb.GetName()
+	lb.Name = db.GenerateName(man, projectId, extLb.GetName())
 	lb.Status = extLb.GetStatus()
 	lb.LoadbalancerSpec = extLb.GetLoadbalancerSpec()
 	lb.ChargeType = extLb.GetChargeType()
@@ -551,10 +547,7 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	}
 
 	lb.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-	lb.ProjectId = userCred.GetProjectId()
-	if len(provider.ProjectId) > 0 {
-		lb.ProjectId = provider.ProjectId
-	}
+	lb.ProjectId = projectId
 
 	if extProjectId := extLb.GetProjectId(); len(extProjectId) > 0 {
 		externalProject, err := ExternalProjectManager.GetProject(extProjectId, lb.ManagerId)
@@ -573,8 +566,24 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 		log.Errorf("newFromCloudRegion fail %s", err)
 		return nil, err
 	}
+
+	db.OpsLog.LogEvent(&lb, db.ACT_CREATE, lb.GetShortDesc(ctx), userCred)
+
 	lb.syncLoadbalancerNetwork(ctx, userCred)
 	return &lb, nil
+}
+
+func (lb *SLoadbalancer) syncRemoveCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, lb)
+	defer lockman.ReleaseObject(ctx, lb)
+
+	err := lb.ValidateDeleteCondition(ctx)
+	if err != nil { // cannot delete
+		err = lb.SetStatus(userCred, consts.LB_STATUS_UNKNOWN, "sync to delete")
+	} else {
+		err = lb.Delete(ctx, userCred)
+	}
+	return err
 }
 
 func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential) {
@@ -592,10 +601,13 @@ func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred m
 }
 
 func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, extLb cloudprovider.ICloudLoadbalancer, projectId string, projectSync bool) error {
-	_, err := lb.GetModelManager().TableSpec().Update(lb, func() error {
+	lockman.LockObject(ctx, lb)
+	defer lockman.ReleaseObject(ctx, lb)
+
+	diff, err := db.Update(lb, func() error {
 		lb.Address = extLb.GetAddress()
 		lb.Status = extLb.GetStatus()
-		lb.Name = extLb.GetName()
+		// lb.Name = extLb.GetName()
 		lb.LoadbalancerSpec = extLb.GetLoadbalancerSpec()
 		lb.ChargeType = extLb.GetChargeType()
 
@@ -604,6 +616,10 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		}
 
 		if projectSync && lb.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
+			lb.ProjectSrc = db.PROJECT_SOURCE_CLOUD
+			if len(projectId) > 0 {
+				lb.ProjectId = projectId
+			}
 			if extProjectId := extLb.GetProjectId(); len(extProjectId) > 0 {
 				extProject, err := ExternalProjectManager.GetProject(extProjectId, lb.ManagerId)
 				if err != nil {
@@ -615,7 +631,11 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		}
 		return nil
 	})
+
+	db.OpsLog.LogSyncUpdate(lb, diff, userCred)
+
 	lb.syncLoadbalancerNetwork(ctx, userCred)
+
 	return err
 }
 
@@ -628,7 +648,7 @@ func (lb *SLoadbalancer) setCloudregionId() error {
 	if region == nil {
 		return fmt.Errorf("failed to find region for zone: %s", lb.ZoneId)
 	}
-	_, err := lb.GetModelManager().TableSpec().Update(lb, func() error {
+	_, err := db.Update(lb, func() error {
 		lb.CloudregionId = region.Id
 		return nil
 	})

@@ -3,10 +3,8 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -132,7 +130,23 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 	return data, nil
 }
 
-func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (self *SAliyunGuestDriver) GetGuestInitialStateAfterCreate() string {
+	return models.VM_READY
+}
+
+func (self *SAliyunGuestDriver) GetGuestInitialStateAfterRebuild() string {
+	return models.VM_READY
+}
+
+func (self *SAliyunGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+	userName := "root"
+	if desc.ImageType == "system" && desc.OsType == "Windows" {
+		userName = "Administrator"
+	}
+	return userName
+}
+
+/* func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
 	if err != nil {
 		log.Errorf("GetDeployConfigOnHost error: %v", err)
@@ -167,7 +181,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 			if createErr != nil {
 				return nil, createErr
 			}
-			guest.SetExternalId(iVM.GetGlobalId())
+			guest.SetExternalId(task.GetUserCred(), iVM.GetGlobalId())
 
 			log.Debugf("VMcreated %s, wait status ready ...", iVM.GetGlobalId())
 			err = cloudprovider.WaitStatus(iVM, models.VM_READY, time.Second*5, time.Second*1800)
@@ -284,7 +298,7 @@ func (self *SAliyunGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gu
 	}
 
 	return nil
-}
+} */
 
 func (self *SAliyunGuestDriver) AllowReconfigGuest() bool {
 	return true

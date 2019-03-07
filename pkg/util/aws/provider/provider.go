@@ -129,10 +129,6 @@ func (self *SAwsProvider) GetBalance() (float64, error) {
 	return balance.AvailableAmount, nil
 }
 
-func (self *SAwsProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
-	return nil, cloudprovider.ErrNotImplemented
-}
-
 func (self *SAwsProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return self.client.GetIProjects()
 }

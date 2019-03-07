@@ -53,7 +53,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx conte
 		if err != nil {
 			return nil, err
 		}
-		if err := lbbg.SetExternalId(iLoadbalancerBackendGroup.GetGlobalId()); err != nil {
+		if err := lbbg.SetExternalId(userCred, iLoadbalancerBackendGroup.GetGlobalId()); err != nil {
 			return nil, err
 		}
 		iBackends, err := iLoadbalancerBackendGroup.GetILoadbalancerBackends()
@@ -109,7 +109,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 		if err != nil {
 			return nil, err
 		}
-		if err := lbb.SetExternalId(iLoadbalancerBackend.GetGlobalId()); err != nil {
+		if err := lbb.SetExternalId(userCred, iLoadbalancerBackend.GetGlobalId()); err != nil {
 			return nil, err
 		}
 		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iLoadbalancerBackend, "", false)
@@ -182,7 +182,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		if err != nil {
 			return nil, err
 		}
-		if err := lblis.SetExternalId(iListener.GetGlobalId()); err != nil {
+		if err := lblis.SetExternalId(userCred, iListener.GetGlobalId()); err != nil {
 			return nil, err
 		}
 
@@ -262,7 +262,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 		if err != nil {
 			return nil, err
 		}
-		if err := lbr.SetExternalId(iListenerRule.GetGlobalId()); err != nil {
+		if err := lbr.SetExternalId(userCred, iListenerRule.GetGlobalId()); err != nil {
 			return nil, err
 		}
 		// ====腾讯云添加后端服务器=====

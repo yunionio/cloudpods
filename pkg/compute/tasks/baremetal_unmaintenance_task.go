@@ -40,7 +40,7 @@ func (self *BaremetalUnmaintenanceTask) OnInit(ctx context.Context, obj db.IStan
 }
 
 func (self *BaremetalUnmaintenanceTask) OnUnmaintenantComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	baremetal.GetModelManager().TableSpec().Update(baremetal, func() error {
+	db.Update(baremetal, func() error {
 		baremetal.IsMaintenance = false
 		return nil
 	})

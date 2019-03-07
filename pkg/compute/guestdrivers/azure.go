@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 
@@ -19,7 +17,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SAzureGuestDriver struct {
@@ -127,7 +124,19 @@ func (self *SAzureGuestDriver) ValidateUpdateData(ctx context.Context, userCred 
 	return data, nil
 }
 
-func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+func (self *SAzureGuestDriver) GetGuestInitialStateAfterCreate() string {
+	return models.VM_RUNNING
+}
+
+func (self *SAzureGuestDriver) GetGuestInitialStateAfterRebuild() string {
+	return models.VM_READY
+}
+
+func (self *SAzureGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+	return ansible.PUBLIC_CLOUD_ANSIBLE_USER
+}
+
+/* func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
 	if err != nil {
 		log.Errorf("GetDeployConfigOnHost error: %v", err)
@@ -158,7 +167,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 				return nil, createErr
 			}
 
-			guest.SetExternalId(iVM.GetGlobalId())
+			guest.SetExternalId(task.GetUserCred(), iVM.GetGlobalId())
 
 			log.Debugf("VMcreated %s, wait status running ...", iVM.GetGlobalId())
 			if err = cloudprovider.WaitStatus(iVM, models.VM_RUNNING, time.Second*5, time.Second*1800); err != nil {
@@ -213,7 +222,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 		return fmt.Errorf("Action %s not supported", action)
 	}
 	return nil
-}
+} */
 
 func (self *SAzureGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
@@ -247,7 +256,7 @@ func (self *SAzureGuestDriver) RequestSyncConfigOnHost(ctx context.Context, gues
 			if err != nil {
 				return nil, err
 			}
-			if err = secgroupCache.SetExternalId(extID); err != nil {
+			if err = secgroupCache.SetExternalId(task.GetUserCred(), extID); err != nil {
 				return nil, err
 			}
 			return nil, iVM.AssignSecurityGroup(extID)

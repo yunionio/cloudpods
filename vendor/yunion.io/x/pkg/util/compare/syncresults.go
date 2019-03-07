@@ -6,12 +6,12 @@ import (
 )
 
 type SyncResult struct {
-	AddCnt       int
-	AddErrCnt    int
-	UpdateCnt    int
-	UpdateErrCnt int
-	DelCnt       int
-	DelErrCnt    int
+	AddCnt       int `json:"add_cnt,omitzero"`
+	AddErrCnt    int `json:"add_err_cnt,omitzero"`
+	UpdateCnt    int `json:"update_cnt,omitzero"`
+	UpdateErrCnt int `json:"update_err_cnt,omitzero"`
+	DelCnt       int `json:"del_cnt,omitzero"`
+	DelErrCnt    int `json:"del_err_cnt,omitzero"`
 	errors       []error
 }
 

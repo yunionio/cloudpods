@@ -103,7 +103,7 @@ func (self *SBaremetalagent) AllowPerformEnable(ctx context.Context, userCred mc
 
 func (self *SBaremetalagent) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status != BAREMETAL_AGENT_ENABLED {
-		self.GetModelManager().TableSpec().Update(self, func() error {
+		db.Update(self, func() error {
 			self.Status = BAREMETAL_AGENT_ENABLED
 			return nil
 		})
@@ -118,7 +118,7 @@ func (self *SBaremetalagent) AllowPerformDisable(ctx context.Context, userCred m
 
 func (self *SBaremetalagent) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status != BAREMETAL_AGENT_DISABLED {
-		self.GetModelManager().TableSpec().Update(self, func() error {
+		db.Update(self, func() error {
 			self.Status = BAREMETAL_AGENT_DISABLED
 			return nil
 		})
@@ -133,7 +133,7 @@ func (self *SBaremetalagent) AllowPerformOnline(ctx context.Context, userCred mc
 
 func (self *SBaremetalagent) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status == BAREMETAL_AGENT_OFFLINE {
-		self.GetModelManager().TableSpec().Update(self, func() error {
+		db.Update(self, func() error {
 			self.Status = BAREMETAL_AGENT_ENABLED
 			return nil
 		})
@@ -148,7 +148,7 @@ func (self *SBaremetalagent) AllowPerformOffline(ctx context.Context, userCred m
 
 func (self *SBaremetalagent) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status == BAREMETAL_AGENT_ENABLED {
-		self.GetModelManager().TableSpec().Update(self, func() error {
+		db.Update(self, func() error {
 			self.Status = BAREMETAL_AGENT_OFFLINE
 			return nil
 		})

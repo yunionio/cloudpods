@@ -3,9 +3,11 @@ package db
 import (
 	"strings"
 
+	"context"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/pkg/utils"
 )
 
@@ -37,6 +39,7 @@ func (manager *SAdminSharableVirtualResourceBaseManager) ValidateCreateData(man 
 }
 
 func (model *SAdminSharableVirtualResourceBase) SetInfo(
+	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	man IAdminSharableVirtualModelManager,
 	obj IAdminSharableVirtualModel,
@@ -59,12 +62,13 @@ func (model *SAdminSharableVirtualResourceBase) SetInfo(
 		}
 	}
 	if isChanged {
-		return model.setInfo(userCred, man, records)
+		return model.setInfo(ctx, userCred, man, records)
 	}
 	return nil
 }
 
 func (model *SAdminSharableVirtualResourceBase) AddInfo(
+	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	man IAdminSharableVirtualModelManager,
 	obj IAdminSharableVirtualModel,
@@ -83,12 +87,13 @@ func (model *SAdminSharableVirtualResourceBase) AddInfo(
 		}
 	}
 	if len(adds) > 0 {
-		return model.setInfo(userCred, man, oldRecs)
+		return model.setInfo(ctx, userCred, man, oldRecs)
 	}
 	return nil
 }
 
 func (model *SAdminSharableVirtualResourceBase) RemoveInfo(
+	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	man IAdminSharableVirtualModelManager,
 	obj IAdminSharableVirtualModel,
@@ -111,12 +116,12 @@ func (model *SAdminSharableVirtualResourceBase) RemoveInfo(
 		return httperrors.NewNotAcceptableError("Not allow empty records")
 	}
 	if len(removes) > 0 {
-		return model.setInfo(userCred, man, oldRecs)
+		return model.setInfo(ctx, userCred, man, oldRecs)
 	}
 	return nil
 }
 
-func (model *SAdminSharableVirtualResourceBase) setInfo(
+func (model *SAdminSharableVirtualResourceBase) setInfo(ctx context.Context,
 	userCred mcclient.TokenCredential,
 	man IAdminSharableVirtualModelManager,
 	records []string,
@@ -124,7 +129,7 @@ func (model *SAdminSharableVirtualResourceBase) setInfo(
 	if man.GetRecordsLimit() > 0 && len(records) > man.GetRecordsLimit() {
 		return httperrors.NewNotAcceptableError("Records limit exceeded.")
 	}
-	diff, err := model.GetModelManager().TableSpec().Update(model, func() error {
+	diff, err := Update(model, func() error {
 		model.Records = strings.Join(records, man.GetRecordsSeparator())
 		return nil
 	})
@@ -133,6 +138,7 @@ func (model *SAdminSharableVirtualResourceBase) setInfo(
 	}
 	if diff != nil {
 		OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
+		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, diff, userCred, true)
 	}
 	return err
 }

@@ -228,7 +228,7 @@ func (self *SNetInterface) Remove(ctx context.Context, userCred mcclient.TokenCr
 			hw.Delete(ctx, userCred)
 		}
 	}
-	_, err := self.GetModelManager().TableSpec().Update(self, func() error {
+	_, err := db.Update(self, func() error {
 		self.WireId = ""
 		self.BaremetalId = ""
 		self.Rate = 0

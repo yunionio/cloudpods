@@ -35,7 +35,7 @@ type SVirtualResourceBase struct {
 	SStatusStandaloneResourceBase
 
 	ProjectId  string `name:"tenant_id" width:"128" charset:"ascii" nullable:"false" index:"true" list:"user"`
-	ProjectSrc string `width:"10" charset:"ascii" nullable:"false" list:"user" default:"local"`
+	ProjectSrc string `width:"10" charset:"ascii" nullable:"false" list:"user" default:""`
 
 	IsSystem bool `nullable:"true" default:"false" list:"admin" create:"optional"`
 
@@ -219,6 +219,14 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	if tobj == nil {
 		return nil, httperrors.NewTenantNotFoundError("tenant %s not found", tenant)
 	}
+	if tobj.GetId() == model.ProjectId {
+		// do nothing
+		Update(model, func() error {
+			model.ProjectSrc = PROJECT_SOURCE_LOCAL
+			return nil
+		})
+		return nil, nil
+	}
 	q := model.GetModelManager().Query().Equals("name", model.GetName())
 	q = q.Equals("tenant_id", tobj.GetId())
 	q = q.NotEquals("id", model.GetId())
@@ -231,37 +239,39 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		formerObj := NewTenant(model.ProjectId, "unknown")
 		former = &formerObj
 	}
-	_, err := model.GetModelManager().TableSpec().Update(model, func() error {
+	diff, err := Update(model, func() error {
 		model.ProjectId = tobj.GetId()
 		model.ProjectSrc = PROJECT_SOURCE_LOCAL
 		return nil
 	})
 	if err != nil {
+		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CHANGE_OWNER, err, userCred, false)
 		return nil, err
 	}
 	OpsLog.SyncOwner(model, former, userCred)
-	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CHANGE_OWNER, nil, userCred, true)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CHANGE_OWNER, diff, userCred, true)
 	return nil, nil
 }
 
 func (model *SVirtualResourceBase) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := model.PendingDelete()
-	if err == nil {
-		OpsLog.LogEvent(model, ACT_PENDING_DELETE, nil, userCred)
-	}
-	return err
+	return model.MarkPendingDelete(userCred)
 }
 
-func (model *SVirtualResourceBase) PendingDelete() error {
-	_, err := model.GetModelManager().TableSpec().Update(model, func() error {
-		model.PendingDeleted = true
-		model.PendingDeletedAt = timeutils.UtcNow()
-		return nil
-	})
-	if err != nil {
-		log.Errorf("PendingDelete fail %s", err)
+func (model *SVirtualResourceBase) MarkPendingDelete(userCred mcclient.TokenCredential) error {
+	if !model.PendingDeleted {
+		diff, err := Update(model, func() error {
+			model.PendingDeleted = true
+			model.PendingDeletedAt = timeutils.UtcNow()
+			return nil
+		})
+		if err != nil {
+			log.Errorf("MarkPendingDelete update fail %s", err)
+			return err
+		}
+		OpsLog.LogEvent(model, ACT_PENDING_DELETE, diff, userCred)
+		logclient.AddSimpleActionLog(model, logclient.ACT_PENDING_DELETE, diff, userCred, true)
 	}
-	return err
+	return nil
 }
 
 func (model *SVirtualResourceBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -301,17 +311,31 @@ func (model *SVirtualResourceBase) VirtualModelManager() IVirtualModelManager {
 }
 
 func (model *SVirtualResourceBase) CancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if model.PendingDeleted {
+		return model.MarkCancelPendingDelete(ctx, userCred)
+	}
+	return nil
+}
+
+func (model *SVirtualResourceBase) MarkCancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	ownerProjId := model.GetOwnerProjectId()
 
 	lockman.LockClass(ctx, model.GetModelManager(), ownerProjId)
 	defer lockman.ReleaseClass(ctx, model.GetModelManager(), ownerProjId)
 
-	_, err := model.GetModelManager().TableSpec().Update(model, func() error {
+	diff, err := Update(model, func() error {
 		model.Name = GenerateName(model.GetModelManager(), ownerProjId, model.Name)
 		model.PendingDeleted = false
+		model.PendingDeletedAt = time.Time{}
 		return nil
 	})
-	return err
+	if err != nil {
+		log.Errorf("MarkCancelPendingDelete fail %s", err)
+		return err
+	}
+	OpsLog.LogEvent(model, ACT_CANCEL_DELETE, diff, userCred)
+	logclient.AddSimpleActionLog(model, logclient.ACT_CANCEL_DELETE, diff, userCred, true)
+	return nil
 }
 
 func (model *SVirtualResourceBase) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {

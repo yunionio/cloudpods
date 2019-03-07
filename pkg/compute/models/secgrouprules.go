@@ -351,7 +351,7 @@ func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCre
 				cmp := strings.Compare(dbStr, ruleStr)
 				if cmp == 0 {
 					if dbRules[j].Description != rules[i].Description {
-						if _, err := manager.TableSpec().Update(&dbRules[j], func() error {
+						if _, err := db.Update(&dbRules[j], func() error {
 							dbRules[j].Description = rules[i].Description
 							return nil
 						}); err != nil {
