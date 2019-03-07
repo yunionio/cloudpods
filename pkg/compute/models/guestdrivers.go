@@ -132,7 +132,7 @@ type IGuestDriver interface {
 
 	IsSupportEip() bool
 
-	NeedStopForChangeSpec() bool
+	NeedStopForChangeSpec(guest *SGuest) bool
 
 	OnGuestChangeCpuMemFailed(ctx context.Context, guest *SGuest, data *jsonutils.JSONDict, task taskman.ITask) error
 }

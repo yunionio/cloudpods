@@ -248,6 +248,9 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 	// is on_async_script_start
 	if isStarted {
 		log.Infof("Async start server %s success!", s.GetName())
+		meta := jsonutils.NewDict()
+		meta.Set("hotplug_cpu_mem", jsonutils.NewString("enable"))
+		go s.SyncMetadata(meta)
 		s.StartMonitor(ctx)
 		return nil, nil
 	} else {
