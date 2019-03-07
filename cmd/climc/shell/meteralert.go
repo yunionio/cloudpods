@@ -14,24 +14,28 @@ func init() {
 	 */
 	type MeterAlertCreateOptions struct {
 		TYPE       string  `help:"Alert rule type" choices:"balance|resFee|monthFee"`
-		PROVIDER   string  `help:"Name of the cloud platform"`
-		ACCOUNT_ID string  `help:"ID of the cloud platform"`
 		THRESHOLD  float64 `help:"Threshold value of the metric"`
 		COMPARATOR string  `help:"Comparison operator for join expressions" choices:">|<|>=|<=|=|!="`
 		RECIPIENTS string  `help:"Comma separated recipient ID"`
 		LEVEL      string  `help:"Alert level" choices:"normal|important|fatal"`
 		CHANNEL    string  `help:"Ways to send an alarm" choices:"email|mobile"`
+		Provider   string  `help:"Name of the cloud platform"`
+		Account_id string  `help:"ID of the cloud platform"`
 	}
 	R(&MeterAlertCreateOptions{}, "meteralert-create", "Create a meter alert rule", func(s *mcclient.ClientSession, args *MeterAlertCreateOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.TYPE), "type")
-		params.Add(jsonutils.NewString(args.PROVIDER), "provider")
-		params.Add(jsonutils.NewString(args.ACCOUNT_ID), "account_id")
 		params.Add(jsonutils.NewFloat(args.THRESHOLD), "threshold")
 		params.Add(jsonutils.NewString(args.COMPARATOR), "comparator")
 		params.Add(jsonutils.NewString(args.RECIPIENTS), "recipients")
 		params.Add(jsonutils.NewString(args.LEVEL), "level")
 		params.Add(jsonutils.NewString(args.CHANNEL), "channel")
+		if len(args.Provider) > 0 {
+			params.Add(jsonutils.NewString(args.Provider), "provider")
+		}
+		if len(args.Account_id) > 0 {
+			params.Add(jsonutils.NewString(args.Account_id), "account_id")
+		}
 
 		rst, err := modules.MeterAlert.Create(s, params)
 
