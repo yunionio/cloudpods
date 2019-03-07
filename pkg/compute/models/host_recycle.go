@@ -688,6 +688,15 @@ func (self *SHost) AllowPerformRenewPrepaidRecycle(ctx context.Context, userCred
 }
 
 func (self *SHost) PerformRenewPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !self.IsPrepaidRecycle() {
+		return nil, httperrors.NewInputParameterError("Not a prepaid recycle host")
+	}
+	if len(self.RealExternalId) == 0 {
+		return nil, httperrors.NewGeneralError(fmt.Errorf("host RealExternalId is empty"))
+	}
+	if len(self.ExternalId) == 0 {
+		return nil, httperrors.NewGeneralError(fmt.Errorf("host ExternalId is empty"))
+	}
 	durationStr := jsonutils.GetAnyString(data, []string{"duration"})
 	if len(durationStr) == 0 {
 		return nil, httperrors.NewInputParameterError("missing duration")
