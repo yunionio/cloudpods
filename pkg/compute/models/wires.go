@@ -80,7 +80,7 @@ func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mc
 
 	vpcStr := jsonutils.GetAnyString(data, []string{"vpc", "vpc_id"})
 	if len(vpcStr) == 0 {
-		return nil, httperrors.NewInternalServerError("missing vpc")
+		return nil, httperrors.NewMissingParameterError("vpc_id")
 	}
 
 	if len(vpcStr) > 0 {

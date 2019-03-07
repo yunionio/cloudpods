@@ -1091,7 +1091,7 @@ func (self *SImage) AllowPerformUpdateTorrentStatus(ctx context.Context, userCre
 func (self *SImage) PerformUpdateTorrentStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	formatStr, _ := query.GetString("format")
 	if len(formatStr) == 0 {
-		return nil, httperrors.NewInputParameterError("missing parameter format")
+		return nil, httperrors.NewMissingParameterError("format")
 	}
 	subimg := ImageSubformatManager.FetchSubImage(self.Id, formatStr)
 	if subimg == nil {

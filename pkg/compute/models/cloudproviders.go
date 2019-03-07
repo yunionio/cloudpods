@@ -471,7 +471,7 @@ func (self *SCloudprovider) AllowPerformChangeProject(ctx context.Context, userC
 func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	project, err := data.GetString("project")
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("Missing project parameter")
+		return nil, httperrors.NewMissingParameterError("project")
 	}
 
 	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, project)
