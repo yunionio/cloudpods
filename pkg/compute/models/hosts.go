@@ -2461,17 +2461,14 @@ func (self *SHost) PerformStart(ctx context.Context, userCred mcclient.TokenCred
 	}
 	guest := self.GetBaremetalServer()
 	if guest != nil {
-		if self.HostType != HOST_TYPE_BAREMETAL {
-			if !utils.IsInStringArray(guest.Status, []string{VM_ADMIN}) {
-				return nil, httperrors.NewBadRequestError("Cannot start baremetal with active guest")
-			}
-		} else {
-			if utils.ToBool(guest.GetMetadata("is_fake_baremetal_server", userCred)) {
-				return nil, self.InitializedGuestStart(ctx, userCred, guest)
-			}
-			self.SetStatus(userCred, BAREMETAL_START_MAINTAIN, "")
-			return guest.PerformStart(ctx, userCred, query, data)
+		if self.HostType == HOST_TYPE_BAREMETAL && utils.ToBool(guest.GetMetadata("is_fake_baremetal_server", userCred)) {
+			return nil, self.InitializedGuestStart(ctx, userCred, guest)
 		}
+		//	if !utils.IsInStringArray(guest.Status, []string{VM_ADMIN}) {
+		//		return nil, httperrors.NewBadRequestError("Cannot start baremetal with active guest")
+		//	}
+		self.SetStatus(userCred, BAREMETAL_START_MAINTAIN, "")
+		return guest.PerformStart(ctx, userCred, query, data)
 	}
 	params := jsonutils.NewDict()
 	params.Set("force_reboot", jsonutils.NewBool(false))
@@ -2633,6 +2630,10 @@ func (self *SHost) BaremetalSyncRequest(ctx context.Context, method httputils.TH
 }
 
 func (self *SHost) StartSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	guest := self.GetBaremetalServer()
+	if guest != nil {
+		return guest.StartSyncstatus(ctx, userCred, parentTaskId)
+	}
 	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalSyncStatusTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
 		return err
