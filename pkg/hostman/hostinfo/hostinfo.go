@@ -677,11 +677,21 @@ func (h *SHostInfo) GetMasterIp() string {
 }
 
 func (h *SHostInfo) GetMasterMac() string {
+	return h.getMasterMacWithRefresh(false)
+}
+
+func (h *SHostInfo) getMasterMacWithRefresh(refresh bool) string {
 	if h.MasterNic != nil {
+		if refresh {
+			h.MasterNic.FetchConfig()
+		}
 		return h.MasterNic.Mac
 	}
 	for _, n := range h.Nics {
 		if len(n.Ip) > 0 {
+			if refresh {
+				n.BridgeDev.FetchConfig()
+			}
 			return n.BridgeDev.GetMac()
 		}
 	}
@@ -768,7 +778,7 @@ func (h *SHostInfo) getZoneInfo(zoneId string, standalone bool) {
 }
 
 func (h *SHostInfo) getHostInfo(zoneId string) {
-	masterMac := h.GetMasterMac()
+	masterMac := h.getMasterMacWithRefresh(true)
 	if len(masterMac) == 0 {
 		panic("master mac not found")
 	}
@@ -1011,8 +1021,10 @@ func (h *SHostInfo) doSyncNicInfo(nic *SNIC) {
 	content := jsonutils.NewDict()
 	content.Set("bridge", jsonutils.NewString(nic.Bridge))
 	content.Set("interface", jsonutils.NewString(nic.Inter))
+	query := jsonutils.NewDict()
+	query.Set("mac_addr", jsonutils.NewString(nic.BridgeDev.GetMac()))
 	_, err := modules.Hostwires.Update(h.GetSession(),
-		h.HostId, nic.Network, nil, content)
+		h.HostId, nic.Network, query, content)
 	if err != nil {
 		log.Errorln(err)
 		h.onFail()

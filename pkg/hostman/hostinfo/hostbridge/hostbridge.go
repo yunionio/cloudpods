@@ -26,6 +26,7 @@ type IBridgeDriver interface {
 	Exists() bool
 	Interfaces() []string
 
+	FetchConfig()
 	GetMac() string
 	GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject) error
 	GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject) error
@@ -54,6 +55,11 @@ func NewBaseBridgeDriver(bridge, inter, ip string) (*SBaseBridgeDriver, error) {
 		return nil, fmt.Errorf("A bridge without interface must have no IP")
 	}
 	return bd, nil
+}
+
+func (d *SBaseBridgeDriver) FetchConfig() {
+	d.bridge.FetchConfig()
+	d.inter.FetchConfig()
 }
 
 func (d *SBaseBridgeDriver) GetMac() string {
