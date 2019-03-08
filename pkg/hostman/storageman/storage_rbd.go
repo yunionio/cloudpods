@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/ceph/go-ceph/rados"
@@ -298,34 +297,20 @@ func (s *SRbdStorage) getCapacity() (uint64, error) {
 		}
 		clusterSizeKb := stats.Kb
 		pool, _ := s.StorageConf.GetString("pool")
-		bufer, _, err := conn.MonCommand([]byte(fmt.Sprintf(`{"prefix":"osd pool get-quota", "pool":"%s"}`, pool)))
+		bufer, _, err := conn.MonCommand([]byte(fmt.Sprintf(`{"prefix":"osd pool get-quota", "pool":"%s", "format":"json"}`, pool)))
 		if err != nil {
 			return nil, err
 		}
-		for _, v := range strings.Split(string(bufer), "\n") {
-			v = strings.ToLower(v)
-			if strings.Index(v, "max bytes") != -1 {
-				if strings.Index(v, "n/a") == -1 {
-					if info := strings.Split(v, ":"); len(info) == 2 {
-						_size := strings.Trim(info[1], " ")
-						for k, v := range map[string]uint64{"kb": 1, "mb": 1024, "gb": 1024 * 1024, "tb": 1024 * 1024 * 1024, "pb": 1014 * 1024 * 1024 * 1024} {
-							if strings.Index(_size, k) != -1 {
-								sizeStr := strings.TrimSuffix(_size, k)
-								size, err := strconv.Atoi(sizeStr)
-								if err != nil {
-									return clusterSizeKb, nil
-								}
-								if uint64(size)*v > clusterSizeKb {
-									return clusterSizeKb, nil
-								}
-								return uint64(size) * v, nil
-							}
-						}
-					}
-				}
-			}
+		result, err := jsonutils.Parse(bufer)
+		if err != nil {
+			log.Errorf("parse %s json err: %v", string(bufer), err)
+			return nil, err
 		}
-		return clusterSizeKb, nil
+		maxBytes, _ := result.Int("quota_max_bytes")
+		if maxBytes == 0 || uint64(maxBytes) > clusterSizeKb*1024 {
+			return clusterSizeKb, nil
+		}
+		return uint64(maxBytes) / 1024, nil
 	})
 	if err != nil {
 		log.Errorf("get capacity error: %v", err)
