@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -19,7 +20,10 @@ func init() {
 
 func (self *HostStorageAttachTask) taskFail(ctx context.Context, host *models.SHost, reason string) {
 	if hoststorage := self.getHoststorage(host); hoststorage != nil {
+		storage := hoststorage.GetStorage()
 		hoststorage.Detach(ctx, self.GetUserCred())
+		note := fmt.Sprintf("attach host %s failed: %s", host.Name, reason)
+		db.OpsLog.LogEvent(storage, db.ACT_ATTACH, note, self.GetUserCred())
 	}
 	self.SetStageFailed(ctx, reason)
 }
