@@ -80,3 +80,12 @@ func (self *SOrderManager) GetPeriodResourceList(querys map[string]string) (*res
 
 	return self.ListInContextWithSpec(self.orderCtx, "resources/detail", querys, "data")
 }
+
+// https://support.huaweicloud.com/api-bpconsole/zh-cn_topic_0082522029.html
+func (self *SOrderManager) RenewPeriodResource(params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.orderCtx == nil {
+		return nil, fmt.Errorf("domainId is emtpy.Use SetDomainId method to set.")
+	}
+
+	return self.CreateInContextWithSpec(self.orderCtx, "resources/renew", params, "order_ids")
+}

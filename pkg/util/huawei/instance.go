@@ -1116,9 +1116,31 @@ func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	return DoDeleteWithSpec(self.ecsClient.Servers.DeleteInContextWithSpec, nil, instanceId, path, nil, nil)
 }
 
-// 目前无接口支持
-func (region *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) error {
-	return cloudprovider.ErrNotSupported
+// // https://support.huaweicloud.com/api-bpconsole/zh-cn_topic_0082522029.html
+// 只支持传入主资源ID, 根据“查询客户包周期资源列表”接口响应参数中的“is_main_resource”来标识。
+// expire_mode 0：进入宽限期  1：转按需 2：自动退订 3：自动续订（当前只支持ECS、EVS和VPC）
+func (self *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) error {
+	params := jsonutils.NewDict()
+	res := jsonutils.NewArray()
+	res.Add(jsonutils.NewString(instanceId))
+	params.Add(res, "resource_ids")
+	params.Add(jsonutils.NewInt(2), "expire_mode") // 自动退订
+	params.Add(jsonutils.NewInt(1), "isAutoPay")   // 自动支付
+	month := int64(bc.GetMonths())
+	year := int64(bc.GetYears())
+
+	if month >= 1 && month <= 11 {
+		params.Add(jsonutils.NewInt(2), "period_type")
+		params.Add(jsonutils.NewInt(month), "period_num")
+	} else if year >= 1 && year <= 3 {
+		params.Add(jsonutils.NewInt(3), "period_type")
+		params.Add(jsonutils.NewInt(year), "period_type")
+	} else {
+		return fmt.Errorf("invalid renew period %s month,must be 1~11 month or 1~3 year", month)
+	}
+
+	_, err := self.ecsClient.Orders.RenewPeriodResource(params)
+	return err
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0065817702.html
