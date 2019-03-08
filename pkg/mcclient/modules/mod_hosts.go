@@ -177,7 +177,9 @@ func init() {
 			"mem_commit_rate", "cpu_commit_bound",
 			"mem_commit_bound", "node_count", "sn", "storage_type",
 			"host_type", "version", "schedtags",
-			"storage_size"},
+			"storage_size",
+			"expired_at",
+		},
 		[]string{})}
 	registerCompute(&Hosts)
 }
