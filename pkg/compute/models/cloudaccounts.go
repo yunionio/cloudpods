@@ -998,7 +998,7 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Contex
 			sqlchemy.LT(q.Field("error_count"), options.Options.MaxCloudAccountErrorCount),
 		),
 	)
-	q = q.Equals("sync_status", CLOUD_PROVIDER_SYNC_STATUS_IDLE)
+	// q = q.Equals("sync_status", CLOUD_PROVIDER_SYNC_STATUS_IDLE)
 
 	accounts := make([]SCloudaccount, 0)
 	err := db.FetchModelObjects(manager, q, &accounts)
@@ -1008,7 +1008,7 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Contex
 	}
 
 	for i := range accounts {
-		if accounts[i].needSync() {
+		if accounts[i].needSync() && accounts[i].CanSync() {
 			accounts[i].SubmitSyncAccountTask(ctx, userCred, nil, true)
 		}
 	}
