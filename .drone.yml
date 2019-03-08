@@ -11,7 +11,7 @@ clone:
 
 pipeline:
   build:
-    image: golang:latest
+    image: d3lx/golang:yunion
     commands:
       - make
 
