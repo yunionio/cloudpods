@@ -110,9 +110,9 @@ func (self *SCloudproviderregion) getExtraDetails(extra *jsonutils.JSONDict) *js
 	extra.Add(jsonutils.NewString(account.Id), "cloudaccount_id")
 	extra.Add(jsonutils.NewString(account.Name), "cloudaccount")
 	if account.EnableAutoSync {
-		extra.Add(jsonutils.JSONTrue, "auto_sync")
+		extra.Add(jsonutils.JSONTrue, "enable_auto_sync")
 	} else {
-		extra.Add(jsonutils.JSONFalse, "auto_sync")
+		extra.Add(jsonutils.JSONFalse, "enable_auto_sync")
 	}
 	extra.Add(jsonutils.NewInt(int64(self.getSyncIntervalSeconds(account))), "sync_interval_seconds")
 	return extra
