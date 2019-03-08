@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/onecloud/pkg/util/openstack"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -47,6 +49,15 @@ func init() {
 			return err
 		}
 		printObject(flavor)
+		return nil
+	})
+
+	shellutils.R(&FlavorCreateOptions{}, "flavor-sync", "Sync flavor", func(cli *openstack.SRegion, args *FlavorCreateOptions) error {
+		flavorId, err := cli.SyncFlavor(args.NAME, args.CPU, args.MEMORY_MB, args.DISK)
+		if err != nil {
+			return err
+		}
+		fmt.Println(flavorId)
 		return nil
 	})
 

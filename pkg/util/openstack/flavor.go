@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/pkg/utils"
 )
 
 type SFlavor struct {
@@ -39,17 +39,22 @@ func (region *SRegion) GetFlavor(flavorId string) (*SFlavor, error) {
 	return flavor, resp.Unmarshal(flavor, "flavor")
 }
 
+func (region *SRegion) SyncFlavor(name string, cpu, memoryMb, diskGB int) (string, error) {
+	return region.syncFlavor(name, cpu, memoryMb, diskGB)
+}
+
 func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (string, error) {
 	flavors, err := region.GetFlavors()
 	if err != nil {
 		return "", err
 	}
-	if len(name) > 0 {
-		for _, flavor := range flavors {
-			if flavor.GetName() == name {
-				return flavor.ID, nil
-			}
+	flavorNames := []string{}
+	for _, flavor := range flavors {
+		flavorName := flavor.GetName()
+		if len(name) > 0 && flavorName == name {
+			return flavor.ID, nil
 		}
+		flavorNames = append(flavorNames, flavorName)
 	}
 
 	if cpu == 0 && memoryMb == 0 {
@@ -79,11 +84,10 @@ func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (strin
 			}
 		}
 		for i := 0; i < 10; i++ {
-			if _, err := region.GetFlavor(fmt.Sprintf("m%d.%s", i, suffix)); err != nil {
-				if err == cloudprovider.ErrNotFound {
-					name = fmt.Sprintf("m%d.%s", i, suffix)
-					break
-				}
+			flavorName := fmt.Sprintf("m%d.%s", i, suffix)
+			if !utils.IsInStringArray(flavorName, flavorNames) {
+				name = flavorName
+				break
 			}
 		}
 		if len(name) == 0 {
