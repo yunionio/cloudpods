@@ -31,6 +31,10 @@ func NewKVMGuestDiskPartition(devPath string) *SKVMGuestDiskPartition {
 	return res
 }
 
+func (p *SKVMGuestDiskPartition) GetPartDev() string {
+	return p.partDev
+}
+
 func (p *SKVMGuestDiskPartition) IsReadonly() bool {
 	return IsPartitionReadonly(p)
 }

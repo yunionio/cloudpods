@@ -586,7 +586,11 @@ func (s *SKVMGuestInstance) SyncStatus() {
 func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 	var status = "running"
 	if jobs > 0 {
-		status = "block_stream"
+		if s.IsMaster() && s.IsMirrorJobSucc() {
+			status = "running"
+		} else {
+			status = "block_stream"
+		}
 	}
 	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, status)
 	if err != nil {
