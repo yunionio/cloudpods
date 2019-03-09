@@ -251,26 +251,26 @@ func SetLanStatic(
 	mask string,
 	gateway string,
 ) error {
-	config, err := GetLanConfig(exector, channel)
-	if err != nil {
-		return err
+	// config, err := GetLanConfig(exector, channel)
+	// if err != nil {
+	// 	return err
+	// }
+	// var argss []Args
+	// if config.IPAddr == ip && config.Netmask == mask && config.Gateway == gateway {
+	argss := []Args{
+		newArgs("lan", "set", channel, "ipsrc", "static"),
+		newArgs("lan", "set", channel, "ipaddr", ip),
+		newArgs("lan", "set", channel, "netmask", mask),
+		newArgs("lan", "set", channel, "defgw", "ipaddr", gateway),
 	}
-	var argss []Args
-	if config.IPAddr == ip && config.Netmask == mask && config.Gateway == gateway {
-		argss = []Args{
-			newArgs("lan", "set", channel, "ipsrc", "static"),
-			newArgs("lan", "set", channel, "ipaddr", ip),
-			newArgs("lan", "set", channel, "netmask", mask),
-			newArgs("lan", "set", channel, "defgw", "ipaddr", gateway),
-		}
-	} else {
-		argss = []Args{
-			newArgs("lan", "set", channel, "ipaddr", ip),
-			newArgs("lan", "set", channel, "defgw", "ipaddr", gateway),
-			newArgs("lan", "set", channel, "netmask", mask),
-			newArgs("lan", "set", channel, "ipsrc", "static"),
-		}
-	}
+	// } else {
+	//	argss = []Args{
+	//		newArgs("lan", "set", channel, "ipsrc", "static"),
+	//		newArgs("lan", "set", channel, "ipaddr", ip),
+	//		newArgs("lan", "set", channel, "netmask", mask),
+	//		newArgs("lan", "set", channel, "defgw", "ipaddr", gateway),
+	//	}
+	// }
 	return doActions(exector, "set_lan_static", argss...)
 }
 

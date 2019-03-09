@@ -35,7 +35,7 @@ type SHostwire struct {
 
 	Bridge    string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
 	Interface string `width:"16" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
-	IsMaster  bool   `nullable:"true" default:"false" update:"admin" create:"admin_optional"`                          // Column(Boolean, nullable=True, default=False)
+	IsMaster  bool   `nullable:"true" default:"false" list:"admin" update:"admin" create:"admin_optional"`             // Column(Boolean, nullable=True, default=False)
 	MacAddr   string `width:"18" charset:"ascii" list:"admin" update:"admin" create:"admin_required"`                  // Column(VARCHAR(18, charset='ascii'))
 
 	HostId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
@@ -118,4 +118,22 @@ func (self *SHostwire) Delete(ctx context.Context, userCred mcclient.TokenCreden
 
 func (self *SHostwire) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DetachJoint(ctx, userCred, self)
+}
+
+func (manager *SHostwireManager) FilterByParams(q *sqlchemy.SQuery, params jsonutils.JSONObject) *sqlchemy.SQuery {
+	macStr := jsonutils.GetAnyString(params, []string{"mac", "mac_addr"})
+	if len(macStr) > 0 {
+		q = q.Filter(sqlchemy.Equals(q.Field("mac_addr"), macStr))
+	}
+	return q
+}
+
+func (manager *SHostwireManager) FetchByIdsAndMac(hostId string, wireId string, mac string) (*SHostwire, error) {
+	query := jsonutils.NewDict()
+	query.Add(jsonutils.NewString(mac), "mac_addr")
+	ihw, err := db.FetchJointByIds(manager, hostId, wireId, query)
+	if err != nil {
+		return nil, err
+	}
+	return ihw.(*SHostwire), nil
 }

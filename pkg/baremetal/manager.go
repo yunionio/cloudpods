@@ -753,6 +753,7 @@ func (b *SBaremetalInstance) attachWire(mac net.HardwareAddr, wireId string, nic
 		params.Add(jsonutils.NewString(nicType), "nic_type")
 	}
 	params.Add(jsonutils.NewString(wireId), "wire")
+	params.Add(jsonutils.NewInt(-1), "index")
 	params.Add(jsonutils.JSONTrue, "link_up")
 	return modules.Hosts.PerformAction(session, b.GetId(), "add-netif", params)
 }
