@@ -87,12 +87,13 @@ func (d *SBaseDisk) GetZone() string {
 func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,
 	deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
 	var kvmDisk = NewKVMGuestDisk(diskPath)
-	if kvmDisk.Connect() {
-		defer kvmDisk.Disconnect()
-		log.Infof("Kvm Disk Connect Success !!")
 
+	defer kvmDisk.Disconnect()
+	if kvmDisk.Connect() {
+		log.Infof("Kvm Disk Connect Success !!")
 		if root := kvmDisk.MountKvmRootfs(); root != nil {
 			defer kvmDisk.UmountKvmRootfs(root)
+
 			return guestfs.DeployGuestFs(root, guestDesc, deployInfo)
 		} else {
 			return nil, fmt.Errorf("Kvm Disk Mount error")

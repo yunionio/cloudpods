@@ -16,15 +16,25 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman/nbd"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
 
 const MAX_TRIES = 3
 
+var lvmTool *SLVMImageConnectUniqueToolSet
+
+func init() {
+	lvmTool = NewLVMImageConnectUniqueToolSet()
+}
+
 type SKVMGuestDisk struct {
 	imagePath  string
 	nbdDev     string
 	partitions []*guestfs.SKVMGuestDiskPartition
+	lvms       []*SKVMGuestLVMPartition
+
+	imageRootBackFilePath string
 }
 
 func NewKVMGuestDisk(imagePath string) *SKVMGuestDisk {
@@ -40,6 +50,8 @@ func (d *SKVMGuestDisk) Connect() bool {
 		log.Errorln("Cannot get nbd device")
 		return false
 	}
+
+	d.connectionPrecheck()
 
 	var cmd []string
 	if strings.HasPrefix(d.imagePath, "rbd:") || d.getImageFormat() == "raw" {
@@ -78,7 +90,14 @@ func (d *SKVMGuestDisk) Connect() bool {
 		}
 		tried += 1
 	}
-	d.setupLVMS()
+
+	if !d.isNonLvmImagePath() {
+		hasLVM, err := d.setupLVMS()
+		if !hasLVM && err == nil {
+			d.cacheNonLVMImagePath()
+		}
+	}
+
 	return true
 }
 
@@ -114,21 +133,107 @@ func (d *SKVMGuestDisk) findPartitions() error {
 	}
 
 	// XXX: HACK reverse partitions
-	for i, j := 0, len(d.partitions)-1; i < j; i, j = i+1, j-1 {
-		d.partitions[i], d.partitions[j] = d.partitions[j], d.partitions[i]
-	}
+	// for i, j := 0, len(d.partitions)-1; i < j; i, j = i+1, j-1 {
+	// 	d.partitions[i], d.partitions[j] = d.partitions[j], d.partitions[i]
+	// }
 	return nil
 }
 
-func (d *SKVMGuestDisk) setupLVMS() error {
-	//TODO?? 可能不需要开发这里
-	return fmt.Errorf("not implement right now")
+func (d *SKVMGuestDisk) findLVMPartitions(partDev string) string {
+	return findVgname(partDev)
+}
+
+func (d *SKVMGuestDisk) rootBackingFilePath() string {
+	if len(d.imageRootBackFilePath) > 0 {
+		return d.imageRootBackFilePath
+	}
+
+	d.imageRootBackFilePath = d.imagePath
+	img, err := qemuimg.NewQemuImage(d.imagePath)
+	if err != nil {
+		return d.imageRootBackFilePath
+	}
+
+	for len(img.BackFilePath) > 0 {
+		d.imageRootBackFilePath = img.BackFilePath
+		img, err = qemuimg.NewQemuImage(img.BackFilePath)
+		if err != nil {
+			break
+		}
+	}
+	return d.imageRootBackFilePath
+}
+
+func (d *SKVMGuestDisk) isNonLvmImagePath() bool {
+	pathType := lvmTool.GetPathType(d.rootBackingFilePath())
+	return pathType == NON_LVM_PATH
+}
+
+func (d *SKVMGuestDisk) cacheNonLVMImagePath() {
+	lvmTool.CacheNonLvmImagePath(d.rootBackingFilePath())
+}
+
+func (d *SKVMGuestDisk) connectionPrecheck() {
+	pathType := lvmTool.GetPathType(d.rootBackingFilePath())
+	switch pathType {
+	case LVM_PATH:
+		lvmTool.Wait(d.rootBackingFilePath())
+		lvmTool.Add(d.rootBackingFilePath())
+	case NON_LVM_PATH:
+		return
+	case PATH_NOT_FOUND:
+		lvmTool.Add(d.rootBackingFilePath())
+	}
+}
+
+func (d *SKVMGuestDisk) LvmDisconnectNotify() {
+	if lvmTool.GetPathType(d.rootBackingFilePath()) == LVM_PATH {
+		lvmTool.Signal(d.rootBackingFilePath())
+	}
+}
+
+func (d *SKVMGuestDisk) setupLVMS() (bool, error) {
+	// Scan all devices and send the metadata to lvmetad
+	output, err := procutils.NewCommand("pvscan", "--cache").Run()
+	if err != nil {
+		log.Errorf("pvscan error %s", output)
+		return false, err
+	}
+
+	lvmPartitions := []*guestfs.SKVMGuestDiskPartition{}
+	for _, part := range d.partitions {
+		vgname := d.findLVMPartitions(part.GetPartDev())
+		if len(vgname) > 0 {
+			lvm := NewKVMGuestLVMPartition(part.GetPartDev(), vgname)
+			d.lvms = append(d.lvms, lvm)
+			if lvm.SetupDevice() {
+				if subparts := lvm.FindPartitions(); len(subparts) > 0 {
+					lvmPartitions = append(lvmPartitions, subparts...)
+				}
+			}
+		}
+	}
+
+	if len(lvmPartitions) > 0 {
+		d.partitions = append(d.partitions, lvmPartitions...)
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
+func (d *SKVMGuestDisk) PutdownLVMs() {
+	for _, lvm := range d.lvms {
+		lvm.PutdownDevice()
+	}
+	d.lvms = []*SKVMGuestLVMPartition{}
 }
 
 func (d *SKVMGuestDisk) Disconnect() bool {
 	if len(d.nbdDev) > 0 {
-		// TODO?? PutdownLVMS ??
+		d.PutdownLVMs()
 		_, err := procutils.NewCommand(qemutils.GetQemuNbd(), "-d", d.nbdDev).Run()
+		d.LvmDisconnectNotify()
 		if err != nil {
 			log.Errorln(err.Error())
 			return false
@@ -146,7 +251,8 @@ func (d *SKVMGuestDisk) MountKvmRootfs() fsdriver.IRootFsDriver {
 	for i := 0; i < len(d.partitions); i++ {
 		if d.partitions[i].Mount() {
 			if fs := guestfs.DetectRootFs(d.partitions[i]); fs != nil {
-				log.Infof("Use rootfs %s", fs)
+				log.Infof("Use rootfs %s, partition %s",
+					fs, d.partitions[i].GetPartDev())
 				return fs
 			} else {
 				d.partitions[i].Umount()
