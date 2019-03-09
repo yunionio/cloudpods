@@ -5,7 +5,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/pkg/utils"
 )
 
 type SFlavor struct {
@@ -48,13 +47,13 @@ func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (strin
 	if err != nil {
 		return "", err
 	}
-	flavorNames := []string{}
-	for _, flavor := range flavors {
-		flavorName := flavor.GetName()
-		if len(name) > 0 && flavorName == name {
-			return flavor.ID, nil
+	if len(name) > 0 {
+		for _, flavor := range flavors {
+			flavorName := flavor.GetName()
+			if flavorName == name {
+				return flavor.ID, nil
+			}
 		}
-		flavorNames = append(flavorNames, flavorName)
 	}
 
 	if cpu == 0 && memoryMb == 0 {
@@ -66,40 +65,7 @@ func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (strin
 			return flavor.ID, nil
 		}
 	}
-
-	if len(name) == 0 {
-		suffix := ""
-		for i := 0; i < 10; i++ {
-			switch cpu {
-			case 1:
-				suffix = "tiny"
-			case 2, 3:
-				suffix = "small"
-			case 4, 6:
-				suffix = "medium"
-			case 8:
-				suffix = "large"
-			default:
-				suffix = "xlarge"
-			}
-		}
-		for i := 0; i < 10; i++ {
-			flavorName := fmt.Sprintf("m%d.%s", i, suffix)
-			if !utils.IsInStringArray(flavorName, flavorNames) {
-				name = flavorName
-				break
-			}
-		}
-		if len(name) == 0 {
-			return "", fmt.Errorf("failed to find uniq flavor name for cpu %d memory %d", cpu, memoryMb)
-		}
-	}
-
-	flavor, err := region.CreateFlavor(name, cpu, memoryMb, diskGB)
-	if err != nil {
-		return "", err
-	}
-	return flavor.ID, nil
+	return "", fmt.Errorf("failed to find right flavor(name: %s cpu: %d memory: %d)", name, cpu, memoryMb)
 }
 
 func (region *SRegion) CreateFlavor(name string, cpu int, memoryMb int, diskGB int) (*SFlavor, error) {
