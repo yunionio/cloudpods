@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 )
@@ -282,6 +283,11 @@ func (region *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Sec
 	}
 	for i := 0; i < len(addSecgroupRules); i++ {
 		if err := region.addSecurityGroupRules(secgroupId, &addSecgroupRules[i]); err != nil {
+			if jsonError, ok := err.(*httputils.JSONClientError); ok {
+				if jsonError.Class == "SecurityGroupRuleExists" {
+					continue
+				}
+			}
 			log.Errorf("addSecurityGroupRule error %v", rules[i])
 			return "", err
 		}
