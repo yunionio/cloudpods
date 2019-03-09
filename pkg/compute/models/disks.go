@@ -1402,7 +1402,8 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 		return nil, err
 	}
 
-	if self.GetCloudprovider().Provider == CLOUD_PROVIDER_HUAWEI && self.GetSnapshotCount() > 0 {
+	provider := self.GetCloudprovider()
+	if provider != nil && provider.Provider == CLOUD_PROVIDER_HUAWEI && self.GetSnapshotCount() > 0 {
 		return nil, httperrors.NewForbiddenError("not allow to purge. Virtual disk must not have snapshots")
 	}
 

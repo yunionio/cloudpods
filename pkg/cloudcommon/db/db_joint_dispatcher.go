@@ -205,6 +205,15 @@ func (dispatcher *DBJointModelDispatcher) Attach(ctx context.Context, id1 string
 			return nil, httperrors.NewGeneralError(err)
 		}
 	}
+
+	_, _, joinItem, err := fetchJointItem(dispatcher, ctx, userCred, master.GetId(), slave.GetId(), query)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if joinItem != nil {
+		return nil, httperrors.NewNotAcceptableError("Object %s %s has attached %s %s", master.KeywordPlural(), master.GetId(), slave.KeywordPlural(), slave.GetId())
+	}
+
 	lockman.LockJointObject(ctx, master, slave)
 	defer lockman.ReleaseJointObject(ctx, master, slave)
 	return attachItems(dispatcher, master.(IStandaloneModel), slave.(IStandaloneModel), ctx, userCred, query, data)
