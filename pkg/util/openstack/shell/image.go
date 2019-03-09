@@ -8,11 +8,11 @@ import (
 func init() {
 	type ImageListOptions struct {
 		Name   string
-		Ids    []string
+		Id     string
 		Status string
 	}
 	shellutils.R(&ImageListOptions{}, "image-list", "List images", func(cli *openstack.SRegion, args *ImageListOptions) error {
-		images, err := cli.GetImages(args.Name, args.Status, args.Ids)
+		images, err := cli.GetImages(args.Name, args.Status, args.Id)
 		if err != nil {
 			return err
 		}
@@ -25,7 +25,7 @@ func init() {
 	}
 
 	shellutils.R(&ImageOptions{}, "image-show", "Show image", func(cli *openstack.SRegion, args *ImageOptions) error {
-		image, err := cli.GetImages("", "", []string{args.ID})
+		image, err := cli.GetImages("", "", args.ID)
 		if err != nil {
 			return err
 		}

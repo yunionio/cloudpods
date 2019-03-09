@@ -13,6 +13,7 @@ import (
 )
 
 type BaseOptions struct {
+	Debug        bool   `help:"debug mode"`
 	Help         bool   `help:"Show help"`
 	AuthURL      string `help:"Auth URL" default:"$OPENSTACK_AUTH_URL"`
 	Username     string `help:"Username" default:"$OPENSTACK_USERNAME"`
@@ -76,7 +77,7 @@ func newClient(options *BaseOptions) (*openstack.SRegion, error) {
 		return nil, fmt.Errorf("Missing Password")
 	}
 
-	cli, err := openstack.NewOpenStackClient("", "", options.AuthURL, options.Username, options.Password, options.Project, options.EndpointType)
+	cli, err := openstack.NewOpenStackClient("", "", options.AuthURL, options.Username, options.Password, options.Project, options.EndpointType, options.Debug)
 	if err != nil {
 		return nil, err
 	}

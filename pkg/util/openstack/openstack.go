@@ -19,8 +19,6 @@ import (
 const (
 	CLOUD_PROVIDER_OPENSTACK = models.CLOUD_PROVIDER_OPENSTACK
 	OPENSTACK_DEFAULT_REGION = "RegionOne"
-
-	DEBUG = false
 )
 
 type SOpenStackClient struct {
@@ -34,11 +32,21 @@ type SOpenStackClient struct {
 	client          *mcclient.Client
 	tokenCredential mcclient.TokenCredential
 	iregions        []cloudprovider.ICloudRegion
+
+	Debug bool
 }
 
-func NewOpenStackClient(providerID string, providerName string, authURL string, username string, password string, project string, endpointType string) (*SOpenStackClient, error) {
-	cli := &SOpenStackClient{providerID: providerID, providerName: providerName,
-		authURL: authURL, username: username, password: password, project: project, endpointType: endpointType}
+func NewOpenStackClient(providerID string, providerName string, authURL string, username string, password string, project string, endpointType string, isDebug bool) (*SOpenStackClient, error) {
+	cli := &SOpenStackClient{
+		providerID:   providerID,
+		providerName: providerName,
+		authURL:      authURL,
+		username:     username,
+		password:     password,
+		project:      project,
+		endpointType: endpointType,
+		Debug:        isDebug,
+	}
 	return cli, cli.fetchRegions()
 }
 
@@ -144,7 +152,7 @@ func (cli *SOpenStackClient) getVersion(region string, service string) (string, 
 }
 
 func (cli *SOpenStackClient) connect() error {
-	cli.client = mcclient.NewClient(cli.authURL, 5, DEBUG, false, "", "")
+	cli.client = mcclient.NewClient(cli.authURL, 5, cli.Debug, false, "", "")
 	tokenCredential, err := cli.client.Authenticate(cli.username, cli.password, "", cli.project)
 	if err != nil {
 		return err
