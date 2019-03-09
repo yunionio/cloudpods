@@ -3,6 +3,7 @@ package esxi
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/vmware/govmomi/vim25/mo"
@@ -77,13 +78,25 @@ func NewHost(manager *SESXiClient, host *mo.HostSystem, dc *SDatacenter) *SHost 
 	return &SHost{SManagedObject: newManagedObject(manager, host, dc)}
 }
 
-func (self *SHost) GetName() string {
-	name := self.SManagedObject.GetName()
-	dotPos := strings.IndexByte(name, '.')
-	if dotPos > 0 && !regutils.MatchIP4Addr(name) {
-		name = name[:dotPos]
+var (
+	ip4addrPattern = regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
+)
+
+func formatName(name string) string {
+	if ip4addrPattern.MatchString(name) {
+		return strings.Replace(name, ".", "-", -1)
+	} else {
+		dotPos := strings.IndexByte(name, '.')
+		if dotPos > 0 && !regutils.MatchIP4Addr(name) {
+			name = name[:dotPos]
+		}
+		return name
 	}
 	return name
+}
+
+func (self *SHost) GetName() string {
+	return formatName(self.SManagedObject.GetName())
 }
 
 func (self *SHost) GetMetadata() *jsonutils.JSONDict {
