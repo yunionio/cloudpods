@@ -5,11 +5,11 @@ import (
 
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/cmd/scheduler/app"
+	"yunion.io/x/onecloud/pkg/scheduler/service"
 )
 
 func main() {
-	if err := app.Execute(); err != nil {
+	if err := service.StartService(); err != nil {
 		log.Errorln(err)
 		os.Exit(-1)
 	}

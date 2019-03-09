@@ -8,11 +8,12 @@ import (
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/compute/models"
+
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	networks "yunion.io/x/onecloud/pkg/scheduler/db/models"
 )
 
 // NetworkPredicate will filter the current network information with
@@ -56,16 +57,16 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	}
 
 	// ServerType's value is 'guest', 'container' or ''(support all type) will return true.
-	isMatchServerType := func(network *networks.NetworkSchedResult) bool {
+	isMatchServerType := func(network *models.SNetwork) bool {
 		return sets.NewString("guest", "", "container").Has(network.ServerType)
 	}
 
-	counterOfNetwork := func(u *core.Unit, n *networks.NetworkSchedResult, r int) core.Counter {
-		counter := u.CounterManager.GetOrCreate("net:"+n.ID, func() core.Counter {
-			return core.NewNormalCounter(int64(n.Ports - r))
+	counterOfNetwork := func(u *core.Unit, n *models.SNetwork, r int) core.Counter {
+		counter := u.CounterManager.GetOrCreate("net:"+n.Id, func() core.Counter {
+			return core.NewNormalCounter(int64(n.GetPorts() - r))
 		})
 
-		u.SharedResourceManager.Add(n.ID, counter)
+		u.SharedResourceManager.Add(n.GetId(), counter)
 		return counter
 	}
 
@@ -81,36 +82,36 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 				errMsgs = append(errMsgs, errMsg)
 			}
 
-			if !isMatchServerType(n) {
+			if !isMatchServerType(&n) {
 				appendError(predicates.ErrServerTypeIsNotMatch)
 			}
 
-			if n.IsExit != exit {
+			if n.IsExitNetwork() != exit {
 				appendError(predicates.ErrExitIsNotMatch)
 			}
 
-			if !(n.Ports > 0 || isMigrate()) {
+			if !(n.GetPorts() > 0 || isMigrate()) {
 				appendError(predicates.ErrNoPorts)
 			}
 
-			if wire != "" && !utils.HasPrefix(wire, n.Wire) && !utils.HasPrefix(wire, n.WireID) { // re
+			if wire != "" && !utils.HasPrefix(wire, n.WireId) && !utils.HasPrefix(wire, n.GetWire().GetName()) { // re
 				appendError(predicates.ErrWireIsNotMatch)
 			}
 
-			if !((!private && n.IsPublic) || (private && !n.IsPublic && n.TenantID == d.OwnerTenantID)) {
+			if !((!private && n.IsPublic) || (private && !n.IsPublic && n.ProjectId == d.OwnerTenantID)) {
 				appendError(predicates.ErrNotOwner)
 			}
 
 			if len(errMsgs) == 0 {
 				// add resource
 				reservedNetworks := 0
-				counter := counterOfNetwork(u, n, reservedNetworks)
-				p.SelectedNetworks.Store(n.ID, counter.GetCount())
+				counter := counterOfNetwork(u, &n, reservedNetworks)
+				p.SelectedNetworks.Store(n.GetId(), counter.GetCount())
 				counters.Add(counter)
 				found = true
 			} else {
 				fullErrMsgs = append(fullErrMsgs,
-					fmt.Sprintf("%s: %s", n.ID, strings.Join(errMsgs, ",")),
+					fmt.Sprintf("%s: %s", n.Id, strings.Join(errMsgs, ",")),
 				)
 			}
 		}
@@ -131,7 +132,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	}
 
 	isNetworkAvaliable := func(n *api.Network, counters *core.MinCounters,
-		networks []*networks.NetworkSchedResult) string {
+		networks []models.SNetwork) string {
 		if n.Idx == "" {
 			counters0 := core.NewCounters()
 			ret_msg := isRandomNetworkAvailable(n.Private, n.Exit, n.Wire, counters0)
@@ -149,21 +150,21 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): server type not matched", net.Name, net.ID))
 				continue
 			}*/
-			if !(n.Idx == net.ID || n.Idx == net.Name) {
-				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): id/name not matched", net.Name, net.ID))
-			} else if !(net.IsPublic || net.TenantID == d.OwnerTenantID) {
-				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): not owner (%v != %v)", net.Name, net.ID, net.TenantID, d.OwnerTenantID))
-			} else if !(net.Ports > 0 || isMigrate()) {
-				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): ports use up", net.Name, net.ID))
+			if !(n.Idx == net.GetId() || n.Idx == net.GetName()) {
+				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): id/name not matched", net.Name, net.Id))
+			} else if !(net.IsPublic || net.ProjectId == d.OwnerTenantID) {
+				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): not owner (%v != %v)", net.Name, net.Id, net.ProjectId, d.OwnerTenantID))
+			} else if !(net.GetPorts() > 0 || isMigrate()) {
+				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): ports use up", net.Name, net.Id))
 			} else {
 				// add resource
 				reservedNetworks := 0
-				counter := counterOfNetwork(u, net, reservedNetworks)
+				counter := counterOfNetwork(u, &net, reservedNetworks)
 				if counter.GetCount() < d.Count {
 					errMsgs = append(errMsgs, fmt.Sprintf("%s: ports not enough, free: %d, required: %d", net.Name, counter.GetCount(), d.Count))
 					continue
 				}
-				p.SelectedNetworks.Store(net.ID, counter.GetCount())
+				p.SelectedNetworks.Store(net.Id, counter.GetCount())
 				counters.Add(counter)
 				return ""
 			}

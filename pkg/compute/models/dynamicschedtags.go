@@ -109,6 +109,10 @@ func (self *SDynamicschedtag) ValidateUpdateData(ctx context.Context, userCred m
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
+func (self *SDynamicschedtag) GetSchedtag() *SSchedtag {
+	return self.getSchedtag()
+}
+
 func (self *SDynamicschedtag) getSchedtag() *SSchedtag {
 	obj, err := SchedtagManager.FetchById(self.SchedtagId)
 	if err != nil {
@@ -137,6 +141,10 @@ func (self *SDynamicschedtag) GetExtraDetails(ctx context.Context, userCred mccl
 		return nil, err
 	}
 	return self.getMoreColumns(extra), nil
+}
+
+func (manager *SDynamicschedtagManager) GetAllEnabledDynamicSchedtags() []SDynamicschedtag {
+	return manager.getAllEnabledDynamicSchedtags()
 }
 
 func (manager *SDynamicschedtagManager) getAllEnabledDynamicSchedtags() []SDynamicschedtag {

@@ -61,29 +61,29 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		var errMsgs []string
 		for _, network := range candidate.Networks {
 			appendError := func(errMsg string) {
-				errMsgs = append(errMsgs, fmt.Sprintf("%s: %s", network.ID, errMsg))
+				errMsgs = append(errMsgs, fmt.Sprintf("%s: %s", network.Id, errMsg))
 			}
-			if !((network.Ports > 0 || isMigrate()) && network.IsExit == exit) {
+			if !((network.GetPorts() > 0 || isMigrate()) && network.IsExitNetwork() == exit) {
 				appendError(predicates.ErrNoPorts)
 			}
-			if wire != "" && !utils.HasPrefix(wire, network.Wire) && !utils.HasPrefix(wire, network.WireID) { // re
+			if wire != "" && !utils.HasPrefix(wire, network.WireId) && !utils.HasPrefix(wire, network.GetWire().GetName()) { // re
 				appendError(predicates.ErrWireIsNotMatch)
 			}
-			if (!private && network.IsPublic) || (private && !network.IsPublic && network.TenantID == schedData.OwnerTenantID) {
+			if (!private && network.IsPublic) || (private && !network.IsPublic && network.ProjectId == schedData.OwnerTenantID) {
 				// TODO: support reservedNetworks
 				reservedNetworks := 0
-				restPort := int64(network.Ports - reservedNetworks)
+				restPort := int64(network.GetPorts() - reservedNetworks)
 				if restPort == 0 {
 					appendError("not enough network port")
 					continue
 				}
-				counter := u.CounterManager.GetOrCreate("net:"+network.ID, func() core.Counter {
+				counter := u.CounterManager.GetOrCreate("net:"+network.Id, func() core.Counter {
 					return core.NewNormalCounter(restPort)
 				})
 
-				u.SharedResourceManager.Add(network.ID, counter)
+				u.SharedResourceManager.Add(network.Id, counter)
 				counters.Add(counter)
-				p.SelectedNetworks.Store(network.ID, counter.GetCount())
+				p.SelectedNetworks.Store(network.Id, counter.GetCount())
 				return ""
 			} else {
 				appendError(predicates.ErrNotOwner)
@@ -105,7 +105,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 			return isRandomNetworkAvailable(network.Private, network.Exit, network.Wire)
 		}
 		for _, net := range candidate.Networks {
-			if (network.Idx == net.ID || network.Idx == net.Name) && (net.IsPublic || net.TenantID == schedData.OwnerTenantID) && (net.Ports > 0 || isMigrate()) {
+			if (network.Idx == net.Id || network.Idx == net.Name) && (net.IsPublic || net.ProjectId == schedData.OwnerTenantID) && (net.GetPorts() > 0 || isMigrate()) {
 				h.SetCapacity(1)
 				return ""
 			}

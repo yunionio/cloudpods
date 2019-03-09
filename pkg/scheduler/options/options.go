@@ -1,19 +1,25 @@
 package options
 
 import (
-	"fmt"
 	"os"
 
-	gin "gopkg.in/gin-gonic/gin.v1"
-
-	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/version"
-	"yunion.io/x/structarg"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/compute/options"
 )
 
 type SchedulerOptions struct {
-	IgnoreNonRunningGuests      bool   `help:"Ignore non running guests when build host memory and cpu size" default:"false" alias:"ignore-nonrunning-guests"`
-	IgnoreFakeDeletedGuests     bool   `help:"Ignore fake deleted guests when build host memory and cpu size" default:"false"`
+	options.ComputeOptions
+
+	SchedOptions
+
+	// gin http framework mode
+	GinMode string `help:"gin http framework work mode" default:"debug" choices:"debug|release"`
+}
+
+type SchedOptions struct {
+	SchedulerPort           int  `help:"The port that the scheduler's http service runs on" default:"8897"`
+	IgnoreFakeDeletedGuests bool `help:"Ignore fake deleted guests when build host memory and cpu size" default:"false"`
+
 	AlwaysCheckAllPredicates    bool   `help:"Excute all predicates when scheduling" default:"false"`
 	DisableBaremetalPredicates  bool   `help:"Switch to trigger baremetal related predicates" default:"false"`
 	SchedulerTestLimit          int    `help:"Scheduler test items' limitations" default:"100"`
@@ -29,11 +35,6 @@ type SchedulerOptions struct {
 	HostBuildParallelizeSize int `help:"Number of host description build parallelization" default:"14"`
 	PredicateParallelizeSize int `help:"Number of execute predicates parallelization" default:"14"`
 	PriorityParallelizeSize  int `help:"Number of execute priority parallelization" default:"14"`
-
-	// overcommit bound options
-	DefaultStorageOvercommitBound int `help:"Default storage overcommit bound" default:"1"`
-	DefaultCpuOvercommitBound     int `help:"Default cpu overcommit bound" default:"8"`
-	DefaultMemoryOvercommitBound  int `help:"Default memory overcommit bound" default:"1"`
 
 	// expire queue options
 	ExpireQueueConsumptionPeriod  string `help:"Expire queue consumption period" default:"3s"`
@@ -81,83 +82,15 @@ type SchedulerOptions struct {
 	WireDBCachePeriod string `help:"Wire database cache period" default:"5m"`
 }
 
-type Options struct {
-	// common options
-	structarg.BaseOptions
-	Port    int    `help:"The port that the scheduler's http service runs on" default:"8897" alias:"scheduler-port"`
-	Address string `help:"The IP address to serve on (set to 0.0.0.0 for all interfaces)" default:"0.0.0.0"`
+var (
+	opt SchedulerOptions
+)
 
-	// mysql options
-	SqlConnection string `help:"SQL connection string" default:"root:root@tcp(127.0.0.1:3306)/mclouds?charset=utf8&parseTime=True"`
-
-	// log options
-	LogLevel        string `help:"log level" default:"info" choices:"debug|info|warn|error"`
-	LogVerboseLevel int    `help:"log verbosity level" default:"0"`
-
-	// gin http framework mode
-	GinMode string `help:"gin http framework work mode" default:"debug" choices:"debug|release"`
-
-	// cloud auth options
-	Region      string `help:"Region name" default:"Beijing"`
-	AuthURL     string `help:"Keystone auth URL" default:"http://10.168.26.241:35357/v2.0" alias:"auth-uri"`
-	AdminUser   string `help:"Admin username" default:"regionadmin"`
-	AdminPasswd string `help:"Admin password" default:"eBVVSNaMeyzDnD8F" alias:"admin-password"`
-	AdminTenant string `help:"Admin tenant" default:"system" alias:"admin-tenant-name"`
-
-	EnableSsl   bool   `help:"Enable https"`
-	SslCertfile string `help:"ssl certification file"`
-	SslKeyfile  string `help:"ssl certification key file"`
-
-	// scheduler options
-	SchedulerOptions
+func GetOptions() *SchedulerOptions {
+	return &opt
 }
 
-var options Options
-
-func GetOptions() *Options {
-	return &options
-}
-
-func Parse() {
-	parser, e := structarg.NewArgumentParser(&options,
-		"scheduler",
-		`Yunion cloud scheduler`,
-		`Yunion Technology @ 2018`)
-	if e != nil {
-		log.Fatalf("Error define argument parser: %v", e)
-	}
-
-	e = parser.ParseArgs(os.Args[1:], false)
-	if e != nil {
-		log.Fatalf("Parse arguments error: %v", e)
-	}
-
-	if len(options.Config) > 0 {
-		e := parser.ParseFile(options.Config)
-		if e != nil {
-			log.Fatalf("Parse configuration file: %v", e)
-		}
-	}
-
-	if options.Help {
-		fmt.Println(parser.HelpString())
-		os.Exit(0)
-	}
-
-	if options.Version {
-		fmt.Printf("Yunion cloud version:\n%s", version.GetJsonString())
-		os.Exit(0)
-	}
-
-	// log configuration
-	log.SetVerboseLevel(int32(options.LogVerboseLevel))
-	e = log.SetLogLevelByString(log.Logger(), options.LogLevel)
-	if e != nil {
-		log.Fatalf("Set log level %q: %v", options.LogLevel, e)
-	}
-
-	log.V(10).Debugf("Parsed options: %#v", options)
-
-	// gin http framework mode configuration
-	gin.SetMode(options.GinMode)
+func Init() {
+	cloudcommon.ParseOptions(&opt, os.Args, "region.conf", "scheduler")
+	options.Options = opt.ComputeOptions
 }

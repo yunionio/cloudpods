@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -29,8 +30,15 @@ const (
 
 var STRATEGY_LIST = []string{STRATEGY_REQUIRE, STRATEGY_EXCLUDE, STRATEGY_PREFER, STRATEGY_AVOID}
 
+type ISchedtagJointManager interface {
+	db.IJointModelManager
+	GetMasterIdKey(db.IJointModelManager) string
+}
+
 type SSchedtagManager struct {
 	db.SStandaloneResourceBaseManager
+
+	jointsManager map[string]ISchedtagJointManager
 }
 
 var SchedtagManager *SSchedtagManager
@@ -43,17 +51,62 @@ func init() {
 			"schedtag",
 			"schedtags",
 		),
+		jointsManager: make(map[string]ISchedtagJointManager),
 	}
+}
+
+func (manager *SSchedtagManager) InitializeData() error {
+	// set old schedtags resource_type to hosts
+	schedtags := []SSchedtag{}
+	q := manager.Query().IsNullOrEmpty("resource_type")
+	err := db.FetchModelObjects(manager, q, &schedtags)
+	if err != nil {
+		return err
+	}
+	for _, tag := range schedtags {
+		tmp := &tag
+		db.Update(tmp, func() error {
+			tmp.ResourceType = HostManager.KeywordPlural()
+			return nil
+		})
+	}
+	manager.BindJointManagers(
+		HostschedtagManager,
+		StorageschedtagManager,
+	)
+	return nil
+}
+
+func (manager *SSchedtagManager) BindJointManagers(ms ...ISchedtagJointManager) {
+	for _, m := range ms {
+		manager.jointsManager[m.GetMasterManager().KeywordPlural()] = m
+	}
+}
+
+func (manager *SSchedtagManager) GetResourceTypes() []string {
+	ret := []string{}
+	for key := range manager.jointsManager {
+		ret = append(ret, key)
+	}
+	return ret
 }
 
 type SSchedtag struct {
 	db.SStandaloneResourceBase
 
 	DefaultStrategy string `width:"16" charset:"ascii" nullable:"true" default:"" list:"user" update:"admin" create:"admin_optional"` // Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
+	ResourceType    string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"required"`                                 // Column(VARCHAR(16, charset='ascii'), nullable=True, default='')
 }
 
 func (manager *SSchedtagManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
+}
+
+func (manager *SSchedtagManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	if resType := jsonutils.GetAnyString(query, []string{"type", "resource_type"}); resType != "" {
+		q = q.Equals("resource_type", resType)
+	}
+	return manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 }
 
 func (self *SSchedtag) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -111,7 +164,28 @@ func (manager *SSchedtagManager) ValidateCreateData(ctx context.Context, userCre
 			return nil, err
 		}
 	}
+	// set resourceType to hosts if not provided by client
+	resourceType, _ := data.GetString("resource_type")
+	if resourceType == "" {
+		resourceType = HostManager.KeywordPlural()
+		data.Set("resource_type", jsonutils.NewString(resourceType))
+	}
+	if !utils.IsInStringArray(resourceType, manager.GetResourceTypes()) {
+		return nil, httperrors.NewInputParameterError("Not support resource_type %s", resourceType)
+	}
 	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+}
+
+func (manager *SSchedtagManager) GetResourceSchedtags(resType string) ([]SSchedtag, error) {
+	jointMan := manager.jointsManager[resType]
+	if jointMan == nil {
+		return nil, fmt.Errorf("Not found joint manager by resource type: %s", resType)
+	}
+	tags := make([]SSchedtag, 0)
+	if err := manager.Query().Equals("resource_type", resType).All(&tags); err != nil {
+		return nil, err
+	}
+	return tags, nil
 }
 
 func (self *SSchedtag) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -126,8 +200,8 @@ func (self *SSchedtag) ValidateUpdateData(ctx context.Context, userCred mcclient
 }
 
 func (self *SSchedtag) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetHostCount() > 0 {
-		return httperrors.NewNotEmptyError("Tag is associated with hosts")
+	if self.GetObjectCount() > 0 {
+		return httperrors.NewNotEmptyError("Tag is associated with %s", self.ResourceType)
 	}
 	if self.getDynamicSchedtagCount() > 0 {
 		return httperrors.NewNotEmptyError("tag has dynamic rules")
@@ -147,30 +221,35 @@ func (self *SSchedtag) AllowDeleteItem(ctx context.Context, userCred mcclient.To
 	return userCred.IsSystemAdmin()
 }*/
 
-func (self *SSchedtag) GetHosts() []SHost {
-	q := self.GetHostQuery()
-	hosts := make([]SHost, 0)
-	err := db.FetchModelObjects(HostManager, q, &hosts)
+func (self *SSchedtag) GetObjects(objs interface{}) error {
+	q := self.GetObjectQuery()
+	masterMan := self.GetJointManager().GetMasterManager()
+	err := db.FetchModelObjects(masterMan, q, objs)
 	if err != nil {
-		log.Errorf("GetHosts query fail %s", err)
-		return nil
+		return err
 	}
-	return hosts
+	return nil
 }
 
-func (self *SSchedtag) GetHostQuery() *sqlchemy.SQuery {
-	hosts := HostManager.Query().SubQuery()
-	hostschedtags := HostschedtagManager.Query().SubQuery()
-	q := hosts.Query()
-	q = q.Join(hostschedtags, sqlchemy.AND(sqlchemy.Equals(hostschedtags.Field("host_id"), hosts.Field("id")),
-		sqlchemy.IsFalse(hostschedtags.Field("deleted"))))
-	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
-	q = q.Filter(sqlchemy.Equals(hostschedtags.Field("schedtag_id"), self.Id))
+func (self *SSchedtag) GetObjectQuery() *sqlchemy.SQuery {
+	jointMan := self.GetJointManager()
+	masterMan := jointMan.GetMasterManager()
+	objs := masterMan.Query().SubQuery()
+	objschedtags := jointMan.Query().SubQuery()
+	q := objs.Query()
+	q = q.Join(objschedtags, sqlchemy.AND(sqlchemy.Equals(objschedtags.Field(jointMan.GetMasterIdKey(jointMan)), objs.Field("id")),
+		sqlchemy.IsFalse(objschedtags.Field("deleted"))))
+	q = q.Filter(sqlchemy.IsTrue(objs.Field("enabled")))
+	q = q.Filter(sqlchemy.Equals(objschedtags.Field("schedtag_id"), self.Id))
 	return q
 }
 
-func (self *SSchedtag) GetHostCount() int {
-	return HostschedtagManager.Query().Equals("schedtag_id", self.Id).Count()
+func (self *SSchedtag) GetJointManager() ISchedtagJointManager {
+	return SchedtagManager.jointsManager[self.ResourceType]
+}
+
+func (self *SSchedtag) GetObjectCount() int {
+	return self.GetJointManager().Query().Equals("schedtag_id", self.Id).Count()
 }
 
 func (self *SSchedtag) getSchedPoliciesCount() int {
@@ -182,7 +261,7 @@ func (self *SSchedtag) getDynamicSchedtagCount() int {
 }
 
 func (self *SSchedtag) getMoreColumns(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.NewInt(int64(self.GetHostCount())), "host_count")
+	extra.Add(jsonutils.NewInt(int64(self.GetObjectCount())), fmt.Sprintf("%s_count", self.GetJointManager().GetMasterManager().Keyword()))
 	extra.Add(jsonutils.NewInt(int64(self.getDynamicSchedtagCount())), "dynamic_schedtag_count")
 	extra.Add(jsonutils.NewInt(int64(self.getSchedPoliciesCount())), "schedpolicy_count")
 	return extra
@@ -209,4 +288,20 @@ func (self *SSchedtag) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc := self.SStandaloneResourceBase.GetShortDesc(ctx)
 	desc.Add(jsonutils.NewString(self.DefaultStrategy), "default")
 	return desc
+}
+
+func GetSchedtags(jointMan ISchedtagJointManager, masterId string) []SSchedtag {
+	tags := make([]SSchedtag, 0)
+	schedtags := SchedtagManager.Query().SubQuery()
+	objschedtags := jointMan.Query().SubQuery()
+	q := schedtags.Query()
+	q = q.Join(objschedtags, sqlchemy.AND(sqlchemy.Equals(objschedtags.Field("schedtag_id"), schedtags.Field("id")),
+		sqlchemy.IsFalse(objschedtags.Field("deleted"))))
+	q = q.Filter(sqlchemy.Equals(objschedtags.Field(jointMan.GetMasterIdKey(jointMan)), masterId))
+	err := db.FetchModelObjects(SchedtagManager, q, &tags)
+	if err != nil {
+		log.Errorf("GetSchedtags error: %s", err)
+		return nil
+	}
+	return tags
 }

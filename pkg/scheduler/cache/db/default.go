@@ -5,9 +5,9 @@ import (
 
 	u "yunion.io/x/pkg/utils"
 
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/onecloud/pkg/scheduler/cache"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
+	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 const (

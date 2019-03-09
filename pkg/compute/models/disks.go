@@ -1159,6 +1159,8 @@ type SDiskConfig struct {
 	Medium          string            `json:"medium"`
 	ImageProperties map[string]string `json:"image_properties"`
 
+	Schedtags map[string]string `json:"schedtags"`
+
 	DiskId string `json:"-"` // import only
 }
 

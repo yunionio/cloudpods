@@ -2078,20 +2078,8 @@ func (self *SHost) GetBaremetalServer() *SGuest {
 	return &guest
 }
 
-func (self *SHost) getSchedtags() []SSchedtag {
-	tags := make([]SSchedtag, 0)
-	schedtags := SchedtagManager.Query().SubQuery()
-	hostschedtags := HostschedtagManager.Query().SubQuery()
-	q := schedtags.Query()
-	q = q.Join(hostschedtags, sqlchemy.AND(sqlchemy.Equals(hostschedtags.Field("schedtag_id"), schedtags.Field("id")),
-		sqlchemy.IsFalse(hostschedtags.Field("deleted"))))
-	q = q.Filter(sqlchemy.Equals(hostschedtags.Field("host_id"), self.Id))
-	err := db.FetchModelObjects(SchedtagManager, q, &tags)
-	if err != nil {
-		log.Errorf("%s", err)
-		return nil
-	}
-	return tags
+func (self *SHost) GetSchedtags() []SSchedtag {
+	return GetSchedtags(HostschedtagManager, self.Id)
 }
 
 type SHostGuestResourceUsage struct {
@@ -2157,7 +2145,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 		extra.Add(jsonutils.NewInt(int64(len(nicInfos))), "nic_count")
 		extra.Add(jsonutils.NewArray(nicInfos...), "nic_info")
 	}
-	schedtags := self.getSchedtags()
+	schedtags := self.GetSchedtags()
 	if schedtags != nil && len(schedtags) > 0 {
 		info := make([]jsonutils.JSONObject, len(schedtags))
 		for i := 0; i < len(schedtags); i += 1 {

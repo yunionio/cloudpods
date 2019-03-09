@@ -188,7 +188,7 @@ func (teqm *TaskExecutorQueueManager) AddTaskExecutor(
 	scheduler Scheduler, callback TaskExecuteCallback) *TaskExecutor {
 	schedData := scheduler.SchedData()
 	log.V(10).Infof("AddTaskExecutor schedData: %#v", schedData)
-	taskQueue := teqm.GetQueue(schedData.Type, schedData.PoolID)
+	taskQueue := teqm.GetQueue(schedData.Type, "")
 	return taskQueue.AddTaskExecutor(scheduler, callback)
 }
 

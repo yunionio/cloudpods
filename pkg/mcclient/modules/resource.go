@@ -33,6 +33,10 @@ type ResourceManager struct {
 	idFieldName   string
 }
 
+func (this *ResourceManager) GetKeyword() string {
+	return this.Keyword
+}
+
 func (this *ResourceManager) KeyString() string {
 	return this.KeywordPlural
 }

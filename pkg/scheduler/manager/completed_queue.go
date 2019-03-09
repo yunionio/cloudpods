@@ -6,8 +6,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
+	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 type CompletedManager struct {

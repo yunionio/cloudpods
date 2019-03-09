@@ -15,7 +15,7 @@ import (
 	utiltrace "yunion.io/x/pkg/util/trace"
 	"yunion.io/x/pkg/util/workqueue"
 
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
+	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 const (
@@ -166,13 +166,14 @@ func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
 	showDetails := u.SchedInfo.ShowSuggestionDetails
 	id := c.IndexKey()
 	r := &SchedResultItem{
-		ID:         id,
-		Count:      count,
-		Capacity:   u.GetCapacity(id),
-		Name:       fmt.Sprintf("%v", c.Get("Name")),
-		Score:      u.GetScore(id).DigitString(),
-		Data:       u.GetFiltedData(id, count),
-		Candidater: c,
+		ID:                id,
+		Count:             count,
+		Capacity:          u.GetCapacity(id),
+		Name:              fmt.Sprintf("%v", c.Get("Name")),
+		Score:             u.GetScore(id).DigitString(),
+		Data:              u.GetFiltedData(id, count),
+		Candidater:        c,
+		AllocatedResource: u.GetAllocatedResource(id),
 	}
 
 	if showDetails {
@@ -237,6 +238,8 @@ type SchedResultItem struct {
 	ScoreDetails    string           `json:"score_details"`
 
 	Candidater Candidater `json:"-"`
+
+	*AllocatedResource
 }
 
 func GetCapacities(u *Unit, id string) (res map[string]int64) {

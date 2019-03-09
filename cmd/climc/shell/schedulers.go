@@ -45,6 +45,7 @@ func init() {
 
 	type SchedulerCandidateListOptions struct {
 		Type   string `help:"Sched type filter" choices:"baremetal|host"`
+		Region string `help:"Cloud region ID"`
 		Zone   string `help:"Zone ID"`
 		Limit  int    `default:"50" help:"Page limit"`
 		Offset int    `default:"0" help:"Page offset"`
@@ -57,6 +58,9 @@ func init() {
 			}
 			if args.Offset > 0 {
 				params.Add(jsonutils.NewInt(int64(args.Offset)), "offset")
+			}
+			if len(args.Region) > 0 {
+				params.Add(jsonutils.NewString(args.Region), "region")
 			}
 			if len(args.Zone) > 0 {
 				params.Add(jsonutils.NewString(args.Zone), "zone")

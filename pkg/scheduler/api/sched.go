@@ -11,27 +11,29 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 type Meta map[string]string
 
 type Disk struct {
-	Backend         string  `json:"backend"`
-	ImageID         string  `json:"image_id"`
-	Fs              *string `json:"fs"`
-	Os              string  `json:"os"`
-	OSDistribution  string  `json:"os_distribution"`
-	OsVersion       string  `json:"os_version"`
-	Format          string  `json:"format"`
-	MountPoint      *string `json:"mountpoint"`
-	Driver          *string `json:"driver"`
-	Cache           *string `json:"cache"`
-	ImageDiskFormat string  `json:"image_disk_format"`
-	Size            int64   `json:"size"`
-	Storage         *string `json:"storage"`
+	Backend         string     `json:"backend"`
+	ImageID         string     `json:"image_id"`
+	Fs              *string    `json:"fs"`
+	Os              string     `json:"os"`
+	OSDistribution  string     `json:"os_distribution"`
+	OsVersion       string     `json:"os_version"`
+	Format          string     `json:"format"`
+	MountPoint      *string    `json:"mountpoint"`
+	Driver          *string    `json:"driver"`
+	Cache           *string    `json:"cache"`
+	ImageDiskFormat string     `json:"image_disk_format"`
+	Size            int64      `json:"size"`
+	Storage         *string    `json:"storage"`
+	Schedtags       []Schedtag `json:"schedtags"`
+	Index           int        `json:"index"`
 }
 
 type Network struct {
@@ -62,7 +64,7 @@ type ForGuest struct {
 	Name string `json:"name"`
 }
 
-type Aggregate struct {
+type Schedtag struct {
 	Idx      string `json:"idx"`
 	Strategy string `json:"strategy"`
 }
@@ -78,8 +80,8 @@ type SchedData struct {
 	Type            string            `json:"type"`
 	IsContainer     bool              `json:"is_container"`
 	Count           int64             `json:"count"`
+	RegionID        string            `json:"region_id"`
 	ZoneID          string            `json:"zone_id"`
-	PoolID          string            `json:"pool_id"`
 	HostID          string            `json:"host_id"`
 	Candidates      []string          `json:"candidates"`
 	OwnerTenantID   string            `json:"owner_tenant_id"`
@@ -90,7 +92,7 @@ type SchedData struct {
 	Name            string            `json:"name"`
 	Networks        []*Network        `json:"networks"`
 	IsolatedDevices []*IsolatedDevice `json:"isolated_devices"`
-	Aggregates      []Aggregate       `json:"aggregate_stategy"`
+	Schedtags       []Schedtag        `json:"aggregate_stategy"`
 	Meta            Meta              `json:"__meta__"`
 	ForGuests       []*ForGuest       `json:"for_guests"`
 	GuestStatus     string            `json:"guest_status"`
@@ -132,9 +134,9 @@ func NewSchedData(sjson *simplejson.Json, count int64, byTest bool) (*SchedData,
 		}
 	}
 
-	if poolID, ok := sjson.CheckGet("prefer_pool_id"); ok {
-		if str, err := poolID.String(); err == nil {
-			data.PoolID = str
+	if regionID, ok := sjson.CheckGet("prefer_region_id"); ok {
+		if str, err := regionID.String(); err == nil {
+			data.RegionID = str
 		}
 	}
 
@@ -231,7 +233,7 @@ func NewSchedData(sjson *simplejson.Json, count int64, byTest bool) (*SchedData,
 
 	data.fillForGuests(sjson)
 
-	if err := data.fillAggregates(sjson, byTest); err != nil {
+	if err := data.fillSchedtags(sjson, byTest); err != nil {
 		return nil, err
 	}
 
@@ -652,11 +654,12 @@ func (d *SchedData) fillDisksInfo(sjson *simplejson.Json, byTest bool) error {
 		if !ok {
 			break
 		}
-		index++
 		disk, err := newDiskFromSimpleJson(d, byTest)
 		if err != nil {
 			return err
 		}
+		disk.Index = index
+		index++
 		disks = append(disks, disk)
 	}
 	if index == 0 && d.Hypervisor != SchedTypeContainer {
@@ -703,7 +706,7 @@ func (d *SchedData) fillForGuests(sjson *simplejson.Json) {
 	}
 }
 
-func NewSchedTagFromCmdline(str string) (agg Aggregate, err error) {
+func NewSchedTagFromCmdline(str string) (agg Schedtag, err error) {
 	rs := strings.Split(str, ":")
 	if len(rs) == 1 || rs[1] == "" {
 		err = fmt.Errorf("SchedTag %q no strategy.", str)
@@ -711,22 +714,22 @@ func NewSchedTagFromCmdline(str string) (agg Aggregate, err error) {
 	}
 	name, strategy := rs[0], rs[1]
 
-	err = AggregateStrategyCheck(strategy)
+	err = SchedtagStrategyCheck(strategy)
 	if err != nil {
 		return
 	}
 
-	agg = Aggregate{name, strategy}
+	agg = Schedtag{name, strategy}
 	return
 }
 
-func (d *SchedData) fillAggregates(sjson *simplejson.Json, byTest bool) error {
-	d.Aggregates = []Aggregate{}
+func (d *SchedData) fillSchedtags(sjson *simplejson.Json, byTest bool) error {
+	d.Schedtags = []Schedtag{}
 
 	if !byTest {
 		if aggNode, ok := sjson.CheckGet("aggregate_strategy"); ok {
 			for name, strategy := range aggNode.MustMap() {
-				d.Aggregates = append(d.Aggregates, Aggregate{
+				d.Schedtags = append(d.Schedtags, Schedtag{
 					Idx: fmt.Sprintf("%v", name), Strategy: fmt.Sprintf("%v", strategy),
 				})
 			}
@@ -743,7 +746,7 @@ func (d *SchedData) fillAggregates(sjson *simplejson.Json, byTest bool) error {
 			if err != nil {
 				return err
 			}
-			d.Aggregates = append(d.Aggregates, agg)
+			d.Schedtags = append(d.Schedtags, agg)
 			index++
 		}
 	}

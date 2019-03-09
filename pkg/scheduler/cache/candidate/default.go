@@ -9,9 +9,9 @@ import (
 	"yunion.io/x/log"
 	u "yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/onecloud/pkg/scheduler/cache"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
+	"yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 const (
@@ -32,7 +32,7 @@ func defaultCadidateItems(db DBGroupCacher, sync SyncGroupCacher) []cache.Cached
 }
 
 func uuidKey(obj interface{}) (string, error) {
-	return obj.(descer).UUID(), nil
+	return obj.(descer).GetId(), nil
 }
 
 func generalUpdateFunc(db DBGroupCacher, sync SyncGroupCacher, act BuildActor, mutex *gosync.Mutex) cache.UpdateFunc {
@@ -92,7 +92,10 @@ func generalGetUpdateFunc(isBaremetal bool) cache.GetUpdateFunc {
 		for _, item := range d {
 			r := reflect.ValueOf(item)
 			f := reflect.Indirect(r)
-			key := f.FieldByName("ID")
+			key := f.FieldByName("Id")
+			if !key.IsValid() {
+				key = f.FieldByName("ID")
+			}
 			value := f.FieldByName("UpdatedAt")
 			if key.IsValid() && value.IsValid() {
 				allStatus[key.String()] = value.Interface().(time.Time)

@@ -11,12 +11,12 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	candidatecache "yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager"
+	o "yunion.io/x/onecloud/pkg/scheduler/options"
 	"yunion.io/x/onecloud/pkg/util/k8s"
 )
 
@@ -142,10 +142,9 @@ func getHostCandidatesList(args *api.CandidateListArgs) (*api.CandidateListResul
 	r.Limit = args.Limit
 	r.Offset = args.Offset
 	cs, err := GetCandidateManager().GetCandidates(data_manager.CandidateGetArgs{
-		ResType:    "host",
-		ZoneID:     args.Zone,
-		PoolID:     args.Pool,
-		IgnorePool: defaultIgnorePool,
+		ResType:  "host",
+		ZoneID:   args.Zone,
+		RegionID: args.Region,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Get host candidates err: %v", err)
@@ -158,10 +157,9 @@ func getBaremetalCandidatesList(args *api.CandidateListArgs) (*api.CandidateList
 	r.Limit = args.Limit
 	r.Offset = args.Offset
 	cs, err := GetCandidateManager().GetCandidates(data_manager.CandidateGetArgs{
-		ResType:    "baremetal",
-		ZoneID:     args.Zone,
-		PoolID:     args.Pool,
-		IgnorePool: defaultIgnorePool,
+		ResType:  "baremetal",
+		ZoneID:   args.Zone,
+		RegionID: args.Region,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("Get baremetal candidates err: %v", err)
@@ -283,12 +281,12 @@ func GetCandidateBaremetalList(
 		mem := api.NewResultResourceInt64(
 			c.FreeMemSize(),
 			0,
-			c.MemSize)
+			int64(c.MemSize))
 
 		cpu := api.NewResultResourceInt64(
 			c.FreeCPUCount(),
 			0,
-			c.CPUCount)
+			int64(c.CpuCount))
 
 		storage := api.NewResultResourceInt64(
 			c.FreeStorageSize(),

@@ -218,6 +218,10 @@ func (self *SNetwork) GetUsedAddresses() map[string]bool {
 	return used
 }
 
+func (self *SNetwork) GetIPRange() netutils.IPV4AddrRange {
+	return self.getIPRange()
+}
+
 func (self *SNetwork) getIPRange() netutils.IPV4AddrRange {
 	start, _ := netutils.NewIPV4Addr(self.GuestIpStart)
 	end, _ := netutils.NewIPV4Addr(self.GuestIpEnd)
@@ -895,6 +899,10 @@ func (self *SNetwork) getRegion() *SCloudregion {
 	return nil
 }
 
+func (self *SNetwork) GetPorts() int {
+	return self.getIPRange().AddressCount()
+}
+
 func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	wire := self.GetWire()
 	extra.Add(jsonutils.NewString(wire.Name), "wire")
@@ -903,7 +911,7 @@ func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 	} else {
 		extra.Add(jsonutils.JSONFalse, "exit")
 	}
-	extra.Add(jsonutils.NewInt(int64(self.getIPRange().AddressCount())), "ports")
+	extra.Add(jsonutils.NewInt(int64(self.GetPorts())), "ports")
 	extra.Add(jsonutils.NewInt(int64(self.GetTotalNicCount())), "ports_used")
 	extra.Add(jsonutils.NewInt(int64(self.GetGuestnicsCount())), "vnics")
 	extra.Add(jsonutils.NewInt(int64(self.GetBaremetalNicsCount())), "bm_vnics")

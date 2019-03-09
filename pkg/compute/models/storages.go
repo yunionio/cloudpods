@@ -1158,3 +1158,7 @@ func (self *SStorage) IsPrepaidRecycleResource() bool {
 	}
 	return hosts[0].IsPrepaidRecycleResource()
 }
+
+func (self *SStorage) GetSchedtags() []SSchedtag {
+	return GetSchedtags(StorageschedtagManager, self.Id)
+}

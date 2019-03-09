@@ -15,6 +15,8 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
+
+	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 )
 
 // InstallHandler is an interface that registes route and
@@ -149,13 +151,7 @@ func doSchedulerForecast(c *gin.Context) {
 }
 
 func doCandidateList(c *gin.Context) {
-	sjson, err := simplejson.NewFromReader(c.Request.Body)
-	if err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
-	args, err := api.NewCandidateListArgs(sjson)
+	args, err := api.NewCandidateListArgs(c.Request.Body)
 	if err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
@@ -171,22 +167,22 @@ func doCandidateList(c *gin.Context) {
 }
 
 func doCandidateDetail(c *gin.Context, id string) {
-	hs, err := models.FetchHostByIDs([]string{id})
+	hs, err := computemodels.HostManager.FetchById(id)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	if len(hs) == 0 {
+	if hs == nil {
 		c.AbortWithError(http.StatusNotFound, fmt.Errorf("Candidate %s not found.", id))
 		return
 	}
 
-	host := hs[0].(*models.Host)
+	host := hs.(*computemodels.SHost)
 
 	args := new(api.CandidateDetailArgs)
 	args.ID = id
-	if !host.IsHypervisor() {
+	if host.HostType == computemodels.HOST_TYPE_BAREMETAL {
 		args.Type = api.HostTypeBaremetal
 	} else {
 		args.Type = api.HostTypeHost
@@ -198,7 +194,7 @@ func doCandidateDetail(c *gin.Context, id string) {
 		return
 	}
 
-	c.JSON(http.StatusOK, result)
+	SendJSON(c, http.StatusOK, result)
 }
 
 func doCleanup(c *gin.Context) {

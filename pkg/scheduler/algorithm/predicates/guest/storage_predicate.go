@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
@@ -52,7 +53,7 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 
 	isStorageAccessible := func(storage string) bool {
 		for _, s := range hc.Storages {
-			if storage == s.ID || storage == s.Name {
+			if storage == s.Id || storage == s.Name {
 				return true
 			}
 		}
@@ -82,9 +83,11 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		ss := []string{}
 		for _, s := range hc.Storages {
 			if s.StorageType == backend {
-				total := int64(float64(s.Capacity) * s.Cmtbound)
-				free := total - s.UsedCapacity - s.WasteCapacity
-				ss = append(ss, fmt.Sprintf("(%v-%v-%v=%v)", total, s.UsedCapacity, s.WasteCapacity, free))
+				total := int64(float32(s.Capacity) * s.Cmtbound)
+				used := s.GetUsedCapacity(tristate.True)
+				waste := s.GetUsedCapacity(tristate.False)
+				free := total - int64(used) - int64(waste)
+				ss = append(ss, fmt.Sprintf("(%v-%v-%v=%v)", total, used, waste, free))
 			}
 		}
 		return strings.Join(ss, " + ")

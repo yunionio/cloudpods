@@ -1,22 +1,23 @@
 package api
 
 import (
+	"encoding/json"
+	"io"
 	"strconv"
 
 	simplejson "github.com/bitly/go-simplejson"
-
-	"yunion.io/x/log"
 )
 
 // CandidateListArgs is a struct just for parsing candidate
 // resource list parameters.
 type CandidateListArgs struct {
-	Type      string
-	Zone      string
-	Pool      string
-	Limit     int64
-	Offset    int64
-	Avaliable bool
+	Type   string `json:"type"`
+	Region string `json:"region"`
+	Zone   string `json:"zone"`
+	//Pool      string
+	Limit     int64 `json:"limit"`
+	Offset    int64 `json:"offset"`
+	Avaliable bool  `json:"available"`
 }
 
 type ResultResource struct {
@@ -75,44 +76,20 @@ const (
 
 // NewCandidateListArgs provides a function that
 // will parse candidate's list args from a json data.
-func NewCandidateListArgs(sjson *simplejson.Json) (*CandidateListArgs, error) {
-	args := &CandidateListArgs{
-		Limit: DefaultCandidateListArgsLimit,
+func NewCandidateListArgs(r io.Reader) (*CandidateListArgs, error) {
+	args := CandidateListArgs{}
+	err := json.NewDecoder(r).Decode(&args)
+	if err != nil {
+		return nil, err
 	}
-	if argsType, ok := sjson.CheckGet("type"); ok {
-		args.Type = argsType.MustString()
-	} else {
+	if args.Limit == 0 {
+		args.Limit = DefaultCandidateListArgsLimit
+	}
+	if args.Type == "" {
 		args.Type = "all"
 	}
 
-	if zone, ok := sjson.CheckGet("zone"); ok {
-		args.Zone = zone.MustString()
-	}
-
-	if pool, ok := sjson.CheckGet("pool"); ok {
-		args.Pool = pool.MustString()
-	}
-
-	if limit, ok := sjson.CheckGet("limit"); ok {
-		limitv, err := limit.Int64()
-		if err != nil {
-			limitv, err = strconv.ParseInt(limit.MustString(), 10, 64)
-			if err != nil {
-				log.Errorln(err)
-			}
-		}
-		args.Limit = limitv
-	}
-
-	if offset, ok := sjson.CheckGet("offset"); ok {
-		args.Offset = offset.MustInt64()
-	}
-
-	if avaliable, ok := sjson.CheckGet("avaliable"); ok {
-		args.Avaliable = avaliable.MustBool()
-	}
-
-	return args, nil
+	return &args, nil
 }
 
 // CandidateDetailArgs is a struct just for parsing candidate

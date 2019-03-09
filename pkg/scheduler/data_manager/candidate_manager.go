@@ -14,10 +14,10 @@ import (
 )
 
 type CandidateGetArgs struct {
-	ResType    string
-	ZoneID     string
-	PoolID     string
-	IgnorePool bool
+	// ResType is candidate host_type
+	ResType  string
+	RegionID string
+	ZoneID   string
 }
 
 type DataManager struct {
@@ -200,9 +200,27 @@ func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candida
 		return nil, err2
 	}
 
-	hasZone := len(args.ZoneID) > 0
-
 	result := []core.Candidater{}
+
+	matchZone := func(r core.Candidater, zoneId string) bool {
+		if args.ZoneID != "" {
+			if r.Getter().Zone().GetId() == zoneId {
+				return true
+			}
+			return false
+		}
+		return true
+	}
+
+	matchRegion := func(r core.Candidater, regionId string) bool {
+		if args.RegionID != "" {
+			if r.Getter().Region().GetId() == regionId {
+				return true
+			}
+			return false
+		}
+		return true
+	}
 
 	for _, c := range candidates {
 		r := c.(core.Candidater)
@@ -211,11 +229,15 @@ func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candida
 			continue
 		}
 
-		if args.IgnorePool {
-			result = append(result, r)
-		} else if (!hasZone || r.Get("ZoneID") == args.ZoneID) && r.Get("PoolID") == args.PoolID {
-			result = append(result, r)
+		if !matchRegion(r, args.RegionID) {
+			continue
 		}
+
+		if !matchZone(r, args.ZoneID) {
+			continue
+		}
+
+		result = append(result, r)
 	}
 
 	return result, nil

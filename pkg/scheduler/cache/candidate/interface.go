@@ -17,7 +17,7 @@ type SyncGroupCacher interface {
 }
 
 type descer interface {
-	UUID() string
+	GetId() string
 }
 
 type BuildActor interface {

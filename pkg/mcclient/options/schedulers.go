@@ -13,10 +13,11 @@ type SchedulerTestBaseOptions struct {
 	Mem                 int64    `help:"Memory size (MB), default 512" metavar:"MEMORY" default:"512"`
 	Ncpu                int64    `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>"`
 	Disk                []string `help:"Disk descriptions" nargs:"+"`
+	DiskSchedtag        []string `help:"Disk schedtag description, e.g. '0:<tag>:<strategy>'"`
 	BaremetalDiskConfig []string `help:"Baremetal disk layout configuration"`
 	Net                 []string `help:"Network descriptions" metavar:"NETWORK"`
 	IsolatedDevice      []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
-	SchedTag            []string `help:"Schedule policy, key = SchedTag name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
+	Schedtag            []string `help:"Schedule policy, key = SchedTag name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
 	Zone                string   `help:"Preferred zone where virtual server should be created"`
 	Host                string   `help:"Preferred host where virtual server should be created"`
 	Project             string   `help:"Owner project ID or Name"`
@@ -48,8 +49,8 @@ func (o SchedulerTestBaseOptions) data(s *mcclient.ClientSession) (*jsonutils.JS
 		if len(o.Zone) > 0 {
 			data.Add(jsonutils.NewString(o.Zone), "prefer_zone")
 		}
-		if len(o.SchedTag) > 0 {
-			for i, aggr := range o.SchedTag {
+		if len(o.Schedtag) > 0 {
+			for i, aggr := range o.Schedtag {
 				data.Add(jsonutils.NewString(aggr), fmt.Sprintf("aggregate.%d", i))
 			}
 		}

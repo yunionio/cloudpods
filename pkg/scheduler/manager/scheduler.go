@@ -25,7 +25,6 @@ func candidatesByProvider(provider CandidatesProvider, schedData *api.SchedData)
 		args := data_manager.CandidateGetArgs{
 			ResType: provider.CandidateType(),
 			ZoneID:  schedData.ZoneID,
-			PoolID:  schedData.PoolID,
 		}
 		hosts, err = candidateManager.GetCandidates(args)
 	}

@@ -3,8 +3,9 @@ package core
 import (
 	"yunion.io/x/jsonutils"
 
+	computemodels "yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core/score"
-	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 )
 
 const (
@@ -35,8 +36,19 @@ const (
 	KindReserved
 )
 
+type CandidatePropertyGetter interface {
+	Id() string
+	Name() string
+	Zone() *computemodels.SZone
+	Region() *computemodels.SCloudregion
+	HostType() string
+	HostSchedtags() []computemodels.SSchedtag
+	Storages() []*api.CandidateStorage
+}
+
 // Candidater replace host Candidate resource info
 type Candidater interface {
+	Getter() CandidatePropertyGetter
 	// IndexKey return candidate cache item's ident, usually host ID
 	IndexKey() string
 	// Get return candidate cache item's value by key
@@ -44,9 +56,6 @@ type Candidater interface {
 	// XGet return candidate cache item's value by key and kind
 	XGet(key string, kind Kind) interface{}
 	Type() int
-
-	GetAggregates() []*models.Aggregate
-	GetHostAggregates() []*models.Aggregate
 
 	GetSchedDesc() *jsonutils.JSONDict
 	GetGuestCount() int64
@@ -118,4 +127,19 @@ type Priority interface {
 
 	// Score intervals
 	ScoreIntervals() score.Intervals
+}
+
+type DiskAllocatedResource struct {
+	Index     int    `json:"index"`
+	StorageId string `json:"storage_id"`
+}
+
+type AllocatedResource struct {
+	Disks []*DiskAllocatedResource `json:"disks"`
+}
+
+func NewAllocatedResource() *AllocatedResource {
+	return &AllocatedResource{
+		Disks: make([]*DiskAllocatedResource, 0),
+	}
 }

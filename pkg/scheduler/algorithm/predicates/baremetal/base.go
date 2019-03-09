@@ -1,9 +1,9 @@
 package baremetal
 
 import (
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 type BasePredicate struct {
