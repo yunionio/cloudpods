@@ -81,8 +81,10 @@ type ComputeOptions struct {
 	CloudSyncWorkerCount         int `help:"how many current synchronization threads" default:"2"`
 	CloudAutoSyncIntervalSeconds int `help:"frequency to check auto sync tasks" default:"30"`
 	DefaultSyncIntervalSeconds   int `help:"minimal synchronization interval, default 1 minutes" default:"900"`
-	MinimalSyncIntervalSeconds   int `help:"minimal synchronization interval, default 1 minutes" default:"60"`
+	MinimalSyncIntervalSeconds   int `help:"minimal synchronization interval, default 1 minutes" default:"300"`
 	MaxCloudAccountErrorCount    int `help:"maximal consecutive error count allow for a cloud account" default:"5"`
+
+	DisconnectedCloudAccountRetryProbeIntervalHours int `help:"interval to wait to probe status of a disconnected cloud account" default:"24"`
 
 	cloudcommon.CommonOptions
 	cloudcommon.DBOptions
