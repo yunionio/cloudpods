@@ -211,16 +211,30 @@ func (h *DHCPHandler) findNetworkConf(filterUseIp bool) (*types.SNetworkConfig, 
 	return &network, err
 }
 
-// createOrUpdateBaremetal create or update baremetal by client MAC
-func (h *DHCPHandler) createOrUpdateBaremetal() (jsonutils.JSONObject, error) {
+func (h *DHCPHandler) findBaremetalsOfAnyMac(isBaremetal bool) (*modules.ListResult, error) {
 	session := h.baremetalManager.GetClientSession()
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(models.HOST_TYPE_BAREMETAL), "host_type")
 	params.Add(jsonutils.NewString(h.ClientMac.String()), "any_mac")
-	params.Add(jsonutils.JSONTrue, "is_baremetal")
-	ret, err := modules.Hosts.List(session, params)
+	if isBaremetal {
+		params.Add(jsonutils.JSONTrue, "is_baremetal")
+	} else {
+		params.Add(jsonutils.NewString("baremetal"), "host_type")
+	}
+	return modules.Hosts.List(session, params)
+}
+
+// createOrUpdateBaremetal create or update baremetal by client MAC
+func (h *DHCPHandler) createOrUpdateBaremetal() (jsonutils.JSONObject, error) {
+	ret, err := h.findBaremetalsOfAnyMac(true)
 	if err != nil {
 		return nil, err
+	}
+	if len(ret.Data) == 0 {
+		ret, err = h.findBaremetalsOfAnyMac(false)
+		if err != nil {
+			return nil, err
+		}
 	}
 	switch len(ret.Data) {
 	case 0:
