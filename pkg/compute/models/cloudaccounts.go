@@ -635,6 +635,7 @@ func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.
 		}
 	}
 	extra.Add(projects, "projects")
+	extra.Set("sync_interval_seconds", jsonutils.NewInt(int64(self.getSyncIntervalSeconds())))
 	return extra
 }
 
@@ -973,6 +974,26 @@ func (account *SCloudaccount) markAccountConnected(ctx context.Context, userCred
 	return account.SetStatus(userCred, CLOUD_PROVIDER_CONNECTED, "")
 }
 
+func (account *SCloudaccount) shouldProbeStatus() bool {
+	// connected state
+	if account.Status != CLOUD_PROVIDER_DISCONNECTED {
+		return true
+	}
+	// disconencted, but errorCount < threshold
+	if account.ErrorCount < options.Options.MaxCloudAccountErrorCount {
+		return true
+	}
+	// never synced
+	if account.LastSyncEndAt.IsZero() {
+		return true
+	}
+	// last sync is long time ago
+	if time.Now().Sub(account.LastSyncEndAt) > time.Duration(options.Options.DisconnectedCloudAccountRetryProbeIntervalHours)*time.Hour {
+		return true
+	}
+	return false
+}
+
 func (account *SCloudaccount) needSync() bool {
 	if account.LastSyncEndAt.IsZero() {
 		return true
@@ -992,13 +1013,15 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Contex
 	}
 
 	q := manager.Query()
-	q = q.Filter(
-		sqlchemy.OR(
-			sqlchemy.NotEquals(q.Field("status"), CLOUD_PROVIDER_DISCONNECTED),
-			sqlchemy.LT(q.Field("error_count"), options.Options.MaxCloudAccountErrorCount),
-		),
-	)
-	q = q.Equals("sync_status", CLOUD_PROVIDER_SYNC_STATUS_IDLE)
+	/*
+		q = q.Filter(
+			sqlchemy.OR(
+				sqlchemy.NotEquals(q.Field("status"), CLOUD_PROVIDER_DISCONNECTED),
+				sqlchemy.LT(q.Field("error_count"), options.Options.MaxCloudAccountErrorCount),
+			),
+		)
+	*/
+	// q = q.Equals("sync_status", CLOUD_PROVIDER_SYNC_STATUS_IDLE)
 
 	accounts := make([]SCloudaccount, 0)
 	err := db.FetchModelObjects(manager, q, &accounts)
@@ -1008,7 +1031,7 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Contex
 	}
 
 	for i := range accounts {
-		if accounts[i].needSync() {
+		if accounts[i].shouldProbeStatus() && accounts[i].needSync() && accounts[i].CanSync() {
 			accounts[i].SubmitSyncAccountTask(ctx, userCred, nil, true)
 		}
 	}
