@@ -306,12 +306,9 @@ func init() {
 		return nil
 	})
 
-	R(&HostDetailOptions{}, "host-delete", "Delete host record", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
-		result, err := modules.Hosts.Delete(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
+	R(&HostOpsOptions{}, "host-delete", "Delete host record", func(s *mcclient.ClientSession, args *HostOpsOptions) error {
+		results := modules.Hosts.BatchDelete(s, args.ID, nil)
+		printBatchResults(results, modules.Hosts.GetColumns(s))
 		return nil
 	})
 
