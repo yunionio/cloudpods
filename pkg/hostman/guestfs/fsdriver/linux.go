@@ -11,6 +11,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
@@ -446,67 +447,83 @@ func (d *sDebianLikeRootFs) DeployHostname(rootFs IDiskPartition, hn, domain str
 	return rootFs.FilePutContents("/etc/hostname", hn, false, false)
 }
 
+func getNicTeamingConfigCmds(slaves []*types.SServerNic) string {
+	var cmds strings.Builder
+	cmds.WriteString("    bond-mode 4\n")
+	cmds.WriteString("    bond-miimon 100\n")
+	cmds.WriteString("    bond-lacp-rate 1\n")
+	cmds.WriteString("    bond-xmit_hash_policy 1\n")
+	cmds.WriteString("    bond-slaves")
+	for i := range slaves {
+		cmds.WriteString(" ")
+		cmds.WriteString(slaves[i].Name)
+	}
+	cmds.WriteString("\n")
+	return cmds.String()
+}
+
 func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
 	if err := d.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err
 	}
 	fn := "/etc/network/interfaces"
-	cmds := ""
-	cmds += "auto lo\n"
-	cmds += "iface lo inet loopback\n\n"
-	mainNic, err := netutils2.GetMainNic(nics)
+	var cmds strings.Builder
+	cmds.WriteString("auto lo\n")
+	cmds.WriteString("iface lo inet loopback\n\n")
+
+	allNics, _ := convertNicConfigs(nics)
+	mainNic, err := getMainNic(allNics)
 	if err != nil {
 		return err
 	}
 	var mainIp string
 	if mainNic != nil {
-		mainIp, _ = mainNic.GetString("ip")
+		mainIp = mainNic.Ip
 	}
-	for _, nic := range nics {
-		var nicDesc = new(types.SServerNic)
-		err := nic.Unmarshal(nicDesc)
-		if err != nil {
-			return err
-		}
-		nicIdx, err := nic.Int("index")
-		if err != nil {
-			return err
-		}
-		cmds += fmt.Sprintf("auto eth%d\n", nicIdx)
-		if jsonutils.QueryBoolean(nic, "virtual", false) {
-			cmds += fmt.Sprintf("iface eth%d inet static\n", nicIdx)
-			cmds += fmt.Sprintf("    address %s\n", netutils2.PSEUDO_VIP)
-			cmds += "    netmask 255.255.255.255\n"
-			cmds += "\n"
-		} else if jsonutils.QueryBoolean(nic, "manual", false) {
+	for i := range allNics {
+		nicDesc := allNics[i]
+		cmds.WriteString(fmt.Sprintf("auto %s\n", nicDesc.Name))
+		if nicDesc.TeamingMaster != nil {
+			cmds.WriteString(fmt.Sprintf("iface %s inet manual\n", nicDesc.Name))
+			cmds.WriteString(fmt.Sprintf("    bond-master %s\n", nicDesc.TeamingMaster.Name))
+			cmds.WriteString("\n")
+		} else if nicDesc.Virtual {
+			cmds.WriteString(fmt.Sprintf("iface %s inet static\n", nicDesc.Name))
+			cmds.WriteString(fmt.Sprintf("    address %s\n", netutils2.PSEUDO_VIP))
+			cmds.WriteString("    netmask 255.255.255.255\n")
+			cmds.WriteString("\n")
+		} else if nicDesc.Manual {
 			netmask := netutils2.Netlen2Mask(nicDesc.Masklen)
-			ip, err := nic.GetString("ip")
-			if err != nil {
-				return err
-			}
-			cmds += fmt.Sprintf("iface eth%d inet static\n", nicIdx)
-			cmds += fmt.Sprintf("    address %s\n", ip)
-			cmds += fmt.Sprintf("    netmask %s\n", netmask)
-			if len(nicDesc.Gateway) > 0 && ip == mainIp {
-				cmds += fmt.Sprintf("    gateway %s\n", nicDesc.Gateway)
+			cmds.WriteString(fmt.Sprintf("iface %s inet static\n", nicDesc.Name))
+			cmds.WriteString(fmt.Sprintf("    address %s\n", nicDesc.Ip))
+			cmds.WriteString(fmt.Sprintf("    netmask %s\n", netmask))
+			if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
+				cmds.WriteString(fmt.Sprintf("    gateway %s\n", nicDesc.Gateway))
 			}
 			var routes = make([][]string, 0)
 			netutils2.AddNicRoutes(&routes, nicDesc, mainIp, len(nics), options.HostOptions.PrivatePrefixes)
 			for _, r := range routes {
-				cmds += fmt.Sprintf("    up route add -net %s gw %s || true\n", r[0], r[1])
-				cmds += fmt.Sprintf("    down route del -net %s gw %s || true\n", r[0], r[1])
+				cmds.WriteString(fmt.Sprintf("    up route add -net %s gw %s || true\n", r[0], r[1]))
+				cmds.WriteString(fmt.Sprintf("    down route del -net %s gw %s || true\n", r[0], r[1]))
 			}
 			dnslist := netutils2.GetNicDns(nicDesc)
 			if len(dnslist) > 0 {
-				cmds += fmt.Sprintf("    dns-nameservers %s\n", strings.Join(dnslist, " "))
-				cmds += fmt.Sprintf("    dns-search %s\n", nicDesc.Domain)
+				cmds.WriteString(fmt.Sprintf("    dns-nameservers %s\n", strings.Join(dnslist, " ")))
+				cmds.WriteString(fmt.Sprintf("    dns-search %s\n", nicDesc.Domain))
 			}
-			cmds += "\n"
+			if len(nicDesc.TeamingSlaves) > 0 {
+				cmds.WriteString(getNicTeamingConfigCmds(nicDesc.TeamingSlaves))
+			}
+			cmds.WriteString("\n")
 		} else {
-			cmds += fmt.Sprintf("iface eth%d inet dhcp\n\n", nicIdx)
+			cmds.WriteString(fmt.Sprintf("iface %s inet dhcp\n", nicDesc.Name))
+			if len(nicDesc.TeamingSlaves) > 0 {
+				cmds.WriteString(getNicTeamingConfigCmds(nicDesc.TeamingSlaves))
+			}
+			cmds.WriteString("\n")
 		}
 	}
-	return rootFs.FilePutContents(fn, cmds, false, false)
+	return rootFs.FilePutContents(fn, cmds.String(), false, false)
 }
 
 type SDebianRootFs struct {
@@ -742,6 +759,39 @@ func (r *sRedhatLikeRootFs) Centos5DeployNetworkingScripts(rootFs IDiskPartition
 	return nil
 }
 
+func getMainNic(nics []*types.SServerNic) (*types.SServerNic, error) {
+	var mainIp netutils.IPV4Addr
+	var mainNic *types.SServerNic
+	for i := range nics {
+		if len(nics[i].Gateway) > 0 {
+			ipInt, err := netutils.NewIPV4Addr(nics[i].Ip)
+			if err != nil {
+				return nil, err
+			}
+			if mainIp == 0 {
+				mainIp = ipInt
+				mainNic = nics[i]
+			} else if !netutils.IsPrivate(ipInt) && netutils.IsPrivate(mainIp) {
+				mainIp = ipInt
+				mainNic = nics[i]
+			}
+		}
+	}
+	return mainNic, nil
+}
+
+func (r *sRedhatLikeRootFs) enableBondingModule(rootFs IDiskPartition, bondNics []*types.SServerNic) error {
+	var content strings.Builder
+	for i := range bondNics {
+		content.WriteString("alias ")
+		content.WriteString(bondNics[i].Name)
+		content.WriteString("bonding\n options ")
+		content.WriteString(bondNics[i].Name)
+		content.WriteString(" miimon=100 mode=4 lacp_rate=1 xmit_hash_policy=1\n")
+	}
+	return rootFs.FilePutContents("/etc/modprobe.d/bonding.conf", content.String(), false, false)
+}
+
 func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject, relInfo *SReleaseInfo) error {
 	ver := strings.Split(relInfo.Version, ".")
 	iv, err := strconv.ParseInt(ver[0], 10, 0)
@@ -756,63 +806,98 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 	if err != nil {
 		return err
 	}
-	mainNic, err := netutils2.GetMainNic(nics)
+	allNics, bondNics := convertNicConfigs(nics)
+	if len(bondNics) > 0 {
+		err = r.enableBondingModule(rootFs, bondNics)
+		if err != nil {
+			return err
+		}
+	}
+	mainNic, err := getMainNic(allNics)
 	if err != nil {
 		return err
 	}
 	var mainIp string
 	if mainNic != nil {
-		mainIp, _ = mainNic.GetString("ip")
+		mainIp = mainNic.Ip
 	}
-	for _, nic := range nics {
-		var cmds string
-		var nicdesc = new(types.SServerNic)
-		if err := nic.Unmarshal(nicdesc); err != nil {
-			return err
+	for i := range allNics {
+		nicDesc := allNics[i]
+		var cmds strings.Builder
+		cmds.WriteString("DEVICE=")
+		cmds.WriteString(nicDesc.Name)
+		cmds.WriteString("\n")
+		cmds.WriteString("NAME=")
+		cmds.WriteString(nicDesc.Name)
+		cmds.WriteString("\n")
+		cmds.WriteString("ONBOOT=yes\n")
+		cmds.WriteString("NM_CONTROLLED=no\n")
+		cmds.WriteString("USERCTL=no\n")
+		if len(nicDesc.Mac) > 0 {
+			cmds.WriteString("HWADDR=")
+			cmds.WriteString(nicDesc.Mac)
+			cmds.WriteString("\n")
+			cmds.WriteString("MACADDR=")
+			cmds.WriteString(nicDesc.Mac)
+			cmds.WriteString("\n")
 		}
-		cmds += fmt.Sprintf("DEVICE=eth%d\n", nicdesc.Index)
-		cmds += fmt.Sprintf("NAME=eth%d\n", nicdesc.Index)
-		cmds += fmt.Sprintf("HWADDR=%s\n", nicdesc.Mac)
-		cmds += fmt.Sprintf("MACADDR=%s\n", nicdesc.Mac)
-		if nicdesc.Virtual {
-			cmds += "BOOTPROTO=none\n"
-			cmds += "NETMASK=255.255.255.255\n"
-			cmds += fmt.Sprintf("IPADDR=%s\n", netutils2.PSEUDO_VIP)
-			cmds += "USERCTL=no\n"
-		} else if nicdesc.Manual {
-			netmask := netutils2.Netlen2Mask(nicdesc.Masklen)
-			cmds += "BOOTPROTO=none\n"
-			cmds += fmt.Sprintf("NETMASK=%s\n", netmask)
-			cmds += fmt.Sprintf("IPADDR=%s\n", nicdesc.Ip)
-			cmds += "USERCTL=no\n"
-			if len(nicdesc.Gateway) > 0 && nicdesc.Ip == mainIp {
-				cmds += fmt.Sprintf("GATEWAY=%s\n", nicdesc.Gateway)
+		if nicDesc.TeamingMaster != nil {
+			cmds.WriteString("BOOTPROTO=none\n")
+			cmds.WriteString("MASTER=")
+			cmds.WriteString(nicDesc.TeamingMaster.Name)
+			cmds.WriteString("\n")
+			cmds.WriteString("SLAVE=yes\n")
+		} else if nicDesc.Virtual {
+			cmds.WriteString("BOOTPROTO=none\n")
+			cmds.WriteString("NETMASK=255.255.255.255\n")
+			cmds.WriteString("IPADDR=")
+			cmds.WriteString(netutils2.PSEUDO_VIP)
+			cmds.WriteString("\n")
+		} else if nicDesc.Manual {
+			netmask := netutils2.Netlen2Mask(nicDesc.Masklen)
+			cmds.WriteString("BOOTPROTO=none\n")
+			cmds.WriteString("NETMASK=")
+			cmds.WriteString(netmask)
+			cmds.WriteString("\n")
+			cmds.WriteString("IPADDR=")
+			cmds.WriteString(nicDesc.Ip)
+			cmds.WriteString("\n")
+			if len(nicDesc.Gateway) > 0 && nicDesc.Ip == mainIp {
+				cmds.WriteString("GATEWAY=")
+				cmds.WriteString(nicDesc.Gateway)
+				cmds.WriteString("\n")
 			}
 			var routes = make([][]string, 0)
-			var rtbl string
-			netutils2.AddNicRoutes(&routes, nicdesc, mainIp, len(nics), options.HostOptions.PrivatePrefixes)
+			netutils2.AddNicRoutes(&routes, nicDesc, mainIp, len(nics), options.HostOptions.PrivatePrefixes)
+			var rtbl strings.Builder
 			for _, r := range routes {
-				rtbl += fmt.Sprintf("%s via %s dev eth%d\n", r[0], r[1], nicdesc.Index)
+				rtbl.WriteString(r[0])
+				rtbl.WriteString(" via ")
+				rtbl.WriteString(r[1])
+				rtbl.WriteString(" dev ")
+				rtbl.WriteString(nicDesc.Name)
+				rtbl.WriteString("\n")
 			}
-			if len(rtbl) > 0 {
-				var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/route-eth%d", nicdesc.Index)
-				if err := rootFs.FilePutContents(fn, rtbl, false, false); err != nil {
+			rtblStr := rtbl.String()
+			if len(rtblStr) > 0 {
+				var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/route-%s", nicDesc.Name)
+				if err := rootFs.FilePutContents(fn, rtblStr, false, false); err != nil {
 					return err
 				}
 			}
-			dnslist := netutils2.GetNicDns(nicdesc)
+			dnslist := netutils2.GetNicDns(nicDesc)
 			if len(dnslist) > 0 {
-				cmds += "PEERDNS=yes\n"
+				cmds.WriteString("PEERDNS=yes\n")
 				for i := 0; i < len(dnslist); i++ {
-					cmds += fmt.Sprintf("DNS%d=%s\n", i+1, dnslist[i])
+					cmds.WriteString(fmt.Sprintf("DNS%d=%s\n", i+1, dnslist[i]))
 				}
-				cmds += fmt.Sprintf("DOMAIN=%s\n", nicdesc.Domain)
+				cmds.WriteString(fmt.Sprintf("DOMAIN=%s\n", nicDesc.Domain))
 			}
 		} else {
-			cmds += "BOOTPROTO=dhcp\n"
+			cmds.WriteString("BOOTPROTO=dhcp\n")
 		}
-		var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/ifcfg-eth%d", nicdesc.Index)
-		if err := rootFs.FilePutContents(fn, cmds, false, false); err != nil {
+		var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/ifcfg-%s", nicDesc.Name)
+		if err := rootFs.FilePutContents(fn, cmds.String(), false, false); err != nil {
 			return err
 		}
 	}

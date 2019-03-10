@@ -44,6 +44,7 @@ func (n SNic) GetMac() net.HardwareAddr {
 type SRoute []string
 
 type SServerNic struct {
+	Name      string   `json:"name"`
 	Index     int      `json:"index"`
 	Bridge    string   `json:"bridge"`
 	Domain    string   `json:"domain"`
@@ -66,6 +67,10 @@ type SServerNic struct {
 	NicType   string   `json:"nic_type,omitempty"`
 	LinkUp    bool     `json:"link_up,omitempty"`
 	Mtu       int64    `json:"mtu,omitempty"`
+	TeamWith  string   `json:"team_with,omitempty"`
+
+	TeamingMaster *SServerNic   `json:"-"`
+	TeamingSlaves []*SServerNic `json:"-"`
 }
 
 func (n SServerNic) GetNetMask() string {
