@@ -60,6 +60,8 @@ type SGuestnetwork struct {
 	Index     int8   `nullable:"false" default:"0" list:"user" update:"user"`               // Column(TINYINT, nullable=False, default=0)
 	Virtual   bool   `default:"false" list:"user"`                                          // Column(Boolean, default=False)
 	Ifname    string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user"` // Column(VARCHAR(16, charset='ascii'), nullable=True)
+
+	TeamWith string `width:"32" charset:"ascii" nullable:"false" list:"user"`
 }
 
 func (joint *SGuestnetwork) Master() db.IStandaloneModel {
@@ -121,7 +123,7 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 
 func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork,
 	index int8, address string, mac string, driver string, bwLimit int, virtual bool, reserved bool,
-	allocDir IPAddlocationDirection, requiredDesignatedIp bool, ifName string) (*SGuestnetwork, error) {
+	allocDir IPAddlocationDirection, requiredDesignatedIp bool, ifName string, teamWithMac string) (*SGuestnetwork, error) {
 
 	gn := SGuestnetwork{}
 	gn.SetModelManager(GuestnetworkManager)
@@ -170,6 +172,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 		ifName = gn.GetFreeIfname(network, ifTable)
 	}
 	gn.Ifname = ifName
+	gn.TeamWith = teamWithMac
 	err := manager.TableSpec().Insert(&gn)
 	if err != nil {
 		return nil, err
@@ -237,17 +240,34 @@ func (gn *SGuestnetwork) GetNetwork() *SNetwork {
 	return nil
 }
 
-func (self *SGuestnetwork) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
-	network := self.GetNetwork()
-	hostwire := host.getHostwireOfId(network.WireId)
+func (self *SGuestnetwork) GetTeamGuestnetwork() (*SGuestnetwork, error) {
+	if len(self.TeamWith) > 0 {
+		return GuestnetworkManager.FetchByIdsAndIpMac(self.GuestId, self.NetworkId, "", self.TeamWith)
+	}
+	return nil, nil
+}
 
+
+func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	desc := jsonutils.NewDict()
+
+	network := self.GetNetwork()
+	hostwire := host.getHostwireOfIdAndMac(network.WireId, self.MacAddr)
+
 	desc.Add(jsonutils.NewString(network.Name), "net")
 	desc.Add(jsonutils.NewString(self.NetworkId), "net_id")
 	desc.Add(jsonutils.NewString(self.MacAddr), "mac")
 	if self.Virtual {
 		desc.Add(jsonutils.JSONTrue, "virtual")
-		desc.Add(jsonutils.NewString(network.GetNetAddr().String()), "ip")
+		if len(self.TeamWith) > 0 {
+			teamGN, _ := self.GetTeamGuestnetwork()
+			if teamGN != nil {
+				log.Debugf("%#v", teamGN)
+				desc.Add(jsonutils.NewString(teamGN.IpAddr), "ip")
+			}
+		} else {
+			desc.Add(jsonutils.NewString(network.GetNetAddr().String()), "ip")
+		}
 	} else {
 		desc.Add(jsonutils.JSONFalse, "virtual")
 		desc.Add(jsonutils.NewString(self.IpAddr), "ip")
@@ -258,7 +278,7 @@ func (self *SGuestnetwork) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	desc.Add(jsonutils.NewString(network.GetDNS()), "dns")
 	desc.Add(jsonutils.NewString(network.GetDomain()), "domain")
 	routes := network.GetRoutes()
-	if len(routes) > 0 {
+	if routes != nil && len(routes) > 0 {
 		desc.Add(jsonutils.Marshal(routes), "routes")
 	}
 	desc.Add(jsonutils.NewString(self.GetIfname()), "ifname")
@@ -277,10 +297,16 @@ func (self *SGuestnetwork) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	if len(network.ExternalId) > 0 {
 		desc.Add(jsonutils.NewString(network.ExternalId), "external_id")
 	}
-	guest := self.GetGuest()
+
+	if len(self.TeamWith) > 0 {
+		desc.Add(jsonutils.NewString(self.TeamWith), "team_with")
+	}
+
+	guest := self.getGuest()
 	if guest.GetHypervisor() != HYPERVISOR_KVM {
 		desc.Add(jsonutils.JSONTrue, "manual")
 	}
+
 	return desc
 }
 
@@ -520,56 +546,6 @@ func (self *SGuestnetwork) GetIfname() string {
 	return self.Ifname
 }
 
-func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
-	desc := jsonutils.NewDict()
-
-	network := self.GetNetwork()
-	hostwire := host.getHostwireOfId(network.WireId)
-
-	desc.Add(jsonutils.NewString(network.Name), "net")
-	desc.Add(jsonutils.NewString(self.NetworkId), "net_id")
-	desc.Add(jsonutils.NewString(self.MacAddr), "mac")
-	if self.Virtual {
-		desc.Add(jsonutils.JSONTrue, "virtual")
-		desc.Add(jsonutils.NewString(network.GetNetAddr().String()), "ip")
-	} else {
-		desc.Add(jsonutils.JSONFalse, "virtual")
-		desc.Add(jsonutils.NewString(self.IpAddr), "ip")
-	}
-	if len(network.GuestGateway) > 0 {
-		desc.Add(jsonutils.NewString(network.GuestGateway), "gateway")
-	}
-	desc.Add(jsonutils.NewString(network.GetDNS()), "dns")
-	desc.Add(jsonutils.NewString(network.GetDomain()), "domain")
-	routes := network.GetRoutes()
-	if routes != nil && len(routes) > 0 {
-		desc.Add(jsonutils.Marshal(routes), "routes")
-	}
-	desc.Add(jsonutils.NewString(self.GetIfname()), "ifname")
-	desc.Add(jsonutils.NewInt(int64(network.GuestIpMask)), "masklen")
-	desc.Add(jsonutils.NewString(self.Driver), "driver")
-	desc.Add(jsonutils.NewString(hostwire.Bridge), "bridge")
-	desc.Add(jsonutils.NewString(hostwire.WireId), "wire_id")
-	desc.Add(jsonutils.NewInt(int64(network.VlanId)), "vlan")
-	desc.Add(jsonutils.NewString(hostwire.Interface), "interface")
-	desc.Add(jsonutils.NewInt(int64(self.getBandwidth())), "bw")
-	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
-	vips := self.GetVirtualIPs()
-	if len(vips) > 0 {
-		desc.Add(jsonutils.NewStringArray(vips), "virtual_ips")
-	}
-	if len(network.ExternalId) > 0 {
-		desc.Add(jsonutils.NewString(network.ExternalId), "external_id")
-	}
-
-	guest := self.getGuest()
-	if guest.GetHypervisor() != HYPERVISOR_KVM {
-		desc.Add(jsonutils.JSONTrue, "manual")
-	}
-
-	return desc
-}
-
 func (manager *SGuestnetworkManager) getRecentlyReleasedIPAddresses(networkId string, recentDuration time.Duration) map[string]bool {
 	if recentDuration == 0 {
 		return nil
@@ -611,4 +587,34 @@ func (manager *SGuestnetworkManager) FilterByParams(q *sqlchemy.SQuery, params j
 		q = q.Filter(sqlchemy.Equals(q.Field("ip6_addr"), ip6Str))
 	}
 	return q
+}
+
+func (manager *SGuestnetworkManager) FetchByIdsAndIpMac(guestId string, netId string, ipAddr string, mac string) (*SGuestnetwork, error) {
+	query := jsonutils.NewDict()
+	if len(mac) > 0 {
+		query.Add(jsonutils.NewString(mac), "mac_addr")
+	}
+	if len(ipAddr) > 0 {
+		query.Add(jsonutils.NewString(ipAddr), "ip_addr")
+	}
+	ign, err := db.FetchJointByIds(manager, guestId, netId, query)
+	if err != nil {
+		return nil, err
+	}
+	return ign.(*SGuestnetwork), nil
+}
+
+func (self *SGuestnetwork) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
+	desc := jsonutils.NewDict()
+	if len(self.IpAddr) > 0 {
+		desc.Add(jsonutils.NewString(self.IpAddr), "ip_addr")
+	}
+	if len(self.Ip6Addr) > 0 {
+		desc.Add(jsonutils.NewString(self.Ip6Addr), "ip6_addr")
+	}
+	desc.Add(jsonutils.NewString(self.MacAddr), "mac")
+	if len(self.TeamWith) > 0 {
+		desc.Add(jsonutils.NewString(self.TeamWith), "team_with")
+	}
+	return desc
 }

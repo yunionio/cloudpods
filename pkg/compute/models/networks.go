@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"strconv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -691,6 +692,18 @@ type SNetworkConfig struct {
 	Reserved bool
 	Ifname   string
 	NetType  string
+
+	RequireTeaming bool
+	TryTeaming     bool
+
+	StandbyPortCount int
+	StandbyAddrCount int
+}
+
+type SNicConfig struct {
+	Mac    string
+	Index  int8
+	Ifname string
 }
 
 func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SNetworkConfig, error) {
@@ -730,6 +743,14 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObje
 			netConfig.Private = true
 		} else if p == "[reserved]" {
 			netConfig.Reserved = true
+		} else if p == "[teaming]" {
+			netConfig.RequireTeaming = true
+		} else if p == "[try-teaming]" {
+			netConfig.TryTeaming = true
+		} else if strings.HasPrefix(p, "standby-port=") {
+			netConfig.StandbyPortCount, _ = strconv.Atoi(p[len("standby-port="):])
+		} else if strings.HasPrefix(p, "standby-addr=") {
+			netConfig.StandbyAddrCount, _ = strconv.Atoi(p[len("standby-addr="):])
 		} else if utils.IsInStringArray(p, []string{"virtio", "e1000", "vmxnet3"}) {
 			netConfig.Driver = p
 		} else if regutils.MatchSize(p) {
@@ -1453,8 +1474,8 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		vpcs := VpcManager.Query().SubQuery()
 		sq := wires.Query(wires.Field("id")).
 			Join(vpcs, sqlchemy.AND(
-				sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.GetId()),
-				sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))))
+			sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.GetId()),
+			sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))))
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
 

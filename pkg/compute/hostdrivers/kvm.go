@@ -386,7 +386,7 @@ func (self *SKVMHostDriver) PrepareConvert(host *models.SHost, image, raid strin
 		if wire == nil {
 			return nil, fmt.Errorf("No master wire?")
 		}
-		params.Set("net.0", jsonutils.NewString(fmt.Sprintf("wire=%s:[private]", wire.GetName())))
+		params.Set("net.0", jsonutils.NewString(fmt.Sprintf("wire=%s:[private]:[try-teaming]", wire.GetName())))
 	}
 	params.Set("deploy.0.path", jsonutils.NewString("/etc/sysconfig/yunionauth"))
 	params.Set("deploy.0.action", jsonutils.NewString("create"))

@@ -1084,14 +1084,29 @@ func (self *SHost) GetMasterWire() *SWire {
 	return &wire
 }
 
-func (self *SHost) getHostwireOfId(wireId string) *SHostwire {
+func (self *SHost) getHostwiresOfId(wireId string) []SHostwire {
+	hostwires := make([]SHostwire, 0)
+
+	q := self.GetWiresQuery().Equals("wire_id", wireId)
+	err := db.FetchModelObjects(HostwireManager, q, &hostwires)
+	if err != nil {
+		log.Errorf("getHostwiresOfId fail %s", err)
+		return nil
+	}
+	return hostwires
+}
+
+func (self *SHost) getHostwireOfIdAndMac(wireId string, mac string) *SHostwire {
 	hostwire := SHostwire{}
 	hostwire.SetModelManager(HostwireManager)
 
 	q := self.GetWiresQuery().Equals("wire_id", wireId)
+	if q.Count() > 1 {
+		q = q.Equals("mac_addr", mac)
+	}
 	err := q.First(&hostwire)
 	if err != nil {
-		log.Errorf("getHostwireOfId fail %s", err)
+		log.Errorf("getHostwireOfIdAndMac fail %s", err)
 		return nil
 	}
 	return &hostwire
@@ -1586,12 +1601,14 @@ func (self *SHost) SyncHostWires(ctx context.Context, userCred mcclient.TokenCre
 
 	for i := 0; i < len(removed); i += 1 {
 		log.Infof("host %s not connected with %s any more, to detach...", self.Id, removed[i].Id)
-		hw := self.getHostwireOfId(removed[i].Id)
-		err := hw.Detach(ctx, userCred)
-		if err != nil {
-			syncResult.DeleteError(err)
-		} else {
-			syncResult.Delete()
+		hws := self.getHostwiresOfId(removed[i].Id)
+		for i := range hws {
+			err := hws[i].Detach(ctx, userCred)
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
 		}
 	}
 
@@ -1723,7 +1740,7 @@ func (self *SHost) getNetworkOfIPOnHost(ipAddr string) (*SNetwork, error) {
 	return nil, fmt.Errorf("IP %s not reachable on this host", ipAddr)
 }
 
-func (self *SHost) GetNetinterfaceWithIdAndCredential(netId string, userCred mcclient.TokenCredential, reserved bool) (*SNetInterface, *SNetwork) {
+func (self *SHost) GetNetinterfacesWithIdAndCredential(netId string, userCred mcclient.TokenCredential, reserved bool) ([]SNetInterface, *SNetwork) {
 	netObj, err := NetworkManager.FetchById(netId)
 	if err != nil {
 		return nil, nil
@@ -1732,14 +1749,19 @@ func (self *SHost) GetNetinterfaceWithIdAndCredential(netId string, userCred mcc
 	if net.getFreeAddressCount() == 0 && !reserved {
 		return nil, nil
 	}
+	matchNetIfs := make([]SNetInterface, 0)
 	netifs := self.GetNetInterfaces()
 	for i := 0; i < len(netifs); i++ {
 		if !netifs[i].IsUsableServernic() {
 			continue
 		}
 		if netifs[i].WireId == net.WireId {
-			return &netifs[i], net
+			matchNetIfs = append(matchNetIfs, netifs[i])
+			// return &netifs[i], net
 		}
+	}
+	if len(matchNetIfs) > 0 {
+		return matchNetIfs, net
 	}
 	return nil, nil
 }
@@ -2907,9 +2929,9 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				bridge = fmt.Sprintf("br%s", sw.GetName())
 			}
 			var isMaster = netif.NicType == NIC_TYPE_ADMIN
-			ihw, err := HostwireManager.FetchByIdsAndMac(self.Id, sw.Id, mac)
+			hw, err := HostwireManager.FetchByIdsAndMac(self.Id, sw.Id, mac)
 			if err != nil {
-				hw := &SHostwire{}
+				hw = &SHostwire{}
 				hw.Bridge = bridge
 				hw.Interface = strInterface
 				hw.HostId = self.Id
@@ -2921,7 +2943,6 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 					return err
 				}
 			} else {
-				hw := ihw
 				HostwireManager.TableSpec().Update(hw, func() error {
 					hw.Bridge = bridge
 					hw.Interface = strInterface

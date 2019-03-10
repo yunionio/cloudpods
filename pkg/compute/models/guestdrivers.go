@@ -37,9 +37,9 @@ type IGuestDriver interface {
 
 	PrepareDiskRaidConfig(host *SHost, params *jsonutils.JSONDict) error
 
-	GetNamedNetworkConfiguration(guest *SGuest, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig) (*SNetwork, string, int8, IPAddlocationDirection)
+	GetNamedNetworkConfiguration(guest *SGuest, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig) (*SNetwork, []SNicConfig, IPAddlocationDirection)
 
-	Attach2RandomNetwork(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) (*SGuestnetwork, error)
+	Attach2RandomNetwork(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error)
 	GetRandomNetworkTypes() []string
 
 	ChooseHostStorage(host *SHost, backend string) *SStorage

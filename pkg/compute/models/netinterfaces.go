@@ -8,7 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/util/regutils"
+	"github.com/yunionio/pkg/util/regutils"
 )
 
 type SNetInterface struct {
@@ -93,7 +93,7 @@ func (netif *SNetInterface) GetBaremetalNetwork() *SHostnetwork {
 	return &bn
 }
 
-func (self *SNetInterface) guestNetworkToJson(bn *SGuestnetwork) *jsonutils.JSONDict {
+/*func (self *SNetInterface) guestNetworkToJson(bn *SGuestnetwork) *jsonutils.JSONDict {
 	jsonDesc := jsonutils.Marshal(self)
 	desc := jsonDesc.(*jsonutils.JSONDict)
 
@@ -113,7 +113,7 @@ func (self *SNetInterface) hostNetworkToJson(bn *SHostnetwork) *jsonutils.JSONDi
 	} else {
 		return self.networkToJson(bn.IpAddr, bn.GetNetwork(), desc)
 	}
-}
+}*/
 
 func (self *SNetInterface) networkToJson(ipAddr string, network *SNetwork, desc *jsonutils.JSONDict) *jsonutils.JSONDict {
 	if len(ipAddr) > 0 {
@@ -170,26 +170,22 @@ func (self *SNetInterface) getServernetwork() *SGuestnetwork {
 }
 
 func (self *SNetInterface) getServerJsonDesc() *jsonutils.JSONDict {
-	bn := self.getServernetwork()
-	var desc = jsonutils.NewDict()
-	desc = self.guestNetworkToJson(bn)
-	if bn != nil {
-		desc.Add(jsonutils.JSONFalse, "virtual")
-		desc.Add(jsonutils.NewString(bn.IpAddr), "ip")
-		desc.Add(jsonutils.NewInt(int64(bn.getBandwidth())), "bw")
-		desc.Add(jsonutils.NewInt(int64(bn.Index)), "index")
-		desc.Add(jsonutils.JSONTrue, "manual")
-		vips := bn.GetVirtualIPs()
-		if vips != nil && len(vips) > 0 {
-			desc.Add(jsonutils.NewStringArray(vips), "virtual_ips")
-		}
+	desc := jsonutils.Marshal(self).(*jsonutils.JSONDict)
+	gn := self.getServernetwork()
+	if gn != nil {
+		desc.Update(gn.getJsonDescAtHost(self.GetBaremetal()))
 	}
 	return desc
 }
 
 func (self *SNetInterface) getBaremetalJsonDesc() *jsonutils.JSONDict {
+	desc := jsonutils.Marshal(self).(*jsonutils.JSONDict)
 	bn := self.GetBaremetalNetwork()
-	return self.hostNetworkToJson(bn)
+	if bn != nil {
+		return self.networkToJson(bn.IpAddr, bn.GetNetwork(), desc)
+	} else {
+		return desc
+	}
 }
 
 /*
