@@ -104,22 +104,41 @@ func (self *SBaremetalGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk
 	return httperrors.NewUnsupportOperationError("Cannot resize disk for baremtal")
 }
 
-func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig) (*models.SNetwork, string, int8, models.IPAddlocationDirection) {
-	netif, net := host.GetNetinterfaceWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
-	if netif != nil {
-		return net, netif.Mac, netif.Index, models.IPAllocationStepup
+func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig) (*models.SNetwork, []models.SNicConfig, models.IPAddlocationDirection) {
+	netifs, net := host.GetNetinterfacesWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
+	if netifs != nil {
+		nicCnt := 1
+		if netConfig.RequireTeaming || netConfig.TryTeaming {
+			nicCnt = 2
+		}
+		if len(netifs) < nicCnt {
+			if netConfig.RequireTeaming {
+				return net, nil, ""
+			}
+			nicCnt = len(netifs)
+		}
+		nicConfs := make([]models.SNicConfig, 0)
+		for i := 0; i < nicCnt; i += 1 {
+			nicConf := models.SNicConfig{
+				Mac:    netifs[i].Mac,
+				Index:  netifs[i].Index,
+				Ifname: "",
+			}
+			nicConfs = append(nicConfs, nicConf)
+		}
+		return net, nicConfs, models.IPAllocationStepup
 	}
-	return net, "", -1, ""
+	return net, nil, ""
 }
 
 func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []string {
 	return []string{models.NETWORK_TYPE_BAREMETAL, models.NETWORK_TYPE_GUEST}
 }
 
-func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) (*models.SGuestnetwork, error) {
+func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
 	netifs := host.GetNetInterfaces()
 	netsAvaiable := make([]models.SNetwork, 0)
-	netifIndexs := make(map[string]*models.SNetInterface, 0)
+	netifIndexs := make(map[string][]models.SNetInterface, 0)
 
 	netTypes := guest.GetDriver().GetRandomNetworkTypes()
 	if len(netConfig.NetType) > 0 {
@@ -148,7 +167,10 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 		}
 		if net != nil {
 			netsAvaiable = append(netsAvaiable, *net)
-			netifIndexs[net.Id] = &netifs[idx]
+			if _, exist := netifIndexs[net.Id]; !exist {
+				netifIndexs[net.Id] = make([]models.SNetInterface, 0)
+			}
+			netifIndexs[net.Id] = append(netifIndexs[net.Id], netifs[idx])
 		}
 	}
 	if len(netsAvaiable) == 0 {
@@ -156,8 +178,27 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 	}
 	net := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, netTypes)
 	if net != nil {
-		netif := netifIndexs[net.Id]
-		return guest.Attach2Network(ctx, userCred, net, pendingUsage, "", netif.Mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netif.Index, false, models.IPAllocationStepup, false, "")
+		netifs := netifIndexs[net.Id]
+		nicConfs := make([]models.SNicConfig, 0)
+		nicCnt := 1
+		if netConfig.RequireTeaming || netConfig.TryTeaming {
+			nicCnt = 2
+		}
+		if len(netifs) < nicCnt {
+			if netConfig.RequireTeaming {
+				return nil, fmt.Errorf("not enough network interfaces, want %d got %d", nicCnt, len(netifs))
+			}
+			nicCnt = len(netifs)
+		}
+		for i := 0; i < nicCnt; i += 1 {
+			nicConf := models.SNicConfig{
+				Mac:    netifs[i].Mac,
+				Index:  netifs[i].Index,
+				Ifname: "",
+			}
+			nicConfs = append(nicConfs, nicConf)
+		}
+		return guest.Attach2Network(ctx, userCred, net, pendingUsage, "", netConfig.Driver, netConfig.BwLimit, netConfig.Vip, false, models.IPAllocationStepup, false, nicConfs)
 	}
 	return nil, fmt.Errorf("No appropriate host virtual network...")
 }
