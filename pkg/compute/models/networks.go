@@ -1479,79 +1479,15 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
 
-	/*managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
-	if len(managerStr) > 0 {
-		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
+	hostStr, _ := query.GetString("host")
+	if len(hostStr) > 0 {
+		hostObj, err := HostManager.FetchByIdOrName(userCred, hostStr)
 		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
+			return nil, httperrors.NewResourceNotFoundError2(HostManager.Keyword(), hostStr)
 		}
-
-		wires := WireManager.Query().SubQuery()
-		vpcs := VpcManager.Query().SubQuery()
-
-		subq := wires.Query(wires.Field("id"))
-		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
-		subq = subq.Filter(sqlchemy.Equals(vpcs.Field("manager_id"), provider.GetId()))
-
-		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
+		sq := HostwireManager.Query("wire_id").Equals("host_id", hostObj.GetId())
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
-
-	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
-	if len(accountStr) > 0 {
-		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-
-		wires := WireManager.Query().SubQuery()
-		vpcs := VpcManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-
-		subq := wires.Query(wires.Field("id"))
-		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
-		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
-		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), account.GetId()))
-
-		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
-	}
-
-	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
-	if len(providerStr) > 0 {
-		wires := WireManager.Query().SubQuery()
-		vpcs := VpcManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-
-		subq := wires.Query(wires.Field("id"))
-		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
-		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), vpcs.Field("manager_id")))
-		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
-
-		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
-	}*/
-
-	/*if query.Contains("is_private") && jsonutils.QueryBoolean(query, "is_private", false) {
-		wires := WireManager.Query().SubQuery()
-		vpcs := VpcManager.Query().SubQuery()
-		subq := wires.Query(wires.Field("id"))
-		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
-		subq = subq.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
-		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
-	}
-
-	if query.Contains("is_public") && jsonutils.QueryBoolean(query, "is_public", false) {
-		wires := WireManager.Query().SubQuery()
-		vpcs := VpcManager.Query().SubQuery()
-		subq := wires.Query(wires.Field("id"))
-		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
-		subq = subq.Filter(sqlchemy.IsNotEmpty(vpcs.Field("manager_id")))
-		q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq.SubQuery()))
-	}*/
 
 	return q, nil
 }
