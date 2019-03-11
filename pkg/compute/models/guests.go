@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -631,7 +632,7 @@ func (guest *SGuest) GetNetworks(netId string) ([]SGuestnetwork, error) {
 	return guestnics, nil
 }
 
-func (guest *SGuest) getNetworkByIpOrMac(ipAddr string, macAddr string) (*SGuestnetwork, error) {
+func (guest *SGuest) getGuestnetworkByIpOrMac(ipAddr string, macAddr string) (*SGuestnetwork, error) {
 	q := guest.GetNetworksQuery("")
 	if len(ipAddr) > 0 {
 		q = q.Equals("ip_addr", ipAddr)
@@ -649,12 +650,12 @@ func (guest *SGuest) getNetworkByIpOrMac(ipAddr string, macAddr string) (*SGuest
 	return &guestnic, nil
 }
 
-func (guest *SGuest) GetNetworkByIp(ipAddr string) (*SGuestnetwork, error) {
-	return guest.getNetworkByIpOrMac(ipAddr, "")
+func (guest *SGuest) GetGuestnetworkByIp(ipAddr string) (*SGuestnetwork, error) {
+	return guest.getGuestnetworkByIpOrMac(ipAddr, "")
 }
 
-func (guest *SGuest) GetNetworkByMac(macAddr string) (*SGuestnetwork, error) {
-	return guest.getNetworkByIpOrMac("", macAddr)
+func (guest *SGuest) GetGuestnetworkByMac(macAddr string) (*SGuestnetwork, error) {
+	return guest.getGuestnetworkByIpOrMac("", macAddr)
 }
 
 func (guest *SGuest) IsNetworkAllocated() bool {
@@ -2089,16 +2090,48 @@ func (self *SGuest) getOSProfile() osprofile.SOSProfile {
 
 func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork,
 	pendingUsage quotas.IQuota,
-	address string, mac string, driver string, bwLimit int, virtual bool, index int8,
-	reserved bool, allocDir IPAddlocationDirection, requireDesignatedIP bool, ifName string) (*SGuestnetwork, error) {
+	address string,
+	driver string, bwLimit int, virtual bool,
+	reserved bool, allocDir IPAddlocationDirection, requireDesignatedIP bool,
+	nicConfs []SNicConfig) ([]SGuestnetwork, error) {
+
+	firstNic, err := self.attach2NetworkOnce(ctx, userCred, network, pendingUsage, address, driver, bwLimit, virtual,
+		reserved, allocDir, requireDesignatedIP, nicConfs[0], "")
+	if err != nil {
+		return nil, err
+	}
+	retNics := []SGuestnetwork{*firstNic}
+	if len(nicConfs) > 1 {
+		firstMac, _ := netutils2.ParseMac(firstNic.MacAddr)
+		for i := 1; i < len(nicConfs); i += 1 {
+			if len(nicConfs[i].Mac) == 0 {
+				nicConfs[i].Mac = firstMac.Add(i).String()
+			}
+			gn, err := self.attach2NetworkOnce(ctx, userCred, network, pendingUsage, "", firstNic.Driver, 0, true,
+				false, allocDir, false, nicConfs[i], firstNic.MacAddr)
+			if err != nil {
+				return retNics, err
+			}
+			retNics = append(retNics, *gn)
+		}
+	}
+	return retNics, nil
+}
+
+func (self *SGuest) attach2NetworkOnce(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork,
+	pendingUsage quotas.IQuota,
+	address string,
+	driver string, bwLimit int, virtual bool,
+	reserved bool, allocDir IPAddlocationDirection, requireDesignatedIP bool,
+	nicConf SNicConfig, teamWithMac string) (*SGuestnetwork, error) {
 	/*
 		allow a guest attach to a network 2 times
 	*/
-	if self.getAttach2NetworkCount(network) > MAX_GUESTNIC_TO_SAME_NETWORK {
+	/*if self.getAttach2NetworkCount(network) > MAX_GUESTNIC_TO_SAME_NETWORK {
 		return nil, fmt.Errorf("Guest has been attached to network %s", network.Name)
-	}
-	if index < 0 {
-		index = self.getMaxNicIndex()
+	}*/
+	if nicConf.Index < 0 {
+		nicConf.Index = self.getMaxNicIndex()
 	}
 	if len(driver) == 0 {
 		osProf := self.getOSProfile()
@@ -2108,15 +2141,15 @@ func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenC
 	defer lockman.ReleaseClass(ctx, QuotaManager, self.ProjectId)
 
 	guestnic, err := GuestnetworkManager.newGuestNetwork(ctx, userCred, self, network,
-		index, address, mac, driver, bwLimit, virtual, reserved,
-		allocDir, requireDesignatedIP, ifName)
+		nicConf.Index, address, nicConf.Mac, driver, bwLimit, virtual, reserved,
+		allocDir, requireDesignatedIP, nicConf.Ifname, teamWithMac)
 	if err != nil {
 		return nil, err
 	}
 	network.updateDnsRecord(guestnic, true)
 	network.updateGuestNetmap(guestnic)
 	bwLimit = guestnic.getBandwidth()
-	if pendingUsage != nil {
+	if pendingUsage != nil && len(teamWithMac) == 0 {
 		cancelUsage := SQuota{}
 		if network.IsExitNetwork() {
 			cancelUsage.Eport = 1
@@ -2130,12 +2163,10 @@ func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenC
 			log.Warningf("QuotaManager.CancelPendingUsage fail %s", err)
 		}
 	}
-	notes := jsonutils.NewDict()
 	if len(address) == 0 {
 		address = guestnic.IpAddr
 	}
-	notes.Add(jsonutils.NewString(address), "ip_addr")
-	db.OpsLog.LogAttachEvent(ctx, self, network, userCred, notes)
+	db.OpsLog.LogAttachEvent(ctx, self, network, userCred, guestnic.GetShortDesc(ctx))
 	return guestnic, nil
 }
 
@@ -2255,8 +2286,13 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 				continue
 			}
 		}
+		nicConf := SNicConfig{
+			Mac:    add.nic.GetMAC(),
+			Index:  -1,
+			Ifname: "",
+		}
 		_, err = self.Attach2Network(ctx, userCred, add.net, nil, add.nic.GetIP(),
-			add.nic.GetMAC(), add.nic.GetDriver(), 0, false, -1, add.reserve, IPAllocationDefault, true, "")
+			add.nic.GetDriver(), 0, false, add.reserve, IPAllocationDefault, true, []SNicConfig{nicConf})
 		if err != nil {
 			result.AddError(err)
 		} else {
@@ -2502,17 +2538,6 @@ func (self *SGuest) getDefaultNetworkConfig() *SNetworkConfig {
 
 func (self *SGuest) CreateNetworksOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, data *jsonutils.JSONDict, pendingUsage quotas.IQuota) error {
 	netJsonArray := jsonutils.GetArrayOfPrefix(data, "net")
-	/* idx := 0
-	for idx = 0; data.Contains(fmt.Sprintf("net.%d", idx)); idx += 1 {
-		netJson, err := data.Get(fmt.Sprintf("net.%d", idx))
-		if err != nil {
-			return err
-		}
-		if netJson == jsonutils.JSONNull {
-			break
-		}
-
-	}*/
 	if len(netJsonArray) == 0 {
 		netConfig := self.getDefaultNetworkConfig()
 		_, err := self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
@@ -2531,18 +2556,18 @@ func (self *SGuest) CreateNetworksOnHost(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SGuest) attach2NetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) (*SGuestnetwork, error) {
-	var gn *SGuestnetwork
+func (self *SGuest) attach2NetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error) {
+	var gns []SGuestnetwork
 	var err1, err2 error
 	if len(netConfig.Network) > 0 {
-		gn, err1 = self.attach2NamedNetworkDesc(ctx, userCred, host, netConfig, pendingUsage)
+		gns, err1 = self.attach2NamedNetworkDesc(ctx, userCred, host, netConfig, pendingUsage)
 		if err1 == nil {
-			return gn, nil
+			return gns, nil
 		}
 	}
-	gn, err2 = self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
+	gns, err2 = self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
 	if err2 == nil {
-		return gn, nil
+		return gns, nil
 	}
 	if err1 != nil {
 		return nil, fmt.Errorf("%s/%s", err1, err2)
@@ -2551,12 +2576,16 @@ func (self *SGuest) attach2NetworkDesc(ctx context.Context, userCred mcclient.To
 	}
 }
 
-func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) (*SGuestnetwork, error) {
+func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error) {
 	driver := self.GetDriver()
-	net, mac, idx, allocDir := driver.GetNamedNetworkConfiguration(self, userCred, host, netConfig)
+	net, nicConfs, allocDir := driver.GetNamedNetworkConfiguration(self, userCred, host, netConfig)
 	if net != nil {
-		gn, err := self.Attach2Network(ctx, userCred, net, pendingUsage, netConfig.Address, mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, idx, netConfig.Reserved, allocDir, false, netConfig.Ifname)
+		if len(nicConfs) == 0 {
+			return nil, fmt.Errorf("no avaialble network interface?")
+		}
+		gn, err := self.Attach2Network(ctx, userCred, net, pendingUsage, netConfig.Address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netConfig.Reserved, allocDir, false, nicConfs)
 		if err != nil {
+			log.Errorf("Attach2Network fail %s", err)
 			return nil, err
 		} else {
 			return gn, nil
@@ -2566,7 +2595,7 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 	}
 }
 
-func (self *SGuest) attach2RandomNetwork(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) (*SGuestnetwork, error) {
+func (self *SGuest) attach2RandomNetwork(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error) {
 	driver := self.GetDriver()
 	return driver.Attach2RandomNetwork(self, ctx, userCred, host, netConfig, pendingUsage)
 }

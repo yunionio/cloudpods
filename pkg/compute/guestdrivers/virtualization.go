@@ -32,16 +32,30 @@ func (self *SVirtualizedGuestDriver) PrepareDiskRaidConfig(host *models.SHost, p
 	return nil
 }
 
-func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig) (*models.SNetwork, string, int8, models.IPAddlocationDirection) {
+func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig) (*models.SNetwork, []models.SNicConfig, models.IPAddlocationDirection) {
 	net, _ := host.GetNetworkWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
-	return net, netConfig.Mac, -1, models.IPAllocationStepdown
+	nicConfs := []models.SNicConfig{
+		{
+			Mac:    netConfig.Mac,
+			Index:  -1,
+			Ifname: netConfig.Ifname,
+		},
+	}
+	if netConfig.RequireTeaming || netConfig.TryTeaming {
+		nicConfs = append(nicConfs, models.SNicConfig{
+			Mac:    "",
+			Index:  -1,
+			Ifname: "",
+		})
+	}
+	return net, nicConfs, models.IPAllocationStepdown
 }
 
 func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
 	return []string{models.NETWORK_TYPE_GUEST}
 }
 
-func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) (*models.SGuestnetwork, error) {
+func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
 	var wirePattern *regexp.Regexp
 	if len(netConfig.Wire) > 0 {
 		wirePattern = regexp.MustCompile(netConfig.Wire)
@@ -83,7 +97,21 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	if selNet == nil {
 		return nil, fmt.Errorf("Not enough address in virtual network")
 	}
-	gn, err := guest.Attach2Network(ctx, userCred, selNet, pendingUsage, netConfig.Address, netConfig.Mac, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, -1, netConfig.Reserved, models.IPAllocationDefault, false, netConfig.Ifname)
+	nicConfs := make([]models.SNicConfig, 1)
+	nicConfs[0] = models.SNicConfig{
+		Mac:    netConfig.Mac,
+		Index:  -1,
+		Ifname: netConfig.Ifname,
+	}
+	if netConfig.RequireTeaming || netConfig.TryTeaming {
+		nicConf := models.SNicConfig{
+			Mac:    "",
+			Index:  -1,
+			Ifname: "",
+		}
+		nicConfs = append(nicConfs, nicConf)
+	}
+	gn, err := guest.Attach2Network(ctx, userCred, selNet, pendingUsage, netConfig.Address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netConfig.Reserved, models.IPAllocationDefault, false, nicConfs)
 	return gn, err
 }
 

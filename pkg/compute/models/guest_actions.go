@@ -344,9 +344,16 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 		}
 	}
 
+	resetPasswd := jsonutils.QueryBoolean(kwargs, "reset_password", false)
+	if resetPasswd {
+		kwargs.Set("reset_password", jsonutils.JSONTrue)
+	} else {
+		kwargs.Set("reset_password", jsonutils.JSONFalse)
+	}
+
 	// 变更密码/密钥时需要Restart才能生效。更新普通字段不需要Restart, Azure需要在运行状态下操作
 	doRestart := false
-	if resetPasswd, _ := kwargs.Bool("reset_password"); resetPasswd {
+	if resetPasswd {
 		doRestart = self.GetDriver().IsNeedRestartForResetLoginInfo()
 	}
 
@@ -1321,7 +1328,7 @@ func (self *SGuest) AllowPerformChangeIpaddr(ctx context.Context, userCred mccli
 
 func (self *SGuest) findGuestnetworkByInfo(ipStr string, macStr string, index int64) (*SGuestnetwork, error) {
 	if len(ipStr) > 0 {
-		gn, err := self.GetNetworkByIp(ipStr)
+		gn, err := self.GetGuestnetworkByIp(ipStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("ip %s not found", ipStr)
@@ -1330,7 +1337,7 @@ func (self *SGuest) findGuestnetworkByInfo(ipStr string, macStr string, index in
 		}
 		return gn, nil
 	} else if len(macStr) > 0 {
-		gn, err := self.GetNetworkByMac(macStr)
+		gn, err := self.GetGuestnetworkByMac(macStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("mac %s not found", macStr)
@@ -1382,7 +1389,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 	}
 	host := self.GetHost()
 
-	ngn, err := func() (*SGuestnetwork, error) {
+	ngn, err := func() ([]SGuestnetwork, error) {
 		lockman.LockRawObject(ctx, GuestnetworkManager.KeywordPlural(), "")
 		defer lockman.ReleaseRawObject(ctx, GuestnetworkManager.KeywordPlural(), "")
 
@@ -1428,7 +1435,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 		notes.Add(jsonutils.NewString(gn.IpAddr), "prev_ip")
 	}
 	if ngn != nil {
-		notes.Add(jsonutils.NewString(ngn.IpAddr), "ip")
+		notes.Add(jsonutils.NewString(ngn[0].IpAddr), "ip")
 	}
 	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_VM_CHANGE_NIC, notes, userCred, true)
 
@@ -1464,7 +1471,7 @@ func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.
 	}
 	ipStr, _ := data.GetString("ip_addr")
 	if len(ipStr) > 0 {
-		gn, err := self.GetNetworkByIp(ipStr)
+		gn, err := self.GetGuestnetworkByIp(ipStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("ip %s not found", ipStr)
@@ -1476,7 +1483,7 @@ func (self *SGuest) PerformDetachnetwork(ctx context.Context, userCred mcclient.
 	}
 	macStr, _ := data.GetString("mac")
 	if len(macStr) > 0 {
-		gn, err := self.GetNetworkByMac(macStr)
+		gn, err := self.GetGuestnetworkByMac(macStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewNotFoundError("mac %s not found", macStr)
