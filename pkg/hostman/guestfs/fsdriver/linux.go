@@ -785,7 +785,7 @@ func (r *sRedhatLikeRootFs) enableBondingModule(rootFs IDiskPartition, bondNics 
 	for i := range bondNics {
 		content.WriteString("alias ")
 		content.WriteString(bondNics[i].Name)
-		content.WriteString("bonding\n options ")
+		content.WriteString(" bonding\n options ")
 		content.WriteString(bondNics[i].Name)
 		content.WriteString(" miimon=100 mode=4 lacp_rate=1 xmit_hash_policy=1\n")
 	}
@@ -793,6 +793,10 @@ func (r *sRedhatLikeRootFs) enableBondingModule(rootFs IDiskPartition, bondNics 
 }
 
 func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject, relInfo *SReleaseInfo) error {
+	if err := r.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
+		return err
+	}
+
 	ver := strings.Split(relInfo.Version, ".")
 	iv, err := strconv.ParseInt(ver[0], 10, 0)
 	if err != nil {
@@ -1024,6 +1028,14 @@ func (c *SFedoraRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
 	return newReleaseInfo(c.GetName(), version, c.GetArch(rootFs))
 }
 
+func (c *SFedoraRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+	relInfo := c.GetReleaseInfo(rootFs)
+	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
+		return err
+	}
+	return nil
+}
+
 type SRhelRootFs struct {
 	*sRedhatLikeRootFs
 }
@@ -1050,6 +1062,14 @@ func (d *SRhelRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
 		}
 	}
 	return newReleaseInfo(d.GetName(), version, d.GetArch(rootFs))
+}
+
+func (d *SRhelRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+	relInfo := d.GetReleaseInfo(rootFs)
+	if err := d.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
+		return err
+	}
+	return nil
 }
 
 type SGentooRootFs struct {
