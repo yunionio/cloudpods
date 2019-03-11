@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -732,6 +733,18 @@ type SNetworkConfig struct {
 	Reserved bool
 	Ifname   string
 	NetType  string
+
+	RequireTeaming bool
+	TryTeaming     bool
+
+	StandbyPortCount int
+	StandbyAddrCount int
+}
+
+type SNicConfig struct {
+	Mac    string
+	Index  int8
+	Ifname string
 }
 
 func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SNetworkConfig, error) {
@@ -771,6 +784,14 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObje
 			netConfig.Private = true
 		} else if p == "[reserved]" {
 			netConfig.Reserved = true
+		} else if p == "[teaming]" {
+			netConfig.RequireTeaming = true
+		} else if p == "[try-teaming]" {
+			netConfig.TryTeaming = true
+		} else if strings.HasPrefix(p, "standby-port=") {
+			netConfig.StandbyPortCount, _ = strconv.Atoi(p[len("standby-port="):])
+		} else if strings.HasPrefix(p, "standby-addr=") {
+			netConfig.StandbyAddrCount, _ = strconv.Atoi(p[len("standby-addr="):])
 		} else if utils.IsInStringArray(p, []string{"virtio", "e1000", "vmxnet3"}) {
 			netConfig.Driver = p
 		} else if regutils.MatchSize(p) {
