@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -39,6 +38,10 @@ func (region *SRegion) GetFlavor(flavorId string) (*SFlavor, error) {
 	return flavor, resp.Unmarshal(flavor, "flavor")
 }
 
+func (region *SRegion) SyncFlavor(name string, cpu, memoryMb, diskGB int) (string, error) {
+	return region.syncFlavor(name, cpu, memoryMb, diskGB)
+}
+
 func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (string, error) {
 	flavors, err := region.GetFlavors()
 	if err != nil {
@@ -46,7 +49,8 @@ func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (strin
 	}
 	if len(name) > 0 {
 		for _, flavor := range flavors {
-			if flavor.GetName() == name {
+			flavorName := flavor.GetName()
+			if flavorName == name {
 				return flavor.ID, nil
 			}
 		}
@@ -61,41 +65,7 @@ func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (strin
 			return flavor.ID, nil
 		}
 	}
-
-	if len(name) == 0 {
-		suffix := ""
-		for i := 0; i < 10; i++ {
-			switch cpu {
-			case 1:
-				suffix = "tiny"
-			case 2, 3:
-				suffix = "small"
-			case 4, 6:
-				suffix = "medium"
-			case 8:
-				suffix = "large"
-			default:
-				suffix = "xlarge"
-			}
-		}
-		for i := 0; i < 10; i++ {
-			if _, err := region.GetFlavor(fmt.Sprintf("m%d.%s", i, suffix)); err != nil {
-				if err == cloudprovider.ErrNotFound {
-					name = fmt.Sprintf("m%d.%s", i, suffix)
-					break
-				}
-			}
-		}
-		if len(name) == 0 {
-			return "", fmt.Errorf("failed to find uniq flavor name for cpu %d memory %d", cpu, memoryMb)
-		}
-	}
-
-	flavor, err := region.CreateFlavor(name, cpu, memoryMb, diskGB)
-	if err != nil {
-		return "", err
-	}
-	return flavor.ID, nil
+	return "", fmt.Errorf("failed to find right flavor(name: %s cpu: %d memory: %d)", name, cpu, memoryMb)
 }
 
 func (region *SRegion) CreateFlavor(name string, cpu int, memoryMb int, diskGB int) (*SFlavor, error) {
