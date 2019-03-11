@@ -1134,7 +1134,7 @@ func (self *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) 
 		params.Add(jsonutils.NewInt(month), "period_num")
 	} else if year >= 1 && year <= 3 {
 		params.Add(jsonutils.NewInt(PERIOD_TYPE_YEAR), "period_type")
-		params.Add(jsonutils.NewInt(year), "period_type")
+		params.Add(jsonutils.NewInt(year), "period_num")
 	} else {
 		return fmt.Errorf("invalid renew period %s month,must be 1~11 month or 1~3 year", month)
 	}
