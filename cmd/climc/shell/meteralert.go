@@ -85,6 +85,9 @@ func init() {
 	 * 列出报警规则
 	 */
 	type MeterAlertListOptions struct {
+		Type          string `help:"Alarm rule type" choices:"balance|resFee|monthFee"`
+		CloudProvider string `help:"Name of cloud provider, case sensitive"`
+		AccountId     string `help:"Cloud account ID"`
 		options.BaseListOptions
 	}
 	R(&MeterAlertListOptions{}, "meteralert-list", "List meter alert", func(s *mcclient.ClientSession, args *MeterAlertListOptions) error {
@@ -95,6 +98,15 @@ func init() {
 			if err != nil {
 				return err
 
+			}
+			if len(args.Type) > 0 {
+				params.Add(jsonutils.NewString(args.Type), "type")
+			}
+			if len(args.CloudProvider) > 0 {
+				params.Add(jsonutils.NewString(args.CloudProvider), "provider")
+			}
+			if len(args.AccountId) > 0 {
+				params.Add(jsonutils.NewString(args.AccountId), "account-id")
 			}
 		}
 		result, err := modules.MeterAlert.List(s, params)
