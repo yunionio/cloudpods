@@ -20,7 +20,7 @@ func init() {
 		LEVEL      string  `help:"Alert level" choices:"normal|important|fatal"`
 		CHANNEL    string  `help:"Ways to send an alarm" choices:"email|mobile"`
 		Provider   string  `help:"Name of the cloud platform"`
-		Account_id string  `help:"ID of the cloud platform"`
+		AccountId  string  `help:"ID of the cloud platform"`
 	}
 	R(&MeterAlertCreateOptions{}, "meteralert-create", "Create a meter alert rule", func(s *mcclient.ClientSession, args *MeterAlertCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -33,8 +33,8 @@ func init() {
 		if len(args.Provider) > 0 {
 			params.Add(jsonutils.NewString(args.Provider), "provider")
 		}
-		if len(args.Account_id) > 0 {
-			params.Add(jsonutils.NewString(args.Account_id), "account_id")
+		if len(args.AccountId) > 0 {
+			params.Add(jsonutils.NewString(args.AccountId), "account_id")
 		}
 
 		rst, err := modules.MeterAlert.Create(s, params)
