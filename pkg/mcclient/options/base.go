@@ -186,6 +186,8 @@ type BaseListOptions struct {
 	ExportFile       string   `help:"Export to file" metavar:"<EXPORT_FILE_PATH>" json:"-"`
 	ExportKeys       string   `help:"Export field keys"`
 	ExportTexts      string   `help:"Export field displayname texts" json:"-"`
+	TagsKey          []string `help:"Tag key" json:"-"`
+	TagsValue        []string `help:"Tag key" json:"-"`
 
 	Manager      string `help:"List objects belonging to the cloud provider" json:"manager,omitempty"`
 	Account      string `help:"List objects belonging to the cloud account" json:"account,omitempty"`
@@ -215,6 +217,15 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 			BoolV(opts.PendingDeleteAll)
 		if requiresSystem {
 			params.Set("admin", jsonutils.JSONTrue)
+		}
+	}
+	if len(opts.TagsKey) > 0 {
+		if len(opts.TagsKey) != len(opts.TagsValue) {
+			return nil, fmt.Errorf("tags key length not equal value length")
+		}
+		for i := 0; i < len(opts.TagsKey); i++ {
+			params.Add(jsonutils.NewString(opts.TagsKey[i]), fmt.Sprintf("tags.%d.key", i))
+			params.Add(jsonutils.NewString(opts.TagsValue[i]), fmt.Sprintf("tags.%d.value", i))
 		}
 	}
 	return params, nil

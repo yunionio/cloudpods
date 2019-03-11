@@ -1,4 +1,4 @@
-package metadata
+package db
 
 import (
 	"context"
@@ -11,8 +11,8 @@ import (
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -21,22 +21,29 @@ const (
 )
 
 type SMetadataManager struct {
-	db.SModelBaseManager
+	SModelBaseManager
 }
 
 type SMetadata struct {
-	db.SModelBase
+	SModelBase
 
 	Id        string    `width:"128" charset:"ascii" primary:"true" list:"user" get:"user"` // = Column(VARCHAR(128, charset='ascii'), primary_key=True)
-	Key       string    `width:"64" charset:"ascii" primary:"true" list:"user" get:"user"`  // = Column(VARCHAR(64, charset='ascii'),  primary_key=True)
+	Key       string    `width:"64" charset:"utf8" primary:"true" list:"user" get:"user"`   // = Column(VARCHAR(64, charset='ascii'),  primary_key=True)
 	Value     string    `charset:"utf8" list:"user" get:"user"`                             // = Column(TEXT(charset='utf8'), nullable=True)
 	UpdatedAt time.Time `nullable:"false" updated_at:"true"`                                // = Column(DateTime, default=get_utcnow, nullable=False, onupdate=get_utcnow)
 }
 
 var Metadata *SMetadataManager
+var ResourceMap map[string]*SVirtualResourceBaseManager
 
 func init() {
-	Metadata = &SMetadataManager{SModelBaseManager: db.NewModelBaseManager(SMetadata{}, "metadata_tbl", "metadata", "metadata")}
+	Metadata = &SMetadataManager{SModelBaseManager: NewModelBaseManager(SMetadata{}, "metadata_tbl", "metadata", "metadata")}
+	ResourceMap = map[string]*SVirtualResourceBaseManager{
+		"disk":     {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "disks_tbl", "disk", "disks")},
+		"server":   {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "guests_tbl", "server", "servers")},
+		"eip":      {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "elasticips_tbl", "eip", "eips")},
+		"snapshot": {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "snapshots_tbl", "snpashot", "snpashots")},
+	}
 }
 
 func (m *SMetadata) GetId() string {
@@ -60,13 +67,38 @@ func (manager *SMetadataManager) AllowListItems(ctx context.Context, userCred mc
 }
 
 func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	// queryDict, ok := query.(*jsonutils.JSONDict)
-	// if !ok {
-	// 	return nil, fmt.Errorf("invalid querystring format")
-	// }
-	resources := jsonutils.GetQueryStringArray(query, "resrouces")
-	if len(resources) > 0 {
-		//q = models.DiskManager.Query()
+	resources := jsonutils.GetQueryStringArray(query, "resources")
+	if len(resources) == 0 {
+		for resource := range ResourceMap {
+			resources = append(resources, resource)
+		}
+	}
+	conditions := []sqlchemy.ICondition{}
+	admin := jsonutils.QueryBoolean(query, "admin", false)
+	for _, resource := range resources {
+		if manager, ok := ResourceMap[resource]; ok {
+			resourceView := manager.Query().SubQuery()
+			field := sqlchemy.CONCAT(manager.Keyword(), fmt.Sprintf("%s::", manager.Keyword()), resourceView.Field("id"))
+			sq := resourceView.Query(field)
+			if !admin || !IsAdminAllowList(userCred, manager) {
+				ownerId := manager.GetOwnerId(userCred)
+				if len(ownerId) > 0 {
+					sq = manager.FilterByOwner(sq, ownerId)
+				}
+			}
+			conditions = append(conditions, sqlchemy.In(q.Field("id"), sq))
+		} else {
+			return nil, httperrors.NewInputParameterError("Not support resource %s tag filter", resource)
+		}
+	}
+	if len(conditions) > 0 {
+		q = q.Filter(sqlchemy.OR(conditions...))
+	}
+	if !jsonutils.QueryBoolean(query, "with_sys", false) {
+		q = q.Filter(sqlchemy.NOT(sqlchemy.Startswith(q.Field("key"), "_")))
+	}
+	if !jsonutils.QueryBoolean(query, "with_cloud", false) {
+		q = q.Filter(sqlchemy.NOT(sqlchemy.Startswith(q.Field("key"), "ext:")))
 	}
 	return q, nil
 }
@@ -82,7 +114,7 @@ if idstr is None:
 raise Exception('get_object_idstr: failed to generate obj ID')
 return idstr */
 
-func (manager *SMetadataManager) GetStringValue(model db.IModel, key string, userCred mcclient.TokenCredential) string {
+func (manager *SMetadataManager) GetStringValue(model IModel, key string, userCred mcclient.TokenCredential) string {
 	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAdminAllowGetSpec(userCred, model, "metadata")) {
 		return ""
 	}
@@ -95,7 +127,7 @@ func (manager *SMetadataManager) GetStringValue(model db.IModel, key string, use
 	return ""
 }
 
-func (manager *SMetadataManager) GetJsonValue(model db.IModel, key string, userCred mcclient.TokenCredential) jsonutils.JSONObject {
+func (manager *SMetadataManager) GetJsonValue(model IModel, key string, userCred mcclient.TokenCredential) jsonutils.JSONObject {
 	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAdminAllowGetSpec(userCred, model, "metadata")) {
 		return nil
 	}
@@ -133,7 +165,7 @@ func (manager *SMetadataManager) RemoveAll(ctx context.Context, model IModel, us
 	changes := make([]sMetadataChange, 0)
 	for _, rec := range records {
 		if len(rec.Value) > 0 {
-			_, err := db.Update(&rec, func() error {
+			_, err := Update(&rec, func() error {
 				rec.Value = ""
 				return nil
 			})
@@ -181,7 +213,7 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 				return err
 			}
 		} else {
-			_, err := db.Update(&record, func() error {
+			_, err := Update(&record, func() error {
 				record.Value = valStr
 				return nil
 			})
@@ -212,7 +244,7 @@ func (manager *SMetadataManager) GetAll(obj IModel, keys []string, userCred mccl
 	for _, rec := range records {
 		if len(rec.Value) > 0 {
 			if strings.HasPrefix(rec.Key, SYSTEM_ADMIN_PREFIX) {
-				if userCred != nil && db.IsAdminAllowGetSpec(userCred, obj, "metadata") {
+				if userCred != nil && IsAdminAllowGetSpec(userCred, obj, "metadata") {
 					key := rec.Key[len(SYSTEM_ADMIN_PREFIX):]
 					ret[key] = rec.Value
 				}

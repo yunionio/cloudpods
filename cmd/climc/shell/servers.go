@@ -85,6 +85,23 @@ func init() {
 		return nil
 	})
 
+	type ServerSetMetadataOptions struct {
+		ID    string `help:"ID or name of server" json:"-"`
+		KEY   string `help:"Metadata key"`
+		VALUE string `help:"Metadata Value"`
+	}
+
+	R(&ServerSetMetadataOptions{}, "server-set-metadata", "Set metadata of a server", func(s *mcclient.ClientSession, opts *ServerSetMetadataOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(opts.VALUE), opts.KEY)
+		result, err := modules.Servers.PerformAction(s, opts.ID, "metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&options.ServerCreateOptions{}, "server-create", "Create a server", func(s *mcclient.ClientSession, opts *options.ServerCreateOptions) error {
 		params, err := opts.Params()
 		if err != nil {
