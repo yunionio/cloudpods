@@ -2507,7 +2507,7 @@ func (self *SGuest) importDisks(ctx context.Context, userCred mcclient.TokenCred
 		return httperrors.NewInputParameterError("Empty import disks")
 	}
 	for _, disk := range disks {
-		disk, err := self.createDiskOnHost(ctx, userCred, self.GetHost(), disk.ToDiskConfig(), nil, true)
+		disk, err := self.createDiskOnHost(ctx, userCred, self.GetHost(), disk.ToDiskConfig(), nil, true, true)
 		if err != nil {
 			return err
 		}
