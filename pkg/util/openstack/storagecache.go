@@ -56,7 +56,7 @@ func (cache *SStoragecache) GetManagerId() string {
 }
 
 func (cache *SStoragecache) fetchImages() error {
-	images, err := cache.region.GetImages("", ACTIVE, []string{})
+	images, err := cache.region.GetImages("", ACTIVE, "")
 	if err != nil {
 		return err
 	}
