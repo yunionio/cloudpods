@@ -106,7 +106,7 @@ func init() {
 				params.Add(jsonutils.NewString(args.CloudProvider), "provider")
 			}
 			if len(args.AccountId) > 0 {
-				params.Add(jsonutils.NewString(args.AccountId), "account-id")
+				params.Add(jsonutils.NewString(args.AccountId), "account_id")
 			}
 		}
 		result, err := modules.MeterAlert.List(s, params)
