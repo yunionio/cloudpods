@@ -55,3 +55,22 @@ var NOT_FOUND_CODES = []string{
 	FIP_NOT_FOUND,
 	VPC_NOT_FOUND,
 }
+
+// 包周期资源相关常量
+// https://support.huaweicloud.com/api-bpconsole/zh-cn_topic_0082522029.html
+// expire_mode 0：进入宽限期  1：转按需 2：自动退订 3：自动续订（当前只支持ECS、EVS和VPC）
+const (
+	EXPIRE_MODE_TO_POSTPAID      = 1
+	EXPIRE_MODE_AUTO_UNSUBSCRIBE = 2
+	EXPIRE_MODE_AUTO_RENEW       = 3
+)
+
+const (
+	PERIOD_TYPE_MONTH = 2
+	PERIOD_TYPE_YEAR  = 3
+)
+
+const (
+	AUTO_PAY_TRUE  = 1
+	AUTO_PAY_FALSE = 0
+)

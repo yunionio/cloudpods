@@ -1124,16 +1124,16 @@ func (self *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) 
 	res := jsonutils.NewArray()
 	res.Add(jsonutils.NewString(instanceId))
 	params.Add(res, "resource_ids")
-	params.Add(jsonutils.NewInt(2), "expire_mode") // 自动退订
-	params.Add(jsonutils.NewInt(1), "isAutoPay")   // 自动支付
+	params.Add(jsonutils.NewInt(EXPIRE_MODE_AUTO_UNSUBSCRIBE), "expire_mode") // 自动退订
+	params.Add(jsonutils.NewInt(AUTO_PAY_TRUE), "isAutoPay")                  // 自动支付
 	month := int64(bc.GetMonths())
 	year := int64(bc.GetYears())
 
 	if month >= 1 && month <= 11 {
-		params.Add(jsonutils.NewInt(2), "period_type")
+		params.Add(jsonutils.NewInt(PERIOD_TYPE_MONTH), "period_type")
 		params.Add(jsonutils.NewInt(month), "period_num")
 	} else if year >= 1 && year <= 3 {
-		params.Add(jsonutils.NewInt(3), "period_type")
+		params.Add(jsonutils.NewInt(PERIOD_TYPE_YEAR), "period_type")
 		params.Add(jsonutils.NewInt(year), "period_type")
 	} else {
 		return fmt.Errorf("invalid renew period %s month,must be 1~11 month or 1~3 year", month)
