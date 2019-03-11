@@ -2409,14 +2409,14 @@ func (self *SGuest) attach2RandomNetwork(ctx context.Context, userCred mcclient.
 }
 
 func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost,
-	data *jsonutils.JSONDict, pendingUsage quotas.IQuota, inheritBilling bool) error {
+	data *jsonutils.JSONDict, pendingUsage quotas.IQuota, inheritBilling bool, isWithServerCreate bool) error {
 	diskJsonArray := jsonutils.GetArrayOfPrefix(data, "disk")
 	for idx := 0; idx < len(diskJsonArray); idx += 1 { // .Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
 		diskConfig, err := parseDiskInfo(ctx, userCred, diskJsonArray[idx])
 		if err != nil {
 			return err
 		}
-		disk, err := self.createDiskOnHost(ctx, userCred, host, diskConfig, pendingUsage, inheritBilling)
+		disk, err := self.createDiskOnHost(ctx, userCred, host, diskConfig, pendingUsage, inheritBilling, isWithServerCreate)
 		if err != nil {
 			return err
 		}
@@ -2429,7 +2429,7 @@ func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage,
-	diskConfig *SDiskConfig, pendingUsage quotas.IQuota, inheritBilling bool) (*SDisk, error) {
+	diskConfig *SDiskConfig, pendingUsage quotas.IQuota, inheritBilling bool, isWithServerCreate bool) (*SDisk, error) {
 	lockman.LockObject(ctx, storage)
 	defer lockman.ReleaseObject(ctx, storage)
 
@@ -2446,7 +2446,7 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 	}
 
 	autoDelete := false
-	if storage.IsLocal() || billingType == BILLING_TYPE_PREPAID {
+	if storage.IsLocal() || billingType == BILLING_TYPE_PREPAID || isWithServerCreate {
 		autoDelete = true
 	}
 	disk, err := storage.createDisk(diskName, diskConfig, userCred, self.ProjectId, autoDelete, self.IsSystem,
@@ -2464,12 +2464,12 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost,
-	diskConfig *SDiskConfig, pendingUsage quotas.IQuota, inheritBilling bool) (*SDisk, error) {
+	diskConfig *SDiskConfig, pendingUsage quotas.IQuota, inheritBilling bool, isWithServerCreate bool) (*SDisk, error) {
 	storage := self.GetDriver().ChooseHostStorage(host, diskConfig.Backend)
 	if storage == nil {
 		return nil, fmt.Errorf("No storage on %s to create disk for %s", host.GetName(), diskConfig.Backend)
 	}
-	disk, err := self.createDiskOnStorage(ctx, userCred, storage, diskConfig, pendingUsage, inheritBilling)
+	disk, err := self.createDiskOnStorage(ctx, userCred, storage, diskConfig, pendingUsage, inheritBilling, isWithServerCreate)
 	if err != nil {
 		return nil, err
 	}
