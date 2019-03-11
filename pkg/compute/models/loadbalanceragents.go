@@ -19,6 +19,7 @@ import (
 )
 
 type SLoadbalancerAgentManager struct {
+	SLoadbalancerLogSkipper
 	db.SStandaloneResourceBaseManager
 }
 

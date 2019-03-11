@@ -25,6 +25,7 @@ import (
 )
 
 type SLoadbalancerCertificateManager struct {
+	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
 }
 
