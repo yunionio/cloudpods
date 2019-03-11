@@ -289,6 +289,12 @@ func (s *SRbdStorage) deleteSnapshot(pool string, diskId string, snapshotId stri
 	return err
 }
 
+type SMonCommand struct {
+	Prefix string
+	Pool   string
+	Format string
+}
+
 func (s *SRbdStorage) getCapacity() (uint64, error) {
 	_sizeKb, err := s.withCluster(func(conn *rados.Conn) (interface{}, error) {
 		stats, err := conn.GetClusterStats()
@@ -297,7 +303,8 @@ func (s *SRbdStorage) getCapacity() (uint64, error) {
 		}
 		clusterSizeKb := stats.Kb
 		pool, _ := s.StorageConf.GetString("pool")
-		bufer, _, err := conn.MonCommand([]byte(fmt.Sprintf(`{"prefix":"osd pool get-quota", "pool":"%s", "format":"json"}`, pool)))
+		cmd := SMonCommand{Prefix: "osd pool get-quota", Pool: pool, Format: "json"}
+		bufer, _, err := conn.MonCommand([]byte(jsonutils.Marshal(cmd).String()))
 		if err != nil {
 			return nil, err
 		}
