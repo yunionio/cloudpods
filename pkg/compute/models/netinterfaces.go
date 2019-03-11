@@ -8,7 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"github.com/yunionio/pkg/util/regutils"
+	"yunion.io/x/pkg/util/regutils"
 )
 
 type SNetInterface struct {
@@ -173,7 +173,7 @@ func (self *SNetInterface) getServerJsonDesc() *jsonutils.JSONDict {
 	desc := jsonutils.Marshal(self).(*jsonutils.JSONDict)
 	gn := self.getServernetwork()
 	if gn != nil {
-		desc.Update(gn.getJsonDescAtHost(self.GetBaremetal()))
+		desc.Update(gn.getJsonDescAtBaremetal(self.GetBaremetal()))
 	}
 	return desc
 }

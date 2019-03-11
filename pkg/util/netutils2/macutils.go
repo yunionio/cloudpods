@@ -36,7 +36,7 @@ func ParseMac(macStr string) (SMacAddr, error) {
 func (mac SMacAddr) Add(step int) SMacAddr {
 	mac2 := SMacAddr{}
 	leftOver := step
-	for i := 5; i >= 2; i -= 1 { // skip first 2 vendor bytes
+	for i := 5; i >= 0; i -= 1 { // skip first 2 vendor bytes
 		newByte := int(mac[i]) + leftOver
 		res := 0
 		if newByte < 0 {

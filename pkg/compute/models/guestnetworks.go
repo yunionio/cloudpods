@@ -247,12 +247,23 @@ func (self *SGuestnetwork) GetTeamGuestnetwork() (*SGuestnetwork, error) {
 	return nil, nil
 }
 
-
-func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
-	desc := jsonutils.NewDict()
-
+func (self *SGuestnetwork) getJsonDescAtBaremetal(host *SHost) jsonutils.JSONObject {
 	network := self.GetNetwork()
 	hostwire := host.getHostwireOfIdAndMac(network.WireId, self.MacAddr)
+	return self.getGeneralJsonDesc(host, network, hostwire)
+}
+
+func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
+	network := self.GetNetwork()
+	hostwires := host.getHostwiresOfId(network.WireId)
+	if len(hostwires) > 1 {
+		log.Warningf("host attach to wire multiple times: %d", len(hostwires))
+	}
+	return self.getGeneralJsonDesc(host, network, &hostwires[0])
+}
+
+func (self *SGuestnetwork) getGeneralJsonDesc(host *SHost, network *SNetwork, hostwire *SHostwire) jsonutils.JSONObject {
+	desc := jsonutils.NewDict()
 
 	desc.Add(jsonutils.NewString(network.Name), "net")
 	desc.Add(jsonutils.NewString(self.NetworkId), "net_id")

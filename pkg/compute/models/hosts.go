@@ -1101,9 +1101,7 @@ func (self *SHost) getHostwireOfIdAndMac(wireId string, mac string) *SHostwire {
 	hostwire.SetModelManager(HostwireManager)
 
 	q := self.GetWiresQuery().Equals("wire_id", wireId)
-	if q.Count() > 1 {
-		q = q.Equals("mac_addr", mac)
-	}
+	q = q.Equals("mac_addr", mac)
 	err := q.First(&hostwire)
 	if err != nil {
 		log.Errorf("getHostwireOfIdAndMac fail %s", err)
