@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -11,6 +12,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/metadata"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -143,23 +145,23 @@ func (model *SStandaloneResourceBase) GetShortDesc(ctx context.Context) *jsonuti
  * userCred: optional
  */
 func (model *SStandaloneResourceBase) GetMetadata(key string, userCred mcclient.TokenCredential) string {
-	return Metadata.GetStringValue(model, key, userCred)
+	return metadata.Metadata.GetStringValue(model, key, userCred)
 }
 
 func (model *SStandaloneResourceBase) GetMetadataJson(key string, userCred mcclient.TokenCredential) jsonutils.JSONObject {
-	return Metadata.GetJsonValue(model, key, userCred)
+	return metadata.Metadata.GetJsonValue(model, key, userCred)
 }
 
 func (model *SStandaloneResourceBase) SetMetadata(ctx context.Context, key string, value interface{}, userCred mcclient.TokenCredential) error {
-	if Metadata.IsSystemAdminKey(key) && !IsAdminAllowPerform(userCred, model, "metadata") {
+	if metadata.Metadata.IsSystemAdminKey(key) && !IsAdminAllowPerform(userCred, model, "metadata") {
 		return httperrors.NewNotSufficientPrivilegeError("cannot set system key")
 	}
-	return Metadata.SetValue(ctx, model, key, value, userCred)
+	return metadata.Metadata.SetValue(ctx, model, key, value, userCred)
 }
 
 func (model *SStandaloneResourceBase) SetAllMetadata(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
 	for k := range dictstore {
-		if Metadata.IsSystemAdminKey(k) && !IsAdminAllowPerform(userCred, model, "metadata") {
+		if metadata.Metadata.IsSystemAdminKey(k) && !IsAdminAllowPerform(userCred, model, "metadata") {
 			return httperrors.NewNotSufficientPrivilegeError("not allow to set system key %s", k)
 		}
 	}
@@ -167,15 +169,15 @@ func (model *SStandaloneResourceBase) SetAllMetadata(ctx context.Context, dictst
 }
 
 func (model *SStandaloneResourceBase) RemoveMetadata(ctx context.Context, key string, userCred mcclient.TokenCredential) error {
-	return Metadata.SetValue(ctx, model, key, "", userCred)
+	return metadata.Metadata.SetValue(ctx, model, key, "", userCred)
 }
 
 func (model *SStandaloneResourceBase) RemoveAllMetadata(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return Metadata.RemoveAll(ctx, model, userCred)
+	return metadata.Metadata.RemoveAll(ctx, model, userCred)
 }
 
 func (model *SStandaloneResourceBase) GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error) {
-	return Metadata.GetAll(model, nil, userCred)
+	return metadata.Metadata.GetAll(model, nil, userCred)
 }
 
 func (model *SStandaloneResourceBase) AllowGetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -184,7 +186,7 @@ func (model *SStandaloneResourceBase) AllowGetDetailsMetadata(ctx context.Contex
 
 func (model *SStandaloneResourceBase) GetDetailsMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	fields := jsonutils.GetQueryStringArray(query, "field")
-	val, err := Metadata.GetAll(model, fields, userCred)
+	val, err := metadata.Metadata.GetAll(model, fields, userCred)
 	if err != nil {
 		return nil, err
 	}
@@ -206,17 +208,27 @@ func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userC
 	}
 	dictStore := make(map[string]interface{})
 	for k, v := range dictMap {
+		if err := model.ValidateMetadataKey(k); err != nil {
+			return nil, err
+		}
 		dictStore[k], _ = v.GetString()
 	}
 	err = model.SetAllMetadata(ctx, dictStore, userCred)
 	return nil, err
 }
 
+func (model *SStandaloneResourceBase) ValidateMetadataKey(key string) error {
+	if strings.HasPrefix(key, "_") || strings.HasPrefix(key, "ext:") || strings.Contains(key, ":=") {
+		return httperrors.NewInputParameterError("key cannot start with _ or ext: and not contain :=")
+	}
+	return nil
+}
+
 func (model *SStandaloneResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := model.SResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	withMeta, _ := query.GetString("with_meta")
 	if utils.ToBool(withMeta) {
-		jsonMeta, err := Metadata.GetAll(model, nil, userCred)
+		jsonMeta, err := metadata.Metadata.GetAll(model, nil, userCred)
 		if err == nil {
 			extra.Add(jsonutils.Marshal(jsonMeta), "metadata")
 		} else {

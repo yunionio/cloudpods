@@ -334,6 +334,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		return nil, err
 	}
 	results := make([]jsonutils.JSONObject, 0)
+	q.DebugQuery()
 	rows, err := q.Rows()
 	if err != nil {
 		return nil, err
@@ -452,7 +453,8 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		if err == nil && colSpec != nil && colSpec.IsNumeric() {
 			orderBy = []string{"id"}
 		} else {
-			orderBy = []string{"created_at"}
+			orderBy = []string{"id"}
+			//orderBy = []string{"created_at"}
 		}
 	}
 	order := sqlchemy.SQL_ORDER_DESC

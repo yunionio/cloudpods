@@ -1,4 +1,4 @@
-package db
+package metadata
 
 import (
 	"context"
@@ -9,7 +9,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/stringutils"
+	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -19,22 +21,22 @@ const (
 )
 
 type SMetadataManager struct {
-	SModelBaseManager
+	db.SModelBaseManager
 }
 
 type SMetadata struct {
-	SModelBase
+	db.SModelBase
 
-	Id        string    `width:"128" charset:"ascii" primary:"true"` // = Column(VARCHAR(128, charset='ascii'), primary_key=True)
-	Key       string    `width:"64" charset:"ascii" primary:"true"`  // = Column(VARCHAR(64, charset='ascii'),  primary_key=True)
-	Value     string    `charset:"utf8"`                             // = Column(TEXT(charset='utf8'), nullable=True)
-	UpdatedAt time.Time `nullable:"false" updated_at:"true"`         // = Column(DateTime, default=get_utcnow, nullable=False, onupdate=get_utcnow)
+	Id        string    `width:"128" charset:"ascii" primary:"true" list:"user" get:"user"` // = Column(VARCHAR(128, charset='ascii'), primary_key=True)
+	Key       string    `width:"64" charset:"ascii" primary:"true" list:"user" get:"user"`  // = Column(VARCHAR(64, charset='ascii'),  primary_key=True)
+	Value     string    `charset:"utf8" list:"user" get:"user"`                             // = Column(TEXT(charset='utf8'), nullable=True)
+	UpdatedAt time.Time `nullable:"false" updated_at:"true"`                                // = Column(DateTime, default=get_utcnow, nullable=False, onupdate=get_utcnow)
 }
 
 var Metadata *SMetadataManager
 
 func init() {
-	Metadata = &SMetadataManager{SModelBaseManager: NewModelBaseManager(SMetadata{}, "metadata_tbl", "metadata", "metadata")}
+	Metadata = &SMetadataManager{SModelBaseManager: db.NewModelBaseManager(SMetadata{}, "metadata_tbl", "metadata", "metadata")}
 }
 
 func (m *SMetadata) GetId() string {
@@ -53,6 +55,22 @@ func GetObjectIdstr(model IModel) string {
 	return fmt.Sprintf("%s::%s", model.GetModelManager().Keyword(), model.GetId())
 }
 
+func (manager *SMetadataManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	// queryDict, ok := query.(*jsonutils.JSONDict)
+	// if !ok {
+	// 	return nil, fmt.Errorf("invalid querystring format")
+	// }
+	resources := jsonutils.GetQueryStringArray(query, "resrouces")
+	if len(resources) > 0 {
+		//q = models.DiskManager.Query()
+	}
+	return q, nil
+}
+
 /* @classmethod
 def get_object_idstr(cls, obj, keygen_func):
 idstr = None
@@ -64,7 +82,7 @@ if idstr is None:
 raise Exception('get_object_idstr: failed to generate obj ID')
 return idstr */
 
-func (manager *SMetadataManager) GetStringValue(model IModel, key string, userCred mcclient.TokenCredential) string {
+func (manager *SMetadataManager) GetStringValue(model db.IModel, key string, userCred mcclient.TokenCredential) string {
 	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAdminAllowGetSpec(userCred, model, "metadata")) {
 		return ""
 	}
@@ -77,7 +95,7 @@ func (manager *SMetadataManager) GetStringValue(model IModel, key string, userCr
 	return ""
 }
 
-func (manager *SMetadataManager) GetJsonValue(model IModel, key string, userCred mcclient.TokenCredential) jsonutils.JSONObject {
+func (manager *SMetadataManager) GetJsonValue(model db.IModel, key string, userCred mcclient.TokenCredential) jsonutils.JSONObject {
 	if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAdminAllowGetSpec(userCred, model, "metadata")) {
 		return nil
 	}
@@ -115,7 +133,7 @@ func (manager *SMetadataManager) RemoveAll(ctx context.Context, model IModel, us
 	changes := make([]sMetadataChange, 0)
 	for _, rec := range records {
 		if len(rec.Value) > 0 {
-			_, err := Update(&rec, func() error {
+			_, err := db.Update(&rec, func() error {
 				rec.Value = ""
 				return nil
 			})
@@ -163,7 +181,7 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 				return err
 			}
 		} else {
-			_, err := Update(&record, func() error {
+			_, err := db.Update(&record, func() error {
 				record.Value = valStr
 				return nil
 			})
@@ -194,7 +212,7 @@ func (manager *SMetadataManager) GetAll(obj IModel, keys []string, userCred mccl
 	for _, rec := range records {
 		if len(rec.Value) > 0 {
 			if strings.HasPrefix(rec.Key, SYSTEM_ADMIN_PREFIX) {
-				if userCred != nil && IsAdminAllowGetSpec(userCred, obj, "metadata") {
+				if userCred != nil && db.IsAdminAllowGetSpec(userCred, obj, "metadata") {
 					key := rec.Key[len(SYSTEM_ADMIN_PREFIX):]
 					ret[key] = rec.Value
 				}
