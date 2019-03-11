@@ -135,12 +135,12 @@ func (this *TokenCredentialV3) IsAdmin() bool {
 	return false
 }
 
-func (this *TokenCredentialV3) HasSystemAdminPrivelege() bool {
+func (this *TokenCredentialV3) HasSystemAdminPrivilege() bool {
 	return this.IsAdmin() && this.GetTenantName() == "system"
 }
 
 func (this *TokenCredentialV3) IsAdminAllow(service string, resource string, action string, extra ...string) bool {
-	return this.HasSystemAdminPrivelege()
+	return this.HasSystemAdminPrivilege()
 }
 
 func (this *TokenCredentialV3) GetRegions() []string {

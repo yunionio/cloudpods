@@ -322,7 +322,7 @@ func (manager *SPolicyManager) explainPolicyInternal(userCred mcclient.TokenCred
 	if !consts.IsRbacEnabled() {
 		if !isAdmin {
 			return isAdmin, reqStrs, rbacutils.OwnerAllow, nil
-		} else if isAdmin && userCred.HasSystemAdminPrivelege() {
+		} else if isAdmin && userCred.HasSystemAdminPrivilege() {
 			return isAdmin, reqStrs, rbacutils.AdminAllow, nil
 		} else {
 			return isAdmin, reqStrs, rbacutils.Deny, httperrors.NewForbiddenError("operation not allowed")
@@ -361,7 +361,7 @@ func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, par
 }
 
 func (manager *SPolicyManager) IsAdminCapable(userCred mcclient.TokenCredential) bool {
-	if !consts.IsRbacEnabled() && userCred.HasSystemAdminPrivelege() {
+	if !consts.IsRbacEnabled() && userCred.HasSystemAdminPrivilege() {
 		return true
 	}
 
