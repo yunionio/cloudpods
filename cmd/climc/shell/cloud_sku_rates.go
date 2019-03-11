@@ -9,15 +9,14 @@ import (
 func init() {
 
 	type CloudSkuRateListOptions struct {
-		ParamIds  []string `help:"param_id of the cloudSkuRate" nargs:"+"`
-		ParamKeys []string `help:"param_key of the cloudSkuRate" nargs:"+"`
+		PARAMKEYS string `help:"param_keys like key1$key2$key3, key=provider(lowercase)::region::name"`
 	}
 
 	R(&CloudSkuRateListOptions{}, "cloud-sku-rate-list", "list cloud-sku-rates", func(s *mcclient.ClientSession, args *CloudSkuRateListOptions) error {
 
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewStringArray(args.ParamIds), "param_ids")
-		params.Add(jsonutils.NewStringArray(args.ParamKeys), "param_keys")
+
+		params.Add(jsonutils.NewString(args.PARAMKEYS), "param_keys")
 
 		result, err := modules.CloudSkuRates.List(s, params)
 		if err != nil {
