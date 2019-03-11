@@ -61,9 +61,9 @@ func (s *SGuestDHCPServer) Start() {
 	}()
 }
 
-func (s *SGuestDHCPServer) RelaySetup(addr string, masterIp net.IP) error {
+func (s *SGuestDHCPServer) RelaySetup(addr string) error {
 	if s.relay != nil {
-		return s.relay.Setup(addr, masterIp)
+		return s.relay.Setup(addr)
 	}
 	return nil
 }

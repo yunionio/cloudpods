@@ -30,7 +30,7 @@ type SDHCPRelay struct {
 	guestDHCPConn *dhcp.Conn
 
 	srcaddr     string
-	nicMasterIp net.IP
+	ipv4srcAddr net.IP
 
 	destaddr net.IP
 	destport int
@@ -66,12 +66,12 @@ func (r *SDHCPRelay) Start() {
 	}()
 }
 
-func (r *SDHCPRelay) Setup(addr string, masterIp net.IP) error {
+func (r *SDHCPRelay) Setup(addr string) error {
 	var err error
 	r.srcaddr = addr
-	r.nicMasterIp = masterIp
+	r.ipv4srcAddr = net.ParseIP(addr)
 	log.Infof("DHCP Relay Server Bind addr %s port %d", r.srcaddr, DEFAULT_DHCP_RELAY_PORT)
-	r.server, r.conn, err = dhcp.NewDHCPServer2(r.srcaddr, DEFAULT_DHCP_RELAY_PORT, true)
+	r.server, r.conn, err = dhcp.NewDHCPServer2(r.srcaddr, DEFAULT_DHCP_RELAY_PORT, false)
 	if err != nil {
 		log.Errorln(err)
 		return err
@@ -81,12 +81,7 @@ func (r *SDHCPRelay) Setup(addr string, masterIp net.IP) error {
 }
 
 func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
-	// Prevent receiving packets that send by host dhcp server
-	if addr.IP.Equal(r.nicMasterIp) {
-		return nil, nil
-	}
-
-	log.Infof("Receive DHCP Relay Reply TO %s", pkt.CHAddr())
+	log.Infof("DHCP Relay Reply TO %s", pkt.CHAddr())
 	v, ok := r.cache.Load(pkt.TransactionID())
 	if ok {
 		r.cache.Delete(pkt.TransactionID())
@@ -103,8 +98,11 @@ func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Int
 }
 
 func (r *SDHCPRelay) Relay(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
-	log.Infof("Receive DHCP Relay Rquest FROM %s %s", pkt.SIAddr(), pkt.CHAddr())
+	if addr.IP.Equal(r.ipv4srcAddr) {
+		return nil, nil
+	}
 
+	log.Infof("Receive DHCP Relay Rquest FROM %s %s", addr.IP, pkt.CHAddr())
 	// clean cache first
 	var now = time.Now().Add(time.Second * -30)
 	r.cache.Range(func(key, value interface{}) bool {
@@ -122,7 +120,7 @@ func (r *SDHCPRelay) Relay(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interfa
 		timer:   time.Now(),
 	})
 
-	pkt.SetGIAddr(r.destaddr)
+	pkt.SetGIAddr(r.ipv4srcAddr)
 	err := r.conn.SendDHCP(pkt, &net.UDPAddr{IP: r.destaddr, Port: r.destport}, intf)
 	return nil, err
 }
