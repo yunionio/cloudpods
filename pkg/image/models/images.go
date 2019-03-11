@@ -114,8 +114,8 @@ type SImage struct {
 	Checksum   string `width:"32" charset:"ascii" nullable:"true" get:"user" list:"user"`
 	FastHash   string `width:"32" charset:"ascii" nullable:"true" get:"user"`
 	Owner      string `width:"255" charset:"ascii" nullable:"true" get:"user"`
-	MinDiskMB  int32  `name:"min_disk" nullable:"false" default:"0" get:"user" create:"optional" update:"user"`
-	MinRamMB   int32  `name:"min_ram" nullable:"false" default:"0" get:"user" create:"optional" update:"user"`
+	MinDiskMB  int32  `name:"min_disk" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
+	MinRamMB   int32  `name:"min_ram" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
 	Protected  *bool  `nullable:"true" list:"user" get:"user" create:"optional" update:"user"`
 }
 
