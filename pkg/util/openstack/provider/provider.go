@@ -128,7 +128,7 @@ func (self *SOpenStackProviderFactory) GetProvider(providerId, providerName, url
 	if len(accountInfo) == 3 {
 		endpointType = accountInfo[2]
 	}
-	client, err := openstack.NewOpenStackClient(providerId, providerName, url, username, password, project, endpointType)
+	client, err := openstack.NewOpenStackClient(providerId, providerName, url, username, password, project, endpointType, false)
 	if err != nil {
 		return nil, err
 	}

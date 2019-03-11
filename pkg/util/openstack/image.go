@@ -3,7 +3,6 @@ package openstack
 import (
 	"context"
 	"net/url"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -56,7 +55,7 @@ func (image *SImage) GetMinRamSizeMb() int {
 	return image.MinRAM
 }
 
-func (region *SRegion) GetImages(name string, status string, imageIds []string) ([]SImage, error) {
+func (region *SRegion) GetImages(name string, status string, imageId string) ([]SImage, error) {
 	params := url.Values{}
 	if utils.IsInStringArray(status, []string{QUEUED, SAVING, ACTIVE, KILLED, DELETED, PENDING_DELETE, DEACTIVATED, UPLOADING, IMPORTING}) {
 		params.Add("status", status)
@@ -64,8 +63,8 @@ func (region *SRegion) GetImages(name string, status string, imageIds []string) 
 	if len(name) > 0 {
 		params.Add("name", name)
 	}
-	if len(imageIds) > 0 {
-		params.Add("id", "in:"+strings.Join(imageIds, ","))
+	if len(imageId) > 0 {
+		params.Add("id", imageId)
 	}
 	_, resp, err := region.List("image", "/v2/images?"+params.Encode(), "", nil)
 	if err != nil {
@@ -177,7 +176,7 @@ func (image *SImage) GetCreateTime() time.Time {
 }
 
 func (region *SRegion) GetImage(imageId string) (*SImage, error) {
-	images, err := region.GetImages("", "", []string{imageId})
+	images, err := region.GetImages("", "", imageId)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +207,7 @@ func (region *SRegion) GetImageStatus(imageId string) (string, error) {
 }
 
 func (region *SRegion) GetImageByName(name string) (*SImage, error) {
-	images, err := region.GetImages(name, "", []string{})
+	images, err := region.GetImages(name, "", "")
 	if err != nil {
 		return nil, err
 	}
