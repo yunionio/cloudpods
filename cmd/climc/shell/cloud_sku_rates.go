@@ -9,7 +9,7 @@ import (
 func init() {
 
 	type CloudSkuRateListOptions struct {
-		PARAMKEYS string `help:"param_keys of the cloudSkuRate"`
+		PARAMKEYS string `help:"param_keys like key1$key2$key3, key=provider(lowercase)::region::name"`
 	}
 
 	R(&CloudSkuRateListOptions{}, "cloud-sku-rate-list", "list cloud-sku-rates", func(s *mcclient.ClientSession, args *CloudSkuRateListOptions) error {
