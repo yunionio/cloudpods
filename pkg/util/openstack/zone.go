@@ -7,7 +7,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/version"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -144,15 +143,12 @@ type SOsHost struct {
 }
 
 func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
-	// 2.28 Hypervisor CPU字段是字符串，会解析失败
 	ihosts := []cloudprovider.ICloudHost{}
 	hosts := []SHost{}
-	_, maxVersion, err := zone.region.GetVersion("compute")
-	if err == nil && version.GE(maxVersion, HYPERVISORS_VERSION) {
-		_, resp, err := zone.region.Get("compute", "/os-hypervisors/detail", maxVersion, nil)
-		if err != nil {
-			return nil, err
-		}
+
+	// 尽可能的优先使用 os-hypervisor, 里面的信息更全些, 实在不行再使用 os-host
+	_, resp, err := zone.region.Get("compute", "/os-hypervisors/detail", "", nil)
+	if err == nil {
 		if err := resp.Unmarshal(&hosts, "hypervisors"); err != nil {
 			return nil, err
 		}
@@ -167,8 +163,7 @@ func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 		}
 		return ihosts, nil
 	}
-
-	_, resp, err := zone.region.Get("compute", "/os-hosts", "", nil)
+	_, resp, err = zone.region.Get("compute", "/os-hosts", "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -188,18 +183,15 @@ func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 }
 
 func (zone *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	_, maxVersion, err := zone.region.GetVersion("compute")
 	host := &SHost{zone: zone}
-	if err == nil && version.GE(maxVersion, HYPERVISORS_VERSION) {
-		_, resp, err := zone.region.Get("compute", "/os-hypervisors/"+id, maxVersion, nil)
-		if err != nil {
-			return nil, err
-		}
+	_, resp, err := zone.region.Get("compute", "/os-hypervisors/"+id, "", nil)
+	if err == nil {
 		return host, resp.Unmarshal(&host, "hypervisor")
 	}
+
 	host.HostName = id
 	host.Resource = []map[string]SResource{}
-	_, resp, err := zone.region.Get("compute", "/os-hosts/"+id, maxVersion, nil)
+	_, resp, err = zone.region.Get("compute", "/os-hosts/"+id, "", nil)
 	if err != nil {
 		return nil, err
 	}
