@@ -39,7 +39,7 @@ type SResource struct {
 type SHost struct {
 	zone *SZone
 
-	CpuInfo CpuInfo
+	CpuInfo string
 
 	CurrentWorkload    int
 	Status             string
@@ -294,7 +294,7 @@ func (host *SHost) GetNodeCount() int8 {
 }
 
 func (host *SHost) GetCpuDesc() string {
-	return jsonutils.Marshal(host.CpuInfo).String()
+	return host.CpuInfo
 }
 
 func (host *SHost) GetCpuMhz() int {
