@@ -136,7 +136,7 @@ func (h *ApiHelper) runInit(ctx context.Context) {
 		return
 	}
 	if !r.staleInFuture(h.opts.ApiLbagentHbTimeoutRelaxation) {
-		log.Warningf("agent will stale in %d seconds, re-sync",
+		log.Warningf("agent will stale in %d seconds, ignore old corpus",
 			h.opts.ApiLbagentHbTimeoutRelaxation)
 	} else {
 		h.doHb(ctx)
@@ -147,9 +147,10 @@ func (h *ApiHelper) runInit(ctx context.Context) {
 			log.Errorf("load local api data failed: %s", err)
 		}
 	}
-	if changed := h.doSyncApiData(ctx); changed {
-		h.doUseCorpus(ctx)
-	}
+	// better reload now because agent data is not in corpus yet
+	h.doSyncApiData(ctx)
+	h.doSyncAgentParams(ctx)
+	h.doUseCorpus(ctx)
 }
 
 func (h *ApiHelper) loadLocalData(ctx context.Context) (*agentmodels.LoadbalancerCorpus, error) {
