@@ -336,14 +336,16 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 
 	scimgs := make([]SStoragecachedimage, 0)
 	q := storageCachedImage.Query().
-		Join(storage, sqlchemy.AND(sqlchemy.Equals(storage.Field("storagecache_id"), storageCachedImage.Field("storagecache_id")))).
-		Join(hostStorage, sqlchemy.AND(sqlchemy.Equals(hostStorage.Field("storage_id"), storage.Field("id")))).
-		Join(host, sqlchemy.AND(sqlchemy.Equals(hostStorage.Field("host_id"), host.Field("id")))).
+		Join(storage, sqlchemy.Equals(storage.Field("storagecache_id"), storageCachedImage.Field("storagecache_id"))).
+		Join(hostStorage, sqlchemy.Equals(hostStorage.Field("storage_id"), storage.Field("id"))).
+		Join(host, sqlchemy.Equals(hostStorage.Field("host_id"), host.Field("id"))).
 		Filter(sqlchemy.Equals(storageCachedImage.Field("cachedimage_id"), self.Id)).
 		Filter(sqlchemy.Equals(storageCachedImage.Field("status"), CACHED_IMAGE_STATUS_READY)).
 		Filter(sqlchemy.Equals(host.Field("status"), HOST_STATUS_RUNNING)).
 		Filter(sqlchemy.IsTrue(host.Field("enabled"))).
-		Filter(sqlchemy.Equals(host.Field("host_status"), HOST_ONLINE))
+		Filter(sqlchemy.Equals(host.Field("host_status"), HOST_ONLINE)).
+		Filter(sqlchemy.IsTrue(storage.Field("enabled"))).
+		Filter(sqlchemy.In(storage.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}))
 
 	if len(excludes) > 0 {
 		q = q.Filter(sqlchemy.NotIn(host.Field("id"), excludes))
