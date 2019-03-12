@@ -3,10 +3,36 @@ package models
 import (
 	"encoding/base64"
 	"fmt"
+	"reflect"
 	"text/template"
+
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/mcclient/models"
 )
+
+func dataFromParams(p interface{}) map[string]interface{} {
+	rv := reflect.ValueOf(p)
+	if rv.Kind() != reflect.Struct {
+		panic(fmt.Sprintf("unexpected kind: %#v", p))
+	}
+	rt := rv.Type()
+
+	r := map[string]interface{}{}
+	for i := 0; i < rv.NumField(); i++ {
+		f := rt.Field(i)
+		fn := utils.CamelSplit(f.Name, "_")
+		if fn == "" {
+			continue
+		}
+		v := rv.Field(i)
+		if !v.IsValid() {
+			continue
+		}
+		r[fn] = v.Interface()
+	}
+	return r
+}
 
 type AgentParams struct {
 	AgentModel           *models.LoadbalancerAgent
@@ -38,33 +64,11 @@ func NewAgentParams(agent *models.LoadbalancerAgent) (*AgentParams, error) {
 		"id":   agent.Id,
 		"name": agent.Name,
 	}
-	dataVrrp := map[string]interface{}{
-		"priority":            agent.Params.Vrrp.Priority,
-		"virtual_router_id":   agent.Params.Vrrp.VirtualRouterId,
-		"garp_master_refresh": agent.Params.Vrrp.GarpMasterRefresh,
-		"preempt":             agent.Params.Vrrp.Preempt,
-		"interface":           agent.Params.Vrrp.Interface,
-		"advert_int":          agent.Params.Vrrp.AdvertInt,
-		"pass":                agent.Params.Vrrp.Pass,
-	}
-	dataHaproxy := map[string]interface{}{
-		"global_log":      agent.Params.Haproxy.GlobalLog,
-		"global_nbthread": agent.Params.Haproxy.GlobalNbthread,
-		"log_http":        agent.Params.Haproxy.LogHttp,
-		"log_tcp":         agent.Params.Haproxy.LogTcp,
-		"log_normal":      agent.Params.Haproxy.LogNormal,
-	}
-	dataTelegraf := map[string]interface{}{
-		"influx_db_output_url":        agent.Params.Telegraf.InfluxDbOutputUrl,
-		"influx_db_output_name":       agent.Params.Telegraf.InfluxDbOutputName,
-		"influx_db_output_unsafe_ssl": agent.Params.Telegraf.InfluxDbOutputUnsafeSsl,
-		"haproxy_input_interval":      agent.Params.Telegraf.HaproxyInputInterval,
-	}
 	data := map[string]map[string]interface{}{
 		"agent":    dataAgent,
-		"vrrp":     dataVrrp,
-		"haproxy":  dataHaproxy,
-		"telegraf": dataTelegraf,
+		"vrrp":     dataFromParams(agent.Params.Vrrp),
+		"haproxy":  dataFromParams(agent.Params.Haproxy),
+		"telegraf": dataFromParams(agent.Params.Telegraf),
 	}
 	agentParams := &AgentParams{
 		AgentModel:           agent,
