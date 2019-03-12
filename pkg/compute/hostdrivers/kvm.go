@@ -43,7 +43,7 @@ func (self *SKVMHostDriver) ValidateAttachStorage(host *models.SHost, storage *m
 		data.Set("mount_point", jsonutils.NewString(fmt.Sprintf("rbd:%s", pool)))
 	} else if storage.StorageType == models.STORAGE_NFS {
 		if host.HostStatus != models.HOST_ONLINE {
-			return httperrors.NewInvalidStatusError("Attach rbd storage require host status is online")
+			return httperrors.NewInvalidStatusError("Attach nfs storage require host status is online")
 		}
 	}
 	return nil

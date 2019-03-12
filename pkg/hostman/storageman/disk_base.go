@@ -96,7 +96,7 @@ func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict
 
 	root := kvmDisk.MountKvmRootfs()
 	if root == nil {
-		log.Infof("Disk cann't found root fs")
+		log.Infof("Failed mounting rootfs for kvm disk")
 		return nil, nil
 	}
 	defer kvmDisk.UmountKvmRootfs(root)
