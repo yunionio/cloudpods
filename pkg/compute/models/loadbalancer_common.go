@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -27,4 +28,25 @@ type SLoadbalancerNotifier struct{}
 
 func (n *SLoadbalancerNotifier) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	return
+}
+
+type SLoadbalancerLogSkipper struct{}
+
+func (lls SLoadbalancerLogSkipper) skipLog(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	data, ok := query.(*jsonutils.JSONDict)
+	if !ok {
+		return false
+	}
+	if val, _ := data.GetString(consts.LBAGENT_QUERY_ORIG_KEY); val != consts.LBAGENT_QUERY_ORIG_VAL {
+		return false
+	}
+	return true
+}
+
+func (lls SLoadbalancerLogSkipper) ListSkipLog(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return lls.skipLog(ctx, userCred, query)
+}
+
+func (lls SLoadbalancerLogSkipper) GetSkipLog(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return lls.skipLog(ctx, userCred, query)
 }

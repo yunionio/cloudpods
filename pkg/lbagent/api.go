@@ -6,8 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	agentmodels "yunion.io/x/onecloud/pkg/lbagent/models"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -71,7 +73,9 @@ func (h *ApiHelper) adminClientSession(ctx context.Context) *mcclient.ClientSess
 
 func (h *ApiHelper) agentPeekOnce(ctx context.Context) (*models.LoadbalancerAgent, error) {
 	s := h.adminClientSession(ctx)
-	data, err := modules.LoadbalancerAgents.Get(s, h.opts.ApiLbagentId, nil)
+	params := jsonutils.NewDict()
+	params.Set(consts.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(consts.LBAGENT_QUERY_ORIG_VAL))
+	data, err := modules.LoadbalancerAgents.Get(s, h.opts.ApiLbagentId, params)
 	if err != nil {
 		err := fmt.Errorf("agent get error: %s", err)
 		return nil, err

@@ -10,6 +10,7 @@ import (
 type LoadbalancerAgentParamsOptions struct {
 	KeepalivedConfTmpl string
 	HaproxyConfTmpl    string
+	TelegrafConfTmpl   string
 
 	VrrpPriority          *int // required
 	VrrpVirtualRouterId   *int // required
@@ -25,9 +26,10 @@ type LoadbalancerAgentParamsOptions struct {
 	HaproxyLogTcp         string `choices:"true|false"`
 	HaproxyLogNormal      string `choices:"true|false"`
 
-	TelegrafInfluxDbOutputUrl    string
-	TelegrafInfluxDbOutputName   string
-	TelegrafHaproxyInputInterval int
+	TelegrafInfluxDbOutputUrl       string
+	TelegrafInfluxDbOutputName      string
+	TelegrafInfluxDbOutputUnsafeSsl *bool
+	TelegrafHaproxyInputInterval    int
 }
 
 func (opts *LoadbalancerAgentParamsOptions) setPrefixedParams(params *jsonutils.JSONDict, pref string) {
@@ -82,11 +84,11 @@ type LoadbalancerAgentListOptions struct {
 }
 
 type LoadbalancerAgentGetOptions struct {
-	ID string
+	ID string `json:-`
 }
 
 type LoadbalancerAgentUpdateOptions struct {
-	ID   string
+	ID   string `json:-`
 	Name string
 
 	HbTimeout *int
@@ -101,15 +103,15 @@ type LoadbalancerAgentUpdateOptions struct {
 }
 
 type LoadbalancerAgentDeleteOptions struct {
-	ID string
+	ID string `json:-`
 }
 
 type LoadbalancerAgentActionHbOptions struct {
-	ID string
+	ID string `json:-`
 }
 
 type LoadbalancerAgentActionPatchParamsOptions struct {
-	ID string
+	ID string `json:-`
 
 	LoadbalancerAgentParamsOptions
 }

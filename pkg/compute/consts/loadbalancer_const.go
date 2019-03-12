@@ -255,3 +255,8 @@ const (
 	LB_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
 	LB_CHARGE_TYPE_BY_HOUR      = "hour"
 )
+
+const (
+	LBAGENT_QUERY_ORIG_KEY = "_orig"
+	LBAGENT_QUERY_ORIG_VAL = "lbagent"
+)
