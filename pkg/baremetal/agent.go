@@ -129,7 +129,7 @@ func (agent *SBaremetalAgent) GetDHCPServerIP() (net.IP, error) {
 	if len(listenIP) == 0 || listenIP == "0.0.0.0" {
 		return agent.GetAccessIP()
 	}
-	return agent.GetDHCPServerListenIP()
+	return agent.GetListenIP()
 }
 
 func getIfaceIPs(iface *net.Interface) ([]net.IP, error) {
@@ -377,13 +377,18 @@ func (agent *SBaremetalAgent) disableUDPOffloading() {
 }
 
 func (agent *SBaremetalAgent) startPXEServices(manager *SBaremetalManager) {
-	listenIP, err := agent.GetListenIP()
+	pxeListenIP, err := agent.GetListenIP()
 	if err != nil {
-		log.Fatalf("Get listen ip address error: %v", err)
+		log.Fatalf("Get pxe listen ip address error: %v", err)
+	}
+	dhcpListenIp, err := agent.GetDHCPServerListenIP()
+	if err != nil {
+		log.Fatalf("Get dhcp listen ip address error: %v", err)
 	}
 	agent.PXEServer = &pxe.Server{
 		TFTPRootDir:      o.Options.TftpRoot,
-		Address:          listenIP.String(),
+		Address:          pxeListenIP.String(),
+		DHCPAddress:      dhcpListenIp.String(),
 		BaremetalManager: manager,
 	}
 	go func() {
