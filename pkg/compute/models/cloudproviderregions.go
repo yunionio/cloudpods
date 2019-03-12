@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"database/sql"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -143,7 +144,9 @@ func (manager *SCloudproviderregionManager) FetchByIds(providerId string, region
 	}
 	err = q.First(obj)
 	if err != nil {
-		log.Errorf("q.First fail %s", err)
+		if err != sql.ErrNoRows {
+			log.Errorf("q.First fail %s", err)
+		}
 		return nil
 	}
 	return obj.(*SCloudproviderregion)

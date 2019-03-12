@@ -766,7 +766,7 @@ type SAccountBalance struct {
 }
 
 func (self *SAzureClient) QueryAccountBalance() (*SAccountBalance, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func getResourceGroup(id string) string {
