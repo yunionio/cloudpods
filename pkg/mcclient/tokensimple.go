@@ -84,12 +84,12 @@ func (self *SSimpleToken) IsAdmin() bool {
 	return false
 }
 
-func (self *SSimpleToken) HasSystemAdminPrivelege() bool {
+func (self *SSimpleToken) HasSystemAdminPrivilege() bool {
 	return self.IsAdmin() && self.Project == "system"
 }
 
 func (this *SSimpleToken) IsAdminAllow(service string, resource string, action string, extra ...string) bool {
-	return this.HasSystemAdminPrivelege()
+	return this.HasSystemAdminPrivilege()
 }
 
 func (self *SSimpleToken) GetRegions() []string {

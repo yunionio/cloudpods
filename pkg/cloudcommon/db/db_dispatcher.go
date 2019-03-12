@@ -549,6 +549,12 @@ func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.J
 		log.Errorf("Fail to list items: %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
+	if userCred.HasSystemAdminPrivilege() && dispatcher.modelManager.ListSkipLog(ctx, userCred, query) {
+		appParams := appsrv.AppContextGetParams(ctx)
+		if appParams != nil {
+			appParams.SkipLog = true
+		}
+	}
 	return items, nil
 }
 
@@ -680,6 +686,12 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 	}
 	if !isAllow {
 		return nil, httperrors.NewForbiddenError("Not allow to get details")
+	}
+	if userCred.HasSystemAdminPrivilege() && dispatcher.modelManager.GetSkipLog(ctx, userCred, query) {
+		appParams := appsrv.AppContextGetParams(ctx)
+		if appParams != nil {
+			appParams.SkipLog = true
+		}
 	}
 	return getModelItemDetails(dispatcher.modelManager, model, ctx, userCred, query, isHead)
 }

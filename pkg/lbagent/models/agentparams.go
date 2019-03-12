@@ -55,9 +55,10 @@ func NewAgentParams(agent *models.LoadbalancerAgent) (*AgentParams, error) {
 		"log_normal":      agent.Params.Haproxy.LogNormal,
 	}
 	dataTelegraf := map[string]interface{}{
-		"influx_db_output_url":   agent.Params.Telegraf.InfluxDbOutputUrl,
-		"influx_db_output_name":  agent.Params.Telegraf.InfluxDbOutputName,
-		"haproxy_input_interval": agent.Params.Telegraf.HaproxyInputInterval,
+		"influx_db_output_url":        agent.Params.Telegraf.InfluxDbOutputUrl,
+		"influx_db_output_name":       agent.Params.Telegraf.InfluxDbOutputName,
+		"influx_db_output_unsafe_ssl": agent.Params.Telegraf.InfluxDbOutputUnsafeSsl,
+		"haproxy_input_interval":      agent.Params.Telegraf.HaproxyInputInterval,
 	}
 	data := map[string]map[string]interface{}{
 		"agent":    dataAgent,

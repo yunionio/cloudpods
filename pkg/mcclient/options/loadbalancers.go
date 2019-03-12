@@ -12,22 +12,22 @@ type LoadbalancerCreateOptions struct {
 }
 
 type LoadbalancerGetOptions struct {
-	ID string
+	ID string `json:-`
 }
 
 type LoadbalancerUpdateOptions struct {
-	ID   string
+	ID   string `json:-`
 	Name string
 
 	BackendGroup string
 }
 
 type LoadbalancerDeleteOptions struct {
-	ID string
+	ID string `json:-`
 }
 
 type LoadbalancerPurgeOptions struct {
-	ID string
+	ID string `json:-`
 }
 
 type LoadbalancerListOptions struct {
@@ -41,10 +41,10 @@ type LoadbalancerListOptions struct {
 }
 
 type LoadbalancerActionStatusOptions struct {
-	ID     string
+	ID     string `json:-`
 	Status string `choices:"enabled|disabled"`
 }
 
 type LoadbalancerActionSyncStatusOptions struct {
-	ID string
+	ID string `json:-`
 }
