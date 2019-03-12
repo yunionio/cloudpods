@@ -195,9 +195,10 @@ type LoadbalancerAgentParamsHaproxy struct {
 }
 
 type LoadbalancerAgentParamsTelegraf struct {
-	InfluxDbOutputUrl    string
-	InfluxDbOutputName   string
-	HaproxyInputInterval int
+	InfluxDbOutputUrl       string
+	InfluxDbOutputName      string
+	InfluxDbOutputUnsafeSsl bool
+	HaproxyInputInterval    int
 }
 
 type LoadbalancerAgentParams struct {

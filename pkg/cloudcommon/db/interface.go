@@ -70,6 +70,8 @@ type IModelManager interface {
 	FetchCreateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error)
 	FetchUpdateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error)
 	IsCustomizedGetDetailsBody() bool
+	ListSkipLog(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
+	GetSkipLog(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
 }
 
 type IModel interface {

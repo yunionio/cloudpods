@@ -45,7 +45,7 @@ type TokenCredential interface {
 	IsValid() bool
 	ValidDuration() time.Duration
 	// IsAdmin() bool
-	HasSystemAdminPrivelege() bool
+	HasSystemAdminPrivilege() bool
 	IsAdminAllow(service string, resource string, action string, extra ...string) bool
 	GetRegions() []string
 

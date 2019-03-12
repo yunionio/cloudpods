@@ -24,6 +24,7 @@ type LoadbalancerCorpus struct {
 
 func NewEmptyLoadbalancerCorpus() *LoadbalancerCorpus {
 	return &LoadbalancerCorpus{
+		CorpusVersion:         CORPUS_VERSION,
 		ModelSets:             NewModelSets(),
 		ModelSetsMaxUpdatedAt: NewModelSetsMaxUpdatedAt(),
 	}
