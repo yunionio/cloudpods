@@ -89,18 +89,19 @@ func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict
 	var kvmDisk = NewKVMGuestDisk(diskPath)
 
 	defer kvmDisk.Disconnect()
-	if kvmDisk.Connect() {
-		log.Infof("Kvm Disk Connect Success !!")
-		if root := kvmDisk.MountKvmRootfs(); root != nil {
-			defer kvmDisk.UmountKvmRootfs(root)
-
-			return guestfs.DeployGuestFs(root, guestDesc, deployInfo)
-		} else {
-			return nil, fmt.Errorf("Kvm Disk Mount error")
-		}
-	} else {
-		return nil, fmt.Errorf("Kvm disk connecterror")
+	if !kvmDisk.Connect() {
+		log.Infof("Failed to connect kvm disk")
+		return nil, nil
 	}
+
+	root := kvmDisk.MountKvmRootfs()
+	if root == nil {
+		log.Infof("Disk cann't found root fs")
+		return nil, nil
+	}
+	defer kvmDisk.UmountKvmRootfs(root)
+
+	return guestfs.DeployGuestFs(root, guestDesc, deployInfo)
 }
 
 func (d *SBaseDisk) GetDiskSetupScripts(diskIndex int) string {
