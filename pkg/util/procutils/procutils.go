@@ -54,8 +54,11 @@ func (c *Command) Run() ([]byte, error) {
 }
 
 // Have default timeout 3 * time.Second
-func (c *Command) RunWithTimeout() ([]byte, error) {
-	output, err := RunCommandWithTimeout(c.Path, c.Args...)
+func (c *Command) RunWithTimeout(timeout time.Duration) ([]byte, error) {
+	if timeout <= 0 {
+		timeout = Timeout
+	}
+	output, err := RunCommandWithTimeout(timeout, c.Path, c.Args...)
 	if err != nil {
 		log.Errorf("Execute command %q , error: %v , output: %s", c, err, string(output))
 	}
@@ -80,8 +83,8 @@ func RunCommandWithoutTimeout(name string, args ...string) ([]byte, error) {
 	return RunCommandWithContext(context.Background(), name, args...)
 }
 
-func RunCommandWithTimeout(name string, args ...string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
+func RunCommandWithTimeout(timeout time.Duration, name string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	return RunCommandWithContext(ctx, name, args...)
 }

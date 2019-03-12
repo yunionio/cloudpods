@@ -73,6 +73,7 @@ func storageAttach(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	storageId, _ := body.GetString("storage_id")
 	storageName, _ := body.GetString("name")
 	storageConf, _ := body.Get("storage_conf")
+	storage.SetStoragecacheId(storagecacheId)
 	storage.SetStorageInfo(storageId, storageName, storageConf)
 	resp, err := storage.SyncStorageInfo()
 	if err != nil {
