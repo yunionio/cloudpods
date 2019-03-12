@@ -345,7 +345,8 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 		Filter(sqlchemy.IsTrue(host.Field("enabled"))).
 		Filter(sqlchemy.Equals(host.Field("host_status"), HOST_ONLINE)).
 		Filter(sqlchemy.IsTrue(storage.Field("enabled"))).
-		Filter(sqlchemy.In(storage.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}))
+		Filter(sqlchemy.In(storage.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE})).
+		Filter(sqlchemy.Equals(storage.Field("storage_type"), STORAGE_LOCAL))
 
 	if len(excludes) > 0 {
 		q = q.Filter(sqlchemy.NotIn(host.Field("id"), excludes))
