@@ -71,7 +71,7 @@ func getSnapshotPath(diskId, snapshotId string) string {
 
 func inputCheck(ctx context.Context) (string, error) {
 	var userCred = auth.FetchUserCredential(ctx, nil)
-	if !userCred.HasSystemAdminPrivelege() {
+	if !userCred.HasSystemAdminPrivilege() {
 		return "", httperrors.NewForbiddenError("System admin only")
 	}
 

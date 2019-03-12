@@ -13,11 +13,11 @@ type SPolicyTokenCredential struct {
 	mcclient.TokenCredential
 }
 
-func (self *SPolicyTokenCredential) HasSystemAdminPrivelege() bool {
+func (self *SPolicyTokenCredential) HasSystemAdminPrivilege() bool {
 	if consts.IsRbacEnabled() {
 		return PolicyManager.IsAdminCapable(self.TokenCredential)
 	}
-	return self.TokenCredential.HasSystemAdminPrivelege()
+	return self.TokenCredential.HasSystemAdminPrivilege()
 }
 
 func (self *SPolicyTokenCredential) IsAdminAllow(service string, resource string, action string, extra ...string) bool {

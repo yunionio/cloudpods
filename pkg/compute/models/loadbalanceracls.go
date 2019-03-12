@@ -83,6 +83,7 @@ func (aclEntries *SLoadbalancerAclEntries) Validate(data *jsonutils.JSONDict) er
 }
 
 type SLoadbalancerAclManager struct {
+	SLoadbalancerLogSkipper
 	db.SSharableVirtualResourceBaseManager
 }
 
