@@ -136,6 +136,7 @@ func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []string {
 }
 
 func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
+	log.Debugf("SBaremetalGuestDriver Attach2RandomNetwork")
 	netifs := host.GetNetInterfaces()
 	netsAvaiable := make([]models.SNetwork, 0)
 	netifIndexs := make(map[string][]models.SNetInterface, 0)
@@ -144,6 +145,7 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 	if len(netConfig.NetType) > 0 {
 		netTypes = []string{netConfig.NetType}
 	}
+	log.Debugf("netTypes %#v", netTypes)
 	var wirePattern *regexp.Regexp
 	if len(netConfig.Wire) > 0 {
 		wirePattern = regexp.MustCompile(netConfig.Wire)
@@ -162,8 +164,10 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 		var net *models.SNetwork
 		if netConfig.Private {
 			net, _ = wire.GetCandidatePrivateNetwork(userCred, netConfig.Exit, netTypes)
+			log.Debugf("choose private network %#v", net)
 		} else {
 			net, _ = wire.GetCandidatePublicNetwork(netConfig.Exit, netTypes)
+			log.Debugf("choose public network %#v", net)
 		}
 		if net != nil {
 			netsAvaiable = append(netsAvaiable, *net)
