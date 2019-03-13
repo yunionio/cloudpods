@@ -382,7 +382,7 @@ func SyncSkusByRegion(region *models.SCloudregion) error {
 func diff(origins, compares []string) []string {
 	ret := make([]string, 0)
 	for _, o := range origins {
-		if exists, _ := utils.InStringArray(o, compares); !exists && len(o) > 0 {
+		if !utils.IsInStringArray(o, compares) && len(o) > 0 {
 			ret = append(ret, o)
 		}
 	}

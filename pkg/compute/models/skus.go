@@ -715,7 +715,7 @@ func (manager *SServerSkuManager) MarkAllAsSoldout(ids []string) error {
 func (manager *SServerSkuManager) FetchAllAvailableSkuIdByZoneId(zoneId string) ([]string, error) {
 	q := manager.Query()
 	if len(zoneId) == 0 {
-		return nil, fmt.Errorf("FetchAllSkuIdByZoneId zone id should not be emtpy")
+		return nil, fmt.Errorf("FetchAllAvailableSkuIdByZoneId zone id should not be emtpy")
 	}
 
 	skus := make([]SServerSku, 0)
@@ -730,7 +730,7 @@ func (manager *SServerSkuManager) FetchAllAvailableSkuIdByZoneId(zoneId string) 
 	}
 
 	ids := make([]string, len(skus))
-	for i, _ := range skus {
+	for i := range skus {
 		ids[i] = skus[i].GetId()
 	}
 
