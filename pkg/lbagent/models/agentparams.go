@@ -63,6 +63,7 @@ func NewAgentParams(agent *models.LoadbalancerAgent) (*AgentParams, error) {
 	dataAgent := map[string]interface{}{
 		"id":   agent.Id,
 		"name": agent.Name,
+		"ip":   agent.IP,
 	}
 	data := map[string]map[string]interface{}{
 		"agent":    dataAgent,

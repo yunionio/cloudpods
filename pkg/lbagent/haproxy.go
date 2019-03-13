@@ -70,9 +70,42 @@ func (h *HaproxyHelper) handleCmd(ctx context.Context, cmd *LbagentCmd) {
 		cmdData := cmd.Data.(*LbagentCmdUseCorpusData)
 		defer cmdData.Wg.Done()
 		h.handleUseCorpusCmd(ctx, cmd)
+	case LbagentCmdStopDaemons:
+		h.handleStopDaemonsCmd(ctx)
 	default:
 		log.Warningf("command type ignored: %v", cmd.Type)
 	}
+}
+
+func (h *HaproxyHelper) handleStopDaemonsCmd(ctx context.Context) {
+	files := map[string]string{
+		"gobetween": h.gobetweenPidFile(),
+		"haproxy":   h.haproxyPidFile(),
+		"telegraf":  h.telegrafPidFile(),
+	}
+	wg := &sync.WaitGroup{}
+	wg.Add(len(files))
+
+	for name, f := range files {
+		go func(name, f string) {
+			defer wg.Done()
+			proc := agentutils.ReadPidFile(f)
+			if proc != nil {
+				log.Infof("stopping %s(%d)", name, proc.Pid)
+				proc.Signal(syscall.SIGTERM)
+				for etime := time.Now().Add(5 * time.Second); etime.Before(time.Now()); {
+					if err := proc.Signal(syscall.Signal(0)); err == nil {
+						return
+					}
+					time.Sleep(500 * time.Millisecond)
+				}
+				proc.Kill()
+				// TODO check whether proc.Ppid == os.Getpid()
+				proc.Wait()
+			}
+		}(name, f)
+	}
+	wg.Wait()
 }
 
 func (h *HaproxyHelper) handleUseCorpusCmd(ctx context.Context, cmd *LbagentCmd) {
@@ -308,16 +341,17 @@ func (h *HaproxyHelper) gobetweenPidFile() string {
 
 func (h *HaproxyHelper) reloadGobetween(ctx context.Context) error {
 	pidFile := h.gobetweenPidFile()
-	args := []string{
-		h.opts.GobetweenBin,
-		"--config", h.gobetweenConf(),
-		"--format", "json",
-	}
 	proc := agentutils.ReadPidFile(pidFile)
 	if proc != nil {
 		log.Infof("stopping gobetween(%d)", proc.Pid)
 		proc.Kill()
 		proc.Wait()
+	}
+
+	args := []string{
+		h.opts.GobetweenBin,
+		"--config", h.gobetweenConf(),
+		"--format", "json",
 	}
 	log.Infof("starting gobetween")
 	cmd, err := h.startCmd(args)

@@ -163,6 +163,9 @@ type LoadbalancerCertificate struct {
 type LoadbalancerAgent struct {
 	StandaloneResource
 
+	Version    string
+	IP         string
+	HaState    string
 	HbLastSeen time.Time
 	HbTimeout  int
 
