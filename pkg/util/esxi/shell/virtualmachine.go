@@ -3,6 +3,7 @@ package shell
 import (
 	"context"
 	"fmt"
+
 	"yunion.io/x/onecloud/pkg/util/esxi"
 	"yunion.io/x/onecloud/pkg/util/printutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"

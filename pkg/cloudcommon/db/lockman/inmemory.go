@@ -2,9 +2,9 @@ package lockman
 
 import (
 	"context"
+	"runtime/debug"
 	"sync"
 
-	"runtime/debug"
 	"yunion.io/x/log"
 )
 

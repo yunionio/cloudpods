@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"

@@ -4,8 +4,9 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"golang.org/x/crypto/ssh"
 	"testing"
+
+	"golang.org/x/crypto/ssh"
 )
 
 func TestGenerateRSASSHKeypair(t *testing.T) {

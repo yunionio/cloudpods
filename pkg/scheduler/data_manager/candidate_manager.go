@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/pkg/util/ttlpool"
+
 	"yunion.io/x/onecloud/pkg/scheduler/cache"
 	candidatecache "yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	dbcache "yunion.io/x/onecloud/pkg/scheduler/cache/db"
 	synccache "yunion.io/x/onecloud/pkg/scheduler/cache/sync"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	"yunion.io/x/pkg/util/ttlpool"
 )
 
 type CandidateGetArgs struct {

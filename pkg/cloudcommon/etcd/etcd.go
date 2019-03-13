@@ -2,13 +2,15 @@ package etcd
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
+	"fmt"
 	"time"
 
-	"crypto/tls"
-	"fmt"
 	"go.etcd.io/etcd/clientv3"
+
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 

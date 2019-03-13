@@ -2,6 +2,7 @@ package netutils2
 
 import (
 	"testing"
+
 	"yunion.io/x/pkg/util/netutils"
 )
 

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bitly/go-simplejson"
+	simplejson "github.com/bitly/go-simplejson"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"

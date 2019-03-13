@@ -12,9 +12,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
+
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-	"yunion.io/x/pkg/gotypes"
 )
 
 type Client struct {

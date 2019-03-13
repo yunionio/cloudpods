@@ -9,13 +9,12 @@ import (
 
 	"yunion.io/x/log"
 
-	_ "yunion.io/x/onecloud/pkg/image/tasks"
-
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/image/options"
+	_ "yunion.io/x/onecloud/pkg/image/tasks"
 	"yunion.io/x/onecloud/pkg/image/torrent"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )

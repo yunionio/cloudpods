@@ -3,8 +3,9 @@ package factory
 import (
 	"fmt"
 
-	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/pkg/util/sets"
+
+	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
 func GetAlgorithmProvider(name string) (*AlgorithmProviderConfig, error) {

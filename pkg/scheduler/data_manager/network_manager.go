@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/scheduler/cache"
 	synccache "yunion.io/x/onecloud/pkg/scheduler/cache/sync"
 	networks_db "yunion.io/x/onecloud/pkg/scheduler/cache/sync/networks/db"

@@ -1,9 +1,9 @@
 package conditionparser
 
 import (
+	"go/parser"
 	"testing"
 
-	"go/parser"
 	"yunion.io/x/jsonutils"
 )
 

@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 )
 
 const (
