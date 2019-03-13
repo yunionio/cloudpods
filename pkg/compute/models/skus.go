@@ -799,7 +799,7 @@ func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
 	return nil
 }
 
-func (manager *SServerSkuManager) SyncCloudSkusByRegion(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, skus []cloudprovider.ICloudSku) compare.SyncResult {
+func (manager *SServerSkuManager) SyncCloudSkusByZone(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, skus []cloudprovider.ICloudSku) compare.SyncResult {
 	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
 	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
 

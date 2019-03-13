@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 )
 
@@ -36,14 +35,12 @@ func ParseMac(macStr string) (SMacAddr, error) {
 func (mac SMacAddr) Add(step int) SMacAddr {
 	mac2 := SMacAddr{}
 	leftOver := step
-	for i := 5; i >= 0; i -= 1 { // skip first 2 vendor bytes
+	for i := 5; i >= 0; i -= 1 {
 		newByte := int(mac[i]) + leftOver
 		res := 0
 		if newByte < 0 {
-			log.Debugf("%d %d", mac[i], newByte)
 			res = ((-newByte) / 0x100) + 1
 			newByte = newByte + res*0x100
-			log.Debugf("%d %d", newByte, res)
 		}
 		mac2[i] = byte(newByte % 0x100)
 		leftOver = newByte/0x100 - res
