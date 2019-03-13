@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -143,7 +144,9 @@ func (manager *SCloudproviderregionManager) FetchByIds(providerId string, region
 	}
 	err = q.First(obj)
 	if err != nil {
-		log.Errorf("q.First fail %s", err)
+		if err != sql.ErrNoRows {
+			log.Errorf("q.First fail %s", err)
+		}
 		return nil
 	}
 	return obj.(*SCloudproviderregion)

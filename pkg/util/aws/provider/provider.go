@@ -122,11 +122,7 @@ func (self *SAwsProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion,
 }
 
 func (self *SAwsProvider) GetBalance() (float64, error) {
-	balance, err := self.client.QueryAccountBalance()
-	if err != nil {
-		return 0.0, err
-	}
-	return balance.AvailableAmount, nil
+	return 0.0, cloudprovider.ErrNotSupported
 }
 
 func (self *SAwsProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

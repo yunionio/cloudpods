@@ -128,11 +128,7 @@ func (self *SAzureProvider) GetIRegionById(id string) (cloudprovider.ICloudRegio
 }
 
 func (self *SAzureProvider) GetBalance() (float64, error) {
-	balance, err := self.client.QueryAccountBalance()
-	if err != nil {
-		return 0.0, err
-	}
-	return balance.AvailableAmount, nil
+	return 0.0, cloudprovider.ErrNotSupported
 }
 
 func (self *SAzureProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

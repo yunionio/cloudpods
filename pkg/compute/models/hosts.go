@@ -2689,26 +2689,6 @@ func (self *SHost) StartBaremetalUnmaintenanceTask(ctx context.Context, userCred
 	return nil
 }
 
-func (self *SHost) IsBaremetalAgentReady() bool {
-	url, err := auth.GetServiceURL("baremetal", options.Options.Region, self.GetZone().GetName(), "")
-	if err != nil {
-		log.Errorln("is baremetal agent ready: false")
-		return false
-	}
-	log.Infof("baremetal url:%s", url)
-	return true
-}
-
-func (self *SHost) BaremetalSyncRequest(ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	serviceUrl, err := auth.GetServiceURL("baremetal", options.Options.Region, self.GetZone().GetName(), "")
-	if err != nil {
-		return nil, err
-	}
-	url = serviceUrl + url
-	_, data, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, method, url, headers, body, false)
-	return data, err
-}
-
 func (self *SHost) StartSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	guest := self.GetBaremetalServer()
 	if guest != nil {
@@ -3659,20 +3639,39 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 // 	return HostManager.GetEsxiAgentHost(host.Id)
 // }
 
+func (self *SHost) IsBaremetalAgentReady() bool {
+	return self.isAgentReady(AgentTypeBaremetal)
+}
+
+func (self *SHost) BaremetalSyncRequest(ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	return self.doAgentRequest(AgentTypeBaremetal, ctx, method, url, headers, body)
+}
+
 func (self *SHost) IsEsxiAgentReady() bool {
-	url, err := auth.GetServiceURL("esxiagent", options.Options.Region, self.GetZone().GetName(), "")
-	if err != nil {
-		log.Errorln("is esxi agent ready: false")
-		return false
-	}
-	log.Infof("esxi agent url:%s", url)
-	return true
+	return self.isAgentReady(AgentTypeEsxi)
 }
 
 func (self *SHost) EsxiRequest(ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	serviceUrl, err := auth.GetServiceURL("esxiagent", options.Options.Region, self.GetZone().GetName(), "")
-	if err != nil {
-		return nil, err
+	return self.doAgentRequest(AgentTypeEsxi, ctx, method, url, headers, body)
+}
+
+func (self *SHost) isAgentReady(agentType TAgentType) bool {
+	agent := BaremetalagentManager.GetAgent(agentType, self.ZoneId)
+	if agent == nil {
+		log.Errorf("%s ready: false", agentType)
+		return false
+	}
+	return true
+}
+
+func (self *SHost) doAgentRequest(agentType TAgentType, ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+	agent := BaremetalagentManager.GetAgent(agentType, self.ZoneId)
+	if agent == nil {
+		return nil, fmt.Errorf("no valid %s", agentType)
+	}
+	serviceUrl := agent.ManagerUri
+	if url[0] != '/' && serviceUrl[len(serviceUrl)-1] != '/' {
+		serviceUrl += "/"
 	}
 	url = serviceUrl + url
 	_, data, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, method, url, headers, body, false)

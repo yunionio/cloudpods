@@ -2,6 +2,7 @@ package taskman
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -10,19 +11,18 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/appctx"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/stringutils"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"database/sql"
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
-	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (
@@ -449,6 +449,14 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 
 func (task *STask) ScheduleRun(data jsonutils.JSONObject) {
 	runTask(task.Id, data)
+}
+
+func (self *STask) HasParentTask() bool {
+	parentTaskId, _ := self.Params.GetString(PARENT_TASK_ID_KEY)
+	if len(parentTaskId) > 0 {
+		return true
+	}
+	return false
 }
 
 func (self *STask) GetParentTask() *STask {
