@@ -156,7 +156,7 @@ func (self *SESXiProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion
 }
 
 func (self *SESXiProvider) GetBalance() (float64, error) {
-	return 0.0, nil
+	return 0.0, cloudprovider.ErrNotSupported
 }
 
 func (self *SESXiProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {

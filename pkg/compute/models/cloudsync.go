@@ -519,7 +519,7 @@ func syncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider 
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
-func syncRegionSkusFromCloud(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localZone *SZone, remoteRegion cloudprovider.ICloudRegion, remoteZone cloudprovider.ICloudZone) {
+func syncZoneSkusFromCloud(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localZone *SZone, remoteRegion cloudprovider.ICloudRegion, remoteZone cloudprovider.ICloudZone) {
 	skus, err := remoteRegion.GetSkus(remoteZone.GetId())
 	if err != nil {
 		msg := fmt.Sprintf("GetSkus for zone %s failed %v", localZone.Name, err)
@@ -527,7 +527,7 @@ func syncRegionSkusFromCloud(ctx context.Context, userCred mcclient.TokenCredent
 		return
 	}
 
-	result := ServerSkuManager.SyncCloudSkusByRegion(ctx, userCred, provider, localZone, skus)
+	result := ServerSkuManager.SyncCloudSkusByZone(ctx, userCred, provider, localZone, skus)
 
 	syncResults.Add(ServerSkuManager, result)
 
@@ -763,7 +763,7 @@ func syncPublicCloudProviderInfo(
 		}
 
 		if driver.GetFactory().NeedSyncSkuFromCloud() {
-			syncRegionSkusFromCloud(ctx, userCred, syncResults, provider, &localZones[j], remoteRegion, remoteZones[j])
+			syncZoneSkusFromCloud(ctx, userCred, syncResults, provider, &localZones[j], remoteRegion, remoteZones[j])
 		}
 	}
 

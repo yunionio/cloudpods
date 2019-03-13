@@ -33,7 +33,6 @@ func init() {
 	})
 
 	type CloudaccountCreateOptions struct {
-		NAME            string `help:"Name of cloud account"`
 		AccessKeyID     string `help:"Aiyun|HuaWei|Aws access_key_id"`
 		AccessKeySecret string `help:"Aiyun|HuaWei|Aws access_key_secret"`
 		AppID           string `help:"Qcloud appid"`
@@ -49,60 +48,85 @@ func init() {
 		ClientID        string `help:"Azure client_id"`
 		ClientSecret    string `help:"Azure clinet_secret"`
 		Environment     string `help:"Azure|Huawei|Aws environment" choices:"AzureGermanCloud|AzureChinaCloud|AzureUSGovernmentCloud|AzurePublicCloud|InternationalCloud|ChinaCloud|"`
-		PROVIDER        string `help:"Driver for cloud account" choices:"VMware|Aliyun|Azure|Qcloud|OpenStack|Huawei|Aws"`
-		Desc            string `help:"Description"`
-		Enabled         bool   `help:"Enabled the account automatically"`
 
-		Import            bool `help:"Import all sub account automatically"`
-		AutoSync          bool `help:"Enabled the account automatically"`
-		AutoCreateProject bool `help:"Enable the account with same name project"`
+		Enabled bool `help:"Enabled the account automatically"`
+
+		Import   bool `help:"Import all sub account automatically"`
+		AutoSync bool `help:"Enabled the account automatically"`
 	}
 	R(&CloudaccountCreateOptions{}, "cloud-account-create", "Create a cloud account", func(s *mcclient.ClientSession, args *CloudaccountCreateOptions) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.NAME), "name")
-		params.Add(jsonutils.NewString(args.PROVIDER), "provider")
-		data := jsonutils.Marshal(args)
+		return fmt.Errorf("obsolete, please try cloud-account-create-xxx, where xxx is vmware, aliyun, azure, qcloud, aws, openstack, huawei etc.")
+	})
 
-		requireParamsMap := map[string][]string{
-			"VMware":    {"username", "password", "host", "port"},
-			"Aliyun":    {"access_key_id", "access_key_secret"},
-			"Azure":     {"directory_id", "client_id", "client_secret", "environment"},
-			"Qcloud":    {"app_id", "secret_id", "secret_key"},
-			"OpenStack": {"project_name", "username", "password", "auth_url", "endpoint_type"},
-			"Huawei":    {"access_key_id", "access_key_secret", "environment"},
-			"Aws":       {"access_key_id", "access_key_secret", "environment"},
+	R(&options.SVMwareCloudAccountCreateOptions{}, "cloud-account-create-vmware", "Create a VMware cloud account", func(s *mcclient.ClientSession, args *options.SVMwareCloudAccountCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("VMware"), "provider")
+		result, err := modules.Cloudaccounts.Create(s, params)
+		if err != nil {
+			return err
 		}
+		printObject(result)
+		return nil
+	})
 
-		requireParams, ok := requireParamsMap[args.PROVIDER]
-		if !ok {
-			return fmt.Errorf("Unsupport provider %s", args.PROVIDER)
+	R(&options.SAliyunCloudAccountCreateOptions{}, "cloud-account-create-aliyun", "Create an Aliyun cloud account", func(s *mcclient.ClientSession, args *options.SAliyunCloudAccountCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Aliyun"), "provider")
+		result, err := modules.Cloudaccounts.Create(s, params)
+		if err != nil {
+			return err
 		}
+		printObject(result)
+		return nil
+	})
 
-		for _, key := range requireParams {
-			v, _ := data.GetString(key)
-			if len(v) == 0 {
-				return fmt.Errorf("Missing %s", key)
-			}
-			params.Add(jsonutils.NewString(v), key)
+	R(&options.SAzureCloudAccountCreateOptions{}, "cloud-account-create-azure", "Create an Azure cloud account", func(s *mcclient.ClientSession, args *options.SAzureCloudAccountCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Azure"), "provider")
+		result, err := modules.Cloudaccounts.Create(s, params)
+		if err != nil {
+			return err
 		}
+		printObject(result)
+		return nil
+	})
 
-		if args.Enabled {
-			params.Add(jsonutils.JSONTrue, "enabled")
+	R(&options.SQcloudCloudAccountCreateOptions{}, "cloud-account-create-qcloud", "Create a Qcloud cloud account", func(s *mcclient.ClientSession, args *options.SQcloudCloudAccountCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Qcloud"), "provider")
+		result, err := modules.Cloudaccounts.Create(s, params)
+		if err != nil {
+			return err
 		}
+		printObject(result)
+		return nil
+	})
 
-		if args.Import {
-			params.Add(jsonutils.JSONTrue, "import")
-			if args.AutoSync {
-				params.Add(jsonutils.JSONTrue, "auto_sync")
-			}
-			if args.AutoCreateProject {
-				params.Add(jsonutils.JSONTrue, "auto_create_project")
-			}
+	R(&options.SAWSCloudAccountCreateOptions{}, "cloud-account-create-aws", "Create an AWS cloud account", func(s *mcclient.ClientSession, args *options.SAWSCloudAccountCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Aws"), "provider")
+		result, err := modules.Cloudaccounts.Create(s, params)
+		if err != nil {
+			return err
 		}
+		printObject(result)
+		return nil
+	})
 
-		if len(args.Desc) > 0 {
-			params.Add(jsonutils.NewString(args.Desc), "description")
+	R(&options.SOpenStackCloudAccountCreateOptions{}, "cloud-account-create-openstack", "Create an OpenStack cloud account", func(s *mcclient.ClientSession, args *options.SOpenStackCloudAccountCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("OpenStack"), "provider")
+		result, err := modules.Cloudaccounts.Create(s, params)
+		if err != nil {
+			return err
 		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SHuaweiCloudAccountCreateOptions{}, "cloud-account-create-huawei", "Create a Huawei cloud account", func(s *mcclient.ClientSession, args *options.SHuaweiCloudAccountCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Huawei"), "provider")
 		result, err := modules.Cloudaccounts.Create(s, params)
 		if err != nil {
 			return err
@@ -233,6 +257,70 @@ func init() {
 		ClientSecret    string `help:"Azure clinet_secret"`
 	}
 	R(&CloudaccountUpdateCredentialOptions{}, "cloud-account-update-credential", "Update credential of a cloud account", func(s *mcclient.ClientSession, args *CloudaccountUpdateCredentialOptions) error {
+		return fmt.Errorf("obsolete command, please try cloud-account-update-credential-xxx, where xxx is vmware, aliyun, azure, qcloud, aws, openstack, huawei, etc.")
+	})
+
+	R(&options.SVMwareCloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-vmware", "Update credential of a VMware cloud account", func(s *mcclient.ClientSession, args *options.SVMwareCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SAliyunCloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-aliyun", "Update credential of an Aliyun cloud account", func(s *mcclient.ClientSession, args *options.SAliyunCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SAzureCloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-azure", "Update credential of an Azure cloud account", func(s *mcclient.ClientSession, args *options.SAzureCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SQcloudCloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-qcloud", "Update credential of a Qcloud cloud account", func(s *mcclient.ClientSession, args *options.SQcloudCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SAWSCloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-aws", "Update credential of an AWS cloud account", func(s *mcclient.ClientSession, args *options.SAWSCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SOpenStackCloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-openstack", "Update credential of an OpenStack cloud account", func(s *mcclient.ClientSession, args *options.SOpenStackCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SHuaweiCloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-huawei", "Update credential of an Huawei cloud account", func(s *mcclient.ClientSession, args *options.SHuaweiCloudAccountUpdateCredentialOptions) error {
 		params := jsonutils.Marshal(args)
 		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
 		if err != nil {
