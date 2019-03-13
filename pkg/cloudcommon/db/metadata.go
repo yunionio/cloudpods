@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	SYSTEM_ADMIN_PREFIX = "__sys_"
+	SYSTEM_ADMIN_PREFIX = "_"
+	CLOUD_TAG_PREFIX    = "ext:"
 )
 
 type SMetadataManager struct {
@@ -95,12 +96,11 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	if len(conditions) > 0 {
 		q = q.Filter(sqlchemy.OR(conditions...))
 	}
-	q.DebugQuery()
 	if !jsonutils.QueryBoolean(query, "with_sys", false) {
-		q = q.Filter(sqlchemy.NOT(sqlchemy.Startswith(q.Field("key"), "_")))
+		q = q.Filter(sqlchemy.NOT(sqlchemy.Startswith(q.Field("key"), SYSTEM_ADMIN_PREFIX)))
 	}
 	if !jsonutils.QueryBoolean(query, "with_cloud", false) {
-		q = q.Filter(sqlchemy.NOT(sqlchemy.Startswith(q.Field("key"), "ext:")))
+		q = q.Filter(sqlchemy.NOT(sqlchemy.Startswith(q.Field("key"), CLOUD_TAG_PREFIX)))
 	}
 	return q, nil
 }
@@ -194,6 +194,10 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 
 	changes := make([]sMetadataChange, 0)
 	for key, value := range store {
+		if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAdminAllowGetSpec(userCred, obj, "metadata")) {
+			return httperrors.NewForbiddenError("Ordinary users can't set the tags that begin with an underscore")
+		}
+
 		valStr := stringutils.Interface2String(value)
 		valStrLower := strings.ToLower(valStr)
 		if valStrLower == "none" || valStrLower == "null" {

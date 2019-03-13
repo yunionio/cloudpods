@@ -263,8 +263,8 @@ func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userC
 }
 
 func (model *SStandaloneResourceBase) ValidateMetadataKey(key string) error {
-	if strings.HasPrefix(key, "_") || strings.HasPrefix(key, "ext:") || strings.ContainsAny(key, `:=#&?$/\`) {
-		return httperrors.NewInputParameterError(`key cannot start with _ or ext: and not contain :=#&?$/\`)
+	if strings.HasPrefix(key, CLOUD_TAG_PREFIX) || strings.ContainsAny(key, `:=#&?$/\`) {
+		return httperrors.NewInputParameterError(`key cannot start with %s and not contain :=#&?$/\`, CLOUD_TAG_PREFIX)
 	}
 	return nil
 }
