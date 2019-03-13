@@ -47,7 +47,7 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	}
 
 	disk.SetStatus(self.GetUserCred(), models.DISK_START_RESIZE, "")
-	if masterGuest == nil {
+	if masterGuest != nil {
 		masterGuest.SetStatus(self.GetUserCred(), models.VM_RESIZE_DISK, "")
 	}
 	self.StartResizeDisk(ctx, host, storage, disk, masterGuest)
