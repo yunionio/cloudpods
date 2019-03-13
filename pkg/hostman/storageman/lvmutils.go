@@ -8,10 +8,11 @@ import (
 	"sync"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/stringutils"
+
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
-	"yunion.io/x/pkg/util/stringutils"
 )
 
 const (
