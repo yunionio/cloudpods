@@ -1028,6 +1028,24 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 				}
 			}
 		}
+		img, err := qemuimg.NewQemuImage(self.getLocalLocation())
+		if err == nil {
+			format := string(img.Format)
+			virtualSizeMB := int32(img.SizeBytes / 1024 / 1024)
+			if (len(format) > 0 && self.DiskFormat != format) || (virtualSizeMB > 0 && self.MinDiskMB != virtualSizeMB) {
+				self.GetModelManager().TableSpec().Update(self, func() error {
+					if len(format) > 0 {
+						self.DiskFormat = format
+					}
+					if virtualSizeMB > 0 {
+						self.MinDiskMB = virtualSizeMB
+					}
+					return nil
+				})
+			}
+		} else {
+			log.Warningf("fail to check image size of %s(%s)", self.Id, self.Name)
+		}
 	} else {
 		if self.Status != IMAGE_STATUS_QUEUED {
 			self.SetStatus(userCred, IMAGE_STATUS_QUEUED, "check inactive")
