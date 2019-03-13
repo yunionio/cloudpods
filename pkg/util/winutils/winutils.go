@@ -14,10 +14,11 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
-	"yunion.io/x/pkg/utils"
 )
 
 var _CHNTPW_PATH string

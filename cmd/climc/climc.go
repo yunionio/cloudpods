@@ -18,10 +18,9 @@ import (
 
 	"yunion.io/x/onecloud/cmd/climc/promputils"
 	"yunion.io/x/onecloud/cmd/climc/shell"
-	"yunion.io/x/onecloud/pkg/mcclient"
-
 	_ "yunion.io/x/onecloud/cmd/climc/shell/etcd"
 	_ "yunion.io/x/onecloud/cmd/climc/shell/k8s"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type BaseOptions struct {

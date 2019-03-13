@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SpecsManager struct {
