@@ -132,6 +132,13 @@ func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
+func (self *SCloudaccount) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	cloudproviders := self.GetCloudproviders()
+	for i := 0; i < len(cloudproviders); i++ {
+		cloudproviders[i].Delete(ctx, userCred)
+	}
+}
+
 func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, data)
 	if err != nil {
@@ -226,16 +233,9 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
-func (self *SCloudaccount) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	cloudproviders := self.GetCloudproviders()
-	for i := 0; i < len(cloudproviders); i++ {
-		cloudproviders[i].Delete(ctx, userCred)
-	}
-}
-
 func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	self.Enabled = true
-	self.EnableAutoSync = false
+	// self.EnableAutoSync = false
 	return self.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
 }
 
@@ -243,7 +243,9 @@ func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.Tok
 	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 	self.savePassword(self.Secret)
 
-	self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
+	if !self.EnableAutoSync {
+		self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{}, "")
+	}
 }
 
 func (self *SCloudaccount) savePassword(secret string) error {
@@ -1013,15 +1015,6 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Contex
 	}
 
 	q := manager.Query()
-	/*
-		q = q.Filter(
-			sqlchemy.OR(
-				sqlchemy.NotEquals(q.Field("status"), CLOUD_PROVIDER_DISCONNECTED),
-				sqlchemy.LT(q.Field("error_count"), options.Options.MaxCloudAccountErrorCount),
-			),
-		)
-	*/
-	// q = q.Equals("sync_status", CLOUD_PROVIDER_SYNC_STATUS_IDLE)
 
 	accounts := make([]SCloudaccount, 0)
 	err := db.FetchModelObjects(manager, q, &accounts)
@@ -1051,7 +1044,7 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		return nil, err
 	}
 	balance, err := manager.GetBalance()
-	if err != nil {
+	if err != nil && err != cloudprovider.ErrNotSupported {
 		log.Errorf("manager.GetBalance fail %s", err)
 		return nil, err
 	}
@@ -1129,7 +1122,7 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 		if waitChan != nil {
 			waitChan <- err
 		} else {
-			if err == nil && autoSync && account.EnableAutoSync {
+			if err == nil && autoSync && account.Enabled && account.EnableAutoSync {
 				syncRange := SSyncRange{FullSync: true}
 				providers := account.GetEnabledCloudproviders()
 				for i := range providers {
