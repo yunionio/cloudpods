@@ -1139,7 +1139,17 @@ func (self *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) 
 		return fmt.Errorf("invalid renew period %s month,must be 1~11 month or 1~3 year", month)
 	}
 
-	_, err := self.ecsClient.Orders.RenewPeriodResource(params)
+	domainId, err := self.getDomianId()
+	if err != nil {
+		return err
+	}
+
+	err = self.ecsClient.Orders.SetDomainId(domainId)
+	if err != nil {
+		return err
+	}
+
+	_, err = self.ecsClient.Orders.RenewPeriodResource(params)
 	return err
 }
 
