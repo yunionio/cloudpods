@@ -37,7 +37,7 @@ var Metadata *SMetadataManager
 var ResourceMap map[string]*SVirtualResourceBaseManager
 
 func init() {
-	Metadata = &SMetadataManager{SModelBaseManager: NewModelBaseManager(SMetadata{}, "metadata_tbl", "metadata", "metadata")}
+	Metadata = &SMetadataManager{SModelBaseManager: NewModelBaseManager(SMetadata{}, "metadata_tbl", "metadata", "metadatas")}
 	ResourceMap = map[string]*SVirtualResourceBaseManager{
 		"disk":     {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "disks_tbl", "disk", "disks")},
 		"server":   {SStatusStandaloneResourceBaseManager: NewStatusStandaloneResourceBaseManager(SVirtualResourceBase{}, "guests_tbl", "server", "servers")},
@@ -78,7 +78,8 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	for _, resource := range resources {
 		if manager, ok := ResourceMap[resource]; ok {
 			resourceView := manager.Query().SubQuery()
-			field := sqlchemy.CONCAT(manager.Keyword(), fmt.Sprintf("%s::", manager.Keyword()), resourceView.Field("id"))
+			prefix := sqlchemy.NewStringField(fmt.Sprintf("%s::", manager.Keyword()))
+			field := sqlchemy.CONCAT(manager.Keyword(), prefix, resourceView.Field("id"))
 			sq := resourceView.Query(field)
 			if !admin || !IsAdminAllowList(userCred, manager) {
 				ownerId := manager.GetOwnerId(userCred)
@@ -94,6 +95,7 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	if len(conditions) > 0 {
 		q = q.Filter(sqlchemy.OR(conditions...))
 	}
+	q.DebugQuery()
 	if !jsonutils.QueryBoolean(query, "with_sys", false) {
 		q = q.Filter(sqlchemy.NOT(sqlchemy.Startswith(q.Field("key"), "_")))
 	}

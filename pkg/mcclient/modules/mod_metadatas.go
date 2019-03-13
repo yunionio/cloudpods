@@ -5,7 +5,7 @@ var (
 )
 
 func init() {
-	Metadatas = NewComputeManager("metadata", "metadata",
+	Metadatas = NewComputeManager("metadata", "metadatas",
 		[]string{"id", "key", "value"},
 		[]string{})
 	registerCompute(&Metadatas)

@@ -219,10 +219,10 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 			params.Set("admin", jsonutils.JSONTrue)
 		}
 	}
+	if len(opts.TagsKey) != len(opts.TagsValue) {
+		return nil, fmt.Errorf("tags key length not equal value length")
+	}
 	if len(opts.TagsKey) > 0 {
-		if len(opts.TagsKey) != len(opts.TagsValue) {
-			return nil, fmt.Errorf("tags key length not equal value length")
-		}
 		for i := 0; i < len(opts.TagsKey); i++ {
 			params.Add(jsonutils.NewString(opts.TagsKey[i]), fmt.Sprintf("tags.%d.key", i))
 			params.Add(jsonutils.NewString(opts.TagsValue[i]), fmt.Sprintf("tags.%d.value", i))
