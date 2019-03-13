@@ -1181,3 +1181,7 @@ func (self *SRegion) UnsubscribeInstance(instanceId string, domianId string) (js
 func (self *SInstance) GetProjectId() string {
 	return ""
 }
+
+func (self *SInstance) GetError() error {
+	return nil
+}

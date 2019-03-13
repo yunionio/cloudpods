@@ -722,3 +722,7 @@ func (self *SVirtualMachine) Renew(bc billing.SBillingCycle) error {
 func (self *SVirtualMachine) GetProjectId() string {
 	return ""
 }
+
+func (self *SVirtualMachine) GetError() error {
+	return nil
+}
