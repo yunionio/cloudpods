@@ -47,8 +47,12 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 }
 
 func (self *GuestSyncConfTask) OnDiskSyncComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.SetStage("on_sync_status_complete", nil)
-	guest.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
+	if self.HasParentTask() {
+		self.OnSyncStatusComplete(ctx, guest, nil)
+	} else {
+		self.SetStage("on_sync_status_complete", nil)
+		guest.StartSyncstatus(ctx, self.GetUserCred(), self.GetTaskId())
+	}
 }
 
 func (self *GuestSyncConfTask) OnDiskSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
