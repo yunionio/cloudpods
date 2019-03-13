@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/pkg/utils"
 )
 
 type GuestSwitchToBackupTask struct {

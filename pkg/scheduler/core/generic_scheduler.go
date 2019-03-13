@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"yunion.io/x/log"
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/pkg/util/errors"
 	gp "yunion.io/x/pkg/util/goroutine_pool"
 	utiltrace "yunion.io/x/pkg/util/trace"
 	"yunion.io/x/pkg/util/workqueue"
+
+	o "yunion.io/x/onecloud/cmd/scheduler/options"
 )
 
 const (

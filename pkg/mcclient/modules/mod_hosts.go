@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const MACAddressPattern = `(([a-fA-F0-9]{2}[:-]){5}([a-fA-F0-9]{2}))`

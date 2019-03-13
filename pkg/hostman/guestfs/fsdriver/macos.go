@@ -6,11 +6,12 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/util/macutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
-	"yunion.io/x/pkg/utils"
 )
 
 type SMacOSRootFs struct {

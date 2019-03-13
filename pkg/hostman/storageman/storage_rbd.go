@@ -9,8 +9,11 @@ import (
 
 	"github.com/ceph/go-ceph/rados"
 	"github.com/ceph/go-ceph/rbd"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
@@ -19,7 +22,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
-	"yunion.io/x/pkg/utils"
 )
 
 const (

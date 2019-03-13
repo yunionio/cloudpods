@@ -1,10 +1,11 @@
 package algorithmprovider
 
 import (
+	"yunion.io/x/pkg/util/sets"
+
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	predicatebm "yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates/baremetal"
 	"yunion.io/x/onecloud/pkg/scheduler/factory"
-	"yunion.io/x/pkg/util/sets"
 )
 
 func init() {

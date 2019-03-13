@@ -7,6 +7,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -17,7 +18,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/skus"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/pkg/util/compare"
 )
 
 type CloudProviderSyncInfoTask struct {

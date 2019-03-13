@@ -7,8 +7,9 @@ import (
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/tristate"
+
+	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type recordRequest struct {

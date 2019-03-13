@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/coremain"
 	_ "github.com/coredns/coredns/plugin/cache"
 	_ "github.com/coredns/coredns/plugin/chaos"
 	_ "github.com/coredns/coredns/plugin/debug"
@@ -16,9 +18,6 @@ import (
 	_ "github.com/coredns/coredns/plugin/reload"
 	_ "github.com/coredns/coredns/plugin/trace"
 	_ "github.com/mholt/caddy/startupshutdown"
-
-	"github.com/coredns/coredns/core/dnsserver"
-	"github.com/coredns/coredns/coremain"
 
 	_ "yunion.io/x/onecloud/pkg/dns"
 )

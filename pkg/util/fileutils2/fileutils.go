@@ -17,9 +17,10 @@ import (
 	"golang.org/x/sys/unix"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
-	"yunion.io/x/pkg/utils"
 )
 
 func Cleandir(sPath string, keepdir bool) error {

@@ -4,9 +4,10 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/utils"
 )
 
 type SAdminSharableVirtualResourceBase struct {

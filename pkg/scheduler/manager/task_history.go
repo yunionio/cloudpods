@@ -5,9 +5,10 @@ import (
 	"sync"
 	"time"
 
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/pkg/util/wait"
 	u "yunion.io/x/pkg/utils"
+
+	o "yunion.io/x/onecloud/cmd/scheduler/options"
 )
 
 type HistoryItem struct {

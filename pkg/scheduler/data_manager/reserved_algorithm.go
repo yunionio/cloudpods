@@ -1,8 +1,9 @@
 package data_manager
 
 import (
-	candidatecache "yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/pkg/utils"
+
+	candidatecache "yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 )
 
 type ResAlgorithm interface {

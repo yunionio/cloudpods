@@ -1,9 +1,9 @@
 package huawei
 
 import (
+	"fmt"
 	"strings"
 
-	"fmt"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/huawei/client"
 )

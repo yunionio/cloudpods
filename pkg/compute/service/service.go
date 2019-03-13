@@ -8,9 +8,15 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
+	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	_ "yunion.io/x/onecloud/pkg/compute/regiondrivers"
+	"yunion.io/x/onecloud/pkg/compute/skus"
 	_ "yunion.io/x/onecloud/pkg/compute/storagedrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/tasks"
 	_ "yunion.io/x/onecloud/pkg/util/aliyun/provider"
@@ -20,13 +26,6 @@ import (
 	_ "yunion.io/x/onecloud/pkg/util/huawei/provider"
 	_ "yunion.io/x/onecloud/pkg/util/openstack/provider"
 	_ "yunion.io/x/onecloud/pkg/util/qcloud/provider"
-
-	"yunion.io/x/onecloud/pkg/cloudcommon"
-	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/compute/options"
-	"yunion.io/x/onecloud/pkg/compute/skus"
 )
 
 func StartService() {

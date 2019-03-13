@@ -1,17 +1,17 @@
 package seclib2
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/sha1"
-
-	"golang.org/x/crypto/ssh"
-
 	"crypto"
 	"crypto/dsa"
 	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+
+	"golang.org/x/crypto/ssh"
+
 	"yunion.io/x/log"
 )
 
