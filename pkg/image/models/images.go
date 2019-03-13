@@ -1033,7 +1033,7 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 			format := string(img.Format)
 			virtualSizeMB := int32(img.SizeBytes / 1024 / 1024)
 			if (len(format) > 0 && self.DiskFormat != format) || (virtualSizeMB > 0 && self.MinDiskMB != virtualSizeMB) {
-				self.GetModelManager().TableSpec().Update(self, func() error {
+				db.Update(self, func() error {
 					if len(format) > 0 {
 						self.DiskFormat = format
 					}
