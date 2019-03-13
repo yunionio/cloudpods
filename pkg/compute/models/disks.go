@@ -726,10 +726,12 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	}
 
 	guests := self.GetGuests()
+
 	var guest *SGuest
 	if len(guests) == 1 {
 		guest = &guests[0]
 	}
+
 	return nil, self.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage, guest)
 }
 
