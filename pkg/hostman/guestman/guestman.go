@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -156,11 +157,18 @@ func (m *SGuestManager) StartCpusetBalancer() {
 		return
 	}
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				debug.PrintStack()
+				log.Errorf("Cpuset balancer failed %s", r)
+			}
+		}()
 		for {
+			time.Sleep(time.Second * 120)
+
 			if options.HostOptions.EnableCpuBinding {
 				m.cpusetBalance()
 			}
-			time.Sleep(time.Second * 120)
 		}
 	}()
 }
