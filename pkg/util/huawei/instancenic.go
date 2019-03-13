@@ -2,9 +2,10 @@ package huawei
 
 import (
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/modules"
-	"yunion.io/x/pkg/util/netutils"
 )
 
 // ===========================================

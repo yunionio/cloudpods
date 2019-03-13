@@ -5,11 +5,11 @@ import (
 	"os"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/util/aliyun"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
 	"yunion.io/x/structarg"
 
+	"yunion.io/x/onecloud/pkg/util/aliyun"
 	_ "yunion.io/x/onecloud/pkg/util/aliyun/shell"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 type BaseOptions struct {

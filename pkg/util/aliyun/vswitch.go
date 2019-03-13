@@ -1,6 +1,7 @@
 package aliyun
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -8,8 +9,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
-
-	"fmt"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"

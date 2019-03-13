@@ -8,10 +8,11 @@ import (
 	"sync"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/regutils"
+
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
-	"yunion.io/x/pkg/util/regutils"
 )
 
 type SLocalImageCacheManager struct {

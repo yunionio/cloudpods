@@ -3,7 +3,7 @@ package k8s
 import (
 	"fmt"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates/guest"

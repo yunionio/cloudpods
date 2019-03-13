@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"gopkg.in/gin-gonic/gin.v1"
-	"k8s.io/api/core/v1"
+	gin "gopkg.in/gin-gonic/gin.v1"
+	v1 "k8s.io/api/core/v1"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api/v1"
 
 	"yunion.io/x/log"

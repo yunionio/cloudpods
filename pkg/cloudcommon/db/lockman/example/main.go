@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
+	"math/rand"
 	"sync"
 	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
 
-	"math/rand"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 

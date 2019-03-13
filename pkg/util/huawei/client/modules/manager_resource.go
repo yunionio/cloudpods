@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/util/huawei/client/manager"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/requests"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/responses"

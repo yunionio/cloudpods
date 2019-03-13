@@ -10,6 +10,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -19,7 +21,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 	"yunion.io/x/onecloud/pkg/util/version"
 	"yunion.io/x/onecloud/pkg/util/winutils"
-	"yunion.io/x/pkg/utils"
 )
 
 const (

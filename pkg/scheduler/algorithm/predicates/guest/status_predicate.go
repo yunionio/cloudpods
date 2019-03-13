@@ -1,10 +1,9 @@
 package guest
 
 import (
+	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (

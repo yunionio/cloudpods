@@ -8,10 +8,9 @@ import (
 	"yunion.io/x/structarg"
 
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
+	_ "yunion.io/x/onecloud/pkg/util/ipmitool/shell"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 	"yunion.io/x/onecloud/pkg/util/ssh"
-
-	_ "yunion.io/x/onecloud/pkg/util/ipmitool/shell"
 )
 
 type BaseOptions struct {

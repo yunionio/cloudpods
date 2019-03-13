@@ -9,16 +9,16 @@ import (
 	"time"
 
 	"yunion.io/x/log"
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
-	"yunion.io/x/onecloud/pkg/scheduler/cache"
-	"yunion.io/x/onecloud/pkg/scheduler/cache/db"
-	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 	"yunion.io/x/pkg/util/errors"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/util/workqueue"
 	"yunion.io/x/pkg/utils"
 
+	o "yunion.io/x/onecloud/cmd/scheduler/options"
+	"yunion.io/x/onecloud/pkg/scheduler/cache"
+	"yunion.io/x/onecloud/pkg/scheduler/cache/db"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 )
 
 type HostDesc struct {
