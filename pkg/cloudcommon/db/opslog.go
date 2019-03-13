@@ -230,6 +230,15 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 	if len(model.GetId()) == 0 || len(model.GetName()) == 0 {
 		return
 	}
+	if action == ACT_UPDATE {
+		// skip empty diff
+		if notes == nil {
+			return
+		}
+		if uds, ok := notes.(sqlchemy.UpdateDiffs); ok && len(uds) == 0 {
+			return
+		}
+	}
 	opslog := SOpsLog{}
 	opslog.ObjType = model.Keyword()
 	opslog.ObjId = model.GetId()

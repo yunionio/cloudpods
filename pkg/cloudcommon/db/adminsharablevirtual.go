@@ -132,8 +132,6 @@ func (model *SAdminSharableVirtualResourceBase) setInfo(
 	if err != nil {
 		return err
 	}
-	if diff != nil {
-		OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
-	}
+	OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
 	return err
 }

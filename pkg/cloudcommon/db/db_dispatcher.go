@@ -1259,16 +1259,8 @@ func updateItem(manager IModelManager, item IModel, ctx context.Context, userCre
 		log.Errorf("save update error: %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
-	if diff != nil {
-		diffStr := sqlchemy.UpdateDiffString(diff)
-		if len(diffStr) > 0 {
-			item.PostUpdate(ctx, userCred, query, dataDict)
-			OpsLog.LogEvent(item, ACT_UPDATE, diffStr, userCred)
-			logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, diffStr, userCred, true)
-		}
-	} else {
-		logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, "", userCred, true)
-	}
+	OpsLog.LogEvent(item, ACT_UPDATE, diff, userCred)
+	logclient.AddActionLogWithContext(ctx, item, logclient.ACT_UPDATE, diff, userCred, true)
 
 	item.PostUpdate(ctx, userCred, query, data)
 
