@@ -3,12 +3,11 @@ package drivers
 import (
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/hpssactl"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/megactl"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/mvcli"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/sas2iru"
-
-	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/util/ssh"
 )

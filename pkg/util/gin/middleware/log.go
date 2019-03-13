@@ -3,7 +3,7 @@ package middleware
 import (
 	"time"
 
-	"gopkg.in/gin-gonic/gin.v1"
+	gin "gopkg.in/gin-gonic/gin.v1"
 
 	"yunion.io/x/log"
 )

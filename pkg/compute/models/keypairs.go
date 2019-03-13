@@ -3,17 +3,18 @@ package models
 import (
 	"context"
 
+	"golang.org/x/crypto/ssh"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"golang.org/x/crypto/ssh"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
-	"yunion.io/x/pkg/utils"
 )
 
 type SKeypairManager struct {

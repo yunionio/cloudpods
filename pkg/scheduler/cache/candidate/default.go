@@ -7,10 +7,11 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	u "yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/onecloud/pkg/scheduler/cache"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
-	u "yunion.io/x/pkg/utils"
 )
 
 const (

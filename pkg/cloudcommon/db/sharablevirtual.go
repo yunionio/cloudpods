@@ -4,9 +4,10 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/sqlchemy"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/sqlchemy"
 )
 
 type SSharableVirtualResourceBase struct {

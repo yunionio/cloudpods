@@ -10,15 +10,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pierrec/lz4"
+
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-
-	"github.com/pierrec/lz4"
 )
 
 type SHostImageOptions struct {

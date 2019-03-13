@@ -8,9 +8,8 @@ import (
 	"yunion.io/x/structarg"
 
 	"yunion.io/x/onecloud/pkg/util/esxi"
-	"yunion.io/x/onecloud/pkg/util/shellutils"
-
 	_ "yunion.io/x/onecloud/pkg/util/esxi/shell"
+	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
 type BaseOptions struct {

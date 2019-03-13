@@ -2,12 +2,12 @@ package aliyun
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"strings"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
