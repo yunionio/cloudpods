@@ -28,7 +28,7 @@ type SStorageManager struct {
 	AgentStorage IStorage
 
 	LocalStorageImagecacheManager IImageCacheManger
-	AgentStorageImagecacheManager IImageCacheManger
+	// AgentStorageImagecacheManager IImageCacheManger
 
 	RbdStorageImagecacheManagers map[string]IImageCacheManger
 	NfsStorageImagecacheManagers map[string]IImageCacheManger
@@ -73,6 +73,11 @@ func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 }
 
 func (s *SStorageManager) Remove(storage IStorage) {
+	if storage.StorageType() == storagetypes.STORAGE_NFS {
+		delete(s.NfsStorageImagecacheManagers, storage.GetStoragecacheId())
+	} else if storage.StorageType() == storagetypes.STORAGE_RBD {
+		delete(s.RbdStorageImagecacheManagers, storage.GetStoragecacheId())
+	}
 	for index, iS := range s.Storages {
 		if iS.GetId() == storage.GetId() {
 			s.Storages = append(s.Storages[:index], s.Storages[index+1:]...)
@@ -245,26 +250,28 @@ func (s *SStorageManager) GetStoragecacheById(scId string) IImageCacheManger {
 
 func (s *SStorageManager) NewSharedStorageInstance(mountPoint, storageType string) IStorage {
 	return NewStorage(s, mountPoint, storageType)
-	/*if storageType == storagetypes.STORAGE_NFS {
-		// TODO
-		// return NewNFSStorage(s, mountPoint)
-	} else if storageType == storagetypes.STORAGE_RBD ||
-		strings.HasPrefix(mountPoint, storagetypes.STORAGE_RBD) {
-		// TODO
-		return NewRBDStorage(s, mountPoint)
-	}
-	return nil*/
 }
 
 func (s *SStorageManager) InitSharedStorageImageCache(storageType, storagecacheId, imagecachePath string, storage IStorage) {
 	if storageType == storagetypes.STORAGE_NFS {
-		// TODO
-		// s.InitNfsStorageImagecache(storagecacheId, imagecachePath)
+		s.InitNfsStorageImagecache(storagecacheId, imagecachePath)
 	} else if storageType == storagetypes.STORAGE_RBD {
 		if rbdStorage := s.GetStoragecacheById(storagecacheId); rbdStorage == nil {
 			// Done
 			s.AddRbdStorageImagecache(imagecachePath, storage, storagecacheId)
 		}
+	}
+}
+
+func (s *SStorageManager) InitNfsStorageImagecache(storagecacheId, path string) {
+	if len(path) == 0 {
+		return
+	}
+	if s.NfsStorageImagecacheManagers == nil {
+		s.NfsStorageImagecacheManagers = map[string]IImageCacheManger{}
+	}
+	if _, ok := s.NfsStorageImagecacheManagers[storagecacheId]; !ok {
+		s.NfsStorageImagecacheManagers[storagecacheId] = NewLocalImageCacheManager(s, path, options.HostOptions.ImageCacheLimit, true, storagecacheId)
 	}
 }
 

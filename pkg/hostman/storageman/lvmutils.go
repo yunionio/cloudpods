@@ -40,12 +40,14 @@ func (t *SLVMImageConnectUniqueTool) AddRef() {
 func (t *SLVMImageConnectUniqueTool) Wait() {
 	t.cond.L.Lock()
 	defer t.cond.L.Unlock()
+	t.refCount++
 	t.cond.Wait()
 }
 
 func (t *SLVMImageConnectUniqueTool) Signal() {
 	t.cond.L.Lock()
 	defer t.cond.L.Unlock()
+	t.refCount--
 	t.cond.Signal()
 }
 
