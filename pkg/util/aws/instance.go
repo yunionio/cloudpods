@@ -943,3 +943,7 @@ func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 func (self *SInstance) GetProjectId() string {
 	return ""
 }
+
+func (self *SInstance) GetError() error {
+	return nil
+}

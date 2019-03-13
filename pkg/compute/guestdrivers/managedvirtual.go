@@ -227,7 +227,9 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 
 	initialState := guest.GetDriver().GetGuestInitialStateAfterCreate()
 	log.Debugf("VMcreated %s, wait status %s ...", iVM.GetGlobalId(), initialState)
-	err = cloudprovider.WaitStatus(iVM, initialState, time.Second*5, time.Second*1800)
+	err = cloudprovider.WaitStatusWithInstanceErrorCheck(iVM, initialState, time.Second*5, time.Second*1800, func() error {
+		return iVM.GetError()
+	})
 	if err != nil {
 		return nil, err
 	}
