@@ -1120,6 +1120,14 @@ func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 // 只支持传入主资源ID, 根据“查询客户包周期资源列表”接口响应参数中的“is_main_resource”来标识。
 // expire_mode 0：进入宽限期  1：转按需 2：自动退订 3：自动续订（当前只支持ECS、EVS和VPC）
 func (self *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) error {
+	// 记录未续费前的过期时间
+	ins, err := self.GetInstanceByID(instanceId)
+	if err != nil {
+		return err
+	}
+
+	oldExpired := ins.GetExpiredAt()
+
 	params := jsonutils.NewDict()
 	res := jsonutils.NewArray()
 	res.Add(jsonutils.NewString(instanceId))
@@ -1150,7 +1158,26 @@ func (self *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) 
 	}
 
 	_, err = self.ecsClient.Orders.RenewPeriodResource(params)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// 这里等待更新实例过期时间
+	err = cloudprovider.WaitCreated(5*time.Second, 60*time.Second, func() bool {
+		newExipred := ins.GetExpiredAt()
+		if newExipred.Sub(oldExpired).Seconds() > 0 {
+			return true
+		}
+
+		return false
+	})
+
+	// RenewPeriodResource没报错实际上已经表示续费成功.因此如果等待更新超时，抛出错误日志即可
+	if err != nil {
+		log.Debugf(err.Error())
+	}
+
+	return nil
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0065817702.html
