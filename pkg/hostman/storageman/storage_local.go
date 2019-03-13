@@ -110,6 +110,8 @@ func (s *SLocalStorage) GetDiskById(diskId string) IDisk {
 		if s.Disks[i].GetId() == diskId {
 			if s.Disks[i].Probe() == nil {
 				return s.Disks[i]
+			} else {
+				return nil
 			}
 		}
 	}

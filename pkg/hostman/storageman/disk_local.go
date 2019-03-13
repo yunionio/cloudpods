@@ -174,7 +174,8 @@ func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string) error 
 }
 
 func (d *SLocalDisk) CreateFromTemplate(ctx context.Context, imageId, format string, size int64) (jsonutils.JSONObject, error) {
-	ret, err := d.createFromTemplate(ctx, imageId, format)
+	var imageCacheManager = storageManager.LocalStorageImagecacheManager
+	ret, err := d.createFromTemplate(ctx, imageId, format, imageCacheManager)
 	if err != nil {
 		return nil, err
 	}
@@ -188,8 +189,9 @@ func (d *SLocalDisk) CreateFromTemplate(ctx context.Context, imageId, format str
 	return ret, nil
 }
 
-func (d *SLocalDisk) createFromTemplate(ctx context.Context, imageId, format string) (jsonutils.JSONObject, error) {
-	var imageCacheManager = storageManager.LocalStorageImagecacheManager
+func (d *SLocalDisk) createFromTemplate(
+	ctx context.Context, imageId, format string, imageCacheManager IImageCacheManger,
+) (jsonutils.JSONObject, error) {
 	imageCache := imageCacheManager.AcquireImage(ctx, imageId, d.GetZone(), "", "")
 	if imageCache != nil {
 		defer imageCacheManager.ReleaseImage(imageId)
