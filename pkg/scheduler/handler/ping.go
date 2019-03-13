@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"gopkg.in/gin-gonic/gin.v1"
+	gin "gopkg.in/gin-gonic/gin.v1"
 
 	"yunion.io/x/log"
+
 	o "yunion.io/x/onecloud/cmd/scheduler/options"
 	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
 )

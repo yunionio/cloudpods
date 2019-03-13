@@ -4,10 +4,11 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type ServerManager struct {

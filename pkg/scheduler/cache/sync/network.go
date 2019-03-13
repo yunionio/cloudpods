@@ -1,8 +1,9 @@
 package sync
 
 import (
-	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 )
 
 const (

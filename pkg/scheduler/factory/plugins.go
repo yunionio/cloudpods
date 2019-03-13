@@ -6,8 +6,9 @@ import (
 	"sync"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/pkg/util/sets"
+
+	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
 type AlgorithmProviderConfig struct {

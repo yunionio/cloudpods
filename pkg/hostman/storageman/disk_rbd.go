@@ -7,12 +7,14 @@ import (
 	"fmt"
 
 	"github.com/ceph/go-ceph/rbd"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
-	"yunion.io/x/pkg/utils"
 )
 
 type SRBDDisk struct {

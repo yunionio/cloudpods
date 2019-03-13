@@ -1,8 +1,6 @@
 package api
 
-import (
-	"github.com/bitly/go-simplejson"
-)
+import simplejson "github.com/bitly/go-simplejson"
 
 type CompletedNotifyArgs struct {
 	SessionID string

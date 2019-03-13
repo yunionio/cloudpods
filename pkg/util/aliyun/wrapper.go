@@ -3,12 +3,12 @@ package aliyun
 import (
 	"errors"
 
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
-
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/responses"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 )
 
 func processCommonRequest(client *sdk.Client, req *requests.CommonRequest) (response *responses.CommonResponse, err error) {

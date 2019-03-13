@@ -8,7 +8,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"gopkg.in/gin-gonic/gin.v1"
+	gin "gopkg.in/gin-gonic/gin.v1"
+
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/prometheus"
 	"yunion.io/x/pkg/utils"

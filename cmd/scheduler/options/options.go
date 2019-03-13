@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"gopkg.in/gin-gonic/gin.v1"
+	gin "gopkg.in/gin-gonic/gin.v1"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/version"

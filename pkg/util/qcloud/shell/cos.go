@@ -5,6 +5,7 @@ import (
 	"os"
 
 	coslib "github.com/nelsonken/cos-go-sdk-v5/cos"
+
 	"yunion.io/x/onecloud/pkg/util/qcloud"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
