@@ -826,3 +826,7 @@ func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCy
 func (self *SInstance) GetProjectId() string {
 	return strconv.Itoa(self.Placement.ProjectId)
 }
+
+func (self *SInstance) GetError() error {
+	return nil
+}

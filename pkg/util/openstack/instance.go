@@ -2,6 +2,7 @@ package openstack
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -68,6 +69,12 @@ type VolumesAttached struct {
 	DeleteOnTermination bool
 }
 
+type SFault struct {
+	Message string
+	Code    int
+	Details string
+}
+
 type SInstance struct {
 	host *SHost
 
@@ -114,6 +121,7 @@ type SInstance struct {
 	TrustedImageCertificates []string
 	Updated                  time.Time
 	UserID                   string
+	Fault                    SFault
 }
 
 func (region *SRegion) GetSecurityGroupsByInstance(instanceId string) ([]SecurityGroup, error) {
@@ -627,4 +635,11 @@ func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCy
 
 func (instance *SInstance) GetProjectId() string {
 	return instance.TenantID
+}
+
+func (self *SInstance) GetError() error {
+	if self.Status == INSTANCE_STATUS_ERROR && len(self.Fault.Message) > 0 {
+		return errors.New(self.Fault.Message)
+	}
+	return nil
 }
