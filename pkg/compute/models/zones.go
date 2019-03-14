@@ -12,6 +12,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -727,23 +728,23 @@ func (self *SZone) isSchedPolicySupported() bool {
 }
 
 func (self *SZone) getMinNicCount() int {
-	return 1
+	return options.Options.MinNicCount
 }
 
 func (self *SZone) getMaxNicCount() int {
 	if self.isManaged() {
-		return 1
+		return options.Options.MaxManagedNicCount
 	} else {
-		return 8
+		return options.Options.MaxNormalNicCount
 	}
 }
 
 func (self *SZone) getMinDataDiskCount() int {
-	return 0
+	return options.Options.MinDataDiskCount
 }
 
 func (self *SZone) getMaxDataDiskCount() int {
-	return 6
+	return options.Options.MaxDataDiskCount
 }
 
 func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
