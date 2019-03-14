@@ -394,11 +394,11 @@ func (u *Unit) Info() string {
 }
 
 func (u *Unit) SessionID() string {
-	return u.SchedInfo.SessionID
+	return u.SchedInfo.SessionId
 }
 
-func (u *Unit) SchedData() *api.SchedData {
-	return u.SchedInfo.Data
+func (u *Unit) SchedData() *api.SchedInfo {
+	return u.SchedInfo
 }
 
 func (u *Unit) IsPublicCloudProvider() bool {

@@ -193,7 +193,7 @@ func (self *SDynamicschedtag) PerformEvaluate(ctx context.Context, userCred mccl
 	hostDesc := jsonutils.Marshal(host)
 
 	params := jsonutils.NewDict()
-	params.Add(srvDesc, "server")
+	params.Add(srvDesc.JSON(srvDesc), "server")
 	params.Add(hostDesc, "host")
 
 	meet, err := conditionparser.Eval(self.Condition, params)
@@ -201,7 +201,7 @@ func (self *SDynamicschedtag) PerformEvaluate(ctx context.Context, userCred mccl
 		return nil, err
 	}
 	result := jsonutils.NewDict()
-	result.Add(srvDesc, "server")
+	result.Add(srvDesc.JSON(srvDesc), "server")
 	result.Add(hostDesc, "host")
 
 	if meet {

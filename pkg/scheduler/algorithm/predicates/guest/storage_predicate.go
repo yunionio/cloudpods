@@ -44,7 +44,7 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	d := u.SchedData()
 
 	isMigrate := func() bool {
-		return len(d.HostID) > 0
+		return len(d.HostId) > 0
 	}
 
 	isLocalhostBackend := func(backend string) bool {
@@ -72,7 +72,7 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		ss := make([]string, 0, len(d.Disks))
 		for _, disk := range d.Disks {
 			if disk.Backend == backend {
-				ss = append(ss, fmt.Sprintf("%v", disk.Size))
+				ss = append(ss, fmt.Sprintf("%v", disk.SizeMb))
 			}
 		}
 
@@ -97,16 +97,16 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	storeRequest := make(map[string]int64, 0)
 	for _, disk := range d.Disks {
 		if isMigrate() && !isLocalhostBackend(disk.Backend) {
-			storeRequest[*disk.Storage] = 1
+			storeRequest[disk.Storage] = 1
 		} else {
 			if _, ok := sizeRequest[disk.Backend]; !ok {
 				sizeRequest[disk.Backend] = map[string]int64{"max": -1, "total": 0}
 			}
 			max := sizeRequest[disk.Backend]["max"]
-			if max < disk.Size {
-				sizeRequest[disk.Backend]["max"] = disk.Size
+			if max < int64(disk.SizeMb) {
+				sizeRequest[disk.Backend]["max"] = int64(disk.SizeMb)
 			}
-			sizeRequest[disk.Backend]["total"] += disk.Size
+			sizeRequest[disk.Backend]["total"] += int64(disk.SizeMb)
 		}
 	}
 

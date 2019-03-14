@@ -14,7 +14,7 @@ type CandidatesProvider interface {
 	CandidateManager() *data_manager.CandidateManager
 }
 
-func candidatesByProvider(provider CandidatesProvider, schedData *api.SchedData) ([]core.Candidater, error) {
+func candidatesByProvider(provider CandidatesProvider, schedData *api.SchedInfo) ([]core.Candidater, error) {
 	var hosts []core.Candidater
 	var err error
 
@@ -23,8 +23,10 @@ func candidatesByProvider(provider CandidatesProvider, schedData *api.SchedData)
 		hosts, err = candidateManager.GetCandidatesByIds(provider.CandidateType(), schedData.Candidates)
 	} else {
 		args := data_manager.CandidateGetArgs{
-			ResType: provider.CandidateType(),
-			ZoneID:  schedData.ZoneID,
+			ResType:   provider.CandidateType(),
+			ZoneID:    schedData.PreferZone,
+			RegionID:  schedData.PreferRegion,
+			HostTypes: schedData.GetCandidateHostTypes(),
 		}
 		hosts, err = candidateManager.GetCandidates(args)
 	}
@@ -87,7 +89,7 @@ func (b *BaremetalCandidatesProvider) Candidates() ([]core.Candidater, error) {
 }
 
 type Scheduler interface {
-	SchedData() *api.SchedData
+	SchedData() *api.SchedInfo
 	CandidateManager() *data_manager.CandidateManager
 
 	// Schedule process
@@ -123,8 +125,8 @@ func (s *BaseScheduler) CandidateManager() *data_manager.CandidateManager {
 	return s.schedManager.CandidateManager
 }
 
-func (s *BaseScheduler) SchedData() *api.SchedData {
-	return s.schedInfo.Data
+func (s *BaseScheduler) SchedData() *api.SchedInfo {
+	return s.schedInfo
 }
 
 func (s *BaseScheduler) Unit() *core.Unit {

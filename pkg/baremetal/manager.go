@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/pkg/util/workqueue"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/profiles"
 	"yunion.io/x/onecloud/pkg/baremetal/pxe"
@@ -1162,7 +1163,7 @@ func (s *SBaremetalServer) GetRootTemplateId() string {
 	return id
 }
 
-func (s *SBaremetalServer) GetDiskConfig() ([]*baremetal.BaremetalDiskConfig, error) {
+func (s *SBaremetalServer) GetDiskConfig() ([]*api.BaremetalDiskConfig, error) {
 	layouts := make([]baremetal.Layout, 0)
 	err := s.desc.Unmarshal(&layouts, "disk_config")
 	if err != nil {

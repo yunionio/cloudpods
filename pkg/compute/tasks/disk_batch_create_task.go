@@ -6,6 +6,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -44,13 +46,30 @@ func (self *DiskBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandalo
 	StartScheduleObjects(ctx, self, toSchedDisks)
 }
 
+func (self *DiskBatchCreateTask) GetCreateInput() (*api.DiskCreateInput, error) {
+	input := new(api.DiskCreateInput)
+	err := self.GetParams().Unmarshal(input)
+	return input, err
+}
+
+func (self *DiskBatchCreateTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
+	input, err := self.GetCreateInput()
+	if err != nil {
+		return nil, err
+	}
+	ret := new(schedapi.ScheduleInput)
+	srvInput := input.ToServerCreateInput()
+	err = srvInput.JSON(srvInput).Unmarshal(ret)
+	return ret, err
+}
+
 func (self *DiskBatchCreateTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {
 	self.SSchedTask.OnScheduleFailCallback(ctx, obj, reason)
 	disk := obj.(*models.SDisk)
 	log.Errorf("Schedule disk %s failed", disk.Name)
 }
 
-func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, hostId string) {
+func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource) {
 	var err error
 	disk := obj.(*models.SDisk)
 	pendingUsage := models.SQuota{}
@@ -58,10 +77,25 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 	if err != nil {
 		log.Errorf("GetPendingUsage fail %s", err)
 	}
-	diskConfig := models.SDiskConfig{}
-	self.GetParams().Unmarshal(&diskConfig, "disk.0")
+
 	quotaStorage := models.SQuota{Storage: disk.DiskSize}
-	err = disk.SetStorageByHost(hostId, &diskConfig)
+
+	onError := func(err error) {
+		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, disk.ProjectId, &pendingUsage, &quotaStorage)
+		disk.SetStatus(self.UserCred, models.DISK_ALLOC_FAILED, err.Error())
+		self.SetStageFailed(ctx, err.Error())
+		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
+		notifyclient.NotifySystemError(disk.Id, disk.Name, models.DISK_ALLOC_FAILED, err.Error())
+	}
+
+	diskConfig, err := self.GetFirstDisk()
+	if err != nil {
+		onError(err)
+		return
+	}
+
+	//err = disk.SetStorageByHost(hostId, &diskConfig)
+	err = disk.SetStorage(candidate.Disks[0].StorageId, diskConfig)
 	if err != nil {
 		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, disk.ProjectId, &pendingUsage, &quotaStorage)
 		disk.SetStatus(self.UserCred, models.DISK_ALLOC_FAILED, err.Error())

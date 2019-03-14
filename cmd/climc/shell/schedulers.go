@@ -35,7 +35,7 @@ func init() {
 			if err != nil {
 				return err
 			}
-			result, err := modules.SchedManager.DoForecast(s, params)
+			result, err := modules.SchedManager.DoForecast(s, params.JSON(params))
 			if err != nil {
 				return err
 			}

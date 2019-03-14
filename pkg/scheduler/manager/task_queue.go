@@ -222,7 +222,7 @@ func (tm *TaskManager) AddTask(schedulerManager *SchedulerManager, schedInfo *ap
 
 	task := NewTask(schedulerManager, schedInfo)
 	// Split into multiple scheduling tasks by host specification type.
-	if schedInfo.Data.Hypervisor == api.SchedTypeBaremetal {
+	if schedInfo.Hypervisor == api.SchedTypeBaremetal {
 		scheduler, err = newBaremetalScheduler(schedulerManager, schedInfo)
 	} else {
 		scheduler, err = newGuestScheduler(schedulerManager, schedInfo)
@@ -282,7 +282,7 @@ func (t *Task) GetTaskExecutor(tag string) *TaskExecutor {
 }
 
 func (t *Task) GetSessionID() string {
-	return t.SchedInfo.SessionID
+	return t.SchedInfo.SessionId
 }
 
 func (t *Task) GetStatus() string {
@@ -338,7 +338,7 @@ func (t *Task) onError() {
 		taskExecutor.Kill()
 	}
 
-	log.Errorf("Remove Session on error: %v\n", t.SchedInfo.SessionID)
+	log.Errorf("Remove Session on error: %v\n", t.SchedInfo.SessionId)
 	//t.manager.ReservedPoolManager.RemoveSession(t.SchedInfo.SessionID)
 
 	close(t.waitCh)

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"yunion.io/x/pkg/util/ttlpool"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/scheduler/cache"
 	candidatecache "yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
@@ -15,9 +16,10 @@ import (
 
 type CandidateGetArgs struct {
 	// ResType is candidate host_type
-	ResType  string
-	RegionID string
-	ZoneID   string
+	ResType   string
+	RegionID  string
+	ZoneID    string
+	HostTypes []string
 }
 
 type DataManager struct {
@@ -222,6 +224,13 @@ func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candida
 		return true
 	}
 
+	matchHostTypes := func(c core.Candidater, hostTypes []string) bool {
+		if len(hostTypes) == 0 {
+			return true
+		}
+		return utils.IsInStringArray(c.Getter().HostType(), hostTypes)
+	}
+
 	for _, c := range candidates {
 		r := c.(core.Candidater)
 
@@ -234,6 +243,10 @@ func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candida
 		}
 
 		if !matchZone(r, args.ZoneID) {
+			continue
+		}
+
+		if !matchHostTypes(r, args.HostTypes) {
 			continue
 		}
 

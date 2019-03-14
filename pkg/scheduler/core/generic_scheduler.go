@@ -15,6 +15,7 @@ import (
 	utiltrace "yunion.io/x/pkg/util/trace"
 	"yunion.io/x/pkg/util/workqueue"
 
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
@@ -99,12 +100,12 @@ func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater) (*Sched
 
 	// new trace follow all steps
 	trace := utiltrace.New(fmt.Sprintf("SessionID: %s, schedule info: %s",
-		schedInfo.SessionID, unit.Info()))
+		schedInfo.SessionId, unit.Info()))
 
 	defer trace.LogIfLong(100 * time.Millisecond)
 	if len(candidates) == 0 {
 		return nil, &NoResourceError{
-			sessionID: schedInfo.SessionID,
+			sessionID: schedInfo.SessionId,
 			info:      unit.Info(),
 		}
 	}
@@ -240,6 +241,14 @@ type SchedResultItem struct {
 	Candidater Candidater `json:"-"`
 
 	*AllocatedResource
+}
+
+func (item *SchedResultItem) ToCandidateResource() *schedapi.CandidateResource {
+	return &schedapi.CandidateResource{
+		HostId: item.ID,
+		Name:   item.Name,
+		Disks:  item.Disks,
+	}
 }
 
 func GetCapacities(u *Unit, id string) (res map[string]int64) {

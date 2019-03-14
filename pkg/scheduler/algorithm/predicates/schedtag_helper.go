@@ -6,16 +6,16 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/util/conditionparser"
 )
 
 type ISchedtagPredicate interface {
-	GetExcludeTags() []api.Schedtag
-	GetRequireTags() []api.Schedtag
-	GetAvoidTags() []api.Schedtag
-	GetPreferTags() []api.Schedtag
+	GetExcludeTags() []computeapi.SchedtagConfig
+	GetRequireTags() []computeapi.SchedtagConfig
+	GetAvoidTags() []computeapi.SchedtagConfig
+	GetPreferTags() []computeapi.SchedtagConfig
 }
 
 type ISchedtagCandidate interface {
@@ -28,14 +28,14 @@ type ISchedtagCandidate interface {
 }
 
 type SchedtagPredicate struct {
-	requireTags  []api.Schedtag
-	execludeTags []api.Schedtag
-	preferTags   []api.Schedtag
-	avoidTags    []api.Schedtag
+	requireTags  []computeapi.SchedtagConfig
+	execludeTags []computeapi.SchedtagConfig
+	preferTags   []computeapi.SchedtagConfig
+	avoidTags    []computeapi.SchedtagConfig
 	checker      *SchedtagChecker
 }
 
-func NewSchedtagPredicate(reqTags []api.Schedtag, allTags []models.SSchedtag) *SchedtagPredicate {
+func NewSchedtagPredicate(reqTags []*computeapi.SchedtagConfig, allTags []models.SSchedtag) *SchedtagPredicate {
 	p := new(SchedtagPredicate)
 	requireTags, execludeTags, preferTags, avoidTags := GetRequestSchedtags(reqTags, allTags)
 	p.requireTags = requireTags
@@ -46,19 +46,19 @@ func NewSchedtagPredicate(reqTags []api.Schedtag, allTags []models.SSchedtag) *S
 	return p
 }
 
-func (p *SchedtagPredicate) GetExcludeTags() []api.Schedtag {
+func (p *SchedtagPredicate) GetExcludeTags() []computeapi.SchedtagConfig {
 	return p.execludeTags
 }
 
-func (p *SchedtagPredicate) GetRequireTags() []api.Schedtag {
+func (p *SchedtagPredicate) GetRequireTags() []computeapi.SchedtagConfig {
 	return p.requireTags
 }
 
-func (p *SchedtagPredicate) GetAvoidTags() []api.Schedtag {
+func (p *SchedtagPredicate) GetAvoidTags() []computeapi.SchedtagConfig {
 	return p.avoidTags
 }
 
-func (p *SchedtagPredicate) GetPreferTags() []api.Schedtag {
+func (p *SchedtagPredicate) GetPreferTags() []computeapi.SchedtagConfig {
 	return p.preferTags
 }
 
@@ -66,12 +66,12 @@ func (p *SchedtagPredicate) Check(candidate ISchedtagCandidate) error {
 	return p.checker.Check(p, candidate)
 }
 
-func GetSchedtagCount(inTags []api.Schedtag, objTags []models.SSchedtag, strategy string) (countMap map[string]int) {
+func GetSchedtagCount(inTags []computeapi.SchedtagConfig, objTags []models.SSchedtag, strategy string) (countMap map[string]int) {
 	countMap = make(map[string]int)
 
-	in := func(objTag models.SSchedtag, inTags []api.Schedtag) bool {
+	in := func(objTag models.SSchedtag, inTags []computeapi.SchedtagConfig) bool {
 		for _, tag := range inTags {
-			if tag.Idx == objTag.Id || tag.Idx == objTag.Name {
+			if tag.Id == objTag.Id || tag.Id == objTag.Name {
 				return true
 			}
 		}
@@ -94,31 +94,31 @@ func GetAllSchedtags(resType string) ([]models.SSchedtag, error) {
 	return tags, nil
 }
 
-func GetRequestSchedtags(reqTags []api.Schedtag, allTags []models.SSchedtag) (requireTags, execludeTags, preferTags, avoidTags []api.Schedtag) {
-	requireTags = make([]api.Schedtag, 0)
-	execludeTags = make([]api.Schedtag, 0)
-	preferTags = make([]api.Schedtag, 0)
-	avoidTags = make([]api.Schedtag, 0)
+func GetRequestSchedtags(reqTags []*computeapi.SchedtagConfig, allTags []models.SSchedtag) (requireTags, execludeTags, preferTags, avoidTags []computeapi.SchedtagConfig) {
+	requireTags = make([]computeapi.SchedtagConfig, 0)
+	execludeTags = make([]computeapi.SchedtagConfig, 0)
+	preferTags = make([]computeapi.SchedtagConfig, 0)
+	avoidTags = make([]computeapi.SchedtagConfig, 0)
 
 	appendedTagIds := make(map[string]int)
 
-	appendTagByStrategy := func(tag api.Schedtag) {
+	appendTagByStrategy := func(tag *computeapi.SchedtagConfig) {
 		switch tag.Strategy {
 		case models.STRATEGY_REQUIRE:
-			requireTags = append(requireTags, tag)
+			requireTags = append(requireTags, *tag)
 		case models.STRATEGY_EXCLUDE:
-			execludeTags = append(execludeTags, tag)
+			execludeTags = append(execludeTags, *tag)
 		case models.STRATEGY_PREFER:
-			preferTags = append(preferTags, tag)
+			preferTags = append(preferTags, *tag)
 		case models.STRATEGY_AVOID:
-			avoidTags = append(avoidTags, tag)
+			avoidTags = append(avoidTags, *tag)
 		}
 	}
 
 	for _, tag := range reqTags {
 		appendTagByStrategy(tag)
 
-		appendedTagIds[tag.Idx] = 1
+		appendedTagIds[tag.Id] = 1
 	}
 
 	for _, tag := range allTags {
@@ -126,7 +126,7 @@ func GetRequestSchedtags(reqTags []api.Schedtag, allTags []models.SSchedtag) (re
 		_, idOk := appendedTagIds[tag.Id]
 
 		if !(nameOk || idOk) {
-			apiTag := api.Schedtag{Idx: tag.Id, Strategy: tag.DefaultStrategy}
+			apiTag := &computeapi.SchedtagConfig{Id: tag.Id, Strategy: tag.DefaultStrategy}
 			appendTagByStrategy(apiTag)
 		}
 	}
@@ -136,11 +136,11 @@ func GetRequestSchedtags(reqTags []api.Schedtag, allTags []models.SSchedtag) (re
 
 type SchedtagChecker struct{}
 
-type apiTags []api.Schedtag
+type apiTags []computeapi.SchedtagConfig
 
 func (t apiTags) contains(objTag models.SSchedtag) bool {
 	for _, tag := range t {
-		if tag.Idx == objTag.Id || tag.Idx == objTag.Name {
+		if tag.Id == objTag.Id || tag.Id == objTag.Name {
 			return true
 		}
 	}
@@ -149,25 +149,25 @@ func (t apiTags) contains(objTag models.SSchedtag) bool {
 
 type objTags []models.SSchedtag
 
-func (t objTags) contains(atag api.Schedtag) bool {
+func (t objTags) contains(atag computeapi.SchedtagConfig) bool {
 	for _, tag := range t {
-		if tag.Id == atag.Idx || tag.Name == atag.Idx {
+		if tag.Id == atag.Id || tag.Name == atag.Id {
 			return true
 		}
 	}
 	return false
 }
 
-func (c *SchedtagChecker) contains(tags []api.Schedtag, objTag models.SSchedtag) bool {
+func (c *SchedtagChecker) contains(tags []computeapi.SchedtagConfig, objTag models.SSchedtag) bool {
 	for _, tag := range tags {
-		if tag.Idx == objTag.Id || tag.Idx == objTag.Name {
+		if tag.Id == objTag.Id || tag.Id == objTag.Name {
 			return true
 		}
 	}
 	return false
 }
 
-func (c *SchedtagChecker) HasIntersection(tags []api.Schedtag, objTags []models.SSchedtag) (bool, *models.SSchedtag) {
+func (c *SchedtagChecker) HasIntersection(tags []computeapi.SchedtagConfig, objTags []models.SSchedtag) (bool, *models.SSchedtag) {
 	var atags apiTags = tags
 	for _, objTag := range objTags {
 		if atags.contains(objTag) {
@@ -177,7 +177,7 @@ func (c *SchedtagChecker) HasIntersection(tags []api.Schedtag, objTags []models.
 	return false, nil
 }
 
-func (c *SchedtagChecker) Contains(objectTags []models.SSchedtag, tags []api.Schedtag) (bool, *api.Schedtag) {
+func (c *SchedtagChecker) Contains(objectTags []models.SSchedtag, tags []computeapi.SchedtagConfig) (bool, *computeapi.SchedtagConfig) {
 	var otags objTags = objectTags
 	for _, tag := range tags {
 		if !otags.contains(tag) {
@@ -245,17 +245,21 @@ func (c *SchedtagChecker) Check(p ISchedtagPredicate, candidate ISchedtagCandida
 	if err != nil {
 		return err
 	}
+
 	execludeTags := p.GetExcludeTags()
+	requireTags := p.GetRequireTags()
+
+	log.V(10).Debugf("[SchedtagChecker] check candidate: %s requireTags: %#v, execludeTags: %#v, candidateTags: %#v", candidate.IndexKey(), requireTags, execludeTags, candidateTags)
+
 	if len(execludeTags) > 0 {
 		if ok, tag := c.HasIntersection(execludeTags, candidateTags); ok {
 			return fmt.Errorf("Execlude by schedtag: '%s:%s'", tag.Name, tag.Id)
 		}
 	}
 
-	requireTags := p.GetRequireTags()
 	if len(requireTags) > 0 {
 		if ok, tag := c.Contains(candidateTags, requireTags); !ok {
-			return fmt.Errorf("Need schedtag: '%s'", tag.Idx)
+			return fmt.Errorf("Need schedtag: '%s'", tag.Id)
 		}
 	}
 

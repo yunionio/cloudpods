@@ -113,8 +113,8 @@ func NewSessionID() string {
 // Schedule process the request data that is scheduled for dispatch and complements
 // the session information.
 func Schedule(info *api.SchedInfo) (*core.SchedResultItemList, error) {
-	if len(info.SessionID) == 0 {
-		info.SessionID = NewSessionID()
+	if len(info.SessionId) == 0 {
+		info.SessionId = NewSessionID()
 	}
 	return schedManager.schedule(info)
 }
@@ -364,18 +364,19 @@ func newHistoryItem(historyItem *HistoryItem) *api.HistoryItem {
 	forGuests := []string{}
 	countDict := make(map[string]int64)
 
-	data := schedInfo.Data
-	tenants = append(tenants, data.OwnerTenantID)
+	data := schedInfo
+	tenants = append(tenants, data.Project)
 
 	for _, forGuest := range data.ForGuests {
-		forGuests = append(forGuests, fmt.Sprintf("%v(%v)", forGuest.ID, forGuest.Name))
+		//forGuests = append(forGuests, fmt.Sprintf("%v(%v)", forGuest.ID, forGuest.Name))
+		forGuests = append(forGuests, fmt.Sprintf("%v", forGuest))
 	}
 
 	guestType := data.Hypervisor
 	if c, ok := countDict[guestType]; !ok {
-		countDict[guestType] = data.Count
+		countDict[guestType] = int64(data.Count)
 	} else {
-		countDict[guestType] = c + data.Count
+		countDict[guestType] = c + int64(data.Count)
 	}
 
 	counts := []string{}
@@ -412,7 +413,7 @@ func GetHistoryDetail(historyDetailArgs *api.HistoryDetailArgs) (*api.HistoryDet
 	schedInfo := task.SchedInfo
 	historyTasks := []api.HistoryTask{}
 
-	data := schedInfo.Data
+	data := schedInfo
 	taskExecutor := task.GetTaskExecutor(data.Tag)
 	historyTask := api.HistoryTask{
 		Type: data.Hypervisor,

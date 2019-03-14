@@ -9,39 +9,33 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 const (
-	DIRECT_PCI_TYPE = "PCI"
-	GPU_HPC_TYPE    = "GPU-HPC" // # for compute
-	GPU_VGA_TYPE    = "GPU-VGA" // # for display
-	USB_TYPE        = "USB"
-	NIC_TYPE        = "NIC"
+	DIRECT_PCI_TYPE = api.DIRECT_PCI_TYPE
+	GPU_HPC_TYPE    = api.GPU_HPC_TYPE // # for compute
+	GPU_VGA_TYPE    = api.GPU_VGA_TYPE // # for display
+	USB_TYPE        = api.USB_TYPE
+	NIC_TYPE        = api.NIC_TYPE
 
-	NVIDIA_VENDOR_ID = "10de"
-	AMD_VENDOR_ID    = "1002"
+	NVIDIA_VENDOR_ID = api.NVIDIA_VENDOR_ID
+	AMD_VENDOR_ID    = api.AMD_VENDOR_ID
 )
 
-var VALID_GPU_TYPES = []string{GPU_HPC_TYPE, GPU_VGA_TYPE}
+var VALID_GPU_TYPES = api.VALID_GPU_TYPES
 
-var VALID_PASSTHROUGH_TYPES = []string{DIRECT_PCI_TYPE, USB_TYPE, NIC_TYPE, GPU_HPC_TYPE, GPU_VGA_TYPE}
+var VALID_PASSTHROUGH_TYPES = api.VALID_PASSTHROUGH_TYPES
 
-var ID_VENDOR_MAP = map[string]string{
-	NVIDIA_VENDOR_ID: "NVIDIA",
-	AMD_VENDOR_ID:    "AMD",
-}
+var ID_VENDOR_MAP = api.ID_VENDOR_MAP
 
-var VENDOR_ID_MAP = map[string]string{
-	"NVIDIA": NVIDIA_VENDOR_ID,
-	"AMD":    AMD_VENDOR_ID,
-}
+var VENDOR_ID_MAP = api.VENDOR_ID_MAP
 
 type SIsolatedDeviceManager struct {
 	db.SStandaloneResourceBaseManager
@@ -228,43 +222,15 @@ func (self *SIsolatedDevice) isGpu() bool {
 	return strings.HasPrefix(self.DevType, "GPU")
 }
 
-type SIsolatedDeviceConfig struct {
-	Id      string
-	DevType string
-	Model   string
-	Vendor  string
-}
-
-func (manager *SIsolatedDeviceManager) parseDeviceInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SIsolatedDeviceConfig, error) {
-	devConfig := SIsolatedDeviceConfig{}
-
-	devJson, ok := info.(*jsonutils.JSONDict)
-	if ok {
-		err := devJson.Unmarshal(&devConfig)
-		if err != nil {
-			return nil, err
-		}
-		return &devConfig, nil
-	}
-	devStr, err := info.GetString()
-	if err != nil {
-		log.Errorf("invalid isolated device info format %s", err)
-		return nil, err
-	}
+func (manager *SIsolatedDeviceManager) parseDeviceInfo(userCred mcclient.TokenCredential, devConfig *api.IsolatedDeviceConfig) (*api.IsolatedDeviceConfig, error) {
 	var devId, devType, devVendor string
 	var matchDev *SIsolatedDevice
-	parts := strings.Split(devStr, ":")
-	for _, p := range parts {
-		if regutils.MatchUUIDExact(p) {
-			devId = p
-		} else if utils.IsInStringArray(p, VALID_PASSTHROUGH_TYPES) {
-			devType = p
-		} else if strings.HasPrefix(p, "vendor=") {
-			devVendor = p[len("vendor="):]
-		} else {
-			matchDev = manager.fuzzyMatchModel(p)
-		}
-	}
+
+	devId = devConfig.Id
+	matchDev = manager.fuzzyMatchModel(devConfig.Model)
+	devVendor = devConfig.Vendor
+	devType = devConfig.DevType
+
 	if len(devId) == 0 {
 		if matchDev == nil {
 			return nil, fmt.Errorf("Isolated device info not contains either deviceID or model name")
@@ -301,10 +267,10 @@ func (manager *SIsolatedDeviceManager) parseDeviceInfo(userCred mcclient.TokenCr
 	if len(devType) > 0 {
 		devConfig.DevType = devType
 	}
-	return &devConfig, nil
+	return devConfig, nil
 }
 
-func (manager *SIsolatedDeviceManager) isValidDeviceinfo(config *SIsolatedDeviceConfig) error {
+func (manager *SIsolatedDeviceManager) isValidDeviceinfo(config *api.IsolatedDeviceConfig) error {
 	if len(config.Id) > 0 {
 		devObj, err := manager.FetchById(config.Id)
 		if err != nil {
@@ -318,7 +284,7 @@ func (manager *SIsolatedDeviceManager) isValidDeviceinfo(config *SIsolatedDevice
 	return nil
 }
 
-func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDesc(ctx context.Context, guest *SGuest, host *SHost, devConfig *SIsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDesc(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
 	if len(devConfig.Id) > 0 {
 		return manager.attachSpecificDeviceToGuest(ctx, guest, devConfig, userCred)
 	} else {
@@ -326,7 +292,7 @@ func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByDesc(ctx context
 	}
 }
 
-func (manager *SIsolatedDeviceManager) attachSpecificDeviceToGuest(ctx context.Context, guest *SGuest, devConfig *SIsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
+func (manager *SIsolatedDeviceManager) attachSpecificDeviceToGuest(ctx context.Context, guest *SGuest, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
 	devObj, err := manager.FetchById(devConfig.Id)
 	if devObj == nil {
 		return fmt.Errorf("Device %s not found: %s", devConfig.Id, err)
@@ -338,7 +304,7 @@ func (manager *SIsolatedDeviceManager) attachSpecificDeviceToGuest(ctx context.C
 	return guest.attachIsolatedDevice(ctx, userCred, dev)
 }
 
-func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(ctx context.Context, guest *SGuest, host *SHost, devConfig *SIsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
+func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
 	if len(devConfig.Model) == 0 {
 		return fmt.Errorf("Not found model from info: %s", devConfig)
 	}

@@ -1,90 +1,39 @@
 package options
 
 import (
-	"fmt"
-
-	"yunion.io/x/jsonutils"
-
+	"yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type SchedulerTestBaseOptions struct {
-	Mem                 int64    `help:"Memory size (MB), default 512" metavar:"MEMORY" default:"512"`
-	Ncpu                int64    `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>"`
-	Disk                []string `help:"Disk descriptions" nargs:"+"`
-	DiskSchedtag        []string `help:"Disk schedtag description, e.g. '0:<tag>:<strategy>'"`
-	BaremetalDiskConfig []string `help:"Baremetal disk layout configuration"`
-	Net                 []string `help:"Network descriptions" metavar:"NETWORK"`
-	IsolatedDevice      []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
-	Schedtag            []string `help:"Schedule policy, key = SchedTag name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
-	Zone                string   `help:"Preferred zone where virtual server should be created"`
-	Host                string   `help:"Preferred host where virtual server should be created"`
-	Project             string   `help:"Owner project ID or Name"`
-	Hypervisor          string   `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun"`
-	Count               int64    `help:"Create multiple simultaneously, default 1" default:"1"`
-	Log                 bool     `help:"Record to schedule history"`
+	*ServerConfigs
+
+	Mem  int  `help:"Memory size (MB), default 512" metavar:"MEMORY" default:"512"`
+	Ncpu int  `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>"`
+	Log  bool `help:"Record to schedule history"`
 }
 
-func (o SchedulerTestBaseOptions) data(s *mcclient.ClientSession) (*jsonutils.JSONDict, error) {
-	data := jsonutils.NewDict()
+func (o SchedulerTestBaseOptions) data(s *mcclient.ClientSession) (*scheduler.ServerConfig, error) {
+	config, err := o.ServerConfigs.Data()
+	if err != nil {
+		return nil, err
+	}
+
+	data := new(scheduler.ServerConfig)
+	data.ServerConfigs = config
+
 	if o.Mem > 0 {
-		data.Add(jsonutils.NewInt(o.Mem), "vmem_size")
+		data.Memory = o.Mem
 	}
 	if o.Ncpu > 0 {
-		data.Add(jsonutils.NewInt(o.Ncpu), "vcpu_count")
-	}
-	for i, d := range o.Disk {
-		data.Add(jsonutils.NewString(d), fmt.Sprintf("disk.%d", i))
-	}
-	for i, n := range o.Net {
-		data.Add(jsonutils.NewString(n), fmt.Sprintf("net.%d", i))
-	}
-	for i, g := range o.IsolatedDevice {
-		data.Add(jsonutils.NewString(g), fmt.Sprintf("isolated_device.%d", i))
-	}
-	if len(o.Host) > 0 {
-		data.Add(jsonutils.NewString(o.Host), "prefer_host")
-	} else {
-		if len(o.Zone) > 0 {
-			data.Add(jsonutils.NewString(o.Zone), "prefer_zone")
-		}
-		if len(o.Schedtag) > 0 {
-			for i, aggr := range o.Schedtag {
-				data.Add(jsonutils.NewString(aggr), fmt.Sprintf("aggregate.%d", i))
-			}
-		}
-	}
-	if len(o.Project) > 0 {
-		ret, err := modules.Projects.Get(s, o.Project, nil)
-		if err != nil {
-			return nil, err
-		}
-		projectId, err := ret.GetString("id")
-		if err != nil {
-			return nil, err
-		}
-		data.Add(jsonutils.NewString(projectId), "owner_tenant_id")
-	}
-	if len(o.Hypervisor) > 0 {
-		data.Add(jsonutils.NewString(o.Hypervisor), "hypervisor")
-		if o.Hypervisor == "baremetal" {
-			for i, c := range o.BaremetalDiskConfig {
-				data.Add(jsonutils.NewString(c), fmt.Sprintf("baremetal_disk_config.%d", i))
-			}
-		}
+		data.Ncpu = o.Ncpu
 	}
 	return data, nil
 }
 
-func (o SchedulerTestBaseOptions) options() *jsonutils.JSONDict {
-	opt := jsonutils.NewDict()
-	opt.Add(jsonutils.NewInt(o.Count), "count")
-	if o.Log {
-		opt.Add(jsonutils.JSONTrue, "record_to_history")
-	} else {
-		opt.Add(jsonutils.JSONFalse, "record_to_history")
-	}
+func (o SchedulerTestBaseOptions) options() *scheduler.ScheduleBaseConfig {
+	opt := new(scheduler.ScheduleBaseConfig)
+	opt.RecordLog = o.Log
 	return opt
 }
 
@@ -95,38 +44,34 @@ type SchedulerTestOptions struct {
 	Details         bool  `help:"Show suggestion details"`
 }
 
-func (o SchedulerTestOptions) Params(s *mcclient.ClientSession) (*jsonutils.JSONDict, error) {
+func (o *SchedulerTestOptions) Params(s *mcclient.ClientSession) (*scheduler.ScheduleInput, error) {
 	data, err := o.data(s)
 	if err != nil {
-		return data, err
+		return nil, err
 	}
-	params := o.options()
-	params.Add(jsonutils.NewInt(o.SuggestionLimit), "suggestion_limit")
-	if o.SuggestionAll {
-		params.Add(jsonutils.JSONTrue, "suggestion_all")
-	} else {
-		params.Add(jsonutils.JSONFalse, "suggestion_all")
-	}
+	opts := o.options()
+	input := new(scheduler.ScheduleInput)
+	input.ServerConfig = *data
+	input.ScheduleBaseConfig = *opts
+	input.SuggestionLimit = o.SuggestionLimit
+	input.SuggestionAll = o.SuggestionAll
+	input.Details = o.Details
 
-	if o.Details {
-		params.Add(jsonutils.JSONTrue, "suggestion_details")
-	} else {
-		params.Add(jsonutils.JSONFalse, "suggestion_details")
-	}
-	params.Add(data, "scheduler")
-	return params, nil
+	return input, nil
 }
 
 type SchedulerForecastOptions struct {
 	SchedulerTestBaseOptions
 }
 
-func (o SchedulerForecastOptions) Params(s *mcclient.ClientSession) (*jsonutils.JSONDict, error) {
+func (o SchedulerForecastOptions) Params(s *mcclient.ClientSession) (*scheduler.ScheduleInput, error) {
 	data, err := o.data(s)
 	if err != nil {
-		return data, err
+		return nil, err
 	}
-	params := o.options()
-	params.Add(data, "scheduler")
-	return params, nil
+	opts := o.options()
+	input := new(scheduler.ScheduleInput)
+	input.ServerConfig = *data
+	input.ScheduleBaseConfig = *opts
+	return input, nil
 }

@@ -10,9 +10,9 @@ import (
 
 	"yunion.io/x/onecloud/pkg/compute/models"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
-	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
@@ -35,7 +35,7 @@ func (p *NetworkPredicate) Clone() core.FitPredicate {
 
 func (p *NetworkPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
 	data := u.SchedData()
-	if len(data.HostID) > 0 && len(data.Networks) == 0 {
+	if len(data.HostId) > 0 && len(data.Networks) == 0 {
 		return false, nil
 	}
 
@@ -53,7 +53,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	d := u.SchedData()
 
 	isMigrate := func() bool {
-		return len(d.HostID) > 0
+		return len(d.HostId) > 0
 	}
 
 	// ServerType's value is 'guest', 'container' or ''(support all type) will return true.
@@ -98,7 +98,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 				appendError(predicates.ErrWireIsNotMatch)
 			}
 
-			if !((!private && n.IsPublic) || (private && !n.IsPublic && n.ProjectId == d.OwnerTenantID)) {
+			if !((!private && n.IsPublic) || (private && !n.IsPublic && n.ProjectId == d.Project)) {
 				appendError(predicates.ErrNotOwner)
 			}
 
@@ -131,9 +131,9 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		h.SetCapacityCounter(counters)
 	}
 
-	isNetworkAvaliable := func(n *api.Network, counters *core.MinCounters,
+	isNetworkAvaliable := func(n *computeapi.NetworkConfig, counters *core.MinCounters,
 		networks []models.SNetwork) string {
-		if n.Idx == "" {
+		if n.Network == "" {
 			counters0 := core.NewCounters()
 			ret_msg := isRandomNetworkAvailable(n.Private, n.Exit, n.Wire, counters0)
 			counters.Add(counters0)
@@ -150,17 +150,17 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): server type not matched", net.Name, net.ID))
 				continue
 			}*/
-			if !(n.Idx == net.GetId() || n.Idx == net.GetName()) {
+			if !(n.Network == net.GetId() || n.Network == net.GetName()) {
 				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): id/name not matched", net.Name, net.Id))
-			} else if !(net.IsPublic || net.ProjectId == d.OwnerTenantID) {
-				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): not owner (%v != %v)", net.Name, net.Id, net.ProjectId, d.OwnerTenantID))
+			} else if !(net.IsPublic || net.ProjectId == d.Project) {
+				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): not owner (%v != %v)", net.Name, net.Id, net.ProjectId, d.Project))
 			} else if !(net.GetPorts() > 0 || isMigrate()) {
 				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): ports use up", net.Name, net.Id))
 			} else {
 				// add resource
 				reservedNetworks := 0
 				counter := counterOfNetwork(u, &net, reservedNetworks)
-				if counter.GetCount() < d.Count {
+				if counter.GetCount() < int64(d.Count) {
 					errMsgs = append(errMsgs, fmt.Sprintf("%s: ports not enough, free: %d, required: %d", net.Name, counter.GetCount(), d.Count))
 					continue
 				}

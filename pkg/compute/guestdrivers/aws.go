@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -69,6 +69,16 @@ func (self *SAwsGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return 10
 }
 
+func (self *SAwsGuestDriver) GetStorageTypes() []string {
+	return []string{
+		models.STORAGE_GP2_SSD,
+		models.STORAGE_IO1_SSD,
+		models.STORAGE_ST1_HDD,
+		models.STORAGE_SC1_HDD,
+		models.STORAGE_STANDARD_HDD,
+	}
+}
+
 func (self *SAwsGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
 	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i += 1 {
@@ -77,13 +87,7 @@ func (self *SAwsGuestDriver) ChooseHostStorage(host *models.SHost, backend strin
 		}
 	}
 
-	for _, stype := range []string{
-		models.STORAGE_GP2_SSD,
-		models.STORAGE_IO1_SSD,
-		models.STORAGE_ST1_HDD,
-		models.STORAGE_SC1_HDD,
-		models.STORAGE_STANDARD_HDD,
-	} {
+	for _, stype := range self.GetStorageTypes() {
 		for i := 0; i < len(storages); i += 1 {
 			if storages[i].StorageType == stype {
 				return &storages[i]
@@ -117,8 +121,8 @@ func (self *SAwsGuestDriver) RequestDetachDisk(ctx context.Context, guest *model
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
-func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
+func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	return self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
 }
 
 func (self *SAwsGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {

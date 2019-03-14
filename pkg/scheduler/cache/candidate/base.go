@@ -172,12 +172,14 @@ func (b *BaseHostDesc) fillNetworks(hostID string) error {
 	return nil
 }
 
-func (b *BaseHostDesc) fillStorages(storages []*computemodels.SStorage) error {
+func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
 	ss := make([]*api.CandidateStorage, 0)
-	for _, s := range storages {
+	//log.Errorf("====host %s append storages: %#v", b.Name, storages)
+	for _, s := range host.GetHoststorages() {
+		storage := s.GetStorage()
 		ss = append(ss, &api.CandidateStorage{
-			SStorage:  s,
-			Schedtags: s.GetSchedtags(),
+			SStorage:  storage,
+			Schedtags: storage.GetSchedtags(),
 		})
 	}
 	b.Storages = ss

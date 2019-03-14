@@ -189,7 +189,6 @@ func (bb *BaremetalBuilder) Type() string {
 }
 
 func (bb *BaremetalBuilder) AllIDs() ([]string, error) {
-	log.Errorf("=======get baremetal host ids")
 	return models.AllBaremetalIDs()
 }
 

@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -95,14 +96,14 @@ func (self *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, ob
 }
 
 func (self *GuestChangeConfigTask) DoCreateDisksTask(ctx context.Context, guest *models.SGuest) {
-	iCreateData, err := self.Params.Get("create")
-	if err != nil || iCreateData == nil {
+	disks := make([]*api.DiskConfig, 0)
+	err := self.Params.Unmarshal(disks, "create")
+	if err != nil || len(disks) == 0 {
 		self.OnCreateDisksComplete(ctx, guest, nil)
 		return
 	}
-	data := (iCreateData).(*jsonutils.JSONDict)
 	self.SetStage("OnCreateDisksComplete", nil)
-	guest.StartGuestCreateDiskTask(ctx, self.UserCred, data, self.GetTaskId())
+	guest.StartGuestCreateDiskTask(ctx, self.UserCred, disks, self.GetTaskId())
 }
 
 func (self *GuestChangeConfigTask) OnCreateDisksCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {

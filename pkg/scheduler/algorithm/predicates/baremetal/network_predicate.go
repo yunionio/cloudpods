@@ -7,9 +7,9 @@ import (
 
 	"yunion.io/x/pkg/utils"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
-	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
@@ -35,7 +35,7 @@ func (p *NetworkPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool,
 
 	u.AppendSelectPlugin(p)
 	d := u.SchedData()
-	if len(d.HostID) > 0 && len(d.Networks) == 0 {
+	if len(d.HostId) > 0 && len(d.Networks) == 0 {
 		return false, nil
 	}
 
@@ -54,7 +54,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	counters := core.NewCounters()
 
 	isMigrate := func() bool {
-		return len(schedData.HostID) > 0
+		return len(schedData.HostId) > 0
 	}
 
 	isRandomNetworkAvailable := func(private bool, exit bool, wire string) string {
@@ -69,7 +69,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 			if wire != "" && !utils.HasPrefix(wire, network.WireId) && !utils.HasPrefix(wire, network.GetWire().GetName()) { // re
 				appendError(predicates.ErrWireIsNotMatch)
 			}
-			if (!private && network.IsPublic) || (private && !network.IsPublic && network.ProjectId == schedData.OwnerTenantID) {
+			if (!private && network.IsPublic) || (private && !network.IsPublic && network.ProjectId == schedData.Project) {
 				// TODO: support reservedNetworks
 				reservedNetworks := 0
 				restPort := int64(network.GetPorts() - reservedNetworks)
@@ -100,12 +100,12 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		h.SetCapacityCounter(counters)
 	}
 
-	isNetworkAvaliable := func(network *api.Network) string {
-		if network.Idx == "" {
+	isNetworkAvaliable := func(network *computeapi.NetworkConfig) string {
+		if network.Network == "" {
 			return isRandomNetworkAvailable(network.Private, network.Exit, network.Wire)
 		}
 		for _, net := range candidate.Networks {
-			if (network.Idx == net.Id || network.Idx == net.Name) && (net.IsPublic || net.ProjectId == schedData.OwnerTenantID) && (net.GetPorts() > 0 || isMigrate()) {
+			if (network.Network == net.Id || network.Network == net.Name) && (net.IsPublic || net.ProjectId == schedData.Project) && (net.GetPorts() > 0 || isMigrate()) {
 				h.SetCapacity(1)
 				return ""
 			}

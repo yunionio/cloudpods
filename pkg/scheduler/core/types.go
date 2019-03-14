@@ -3,6 +3,7 @@ package core
 import (
 	"yunion.io/x/jsonutils"
 
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core/score"
@@ -129,17 +130,12 @@ type Priority interface {
 	ScoreIntervals() score.Intervals
 }
 
-type DiskAllocatedResource struct {
-	Index     int    `json:"index"`
-	StorageId string `json:"storage_id"`
-}
-
 type AllocatedResource struct {
-	Disks []*DiskAllocatedResource `json:"disks"`
+	Disks []*schedapi.CandidateDisk `json:"disks"`
 }
 
 func NewAllocatedResource() *AllocatedResource {
 	return &AllocatedResource{
-		Disks: make([]*DiskAllocatedResource, 0),
+		Disks: make([]*schedapi.CandidateDisk, 0),
 	}
 }

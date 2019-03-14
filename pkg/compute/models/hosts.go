@@ -3020,7 +3020,6 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 	if bn != nil {
 		return nil
 	}
-	log.Errorf("==========EnableNetif %#v, net: %s, ipAddr: %s, allocDir: %s, reserve: %v, requireDesignatedIp: %v", netif, network, ipAddr, allocDir, reserve, requireDesignatedIp)
 	var net *SNetwork
 	var err error
 	if len(ipAddr) > 0 {

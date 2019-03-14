@@ -4,20 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -31,39 +29,33 @@ import (
 
 const (
 	// # DEFAULT_BANDWIDTH = options.default_bandwidth
-	MAX_BANDWIDTH = 100000
+	MAX_BANDWIDTH = api.MAX_BANDWIDTH
 
-	NETWORK_TYPE_GUEST     = "guest"
-	NETWORK_TYPE_BAREMETAL = "baremetal"
-	NETWORK_TYPE_CONTAINER = "container"
-	NETWORK_TYPE_PXE       = "pxe"
-	NETWORK_TYPE_IPMI      = "ipmi"
+	NETWORK_TYPE_GUEST     = api.NETWORK_TYPE_GUEST
+	NETWORK_TYPE_BAREMETAL = api.NETWORK_TYPE_BAREMETAL
+	NETWORK_TYPE_CONTAINER = api.NETWORK_TYPE_CONTAINER
+	NETWORK_TYPE_PXE       = api.NETWORK_TYPE_PXE
+	NETWORK_TYPE_IPMI      = api.NETWORK_TYPE_IPMI
 
-	STATIC_ALLOC = "static"
+	STATIC_ALLOC = api.STATIC_ALLOC
 
-	MAX_NETWORK_NAME_LEN = 11
+	MAX_NETWORK_NAME_LEN = api.MAX_NETWORK_NAME_LEN
 
-	EXTRA_DNS_UPDATE_TARGETS = "__extra_dns_update_targets"
+	EXTRA_DNS_UPDATE_TARGETS = api.EXTRA_DNS_UPDATE_TARGETS
 
-	NETWORK_STATUS_INIT          = "init"
-	NETWORK_STATUS_PENDING       = "pending"
-	NETWORK_STATUS_AVAILABLE     = "available"
-	NETWORK_STATUS_FAILED        = "failed"
-	NETWORK_STATUS_UNKNOWN       = "unknown"
-	NETWORK_STATUS_START_DELETE  = "start_delete"
-	NETWORK_STATUS_DELETING      = "deleting"
-	NETWORK_STATUS_DELETED       = "deleted"
-	NETWORK_STATUS_DELETE_FAILED = "delete_failed"
+	NETWORK_STATUS_INIT          = api.NETWORK_STATUS_INIT
+	NETWORK_STATUS_PENDING       = api.NETWORK_STATUS_PENDING
+	NETWORK_STATUS_AVAILABLE     = api.NETWORK_STATUS_AVAILABLE
+	NETWORK_STATUS_FAILED        = api.NETWORK_STATUS_FAILED
+	NETWORK_STATUS_UNKNOWN       = api.NETWORK_STATUS_UNKNOWN
+	NETWORK_STATUS_START_DELETE  = api.NETWORK_STATUS_START_DELETE
+	NETWORK_STATUS_DELETING      = api.NETWORK_STATUS_DELETING
+	NETWORK_STATUS_DELETED       = api.NETWORK_STATUS_DELETED
+	NETWORK_STATUS_DELETE_FAILED = api.NETWORK_STATUS_DELETE_FAILED
 )
 
 var (
-	ALL_NETWORK_TYPES = []string{
-		NETWORK_TYPE_GUEST,
-		NETWORK_TYPE_BAREMETAL,
-		NETWORK_TYPE_CONTAINER,
-		NETWORK_TYPE_PXE,
-		NETWORK_TYPE_IPMI,
-	}
+	ALL_NETWORK_TYPES = api.ALL_NETWORK_TYPES
 )
 
 type IPAddlocationDirection string
@@ -706,119 +698,39 @@ func (manager *SNetworkManager) TotalPortCount(
 	return NetworkPortStat{Count: ct, CountExt: ctExt}
 }
 
-type SNetworkConfig struct {
-	Network  string
-	Wire     string
-	Exit     bool
-	Private  bool
-	Mac      string
-	Address  string
-	Address6 string
-	Driver   string
-	BwLimit  int
-	Vip      bool
-	Reserved bool
-	Ifname   string
-	NetType  string
-
-	RequireTeaming bool
-	TryTeaming     bool
-
-	StandbyPortCount int
-	StandbyAddrCount int
-}
-
 type SNicConfig struct {
 	Mac    string
 	Index  int8
 	Ifname string
 }
 
-func parseNetworkInfo(userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SNetworkConfig, error) {
-	netConfig := SNetworkConfig{}
-
-	netJson, ok := info.(*jsonutils.JSONDict)
-	if ok {
-		err := netJson.Unmarshal(&netConfig)
-		if err != nil {
+func parseNetworkInfo(userCred mcclient.TokenCredential, info *api.NetworkConfig) (*api.NetworkConfig, error) {
+	netObj, err := NetworkManager.FetchByIdOrName(userCred, info.Network)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2(NetworkManager.Keyword(), info.Network)
+		} else {
 			return nil, err
 		}
-		return &netConfig, nil
 	}
-	netStr, err := info.GetString()
-	if err != nil {
-		log.Errorf("invalid networkinfo format %s", err)
-		return nil, err
+	net := netObj.(*SNetwork)
+	if net.IsOwner(userCred) || net.IsPublic || db.IsAdminAllowGet(userCred, net) {
+		info.Network = netObj.GetId()
+	} else {
+		return nil, httperrors.NewForbiddenError("no allow to access network %s", info.Network)
 	}
-	parts := strings.Split(netStr, ":")
-	for _, p := range parts {
-		if len(p) == 0 {
-			continue
-		}
-		if regutils.MatchIP4Addr(p) {
-			netConfig.Address = p
-		} else if regutils.MatchIP6Addr(p) {
-			netConfig.Address6 = p
-		} else if regutils.MatchCompactMacAddr(p) {
-			netConfig.Mac = netutils.MacUnpackHex(p)
-		} else if strings.HasPrefix(p, "wire=") {
-			netConfig.Wire = p[len("wire="):]
-		} else if p == "[random_exit]" {
-			netConfig.Exit = true
-		} else if p == "[random]" {
-			netConfig.Exit = false
-		} else if p == "[private]" {
-			netConfig.Private = true
-		} else if p == "[reserved]" {
-			netConfig.Reserved = true
-		} else if p == "[teaming]" {
-			netConfig.RequireTeaming = true
-		} else if p == "[try-teaming]" {
-			netConfig.TryTeaming = true
-		} else if strings.HasPrefix(p, "standby-port=") {
-			netConfig.StandbyPortCount, _ = strconv.Atoi(p[len("standby-port="):])
-		} else if strings.HasPrefix(p, "standby-addr=") {
-			netConfig.StandbyAddrCount, _ = strconv.Atoi(p[len("standby-addr="):])
-		} else if utils.IsInStringArray(p, []string{"virtio", "e1000", "vmxnet3"}) {
-			netConfig.Driver = p
-		} else if regutils.MatchSize(p) {
-			bw, err := fileutils.GetSizeMb(p, 'M', 1000)
-			if err != nil {
-				return nil, err
-			}
-			netConfig.BwLimit = bw
-		} else if p == "[vip]" {
-			netConfig.Vip = true
-		} else if utils.IsInStringArray(p, ALL_NETWORK_TYPES) {
-			netConfig.NetType = p
-		} else {
-			netObj, err := NetworkManager.FetchByIdOrName(userCred, p)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2(NetworkManager.Keyword(), p)
-				} else {
-					return nil, err
-				}
-			}
-			net := netObj.(*SNetwork)
-			if net.IsOwner(userCred) || net.IsPublic || db.IsAdminAllowGet(userCred, net) {
-				netConfig.Network = netObj.GetId()
-			} else {
-				return nil, httperrors.NewForbiddenError("no allow to access network %s", p)
-			}
-		}
+
+	if info.BwLimit == 0 {
+		info.BwLimit = options.Options.DefaultBandwidth
 	}
-	if netConfig.BwLimit == 0 {
-		netConfig.BwLimit = options.Options.DefaultBandwidth
-	}
-	return &netConfig, nil
+	return info, nil
 }
 
 func (self *SNetwork) getFreeAddressCount() int {
 	return self.getIPRange().AddressCount() - self.GetTotalNicCount()
 }
 
-func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *SNetworkConfig) error {
+func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.NetworkConfig) error {
 	if len(netConfig.Network) > 0 {
 		netObj, err := NetworkManager.FetchByIdOrName(userCred, netConfig.Network)
 		if err != nil {
@@ -862,7 +774,7 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *SNetworkCo
 	return nil
 }
 
-func isExitNetworkInfo(netConfig *SNetworkConfig) bool {
+func isExitNetworkInfo(netConfig *api.NetworkConfig) bool {
 	if len(netConfig.Network) > 0 {
 		netObj, _ := NetworkManager.FetchById(netConfig.Network)
 		net := netObj.(*SNetwork)

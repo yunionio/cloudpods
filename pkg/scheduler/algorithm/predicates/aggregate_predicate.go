@@ -63,7 +63,7 @@ func (p *AggregatePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []c
 
 type schedtagCandidateW struct {
 	core.Candidater
-	schedData *api.SchedData
+	schedData *api.SchedInfo
 }
 
 func (w schedtagCandidateW) GetDynamicSchedDesc() *jsonutils.JSONDict {
@@ -96,25 +96,27 @@ func (p *AggregatePredicate) exec(h *PredicateHelper) string {
 	return ""
 }
 
+func SetCandidateScoreBySchedtag(u *core.Unit, c core.Candidater, aggCountMap map[string]int, postiveScore bool) {
+	stepScore := core.PriorityStep
+	if !postiveScore {
+		stepScore = -stepScore
+	}
+	for n, count := range aggCountMap {
+		u.SetFrontScore(
+			c.IndexKey(),
+			score.NewScore(score.TScore(count*stepScore), n),
+		)
+	}
+}
+
 func (p *AggregatePredicate) OnPriorityEnd(u *core.Unit, c core.Candidater) {
 	hostAggs := c.Getter().HostSchedtags()
 
 	avoidCountMap := GetSchedtagCount(p.SchedtagPredicate.GetAvoidTags(), hostAggs, api.AggregateStrategyAvoid)
 	preferCountMap := GetSchedtagCount(p.SchedtagPredicate.GetPreferTags(), hostAggs, api.AggregateStrategyPrefer)
 
-	setScore := func(aggCountMap map[string]int, postiveScore bool) {
-		stepScore := core.PriorityStep
-		if !postiveScore {
-			stepScore = -stepScore
-		}
-		for n, count := range aggCountMap {
-			u.SetFrontScore(
-				c.IndexKey(),
-				score.NewScore(score.TScore(count*stepScore), n),
-			)
-		}
-	}
+	setScore := SetCandidateScoreBySchedtag
 
-	setScore(preferCountMap, true)
-	setScore(avoidCountMap, false)
+	setScore(u, c, preferCountMap, true)
+	setScore(u, c, avoidCountMap, false)
 }

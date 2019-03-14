@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -36,6 +36,16 @@ func (self *SAliyunGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return 20
 }
 
+func (self *SAliyunGuestDriver) GetStorageTypes() []string {
+	return []string{
+		models.STORAGE_CLOUD_EFFICIENCY,
+		models.STORAGE_CLOUD_SSD,
+		models.STORAGE_CLOUD_ESSD,
+		models.STORAGE_PUBLIC_CLOUD,
+		models.STORAGE_EPHEMERAL_SSD,
+	}
+}
+
 func (self *SAliyunGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
 	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i += 1 {
@@ -43,13 +53,7 @@ func (self *SAliyunGuestDriver) ChooseHostStorage(host *models.SHost, backend st
 			return &storages[i]
 		}
 	}
-	for _, stype := range []string{
-		models.STORAGE_CLOUD_EFFICIENCY,
-		models.STORAGE_CLOUD_SSD,
-		models.STORAGE_CLOUD_ESSD,
-		models.STORAGE_PUBLIC_CLOUD,
-		models.STORAGE_EPHEMERAL_SSD,
-	} {
+	for _, stype := range self.GetStorageTypes() {
 		for i := 0; i < len(storages); i += 1 {
 			if storages[i].StorageType == stype {
 				return &storages[i]
@@ -96,19 +100,15 @@ func (self *SAliyunGuestDriver) RequestDetachDisk(ctx context.Context, guest *mo
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
-func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
+func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	input, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
 	if err != nil {
 		return nil, err
 	}
-	if data.Contains("net.0") && data.Contains("net.1") {
+	if len(input.Networks) > 2 {
 		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
 	}
-	for i := 0; data.Contains(fmt.Sprintf("disk.%d", i)); i++ {
-		disk := models.SDiskConfig{}
-		if err := data.Unmarshal(&disk, fmt.Sprintf("disk.%d", i)); err != nil {
-			return nil, httperrors.NewInputParameterError("invalid diskinfo of index %d", i)
-		}
+	for i, disk := range input.Disks {
 		if i == 0 && (disk.SizeMb < 20*1024 || disk.SizeMb > 500*1024) {
 			return nil, httperrors.NewInputParameterError("The system disk size must be in the range of 20GB ~ 500Gb")
 		}
@@ -127,7 +127,7 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 			}
 		}
 	}
-	return data, nil
+	return input, nil
 }
 
 func (self *SAliyunGuestDriver) GetGuestInitialStateAfterCreate() string {

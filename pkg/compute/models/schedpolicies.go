@@ -8,6 +8,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -160,14 +162,14 @@ func (self *SSchedpolicy) PerformEvaluate(ctx context.Context, userCred mcclient
 	desc := server.getSchedDesc()
 
 	params := jsonutils.NewDict()
-	params.Add(desc, "server")
+	params.Add(desc.JSON(desc), "server")
 
 	meet, err := conditionparser.Eval(self.Condition, params)
 	if err != nil {
 		return nil, err
 	}
 	result := jsonutils.NewDict()
-	result.Add(desc, "server")
+	result.Add(desc.JSON(desc), "server")
 	if meet {
 		result.Add(jsonutils.JSONTrue, "result")
 	} else {
@@ -176,26 +178,25 @@ func (self *SSchedpolicy) PerformEvaluate(ctx context.Context, userCred mcclient
 	return result, nil
 }
 
-func ApplySchedPolicies(params *jsonutils.JSONDict) *jsonutils.JSONDict {
+func ApplySchedPolicies(params *schedapi.ScheduleInput) *schedapi.ScheduleInput {
 	policies := SchedpolicyManager.getAllEnabledPolicies()
 	if policies == nil {
 		log.Errorf("getAllEnabledPolicies fail")
+		//return jsonutils.Marshal(params).(*jsonutils.JSONDict)
 		return params
 	}
 
 	schedtags := make(map[string]string)
 
-	if params.Contains("aggregate_strategy") {
-		err := params.Unmarshal(&schedtags, "aggregate_strategy")
-		if err != nil {
-			log.Errorf("unmarshall aggregate_strategy fail %s", err)
-			return params
+	if len(params.ServerConfig.Schedtags) != 0 {
+		for _, tag := range params.ServerConfig.Schedtags {
+			schedtags[tag.Id] = tag.Strategy
 		}
 		log.Infof("original sched tag %#v", schedtags)
 	}
 
 	input := jsonutils.NewDict()
-	input.Add(params, "server")
+	input.Add(jsonutils.Marshal(params), "server")
 
 	for i := 0; i < len(policies); i += 1 {
 		meet, err := conditionparser.Eval(policies[i].Condition, input)
@@ -207,11 +208,15 @@ func ApplySchedPolicies(params *jsonutils.JSONDict) *jsonutils.JSONDict {
 		}
 	}
 
-	newSchedtags := jsonutils.Marshal(schedtags)
-	log.Infof("updated sched tag %s", newSchedtags)
+	log.Infof("updated sched tag %s", schedtags)
 
-	ret := jsonutils.NewDict()
-	ret.Add(newSchedtags, "aggregate_strategy")
+	params.ServerConfig.Schedtags = make([]*api.SchedtagConfig, 0)
+	for name, strategy := range schedtags {
+		params.ServerConfig.Schedtags = append(params.ServerConfig.Schedtags, &api.SchedtagConfig{
+			Id:       name,
+			Strategy: strategy,
+		})
+	}
 
-	return ret
+	return params
 }

@@ -182,8 +182,8 @@ type HostBuilder struct {
 	guestDict map[string]interface{}
 	guestIDs  []string
 
-	hostStorages          []computemodels.SHoststorage
-	hostStoragesDict      map[string][]*computemodels.SStorage
+	hostStorages []computemodels.SHoststorage
+	//hostStoragesDict      map[string][]*computemodels.SStorage
 	storages              []interface{}
 	storageStatesSizeDict map[string]map[string]interface{}
 
@@ -540,7 +540,7 @@ func (b *HostBuilder) init(ids []string, dbCache DBGroupCacher, syncCache SyncGr
 			b.setMetadataInfo(ids, errMessageChannel)
 		},
 		func() {
-			b.setStorages(ids, errMessageChannel)
+			//b.setStorages(ids, errMessageChannel)
 			b.setDiskStats(errMessageChannel)
 		},
 		func() { b.setMetadataInfo(ids, errMessageChannel) },
@@ -605,32 +605,32 @@ func (b *HostBuilder) setSchedtags(ids []string, errMessageChannel chan error) {
 	b.schedtags = tags
 }
 
-func (b *HostBuilder) setStorages(ids []string, errMessageChannel chan error) {
-	q := computemodels.HoststorageManager.Query().In("host_id", ids)
-	hostStorages := make([]computemodels.SHoststorage, 0)
-	err := computedb.FetchModelObjects(computemodels.HoststorageManager, q, &hostStorages)
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
+//func (b *HostBuilder) setStorages(ids []string, errMessageChannel chan error) {
+//q := computemodels.HoststorageManager.Query().In("host_id", ids)
+//hostStorages := make([]computemodels.SHoststorage, 0)
+//err := computedb.FetchModelObjects(computemodels.HoststorageManager, q, &hostStorages)
+//if err != nil {
+//errMessageChannel <- err
+//return
+//}
 
-	hostStoragesDict := make(map[string][]*computemodels.SStorage)
+////hostStoragesDict := make(map[string][]*computemodels.SStorage)
 
-	for _, s := range hostStorages {
-		if ss, ok := hostStoragesDict[s.HostId]; !ok {
-			storage := s.GetStorage()
-			ss = make([]*computemodels.SStorage, 0)
-			ss = append(ss, storage)
-			hostStoragesDict[s.HostId] = ss
-		} else {
-			ss = append(ss, s.GetStorage())
-		}
-	}
+//for _, s := range hostStorages {
+//if ss, ok := hostStoragesDict[s.HostId]; !ok {
+//storage := s.GetStorage()
+//ss = make([]*computemodels.SStorage, 0)
+//ss = append(ss, storage)
+//hostStoragesDict[s.HostId] = ss
+//} else {
+//ss = append(ss, s.GetStorage())
+//}
+//}
 
-	b.hostStorages = hostStorages
-	b.hostStoragesDict = hostStoragesDict
-	return
-}
+//b.hostStorages = hostStorages
+//b.hostStoragesDict = hostStoragesDict
+//return
+//}
 
 func (b *HostBuilder) setGuests(ids []string, errMessageChannel chan error) {
 	guests, err := FetchGuestByHostIDs(ids)
@@ -898,7 +898,6 @@ func (b *HostBuilder) AllIDs() ([]string, error) {
 		}
 		ret = append(ret, id)
 	}
-	log.Errorf("==============================\n ============================get hostsIDs: %v", ret)
 	return ret, nil
 }
 
@@ -1126,7 +1125,7 @@ func (b *HostBuilder) guestAppTags(guest computemodels.SGuest) []string {
 }
 
 func (b *HostBuilder) fillStorages(desc *HostDesc, host *computemodels.SHost) error {
-	return desc.fillStorages(b.hostStoragesDict[host.GetId()])
+	return desc.fillStorages(host)
 }
 
 func (b *HostBuilder) fillSchedtags(desc *HostDesc, host *computemodels.SHost) error {

@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -19,16 +20,16 @@ import (
 type SchedStrategyType string
 
 const (
-	STRATEGY_REQUIRE = "require"
-	STRATEGY_EXCLUDE = "exclude"
-	STRATEGY_PREFER  = "prefer"
-	STRATEGY_AVOID   = "avoid"
+	STRATEGY_REQUIRE = api.STRATEGY_REQUIRE
+	STRATEGY_EXCLUDE = api.STRATEGY_EXCLUDE
+	STRATEGY_PREFER  = api.STRATEGY_PREFER
+	STRATEGY_AVOID   = api.STRATEGY_AVOID
 
 	// # container used aggregate
-	CONTAINER_AGGREGATE = "container"
+	CONTAINER_AGGREGATE = api.CONTAINER_AGGREGATE
 )
 
-var STRATEGY_LIST = []string{STRATEGY_REQUIRE, STRATEGY_EXCLUDE, STRATEGY_PREFER, STRATEGY_AVOID}
+var STRATEGY_LIST = api.STRATEGY_LIST
 
 type ISchedtagJointManager interface {
 	db.IJointModelManager

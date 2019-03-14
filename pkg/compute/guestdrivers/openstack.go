@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/compare"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -42,6 +43,10 @@ func (self *SOpenStackGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return options.Options.DefaultDiskSizeMB / 1024
 }
 
+func (self *SOpenStackGuestDriver) GetStorageTypes() []string {
+	return []string{models.STORAGE_OPENSTACK_ISCSI}
+}
+
 func (self *SOpenStackGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
 	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i++ {
@@ -49,7 +54,7 @@ func (self *SOpenStackGuestDriver) ChooseHostStorage(host *models.SHost, backend
 			return &storages[i]
 		}
 	}
-	for _, stype := range []string{models.STORAGE_OPENSTACK_ISCSI} {
+	for _, stype := range self.GetStorageTypes() {
 		for i := 0; i < len(storages); i++ {
 			if storages[i].StorageType == stype {
 				return &storages[i]
@@ -83,15 +88,16 @@ func (self *SOpenStackGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{models.VM_RUNNING}, nil
 }
 
-func (self *SOpenStackGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
+func (self *SOpenStackGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	var err error
+	input, err = self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
 	if err != nil {
 		return nil, err
 	}
-	if data.Contains("net.0") && data.Contains("net.1") {
+	if len(input.Networks) >= 2 {
 		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
 	}
-	return data, nil
+	return input, nil
 }
 
 func (self *SOpenStackGuestDriver) GetGuestInitialStateAfterCreate() string {

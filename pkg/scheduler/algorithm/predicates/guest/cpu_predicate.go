@@ -26,7 +26,7 @@ func (f *CPUPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, err
 
 	data := u.SchedData()
 
-	if data.VCPUCount <= 0 {
+	if data.Ncpu <= 0 {
 		return false, nil
 	}
 
@@ -43,7 +43,7 @@ func (f *CPUPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.Pr
 
 	useRsvd := h.UseReserved()
 	freeCPUCount := hc.GetFreeCPUCount(useRsvd)
-	reqCPUCount := d.VCPUCount
+	reqCPUCount := int64(d.Ncpu)
 	if freeCPUCount < reqCPUCount {
 		totalCPUCount := hc.GetTotalCPUCount(useRsvd)
 		h.AppendInsufficientResourceError(reqCPUCount, totalCPUCount, freeCPUCount)
