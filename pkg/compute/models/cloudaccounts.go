@@ -119,6 +119,9 @@ func (self *SCloudaccount) getCloudprovidersInternal(enabled tristate.TriState) 
 }
 
 func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
+	if self.EnableAutoSync {
+		return httperrors.NewInvalidStatusError("automatic syncing is enabled")
+	}
 	if self.Enabled {
 		return httperrors.NewInvalidStatusError("account is enabled")
 	}
