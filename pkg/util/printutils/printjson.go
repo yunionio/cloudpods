@@ -43,7 +43,6 @@ func PrintJSONList(list *modules.ListResult, columns []string) {
 			}
 		}
 	}
-	fmt.Println(colsWithData)
 	pt := prettytable.NewPrettyTable(colsWithData)
 	rows := make([][]string, 0)
 	for _, obj := range list.Data {
@@ -59,6 +58,7 @@ func PrintJSONList(list *modules.ListResult, columns []string) {
 		}
 		rows = append(rows, row)
 	}
+	fmt.Print(pt.GetString(rows))
 	if list.Total == 0 {
 		list.Total = len(list.Data)
 	}
