@@ -947,17 +947,17 @@ func (self *SCloudprovider) deleteProjectsMapping(ctx context.Context, userCred 
 }
 
 func (self *SCloudprovider) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	return self.StartDiskCloudproviderTask(ctx, userCred, "")
+	return self.StartCloudproviderDeleteTask(ctx, userCred, "")
 }
 
-func (self *SCloudprovider) StartDiskCloudproviderTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+func (self *SCloudprovider) StartCloudproviderDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	task, err := taskman.TaskManager.NewTask(ctx, "CloudProviderDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		log.Errorf("%s", err)
 		return err
 	}
-	self.SetStatus(userCred, CLOUD_PROVIDER_START_DELETE, "StartDiskCloudproviderTask")
+	self.SetStatus(userCred, CLOUD_PROVIDER_START_DELETE, "StartCloudproviderDeleteTask")
 	task.ScheduleRun(nil)
 	return nil
 }

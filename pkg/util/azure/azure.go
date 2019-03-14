@@ -141,7 +141,6 @@ func (self *SAzureClient) Put(url string, body jsonutils.JSONObject) error {
 	if self.debug {
 		log.Debugf("%s", resp)
 	}
-	fmt.Println(resp)
 	return nil
 }
 
@@ -157,7 +156,6 @@ func (self *SAzureClient) Patch(url string, body jsonutils.JSONObject) error {
 	if self.debug {
 		log.Debugf("%s", resp)
 	}
-	fmt.Println(resp)
 	return nil
 }
 
