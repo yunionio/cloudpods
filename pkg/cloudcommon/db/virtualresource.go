@@ -359,10 +359,9 @@ func (model *SVirtualResourceBase) SyncCloudProjectId(userCred mcclient.TokenCre
 			}
 			return nil
 		})
-		diffStr := sqlchemy.UpdateDiffString(diff)
-		if len(diffStr) > 0 {
-			OpsLog.LogEvent(model, ACT_SYNC_OWNER, diffStr, userCred)
-			logclient.AddSimpleActionLog(model, logclient.ACT_SYNC_CLOUD_OWNER, diffStr, userCred, true)
+		if len(diff) > 0 {
+			OpsLog.LogEvent(model, ACT_SYNC_OWNER, diff, userCred)
+			logclient.AddSimpleActionLog(model, logclient.ACT_SYNC_CLOUD_OWNER, diff, userCred, true)
 		}
 	}
 }

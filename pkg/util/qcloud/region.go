@@ -391,7 +391,7 @@ func (self *SRegion) updateInstance(instId string, name, desc, passwd, hostname 
 	if len(hostname) > 0 {
 		params["HostName"] = hostname
 	}
-	_, err := self.cvmRequest("ModifyInstanceAttribute", params)
+	_, err := self.cvmRequest("ModifyInstanceAttribute", params, true)
 	return err
 }
 
@@ -463,7 +463,7 @@ func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
 func (self *SRegion) _fetchZones() error {
 	params := make(map[string]string)
 	zones := make([]SZone, 0)
-	body, err := self.cvmRequest("DescribeZones", params)
+	body, err := self.cvmRequest("DescribeZones", params, true)
 	if err != nil {
 		return err
 	}
@@ -597,9 +597,9 @@ func (self *SRegion) vpcRequest(apiName string, params map[string]string) (jsonu
 	return self.client.vpcRequest(apiName, params)
 }
 
-func (self *SRegion) cvmRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (self *SRegion) cvmRequest(apiName string, params map[string]string, retry bool) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
-	return self.client.jsonRequest(apiName, params)
+	return self.client.jsonRequest(apiName, params, retry)
 }
 
 func (self *SRegion) accountRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -744,7 +744,7 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 	return nil, fmt.Errorf("cannot find network %s", networkId)
 }
 
-func (self *SRegion) instanceOperation(instanceId string, opname string, extra map[string]string) error {
+func (self *SRegion) instanceOperation(instanceId string, opname string, extra map[string]string, retry bool) error {
 	params := make(map[string]string)
 	params["InstanceIds.0"] = instanceId
 	if extra != nil && len(extra) > 0 {
@@ -752,7 +752,7 @@ func (self *SRegion) instanceOperation(instanceId string, opname string, extra m
 			params[k] = v
 		}
 	}
-	_, err := self.cvmRequest(opname, params)
+	_, err := self.cvmRequest(opname, params, retry)
 	return err
 }
 
@@ -763,7 +763,7 @@ func (self *SRegion) DeleteSecurityGroup(vpcId string, secgroupId string) error 
 func (self *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
 	params := make(map[string]string)
 	params["InstanceId"] = instanceId
-	body, err := self.cvmRequest("DescribeInstanceVncUrl", params)
+	body, err := self.cvmRequest("DescribeInstanceVncUrl", params, true)
 	if err != nil {
 		return "", err
 	}
