@@ -6,7 +6,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -139,7 +138,9 @@ type JointManager interface {
 	BatchDetach(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult
 	BatchDetach2(s *mcclient.ClientSession, mid string, sids []string) []SubmitResult
 	Update(s *mcclient.ClientSession, mid, sid string, query jsonutils.JSONObject, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
+	BatchUpdate(s *mcclient.ClientSession, mid string, sids []string, query jsonutils.JSONObject, params jsonutils.JSONObject) []SubmitResult
 	Patch(s *mcclient.ClientSession, mid, sid string, query jsonutils.JSONObject, params jsonutils.JSONObject) (jsonutils.JSONObject, error)
+	BatchPatch(s *mcclient.ClientSession, mid string, sids []string, query jsonutils.JSONObject, params jsonutils.JSONObject) []SubmitResult
 }
 
 var (
