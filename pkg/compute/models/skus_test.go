@@ -1,4 +1,4 @@
-package skus
+package models
 
 import (
 	"reflect"
