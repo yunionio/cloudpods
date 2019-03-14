@@ -176,7 +176,7 @@ func (self *SkusZone) doUpdate(odata *SServerSku, sku jsonutils.JSONObject) erro
 func (self *SkusZone) SyncToLocalDB() error {
 	log.Debugf("SkusZone %s start sync.", self.ExternalZoneId)
 	// 更新已经soldout的sku
-	localIds, err := models.ServerSkuManager.FetchAllAvailableSkuIdByZoneId(self.ZoneId)
+	localIds, err := ServerSkuManager.FetchAllAvailableSkuIdByZoneId(self.ZoneId)
 	if err != nil {
 		return err
 	}
@@ -216,7 +216,7 @@ func (self *SkusZone) SyncToLocalDB() error {
 	// 处理已经下架的sku： 将本次未更新且处于available状态的sku置为soldout状态
 	abandonIds := diff(localIds, updatedIds)
 	log.Debugf("SyncToLocalDB abandon sku %s", abandonIds)
-	err = models.ServerSkuManager.MarkAllAsSoldout(abandonIds)
+	err = ServerSkuManager.MarkAllAsSoldout(abandonIds)
 	if err != nil {
 		return err
 	}
