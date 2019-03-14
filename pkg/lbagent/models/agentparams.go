@@ -81,7 +81,7 @@ func NewAgentParams(agent *models.LoadbalancerAgent) (*AgentParams, error) {
 	return agentParams, nil
 }
 
-func (p *AgentParams) Equal(p2 *AgentParams) bool {
+func (p *AgentParams) Equals(p2 *AgentParams) bool {
 	if p == nil && p2 == nil {
 		return true
 	}
@@ -92,6 +92,14 @@ func (p *AgentParams) Equal(p2 *AgentParams) bool {
 	agentP2 := p2.AgentModel
 	if agentP.Params != agentP2.Params {
 		return false
+	}
+	keys := []string{"notify_script", "unicast_peer"}
+	for _, key := range keys {
+		v := p.GetVrrpParams(key)
+		v2 := p.GetVrrpParams(key)
+		if !reflect.DeepEqual(v, v2) {
+			return false
+		}
 	}
 	return true
 }
@@ -109,8 +117,20 @@ func (p *AgentParams) setXxParams(xx, k string, v interface{}) map[string]interf
 	return dt
 }
 
+func (p *AgentParams) getXxParams(xx, k string) interface{} {
+	dt, ok := p.Data[xx]
+	if !ok {
+		return nil
+	}
+	return dt[k]
+}
+
 func (p *AgentParams) SetVrrpParams(k string, v interface{}) map[string]interface{} {
 	return p.setXxParams("vrrp", k, v)
+}
+
+func (p *AgentParams) GetVrrpParams(k string) interface{} {
+	return p.getXxParams("vrrp", k)
 }
 
 func (p *AgentParams) SetHaproxyParams(k string, v interface{}) map[string]interface{} {

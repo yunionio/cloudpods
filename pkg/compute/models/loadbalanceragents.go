@@ -53,7 +53,7 @@ type SLoadbalancerAgent struct {
 	HaState    string                    `width:"32" nullable:"true" list:"admin" update:"admin" default:"UNKNOWN"` // LB_HA_STATE_UNKNOWN
 	HbLastSeen time.Time                 `nullable:"true" list:"admin" update:"admin"`
 	HbTimeout  int                       `nullable:"true" list:"admin" update:"admin" create:"optional" default:"3600"`
-	Params     *SLoadbalancerAgentParams `create:"optional" get:"admin"`
+	Params     *SLoadbalancerAgentParams `create:"optional" list:"admin" get:"admin"`
 
 	Loadbalancers             time.Time `nullable:"true" list:"admin" update:"admin"`
 	LoadbalancerListeners     time.Time `nullable:"true" list:"admin" update:"admin"`
@@ -517,6 +517,10 @@ vrrp_instance YunionLB {
 		auth_pass {{ .vrrp.pass }}
 	}
 	{{ if .vrrp.notify_script -}} notify {{ .vrrp.notify_script }} {{- end }}
+	{{ if .vrrp.unicast_peer -}} unicast_peer { {{- println }}
+		{{- range .vrrp.unicast_peer }}		{{ println . }} {{- end }}
+	}
+	{{- end }}
 	priority {{ .vrrp.priority }}
 	advert_int {{ .vrrp.advert_int }}
 	garp_master_refresh {{ .vrrp.garp_master_refresh }}

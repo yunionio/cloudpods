@@ -3,6 +3,7 @@ package lbagent
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -63,6 +64,7 @@ func (h *ApiHelper) Run(ctx context.Context) {
 			apiDataChanged := h.doSyncApiData(ctx)
 			agentParamsChanged := h.doSyncAgentParams(ctx)
 			if apiDataChanged || agentParamsChanged {
+				log.Infof("things changed: params: %v, data %v", agentParamsChanged, apiDataChanged)
 				h.doUseCorpus(ctx)
 			}
 		case state := <-h.haStateProvider.StateChannel():
@@ -109,6 +111,31 @@ func (h *ApiHelper) agentPeekOnce(ctx context.Context) (*models.LoadbalancerAgen
 		return nil, err
 	}
 	return agent, nil
+}
+
+func (h *ApiHelper) agentPeekPeers(ctx context.Context, vri int) ([]*models.LoadbalancerAgent, error) {
+	s := h.adminClientSession(ctx)
+	params := jsonutils.NewDict()
+	params.Set(consts.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(consts.LBAGENT_QUERY_ORIG_VAL))
+	listResult, err := modules.LoadbalancerAgents.List(s, params)
+	if err != nil {
+		err := fmt.Errorf("agent listing error: %s", err)
+		return nil, err
+	}
+	peers := []*models.LoadbalancerAgent{}
+	for _, data := range listResult.Data {
+		agent := &models.LoadbalancerAgent{}
+		err := data.Unmarshal(agent)
+		if err != nil {
+			err := fmt.Errorf("agent data unmarshal error: %s", err)
+			return nil, err
+		}
+		if agent.Params.Vrrp.VirtualRouterId != vri {
+			continue
+		}
+		peers = append(peers, agent)
+	}
+	return peers, nil
 }
 
 type agentPeekResult models.LoadbalancerAgent
@@ -301,13 +328,36 @@ func (h *ApiHelper) doSyncAgentParams(ctx context.Context) bool {
 		log.Errorf("agent params get failure: %s", err)
 		return false
 	}
+	peers, err := h.agentPeekPeers(ctx, agent.Params.Vrrp.VirtualRouterId)
+	if err != nil {
+		log.Errorf("agent get peers failure: %s", err)
+		return false
+	}
+	useUnicast := true
+	unicastPeer := []string{}
+	for _, peer := range peers {
+		if peer.Id == agent.Id {
+			continue
+		}
+		if peer.IP == "" {
+			useUnicast = false
+			log.Warningf("agent %s(%s) has no ip, use multicast vrrp", peer.Name, peer.Id)
+			break
+		}
+		unicastPeer = append(unicastPeer, peer.IP)
+	}
+
 	agentParams, err := agentmodels.NewAgentParams(agent)
 	if err != nil {
 		log.Errorf("agent params prepare failure: %s", err)
 		return false
 	}
 	agentParams.SetVrrpParams("notify_script", h.haStateProvider.StateScript())
-	if !agentParams.Equal(h.agentParams) {
+	if useUnicast {
+		agentParams.SetVrrpParams("unicast_peer", unicastPeer)
+	}
+	if !agentParams.Equals(h.agentParams) {
+		log.Infof("use unicast vrrp from %s to %s", agent.IP, strings.Join(unicastPeer, ","))
 		h.agentParams = agentParams
 		return true
 	}
