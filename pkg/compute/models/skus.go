@@ -889,7 +889,7 @@ func (self *SServerSku) setPrepaidPostpaidStatus(userCred mcclient.TokenCredenti
 		if err != nil {
 			return err
 		}
-		db.OpsLog.LogEvent(self, db.ACT_UPDATE, sqlchemy.UpdateDiffString(diff), userCred)
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 	}
 	return nil
 }
