@@ -813,7 +813,6 @@ func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCy
 	params["InstanceChargePrepaid.Period"] = fmt.Sprintf("%d", bc.GetMonths())
 	params["InstanceChargePrepaid.RenewFlag"] = "NOTIFY_AND_MANUAL_RENEW"
 	params["RenewPortableDataDisk"] = "TRUE"
-	params["ClientToken"] = utils.GenRequestId(20)
 	_, err := region.cvmRequest("RenewInstances", params)
 	if err != nil {
 		log.Errorf("RenewInstance fail %s", err)
