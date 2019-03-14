@@ -911,7 +911,7 @@ func (self *SCloudaccount) enableAutoSync(ctx context.Context, userCred mcclient
 	if err != nil {
 		return err
 	}
-	db.OpsLog.LogEvent(self, db.ACT_UPDATE, sqlchemy.UpdateDiffString(diff), userCred)
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 
 	return nil
 }
@@ -938,7 +938,7 @@ func (self *SCloudaccount) disableAutoSync(ctx context.Context, userCred mcclien
 	if err != nil {
 		return err
 	}
-	db.OpsLog.LogEvent(self, db.ACT_UPDATE, sqlchemy.UpdateDiffString(diff), userCred)
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 
 	return nil
 }
