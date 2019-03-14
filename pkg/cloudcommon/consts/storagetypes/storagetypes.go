@@ -1,7 +1,7 @@
 package storagetypes
 
 // TODO: move models/storages.go storage types to this file
-var (
+const (
 	STORAGE_LOCAL     = "local"
 	STORAGE_BAREMETAL = "baremetal"
 	STORAGE_SHEEPDOG  = "sheepdog"
@@ -13,6 +13,13 @@ var (
 
 	DISK_TYPE_ROTATE = "rotate"
 	DISK_TYPE_SSD    = "ssd"
+)
 
-	Local = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_NAS}
+var Local = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_NAS}
+
+const (
+	STORAGE_ENABLED = "enabled"
+	// STORAGE_DISABLED = "disabled"
+	STORAGE_OFFLINE = "offline"
+	STORAGE_ONLINE  = "online"
 )

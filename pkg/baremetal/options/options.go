@@ -1,11 +1,9 @@
 package options
 
-import (
-	"yunion.io/x/onecloud/pkg/cloudcommon"
-)
+import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 
 type BaremetalOptions struct {
-	cloudcommon.CommonOptions
+	common_options.CommonOptions
 
 	ListenInterface        string `help:"Master net interface of baremetal server" default:"br0"`
 	AccessAddress          string `help:"Management IP address of baremetal server, only need to use when multiple address bind to ListenInterface"`

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
 )
 
@@ -31,7 +31,7 @@ type LbagentOptions struct {
 }
 
 type Options struct {
-	cloudcommon.CommonOptions
+	common_options.CommonOptions
 
 	LbagentOptions
 }

@@ -16,8 +16,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -356,7 +355,7 @@ func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 		content = map[string]interface{}{
 			"name":     s.StorageName,
 			"capacity": capacity,
-			"status":   models.STORAGE_ONLINE,
+			"status":   storagetypes.STORAGE_ONLINE,
 			"zone":     s.GetZone(),
 		}
 		return modules.Storages.Put(hostutils.GetComputeSession(context.Background()), s.StorageId, jsonutils.Marshal(content))

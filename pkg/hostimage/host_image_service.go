@@ -17,7 +17,9 @@ import (
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
@@ -32,14 +34,14 @@ var HostImageOptions SHostImageOptions
 
 func StartService() {
 	consts.SetServiceType("host-image")
-	cloudcommon.ParseOptions(&HostImageOptions, &HostImageOptions.Options, os.Args, "host.conf")
+	common_options.ParseOptions(&HostImageOptions, &HostImageOptions.Options, os.Args, "host.conf")
 	HostImageOptions.Port += 40000
-	cloudcommon.InitAuth(&HostImageOptions.Options, func() {
+	app_common.InitAuth(&HostImageOptions.Options, func() {
 		log.Infof("Auth complete!!")
 	})
-	app := cloudcommon.InitApp(&HostImageOptions.Options)
+	app := app_common.InitApp(&HostImageOptions.Options)
 	initHandlers(app, "")
-	cloudcommon.ServeForever(app, &HostImageOptions.Options)
+	app_common.ServeForever(app, &HostImageOptions.Options)
 }
 
 func initHandlers(app *appsrv.Application, prefix string) {

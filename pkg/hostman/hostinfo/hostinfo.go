@@ -16,8 +16,8 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	bare2 "yunion.io/x/onecloud/pkg/baremetal"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts/storagetypes"
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
-	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	bare1 "yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"

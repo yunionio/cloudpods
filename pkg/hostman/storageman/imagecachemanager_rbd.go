@@ -10,7 +10,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 )
 

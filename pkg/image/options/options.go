@@ -1,14 +1,14 @@
 package options
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudcommon"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/pending_delete"
 )
 
 type SImageOptions struct {
-	cloudcommon.CommonOptions
+	common_options.CommonOptions
 
-	cloudcommon.DBOptions
+	common_options.DBOptions
 
 	pending_delete.SPendingDeleteOptions
 

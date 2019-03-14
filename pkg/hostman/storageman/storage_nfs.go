@@ -8,8 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
-	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -85,7 +84,7 @@ func (s *SNFSStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := jsonutils.NewDict()
 	content.Set("capacity", jsonutils.NewInt(int64(s.GetAvailSizeMb())))
 	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
-	content.Set("status", jsonutils.NewString(models.STORAGE_ONLINE))
+	content.Set("status", jsonutils.NewString(storagetypes.STORAGE_ONLINE))
 	content.Set("zone", jsonutils.NewString(s.GetZone()))
 	log.Infof("Sync storage info %s", s.StorageId)
 	res, err := modules.Storages.Put(

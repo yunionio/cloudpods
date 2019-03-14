@@ -1,7 +1,7 @@
 package options
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudcommon"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/pending_delete"
 )
 
@@ -87,9 +87,8 @@ type ComputeOptions struct {
 	DisconnectedCloudAccountRetryProbeIntervalHours int `help:"interval to wait to probe status of a disconnected cloud account" default:"24"`
 
 	SCapabilityOptions
-
-	cloudcommon.CommonOptions
-	cloudcommon.DBOptions
+	common_options.CommonOptions
+	common_options.DBOptions
 }
 
 type SCapabilityOptions struct {

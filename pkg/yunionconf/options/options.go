@@ -1,10 +1,10 @@
 package options
 
-import "yunion.io/x/onecloud/pkg/cloudcommon"
+import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 
 type YunionConfOptions struct {
-	cloudcommon.CommonOptions
-	cloudcommon.DBOptions
+	common_options.CommonOptions
+	common_options.DBOptions
 }
 
 var (
