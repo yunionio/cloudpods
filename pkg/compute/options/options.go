@@ -78,8 +78,17 @@ type ComputeOptions struct {
 
 	MinimalIpAddrReusedIntervalSeconds int `help:"Minimal seconds when a release IP address can be reallocate" default:"30"`
 
+	SCapabilityOptions
 	cloudcommon.CommonOptions
 	cloudcommon.DBOptions
+}
+
+type SCapabilityOptions struct {
+	MinDataDiskCount   int `help:"Minimal data disk count" default:"0"`
+	MaxDataDiskCount   int `help:"Maximal data disk count" default:"12"`
+	MinNicCount        int `help:"Minimal nic count" default:"1"`
+	MaxNormalNicCount  int `help:"Maximal nic count" default:"8"`
+	MaxManagedNicCount int `help:"Maximal managed nic count" default:"1"`
 }
 
 var (
