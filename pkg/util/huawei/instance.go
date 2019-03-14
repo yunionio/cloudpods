@@ -1163,21 +1163,14 @@ func (self *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) 
 	}
 
 	// 这里等待更新实例过期时间
-	err = cloudprovider.WaitCreated(5*time.Second, 60*time.Second, func() bool {
+	return cloudprovider.WaitCreated(15*time.Second, 180*time.Second, func() bool {
 		newExipred := ins.GetExpiredAt()
-		if newExipred.Sub(oldExpired).Seconds() > 0 {
+		if newExipred.After(oldExpired) {
 			return true
 		}
 
 		return false
 	})
-
-	// RenewPeriodResource没报错实际上已经表示续费成功.因此如果等待更新超时，抛出错误日志即可
-	if err != nil {
-		log.Debugf(err.Error())
-	}
-
-	return nil
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0065817702.html
