@@ -53,6 +53,9 @@ func Interface2String(val interface{}) string {
 		tm := val.(time.Time)
 		return timeutils.FullIsoTime(tm)
 	default:
+		if s, ok := val.(fmt.Stringer); ok {
+			return s.String()
+		}
 		json := jsonutils.Marshal(val)
 		return json.String()
 	}
