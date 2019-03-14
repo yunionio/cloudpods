@@ -105,6 +105,11 @@ func (manager *SStandaloneResourceBaseManager) FetchByExternalId(idStr string) (
 	}
 }
 
+type STagValue struct {
+	value string
+	exist bool
+}
+
 func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
@@ -116,7 +121,7 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Contex
 		q = q.Filter(sqlchemy.IsFalse(q.Field("is_emulated")))
 	}
 
-	tags := map[string]string{}
+	tags := map[string]STagValue{}
 	if query.Contains("tags") {
 		idx := 0
 		for {
@@ -124,7 +129,11 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Contex
 			if len(key) == 0 {
 				break
 			}
-			value, _ := query.GetString("tags", fmt.Sprintf("%d", idx), "value")
+			value := STagValue{exist: false}
+			if query.Contains("tags", fmt.Sprintf("%d", idx), "value") {
+				value.value, _ = query.GetString("tags", fmt.Sprintf("%d", idx), "value")
+				value.exist = true
+			}
 			tags[key] = value
 			idx++
 		}
@@ -135,10 +144,17 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Contex
 		idx := 0
 		for k, v := range tags {
 			if idx == 0 {
-				metadataView = metadataView.Equals("key", k).Equals("value", v)
+				metadataView = metadataView.Equals("key", k)
+				if v.exist {
+					metadataView = metadataView.Equals("value", v.value)
+				}
 			} else {
-				subMetataView := Metadata.Query().Equals("key", k).Equals("value", v).SubQuery()
-				metadataView.Join(subMetataView, sqlchemy.Equals(metadataView.Field("id"), subMetataView.Field("id")))
+				subMetataView := Metadata.Query().Equals("key", k)
+				if v.exist {
+					subMetataView = subMetataView.Equals("value", v.value)
+				}
+				sq := subMetataView.SubQuery()
+				metadataView.Join(sq, sqlchemy.Equals(metadataView.Field("id"), sq.Field("id")))
 			}
 			idx++
 		}
