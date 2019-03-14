@@ -180,6 +180,8 @@ type IVirtualModel interface {
 
 	IsOwner(userCred mcclient.TokenCredential) bool
 	// IsAdmin(userCred mcclient.TokenCredential) bool
+
+	SyncCloudProjectId(userCred mcclient.TokenCredential, projectId string)
 }
 
 type ISharableVirtualModelManager interface {

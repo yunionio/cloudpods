@@ -490,6 +490,7 @@ type ICloudLoadbalancerListener interface {
 
 type ICloudLoadbalancerListenerRule interface {
 	ICloudResource
+	IVirtualResource
 
 	GetDomain() string
 	GetPath() string

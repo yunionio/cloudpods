@@ -21,7 +21,19 @@ func init() {
 		if err != nil {
 			return err
 		}
-		printList(result, modules.Disks.GetColumns(s))
+		printList(result, modules.ExternalProjects.GetColumns(s))
+		return nil
+	})
+
+	type ExternalProjectShowOptions struct {
+		ID string `help:"ID"`
+	}
+	R(&ExternalProjectShowOptions{}, "external-project-show", "Show details of project mapping", func(s *mcclient.ClientSession, args *ExternalProjectShowOptions) error {
+		info, err := modules.ExternalProjects.Get(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(info)
 		return nil
 	})
 

@@ -115,6 +115,7 @@ const (
 	ACT_SYNC_STATUS    = "sync_status"
 
 	ACT_CHANGE_OWNER = "change_owner"
+	ACT_SYNC_OWNER   = "sync_owner"
 
 	ACT_RESERVE_IP = "reserve_ip"
 	ACT_RELEASE_IP = "release_ip"

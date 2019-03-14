@@ -458,7 +458,8 @@ func (man *SLoadbalancerManager) getLoadbalancersByRegion(region *SCloudregion, 
 }
 
 func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, lbs []cloudprovider.ICloudLoadbalancer, syncRange *SSyncRange) ([]SLoadbalancer, []cloudprovider.ICloudLoadbalancer, compare.SyncResult) {
-	ownerProjId := getSyncOwnerProjectId(man, userCred, provider.ProjectId, syncRange.ProjectSync)
+	ownerProjId := provider.ProjectId
+
 	lockman.LockClass(ctx, man, ownerProjId)
 	defer lockman.ReleaseClass(ctx, man, ownerProjId)
 
@@ -492,7 +493,7 @@ func (man *SLoadbalancerManager) SyncLoadbalancers(ctx context.Context, userCred
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancer(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		err = commondb[i].SyncWithCloudLoadbalancer(ctx, userCred, commonext[i], provider.ProjectId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -546,18 +547,6 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 		}
 	}
 
-	lb.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-	lb.ProjectId = projectId
-
-	if extProjectId := extLb.GetProjectId(); len(extProjectId) > 0 {
-		externalProject, err := ExternalProjectManager.GetProject(extProjectId, lb.ManagerId)
-		if err != nil {
-			log.Errorf(err.Error())
-		} else {
-			lb.ProjectId = externalProject.ProjectId
-		}
-	}
-
 	if extLb.GetMetadata() != nil {
 		lb.LBInfo = extLb.GetMetadata()
 	}
@@ -568,6 +557,8 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	}
 
 	db.OpsLog.LogEvent(&lb, db.ACT_CREATE, lb.GetShortDesc(ctx), userCred)
+
+	SyncCloudProject(userCred, &lb, projectId, extLb, lb.ManagerId)
 
 	lb.syncLoadbalancerNetwork(ctx, userCred)
 	return &lb, nil
@@ -600,7 +591,7 @@ func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred m
 	}
 }
 
-func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, extLb cloudprovider.ICloudLoadbalancer, projectId string, projectSync bool) error {
+func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, extLb cloudprovider.ICloudLoadbalancer, projectId string) error {
 	lockman.LockObject(ctx, lb)
 	defer lockman.ReleaseObject(ctx, lb)
 
@@ -615,24 +606,12 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 			lb.LBInfo = extLb.GetMetadata()
 		}
 
-		if projectSync && lb.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
-			lb.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-			if len(projectId) > 0 {
-				lb.ProjectId = projectId
-			}
-			if extProjectId := extLb.GetProjectId(); len(extProjectId) > 0 {
-				extProject, err := ExternalProjectManager.GetProject(extProjectId, lb.ManagerId)
-				if err != nil {
-					log.Errorf(err.Error())
-				} else {
-					lb.ProjectId = extProject.ProjectId
-				}
-			}
-		}
 		return nil
 	})
 
 	db.OpsLog.LogSyncUpdate(lb, diff, userCred)
+
+	SyncCloudProject(userCred, lb, projectId, extLb, lb.ManagerId)
 
 	lb.syncLoadbalancerNetwork(ctx, userCred)
 

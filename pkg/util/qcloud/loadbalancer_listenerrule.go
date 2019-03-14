@@ -79,6 +79,10 @@ func (self *SLBListenerRule) GetPath() string {
 	return self.URL
 }
 
+func (self *SLBListenerRule) GetProjectId() string {
+	return ""
+}
+
 func (self *SLBListenerRule) GetBackendGroup() *SLBBackendGroup {
 	t := self.listener.GetListenerType()
 	if t == consts.LB_LISTENER_TYPE_HTTP || t == consts.LB_LISTENER_TYPE_HTTPS {

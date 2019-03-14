@@ -1,6 +1,7 @@
 package azure
 
 import (
+	"fmt"
 	"yunion.io/x/jsonutils"
 )
 
@@ -23,12 +24,26 @@ func (self *SRegion) GetResourceGroups() ([]SResourceGroup, error) {
 
 func (self *SRegion) GetResourceGroupDetail(groupName string) (*SResourceGroup, error) {
 	resourceGroup := SResourceGroup{}
-	return &resourceGroup, self.client.Get("resourcegroups/"+groupName, []string{}, &resourceGroup)
+	idStr := fmt.Sprintf("subscriptions/%s/resourcegroups/%s", self.SubscriptionID, groupName)
+	return &resourceGroup, self.client.Get(idStr, []string{}, &resourceGroup)
 }
 
-func (self *SRegion) CreateResourceGroup(groupName string) (*SResourceGroup, error) {
-	resourceGroup := SResourceGroup{Name: groupName, Location: self.Name}
-	return &resourceGroup, self.client.Create(jsonutils.Marshal(resourceGroup), &resourceGroup)
+// not support update, resource group name is immutable???
+func (self *SRegion) UpdateResourceGroup(groupName string, newName string) error {
+	resourceGroup := SResourceGroup{Name: newName}
+	idStr := fmt.Sprintf("subscriptions/%s/resourcegroups/%s", self.SubscriptionID, groupName)
+	return self.client.Patch(idStr, jsonutils.Marshal(&resourceGroup))
+}
+
+func (self *SRegion) CreateResourceGroup(groupName string) error {
+	resourceGroup := SResourceGroup{Location: self.Name}
+	idStr := fmt.Sprintf("subscriptions/%s/resourcegroups/%s", self.SubscriptionID, groupName)
+	return self.client.Put(idStr, jsonutils.Marshal(resourceGroup))
+}
+
+func (self *SRegion) DeleteResourceGroup(groupName string) error {
+	idStr := fmt.Sprintf("subscriptions/%s/resourcegroups/%s", self.SubscriptionID, groupName)
+	return self.client.Delete(idStr)
 }
 
 func (r *SResourceGroup) GetName() string {
@@ -44,7 +59,7 @@ func (r *SResourceGroup) GetGlobalId() string {
 }
 
 func (r *SResourceGroup) GetStatus() string {
-	return ""
+	return r.Properties.ProvisioningState
 }
 
 func (r *SResourceGroup) GetMetadata() *jsonutils.JSONDict {

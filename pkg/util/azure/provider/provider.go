@@ -83,7 +83,7 @@ func (self *SAzureProviderFactory) ValidateUpdateCloudaccountCredential(ctx cont
 }
 
 func (self *SAzureProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	if client, err := azure.NewAzureClient(providerId, providerName, account, secret, url); err != nil {
+	if client, err := azure.NewAzureClient(providerId, providerName, account, secret, url, false); err != nil {
 		return nil, err
 	} else {
 		return &SAzureProvider{

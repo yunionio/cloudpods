@@ -16,6 +16,7 @@ import (
 
 type BaseOptions struct {
 	Help           bool   `help:"Show help"`
+	Debug          bool   `help:"debug mode"`
 	DirectoryID    string `help:"Azure account Directory ID/Tenant ID" default:"$AZURE_DIRECTORY_ID"`
 	SubscriptionID string `help:"Azure account subscription ID" default:"$AZURE_SUBSCRIPTION_ID"`
 	ApplicationID  string `help:"Azure application ID" default:"$AZURE_APPLICATION_ID"`
@@ -88,7 +89,7 @@ func newClient(options *BaseOptions) (*azure.SRegion, error) {
 
 	account := fmt.Sprintf("%s/%s", options.DirectoryID, options.SubscriptionID)
 	secret := fmt.Sprintf("%s/%s", options.ApplicationID, options.ApplicationKey)
-	cli, err := azure.NewAzureClient("", "", account, secret, options.CloudEnv)
+	cli, err := azure.NewAzureClient("", "", account, secret, options.CloudEnv, options.Debug)
 	if err != nil {
 		return nil, err
 	}

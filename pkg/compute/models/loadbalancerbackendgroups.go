@@ -327,7 +327,8 @@ func (man *SLoadbalancerBackendGroupManager) getLoadbalancerBackendgroupsByLoadb
 }
 
 func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, lbbgs []cloudprovider.ICloudLoadbalancerBackendGroup, syncRange *SSyncRange) ([]SLoadbalancerBackendGroup, []cloudprovider.ICloudLoadbalancerBackendGroup, compare.SyncResult) {
-	syncOwnerId := getSyncOwnerProjectId(man, userCred, provider.ProjectId, syncRange.ProjectSync)
+	syncOwnerId := provider.ProjectId
+
 	lockman.LockClass(ctx, man, syncOwnerId)
 	defer lockman.ReleaseClass(ctx, man, syncOwnerId)
 
@@ -361,7 +362,7 @@ func (man *SLoadbalancerBackendGroupManager) SyncLoadbalancerBackendgroups(ctx c
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerBackendgroup(ctx, userCred, lb, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		err = commondb[i].SyncWithCloudLoadbalancerBackendgroup(ctx, userCred, lb, commonext[i], provider.ProjectId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -408,31 +409,18 @@ func (lbbg *SLoadbalancerBackendGroup) syncRemoveCloudLoadbalancerBackendgroup(c
 	return err
 }
 
-func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, projectId string, projectSync bool) error {
+func (lbbg *SLoadbalancerBackendGroup) SyncWithCloudLoadbalancerBackendgroup(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extLoadbalancerBackendgroup cloudprovider.ICloudLoadbalancerBackendGroup, projectId string) error {
 	diff, err := db.UpdateWithLock(ctx, lbbg, func() error {
 		lbbg.Type = extLoadbalancerBackendgroup.GetType()
 		lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
-
-		if projectSync && lbbg.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
-			lbbg.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-			if len(projectId) > 0 {
-				lbbg.ProjectId = projectId
-			}
-			if extProjectId := extLoadbalancerBackendgroup.GetProjectId(); len(extProjectId) > 0 {
-				extProject, err := ExternalProjectManager.GetProject(extProjectId, lb.ManagerId)
-				if err != nil {
-					log.Errorf(err.Error())
-				} else {
-					lbbg.ProjectId = extProject.ProjectId
-				}
-			}
-		}
 		return nil
 	})
 	if err != nil {
 		return err
 	}
 	db.OpsLog.LogSyncUpdate(lbbg, diff, userCred)
+
+	SyncCloudProject(userCred, lbbg, projectId, extLoadbalancerBackendgroup, lb.ManagerId)
 
 	if extLoadbalancerBackendgroup.IsDefault() {
 		diff, err := db.UpdateWithLock(ctx, lb, func() error {
@@ -469,24 +457,14 @@ func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgrou
 	lbbg.Type = extLoadbalancerBackendgroup.GetType()
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 
-	lbbg.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-	lbbg.ProjectId = projectId
-
-	if extProjectId := extLoadbalancerBackendgroup.GetProjectId(); len(extProjectId) > 0 {
-		externalProject, err := ExternalProjectManager.GetProject(extProjectId, lb.ManagerId)
-		if err != nil {
-			log.Errorf(err.Error())
-		} else {
-			lbbg.ProjectId = externalProject.ProjectId
-		}
-	}
-
 	err := man.TableSpec().Insert(lbbg)
 	if err != nil {
 		return nil, err
 	}
 
 	db.OpsLog.LogEvent(lbbg, db.ACT_CREATE, lbbg.GetShortDesc(ctx), userCred)
+
+	SyncCloudProject(userCred, lbbg, projectId, extLoadbalancerBackendgroup, lb.ManagerId)
 
 	if extLoadbalancerBackendgroup.IsDefault() {
 		_, err := db.Update(lb, func() error {

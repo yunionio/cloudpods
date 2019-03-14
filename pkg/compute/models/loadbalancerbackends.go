@@ -272,7 +272,8 @@ func (lbb *SLoadbalancerBackend) ValidateDeleteCondition(ctx context.Context) er
 }
 
 func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, loadbalancerBackendgroup *SLoadbalancerBackendGroup, lbbs []cloudprovider.ICloudLoadbalancerBackend, syncRange *SSyncRange) compare.SyncResult {
-	syncOwnerId := getSyncOwnerProjectId(man, userCred, provider.ProjectId, syncRange.ProjectSync)
+	syncOwnerId := provider.ProjectId
+
 	lockman.LockClass(ctx, man, syncOwnerId)
 	defer lockman.ReleaseClass(ctx, man, syncOwnerId)
 
@@ -304,7 +305,7 @@ func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Con
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerBackend(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		err = commondb[i].SyncWithCloudLoadbalancerBackend(ctx, userCred, commonext[i], provider.ProjectId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -362,28 +363,17 @@ func (lbb *SLoadbalancerBackend) syncRemoveCloudLoadbalancerBackend(ctx context.
 	return err
 }
 
-func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, projectId string, projectSync bool) error {
+func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, projectId string) error {
 	diff, err := db.UpdateWithLock(ctx, lbb, func() error {
-		if projectSync && lbb.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
-			lbb.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-			if len(projectId) > 0 {
-				lbb.ProjectId = projectId
-			}
-			if extProjectId := extLoadbalancerBackend.GetProjectId(); len(extProjectId) > 0 {
-				extProject, err := ExternalProjectManager.GetProject(extProjectId, lbb.ManagerId)
-				if err != nil {
-					log.Errorf(err.Error())
-				} else {
-					lbb.ProjectId = extProject.ProjectId
-				}
-			}
-		}
 		return lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend)
 	})
 	if err != nil {
 		return err
 	}
 	db.OpsLog.LogSyncUpdate(lbb, diff, userCred)
+
+	SyncCloudProject(userCred, lbb, projectId, extLoadbalancerBackend, lbb.ManagerId)
+
 	return nil
 }
 
@@ -403,17 +393,6 @@ func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx cont
 		return nil, err
 	}
 
-	lbb.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-	lbb.ProjectId = projectId
-	if extProjectId := extLoadbalancerBackend.GetProjectId(); len(extProjectId) > 0 {
-		externalProject, err := ExternalProjectManager.GetProject(extProjectId, loadbalancerBackendgroup.ManagerId)
-		if err != nil {
-			log.Errorf(err.Error())
-		} else {
-			lbb.ProjectId = externalProject.ProjectId
-		}
-	}
-
 	err := man.TableSpec().Insert(lbb)
 
 	if err != nil {
@@ -421,6 +400,8 @@ func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx cont
 	}
 
 	db.OpsLog.LogEvent(lbb, db.ACT_CREATE, lbb.GetShortDesc(ctx), userCred)
+
+	SyncCloudProject(userCred, lbb, projectId, extLoadbalancerBackend, loadbalancerBackendgroup.ManagerId)
 
 	return lbb, nil
 }

@@ -490,10 +490,11 @@ func (client *SQcloudClient) GetIProjects() ([]cloudprovider.ICloudProject, erro
 	projects = append(projects, SProject{
 		ProjectId:   "0",
 		ProjectName: "默认项目",
-		CreateTime:  time.Time{},
+		// CreateTime:  time.Time{},
 	})
 	iprojects := []cloudprovider.ICloudProject{}
 	for i := 0; i < len(projects); i++ {
+		projects[i].client = client
 		iprojects = append(iprojects, &projects[i])
 	}
 	return iprojects, nil

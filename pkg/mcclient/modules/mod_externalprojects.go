@@ -5,8 +5,10 @@ var (
 )
 
 func init() {
-	ExternalProjects = NewComputeManager("externalproject", "externalprojects",
-		[]string{"ID", "Name", "ExternalId", "Created_at", "TenantId", "Tenant"},
+	ExternalProjects = NewComputeManager(
+		"externalproject",
+		"externalprojects",
+		[]string{"ID", "Name", "External_Id", "Tenant_id", "Tenant", "Manager_id", "Manager"},
 		[]string{})
 
 	registerComputeV2(&ExternalProjects)
