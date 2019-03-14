@@ -1893,12 +1893,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		log.Errorf("%s", err)
 		return err
 	}
-	if diff != nil {
-		diffStr := sqlchemy.UpdateDiffString(diff)
-		if len(diffStr) > 0 {
-			db.OpsLog.LogEvent(self, db.ACT_UPDATE, diffStr, userCred)
-		}
-	}
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 	if metaData != nil {
 		meta := make(map[string]string, 0)
 		if err := metaData.Unmarshal(meta); err != nil {
