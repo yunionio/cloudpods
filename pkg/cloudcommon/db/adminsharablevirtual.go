@@ -137,9 +137,7 @@ func (model *SAdminSharableVirtualResourceBase) setInfo(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	if diff != nil {
-		OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
-		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, diff, userCred, true)
-	}
+	OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, diff, userCred, true)
 	return err
 }
