@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type LoadbalancerBackendGroupCreateOptions struct {
@@ -94,16 +95,16 @@ func (opts *LoadbalancerBackendGroupCreateOptions) Params() (*jsonutils.JSONDict
 }
 
 type LoadbalancerBackendGroupGetOptions struct {
-	ID string
+	ID string `json:-`
 }
 
 type LoadbalancerBackendGroupUpdateOptions struct {
-	ID   string
+	ID   string `json:-`
 	Name string
 }
 
 type LoadbalancerBackendGroupDeleteOptions struct {
-	ID string
+	ID string `json:-`
 }
 
 type LoadbalancerBackendGroupListOptions struct {

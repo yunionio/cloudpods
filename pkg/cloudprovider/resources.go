@@ -247,6 +247,8 @@ type ICloudVM interface {
 	CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error
 
 	Renew(bc billing.SBillingCycle) error
+
+	GetError() error
 }
 
 type ICloudNic interface {

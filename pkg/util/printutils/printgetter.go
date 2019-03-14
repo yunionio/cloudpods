@@ -6,9 +6,10 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 func getter2json(obj interface{}) jsonutils.JSONObject {

@@ -20,6 +20,7 @@ import (
 )
 
 type SLoadbalancerBackendManager struct {
+	SLoadbalancerLogSkipper
 	db.SVirtualResourceBaseManager
 }
 

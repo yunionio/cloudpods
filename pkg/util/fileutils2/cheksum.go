@@ -1,15 +1,14 @@
 package fileutils2
 
 import (
-	"fmt"
-	"hash"
-	"io"
-	"os"
-
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
+	"fmt"
+	"hash"
+	"io"
+	"os"
 
 	"yunion.io/x/log"
 )

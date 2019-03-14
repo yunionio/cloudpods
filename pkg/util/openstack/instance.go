@@ -2,15 +2,17 @@ package openstack
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -68,6 +70,12 @@ type VolumesAttached struct {
 	DeleteOnTermination bool
 }
 
+type SFault struct {
+	Message string
+	Code    int
+	Details string
+}
+
 type SInstance struct {
 	host *SHost
 
@@ -114,6 +122,7 @@ type SInstance struct {
 	TrustedImageCertificates []string
 	Updated                  time.Time
 	UserID                   string
+	Fault                    SFault
 }
 
 func (region *SRegion) GetSecurityGroupsByInstance(instanceId string) ([]SecurityGroup, error) {
@@ -627,4 +636,11 @@ func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCy
 
 func (instance *SInstance) GetProjectId() string {
 	return instance.TenantID
+}
+
+func (self *SInstance) GetError() error {
+	if self.Status == INSTANCE_STATUS_ERROR && len(self.Fault.Message) > 0 {
+		return errors.New(self.Fault.Message)
+	}
+	return nil
 }

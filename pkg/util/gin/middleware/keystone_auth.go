@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"gopkg.in/gin-gonic/gin.v1"
+	gin "gopkg.in/gin-gonic/gin.v1"
 
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )

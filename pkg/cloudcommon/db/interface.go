@@ -5,11 +5,11 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type IModelManager interface {
@@ -70,6 +70,8 @@ type IModelManager interface {
 	FetchCreateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error)
 	FetchUpdateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error)
 	IsCustomizedGetDetailsBody() bool
+	ListSkipLog(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
+	GetSkipLog(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool
 }
 
 type IModel interface {

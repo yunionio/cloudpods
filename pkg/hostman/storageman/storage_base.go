@@ -3,12 +3,13 @@ package storageman
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"syscall"
 
-	"strings"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 )
 

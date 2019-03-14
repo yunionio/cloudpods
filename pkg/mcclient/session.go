@@ -12,8 +12,9 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/pkg/utils"
+
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (
@@ -218,8 +219,8 @@ func (this *ClientSession) ParseJSONResponse(resp *http.Response, err error) (ht
 	return httputils.ParseJSONResponse(resp, err, this.client.debug)
 }
 
-func (this *ClientSession) HasSystemAdminPrivelege() bool {
-	return this.token.HasSystemAdminPrivelege()
+func (this *ClientSession) HasSystemAdminPrivilege() bool {
+	return this.token.HasSystemAdminPrivilege()
 }
 
 func (this *ClientSession) GetRegion() string {

@@ -509,7 +509,9 @@ func guestHypervisorsUsage(
 	if userCred != nil {
 		projectId = userCred.GetProjectId()
 	}
-	guest := models.GuestManager.TotalCount(projectId, rangeObj, status, hypervisors, true, pendingDelete, hostTypes, resourceTypes, providers)
+	// temporarily hide system resources
+	// XXX needs more work later
+	guest := models.GuestManager.TotalCount(projectId, rangeObj, status, hypervisors, false, pendingDelete, hostTypes, resourceTypes, providers)
 	count := make(map[string]interface{})
 	count[prefix] = guest.TotalGuestCount
 	count[fmt.Sprintf("%s.cpu", prefix)] = guest.TotalCpuCount

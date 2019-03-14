@@ -2,13 +2,16 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/regutils"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/util/regutils"
 )
 
 const (
@@ -17,9 +20,11 @@ const (
 	BAREMETAL_AGENT_OFFLINE  = "offline"
 )
 
+type TAgentType string
+
 const (
-	AgentTypeBaremetal = "baremetal"
-	AgentTypeEsxi      = "esxiagent"
+	AgentTypeBaremetal = TAgentType("baremetal")
+	AgentTypeEsxi      = TAgentType("esxiagent")
 	AgentTypeDefault   = AgentTypeBaremetal
 )
 
@@ -174,4 +179,25 @@ func (self *SBaremetalagent) GetExtraDetails(ctx context.Context, userCred mccli
 		extra.Set("zone", jsonutils.NewString(zone.GetName()))
 	}
 	return extra, nil
+}
+
+func (manager *SBaremetalagentManager) GetAgent(agentType TAgentType, zoneId string) *SBaremetalagent {
+	q := manager.Query().Equals("agent_type", agentType).Equals("zone_id", zoneId).Asc("created_at")
+	agents := make([]SBaremetalagent, 0)
+	err := db.FetchModelObjects(manager, q, &agents)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Errorf("GetAgent query fail %s", err)
+		}
+		return nil
+	}
+	if len(agents) == 0 {
+		return nil
+	}
+	for i := range agents {
+		if agents[i].Status == BAREMETAL_AGENT_ENABLED {
+			return &agents[i]
+		}
+	}
+	return &agents[0]
 }

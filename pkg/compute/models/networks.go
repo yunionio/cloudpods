@@ -654,7 +654,7 @@ func (manager *SNetworkManager) allNetworksQ(providers []string, rangeObj db.ISt
 	networks := manager.Query().SubQuery()
 	hostwires := HostwireManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
-	q := networks.Query()
+	q := networks.Query(networks.Field("id"))
 	q = q.Join(hostwires, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
 	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
 	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
@@ -666,13 +666,12 @@ func (manager *SNetworkManager) allNetworksQ(providers []string, rangeObj db.ISt
 
 func (manager *SNetworkManager) totalPortCountQ(userCred mcclient.TokenCredential, providers []string, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
 	q := manager.allNetworksQ(providers, rangeObj)
-	networks := manager.Query().SubQuery()
 	if userCred != nil && !db.IsAdminAllowList(userCred, manager) {
 		q = q.Filter(sqlchemy.OR(
-			sqlchemy.Equals(networks.Field("tenant_id"), userCred.GetProjectId()),
-			sqlchemy.IsTrue(networks.Field("is_public"))))
+			sqlchemy.Equals(q.Field("tenant_id"), userCred.GetProjectId()),
+			sqlchemy.IsTrue(q.Field("is_public"))))
 	}
-	return q
+	return manager.Query().In("id", q.Distinct().SubQuery())
 }
 
 type NetworkPortStat struct {
@@ -680,7 +679,11 @@ type NetworkPortStat struct {
 	CountExt int
 }
 
-func (manager *SNetworkManager) TotalPortCount(userCred mcclient.TokenCredential, providers []string, rangeObj db.IStandaloneModel) NetworkPortStat {
+func (manager *SNetworkManager) TotalPortCount(
+	userCred mcclient.TokenCredential,
+	providers []string,
+	rangeObj db.IStandaloneModel,
+) NetworkPortStat {
 	nets := make([]SNetwork, 0)
 	err := manager.totalPortCountQ(userCred, providers, rangeObj).All(&nets)
 	if err != nil {

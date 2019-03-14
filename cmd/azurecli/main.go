@@ -8,10 +8,9 @@ import (
 	"yunion.io/x/structarg"
 
 	"yunion.io/x/onecloud/pkg/util/azure"
+	_ "yunion.io/x/onecloud/pkg/util/azure/shell"
 	"yunion.io/x/onecloud/pkg/util/printutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
-
-	_ "yunion.io/x/onecloud/pkg/util/azure/shell"
 )
 
 type BaseOptions struct {

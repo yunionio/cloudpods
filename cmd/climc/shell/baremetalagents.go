@@ -2,6 +2,7 @@ package shell
 
 import (
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -26,6 +27,27 @@ func init() {
 			return err
 		}
 		printList(result, modules.Baremetalagents.GetColumns(s))
+		return nil
+	})
+
+	type BaremetalAgentOpsOperations struct {
+		ID string `help:"ID or name of agent"`
+	}
+	R(&BaremetalAgentOpsOperations{}, "baremetal-agent-enable", "Enable baremetal agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
+		result, err := modules.Baremetalagents.PerformAction(s, args.ID, "enable", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&BaremetalAgentOpsOperations{}, "baremetal-agent-disable", "Disable baremetal agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
+		result, err := modules.Baremetalagents.PerformAction(s, args.ID, "disable", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
 		return nil
 	})
 }

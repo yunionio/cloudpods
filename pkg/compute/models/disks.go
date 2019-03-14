@@ -726,10 +726,13 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	}
 
 	guests := self.GetGuests()
-	if len(guests) != 1 {
-		return nil, httperrors.NewBadRequestError("Cann't resize disk when attach to mutil guest")
+
+	var guest *SGuest
+	if len(guests) == 1 {
+		guest = &guests[0]
 	}
-	return nil, self.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage, &guests[0])
+
+	return nil, self.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage, guest)
 }
 
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {

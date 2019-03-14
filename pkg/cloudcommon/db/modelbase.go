@@ -185,6 +185,14 @@ func (manager *SModelBaseManager) IsCustomizedGetDetailsBody() bool {
 	return false
 }
 
+func (manager *SModelBaseManager) ListSkipLog(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return false
+}
+
+func (manager *SModelBaseManager) GetSkipLog(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return false
+}
+
 func (model *SModelBase) GetId() string {
 	return ""
 }
