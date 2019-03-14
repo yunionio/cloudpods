@@ -120,6 +120,9 @@ func (self *SRegion) GetProvider() string {
 
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	info := cloudprovider.SGeographicInfo{}
+	if geographicInfo, ok := AzureGeographicInfo[self.Name]; ok {
+		info = geographicInfo
+	}
 	info.Latitude = self.Latitude
 	info.Longitude = self.Longitude
 	return info
