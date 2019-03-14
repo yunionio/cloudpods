@@ -238,6 +238,15 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 	if len(model.GetId()) == 0 || len(model.GetName()) == 0 {
 		return
 	}
+	if action == ACT_UPDATE {
+		// skip empty diff
+		if notes == nil {
+			return
+		}
+		if uds, ok := notes.(sqlchemy.UpdateDiffs); ok && len(uds) == 0 {
+			return
+		}
+	}
 	opslog := SOpsLog{}
 	opslog.ObjType = model.Keyword()
 	opslog.ObjId = model.GetId()
@@ -349,10 +358,9 @@ func (manager *SOpsLogManager) SyncOwner(m IModel, former *STenant, userCred mcc
 	manager.LogEvent(m, ACT_CHANGE_OWNER, notes, userCred)
 }
 
-func (manager *SOpsLogManager) LogSyncUpdate(m IModel, diff map[string]sqlchemy.SUpdateDiff, userCred mcclient.TokenCredential) {
-	diffStr := sqlchemy.UpdateDiffString(diff)
-	if len(diffStr) > 0 {
-		manager.LogEvent(m, ACT_SYNC_UPDATE, diffStr, userCred)
+func (manager *SOpsLogManager) LogSyncUpdate(m IModel, uds sqlchemy.UpdateDiffs, userCred mcclient.TokenCredential) {
+	if len(uds) > 0 {
+		manager.LogEvent(m, ACT_SYNC_UPDATE, uds, userCred)
 	}
 }
 

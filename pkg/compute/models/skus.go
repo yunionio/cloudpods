@@ -889,7 +889,7 @@ func (self *SServerSku) setPrepaidPostpaidStatus(userCred mcclient.TokenCredenti
 		if err != nil {
 			return err
 		}
-		db.OpsLog.LogEvent(self, db.ACT_UPDATE, sqlchemy.UpdateDiffString(diff), userCred)
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 	}
 	return nil
 }
@@ -939,4 +939,73 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 	db.OpsLog.LogEvent(sku, db.ACT_CREATE, sku.GetShortDesc(ctx), userCred)
 
 	return nil
+}
+
+// sku标记为soldout状态。
+func (manager *SServerSkuManager) MarkAsSoldout(id string) error {
+	if len(id) == 0 {
+		log.Debugf("MarkAsSoldout sku id should not be emtpy")
+		return nil
+	}
+
+	isku, err := manager.FetchById(id)
+	if err != nil {
+		return err
+	}
+
+	sku, ok := isku.(*SServerSku)
+	if !ok {
+		return fmt.Errorf("%s is not a sku object", id)
+	}
+
+	_, err = manager.TableSpec().Update(sku, func() error {
+		sku.PrepaidStatus = SkuStatusSoldout
+		sku.PostpaidStatus = SkuStatusSoldout
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// sku标记为soldout状态。
+func (manager *SServerSkuManager) MarkAllAsSoldout(ids []string) error {
+	var err error
+	for _, id := range ids {
+		err = manager.MarkAsSoldout(id)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// 获取同一个zone下所有Available状态的sku id
+func (manager *SServerSkuManager) FetchAllAvailableSkuIdByZoneId(zoneId string) ([]string, error) {
+	q := manager.Query()
+	if len(zoneId) == 0 {
+		return nil, fmt.Errorf("FetchAllAvailableSkuIdByZoneId zone id should not be emtpy")
+	}
+
+	skus := make([]SServerSku, 0)
+	q = q.Equals("zone_id", zoneId)
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.Equals(q.Field("prepaid_status"), SkuStatusAvailable),
+		sqlchemy.Equals(q.Field("postpaid_status"), SkuStatusAvailable)))
+
+	err := q.All(&skus)
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]string, len(skus))
+	for i := range skus {
+		ids[i] = skus[i].GetId()
+	}
+
+	return ids, nil
 }

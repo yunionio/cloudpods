@@ -212,7 +212,7 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 			return nil, err
 		}
 
-		db.OpsLog.LogEvent(&imageCache, db.ACT_UPDATE, sqlchemy.UpdateDiffString(diff), userCred)
+		db.OpsLog.LogEvent(&imageCache, db.ACT_UPDATE, diff, userCred)
 
 		return &imageCache, nil
 	}
