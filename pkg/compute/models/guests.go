@@ -1852,7 +1852,6 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.HostId = host.Id
 		}
 
-		metaData := extVM.GetMetadata()
 		instanceType := extVM.GetInstanceType()
 
 		if len(instanceType) > 0 {
@@ -1879,26 +1878,6 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.ExpiredAt = extVM.GetExpiredAt()
 		}
 
-		if metaData != nil && metaData.Contains("secgroupIds") {
-			secgroupIds := []string{}
-			if err := metaData.Unmarshal(&secgroupIds, "secgroupIds"); err == nil {
-				for _, secgroupId := range secgroupIds {
-					secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId)
-					if err != nil {
-						log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, self.Name, err)
-						continue
-					}
-					secgroup := secgrp.(*SSecurityGroup)
-					if len(self.SecgrpId) == 0 {
-						self.SecgrpId = secgroup.Id
-					} else {
-						if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
-							log.Errorf("failed to bind secgroup %s for guest %s error: %v", secgroup.Name, self.Name, err)
-						}
-					}
-				}
-			}
-		}
 		return nil
 	})
 	if err != nil {
@@ -1947,7 +1926,6 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.HostId = host.Id
 
-	metaData := extVM.GetMetadata()
 	instanceType := extVM.GetInstanceType()
 
 	/*zoneExtId, err := metaData.GetString("zone_ext_id")
@@ -1977,36 +1955,10 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		guest.VmemSize = extVM.GetVmemSizeMB()
 	}
 
-	extraSecgroups := []*SSecurityGroup{}
-	if metaData != nil && metaData.Contains("secgroupIds") {
-		secgroupIds := []string{}
-		if err := metaData.Unmarshal(&secgroupIds, "secgroupIds"); err == nil {
-			for _, secgroupId := range secgroupIds {
-				secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId)
-				if err != nil {
-					log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, guest.Name, err)
-					continue
-				}
-				secgroup := secgrp.(*SSecurityGroup)
-				if len(guest.SecgrpId) == 0 {
-					guest.SecgrpId = secgroup.Id
-				} else {
-					extraSecgroups = append(extraSecgroups, secgroup)
-				}
-			}
-		}
-	}
-
 	err := manager.TableSpec().Insert(&guest)
 	if err != nil {
 		log.Errorf("Insert fail %s", err)
 		return nil, err
-	}
-
-	for _, secgroup := range extraSecgroups {
-		if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, &guest, secgroup); err != nil {
-			log.Errorf("failed to bind secgroup %s for guest %s error: %v", secgroup.Name, guest.Name, err)
-		}
 	}
 
 	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
@@ -3780,6 +3732,76 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 	}
 
 	return result
+}
+
+func (self *SGuest) getSecgroupExternalIds(provider *SCloudprovider) []string {
+	secgroups := self.GetSecgroups()
+	secgroupids := []string{}
+	for i := 0; i < len(secgroups); i++ {
+		secgroupids = append(secgroupids, secgroups[i].Id)
+	}
+	q := SecurityGroupCacheManager.Query().Equals("manager_id", provider.Id)
+	q = q.Filter(sqlchemy.In(q.Field("secgroup_id"), secgroupids))
+	secgroupcaches := []SSecurityGroupCache{}
+	if err := db.FetchModelObjects(SecurityGroupCacheManager, q, &secgroupcaches); err != nil {
+		log.Errorf("failed to fetch secgroupcaches for provider %s error: %v", provider.Name, err)
+		return nil
+	}
+	externalIds := []string{}
+	for i := 0; i < len(secgroupcaches); i++ {
+		externalIds = append(externalIds, secgroupcaches[i].ExternalId)
+	}
+	return externalIds
+}
+
+func (self *SGuest) getSecgroupByCache(provider *SCloudprovider, externalId string) (*SSecurityGroup, error) {
+	q := SecurityGroupCacheManager.Query().Equals("manager_id", provider.Id).Equals("external_id", externalId)
+	cache := SSecurityGroupCache{}
+	cache.SetModelManager(SecurityGroupCacheManager)
+	count := q.Count()
+	if count == 0 {
+		return nil, fmt.Errorf("failed find secgroup cache from provider %s externalId %s", provider.Name, externalId)
+	}
+	if count > 1 {
+		return nil, fmt.Errorf("dumplicate secgroup cache for provider %s externalId %s", provider.Name, externalId)
+	}
+	if err := q.First(&cache); err != nil {
+		return nil, err
+	}
+	return cache.GetSecgroup()
+}
+
+func (self *SGuest) SyncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, secgroupIds []string) compare.SyncResult {
+	syncResult := compare.SyncResult{}
+
+	secgroupExternalIds := self.getSecgroupExternalIds(provider)
+
+	for _, secgroupId := range secgroupIds {
+		if !utils.IsInStringArray(secgroupId, secgroupExternalIds) {
+			secgroup, err := self.getSecgroupByCache(provider, secgroupId)
+			if err != nil {
+				syncResult.AddError(err)
+				continue
+			}
+			if len(self.SecgrpId) == 0 {
+				_, err := db.Update(self, func() error {
+					self.SecgrpId = secgroup.Id
+					return nil
+				})
+				if err != nil {
+					log.Errorf("update guest secgroup error: %v", err)
+					syncResult.AddError(err)
+				}
+			} else {
+				if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
+					log.Errorf("failed to bind secgroup %s for guest %s error: %v", secgroup.Name, self.Name, err)
+					syncResult.AddError(err)
+				}
+			}
+			syncResult.Add()
+		}
+	}
+	return syncResult
 }
 
 func (self *SGuest) GetIVM() (cloudprovider.ICloudVM, error) {

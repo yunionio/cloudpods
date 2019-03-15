@@ -152,6 +152,10 @@ func (self *SInstance) GetInstanceType() string {
 	return self.InstanceType
 }
 
+func (self *SInstance) GetSecurityGroupIds() []string {
+	return self.SecurityGroupIds.SecurityGroupId
+}
+
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 	// todo: add price_key here
@@ -177,11 +181,6 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 			data.Update(meta)
 		}
 	}
-	secgroupIds := jsonutils.NewArray()
-	for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
-		secgroupIds.Add(jsonutils.NewString(secgroupId))
-	}
-	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 

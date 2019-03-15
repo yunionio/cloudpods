@@ -8,7 +8,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
@@ -263,119 +262,23 @@ func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, err
 	}
 }
 
-func (self *SSecurityGroup) SyncWithCloudSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string) error {
-	if _, err := db.UpdateWithLock(ctx, self, func() error {
-		extSec.Refresh()
-		self.Name = extSec.GetName()
-		self.Description = extSec.GetDescription()
-
-		return nil
-	}); err != nil {
-		log.Errorf("syncWithCloudSecurityGroup error %s", err)
-		return err
-	}
-
-	SyncCloudProject(userCred, self, projectId, extSec, vpc.ManagerId)
-
-	if secgroupcache := SecurityGroupCacheManager.Register(context.Background(), userCred, self.Id, extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); secgroupcache != nil {
-		if err := secgroupcache.SetExternalId(userCred, self.ExternalId); err != nil {
-			log.Errorf("set secgroupcache %s externalId error: %v", secgroupcache.Id, err)
-		}
-	}
-
-	return nil
-}
-
-func (manager *SSecurityGroupManager) newFromCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extSec cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string) (*SSecurityGroup, bool, error) {
-	if secgroup, exist := SecurityGroupCacheManager.CheckExist(context.Background(), userCred, extSec.GetGlobalId(), extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); exist {
-		if secgroup.GetGuestsCount() == 0 {
-			return secgroup, true, nil
-		}
-		//避免重复同步
-		return secgroup, false, nil
-	}
-
-	secgroup := SSecurityGroup{}
-	secgroup.SetModelManager(manager)
-	secgroup.Name = extSec.GetName()
-	secgroup.ExternalId = extSec.GetGlobalId()
-	secgroup.Description = extSec.GetDescription()
-
-	if err := manager.TableSpec().Insert(&secgroup); err != nil {
-		return nil, true, err
-	}
-
-	db.OpsLog.LogEvent(&secgroup, db.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred)
-
-	SyncCloudProject(userCred, &secgroup, projectId, extSec, vpc.ManagerId)
-
-	if secgroupcache := SecurityGroupCacheManager.Register(context.Background(), userCred, secgroup.Id, extSec.GetVpcId(), vpc.CloudregionId, vpc.ManagerId); secgroupcache != nil {
-		if err := secgroupcache.SetExternalId(userCred, secgroup.ExternalId); err != nil {
-			log.Errorf("set secgroupcache %s externalId error: %v", secgroupcache.Id, err)
-		}
-	}
-
-	return &secgroup, true, nil
-}
-
-func (manager *SSecurityGroupManager) SyncSecgroups(ctx context.Context, userCred mcclient.TokenCredential, secgroups []cloudprovider.ICloudSecurityGroup, vpc *SVpc, projectId string) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
+func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
 	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
 	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
 
-	localSecgroups := make([]SSecurityGroup, 0)
-	remoteSecgroups := make([]cloudprovider.ICloudSecurityGroup, 0)
-	syncResult := compare.SyncResult{}
+	secgroup := SSecurityGroup{}
+	secgroup.SetModelManager(manager)
+	secgroup.Name = db.GenerateName(manager, "", extSec.GetName())
+	secgroup.Description = extSec.GetDescription()
 
-	dbSecgroups, err := manager.getSecurityGroups()
-	if err != nil {
-		syncResult.Error(err)
-		return nil, nil, syncResult
-	}
-	removed := make([]SSecurityGroup, 0)
-	commondb := make([]SSecurityGroup, 0)
-	commonext := make([]cloudprovider.ICloudSecurityGroup, 0)
-	added := make([]cloudprovider.ICloudSecurityGroup, 0)
-
-	if err := compare.CompareSets(dbSecgroups, secgroups, &removed, &commondb, &commonext, &added); err != nil {
-		syncResult.Error(err)
-		return nil, nil, syncResult
+	if err := manager.TableSpec().Insert(&secgroup); err != nil {
+		return nil, err
 	}
 
-	for i := 0; i < len(commondb); i += 1 {
-		rules, err := commonext[i].GetRules()
-		if err != nil {
-			syncResult.Error(err)
-			continue
-		}
-		if err := commondb[i].SyncWithCloudSecurityGroup(ctx, userCred, commonext[i], vpc, projectId); err != nil {
-			syncResult.UpdateError(err)
-			continue
-		}
-		localSecgroups = append(localSecgroups, commondb[i])
-		remoteSecgroups = append(remoteSecgroups, commonext[i])
-		SecurityGroupRuleManager.SyncRules(ctx, userCred, &commondb[i], rules)
-		syncResult.Update()
-	}
+	db.OpsLog.LogEvent(&secgroup, db.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred)
+	SyncCloudProject(userCred, &secgroup, provider.ProjectId, extSec, provider.Id)
 
-	for i := 0; i < len(added); i += 1 {
-		rules, err := added[i].GetRules()
-		if err != nil {
-			syncResult.AddError(err)
-			continue
-		}
-		new, ruleSync, err := manager.newFromCloudVpc(ctx, userCred, added[i], vpc, projectId)
-		if err != nil {
-			syncResult.AddError(err)
-			continue
-		}
-		localSecgroups = append(localSecgroups, *new)
-		remoteSecgroups = append(remoteSecgroups, added[i])
-		syncResult.Add()
-		if ruleSync {
-			SecurityGroupRuleManager.SyncRules(ctx, userCred, new, rules)
-		}
-	}
-	return localSecgroups, remoteSecgroups, syncResult
+	return &secgroup, nil
 }
 
 func (manager *SSecurityGroupManager) DelaySync(ctx context.Context, userCred mcclient.TokenCredential, idStr string) {
