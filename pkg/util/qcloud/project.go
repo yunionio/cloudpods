@@ -29,7 +29,7 @@ func (p *SProject) GetId() string {
 }
 
 func (p *SProject) GetGlobalId() string {
-	return p.client.providerId + "/" + p.GetId()
+	return p.GetId()
 }
 
 func (p *SProject) GetMetadata() *jsonutils.JSONDict {
