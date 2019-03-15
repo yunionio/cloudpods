@@ -126,7 +126,7 @@ func (self *GuestDeleteTask) doClearSecurityGroupComplete(ctx context.Context, g
 	guest.RevokeAllSecgroups(ctx, self.UserCred)
 	// sync revoked secgroups to remote cloud
 	self.SetStage("OnSyncConfigComplete", nil)
-	guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
+	guest.StartSyncTaskWithoutSyncstatus(ctx, self.UserCred, false, self.GetTaskId())
 }
 
 func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
