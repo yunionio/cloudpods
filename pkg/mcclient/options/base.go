@@ -3,7 +3,9 @@ package options
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
+	"unicode"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
@@ -186,8 +188,7 @@ type BaseListOptions struct {
 	ExportFile       string   `help:"Export to file" metavar:"<EXPORT_FILE_PATH>" json:"-"`
 	ExportKeys       string   `help:"Export field keys"`
 	ExportTexts      string   `help:"Export field displayname texts" json:"-"`
-	TagsKey          []string `help:"Tag key" json:"-"`
-	TagsValue        []string `help:"Tag key" json:"-"`
+	Tags             []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`
 
 	Manager      string `help:"List objects belonging to the cloud provider" json:"manager,omitempty"`
 	Account      string `help:"List objects belonging to the cloud account" json:"account,omitempty"`
@@ -219,12 +220,22 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 			params.Set("admin", jsonutils.JSONTrue)
 		}
 	}
-	if len(opts.TagsKey) > 0 {
-		for i := 0; i < len(opts.TagsKey); i++ {
-			params.Add(jsonutils.NewString(opts.TagsKey[i]), fmt.Sprintf("tags.%d.key", i))
-			if len(opts.TagsValue) > i {
-				params.Add(jsonutils.NewString(opts.TagsValue[i]), fmt.Sprintf("tags.%d.value", i))
+	for idx, tag := range opts.Tags {
+		tagInfo := strings.Split(tag, "=")
+		if len(tagInfo) > 2 {
+			return nil, fmt.Errorf("failed parse tags info %s", tag)
+		}
+		if len(tagInfo[0]) == 0 {
+			return nil, fmt.Errorf("Not support empty key")
+		}
+		for _, k := range tagInfo[0] {
+			if k != rune('_') && !unicode.IsLetter(k) && !unicode.IsDigit(k) {
+				return nil, fmt.Errorf("Not support tag key with %s", string(k))
 			}
+		}
+		params.Add(jsonutils.NewString(tagInfo[0]), fmt.Sprintf("tags.%d.key", idx))
+		if len(tagInfo) == 2 {
+			params.Add(jsonutils.NewString(tagInfo[1]), fmt.Sprintf("tags.%d.value", idx))
 		}
 	}
 	return params, nil

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -279,8 +280,10 @@ func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userC
 }
 
 func (model *SStandaloneResourceBase) ValidateMetadataKey(key string) error {
-	if strings.HasPrefix(key, CLOUD_TAG_PREFIX) || strings.ContainsAny(key, `:=#&?$/\`) {
-		return httperrors.NewInputParameterError(`key cannot start with %s and not contain :=#&?$/\`, CLOUD_TAG_PREFIX)
+	for _, k := range []rune(key) {
+		if k != rune('_') && !unicode.IsLetter(k) && !unicode.IsDigit(k) {
+			return httperrors.NewInputParameterError(`Not support tag key with %s`, string(k))
+		}
 	}
 	return nil
 }
