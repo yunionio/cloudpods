@@ -65,19 +65,19 @@ func apiDomain(product string, params map[string]string) string {
 	}
 }
 
-func jsonRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func jsonRequest(client *common.Client, apiName string, params map[string]string, debug bool, retry bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("cvm", params)
-	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, debug)
+	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, debug, retry)
 }
 
 func vpcRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("vpc", params)
-	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, debug)
+	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, debug, true)
 }
 
 func cbsRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("cbs", params)
-	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, debug)
+	return _jsonRequest(client, domain, QCLOUD_API_VERSION, apiName, params, debug, true)
 }
 
 func accountRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
@@ -88,7 +88,7 @@ func accountRequest(client *common.Client, apiName string, params map[string]str
 // loadbalancer服务 api 3.0
 func clbRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := apiDomain("clb", params)
-	return _jsonRequest(client, domain, QCLOUD_CLB_API_VERSION, apiName, params, debug)
+	return _jsonRequest(client, domain, QCLOUD_CLB_API_VERSION, apiName, params, debug, true)
 }
 
 // loadbalancer服务 api 2017
@@ -105,7 +105,7 @@ func wssRequest(client *common.Client, apiName string, params map[string]string,
 
 func billingRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := "billing.tencentcloudapi.com"
-	return _jsonRequest(client, domain, QCLOUD_BILLING_API_VERSION, apiName, params, debug)
+	return _jsonRequest(client, domain, QCLOUD_BILLING_API_VERSION, apiName, params, debug, true)
 }
 
 // ============phpJsonRequest============
@@ -205,7 +205,7 @@ func (r *QcloudResponse) GetResponse() *interface{} {
 	return r.Response
 }
 
-func _jsonRequest(client *common.Client, domain string, version string, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+func _jsonRequest(client *common.Client, domain string, version string, apiName string, params map[string]string, debug bool, retry bool) (jsonutils.JSONObject, error) {
 	req := &tchttp.BaseRequest{}
 	if region, ok := params["Region"]; ok {
 		client = client.Init(region)
@@ -225,7 +225,7 @@ func _jsonRequest(client *common.Client, domain string, version string, apiName 
 	resp := &QcloudResponse{
 		BaseResponse: &tchttp.BaseResponse{},
 	}
-	return _baseJsonRequest(client, req, resp, debug)
+	return _baseJsonRequest(client, req, resp, debug, retry)
 }
 
 // 老版本腾讯云api。 适用于类似 https://cvm.api.qcloud.com/v2/index.php 这样的带/v2/index.php路径的接口
@@ -247,11 +247,15 @@ func _phpJsonRequest(client *common.Client, resp qcloudResponse, domain string, 
 		req.GetParams()[k] = v
 	}
 
-	return _baseJsonRequest(client, req, resp, debug)
+	return _baseJsonRequest(client, req, resp, debug, true)
 }
 
-func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResponse, debug bool) (jsonutils.JSONObject, error) {
-	for i := 1; i <= 3; i++ {
+func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResponse, debug bool, retry bool) (jsonutils.JSONObject, error) {
+	tryMax := 1
+	if retry {
+		tryMax = 3
+	}
+	for i := 1; i <= tryMax; i++ {
 		err := client.Send(req, resp)
 		if err == nil {
 			break
@@ -347,16 +351,16 @@ func (client *SQcloudClient) billingRequest(apiName string, params map[string]st
 	return billingRequest(cli, apiName, params, client.Debug)
 }
 
-func (client *SQcloudClient) jsonRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+func (client *SQcloudClient) jsonRequest(apiName string, params map[string]string, retry bool) (jsonutils.JSONObject, error) {
 	cli, err := client.getDefaultClient()
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(cli, apiName, params, client.Debug)
+	return jsonRequest(cli, apiName, params, client.Debug, retry)
 }
 
 func (client *SQcloudClient) fetchRegions() error {
-	body, err := client.jsonRequest("DescribeRegions", nil)
+	body, err := client.jsonRequest("DescribeRegions", nil, true)
 	if err != nil {
 		log.Errorf("fetchRegions fail %s", err)
 		return err
@@ -490,10 +494,11 @@ func (client *SQcloudClient) GetIProjects() ([]cloudprovider.ICloudProject, erro
 	projects = append(projects, SProject{
 		ProjectId:   "0",
 		ProjectName: "默认项目",
-		CreateTime:  time.Time{},
+		// CreateTime:  time.Time{},
 	})
 	iprojects := []cloudprovider.ICloudProject{}
 	for i := 0; i < len(projects); i++ {
+		projects[i].client = client
 		iprojects = append(iprojects, &projects[i])
 	}
 	return iprojects, nil

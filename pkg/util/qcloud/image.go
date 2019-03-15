@@ -79,7 +79,7 @@ func (self *SRegion) GetImages(status string, owner string, imageIds []string, n
 	}
 
 	images := make([]SImage, 0)
-	body, err := self.cvmRequest("DescribeImages", params)
+	body, err := self.cvmRequest("DescribeImages", params, true)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -222,7 +222,7 @@ func (self *SRegion) DeleteImage(imageId string) error {
 	params := make(map[string]string)
 	params["ImageIds.0"] = imageId
 
-	_, err := self.cvmRequest("DeleteImages", params)
+	_, err := self.cvmRequest("DeleteImages", params, true)
 	return err
 }
 
@@ -262,7 +262,7 @@ type SupportImageSet struct {
 }
 
 func (self *SRegion) GetSupportImageSet() (*SupportImageSet, error) {
-	body, err := self.cvmRequest("DescribeImportImageOs", map[string]string{})
+	body, err := self.cvmRequest("DescribeImportImageOs", map[string]string{}, true)
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +336,7 @@ func (self *SRegion) ImportImage(name string, osArch, osDist, osVersion string, 
 
 	log.Debugf("Upload image with params %#v", params)
 
-	if _, err := self.cvmRequest("ImportImage", params); err != nil {
+	if _, err := self.cvmRequest("ImportImage", params, true); err != nil {
 		return nil, err
 	}
 	for i := 0; i < 8; i++ {

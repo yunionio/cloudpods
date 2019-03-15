@@ -1829,7 +1829,7 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 	return self.SetStatus(userCred, VM_UNKNOWN, "Sync lost")
 }
 
-func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, projectId string, projectSync bool) error {
+func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, projectId string) error {
 	recycle := false
 
 	if provider.GetFactory().IsSupportPrepaidResources() && self.IsPrepaidRecycle() {
@@ -1870,21 +1870,6 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.VmemSize = extVM.GetVmemSizeMB()
 		}
 
-		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
-			self.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-			if len(projectId) > 0 {
-				self.ProjectId = projectId
-			}
-			if extProjectId := extVM.GetProjectId(); len(extProjectId) > 0 {
-				extProject, err := ExternalProjectManager.GetProject(extProjectId, host.ManagerId)
-				if err != nil {
-					log.Errorf(err.Error())
-				} else {
-					self.ProjectId = extProject.ProjectId
-				}
-			}
-		}
-
 		self.Hypervisor = extVM.GetHypervisor()
 
 		self.IsEmulated = extVM.IsEmulated()
@@ -1923,9 +1908,11 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
+	SyncCloudProject(userCred, self, projectId, extVM, host.ManagerId)
+
 	if provider.GetFactory().IsSupportPrepaidResources() && recycle {
 		vhost := self.GetHost()
-		err = vhost.syncWithCloudPrepaidVM(extVM, host, projectSync)
+		err = vhost.syncWithCloudPrepaidVM(extVM, host)
 		if err != nil {
 			return err
 		}
@@ -1990,17 +1977,6 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		guest.VmemSize = extVM.GetVmemSizeMB()
 	}
 
-	guest.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-	guest.ProjectId = projectId
-	if extProjectId := extVM.GetProjectId(); len(extProjectId) > 0 {
-		externalProject, err := ExternalProjectManager.GetProject(extProjectId, host.ManagerId)
-		if err != nil {
-			log.Errorf(err.Error())
-		} else {
-			guest.ProjectId = externalProject.ProjectId
-		}
-	}
-
 	extraSecgroups := []*SSecurityGroup{}
 	if metaData != nil && metaData.Contains("secgroupIds") {
 		secgroupIds := []string{}
@@ -2034,6 +2010,12 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	}
 
 	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
+
+	SyncCloudProject(userCred, &guest, projectId, extVM, host.ManagerId)
+
+	if guest.Status == VM_RUNNING {
+		db.OpsLog.LogEvent(&guest, db.ACT_START, guest.GetShortDesc(ctx), userCred)
+	}
 
 	return &guest, nil
 }
@@ -2349,7 +2331,7 @@ type sSyncDiskPair struct {
 	vdisk cloudprovider.ICloudDisk
 }
 
-func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, vdisks []cloudprovider.ICloudDisk, projectId string, projectSync bool) compare.SyncResult {
+func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, vdisks []cloudprovider.ICloudDisk, projectId string) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	newdisks := make([]sSyncDiskPair, 0)
@@ -2357,7 +2339,7 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 		if len(vdisks[i].GetGlobalId()) == 0 {
 			continue
 		}
-		disk, err := DiskManager.syncCloudDisk(ctx, userCred, provider, vdisks[i], i, projectId, projectSync)
+		disk, err := DiskManager.syncCloudDisk(ctx, userCred, provider, vdisks[i], i, projectId)
 		if err != nil {
 			log.Errorf("syncCloudDisk error: %v", err)
 			result.Error(err)
@@ -3701,7 +3683,7 @@ func (self *SGuest) doExternalSync(ctx context.Context, userCred mcclient.TokenC
 	if err != nil {
 		return err
 	}
-	return self.syncWithCloudVM(ctx, userCred, iprovider, host, iVM, "", false)
+	return self.syncWithCloudVM(ctx, userCred, iprovider, host, iVM, "")
 }
 
 func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
@@ -3788,7 +3770,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 			}
 		} else {
 			// do nothing
-			err := eip.SyncWithCloudEip(ctx, userCred, provider, extEip, projectId, false)
+			err := eip.SyncWithCloudEip(ctx, userCred, provider, extEip, projectId)
 			if err != nil {
 				result.UpdateError(err)
 			} else {

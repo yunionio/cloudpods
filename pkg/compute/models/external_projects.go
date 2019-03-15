@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/sqlchemy"
 )
 
 type SExternalProjectManager struct {
@@ -75,7 +76,16 @@ func (manager *SExternalProjectManager) getProjectsByProvider(provider *SCloudpr
 	return projects, nil
 }
 
+func (self *SExternalProject) getCloudProviderInfo() SCloudProviderInfo {
+	provider := self.GetCloudprovider()
+	return MakeCloudProviderInfo(nil, nil, provider)
+}
+
 func (self *SExternalProject) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	info := self.getCloudProviderInfo()
+
+	extra.Update(jsonutils.Marshal(&info))
+
 	tenant, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
 	if err == nil {
 		extra.Add(jsonutils.NewString(tenant.GetName()), "tenant")
@@ -185,7 +195,7 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	project := SExternalProject{}
 	project.SetModelManager(manager)
 
-	project.Name = extProject.GetName()
+	project.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extProject.GetName())
 	project.ExternalId = extProject.GetGlobalId()
 	project.IsEmulated = extProject.IsEmulated()
 	project.ManagerId = provider.Id
@@ -199,4 +209,20 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 
 	db.OpsLog.LogEvent(&project, db.ACT_CREATE, project.GetShortDesc(ctx), userCred)
 	return &project, nil
+}
+
+func (manager *SExternalProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	q = managedResourceFilterByCloudType(q, query, "", nil)
+
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	return q, nil
 }

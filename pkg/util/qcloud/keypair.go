@@ -41,7 +41,7 @@ func (self *SRegion) GetKeypairs(name string, keyIds []string, offset int, limit
 		}
 	}
 
-	body, err := self.cvmRequest("DescribeKeyPairs", params)
+	body, err := self.cvmRequest("DescribeKeyPairs", params, true)
 	if err != nil {
 		log.Errorf("GetKeypairs fail %s", err)
 		return nil, 0, err
@@ -63,7 +63,7 @@ func (self *SRegion) ImportKeypair(name string, pubKey string) (*SKeypair, error
 	params["ProjectId"] = "0"
 	params["KeyName"] = name
 
-	body, err := self.cvmRequest("ImportKeyPair", params)
+	body, err := self.cvmRequest("ImportKeyPair", params, true)
 	if err != nil {
 		log.Errorf("ImportKeypair fail %s", err)
 		return nil, err
@@ -87,7 +87,7 @@ func (self *SRegion) AttachKeypair(instanceId string, keypairId string) error {
 	params := map[string]string{}
 	params["InstanceIds.0"] = instanceId
 	params["KeyIds.0"] = keypairId
-	_, err := self.cvmRequest("AssociateInstancesKeyPairs", params)
+	_, err := self.cvmRequest("AssociateInstancesKeyPairs", params, true)
 	return err
 }
 
@@ -95,7 +95,7 @@ func (self *SRegion) DetachKeyPair(instanceId string, keypairId string) error {
 	params := make(map[string]string)
 	params["InstanceIds.0"] = instanceId
 	params["KeyIds.0"] = keypairId
-	_, err := self.cvmRequest("DisassociateInstancesKeyPairs", params)
+	_, err := self.cvmRequest("DisassociateInstancesKeyPairs", params, true)
 	return err
 }
 
@@ -103,7 +103,7 @@ func (self *SRegion) CreateKeyPair(name string) (*SKeypair, error) {
 	params := make(map[string]string)
 	params["KeyName"] = name
 	params["ProjectId"] = "0"
-	body, err := self.cvmRequest("CreateKeyPair", params)
+	body, err := self.cvmRequest("CreateKeyPair", params, true)
 	keypair := SKeypair{}
 	err = body.Unmarshal(&keypair, "KeyPair")
 	if err != nil {

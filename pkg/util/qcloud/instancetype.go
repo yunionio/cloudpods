@@ -22,7 +22,7 @@ func (self *SRegion) GetInstanceTypes() ([]SInstanceType, error) {
 	params := make(map[string]string)
 	params["Region"] = self.Region
 
-	body, err := self.cvmRequest("DescribeInstanceTypeConfigs", params)
+	body, err := self.cvmRequest("DescribeInstanceTypeConfigs", params, true)
 	if err != nil {
 		log.Errorf("DescribeInstanceTypeConfigs fail %s", err)
 		return nil, err

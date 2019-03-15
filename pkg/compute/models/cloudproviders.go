@@ -26,9 +26,13 @@ import (
 )
 
 const (
-	CLOUD_PROVIDER_INIT         = "init"
-	CLOUD_PROVIDER_CONNECTED    = "connected"
-	CLOUD_PROVIDER_DISCONNECTED = "disconnected"
+	CLOUD_PROVIDER_INIT          = "init"
+	CLOUD_PROVIDER_CONNECTED     = "connected"
+	CLOUD_PROVIDER_DISCONNECTED  = "disconnected"
+	CLOUD_PROVIDER_START_DELETE  = "start_delete"
+	CLOUD_PROVIDER_DELETING      = "deleting"
+	CLOUD_PROVIDER_DELETED       = "deleted"
+	CLOUD_PROVIDER_DELETE_FAILED = "delete_failed"
 
 	CLOUD_PROVIDER_SYNC_STATUS_QUEUED  = "queued"
 	CLOUD_PROVIDER_SYNC_STATUS_SYNCING = "syncing"
@@ -133,6 +137,10 @@ func (self *SCloudprovider) AllowDeleteItem(ctx context.Context, userCred mcclie
 }
 
 func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
+	account := self.GetCloudaccount()
+	if account != nil && account.EnableAutoSync {
+		return httperrors.NewInvalidStatusError("auto syncing is enabled on account")
+	}
 	if self.Enabled {
 		return httperrors.NewInvalidStatusError("provider is enabled")
 	}
@@ -217,6 +225,14 @@ func (self *SCloudprovider) getSnapshotCount() int {
 
 func (self *SCloudprovider) getLoadbalancerCount() int {
 	return LoadbalancerManager.Query().Equals("manager_id", self.Id).Count()
+}
+
+func (self *SCloudprovider) getExternalProjectCount() int {
+	return ExternalProjectManager.Query().Equals("manager_id", self.Id).Count()
+}
+
+func (self *SCloudprovider) getSyncRegionCount() int {
+	return CloudproviderRegionManager.Query().Equals("cloudprovider_id", self.Id).Count()
 }
 
 func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -305,12 +321,13 @@ func (self *SCloudprovider) saveProject(userCred mcclient.TokenCredential, proje
 }
 
 type SSyncRange struct {
-	Force       bool
-	FullSync    bool
-	ProjectSync bool
-	Region      []string
-	Zone        []string
-	Host        []string
+	Force    bool
+	FullSync bool
+	// ProjectSync bool
+
+	Region []string
+	Zone   []string
+	Host   []string
 }
 
 func (sr *SSyncRange) NeedSyncInfo() bool {
@@ -489,7 +506,11 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{FullSync: true, ProjectSync: true}, "")
+	if self.GetCloudaccount().EnableAutoSync { // no need to sync rightnow, will do it in auto sync
+		return nil, nil
+	}
+
+	return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{FullSync: true}, "")
 }
 
 func (self *SCloudprovider) markStartSync(userCred mcclient.TokenCredential) error {
@@ -594,6 +615,8 @@ type SCloudproviderUsage struct {
 	EipCount          int
 	SnapshotCount     int
 	LoadbalancerCount int
+	ProjectCount      int
+	SyncRegionCount   int
 }
 
 func (usage *SCloudproviderUsage) isEmpty() bool {
@@ -618,6 +641,12 @@ func (usage *SCloudproviderUsage) isEmpty() bool {
 	if usage.LoadbalancerCount > 0 {
 		return false
 	}
+	/*if usage.ProjectCount > 0 {
+		return false
+	}
+	if usage.SyncRegionCount > 0 {
+		return false
+	}*/
 	return true
 }
 
@@ -632,6 +661,8 @@ func (self *SCloudprovider) getUsage() *SCloudproviderUsage {
 	usage.EipCount = self.getEipCount()
 	usage.SnapshotCount = self.getSnapshotCount()
 	usage.LoadbalancerCount = self.getLoadbalancerCount()
+	usage.ProjectCount = self.getExternalProjectCount()
+	usage.SyncRegionCount = self.getSyncRegionCount()
 
 	return &usage
 }
@@ -867,4 +898,66 @@ func (self *SCloudprovider) IsAvailable() bool {
 		return false
 	}
 	return true
+}
+
+func (self *SCloudprovider) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	// override
+	log.Infof("cloud provider delete do nothing")
+	return nil
+}
+
+func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := self.deleteSyncedRegions(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	err = self.deleteProjectsMapping(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SCloudprovider) deleteSyncedRegions(ctx context.Context, userCred mcclient.TokenCredential) error {
+	cprs, err := CloudproviderRegionManager.fetchRecordsForCloudprovider(self)
+	if err != nil {
+		return err
+	}
+	for i := range cprs {
+		err = cprs[i].Detach(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (self *SCloudprovider) deleteProjectsMapping(ctx context.Context, userCred mcclient.TokenCredential) error {
+	projs, err := ExternalProjectManager.getProjectsByProvider(self)
+	if err != nil {
+		return err
+	}
+	for i := range projs {
+		err = projs[i].Delete(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (self *SCloudprovider) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return self.StartCloudproviderDeleteTask(ctx, userCred, "")
+}
+
+func (self *SCloudprovider) StartCloudproviderDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudProviderDeleteTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		log.Errorf("%s", err)
+		return err
+	}
+	self.SetStatus(userCred, CLOUD_PROVIDER_START_DELETE, "StartCloudproviderDeleteTask")
+	task.ScheduleRun(nil)
+	return nil
 }

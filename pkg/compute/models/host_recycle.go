@@ -639,7 +639,7 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 		return err
 	}
 
-	err = guest.syncWithCloudVM(ctx, userCred, iprovider, &oHost, extVM, "", false)
+	err = guest.syncWithCloudVM(ctx, userCred, iprovider, &oHost, extVM, "")
 	if err != nil {
 		log.Errorf("guest.syncWithCloudVM fail %s", err)
 		return err
@@ -659,7 +659,7 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 			log.Errorf("disk.SetExternalId fail %s", err)
 			return err
 		}
-		err = disk.syncWithCloudDisk(ctx, userCred, iprovider, idisks[i], i, "", false)
+		err = disk.syncWithCloudDisk(ctx, userCred, iprovider, idisks[i], i, guest.ProjectId)
 		if err != nil {
 			log.Errorf("disk.syncWithCloudDisk fail %s", err)
 			return err

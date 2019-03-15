@@ -674,7 +674,8 @@ func (man *SLoadbalancerListenerManager) getLoadbalancerListenersByLoadbalancer(
 }
 
 func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, listeners []cloudprovider.ICloudLoadbalancerListener, syncRange *SSyncRange) ([]SLoadbalancerListener, []cloudprovider.ICloudLoadbalancerListener, compare.SyncResult) {
-	syncOwnerId := getSyncOwnerProjectId(man, userCred, provider.ProjectId, syncRange.ProjectSync)
+	syncOwnerId := provider.ProjectId
+
 	lockman.LockClass(ctx, man, syncOwnerId)
 	defer lockman.ReleaseClass(ctx, man, syncOwnerId)
 
@@ -708,7 +709,7 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerListener(ctx, userCred, lb, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		err = commondb[i].SyncWithCloudLoadbalancerListener(ctx, userCred, lb, commonext[i], provider.ProjectId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -805,23 +806,9 @@ func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx cont
 	return err
 }
 
-func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string, projectSync bool) error {
+func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string) error {
 	diff, err := db.UpdateWithLock(ctx, lblis, func() error {
 		lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
-		if projectSync && lblis.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
-			lblis.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-			if len(projectId) > 0 {
-				lblis.ProjectId = projectId
-			}
-			if extProjectId := extListener.GetProjectId(); len(extProjectId) > 0 {
-				extProject, err := ExternalProjectManager.GetProject(extProjectId, lblis.ManagerId)
-				if err != nil {
-					log.Errorf(err.Error())
-				} else {
-					lblis.ProjectId = extProject.ProjectId
-				}
-			}
-		}
 		return nil
 	})
 	if err != nil {
@@ -829,6 +816,8 @@ func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx contex
 	}
 
 	db.OpsLog.LogSyncUpdate(lblis, diff, userCred)
+
+	SyncCloudProject(userCred, lblis, projectId, extListener, lblis.ManagerId)
 
 	return nil
 }
@@ -844,24 +833,14 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 
 	lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
 
-	lblis.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-	lblis.ProjectId = projectId
-
-	if extProjectId := extListener.GetProjectId(); len(extProjectId) > 0 {
-		externalProject, err := ExternalProjectManager.GetProject(extProjectId, lblis.ManagerId)
-		if err != nil {
-			log.Errorf(err.Error())
-		} else {
-			lblis.ProjectId = externalProject.ProjectId
-		}
-	}
-
 	err := man.TableSpec().Insert(lblis)
 	if err != nil {
 		return nil, err
 	}
 
 	db.OpsLog.LogEvent(lblis, db.ACT_CREATE, lblis.GetShortDesc(ctx), userCred)
+
+	SyncCloudProject(userCred, lblis, projectId, extListener, lblis.ManagerId)
 
 	return lblis, nil
 }
