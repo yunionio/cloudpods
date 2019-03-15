@@ -47,7 +47,7 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 }
 
 func (self *GuestSyncConfTask) OnDiskSyncComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if self.HasParentTask() {
+	if jsonutils.QueryBoolean(self.Params, "without_sync_status", false) {
 		self.OnSyncStatusComplete(ctx, guest, nil)
 	} else {
 		self.SetStage("on_sync_status_complete", nil)
