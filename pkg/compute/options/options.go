@@ -86,8 +86,18 @@ type ComputeOptions struct {
 
 	DisconnectedCloudAccountRetryProbeIntervalHours int `help:"interval to wait to probe status of a disconnected cloud account" default:"24"`
 
+	SCapabilityOptions
+
 	cloudcommon.CommonOptions
 	cloudcommon.DBOptions
+}
+
+type SCapabilityOptions struct {
+	MinDataDiskCount   int `help:"Minimal data disk count" default:"0"`
+	MaxDataDiskCount   int `help:"Maximal data disk count" default:"12"`
+	MinNicCount        int `help:"Minimal nic count" default:"1"`
+	MaxNormalNicCount  int `help:"Maximal nic count" default:"8"`
+	MaxManagedNicCount int `help:"Maximal managed nic count" default:"1"`
 }
 
 var (

@@ -302,7 +302,8 @@ func (man *SLoadbalancerCertificateManager) getLoadbalancerCertificatesByRegion(
 }
 
 func (man *SLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, certificates []cloudprovider.ICloudLoadbalancerCertificate, syncRange *SSyncRange) compare.SyncResult {
-	ownerProjId := getSyncOwnerProjectId(man, userCred, provider.ProjectId, syncRange.ProjectSync)
+	ownerProjId := provider.ProjectId
+
 	lockman.LockClass(ctx, man, ownerProjId)
 	defer lockman.ReleaseClass(ctx, man, ownerProjId)
 
@@ -334,7 +335,7 @@ func (man *SLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx con
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerCertificate(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		err = commondb[i].SyncWithCloudLoadbalancerCertificate(ctx, userCred, commonext[i], provider.ProjectId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -368,19 +369,17 @@ func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(
 	lbcert.Fingerprint = extCertificate.GetFingerprint()
 	lbcert.NotAfter = extCertificate.GetExpireTime()
 
-	lbcert.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-	lbcert.ProjectId = projectId
-
-	if extProjectId := extCertificate.GetProjectId(); len(extProjectId) > 0 {
-		externalProject, err := ExternalProjectManager.GetProject(extProjectId, lbcert.ManagerId)
-		if err != nil {
-			log.Errorf(err.Error())
-		} else {
-			lbcert.ProjectId = externalProject.ProjectId
-		}
+	err := man.TableSpec().Insert(&lbcert)
+	if err != nil {
+		log.Errorf("newFromCloudLoadbalancerCertificate fail %s", err)
+		return nil, err
 	}
 
-	return &lbcert, man.TableSpec().Insert(&lbcert)
+	db.OpsLog.LogEvent(&lbcert, db.ACT_CREATE, lbcert.GetShortDesc(ctx), userCred)
+
+	SyncCloudProject(userCred, &lbcert, projectId, extCertificate, lbcert.ManagerId)
+
+	return &lbcert, nil
 }
 
 func (lbcert *SLoadbalancerCertificate) syncRemoveCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -396,34 +395,21 @@ func (lbcert *SLoadbalancerCertificate) syncRemoveCloudLoadbalancerCertificate(c
 	return err
 }
 
-func (lbcert *SLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, extCertificate cloudprovider.ICloudLoadbalancerCertificate, projectId string, projectSync bool) error {
+func (lbcert *SLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, extCertificate cloudprovider.ICloudLoadbalancerCertificate, projectId string) error {
 	diff, err := db.UpdateWithLock(ctx, lbcert, func() error {
 		lbcert.Name = extCertificate.GetName()
 		lbcert.CommonName = extCertificate.GetCommonName()
 		lbcert.SubjectAlternativeNames = extCertificate.GetSubjectAlternativeNames()
 		lbcert.Fingerprint = extCertificate.GetFingerprint()
 		lbcert.NotAfter = extCertificate.GetExpireTime()
-
-		if projectSync && lbcert.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
-			lbcert.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-			if len(projectId) > 0 {
-				lbcert.ProjectId = projectId
-			}
-			if extProjectId := extCertificate.GetProjectId(); len(extProjectId) > 0 {
-				extProject, err := ExternalProjectManager.GetProject(extProjectId, lbcert.ManagerId)
-				if err != nil {
-					log.Errorf(err.Error())
-				} else {
-					lbcert.ProjectId = extProject.ProjectId
-				}
-			}
-		}
-
 		return nil
 	})
 	if err != nil {
 		return err
 	}
 	db.OpsLog.LogSyncUpdate(lbcert, diff, userCred)
+
+	SyncCloudProject(userCred, lbcert, projectId, extCertificate, lbcert.ManagerId)
+
 	return nil
 }

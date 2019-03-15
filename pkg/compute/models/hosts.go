@@ -1255,7 +1255,7 @@ func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SClou
 	return hosts, nil
 }
 
-func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost, projectSync bool) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
+func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
 	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
 	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
 
@@ -1292,7 +1292,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i], projectSync)
+		err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -1333,7 +1333,7 @@ func (self *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.To
 	return err
 }
 
-func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, projectSync bool) error {
+func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extHost.GetName()
 
@@ -1368,16 +1368,14 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
-	if projectSync {
-		if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
-			log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
-		}
+	if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
+		log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
 	}
 
 	return nil
 }
 
-func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SHost, projectSync bool) error {
+func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SHost) error {
 	_, err := self.SaveUpdates(func() error {
 
 		self.CpuCount = extVM.GetVcpuCount()
@@ -1394,10 +1392,8 @@ func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SH
 		log.Errorf("syncWithCloudZone error %s", err)
 	}
 
-	if projectSync {
-		if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
-			log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
-		}
+	if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
+		log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
 	}
 
 	return err
@@ -1710,8 +1706,9 @@ func (self *SHost) newCloudHostWire(ctx context.Context, userCred mcclient.Token
 	return err
 }
 
-func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, projectId string, projectSync bool) ([]SGuest, []cloudprovider.ICloudVM, compare.SyncResult) {
-	syncOwnerId := getSyncOwnerProjectId(GuestManager, userCred, projectId, projectSync)
+func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, projectId string) ([]SGuest, []cloudprovider.ICloudVM, compare.SyncResult) {
+	syncOwnerId := projectId
+
 	lockman.LockClass(ctx, GuestManager, syncOwnerId)
 	defer lockman.ReleaseClass(ctx, GuestManager, syncOwnerId)
 
@@ -1749,7 +1746,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], syncOwnerId, projectSync)
+		err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], syncOwnerId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {

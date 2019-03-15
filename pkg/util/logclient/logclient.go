@@ -30,6 +30,7 @@ const (
 	ACT_BM_UNMAINTENANCE             = "退出离线状态"
 	ACT_CANCEL_DELETE                = "恢复"
 	ACT_CHANGE_OWNER                 = "更改项目"
+	ACT_SYNC_CLOUD_OWNER             = "同步云项目"
 	ACT_CLOUD_FULLSYNC               = "全量同步"
 	ACT_CLOUD_SYNC                   = "同步"
 	ACT_CREATE                       = "创建"

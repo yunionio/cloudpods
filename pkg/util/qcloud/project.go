@@ -8,22 +8,28 @@ import (
 )
 
 type SProject struct {
+	client *SQcloudClient
+
 	ProjectName string    `json:"projectName"`
-	ProjectId   string    `json:projectId`
-	CreateTime  time.Time `json:createTime`
+	ProjectId   string    `json:"projectId"`
+	CreateTime  time.Time `json:"createTime"`
 	CreateorUin int       `json:"creatorUin"`
 	ProjectInfo string    `json:"projectInfo"`
 }
 
 func (p *SProject) GetId() string {
-	if strings.Index(p.ProjectId, ".") != -1 {
-		return strings.Split(p.ProjectId, ".")[0]
+	var pId string
+	pos := strings.Index(p.ProjectId, ".")
+	if pos >= 0 {
+		pId = p.ProjectId[:pos]
+	} else {
+		pId = p.ProjectId
 	}
-	return ""
+	return pId
 }
 
 func (p *SProject) GetGlobalId() string {
-	return p.GetId()
+	return p.client.providerId + "/" + p.GetId()
 }
 
 func (p *SProject) GetMetadata() *jsonutils.JSONDict {
