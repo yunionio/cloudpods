@@ -126,7 +126,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 			params["Filters.0.Values.0"] = zoneId
 		}
 	}
-	body, err := self.cvmRequest("DescribeInstances", params)
+	body, err := self.cvmRequest("DescribeInstances", params, true)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -529,7 +529,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["ClientToken"] = utils.GenRequestId(20)
 	// log.Errorf("create params: %s", jsonutils.Marshal(params).PrettyString())
 	instanceIdSet := []string{}
-	body, err := self.cvmRequest("RunInstances", params)
+	body, err := self.cvmRequest("RunInstances", params, true)
 	if err != nil {
 		log.Errorf("RunInstances fail %s", err)
 		return "", err
@@ -542,7 +542,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 }
 
 func (self *SRegion) doStartVM(instanceId string) error {
-	return self.instanceOperation(instanceId, "StartInstances", nil)
+	return self.instanceOperation(instanceId, "StartInstances", nil, false)
 }
 
 func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
@@ -552,12 +552,12 @@ func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
 	} else {
 		params["ForceStop"] = "false"
 	}
-	return self.instanceOperation(instanceId, "StopInstances", params)
+	return self.instanceOperation(instanceId, "StopInstances", params, true)
 }
 
 func (self *SRegion) doDeleteVM(instanceId string) error {
 	params := make(map[string]string)
-	err := self.instanceOperation(instanceId, "TerminateInstances", params)
+	err := self.instanceOperation(instanceId, "TerminateInstances", params, true)
 	if err != nil && cloudprovider.IsError(err, []string{"InvalidInstanceId.NotFound"}) {
 		return nil
 	}
@@ -641,7 +641,7 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 		}
 	}
 	if len(password) > 0 {
-		return self.instanceOperation(instanceId, "ResetInstancesPassword", map[string]string{"Password": password})
+		return self.instanceOperation(instanceId, "ResetInstancesPassword", map[string]string{"Password": password}, true)
 	}
 	return nil
 }
@@ -660,7 +660,7 @@ func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
 }
 
 func (self *SRegion) modifyInstanceAttribute(instanceId string, params map[string]string) error {
-	return self.instanceOperation(instanceId, "ModifyInstancesAttribute", params)
+	return self.instanceOperation(instanceId, "ModifyInstancesAttribute", params, true)
 }
 
 func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd string, keypairName string, sysDiskSizeGB int) error {
@@ -680,7 +680,7 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd
 	if sysDiskSizeGB > 0 {
 		params["SystemDisk.DiskSize"] = fmt.Sprintf("%d", sysDiskSizeGB)
 	}
-	_, err := self.cvmRequest("ResetInstance", params)
+	_, err := self.cvmRequest("ResetInstance", params, true)
 	return err
 }
 
@@ -694,7 +694,7 @@ func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, 
 
 	for _, instancetype := range instanceTypes {
 		params["InstanceType"] = instancetype.InstanceType
-		err := self.instanceOperation(instanceId, "ResetInstancesType", params)
+		err := self.instanceOperation(instanceId, "ResetInstancesType", params, true)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instancetype.InstanceType, err)
 		} else {
@@ -710,7 +710,7 @@ func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceT
 	params := make(map[string]string)
 	params["InstanceType"] = instanceType
 
-	err := self.instanceOperation(instanceId, "ResetInstancesType", params)
+	err := self.instanceOperation(instanceId, "ResetInstancesType", params, true)
 	if err != nil {
 		log.Errorf("Failed for %s: %s", instanceType, err)
 		return fmt.Errorf("Failed to change vm config, specification not supported")
@@ -746,7 +746,7 @@ func (self *SRegion) AttachDisk(instanceId string, diskId string) error {
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
 	params := map[string]string{"SecurityGroups.0": secgroupId}
-	return self.host.zone.region.instanceOperation(self.InstanceId, "ModifyInstancesAttribute", params)
+	return self.host.zone.region.instanceOperation(self.InstanceId, "ModifyInstancesAttribute", params, true)
 }
 
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
@@ -754,7 +754,7 @@ func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 	for i := 0; i < len(secgroupIds); i++ {
 		params[fmt.Sprintf("SecurityGroups.%d", i)] = secgroupIds[i]
 	}
-	return self.host.zone.region.instanceOperation(self.InstanceId, "ModifyInstancesAttribute", params)
+	return self.host.zone.region.instanceOperation(self.InstanceId, "ModifyInstancesAttribute", params, true)
 }
 
 func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
@@ -813,7 +813,7 @@ func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCy
 	params["InstanceChargePrepaid.Period"] = fmt.Sprintf("%d", bc.GetMonths())
 	params["InstanceChargePrepaid.RenewFlag"] = "NOTIFY_AND_MANUAL_RENEW"
 	params["RenewPortableDataDisk"] = "TRUE"
-	_, err := region.cvmRequest("RenewInstances", params)
+	_, err := region.cvmRequest("RenewInstances", params, true)
 	if err != nil {
 		log.Errorf("RenewInstance fail %s", err)
 		return err

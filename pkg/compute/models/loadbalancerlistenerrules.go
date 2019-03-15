@@ -284,7 +284,8 @@ func (man *SLoadbalancerListenerRuleManager) getLoadbalancerListenerRulesByListe
 }
 
 func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, listener *SLoadbalancerListener, rules []cloudprovider.ICloudLoadbalancerListenerRule, syncRange *SSyncRange) compare.SyncResult {
-	syncOwnerId := getSyncOwnerProjectId(man, userCred, provider.ProjectId, syncRange.ProjectSync)
+	syncOwnerId := provider.ProjectId
+
 	lockman.LockClass(ctx, man, syncOwnerId)
 	defer lockman.ReleaseClass(ctx, man, syncOwnerId)
 
@@ -316,7 +317,7 @@ func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx c
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerListenerRule(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		err = commondb[i].SyncWithCloudLoadbalancerListenerRule(ctx, userCred, commonext[i], provider.ProjectId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -371,10 +372,18 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 	lbr.Name = db.GenerateName(man, projectId, extRule.GetName())
 	lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
 
-	lbr.ProjectSrc = listener.ProjectSrc
-	lbr.ProjectId = listener.ProjectId
+	err := man.TableSpec().Insert(lbr)
 
-	return lbr, man.TableSpec().Insert(lbr)
+	if err != nil {
+		log.Errorf("newFromCloudLoadbalancerListenerRule fail %s", err)
+		return nil, err
+	}
+
+	db.OpsLog.LogEvent(lbr, db.ACT_CREATE, lbr.GetShortDesc(ctx), userCred)
+
+	SyncCloudProject(userCred, lbr, projectId, extRule, listener.ManagerId)
+
+	return lbr, nil
 }
 
 func (lbr *SLoadbalancerListenerRule) syncRemoveCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -390,19 +399,20 @@ func (lbr *SLoadbalancerListenerRule) syncRemoveCloudLoadbalancerListenerRule(ct
 	return err
 }
 
-func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, extRule cloudprovider.ICloudLoadbalancerListenerRule, projectId string, projectSync bool) error {
+func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, extRule cloudprovider.ICloudLoadbalancerListenerRule, projectId string) error {
 	listener := lbr.GetLoadbalancerListener()
 	diff, err := db.UpdateWithLock(ctx, lbr, func() error {
 		lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
 		lbr.ManagerId = listener.ManagerId
-		lbr.ProjectSrc = listener.ProjectSrc
-		lbr.ProjectId = listener.ProjectId
 		return nil
 	})
 	if err != nil {
 		return err
 	}
 	db.OpsLog.LogSyncUpdate(lbr, diff, userCred)
+
+	SyncCloudProject(userCred, lbr, projectId, extRule, listener.ManagerId)
+
 	return nil
 }
 

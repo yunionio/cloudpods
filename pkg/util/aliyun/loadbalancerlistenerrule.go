@@ -73,6 +73,10 @@ func (lbr *SLoadbalancerListenerRule) GetPath() string {
 	return lbr.Url
 }
 
+func (lbr *SLoadbalancerListenerRule) GetProjectId() string {
+	return ""
+}
+
 func (lbr *SLoadbalancerListenerRule) GetBackendGroupId() string {
 	return lbr.VServerGroupId
 }

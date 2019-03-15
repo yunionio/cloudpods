@@ -327,7 +327,7 @@ func (region *SRegion) UpdateInstanceBandwidth(instanceId string, bw int) error 
 	params["InstanceIds.0"] = instanceId
 	params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bw)
 
-	_, err := region.cvmRequest("ResetInstancesInternetMaxBandwidth", params)
+	_, err := region.cvmRequest("ResetInstancesInternetMaxBandwidth", params, true)
 	return err
 }
 

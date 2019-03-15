@@ -17,9 +17,11 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
+type TProjectSource string
+
 const (
-	PROJECT_SOURCE_LOCAL = "local"
-	PROJECT_SOURCE_CLOUD = "cloud"
+	PROJECT_SOURCE_LOCAL = TProjectSource("local")
+	PROJECT_SOURCE_CLOUD = TProjectSource("cloud")
 )
 
 type SVirtualResourceBaseManager struct {
@@ -222,7 +224,7 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	if tobj.GetId() == model.ProjectId {
 		// do nothing
 		Update(model, func() error {
-			model.ProjectSrc = PROJECT_SOURCE_LOCAL
+			model.ProjectSrc = string(PROJECT_SOURCE_LOCAL)
 			return nil
 		})
 		return nil, nil
@@ -241,7 +243,7 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	}
 	diff, err := Update(model, func() error {
 		model.ProjectId = tobj.GetId()
-		model.ProjectSrc = PROJECT_SOURCE_LOCAL
+		model.ProjectSrc = string(PROJECT_SOURCE_LOCAL)
 		return nil
 	})
 	if err != nil {
@@ -346,4 +348,20 @@ func (model *SVirtualResourceBase) GetShortDesc(ctx context.Context) *jsonutils.
 		desc.Add(jsonutils.NewString(tc.GetName()), "owner_tenant")
 	}
 	return desc
+}
+
+func (model *SVirtualResourceBase) SyncCloudProjectId(userCred mcclient.TokenCredential, projectId string) {
+	if model.ProjectSrc != string(PROJECT_SOURCE_LOCAL) && len(projectId) > 0 {
+		diff, _ := Update(model, func() error {
+			model.ProjectSrc = string(PROJECT_SOURCE_CLOUD)
+			if len(projectId) > 0 {
+				model.ProjectId = projectId
+			}
+			return nil
+		})
+		if len(diff) > 0 {
+			OpsLog.LogEvent(model, ACT_SYNC_OWNER, diff, userCred)
+			logclient.AddSimpleActionLog(model, logclient.ACT_SYNC_CLOUD_OWNER, diff, userCred, true)
+		}
+	}
 }

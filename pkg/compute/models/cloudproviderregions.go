@@ -338,3 +338,13 @@ func (cpr *SCloudproviderregion) isEmptyPublicCloud() bool {
 	}
 	return true
 }
+
+func (cprm *SCloudproviderregionManager) fetchRecordsForCloudprovider(manager *SCloudprovider) ([]SCloudproviderregion, error) {
+	q := cprm.Query().Equals("cloudprovider_id", manager.Id)
+	recs := make([]SCloudproviderregion, 0)
+	err := db.FetchModelObjects(cprm, q, &recs)
+	if err != nil {
+		return nil, err
+	}
+	return recs, nil
+}

@@ -5,18 +5,9 @@ import (
 
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
-
-func getSyncOwnerProjectId(manager db.IModelManager, userCred mcclient.TokenCredential, projectId string, projectSync bool) string {
-	ownerProjId := manager.GetOwnerId(userCred)
-	if projectSync && ownerProjId != projectId {
-		ownerProjId = projectId
-	}
-	return ownerProjId
-}
 
 type IMetadataSetter interface {
 	SetAllMetadata(ctx context.Context, meta map[string]interface{}, userCred mcclient.TokenCredential) error

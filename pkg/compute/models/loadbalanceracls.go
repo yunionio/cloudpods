@@ -322,7 +322,8 @@ func (man *SLoadbalancerAclManager) getLoadbalancerAclsByRegion(region *SCloudre
 }
 
 func (man *SLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, acls []cloudprovider.ICloudLoadbalancerAcl, syncRange *SSyncRange) compare.SyncResult {
-	ownerProjId := getSyncOwnerProjectId(man, userCred, provider.ProjectId, syncRange.ProjectSync)
+	ownerProjId := provider.ProjectId
+
 	lockman.LockClass(ctx, man, ownerProjId)
 	defer lockman.ReleaseClass(ctx, man, ownerProjId)
 
@@ -354,7 +355,7 @@ func (man *SLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, us
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerAcl(ctx, userCred, commonext[i], provider.ProjectId, syncRange.ProjectSync)
+		err = commondb[i].SyncWithCloudLoadbalancerAcl(ctx, userCred, commonext[i], provider.ProjectId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -396,45 +397,29 @@ func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Cont
 	acl.ManagerId = provider.Id
 	acl.CloudregionId = region.Id
 
-	acl.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-	acl.ProjectId = projectId
-
-	if extProjectId := extAcl.GetProjectId(); len(extProjectId) > 0 {
-		externalProject, err := ExternalProjectManager.GetProject(extProjectId, acl.ManagerId)
-		if err != nil {
-			log.Errorf(err.Error())
-		} else {
-			acl.ProjectId = externalProject.ProjectId
-		}
-	}
-
 	acl.AclEntries = &SLoadbalancerAclEntries{}
 	for _, entry := range extAcl.GetAclEntries() {
 		*acl.AclEntries = append(*acl.AclEntries, &SLoadbalancerAclEntry{Cidr: entry.CIDR, Comment: entry.Comment})
 	}
-	return &acl, man.TableSpec().Insert(&acl)
+	err := man.TableSpec().Insert(&acl)
+	if err != nil {
+		log.Errorf("newFromCloudLoadbalancerAcl fail %s", err)
+		return nil, err
+	}
+
+	db.OpsLog.LogEvent(&acl, db.ACT_CREATE, acl.GetShortDesc(ctx), userCred)
+
+	SyncCloudProject(userCred, &acl, projectId, extAcl, acl.ManagerId)
+
+	return &acl, nil
 }
 
-func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, projectId string, projectSync bool) error {
+func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, projectId string) error {
 	diff, err := db.UpdateWithLock(ctx, acl, func() error {
 		acl.Name = extAcl.GetName()
 		acl.AclEntries = &SLoadbalancerAclEntries{}
 		for _, entry := range extAcl.GetAclEntries() {
 			*acl.AclEntries = append(*acl.AclEntries, &SLoadbalancerAclEntry{Cidr: entry.CIDR, Comment: entry.Comment})
-		}
-		if projectSync && acl.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
-			acl.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-			if len(projectId) > 0 {
-				acl.ProjectId = projectId
-			}
-			if extProjectId := extAcl.GetProjectId(); len(extProjectId) > 0 {
-				extProject, err := ExternalProjectManager.GetProject(extProjectId, acl.ManagerId)
-				if err != nil {
-					log.Errorf(err.Error())
-				} else {
-					acl.ProjectId = extProject.ProjectId
-				}
-			}
 		}
 		return nil
 	})
@@ -442,5 +427,8 @@ func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, u
 		return err
 	}
 	db.OpsLog.LogSyncUpdate(acl, diff, userCred)
+
+	SyncCloudProject(userCred, acl, projectId, extAcl, acl.ManagerId)
+
 	return nil
 }
