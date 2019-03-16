@@ -91,6 +91,8 @@ type SQcloudCloudAccountCreateOptions struct {
 type SAWSCloudAccountCreateOptions struct {
 	SCloudAccountCreateBaseOptions
 	SAccessKeyCredentialWithEnvironment
+
+	OptionsBillingReportBucket string `help:"bucket that stores billing report" json:"-"`
 }
 
 type SOpenStackCloudAccountCreateOptions struct {
@@ -142,4 +144,50 @@ type SOpenStackCloudAccountUpdateCredentialOptions struct {
 type SHuaweiCloudAccountUpdateCredentialOptions struct {
 	SCloudAccountUpdateCredentialBaseOptions
 	SAccessKeyCredential
+}
+
+// update
+
+type SCloudAccountUpdateBaseOptions struct {
+	ID   string `help:"ID or Name of cloud account" json:"-"`
+	Name string `help:"New name to update"`
+
+	SyncIntervalSeconds int   `help:"auto synchornize interval in seconds"`
+	AutoCreateProject   *bool `help:"automatically create local project for new remote project"`
+
+	Desc string `help:"Description" json:"description" token:"desc"`
+}
+
+type SVMwareCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+type SAliyunCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+type SAzureCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+
+	OptionsBalanceKey       string `help:"update cloud balance account key, such as Azure EA key" json:"-"`
+	RemoveOptionsBalanceKey bool   `help:"remove cloud blance account key" json:"-"`
+}
+
+type SQcloudCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+type SAWSCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+
+	OptionsBillingReportBucket       string `help:"update AWS S3 bucket that stores account billing report" json:"-"`
+	RemoveOptionsBillingReportBucket bool   `help:"remote AWS S3 bucket that stores account billing report" json:"-"`
+}
+
+type SOpenStackCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+}
+
+type SHuaweiCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
 }

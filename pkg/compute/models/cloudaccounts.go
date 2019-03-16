@@ -53,7 +53,7 @@ type SCloudaccount struct {
 	Account string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
 	Secret  string `width:"256" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
-	BalanceKey string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	// BalanceKey string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 
 	IsPublicCloud *bool `nullable:"false" get:"user" create:"optional" list:"user" default:"true"`
 	IsOnPremise   bool  `nullable:"false" get:"user" create:"optional" list:"user" default:"false"`
@@ -72,6 +72,8 @@ type SCloudaccount struct {
 
 	Version string               `width:"32" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
 	Sysinfo jsonutils.JSONObject `get:"admin"`                                             // Column(JSONEncodedDict, nullable=True)
+
+	Options *jsonutils.JSONDict `get:"admin" create:"admin_optional" update:"admin"`
 }
 
 func (self *SCloudaccountManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -178,6 +180,25 @@ func (self *SCloudaccount) ValidateUpdateData(ctx context.Context, userCred mccl
 			syncIntervalSecs = int64(options.Options.MinimalSyncIntervalSeconds)
 		}
 		data.Set("sync_interval_seconds", jsonutils.NewInt(syncIntervalSecs))
+	}
+	if data.Contains("options") || data.Contains("remove_options") {
+		toRemoveKeys, _ := data.GetArray("remove_options")
+		removes := make([]string, 0)
+		if len(toRemoveKeys) > 0 {
+			for i := range toRemoveKeys {
+				key, _ := toRemoveKeys[i].GetString()
+				removes = append(removes, key)
+			}
+		}
+		var optionsJson *jsonutils.JSONDict
+		if self.Options != nil {
+			optionsJson = self.Options.CopyExcludes(removes...)
+		} else {
+			optionsJson = jsonutils.NewDict()
+		}
+		toUpdate, _ := data.Get("options")
+		optionsJson.Update(toUpdate)
+		data.Set("options", optionsJson)
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }

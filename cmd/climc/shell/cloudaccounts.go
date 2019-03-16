@@ -103,8 +103,15 @@ func init() {
 	})
 
 	R(&options.SAWSCloudAccountCreateOptions{}, "cloud-account-create-aws", "Create an AWS cloud account", func(s *mcclient.ClientSession, args *options.SAWSCloudAccountCreateOptions) error {
-		params := jsonutils.Marshal(args)
-		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Aws"), "provider")
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
+		options := jsonutils.NewDict()
+		if len(args.OptionsBillingReportBucket) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingReportBucket), "billing_report_bucket")
+		}
+		if options.Size() > 0 {
+			params.Add(options, "options")
+		}
+		params.Add(jsonutils.NewString("Aws"), "provider")
 		result, err := modules.Cloudaccounts.Create(s, params)
 		if err != nil {
 			return err
@@ -147,24 +154,121 @@ func init() {
 		Desc string `help:"Description"`
 	}
 	R(&CloudaccountUpdateOptions{}, "cloud-account-update", "Update a cloud account", func(s *mcclient.ClientSession, args *CloudaccountUpdateOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.Name) > 0 {
-			params.Add(jsonutils.NewString(args.Name), "name")
+		return fmt.Errorf("obsolete, please try cloud-account-update-xxx, where xxx is vmware, aliyun, azure, qcloud, aws, openstack, huawei etc.")
+	})
+
+	R(&options.SVMwareCloudAccountUpdateOptions{}, "cloud-account-update-vmware", "update a vmware cloud account", func(s *mcclient.ClientSession, args *options.SVMwareCloudAccountUpdateOptions) error {
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
+		if params.Size() == 0 {
+			return InvalidUpdateError()
 		}
-		if len(args.AccessUrl) > 0 {
-			params.Add(jsonutils.NewString(args.AccessUrl), "access_url")
+		result, err := modules.Cloudaccounts.Update(s, args.ID, params)
+		if err != nil {
+			return err
 		}
-		if len(args.BalanceKey) > 0 {
-			params.Add(jsonutils.NewString(args.BalanceKey), "balance_key")
-		} else if args.RemoveBalanceKey {
-			params.Add(jsonutils.NewString(""), "balance_key")
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SAliyunCloudAccountUpdateOptions{}, "cloud-account-update-aliyun", "update an Aliyun cloud account", func(s *mcclient.ClientSession, args *options.SAliyunCloudAccountUpdateOptions) error {
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
+		if params.Size() == 0 {
+			return InvalidUpdateError()
 		}
-		if args.SyncIntervalSeconds > 0 {
-			params.Add(jsonutils.NewInt(int64(args.SyncIntervalSeconds)), "sync_interval_seconds")
+		result, err := modules.Cloudaccounts.Update(s, args.ID, params)
+		if err != nil {
+			return err
 		}
-		if len(args.Desc) > 0 {
-			params.Add(jsonutils.NewString(args.Desc), "description")
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SAzureCloudAccountUpdateOptions{}, "cloud-account-update-azure", "update an Azure cloud account", func(s *mcclient.ClientSession, args *options.SAzureCloudAccountUpdateOptions) error {
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
+
+		options := jsonutils.NewDict()
+		if len(args.OptionsBalanceKey) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBalanceKey), "balance_key")
 		}
+		if options.Size() > 0 {
+			params.Add(options, "options")
+		}
+		removeOptions := make([]string, 0)
+		if args.RemoveOptionsBalanceKey {
+			removeOptions = append(removeOptions, "balance_key")
+		}
+		if len(removeOptions) > 0 {
+			params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
+		}
+
+		if params.Size() == 0 {
+			return InvalidUpdateError()
+		}
+		result, err := modules.Cloudaccounts.Update(s, args.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SQcloudCloudAccountUpdateOptions{}, "cloud-account-update-qcloud", "update a Tencent cloud account", func(s *mcclient.ClientSession, args *options.SQcloudCloudAccountUpdateOptions) error {
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
+		if params.Size() == 0 {
+			return InvalidUpdateError()
+		}
+		result, err := modules.Cloudaccounts.Update(s, args.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SAWSCloudAccountUpdateOptions{}, "cloud-account-update-aws", "update an AWS cloud account", func(s *mcclient.ClientSession, args *options.SAWSCloudAccountUpdateOptions) error {
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
+
+		options := jsonutils.NewDict()
+		if len(args.OptionsBillingReportBucket) > 0 {
+			options.Add(jsonutils.NewString(args.OptionsBillingReportBucket), "billing_report_bucket")
+		}
+		if options.Size() > 0 {
+			params.Add(options, "options")
+		}
+		removeOptions := make([]string, 0)
+		if args.RemoveOptionsBillingReportBucket {
+			removeOptions = append(removeOptions, "billing_report_bucket")
+		}
+		if len(removeOptions) > 0 {
+			params.Add(jsonutils.NewStringArray(removeOptions), "remove_options")
+		}
+
+		if params.Size() == 0 {
+			return InvalidUpdateError()
+		}
+		result, err := modules.Cloudaccounts.Update(s, args.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SOpenStackCloudAccountUpdateOptions{}, "cloud-account-update-openstack", "update an AWS cloud account", func(s *mcclient.ClientSession, args *options.SOpenStackCloudAccountUpdateOptions) error {
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
+		if params.Size() == 0 {
+			return InvalidUpdateError()
+		}
+		result, err := modules.Cloudaccounts.Update(s, args.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SHuaweiCloudAccountUpdateOptions{}, "cloud-account-update-huawei", "update a Huawei cloud account", func(s *mcclient.ClientSession, args *options.SHuaweiCloudAccountUpdateOptions) error {
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
 		if params.Size() == 0 {
 			return InvalidUpdateError()
 		}
