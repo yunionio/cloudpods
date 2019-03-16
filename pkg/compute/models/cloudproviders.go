@@ -867,6 +867,9 @@ func (provider *SCloudprovider) GetEnabledCloudproviderRegions() []SCloudprovide
 }
 
 func (provider *SCloudprovider) syncCloudproviderRegions(userCred mcclient.TokenCredential, syncRange *SSyncRange, wg *sync.WaitGroup) {
+	if wg == nil {
+		provider.MarkSyncing(userCred)
+	}
 	cprs := provider.GetEnabledCloudproviderRegions()
 	for i := range cprs {
 		if cprs[i].needSync() {
@@ -881,6 +884,9 @@ func (provider *SCloudprovider) syncCloudproviderRegions(userCred mcclient.Token
 				wg.Done()
 			}
 		}
+	}
+	if wg == nil {
+		provider.MarkEndSync(userCred)
 	}
 }
 
