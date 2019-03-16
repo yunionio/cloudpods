@@ -3,11 +3,13 @@ package lbagent
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/version"
 
 	"yunion.io/x/onecloud/pkg/compute/consts"
 	agentmodels "yunion.io/x/onecloud/pkg/lbagent/models"
@@ -16,6 +18,8 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/models"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
 type ApiHelper struct {
@@ -24,12 +28,16 @@ type ApiHelper struct {
 	dataDirMan  *agentutils.ConfigDirManager
 	corpus      *agentmodels.LoadbalancerCorpus
 	agentParams *agentmodels.AgentParams
+
+	haState         string
+	haStateProvider HaStateProvider
 }
 
 func NewApiHelper(opts *Options) (*ApiHelper, error) {
 	helper := &ApiHelper{
 		opts:       opts,
 		dataDirMan: agentutils.NewConfigDirManager(opts.apiDataStoreDir),
+		haState:    consts.LB_HA_STATE_UNKNOWN,
 	}
 	return helper, nil
 }
@@ -56,12 +64,28 @@ func (h *ApiHelper) Run(ctx context.Context) {
 			apiDataChanged := h.doSyncApiData(ctx)
 			agentParamsChanged := h.doSyncAgentParams(ctx)
 			if apiDataChanged || agentParamsChanged {
+				log.Infof("things changed: params: %v, data %v", agentParamsChanged, apiDataChanged)
 				h.doUseCorpus(ctx)
 			}
+		case state := <-h.haStateProvider.StateChannel():
+			switch state {
+			case consts.LB_HA_STATE_BACKUP:
+				h.doStopDaemons(ctx)
+			default:
+				if state != h.haState {
+					// try your best to make things up
+					h.doUseCorpus(ctx)
+				}
+			}
+			h.haState = state
 		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+func (h *ApiHelper) SetHaStateProvider(hsp HaStateProvider) {
+	h.haStateProvider = hsp
 }
 
 func (h *ApiHelper) adminClientSession(ctx context.Context) *mcclient.ClientSession {
@@ -87,6 +111,31 @@ func (h *ApiHelper) agentPeekOnce(ctx context.Context) (*models.LoadbalancerAgen
 		return nil, err
 	}
 	return agent, nil
+}
+
+func (h *ApiHelper) agentPeekPeers(ctx context.Context, vri int) ([]*models.LoadbalancerAgent, error) {
+	s := h.adminClientSession(ctx)
+	params := jsonutils.NewDict()
+	params.Set(consts.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(consts.LBAGENT_QUERY_ORIG_VAL))
+	listResult, err := modules.LoadbalancerAgents.List(s, params)
+	if err != nil {
+		err := fmt.Errorf("agent listing error: %s", err)
+		return nil, err
+	}
+	peers := []*models.LoadbalancerAgent{}
+	for _, data := range listResult.Data {
+		agent := &models.LoadbalancerAgent{}
+		err := data.Unmarshal(agent)
+		if err != nil {
+			err := fmt.Errorf("agent data unmarshal error: %s", err)
+			return nil, err
+		}
+		if agent.Params.Vrrp.VirtualRouterId != vri {
+			continue
+		}
+		peers = append(peers, agent)
+	}
+	return peers, nil
 }
 
 type agentPeekResult models.LoadbalancerAgent
@@ -131,12 +180,13 @@ func (h *ApiHelper) agentPeek(ctx context.Context) *agentPeekResult {
 }
 
 func (h *ApiHelper) runInit(ctx context.Context) {
+	h.haState = <-h.haStateProvider.StateChannel()
 	r := h.agentPeek(ctx)
 	if r == nil {
 		return
 	}
 	if !r.staleInFuture(h.opts.ApiLbagentHbTimeoutRelaxation) {
-		log.Warningf("agent will stale in %d seconds, re-sync",
+		log.Warningf("agent will stale in %d seconds, ignore old corpus",
 			h.opts.ApiLbagentHbTimeoutRelaxation)
 	} else {
 		h.doHb(ctx)
@@ -147,9 +197,10 @@ func (h *ApiHelper) runInit(ctx context.Context) {
 			log.Errorf("load local api data failed: %s", err)
 		}
 	}
-	if changed := h.doSyncApiData(ctx); changed {
-		h.doUseCorpus(ctx)
-	}
+	// better reload now because agent data is not in corpus yet
+	h.doSyncApiData(ctx)
+	h.doSyncAgentParams(ctx)
+	h.doUseCorpus(ctx)
 }
 
 func (h *ApiHelper) loadLocalData(ctx context.Context) (*agentmodels.LoadbalancerCorpus, error) {
@@ -179,10 +230,33 @@ func (h *ApiHelper) agentUpdateSeen(ctx context.Context) *models.LoadbalancerAge
 	return agent
 }
 
+func (h *ApiHelper) newAgentHbParams(ctx context.Context) (*jsonutils.JSONDict, error) {
+	ip, err := netutils2.MyIP()
+	if err != nil {
+		return nil, err
+	}
+	state := h.haState
+	version := version.Get().GitVersion
+	opts := &options.LoadbalancerAgentActionHbOptions{
+		IP:      ip,
+		HaState: state,
+		Version: version,
+	}
+	params, err := options.StructToParams(opts)
+	if err != nil {
+		return nil, err
+	}
+	return params, nil
+}
+
 func (h *ApiHelper) doHb(ctx context.Context) (*models.LoadbalancerAgent, error) {
 	// TODO check if things changed recently
 	s := h.adminClientSession(ctx)
-	data, err := modules.LoadbalancerAgents.PerformAction(s, h.opts.ApiLbagentId, "hb", nil)
+	params, err := h.newAgentHbParams(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("heartbeat: making params: %s", err)
+	}
+	data, err := modules.LoadbalancerAgents.PerformAction(s, h.opts.ApiLbagentId, "hb", params)
 	if err != nil {
 		err := fmt.Errorf("heartbeat api error: %s", err)
 		return nil, err
@@ -254,12 +328,36 @@ func (h *ApiHelper) doSyncAgentParams(ctx context.Context) bool {
 		log.Errorf("agent params get failure: %s", err)
 		return false
 	}
+	peers, err := h.agentPeekPeers(ctx, agent.Params.Vrrp.VirtualRouterId)
+	if err != nil {
+		log.Errorf("agent get peers failure: %s", err)
+		return false
+	}
+	useUnicast := true
+	unicastPeer := []string{}
+	for _, peer := range peers {
+		if peer.Id == agent.Id {
+			continue
+		}
+		if peer.IP == "" {
+			useUnicast = false
+			log.Warningf("agent %s(%s) has no ip, use multicast vrrp", peer.Name, peer.Id)
+			break
+		}
+		unicastPeer = append(unicastPeer, peer.IP)
+	}
+
 	agentParams, err := agentmodels.NewAgentParams(agent)
 	if err != nil {
 		log.Errorf("agent params prepare failure: %s", err)
 		return false
 	}
-	if !agentParams.Equal(h.agentParams) {
+	agentParams.SetVrrpParams("notify_script", h.haStateProvider.StateScript())
+	if useUnicast {
+		agentParams.SetVrrpParams("unicast_peer", unicastPeer)
+	}
+	if !agentParams.Equals(h.agentParams) {
+		log.Infof("use unicast vrrp from %s to %s", agent.IP, strings.Join(unicastPeer, ","))
 		h.agentParams = agentParams
 		return true
 	}
@@ -291,5 +389,16 @@ func (h *ApiHelper) doUseCorpus(ctx context.Context) {
 		cmdData.Wg.Wait()
 	case <-ctx.Done():
 		return
+	}
+}
+
+func (h *ApiHelper) doStopDaemons(ctx context.Context) {
+	cmd := &LbagentCmd{
+		Type: LbagentCmdStopDaemons,
+	}
+	cmdChan := ctx.Value("cmdChan").(chan *LbagentCmd)
+	select {
+	case cmdChan <- cmd:
+	case <-ctx.Done():
 	}
 }

@@ -108,6 +108,10 @@ type LoadbalancerAgentDeleteOptions struct {
 
 type LoadbalancerAgentActionHbOptions struct {
 	ID string `json:-`
+
+	Version string
+	IP      string
+	HaState string
 }
 
 type LoadbalancerAgentActionPatchParamsOptions struct {

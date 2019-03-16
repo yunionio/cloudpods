@@ -10,6 +10,7 @@ type LbagentCmdType uintptr
 
 const (
 	LbagentCmdUseCorpus LbagentCmdType = iota
+	LbagentCmdStopDaemons
 )
 
 type LbagentCmdUseCorpusData struct {
