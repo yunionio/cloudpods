@@ -147,7 +147,19 @@ func (r *SRemoteFile) fetch(preChksum string) bool {
 	return fetchSucc
 }
 
+// retry download
 func (r *SRemoteFile) download(getData bool, preChksum string) bool {
+	result := r.downloadInternal(getData, preChksum)
+	if !result && len(r.downloadUrl) > 0 {
+		log.Errorf("download from cached url %s failed, try direct download from %s ...", r.downloadUrl, r.url)
+		r.downloadUrl = ""
+		result = r.downloadInternal(getData, preChksum)
+	}
+	return result
+}
+
+func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) bool {
+	os.Remove(r.tmpPath)
 	fi, err := os.Create(r.tmpPath)
 	if err != nil {
 		log.Errorln(err)
