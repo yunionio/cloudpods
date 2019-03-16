@@ -182,22 +182,24 @@ func (self *SCloudaccount) ValidateUpdateData(ctx context.Context, userCred mccl
 		data.Set("sync_interval_seconds", jsonutils.NewInt(syncIntervalSecs))
 	}
 	if data.Contains("options") || data.Contains("remove_options") {
-		toRemoveKeys, _ := data.GetArray("remove_options")
-		removes := make([]string, 0)
-		if len(toRemoveKeys) > 0 {
-			for i := range toRemoveKeys {
-				key, _ := toRemoveKeys[i].GetString()
-				removes = append(removes, key)
-			}
-		}
 		var optionsJson *jsonutils.JSONDict
 		if self.Options != nil {
+			toRemoveKeys, _ := data.GetArray("remove_options")
+			removes := make([]string, 0)
+			if len(toRemoveKeys) > 0 {
+				for i := range toRemoveKeys {
+					key, _ := toRemoveKeys[i].GetString()
+					removes = append(removes, key)
+				}
+			}
 			optionsJson = self.Options.CopyExcludes(removes...)
 		} else {
 			optionsJson = jsonutils.NewDict()
 		}
 		toUpdate, _ := data.Get("options")
-		optionsJson.Update(toUpdate)
+		if toUpdate != nil {
+			optionsJson.Update(toUpdate)
+		}
 		data.Set("options", optionsJson)
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
