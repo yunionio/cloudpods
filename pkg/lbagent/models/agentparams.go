@@ -3,10 +3,36 @@ package models
 import (
 	"encoding/base64"
 	"fmt"
+	"reflect"
 	"text/template"
+
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/mcclient/models"
 )
+
+func dataFromParams(p interface{}) map[string]interface{} {
+	rv := reflect.ValueOf(p)
+	if rv.Kind() != reflect.Struct {
+		panic(fmt.Sprintf("unexpected kind: %#v", p))
+	}
+	rt := rv.Type()
+
+	r := map[string]interface{}{}
+	for i := 0; i < rv.NumField(); i++ {
+		f := rt.Field(i)
+		fn := utils.CamelSplit(f.Name, "_")
+		if fn == "" {
+			continue
+		}
+		v := rv.Field(i)
+		if !v.IsValid() {
+			continue
+		}
+		r[fn] = v.Interface()
+	}
+	return r
+}
 
 type AgentParams struct {
 	AgentModel           *models.LoadbalancerAgent
@@ -37,34 +63,13 @@ func NewAgentParams(agent *models.LoadbalancerAgent) (*AgentParams, error) {
 	dataAgent := map[string]interface{}{
 		"id":   agent.Id,
 		"name": agent.Name,
-	}
-	dataVrrp := map[string]interface{}{
-		"priority":            agent.Params.Vrrp.Priority,
-		"virtual_router_id":   agent.Params.Vrrp.VirtualRouterId,
-		"garp_master_refresh": agent.Params.Vrrp.GarpMasterRefresh,
-		"preempt":             agent.Params.Vrrp.Preempt,
-		"interface":           agent.Params.Vrrp.Interface,
-		"advert_int":          agent.Params.Vrrp.AdvertInt,
-		"pass":                agent.Params.Vrrp.Pass,
-	}
-	dataHaproxy := map[string]interface{}{
-		"global_log":      agent.Params.Haproxy.GlobalLog,
-		"global_nbthread": agent.Params.Haproxy.GlobalNbthread,
-		"log_http":        agent.Params.Haproxy.LogHttp,
-		"log_tcp":         agent.Params.Haproxy.LogTcp,
-		"log_normal":      agent.Params.Haproxy.LogNormal,
-	}
-	dataTelegraf := map[string]interface{}{
-		"influx_db_output_url":        agent.Params.Telegraf.InfluxDbOutputUrl,
-		"influx_db_output_name":       agent.Params.Telegraf.InfluxDbOutputName,
-		"influx_db_output_unsafe_ssl": agent.Params.Telegraf.InfluxDbOutputUnsafeSsl,
-		"haproxy_input_interval":      agent.Params.Telegraf.HaproxyInputInterval,
+		"ip":   agent.IP,
 	}
 	data := map[string]map[string]interface{}{
 		"agent":    dataAgent,
-		"vrrp":     dataVrrp,
-		"haproxy":  dataHaproxy,
-		"telegraf": dataTelegraf,
+		"vrrp":     dataFromParams(agent.Params.Vrrp),
+		"haproxy":  dataFromParams(agent.Params.Haproxy),
+		"telegraf": dataFromParams(agent.Params.Telegraf),
 	}
 	agentParams := &AgentParams{
 		AgentModel:           agent,
@@ -76,7 +81,7 @@ func NewAgentParams(agent *models.LoadbalancerAgent) (*AgentParams, error) {
 	return agentParams, nil
 }
 
-func (p *AgentParams) Equal(p2 *AgentParams) bool {
+func (p *AgentParams) Equals(p2 *AgentParams) bool {
 	if p == nil && p2 == nil {
 		return true
 	}
@@ -87,6 +92,14 @@ func (p *AgentParams) Equal(p2 *AgentParams) bool {
 	agentP2 := p2.AgentModel
 	if agentP.Params != agentP2.Params {
 		return false
+	}
+	keys := []string{"notify_script", "unicast_peer"}
+	for _, key := range keys {
+		v := p.GetVrrpParams(key)
+		v2 := p.GetVrrpParams(key)
+		if !reflect.DeepEqual(v, v2) {
+			return false
+		}
 	}
 	return true
 }
@@ -104,8 +117,20 @@ func (p *AgentParams) setXxParams(xx, k string, v interface{}) map[string]interf
 	return dt
 }
 
+func (p *AgentParams) getXxParams(xx, k string) interface{} {
+	dt, ok := p.Data[xx]
+	if !ok {
+		return nil
+	}
+	return dt[k]
+}
+
 func (p *AgentParams) SetVrrpParams(k string, v interface{}) map[string]interface{} {
 	return p.setXxParams("vrrp", k, v)
+}
+
+func (p *AgentParams) GetVrrpParams(k string) interface{} {
+	return p.getXxParams("vrrp", k)
 }
 
 func (p *AgentParams) SetHaproxyParams(k string, v interface{}) map[string]interface{} {
