@@ -26,6 +26,10 @@ func (self *SESXiHostDriver) GetHostType() string {
 	return models.HOST_TYPE_ESXI
 }
 
+func (self *SESXiHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
+	return nil
+}
+
 func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
 	params := task.GetParams()
 	imageId, err := params.GetString("image_id")
