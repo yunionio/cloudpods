@@ -23,6 +23,8 @@ type LbagentOptions struct {
 	apiDataStoreDir  string
 	haproxyConfigDir string
 	haproxyRunDir    string
+	haproxyShareDir  string
+	haStateChan      chan string
 
 	KeepalivedBin string `default:"keepalived"`
 	HaproxyBin    string `default:"haproxy"`
@@ -41,17 +43,23 @@ func (opts *Options) ValidateThenInit() error {
 		return fmt.Errorf("negative api batch list size: %d",
 			opts.ApiListBatchSize)
 	}
-	return opts.initDirs()
+	if err := opts.initDirs(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (opts *Options) initDirs() error {
 	opts.apiDataStoreDir = filepath.Join(opts.BaseDataDir, "data")
 	opts.haproxyConfigDir = filepath.Join(opts.BaseDataDir, "configs")
 	opts.haproxyRunDir = filepath.Join(opts.BaseDataDir, "run")
+	opts.haproxyShareDir = filepath.Join(opts.BaseDataDir, "share")
 	dirs := []string{
 		opts.apiDataStoreDir,
 		opts.haproxyConfigDir,
 		opts.haproxyRunDir,
+		opts.haproxyShareDir,
 	}
 	for _, dir := range dirs {
 		err := os.MkdirAll(dir, agentutils.FileModeDir)
@@ -60,5 +68,6 @@ func (opts *Options) initDirs() error {
 				dir, err)
 		}
 	}
+
 	return nil
 }
