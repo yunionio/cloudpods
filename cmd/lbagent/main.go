@@ -28,7 +28,14 @@ func main() {
 
 	var haproxyHelper *lbagent.HaproxyHelper
 	var apiHelper *lbagent.ApiHelper
+	var haStateWatcher *lbagent.HaStateWatcher
 	var err error
+	{
+		haStateWatcher, err = lbagent.NewHaStateWatcher(opts)
+		if err != nil {
+			log.Fatalf("init ha state watcher failed: %s", err)
+		}
+	}
 	{
 		haproxyHelper, err = lbagent.NewHaproxyHelper(opts)
 		if err != nil {
@@ -40,6 +47,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("init api helper failed: %s", err)
 		}
+		apiHelper.SetHaStateProvider(haStateWatcher)
 	}
 
 	{
@@ -48,7 +56,8 @@ func main() {
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		ctx = context.WithValue(ctx, "wg", wg)
 		ctx = context.WithValue(ctx, "cmdChan", cmdChan)
-		wg.Add(2)
+		wg.Add(3)
+		go haStateWatcher.Run(ctx)
 		go haproxyHelper.Run(ctx)
 		go apiHelper.Run(ctx)
 
