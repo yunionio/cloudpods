@@ -16,9 +16,9 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	bare2 "yunion.io/x/onecloud/pkg/baremetal"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts/storagetypes"
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	bare1 "yunion.io/x/onecloud/pkg/compute/baremetal"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -320,9 +320,9 @@ func (h *SHostInfo) checkSystemServices() error {
 }
 
 func (h *SHostInfo) detectiveStorageSystem() {
-	var stype = storagetypes.DISK_TYPE_ROTATE
+	var stype = consts.DISK_TYPE_ROTATE
 	if options.HostOptions.DiskIsSsd {
-		stype = storagetypes.DISK_TYPE_SSD
+		stype = consts.DISK_TYPE_SSD
 	}
 	h.sysinfo.StorageType = stype
 }
@@ -1128,7 +1128,7 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 
 		log.Infof("Storage %s(%s) mountpoint %s", storageName, storagetype, mountPoint)
 
-		if !utils.IsInStringArray(storagetype, storagetypes.Local) {
+		if !utils.IsInStringArray(storagetype, consts.Local) {
 			storage := storageManager.NewSharedStorageInstance(mountPoint, storagetype)
 			if storage != nil {
 				storage.SetStoragecacheId(storagecacheId)
@@ -1145,7 +1145,7 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 				storage.SetStorageInfo(storageId, storageName, storageConf)
 			} else {
 				// XXX hack: storage type baremetal is a converted host，reserve storage
-				if storagetype != storagetypes.STORAGE_BAREMETAL {
+				if storagetype != consts.STORAGE_BAREMETAL {
 					detachStorages = append(detachStorages, hs)
 				}
 			}

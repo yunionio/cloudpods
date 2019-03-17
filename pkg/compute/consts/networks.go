@@ -1,4 +1,4 @@
-package networktypes
+package consts
 
 const (
 	NETWORK_TYPE_GUEST     = "guest"

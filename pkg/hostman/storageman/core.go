@@ -11,7 +11,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/timeutils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts/storagetypes"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -73,9 +73,9 @@ func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 }
 
 func (s *SStorageManager) Remove(storage IStorage) {
-	if storage.StorageType() == storagetypes.STORAGE_NFS {
+	if storage.StorageType() == consts.STORAGE_NFS {
 		delete(s.NfsStorageImagecacheManagers, storage.GetStoragecacheId())
-	} else if storage.StorageType() == storagetypes.STORAGE_RBD {
+	} else if storage.StorageType() == consts.STORAGE_RBD {
 		delete(s.RbdStorageImagecacheManagers, storage.GetStoragecacheId())
 	}
 	for index, iS := range s.Storages {
@@ -253,9 +253,9 @@ func (s *SStorageManager) NewSharedStorageInstance(mountPoint, storageType strin
 }
 
 func (s *SStorageManager) InitSharedStorageImageCache(storageType, storagecacheId, imagecachePath string, storage IStorage) {
-	if storageType == storagetypes.STORAGE_NFS {
+	if storageType == consts.STORAGE_NFS {
 		s.InitNfsStorageImagecache(storagecacheId, imagecachePath)
-	} else if storageType == storagetypes.STORAGE_RBD {
+	} else if storageType == consts.STORAGE_RBD {
 		if rbdStorage := s.GetStoragecacheById(storagecacheId); rbdStorage == nil {
 			// Done
 			s.AddRbdStorageImagecache(imagecachePath, storage, storagecacheId)
@@ -280,7 +280,7 @@ func (s *SStorageManager) AddRbdStorageImagecache(imagecachePath string, storage
 		s.RbdStorageImagecacheManagers = map[string]IImageCacheManger{}
 	}
 	if _, ok := s.RbdStorageImagecacheManagers[storagecacheId]; !ok {
-		if imagecache := NewImageCacheManager(s, imagecachePath, storage, storagecacheId, storagetypes.STORAGE_RBD); imagecache != nil {
+		if imagecache := NewImageCacheManager(s, imagecachePath, storage, storagecacheId, consts.STORAGE_RBD); imagecache != nil {
 			s.RbdStorageImagecacheManagers[storagecacheId] = imagecache
 			return
 		}

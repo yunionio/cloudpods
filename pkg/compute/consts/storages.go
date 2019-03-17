@@ -1,4 +1,4 @@
-package storagetypes
+package consts
 
 // TODO: move models/storages.go storage types to this file
 const (

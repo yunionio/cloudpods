@@ -1,4 +1,4 @@
-package hosttypes
+package consts
 
 const (
 	HOST_TYPE_BAREMETAL  = "baremetal"
