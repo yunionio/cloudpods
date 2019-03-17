@@ -40,6 +40,22 @@ func IsTcpPortUsed(addr string, port int) bool {
 	}
 }
 
+// MyIP returns source ip used to communicate with udp:114.114.114.114:53
+func MyIP() (ip string, err error) {
+	conn, err := net.Dial("udp4", "114.114.114.114:53")
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+	addr, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok {
+		err = fmt.Errorf("not a net.UDPAddr: %#v", conn.LocalAddr())
+		return
+	}
+	ip = addr.IP.String()
+	return
+}
+
 func GetPrivatePrefixes(privatePrefixes []string) []string {
 	if privatePrefixes != nil {
 		return privatePrefixes

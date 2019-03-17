@@ -14,6 +14,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -47,9 +48,12 @@ func init() {
 type SLoadbalancerAgent struct {
 	db.SStandaloneResourceBase
 
+	Version    string                    `width:"64" nullable:"true" list:"admin" update:"admin"`
+	IP         string                    `width:"32" nullable:"true" list:"admin" update:"admin"`
+	HaState    string                    `width:"32" nullable:"true" list:"admin" update:"admin" default:"UNKNOWN"` // LB_HA_STATE_UNKNOWN
 	HbLastSeen time.Time                 `nullable:"true" list:"admin" update:"admin"`
 	HbTimeout  int                       `nullable:"true" list:"admin" update:"admin" create:"optional" default:"3600"`
-	Params     *SLoadbalancerAgentParams `create:"optional" get:"admin"`
+	Params     *SLoadbalancerAgentParams `create:"optional" list:"admin" get:"admin"`
 
 	Loadbalancers             time.Time `nullable:"true" list:"admin" update:"admin"`
 	LoadbalancerListeners     time.Time `nullable:"true" list:"admin" update:"admin"`
@@ -421,14 +425,43 @@ func (lbagent *SLoadbalancerAgent) AllowPerformHb(ctx context.Context, userCred 
 }
 
 func (lbagent *SLoadbalancerAgent) PerformHb(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	diff, err := db.Update(lbagent, func() error {
+	ipV := validators.NewIPv4AddrValidator("ip")
+	haStateV := validators.NewStringChoicesValidator("ha_state", consts.LB_HA_STATES)
+	{
+		keyV := map[string]validators.IValidator{
+			"ip":       ipV,
+			"ha_state": haStateV,
+		}
+		for _, v := range keyV {
+			v.Optional(true)
+			if err := v.Validate(data); err != nil {
+				return nil, err
+			}
+		}
+	}
+	diff, err := lbagent.GetModelManager().TableSpec().Update(lbagent, func() error {
 		lbagent.HbLastSeen = time.Now()
+		if jVer, err := data.Get("version"); err == nil {
+			if jVerStr, ok := jVer.(*jsonutils.JSONString); ok {
+				lbagent.Version = jVerStr.Value()
+			}
+		}
+		if ipV.IP != nil {
+			lbagent.IP = ipV.IP.String()
+		}
+		if haStateV.Value != "" {
+			lbagent.HaState = haStateV.Value
+		}
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	db.OpsLog.LogEvent(lbagent, db.ACT_UPDATE, diff, userCred)
+	if len(diff) > 1 {
+		// other things changed besides hb_last_seen
+		log.Infof("lbagent %s(%s) state changed: %s", lbagent.Name, lbagent.Id, diff)
+		db.OpsLog.LogEvent(lbagent, db.ACT_UPDATE, diff, userCred)
+	}
 	return nil, nil
 }
 
@@ -484,6 +517,11 @@ vrrp_instance YunionLB {
 		auth_type PASS
 		auth_pass {{ .vrrp.pass }}
 	}
+	{{ if .vrrp.notify_script -}} notify {{ .vrrp.notify_script }} {{- end }}
+	{{ if .vrrp.unicast_peer -}} unicast_peer { {{- println }}
+		{{- range .vrrp.unicast_peer }}		{{ println . }} {{- end }}
+	}
+	{{- end }}
 	priority {{ .vrrp.priority }}
 	advert_int {{ .vrrp.advert_int }}
 	garp_master_refresh {{ .vrrp.garp_master_refresh }}
