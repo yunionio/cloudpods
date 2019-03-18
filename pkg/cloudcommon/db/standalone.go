@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-	"unicode"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -227,7 +226,15 @@ func (model *SStandaloneResourceBase) SetAllMetadata(ctx context.Context, dictst
 			return httperrors.NewNotSufficientPrivilegeError("not allow to set system key %s", k)
 		}
 	}
-	return Metadata.SetAll(ctx, model, dictstore, userCred)
+	return Metadata.SetValuesWithLog(ctx, model, dictstore, userCred)
+}
+
+func (model *SStandaloneResourceBase) SetUserMetadataValues(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
+	return Metadata.SetValuesWithLog(ctx, model, dictstore, userCred)
+}
+
+func (model *SStandaloneResourceBase) SetUserMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
+	return Metadata.SetAll(ctx, model, dictstore, userCred, "user")
 }
 
 func (model *SStandaloneResourceBase) RemoveMetadata(ctx context.Context, key string, userCred mcclient.TokenCredential) error {
@@ -270,22 +277,52 @@ func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userC
 	}
 	dictStore := make(map[string]interface{})
 	for k, v := range dictMap {
-		if err := model.ValidateMetadataKey(k); err != nil {
-			return nil, err
-		}
 		dictStore[k], _ = v.GetString()
 	}
 	err = model.SetAllMetadata(ctx, dictStore, userCred)
 	return nil, err
 }
 
-func (model *SStandaloneResourceBase) ValidateMetadataKey(key string) error {
-	for _, k := range []rune(key) {
-		if k != rune('_') && !unicode.IsLetter(k) && !unicode.IsDigit(k) {
-			return httperrors.NewInputParameterError(`Not support tag key with %s`, string(k))
-		}
+func (model *SStandaloneResourceBase) AllowPerformUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return IsAdminAllowPerform(userCred, model, "user-metadata")
+}
+
+func (model *SStandaloneResourceBase) PerformUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	dict, ok := data.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, httperrors.NewInputParameterError("input data not key value dict")
 	}
-	return nil
+	dictMap, err := dict.GetMap()
+	if err != nil {
+		return nil, err
+	}
+	dictStore := make(map[string]interface{})
+	for k, v := range dictMap {
+		dictStore["user:"+k], _ = v.GetString()
+	}
+	err = model.SetUserMetadataValues(ctx, dictStore, userCred)
+	return nil, err
+}
+
+func (model *SStandaloneResourceBase) AllowPerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return IsAdminAllowPerform(userCred, model, "set-user-metadata")
+}
+
+func (model *SStandaloneResourceBase) PerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	dict, ok := data.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, httperrors.NewInputParameterError("input data not key value dict")
+	}
+	dictMap, err := dict.GetMap()
+	if err != nil {
+		return nil, err
+	}
+	dictStore := make(map[string]interface{})
+	for k, v := range dictMap {
+		dictStore["user:"+k], _ = v.GetString()
+	}
+	err = model.SetUserMetadataAll(ctx, dictStore, userCred)
+	return nil, err
 }
 
 func (model *SStandaloneResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {

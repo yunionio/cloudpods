@@ -236,18 +236,7 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 			return nil, err
 		}
 
-		if metaData := iDisk.GetMetadata(); metaData != nil {
-			meta := make(map[string]string)
-			if err := metaData.Unmarshal(meta); err != nil {
-				log.Errorf("Get disk %s Metadata error: %v", disk.Name, err)
-			} else {
-				for key, value := range meta {
-					if err := disk.SetMetadata(ctx, "ext:"+key, value, task.GetUserCred()); err != nil {
-						log.Errorf("set disk %s mata %s => %s error: %v", disk.Name, key, value, err)
-					}
-				}
-			}
-		}
+		models.SyncMetadata(ctx, task.GetUserCred(), disk, iDisk)
 
 		data := jsonutils.NewDict()
 		data.Add(jsonutils.NewInt(int64(iDisk.GetDiskSizeMB())), "disk_size")

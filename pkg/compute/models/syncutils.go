@@ -38,3 +38,7 @@ func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model 
 	}
 	return nil
 }
+
+func SyncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IMetadataSetter, remote cloudprovider.ICloudResource) error {
+	return syncMetadata(ctx, userCred, model, remote)
+}

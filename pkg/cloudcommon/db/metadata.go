@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 
@@ -19,6 +20,12 @@ import (
 const (
 	SYSTEM_ADMIN_PREFIX = "_"
 	CLOUD_TAG_PREFIX    = "ext:"
+	USER_TAG_PREFIX     = "user:"
+
+	TAG_DELETE_RANGE_USER  = "user"
+	TAG_DELETE_RANGE_CLOUD = "cloud"
+	TAG_DELETE_RANGE_SYS   = "sys"
+	TAG_DELETE_RANGE_ALL   = "all"
 )
 
 type SMetadataManager struct {
@@ -32,6 +39,7 @@ type SMetadata struct {
 	Key       string    `width:"64" charset:"utf8" primary:"true" list:"user" get:"user"`   // = Column(VARCHAR(64, charset='ascii'),  primary_key=True)
 	Value     string    `charset:"utf8" list:"user" get:"user"`                             // = Column(TEXT(charset='utf8'), nullable=True)
 	UpdatedAt time.Time `nullable:"false" updated_at:"true"`                                // = Column(DateTime, default=get_utcnow, nullable=False, onupdate=get_utcnow)
+	Deleted   bool      `nullable:"false" default:"false" index:"true"`
 }
 
 var Metadata *SMetadataManager
@@ -61,6 +69,23 @@ func (m *SMetadata) GetModelManager() IModelManager {
 
 func GetObjectIdstr(model IModel) string {
 	return fmt.Sprintf("%s::%s", model.GetModelManager().Keyword(), model.GetId())
+}
+
+func (manager *SMetadataManager) Query(fields ...string) *sqlchemy.SQuery {
+	return manager.SModelBaseManager.Query(fields...).IsFalse("deleted")
+}
+
+func (manager *SMetadataManager) RawQuery(fields ...string) *sqlchemy.SQuery {
+	return manager.SModelBaseManager.Query(fields...)
+}
+
+func (m *SMetadata) MarkDelete() error {
+	m.Deleted = true
+	return nil
+}
+
+func (m *SMetadata) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return DeleteModel(ctx, userCred, m)
 }
 
 func (manager *SMetadataManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -96,11 +121,10 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	if len(conditions) > 0 {
 		q = q.Filter(sqlchemy.OR(conditions...))
 	}
-	if !jsonutils.QueryBoolean(query, "with_sys", false) {
-		q = q.Filter(sqlchemy.NOT(sqlchemy.Startswith(q.Field("key"), SYSTEM_ADMIN_PREFIX)))
-	}
-	if !jsonutils.QueryBoolean(query, "with_cloud", false) {
-		q = q.Filter(sqlchemy.NOT(sqlchemy.Startswith(q.Field("key"), CLOUD_TAG_PREFIX)))
+	for args, prefix := range map[string]string{"sys_meta": SYSTEM_ADMIN_PREFIX, "cloud_meta": CLOUD_TAG_PREFIX, "user_meta": USER_TAG_PREFIX} {
+		if jsonutils.QueryBoolean(query, args, false) {
+			q = q.Filter(sqlchemy.Startswith(q.Field("key"), prefix))
+		}
 	}
 	return q, nil
 }
@@ -158,35 +182,42 @@ func (manager *SMetadataManager) RemoveAll(ctx context.Context, model IModel, us
 	lockman.LockObject(ctx, model)
 	defer lockman.ReleaseObject(ctx, model)
 
+	changes := []sMetadataChange{}
 	records := make([]SMetadata, 0)
 	q := manager.Query().Equals("id", idStr)
 	err := FetchModelObjects(manager, q, &records)
 	if err != nil {
 		return fmt.Errorf("find metadata for %s fail: %s", idStr, err)
 	}
-	changes := make([]sMetadataChange, 0)
 	for _, rec := range records {
-		if len(rec.Value) > 0 {
-			_, err := Update(&rec, func() error {
-				rec.Value = ""
-				return nil
-			})
-			if err == nil {
-				changes = append(changes, sMetadataChange{Key: rec.Key, OValue: rec.Value})
-			}
+		if err = rec.Delete(ctx, userCred); err != nil {
+			log.Errorf("remove metadata %v error: %v", rec, err)
+			continue
 		}
+		changes = append(changes, sMetadataChange{Key: rec.Key, OValue: rec.Value})
 	}
 	if len(changes) > 0 {
-		OpsLog.LogEvent(model, ACT_DEL_METADATA, jsonutils.Marshal(changes), userCred)
+		OpsLog.LogEvent(model, ACT_SET_METADATA, jsonutils.Marshal(changes), userCred)
 	}
 	return nil
 }
 
 func (manager *SMetadataManager) SetValue(ctx context.Context, obj IModel, key string, value interface{}, userCred mcclient.TokenCredential) error {
-	return manager.SetAll(ctx, obj, map[string]interface{}{key: value}, userCred)
+	return manager.SetValuesWithLog(ctx, obj, map[string]interface{}{key: value}, userCred)
 }
 
-func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential) error {
+func (manager *SMetadataManager) SetValuesWithLog(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential) error {
+	changes, err := manager.SetValues(ctx, obj, store, userCred)
+	if err != nil {
+		return err
+	}
+	if len(changes) > 0 {
+		OpsLog.LogEvent(obj, ACT_SET_METADATA, jsonutils.Marshal(changes), userCred)
+	}
+	return nil
+}
+
+func (manager *SMetadataManager) SetValues(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential) ([]sMetadataChange, error) {
 	idStr := GetObjectIdstr(obj)
 
 	lockman.LockObject(ctx, obj)
@@ -195,7 +226,7 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 	changes := make([]sMetadataChange, 0)
 	for key, value := range store {
 		if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAdminAllowGetSpec(userCred, obj, "metadata")) {
-			return httperrors.NewForbiddenError("Ordinary users can't set the tags that begin with an underscore")
+			return nil, httperrors.NewForbiddenError("Ordinary users can't set the tags that begin with an underscore")
 		}
 
 		valStr := stringutils.Interface2String(value)
@@ -204,7 +235,7 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 			valStr = ""
 		}
 		record := SMetadata{}
-		err := manager.Query().Equals("id", idStr).Equals("key", key).First(&record)
+		err := manager.RawQuery().Equals("id", idStr).Equals("key", key).First(&record) //避免之前设置的tag被删除后再次设置时出现Duplicate entry error
 		if err != nil {
 			if err == sql.ErrNoRows {
 				changes = append(changes, sMetadataChange{Key: key, NValue: valStr})
@@ -213,21 +244,69 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 				record.Value = valStr
 				err = manager.TableSpec().Insert(&record)
 				if err != nil {
-					return err
+					return nil, err
 				}
 			} else {
-				return err
+				return nil, err
 			}
 		} else {
+			deleted := record.Deleted
 			_, err := Update(&record, func() error {
+				record.Deleted = false
 				record.Value = valStr
 				return nil
 			})
 			if err != nil {
-				return err
+				return nil, err
 			}
-			changes = append(changes, sMetadataChange{Key: key, OValue: record.Value, NValue: valStr})
+			if deleted {
+				changes = append(changes, sMetadataChange{Key: key, NValue: valStr})
+			} else {
+				if record.Value != valStr {
+					changes = append(changes, sMetadataChange{Key: key, OValue: record.Value, NValue: valStr})
+				}
+			}
 		}
+	}
+	return changes, nil
+}
+
+func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store map[string]interface{}, userCred mcclient.TokenCredential, delRange string) error {
+	changes, err := manager.SetValues(ctx, obj, store, userCred)
+	if err != nil {
+		return err
+	}
+
+	idStr := GetObjectIdstr(obj)
+
+	lockman.LockObject(ctx, obj)
+	defer lockman.ReleaseObject(ctx, obj)
+
+	keys := []string{}
+	for key := range store {
+		keys = append(keys, key)
+	}
+
+	records := []SMetadata{}
+	q := manager.Query().Equals("id", idStr)
+	switch delRange {
+	case TAG_DELETE_RANGE_USER:
+		q = q.Like("key", USER_TAG_PREFIX+"%")
+	case TAG_DELETE_RANGE_CLOUD:
+		q = q.Like("key", CLOUD_TAG_PREFIX+"%")
+	case TAG_DELETE_RANGE_SYS:
+		q = q.Like("key", SYSTEM_ADMIN_PREFIX+"%")
+	}
+	q = q.Filter(sqlchemy.NOT(sqlchemy.In(q.Field("key"), keys)))
+	if err := FetchModelObjects(manager, q, &records); err != nil {
+		log.Errorf("failed to fetch metadata error: %v", err)
+	}
+	for _, rec := range records {
+		if err := rec.Delete(ctx, userCred); err != nil {
+			log.Errorf("failed to delete metadata error: %v", err)
+			continue
+		}
+		changes = append(changes, sMetadataChange{Key: rec.Key, OValue: rec.Value})
 	}
 	if len(changes) > 0 {
 		OpsLog.LogEvent(obj, ACT_SET_METADATA, jsonutils.Marshal(changes), userCred)

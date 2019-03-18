@@ -350,3 +350,26 @@ type ServerLiveMigrateOptions struct {
 	ID         string `help:"ID of server" json:"-"`
 	PreferHost string `help:"Server migration prefer host id or name" json:"prefer_host"`
 }
+
+type ServerMetadataOptions struct {
+	ID   string   `help:"ID or name of server" json:"-"`
+	TAGS []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`
+}
+
+func (opts *ServerMetadataOptions) Params() (*jsonutils.JSONDict, error) {
+	params := jsonutils.NewDict()
+	for _, tag := range opts.TAGS {
+		info := strings.Split(tag, "=")
+		if len(info) == 2 {
+			if len(info[0]) == 0 {
+				return nil, fmt.Errorf("invalidate tag info %s", tag)
+			}
+			params.Add(jsonutils.NewString(info[1]), info[0])
+		} else if len(info) == 1 {
+			params.Add(jsonutils.NewString(info[0]), info[0])
+		} else {
+			return nil, fmt.Errorf("invalidate tag info %s", tag)
+		}
+	}
+	return params, nil
+}
