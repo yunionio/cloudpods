@@ -995,35 +995,12 @@ func (s *SKVMGuestInstance) setCgroupIo() {
 }
 
 func (s *SKVMGuestInstance) setCgroupCpu() {
-	cpu, _ := s.Desc.Int("cpu")
-	cgrouputils.CgroupSet(strconv.Itoa(s.cgroupPid), int(cpu))
+	var (
+		cpu, _    = s.Desc.Int("cpu")
+		cpuWeight = 1024
+	)
 
-	// TODO XXX
-	/*
-		var (
-			cpuWeight = 1024
-			cpuPeriod = 0
-			cpuQuota  = 0
-			appTags   = s.getApptags()
-			meta, _   = s.Desc.Get("metadata")
-		)
-
-		if meta != nil {
-			if meta.Contains("__cpu_weight") {
-				cpuWeight, _ = meta.Int("__cpu_weight")
-			}
-			if meta.Contains("__cpu_period") {
-				cpuPeriod, _ = meta.Int("__cpu_period")
-			} else {
-				cpuPeriod = -1
-			}
-			if meta.Contains("__cpu_quota") {
-				cpuQuota, _ = meta.Int("__cpu_quota")
-			} else {
-				cpuQuota = -1
-			}
-		}
-	*/
+	cgrouputils.CgroupSet(strconv.Itoa(s.cgroupPid), int(cpu)*cpuWeight)
 }
 
 func (s *SKVMGuestInstance) CreateFromDesc(desc jsonutils.JSONObject) error {

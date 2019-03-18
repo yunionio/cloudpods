@@ -30,6 +30,7 @@ var (
 )
 
 type ICGroupTask interface {
+	InitTask(hand ICGroupTask, coreNum int, pid string)
 	SetPid(string)
 	SetWeight(coreNum int)
 	SetHand(hand ICGroupTask)
@@ -108,19 +109,9 @@ func GetRootParam(module, name, pid string) string {
 }
 
 func SetRootParam(module, name, value, pid string) bool {
-	if param := GetRootParam(module, name, pid); param != value {
-		fi, err := os.Open(GetTaskParamPath(module, name, pid))
-		if err == nil {
-			_, err = fi.Write([]byte(value))
-			if err != nil {
-				err = fi.Close()
-			} else {
-				log.Errorln(err)
-			}
-		} else {
-			log.Errorln(err)
-		}
-
+	param := GetRootParam(module, name, pid)
+	if param != value {
+		err := ioutil.WriteFile(GetTaskParamPath(module, name, pid), []byte(value), 0644)
 		if err != nil {
 			if len(pid) == 0 {
 				pid = "root"
@@ -166,6 +157,12 @@ func (c *CGroupTask) SetHand(hand ICGroupTask) {
 
 func (c *CGroupTask) SetPid(pid string) {
 	c.pid = pid
+}
+
+func (c *CGroupTask) InitTask(hand ICGroupTask, coreNum int, pid string) {
+	c.SetHand(hand)
+	c.SetWeight(coreNum)
+	c.SetPid(pid)
 }
 
 func (c *CGroupTask) Module() string {
@@ -424,7 +421,9 @@ func (c *CGroupIOTask) init() bool {
 }
 
 func NewCGroupIOTask(pid string, coreNum int) *CGroupIOTask {
-	return &CGroupIOTask{NewCGroupTask(pid, coreNum)}
+	task := &CGroupIOTask{NewCGroupTask(pid, coreNum)}
+	task.SetHand(task)
+	return task
 }
 
 /**
@@ -449,13 +448,15 @@ func (c *CGroupIOHardlimitTask) GetConfig() map[string]string {
 	return config
 }
 
-func NewCGroupIOHardlimitTask(pid string, mem int, params map[string]int, devId string) CGroupIOHardlimitTask {
-	return CGroupIOHardlimitTask{
+func NewCGroupIOHardlimitTask(pid string, mem int, params map[string]int, devId string) *CGroupIOHardlimitTask {
+	task := &CGroupIOHardlimitTask{
 		CGroupIOTask: NewCGroupIOTask(pid, 0),
 		cpuNum:       mem,
 		params:       params,
 		devId:        devId,
 	}
+	task.SetHand(task)
+	return task
 }
 
 /**
@@ -480,10 +481,12 @@ func (c *CGroupMemoryTask) GetConfig() map[string]string {
 	return map[string]string{MEMORY_SWAPPINESS: fmt.Sprintf("%d", vm_swappiness)}
 }
 
-func NewCGroupMemoryTask(pid string, coreNum int) CGroupMemoryTask {
-	return CGroupMemoryTask{
+func NewCGroupMemoryTask(pid string, coreNum int) *CGroupMemoryTask {
+	task := &CGroupMemoryTask{
 		CGroupTask: NewCGroupTask(pid, coreNum),
 	}
+	task.SetHand(task)
+	return task
 }
 
 /**
@@ -514,10 +517,12 @@ func (c *CGroupCPUSetTask) GetConfig() map[string]string {
 }
 
 func NewCGroupCPUSetTask(pid string, coreNum int, cpuset string) CGroupCPUSetTask {
-	return CGroupCPUSetTask{
+	task := CGroupCPUSetTask{
 		CGroupTask: NewCGroupTask(pid, coreNum),
 		cpuset:     cpuset,
 	}
+	task.SetHand(&task)
+	return task
 }
 
 func Init() bool {
@@ -536,9 +541,7 @@ func CgroupSet(pid string, coreNum int) bool {
 		&CGroupMemoryTask{&CGroupTask{}},
 	}
 	for _, hand := range tasks {
-		hand.SetHand(hand)
-		hand.SetPid(pid)
-		hand.SetWeight(coreNum)
+		hand.InitTask(hand, coreNum, pid)
 		if !hand.SetTask() {
 			return false
 		}
@@ -563,8 +566,7 @@ func CgroupDestroy(pid string) bool {
 		&CGroupIOHardlimitTask{CGroupIOTask: &CGroupIOTask{&CGroupTask{}}},
 	}
 	for _, hand := range tasks {
-		hand.SetHand(hand)
-		hand.SetPid(pid)
+		hand.InitTask(hand, 0, pid)
 		if !hand.RemoveTask() {
 			return false
 		}

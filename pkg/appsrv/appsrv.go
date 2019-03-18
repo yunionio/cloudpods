@@ -397,7 +397,16 @@ func (app *Application) ListenAndServeWithCleanup(addr string, onStop func()) {
 func (app *Application) ListenAndServeTLSWithCleanup(addr string, certFile, keyFile string, onStop func()) {
 	s := app.initServer(addr)
 	app.registerCleanShutdown(s, onStop)
+	app.listenAndServe(s, certFile, keyFile)
+	app.waitCleanShutdown()
+}
 
+func (app *Application) ListenAndServeWithoutCleanup(addr, certFile, keyFile string) {
+	s := app.initServer(addr)
+	app.listenAndServe(s, certFile, keyFile)
+}
+
+func (app *Application) listenAndServe(s *http.Server, certFile, keyFile string) {
 	var err error
 	if len(certFile) == 0 && len(keyFile) == 0 {
 		err = s.ListenAndServe()
@@ -407,7 +416,6 @@ func (app *Application) ListenAndServeTLSWithCleanup(addr string, certFile, keyF
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatalf("ListAndServer fail: %s", err)
 	}
-	app.waitCleanShutdown()
 }
 
 func isJsonContentType(r *http.Request) bool {

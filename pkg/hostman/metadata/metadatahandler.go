@@ -251,5 +251,5 @@ func StartService(app *appsrv.Application, address string, port int) {
 	addMetadataHandler("", app)
 	addr := net.JoinHostPort(address, strconv.Itoa(port))
 	log.Infof("Host Metadata Start listen on %s://%s", "http", addr)
-	app.ListenAndServeWithCleanup(addr, nil)
+	app.ListenAndServeWithoutCleanup(addr, "", "")
 }

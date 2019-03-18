@@ -21,6 +21,8 @@ type CPU struct {
 
 func NewCPU() (*CPU, error) {
 	var cpu = new(CPU)
+	cpu.DieList = make([]*CPUDie, 0)
+
 	cpuinfo, err := fileutils2.FileGetContents("/proc/cpuinfo")
 	if err != nil {
 		return nil, err
@@ -30,23 +32,30 @@ func NewCPU() (*CPU, error) {
 	for _, line := range strings.Split(cpuinfo, "\n") {
 		parts := strings.Split(line, ":")
 		if len(parts) == 2 {
-			if parts[0] == "processor" {
-				val, err := strconv.Atoi(parts[1])
+			key := strings.TrimSpace(parts[0])
+			val := strings.TrimSpace(parts[1])
+			if key == "processor" {
+				iVal, err := strconv.Atoi(val)
 				if err != nil {
 					return nil, err
 				}
-				core = NewCPUCore(val)
-				cpu.AddCore(core)
+				if core != nil {
+					cpu.AddCore(core)
+				}
+				core = NewCPUCore(iVal)
 			} else if core != nil {
-				core.setInfo(parts[0], parts[1])
+				core.setInfo(key, val)
 			}
 		}
+	}
+	if core != nil {
+		cpu.AddCore(core)
 	}
 	return cpu, nil
 }
 
 func (c *CPU) AddCore(core *CPUCore) {
-	for len(c.DieList) < core.PhysicalId {
+	for len(c.DieList) < core.PhysicalId+1 {
 		c.DieList = append(c.DieList, NewCPUDie(len(c.DieList)))
 	}
 	c.DieList[core.PhysicalId].AddCore(core)
@@ -176,8 +185,11 @@ func Average(arr []float64) float64 {
 	return total / float64(len(arr))
 }
 
-func GetProcessWeight(share int, util float64) float64 {
-	return float64(share) * (util*0.8 + 30)
+func GetProcessWeight(share *int, util float64) float64 {
+	if share != nil {
+		return float64(*share) * (util*0.8 + 30)
+	}
+	return 0.0
 }
 
 func NewProcessCPUinfo(pid int) (*ProcessCPUinfo, error) {
@@ -185,52 +197,60 @@ func NewProcessCPUinfo(pid int) (*ProcessCPUinfo, error) {
 	cpuinfo.Pid = pid
 	spid := strconv.Itoa(pid)
 
-	share := NewCGroupCPUTask(spid, 0).GetParam("cpu.shares")
-	ishare, err := strconv.Atoi(share)
-	if err != nil {
-		log.Errorln(err)
-	} else {
-		if ishare != 0 {
-			cpuinfo.Share = &ishare
-			proc, err := process.NewProcess(int32(pid))
-			if err != nil {
-				log.Errorln(err)
-				return nil, err
-			}
-			util, err := proc.CPUPercent()
-			if err != nil {
-				log.Errorln(err)
-				return nil, err
-			}
-			util /= float64(ishare)
-			uHistory := FetchHistoryUtil()
-
-			var utils = []float64{}
-			if _, ok := uHistory[spid]; ok {
-				utils = uHistory[spid]
-			}
-			utils = append(utils, util)
-			for len(utils) > MAX_HISTORY_UTIL_COUNT {
-				utils = utils[1:]
-			}
-			uHistory[spid] = utils
-
-			cpuinfo.Util = Average(utils)
-		}
-	}
-
-	cpuset := NewCGroupCPUSetTask(fmt.Sprintf("%s", pid), 0, "").GetParam("cpuset.cpus")
-	if len(cpuset) > 0 {
-		c, err := GetSystemCpu()
+	cpuTask := NewCGroupCPUTask(spid, 0)
+	if cpuTask.taskIsExist() {
+		share := cpuTask.GetParam("cpu.shares")
+		ishare, err := strconv.Atoi(share)
+		ishare /= 1024.0
 		if err != nil {
 			log.Errorln(err)
 		} else {
-			icpuset := c.GetPhysicalId(ParseCpusetStr(cpuset))
-			cpuinfo.Cpuset = &icpuset
+			cpuinfo.Share = &ishare
 		}
 	}
 
-	cpuinfo.Weight = GetProcessWeight(*cpuinfo.Share, cpuinfo.Util)
+	cpusetTask := NewCGroupCPUSetTask(fmt.Sprintf("%d", pid), 0, "")
+	if cpusetTask.taskIsExist() {
+		cpuset := cpusetTask.GetParam("cpuset.cpus")
+		if len(cpuset) > 0 {
+			c, err := GetSystemCpu()
+			if err != nil {
+				log.Errorln(err)
+			} else {
+				icpuset := c.GetPhysicalId(ParseCpusetStr(cpuset))
+				cpuinfo.Cpuset = &icpuset
+			}
+		}
+	}
+
+	if cpuinfo.Share != nil {
+		proc, err := process.NewProcess(int32(pid))
+		if err != nil {
+			log.Errorln(err)
+			return nil, err
+		}
+		util, err := proc.CPUPercent()
+		if err != nil {
+			log.Errorln(err)
+			return nil, err
+		}
+		util /= float64(*cpuinfo.Share)
+		uHistory := FetchHistoryUtil()
+
+		var utils = []float64{}
+		if _, ok := uHistory[spid]; ok {
+			utils = uHistory[spid]
+		}
+		utils = append(utils, util)
+		for len(utils) > MAX_HISTORY_UTIL_COUNT {
+			utils = utils[1:]
+		}
+		uHistory[spid] = utils
+
+		cpuinfo.Util = Average(utils)
+	}
+
+	cpuinfo.Weight = GetProcessWeight(cpuinfo.Share, cpuinfo.Util)
 	return cpuinfo, nil
 }
 
