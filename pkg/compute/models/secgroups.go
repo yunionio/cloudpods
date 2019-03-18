@@ -50,6 +50,32 @@ type SSecurityGroup struct {
 	IsDirty bool `nullable:"false" default:"false"` // Column(Boolean, nullable=False, default=False)
 }
 
+func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	unionSecgroup, _ := query.GetString("union_secgroup")
+	if len(unionSecgroup) > 0 {
+		_secgroup, err := manager.FetchByIdOrName(userCred, unionSecgroup)
+		if err != nil {
+			return nil, err
+		}
+		secgroup := _secgroup.(*SSecurityGroup)
+		secgroup.SetModelManager(manager)
+		sq := manager.Query().NotEquals("id", secgroup.Id)
+		secgroups := []SSecurityGroup{}
+		err = db.FetchModelObjects(manager, sq, &secgroups)
+		if err != nil {
+			return nil, err
+		}
+		secgroupIds := []string{}
+		for i := 0; i < len(secgroups); i++ {
+			if equal := secgroup.isEqual(ctx, userCred, &secgroups[i]); equal {
+				secgroupIds = append(secgroupIds, secgroups[i].Id)
+			}
+		}
+		q = q.In("id", secgroupIds)
+	}
+	return q, nil
+}
+
 func (self *SSecurityGroup) GetGuestsQuery() *sqlchemy.SQuery {
 	guests := GuestManager.Query().SubQuery()
 	return guests.Query().Filter(
@@ -76,6 +102,14 @@ func (self *SSecurityGroup) GetGuests() []SGuest {
 	return guests
 }
 
+func (self *SSecurityGroup) GetSecgroupCacheQuery() *sqlchemy.SQuery {
+	return SecurityGroupCacheManager.Query().Equals("secgroup_id", self.Id)
+}
+
+func (self *SSecurityGroup) GetSecgroupCacheCount() int {
+	return self.GetSecgroupCacheQuery().Count()
+}
+
 func (self *SSecurityGroup) getDesc() jsonutils.JSONObject {
 	desc := jsonutils.NewDict()
 	desc.Add(jsonutils.NewString(self.Name), "name")
@@ -90,6 +124,7 @@ func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclie
 		return nil, err
 	}
 	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
+	extra.Add(jsonutils.NewInt(int64(self.GetSecgroupCacheCount())), "cache_cnt")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("")), "rules")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("in")), "in_rules")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("out")), "out_rules")
@@ -99,6 +134,7 @@ func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclie
 func (self *SSecurityGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
+	extra.Add(jsonutils.NewInt(int64(self.GetSecgroupCacheCount())), "cache_cnt")
 	extra.Add(jsonutils.NewTimeString(self.CreatedAt), "created_at")
 	extra.Add(jsonutils.NewString(self.Description), "description")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("in")), "in_rules")
@@ -252,6 +288,116 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 	return nil, nil
 }
 
+func (self *SSecurityGroup) AllowPerformUnion(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "union")
+}
+
+func (self *SSecurityGroup) PerformUnion(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	secgroupIds := jsonutils.GetQueryStringArray(data, "secgroups")
+	if len(secgroupIds) == 0 {
+		return nil, httperrors.NewMissingParameterError("secgroups")
+	}
+	secgroups := []*SSecurityGroup{}
+	for _, secgroupId := range secgroupIds {
+		_secgroup, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
+		if err != nil {
+			return nil, httperrors.NewResourceNotFoundError("failed to find secgroup %s error: %v", secgroupId, err)
+		}
+		secgroup := _secgroup.(*SSecurityGroup)
+		secgroup.SetModelManager(SecurityGroupManager)
+		if equal := self.isEqual(ctx, userCred, secgroup); !equal {
+			return nil, httperrors.NewUnsupportOperationError("secgroup %s rules not equals %s rules", secgroup.Name, self.Name)
+		}
+		secgroups = append(secgroups, secgroup)
+	}
+
+	for i := 0; i < len(secgroups); i++ {
+		secgroup := secgroups[i]
+		if err := self.migrateSecurityGroupCache(secgroup); err != nil {
+			return nil, err
+		}
+
+		if err := self.migrateGuestSecurityGroup(secgroup); err != nil {
+			return nil, err
+		}
+	}
+	self.DoSync(ctx, userCred)
+	return nil, nil
+}
+
+func (self *SSecurityGroup) isEqual(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup) bool {
+	rules := self.GetSecRules("")
+	srs := secrules.SecurityGroupRuleSet{}
+	for i := 0; i < len(rules); i++ {
+		srs.AddRule(rules[i])
+	}
+
+	_rules := secgroup.GetSecRules("")
+	_srs := secrules.SecurityGroupRuleSet{}
+	for i := 0; i < len(_rules); i++ {
+		_srs.AddRule(_rules[i])
+	}
+
+	return srs.IsEqual(_srs)
+}
+
+func (self *SSecurityGroup) migrateSecurityGroupCache(secgroup *SSecurityGroup) error {
+	caches := []SSecurityGroupCache{}
+	q := SecurityGroupCacheManager.Query().Equals("secgroup_id", secgroup.Id)
+	err := db.FetchModelObjects(SecurityGroupCacheManager, q, &caches)
+	if err != nil {
+		return err
+	}
+	for i := 0; i < len(caches); i++ {
+		cache := caches[i]
+		_, err := db.Update(&cache, func() error {
+			cache.SecgroupId = self.Id
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (self *SSecurityGroup) migrateGuestSecurityGroup(secgroup *SSecurityGroup) error {
+	guests := secgroup.GetGuests()
+	for i := 0; i < len(guests); i++ {
+		guest := guests[i]
+		_, err := db.Update(&guest, func() error {
+			if guest.SecgrpId == secgroup.Id {
+				guest.SecgrpId = self.Id
+			}
+			if guest.AdminSecgrpId == secgroup.Id {
+				guest.AdminSecgrpId = self.Id
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	guestsecgroups, err := GuestsecgroupManager.GetGuestSecgroups(nil, secgroup)
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < len(guestsecgroups); i++ {
+		guestsecgroup := guestsecgroups[i]
+		_, err := db.Update(&guestsecgroup, func() error {
+			guestsecgroup.SecgroupId = self.Id
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, error) {
 	secgroups := make([]SSecurityGroup, 0)
 	q := manager.Query()
@@ -270,13 +416,13 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 	secgroup.SetModelManager(manager)
 	secgroup.Name = db.GenerateName(manager, "", extSec.GetName())
 	secgroup.Description = extSec.GetDescription()
+	secgroup.ProjectId = userCred.GetProjectId()
 
 	if err := manager.TableSpec().Insert(&secgroup); err != nil {
 		return nil, err
 	}
 
 	db.OpsLog.LogEvent(&secgroup, db.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred)
-	SyncCloudProject(userCred, &secgroup, provider.ProjectId, extSec, provider.Id)
 
 	return &secgroup, nil
 }
@@ -411,5 +557,16 @@ func (self *SSecurityGroup) Delete(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SSecurityGroup) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	rules := []SSecurityGroupRule{}
+	q := SecurityGroupRuleManager.Query().Equals("secgroup_id", self.Id)
+	if err := db.FetchModelObjects(SecurityGroupRuleManager, q, &rules); err != nil {
+		log.Errorf("failed to fetch secgroup %s rules error: %v", self.Name, err)
+		return err
+	}
+	for i := 0; i < len(rules); i++ {
+		if err := rules[i].Delete(ctx, userCred); err != nil {
+			return err
+		}
+	}
 	return self.SVirtualResourceBase.Delete(ctx, userCred)
 }

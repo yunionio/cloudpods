@@ -12,6 +12,7 @@ import (
 
 func init() {
 	type SecGroupsListOptions struct {
+		UnionSecgroup string `help:"Secgroup ID or Name, filter secgroups which rules equals with this secgroup"`
 		options.BaseListOptions
 	}
 
@@ -24,6 +25,9 @@ func init() {
 				return err
 
 			}
+		}
+		if len(args.UnionSecgroup) > 0 {
+			params.Add(jsonutils.NewString(args.UnionSecgroup), "union_secgroup")
 		}
 		result, err := modules.SecGroups.List(s, params)
 		if err != nil {
