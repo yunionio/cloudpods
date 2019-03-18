@@ -133,6 +133,7 @@ func (model *SVirtualResourceBase) CustomizeCreate(ctx context.Context, userCred
 	} else {
 		model.IsSystem = false
 	}
+	model.ProjectSrc = string(PROJECT_SOURCE_LOCAL)
 	return model.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
 }
 
