@@ -1,4 +1,4 @@
-package cloudcommon
+package app
 
 import (
 	"context"
@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
-func InitAuth(options *CommonOptions, authComplete auth.AuthCompletedCallback) {
+func InitAuth(options *common_options.CommonOptions, authComplete auth.AuthCompletedCallback) {
 
 	if len(options.AuthURL) == 0 {
 		fmt.Println("Missing AuthURL")

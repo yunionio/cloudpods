@@ -6,7 +6,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type SNFSDisk struct {
@@ -20,7 +20,7 @@ func NewNFSDisk(storage IStorage, id string) *SNFSDisk {
 }
 
 func (d *SNFSDisk) GetType() string {
-	return storagetypes.STORAGE_NFS
+	return consts.STORAGE_NFS
 }
 
 func (d *SNFSDisk) CreateFromTemplate(ctx context.Context, imageId, format string, size int64) (jsonutils.JSONObject, error) {

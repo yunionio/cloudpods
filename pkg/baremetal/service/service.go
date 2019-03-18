@@ -9,7 +9,8 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/handler"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/tasks"
-	"yunion.io/x/onecloud/pkg/cloudcommon"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 )
 
@@ -22,13 +23,13 @@ func New() *BaremetalService {
 }
 
 func (s *BaremetalService) StartService() {
-	cloudcommon.ParseOptions(&o.Options, os.Args, "baremetal.conf", "baremetal")
-	cloudcommon.InitAuth(&o.Options.CommonOptions, s.startAgent)
+	common_options.ParseOptions(&o.Options, os.Args, "baremetal.conf", "baremetal")
+	app_common.InitAuth(&o.Options.CommonOptions, s.startAgent)
 
-	app := cloudcommon.InitApp(&o.Options.CommonOptions, false)
+	app := app_common.InitApp(&o.Options.CommonOptions, false)
 	handler.InitHandlers(app)
 
-	cloudcommon.ServeForeverWithCleanup(app, &o.Options.CommonOptions, func() {
+	app_common.ServeForeverWithCleanup(app, &o.Options.CommonOptions, func() {
 		tasks.OnStop()
 	})
 }
