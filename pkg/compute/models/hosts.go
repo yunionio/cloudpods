@@ -51,6 +51,7 @@ const (
 	HOST_TYPE_AZURE     = "azure"
 	HOST_TYPE_HUAWEI    = "huawei"
 	HOST_TYPE_OPENSTACK = "openstack"
+	HOST_TYPE_UCLOUD    = "ucloud"
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 
