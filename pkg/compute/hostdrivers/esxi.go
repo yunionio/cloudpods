@@ -27,6 +27,10 @@ func (self *SESXiHostDriver) GetHostType() string {
 	return models.HOST_TYPE_ESXI
 }
 
+func (self *SESXiHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
+	return nil
+}
+
 func (self *SESXiHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
 	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }
