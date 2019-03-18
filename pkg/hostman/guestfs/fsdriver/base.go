@@ -182,5 +182,5 @@ func MergeAuthorizedKeys(oldKeys string, pubkeys *sshkeys.SSHKeys) string {
 	for _, val := range allkeys {
 		keys = append(keys, val)
 	}
-	return strings.Join(keys, "\n")
+	return strings.Join(keys, "\n") + "\n"
 }
