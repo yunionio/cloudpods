@@ -242,7 +242,7 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 				log.Errorf("Get disk %s Metadata error: %v", disk.Name, err)
 			} else {
 				for key, value := range meta {
-					if err := disk.SetMetadata(ctx, key, value, task.GetUserCred()); err != nil {
+					if err := disk.SetMetadata(ctx, "ext:"+key, value, task.GetUserCred()); err != nil {
 						log.Errorf("set disk %s mata %s => %s error: %v", disk.Name, key, value, err)
 					}
 				}
