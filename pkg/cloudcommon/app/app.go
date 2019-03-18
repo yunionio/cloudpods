@@ -1,4 +1,4 @@
-package cloudcommon
+package app
 
 import (
 	"net"
@@ -8,10 +8,11 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
-func InitApp(options *CommonOptions, dbAccess bool) *appsrv.Application {
+func InitApp(options *common_options.CommonOptions, dbAccess bool) *appsrv.Application {
 	// cache := appsrv.NewCache(options.AuthTokenCacheSize)
 	app := appsrv.NewApplication(options.ApplicationID, options.RequestWorkerCount, dbAccess)
 	app.CORSAllowHosts(options.CorsHosts)
@@ -23,12 +24,11 @@ func InitApp(options *CommonOptions, dbAccess bool) *appsrv.Application {
 	return app
 }
 
-func ServeForever(app *appsrv.Application, options *CommonOptions) {
+func ServeForever(app *appsrv.Application, options *common_options.CommonOptions) {
 	ServeForeverWithCleanup(app, options, nil)
 }
 
-func ServeForeverWithCleanup(app *appsrv.Application, options *CommonOptions, onStop func()) {
-	AppDBInit(app)
+func ServeForeverWithCleanup(app *appsrv.Application, options *common_options.CommonOptions, onStop func()) {
 	addr := net.JoinHostPort(options.Address, strconv.Itoa(options.Port))
 	proto := "http"
 	if options.EnableSsl {

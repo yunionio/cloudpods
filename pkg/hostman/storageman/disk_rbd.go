@@ -13,7 +13,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appctx"
-	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 )
 
@@ -28,7 +28,7 @@ func NewRBDDisk(storage IStorage, id string) *SRBDDisk {
 }
 
 func (d *SRBDDisk) GetType() string {
-	return storagetypes.STORAGE_RBD
+	return consts.STORAGE_RBD
 }
 
 func (d *SRBDDisk) Probe() error {

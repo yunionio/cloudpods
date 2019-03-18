@@ -10,8 +10,10 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/image/options"
 	_ "yunion.io/x/onecloud/pkg/image/tasks"
@@ -27,7 +29,7 @@ func StartService() {
 	opts := &options.Options
 	commonOpts := &opts.CommonOptions
 	dbOpts := &opts.DBOptions
-	cloudcommon.ParseOptions(opts, os.Args, "glance-api.conf", SERVICE_TYPE)
+	common_options.ParseOptions(opts, os.Args, "glance-api.conf", SERVICE_TYPE)
 
 	if opts.PortV2 > 0 {
 		log.Infof("Port V2 %d is specified, use v2 port", opts.PortV2)
@@ -57,7 +59,7 @@ func StartService() {
 
 	log.Infof("Target image formats %#v", opts.TargetImageFormats)
 
-	cloudcommon.InitAuth(commonOpts, func() {
+	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
 
@@ -69,7 +71,7 @@ func StartService() {
 
 	cloudcommon.InitDB(dbOpts)
 
-	app := cloudcommon.InitApp(commonOpts, true)
+	app := app_common.InitApp(commonOpts, true)
 	initHandlers(app)
 
 	if !db.CheckSync(opts.AutoSyncTable) {
@@ -85,7 +87,8 @@ func StartService() {
 
 	cron.Start()
 
-	cloudcommon.ServeForeverWithCleanup(app, commonOpts, func() {
+	cloudcommon.AppDBInit(app)
+	app_common.ServeForeverWithCleanup(app, commonOpts, func() {
 		cloudcommon.CloseDB()
 
 		cron.Stop()

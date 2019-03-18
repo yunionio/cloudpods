@@ -9,8 +9,10 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
 	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -32,22 +34,22 @@ func StartService() {
 	opts := &options.Options
 	commonOpts := &options.Options.CommonOptions
 	dbOpts := &options.Options.DBOptions
-	cloudcommon.ParseOptions(opts, os.Args, "region.conf", "compute")
+	common_options.ParseOptions(opts, os.Args, "region.conf", "compute")
 
 	if opts.PortV2 > 0 {
 		log.Infof("Port V2 %d is specified, use v2 port", opts.PortV2)
 		commonOpts.Port = opts.PortV2
 	}
 
-	cloudcommon.InitAuth(commonOpts, func() {
+	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
 
 	cloudcommon.InitDB(dbOpts)
 	defer cloudcommon.CloseDB()
 
-	app := cloudcommon.InitApp(commonOpts, true)
-
+	app := app_common.InitApp(commonOpts, true)
+	cloudcommon.AppDBInit(app)
 	InitHandlers(app)
 
 	if !db.CheckSync(opts.AutoSyncTable) {
@@ -81,5 +83,5 @@ func StartService() {
 	cron.Start()
 	defer cron.Stop()
 
-	cloudcommon.ServeForever(app, commonOpts)
+	app_common.ServeForever(app, commonOpts)
 }

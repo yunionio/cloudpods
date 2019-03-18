@@ -14,7 +14,7 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
+	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -56,7 +56,7 @@ func (s *SLocalStorage) GetFuseMountPath() string {
 }
 
 func (s *SLocalStorage) StorageType() string {
-	return storagetypes.STORAGE_LOCAL
+	return consts.STORAGE_LOCAL
 }
 
 func (s *SLocalStorage) GetSnapshotDir() string {

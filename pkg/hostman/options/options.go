@@ -1,9 +1,9 @@
 package options
 
-import "yunion.io/x/onecloud/pkg/cloudcommon"
+import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 
 type SHostOptions struct {
-	cloudcommon.CommonOptions
+	common_options.CommonOptions
 
 	HostType        string   `help:"Host server type, either hypervisor or kubelet" default:"hypervisor"`
 	ListenInterface string   `help:"Master address of host server"`

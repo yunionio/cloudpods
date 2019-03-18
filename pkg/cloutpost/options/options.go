@@ -1,8 +1,8 @@
 package options
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudcommon"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 )
 
 type CloudSyncOptions struct {
@@ -13,7 +13,7 @@ type CloudSyncOptions struct {
 
 	etcd.SEtcdOptions
 
-	cloudcommon.CommonOptions
+	common_options.CommonOptions
 }
 
 var (

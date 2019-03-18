@@ -6,8 +6,9 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/cloudcommon"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	"yunion.io/x/onecloud/pkg/hostman/diskhandlers"
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
@@ -27,10 +28,10 @@ type SHostService struct {
 }
 
 func (host *SHostService) StartService() {
-	cloudcommon.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
+	common_options.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
 	options.HostOptions.EnableRbac = false // disable rbac
 
-	app := cloudcommon.InitApp(&options.HostOptions.CommonOptions, false)
+	app := app_common.InitApp(&options.HostOptions.CommonOptions, false)
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {
 		log.Fatalf(err.Error())
@@ -41,7 +42,7 @@ func (host *SHostService) StartService() {
 	}
 
 	guestman.Init(hostInstance, options.HostOptions.ServersPath)
-	cloudcommon.InitAuth(&options.HostOptions.CommonOptions, func() {
+	app_common.InitAuth(&options.HostOptions.CommonOptions, func() {
 		log.Infof("Auth complete!!")
 		// ??? Why wait 5 seconds
 
@@ -57,14 +58,14 @@ func (host *SHostService) StartService() {
 
 	// Init Metadata handler
 	go metadata.StartService(
-		cloudcommon.InitApp(&options.HostOptions.CommonOptions, false),
+		app_common.InitApp(&options.HostOptions.CommonOptions, false),
 		options.HostOptions.Address, options.HostOptions.Port+1000)
 
 	cronManager := cronman.GetCronJobManager(false)
 	cronManager.AddJob2(
 		"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
 
-	cloudcommon.ServeForeverWithCleanup(app, &options.HostOptions.CommonOptions, func() {
+	app_common.ServeForeverWithCleanup(app, &options.HostOptions.CommonOptions, func() {
 		hostinfo.Stop()
 		storageman.Stop()
 		hostmetrics.Stop()

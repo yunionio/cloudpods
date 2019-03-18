@@ -1,13 +1,13 @@
 package options
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudcommon"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 )
 
 type SLoggerOptions struct {
-	cloudcommon.CommonOptions
+	common_options.CommonOptions
 
-	cloudcommon.DBOptions
+	common_options.DBOptions
 }
 
 var (
