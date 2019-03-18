@@ -517,6 +517,14 @@
   revision = "3f9db97f856818214da2e1057f8ad84803971cff"
 
 [[projects]]
+  digest = "1:abeb38ade3f32a92943e5be54f55ed6d6e3b6602761d74b4aab4c9dd45c18abd"
+  name = "github.com/fsnotify/fsnotify"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
+  version = "v1.4.7"
+
+[[projects]]
   branch = "master"
   digest = "1:36fe9527deed01d2a317617e59304eb2c4ce9f8a24115bcc5c2e37b3aee5bae4"
   name = "github.com/gin-contrib/sse"
@@ -1805,6 +1813,7 @@
     "github.com/coredns/coredns/plugin/trace",
     "github.com/coredns/coredns/request",
     "github.com/fatih/color",
+    "github.com/fsnotify/fsnotify",
     "github.com/go-sql-driver/mysql",
     "github.com/golang-plus/errors",
     "github.com/golang-plus/uuid",
