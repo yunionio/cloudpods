@@ -895,21 +895,21 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
 		}
 
-		dataDiskDefs := make([]string, 0)
+		dataDiskDefs := []jsonutils.JSONObject{}
 		if sku != nil && sku.AttachedDiskCount > 0 {
 			for i := 0; i < sku.AttachedDiskCount; i += 1 {
-				dataDiskDefs = append(dataDiskDefs, fmt.Sprintf("%dg:%s", sku.AttachedDiskSizeGB, sku.AttachedDiskType))
+				dataDisk := jsonutils.Marshal(map[string]interface{}{
+					"size_mb": sku.AttachedDiskSizeGB * 1024,
+					"backend": strings.ToLower(sku.AttachedDiskType),
+				})
+				dataDiskDefs = append(dataDiskDefs, dataDisk)
 			}
 		}
 
 		// start from data disk
 		jsonArray := jsonutils.GetArrayOfPrefix(data, "disk")
 		for idx := 1; idx < len(jsonArray); idx += 1 { // data.Contains(fmt.Sprintf("disk.%d", idx))
-			diskJson, err := jsonArray[idx].GetString() // data.GetString(fmt.Sprintf("disk.%d", idx))
-			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid disk description %s", err)
-			}
-			dataDiskDefs = append(dataDiskDefs, diskJson)
+			dataDiskDefs = append(dataDiskDefs, jsonArray[idx])
 		}
 
 		rootDiskConfig, err := parseDiskInfo(ctx, userCred, jsonArray[0])
@@ -926,7 +926,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		data.Set("disk.0", jsonutils.Marshal(rootDiskConfig))
 
 		for i := 0; i < len(dataDiskDefs); i += 1 {
-			diskConfig, err := parseDiskInfo(ctx, userCred, jsonutils.NewString(dataDiskDefs[i]))
+			diskConfig, err := parseDiskInfo(ctx, userCred, dataDiskDefs[i])
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
 			}
