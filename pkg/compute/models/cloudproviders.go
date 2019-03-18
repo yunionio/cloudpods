@@ -15,6 +15,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -525,7 +526,7 @@ func (self *SCloudprovider) markStartSync(userCred mcclient.TokenCredential) err
 	return nil
 }
 
-func (self *SCloudprovider) MarkSyncing(userCred mcclient.TokenCredential) error {
+func (self *SCloudprovider) markSyncing(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_SYNCING
 		self.LastSync = timeutils.UtcNow()
@@ -539,7 +540,34 @@ func (self *SCloudprovider) MarkSyncing(userCred mcclient.TokenCredential) error
 	return nil
 }
 
-func (self *SCloudprovider) MarkEndSync(userCred mcclient.TokenCredential) error {
+func (self *SCloudprovider) markEndSyncWithLock(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := func() error {
+		lockman.LockObject(ctx, self)
+		defer lockman.ReleaseObject(ctx, self)
+
+		cprs := self.GetCloudproviderRegions()
+		for i := range cprs {
+			if cprs[i].SyncStatus != CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+				return nil
+			}
+		}
+
+		err := self.markEndSync(userCred)
+		if err != nil {
+			return err
+		}
+		return nil
+	}()
+
+	if err != nil {
+		return err
+	}
+
+	account := self.GetCloudaccount()
+	return account.MarkEndSyncWithLock(ctx, userCred)
+}
+
+func (self *SCloudprovider) markEndSync(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_IDLE
 		self.LastSyncEndAt = timeutils.UtcNow()
@@ -857,22 +885,22 @@ func (provider *SCloudprovider) prepareCloudproviderRegions(ctx context.Context,
 	return cprs, nil
 }
 
-func (provider *SCloudprovider) GetEnabledCloudproviderRegions() []SCloudproviderregion {
+func (provider *SCloudprovider) GetCloudproviderRegions() []SCloudproviderregion {
 	q := CloudproviderRegionManager.Query()
-	q = q.IsTrue("enabled")
 	q = q.Equals("cloudprovider_id", provider.Id)
-	q = q.Equals("sync_status", CLOUD_PROVIDER_SYNC_STATUS_IDLE)
+	// q = q.IsTrue("enabled")
+	// q = q.Equals("sync_status", CLOUD_PROVIDER_SYNC_STATUS_IDLE)
 
 	return CloudproviderRegionManager.fetchRecordsByQuery(q)
 }
 
-func (provider *SCloudprovider) syncCloudproviderRegions(userCred mcclient.TokenCredential, syncRange *SSyncRange, wg *sync.WaitGroup) {
-	if wg == nil {
-		provider.MarkSyncing(userCred)
-	}
-	cprs := provider.GetEnabledCloudproviderRegions()
+func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, wg *sync.WaitGroup, autoSync bool) {
+	provider.markSyncing(userCred)
+	cprs := provider.GetCloudproviderRegions()
+	syncCnt := 0
 	for i := range cprs {
-		if cprs[i].needSync() {
+		if cprs[i].Enabled && cprs[i].CanSync() && (!autoSync || cprs[i].needAutoSync()) {
+			syncCnt += 1
 			var waitChan chan bool = nil
 			if wg != nil {
 				wg.Add(1)
@@ -885,14 +913,14 @@ func (provider *SCloudprovider) syncCloudproviderRegions(userCred mcclient.Token
 			}
 		}
 	}
-	if wg == nil {
-		provider.MarkEndSync(userCred)
+	if syncCnt == 0 {
+		provider.markEndSyncWithLock(ctx, userCred)
 	}
 }
 
-func (provider *SCloudprovider) SyncCallSyncCloudproviderRegions(userCred mcclient.TokenCredential, syncRange *SSyncRange) {
+func (provider *SCloudprovider) SyncCallSyncCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange) {
 	var wg sync.WaitGroup
-	provider.syncCloudproviderRegions(userCred, syncRange, &wg)
+	provider.syncCloudproviderRegions(ctx, userCred, syncRange, &wg, false)
 	wg.Wait()
 }
 

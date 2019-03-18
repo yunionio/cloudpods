@@ -29,7 +29,7 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 	err := cloudaccount.SyncCallSyncAccountTask(ctx, self.UserCred)
 
 	if err != nil {
-		cloudaccount.MarkEndSync(self.UserCred)
+		cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred)
 		db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_HOST_FAILED, err, self.UserCred)
 		self.SetStageFailed(ctx, err.Error())
 		logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, err, self.UserCred, false)
@@ -45,24 +45,25 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 	}
 
 	if !syncRange.NeedSyncInfo() {
-		cloudaccount.MarkEndSync(self.UserCred)
-		db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_HOST_COMPLETE, "", self.UserCred)
-		self.SetStageComplete(ctx, nil)
-		logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, "", self.UserCred, true)
+		self.OnCloudaccountSyncComplete(ctx, obj, nil)
 		return
 	}
 
-	self.SetStage("on_cloudaccount_sync_complete", nil)
-
 	cloudproviders := cloudaccount.GetEnabledCloudproviders()
-	for i := range cloudproviders {
-		cloudproviders[i].StartSyncCloudProviderInfoTask(ctx, self.UserCred, &syncRange, self.GetId())
+
+	if len(cloudproviders) > 0 {
+		self.SetStage("on_cloudaccount_sync_complete", nil)
+		for i := range cloudproviders {
+			cloudproviders[i].StartSyncCloudProviderInfoTask(ctx, self.UserCred, &syncRange, self.GetId())
+		}
+	} else {
+		self.OnCloudaccountSyncComplete(ctx, obj, nil)
 	}
 }
 
 func (self *CloudAccountSyncInfoTask) OnCloudaccountSyncComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	cloudaccount := obj.(*models.SCloudaccount)
-	cloudaccount.MarkEndSync(self.UserCred)
+	cloudaccount.MarkEndSyncWithLock(ctx, self.UserCred)
 	db.OpsLog.LogEvent(cloudaccount, db.ACT_SYNC_HOST_COMPLETE, "", self.UserCred)
 	self.SetStageComplete(ctx, nil)
 	logclient.AddActionLogWithStartable(self, cloudaccount, logclient.ACT_CLOUD_SYNC, "", self.UserCred, true)
