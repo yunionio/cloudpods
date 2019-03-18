@@ -2781,6 +2781,7 @@ func (self *SHost) AllowPerformAddNetif(ctx context.Context,
 }
 
 func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	log.Debugf("add_netif %s", data)
 	mac, _ := data.GetString("mac")
 	if len(mac) == 0 || len(netutils.FormatMacAddr(mac)) == 0 {
 		return nil, httperrors.NewBadRequestError("Invaild mac address")
