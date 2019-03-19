@@ -11,6 +11,7 @@ import (
 
 type IMetadataSetter interface {
 	SetAllMetadata(ctx context.Context, meta map[string]interface{}, userCred mcclient.TokenCredential) error
+	SetMetadata(ctx context.Context, key string, value interface{}, userCred mcclient.TokenCredential) error
 }
 
 func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IMetadataSetter, remote cloudprovider.ICloudResource) error {
@@ -22,8 +23,13 @@ func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model 
 			log.Errorf("Get VM Metadata error: %v", err)
 			return err
 		}
-
-		return model.SetAllMetadata(ctx, meta, userCred)
+		for key, value := range meta {
+			model.SetMetadata(ctx, "ext:"+key, value, userCred)
+		}
 	}
 	return nil
+}
+
+func SyncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IMetadataSetter, remote cloudprovider.ICloudResource) error {
+	return syncMetadata(ctx, userCred, model, remote)
 }

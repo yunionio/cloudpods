@@ -452,7 +452,9 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		if err == nil && colSpec != nil && colSpec.IsNumeric() {
 			orderBy = []string{"id"}
 		} else {
-			orderBy = []string{"created_at"}
+			if manager.TableSpec().ColumnSpec("created_at") != nil {
+				orderBy = []string{"created_at"}
+			}
 		}
 	}
 	order := sqlchemy.SQL_ORDER_DESC

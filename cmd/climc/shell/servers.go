@@ -85,6 +85,32 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerMetadataOptions{}, "server-add-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ServerMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Servers.PerformAction(s, opts.ID, "user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.ServerMetadataOptions{}, "server-set-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ServerMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Servers.PerformAction(s, opts.ID, "set-user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&options.ServerCreateOptions{}, "server-create", "Create a server", func(s *mcclient.ClientSession, opts *options.ServerCreateOptions) error {
 		params, err := opts.Params()
 		if err != nil {

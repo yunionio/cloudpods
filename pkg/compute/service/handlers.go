@@ -39,6 +39,9 @@ func InitHandlers(app *appsrv.Application) {
 		db.RegisterModelManager(manager)
 	}
 
+	metadatahandler := db.NewModelHandler(db.Metadata)
+	dispatcher.AddModelDispatcher("", app, metadatahandler)
+
 	for _, manager := range []db.IModelManager{
 		db.OpsLog,
 		models.CloudaccountManager,
