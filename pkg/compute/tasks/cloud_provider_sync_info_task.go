@@ -50,8 +50,6 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 
 	db.OpsLog.LogEvent(provider, db.ACT_SYNCING_HOST, "", self.UserCred)
 
-	provider.MarkSyncing(self.UserCred)
-
 	syncRange := models.SSyncRange{}
 	syncRangeJson, _ := self.Params.Get("sync_range")
 	if syncRangeJson != nil {
@@ -59,14 +57,17 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 	}
 	syncRange.Normalize()
 
-	provider.SyncCallSyncCloudproviderRegions(self.UserCred, &syncRange)
+	self.SetStage("OnSyncCloudProviderInfoComplete", nil)
 
-	self.OnSyncCloudProviderInfoComplete(ctx, provider, nil)
+	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
+		provider.SyncCallSyncCloudproviderRegions(ctx, self.UserCred, &syncRange)
+		return nil, nil
+	})
 }
 
 func (self *CloudProviderSyncInfoTask) OnSyncCloudProviderInfoComplete(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	provider := obj.(*models.SCloudprovider)
-	provider.MarkEndSync(self.UserCred)
+	// provider.MarkEndSync(self.UserCred)
 	provider.CleanSchedCache()
 	self.SetStageComplete(ctx, nil)
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, "", self.UserCred)
