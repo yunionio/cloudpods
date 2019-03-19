@@ -205,7 +205,7 @@ func (zone *SZone) getStorageCount() int {
 }
 
 func (zone *SZone) getNetworkCount() int {
-	return getNetworkCount(zone)
+	return getNetworkCount(nil, zone)
 }
 
 /*def host_count(self, status=None, host_status=None, enabled=None, host_type=None, is_baremetal=None):
@@ -727,7 +727,7 @@ func (self *SZone) AllowGetDetailsCapability(ctx context.Context, userCred mccli
 }
 
 func (self *SZone) GetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	capa, err := GetCapabilities(ctx, userCred, query, self)
+	capa, err := GetCapabilities(ctx, userCred, query, nil, self)
 	if err != nil {
 		return nil, err
 	}
