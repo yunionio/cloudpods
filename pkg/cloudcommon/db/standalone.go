@@ -3,6 +3,8 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -103,6 +105,11 @@ func (manager *SStandaloneResourceBaseManager) FetchByExternalId(idStr string) (
 	}
 }
 
+type STagValue struct {
+	value string
+	exist bool
+}
+
 func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
@@ -114,6 +121,62 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Contex
 		q = q.Filter(sqlchemy.IsFalse(q.Field("is_emulated")))
 	}
 
+	tags := map[string]STagValue{}
+	if query.Contains("tags") {
+		idx := 0
+		for {
+			key, _ := query.GetString("tags", fmt.Sprintf("%d", idx), "key")
+			if len(key) == 0 {
+				break
+			}
+			value := STagValue{exist: false}
+			if query.Contains("tags", fmt.Sprintf("%d", idx), "value") {
+				value.value, _ = query.GetString("tags", fmt.Sprintf("%d", idx), "value")
+				value.exist = true
+			}
+			tags[key] = value
+			idx++
+		}
+	}
+
+	if len(tags) > 0 {
+		metadataView := Metadata.Query("id")
+		idx := 0
+		for k, v := range tags {
+			if idx == 0 {
+				metadataView = metadataView.Equals("key", k)
+				if v.exist {
+					metadataView = metadataView.Equals("value", v.value)
+				}
+			} else {
+				subMetataView := Metadata.Query().Equals("key", k)
+				if v.exist {
+					subMetataView = subMetataView.Equals("value", v.value)
+				}
+				sq := subMetataView.SubQuery()
+				metadataView.Join(sq, sqlchemy.Equals(metadataView.Field("id"), sq.Field("id")))
+			}
+			idx++
+		}
+		metadataView = metadataView.Filter(sqlchemy.Like(metadataView.Field("id"), manager.Keyword()+"::%")).Distinct()
+		resourceIds := []string{}
+		rows, err := metadataView.Rows()
+		if err != nil {
+			log.Errorf("query metadata ids error: %v", err)
+			return nil, err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var metadataID string
+			err = rows.Scan(&metadataID)
+			if err != nil {
+				log.Errorf("get metadata id scan error: %v", err)
+				return nil, err
+			}
+			resourceIds = append(resourceIds, strings.TrimLeft(metadataID, manager.Keyword()+"::"))
+		}
+		q = q.Filter(sqlchemy.In(q.Field("id"), resourceIds))
+	}
 	return q, nil
 }
 
@@ -163,7 +226,15 @@ func (model *SStandaloneResourceBase) SetAllMetadata(ctx context.Context, dictst
 			return httperrors.NewNotSufficientPrivilegeError("not allow to set system key %s", k)
 		}
 	}
-	return Metadata.SetAll(ctx, model, dictstore, userCred)
+	return Metadata.SetValuesWithLog(ctx, model, dictstore, userCred)
+}
+
+func (model *SStandaloneResourceBase) SetUserMetadataValues(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
+	return Metadata.SetValuesWithLog(ctx, model, dictstore, userCred)
+}
+
+func (model *SStandaloneResourceBase) SetUserMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
+	return Metadata.SetAll(ctx, model, dictstore, userCred, "user")
 }
 
 func (model *SStandaloneResourceBase) RemoveMetadata(ctx context.Context, key string, userCred mcclient.TokenCredential) error {
@@ -209,6 +280,48 @@ func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userC
 		dictStore[k], _ = v.GetString()
 	}
 	err = model.SetAllMetadata(ctx, dictStore, userCred)
+	return nil, err
+}
+
+func (model *SStandaloneResourceBase) AllowPerformUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return IsAdminAllowPerform(userCred, model, "user-metadata")
+}
+
+func (model *SStandaloneResourceBase) PerformUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	dict, ok := data.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, httperrors.NewInputParameterError("input data not key value dict")
+	}
+	dictMap, err := dict.GetMap()
+	if err != nil {
+		return nil, err
+	}
+	dictStore := make(map[string]interface{})
+	for k, v := range dictMap {
+		dictStore["user:"+k], _ = v.GetString()
+	}
+	err = model.SetUserMetadataValues(ctx, dictStore, userCred)
+	return nil, err
+}
+
+func (model *SStandaloneResourceBase) AllowPerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return IsAdminAllowPerform(userCred, model, "set-user-metadata")
+}
+
+func (model *SStandaloneResourceBase) PerformSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	dict, ok := data.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, httperrors.NewInputParameterError("input data not key value dict")
+	}
+	dictMap, err := dict.GetMap()
+	if err != nil {
+		return nil, err
+	}
+	dictStore := make(map[string]interface{})
+	for k, v := range dictMap {
+		dictStore["user:"+k], _ = v.GetString()
+	}
+	err = model.SetUserMetadataAll(ctx, dictStore, userCred)
 	return nil, err
 }
 
