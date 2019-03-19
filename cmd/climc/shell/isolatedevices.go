@@ -14,6 +14,7 @@ func init() {
 		Unused bool   `help:"Only show unused devices"`
 		Gpu    bool   `help:"Only show gpu devices"`
 		Host   string `help:"Host ID or Name"`
+		Region string `help:"Cloudregion ID or Name"`
 		Zone   string `help:"Zone ID or Name"`
 	}
 	R(&DeviceListOptions{}, "isolated-device-list", "List isolated devices like GPU", func(s *mcclient.ClientSession, args *DeviceListOptions) error {
@@ -34,6 +35,9 @@ func init() {
 		}
 		if args.Gpu {
 			params.Add(jsonutils.JSONTrue, "gpu")
+		}
+		if len(args.Region) > 0 {
+			params.Add(jsonutils.NewString(args.Region), "region")
 		}
 		if args.Zone != "" {
 			params.Add(jsonutils.NewString(args.Zone), "zone")
