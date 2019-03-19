@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -138,6 +139,19 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sq
 	}
 	if jsonutils.QueryBoolean(query, "unused", false) {
 		q = q.IsEmpty("guest_id")
+	}
+	regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id"})
+	if len(regionStr) > 0 {
+		region, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		hosts := HostManager.Query().SubQuery()
+		subq := ZoneManager.Query("id").Equals("cloudregion_id", region.GetId()).SubQuery()
+		q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id"))).Filter(sqlchemy.In(hosts.Field("zone_id"), subq))
 	}
 	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
 	if len(zoneStr) > 0 {

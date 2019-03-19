@@ -15,6 +15,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -510,4 +511,39 @@ func (self *SCloudregion) ValidateUpdateCondition(ctx context.Context) error {
 		return httperrors.NewConflictError("Cannot update external resource")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateCondition(ctx)
+}
+
+func (self *SCloudregion) AllowGetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (self *SCloudregion) GetDetailsCapability(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	capa, err := GetCapabilities(ctx, userCred, query, self, nil)
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(&capa), nil
+}
+
+func (self *SCloudregion) getNetworkCount() int {
+	return getNetworkCount(self, nil)
+}
+
+func (self *SCloudregion) getMinNicCount() int {
+	return options.Options.MinNicCount
+}
+
+func (self *SCloudregion) getMaxNicCount() int {
+	if self.isManaged() {
+		return options.Options.MaxManagedNicCount
+	}
+	return options.Options.MaxNormalNicCount
+}
+
+func (self *SCloudregion) getMinDataDiskCount() int {
+	return options.Options.MinDataDiskCount
+}
+
+func (self *SCloudregion) getMaxDataDiskCount() int {
+	return options.Options.MaxDataDiskCount
 }

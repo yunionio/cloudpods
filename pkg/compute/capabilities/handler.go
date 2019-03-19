@@ -25,7 +25,7 @@ func capaHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	capa, err := models.GetCapabilities(ctx, userCred, query, nil)
+	capa, err := models.GetCapabilities(ctx, userCred, query, nil, nil)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
