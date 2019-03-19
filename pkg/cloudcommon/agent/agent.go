@@ -31,7 +31,7 @@ type SZoneInfo struct {
 }
 
 type SBaseAgent struct {
-	virtual IAgent
+	virtual interface{}
 
 	ListenInterface *net.Interface
 	ListenIPs       []net.IP
@@ -56,6 +56,10 @@ func getIfaceIPs(iface *net.Interface) ([]net.IP, error) {
 		}
 	}
 	return ips, nil
+}
+
+func (agent *SBaseAgent) IAgent() IAgent {
+	return agent.virtual.(IAgent)
 }
 
 func (agent *SBaseAgent) Init(iagent IAgent, ifname string) error {
@@ -125,7 +129,7 @@ func (agent *SBaseAgent) startRegister() error {
 
 	for !agent.stop {
 		if time.Now().Sub(lastTry) >= delayRetryTime {
-			session := agent.virtual.GetAdminSession()
+			session := agent.IAgent().GetAdminSession()
 			err := agent.register(session)
 			if err == nil {
 				log.Infof("Register success!")
@@ -149,7 +153,7 @@ func (agent *SBaseAgent) register(session *mcclient.ClientSession) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("%s %s:%s register success, do offline", agent.virtual.GetAgentType(), agent.AgentName, agent.AgentId)
+	log.Infof("%s %s:%s register success, do offline", agent.IAgent().GetAgentType(), agent.AgentName, agent.AgentId)
 	err = agent.doOffline(session)
 	if err != nil {
 		return err
@@ -158,7 +162,7 @@ func (agent *SBaseAgent) register(session *mcclient.ClientSession) error {
 }
 
 func (agent *SBaseAgent) fetchZone(session *mcclient.ClientSession) error {
-	zoneName := agent.virtual.GetZoneName()
+	zoneName := agent.IAgent().GetZoneName()
 	var zoneInfoObj jsonutils.JSONObject
 	var err error
 	if zoneName != "" {
@@ -180,7 +184,7 @@ func (agent *SBaseAgent) fetchZone(session *mcclient.ClientSession) error {
 
 func (agent *SBaseAgent) getZoneByIP(session *mcclient.ClientSession) (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
-	listenIP, err := agent.virtual.GetListenIP()
+	listenIP, err := agent.IAgent().GetListenIP()
 	if err != nil {
 		return nil, err
 	}
@@ -215,12 +219,12 @@ func (agent *SBaseAgent) getZoneByIP(session *mcclient.ClientSession) (jsonutils
 
 func (agent *SBaseAgent) createOrUpdateBaremetalAgent(session *mcclient.ClientSession) error {
 	params := jsonutils.NewDict()
-	naccessIP, err := agent.virtual.GetAccessIP()
+	naccessIP, err := agent.IAgent().GetAccessIP()
 	if err != nil {
 		return err
 	}
 	params.Add(jsonutils.NewString(naccessIP.String()), "access_ip")
-	params.Add(jsonutils.NewString(agent.virtual.GetAgentType()), "agent_type")
+	params.Add(jsonutils.NewString(agent.IAgent().GetAgentType()), "agent_type")
 	ret, err := modules.Baremetalagents.List(session, params)
 	if err != nil {
 		return err
@@ -269,27 +273,27 @@ func (agent *SBaseAgent) createOrUpdateBaremetalAgent(session *mcclient.ClientSe
 }
 
 func (agent *SBaseAgent) GetManagerUri() string {
-	accessIP, _ := agent.virtual.GetAccessIP()
+	accessIP, _ := agent.IAgent().GetAccessIP()
 	proto := "http"
-	if agent.virtual.GetEnableSsl() {
+	if agent.IAgent().GetEnableSsl() {
 		proto = "https"
 	}
-	return fmt.Sprintf("%s://%s:%d", proto, accessIP, agent.virtual.GetPort())
+	return fmt.Sprintf("%s://%s:%d", proto, accessIP, agent.IAgent().GetPort())
 }
 
 func (agent *SBaseAgent) getCreateUpdateInfo() (jsonutils.JSONObject, error) {
-	accessIP, err := agent.virtual.GetAccessIP()
+	accessIP, err := agent.IAgent().GetAccessIP()
 	if err != nil {
 		return nil, err
 	}
 	params := jsonutils.NewDict()
 	if agent.AgentId == "" {
-		params.Add(jsonutils.NewString(fmt.Sprintf("%s_%s", agent.virtual.GetAgentType(), accessIP)), "name")
+		params.Add(jsonutils.NewString(fmt.Sprintf("%s_%s", agent.IAgent().GetAgentType(), accessIP)), "name")
 	}
 	params.Add(jsonutils.NewString(accessIP.String()), "access_ip")
 	params.Add(jsonutils.NewString(agent.GetManagerUri()), "manager_uri")
 	params.Add(jsonutils.NewString(agent.Zone.Id), "zone_id")
-	params.Add(jsonutils.NewString(agent.virtual.GetAgentType()), "agent_type")
+	params.Add(jsonutils.NewString(agent.IAgent().GetAgentType()), "agent_type")
 	return params, nil
 }
 
@@ -324,11 +328,11 @@ func (agent *SBaseAgent) Start() error {
 	if err != nil {
 		return err
 	}
-	agent.virtual.TuneSystem()
-	return agent.virtual.StartService()
+	agent.IAgent().TuneSystem()
+	return agent.IAgent().StartService()
 }
 
 func (agent *SBaseAgent) Stop() {
 	agent.stop = true
-	agent.virtual.StopService()
+	agent.IAgent().StopService()
 }
