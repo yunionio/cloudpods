@@ -840,6 +840,7 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 		cloudaccounts := CloudaccountManager.Query().SubQuery()
 		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudaccounts.Field("id"), q.Field("cloudaccount_id")))
 		q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("is_public_cloud")))
+		q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("is_on_premise")))
 	}
 
 	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
