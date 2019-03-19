@@ -55,7 +55,7 @@ func (self *SInstance) GetProjectId() string {
 }
 
 func (self *SInstance) GetError() error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 type DiskSet struct {
@@ -130,11 +130,11 @@ func (self *SInstance) GetStatus() string {
 
 func (self *SInstance) Refresh() error {
 	new, err := self.host.zone.region.GetInstanceByID(self.GetId())
-	new.host = self.host
 	if err != nil {
 		return err
 	}
 
+	new.host = self.host
 	return jsonutils.Update(self, new)
 }
 
@@ -204,9 +204,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		idisks[i] = &disks[i]
 		// 将系统盘放到第0个位置
 		if disks[i].GetDiskType() == models.DISK_TYPE_SYS {
-			_temp := idisks[0]
-			idisks[0] = &disks[i]
-			idisks[i] = _temp
+			idisks[0], idisks[i] = idisks[i], idisks[0]
 		}
 	}
 
@@ -285,11 +283,11 @@ func (self *SInstance) GetInstanceType() string {
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) GetHypervisor() string {
@@ -297,39 +295,39 @@ func (self *SInstance) GetHypervisor() string {
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
-	panic("implement me")
+	return "", cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
@@ -337,19 +335,19 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) Renew(bc billing.SBillingCycle) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SInstance) GetSecurityGroups() ([]SSecurityGroup, error) {
@@ -357,7 +355,23 @@ func (self *SInstance) GetSecurityGroups() ([]SSecurityGroup, error) {
 }
 
 // https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_vnc_info
-// todo: implement me
+/*
+
+type RemoteConsoleInfo struct {
+	Host        string `json:"host"`
+	Port        int64  `json:"port"`
+	Protocol    string `json:"protocol"`
+	Id          string `json:"id"`
+	OsName      string `json:"osName"`
+	VncPassword string `json:"vncPassword"`
+
+	// used by aliyun server
+	InstanceId string `json:"instance_id"`
+	Url        string `json:"url"`
+	Password   string `json:"password"`
+}
+
+*/
 func (self *SRegion) GetInstanceVNCUrl(instanceId string) (jsonutils.JSONObject, error) {
 	params := NewUcloudParams()
 	params.Set("UHostId", instanceId)

@@ -101,7 +101,7 @@ func (self *SSnapshot) GetDiskType() string {
 }
 
 func (self *SSnapshot) Delete() error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SRegion) GetSnapshotById(snapshotId string) (SSnapshot, error) {
@@ -120,16 +120,16 @@ func (self *SRegion) GetSnapshotById(snapshotId string) (SSnapshot, error) {
 }
 
 func (self *SRegion) GetSnapshots(diskId string, snapshotId string) ([]SSnapshot, error) {
-	snapshots := make([]SSnapshot, 0)
 	params := NewUcloudParams()
-	if len(diskId) == 0 {
+	if len(diskId) > 0 {
 		params.Set("UDiskId", diskId)
 	}
 
-	if len(snapshotId) == 0 {
+	if len(snapshotId) > 0 {
 		params.Set("SnapshotId", snapshotId)
 	}
 
+	snapshots := make([]SSnapshot, 0)
 	err := self.DoAction("DescribeUDiskSnapshot", params, &snapshots)
 	if err != nil {
 		return nil, err

@@ -73,11 +73,11 @@ func (self *SDisk) GetStatus() string {
 	case "Failed":
 		return models.DISK_ALLOC_FAILED
 	case "Cloning":
-		return models.DISK_SAVING // ??????
+		return models.DISK_CLONING
 	case "Restoring":
-		return models.DISK_BACKUP_STARTALLOC // ???
+		return models.DISK_RESET
 	case "RestoreFailed":
-		return models.DISK_BACKUP_ALLOC_FAILED // ??
+		return models.DISK_RESET_FAILED
 	default:
 		return models.DISK_UNKNOWN
 	}
@@ -175,7 +175,7 @@ func (self *SDisk) GetCacheMode() string {
 }
 
 func (self *SDisk) GetMountpoint() string {
-	return self.DeviceName
+	return ""
 }
 
 func (self *SDisk) GetAccessPath() string {
@@ -183,11 +183,11 @@ func (self *SDisk) GetAccessPath() string {
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
-	panic("implement me")
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
@@ -214,15 +214,15 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	panic("implement me")
+	return "", cloudprovider.ErrNotImplemented
 }
 
 func (self *SDisk) Rebuild(ctx context.Context) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
@@ -262,7 +262,7 @@ func (self *SRegion) GetDisks(zoneId string, diskType string, diskIds []string) 
 		return nil, err
 	}
 
-	if diskIds != nil && len(diskIds) > 0 {
+	if len(diskIds) > 0 {
 		filtedDisks := make([]SDisk, 0)
 		for _, disk := range disks {
 			if utils.IsInStringArray(disk.UDiskID, diskIds) {

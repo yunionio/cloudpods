@@ -32,6 +32,7 @@ const (
 	MAX_VPC_PER_REGION = 3
 
 	DEFAULT_VPC_ID = "default"
+	NORMAL_VPC_ID  = "normal" // 没有关联VPC的安全组，统一使用normal
 )
 
 type SVpcManager struct {

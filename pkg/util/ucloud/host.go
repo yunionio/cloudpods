@@ -59,8 +59,12 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 
 func (self *SHost) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
 	vm, err := self.zone.region.GetInstanceByID(id)
+	if err != nil {
+		return nil, err
+	}
+
 	vm.host = self
-	return &vm, err
+	return &vm, nil
 }
 
 func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {

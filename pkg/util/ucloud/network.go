@@ -114,7 +114,7 @@ func (self *SNetwork) GetIsPublic() bool {
 }
 
 func (self *SNetwork) Delete() error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {

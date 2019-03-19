@@ -79,7 +79,7 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 }
 
 func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	panic("implement me")
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SWire) addNetwork(network *SNetwork) {

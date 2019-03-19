@@ -91,7 +91,7 @@ func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SImage) Delete(ctx context.Context) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {

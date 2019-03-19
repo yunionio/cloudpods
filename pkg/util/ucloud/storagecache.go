@@ -82,13 +82,13 @@ func (self *SStoragecache) GetManagerId() string {
 }
 
 func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
-	panic("implement me")
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error) {
-	panic("implement me")
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
-	panic("implement me")
+	return "", cloudprovider.ErrNotImplemented
 }

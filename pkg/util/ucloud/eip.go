@@ -5,6 +5,7 @@ import (
 
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -138,7 +139,7 @@ func (self *SEip) GetAssociationExternalId() string {
 	if self.Resource.ResourceType == "uhost" {
 		return self.Resource.ResourceID
 	} else if self.Resource.ResourceType != "" {
-		log.Warningf("GetAssociationExternalId bind with %s %s.expect bind with uhost", self.Resource.ResourceType, self.Resource.ResourceID)
+		log.Warningf("GetAssociationExternalId bind with %s %s.expect uhost", self.Resource.ResourceType, self.Resource.ResourceID)
 	}
 
 	return ""
@@ -156,7 +157,7 @@ func (self *SEip) GetInternetChargeType() string {
 	case "Traffic":
 		return models.EIP_CHARGE_TYPE_BY_TRAFFIC
 	default:
-		return models.EIP_CHARGE_TYPE_BY_TRAFFIC
+		return models.EIP_CHARGE_TYPE_BY_BANDWIDTH
 	}
 }
 
@@ -165,17 +166,17 @@ func (self *SEip) GetManagerId() string {
 }
 
 func (self *SEip) Delete() error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SEip) Associate(instanceId string) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SEip) Dissociate() error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }
 
 func (self *SEip) ChangeBandwidth(bw int) error {
-	panic("implement me")
+	return cloudprovider.ErrNotImplemented
 }

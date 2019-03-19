@@ -41,12 +41,14 @@ const (
 	DISK_BACKUP_ALLOC_FAILED = "backup_alloc_failed"
 	DISK_ALLOCATING          = "allocating"
 	DISK_READY               = "ready"
-	DISK_RESET               = "reset"
+	DISK_RESET               = "reset"        // 快照回滚
+	DISK_RESET_FAILED        = "reset_failed" // 快照回滚失败
 	DISK_DEALLOC             = "deallocating"
 	DISK_DEALLOC_FAILED      = "dealloc_failed"
 	DISK_UNKNOWN             = "unknown"
 	DISK_DETACHING           = "detaching"
 	DISK_ATTACHING           = "attaching"
+	DISK_CLONING             = "cloning" // 硬盘克隆
 
 	DISK_START_SAVE = "start_save"
 	DISK_SAVING     = "saving"

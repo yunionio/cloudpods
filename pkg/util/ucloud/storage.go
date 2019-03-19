@@ -106,7 +106,7 @@ func (self *SStorage) GetManagerId() string {
 }
 
 func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	panic("implement me")
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
