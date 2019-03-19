@@ -106,10 +106,23 @@ func (h *TFTPHandler) transferLog(clientAddr net.Addr, path string, err error) {
 }
 
 func (s *Server) serveTFTP(l net.PacketConn, handler *TFTPHandler) error {
+	bindDial := func(network, addr string) (net.Conn, error) {
+		localIp := l.LocalAddr().(*net.UDPAddr).IP
+		remoteAddr, err := net.ResolveUDPAddr("udp", addr)
+		if err != nil {
+			return nil, err
+		}
+		return net.DialUDP("udp", &net.UDPAddr{
+			IP:   localIp,
+			Port: 0, // random free port
+		}, remoteAddr)
+	}
+
 	ts := tftp.Server{
 		Handler:     handler.Handle,
 		InfoLog:     func(msg string) { log.Debugf("TFTP msg: %s", msg) },
 		TransferLog: handler.transferLog,
+		Dial:        bindDial,
 	}
 	err := ts.Serve(l)
 	if err != nil {
