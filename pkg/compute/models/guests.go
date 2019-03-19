@@ -395,6 +395,23 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		q = q.In("host_id", sq)
 	}
 
+	vpcFilter, err := queryDict.GetString("vpc")
+	if err == nil {
+		IVpc, err := VpcManager.FetchByIdOrName(userCred, vpcFilter)
+		if err != nil {
+			return nil, httperrors.NewResourceNotFoundError("Vpc %s not found", vpcFilter)
+		}
+		vpc := IVpc.(*SVpc)
+		guestnetwork := GuestnetworkManager.Query().SubQuery()
+		network := NetworkManager.Query().SubQuery()
+		wire := WireManager.Query().SubQuery()
+		sq := guestnetwork.Query(guestnetwork.Field("guest_id")).Join(network,
+			sqlchemy.Equals(guestnetwork.Field("network_id"), network.Field("id"))).
+			Join(wire, sqlchemy.Equals(network.Field("wire_id"), wire.Field("id"))).
+			Filter(sqlchemy.Equals(wire.Field("vpc_id"), vpc.Id)).SubQuery()
+		q = q.In("id", sq)
+	}
+
 	diskFilter, _ := queryDict.GetString("disk")
 	if len(diskFilter) > 0 {
 		diskI, _ := DiskManager.FetchByIdOrName(userCred, diskFilter)
@@ -1364,6 +1381,17 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 		extra.Add(jsonutils.JSONFalse, "can_recycle")
 	} else {
 		extra.Add(jsonutils.JSONTrue, "can_recycle")
+	}
+
+	guestnetworks, _ := self.GetNetworks("")
+	if len(guestnetworks) > 0 {
+		guestnetwork := guestnetworks[0]
+		network := guestnetwork.GetNetwork()
+		if network != nil {
+			vpc := network.GetVpc()
+			extra.Set("vpc_id", jsonutils.NewString(vpc.Id))
+			extra.Set("vpc", jsonutils.NewString(vpc.Name))
+		}
 	}
 
 	return extra
