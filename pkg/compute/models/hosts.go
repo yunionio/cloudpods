@@ -955,24 +955,43 @@ func (self *SHost) GetHardwareSpecification() *jsonutils.JSONDict {
 }
 
 type SStorageCapacity struct {
-	Capacity  int
-	Used      int
-	Wasted    int
-	VCapacity int
+	Capacity  int `json:"capacity,omitzero"`
+	Used      int `json:"used_capacity,omitzero"`
+	Wasted    int `json:"waste_capacity,omitzero"`
+	VCapacity int `json:"virtual_capacity,omitzero"`
 }
 
-func (capa SStorageCapacity) GetFree() int {
-	return capa.VCapacity - capa.Used - capa.Wasted
+func (cap *SStorageCapacity) GetFree() int {
+	return cap.VCapacity - cap.Used - cap.Wasted
+}
+
+func (cap *SStorageCapacity) GetCommitRate() float64 {
+	if cap.Capacity > 0 {
+		return float64(int(float64(cap.Used)*100.0/float64(cap.Capacity)+0.5) / 100.0)
+	} else {
+		return 0.0
+	}
+}
+
+func (cap *SStorageCapacity) Add(cap2 SStorageCapacity) {
+	cap.Capacity += cap2.Capacity
+	cap.Used += cap2.Used
+	cap.Wasted += cap2.Wasted
+	cap.VCapacity += cap2.VCapacity
+}
+
+func (cap *SStorageCapacity) ToJson() *jsonutils.JSONDict {
+	ret := jsonutils.Marshal(cap).(*jsonutils.JSONDict)
+	ret.Add(jsonutils.NewFloat(cap.GetCommitRate()), "commit_rate")
+	ret.Add(jsonutils.NewInt(int64(cap.GetFree())), "free_capacity")
+	return ret
 }
 
 func (self *SHost) GetAttachedStorageCapacity() SStorageCapacity {
 	ret := SStorageCapacity{}
 	storages := self.GetAttachedStorages("")
 	for _, s := range storages {
-		ret.Capacity += s.GetCapacity()
-		ret.Used += s.GetUsedCapacity(tristate.True)
-		ret.Wasted += s.GetUsedCapacity(tristate.False)
-		ret.VCapacity += int(float32(s.GetCapacity()) * s.GetOvercommitBound())
+		ret.Add(s.getStorageCapacity())
 	}
 	return ret
 }
@@ -2140,6 +2159,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 	extra.Add(jsonutils.NewInt(int64(capa.Wasted)), "storage_waste")
 	extra.Add(jsonutils.NewInt(int64(capa.VCapacity)), "storage_virtual")
 	extra.Add(jsonutils.NewInt(int64(capa.GetFree())), "storage_free")
+	extra.Add(jsonutils.NewFloat(capa.GetCommitRate()), "storage_commit_rate")
 	extra.Add(self.GetHardwareSpecification(), "spec")
 
 	// extra = self.SManagedResourceBase.getExtraDetails(ctx, extra)
@@ -2985,6 +3005,9 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 		} else if requireDesignatedIp {
 			log.Errorf("Cannot allocate IP %s, not reachable", ipAddr)
 			return fmt.Errorf("Cannot allocate IP %s, not reachable", ipAddr)
+		} else {
+			// the ipaddr is not usable, should be reset to empty
+			ipAddr = ""
 		}
 	}
 	wire := netif.GetWire()

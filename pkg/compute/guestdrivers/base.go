@@ -235,3 +235,7 @@ func (self *SBaseGuestDriver) IsSupportEip() bool {
 func (self *SBaseGuestDriver) NeedStopForChangeSpec() bool {
 	return true
 }
+
+func (self *SBaseGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	return fmt.Errorf("SBaseGuestDriver: Not Implement")
+}
