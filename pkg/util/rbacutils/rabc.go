@@ -2,11 +2,11 @@ package rbacutils
 
 import (
 	"fmt"
+	"regexp"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/util/conditionparser"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type TRbacResult string
@@ -45,6 +45,8 @@ type SRbacPolicy struct {
 	Condition string
 	IsAdmin   bool
 	Rules     []SRbacRule
+	Projects  []string
+	Roles     []string
 }
 
 type SRbacRule struct {
@@ -188,9 +190,48 @@ func CompactRules(rules []SRbacRule) []SRbacRule {
 	return output
 }
 
+var (
+	tenantEqualsPattern = regexp.MustCompile(`tenant\s*==\s*['"]?(\w+)['"]?`)
+	roleContainsPattern = regexp.MustCompile(`roles.contains\(['"]?(\w+)['"]?\)`)
+)
+
+func searchMatchStrings(pattern *regexp.Regexp, condstr string) []string {
+	ret := make([]string, 0)
+	matches := pattern.FindAllStringSubmatch(condstr, -1)
+	for _, match := range matches {
+		ret = append(ret, match[1])
+	}
+	return ret
+}
+
+func searchMatchTenants(condstr string) []string {
+	return searchMatchStrings(tenantEqualsPattern, condstr)
+}
+
+func searchMatchRoles(condstr string) []string {
+	return searchMatchStrings(roleContainsPattern, condstr)
+}
+
 func (policy *SRbacPolicy) Decode(policyJson jsonutils.JSONObject) error {
 	policy.Condition, _ = policyJson.GetString("condition")
 	policy.IsAdmin = jsonutils.QueryBoolean(policyJson, "is_admin", false)
+	if policyJson.Contains("projects") {
+		projectJson, _ := policyJson.GetArray("projects")
+		policy.Projects = jsonutils.JSONArray2StringArray(projectJson)
+	}
+	if policyJson.Contains("roles") {
+		roleJson, _ := policyJson.GetArray("roles")
+		policy.Roles = jsonutils.JSONArray2StringArray(roleJson)
+	}
+
+	if len(policy.Projects) == 0 && len(policy.Roles) == 0 && len(policy.Condition) > 0 {
+		// XXX hack
+		// for smooth transtion from condition to projects&roles
+		policy.Projects = searchMatchTenants(policy.Condition)
+		policy.Roles = searchMatchRoles(policy.Condition)
+	}
+	// empty condition, no longer use this field
+	policy.Condition = ""
 
 	ruleJson, err := policyJson.Get("policy")
 	if err != nil {
@@ -288,7 +329,7 @@ func (rule *SRbacRule) toStringArray() []string {
 		strArr = append(strArr, rule.Extra...)
 	}
 	i := len(strArr) - 1
-	for i >= 0 && (len(strArr[i]) == 0 || strArr[i] == WILD_MATCH) {
+	for i > 0 && (len(strArr[i]) == 0 || strArr[i] == WILD_MATCH) {
 		i -= 1
 	}
 	return strArr[0 : i+1]
@@ -346,11 +387,17 @@ func (policy *SRbacPolicy) Encode() (jsonutils.JSONObject, error) {
 	}
 
 	ret := jsonutils.NewDict()
-	ret.Add(jsonutils.NewString(policy.Condition), "condition")
+	// ret.Add(jsonutils.NewString(policy.Condition), "condition")
 	if policy.IsAdmin {
 		ret.Add(jsonutils.JSONTrue, "is_admin")
 	} else {
 		ret.Add(jsonutils.JSONFalse, "is_admin")
+	}
+	if len(policy.Projects) > 0 {
+		ret.Add(jsonutils.NewStringArray(policy.Projects), "projects")
+	}
+	if len(policy.Roles) > 0 {
+		ret.Add(jsonutils.NewStringArray(policy.Roles), "roles")
 	}
 	ret.Add(rules, "policy")
 	return ret, nil
@@ -369,16 +416,39 @@ func (policy *SRbacPolicy) Explain(request [][]string) [][]string {
 	return output
 }
 
-func (policy *SRbacPolicy) Allow(userCred jsonutils.JSONObject, service, resource, action string, extra ...string) TRbacResult {
-	if len(policy.Condition) > 0 {
-		match, err := conditionparser.Eval(policy.Condition, userCred)
-		if err != nil {
-			log.Errorf("eval condition %s fail %s", policy.Condition, err)
-			return Deny
+func contains(s1 []string, s string) bool {
+	for i := range s1 {
+		if s1[i] == s {
+			return true
 		}
-		if !match {
-			return Deny
+	}
+	return false
+}
+
+func intersect(s1 []string, s2 []string) bool {
+	for i := range s1 {
+		for j := range s2 {
+			if s1[i] == s2[j] {
+				return true
+			}
 		}
+	}
+	return false
+}
+
+func (policy *SRbacPolicy) Match(userCred mcclient.TokenCredential) bool {
+	if len(policy.Projects) > 0 && userCred != nil && !contains(policy.Projects, userCred.GetProjectName()) {
+		return false
+	}
+	if len(policy.Roles) > 0 && userCred != nil && !intersect(policy.Roles, userCred.GetRoles()) {
+		return false
+	}
+	return true
+}
+
+func (policy *SRbacPolicy) Allow(userCred mcclient.TokenCredential, service, resource, action string, extra ...string) TRbacResult {
+	if !policy.Match(userCred) {
+		return Deny
 	}
 	rule := policy.GetMatchRule(service, resource, action, extra...)
 	if rule == nil {
