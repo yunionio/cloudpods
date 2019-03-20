@@ -16,6 +16,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -628,4 +629,19 @@ func (self *SGuestnetwork) GetShortDesc(ctx context.Context) *jsonutils.JSONDict
 		desc.Add(jsonutils.NewString(self.TeamWith), "team_with")
 	}
 	return desc
+}
+
+func (self *SGuestnetwork) ToNetworkConfig() *api.NetworkConfig {
+	net := self.GetNetwork()
+	if net == nil {
+		return nil
+	}
+	ret := &api.NetworkConfig{
+		Index:   int(self.Index),
+		Network: net.Id,
+		Wire:    net.GetWire().Id,
+		Address: self.IpAddr,
+		Project: net.ProjectId,
+	}
+	return ret
 }

@@ -4,171 +4,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 )
 
-// return bytes
-func parseStrip(stripStr string, defaultSize string) int64 {
-	size, _ := utils.GetSize(stripStr, defaultSize, 1024)
-	return size / 1024
-}
-
-func parseRangeStr(str string) (ret []int64, err error) {
-	im := utils.IsMatchInteger
-	errGen := func(e string) error {
-		return fmt.Errorf("Incorrect range str: %q", e)
+func ParseDiskConfig(desc string) (api.BaremetalDiskConfig, error) {
+	conf, err := cmdline.ParseBaremetalDiskConfig(desc)
+	if err != nil {
+		return api.BaremetalDiskConfig{}, err
 	}
-	rs := strings.Split(str, "-")
-	if len(rs) != 2 {
-		err = errGen(str)
-		return
-	}
-
-	bs, es := rs[0], rs[1]
-	if !im(bs) {
-		err = errGen(str)
-		return
-	}
-	if !im(es) {
-		err = errGen(str)
-		return
-	}
-
-	begin, _ := strconv.ParseInt(bs, 10, 64)
-	end, _ := strconv.ParseInt(es, 10, 64)
-
-	if begin > end {
-		begin, end = end, begin
-	}
-
-	for i := begin; i <= end; i++ {
-		ret = append(ret, i)
-	}
-	return
-}
-
-// range string should be: "1-3", "3"
-func _parseRange(str string) (ret []int64, err error) {
-	if len(str) == 0 {
-		return
-	}
-
-	// exclude "," symbol
-	if len(str) == 1 && !utils.IsMatchInteger(str) {
-		return
-	}
-
-	// add int string
-	if utils.IsMatchInteger(str) {
-		i, _ := strconv.ParseInt(str, 10, 64)
-		ret = append(ret, i)
-		return
-	}
-
-	// add rang like string, "2-10" etc.
-	ret, err = parseRangeStr(str)
-	return
-}
-
-func ParseRange(rangeStr string) (ret []int64, err error) {
-	rss := regexp.MustCompile(`[\s,]+`).Split(rangeStr, -1)
-	intSet := sets.NewInt64()
-
-	for _, rs := range rss {
-		r, err1 := _parseRange(rs)
-		if err1 != nil {
-			err = err1
-			return
-		}
-		intSet.Insert(r...)
-	}
-	ret = intSet.List()
-	return
-}
-
-func ParseDiskConfig(desc string) (bdc BaremetalDiskConfig, err error) {
-	bdc.Type = DISK_TYPE_HYBRID
-	bdc.Conf = DISK_CONF_NONE
-	bdc.Count = 0
-
-	desc = strings.ToLower(desc)
-	if desc == "" {
-		return
-	}
-
-	parts := strings.Split(desc, ":")
-	drvMap := make(map[string]string)
-	for _, drv := range DISK_DRIVERS.List() {
-		drvMap[strings.ToLower(drv)] = drv
-	}
-	for _, p := range parts {
-		if len(p) == 0 {
-			continue
-		} else if DISK_TYPES.Has(p) {
-			bdc.Type = p
-		} else if DISK_CONFS.Has(p) {
-			bdc.Conf = p
-		} else if drv, ok := drvMap[p]; ok {
-			bdc.Driver = drv
-		} else if utils.IsMatchInteger(p) {
-			bdc.Count, _ = strconv.ParseInt(p, 0, 0)
-		} else if len(p) > 2 && p[0] == '[' && p[len(p)-1] == ']' {
-			rg, err1 := ParseRange(p[1:(len(p) - 1)])
-			if err1 != nil {
-				err = err1
-				return
-			}
-			bdc.Range = rg
-		} else if len(p) > 2 && p[0] == '(' && p[len(p)-1] == ')' {
-			bdc.Splits = p[1 : len(p)-1]
-		} else if utils.HasPrefix(p, "strip") {
-			strip := parseStrip(p[len("strip"):], "k")
-			bdc.Strip = &strip
-		} else if utils.HasPrefix(p, "adapter") {
-			ada, _ := strconv.ParseInt(p[len("adapter"):], 0, 64)
-			pada := int(ada)
-			bdc.Adapter = &pada
-		} else if p == "ra" {
-			hasRA := true
-			bdc.RA = &hasRA
-		} else if p == "nora" {
-			noRA := false
-			bdc.RA = &noRA
-		} else if p == "wt" {
-			wt := true
-			bdc.WT = &wt
-		} else if p == "wb" {
-			wt := false
-			bdc.WT = &wt
-		} else if p == "direct" {
-			direct := true
-			bdc.Direct = &direct
-		} else if p == "cached" {
-			direct := false
-			bdc.Direct = &direct
-		} else if p == "cachedbadbbu" {
-			cached := true
-			bdc.Cachedbadbbu = &cached
-		} else if p == "nocachedbadbbu" {
-			cached := false
-			bdc.Cachedbadbbu = &cached
-		} else {
-			err = fmt.Errorf("ParseDiskConfig unkown option %q", p)
-			return
-		}
-	}
-
-	return
+	return *conf, nil
 }
 
 func isDiskConfigStorageMatch(
-	config *BaremetalDiskConfig,
+	config *api.BaremetalDiskConfig,
 	confDriver *string,
 	confAdapter *int,
 	storage *BaremetalStorage,
@@ -198,7 +54,7 @@ func isDiskConfigStorageMatch(
 	return false
 }
 
-func RetrieveStorages(diskConfig *BaremetalDiskConfig, storages []*BaremetalStorage) (selected, rest []*BaremetalStorage) {
+func RetrieveStorages(diskConfig *api.BaremetalDiskConfig, storages []*BaremetalStorage) (selected, rest []*BaremetalStorage) {
 	var confDriver *string = nil
 	var confAdapter *int = nil
 
@@ -259,9 +115,9 @@ func RequireEvenDisks(diskConfig string) bool {
 }
 
 type Layout struct {
-	Disks []*BaremetalStorage  `json:"disks"`
-	Conf  *BaremetalDiskConfig `json:"conf"`
-	Size  int64                `json:"size"`
+	Disks []*BaremetalStorage      `json:"disks"`
+	Conf  *api.BaremetalDiskConfig `json:"conf"`
+	Size  int64                    `json:"size"`
 }
 
 func (l Layout) String() string {
@@ -280,7 +136,7 @@ func RetrieveStorageDrivers(storages []*BaremetalStorage) sets.String {
 }
 
 func MeetConfig(
-	conf *BaremetalDiskConfig,
+	conf *api.BaremetalDiskConfig,
 	storages []*BaremetalStorage,
 ) error {
 	storageDrvs := RetrieveStorageDrivers(storages)
@@ -417,9 +273,9 @@ func ExpandNoneConf(layouts []Layout) (ret []Layout) {
 	return ret
 }
 
-func GetLayoutRaidConfig(layouts []Layout) []*BaremetalDiskConfig {
+func GetLayoutRaidConfig(layouts []Layout) []*api.BaremetalDiskConfig {
 	var disk []*BaremetalStorage
-	ret := make([]*BaremetalDiskConfig, 0)
+	ret := make([]*api.BaremetalDiskConfig, 0)
 	for _, layout := range layouts {
 		if layout.Conf.Conf == DISK_CONF_NONE &&
 			sets.NewString(DISK_DRIVER_LINUX, DISK_DRIVER_PCIE).Has(layout.Disks[0].Driver) {
@@ -444,10 +300,10 @@ func GetLayoutRaidConfig(layouts []Layout) []*BaremetalDiskConfig {
 	return ret
 }
 
-func CalculateLayout(confs []*BaremetalDiskConfig, storages []*BaremetalStorage) (layouts []Layout, err error) {
+func CalculateLayout(confs []*api.BaremetalDiskConfig, storages []*BaremetalStorage) (layouts []Layout, err error) {
 	var confIdx = 0
 	for len(storages) > 0 {
-		var conf *BaremetalDiskConfig
+		var conf *api.BaremetalDiskConfig
 		if confIdx < len(confs) {
 			conf = confs[confIdx]
 			confIdx += 1
@@ -544,8 +400,8 @@ func CheckDisksAllocable(layouts []Layout, disks []*Disk) bool {
 	return true
 }
 
-func NewBaremetalDiskConfigs(dss ...string) ([]*BaremetalDiskConfig, error) {
-	ret := make([]*BaremetalDiskConfig, 0)
+func NewBaremetalDiskConfigs(dss ...string) ([]*api.BaremetalDiskConfig, error) {
+	ret := make([]*api.BaremetalDiskConfig, 0)
 	for _, ds := range dss {
 		r, err := ParseDiskConfig(ds)
 		if err != nil {
@@ -671,7 +527,7 @@ func GetDiskConfigurations(layouts []Layout) []DiskConfiguration {
 type DriverAdapterDiskConfig struct {
 	Driver  string
 	Adapter int
-	Configs []*BaremetalDiskConfig
+	Configs []*api.BaremetalDiskConfig
 }
 
 func GroupLayoutResultsByDriverAdapter(layouts []Layout) []*DriverAdapterDiskConfig {
@@ -687,7 +543,7 @@ func GroupLayoutResultsByDriverAdapter(layouts []Layout) []*DriverAdapterDiskCon
 			item := &DriverAdapterDiskConfig{
 				Driver:  driver,
 				Adapter: adapter,
-				Configs: []*BaremetalDiskConfig{layout.Conf},
+				Configs: []*api.BaremetalDiskConfig{layout.Conf},
 			}
 			ret = append(ret, item)
 			tbl[key] = item

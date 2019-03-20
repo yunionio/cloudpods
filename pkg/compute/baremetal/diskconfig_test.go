@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"yunion.io/x/log"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 func TestParseDiskConfig(t *testing.T) {
@@ -22,13 +24,13 @@ func TestParseDiskConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		wantBdc BaremetalDiskConfig
+		wantBdc api.BaremetalDiskConfig
 		wantErr bool
 	}{
 		{
 			name: "rotate:[1-2,4-5]:MegaRaid",
 			args: args{"rotate:[1-2,4-5]:MegaRaid"},
-			wantBdc: BaremetalDiskConfig{
+			wantBdc: api.BaremetalDiskConfig{
 				Type:   DISK_TYPE_ROTATE,
 				Conf:   DISK_CONF_NONE,
 				Driver: DISK_DRIVER_MEGARAID,
@@ -40,7 +42,7 @@ func TestParseDiskConfig(t *testing.T) {
 		{
 			name: "rotate:[1-2,4,6]:raid10:marvelraid",
 			args: args{"rotate:[1-2,4,6]:raid10:marvelraid"},
-			wantBdc: BaremetalDiskConfig{
+			wantBdc: api.BaremetalDiskConfig{
 				Type:   DISK_TYPE_ROTATE,
 				Conf:   DISK_CONF_RAID10,
 				Driver: DISK_DRIVER_MARVELRAID,
@@ -52,7 +54,7 @@ func TestParseDiskConfig(t *testing.T) {
 		{
 			name: "rotate:[4,6]:raid10",
 			args: args{"rotate:[4,6]:raid10"},
-			wantBdc: BaremetalDiskConfig{
+			wantBdc: api.BaremetalDiskConfig{
 				Type:  DISK_TYPE_ROTATE,
 				Conf:  DISK_CONF_RAID10,
 				Count: 0,
@@ -63,7 +65,7 @@ func TestParseDiskConfig(t *testing.T) {
 		{
 			name: "rotate:[4]:raid10:(40%, )",
 			args: args{"rotate:[4]:raid10:(40%, )"},
-			wantBdc: BaremetalDiskConfig{
+			wantBdc: api.BaremetalDiskConfig{
 				Type:   DISK_TYPE_ROTATE,
 				Conf:   DISK_CONF_RAID10,
 				Count:  0,
@@ -75,7 +77,7 @@ func TestParseDiskConfig(t *testing.T) {
 		{
 			name: "[12-13]:raid1:(100g,32g,):adapter0:strip64k",
 			args: args{"[12-13]:raid1:(100g,32g,):adapter0:strip64k"},
-			wantBdc: BaremetalDiskConfig{
+			wantBdc: api.BaremetalDiskConfig{
 				Type:    DISK_TYPE_HYBRID,
 				Conf:    DISK_CONF_RAID1,
 				Count:   0,
@@ -89,7 +91,7 @@ func TestParseDiskConfig(t *testing.T) {
 		{
 			name: "6:raid5:adapter2",
 			args: args{"6:raid5:adapter2"},
-			wantBdc: BaremetalDiskConfig{
+			wantBdc: api.BaremetalDiskConfig{
 				Type:    DISK_TYPE_HYBRID,
 				Conf:    DISK_CONF_RAID5,
 				Count:   6,
@@ -107,55 +109,6 @@ func TestParseDiskConfig(t *testing.T) {
 			}
 			if !reflect.DeepEqual(gotBdc, tt.wantBdc) {
 				t.Errorf("ParseDiskConfig() = %v, want %v", gotBdc, tt.wantBdc)
-			}
-		})
-	}
-}
-
-func TestParseRange(t *testing.T) {
-	type args struct {
-		rangeStr string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantRet []int64
-		wantErr bool
-	}{
-		{
-			name:    "range number and , test",
-			args:    args{"11-7,, 9-9, 10, 15, 1-2,4-5,,"},
-			wantRet: []int64{1, 2, 4, 5, 7, 8, 9, 10, 11, 15},
-			wantErr: false,
-		},
-		{
-			name:    "range,range",
-			args:    args{"1-2,4-5"},
-			wantRet: []int64{1, 2, 4, 5},
-			wantErr: false,
-		},
-		{
-			name:    "numbers",
-			args:    args{"1, 1"},
-			wantRet: []int64{1},
-			wantErr: false,
-		},
-		{
-			name:    "numbersErr",
-			args:    args{"1-, 1"},
-			wantRet: nil,
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotRet, err := ParseRange(tt.args.rangeStr)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseRange() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(gotRet, tt.wantRet) {
-				t.Errorf("ParseRange() = %v, want %v", gotRet, tt.wantRet)
 			}
 		})
 	}
@@ -516,7 +469,7 @@ func TestCheckDisksAllocable(t *testing.T) {
 	}
 
 	layout, err := CalculateLayout(confs, testStorages)
-	defaultLayout, err := CalculateLayout([]*BaremetalDiskConfig{&BaremetalDefaultDiskConfig}, testStorages[12:])
+	defaultLayout, err := CalculateLayout([]*api.BaremetalDiskConfig{&BaremetalDefaultDiskConfig}, testStorages[12:])
 	if err != nil {
 		t.Fatalf("CalculateLayout err: %v", err)
 	}

@@ -6,8 +6,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type SLoadbalancerTCPListener struct {
@@ -57,11 +57,11 @@ func (listerner *SLoadbalancerTCPListener) GetGlobalId() string {
 func (listerner *SLoadbalancerTCPListener) GetStatus() string {
 	switch listerner.Status {
 	case "starting", "running":
-		return consts.LB_STATUS_ENABLED
+		return api.LB_STATUS_ENABLED
 	case "configuring", "stopping", "stopped":
-		return consts.LB_STATUS_DISABLED
+		return api.LB_STATUS_DISABLED
 	default:
-		return consts.LB_STATUS_UNKNOWN
+		return api.LB_STATUS_UNKNOWN
 	}
 }
 
@@ -238,11 +238,11 @@ func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, list
 		params["AclType"] = listener.AccessControlListType
 	}
 	switch listener.BackendGroupType {
-	case consts.LB_BACKENDGROUP_TYPE_NORMAL:
+	case api.LB_BACKENDGROUP_TYPE_NORMAL:
 		params["VServerGroupId"] = listener.BackendGroupID
-	case consts.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
+	case api.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
 		params["MasterSlaveServerGroupId"] = listener.BackendGroupID
-	case consts.LB_BACKENDGROUP_TYPE_DEFAULT:
+	case api.LB_BACKENDGROUP_TYPE_DEFAULT:
 		params["BackendServerPort"] = fmt.Sprintf("%d", listener.BackendServerPort)
 	}
 	if len(listener.Name) > 0 {
@@ -252,7 +252,7 @@ func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, list
 		params["EstablishedTimeout"] = fmt.Sprintf("%d", listener.EstablishedTimeout)
 	}
 
-	if utils.IsInStringArray(listener.ListenerType, []string{consts.LB_LISTENER_TYPE_TCP, consts.LB_LISTENER_TYPE_UDP}) {
+	if utils.IsInStringArray(listener.ListenerType, []string{api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP}) {
 		if listener.HealthCheckTimeout >= 1 && listener.HealthCheckTimeout <= 300 {
 			params["HealthCheckConnectTimeout"] = fmt.Sprintf("%d", listener.HealthCheckTimeout)
 		}

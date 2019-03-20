@@ -67,7 +67,7 @@ type HistoryDetailArgs struct {
 type HistoryTask struct {
 	Type      string     `json:"type"`
 	Status    string     `json:"status"`
-	Data      *SchedData `json:"data"`
+	Data      *SchedInfo `json:"data"`
 	Time      string     `json:"time"`
 	Consuming string     `json:"consuming"`
 	//Result    []SchedResultItem `json:"result"`

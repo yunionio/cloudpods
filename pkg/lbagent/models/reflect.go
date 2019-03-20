@@ -10,7 +10,7 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/compute/consts"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/models"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -106,7 +106,7 @@ func GetModels(opts *GetModelsOptions) error {
 	if err != nil {
 		return fmt.Errorf("%s: making list params: %s", manKeyPlural, err)
 	}
-	params.Set(consts.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(consts.LBAGENT_QUERY_ORIG_VAL))
+	params.Set(api.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(api.LBAGENT_QUERY_ORIG_VAL))
 
 	entriesJson := []jsonutils.JSONObject{}
 	for {

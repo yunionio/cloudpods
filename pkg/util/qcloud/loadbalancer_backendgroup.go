@@ -8,8 +8,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type SLBBackendGroup struct {
@@ -141,7 +141,7 @@ func backendGroupIdGen(lbid string, secondId string) string {
 
 func (self *SLBBackendGroup) GetId() string {
 	t := self.listener.GetListenerType()
-	if t == consts.LB_LISTENER_TYPE_HTTP || t == consts.LB_LISTENER_TYPE_HTTPS {
+	if t == api.LB_LISTENER_TYPE_HTTP || t == api.LB_LISTENER_TYPE_HTTPS {
 		// http https 后端服务器只与规则绑定
 		return backendGroupIdGen(self.lb.GetId(), self.rule.GetId())
 	} else if self.lb.Forward == LB_TYPE_APPLICATION {
@@ -161,7 +161,7 @@ func (self *SLBBackendGroup) GetGlobalId() string {
 }
 
 func (self *SLBBackendGroup) GetStatus() string {
-	return consts.LB_STATUS_ENABLED
+	return api.LB_STATUS_ENABLED
 }
 
 func (self *SLBBackendGroup) Refresh() error {
@@ -182,7 +182,7 @@ func (self *SLBBackendGroup) IsDefault() bool {
 }
 
 func (self *SLBBackendGroup) GetType() string {
-	return consts.LB_BACKENDGROUP_TYPE_NORMAL
+	return api.LB_BACKENDGROUP_TYPE_NORMAL
 }
 
 func (self *SLBBackendGroup) GetILoadbalancerBackends() ([]cloudprovider.ICloudLoadbalancerBackend, error) {

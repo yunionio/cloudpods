@@ -27,7 +27,7 @@ func (p *MemoryPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, 
 
 	data := u.SchedData()
 
-	if data.VMEMSize <= 0 {
+	if data.Memory <= 0 {
 		return false, nil
 	}
 
@@ -44,7 +44,7 @@ func (p *MemoryPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 
 	useRsvd := h.UseReserved()
 	freeMemSize := hc.GetFreeMemSize(useRsvd)
-	reqMemSize := d.VMEMSize
+	reqMemSize := int64(d.Memory)
 	if freeMemSize < reqMemSize {
 		totalMemSize := hc.GetTotalMemSize(useRsvd)
 		h.AppendInsufficientResourceError(reqMemSize, totalMemSize, freeMemSize)

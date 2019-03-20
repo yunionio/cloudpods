@@ -11,12 +11,12 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -124,10 +124,10 @@ func (man *SLoadbalancerListenerManager) checkListenerUniqueness(ctx context.Con
 		Equals("loadbalancer_id", lb.Id).
 		Equals("listener_port", listenerPort)
 	switch listenerType {
-	case consts.LB_LISTENER_TYPE_TCP, consts.LB_LISTENER_TYPE_HTTP, consts.LB_LISTENER_TYPE_HTTPS:
-		q = q.NotEquals("listener_type", consts.LB_LISTENER_TYPE_UDP)
-	case consts.LB_LISTENER_TYPE_UDP:
-		q = q.Equals("listener_type", consts.LB_LISTENER_TYPE_UDP)
+	case api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_HTTP, api.LB_LISTENER_TYPE_HTTPS:
+		q = q.NotEquals("listener_type", api.LB_LISTENER_TYPE_UDP)
+	case api.LB_LISTENER_TYPE_UDP:
+		q = q.Equals("listener_type", api.LB_LISTENER_TYPE_UDP)
 	default:
 		return fmt.Errorf("unexpected listener type: %s", listenerType)
 	}
@@ -168,25 +168,25 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(ctx context.Context, q *
 
 func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", ownerProjId)
-	listenerTypeV := validators.NewStringChoicesValidator("listener_type", consts.LB_LISTENER_TYPES)
+	listenerTypeV := validators.NewStringChoicesValidator("listener_type", api.LB_LISTENER_TYPES)
 	listenerPortV := validators.NewPortValidator("listener_port")
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerProjId)
-	aclStatusV := validators.NewStringChoicesValidator("acl_status", consts.LB_BOOL_VALUES)
-	aclTypeV := validators.NewStringChoicesValidator("acl_type", consts.LB_ACL_TYPES)
+	aclStatusV := validators.NewStringChoicesValidator("acl_status", api.LB_BOOL_VALUES)
+	aclTypeV := validators.NewStringChoicesValidator("acl_type", api.LB_ACL_TYPES)
 	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerProjId)
 	keyV := map[string]validators.IValidator{
-		"status": validators.NewStringChoicesValidator("status", consts.LB_STATUS_SPEC).Default(consts.LB_STATUS_ENABLED),
+		"status": validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
 
 		"loadbalancer":  lbV,
 		"listener_type": listenerTypeV,
 		"listener_port": listenerPortV,
 		"backend_group": backendGroupV.Optional(true),
 
-		"acl_status": aclStatusV.Default(consts.LB_BOOL_OFF),
+		"acl_status": aclStatusV.Default(api.LB_BOOL_OFF),
 		"acl_type":   aclTypeV.Optional(true),
 		"acl":        aclV.Optional(true),
 
-		"scheduler": validators.NewStringChoicesValidator("scheduler", consts.LB_SCHEDULER_TYPES),
+		"scheduler": validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
 		"bandwidth": validators.NewRangeValidator("bandwidth", 0, 10000).Optional(true),
 
 		"client_request_timeout":  validators.NewRangeValidator("client_request_timeout", 0, 600).Default(10),
@@ -194,8 +194,8 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		"backend_connect_timeout": validators.NewRangeValidator("backend_connect_timeout", 0, 180).Default(5),
 		"backend_idle_timeout":    validators.NewRangeValidator("backend_idle_timeout", 0, 600).Default(90),
 
-		"sticky_session":                validators.NewStringChoicesValidator("sticky_session", consts.LB_BOOL_VALUES).Default(consts.LB_BOOL_OFF),
-		"sticky_session_type":           validators.NewStringChoicesValidator("sticky_session_type", consts.LB_STICKY_SESSION_TYPES).Default(consts.LB_STICKY_SESSION_TYPE_INSERT),
+		"sticky_session":                validators.NewStringChoicesValidator("sticky_session", api.LB_BOOL_VALUES).Default(api.LB_BOOL_OFF),
+		"sticky_session_type":           validators.NewStringChoicesValidator("sticky_session_type", api.LB_STICKY_SESSION_TYPES).Default(api.LB_STICKY_SESSION_TYPE_INSERT),
 		"sticky_session_cookie":         validators.NewRegexpValidator("sticky_session_cookie", regexp.MustCompile(`\w+`)).Optional(true),
 		"sticky_session_cookie_timeout": validators.NewNonNegativeValidator("sticky_session_cookie_timeout").Optional(true),
 
@@ -237,9 +237,9 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		}
 	}
 	{
-		if listenerType == consts.LB_LISTENER_TYPE_HTTPS {
+		if listenerType == api.LB_LISTENER_TYPE_HTTPS {
 			certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerProjId)
-			tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", consts.LB_TLS_CIPHER_POLICIES).Default(consts.LB_TLS_CIPHER_POLICY_1_2)
+			tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
 			httpsV := map[string]validators.IValidator{
 				"certificate":       certV,
 				"tls_cipher_policy": tlsCipherPolicyV,
@@ -260,12 +260,12 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		// health check default depends on input parameters
 		checkTypeV := man.checkTypeV(listenerType)
 		keyVHealth := map[string]validators.IValidator{
-			"health_check":      validators.NewStringChoicesValidator("health_check", consts.LB_BOOL_VALUES).Default(consts.LB_BOOL_ON),
+			"health_check":      validators.NewStringChoicesValidator("health_check", api.LB_BOOL_VALUES).Default(api.LB_BOOL_ON),
 			"health_check_type": checkTypeV,
 
 			"health_check_domain":    validators.NewDomainNameValidator("health_check_domain").AllowEmpty(true).Default(""),
 			"health_check_path":      validators.NewURLPathValidator("health_check_path").Default(""),
-			"health_check_http_code": validators.NewStringMultiChoicesValidator("health_check_http_code", consts.LB_HEALTH_CHECK_HTTP_CODES).Sep(",").Default(consts.LB_HEALTH_CHECK_HTTP_CODE_DEFAULT),
+			"health_check_http_code": validators.NewStringMultiChoicesValidator("health_check_http_code", api.LB_HEALTH_CHECK_HTTP_CODES).Sep(",").Default(api.LB_HEALTH_CHECK_HTTP_CODE_DEFAULT),
 
 			"health_check_rise":     validators.NewRangeValidator("health_check_rise", 1, 1000).Default(3),
 			"health_check_fall":     validators.NewRangeValidator("health_check_fall", 1, 1000).Default(3),
@@ -293,19 +293,19 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 
 func (man *SLoadbalancerListenerManager) checkTypeV(listenerType string) validators.IValidator {
 	switch listenerType {
-	case consts.LB_LISTENER_TYPE_HTTP, consts.LB_LISTENER_TYPE_HTTPS:
-		return validators.NewStringChoicesValidator("health_check_type", consts.LB_HEALTH_CHECK_TYPES_TCP).Default(consts.LB_HEALTH_CHECK_HTTP)
-	case consts.LB_LISTENER_TYPE_TCP:
-		return validators.NewStringChoicesValidator("health_check_type", consts.LB_HEALTH_CHECK_TYPES_TCP).Default(consts.LB_HEALTH_CHECK_TCP)
-	case consts.LB_LISTENER_TYPE_UDP:
-		return validators.NewStringChoicesValidator("health_check_type", consts.LB_HEALTH_CHECK_TYPES_UDP).Default(consts.LB_HEALTH_CHECK_UDP)
+	case api.LB_LISTENER_TYPE_HTTP, api.LB_LISTENER_TYPE_HTTPS:
+		return validators.NewStringChoicesValidator("health_check_type", api.LB_HEALTH_CHECK_TYPES_TCP).Default(api.LB_HEALTH_CHECK_HTTP)
+	case api.LB_LISTENER_TYPE_TCP:
+		return validators.NewStringChoicesValidator("health_check_type", api.LB_HEALTH_CHECK_TYPES_TCP).Default(api.LB_HEALTH_CHECK_TCP)
+	case api.LB_LISTENER_TYPE_UDP:
+		return validators.NewStringChoicesValidator("health_check_type", api.LB_HEALTH_CHECK_TYPES_UDP).Default(api.LB_HEALTH_CHECK_UDP)
 	}
 	// should it happen, panic then
 	return nil
 }
 
 func (man *SLoadbalancerListenerManager) validateAcl(aclStatusV *validators.ValidatorStringChoices, aclTypeV *validators.ValidatorStringChoices, aclV *validators.ValidatorModelIdOrName, data *jsonutils.JSONDict) error {
-	if aclStatusV.Value == consts.LB_BOOL_ON {
+	if aclStatusV.Value == api.LB_BOOL_ON {
 		if aclV.Model == nil {
 			return httperrors.NewMissingParameterError("acl")
 		}
@@ -326,7 +326,7 @@ func (lblis *SLoadbalancerListener) PerformStatus(ctx context.Context, userCred 
 	if _, err := lblis.SVirtualResourceBase.PerformStatus(ctx, userCred, query, data); err != nil {
 		return nil, err
 	}
-	if lblis.Status == consts.LB_STATUS_ENABLED {
+	if lblis.Status == api.LB_STATUS_ENABLED {
 		return nil, lblis.StartLoadBalancerListenerStartTask(ctx, userCred, "")
 	}
 	return nil, lblis.StartLoadBalancerListenerStopTask(ctx, userCred, "")
@@ -356,7 +356,7 @@ func (lblis *SLoadbalancerListener) AllowPerformSyncstatus(ctx context.Context, 
 
 func (lblis *SLoadbalancerListener) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	params := jsonutils.NewDict()
-	if utils.IsInStringArray(lblis.Status, []string{consts.LB_STATUS_ENABLED, consts.LB_STATUS_DISABLED}) {
+	if utils.IsInStringArray(lblis.Status, []string{api.LB_STATUS_ENABLED, api.LB_STATUS_DISABLED}) {
 		params.Add(jsonutils.NewString(lblis.Status), "origin_status")
 	}
 	return nil, lblis.StartLoadBalancerListenerSyncstatusTask(ctx, userCred, params, "")
@@ -374,15 +374,15 @@ func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncstatusTask(ctx 
 func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	ownerProjId := lblis.GetOwnerProjectId()
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerProjId)
-	aclStatusV := validators.NewStringChoicesValidator("acl_status", consts.LB_BOOL_VALUES)
+	aclStatusV := validators.NewStringChoicesValidator("acl_status", api.LB_BOOL_VALUES)
 	aclStatusV.Default(lblis.AclStatus)
-	aclTypeV := validators.NewStringChoicesValidator("acl_type", consts.LB_ACL_TYPES)
-	if consts.LB_ACL_TYPES.Has(lblis.AclType) {
+	aclTypeV := validators.NewStringChoicesValidator("acl_type", api.LB_ACL_TYPES)
+	if api.LB_ACL_TYPES.Has(lblis.AclType) {
 		aclTypeV.Default(lblis.AclType)
 	}
 	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerProjId)
 	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerProjId)
-	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", consts.LB_TLS_CIPHER_POLICIES).Default(consts.LB_TLS_CIPHER_POLICY_1_2)
+	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
 	keyV := map[string]validators.IValidator{
 		"backend_group": backendGroupV,
 
@@ -390,7 +390,7 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		"acl_type":   aclTypeV,
 		"acl":        aclV,
 
-		"scheduler": validators.NewStringChoicesValidator("scheduler", consts.LB_SCHEDULER_TYPES),
+		"scheduler": validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
 		"bandwidth": validators.NewRangeValidator("bandwidth", 0, 10000),
 
 		"client_request_timeout":  validators.NewRangeValidator("client_request_timeout", 0, 600),
@@ -398,17 +398,17 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		"backend_connect_timeout": validators.NewRangeValidator("backend_connect_timeout", 0, 180),
 		"backend_idle_timeout":    validators.NewRangeValidator("backend_idle_timeout", 0, 600),
 
-		"sticky_session":                validators.NewStringChoicesValidator("sticky_session", consts.LB_BOOL_VALUES),
-		"sticky_session_type":           validators.NewStringChoicesValidator("sticky_session_type", consts.LB_STICKY_SESSION_TYPES),
+		"sticky_session":                validators.NewStringChoicesValidator("sticky_session", api.LB_BOOL_VALUES),
+		"sticky_session_type":           validators.NewStringChoicesValidator("sticky_session_type", api.LB_STICKY_SESSION_TYPES),
 		"sticky_session_cookie":         validators.NewRegexpValidator("sticky_session_cookie", regexp.MustCompile(`\w+`)),
 		"sticky_session_cookie_timeout": validators.NewNonNegativeValidator("sticky_session_cookie_timeout"),
 
-		"health_check":      validators.NewStringChoicesValidator("health_check", consts.LB_BOOL_VALUES),
+		"health_check":      validators.NewStringChoicesValidator("health_check", api.LB_BOOL_VALUES),
 		"health_check_type": LoadbalancerListenerManager.checkTypeV(lblis.ListenerType),
 
 		"health_check_domain":    validators.NewDomainNameValidator("health_check_domain").AllowEmpty(true),
 		"health_check_path":      validators.NewURLPathValidator("health_check_path"),
-		"health_check_http_code": validators.NewStringMultiChoicesValidator("health_check_http_code", consts.LB_HEALTH_CHECK_HTTP_CODES).Sep(","),
+		"health_check_http_code": validators.NewStringMultiChoicesValidator("health_check_http_code", api.LB_HEALTH_CHECK_HTTP_CODES).Sep(","),
 
 		"health_check_rise":     validators.NewRangeValidator("health_check_rise", 1, 1000),
 		"health_check_fall":     validators.NewRangeValidator("health_check_fall", 1, 1000),
@@ -459,10 +459,10 @@ func (lblis *SLoadbalancerListener) PostUpdate(ctx context.Context, userCred mcc
 
 func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	params := jsonutils.NewDict()
-	if utils.IsInStringArray(lblis.Status, []string{consts.LB_STATUS_ENABLED, consts.LB_STATUS_DISABLED}) {
+	if utils.IsInStringArray(lblis.Status, []string{api.LB_STATUS_ENABLED, api.LB_STATUS_DISABLED}) {
 		params.Add(jsonutils.NewString(lblis.Status), "origin_status")
 	}
-	lblis.SetStatus(userCred, consts.LB_SYNC_CONF, "")
+	lblis.SetStatus(userCred, api.LB_SYNC_CONF, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerListenerSyncTask", lblis, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -505,7 +505,7 @@ func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCre
 func (lblis *SLoadbalancerListener) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	lblis.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 
-	lblis.SetStatus(userCred, consts.LB_CREATING, "")
+	lblis.SetStatus(userCred, api.LB_CREATING, "")
 	if err := lblis.StartLoadBalancerListenerCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancer listener error: %v", err)
 	}
@@ -548,7 +548,7 @@ func (lblis *SLoadbalancerListener) StartLoadBalancerListenerDeleteTask(ctx cont
 }
 
 func (lblis *SLoadbalancerListener) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	lblis.SetStatus(userCred, consts.LB_STATUS_DELETING, "")
+	lblis.SetStatus(userCred, api.LB_STATUS_DELETING, "")
 	return lblis.StartLoadBalancerListenerDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -603,7 +603,7 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovi
 		listener.AccessControlListType = lblis.AclType
 		listener.AccessControlListStatus = lblis.AclStatus
 	}
-	if certificate := lblis.GetLoadbalancerCertificate(); certificate != nil && lblis.ListenerType == consts.LB_LISTENER_TYPE_HTTPS {
+	if certificate := lblis.GetLoadbalancerCertificate(); certificate != nil && lblis.ListenerType == api.LB_LISTENER_TYPE_HTTPS {
 		listener.CertificateID = certificate.ExternalId
 	}
 
@@ -756,7 +756,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 	lblis.BackendServerPort = extListener.GetBackendServerPort()
 
 	switch lblis.ListenerType {
-	case consts.LB_LISTENER_TYPE_HTTPS:
+	case api.LB_LISTENER_TYPE_HTTPS:
 		lblis.TLSCipherPolicy = extListener.GetTLSCipherPolicy()
 		lblis.EnableHttp2 = extListener.HTTP2Enabled()
 		if certificateId := extListener.GetCertificateId(); len(certificateId) > 0 {
@@ -765,7 +765,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 			}
 		}
 		fallthrough
-	case consts.LB_LISTENER_TYPE_HTTP:
+	case api.LB_LISTENER_TYPE_HTTP:
 		lblis.StickySession = extListener.GetStickySession()
 		lblis.StickySessionType = extListener.GetStickySessionType()
 		lblis.StickySessionCookie = extListener.GetStickySessionCookie()
@@ -799,7 +799,7 @@ func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx cont
 
 	err := lblis.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
-		err = lblis.SetStatus(userCred, consts.LB_STATUS_UNKNOWN, "sync to delete")
+		err = lblis.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
 		err = lblis.Delete(ctx, userCred)
 	}

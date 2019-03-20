@@ -11,7 +11,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/version"
 
-	"yunion.io/x/onecloud/pkg/compute/consts"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	agentmodels "yunion.io/x/onecloud/pkg/lbagent/models"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -37,7 +37,7 @@ func NewApiHelper(opts *Options) (*ApiHelper, error) {
 	helper := &ApiHelper{
 		opts:       opts,
 		dataDirMan: agentutils.NewConfigDirManager(opts.apiDataStoreDir),
-		haState:    consts.LB_HA_STATE_UNKNOWN,
+		haState:    api.LB_HA_STATE_UNKNOWN,
 	}
 	return helper, nil
 }
@@ -69,7 +69,7 @@ func (h *ApiHelper) Run(ctx context.Context) {
 			}
 		case state := <-h.haStateProvider.StateChannel():
 			switch state {
-			case consts.LB_HA_STATE_BACKUP:
+			case api.LB_HA_STATE_BACKUP:
 				h.doStopDaemons(ctx)
 			default:
 				if state != h.haState {
@@ -98,7 +98,7 @@ func (h *ApiHelper) adminClientSession(ctx context.Context) *mcclient.ClientSess
 func (h *ApiHelper) agentPeekOnce(ctx context.Context) (*models.LoadbalancerAgent, error) {
 	s := h.adminClientSession(ctx)
 	params := jsonutils.NewDict()
-	params.Set(consts.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(consts.LBAGENT_QUERY_ORIG_VAL))
+	params.Set(api.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(api.LBAGENT_QUERY_ORIG_VAL))
 	data, err := modules.LoadbalancerAgents.Get(s, h.opts.ApiLbagentId, params)
 	if err != nil {
 		err := fmt.Errorf("agent get error: %s", err)
@@ -116,7 +116,7 @@ func (h *ApiHelper) agentPeekOnce(ctx context.Context) (*models.LoadbalancerAgen
 func (h *ApiHelper) agentPeekPeers(ctx context.Context, vri int) ([]*models.LoadbalancerAgent, error) {
 	s := h.adminClientSession(ctx)
 	params := jsonutils.NewDict()
-	params.Set(consts.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(consts.LBAGENT_QUERY_ORIG_VAL))
+	params.Set(api.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(api.LBAGENT_QUERY_ORIG_VAL))
 	listResult, err := modules.LoadbalancerAgents.List(s, params)
 	if err != nil {
 		err := fmt.Errorf("agent listing error: %s", err)

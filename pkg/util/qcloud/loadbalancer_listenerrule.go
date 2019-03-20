@@ -6,8 +6,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type SLBListenerRule struct {
@@ -86,7 +86,7 @@ func (self *SLBListenerRule) GetProjectId() string {
 
 func (self *SLBListenerRule) GetBackendGroup() *SLBBackendGroup {
 	t := self.listener.GetListenerType()
-	if t == consts.LB_LISTENER_TYPE_HTTP || t == consts.LB_LISTENER_TYPE_HTTPS {
+	if t == api.LB_LISTENER_TYPE_HTTP || t == api.LB_LISTENER_TYPE_HTTPS {
 		return &SLBBackendGroup{
 			lb:       self.listener.lb,
 			listener: self.listener,

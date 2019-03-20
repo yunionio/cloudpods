@@ -7,9 +7,9 @@ import (
 
 	"yunion.io/x/pkg/utils"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
-	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
@@ -35,7 +35,7 @@ func (p *NetworkPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool,
 
 	u.AppendSelectPlugin(p)
 	d := u.SchedData()
-	if len(d.HostID) > 0 && len(d.Networks) == 0 {
+	if len(d.HostId) > 0 && len(d.Networks) == 0 {
 		return false, nil
 	}
 
@@ -54,36 +54,36 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	counters := core.NewCounters()
 
 	isMigrate := func() bool {
-		return len(schedData.HostID) > 0
+		return len(schedData.HostId) > 0
 	}
 
 	isRandomNetworkAvailable := func(private bool, exit bool, wire string) string {
 		var errMsgs []string
 		for _, network := range candidate.Networks {
 			appendError := func(errMsg string) {
-				errMsgs = append(errMsgs, fmt.Sprintf("%s: %s", network.ID, errMsg))
+				errMsgs = append(errMsgs, fmt.Sprintf("%s: %s", network.Id, errMsg))
 			}
-			if !((network.Ports > 0 || isMigrate()) && network.IsExit == exit) {
+			if !((network.GetPorts() > 0 || isMigrate()) && network.IsExitNetwork() == exit) {
 				appendError(predicates.ErrNoPorts)
 			}
-			if wire != "" && !utils.HasPrefix(wire, network.Wire) && !utils.HasPrefix(wire, network.WireID) { // re
+			if wire != "" && !utils.HasPrefix(wire, network.WireId) && !utils.HasPrefix(wire, network.GetWire().GetName()) { // re
 				appendError(predicates.ErrWireIsNotMatch)
 			}
-			if (!private && network.IsPublic) || (private && !network.IsPublic && network.TenantID == schedData.OwnerTenantID) {
+			if (!private && network.IsPublic) || (private && !network.IsPublic && network.ProjectId == schedData.Project) {
 				// TODO: support reservedNetworks
 				reservedNetworks := 0
-				restPort := int64(network.Ports - reservedNetworks)
+				restPort := int64(network.GetPorts() - reservedNetworks)
 				if restPort == 0 {
 					appendError("not enough network port")
 					continue
 				}
-				counter := u.CounterManager.GetOrCreate("net:"+network.ID, func() core.Counter {
+				counter := u.CounterManager.GetOrCreate("net:"+network.Id, func() core.Counter {
 					return core.NewNormalCounter(restPort)
 				})
 
-				u.SharedResourceManager.Add(network.ID, counter)
+				u.SharedResourceManager.Add(network.Id, counter)
 				counters.Add(counter)
-				p.SelectedNetworks.Store(network.ID, counter.GetCount())
+				p.SelectedNetworks.Store(network.Id, counter.GetCount())
 				return ""
 			} else {
 				appendError(predicates.ErrNotOwner)
@@ -100,12 +100,12 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		h.SetCapacityCounter(counters)
 	}
 
-	isNetworkAvaliable := func(network *api.Network) string {
-		if network.Idx == "" {
+	isNetworkAvaliable := func(network *computeapi.NetworkConfig) string {
+		if network.Network == "" {
 			return isRandomNetworkAvailable(network.Private, network.Exit, network.Wire)
 		}
 		for _, net := range candidate.Networks {
-			if (network.Idx == net.ID || network.Idx == net.Name) && (net.IsPublic || net.TenantID == schedData.OwnerTenantID) && (net.Ports > 0 || isMigrate()) {
+			if (network.Network == net.Id || network.Network == net.Name) && (net.IsPublic || net.ProjectId == schedData.Project) && (net.GetPorts() > 0 || isMigrate()) {
 				h.SetCapacity(1)
 				return ""
 			}

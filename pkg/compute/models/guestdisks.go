@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -247,6 +248,7 @@ func (self *SGuestdisk) Detach(ctx context.Context, userCred mcclient.TokenCrede
 	return db.DetachJoint(ctx, userCred, self)
 }
 
+// DEPRECATE: will be remove in future, use ToDiskConfig
 func (self *SGuestdisk) ToDiskInfo() DiskInfo {
 	disk := self.GetDisk()
 	if disk == nil {
@@ -256,4 +258,14 @@ func (self *SGuestdisk) ToDiskInfo() DiskInfo {
 	info.Driver = self.Driver
 	info.Cache = self.CacheMode
 	return info
+}
+
+func (self *SGuestdisk) ToDiskConfig() *api.DiskConfig {
+	disk := self.GetDisk()
+	if disk == nil {
+		return nil
+	}
+	conf := disk.ToDiskConfig()
+	conf.Index = int(self.Index)
+	return conf
 }

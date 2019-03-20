@@ -6,10 +6,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -23,10 +23,10 @@ func init() {
 }
 
 func (self *LoadbalancerCreateTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, reason string) {
-	lb.SetStatus(self.GetUserCred(), consts.LB_CREATE_FAILED, reason)
+	lb.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason)
 	db.OpsLog.LogEvent(lb, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_CREATE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lb.Id, lb.Name, consts.LB_CREATE_FAILED, reason)
+	notifyclient.NotifySystemError(lb.Id, lb.Name, api.LB_CREATE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -44,7 +44,7 @@ func (self *LoadbalancerCreateTask) OnInit(ctx context.Context, obj db.IStandalo
 }
 
 func (self *LoadbalancerCreateTask) OnLoadbalancerCreateComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
-	lb.SetStatus(self.GetUserCred(), consts.LB_STATUS_ENABLED, "")
+	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lb, db.ACT_ALLOCATE, lb.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStage("OnLoadbalancerStartComplete", nil)
@@ -56,11 +56,11 @@ func (self *LoadbalancerCreateTask) OnLoadbalancerCreateCompleteFailed(ctx conte
 }
 
 func (self *LoadbalancerCreateTask) OnLoadbalancerStartComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
-	lb.SetStatus(self.GetUserCred(), consts.LB_STATUS_ENABLED, "")
+	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *LoadbalancerCreateTask) OnLoadbalancerStartCompleteFailed(ctx context.Context, lb *models.SLoadbalancer, reason jsonutils.JSONObject) {
-	lb.SetStatus(self.GetUserCred(), consts.LB_STATUS_DISABLED, reason.String())
+	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_DISABLED, reason.String())
 	self.SetStageFailed(ctx, reason.String())
 }

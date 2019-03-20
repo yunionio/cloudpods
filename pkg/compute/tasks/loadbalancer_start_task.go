@@ -6,10 +6,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -23,10 +23,10 @@ func init() {
 }
 
 func (self *LoadbalancerStartTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, reason string) {
-	lb.SetStatus(self.GetUserCred(), consts.LB_STATUS_DISABLED, reason)
+	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_DISABLED, reason)
 	db.OpsLog.LogEvent(lb, db.ACT_ENABLE, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_ENABLE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lb.Id, lb.Name, consts.LB_STATUS_DISABLED, reason)
+	notifyclient.NotifySystemError(lb.Id, lb.Name, api.LB_STATUS_DISABLED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -44,7 +44,7 @@ func (self *LoadbalancerStartTask) OnInit(ctx context.Context, obj db.IStandalon
 }
 
 func (self *LoadbalancerStartTask) OnLoadbalancerStartComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
-	lb.SetStatus(self.GetUserCred(), consts.LB_STATUS_ENABLED, "")
+	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lb, db.ACT_ENABLE, lb.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_ENABLE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)

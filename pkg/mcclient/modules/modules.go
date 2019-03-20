@@ -11,6 +11,7 @@ import (
 
 type BaseManagerInterface interface {
 	Version() string
+	GetKeyword() string
 	KeyString() string
 	ServiceType() string
 	EndpointType() string

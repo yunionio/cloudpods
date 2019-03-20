@@ -27,7 +27,7 @@ func (f *HypervisorPredicate) Clone() core.FitPredicate {
 }
 
 func hostHasContainerTag(c core.Candidater) bool {
-	aggs := c.GetHostAggregates()
+	aggs := c.Getter().HostSchedtags()
 	for _, agg := range aggs {
 		if agg.Name == CONTAINER_ALLOWED_TAG {
 			return true

@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -55,32 +56,21 @@ func (self *SBaremetalGuestDriver) GetMaxVMemSizeGB() int {
 	return 4096
 }
 
-func (self *SBaremetalGuestDriver) PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *models.SHost, params *jsonutils.JSONDict) error {
+func (self *SBaremetalGuestDriver) PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *models.SHost, confs []*api.BaremetalDiskConfig) error {
 	baremetalStorage := models.ConvertStorageInfo2BaremetalStorages(host.StorageInfo)
 	if baremetalStorage == nil {
 		return fmt.Errorf("Convert storage info error")
 	}
-	confs, err := params.GetArray("baremetal_disk_config")
-	if err != nil {
+	if len(confs) == 0 {
 		parsedConf, _ := baremetal.ParseDiskConfig("")
-		nConfs := []*baremetal.BaremetalDiskConfig{&parsedConf}
+		nConfs := []*api.BaremetalDiskConfig{&parsedConf}
 		layouts, err := baremetal.CalculateLayout(nConfs, baremetalStorage)
 		if err != nil {
 			return err
 		}
 		return host.UpdateDiskConfig(userCred, layouts)
 	} else {
-		var nConfs = make([]*baremetal.BaremetalDiskConfig, 0)
-		for i := 0; i < len(confs); i++ {
-			parsedConf := &baremetal.BaremetalDiskConfig{}
-			err := confs[i].Unmarshal(parsedConf)
-			if err != nil {
-				log.Errorln(err)
-				return err
-			}
-			nConfs = append(nConfs, parsedConf)
-		}
-		layouts, err := baremetal.CalculateLayout(nConfs, baremetalStorage)
+		layouts, err := baremetal.CalculateLayout(confs, baremetalStorage)
 		if err != nil {
 			return err
 		}
@@ -104,7 +94,7 @@ func (self *SBaremetalGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk
 	return httperrors.NewUnsupportOperationError("Cannot resize disk for baremtal")
 }
 
-func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig) (*models.SNetwork, []models.SNicConfig, models.IPAddlocationDirection) {
+func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, models.IPAddlocationDirection) {
 	netifs, net := host.GetNetinterfacesWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
 	if netifs != nil {
 		nicCnt := 1
@@ -135,7 +125,7 @@ func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []string {
 	return []string{models.NETWORK_TYPE_BAREMETAL, models.NETWORK_TYPE_GUEST}
 }
 
-func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
+func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
 	netifs := host.GetNetInterfaces()
 	netsAvaiable := make([]models.SNetwork, 0)
 	netifIndexs := make(map[string][]models.SNetInterface, 0)
@@ -201,6 +191,10 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 		return guest.Attach2Network(ctx, userCred, net, pendingUsage, "", netConfig.Driver, netConfig.BwLimit, netConfig.Vip, false, models.IPAllocationStepup, false, nicConfs)
 	}
 	return nil, fmt.Errorf("No appropriate host virtual network...")
+}
+
+func (self *SBaremetalGuestDriver) GetStorageTypes() []string {
+	return nil
 }
 
 func (self *SBaremetalGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
@@ -298,35 +292,37 @@ func (self *SBaremetalGuestDriver) StartGuestSyncstatusTask(guest *models.SGuest
 	return nil
 }
 
-func (self *SBaremetalGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	var confs = make([]baremetal.BaremetalDiskConfig, 0)
-	jsonArray := jsonutils.GetArrayOfPrefix(data, "baremetal_disk_config")
-	for i := 0; i < len(jsonArray); i += 1 {
-		// for data.Contains(fmt.Sprintf("baremetal_disk_config.%d", len(confs))) {
-		desc, _ := jsonArray[i].GetString() // data.GetString(fmt.Sprintf("baremetal_disk_config.%d", len(confs)))
-		data.Remove(fmt.Sprintf("baremetal_disk_config.%d", i))
-		bmConf, err := baremetal.ParseDiskConfig(desc)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("baremetal_disk_config.%d", i)
-		}
-		confs = append(confs, bmConf)
-	}
-	if len(confs) == 0 {
-		bmConf, _ := baremetal.ParseDiskConfig("")
-		confs = append(confs, bmConf)
-	}
-	data.Set("baremetal_disk_config", jsonutils.Marshal(confs))
-	if !data.Contains("disk.0") {
+func (self *SBaremetalGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	/*var confs = make([]api.BaremetalDiskConfig, 0)*/
+	//jsonArray := jsonutils.GetArrayOfPrefix(data, "baremetal_disk_config")
+	//for i := 0; i < len(jsonArray); i += 1 {
+	//// for data.Contains(fmt.Sprintf("baremetal_disk_config.%d", len(confs))) {
+	//desc, _ := jsonArray[i].GetString() // data.GetString(fmt.Sprintf("baremetal_disk_config.%d", len(confs)))
+	//data.Remove(fmt.Sprintf("baremetal_disk_config.%d", i))
+	//bmConf, err := baremetal.ParseDiskConfig(desc)
+	//if err != nil {
+	//return nil, httperrors.NewInputParameterError("baremetal_disk_config.%d", i)
+	//}
+	//confs = append(confs, bmConf)
+	//}
+	//if len(confs) == 0 {
+	//bmConf, _ := baremetal.ParseDiskConfig("")
+	//confs = append(confs, bmConf)
+	//}
+	/*data.Set("baremetal_disk_config", jsonutils.Marshal(confs))*/
+	if len(input.Disks) <= 0 {
 		return nil, httperrors.NewInputParameterError("Root disk must be present")
 	}
-	disk0, _ := data.Get("disk.0")
-	if !disk0.Contains("image_id") {
+
+	disk0 := input.Disks[0]
+
+	if disk0.ImageId == "" {
 		return nil, httperrors.NewInputParameterError("Root disk must have templete")
 	}
-	return data, nil
+	return input, nil
 }
 
-func (self *SBaremetalGuestDriver) ValidateCreateHostData(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SBaremetalGuestDriver) ValidateCreateHostData(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	if host.HostType != models.HOST_TYPE_BAREMETAL || !host.IsBaremetal {
 		return nil, httperrors.NewInputParameterError("Host %s is not a baremetal", bmName)
 	}
@@ -336,9 +332,9 @@ func (self *SBaremetalGuestDriver) ValidateCreateHostData(ctx context.Context, u
 	if host.GetBaremetalServer() != nil {
 		return nil, httperrors.NewInsufficientResourceError("Baremetal %s is occupied", bmName)
 	}
-	data.Set("vmem_size", jsonutils.NewInt(int64(host.MemSize)))
-	data.Set("vcpu_count", jsonutils.NewInt(int64(host.CpuCount)))
-	return data, nil
+	input.VmemSize = host.MemSize
+	input.VcpuCount = int(host.CpuCount)
+	return input, nil
 }
 
 func (self *SBaremetalGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {

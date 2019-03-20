@@ -12,9 +12,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -426,7 +426,7 @@ func (lbagent *SLoadbalancerAgent) AllowPerformHb(ctx context.Context, userCred 
 
 func (lbagent *SLoadbalancerAgent) PerformHb(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	ipV := validators.NewIPv4AddrValidator("ip")
-	haStateV := validators.NewStringChoicesValidator("ha_state", consts.LB_HA_STATES)
+	haStateV := validators.NewStringChoicesValidator("ha_state", api.LB_HA_STATES)
 	{
 		keyV := map[string]validators.IValidator{
 			"ip":       ipV,

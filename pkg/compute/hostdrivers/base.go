@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
@@ -156,17 +157,17 @@ func (self *SBaseHostDriver) GetRaidScheme(host *models.SHost, raid string) (str
 			candidates = []string{raid}
 		}
 	}
-	var conf []*baremetal.BaremetalDiskConfig
+	var conf []*api.BaremetalDiskConfig
 	for i := 0; i < len(candidates); i++ {
 		if candidates[i] == baremetal.DISK_CONF_NONE {
-			conf = []*baremetal.BaremetalDiskConfig{}
+			conf = []*api.BaremetalDiskConfig{}
 		} else {
 			parsedConf, err := baremetal.ParseDiskConfig(candidates[i])
 			if err != nil {
 				log.Errorf("try raid %s failed: %s", candidates[i], err.Error())
 				return "", err
 			}
-			conf = []*baremetal.BaremetalDiskConfig{&parsedConf}
+			conf = []*api.BaremetalDiskConfig{&parsedConf}
 		}
 		baremetalStorage := models.ConvertStorageInfo2BaremetalStorages(host.StorageInfo)
 		if baremetalStorage == nil {

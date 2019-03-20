@@ -15,7 +15,8 @@ import (
 	utiltrace "yunion.io/x/pkg/util/trace"
 	"yunion.io/x/pkg/util/workqueue"
 
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 const (
@@ -99,12 +100,12 @@ func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater) (*Sched
 
 	// new trace follow all steps
 	trace := utiltrace.New(fmt.Sprintf("SessionID: %s, schedule info: %s",
-		schedInfo.SessionID, unit.Info()))
+		schedInfo.SessionId, unit.Info()))
 
 	defer trace.LogIfLong(100 * time.Millisecond)
 	if len(candidates) == 0 {
 		return nil, &NoResourceError{
-			sessionID: schedInfo.SessionID,
+			sessionID: schedInfo.SessionId,
 			info:      unit.Info(),
 		}
 	}
@@ -166,13 +167,14 @@ func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
 	showDetails := u.SchedInfo.ShowSuggestionDetails
 	id := c.IndexKey()
 	r := &SchedResultItem{
-		ID:         id,
-		Count:      count,
-		Capacity:   u.GetCapacity(id),
-		Name:       fmt.Sprintf("%v", c.Get("Name")),
-		Score:      u.GetScore(id).DigitString(),
-		Data:       u.GetFiltedData(id, count),
-		Candidater: c,
+		ID:                id,
+		Count:             count,
+		Capacity:          u.GetCapacity(id),
+		Name:              fmt.Sprintf("%v", c.Get("Name")),
+		Score:             u.GetScore(id).DigitString(),
+		Data:              u.GetFiltedData(id, count),
+		Candidater:        c,
+		AllocatedResource: u.GetAllocatedResource(id),
 	}
 
 	if showDetails {
@@ -237,6 +239,16 @@ type SchedResultItem struct {
 	ScoreDetails    string           `json:"score_details"`
 
 	Candidater Candidater `json:"-"`
+
+	*AllocatedResource
+}
+
+func (item *SchedResultItem) ToCandidateResource() *schedapi.CandidateResource {
+	return &schedapi.CandidateResource{
+		HostId: item.ID,
+		Name:   item.Name,
+		Disks:  item.Disks,
+	}
 }
 
 func GetCapacities(u *Unit, id string) (res map[string]int64) {

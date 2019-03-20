@@ -37,13 +37,13 @@ func (p *GroupPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, e
 
 	for _, r := range d.GroupRelations {
 		if r.Strategy == "exclude" {
-			p.ExcludeGroups = append(p.ExcludeGroups, r.GroupID)
+			p.ExcludeGroups = append(p.ExcludeGroups, r.GroupId)
 		} else if r.Strategy == "require" {
-			p.RequireGroups = append(p.RequireGroups, r.GroupID)
+			p.RequireGroups = append(p.RequireGroups, r.GroupId)
 		} else if r.Strategy == "avoid" {
-			p.AvoidGroups = append(p.AvoidGroups, r.GroupID)
+			p.AvoidGroups = append(p.AvoidGroups, r.GroupId)
 		} else if r.Strategy == "prefer" {
-			p.PreferGroups = append(p.PreferGroups, r.GroupID)
+			p.PreferGroups = append(p.PreferGroups, r.GroupId)
 		}
 	}
 	u.AppendSelectPlugin(p)

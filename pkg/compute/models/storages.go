@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -21,80 +22,68 @@ import (
 )
 
 const (
-	STORAGE_LOCAL     = "local"
-	STORAGE_BAREMETAL = "baremetal"
-	STORAGE_SHEEPDOG  = "sheepdog"
-	STORAGE_RBD       = "rbd"
-	STORAGE_DOCKER    = "docker"
-	STORAGE_NAS       = "nas"
-	STORAGE_VSAN      = "vsan"
-	STORAGE_NFS       = "nfs"
+	STORAGE_LOCAL     = api.STORAGE_LOCAL
+	STORAGE_BAREMETAL = api.STORAGE_BAREMETAL
+	STORAGE_SHEEPDOG  = api.STORAGE_SHEEPDOG
+	STORAGE_RBD       = api.STORAGE_RBD
+	STORAGE_DOCKER    = api.STORAGE_DOCKER
+	STORAGE_NAS       = api.STORAGE_NAS
+	STORAGE_VSAN      = api.STORAGE_VSAN
+	STORAGE_NFS       = api.STORAGE_NFS
 
-	STORAGE_PUBLIC_CLOUD     = "cloud"
-	STORAGE_CLOUD_EFFICIENCY = "cloud_efficiency"
-	STORAGE_CLOUD_SSD        = "cloud_ssd"
-	STORAGE_CLOUD_ESSD       = "cloud_essd"    //增强型(Enhanced)SSD 云盘
-	STORAGE_EPHEMERAL_SSD    = "ephemeral_ssd" //单块本地SSD盘, 容量最大不能超过800 GiB
+	STORAGE_PUBLIC_CLOUD     = api.STORAGE_PUBLIC_CLOUD
+	STORAGE_CLOUD_EFFICIENCY = api.STORAGE_CLOUD_EFFICIENCY
+	STORAGE_CLOUD_SSD        = api.STORAGE_CLOUD_SSD
+	STORAGE_CLOUD_ESSD       = api.STORAGE_CLOUD_ESSD    //增强型(Enhanced)SSD 云盘
+	STORAGE_EPHEMERAL_SSD    = api.STORAGE_EPHEMERAL_SSD //单块本地SSD盘, 容量最大不能超过800 GiB
 
 	//Azure hdd and ssd storagetype
-	STORAGE_STANDARD_LRS    = "standard_lrs"
-	STORAGE_STANDARDSSD_LRS = "standardssd_lrs"
-	STORAGE_PREMIUM_LRS     = "premium_lrs"
+	STORAGE_STANDARD_LRS    = api.STORAGE_STANDARD_LRS
+	STORAGE_STANDARDSSD_LRS = api.STORAGE_STANDARDSSD_LRS
+	STORAGE_PREMIUM_LRS     = api.STORAGE_PREMIUM_LRS
 
 	// aws storage type
-	STORAGE_GP2_SSD      = "gp2"      // aws general purpose ssd
-	STORAGE_IO1_SSD      = "io1"      // aws Provisioned IOPS SSD
-	STORAGE_ST1_HDD      = "st1"      // aws Throughput Optimized HDD
-	STORAGE_SC1_HDD      = "sc1"      // aws Cold HDD
-	STORAGE_STANDARD_HDD = "standard" // aws Magnetic volumes
+	STORAGE_GP2_SSD      = api.STORAGE_GP2_SSD      // aws general purpose ssd
+	STORAGE_IO1_SSD      = api.STORAGE_IO1_SSD      // aws Provisioned IOPS SSD
+	STORAGE_ST1_HDD      = api.STORAGE_ST1_HDD      // aws Throughput Optimized HDD
+	STORAGE_SC1_HDD      = api.STORAGE_SC1_HDD      // aws Cold HDD
+	STORAGE_STANDARD_HDD = api.STORAGE_STANDARD_HDD // aws Magnetic volumes
 
 	// qcloud storage type
 	// STORAGE_CLOUD_SSD ="cloud_ssd"
-	STORAGE_LOCAL_BASIC   = "local_basic"
-	STORAGE_LOCAL_SSD     = "local_ssd"
-	STORAGE_CLOUD_BASIC   = "cloud_basic"
-	STORAGE_CLOUD_PREMIUM = "cloud_premium"
+	STORAGE_LOCAL_BASIC   = api.STORAGE_LOCAL_BASIC
+	STORAGE_LOCAL_SSD     = api.STORAGE_LOCAL_SSD
+	STORAGE_CLOUD_BASIC   = api.STORAGE_CLOUD_BASIC
+	STORAGE_CLOUD_PREMIUM = api.STORAGE_CLOUD_PREMIUM
 
 	// huawei storage type
-	STORAGE_HUAWEI_SSD  = "SSD"  // 超高IO云硬盘
-	STORAGE_HUAWEI_SAS  = "SAS"  // 高IO云硬盘
-	STORAGE_HUAWEI_SATA = "SATA" // 普通IO云硬盘
+	STORAGE_HUAWEI_SSD  = api.STORAGE_HUAWEI_SSD  // 超高IO云硬盘
+	STORAGE_HUAWEI_SAS  = api.STORAGE_HUAWEI_SAS  // 高IO云硬盘
+	STORAGE_HUAWEI_SATA = api.STORAGE_HUAWEI_SATA // 普通IO云硬盘
 
 	// openstack
-	STORAGE_OPENSTACK_ISCSI = "iscsi"
+	STORAGE_OPENSTACK_ISCSI = api.STORAGE_OPENSTACK_ISCSI
 )
 
 const (
-	STORAGE_ENABLED = "enabled"
+	STORAGE_ENABLED = api.STORAGE_ENABLED
 	// STORAGE_DISABLED = "disabled"
-	STORAGE_OFFLINE = "offline"
-	STORAGE_ONLINE  = "online"
+	STORAGE_OFFLINE = api.STORAGE_OFFLINE
+	STORAGE_ONLINE  = api.STORAGE_ONLINE
 
-	DISK_TYPE_ROTATE = "rotate"
-	DISK_TYPE_SSD    = "ssd"
-	DISK_TYPE_HYBRID = "hybrid"
+	DISK_TYPE_ROTATE = api.DISK_TYPE_ROTATE
+	DISK_TYPE_SSD    = api.DISK_TYPE_SSD
+	DISK_TYPE_HYBRID = api.DISK_TYPE_HYBRID
 )
 
 var (
-	DISK_TYPES            = []string{DISK_TYPE_ROTATE, DISK_TYPE_SSD, DISK_TYPE_HYBRID}
-	STORAGE_LOCAL_TYPES   = []string{STORAGE_LOCAL, STORAGE_BAREMETAL}
+	DISK_TYPES            = api.DISK_TYPES
+	STORAGE_LOCAL_TYPES   = api.STORAGE_LOCAL_TYPES
 	STORAGE_SUPPORT_TYPES = STORAGE_LOCAL_TYPES
-	STORAGE_ALL_TYPES     = []string{
-		STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_SHEEPDOG,
-		STORAGE_RBD, STORAGE_DOCKER, STORAGE_NAS, STORAGE_VSAN,
-		STORAGE_NFS,
-	}
-	STORAGE_TYPES = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_SHEEPDOG,
-		STORAGE_RBD, STORAGE_DOCKER, STORAGE_NAS, STORAGE_VSAN, STORAGE_NFS,
-		STORAGE_PUBLIC_CLOUD, STORAGE_CLOUD_SSD, STORAGE_CLOUD_ESSD, STORAGE_EPHEMERAL_SSD, STORAGE_CLOUD_EFFICIENCY,
-		STORAGE_STANDARD_LRS, STORAGE_STANDARDSSD_LRS, STORAGE_PREMIUM_LRS,
-		STORAGE_GP2_SSD, STORAGE_IO1_SSD, STORAGE_ST1_HDD, STORAGE_SC1_HDD, STORAGE_STANDARD_HDD,
-		STORAGE_LOCAL_BASIC, STORAGE_LOCAL_SSD, STORAGE_CLOUD_BASIC, STORAGE_CLOUD_PREMIUM,
-		STORAGE_HUAWEI_SSD, STORAGE_HUAWEI_SAS, STORAGE_HUAWEI_SATA,
-		STORAGE_OPENSTACK_ISCSI,
-	}
+	STORAGE_ALL_TYPES     = api.STORAGE_ALL_TYPES
+	STORAGE_TYPES         = api.STORAGE_TYPES
 
-	STORAGE_LIMITED_TYPES = []string{STORAGE_LOCAL, STORAGE_BAREMETAL, STORAGE_NAS, STORAGE_RBD, STORAGE_NFS}
+	STORAGE_LIMITED_TYPES = api.STORAGE_LIMITED_TYPES
 )
 
 type SStorageManager struct {
@@ -847,7 +836,7 @@ func (manager *SStorageManager) TotalCapacity(rangeObj db.IStandaloneModel, host
 	return res1
 }
 
-func (self *SStorage) createDisk(name string, diskConfig *SDiskConfig, userCred mcclient.TokenCredential,
+func (self *SStorage) createDisk(name string, diskConfig *api.DiskConfig, userCred mcclient.TokenCredential,
 	ownerProjId string, autoDelete bool, isSystem bool,
 	billingType string, billingCycle string,
 ) (*SDisk, error) {
@@ -1157,4 +1146,8 @@ func (self *SStorage) IsPrepaidRecycleResource() bool {
 		return false
 	}
 	return hosts[0].IsPrepaidRecycleResource()
+}
+
+func (self *SStorage) GetSchedtags() []SSchedtag {
+	return GetSchedtags(StorageschedtagManager, self.Id)
 }
