@@ -357,7 +357,7 @@ func (manager *SIsolatedDeviceManager) findHostUnusedByModel(model string, hostI
 	devs := make([]SIsolatedDevice, 0)
 	q := manager.findUnusedQuery()
 	q = q.Equals("model", model).Equals("host_id", hostId)
-	err := q.All(&devs)
+	err := db.FetchModelObjects(manager, q, &devs)
 	if err != nil {
 		return nil, err
 	}
@@ -444,7 +444,6 @@ func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 }
 
 func (man *SIsolatedDeviceManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
-	log.Errorf("gpu get specIdent: %s", spec)
 	devType, _ := spec.GetString("dev_type")
 	vendor, _ := spec.GetString("vendor")
 	model, _ := spec.GetString("model")

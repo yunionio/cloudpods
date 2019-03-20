@@ -142,7 +142,7 @@ type ServerCreateInput struct {
 	Description        string          `json:"description"`
 	BootOrder          string          `json:"boot_order"`
 	ResetPassword      *bool           `json:"reset_password"`
-	DisableDelete      bool            `json:"disable_delete"`
+	DisableDelete      *bool           `json:"disable_delete"`
 	ShutdownBehavior   string          `json:"shutdown_behavior"`
 	AutoStart          bool            `json:"auto_start"`
 	DeployConfigs      []*DeployConfig `json:"deploy_configs"`

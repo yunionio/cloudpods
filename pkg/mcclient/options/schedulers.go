@@ -6,7 +6,7 @@ import (
 )
 
 type SchedulerTestBaseOptions struct {
-	*ServerConfigs
+	ServerConfigs
 
 	Mem  int  `help:"Memory size (MB), default 512" metavar:"MEMORY" default:"512"`
 	Ncpu int  `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>"`
