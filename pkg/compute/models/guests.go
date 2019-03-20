@@ -344,16 +344,28 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 	secgrpFilter, _ := queryDict.GetString("secgroup")
 	if len(secgrpFilter) > 0 {
+		var notIn = false
+		// HACK FOR NOT IN SECGROUP
+		if strings.HasPrefix(secgrpFilter, "!") {
+			secgrpFilter = secgrpFilter[1:]
+			notIn = true
+		}
 		secgrp, _ := SecurityGroupManager.FetchByIdOrName(nil, secgrpFilter)
 		if secgrp == nil {
 			return nil, httperrors.NewResourceNotFoundError("secgroup %s not found", secgrpFilter)
 		}
-		q = q.Filter(
-			sqlchemy.OR(
-				sqlchemy.In(q.Field("id"), GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", secgrp.GetId()).SubQuery()),
-				sqlchemy.Equals(q.Field("secgrp_id"), secgrp.GetId()),
-			),
-		)
+
+		if notIn {
+			filter1 := sqlchemy.NotIn(q.Field("id"),
+				GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", secgrp.GetId()).SubQuery())
+			filter2 := sqlchemy.NotEquals(q.Field("secgrp_id"), secgrp.GetId())
+			q = q.Filter(sqlchemy.AND(filter1, filter2))
+		} else {
+			filter1 := sqlchemy.In(q.Field("id"),
+				GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", secgrp.GetId()).SubQuery())
+			filter2 := sqlchemy.Equals(q.Field("secgrp_id"), secgrp.GetId())
+			q = q.Filter(sqlchemy.OR(filter1, filter2))
+		}
 	}
 
 	zoneFilter, _ := queryDict.GetString("zone")
