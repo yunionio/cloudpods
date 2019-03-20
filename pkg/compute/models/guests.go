@@ -345,16 +345,28 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 	secgrpFilter, _ := queryDict.GetString("secgroup")
 	if len(secgrpFilter) > 0 {
+		var notIn = false
+		// HACK FOR NOT IN SECGROUP
+		if strings.HasPrefix(secgrpFilter, "!") {
+			secgrpFilter = secgrpFilter[1:]
+			notIn = true
+		}
 		secgrp, _ := SecurityGroupManager.FetchByIdOrName(nil, secgrpFilter)
 		if secgrp == nil {
 			return nil, httperrors.NewResourceNotFoundError("secgroup %s not found", secgrpFilter)
 		}
-		q = q.Filter(
-			sqlchemy.OR(
-				sqlchemy.In(q.Field("id"), GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", secgrp.GetId()).SubQuery()),
-				sqlchemy.Equals(q.Field("secgrp_id"), secgrp.GetId()),
-			),
-		)
+
+		if notIn {
+			filter1 := sqlchemy.NotIn(q.Field("id"),
+				GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", secgrp.GetId()).SubQuery())
+			filter2 := sqlchemy.NotEquals(q.Field("secgrp_id"), secgrp.GetId())
+			q = q.Filter(sqlchemy.AND(filter1, filter2))
+		} else {
+			filter1 := sqlchemy.In(q.Field("id"),
+				GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", secgrp.GetId()).SubQuery())
+			filter2 := sqlchemy.Equals(q.Field("secgrp_id"), secgrp.GetId())
+			q = q.Filter(sqlchemy.OR(filter1, filter2))
+		}
 	}
 
 	zoneFilter, _ := queryDict.GetString("zone")
@@ -394,6 +406,23 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		sq := hostTable.Query(hostTable.Field("id")).Join(hostWire,
 			sqlchemy.Equals(hostWire.Field("host_id"), hostTable.Field("id"))).Filter(sqlchemy.Equals(hostWire.Field("wire_id"), net.WireId)).SubQuery()
 		q = q.In("host_id", sq)
+	}
+
+	vpcFilter, err := queryDict.GetString("vpc")
+	if err == nil {
+		IVpc, err := VpcManager.FetchByIdOrName(userCred, vpcFilter)
+		if err != nil {
+			return nil, httperrors.NewResourceNotFoundError("Vpc %s not found", vpcFilter)
+		}
+		vpc := IVpc.(*SVpc)
+		guestnetwork := GuestnetworkManager.Query().SubQuery()
+		network := NetworkManager.Query().SubQuery()
+		wire := WireManager.Query().SubQuery()
+		sq := guestnetwork.Query(guestnetwork.Field("guest_id")).Join(network,
+			sqlchemy.Equals(guestnetwork.Field("network_id"), network.Field("id"))).
+			Join(wire, sqlchemy.Equals(network.Field("wire_id"), wire.Field("id"))).
+			Filter(sqlchemy.Equals(wire.Field("vpc_id"), vpc.Id)).SubQuery()
+		q = q.In("id", sq)
 	}
 
 	diskFilter, _ := queryDict.GetString("disk")
@@ -1346,6 +1375,17 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 		extra.Add(jsonutils.JSONFalse, "can_recycle")
 	} else {
 		extra.Add(jsonutils.JSONTrue, "can_recycle")
+	}
+
+	guestnetworks, _ := self.GetNetworks("")
+	if len(guestnetworks) > 0 {
+		guestnetwork := guestnetworks[0]
+		network := guestnetwork.GetNetwork()
+		if network != nil {
+			vpc := network.GetVpc()
+			extra.Set("vpc_id", jsonutils.NewString(vpc.Id))
+			extra.Set("vpc", jsonutils.NewString(vpc.Name))
+		}
 	}
 
 	return extra
