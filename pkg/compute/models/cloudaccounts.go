@@ -912,7 +912,7 @@ func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlc
 	}
 
 	if jsonutils.QueryBoolean(query, "private_cloud", false) {
-		q = q.IsFalse("is_public_cloud")
+		q = q.IsFalse("is_public_cloud").IsFalse("is_on_premise")
 	}
 
 	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
