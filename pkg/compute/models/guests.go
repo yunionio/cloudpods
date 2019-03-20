@@ -350,7 +350,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			secgrpFilter = secgrpFilter[1:]
 			notIn = true
 		}
-		secgrp, _ := SecurityGroupManager.FetchByIdOrName(nil, secgrpFilter)
+		secgrp, _ := SecurityGroupManager.FetchByIdOrName(userCred, secgrpFilter)
 		if secgrp == nil {
 			return nil, httperrors.NewResourceNotFoundError("secgroup %s not found", secgrpFilter)
 		}
