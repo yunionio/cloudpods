@@ -10,12 +10,12 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -90,7 +90,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 		}
 		for i := 0; i < len(backends); i++ {
 			if len(backends[i].BackendType) == 0 {
-				backends[i].BackendType = consts.LB_BACKEND_GUEST
+				backends[i].BackendType = api.LB_BACKEND_GUEST
 			}
 			if backends[i].Weight < 0 || backends[i].Weight > 256 {
 				return nil, httperrors.NewInputParameterError("weight %s not support, only support range 0 ~ 256")
@@ -103,7 +103,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 			}
 
 			switch backends[i].BackendType {
-			case consts.LB_BACKEND_GUEST:
+			case api.LB_BACKEND_GUEST:
 				_guest, err := GuestManager.FetchByIdOrName(userCred, backends[i].ID)
 				if err != nil {
 					if err == sql.ErrNoRows {
@@ -127,7 +127,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 					return nil, err
 				}
 				backends[i].Address = address
-			case consts.LB_BACKEND_HOST:
+			case api.LB_BACKEND_HOST:
 				if !db.IsAdminAllowCreate(userCred, man) {
 					return nil, httperrors.NewForbiddenError("only sysadmin can specify host as backend")
 				}
@@ -263,7 +263,7 @@ func (lbbg *SLoadbalancerBackendGroup) PostCreate(ctx context.Context, userCred 
 	if backends != nil {
 		params.Add(backends, "backends")
 	}
-	lbbg.SetStatus(userCred, consts.LB_CREATING, "")
+	lbbg.SetStatus(userCred, api.LB_CREATING, "")
 	if err := lbbg.StartLoadBalancerBackendGroupCreateTask(ctx, userCred, params, ""); err != nil {
 		log.Errorf("Failed to create loadbalancer backendgroup error: %v", err)
 	}
@@ -300,7 +300,7 @@ func (lbbg *SLoadbalancerBackendGroup) PerformPurge(ctx context.Context, userCre
 }
 
 func (lbbg *SLoadbalancerBackendGroup) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	lbbg.SetStatus(userCred, consts.LB_STATUS_DELETING, "")
+	lbbg.SetStatus(userCred, api.LB_STATUS_DELETING, "")
 	return lbbg.StartLoadBalancerBackendGroupDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -403,7 +403,7 @@ func (lbbg *SLoadbalancerBackendGroup) syncRemoveCloudLoadbalancerBackendgroup(c
 
 	err := lbbg.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
-		err = lbbg.SetStatus(userCred, consts.LB_STATUS_UNKNOWN, "sync to delete")
+		err = lbbg.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
 		err = lbbg.Delete(ctx, userCred)
 	}
@@ -489,7 +489,7 @@ func (man *SLoadbalancerBackendGroupManager) initBackendGroupType() error {
 	}
 	for i := 0; i < len(backendgroups); i++ {
 		_, err := db.Update(&backendgroups[i], func() error {
-			backendgroups[i].Type = consts.LB_BACKENDGROUP_TYPE_NORMAL
+			backendgroups[i].Type = api.LB_BACKENDGROUP_TYPE_NORMAL
 			return nil
 		})
 		if err != nil {

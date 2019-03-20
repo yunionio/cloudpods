@@ -11,6 +11,8 @@ import (
 
 	"yunion.io/x/log"
 
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
@@ -91,12 +93,7 @@ func doSchedulerTest(c *gin.Context) {
 		return
 	}
 
-	sjson, err := simplejson.NewFromReader(c.Request.Body)
-	if err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-	schedInfo, err := api.NewSchedInfo(sjson, true)
+	schedInfo, err := api.FetchSchedInfo(c.Request)
 	if err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
@@ -126,12 +123,7 @@ func doSchedulerForecast(c *gin.Context) {
 		return
 	}
 
-	sjson, err := simplejson.NewFromReader(c.Request.Body)
-	if err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-	schedInfo, err := api.NewSchedInfo(sjson, true)
+	schedInfo, err := api.FetchSchedInfo(c.Request)
 	if err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
@@ -149,13 +141,7 @@ func doSchedulerForecast(c *gin.Context) {
 }
 
 func doCandidateList(c *gin.Context) {
-	sjson, err := simplejson.NewFromReader(c.Request.Body)
-	if err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
-	args, err := api.NewCandidateListArgs(sjson)
+	args, err := api.NewCandidateListArgs(c.Request.Body)
 	if err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
@@ -171,22 +157,22 @@ func doCandidateList(c *gin.Context) {
 }
 
 func doCandidateDetail(c *gin.Context, id string) {
-	hs, err := models.FetchHostByIDs([]string{id})
+	hs, err := computemodels.HostManager.FetchById(id)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
-	if len(hs) == 0 {
+	if hs == nil {
 		c.AbortWithError(http.StatusNotFound, fmt.Errorf("Candidate %s not found.", id))
 		return
 	}
 
-	host := hs[0].(*models.Host)
+	host := hs.(*computemodels.SHost)
 
 	args := new(api.CandidateDetailArgs)
 	args.ID = id
-	if !host.IsHypervisor() {
+	if host.HostType == computemodels.HOST_TYPE_BAREMETAL {
 		args.Type = api.HostTypeBaremetal
 	} else {
 		args.Type = api.HostTypeHost
@@ -198,7 +184,7 @@ func doCandidateDetail(c *gin.Context, id string) {
 		return
 	}
 
-	c.JSON(http.StatusOK, result)
+	SendJSON(c, http.StatusOK, result)
 }
 
 func doCleanup(c *gin.Context) {
@@ -272,12 +258,7 @@ func doSyncSchedule(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, fmt.Errorf("Global scheduler not init"))
 		return
 	}
-	sjson, err := simplejson.NewFromReader(c.Request.Body)
-	if err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-	schedInfo, err := api.NewSchedInfo(sjson, false)
+	schedInfo, err := api.FetchSchedInfo(c.Request)
 	if err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
@@ -289,10 +270,10 @@ func doSyncSchedule(c *gin.Context) {
 		return
 	}
 
-	count := schedInfo.Data.Count
+	count := int64(schedInfo.Count)
 	var resp interface{}
-	if schedInfo.Data.Backup {
-		resp = transToBackupSchedResult(result, schedInfo.Data.HostID, schedInfo.Data.BackupHostID, count)
+	if schedInfo.Backup {
+		resp = transToBackupSchedResult(result, schedInfo.HostId, schedInfo.PreferBackupHost, count)
 	} else {
 		resp = transToRegionSchedResult(result.Data, count)
 	}
@@ -300,21 +281,15 @@ func doSyncSchedule(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func transToRegionSchedResult(result []*core.SchedResultItem, count int64) interface{} {
-	apiResults := make([]api.SchedResultItem, 0)
+func transToRegionSchedResult(result []*core.SchedResultItem, count int64) *schedapi.ScheduleOutput {
+	apiResults := make([]*schedapi.CandidateResource, 0)
 	succCount := 0
 	for _, nr := range result {
 		for {
 			if nr.Count <= 0 {
 				break
 			}
-			tr := api.SchedSuccItem{
-				Candidate: api.SchedNormalResultItem{
-					ID:   nr.ID,
-					Name: nr.Name,
-					Data: nr.Data,
-				},
-			}
+			tr := nr.ToCandidateResource()
 			apiResults = append(apiResults, tr)
 			nr.Count--
 			succCount++
@@ -325,12 +300,14 @@ func transToRegionSchedResult(result []*core.SchedResultItem, count int64) inter
 		if int64(succCount) >= count {
 			break
 		}
-		er := api.SchedErrItem{Error: "Out of resource"}
+		er := &schedapi.CandidateResource{Error: "Out of resource"}
 		apiResults = append(apiResults, er)
 		succCount++
 	}
 
-	return regionResponse(apiResults)
+	return &schedapi.ScheduleOutput{
+		Candidates: apiResults,
+	}
 }
 
 func regionResponse(v interface{}) interface{} {

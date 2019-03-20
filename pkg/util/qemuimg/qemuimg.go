@@ -13,8 +13,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 )
@@ -82,7 +82,7 @@ func (img *SQemuImage) parse() error {
 	} else if strings.HasPrefix(img.Path, "sheepdog") {
 		// sheepdog -> sheepdog[+tcp|+unix]://[host:port]/vdiname[?socket=path][#snapid|#tag]
 		return cloudprovider.ErrNotImplemented
-	} else if strings.HasPrefix(img.Path, models.STORAGE_RBD) {
+	} else if strings.HasPrefix(img.Path, api.STORAGE_RBD) {
 		img.ActualSizeBytes = 0
 	} else {
 		fileInfo, err := os.Stat(img.Path)

@@ -364,6 +364,8 @@ type Unit struct {
 	selectPlugins []SelectPlugin
 
 	LogManager *SchedLogManager
+
+	AllocatedResources map[string]*AllocatedResource
 }
 
 func NewScheduleUnit(info *api.SchedInfo, schedManager interface{}) *Unit {
@@ -382,6 +384,7 @@ func NewScheduleUnit(info *api.SchedInfo, schedManager interface{}) *Unit {
 		CounterManager:         NewCounterManager(),
 		LogManager:             NewSchedLogManager(),
 		SchedulerManager:       schedManager,
+		AllocatedResources:     make(map[string]*AllocatedResource),
 	}
 	return unit
 }
@@ -391,11 +394,11 @@ func (u *Unit) Info() string {
 }
 
 func (u *Unit) SessionID() string {
-	return u.SchedInfo.SessionID
+	return u.SchedInfo.SessionId
 }
 
-func (u *Unit) SchedData() *api.SchedData {
-	return u.SchedInfo.Data
+func (u *Unit) SchedData() *api.SchedInfo {
+	return u.SchedInfo
 }
 
 func (u *Unit) IsPublicCloudProvider() bool {
@@ -629,4 +632,13 @@ func (u *Unit) GetFiltedData(id string, count int64) map[string]interface{} {
 	}
 
 	return nil
+}
+
+func (u *Unit) GetAllocatedResource(candidateId string) *AllocatedResource {
+	ret, ok := u.AllocatedResources[candidateId]
+	if !ok {
+		ret = NewAllocatedResource()
+		u.AllocatedResources[candidateId] = ret
+	}
+	return ret
 }

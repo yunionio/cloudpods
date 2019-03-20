@@ -1,4 +1,4 @@
-package consts
+package compute
 
 import (
 	"yunion.io/x/onecloud/pkg/util/choices"

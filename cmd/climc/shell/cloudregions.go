@@ -158,4 +158,13 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	R(&CloudregionShowOptions{}, "cloud-region-capability", "Show region's capacibilities", func(s *mcclient.ClientSession, args *CloudregionShowOptions) error {
+		result, err := modules.Cloudregions.GetSpecific(s, args.ID, "capability", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

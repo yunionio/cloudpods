@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -31,15 +32,15 @@ func (self *GuestMigrateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 	StartScheduleObjects(ctx, self, []db.IStandaloneModel{obj})
 }
 
-func (self *GuestMigrateTask) GetSchedParams() *jsonutils.JSONDict {
+func (self *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
 	obj := self.GetObject()
 	guest := obj.(*models.SGuest)
 	schedDesc := guest.ToSchedDesc()
 	if self.Params.Contains("prefer_host_id") {
-		preferHostId, _ := self.Params.Get("prefer_host_id")
-		schedDesc.Set("prefer_host_id", preferHostId)
+		preferHostId, _ := self.Params.GetString("prefer_host_id")
+		schedDesc.ServerConfig.PreferHost = preferHostId
 	}
-	return schedDesc
+	return schedDesc, nil
 }
 
 func (self *GuestMigrateTask) OnStartSchedule(obj IScheduleModel) {
@@ -58,7 +59,8 @@ func (self *GuestMigrateTask) OnScheduleFailed(ctx context.Context, reason strin
 	self.TaskFailed(ctx, guest, reason)
 }
 
-func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, targetHostId string) {
+func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, target *schedapi.CandidateResource) {
+	targetHostId := target.HostId
 	guest := obj.(*models.SGuest)
 	targetHost := models.HostManager.FetchHostById(targetHostId)
 	if targetHost == nil {

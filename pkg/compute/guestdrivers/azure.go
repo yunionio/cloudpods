@@ -9,6 +9,8 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -40,6 +42,14 @@ func (self *SAzureGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return 10
 }
 
+func (self *SAzureGuestDriver) GetStorageTypes() []string {
+	return []string{
+		models.STORAGE_STANDARD_LRS,
+		models.STORAGE_STANDARDSSD_LRS,
+		models.STORAGE_PREMIUM_LRS,
+	}
+}
+
 func (self *SAzureGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
 	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i += 1 {
@@ -47,11 +57,7 @@ func (self *SAzureGuestDriver) ChooseHostStorage(host *models.SHost, backend str
 			return &storages[i]
 		}
 	}
-	for _, stype := range []string{
-		models.STORAGE_STANDARD_LRS,
-		models.STORAGE_STANDARDSSD_LRS,
-		models.STORAGE_PREMIUM_LRS,
-	} {
+	for _, stype := range self.GetStorageTypes() {
 		for i := 0; i < len(storages); i += 1 {
 			if storages[i].StorageType == stype {
 				return &storages[i]
@@ -102,26 +108,30 @@ func (self *SAzureGuestDriver) RequestDetachDisk(ctx context.Context, guest *mod
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
-func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
+func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	input, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
 	if err != nil {
 		return nil, err
 	}
-	if data.Contains("net.0") && data.Contains("net.1") {
+	if len(input.Networks) > 2 {
 		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
 	}
-	return data, nil
+	return input, nil
 }
 
 func (self *SAzureGuestDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
+	input, err := cmdline.FetchServerCreateInputByJSON(data)
 	if err != nil {
 		return nil, err
 	}
-	if data.Contains("name") {
+	input, err = self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
+	if err != nil {
+		return nil, err
+	}
+	if input.Name != "" {
 		return nil, httperrors.NewInputParameterError("cannot support change azure instance name")
 	}
-	return data, nil
+	return input.JSON(input), nil
 }
 
 func (self *SAzureGuestDriver) GetGuestInitialStateAfterCreate() string {

@@ -117,8 +117,6 @@ func (s *Server) Serve() error {
 	if err != nil {
 		return err
 	}
-	//tftpSrv := tftp.NewServer(tftpHandler.ReadHandler, nil)
-	//tftpSrv.SetTimeout(5 * time.Second)
 
 	log.Infof("DHCPServer Bind %s %d", s.DHCPAddress, s.DHCPPort)
 	dhcpSrv, _, err := dhcp.NewDHCPServer2(s.DHCPAddress, s.DHCPPort, false)

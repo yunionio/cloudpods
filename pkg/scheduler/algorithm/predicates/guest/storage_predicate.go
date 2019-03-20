@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
@@ -43,7 +44,7 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	d := u.SchedData()
 
 	isMigrate := func() bool {
-		return len(d.HostID) > 0
+		return len(d.HostId) > 0
 	}
 
 	isLocalhostBackend := func(backend string) bool {
@@ -52,7 +53,7 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 
 	isStorageAccessible := func(storage string) bool {
 		for _, s := range hc.Storages {
-			if storage == s.ID || storage == s.Name {
+			if storage == s.Id || storage == s.Name {
 				return true
 			}
 		}
@@ -71,7 +72,7 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		ss := make([]string, 0, len(d.Disks))
 		for _, disk := range d.Disks {
 			if disk.Backend == backend {
-				ss = append(ss, fmt.Sprintf("%v", disk.Size))
+				ss = append(ss, fmt.Sprintf("%v", disk.SizeMb))
 			}
 		}
 
@@ -82,9 +83,11 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		ss := []string{}
 		for _, s := range hc.Storages {
 			if s.StorageType == backend {
-				total := int64(float64(s.Capacity) * s.Cmtbound)
-				free := total - s.UsedCapacity - s.WasteCapacity
-				ss = append(ss, fmt.Sprintf("(%v-%v-%v=%v)", total, s.UsedCapacity, s.WasteCapacity, free))
+				total := int64(float32(s.Capacity) * s.Cmtbound)
+				used := s.GetUsedCapacity(tristate.True)
+				waste := s.GetUsedCapacity(tristate.False)
+				free := total - int64(used) - int64(waste)
+				ss = append(ss, fmt.Sprintf("(%v-%v-%v=%v)", total, used, waste, free))
 			}
 		}
 		return strings.Join(ss, " + ")
@@ -94,16 +97,16 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	storeRequest := make(map[string]int64, 0)
 	for _, disk := range d.Disks {
 		if isMigrate() && !isLocalhostBackend(disk.Backend) {
-			storeRequest[*disk.Storage] = 1
+			storeRequest[disk.Storage] = 1
 		} else {
 			if _, ok := sizeRequest[disk.Backend]; !ok {
 				sizeRequest[disk.Backend] = map[string]int64{"max": -1, "total": 0}
 			}
 			max := sizeRequest[disk.Backend]["max"]
-			if max < disk.Size {
-				sizeRequest[disk.Backend]["max"] = disk.Size
+			if max < int64(disk.SizeMb) {
+				sizeRequest[disk.Backend]["max"] = int64(disk.SizeMb)
 			}
-			sizeRequest[disk.Backend]["total"] += disk.Size
+			sizeRequest[disk.Backend]["total"] += int64(disk.SizeMb)
 		}
 	}
 

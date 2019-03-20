@@ -10,7 +10,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 )
 
@@ -49,7 +49,7 @@ func (factory *SRbdImageCacheManagerFactory) NewImageCacheManager(manager *SStor
 }
 
 func (factory *SRbdImageCacheManagerFactory) StorageType() string {
-	return storagetypes.STORAGE_RBD
+	return api.STORAGE_RBD
 }
 
 func init() {

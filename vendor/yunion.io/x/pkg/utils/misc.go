@@ -13,22 +13,32 @@ import (
 
 type selectFunc func(obj interface{}) (string, error)
 
-func ToDict(items []interface{}, ks selectFunc) (map[string]interface{}, error) {
+func ToDict(objs interface{}, ks selectFunc) (map[string]interface{}, error) {
+	s := reflect.ValueOf(objs)
+	if s.Kind() != reflect.Slice {
+		return nil, fmt.Errorf("Not slice")
+	}
 	res := map[string]interface{}{}
-	for _, item := range items {
-		key, err := ks(item)
+	for i := 0; i < s.Len(); i++ {
+		obj := s.Index(i).Interface()
+		key, err := ks(obj)
 		if err != nil {
 			return nil, err
 		}
-		res[key] = item
+		res[key] = obj
 	}
 	return res, nil
 }
 
-func GroupBy(items []interface{}, ks selectFunc) (map[string][]interface{}, error) {
+func GroupBy(items interface{}, ks selectFunc) (map[string][]interface{}, error) {
+	s := reflect.ValueOf(items)
+	if s.Kind() != reflect.Slice {
+		return nil, fmt.Errorf("Not slice")
+	}
 	res := map[string][]interface{}{}
-	for _, item := range items {
-		key, err := ks(item)
+	for i := 0; i < s.Len(); i++ {
+		obj := s.Index(i).Interface()
+		key, err := ks(obj)
 		if err != nil {
 			return nil, err
 		}
@@ -36,7 +46,7 @@ func GroupBy(items []interface{}, ks selectFunc) (map[string][]interface{}, erro
 		if !ok {
 			values = []interface{}{}
 		}
-		values = append(values, item)
+		values = append(values, obj)
 		res[key] = values
 	}
 	return res, nil

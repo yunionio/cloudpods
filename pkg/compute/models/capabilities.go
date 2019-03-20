@@ -25,23 +25,26 @@ type SCapabilities struct {
 	Specs              jsonutils.JSONObject
 }
 
-func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, zone *SZone) (SCapabilities, error) {
+func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
 	capa := SCapabilities{}
-	capa.Hypervisors = getHypervisors(zone)
-	capa.ResourceTypes = getResourceTypes(zone)
-	capa.StorageTypes = getStorageTypes(zone, true)
-	capa.DataStorageTypes = getStorageTypes(zone, false)
-	capa.GPUModels = getGPUs(zone)
-	capa.SchedPolicySupport = isSchedPolicySupported(zone)
-	capa.MinNicCount = getMinNicCount(zone)
-	capa.MaxNicCount = getMaxNicCount(zone)
-	capa.MinDataDiskCount = getMinDataDiskCount(zone)
-	capa.MaxDataDiskCount = getMaxDataDiskCount(zone)
-	capa.Usable = isUsable(zone)
+	capa.Hypervisors = getHypervisors(region, zone)
+	capa.ResourceTypes = getResourceTypes(region, zone)
+	capa.StorageTypes = getStorageTypes(region, zone, true)
+	capa.DataStorageTypes = getStorageTypes(region, zone, false)
+	capa.GPUModels = getGPUs(region, zone)
+	capa.SchedPolicySupport = isSchedPolicySupported(region, zone)
+	capa.MinNicCount = getMinNicCount(region, zone)
+	capa.MaxNicCount = getMaxNicCount(region, zone)
+	capa.MinDataDiskCount = getMinDataDiskCount(region, zone)
+	capa.MaxDataDiskCount = getMaxDataDiskCount(region, zone)
+	capa.Usable = isUsable(region, zone)
 	if query == nil {
 		query = jsonutils.NewDict()
 	}
 	var err error
+	if region != nil {
+		query.(*jsonutils.JSONDict).Add(jsonutils.NewString(region.GetId()), "region")
+	}
 	if zone != nil {
 		query.(*jsonutils.JSONDict).Add(jsonutils.NewString(zone.GetId()), "zone")
 	}
@@ -50,8 +53,16 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	return capa, err
 }
 
-func getHypervisors(zone *SZone) []string {
+func getRegionZoneSubq(region *SCloudregion) *sqlchemy.SSubQuery {
+	return ZoneManager.Query("id").Equals("cloudregion_id", region.GetId()).SubQuery()
+}
+
+func getHypervisors(region *SCloudregion, zone *SZone) []string {
 	q := HostManager.Query("host_type")
+	if region != nil {
+		subq := getRegionZoneSubq(region)
+		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
+	}
 	if zone != nil {
 		q = q.Equals("zone_id", zone.Id)
 	}
@@ -75,8 +86,12 @@ func getHypervisors(zone *SZone) []string {
 	return hypervisors
 }
 
-func getResourceTypes(zone *SZone) []string {
+func getResourceTypes(region *SCloudregion, zone *SZone) []string {
 	q := HostManager.Query("resource_type")
+	if region != nil {
+		subq := getRegionZoneSubq(region)
+		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
+	}
 	if zone != nil {
 		q = q.Equals("zone_id", zone.Id)
 	}
@@ -99,7 +114,7 @@ func getResourceTypes(zone *SZone) []string {
 	return resourceTypes
 }
 
-func getStorageTypes(zone *SZone, isSysDisk bool) []string {
+func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool) []string {
 	storages := StorageManager.Query().SubQuery()
 	hostStorages := HoststorageManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
@@ -113,6 +128,10 @@ func getStorageTypes(zone *SZone, isSysDisk bool) []string {
 		hosts.Field("id"),
 		hostStorages.Field("host_id"),
 	))
+	if region != nil {
+		subq := getRegionZoneSubq(region)
+		q = q.Filter(sqlchemy.In(storages.Field("zone_id"), subq))
+	}
 	if zone != nil {
 		q = q.Filter(sqlchemy.Equals(storages.Field("zone_id"), zone.Id))
 	}
@@ -144,11 +163,16 @@ func getStorageTypes(zone *SZone, isSysDisk bool) []string {
 	return storageTypes
 }
 
-func getGPUs(zone *SZone) []string {
+func getGPUs(region *SCloudregion, zone *SZone) []string {
 	devices := IsolatedDeviceManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
 
 	q := devices.Query(devices.Field("model"))
+	if region != nil {
+		subq := getRegionZoneSubq(region)
+		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
+		q = q.Filter(sqlchemy.In(hosts.Field("zone_id"), subq))
+	}
 	if zone != nil {
 		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
 		q = q.Filter(sqlchemy.Equals(hosts.Field("zone_id"), zone.Id))
@@ -171,12 +195,17 @@ func getGPUs(zone *SZone) []string {
 	return gpus
 }
 
-func getNetworkCount(zone *SZone) int {
+func getNetworkCount(region *SCloudregion, zone *SZone) int {
+	wires := WireManager.Query().SubQuery()
 	networks := NetworkManager.Query().SubQuery()
 
 	q := networks.Query()
+	if region != nil {
+		subq := getRegionZoneSubq(region)
+		q = q.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
+		q = q.Filter(sqlchemy.In(wires.Field("zone_id"), subq))
+	}
 	if zone != nil {
-		wires := WireManager.Query().SubQuery()
 		q = q.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
 		q = q.Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id))
 	}
@@ -185,44 +214,52 @@ func getNetworkCount(zone *SZone) int {
 	return q.Count()
 }
 
-func isSchedPolicySupported(zone *SZone) bool {
+func isSchedPolicySupported(region *SCloudregion, zone *SZone) bool {
 	return true
 }
 
-func getMinNicCount(zone *SZone) int {
+func getMinNicCount(region *SCloudregion, zone *SZone) int {
+	if region != nil {
+		return region.getMinNicCount()
+	}
 	if zone != nil {
 		return zone.getMinNicCount()
-	} else {
-		return 0
 	}
+	return 0
 }
 
-func getMaxNicCount(zone *SZone) int {
+func getMaxNicCount(region *SCloudregion, zone *SZone) int {
+	if region != nil {
+		return region.getMaxNicCount()
+	}
 	if zone != nil {
 		return zone.getMaxNicCount()
-	} else {
-		return 0
 	}
+	return 0
 }
 
-func getMinDataDiskCount(zone *SZone) int {
+func getMinDataDiskCount(region *SCloudregion, zone *SZone) int {
+	if region != nil {
+		return region.getMinDataDiskCount()
+	}
 	if zone != nil {
 		return zone.getMinDataDiskCount()
-	} else {
-		return 0
 	}
+	return 0
 }
 
-func getMaxDataDiskCount(zone *SZone) int {
+func getMaxDataDiskCount(region *SCloudregion, zone *SZone) int {
+	if region != nil {
+		return region.getMaxDataDiskCount()
+	}
 	if zone != nil {
 		return zone.getMaxDataDiskCount()
-	} else {
-		return 0
 	}
+	return 0
 }
 
-func isUsable(zone *SZone) bool {
-	if getNetworkCount(zone) > 0 {
+func isUsable(region *SCloudregion, zone *SZone) bool {
+	if getNetworkCount(region, zone) > 0 {
 		return true
 	} else {
 		return false

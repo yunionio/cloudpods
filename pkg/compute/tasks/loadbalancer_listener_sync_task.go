@@ -6,10 +6,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -23,10 +23,10 @@ func init() {
 }
 
 func (self *LoadbalancerListenerSyncTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason string) {
-	lblis.SetStatus(self.GetUserCred(), consts.LB_SYNC_CONF_FAILED, reason)
+	lblis.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason)
 	db.OpsLog.LogEvent(lblis, db.ACT_SYNC_CONF, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_SYNC_CONF, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lblis.Id, lblis.Name, consts.LB_SYNC_CONF_FAILED, reason)
+	notifyclient.NotifySystemError(lblis.Id, lblis.Name, api.LB_SYNC_CONF_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -59,6 +59,6 @@ func (self *LoadbalancerListenerSyncTask) OnLoadbalancerListenerSyncStatusComple
 }
 
 func (self *LoadbalancerListenerSyncTask) OnLoadbalancerListenerSyncStatusCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
-	lblis.SetStatus(self.GetUserCred(), consts.LB_STATUS_UNKNOWN, reason.String())
+	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_UNKNOWN, reason.String())
 	self.SetStageFailed(ctx, reason.String())
 }

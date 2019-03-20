@@ -13,13 +13,14 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 )
 
 const (
 	MIN_DB_CONN_MAX = 5
 )
 
-func InitDB(options *DBOptions) {
+func InitDB(options *common_options.DBOptions) {
 	if options.GlobalVirtualResourceNamespace {
 		consts.EnableGlobalVirtualResourceNamespace()
 	}

@@ -13,23 +13,20 @@ import (
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/util/workqueue"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
-	"yunion.io/x/onecloud/pkg/scheduler/cache"
-	"yunion.io/x/onecloud/pkg/scheduler/cache/db"
+	computedb "yunion.io/x/onecloud/pkg/cloudcommon/db"
+	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
+	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 type HostDesc struct {
-	*baseHostDesc
+	*BaseHostDesc
 
 	// cpu
-	CPUMHZ              int64    `json:"cpu_mhz"`
-	CPUCmtbound         float64  `json:"cpu_cmtbound"`
-	CPUDesc             string   `json:"cpu_desc"`
-	CPUCache            int64    `json:"cpu_cache"`
-	CPUReserved         int64    `json:"cpu_reserved"`
+	CPUCmtbound         float32  `json:"cpu_cmtbound"`
 	CPUBoundCount       int64    `json:"cpu_bound_count"`
 	CPULoad             *float64 `json:"cpu_load"`
 	TotalCPUCount       int64    `json:"total_cpu_count"`
@@ -40,8 +37,7 @@ type HostDesc struct {
 	FreeCPUCount        int64    `json:"free_cpu_count"`
 
 	// memory
-	MemCmtbound        float64 `json:"mem_cmtbound"`
-	MemReserved        int64   `json:"mem_reserved"`
+	MemCmtbound        float32 `json:"mem_cmtbound"`
 	TotalMemSize       int64   `json:"total_mem_size"`
 	FreeMemSize        int64   `json:"free_mem_size"`
 	RunningMemSize     int64   `json:"running_mem_size"`
@@ -50,8 +46,7 @@ type HostDesc struct {
 	FakeDeletedMemSize int64   `json:"fake_deleted_mem_size"`
 
 	// storage
-	Storages     []*Storage `json:"storages"`
-	StorageTypes []string   `json:"storage_types"`
+	StorageTypes []string `json:"storage_types"`
 
 	// IO
 	IOBoundCount int64    `json:"io_bound_count"`
@@ -96,10 +91,10 @@ func StorageIsolatedDevReservedSize() int64 {
 	return o.GetOptions().StorageReservedPerIsolatedDevice
 }
 
-func NewGuestReservedResourceByBuilder(b *HostBuilder, host *models.Host) (ret *ReservedResource) {
+func NewGuestReservedResourceByBuilder(b *HostBuilder, host *computemodels.SHost) (ret *ReservedResource) {
 	ret = NewReservedResource(0, 0, 0)
 	//isoDevs := b.getUnusedIsolatedDevices(host.ID)
-	isoDevs := b.getIsolatedDevices(host.ID)
+	isoDevs := b.getIsolatedDevices(host.Id)
 	hostDevsCount := int64(len(isoDevs))
 	if hostDevsCount == 0 {
 		return
@@ -115,9 +110,9 @@ func NewGuestReservedResourceByBuilder(b *HostBuilder, host *models.Host) (ret *
 	return
 }
 
-func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *models.Host) (ret *ReservedResource, err error) {
+func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *computemodels.SHost) (ret *ReservedResource, err error) {
 	ret = NewReservedResource(0, 0, 0)
-	gst := b.getIsolatedDeviceGuests(host.ID)
+	gst := b.getIsolatedDeviceGuests(host.Id)
 	if len(gst) == 0 {
 		return
 	}
@@ -133,7 +128,7 @@ func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *models.Host) (r
 			return
 		}
 		disk += dSize
-		if o.GetOptions().IgnoreNonRunningGuests && !g.IsRunning() {
+		if o.GetOptions().IgnoreNonrunningGuests && !g.IsRunning() {
 			continue
 		}
 		cpu += g.VCPUCount
@@ -145,54 +140,51 @@ func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *models.Host) (r
 	return
 }
 
-type Storage struct {
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	Capacity      int64    `json:"capacity"`
-	StorageType   string   `json:"type"`
-	UsedCapacity  int64    `json:"used"`
-	WasteCapacity int64    `json:"waste"`
-	FreeCapacity  int64    `json:"free"`
-	VCapacity     int64    `json:"vcapacity"`
-	Cmtbound      float64  `json:"cmtbound"`
-	StorageDriver string   `json:"driver"`
-	Adapter       string   `json:"adapter"`
-	Splits        []string `json:"splits"`
-	Range         string   `json:"range"`
-	Conf          string   `json:"conf"`
-	MinStripSize  int      `json:"min_strip_size"`
-	MaxStripSize  int      `json:"max_strip_size"`
-	Size          int      `json:"size"`
-}
+//type Storage struct {
+//ID            string   `json:"id"`
+//Name          string   `json:"name"`
+//Capacity      int64    `json:"capacity"`
+//StorageType   string   `json:"type"`
+//UsedCapacity  int64    `json:"used"`
+//WasteCapacity int64    `json:"waste"`
+//FreeCapacity  int64    `json:"free"`
+//VCapacity     int64    `json:"vcapacity"`
+//Cmtbound      float64  `json:"cmtbound"`
+//StorageDriver string   `json:"driver"`
+//Adapter       string   `json:"adapter"`
+//Splits        []string `json:"splits"`
+//Range         string   `json:"range"`
+//Conf          string   `json:"conf"`
+//MinStripSize  int      `json:"min_strip_size"`
+//MaxStripSize  int      `json:"max_strip_size"`
+//Size          int      `json:"size"`
+//}
 
-func (storage *Storage) GetFreeSize() int64 {
-	return storage.GetTotalSize() - storage.UsedCapacity - storage.WasteCapacity
-}
+//func (storage *Storage) GetFreeSize() int64 {
+//return storage.GetTotalSize() - storage.UsedCapacity - storage.WasteCapacity
+//}
 
-func (storage *Storage) GetTotalSize() int64 {
-	return int64(float64(storage.Capacity) * storage.Cmtbound)
-}
+//func (storage *Storage) GetTotalSize() int64 {
+//return int64(float64(storage.Capacity) * storage.Cmtbound)
+//}
 
-func (storage *Storage) IsLocal() bool {
-	return utils.IsLocalStorage(storage.StorageType)
-}
+//func (storage *Storage) IsLocal() bool {
+//return utils.IsLocalStorage(storage.StorageType)
+//}
 
 type HostBuilder struct {
-	clusters cache.Cache
-
 	residentTenantDict map[string]map[string]interface{}
 
-	hosts    []interface{}
+	hosts    []computemodels.SHost
 	hostDict map[string]interface{}
 
-	guests    []interface{}
+	guests    []computemodels.SGuest
 	guestDict map[string]interface{}
 	guestIDs  []string
 
-	hostStorages          []interface{}
-	hostStoragesDict      map[string][]interface{}
+	hostStorages []computemodels.SHoststorage
+	//hostStoragesDict      map[string][]*computemodels.SStorage
 	storages              []interface{}
-	storageDict           map[string]interface{}
 	storageStatesSizeDict map[string]map[string]interface{}
 
 	hostGuests       map[string][]interface{}
@@ -212,6 +204,8 @@ type HostBuilder struct {
 	isolatedDevicesDict map[string][]interface{}
 
 	cpuIOLoads map[string]map[string]float64
+
+	schedtags []computemodels.SSchedtag
 }
 
 func (h *HostDesc) String() string {
@@ -231,25 +225,19 @@ func (h *HostDesc) GetGuestCount() int64 {
 func (h *HostDesc) Get(key string) interface{} {
 	switch key {
 	case "ID":
-		return h.ID
+		return h.Id
 
 	case "Name":
 		return h.Name
 
 	case "CPUCount":
-		return h.CPUCount
+		return h.CpuCount
 
 	case "MemSize":
 		return h.MemSize
 
-	case "PoolID":
-		return h.PoolID
-
 	case "ZoneID":
-		return h.ZoneID
-
-	case "ClusterID":
-		return h.ClusterID
+		return h.ZoneId
 
 	case "TotalCPUCount":
 		return h.GetTotalCPUCount(true)
@@ -332,7 +320,7 @@ func (h *HostDesc) totalStorageSize(onlyLocal, useRsvd bool) int64 {
 	total := int64(0)
 	for _, storage := range h.Storages {
 		if !onlyLocal || storage.IsLocal() {
-			total += storage.GetTotalSize()
+			total += int64(storage.GetCapacity())
 		}
 	}
 
@@ -346,7 +334,7 @@ func (h *HostDesc) freeStorageSize(onlyLocal, useRsvd bool) int64 {
 	total := int64(0)
 	for _, storage := range h.Storages {
 		if !onlyLocal || storage.IsLocal() {
-			total += storage.GetFreeSize()
+			total += int64(storage.GetFreeCapacity())
 		}
 	}
 
@@ -370,7 +358,7 @@ func (h *HostDesc) freeStorageSizeOfType(storageType string, useRsvd bool) int64
 	total := int64(0)
 	for _, storage := range h.Storages {
 		if storage.StorageType == storageType {
-			total += storage.GetFreeSize()
+			total += int64(storage.GetFreeCapacity())
 		}
 	}
 	if utils.IsLocalStorage(storageType) {
@@ -431,11 +419,11 @@ func (h *HostDesc) GuestReservedStorageSizeFree() int64 {
 }
 
 func (h *HostDesc) GetReservedMemSize() int64 {
-	return h.GuestReservedResource.MemorySize + h.MemReserved
+	return h.GuestReservedResource.MemorySize + int64(h.MemReserved)
 }
 
 func (h *HostDesc) GetReservedCPUCount() int64 {
-	return h.GuestReservedResource.CPUCount + h.CPUReserved
+	return h.GuestReservedResource.CPUCount + int64(h.CpuReserved)
 }
 
 func (h *HostDesc) GetReservedStorageSize() int64 {
@@ -451,7 +439,7 @@ func (h *HostDesc) GetFreeCPUCount(useRsvd bool) int64 {
 }
 
 func (h *HostDesc) IndexKey() string {
-	return h.ID
+	return h.Id
 }
 
 func (h *HostDesc) UnusedIsolatedDevices() []*IsolatedDeviceDesc {
@@ -544,15 +532,15 @@ func (b *HostBuilder) init(ids []string, dbCache DBGroupCacher, syncCache SyncGr
 	errMessageChannel := make(chan error, 12)
 	defer close(errMessageChannel)
 	setFuncs := []func(){
-		func() { b.setClusters(dbCache, errMessageChannel) },
 		func() { b.setHosts(ids, errMessageChannel) },
+		func() { b.setSchedtags(ids, errMessageChannel) },
 		func() {
 			b.setGuests(ids, errMessageChannel)
 			b.setGroupInfo(errMessageChannel)
 			b.setMetadataInfo(ids, errMessageChannel)
 		},
 		func() {
-			b.setStorages(ids, errMessageChannel)
+			//b.setStorages(ids, errMessageChannel)
 			b.setDiskStats(errMessageChannel)
 		},
 		func() { b.setMetadataInfo(ids, errMessageChannel) },
@@ -582,88 +570,70 @@ func (b *HostBuilder) init(ids []string, dbCache DBGroupCacher, syncCache SyncGr
 	return nil
 }
 
-func (b *HostBuilder) setClusters(dbCache DBGroupCacher, errMessageChannel chan error) {
-	clusters, err := dbCache.Get(db.ClusterDBCache)
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-	b.clusters = clusters
-	return
-}
-
 func (b *HostBuilder) setHosts(ids []string, errMessageChannel chan error) {
-	hosts, err := models.FetchHypervisorHostByIDs(ids)
+	hosts := computemodels.HostManager.Query()
+	q := hosts.In("id", ids).NotEquals("host_type", computemodels.HOST_TYPE_BAREMETAL)
+	hostObjs := make([]computemodels.SHost, 0)
+	err := computedb.FetchModelObjects(computemodels.HostManager, q, &hostObjs)
 	if err != nil {
 		errMessageChannel <- err
 		return
 	}
-	hostDict, err := utils.ToDict(hosts, func(obj interface{}) (string, error) {
-		host, ok := obj.(*models.Host)
+
+	hostDict, err := utils.ToDict(hostObjs, func(obj interface{}) (string, error) {
+		host, ok := obj.(computemodels.SHost)
 		if !ok {
-			return "", utils.ConvertError(obj, "*models.Host")
+			return "", utils.ConvertError(obj, "computemodels.Host")
 		}
-		return host.ID, nil
+		return host.Id, nil
 	})
 	if err != nil {
 		errMessageChannel <- err
 		return
 	}
-	b.hosts = hosts
+	b.hosts = hostObjs
 	b.hostDict = hostDict
 	return
 }
 
-func (b *HostBuilder) setStorages(ids []string, errMessageChannel chan error) {
-	hostStorages, err := models.FetchByHostIDs(models.HostStorages, ids)
-	if err != nil {
+func (b *HostBuilder) setSchedtags(ids []string, errMessageChannel chan error) {
+	tags := make([]computemodels.SSchedtag, 0)
+	if err := computemodels.SchedtagManager.Query().All(&tags); err != nil {
 		errMessageChannel <- err
 		return
 	}
-	storageIDs := make([]string, len(hostStorages))
-	func() {
-		for i, s := range hostStorages {
-			storageIDs[i] = s.(*models.HostStorage).StorageID
-		}
-	}()
-	storages, err := models.FetchByIDs(models.Storages, storageIDs)
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-
-	hostStoragesDict, err := utils.GroupBy(hostStorages, func(obj interface{}) (string, error) {
-		storage, ok := obj.(*models.HostStorage)
-		if !ok {
-			return "", utils.ConvertError(obj, "*models.HostStorage")
-		}
-		return storage.HostID, nil
-	})
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-	storageDict, err := utils.ToDict(storages, func(obj interface{}) (string, error) {
-		storage, ok := obj.(*models.Storage)
-		if !ok {
-			return "", utils.ConvertError(obj, "*models.Storage")
-		}
-		return storage.ID, nil
-	})
-
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-	b.hostStorages = hostStorages
-	b.hostStoragesDict = hostStoragesDict
-	b.storages = storages
-	b.storageDict = storageDict
-	return
+	b.schedtags = tags
 }
 
+//func (b *HostBuilder) setStorages(ids []string, errMessageChannel chan error) {
+//q := computemodels.HoststorageManager.Query().In("host_id", ids)
+//hostStorages := make([]computemodels.SHoststorage, 0)
+//err := computedb.FetchModelObjects(computemodels.HoststorageManager, q, &hostStorages)
+//if err != nil {
+//errMessageChannel <- err
+//return
+//}
+
+////hostStoragesDict := make(map[string][]*computemodels.SStorage)
+
+//for _, s := range hostStorages {
+//if ss, ok := hostStoragesDict[s.HostId]; !ok {
+//storage := s.GetStorage()
+//ss = make([]*computemodels.SStorage, 0)
+//ss = append(ss, storage)
+//hostStoragesDict[s.HostId] = ss
+//} else {
+//ss = append(ss, s.GetStorage())
+//}
+//}
+
+//b.hostStorages = hostStorages
+//b.hostStoragesDict = hostStoragesDict
+//return
+//}
+
 func (b *HostBuilder) setGuests(ids []string, errMessageChannel chan error) {
-	guests, err := models.FetchGuestByHostIDs(ids)
+	guests, err := FetchGuestByHostIDs(ids)
 	if err != nil {
 		errMessageChannel <- err
 		return
@@ -671,16 +641,16 @@ func (b *HostBuilder) setGuests(ids []string, errMessageChannel chan error) {
 	guestIDs := make([]string, len(guests))
 	func() {
 		for i, gst := range guests {
-			guestIDs[i] = gst.(*models.Guest).ID
+			guestIDs[i] = gst.GetId()
 		}
 	}()
 
 	hostGuests, err := utils.GroupBy(guests, func(obj interface{}) (string, error) {
-		gst, ok := obj.(*models.Guest)
+		gst, ok := obj.(computemodels.SGuest)
 		if !ok {
-			return "", utils.ConvertError(obj, "*models.Guest")
+			return "", utils.ConvertError(obj, "computemodels.SGuest")
 		}
-		return gst.HostID, nil
+		return gst.HostId, nil
 	})
 	if err != nil {
 		errMessageChannel <- err
@@ -688,11 +658,11 @@ func (b *HostBuilder) setGuests(ids []string, errMessageChannel chan error) {
 	}
 
 	hostBackupGuests, err := utils.GroupBy(guests, func(obj interface{}) (string, error) {
-		gst, ok := obj.(*models.Guest)
+		gst, ok := obj.(computemodels.SGuest)
 		if !ok {
-			return "", utils.ConvertError(obj, "*models.Guest")
+			return "", utils.ConvertError(obj, "computemodels.SGuest")
 		}
-		return gst.BackupHostID, nil
+		return gst.BackupHostId, nil
 	})
 	if err != nil {
 		errMessageChannel <- err
@@ -700,11 +670,11 @@ func (b *HostBuilder) setGuests(ids []string, errMessageChannel chan error) {
 	}
 
 	guestDict, err := utils.ToDict(guests, func(obj interface{}) (string, error) {
-		gst, ok := obj.(*models.Guest)
+		gst, ok := obj.(computemodels.SGuest)
 		if !ok {
-			return "", utils.ConvertError(obj, "*models.Guest")
+			return "", utils.ConvertError(obj, "computemodels.SGuest")
 		}
-		return gst.ID, nil
+		return gst.GetId(), nil
 	})
 	if err != nil {
 		errMessageChannel <- err
@@ -913,7 +883,22 @@ func (b *HostBuilder) Type() string {
 }
 
 func (b *HostBuilder) AllIDs() ([]string, error) {
-	return models.AllHostIDs()
+	q := computemodels.HostManager.Query("id")
+	q = q.Filter(sqlchemy.NotEquals(q.Field("host_type"), computemodels.HOST_TYPE_BAREMETAL))
+	rs, err := q.Rows()
+	if err != nil {
+		return nil, err
+	}
+	ret := []string{}
+	defer rs.Close()
+	for rs.Next() {
+		var id string
+		if err := rs.Scan(&id); err != nil {
+			return nil, err
+		}
+		ret = append(ret, id)
+	}
+	return ret, nil
 }
 
 func (b *HostBuilder) Do(ids []string, dbCache DBGroupCacher, syncCache SyncGroupCacher) ([]interface{}, error) {
@@ -940,7 +925,7 @@ func (b *HostBuilder) build() ([]interface{}, error) {
 			return
 		}
 		host := b.hosts[i]
-		desc, err := b.buildOne(host.(*models.Host))
+		desc, err := b.buildOne(&host)
 		if err != nil {
 			descResultLock.Lock()
 			errs = append(errs, err)
@@ -963,27 +948,19 @@ func (b *HostBuilder) build() ([]interface{}, error) {
 	return schedDescs, nil
 }
 
-func (b *HostBuilder) buildOne(host *models.Host) (interface{}, error) {
+func (b *HostBuilder) buildOne(host *computemodels.SHost) (interface{}, error) {
 	baseDesc, err := newBaseHostDesc(host)
 	if err != nil {
 		return nil, err
 	}
 	desc := &HostDesc{
-		baseHostDesc: baseDesc,
+		BaseHostDesc: baseDesc,
 	}
 
 	desc.Metadata = make(map[string]string)
-	desc.ManagerID = host.ManagerID
 
-	desc.CPUCmtbound = host.CPUOverCommitBound()
-	desc.CPUDesc = host.CPUDesc
-	desc.CPUCache = host.CPUCache
-	desc.CPUReserved = host.CPUReserved
-	desc.NodeCount = host.NodeCount
-	desc.CPUMHZ = host.CPUMHZ
-
-	desc.MemCmtbound = host.MemOverCommitBound()
-	desc.MemReserved = host.MemReserved
+	desc.CPUCmtbound = host.GetCPUOvercommitBound()
+	desc.MemCmtbound = host.GetMemoryOvercommitBound()
 
 	desc.GuestReservedResource = NewGuestReservedResourceByBuilder(b, host)
 	guestRsvdUsed, err := NewGuestReservedResourceUsedByBuilder(b, host)
@@ -992,9 +969,10 @@ func (b *HostBuilder) buildOne(host *models.Host) (interface{}, error) {
 	}
 	desc.GuestReservedResourceUsed = guestRsvdUsed
 
-	fillFuncs := []func(*HostDesc, *models.Host) error{
+	fillFuncs := []func(*HostDesc, *computemodels.SHost) error{
 		b.fillGuestsResourceInfo,
 		b.fillStorages,
+		b.fillSchedtags,
 		b.fillResidentGroups,
 		b.fillMetadata,
 		b.fillIsolatedDevices,
@@ -1020,7 +998,7 @@ func _in(s string, ss []string) bool {
 	return false
 }
 
-func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *models.Host) error {
+func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels.SHost) error {
 	var (
 		guestCount          int64
 		runningCount        int64
@@ -1036,37 +1014,37 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *models.Host) 
 		creatingCPUCount    int64
 		creatingGuestCount  int64
 	)
-	guestsOnHost, ok := b.hostGuests[host.ID]
+	guestsOnHost, ok := b.hostGuests[host.Id]
 	if !ok {
 		guestsOnHost = []interface{}{}
 	}
-	backupGuestsOnHost, ok := b.hostBackupGuests[host.ID]
+	backupGuestsOnHost, ok := b.hostBackupGuests[host.Id]
 	if ok {
 		guestsOnHost = append(guestsOnHost, backupGuestsOnHost...)
 	}
 
 	for _, gst := range guestsOnHost {
-		guest := gst.(*models.Guest)
-		if guest.IsRunning() {
+		guest := gst.(computemodels.SGuest)
+		if IsGuestRunning(guest) {
 			runningCount++
-			memSize += guest.VMemSize
-			cpuCount += guest.VCPUCount
-		} else if guest.IsCreating() {
+			memSize += int64(guest.VmemSize)
+			cpuCount += int64(guest.VcpuCount)
+		} else if IsGuestCreating(guest) {
 			creatingGuestCount++
-			creatingMemSize += guest.VMemSize
-			creatingCPUCount += guest.VCPUCount
-		} else if guest.IsGuestFakeDeleted() && _in(guest.Status, []string{models.VmReady}) {
-			memFakeDeletedSize += guest.VMemSize
-			cpuFakeDeletedCount += guest.VCPUCount
+			creatingMemSize += int64(guest.VmemSize)
+			creatingCPUCount += int64(guest.VcpuCount)
+		} else if IsGuestPendingDelete(guest) {
+			memFakeDeletedSize += int64(guest.VmemSize)
+			cpuFakeDeletedCount += int64(guest.VcpuCount)
 		}
 		guestCount++
-		cpuReqCount += guest.VCPUCount
-		memReqSize += guest.VMemSize
+		cpuReqCount += int64(guest.VcpuCount)
+		memReqSize += int64(guest.VmemSize)
 
 		appTags := b.guestAppTags(guest)
 		for _, tag := range appTags {
 			if tag == "cpu_bound" {
-				cpuBoundCount += guest.VCPUCount
+				cpuBoundCount += int64(guest.VcpuCount)
 			} else if tag == "io_bound" {
 				ioBoundCount++
 			}
@@ -1084,12 +1062,12 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *models.Host) 
 	desc.CreatingCPUCount = creatingCPUCount
 	desc.FakeDeletedCPUCount = cpuFakeDeletedCount
 
-	desc.TotalMemSize = int64(float64(desc.MemSize) * desc.MemCmtbound)
-	desc.TotalCPUCount = int64(float64(desc.CPUCount) * desc.CPUCmtbound)
+	desc.TotalMemSize = int64(float32(desc.MemSize) * desc.MemCmtbound)
+	desc.TotalCPUCount = int64(float32(desc.CpuCount) * desc.CPUCmtbound)
 
 	var memFreeSize int64
 	var cpuFreeCount int64
-	if o.GetOptions().IgnoreNonRunningGuests {
+	if o.GetOptions().IgnoreNonrunningGuests {
 		memFreeSize = desc.TotalMemSize - desc.RunningMemSize - desc.CreatingMemSize
 		cpuFreeCount = desc.TotalCPUCount - desc.RunningCPUCount - desc.CreatingCPUCount
 	} else {
@@ -1125,8 +1103,8 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *models.Host) 
 	return nil
 }
 
-func (b *HostBuilder) guestAppTags(guest *models.Guest) []string {
-	metadatas, ok := b.guestMetadatasDict[guest.ID]
+func (b *HostBuilder) guestAppTags(guest computemodels.SGuest) []string {
+	metadatas, ok := b.guestMetadatasDict[guest.GetId()]
 	if !ok {
 		return []string{}
 	}
@@ -1146,50 +1124,12 @@ func (b *HostBuilder) guestAppTags(guest *models.Guest) []string {
 	return []string{}
 }
 
-func (b *HostBuilder) fillStorages(desc *HostDesc, host *models.Host) error {
-	objs, ok := b.hostStoragesDict[host.ID]
-	if !ok {
-		return nil
-	}
+func (b *HostBuilder) fillStorages(desc *HostDesc, host *computemodels.SHost) error {
+	return desc.fillStorages(host)
+}
 
-	var (
-		rets           = make([]*Storage, 0)
-		storageTypeMap = make(map[string]int, 0)
-	)
-	for _, obj := range objs {
-		hostStorage, ok := obj.(*models.HostStorage)
-		if !ok {
-			return utils.ConvertError(obj, "*models.HostStorage")
-		}
-		storageID := hostStorage.StorageID
-		storageObj, ok := b.storageDict[storageID]
-		if !ok {
-			log.Warningf("Storage ID: %q not found when fill it", storageID)
-			return nil
-		}
-		storageModel := storageObj.(*models.Storage)
-		storage := new(Storage)
-		storage.ID = storageModel.ID
-		storage.Name = storageModel.Name
-		storage.Capacity = storageModel.Capacity
-		storage.StorageType = storageModel.StorageType
-		storage.UsedCapacity = b.storageUsedCapacity(storageModel, true)
-		storage.WasteCapacity = b.storageUsedCapacity(storageModel, false)
-		storage.Cmtbound = storageModel.OverCommitBound()
-		storage.VCapacity = storage.GetTotalSize()
-		storage.FreeCapacity = storage.GetFreeSize()
-		rets = append(rets, storage)
-
-		storageTypeMap[storage.StorageType] = 0
-	}
-
-	desc.Storages = rets
-
-	for storageType := range storageTypeMap {
-		desc.StorageTypes = append(desc.StorageTypes, storageType)
-	}
-
-	return nil
+func (b *HostBuilder) fillSchedtags(desc *HostDesc, host *computemodels.SHost) error {
+	return desc.fillSchedtags(b.schedtags)
 }
 
 func (b *HostBuilder) storageUsedCapacity(storage *models.Storage, ready bool) int64 {
@@ -1213,8 +1153,8 @@ func (b *HostBuilder) storageUsedCapacity(storage *models.Storage, ready bool) i
 	return total
 }
 
-func (b *HostBuilder) fillResidentGroups(desc *HostDesc, host *models.Host) error {
-	groups, ok := b.hostGroupCountDict[host.ID]
+func (b *HostBuilder) fillResidentGroups(desc *HostDesc, host *computemodels.SHost) error {
+	groups, ok := b.hostGroupCountDict[host.Id]
 	if !ok {
 		desc.Groups = nil
 		return nil
@@ -1223,8 +1163,8 @@ func (b *HostBuilder) fillResidentGroups(desc *HostDesc, host *models.Host) erro
 	return nil
 }
 
-func (b *HostBuilder) fillMetadata(desc *HostDesc, host *models.Host) error {
-	metadataObjs, ok := b.hostMetadatasDict[host.ID]
+func (b *HostBuilder) fillMetadata(desc *HostDesc, host *computemodels.SHost) error {
+	metadataObjs, ok := b.hostMetadatasDict[host.Id]
 	if !ok {
 		return nil
 	}
@@ -1310,9 +1250,9 @@ func (b *HostBuilder) getUnusedIsolatedDevices(hostID string) (devs []*models.Is
 	return
 }
 
-func (b *HostBuilder) fillIsolatedDevices(desc *HostDesc, host *models.Host) error {
+func (b *HostBuilder) fillIsolatedDevices(desc *HostDesc, host *computemodels.SHost) error {
 
-	allDevs := b.getIsolatedDevices(host.ID)
+	allDevs := b.getIsolatedDevices(host.Id)
 	if len(allDevs) == 0 {
 		return nil
 	}
@@ -1335,9 +1275,9 @@ func (b *HostBuilder) fillIsolatedDevices(desc *HostDesc, host *models.Host) err
 	return nil
 }
 
-func (b *HostBuilder) fillCPUIOLoads(desc *HostDesc, host *models.Host) error {
-	desc.CPULoad = b.loadByName(host.ID, "cpu_load")
-	desc.IOLoad = b.loadByName(host.ID, "io_load")
+func (b *HostBuilder) fillCPUIOLoads(desc *HostDesc, host *computemodels.SHost) error {
+	desc.CPULoad = b.loadByName(host.Id, "cpu_load")
+	desc.IOLoad = b.loadByName(host.Id, "io_load")
 	return nil
 }
 

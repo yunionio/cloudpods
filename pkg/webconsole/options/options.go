@@ -1,15 +1,13 @@
 package options
 
-import (
-	"yunion.io/x/onecloud/pkg/cloudcommon"
-)
+import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 
 var (
 	Options WebConsoleOptions
 )
 
 type WebConsoleOptions struct {
-	cloudcommon.CommonOptions
+	common_options.CommonOptions
 
 	ApiServer       string `help:"API server url to handle websocket connection, usually with public access" default:"http://webconsole.yunion.io"`
 	KubectlPath     string `help:"kubectl binary path used to connect k8s cluster" default:"/usr/bin/kubectl"`

@@ -6,16 +6,18 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudir/options"
 )
 
 func StartService() {
 	opts := &options.Options
 	commonOpts := &opts.CommonOptions
-	cloudcommon.ParseOptions(opts, os.Args, "cloudir.conf", "cloudir")
+	common_options.ParseOptions(opts, os.Args, "cloudir.conf", "cloudir")
 
-	cloudcommon.InitAuth(commonOpts, func() {
+	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
 
@@ -25,11 +27,11 @@ func StartService() {
 		return
 	}
 
-	app := cloudcommon.InitApp(commonOpts, false)
-
+	app := app_common.InitApp(commonOpts, false)
+	cloudcommon.AppDBInit(app)
 	initHandlers(app)
 
-	cloudcommon.ServeForeverWithCleanup(app, commonOpts, func() {
+	app_common.ServeForeverWithCleanup(app, commonOpts, func() {
 		etcd.CloseDefaultEtcdClient()
 	})
 }

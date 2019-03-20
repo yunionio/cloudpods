@@ -7,6 +7,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -33,7 +36,7 @@ type IScheduleModel interface {
 
 type IScheduleTask interface {
 	GetUserCred() mcclient.TokenCredential
-	GetSchedParams() *jsonutils.JSONDict
+	GetSchedParams() (*schedapi.ScheduleInput, error)
 	GetPendingUsage(quota quotas.IQuota) error
 	SetStage(stageName string, data *jsonutils.JSONDict) error
 	SetStageFailed(ctx context.Context, reason string)
@@ -41,17 +44,42 @@ type IScheduleTask interface {
 	OnStartSchedule(obj IScheduleModel)
 	OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string)
 	OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict)
-	SaveScheduleResult(ctx context.Context, obj IScheduleModel, hostId string)
-	SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave string)
+	SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource)
+	SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource)
 	OnScheduleFailed(ctx context.Context, reason string)
 }
 
 type SSchedTask struct {
 	taskman.STask
+	input *schedapi.ScheduleInput
 }
 
-func (self *SSchedTask) GetSchedParams() *jsonutils.JSONDict {
-	return self.GetParams()
+func (self *SSchedTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
+	params := self.GetParams()
+	input, err := cmdline.FetchScheduleInputByJSON(params)
+	if err != nil {
+		return nil, fmt.Errorf("Unmarsh to schedule input: %v", err)
+	}
+	return input, err
+}
+
+func (self *SSchedTask) GetDisks() ([]*api.DiskConfig, error) {
+	input, err := self.GetSchedParams()
+	if err != nil {
+		return nil, err
+	}
+	return input.Disks, nil
+}
+
+func (self *SSchedTask) GetFirstDisk() (*api.DiskConfig, error) {
+	disks, err := self.GetDisks()
+	if err != nil {
+		return nil, err
+	}
+	if len(disks) == 0 {
+		return nil, fmt.Errorf("Empty disks to schedule")
+	}
+	return disks[0], nil
 }
 
 func (self *SSchedTask) OnStartSchedule(obj IScheduleModel) {
@@ -70,11 +98,11 @@ func (self *SSchedTask) OnScheduleComplete(ctx context.Context, items []db.IStan
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *SSchedTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, hostId string) {
+func (self *SSchedTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource) {
 	// ...
 }
 
-func (self *SSchedTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave string) {
+func (self *SSchedTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource) {
 	// ...
 }
 
@@ -101,18 +129,23 @@ func doScheduleObjects(
 	task IScheduleTask,
 	objs []IScheduleModel,
 ) {
-	parmas := task.GetSchedParams()
-	schedtags := models.ApplySchedPolicies(parmas)
-
-	task.SetStage("OnScheduleComplete", schedtags)
-
-	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	results, err := modules.SchedManager.DoSchedule(s, parmas, len(objs))
+	schedInput, err := task.GetSchedParams()
 	if err != nil {
 		onSchedulerRequestFail(ctx, task, objs, fmt.Sprintf("Scheduler fail: %s", err))
 		return
 	}
-	onSchedulerResults(ctx, task, objs, results)
+	schedInput = models.ApplySchedPolicies(schedInput)
+
+	params := jsonutils.Marshal(schedInput).(*jsonutils.JSONDict)
+	task.SetStage("OnScheduleComplete", params)
+
+	s := auth.GetAdminSession(ctx, options.Options.Region, "")
+	output, err := modules.SchedManager.DoSchedule(s, schedInput, len(objs))
+	if err != nil {
+		onSchedulerRequestFail(ctx, task, objs, fmt.Sprintf("Scheduler fail: %s", err))
+		return
+	}
+	onSchedulerResults(ctx, task, objs, output.Candidates)
 }
 
 func cancelPendingUsage(ctx context.Context, task IScheduleTask) {
@@ -122,7 +155,12 @@ func cancelPendingUsage(ctx context.Context, task IScheduleTask) {
 		log.Errorf("Taks GetPendingUsage fail %s", err)
 		return
 	}
-	ownerProjectId, _ := task.GetSchedParams().GetString("owner_tenant_id")
+	schedInput, err := task.GetSchedParams()
+	if err != nil {
+		log.Errorf("cancelPendingUsage GetSchedParams fail: %s", err)
+		return
+	}
+	ownerProjectId := schedInput.ServerConfig.Project
 	err = models.QuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), ownerProjectId, &pendingUsage, &pendingUsage)
 	if err != nil {
 		log.Errorf("cancelpendingusage error %s", err)
@@ -162,31 +200,24 @@ func onSchedulerResults(
 	ctx context.Context,
 	task IScheduleTask,
 	objs []IScheduleModel,
-	results []jsonutils.JSONObject,
+	results []*schedapi.CandidateResource,
 ) {
 	succCount := 0
 	for idx := 0; idx < len(objs); idx += 1 {
 		obj := objs[idx]
 		result := results[idx]
-		if result.Contains("candidate", "id") {
-			hostId, _ := result.GetString("candidate", "id")
-			onScheduleSucc(ctx, task, obj, hostId)
-			succCount += 1
-		} else if result.Contains("candidate", "master_id") {
-			master, _ := result.GetString("candidate", "master_id")
-			slave, _ := result.GetString("candidate", "slave_id")
-			if len(master) == 0 || len(slave) == 0 {
-				onObjScheduleFail(ctx, task, obj, "Scheduler candidates not match")
-			} else {
-				onMasterSlaveScheduleSucc(ctx, task, obj, master, slave)
-			}
-		} else if result.Contains("error") {
-			msg, _ := result.Get("error")
-			onObjScheduleFail(ctx, task, obj, fmt.Sprintf("%s", msg))
+
+		if len(result.Error) != 0 {
+			onObjScheduleFail(ctx, task, obj, fmt.Sprintf("%s", result.Error))
+			continue
+		}
+
+		if result.BackupCandidate == nil {
+			// normal schedule
+			onScheduleSucc(ctx, task, obj, result)
 		} else {
-			msg := fmt.Sprintf("Unknown scheduler result %s", result)
-			onObjScheduleFail(ctx, task, obj, msg)
-			return
+			// backup schedule
+			onMasterSlaveScheduleSucc(ctx, task, obj, result, result.BackupCandidate)
 		}
 	}
 	if succCount == 0 {
@@ -199,24 +230,25 @@ func onMasterSlaveScheduleSucc(
 	ctx context.Context,
 	task IScheduleTask,
 	obj IScheduleModel,
-	master, slave string,
+	master, slave *schedapi.CandidateResource,
 ) {
 	lockman.LockObject(ctx, obj)
 	defer lockman.ReleaseObject(ctx, obj)
 	task.SaveScheduleResultWithBackup(ctx, obj, master, slave)
-	models.HostManager.ClearSchedDescCache(master)
-	models.HostManager.ClearSchedDescCache(slave)
+	models.HostManager.ClearSchedDescCache(master.HostId)
+	models.HostManager.ClearSchedDescCache(slave.HostId)
 }
 
 func onScheduleSucc(
 	ctx context.Context,
 	task IScheduleTask,
 	obj IScheduleModel,
-	hostId string,
+	candidate *schedapi.CandidateResource,
 ) {
+	hostId := candidate.HostId
 	lockman.LockRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
 	defer lockman.ReleaseRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
 
-	task.SaveScheduleResult(ctx, obj, hostId)
-	models.HostManager.ClearSchedDescCache(hostId)
+	task.SaveScheduleResult(ctx, obj, candidate)
+	models.HostManager.ClearSchedDescCache(candidate.HostId)
 }

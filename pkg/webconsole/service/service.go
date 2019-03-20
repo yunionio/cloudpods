@@ -11,7 +11,8 @@ import (
 
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/webconsole"
 	o "yunion.io/x/onecloud/pkg/webconsole/options"
 	"yunion.io/x/onecloud/pkg/webconsole/server"
@@ -27,7 +28,7 @@ func StartService() {
 
 	opts := &o.Options
 	commonOpts := &o.Options.CommonOptions
-	cloudcommon.ParseOptions(opts, os.Args, "webconsole.conf", "webconsole")
+	common_options.ParseOptions(opts, os.Args, "webconsole.conf", "webconsole")
 
 	if opts.ApiServer == "" {
 		log.Fatalf("--api-server must specified")
@@ -41,7 +42,7 @@ func StartService() {
 		ensureBinExists(binPath)
 	}
 
-	cloudcommon.InitAuth(commonOpts, func() {
+	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete")
 	})
 	start()
@@ -49,7 +50,7 @@ func StartService() {
 
 func start() {
 	commonOpts := &o.Options.CommonOptions
-	app := cloudcommon.InitApp(commonOpts, false)
+	app := app_common.InitApp(commonOpts, false)
 	webconsole.InitHandlers(app)
 
 	root := mux.NewRouter()

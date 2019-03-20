@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -39,7 +40,7 @@ func (self *GuestCreateDiskTask) OnDiskPreparedFailed(ctx context.Context, obj d
 /* --------------------------------------------- */
 
 type KVMGuestCreateDiskTask struct {
-	SGuestBaseTask
+	SGuestCreateDiskBaseTask
 }
 
 func (self *KVMGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -48,11 +49,16 @@ func (self *KVMGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandalo
 }
 
 func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	var diskIndex = 0
 	var diskReady = true
-	for {
-		diskId, err := self.Params.GetString(fmt.Sprintf("disk.%d.id", diskIndex))
-		if !diskReady || err != nil {
+	disks, err := self.GetInputDisks()
+	if err != nil {
+		self.SetStageFailed(ctx, err.Error())
+		return
+	}
+
+	for _, d := range disks {
+		diskId := d.DiskId
+		if !diskReady {
 			break
 		}
 		iDisk, err := models.DiskManager.FetchById(diskId)
@@ -66,7 +72,7 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 		}
 		disk := iDisk.(*models.SDisk)
 		if disk.Status == models.DISK_INIT {
-			snapshotId, _ := self.Params.GetString(fmt.Sprintf("disk.%d.snapshot", diskIndex))
+			snapshotId := d.SnapshotId
 			err = disk.StartDiskCreateTask(ctx, self.UserCred, false, snapshotId, self.GetTaskId())
 			if err != nil {
 				self.SetStageFailed(ctx, err.Error())
@@ -75,14 +81,12 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 			diskReady = false
 			break
 		}
-		diskIndex += 1
 	}
-	diskIndex = 0
-	for {
-		diskId, err := self.Params.GetString(fmt.Sprintf("disk.%d.id", diskIndex))
-		if !diskReady || err != nil {
+	for _, d := range disks {
+		if !diskReady {
 			break
 		}
+		diskId := d.DiskId
 		iDisk, err := models.DiskManager.FetchById(diskId)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
@@ -97,7 +101,6 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 			diskReady = false
 			break
 		}
-		diskIndex += 1
 	}
 	if diskReady {
 		guest := obj.(*models.SGuest)
@@ -117,8 +120,18 @@ func (self *KVMGuestCreateDiskTask) OnConfigSyncComplete(ctx context.Context, ob
 	self.SetStageComplete(ctx, nil)
 }
 
-type ManagedGuestCreateDiskTask struct {
+type SGuestCreateDiskBaseTask struct {
 	SGuestBaseTask
+}
+
+func (self *SGuestCreateDiskBaseTask) GetInputDisks() ([]api.DiskConfig, error) {
+	disks := make([]api.DiskConfig, 0)
+	err := self.GetParams().Unmarshal(&disks, "disks")
+	return disks, err
+}
+
+type ManagedGuestCreateDiskTask struct {
+	SGuestCreateDiskBaseTask
 }
 
 func (self *ManagedGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -127,14 +140,14 @@ func (self *ManagedGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStan
 }
 
 func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	var diskIndex = 0
+	disks, err := self.GetInputDisks()
+	if err != nil {
+		self.SetStageFailed(ctx, err.Error())
+		return
+	}
 
-	for self.Params.Contains(fmt.Sprintf("disk.%d.id", diskIndex)) {
-		diskId, err := self.Params.GetString(fmt.Sprintf("disk.%d.id", diskIndex))
-		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
-			return
-		}
+	for _, d := range disks {
+		diskId := d.DiskId
 		iDisk, err := models.DiskManager.FetchById(diskId)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
@@ -142,25 +155,20 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 		}
 		disk := iDisk.(*models.SDisk)
 		if disk.Status == models.DISK_INIT {
-			snapInfo, _ := self.Params.GetString(fmt.Sprintf("disk.%d.snapshot", diskIndex))
-			err = disk.StartDiskCreateTask(ctx, self.UserCred, false, snapInfo, self.GetTaskId())
+			snapshot := d.SnapshotId
+			err = disk.StartDiskCreateTask(ctx, self.UserCred, false, snapshot, self.GetTaskId())
 			if err != nil {
 				self.SetStageFailed(ctx, err.Error())
 				return
 			}
 			return
 		}
-		diskIndex += 1
 	}
 
-	diskIndex = 0
 	guest := obj.(*models.SGuest)
 
-	for self.Params.Contains(fmt.Sprintf("disk.%d.id", diskIndex)) {
-		diskId, err := self.Params.GetString(fmt.Sprintf("disk.%d.id", diskIndex))
-		if err != nil {
-			return
-		}
+	for _, d := range disks {
+		diskId := d.DiskId
 		iDisk, err := models.DiskManager.FetchById(diskId)
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
@@ -185,7 +193,6 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 			return
 		}
 		time.Sleep(time.Second * 5)
-		diskIndex += 1
 	}
 
 	self.SetStageComplete(ctx, nil)
@@ -198,7 +205,7 @@ func (self *ManagedGuestCreateDiskTask) OnConfigSyncComplete(ctx context.Context
 */
 
 type ESXiGuestCreateDiskTask struct {
-	SGuestBaseTask
+	SGuestCreateDiskBaseTask
 }
 
 func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -209,14 +216,13 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 		return
 	}
 
-	diskIndex := 0
-	for {
-		diskKey := fmt.Sprintf("disk.%d.id", diskIndex)
-		if !self.Params.Contains(diskKey) {
-			break
-		}
-		diskId, _ := self.Params.GetString(diskKey)
-		diskIndex += 1
+	disks, err := self.GetInputDisks()
+	if err != nil {
+		self.SetStageFailed(ctx, err.Error())
+		return
+	}
+	for _, d := range disks {
+		diskId := d.DiskId
 		guestDisk := guest.GetGuestDisk(diskId)
 		if guestDisk == nil {
 			self.SetStageFailed(ctx, "fail to find guestdisk")

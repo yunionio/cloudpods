@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -394,15 +395,46 @@ func (self *SServerSkuManager) AllowGetPropertyInstanceSpecs(ctx context.Context
 	return true
 }
 
-func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	q := self.Query()
-	// 未明确指定provider或者public_cloud时，默认查询私有云
-	provider, _ := query.GetString("provider")
-	public_cloud, _ := query.Bool("public_cloud")
-	if len(provider) > 0 {
+// 四舍五入
+func round(n int, step int) int {
+	q := float64(n) / float64(step)
+	return int(math.Floor(q+0.5)) * step
+}
+
+// 内存按GB取整
+func roundMem(n int) int {
+	if n <= 512 {
+		return 512
+	}
+
+	return round(n, 1024)
+}
+
+// step必须是偶数
+func interval(n int, step int) (int, int) {
+	r := round(n, step)
+	start := r - step/2
+	end := r + step/2
+	return start, end
+}
+
+// 计算内存所在区间范围
+func intervalMem(n int) (int, int) {
+	if n <= 512 {
+		return 0, 512
+	}
+	return interval(n, 1024)
+}
+
+func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sqlchemy.SQuery {
+	if provider == "all" {
+		// provider 参数为all时。表示查询所有instance type.
+		return q
+	} else if len(provider) > 0 {
 		q = q.Equals("provider", provider)
 	} else if public_cloud {
 		q = q.IsNotEmpty("provider")
+		q = q.NotIn("provider", []string{CLOUD_PROVIDER_OPENSTACK})
 	} else {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.IsNull(q.Field("provider")),
@@ -410,6 +442,15 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 		))
 	}
 
+	return q
+}
+
+func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	q := self.Query()
+	// 未明确指定provider或者public_cloud时，默认查询私有云
+	provider, _ := query.GetString("provider")
+	public_cloud, _ := query.Bool("public_cloud")
+	q = providerFilter(q, provider, public_cloud)
 	q = excludeSkus(q)
 
 	// 如果是查询私有云需要忽略zone参数
@@ -452,7 +493,7 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 	oc := 0
 	for i := range skus {
 		nc := skus[i].CpuCoreCount
-		nm := skus[i].MemorySizeMB
+		nm := roundMem(skus[i].MemorySizeMB) // 内存按GB取整
 
 		if nc > oc {
 			cpus.Add(jsonutils.NewInt(int64(nc)))
@@ -615,20 +656,9 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	provider := jsonutils.GetAnyString(query, []string{"provider"})
 	public_cloud, _ := query.Bool("public_cloud")
 	queryDict := query.(*jsonutils.JSONDict)
-	if provider == "all" {
-		// provider 参数为all时。表示查询所有instance type.
-		queryDict.Remove("provider")
-	} else if len(provider) > 0 {
-		q = q.Equals("provider", provider)
-	} else if public_cloud {
-		q = q.IsNotEmpty("provider")
-	} else {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.IsNull(q.Field("provider")),
-			sqlchemy.IsEmpty(q.Field("provider")),
-		))
-	}
-
+	// 手动处理provider查询
+	queryDict.Remove("provider")
+	q = providerFilter(q, provider, public_cloud)
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
@@ -692,6 +722,15 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	prepaid, _ := query.GetString("prepaid_status")
 	if len(prepaid) > 0 {
 		q.Equals("prepaid_status", prepaid)
+	}
+
+	// 按区间查询内存
+	memSizeMB, _ := queryDict.Int("memory_size_mb")
+	if memSizeMB > 0 {
+		s, e := intervalMem(int(memSizeMB))
+		q.GT("memory_size_mb", s)
+		q.LE("memory_size_mb", e)
+		queryDict.Remove("memory_size_mb")
 	}
 
 	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))

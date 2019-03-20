@@ -6,8 +6,10 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd/models"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloutpost/options"
 )
 
@@ -18,9 +20,9 @@ const (
 func StartService() {
 	opts := &options.Options
 	commonOpts := &opts.CommonOptions
-	cloudcommon.ParseOptions(opts, os.Args, "cloutpost.conf", SERVICE_TYPE)
+	common_options.ParseOptions(opts, os.Args, "cloutpost.conf", SERVICE_TYPE)
 
-	cloudcommon.InitAuth(commonOpts, func() {
+	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
 
@@ -30,8 +32,8 @@ func StartService() {
 	}
 	defer etcd.CloseDefaultEtcdClient()
 
-	app := cloudcommon.InitApp(commonOpts, false)
-
+	app := app_common.InitApp(commonOpts, false)
+	cloudcommon.AppDBInit(app)
 	initHandlers(app)
 
 	err = models.ServiceRegistryManager.Register(
@@ -49,5 +51,5 @@ func StartService() {
 		log.Fatalf("fail to register service %s", err)
 	}
 
-	cloudcommon.ServeForever(app, commonOpts)
+	app_common.ServeForever(app, commonOpts)
 }

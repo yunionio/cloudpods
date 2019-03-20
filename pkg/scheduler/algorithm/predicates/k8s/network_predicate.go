@@ -7,9 +7,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"yunion.io/x/pkg/util/errors"
+	"yunion.io/x/pkg/util/netutils"
+
+	"yunion.io/x/onecloud/pkg/compute/models"
 
 	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
-	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 )
 
 const (
@@ -56,13 +58,13 @@ func (p *NetworkPredicate) Execute(cli *kubernetes.Clientset, pod *v1.Pod, node 
 	return true, nil
 }
 
-func (p NetworkPredicate) checkByNetworks(nets []*models.NetworkSchedResult) error {
+func (p NetworkPredicate) checkByNetworks(nets []models.SNetwork) error {
 	if len(nets) == 0 {
 		return fmt.Errorf("Network is empty")
 	}
 	errs := make([]error, 0)
 	for _, net := range nets {
-		err := p.checkByNetwork(net)
+		err := p.checkByNetwork(&net)
 		if err == nil {
 			return nil
 		}
@@ -71,23 +73,23 @@ func (p NetworkPredicate) checkByNetworks(nets []*models.NetworkSchedResult) err
 	return errors.NewAggregate(errs)
 }
 
-func (p NetworkPredicate) checkByNetwork(net *models.NetworkSchedResult) error {
-	if net.Ports <= 0 {
+func (p NetworkPredicate) checkByNetwork(net *models.SNetwork) error {
+	if net.GetPorts() <= 0 {
 		return fmt.Errorf("Network %s no free IPs", net.Name)
 	}
-	if !(p.network == net.Name || p.network == net.ID) {
-		return fmt.Errorf("Network %s:%s or id not match %s", net.Name, net.ID, p.network)
+	if !(p.network == net.Name || p.network == net.Id) {
+		return fmt.Errorf("Network %s:%s or id not match %s", net.Name, net.Id, p.network)
 	}
 	return nil
 }
 
-func (p NetworkPredicate) checkNetworksIP(ip string, nets []*models.NetworkSchedResult) error {
+func (p NetworkPredicate) checkNetworksIP(ip string, nets []models.SNetwork) error {
 	if len(nets) == 0 {
 		return fmt.Errorf("Network is empty")
 	}
 	errs := make([]error, 0)
 	for _, net := range nets {
-		err := p.checkNetworkIP(ip, net)
+		err := p.checkNetworkIP(ip, &net)
 		if err == nil {
 			return nil
 		}
@@ -96,10 +98,12 @@ func (p NetworkPredicate) checkNetworksIP(ip string, nets []*models.NetworkSched
 	return errors.NewAggregate(errs)
 }
 
-func (p NetworkPredicate) checkNetworkIP(ip string, net *models.NetworkSchedResult) error {
-	if ok, err := net.ContainsIp(ip); err != nil {
+func (p NetworkPredicate) checkNetworkIP(ip string, net *models.SNetwork) error {
+	ipAddr, err := netutils.NewIPV4Addr(ip)
+	if err != nil {
 		return err
-	} else if !ok {
+	}
+	if ok := net.GetIPRange().Contains(ipAddr); !ok {
 		return fmt.Errorf("Network %s not contains ip %s", net.Name, ip)
 	}
 	return nil

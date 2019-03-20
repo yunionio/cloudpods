@@ -41,16 +41,16 @@ func (f *IsolatedDevicePredicate) Execute(u *core.Unit, c core.Candidater) (bool
 
 	// check by specify device id
 	for _, dev := range reqIsoDevs {
-		if len(dev.ID) == 0 {
+		if len(dev.Id) == 0 {
 			continue
 		}
-		if fDev := hc.GetIsolatedDevice(dev.ID); fDev != nil {
+		if fDev := hc.GetIsolatedDevice(dev.Id); fDev != nil {
 			if len(fDev.GuestID) != 0 {
-				h.Exclude(fmt.Sprintf("IsolatedDevice %q already used by guest %q", dev.ID, fDev.GuestID))
+				h.Exclude(fmt.Sprintf("IsolatedDevice %q already used by guest %q", dev.Id, fDev.GuestID))
 				return h.GetResult()
 			}
 		} else {
-			h.Exclude(fmt.Sprintf("Not found IsolatedDevice %q", dev.ID))
+			h.Exclude(fmt.Sprintf("Not found IsolatedDevice %q", dev.Id))
 			return h.GetResult()
 		}
 		minCapacity = 1
@@ -72,8 +72,8 @@ func (f *IsolatedDevicePredicate) Execute(u *core.Unit, c core.Candidater) (bool
 	// check host device by type
 	devTypeRequest := make(map[string]int, 0)
 	for _, dev := range reqIsoDevs {
-		if len(dev.Type) != 0 {
-			devTypeRequest[dev.Type] += 1
+		if len(dev.DevType) != 0 {
+			devTypeRequest[dev.DevType] += 1
 		}
 	}
 	for devType, reqCount := range devTypeRequest {

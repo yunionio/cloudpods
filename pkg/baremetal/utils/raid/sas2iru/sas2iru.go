@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/stringutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/util/ssh"
@@ -225,11 +226,11 @@ func (adapter *Mpt2SASRaidAdaptor) setBootIR() error {
 	return nil
 }
 
-func (adapter *Mpt2SASRaidAdaptor) PreBuildRaid(confs []*baremetal.BaremetalDiskConfig) error {
+func (adapter *Mpt2SASRaidAdaptor) PreBuildRaid(confs []*api.BaremetalDiskConfig) error {
 	return nil
 }
 
-func (adapter *Mpt2SASRaidAdaptor) buildRaid(level string, devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *Mpt2SASRaidAdaptor) buildRaid(level string, devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	if len(conf.Size) > 1 {
 		return fmt.Errorf("Subdivide sub-size not supported")
 	}
@@ -253,19 +254,19 @@ func (adapter *Mpt2SASRaidAdaptor) buildRaid(level string, devs []*baremetal.Bar
 	return nil
 }
 
-func (adapter *Mpt2SASRaidAdaptor) BuildRaid0(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *Mpt2SASRaidAdaptor) BuildRaid0(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.buildRaid("RAID0", devs, conf)
 }
 
-func (adapter *Mpt2SASRaidAdaptor) BuildRaid1(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *Mpt2SASRaidAdaptor) BuildRaid1(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.buildRaid("RAID1", devs, conf)
 }
 
-func (adapter *Mpt2SASRaidAdaptor) BuildRaid5(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *Mpt2SASRaidAdaptor) BuildRaid5(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return fmt.Errorf("Not impl")
 }
 
-func (adapter *Mpt2SASRaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *Mpt2SASRaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	if len(devs) > 10 {
 		return fmt.Errorf("RAID10 supports no more than 10 disks")
 	}
@@ -342,7 +343,7 @@ func (r *Mpt2SASRaid) GetCommand(args ...string) string {
 	return raid.GetCommand(r.utility, args...)
 }
 
-func (r *Mpt2SASRaid) PreBuildRaid(_ []*baremetal.BaremetalDiskConfig, _ int) error {
+func (r *Mpt2SASRaid) PreBuildRaid(_ []*api.BaremetalDiskConfig, _ int) error {
 	return nil
 }
 

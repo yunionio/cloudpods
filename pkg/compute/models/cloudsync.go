@@ -24,7 +24,7 @@ type SSyncableBaseResource struct {
 
 func (self *SSyncableBaseResource) CanSync() bool {
 	if self.SyncStatus == CLOUD_PROVIDER_SYNC_STATUS_QUEUED || self.SyncStatus == CLOUD_PROVIDER_SYNC_STATUS_SYNCING {
-		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > 900*time.Second {
+		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > 1800*time.Second {
 			return true
 		} else {
 			return false

@@ -9,7 +9,7 @@ import (
 
 func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 	unit := result.Unit
-	reqCount := unit.SchedData().Count
+	reqCount := int64(unit.SchedData().Count)
 	var readyCount int64
 	filters := make([]*api.ForecastFilter, 0)
 

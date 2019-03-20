@@ -1,64 +1,91 @@
 package shell
 
 import (
-	"yunion.io/x/jsonutils"
+	"fmt"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
-func init() {
-	type SchedtagHostListOptions struct {
-		options.BaseListOptions
-		Schedtag string `help:"ID or Name of schedtag"`
+type schedtagModelHelper struct {
+	managers []modules.JointResourceManager
+}
+
+func newSchedtagModelHelper(mans ...modules.JointResourceManager) *schedtagModelHelper {
+	return &schedtagModelHelper{managers: mans}
+}
+
+func (h *schedtagModelHelper) register() {
+	for _, man := range h.managers {
+		h.list(man.Slave, man.Slave.GetKeyword())
+		h.add(man, man.Slave.GetKeyword())
+		h.remove(man, man.Slave.GetKeyword())
 	}
-	R(&SchedtagHostListOptions{}, "schedtag-host-list", "List all scheduler tag and host pairs", func(s *mcclient.ClientSession, args *SchedtagHostListOptions) error {
-		mod, err := modules.GetJointModule2(s, &modules.Schedtags, &modules.Hosts)
-		if err != nil {
-			return err
-		}
-		var params *jsonutils.JSONDict
-		{
-			var err error
-			params, err = args.BaseListOptions.Params()
+}
+
+func (h *schedtagModelHelper) list(slave modules.Manager, kw string) {
+	R(
+		&options.SchedtagModelListOptions{},
+		fmt.Sprintf("schedtag-%s-list", kw),
+		fmt.Sprintf("List all scheduler tag and %s pairs", kw),
+		func(s *mcclient.ClientSession, args *options.SchedtagModelListOptions) error {
+			mod, err := modules.GetJointModule2(s, &modules.Schedtags, slave)
 			if err != nil {
 				return err
-
 			}
-		}
-		var result *modules.ListResult
-		if len(args.Schedtag) > 0 {
-			result, err = mod.ListDescendent(s, args.Schedtag, params)
-		} else {
-			result, err = mod.List(s, params)
-		}
-		if err != nil {
-			return err
-		}
-		printList(result, mod.GetColumns(s))
-		return nil
-	})
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			var result *modules.ListResult
+			if len(args.Schedtag) > 0 {
+				result, err = mod.ListDescendent(s, args.Schedtag, params)
+			} else {
+				result, err = mod.List(s, params)
+			}
+			if err != nil {
+				return err
+			}
+			printList(result, mod.GetColumns(s))
+			return nil
+		},
+	)
+}
 
-	type SchedtagHostPair struct {
-		SCHEDTAG string `help:"Scheduler tag"`
-		HOST     string `help:"Host"`
-	}
-	R(&SchedtagHostPair{}, "schedtag-host-add", "Add a schedtag to a host", func(s *mcclient.ClientSession, args *SchedtagHostPair) error {
-		schedtag, err := modules.Schedtaghosts.Attach(s, args.SCHEDTAG, args.HOST, nil)
-		if err != nil {
-			return err
-		}
-		printObject(schedtag)
-		return nil
-	})
+func (h *schedtagModelHelper) add(man modules.JointResourceManager, kw string) {
+	R(
+		&options.SchedtagModelPairOptions{},
+		fmt.Sprintf("schedtag-%s-add", kw),
+		fmt.Sprintf("Add a schedtag to a %s", kw),
+		func(s *mcclient.ClientSession, args *options.SchedtagModelPairOptions) error {
+			schedtag, err := man.Attach(s, args.SCHEDTAG, args.OBJECT, nil)
+			if err != nil {
+				return err
+			}
+			printObject(schedtag)
+			return nil
+		})
+}
 
-	R(&SchedtagHostPair{}, "schedtag-host-remove", "Remove a schedtag from a host", func(s *mcclient.ClientSession, args *SchedtagHostPair) error {
-		schedtag, err := modules.Schedtaghosts.Detach(s, args.SCHEDTAG, args.HOST, nil)
-		if err != nil {
-			return err
-		}
-		printObject(schedtag)
-		return nil
-	})
+func (h *schedtagModelHelper) remove(man modules.JointResourceManager, kw string) {
+	R(
+		&options.SchedtagModelPairOptions{},
+		fmt.Sprintf("schedtag-%s-remove", kw),
+		fmt.Sprintf("Remove a schedtag to a %s", kw),
+		func(s *mcclient.ClientSession, args *options.SchedtagModelPairOptions) error {
+			schedtag, err := man.Detach(s, args.SCHEDTAG, args.OBJECT, nil)
+			if err != nil {
+				return err
+			}
+			printObject(schedtag)
+			return nil
+		})
+}
+
+func init() {
+	newSchedtagModelHelper(
+		modules.Schedtaghosts,
+		modules.Schedtagstorages,
+	).register()
 }

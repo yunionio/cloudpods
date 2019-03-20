@@ -5,8 +5,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type Rule struct {
@@ -55,7 +55,7 @@ func (backendgroup *SLoadbalancerBackendGroup) GetGlobalId() string {
 }
 
 func (backendgroup *SLoadbalancerBackendGroup) GetStatus() string {
-	return consts.LB_STATUS_ENABLED
+	return api.LB_STATUS_ENABLED
 }
 
 func (backendgroup *SLoadbalancerBackendGroup) IsDefault() bool {
@@ -63,7 +63,7 @@ func (backendgroup *SLoadbalancerBackendGroup) IsDefault() bool {
 }
 
 func (backendgroup *SLoadbalancerBackendGroup) GetType() string {
-	return consts.LB_BACKENDGROUP_TYPE_NORMAL
+	return api.LB_BACKENDGROUP_TYPE_NORMAL
 }
 
 func (backendgroup *SLoadbalancerBackendGroup) GetMetadata() *jsonutils.JSONDict {

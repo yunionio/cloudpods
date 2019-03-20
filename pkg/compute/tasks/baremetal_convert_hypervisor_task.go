@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -35,7 +36,12 @@ func (self *BaremetalConvertHypervisorTask) OnInit(ctx context.Context, obj db.I
 	paramsDict := params.(*jsonutils.JSONDict)
 	pendingUsage := models.SQuota{}
 	self.GetPendingUsage(&pendingUsage)
-	guest.StartGuestCreateTask(ctx, self.UserCred, paramsDict, &pendingUsage, self.GetId())
+	input, err := cmdline.FetchServerCreateInputByJSON(paramsDict)
+	if err != nil {
+		self.SetStageFailed(ctx, err.Error())
+		return
+	}
+	guest.StartGuestCreateTask(ctx, self.UserCred, input, &pendingUsage, self.GetId())
 }
 
 func (self *BaremetalConvertHypervisorTask) OnGuestDeployComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {

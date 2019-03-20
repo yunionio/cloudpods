@@ -13,12 +13,12 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/fileutils"
-	"yunion.io/x/pkg/util/osprofile"
-	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -33,42 +33,42 @@ import (
 )
 
 const (
-	DISK_INIT                = "init"
-	DISK_REBUILD             = "rebuild"
-	DISK_ALLOC_FAILED        = "alloc_failed"
-	DISK_STARTALLOC          = "start_alloc"
-	DISK_BACKUP_STARTALLOC   = "backup_start_alloc"
-	DISK_BACKUP_ALLOC_FAILED = "backup_alloc_failed"
-	DISK_ALLOCATING          = "allocating"
-	DISK_READY               = "ready"
-	DISK_RESET               = "reset"        // 快照回滚
-	DISK_RESET_FAILED        = "reset_failed" // 快照回滚失败
-	DISK_DEALLOC             = "deallocating"
-	DISK_DEALLOC_FAILED      = "dealloc_failed"
-	DISK_UNKNOWN             = "unknown"
-	DISK_DETACHING           = "detaching"
-	DISK_ATTACHING           = "attaching"
-	DISK_CLONING             = "cloning" // 硬盘克隆
+	DISK_INIT                = api.DISK_INIT
+	DISK_REBUILD             = api.DISK_REBUILD
+	DISK_ALLOC_FAILED        = api.DISK_ALLOC_FAILED
+	DISK_STARTALLOC          = api.DISK_STARTALLOC
+	DISK_BACKUP_STARTALLOC   = api.DISK_BACKUP_STARTALLOC
+	DISK_BACKUP_ALLOC_FAILED = api.DISK_BACKUP_ALLOC_FAILED
+	DISK_ALLOCATING          = api.DISK_ALLOCATING
+	DISK_READY               = api.DISK_READY
+	DISK_RESET               = api.DISK_RESET        // 快照回滚
+	DISK_RESET_FAILED        = api.DISK_RESET_FAILED // 快照回滚失败
+	DISK_DEALLOC             = api.DISK_DEALLOC
+	DISK_DEALLOC_FAILED      = api.DISK_DEALLOC_FAILED
+	DISK_UNKNOWN             = api.DISK_UNKNOWN
+	DISK_DETACHING           = api.DISK_DETACHING
+	DISK_ATTACHING           = api.DISK_ATTACHING
+	DISK_CLONING             = api.DISK_CLONING // 硬盘克隆
 
-	DISK_START_SAVE = "start_save"
-	DISK_SAVING     = "saving"
+	DISK_START_SAVE = api.DISK_START_SAVE
+	DISK_SAVING     = api.DISK_SAVING
 
-	DISK_START_RESIZE = "start_resize"
-	DISK_RESIZING     = "resizing"
+	DISK_START_RESIZE = api.DISK_START_RESIZE
+	DISK_RESIZING     = api.DISK_RESIZING
 
-	DISK_START_MIGRATE = "start_migrate"
-	DISK_POST_MIGRATE  = "post_migrate"
-	DISK_MIGRATING     = "migrating"
+	DISK_START_MIGRATE = api.DISK_START_MIGRATE
+	DISK_POST_MIGRATE  = api.DISK_POST_MIGRATE
+	DISK_MIGRATING     = api.DISK_MIGRATING
 
-	DISK_START_SNAPSHOT = "start_snapshot"
-	DISK_SNAPSHOTING    = "snapshoting"
+	DISK_START_SNAPSHOT = api.DISK_START_SNAPSHOT
+	DISK_SNAPSHOTING    = api.DISK_SNAPSHOTING
 
-	DISK_TYPE_SYS    = "sys"
-	DISK_TYPE_SWAP   = "swap"
-	DISK_TYPE_DATA   = "data"
-	DISK_TYPE_VOLUME = "volume"
+	DISK_TYPE_SYS    = api.DISK_TYPE_SYS
+	DISK_TYPE_SWAP   = api.DISK_TYPE_SWAP
+	DISK_TYPE_DATA   = api.DISK_TYPE_DATA
+	DISK_TYPE_VOLUME = api.DISK_TYPE_VOLUME
 
-	DISK_BACKING_IMAGE = "image"
+	DISK_BACKING_IMAGE = api.DISK_BACKING_IMAGE
 )
 
 type SDiskManager struct {
@@ -346,12 +346,11 @@ func (self *SDisk) GetRuningGuestCount() int {
 }
 
 func (self *SDisk) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	diskConfig := SDiskConfig{}
-	if err := data.Unmarshal(&diskConfig, "disk"); err != nil {
+	input := new(api.DiskCreateInput)
+	if err := data.Unmarshal(input); err != nil {
 		return err
-	} else {
-		self.fetchDiskInfo(&diskConfig)
 	}
+	self.fetchDiskInfo(input.DiskConfig)
 	return self.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
 }
 
@@ -381,17 +380,18 @@ func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 }
 
 func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	disk, err := data.Get("disk")
+	input, err := cmdline.FetchDiskCreateInputByJSON(data)
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("disk")
+		return nil, httperrors.NewInputParameterError("parse disk input: %v", err)
 	}
-
-	diskConfig, err := parseDiskInfo(ctx, userCred, disk)
+	diskConfig := input.DiskConfig
+	diskConfig, err = parseDiskInfo(ctx, userCred, diskConfig)
 	if err != nil {
 		return nil, err
 	}
+	input.Project = ownerProjId
 
-	storageID := jsonutils.GetAnyString(data, []string{"storage_id", "storage"})
+	storageID := input.Storage
 	if storageID != "" {
 		storageObj, err := StorageManager.FetchByIdOrName(nil, storageID)
 		if err != nil {
@@ -406,16 +406,15 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		if err != nil {
 			return nil, err
 		}
-		data.Add(jsonutils.NewString(storage.Id), "storage_id")
+		input.Storage = storage.Id
 	} else {
 		diskConfig.Backend = STORAGE_LOCAL
-		hypervisor, _ := data.GetString("hypervisor")
-		data, err = ValidateScheduleCreateData(ctx, userCred, data, hypervisor)
+		serverInput, err := ValidateScheduleCreateData(ctx, userCred, input.ToServerCreateInput(), input.Hypervisor)
 		if err != nil {
 			return nil, err
 		}
+		input = serverInput.ToDiskCreateInput()
 	}
-	data.Add(jsonutils.Marshal(diskConfig), "disk")
 
 	if _, err := manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
 		return nil, err
@@ -424,10 +423,10 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError("%s", err)
 	}
-	return data, nil
+	return input.JSON(input), nil
 }
 
-func (manager *SDiskManager) validateDiskOnStorage(diskConfig *SDiskConfig, storage *SStorage) error {
+func (manager *SDiskManager) validateDiskOnStorage(diskConfig *api.DiskConfig, storage *SStorage) error {
 	if !storage.Enabled {
 		return httperrors.NewInputParameterError("Cannot create disk with disabled storage[%s]", storage.Name)
 	}
@@ -457,7 +456,27 @@ func (manager *SDiskManager) validateDiskOnStorage(diskConfig *SDiskConfig, stor
 	return nil
 }
 
-func (disk *SDisk) SetStorageByHost(hostId string, diskConfig *SDiskConfig) error {
+func (disk *SDisk) SetStorage(storageId string, diskConfig *api.DiskConfig) error {
+	backend := diskConfig.Backend
+	if backend == "" {
+		return fmt.Errorf("Backend is empty")
+	}
+	storage := StorageManager.FetchStorageById(storageId)
+	if storage == nil {
+		return fmt.Errorf("Not found backend %s storage %s", backend, storageId)
+	}
+	err := DiskManager.validateDiskOnStorage(diskConfig, storage)
+	if err != nil {
+		return err
+	}
+	_, err = db.Update(disk, func() error {
+		disk.StorageId = storage.Id
+		return nil
+	})
+	return err
+}
+
+func (disk *SDisk) SetStorageByHost(hostId string, diskConfig *api.DiskConfig) error {
 	host := HostManager.FetchHostById(hostId)
 	backend := diskConfig.Backend
 	if backend == "" {
@@ -497,16 +516,16 @@ func getDiskResourceRequirements(ctx context.Context, userCred mcclient.TokenCre
 	}
 }
 
-func (manager *SDiskManager) convertToBatchCreateData(data jsonutils.JSONObject) *jsonutils.JSONDict {
+/*func (manager *SDiskManager) convertToBatchCreateData(data jsonutils.JSONObject) *jsonutils.JSONDict {
 	diskConfig, _ := data.Get("disk")
 	newData := data.(*jsonutils.JSONDict).CopyExcludes("disk")
 	newData.Add(diskConfig, "disk.0")
 	return newData
-}
+}*/
 
 func (manager *SDiskManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	pendingUsage := getDiskResourceRequirements(ctx, userCred, data, len(items))
-	RunBatchCreateTask(ctx, items, userCred, manager.convertToBatchCreateData(data), pendingUsage, "DiskBatchCreateTask")
+	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, "DiskBatchCreateTask")
 }
 
 func (self *SDisk) StartDiskCreateTask(ctx context.Context, userCred mcclient.TokenCredential, rebuild bool, snapshot string, parentTaskId string) error {
@@ -1144,95 +1163,28 @@ func totalDiskSize(projectId string, active tristate.TriState, ready tristate.Tr
 	return size
 }
 
-type SDiskConfig struct {
-	ImageId string `json:"image_id"`
-
-	SnapshotId string `json:"snapshot_id"`
-	DiskType   string `json:"disk_type"` // sys, data, swap, volume
-
-	// ImageDiskFormat string
-	SizeMb          int               `json:"size"`       // MB
-	Fs              string            `json:"fs"`         // file system
-	Format          string            `json:"format"`     //
-	Driver          string            `json:"driver"`     //
-	Cache           string            `json:"cache"`      //
-	Mountpoint      string            `json:"mountpoint"` //
-	Backend         string            `json:"backend"`    // stroageType
-	Medium          string            `json:"medium"`
-	ImageProperties map[string]string `json:"image_properties"`
-
-	DiskId string `json:"-"` // import only
-}
-
-func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SDiskConfig, error) {
-	diskConfig := SDiskConfig{}
-
-	diskJson, ok := info.(*jsonutils.JSONDict)
-	if ok {
-		err := diskJson.Unmarshal(&diskConfig)
-		if err != nil {
+func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info *api.DiskConfig) (*api.DiskConfig, error) {
+	if info.SnapshotId != "" {
+		if err := fillDiskConfigBySnapshot(userCred, info, info.SnapshotId); err != nil {
 			return nil, err
 		}
-		return &diskConfig, nil
 	}
-
-	// default backend and medium type
-	diskConfig.Backend = "" // STORAGE_LOCAL
-	diskConfig.Medium = DISK_TYPE_HYBRID
-
-	diskStr, err := info.GetString()
-	if err != nil {
-		log.Errorf("invalid diskinfo format %s", err)
-		return nil, err
-	}
-	parts := strings.Split(diskStr, ":")
-	for _, p := range parts {
-		if len(p) == 0 {
-			continue
-		}
-		if regutils.MatchSize(p) {
-			diskConfig.SizeMb, _ = fileutils.GetSizeMb(p, 'M', 1024)
-		} else if utils.IsInStringArray(p, osprofile.FS_TYPES) {
-			diskConfig.Fs = p
-		} else if utils.IsInStringArray(p, osprofile.IMAGE_FORMAT_TYPES) {
-			diskConfig.Format = p
-		} else if utils.IsInStringArray(p, osprofile.DISK_DRIVERS) {
-			diskConfig.Driver = p
-		} else if utils.IsInStringArray(p, osprofile.DISK_CACHE_MODES) {
-			diskConfig.Cache = p
-		} else if utils.IsInStringArray(p, DISK_TYPES) {
-			diskConfig.Medium = p
-		} else if utils.IsInStringArray(p, []string{DISK_TYPE_VOLUME}) {
-			diskConfig.DiskType = p
-		} else if p[0] == '/' {
-			diskConfig.Mountpoint = p
-		} else if p == "autoextend" {
-			diskConfig.SizeMb = -1
-		} else if storageType, exist := StorageManager.IsStorageTypeExist(p); exist {
-			diskConfig.Backend = storageType
-		} else if strings.HasPrefix(p, "snapshot-") {
-			// HACK: use snapshot creat disk format snapshot-id
-			// example: snapshot-3140cecb-ccc4-4865-abae-3a5ba8c69d9b
-			if err := fillDiskConfigBySnapshot(userCred, &diskConfig, p[len("snapshot-"):]); err != nil {
-				return nil, err
-			}
-		} else if len(p) > 0 {
-			if err := fillDiskConfigByImage(ctx, userCred, &diskConfig, p); err != nil {
-				return nil, err
-			}
+	if info.ImageId != "" {
+		if err := fillDiskConfigByImage(ctx, userCred, info, info.ImageId); err != nil {
+			return nil, err
 		}
 	}
 	// XXX: do not set default disk size here, set it by each hypervisor driver
 	// if len(diskConfig.ImageId) > 0 && diskConfig.SizeMb == 0 {
 	// 	diskConfig.SizeMb = options.Options.DefaultDiskSize // MB
 	// else
-	if len(diskConfig.ImageId) == 0 && diskConfig.SizeMb == 0 {
+	if len(info.ImageId) == 0 && info.SizeMb == 0 {
 		return nil, httperrors.NewInputParameterError("Diskinfo not contains either imageID or size")
 	}
-	return &diskConfig, nil
+	return info, nil
 }
 
-func fillDiskConfigBySnapshot(userCred mcclient.TokenCredential, diskConfig *SDiskConfig, snapshotId string) error {
+func fillDiskConfigBySnapshot(userCred mcclient.TokenCredential, diskConfig *api.DiskConfig, snapshotId string) error {
 	iSnapshot, err := SnapshotManager.FetchByIdOrName(userCred, snapshotId)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -1260,7 +1212,7 @@ func fillDiskConfigBySnapshot(userCred mcclient.TokenCredential, diskConfig *SDi
 }
 
 func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredential,
-	diskConfig *SDiskConfig, imageId string) error {
+	diskConfig *api.DiskConfig, imageId string) error {
 	if userCred == nil {
 		diskConfig.ImageId = imageId
 	} else {
@@ -1298,7 +1250,7 @@ func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, imageI
 	return image, nil
 }
 
-func (self *SDisk) fetchDiskInfo(diskConfig *SDiskConfig) {
+func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) {
 	if len(diskConfig.ImageId) > 0 {
 		self.TemplateId = diskConfig.ImageId
 		self.DiskType = DISK_TYPE_SYS
@@ -1343,6 +1295,7 @@ type DiskInfo struct {
 	DiskType   string
 }
 
+// DEPRECATE: will be remove in future, use ToDiskConfig
 func (self *SDisk) ToDiskInfo() DiskInfo {
 	ret := DiskInfo{
 		ImageId:    self.GetTemplateId(),
@@ -1359,6 +1312,26 @@ func (self *SDisk) ToDiskInfo() DiskInfo {
 	ret.Storage = storage.Id
 	ret.Backend = storage.StorageType
 	ret.MediumType = storage.MediumType
+	return ret
+}
+
+func (self *SDisk) ToDiskConfig() *api.DiskConfig {
+	ret := &api.DiskConfig{
+		Index:      -1,
+		ImageId:    self.GetTemplateId(),
+		Fs:         self.GetFsFormat(),
+		Mountpoint: self.GetMountPoint(),
+		Format:     self.DiskFormat,
+		SizeMb:     self.DiskSize,
+		DiskType:   self.DiskType,
+	}
+	storage := self.GetStorage()
+	if storage == nil {
+		return ret
+	}
+	ret.Storage = storage.Id
+	ret.Backend = storage.StorageType
+	ret.Medium = storage.MediumType
 	return ret
 }
 

@@ -6,6 +6,8 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+
+	api "yunion.io/x/onecloud/pkg/apis/scheduler"
 )
 
 var (
@@ -22,50 +24,31 @@ type SchedulerManager struct {
 	ResourceManager
 }
 
-func (this *SchedulerManager) DoScheduleListResult(s *mcclient.ClientSession, params jsonutils.JSONObject, count int) (*ListResult, error) {
-	candidates, err := this.DoSchedule(s, params, count)
-	if err != nil {
-		return nil, err
-	}
-	ret := ListResult{Data: make([]jsonutils.JSONObject, len(candidates))}
-	for i, candidate := range candidates {
-		host, err := candidate.Get("candidate")
-		if err == nil {
-			ret.Data[i] = host
-		} else {
-			ret.Data[i] = candidate
-		}
-	}
-	return &ret, nil
-}
-
-func (this *SchedulerManager) DoSchedule(s *mcclient.ClientSession, params jsonutils.JSONObject, count int) ([]jsonutils.JSONObject, error) {
+func (this *SchedulerManager) DoSchedule(s *mcclient.ClientSession, input *api.ScheduleInput, count int) (*api.ScheduleOutput, error) {
 	url := fmt.Sprintf("/%s", this.Keyword)
-	body := jsonutils.NewDict()
-	body.Add(params, this.Keyword)
 	if count <= 0 {
 		count = 1
 	}
-	body.Add(jsonutils.NewInt(int64(count)), "count")
-	cands, err := this._post(s, url, body, this.Keyword)
+	input.Count = count
+	body := input.JSON(input)
+	ret, err := this._post(s, url, body, "")
 	if err != nil {
 		return nil, err
 	}
-	candidates, err := cands.GetArray()
+	output := new(api.ScheduleOutput)
+	err = ret.Unmarshal(output)
 	if err != nil {
-		return nil, fmt.Errorf("Not a valid response")
+		return nil, fmt.Errorf("Not a valid response: %v", err)
 	}
-	return candidates, nil
+	return output, nil
 }
 
-func (this *SchedulerManager) DoScheduleForecast(s *mcclient.ClientSession, params jsonutils.JSONObject, count int) (bool, error) {
-	body := jsonutils.NewDict()
-	body.Add(params, this.Keyword)
+func (this *SchedulerManager) DoScheduleForecast(s *mcclient.ClientSession, params *api.ScheduleInput, count int) (bool, error) {
 	if count <= 0 {
 		count = 1
 	}
-	body.Add(jsonutils.NewInt(int64(count)), "count")
-	res, err := this.DoForecast(s, body)
+	params.Count = count
+	res, err := this.DoForecast(s, params.JSON(params))
 	if err != nil {
 		return false, err
 	}
@@ -81,9 +64,9 @@ func newSchedIdentURL(action, ident string) string {
 	return fmt.Sprintf("%s/%s", newSchedURL(action), ident)
 }
 
-func (this *SchedulerManager) Test(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (this *SchedulerManager) Test(s *mcclient.ClientSession, params *api.ScheduleInput) (jsonutils.JSONObject, error) {
 	url := newSchedURL("test")
-	_, obj, err := this.jsonRequest(s, "POST", url, nil, params)
+	_, obj, err := this.jsonRequest(s, "POST", url, nil, params.JSON(params))
 	if err != nil {
 		return nil, err
 	}

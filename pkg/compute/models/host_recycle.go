@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -534,7 +535,7 @@ func (self *SHost) BorrowIpAddrsFromGuest(ctx context.Context, userCred mcclient
 	return nil
 }
 
-func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	ihost, err := host.GetIHost()
 	if err != nil {
 		log.Errorf("host.GetIHost fail %s", err)
@@ -555,6 +556,7 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 
 	netifs := host.GetNetInterfaces()
 	netIdx := 0
+	input.Networks = make([]*api.NetworkConfig, 0)
 	for i := 0; i < len(netifs); i += 1 {
 		hn := netifs[i].GetBaremetalNetwork()
 		if hn != nil {
@@ -563,12 +565,15 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 				return nil, err
 			}
 			packedMac := strings.Replace(netifs[i].Mac, ":", "", -1)
-			netDesc := fmt.Sprintf("%s:%s:%s:[reserved]", packedMac, hn.IpAddr, hn.NetworkId)
-			params.Set(fmt.Sprintf("net.%d", netIdx), jsonutils.NewString(netDesc))
+			input.Networks = append(input.Networks, &api.NetworkConfig{
+				Network: hn.NetworkId,
+				Mac:     packedMac,
+				Address: hn.IpAddr,
+			})
 			netIdx += 1
 		}
 	}
-	params.Set(fmt.Sprintf("net.%d", netIdx), jsonutils.JSONNull)
+	//params.Set(fmt.Sprintf("net.%d", netIdx), jsonutils.JSONNull)
 
 	for i := 0; i < len(idisks); i += 1 {
 		/*istorage, err := idisks[i].GetIStorage()
@@ -577,31 +582,34 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 			return nil, err
 		}*/
 
-		key := fmt.Sprintf("disk.%d", i)
-		jsonConf, _ := params.Get(key)
-		if jsonConf != nil && jsonConf != jsonutils.JSONNull {
-			conf, err := parseDiskInfo(ctx, userCred, jsonConf)
+		var diskConfig *api.DiskConfig
+		if i < len(input.Disks) {
+			diskConfig = input.Disks[i]
+			diskConfig, err := parseDiskInfo(ctx, userCred, diskConfig)
 			if err != nil {
-				log.Debugf("parseDiskInfo %s fail %s", jsonConf, err)
+				log.Debugf("parseDiskInfo %s fail %s", diskConfig, err)
 				return nil, err
 			}
-			conf.SizeMb = idisks[i].GetDiskSizeMB()
-			conf.Backend = STORAGE_LOCAL
-			params.Set(key, jsonutils.Marshal(conf))
+			diskConfig.SizeMb = idisks[i].GetDiskSizeMB()
+			diskConfig.Backend = STORAGE_LOCAL
+			input.Disks[i] = diskConfig
 		} else {
-			strConf := fmt.Sprintf("%s:%d", STORAGE_LOCAL, idisks[i].GetDiskSizeMB())
-			conf, err := parseDiskInfo(ctx, userCred, jsonutils.NewString(strConf))
+			conf := &api.DiskConfig{
+				SizeMb:  idisks[i].GetDiskSizeMB(),
+				Backend: STORAGE_LOCAL,
+			}
+			conf, err = parseDiskInfo(ctx, userCred, conf)
 			if err != nil {
 				return nil, err
 			}
-			params.Set(key, jsonutils.Marshal(conf))
+			input.Disks = append(input.Disks, conf)
 		}
 	}
-	params.Set(fmt.Sprintf("disk.%d", len(idisks)), jsonutils.JSONNull)
+	//params.Set(fmt.Sprintf("disk.%d", len(idisks)), jsonutils.JSONNull)
 
 	// log.Debugf("params after rebuid: %s", params.String())
 
-	return params, nil
+	return input, nil
 }
 
 func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error {

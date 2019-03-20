@@ -6,8 +6,8 @@ import (
 
 	"github.com/jinzhu/gorm"
 
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
+	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 const (
@@ -98,7 +98,7 @@ func (h Host) CPUOverCommitBound() float64 {
 	if h.CPUCmtbound != nil {
 		return *h.CPUCmtbound
 	}
-	return float64(o.GetOptions().DefaultCpuOvercommitBound)
+	return float64(o.GetOptions().DefaultCPUOvercommitBound)
 }
 
 func (h Host) MemOverCommitBound() float64 {

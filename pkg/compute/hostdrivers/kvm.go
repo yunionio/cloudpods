@@ -341,6 +341,7 @@ func (self *SKVMHostDriver) PrepareConvert(host *models.SHost, image, raid strin
 	if err != nil {
 		return nil, err
 	}
+	// TODO: use api.ServerCreateInput
 	var sysSize = "60g"
 	if data.Contains("baremetal_disk_config.0") {
 		jsonArray := jsonutils.GetArrayOfPrefix(data, "baremetal_disk_config")

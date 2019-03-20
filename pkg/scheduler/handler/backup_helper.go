@@ -6,7 +6,7 @@ import (
 
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/scheduler/api"
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
 )
@@ -18,24 +18,27 @@ func transToBackupSchedResult(result *core.SchedResultItemList, preferMasterHost
 	}
 
 	apiResults := newBackupSchedResult(result, preferMasterHost, preferBackupHost, count)
-	return regionResponse(apiResults)
+	return apiResults
 }
 
-func newBackupSchedResult(result *core.SchedResultItemList, preferMasterHost, preferBackupHost string, count int64) []api.SchedResultItem {
-	apiResults := make([]api.SchedResultItem, 0)
+func newBackupSchedResult(result *core.SchedResultItemList, preferMasterHost, preferBackupHost string, count int64) *schedapi.ScheduleOutput {
+	ret := new(schedapi.ScheduleOutput)
+	apiResults := make([]*schedapi.CandidateResource, 0)
 	for i := 0; i < int(count); i++ {
 		log.V(10).Debugf("Select backup host from result: %s", result)
 		target, err := getSchedBackupResult(result, preferMasterHost, preferBackupHost)
 		if err != nil {
-			apiResults = append(apiResults, api.SchedErrItem{Error: err.Error()})
+			er := &schedapi.CandidateResource{Error: err.Error()}
+			apiResults = append(apiResults, er)
 			continue
 		}
-		apiResults = append(apiResults, api.SchedSuccItem{Candidate: target})
+		apiResults = append(apiResults, target)
 	}
-	return apiResults
+	ret.Candidates = apiResults
+	return ret
 }
 
-func getSchedBackupResult(result *core.SchedResultItemList, preferMasterHost, preferBackupHost string) (*api.SchedBackupResultItem, error) {
+func getSchedBackupResult(result *core.SchedResultItemList, preferMasterHost, preferBackupHost string) (*schedapi.CandidateResource, error) {
 	masterHost := selectMasterHost(result.Data, preferMasterHost, preferBackupHost)
 	if masterHost == nil {
 		return nil, fmt.Errorf("Can't find master host")
@@ -49,10 +52,8 @@ func getSchedBackupResult(result *core.SchedResultItemList, preferMasterHost, pr
 	markHostUsed(backupHost)
 	sort.Sort(sort.Reverse(result))
 
-	ret := &api.SchedBackupResultItem{
-		MasterID: masterHost.ID,
-		SlaveID:  backupHost.ID,
-	}
+	ret := masterHost.ToCandidateResource()
+	ret.BackupCandidate = backupHost.ToCandidateResource()
 	return ret, nil
 }
 

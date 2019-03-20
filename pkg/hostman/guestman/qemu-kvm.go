@@ -17,8 +17,8 @@ import (
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
-	"yunion.io/x/onecloud/pkg/cloudcommon/storagetypes"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -698,7 +698,7 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 		if disk.Contains("path") {
 			diskPath, _ := disk.GetString("path")
 			d := storageman.GetManager().GetDiskByPath(diskPath)
-			if d != nil && d.GetType() == storagetypes.STORAGE_LOCAL && migrated {
+			if d != nil && d.GetType() == api.STORAGE_LOCAL && migrated {
 				if err := d.DeleteAllSnapshot(); err != nil {
 					log.Errorln(err)
 					return err
@@ -995,35 +995,12 @@ func (s *SKVMGuestInstance) setCgroupIo() {
 }
 
 func (s *SKVMGuestInstance) setCgroupCpu() {
-	cpu, _ := s.Desc.Int("cpu")
-	cgrouputils.CgroupSet(strconv.Itoa(s.cgroupPid), int(cpu))
+	var (
+		cpu, _    = s.Desc.Int("cpu")
+		cpuWeight = 1024
+	)
 
-	// TODO XXX
-	/*
-		var (
-			cpuWeight = 1024
-			cpuPeriod = 0
-			cpuQuota  = 0
-			appTags   = s.getApptags()
-			meta, _   = s.Desc.Get("metadata")
-		)
-
-		if meta != nil {
-			if meta.Contains("__cpu_weight") {
-				cpuWeight, _ = meta.Int("__cpu_weight")
-			}
-			if meta.Contains("__cpu_period") {
-				cpuPeriod, _ = meta.Int("__cpu_period")
-			} else {
-				cpuPeriod = -1
-			}
-			if meta.Contains("__cpu_quota") {
-				cpuQuota, _ = meta.Int("__cpu_quota")
-			} else {
-				cpuQuota = -1
-			}
-		}
-	*/
+	cgrouputils.CgroupSet(strconv.Itoa(s.cgroupPid), int(cpu)*cpuWeight)
 }
 
 func (s *SKVMGuestInstance) CreateFromDesc(desc jsonutils.JSONObject) error {
@@ -1241,7 +1218,7 @@ func (s *SKVMGuestInstance) PrepareMigrate(liveMigrage bool) (*jsonutils.JSONDic
 		if disk.Contains("path") {
 			diskPath, _ := disk.GetString("path")
 			d := storageman.GetManager().GetDiskByPath(diskPath)
-			if d.GetType() == storagetypes.STORAGE_LOCAL {
+			if d.GetType() == api.STORAGE_LOCAL {
 				back, err := d.PrepareMigrate(liveMigrage)
 				if err != nil {
 					return nil, err

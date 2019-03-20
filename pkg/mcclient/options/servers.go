@@ -3,9 +3,16 @@ package options
 import (
 	"fmt"
 	"io/ioutil"
+	"strconv"
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/fileutils"
+	"yunion.io/x/pkg/util/regutils"
+
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 )
 
 type ServerListOptions struct {
@@ -24,6 +31,7 @@ type ServerListOptions struct {
 	WithoutEip    *bool  `help:"Show Servers without EIP"`
 	OsType        string `help:"OS Type" choices:"linux|windows|vmware"`
 	OrderByDisk   string `help:"Order by disk" choices:"asc|desc"`
+	Vpc           string `help:"Vpc id or name"`
 
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 
@@ -61,14 +69,8 @@ type ServerShowOptions struct {
 	WithMeta *bool  `help:"With meta data"`
 }
 
-type ServerDeployInfo struct {
-	Action  string
-	Path    string
-	Content string
-}
-
-func ParseServerDeployInfo(info string) (*ServerDeployInfo, error) {
-	sdi := &ServerDeployInfo{}
+func ParseServerDeployInfo(info string) (*computeapi.DeployConfig, error) {
+	sdi := &computeapi.DeployConfig{}
 	colon := strings.IndexByte(info, ':')
 	if colon <= 0 {
 		return nil, fmt.Errorf("malformed deploy info: %s", info)
@@ -90,33 +92,117 @@ func ParseServerDeployInfo(info string) (*ServerDeployInfo, error) {
 	return sdi, nil
 }
 
-func ParseServerDeployInfoList(list []string) (*jsonutils.JSONDict, error) {
-	params := jsonutils.NewDict()
-	for i, info := range list {
-		ret, err := ParseServerDeployInfo(info)
+func ParseServerDeployInfoList(list []string) ([]*computeapi.DeployConfig, error) {
+	ret := make([]*computeapi.DeployConfig, 0)
+	for _, info := range list {
+		deployInfo, err := ParseServerDeployInfo(info)
 		if err != nil {
 			return nil, err
 		}
-		params.Set(fmt.Sprintf("deploy.%d.action", i), jsonutils.NewString(ret.Action))
-		params.Set(fmt.Sprintf("deploy.%d.path", i), jsonutils.NewString(ret.Path))
-		params.Set(fmt.Sprintf("deploy.%d.content", i), jsonutils.NewString(ret.Content))
+		ret = append(ret, deployInfo)
 	}
-	return params, nil
+	return ret, nil
+}
+
+type ServerConfigs struct {
+	Region     string `help:"Preferred region where virtual server should be created" json:"prefer_region"`
+	Zone       string `help:"Preferred zone where virtual server should be created" json:"prefer_zone"`
+	Wire       string `help:"Preferred wire where virtual server should be created" json:"prefer_wire"`
+	Host       string `help:"Preferred host where virtual server should be created" json:"prefer_host"`
+	BackupHost string `help:"Perfered host where virtual backup server should be created"`
+
+	Hypervisor   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei"`
+	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
+	Backup       bool   `help:"Create server with backup server"`
+
+	Schedtag       []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
+	Disk           []string `help:"Disk descriptions" nargs:"+"`
+	DiskSchedtag   []string `help:"Disk schedtag description, e.g. '0:<tag>:<strategy>'"`
+	Net            []string `help:"Network descriptions" metavar:"NETWORK"`
+	IsolatedDevice []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
+	RaidConfig     []string `help:"Baremetal raid config" json:"-"`
+	Project        string   `help:"'Owner project ID or Name" json:"tenant"`
+	User           string   `help:"Owner user ID or Name"`
+	Count          int      `help:"Create multiple simultaneously" default:"1"`
+}
+
+func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
+	data := &computeapi.ServerConfigs{
+		PreferRegion:     o.Region,
+		PreferZone:       o.Zone,
+		PreferWire:       o.Wire,
+		PreferHost:       o.Host,
+		PreferBackupHost: o.BackupHost,
+		Hypervisor:       o.Hypervisor,
+		ResourceType:     o.ResourceType,
+		Project:          o.Project,
+		Backup:           o.Backup,
+		Count:            o.Count,
+	}
+	for i, d := range o.Disk {
+		disk, err := cmdline.ParseDiskConfig(d, i)
+		if err != nil {
+			return nil, err
+		}
+		data.Disks = append(data.Disks, disk)
+	}
+	for _, dtag := range o.DiskSchedtag {
+		idx, tag, err := cmdline.ParseResourceSchedtagConfig(dtag)
+		if err != nil {
+			return nil, fmt.Errorf("ParseDiskSchedtag: %v", err)
+		}
+		if idx >= len(data.Disks) {
+			return nil, fmt.Errorf("Invalid disk index: %d", idx)
+		}
+		d := data.Disks[idx]
+		d.Schedtags = append(d.Schedtags, tag)
+	}
+	for i, n := range o.Net {
+		net, err := cmdline.ParseNetworkConfig(n, i)
+		if err != nil {
+			return nil, err
+		}
+		data.Networks = append(data.Networks, net)
+	}
+	for i, g := range o.IsolatedDevice {
+		dev, err := cmdline.ParseIsolatedDevice(g, i)
+		if err != nil {
+			return nil, err
+		}
+		data.IsolatedDevices = append(data.IsolatedDevices, dev)
+	}
+	if len(o.RaidConfig) > 0 {
+		if data.Hypervisor != "baremetal" {
+			return nil, fmt.Errorf("RaidConfig is applicable to baremetal ONLY")
+		}
+		for _, conf := range o.RaidConfig {
+			raidConf, err := cmdline.ParseBaremetalDiskConfig(conf)
+			if err != nil {
+				return nil, err
+			}
+			data.BaremetalDiskConfigs = append(data.BaremetalDiskConfigs, raidConf)
+		}
+	}
+	for _, tag := range o.Schedtag {
+		schedtag, err := cmdline.ParseSchedtagConfig(tag)
+		if err != nil {
+			return nil, err
+		}
+		data.Schedtags = append(data.Schedtags, schedtag)
+	}
+	return data, nil
 }
 
 type ServerCreateOptions struct {
-	ScheduleOptions
+	ServerConfigs
 
 	NAME    string `help:"Name of server" json:"-"`
 	MEMSPEC string `help:"Memory size Or Instance Type" metavar:"MEMSPEC" json:"-"`
 
-	Disk             []string `help:"Disk descriptions" nargs:"+"`
-	Net              []string `help:"Network descriptions" metavar:"NETWORK"`
-	IsolatedDevice   []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
 	Keypair          string   `help:"SSH Keypair"`
 	Password         string   `help:"Default user password"`
 	Iso              string   `help:"ISO image ID" metavar:"IMAGE_ID" json:"cdrom"`
-	VcpuCount        *int     `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
+	VcpuCount        int      `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
 	Vga              string   `help:"VGA driver" choices:"std|vmware|cirrus|qxl"`
 	Vdi              string   `help:"VDI protocool" choices:"vnc|spice"`
 	Bios             string   `help:"BIOS" choices:"BIOS|UEFI"`
@@ -125,18 +211,12 @@ type ServerCreateOptions struct {
 	NoAccountInit    *bool    `help:"Not reset account password"`
 	AllowDelete      *bool    `help:"Unlock server to allow deleting" json:"-"`
 	ShutdownBehavior string   `help:"Behavior after VM server shutdown, stop or terminate server" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate"`
-	AutoStart        *bool    `help:"Auto start server after it is created"`
-	Backup           *bool    `help:"Create server with backup server" json:"backup"`
-	BackupHost       string   `help:"Perfered host where virtual backup server should be created" json:"prefer_backup_host"`
+	AutoStart        bool     `help:"Auto start server after it is created"`
 	Deploy           []string `help:"Specify deploy files in virtual server file system" json:"-"`
 	Group            []string `help:"Group of virtual server"`
-	Project          string   `help:"'Owner project ID or Name" json:"tenant"`
-	User             string   `help:"Owner user ID or Name"`
-	System           *bool    `help:"Create a system VM, sysadmin ONLY option" json:"is_system"`
+	System           bool     `help:"Create a system VM, sysadmin ONLY option" json:"is_system"`
 	TaskNotify       *bool    `help:"Setup task notify" json:"-"`
-	Count            *int     `help:"Create multiple simultaneously" default:"1" json:"-"`
 	DryRun           *bool    `help:"Dry run to test scheduler" json:"-"`
-	RaidConfig       []string `help:"Baremetal raid config" json:"-"`
 	UserDataFile     string   `help:"user_data file path" json:"-"`
 
 	Duration string `help:"valid duration of the server, e.g. 1H, 1D, 1W, 1M, 1Y, ADMIN ONLY option"`
@@ -150,50 +230,130 @@ type ServerCreateOptions struct {
 	Eip           string `help:"associate with an existing EIP when server is created" json:"eip,omitempty"`
 }
 
-func (opts *ServerCreateOptions) Params() (*jsonutils.JSONDict, error) {
-	schedParams, err := opts.ScheduleOptions.Params()
+func (o *ServerCreateOptions) ToScheduleInput() (*schedapi.ScheduleInput, error) {
+	data := new(schedapi.ServerConfig)
+
+	// only support digit number as for now
+	memSize, err := strconv.Atoi(o.MEMSPEC)
 	if err != nil {
 		return nil, err
 	}
-
-	params, err := optionsStructToParams(opts)
-	if err != nil {
-		return nil, err
+	data.Memory = memSize
+	if o.VcpuCount > 0 {
+		data.Ncpu = o.VcpuCount
 	}
-	params.Update(schedParams)
-
-	{
-		deployParams, err := ParseServerDeployInfoList(opts.Deploy)
+	for i, d := range o.Disk {
+		disk, err := cmdline.ParseDiskConfig(d, i)
 		if err != nil {
 			return nil, err
 		}
-		params.Update(deployParams)
+		data.Disks = append(data.Disks, disk)
 	}
+	for i, n := range o.Net {
+		net, err := cmdline.ParseNetworkConfig(n, i)
+		if err != nil {
+			return nil, err
+		}
+		data.Networks = append(data.Networks, net)
+	}
+	for i, g := range o.IsolatedDevice {
+		dev, err := cmdline.ParseIsolatedDevice(g, i)
+		if err != nil {
+			return nil, err
+		}
+		data.IsolatedDevices = append(data.IsolatedDevices, dev)
+	}
+	count := 1
+	if o.Count > 1 {
+		count = o.Count
+	}
+	input := new(schedapi.ScheduleInput)
+	input.Count = count
+	input.ServerConfig = *data
+	if o.DryRun != nil && *o.DryRun {
+		input.Details = true
+	}
+	return input, nil
+}
+
+func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error) {
+	config, err := opts.ServerConfigs.Data()
+	if err != nil {
+		return nil, err
+	}
+
+	params := &computeapi.ServerCreateInput{
+		ServerConfigs:      config,
+		VcpuCount:          opts.VcpuCount,
+		Keypair:            opts.Keypair,
+		Password:           opts.Password,
+		Cdrom:              opts.Iso,
+		Vga:                opts.Vga,
+		Vdi:                opts.Vdi,
+		Bios:               opts.Bios,
+		Description:        opts.Desc,
+		ShutdownBehavior:   opts.ShutdownBehavior,
+		AutoStart:          opts.AutoStart,
+		IsSystem:           opts.System,
+		Duration:           opts.Duration,
+		AutoPrepaidRecycle: opts.AutoPrepaidRecycle,
+		EipBw:              opts.EipBw,
+		EipChargeType:      opts.EipChargeType,
+		Eip:                opts.Eip,
+	}
+
+	if opts.GenerateName {
+		params.GenerateName = opts.NAME
+	} else {
+		params.Name = opts.NAME
+	}
+	if regutils.MatchSize(opts.MEMSPEC) {
+		memSize, err := fileutils.GetSizeMb(opts.MEMSPEC, 'M', 1024)
+		if err != nil {
+			return nil, err
+		}
+		params.VmemSize = memSize
+	} else {
+		params.InstanceType = opts.MEMSPEC
+	}
+
+	deployInfos, err := ParseServerDeployInfoList(opts.Deploy)
+	if err != nil {
+		return nil, err
+	}
+	params.DeployConfigs = deployInfos
 
 	if len(opts.Boot) > 0 {
 		if opts.Boot == "disk" {
-			params.Set("boot_order", jsonutils.NewString("cdn"))
+			params.BootOrder = "cdn"
 		} else {
-			params.Set("boot_order", jsonutils.NewString("dcn"))
+			params.BootOrder = "dcn"
 		}
+	}
+
+	resetPasswd := false
+	if opts.NoAccountInit != nil && *opts.NoAccountInit {
+		params.ResetPassword = &resetPasswd
+	} else {
+		params.ResetPassword = nil
+	}
+
+	if len(opts.UserDataFile) > 0 {
+		userdata, err := ioutil.ReadFile(opts.UserDataFile)
+		if err != nil {
+			return nil, err
+		}
+		params.UserData = string(userdata)
 	}
 
 	if BoolV(opts.AllowDelete) {
-		params.Set("disable_delete", jsonutils.JSONFalse)
-	}
-
-	if len(opts.RaidConfig) > 0 {
-		if opts.Hypervisor != "baremetal" {
-			return nil, fmt.Errorf("RaidConfig is applicable to baremetal ONLY")
-		}
-		for i, conf := range opts.RaidConfig {
-			params.Set(fmt.Sprintf("baremetal_disk_config.%d", i), jsonutils.NewString(conf))
-		}
+		params.DisableDelete = false
 	}
 
 	if BoolV(opts.DryRun) {
-		params.Set("suggestion", jsonutils.JSONTrue)
+		params.Suggestion = true
 	}
+
 	return params, nil
 }
 
@@ -254,25 +414,22 @@ type ServerDeployOptions struct {
 	AutoStart     *bool    `help:"Auto start server after deployed"`
 }
 
-func (opts *ServerDeployOptions) Params() (*jsonutils.JSONDict, error) {
-	params, err := optionsStructToParams(opts)
-	if err != nil {
-		return nil, err
-	}
+func (opts *ServerDeployOptions) Params() (*computeapi.ServerDeployInput, error) {
+	params := new(computeapi.ServerDeployInput)
 	{
 		deleteKeyPair := BoolV(opts.DeleteKeypair)
 		if deleteKeyPair {
-			params.Add(jsonutils.JSONTrue, "__delete_keypair__")
+			params.DeleteKeypair = true
 		} else if len(opts.Keypair) > 0 {
-			params.Add(jsonutils.NewString(opts.Keypair), "keypair")
+			params.Keypair = opts.Keypair
 		}
 	}
 	{
-		deployParams, err := ParseServerDeployInfoList(opts.Deploy)
+		deployInfos, err := ParseServerDeployInfoList(opts.Deploy)
 		if err != nil {
 			return nil, err
 		}
-		params.Update(deployParams)
+		params.DeployConfigs = deployInfos
 	}
 	return params, nil
 }
@@ -349,4 +506,27 @@ type ServerMigrateOptions struct {
 type ServerLiveMigrateOptions struct {
 	ID         string `help:"ID of server" json:"-"`
 	PreferHost string `help:"Server migration prefer host id or name" json:"prefer_host"`
+}
+
+type ServerMetadataOptions struct {
+	ID   string   `help:"ID or name of server" json:"-"`
+	TAGS []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`
+}
+
+func (opts *ServerMetadataOptions) Params() (*jsonutils.JSONDict, error) {
+	params := jsonutils.NewDict()
+	for _, tag := range opts.TAGS {
+		info := strings.Split(tag, "=")
+		if len(info) == 2 {
+			if len(info[0]) == 0 {
+				return nil, fmt.Errorf("invalidate tag info %s", tag)
+			}
+			params.Add(jsonutils.NewString(info[1]), info[0])
+		} else if len(info) == 1 {
+			params.Add(jsonutils.NewString(info[0]), info[0])
+		} else {
+			return nil, fmt.Errorf("invalidate tag info %s", tag)
+		}
+	}
+	return params, nil
 }
