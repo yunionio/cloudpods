@@ -15,6 +15,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	computedb "yunion.io/x/onecloud/pkg/cloudcommon/db"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -121,18 +122,24 @@ func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *computemodels.S
 		mem  int64 = 0
 		disk int64 = 0
 	)
-	for _, g := range gst {
-		dSize, err2 := g.DiskSize(true)
-		if err2 != nil {
-			err = err2
-			return
+	guestDiskSize := func(g *computemodels.SGuest, onlyLocal bool) int {
+		size := 0
+		for _, gd := range g.GetDisks() {
+			disk := gd.GetDisk()
+			if !onlyLocal || disk.IsLocal() {
+				size += disk.DiskSize
+			}
 		}
-		disk += dSize
-		if o.GetOptions().IgnoreNonrunningGuests && !g.IsRunning() {
+		return size
+	}
+	for _, g := range gst {
+		dSize := guestDiskSize(&g, true)
+		disk += int64(dSize)
+		if o.GetOptions().IgnoreNonrunningGuests && !utils.IsInStringArray(g.Status, api.VM_RUNNING_STATUS) {
 			continue
 		}
-		cpu += g.VCPUCount
-		mem += g.VMemSize
+		cpu += int64(g.VcpuCount)
+		mem += int64(g.VmemSize)
 	}
 	ret.CPUCount = cpu
 	ret.MemorySize = mem
@@ -464,8 +471,9 @@ func (h *HostDesc) UnusedIsolatedDevicesByType(devType string) []*IsolatedDevice
 
 func (h *HostDesc) UnusedIsolatedDevicesByVendorModel(vendorModel string) []*IsolatedDeviceDesc {
 	ret := make([]*IsolatedDeviceDesc, 0)
+	vm := NewVendorModelByStr(vendorModel)
 	for _, dev := range h.UnusedIsolatedDevices() {
-		if strings.Contains(dev.VendorModel(), vendorModel) {
+		if dev.GetVendorModel().IsMatch(vm) {
 			ret = append(ret, dev)
 		}
 	}
@@ -1192,8 +1200,50 @@ func (i *IsolatedDeviceDesc) VendorID() string {
 	return strings.Split(i.VendorDeviceID, ":")[0]
 }
 
-func (i *IsolatedDeviceDesc) VendorModel() string {
-	return fmt.Sprintf("%s:%s", i.VendorID(), i.Model)
+type VendorModel struct {
+	Vendor string
+	Model  string
+}
+
+func NewVendorModelByStr(desc string) *VendorModel {
+	vm := new(VendorModel)
+	// desc format is '<vendor>:<model>'
+	parts := strings.Split(desc, ":")
+	if len(parts) == 1 {
+		vm.Model = parts[0]
+	} else if len(parts) == 2 {
+		vm.Vendor = parts[0]
+		vm.Model = parts[1]
+	}
+	return vm
+}
+
+func (vm *VendorModel) IsMatch(target *VendorModel) bool {
+	if vm.Model == "" || target.Model == "" {
+		return false
+	}
+	vendorMatch := false
+	modelMatch := false
+	if target.Vendor != "" {
+		if vm.Vendor == target.Vendor {
+			vendorMatch = true
+		} else if api.ID_VENDOR_MAP[vm.Vendor] == target.Vendor {
+			vendorMatch = true
+		}
+	} else {
+		vendorMatch = true
+	}
+	if vm.Model == target.Model {
+		modelMatch = true
+	}
+	return vendorMatch && modelMatch
+}
+
+func (i *IsolatedDeviceDesc) GetVendorModel() *VendorModel {
+	return &VendorModel{
+		Vendor: i.VendorID(),
+		Model:  i.Model,
+	}
 }
 
 func (b *HostBuilder) getIsolatedDevices(hostID string) (devs []*models.IsolatedDevice) {
@@ -1219,8 +1269,8 @@ func (b *HostBuilder) getUsedIsolatedDevices(hostID string) (devs []*models.Isol
 	return
 }
 
-func (b *HostBuilder) getIsolatedDeviceGuests(hostID string) (guests []*models.Guest) {
-	guests = make([]*models.Guest, 0)
+func (b *HostBuilder) getIsolatedDeviceGuests(hostID string) (guests []computemodels.SGuest) {
+	guests = make([]computemodels.SGuest, 0)
 	usedDevs := b.getUsedIsolatedDevices(hostID)
 	if len(usedDevs) == 0 {
 		return
@@ -1231,9 +1281,9 @@ func (b *HostBuilder) getIsolatedDeviceGuests(hostID string) (guests []*models.G
 		if !ok {
 			continue
 		}
-		guest := g.(*models.Guest)
-		if !ids.Has(guest.ID) {
-			ids.Insert(guest.ID)
+		guest := g.(computemodels.SGuest)
+		if !ids.Has(guest.Id) {
+			ids.Insert(guest.Id)
 			guests = append(guests, guest)
 		}
 	}
