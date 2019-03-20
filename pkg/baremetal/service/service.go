@@ -30,6 +30,7 @@ func (s *BaremetalService) StartService() {
 
 	cloudcommon.ServeForeverWithCleanup(app, &o.Options.CommonOptions, func() {
 		tasks.OnStop()
+		baremetal.Stop()
 	})
 }
 
