@@ -1808,6 +1808,18 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
+	if self.BillingType == BILLING_TYPE_PREPAID {
+		diff, err := db.Update(self, func() error {
+			self.BillingType = BILLING_TYPE_POSTPAID
+			self.ExpiredAt = time.Time{}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	}
+
 	return self.SetStatus(userCred, VM_UNKNOWN, "Sync lost")
 }
 
