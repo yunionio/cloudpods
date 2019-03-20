@@ -80,7 +80,8 @@ func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
 func (self *SNetwork) GetIpStart() string {
 	pref, _ := netutils.NewIPV4Prefix(self.Subnet + "/" + self.Netmask)
 	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
-	startIp = startIp.StepUp()                    // 1
+	startIp = startIp.StepUp()                    // 1 gateway
+	startIp = startIp.StepUp()                    // 2
 	return startIp.String()
 }
 
@@ -88,8 +89,6 @@ func (self *SNetwork) GetIpEnd() string {
 	pref, _ := netutils.NewIPV4Prefix(self.Subnet + "/" + self.Netmask)
 	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
 	endIp = endIp.StepDown()                          // 254
-	endIp = endIp.StepDown()                          // 253
-	endIp = endIp.StepDown()                          // 252
 	return endIp.String()
 }
 
@@ -99,10 +98,7 @@ func (self *SNetwork) GetIpMask() int8 {
 }
 
 func (self *SNetwork) GetGateway() string {
-	pref, _ := netutils.NewIPV4Prefix(self.Subnet + "/" + self.Netmask)
-	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
-	endIp = endIp.StepDown()                          // 254
-	return endIp.String()
+	return self.Gateway
 }
 
 func (self *SNetwork) GetServerType() string {

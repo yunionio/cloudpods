@@ -22,7 +22,8 @@ UCLOUD 项目：https://docs.ucloud.cn/management_monitor/uproject/projects
 
 
 UCloud DiskType貌似也是一个奇葩的存在
-1.在主机创建查询接口中 DISK type 对应 CLOUD_SSD|CLOUD_SSD
+// https://docs.ucloud.cn/api/uhost-api/disk_type
+1.在主机创建查询接口中 DISK type 对应 CLOUD_SSD|CLOUD_NORMAL|...
 2.在数据盘创建中对应  DataDisk|SSDDataDisk
 3.在数据盘查询接口请求中对应   DataDisk|SystemDisk 。在结果中对应DataDisk|SSDDataDisk|SSDSystemDisk|SystemDisk
 */
