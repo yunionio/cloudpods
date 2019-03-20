@@ -14,8 +14,8 @@ import (
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -848,7 +848,7 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 	if err != nil {
 		return nil, err
 	}
-	return iLoadbalancer, cloudprovider.WaitStatus(iLoadbalancer, consts.LB_STATUS_ENABLED, time.Second*5, time.Minute*5)
+	return iLoadbalancer, cloudprovider.WaitStatus(iLoadbalancer, api.LB_STATUS_ENABLED, time.Second*5, time.Minute*5)
 }
 
 func (region *SRegion) AddAccessControlListEntry(aclId string, entrys []cloudprovider.SLoadbalancerAccessControlListEntry) error {

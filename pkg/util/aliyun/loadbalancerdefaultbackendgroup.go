@@ -5,8 +5,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type SLoadbalancerDefaultBackendGroup struct {
@@ -26,7 +26,7 @@ func (backendgroup *SLoadbalancerDefaultBackendGroup) GetGlobalId() string {
 }
 
 func (backendgroup *SLoadbalancerDefaultBackendGroup) GetStatus() string {
-	return consts.LB_STATUS_ENABLED
+	return api.LB_STATUS_ENABLED
 }
 
 func (backendgroup *SLoadbalancerDefaultBackendGroup) IsDefault() bool {
@@ -34,7 +34,7 @@ func (backendgroup *SLoadbalancerDefaultBackendGroup) IsDefault() bool {
 }
 
 func (backendgroup *SLoadbalancerDefaultBackendGroup) GetType() string {
-	return consts.LB_BACKENDGROUP_TYPE_DEFAULT
+	return api.LB_BACKENDGROUP_TYPE_DEFAULT
 }
 
 func (backendgroup *SLoadbalancerDefaultBackendGroup) GetMetadata() *jsonutils.JSONDict {

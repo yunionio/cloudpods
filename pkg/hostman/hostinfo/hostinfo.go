@@ -15,10 +15,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	bare2 "yunion.io/x/onecloud/pkg/baremetal"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
-	bare1 "yunion.io/x/onecloud/pkg/compute/baremetal"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -320,9 +318,9 @@ func (h *SHostInfo) checkSystemServices() error {
 }
 
 func (h *SHostInfo) detectiveStorageSystem() {
-	var stype = consts.DISK_TYPE_ROTATE
+	var stype = api.DISK_TYPE_ROTATE
 	if options.HostOptions.DiskIsSsd {
-		stype = consts.DISK_TYPE_SSD
+		stype = api.DISK_TYPE_SSD
 	}
 	h.sysinfo.StorageType = stype
 }
@@ -858,7 +856,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	content.Set("cpu_mhz", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Freq)))
 	content.Set("cpu_cache", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Cache)))
 	content.Set("mem_size", jsonutils.NewInt(int64(h.Mem.MemInfo.Total)))
-	content.Set("storage_driver", jsonutils.NewString(bare1.DISK_DRIVER_LINUX))
+	content.Set("storage_driver", jsonutils.NewString(api.DISK_DRIVER_LINUX))
 	content.Set("storage_type", jsonutils.NewString(h.sysinfo.StorageType))
 	content.Set("storage_size", jsonutils.NewInt(int64(storageman.GetManager().GetTotalCapacity())))
 
@@ -1009,7 +1007,7 @@ func (h *SHostInfo) doUploadNicInfo(nic *SNIC) {
 	if len(nic.Ip) > 0 {
 		content.Set("ip_addr", jsonutils.NewString(nic.Ip))
 		if nic.Ip == h.GetMasterIp() {
-			content.Set("nic_type", jsonutils.NewString(bare2.NIC_TYPE_ADMIN))
+			content.Set("nic_type", jsonutils.NewString(api.NIC_TYPE_ADMIN))
 		}
 	}
 	_, err := modules.Hosts.PerformAction(h.GetSession(),
@@ -1128,7 +1126,7 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 
 		log.Infof("Storage %s(%s) mountpoint %s", storageName, storagetype, mountPoint)
 
-		if !utils.IsInStringArray(storagetype, consts.Local) {
+		if !utils.IsInStringArray(storagetype, api.STORAGE_LOCAL_TYPES) {
 			storage := storageManager.NewSharedStorageInstance(mountPoint, storagetype)
 			if storage != nil {
 				storage.SetStoragecacheId(storagecacheId)
@@ -1145,7 +1143,7 @@ func (h *SHostInfo) onGetStorageInfoSucc(hoststorages []jsonutils.JSONObject) {
 				storage.SetStorageInfo(storageId, storageName, storageConf)
 			} else {
 				// XXX hack: storage type baremetal is a converted host，reserve storage
-				if storagetype != consts.STORAGE_BAREMETAL {
+				if storagetype != api.STORAGE_BAREMETAL {
 					detachStorages = append(detachStorages, hs)
 				}
 			}

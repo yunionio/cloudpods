@@ -8,11 +8,11 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -55,7 +55,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerCertif
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendType string, lb *models.SLoadbalancer, backendGroup *models.SLoadbalancerBackendGroup, backend db.IModel) (*jsonutils.JSONDict, error) {
-	if backendType != consts.LB_BACKEND_GUEST {
+	if backendType != api.LB_BACKEND_GUEST {
 		return nil, httperrors.NewUnsupportOperationError("internal error: unexpected backend type %s", backendType)
 	}
 	guest := backend.(*models.SGuest)
@@ -186,7 +186,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncstatusLoadbalancer(ct
 			return nil, err
 		}
 		status := iLoadbalancer.GetStatus()
-		if utils.IsInStringArray(status, []string{consts.LB_STATUS_ENABLED, consts.LB_STATUS_DISABLED}) {
+		if utils.IsInStringArray(status, []string{api.LB_STATUS_ENABLED, api.LB_STATUS_DISABLED}) {
 			return nil, lb.SetStatus(userCred, status, "")
 		}
 		return nil, fmt.Errorf("Unknown loadbalancer status %s", status)
@@ -628,7 +628,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncstatusLoadbalancerLis
 			return nil, err
 		}
 		status := iListener.GetStatus()
-		if utils.IsInStringArray(status, []string{consts.LB_STATUS_ENABLED, consts.LB_STATUS_DISABLED}) {
+		if utils.IsInStringArray(status, []string{api.LB_STATUS_ENABLED, api.LB_STATUS_DISABLED}) {
 			return nil, lblis.SetStatus(userCred, status, "")
 		}
 		return nil, fmt.Errorf("Unknown loadbalancer listener status %s", status)

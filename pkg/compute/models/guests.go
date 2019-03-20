@@ -781,6 +781,7 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 }
 
 func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	// TODO: 定义 api.ServerCreateInput 的 Unmarshal 函数，直接通过 data.Unmarshal(input) 解析参数
 	input, err := cmdline.FetchServerCreateInputByJSON(data)
 	if err != nil {
 		return nil, err

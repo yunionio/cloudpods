@@ -308,7 +308,7 @@ func _parseRange(str string) (ret []int64, err error) {
 	return
 }
 
-// return bytes
+// return KB
 func parseStrip(stripStr string, defaultSize string) int64 {
 	size, _ := utils.GetSize(stripStr, defaultSize, 1024)
 	return size / 1024

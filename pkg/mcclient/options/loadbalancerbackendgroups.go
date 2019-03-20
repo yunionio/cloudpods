@@ -8,7 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/compute/consts"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type LoadbalancerBackendGroupCreateOptions struct {
@@ -55,8 +55,8 @@ func NewBackend(s string, index int) (*SBackend, error) {
 			}
 			backend.Port = port
 		case "backend_type":
-			if utils.IsInStringArray(value[1], []string{consts.LB_BACKEND_GUEST, consts.LB_BACKEND_HOST}) {
-				return nil, fmt.Errorf("invalid backend type %s only support %s %s", value[1], consts.LB_BACKEND_GUEST, consts.LB_BACKEND_HOST)
+			if utils.IsInStringArray(value[1], []string{api.LB_BACKEND_GUEST, api.LB_BACKEND_HOST}) {
+				return nil, fmt.Errorf("invalid backend type %s only support %s %s", value[1], api.LB_BACKEND_GUEST, api.LB_BACKEND_HOST)
 			}
 			backend.BackendType = value[1]
 		case "id":
