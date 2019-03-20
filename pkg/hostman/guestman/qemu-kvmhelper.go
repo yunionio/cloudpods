@@ -291,12 +291,10 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	}
 
 	var devAddrs = []string{}
-	isolatedParams, err := s.Desc.GetArray("isolated_devices")
-	if err != nil {
-		for _, params := range isolatedParams {
-			devAddr, _ := params.GetString("addr")
-			devAddrs = append(devAddrs, devAddr)
-		}
+	isolatedParams, _ := s.Desc.GetArray("isolated_devices")
+	for _, params := range isolatedParams {
+		devAddr, _ := params.GetString("addr")
+		devAddrs = append(devAddrs, devAddr)
 	}
 	isolatedDevsParams := s.manager.GetHost().GetIsolatedDeviceManager().GetQemuParams(devAddrs)
 

@@ -23,9 +23,10 @@ func TestFetchServerConfigsByJSON(t *testing.T) {
 			args: args{jsonutils.Marshal(map[string]string{
 				"disk.0":                  "1g:centos",
 				"net.0":                   "192.168.222.3:inf0",
+				"net.1":                   "[random]",
 				"schedtag.0":              "ssd:require",
 				"schedtag.1":              "container:exclude",
-				"isolated_device.0":       "vendor=nvidia:p400",
+				"isolated_device.0":       "vendor=NVIDIA:GeForce GTX 1050 Ti",
 				"baremetal_disk_config.0": "raid0:[1,2]",
 			})},
 			want: &compute.ServerConfigs{
@@ -42,6 +43,10 @@ func TestFetchServerConfigsByJSON(t *testing.T) {
 						Network: "inf0",
 						Address: "192.168.222.3",
 					},
+					{
+						Index: 1,
+						Exit:  false,
+					},
 				},
 				Schedtags: []*compute.SchedtagConfig{
 					{
@@ -55,8 +60,8 @@ func TestFetchServerConfigsByJSON(t *testing.T) {
 				},
 				IsolatedDevices: []*compute.IsolatedDeviceConfig{
 					{
-						Vendor: "nvidia",
-						Model:  "p400",
+						Vendor: "NVIDIA",
+						Model:  "GeForce GTX 1050 Ti",
 					},
 				},
 				BaremetalDiskConfigs: []*compute.BaremetalDiskConfig{

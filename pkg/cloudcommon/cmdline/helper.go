@@ -310,6 +310,9 @@ func FetchScheduleInputByJSON(obj jsonutils.JSONObject) (*scheduler.ScheduleInpu
 	if err != nil {
 		return nil, err
 	}
+	if obj.Contains("scheduler") {
+		obj, _ = obj.Get("scheduler")
+	}
 	conf := &input.ServerConfig
 	conf.ServerConfigs, err = FetchServerConfigsByJSON(obj)
 	if err != nil {

@@ -705,19 +705,21 @@ type SNicConfig struct {
 }
 
 func parseNetworkInfo(userCred mcclient.TokenCredential, info *api.NetworkConfig) (*api.NetworkConfig, error) {
-	netObj, err := NetworkManager.FetchByIdOrName(userCred, info.Network)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2(NetworkManager.Keyword(), info.Network)
-		} else {
-			return nil, err
+	if info.Network != "" {
+		netObj, err := NetworkManager.FetchByIdOrName(userCred, info.Network)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(NetworkManager.Keyword(), info.Network)
+			} else {
+				return nil, err
+			}
 		}
-	}
-	net := netObj.(*SNetwork)
-	if net.IsOwner(userCred) || net.IsPublic || db.IsAdminAllowGet(userCred, net) {
-		info.Network = netObj.GetId()
-	} else {
-		return nil, httperrors.NewForbiddenError("no allow to access network %s", info.Network)
+		net := netObj.(*SNetwork)
+		if net.IsOwner(userCred) || net.IsPublic || db.IsAdminAllowGet(userCred, net) {
+			info.Network = netObj.GetId()
+		} else {
+			return nil, httperrors.NewForbiddenError("no allow to access network %s", info.Network)
+		}
 	}
 
 	if info.BwLimit == 0 {
