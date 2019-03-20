@@ -79,6 +79,7 @@ func DoListAll(client *SUcloudClient, action string, params SParams, resultKey s
 		if err != nil {
 			return err
 		}
+		// total 大于零的情况下通过total字段判断列表是否遍历完成。total不存在或者为0的情况下，通过返回列表的长度判断是否遍历完成
 		if (total > 0 && resultValue.Len() >= total) || (total == 0 && pageLimit > part) {
 			break
 		}
