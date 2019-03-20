@@ -6,10 +6,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -23,10 +23,10 @@ func init() {
 }
 
 func (self *LoadbalancerListenerStopTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason string) {
-	lblis.SetStatus(self.GetUserCred(), consts.LB_STATUS_ENABLED, reason)
+	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, reason)
 	db.OpsLog.LogEvent(lblis, db.ACT_DISABLE, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_DISABLE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lblis.Id, lblis.Name, consts.LB_STATUS_ENABLED, reason)
+	notifyclient.NotifySystemError(lblis.Id, lblis.Name, api.LB_STATUS_ENABLED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -44,7 +44,7 @@ func (self *LoadbalancerListenerStopTask) OnInit(ctx context.Context, obj db.ISt
 }
 
 func (self *LoadbalancerListenerStopTask) OnLoadbalancerListenerStopComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
-	lblis.SetStatus(self.GetUserCred(), consts.LB_STATUS_DISABLED, "")
+	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_DISABLED, "")
 	db.OpsLog.LogEvent(lblis, db.ACT_DISABLE, lblis.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_DISABLE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)

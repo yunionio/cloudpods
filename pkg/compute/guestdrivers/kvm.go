@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -348,7 +349,9 @@ func (self *SKVMGuestDriver) RqeuestSuspendOnHost(ctx context.Context, guest *mo
 }
 
 func (self *SKVMGuestDriver) RequestGuestCreateAllDisks(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	return guest.StartGuestCreateDiskTask(ctx, task.GetUserCred(), task.GetParams(), task.GetTaskId())
+	input := new(api.ServerCreateInput)
+	task.GetParams().Unmarshal(input)
+	return guest.StartGuestCreateDiskTask(ctx, task.GetUserCred(), input.Disks, task.GetTaskId())
 }
 
 func (self *SKVMGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, task taskman.ITask) error {

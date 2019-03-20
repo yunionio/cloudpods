@@ -15,7 +15,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/compute/consts"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	agentutils "yunion.io/x/onecloud/pkg/lbagent/utils"
 )
 
@@ -113,7 +113,7 @@ func (hsw *HaStateWatcher) Run(ctx context.Context) {
 func (hsw *HaStateWatcher) loadHaState() (err error) {
 	defer func() {
 		if err != nil {
-			hsw.CurrentState = consts.LB_HA_STATE_UNKNOWN
+			hsw.CurrentState = api.LB_HA_STATE_UNKNOWN
 		}
 	}()
 	data, err := ioutil.ReadFile(hsw.HaStatePath)
@@ -185,7 +185,7 @@ func NewHaStateWatcher(opts *Options) (hsw *HaStateWatcher, err error) {
 	hsw = &HaStateWatcher{
 		HaStateScriptPath: haStateScriptPath,
 		HaStatePath:       haStatePath,
-		CurrentState:      consts.LB_HA_STATE_UNKNOWN,
+		CurrentState:      api.LB_HA_STATE_UNKNOWN,
 
 		opts: opts,
 		w:    w,

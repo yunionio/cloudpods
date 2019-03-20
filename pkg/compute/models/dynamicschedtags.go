@@ -109,6 +109,10 @@ func (self *SDynamicschedtag) ValidateUpdateData(ctx context.Context, userCred m
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
+func (self *SDynamicschedtag) GetSchedtag() *SSchedtag {
+	return self.getSchedtag()
+}
+
 func (self *SDynamicschedtag) getSchedtag() *SSchedtag {
 	obj, err := SchedtagManager.FetchById(self.SchedtagId)
 	if err != nil {
@@ -137,6 +141,10 @@ func (self *SDynamicschedtag) GetExtraDetails(ctx context.Context, userCred mccl
 		return nil, err
 	}
 	return self.getMoreColumns(extra), nil
+}
+
+func (manager *SDynamicschedtagManager) GetAllEnabledDynamicSchedtags() []SDynamicschedtag {
+	return manager.getAllEnabledDynamicSchedtags()
 }
 
 func (manager *SDynamicschedtagManager) getAllEnabledDynamicSchedtags() []SDynamicschedtag {
@@ -185,7 +193,7 @@ func (self *SDynamicschedtag) PerformEvaluate(ctx context.Context, userCred mccl
 	hostDesc := jsonutils.Marshal(host)
 
 	params := jsonutils.NewDict()
-	params.Add(srvDesc, "server")
+	params.Add(srvDesc.JSON(srvDesc), "server")
 	params.Add(hostDesc, "host")
 
 	meet, err := conditionparser.Eval(self.Condition, params)
@@ -193,7 +201,7 @@ func (self *SDynamicschedtag) PerformEvaluate(ctx context.Context, userCred mccl
 		return nil, err
 	}
 	result := jsonutils.NewDict()
-	result.Add(srvDesc, "server")
+	result.Add(srvDesc.JSON(srvDesc), "server")
 	result.Add(hostDesc, "host")
 
 	if meet {

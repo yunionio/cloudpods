@@ -8,7 +8,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -116,47 +115,31 @@ func init() {
 		if err != nil {
 			return err
 		}
-
-		if opts.GenerateName {
-			params.Add(jsonutils.NewString(opts.NAME), "generate_name")
-		} else {
-			params.Add(jsonutils.NewString(opts.NAME), "name")
-		}
-		if regutils.MatchSize(opts.MEMSPEC) {
-			params.Add(jsonutils.NewString(opts.MEMSPEC), "vmem_size")
-		} else {
-			params.Add(jsonutils.NewString(opts.MEMSPEC), "instance_type")
-		}
-
-		if opts.NoAccountInit != nil && *opts.NoAccountInit {
-			params.Add(jsonutils.JSONFalse, "reset_password")
-		}
-
-		if len(opts.UserDataFile) > 0 {
-			userdata, err := ioutil.ReadFile(opts.UserDataFile)
-			if err != nil {
-				return err
-			}
-			params.Add(jsonutils.NewString(string(userdata)), "user_data")
-		}
-
-		count := options.IntV(opts.Count)
+		count := params.Count
 		if options.BoolV(opts.DryRun) {
-			results, err := modules.SchedManager.DoScheduleListResult(s, params, count)
+			listFields := []string{"id", "name", "capacity", "count", "score", "capacity_details", "score_details"}
+			input, err := opts.ToScheduleInput()
 			if err != nil {
 				return err
 			}
-			printList(results, []string{"id", "name", "rank", "capacity", "error"})
+			result, err := modules.SchedManager.Test(s, input)
+			if err != nil {
+				return err
+			}
+			if err != nil {
+				return err
+			}
+			printList(modules.JSON2ListResult(result), listFields)
 		} else {
 			taskNotify := options.BoolV(opts.TaskNotify)
 			if taskNotify {
 				s.PrepareTask()
 			}
 			if count > 1 {
-				results := modules.Servers.BatchCreate(s, params, count)
+				results := modules.Servers.BatchCreate(s, params.JSON(params), count)
 				printBatchResults(results, modules.Servers.GetColumns(s))
 			} else {
-				server, err := modules.Servers.Create(s, params)
+				server, err := modules.Servers.Create(s, params.JSON(params))
 				if err != nil {
 					return err
 				}
@@ -384,7 +367,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		srv, e := modules.Servers.PerformAction(s, opts.ID, "deploy", params)
+		srv, e := modules.Servers.PerformAction(s, opts.ID, "deploy", params.JSON(params))
 		if e != nil {
 			return e
 		}

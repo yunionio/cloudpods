@@ -14,10 +14,12 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/cache/db"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
+
+	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type BaremetalDesc struct {
-	*baseHostDesc
+	*BaseHostDesc
 
 	Storages      []*baremetal.BaremetalStorage `json:"storages"`
 	StorageType   string                        `json:"storage_type"`
@@ -47,7 +49,7 @@ func (bd *BaremetalDesc) Type() int {
 func (bd *BaremetalDesc) Get(key string) interface{} {
 	switch key {
 	case "ID":
-		return bd.ID
+		return bd.Id
 
 	case "Name":
 		return bd.Name
@@ -55,17 +57,14 @@ func (bd *BaremetalDesc) Get(key string) interface{} {
 	case "Status":
 		return bd.Status
 
-	case "PoolID":
-		return bd.PoolID
-
 	case "ZoneID":
-		return bd.ZoneID
+		return bd.ZoneId
 
 	case "ServerID":
 		return bd.ServerID
 
 	case "CPUCount":
-		return int64(bd.CPUCount)
+		return int64(bd.CpuCount)
 
 	case "FreeCPUCount":
 		return bd.FreeCPUCount()
@@ -117,19 +116,19 @@ func (bd *BaremetalDesc) XGet(key string, kind core.Kind) interface{} {
 }
 
 func (bd *BaremetalDesc) IndexKey() string {
-	return bd.ID
+	return bd.Id
 }
 
 func (bd *BaremetalDesc) FreeCPUCount() int64 {
 	if bd.ServerID == "" {
-		return bd.CPUCount
+		return int64(bd.CpuCount)
 	}
 	return 0
 }
 
 func (bd *BaremetalDesc) FreeMemSize() int64 {
 	if bd.ServerID == "" {
-		return bd.MemSize
+		return int64(bd.MemSize)
 	}
 	return 0
 }
@@ -220,12 +219,13 @@ func (bb *BaremetalBuilder) build() ([]interface{}, error) {
 }
 
 func (bb *BaremetalBuilder) buildOne(bm *models.Host) (interface{}, error) {
-	baseDesc, err := newBaseHostDesc(bm)
+	hostObj := computemodels.HostManager.FetchHostById(bm.ID)
+	baseDesc, err := newBaseHostDesc(hostObj)
 	if err != nil {
 		return nil, err
 	}
 	desc := &BaremetalDesc{
-		baseHostDesc: baseDesc,
+		BaseHostDesc: baseDesc,
 	}
 
 	desc.StorageDriver = bm.StorageDriver

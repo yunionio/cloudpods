@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -38,6 +39,16 @@ func (self *SQcloudGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return 50
 }
 
+func (self *SQcloudGuestDriver) GetStorageTypes() []string {
+	return []string{
+		models.STORAGE_CLOUD_BASIC,
+		models.STORAGE_CLOUD_PREMIUM,
+		models.STORAGE_CLOUD_SSD,
+		models.STORAGE_LOCAL_BASIC,
+		models.STORAGE_LOCAL_SSD,
+	}
+}
+
 func (self *SQcloudGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
 	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i++ {
@@ -45,13 +56,7 @@ func (self *SQcloudGuestDriver) ChooseHostStorage(host *models.SHost, backend st
 			return &storages[i]
 		}
 	}
-	for _, stype := range []string{
-		models.STORAGE_CLOUD_BASIC,
-		models.STORAGE_CLOUD_PREMIUM,
-		models.STORAGE_CLOUD_SSD,
-		models.STORAGE_LOCAL_BASIC,
-		models.STORAGE_LOCAL_SSD,
-	} {
+	for _, stype := range self.GetStorageTypes() {
 		for i := 0; i < len(storages); i++ {
 			if storages[i].StorageType == stype {
 				return &storages[i]
@@ -99,18 +104,16 @@ func (self *SQcloudGuestDriver) RequestDetachDisk(ctx context.Context, guest *mo
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
-func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
+func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	input, err := self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
 	if err != nil {
 		return nil, err
 	}
-	if data.Contains("net.0") && data.Contains("net.1") {
+	if len(input.Networks) > 2 {
 		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
 	}
-	sysDisk := models.SDiskConfig{}
-	if err := data.Unmarshal(&sysDisk, "disk.0"); err != nil {
-		return nil, fmt.Errorf("Missing system disk information")
-	}
+
+	sysDisk := input.Disks[0]
 	switch sysDisk.Backend {
 	case models.STORAGE_CLOUD_BASIC, models.STORAGE_CLOUD_SSD:
 		if sysDisk.SizeMb > 500*1024 {
@@ -122,11 +125,8 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 		}
 	}
 
-	for i := 1; data.Contains(fmt.Sprintf("disk.%d", i)); i++ {
-		disk := models.SDiskConfig{}
-		if err := data.Unmarshal(&disk, fmt.Sprintf("disk.%d", i)); err != nil {
-			return nil, httperrors.NewInputParameterError("invalid diskinfo of index %d", i)
-		}
+	for i := 1; i < len(input.Disks); i++ {
+		disk := input.Disks[i]
 		switch disk.Backend {
 		case models.STORAGE_CLOUD_BASIC:
 			if disk.SizeMb < 10*1024 || disk.SizeMb > 16000*1024 {
@@ -142,7 +142,7 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 			}
 		}
 	}
-	return data, nil
+	return input, nil
 }
 
 func (self *SQcloudGuestDriver) GetGuestInitialStateAfterCreate() string {

@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
@@ -105,7 +106,7 @@ func (adapter *HPSARaidAdaptor) GetIndex() int {
 	return adapter.index
 }
 
-func (adapter *HPSARaidAdaptor) PreBuildRaid(confs []*baremetal.BaremetalDiskConfig) error {
+func (adapter *HPSARaidAdaptor) PreBuildRaid(confs []*api.BaremetalDiskConfig) error {
 	return nil
 }
 
@@ -163,7 +164,7 @@ func (adapter *HPSARaidAdaptor) GetDevices() []*baremetal.BaremetalStorage {
 	return ret
 }
 
-func (adapter *HPSARaidAdaptor) conf2Params(conf *baremetal.BaremetalDiskConfig) []string {
+func (adapter *HPSARaidAdaptor) conf2Params(conf *api.BaremetalDiskConfig) []string {
 	params := []string{}
 	if conf.Direct != nil {
 		if *(conf.Direct) {
@@ -195,7 +196,7 @@ func (adapter *HPSARaidAdaptor) getLastArray() (string, error) {
 	return "", nil
 }
 
-func (adapter *HPSARaidAdaptor) buildRaid(level string, devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *HPSARaidAdaptor) buildRaid(level string, devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	labels := []string{}
 	for _, dev := range devs {
 		labels = append(labels, fmt.Sprintf("%s", GetSpecString(dev)))
@@ -235,19 +236,19 @@ func (adapter *HPSARaidAdaptor) buildRaid(level string, devs []*baremetal.Bareme
 	return err
 }
 
-func (adapter *HPSARaidAdaptor) BuildRaid0(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *HPSARaidAdaptor) BuildRaid0(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.buildRaid("0", devs, conf)
 }
 
-func (adapter *HPSARaidAdaptor) BuildRaid1(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *HPSARaidAdaptor) BuildRaid1(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.buildRaid("1", devs, conf)
 }
 
-func (adapter *HPSARaidAdaptor) BuildRaid5(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *HPSARaidAdaptor) BuildRaid5(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.buildRaid("5", devs, conf)
 }
 
-func (adapter *HPSARaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *HPSARaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.buildRaid("10", devs, conf)
 }
 
@@ -256,7 +257,7 @@ func (adapter *HPSARaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage
 		// WT|WB] [NORA|RA] [Direct|Cached] [CachedBadBBU|NoCachedBadBBU]
 		useWT := true
 		useDirect := true
-		if err := adapter.buildRaid("0", []*baremetal.BaremetalStorage{d}, &baremetal.BaremetalDiskConfig{WT: &useWT, Direct: &useDirect}); err != nil {
+		if err := adapter.buildRaid("0", []*baremetal.BaremetalStorage{d}, &api.BaremetalDiskConfig{WT: &useWT, Direct: &useDirect}); err != nil {
 			return err
 		}
 	}
@@ -354,7 +355,7 @@ func (r *HPSARaid) parsePhyDevs(lines []string) error {
 	return nil
 }
 
-func (r *HPSARaid) PreBuildRaid(_ []*baremetal.BaremetalDiskConfig, _ int) error {
+func (r *HPSARaid) PreBuildRaid(_ []*api.BaremetalDiskConfig, _ int) error {
 	return nil
 }
 

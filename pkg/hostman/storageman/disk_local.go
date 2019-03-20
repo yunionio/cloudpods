@@ -10,8 +10,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
@@ -36,7 +36,7 @@ func NewLocalDisk(storage IStorage, id string) *SLocalDisk {
 }
 
 func (d *SBaseDisk) GetType() string {
-	return consts.STORAGE_LOCAL
+	return api.STORAGE_LOCAL
 }
 
 func (d *SLocalDisk) getPath() string {

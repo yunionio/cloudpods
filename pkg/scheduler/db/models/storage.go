@@ -8,7 +8,7 @@ import (
 
 	"yunion.io/x/log"
 
-	o "yunion.io/x/onecloud/cmd/scheduler/options"
+	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
 type Storage struct {

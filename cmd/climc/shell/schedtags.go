@@ -13,16 +13,20 @@ import (
 func init() {
 	type SchedtagListOptions struct {
 		options.BaseListOptions
+		Type string `help:"Filter by resource type"`
 	}
-	R(&SchedtagListOptions{}, "schedtag-list", "List schedule tags", func(s *mcclient.ClientSession, suboptions *SchedtagListOptions) error {
+	R(&SchedtagListOptions{}, "schedtag-list", "List schedule tags", func(s *mcclient.ClientSession, args *SchedtagListOptions) error {
 		var params *jsonutils.JSONDict
 		{
 			var err error
-			params, err = suboptions.BaseListOptions.Params()
+			params, err = args.BaseListOptions.Params()
 			if err != nil {
 				return err
 
 			}
+		}
+		if len(args.Type) > 0 {
+			params.Add(jsonutils.NewString(args.Type), "resource_type")
 		}
 		result, err := modules.Schedtags.List(s, params)
 		if err != nil {
@@ -57,6 +61,7 @@ func init() {
 		NAME     string `help:"Name of new schedtag"`
 		Strategy string `help:"Policy" choices:"require|exclude|prefer|avoid"`
 		Desc     string `help:"Description"`
+		Type     string `help:"Resource type" choices:"hosts|storages"`
 	}
 	R(&SchedtagCreateOptions{}, "schedtag-create", "Create a schedule tag", func(s *mcclient.ClientSession, args *SchedtagCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -66,6 +71,9 @@ func init() {
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
+		}
+		if len(args.Type) > 0 {
+			params.Add(jsonutils.NewString(args.Type), "resource_type")
 		}
 		schedtag, err := modules.Schedtags.Create(s, params)
 		if err != nil {

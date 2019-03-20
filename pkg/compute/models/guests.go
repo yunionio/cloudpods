@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
@@ -22,6 +20,9 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -717,47 +718,30 @@ func (guest *SGuest) ValidateResizeDisk(disk *SDisk, storage *SStorage) error {
 	return guest.GetDriver().ValidateResizeDisk(guest, disk, storage)
 }
 
-func ValidateMemCpuData(data jsonutils.JSONObject) (int, int, error) {
-	vmemSize := 0
-	vcpuCount := 0
-	var err error
-
-	hypervisor, _ := data.GetString("hypervisor")
+func ValidateMemCpuData(vmemSize, vcpuCount int, hypervisor string) (int, int, error) {
 	if len(hypervisor) == 0 {
 		hypervisor = HYPERVISOR_DEFAULT
 	}
 	driver := GetDriver(hypervisor)
 
-	vmemStr, _ := data.GetString("vmem_size")
-	if len(vmemStr) > 0 {
-		if !regutils.MatchSize(vmemStr) {
-			return 0, 0, httperrors.NewInputParameterError("Memory size must be number[+unit], like 256M, 1G or 256")
-		}
-		vmemSize, err = fileutils.GetSizeMb(vmemStr, 'M', 1024)
-		if err != nil {
-			return 0, 0, err
-		}
+	if vmemSize > 0 {
 		maxVmemGb := driver.GetMaxVMemSizeGB()
 		if vmemSize < 8 || vmemSize > maxVmemGb*1024 {
 			return 0, 0, httperrors.NewInputParameterError("Memory size must be 8MB ~ %d GB", maxVmemGb)
 		}
 	}
-	vcpuStr, _ := data.GetString("vcpu_count")
-	if len(vcpuStr) > 0 {
-		if !regutils.MatchInteger(vcpuStr) {
-			return 0, 0, httperrors.NewInputParameterError("CPU core count must be integer")
-		}
-		vcpuCount, _ = strconv.Atoi(vcpuStr)
-		maxVcpuCount := driver.GetMaxVCpuCount()
-		if vcpuCount < 1 || vcpuCount > maxVcpuCount {
-			return 0, 0, httperrors.NewInputParameterError("CPU core count must be 1 ~ %d", maxVcpuCount)
-		}
+
+	maxVcpuCount := driver.GetMaxVCpuCount()
+	if vcpuCount < 1 || vcpuCount > maxVcpuCount {
+		return 0, 0, httperrors.NewInputParameterError("CPU core count must be 1 ~ %d", maxVcpuCount)
 	}
 	return vmemSize, vcpuCount, nil
 }
 
 func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	vmemSize, vcpuCount, err := ValidateMemCpuData(data)
+	memSize, _ := data.Int("vmem_size")
+	cpuCount, _ := data.Int("vcpu_count")
+	vmemSize, vcpuCount, err := ValidateMemCpuData(int(memSize), int(cpuCount), self.Hypervisor)
 	if err != nil {
 		return nil, err
 	}
@@ -797,26 +781,33 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 }
 
 func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	resetPassword := jsonutils.QueryBoolean(data, "reset_password", true)
-	passwd, _ := data.GetString("password")
+	// TODO: 定义 api.ServerCreateInput 的 Unmarshal 函数，直接通过 data.Unmarshal(input) 解析参数
+	input, err := cmdline.FetchServerCreateInputByJSON(data)
+	if err != nil {
+		return nil, err
+	}
+	resetPassword := true
+	if input.ResetPassword != nil {
+		resetPassword = *input.ResetPassword
+	}
+
+	passwd := input.Password
 	if resetPassword && len(passwd) > 0 {
 		if !seclib2.MeetComplxity(passwd) {
 			return nil, httperrors.NewWeakPasswordError()
 		}
 	}
 
-	var err error
 	var hypervisor string
 	// var rootStorageType string
 	var osProf osprofile.SOSProfile
-	hypervisor, _ = data.GetString("hypervisor")
+	hypervisor = input.Hypervisor
 	if hypervisor != HYPERVISOR_CONTAINER {
-
-		disk0Json, _ := data.Get("disk.0")
-		if disk0Json == nil || disk0Json == jsonutils.JSONNull {
+		if len(input.Disks) == 0 {
 			return nil, httperrors.NewInputParameterError("No disk information provided")
 		}
-		diskConfig, err := parseDiskInfo(ctx, userCred, disk0Json)
+		diskConfig := input.Disks[0]
+		diskConfig, err = parseDiskInfo(ctx, userCred, diskConfig)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
 		}
@@ -833,19 +824,16 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		// }
 		// rootStorageType = diskConfig.Backend
 
-		data.Add(jsonutils.Marshal(diskConfig), "disk.0")
+		input.Disks[0] = diskConfig
 
 		imgProperties := diskConfig.ImageProperties
-		if data.Contains("cdrom") {
-			cdromStr, err := data.GetString("cdrom")
-			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid cdrom device description %s", err)
-			}
+		if input.Cdrom != "" {
+			cdromStr := input.Cdrom
 			image, err := parseIsoInfo(ctx, userCred, cdromStr)
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("parse cdrom device info error %s", err)
 			}
-			data.Add(jsonutils.NewString(image.Id), "cdrom")
+			input.Cdrom = image.Id
 			if len(imgProperties) == 0 {
 				imgProperties = image.Properties
 			}
@@ -855,7 +843,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			imgProperties = map[string]string{"os_type": "Linux"}
 		}
 
-		osType, _ := data.GetString("os_type")
+		osType := input.OsType
 		osProf, err = osprofile.GetOSProfileFromImageProperties(imgProperties, hypervisor)
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
@@ -863,36 +851,36 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 
 		if len(osProf.Hypervisor) > 0 && len(hypervisor) == 0 {
 			hypervisor = osProf.Hypervisor
-			data.Add(jsonutils.NewString(osProf.Hypervisor), "hypervisor")
+			input.Hypervisor = hypervisor
 		}
 		if len(osProf.OSType) > 0 && len(osType) == 0 {
 			osType = osProf.OSType
-			data.Add(jsonutils.NewString(osProf.OSType), "os_type")
+			input.OsType = osType
 		}
-		data.Add(jsonutils.Marshal(osProf), "__os_profile__")
+		input.OsProfile = jsonutils.Marshal(osProf)
 	}
 
-	data, err = ValidateScheduleCreateData(ctx, userCred, data, hypervisor)
+	input, err = ValidateScheduleCreateData(ctx, userCred, input, hypervisor)
 	if err != nil {
 		return nil, err
 	}
 
-	hypervisor, _ = data.GetString("hypervisor")
+	hypervisor = input.Hypervisor
 	if hypervisor != HYPERVISOR_CONTAINER {
 		// support sku here
 		var sku *SServerSku
-		skuName := jsonutils.GetAnyString(data, []string{"sku", "flavor", "instance_type"})
+		skuName := input.InstanceType
 		if len(skuName) > 0 {
 			sku, err := ServerSkuManager.FetchSkuByNameAndHypervisor(skuName, hypervisor, true)
 			if err != nil {
 				return nil, err
 			}
 
-			data.Add(jsonutils.NewString(sku.Name), "instance_type")
-			data.Add(jsonutils.NewInt(int64(sku.MemorySizeMB)), "vmem_size")
-			data.Add(jsonutils.NewInt(int64(sku.CpuCoreCount)), "vcpu_count")
+			input.InstanceType = sku.Name
+			input.VmemSize = sku.MemorySizeMB
+			input.VcpuCount = sku.CpuCoreCount
 		} else {
-			vmemSize, vcpuCount, err := ValidateMemCpuData(data)
+			vmemSize, vcpuCount, err := ValidateMemCpuData(input.VmemSize, input.VcpuCount, input.Hypervisor)
 			if err != nil {
 				return nil, err
 			}
@@ -903,28 +891,28 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			if vcpuCount == 0 {
 				vcpuCount = 1
 			}
-			data.Add(jsonutils.NewInt(int64(vmemSize)), "vmem_size")
-			data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
+			input.VmemSize = vmemSize
+			input.VcpuCount = vcpuCount
 		}
 
-		dataDiskDefs := []jsonutils.JSONObject{}
+		dataDiskDefs := []*api.DiskConfig{}
 		if sku != nil && sku.AttachedDiskCount > 0 {
 			for i := 0; i < sku.AttachedDiskCount; i += 1 {
-				dataDisk := jsonutils.Marshal(map[string]interface{}{
-					"size_mb": sku.AttachedDiskSizeGB * 1024,
-					"backend": strings.ToLower(sku.AttachedDiskType),
-				})
+				dataDisk := &api.DiskConfig{
+					SizeMb:  sku.AttachedDiskSizeGB * 1024,
+					Backend: strings.ToLower(sku.AttachedDiskType),
+				}
 				dataDiskDefs = append(dataDiskDefs, dataDisk)
 			}
 		}
 
 		// start from data disk
-		jsonArray := jsonutils.GetArrayOfPrefix(data, "disk")
-		for idx := 1; idx < len(jsonArray); idx += 1 { // data.Contains(fmt.Sprintf("disk.%d", idx))
-			dataDiskDefs = append(dataDiskDefs, jsonArray[idx])
+		disks := input.Disks
+		for idx := 1; idx < len(disks); idx += 1 {
+			dataDiskDefs = append(dataDiskDefs, disks[idx])
 		}
 
-		rootDiskConfig, err := parseDiskInfo(ctx, userCred, jsonArray[0])
+		rootDiskConfig, err := parseDiskInfo(ctx, userCred, disks[0])
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err) // should no error
 		}
@@ -935,7 +923,8 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			rootDiskConfig.SizeMb = GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024
 		}
 		log.Debugf("ROOT DISK: %#v", rootDiskConfig)
-		data.Set("disk.0", jsonutils.Marshal(rootDiskConfig))
+		input.Disks[0] = rootDiskConfig
+		//data.Set("disk.0", jsonutils.Marshal(rootDiskConfig))
 
 		for i := 0; i < len(dataDiskDefs); i += 1 {
 			diskConfig, err := parseDiskInfo(ctx, userCred, dataDiskDefs[i])
@@ -951,11 +940,11 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			if len(diskConfig.Driver) == 0 {
 				diskConfig.Driver = osProf.DiskDriver
 			}
-			data.Set(fmt.Sprintf("disk.%d", i+1), jsonutils.Marshal(diskConfig))
+			input.Disks[i+1] = diskConfig
 		}
 
-		resourceTypeStr := jsonutils.GetAnyString(data, []string{"resource_type"})
-		durationStr := jsonutils.GetAnyString(data, []string{"duration"})
+		resourceTypeStr := input.ResourceType
+		durationStr := input.Duration
 
 		if len(durationStr) > 0 {
 
@@ -976,18 +965,18 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 				return nil, httperrors.NewInputParameterError("unsupported duration %s", durationStr)
 			}
 
-			data.Add(jsonutils.NewString(BILLING_TYPE_PREPAID), "billing_type")
-			data.Add(jsonutils.NewString(billingCycle.String()), "billing_cycle")
+			input.BillingType = BILLING_TYPE_PREPAID
+			input.BillingCycle = billingCycle.String()
 			// expired_at will be set later by callback
 			// data.Add(jsonutils.NewTimeString(billingCycle.EndAt(time.Time{})), "expired_at")
 
-			data.Set("duration", jsonutils.NewString(billingCycle.String()))
+			input.Duration = billingCycle.String()
 		}
 	}
 
-	netJsonArray := jsonutils.GetArrayOfPrefix(data, "net")
-	for idx := 0; idx < len(netJsonArray); idx += 1 { // .Contains(fmt.Sprintf("net.%d", idx)); idx += 1 {
-		netConfig, err := parseNetworkInfo(userCred, netJsonArray[idx])
+	netArray := input.Networks
+	for idx := 0; idx < len(netArray); idx += 1 {
+		netConfig, err := parseNetworkInfo(userCred, netArray[idx])
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("parse network description error %s", err)
 		}
@@ -998,12 +987,12 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if len(netConfig.Driver) == 0 {
 			netConfig.Driver = osProf.NetDriver
 		}
-		data.Set(fmt.Sprintf("net.%d", idx), jsonutils.Marshal(netConfig))
+		input.Networks[idx] = netConfig
 	}
 
-	isoDevArray := jsonutils.GetArrayOfPrefix(data, "isolated_device")
+	isoDevArray := input.IsolatedDevices
 	for idx := 0; idx < len(isoDevArray); idx += 1 { // .Contains(fmt.Sprintf("isolated_device.%d", idx)); idx += 1 {
-		if jsonutils.QueryBoolean(data, "backup", false) {
+		if input.Backup {
 			return nil, httperrors.NewBadRequestError("Cannot create backup with isolated device")
 		}
 		devConfig, err := IsolatedDeviceManager.parseDeviceInfo(userCred, isoDevArray[idx])
@@ -1014,36 +1003,33 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if err != nil {
 			return nil, err
 		}
-		data.Set(fmt.Sprintf("isolated_device.%d", idx), jsonutils.Marshal(devConfig))
+		input.IsolatedDevices[idx] = devConfig
 	}
 
-	keypairId, _ := data.GetString("keypair")
-	if len(keypairId) == 0 {
-		keypairId, _ = data.GetString("keypair_id")
-	}
+	keypairId := input.Keypair
 	if len(keypairId) > 0 {
 		keypairObj, err := KeypairManager.FetchByIdOrName(userCred, keypairId)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("Keypair %s not found", keypairId)
 		}
-		data.Add(jsonutils.NewString(keypairObj.GetId()), "keypair_id")
+		input.Keypair = keypairObj.GetId()
 	} else {
-		data.Add(jsonutils.NewString("None"), "keypair_id")
+		input.Keypair = "None" // TODO: ??? None?
 	}
 
-	if data.Contains("secgroup") {
-		secGrpId, _ := data.GetString("secgroup")
+	if input.Secgroup != "" {
+		secGrpId := input.Secgroup
 		secGrpObj, err := SecurityGroupManager.FetchByIdOrName(userCred, secGrpId)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("Secgroup %s not found", secGrpId)
 		}
-		data.Add(jsonutils.NewString(secGrpObj.GetId()), "secgrp_id")
+		input.Secgroup = secGrpObj.GetId()
 	} else {
-		data.Add(jsonutils.NewString("default"), "secgrp_id")
+		input.Secgroup = "default"
 	}
 
-	eipStr, _ := data.GetString("eip")
-	eipBw, _ := data.Int("eip_bw")
+	eipStr := input.Eip
+	eipBw := input.EipBw
 	if len(eipStr) > 0 || eipBw > 0 {
 		if !GetDriver(hypervisor).IsSupportEip() {
 			return nil, httperrors.NewNotImplementedError("eip not supported for %s", hypervisor)
@@ -1065,14 +1051,14 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			if eip.IsAssociated() {
 				return nil, httperrors.NewResourceBusyError("eip %s has been associated", eipStr)
 			}
-			data.Set("eip_id", jsonutils.NewString(eipObj.GetId()))
+			input.Eip = eipObj.GetId()
 
 			eipRegion := eip.GetRegion()
 			preferRegionId, _ := data.GetString("prefer_region_id")
 			if len(preferRegionId) > 0 && preferRegionId != eipRegion.Id {
 				return nil, httperrors.NewConflictError("cannot assoicate with eip %s: different region", eipStr)
 			}
-			data.Set("prefer_region_id", jsonutils.NewString(eipRegion.Id))
+			input.PreferRegion = eipRegion.Id
 		} else {
 			// create new eip
 		}
@@ -1085,30 +1071,33 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 
 		}*/
 
-	data, err = GetDriver(hypervisor).ValidateCreateData(ctx, userCred, data)
+	input, err = GetDriver(hypervisor).ValidateCreateData(ctx, userCred, input)
 	if err != nil {
 		return nil, err
 	}
 
-	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, input.JSON(input))
 	if err != nil {
 		return nil, err
 	}
+	if err := data.Unmarshal(input); err != nil {
+		return nil, err
+	}
 
-	if !jsonutils.QueryBoolean(data, "is_system", false) {
-		err = manager.checkCreateQuota(ctx, userCred, ownerProjId, data,
-			jsonutils.QueryBoolean(data, "backup", false))
+	if !input.IsSystem {
+		err = manager.checkCreateQuota(ctx, userCred, ownerProjId, input,
+			input.Backup)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	data.Add(jsonutils.NewString(ownerProjId), "owner_tenant_id")
-	return data, nil
+	input.Project = ownerProjId
+	return input.JSON(input), nil
 }
 
-func (manager *SGuestManager) checkCreateQuota(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, data *jsonutils.JSONDict, hasBackup bool) error {
-	req := getGuestResourceRequirements(ctx, userCred, data, 1, hasBackup)
+func (manager *SGuestManager) checkCreateQuota(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, input *api.ServerCreateInput, hasBackup bool) error {
+	req := getGuestResourceRequirements(ctx, userCred, input, 1, hasBackup)
 	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, ownerProjId, &req)
 	if err != nil {
 		return httperrors.NewOutOfQuotaError(err.Error())
@@ -1133,35 +1122,27 @@ func (self *SGuest) checkUpdateQuota(ctx context.Context, userCred mcclient.Toke
 	return err
 }
 
-func getGuestResourceRequirements(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, count int, hasBackup bool) SQuota {
-	vcpuCount, _ := data.Int("vcpu_count")
+func getGuestResourceRequirements(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput, count int, hasBackup bool) SQuota {
+	vcpuCount := input.VcpuCount
 	if vcpuCount == 0 {
 		vcpuCount = 1
 	}
 
-	vmemSize, _ := data.Int("vmem_size")
+	vmemSize := input.VmemSize
 
 	diskSize := 0
 
-	diskJsonArray := jsonutils.GetArrayOfPrefix(data, "disk")
-	for idx := 0; idx < len(diskJsonArray); idx += 1 { // data.Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
-		diskConfig, _ := parseDiskInfo(ctx, userCred, diskJsonArray[idx])
+	for _, diskConfig := range input.Disks {
 		diskSize += diskConfig.SizeMb
 	}
 
-	isoDevArray := jsonutils.GetArrayOfPrefix(data, "isolated_device")
-	devCount := len(isoDevArray)
-	// for idx := 0; data.Contains(fmt.Sprintf("isolated_device.%d", idx)); idx += 1 {
-	// 	devCount += 1
-	//}
+	devCount := len(input.IsolatedDevices)
 
 	eNicCnt := 0
 	iNicCnt := 0
 	eBw := 0
 	iBw := 0
-	netJsonArray := jsonutils.GetArrayOfPrefix(data, "net")
-	for idx := 0; idx < len(netJsonArray); idx += 1 { // .Contains(fmt.Sprintf("net.%d", idx)); idx += 1 {
-		netConfig, _ := parseNetworkInfo(userCred, netJsonArray[idx])
+	for _, netConfig := range input.Networks {
 		if isExitNetworkInfo(netConfig) {
 			eNicCnt += 1
 			eBw += netConfig.BwLimit
@@ -1177,7 +1158,7 @@ func getGuestResourceRequirements(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	eipCnt := 0
-	eipBw, _ := data.Int("eip_bw")
+	eipBw := input.EipBw
 	if eipBw > 0 {
 		eipCnt = 1
 	}
@@ -1233,8 +1214,9 @@ func (guest *SGuest) setApptags(ctx context.Context, appTags []string, userCred 
 }
 
 func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	pendingUsage := getGuestResourceRequirements(ctx, userCred, data, len(items),
-		jsonutils.QueryBoolean(data, "backup", false))
+	input := new(api.ServerCreateInput)
+	data.Unmarshal(input)
+	pendingUsage := getGuestResourceRequirements(ctx, userCred, input, len(items), input.Backup)
 	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, "GuestBatchCreateTask")
 }
 
@@ -2515,23 +2497,22 @@ func totalGuestResourceCount(
 	return stat
 }
 
-func (self *SGuest) getDefaultNetworkConfig() *SNetworkConfig {
-	netConf := SNetworkConfig{}
+func (self *SGuest) getDefaultNetworkConfig() *api.NetworkConfig {
+	netConf := api.NetworkConfig{}
 	netConf.BwLimit = options.Options.DefaultBandwidth
 	osProf := self.getOSProfile()
 	netConf.Driver = osProf.NetDriver
 	return &netConf
 }
 
-func (self *SGuest) CreateNetworksOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, data *jsonutils.JSONDict, pendingUsage quotas.IQuota) error {
-	netJsonArray := jsonutils.GetArrayOfPrefix(data, "net")
-	if len(netJsonArray) == 0 {
+func (self *SGuest) CreateNetworksOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netArray []*api.NetworkConfig, pendingUsage quotas.IQuota) error {
+	if len(netArray) == 0 {
 		netConfig := self.getDefaultNetworkConfig()
 		_, err := self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
 		return err
 	}
-	for idx := 0; idx < len(netJsonArray); idx += 1 {
-		netConfig, err := parseNetworkInfo(userCred, netJsonArray[idx])
+	for _, netConfig := range netArray {
+		netConfig, err := parseNetworkInfo(userCred, netConfig)
 		if err != nil {
 			return err
 		}
@@ -2543,7 +2524,7 @@ func (self *SGuest) CreateNetworksOnHost(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SGuest) attach2NetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error) {
+func (self *SGuest) attach2NetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error) {
 	var gns []SGuestnetwork
 	var err1, err2 error
 	if len(netConfig.Network) > 0 {
@@ -2563,7 +2544,7 @@ func (self *SGuest) attach2NetworkDesc(ctx context.Context, userCred mcclient.To
 	}
 }
 
-func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error) {
+func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error) {
 	driver := self.GetDriver()
 	net, nicConfs, allocDir := driver.GetNamedNetworkConfiguration(self, userCred, host, netConfig)
 	if net != nil {
@@ -2582,33 +2563,38 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 	}
 }
 
-func (self *SGuest) attach2RandomNetwork(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *SNetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error) {
+func (self *SGuest) attach2RandomNetwork(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error) {
 	driver := self.GetDriver()
 	return driver.Attach2RandomNetwork(self, ctx, userCred, host, netConfig, pendingUsage)
 }
 
-func (self *SGuest) CreateDisksOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost,
-	data *jsonutils.JSONDict, pendingUsage quotas.IQuota, inheritBilling bool, isWithServerCreate bool) error {
-	diskJsonArray := jsonutils.GetArrayOfPrefix(data, "disk")
-	for idx := 0; idx < len(diskJsonArray); idx += 1 { // .Contains(fmt.Sprintf("disk.%d", idx)); idx += 1 {
-		diskConfig, err := parseDiskInfo(ctx, userCred, diskJsonArray[idx])
+func (self *SGuest) CreateDisksOnHost(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	host *SHost,
+	disks []*api.DiskConfig,
+	pendingUsage quotas.IQuota,
+	inheritBilling bool,
+	isWithServerCreate bool,
+	candidate *schedapi.CandidateResource,
+) error {
+	for idx := 0; idx < len(disks); idx += 1 {
+		diskConfig, err := parseDiskInfo(ctx, userCred, disks[idx])
 		if err != nil {
 			return err
 		}
-		disk, err := self.createDiskOnHost(ctx, userCred, host, diskConfig, pendingUsage, inheritBilling, isWithServerCreate)
+		disk, err := self.createDiskOnHost(ctx, userCred, host, diskConfig, pendingUsage, inheritBilling, isWithServerCreate, candidate.Disks[idx])
 		if err != nil {
 			return err
 		}
-		data.Add(jsonutils.NewString(disk.Id), fmt.Sprintf("disk.%d.id", idx))
-		if len(diskConfig.SnapshotId) > 0 {
-			data.Add(jsonutils.NewString(diskConfig.SnapshotId), fmt.Sprintf("disk.%d.snapshot", idx))
-		}
+		diskConfig.DiskId = disk.Id
+		disks[idx] = diskConfig
 	}
 	return nil
 }
 
 func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage,
-	diskConfig *SDiskConfig, pendingUsage quotas.IQuota, inheritBilling bool, isWithServerCreate bool) (*SDisk, error) {
+	diskConfig *api.DiskConfig, pendingUsage quotas.IQuota, inheritBilling bool, isWithServerCreate bool) (*SDisk, error) {
 	lockman.LockObject(ctx, storage)
 	defer lockman.ReleaseObject(ctx, storage)
 
@@ -2642,9 +2628,26 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 	return disk, nil
 }
 
-func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost,
-	diskConfig *SDiskConfig, pendingUsage quotas.IQuota, inheritBilling bool, isWithServerCreate bool) (*SDisk, error) {
-	storage := self.GetDriver().ChooseHostStorage(host, diskConfig.Backend)
+func (self *SGuest) ChooseHostStorage(host *SHost, backend string, candidate *schedapi.CandidateDisk) *SStorage {
+	log.Errorf("==========candidate %#v", candidate)
+	if candidate == nil {
+		return self.GetDriver().ChooseHostStorage(host, backend)
+	}
+	return StorageManager.FetchStorageById(candidate.StorageId)
+}
+
+func (self *SGuest) createDiskOnHost(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	host *SHost,
+	diskConfig *api.DiskConfig,
+	pendingUsage quotas.IQuota,
+	inheritBilling bool,
+	isWithServerCreate bool,
+	candidate *schedapi.CandidateDisk,
+) (*SDisk, error) {
+	storage := self.ChooseHostStorage(host, diskConfig.Backend, candidate)
+	log.Debugf("Choose storage %s:%s for disk %#v", storage.Name, storage.Id, diskConfig)
 	if storage == nil {
 		return nil, fmt.Errorf("No storage on %s to create disk for %s", host.GetName(), diskConfig.Backend)
 	}
@@ -2652,6 +2655,7 @@ func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.Toke
 	if err != nil {
 		return nil, err
 	}
+	// TODO: use scheduler candidate storage
 	if len(self.BackupHostId) > 0 {
 		backupHost := HostManager.FetchHostById(self.BackupHostId)
 		backupStorage := self.GetDriver().ChooseHostStorage(backupHost, diskConfig.Backend)
@@ -2669,14 +2673,10 @@ func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.Toke
 	return disk, err
 }
 
-func (self *SGuest) CreateIsolatedDeviceOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, data *jsonutils.JSONDict, pendingUsage quotas.IQuota) error {
-	devJsonArray := jsonutils.GetArrayOfPrefix(data, "isolated_device")
-	for idx := 0; idx < len(devJsonArray); idx += 1 { // .Contains(fmt.Sprintf("isolated_device.%d", idx)); idx += 1 {
-		devConfig, err := IsolatedDeviceManager.parseDeviceInfo(userCred, devJsonArray[idx])
-		if err != nil {
-			return err
-		}
-		err = self.createIsolatedDeviceOnHost(ctx, userCred, host, devConfig, pendingUsage)
+func (self *SGuest) CreateIsolatedDeviceOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, devs []*api.IsolatedDeviceConfig, pendingUsage quotas.IQuota) error {
+	for idx := 0; idx < len(devs); idx += 1 {
+		devConfig := devs[idx]
+		err := self.createIsolatedDeviceOnHost(ctx, userCred, host, devConfig, pendingUsage)
 		if err != nil {
 			return err
 		}
@@ -2684,7 +2684,7 @@ func (self *SGuest) CreateIsolatedDeviceOnHost(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (self *SGuest) createIsolatedDeviceOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, devConfig *SIsolatedDeviceConfig, pendingUsage quotas.IQuota) error {
+func (self *SGuest) createIsolatedDeviceOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, devConfig *api.IsolatedDeviceConfig, pendingUsage quotas.IQuota) error {
 	lockman.LockClass(ctx, QuotaManager, self.ProjectId)
 	defer lockman.ReleaseClass(ctx, QuotaManager, self.ProjectId)
 
@@ -2866,24 +2866,15 @@ func (self *SGuest) DeleteAllDisksInDB(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
-type SDeployConfig struct {
-	Path    string
-	Action  string
-	Content string
-}
-
 func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, params *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	config := jsonutils.NewDict()
 
 	desc := self.GetDriver().GetJsonDescAtHost(ctx, userCred, self, host)
 	config.Add(desc, "desc")
 
-	deploys := make([]SDeployConfig, 0)
-	for idx := 0; params.Contains(fmt.Sprintf("deploy.%d.path", idx)); idx += 1 {
-		path, _ := params.GetString(fmt.Sprintf("deploy.%d.path", idx))
-		action, _ := params.GetString(fmt.Sprintf("deploy.%d.action", idx))
-		content, _ := params.GetString(fmt.Sprintf("deploy.%d.content", idx))
-		deploys = append(deploys, SDeployConfig{Path: path, Action: action, Content: content})
+	deploys, err := cmdline.FetchDeployConfigsByJSON(params)
+	if err != nil {
+		return nil, err
 	}
 
 	if len(deploys) > 0 {
@@ -3856,34 +3847,39 @@ func (self *SGuest) getDefaultStorageType() string {
 	return STORAGE_LOCAL
 }
 
-func (self *SGuest) getSchedDesc() jsonutils.JSONObject {
-	desc := jsonutils.NewDict()
+func (self *SGuest) getSchedDesc() *schedapi.ScheduleInput {
+	desc := new(schedapi.ScheduleInput)
 
-	desc.Add(jsonutils.NewString(self.Id), "id")
-	desc.Add(jsonutils.NewString(self.Name), "name")
-	desc.Add(jsonutils.NewInt(int64(self.VmemSize)), "vmem_size")
-	desc.Add(jsonutils.NewInt(int64(self.VcpuCount)), "vcpu_count")
+	desc.Id = self.Id
+	desc.Name = self.Name
+	desc.Memory = self.VmemSize
+	desc.Ncpu = int(self.VcpuCount)
 
 	gds := self.GetDisks()
 	if gds != nil {
 		for i := 0; i < len(gds); i += 1 {
-			desc.Add(jsonutils.Marshal(gds[i].ToDiskInfo()), fmt.Sprintf("disk.%d", i))
+			conf := new(api.DiskConfig)
+			jsonutils.Marshal(gds[i].ToDiskInfo()).Unmarshal(conf)
+			desc.Disks = append(desc.Disks, conf)
 		}
 	}
 
 	gns, _ := self.GetNetworks("")
 	if gns != nil {
 		for i := 0; i < len(gns); i += 1 {
-			desc.Add(jsonutils.NewString(fmt.Sprintf("%s:%s", gns[i].NetworkId, gns[i].IpAddr)), fmt.Sprintf("net.%d", i))
+			desc.Networks = append(desc.Networks, &api.NetworkConfig{
+				Network: gns[i].NetworkId,
+				Address: gns[i].IpAddr,
+			})
 		}
 	}
 
 	if len(self.HostId) > 0 && regutils.MatchUUID(self.HostId) {
-		desc.Add(jsonutils.NewString(self.HostId), "host_id")
+		desc.HostId = self.HostId
 	}
 
-	desc.Add(jsonutils.NewString(self.ProjectId), "owner_tenant_id")
-	desc.Add(jsonutils.NewString(self.GetHypervisor()), "hypervisor")
+	desc.Project = self.ProjectId
+	desc.Hypervisor = self.GetHypervisor()
 
 	return desc
 }
@@ -3896,28 +3892,31 @@ func (self *SGuest) GetApptags() []string {
 	return nil
 }
 
-func (self *SGuest) ToSchedDesc() *jsonutils.JSONDict {
-	desc := jsonutils.NewDict()
-	desc.Set("id", jsonutils.NewString(self.Id))
-	desc.Set("name", jsonutils.NewString(self.Name))
-	desc.Set("vmem_size", jsonutils.NewInt(int64(self.VmemSize)))
-	desc.Set("vcpu_count", jsonutils.NewInt(int64(self.VcpuCount)))
-	self.FillGroupSchedDesc(desc)
-	self.FillDiskSchedDesc(desc)
-	self.FillNetSchedDesc(desc)
-	if len(self.HostId) > 0 && regutils.MatchUUID(self.HostId) {
-		desc.Set("host_id", jsonutils.NewString(self.HostId))
+func (self *SGuest) ToSchedDesc() *schedapi.ScheduleInput {
+	desc := new(schedapi.ScheduleInput)
+	config := &schedapi.ServerConfig{
+		Name:   self.Name,
+		Memory: self.VmemSize,
+		Ncpu:   int(self.VcpuCount),
 	}
-	desc.Set("owner_tenant_id", jsonutils.NewString(self.ProjectId))
-	tags := self.GetApptags()
+	//self.FillGroupSchedDesc(desc)
+	self.FillDiskSchedDesc(config)
+	self.FillNetSchedDesc(config)
+	if len(self.HostId) > 0 && regutils.MatchUUID(self.HostId) {
+		config.HostId = self.HostId
+	}
+	config.Project = self.ProjectId
+	/*tags := self.GetApptags()
 	for i := 0; i < len(tags); i++ {
 		desc.Set(tags[i], jsonutils.JSONTrue)
-	}
-	desc.Set("hypervisor", jsonutils.NewString(self.GetHypervisor()))
+	}*/
+
+	config.Hypervisor = self.GetHypervisor()
+	desc.ServerConfig = *config
 	return desc
 }
 
-func (self *SGuest) FillGroupSchedDesc(desc *jsonutils.JSONDict) {
+/*func (self *SGuest) FillGroupSchedDesc(desc *schedapi.ServerConfig) {
 	groups := make([]SGroupguest, 0)
 	err := GroupguestManager.Query().Equals("guest_id", self.Id).All(&groups)
 	if err != nil {
@@ -3928,31 +3927,29 @@ func (self *SGuest) FillGroupSchedDesc(desc *jsonutils.JSONDict) {
 		desc.Set(fmt.Sprintf("srvtag.%d", i),
 			jsonutils.NewString(fmt.Sprintf("%s:%s", groups[i].SrvtagId, groups[i].Tag)))
 	}
-}
+}*/
 
-func (self *SGuest) FillDiskSchedDesc(desc *jsonutils.JSONDict) {
+func (self *SGuest) FillDiskSchedDesc(desc *schedapi.ServerConfig) {
 	guestDisks := make([]SGuestdisk, 0)
 	err := GuestdiskManager.Query().Equals("guest_id", self.Id).All(&guestDisks)
 	if err != nil {
-		log.Errorln(err)
+		log.Errorln("FillDiskSchedDesc: %v", err)
 		return
 	}
 	for i := 0; i < len(guestDisks); i++ {
-		desc.Set(fmt.Sprintf("disk.%d", i), jsonutils.Marshal(guestDisks[i].ToDiskInfo()))
+		desc.Disks = append(desc.Disks, guestDisks[i].ToDiskConfig())
 	}
 }
 
-func (self *SGuest) FillNetSchedDesc(desc *jsonutils.JSONDict) {
+func (self *SGuest) FillNetSchedDesc(desc *schedapi.ServerConfig) {
 	guestNetworks := make([]SGuestnetwork, 0)
 	err := GuestnetworkManager.Query().Equals("guest_id", self.Id).All(&guestNetworks)
 	if err != nil {
-		log.Errorln(err)
+		log.Errorln("FillNetSchedDesc: %v", err)
 		return
 	}
 	for i := 0; i < len(guestNetworks); i++ {
-		desc.Set(fmt.Sprintf("net.%d", i),
-			jsonutils.NewString(fmt.Sprintf("%s:%s",
-				guestNetworks[i].NetworkId, guestNetworks[i].IpAddr)))
+		desc.Networks = append(desc.Networks, guestNetworks[i].ToNetworkConfig())
 	}
 }
 

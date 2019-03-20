@@ -3,9 +3,9 @@ package baremetal
 import (
 	"fmt"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
-	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
@@ -21,22 +21,19 @@ func (p *StoragePredicate) Clone() core.FitPredicate {
 	return &StoragePredicate{}
 }
 
-func toBaremetalDisks(disks []*api.Disk) []*baremetal.Disk {
+func toBaremetalDisks(disks []*computeapi.DiskConfig) []*baremetal.Disk {
 	ret := make([]*baremetal.Disk, len(disks))
 	for i, disk := range disks {
 		ret[i] = &baremetal.Disk{
-			Backend:         disk.Backend,
-			ImageID:         disk.ImageID,
-			Fs:              disk.Fs,
-			Os:              disk.Os,
-			OSDistribution:  disk.OSDistribution,
-			Format:          disk.Format,
-			MountPoint:      disk.MountPoint,
-			Driver:          disk.Driver,
-			Cache:           disk.Cache,
-			ImageDiskFormat: disk.ImageDiskFormat,
-			Size:            disk.Size,
-			Storage:         disk.Storage,
+			Backend:    disk.Backend,
+			ImageID:    disk.ImageId,
+			Fs:         &disk.Fs,
+			Format:     disk.Format,
+			MountPoint: &disk.Mountpoint,
+			Driver:     &disk.Driver,
+			Cache:      &disk.Cache,
+			Size:       int64(disk.SizeMb),
+			Storage:    &disk.Storage,
 		}
 	}
 	return ret

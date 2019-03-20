@@ -3,6 +3,7 @@ package drivers
 import (
 	"fmt"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/hpssactl"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/megactl"
@@ -28,7 +29,7 @@ func GetDrivers(term *ssh.Client) []raid.IRaidDriver {
 	return ret
 }
 
-func BuildRaid(driver raid.IRaidDriver, confs []*baremetal.BaremetalDiskConfig, adapterIdx int) error {
+func BuildRaid(driver raid.IRaidDriver, confs []*api.BaremetalDiskConfig, adapterIdx int) error {
 	if err := driver.PreBuildRaid(confs, adapterIdx); err != nil {
 		return fmt.Errorf("PreBuildRaid: %v", err)
 	}
@@ -48,7 +49,7 @@ func BuildRaid(driver raid.IRaidDriver, confs []*baremetal.BaremetalDiskConfig, 
 	return nil
 }
 
-func buildRaid(adapter raid.IRaidAdapter, confs []*baremetal.BaremetalDiskConfig) error {
+func buildRaid(adapter raid.IRaidAdapter, confs []*api.BaremetalDiskConfig) error {
 	if err := adapter.PreBuildRaid(confs); err != nil {
 		return fmt.Errorf("PreBuildRaid: %v", err)
 	}

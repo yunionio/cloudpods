@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/stringutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/util/ssh"
@@ -185,11 +186,11 @@ func (adapter *MarvelRaidAdaptor) removeLogicVolume(idx int) error {
 	return err
 }
 
-func (adapter *MarvelRaidAdaptor) PreBuildRaid(confs []*baremetal.BaremetalDiskConfig) error {
+func (adapter *MarvelRaidAdaptor) PreBuildRaid(confs []*api.BaremetalDiskConfig) error {
 	return nil
 }
 
-func (adapter *MarvelRaidAdaptor) buildRaid(level string, devs []*baremetal.BaremetalStorage, _ *baremetal.BaremetalDiskConfig) error {
+func (adapter *MarvelRaidAdaptor) buildRaid(level string, devs []*baremetal.BaremetalStorage, _ *api.BaremetalDiskConfig) error {
 	pds := []string{}
 	for _, dev := range devs {
 		pds = append(pds, fmt.Sprintf("%s", GetSpecString(dev)))
@@ -200,20 +201,20 @@ func (adapter *MarvelRaidAdaptor) buildRaid(level string, devs []*baremetal.Bare
 	return err
 }
 
-func (adapter *MarvelRaidAdaptor) BuildRaid0(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MarvelRaidAdaptor) BuildRaid0(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.buildRaid("-r0", devs, conf)
 }
 
-func (adapter *MarvelRaidAdaptor) BuildRaid1(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MarvelRaidAdaptor) BuildRaid1(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.buildRaid("-r1", devs, conf)
 }
 
-func (adapter *MarvelRaidAdaptor) BuildRaid5(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MarvelRaidAdaptor) BuildRaid5(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	//return adapter.buildRaid("-r5", devs, conf)
 	return fmt.Errorf("BuildRaid5 not impl")
 }
 
-func (adapter *MarvelRaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MarvelRaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.buildRaid("-r10", devs, conf)
 }
 
@@ -276,7 +277,7 @@ func (r *MarvelRaid) parseAdapters(lines []string) error {
 	return nil
 }
 
-func (r *MarvelRaid) PreBuildRaid(_ []*baremetal.BaremetalDiskConfig, _ int) error {
+func (r *MarvelRaid) PreBuildRaid(_ []*api.BaremetalDiskConfig, _ int) error {
 	return nil
 }
 

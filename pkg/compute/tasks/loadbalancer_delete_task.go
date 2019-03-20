@@ -6,10 +6,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
@@ -23,10 +23,10 @@ func init() {
 }
 
 func (self *LoadbalancerDeleteTask) taskFail(ctx context.Context, lb *models.SLoadbalancer, reason string) {
-	lb.SetStatus(self.GetUserCred(), consts.LB_STATUS_DELETE_FAILED, reason)
+	lb.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason)
 	db.OpsLog.LogEvent(lb, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_DELETE, reason, self.UserCred, false)
-	notifyclient.NotifySystemError(lb.Id, lb.Name, consts.LB_STATUS_DELETE_FAILED, reason)
+	notifyclient.NotifySystemError(lb.Id, lb.Name, api.LB_STATUS_DELETE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
 

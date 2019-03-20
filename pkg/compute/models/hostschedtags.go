@@ -4,14 +4,13 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SHostschedtagManager struct {
-	SHostJointsManager
+	*SSchedtagJointsManager
 }
 
 var HostschedtagManager *SHostschedtagManager
@@ -19,11 +18,12 @@ var HostschedtagManager *SHostschedtagManager
 func init() {
 	db.InitManager(func() {
 		HostschedtagManager = &SHostschedtagManager{
-			SHostJointsManager: NewHostJointsManager(
+			SSchedtagJointsManager: NewSchedtagJointsManager(
 				SHostschedtag{},
 				"aggregate_hosts_tbl",
 				"schedtaghost",
 				"schedtaghosts",
+				HostManager,
 				SchedtagManager,
 			),
 		}
@@ -31,55 +31,37 @@ func init() {
 }
 
 type SHostschedtag struct {
-	SHostJointsBase
+	SSchedtagJointsBase
 
-	HostId     string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // =Column(VARCHAR(36, charset='ascii'), nullable=False)
+	HostId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
-func (joint *SHostschedtag) Master() db.IStandaloneModel {
-	return db.JointMaster(joint)
+func (self *SHostschedtag) GetHost() *SHost {
+	return self.Master().(*SHost)
 }
 
-func (joint *SHostschedtag) Slave() db.IStandaloneModel {
-	return db.JointSlave(joint)
+func (self *SHostschedtag) GetHosts() ([]SHost, error) {
+	hosts := []SHost{}
+	err := self.GetSchedtag().GetObjects(&hosts)
+	return hosts, err
+}
+
+func (self *SHostschedtag) Master() db.IStandaloneModel {
+	return self.SSchedtagJointsBase.master(self)
 }
 
 func (self *SHostschedtag) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SHostJointsBase.GetCustomizeColumns(ctx, userCred, query)
-	return db.JointModelExtra(self, extra)
+	return self.SSchedtagJointsBase.getCustomizeColumns(self, ctx, userCred, query)
 }
 
 func (self *SHostschedtag) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SHostJointsBase.GetExtraDetails(ctx, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-	return db.JointModelExtra(self, extra), nil
-}
-
-func (self *SHostschedtag) getHost() *SHost {
-	obj, err := HostManager.FetchById(self.HostId)
-	if err != nil {
-		log.Errorf("%s", err)
-		return nil
-	}
-	return obj.(*SHost)
-}
-
-func (self *SHostschedtag) getSchedtag() *SSchedtag {
-	obj, err := SchedtagManager.FetchById(self.SchedtagId)
-	if err != nil {
-		log.Errorf("%s", err)
-		return nil
-	}
-	return obj.(*SSchedtag)
+	return self.SSchedtagJointsBase.getExtraDetails(self, ctx, userCred, query)
 }
 
 func (self *SHostschedtag) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return db.DeleteModel(ctx, userCred, self)
+	return self.SSchedtagJointsBase.delete(self, ctx, userCred)
 }
 
 func (self *SHostschedtag) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return db.DetachJoint(ctx, userCred, self)
+	return self.SSchedtagJointsBase.detach(self, ctx, userCred)
 }

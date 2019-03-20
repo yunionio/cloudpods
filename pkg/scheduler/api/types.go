@@ -74,9 +74,14 @@ func init() {
 	}
 }
 
-func AggregateStrategyCheck(strategy string) (err error) {
+func SchedtagStrategyCheck(strategy string) (err error) {
 	if !AggregateStrategySets.Has(strategy) {
 		err = fmt.Errorf("Strategy %q must in set %v", strategy, AggregateStrategySets.List())
 	}
 	return
+}
+
+type CandidateStorage struct {
+	*models.SStorage
+	Schedtags []models.SSchedtag `json:"schedtags"`
 }

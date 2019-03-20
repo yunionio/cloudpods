@@ -9,9 +9,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/dhcp"
 )
@@ -165,7 +165,7 @@ func (h *DHCPHandler) fetchConfig() (*dhcp.ResponseConfig, error) {
 		h.baremetalInstance = bmInstance
 		ipmiNic := h.baremetalInstance.GetIPMINic(h.ClientMac)
 		if ipmiNic != nil && ipmiNic.Mac == h.ClientMac.String() {
-			err = h.baremetalInstance.InitAdminNetif(h.ClientMac, h.netConfig, types.NIC_TYPE_IPMI, consts.NETWORK_TYPE_IPMI)
+			err = h.baremetalInstance.InitAdminNetif(h.ClientMac, h.netConfig, types.NIC_TYPE_IPMI, api.NETWORK_TYPE_IPMI)
 			if err != nil {
 				return nil, err
 			}
@@ -215,7 +215,7 @@ func (h *DHCPHandler) findNetworkConf(filterUseIp bool) (*types.SNetworkConfig, 
 func (h *DHCPHandler) findBaremetalsOfAnyMac(isBaremetal bool) (*modules.ListResult, error) {
 	session := h.baremetalManager.GetClientSession()
 	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(consts.HOST_TYPE_BAREMETAL), "host_type")
+	params.Add(jsonutils.NewString(api.HOST_TYPE_BAREMETAL), "host_type")
 	params.Add(jsonutils.NewString(h.ClientMac.String()), "any_mac")
 	if isBaremetal {
 		params.Add(jsonutils.JSONTrue, "is_baremetal")
@@ -292,7 +292,7 @@ func (h *DHCPHandler) doInitBaremetalAdminNetif(desc jsonutils.JSONObject) error
 	if err != nil {
 		return err
 	}
-	err = h.baremetalInstance.InitAdminNetif(h.ClientMac, h.netConfig, types.NIC_TYPE_ADMIN, consts.NETWORK_TYPE_PXE)
+	err = h.baremetalInstance.InitAdminNetif(h.ClientMac, h.netConfig, types.NIC_TYPE_ADMIN, api.NETWORK_TYPE_PXE)
 	return err
 }
 

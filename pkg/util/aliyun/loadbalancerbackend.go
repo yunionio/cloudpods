@@ -5,8 +5,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 )
 
 type SLoadbalancerBackend struct {
@@ -63,11 +63,11 @@ func (backend *SLoadbalancerBackend) GetPort() int {
 }
 
 func (backend *SLoadbalancerBackend) GetBackendType() string {
-	return consts.LB_BACKEND_GUEST
+	return api.LB_BACKEND_GUEST
 }
 
 func (backend *SLoadbalancerBackend) GetBackendRole() string {
-	return consts.LB_BACKEND_ROLE_DEFAULT
+	return api.LB_BACKEND_ROLE_DEFAULT
 }
 
 func (backend *SLoadbalancerBackend) GetBackendId() string {

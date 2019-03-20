@@ -6,6 +6,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -21,6 +23,12 @@ func init() {
 	taskman.RegisterTask(GuestBatchCreateTask{})
 }
 
+func (self *GuestBatchCreateTask) GetCreateInput() (*api.ServerCreateInput, error) {
+	input := new(api.ServerCreateInput)
+	err := self.GetParams().Unmarshal(input)
+	return input, err
+}
+
 func (self *GuestBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject) {
 	StartScheduleObjects(ctx, self, objs)
 }
@@ -33,13 +41,13 @@ func (self *GuestBatchCreateTask) OnScheduleFailCallback(ctx context.Context, ob
 	}
 }
 
-func (self *GuestBatchCreateTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave string) {
+func (self *GuestBatchCreateTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource) {
 	guest := obj.(*models.SGuest)
-	guest.SetHostIdWithBackup(self.UserCred, master, slave)
+	guest.SetHostIdWithBackup(self.UserCred, master.HostId, slave.HostId)
 	self.SaveScheduleResult(ctx, obj, master)
 }
 
-func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest *models.SGuest) error {
+func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest *models.SGuest, candidate *schedapi.CandidateResource) error {
 	pendingUsage := models.SQuota{}
 	err := self.GetPendingUsage(&pendingUsage)
 	if err != nil {
@@ -51,18 +59,25 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 
 	host := guest.GetHost()
 
+	input, err := self.GetCreateInput()
+
 	if host.IsPrepaidRecycle() {
-		params, err := host.SetGuestCreateNetworkAndDiskParams(ctx, self.UserCred, self.Params)
+		input, err = host.SetGuestCreateNetworkAndDiskParams(ctx, self.UserCred, input)
 		if err != nil {
 			log.Errorf("host.SetGuestCreateNetworkAndDiskParams fail %s", err)
 			guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
 			return err
 		}
-		self.Params = params
+		params := input.JSON(input)
 		self.SaveParams(params)
 	}
 
-	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, self.Params, &pendingUsage)
+	input, err = self.GetCreateInput()
+	if err != nil {
+		guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+		return err
+	}
+	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, input.Networks, &pendingUsage)
 	self.SetPendingUsage(&pendingUsage)
 
 	if err != nil {
@@ -71,8 +86,8 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		return err
 	}
 
-	guest.GetDriver().PrepareDiskRaidConfig(self.UserCred, host, self.Params)
-	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, self.Params, &pendingUsage, true, true)
+	guest.GetDriver().PrepareDiskRaidConfig(self.UserCred, host, input.BaremetalDiskConfigs)
+	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, input.Disks, &pendingUsage, true, true, candidate)
 	self.SetPendingUsage(&pendingUsage)
 
 	if err != nil {
@@ -81,7 +96,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		return err
 	}
 
-	err = guest.CreateIsolatedDeviceOnHost(ctx, self.UserCred, host, self.Params, &pendingUsage)
+	err = guest.CreateIsolatedDeviceOnHost(ctx, self.UserCred, host, input.IsolatedDevices, &pendingUsage)
 	self.SetPendingUsage(&pendingUsage)
 
 	if err != nil {
@@ -100,9 +115,12 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 			return err
 		}
 
-		autoStart := jsonutils.QueryBoolean(self.Params, "auto_start", false)
-		resetPassword := jsonutils.QueryBoolean(self.Params, "reset_password", true)
-		passwd, _ := self.Params.GetString("password")
+		autoStart := input.AutoStart
+		resetPassword := true
+		if input.ResetPassword != nil {
+			resetPassword = *input.ResetPassword
+		}
+		passwd := input.Password
 		err = guest.StartRebuildRootTask(ctx, self.UserCred, "", false, autoStart, passwd, resetPassword, true)
 		if err != nil {
 			log.Errorf("start guest create task fail %s", err)
@@ -112,7 +130,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		return nil
 	}
 
-	err = guest.StartGuestCreateTask(ctx, self.UserCred, self.Params, nil, self.GetId())
+	err = guest.StartGuestCreateTask(ctx, self.UserCred, input, nil, self.GetId())
 	if err != nil {
 		log.Errorf("start guest create task fail %s", err)
 		guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
@@ -121,14 +139,15 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	return nil
 }
 
-func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, hostId string) {
+func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource) {
 	var err error
+	hostId := candidate.HostId
 	guest := obj.(*models.SGuest)
 	if len(guest.HostId) == 0 {
 		guest.OnScheduleToHost(ctx, self.UserCred, hostId)
 	}
 
-	err = self.allocateGuestOnHost(ctx, guest)
+	err = self.allocateGuestOnHost(ctx, guest, candidate)
 	if err != nil {
 		db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, err.Error(), self.GetUserCred(), false)

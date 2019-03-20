@@ -22,7 +22,7 @@ func (p *MemoryPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 	d := u.SchedData()
 
 	freeMemSize := h.GetInt64("FreeMemSize", 0)
-	reqMemSize := d.VMEMSize
+	reqMemSize := int64(d.Memory)
 	if freeMemSize < reqMemSize {
 		totalMemSize := h.GetInt64("MemSize", 0)
 		h.AppendInsufficientResourceError(reqMemSize, totalMemSize, freeMemSize)

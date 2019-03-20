@@ -30,7 +30,7 @@ func (p *NestPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.P
 
 	d := u.SchedData()
 
-	if d.Meta["kvm"] == "enabled" {
+	if d.Metadata["kvm"] == "enabled" {
 		if hc.Metadata["nest"] != "enabled" {
 			h.Exclude(predicates.ErrNotSupportNest)
 		}

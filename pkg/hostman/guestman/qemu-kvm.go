@@ -17,8 +17,8 @@ import (
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -698,7 +698,7 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 		if disk.Contains("path") {
 			diskPath, _ := disk.GetString("path")
 			d := storageman.GetManager().GetDiskByPath(diskPath)
-			if d != nil && d.GetType() == consts.STORAGE_LOCAL && migrated {
+			if d != nil && d.GetType() == api.STORAGE_LOCAL && migrated {
 				if err := d.DeleteAllSnapshot(); err != nil {
 					log.Errorln(err)
 					return err
@@ -1218,7 +1218,7 @@ func (s *SKVMGuestInstance) PrepareMigrate(liveMigrage bool) (*jsonutils.JSONDic
 		if disk.Contains("path") {
 			diskPath, _ := disk.GetString("path")
 			d := storageman.GetManager().GetDiskByPath(diskPath)
-			if d.GetType() == consts.STORAGE_LOCAL {
+			if d.GetType() == api.STORAGE_LOCAL {
 				back, err := d.PrepareMigrate(liveMigrage)
 				if err != nil {
 					return nil, err

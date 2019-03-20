@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	raiddrivers "yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
@@ -225,12 +226,12 @@ func (adapter *MegaRaidAdaptor) parseLogicVolumes(lines []string) []int {
 	return lvIdx
 }
 
-func (adapter *MegaRaidAdaptor) PreBuildRaid(confs []*baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) PreBuildRaid(confs []*api.BaremetalDiskConfig) error {
 	adapter.clearJBODDisks()
 	return nil
 }
 
-func (adapter *MegaRaidAdaptor) conf2ParamsStorcliSize(conf *baremetal.BaremetalDiskConfig) []string {
+func (adapter *MegaRaidAdaptor) conf2ParamsStorcliSize(conf *api.BaremetalDiskConfig) []string {
 	params := []string{}
 	szStr := []string{}
 	if len(conf.Size) > 0 {
@@ -242,7 +243,7 @@ func (adapter *MegaRaidAdaptor) conf2ParamsStorcliSize(conf *baremetal.Baremetal
 	return params
 }
 
-func (adapter *MegaRaidAdaptor) conf2ParamsStorcli(conf *baremetal.BaremetalDiskConfig) []string {
+func (adapter *MegaRaidAdaptor) conf2ParamsStorcli(conf *api.BaremetalDiskConfig) []string {
 	params := []string{}
 	if conf.WT != nil {
 		if *conf.WT {
@@ -278,7 +279,7 @@ func (adapter *MegaRaidAdaptor) conf2ParamsStorcli(conf *baremetal.BaremetalDisk
 	return params
 }
 
-func conf2Params(conf *baremetal.BaremetalDiskConfig) []string {
+func conf2Params(conf *api.BaremetalDiskConfig) []string {
 	params := []string{}
 	if conf.WT != nil {
 		if *conf.WT {
@@ -319,35 +320,35 @@ func conf2Params(conf *baremetal.BaremetalDiskConfig) []string {
 	return params
 }
 
-func (adapter *MegaRaidAdaptor) storcliBuildRaid0(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) storcliBuildRaid0(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.storcliBuildRaid(devs, conf, 0)
 }
 
-func (adapter *MegaRaidAdaptor) megacliBuildRaid0(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) megacliBuildRaid0(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.megacliBuildRaid(devs, conf, 0)
 }
 
-func (adapter *MegaRaidAdaptor) storcliBuildRaid1(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) storcliBuildRaid1(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.storcliBuildRaid(devs, conf, 1)
 }
 
-func (adapter *MegaRaidAdaptor) megacliBuildRaid1(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) megacliBuildRaid1(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.megacliBuildRaid(devs, conf, 1)
 }
 
-func (adapter *MegaRaidAdaptor) storcliBuildRaid5(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) storcliBuildRaid5(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.storcliBuildRaid(devs, conf, 5)
 }
 
-func (adapter *MegaRaidAdaptor) megacliBuildRaid5(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) megacliBuildRaid5(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.megacliBuildRaid(devs, conf, 5)
 }
 
-func (adapter *MegaRaidAdaptor) storcliBuildRaid10(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) storcliBuildRaid10(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return adapter.storcliBuildRaid(devs, conf, 10)
 }
 
-func (adapter *MegaRaidAdaptor) megacliBuildRaid10(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) megacliBuildRaid10(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	if len(devs)%2 != 0 {
 		return fmt.Errorf("Odd number of %d devs", len(devs))
 	}
@@ -367,7 +368,7 @@ func (adapter *MegaRaidAdaptor) megacliBuildRaid10(devs []*baremetal.BaremetalSt
 	return err
 }
 
-func (adapter *MegaRaidAdaptor) storcliBuildRaid(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig, level uint) error {
+func (adapter *MegaRaidAdaptor) storcliBuildRaid(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig, level uint) error {
 	args := []string{}
 	args = append(args, fmt.Sprintf("/c%d", adapter.index))
 	args = append(args, "add", "vd", fmt.Sprintf("type=r%d", level))
@@ -387,7 +388,7 @@ func (adapter *MegaRaidAdaptor) storcliBuildRaid(devs []*baremetal.BaremetalStor
 	return err
 }
 
-func (adapter *MegaRaidAdaptor) megacliBuildRaid(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig, level uint) error {
+func (adapter *MegaRaidAdaptor) megacliBuildRaid(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig, level uint) error {
 	labels := []string{}
 	for _, dev := range devs {
 		labels = append(labels, GetSpecString(dev))
@@ -403,8 +404,8 @@ func (adapter *MegaRaidAdaptor) megacliBuildRaid(devs []*baremetal.BaremetalStor
 
 func cliBuildRaid(
 	devs []*baremetal.BaremetalStorage,
-	conf *baremetal.BaremetalDiskConfig,
-	funcs ...func([]*baremetal.BaremetalStorage, *baremetal.BaremetalDiskConfig) error,
+	conf *api.BaremetalDiskConfig,
+	funcs ...func([]*baremetal.BaremetalStorage, *api.BaremetalDiskConfig) error,
 ) error {
 	var err error
 	for _, f := range funcs {
@@ -416,19 +417,19 @@ func cliBuildRaid(
 	return err
 }
 
-func (adapter *MegaRaidAdaptor) BuildRaid0(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) BuildRaid0(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return cliBuildRaid(devs, conf, adapter.megacliBuildRaid0, adapter.storcliBuildRaid0)
 }
 
-func (adapter *MegaRaidAdaptor) BuildRaid1(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) BuildRaid1(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return cliBuildRaid(devs, conf, adapter.megacliBuildRaid1, adapter.storcliBuildRaid1)
 }
 
-func (adapter *MegaRaidAdaptor) BuildRaid5(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) BuildRaid5(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return cliBuildRaid(devs, conf, adapter.megacliBuildRaid5, adapter.storcliBuildRaid5)
 }
 
-func (adapter *MegaRaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorage, conf *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
 	return cliBuildRaid(devs, conf, adapter.megacliBuildRaid10, adapter.storcliBuildRaid10)
 }
 
@@ -492,7 +493,7 @@ func (adapter *MegaRaidAdaptor) storcliBuildJBOD(devs []*baremetal.BaremetalStor
 	return nil
 }
 
-func (adapter *MegaRaidAdaptor) storcliBuildNoRaid(devs []*baremetal.BaremetalStorage, _ *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) storcliBuildNoRaid(devs []*baremetal.BaremetalStorage, _ *api.BaremetalDiskConfig) error {
 	err := adapter.storcliBuildJBOD(devs)
 	if err == nil {
 		return nil
@@ -513,7 +514,7 @@ func (adapter *MegaRaidAdaptor) storcliBuildNoRaid(devs []*baremetal.BaremetalSt
 	return err
 }
 
-func (adapter *MegaRaidAdaptor) megacliBuildNoRaid(devs []*baremetal.BaremetalStorage, _ *baremetal.BaremetalDiskConfig) error {
+func (adapter *MegaRaidAdaptor) megacliBuildNoRaid(devs []*baremetal.BaremetalStorage, _ *api.BaremetalDiskConfig) error {
 	err := adapter.megacliBuildJBOD(devs)
 	if err == nil {
 		return nil
@@ -746,7 +747,7 @@ func (raid *MegaRaid) CleanRaid() error {
 	return nil
 }
 
-func (raid *MegaRaid) PreBuildRaid(_ []*baremetal.BaremetalDiskConfig, _ int) error {
+func (raid *MegaRaid) PreBuildRaid(_ []*api.BaremetalDiskConfig, _ int) error {
 	return raid.clearForeignState()
 }
 

@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -27,12 +28,12 @@ func (self *SVirtualizedGuestDriver) GetMaxVMemSizeGB() int {
 	return 512
 }
 
-func (self *SVirtualizedGuestDriver) PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *models.SHost, params *jsonutils.JSONDict) error {
+func (self *SVirtualizedGuestDriver) PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *models.SHost, params []*api.BaremetalDiskConfig) error {
 	// do nothing
 	return nil
 }
 
-func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig) (*models.SNetwork, []models.SNicConfig, models.IPAddlocationDirection) {
+func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.SGuest, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig) (*models.SNetwork, []models.SNicConfig, models.IPAddlocationDirection) {
 	net, _ := host.GetNetworkWithIdAndCredential(netConfig.Network, userCred, netConfig.Reserved)
 	nicConfs := []models.SNicConfig{
 		{
@@ -55,7 +56,7 @@ func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
 	return []string{models.NETWORK_TYPE_GUEST}
 }
 
-func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *models.SNetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
+func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
 	var wirePattern *regexp.Regexp
 	if len(netConfig.Wire) > 0 {
 		wirePattern = regexp.MustCompile(netConfig.Wire)
@@ -113,6 +114,10 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	}
 	gn, err := guest.Attach2Network(ctx, userCred, selNet, pendingUsage, netConfig.Address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netConfig.Reserved, models.IPAllocationDefault, false, nicConfs)
 	return gn, err
+}
+
+func (self *SVirtualizedGuestDriver) GetStorageTypes() []string {
+	return nil
 }
 
 func (self *SVirtualizedGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
@@ -183,24 +188,24 @@ func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Conte
 	return nil
 }
 
-func (self *SVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+func (self *SVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	return input, nil
 }
 
-func (self *SVirtualizedGuestDriver) ValidateCreateHostData(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SVirtualizedGuestDriver) ValidateCreateHostData(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	if host.HostStatus != models.HOST_ONLINE {
 		return nil, httperrors.NewInvalidStatusError("Host %s is not online", bmName)
 	}
-	data.Add(jsonutils.NewString(host.Id), "prefer_host_id")
+	input.PreferHost = host.Id
 	if host.IsPrepaidRecycle() {
-		data.Set("vmem_size", jsonutils.NewInt(int64(host.MemSize)))
-		data.Set("vcpu_count", jsonutils.NewInt(int64(host.CpuCount)))
+		input.VmemSize = host.MemSize
+		input.VcpuCount = int(host.CpuCount)
 
 		if host.GetGuestCount() >= 1 {
 			return nil, httperrors.NewInsufficientResourceError("host has been occupied")
 		}
 	}
-	return data, nil
+	return input, nil
 }
 
 func (self *SVirtualizedGuestDriver) PerformStart(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, data *jsonutils.JSONDict) error {

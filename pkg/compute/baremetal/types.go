@@ -3,66 +3,45 @@ package baremetal
 import (
 	"errors"
 
-	"yunion.io/x/pkg/util/sets"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 const (
-	DISK_CONF_RAID0  = "raid0"
-	DISK_CONF_RAID1  = "raid1"
-	DISK_CONF_RAID5  = "raid5"
-	DISK_CONF_RAID10 = "raid10"
-	DISK_CONF_NONE   = "none"
+	DISK_CONF_RAID0  = api.DISK_CONF_RAID0
+	DISK_CONF_RAID1  = api.DISK_CONF_RAID1
+	DISK_CONF_RAID5  = api.DISK_CONF_RAID5
+	DISK_CONF_RAID10 = api.DISK_CONF_RAID10
+	DISK_CONF_NONE   = api.DISK_CONF_NONE
 
-	DEFAULT_DISK_CONF = DISK_CONF_NONE
+	DEFAULT_DISK_CONF = api.DEFAULT_DISK_CONF
 
-	DISK_TYPE_ROTATE = "rotate"
-	DISK_TYPE_SSD    = "ssd"
-	DISK_TYPE_HYBRID = "hybrid"
+	DISK_TYPE_ROTATE = api.DISK_TYPE_ROTATE
+	DISK_TYPE_SSD    = api.DISK_TYPE_SSD
+	DISK_TYPE_HYBRID = api.DISK_TYPE_HYBRID
 
-	DEFAULT_DISK_TYPE = DISK_TYPE_ROTATE
+	DEFAULT_DISK_TYPE = api.DEFAULT_DISK_TYPE
 
-	DISK_DRIVER_MEGARAID   = "MegaRaid"
-	DISK_DRIVER_LINUX      = "Linux"
-	DISK_DRIVER_HPSARAID   = "HPSARaid"
-	DISK_DRIVER_MPT2SAS    = "Mpt2SAS"
-	DISK_DRIVER_MARVELRAID = "MarvelRaid"
-	DISK_DRIVER_PCIE       = "PCIE"
+	DISK_DRIVER_MEGARAID   = api.DISK_DRIVER_MEGARAID
+	DISK_DRIVER_LINUX      = api.DISK_DRIVER_LINUX
+	DISK_DRIVER_HPSARAID   = api.DISK_DRIVER_HPSARAID
+	DISK_DRIVER_MPT2SAS    = api.DISK_DRIVER_MPT2SAS
+	DISK_DRIVER_MARVELRAID = api.DISK_DRIVER_MARVELRAID
+	DISK_DRIVER_PCIE       = api.DISK_DRIVER_PCIE
 
-	HDD_DISK_SPEC_TYPE = "HDD"
-	SSD_DISK_SPEC_TYPE = "SSD"
+	HDD_DISK_SPEC_TYPE = api.HDD_DISK_SPEC_TYPE
+	SSD_DISK_SPEC_TYPE = api.SSD_DISK_SPEC_TYPE
 )
 
 var (
-	BaremetalDefaultDiskConfig = BaremetalDiskConfig{
-		Type:  DISK_TYPE_HYBRID,
-		Conf:  DISK_CONF_NONE,
-		Count: 0,
-	}
+	BaremetalDefaultDiskConfig = api.BaremetalDefaultDiskConfig
 
-	DISK_CONFS = sets.NewString(
-		DISK_CONF_RAID0,
-		DISK_CONF_RAID1,
-		DISK_CONF_RAID5,
-		DISK_CONF_RAID10,
-		DISK_CONF_NONE,
-	)
+	DISK_CONFS = api.DISK_CONFS
 
-	DISK_TYPES = sets.NewString(
-		DISK_TYPE_ROTATE,
-		DISK_TYPE_SSD,
-		DISK_TYPE_HYBRID,
-	)
+	DISK_TYPES = api.DISK_TYPES
 
-	DISK_DRIVERS_RAID = sets.NewString(
-		DISK_DRIVER_MEGARAID,
-		DISK_DRIVER_HPSARAID,
-		DISK_DRIVER_MPT2SAS,
-		DISK_DRIVER_MARVELRAID,
-	)
+	DISK_DRIVERS_RAID = api.DISK_DRIVERS_RAID
 
-	DISK_DRIVERS = sets.NewString(
-		DISK_DRIVER_LINUX,
-		DISK_DRIVER_PCIE).Union(DISK_DRIVERS_RAID)
+	DISK_DRIVERS = api.DISK_DRIVERS
 )
 
 var (
@@ -97,24 +76,6 @@ func (s BaremetalStorage) GetBlock() int64 {
 		return 512
 	}
 	return s.Block
-}
-
-type BaremetalDiskConfig struct {
-	// disk type
-	Type string `json:"type"`
-	// raid config
-	Conf         string  `json:"conf"`
-	Count        int64   `json:"count"`
-	Range        []int64 `json:"range"`
-	Splits       string  `json:"splits"`
-	Size         []int64 `json:"size"`
-	Adapter      *int    `json:"adapter,omitempty"`
-	Driver       string  `json:"driver"`
-	Cachedbadbbu *bool   `json:"cachedbadbbu,omitempty"`
-	Strip        *int64  `json:"strip,omitempty"`
-	RA           *bool   `json:"ra,omitempty"`
-	WT           *bool   `json:"wt,omitempty"`
-	Direct       *bool   `json:"direct,omitempty"`
 }
 
 type Disk struct {

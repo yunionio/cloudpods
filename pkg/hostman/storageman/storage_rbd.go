@@ -16,7 +16,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/compute/consts"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -54,7 +54,7 @@ func (factory *SRbdStorageFactory) NewStorage(manager *SStorageManager, mountPoi
 }
 
 func (factory *SRbdStorageFactory) StorageType() string {
-	return consts.STORAGE_RBD
+	return api.STORAGE_RBD
 }
 
 func init() {
@@ -62,7 +62,7 @@ func init() {
 }
 
 func (s *SRbdStorage) StorageType() string {
-	return consts.STORAGE_RBD
+	return api.STORAGE_RBD
 }
 
 func (s *SRbdStorage) GetSnapshotPathByIds(diskId, snapshotId string) string {
@@ -355,7 +355,7 @@ func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 		content = map[string]interface{}{
 			"name":     s.StorageName,
 			"capacity": capacity,
-			"status":   consts.STORAGE_ONLINE,
+			"status":   api.STORAGE_ONLINE,
 			"zone":     s.GetZone(),
 		}
 		return modules.Storages.Put(hostutils.GetComputeSession(context.Background()), s.StorageId, jsonutils.Marshal(content))

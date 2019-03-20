@@ -6,8 +6,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/compute/consts"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -37,7 +37,7 @@ func (lls SLoadbalancerLogSkipper) skipLog(ctx context.Context, userCred mcclien
 	if !ok {
 		return false
 	}
-	if val, _ := data.GetString(consts.LBAGENT_QUERY_ORIG_KEY); val != consts.LBAGENT_QUERY_ORIG_VAL {
+	if val, _ := data.GetString(api.LBAGENT_QUERY_ORIG_KEY); val != api.LBAGENT_QUERY_ORIG_VAL {
 		return false
 	}
 	return true

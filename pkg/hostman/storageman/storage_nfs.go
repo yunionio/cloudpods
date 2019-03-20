@@ -8,7 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/compute/consts"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -27,7 +27,7 @@ func (factory *SNFSStorageFactory) NewStorage(manager *SStorageManager, mountPoi
 }
 
 func (factory *SNFSStorageFactory) StorageType() string {
-	return consts.STORAGE_NFS
+	return api.STORAGE_NFS
 }
 
 type SNFSStorage struct {
@@ -44,7 +44,7 @@ func NewNFSStorage(manager *SStorageManager, path string) *SNFSStorage {
 }
 
 func (s *SNFSStorage) StorageType() string {
-	return consts.STORAGE_NFS
+	return api.STORAGE_NFS
 }
 
 func (s *SNFSStorage) CreateDisk(diskId string) IDisk {
@@ -84,7 +84,7 @@ func (s *SNFSStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	content := jsonutils.NewDict()
 	content.Set("capacity", jsonutils.NewInt(int64(s.GetAvailSizeMb())))
 	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
-	content.Set("status", jsonutils.NewString(consts.STORAGE_ONLINE))
+	content.Set("status", jsonutils.NewString(api.STORAGE_ONLINE))
 	content.Set("zone", jsonutils.NewString(s.GetZone()))
 	log.Infof("Sync storage info %s", s.StorageId)
 	res, err := modules.Storages.Put(

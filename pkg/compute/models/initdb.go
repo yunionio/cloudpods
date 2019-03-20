@@ -27,6 +27,7 @@ func InitDB() error {
 		LoadbalancerListenerRuleManager,
 		LoadbalancerBackendGroupManager,
 		LoadbalancerBackendManager,
+		SchedtagManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {

@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -183,15 +184,15 @@ func (self *GuestCreateBackupTask) OnStartSchedule(obj IScheduleModel) {
 	db.OpsLog.LogEvent(guest, db.ACT_START_CREATE_BACKUP, "", self.UserCred)
 }
 
-func (self *GuestCreateBackupTask) GetSchedParams() *jsonutils.JSONDict {
+func (self *GuestCreateBackupTask) GetSchedParams() (*schedapi.ScheduleInput, error) {
 	obj := self.GetObject()
 	guest := obj.(*models.SGuest)
 	schedDesc := guest.ToSchedDesc()
 	if self.Params.Contains("prefer_host_id") {
-		preferHostId, _ := self.Params.Get("prefer_host_id")
-		schedDesc.Set("prefer_host_id", preferHostId)
+		preferHostId, _ := self.Params.GetString("prefer_host_id")
+		schedDesc.ServerConfig.PreferHost = preferHostId
 	}
-	return schedDesc
+	return schedDesc, nil
 }
 
 func (self *GuestCreateBackupTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {
@@ -204,9 +205,10 @@ func (self *GuestCreateBackupTask) OnScheduleFailed(ctx context.Context, reason 
 	self.TaskFailed(ctx, guest, reason)
 }
 
-func (self *GuestCreateBackupTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, targetHostId string) {
+func (self *GuestCreateBackupTask) SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource) {
 	guest := obj.(*models.SGuest)
-	targetHost := models.HostManager.FetchHostById(targetHostId)
+	targetHostId := candidate.HostId
+	targetHost := models.HostManager.FetchHostById(candidate.HostId)
 	if targetHost == nil {
 		self.TaskFailed(ctx, guest, "target host not found?")
 		return

@@ -18,6 +18,9 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -703,8 +706,8 @@ func (self *SGuest) StartGueststartTask(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (self *SGuest) StartGuestCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, pendingUsage quotas.IQuota, parentTaskId string) error {
-	return self.GetDriver().StartGuestCreateTask(self, ctx, userCred, params, pendingUsage, parentTaskId)
+func (self *SGuest) StartGuestCreateTask(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput, pendingUsage quotas.IQuota, parentTaskId string) error {
+	return self.GetDriver().StartGuestCreateTask(self, ctx, userCred, input.JSON(input), pendingUsage, parentTaskId)
 }
 
 func (self *SGuest) StartSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
@@ -1118,10 +1121,13 @@ func (self *SGuest) AllowPerformCreatedisk(ctx context.Context, userCred mcclien
 
 func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	diskSize := 0
-	disksConf := jsonutils.NewDict()
+	disksConf := make([]*api.DiskConfig, 0)
 	diskSizes := make(map[string]int, 0)
 
-	diskDefArray := jsonutils.GetArrayOfPrefix(data, "disk")
+	diskDefArray, err := cmdline.FetchDiskConfigsByJSON(data)
+	if err != nil {
+		return nil, err
+	}
 	if len(diskDefArray) == 0 {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, "No Disk Info Provided", userCred, false)
 		return nil, httperrors.NewBadRequestError("No Disk Info Provided")
@@ -1136,7 +1142,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 		if len(diskInfo.Backend) == 0 {
 			diskInfo.Backend = self.getDefaultStorageType()
 		}
-		disksConf.Set(fmt.Sprintf("disk.%d", diskIdx), jsonutils.Marshal(diskInfo))
+		disksConf = append(disksConf, diskInfo)
 		if _, ok := diskSizes[diskInfo.Backend]; !ok {
 			diskSizes[diskInfo.Backend] = diskInfo.SizeMb
 		} else {
@@ -1163,7 +1169,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 	pendingUsage := &SQuota{
 		Storage: diskSize,
 	}
-	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, err.Error(), userCred, false)
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
@@ -1172,7 +1178,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
 
-	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage, false, false)
+	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage, false, false, nil)
 	if err != nil {
 		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, err.Error(), userCred, false)
@@ -1182,7 +1188,9 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 	return nil, err
 }
 
-func (self *SGuest) StartGuestCreateDiskTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+func (self *SGuest) StartGuestCreateDiskTask(ctx context.Context, userCred mcclient.TokenCredential, disks []*api.DiskConfig, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Add(jsonutils.Marshal(disks), "disks")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateDiskTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		return err
@@ -1394,7 +1402,8 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 		log.Errorf("net_desc not found")
 		return nil, httperrors.NewMissingParameterError("net_desc")
 	}
-	conf, err := parseNetworkInfo(userCred, netDesc)
+	conf, err := cmdline.ParseNetworkConfigByJSON(netDesc, -1)
+	conf, err = parseNetworkInfo(userCred, conf)
 	if err != nil {
 		log.Errorf("parseNetworkInfo fail %s", err)
 		return nil, err
@@ -1523,7 +1532,12 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 		if err != nil {
 			return nil, httperrors.NewBadRequestError(err.Error())
 		}
-		conf, err := parseNetworkInfo(userCred, netDesc)
+		conf, err := cmdline.ParseNetworkConfigByJSON(netDesc, -1)
+		if err != nil {
+			return nil, httperrors.NewBadRequestError(err.Error())
+		}
+
+		conf, err = parseNetworkInfo(userCred, conf)
 		if err != nil {
 			return nil, err
 		}
@@ -1706,15 +1720,16 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	var diskIdx = 1
 	var newDiskIdx = 0
 	var diskSizes = make(map[string]int, 0)
-	var newDisks = jsonutils.NewDict()
+	var newDisks = make([]*api.DiskConfig, 0)
 	var resizeDisks = jsonutils.NewArray()
-	for {
-		diskNum := fmt.Sprintf("disk.%d", diskIdx)
-		diskDesc, err := data.Get(diskNum)
-		if err != nil || diskDesc == jsonutils.JSONNull {
-			break
-		}
-		diskConf, err := parseDiskInfo(ctx, userCred, diskDesc)
+
+	inputDisks, err := cmdline.FetchDiskConfigsByJSON(data)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, diskConf := range inputDisks {
+		diskConf, err = parseDiskInfo(ctx, userCred, diskConf)
 		if err != nil {
 			return nil, httperrors.NewBadRequestError("Parse disk info error: %s", err)
 		}
@@ -1723,7 +1738,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		}
 		if diskConf.SizeMb > 0 {
 			if diskIdx >= len(disks) {
-				newDisks.Add(jsonutils.Marshal(diskConf), fmt.Sprintf("disk.%d", newDiskIdx))
+				newDisks = append(newDisks, diskConf)
 				newDiskIdx += 1
 				addDisk += diskConf.SizeMb
 				storage := host.GetLeastUsedStorage(diskConf.Backend)
@@ -1772,8 +1787,8 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		log.Debugf("Skip storage free capacity validating for public cloud: %s", provider.GetId())
 	}
 
-	if newDisks.Length() > 0 {
-		confs.Add(newDisks, "create")
+	if len(newDisks) > 0 {
+		confs.Add(jsonutils.Marshal(newDisks), "create")
 	}
 	if resizeDisks.Length() > 0 {
 		confs.Add(resizeDisks, "resize")
@@ -1815,8 +1830,8 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		}
 	}
 
-	if newDisks.Length() > 0 {
-		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage, false, false)
+	if len(newDisks) > 0 {
+		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage, false, false, nil)
 		if err != nil {
 			QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
 			return nil, httperrors.NewBadRequestError("Create disk on host error: %s", err)
@@ -1826,17 +1841,23 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	return nil, nil
 }
 
-func (self *SGuest) confToSchedDesc(addCpu, addMem, addDisk int) *jsonutils.JSONDict {
-	desc := jsonutils.NewDict()
-	desc.Set("vmem_size", jsonutils.NewInt(int64(addMem)))
-	desc.Set("vcpu_count", jsonutils.NewInt(int64(addCpu)))
+func (self *SGuest) confToSchedDesc(addCpu, addMem, addDisk int) *schedapi.ScheduleInput {
 	guestDisks := self.GetDisks()
-	diskInfo := guestDisks[0].ToDiskInfo()
-	diskInfo.Size = int64(addDisk)
-	desc.Set("disk.0", jsonutils.Marshal(diskInfo))
-	desc.Set("prefer_host_id", jsonutils.NewString(self.HostId))
-	desc.Set("hypervisor", jsonutils.NewString(self.GetHypervisor()))
-	desc.Set("owner_tenant_id", jsonutils.NewString(self.ProjectId))
+	diskInfo := guestDisks[0].ToDiskConfig()
+	diskInfo.SizeMb = addDisk
+
+	desc := &schedapi.ScheduleInput{
+		ServerConfig: schedapi.ServerConfig{
+			ServerConfigs: &api.ServerConfigs{
+				Hypervisor: self.Hypervisor,
+				Project:    self.ProjectId,
+				PreferHost: self.HostId,
+				Disks:      []*api.DiskConfig{diskInfo},
+			},
+			Memory: addMem,
+			Ncpu:   addCpu,
+		},
+	}
 	return desc
 }
 
@@ -2700,8 +2721,8 @@ type SImportNic struct {
 	Ifname    string `json:"ifname"`
 }
 
-func (n SImportNic) ToNetConfig(net *SNetwork) *SNetworkConfig {
-	return &SNetworkConfig{
+func (n SImportNic) ToNetConfig(net *SNetwork) *api.NetworkConfig {
+	return &api.NetworkConfig{
 		Network: net.Id,
 		Wire:    net.WireId,
 		Address: n.Ip,
@@ -2725,8 +2746,8 @@ type SImportDisk struct {
 	TemplateId string `json:"template_id"`
 }
 
-func (d SImportDisk) ToDiskConfig() *SDiskConfig {
-	ret := &SDiskConfig{
+func (d SImportDisk) ToDiskConfig() *api.DiskConfig {
+	ret := &api.DiskConfig{
 		SizeMb:  d.SizeMb,
 		ImageId: d.TemplateId,
 		Format:  d.Format,
@@ -2849,7 +2870,7 @@ func (self *SGuest) importDisks(ctx context.Context, userCred mcclient.TokenCred
 		return httperrors.NewInputParameterError("Empty import disks")
 	}
 	for _, disk := range disks {
-		disk, err := self.createDiskOnHost(ctx, userCred, self.GetHost(), disk.ToDiskConfig(), nil, true, true)
+		disk, err := self.createDiskOnHost(ctx, userCred, self.GetHost(), disk.ToDiskConfig(), nil, true, true, nil)
 		if err != nil {
 			return err
 		}

@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -35,6 +33,10 @@ func (self *SHuaweiGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return 10
 }
 
+func (self *SHuaweiGuestDriver) GetStorageTypes() []string {
+	return []string{models.STORAGE_HUAWEI_SATA, models.STORAGE_HUAWEI_SAS, models.STORAGE_HUAWEI_SSD}
+}
+
 func (self *SHuaweiGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
 	storages := host.GetAttachedStorages("")
 	for i := 0; i < len(storages); i += 1 {
@@ -43,7 +45,7 @@ func (self *SHuaweiGuestDriver) ChooseHostStorage(host *models.SHost, backend st
 		}
 	}
 
-	for _, stype := range []string{models.STORAGE_HUAWEI_SATA, models.STORAGE_HUAWEI_SAS, models.STORAGE_HUAWEI_SSD} {
+	for _, stype := range self.GetStorageTypes() {
 		for i := 0; i < len(storages); i += 1 {
 			if storages[i].StorageType == stype {
 				return &storages[i]
@@ -75,10 +77,6 @@ func (self *SHuaweiGuestDriver) GetDeployStatus() ([]string, error) {
 
 func (self *SHuaweiGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
-}
-
-func (self *SHuaweiGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, data)
 }
 
 func (self *SHuaweiGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {

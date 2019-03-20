@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -37,67 +38,67 @@ import (
 )
 
 const (
-	HOST_TYPE_BAREMETAL  = "baremetal"
-	HOST_TYPE_HYPERVISOR = "hypervisor" // KVM
-	HOST_TYPE_KVM        = "kvm"
-	HOST_TYPE_ESXI       = "esxi"    // # VMWare vSphere ESXi
-	HOST_TYPE_KUBELET    = "kubelet" // # Kubernetes Kubelet
-	HOST_TYPE_HYPERV     = "hyperv"  // # Microsoft Hyper-V
-	HOST_TYPE_XEN        = "xen"     // # XenServer
+	HOST_TYPE_BAREMETAL  = api.HOST_TYPE_BAREMETAL
+	HOST_TYPE_HYPERVISOR = api.HOST_TYPE_HYPERVISOR // KVM
+	HOST_TYPE_KVM        = api.HOST_TYPE_KVM
+	HOST_TYPE_ESXI       = api.HOST_TYPE_ESXI    // # VMWare vSphere ESXi
+	HOST_TYPE_KUBELET    = api.HOST_TYPE_KUBELET // # Kubernetes Kubelet
+	HOST_TYPE_HYPERV     = api.HOST_TYPE_HYPERV  // # Microsoft Hyper-V
+	HOST_TYPE_XEN        = api.HOST_TYPE_XEN     // # XenServer
 
-	HOST_TYPE_ALIYUN    = "aliyun"
-	HOST_TYPE_AWS       = "aws"
-	HOST_TYPE_QCLOUD    = "qcloud"
-	HOST_TYPE_AZURE     = "azure"
-	HOST_TYPE_HUAWEI    = "huawei"
-	HOST_TYPE_OPENSTACK = "openstack"
+	HOST_TYPE_ALIYUN    = api.HOST_TYPE_ALIYUN
+	HOST_TYPE_AWS       = api.HOST_TYPE_AWS
+	HOST_TYPE_QCLOUD    = api.HOST_TYPE_QCLOUD
+	HOST_TYPE_AZURE     = api.HOST_TYPE_AZURE
+	HOST_TYPE_HUAWEI    = api.HOST_TYPE_HUAWEI
+	HOST_TYPE_OPENSTACK = api.HOST_TYPE_OPENSTACK
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 
 	// # possible status
-	HOST_ONLINE   = "online"
-	HOST_ENABLED  = "online"
-	HOST_OFFLINE  = "offline"
-	HOST_DISABLED = "offline"
+	HOST_ONLINE   = api.HOST_ONLINE
+	HOST_ENABLED  = api.HOST_ENABLED
+	HOST_OFFLINE  = api.HOST_OFFLINE
+	HOST_DISABLED = api.HOST_DISABLED
 
-	NIC_TYPE_IPMI  = "ipmi"
-	NIC_TYPE_ADMIN = "admin"
+	NIC_TYPE_IPMI  = api.NIC_TYPE_IPMI
+	NIC_TYPE_ADMIN = api.NIC_TYPE_ADMIN
 	// #NIC_TYPE_NORMAL = 'normal'
 
-	BAREMETAL_INIT           = "init"
-	BAREMETAL_PREPARE        = "prepare"
-	BAREMETAL_PREPARE_FAIL   = "prepare_fail"
-	BAREMETAL_READY          = "ready"
-	BAREMETAL_RUNNING        = "running"
-	BAREMETAL_MAINTAINING    = "maintaining"
-	BAREMETAL_START_MAINTAIN = "start_maintain"
-	BAREMETAL_DELETING       = "deleting"
-	BAREMETAL_DELETE         = "delete"
-	BAREMETAL_DELETE_FAIL    = "delete_fail"
-	BAREMETAL_UNKNOWN        = "unknown"
-	BAREMETAL_SYNCING_STATUS = "syncing_status"
-	BAREMETAL_SYNC           = "sync"
-	BAREMETAL_SYNC_FAIL      = "sync_fail"
-	BAREMETAL_START_CONVERT  = "start_convert"
-	BAREMETAL_CONVERTING     = "converting"
-	BAREMETAL_START_FAIL     = "start_fail"
-	BAREMETAL_STOP_FAIL      = "stop_fail"
+	BAREMETAL_INIT           = api.BAREMETAL_INIT
+	BAREMETAL_PREPARE        = api.BAREMETAL_PREPARE
+	BAREMETAL_PREPARE_FAIL   = api.BAREMETAL_PREPARE_FAIL
+	BAREMETAL_READY          = api.BAREMETAL_READY
+	BAREMETAL_RUNNING        = api.BAREMETAL_RUNNING
+	BAREMETAL_MAINTAINING    = api.BAREMETAL_MAINTAINING
+	BAREMETAL_START_MAINTAIN = api.BAREMETAL_START_MAINTAIN
+	BAREMETAL_DELETING       = api.BAREMETAL_DELETING
+	BAREMETAL_DELETE         = api.BAREMETAL_DELETE
+	BAREMETAL_DELETE_FAIL    = api.BAREMETAL_DELETE_FAIL
+	BAREMETAL_UNKNOWN        = api.BAREMETAL_UNKNOWN
+	BAREMETAL_SYNCING_STATUS = api.BAREMETAL_SYNCING_STATUS
+	BAREMETAL_SYNC           = api.BAREMETAL_SYNC
+	BAREMETAL_SYNC_FAIL      = api.BAREMETAL_SYNC_FAIL
+	BAREMETAL_START_CONVERT  = api.BAREMETAL_START_CONVERT
+	BAREMETAL_CONVERTING     = api.BAREMETAL_CONVERTING
+	BAREMETAL_START_FAIL     = api.BAREMETAL_START_FAIL
+	BAREMETAL_STOP_FAIL      = api.BAREMETAL_STOP_FAIL
 
-	HOST_STATUS_RUNNING = BAREMETAL_RUNNING
-	HOST_STATUS_READY   = BAREMETAL_READY
-	HOST_STATUS_UNKNOWN = BAREMETAL_UNKNOWN
+	HOST_STATUS_RUNNING = api.BAREMETAL_RUNNING
+	HOST_STATUS_READY   = api.BAREMETAL_READY
+	HOST_STATUS_UNKNOWN = api.BAREMETAL_UNKNOWN
 )
 
 const (
-	HostResourceTypeShared         = "shared"
-	HostResourceTypeDefault        = HostResourceTypeShared
-	HostResourceTypePrepaidRecycle = "prepaid"
-	HostResourceTypeDedicated      = "dedicated"
+	HostResourceTypeShared         = api.HostResourceTypeShared
+	HostResourceTypeDefault        = api.HostResourceTypeShared
+	HostResourceTypePrepaidRecycle = api.HostResourceTypePrepaidRecycle
+	HostResourceTypeDedicated      = api.HostResourceTypeDedicated
 )
 
-var HOST_TYPES = []string{HOST_TYPE_BAREMETAL, HOST_TYPE_HYPERVISOR, HOST_TYPE_ESXI, HOST_TYPE_KUBELET, HOST_TYPE_XEN, HOST_TYPE_ALIYUN, HOST_TYPE_AZURE, HOST_TYPE_AWS, HOST_TYPE_QCLOUD, HOST_TYPE_HUAWEI, HOST_TYPE_OPENSTACK}
+var HOST_TYPES = api.HOST_TYPES
 
-var NIC_TYPES = []string{NIC_TYPE_IPMI, NIC_TYPE_ADMIN}
+var NIC_TYPES = api.NIC_TYPES
 
 type SHostManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
@@ -2078,20 +2079,8 @@ func (self *SHost) GetBaremetalServer() *SGuest {
 	return &guest
 }
 
-func (self *SHost) getSchedtags() []SSchedtag {
-	tags := make([]SSchedtag, 0)
-	schedtags := SchedtagManager.Query().SubQuery()
-	hostschedtags := HostschedtagManager.Query().SubQuery()
-	q := schedtags.Query()
-	q = q.Join(hostschedtags, sqlchemy.AND(sqlchemy.Equals(hostschedtags.Field("schedtag_id"), schedtags.Field("id")),
-		sqlchemy.IsFalse(hostschedtags.Field("deleted"))))
-	q = q.Filter(sqlchemy.Equals(hostschedtags.Field("host_id"), self.Id))
-	err := db.FetchModelObjects(SchedtagManager, q, &tags)
-	if err != nil {
-		log.Errorf("%s", err)
-		return nil
-	}
-	return tags
+func (self *SHost) GetSchedtags() []SSchedtag {
+	return GetSchedtags(HostschedtagManager, self.Id)
 }
 
 type SHostGuestResourceUsage struct {
@@ -2157,7 +2146,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 		extra.Add(jsonutils.NewInt(int64(len(nicInfos))), "nic_count")
 		extra.Add(jsonutils.NewArray(nicInfos...), "nic_info")
 	}
-	schedtags := self.getSchedtags()
+	schedtags := self.GetSchedtags()
 	if schedtags != nil && len(schedtags) > 0 {
 		info := make([]jsonutils.JSONObject, len(schedtags))
 		for i := 0; i < len(schedtags); i += 1 {
@@ -3032,7 +3021,6 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 	if bn != nil {
 		return nil
 	}
-	log.Errorf("==========EnableNetif %#v, net: %s, ipAddr: %s, allocDir: %s, reserve: %v, requireDesignatedIp: %v", netif, network, ipAddr, allocDir, reserve, requireDesignatedIp)
 	var net *SNetwork
 	var err error
 	if len(ipAddr) > 0 {
