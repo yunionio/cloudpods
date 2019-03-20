@@ -18,13 +18,13 @@ import (
 )
 
 const (
-	SYSTEM_ADMIN_PREFIX = "_"
+	SYSTEM_ADMIN_PREFIX = "__sys_"
+	SYS_TAG_PREFIX      = "__"
 	CLOUD_TAG_PREFIX    = "ext:"
 	USER_TAG_PREFIX     = "user:"
 
 	TAG_DELETE_RANGE_USER  = "user"
 	TAG_DELETE_RANGE_CLOUD = "cloud"
-	TAG_DELETE_RANGE_SYS   = "sys"
 	TAG_DELETE_RANGE_ALL   = "all"
 )
 
@@ -121,7 +121,7 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	if len(conditions) > 0 {
 		q = q.Filter(sqlchemy.OR(conditions...))
 	}
-	for args, prefix := range map[string]string{"sys_meta": SYSTEM_ADMIN_PREFIX, "cloud_meta": CLOUD_TAG_PREFIX, "user_meta": USER_TAG_PREFIX} {
+	for args, prefix := range map[string]string{"sys_meta": SYS_TAG_PREFIX, "cloud_meta": CLOUD_TAG_PREFIX, "user_meta": USER_TAG_PREFIX} {
 		if jsonutils.QueryBoolean(query, args, false) {
 			q = q.Filter(sqlchemy.Startswith(q.Field("key"), prefix))
 		}
@@ -225,7 +225,7 @@ func (manager *SMetadataManager) SetValues(ctx context.Context, obj IModel, stor
 
 	changes := make([]sMetadataChange, 0)
 	for key, value := range store {
-		if strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX) && (userCred == nil || !IsAdminAllowGetSpec(userCred, obj, "metadata")) {
+		if strings.HasPrefix(key, SYS_TAG_PREFIX) && (userCred == nil || !IsAdminAllowGetSpec(userCred, obj, "metadata")) {
 			return nil, httperrors.NewForbiddenError("Ordinary users can't set the tags that begin with an underscore")
 		}
 
@@ -288,14 +288,12 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 	}
 
 	records := []SMetadata{}
-	q := manager.Query().Equals("id", idStr)
+	q := manager.Query().Equals("id", idStr).NotLike("key", SYS_TAG_PREFIX+"%")
 	switch delRange {
 	case TAG_DELETE_RANGE_USER:
 		q = q.Like("key", USER_TAG_PREFIX+"%")
 	case TAG_DELETE_RANGE_CLOUD:
 		q = q.Like("key", CLOUD_TAG_PREFIX+"%")
-	case TAG_DELETE_RANGE_SYS:
-		q = q.Like("key", SYSTEM_ADMIN_PREFIX+"%")
 	}
 	q = q.Filter(sqlchemy.NOT(sqlchemy.In(q.Field("key"), keys)))
 	if err := FetchModelObjects(manager, q, &records); err != nil {
@@ -327,15 +325,8 @@ func (manager *SMetadataManager) GetAll(obj IModel, keys []string, userCred mccl
 	}
 	ret := make(map[string]string)
 	for _, rec := range records {
-		if len(rec.Value) > 0 {
-			if strings.HasPrefix(rec.Key, SYSTEM_ADMIN_PREFIX) {
-				if userCred != nil && IsAdminAllowGetSpec(userCred, obj, "metadata") {
-					key := rec.Key[len(SYSTEM_ADMIN_PREFIX):]
-					ret[key] = rec.Value
-				}
-			} else {
-				ret[rec.Key] = rec.Value
-			}
+		if len(rec.Value) > 0 || strings.HasPrefix(rec.Key, USER_TAG_PREFIX) {
+			ret[rec.Key] = rec.Value
 		}
 	}
 	return ret, nil
