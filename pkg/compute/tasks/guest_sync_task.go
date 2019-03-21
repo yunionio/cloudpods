@@ -40,6 +40,7 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 		db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF, nil, self.UserCred)
 		self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
 	} else if data.Contains("task") {
+		// XXX this is only applied to KVM, which will call task_complete twice
 		self.SetStage("on_disk_sync_complete", nil)
 	} else {
 		self.OnDiskSyncComplete(ctx, guest, data)

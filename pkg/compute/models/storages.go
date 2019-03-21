@@ -328,21 +328,21 @@ func (self *SStorage) GetStorageCachePath(mountPoint, imageCachePath string) str
 	}
 }
 
+func (self *SStorage) getStorageCapacity() SStorageCapacity {
+	capa := SStorageCapacity{}
+
+	capa.Capacity = self.GetCapacity()
+	capa.Used = self.GetUsedCapacity(tristate.True)
+	capa.Wasted = self.GetUsedCapacity(tristate.False)
+	capa.VCapacity = int(float32(self.GetCapacity()) * self.GetOvercommitBound())
+
+	return capa
+}
+
 func (self *SStorage) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	used := self.GetUsedCapacity(tristate.True)
-	waste := self.GetUsedCapacity(tristate.False)
-	vcapa := float32(self.GetCapacity()) * self.GetOvercommitBound()
-	extra.Add(jsonutils.NewInt(int64(used)), "used_capacity")
-	extra.Add(jsonutils.NewInt(int64(waste)), "waste_capacity")
-	extra.Add(jsonutils.NewFloat(float64(vcapa)), "virtual_capacity")
-	extra.Add(jsonutils.NewFloat(float64(vcapa-float32(used)-float32(waste))), "free_capacity")
-	if self.GetCapacity() > 0 {
-		value := float64(used * 1.0 / self.GetCapacity())
-		value = float64(int(value*100+0.5) / 100.0)
-		extra.Add(jsonutils.NewFloat(value), "commit_rate")
-	} else {
-		extra.Add(jsonutils.NewFloat(0.0), "commit_rate")
-	}
+	capa := self.getStorageCapacity()
+	extra.Update(capa.ToJson())
+
 	extra.Add(jsonutils.NewFloat(float64(self.GetOvercommitBound())), "commit_bound")
 
 	info := self.getCloudProviderInfo()
