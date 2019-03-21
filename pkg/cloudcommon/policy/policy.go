@@ -147,6 +147,7 @@ func (manager *SPolicyManager) SyncOnce() error {
 	manager.adminPolicies = adminPolicies
 
 	manager.lastSync = time.Now()
+	manager.cache.Invalidate()
 
 	return nil
 }
