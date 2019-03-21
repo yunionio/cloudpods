@@ -59,12 +59,12 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	filtedDisks := make([]SDisk, 0)
 	for _, disk := range disks {
 		// ssd 盘
-		if self.storageType == models.STORAGE_UCLOUD_SSD && strings.Contains(disk.DiskType, models.STORAGE_UCLOUD_SSD) {
+		if self.storageType == models.STORAGE_UCLOUD_CLOUD_SSD && strings.Contains(disk.DiskType, "SSD") {
 			filtedDisks = append(filtedDisks, disk)
 		}
 
 		// 普通盘
-		if self.storageType == models.STORAGE_UCLOUD_SATA && !strings.Contains(disk.DiskType, models.STORAGE_UCLOUD_SSD) {
+		if self.storageType == models.STORAGE_UCLOUD_CLOUD_NORMAL && strings.Contains(disk.DiskType, "SSD") {
 			filtedDisks = append(filtedDisks, disk)
 		}
 	}
@@ -82,7 +82,7 @@ func (self *SStorage) GetStorageType() string {
 }
 
 func (self *SStorage) GetMediumType() string {
-	if self.storageType == models.STORAGE_UCLOUD_SSD {
+	if self.storageType == models.STORAGE_UCLOUD_CLOUD_SSD {
 		return models.DISK_TYPE_SSD
 	} else {
 		return models.DISK_TYPE_ROTATE

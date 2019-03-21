@@ -11,8 +11,8 @@ import (
 // https://docs.ucloud.cn/api/udisk-api/create_udisk
 // UDisk 类型: DataDisk（普通数据盘），SSDDataDisk（SSD数据盘），默认值（DataDisk）
 var StorageTypes = []string{
-	models.STORAGE_UCLOUD_SATA,
-	models.STORAGE_UCLOUD_SSD,
+	models.STORAGE_UCLOUD_CLOUD_NORMAL,
+	models.STORAGE_UCLOUD_CLOUD_SSD,
 }
 
 type SZone struct {
