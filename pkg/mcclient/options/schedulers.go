@@ -8,9 +8,10 @@ import (
 type SchedulerTestBaseOptions struct {
 	ServerConfigs
 
-	Mem  int  `help:"Memory size (MB), default 512" metavar:"MEMORY" default:"512"`
-	Ncpu int  `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>"`
-	Log  bool `help:"Record to schedule history"`
+	Mem  int    `help:"Memory size (MB), default 512" metavar:"MEMORY" default:"512"`
+	Ncpu int    `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>"`
+	Sku  string `help:"Server SKU instance type"`
+	Log  bool   `help:"Record to schedule history"`
 }
 
 func (o SchedulerTestBaseOptions) data(s *mcclient.ClientSession) (*scheduler.ServerConfig, error) {
@@ -27,6 +28,9 @@ func (o SchedulerTestBaseOptions) data(s *mcclient.ClientSession) (*scheduler.Se
 	}
 	if o.Ncpu > 0 {
 		data.Ncpu = o.Ncpu
+	}
+	if o.Sku != "" {
+		data.InstanceType = o.Sku
 	}
 	return data, nil
 }

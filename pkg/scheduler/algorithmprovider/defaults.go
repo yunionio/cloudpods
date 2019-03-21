@@ -28,6 +28,7 @@ func defaultPredicates() sets.String {
 		factory.RegisterFitPredicate("k-GuestIsolatedDeviceFilter", &predicateguest.IsolatedDevicePredicate{}),
 		factory.RegisterFitPredicate("l-GuestResourceTypeFilter", &predicates.ResourceTypePredicate{}),
 		factory.RegisterFitPredicate("m-GuestDiskschedtagFilter", &predicates.DiskSchedtagPredicate{}),
+		factory.RegisterFitPredicate("n-ServerSkuFilter", &predicates.InstanceTypePredicate{}),
 	)
 }
 
