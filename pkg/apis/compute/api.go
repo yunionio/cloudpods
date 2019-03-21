@@ -101,6 +101,7 @@ type ServerConfigs struct {
 	Hypervisor string `json:"hypervisor"`
 	// ResourceType "shared|prepaid|dedicated"`
 	ResourceType string `json:"resource_type"`
+	InstanceType string `json:"instance_type"`
 	Project      string `json:"project"`
 	Backup       bool   `json:"backup"`
 	Count        int    `json:"count"`
@@ -130,7 +131,6 @@ type ServerCreateInput struct {
 	GenerateName string `json:"generate_name"`
 	VmemSize     int    `json:"vmem_size"`
 	VcpuCount    int    `json:"vcpu_count"`
-	InstanceType string `json:"instance_type"`
 	UserData     string `json:"user_data"`
 
 	Keypair            string          `json:"keypair"`

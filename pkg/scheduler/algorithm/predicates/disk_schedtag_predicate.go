@@ -6,7 +6,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/errors"
-	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
@@ -189,10 +188,22 @@ func (p *DiskSchedtagPredicate) Execute(u *core.Unit, c core.Candidater) (bool, 
 	h := NewPredicateHelper(p, u, c)
 
 	storages := c.Getter().Storages()
+
 	ds := p.GetDiskStoragesMap(c.IndexKey())
 	disks := u.SchedData().Disks
 	for idx, d := range disks {
-		matchedStorages, err := p.checkStorages(d, storages)
+		fitStorages := make([]*api.CandidateStorage, 0)
+		for _, s := range storages {
+			if p.isStorageFitDisk(s, d) {
+				fitStorages = append(fitStorages, s)
+			}
+		}
+		if len(fitStorages) == 0 {
+			h.Exclude(fmt.Sprintf("Not found available storages for disk backend %q", d.Backend))
+			break
+		}
+
+		matchedStorages, err := p.checkStorages(d, fitStorages)
 		if err != nil {
 			h.Exclude(err.Error())
 		}
@@ -245,15 +256,13 @@ func (p *DiskSchedtagPredicate) selectStorage(d *computeapi.DiskConfig, storages
 	noTagStorages := []*api.CandidateStorage{}
 	avoidStorages := []*api.CandidateStorage{}
 	for _, storage := range storages {
-		if p.isStorageFitDisk(storage, d) {
-			candi := storage.CandidateStorage
-			if storage.isNoTag() {
-				noTagStorages = append(noTagStorages, candi)
-			} else if storage.hasPreferTags() {
-				preferStorages = append(preferStorages, candi)
-			} else if storage.hasAvoidTags() {
-				avoidStorages = append(avoidStorages, candi)
-			}
+		candi := storage.CandidateStorage
+		if storage.isNoTag() {
+			noTagStorages = append(noTagStorages, candi)
+		} else if storage.hasPreferTags() {
+			preferStorages = append(preferStorages, candi)
+		} else if storage.hasAvoidTags() {
+			avoidStorages = append(avoidStorages, candi)
 		}
 	}
 	sortStorages := []*api.CandidateStorage{}
@@ -264,28 +273,22 @@ func (p *DiskSchedtagPredicate) selectStorage(d *computeapi.DiskConfig, storages
 }
 
 func (p *DiskSchedtagPredicate) GetLeastUsedStorage(storages []*api.CandidateStorage, backend string) *api.CandidateStorage {
-	var backends []string
-	if backend == computeapi.STORAGE_LOCAL {
-		backends = []string{computeapi.STORAGE_NAS, computeapi.STORAGE_LOCAL}
-	} else if len(backend) > 0 {
-		backends = []string{backend}
-	} else {
-		backends = []string{}
-	}
-	return p.getLeastUsedStorage(storages, backends)
+	//var backends []string
+	//if backend == computeapi.STORAGE_LOCAL {
+	//backends = []string{computeapi.STORAGE_NAS, computeapi.STORAGE_LOCAL}
+	//} else if len(backend) > 0 {
+	//backends = []string{backend}
+	//} else {
+	//backends = []string{}
+	//}
+	return p.getLeastUsedStorage(storages)
 }
 
-func (p *DiskSchedtagPredicate) getLeastUsedStorage(storages []*api.CandidateStorage, backends []string) *api.CandidateStorage {
+func (p *DiskSchedtagPredicate) getLeastUsedStorage(storages []*api.CandidateStorage) *api.CandidateStorage {
 	var best *api.CandidateStorage
 	var bestCap int
 	for i := 0; i < len(storages); i++ {
 		s := storages[i]
-		if len(backends) > 0 {
-			in, _ := utils.InStringArray(s.StorageType, backends)
-			if !in {
-				continue
-			}
-		}
 		capa := s.GetFreeCapacity()
 		if best == nil || bestCap < capa {
 			bestCap = capa
@@ -299,7 +302,7 @@ func (p *DiskSchedtagPredicate) GetHypervisorDriver() models.IGuestDriver {
 	return models.GetDriver(p.Hypervisor)
 }
 
-func (p *DiskSchedtagPredicate) isStorageFitDisk(storage *PredicatedStorage, d *computeapi.DiskConfig) bool {
+func (p *DiskSchedtagPredicate) isStorageFitDisk(storage *api.CandidateStorage, d *computeapi.DiskConfig) bool {
 	if d.Storage != "" {
 		if storage.Id == d.Storage || storage.Name == d.Storage {
 			return true
