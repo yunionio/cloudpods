@@ -426,6 +426,20 @@ func intervalMem(n int) (int, int) {
 	return interval(n, 1024)
 }
 
+func normalizeProvider(provider string) string {
+	if len(provider) == 0 {
+		return provider
+	}
+
+	for _, p := range CLOUD_PROVIDERS {
+		if strings.ToLower(p) == strings.ToLower(provider) {
+			return p
+		}
+	}
+
+	return provider
+}
+
 func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sqlchemy.SQuery {
 	if provider == "all" {
 		// provider 参数为all时。表示查询所有instance type.
@@ -509,7 +523,10 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 		if _, exists := cpu_mems_mb[k]; !exists {
 			cpu_mems_mb[k] = []int{nm}
 		} else {
-			cpu_mems_mb[k] = append(cpu_mems_mb[k], nm)
+			idx := len(cpu_mems_mb[k]) - 1
+			if cpu_mems_mb[k][idx] != nm {
+				cpu_mems_mb[k] = append(cpu_mems_mb[k], nm)
+			}
 		}
 	}
 
@@ -653,7 +670,7 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 }
 
 func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	provider := jsonutils.GetAnyString(query, []string{"provider"})
+	provider := normalizeProvider(jsonutils.GetAnyString(query, []string{"provider"}))
 	public_cloud, _ := query.Bool("public_cloud")
 	queryDict := query.(*jsonutils.JSONDict)
 	// 手动处理provider查询
