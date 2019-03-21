@@ -8,10 +8,20 @@ import (
 	"time"
 )
 
+var initTime = time.Time{}
+
 type cacheNode struct {
 	key    string
 	expire time.Time
 	value  interface{}
+}
+
+func (node *cacheNode) reset() {
+	if !node.expire.IsZero() {
+		node.key = ""
+		node.expire = initTime
+		node.value = nil
+	}
 }
 
 type Cache struct {
@@ -100,4 +110,13 @@ func (c *Cache) AtomicSet(key string, val interface{}) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.Set(key, val)
+}
+
+func (c *Cache) Invalidate() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	for i := range c.table {
+		c.table[i].reset()
+	}
 }
