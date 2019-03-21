@@ -1,0 +1,252 @@
+package guestman
+
+import (
+	"context"
+	"fmt"
+	"io/ioutil"
+	"path"
+	"unicode"
+
+	libvirtxml "github.com/libvirt/libvirt-go-xml"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
+)
+
+func (m *SGuestManager) GuestCreateFromLibvirt(
+	ctx context.Context, params interface{},
+) (jsonutils.JSONObject, error) {
+	createConfig, ok := params.(*SGuestCreateFromLibvirt)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	disks, err := createConfig.GuestDesc.GetArray("disks")
+	if err != nil {
+		return nil, err
+	}
+
+	ret := jsonutils.NewDict()
+	for _, disk := range disks {
+		diskId, _ := disk.GetString("disk_id")
+		diskPath, err := createConfig.DisksPath.GetString(diskId)
+		if err != nil {
+			return nil, fmt.Errorf("Disks path missing disk %s", diskId)
+		}
+		storageId, _ := disk.GetString("storage_id")
+		storage := storageman.GetManager().GetStorage(storageId)
+		iDisk := storage.CreateDisk(diskId)
+
+		output, err := procutils.NewCommand("mv", diskPath, iDisk.GetPath()).Run()
+		if err != nil {
+			log.Errorf("Create disk error %s", output)
+			return nil, fmt.Errorf("Create disk error %s", output)
+		}
+		ret.Set(diskId, jsonutils.NewString(iDisk.GetPath()))
+	}
+	guest := m.Servers[createConfig.Sid]
+	if err = guest.SaveDesc(createConfig.GuestDesc); err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
+func (m *SGuestManager) PrepareImportFromLibvirt(
+	ctx context.Context, params interface{},
+) (jsonutils.JSONObject, error) {
+	libvirtConfig, ok := params.(*SLibvirtDomainImportConfig)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	guestDescs, err := m.GenerateDescFromXml(libvirtConfig)
+	if err != nil {
+		return nil, err
+	}
+	ret := jsonutils.NewDict()
+	ret.Set("guest_descs", guestDescs)
+	return ret, nil
+}
+
+func importGuest(guestConfig *compute.SImportGuestDesc, libvirtConfig *SLibvirtDomainImportConfig) error {
+	for _, server := range libvirtConfig.Servers {
+		if server.Uuid != guestConfig.Id {
+			continue
+		}
+		for idx, nic := range guestConfig.Nics {
+			if ip, ok := server.MacIp[nic.Mac]; ok {
+				guestConfig.Nics[idx].Ip = ip
+			} else {
+				log.Errorf("Guest %s can't find mac address %s in import config", server.Uuid, nic.Mac)
+				return fmt.Errorf("Guest %s Mac Address %s Not Found", server.Uuid, nic.Mac)
+			}
+		}
+		log.Infof("Import guest %s ", server.Uuid)
+		return nil
+	}
+	return fmt.Errorf("No guest %s found in import config", guestConfig.Id)
+}
+
+func (m *SGuestManager) GenerateDescFromXml(libvirtConfig *SLibvirtDomainImportConfig) (jsonutils.JSONObject, error) {
+	xmlFiles, err := ioutil.ReadDir(libvirtConfig.LibvritDomainXmlDir)
+	if err != nil {
+		log.Errorf("Read dir %s error: %s", libvirtConfig.LibvritDomainXmlDir, err)
+		return nil, err
+	}
+
+	libvirtServers := []*compute.SImportGuestDesc{}
+	for _, f := range xmlFiles {
+		if !f.Mode().IsRegular() {
+			continue
+		}
+		xmlContent, err := ioutil.ReadFile(path.Join(libvirtConfig.LibvritDomainXmlDir, f.Name()))
+		if err != nil {
+			log.Errorf("Read file %s error: %s", f.Name(), err)
+			continue
+		}
+		domain := &libvirtxml.Domain{}
+		err = domain.Unmarshal(string(xmlContent))
+		if err != nil {
+			log.Errorf("Unmarshal xml file %s error %s", f.Name(), err)
+			continue
+		}
+		guestConfig, err := m.LibvirtDomainToGuestDesc(domain)
+		if err != nil {
+			log.Errorf("Parse libvirt domain failed %s", err)
+			continue
+		}
+		if err = importGuest(guestConfig, libvirtConfig); err != nil {
+			log.Errorf("Import guest %s error %s", guestConfig.Id, err)
+			continue
+		}
+		libvirtServers = append(libvirtServers, guestConfig)
+	}
+
+	var (
+		serverInImports = func(uuid string) bool {
+			for _, s := range libvirtConfig.Servers {
+				if s.Uuid == uuid {
+					return true
+				}
+			}
+			return false
+		}
+		serversNotMatch = []string{}
+	)
+	for _, server := range libvirtServers {
+		if !serverInImports(server.Id) {
+			serversNotMatch = append(serversNotMatch, server.Id)
+		}
+	}
+	ret := jsonutils.NewDict()
+	ret.Set("servers_not_match", jsonutils.NewStringArray(serversNotMatch))
+	ret.Set("servers_matched", jsonutils.Marshal(libvirtServers))
+	return ret, nil
+}
+
+// Read key infomation from domain xml
+func (m *SGuestManager) LibvirtDomainToGuestDesc(domain *libvirtxml.Domain) (*compute.SImportGuestDesc, error) {
+	if nil == domain {
+		return nil, fmt.Errorf("Libvirt domain is nil")
+	}
+	if nil == domain.VCPU {
+		return nil, fmt.Errorf("Libvirt domain missing VCPU config")
+	}
+	if nil == domain.CurrentMemory {
+		return nil, fmt.Errorf("Libvirt domain missing CurrentMemory config")
+	}
+	if 0 == len(domain.CurrentMemory.Unit) {
+		return nil, fmt.Errorf("Libvirt Memory config missing unit")
+	}
+	if nil == domain.Devices {
+		return nil, fmt.Errorf("Libvirt domain missing Devices config")
+	}
+	if 0 == len(domain.Devices.Disks) {
+		return nil, fmt.Errorf("Livbirt domain cann't find Disks")
+	}
+	if 0 == len(domain.Devices.Interfaces) {
+		return nil, fmt.Errorf("Libvirt domain cann't find network Interfaces")
+	}
+
+	var memSizeMb uint
+	switch unicode.ToLower(rune(domain.CurrentMemory.Unit[0])) {
+	case 'k':
+		memSizeMb = domain.CurrentMemory.Value / 1024
+	case 'm':
+		memSizeMb = domain.CurrentMemory.Value
+	case 'g':
+		memSizeMb = domain.CurrentMemory.Value * 1024
+	case 'b':
+		memSizeMb = domain.CurrentMemory.Value / 1024 / 1024
+	default:
+		return nil, fmt.Errorf("Merory unit unknwon")
+	}
+
+	disksConfig, err := m.LibvirtDomainDiskToDiskConfig(domain.Devices.Disks)
+	if err != nil {
+		return nil, err
+	}
+
+	nicsConfig, err := m.LibvirtDomainInterfaceToNicConfig(domain.Devices.Interfaces)
+	if err != nil {
+		return nil, err
+	}
+
+	return &compute.SImportGuestDesc{
+		Id:        domain.UUID,
+		Name:      domain.Name,
+		Cpu:       domain.VCPU.Value,
+		MemSizeMb: int(memSizeMb),
+		Disks:     disksConfig,
+		Nics:      nicsConfig,
+	}, nil
+}
+
+func (m *SGuestManager) LibvirtDomainDiskToDiskConfig(
+	domainDisks []libvirtxml.DomainDisk) ([]compute.SImportDisk, error) {
+	var diskConfigs = []compute.SImportDisk{}
+	for _, disk := range domainDisks {
+		if disk.Source == nil || disk.Source.File == nil {
+			return nil, fmt.Errorf("Domain disk missing source file ?")
+		}
+		if disk.Target == nil {
+			return nil, fmt.Errorf("Domain disk missin target config")
+		}
+
+		// XXX: Ignore backing file
+		var diskConfig = compute.SImportDisk{
+			AccessPath: disk.Source.File.File,
+			Index:      int(disk.Source.Index),
+		}
+		if disk.Target.Bus != "virtio" {
+			diskConfig.Driver = "scsi"
+		} else {
+			diskConfig.Driver = disk.Target.Bus
+		}
+
+		if img, err := qemuimg.NewQemuImage(diskConfig.AccessPath); err != nil {
+			return nil, fmt.Errorf("Domain disk %s open failed: %s", diskConfig.AccessPath, err)
+		} else {
+			diskConfig.SizeMb = img.GetSizeMB()
+			diskConfig.Format = img.Format.String()
+		}
+		diskConfigs = append(diskConfigs, diskConfig)
+	}
+	return diskConfigs, nil
+}
+
+func (m *SGuestManager) LibvirtDomainInterfaceToNicConfig(
+	domainInterfaces []libvirtxml.DomainInterface) ([]compute.SImportNic, error) {
+	var nicConfigs = []compute.SImportNic{}
+	for idx, nic := range domainInterfaces {
+		if nic.MAC == nil {
+			return nil, fmt.Errorf("Domain interface missing mac address")
+		}
+		nicConfigs = append(nicConfigs, compute.SImportNic{Index: idx, Mac: nic.MAC.Address})
+	}
+	return nicConfigs, nil
+}
