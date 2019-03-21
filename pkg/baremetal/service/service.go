@@ -31,6 +31,7 @@ func (s *BaremetalService) StartService() {
 
 	app_common.ServeForeverWithCleanup(app, &o.Options.CommonOptions, func() {
 		tasks.OnStop()
+		baremetal.Stop()
 	})
 }
 

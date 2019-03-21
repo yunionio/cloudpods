@@ -68,7 +68,7 @@ func (m *SBaremetalManager) killAllIPMITool() {
 }
 
 func (m *SBaremetalManager) GetClientSession() *mcclient.ClientSession {
-	return GetAdminSession()
+	return m.Agent.GetAdminSession()
 }
 
 func (m *SBaremetalManager) GetZoneId() string {

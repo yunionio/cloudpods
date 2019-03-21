@@ -104,7 +104,7 @@ func (man *IsolatedDeviceManager) fillPCIDevices() error {
 	}
 	for idx, gpu := range gpus {
 		man.Devices = append(man.Devices, newGPUHPCDevice(gpu))
-		log.Infof("GPU device: %d => %#v", idx, gpu)
+		log.Infof("Add GPU device: %d => %#v", idx, gpu)
 	}
 	return nil
 }
@@ -328,6 +328,7 @@ func (dev *sGPUBaseDevice) CustomProbe() error {
 	if err != nil {
 		return err
 	}
+	grubCmdline = strings.TrimSpace(grubCmdline)
 	params := sets.NewString(strings.Split(grubCmdline, " ")...)
 	if !params.IsSuperset(sets.NewString("intel_iommu=on",
 		"vfio_iommu_type1.allow_unsafe_interrupts=1")) {
@@ -614,7 +615,7 @@ func (d *PCIDevice) getKernelDriver() (string, error) {
 		begin := strings.Index(line, prompt)
 		if begin >= 0 {
 			end := begin + len(prompt)
-			return line[end : len(line)-1], nil
+			return line[end:], nil
 		}
 	}
 	// no driver in use
@@ -729,6 +730,8 @@ func getPassthroughGPUS() ([]*PCIDevice, error) {
 			log.Errorf("Device %#v get kernel driver error: %v", dev, err)
 		} else if drv == VFIO_PCI_KERNEL_DRIVER {
 			ret = append(ret, dev)
+		} else {
+			log.Warningf("GPU %v use kernel driver %q, skip it", dev, drv)
 		}
 	}
 	return ret, nil

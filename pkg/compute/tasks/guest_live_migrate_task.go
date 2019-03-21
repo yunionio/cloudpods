@@ -356,26 +356,18 @@ func (self *GuestLiveMigrateTask) OnResumeDestGuestComplete(ctx context.Context,
 func (self *GuestLiveMigrateTask) OnUndeploySrcGuestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE, "", self.UserCred)
 	status, _ := self.Params.GetString("guest_status")
-	if status != models.VM_RUNNING {
-		guest.SetStatus(self.UserCred, status, "")
-		self.SetStageComplete(ctx, nil)
-	} else {
-		self.SetStage("OnStartGeustComplete", nil)
-		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
+	if status != guest.Status {
+		self.SetStage("OnGuestSyncStatus", nil)
+		guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 	}
 }
 
-func (self *GuestLiveMigrateTask) OnStartGeustComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+func (self *GuestLiveMigrateTask) OnGuestSyncStatus(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *GuestMigrateTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason string) {
-	status, _ := self.Params.GetString("guest_status")
-	if status != models.VM_RUNNING {
-		guest.SetStatus(self.UserCred, status, "")
-	} else {
-		guest.StartGueststartTask(ctx, self.UserCred, nil, "")
-	}
+	guest.SetStatus(self.UserCred, models.VM_MIGRATE_FAILED, reason)
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, reason, self.UserCred)
 	self.SetStageFailed(ctx, reason)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_MIGRATE_FAILED, reason)

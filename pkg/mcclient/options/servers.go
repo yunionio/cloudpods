@@ -347,7 +347,8 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 	}
 
 	if BoolV(opts.AllowDelete) {
-		params.DisableDelete = false
+		disableDelete := false
+		params.DisableDelete = &disableDelete
 	}
 
 	if BoolV(opts.DryRun) {
