@@ -427,6 +427,10 @@ func intervalMem(n int) (int, int) {
 }
 
 func normalizeProvider(provider string) string {
+	if len(provider) == 0 {
+		return provider
+	}
+
 	for _, p := range CLOUD_PROVIDERS {
 		if strings.ToLower(p) == strings.ToLower(provider) {
 			return p
