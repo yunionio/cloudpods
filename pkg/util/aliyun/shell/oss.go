@@ -2,10 +2,13 @@ package shell
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	osslib "github.com/aliyun/aliyun-oss-go-sdk/oss"
 
 	"yunion.io/x/onecloud/pkg/util/aliyun"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
@@ -112,8 +115,30 @@ func init() {
 		if len(args.Acl) > 0 {
 			options = append(options, osslib.ACL(str2AclType(args.Acl)))
 		}
-		err = bucket.UploadFile(args.KEY, args.FILE, 4*1024*1024, options...)
-		return err
+		if fileutils2.IsFile(args.FILE) {
+			err = bucket.UploadFile(args.KEY, args.FILE, 4*1024*1024, options...)
+			return err
+		} else if fileutils2.IsDir(args.FILE) {
+			return filepath.Walk(args.FILE, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if info.Mode().IsRegular() {
+					rel, _ := filepath.Rel(args.FILE, path)
+					src := path
+					dst := filepath.Join(args.KEY, rel)
+					fmt.Println("upload", src, "to", dst)
+					uploadErr := bucket.UploadFile(dst, src,
+						4*1024*1024, options...)
+					if uploadErr != nil {
+						return uploadErr
+					}
+				}
+				return nil
+			})
+		} else {
+			return fmt.Errorf("Unsupported file type %s", args.FILE)
+		}
 	})
 
 	type OssObjectAclOptions struct {
