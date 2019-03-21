@@ -140,7 +140,7 @@ func (self *SAwsGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mode
 }
 
 func (self *SAwsGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return models.VM_READY
+	return models.VM_RUNNING
 }
 
 func (self *SAwsGuestDriver) GetGuestInitialStateAfterRebuild() string {
