@@ -16,12 +16,15 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
+	skuman "yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 	schedhandler "yunion.io/x/onecloud/pkg/scheduler/handler"
 	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 	"yunion.io/x/onecloud/pkg/util/gin/middleware"
 
+	_ "yunion.io/x/onecloud/pkg/compute/guestdrivers"
+	_ "yunion.io/x/onecloud/pkg/compute/hostdrivers"
 	_ "yunion.io/x/onecloud/pkg/scheduler/algorithmprovider"
 )
 
@@ -43,6 +46,7 @@ func StartService() error {
 		}
 
 		stopEverything := make(chan struct{})
+		go skuman.Start(utils.ToDuration(opts.SkuRefreshInterval))
 		schedman.InitAndStart(stopEverything)
 	}
 

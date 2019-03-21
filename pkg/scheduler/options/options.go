@@ -80,6 +80,8 @@ type SchedOptions struct {
 
 	WireDBCacheTTL    string `help:"Wire database cache TTL" default:"0s"`
 	WireDBCachePeriod string `help:"Wire database cache period" default:"5m"`
+
+	SkuRefreshInterval string `help:"Server SKU refresh interval" default:"12h"`
 }
 
 var (

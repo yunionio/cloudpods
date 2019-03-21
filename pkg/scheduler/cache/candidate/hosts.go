@@ -213,6 +213,7 @@ type HostBuilder struct {
 	cpuIOLoads map[string]map[string]float64
 
 	schedtags []computemodels.SSchedtag
+	zoneSkus  map[string][]computemodels.SServerSku
 }
 
 func (h *HostDesc) String() string {
