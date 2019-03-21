@@ -240,19 +240,24 @@ func TestConditionParser(t *testing.T) {
 func TestSRbacPolicyMatch(t *testing.T) {
 	cases := []struct {
 		policy   SRbacPolicy
-		userCred mcclient.SSimpleToken
+		userCred mcclient.TokenCredential
 		want     bool
 	}{
 		{
 			SRbacPolicy{},
-			mcclient.SSimpleToken{},
+			&mcclient.SSimpleToken{},
+			true,
+		},
+		{
+			SRbacPolicy{},
+			nil,
 			true,
 		},
 		{
 			SRbacPolicy{
 				Projects: []string{"system"},
 			},
-			mcclient.SSimpleToken{
+			&mcclient.SSimpleToken{
 				Project: "system",
 			},
 			true,
@@ -261,7 +266,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			SRbacPolicy{
 				Projects: []string{"system"},
 			},
-			mcclient.SSimpleToken{
+			&mcclient.SSimpleToken{
 				Project: "demo",
 			},
 			false,
@@ -271,7 +276,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Projects: []string{"system"},
 				Roles:    []string{"admin"},
 			},
-			mcclient.SSimpleToken{
+			&mcclient.SSimpleToken{
 				Project: "system",
 				Roles:   "admin",
 			},
@@ -282,7 +287,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Projects: []string{"system"},
 				Roles:    []string{"admin"},
 			},
-			mcclient.SSimpleToken{
+			&mcclient.SSimpleToken{
 				Project: "system",
 				Roles:   "admin,_member_",
 			},
@@ -293,15 +298,23 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Projects: []string{"system"},
 				Roles:    []string{"admin"},
 			},
-			mcclient.SSimpleToken{
+			&mcclient.SSimpleToken{
 				Project: "system",
 				Roles:   "_member_",
 			},
 			false,
 		},
+		{
+			SRbacPolicy{
+				Projects: []string{"system"},
+				Roles:    []string{"admin"},
+			},
+			nil,
+			false,
+		},
 	}
 	for _, c := range cases {
-		got := c.policy.Match(&c.userCred)
+		got := c.policy.Match(c.userCred)
 		if got != c.want {
 			t.Errorf("%#v %#v got %v want %v", c.policy, c.userCred, got, c.want)
 		}

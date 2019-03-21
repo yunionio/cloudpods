@@ -437,13 +437,10 @@ func intersect(s1 []string, s2 []string) bool {
 }
 
 func (policy *SRbacPolicy) Match(userCred mcclient.TokenCredential) bool {
-	if len(policy.Projects) > 0 && userCred != nil && !contains(policy.Projects, userCred.GetProjectName()) {
-		return false
+	if (len(policy.Projects) == 0 || (userCred != nil && contains(policy.Projects, userCred.GetProjectName()))) && (len(policy.Roles) == 0 || (userCred != nil && intersect(policy.Roles, userCred.GetRoles()))) {
+		return true
 	}
-	if len(policy.Roles) > 0 && userCred != nil && !intersect(policy.Roles, userCred.GetRoles()) {
-		return false
-	}
-	return true
+	return false
 }
 
 func (policy *SRbacPolicy) Allow(userCred mcclient.TokenCredential, service, resource, action string, extra ...string) TRbacResult {
