@@ -253,7 +253,7 @@ func init() {
 			}
 			req.Add(jsonutils.NewArray(data...), key)
 		}
-		fmt.Println(req.String())
+		fmt.Println("Request:", req.String())
 
 		var token mcclient.TokenCredential
 		if len(args.User) > 0 {
@@ -273,6 +273,11 @@ func init() {
 		}
 		printObject(result)
 
+		fmt.Println("userCred:", token)
+		m := policy.PolicyManager.MatchedPolicies(false, token)
+		fmt.Println("matched policies:", m)
+		m = policy.PolicyManager.MatchedPolicies(true, token)
+		fmt.Println("matched admin policies:", m)
 		return nil
 	})
 }

@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 func TestSRabcRule_Match(t *testing.T) {
@@ -179,60 +181,6 @@ func TestSRabcPolicy_Encode(t *testing.T) {
 	t.Logf("%s", policyStr1)
 }
 
-func TestSRbacPolicy_Allow(t *testing.T) {
-	userCredStr := `{"domain":"Default","domain_id":"default","expires":"2018-10-28T05:33:54.000000Z","roles":"admin,teamleader","tenant":"system","tenant_id":"5d65667d112e47249ae66dbd7bc07030","token":"gAAAAABb0_jC2Qz2PpB00-pieLi4exKXq4O3QrvoqerpqoSxbp9pOLLdNWaAg0cPcd8eAjkiPhSo7VWQAVodoxnad95LdNbUf_1It8R_wXVDtO20caB7oLcas1oQt8b1cG0a7qagauP0iWVSW_dq_e92rD5Hd3SHn3Lw6ycrp_eHLskz_8EbPiI","user":"sysadmin","user_id":"dddf386b6ff24572b2e6a771d768495e"}`
-
-	userCred, err := jsonutils.ParseString(userCredStr)
-	if err != nil {
-		t.Errorf("parse json fail %s", err)
-		return
-	}
-
-	cases := []struct {
-		policy string
-		ops    []string
-		want   TRbacResult
-	}{
-		{
-			`{
-    "condition": "tenant==\"system\" && roles.contains(\"admin\")",
-    "is_admin": true,
-    "policy": {
-        "*": "allow"
-    }
-}`,
-			[]string{"compute", "servers", "list"},
-			Allow,
-		},
-		{
-			`{"is_admin":"false","policy":{"*":{"*":{"*":"allow","delete":"deny"}}}}`,
-			[]string{"compute", "servers", "delete"},
-			Deny,
-		},
-	}
-
-	for _, c := range cases {
-		policyJson, err := jsonutils.ParseString(c.policy)
-		if err != nil {
-			t.Errorf("fail to parse json string %s", err)
-			return
-		}
-		policy := SRbacPolicy{}
-
-		err = policy.Decode(policyJson)
-		if err != nil {
-			t.Errorf("decode error %s", err)
-			return
-		}
-
-		isAllow := policy.Allow(userCred, c.ops[0], c.ops[1], c.ops[2])
-		if isAllow != c.want {
-			t.Errorf("%s %#v expect %#v, but get %#v", policyJson.String(), c.ops, c.want, isAllow)
-			return
-		}
-	}
-}
-
 func TestSRabcPolicy_Explain(t *testing.T) {
 	policyStr := `{
         "condition": "usercred.project != \"system\" && usercred.roles==\"projectowner\"",
@@ -281,24 +229,94 @@ func TestSRabcPolicy_Explain(t *testing.T) {
 	t.Logf("%#v", output)
 }
 
-func TestTRbacResult_IsHigherPrivilege(t *testing.T) {
-	cases := []struct {
-		t1   TRbacResult
-		t2   TRbacResult
-		want bool
-	}{
-		{Allow, Allow, false},
-		{Allow, OwnerAllow, true},
-		{Deny, Deny, false},
-		{Deny, OwnerAllow, false},
-		{Deny, Allow, false},
-		{OwnerAllow, Allow, false},
-	}
+func TestConditionParser(t *testing.T) {
+	condition := `tenant=="system" && roles.contains("admin")`
+	tenants := searchMatchTenants(condition)
+	t.Logf("%s", tenants)
+	roles := searchMatchRoles(condition)
+	t.Logf("%s", roles)
+}
 
+func TestSRbacPolicyMatch(t *testing.T) {
+	cases := []struct {
+		policy   SRbacPolicy
+		userCred mcclient.TokenCredential
+		want     bool
+	}{
+		{
+			SRbacPolicy{},
+			&mcclient.SSimpleToken{},
+			true,
+		},
+		{
+			SRbacPolicy{},
+			nil,
+			true,
+		},
+		{
+			SRbacPolicy{
+				Projects: []string{"system"},
+			},
+			&mcclient.SSimpleToken{
+				Project: "system",
+			},
+			true,
+		},
+		{
+			SRbacPolicy{
+				Projects: []string{"system"},
+			},
+			&mcclient.SSimpleToken{
+				Project: "demo",
+			},
+			false,
+		},
+		{
+			SRbacPolicy{
+				Projects: []string{"system"},
+				Roles:    []string{"admin"},
+			},
+			&mcclient.SSimpleToken{
+				Project: "system",
+				Roles:   "admin",
+			},
+			true,
+		},
+		{
+			SRbacPolicy{
+				Projects: []string{"system"},
+				Roles:    []string{"admin"},
+			},
+			&mcclient.SSimpleToken{
+				Project: "system",
+				Roles:   "admin,_member_",
+			},
+			true,
+		},
+		{
+			SRbacPolicy{
+				Projects: []string{"system"},
+				Roles:    []string{"admin"},
+			},
+			&mcclient.SSimpleToken{
+				Project: "system",
+				Roles:   "_member_",
+			},
+			false,
+		},
+		{
+			SRbacPolicy{
+				Projects: []string{"system"},
+				Roles:    []string{"admin"},
+			},
+			nil,
+			false,
+		},
+	}
 	for _, c := range cases {
-		got := c.t1.IsHigherPrivilege(c.t2)
+		got := c.policy.Match(c.userCred)
 		if got != c.want {
-			t.Errorf("%s IsHigherPrivilege %s want %v got %v", c.t1, c.t2, c.want, got)
+			t.Errorf("%#v %#v got %v want %v", c.policy, c.userCred, got, c.want)
 		}
 	}
 }
