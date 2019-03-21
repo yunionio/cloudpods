@@ -683,3 +683,16 @@ func (self *SDatastore) RemoveDir(ctx context.Context, remotePath string) error 
 func (self *SDatastore) IsSysDiskStore() bool {
 	return true
 }
+
+func (self *SDatastore) MoveVmdk(ctx context.Context, srcPath string, dstPath string) error {
+	dm := object.NewVirtualDiskManager(self.manager.client.Client)
+	defer dm.Destroy(ctx)
+
+	srcUrl := self.GetPathUrl(srcPath)
+	dstUrl := self.GetPathUrl(dstPath)
+	task, err := dm.MoveVirtualDisk(ctx, srcUrl, nil, dstUrl, nil, true)
+	if err != nil {
+		return err
+	}
+	return task.Wait(ctx)
+}
