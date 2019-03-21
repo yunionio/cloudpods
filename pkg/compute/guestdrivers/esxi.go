@@ -38,10 +38,10 @@ func (self *SESXiGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return options.Options.DefaultDiskSizeMB / 1024
 }
 
-func (self *SESXiGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	task.ScheduleRun(nil)
-	return nil
-}
+// func (self *SESXiGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+// 	task.ScheduleRun(nil)
+// 	return nil
+// }
 
 func (self *SESXiGuestDriver) GetMaxSecurityGroupCount() int {
 	//暂不支持绑定安全组
@@ -49,11 +49,11 @@ func (self *SESXiGuestDriver) GetMaxSecurityGroupCount() int {
 }
 
 func (self *SESXiGuestDriver) GetDetachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY}, nil
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
 func (self *SESXiGuestDriver) GetAttachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY}, nil
+	return []string{models.VM_READY, models.VM_RUNNING}, nil
 }
 
 func (self *SESXiGuestDriver) GetChangeConfigStatus() ([]string, error) {
@@ -64,14 +64,14 @@ func (self *SESXiGuestDriver) CanKeepDetachDisk() bool {
 	return false
 }
 
-func (self *SESXiGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
-	err := disk.RealDelete(ctx, task.GetUserCred())
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
-}
+// func (self *SESXiGuestDriver) RequestDeleteDetachedDisk(ctx context.Context, disk *models.SDisk, task taskman.ITask, isPurge bool) error {
+// 	err := disk.RealDelete(ctx, task.GetUserCred())
+// 	if err != nil {
+// 		return err
+// 	}
+// 	task.ScheduleRun(nil)
+// 	return nil
+// }
 
 func (self *SESXiGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *models.SGuest, path string, task taskman.ITask) error {
 	task.ScheduleRun(nil)
