@@ -288,7 +288,7 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 	}
 
 	records := []SMetadata{}
-	q := manager.Query().Equals("id", idStr).NotLike("key", SYS_TAG_PREFIX+"%")
+	q := manager.Query().Equals("id", idStr).NotLike("key", `\_\_%`) //避免删除系统内置的metadata, _ 在mysql里面有特殊含义,需要转义
 	switch delRange {
 	case TAG_DELETE_RANGE_USER:
 		q = q.Like("key", USER_TAG_PREFIX+"%")
