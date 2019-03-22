@@ -285,7 +285,7 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 	params := &computeapi.ServerCreateInput{
 		ServerConfigs:      config,
 		VcpuCount:          opts.VcpuCount,
-		Keypair:            opts.Keypair,
+		KeypairId:          opts.Keypair,
 		Password:           opts.Password,
 		Cdrom:              opts.Iso,
 		Vga:                opts.Vga,

@@ -169,6 +169,7 @@ type ServerDeployInput struct {
 
 	Id string
 
+	Keypair       string          `json:"keypair"`
 	DeleteKeypair bool            `json:"__delete_keypair__"`
 	DeployConfigs []*DeployConfig `json:"deploy_configs"`
 	ResetPassword *bool           `json:"reset_password"`
