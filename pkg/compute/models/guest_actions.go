@@ -802,7 +802,7 @@ func (self *SGuest) AllowPerformRevokeSecgroup(ctx context.Context, userCred mcc
 func (self *SGuest) saveDefaultSecgroupId(userCred mcclient.TokenCredential, secGrpId string) error {
 	if secGrpId != self.SecgrpId {
 		diff, err := db.Update(self, func() error {
-			self.SecgrpId = "default"
+			self.SecgrpId = secGrpId
 			return nil
 		})
 		if err != nil {
