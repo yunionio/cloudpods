@@ -133,7 +133,7 @@ type ServerCreateInput struct {
 	VcpuCount    int    `json:"vcpu_count"`
 	UserData     string `json:"user_data"`
 
-	Keypair            string          `json:"keypair"`
+	KeypairId          string          `json:"keypair_id"`
 	Password           string          `json:"password"`
 	Cdrom              string          `json:"cdrom"`
 	Vga                string          `json:"vga"`
@@ -149,7 +149,7 @@ type ServerCreateInput struct {
 	IsSystem           bool            `json:"is_system"`
 	Duration           string          `json:"duration"`
 	AutoPrepaidRecycle bool            `json:"auto_prepaid_recycle,omitfalse"`
-	Secgroup           string          `json:"secgroup"`
+	SecgroupId         string          `json:"secgroup_id"`
 	EipBw              int             `json:"eip_bw,omitzero"`
 	EipChargeType      string          `json:"eip_charge_type,omitempty"`
 	Eip                string          `json:"eip,omitempty"`
@@ -169,7 +169,6 @@ type ServerDeployInput struct {
 
 	Id string
 
-	Keypair       string          `json:"keypair"`
 	DeleteKeypair bool            `json:"__delete_keypair__"`
 	DeployConfigs []*DeployConfig `json:"deploy_configs"`
 	ResetPassword *bool           `json:"reset_password"`
