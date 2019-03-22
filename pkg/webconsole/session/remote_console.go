@@ -104,11 +104,21 @@ func (info *RemoteConsoleInfo) GetPassword() string {
 }
 
 func (info *RemoteConsoleInfo) getOpenStackURL() (string, error) {
-	return info.Url, nil
+	return info.getConnParamsURL(info.Url, nil), nil
+}
+
+func (info *RemoteConsoleInfo) getConnParamsURL(baseURL string, params url.Values) string {
+	if params == nil {
+		params = url.Values{}
+	}
+	params.Set("protocol", info.Protocol)
+	queryURL := params.Encode()
+	return fmt.Sprintf("%s?%s", baseURL, queryURL)
 }
 
 func (info *RemoteConsoleInfo) getQcloudURL() (string, error) {
-	return "https://img.qcloud.com/qcloud/app/active_vnc/index.html?InstanceVncUrl=" + info.Url, nil
+	base := "https://img.qcloud.com/qcloud/app/active_vnc/index.html?InstanceVncUrl=" + info.Url
+	return info.getConnParamsURL(base, nil), nil
 }
 
 func (info *RemoteConsoleInfo) getAliyunURL() (string, error) {
@@ -122,8 +132,6 @@ func (info *RemoteConsoleInfo) getAliyunURL() (string, error) {
 		"instanceId": {info.InstanceId},
 		"isWindows":  {isWindows},
 		"password":   {info.Password},
-		"protocol":   {info.Protocol},
 	}
-	queryURL := params.Encode()
-	return fmt.Sprintf("%s?%s", base, queryURL), nil
+	return info.getConnParamsURL(base, params), nil
 }
