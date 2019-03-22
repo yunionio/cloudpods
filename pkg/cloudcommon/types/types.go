@@ -4,7 +4,7 @@ import "net"
 
 type SSHConfig struct {
 	Username string `json:"username,omitempty"`
-	RemoteIP string `json:"ip"`
+	RemoteIP string `json:"remote_ip"`
 	Password string `json:"password"`
 }
 
