@@ -29,6 +29,12 @@ var (
 		},
 		{
 			Service:  "compute",
+			Resource: "metadatas",
+			Action:   PolicyActionList,
+			Result:   rbacutils.UserAllow,
+		},
+		{
+			Service:  "compute",
 			Resource: "storages",
 			Action:   PolicyActionList,
 			Result:   rbacutils.UserAllow,
