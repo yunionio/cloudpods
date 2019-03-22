@@ -28,6 +28,9 @@ func (f *SLocalGuestFS) SupportSerialPorts() bool {
 }
 
 func (f *SLocalGuestFS) GetLocalPath(sPath string, caseInsensitive bool) string {
+	if sPath == "." {
+		sPath = ""
+	}
 	var fullPath = f.mountPath
 	pathSegs := strings.Split(sPath, "/")
 	for _, seg := range pathSegs {

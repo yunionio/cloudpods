@@ -69,6 +69,7 @@ func (p *SKVMGuestDiskPartition) Mount() bool {
 
 func (p *SKVMGuestDiskPartition) mount(readonly bool) error {
 	if _, err := procutils.NewCommand("mkdir", "-p", p.mountPath).Run(); err != nil {
+		log.Errorln(err)
 		return err
 	}
 	var cmds = []string{"mount", "-t"}
