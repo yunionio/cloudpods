@@ -209,6 +209,7 @@ func ApplySchedPolicies(params *jsonutils.JSONDict) *jsonutils.JSONDict {
 
 	newSchedtags := jsonutils.Marshal(schedtags)
 	log.Infof("updated sched tag %s", newSchedtags)
+	params.Set("aggregate_strategy", newSchedtags)
 
 	ret := jsonutils.NewDict()
 	ret.Add(newSchedtags, "aggregate_strategy")
