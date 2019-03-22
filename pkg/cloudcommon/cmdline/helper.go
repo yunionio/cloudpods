@@ -377,10 +377,10 @@ func FetchServerCreateInputByJSON(obj jsonutils.JSONObject) (*compute.ServerCrea
 		input.InstanceType = skuName
 	}
 	if keypair := jsonutils.GetAnyString(obj, []string{"keypair", "keypair_id"}); keypair != "" {
-		input.Keypair = keypair
+		input.KeypairId = keypair
 	}
 	if secgroup := jsonutils.GetAnyString(obj, []string{"secgroup", "secgroup_id", "secgrp_id"}); len(secgroup) != 0 {
-		input.Secgroup = secgroup
+		input.SecgroupId = secgroup
 	}
 
 	return input, nil
