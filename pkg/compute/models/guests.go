@@ -1025,26 +1025,26 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		input.IsolatedDevices[idx] = devConfig
 	}
 
-	keypairId := input.Keypair
+	keypairId := input.KeypairId
 	if len(keypairId) > 0 {
 		keypairObj, err := KeypairManager.FetchByIdOrName(userCred, keypairId)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("Keypair %s not found", keypairId)
 		}
-		input.Keypair = keypairObj.GetId()
+		input.KeypairId = keypairObj.GetId()
 	} else {
-		input.Keypair = "None" // TODO: ??? None?
+		input.KeypairId = "None" // TODO: ??? None?
 	}
 
-	if input.Secgroup != "" {
-		secGrpId := input.Secgroup
+	if input.SecgroupId != "" {
+		secGrpId := input.SecgroupId
 		secGrpObj, err := SecurityGroupManager.FetchByIdOrName(userCred, secGrpId)
 		if err != nil {
 			return nil, httperrors.NewResourceNotFoundError("Secgroup %s not found", secGrpId)
 		}
-		input.Secgroup = secGrpObj.GetId()
+		input.SecgroupId = secGrpObj.GetId()
 	} else {
-		input.Secgroup = "default"
+		input.SecgroupId = "default"
 	}
 
 	eipStr := input.Eip
