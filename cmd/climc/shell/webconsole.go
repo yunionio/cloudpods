@@ -25,7 +25,6 @@ func init() {
 		if err != nil {
 			return err
 		}
-		u.Path = "index.html"
 		u.RawQuery = connParams
 		fmt.Println(u.String())
 		return nil
