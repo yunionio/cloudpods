@@ -3,9 +3,11 @@ package openstack
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -105,7 +107,7 @@ func (disk *SDisk) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
-func (region *SRegion) GetDisks(category string) ([]SDisk, error) {
+func (region *SRegion) GetDisks(category, volumeBackendName string) ([]SDisk, error) {
 	_, resp, err := region.CinderList("/volumes/detail", "", nil)
 	if err != nil {
 		return nil, err
@@ -116,7 +118,7 @@ func (region *SRegion) GetDisks(category string) ([]SDisk, error) {
 	}
 	result := []SDisk{}
 	for _, disk := range disks {
-		if len(category) == 0 || disk.VolumeType == category {
+		if len(category) == 0 || disk.VolumeType == category || strings.HasSuffix(disk.Host, "#"+volumeBackendName) {
 			result = append(result, disk)
 		}
 	}
@@ -128,7 +130,11 @@ func (disk *SDisk) GetId() string {
 }
 
 func (disk *SDisk) Delete(ctx context.Context) error {
-	return disk.storage.zone.region.DeleteDisk(disk.ID)
+	err := disk.storage.zone.region.DeleteDisk(disk.ID)
+	if err != nil {
+		return err
+	}
+	return cloudprovider.WaitDeleted(disk, 10*time.Second, 8*time.Minute)
 }
 
 func (disk *SDisk) Resize(ctx context.Context, sizeMb int64) error {
@@ -156,7 +162,7 @@ func (disk *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 
 func (disk *SDisk) GetStatus() string {
 	switch disk.Status {
-	case DISK_STATUS_CREATING:
+	case DISK_STATUS_CREATING, DISK_STATUS_DOWNLOADING:
 		return models.DISK_ALLOCATING
 	case DISK_STATUS_ATTACHING:
 		return models.DISK_ATTACHING
@@ -164,10 +170,12 @@ func (disk *SDisk) GetStatus() string {
 		return models.DISK_DETACHING
 	case DISK_STATUS_EXTENDING:
 		return models.DISK_RESIZING
-	case DISK_STATUS_RETYPING, DISK_STATUS_AVAILABLE, DISK_STATUS_RESERVED, DISK_STATUS_IN_USE, DISK_STATUS_MAINTENANCE, DISK_STATUS_AWAITING_TRANSFER, DISK_STATUS_BACKING_UP, DISK_STATUS_RESTORING_BACKUP, DISK_STATUS_DOWNLOADING, DISK_STATUS_UPLOADING:
+	case DISK_STATUS_RETYPING, DISK_STATUS_AVAILABLE, DISK_STATUS_RESERVED, DISK_STATUS_IN_USE, DISK_STATUS_MAINTENANCE, DISK_STATUS_AWAITING_TRANSFER, DISK_STATUS_BACKING_UP, DISK_STATUS_RESTORING_BACKUP, DISK_STATUS_UPLOADING:
 		return models.DISK_READY
 	case DISK_STATUS_DELETING:
 		return models.DISK_DEALLOC
+	case DISK_STATUS_ERROR:
+		return models.DISK_ALLOC_FAILED
 	default:
 		return models.DISK_UNKNOWN
 	}
@@ -228,22 +236,50 @@ func (disk *SDisk) GetMountpoint() string {
 	return ""
 }
 
-func (region *SRegion) CreateDisk(zoneName string, category string, name string, sizeGb int, desc string) (*SDisk, error) {
+func (region *SRegion) CreateDisk(imageRef string, category string, name string, sizeGb int, desc string) (*SDisk, error) {
 	params := map[string]map[string]interface{}{
 		"volume": {
 			"size":        sizeGb,
 			"volume_type": category,
 			"name":        name,
 			"description": desc,
-			//"availability_zone": zoneName,
 		},
+	}
+	if len(imageRef) > 0 {
+		params["volume"]["imageRef"] = imageRef
 	}
 	_, resp, err := region.CinderCreate("/volumes", "", jsonutils.Marshal(params))
 	if err != nil {
 		return nil, err
 	}
+
 	disk := &SDisk{}
-	return disk, resp.Unmarshal(disk, "volume")
+	if err := resp.Unmarshal(disk, "volume"); err != nil {
+		return nil, err
+	}
+	//这里由于不好初始化disk的storage就手动循环了,如果是通过镜像创建，有个下载过程,比较慢，等待时间较长
+	startTime := time.Now()
+	for time.Now().Sub(startTime) < time.Minute*10 {
+		disk, err = region.GetDisk(disk.GetGlobalId())
+		if err != nil {
+			return nil, err
+		}
+		log.Debugf("disk status %s expect %s", disk.GetStatus(), models.DISK_READY)
+		status := disk.GetStatus()
+		if status == models.DISK_READY {
+			break
+		}
+		if status == models.DISK_ALLOC_FAILED {
+			region.DeleteDisk(disk.GetGlobalId())
+			return nil, fmt.Errorf("allocate disk failed, status is error")
+		}
+		time.Sleep(time.Second * 10)
+	}
+	if disk.GetStatus() != models.DISK_READY {
+		region.DeleteDisk(disk.GetGlobalId())
+		return nil, fmt.Errorf("timeout for waitting disk ready, current status: %s", disk.Status)
+	}
+	return disk, nil
 }
 
 func (region *SRegion) GetDisk(diskId string) (*SDisk, error) {
