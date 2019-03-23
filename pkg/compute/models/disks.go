@@ -1702,3 +1702,8 @@ func (self *SDisk) IsDetachable() bool {
 	}
 	return true
 }
+
+func (self *SDisk) GetDynamicConditionInput() *jsonutils.JSONDict {
+	conf := self.ToDiskConfig()
+	return conf.JSON(conf)
+}

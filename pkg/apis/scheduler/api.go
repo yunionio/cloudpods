@@ -1,6 +1,8 @@
 package scheduler
 
 import (
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/apis"
 	"yunion.io/x/onecloud/pkg/apis/compute"
 )
@@ -54,6 +56,13 @@ type ScheduleInput struct {
 	ScheduleBaseConfig
 
 	ServerConfig
+}
+
+func (input ScheduleInput) ToConditionInput() *jsonutils.JSONDict {
+	ret := input.JSON(input)
+	// old condition compatible
+	ret.Add(jsonutils.NewString(input.Project), "owner_tenant_id")
+	return ret
 }
 
 type CandidateDisk struct {

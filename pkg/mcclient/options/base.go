@@ -178,7 +178,7 @@ type BaseListOptions struct {
 	JointFilter      []string `help:"Filters with joint table col; joint_tbl.related_key(origin_key).filter_col.filter_cond(filters)"`
 	FilterAny        *bool    `help:"If true, match if any of the filters matches; otherwise, match if all of the filters match"`
 	Admin            *bool    `help:"Is an admin call?"`
-	Tenant           string   `help:"Tenant ID or Name"`
+	Tenant           string   `help:"Tenant ID or Name" alias:"project"`
 	User             string   `help:"User ID or Name"`
 	System           *bool    `help:"Show system resource"`
 	PendingDelete    *bool    `help:"Show only pending deleted resource"`

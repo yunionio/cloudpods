@@ -114,14 +114,18 @@ func init() {
 	})
 
 	type DynamicSchedtagEvaluateOptions struct {
-		ID     string `help:"ID or name of the sched policy"`
-		HOST   string `help:"ID or name of the host"`
-		SERVER string `help:"ID or name of the server"`
+		ID                  string `help:"ID or name of the sched policy"`
+		ResourceType        string `help:"Standalone resource type" choices:"host|storage" default:"host"`
+		VirtaulResourceType string `help:"Virtual resource type" choices:"server|disk" default:"server"`
+		STANDALONERES       string `help:"ID or name of the standalone resource, e.g. host, storage"`
+		VIRTUALRES          string `help:"ID or name of the virtual resource, e.g. server, disk"`
 	}
 	R(&DynamicSchedtagEvaluateOptions{}, "dynamic-schedtag-evaluate", "Evaluate dynamic schedtag condition", func(s *mcclient.ClientSession, args *DynamicSchedtagEvaluateOptions) error {
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.HOST), "host")
-		params.Add(jsonutils.NewString(args.SERVER), "server")
+		params.Add(jsonutils.NewString(args.ResourceType), "resource_type")
+		params.Add(jsonutils.NewString(args.VirtaulResourceType), "virtual_resource_type")
+		params.Add(jsonutils.NewString(args.STANDALONERES), "object_id")
+		params.Add(jsonutils.NewString(args.VIRTUALRES), "virtual_object_id")
 		result, err := modules.Dynamicschedtags.PerformAction(s, args.ID, "evaluate", params)
 		if err != nil {
 			return err

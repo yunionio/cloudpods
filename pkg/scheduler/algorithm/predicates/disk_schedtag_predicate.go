@@ -127,7 +127,12 @@ func (w schedtagStorageW) IndexKey() string {
 }
 
 func (w schedtagStorageW) GetDynamicSchedDesc() *jsonutils.JSONDict {
-	return nil
+	ret := jsonutils.NewDict()
+	storageSchedDesc := w.candidater.GetDynamicConditionInput()
+	diskSchedDesc := w.disk.JSON(w.disk)
+	ret.Add(storageSchedDesc, models.StorageManager.Keyword())
+	ret.Add(diskSchedDesc, models.DiskManager.Keyword())
+	return ret
 }
 
 func (w schedtagStorageW) GetSchedtags() []models.SSchedtag {
