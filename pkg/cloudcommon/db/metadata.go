@@ -251,6 +251,7 @@ func (manager *SMetadataManager) SetValues(ctx context.Context, obj IModel, stor
 			}
 		} else {
 			deleted := record.Deleted
+			oValue := record.Value
 			_, err := Update(&record, func() error {
 				record.Deleted = false
 				record.Value = valStr
@@ -262,8 +263,8 @@ func (manager *SMetadataManager) SetValues(ctx context.Context, obj IModel, stor
 			if deleted {
 				changes = append(changes, sMetadataChange{Key: key, NValue: valStr})
 			} else {
-				if record.Value != valStr {
-					changes = append(changes, sMetadataChange{Key: key, OValue: record.Value, NValue: valStr})
+				if oValue != valStr {
+					changes = append(changes, sMetadataChange{Key: key, OValue: oValue, NValue: valStr})
 				}
 			}
 		}
