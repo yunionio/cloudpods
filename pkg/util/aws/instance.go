@@ -163,18 +163,20 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	tags, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
 	if err != nil {
 		log.Errorf(err.Error())
+	} else {
+		data.Update(tags)
 	}
-	data.Update(tags)
 
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	if len(self.ImageId) > 0 {
 		image, err := self.host.zone.region.GetImage(self.ImageId)
 		if err != nil {
 			log.Errorf("Failed to find image %s for instance %s zone %s", self.ImageId, self.GetId(), self.ZoneId)
-		}
-		meta := image.GetMetadata()
-		if meta != nil {
-			data.Update(meta)
+		} else {
+			meta := image.GetMetadata()
+			if meta != nil {
+				data.Update(meta)
+			}
 		}
 	}
 	secgroupIds := jsonutils.NewArray()
