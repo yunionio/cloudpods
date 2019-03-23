@@ -354,7 +354,7 @@ func (instance *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err := instance.host.zone.region.StopVM(instance.ID, isForce); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(instance, models.VM_RUNNING, 10*time.Second, 8*time.Minute)
+	return cloudprovider.WaitStatus(instance, models.VM_READY, 10*time.Second, 8*time.Minute)
 }
 
 func (region *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
