@@ -3,6 +3,7 @@ package openstack
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -106,7 +107,7 @@ func (disk *SDisk) GetMetadata() *jsonutils.JSONDict {
 	return data
 }
 
-func (region *SRegion) GetDisks(category string) ([]SDisk, error) {
+func (region *SRegion) GetDisks(category, volumeBackendName string) ([]SDisk, error) {
 	_, resp, err := region.CinderList("/volumes/detail", "", nil)
 	if err != nil {
 		return nil, err
@@ -117,7 +118,7 @@ func (region *SRegion) GetDisks(category string) ([]SDisk, error) {
 	}
 	result := []SDisk{}
 	for _, disk := range disks {
-		if len(category) == 0 || disk.VolumeType == category {
+		if len(category) == 0 || disk.VolumeType == category || strings.HasSuffix(disk.Host, "#"+volumeBackendName) {
 			result = append(result, disk)
 		}
 	}

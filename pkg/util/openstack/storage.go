@@ -11,10 +11,15 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
+type SExtraSpecs struct {
+	VolumeBackendName string
+}
+
 type SStorage struct {
-	zone *SZone
-	Name string
-	ID   string
+	zone       *SZone
+	Name       string
+	ExtraSpecs SExtraSpecs
+	ID         string
 }
 
 func (storage *SStorage) GetMetadata() *jsonutils.JSONDict {
@@ -42,7 +47,7 @@ func (storage *SStorage) GetIZone() cloudprovider.ICloudZone {
 }
 
 func (storage *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	disks, err := storage.zone.region.GetDisks(storage.Name)
+	disks, err := storage.zone.region.GetDisks(storage.Name, storage.ExtraSpecs.VolumeBackendName)
 	if err != nil {
 		return nil, err
 	}
