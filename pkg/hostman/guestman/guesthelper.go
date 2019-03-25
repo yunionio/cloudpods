@@ -89,28 +89,3 @@ type SGuestCreateFromLibvirt struct {
 	GuestDesc *jsonutils.JSONDict
 	DisksPath *jsonutils.JSONDict
 }
-
-// type SGuestImportConfig struct {
-// 	Uuid     string
-// 	Name     string
-// 	CpuCount int
-// 	MemSize  int //MB
-// 	Disks    []SImportDiskConfig
-// 	Nics     []SImportNicConfig
-// }
-
-// type SImportDiskConfig struct {
-// 	Index  int
-// 	Id     string
-// 	Format string
-// 	Path   string
-
-// 	// virtio or scsi
-// 	Driver string
-// 	Size   int // MB
-// }
-
-// type SImportNicConfig struct {
-// 	Ip  string
-// 	Mac string
-// }

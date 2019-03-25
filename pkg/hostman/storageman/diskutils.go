@@ -187,9 +187,7 @@ func (d *SKVMGuestDisk) connectionPrecheck() {
 }
 
 func (d *SKVMGuestDisk) LvmDisconnectNotify() {
-	if lvmTool.GetPathType(d.rootBackingFilePath()) == LVM_PATH {
-		lvmTool.Signal(d.rootBackingFilePath())
-	}
+	lvmTool.Signal(d.rootBackingFilePath())
 }
 
 func (d *SKVMGuestDisk) setupLVMS() (bool, error) {

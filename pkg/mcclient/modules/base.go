@@ -184,7 +184,7 @@ func (this *BaseManager) _submit(session *mcclient.ClientSession, method httputi
 
 type SubmitResult struct {
 	Status int
-	Id     string
+	Id     interface{}
 	Data   jsonutils.JSONObject
 }
 
@@ -193,7 +193,7 @@ func SubmitResults2JSON(results []SubmitResult) jsonutils.JSONObject {
 	for _, r := range results {
 		obj := jsonutils.NewDict()
 		obj.Add(jsonutils.NewInt(int64(r.Status)), "status")
-		obj.Add(jsonutils.NewString(r.Id), "id")
+		obj.Add(jsonutils.Marshal(r.Id), "id")
 		obj.Add(r.Data, "data")
 		arr.Add(obj)
 	}
@@ -219,29 +219,49 @@ func (this *BaseManager) _batch(session *mcclient.ClientSession, method httputil
 	})
 }
 
-func BatchDo(ids []string, do func(id string) (jsonutils.JSONObject, error)) []SubmitResult {
-	results := make(chan SubmitResult, len(ids))
-	for _, id := range ids {
-		go func(id string) {
-			r, e := do(id)
-			if e != nil {
-				ecls, ok := e.(*httputils.JSONClientError)
-				if ok {
-					results <- SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.Marshal(ecls)}
-				} else {
-					results <- SubmitResult{Status: 400, Id: id, Data: jsonutils.NewString(e.Error())}
-				}
-			} else {
-				results <- SubmitResult{Status: 200, Id: id, Data: r}
-			}
-		}(id)
+func addResult(results chan SubmitResult, id interface{}, r jsonutils.JSONObject, e error) {
+	if e != nil {
+		ecls, ok := e.(*httputils.JSONClientError)
+		if ok {
+			results <- SubmitResult{Status: ecls.Code, Id: id, Data: jsonutils.Marshal(ecls)}
+		} else {
+			results <- SubmitResult{Status: 400, Id: id, Data: jsonutils.NewString(e.Error())}
+		}
+	} else {
+		results <- SubmitResult{Status: 200, Id: id, Data: r}
 	}
-	ret := make([]SubmitResult, len(ids))
-	for i := 0; i < len(ids); i++ {
+}
+
+func waitResults(results chan SubmitResult, length int) []SubmitResult {
+	ret := make([]SubmitResult, length)
+	for i := 0; i < length; i++ {
 		ret[i] = <-results
 	}
-	close(results)
 	return ret
+}
+
+func BatchDo(ids []string, do func(id string) (jsonutils.JSONObject, error)) []SubmitResult {
+	results := make(chan SubmitResult, len(ids))
+	for i := 0; i < len(ids); i++ {
+		go func(id string) {
+			r, e := do(id)
+			addResult(results, id, r, e)
+		}(ids[i])
+	}
+	return waitResults(results, len(ids))
+}
+
+func BatchDoClassAction(
+	batchParams []jsonutils.JSONObject, do func(jsonutils.JSONObject) (jsonutils.JSONObject, error),
+) []SubmitResult {
+	results := make(chan SubmitResult, len(batchParams))
+	for i := 0; i < len(batchParams); i++ {
+		go func(params jsonutils.JSONObject) {
+			r, e := do(params)
+			addResult(results, params, r, e)
+		}(batchParams[i])
+	}
+	return waitResults(results, len(batchParams))
 }
 
 func (this *BaseManager) _get(session *mcclient.ClientSession, path string, respKey string) (jsonutils.JSONObject, error) {

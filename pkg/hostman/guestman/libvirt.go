@@ -31,7 +31,7 @@ func (m *SGuestManager) GuestCreateFromLibvirt(
 		return nil, err
 	}
 
-	ret := jsonutils.NewDict()
+	disksPath := jsonutils.NewDict()
 	for _, disk := range disks {
 		diskId, _ := disk.GetString("disk_id")
 		diskPath, err := createConfig.DisksPath.GetString(diskId)
@@ -47,19 +47,22 @@ func (m *SGuestManager) GuestCreateFromLibvirt(
 			log.Errorf("Create disk error %s", output)
 			return nil, fmt.Errorf("Create disk error %s", output)
 		}
-		ret.Set(diskId, jsonutils.NewString(iDisk.GetPath()))
+		disksPath.Set(diskId, jsonutils.NewString(iDisk.GetPath()))
 	}
 	guest := m.Servers[createConfig.Sid]
 	if err = guest.SaveDesc(createConfig.GuestDesc); err != nil {
 		return nil, err
 	}
+
+	ret := jsonutils.NewDict()
+	ret.Set("disks_path", disksPath)
 	return ret, nil
 }
 
 func (m *SGuestManager) PrepareImportFromLibvirt(
 	ctx context.Context, params interface{},
 ) (jsonutils.JSONObject, error) {
-	libvirtConfig, ok := params.(*SLibvirtDomainImportConfig)
+	libvirtConfig, ok := params.(*compute.SLibvirtHostConfig)
 	if !ok {
 		return nil, hostutils.ParamsError
 	}
@@ -67,12 +70,10 @@ func (m *SGuestManager) PrepareImportFromLibvirt(
 	if err != nil {
 		return nil, err
 	}
-	ret := jsonutils.NewDict()
-	ret.Set("guest_descs", guestDescs)
-	return ret, nil
+	return guestDescs, nil
 }
 
-func importGuest(guestConfig *compute.SImportGuestDesc, libvirtConfig *SLibvirtDomainImportConfig) error {
+func importGuest(guestConfig *compute.SImportGuestDesc, libvirtConfig *compute.SLibvirtHostConfig) error {
 	for _, server := range libvirtConfig.Servers {
 		if server.Uuid != guestConfig.Id {
 			continue
@@ -91,10 +92,10 @@ func importGuest(guestConfig *compute.SImportGuestDesc, libvirtConfig *SLibvirtD
 	return fmt.Errorf("No guest %s found in import config", guestConfig.Id)
 }
 
-func (m *SGuestManager) GenerateDescFromXml(libvirtConfig *SLibvirtDomainImportConfig) (jsonutils.JSONObject, error) {
-	xmlFiles, err := ioutil.ReadDir(libvirtConfig.LibvritDomainXmlDir)
+func (m *SGuestManager) GenerateDescFromXml(libvirtConfig *compute.SLibvirtHostConfig) (jsonutils.JSONObject, error) {
+	xmlFiles, err := ioutil.ReadDir(libvirtConfig.XmlFilePath)
 	if err != nil {
-		log.Errorf("Read dir %s error: %s", libvirtConfig.LibvritDomainXmlDir, err)
+		log.Errorf("Read dir %s error: %s", libvirtConfig.XmlFilePath, err)
 		return nil, err
 	}
 
@@ -103,7 +104,7 @@ func (m *SGuestManager) GenerateDescFromXml(libvirtConfig *SLibvirtDomainImportC
 		if !f.Mode().IsRegular() {
 			continue
 		}
-		xmlContent, err := ioutil.ReadFile(path.Join(libvirtConfig.LibvritDomainXmlDir, f.Name()))
+		xmlContent, err := ioutil.ReadFile(path.Join(libvirtConfig.XmlFilePath, f.Name()))
 		if err != nil {
 			log.Errorf("Read file %s error: %s", f.Name(), err)
 			continue

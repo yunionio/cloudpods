@@ -2613,7 +2613,7 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) ChooseHostStorage(host *SHost, backend string, candidate *schedapi.CandidateDisk) *SStorage {
-	log.Errorf("==========candidate %#v", candidate)
+	log.Infof("==========candidate %#v", candidate)
 	if candidate == nil {
 		return self.GetDriver().ChooseHostStorage(host, backend)
 	}

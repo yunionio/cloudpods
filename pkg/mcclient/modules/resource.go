@@ -463,6 +463,16 @@ func (this *ResourceManager) PerformClassActionInContexts(session *mcclient.Clie
 	return this._post(session, path, params, this.KeywordPlural)
 }
 
+func (this *ResourceManager) BatchPerformClassAction(session *mcclient.ClientSession, action string, batchParams []jsonutils.JSONObject) []SubmitResult {
+	return this.BatchPerformClassActionInContexts(session, action, batchParams, nil)
+}
+
+func (this *ResourceManager) BatchPerformClassActionInContexts(session *mcclient.ClientSession, action string, batchParams []jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult {
+	return BatchDoClassAction(batchParams, func(params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+		return this.PerformClassActionInContexts(session, action, params, ctxs)
+	})
+}
+
 func (this *ResourceManager) BatchPerformAction(session *mcclient.ClientSession, idlist []string, action string, params jsonutils.JSONObject) []SubmitResult {
 	return this.BatchPerformActionInContexts(session, idlist, action, params, nil)
 }

@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -108,34 +109,25 @@ func cpusetBalance(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 
 func guestPrepareImportFormLibvirt(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	_, _, body := appsrv.FetchEnv(ctx, w, r)
-	libvritDomainXmlDir, err := body.GetString("domain_xml_dir")
+	config := &compute.SLibvirtHostConfig{}
+	err := body.Unmarshal(config)
 	if err != nil {
-		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("domain_xml_dir"))
+		hostutils.Response(ctx, w, httperrors.NewInputParameterError("Parse params to libvirt config error %s", err))
 		return
 	}
-
-	if !fileutils2.Exists(libvritDomainXmlDir) {
+	if len(config.XmlFilePath) == 0 {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("xml_file_path"))
+		return
+	}
+	if !fileutils2.Exists(config.XmlFilePath) {
 		hostutils.Response(ctx, w,
-			httperrors.NewBadRequestError("domain_xml_dir %s not found", libvritDomainXmlDir))
+			httperrors.NewBadRequestError("xml_file_path %s not found", config.XmlFilePath))
 		return
 	}
 
-	servers, err := body.Get("servers")
-	if err != nil {
+	if len(config.Servers) == 0 {
 		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("servers"))
 		return
-	}
-
-	var libvirtServers = make([]guestman.SLibvirtServer, 0)
-	err = servers.Unmarshal(libvirtServers)
-	if err != nil {
-		hostutils.Response(ctx, w, httperrors.NewBadRequestError("Parse params error %s", err))
-		return
-	}
-
-	config := &guestman.SLibvirtDomainImportConfig{
-		LibvritDomainXmlDir: libvritDomainXmlDir,
-		Servers:             libvirtServers,
 	}
 
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().PrepareImportFromLibvirt, config)
