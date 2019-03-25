@@ -3,9 +3,11 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -13,8 +15,20 @@ import (
 	"yunion.io/x/onecloud/pkg/util/conditionparser"
 )
 
+type IDynamicResourceManager interface {
+	db.IModelManager
+}
+
+type IDynamicResource interface {
+	db.IModel
+	GetDynamicConditionInput() *jsonutils.JSONDict
+}
+
 type SDynamicschedtagManager struct {
 	db.SStandaloneResourceBaseManager
+
+	StandaloneResourcesManager map[string]IDynamicResourceManager
+	VirtualResourcesManager    map[string]IDynamicResourceManager
 }
 
 var DynamicschedtagManager *SDynamicschedtagManager
@@ -27,7 +41,37 @@ func init() {
 			"dynamicschedtag",
 			"dynamicschedtags",
 		),
+		StandaloneResourcesManager: make(map[string]IDynamicResourceManager),
+		VirtualResourcesManager:    make(map[string]IDynamicResourceManager),
 	}
+}
+
+func (man *SDynamicschedtagManager) bindDynamicResourceManager(
+	store map[string]IDynamicResourceManager,
+	ms ...IDynamicResourceManager) {
+	for _, m := range ms {
+		store[m.Keyword()] = m
+	}
+}
+
+func (man *SDynamicschedtagManager) BindStandaloneResourceManager(ms ...IDynamicResourceManager) {
+	man.bindDynamicResourceManager(man.StandaloneResourcesManager, ms...)
+}
+
+func (man *SDynamicschedtagManager) BindVirtualResourceManager(ms ...IDynamicResourceManager) {
+	man.bindDynamicResourceManager(man.VirtualResourcesManager, ms...)
+}
+
+func (man *SDynamicschedtagManager) InitializeData() error {
+	man.BindStandaloneResourceManager(
+		HostManager,
+		StorageManager,
+	)
+	man.BindVirtualResourceManager(
+		GuestManager,
+		DiskManager,
+	)
+	return nil
 }
 
 // dynamic schedtag is called before scan host candidates, dynamically adding additional schedtag to hosts
@@ -86,7 +130,8 @@ func validateDynamicSchedtagInputData(data *jsonutils.JSONDict, create bool) err
 				return httperrors.NewGeneralError(err)
 			}
 		}
-		data.Set("schedtag_id", jsonutils.NewString(schedObj.GetId()))
+		schedtag := schedObj.(*SSchedtag)
+		data.Set("schedtag_id", jsonutils.NewString(schedtag.GetId()))
 	}
 
 	return nil
@@ -126,6 +171,7 @@ func (self *SDynamicschedtag) getMoreColumns(extra *jsonutils.JSONDict) *jsonuti
 	schedtag := self.getSchedtag()
 	if schedtag != nil {
 		extra.Add(jsonutils.NewString(schedtag.GetName()), "schedtag")
+		extra.Add(jsonutils.NewString(schedtag.ResourceType), "resource_type")
 	}
 	return extra
 }
@@ -143,17 +189,17 @@ func (self *SDynamicschedtag) GetExtraDetails(ctx context.Context, userCred mccl
 	return self.getMoreColumns(extra), nil
 }
 
-func (manager *SDynamicschedtagManager) GetAllEnabledDynamicSchedtags() []SDynamicschedtag {
-	return manager.getAllEnabledDynamicSchedtags()
-}
-
-func (manager *SDynamicschedtagManager) getAllEnabledDynamicSchedtags() []SDynamicschedtag {
+func (manager *SDynamicschedtagManager) GetEnabledDynamicSchedtagsByResource(resType string) []SDynamicschedtag {
 	rules := make([]SDynamicschedtag, 0)
 
 	q := DynamicschedtagManager.Query().IsTrue("enabled")
+	schedtags := SchedtagManager.Query().SubQuery()
+	q = q.Join(schedtags, sqlchemy.AND(
+		sqlchemy.Equals(q.Field("schedtag_id"), schedtags.Field("id")),
+		sqlchemy.Equals(schedtags.Field("resource_type"), resType)))
 	err := db.FetchModelObjects(manager, q, &rules)
 	if err != nil {
-		log.Errorf("getAllEnabledDynamicSchedtags fail %s", err)
+		log.Errorf("GetEnabledDynamicSchedtagsByResource %s fail %s", resType, err)
 		return nil
 	}
 
@@ -165,44 +211,46 @@ func (self *SDynamicschedtag) AllowPerformEvaluate(ctx context.Context, userCred
 }
 
 func (self *SDynamicschedtag) PerformEvaluate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	serverStr := jsonutils.GetAnyString(data, []string{"server", "server_id", "guest", "guest_id"})
-	serverObj, err := GuestManager.FetchByIdOrName(userCred, serverStr)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("server %s not found", serverStr)
-		} else {
-			return nil, httperrors.NewGeneralError(err)
-		}
+	objectId := jsonutils.GetAnyString(data, []string{"object", "object_id"})
+	resType := jsonutils.GetAnyString(data, []string{"resource_type"})
+	virtObjId := jsonutils.GetAnyString(data, []string{"virtual_object", "virtual_object_id"})
+	virtType := jsonutils.GetAnyString(data, []string{"virtual_resource_type"})
+
+	objectMan := DynamicschedtagManager.StandaloneResourcesManager[resType]
+	if objectMan == nil {
+		return nil, httperrors.NewResourceNotFoundError("Resource type %s not support", resType)
+	}
+	virtObjectMan := DynamicschedtagManager.VirtualResourcesManager[virtType]
+	if virtObjectMan == nil {
+		return nil, httperrors.NewResourceNotFoundError("Virtual resource type %s not support", virtType)
 	}
 
-	server := serverObj.(*SGuest)
-	srvDesc := server.getSchedDesc()
-
-	hostStr := jsonutils.GetAnyString(data, []string{"host", "host_id"})
-	hostObj, err := HostManager.FetchByIdOrName(userCred, hostStr)
+	object, err := FetchDynamicResourceObject(objectMan, userCred, objectId)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("host %s not found", serverStr)
-		} else {
-			return nil, httperrors.NewGeneralError(err)
-		}
+		return nil, err
+	}
+	virtObject, err := FetchDynamicResourceObject(virtObjectMan, userCred, virtObjId)
+	if err != nil {
+		return nil, err
 	}
 
-	host := hostObj.(*SHost)
-	// TODO: to fill host scheduling information
-	hostDesc := jsonutils.Marshal(host)
+	// TODO: to fill standalone resource scheduling information
+	standaloneDesc := object.GetDynamicConditionInput()
+	virtDesc := virtObject.GetDynamicConditionInput()
 
 	params := jsonutils.NewDict()
-	params.Add(srvDesc.JSON(srvDesc), "server")
-	params.Add(hostDesc, "host")
+	params.Add(standaloneDesc, object.Keyword())
+	params.Add(virtDesc, virtObject.Keyword())
+
+	log.V(10).Debugf("Dynamicschedtag evaluate input: %s", params.PrettyString())
 
 	meet, err := conditionparser.Eval(self.Condition, params)
 	if err != nil {
 		return nil, err
 	}
 	result := jsonutils.NewDict()
-	result.Add(srvDesc.JSON(srvDesc), "server")
-	result.Add(hostDesc, "host")
+	result.Add(standaloneDesc, object.Keyword())
+	result.Add(virtDesc, virtObject.Keyword())
 
 	if meet {
 		result.Add(jsonutils.JSONTrue, "result")
@@ -210,4 +258,20 @@ func (self *SDynamicschedtag) PerformEvaluate(ctx context.Context, userCred mccl
 		result.Add(jsonutils.JSONFalse, "result")
 	}
 	return result, nil
+}
+
+func FetchDynamicResourceObject(man IDynamicResourceManager, userCred mcclient.TokenCredential, idOrName string) (IDynamicResource, error) {
+	obj, err := man.FetchByIdOrName(userCred, idOrName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("%s %s not found", man.Keyword(), idOrName)
+		} else {
+			return nil, httperrors.NewGeneralError(err)
+		}
+	}
+	res, ok := obj.(IDynamicResource)
+	if !ok {
+		return nil, httperrors.NewGeneralError(fmt.Errorf("%s %s not implement IDynamicResource", obj.Keyword(), obj.GetName()))
+	}
+	return res, nil
 }

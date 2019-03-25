@@ -1151,3 +1151,7 @@ func (self *SStorage) IsPrepaidRecycleResource() bool {
 func (self *SStorage) GetSchedtags() []SSchedtag {
 	return GetSchedtags(StorageschedtagManager, self.Id)
 }
+
+func (self *SStorage) GetDynamicConditionInput() *jsonutils.JSONDict {
+	return jsonutils.Marshal(self).(*jsonutils.JSONDict)
+}

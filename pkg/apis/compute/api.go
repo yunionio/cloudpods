@@ -36,7 +36,7 @@ type NetworkConfig struct {
 	StandbyPortCount int `json:"standby_port_count"`
 	StandbyAddrCount int `json:"standby_addr_count"`
 
-	Project string `json:"project"`
+	Project string `json:"project_id"`
 	Ifname  string `json:"ifname"`
 }
 
@@ -102,7 +102,7 @@ type ServerConfigs struct {
 	// ResourceType "shared|prepaid|dedicated"`
 	ResourceType string `json:"resource_type"`
 	InstanceType string `json:"instance_type"`
-	Project      string `json:"project"`
+	Project      string `json:"project_id"`
 	Backup       bool   `json:"backup"`
 	Count        int    `json:"count"`
 

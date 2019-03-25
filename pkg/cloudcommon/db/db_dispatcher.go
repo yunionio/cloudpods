@@ -883,6 +883,8 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
+	// HACK: set data same as dataDict
+	data.(*jsonutils.JSONDict).Update(dataDict)
 	return model, nil
 }
 

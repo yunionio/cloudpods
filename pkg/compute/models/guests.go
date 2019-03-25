@@ -3888,43 +3888,6 @@ func (self *SGuest) getDefaultStorageType() string {
 	return STORAGE_LOCAL
 }
 
-func (self *SGuest) getSchedDesc() *schedapi.ScheduleInput {
-	desc := new(schedapi.ScheduleInput)
-
-	desc.Id = self.Id
-	desc.Name = self.Name
-	desc.Memory = self.VmemSize
-	desc.Ncpu = int(self.VcpuCount)
-
-	gds := self.GetDisks()
-	if gds != nil {
-		for i := 0; i < len(gds); i += 1 {
-			conf := new(api.DiskConfig)
-			jsonutils.Marshal(gds[i].ToDiskInfo()).Unmarshal(conf)
-			desc.Disks = append(desc.Disks, conf)
-		}
-	}
-
-	gns, _ := self.GetNetworks("")
-	if gns != nil {
-		for i := 0; i < len(gns); i += 1 {
-			desc.Networks = append(desc.Networks, &api.NetworkConfig{
-				Network: gns[i].NetworkId,
-				Address: gns[i].IpAddr,
-			})
-		}
-	}
-
-	if len(self.HostId) > 0 && regutils.MatchUUID(self.HostId) {
-		desc.HostId = self.HostId
-	}
-
-	desc.Project = self.ProjectId
-	desc.Hypervisor = self.GetHypervisor()
-
-	return desc
-}
-
 func (self *SGuest) GetApptags() []string {
 	tagsStr := self.GetMetadata("app_tags", nil)
 	if len(tagsStr) > 0 {
@@ -3936,13 +3899,15 @@ func (self *SGuest) GetApptags() []string {
 func (self *SGuest) ToSchedDesc() *schedapi.ScheduleInput {
 	desc := new(schedapi.ScheduleInput)
 	config := &schedapi.ServerConfig{
-		Name:   self.Name,
-		Memory: self.VmemSize,
-		Ncpu:   int(self.VcpuCount),
+		Name:          self.Name,
+		Memory:        self.VmemSize,
+		Ncpu:          int(self.VcpuCount),
+		ServerConfigs: new(api.ServerConfigs),
 	}
+	desc.Id = self.Id
 	//self.FillGroupSchedDesc(desc)
-	self.FillDiskSchedDesc(config)
-	self.FillNetSchedDesc(config)
+	self.FillDiskSchedDesc(config.ServerConfigs)
+	self.FillNetSchedDesc(config.ServerConfigs)
 	if len(self.HostId) > 0 && regutils.MatchUUID(self.HostId) {
 		config.HostId = self.HostId
 	}
@@ -3970,7 +3935,7 @@ func (self *SGuest) ToSchedDesc() *schedapi.ScheduleInput {
 	}
 }*/
 
-func (self *SGuest) FillDiskSchedDesc(desc *schedapi.ServerConfig) {
+func (self *SGuest) FillDiskSchedDesc(desc *api.ServerConfigs) {
 	guestDisks := make([]SGuestdisk, 0)
 	err := GuestdiskManager.Query().Equals("guest_id", self.Id).All(&guestDisks)
 	if err != nil {
@@ -3982,12 +3947,15 @@ func (self *SGuest) FillDiskSchedDesc(desc *schedapi.ServerConfig) {
 	}
 }
 
-func (self *SGuest) FillNetSchedDesc(desc *schedapi.ServerConfig) {
+func (self *SGuest) FillNetSchedDesc(desc *api.ServerConfigs) {
 	guestNetworks := make([]SGuestnetwork, 0)
 	err := GuestnetworkManager.Query().Equals("guest_id", self.Id).All(&guestNetworks)
 	if err != nil {
 		log.Errorln("FillNetSchedDesc: %v", err)
 		return
+	}
+	if desc.Networks == nil {
+		desc.Networks = make([]*api.NetworkConfig, 0)
 	}
 	for i := 0; i < len(guestNetworks); i++ {
 		desc.Networks = append(desc.Networks, guestNetworks[i].ToNetworkConfig())
@@ -4039,4 +4007,8 @@ func (guest *SGuest) GetDetailsTasks(ctx context.Context, userCred mcclient.Toke
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewArray(objs...), "tasks")
 	return ret, nil
+}
+
+func (guest *SGuest) GetDynamicConditionInput() *jsonutils.JSONDict {
+	return guest.ToSchedDesc().ToConditionInput()
 }

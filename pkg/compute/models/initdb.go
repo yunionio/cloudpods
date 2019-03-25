@@ -28,6 +28,7 @@ func InitDB() error {
 		LoadbalancerBackendGroupManager,
 		LoadbalancerBackendManager,
 		SchedtagManager,
+		DynamicschedtagManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {

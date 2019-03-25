@@ -69,9 +69,9 @@ type schedtagCandidateW struct {
 func (w schedtagCandidateW) GetDynamicSchedDesc() *jsonutils.JSONDict {
 	ret := jsonutils.NewDict()
 	hostSchedDesc := w.GetSchedDesc()
-	srvSchedDesc := jsonutils.Marshal(w.schedData)
-	ret.Add(hostSchedDesc, "host")
-	ret.Add(srvSchedDesc, "server")
+	srvSchedDesc := w.schedData.ToConditionInput()
+	ret.Add(hostSchedDesc, computemodels.HostManager.Keyword())
+	ret.Add(srvSchedDesc, computemodels.GuestManager.Keyword())
 	return ret
 }
 

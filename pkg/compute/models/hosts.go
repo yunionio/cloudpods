@@ -3814,3 +3814,7 @@ func (host *SHost) PerformSetSchedtag(ctx context.Context, userCred mcclient.Tok
 	host.ClearSchedDescCache()
 	return nil, nil
 }
+
+func (host *SHost) GetDynamicConditionInput() *jsonutils.JSONDict {
+	return jsonutils.Marshal(host).(*jsonutils.JSONDict)
+}
