@@ -2,6 +2,7 @@ package secrules
 
 import (
 	"bytes"
+	"fmt"
 	"sort"
 
 	"yunion.io/x/log"
@@ -12,14 +13,14 @@ type SecurityGroupSubSubRuleSet struct {
 	rules []SecurityRule
 }
 
-func (sssrs *SecurityGroupSubSubRuleSet) AddRule(rule SecurityRule) {
+func (sssrs *SecurityGroupSubSubRuleSet) addRule(rule SecurityRule) {
 	if sssrs.rules == nil {
 		sssrs.ipKey = rule.getIPKey()
 		sssrs.rules = []SecurityRule{rule}
 		return
 	}
 	if sssrs.ipKey != rule.getIPKey() {
-		panic("rule ip key not equal")
+		panic(fmt.Sprintf("rule ip key %s not equal %s", sssrs.ipKey, rule.getIPKey()))
 	}
 	idx := 0
 	for idx < len(sssrs.rules) {
@@ -30,15 +31,19 @@ func (sssrs *SecurityGroupSubSubRuleSet) AddRule(rule SecurityRule) {
 		case RELATION_IDENTICAL, RELATION_SUPERSET:
 			return
 		case RELATION_SUBSET:
-			sssrs.rules = append(sssrs.rules[:idx], sssrs.rules[idx+1:]...)
+			if idx+1 < len(sssrs.rules) {
+				sssrs.rules = append(sssrs.rules[:idx], sssrs.rules[idx+1:]...)
+			} else {
+				sssrs.rules = sssrs.rules[:idx]
+			}
 		case RELATION_NEXT_AHEAD, RELATION_NEXT_AFTER, RELATION_OVERLAP:
 			r, err := rule.merge(sssrs.rules[idx])
 			if err != nil {
 				log.Errorf("Merge failed?? %v", err)
-				continue
+				panic(err.Error())
 			}
-			idx = 0
 			sssrs.rules[idx] = r
+			idx = 0
 		}
 	}
 	sssrs.rules = append(sssrs.rules, rule)
@@ -49,74 +54,72 @@ type SecurityGroupSubRuleSet struct {
 	denyRules  *SecurityGroupSubSubRuleSet
 }
 
-func (ssrs *SecurityGroupSubRuleSet) AddRule(rule SecurityRule) {
+func (ssrs *SecurityGroupSubRuleSet) addRule(rule SecurityRule) {
 	if rule.Action == SecurityRuleAllow {
 		if ssrs.allowRules == nil {
 			ssrs.allowRules = &SecurityGroupSubSubRuleSet{}
 		}
-		ssrs.allowRules.AddRule(rule)
+		ssrs.allowRules.addRule(rule)
 	} else {
 		if ssrs.denyRules == nil {
 			ssrs.denyRules = &SecurityGroupSubSubRuleSet{}
 		}
-		ssrs.denyRules.AddRule(rule)
+		ssrs.denyRules.addRule(rule)
 	}
 }
 
-func (ssrs *SecurityGroupSubRuleSet) isEqual(_ssrs *SecurityGroupSubRuleSet) bool {
-	allowRules := ssrs.GetAllowRules()
-	_allowRules := _ssrs.GetAllowRules()
-	if len(allowRules.rules) != len(_allowRules.rules) {
+func (ssrs *SecurityGroupSubRuleSet) isRulesEqual(rules *SecurityGroupSubSubRuleSet, _rules *SecurityGroupSubSubRuleSet) bool {
+	if rules == _rules { //都是nil
+		return true
+	}
+	if rules == nil || _rules == nil { //其中一个是nil
+		return false
+	}
+	if len(rules.rules) != len(_rules.rules) {
 		return false
 	}
 
-	sort.Slice(allowRules.rules, func(i, j int) bool {
-		return allowRules.rules[i].Priority < allowRules.rules[j].Priority
+	sort.Slice(rules.rules, func(i, j int) bool {
+		return rules.rules[i].Priority < rules.rules[j].Priority
+	})
+	sort.Slice(_rules.rules, func(i, j int) bool {
+		return _rules.rules[i].Priority < _rules.rules[j].Priority
 	})
 
-	sort.Slice(_allowRules.rules, func(i, j int) bool {
-		return _allowRules.rules[i].Priority < _allowRules.rules[j].Priority
-	})
-	for i := 0; i < len(allowRules.rules); i++ {
-		if allowRules.rules[i].String() != _allowRules.rules[i].String() {
+	rulePriority, initPriority := 0, 0
+	_rulePriority, _initPriority := 0, 0
+	for i := 0; i < len(rules.rules); i++ {
+		if rulePriority != rules.rules[i].Priority {
+			rulePriority = rules.rules[i].Priority
+			initPriority++
+		}
+		find, ruleStr := false, rules.rules[i].String()
+		for j := 0; j < len(_rules.rules); j++ {
+			if _rulePriority != _rules.rules[j].Priority {
+				_rulePriority = _rules.rules[j].Priority
+				_initPriority++
+			}
+			//仅在每个优先级阶梯下进行对比
+			if initPriority != _initPriority {
+				continue
+			}
+			if _rules.rules[j].String() == ruleStr {
+				find = true
+			}
+		}
+		if !find {
 			return false
 		}
 	}
-
-	denyRules := ssrs.GetDenyRules()
-	_denyRuels := _ssrs.GetDenyRules()
-	if len(denyRules.rules) != len(_denyRuels.rules) {
-		return false
-	}
-
-	sort.Slice(denyRules.rules, func(i, j int) bool {
-		return denyRules.rules[i].Priority < denyRules.rules[j].Priority
-	})
-
-	sort.Slice(_denyRuels.rules, func(i, j int) bool {
-		return _denyRuels.rules[i].Priority < _denyRuels.rules[j].Priority
-	})
-	for i := 0; i < len(denyRules.rules); i++ {
-		if denyRules.rules[i].String() != _denyRuels.rules[i].String() {
-			return false
-		}
-	}
-
 	return true
 }
 
-func (ssrs *SecurityGroupSubRuleSet) GetAllowRules() SecurityGroupSubSubRuleSet {
-	if ssrs.allowRules == nil {
-		return SecurityGroupSubSubRuleSet{}
+func (ssrs *SecurityGroupSubRuleSet) isEqual(_ssrs *SecurityGroupSubRuleSet) bool {
+	if _ssrs == nil {
+		return false
 	}
-	return *ssrs.allowRules
-}
 
-func (ssrs *SecurityGroupSubRuleSet) GetDenyRules() SecurityGroupSubSubRuleSet {
-	if ssrs.denyRules == nil {
-		return SecurityGroupSubSubRuleSet{}
-	}
-	return *ssrs.denyRules
+	return ssrs.isRulesEqual(ssrs.allowRules, _ssrs.allowRules) && ssrs.isRulesEqual(ssrs.denyRules, _ssrs.denyRules)
 }
 
 type SecurityGroupRuleSet struct {
@@ -134,18 +137,19 @@ func (srs *SecurityGroupRuleSet) AddRule(rule SecurityRule) {
 	ssrs := srs.rules[key]
 	if len(rule.Ports) > 0 {
 		ports := rule.Ports
+		//规则合并时，是依据PortStart和PortEnd,因此将多个不连续的端口拆分为单个端口连续的规则进行合并
 		rule.Ports = []int{}
 		for i := 0; i < len(ports); i++ {
 			rule.PortStart = ports[i]
 			rule.PortEnd = ports[i]
-			ssrs.AddRule(rule)
+			ssrs.addRule(rule)
 		}
 		return
 	}
-	ssrs.AddRule(rule)
+	ssrs.addRule(rule)
 }
 
-func (srs *SecurityGroupRuleSet) GetSubRuleSet(key string) *SecurityGroupSubRuleSet {
+func (srs *SecurityGroupRuleSet) getSubRuleSet(key string) *SecurityGroupSubRuleSet {
 	if srs.rules == nil {
 		return nil
 	}
@@ -156,18 +160,22 @@ func (srs *SecurityGroupRuleSet) GetSubRuleSet(key string) *SecurityGroupSubRule
 	return s
 }
 
-func (srs *SecurityGroupRuleSet) GetAllowRules() []SecurityRule {
+func (srs *SecurityGroupRuleSet) getAllowRules() []SecurityRule {
 	rules := []SecurityRule{}
 	for _, v := range srs.rules {
-		rules = append(rules, v.GetAllowRules().rules...)
+		if v.allowRules != nil {
+			rules = append(rules, v.allowRules.rules...)
+		}
 	}
 	return rules
 }
 
-func (srs *SecurityGroupRuleSet) GetDenyRules() []SecurityRule {
+func (srs *SecurityGroupRuleSet) getDenyRules() []SecurityRule {
 	rules := []SecurityRule{}
 	for _, v := range srs.rules {
-		rules = append(rules, v.GetDenyRules().rules...)
+		if v.denyRules != nil {
+			rules = append(rules, v.denyRules.rules...)
+		}
 	}
 	return rules
 }
@@ -177,10 +185,7 @@ func (srs *SecurityGroupRuleSet) IsEqual(src SecurityGroupRuleSet) bool {
 		return false
 	}
 	for k, v := range srs.rules {
-		_v := src.GetSubRuleSet(k)
-		if _v == nil {
-			return false
-		}
+		_v := src.getSubRuleSet(k)
 		if !v.isEqual(_v) {
 			return false
 		}
@@ -190,11 +195,11 @@ func (srs *SecurityGroupRuleSet) IsEqual(src SecurityGroupRuleSet) bool {
 
 func (srs *SecurityGroupRuleSet) String() string {
 	buf := bytes.Buffer{}
-	for _, r := range srs.GetAllowRules() {
+	for _, r := range srs.getAllowRules() {
 		buf.WriteString(r.String())
 		buf.WriteString(";")
 	}
-	for _, r := range srs.GetDenyRules() {
+	for _, r := range srs.getDenyRules() {
 		buf.WriteString(r.String())
 		buf.WriteString(";")
 	}

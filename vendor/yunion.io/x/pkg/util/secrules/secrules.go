@@ -181,7 +181,7 @@ func (rule *SecurityRule) IsWildMatch() bool {
 
 func (rule SecurityRule) protoRelation(r SecurityRule) TSecurityRuleRelation {
 	if rule.Direction != r.Direction {
-		return RELATION_IDENTICAL
+		return RELATION_INDEPENDENT
 	}
 	if rule.Protocol == r.Protocol {
 		if utils.IsInStringArray(rule.Protocol, []string{PROTO_ANY, PROTO_ICMP}) {

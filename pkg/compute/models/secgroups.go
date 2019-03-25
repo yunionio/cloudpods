@@ -51,23 +51,23 @@ type SSecurityGroup struct {
 }
 
 func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	unionSecgroup, _ := query.GetString("union_secgroup")
-	if len(unionSecgroup) > 0 {
-		_secgroup, err := manager.FetchByIdOrName(userCred, unionSecgroup)
+	equalSecgroup, _ := query.GetString("equals")
+	if len(equalSecgroup) > 0 {
+		_secgroup, err := manager.FetchByIdOrName(userCred, equalSecgroup)
 		if err != nil {
-			return nil, err
+			return nil, httperrors.NewInputParameterError("Failed fetching secgroup %s", equalSecgroup)
 		}
 		secgroup := _secgroup.(*SSecurityGroup)
-		secgroup.SetModelManager(manager)
 		sq := manager.Query().NotEquals("id", secgroup.Id)
 		secgroups := []SSecurityGroup{}
 		err = db.FetchModelObjects(manager, sq, &secgroups)
 		if err != nil {
 			return nil, err
 		}
+		srs := secgroup.getSecurityGroupRuleSet()
 		secgroupIds := []string{}
 		for i := 0; i < len(secgroups); i++ {
-			if equal := secgroup.isEqual(ctx, userCred, &secgroups[i]); equal {
+			if srs.IsEqual(secgroups[i].getSecurityGroupRuleSet()) {
 				secgroupIds = append(secgroupIds, secgroups[i].Id)
 			}
 		}
@@ -297,6 +297,7 @@ func (self *SSecurityGroup) PerformUnion(ctx context.Context, userCred mcclient.
 	if len(secgroupIds) == 0 {
 		return nil, httperrors.NewMissingParameterError("secgroups")
 	}
+	srs := self.getSecurityGroupRuleSet()
 	secgroups := []*SSecurityGroup{}
 	for _, secgroupId := range secgroupIds {
 		_secgroup, err := SecurityGroupManager.FetchByIdOrName(userCred, secgroupId)
@@ -305,7 +306,8 @@ func (self *SSecurityGroup) PerformUnion(ctx context.Context, userCred mcclient.
 		}
 		secgroup := _secgroup.(*SSecurityGroup)
 		secgroup.SetModelManager(SecurityGroupManager)
-		if equal := self.isEqual(ctx, userCred, secgroup); !equal {
+		_srs := secgroup.getSecurityGroupRuleSet()
+		if !srs.IsEqual(_srs) {
 			return nil, httperrors.NewUnsupportOperationError("secgroup %s rules not equals %s rules", secgroup.Name, self.Name)
 		}
 		secgroups = append(secgroups, secgroup)
@@ -320,25 +322,19 @@ func (self *SSecurityGroup) PerformUnion(ctx context.Context, userCred mcclient.
 		if err := self.migrateGuestSecurityGroup(secgroup); err != nil {
 			return nil, err
 		}
+		secgroup.RealDelete(ctx, userCred)
 	}
 	self.DoSync(ctx, userCred)
 	return nil, nil
 }
 
-func (self *SSecurityGroup) isEqual(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup) bool {
+func (self *SSecurityGroup) getSecurityGroupRuleSet() secrules.SecurityGroupRuleSet {
 	rules := self.GetSecRules("")
 	srs := secrules.SecurityGroupRuleSet{}
 	for i := 0; i < len(rules); i++ {
 		srs.AddRule(rules[i])
 	}
-
-	_rules := secgroup.GetSecRules("")
-	_srs := secrules.SecurityGroupRuleSet{}
-	for i := 0; i < len(_rules); i++ {
-		_srs.AddRule(_rules[i])
-	}
-
-	return srs.IsEqual(_srs)
+	return srs
 }
 
 func (self *SSecurityGroup) migrateSecurityGroupCache(secgroup *SSecurityGroup) error {
