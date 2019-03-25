@@ -45,7 +45,7 @@ type DHCPHandler struct {
 	netConfig *types.SNetworkConfig
 }
 
-func (h *DHCPHandler) ServeDHCP(pkt dhcp.Packet, _ *net.UDPAddr, _ *net.Interface) (dhcp.Packet, error) {
+func (h DHCPHandler) ServeDHCP(pkt dhcp.Packet, _ *net.UDPAddr, _ *net.Interface) (dhcp.Packet, error) {
 	//log.V(4).Debugf("[DHCP] request: %s", pkt.DebugString())
 	err := h.parsePacket(pkt)
 	if err != nil {
