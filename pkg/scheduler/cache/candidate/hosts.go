@@ -980,8 +980,6 @@ func (b *HostBuilder) buildOne(host *computemodels.SHost) (interface{}, error) {
 
 	fillFuncs := []func(*HostDesc, *computemodels.SHost) error{
 		b.fillGuestsResourceInfo,
-		b.fillStorages,
-		b.fillSchedtags,
 		b.fillResidentGroups,
 		b.fillMetadata,
 		b.fillIsolatedDevices,
@@ -1131,14 +1129,6 @@ func (b *HostBuilder) guestAppTags(guest computemodels.SGuest) []string {
 		}
 	}
 	return []string{}
-}
-
-func (b *HostBuilder) fillStorages(desc *HostDesc, host *computemodels.SHost) error {
-	return desc.fillStorages(host)
-}
-
-func (b *HostBuilder) fillSchedtags(desc *HostDesc, host *computemodels.SHost) error {
-	return desc.fillSchedtags(b.schedtags)
 }
 
 func (b *HostBuilder) storageUsedCapacity(storage *models.Storage, ready bool) int64 {
