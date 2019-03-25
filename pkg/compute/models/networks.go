@@ -1848,3 +1848,11 @@ func (network *SNetwork) getAllocTimoutDuration() time.Duration {
 	}
 	return time.Duration(tos) * time.Second
 }
+
+func (manager *SNetworkManager) IsValidOnPremiseNetworkIP(ipStr string) bool {
+	net, _ := manager.GetOnPremiseNetworkOfIP(ipStr, "", tristate.None)
+	if net != nil {
+		return true
+	}
+	return false
+}

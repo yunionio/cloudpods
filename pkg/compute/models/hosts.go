@@ -2272,12 +2272,10 @@ func (self *SHost) GetLocalStoragecache() *SStoragecache {
 func (self *SHost) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 	kwargs := data.(*jsonutils.JSONDict)
-	ipmiInfo, err := self.FetchIpmiInfo(kwargs)
+	ipmiInfo, err := fetchIpmiInfo(kwargs, self.Id)
 	if err != nil {
 		log.Errorln(err.Error())
-		return
-	}
-	if ipmiInfo.Length() > 0 {
+	} else if ipmiInfo.Length() > 0 {
 		_, err := self.SaveUpdates(func() error {
 			self.IpmiInfo = ipmiInfo
 			return nil
@@ -2369,6 +2367,15 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 			data.Set("mem_reserved", jsonutils.NewInt(0))
 		}
 	}
+	ipmiInfo, err := fetchIpmiInfo(data, "")
+	if err != nil {
+		log.Errorln(err.Error())
+		return nil, httperrors.NewInputParameterError("%s", err)
+	}
+	ipmiIpAddr, _ := ipmiInfo.GetString("ip_addr")
+	if len(ipmiIpAddr) > 0 && !NetworkManager.IsValidOnPremiseNetworkIP(ipmiIpAddr) {
+		return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
+	}
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
@@ -2404,11 +2411,15 @@ func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}
-	ipmiInfo, err := self.FetchIpmiInfo(data)
+	ipmiInfo, err := fetchIpmiInfo(data, self.Id)
 	if err != nil {
 		return nil, err
 	}
 	if ipmiInfo.Length() > 0 {
+		ipmiIpAddr, _ := ipmiInfo.GetString("ip_addr")
+		if len(ipmiIpAddr) > 0 && !NetworkManager.IsValidOnPremiseNetworkIP(ipmiIpAddr) {
+			return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
+		}
 		val := jsonutils.NewDict()
 		val.Update(self.IpmiInfo)
 		val.Update(ipmiInfo)
@@ -2456,7 +2467,7 @@ func (self *SHost) GetNetifName(netif *SNetInterface) string {
 	return ""
 }
 
-func (self *SHost) FetchIpmiInfo(data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func fetchIpmiInfo(data *jsonutils.JSONDict, hostId string) (*jsonutils.JSONDict, error) {
 	IPMI_KEY_PERFIX := "ipmi_"
 	ipmiInfo := jsonutils.NewDict()
 	kv, _ := data.GetMap()
@@ -2466,16 +2477,18 @@ func (self *SHost) FetchIpmiInfo(data *jsonutils.JSONDict) (*jsonutils.JSONDict,
 			value, _ := data.GetString(key)
 			subkey := key[len(IPMI_KEY_PERFIX):]
 			data.Remove(key)
-			if subkey == "password" {
-				value, err = utils.EncryptAESBase64(self.Id, value)
+			if subkey == "password" && len(hostId) > 0 {
+				value, err = utils.EncryptAESBase64(hostId, value)
 				if err != nil {
 					log.Errorf("encrypt password failed %s", err)
 					return nil, err
 				}
 			} else if subkey == "ip_addr" {
 				if !regutils.MatchIP4Addr(value) {
-					log.Errorf("%s: %s not match ip address", key, value)
-					continue
+					msg := fmt.Sprintf("%s: %s not valid ipv4 address", key, value)
+					log.Errorf(msg)
+					err = fmt.Errorf(msg)
+					return nil, err
 				}
 			}
 			ipmiInfo.Set(subkey, jsonutils.NewString(value))
