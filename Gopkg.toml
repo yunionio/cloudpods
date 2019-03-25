@@ -207,3 +207,6 @@
 [[constraint]]
   name="github.com/ceph/go-ceph"
   branch = "master"
+[[constraint]]
+  branch = "master"
+  name = "github.com/libvirt/libvirt-go-xml"
