@@ -2831,47 +2831,34 @@ func (self *SGuest) importDisks(ctx context.Context, userCred mcclient.TokenCred
 	return nil
 }
 
-func (manager *SGuestManager) AllowPerformImportFromLibvrt(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (manager *SGuestManager) AllowPerformImportFromLibvirt(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowClassPerform(userCred, manager, "import-from-libvirt")
 }
 
-func (manager *SGuestManager) PerformImportFromLibvrt(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	hosts, err := data.GetArray("hosts")
+func (manager *SGuestManager) PerformImportFromLibvirt(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	host := &api.SLibvirtHostConfig{}
+	if err := data.Unmarshal(host); err != nil {
+		return nil, httperrors.NewInputParameterError("Unmarshal data error %s", err)
+	}
+	if len(host.XmlFilePath) == 0 {
+		return nil, httperrors.NewInputParameterError("Some host config missing xml_file_path")
+	}
+	if len(host.HostIp) == 0 {
+		return nil, httperrors.NewInputParameterError("Some host config missing host ip")
+	}
+	sHost, err := HostManager.GetHostByIp(host.HostIp)
 	if err != nil {
-		return nil, httperrors.NewMissingParameterError("hosts")
+		return nil, httperrors.NewInputParameterError("Invalid host ip %s", host.HostIp)
 	}
-	var sHosts = []*SHost{}
-	for _, host := range hosts {
-		if _, ok := host.(*jsonutils.JSONDict); !ok {
-			return nil, httperrors.NewInputParameterError("Wrong host conf, is not dict")
-		}
-		_, err := host.GetString("xml_file_path")
-		if err != nil {
-			return nil, httperrors.NewMissingParameterError("xml_file_path")
-		}
-		_, err = host.GetArray("servers")
-		if err != nil {
-			return nil, httperrors.NewMissingParameterError("servers")
-		}
-		hostIp, err := host.GetString("host_ip")
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("Some host config missing host ip")
-		}
-		if sHost, err := HostManager.GetHostByIp(hostIp); err != nil {
-			return nil, httperrors.NewInputParameterError("Invalid host ip %s", hostIp)
-		} else {
-			sHosts = append(sHosts, sHost)
-		}
+
+	taskData := jsonutils.NewDict()
+	taskData.Set("xml_file_path", jsonutils.NewString(host.XmlFilePath))
+	taskData.Set("servers", jsonutils.Marshal(host.Servers))
+	task, err := taskman.TaskManager.NewTask(ctx, "HostImportLibvirtServersTask", sHost, userCred,
+		taskData, "", "", nil)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("NewTask error: %s", err)
 	}
-	for idx, host := range sHosts {
-		hostParams := hosts[idx].(*jsonutils.JSONDict)
-		hostParams.Remove("host_ip")
-		task, err := taskman.TaskManager.NewTask(ctx, "HostImportLibvirtServersTask", host, userCred,
-			hostParams, "", "", nil)
-		if err != nil {
-			return nil, httperrors.NewInternalServerError("NewTask error: %s", err)
-		}
-		task.ScheduleRun(nil)
-	}
+	task.ScheduleRun(nil)
 	return nil, nil
 }

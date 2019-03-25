@@ -3,9 +3,12 @@ package tasks
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
+	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -14,13 +17,13 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-type HostImportLibvirtServersTask struct {
-	taskman.STask
-}
-
 func init() {
 	taskman.RegisterTask(HostImportLibvirtServersTask{})
 	taskman.RegisterTask(CreateImportedLibvirtGuestTask{})
+}
+
+type HostImportLibvirtServersTask struct {
+	taskman.STask
 }
 
 func (self *HostImportLibvirtServersTask) OnInit(
@@ -44,8 +47,8 @@ func (self *HostImportLibvirtServersTask) RequestHostPrepareImport(
 func (self *HostImportLibvirtServersTask) OnRequestHostPrepareImport(
 	ctx context.Context, host *models.SHost, body jsonutils.JSONObject,
 ) {
-	serversNotMatch, _ := body.Get("servers_not_match")
-	if !serversNotMatch.IsZero() {
+	serversNotMatch, _ := body.GetArray("servers_not_match")
+	if len(serversNotMatch) > 0 {
 		db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT,
 			fmt.Sprintf("Servers %s not match host xml description", serversNotMatch), self.UserCred)
 		logclient.AddActionLogWithContext(ctx, host, logclient.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT,
@@ -59,7 +62,7 @@ func (self *HostImportLibvirtServersTask) OnRequestHostPrepareImport(
 	}
 
 	guestsDesc := []compute.SImportGuestDesc{}
-	if err := serversMatched.Unmarshal(guestsDesc); err != nil {
+	if err := serversMatched.Unmarshal(&guestsDesc); err != nil {
 		self.TaskFailed(ctx, host, fmt.Sprintf("Unmarshal matched servers failed: %s", err))
 		return
 	}
@@ -74,6 +77,7 @@ func (self *HostImportLibvirtServersTask) StartImportServers(
 		success bool
 	)
 	for i := 0; i < len(guestsDesc); i++ {
+		log.Errorln("StartImportServers", guestsDesc[i])
 		self.FillLibvirtGuestDesc(ctx, host, &guestsDesc[i])
 		guest, err := models.GuestManager.DoImport(ctx, self.UserCred, &guestsDesc[i])
 		if err != nil {
@@ -93,6 +97,7 @@ func (self *HostImportLibvirtServersTask) StartImportServers(
 		if success {
 			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT, note, self.UserCred)
 		} else {
+			log.Errorln(note)
 			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT_FAIL, note, self.UserCred)
 		}
 		logclient.AddActionLogWithContext(ctx, host,
@@ -104,7 +109,13 @@ func (self *HostImportLibvirtServersTask) StartImportServers(
 func (self *HostImportLibvirtServersTask) FillLibvirtGuestDesc(
 	ctx context.Context, host *models.SHost, guestDesc *compute.SImportGuestDesc,
 ) {
+	// Generate new uuid for guest to prevent duplicate
+	guestDesc.Id = stringutils.UUID4()
 	guestDesc.HostId = host.Id
+	g, _ := models.GuestManager.FetchByName(self.UserCred, guestDesc.Name)
+	if g != nil {
+		guestDesc.Name = guestDesc.Name + timeutils.IsoTime(time.Now())
+	}
 	for i := 0; i < len(guestDesc.Disks); i++ {
 		guestDesc.Disks[i].DiskId = stringutils.UUID4()
 		if len(guestDesc.Disks[i].Backend) == 0 {
@@ -166,6 +177,9 @@ func (self *CreateImportedLibvirtGuestTask) OnInit(
 		} else {
 			_, err := db.Update(disk, func() error {
 				disk.AccessPath = accessPath.String()
+				if guestDisks[i].Index == 0 {
+					disk.DiskType = models.DISK_TYPE_SYS
+				}
 				return nil
 			})
 			if err != nil {

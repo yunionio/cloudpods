@@ -54,3 +54,18 @@ type SImportGuestDesc struct {
 	IsSystem    bool              `json:"is_system"`
 	Description string            `json:"description"`
 }
+
+type SLibvirtServerConfig struct {
+	Uuid  string            `json:"uuid"`
+	MacIp map[string]string `json:"mac_ip"`
+}
+
+type SLibvirtHostConfig struct {
+	Servers     []SLibvirtServerConfig `json:"servers"`
+	XmlFilePath string                 `json:"xml_file_path"`
+	HostIp      string                 `json:"host_ip"`
+}
+
+type SLibvirtImportConfig struct {
+	Hosts []SLibvirtHostConfig `json:"hosts"`
+}
