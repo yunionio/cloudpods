@@ -101,6 +101,14 @@ func newBaseHostDesc(host *computemodels.SHost) (*BaseHostDesc, error) {
 		return nil, fmt.Errorf("Fill resident tenants error: %v", err)
 	}
 
+	if err := desc.fillStorages(host); err != nil {
+		return nil, fmt.Errorf("Fill storage error: %v", err)
+	}
+
+	if err := desc.fillSchedtags(); err != nil {
+		return nil, fmt.Errorf("Fill schedtag error: %v", err)
+	}
+
 	return desc, nil
 }
 
@@ -150,8 +158,7 @@ func (b *BaseHostDesc) fillResidentTenants(host *computemodels.SHost) error {
 	return nil
 }
 
-func (b *BaseHostDesc) fillSchedtags(allSchedtags []computemodels.SSchedtag) error {
-	//b.Schedtags = allSchedtags
+func (b *BaseHostDesc) fillSchedtags() error {
 	b.HostSchedtags = b.SHost.GetSchedtags()
 	return nil
 }

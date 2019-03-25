@@ -689,6 +689,7 @@ func (self *SHost) PerformUpdateStorage(
 		if err != nil {
 			return nil, fmt.Errorf("Create baremetal storage error: %v", err)
 		}
+		storage.SetModelManager(StorageManager)
 		db.OpsLog.LogEvent(&storage, db.ACT_CREATE, storage.GetShortDesc(ctx), userCred)
 		// 2. create host storage
 		bmStorage := SHoststorage{}
@@ -700,6 +701,7 @@ func (self *SHost) PerformUpdateStorage(
 		if err != nil {
 			return nil, fmt.Errorf("Create baremetal hostStorage error: %v", err)
 		}
+		bmStorage.SetModelManager(HoststorageManager)
 		db.OpsLog.LogAttachEvent(ctx, self, &storage, userCred, bmStorage.GetShortDesc(ctx))
 		return nil, nil
 	}

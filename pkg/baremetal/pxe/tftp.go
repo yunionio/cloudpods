@@ -112,6 +112,7 @@ func (s *Server) serveTFTP(l net.PacketConn, handler *TFTPHandler) error {
 		if err != nil {
 			return nil, err
 		}
+		log.Debugf("[TFTP] dial udp localAddr %s, remoteAddr: %s", localIp, remoteAddr.String())
 		return net.DialUDP("udp", &net.UDPAddr{
 			IP:   localIp,
 			Port: 0, // random free port

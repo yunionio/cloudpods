@@ -87,7 +87,6 @@ type IBaremetalInstance interface {
 type Server struct {
 	// Address to listen on, or empty for all interfaces
 	Address          string
-	DHCPAddress      string
 	DHCPPort         int
 	TFTPPort         int
 	TFTPRootDir      string
@@ -98,9 +97,6 @@ type Server struct {
 func (s *Server) Serve() error {
 	if s.Address == "" {
 		s.Address = "0.0.0.0"
-	}
-	if s.DHCPAddress == "" {
-		s.DHCPAddress = "0.0.0.0"
 	}
 	if s.DHCPPort == 0 {
 		s.DHCPPort = portDHCP
@@ -118,8 +114,8 @@ func (s *Server) Serve() error {
 		return err
 	}
 
-	log.Infof("DHCPServer Bind %s %d", s.DHCPAddress, s.DHCPPort)
-	dhcpSrv, _, err := dhcp.NewDHCPServer2(s.DHCPAddress, s.DHCPPort, false)
+	log.Infof("DHCPServer Bind %s %d", s.Address, s.DHCPPort)
+	dhcpSrv, _, err := dhcp.NewDHCPServer2(s.Address, s.DHCPPort, false)
 	if err != nil {
 		return err
 	}

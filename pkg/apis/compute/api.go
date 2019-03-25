@@ -176,3 +176,11 @@ type ServerDeployInput struct {
 	Password      string          `json:"password"`
 	AutoStart     *bool           `json:"auto_start"`
 }
+
+type HostLoginInfo struct {
+	apis.Meta
+
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Ip       string `json:"ip"`
+}
