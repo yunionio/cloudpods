@@ -134,18 +134,13 @@ func (agent *SBaremetalAgent) disableUDPOffloading() {
 }
 
 func (agent *SBaremetalAgent) startPXEServices(manager *SBaremetalManager) {
-	pxeListenIP, err := agent.GetListenIP()
-	if err != nil {
-		log.Fatalf("Get pxe listen ip address error: %v", err)
-	}
 	dhcpListenIp, err := agent.GetDHCPServerListenIP()
 	if err != nil {
 		log.Fatalf("Get dhcp listen ip address error: %v", err)
 	}
 	agent.PXEServer = &pxe.Server{
 		TFTPRootDir:      o.Options.TftpRoot,
-		Address:          pxeListenIP.String(),
-		DHCPAddress:      dhcpListenIp.String(),
+		Address:          dhcpListenIp.String(),
 		BaremetalManager: manager,
 	}
 	go func() {

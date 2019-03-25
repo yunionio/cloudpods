@@ -50,7 +50,7 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 
 	layouts, err := baremetal.CalculateLayout(
 		schedData.BaremetalDiskConfigs,
-		candidate.Storages,
+		candidate.StorageInfo,
 	)
 
 	if err == nil && baremetal.CheckDisksAllocable(layouts, toBaremetalDisks(schedData.Disks)) {
