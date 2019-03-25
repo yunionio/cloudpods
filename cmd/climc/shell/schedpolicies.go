@@ -124,12 +124,14 @@ func init() {
 	})
 
 	type SchedpoliciesEvaluateOptions struct {
-		ID     string `help:"ID or name of the sched policy"`
-		SERVER string `help:"ID or name of the server"`
+		ID           string `help:"ID or name of the sched policy"`
+		OBJECT       string `help:"ID or name of the object"`
+		ResourceType string `help:"Resource type of the object" default:"server" choices:"server|disk" short-token:"t"`
 	}
 	R(&SchedpoliciesEvaluateOptions{}, "sched-policy-evaluate", "Evaluate sched policy", func(s *mcclient.ClientSession, args *SchedpoliciesEvaluateOptions) error {
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.SERVER), "server")
+		params.Add(jsonutils.NewString(args.OBJECT), "object")
+		params.Add(jsonutils.NewString(args.ResourceType), "resource_type")
 		result, err := modules.Schedpolicies.PerformAction(s, args.ID, "evaluate", params)
 		if err != nil {
 			return err

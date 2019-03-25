@@ -187,11 +187,11 @@ func (c *SchedtagChecker) Contains(objectTags []models.SSchedtag, tags []compute
 	return true, nil
 }
 
-func (p *SchedtagChecker) getDynamicSchedtags(schedDesc *jsonutils.JSONDict) ([]models.SSchedtag, error) {
+func (p *SchedtagChecker) getDynamicSchedtags(resType string, schedDesc *jsonutils.JSONDict) ([]models.SSchedtag, error) {
 	if schedDesc == nil {
 		return []models.SSchedtag{}, nil
 	}
-	dynamicTags := models.DynamicschedtagManager.GetAllEnabledDynamicSchedtags()
+	dynamicTags := models.DynamicschedtagManager.GetEnabledDynamicSchedtagsByResource(resType)
 
 	tags := []models.SSchedtag{}
 	for _, tag := range dynamicTags {
@@ -233,7 +233,7 @@ func (c *SchedtagChecker) mergeSchedtags(candiate ISchedtagCandidate, staticTags
 
 func (c *SchedtagChecker) GetCandidateSchedtags(candidate ISchedtagCandidate) ([]models.SSchedtag, error) {
 	staticTags := candidate.GetSchedtags()
-	dynamicTags, err := c.getDynamicSchedtags(candidate.GetDynamicSchedDesc())
+	dynamicTags, err := c.getDynamicSchedtags(candidate.ResourceType(), candidate.GetDynamicSchedDesc())
 	if err != nil {
 		return nil, err
 	}

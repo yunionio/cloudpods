@@ -2,11 +2,11 @@ package models
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
@@ -113,6 +113,7 @@ func (self *SSchedpolicy) getMoreColumns(extra *jsonutils.JSONDict) *jsonutils.J
 	schedtag := self.getSchedtag()
 	if schedtag != nil {
 		extra.Add(jsonutils.NewString(schedtag.GetName()), "schedtag")
+		extra.Add(jsonutils.NewString(schedtag.ResourceType), "resource_type")
 	}
 	return extra
 }
@@ -130,17 +131,27 @@ func (self *SSchedpolicy) GetExtraDetails(ctx context.Context, userCred mcclient
 	return self.getMoreColumns(extra), nil
 }
 
-func (manager *SSchedpolicyManager) getAllEnabledPolicies() []SSchedpolicy {
+func (manager *SSchedpolicyManager) getAllEnabledPoliciesByResource(resType string) []SSchedpolicy {
 	policies := make([]SSchedpolicy, 0)
-
 	q := SchedpolicyManager.Query().IsTrue("enabled")
+	schedtags := SchedtagManager.Query().SubQuery()
+	q = q.Join(schedtags, sqlchemy.AND(
+		sqlchemy.Equals(q.Field("schedtag_id"), schedtags.Field("id")),
+		sqlchemy.Equals(schedtags.Field("resource_type"), resType)))
 	err := db.FetchModelObjects(manager, q, &policies)
 	if err != nil {
 		log.Errorf("getAllEnabledPolicies fail %s", err)
 		return nil
 	}
-
 	return policies
+}
+
+func (manager *SSchedpolicyManager) getHostEnabledPolicies() []SSchedpolicy {
+	return manager.getAllEnabledPoliciesByResource(HostManager.KeywordPlural())
+}
+
+func (manager *SSchedpolicyManager) getStorageEnabledPolicies() []SSchedpolicy {
+	return manager.getAllEnabledPoliciesByResource(StorageManager.KeywordPlural())
 }
 
 func (self *SSchedpolicy) AllowPerformEvaluate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -148,28 +159,30 @@ func (self *SSchedpolicy) AllowPerformEvaluate(ctx context.Context, userCred mcc
 }
 
 func (self *SSchedpolicy) PerformEvaluate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	serverStr := jsonutils.GetAnyString(data, []string{"server", "server_id", "guest", "guest_id"})
-	serverObj, err := GuestManager.FetchByIdOrName(userCred, serverStr)
+	objectId := jsonutils.GetAnyString(data, []string{"object", "object_id"})
+	resType := jsonutils.GetAnyString(data, []string{"resource_type"})
+	resMan := DynamicschedtagManager.VirtualResourcesManager[resType]
+	if resMan == nil {
+		return nil, httperrors.NewNotAcceptableError("ResourceType %q not support", resType)
+	}
+	obj, err := FetchDynamicResourceObject(resMan, userCred, objectId)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("server %s not found", serverStr)
-		} else {
-			return nil, httperrors.NewGeneralError(err)
-		}
+		return nil, err
 	}
 
-	server := serverObj.(*SGuest)
-	desc := server.getSchedDesc()
+	desc := obj.GetDynamicConditionInput()
 
 	params := jsonutils.NewDict()
-	params.Add(desc.JSON(desc), "server")
+	params.Add(desc, obj.Keyword())
+
+	log.V(10).Debugf("Schedpolicy evaluate input: %s", params.PrettyString())
 
 	meet, err := conditionparser.Eval(self.Condition, params)
 	if err != nil {
 		return nil, err
 	}
 	result := jsonutils.NewDict()
-	result.Add(desc.JSON(desc), "server")
+	result.Add(desc, obj.Keyword())
 	if meet {
 		result.Add(jsonutils.JSONTrue, "result")
 	} else {
@@ -178,45 +191,85 @@ func (self *SSchedpolicy) PerformEvaluate(ctx context.Context, userCred mcclient
 	return result, nil
 }
 
-func ApplySchedPolicies(params *schedapi.ScheduleInput) *schedapi.ScheduleInput {
-	policies := SchedpolicyManager.getAllEnabledPolicies()
-	if policies == nil {
-		log.Errorf("getAllEnabledPolicies fail")
-		//return jsonutils.Marshal(params).(*jsonutils.JSONDict)
-		return params
+func matchResourceSchedPolicy(
+	policy SSchedpolicy,
+	input *jsonutils.JSONDict,
+) bool {
+	meet, err := conditionparser.Eval(policy.Condition, input)
+	if err != nil {
+		log.Errorf("Eval Condition %s error: %v", policy.Condition, err)
+		return false
 	}
+	return meet
+}
 
+func applyResourceSchedPolicy(
+	policies []SSchedpolicy,
+	oldTags []*api.SchedtagConfig,
+	input *jsonutils.JSONDict,
+	setTags func([]*api.SchedtagConfig),
+) {
 	schedtags := make(map[string]string)
 
-	if len(params.ServerConfig.Schedtags) != 0 {
-		for _, tag := range params.ServerConfig.Schedtags {
-			schedtags[tag.Id] = tag.Strategy
-		}
-		log.Infof("original sched tag %#v", schedtags)
+	for _, tag := range oldTags {
+		schedtags[tag.Id] = tag.Strategy
 	}
 
-	input := jsonutils.NewDict()
-	input.Add(jsonutils.Marshal(params), "server")
+	log.Infof("original schedtag %#v", schedtags)
 
 	for i := 0; i < len(policies); i += 1 {
-		meet, err := conditionparser.Eval(policies[i].Condition, input)
-		if err == nil && meet {
-			st := policies[i].getSchedtag()
-			if st != nil {
-				schedtags[st.Name] = policies[i].Strategy
-			}
+		policy := policies[i]
+		st := policy.getSchedtag()
+		if matchResourceSchedPolicy(policy, input) {
+			schedtags[st.Name] = policy.Strategy
 		}
 	}
-
 	log.Infof("updated sched tag %s", schedtags)
 
-	params.ServerConfig.Schedtags = make([]*api.SchedtagConfig, 0)
+	newSchedtags := make([]*api.SchedtagConfig, 0)
 	for name, strategy := range schedtags {
-		params.ServerConfig.Schedtags = append(params.ServerConfig.Schedtags, &api.SchedtagConfig{
+		newSchedtags = append(newSchedtags, &api.SchedtagConfig{
 			Id:       name,
 			Strategy: strategy,
 		})
 	}
+	setTags(newSchedtags)
+}
 
-	return params
+func GetDynamicConditionInput(man IDynamicResourceManager, input *jsonutils.JSONDict) *jsonutils.JSONDict {
+	ret := jsonutils.NewDict()
+	ret.Add(input, man.Keyword())
+	return ret
+}
+
+func applyServerSchedtags(policies []SSchedpolicy, input *schedapi.ScheduleInput) {
+	inputCond := GetDynamicConditionInput(GuestManager, input.ToConditionInput())
+	setFunc := func(tags []*api.SchedtagConfig) {
+		input.Schedtags = tags
+	}
+	applyResourceSchedPolicy(policies, input.Schedtags, inputCond, setFunc)
+}
+
+func applyDiskSchedtags(policies []SSchedpolicy, input *api.DiskConfig) {
+	inputCond := GetDynamicConditionInput(DiskManager, jsonutils.Marshal(input).(*jsonutils.JSONDict))
+	setFunc := func(tags []*api.SchedtagConfig) {
+		input.Schedtags = tags
+	}
+	applyResourceSchedPolicy(policies, input.Schedtags, inputCond, setFunc)
+}
+
+func ApplySchedPolicies(input *schedapi.ScheduleInput) *schedapi.ScheduleInput {
+	hostPolicies := SchedpolicyManager.getHostEnabledPolicies()
+	storagePolicies := SchedpolicyManager.getStorageEnabledPolicies()
+
+	config := input.ServerConfigs
+
+	applyServerSchedtags(hostPolicies, input)
+	for _, disk := range config.Disks {
+		applyDiskSchedtags(storagePolicies, disk)
+	}
+
+	input.ServerConfig.ServerConfigs = config
+
+	return input
 }
