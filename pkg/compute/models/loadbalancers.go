@@ -557,9 +557,9 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(&lb, db.ACT_CREATE, lb.GetShortDesc(ctx), userCred)
-
 	SyncCloudProject(userCred, &lb, projectId, extLb, lb.ManagerId)
+
+	db.OpsLog.LogEvent(&lb, db.ACT_CREATE, lb.GetShortDesc(ctx), userCred)
 
 	lb.syncLoadbalancerNetwork(ctx, userCred)
 	return &lb, nil

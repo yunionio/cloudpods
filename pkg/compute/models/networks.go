@@ -584,10 +584,10 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(&net, db.ACT_CREATE, net.GetShortDesc(ctx), userCred)
-
 	vpc := wire.getVpc()
 	SyncCloudProject(userCred, &net, projectId, extNet, vpc.ManagerId)
+
+	db.OpsLog.LogEvent(&net, db.ACT_CREATE, net.GetShortDesc(ctx), userCred)
 
 	return &net, nil
 }

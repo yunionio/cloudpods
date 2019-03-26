@@ -375,9 +375,9 @@ func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(&lbcert, db.ACT_CREATE, lbcert.GetShortDesc(ctx), userCred)
-
 	SyncCloudProject(userCred, &lbcert, projectId, extCertificate, lbcert.ManagerId)
+
+	db.OpsLog.LogEvent(&lbcert, db.ACT_CREATE, lbcert.GetShortDesc(ctx), userCred)
 
 	return &lbcert, nil
 }

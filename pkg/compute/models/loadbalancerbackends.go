@@ -400,9 +400,9 @@ func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx cont
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(lbb, db.ACT_CREATE, lbb.GetShortDesc(ctx), userCred)
-
 	SyncCloudProject(userCred, lbb, projectId, extLoadbalancerBackend, loadbalancerBackendgroup.ManagerId)
+
+	db.OpsLog.LogEvent(lbb, db.ACT_CREATE, lbb.GetShortDesc(ctx), userCred)
 
 	return lbb, nil
 }

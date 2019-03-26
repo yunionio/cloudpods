@@ -1944,9 +1944,9 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
-
 	SyncCloudProject(userCred, &guest, projectId, extVM, host.ManagerId)
+
+	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
 
 	if guest.Status == VM_RUNNING {
 		db.OpsLog.LogEvent(&guest, db.ACT_START, guest.GetShortDesc(ctx), userCred)

@@ -379,9 +379,9 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(lbr, db.ACT_CREATE, lbr.GetShortDesc(ctx), userCred)
-
 	SyncCloudProject(userCred, lbr, projectId, extRule, listener.ManagerId)
+
+	db.OpsLog.LogEvent(lbr, db.ACT_CREATE, lbr.GetShortDesc(ctx), userCred)
 
 	return lbr, nil
 }
