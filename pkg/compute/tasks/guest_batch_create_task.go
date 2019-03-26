@@ -91,7 +91,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
 		return err
 	}
-	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, input.Networks, &pendingUsage)
+	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, input.Networks, &pendingUsage, candidate.Nets)
 	self.SetPendingUsage(&pendingUsage)
 
 	if err != nil {
@@ -101,7 +101,11 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	}
 
 	guest.GetDriver().PrepareDiskRaidConfig(self.UserCred, host, input.BaremetalDiskConfigs)
-	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, input.Disks, &pendingUsage, true, true, candidate, candidate.BackupCandidate)
+	var backupCandidateDisks []*schedapi.CandidateDisk
+	if candidate.BackupCandidate != nil {
+		backupCandidateDisks = candidate.BackupCandidate.Disks
+	}
+	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, input.Disks, &pendingUsage, true, true, candidate.Disks, backupCandidateDisks)
 	self.SetPendingUsage(&pendingUsage)
 
 	if err != nil {

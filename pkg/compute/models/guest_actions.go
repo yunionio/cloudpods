@@ -1536,7 +1536,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 			return nil, err
 		}
 		conf.Ifname = gn.Ifname
-		ngn, err := self.attach2NetworkDesc(ctx, userCred, host, conf, nil)
+		ngn, err := self.attach2NetworkDesc(ctx, userCred, host, conf, nil, nil)
 		if err != nil {
 			return nil, httperrors.NewBadRequestError(err.Error())
 		}
@@ -1659,7 +1659,7 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 			return nil, httperrors.NewOutOfQuotaError(err.Error())
 		}
 		host := self.GetHost()
-		_, err = self.attach2NetworkDesc(ctx, userCred, host, conf, pendingUsage)
+		_, err = self.attach2NetworkDesc(ctx, userCred, host, conf, pendingUsage, nil)
 		if err != nil {
 			QuotaManager.CancelPendingUsage(ctx, userCred, projectId, nil, pendingUsage)
 			return nil, httperrors.NewBadRequestError(err.Error())
@@ -2893,7 +2893,7 @@ func (self *SGuest) importNics(ctx context.Context, userCred mcclient.TokenCrede
 		if err != nil {
 			return httperrors.NewNotFoundError("Not found network by ip %s", nic.Ip)
 		}
-		_, err = self.attach2NetworkDesc(ctx, userCred, self.GetHost(), ToNetConfig(&nic, net), nil)
+		_, err = self.attach2NetworkDesc(ctx, userCred, self.GetHost(), ToNetConfig(&nic, net), nil, nil)
 		if err != nil {
 			return err
 		}

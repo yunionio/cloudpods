@@ -168,6 +168,10 @@ func (manager *SSchedpolicyManager) getStorageEnabledPolicies() []SSchedpolicy {
 	return manager.getAllEnabledPoliciesByResource(StorageManager.KeywordPlural())
 }
 
+func (manager *SSchedpolicyManager) getNetworkEnabledPolicies() []SSchedpolicy {
+	return manager.getAllEnabledPoliciesByResource(NetworkManager.KeywordPlural())
+}
+
 func (self *SSchedpolicy) AllowPerformEvaluate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, self, "evaluate")
 }
@@ -272,15 +276,28 @@ func applyDiskSchedtags(policies []SSchedpolicy, input *api.DiskConfig) {
 	applyResourceSchedPolicy(policies, input.Schedtags, inputCond, setFunc)
 }
 
+func applyNetworkSchedtags(policies []SSchedpolicy, input *api.NetworkConfig) {
+	inputCond := GetDynamicConditionInput(NetworkManager, jsonutils.Marshal(input).(*jsonutils.JSONDict))
+	setFunc := func(tags []*api.SchedtagConfig) {
+		input.Schedtags = tags
+	}
+	applyResourceSchedPolicy(policies, input.Schedtags, inputCond, setFunc)
+}
+
 func ApplySchedPolicies(input *schedapi.ScheduleInput) *schedapi.ScheduleInput {
+	// TODO: refactor this duplicate code
 	hostPolicies := SchedpolicyManager.getHostEnabledPolicies()
 	storagePolicies := SchedpolicyManager.getStorageEnabledPolicies()
+	networkPolicies := SchedpolicyManager.getNetworkEnabledPolicies()
 
 	config := input.ServerConfigs
 
 	applyServerSchedtags(hostPolicies, input)
 	for _, disk := range config.Disks {
 		applyDiskSchedtags(storagePolicies, disk)
+	}
+	for _, net := range config.Networks {
+		applyNetworkSchedtags(networkPolicies, net)
 	}
 
 	input.ServerConfig.ServerConfigs = config

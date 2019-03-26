@@ -101,6 +101,11 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 	canCreate := true
 	if readyCount < reqCount {
 		canCreate = false
+		filters = append(filters, &api.ForecastFilter{
+			Messages: []string{
+				fmt.Sprintf("No enough resources: %d/%d(free/request)", readyCount, reqCount),
+			},
+		})
 	}
 	return &api.SchedForecastResult{
 		CanCreate: canCreate,

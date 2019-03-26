@@ -16,11 +16,18 @@ package predicates
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/errors"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm"
+	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/data_manager"
@@ -178,4 +185,340 @@ func (h *PredicateHelper) UseReserved() bool {
 		usable = true
 	}
 	return usable
+}
+
+type PredicatedSchedtagResource struct {
+	ISchedtagCandidateResource
+	PreferTags []computeapi.SchedtagConfig
+	AvoidTags  []computeapi.SchedtagConfig
+}
+
+type SchedtagInputResourcesMap map[int][]*PredicatedSchedtagResource
+
+func (m SchedtagInputResourcesMap) getAllTags(isPrefer bool) []computeapi.SchedtagConfig {
+	ret := make([]computeapi.SchedtagConfig, 0)
+	for _, ss := range m {
+		for _, s := range ss {
+			var tags []computeapi.SchedtagConfig
+			if isPrefer {
+				tags = s.PreferTags
+			} else {
+				tags = s.AvoidTags
+			}
+			ret = append(ret, tags...)
+		}
+	}
+	return ret
+}
+
+func (m SchedtagInputResourcesMap) GetPreferTags() []computeapi.SchedtagConfig {
+	return m.getAllTags(true)
+}
+
+func (m SchedtagInputResourcesMap) GetAvoidTags() []computeapi.SchedtagConfig {
+	return m.getAllTags(false)
+}
+
+type CandidateInputResourcesMap map[string]SchedtagInputResourcesMap
+
+type ISchedtagCandidateResource interface {
+	GetName() string
+	GetId() string
+	Keyword() string
+	GetSchedtags() []models.SSchedtag
+	GetSchedtagJointManager() models.ISchedtagJointManager
+	GetDynamicConditionInput() *jsonutils.JSONDict
+}
+
+type ISchedtagPredicateInstance interface {
+	core.FitPredicate
+	OnPriorityEnd(u *core.Unit, c core.Candidater)
+	OnSelectEnd(u *core.Unit, c core.Candidater, count int64)
+
+	GetInputs(u *core.Unit) []ISchedtagCustomer
+	GetResources(c core.Candidater) []ISchedtagCandidateResource
+	IsResourceFitInput(unit *core.Unit, res ISchedtagCandidateResource, input ISchedtagCustomer) error
+
+	DoSelect(c core.Candidater, input ISchedtagCustomer, res []ISchedtagCandidateResource) []ISchedtagCandidateResource
+	AddSelectResult(index int, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource)
+	GetCandidateResourceSortScore(candidate ISchedtagCandidateResource) int
+}
+
+type BaseSchedtagPredicate struct {
+	BasePredicate
+	plugin.BasePlugin
+
+	CandidateInputResourcesMap CandidateInputResourcesMap
+
+	Hypervisor string
+}
+
+func NewBaseSchedtagPredicate() *BaseSchedtagPredicate {
+	return &BaseSchedtagPredicate{
+		CandidateInputResourcesMap: make(map[string]SchedtagInputResourcesMap),
+	}
+}
+
+func (p *PredicatedSchedtagResource) isNoTag() bool {
+	return len(p.PreferTags) == 0 && len(p.AvoidTags) == 0
+}
+
+func (p *PredicatedSchedtagResource) hasPreferTags() bool {
+	return len(p.PreferTags) != 0
+}
+
+func (p *PredicatedSchedtagResource) hasAvoidTags() bool {
+	return len(p.AvoidTags) != 0
+}
+
+type ISchedtagCustomer interface {
+	JSON(interface{}) *jsonutils.JSONDict
+	Keyword() string
+	GetSchedtags() []*computeapi.SchedtagConfig
+}
+
+type SchedtagResourceW struct {
+	candidater ISchedtagCandidateResource
+	input      ISchedtagCustomer
+}
+
+func (w SchedtagResourceW) IndexKey() string {
+	return fmt.Sprintf("%s:%s", w.candidater.GetName(), w.candidater.GetId())
+}
+
+func (w SchedtagResourceW) ResourceType() string {
+	return getSchedtagResourceType(w.candidater)
+}
+
+func getSchedtagResourceType(candidater ISchedtagCandidateResource) string {
+	return candidater.GetSchedtagJointManager().GetMasterManager().KeywordPlural()
+}
+
+func (w SchedtagResourceW) GetSchedtags() []models.SSchedtag {
+	return w.candidater.GetSchedtags()
+}
+
+func (w SchedtagResourceW) GetDynamicSchedDesc() *jsonutils.JSONDict {
+	ret := jsonutils.NewDict()
+	resSchedDesc := w.candidater.GetDynamicConditionInput()
+	inputSchedDesc := w.input.JSON(w.input)
+	ret.Add(resSchedDesc, w.candidater.Keyword())
+	ret.Add(inputSchedDesc, w.input.Keyword())
+	return ret
+}
+
+func (p *BaseSchedtagPredicate) GetHypervisorDriver() models.IGuestDriver {
+	return models.GetDriver(p.Hypervisor)
+}
+
+func (p *BaseSchedtagPredicate) check(input ISchedtagCustomer, candidate ISchedtagCandidateResource, u *core.Unit, c core.Candidater) (*PredicatedSchedtagResource, error) {
+	allTags, err := GetAllSchedtags(getSchedtagResourceType(candidate))
+	if err != nil {
+		return nil, err
+	}
+	tagPredicate := NewSchedtagPredicate(input.GetSchedtags(), allTags)
+	shouldExec := u.ShouldExecuteSchedtagFilter(c.Getter().Id())
+	res := &PredicatedSchedtagResource{
+		ISchedtagCandidateResource: candidate,
+	}
+	if shouldExec {
+		if err := tagPredicate.Check(
+			SchedtagResourceW{
+				candidater: candidate,
+				input:      input,
+			},
+		); err != nil {
+			return nil, err
+		}
+		res.PreferTags = tagPredicate.GetPreferTags()
+		res.AvoidTags = tagPredicate.GetAvoidTags()
+	}
+	return res, nil
+}
+
+func (p *BaseSchedtagPredicate) checkResources(input ISchedtagCustomer, ress []ISchedtagCandidateResource, u *core.Unit, c core.Candidater) ([]*PredicatedSchedtagResource, error) {
+	errs := make([]error, 0)
+	ret := make([]*PredicatedSchedtagResource, 0)
+	for _, res := range ress {
+		ps, err := p.check(input, res, u, c)
+		if err != nil {
+			// append err, resource not suit input customer
+			errs = append(errs, err)
+			continue
+		}
+		ret = append(ret, ps)
+	}
+	if len(ret) == 0 {
+		return nil, errors.NewAggregate(errs)
+	}
+	return ret, nil
+}
+
+func (p *BaseSchedtagPredicate) GetInputResourcesMap(candidateId string) SchedtagInputResourcesMap {
+	ret, ok := p.CandidateInputResourcesMap[candidateId]
+	if !ok {
+		ret = make(map[int][]*PredicatedSchedtagResource)
+		p.CandidateInputResourcesMap[candidateId] = ret
+	}
+	return ret
+}
+
+func (p *BaseSchedtagPredicate) PreExecute(sp ISchedtagPredicateInstance, u *core.Unit, cs []core.Candidater) (bool, error) {
+	input := sp.GetInputs(u)
+	if len(input) == 0 {
+		return false, nil
+	}
+
+	p.Hypervisor = computeapi.HOSTTYPE_HYPERVISOR[u.SchedData().Hypervisor]
+
+	// always do select step
+	u.AppendSelectPlugin(sp)
+	return true, nil
+}
+
+func (p *BaseSchedtagPredicate) Execute(
+	sp ISchedtagPredicateInstance,
+	u *core.Unit,
+	c core.Candidater,
+) (bool, []core.PredicateFailureReason, error) {
+	inputs := sp.GetInputs(u)
+	resources := sp.GetResources(c)
+
+	h := NewPredicateHelper(sp, u, c)
+
+	inputRes := p.GetInputResourcesMap(c.IndexKey())
+	filterErrs := make([]error, 0)
+	for idx, input := range inputs {
+		fitResources := make([]ISchedtagCandidateResource, 0)
+		errs := make([]error, 0)
+		for _, res := range resources {
+			if err := sp.IsResourceFitInput(u, res, input); err == nil {
+				fitResources = append(fitResources, res)
+			} else {
+				errs = append(errs, err)
+			}
+		}
+		if len(fitResources) == 0 {
+			h.Exclude(fmt.Sprintf("Not found available resources for %s %s: %s", input.Keyword(), input.JSON(input), errors.NewAggregate(errs)))
+			break
+		}
+		if len(errs) > 0 {
+			filterErrs = append(filterErrs, errors.NewAggregate(errs))
+		}
+
+		matchedResources, err := p.checkResources(input, fitResources, u, c)
+		if err != nil {
+			log.Errorf("=========err: %v, filterErrs: %v", err, filterErrs)
+			aggErr := errors.NewAggregate(filterErrs)
+			errMsg := fmt.Sprintf("schedtag: %v", err.Error())
+			if aggErr != nil {
+				errMsg = fmt.Sprintf("%s; filter: %v", errMsg, aggErr.Error())
+			}
+			h.Exclude(errMsg)
+		}
+		inputRes[idx] = matchedResources
+	}
+
+	return h.GetResult()
+}
+
+func (p *BaseSchedtagPredicate) OnPriorityEnd(sp ISchedtagPredicateInstance, u *core.Unit, c core.Candidater) {
+	resTags := []models.SSchedtag{}
+	for _, res := range sp.GetResources(c) {
+		resTags = append(resTags, res.GetSchedtags()...)
+	}
+
+	inputRes := p.GetInputResourcesMap(c.IndexKey())
+	avoidTags := inputRes.GetAvoidTags()
+	preferTags := inputRes.GetPreferTags()
+
+	avoidCountMap := GetSchedtagCount(avoidTags, resTags, api.AggregateStrategyAvoid)
+	preferCountMap := GetSchedtagCount(preferTags, resTags, api.AggregateStrategyPrefer)
+
+	setScore := SetCandidateScoreBySchedtag
+
+	setScore(u, c, preferCountMap, true)
+	setScore(u, c, avoidCountMap, false)
+}
+
+func (p *BaseSchedtagPredicate) OnSelectEnd(sp ISchedtagPredicateInstance, u *core.Unit, c core.Candidater, count int64) {
+	inputRes := p.GetInputResourcesMap(c.IndexKey())
+	output := u.GetAllocatedResource(c.IndexKey())
+	inputs := sp.GetInputs(u)
+	for idx, res := range inputRes {
+		selRes := p.selectResource(sp, c, inputs[idx], res)
+		sortRes := newSortCandidateResource(sp, selRes)
+		sort.Sort(sortRes)
+		//log.Debugf("sort result: %s", sortRes.DebugString())
+		sp.AddSelectResult(idx, sortRes.res, output)
+	}
+}
+
+type sortCandidateResource struct {
+	predicate ISchedtagPredicateInstance
+	res       []ISchedtagCandidateResource
+}
+
+func newSortCandidateResource(predicate ISchedtagPredicateInstance, res []ISchedtagCandidateResource) *sortCandidateResource {
+	return &sortCandidateResource{
+		predicate: predicate,
+		res:       res,
+	}
+}
+
+func (s *sortCandidateResource) Len() int {
+	return len(s.res)
+}
+
+func (s *sortCandidateResource) DebugString() string {
+	var debugStr string
+	for _, i := range s.res {
+		debugStr = fmt.Sprintf("%s %d", debugStr, s.predicate.GetCandidateResourceSortScore(i))
+	}
+	return debugStr
+}
+
+// desc order
+func (s *sortCandidateResource) Less(i, j int) bool {
+	res1, res2 := s.res[i], s.res[j]
+	v1 := s.predicate.GetCandidateResourceSortScore(res1)
+	v2 := s.predicate.GetCandidateResourceSortScore(res2)
+	return v1 > v2
+}
+
+func (s *sortCandidateResource) Swap(i, j int) {
+	s.res[i], s.res[j] = s.res[j], s.res[i]
+}
+
+func (p *BaseSchedtagPredicate) selectResource(
+	sp ISchedtagPredicateInstance,
+	c core.Candidater,
+	input ISchedtagCustomer,
+	ress []*PredicatedSchedtagResource,
+) []ISchedtagCandidateResource {
+	preferRes := make([]ISchedtagCandidateResource, 0)
+	noTagRes := make([]ISchedtagCandidateResource, 0)
+	avoidRes := make([]ISchedtagCandidateResource, 0)
+	for _, res := range ress {
+		if res.isNoTag() {
+			noTagRes = append(noTagRes, res.ISchedtagCandidateResource)
+		} else if res.hasPreferTags() {
+			preferRes = append(preferRes, res.ISchedtagCandidateResource)
+		} else if res.hasAvoidTags() {
+			avoidRes = append(avoidRes, res.ISchedtagCandidateResource)
+		}
+	}
+	for _, ress := range [][]ISchedtagCandidateResource{
+		preferRes,
+		noTagRes,
+		avoidRes,
+	} {
+		if len(ress) == 0 {
+			continue
+		}
+		if ret := sp.DoSelect(c, input, ress); ret != nil {
+			return ret
+		}
+	}
+	return nil
 }

@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
@@ -2504,18 +2505,33 @@ func (self *SGuest) getDefaultNetworkConfig() *api.NetworkConfig {
 	return &netConf
 }
 
-func (self *SGuest) CreateNetworksOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netArray []*api.NetworkConfig, pendingUsage quotas.IQuota) error {
+func (self *SGuest) CreateNetworksOnHost(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	host *SHost,
+	netArray []*api.NetworkConfig,
+	pendingUsage quotas.IQuota,
+	candidateNets []*schedapi.CandidateNet,
+) error {
 	if len(netArray) == 0 {
 		netConfig := self.getDefaultNetworkConfig()
 		_, err := self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
 		return err
 	}
-	for _, netConfig := range netArray {
+	for idx, netConfig := range netArray {
 		netConfig, err := parseNetworkInfo(userCred, netConfig)
 		if err != nil {
 			return err
 		}
-		_, err = self.attach2NetworkDesc(ctx, userCred, host, netConfig, pendingUsage)
+		var candidateNet *schedapi.CandidateNet
+		if len(candidateNets) > idx {
+			candidateNet = candidateNets[idx]
+		}
+		networkIds := []string{}
+		if candidateNet != nil {
+			networkIds = candidateNet.NetworkIds
+		}
+		_, err = self.attach2NetworkDesc(ctx, userCred, host, netConfig, pendingUsage, networkIds)
 		if err != nil {
 			return err
 		}
@@ -2523,23 +2539,40 @@ func (self *SGuest) CreateNetworksOnHost(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SGuest) attach2NetworkDesc(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]SGuestnetwork, error) {
+func (self *SGuest) attach2NetworkDesc(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	host *SHost,
+	netConfig *api.NetworkConfig,
+	pendingUsage quotas.IQuota,
+	candiateNetIds []string,
+) ([]SGuestnetwork, error) {
 	var gns []SGuestnetwork
-	var err1, err2 error
+	var errs []error
+
+	tryNetworkIds := []string{}
 	if len(netConfig.Network) > 0 {
-		gns, err1 = self.attach2NamedNetworkDesc(ctx, userCred, host, netConfig, pendingUsage)
-		if err1 == nil {
-			return gns, nil
+		tryNetworkIds = append(tryNetworkIds, netConfig.Network)
+	}
+	if len(candiateNetIds) > 0 {
+		// suggestion by scheduler
+		tryNetworkIds = append(tryNetworkIds, candiateNetIds...)
+	}
+
+	if len(tryNetworkIds) > 0 {
+		for _, tryNetwork := range tryNetworkIds {
+			var err error
+			netConfig.Network = tryNetwork
+			gns, err = self.attach2NamedNetworkDesc(ctx, userCred, host, netConfig, pendingUsage)
+			if err == nil {
+				return gns, nil
+			}
+			errs = append(errs, err)
 		}
-	}
-	gns, err2 = self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
-	if err2 == nil {
-		return gns, nil
-	}
-	if err1 != nil {
-		return nil, fmt.Errorf("%s/%s", err1, err2)
+		return nil, errors.NewAggregate(errs)
 	} else {
-		return nil, err2
+		netConfig.Network = ""
+		return self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
 	}
 }
 
@@ -2575,8 +2608,8 @@ func (self *SGuest) CreateDisksOnHost(
 	pendingUsage quotas.IQuota,
 	inheritBilling bool,
 	isWithServerCreate bool,
-	candidate *schedapi.CandidateResource,
-	backupCandidate *schedapi.CandidateResource,
+	candidateDisks []*schedapi.CandidateDisk,
+	backupCandidateDisks []*schedapi.CandidateDisk,
 ) error {
 	for idx := 0; idx < len(disks); idx += 1 {
 		diskConfig, err := parseDiskInfo(ctx, userCred, disks[idx])
@@ -2585,11 +2618,11 @@ func (self *SGuest) CreateDisksOnHost(
 		}
 		var candidateDisk *schedapi.CandidateDisk
 		var backupCandidateDisk *schedapi.CandidateDisk
-		if candidate != nil && len(candidate.Disks) >= idx {
-			candidateDisk = candidate.Disks[idx]
+		if len(candidateDisks) > idx {
+			candidateDisk = candidateDisks[idx]
 		}
-		if backupCandidate != nil && len(backupCandidate.Disks) >= idx {
-			backupCandidateDisk = backupCandidate.Disks[idx]
+		if len(backupCandidateDisks) != 0 && len(backupCandidateDisks) > idx {
+			backupCandidateDisk = backupCandidateDisks[idx]
 		}
 		disk, err := self.createDiskOnHost(ctx, userCred, host, diskConfig, pendingUsage, inheritBilling, isWithServerCreate, candidateDisk, backupCandidateDisk)
 		if err != nil {
@@ -2637,7 +2670,6 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SGuest) ChooseHostStorage(host *SHost, backend string, candidate *schedapi.CandidateDisk) *SStorage {
-	log.Infof("==========candidate %#v", candidate)
 	if candidate == nil || len(candidate.StorageIds) == 0 {
 		return self.GetDriver().ChooseHostStorage(host, backend, nil)
 	}

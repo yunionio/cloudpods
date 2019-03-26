@@ -27,6 +27,7 @@ import (
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
@@ -96,7 +97,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 				errMsgs = append(errMsgs, errMsg)
 			}
 
-			if !isMatchServerType(&n) {
+			if !isMatchServerType(n.SNetwork) {
 				appendError(predicates.ErrServerTypeIsNotMatch)
 			}
 
@@ -119,7 +120,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 			if len(errMsgs) == 0 {
 				// add resource
 				reservedNetworks := 0
-				counter := counterOfNetwork(u, &n, reservedNetworks)
+				counter := counterOfNetwork(u, n.SNetwork, reservedNetworks)
 				p.SelectedNetworks.Store(n.GetId(), counter.GetCount())
 				counters.Add(counter)
 				found = true
@@ -146,7 +147,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	}
 
 	isNetworkAvaliable := func(n *computeapi.NetworkConfig, counters *core.MinCounters,
-		networks []models.SNetwork) string {
+		networks []*api.CandidateNetwork) string {
 		if n.Network == "" {
 			counters0 := core.NewCounters()
 			ret_msg := isRandomNetworkAvailable(n.Private, n.Exit, n.Wire, counters0)
@@ -173,7 +174,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 			} else {
 				// add resource
 				reservedNetworks := 0
-				counter := counterOfNetwork(u, &net, reservedNetworks)
+				counter := counterOfNetwork(u, net.SNetwork, reservedNetworks)
 				if counter.GetCount() < int64(d.Count) {
 					errMsgs = append(errMsgs, fmt.Sprintf("%s: ports not enough, free: %d, required: %d", net.Name, counter.GetCount(), d.Count))
 					continue

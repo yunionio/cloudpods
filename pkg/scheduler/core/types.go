@@ -59,6 +59,7 @@ type CandidatePropertyGetter interface {
 	HostType() string
 	HostSchedtags() []computemodels.SSchedtag
 	Storages() []*api.CandidateStorage
+	Networks() []*api.CandidateNetwork
 }
 
 // Candidater replace host Candidate resource info
@@ -146,10 +147,12 @@ type Priority interface {
 
 type AllocatedResource struct {
 	Disks []*schedapi.CandidateDisk `json:"disks"`
+	Nets  []*schedapi.CandidateNet  `json:"nets"`
 }
 
 func NewAllocatedResource() *AllocatedResource {
 	return &AllocatedResource{
 		Disks: make([]*schedapi.CandidateDisk, 0),
+		Nets:  make([]*schedapi.CandidateNet, 0),
 	}
 }

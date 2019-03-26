@@ -36,7 +36,7 @@ type BaseHostDesc struct {
 	Region        *computemodels.SCloudregion   `json:"region"`
 	Zone          *computemodels.SZone          `json:"zone"`
 	Cloudprovider *computemodels.SCloudprovider `json:"cloudprovider"`
-	Networks      []computemodels.SNetwork      `json:"networks"`
+	Networks      []*api.CandidateNetwork       `json:"networks"`
 	Storages      []*api.CandidateStorage       `json:"storages"`
 
 	Tenants       map[string]int64          `json:"tenants"`
@@ -81,6 +81,10 @@ func (b baseHostGetter) HostSchedtags() []computemodels.SSchedtag {
 
 func (b baseHostGetter) Storages() []*api.CandidateStorage {
 	return b.h.Storages
+}
+
+func (b baseHostGetter) Networks() []*api.CandidateNetwork {
+	return b.h.Networks
 }
 
 func reviseResourceType(resType string) string {
@@ -190,13 +194,18 @@ func (b *BaseHostDesc) fillNetworks(hostID string) error {
 	if err != nil {
 		return err
 	}
-	b.Networks = nets
+	b.Networks = make([]*api.CandidateNetwork, len(nets))
+	for idx, n := range nets {
+		b.Networks[idx] = &api.CandidateNetwork{
+			SNetwork:  &nets[idx],
+			Schedtags: n.GetSchedtags(),
+		}
+	}
 	return nil
 }
 
 func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
 	ss := make([]*api.CandidateStorage, 0)
-	//log.Errorf("====host %s append storages: %#v", b.Name, storages)
 	for _, s := range host.GetHoststorages() {
 		storage := s.GetStorage()
 		ss = append(ss, &api.CandidateStorage{
