@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -333,66 +332,17 @@ func (manager *SSecurityGroupRuleManager) getRulesBySecurityGroup(secgroup *SSec
 	return rules, nil
 }
 
-func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup, rules []secrules.SecurityRule) ([]SSecurityGroupRule, []SSecurityGroupRule, compare.SyncResult) {
+func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCred mcclient.TokenCredential, secgroup *SSecurityGroup, rules []secrules.SecurityRule) compare.SyncResult {
 	syncResult := compare.SyncResult{}
-
-	if dbRules, err := manager.getRulesBySecurityGroup(secgroup); err != nil {
-		return nil, nil, syncResult
-	} else {
-
-		sort.Sort(SecurityGroupRuleSet(dbRules))
-		sort.Sort(secrules.SecurityRuleSet(rules))
-
-		i, j := 0, 0
-		for i < len(rules) || j < len(dbRules) {
-			if i < len(rules) && j < len(dbRules) {
-				dbStr := dbRules[j].String()
-				ruleStr := rules[i].String()
-				cmp := strings.Compare(dbStr, ruleStr)
-				if cmp == 0 {
-					if dbRules[j].Description != rules[i].Description {
-						if _, err := db.Update(&dbRules[j], func() error {
-							dbRules[j].Description = rules[i].Description
-							return nil
-						}); err != nil {
-							log.Errorf("Update SecurityGroupRule failed: %v", err)
-						}
-					}
-					i += 1
-					j += 1
-				} else if cmp > 0 {
-					if err := dbRules[j].Delete(ctx, userCred); err != nil {
-						syncResult.AddError(err)
-					} else {
-						syncResult.Delete()
-					}
-					j += 1
-				} else {
-					if _, err := manager.newFromCloudSecurityGroup(rules[i], secgroup); err != nil {
-						syncResult.AddError(err)
-					} else {
-						syncResult.Add()
-					}
-					i += 1
-				}
-			} else if i >= len(rules) {
-				if err := dbRules[j].Delete(ctx, userCred); err != nil {
-					syncResult.AddError(err)
-				} else {
-					syncResult.Delete()
-				}
-				j += 1
-			} else if j >= len(dbRules) {
-				if _, err := manager.newFromCloudSecurityGroup(rules[i], secgroup); err != nil {
-					syncResult.AddError(err)
-				} else {
-					syncResult.Add()
-				}
-				i += 1
-			}
+	for i := 0; i < len(rules); i++ {
+		_, err := manager.newFromCloudSecurityGroup(rules[i], secgroup)
+		if err != nil {
+			syncResult.AddError(err)
+			continue
 		}
+		syncResult.Add()
 	}
-	return nil, nil, syncResult
+	return syncResult
 }
 
 func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(rule secrules.SecurityRule, secgroup *SSecurityGroup) (*SSecurityGroupRule, error) {

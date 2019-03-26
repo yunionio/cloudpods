@@ -222,6 +222,11 @@ func (self *SInstance) GetInstanceType() string {
 	return self.Flavor.ID
 }
 
+func (self *SInstance) GetSecurityGroupIds() []string {
+	secgroupIds, _ := self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
+	return secgroupIds
+}
+
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 	// cn-north-1::et2.2xlarge.16::win
@@ -238,17 +243,6 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 		} else if meta := image.GetMetadata(); meta != nil {
 			data.Update(meta)
 		}
-	}
-
-	_secIds, err := self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
-	if err != nil {
-		log.Errorf(err.Error())
-	} else {
-		secgroupIds := jsonutils.NewArray()
-		for _, secId := range _secIds {
-			secgroupIds.Add(jsonutils.NewString(secId))
-		}
-		data.Add(secgroupIds, "secgroupIds")
 	}
 	return data
 }
