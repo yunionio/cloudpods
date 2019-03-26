@@ -1634,7 +1634,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	}
 	note = map[string]string{"network": self.Id}
 	db.OpsLog.LogEvent(self, db.ACT_DELETE, note, userCred)
-	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_DELETE, note, userCred, true)
+	logclient.AddActionLogWithContext(ctx, self, logclient.ACT_DELOCATE, note, userCred, true)
 	return nil, nil
 }
 
