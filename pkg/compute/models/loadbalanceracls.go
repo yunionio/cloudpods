@@ -407,9 +407,9 @@ func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Cont
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(&acl, db.ACT_CREATE, acl.GetShortDesc(ctx), userCred)
-
 	SyncCloudProject(userCred, &acl, projectId, extAcl, acl.ManagerId)
+
+	db.OpsLog.LogEvent(&acl, db.ACT_CREATE, acl.GetShortDesc(ctx), userCred)
 
 	return &acl, nil
 }

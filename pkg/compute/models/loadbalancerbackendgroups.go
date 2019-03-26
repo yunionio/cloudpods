@@ -463,9 +463,9 @@ func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgrou
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(lbbg, db.ACT_CREATE, lbbg.GetShortDesc(ctx), userCred)
-
 	SyncCloudProject(userCred, lbbg, projectId, extLoadbalancerBackendgroup, lb.ManagerId)
+
+	db.OpsLog.LogEvent(lbbg, db.ACT_CREATE, lbbg.GetShortDesc(ctx), userCred)
 
 	if extLoadbalancerBackendgroup.IsDefault() {
 		_, err := db.Update(lb, func() error {
