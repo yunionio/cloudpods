@@ -21,10 +21,9 @@ import (
 type BaremetalDesc struct {
 	*BaseHostDesc
 
-	Storages      []*baremetal.BaremetalStorage `json:"storages"`
+	StorageInfo   []*baremetal.BaremetalStorage `json:"storage_info"`
 	StorageType   string                        `json:"storage_type"`
 	StorageSize   int64                         `json:"storage_size"`
-	StorageInfo   string                        `json:"storage_info"`
 	StorageDriver string                        `json:"storage_driver"`
 	ServerID      string                        `json:"server_id"`
 }
@@ -231,7 +230,6 @@ func (bb *BaremetalBuilder) buildOne(bm *models.Host) (interface{}, error) {
 	desc.StorageDriver = bm.StorageDriver
 	desc.StorageType = bm.StorageType
 	desc.StorageSize = int64(bm.StorageSize)
-	desc.StorageInfo = bm.StorageInfo
 
 	var baremetalStorages []*baremetal.BaremetalStorage
 	err = fjson.Unmarshal([]byte(bm.StorageInfo), &baremetalStorages)
@@ -241,7 +239,7 @@ func (bb *BaremetalBuilder) buildOne(bm *models.Host) (interface{}, error) {
 			log.Errorln(err)
 		}
 	}
-	desc.Storages = baremetalStorages
+	desc.StorageInfo = baremetalStorages
 	desc.Tenants = make(map[string]int64, 0)
 
 	err = bb.fillServerID(desc, bm)

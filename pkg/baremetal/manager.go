@@ -443,7 +443,12 @@ func (b *SBaremetalInstance) SyncSSHConfig(conf types.SSHConfig) error {
 	if err != nil {
 		return err
 	}
-	data := jsonutils.Marshal(conf)
+	info := &api.HostLoginInfo{
+		Username: conf.Username,
+		Password: conf.Password,
+		Ip:       conf.RemoteIP,
+	}
+	data := info.JSON(info)
 	_, err = modules.Hosts.SetMetadata(session, b.GetId(), data)
 	return err
 }
