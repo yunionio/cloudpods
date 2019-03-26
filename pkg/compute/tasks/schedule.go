@@ -219,6 +219,7 @@ func onSchedulerResults(
 			// backup schedule
 			onMasterSlaveScheduleSucc(ctx, task, obj, result, result.BackupCandidate)
 		}
+		succCount += 1
 	}
 	if succCount == 0 {
 		task.OnScheduleFailed(ctx, "Schedule failed")
