@@ -25,7 +25,7 @@ func init() {
 func (self *LoadbalancerCertificateDeleteTask) taskFail(ctx context.Context, lbcert *models.SLoadbalancerCertificate, reason string) {
 	lbcert.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason)
 	db.OpsLog.LogEvent(lbcert, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_DELETE, reason, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_DELOCATE, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(lbcert.Id, lbcert.Name, api.LB_STATUS_DELETE_FAILED, reason)
 	self.SetStageFailed(ctx, reason)
 }
@@ -45,7 +45,7 @@ func (self *LoadbalancerCertificateDeleteTask) OnInit(ctx context.Context, obj d
 
 func (self *LoadbalancerCertificateDeleteTask) OnLoadbalancerCertificateDeleteComplete(ctx context.Context, lbcert *models.SLoadbalancerCertificate, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lbcert, db.ACT_DELETE, lbcert.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_DELETE, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_DELOCATE, nil, self.UserCred, true)
 	lbcert.DoPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
