@@ -74,3 +74,7 @@ func (self *GuestSyncConfTask) OnSyncCompleteFailed(ctx context.Context, obj db.
 func (self *GuestSyncConfTask) OnSyncStatusComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }
+
+func (self *GuestSyncConfTask) OnSyncStatusCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data.String())
+}
