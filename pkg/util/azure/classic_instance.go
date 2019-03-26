@@ -127,16 +127,19 @@ type SClassicInstance struct {
 	Location   string
 }
 
+func (self *SClassicInstance) GetSecurityGroupIds() []string {
+	secgroupIds := []string{}
+	if self.Properties.NetworkProfile.NetworkSecurityGroup != nil {
+		secgroupIds = append(secgroupIds, self.Properties.NetworkProfile.NetworkSecurityGroup.ID)
+	}
+	return secgroupIds
+}
+
 func (self *SClassicInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.Size, self.host.zone.region.Name)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
-	secgroupIds := jsonutils.NewArray()
-	if self.Properties.NetworkProfile.NetworkSecurityGroup != nil {
-		secgroupIds.Add(jsonutils.NewString(self.Properties.NetworkProfile.NetworkSecurityGroup.ID))
-	}
-	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 

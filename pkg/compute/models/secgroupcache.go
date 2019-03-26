@@ -7,6 +7,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 
@@ -129,23 +130,6 @@ func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context,
 	return &secgroupCache
 }
 
-func (manager *SSecurityGroupCacheManager) CheckExist(ctx context.Context, userCred mcclient.TokenCredential, externalId, vpcId, regionId string, providerId string) (*SSecurityGroup, bool) {
-	secgroupCaches := []SSecurityGroupCache{}
-	query := manager.Query()
-	cond := sqlchemy.AND(sqlchemy.Equals(query.Field("external_id"), externalId), sqlchemy.Equals(query.Field("vpc_id"), vpcId), sqlchemy.Equals(query.Field("cloudregion_id"), regionId), sqlchemy.Equals(query.Field("manager_id"), providerId))
-	query = query.Filter(cond)
-
-	if err := query.All(&secgroupCaches); err != nil {
-		return nil, false
-	}
-	for _, secgroupCache := range secgroupCaches {
-		if secgroup, err := SecurityGroupManager.FetchById(secgroupCache.SecgroupId); err == nil {
-			return secgroup.(*SSecurityGroup), true
-		}
-	}
-	return nil, false
-}
-
 func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId, regionId string, providerId string) *SSecurityGroupCache {
 	lockman.LockClass(ctx, manager, userCred.GetProjectId())
 	defer lockman.ReleaseClass(ctx, manager, userCred.GetProjectId())
@@ -169,6 +153,73 @@ func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCre
 	return secgroupCache
 }
 
+func (manager *SSecurityGroupCacheManager) getSecgroupcachesByProvider(provider *SCloudprovider) ([]SSecurityGroupCache, error) {
+	q := manager.Query().Equals("manager_id", provider.Id)
+	caches := []SSecurityGroupCache{}
+	if err := db.FetchModelObjects(manager, q, &caches); err != nil {
+		return nil, err
+	}
+	return caches, nil
+}
+
+func (self *SSecurityGroupCache) GetSecgroup() (*SSecurityGroup, error) {
+	model, err := SecurityGroupManager.FetchById(self.SecgroupId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch secgroup by %s", self.SecgroupId)
+	}
+	return model.(*SSecurityGroup), nil
+}
+
+func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, secgroups []cloudprovider.ICloudSecurityGroup, vpc *SVpc) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
+	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
+	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+
+	localSecgroups := []SSecurityGroup{}
+	remoteSecgroups := []cloudprovider.ICloudSecurityGroup{}
+	syncResult := compare.SyncResult{}
+
+	dbSecgroupcaches, err := manager.getSecgroupcachesByProvider(provider)
+	if err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+
+	removed := []SSecurityGroupCache{}
+	commondb := []SSecurityGroupCache{}
+	commonext := []cloudprovider.ICloudSecurityGroup{}
+	added := []cloudprovider.ICloudSecurityGroup{}
+
+	if err := compare.CompareSets(dbSecgroupcaches, secgroups, &removed, &commondb, &commonext, &added); err != nil {
+		syncResult.Error(err)
+		return nil, nil, syncResult
+	}
+
+	//removed暂时删不了, 因为不能确定是哪个vpc底下的,有可能误删
+
+	//相同的不能同步, 原因: 多个平台的安全组可能共用一个本地安全组,下面仅仅是新加的安全组
+	for i := 0; i < len(added); i++ {
+		secgroup, err := SecurityGroupManager.newFromCloudSecgroup(ctx, userCred, provider, added[i])
+		if err != nil {
+			syncResult.AddError(err)
+			continue
+		}
+		cache := manager.Register(ctx, userCred, secgroup.Id, added[i].GetVpcId(), vpc.CloudregionId, provider.Id)
+		if cache == nil {
+			syncResult.AddError(fmt.Errorf("failed to registor secgroup cache for secgroup %s(%s) provider: %s", secgroup.Name, secgroup.Name, provider.Name))
+			continue
+		}
+		if err := cache.SetExternalId(userCred, added[i].GetGlobalId()); err != nil {
+			syncResult.AddError(err)
+			continue
+		}
+		//每次同步完成出现新的安全组,同步规则时仅仅是添加
+		localSecgroups = append(localSecgroups, *secgroup)
+		remoteSecgroups = append(remoteSecgroups, added[i])
+		syncResult.Add()
+	}
+	return localSecgroups, remoteSecgroups, syncResult
+}
+
 func (self *SSecurityGroupCache) SetExternalId(userCred mcclient.TokenCredential, externalId string) error {
 	diff, err := db.Update(self, func() error {
 		self.ExternalId = externalId
@@ -179,4 +230,8 @@ func (self *SSecurityGroupCache) SetExternalId(userCred mcclient.TokenCredential
 	}
 	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 	return nil
+}
+
+func (self SSecurityGroupCache) GetExternalId() string {
+	return self.ExternalId
 }
