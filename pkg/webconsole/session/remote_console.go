@@ -33,12 +33,6 @@ type RemoteConsoleInfo struct {
 }
 
 func NewRemoteConsoleInfoByCloud(s *mcclient.ClientSession, serverId string) (*RemoteConsoleInfo, error) {
-	metadata, err := modules.Servers.GetSpecific(s, serverId, "metadata", nil)
-	if err != nil {
-		return nil, err
-	}
-	osName, _ := metadata.GetString("os_name")
-	vncPasswd, _ := metadata.GetString("__vnc_password")
 	ret, err := modules.Servers.GetSpecific(s, serverId, "vnc", nil)
 	if err != nil {
 		return nil, err
@@ -48,8 +42,18 @@ func NewRemoteConsoleInfoByCloud(s *mcclient.ClientSession, serverId string) (*R
 	if err != nil {
 		return nil, err
 	}
-	vncInfo.OsName = osName
-	vncInfo.VncPassword = vncPasswd
+
+	if len(vncInfo.OsName) == 0 || len(vncInfo.VncPassword) == 0 {
+		metadata, err := modules.Servers.GetSpecific(s, serverId, "metadata", nil)
+		if err != nil {
+			return nil, err
+		}
+		osName, _ := metadata.GetString("os_name")
+		vncPasswd, _ := metadata.GetString("__vnc_password")
+		vncInfo.OsName = osName
+		vncInfo.VncPassword = vncPasswd
+	}
+
 	return &vncInfo, nil
 }
 
