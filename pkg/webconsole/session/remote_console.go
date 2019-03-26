@@ -43,7 +43,7 @@ func NewRemoteConsoleInfoByCloud(s *mcclient.ClientSession, serverId string) (*R
 		return nil, err
 	}
 
-	if len(vncInfo.OsName) == 0 || len(vncInfo.VncPassword) == 0{
+	if len(vncInfo.OsName) == 0 || len(vncInfo.VncPassword) == 0 {
 		metadata, err := modules.Servers.GetSpecific(s, serverId, "metadata", nil)
 		if err != nil {
 			return nil, err
