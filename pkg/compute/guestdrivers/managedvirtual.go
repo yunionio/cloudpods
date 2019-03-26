@@ -516,14 +516,19 @@ func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(guest *models.S
 	if err != nil {
 		return time.Time{}, err
 	}
+	oldExpired := iVM.GetExpiredAt()
 	err = iVM.Renew(bc)
 	if err != nil {
 		return time.Time{}, err
 	}
-	err = iVM.Refresh()
-	if err != nil {
-		return time.Time{}, err
-	}
+	//避免有些云续费后过期时间刷新比较慢问题
+	cloudprovider.WaitCreated(15*time.Second, 5*time.Minute, func() bool {
+		newExipred := iVM.GetExpiredAt()
+		if newExipred.After(oldExpired) {
+			return true
+		}
+		return false
+	})
 	return iVM.GetExpiredAt(), nil
 }
 
