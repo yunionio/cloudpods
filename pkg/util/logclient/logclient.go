@@ -21,6 +21,19 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
+// 这些状态不做 websocket 通知
+var BlackList = []string{
+	ACT_CLOUD_FULLSYNC,
+	ACT_CREATE,
+	ACT_DELETE,
+	ACT_PENDING_DELETE,
+	ACT_PRIVATE,
+	ACT_PUBLIC,
+	ACT_UPDATE,
+	ACT_VM_SYNC_STATUS,
+	ACT_VM_SYNC_CONF,
+}
+
 const (
 	ACT_ADDTAG                       = "添加标签"
 	ACT_ALLOCATE                     = "分配"

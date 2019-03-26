@@ -294,7 +294,7 @@ func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapsh
 
 func (self *SnapshotDeleteTask) TaskComplete(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DELETE, snapshot.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_DELETE, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_DELOCATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
