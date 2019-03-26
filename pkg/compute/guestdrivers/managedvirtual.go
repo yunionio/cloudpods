@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -109,12 +110,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx conte
 	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), imageId, diskCat.Root.DiskFormat, false, task.GetTaskId())
 }
 
-func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("cdrom") {
-		hypervisor, _ := data.GetString("hypervisor")
-		return nil, httperrors.NewInputParameterError("%s not support cdrom params", hypervisor)
+func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	if input.Cdrom != "" {
+		return nil, httperrors.NewInputParameterError("%s not support cdrom params", input.Hypervisor)
 	}
-	return data, nil
+	return input, nil
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
