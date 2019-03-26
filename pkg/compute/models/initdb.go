@@ -29,6 +29,7 @@ func InitDB() error {
 		LoadbalancerBackendManager,
 		SchedtagManager,
 		DynamicschedtagManager,
+		ServerSkuManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {

@@ -77,8 +77,9 @@ type SServerSku struct {
 	db.SStandaloneResourceBase
 
 	// SkuId       string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`                 // x2.large
-	InstanceTypeFamily   string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"` // x2
-	InstanceTypeCategory string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin"`  // 通用型
+	InstanceTypeFamily   string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`           // x2
+	InstanceTypeCategory string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin"`            // 通用型
+	LocalCategory        string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:""` // 记录本地分类
 
 	PrepaidStatus  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:"available"` // 预付费资源状态   available|soldout
 	PostpaidStatus string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin" default:"available"` // 按需付费资源状态  available|soldout
@@ -1064,4 +1065,24 @@ func (manager *SServerSkuManager) FetchAllAvailableSkuIdByZoneId(zoneId string) 
 	}
 
 	return ids, nil
+}
+
+func (manager *SServerSkuManager) InitializeData() error {
+	privateSkus := make([]SServerSku, 0)
+	err := manager.Query().IsNullOrEmpty("local_category").IsNullOrEmpty("zone_id").All(&privateSkus)
+	if err != nil {
+		return err
+	}
+
+	for _, sku := range privateSkus {
+		_, err = manager.TableSpec().Update(&sku, func() error {
+			sku.LocalCategory = sku.InstanceTypeCategory
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
