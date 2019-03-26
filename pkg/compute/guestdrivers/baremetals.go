@@ -194,7 +194,9 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 }
 
 func (self *SBaremetalGuestDriver) GetStorageTypes() []string {
-	return nil
+	return []string{
+		models.STORAGE_BAREMETAL,
+	}
 }
 
 func (self *SBaremetalGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
