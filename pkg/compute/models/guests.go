@@ -3924,7 +3924,10 @@ func (self *SGuest) FillDiskSchedDesc(desc *api.ServerConfigs) {
 		return
 	}
 	for i := 0; i < len(guestDisks); i++ {
-		desc.Disks = append(desc.Disks, guestDisks[i].ToDiskConfig())
+		diskConf := guestDisks[i].ToDiskConfig()
+		// HACK: storage used by self, so earse it
+		diskConf.Storage = ""
+		desc.Disks = append(desc.Disks, diskConf)
 	}
 }
 
