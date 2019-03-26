@@ -419,48 +419,6 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
-	/*managerFilter, _ := queryDict.GetString("manager")
-	if len(managerFilter) > 0 {
-		managerI, _ := CloudproviderManager.FetchByIdOrName(userCred, managerFilter)
-		if managerI == nil {
-			return nil, httperrors.NewResourceNotFoundError("cloud provider %s not found", managerFilter)
-		}
-		hosts := HostManager.Query().SubQuery()
-		sq := hosts.Query(hosts.Field("id")).Equals("manager_id", managerI.GetId()).SubQuery()
-		q = q.In("host_id", sq)
-	}
-
-	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
-	if len(accountStr) > 0 {
-		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		hosts := HostManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-
-		subq := hosts.Query(hosts.Field("id"))
-		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), hosts.Field("manager_id")))
-		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), account.GetId()))
-
-		q = q.Filter(sqlchemy.In(q.Field("host_id"), subq.SubQuery()))
-	}
-
-	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
-	if len(providerStr) > 0 {
-		hosts := HostManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-
-		subq := hosts.Query(hosts.Field("id"))
-		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), hosts.Field("manager_id")))
-		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
-
-		q = q.Filter(sqlchemy.In(q.Field("host_id"), subq.SubQuery()))
-	}*/
-
 	regionFilter, _ := queryDict.GetString("region")
 	if len(regionFilter) > 0 {
 		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionFilter)
