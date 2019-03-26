@@ -3,6 +3,8 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"runtime/debug"
 
 	"yunion.io/x/log"
 
@@ -80,6 +82,11 @@ func (manager *STenantCacheManager) FetchTenantByName(ctx context.Context, idStr
 }
 
 func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context, idStr string) (*STenant, error) {
+	if len(idStr) == 0 {
+		log.Debugf("fetch empty tenant!!!!")
+		debug.PrintStack()
+		return nil, fmt.Errorf("Empty idStr")
+	}
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
 	tenant, err := modules.Projects.Get(s, idStr, nil)
 	if err != nil {

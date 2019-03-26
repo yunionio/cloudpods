@@ -887,5 +887,8 @@ func SyncCloudProject(userCred mcclient.TokenCredential, model db.IVirtualModel,
 	if len(newId) == 0 && len(projectId) > 0 {
 		newId = projectId
 	}
+	if len(newId) == 0 {
+		newId = userCred.GetProjectId()
+	}
 	model.SyncCloudProjectId(userCred, newId)
 }

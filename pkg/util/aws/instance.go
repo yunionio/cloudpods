@@ -417,7 +417,6 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 		params = params.SetFilters(filters)
 	}
 
-	log.Debugf("GetInstances with params: %s", params.String())
 	res, err := self.ec2Client.DescribeInstances(params)
 	if err != nil {
 		if strings.Contains(err.Error(), "InvalidInstanceID.NotFound") {
@@ -498,12 +497,13 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 
 			szone, err := self.getZoneById(*instance.Placement.AvailabilityZone)
 			if err != nil {
+				log.Errorf("getZoneById %s fail %s", *instance.Placement.AvailabilityZone, err)
 				return nil, 0, err
 			}
 
-			image, err := self.GetImage(*instance.ImageId)
-			if err != nil {
-				return nil, 0, err
+			osType := "Linux"
+			if instance.Platform != nil && len(*instance.Platform) > 0 {
+				osType = *instance.Platform
 			}
 
 			host := szone.getHost()
@@ -533,8 +533,8 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				NetworkInterfaces: networkInterfaces,
 				VpcAttributes:     vpcattr,
 				ProductCodes:      productCodes,
-				OSName:            image.OSType, // todo: 这里在model层回写OSName信息
-				OSType:            image.OSType,
+				OSName:            osType, // todo: 这里在model层回写OSName信息
+				OSType:            osType,
 				// ExpiredTime:
 				// VlanId:
 				// OSType:
