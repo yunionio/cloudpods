@@ -37,6 +37,7 @@ var BlackList = []string{
 const (
 	ACT_ADDTAG                       = "添加标签"
 	ACT_ALLOCATE                     = "分配"
+	ACT_DELOCATE                     = "释放资源"
 	ACT_BM_CONVERT_HYPER             = "转换为宿主机"
 	ACT_BM_MAINTENANCE               = "进入离线状态"
 	ACT_BM_UNCONVERT_HYPER           = "转换为受管物理机"
