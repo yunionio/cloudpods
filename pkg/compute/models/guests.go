@@ -419,48 +419,6 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
-	/*managerFilter, _ := queryDict.GetString("manager")
-	if len(managerFilter) > 0 {
-		managerI, _ := CloudproviderManager.FetchByIdOrName(userCred, managerFilter)
-		if managerI == nil {
-			return nil, httperrors.NewResourceNotFoundError("cloud provider %s not found", managerFilter)
-		}
-		hosts := HostManager.Query().SubQuery()
-		sq := hosts.Query(hosts.Field("id")).Equals("manager_id", managerI.GetId()).SubQuery()
-		q = q.In("host_id", sq)
-	}
-
-	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
-	if len(accountStr) > 0 {
-		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		hosts := HostManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-
-		subq := hosts.Query(hosts.Field("id"))
-		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), hosts.Field("manager_id")))
-		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), account.GetId()))
-
-		q = q.Filter(sqlchemy.In(q.Field("host_id"), subq.SubQuery()))
-	}
-
-	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
-	if len(providerStr) > 0 {
-		hosts := HostManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-
-		subq := hosts.Query(hosts.Field("id"))
-		subq = subq.Join(cloudproviders, sqlchemy.Equals(cloudproviders.Field("id"), hosts.Field("manager_id")))
-		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
-
-		q = q.Filter(sqlchemy.In(q.Field("host_id"), subq.SubQuery()))
-	}*/
-
 	regionFilter, _ := queryDict.GetString("region")
 	if len(regionFilter) > 0 {
 		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionFilter)
@@ -907,21 +865,21 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			data.Add(jsonutils.NewInt(int64(vcpuCount)), "vcpu_count")
 		}
 
-		dataDiskDefs := make([]string, 0)
+		dataDiskDefs := []jsonutils.JSONObject{}
 		if sku != nil && sku.AttachedDiskCount > 0 {
 			for i := 0; i < sku.AttachedDiskCount; i += 1 {
-				dataDiskDefs = append(dataDiskDefs, fmt.Sprintf("%dg:%s", sku.AttachedDiskSizeGB, sku.AttachedDiskType))
+				dataDisk := jsonutils.Marshal(map[string]interface{}{
+					"size_mb": sku.AttachedDiskSizeGB * 1024,
+					"backend": strings.ToLower(sku.AttachedDiskType),
+				})
+				dataDiskDefs = append(dataDiskDefs, dataDisk)
 			}
 		}
 
 		// start from data disk
 		jsonArray := jsonutils.GetArrayOfPrefix(data, "disk")
 		for idx := 1; idx < len(jsonArray); idx += 1 { // data.Contains(fmt.Sprintf("disk.%d", idx))
-			diskJson, err := jsonArray[idx].GetString() // data.GetString(fmt.Sprintf("disk.%d", idx))
-			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid disk description %s", err)
-			}
-			dataDiskDefs = append(dataDiskDefs, diskJson)
+			dataDiskDefs = append(dataDiskDefs, jsonArray[idx])
 		}
 
 		rootDiskConfig, err := parseDiskInfo(ctx, userCred, jsonArray[0])
@@ -938,7 +896,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		data.Set("disk.0", jsonutils.Marshal(rootDiskConfig))
 
 		for i := 0; i < len(dataDiskDefs); i += 1 {
-			diskConfig, err := parseDiskInfo(ctx, userCred, jsonutils.NewString(dataDiskDefs[i]))
+			diskConfig, err := parseDiskInfo(ctx, userCred, dataDiskDefs[i])
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
 			}
@@ -1826,10 +1784,22 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
+	if self.BillingType == BILLING_TYPE_PREPAID {
+		diff, err := db.Update(self, func() error {
+			self.BillingType = BILLING_TYPE_POSTPAID
+			self.ExpiredAt = time.Time{}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	}
+
 	return self.SetStatus(userCred, VM_UNKNOWN, "Sync lost")
 }
 
-func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, projectId string, projectSync bool) error {
+func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, projectId string) error {
 	recycle := false
 
 	if provider.GetFactory().IsSupportPrepaidResources() && self.IsPrepaidRecycle() {
@@ -1852,7 +1822,6 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.HostId = host.Id
 		}
 
-		metaData := extVM.GetMetadata()
 		instanceType := extVM.GetInstanceType()
 
 		if len(instanceType) > 0 {
@@ -1870,21 +1839,6 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.VmemSize = extVM.GetVmemSizeMB()
 		}
 
-		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
-			self.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-			if len(projectId) > 0 {
-				self.ProjectId = projectId
-			}
-			if extProjectId := extVM.GetProjectId(); len(extProjectId) > 0 {
-				extProject, err := ExternalProjectManager.GetProject(extProjectId, host.ManagerId)
-				if err != nil {
-					log.Errorf(err.Error())
-				} else {
-					self.ProjectId = extProject.ProjectId
-				}
-			}
-		}
-
 		self.Hypervisor = extVM.GetHypervisor()
 
 		self.IsEmulated = extVM.IsEmulated()
@@ -1894,26 +1848,6 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.ExpiredAt = extVM.GetExpiredAt()
 		}
 
-		if metaData != nil && metaData.Contains("secgroupIds") {
-			secgroupIds := []string{}
-			if err := metaData.Unmarshal(&secgroupIds, "secgroupIds"); err == nil {
-				for _, secgroupId := range secgroupIds {
-					secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId)
-					if err != nil {
-						log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, self.Name, err)
-						continue
-					}
-					secgroup := secgrp.(*SSecurityGroup)
-					if len(self.SecgrpId) == 0 {
-						self.SecgrpId = secgroup.Id
-					} else {
-						if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
-							log.Errorf("failed to bind secgroup %s for guest %s error: %v", secgroup.Name, self.Name, err)
-						}
-					}
-				}
-			}
-		}
 		return nil
 	})
 	if err != nil {
@@ -1923,9 +1857,11 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
+	SyncCloudProject(userCred, self, projectId, extVM, host.ManagerId)
+
 	if provider.GetFactory().IsSupportPrepaidResources() && recycle {
 		vhost := self.GetHost()
-		err = vhost.syncWithCloudPrepaidVM(extVM, host, projectSync)
+		err = vhost.syncWithCloudPrepaidVM(extVM, host)
 		if err != nil {
 			return err
 		}
@@ -1960,7 +1896,6 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.HostId = host.Id
 
-	metaData := extVM.GetMetadata()
 	instanceType := extVM.GetInstanceType()
 
 	/*zoneExtId, err := metaData.GetString("zone_ext_id")
@@ -1990,50 +1925,19 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		guest.VmemSize = extVM.GetVmemSizeMB()
 	}
 
-	guest.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-	guest.ProjectId = projectId
-	if extProjectId := extVM.GetProjectId(); len(extProjectId) > 0 {
-		externalProject, err := ExternalProjectManager.GetProject(extProjectId, host.ManagerId)
-		if err != nil {
-			log.Errorf(err.Error())
-		} else {
-			guest.ProjectId = externalProject.ProjectId
-		}
-	}
-
-	extraSecgroups := []*SSecurityGroup{}
-	if metaData != nil && metaData.Contains("secgroupIds") {
-		secgroupIds := []string{}
-		if err := metaData.Unmarshal(&secgroupIds, "secgroupIds"); err == nil {
-			for _, secgroupId := range secgroupIds {
-				secgrp, err := SecurityGroupManager.FetchByExternalId(secgroupId)
-				if err != nil {
-					log.Errorf("Failed find secgroup %s for guest %s error: %v", secgroupId, guest.Name, err)
-					continue
-				}
-				secgroup := secgrp.(*SSecurityGroup)
-				if len(guest.SecgrpId) == 0 {
-					guest.SecgrpId = secgroup.Id
-				} else {
-					extraSecgroups = append(extraSecgroups, secgroup)
-				}
-			}
-		}
-	}
-
 	err := manager.TableSpec().Insert(&guest)
 	if err != nil {
 		log.Errorf("Insert fail %s", err)
 		return nil, err
 	}
 
-	for _, secgroup := range extraSecgroups {
-		if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, &guest, secgroup); err != nil {
-			log.Errorf("failed to bind secgroup %s for guest %s error: %v", secgroup.Name, guest.Name, err)
-		}
-	}
-
 	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
+
+	SyncCloudProject(userCred, &guest, projectId, extVM, host.ManagerId)
+
+	if guest.Status == VM_RUNNING {
+		db.OpsLog.LogEvent(&guest, db.ACT_START, guest.GetShortDesc(ctx), userCred)
+	}
 
 	return &guest, nil
 }
@@ -2349,7 +2253,7 @@ type sSyncDiskPair struct {
 	vdisk cloudprovider.ICloudDisk
 }
 
-func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, vdisks []cloudprovider.ICloudDisk, projectId string, projectSync bool) compare.SyncResult {
+func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, vdisks []cloudprovider.ICloudDisk, projectId string) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	newdisks := make([]sSyncDiskPair, 0)
@@ -2357,7 +2261,7 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 		if len(vdisks[i].GetGlobalId()) == 0 {
 			continue
 		}
-		disk, err := DiskManager.syncCloudDisk(ctx, userCred, provider, vdisks[i], i, projectId, projectSync)
+		disk, err := DiskManager.syncCloudDisk(ctx, userCred, provider, vdisks[i], i, projectId)
 		if err != nil {
 			log.Errorf("syncCloudDisk error: %v", err)
 			result.Error(err)
@@ -3701,7 +3605,7 @@ func (self *SGuest) doExternalSync(ctx context.Context, userCred mcclient.TokenC
 	if err != nil {
 		return err
 	}
-	return self.syncWithCloudVM(ctx, userCred, iprovider, host, iVM, "", false)
+	return self.syncWithCloudVM(ctx, userCred, iprovider, host, iVM, "")
 }
 
 func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
@@ -3788,7 +3692,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 			}
 		} else {
 			// do nothing
-			err := eip.SyncWithCloudEip(ctx, userCred, provider, extEip, projectId, false)
+			err := eip.SyncWithCloudEip(ctx, userCred, provider, extEip, projectId)
 			if err != nil {
 				result.UpdateError(err)
 			} else {
@@ -3798,6 +3702,76 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 	}
 
 	return result
+}
+
+func (self *SGuest) getSecgroupExternalIds(provider *SCloudprovider) []string {
+	secgroups := self.GetSecgroups()
+	secgroupids := []string{}
+	for i := 0; i < len(secgroups); i++ {
+		secgroupids = append(secgroupids, secgroups[i].Id)
+	}
+	q := SecurityGroupCacheManager.Query().Equals("manager_id", provider.Id)
+	q = q.Filter(sqlchemy.In(q.Field("secgroup_id"), secgroupids))
+	secgroupcaches := []SSecurityGroupCache{}
+	if err := db.FetchModelObjects(SecurityGroupCacheManager, q, &secgroupcaches); err != nil {
+		log.Errorf("failed to fetch secgroupcaches for provider %s error: %v", provider.Name, err)
+		return nil
+	}
+	externalIds := []string{}
+	for i := 0; i < len(secgroupcaches); i++ {
+		externalIds = append(externalIds, secgroupcaches[i].ExternalId)
+	}
+	return externalIds
+}
+
+func (self *SGuest) getSecgroupByCache(provider *SCloudprovider, externalId string) (*SSecurityGroup, error) {
+	q := SecurityGroupCacheManager.Query().Equals("manager_id", provider.Id).Equals("external_id", externalId)
+	cache := SSecurityGroupCache{}
+	cache.SetModelManager(SecurityGroupCacheManager)
+	count := q.Count()
+	if count == 0 {
+		return nil, fmt.Errorf("failed find secgroup cache from provider %s externalId %s", provider.Name, externalId)
+	}
+	if count > 1 {
+		return nil, fmt.Errorf("dumplicate secgroup cache for provider %s externalId %s", provider.Name, externalId)
+	}
+	if err := q.First(&cache); err != nil {
+		return nil, err
+	}
+	return cache.GetSecgroup()
+}
+
+func (self *SGuest) SyncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, secgroupIds []string) compare.SyncResult {
+	syncResult := compare.SyncResult{}
+
+	secgroupExternalIds := self.getSecgroupExternalIds(provider)
+
+	for _, secgroupId := range secgroupIds {
+		if !utils.IsInStringArray(secgroupId, secgroupExternalIds) {
+			secgroup, err := self.getSecgroupByCache(provider, secgroupId)
+			if err != nil {
+				syncResult.AddError(err)
+				continue
+			}
+			if len(self.SecgrpId) == 0 {
+				_, err := db.Update(self, func() error {
+					self.SecgrpId = secgroup.Id
+					return nil
+				})
+				if err != nil {
+					log.Errorf("update guest secgroup error: %v", err)
+					syncResult.AddError(err)
+				}
+			} else {
+				if _, err := GuestsecgroupManager.newGuestSecgroup(ctx, userCred, self, secgroup); err != nil {
+					log.Errorf("failed to bind secgroup %s for guest %s error: %v", secgroup.Name, self.Name, err)
+					syncResult.AddError(err)
+				}
+			}
+			syncResult.Add()
+		}
+	}
+	return syncResult
 }
 
 func (self *SGuest) GetIVM() (cloudprovider.ICloudVM, error) {

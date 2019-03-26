@@ -193,6 +193,20 @@ func (self *SRegion) doDeleteVM(instanceId string) error {
 	return self.client.Delete(instanceId)
 }
 
+func (self *SInstance) GetSecurityGroupIds() []string {
+	secgroupIds := []string{}
+	if nics, err := self.getNics(); err == nil {
+		for _, nic := range nics {
+			if nic.Properties.NetworkSecurityGroup != nil {
+				if len(nic.Properties.NetworkSecurityGroup.ID) > 0 {
+					secgroupIds = append(secgroupIds, strings.ToLower(nic.Properties.NetworkSecurityGroup.ID))
+				}
+			}
+		}
+	}
+	return secgroupIds
+}
+
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 	tags := jsonutils.NewDict()
@@ -213,18 +227,6 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	priceKey := fmt.Sprintf("%s::%s", self.Properties.HardwareProfile.VMSize, self.host.zone.region.Name)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
-	secgroupIds := jsonutils.NewArray()
-	if nics, err := self.getNics(); err == nil {
-		for _, nic := range nics {
-			if nic.Properties.NetworkSecurityGroup != nil {
-				if len(nic.Properties.NetworkSecurityGroup.ID) > 0 {
-					secgroupIds.Add(jsonutils.NewString(nic.Properties.NetworkSecurityGroup.ID))
-					break
-				}
-			}
-		}
-	}
-	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 
@@ -1046,4 +1048,8 @@ func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 
 func (self *SInstance) GetProjectId() string {
 	return getResourceGroup(self.ID)
+}
+
+func (self *SInstance) GetError() error {
+	return nil
 }

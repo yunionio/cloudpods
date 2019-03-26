@@ -36,8 +36,15 @@ func RandomPassword2(width int) string {
 		ps := PasswordStrength{}
 		var buf bytes.Buffer
 		for i := 0; i < width; i += 1 {
-			index := rand.Intn(len(CHARS))
-			ch := CHARS[index]
+			var ch byte
+			for {
+				index := rand.Intn(len(CHARS))
+				ch = CHARS[index]
+				if i == 0 && ch == '/' {
+					continue
+				}
+				break
+			}
 			if strings.IndexByte(DIGITS, ch) >= 0 {
 				ps.Digits += 1
 			} else if strings.IndexByte(LETTERS, ch) >= 0 {

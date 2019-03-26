@@ -126,7 +126,7 @@ func (self *GuestDeleteTask) doClearSecurityGroupComplete(ctx context.Context, g
 	guest.RevokeAllSecgroups(ctx, self.UserCred)
 	// sync revoked secgroups to remote cloud
 	self.SetStage("OnSyncConfigComplete", nil)
-	guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
+	guest.StartSyncTaskWithoutSyncstatus(ctx, self.UserCred, false, self.GetTaskId())
 }
 
 func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -234,7 +234,7 @@ func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SG
 func (self *GuestDeleteTask) OnFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
 	guest.SetStatus(self.UserCred, models.VM_DELETE_FAIL, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELETE, err, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, err.String())
 }
 
@@ -258,7 +258,7 @@ func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGue
 	guest.RealDelete(ctx, self.UserCred)
 	guest.RemoveAllMetadata(ctx, self.UserCred)
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, nil, self.UserCred)
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELETE, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, nil, self.UserCred, true)
 	if !guest.IsSystem && !isPendingDeleted {
 		self.NotifyServerDeleted(ctx, guest)
 	}

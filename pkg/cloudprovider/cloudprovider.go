@@ -2,12 +2,12 @@ package cloudprovider
 
 import (
 	"context"
-	"fmt"
-
 	"errors"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -140,7 +140,7 @@ func GetPublicProviders() []string {
 func GetPrivateProviders() []string {
 	providers := make([]string, 0)
 	for p, d := range providerTable {
-		if !d.IsPublicCloud() {
+		if !d.IsPublicCloud() && !d.IsOnPremise() {
 			providers = append(providers, p)
 		}
 	}

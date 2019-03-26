@@ -7,10 +7,11 @@ import (
 
 func init() {
 	type DiskListOptions struct {
-		Category string `help:"Storage type for disk"`
+		Category    string `help:"Storage type for disk"`
+		BackendName string `help:"Storage backend eg:lvm, rbd"`
 	}
 	shellutils.R(&DiskListOptions{}, "disk-list", "List disks", func(cli *openstack.SRegion, args *DiskListOptions) error {
-		disks, err := cli.GetDisks(args.Category)
+		disks, err := cli.GetDisks(args.Category, args.BackendName)
 		if err != nil {
 			return err
 		}
@@ -36,14 +37,14 @@ func init() {
 	})
 
 	type DiskCreateOptions struct {
-		ZONE     string `help:"Zone name"`
+		ImageRef string `help:"ImageRef"`
 		CATEGORY string `help:"Disk category"`
 		NAME     string `help:"Disk Name"`
 		SIZE     int    `help:"Disk Size GB"`
 		Desc     string `help:"Description of disk"`
 	}
 	shellutils.R(&DiskCreateOptions{}, "disk-create", "Create disk", func(cli *openstack.SRegion, args *DiskCreateOptions) error {
-		disk, err := cli.CreateDisk(args.ZONE, args.CATEGORY, args.NAME, args.SIZE, args.Desc)
+		disk, err := cli.CreateDisk(args.ImageRef, args.CATEGORY, args.NAME, args.SIZE, args.Desc)
 		if err != nil {
 			return err
 		}

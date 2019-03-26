@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/version"
-	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -161,21 +161,19 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		desc.SysDisk.SizeGB = sysDiskSizeGB
 	}
 
-	_, maxVersion, _ := host.zone.region.GetVersion("compute")
+	_sysDisk, err := host.zone.region.CreateDisk(desc.ExternalImageId, storage.Name, "", desc.SysDisk.SizeGB, desc.SysDisk.Name)
+	if err != nil {
+		return nil, err
+	}
 
 	BlockDeviceMappingV2 := []map[string]interface{}{
 		{
 			"boot_index":            0,
-			"uuid":                  desc.ExternalImageId,
-			"source_type":           "image",
+			"uuid":                  _sysDisk.GetGlobalId(),
+			"source_type":           "volume",
 			"destination_type":      "volume",
-			"volume_size":           desc.SysDisk.SizeGB,
 			"delete_on_termination": true,
 		},
-	}
-
-	if version.GE(maxVersion, VOLUME_TYPES_API_VERSION) {
-		BlockDeviceMappingV2[0]["volume_type"] = storage.Name
 	}
 
 	var _disk *SDisk
@@ -184,7 +182,7 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		if err != nil {
 			break
 		}
-		_disk, err = host.zone.region.CreateDisk(zoneName, storage.Name, "", disk.SizeGB, disk.Name)
+		_disk, err = host.zone.region.CreateDisk("", storage.Name, "", disk.SizeGB, disk.Name)
 		if err != nil {
 			break
 		}
@@ -200,10 +198,8 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	}
 	if err != nil {
 		for _, blockMap := range BlockDeviceMappingV2 {
-			if blockMap["source_type"] == "volume" {
-				if uuid, ok := blockMap["uuid"].(string); ok {
-					host.zone.region.DeleteDisk(uuid)
-				}
+			if uuid, ok := blockMap["uuid"].(string); ok {
+				host.zone.region.DeleteDisk(uuid)
 			}
 		}
 		return nil, err

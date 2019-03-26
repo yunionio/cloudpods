@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -62,6 +63,21 @@ func (manager *SGuestsecgroupManager) newGuestSecgroup(ctx context.Context, user
 	defer lockman.ReleaseObject(ctx, secgroup)
 
 	return &gs, manager.TableSpec().Insert(&gs)
+}
+
+func (manager *SGuestsecgroupManager) GetGuestSecgroups(guest *SGuest, secgroup *SSecurityGroup) ([]SGuestsecgroup, error) {
+	guestsecgroups := []SGuestsecgroup{}
+	q := manager.Query()
+	if guest != nil {
+		q = q.Equals("guest_id", guest.Id)
+	}
+	if secgroup != nil {
+		q = q.Equals("secgroup_id", secgroup.Id)
+	}
+	if err := db.FetchModelObjects(manager, q, &guestsecgroups); err != nil {
+		return nil, err
+	}
+	return guestsecgroups, nil
 }
 
 func (manager *SGuestsecgroupManager) DeleteGuestSecgroup(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, secgroup *SSecurityGroup) error {

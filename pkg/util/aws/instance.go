@@ -152,6 +152,10 @@ func (self *SInstance) GetInstanceType() string {
 	return self.InstanceType
 }
 
+func (self *SInstance) GetSecurityGroupIds() []string {
+	return self.SecurityGroupIds.SecurityGroupId
+}
+
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 	// todo: add price_key here
@@ -163,25 +167,22 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	tags, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
 	if err != nil {
 		log.Errorf(err.Error())
+	} else {
+		data.Update(tags)
 	}
-	data.Update(tags)
 
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
 	if len(self.ImageId) > 0 {
 		image, err := self.host.zone.region.GetImage(self.ImageId)
 		if err != nil {
 			log.Errorf("Failed to find image %s for instance %s zone %s", self.ImageId, self.GetId(), self.ZoneId)
-		}
-		meta := image.GetMetadata()
-		if meta != nil {
-			data.Update(meta)
+		} else {
+			meta := image.GetMetadata()
+			if meta != nil {
+				data.Update(meta)
+			}
 		}
 	}
-	secgroupIds := jsonutils.NewArray()
-	for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
-		secgroupIds.Add(jsonutils.NewString(secgroupId))
-	}
-	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 
@@ -942,4 +943,8 @@ func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 
 func (self *SInstance) GetProjectId() string {
 	return ""
+}
+
+func (self *SInstance) GetError() error {
+	return nil
 }

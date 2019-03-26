@@ -9,6 +9,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -19,6 +21,19 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
+// 这些状态不做 websocket 通知
+var BlackList = []string{
+	ACT_CLOUD_FULLSYNC,
+	ACT_CREATE,
+	ACT_DELETE,
+	ACT_PENDING_DELETE,
+	ACT_PRIVATE,
+	ACT_PUBLIC,
+	ACT_UPDATE,
+	ACT_VM_SYNC_STATUS,
+	ACT_VM_SYNC_CONF,
+}
+
 const (
 	ACT_ADDTAG                       = "添加标签"
 	ACT_ALLOCATE                     = "分配"
@@ -28,6 +43,7 @@ const (
 	ACT_BM_UNMAINTENANCE             = "退出离线状态"
 	ACT_CANCEL_DELETE                = "恢复"
 	ACT_CHANGE_OWNER                 = "更改项目"
+	ACT_SYNC_CLOUD_OWNER             = "同步云项目"
 	ACT_CLOUD_FULLSYNC               = "全量同步"
 	ACT_CLOUD_SYNC                   = "同步"
 	ACT_CREATE                       = "创建"
@@ -129,17 +145,21 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	if !consts.OpsLogEnabled() {
 		return
 	}
-
-	token := userCred
-	notes := stringutils.Interface2String(iNotes)
-
-	// 忽略不黑名单里的资源类型
-	for _, v := range BLACK_LIST_OBJ_TYPE {
-		if v == model.Keyword() {
-			log.Errorf("不支持的 actionlog 类型")
+	if ok, _ := utils.InStringArray(model.Keyword(), BLACK_LIST_OBJ_TYPE); ok {
+		log.Errorf("不支持的 actionlog 类型")
+		return
+	}
+	if action == ACT_UPDATE {
+		if iNotes == nil {
+			return
+		}
+		if uds, ok := iNotes.(sqlchemy.UpdateDiffs); ok && len(uds) == 0 {
 			return
 		}
 	}
+
+	token := userCred
+	notes := stringutils.Interface2String(iNotes)
 
 	objId := model.GetId()
 	if len(objId) == 0 {

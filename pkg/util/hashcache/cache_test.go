@@ -46,4 +46,15 @@ func TestCache(t *testing.T) {
 	if v != nil {
 		t.Errorf("key 123 shoud expire")
 	}
+
+	c.Set("123", 1234)
+	v = c.Get("123")
+	if v == nil || v.(int) != 1234 {
+		t.Error("Key 123 not found")
+	}
+	c.Invalidate()
+	v = c.Get("123")
+	if v != nil {
+		t.Error("Key 123 should not found")
+	}
 }

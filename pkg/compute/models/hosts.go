@@ -961,24 +961,43 @@ func (self *SHost) GetHardwareSpecification() *jsonutils.JSONDict {
 }
 
 type SStorageCapacity struct {
-	Capacity  int
-	Used      int
-	Wasted    int
-	VCapacity int
+	Capacity  int `json:"capacity,omitzero"`
+	Used      int `json:"used_capacity,omitzero"`
+	Wasted    int `json:"waste_capacity,omitzero"`
+	VCapacity int `json:"virtual_capacity,omitzero"`
 }
 
-func (capa SStorageCapacity) GetFree() int {
-	return capa.VCapacity - capa.Used - capa.Wasted
+func (cap *SStorageCapacity) GetFree() int {
+	return cap.VCapacity - cap.Used - cap.Wasted
+}
+
+func (cap *SStorageCapacity) GetCommitRate() float64 {
+	if cap.Capacity > 0 {
+		return float64(int(float64(cap.Used)*100.0/float64(cap.Capacity)+0.5) / 100.0)
+	} else {
+		return 0.0
+	}
+}
+
+func (cap *SStorageCapacity) Add(cap2 SStorageCapacity) {
+	cap.Capacity += cap2.Capacity
+	cap.Used += cap2.Used
+	cap.Wasted += cap2.Wasted
+	cap.VCapacity += cap2.VCapacity
+}
+
+func (cap *SStorageCapacity) ToJson() *jsonutils.JSONDict {
+	ret := jsonutils.Marshal(cap).(*jsonutils.JSONDict)
+	ret.Add(jsonutils.NewFloat(cap.GetCommitRate()), "commit_rate")
+	ret.Add(jsonutils.NewInt(int64(cap.GetFree())), "free_capacity")
+	return ret
 }
 
 func (self *SHost) GetAttachedStorageCapacity() SStorageCapacity {
 	ret := SStorageCapacity{}
 	storages := self.GetAttachedStorages("")
 	for _, s := range storages {
-		ret.Capacity += s.GetCapacity()
-		ret.Used += s.GetUsedCapacity(tristate.True)
-		ret.Wasted += s.GetUsedCapacity(tristate.False)
-		ret.VCapacity += int(float32(s.GetCapacity()) * s.GetOvercommitBound())
+		ret.Add(s.getStorageCapacity())
 	}
 	return ret
 }
@@ -1255,7 +1274,7 @@ func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SClou
 	return hosts, nil
 }
 
-func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost, projectSync bool) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
+func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
 	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
 	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
 
@@ -1292,7 +1311,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i], projectSync)
+		err = commondb[i].syncWithCloudHost(ctx, userCred, commonext[i])
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -1333,7 +1352,7 @@ func (self *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.To
 	return err
 }
 
-func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, projectSync bool) error {
+func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = extHost.GetName()
 
@@ -1368,16 +1387,14 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
-	if projectSync {
-		if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
-			log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
-		}
+	if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
+		log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
 	}
 
 	return nil
 }
 
-func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SHost, projectSync bool) error {
+func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SHost) error {
 	_, err := self.SaveUpdates(func() error {
 
 		self.CpuCount = extVM.GetVcpuCount()
@@ -1394,10 +1411,8 @@ func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SH
 		log.Errorf("syncWithCloudZone error %s", err)
 	}
 
-	if projectSync {
-		if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
-			log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
-		}
+	if err := HostManager.ClearSchedDescCache(self.Id); err != nil {
+		log.Errorf("ClearSchedDescCache for host %s error %v", self.Name, err)
 	}
 
 	return err
@@ -1710,8 +1725,9 @@ func (self *SHost) newCloudHostWire(ctx context.Context, userCred mcclient.Token
 	return err
 }
 
-func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, projectId string, projectSync bool) ([]SGuest, []cloudprovider.ICloudVM, compare.SyncResult) {
-	syncOwnerId := getSyncOwnerProjectId(GuestManager, userCred, projectId, projectSync)
+func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, projectId string) ([]SGuest, []cloudprovider.ICloudVM, compare.SyncResult) {
+	syncOwnerId := projectId
+
 	lockman.LockClass(ctx, GuestManager, syncOwnerId)
 	defer lockman.ReleaseClass(ctx, GuestManager, syncOwnerId)
 
@@ -1749,7 +1765,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(commondb); i += 1 {
-		err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], syncOwnerId, projectSync)
+		err := commondb[i].syncWithCloudVM(ctx, userCred, iprovider, self, commonext[i], syncOwnerId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -2200,6 +2216,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 	extra.Add(jsonutils.NewInt(int64(capa.Wasted)), "storage_waste")
 	extra.Add(jsonutils.NewInt(int64(capa.VCapacity)), "storage_virtual")
 	extra.Add(jsonutils.NewInt(int64(capa.GetFree())), "storage_free")
+	extra.Add(jsonutils.NewFloat(capa.GetCommitRate()), "storage_commit_rate")
 	extra.Add(self.GetHardwareSpecification(), "spec")
 
 	// extra = self.SManagedResourceBase.getExtraDetails(ctx, extra)
@@ -2312,12 +2329,10 @@ func (self *SHost) GetLocalStoragecache() *SStoragecache {
 func (self *SHost) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 	kwargs := data.(*jsonutils.JSONDict)
-	ipmiInfo, err := self.FetchIpmiInfo(kwargs)
+	ipmiInfo, err := fetchIpmiInfo(kwargs, self.Id)
 	if err != nil {
 		log.Errorln(err.Error())
-		return
-	}
-	if ipmiInfo.Length() > 0 {
+	} else if ipmiInfo.Length() > 0 {
 		_, err := self.SaveUpdates(func() error {
 			self.IpmiInfo = ipmiInfo
 			return nil
@@ -2409,6 +2424,15 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 			data.Set("mem_reserved", jsonutils.NewInt(0))
 		}
 	}
+	ipmiInfo, err := fetchIpmiInfo(data, "")
+	if err != nil {
+		log.Errorln(err.Error())
+		return nil, httperrors.NewInputParameterError("%s", err)
+	}
+	ipmiIpAddr, _ := ipmiInfo.GetString("ip_addr")
+	if len(ipmiIpAddr) > 0 && !NetworkManager.IsValidOnPremiseNetworkIP(ipmiIpAddr) {
+		return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
+	}
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }
 
@@ -2444,11 +2468,15 @@ func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}
-	ipmiInfo, err := self.FetchIpmiInfo(data)
+	ipmiInfo, err := fetchIpmiInfo(data, self.Id)
 	if err != nil {
 		return nil, err
 	}
 	if ipmiInfo.Length() > 0 {
+		ipmiIpAddr, _ := ipmiInfo.GetString("ip_addr")
+		if len(ipmiIpAddr) > 0 && !NetworkManager.IsValidOnPremiseNetworkIP(ipmiIpAddr) {
+			return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
+		}
 		val := jsonutils.NewDict()
 		val.Update(self.IpmiInfo)
 		val.Update(ipmiInfo)
@@ -2496,7 +2524,7 @@ func (self *SHost) GetNetifName(netif *SNetInterface) string {
 	return ""
 }
 
-func (self *SHost) FetchIpmiInfo(data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func fetchIpmiInfo(data *jsonutils.JSONDict, hostId string) (*jsonutils.JSONDict, error) {
 	IPMI_KEY_PERFIX := "ipmi_"
 	ipmiInfo := jsonutils.NewDict()
 	kv, _ := data.GetMap()
@@ -2506,16 +2534,18 @@ func (self *SHost) FetchIpmiInfo(data *jsonutils.JSONDict) (*jsonutils.JSONDict,
 			value, _ := data.GetString(key)
 			subkey := key[len(IPMI_KEY_PERFIX):]
 			data.Remove(key)
-			if subkey == "password" {
-				value, err = utils.EncryptAESBase64(self.Id, value)
+			if subkey == "password" && len(hostId) > 0 {
+				value, err = utils.EncryptAESBase64(hostId, value)
 				if err != nil {
 					log.Errorf("encrypt password failed %s", err)
 					return nil, err
 				}
 			} else if subkey == "ip_addr" {
 				if !regutils.MatchIP4Addr(value) {
-					log.Errorf("%s: %s not match ip address", key, value)
-					continue
+					msg := fmt.Sprintf("%s: %s not valid ipv4 address", key, value)
+					log.Errorf(msg)
+					err = fmt.Errorf(msg)
+					return nil, err
 				}
 			}
 			ipmiInfo.Set(subkey, jsonutils.NewString(value))
@@ -2841,6 +2871,7 @@ func (self *SHost) AllowPerformAddNetif(ctx context.Context,
 }
 
 func (self *SHost) PerformAddNetif(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	log.Debugf("add_netif %s", data)
 	mac, _ := data.GetString("mac")
 	if len(mac) == 0 || len(netutils.FormatMacAddr(mac)) == 0 {
 		return nil, httperrors.NewBadRequestError("Invaild mac address")
@@ -3044,6 +3075,9 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 		} else if requireDesignatedIp {
 			log.Errorf("Cannot allocate IP %s, not reachable", ipAddr)
 			return fmt.Errorf("Cannot allocate IP %s, not reachable", ipAddr)
+		} else {
+			// the ipaddr is not usable, should be reset to empty
+			ipAddr = ""
 		}
 	}
 	wire := netif.GetWire()

@@ -2,7 +2,9 @@ package modules
 
 import (
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SPolicyManager struct {
@@ -16,7 +18,16 @@ func policyReadFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, q
 	ret := ss.CopyIncludes("id", "type")
 	blobStr, _ := ss.GetString("blob")
 	if len(blobStr) > 0 {
+		policy := rbacutils.SRbacPolicy{}
 		blobJson, _ := jsonutils.ParseString(blobStr)
+		err := policy.Decode(blobJson)
+		if err != nil {
+			return nil, err
+		}
+		blobJson, err = policy.Encode()
+		if err != nil {
+			return nil, err
+		}
 		var format string
 		if query != nil {
 			format, _ = query.GetString("format")

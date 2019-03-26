@@ -545,25 +545,12 @@ func (self *SSnapshot) syncRemoveCloudSnapshot(ctx context.Context, userCred mcc
 }
 
 // Only sync snapshot status
-func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot, projectId string, projectSync bool, region *SCloudregion) error {
+func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot, projectId string, region *SCloudregion) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = ext.GetName()
 		self.Status = ext.GetStatus()
 		self.DiskType = ext.GetDiskType()
-		if projectSync && self.ProjectSrc != db.PROJECT_SOURCE_LOCAL {
-			self.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-			if len(projectId) > 0 {
-				self.ProjectId = projectId
-			}
-			if extProjectId := ext.GetProjectId(); len(extProjectId) > 0 {
-				extProject, err := ExternalProjectManager.GetProject(extProjectId, self.ManagerId)
-				if err != nil {
-					log.Errorf(err.Error())
-				} else {
-					self.ProjectId = extProject.ProjectId
-				}
-			}
-		}
+
 		self.CloudregionId = region.Id
 		return nil
 	})
@@ -572,6 +559,9 @@ func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mccli
 		return err
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+
+	SyncCloudProject(userCred, self, projectId, ext, self.ManagerId)
+
 	return nil
 }
 
@@ -596,18 +586,6 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	snapshot.ManagerId = provider.Id
 	snapshot.CloudregionId = region.Id
 
-	snapshot.ProjectSrc = db.PROJECT_SOURCE_CLOUD
-	snapshot.ProjectId = projectId
-
-	if extProjectId := extSnapshot.GetProjectId(); len(extProjectId) > 0 {
-		externalProject, err := ExternalProjectManager.GetProject(extProjectId, snapshot.ManagerId)
-		if err != nil {
-			log.Errorf(err.Error())
-		} else {
-			snapshot.ProjectId = externalProject.ProjectId
-		}
-	}
-
 	err := manager.TableSpec().Insert(&snapshot)
 	if err != nil {
 		log.Errorf("newFromCloudEip fail %s", err)
@@ -615,6 +593,8 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	}
 
 	db.OpsLog.LogEvent(&snapshot, db.ACT_CREATE, snapshot.GetShortDesc(ctx), userCred)
+
+	SyncCloudProject(userCred, &snapshot, projectId, extSnapshot, snapshot.ManagerId)
 
 	return &snapshot, nil
 }
@@ -632,8 +612,9 @@ func (manager *SSnapshotManager) getProviderSnapshotsByRegion(region *SCloudregi
 	return snapshots, nil
 }
 
-func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshot, projectId string, projectSync bool) compare.SyncResult {
-	syncOwnerProjId := getSyncOwnerProjectId(manager, userCred, projectId, projectSync)
+func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshot, projectId string) compare.SyncResult {
+	syncOwnerProjId := projectId
+
 	lockman.LockClass(ctx, manager, syncOwnerProjId)
 	defer lockman.ReleaseClass(ctx, manager, syncOwnerProjId)
 
@@ -662,7 +643,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudSnapshot(ctx, userCred, commonext[i], projectId, projectSync, region)
+		err = commondb[i].SyncWithCloudSnapshot(ctx, userCred, commonext[i], projectId, region)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {

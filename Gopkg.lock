@@ -517,6 +517,14 @@
   revision = "3f9db97f856818214da2e1057f8ad84803971cff"
 
 [[projects]]
+  digest = "1:abeb38ade3f32a92943e5be54f55ed6d6e3b6602761d74b4aab4c9dd45c18abd"
+  name = "github.com/fsnotify/fsnotify"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
+  version = "v1.4.7"
+
+[[projects]]
   branch = "master"
   digest = "1:36fe9527deed01d2a317617e59304eb2c4ce9f8a24115bcc5c2e37b3aee5bae4"
   name = "github.com/gin-contrib/sse"
@@ -1695,7 +1703,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:204f1b178847f36dd976b909c0cf720c60b5f144c8390601928cd75abd4a894f"
+  digest = "1:f1f1aa2c29c1de090cf90d661fa1ee6c45c2d828059b5ec265a88a771649f83b"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1729,15 +1737,15 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "857664cbfc1ceb07fcdbacbd8dfe5563ad2a96df"
+  revision = "f92993f80cd49639f283ff29d6ab3d7cdd6ca941"
 
 [[projects]]
   branch = "master"
-  digest = "1:cb0b3f303fb24e8a173183b30480ccb690996b6e28e1c52e58e8fc6d2cf51eb8"
+  digest = "1:4137f40ed548a5dc02719ad2e6b6bdfd76a9d881fcd1a72eb5970956a7219d03"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "dfa73ef1a72202e8cbc68dbb7bd155cec4894928"
+  revision = "4d8d8e9b16804336f16570787421b9be24a6da1f"
 
 [[projects]]
   branch = "master"
@@ -1805,6 +1813,7 @@
     "github.com/coredns/coredns/plugin/trace",
     "github.com/coredns/coredns/request",
     "github.com/fatih/color",
+    "github.com/fsnotify/fsnotify",
     "github.com/go-sql-driver/mysql",
     "github.com/golang-plus/errors",
     "github.com/golang-plus/uuid",

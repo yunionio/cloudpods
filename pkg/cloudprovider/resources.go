@@ -218,6 +218,7 @@ type ICloudVM interface {
 	GetMachine() string
 	GetInstanceType() string
 
+	GetSecurityGroupIds() []string
 	AssignSecurityGroup(secgroupId string) error
 	SetSecurityGroups(secgroupIds []string) error
 
@@ -247,6 +248,8 @@ type ICloudVM interface {
 	CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error
 
 	Renew(bc billing.SBillingCycle) error
+
+	GetError() error
 }
 
 type ICloudNic interface {
@@ -490,6 +493,7 @@ type ICloudLoadbalancerListener interface {
 
 type ICloudLoadbalancerListenerRule interface {
 	ICloudResource
+	IVirtualResource
 
 	GetDomain() string
 	GetPath() string

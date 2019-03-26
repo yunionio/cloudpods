@@ -268,3 +268,7 @@ func (self *SBaseGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManaged
 func (self *SBaseGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, guest *models.SGuest, data *jsonutils.JSONDict, task taskman.ITask) error {
 	return nil
 }
+
+func (self *SBaseGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	return fmt.Errorf("SBaseGuestDriver: Not Implement")
+}

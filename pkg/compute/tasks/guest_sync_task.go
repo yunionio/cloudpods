@@ -40,6 +40,7 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 		db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF, nil, self.UserCred)
 		self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
 	} else if data.Contains("task") {
+		// XXX this is only applied to KVM, which will call task_complete twice
 		self.SetStage("on_disk_sync_complete", nil)
 	} else {
 		self.OnDiskSyncComplete(ctx, guest, data)
@@ -47,7 +48,7 @@ func (self *GuestSyncConfTask) OnSyncComplete(ctx context.Context, obj db.IStand
 }
 
 func (self *GuestSyncConfTask) OnDiskSyncComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if self.HasParentTask() {
+	if jsonutils.QueryBoolean(self.Params, "without_sync_status", false) {
 		self.OnSyncStatusComplete(ctx, guest, nil)
 	} else {
 		self.SetStage("on_sync_status_complete", nil)

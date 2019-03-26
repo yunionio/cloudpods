@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -70,6 +71,10 @@ func (lbr *SLoadbalancerListenerRule) GetDomain() string {
 
 func (lbr *SLoadbalancerListenerRule) GetPath() string {
 	return lbr.Url
+}
+
+func (lbr *SLoadbalancerListenerRule) GetProjectId() string {
+	return ""
 }
 
 func (lbr *SLoadbalancerListenerRule) GetBackendGroupId() string {

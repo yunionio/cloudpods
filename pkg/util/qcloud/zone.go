@@ -221,7 +221,7 @@ func (self *SZone) fetchInstanceTypes() {
 	params["Region"] = self.region.Region
 	params["Filters.0.Name"] = "zone"
 	params["Filters.0.Values.0"] = self.Zone
-	if body, err := self.region.cvmRequest("DescribeInstanceTypeConfigs", params); err != nil {
+	if body, err := self.region.cvmRequest("DescribeInstanceTypeConfigs", params, true); err != nil {
 		log.Errorf("DescribeInstanceTypeConfigs error: %v", err)
 	} else if configSet, err := body.GetArray("InstanceTypeConfigSet"); err != nil {
 		log.Errorf("Get InstanceTypeConfigSet error: %v", err)

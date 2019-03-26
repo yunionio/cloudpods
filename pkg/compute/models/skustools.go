@@ -8,6 +8,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -174,6 +175,14 @@ func (self *SkusZone) doUpdate(odata *SServerSku, sku jsonutils.JSONObject) erro
 
 func (self *SkusZone) SyncToLocalDB() error {
 	log.Debugf("SkusZone %s start sync.", self.ExternalZoneId)
+	// 更新已经soldout的sku
+	localIds, err := ServerSkuManager.FetchAllAvailableSkuIdByZoneId(self.ZoneId)
+	if err != nil {
+		return err
+	}
+
+	// 本次已被更新的sku id
+	updatedIds := make([]string, 0)
 	for _, sku := range self.skus {
 		name, _ := sku.GetString("name")
 
@@ -199,10 +208,20 @@ func (self *SkusZone) SyncToLocalDB() error {
 			if err := self.doUpdate(odata, sku); err != nil {
 				return err
 			}
+
+			updatedIds = append(updatedIds, odata.Id)
 		}
 	}
 
-	defer log.Debugf("SkusZone %s sync to local db.total %d,created %d,updated %d", self.ExternalZoneId, self.total, self.created, self.updated)
+	// 处理已经下架的sku： 将本次未更新且处于available状态的sku置为soldout状态
+	abandonIds := diff(localIds, updatedIds)
+	log.Debugf("SyncToLocalDB abandon sku %s", abandonIds)
+	err = ServerSkuManager.MarkAllAsSoldout(abandonIds)
+	if err != nil {
+		return err
+	}
+
+	defer log.Debugf("SkusZone %s sync to local db.total %d,created %d,updated %d. abandoned %d", self.ExternalZoneId, self.total, self.created, self.updated, len(abandonIds))
 	return nil
 }
 
@@ -357,4 +376,16 @@ func syncSkusByRegion(region *SCloudregion) error {
 	}
 
 	return nil
+}
+
+// 找出origins中存在，但是compares中不存在的element
+func diff(origins, compares []string) []string {
+	ret := make([]string, 0)
+	for _, o := range origins {
+		if !utils.IsInStringArray(o, compares) && len(o) > 0 {
+			ret = append(ret, o)
+		}
+	}
+
+	return ret
 }

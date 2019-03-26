@@ -3,12 +3,12 @@ package service
 import (
 	"os"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-
 	_ "github.com/go-sql-driver/mysql"
 
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/yunionconf"
 	"yunion.io/x/onecloud/pkg/yunionconf/models"

@@ -204,6 +204,10 @@ func (self *SRegion) fetchTags(resourceType string, resourceId string) (*jsonuti
 	return tags, nil
 }
 
+func (self *SInstance) GetSecurityGroupIds() []string {
+	return self.SecurityGroupIds.SecurityGroupId
+}
+
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 
@@ -229,11 +233,6 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 			data.Update(meta)
 		}
 	}
-	secgroupIds := jsonutils.NewArray()
-	for _, secgroupId := range self.SecurityGroupIds.SecurityGroupId {
-		secgroupIds.Add(jsonutils.NewString(secgroupId))
-	}
-	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 
@@ -941,4 +940,8 @@ func (region *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle
 
 func (self *SInstance) GetProjectId() string {
 	return ""
+}
+
+func (self *SInstance) GetError() error {
+	return nil
 }

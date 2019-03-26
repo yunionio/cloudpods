@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -106,6 +107,14 @@ func (self *SManagedVirtualizedGuestDriver) RequestGuestCreateAllDisks(ctx conte
 		return fmt.Errorf("no valid storage cache")
 	}
 	return storageCache.StartImageCacheTask(ctx, task.GetUserCred(), imageId, diskCat.Root.DiskFormat, false, task.GetTaskId())
+}
+
+func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if data.Contains("cdrom") {
+		hypervisor, _ := data.GetString("hypervisor")
+		return nil, httperrors.NewInputParameterError("%s not support cdrom params", hypervisor)
+	}
+	return data, nil
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
@@ -227,7 +236,9 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 
 	initialState := guest.GetDriver().GetGuestInitialStateAfterCreate()
 	log.Debugf("VMcreated %s, wait status %s ...", iVM.GetGlobalId(), initialState)
-	err = cloudprovider.WaitStatus(iVM, initialState, time.Second*5, time.Second*1800)
+	err = cloudprovider.WaitStatusWithInstanceErrorCheck(iVM, initialState, time.Second*5, time.Second*1800, func() error {
+		return iVM.GetError()
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -715,7 +726,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 			return nil, err
 		}
 		for _, disk := range removed {
-			if err := iVM.DetachDisk(ctx, disk.GetId()); err != nil {
+			if err := iVM.DetachDisk(ctx, disk.GetGlobalId()); err != nil {
 				return nil, err
 			}
 		}
@@ -728,53 +739,6 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 	})
 	return nil
 }
-
-/*func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if ihost, err := host.GetIHost(); err != nil {
-			return nil, err
-		} else if iVM, err := ihost.GetIVMById(guest.ExternalId); err != nil {
-			return nil, err
-		} else {
-			if fw_only, _ := task.GetParams().Bool("fw_only"); fw_only {
-				if err := iVM.SyncSecurityGroup(guest.SecgrpId, guest.GetSecgroupName(), guest.GetSecRules()); err != nil {
-					return nil, err
-				}
-			} else {
-				if iDisks, err := iVM.GetIDisks(); err != nil {
-					return nil, err
-				} else {
-					disks := make([]models.SDisk, 0)
-					for _, guestdisk := range guest.GetDisks() {
-						disk := guestdisk.GetDisk()
-						disks = append(disks, *disk)
-					}
-
-					added := make([]models.SDisk, 0)
-					commondb := make([]models.SDisk, 0)
-					commonext := make([]cloudprovider.ICloudDisk, 0)
-					removed := make([]cloudprovider.ICloudDisk, 0)
-
-					if err := compare.CompareSets(disks, iDisks, &added, &commondb, &commonext, &removed); err != nil {
-						return nil, err
-					}
-					for _, disk := range removed {
-						if err := iVM.DetachDisk(ctx, disk.GetId()); err != nil {
-							return nil, err
-						}
-					}
-					for _, disk := range added {
-						if err := iVM.AttachDisk(ctx, disk.ExternalId); err != nil {
-							return nil, err
-						}
-					}
-				}
-			}
-		}
-		return nil, nil
-	})
-	return nil
-}*/
 
 func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(guest *models.SGuest, bc billing.SBillingCycle) (time.Time, error) {
 	iVM, err := guest.GetIVM()

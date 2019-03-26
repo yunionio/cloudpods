@@ -2,15 +2,17 @@ package openstack
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/pkg/utils"
 )
 
 const (
@@ -68,6 +70,12 @@ type VolumesAttached struct {
 	DeleteOnTermination bool
 }
 
+type SFault struct {
+	Message string
+	Code    int
+	Details string
+}
+
 type SInstance struct {
 	host *SHost
 
@@ -114,6 +122,7 @@ type SInstance struct {
 	TrustedImageCertificates []string
 	Updated                  time.Time
 	UserID                   string
+	Fault                    SFault
 }
 
 func (region *SRegion) GetSecurityGroupsByInstance(instanceId string) ([]SecurityGroup, error) {
@@ -153,17 +162,19 @@ func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	return instance, resp.Unmarshal(instance, "server")
 }
 
-func (instance *SInstance) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-
+func (instance *SInstance) GetSecurityGroupIds() []string {
+	secgroupIds := []string{}
 	secgroups, err := instance.host.zone.region.GetSecurityGroupsByInstance(instance.ID)
 	if err == nil {
-		secgroupIds := jsonutils.NewArray()
 		for _, secgroup := range secgroups {
-			secgroupIds.Add(jsonutils.NewString(secgroup.ID))
+			secgroupIds = append(secgroupIds, secgroup.ID)
 		}
-		data.Add(secgroupIds, "secgroupIds")
 	}
+	return secgroupIds
+}
+
+func (instance *SInstance) GetMetadata() *jsonutils.JSONDict {
+	data := jsonutils.NewDict()
 
 	instance.fetchFlavor()
 
@@ -345,7 +356,7 @@ func (instance *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err := instance.host.zone.region.StopVM(instance.ID, isForce); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(instance, models.VM_RUNNING, 10*time.Second, 8*time.Minute)
+	return cloudprovider.WaitStatus(instance, models.VM_READY, 10*time.Second, 8*time.Minute)
 }
 
 func (region *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
@@ -627,4 +638,11 @@ func (region *SRegion) RenewInstances(instanceId []string, bc billing.SBillingCy
 
 func (instance *SInstance) GetProjectId() string {
 	return instance.TenantID
+}
+
+func (self *SInstance) GetError() error {
+	if self.Status == INSTANCE_STATUS_ERROR && len(self.Fault.Message) > 0 {
+		return errors.New(self.Fault.Message)
+	}
+	return nil
 }

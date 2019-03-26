@@ -42,6 +42,10 @@ func NewVirtualMachine(manager *SESXiClient, vm *mo.VirtualMachine, dc *SDatacen
 	return svm
 }
 
+func (self *SVirtualMachine) GetSecurityGroupIds() []string {
+	return []string{}
+}
+
 func (self *SVirtualMachine) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
@@ -120,8 +124,14 @@ func (self *SVirtualMachine) UpdateVM(ctx context.Context, name string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
+// TODO: detach disk to a separate directory, so as to keep disk independent of VM
+
 func (self *SVirtualMachine) DetachDisk(ctx context.Context, diskId string) error {
-	return cloudprovider.ErrNotImplemented
+	vdisk, err := self.GetIDiskById(diskId)
+	if err != nil {
+		return err
+	}
+	return self.doDetachDisk(ctx, vdisk.(*SVirtualDisk), false)
 }
 
 func (self *SVirtualMachine) AttachDisk(ctx context.Context, diskId string) error {
@@ -721,4 +731,8 @@ func (self *SVirtualMachine) Renew(bc billing.SBillingCycle) error {
 
 func (self *SVirtualMachine) GetProjectId() string {
 	return ""
+}
+
+func (self *SVirtualMachine) GetError() error {
+	return nil
 }

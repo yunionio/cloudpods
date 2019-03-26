@@ -119,6 +119,9 @@ func (self *SCloudaccount) getCloudprovidersInternal(enabled tristate.TriState) 
 }
 
 func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
+	if self.EnableAutoSync {
+		return httperrors.NewInvalidStatusError("automatic syncing is enabled")
+	}
 	if self.Enabled {
 		return httperrors.NewInvalidStatusError("account is enabled")
 	}
@@ -403,7 +406,24 @@ func (self *SCloudaccount) MarkSyncing(userCred mcclient.TokenCredential) error 
 	return nil
 }
 
-func (self *SCloudaccount) MarkEndSync(userCred mcclient.TokenCredential) error {
+func (self *SCloudaccount) MarkEndSyncWithLock(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, self)
+	defer lockman.ReleaseObject(ctx, self)
+
+	if self.SyncStatus == CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+		return nil
+	}
+
+	providers := self.GetCloudproviders()
+	for i := range providers {
+		if providers[i].SyncStatus != CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+			return nil
+		}
+	}
+	return self.markEndSync(userCred)
+}
+
+func (self *SCloudaccount) markEndSync(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_IDLE
 		self.LastSyncEndAt = timeutils.UtcNow()
@@ -869,7 +889,7 @@ func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlc
 	}
 
 	if jsonutils.QueryBoolean(query, "private_cloud", false) {
-		q = q.IsFalse("is_public_cloud")
+		q = q.IsFalse("is_public_cloud").IsFalse("is_on_premise")
 	}
 
 	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
@@ -911,7 +931,7 @@ func (self *SCloudaccount) enableAutoSync(ctx context.Context, userCred mcclient
 	if err != nil {
 		return err
 	}
-	db.OpsLog.LogEvent(self, db.ACT_UPDATE, sqlchemy.UpdateDiffString(diff), userCred)
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 
 	return nil
 }
@@ -938,7 +958,7 @@ func (self *SCloudaccount) disableAutoSync(ctx context.Context, userCred mcclien
 	if err != nil {
 		return err
 	}
-	db.OpsLog.LogEvent(self, db.ACT_UPDATE, sqlchemy.UpdateDiffString(diff), userCred)
+	db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 
 	return nil
 }
@@ -1099,8 +1119,8 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 	account.MarkSyncing(userCred)
 	subaccounts, err := account.probeAccountStatus(ctx, userCred)
 	if err != nil {
-		account.markAccountDiscconected(ctx, userCred)
 		account.markAllProvidersDicconnected(ctx, userCred)
+		account.markAccountDiscconected(ctx, userCred)
 		return err
 	}
 	account.markAccountConnected(ctx, userCred)
@@ -1120,16 +1140,23 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 		log.Debugf("syncAccountStatus %s %s", account.Id, account.Name)
 		err := account.syncAccountStatus(ctx, userCred)
 		if waitChan != nil {
+			if err != nil {
+				account.markEndSync(userCred)
+			}
 			waitChan <- err
 		} else {
+			syncCnt := 0
 			if err == nil && autoSync && account.Enabled && account.EnableAutoSync {
 				syncRange := SSyncRange{FullSync: true}
 				providers := account.GetEnabledCloudproviders()
 				for i := range providers {
-					providers[i].syncCloudproviderRegions(userCred, &syncRange, nil)
+					providers[i].syncCloudproviderRegions(ctx, userCred, &syncRange, nil, autoSync)
+					syncCnt += 1
 				}
 			}
-			account.MarkEndSync(userCred)
+			if syncCnt == 0 {
+				account.markEndSync(userCred)
+			}
 		}
 	})
 }

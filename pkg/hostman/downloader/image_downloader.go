@@ -5,11 +5,12 @@ import (
 	"os"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 	"yunion.io/x/onecloud/pkg/util/tarutils"
-	"yunion.io/x/pkg/utils"
 )
 
 type SImageDownloadProvider struct {

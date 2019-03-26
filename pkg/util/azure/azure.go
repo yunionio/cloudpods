@@ -44,6 +44,8 @@ type SAzureClient struct {
 	env                 azureenv.Environment
 	authorizer          autorest.Authorizer
 	iregions            []cloudprovider.ICloudRegion
+
+	debug bool
 }
 
 var DEFAULT_API_VERSION = map[string]string{
@@ -71,14 +73,16 @@ var DEFAULT_API_VERSION = map[string]string{
 	"Microsoft.Compute/locations":                    "2018-06-01",
 }
 
-func NewAzureClient(providerId string, providerName string, accessKey string, secret string, envName string) (*SAzureClient, error) {
+func NewAzureClient(providerId string, providerName string, accessKey string, secret string, envName string, debug bool) (*SAzureClient, error) {
 	clientInfo := strings.Split(secret, "/")
 	accountInfo := strings.Split(accessKey, "/")
 	if len(clientInfo) >= 2 && len(accountInfo) >= 1 {
-		client := SAzureClient{providerId: providerId,
+		client := SAzureClient{
+			providerId:   providerId,
 			providerName: providerName,
 			secret:       secret,
 			envName:      envName,
+			debug:        debug,
 		}
 		client.clientId, client.clientScret = clientInfo[0], strings.Join(clientInfo[1:], "/")
 		client.tenantId = accountInfo[0]
@@ -123,6 +127,36 @@ func (self *SAzureClient) jsonRequest(method, url string, body string) (jsonutil
 		return nil, err
 	}
 	return jsonRequest(cli, method, self.domain, url, self.subscriptionId, body)
+}
+
+func (self *SAzureClient) Put(url string, body jsonutils.JSONObject) error {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return err
+	}
+	resp, err := jsonRequest(cli, "PUT", self.domain, url, self.subscriptionId, body.String())
+	if err != nil {
+		return err
+	}
+	if self.debug {
+		log.Debugf("%s", resp)
+	}
+	return nil
+}
+
+func (self *SAzureClient) Patch(url string, body jsonutils.JSONObject) error {
+	cli, err := self.getDefaultClient()
+	if err != nil {
+		return err
+	}
+	resp, err := jsonRequest(cli, "PATCH", self.domain, url, self.subscriptionId, body.String())
+	if err != nil {
+		return err
+	}
+	if self.debug {
+		log.Debugf("%s", resp)
+	}
+	return nil
 }
 
 func (self *SAzureClient) Get(resourceId string, params []string, retVal interface{}) error {

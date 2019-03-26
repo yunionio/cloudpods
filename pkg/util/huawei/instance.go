@@ -222,6 +222,11 @@ func (self *SInstance) GetInstanceType() string {
 	return self.Flavor.ID
 }
 
+func (self *SInstance) GetSecurityGroupIds() []string {
+	secgroupIds, _ := self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
+	return secgroupIds
+}
+
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 	// cn-north-1::et2.2xlarge.16::win
@@ -238,17 +243,6 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 		} else if meta := image.GetMetadata(); meta != nil {
 			data.Update(meta)
 		}
-	}
-
-	_secIds, err := self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
-	if err != nil {
-		log.Errorf(err.Error())
-	} else {
-		secgroupIds := jsonutils.NewArray()
-		for _, secId := range _secIds {
-			secgroupIds.Add(jsonutils.NewString(secId))
-		}
-		data.Add(secgroupIds, "secgroupIds")
 	}
 	return data
 }
@@ -1120,6 +1114,14 @@ func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 // 只支持传入主资源ID, 根据“查询客户包周期资源列表”接口响应参数中的“is_main_resource”来标识。
 // expire_mode 0：进入宽限期  1：转按需 2：自动退订 3：自动续订（当前只支持ECS、EVS和VPC）
 func (self *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) error {
+	// 记录未续费前的过期时间
+	ins, err := self.GetInstanceByID(instanceId)
+	if err != nil {
+		return err
+	}
+
+	oldExpired := ins.GetExpiredAt()
+
 	params := jsonutils.NewDict()
 	res := jsonutils.NewArray()
 	res.Add(jsonutils.NewString(instanceId))
@@ -1139,8 +1141,30 @@ func (self *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) 
 		return fmt.Errorf("invalid renew period %s month,must be 1~11 month or 1~3 year", month)
 	}
 
-	_, err := self.ecsClient.Orders.RenewPeriodResource(params)
-	return err
+	domainId, err := self.getDomianId()
+	if err != nil {
+		return err
+	}
+
+	err = self.ecsClient.Orders.SetDomainId(domainId)
+	if err != nil {
+		return err
+	}
+
+	_, err = self.ecsClient.Orders.RenewPeriodResource(params)
+	if err != nil {
+		return err
+	}
+
+	// 这里等待更新实例过期时间
+	return cloudprovider.WaitCreated(15*time.Second, 180*time.Second, func() bool {
+		newExipred := ins.GetExpiredAt()
+		if newExipred.After(oldExpired) {
+			return true
+		}
+
+		return false
+	})
 }
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0065817702.html
@@ -1180,4 +1204,8 @@ func (self *SRegion) UnsubscribeInstance(instanceId string, domianId string) (js
 
 func (self *SInstance) GetProjectId() string {
 	return ""
+}
+
+func (self *SInstance) GetError() error {
+	return nil
 }

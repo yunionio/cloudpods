@@ -7,12 +7,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/timeutils"
 )
 
 type SCloudproviderregionManager struct {
@@ -199,7 +199,19 @@ func (self *SCloudproviderregion) markSyncing(userCred mcclient.TokenCredential)
 	return nil
 }
 
-func (self *SCloudproviderregion) markEndSync(userCred mcclient.TokenCredential, syncResults SSyncResultSet) error {
+func (self *SCloudproviderregion) markEndSync(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet) error {
+	err := self.markEndSyncInternal(userCred, syncResults)
+	if err != nil {
+		return err
+	}
+	err = self.GetProvider().markEndSyncWithLock(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (self *SCloudproviderregion) markEndSyncInternal(userCred mcclient.TokenCredential, syncResults SSyncResultSet) error {
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_IDLE
 		self.LastSyncEndAt = timeutils.UtcNow()
@@ -230,11 +242,10 @@ func (set SSyncResultSet) Add(manager db.IModelManager, result compare.SyncResul
 }
 
 func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange) error {
-	err := self.markSyncing(userCred)
-	if err != nil {
-		log.Errorf("start sync sql fail?? %s", err)
-		return err
-	}
+	syncResults := SSyncResultSet{}
+
+	self.markSyncing(userCred)
+	defer self.markEndSync(ctx, userCred, syncResults)
 
 	localRegion := self.GetRegion()
 	provider := self.GetProvider()
@@ -243,8 +254,6 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 		log.Errorf("fail to get driver, connection problem?")
 		return err
 	}
-
-	syncResults := SSyncResultSet{}
 
 	if localRegion.isManaged() {
 		remoteRegion, err := driver.GetIRegionById(localRegion.ExternalId)
@@ -255,14 +264,13 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 		err = syncOnPremiseCloudProviderInfo(ctx, userCred, syncResults, provider, driver, syncRange)
 	}
 
+	if err != nil {
+		log.Errorf("dosync fail %s", err)
+	}
+
 	log.Debugf("%s", jsonutils.Marshal(syncResults))
 
-	err = self.markEndSync(userCred, syncResults)
-	if err != nil {
-		log.Errorf("mark end sync failed...")
-		return err
-	}
-	return nil
+	return err
 }
 
 func (self *SCloudproviderregion) getSyncTaskKey() string {
@@ -284,7 +292,7 @@ func (self *SCloudproviderregion) submitSyncTask(userCred mcclient.TokenCredenti
 	})
 }
 
-func (cpr *SCloudproviderregion) needSync() bool {
+func (cpr *SCloudproviderregion) needAutoSync() bool {
 	if cpr.LastSyncEndAt.IsZero() {
 		return true
 	}
@@ -297,7 +305,10 @@ func (cpr *SCloudproviderregion) needSync() bool {
 		isEmpty = cpr.isEmptyPublicCloud()
 	}
 	if isEmpty {
-		intval = intval * 16 // no need to check empty region
+		intval = intval * 16  // no need to check empty region
+		if intval > 24*3600 { // at least once everyday
+			intval = 24 * 3600
+		}
 		region := cpr.GetRegion()
 		log.Debugf("empty region %s! no need to check so frequently", region.GetName())
 	}
@@ -337,4 +348,14 @@ func (cpr *SCloudproviderregion) isEmptyPublicCloud() bool {
 		return false
 	}
 	return true
+}
+
+func (cprm *SCloudproviderregionManager) fetchRecordsForCloudprovider(manager *SCloudprovider) ([]SCloudproviderregion, error) {
+	q := cprm.Query().Equals("cloudprovider_id", manager.Id)
+	recs := make([]SCloudproviderregion, 0)
+	err := db.FetchModelObjects(cprm, q, &recs)
+	if err != nil {
+		return nil, err
+	}
+	return recs, nil
 }

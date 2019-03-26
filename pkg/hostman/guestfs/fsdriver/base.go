@@ -32,19 +32,22 @@ func (d *sGuestRootFsDriver) DeployFiles(deploys []jsonutils.JSONObject) error {
 		}
 		sPath, err := deploy.GetString("path")
 		if err != nil {
+			log.Errorln(err)
 			return err
 		}
 		dirname := filepath.Dir(sPath)
-		if !d.GetPartition().Exists(sPath, caseInsensitive) {
+		if !d.GetPartition().Exists(dirname, caseInsensitive) {
 			modeRWXOwner := syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
 			err := d.GetPartition().Mkdir(dirname, modeRWXOwner, caseInsensitive)
 			if err != nil {
+				log.Errorln(err)
 				return err
 			}
 		}
-		if content, err := deploy.GetString("content"); err != nil {
+		if content, err := deploy.GetString("content"); err == nil {
 			err := d.GetPartition().FilePutContents(sPath, content, modAppend, caseInsensitive)
 			if err != nil {
+				log.Errorln(err)
 				return err
 			}
 		}
@@ -182,5 +185,5 @@ func MergeAuthorizedKeys(oldKeys string, pubkeys *sshkeys.SSHKeys) string {
 	for _, val := range allkeys {
 		keys = append(keys, val)
 	}
-	return strings.Join(keys, "\n")
+	return strings.Join(keys, "\n") + "\n"
 }

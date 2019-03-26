@@ -22,7 +22,21 @@ func init() {
 
 func (self *EipAllocateTask) onFailed(ctx context.Context, resion string) {
 	self.finalReleasePendingUsage(ctx)
+	self.setGuestAllocateEipFailed(resion)
 	self.SetStageFailed(ctx, resion)
+}
+
+func (self *EipAllocateTask) setGuestAllocateEipFailed(resion string) {
+	if self.Params != nil && self.Params.Contains("instance_id") {
+		instanceId, _ := self.Params.GetString("instance_id")
+		instance, err := models.GuestManager.FetchById(instanceId)
+		if err != nil {
+			log.Errorf("failed to find guest by id: %s error: %v", instanceId, err)
+			return
+		}
+		guest := instance.(*models.SGuest)
+		guest.SetStatus(self.UserCred, models.VM_ASSOCIATE_EIP_FAILED, resion)
+	}
 }
 
 func (self *EipAllocateTask) finalReleasePendingUsage(ctx context.Context) {
@@ -53,7 +67,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		return
 	}
 
-	err = eip.SyncWithCloudEip(ctx, self.UserCred, eip.GetCloudprovider(), extEip, "", false)
+	err = eip.SyncWithCloudEip(ctx, self.UserCred, eip.GetCloudprovider(), extEip, "")
 
 	if err != nil {
 		msg := fmt.Sprintf("sync eip fail %s", err)
@@ -78,4 +92,9 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 
 func (self *EipAllocateTask) OnEipAssociateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+}
+
+func (self *EipAllocateTask) OnEipAssociateCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.setGuestAllocateEipFailed(data.String())
+	self.SetStageFailed(ctx, data.String())
 }

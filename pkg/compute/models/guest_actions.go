@@ -12,7 +12,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/fileutils"
 	"yunion.io/x/pkg/util/regutils"
@@ -31,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -453,6 +453,17 @@ func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCr
 		log.Errorf(err.Error())
 		return err
 	}
+	return self.doSyncTask(ctx, data, userCred, parentTaskId)
+}
+
+func (self *SGuest) StartSyncTaskWithoutSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, fwOnly bool, parentTaskId string) error {
+	data := jsonutils.NewDict()
+	data.Set("without_sync_status", jsonutils.JSONTrue)
+	data.Set("fw_only", jsonutils.NewBool(fwOnly))
+	return self.doSyncTask(ctx, data, userCred, parentTaskId)
+}
+
+func (self *SGuest) doSyncTask(ctx context.Context, data *jsonutils.JSONDict, userCred mcclient.TokenCredential, parentTaskId string) error {
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSyncConfTask", self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorf(err.Error())
 		return err
@@ -791,7 +802,7 @@ func (self *SGuest) AllowPerformRevokeSecgroup(ctx context.Context, userCred mcc
 func (self *SGuest) saveDefaultSecgroupId(userCred mcclient.TokenCredential, secGrpId string) error {
 	if secGrpId != self.SecgrpId {
 		diff, err := db.Update(self, func() error {
-			self.SecgrpId = "default"
+			self.SecgrpId = secGrpId
 			return nil
 		})
 		if err != nil {

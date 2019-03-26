@@ -174,3 +174,15 @@ func (this *JointResourceManager) Patch(s *mcclient.ClientSession, mid, sid stri
 	}
 	return this.filterSingleResult(s, result, nil)
 }
+
+func (this *JointResourceManager) BatchUpdate(s *mcclient.ClientSession, mid string, sids []string, query jsonutils.JSONObject, params jsonutils.JSONObject) []SubmitResult {
+	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
+		return this.Update(s, mid, sid, query, params)
+	})
+}
+
+func (this *JointResourceManager) BatchPatch(s *mcclient.ClientSession, mid string, sids []string, query jsonutils.JSONObject, params jsonutils.JSONObject) []SubmitResult {
+	return BatchDo(sids, func(sid string) (jsonutils.JSONObject, error) {
+		return this.Patch(s, mid, sid, query, params)
+	})
+}

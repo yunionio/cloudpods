@@ -1,14 +1,15 @@
 package db
 
 import (
+	"context"
 	"strings"
 
-	"context"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
+
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/pkg/utils"
 )
 
 type SAdminSharableVirtualResourceBase struct {
@@ -136,9 +137,7 @@ func (model *SAdminSharableVirtualResourceBase) setInfo(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	if diff != nil {
-		OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
-		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, diff, userCred, true)
-	}
+	OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, diff, userCred, true)
 	return err
 }

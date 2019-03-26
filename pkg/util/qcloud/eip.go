@@ -257,6 +257,9 @@ func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternet
 	if err != nil {
 		return nil, err
 	}
+	if len(name) > 20 {
+		name = name[:20]
+	}
 	if len(addRessSet) > 0 {
 		params["AddressId"] = addRessSet[0]
 		params["AddressName"] = name
@@ -327,7 +330,7 @@ func (region *SRegion) UpdateInstanceBandwidth(instanceId string, bw int) error 
 	params["InstanceIds.0"] = instanceId
 	params["InternetAccessible.InternetMaxBandwidthOut"] = fmt.Sprintf("%d", bw)
 
-	_, err := region.cvmRequest("ResetInstancesInternetMaxBandwidth", params)
+	_, err := region.cvmRequest("ResetInstancesInternetMaxBandwidth", params, true)
 	return err
 }
 

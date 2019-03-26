@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/consts"
 )
@@ -77,6 +78,10 @@ func (self *SLBListenerRule) GetDomain() string {
 
 func (self *SLBListenerRule) GetPath() string {
 	return self.URL
+}
+
+func (self *SLBListenerRule) GetProjectId() string {
+	return ""
 }
 
 func (self *SLBListenerRule) GetBackendGroup() *SLBBackendGroup {

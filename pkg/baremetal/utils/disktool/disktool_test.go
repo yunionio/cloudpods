@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/util/ssh"
-	"yunion.io/x/pkg/util/stringutils"
 )
 
 var (

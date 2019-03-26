@@ -2,6 +2,8 @@ package sqlchemy
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 type SFunctionField struct {
@@ -66,5 +68,38 @@ func DISTINCT(name string, field IQueryField) IQueryField {
 
 func GROUP_CONCAT(name string, field IQueryField) IQueryField {
 	ff := NewFunctionField(name, "GROUP_CONCAT(%s)", field)
+	return &ff
+}
+
+type SStringField struct {
+	strConst string
+}
+
+func (s *SStringField) Expression() string {
+	return ""
+}
+
+func (s *SStringField) Name() string {
+	return ""
+}
+
+func (s *SStringField) Reference() string {
+	return strconv.Quote(s.strConst)
+}
+
+func (s *SStringField) Label(label string) IQueryField {
+	return s
+}
+
+func NewStringField(name string) *SStringField {
+	return &SStringField{strConst: name}
+}
+
+func CONCAT(name string, fields ...IQueryField) IQueryField {
+	params := []string{}
+	for i := 0; i < len(fields); i++ {
+		params = append(params, "%s")
+	}
+	ff := NewFunctionField(name, `CONCAT(`+strings.Join(params, ",")+`)`, fields...)
 	return &ff
 }
