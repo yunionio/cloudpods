@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
-
-	"yunion.io/x/log"
 )
 
 type SecurityGroupSubSubRuleSet struct {
@@ -31,18 +29,10 @@ func (sssrs *SecurityGroupSubSubRuleSet) addRule(rule SecurityRule) {
 		case RELATION_IDENTICAL, RELATION_SUPERSET:
 			return
 		case RELATION_SUBSET:
-			if idx+1 < len(sssrs.rules) {
-				sssrs.rules = append(sssrs.rules[:idx], sssrs.rules[idx+1:]...)
-			} else {
-				sssrs.rules = sssrs.rules[:idx]
-			}
+			sssrs.rules = append(sssrs.rules[:idx], sssrs.rules[idx+1:]...)
 		case RELATION_NEXT_AHEAD, RELATION_NEXT_AFTER, RELATION_OVERLAP:
-			r, err := rule.merge(sssrs.rules[idx])
-			if err != nil {
-				log.Errorf("Merge failed?? %v", err)
-				panic(err.Error())
-			}
-			sssrs.rules[idx] = r
+			rule = rule.merge(sssrs.rules[idx])
+			sssrs.rules = append(sssrs.rules[:idx], sssrs.rules[idx+1:]...)
 			idx = 0
 		}
 	}
@@ -118,7 +108,6 @@ func (ssrs *SecurityGroupSubRuleSet) isEqual(_ssrs *SecurityGroupSubRuleSet) boo
 	if _ssrs == nil {
 		return false
 	}
-
 	return ssrs.isRulesEqual(ssrs.allowRules, _ssrs.allowRules) && ssrs.isRulesEqual(ssrs.denyRules, _ssrs.denyRules)
 }
 

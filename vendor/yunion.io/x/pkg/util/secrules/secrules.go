@@ -175,43 +175,42 @@ func (rule *SecurityRule) IsWildMatch() bool {
 	return rule.IPNet.String() == "0.0.0.0/0" &&
 		rule.Protocol == PROTO_ANY &&
 		len(rule.Ports) == 0 &&
-		rule.PortStart == 0 &&
-		rule.PortEnd == 0
+		((rule.PortStart <= 0 && rule.PortEnd <= 0) || (rule.PortStart == 1 && rule.PortEnd == 65535))
 }
 
-func (rule SecurityRule) protoRelation(r SecurityRule) TSecurityRuleRelation {
-	if rule.Direction != r.Direction {
+func (rule SecurityRule) protoRelation(_rule SecurityRule) TSecurityRuleRelation {
+	if rule.Direction != _rule.Direction {
 		return RELATION_INDEPENDENT
 	}
-	if rule.Protocol == r.Protocol {
+	if rule.Protocol == _rule.Protocol {
 		if utils.IsInStringArray(rule.Protocol, []string{PROTO_ANY, PROTO_ICMP}) {
 			return RELATION_IDENTICAL
 		}
-		if rule.PortStart <= 0 && r.PortStart <= 0 {
+		if rule.PortStart <= 0 && _rule.PortStart <= 0 {
 			return RELATION_IDENTICAL
 		}
-		if rule.PortStart > 0 && r.PortStart <= 0 {
+		if rule.PortStart > 0 && _rule.PortStart <= 0 {
 			return RELATION_SUBSET
 		}
-		if rule.PortStart <= 0 && r.PortStart > 0 {
+		if rule.PortStart <= 0 && _rule.PortStart > 0 {
 			return RELATION_SUPERSET
 		}
-		if rule.PortEnd+1 == r.PortStart {
+		if rule.PortEnd+1 == _rule.PortStart {
 			return RELATION_NEXT_AHEAD
 		}
-		if rule.PortStart == r.PortEnd+1 {
+		if rule.PortStart == _rule.PortEnd+1 {
 			return RELATION_NEXT_AFTER
 		}
-		if rule.PortEnd < r.PortStart || rule.PortStart > r.PortEnd {
+		if rule.PortEnd < _rule.PortStart || rule.PortStart > _rule.PortEnd {
 			return RELATION_INDEPENDENT
 		}
-		if rule.PortStart == r.PortStart && rule.PortEnd == r.PortEnd {
+		if rule.PortStart == _rule.PortStart && rule.PortEnd == _rule.PortEnd {
 			return RELATION_IDENTICAL
 		}
-		if rule.PortStart <= r.PortStart && rule.PortEnd >= r.PortEnd {
+		if rule.PortStart <= _rule.PortStart && rule.PortEnd >= _rule.PortEnd {
 			return RELATION_SUPERSET
 		}
-		if rule.PortStart >= r.PortStart && rule.PortEnd <= r.PortEnd {
+		if rule.PortStart >= _rule.PortStart && rule.PortEnd <= _rule.PortEnd {
 			return RELATION_SUBSET
 		}
 		return RELATION_OVERLAP
@@ -219,13 +218,13 @@ func (rule SecurityRule) protoRelation(r SecurityRule) TSecurityRuleRelation {
 	if rule.Protocol == PROTO_ANY {
 		return RELATION_SUPERSET
 	}
-	if r.Protocol == PROTO_ANY {
+	if _rule.Protocol == PROTO_ANY {
 		return RELATION_SUBSET
 	}
 	return RELATION_INDEPENDENT
 }
 
-func (rule SecurityRule) merge(r SecurityRule) (SecurityRule, error) {
+func (rule SecurityRule) merge(r SecurityRule) SecurityRule {
 	if rule.getIPKey() != r.getIPKey() {
 		panic(fmt.Sprintf("rule %v ip addr not equal rule %v", rule, r))
 	}
@@ -236,10 +235,10 @@ func (rule SecurityRule) merge(r SecurityRule) (SecurityRule, error) {
 	switch rel {
 	case RELATION_NEXT_AHEAD:
 		rule.PortEnd = r.PortEnd
-		return rule, nil
+		return rule
 	case RELATION_NEXT_AFTER:
 		rule.PortStart = r.PortStart
-		return rule, nil
+		return rule
 	case RELATION_OVERLAP:
 		if rule.PortStart > r.PortStart {
 			rule.PortStart = r.PortStart
@@ -247,9 +246,9 @@ func (rule SecurityRule) merge(r SecurityRule) (SecurityRule, error) {
 		if rule.PortEnd < r.PortEnd {
 			rule.PortEnd = r.PortEnd
 		}
-		return rule, nil
+		return rule
 	}
-	return r, fmt.Errorf("Cannot merge")
+	panic(fmt.Errorf("rule %s can not merge rule %s relation: %s", rule.String(), r.String(), rel))
 }
 
 func (rule SecurityRule) getIPKey() string {
