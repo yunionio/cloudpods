@@ -339,6 +339,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	if !exists {
 		return nil, httperrors.NewInputParameterError("instance_type_category %s is invalid", category)
 	}
+	data.Add(jsonutils.NewString(category),"local_category")
 
 	data.Set("instance_type_family", jsonutils.NewString(family))
 	// 格式 ecs.g1.c1m1
