@@ -592,9 +592,9 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(&snapshot, db.ACT_CREATE, snapshot.GetShortDesc(ctx), userCred)
-
 	SyncCloudProject(userCred, &snapshot, projectId, extSnapshot, snapshot.ManagerId)
+
+	db.OpsLog.LogEvent(&snapshot, db.ACT_CREATE, snapshot.GetShortDesc(ctx), userCred)
 
 	return &snapshot, nil
 }
