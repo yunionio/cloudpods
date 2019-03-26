@@ -149,7 +149,7 @@ type ServerCreateInput struct {
 	IsSystem           bool            `json:"is_system"`
 	Duration           string          `json:"duration"`
 	AutoPrepaidRecycle bool            `json:"auto_prepaid_recycle,omitfalse"`
-	SecgroupId         string          `json:"secgroup_id"`
+	SecgroupId         string          `json:"secgrp_id"`
 	EipBw              int             `json:"eip_bw,omitzero"`
 	EipChargeType      string          `json:"eip_charge_type,omitempty"`
 	Eip                string          `json:"eip,omitempty"`
