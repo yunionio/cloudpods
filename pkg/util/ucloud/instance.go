@@ -80,7 +80,7 @@ type SVncInfo struct {
 	VNCPassword string `json:"VncPassword"`
 	UHostID     string `json:"UHostId"`
 	Action      string `json:"Action"`
-	VNCPort     string `json:"VncPort"`
+	VNCPort     int64  `json:"VncPort"`
 }
 
 func (self *SInstance) GetId() string {
@@ -355,23 +355,6 @@ func (self *SInstance) GetSecurityGroups() ([]SSecurityGroup, error) {
 }
 
 // https://docs.ucloud.cn/api/uhost-api/get_uhost_instance_vnc_info
-/*
-
-type RemoteConsoleInfo struct {
-	Host        string `json:"host"`
-	Port        int64  `json:"port"`
-	Protocol    string `json:"protocol"`
-	Id          string `json:"id"`
-	OsName      string `json:"osName"`
-	VncPassword string `json:"vncPassword"`
-
-	// used by aliyun server
-	InstanceId string `json:"instance_id"`
-	Url        string `json:"url"`
-	Password   string `json:"password"`
-}
-
-*/
 func (self *SRegion) GetInstanceVNCUrl(instanceId string) (jsonutils.JSONObject, error) {
 	params := NewUcloudParams()
 	params.Set("UHostId", instanceId)
@@ -381,5 +364,11 @@ func (self *SRegion) GetInstanceVNCUrl(instanceId string) (jsonutils.JSONObject,
 		return nil, err
 	}
 
-	return jsonutils.Marshal(&vnc), nil
+	vncInfo := jsonutils.NewDict()
+	vncInfo.Add(jsonutils.NewString(vnc.VNCIP), "host")
+	vncInfo.Add(jsonutils.NewInt(vnc.VNCPort), "port")
+	vncInfo.Add(jsonutils.NewString("vnc"), "protocol")
+	vncInfo.Add(jsonutils.NewString(vnc.VNCPassword), "vncPassword")
+	vncInfo.Add(jsonutils.NewString(vnc.VNCIP), "host")
+	return vncInfo, nil
 }
