@@ -1088,8 +1088,7 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 	}
 	balance, err := manager.GetBalance()
 	if err != nil && err != cloudprovider.ErrNotSupported {
-		log.Errorf("manager.GetBalance fail %s", err)
-		return nil, err
+		log.Errorf("manager.GetBalance %s fail %s", account.Name, err)
 	}
 	version := manager.GetVersion()
 	sysInfo, err := manager.GetSysInfo()
