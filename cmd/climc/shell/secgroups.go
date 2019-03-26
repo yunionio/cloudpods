@@ -12,6 +12,7 @@ import (
 
 func init() {
 	type SecGroupsListOptions struct {
+		Equals string `help:"Secgroup ID or Name, filter secgroups whose rules equals the specified one"`
 		options.BaseListOptions
 	}
 
@@ -24,6 +25,9 @@ func init() {
 				return err
 
 			}
+		}
+		if len(args.Equals) > 0 {
+			params.Add(jsonutils.NewString(args.Equals), "equals")
 		}
 		result, err := modules.SecGroups.List(s, params)
 		if err != nil {
@@ -53,6 +57,27 @@ func init() {
 			return err
 		}
 		printObject(secgroups)
+		return nil
+
+	})
+
+	type SecGroupsUnionOptions struct {
+		ID        string   `help:"ID or Name of security group destination"`
+		SECGROUPS []string `help:"source IDs or Names of secgroup"`
+	}
+
+	R(&SecGroupsUnionOptions{}, "secgroup-union", "Union secgroups to one secgroup", func(s *mcclient.ClientSession, args *SecGroupsUnionOptions) error {
+		params := jsonutils.NewDict()
+		secgroups := jsonutils.NewArray()
+		for i := 0; i < len(args.SECGROUPS); i++ {
+			secgroups.Add(jsonutils.NewString(args.SECGROUPS[i]))
+		}
+		params.Add(secgroups, "secgroups")
+		secgroup, err := modules.SecGroups.PerformAction(s, args.ID, "union", params)
+		if err != nil {
+			return err
+		}
+		printObject(secgroup)
 		return nil
 
 	})

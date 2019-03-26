@@ -218,6 +218,7 @@ type ICloudVM interface {
 	GetMachine() string
 	GetInstanceType() string
 
+	GetSecurityGroupIds() []string
 	AssignSecurityGroup(secgroupId string) error
 	SetSecurityGroups(secgroupIds []string) error
 

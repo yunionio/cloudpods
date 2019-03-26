@@ -138,6 +138,10 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	return instances, int(total), nil
 }
 
+func (self *SInstance) GetSecurityGroupIds() []string {
+	return self.SecurityGroupIds
+}
+
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 	if self.image == nil {
@@ -155,11 +159,6 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
-	secgroupIds := jsonutils.NewArray()
-	for _, secgroupId := range self.SecurityGroupIds {
-		secgroupIds.Add(jsonutils.NewString(secgroupId))
-	}
-	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 
