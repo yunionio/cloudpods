@@ -1120,9 +1120,9 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(&disk, db.ACT_CREATE, disk.GetShortDesc(ctx), userCred)
-
 	SyncCloudProject(userCred, &disk, projectId, extDisk, storage.ManagerId)
+
+	db.OpsLog.LogEvent(&disk, db.ACT_CREATE, disk.GetShortDesc(ctx), userCred)
 
 	return &disk, nil
 }

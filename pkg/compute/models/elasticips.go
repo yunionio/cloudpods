@@ -370,9 +370,9 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		return nil, err
 	}
 
-	db.OpsLog.LogEvent(&eip, db.ACT_CREATE, eip.GetShortDesc(ctx), userCred)
-
 	SyncCloudProject(userCred, &eip, projectId, extEip, eip.ManagerId)
+
+	db.OpsLog.LogEvent(&eip, db.ACT_CREATE, eip.GetShortDesc(ctx), userCred)
 
 	return &eip, nil
 }
