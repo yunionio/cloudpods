@@ -162,17 +162,19 @@ func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	return instance, resp.Unmarshal(instance, "server")
 }
 
-func (instance *SInstance) GetMetadata() *jsonutils.JSONDict {
-	data := jsonutils.NewDict()
-
+func (instance *SInstance) GetSecurityGroupIds() []string {
+	secgroupIds := []string{}
 	secgroups, err := instance.host.zone.region.GetSecurityGroupsByInstance(instance.ID)
 	if err == nil {
-		secgroupIds := jsonutils.NewArray()
 		for _, secgroup := range secgroups {
-			secgroupIds.Add(jsonutils.NewString(secgroup.ID))
+			secgroupIds = append(secgroupIds, secgroup.ID)
 		}
-		data.Add(secgroupIds, "secgroupIds")
 	}
+	return secgroupIds
+}
+
+func (instance *SInstance) GetMetadata() *jsonutils.JSONDict {
+	data := jsonutils.NewDict()
 
 	instance.fetchFlavor()
 
