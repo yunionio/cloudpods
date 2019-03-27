@@ -50,6 +50,20 @@ type SInstance struct {
 	BootDiskState      string    `json:"BootDiskState"`
 }
 
+func (self *SInstance) GetSecurityGroupIds() []string {
+	secgroups, err := self.GetSecurityGroups()
+	if err != nil {
+		log.Errorf(err.Error())
+	}
+
+	secgroupIds := make([]string, 0)
+	for _, secgroup := range secgroups {
+		secgroupIds = append(secgroupIds, secgroup.GetId())
+	}
+
+	return secgroupIds
+}
+
 func (self *SInstance) GetProjectId() string {
 	return self.host.zone.region.client.projectId
 }
@@ -154,15 +168,6 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 		}
 	}
 
-	secgroups, err := self.GetSecurityGroups()
-	if err != nil {
-		log.Errorf(err.Error())
-	}
-	secgroupIds := jsonutils.NewArray()
-	for _, secgroup := range secgroups {
-		secgroupIds.Add(jsonutils.NewString(secgroup.GetId()))
-	}
-	data.Add(secgroupIds, "secgroupIds")
 	return data
 }
 
