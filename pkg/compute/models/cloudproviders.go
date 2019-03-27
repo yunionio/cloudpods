@@ -861,11 +861,13 @@ func (provider *SCloudprovider) markProviderDisconnected(ctx context.Context, us
 	if err != nil {
 		return err
 	}
-	return provider.SetStatus(userCred, CLOUD_PROVIDER_DISCONNECTED, "not a subaccount")
+	provider.SetStatus(userCred, CLOUD_PROVIDER_DISCONNECTED, "not a subaccount")
+	return provider.ClearSchedDescCache()
 }
 
 func (provider *SCloudprovider) markProviderConnected(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return provider.SetStatus(userCred, CLOUD_PROVIDER_CONNECTED, "")
+	provider.SetStatus(userCred, CLOUD_PROVIDER_CONNECTED, "")
+	return provider.ClearSchedDescCache()
 }
 
 func (provider *SCloudprovider) prepareCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential) ([]SCloudproviderregion, error) {
@@ -994,5 +996,22 @@ func (self *SCloudprovider) StartCloudproviderDeleteTask(ctx context.Context, us
 	}
 	self.SetStatus(userCred, CLOUD_PROVIDER_START_DELETE, "StartCloudproviderDeleteTask")
 	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SCloudprovider) ClearSchedDescCache() error {
+	hosts := make([]SHost, 0)
+	q := HostManager.Query().Equals("manager_id", self.Id)
+	err := db.FetchModelObjects(HostManager, q, &hosts)
+	if err != nil {
+		return err
+	}
+	for i := range hosts {
+		err := hosts[i].ClearSchedDescCache()
+		if err != nil {
+			log.Errorf("host CleanHostSchedCache error: %v", err)
+			return err
+		}
+	}
 	return nil
 }
