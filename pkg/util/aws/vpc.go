@@ -296,11 +296,10 @@ func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int
 	if len(vpcId) > 0 {
 		params.SetVpcIds(ConvertedList(vpcId))
 	}
+
 	ret, err := self.ec2Client.DescribeVpcs(params)
+	err = parseNotFoundError(err)
 	if err != nil {
-		if strings.Contains(err.Error(), "InvalidVpcID.NotFound") {
-			return nil, 0, cloudprovider.ErrNotFound
-		}
 		return nil, 0, err
 	}
 
