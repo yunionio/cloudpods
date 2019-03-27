@@ -201,7 +201,6 @@ type SAccountBalance struct {
 }
 
 func (self *SAwsClient) QueryAccountBalance() (*SAccountBalance, error) {
-	// todo: aws 貌似没有余额？
 	return nil, cloudprovider.ErrNotSupported
 }
 

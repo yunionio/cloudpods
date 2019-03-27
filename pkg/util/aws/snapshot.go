@@ -128,6 +128,7 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 	}
 
 	ret, err := self.ec2Client.DescribeSnapshots(params)
+	err = parseNotFoundError(err)
 	if err != nil {
 		if strings.Contains(err.Error(), "InvalidSnapshot.NotFound") {
 			return nil, 0, cloudprovider.ErrNotFound
