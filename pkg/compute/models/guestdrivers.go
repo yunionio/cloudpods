@@ -137,6 +137,7 @@ type IGuestDriver interface {
 	NeedStopForChangeSpec(guest *SGuest) bool
 
 	OnGuestChangeCpuMemFailed(ctx context.Context, guest *SGuest, data *jsonutils.JSONDict, task taskman.ITask) error
+	IsSupportGuestClone() bool
 }
 
 var guestDrivers map[string]IGuestDriver

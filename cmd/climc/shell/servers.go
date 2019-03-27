@@ -152,6 +152,16 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerCloneOptions{}, "server-clone", "Clone a server", func(s *mcclient.ClientSession, opts *options.ServerCloneOptions) error {
+		params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+		res, err := modules.Servers.PerformAction(s, opts.SOURCE, "clone", params)
+		if err != nil {
+			return err
+		}
+		printObject(res)
+		return nil
+	})
+
 	R(&options.ServerLoginInfoOptions{}, "server-logininfo", "Get login info of a server", func(s *mcclient.ClientSession, opts *options.ServerLoginInfoOptions) error {
 		srvid, e := modules.Servers.GetId(s, opts.ID, nil)
 		if e != nil {
