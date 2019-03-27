@@ -117,3 +117,6 @@ dep:
 
 %:
 	@:
+
+docker_build:
+	$(ROOT_DIR)/build/docker_build.sh
