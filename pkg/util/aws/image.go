@@ -3,7 +3,6 @@ package aws
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 
@@ -249,10 +248,8 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 	}
 
 	ret, err := self.ec2Client.DescribeImages(params)
+	err = parseNotFoundError(err)
 	if err != nil {
-		if strings.Contains(err.Error(), ".NotFound") {
-			return nil, 0, cloudprovider.ErrNotFound
-		}
 		return nil, 0, err
 	}
 

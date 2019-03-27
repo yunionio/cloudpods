@@ -181,6 +181,7 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset i
 	}
 
 	ret, err := self.ec2Client.DescribeSubnets(params)
+	err = parseNotFoundError(err)
 	if err != nil {
 		return nil, 0, err
 	}
