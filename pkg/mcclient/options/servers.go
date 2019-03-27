@@ -194,6 +194,16 @@ func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 	return data, nil
 }
 
+type ServerCloneOptions struct {
+	SOURCE      string `help:"Source server id or name"  json:"-"`
+	TARGET_NAME string `help:"Name of newly server" json:"name"`
+	AutoStart   bool   `help:"Auto start server after it is created"`
+
+	EipBw         int    `help:"allocate EIP with bandwidth in MB when server is created" json:"eip_bw,omitzero"`
+	EipChargeType string `help:"newly allocated EIP charge type, either traffic or bandwidth" choices:"traffic|bandwidth" json:"eip_charge_type,omitempty"`
+	Eip           string `help:"associate with an existing EIP when server is created" json:"eip,omitempty"`
+}
+
 type ServerCreateOptions struct {
 	ServerConfigs
 

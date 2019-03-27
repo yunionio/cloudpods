@@ -272,3 +272,7 @@ func (self *SBaseGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, gue
 func (self *SBaseGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	return fmt.Errorf("SBaseGuestDriver: Not Implement")
 }
+
+func (self *SBaseGuestDriver) IsSupportGuestClone() bool {
+	return true
+}

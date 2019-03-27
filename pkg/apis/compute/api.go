@@ -164,6 +164,19 @@ type ServerCreateInput struct {
 	Baremetal bool `json:"baremetal"`
 }
 
+type ServerCloneInput struct {
+	apis.Meta
+
+	Name      string `json:"name"`
+	AutoStart bool   `json:"auto_start"`
+
+	EipBw         int    `json:"eip_bw,omitzero"`
+	EipChargeType string `json:"eip_charge_type,omitempty"`
+	Eip           string `json:"eip,omitempty"`
+
+	PreferHost string `json:"prefer_host_id"`
+}
+
 type ServerDeployInput struct {
 	apis.Meta
 

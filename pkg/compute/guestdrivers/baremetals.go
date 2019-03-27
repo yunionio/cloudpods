@@ -465,3 +465,7 @@ func (self *SBaremetalGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context
 	}
 	return nil
 }
+
+func (self *SBaremetalGuestDriver) IsSupportGuestClone() bool {
+	return false
+}
