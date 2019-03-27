@@ -2,6 +2,9 @@ package ucloud
 
 import (
 	"context"
+	"encoding/base64"
+	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -69,7 +72,7 @@ func (self *SInstance) GetProjectId() string {
 }
 
 func (self *SInstance) GetError() error {
-	return cloudprovider.ErrNotImplemented
+	return nil
 }
 
 type DiskSet struct {
@@ -182,7 +185,11 @@ func (self *SInstance) GetBillingType() string {
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
-	return time.Unix(self.ExpireTime, 0)
+	if self.AutoRenew != "Yes" {
+		return time.Unix(self.ExpireTime, 0)
+	}
+
+	return time.Time{}
 }
 
 func (self *SInstance) GetCreateTime() time.Time {
@@ -206,6 +213,17 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 
 	idisks := make([]cloudprovider.ICloudDisk, len(disks))
 	for i := 0; i < len(disks); i += 1 {
+		var category string
+		if strings.Contains(disks[i].DiskType, "SSD") {
+			category = models.STORAGE_UCLOUD_CLOUD_SSD
+		} else {
+			category = models.STORAGE_UCLOUD_CLOUD_NORMAL
+		}
+		storage, err := self.host.zone.getStorageByCategory(category)
+		if err != nil {
+			return nil, err
+		}
+		disks[i].storage = storage
 		idisks[i] = &disks[i]
 		// 将系统盘放到第0个位置
 		if disks[i].GetDiskType() == models.DISK_TYPE_SYS {
@@ -288,11 +306,18 @@ func (self *SInstance) GetInstanceType() string {
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return cloudprovider.ErrNotImplemented
+	return self.host.zone.region.assignSecurityGroups(self.GetId(), secgroupId)
 }
 
+// https://docs.ucloud.cn/api/unet-api/grant_firewall
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
-	return cloudprovider.ErrNotImplemented
+	if len(secgroupIds) == 0 {
+		return fmt.Errorf("SetSecurityGroups secgroup id should not be empty")
+	} else if len(secgroupIds) > 1 {
+		return fmt.Errorf("SetSecurityGroups only allowed to assign one secgroup id. %d given", len(secgroupIds))
+	}
+
+	return self.host.zone.region.assignSecurityGroups(self.GetId(), secgroupIds[0])
 }
 
 func (self *SInstance) GetHypervisor() string {
@@ -300,39 +325,91 @@ func (self *SInstance) GetHypervisor() string {
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	err := self.host.zone.region.StartVM(self.GetId())
+	if err != nil {
+		return err
+	}
+	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 5*time.Second, 180*time.Second)
 }
 
 func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
-	return cloudprovider.ErrNotImplemented
+	err := self.host.zone.region.StopVM(self.GetId())
+	if err != nil {
+		return err
+	}
+	return cloudprovider.WaitStatus(self, models.VM_READY, 5*time.Second, 180*time.Second)
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return self.host.zone.region.DeleteVM(self.GetId())
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
-	return cloudprovider.ErrNotImplemented
+	return self.host.zone.region.UpdateVM(self.GetId(), name)
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
 
+// https://docs.ucloud.cn/api/uhost-api/reinstall_uhost_instance
+// 1.请确认在重新安装之前，该实例已被关闭；
+// 2.请确认该实例未挂载UDisk；
+// todo:// 3.将原系统重装为不同类型的系统时(Linux-&gt;Windows)，不可选择保留数据盘；
+// 4.重装不同版本的系统时(CentOS6-&gt;CentOS7)，若选择保留数据盘，请注意数据盘的文件系统格式；
+// 5.若主机CPU低于2核，不可重装为Windows系统。
 func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	if len(publicKey) > 0 {
+		return "", fmt.Errorf("DeployVM not support assign ssh keypair")
+	}
+
+	if self.GetStatus() != models.VM_READY {
+		return "", fmt.Errorf("DeployVM instance status %s , expected %s.", self.GetStatus(), models.VM_READY)
+	}
+
+	if len(self.DiskSet) > 1 {
+		for _, disk := range self.DiskSet {
+			if disk.Type == "Data" {
+				err := self.host.zone.region.DetachDisk(self.host.zone.GetId(), self.GetId(), disk.DiskID)
+				if err != nil {
+					return "", fmt.Errorf("RebuildRoot detach disk %s", err)
+				}
+
+				defer self.host.zone.region.AttachDisk(self.host.zone.GetId(), self.GetId(), disk.DiskID)
+			}
+
+		}
+	}
+	return self.GetId(), self.host.zone.region.RebuildRoot(self.GetId(), imageId, passwd)
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
-	return cloudprovider.ErrNotImplemented
+	if len(publicKey) > 0 {
+		return fmt.Errorf("DeployVM not support assign ssh keypair")
+	}
+
+	if deleteKeypair {
+		return fmt.Errorf("DeployVM not support delete ssh keypair")
+	}
+
+	if self.GetStatus() != models.VM_READY {
+		return fmt.Errorf("DeployVM instance status %s , expected %s.", self.GetStatus(), models.VM_READY)
+	}
+
+	err := self.host.zone.region.ResetVMPasswd(self.GetId(), password)
+	if err != nil {
+		return err
+	}
+
+	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 120*time.Second)
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
-	return cloudprovider.ErrNotImplemented
+	return self.host.zone.region.ResizeVM(self.GetId(), ncpu, vmem)
 }
 
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
@@ -340,19 +417,20 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
-	return cloudprovider.ErrNotImplemented
+	return self.host.zone.region.AttachDisk(self.host.zone.GetId(), self.GetId(), diskId)
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
-	return cloudprovider.ErrNotImplemented
+	return self.host.zone.region.DetachDisk(self.host.zone.GetId(), self.GetId(), diskId)
 }
 
 func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
-	return cloudprovider.ErrNotImplemented
+	return cloudprovider.ErrNotSupported
 }
 
 func (self *SInstance) Renew(bc billing.SBillingCycle) error {
-	return cloudprovider.ErrNotImplemented
+	// return self.host.zone.region
+	return self.host.zone.region.RenewInstance(self.GetId(), bc)
 }
 
 func (self *SInstance) GetSecurityGroups() ([]SSecurityGroup, error) {
@@ -376,4 +454,95 @@ func (self *SRegion) GetInstanceVNCUrl(instanceId string) (jsonutils.JSONObject,
 	vncInfo.Add(jsonutils.NewString(vnc.VNCPassword), "vncPassword")
 	vncInfo.Add(jsonutils.NewString(vnc.VNCIP), "host")
 	return vncInfo, nil
+}
+
+// https://docs.ucloud.cn/api/unet-api/grant_firewall
+func (self *SRegion) assignSecurityGroups(instanceId string, secgroupId string) error {
+	params := NewUcloudParams()
+	params.Set("FWId", secgroupId)
+	params.Set("ResourceType", "uhost")
+	params.Set("ResourceId", instanceId)
+
+	return self.DoAction("GrantFirewall", params, nil)
+}
+
+// https://docs.ucloud.cn/api/uhost-api/start_uhost_instance
+func (self *SRegion) StartVM(instanceId string) error {
+	params := NewUcloudParams()
+	params.Set("UHostId", instanceId)
+
+	return self.DoAction("StartUHostInstance", params, nil)
+}
+
+// https://docs.ucloud.cn/api/uhost-api/stop_uhost_instance
+func (self *SRegion) StopVM(instanceId string) error {
+	params := NewUcloudParams()
+	params.Set("UHostId", instanceId)
+
+	return self.DoAction("StopUHostInstance", params, nil)
+}
+
+// https://docs.ucloud.cn/api/uhost-api/terminate_uhost_instance
+func (self *SRegion) DeleteVM(instanceId string) error {
+	params := NewUcloudParams()
+	params.Set("UHostId", instanceId)
+	params.Set("Destroy", 1) // 跳过回收站，直接删除
+
+	return self.DoAction("TerminateUHostInstance", params, nil)
+}
+
+// https://docs.ucloud.cn/api/uhost-api/modify_uhost_instance_name
+func (self *SRegion) UpdateVM(instanceId, name string) error {
+	params := NewUcloudParams()
+	params.Set("UHostId", instanceId)
+	params.Set("Name", name)
+
+	return self.DoAction("ModifyUHostInstanceName", params, nil)
+}
+
+// ChargeType : Dynamic(按需)/Month(按月)/Year(按年)
+func (self *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) error {
+	params := NewUcloudParams()
+	params.Set("ResourceId", instanceId)
+	params.Set("ResourceType", "Host")
+
+	if bc.GetMonths() > 10 {
+		params.Set("ChargeType", "Year")
+		params.Set("Quantity", bc.GetYears())
+	} else {
+		params.Set("ChargeType", "Month")
+		params.Set("Quantity", bc.GetMonths())
+	}
+
+	return self.DoAction("CreateRenew", params, nil)
+}
+
+// https://docs.ucloud.cn/api/uhost-api/reset_uhost_instance_password
+// 该操作需要UHost实例处于关闭状态。
+func (self *SRegion) ResetVMPasswd(instanceId, password string) error {
+	params := NewUcloudParams()
+	params.Set("UHostId", instanceId)
+	params.Set("Password", base64.StdEncoding.EncodeToString([]byte(password)))
+
+	return self.DoAction("ResetUHostInstancePassword", params, nil)
+}
+
+// https://docs.ucloud.cn/api/uhost-api/reinstall_uhost_instance
+// （密码格式使用BASE64编码；LoginMode不可变更）
+func (self *SRegion) RebuildRoot(instanceId, imageId, password string) error {
+	params := NewUcloudParams()
+	params.Set("UHostId", instanceId)
+	params.Set("Password", base64.StdEncoding.EncodeToString([]byte(password)))
+	params.Set("ImageId", imageId)
+
+	return self.DoAction("ReinstallUHostInstance", params, nil)
+}
+
+// https://docs.ucloud.cn/api/uhost-api/resize_uhost_instance
+func (self *SRegion) ResizeVM(instanceId string, cpu, memoryMB int) error {
+	params := NewUcloudParams()
+	params.Set("CPU", cpu)
+	params.Set("Memory", memoryMB)
+
+	return self.DoAction("ResizeUHostInstance", params, nil)
 }

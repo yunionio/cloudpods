@@ -1060,9 +1060,9 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 					return nil, httperrors.NewInternalServerError("zone %s related region not found", zone.Id)
 				}
 
-				// 华为云wire zone_id 为空
+				// 华为云,ucloud wire zone_id 为空
 				var wires []SWire
-				if region.Provider == CLOUD_PROVIDER_HUAWEI {
+				if utils.IsInStringArray(region.Provider, []string{CLOUD_PROVIDER_HUAWEI, CLOUD_PROVIDER_UCLOUD}) {
 					wires, err = WireManager.getWiresByVpcAndZone(vpc, nil)
 				} else {
 					wires, err = WireManager.getWiresByVpcAndZone(vpc, zone)

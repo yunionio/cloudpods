@@ -64,7 +64,7 @@ func (self *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		}
 
 		// 普通盘
-		if self.storageType == models.STORAGE_UCLOUD_CLOUD_NORMAL && strings.Contains(disk.DiskType, "SSD") {
+		if self.storageType == models.STORAGE_UCLOUD_CLOUD_NORMAL && !strings.Contains(disk.DiskType, "SSD") {
 			filtedDisks = append(filtedDisks, disk)
 		}
 	}
@@ -106,7 +106,18 @@ func (self *SStorage) GetManagerId() string {
 }
 
 func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	diskId, err := self.zone.region.CreateDisk(self.zone.GetId(), self.storageType, name, sizeGb)
+	if err != nil {
+		return nil, err
+	}
+
+	disk, err := self.zone.region.GetDisk(diskId)
+	if err != nil {
+		return nil, err
+	}
+
+	disk.storage = self
+	return disk, nil
 }
 
 func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {

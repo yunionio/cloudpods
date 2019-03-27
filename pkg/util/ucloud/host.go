@@ -1,7 +1,10 @@
 package ucloud
 
 import (
+	"encoding/base64"
 	"fmt"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/billing"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -149,10 +152,147 @@ func (self *SHost) GetManagerId() string {
 	return self.zone.region.client.providerId
 }
 
+// 不支持user data
+// 不支持指定keypair
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.ExternalSecgroupId, desc.BillingCycle)
+	if err != nil {
+		return nil, err
+	}
+
+	vm, err := self.zone.region.GetInstanceByID(vmId)
+	if err != nil {
+		return nil, err
+	}
+
+	vm.host = self
+	return &vm, err
 }
 
 func (self *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
 	return nil, cloudprovider.ErrNotSupported
+}
+
+func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo, cpu, memMB int, instanceType string,
+	networkId, ipAddr, desc, passwd string,
+	dataDisks []cloudprovider.SDiskInfo, secgroupId string, bc *billing.SBillingCycle) (string, error) {
+	// 网络配置及安全组绑定
+	net, _ := self.zone.region.getNetwork(networkId)
+	if net == nil {
+		return "", fmt.Errorf("invalid network ID %s", networkId)
+	}
+
+	if net.wire == nil {
+		log.Errorf("network's wire is empty")
+		return "", fmt.Errorf("network's wire is empty")
+	}
+
+	if net.wire.vpc == nil {
+		log.Errorf("wire's vpc is empty")
+		return "", fmt.Errorf("wire's vpc is empty")
+	}
+
+	if len(secgroupId) == 0 {
+		return "", fmt.Errorf("CreateVM no secgroupId specificated")
+	}
+
+	if len(passwd) == 0 {
+		return "", fmt.Errorf("CreateVM password should not be emtpty")
+	}
+
+	// 镜像及硬盘配置
+	img, err := self.zone.region.GetImage(imgId)
+	if err != nil {
+		log.Errorf("getiamge %s fail %s", imgId, err)
+		return "", err
+	}
+	if img.GetStatus() != cloudprovider.IMAGE_STATUS_ACTIVE {
+		log.Errorf("image %s status %s, expect %s", imgId, img.GetStatus(), cloudprovider.IMAGE_STATUS_ACTIVE)
+		return "", fmt.Errorf("image not ready")
+	}
+
+	disks := make([]SDisk, len(dataDisks)+1)
+	disks[0].SizeGB = int(img.ImageSizeGB)
+	if sysDisk.SizeGB > 0 && sysDisk.SizeGB > int(img.ImageSizeGB) {
+		disks[0].SizeGB = sysDisk.SizeGB
+	}
+	disks[0].DiskType = sysDisk.StorageType
+
+	for i, dataDisk := range dataDisks {
+		disks[i+1].SizeGB = dataDisk.SizeGB
+		disks[i+1].DiskType = dataDisk.StorageType
+	}
+
+	// 创建实例
+	// https://docs.ucloud.cn/api/uhost-api/uhost_type
+	// https://docs.ucloud.cn/compute/uhost/introduction/uhost/type
+	// todo: 目前Ucloud 没有类似于其他公有云的实例类型。需要cloudmeta服务接入后，fake
+	var vmId string
+	if len(instanceType) == 0 {
+		instanceType = "N2"
+	}
+
+	vmId, err = self.zone.region.CreateInstance(name, imgId, instanceType, passwd, net.wire.vpc.GetId(), networkId, secgroupId, self.zone.ZoneId, desc, ipAddr, cpu, memMB, disks, bc)
+	if err != nil {
+		return "", fmt.Errorf("Failed to create, %s", err.Error())
+	}
+
+	return vmId, nil
+}
+
+// https://docs.ucloud.cn/api/uhost-api/create_uhost_instance
+// https://docs.ucloud.cn/api/uhost-api/specification
+// 支持8-30位字符, 不能包含[A-Z],[a-z],[0-9]和[()`~!@#$%^&*-+=_|{}[]:;'<>,.?/]之外的非法字符
+func (self *SRegion) CreateInstance(name, imageId, hostType, password, vpcId, SubnetId, securityGroupId,
+	zoneId, desc, ipAddr string, cpu, memMB int, disks []SDisk, bc *billing.SBillingCycle) (string, error) {
+	params := NewUcloudParams()
+	params.Set("Zone", zoneId)
+	params.Set("ImageId", imageId)
+	params.Set("Password", base64.StdEncoding.EncodeToString([]byte(password)))
+	params.Set("LoginMode", "Password")
+	params.Set("Name", name)
+	params.Set("Quantity", 1)
+	params.Set("UHostType", hostType)
+	params.Set("CPU", cpu)
+	params.Set("Memory", memMB)
+	params.Set("VPCId", vpcId)
+	params.Set("SubnetId", SubnetId)
+	params.Set("SecurityGroupId", securityGroupId)
+
+	if bc != nil && bc.GetMonths() >= 1 && bc.GetMonths() <= 10 {
+		params.Set("ChargeType", "Month")
+	} else if bc != nil && bc.GetYears() >= 1 {
+		params.Set("ChargeType", "Year")
+	} else {
+		params.Set("ChargeType", "Dynamic")
+	}
+
+	// boot disk
+	params.Set("Disks.0.IsBoot", "True")
+	params.Set("Disks.0.Type", disks[0].DiskType)
+	params.Set("Disks.0.Size", disks[0].SizeGB)
+
+	// data disk
+	for i, disk := range disks[1:] {
+		N := i + 1
+		params.Set(fmt.Sprintf("Disks.%d.IsBoot", N), false)
+		params.Set(fmt.Sprintf("Disks.%d.Type", N), disk.DiskType)
+		params.Set(fmt.Sprintf("Disks.%d.Size", N), disk.SizeGB)
+	}
+
+	type Ret struct {
+		UHostIds []string
+	}
+
+	ret := Ret{}
+	err := self.DoAction("CreateUHostInstance", params, &ret)
+	if err != nil {
+		return "", err
+	}
+
+	if len(ret.UHostIds) == 1 {
+		return ret.UHostIds[0], nil
+	}
+
+	return "", fmt.Errorf("CreateInstance %d instance created. %s", len(ret.UHostIds), ret.UHostIds)
 }

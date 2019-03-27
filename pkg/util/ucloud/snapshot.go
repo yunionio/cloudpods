@@ -100,8 +100,9 @@ func (self *SSnapshot) GetDiskType() string {
 	}
 }
 
+// https://docs.ucloud.cn/api/udisk-api/delete_udisk_snapshot
 func (self *SSnapshot) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return self.region.DeleteSnapshot(self.GetId())
 }
 
 func (self *SRegion) GetSnapshotById(snapshotId string) (SSnapshot, error) {
@@ -136,4 +137,12 @@ func (self *SRegion) GetSnapshots(diskId string, snapshotId string) ([]SSnapshot
 	}
 
 	return snapshots, nil
+}
+
+// https://docs.ucloud.cn/api/udisk-api/delete_udisk_snapshot
+func (self *SRegion) DeleteSnapshot(snapshotId string) error {
+	params := NewUcloudParams()
+	params.Set("SnapshotId", snapshotId)
+
+	return self.DoAction("DeleteUDiskSnapshot", params, nil)
 }

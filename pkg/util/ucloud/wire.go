@@ -2,7 +2,6 @@ package ucloud
 
 import (
 	"fmt"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -78,8 +77,9 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 	return nil, cloudprovider.ErrNotFound
 }
 
+// https://docs.ucloud.cn/api/vpc2.0-api/create_subnet
 func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return self.region.CreateNetwork(self.vpc.GetId(), name, cidr, desc)
 }
 
 func (self *SWire) addNetwork(network *SNetwork) {

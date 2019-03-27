@@ -183,11 +183,16 @@ func (self *SDisk) GetAccessPath() string {
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return self.storage.zone.region.DeleteDisk(self.Zone, self.GetId())
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string) (cloudprovider.ICloudSnapshot, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	snapshot, err := self.storage.zone.region.CreateSnapshot(self.Zone, self.GetId(), name, desc)
+	if err != nil {
+		return nil, err
+	}
+
+	return self.GetISnapshot(snapshot)
 }
 
 func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
@@ -214,15 +219,21 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
-	return cloudprovider.ErrNotImplemented
+	sizeGB := newSizeMB / 1024
+	return self.storage.zone.region.resizeDisk(self.Zone, self.GetId(), sizeGB)
 }
 
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	err := self.storage.zone.region.resetDisk(self.Zone, self.GetId(), snapshotId)
+	if err != nil {
+		return "", err
+	}
+
+	return self.GetId(), nil
 }
 
 func (self *SDisk) Rebuild(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return self.storage.zone.region.resetDisk(self.Zone, self.GetId(), "")
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
@@ -274,4 +285,97 @@ func (self *SRegion) GetDisks(zoneId string, diskType string, diskIds []string) 
 	}
 
 	return disks, nil
+}
+
+// https://docs.ucloud.cn/api/udisk-api/delete_udisk
+func (self *SRegion) DeleteDisk(zoneId string, diskId string) error {
+	params := NewUcloudParams()
+	params.Set("Zone", zoneId)
+	params.Set("UDiskId", diskId)
+
+	return self.DoAction("DeleteUDisk", params, nil)
+}
+
+// https://docs.ucloud.cn/api/udisk-api/create_udisk
+func (self *SRegion) CreateDisk(zoneId string, category string, name string, sizeGb int) (string, error) {
+	params := NewUcloudParams()
+	params.Set("Zone", zoneId)
+	params.Set("Size", sizeGb)
+	params.Set("Name", name)
+	params.Set("DiskType", category)
+
+	diskIds := make([]string, 0)
+	err := self.DoAction("CreateUDisk", params, &diskIds)
+	if err != nil {
+		return "", err
+	}
+
+	if len(diskIds) == 0 {
+		return "", fmt.Errorf("CreateDisk with empty response")
+	}
+
+	return diskIds[0], nil
+}
+
+// https://docs.ucloud.cn/api/udisk-api/create_udisk_snapshot
+func (self *SRegion) CreateSnapshot(zoneId, diskId, name, desc string) (string, error) {
+	params := NewUcloudParams()
+	params.Set("Zone", zoneId)
+	params.Set("UDiskId", diskId)
+	params.Set("Name", name)
+	params.Set("Comment", desc)
+
+	snapshotIds := make([]string, 0)
+	err := self.DoAction("CreateUDiskSnapshot", params, &snapshotIds)
+	if err != nil {
+		return "", err
+	}
+
+	if len(snapshotIds) == 0 {
+		return "", fmt.Errorf("CreateSnapshot with empty response")
+	}
+
+	return snapshotIds[0], nil
+}
+
+// https://docs.ucloud.cn/api/udisk-api/resize_udisk
+func (self *SRegion) resizeDisk(zoneId string, diskId string, sizeGB int64) error {
+	params := NewUcloudParams()
+	params.Set("Zone", zoneId)
+	params.Set("Size", sizeGB)
+	params.Set("UDiskId", diskId)
+
+	return self.DoAction("ResizeUDisk", params, nil)
+}
+
+// https://docs.ucloud.cn/api/udisk-api/restore_u_disk
+func (self *SRegion) resetDisk(zoneId, diskId, snapshotId string) error {
+	params := NewUcloudParams()
+	params.Set("Zone", zoneId)
+	params.Set("UDiskId", diskId)
+	if len(snapshotId) > 0 {
+		params.Set("SnapshotId", snapshotId)
+	}
+
+	return self.DoAction("UDisk-RestoreUDisk", params, nil)
+}
+
+// https://docs.ucloud.cn/api/udisk-api/attach_udisk
+func (self *SRegion) AttachDisk(zoneId string, instanceId string, diskId string) error {
+	params := NewUcloudParams()
+	params.Set("Zone", zoneId)
+	params.Set("UHostId", instanceId)
+	params.Set("UDiskId", diskId)
+
+	return self.DoAction("AttachUDisk", params, nil)
+}
+
+// https://docs.ucloud.cn/api/udisk-api/detach_udisk
+func (self *SRegion) DetachDisk(zoneId string, instanceId string, diskId string) error {
+	params := NewUcloudParams()
+	params.Set("Zone", zoneId)
+	params.Set("UHostId", instanceId)
+	params.Set("UDiskId", diskId)
+
+	return self.DoAction("DetachUDisk", params, nil)
 }

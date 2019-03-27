@@ -2909,7 +2909,7 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		registerVpcId := vpc.ExternalId
 		externalVpcId := vpc.ExternalId
 		switch self.Hypervisor {
-		case HYPERVISOR_ALIYUN, HYPERVISOR_AWS, HYPERVISOR_HUAWEI:
+		case HYPERVISOR_ALIYUN, HYPERVISOR_AWS, HYPERVISOR_HUAWEI, HYPERVISOR_UCLOUD:
 			break
 		case HYPERVISOR_QCLOUD, HYPERVISOR_OPENSTACK:
 			registerVpcId = "normal"

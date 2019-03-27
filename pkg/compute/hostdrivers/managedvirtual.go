@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -31,7 +32,7 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 	osDist, _ := params.GetString("os_distribution")
 	var osVersion string
 	providerName := storageCache.GetProviderName()
-	if providerName == models.CLOUD_PROVIDER_HUAWEI {
+	if utils.IsInStringArray(providerName, []string{models.CLOUD_PROVIDER_HUAWEI, models.CLOUD_PROVIDER_UCLOUD}) {
 		osVersion, _ = params.GetString("os_full_version")
 	} else {
 		osVersion, _ = params.GetString("os_version")
