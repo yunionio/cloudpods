@@ -391,6 +391,9 @@ func (self *SImage) SaveImageFromStream(reader io.Reader) error {
 	localPath := self.GetPath("")
 
 	sp, err := self.saveImageFromStream(localPath, reader)
+	if err != nil {
+		return err
+	}
 
 	virtualSizeBytes := int64(0)
 	format := ""
