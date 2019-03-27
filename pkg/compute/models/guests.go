@@ -313,20 +313,36 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			secgrpFilter = secgrpFilter[1:]
 			notIn = true
 		}
-		secgrp, _ := SecurityGroupManager.FetchByIdOrName(userCred, secgrpFilter)
-		if secgrp == nil {
-			return nil, httperrors.NewResourceNotFoundError("secgroup %s not found", secgrpFilter)
+		secgrpIds := []string{}
+		secgrp, err := SecurityGroupManager.FetchByIdOrName(userCred, secgrpFilter)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("secgroup %s not found", secgrpFilter)
+			} else if err == sqlchemy.ErrDuplicateEntry {
+				secgrps := []SSecurityGroup{}
+				sgq := SecurityGroupManager.Query().Equals("name", secgrpFilter)
+				if err := db.FetchModelObjects(SecurityGroupManager, sgq, &secgrps); err != nil {
+					log.Errorf("failed fetch secgroups %s error: %v", secgrpFilter, err)
+				}
+				for _, sec := range secgrps {
+					secgrpIds = append(secgrpIds, sec.Id)
+				}
+			} else {
+				return nil, err
+			}
+		} else {
+			secgrpIds = append(secgrpIds, secgrp.GetId())
 		}
 
 		if notIn {
 			filter1 := sqlchemy.NotIn(q.Field("id"),
-				GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", secgrp.GetId()).SubQuery())
-			filter2 := sqlchemy.NotEquals(q.Field("secgrp_id"), secgrp.GetId())
+				GuestsecgroupManager.Query("guest_id").In("secgroup_id", secgrpIds).SubQuery())
+			filter2 := sqlchemy.NotIn(q.Field("secgrp_id"), secgrpIds)
 			q = q.Filter(sqlchemy.AND(filter1, filter2))
 		} else {
 			filter1 := sqlchemy.In(q.Field("id"),
-				GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", secgrp.GetId()).SubQuery())
-			filter2 := sqlchemy.Equals(q.Field("secgrp_id"), secgrp.GetId())
+				GuestsecgroupManager.Query("guest_id").In("secgroup_id", secgrpIds).SubQuery())
+			filter2 := sqlchemy.In(q.Field("secgrp_id"), secgrpIds)
 			q = q.Filter(sqlchemy.OR(filter1, filter2))
 		}
 	}
