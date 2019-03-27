@@ -195,7 +195,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 		}
 		return instance.ID, nil
 	}
-	return "", fmt.Errorf("Failed to create, %s", err.Error())
+	return "", fmt.Errorf("instance type %dC%dMB not avaiable", cpu, memMB)
 }
 
 func (self *SHost) GetAccessIp() string {
