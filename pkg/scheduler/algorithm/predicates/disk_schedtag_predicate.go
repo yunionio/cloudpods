@@ -278,15 +278,20 @@ func (p *DiskSchedtagPredicate) selectStorage(d *computeapi.DiskConfig, storages
 }
 
 func (p *DiskSchedtagPredicate) GetLeastUsedStorage(storages []*api.CandidateStorage, backend string) *api.CandidateStorage {
-	//var backends []string
-	//if backend == computeapi.STORAGE_LOCAL {
-	//backends = []string{computeapi.STORAGE_NAS, computeapi.STORAGE_LOCAL}
-	//} else if len(backend) > 0 {
-	//backends = []string{backend}
-	//} else {
-	//backends = []string{}
-	//}
-	return p.getLeastUsedStorage(storages)
+	backendStorages := make([]*api.CandidateStorage, 0)
+	if backend != "" {
+		for _, s := range storages {
+			if s.StorageType == backend {
+				backendStorages = append(backendStorages, s)
+			}
+		}
+	} else {
+		backendStorages = storages
+	}
+	if len(backendStorages) == 0 {
+		backendStorages = storages
+	}
+	return p.getLeastUsedStorage(backendStorages)
 }
 
 func (p *DiskSchedtagPredicate) getLeastUsedStorage(storages []*api.CandidateStorage) *api.CandidateStorage {
