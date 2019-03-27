@@ -114,7 +114,7 @@ func (self *SSecurityGroup) getDesc() jsonutils.JSONObject {
 	desc := jsonutils.NewDict()
 	desc.Add(jsonutils.NewString(self.Name), "name")
 	desc.Add(jsonutils.NewString(self.Id), "id")
-	desc.Add(jsonutils.NewString(self.getSecurityRuleString("")), "security_rules")
+	//desc.Add(jsonutils.NewString(self.getSecurityRuleString("")), "security_rules")
 	return desc
 }
 
