@@ -1,0 +1,22 @@
+# This is how to tell Travis to use the fast container-based test
+# runner instead of the slow VM-based one.
+sudo: false
+
+dist: xenial
+
+services:
+  - docker
+
+language: go
+
+go_import_path: yunion.io/x/onecloud
+
+go:
+  - "1.12.x"
+
+# Only clone the most recent commit.
+git:
+  depth: 1
+
+script:
+  - make docker_build
