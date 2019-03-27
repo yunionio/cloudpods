@@ -1549,7 +1549,7 @@ func (self *SDisk) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 		billingInfo.SCloudProviderInfo = storage.getCloudProviderInfo()
 	}
 
-	if priceKey := self.GetMetadata("price_key", nil); len(priceKey) > 0 {
+	if priceKey := self.GetMetadata("ext:price_key", nil); len(priceKey) > 0 {
 		billingInfo.PriceKey = priceKey
 	}
 
