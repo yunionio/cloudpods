@@ -74,8 +74,13 @@ func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.I
 			dinfo.ExpiredAt = idisks[i].GetExpiredAt()
 			if metaData := idisks[i].GetMetadata(); metaData != nil {
 				dinfo.Metadata = make(map[string]string, 0)
-				if err := metaData.Unmarshal(dinfo.Metadata); err != nil {
+				metadata := map[string]string{}
+				if err := metaData.Unmarshal(&metadata); err != nil {
 					log.Errorf("Get disk %s metadata info error: %v", idisks[i].GetName(), err)
+				} else {
+					for k, v := range metadata {
+						dinfo.Metadata["ext:"+k] = v
+					}
 				}
 			}
 			diskInfo[i] = dinfo
@@ -84,7 +89,15 @@ func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.I
 	}
 
 	data.Add(jsonutils.NewString(iVM.GetGlobalId()), "uuid")
-	data.Add(iVM.GetMetadata(), "metadata")
+	metadata := map[string]string{}
+	if _metadata := iVM.GetMetadata(); _metadata != nil {
+		_metadata.Unmarshal(&metadata)
+	}
+	metadataDict := jsonutils.NewDict()
+	for k, v := range metadata {
+		metadataDict.Add(jsonutils.NewString(v), "ext:"+k)
+	}
+	data.Add(metadataDict, "metadata")
 
 	if iVM.GetBillingType() == models.BILLING_TYPE_PREPAID {
 		data.Add(jsonutils.NewTimeString(iVM.GetExpiredAt()), "expired_at")
