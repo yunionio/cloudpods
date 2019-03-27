@@ -43,7 +43,7 @@ type IScheduleTask interface {
 
 	OnStartSchedule(obj IScheduleModel)
 	OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string)
-	OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict)
+	// OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict)
 	SaveScheduleResult(ctx context.Context, obj IScheduleModel, candidate *schedapi.CandidateResource)
 	SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource)
 	OnScheduleFailed(ctx context.Context, reason string)
