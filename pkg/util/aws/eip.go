@@ -155,6 +155,7 @@ func (self *SRegion) GetEips(eipId string, eipAddress string, offset int, limit 
 	}
 
 	res, err := self.ec2Client.DescribeAddresses(&params)
+	err = parseNotFoundError(err)
 	if err != nil {
 		log.Errorf("DescribeEipAddresses fail %s", err)
 		return nil, 0, err
@@ -215,6 +216,7 @@ func (self *SRegion) GetEipByIpAddress(eipAddress string) (*SEipAddress, error) 
 	if err != nil {
 		return nil, err
 	}
+
 	if total != 1 {
 		return nil, cloudprovider.ErrNotFound
 	}
