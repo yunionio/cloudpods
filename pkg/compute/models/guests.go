@@ -313,20 +313,30 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			secgrpFilter = secgrpFilter[1:]
 			notIn = true
 		}
-		secgrp, _ := SecurityGroupManager.FetchByIdOrName(userCred, secgrpFilter)
-		if secgrp == nil {
+		secgrpIds := []string{}
+		secgrps := []SSecurityGroup{}
+		sgq := SecurityGroupManager.Query()
+		sgq = sgq.Filter(sqlchemy.OR(sqlchemy.Equals(sgq.Field("id"), secgrpFilter), sqlchemy.Equals(sgq.Field("name"), secgrpFilter)))
+		if err := db.FetchModelObjects(SecurityGroupManager, sgq, &secgrps); err != nil {
+			return nil, err
+		}
+		if len(secgrps) == 0 {
 			return nil, httperrors.NewResourceNotFoundError("secgroup %s not found", secgrpFilter)
+		}
+
+		for _, secgrp := range secgrps {
+			secgrpIds = append(secgrpIds, secgrp.Id)
 		}
 
 		if notIn {
 			filter1 := sqlchemy.NotIn(q.Field("id"),
-				GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", secgrp.GetId()).SubQuery())
-			filter2 := sqlchemy.NotEquals(q.Field("secgrp_id"), secgrp.GetId())
+				GuestsecgroupManager.Query("guest_id").In("secgroup_id", secgrpIds).SubQuery())
+			filter2 := sqlchemy.NotIn(q.Field("secgrp_id"), secgrpIds)
 			q = q.Filter(sqlchemy.AND(filter1, filter2))
 		} else {
 			filter1 := sqlchemy.In(q.Field("id"),
-				GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", secgrp.GetId()).SubQuery())
-			filter2 := sqlchemy.Equals(q.Field("secgrp_id"), secgrp.GetId())
+				GuestsecgroupManager.Query("guest_id").In("secgroup_id", secgrpIds).SubQuery())
+			filter2 := sqlchemy.In(q.Field("secgrp_id"), secgrpIds)
 			q = q.Filter(sqlchemy.OR(filter1, filter2))
 		}
 	}
