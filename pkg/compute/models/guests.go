@@ -474,6 +474,18 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 			Join(disks, sqlchemy.Equals(guestdisks.Field("disk_id"), disks.Field("id"))).
 			Desc(q.Field("disks_size")).GroupBy(q.Field("id"))
 	}
+
+	orderByHost, _ := queryDict.GetString("order_by_host")
+	if orderByHost == "asc" {
+		hosts := HostManager.Query().SubQuery()
+		q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id"))).
+			Asc(hosts.Field("name"))
+	} else if orderByHost == "desc" {
+		hosts := HostManager.Query().SubQuery()
+		q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id"))).
+			Desc(hosts.Field("name"))
+	}
+
 	return q, nil
 }
 
