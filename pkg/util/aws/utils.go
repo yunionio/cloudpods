@@ -12,6 +12,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/secrules"
 )
 
@@ -467,4 +468,17 @@ func FetchTags(client *ec2.EC2, resourceId string) (*jsonutils.JSONDict, error) 
 	}
 
 	return result, nil
+}
+
+// error
+func parseNotFoundError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if strings.Contains(err.Error(), ".NotFound") {
+		return cloudprovider.ErrNotFound
+	} else {
+		return err
+	}
 }

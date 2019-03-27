@@ -267,9 +267,11 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	params.SetGroupIds([]*string{&secGroupId})
 
 	ret, err := self.ec2Client.DescribeSecurityGroups(params)
+	err = parseNotFoundError(err)
 	if err != nil {
 		return nil, err
 	}
+
 	if len(ret.SecurityGroups) == 1 {
 		s := ret.SecurityGroups[0]
 		vpc, err := self.getVpc(*s.VpcId)
@@ -433,6 +435,7 @@ func (self *SRegion) GetSecurityGroups(vpcId string, secgroupId string, offset i
 	}
 
 	ret, err := self.ec2Client.DescribeSecurityGroups(params)
+	err = parseNotFoundError(err)
 	if err != nil {
 		return nil, 0, err
 	}
