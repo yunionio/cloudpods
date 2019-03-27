@@ -376,7 +376,7 @@ func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) e
 }
 
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
-	panic("implement me")
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
