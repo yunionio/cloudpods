@@ -532,6 +532,10 @@ func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(guest *models.S
 	}
 	//避免有些云续费后过期时间刷新比较慢问题
 	cloudprovider.WaitCreated(15*time.Second, 5*time.Minute, func() bool {
+		err := iVM.Refresh()
+		if err != nil {
+			log.Errorf("failed refresh instance %s error: %v", guest.Name, err)
+		}
 		newExipred := iVM.GetExpiredAt()
 		if newExipred.After(oldExpired) {
 			return true
