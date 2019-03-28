@@ -485,11 +485,11 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params["InternetAccessible.InternetChargeType"] = "TRAFFIC_POSTPAID_BY_HOUR"
 	params["InternetAccessible.InternetMaxBandwidthOut"] = "100"
 	params["InternetAccessible.PublicIpAssigned"] = "FALSE"
-	params["HostName"] = name
-	if len(passwd) > 0 {
-		params["LoginSettings.Password"] = passwd
-	} else if len(keypair) > 0 {
+	//params["HostName"] = name
+	if len(keypair) > 0 {
 		params["LoginSettings.KeyIds.0"] = keypair
+	} else if len(passwd) > 0 {
+		params["LoginSettings.Password"] = passwd
 	} else {
 		params["LoginSettings.KeepImageLogin"] = "TRUE"
 	}
