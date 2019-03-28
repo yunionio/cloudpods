@@ -59,6 +59,9 @@ build: gendoc
 gendoc:
 	@sh build/gendoc.sh
 
+gencopyright:
+	@sh scripts/gencopyright.sh pkg cmd
+
 test:
 	@for PKG in $$( $(PKGS) | grep "$(filter-out $@,$(MAKECMDGOALS))" ); do \
 		echo $$PKG; \
