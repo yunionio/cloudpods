@@ -60,7 +60,7 @@ func (self *CloudProviderSyncInfoTask) OnInit(ctx context.Context, obj db.IStand
 	self.SetStage("OnSyncCloudProviderInfoComplete", nil)
 
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
-		provider.SyncCallSyncCloudproviderRegions(ctx, self.UserCred, &syncRange)
+		provider.SyncCallSyncCloudproviderRegions(ctx, self.UserCred, syncRange)
 		return nil, nil
 	})
 }

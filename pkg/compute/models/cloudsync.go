@@ -37,6 +37,7 @@ func (self *SSyncableBaseResource) CanSync() bool {
 type sStoragecacheSyncPair struct {
 	local  *SStoragecache
 	remote cloudprovider.ICloudStoragecache
+	isNew  bool
 }
 
 func (pair *sStoragecacheSyncPair) syncCloudImages(ctx context.Context, userCred mcclient.TokenCredential) compare.SyncResult {
@@ -328,7 +329,7 @@ func syncZoneStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 
 func syncStorageCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localStorage *SStorage, remoteStorage cloudprovider.ICloudStorage) (cachePair sStoragecacheSyncPair) {
 	remoteCache := remoteStorage.GetIStoragecache()
-	localCache, err := StoragecacheManager.SyncWithCloudStoragecache(ctx, userCred, remoteCache)
+	localCache, isNew, err := StoragecacheManager.SyncWithCloudStoragecache(ctx, userCred, remoteCache)
 	if err != nil {
 		msg := fmt.Sprintf("SyncWithCloudStoragecache for storage %s failed %s", remoteStorage.GetName(), err)
 		log.Errorf(msg)
@@ -341,6 +342,7 @@ func syncStorageCaches(ctx context.Context, userCred mcclient.TokenCredential, p
 	}
 	cachePair.local = localCache
 	cachePair.remote = remoteCache
+	cachePair.isNew = isNew
 	return
 }
 
@@ -810,9 +812,9 @@ func syncPublicCloudProviderInfo(
 	syncRegionLoadbalancerCertificates(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	syncRegionLoadbalancers(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
-	if syncRange.DeepSync {
-		log.Debugf("storageCachePairs count %d", len(storageCachePairs))
-		for i := range storageCachePairs {
+	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
+	for i := range storageCachePairs {
+		if storageCachePairs[i].isNew || syncRange.DeepSync {
 			result := storageCachePairs[i].syncCloudImages(ctx, userCred)
 
 			syncResults.Add(StoragecachedimageManager, result)
@@ -876,9 +878,9 @@ func syncOnPremiseCloudProviderInfo(
 		syncHostVMs(ctx, userCred, syncResults, provider, driver, &localHosts[i], remoteHosts[i], syncRange)
 	}
 
-	if syncRange.DeepSync {
-		log.Debugf("storageCachePairs count %d", len(storageCachePairs))
-		for i := range storageCachePairs {
+	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
+	for i := range storageCachePairs {
+		if storageCachePairs[i].isNew || syncRange.DeepSync {
 			result := storageCachePairs[i].syncCloudImages(ctx, userCred)
 			syncResults.Add(StoragecachedimageManager, result)
 			msg := result.Result()

@@ -204,7 +204,8 @@ func (self *SCloudproviderregion) markSyncing(userCred mcclient.TokenCredential)
 	return nil
 }
 
-func (self *SCloudproviderregion) markEndSync(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, deepSync bool) error {
+func (self *SCloudproviderregion) markEndSync(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, deepSync *bool) error {
+	log.Debugf("markEndSync deepSync %v", *deepSync)
 	err := self.markEndSyncInternal(userCred, syncResults, deepSync)
 	if err != nil {
 		return err
@@ -216,12 +217,12 @@ func (self *SCloudproviderregion) markEndSync(ctx context.Context, userCred mccl
 	return nil
 }
 
-func (self *SCloudproviderregion) markEndSyncInternal(userCred mcclient.TokenCredential, syncResults SSyncResultSet, deepSync bool) error {
+func (self *SCloudproviderregion) markEndSyncInternal(userCred mcclient.TokenCredential, syncResults SSyncResultSet, deepSync *bool) error {
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_IDLE
 		self.LastSyncEndAt = timeutils.UtcNow()
 		self.SyncResults = jsonutils.Marshal(syncResults)
-		if deepSync {
+		if *deepSync {
 			self.LastDeepSyncAt = timeutils.UtcNow()
 		}
 		return nil
@@ -249,11 +250,11 @@ func (set SSyncResultSet) Add(manager db.IModelManager, result compare.SyncResul
 	res.DelErrCnt += result.DelErrCnt
 }
 
-func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange) error {
+func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) error {
 	syncResults := SSyncResultSet{}
 
 	self.markSyncing(userCred)
-	defer self.markEndSync(ctx, userCred, syncResults, syncRange.DeepSync)
+	defer self.markEndSync(ctx, userCred, syncResults, &syncRange.DeepSync)
 
 	localRegion := self.GetRegion()
 	provider := self.GetProvider()
@@ -263,20 +264,22 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 		return err
 	}
 
+	log.Debugf("need to do deep sync ... %v", syncRange.DeepSync)
 	if !syncRange.DeepSync {
 		intval := self.getSyncIntervalSeconds(nil)
 		if self.LastDeepSyncAt.IsZero() || (time.Now().Sub(self.LastDeepSyncAt) > time.Duration(intval)*time.Second*8 && rand.Float32() < 0.5) {
 			syncRange.DeepSync = true
 		}
 	}
+	log.Debugf("no need to do deep sync ... %v", syncRange.DeepSync)
 
 	if localRegion.isManaged() {
 		remoteRegion, err := driver.GetIRegionById(localRegion.ExternalId)
 		if err == nil {
-			err = syncPublicCloudProviderInfo(ctx, userCred, syncResults, provider, driver, localRegion, remoteRegion, syncRange)
+			err = syncPublicCloudProviderInfo(ctx, userCred, syncResults, provider, driver, localRegion, remoteRegion, &syncRange)
 		}
 	} else {
-		err = syncOnPremiseCloudProviderInfo(ctx, userCred, syncResults, provider, driver, syncRange)
+		err = syncOnPremiseCloudProviderInfo(ctx, userCred, syncResults, provider, driver, &syncRange)
 	}
 
 	if err != nil {
@@ -297,7 +300,7 @@ func (self *SCloudproviderregion) getSyncTaskKey() string {
 	}
 }
 
-func (self *SCloudproviderregion) submitSyncTask(userCred mcclient.TokenCredential, syncRange *SSyncRange, waitChan chan bool) {
+func (self *SCloudproviderregion) submitSyncTask(userCred mcclient.TokenCredential, syncRange SSyncRange, waitChan chan bool) {
 	self.markStartSync(userCred)
 	RunSyncCloudproviderRegionTask(self.getSyncTaskKey(), func() {
 		self.DoSync(context.Background(), userCred, syncRange)

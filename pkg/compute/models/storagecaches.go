@@ -137,22 +137,27 @@ func (self *SStoragecache) getHostId() (string, error) {
 	return ret, nil
 }
 
-func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache) (*SStoragecache, error) {
+func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache) (*SStoragecache, bool, error) {
 	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
 	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
 
 	localCacheObj, err := manager.FetchByExternalId(cloudCache.GetGlobalId())
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return manager.newFromCloudStoragecache(ctx, userCred, cloudCache)
+			localCache, err := manager.newFromCloudStoragecache(ctx, userCred, cloudCache)
+			if err != nil {
+				return nil, false, err
+			} else {
+				return localCache, true, nil
+			}
 		} else {
 			log.Errorf("%s", err)
-			return nil, err
+			return nil, false, err
 		}
 	} else {
 		localCache := localCacheObj.(*SStoragecache)
 		localCache.syncWithCloudStoragecache(ctx, userCred, cloudCache)
-		return localCache, nil
+		return localCache, false, nil
 	}
 }
 
