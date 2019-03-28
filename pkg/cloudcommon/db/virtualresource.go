@@ -14,7 +14,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SVirtualResourceBaseManager struct {
@@ -225,7 +224,7 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		formerObj := NewTenant(model.ProjectId, "unknown")
 		former = &formerObj
 	}
-	_, err := model.GetModelManager().TableSpec().Update(model, func() error {
+	_, err := Update(model, func() error {
 		model.ProjectId = tobj.GetId()
 		return nil
 	})
@@ -233,7 +232,6 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		return nil, err
 	}
 	OpsLog.SyncOwner(model, former, userCred)
-	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CHANGE_OWNER, nil, userCred, true)
 	return nil, nil
 }
 
@@ -284,7 +282,6 @@ func (model *SVirtualResourceBase) DoCancelPendingDelete(ctx context.Context, us
 	err := model.CancelPendingDelete(ctx, userCred)
 	if err == nil {
 		OpsLog.LogEvent(model, ACT_CANCEL_DELETE, model.GetShortDesc(ctx), userCred)
-		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CANCEL_DELETE, model.GetShortDesc(ctx), userCred, true)
 	}
 	return err
 }
@@ -304,7 +301,12 @@ func (model *SVirtualResourceBase) CancelPendingDelete(ctx context.Context, user
 		model.PendingDeleted = false
 		return nil
 	})
-	return err
+	if err != nil {
+		log.Errorf("MarkCancelPendingDelete fail %s", err)
+		return err
+	}
+	OpsLog.LogEvent(model, ACT_CANCEL_DELETE, diff, userCred)
+	return nil
 }
 
 func (model *SVirtualResourceBase) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
@@ -315,4 +317,19 @@ func (model *SVirtualResourceBase) GetShortDesc(ctx context.Context) *jsonutils.
 		desc.Add(jsonutils.NewString(tc.GetName()), "owner_tenant")
 	}
 	return desc
+}
+
+func (model *SVirtualResourceBase) SyncCloudProjectId(userCred mcclient.TokenCredential, projectId string) {
+	if model.ProjectSrc != string(PROJECT_SOURCE_LOCAL) && len(projectId) > 0 {
+		diff, _ := Update(model, func() error {
+			model.ProjectSrc = string(PROJECT_SOURCE_CLOUD)
+			if len(projectId) > 0 {
+				model.ProjectId = projectId
+			}
+			return nil
+		})
+		if len(diff) > 0 {
+			OpsLog.LogEvent(model, ACT_SYNC_OWNER, diff, userCred)
+		}
+	}
 }
