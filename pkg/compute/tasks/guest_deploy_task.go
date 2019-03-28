@@ -127,6 +127,17 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 
 func (self *GuestDeployTask) OnDeployGuestCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
+	action, _ := self.Params.GetString("deploy_action")
+	keypair, _ := self.Params.GetString("keypair")
+	if action == "deploy" && len(keypair) >= 32 {
+		_, err := db.Update(guest, func() error {
+			guest.KeypairId = ""
+			return nil
+		})
+		if err != nil {
+			log.Errorf("unset guest %s keypair failed %v", guest.Name, err)
+		}
+	}
 	guest.SetStatus(self.UserCred, models.VM_DEPLOY_FAILED, data.String())
 	self.SetStageFailed(ctx, data.String())
 }
