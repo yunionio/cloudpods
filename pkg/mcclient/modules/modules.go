@@ -244,6 +244,7 @@ func _getModule(session *mcclient.ClientSession, name string) (BaseManagerInterf
 func GetModule(session *mcclient.ClientSession, name string) (Manager, error) {
 	bm, e := _getModule(session, name)
 	if e != nil {
+		log.Errorf("get module error: %v", e)
 		return nil, e
 	}
 	m, ok := bm.(Manager)
@@ -257,6 +258,7 @@ func GetModule(session *mcclient.ClientSession, name string) (Manager, error) {
 func GetJointModule(session *mcclient.ClientSession, name string) (JointManager, error) {
 	bm, e := _getModule(session, name)
 	if e != nil {
+		log.Errorf("get jointModule error: %v", e)
 		return nil, e
 	}
 	m, ok := bm.(JointManager)
