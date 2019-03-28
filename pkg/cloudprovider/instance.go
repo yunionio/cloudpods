@@ -15,6 +15,11 @@ type SDiskInfo struct {
 	Name        string
 }
 
+const (
+	CLOUD_SHELL  = "cloud-shell"
+	CLOUD_CONFIG = "cloud-config"
+)
+
 type SManagedVMCreateConfig struct {
 	Name                string
 	ExternalImageId     string
@@ -35,6 +40,7 @@ type SManagedVMCreateConfig struct {
 	ExternalSecgroupIds []string
 	Password            string
 	UserData            string
+	UserDataType        string
 
 	BillingCycle *billing.SBillingCycle
 }
@@ -46,12 +52,15 @@ func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) er
 	if publicKey, _ := config.GetString("public_key"); len(publicKey) > 0 {
 		vmConfig.PublicKey = publicKey
 	}
+	if userDataType, _ := config.GetString("user_data_type"); len(userDataType) > 0 {
+		vmConfig.UserDataType = userDataType
+	}
 
 	adminPublicKey, _ := config.GetString("admin_public_key")
 	projectPublicKey, _ := config.GetString("project_public_key")
 	oUserData, _ := config.GetString("user_data")
 
-	vmConfig.UserData = generateUserData(adminPublicKey, projectPublicKey, oUserData)
+	vmConfig.UserData = generateUserData(adminPublicKey, projectPublicKey, oUserData, vmConfig.UserDataType)
 
 	resetPassword := jsonutils.QueryBoolean(config, "reset_password", false)
 	vmConfig.Password, _ = config.GetString("password")
@@ -61,7 +70,7 @@ func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) er
 	return nil
 }
 
-func generateUserData(adminPublicKey, projectPublicKey, oUserData string) string {
+func generateUserData(adminPublicKey, projectPublicKey, oUserData string, userDataType string) string {
 	var oCloudConfig *cloudinit.SCloudConfig
 
 	if len(oUserData) > 0 {
@@ -82,6 +91,10 @@ func generateUserData(adminPublicKey, projectPublicKey, oUserData string) string
 
 	if oCloudConfig != nil {
 		cloudConfig.Merge(oCloudConfig)
+	}
+
+	if userDataType == CLOUD_SHELL {
+		return cloudConfig.UserDataScriptBase64()
 	}
 
 	return cloudConfig.UserDataBase64()
