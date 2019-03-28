@@ -9,7 +9,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SAdminSharableVirtualResourceBase struct {
@@ -138,6 +137,5 @@ func (model *SAdminSharableVirtualResourceBase) setInfo(ctx context.Context,
 		return err
 	}
 	OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
-	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, diff, userCred, true)
 	return err
 }
