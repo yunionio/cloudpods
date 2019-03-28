@@ -335,22 +335,14 @@ func (cpr *SCloudproviderregion) needAutoSync() bool {
 }
 
 func (cpr *SCloudproviderregion) isEmptyOnPremise() bool {
-	if cpr.SyncResults == nil {
-		return false
-	}
-	syncResults := SSyncResultSet{}
-	err := cpr.SyncResults.Unmarshal(&syncResults)
-	if err != nil {
-		return false
-	}
-	result := syncResults[HostManager.KeywordPlural()]
-	if result != nil && (result.UpdateCnt > 0 || result.AddCnt > 0) {
-		return false
-	}
-	return true
+	return cpr.isEmpty(HostManager.KeywordPlural())
 }
 
 func (cpr *SCloudproviderregion) isEmptyPublicCloud() bool {
+	return cpr.isEmpty(NetworkManager.KeywordPlural())
+}
+
+func (cpr *SCloudproviderregion) isEmpty(resKey string) bool {
 	if cpr.SyncResults == nil {
 		return false
 	}
@@ -359,7 +351,7 @@ func (cpr *SCloudproviderregion) isEmptyPublicCloud() bool {
 	if err != nil {
 		return false
 	}
-	result := syncResults[NetworkManager.KeywordPlural()]
+	result := syncResults[resKey]
 	if result != nil && (result.UpdateCnt > 0 || result.AddCnt > 0) {
 		return false
 	}
