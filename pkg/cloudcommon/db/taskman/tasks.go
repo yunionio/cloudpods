@@ -51,6 +51,7 @@ var TaskManager *STaskManager
 
 func init() {
 	TaskManager = &STaskManager{SResourceBaseManager: db.NewResourceBaseManager(STask{}, "tasks_tbl", "task", "tasks")}
+	TaskManager.TableSpec().AddIndex(true, "deleted", "obj_name", "obj_id", "created_at", "stage")
 }
 
 type STask struct {

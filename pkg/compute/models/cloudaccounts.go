@@ -1173,7 +1173,7 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 				syncRange := SSyncRange{FullSync: true}
 				providers := account.GetEnabledCloudproviders()
 				for i := range providers {
-					providers[i].syncCloudproviderRegions(ctx, userCred, &syncRange, nil, autoSync)
+					providers[i].syncCloudproviderRegions(ctx, userCred, syncRange, nil, autoSync)
 					syncCnt += 1
 				}
 			}
