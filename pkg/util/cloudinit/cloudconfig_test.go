@@ -60,4 +60,5 @@ func TestSCloudConfig_UserData(t *testing.T) {
 			t.Errorf("userData not equal to userData2")
 		}
 	}
+	t.Log(config2.UserDataScript())
 }
