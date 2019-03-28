@@ -13,7 +13,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SStandaloneResourceBase struct {
@@ -267,7 +266,6 @@ func (model *SStandaloneResourceBase) SetExternalId(userCred mcclient.TokenCrede
 		})
 		if err == nil {
 			OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
-			logclient.AddSimpleActionLog(model, ACT_UPDATE, diff, userCred, true)
 		}
 		return err
 	}
