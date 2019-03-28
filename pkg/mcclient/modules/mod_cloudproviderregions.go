@@ -12,6 +12,7 @@ func init() {
 			"Cloudregion_ID", "CloudRegion",
 			"Enabled", "Sync_Status",
 			"Last_Sync", "Last_Sync_End_At", "Auto_Sync",
+			"last_deep_sync_at",
 			"Sync_Results"},
 		[]string{},
 		&Cloudproviders,

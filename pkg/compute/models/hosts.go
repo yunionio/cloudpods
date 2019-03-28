@@ -1729,14 +1729,19 @@ func (self *SHost) newCloudHostWire(ctx context.Context, userCred mcclient.Token
 	return err
 }
 
-func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, projectId string) ([]SGuest, []cloudprovider.ICloudVM, compare.SyncResult) {
+type SGuestSyncResult struct {
+	Local  *SGuest
+	Remote cloudprovider.ICloudVM
+	IsNew  bool
+}
+
+func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, projectId string) ([]SGuestSyncResult, compare.SyncResult) {
 	syncOwnerId := projectId
 
 	lockman.LockClass(ctx, GuestManager, syncOwnerId)
 	defer lockman.ReleaseClass(ctx, GuestManager, syncOwnerId)
 
-	localVMs := make([]SGuest, 0)
-	remoteVMs := make([]cloudprovider.ICloudVM, 0)
+	syncVMPairs := make([]SGuestSyncResult, 0)
 	syncResult := compare.SyncResult{}
 
 	dbVMs := self.GetGuests()
@@ -1744,7 +1749,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	for i := range dbVMs {
 		if taskman.TaskManager.IsInTask(&dbVMs[i]) {
 			syncResult.Error(fmt.Errorf("object in task"))
-			return nil, nil, syncResult
+			return nil, syncResult
 		}
 	}
 
@@ -1756,7 +1761,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	err := compare.CompareSets(dbVMs, vms, &removed, &commondb, &commonext, &added)
 	if err != nil {
 		syncResult.Error(err)
-		return nil, nil, syncResult
+		return nil, syncResult
 	}
 
 	for i := 0; i < len(removed); i += 1 {
@@ -1774,8 +1779,12 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 			syncResult.UpdateError(err)
 		} else {
 			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
-			localVMs = append(localVMs, commondb[i])
-			remoteVMs = append(remoteVMs, commonext[i])
+			syncVMPair := SGuestSyncResult{
+				Local:  &commondb[i],
+				Remote: commonext[i],
+				IsNew:  false,
+			}
+			syncVMPairs = append(syncVMPairs, syncVMPair)
 			syncResult.Update()
 		}
 	}
@@ -1797,13 +1806,17 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 			syncResult.AddError(err)
 		} else {
 			syncMetadata(ctx, userCred, new, added[i])
-			localVMs = append(localVMs, *new)
-			remoteVMs = append(remoteVMs, added[i])
+			syncVMPair := SGuestSyncResult{
+				Local:  new,
+				Remote: added[i],
+				IsNew:  true,
+			}
+			syncVMPairs = append(syncVMPairs, syncVMPair)
 			syncResult.Add()
 		}
 	}
 
-	return localVMs, remoteVMs, syncResult
+	return syncVMPairs, syncResult
 }
 
 func (self *SHost) getNetworkOfIPOnHost(ipAddr string) (*SNetwork, error) {
