@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"math/rand"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -48,6 +49,8 @@ type SCloudproviderregion struct {
 
 	// SyncIntervalSeconds int `list:"admin"`
 	SyncResults jsonutils.JSONObject `list:"admin"`
+
+	LastDeepSyncAt time.Time `list:"admin"`
 }
 
 func (joint *SCloudproviderregion) Master() db.IStandaloneModel {
@@ -108,14 +111,16 @@ func (self *SCloudproviderregion) getSyncIntervalSeconds(account *SCloudaccount)
 
 func (self *SCloudproviderregion) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	account := self.GetAccount()
-	extra.Add(jsonutils.NewString(account.Id), "cloudaccount_id")
-	extra.Add(jsonutils.NewString(account.Name), "cloudaccount")
-	if account.EnableAutoSync {
-		extra.Add(jsonutils.JSONTrue, "enable_auto_sync")
-	} else {
-		extra.Add(jsonutils.JSONFalse, "enable_auto_sync")
+	if account != nil {
+		extra.Add(jsonutils.NewString(account.Id), "cloudaccount_id")
+		extra.Add(jsonutils.NewString(account.Name), "cloudaccount")
+		if account.EnableAutoSync {
+			extra.Add(jsonutils.JSONTrue, "enable_auto_sync")
+		} else {
+			extra.Add(jsonutils.JSONFalse, "enable_auto_sync")
+		}
+		extra.Add(jsonutils.NewInt(int64(self.getSyncIntervalSeconds(account))), "sync_interval_seconds")
 	}
-	extra.Add(jsonutils.NewInt(int64(self.getSyncIntervalSeconds(account))), "sync_interval_seconds")
 	return extra
 }
 
@@ -199,8 +204,8 @@ func (self *SCloudproviderregion) markSyncing(userCred mcclient.TokenCredential)
 	return nil
 }
 
-func (self *SCloudproviderregion) markEndSync(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet) error {
-	err := self.markEndSyncInternal(userCred, syncResults)
+func (self *SCloudproviderregion) markEndSync(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, deepSync bool) error {
+	err := self.markEndSyncInternal(userCred, syncResults, deepSync)
 	if err != nil {
 		return err
 	}
@@ -211,11 +216,14 @@ func (self *SCloudproviderregion) markEndSync(ctx context.Context, userCred mccl
 	return nil
 }
 
-func (self *SCloudproviderregion) markEndSyncInternal(userCred mcclient.TokenCredential, syncResults SSyncResultSet) error {
+func (self *SCloudproviderregion) markEndSyncInternal(userCred mcclient.TokenCredential, syncResults SSyncResultSet, deepSync bool) error {
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_IDLE
 		self.LastSyncEndAt = timeutils.UtcNow()
 		self.SyncResults = jsonutils.Marshal(syncResults)
+		if deepSync {
+			self.LastDeepSyncAt = timeutils.UtcNow()
+		}
 		return nil
 	})
 	if err != nil {
@@ -245,7 +253,7 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 	syncResults := SSyncResultSet{}
 
 	self.markSyncing(userCred)
-	defer self.markEndSync(ctx, userCred, syncResults)
+	defer self.markEndSync(ctx, userCred, syncResults, syncRange.DeepSync)
 
 	localRegion := self.GetRegion()
 	provider := self.GetProvider()
@@ -253,6 +261,13 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 	if err != nil {
 		log.Errorf("fail to get driver, connection problem?")
 		return err
+	}
+
+	if !syncRange.DeepSync {
+		intval := self.getSyncIntervalSeconds(nil)
+		if self.LastDeepSyncAt.IsZero() || (time.Now().Sub(self.LastDeepSyncAt) > time.Duration(intval)*time.Second*8 && rand.Float32() < 0.5) {
+			syncRange.DeepSync = true
+		}
 	}
 
 	if localRegion.isManaged() {
@@ -268,7 +283,7 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 		log.Errorf("dosync fail %s", err)
 	}
 
-	log.Debugf("%s", jsonutils.Marshal(syncResults))
+	log.Debugf("dosync result: %s", jsonutils.Marshal(syncResults))
 
 	return err
 }
@@ -312,7 +327,8 @@ func (cpr *SCloudproviderregion) needAutoSync() bool {
 		region := cpr.GetRegion()
 		log.Debugf("empty region %s! no need to check so frequently", region.GetName())
 	}
-	if time.Now().Sub(cpr.LastSyncEndAt) > time.Duration(intval)*time.Second {
+	if time.Now().Sub(cpr.LastSyncEndAt) > time.Duration(intval)*time.Second && rand.Float32() < 0.6 {
+		// add randomness
 		return true
 	}
 	return false

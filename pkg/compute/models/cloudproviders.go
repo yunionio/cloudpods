@@ -326,6 +326,7 @@ func (self *SCloudprovider) saveProject(userCred mcclient.TokenCredential, proje
 type SSyncRange struct {
 	Force    bool
 	FullSync bool
+	DeepSync bool
 	// ProjectSync bool
 
 	Region []string
@@ -513,7 +514,7 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 		return nil, nil
 	}
 
-	return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{FullSync: true}, "")
+	return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{FullSync: true, DeepSync: true}, "")
 }
 
 func (self *SCloudprovider) markStartSync(userCred mcclient.TokenCredential) error {
