@@ -44,7 +44,7 @@ func (pair *sStoragecacheSyncPair) syncCloudImages(ctx context.Context, userCred
 }
 
 func isInCache(pairs []sStoragecacheSyncPair, localCacheId string) bool {
-	log.Debugf("isInCache %d %s", len(pairs), localCacheId)
+	// log.Debugf("isInCache %d %s", len(pairs), localCacheId)
 	for i := range pairs {
 		if pairs[i].local.Id == localCacheId {
 			return true
