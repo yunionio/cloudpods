@@ -42,6 +42,7 @@ func (self *CloudAccountSyncInfoTask) OnInit(ctx context.Context, obj db.IStanda
 		syncRangeJson.Unmarshal(&syncRange)
 	} else {
 		syncRange.FullSync = true
+		syncRange.DeepSync = true
 	}
 
 	if !syncRange.NeedSyncInfo() {
