@@ -463,7 +463,7 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 		log.Errorf(msg)
 		return
 	}
-	localVMs, remoteVMs, result := localHost.SyncHostVMs(ctx, userCred, driver, vms, provider.ProjectId)
+	syncVMPairs, result := localHost.SyncHostVMs(ctx, userCred, driver, vms, provider.ProjectId)
 
 	syncResults.Add(GuestManager, result)
 
@@ -473,17 +473,21 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 	if result.IsError() {
 		return
 	}
+
 	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
-	for i := 0; i < len(localVMs); i += 1 {
+	for i := 0; i < len(syncVMPairs); i += 1 {
+		if !syncVMPairs[i].IsNew && !syncRange.DeepSync {
+			continue
+		}
 		func() {
-			lockman.LockObject(ctx, &localVMs[i])
-			defer lockman.ReleaseObject(ctx, &localVMs[i])
+			lockman.LockObject(ctx, syncVMPairs[i].Local)
+			defer lockman.ReleaseObject(ctx, syncVMPairs[i].Local)
 
-			syncVMNics(ctx, userCred, provider, localHost, &localVMs[i], remoteVMs[i])
-			syncVMDisks(ctx, userCred, provider, driver, localHost, &localVMs[i], remoteVMs[i], syncRange)
-			syncVMEip(ctx, userCred, provider, &localVMs[i], remoteVMs[i])
-			syncVMSecgroups(ctx, userCred, provider, &localVMs[i], remoteVMs[i])
+			syncVMNics(ctx, userCred, provider, localHost, syncVMPairs[i].Local, syncVMPairs[i].Remote)
+			syncVMDisks(ctx, userCred, provider, driver, localHost, syncVMPairs[i].Local, syncVMPairs[i].Remote, syncRange)
+			syncVMEip(ctx, userCred, provider, syncVMPairs[i].Local, syncVMPairs[i].Remote)
+			syncVMSecgroups(ctx, userCred, provider, syncVMPairs[i].Local, syncVMPairs[i].Remote)
 
 		}()
 	}
@@ -806,14 +810,16 @@ func syncPublicCloudProviderInfo(
 	syncRegionLoadbalancerCertificates(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	syncRegionLoadbalancers(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
-	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
-	for i := range storageCachePairs {
-		result := storageCachePairs[i].syncCloudImages(ctx, userCred)
+	if syncRange.DeepSync {
+		log.Debugf("storageCachePairs count %d", len(storageCachePairs))
+		for i := range storageCachePairs {
+			result := storageCachePairs[i].syncCloudImages(ctx, userCred)
 
-		syncResults.Add(StoragecachedimageManager, result)
+			syncResults.Add(StoragecachedimageManager, result)
 
-		msg := result.Result()
-		log.Infof("syncCloudImages result: %s", msg)
+			msg := result.Result()
+			log.Infof("syncCloudImages result: %s", msg)
+		}
 	}
 
 	return nil
@@ -870,12 +876,14 @@ func syncOnPremiseCloudProviderInfo(
 		syncHostVMs(ctx, userCred, syncResults, provider, driver, &localHosts[i], remoteHosts[i], syncRange)
 	}
 
-	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
-	for i := range storageCachePairs {
-		result := storageCachePairs[i].syncCloudImages(ctx, userCred)
-		syncResults.Add(StoragecachedimageManager, result)
-		msg := result.Result()
-		log.Infof("syncCloudImages result: %s", msg)
+	if syncRange.DeepSync {
+		log.Debugf("storageCachePairs count %d", len(storageCachePairs))
+		for i := range storageCachePairs {
+			result := storageCachePairs[i].syncCloudImages(ctx, userCred)
+			syncResults.Add(StoragecachedimageManager, result)
+			msg := result.Result()
+			log.Infof("syncCloudImages result: %s", msg)
+		}
 	}
 	return nil
 }
