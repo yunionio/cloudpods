@@ -195,6 +195,8 @@ for pull in "${PULLS[@]}"; do
 
   # set the subject
   subject=$(grep -m 1 "^Subject" "/tmp/${pull}.patch" | sed -e 's/Subject: \[PATCH//g' | sed 's/.*] //')
+  subject_=$(echo "$subject" | python -c 'from email.Header import decode_header as f; import sys; s=sys.stdin.read(); print f(s)[0][0]')
+  [ -z "$subject_" ] || subject="$subject_"
   SUBJECTS+=("#${pull}: ${subject}")
 
   # remove the patch file from /tmp
