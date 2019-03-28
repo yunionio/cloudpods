@@ -24,8 +24,9 @@ type ComputeOptions struct {
 
 	pending_delete.SPendingDeleteOptions
 
-	PrepaidExpireCheckSeconds       int `default:"600" help:"How long to wait to scan expired prepaid VM or disks, default is 10 minutes"`
-	ExpiredPrepaidMaxCleanBatchSize int `default:"50" help:"How many expired prepaid servers can be deleted in a batch"`
+	PrepaidExpireCheck              bool `default:"false" help:"clean expired servers or disks"`
+	PrepaidExpireCheckSeconds       int  `default:"600" help:"How long to wait to scan expired prepaid VM or disks, default is 10 minutes"`
+	ExpiredPrepaidMaxCleanBatchSize int  `default:"50" help:"How many expired prepaid servers can be deleted in a batch"`
 
 	LoadbalancerPendingDeleteCheckInterval int `default:"3600" help:"Interval between checks of pending deleted loadbalancer objects, defaults to 1h"`
 
