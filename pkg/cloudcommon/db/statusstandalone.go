@@ -8,7 +8,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SStatusStandaloneResourceBase struct {
@@ -43,10 +42,6 @@ func (model *SStatusStandaloneResourceBase) SetStatus(userCred mcclient.TokenCre
 			notes = fmt.Sprintf("%s: %s", notes, reason)
 		}
 		OpsLog.LogEvent(model, ACT_UPDATE_STATUS, notes, userCred)
-		logclient.AddSimpleActionLog(model, logclient.ACT_UPDATE, notes, userCred, true)
-		// if strings.Contains(notes, "fail") {
-		//	logclient.AddActionLog(model, logclient.ACT_VM_SYNC_STATUS, notes, userCred, false)
-		// }
 	}
 	return nil
 }
