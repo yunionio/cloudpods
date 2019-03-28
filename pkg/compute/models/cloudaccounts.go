@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"strconv"
 	"strings"
@@ -1044,7 +1045,7 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Contex
 	}
 
 	for i := range accounts {
-		if accounts[i].shouldProbeStatus() && accounts[i].needSync() && accounts[i].CanSync() {
+		if accounts[i].shouldProbeStatus() && accounts[i].needSync() && accounts[i].CanSync() && rand.Float32() < 0.6 {
 			accounts[i].SubmitSyncAccountTask(ctx, userCred, nil, true)
 		}
 	}
