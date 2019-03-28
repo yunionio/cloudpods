@@ -900,7 +900,7 @@ func (provider *SCloudprovider) GetCloudproviderRegions() []SCloudproviderregion
 	return CloudproviderRegionManager.fetchRecordsByQuery(q)
 }
 
-func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange, wg *sync.WaitGroup, autoSync bool) {
+func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange, wg *sync.WaitGroup, autoSync bool) {
 	provider.markSyncing(userCred)
 	cprs := provider.GetCloudproviderRegions()
 	syncCnt := 0
@@ -924,7 +924,7 @@ func (provider *SCloudprovider) syncCloudproviderRegions(ctx context.Context, us
 	}
 }
 
-func (provider *SCloudprovider) SyncCallSyncCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential, syncRange *SSyncRange) {
+func (provider *SCloudprovider) SyncCallSyncCloudproviderRegions(ctx context.Context, userCred mcclient.TokenCredential, syncRange SSyncRange) {
 	var wg sync.WaitGroup
 	provider.syncCloudproviderRegions(ctx, userCred, syncRange, &wg, false)
 	wg.Wait()
