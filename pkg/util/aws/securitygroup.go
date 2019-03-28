@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/golang-plus/uuid"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/secrules"
@@ -31,7 +29,7 @@ type SSecurityGroup struct {
 	VpcId             string
 	SecurityGroupId   string
 	Description       string
-	SecurityGroupName string //对应tag中的name标签
+	SecurityGroupName string
 	Permissions       []secrules.SecurityRule
 	Tags              Tags
 
@@ -207,12 +205,7 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTa
 	params.SetVpcId(vpcId)
 	// 这里的描述aws 上层代码拼接的描述。并非用户提交的描述，用户描述放置在Yunion本地数据库中。）
 	params.SetDescription(desc)
-	// aws name 要求唯一，且不含中文等字符。所以随机生成一个uuid作为name。实际用户传入的name使用tag标记
-	secid, err := uuid.NewV4()
-	if err != nil {
-		return "", err
-	}
-	params.SetGroupName(secid.String())
+	params.SetGroupName(name)
 
 	group, err := self.ec2Client.CreateSecurityGroup(params)
 	if err != nil {
@@ -281,14 +274,11 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 
 		permissions := self.getSecRules(s.IpPermissions, s.IpPermissionsEgress)
 
-		tagspec := TagSpec{ResourceType: "scuritygroup"}
-		tagspec.LoadingEc2Tags(s.Tags)
-
 		return &SSecurityGroup{
 			vpc:               vpc,
 			Description:       *s.Description,
 			SecurityGroupId:   *s.GroupId,
-			SecurityGroupName: tagspec.GetNameTag(),
+			SecurityGroupName: *s.GroupName,
 			VpcId:             *s.VpcId,
 			Permissions:       permissions,
 			RegionId:          self.RegionId,
@@ -457,15 +447,12 @@ func (self *SRegion) GetSecurityGroups(vpcId string, secgroupId string, offset i
 			continue
 		}
 
-		tagspec := TagSpec{ResourceType: "scuritygroup"}
-		tagspec.LoadingEc2Tags(item.Tags)
-
 		permissions := self.getSecRules(item.IpPermissions, item.IpPermissionsEgress)
 		group := SSecurityGroup{
 			vpc:               vpc,
 			Description:       *item.Description,
 			SecurityGroupId:   *item.GroupId,
-			SecurityGroupName: tagspec.GetNameTag(),
+			SecurityGroupName: *item.GroupName,
 			VpcId:             *item.VpcId,
 			Permissions:       permissions,
 			RegionId:          self.RegionId,

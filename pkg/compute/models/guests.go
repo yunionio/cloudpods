@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"yunion.io/x/onecloud/pkg/util/cloudinit"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -152,6 +153,8 @@ const (
 	//	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
 	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
 )
+
+const VM_AWS_DEFAULT_LOGIN_USER = "ec2user"
 
 var VM_RUNNING_STATUS = api.VM_RUNNING_STATUS
 var VM_CREATING_STATUS = api.VM_CREATING_STATUS
@@ -2922,8 +2925,34 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		registerVpcId := vpc.ExternalId
 		externalVpcId := vpc.ExternalId
 		switch self.Hypervisor {
-		case HYPERVISOR_ALIYUN, HYPERVISOR_AWS, HYPERVISOR_HUAWEI:
+		case HYPERVISOR_ALIYUN, HYPERVISOR_HUAWEI:
 			break
+		case HYPERVISOR_AWS:
+			loginUser := cloudinit.NewUser(VM_AWS_DEFAULT_LOGIN_USER)
+			loginUser.SudoPolicy(cloudinit.USER_SUDO_NOPASSWD)
+			if pub, _ := config.GetString("public_key"); len(pub) > 0 {
+				loginUser.SshKey(pub)
+			} else if pwd, _ := config.GetString("password"); len(pwd) > 0 {
+				loginUser.Password(pwd)
+			} else {
+				pwd = seclib2.RandomPassword2(12)
+				config.Set("password", jsonutils.NewString(pwd))
+				loginUser.Password(pwd)
+			}
+
+			cloudconfig := cloudinit.SCloudConfig{Users: []cloudinit.SUser{loginUser}}
+
+			if d, _ := config.GetString("user_data"); len(d) > 0 {
+				_d, err := cloudinit.ParseUserDataBase64(d)
+				if err != nil {
+					return nil, fmt.Errorf("invalid user data %s", d)
+				}
+
+				cloudconfig.Merge(_d)
+			}
+
+			userdata := cloudconfig.UserDataBase64()
+			config.Add(jsonutils.NewString(userdata), "user_data")
 		case HYPERVISOR_QCLOUD, HYPERVISOR_OPENSTACK:
 			registerVpcId = "normal"
 		case HYPERVISOR_AZURE:

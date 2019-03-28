@@ -114,7 +114,11 @@ func (self *SInstance) GetId() string {
 }
 
 func (self *SInstance) GetName() string {
-	return self.InstanceName
+	if len(self.InstanceName) > 0 {
+		return self.InstanceName
+	}
+
+	return self.GetId()
 }
 
 func (self *SInstance) GetGlobalId() string {

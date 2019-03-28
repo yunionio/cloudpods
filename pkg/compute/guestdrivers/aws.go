@@ -54,7 +54,8 @@ func fetchAwsUserName(desc cloudprovider.SManagedVMCreateConfig) string {
 }
 
 func (self *SAwsGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	return fetchAwsUserName(desc)
+	// return fetchAwsUserName(desc)
+	return models.VM_AWS_DEFAULT_LOGIN_USER
 }
 
 func (self *SAwsGuestDriver) GetHypervisor() string {
