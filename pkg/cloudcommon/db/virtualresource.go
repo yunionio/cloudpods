@@ -14,7 +14,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type TProjectSource string
@@ -242,17 +241,15 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		formerObj := NewTenant(model.ProjectId, "unknown")
 		former = &formerObj
 	}
-	diff, err := Update(model, func() error {
+	_, err := Update(model, func() error {
 		model.ProjectId = tobj.GetId()
 		model.ProjectSrc = string(PROJECT_SOURCE_LOCAL)
 		return nil
 	})
 	if err != nil {
-		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CHANGE_OWNER, err, userCred, false)
 		return nil, err
 	}
 	OpsLog.SyncOwner(model, former, userCred)
-	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CHANGE_OWNER, diff, userCred, true)
 	return nil, nil
 }
 
@@ -272,7 +269,6 @@ func (model *SVirtualResourceBase) MarkPendingDelete(userCred mcclient.TokenCred
 			return err
 		}
 		OpsLog.LogEvent(model, ACT_PENDING_DELETE, diff, userCred)
-		logclient.AddSimpleActionLog(model, logclient.ACT_PENDING_DELETE, diff, userCred, true)
 	}
 	return nil
 }
@@ -304,7 +300,6 @@ func (model *SVirtualResourceBase) DoCancelPendingDelete(ctx context.Context, us
 	err := model.CancelPendingDelete(ctx, userCred)
 	if err == nil {
 		OpsLog.LogEvent(model, ACT_CANCEL_DELETE, model.GetShortDesc(ctx), userCred)
-		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CANCEL_DELETE, model.GetShortDesc(ctx), userCred, true)
 	}
 	return err
 }
@@ -337,7 +332,6 @@ func (model *SVirtualResourceBase) MarkCancelPendingDelete(ctx context.Context, 
 		return err
 	}
 	OpsLog.LogEvent(model, ACT_CANCEL_DELETE, diff, userCred)
-	logclient.AddSimpleActionLog(model, logclient.ACT_CANCEL_DELETE, diff, userCred, true)
 	return nil
 }
 
@@ -362,7 +356,6 @@ func (model *SVirtualResourceBase) SyncCloudProjectId(userCred mcclient.TokenCre
 		})
 		if len(diff) > 0 {
 			OpsLog.LogEvent(model, ACT_SYNC_OWNER, diff, userCred)
-			logclient.AddSimpleActionLog(model, logclient.ACT_SYNC_CLOUD_OWNER, diff, userCred, true)
 		}
 	}
 }
