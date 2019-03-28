@@ -7,7 +7,6 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SSharableVirtualResourceBase struct {
@@ -55,7 +54,6 @@ func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, us
 		})
 		if err == nil {
 			OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
-			logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, diff, userCred, true)
 		}
 		return nil, err
 	}
@@ -70,7 +68,6 @@ func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, u
 		})
 		if err == nil {
 			OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
-			logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, diff, userCred, true)
 		}
 		return nil, err
 	}
