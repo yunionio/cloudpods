@@ -2955,6 +2955,9 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		if err != nil {
 			return nil, fmt.Errorf("failed to get iregion for host %s error: %v", host.Name, err)
 		}
+		if self.Hypervisor == HYPERVISOR_QCLOUD { //腾讯云目前仅支持shell,否则绑定秘钥会冲突失效
+			config.Add(jsonutils.NewString(cloudprovider.CLOUD_SHELL), "user_data_type")
+		}
 		secgroupIds := jsonutils.NewArray()
 		secgroups := self.GetSecgroups()
 		for i, secgroup := range secgroups {
