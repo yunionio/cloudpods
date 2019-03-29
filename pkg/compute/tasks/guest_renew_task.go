@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestRenewTask struct {
@@ -46,6 +47,9 @@ func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	if err != nil {
 		msg := fmt.Sprintf("RequestRenewInstance failed %s", err)
 		log.Errorf(msg)
+		db.OpsLog.LogEvent(guest, db.ACT_REW_FAIL, msg, self.UserCred)
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RENEW, msg, self.UserCred, false)
+		guest.SetStatus(self.GetUserCred(), models.VM_RENEW_FAILED, msg)
 		self.SetStageFailed(ctx, msg)
 		return
 	}
@@ -58,6 +62,9 @@ func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		return
 	}
 
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RENEW, nil, self.UserCred, true)
+
+	guest.StartSyncstatus(ctx, self.UserCred, "")
 	self.SetStageComplete(ctx, nil)
 }
 
