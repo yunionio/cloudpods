@@ -977,7 +977,7 @@ func (cap *SStorageCapacity) GetFree() int {
 
 func (cap *SStorageCapacity) GetCommitRate() float64 {
 	if cap.Capacity > 0 {
-		return float64(int(float64(cap.Used)*100.0/float64(cap.Capacity)+0.5) / 100.0)
+		return float64(int(float64(cap.Used)*100.0/float64(cap.Capacity)+0.5)) / 100.0
 	} else {
 		return 0.0
 	}
