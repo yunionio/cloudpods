@@ -457,7 +457,7 @@ func (policy *SRbacPolicy) Match(userCred mcclient.TokenCredential) bool {
 	return false
 }
 
-func (policy *SRbacPolicy) Allow(userCred mcclient.TokenCredential, service, resource, action string, extra ...string) TRbacResult {
+/*func (policy *SRbacPolicy) Allow(userCred mcclient.TokenCredential, service, resource, action string, extra ...string) TRbacResult {
 	if !policy.Match(userCred) {
 		return Deny
 	}
@@ -466,4 +466,4 @@ func (policy *SRbacPolicy) Allow(userCred mcclient.TokenCredential, service, res
 		return Deny
 	}
 	return rule.Result
-}
+}*/
