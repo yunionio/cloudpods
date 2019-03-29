@@ -232,11 +232,13 @@ func (manager *SPolicyManager) allowWithoutCache(isAdmin bool, userCred mcclient
 		return rbacutils.Deny
 	}
 	findMatchRule := false
+	findMatchPolicy := false
 	currentPriv := rbacutils.Deny
 	for _, p := range policies {
 		if !p.Match(userCred) {
 			continue
 		}
+		findMatchPolicy = true
 		rule := p.GetMatchRule(service, resource, action, extra...)
 		if rule != nil {
 			findMatchRule = true
@@ -244,25 +246,22 @@ func (manager *SPolicyManager) allowWithoutCache(isAdmin bool, userCred mcclient
 				currentPriv = rule.Result
 			}
 		}
-		// result := p.Allow(userCred, service, resource, action, extra...)
-		// if currentPriv.StricterThan(result) {
-		// 	currentPriv = result
-		// }
 	}
-	if !isAdmin && manager.defaultPolicy != nil {
-		rule := manager.defaultPolicy.GetMatchRule(service, resource, action, extra...)
-		if rule != nil {
-			findMatchRule = true
-			if currentPriv.StricterThan(rule.Result) {
-				currentPriv = rule.Result
-			}
-		}
-	}
-	if !findMatchRule {
+	if !findMatchPolicy {
+		currentPriv = rbacutils.Deny
+	} else if !findMatchRule {
 		if isAdmin {
 			currentPriv = rbacutils.AdminAllow
 		} else {
 			currentPriv = rbacutils.OwnerAllow
+		}
+	}
+	if !isAdmin && manager.defaultPolicy != nil {
+		rule := manager.defaultPolicy.GetMatchRule(service, resource, action, extra...)
+		if rule != nil {
+			if currentPriv.StricterThan(rule.Result) {
+				currentPriv = rule.Result
+			}
 		}
 	}
 	if consts.IsRbacDebug() {
