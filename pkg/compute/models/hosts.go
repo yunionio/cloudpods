@@ -2174,6 +2174,9 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 	if server != nil {
 		extra.Add(jsonutils.NewString(server.Id), "server_id")
 		extra.Add(jsonutils.NewString(server.Name), "server")
+		if self.HostType == HOST_TYPE_BAREMETAL {
+			extra.Add(jsonutils.NewString(strings.Join(server.getRealIPs(), ",")), "server_ips")
+		}
 	}
 	netifs := self.GetNetInterfaces()
 	if netifs != nil && len(netifs) > 0 {
