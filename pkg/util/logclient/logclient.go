@@ -89,6 +89,7 @@ const (
 	ACT_SYNC_CONF                    = "同步配置"
 	ACT_CREATE_BACKUP                = "创建备份机"
 	ACT_SWITCH_TO_BACKUP             = "主备切换"
+	ACT_RENEW                        = "续费"
 
 	ACT_IMAGE_SAVE = "上传镜像"
 
