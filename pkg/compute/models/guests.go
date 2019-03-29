@@ -4042,7 +4042,6 @@ func (guest *SGuest) GetDynamicConditionInput() *jsonutils.JSONDict {
 	return guest.ToSchedDesc().ToConditionInput()
 }
 
-
 func (self *SGuest) ToCreateInput() *api.ServerCreateInput {
 	r := new(api.ServerCreateInput)
 	r.VmemSize = self.VmemSize
