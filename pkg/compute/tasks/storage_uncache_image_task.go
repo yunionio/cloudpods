@@ -32,7 +32,7 @@ func (self *StorageUncacheImageTask) OnInit(ctx context.Context, obj db.IStandal
 
 	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId, "")
 
-	if scimg == nil || len(scimg.Path) == 0 {
+	if scimg == nil || (len(scimg.Path) == 0 && len(scimg.ExternalId) == 0) {
 		// "image is not cached on this storage"
 		self.OnImageUncacheComplete(ctx, storageCache, nil)
 	}
