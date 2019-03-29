@@ -124,33 +124,57 @@ func isJointObjectRbacAllowed(manager IJointModelManager, item IJointModel, user
 }
 
 func IsAdminAllowList(userCred mcclient.TokenCredential, manager IModelManager) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
 }
 
 func IsAdminAllowCreate(userCred mcclient.TokenCredential, manager IModelManager) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionCreate)
 }
 
 func IsAdminAllowClassPerform(userCred mcclient.TokenCredential, manager IModelManager, action string) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, action)
 }
 
 func IsAdminAllowGet(userCred mcclient.TokenCredential, obj IModel) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionGet)
 }
 
 func IsAdminAllowGetSpec(userCred mcclient.TokenCredential, obj IModel, spec string) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionGet, spec)
 }
 
 func IsAdminAllowPerform(userCred mcclient.TokenCredential, obj IModel, action string) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionPerform, action)
 }
 
 func IsAdminAllowUpdate(userCred mcclient.TokenCredential, obj IModel) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionUpdate)
 }
 
 func IsAdminAllowDelete(userCred mcclient.TokenCredential, obj IModel) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionDelete)
 }
