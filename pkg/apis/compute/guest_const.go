@@ -22,6 +22,8 @@ const (
 	VM_START_STOP      = "start_stop"
 	VM_STOPPING        = "stopping"
 	VM_STOP_FAILED     = "stop_fail" // # = running
+	VM_RENEWING        = "renewing"
+	VM_RENEW_FAILED    = "renew_failed"
 
 	VM_BACKUP_STARTING         = "backup_starting"
 	VM_BACKUP_CREATING         = "backup_creating"
