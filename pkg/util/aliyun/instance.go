@@ -250,6 +250,9 @@ func (self *SInstance) GetId() string {
 }
 
 func (self *SInstance) GetName() string {
+	if len(self.InstanceName) > 0 {
+		return self.InstanceName
+	}
 	return self.HostName
 }
 
@@ -780,6 +783,7 @@ func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
 	*/
 	params := make(map[string]string)
 	params["HostName"] = hostname
+	params["InstanceName"] = hostname
 	return self.modifyInstanceAttribute(instanceId, params)
 }
 
