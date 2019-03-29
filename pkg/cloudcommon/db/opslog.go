@@ -82,6 +82,7 @@ const (
 	ACT_BACKUP_ALLOCATE      = "backup_allocate"
 	ACT_ALLOCATE_FAIL        = "alloc_fail"
 	ACT_BACKUP_ALLOCATE_FAIL = "backup_alloc_fail"
+	ACT_REW_FAIL             = "renew_fail"
 
 	ACT_DELOCATING    = "delocating"
 	ACT_DELOCATE      = "delocate"
