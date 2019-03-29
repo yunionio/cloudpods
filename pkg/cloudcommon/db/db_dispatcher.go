@@ -564,7 +564,7 @@ func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.J
 		log.Errorf("Fail to list items: %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
-	if userCred.HasSystemAdminPrivilege() && dispatcher.modelManager.ListSkipLog(ctx, userCred, query) {
+	if userCred != nil && userCred.HasSystemAdminPrivilege() && dispatcher.modelManager.ListSkipLog(ctx, userCred, query) {
 		appParams := appsrv.AppContextGetParams(ctx)
 		if appParams != nil {
 			appParams.SkipLog = true
