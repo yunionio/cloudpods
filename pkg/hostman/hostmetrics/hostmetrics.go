@@ -192,10 +192,7 @@ func (s *SGuestMonitorCollector) CollectReportData() (ret string) {
 		s.prevPids[gm.Id] = gm.Pid
 	}
 
-	s.prevReportData = jsonutils.NewDict()
-	for k, v := range reportData.Value() {
-		s.prevReportData.Set(k, v)
-	}
+	s.prevReportData = reportData.DeepCopy().(*jsonutils.JSONDict)
 	ret = s.toTelegrafReportData(reportData)
 	return
 }
