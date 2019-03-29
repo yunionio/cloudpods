@@ -2631,6 +2631,7 @@ func (self *SGuest) PerformRenew(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (self *SGuest) startGuestRenewTask(ctx context.Context, userCred mcclient.TokenCredential, duration string, parentTaskId string) error {
+	self.SetStatus(userCred, VM_RENEWING, "")
 	data := jsonutils.NewDict()
 	data.Add(jsonutils.NewString(duration), "duration")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestRenewTask", self, userCred, data, parentTaskId, "", nil)
