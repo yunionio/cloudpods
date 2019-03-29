@@ -130,7 +130,7 @@ func (self *GuestDeployTask) OnDeployGuestCompleteFailed(ctx context.Context, ob
 	action, _ := self.Params.GetString("deploy_action")
 	keypair, _ := self.Params.GetString("keypair")
 	if action == "deploy" && len(keypair) >= 32 {
-		_, err := db.Update(guest, func() error {
+		_, err := models.GuestManager.TableSpec().Update(guest, func() error {
 			guest.KeypairId = ""
 			return nil
 		})
