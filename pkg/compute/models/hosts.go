@@ -3864,3 +3864,12 @@ func (host *SHost) PerformSetSchedtag(ctx context.Context, userCred mcclient.Tok
 func (host *SHost) GetDynamicConditionInput() *jsonutils.JSONDict {
 	return jsonutils.Marshal(host).(*jsonutils.JSONDict)
 }
+
+func (host *SHost) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ret, err := host.SEnabledStatusStandaloneResourceBase.PerformStatus(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+	host.ClearSchedDescCache()
+	return ret, nil
+}
