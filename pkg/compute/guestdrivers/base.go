@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -20,39 +19,11 @@ type SBaseGuestDriver struct {
 }
 
 func (self *SBaseGuestDriver) StartGuestCreateTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, pendingUsage quotas.IQuota, parentTaskId string) error {
-	taskName, _ := data.GetString("__task__")
-	if len(taskName) > 0 {
-		data.Remove("__task__")
-		log.Infof("Start embedded guest start task")
-		switch taskName {
-		case taskman.CONVERT_TASK:
-			hostId, _ := data.GetString("prefer_host_id")
-			if len(hostId) == 0 {
-				hostId, _ = data.GetString("prefer_baremetal_id")
-			}
-			if len(hostId) == 0 {
-				return fmt.Errorf("Not target baremetal for convert task")
-			}
-			host, err := models.HostManager.FetchById(hostId)
-			if err != nil {
-				return fmt.Errorf("Cannot find host")
-			}
-			params := jsonutils.NewDict()
-			params.Add(jsonutils.NewString(guest.Id), "server_id")
-			params.Add(data, "server_params")
-			task, err := taskman.TaskManager.NewTask(ctx, "BaremetalConvertHypervisorTask", host, userCred, params, parentTaskId, "", pendingUsage)
-			if err != nil {
-				return err
-			}
-			task.ScheduleRun(nil)
-		}
-	} else {
-		task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateTask", guest, userCred, data, parentTaskId, "", pendingUsage)
-		if err != nil {
-			return err
-		}
-		task.ScheduleRun(nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateTask", guest, userCred, data, parentTaskId, "", pendingUsage)
+	if err != nil {
+		return err
 	}
+	task.ScheduleRun(nil)
 	return nil
 }
 

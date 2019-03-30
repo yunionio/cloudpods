@@ -164,7 +164,9 @@ func (self *SNetInterface) getServernetwork() *SGuestnetwork {
 	err = q.First(obj)
 
 	if err != nil {
-		log.Errorf("query fail %s", err)
+		if err != sql.ErrNoRows {
+			log.Errorf("query fail %s", err)
+		}
 		return nil
 	}
 	return obj.(*SGuestnetwork)
