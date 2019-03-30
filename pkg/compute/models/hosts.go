@@ -3408,10 +3408,6 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 	if driver == nil {
 		return nil, httperrors.NewNotAcceptableError("Unsupport driver type %s", hostType)
 	}
-	// err := driver.CheckConvertConfig() do nothing
-	// if err != nil {
-	// return nil, httperrors.NewNotAcceptableError("Need more configuration: %s", err.Error())
-	// }
 	if data.Contains("name") {
 		name, _ := data.GetString("name")
 		err := self.GetModelManager().ValidateName(name)
@@ -3442,9 +3438,18 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 	log.Infof("Host convert to %s", guest.GetName())
 	db.OpsLog.LogEvent(self, db.ACT_CONVERT_START, "", userCred)
 	db.OpsLog.LogEvent(guest, db.ACT_CREATE, "Convert hypervisor", userCred)
-	params.Set("__task__", jsonutils.NewString(taskman.CONVERT_TASK))
-	params.Set("__convert_host_type__", jsonutils.NewString(hostType))
-	GuestManager.OnCreateComplete(ctx, []db.IModel{guest}, userCred, nil, params)
+
+	opts := jsonutils.NewDict()
+	opts.Set("server_params", params)
+	opts.Set("server_id", jsonutils.NewString(guest.GetId()))
+	opts.Set("convert_host_type", jsonutils.NewString(hostType))
+
+	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalConvertHypervisorTask", self, userCred, opts, "", "", nil)
+	if err != nil {
+		return nil, err
+	}
+	task.ScheduleRun(nil)
+
 	self.SetStatus(userCred, BAREMETAL_START_CONVERT, "")
 	return nil, nil
 }
