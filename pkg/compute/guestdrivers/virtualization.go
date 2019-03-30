@@ -187,7 +187,7 @@ func (self *SVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, use
 	return data, nil
 }
 
-func (self *SVirtualizedGuestDriver) ValidateCreateHostData(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SVirtualizedGuestDriver) ValidateCreateDataOnHost(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if host.HostStatus != models.HOST_ONLINE {
 		return nil, httperrors.NewInvalidStatusError("Host %s is not online", bmName)
 	}
