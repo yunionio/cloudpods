@@ -41,14 +41,17 @@ func (self *BaremetalSyncStatusTask) OnInit(ctx context.Context, obj db.IStandal
 }
 
 func (self *BaremetalSyncStatusTask) DoSyncStatus(ctx context.Context, baremetal *models.SHost) {
+	self.SetStage("OnSyncstatusComplete", nil)
 	url := fmt.Sprintf("/baremetals/%s/syncstatus", baremetal.Id)
 	headers := self.GetTaskRequestHeader()
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, nil)
-	if err == nil {
-		self.SetStageComplete(ctx, nil)
-	} else {
+	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
 	}
+}
+
+func (self *BaremetalSyncStatusTask) OnSyncstatusComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
+	self.SetStageComplete(ctx, nil)
 }
 
 type BaremetalSyncAllGuestsStatusTask struct {
