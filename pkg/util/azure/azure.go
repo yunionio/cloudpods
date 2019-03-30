@@ -15,13 +15,13 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 const (
-	CLOUD_PROVIDER_AZURE    = models.CLOUD_PROVIDER_AZURE
+	CLOUD_PROVIDER_AZURE    = api.CLOUD_PROVIDER_AZURE
 	CLOUD_PROVIDER_AZURE_CN = "微软"
 
 	AZURE_API_VERSION = "2016-02-01"
@@ -721,7 +721,7 @@ func (self *SAzureClient) GetSubAccounts() (subAccounts []cloudprovider.SSubAcco
 			return nil, err
 		}
 
-		subAccounts[i].HealthStatus = models.CLOUD_PROVIDER_HEALTH_NORMAL
+		subAccounts[i].HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 	}
 	return subAccounts, nil
 }

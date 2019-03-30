@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -31,7 +32,7 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 	osDist, _ := params.GetString("os_distribution")
 	var osVersion string
 	providerName := storageCache.GetProviderName()
-	if providerName == models.CLOUD_PROVIDER_HUAWEI {
+	if providerName == api.CLOUD_PROVIDER_HUAWEI {
 		osVersion, _ = params.GetString("os_full_version")
 	} else {
 		osVersion, _ = params.GetString("os_version")

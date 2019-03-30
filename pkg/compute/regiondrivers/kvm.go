@@ -26,7 +26,7 @@ func init() {
 }
 
 func (self *SKVMRegionDriver) GetProvider() string {
-	return models.CLOUD_PROVIDER_KVM
+	return api.CLOUD_PROVIDER_KVM
 }
 
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

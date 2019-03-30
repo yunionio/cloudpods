@@ -14,12 +14,12 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
-	CLOUD_PROVIDER_QCLOUD    = models.CLOUD_PROVIDER_QCLOUD
+	CLOUD_PROVIDER_QCLOUD    = api.CLOUD_PROVIDER_QCLOUD
 	CLOUD_PROVIDER_QCLOUD_CN = "腾讯云"
 
 	QCLOUD_DEFAULT_REGION = "ap-beijing"
@@ -388,7 +388,7 @@ func (client *SQcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	subAccount := cloudprovider.SSubAccount{}
 	subAccount.Name = client.providerName
 	subAccount.Account = client.SecretID
-	subAccount.HealthStatus = models.CLOUD_PROVIDER_HEALTH_NORMAL
+	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 	if len(client.AppID) > 0 {
 		subAccount.Account = fmt.Sprintf("%s/%s", client.SecretID, client.AppID)
 	}

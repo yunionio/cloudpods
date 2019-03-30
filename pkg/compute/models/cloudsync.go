@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -23,7 +24,7 @@ type SSyncableBaseResource struct {
 }
 
 func (self *SSyncableBaseResource) CanSync() bool {
-	if self.SyncStatus == CLOUD_PROVIDER_SYNC_STATUS_QUEUED || self.SyncStatus == CLOUD_PROVIDER_SYNC_STATUS_SYNCING {
+	if self.SyncStatus == compute.CLOUD_PROVIDER_SYNC_STATUS_QUEUED || self.SyncStatus == compute.CLOUD_PROVIDER_SYNC_STATUS_SYNCING {
 		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > 1800*time.Second {
 			return true
 		} else {
@@ -915,7 +916,7 @@ func (manager *SCloudproviderregionManager) initAllRecords() {
 	recs := manager.fetchRecordsByQuery(manager.Query())
 	for i := range recs {
 		db.Update(&recs[i], func() error {
-			recs[i].SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_IDLE
+			recs[i].SyncStatus = compute.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 			return nil
 		})
 	}

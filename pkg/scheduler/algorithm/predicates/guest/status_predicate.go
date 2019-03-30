@@ -1,7 +1,7 @@
 package guest
 
 import (
-	"yunion.io/x/onecloud/pkg/compute/models"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
@@ -54,8 +54,11 @@ func (p *StatusPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 	}
 
 	if hc.Cloudprovider != nil {
-		if hc.Cloudprovider.Status != models.CLOUD_PROVIDER_CONNECTED {
-			h.Exclude2("cloud_provider_status", hc.Cloudprovider.Status, models.CLOUD_PROVIDER_CONNECTED)
+		if hc.Cloudprovider.Status != api.CLOUD_PROVIDER_CONNECTED {
+			h.Exclude2("cloud_provider_status", hc.Cloudprovider.Status, api.CLOUD_PROVIDER_CONNECTED)
+		}
+		if hc.Cloudprovider.HealthStatus != api.CLOUD_PROVIDER_HEALTH_NORMAL {
+			h.Exclude2("cloud_provider_health_status", hc.Cloudprovider.HealthStatus, api.CLOUD_PROVIDER_HEALTH_NORMAL)
 		}
 	}
 

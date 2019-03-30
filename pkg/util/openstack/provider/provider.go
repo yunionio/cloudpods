@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -168,8 +169,8 @@ func (self *SOpenStackProvider) GetIRegionById(extId string) (cloudprovider.IClo
 	return self.client.GetIRegionById(extId)
 }
 
-func (self *SOpenStackProvider) GetBalance() (float64, error) {
-	return 0.0, cloudprovider.ErrNotSupported
+func (self *SOpenStackProvider) GetBalance() (float64, string, error) {
+	return 0.0, api.CLOUD_PROVIDER_HEALTH_UNKNOWN, cloudprovider.ErrNotSupported
 }
 
 func (self *SOpenStackProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/huawei/client"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth/credentials"
@@ -20,7 +20,7 @@ import (
 */
 
 const (
-	CLOUD_PROVIDER_HUAWEI    = models.CLOUD_PROVIDER_HUAWEI
+	CLOUD_PROVIDER_HUAWEI    = api.CLOUD_PROVIDER_HUAWEI
 	CLOUD_PROVIDER_HUAWEI_CN = "华为云"
 
 	HUAWEI_DEFAULT_REGION = "cn-north-1"
@@ -176,8 +176,8 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 			continue
 		}
 		s := cloudprovider.SSubAccount{
-			Name:         project.Name,
-			State:        models.CLOUD_PROVIDER_CONNECTED,
+			Name:         fmt.Sprintf("%s-%s", self.providerName, project.Name),
+			State:        api.CLOUD_PROVIDER_CONNECTED,
 			Account:      fmt.Sprintf("%s/%s", self.accessKey, project.ID),
 			HealthStatus: project.GetHealthStatus(),
 		}

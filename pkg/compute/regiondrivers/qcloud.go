@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -22,7 +23,7 @@ func init() {
 }
 
 func (self *SQcloudRegionDriver) GetProvider() string {
-	return models.CLOUD_PROVIDER_QCLOUD
+	return api.CLOUD_PROVIDER_QCLOUD
 }
 
 func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend, task taskman.ITask) error {
@@ -33,7 +34,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx conte
 		}
 
 		// 腾讯云本身没有后端服务器组，因此不需要在qcloud端执行创建操作
-		if iRegion.GetProvider() == models.CLOUD_PROVIDER_QCLOUD {
+		if iRegion.GetProvider() == api.CLOUD_PROVIDER_QCLOUD {
 			return nil, nil
 		}
 
@@ -86,7 +87,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 		}
 
 		// 兼容腾讯云，在fake的backend group 关联具体的转发策略之前。不需要同步后端服务器
-		if lbbg.GetProviderName() == models.CLOUD_PROVIDER_QCLOUD && lbbg.RefCount() == 0 {
+		if lbbg.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD && lbbg.RefCount() == 0 {
 			return nil, nil
 		}
 
@@ -137,7 +138,7 @@ func (self *SQcloudRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Co
 		}
 
 		// ===========兼容腾讯云,未关联具体转发规则时，直接删除本地数据即可===============
-		if iRegion.GetProvider() == models.CLOUD_PROVIDER_QCLOUD {
+		if iRegion.GetProvider() == api.CLOUD_PROVIDER_QCLOUD {
 			count := lbbg.RefCount()
 			if count == 0 {
 				return nil, nil
@@ -188,7 +189,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		}
 
 		// ====腾讯云添加后端服务器=====
-		if iRegion.GetProvider() == models.CLOUD_PROVIDER_QCLOUD {
+		if iRegion.GetProvider() == api.CLOUD_PROVIDER_QCLOUD {
 			group := lblis.GetLoadbalancerBackendGroup()
 			if group != nil {
 				backends, err := group.GetBackends()
@@ -267,7 +268,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 			return nil, err
 		}
 		// ====腾讯云添加后端服务器=====
-		if listener.GetProviderName() == models.CLOUD_PROVIDER_QCLOUD && len(rule.BackendGroupID) > 0 {
+		if listener.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD && len(rule.BackendGroupID) > 0 {
 			ilbbg, err := iLoadbalancer.GetILoadBalancerBackendGroupById(rule.BackendGroupID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find backend group for listener rule %s: %s", lbr.Name, err)

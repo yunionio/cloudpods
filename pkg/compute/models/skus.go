@@ -15,6 +15,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -145,9 +146,9 @@ func excludeSkus(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 	return q.Filter(
 		sqlchemy.OR(
 			sqlchemy.IsNullOrEmpty(q.Field("provider")),
-			sqlchemy.NotEquals(q.Field("provider"), CLOUD_PROVIDER_HUAWEI),
+			sqlchemy.NotEquals(q.Field("provider"), api.CLOUD_PROVIDER_HUAWEI),
 			sqlchemy.AND(
-				sqlchemy.Equals(q.Field("provider"), CLOUD_PROVIDER_HUAWEI),
+				sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_HUAWEI),
 				sqlchemy.NotIn(q.Field("instance_type_family"), []string{"e1", "e2", "e3", "d1", "d2", "i3", "h2", "g1", "g3", "p2v", "p1", "pi1", "fp1", "fp1c"}),
 			)))
 }
@@ -433,7 +434,7 @@ func normalizeProvider(provider string) string {
 		return provider
 	}
 
-	for _, p := range CLOUD_PROVIDERS {
+	for _, p := range api.CLOUD_PROVIDERS {
 		if strings.ToLower(p) == strings.ToLower(provider) {
 			return p
 		}
@@ -450,7 +451,7 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 		q = q.Equals("provider", provider)
 	} else if public_cloud {
 		q = q.IsNotEmpty("provider")
-		q = q.NotIn("provider", []string{CLOUD_PROVIDER_OPENSTACK})
+		q = q.NotIn("provider", []string{api.CLOUD_PROVIDER_OPENSTACK})
 	} else {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.IsNull(q.Field("provider")),
