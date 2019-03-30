@@ -32,12 +32,12 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
-	CLOUD_PROVIDER_VMWARE = models.CLOUD_PROVIDER_VMWARE
+	CLOUD_PROVIDER_VMWARE = api.CLOUD_PROVIDER_VMWARE
 )
 
 type SESXiClient struct {
@@ -116,7 +116,7 @@ func (cli *SESXiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{
 		Account:      cli.account,
 		Name:         cli.providerName,
-		HealthStatus: models.CLOUD_PROVIDER_HEALTH_NORMAL,
+		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
 	}
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }

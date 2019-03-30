@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -136,8 +137,8 @@ func (self *SAwsProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion,
 	return self.client.GetIRegionById(id)
 }
 
-func (self *SAwsProvider) GetBalance() (float64, error) {
-	return 0.0, cloudprovider.ErrNotSupported
+func (self *SAwsProvider) GetBalance() (float64, string, error) {
+	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, cloudprovider.ErrNotSupported
 }
 
 func (self *SAwsProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

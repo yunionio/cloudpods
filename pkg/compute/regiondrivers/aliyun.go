@@ -40,7 +40,7 @@ func init() {
 }
 
 func (self *SAliyunRegionDriver) GetProvider() string {
-	return models.CLOUD_PROVIDER_ALIYUN
+	return api.CLOUD_PROVIDER_ALIYUN
 }
 
 func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

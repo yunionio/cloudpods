@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -149,12 +150,16 @@ func (self *SQcloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegi
 	return self.client.GetIRegionById(id)
 }
 
-func (self *SQcloudProvider) GetBalance() (float64, error) {
+func (self *SQcloudProvider) GetBalance() (float64, string, error) {
 	balance, err := self.client.QueryAccountBalance()
 	if err != nil {
-		return 0.0, err
+		return 0.0, api.CLOUD_PROVIDER_HEALTH_UNKNOWN, err
 	}
-	return balance.AvailableAmount, nil
+	status := api.CLOUD_PROVIDER_HEALTH_NORMAL
+	if balance.AvailableAmount <= 0.0 {
+		status = api.CLOUD_PROVIDER_HEALTH_ARREARS
+	}
+	return balance.AvailableAmount, status, nil
 }
 
 func (self *SQcloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

@@ -17,8 +17,8 @@ package esxi
 import (
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 func (cli *SESXiClient) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
@@ -81,7 +81,7 @@ func (cli *SESXiClient) GetIStorageById(id string) (cloudprovider.ICloudStorage,
 }
 
 func (cli *SESXiClient) GetProvider() string {
-	return models.CLOUD_PROVIDER_VMWARE
+	return api.CLOUD_PROVIDER_VMWARE
 }
 
 func (cli *SESXiClient) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {

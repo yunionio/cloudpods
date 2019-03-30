@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"strings"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/huawei/client"
 )
 
@@ -42,10 +42,10 @@ func (self *SProject) GetRegionID() string {
 
 func (self *SProject) GetHealthStatus() string {
 	if self.Enabled {
-		return models.CLOUD_PROVIDER_HEALTH_NORMAL
+		return api.CLOUD_PROVIDER_HEALTH_NORMAL
 	}
 
-	return models.CLOUD_PROVIDER_HEALTH_SUSPENDED
+	return api.CLOUD_PROVIDER_HEALTH_SUSPENDED
 }
 
 func (self *SHuaweiClient) fetchProjects() ([]SProject, error) {
