@@ -504,7 +504,7 @@ func (manager *SDiskManager) convertToBatchCreateData(data jsonutils.JSONObject)
 
 func (manager *SDiskManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	pendingUsage := getDiskResourceRequirements(ctx, userCred, data, len(items))
-	RunBatchCreateTask(ctx, items, userCred, manager.convertToBatchCreateData(data), pendingUsage, "DiskBatchCreateTask")
+	RunBatchCreateTask(ctx, items, userCred, manager.convertToBatchCreateData(data), pendingUsage, "DiskBatchCreateTask", "")
 }
 
 func (self *SDisk) StartDiskCreateTask(ctx context.Context, userCred mcclient.TokenCredential, rebuild bool, snapshot string, parentTaskId string) error {

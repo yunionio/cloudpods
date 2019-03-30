@@ -1206,9 +1206,10 @@ func (guest *SGuest) setApptags(ctx context.Context, appTags []string, userCred 
 }
 
 func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	parentTaskId, _ := data.GetString("__parent_task_id")
 	pendingUsage := getGuestResourceRequirements(ctx, userCred, data, len(items),
 		jsonutils.QueryBoolean(data, "backup", false))
-	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, "GuestBatchCreateTask")
+	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, "GuestBatchCreateTask", parentTaskId)
 }
 
 func (guest *SGuest) GetGroups() []SGroupguest {
