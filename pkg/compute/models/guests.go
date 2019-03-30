@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"yunion.io/x/onecloud/pkg/util/cloudinit"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -51,6 +50,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/cloudinit"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -1843,6 +1843,10 @@ func (self *SGuest) GetIsolatedDevices() []SIsolatedDevice {
 	return IsolatedDeviceManager.findAttachedDevicesOfGuest(self)
 }
 
+func (self *SGuest) IsFailureStatus() bool {
+	return strings.Index(self.Status, "fail") >= 0
+}
+
 func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
@@ -1859,6 +1863,10 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 		db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	}
 
+	if self.IsFailureStatus() {
+		return nil
+	}
+
 	return self.SetStatus(userCred, VM_UNKNOWN, "Sync lost")
 }
 
@@ -1873,7 +1881,9 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extVM.Refresh()
 		// self.Name = extVM.GetName()
-		self.Status = extVM.GetStatus()
+		if !self.IsFailureStatus() {
+			self.Status = extVM.GetStatus()
+		}
 		self.VcpuCount = extVM.GetVcpuCount()
 		self.BootOrder = extVM.GetBootOrder()
 		self.Vga = extVM.GetVga()

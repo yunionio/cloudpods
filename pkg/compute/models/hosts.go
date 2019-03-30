@@ -1762,7 +1762,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 
 	for i := range dbVMs {
 		if taskman.TaskManager.IsInTask(&dbVMs[i]) {
-			syncResult.Error(fmt.Errorf("object in task"))
+			syncResult.Error(fmt.Errorf("server %s(%s)in task", dbVMs[i].Name, dbVMs[i].Id))
 			return nil, syncResult
 		}
 	}
