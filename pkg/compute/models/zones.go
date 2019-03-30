@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -513,7 +514,8 @@ func (manager *SZoneManager) usableZoneQ1(providers, vpcs, wires, networks *sqlc
 	}
 	sq = sq.Filter(sqlchemy.IsNotEmpty(wires.Field("zone_id")))
 	sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
-	sq = sq.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
+	sq = sq.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+	sq = sq.Filter(sqlchemy.Equals(providers.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
 	if usableVpc {
 		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
 	}
@@ -568,7 +570,8 @@ func (manager *SZoneManager) usableZoneQ3(providers, vpcs, wires, networks, zone
 	}
 	sq = sq.Filter(sqlchemy.IsNullOrEmpty(wires.Field("zone_id")))
 	sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
-	sq = sq.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
+	sq = sq.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+	sq = sq.Filter(sqlchemy.Equals(providers.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
 	if usableVpc {
 		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
 	}

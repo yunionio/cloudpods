@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -465,7 +466,8 @@ func (image *SCachedimage) getValidStoragecache() []SStoragecache {
 	q = q.Join(providers, sqlchemy.Equals(providers.Field("id"), storagecaches.Field("manager_id")))
 	q = q.Join(storagecacheimages, sqlchemy.Equals(storagecaches.Field("id"), storagecacheimages.Field("storagecache_id")))
 	q = q.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
-	q = q.Filter(sqlchemy.Equals(providers.Field("status"), CLOUD_PROVIDER_CONNECTED))
+	q = q.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+	q = q.Filter(sqlchemy.Equals(providers.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
 	q = q.Filter(sqlchemy.Equals(storagecacheimages.Field("cachedimage_id"), image.Id))
 
 	caches := make([]SStoragecache, 0)

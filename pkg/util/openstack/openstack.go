@@ -10,8 +10,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	CLOUD_PROVIDER_OPENSTACK = models.CLOUD_PROVIDER_OPENSTACK
+	CLOUD_PROVIDER_OPENSTACK = api.CLOUD_PROVIDER_OPENSTACK
 	OPENSTACK_DEFAULT_REGION = "RegionOne"
 )
 

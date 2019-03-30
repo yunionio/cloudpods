@@ -125,7 +125,7 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, listener.LoadbalancerId)
 		} else {
 			// 腾讯云backend group只能1v1关联
-			if listener.GetProviderName() == CLOUD_PROVIDER_QCLOUD {
+			if listener.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
 				count := lbbg.RefCount()
 				if count > 0 {
 					return nil, fmt.Errorf("backendgroup already related with other listener/rule")

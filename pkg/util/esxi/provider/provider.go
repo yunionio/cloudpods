@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -155,8 +156,8 @@ func (self *SESXiProvider) GetIRegionById(id string) (cloudprovider.ICloudRegion
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SESXiProvider) GetBalance() (float64, error) {
-	return 0.0, cloudprovider.ErrNotSupported
+func (self *SESXiProvider) GetBalance() (float64, string, error) {
+	return 0.0, api.CLOUD_PROVIDER_HEALTH_NORMAL, cloudprovider.ErrNotSupported
 }
 
 func (self *SESXiProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {

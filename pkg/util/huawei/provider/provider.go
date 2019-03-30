@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -118,12 +119,16 @@ func (self *SHuaweiProvider) GetIRegionById(extId string) (cloudprovider.ICloudR
 	return self.client.GetIRegionById(extId)
 }
 
-func (self *SHuaweiProvider) GetBalance() (float64, error) {
+func (self *SHuaweiProvider) GetBalance() (float64, string, error) {
 	balance, err := self.client.QueryAccountBalance()
 	if err != nil {
-		return 0.0, err
+		return 0.0, api.CLOUD_PROVIDER_HEALTH_UNKNOWN, err
 	}
-	return balance.AvailableAmount, nil
+	status := api.CLOUD_PROVIDER_HEALTH_NORMAL
+	if balance.AvailableAmount <= 0.0 {
+		status = api.CLOUD_PROVIDER_HEALTH_ARREARS
+	}
+	return balance.AvailableAmount, status, nil
 }
 
 func (self *SHuaweiProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {

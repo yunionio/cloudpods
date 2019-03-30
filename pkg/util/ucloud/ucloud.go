@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 /*
@@ -29,7 +30,7 @@ UCloud DiskType貌似也是一个奇葩的存在
 */
 
 const (
-	CLOUD_PROVIDER_UCLOUD    = models.CLOUD_PROVIDER_UCLOUD
+	CLOUD_PROVIDER_UCLOUD    = api.CLOUD_PROVIDER_UCLOUD
 	CLOUD_PROVIDER_UCLOUD_CN = "UCloud"
 
 	UCLOUD_DEFAULT_REGION = "cn-bj2"
@@ -178,7 +179,7 @@ func (self *SUcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 		subAccount.Name = self.providerName
 		// ucloud账号ID中可能包含/。因此使用::作为分割符号
 		subAccount.Account = fmt.Sprintf("%s::%s", self.accessKeyId, project.ProjectID)
-		subAccount.HealthStatus = models.CLOUD_PROVIDER_HEALTH_NORMAL
+		subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 
 		subAccounts = append(subAccounts, subAccount)
 	}
