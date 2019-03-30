@@ -26,12 +26,12 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
-	CLOUD_PROVIDER_ALIYUN    = models.CLOUD_PROVIDER_ALIYUN
+	CLOUD_PROVIDER_ALIYUN    = api.CLOUD_PROVIDER_ALIYUN
 	CLOUD_PROVIDER_ALIYUN_CN = "阿里云"
 
 	ALIYUN_DEFAULT_REGION = "cn-hangzhou"
@@ -192,7 +192,7 @@ func (self *SAliyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	subAccount := cloudprovider.SSubAccount{}
 	subAccount.Name = self.providerName
 	subAccount.Account = self.accessKey
-	subAccount.HealthStatus = models.CLOUD_PROVIDER_HEALTH_NORMAL
+	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }
 

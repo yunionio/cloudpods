@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -148,9 +149,9 @@ func (self *SCloudregion) GetVpcCount() int {
 func (self *SCloudregion) GetDriver() IRegionDriver {
 	provider := self.Provider
 	if len(provider) == 0 {
-		provider = CLOUD_PROVIDER_KVM
+		provider = api.CLOUD_PROVIDER_KVM
 	}
-	if !utils.IsInStringArray(provider, CLOUD_PROVIDERS) {
+	if !utils.IsInStringArray(provider, api.CLOUD_PROVIDERS) {
 		log.Fatalf("Unsupported region provider %s", provider)
 	}
 	return GetRegionDriver(provider)
@@ -445,9 +446,9 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		}
 		manager := managerObj.(*SCloudprovider)
 		q = q.Equals("provider", manager.Provider)
-		if manager.Provider == CLOUD_PROVIDER_HUAWEI {
+		if manager.Provider == api.CLOUD_PROVIDER_HUAWEI {
 			region := strings.Split(manager.Name, "_")[0]
-			prefix := CLOUD_PROVIDER_HUAWEI + "/" + region
+			prefix := api.CLOUD_PROVIDER_HUAWEI + "/" + region
 			q = q.Startswith("external_id", prefix)
 		}
 	}
@@ -484,7 +485,8 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 			sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
 		}
 		sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
-		sq = sq.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
+		sq = sq.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+		sq = sq.Filter(sqlchemy.Equals(providers.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
 		if usableVpc {
 			sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
 		}

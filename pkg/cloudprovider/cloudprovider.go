@@ -62,7 +62,7 @@ type ICloudProvider interface {
 
 	GetOnPremiseIRegion() (ICloudRegion, error)
 
-	GetBalance() (float64, error)
+	GetBalance() (float64, string, error)
 
 	GetSubAccounts() ([]SSubAccount, error)
 

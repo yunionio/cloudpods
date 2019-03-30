@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -38,50 +39,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-)
-
-const (
-	CLOUD_PROVIDER_INIT          = "init"
-	CLOUD_PROVIDER_CONNECTED     = "connected"
-	CLOUD_PROVIDER_DISCONNECTED  = "disconnected"
-	CLOUD_PROVIDER_START_DELETE  = "start_delete"
-	CLOUD_PROVIDER_DELETING      = "deleting"
-	CLOUD_PROVIDER_DELETED       = "deleted"
-	CLOUD_PROVIDER_DELETE_FAILED = "delete_failed"
-
-	CLOUD_PROVIDER_SYNC_STATUS_QUEUED  = "queued"
-	CLOUD_PROVIDER_SYNC_STATUS_SYNCING = "syncing"
-	CLOUD_PROVIDER_SYNC_STATUS_IDLE    = "idle"
-
-	CLOUD_PROVIDER_KVM       = "KVM"
-	CLOUD_PROVIDER_VMWARE    = "VMware"
-	CLOUD_PROVIDER_ALIYUN    = "Aliyun"
-	CLOUD_PROVIDER_QCLOUD    = "Qcloud"
-	CLOUD_PROVIDER_AZURE     = "Azure"
-	CLOUD_PROVIDER_AWS       = "Aws"
-	CLOUD_PROVIDER_HUAWEI    = "Huawei"
-	CLOUD_PROVIDER_OPENSTACK = "OpenStack"
-	CLOUD_PROVIDER_UCLOUD    = "Ucloud"
-
-	CLOUD_PROVIDER_HEALTH_NORMAL    = "normal"    // 远端处于健康状态
-	CLOUD_PROVIDER_HEALTH_SUSPENDED = "suspended" // 远端处于冻结状态
-	CLOUD_PROVIDER_HEALTH_ARREARS   = "arrears"   // 远端处于欠费状态
-)
-
-var (
-	CLOUD_PROVIDER_VALID_STATUS = []string{CLOUD_PROVIDER_CONNECTED}
-
-	CLOUD_PROVIDERS = []string{
-		CLOUD_PROVIDER_KVM,
-		CLOUD_PROVIDER_VMWARE,
-		CLOUD_PROVIDER_ALIYUN,
-		CLOUD_PROVIDER_QCLOUD,
-		CLOUD_PROVIDER_AZURE,
-		CLOUD_PROVIDER_AWS,
-		CLOUD_PROVIDER_HUAWEI,
-		CLOUD_PROVIDER_OPENSTACK,
-		CLOUD_PROVIDER_UCLOUD,
-	}
 )
 
 type SCloudproviderManager struct {
@@ -106,7 +63,7 @@ type SCloudprovider struct {
 
 	SSyncableBaseResource
 
-	// HealthStatus string `width:"64" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_optional"` // 云端服务健康状态。例如欠费、项目冻结都属于不健康状态。
+	HealthStatus string `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"admin"` // 云端服务健康状态。例如欠费、项目冻结都属于不健康状态。
 	// Hostname string `width:"64" charset:"ascii" nullable:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
 	// port = Column(Integer, nullable=False)
 	// Version string `width:"32" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
@@ -533,7 +490,7 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 
 func (self *SCloudprovider) markStartSync(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
-		self.SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_QUEUED
+		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_QUEUED
 		return nil
 	})
 	if err != nil {
@@ -545,7 +502,7 @@ func (self *SCloudprovider) markStartSync(userCred mcclient.TokenCredential) err
 
 func (self *SCloudprovider) markSyncing(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
-		self.SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_SYNCING
+		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
 		self.LastSync = timeutils.UtcNow()
 		self.LastSyncEndAt = time.Time{}
 		return nil
@@ -564,7 +521,7 @@ func (self *SCloudprovider) markEndSyncWithLock(ctx context.Context, userCred mc
 
 		cprs := self.GetCloudproviderRegions()
 		for i := range cprs {
-			if cprs[i].SyncStatus != CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+			if cprs[i].SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
 				return nil
 			}
 		}
@@ -586,7 +543,7 @@ func (self *SCloudprovider) markEndSyncWithLock(ctx context.Context, userCred mc
 
 func (self *SCloudprovider) markEndSync(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
-		self.SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_IDLE
+		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 		self.LastSyncEndAt = timeutils.UtcNow()
 		return nil
 	})
@@ -810,7 +767,7 @@ func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
 	cp.Account = vc.Account
 	cp.Secret = vc.Password
 	cp.LastSync = vc.LastSync
-	cp.Provider = CLOUD_PROVIDER_VMWARE
+	cp.Provider = api.CLOUD_PROVIDER_VMWARE
 
 	return manager.TableSpec().Insert(&cp)
 }
@@ -870,20 +827,31 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 	return q, nil
 }
 
-func (provider *SCloudprovider) markProviderDisconnected(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (provider *SCloudprovider) markProviderDisconnected(ctx context.Context, userCred mcclient.TokenCredential, reason string) error {
 	_, err := db.UpdateWithLock(ctx, provider, func() error {
 		provider.Enabled = false
+		provider.HealthStatus = api.CLOUD_PROVIDER_HEALTH_UNKNOWN
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	provider.SetStatus(userCred, CLOUD_PROVIDER_DISCONNECTED, "not a subaccount")
+	provider.SetStatus(userCred, api.CLOUD_PROVIDER_DISCONNECTED, reason)
 	return provider.ClearSchedDescCache()
 }
 
-func (provider *SCloudprovider) markProviderConnected(ctx context.Context, userCred mcclient.TokenCredential) error {
-	provider.SetStatus(userCred, CLOUD_PROVIDER_CONNECTED, "")
+func (provider *SCloudprovider) markProviderConnected(ctx context.Context, userCred mcclient.TokenCredential, healthStatus string) error {
+	if healthStatus != provider.HealthStatus {
+		diff, err := db.Update(provider, func() error {
+			provider.HealthStatus = healthStatus
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		db.OpsLog.LogEvent(provider, db.ACT_UPDATE, diff, userCred)
+	}
+	provider.SetStatus(userCred, api.CLOUD_PROVIDER_CONNECTED, "")
 	return provider.ClearSchedDescCache()
 }
 
@@ -909,7 +877,7 @@ func (provider *SCloudprovider) GetCloudproviderRegions() []SCloudproviderregion
 	q := CloudproviderRegionManager.Query()
 	q = q.Equals("cloudprovider_id", provider.Id)
 	// q = q.IsTrue("enabled")
-	// q = q.Equals("sync_status", CLOUD_PROVIDER_SYNC_STATUS_IDLE)
+	// q = q.Equals("sync_status", api.CLOUD_PROVIDER_SYNC_STATUS_IDLE)
 
 	return CloudproviderRegionManager.fetchRecordsByQuery(q)
 }
@@ -948,7 +916,10 @@ func (self *SCloudprovider) IsAvailable() bool {
 	if !self.Enabled {
 		return false
 	}
-	if !utils.IsInStringArray(self.Status, CLOUD_PROVIDER_VALID_STATUS) {
+	if !utils.IsInStringArray(self.Status, api.CLOUD_PROVIDER_VALID_STATUS) {
+		return false
+	}
+	if self.HealthStatus != api.CLOUD_PROVIDER_HEALTH_NORMAL {
 		return false
 	}
 	return true
@@ -1011,7 +982,7 @@ func (self *SCloudprovider) StartCloudproviderDeleteTask(ctx context.Context, us
 		log.Errorf("%s", err)
 		return err
 	}
-	self.SetStatus(userCred, CLOUD_PROVIDER_START_DELETE, "StartCloudproviderDeleteTask")
+	self.SetStatus(userCred, api.CLOUD_PROVIDER_START_DELETE, "StartCloudproviderDeleteTask")
 	task.ScheduleRun(nil)
 	return nil
 }

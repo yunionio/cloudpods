@@ -22,12 +22,12 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
-	CLOUD_PROVIDER_AWS    = models.CLOUD_PROVIDER_AWS
+	CLOUD_PROVIDER_AWS    = api.CLOUD_PROVIDER_AWS
 	CLOUD_PROVIDER_AWS_CN = "AWS"
 
 	AWS_INTERNATIONAL_DEFAULT_REGION = "us-west-1"
@@ -83,7 +83,7 @@ func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{}
 	subAccount.Name = self.providerName
 	subAccount.Account = self.accessKey
-	subAccount.HealthStatus = models.CLOUD_PROVIDER_HEALTH_NORMAL
+	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }
 

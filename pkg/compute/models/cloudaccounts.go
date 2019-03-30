@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -78,8 +79,9 @@ type SCloudaccount struct {
 	EnableAutoSync      bool `default:"false" create:"admin_optional" list:"admin"`
 	SyncIntervalSeconds int  `create:"admin_optional" list:"admin" update:"admin"`
 
-	Balance float64   `list:"admin"`
-	ProbeAt time.Time `list:"admin"`
+	Balance      float64   `list:"admin"`
+	ProbeAt      time.Time `list:"admin"`
+	HealthStatus string    `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"admin"`
 
 	ErrorCount int `list:"admin"`
 
@@ -395,7 +397,7 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 	}
 
 	if changed {
-		self.SetStatus(userCred, CLOUD_PROVIDER_INIT, "Change credential")
+		self.SetStatus(userCred, api.CLOUD_PROVIDER_INIT, "Change credential")
 		self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
 	}
 	return nil, nil
@@ -420,7 +422,7 @@ func (self *SCloudaccount) StartSyncCloudProviderInfoTask(ctx context.Context, u
 
 func (self *SCloudaccount) markStartSync(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
-		self.SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_QUEUED
+		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_QUEUED
 		return nil
 	})
 	if err != nil {
@@ -432,7 +434,7 @@ func (self *SCloudaccount) markStartSync(userCred mcclient.TokenCredential) erro
 
 func (self *SCloudaccount) MarkSyncing(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
-		self.SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_SYNCING
+		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
 		self.LastSync = timeutils.UtcNow()
 		self.LastSyncEndAt = time.Time{}
 		return nil
@@ -448,13 +450,13 @@ func (self *SCloudaccount) MarkEndSyncWithLock(ctx context.Context, userCred mcc
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	if self.SyncStatus == CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+	if self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
 		return nil
 	}
 
 	providers := self.GetCloudproviders()
 	for i := range providers {
-		if providers[i].SyncStatus != CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+		if providers[i].SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
 			return nil
 		}
 	}
@@ -463,7 +465,7 @@ func (self *SCloudaccount) MarkEndSyncWithLock(ctx context.Context, userCred mcc
 
 func (self *SCloudaccount) markEndSync(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
-		self.SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_IDLE
+		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 		self.LastSyncEndAt = timeutils.UtcNow()
 		return nil
 	})
@@ -515,7 +517,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		if err != nil {
 			return nil, isNew, err
 		}
-		provider.markProviderConnected(ctx, userCred)
+		provider.markProviderConnected(ctx, userCred, self.HealthStatus)
 		return provider, isNew, nil
 	}
 	// not found, create a new cloudprovider
@@ -532,8 +534,8 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		newCloudprovider.Provider = self.Provider
 		newCloudprovider.AccessUrl = self.AccessUrl
 		newCloudprovider.Enabled = true
-		newCloudprovider.Status = CLOUD_PROVIDER_CONNECTED
-		// newCloudprovider.HealthStatus = subAccount.HealthStatus
+		newCloudprovider.Status = api.CLOUD_PROVIDER_CONNECTED
+		newCloudprovider.HealthStatus = self.HealthStatus
 		newCloudprovider.Name = db.GenerateName(CloudproviderManager, "", subAccount.Name)
 		if !self.AutoCreateProject {
 			newCloudprovider.ProjectId = auth.AdminCredential().GetProjectId()
@@ -715,7 +717,7 @@ func (self *SCloudaccount) GetExtraDetails(ctx context.Context, userCred mcclien
 func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 	mainAccount, providerName := cloudprovider.Account, cloudprovider.Name
 
-	if cloudprovider.Provider == CLOUD_PROVIDER_AZURE {
+	if cloudprovider.Provider == api.CLOUD_PROVIDER_AZURE {
 		accountInfo := strings.Split(cloudprovider.Account, "/")
 		if len(accountInfo) == 2 {
 			mainAccount = accountInfo[0]
@@ -758,7 +760,7 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 
 		secret, err := cloudprovider.getPassword()
 		if err != nil {
-			account.SetStatus(auth.AdminCredential(), CLOUD_PROVIDER_DISCONNECTED, "invalid secret")
+			account.markAccountDiscconected(context.Background(), auth.AdminCredential())
 			log.Errorf("Get password from provider %s error %v", cloudprovider.Name, err)
 		} else {
 			err = account.savePassword(secret)
@@ -946,7 +948,7 @@ func (self *SCloudaccount) PerformEnableAutoSync(ctx context.Context, userCred m
 		return nil, nil
 	}
 
-	if self.Status != CLOUD_PROVIDER_CONNECTED {
+	if self.Status != api.CLOUD_PROVIDER_CONNECTED {
 		return nil, httperrors.NewInvalidStatusError("cannot enable auto sync in status %s", self.Status)
 	}
 
@@ -1004,18 +1006,19 @@ func (self *SCloudaccount) disableAutoSync(ctx context.Context, userCred mcclien
 func (account *SCloudaccount) markAccountDiscconected(ctx context.Context, userCred mcclient.TokenCredential) error {
 	_, err := db.UpdateWithLock(ctx, account, func() error {
 		account.ErrorCount = account.ErrorCount + 1
+		account.HealthStatus = api.CLOUD_PROVIDER_HEALTH_UNKNOWN
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	return account.SetStatus(userCred, CLOUD_PROVIDER_DISCONNECTED, "")
+	return account.SetStatus(userCred, api.CLOUD_PROVIDER_DISCONNECTED, "")
 }
 
 func (account *SCloudaccount) markAllProvidersDicconnected(ctx context.Context, userCred mcclient.TokenCredential) error {
 	providers := account.GetCloudproviders()
 	for i := 0; i < len(providers); i += 1 {
-		err := providers[i].SetStatus(userCred, CLOUD_PROVIDER_DISCONNECTED, "cloud account disconnected")
+		err := providers[i].markProviderDisconnected(ctx, userCred, "cloud account disconnected")
 		if err != nil {
 			return err
 		}
@@ -1031,12 +1034,12 @@ func (account *SCloudaccount) markAccountConnected(ctx context.Context, userCred
 	if err != nil {
 		return err
 	}
-	return account.SetStatus(userCred, CLOUD_PROVIDER_CONNECTED, "")
+	return account.SetStatus(userCred, api.CLOUD_PROVIDER_CONNECTED, "")
 }
 
 func (account *SCloudaccount) shouldProbeStatus() bool {
 	// connected state
-	if account.Status != CLOUD_PROVIDER_DISCONNECTED {
+	if account.Status != api.CLOUD_PROVIDER_DISCONNECTED {
 		return true
 	}
 	// disconencted, but errorCount < threshold
@@ -1101,9 +1104,14 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		log.Errorf("account.GetProvider failed: %s", err)
 		return nil, err
 	}
-	balance, err := manager.GetBalance()
-	if err != nil && err != cloudprovider.ErrNotSupported {
-		log.Errorf("manager.GetBalance %s fail %s", account.Name, err)
+	balance, status, err := manager.GetBalance()
+	if err != nil {
+		if err != cloudprovider.ErrNotSupported {
+			log.Errorf("manager.GetBalance %s fail %s", account.Name, err)
+			status = api.CLOUD_PROVIDER_HEALTH_UNKNOWN
+		} else {
+			status = api.CLOUD_PROVIDER_HEALTH_NORMAL
+		}
 	}
 	version := manager.GetVersion()
 	sysInfo, err := manager.GetSysInfo()
@@ -1117,6 +1125,7 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		account.IsPublicCloud = &isPublic
 		account.IsOnPremise = factory.IsOnPremise()
 		account.Balance = balance
+		account.HealthStatus = status
 		account.ProbeAt = timeutils.UtcNow()
 		account.Version = version
 		account.Sysinfo = sysInfo
@@ -1146,7 +1155,7 @@ func (account *SCloudaccount) importAllSubaccounts(ctx context.Context, userCred
 	}
 	for i := range oldProviders {
 		if _, exist := existProviderKeys[oldProviders[i].Id]; !exist {
-			oldProviders[i].markProviderDisconnected(ctx, userCred)
+			oldProviders[i].markProviderDisconnected(ctx, userCred, "invalid subaccount")
 		}
 	}
 	return existProviders

@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -244,7 +245,7 @@ func (self *SkusZone) getExternalZone() (string, string, string) {
 	if len(parts) == 3 {
 		// provider, region, zone
 		return parts[0], parts[1], parts[2]
-	} else if len(parts) == 2 && parts[0] == CLOUD_PROVIDER_AZURE {
+	} else if len(parts) == 2 && parts[0] == api.CLOUD_PROVIDER_AZURE {
 		// azure 没有zone的概念
 		return parts[0], parts[1], parts[1]
 	}

@@ -1076,7 +1076,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 
 				// 华为云wire zone_id 为空
 				var wires []SWire
-				if region.Provider == CLOUD_PROVIDER_HUAWEI {
+				if region.Provider == api.CLOUD_PROVIDER_HUAWEI {
 					wires, err = WireManager.getWiresByVpcAndZone(vpc, nil)
 				} else {
 					wires, err = WireManager.getWiresByVpcAndZone(vpc, zone)

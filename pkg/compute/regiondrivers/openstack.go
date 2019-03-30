@@ -15,6 +15,7 @@
 package regiondrivers
 
 import (
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -28,5 +29,5 @@ func init() {
 }
 
 func (self *SOpenStackRegionDriver) GetProvider() string {
-	return models.CLOUD_PROVIDER_OPENSTACK
+	return api.CLOUD_PROVIDER_OPENSTACK
 }
