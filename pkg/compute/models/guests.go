@@ -902,7 +902,12 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			return nil, httperrors.NewGeneralError(err) // should no error
 		}
 		if len(rootDiskConfig.Backend) == 0 {
-			rootDiskConfig.Backend = GetDriver(hypervisor).GetDefaultSysDiskBackend()
+			defaultStorageType, _ := data.GetString("default_storage_type")
+			if len(defaultStorageType) > 0 {
+				rootDiskConfig.Backend = defaultStorageType
+			} else {
+				rootDiskConfig.Backend = GetDriver(hypervisor).GetDefaultSysDiskBackend()
+			}
 		}
 		if rootDiskConfig.SizeMb == 0 {
 			rootDiskConfig.SizeMb = GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024

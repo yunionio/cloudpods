@@ -80,10 +80,16 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			hypervisor = HYPERVISOR_DEFAULT
 		}
 
-		_, err = GetDriver(hypervisor).ValidateCreateHostData(ctx, userCred, bmName, baremetal, data)
+		_, err = GetDriver(hypervisor).ValidateCreateDataOnHost(ctx, userCred, bmName, baremetal, data)
 		if err != nil {
 			return nil, err
 		}
+
+		defaultStorage := GetDriver(hypervisor).ChooseHostStorage(baremetal, "")
+		if defaultStorage == nil {
+			return nil, httperrors.NewInsufficientResourceError("no valid storage on host")
+		}
+		data.Set("default_storage_type", jsonutils.NewString(defaultStorage.StorageType))
 
 		data.Set("prefer_baremetal_id", jsonutils.NewString(baremetal.Id))
 		data.Set("prefer_host_id", jsonutils.NewString(baremetal.Id))
