@@ -38,13 +38,14 @@ func RunBatchCreateTask(
 	data jsonutils.JSONObject,
 	pendingUsage SQuota,
 	taskName string,
+	parentTaskId string,
 ) {
 	taskItems := make([]db.IStandaloneModel, len(items))
 	for i, t := range items {
 		taskItems[i] = t.(db.IStandaloneModel)
 	}
 	params := data.(*jsonutils.JSONDict)
-	task, err := taskman.TaskManager.NewParallelTask(ctx, taskName, taskItems, userCred, params, "", "", &pendingUsage)
+	task, err := taskman.TaskManager.NewParallelTask(ctx, taskName, taskItems, userCred, params, parentTaskId, "", &pendingUsage)
 	if err != nil {
 		log.Errorf("%s newTask error %s", taskName, err)
 	} else {

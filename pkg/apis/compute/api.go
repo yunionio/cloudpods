@@ -176,6 +176,9 @@ type ServerCreateInput struct {
 
 	// DEPRECATE or not used fields
 	Baremetal bool `json:"baremetal"`
+
+	// Used to store BaremetalConvertHypervisorTaskId
+	ParentTaskId string `json:"__parent_task_id,omitempty"`
 }
 
 type ServerCloneInput struct {
