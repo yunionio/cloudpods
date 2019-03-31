@@ -21,6 +21,17 @@ func init() {
 	taskman.RegisterTask(BaremetalConvertHypervisorTask{})
 }
 
+func (self *BaremetalConvertHypervisorTask) getGuest() *models.SGuest {
+	guestId, _ := self.Params.GetString("server_id")
+	guestObj, _ := models.GuestManager.FetchById(guestId)
+	return guestObj.(*models.SGuest)
+}
+
+func (self *BaremetalConvertHypervisorTask) getHypervisor() string {
+	hostType, _ := self.Params.GetString("convert_host_type")
+	return hostType
+}
+
 func (self *BaremetalConvertHypervisorTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	baremetal := obj.(*models.SHost)
 
@@ -28,24 +39,18 @@ func (self *BaremetalConvertHypervisorTask) OnInit(ctx context.Context, obj db.I
 
 	self.SetStage("on_guest_deploy_complete", nil)
 
-	guestId, _ := self.Params.GetString("server_id")
-	guestObj, _ := models.GuestManager.FetchById(guestId)
-	guest := guestObj.(*models.SGuest)
+	guest := self.getGuest()
 	params, _ := self.Params.Get("server_params")
 	paramsDict := params.(*jsonutils.JSONDict)
-	pendingUsage := models.SQuota{}
-	self.GetPendingUsage(&pendingUsage)
-	guest.StartGuestCreateTask(ctx, self.UserCred, paramsDict, &pendingUsage, self.GetId())
+	paramsDict.Set("__parent_task_id", jsonutils.NewString(self.GetTaskId()))
+	models.GuestManager.OnCreateComplete(ctx, []db.IModel{guest}, self.UserCred, nil, paramsDict)
 }
 
 func (self *BaremetalConvertHypervisorTask) OnGuestDeployComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(baremetal, db.ACT_CONVERT_COMPLETE, "", self.UserCred)
 
-	guestId, _ := self.Params.GetString("server_id")
-	guestObj, _ := models.GuestManager.FetchById(guestId)
-	guest := guestObj.(*models.SGuest)
-	data, _ := self.Params.Get("server_params")
-	hypervisor, _ := data.GetString("__convert_host_type__")
+	guest := self.getGuest()
+	hypervisor := self.getHypervisor()
 	driver := models.GetHostDriver(hypervisor)
 	if driver == nil {
 		self.SetStageFailed(ctx, fmt.Sprintf("Get Host Driver error %s", hypervisor))
@@ -61,9 +66,7 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeployComplete(ctx context.Co
 
 func (self *BaremetalConvertHypervisorTask) OnGuestDeployCompleteFailed(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(baremetal, db.ACT_CONVERT_FAIL, body, self.UserCred)
-	guestId, _ := self.Params.GetString("server_id")
-	guestObj, _ := models.GuestManager.FetchById(guestId)
-	guest := guestObj.(*models.SGuest)
+	guest := self.getGuest()
 	guest.SetDisableDelete(self.UserCred, false)
 	self.SetStage("OnGuestDeleteComplete", nil)
 	guest.StartDeleteGuestTask(ctx, self.UserCred, self.GetTaskId(), false, true)
@@ -71,15 +74,10 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeployCompleteFailed(ctx cont
 }
 
 func (self *BaremetalConvertHypervisorTask) OnGuestDeleteComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	data, _ := self.Params.Get("server_params")
-	hypervisor, _ := data.GetString("__convert_host_type__")
+	hypervisor := self.getHypervisor()
 	driver := models.GetHostDriver(hypervisor)
-	if driver == nil {
-		self.SetStageFailed(ctx, fmt.Sprintf("Get Host Driver error %s", hypervisor))
-	}
-	err := driver.ConvertFailed(baremetal)
-	if err != nil {
-		logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_CONVERT_HYPER, fmt.Sprintf("convert failed: %s", err), self.UserCred, false)
+	if driver != nil {
+		driver.ConvertFailed(baremetal)
 	}
 	self.SetStage("OnFailedSyncstatusComplete", nil)
 	baremetal.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
