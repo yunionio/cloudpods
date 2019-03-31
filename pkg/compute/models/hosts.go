@@ -3855,3 +3855,12 @@ func (host *SHost) PerformSetSchedtag(ctx context.Context, userCred mcclient.Tok
 	host.ClearSchedDescCache()
 	return nil, nil
 }
+
+func (host *SHost) PerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ret, err := host.SEnabledStatusStandaloneResourceBase.PerformStatus(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+	host.ClearSchedDescCache()
+	return ret, nil
+}
