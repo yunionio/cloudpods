@@ -1223,7 +1223,7 @@ func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.I
 	input := new(api.ServerCreateInput)
 	data.Unmarshal(input)
 	pendingUsage := getGuestResourceRequirements(ctx, userCred, input, len(items), input.Backup)
-	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, "GuestBatchCreateTask")
+	RunBatchCreateTask(ctx, items, userCred, data, pendingUsage, "GuestBatchCreateTask", input.ParentTaskId)
 }
 
 func (guest *SGuest) GetGroups() []SGroupguest {
