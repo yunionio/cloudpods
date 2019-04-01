@@ -406,6 +406,7 @@ func (self *SImage) SaveImageFromStream(reader io.Reader) error {
 
 	sp, err := self.saveImageFromStream(localPath, reader)
 	if err != nil {
+		log.Errorf("saveImageFromStream fail %s", err)
 		return err
 	}
 
