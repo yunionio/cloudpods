@@ -127,12 +127,12 @@ type SClassicInstance struct {
 	Location   string
 }
 
-func (self *SClassicInstance) GetSecurityGroupIds() []string {
+func (self *SClassicInstance) GetSecurityGroupIds() ([]string, error) {
 	secgroupIds := []string{}
 	if self.Properties.NetworkProfile.NetworkSecurityGroup != nil {
 		secgroupIds = append(secgroupIds, self.Properties.NetworkProfile.NetworkSecurityGroup.ID)
 	}
-	return secgroupIds
+	return secgroupIds, nil
 }
 
 func (self *SClassicInstance) GetMetadata() *jsonutils.JSONDict {

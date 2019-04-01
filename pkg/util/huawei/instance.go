@@ -222,9 +222,8 @@ func (self *SInstance) GetInstanceType() string {
 	return self.Flavor.ID
 }
 
-func (self *SInstance) GetSecurityGroupIds() []string {
-	secgroupIds, _ := self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
-	return secgroupIds
+func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
+	return self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
 }
 
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {

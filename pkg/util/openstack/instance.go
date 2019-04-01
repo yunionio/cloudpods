@@ -162,15 +162,16 @@ func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	return instance, resp.Unmarshal(instance, "server")
 }
 
-func (instance *SInstance) GetSecurityGroupIds() []string {
+func (instance *SInstance) GetSecurityGroupIds() ([]string, error) {
 	secgroupIds := []string{}
 	secgroups, err := instance.host.zone.region.GetSecurityGroupsByInstance(instance.ID)
-	if err == nil {
-		for _, secgroup := range secgroups {
-			secgroupIds = append(secgroupIds, secgroup.ID)
-		}
+	if err != nil {
+		return nil, err
 	}
-	return secgroupIds
+	for _, secgroup := range secgroups {
+		secgroupIds = append(secgroupIds, secgroup.ID)
+	}
+	return secgroupIds, nil
 }
 
 func (instance *SInstance) GetMetadata() *jsonutils.JSONDict {
