@@ -212,7 +212,6 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 			syncResult.AddError(err)
 			continue
 		}
-		//每次同步完成出现新的安全组,同步规则时仅仅是添加
 		localSecgroups = append(localSecgroups, *secgroup)
 		remoteSecgroups = append(remoteSecgroups, added[i])
 		syncResult.Add()
