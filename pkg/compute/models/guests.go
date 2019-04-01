@@ -3861,13 +3861,15 @@ func (self *SGuest) SyncVMSecgroups(ctx context.Context, userCred mcclient.Token
 
 	secgroupExternalIds := self.getSecgroupExternalIds(provider)
 
+	_secgroupIds := []string{}
 	for _, secgroupId := range secgroupIds {
+		secgroup, err := self.getSecgroupByCache(provider, secgroupId)
+		if err != nil {
+			syncResult.AddError(err)
+			continue
+		}
+		_secgroupIds = append(_secgroupIds, secgroup.Id)
 		if !utils.IsInStringArray(secgroupId, secgroupExternalIds) {
-			secgroup, err := self.getSecgroupByCache(provider, secgroupId)
-			if err != nil {
-				syncResult.AddError(err)
-				continue
-			}
 			if len(self.SecgrpId) == 0 {
 				_, err := db.Update(self, func() error {
 					self.SecgrpId = secgroup.Id
@@ -3884,6 +3886,19 @@ func (self *SGuest) SyncVMSecgroups(ctx context.Context, userCred mcclient.Token
 				}
 			}
 			syncResult.Add()
+		}
+	}
+
+	//移除公有云未关联的安全组
+	secgroups := self.GetSecgroups()
+	for i := 0; i < len(secgroups); i++ {
+		if !utils.IsInStringArray(secgroups[i].Id, _secgroupIds) {
+			err := self.revokeSecgroup(ctx, userCred, &secgroups[i])
+			if err != nil {
+				log.Errorf("revoke secgroup %s(%s) error: %v", secgroups[i].Name, secgroups[i].Id, err)
+				continue
+			}
+			syncResult.Delete()
 		}
 	}
 	return syncResult

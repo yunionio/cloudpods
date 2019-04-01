@@ -218,8 +218,8 @@ func (self *SRegion) fetchTags(resourceType string, resourceId string) (*jsonuti
 	return tags, nil
 }
 
-func (self *SInstance) GetSecurityGroupIds() []string {
-	return self.SecurityGroupIds.SecurityGroupId
+func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
+	return self.SecurityGroupIds.SecurityGroupId, nil
 }
 
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {

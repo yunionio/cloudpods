@@ -64,10 +64,11 @@ type SInstance struct {
 	BootDiskState      string    `json:"BootDiskState"`
 }
 
-func (self *SInstance) GetSecurityGroupIds() []string {
+func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	secgroups, err := self.GetSecurityGroups()
 	if err != nil {
 		log.Errorf(err.Error())
+		return nil, err
 	}
 
 	secgroupIds := make([]string, 0)
@@ -75,7 +76,7 @@ func (self *SInstance) GetSecurityGroupIds() []string {
 		secgroupIds = append(secgroupIds, secgroup.GetId())
 	}
 
-	return secgroupIds
+	return secgroupIds, nil
 }
 
 func (self *SInstance) GetProjectId() string {

@@ -152,8 +152,8 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 	return instances, int(total), nil
 }
 
-func (self *SInstance) GetSecurityGroupIds() []string {
-	return self.SecurityGroupIds
+func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
+	return self.SecurityGroupIds, nil
 }
 
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {

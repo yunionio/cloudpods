@@ -56,8 +56,8 @@ func NewVirtualMachine(manager *SESXiClient, vm *mo.VirtualMachine, dc *SDatacen
 	return svm
 }
 
-func (self *SVirtualMachine) GetSecurityGroupIds() []string {
-	return []string{}
+func (self *SVirtualMachine) GetSecurityGroupIds() ([]string, error) {
+	return []string{}, cloudprovider.ErrNotSupported
 }
 
 func (self *SVirtualMachine) GetMetadata() *jsonutils.JSONDict {
