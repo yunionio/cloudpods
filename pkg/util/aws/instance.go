@@ -170,8 +170,8 @@ func (self *SInstance) GetInstanceType() string {
 	return self.InstanceType
 }
 
-func (self *SInstance) GetSecurityGroupIds() []string {
-	return self.SecurityGroupIds.SecurityGroupId
+func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
+	return self.SecurityGroupIds.SecurityGroupId, nil
 }
 
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {

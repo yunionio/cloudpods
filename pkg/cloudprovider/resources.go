@@ -232,7 +232,7 @@ type ICloudVM interface {
 	GetMachine() string
 	GetInstanceType() string
 
-	GetSecurityGroupIds() []string
+	GetSecurityGroupIds() ([]string, error)
 	AssignSecurityGroup(secgroupId string) error
 	SetSecurityGroups(secgroupIds []string) error
 
