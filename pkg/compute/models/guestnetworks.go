@@ -256,10 +256,20 @@ func (self *SGuestnetwork) getJsonDescAtBaremetal(host *SHost) jsonutils.JSONObj
 func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	network := self.GetNetwork()
 	hostwires := host.getHostwiresOfId(network.WireId)
-	if len(hostwires) > 1 {
-		log.Warningf("host attach to wire multiple times: %d", len(hostwires))
+	var hostWire *SHostwire
+	for i := 0; i < len(hostwires); i++ {
+		if netInter, _ := NetInterfaceManager.FetchByMac(hostwires[i].MacAddr); netInter != nil {
+			if netInter.NicType == NIC_TYPE_ADMIN {
+				hostWire = &hostwires[i]
+				break
+			}
+		}
 	}
-	return self.getGeneralJsonDesc(host, network, &hostwires[0])
+	if hostWire == nil {
+		log.Errorf("Host %s network has can't find nic type %s", host.Name, NIC_TYPE_ADMIN)
+		return nil
+	}
+	return self.getGeneralJsonDesc(host, network, hostWire)
 }
 
 func (self *SGuestnetwork) getGeneralJsonDesc(host *SHost, network *SNetwork, hostwire *SHostwire) jsonutils.JSONObject {
