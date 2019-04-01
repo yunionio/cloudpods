@@ -324,7 +324,7 @@ func (self *SBaremetalGuestDriver) ValidateCreateData(ctx context.Context, userC
 	return input, nil
 }
 
-func (self *SBaremetalGuestDriver) ValidateCreateHostData(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+func (self *SBaremetalGuestDriver) ValidateCreateDataOnHost(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	if host.HostType != models.HOST_TYPE_BAREMETAL || !host.IsBaremetal {
 		return nil, httperrors.NewInputParameterError("Host %s is not a baremetal", bmName)
 	}
