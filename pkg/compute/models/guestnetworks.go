@@ -266,7 +266,7 @@ func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 		}
 	}
 	if hostWire == nil {
-		log.Errorf("Host %s network has can't find nic type %s", host.Name, NIC_TYPE_ADMIN)
+		log.Errorf("Host %s has no net interface on wire %s as guest network %s", host.Name, network.WireId, NIC_TYPE_ADMIN)
 		return nil
 	}
 	return self.getGeneralJsonDesc(host, network, hostWire)
