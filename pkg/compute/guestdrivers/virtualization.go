@@ -206,7 +206,7 @@ func (self *SVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, use
 	return input, nil
 }
 
-func (self *SVirtualizedGuestDriver) ValidateCreateHostData(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+func (self *SVirtualizedGuestDriver) ValidateCreateDataOnHost(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	if host.HostStatus != models.HOST_ONLINE {
 		return nil, httperrors.NewInvalidStatusError("Host %s is not online", bmName)
 	}
