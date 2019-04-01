@@ -165,6 +165,8 @@ type ServerCreateInput struct {
 
 	// Used to store BaremetalConvertHypervisorTaskId
 	ParentTaskId string `json:"__parent_task_id,omitempty"`
+	// default stroage type if host is given
+	DefaultStorageType string `json:"default_storage_type,omitempty"`
 }
 
 type ServerDeployInput struct {
