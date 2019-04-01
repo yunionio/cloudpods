@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -31,6 +33,8 @@ type BaseActionListOptions struct {
 	Action     []string `help:"Log action"`
 	Search     string   `help:"Filter action logs by obj_name, using 'like' syntax."`
 	Admin      bool     `help:"admin mode"`
+	Succ       bool     `help:"Show success action log only"`
+	Fail       bool     `help:"Show failed action log only"`
 }
 
 type ActionListOptions struct {
@@ -77,6 +81,15 @@ func doActionList(s *mcclient.ClientSession, args *ActionListOptions) error {
 	}
 	if args.Admin {
 		params.Add(jsonutils.JSONTrue, "admin")
+	}
+	if args.Succ && args.Fail {
+		return fmt.Errorf("succ and fail can't go together")
+	}
+	if args.Succ {
+		params.Add(jsonutils.JSONTrue, "success")
+	}
+	if args.Fail {
+		params.Add(jsonutils.JSONFalse, "success")
 	}
 	logs, err := modules.Actions.List(s, params)
 	if err != nil {
