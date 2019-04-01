@@ -191,25 +191,28 @@ func syncVpcSecGroup(ctx context.Context, userCred mcclient.TokenCredential, syn
 		return
 	}
 
-	localSecgroups, removeSecgroups, result := SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, secgroups, localVpc)
+	_, _, result := SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, secgroups, localVpc)
 	syncResults.Add(SecurityGroupCacheManager, result)
 
-	msg := result.Result()
-	notes := fmt.Sprintf("SyncSecurityGroup for VPC %s result: %s", localVpc.Name, msg)
-	log.Infof(notes)
-	if result.IsError() {
-		return
-	}
-	for i := 0; i < len(localSecgroups); i++ {
-		func() {
-			lockman.LockObject(ctx, &localSecgroups[i])
-			defer lockman.ReleaseObject(ctx, &localSecgroups[i])
+	/*
+		msg := result.Result()
+		notes := fmt.Sprintf("SyncSecurityGroup for VPC %s result: %s", localVpc.Name, msg)
+		log.Infof(notes)
+		if result.IsError() {
+			return
+		}
+		for i := 0; i < len(localSecgroups); i++ {
+			func() {
+				lockman.LockObject(ctx, &localSecgroups[i])
+				defer lockman.ReleaseObject(ctx, &localSecgroups[i])
 
-			syncSecurityGroupRules(ctx, userCred, syncResults, &localSecgroups[i], removeSecgroups[i])
-		}()
-	}
+				syncSecurityGroupRules(ctx, userCred, syncResults, &localSecgroups[i], removeSecgroups[i])
+			}()
+		}
+	*/
 }
 
+/*
 func syncSecurityGroupRules(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localSecgroup *SSecurityGroup, remoteSecgroup cloudprovider.ICloudSecurityGroup) {
 	rules, err := remoteSecgroup.GetRules()
 	if err != nil {
@@ -228,6 +231,7 @@ func syncSecurityGroupRules(ctx context.Context, userCred mcclient.TokenCredenti
 		return
 	}
 }
+*/
 
 func syncVpcRouteTables(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, syncRange *SSyncRange) {
 	routeTables, err := remoteVpc.GetIRouteTables()
