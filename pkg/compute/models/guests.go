@@ -1574,6 +1574,10 @@ func (self *SGuest) getDiskSize() int {
 	return size
 }
 
+func (self *SGuest) GetCdrom() *SGuestcdrom {
+	return self.getCdrom()
+}
+
 func (self *SGuest) getCdrom() *SGuestcdrom {
 	cdrom := SGuestcdrom{}
 	cdrom.SetModelManager(GuestcdromManager)

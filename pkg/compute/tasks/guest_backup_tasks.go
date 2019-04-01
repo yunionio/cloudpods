@@ -241,9 +241,27 @@ func (self *GuestCreateBackupTask) StartCreateBackupDisks(ctx context.Context, g
 	}
 }
 
-func (self *GuestCreateBackupTask) OnCreateBackupDisks(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+func (self *GuestCreateBackupTask) StartInsertIso(ctx context.Context, guest *models.SGuest, imageId string) {
+	self.SetStage("OnInsertIso", nil)
+	guest.StartInsertIsoTask(ctx, imageId, guest.BackupHostId, self.UserCred, self.GetTaskId())
+}
+
+func (self *GuestCreateBackupTask) OnInsertIso(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStage("OnCreateBackup", nil)
 	guest.StartCreateBackup(ctx, self.UserCred, self.GetTaskId(), nil)
+}
+
+func (self *GuestCreateBackupTask) OnInsertIsoFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.TaskFailed(ctx, guest, fmt.Sprintf("Backup guest insert ISO failed %s", data.String()))
+}
+
+func (self *GuestCreateBackupTask) OnCreateBackupDisks(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if cdrom := guest.GetCdrom(); cdrom != nil && len(cdrom.ImageId) > 0 {
+		self.StartInsertIso(ctx, guest, cdrom.ImageId)
+	} else {
+		self.SetStage("OnCreateBackup", nil)
+		guest.StartCreateBackup(ctx, self.UserCred, self.GetTaskId(), nil)
+	}
 }
 
 func (self *GuestCreateBackupTask) OnCreateBackupDisksFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
