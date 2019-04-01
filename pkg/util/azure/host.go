@@ -96,7 +96,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 			return nil, err
 		}
 	}
-	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.PublicKey, desc.UserData)
+	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, nic.ID, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.PublicKey, desc.UserData)
 	if err != nil {
 		self.zone.region.DeleteNetworkInterface(nic.ID)
 		return nil, err
