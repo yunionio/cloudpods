@@ -405,6 +405,27 @@ func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, err
 }
 
 func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
+	srs := secrules.SecurityGroupRuleSet{}
+	rules, err := extSec.GetRules()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(rules); i++ {
+		srs.AddRule(rules[i])
+	}
+
+	secgroups := []SSecurityGroup{}
+	q := manager.Query()
+	if err := db.FetchModelObjects(manager, q, &secgroups); err != nil {
+		log.Errorf("failed to fetch secgroups %v", err)
+	}
+	for _, secgroup := range secgroups {
+		_srs := secgroup.getSecurityGroupRuleSet()
+		if srs.IsEqual(_srs) {
+			return &secgroup, nil
+		}
+	}
+
 	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
 	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
 
@@ -417,6 +438,9 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 	if err := manager.TableSpec().Insert(&secgroup); err != nil {
 		return nil, err
 	}
+
+	//这里必须先同步下规则,不然下次对比此安全组规则为空
+	SecurityGroupRuleManager.SyncRules(ctx, userCred, &secgroup, rules)
 
 	db.OpsLog.LogEvent(&secgroup, db.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred)
 
