@@ -180,7 +180,7 @@ func PrintJSONBatchResults(results []modules.SubmitResult, columns []string) {
 		} else {
 			err := jsonutils.NewDict()
 			err.Add(jsonutils.NewInt(int64(r.Status)), "status")
-			err.Add(jsonutils.NewString(r.Id), "id")
+			err.Add(jsonutils.Marshal(r.Id), "id")
 			err.Add(r.Data, "error")
 			errs = append(errs, err)
 		}

@@ -23,12 +23,14 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type strDict map[string]string
@@ -56,8 +58,9 @@ var (
 		"live-migrate":         guestLiveMigrate,
 		"resume":               guestResume,
 		// "start-nbd-server":     guestStartNbdServer,
-		"drive-mirror":    guestDriveMirror,
-		"hotplug-cpu-mem": guestHotplugCpuMem,
+		"drive-mirror":        guestDriveMirror,
+		"hotplug-cpu-mem":     guestHotplugCpuMem,
+		"create-from-libvirt": guestCreateFromLibvirt,
 	}
 )
 
@@ -70,6 +73,10 @@ func AddGuestTaskHandler(prefix string, app *appsrv.Application) {
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/cpu-node-balance", prefix, keyWord),
 			auth.Authenticate(cpusetBalance))
+
+		app.AddHandler("POST",
+			fmt.Sprintf("%s/%s/prepare-import-from-libvirt", prefix, keyWord),
+			auth.Authenticate(guestPrepareImportFormLibvirt))
 
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/<sid>/<action>", prefix, keyWord),
@@ -111,6 +118,33 @@ func getStatus(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 
 func cpusetBalance(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().CpusetBalance, nil)
+	hostutils.ResponseOk(ctx, w)
+}
+
+func guestPrepareImportFormLibvirt(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, _, body := appsrv.FetchEnv(ctx, w, r)
+	config := &compute.SLibvirtHostConfig{}
+	err := body.Unmarshal(config)
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewInputParameterError("Parse params to libvirt config error %s", err))
+		return
+	}
+	if len(config.XmlFilePath) == 0 {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("xml_file_path"))
+		return
+	}
+	if !fileutils2.Exists(config.XmlFilePath) {
+		hostutils.Response(ctx, w,
+			httperrors.NewBadRequestError("xml_file_path %s not found", config.XmlFilePath))
+		return
+	}
+
+	if len(config.Servers) == 0 {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("servers"))
+		return
+	}
+
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().PrepareImportFromLibvirt, config)
 	hostutils.ResponseOk(ctx, w)
 }
 
@@ -348,6 +382,35 @@ func guestHotplugCpuMem(ctx context.Context, sid string, body jsonutils.JSONObje
 	addMemSize, _ := body.Int("add_mem")
 	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().HotplugCpuMem,
 		&guestman.SGuestHotplugCpuMem{sid, addCpuCount, addMemSize})
+	return nil, nil
+}
+
+func guestCreateFromLibvirt(ctx context.Context, sid string, body jsonutils.JSONObject) (interface{}, error) {
+	err := guestman.GetGuestManager().PrepareCreate(sid)
+	if err != nil {
+		return nil, err
+	}
+
+	iGuestDesc, err := body.Get("desc")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("desc")
+	}
+	guestDesc, ok := iGuestDesc.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, httperrors.NewInputParameterError("desc is not dict")
+	}
+
+	iDisksPath, err := body.Get("disks_path")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("disks_path")
+	}
+	disksPath, ok := iDisksPath.(*jsonutils.JSONDict)
+	if !ok {
+		return nil, httperrors.NewInputParameterError("disks_path is not dict")
+	}
+
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().GuestCreateFromLibvirt,
+		&guestman.SGuestCreateFromLibvirt{sid, guestDesc, disksPath})
 	return nil, nil
 }
 

@@ -852,6 +852,14 @@
   version = "v1.1.3"
 
 [[projects]]
+  branch = "master"
+  digest = "1:74e674486930998805335f2b2f0af5fd3b183c755973e53f532363a56831b7a3"
+  name = "github.com/libvirt/libvirt-go-xml"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "4b6d354bfe8a0c85cebc68f0f7e45f7d5a37de7b"
+
+[[projects]]
   digest = "1:4e878df5f4e9fd625bf9c9aac77ef7cbfa4a74c01265505527c23470c0e40300"
   name = "github.com/marstr/guid"
   packages = ["."]
@@ -1827,6 +1835,7 @@
     "github.com/json-iterator/go",
     "github.com/koding/websocketproxy",
     "github.com/kr/pty",
+    "github.com/libvirt/libvirt-go-xml",
     "github.com/mholt/caddy",
     "github.com/mholt/caddy/startupshutdown",
     "github.com/miekg/dns",

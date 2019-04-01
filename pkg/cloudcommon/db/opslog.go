@@ -188,6 +188,11 @@ const (
 
 	ACT_RECYCLE_PREPAID      = "recycle_prepaid"
 	ACT_UNDO_RECYCLE_PREPAID = "undo_recycle_prepaid"
+
+	ACT_HOST_IMPORT_LIBVIRT_SERVERS      = "host_import_libvirt_servers"
+	ACT_HOST_IMPORT_LIBVIRT_SERVERS_FAIL = "host_import_libvirt_servers_fail"
+	ACT_GUEST_CREATE_FROM_IMPORT_SUCC    = "guest_create_from_import_succ"
+	ACT_GUEST_CREATE_FROM_IMPORT_FAIL    = "guest_create_from_import_fail"
 )
 
 type SOpsLogManager struct {
