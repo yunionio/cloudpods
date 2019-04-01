@@ -414,6 +414,7 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 		srs.AddRule(rules[i])
 	}
 
+	// 查询所有的安全组，比对寻找一个与云上安全组规则相同的安全组
 	secgroups := []SSecurityGroup{}
 	q := manager.Query()
 	if err := db.FetchModelObjects(manager, q, &secgroups); err != nil {

@@ -193,7 +193,7 @@ func (self *SRegion) doDeleteVM(instanceId string) error {
 	return self.client.Delete(instanceId)
 }
 
-func (self *SInstance) GetSecurityGroupIds() []string {
+func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	secgroupIds := []string{}
 	if nics, err := self.getNics(); err == nil {
 		for _, nic := range nics {
@@ -204,7 +204,7 @@ func (self *SInstance) GetSecurityGroupIds() []string {
 			}
 		}
 	}
-	return secgroupIds
+	return secgroupIds, nil
 }
 
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {

@@ -180,45 +180,7 @@ func syncVpcSecGroup(ctx context.Context, userCred mcclient.TokenCredential, syn
 
 	_, _, result := SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, secgroups, localVpc)
 	syncResults.Add(SecurityGroupCacheManager, result)
-
-	/*
-		msg := result.Result()
-		notes := fmt.Sprintf("SyncSecurityGroup for VPC %s result: %s", localVpc.Name, msg)
-		log.Infof(notes)
-		if result.IsError() {
-			return
-		}
-		for i := 0; i < len(localSecgroups); i++ {
-			func() {
-				lockman.LockObject(ctx, &localSecgroups[i])
-				defer lockman.ReleaseObject(ctx, &localSecgroups[i])
-
-				syncSecurityGroupRules(ctx, userCred, syncResults, &localSecgroups[i], removeSecgroups[i])
-			}()
-		}
-	*/
 }
-
-/*
-func syncSecurityGroupRules(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localSecgroup *SSecurityGroup, remoteSecgroup cloudprovider.ICloudSecurityGroup) {
-	rules, err := remoteSecgroup.GetRules()
-	if err != nil {
-		msg := fmt.Sprintf("Get SecurityGroup Rules for secgroup %s failed %s", localSecgroup.Name, err)
-		log.Errorf(msg)
-		return
-	}
-
-	//可以同步规则的安全组都是本地刚新建的,所以安全组规则只需要添加就可以了
-	result := SecurityGroupRuleManager.SyncRules(ctx, userCred, localSecgroup, rules)
-	syncResults.Add(SecurityGroupRuleManager, result)
-	msg := result.Result()
-	notes := fmt.Sprintf("SyncSecurityGroupRule for Secgroup %s result: %s", localSecgroup.Name, msg)
-	log.Infof(notes)
-	if result.IsError() {
-		return
-	}
-}
-*/
 
 func syncVpcRouteTables(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, syncRange *SSyncRange) {
 	routeTables, err := remoteVpc.GetIRouteTables()
@@ -553,7 +515,12 @@ func syncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider 
 }
 
 func syncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localVM *SGuest, remoteVM cloudprovider.ICloudVM) {
-	secgroupIds := remoteVM.GetSecurityGroupIds()
+	secgroupIds, err := remoteVM.GetSecurityGroupIds()
+	if err != nil {
+		msg := fmt.Sprintf("GetSecurityGroupIds for VM %s failed %s", remoteVM.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
 	result := localVM.SyncVMSecgroups(ctx, userCred, provider, secgroupIds)
 	msg := result.Result()
 	log.Infof("SyncVMSecgroups for VM %s result: %s", localVM.Name, msg)

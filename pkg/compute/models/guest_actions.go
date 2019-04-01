@@ -1877,9 +1877,8 @@ func (self *SGuest) RevokeAllSecgroups(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return err
 	}
-	err = self.revokeSecgroup(ctx, userCred, self.getSecgroup())
-	if err != nil {
-		return err
+	if secgroup := self.getSecgroup(); secgroup != nil {
+		return self.revokeSecgroup(ctx, userCred, secgroup)
 	}
 	return nil
 }
