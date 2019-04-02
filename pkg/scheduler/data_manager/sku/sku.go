@@ -25,7 +25,7 @@ func Start(refreshInterval time.Duration) {
 	skuManager.sync()
 }
 
-func GetByZone(instanceType, zoneId string) *models.SServerSku {
+func GetByZone(instanceType, zoneId string) *ServerSku {
 	return skuManager.GetByZone(instanceType, zoneId)
 }
 
@@ -33,9 +33,15 @@ type skuMap struct {
 	*sync.Map
 }
 
-type skuList []*models.SServerSku
+type ServerSku struct {
+	Id     string `json:"id"`
+	Name   string `json:"name"`
+	ZoneId string `json:"zone_id"`
+}
 
-func (l skuList) Has(newSku *models.SServerSku) (int, bool) {
+type skuList []*ServerSku
+
+func (l skuList) Has(newSku *ServerSku) (int, bool) {
 	for i, oldSku := range l {
 		if oldSku.Id == newSku.Id {
 			return i, true
@@ -48,7 +54,7 @@ func (l skuList) DebugString() string {
 	return fmt.Sprintf("%s", jsonutils.Marshal(l).String())
 }
 
-func (l skuList) GetByZone(zoneId string) *models.SServerSku {
+func (l skuList) GetByZone(zoneId string) *ServerSku {
 	for _, s := range l {
 		if s.ZoneId == zoneId {
 			return s
@@ -71,10 +77,10 @@ func (cache *skuMap) Get(instanceType string) skuList {
 	return nil
 }
 
-func (cache *skuMap) Add(instanceType string, sku *models.SServerSku) {
+func (cache *skuMap) Add(instanceType string, sku *ServerSku) {
 	skus := cache.Get(instanceType)
 	if skus == nil {
-		skus = make([]*models.SServerSku, 0)
+		skus = make([]*ServerSku, 0)
 	}
 	skus = append(skus, sku)
 	cache.Store(instanceType, skus)
@@ -90,8 +96,8 @@ func (m *SSkuManager) syncOnce() {
 	log.Infof("SkuManager start sync")
 	startTime := time.Now()
 
-	skus := make([]models.SServerSku, 0)
-	q := models.ServerSkuManager.Query()
+	skus := make([]ServerSku, 0)
+	q := models.ServerSkuManager.Query("id", "name", "zone_id")
 	q = q.Filter(
 		sqlchemy.OR(
 			sqlchemy.Equals(q.Field("prepaid_status"), models.SkuStatusAvailable),
@@ -112,7 +118,7 @@ func (m *SSkuManager) sync() {
 	wait.Forever(m.syncOnce, m.refreshInterval)
 }
 
-func (m *SSkuManager) GetByZone(instanceType, zoneId string) *models.SServerSku {
+func (m *SSkuManager) GetByZone(instanceType, zoneId string) *ServerSku {
 	l := m.skuMap.Get(instanceType)
 	if l == nil {
 		return nil
