@@ -1942,7 +1942,7 @@ func (manager *SHostManager) TotalCount(
 func (self *SHost) GetIZone() (cloudprovider.ICloudZone, error) {
 	provider, err := self.GetCloudProvider()
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovide for host: %s", err)
+		return nil, fmt.Errorf("No cloudprovider for host: %s", err)
 	}
 	zone := self.GetZone()
 	if zone == nil {
@@ -1972,7 +1972,7 @@ func (self *SHost) GetIHost() (cloudprovider.ICloudHost, error) {
 func (self *SHost) GetIHostAndProvider() (cloudprovider.ICloudHost, cloudprovider.ICloudProvider, error) {
 	provider, err := self.GetDriver()
 	if err != nil {
-		return nil, nil, fmt.Errorf("No cloudprovide for host: %s", err)
+		return nil, nil, fmt.Errorf("No cloudprovider for host: %s", err)
 	}
 	var iregion cloudprovider.ICloudRegion
 	if provider.GetFactory().IsOnPremise() {
@@ -2001,7 +2001,7 @@ func (self *SHost) GetIHostAndProvider() (cloudprovider.ICloudHost, cloudprovide
 func (self *SHost) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := self.GetDriver()
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovide for host %s: %s", self.Name, err)
+		return nil, fmt.Errorf("No cloudprovider for host %s: %s", self.Name, err)
 	}
 	region := self.GetRegion()
 	if region == nil {

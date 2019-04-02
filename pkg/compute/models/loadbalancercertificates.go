@@ -257,7 +257,7 @@ func (lbcert *SLoadbalancerCertificate) GetRegion() *SCloudregion {
 func (lbcert *SLoadbalancerCertificate) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := lbcert.GetDriver()
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovide for lbcert %s: %s", lbcert.Name, err)
+		return nil, fmt.Errorf("No cloudprovider for lbcert %s: %s", lbcert.Name, err)
 	}
 	region := lbcert.GetRegion()
 	if region == nil {
