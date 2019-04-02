@@ -19,17 +19,23 @@ import (
 	"net/url"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	o "yunion.io/x/onecloud/pkg/mcclient/options"
+	"yunion.io/x/onecloud/pkg/webconsole/command"
+	"yunion.io/x/onecloud/pkg/webconsole/session"
+)
+
+const (
+	DefaultWebconsoleServer = "https://console.yunion.cn/web-console"
 )
 
 func init() {
 	handleResult := func(opt o.WebConsoleOptions, obj jsonutils.JSONObject) error {
 		if opt.WebconsoleUrl == "" {
-			printObject(obj)
-			return nil
+			opt.WebconsoleUrl = DefaultWebconsoleServer
 		}
 		u, err := url.Parse(opt.WebconsoleUrl)
 		if err != nil {
@@ -39,6 +45,25 @@ func init() {
 		if err != nil {
 			return err
 		}
+		var query url.Values
+		connUrl, err := url.ParseRequestURI(connParams)
+		if err == nil {
+			query = connUrl.Query()
+		} else {
+			query, err = url.ParseQuery(connParams)
+			if err != nil {
+				return err
+			}
+		}
+		protocol := query.Get("protocol")
+		if !utils.IsInStringArray(protocol, []string{
+			command.PROTOCOL_TTY, session.VNC,
+			session.SPICE, session.WMKS,
+		}) {
+			fmt.Println(connParams)
+			return nil
+		}
+
 		u.RawQuery = connParams
 		fmt.Println(u.String())
 		return nil
