@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestMigrateTask struct {
@@ -87,7 +88,11 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 	if isLocalStorage {
 		targetStorageCache := targetHost.GetLocalStoragecache()
 		if targetStorageCache != nil {
-			targetStorageCache.StartImageCacheTask(ctx, self.UserCred, disk.TemplateId, disk.DiskFormat, false, self.GetTaskId())
+			err := targetStorageCache.StartImageCacheTask(
+				ctx, self.UserCred, disk.TemplateId, disk.DiskFormat, false, self.GetTaskId())
+			if err != nil {
+				self.TaskFailed(ctx, guest, err.Error())
+			}
 		}
 	} else {
 		self.OnSrcPrepareComplete(ctx, guest, nil)
@@ -112,6 +117,10 @@ func (self *GuestMigrateTask) OnCachedImageComplete(ctx context.Context, guest *
 		self.TaskFailed(ctx, guest, fmt.Sprintf("Prepare migrage failed: %s", err))
 		return
 	}
+}
+
+func (self *GuestMigrateTask) OnCachedImageCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.TaskFailed(ctx, guest, data.String())
 }
 
 func (self *GuestMigrateTask) OnSrcPrepareCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -177,7 +186,7 @@ func (self *GuestMigrateTask) OnNormalMigrateComplete(ctx context.Context, guest
 }
 
 func (self *GuestMigrateTask) OnUndeployOldHostSucc(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.SetStageComplete(ctx, nil)
+	self.TaskComplete(ctx, guest)
 }
 
 func (self *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, guest *models.SGuest, targetHost *models.SHost) (*jsonutils.JSONDict, bool) {
@@ -363,12 +372,19 @@ func (self *GuestLiveMigrateTask) OnUndeploySrcGuestComplete(ctx context.Context
 }
 
 func (self *GuestLiveMigrateTask) OnGuestSyncStatus(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.TaskComplete(ctx, guest)
+}
+
+func (self *GuestMigrateTask) TaskComplete(ctx context.Context, guest *models.SGuest) {
 	self.SetStageComplete(ctx, nil)
+	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE, "Migrate success", self.UserCred)
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, "", self.UserCred, true)
 }
 
 func (self *GuestMigrateTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason string) {
 	guest.SetStatus(self.UserCred, models.VM_MIGRATE_FAILED, reason)
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, reason, self.UserCred)
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_MIGRATE_FAILED, reason)
 }
