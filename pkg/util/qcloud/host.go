@@ -102,7 +102,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 		log.Errorf("getiamge fail %s", err)
 		return "", err
 	}
-	if img.ImageState != ImageStatusAvailable {
+	if img.ImageState != ImageStatusNormal || img.ImageState != ImageStatusUsing {
 		log.Errorf("image %s status %s", imgId, img.ImageState)
 		return "", fmt.Errorf("image not ready")
 	}
