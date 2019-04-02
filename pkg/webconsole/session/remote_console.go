@@ -104,7 +104,7 @@ func (info *RemoteConsoleInfo) GetPassword() string {
 }
 
 func (info *RemoteConsoleInfo) getOpenStackURL() (string, error) {
-	return info.getConnParamsURL(info.Url, nil), nil
+	return info.Url, nil
 }
 
 func (info *RemoteConsoleInfo) getConnParamsURL(baseURL string, params url.Values) string {
