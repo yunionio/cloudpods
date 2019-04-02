@@ -311,6 +311,10 @@ type AzureError struct {
 	Message string             `json:"message,omitempty"`
 }
 
+func (e *AzureError) Error() string {
+	return jsonutils.Marshal(e).String()
+}
+
 func (self *SAzureClient) getUniqName(cli *autorest.Client, resourceType, name string, body jsonutils.JSONObject) (string, string, error) {
 	url := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s", self.subscriptionId, self.ressourceGroups[0].Name, resourceType, name)
 	if _, err := jsonRequest(cli, "GET", self.domain, url, self.subscriptionId, ""); err != nil {
@@ -538,9 +542,20 @@ func waitForComplatetion(client *autorest.Client, req *http.Request, resp *http.
 					return nil, nil
 				case "Failed":
 					if asyncData.Contains("error") {
-						msg, _ := asyncData.Get("error")
-						log.Errorf("process %s %s error: %s", req.Method, req.URL.String(), msg.String())
-						return nil, fmt.Errorf(msg.String())
+						azureError := AzureError{}
+						if err := asyncData.Unmarshal(&azureError, "error"); err != nil {
+							log.Errorf("process %s %s error: %s", req.Method, req.URL.String(), asyncData.String())
+							return nil, fmt.Errorf("%s", asyncData.String())
+						}
+						switch azureError.Code {
+						// 忽略创建机器时初始化超时问题
+						case "OSProvisioningTimedOut", "OSProvisioningClientError":
+							log.Debugf("ignore OSProvisioning error: %s", azureError)
+							return nil, nil
+						default:
+							log.Errorf("process %s %s error: %s", req.Method, req.URL.String(), azureError)
+							return nil, &azureError
+						}
 					}
 				default:
 					log.Errorf("Unknow status %s when process %s %s", status, req.Method, req.URL.String())
