@@ -64,7 +64,7 @@ type ClassicDisk struct {
 
 type ClassicStorageProfile struct {
 	OperatingSystemDisk ClassicDisk    `json:"operatingSystemDisk,omitempty"`
-	DataDisks           *[]ClassicDisk `json:"aataDisks,omitempty"`
+	DataDisks           *[]ClassicDisk `json:"dataDisks,allowempty"`
 }
 
 type ClassicHardwareProfile struct {
@@ -282,17 +282,19 @@ func (self *SClassicInstance) GetIHost() cloudprovider.ICloudHost {
 }
 
 func (self *SClassicInstance) AttachDisk(ctx context.Context, diskId string) error {
+	status := self.GetStatus()
 	if err := self.host.zone.region.AttachDisk(self.ID, diskId); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 }
 
 func (self *SClassicInstance) DetachDisk(ctx context.Context, diskId string) error {
+	status := self.GetStatus()
 	if err := self.host.zone.region.DetachDisk(self.ID, diskId); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 }
 
 func (self *SClassicInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
