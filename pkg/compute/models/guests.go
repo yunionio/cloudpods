@@ -156,7 +156,12 @@ const (
 	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
 )
 
-const VM_AWS_DEFAULT_LOGIN_USER = "ec2user"
+const (
+	VM_AWS_DEFAULT_LOGIN_USER = "ec2user"
+
+	VM_METADATA_APP_TAGS      = "app_tags"
+	VM_METADATA_CREATE_PARAMS = "create_params"
+)
 
 var VM_RUNNING_STATUS = api.VM_RUNNING_STATUS
 var VM_CREATING_STATUS = api.VM_CREATING_STATUS
@@ -1217,6 +1222,7 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 		}
 	}
 	guest.setApptags(ctx, appTags, userCred)
+	guest.SetCreateParams(ctx, userCred, data)
 	osProfileJson, _ := data.Get("__os_profile__")
 	if osProfileJson != nil {
 		guest.setOSProfile(ctx, userCred, osProfileJson)
@@ -1229,10 +1235,25 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (guest *SGuest) setApptags(ctx context.Context, appTags []string, userCred mcclient.TokenCredential) {
-	err := guest.SetMetadata(ctx, "app_tags", strings.Join(appTags, ","), userCred)
+	err := guest.SetMetadata(ctx, VM_METADATA_APP_TAGS, strings.Join(appTags, ","), userCred)
 	if err != nil {
 		log.Errorln(err)
 	}
+}
+
+func (guest *SGuest) SetCreateParams(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
+	// delete deploy files info
+	data.(*jsonutils.JSONDict).Remove("deploy_configs")
+	err := guest.SetMetadata(ctx, VM_METADATA_CREATE_PARAMS, data.String(), userCred)
+	if err != nil {
+		log.Errorf("Server %s SetCreateParams: %v", guest.Name, err)
+	}
+}
+
+func (guest *SGuest) GetCreateParams(userCred mcclient.TokenCredential) (*api.ServerCreateInput, error) {
+	input := new(api.ServerCreateInput)
+	err := guest.GetMetadataJson(VM_METADATA_CREATE_PARAMS, userCred).Unmarshal(input)
+	return input, err
 }
 
 func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -3902,7 +3923,7 @@ func (self *SGuest) getDefaultStorageType() string {
 }
 
 func (self *SGuest) GetApptags() []string {
-	tagsStr := self.GetMetadata("app_tags", nil)
+	tagsStr := self.GetMetadata(VM_METADATA_APP_TAGS, nil)
 	if len(tagsStr) > 0 {
 		return strings.Split(tagsStr, ",")
 	}
@@ -4029,12 +4050,44 @@ func (guest *SGuest) GetDynamicConditionInput() *jsonutils.JSONDict {
 	return guest.ToSchedDesc().ToConditionInput()
 }
 
+func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.ServerCreateInput {
+	genInput := self.toCreateInput()
+	userInput, err := self.GetCreateParams(userCred)
+	if err != nil {
+		return genInput
+	}
+	// fill missing create params like schedtags
+	for idx, disk := range genInput.Disks {
+		if idx < len(userInput.Disks) {
+			disk.Schedtags = userInput.Disks[idx].Schedtags
+			userInput.Disks[idx] = disk
+		} else {
+			userInput.Disks = append(userInput.Disks, disk)
+		}
+	}
+	for idx, net := range genInput.Networks {
+		if idx < len(userInput.Networks) {
+			userInput.Networks[idx] = net
+		} else {
+			userInput.Networks = append(userInput.Networks, net)
+		}
+	}
+	for idx, dev := range genInput.IsolatedDevices {
+		if idx < len(userInput.IsolatedDevices) {
+			userInput.IsolatedDevices[idx] = dev
+		} else {
+			userInput.IsolatedDevices = append(userInput.IsolatedDevices, dev)
+		}
+	}
+	userInput.KeypairId = genInput.KeypairId
+	userInput.Project = genInput.Project
+	return userInput
+}
 
-func (self *SGuest) ToCreateInput() *api.ServerCreateInput {
+func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	r := new(api.ServerCreateInput)
 	r.VmemSize = self.VmemSize
 	r.VcpuCount = int(self.VcpuCount)
-	r.KeypairId = self.KeypairId
 	if guestCdrom := self.getCdrom(); guestCdrom != nil {
 		r.Cdrom = guestCdrom.ImageId
 	}
@@ -4053,9 +4106,7 @@ func (self *SGuest) ToCreateInput() *api.ServerCreateInput {
 	r.SecgroupId = self.SecgrpId
 
 	r.ServerConfigs = new(api.ServerConfigs)
-	host := self.GetHost()
 	r.Hypervisor = self.Hypervisor
-	r.ResourceType = host.ResourceType
 	r.InstanceType = self.InstanceType
 	r.Project = self.ProjectId
 	r.Count = 1
@@ -4063,9 +4114,16 @@ func (self *SGuest) ToCreateInput() *api.ServerCreateInput {
 	r.Networks = self.ToNetworksConfig()
 	r.IsolatedDevices = self.ToIsolatedDevicesConfig()
 
-	zone := self.getZone()
-	r.PreferRegion = zone.GetRegion().GetId()
-	r.PreferZone = zone.GetId()
+	if keypair := self.getKeypair(); keypair != nil {
+		r.KeypairId = keypair.Id
+	}
+	if host := self.GetHost(); host != nil {
+		r.ResourceType = host.ResourceType
+	}
+	if zone := self.getZone(); zone != nil {
+		r.PreferRegion = zone.GetRegion().GetId()
+		r.PreferZone = zone.GetId()
+	}
 	return r
 }
 
