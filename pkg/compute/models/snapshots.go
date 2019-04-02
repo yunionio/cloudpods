@@ -19,10 +19,12 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -509,6 +511,7 @@ func (self *SSnapshot) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 func (self *SSnapshot) FakeDelete() error {
 	_, err := db.Update(self, func() error {
 		self.FakeDeleted = true
+		self.Name += timeutils.IsoTime(time.Now())
 		return nil
 	})
 	return err
