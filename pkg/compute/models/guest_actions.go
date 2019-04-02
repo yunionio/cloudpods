@@ -330,8 +330,11 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 		return nil, httperrors.NewBadRequestError("Guest hypervisor %s does not support clone", self.Hypervisor)
 	}
 
-	cloneInput := new(api.ServerCloneInput)
-	err := data.Unmarshal(cloneInput)
+	if !utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY}) {
+		return nil, httperrors.NewInvalidStatusError("Cannot clone VM in status %s", self.Status)
+	}
+
+	cloneInput, err := cmdline.FetchServerCreateInputByJSON(data)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("Unmarshal input error %s", err)
 	}
@@ -343,7 +346,7 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 		return nil, err
 	}
 
-	createInput := self.ToCreateInput()
+	createInput := self.ToCreateInput(userCred)
 	createInput.Name = cloneInput.Name
 	createInput.AutoStart = cloneInput.AutoStart
 
@@ -354,27 +357,25 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 		return nil, err
 	}
 
-	dataDict := jsonutils.Marshal(createInput)
-	model, err := db.NewModelObject(GuestManager)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
-	}
-	err = dataDict.Unmarshal(model)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
-	}
-	err = model.CustomizeCreate(ctx, userCred, self.ProjectId, query, dataDict)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
-	}
-	err = GuestManager.TableSpec().Insert(model)
+	dataDict := createInput.JSON(createInput)
+	model, err := db.DoCreate(GuestManager, ctx, userCred, query, dataDict, createInput.Project)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
 
+	func() {
+		lockman.LockObject(ctx, model)
+		defer lockman.ReleaseObject(ctx, model)
+
+		model.PostCreate(ctx, userCred, createInput.Project, query, dataDict)
+	}()
+
+	db.OpsLog.LogEvent(model, db.ACT_CREATE, model.GetShortDesc(ctx), userCred)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CREATE, "", userCred, true)
+
 	pendingUsage := getGuestResourceRequirements(ctx, userCred, createInput, 1, false)
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestCloneTask", model, userCred,
-		createInput.JSON(createInput), "", "", &pendingUsage); err != nil {
+		dataDict, "", "", &pendingUsage); err != nil {
 		log.Errorf(err.Error())
 		return nil, err
 	} else {
