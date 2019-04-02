@@ -183,6 +183,9 @@ func (self *SGuest) PerformMigrate(ctx context.Context, userCred mcclient.TokenC
 	if self.GetHypervisor() != HYPERVISOR_KVM {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
 	}
+	if len(self.BackupHostId) > 0 {
+		return nil, httperrors.NewBadRequestError("Guest have backup, can't migrate")
+	}
 	isRescueMode := jsonutils.QueryBoolean(data, "rescue_mode", false)
 	if !isRescueMode && self.Status != VM_READY {
 		return nil, httperrors.NewServerStatusError("Cannot normal migrate guest in status %s, try rescue mode or server-live-migrate?", self.Status)
@@ -243,13 +246,8 @@ func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.To
 	if self.GetHypervisor() != HYPERVISOR_KVM {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.GetHypervisor())
 	}
-	imageId := self.GetDisks()[0].GetDisk().TemplateId
-	image, err := CachedimageManager.GetImageById(ctx, userCred, imageId, false)
-	if err != nil {
-		return nil, err
-	}
-	if image.DiskFormat != "qcow2" {
-		return nil, httperrors.NewBadRequestError("Live migrate only support image format qocw2")
+	if len(self.BackupHostId) > 0 {
+		return nil, httperrors.NewBadRequestError("Guest have backup, can't migrate")
 	}
 	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_SUSPEND}) {
 		cdrom := self.getCdrom()
@@ -1896,6 +1894,9 @@ func (self *SGuest) AllowPerformDiskSnapshot(ctx context.Context, userCred mccli
 }
 
 func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if len(self.BackupHostId) > 0 {
+		return nil, httperrors.NewBadRequestError("Guest has backup, can't create snapshot")
+	}
 	if !utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot do snapshot when VM in status %s", self.Status)
 	}
