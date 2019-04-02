@@ -164,7 +164,7 @@ func (self *SQcloudGuestDriver) GetGuestInitialStateAfterCreate() string {
 }
 
 func (self *SQcloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return models.VM_READY
+	return models.VM_RUNNING
 }
 
 func (self *SQcloudGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
