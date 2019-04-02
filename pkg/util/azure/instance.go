@@ -67,7 +67,7 @@ type DataDisk struct {
 type StorageProfile struct {
 	ImageReference ImageReference `json:"imageReference,omitempty"`
 	OsDisk         OSDisk         `json:"osDisk,omitempty"`
-	DataDisks      []DataDisk     `json:"dataDisks,omitempty"`
+	DataDisks      []DataDisk     `json:"dataDisks"`
 }
 
 type SSHPublicKey struct {
@@ -465,10 +465,11 @@ func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
+	status := self.GetStatus()
 	if err := self.host.zone.region.AttachDisk(self.ID, diskId); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 }
 
 func (region *SRegion) AttachDisk(instanceId, diskId string) error {
@@ -507,10 +508,11 @@ func (region *SRegion) AttachDisk(instanceId, diskId string) error {
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
+	status := self.GetStatus()
 	if err := self.host.zone.region.DetachDisk(self.ID, diskId); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 }
 
 func (region *SRegion) DetachDisk(instanceId, diskId string) error {
@@ -535,6 +537,7 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
+	status := self.GetStatus()
 	for _, vmSize := range self.host.zone.region.getHardwareProfile(ncpu, vmem) {
 		self.Properties.HardwareProfile.VMSize = vmSize
 		self.Properties.ProvisioningState = ""
@@ -542,7 +545,7 @@ func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) err
 		log.Debugf("Try HardwareProfile : %s", vmSize)
 		err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
 		if err == nil {
-			return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+			return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 		} else {
 			log.Debugf("ChangeConfig %s", err)
 		}
@@ -551,13 +554,14 @@ func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) err
 }
 
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
+	status := self.GetStatus()
 	self.Properties.HardwareProfile.VMSize = instanceType
 	self.Properties.ProvisioningState = ""
 	self.Properties.InstanceView = nil
 	log.Debugf("Try HardwareProfile : %s", instanceType)
 	err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
 	if err == nil {
-		return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+		return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 	} else {
 		log.Errorf("ChangeConfig2 %s", err)
 	}
