@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -300,7 +299,11 @@ func (dev *sBaseDevice) GetPassthroughCmd(_ int) string {
 }
 
 func (dev *sBaseDevice) GetIOMMUGroupRestAddrs() []string {
-	return dev.dev.RestIOMMUGroupAddrs
+	addrs := []string{}
+	for _, d := range dev.dev.RestIOMMUGroupDevs {
+		addrs = append(addrs, d.Addr)
+	}
+	return addrs
 }
 
 func (dev *sBaseDevice) GetIOMMUGroupDeviceCmd() string {
@@ -465,7 +468,7 @@ type PCIDevice struct {
 	SubdeviceId   string `json:"subdevice_id"`
 	ModelName     string `json:"model_name"`
 
-	RestIOMMUGroupAddrs []string `json:"-"`
+	RestIOMMUGroupDevs []*PCIDevice `json:"-"`
 }
 
 func NewPCIDevice(line string) (*PCIDevice, error) {
@@ -477,6 +480,10 @@ func NewPCIDevice(line string) (*PCIDevice, error) {
 		return nil, fmt.Errorf("Force bind vfio-pci driver: %v", err)
 	}
 	return dev, nil
+}
+
+func NewPCIDevice2(line string) *PCIDevice {
+	return parseLspci(line)
 }
 
 // parseLspci parse one line output of `lspci -nnmm`
@@ -508,23 +515,9 @@ func (d *PCIDevice) GetVendorDeviceId() string {
 func (d *PCIDevice) checkSameIOMMUGroupDevice() error {
 	group, err := NewIOMMUGroup()
 	if err != nil {
-		return fmt.Errorf("IOMMUGroup FindSameGroupAddrs: %v", err)
+		return fmt.Errorf("IOMMUGroup FindSameGroupDevs: %v", err)
 	}
-	removeAddr := func(addrs []string, addr string) []string {
-		ret := []string{}
-		for _, tmpAddr := range addrs {
-			if tmpAddr == addr {
-				continue
-			}
-			ret = append(ret, tmpAddr)
-		}
-		return ret
-	}
-	groupAddrs := group.FindSameGroupAddrs(d.Addr, true)
-	if utils.IsInStringArray(d.Addr, groupAddrs) {
-		groupAddrs = removeAddr(groupAddrs, d.Addr)
-	}
-	d.RestIOMMUGroupAddrs = groupAddrs
+	d.RestIOMMUGroupDevs = group.FindSameGroupDevs(d.Addr)
 	return nil
 }
 
@@ -565,19 +558,20 @@ func (d *PCIDevice) forceBindVFIOPCIDriver(useBootVGA bool) error {
 		log.Infof("%s already use vfio-pci driver", d)
 		return nil
 	}
-	addrs := []string{}
-	addrs = append(addrs, d.RestIOMMUGroupAddrs...)
-	addrs = append(addrs, d.Addr)
-	for _, addr := range addrs {
-		if err := d.bindAddrVFIOPCI(addr); err != nil {
-			return fmt.Errorf("bind %s vfio-pci driver: %v", addr, err)
+
+	devs := []*PCIDevice{}
+	devs = append(devs, d.RestIOMMUGroupDevs...)
+	devs = append(devs, d)
+	for _, dev := range devs {
+		if err := dev.bindAddrVFIOPCI(); err != nil {
+			return fmt.Errorf("bind %s vfio-pci driver: %v", dev, err)
 		}
 	}
 	return nil
 }
 
-func (d *PCIDevice) bindAddrVFIOPCI(addr string) error {
-	if err := d.unbindDriver(addr); err != nil {
+func (d *PCIDevice) bindAddrVFIOPCI() error {
+	if err := d.unbindDriver(); err != nil {
 		return fmt.Errorf("unbindDriver: %v", err)
 	}
 	if err := d.bindDriver(); err != nil {
@@ -586,15 +580,15 @@ func (d *PCIDevice) bindAddrVFIOPCI(addr string) error {
 	return nil
 }
 
-func (d *PCIDevice) unbindDriver(addr string) error {
+func (d *PCIDevice) unbindDriver() error {
 	driver, err := d.getKernelDriver()
 	if err != nil {
 		return err
 	}
 	if len(driver) != 0 {
 		if err := fileutils2.FilePutContents(
-			fmt.Sprintf("/sys/bus/pci/devices/0000:%s/driver/unbind", addr),
-			fmt.Sprintf("0000:%s", addr), false); err != nil {
+			fmt.Sprintf("/sys/bus/pci/devices/0000:%s/driver/unbind", d.Addr),
+			fmt.Sprintf("0000:%s", d.Addr), false); err != nil {
 			return fmt.Errorf("unbindDriver: %v", err)
 		}
 	}
@@ -616,7 +610,16 @@ func (d *PCIDevice) String() string {
 
 func (d *PCIDevice) IsVFIOPCIDriverUsed() bool {
 	driver, _ := d.getKernelDriver()
-	return driver == VFIO_PCI_KERNEL_DRIVER
+	if driver != VFIO_PCI_KERNEL_DRIVER {
+		return false
+	}
+	for _, dev := range d.RestIOMMUGroupDevs {
+		driver, _ := dev.getKernelDriver()
+		if driver != VFIO_PCI_KERNEL_DRIVER {
+			return false
+		}
+	}
+	return true
 }
 
 func (d *PCIDevice) getKernelDriver() (string, error) {
@@ -663,23 +666,28 @@ func NewIOMMUGroup() (*IOMMUGroup, error) {
 	return &IOMMUGroup{group: dict}, nil
 }
 
-func (g *IOMMUGroup) ListDeviceAddrs(groupNum string, useShortFormat bool) []string {
+func (g *IOMMUGroup) ListDevices(groupNum, selfAddr string) []*PCIDevice {
 	ret := []string{}
 	for busId, group := range g.group {
 		if groupNum == group {
 			ret = append(ret, busId)
 		}
 	}
-	sort.Strings(ret)
-	if useShortFormat {
-		for idx, addr := range ret {
-			ret[idx] = addr[5:]
+
+	devs := []*PCIDevice{}
+	for _, addr := range ret {
+		if addr == selfAddr {
+			continue
+		}
+		dev, _ := detectPCIDevByAddrWithoutIOMMUGroup(addr[5:])
+		if dev != nil {
+			devs = append(devs, dev)
 		}
 	}
-	return ret
+	return devs
 }
 
-func (g *IOMMUGroup) FindSameGroupAddrs(devAddr string, useShortFormat bool) []string {
+func (g *IOMMUGroup) FindSameGroupDevs(devAddr string) []*PCIDevice {
 	// devAddr: '0000:3f:0f.3' or '3f:0f.3' format
 	if len(devAddr) == 7 {
 		devAddr = fmt.Sprintf("0000:%s", devAddr)
@@ -688,7 +696,7 @@ func (g *IOMMUGroup) FindSameGroupAddrs(devAddr string, useShortFormat bool) []s
 	if !ok {
 		return nil
 	}
-	return g.ListDeviceAddrs(group, useShortFormat)
+	return g.ListDevices(group, devAddr)
 }
 
 func (g *IOMMUGroup) String() string {
@@ -715,6 +723,14 @@ func detectPCIDevByAddr(addr string) (*PCIDevice, error) {
 		return nil, err
 	}
 	return NewPCIDevice(strings.Join(ret, ""))
+}
+
+func detectPCIDevByAddrWithoutIOMMUGroup(addr string) (*PCIDevice, error) {
+	ret, err := bashOutput(fmt.Sprintf("lspci -nnmm -s %s", addr))
+	if err != nil {
+		return nil, err
+	}
+	return NewPCIDevice2(strings.Join(ret, "")), nil
 }
 
 func detectGPUS() ([]*PCIDevice, error) {
