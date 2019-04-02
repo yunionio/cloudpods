@@ -268,7 +268,7 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 	log.Debugf("need to do deep sync ... %v", syncRange.DeepSync)
 	if !syncRange.DeepSync {
 		intval := self.getSyncIntervalSeconds(nil)
-		if self.LastDeepSyncAt.IsZero() || (time.Now().Sub(self.LastDeepSyncAt) > time.Duration(intval)*time.Second*8 && rand.Float32() < 0.5) {
+		if self.LastDeepSyncAt.IsZero() || time.Now().Sub(self.LastDeepSyncAt) > time.Hour*24 || (time.Now().Sub(self.LastDeepSyncAt) > time.Duration(intval)*time.Second*8 && rand.Float32() < 0.5) {
 			syncRange.DeepSync = true
 		}
 	}
