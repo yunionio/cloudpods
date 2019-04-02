@@ -129,7 +129,7 @@ func (self *SnapshotDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	if len(snapshot.ExternalId) > 0 {
 		err := self.deleteExternalSnapshot(ctx, snapshot)
 		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
+			self.TaskFailed(ctx, snapshot, err.Error())
 		} else {
 			snapshot.RealDelete(ctx, self.GetUserCred())
 			self.TaskComplete(ctx, snapshot, nil)
@@ -139,7 +139,7 @@ func (self *SnapshotDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 	guest, err := snapshot.GetGuest()
 	if err != nil {
 		if err != sql.ErrNoRows {
-			self.SetStageFailed(ctx, err.Error())
+			self.TaskFailed(ctx, snapshot, err.Error())
 			return
 		} else {
 			// if snapshot is not used
