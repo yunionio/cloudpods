@@ -150,9 +150,10 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			log.Errorf("GetImageStatus error %s", err)
 		}
-		if status == ImageStatusAvailable && !isForce {
+		if (status == ImageStatusNormal || status == ImageStatusUsing) && !isForce {
 			return extId, nil
 		}
+		log.Debugf("image status: %s isForce: %v", status, isForce)
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}

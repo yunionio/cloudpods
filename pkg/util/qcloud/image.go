@@ -32,10 +32,12 @@ import (
 type ImageStatusType string
 
 const (
-	ImageStatusCreating     ImageStatusType = "Creating"
-	ImageStatusAvailable    ImageStatusType = "NORMAL"
-	ImageStatusUnAvailable  ImageStatusType = "UnAvailable"
-	ImageStatusCreateFailed ImageStatusType = "CreateFailed"
+	ImageStatusCreating  ImageStatusType = "CREATING"
+	ImageStatusNormal    ImageStatusType = "NORMAL"
+	ImageStatusSycing    ImageStatusType = "SYNCING"
+	ImageStatusImporting ImageStatusType = "IMPORTING"
+	ImageStatusUsing     ImageStatusType = "USING"
+	ImageStatusDeleting  ImageStatusType = "DELETING"
 )
 
 type SImage struct {
@@ -133,14 +135,10 @@ func (self *SImage) Delete(ctx context.Context) error {
 
 func (self *SImage) GetStatus() string {
 	switch self.ImageState {
-	case ImageStatusCreating:
+	case ImageStatusCreating, ImageStatusSycing, ImageStatusImporting:
 		return models.CACHED_IMAGE_STATUS_CACHING
-	case ImageStatusAvailable:
+	case ImageStatusNormal, ImageStatusUsing:
 		return models.CACHED_IMAGE_STATUS_READY
-	case ImageStatusUnAvailable:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
-	case ImageStatusCreateFailed:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
 	default:
 		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
 	}
@@ -148,14 +146,12 @@ func (self *SImage) GetStatus() string {
 
 func (self *SImage) GetImageStatus() string {
 	switch self.ImageState {
-	case ImageStatusCreating:
+	case ImageStatusCreating, ImageStatusSycing, ImageStatusImporting:
 		return cloudprovider.IMAGE_STATUS_SAVING
-	case ImageStatusAvailable:
+	case ImageStatusNormal, ImageStatusUsing:
 		return cloudprovider.IMAGE_STATUS_ACTIVE
-	case ImageStatusUnAvailable:
+	case ImageStatusDeleting:
 		return cloudprovider.IMAGE_STATUS_DELETED
-	case ImageStatusCreateFailed:
-		return cloudprovider.IMAGE_STATUS_KILLED
 	default:
 		return cloudprovider.IMAGE_STATUS_DELETED
 	}
