@@ -102,11 +102,16 @@ func init() {
 	})
 
 	type HostWireDetachOptions struct {
-		HOST string `help:"ID or Name of Host"`
-		WIRE string `help:"ID or Name of Wire"`
+		HOST    string `help:"ID or Name of Host"`
+		WIRE    string `help:"ID or Name of Wire"`
+		MacAddr string `help:"Host wire mac addr"`
 	}
 	R(&HostWireDetachOptions{}, "host-wire-detach", "Detach host from wire", func(s *mcclient.ClientSession, args *HostWireDetachOptions) error {
-		result, err := modules.Hostwires.Detach(s, args.HOST, args.WIRE, nil)
+		params := jsonutils.NewDict()
+		if len(args.MacAddr) > 0 {
+			params.Set("mac_addr", jsonutils.NewString(args.MacAddr))
+		}
+		result, err := modules.Hostwires.Detach(s, args.HOST, args.WIRE, params)
 		if err != nil {
 			return err
 		}
