@@ -85,6 +85,8 @@ type ComputeOptions struct {
 	MinimalSyncIntervalSeconds   int `help:"minimal synchronization interval, default 1 minutes" default:"300"`
 	MaxCloudAccountErrorCount    int `help:"maximal consecutive error count allow for a cloud account" default:"5"`
 
+	NameSyncResources []string `help:"resources that need synchronization of name"`
+
 	DisconnectedCloudAccountRetryProbeIntervalHours int `help:"interval to wait to probe status of a disconnected cloud account" default:"24"`
 
 	SCapabilityOptions
