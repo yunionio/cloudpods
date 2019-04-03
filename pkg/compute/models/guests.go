@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -1745,6 +1746,10 @@ func (self *SGuest) IsFailureStatus() bool {
 	return strings.Index(self.Status, "fail") >= 0
 }
 
+var (
+	lostNamePattern = regexp.MustCompile(`-lost@\d{8}$`)
+)
+
 func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
@@ -1765,7 +1770,18 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 		return nil
 	}
 
-	return self.SetStatus(userCred, VM_UNKNOWN, "Sync lost")
+	if !lostNamePattern.MatchString(self.Name) {
+		db.Update(self, func() error {
+			self.Name = fmt.Sprintf("%s-lost@%s", self.Name, timeutils.ShortDate(time.Now()))
+			return nil
+		})
+	}
+
+	if self.Status != VM_UNKNOWN {
+		self.SetStatus(userCred, VM_UNKNOWN, "Sync lost")
+	}
+
+	return nil
 }
 
 func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, projectId string) error {
