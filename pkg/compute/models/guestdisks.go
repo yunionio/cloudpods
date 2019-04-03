@@ -45,7 +45,9 @@ func init() {
 				DiskManager,
 			),
 		}
+		GuestdiskManager.TableSpec().AddIndex(true, "deleted", "guest_id", "disk_id")
 	})
+
 }
 
 type SGuestdisk struct {

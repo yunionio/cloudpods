@@ -222,7 +222,7 @@ func (wm *SWorkerManager) scheduleWithLock() {
 			log.Debugf("no enough worker, add new worker %s", worker)
 		}
 		go worker.run()
-	} else {
+	} else if wm.queue.Size() > 10 {
 		log.Warningf("[%s] BUSY activeWork %d detachedWork %d max %d queue: %d", wm, wm.ActiveWorkerCount(), wm.DetachedWorkerCount(), wm.workerCount, wm.queue.Size())
 	}
 }
