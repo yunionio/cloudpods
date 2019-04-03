@@ -81,7 +81,7 @@ type DataDisk struct {
 type StorageProfile struct {
 	ImageReference ImageReference `json:"imageReference,omitempty"`
 	OsDisk         OSDisk         `json:"osDisk,omitempty"`
-	DataDisks      []DataDisk     `json:"dataDisks"`
+	DataDisks      []DataDisk     `json:"dataDisks,allowempty"`
 }
 
 type SSHPublicKey struct {
