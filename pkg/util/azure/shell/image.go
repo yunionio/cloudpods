@@ -45,9 +45,9 @@ func init() {
 		if err != nil {
 			return err
 		}
-		sort.Strings(idList)
-		for _, id := range idList {
-			fmt.Println(id)
+		//sort.Strings(idList)
+		for id, image := range idList {
+			fmt.Printf("id: %s detail: %v\n", id, image)
 		}
 		return nil
 	})
