@@ -59,6 +59,8 @@ func CheckSync(autoSync bool) bool {
 			err := commitSqlDIffs(allSqls)
 			if err == nil {
 				return true
+			} else {
+				log.Errorln(err)
 			}
 		}
 		for _, sql := range allSqls {
