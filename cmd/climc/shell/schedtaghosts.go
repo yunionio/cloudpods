@@ -21,6 +21,7 @@ func (h *schedtagModelHelper) register() {
 		h.list(man.Slave, man.Slave.GetKeyword())
 		h.add(man, man.Slave.GetKeyword())
 		h.remove(man, man.Slave.GetKeyword())
+		h.setTags(man, man.Slave.GetKeyword())
 	}
 }
 
@@ -79,6 +80,25 @@ func (h *schedtagModelHelper) remove(man modules.JointResourceManager, kw string
 				return err
 			}
 			printObject(schedtag)
+			return nil
+		})
+}
+
+func (h *schedtagModelHelper) setTags(man modules.JointResourceManager, kw string) {
+	R(
+		&options.SchedtagSetOptions{},
+		fmt.Sprintf("%s-set-schedtag", kw),
+		fmt.Sprintf("Set schedtags to %v", kw),
+		func(s *mcclient.ClientSession, args *options.SchedtagSetOptions) error {
+			params, err := args.Params()
+			if err != nil {
+				return err
+			}
+			ret, err := man.Slave.PerformAction(s, args.ID, "set-schedtag", params)
+			if err != nil {
+				return err
+			}
+			printObject(ret)
 			return nil
 		})
 }
