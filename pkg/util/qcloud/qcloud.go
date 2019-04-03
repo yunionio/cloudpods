@@ -255,29 +255,35 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 	if retry {
 		tryMax = 3
 	}
+	var err error
 	for i := 1; i <= tryMax; i++ {
-		err := client.Send(req, resp)
+		err = client.Send(req, resp)
 		if err == nil {
 			break
 		}
 		needRetry := false
-		for _, msg := range []string{"EOF", "TLS handshake timeout", "Code=InternalError", "retry later", "Code=MutexOperation.TaskRunning"} {
+		for _, msg := range []string{"EOF", "TLS handshake timeout", "Code=InternalError", "retry later", "Code=MutexOperation.TaskRunning", "Code=InvalidInstance.NotSupported"} {
+			// Code=InvalidInstance.NotSupported, Message=The request does not support the instances `ins-bg54517v` which are in operation or in a special state., RequestId=79d02048-a8c9-4b59-b442-3c6f01fb728e
+			// 重装系统后立即关机有可能会引发 Code=InvalidInstance.NotSupported 错误, 重试可以避免任务失败
 			if strings.Contains(err.Error(), msg) {
 				needRetry = true
 				break
 			}
 		}
-		if needRetry && i != 3 {
-			log.Errorf("request url %s\nparams: %s\nerror: %v\nafter %d second try again", req.GetDomain(), jsonutils.Marshal(req.GetParams()).PrettyString(), err, i*10)
+		if needRetry {
+			log.Errorf("request url %s\nparams: %s\nerror: %v\ntry after %d seconds", req.GetDomain(), jsonutils.Marshal(req.GetParams()).PrettyString(), err, i*10)
 			time.Sleep(time.Second * time.Duration(i*10))
 			continue
 		}
-		log.Errorf("request url: %s\nparams: %s\nresponse: %s\nerror: %v", req.GetDomain(), jsonutils.Marshal(req.GetParams()).PrettyString(), resp.GetResponse(), err)
+		log.Errorf("request url: %s\nparams: %s\nresponse: %v\nerror: %v", req.GetDomain(), jsonutils.Marshal(req.GetParams()).PrettyString(), resp.GetResponse(), err)
 		return nil, err
 	}
 	if debug {
 		log.Debugf("request: %s", req.GetParams())
 		log.Debugf("response: %s", jsonutils.Marshal(resp.GetResponse()).PrettyString())
+	}
+	if err != nil {
+		return nil, err
 	}
 	return jsonutils.Marshal(resp.GetResponse()), nil
 }
