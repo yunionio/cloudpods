@@ -597,7 +597,8 @@ func waitForComplatetion(client *autorest.Client, req *http.Request, resp *http.
 						}
 						switch azureError.Code {
 						// 忽略创建机器时初始化超时问题
-						case "OSProvisioningTimedOut", "OSProvisioningClientError":
+						case "OSProvisioningTimedOut", "OSProvisioningClientError", "OSProvisioningInternalError":
+							// {"code":"OSProvisioningInternalError","message":"OS Provisioning failed for VM 'stress-testvm-azure-1' due to an internal error: [000004] cloud-init appears to be running, this is not expected, cannot continue."}
 							log.Debugf("ignore OSProvisioning error: %s", azureError)
 							return nil, nil
 						default:
