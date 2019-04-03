@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type TProjectSource string
@@ -269,6 +270,7 @@ func (model *SVirtualResourceBase) MarkPendingDelete(userCred mcclient.TokenCred
 			return err
 		}
 		OpsLog.LogEvent(model, ACT_PENDING_DELETE, diff, userCred)
+		logclient.AddSimpleActionLog(model, logclient.ACT_PENDING_DELETE, "", userCred, true)
 	}
 	return nil
 }
