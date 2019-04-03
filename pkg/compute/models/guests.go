@@ -1778,7 +1778,9 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	// metaData := extVM.GetMetadata()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extVM.Refresh()
-		// self.Name = extVM.GetName()
+		if options.NameSyncResources.Contains(self.Keyword()) {
+			self.Name = extVM.GetName()
+		}
 		if !self.IsFailureStatus() {
 			self.Status = extVM.GetStatus()
 		}
@@ -1848,7 +1850,11 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	guest.Status = extVM.GetStatus()
 	guest.ExternalId = extVM.GetGlobalId()
-	guest.Name = db.GenerateName(manager, projectId, extVM.GetName())
+	if options.NameSyncResources.Contains(manager.Keyword()) {
+		guest.Name = extVM.GetName()
+	} else {
+		guest.Name = db.GenerateName(manager, projectId, extVM.GetName())
+	}
 	guest.VcpuCount = extVM.GetVcpuCount()
 	guest.BootOrder = extVM.GetBootOrder()
 	guest.Vga = extVM.GetVga()
