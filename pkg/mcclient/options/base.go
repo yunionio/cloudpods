@@ -173,7 +173,7 @@ type BaseListOptions struct {
 	Order            string   `help:"List order" choices:"desc|asc"`
 	Details          *bool    `help:"Show more details" default:"false"`
 	Search           string   `help:"Filter results by a simple keyword search"`
-	Meta             *bool    `help:"Piggyback metadata information"`
+	Meta             *bool    `help:"Piggyback metadata information" json:"with_meta" token:"meta"`
 	Filter           []string `help:"Filters"`
 	JointFilter      []string `help:"Filters with joint table col; joint_tbl.related_key(origin_key).filter_col.filter_cond(filters)"`
 	FilterAny        *bool    `help:"If true, match if any of the filters matches; otherwise, match if all of the filters match"`

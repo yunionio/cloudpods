@@ -27,6 +27,7 @@ type Application struct {
 	name              string
 	context           context.Context
 	session           *SWorkerManager
+	readSession       *SWorkerManager
 	systemSession     *SWorkerManager
 	roots             map[string]*RadixNode
 	rootLock          *sync.RWMutex
@@ -60,6 +61,7 @@ func NewApplication(name string, connMax int, db bool) *Application {
 		context:           context.Background(),
 		connMax:           connMax,
 		session:           NewWorkerManager("HttpRequestWorkerManager", connMax, DEFAULT_BACKLOG, db),
+		readSession:       NewWorkerManager("HttpGetRequestWorkerManager", connMax, DEFAULT_BACKLOG, db),
 		systemSession:     NewWorkerManager("InternalHttpRequestWorkerManager", 1, DEFAULT_BACKLOG, false),
 		roots:             make(map[string]*RadixNode),
 		rootLock:          &sync.RWMutex{},
@@ -228,7 +230,11 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 			defer cancel()
 			session := hand.workerMan
 			if session == nil {
-				session = app.session
+				if r.Method == "GET" || r.Method == "HEAD" {
+					session = app.readSession
+				} else {
+					session = app.session
+				}
 			}
 			appParams := hand.GetAppParams(params, segs)
 			appParams.Request = r
