@@ -60,7 +60,7 @@ func init() {
 			"eips",
 		),
 	}
-	ElasticipManager.TableSpec().AddIndex(true, "deleted", "associate_type", "associate_id")
+	ElasticipManager.TableSpec().AddIndex(true, "associate_id", "associate_type")
 }
 
 type SElasticip struct {

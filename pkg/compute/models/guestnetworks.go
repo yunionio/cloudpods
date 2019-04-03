@@ -46,7 +46,7 @@ func init() {
 				NetworkManager,
 			),
 		}
-		GuestnetworkManager.TableSpec().AddIndex(true, "deleted", "guest_id", "virtual", "ip_addr")
+		GuestnetworkManager.TableSpec().AddIndex(true, "ip_addr", "guest_id")
 	})
 }
 
