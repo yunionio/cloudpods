@@ -14,6 +14,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SVirtualResourceBaseManager struct {
@@ -236,22 +237,26 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 }
 
 func (model *SVirtualResourceBase) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := model.PendingDelete()
+	err := model.PendingDelete(userCred)
 	if err == nil {
 		OpsLog.LogEvent(model, ACT_PENDING_DELETE, nil, userCred)
 	}
 	return err
 }
 
-func (model *SVirtualResourceBase) PendingDelete() error {
-	_, err := model.GetModelManager().TableSpec().Update(model, func() error {
+func (model *SVirtualResourceBase) PendingDelete(userCred mcclient.TokenCredential) error {
+	diff, err := model.GetModelManager().TableSpec().Update(model, func() error {
 		model.PendingDeleted = true
 		model.PendingDeletedAt = timeutils.UtcNow()
 		return nil
 	})
 	if err != nil {
 		log.Errorf("PendingDelete fail %s", err)
+
+		return err
 	}
+	OpsLog.LogEvent(model, ACT_PENDING_DELETE, diff, userCred)
+	logclient.AddSimpleActionLog(model, logclient.ACT_PENDING_DELETE, "", userCred, true)
 	return err
 }
 

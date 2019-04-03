@@ -301,7 +301,7 @@ func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Con
 				syncResult.Delete()
 			}
 		} else {
-			err = removed[i].PendingDelete()
+			err = removed[i].PendingDelete(userCred)
 			if err != nil {
 				syncResult.DeleteError(err)
 			} else {
