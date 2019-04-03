@@ -45,7 +45,7 @@ func init() {
 				DiskManager,
 			),
 		}
-		GuestdiskManager.TableSpec().AddIndex(true, "deleted", "guest_id", "disk_id")
+		GuestdiskManager.TableSpec().AddIndex(true, "disk_id", "guest_id")
 	})
 
 }
