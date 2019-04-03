@@ -60,6 +60,7 @@ func init() {
 				NetworkManager,
 			),
 		}
+		GuestnetworkManager.TableSpec().AddIndex(true, "ip_addr", "guest_id")
 	})
 }
 

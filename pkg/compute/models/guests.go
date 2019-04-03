@@ -54,6 +54,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 const (
@@ -1307,109 +1308,53 @@ func (self *SGuest) getExtBandwidth() int {
 
 func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-
-	if db.IsAdminAllowGet(userCred, self) {
-		host := self.GetHost()
-		if host != nil {
-			extra.Add(jsonutils.NewString(host.Name), "host")
-		}
-	}
-	extra.Add(jsonutils.NewString(strings.Join(self.getRealIPs(), ",")), "ips")
-	eip, _ := self.GetEip()
-	if eip != nil {
-		extra.Add(jsonutils.NewString(eip.IpAddr), "eip")
-		extra.Add(jsonutils.NewString(eip.Mode), "eip_mode")
-	}
-	extra.Add(jsonutils.NewInt(int64(self.getDiskSize())), "disk")
-	// flavor??
-	// extra.Add(jsonutils.NewString(self.getFlavorName()), "flavor")
-	extra.Add(jsonutils.NewString(self.getKeypairName()), "keypair")
-	extra.Add(jsonutils.NewInt(int64(self.getExtBandwidth())), "ext_bw")
-
-	extra.Add(jsonutils.NewString(self.GetSecgroupName()), "secgroup")
-
-	if secgroups := self.getSecgroupJson(); len(secgroups) > 0 {
-		extra.Add(jsonutils.NewArray(secgroups...), "secgroups")
-	}
-
-	if self.PendingDeleted {
-		pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
-		extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
-	}
-
-	isGpu := jsonutils.JSONFalse
-	if self.isGpu() {
-		isGpu = jsonutils.JSONTrue
-	}
-	extra.Add(isGpu, "is_gpu")
-
-	extra.Add(jsonutils.JSONNull, "cdrom")
-	if cdrom := self.getCdrom(); cdrom != nil {
-		extra.Set("cdrom", jsonutils.NewString(cdrom.GetDetails()))
-	}
-
-	return self.moreExtraInfo(extra)
+	fields := stringutils2.NewSortedStrings(jsonutils.GetQueryStringArray(query, "field"))
+	return self.moreExtraInfo(extra, fields)
 }
 
-func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	/*zone := self.getZone()
-	if zone != nil {
-		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
-		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
-		if len(zone.ExternalId) > 0 {
-			extra.Add(jsonutils.NewString(zone.ExternalId), "zone_external_id")
+func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict, fields stringutils2.SSortedStrings) *jsonutils.JSONDict {
+	// extra.Add(jsonutils.NewInt(int64(self.getExtBandwidth())), "ext_bw")
+
+	if len(self.BackupHostId) > 0 && (len(fields) == 0 || fields.Contains("backup_host_name") || fields.Contains("backup_host_status")) {
+		backupHost := HostManager.FetchHostById(self.BackupHostId)
+		if len(fields) == 0 || fields.Contains("backup_host_name") {
+			extra.Set("backup_host_name", jsonutils.NewString(backupHost.Name))
 		}
-
-		region := zone.GetRegion()
-		if region != nil {
-			extra.Add(jsonutils.NewString(region.Id), "region_id")
-			extra.Add(jsonutils.NewString(region.Name), "region")
-
-			if len(region.ExternalId) > 0 {
-				extra.Add(jsonutils.NewString(region.ExternalId), "region_external_id")
-			}
+		if len(fields) == 0 || fields.Contains("backup_host_status") {
+			extra.Set("backup_host_status", jsonutils.NewString(backupHost.HostStatus))
 		}
+	}
 
+	if len(fields) == 0 || fields.Contains("host") || fields.ContainsAny(providerInfoFields...) {
 		host := self.GetHost()
 		if host != nil {
-			provider := host.GetCloudprovider()
-			if provider != nil {
-				extra.Add(jsonutils.NewString(host.ManagerId), "manager_id")
-				extra.Add(jsonutils.NewString(provider.GetName()), "manager")
+			if len(fields) == 0 || fields.Contains("host") {
+				extra.Add(jsonutils.NewString(host.Name), "host")
+			}
+			if len(fields) == 0 || fields.ContainsAny(providerInfoFields...) {
+				info := host.getCloudProviderInfo()
+				if len(fields) == 0 {
+					extra.Update(jsonutils.Marshal(&info))
+				} else {
+					extra.Update(jsonutils.Marshal(&info).(*jsonutils.JSONDict).CopyIncludes([]string(fields)...))
+				}
 			}
 		}
-	}*/
-
-	extra.Add(self.getDisksInfoDetails(), "disks_info")
-	extra.Add(jsonutils.NewString(self.getIsolatedDeviceDetails()), "isolated_devices")
-
-	if len(self.BackupHostId) > 0 {
-		backupHost := HostManager.FetchHostById(self.BackupHostId)
-		extra.Set("backup_host_name", jsonutils.NewString(backupHost.Name))
-		extra.Set("backup_host_status", jsonutils.NewString(backupHost.HostStatus))
 	}
 
-	host := self.GetHost()
-	if host != nil {
-		info := host.getCloudProviderInfo()
-		extra.Update(jsonutils.Marshal(&info))
+	if len(fields) == 0 || fields.Contains("can_recycle") {
+		err := self.CanPerformPrepaidRecycle()
+		if err != nil {
+			extra.Add(jsonutils.JSONFalse, "can_recycle")
+		} else {
+			extra.Add(jsonutils.JSONTrue, "can_recycle")
+		}
 	}
 
-	err := self.CanPerformPrepaidRecycle()
-	if err != nil {
-		extra.Add(jsonutils.JSONFalse, "can_recycle")
-	} else {
-		extra.Add(jsonutils.JSONTrue, "can_recycle")
-	}
-
-	guestnetworks, _ := self.GetNetworks("")
-	if len(guestnetworks) > 0 {
-		guestnetwork := guestnetworks[0]
-		network := guestnetwork.GetNetwork()
-		if network != nil {
-			vpc := network.GetVpc()
-			extra.Set("vpc_id", jsonutils.NewString(vpc.Id))
-			extra.Set("vpc", jsonutils.NewString(vpc.Name))
+	if len(fields) == 0 || fields.Contains("auto_delete_at") {
+		if self.PendingDeleted {
+			pendingDeletedAt := self.PendingDeletedAt.Add(time.Second * time.Duration(options.Options.PendingDeleteExpireSeconds))
+			extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
 		}
 	}
 
@@ -1424,21 +1369,11 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 
 	extra.Add(jsonutils.NewString(self.getNetworksDetails()), "networks")
 	extra.Add(jsonutils.NewString(self.getDisksDetails()), "disks")
-	extra.Add(jsonutils.NewInt(int64(self.getDiskSize())), "disk")
-	cdrom := self.getCdrom()
-	if cdrom != nil {
-		extra.Add(jsonutils.NewString(cdrom.GetDetails()), "cdrom")
-	}
-	// extra.Add(jsonutils.NewString(self.getFlavorName()), "flavor")
-	extra.Add(jsonutils.NewString(self.getKeypairName()), "keypair")
-	extra.Add(jsonutils.NewString(self.GetSecgroupName()), "secgroup")
+	extra.Add(self.getDisksInfoDetails(), "disks_info")
 
-	if secgroups := self.getSecgroupJson(); len(secgroups) > 0 {
-		extra.Add(jsonutils.NewArray(secgroups...), "secgroups")
-	}
-
-	extra.Add(jsonutils.NewString(strings.Join(self.getIPs(), ",")), "ips")
+	extra.Add(jsonutils.NewString(strings.Join(self.getVirtualIPs(), ",")), "virtual_ips")
 	extra.Add(jsonutils.NewString(self.getSecurityGroupsRules()), "security_rules")
+
 	osName := self.GetOS()
 	if len(osName) > 0 {
 		extra.Add(jsonutils.NewString(osName), "os_name")
@@ -1446,27 +1381,14 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 			extra.Add(jsonutils.NewString(osName), "os_type")
 		}
 	}
+
 	if metaData, err := self.GetAllMetadata(userCred); err == nil {
 		extra.Add(jsonutils.Marshal(metaData), "metadata")
 	}
+
 	if db.IsAdminAllowGet(userCred, self) {
-		host := self.GetHost()
-		if host != nil {
-			extra.Add(jsonutils.NewString(host.GetName()), "host")
-		}
 		extra.Add(jsonutils.NewString(self.getAdminSecurityRules()), "admin_security_rules")
 	}
-	eip, _ := self.GetEip()
-	if eip != nil {
-		extra.Add(jsonutils.NewString(eip.IpAddr), "eip")
-		extra.Add(jsonutils.NewString(eip.Mode), "eip_mode")
-	}
-
-	isGpu := jsonutils.JSONFalse
-	if self.isGpu() {
-		isGpu = jsonutils.JSONTrue
-	}
-	extra.Add(isGpu, "is_gpu")
 
 	if self.IsPrepaidRecycle() {
 		extra.Add(jsonutils.JSONTrue, "is_prepaid_recycle")
@@ -1474,7 +1396,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		extra.Add(jsonutils.JSONFalse, "is_prepaid_recycle")
 	}
 
-	return self.moreExtraInfo(extra), nil
+	return self.moreExtraInfo(extra, nil), nil
 }
 
 func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -1600,41 +1522,28 @@ func (self *SGuest) getDisksInfoDetails() *jsonutils.JSONArray {
 	return details
 }
 
-func (self *SGuest) getIsolatedDeviceDetails() string {
-	var buf bytes.Buffer
-	for _, dev := range self.GetIsolatedDevices() {
-		buf.WriteString(dev.getDetailedString())
-		buf.WriteString("\n")
-	}
-	return buf.String()
-}
-
-func (self *SGuest) getDiskSize() int {
-	size := 0
-	for _, disk := range self.GetDisks() {
-		size += disk.GetDisk().DiskSize
-	}
-	return size
-}
-
 func (self *SGuest) GetCdrom() *SGuestcdrom {
-	return self.getCdrom()
+	return self.getCdrom(false)
 }
 
-func (self *SGuest) getCdrom() *SGuestcdrom {
+func (self *SGuest) getCdrom(create bool) *SGuestcdrom {
 	cdrom := SGuestcdrom{}
 	cdrom.SetModelManager(GuestcdromManager)
 
 	err := GuestcdromManager.Query().Equals("id", self.Id).First(&cdrom)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			cdrom.Id = self.Id
-			err = GuestcdromManager.TableSpec().Insert(&cdrom)
-			if err != nil {
-				log.Errorf("insert cdrom fail %s", err)
+			if create {
+				cdrom.Id = self.Id
+				err = GuestcdromManager.TableSpec().Insert(&cdrom)
+				if err != nil {
+					log.Errorf("insert cdrom fail %s", err)
+					return nil
+				}
+				return &cdrom
+			} else {
 				return nil
 			}
-			return &cdrom
 		} else {
 			log.Errorf("getCdrom query fail %s", err)
 			return nil
@@ -1663,7 +1572,7 @@ func (self *SGuest) getKeypairName() string {
 }
 
 func (self *SGuest) getNotifyIps() string {
-	ips := self.getRealIPs()
+	ips := self.GetRealIPs()
 	vips := self.getVirtualIPs()
 	if vips != nil {
 		ips = append(ips, vips...)
@@ -1671,7 +1580,8 @@ func (self *SGuest) getNotifyIps() string {
 	return strings.Join(ips, ",")
 }
 
-func (self *SGuest) getRealIPs() []string {
+/*
+func (self *SGuest) GetRealIPs() []string {
 	guestnets, err := self.GetNetworks("")
 	if err != nil {
 		return nil
@@ -1684,9 +1594,10 @@ func (self *SGuest) getRealIPs() []string {
 	}
 	return ips
 }
+*/
 
 func (self *SGuest) IsExitOnly() bool {
-	for _, ip := range self.getRealIPs() {
+	for _, ip := range self.GetRealIPs() {
 		addr, _ := netutils.NewIPV4Addr(ip)
 		if !netutils.IsExitAddress(addr) {
 			return false
@@ -1711,7 +1622,7 @@ func (self *SGuest) getVirtualIPs() []string {
 }
 
 func (self *SGuest) getIPs() []string {
-	ips := self.getRealIPs()
+	ips := self.GetRealIPs()
 	vips := self.getVirtualIPs()
 	ips = append(ips, vips...)
 	/*eip, _ := self.GetEip()
@@ -2846,8 +2757,8 @@ func (self *SGuest) DetachAllNetworks(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SGuest) EjectIso(userCred mcclient.TokenCredential) bool {
-	cdrom := self.getCdrom()
-	if len(cdrom.ImageId) > 0 {
+	cdrom := self.getCdrom(false)
+	if cdrom != nil && len(cdrom.ImageId) > 0 {
 		imageId := cdrom.ImageId
 		if cdrom.ejectIso() {
 			db.OpsLog.LogEvent(self, db.ACT_ISO_DETACH, imageId, userCred)
@@ -3154,9 +3065,12 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 	desc.Add(jsonutils.NewArray(jsonDisks...), "disks")
 
 	// cdrom
-	cdDesc := self.getCdrom().getJsonDesc()
-	if cdDesc != nil {
-		desc.Add(cdDesc, "cdrom")
+	cdrom := self.getCdrom(false)
+	if cdrom != nil {
+		cdDesc := cdrom.getJsonDesc()
+		if cdDesc != nil {
+			desc.Add(cdDesc, "cdrom")
+		}
 	}
 
 	// tenant
@@ -3495,7 +3409,7 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
 	desc.Set("cpu", jsonutils.NewInt(int64(self.VcpuCount)))
 
-	address := jsonutils.NewString(strings.Join(self.getRealIPs(), ","))
+	address := jsonutils.NewString(strings.Join(self.GetRealIPs(), ","))
 	desc.Set("ip_addr", address)
 
 	if len(self.OsType) > 0 {
@@ -3768,10 +3682,6 @@ func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, u
 
 func (self *SGuest) GetEip() (*SElasticip, error) {
 	return ElasticipManager.getEipForInstance("server", self.Id)
-}
-
-func (self *SGuest) GetRealIps() []string {
-	return self.getRealIPs()
 }
 
 func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEip cloudprovider.ICloudEIP, projectId string) compare.SyncResult {
@@ -4169,7 +4079,7 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	r := new(api.ServerCreateInput)
 	r.VmemSize = self.VmemSize
 	r.VcpuCount = int(self.VcpuCount)
-	if guestCdrom := self.getCdrom(); guestCdrom != nil {
+	if guestCdrom := self.getCdrom(false); guestCdrom != nil {
 		r.Cdrom = guestCdrom.ImageId
 	}
 	r.Vga = self.Vga
