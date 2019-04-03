@@ -1,0 +1,13 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+reviewers:
+  - swordqiu
+  - yousong
+  - wanyaoqi
+  - Zexi
+  - ioito
+  - tb365
+approvers:
+  - swordqiu
+  - yousong
+  - wanyaoqi
+  - Zexi
