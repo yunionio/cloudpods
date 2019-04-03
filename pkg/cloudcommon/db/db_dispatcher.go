@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type DBModelDispatcher struct {
@@ -309,13 +310,28 @@ func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchem
 	return q, nil
 }
 
-func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
-	listF := listFields(manager, userCred)
-	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
-	if len(fieldFilter) > 0 && IsAdminAllowList(userCred, manager) {
-		// only sysadmin can specify list Fields
-		listF = fieldFilter
+func mergeFields(metaFields, queryFields []string, isAdmin bool) stringutils2.SSortedStrings {
+	meta := stringutils2.NewSortedStrings(metaFields)
+	if len(queryFields) == 0 {
+		return meta
 	}
+
+	query := stringutils2.NewSortedStrings(queryFields)
+	_, mAndQ, qNoM := stringutils2.Split(meta, query)
+
+	if !isAdmin {
+		return mAndQ
+	}
+
+	// only sysadmin can specify list Fields
+	return stringutils2.Merge(mAndQ, qNoM)
+}
+
+func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
+	metaFields := listFields(manager, userCred)
+	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
+	listF := mergeFields(metaFields, fieldFilter, IsAdminAllowList(userCred, manager))
+
 	showDetails := false
 	showDetailsJson, _ := query.Get("details")
 	if showDetailsJson != nil {
@@ -323,15 +339,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	} else {
 		showDetails = true
 	}
-	item, err := NewModelObject(manager)
-	if err != nil {
-		return nil, err
-	}
-	itemInitValue := reflect.Indirect(reflect.ValueOf(item))
-	item, err = NewModelObject(manager)
-	if err != nil {
-		return nil, err
-	}
+	items := make([]IModel, 0)
 	results := make([]jsonutils.JSONObject, 0)
 	rows, err := q.Rows()
 	if err != nil {
@@ -339,8 +347,10 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	}
 	defer rows.Close()
 	for rows.Next() {
-		itemValue := reflect.Indirect(reflect.ValueOf(item))
-		itemValue.Set(itemInitValue)
+		item, err := NewModelObject(manager)
+		if err != nil {
+			return nil, err
+		}
 		extraData := jsonutils.NewDict()
 		if query.Contains("export_keys") {
 			RowMap, err := q.Row2Map(rows)
@@ -362,12 +372,8 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			}
 		}
 
-		jsonData := jsonutils.Marshal(item)
-		jsonDict, ok := jsonData.(*jsonutils.JSONDict)
-		if !ok {
-			return nil, fmt.Errorf("invalid model data structure, not a dict")
-		}
-		jsonDict = jsonDict.CopyIncludes(listF...)
+		jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
+		jsonDict = jsonDict.CopyIncludes([]string(listF)...)
 		jsonDict.Update(extraData)
 		if showDetails && !query.Contains("export_keys") {
 			extraDict := item.GetCustomizeColumns(ctx, userCred, query)
@@ -377,6 +383,16 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			jsonDict = getModelExtraDetails(item, ctx, jsonDict)
 		}
 		results = append(results, jsonDict)
+		items = append(items, item)
+	}
+	if showDetails && !query.Contains("export_keys") {
+		extraRows := manager.FetchCustomizeColumns(ctx, userCred, query, items, stringutils2.NewSortedStrings(fieldFilter))
+		log.Debugf("manager.FetchCustomizeColumns: %s %s", extraRows, listF)
+		if len(extraRows) == len(results) {
+			for i := range results {
+				results[i].(*jsonutils.JSONDict).Update(extraRows[i])
+			}
+		}
 	}
 	return results, nil
 }
@@ -603,20 +619,27 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 	extraDict, err := item.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
-	} else if extraDict != nil {
-		jsonData := jsonutils.Marshal(item)
-		jsonDict, ok := jsonData.(*jsonutils.JSONDict)
-		if !ok {
-			return nil, fmt.Errorf("fail to convert model to json")
-		}
-		jsonDict = jsonDict.CopyIncludes(GetDetailFields(manager, userCred)...)
-		jsonDict.Update(extraDict)
-		jsonDict = getModelExtraDetails(item, ctx, jsonDict)
-		return jsonDict, nil
-	} else {
+	}
+	if extraDict == nil {
 		// override GetExtraDetails
 		return nil, nil
 	}
+
+	metaFields := GetDetailFields(manager, userCred)
+	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
+	getFields := mergeFields(metaFields, fieldFilter, IsAdminAllowGet(userCred, item))
+
+	jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
+	jsonDict = jsonDict.CopyIncludes(getFields...)
+	jsonDict.Update(extraDict)
+	jsonDict = getModelExtraDetails(item, ctx, jsonDict)
+
+	extraRows := manager.FetchCustomizeColumns(ctx, userCred, query, []IModel{item}, stringutils2.NewSortedStrings(fieldFilter))
+	if len(extraRows) == 1 {
+		jsonDict.Update(extraRows[0])
+	}
+
+	return jsonDict, nil
 }
 
 func (dispatcher *DBModelDispatcher) tryGetModelProperty(ctx context.Context, property string, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {

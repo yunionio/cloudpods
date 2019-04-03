@@ -255,7 +255,7 @@ func (self *SGuest) PerformLiveMigrate(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewBadRequestError("Guest have backup, can't migrate")
 	}
 	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_SUSPEND}) {
-		cdrom := self.getCdrom()
+		cdrom := self.getCdrom(false)
 		if cdrom != nil && len(cdrom.ImageId) > 0 {
 			return nil, httperrors.NewBadRequestError("Cannot migrate with cdrom")
 		}
@@ -595,17 +595,17 @@ func (self *SGuest) StartGuestStopTask(ctx context.Context, userCred mcclient.To
 }
 
 func (self *SGuest) insertIso(imageId string) bool {
-	cdrom := self.getCdrom()
+	cdrom := self.getCdrom(true)
 	return cdrom.insertIso(imageId)
 }
 
 func (self *SGuest) InsertIsoSucc(imageId string, path string, size int, name string) bool {
-	cdrom := self.getCdrom()
+	cdrom := self.getCdrom(false)
 	return cdrom.insertIsoSucc(imageId, path, size, name)
 }
 
 func (self *SGuest) GetDetailsIso(userCred mcclient.TokenCredential) jsonutils.JSONObject {
-	cdrom := self.getCdrom()
+	cdrom := self.getCdrom(false)
 	desc := jsonutils.NewDict()
 	if len(cdrom.ImageId) > 0 {
 		desc.Set("image_id", jsonutils.NewString(cdrom.ImageId))
@@ -624,12 +624,8 @@ func (self *SGuest) AllowPerformInsertiso(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuest) PerformInsertiso(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	cdrom := self.getCdrom()
-	if cdrom == nil {
-		return nil, fmt.Errorf("Failed to get cdrom")
-	}
-
-	if len(cdrom.ImageId) > 0 {
+	cdrom := self.getCdrom(false)
+	if cdrom != nil && len(cdrom.ImageId) > 0 {
 		return nil, httperrors.NewBadRequestError("CD-ROM not empty, please eject first")
 	}
 	imageId, _ := data.GetString("image_id")
@@ -655,11 +651,8 @@ func (self *SGuest) PerformEjectiso(ctx context.Context, userCred mcclient.Token
 	if self.Hypervisor != HYPERVISOR_KVM {
 		return nil, httperrors.NewNotAcceptableError("Not allow for hypervisor %s", self.Hypervisor)
 	}
-	cdrom := self.getCdrom()
-	if cdrom == nil {
-		return nil, fmt.Errorf("Failed to get cdrom")
-	}
-	if len(cdrom.ImageId) == 0 {
+	cdrom := self.getCdrom(false)
+	if cdrom == nil || len(cdrom.ImageId) == 0 {
 		return nil, httperrors.NewBadRequestError("No ISO to eject")
 	}
 	if utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY}) {

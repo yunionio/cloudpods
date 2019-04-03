@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SModelBase struct {
@@ -191,6 +192,14 @@ func (manager *SModelBaseManager) ListSkipLog(ctx context.Context, userCred mccl
 
 func (manager *SModelBaseManager) GetSkipLog(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return false
+}
+
+func (manager *SModelBaseManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
+	ret := make([]*jsonutils.JSONDict, len(objs))
+	for i := range objs {
+		ret[i] = jsonutils.NewDict()
+	}
+	return ret
 }
 
 func (model *SModelBase) GetId() string {

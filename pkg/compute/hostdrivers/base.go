@@ -131,7 +131,7 @@ func (self *SBaseHostDriver) FinishConvert(userCred mcclient.TokenCredential, ho
 	db.Update(host, func() error {
 		host.CpuReserved = 0
 		host.MemReserved = 0
-		host.AccessIp = guest.GetRealIps()[0]
+		host.AccessIp = guest.GetRealIPs()[0]
 		host.Enabled = false
 		host.HostStatus = models.HOST_OFFLINE
 		host.HostType = hostType

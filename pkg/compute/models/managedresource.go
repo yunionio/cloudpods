@@ -227,6 +227,24 @@ type SCloudProviderInfo struct {
 	ZoneExtId        string `json:",omitempty"`
 }
 
+var (
+	providerInfoFields = []string{
+		"provider",
+		"account",
+		"account_id",
+		"manager",
+		"manager_id",
+		"manager_project",
+		"manager_project_id",
+		"region",
+		"region_id",
+		"region_ext_id",
+		"zone",
+		"zone_id",
+		"zone_ext_id",
+	}
+)
+
 func fetchExternalId(extId string) string {
 	pos := strings.LastIndexByte(extId, '/')
 	if pos > 0 {
