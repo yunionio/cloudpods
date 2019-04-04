@@ -8,7 +8,7 @@ type ScheduleOptions struct {
 	Wire         string   `help:"Preferred wire where virtual server should be created" json:"prefer_wire"`
 	Host         string   `help:"Preferred host where virtual server should be created" json:"prefer_host"`
 	Schedtag     []string `help:"Schedule policy, key = aggregate name, value = require|exclude|prefer|avoid" metavar:"<KEY:VALUE>"`
-	Hypervisor   string   `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei"`
+	Hypervisor   string   `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack"`
 	ResourceType string   `help:"Resource type" choices:"shared|prepaid|dedicated"`
 }
 
