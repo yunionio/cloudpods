@@ -278,7 +278,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 	for _, instType := range instanceTypes {
 		instanceTypeId := instType.Name
 		log.Debugf("Try instancetype : %s", instanceTypeId)
-		vmId, err = self.zone.region.CreateInstance(name, imgId, instanceType, networkId, secgroupId, secgroup.VpcID, self.zone.GetId(), desc, disks, ipAddr, keypair, passwd, userData, bc)
+		vmId, err = self.zone.region.CreateInstance(name, imgId, instanceTypeId, networkId, secgroupId, secgroup.VpcID, self.zone.GetId(), desc, disks, ipAddr, keypair, passwd, userData, bc)
 		if err != nil {
 			log.Errorf("Failed for %s: %s", instanceTypeId, err)
 		} else {
