@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/logger/models"
 	"yunion.io/x/onecloud/pkg/logger/options"
 )
 
@@ -48,6 +49,8 @@ func StartService() {
 
 	cloudcommon.InitDB(dbOpts)
 	defer cloudcommon.CloseDB()
+
+	models.StartNotifyToWebsocketWorker()
 
 	app := app_common.InitApp(commonOpts, true)
 	cloudcommon.AppDBInit(app)
