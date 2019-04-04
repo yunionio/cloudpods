@@ -75,6 +75,8 @@ func (self *SBaseHostDriver) PrepareConvert(host *models.SHost, image, raid stri
 	} else {
 		params.Set("name", jsonutils.NewString(host.Name))
 	}
+	params.Set("vcpu_count", jsonutils.NewInt(int64(host.CpuCount)))
+	params.Set("vmem_size", jsonutils.NewInt(int64(host.MemSize)))
 	params.Set("auto_start", jsonutils.NewBool(true))
 	params.Set("is_system", jsonutils.NewBool(true))
 	params.Set("prefer_baremetal", jsonutils.NewString(host.Id))
