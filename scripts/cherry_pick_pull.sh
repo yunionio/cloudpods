@@ -195,7 +195,8 @@ for pull in "${PULLS[@]}"; do
 
   # set the subject
   subject=$(grep -m 1 "^Subject" "/tmp/${pull}.patch" | sed -e 's/Subject: \[PATCH//g' | sed 's/.*] //')
-  subject_=$(echo "$subject" | python -c 'from email.Header import decode_header as f; import sys; s=sys.stdin.read(); print f(s)[0][0]')
+  subject_=$(echo "$subject" | python -c 'from email.header import decode_header as f; import sys; \
+      s=sys.stdin.read(); v=f(s)[0]; print(v[0].decode(v[1]) if v[1] else v[0])')
   [ -z "$subject_" ] || subject="$subject_"
   SUBJECTS+=("#${pull}: ${subject}")
 
