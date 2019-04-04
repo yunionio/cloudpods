@@ -41,7 +41,7 @@ func NewOpenStackClient(providerID string, providerName string, authURL string, 
 	cli := &SOpenStackClient{
 		providerID:   providerID,
 		providerName: providerName,
-		authURL:      authURL,
+		authURL:      strings.TrimRight(authURL, "/"),
 		username:     username,
 		password:     password,
 		project:      project,
@@ -63,13 +63,25 @@ func (cli *SOpenStackClient) fetchRegions() error {
 	if err := cli.connect(); err != nil {
 		return err
 	}
+
 	regions := cli.tokenCredential.GetRegions()
 	cli.iregions = make([]cloudprovider.ICloudRegion, len(regions))
 	for i := 0; i < len(regions); i++ {
 		region := SRegion{client: cli, Name: regions[i]}
 		cli.iregions[i] = &region
 	}
-	return nil
+
+	for _, region := range regions {
+		if serviceURL, err := cli.tokenCredential.GetServiceURL("compute", region, "", cli.endpointType); err != nil || len(serviceURL) == 0 {
+			for _, endpointType := range []string{"internal", "admin", "public"} {
+				if serviceURL, err := cli.tokenCredential.GetServiceURL("compute", region, "", endpointType); err == nil && len(serviceURL) > 0 {
+					cli.endpointType = endpointType
+					return nil
+				}
+			}
+		}
+	}
+	return fmt.Errorf("failed to find right endpoint type")
 }
 
 func (cli *SOpenStackClient) Request(region, service, method string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
