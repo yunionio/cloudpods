@@ -25,6 +25,7 @@ import (
 
 type BaseManagerInterface interface {
 	Version() string
+	GetApiVersion() string
 	GetKeyword() string
 	KeyString() string
 	ServiceType() string
@@ -293,7 +294,7 @@ func GetJointModule2(session *mcclient.ClientSession, mod1 Manager, mod2 Manager
 		return nil, fmt.Errorf("No such joint module: %s", key)
 	}
 	for _, mod := range mods {
-		url, e := session.GetServiceURL(mod.ServiceType(), mod.EndpointType())
+		url, e := session.GetServiceVersionURL(mod.ServiceType(), mod.EndpointType(), mod.GetApiVersion())
 		if e != nil {
 			return nil, e
 		}
