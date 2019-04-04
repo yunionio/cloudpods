@@ -376,6 +376,7 @@ func syncZoneHosts(ctx context.Context, userCred mcclient.TokenCredential, syncR
 			lockman.LockObject(ctx, &localHosts[i])
 			defer lockman.ReleaseObject(ctx, &localHosts[i])
 
+			syncMetadata(ctx, userCred, &localHosts[i], remoteHosts[i])
 			newCachePairs = syncHostStorages(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i], storageCachePairs)
 			syncHostWires(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i])
 			syncHostVMs(ctx, userCred, syncResults, provider, driver, &localHosts[i], remoteHosts[i], syncRange)
@@ -406,6 +407,7 @@ func syncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 
 	newCacheIds := make([]sStoragecacheSyncPair, 0)
 	for i := 0; i < len(localStorages); i += 1 {
+		syncMetadata(ctx, userCred, &localStorages[i], remoteStorages[i])
 		if !isInCache(storageCachePairs, localStorages[i].StoragecacheId) && !isInCache(newCacheIds, localStorages[i].StoragecacheId) {
 			cachePair := syncStorageCaches(ctx, userCred, provider, &localStorages[i], remoteStorages[i])
 			if cachePair.remote != nil && cachePair.local != nil {
@@ -467,6 +469,7 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 			lockman.LockObject(ctx, syncVMPairs[i].Local)
 			defer lockman.ReleaseObject(ctx, syncVMPairs[i].Local)
 
+			syncMetadata(ctx, userCred, syncVMPairs[i].Local, syncVMPairs[i].Remote)
 			syncVMNics(ctx, userCred, provider, localHost, syncVMPairs[i].Local, syncVMPairs[i].Remote)
 			syncVMDisks(ctx, userCred, provider, driver, localHost, syncVMPairs[i].Local, syncVMPairs[i].Remote, syncRange)
 			syncVMEip(ctx, userCred, provider, syncVMPairs[i].Local, syncVMPairs[i].Remote)

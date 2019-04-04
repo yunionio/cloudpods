@@ -1334,7 +1334,6 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localHosts = append(localHosts, commondb[i])
 			remoteHosts = append(remoteHosts, commonext[i])
 			syncResult.Update()
@@ -1345,7 +1344,6 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, new, added[i])
 			localHosts = append(localHosts, *new)
 			remoteHosts = append(remoteHosts, added[i])
 			syncResult.Add()
@@ -1546,7 +1544,6 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			localStorages = append(localStorages, commondb[i])
 			remoteStorages = append(remoteStorages, commonext[i])
 			syncResult.Update()
@@ -1559,7 +1556,6 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, local, added[i])
 			localStorages = append(localStorages, *local)
 			remoteStorages = append(remoteStorages, added[i])
 			syncResult.Add()
@@ -1793,7 +1789,6 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
-			syncMetadata(ctx, userCred, &commondb[i], commonext[i])
 			syncVMPair := SGuestSyncResult{
 				Local:  &commondb[i],
 				Remote: commonext[i],
@@ -1820,7 +1815,6 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
-			syncMetadata(ctx, userCred, new, added[i])
 			syncVMPair := SGuestSyncResult{
 				Local:  new,
 				Remote: added[i],
