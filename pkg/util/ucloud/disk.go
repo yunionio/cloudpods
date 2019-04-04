@@ -141,7 +141,7 @@ func (self *SDisk) GetTemplateId() string {
 	if strings.Contains(self.DiskType, "SystemDisk") && len(self.UHostID) > 0 {
 		ins, err := self.storage.zone.region.GetInstanceByID(self.UHostID)
 		if err != nil {
-			log.Errorf(err.Error())
+			log.Errorln(err)
 		}
 
 		return ins.ImageID

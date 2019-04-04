@@ -186,7 +186,7 @@ func (self *SDisk) GetExpiredAt() time.Time {
 	if self.Metadata.Billing == "1" {
 		res, err := self.storage.zone.region.GetOrderResourceDetail(self.GetId())
 		if err != nil {
-			log.Debugf(err.Error())
+			log.Debugln(err)
 		}
 
 		expiredTime = res.ExpireTime
@@ -358,7 +358,7 @@ func (self *SDisk) Detach() error {
 	return cloudprovider.WaitCreated(5*time.Second, 60*time.Second, func() bool {
 		err := self.Refresh()
 		if err != nil {
-			log.Debugf(err.Error())
+			log.Debugln(err)
 			return false
 		}
 
