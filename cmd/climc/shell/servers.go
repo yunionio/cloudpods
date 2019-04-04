@@ -818,7 +818,21 @@ func init() {
 	})
 
 	type ServersImportFromLibvirtOptions struct {
-		CONFIG_FILE string `help:"JSON file describing servers from libvirt, e.g. {'hosts': [{'servers': [{'uuid': 'id', 'mac_ip': {'mac1': 'ip1', ...}}]]}}"`
+		CONFIG_FILE string `help:"JSON file describing servers from libvirt, e.g. 
+			{'hosts': 
+				[
+					{
+						'servers': [
+							{
+								'mac_ip': {'mac1': 'ip1', ...}
+							},
+						],
+						'xml_file_path': '/etc/libvirt/qemu',
+						'host_ip': '192.168.1.100',
+					},
+				],
+			}
+		"`
 	}
 	R(&ServersImportFromLibvirtOptions{}, "servers-import-from-libvirt", "Import servers from libvrt", func(s *mcclient.ClientSession, args *ServersImportFromLibvirtOptions) error {
 		rawConfig, err := ioutil.ReadFile(args.CONFIG_FILE)
@@ -852,6 +866,27 @@ func init() {
 			return e
 		}
 		printObject(ret)
+		return nil
+	})
+
+	type ServerExportVirtInstallCommand struct {
+		ID            string   `help:"Server Id" json:"-"`
+		LibvirtBridge string   `help:"Libvirt default bridge" json:"libvirt_bridge"`
+		ExtraCmdline  []string `help:"Extra virt-install arguments add to script, eg:'--extra-args ...', '--console ...'" json:"extra_cmdline"`
+	}
+	R(&ServerExportVirtInstallCommand{}, "server-export-virt-install-command", "Export virt-install command line from existing guest", func(s *mcclient.ClientSession, args *ServerExportVirtInstallCommand) error {
+		params := jsonutils.NewDict()
+		if len(args.LibvirtBridge) > 0 {
+			params.Set("libvirt_bridge", jsonutils.NewString(args.LibvirtBridge))
+		}
+		if len(args.ExtraCmdline) > 0 {
+			params.Set("extra_cmdline", jsonutils.NewStringArray(args.ExtraCmdline))
+		}
+		result, err := modules.Servers.GetSpecific(s, args.ID, "virt-install", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
 		return nil
 	})
 }

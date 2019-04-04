@@ -56,7 +56,6 @@ type SImportGuestDesc struct {
 }
 
 type SLibvirtServerConfig struct {
-	Uuid  string            `json:"uuid"`
 	MacIp map[string]string `json:"mac_ip"`
 }
 
