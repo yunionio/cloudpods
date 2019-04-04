@@ -32,7 +32,7 @@ func TestMd5Fingerprint(t *testing.T) {
 	for _, k := range testKeys {
 		fingerprint, err := md5Fingerprint(k.publickey)
 		if err != nil {
-			t.Errorf(err.Error())
+			t.Error(err)
 			continue
 		}
 

@@ -213,7 +213,7 @@ func (lbacl *SLoadbalancerAcl) GetRegion() *SCloudregion {
 func (lbacl *SLoadbalancerAcl) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := lbacl.GetDriver()
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovide for lb %s: %s", lbacl.Name, err)
+		return nil, fmt.Errorf("No cloudprovider for lb %s: %s", lbacl.Name, err)
 	}
 	region := lbacl.GetRegion()
 	if region == nil {

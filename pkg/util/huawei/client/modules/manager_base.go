@@ -130,7 +130,7 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 	// 拼接、编译、签名 requests here。
 	err := self.buildRequestWithSigner(request, self.signer)
 	if err != nil {
-		return nil, nil, fmt.Errorf(err.Error())
+		return nil, nil, err
 	}
 	header := http.Header{}
 	for k, v := range request.GetHeaders() {

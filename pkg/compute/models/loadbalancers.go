@@ -308,7 +308,7 @@ func (lb *SLoadbalancer) GetNetwork() *SNetwork {
 func (lb *SLoadbalancer) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := lb.GetDriver()
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovide for lb %s: %s", lb.Name, err)
+		return nil, fmt.Errorf("No cloudprovider for lb %s: %s", lb.Name, err)
 	}
 	region := lb.GetRegion()
 	if region == nil {

@@ -67,8 +67,7 @@ type SInstance struct {
 func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	secgroups, err := self.GetSecurityGroups()
 	if err != nil {
-		log.Errorf(err.Error())
-		return nil, err
+		log.Errorln(err)
 	}
 
 	secgroupIds := make([]string, 0)

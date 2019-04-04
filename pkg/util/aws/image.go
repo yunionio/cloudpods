@@ -404,7 +404,7 @@ func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType,
 		size, err := getRootDiskSize(image)
 		if err != nil {
 			// fail to get disk size, ignore the image
-			/// log.Debugf(err.Error())
+			/// log.Debugln(err)
 			continue
 		}
 
