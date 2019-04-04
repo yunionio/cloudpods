@@ -443,11 +443,16 @@ type ServerDeployOptions struct {
 func (opts *ServerDeployOptions) Params() (*computeapi.ServerDeployInput, error) {
 	params := new(computeapi.ServerDeployInput)
 	{
-		deleteKeyPair := BoolV(opts.DeleteKeypair)
-		if deleteKeyPair {
-			params.DeleteKeypair = true
+		if opts.DeleteKeypair != nil {
+			params.DeleteKeypair = opts.DeleteKeypair
 		} else if len(opts.Keypair) > 0 {
 			params.Keypair = opts.Keypair
+		}
+		params.AutoStart = opts.AutoStart
+		if opts.ResetPassword != nil {
+			params.ResetPassword = opts.ResetPassword
+		} else if len(opts.Password) > 0 {
+			params.Password = opts.Password
 		}
 	}
 	{
