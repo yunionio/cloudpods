@@ -32,7 +32,7 @@ func (self *SHuaweiGuestDriver) GetDefaultSysDiskBackend() string {
 }
 
 func (self *SHuaweiGuestDriver) GetMinimalSysDiskSizeGb() int {
-	return 10
+	return 40
 }
 
 func (self *SHuaweiGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
