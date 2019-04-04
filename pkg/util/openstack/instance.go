@@ -544,7 +544,24 @@ func (region *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanc
 
 func (region *SRegion) DetachDisk(instanceId string, diskId string) error {
 	_, err := region.Delete("compute", fmt.Sprintf("/servers/%s/os-volume_attachments/%s", instanceId, diskId), "")
-	return err
+	if err != nil {
+		return err
+	}
+	status := ""
+	startTime := time.Now()
+	for time.Now().Sub(startTime) < time.Minute*10 {
+		disk, err := region.GetDisk(diskId)
+		if err != nil {
+			return err
+		}
+		status = disk.Status
+		log.Debugf("status %s expect %s", status, DISK_STATUS_AVAILABLE)
+		if status == DISK_STATUS_AVAILABLE {
+			return nil
+		}
+		time.Sleep(time.Second * 15)
+	}
+	return fmt.Errorf("timeout for waitting detach disk, current status: %s", status)
 }
 
 func (region *SRegion) AttachDisk(instanceId string, diskId string) error {
@@ -554,7 +571,24 @@ func (region *SRegion) AttachDisk(instanceId string, diskId string) error {
 		},
 	}
 	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/os-volume_attachments", instanceId), "", jsonutils.Marshal(params))
-	return err
+	if err != nil {
+		return err
+	}
+	status := ""
+	startTime := time.Now()
+	for time.Now().Sub(startTime) < time.Minute*10 {
+		disk, err := region.GetDisk(diskId)
+		if err != nil {
+			return err
+		}
+		status = disk.Status
+		log.Debugf("status %s expect %s", status, DISK_STATUS_IN_USE)
+		if status == DISK_STATUS_IN_USE {
+			return nil
+		}
+		time.Sleep(time.Second * 15)
+	}
+	return fmt.Errorf("timeout for waitting attach disk, current status: %s", status)
 }
 
 func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
