@@ -116,12 +116,17 @@ func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context
 
 func (self *GuestCreateTask) OnAutoStartGuest(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
-	self.StartEipSubTask(ctx, guest)
+	self.TaskComplete(ctx, guest)
 }
 
 func (self *GuestCreateTask) OnSyncStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
+	self.TaskComplete(ctx, guest)
+}
+
+func (self *GuestCreateTask) TaskComplete(ctx context.Context, guest *models.SGuest) {
+	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE, "", self.UserCred)
+	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_ALLOCATE, "", self.UserCred, true)
 	self.SetStageComplete(ctx, guest.GetShortDesc(ctx))
 	self.StartEipSubTask(ctx, guest)
 }
