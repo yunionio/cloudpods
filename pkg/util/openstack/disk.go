@@ -151,7 +151,24 @@ func (disk *SDisk) Delete(ctx context.Context) error {
 	return cloudprovider.WaitDeleted(disk, 10*time.Second, 8*time.Minute)
 }
 
+func (disk *SDisk) attachInstances(instanceIds []string) {
+	for _, instanceId := range instanceIds {
+		if err := disk.storage.zone.region.AttachDisk(instanceId, disk.ID); err != nil {
+			log.Errorf("recover attach disk %s => instance %s error: %v", disk.ID, instanceId, err)
+		}
+	}
+}
+
 func (disk *SDisk) Resize(ctx context.Context, sizeMb int64) error {
+	instanceIds := []string{}
+
+	defer disk.attachInstances(instanceIds)
+	for _, attachement := range disk.Attachments {
+		if err := disk.storage.zone.region.DetachDisk(attachement.ServerID, disk.ID); err != nil {
+			return err
+		}
+		instanceIds = append(instanceIds, attachement.ServerID)
+	}
 	return disk.storage.zone.region.ResizeDisk(disk.ID, sizeMb)
 }
 
