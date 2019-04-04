@@ -99,6 +99,7 @@ func (self *HostImportLibvirtServersTask) StartImportServers(
 			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT, note, self.UserCred)
 		} else {
 			log.Errorln(note)
+			guest.SetStatus(self.UserCred, compute.VM_IMPORT_FAILED, note)
 			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT_FAIL, note, self.UserCred)
 		}
 		logclient.AddActionLogWithContext(ctx, host,
