@@ -296,6 +296,8 @@ func (self *SDisk) Delete(ctx context.Context) error {
 		log.Errorf("Failed to find disk %s when delete", self.GetId())
 		return nil
 	} else if disk.Status != "deleting" {
+		// 等待硬盘ready
+		cloudprovider.WaitStatus(self, models.DISK_READY, 5*time.Second, 60*time.Second)
 		err := self.storage.zone.region.DeleteDisk(self.GetId())
 		if err != nil {
 			return err
@@ -344,8 +346,19 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
+	err := cloudprovider.WaitStatus(self, models.DISK_READY, 5*time.Second, 60*time.Second)
+	if err != nil {
+		return err
+	}
+
 	sizeGb := newSizeMB / 1024
-	return self.storage.zone.region.resizeDisk(self.GetId(), sizeGb)
+	err = self.storage.zone.region.resizeDisk(self.GetId(), sizeGb)
+	if err != nil {
+		return err
+	}
+	// 等待异步任务执行
+	cloudprovider.WaitStatus(self, models.DISK_RESIZING, 5*time.Second, 10*time.Second)
+	return cloudprovider.WaitStatus(self, models.DISK_READY, 5*time.Second, 60*time.Second)
 }
 
 func (self *SDisk) Detach() error {
