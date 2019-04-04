@@ -2729,7 +2729,7 @@ func (self *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCre
 
 func (self *SHost) StartSyncAllGuestsStatusTask(ctx context.Context, userCred mcclient.TokenCredential) error {
 	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalSyncAllGuestsStatusTask", self, userCred, nil, "", "", nil); err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return err
 	} else {
 		task.ScheduleRun(nil)
@@ -2801,7 +2801,7 @@ func (self *SHost) StartPrepareTask(ctx context.Context, userCred mcclient.Token
 	}
 	self.SetStatus(userCred, BAREMETAL_PREPARE, "start prepare task")
 	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalPrepareTask", self, userCred, data, parentTaskId, "", nil); err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return err
 	} else {
 		task.ScheduleRun(nil)
@@ -3295,7 +3295,7 @@ func (self *SHost) PerformCacheImage(ctx context.Context, userCred mcclient.Toke
 	imageId, _ := data.GetString("image")
 	img, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return nil, httperrors.NewNotFoundError("image %s not found", imageId)
 	}
 	if len(img.Checksum) != 0 && regutils.MatchUUID(img.Checksum) {

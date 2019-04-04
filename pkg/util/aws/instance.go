@@ -162,7 +162,7 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 	tags, err := FetchTags(self.host.zone.region.ec2Client, self.InstanceId)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 	} else {
 		data.Update(tags)
 	}

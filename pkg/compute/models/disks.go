@@ -319,7 +319,7 @@ func (self *SDisk) GetGuests() []SGuest {
 	// q.DebugQuery()
 	err := db.FetchModelObjects(GuestManager, q, &result)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return nil
 	}
 	return result
@@ -1680,7 +1680,7 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 
 func (disk *SDisk) StratCreateBackupTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	if task, err := taskman.TaskManager.NewTask(ctx, "DiskCreateBackupTask", disk, userCred, nil, parentTaskId, "", nil); err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return err
 	} else {
 		task.ScheduleRun(nil)

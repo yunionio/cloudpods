@@ -379,7 +379,7 @@ func (h *SHostInfo) EnableNativeHugepages() error {
 			log.Errorln(err)
 			_, err = procutils.NewCommand("sh", "-c", "echo 0 > /proc/sys/vm/nr_hugepages").Run()
 			if err != nil {
-				log.Warningf(err.Error())
+				log.Warningln(err)
 			}
 			return fmt.Errorf("Failed to set native hugepages, " +
 				"the system might have run out of contiguous memory, fall back to 0")
@@ -1480,7 +1480,7 @@ func Instance() *SHostInfo {
 		var err error
 		hostInfo, err = NewHostInfo()
 		if err != nil {
-			log.Fatalf(err.Error())
+			log.Fatalln(err)
 		}
 	}
 	return hostInfo

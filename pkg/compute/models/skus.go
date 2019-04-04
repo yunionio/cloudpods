@@ -679,7 +679,7 @@ func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
 	q = q.NotIn("zone_id", sq).IsNotEmpty("zone_id")
 	err := db.FetchModelObjects(manager, q, &skus)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return httperrors.NewInternalServerError("query sku list failed.")
 	}
 
@@ -690,7 +690,7 @@ func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
 		})
 
 		if err != nil {
-			log.Errorf(err.Error())
+			log.Errorln(err)
 			return httperrors.NewInternalServerError("delete sku %s failed.", sku.Id)
 		}
 	}
