@@ -15,9 +15,11 @@
 package appsrv
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -155,6 +157,13 @@ func (app *Application) AddHandler3(hi *SHandlerInfo) *SHandlerInfo {
 type loggingResponseWriter struct {
 	http.ResponseWriter
 	status int
+}
+
+func (lrw *loggingResponseWriter) Hijack() (rwc net.Conn, buf *bufio.ReadWriter, err error) {
+	if f, ok := lrw.ResponseWriter.(http.Hijacker); ok {
+		return f.Hijack()
+	}
+	return nil, nil, fmt.Errorf("not a hijacker")
 }
 
 func (lrw *loggingResponseWriter) WriteHeader(code int) {

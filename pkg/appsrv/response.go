@@ -15,8 +15,10 @@
 package appsrv
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -78,6 +80,18 @@ func (w *responseWriterChannel) Flush() {
 	if f, ok := w.backend.(http.Flusher); ok {
 		f.Flush()
 	}
+}
+
+// Hijack implements the Hijacker.Hijack method. Our response is both a ResponseWriter
+// and a Hijacker.
+func (w *responseWriterChannel) Hijack() (rwc net.Conn, buf *bufio.ReadWriter, err error) {
+	if w.isClosed {
+		return nil, nil, fmt.Errorf("response stream has been closed")
+	}
+	if f, ok := w.backend.(http.Hijacker); ok {
+		return f.Hijack()
+	}
+	return nil, nil, fmt.Errorf("not a hijacker")
 }
 
 func (w *responseWriterChannel) wait(ctx context.Context, workerChan chan *SWorker) interface{} {
