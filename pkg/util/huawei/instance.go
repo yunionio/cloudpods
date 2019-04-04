@@ -263,7 +263,7 @@ func (self *SInstance) GetExpiredAt() time.Time {
 	if self.Metadata.ChargingMode == "1" {
 		res, err := self.host.zone.region.GetOrderResourceDetail(self.GetId())
 		if err != nil {
-			log.Debugf(err.Error())
+			log.Debugln(err)
 		}
 
 		expiredTime = res.ExpireTime
@@ -762,7 +762,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 
 			ids, err = self.getAllResIdsByType(_id, RESOURCE_TYPE_VM)
 			if err != nil {
-				log.Debugf(err.Error())
+				log.Debugln(err)
 				return false
 			}
 

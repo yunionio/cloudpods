@@ -1692,14 +1692,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:636db180d3fc734536a5437d93bb6fe937feb036c1ed062c25872a47c4283163"
+  digest = "1:d4ebc35bc25d8a3d3a264bb80f9b1a07c344283410d7f78f6d9d2dab1858a82f"
   name = "yunion.io/x/log"
   packages = [
     ".",
     "hooks",
   ]
   pruneopts = "UT"
-  revision = "5185c49f6d361f61e561fbccba1bedcc7c62748b"
+  revision = "0b4a12f87d57e3293568174ddbcb91da97d3b5ec"
 
 [[projects]]
   branch = "master"

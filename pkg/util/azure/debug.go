@@ -18,7 +18,7 @@ func LogRequest() autorest.PrepareDecorator {
 		return autorest.PreparerFunc(func(r *http.Request) (*http.Request, error) {
 			r, err := p.Prepare(r)
 			if err != nil {
-				log.Errorf(err.Error())
+				log.Errorln(err)
 			}
 			dump, _ := httputil.DumpRequestOut(r, true)
 			log.Errorf("%s", string(dump))
@@ -32,7 +32,7 @@ func LogResponse() autorest.RespondDecorator {
 		return autorest.ResponderFunc(func(r *http.Response) error {
 			err := p.Respond(r)
 			if err != nil {
-				log.Errorf(err.Error())
+				log.Errorln(err)
 			}
 			dump, _ := httputil.DumpResponse(r, true)
 			log.Errorf("%s", string(dump))

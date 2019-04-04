@@ -83,16 +83,32 @@ func Debugf(format string, args ...interface{}) {
 	logrus.Debugf(format, args...)
 }
 
+func Debugln(args ...interface{}) {
+	logrus.Debugln(args...)
+}
+
 func Printf(format string, args ...interface{}) {
 	logrus.Printf(format, args...)
+}
+
+func Println(args ...interface{}) {
+	logrus.Println(args...)
 }
 
 func Infof(format string, args ...interface{}) {
 	logrus.Infof(format, args...)
 }
 
+func Infoln(args ...interface{}) {
+	logrus.Infoln(args...)
+}
+
 func Warningf(format string, args ...interface{}) {
 	logrus.Warnf(format, args...)
+}
+
+func Warningln(args ...interface{}) {
+	logrus.Warnln(args...)
 }
 
 func Errorf(format string, args ...interface{}) {
@@ -105,6 +121,10 @@ func Errorln(args ...interface{}) {
 
 func Fatalf(format string, args ...interface{}) {
 	logrus.Fatalf(format, args...)
+}
+
+func Fatalln(args ...interface{}) {
+	logrus.Fatalln(args...)
 }
 
 func AddHookFormatter(logger *logrus.Logger) {
