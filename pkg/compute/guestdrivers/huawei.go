@@ -30,7 +30,7 @@ func (self *SHuaweiGuestDriver) GetDefaultSysDiskBackend() string {
 }
 
 func (self *SHuaweiGuestDriver) GetMinimalSysDiskSizeGb() int {
-	return 10
+	return 40
 }
 
 func (self *SHuaweiGuestDriver) GetStorageTypes() []string {
