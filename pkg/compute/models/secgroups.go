@@ -196,7 +196,7 @@ func (self *SSecurityGroup) GetSecRules(direction string) []secrules.SecurityRul
 		//这里没必要拆分为单个单个的端口,到公有云那边适配
 		rule, err := _rule.toRule()
 		if err != nil {
-			log.Errorf(err.Error())
+			log.Errorln(err)
 			continue
 		}
 		rules = append(rules, *rule)

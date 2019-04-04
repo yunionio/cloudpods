@@ -120,7 +120,7 @@ func (self *SSecurityGroup) UcloudSecRuleToOnecloud(rule Rule) secrules.Security
 
 	_, ipNet, err := net.ParseCIDR(rule.SrcIP)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 	}
 
 	secrule.IPNet = ipNet
@@ -133,18 +133,18 @@ func (self *SSecurityGroup) UcloudSecRuleToOnecloud(rule Rule) secrules.Security
 		segs := strings.Split(rule.DstPort, "-")
 		s, err := strconv.Atoi(segs[0])
 		if err != nil {
-			log.Errorf(err.Error())
+			log.Errorln(err)
 		}
 		e, err := strconv.Atoi(segs[1])
 		if err != nil {
-			log.Errorf(err.Error())
+			log.Errorln(err)
 		}
 		secrule.PortStart = s
 		secrule.PortEnd = e
 	} else {
 		port, err := strconv.Atoi(rule.DstPort)
 		if err != nil {
-			log.Errorf(err.Error())
+			log.Errorln(err)
 		}
 
 		secrule.PortStart = port

@@ -40,7 +40,7 @@ func (self *BaremetalServerResetTask) OnInit(ctx context.Context, obj db.IStanda
 	headers := self.GetTaskRequestHeader()
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, nil)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		self.SetStageFailed(ctx, err.Error())
 	} else {
 		self.SetStageComplete(ctx, nil)

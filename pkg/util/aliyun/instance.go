@@ -235,7 +235,7 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 
 	tags, err := self.host.zone.region.fetchTags("instance", self.InstanceId)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 	}
 	data.Update(tags)
 
