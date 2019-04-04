@@ -112,7 +112,7 @@ func (self *SKVMGuestDriver) GetGuestVncInfo(ctx context.Context, userCred mccli
 	ret, err := host.Request(ctx, userCred, "POST", url, nil, body)
 	if err != nil {
 		err = fmt.Errorf("Fail to request VNC info %s", err)
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return nil, err
 	}
 	results, _ := ret.GetString("results")

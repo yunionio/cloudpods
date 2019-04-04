@@ -304,7 +304,7 @@ func (self *SRegion) ImportImageJob(name string, osDist string, osVersion string
 	os_version, err := stdVersion(osDist, osVersion, osArch)
 	log.Debugf("%s %s %s: %s.min_disk %d GB", osDist, osVersion, osArch, os_version, minDiskGB)
 	if err != nil {
-		log.Debugf(err.Error())
+		log.Debugln(err)
 	}
 
 	params := jsonutils.NewDict()

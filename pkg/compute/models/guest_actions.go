@@ -230,7 +230,7 @@ func (self *SGuest) StartMigrateTask(ctx context.Context, userCred mcclient.Toke
 	}
 	data.Set("guest_status", jsonutils.NewString(guestStatus))
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestMigrateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return err
 	} else {
 		task.ScheduleRun(nil)
@@ -288,7 +288,7 @@ func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mccl
 	}
 	data.Set("guest_status", jsonutils.NewString(guestStatus))
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestLiveMigrateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return err
 	} else {
 		task.ScheduleRun(nil)
@@ -445,7 +445,7 @@ func (self *SGuest) StartSyncTask(ctx context.Context, userCred mcclient.TokenCr
 	if fwOnly {
 		data.Add(jsonutils.JSONTrue, "fw_only")
 	} else if err := self.SetStatus(userCred, VM_SYNC_CONFIG, ""); err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return err
 	}
 	return self.doSyncTask(ctx, data, userCred, parentTaskId)
@@ -460,7 +460,7 @@ func (self *SGuest) StartSyncTaskWithoutSyncstatus(ctx context.Context, userCred
 
 func (self *SGuest) doSyncTask(ctx context.Context, data *jsonutils.JSONDict, userCred mcclient.TokenCredential, parentTaskId string) error {
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSyncConfTask", self, userCred, data, parentTaskId, "", nil); err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return err
 	} else {
 		task.ScheduleRun(nil)
@@ -2301,7 +2301,7 @@ func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient
 	taskData.Set("delete_backup", jsonutils.NewBool(deleteBackup))
 	taskData.Set("purge_backup", jsonutils.NewBool(purgeBackup))
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestSwitchToBackupTask", self, userCred, taskData, "", "", nil); err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return nil, err
 	} else {
 		task.ScheduleRun(nil)
@@ -2369,7 +2369,7 @@ func (self *SGuest) StartGuestDeleteOnHostTask(ctx context.Context, userCred mcc
 	taskData.Set("purge", jsonutils.NewBool(purge))
 	if task, err := taskman.TaskManager.NewTask(
 		ctx, "GuestDeleteOnHostTask", self, userCred, taskData, parentTaskId, "", nil); err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return err
 	} else {
 		task.ScheduleRun(nil)
@@ -2381,7 +2381,7 @@ func (guest *SGuest) GuestStartAndSyncToBackup(ctx context.Context, userCred mcc
 	data *jsonutils.JSONDict, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestStartAndSyncToBackupTask", guest, userCred, data, parentTaskId, "", nil)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return err
 	} else {
 		task.ScheduleRun(nil)
@@ -2421,7 +2421,7 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateBackupTask", self, userCred, params, "", "", &req)
 	if err != nil {
 		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, &req)
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return nil, err
 	} else {
 		task.ScheduleRun(nil)
@@ -2453,7 +2453,7 @@ func (self *SGuest) PerformDeleteBackup(ctx context.Context, userCred mcclient.T
 	self.SetStatus(userCred, VM_DELETING_BACKUP, "delete backup server")
 	if task, err := taskman.TaskManager.NewTask(
 		ctx, "GuestDeleteOnHostTask", self, userCred, taskData, "", "", nil); err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return nil, err
 	} else {
 		task.ScheduleRun(nil)
@@ -2463,7 +2463,7 @@ func (self *SGuest) PerformDeleteBackup(ctx context.Context, userCred mcclient.T
 
 func (self *SGuest) CreateBackupDisks(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateBackupDisksTask", self, userCred, nil, parentTaskId, "", nil); err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return err
 	} else {
 		task.ScheduleRun(nil)
@@ -2477,7 +2477,7 @@ func (self *SGuest) StartCreateBackup(ctx context.Context, userCred mcclient.Tok
 	}
 	kwargs.Add(jsonutils.NewString("create"), "deploy_action")
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestDeployBackupTask", self, userCred, kwargs, parentTaskId, "", nil); err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return err
 	} else {
 		task.ScheduleRun(nil)
