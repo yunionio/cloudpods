@@ -381,7 +381,7 @@ func (self *SSnapshot) StartSnapshotDeleteTask(ctx context.Context, userCred mcc
 	params.Set("reload_disk", jsonutils.NewBool(reloadDisk))
 	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return err
 	} else {
 		task.ScheduleRun(nil)
@@ -482,7 +482,7 @@ func (self *SSnapshotManager) PerformDeleteDiskSnapshots(ctx context.Context, us
 func (self *SSnapshot) StartSnapshotsDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "BatchSnapshotsDeleteTask", self, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 		return err
 	} else {
 		task.ScheduleRun(nil)

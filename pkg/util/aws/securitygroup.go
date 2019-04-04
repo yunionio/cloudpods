@@ -387,7 +387,7 @@ func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPe
 	for _, p := range ingress {
 		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleIngress, *p)
 		if err != nil {
-			log.Debugf(err.Error())
+			log.Debugln(err)
 		}
 
 		for _, rule := range ret {
@@ -398,7 +398,7 @@ func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPe
 	for _, p := range egress {
 		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleEgress, *p)
 		if err != nil {
-			log.Debugf(err.Error())
+			log.Debugln(err)
 		}
 
 		for _, rule := range ret {

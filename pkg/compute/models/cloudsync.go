@@ -901,7 +901,7 @@ func SyncCloudProject(userCred mcclient.TokenCredential, model db.IVirtualModel,
 	if extProjectId := extModel.GetProjectId(); len(extProjectId) > 0 {
 		extProject, err := ExternalProjectManager.GetProject(extProjectId, managerId)
 		if err != nil {
-			log.Errorf(err.Error())
+			log.Errorln(err)
 		} else {
 			newId = extProject.ProjectId
 		}
