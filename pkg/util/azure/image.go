@@ -197,7 +197,10 @@ func (self *SImage) GetOsVersion() string {
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
-	return 10
+	if self.Properties.StorageProfile.OsDisk.DiskSizeGB > 0 {
+		return int(self.Properties.StorageProfile.OsDisk.DiskSizeGB)
+	}
+	return 30
 }
 
 func (self *SImage) GetImageFormat() string {
@@ -313,22 +316,24 @@ func (self *SRegion) CreateImage(snapshotId, imageName, osType, imageDesc string
 
 func (self *SRegion) getOfferedImages(publishersFilter []string, offersFilter []string, skusFilter []string, verFilter []string, imageType string, latestVer bool) ([]SImage, error) {
 	images := make([]SImage, 0)
-	idList, err := self.GetOfferedImageIDs(publishersFilter, offersFilter, skusFilter, verFilter, latestVer)
+	idMap, err := self.GetOfferedImageIDs(publishersFilter, offersFilter, skusFilter, verFilter, latestVer)
 	if err != nil {
 		return nil, err
 	}
-	for _, id := range idList {
+	for id, _image := range idMap {
 		image, err := self.getOfferedImage(id)
-		image.ImageType = imageType
 		if err == nil {
+			image.ImageType = imageType
+			image.Properties.StorageProfile.OsDisk.DiskSizeGB = int32(_image.Properties.OsDiskImage.SizeInGb)
+			image.Properties.StorageProfile.OsDisk.OsType = _image.Properties.OsDiskImage.OperatingSystem
 			images = append(images, image)
 		}
 	}
 	return images, nil
 }
 
-func (self *SRegion) GetOfferedImageIDs(publishersFilter []string, offersFilter []string, skusFilter []string, verFilter []string, latestVer bool) ([]string, error) {
-	idList := make([]string, 0)
+func (self *SRegion) GetOfferedImageIDs(publishersFilter []string, offersFilter []string, skusFilter []string, verFilter []string, latestVer bool) (map[string]SAzureImageResource, error) {
+	idMap := map[string]SAzureImageResource{}
 	publishers, err := self.GetImagePublishers(toLowerStringArray(publishersFilter))
 	if err != nil {
 		return nil, err
@@ -354,12 +359,16 @@ func (self *SRegion) GetOfferedImageIDs(publishersFilter []string, offersFilter 
 				}
 				for _, ver := range vers {
 					idStr := strings.Join([]string{publisher, offer, sku, ver}, "/")
-					idList = append(idList, idStr)
+					image, err := self.getImageDetail(publisher, offer, sku, ver)
+					if err != nil {
+						return nil, err
+					}
+					idMap[idStr] = image
 				}
 			}
 		}
 	}
-	return idList, nil
+	return idMap, nil
 }
 
 func (self *SRegion) getPrivateImages() ([]SImage, error) {
@@ -421,10 +430,21 @@ func (self *SImage) Delete(ctx context.Context) error {
 	return self.storageCache.region.DeleteImage(self.ID)
 }
 
+type SOsDiskImage struct {
+	OperatingSystem string `json:"operatingSystem"`
+	SizeInGb        int    `json:"sizeInGb"`
+}
+
+type SAzureImageResourceProperties struct {
+	ReplicaType string       `json:"replicaType"`
+	OsDiskImage SOsDiskImage `json:"osDiskImage"`
+}
+
 type SAzureImageResource struct {
-	Id       string
-	Name     string
-	Location string
+	Id         string
+	Name       string
+	Location   string
+	Properties SAzureImageResourceProperties
 }
 
 func (region *SRegion) GetImagePublishers(filter []string) ([]string, error) {
@@ -487,6 +507,17 @@ func (region *SRegion) getImageVersions(publisher string, offer string, sku stri
 	return ret, nil
 }
 
+func (region *SRegion) getImageDetail(publisher string, offer string, sku string, version string) (SAzureImageResource, error) {
+	image := SAzureImageResource{}
+	id := "/Subscriptions/" + region.client.subscriptionId +
+		"/Providers/Microsoft.Compute/locations/" + region.Name +
+		"/publishers/" + publisher +
+		"/artifacttypes/vmimage/offers/" + offer +
+		"/skus/" + sku +
+		"/versions/" + version
+	return image, region.client.Get(id, []string{}, &image)
+}
+
 func (region *SRegion) getOfferedImage(offerId string) (SImage, error) {
 	image := SImage{}
 
@@ -511,6 +542,11 @@ func (region *SRegion) getOfferedImage(offerId string) (SImage, error) {
 	image.Sku = sku
 	image.Version = version
 	image.Properties.ProvisioningState = ImageStatusAvailable
+	_image, err := region.getImageDetail(publisher, offer, sku, version)
+	if err == nil {
+		image.Properties.StorageProfile.OsDisk.DiskSizeGB = int32(_image.Properties.OsDiskImage.SizeInGb)
+		image.Properties.StorageProfile.OsDisk.OperatingSystem = _image.Properties.OsDiskImage.OperatingSystem
+	}
 	return image, nil
 }
 
