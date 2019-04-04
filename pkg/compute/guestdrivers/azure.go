@@ -40,7 +40,7 @@ func (self *SAzureGuestDriver) GetDefaultSysDiskBackend() string {
 }
 
 func (self *SAzureGuestDriver) GetMinimalSysDiskSizeGb() int {
-	return 10
+	return 30
 }
 
 func (self *SAzureGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {

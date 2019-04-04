@@ -141,7 +141,7 @@ func (self *SAzureClient) Get(resourceId string, params []string, retVal interfa
 	if err != nil {
 		return err
 	}
-	fmt.Println(body)
+	//fmt.Println(body)
 	err = body.Unmarshal(retVal)
 	if err != nil {
 		return err
