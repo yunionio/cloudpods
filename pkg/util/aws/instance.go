@@ -190,17 +190,21 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 	}
 
 	data.Add(jsonutils.NewString(self.host.zone.GetGlobalId()), "zone_ext_id")
-	if len(self.ImageId) > 0 {
-		image, err := self.host.zone.region.GetImage(self.ImageId)
-		if err != nil {
-			log.Errorf("Failed to find image %s for instance %s zone %s", self.ImageId, self.GetId(), self.ZoneId)
-		} else {
-			meta := image.GetMetadata()
-			if meta != nil {
-				data.Update(meta)
+
+	// no need to sync image metadata
+	/*
+		if len(self.ImageId) > 0 {
+			image, err := self.host.zone.region.GetImage(self.ImageId)
+			if err != nil {
+				log.Errorf("Failed to find image %s for instance %s zone %s", self.ImageId, self.GetId(), self.ZoneId)
+			} else {
+				meta := image.GetMetadata()
+				if meta != nil {
+					data.Update(meta)
+				}
 			}
 		}
-	}
+	*/
 	return data
 }
 
