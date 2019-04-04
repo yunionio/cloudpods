@@ -126,7 +126,7 @@ type ServerConfigs struct {
 	Host       string `help:"Preferred host where virtual server should be created" json:"prefer_host"`
 	BackupHost string `help:"Perfered host where virtual backup server should be created"`
 
-	Hypervisor   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei"`
+	Hypervisor   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack"`
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 	Backup       bool   `help:"Create server with backup server"`
 
