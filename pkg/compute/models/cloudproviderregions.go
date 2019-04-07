@@ -362,8 +362,8 @@ func (cpr *SCloudproviderregion) isEmpty(resKey string) bool {
 	return true
 }
 
-func (cprm *SCloudproviderregionManager) fetchRecordsForCloudprovider(manager *SCloudprovider) ([]SCloudproviderregion, error) {
-	q := cprm.Query().Equals("cloudprovider_id", manager.Id)
+func (cprm *SCloudproviderregionManager) fetchRecordsByCloudproviderId(providerId string) ([]SCloudproviderregion, error) {
+	q := cprm.Query().Equals("cloudprovider_id", providerId)
 	recs := make([]SCloudproviderregion, 0)
 	err := db.FetchModelObjects(cprm, q, &recs)
 	if err != nil {
