@@ -333,6 +333,17 @@ func (self *SStorage) GetDiskCount() int {
 	return DiskManager.Query().Equals("storage_id", self.Id).Count()
 }
 
+func (self *SStorage) GetDisks() []SDisk {
+	disks := make([]SDisk, 0)
+	q := DiskManager.Query().Equals("storage_id", self.Id)
+	err := db.FetchModelObjects(DiskManager, q, &disks)
+	if err != nil {
+		log.Errorf("GetDisks fail %s", err)
+		return nil
+	}
+	return disks
+}
+
 func (self *SStorage) GetSnapshotCount() int {
 	return SnapshotManager.Query().Equals("storage_id", self.Id).Count()
 }

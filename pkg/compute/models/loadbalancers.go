@@ -368,9 +368,9 @@ func (lb *SLoadbalancer) AllowPerformPurge(ctx context.Context, userCred mcclien
 }
 
 func (lb *SLoadbalancer) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	parasm := jsonutils.NewDict()
-	parasm.Add(jsonutils.JSONTrue, "purge")
-	return nil, lb.StartLoadBalancerDeleteTask(ctx, userCred, parasm, "")
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.JSONTrue, "purge")
+	return nil, lb.StartLoadBalancerDeleteTask(ctx, userCred, params, "")
 }
 
 func (lb *SLoadbalancer) StartLoadBalancerDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
@@ -460,6 +460,10 @@ func (lb *SLoadbalancer) PreDeleteSubs(ctx context.Context, userCred mcclient.To
 
 func (lb *SLoadbalancer) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return nil
+}
+
+func (lb *SLoadbalancer) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return lb.SVirtualResourceBase.Delete(ctx, userCred)
 }
 
 func (man *SLoadbalancerManager) getLoadbalancersByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancer, error) {
@@ -599,7 +603,7 @@ func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred m
 			NetworkId:    lb.NetworkId,
 			Address:      lb.Address,
 		}
-		err := LoadbalancernetworkManager.SyncLoadbalancerNetwork(ctx, userCred, lbNetReq)
+		err := LoadbalancernetworkManager.syncLoadbalancerNetwork(ctx, userCred, lbNetReq)
 		if err != nil {
 			log.Errorf("failed to create loadbalancer network: %v", err)
 		}

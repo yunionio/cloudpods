@@ -474,7 +474,15 @@ func (self *SHost) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 }*/
 
 func (self *SHost) ValidateDeleteCondition(ctx context.Context) error {
-	if self.IsBaremetal && self.HostType != HOST_TYPE_BAREMETAL {
+	return self.validateDeleteCondition(ctx, false)
+}
+
+func (self *SHost) ValidatePurgeCondition(ctx context.Context) error {
+	return self.validateDeleteCondition(ctx, true)
+}
+
+func (self *SHost) validateDeleteCondition(ctx context.Context, purge bool) error {
+	if !purge && self.IsBaremetal && self.HostType != HOST_TYPE_BAREMETAL {
 		return httperrors.NewInvalidStatusError("Host is a converted baremetal, should be unconverted before delete")
 	}
 	if self.Enabled {
@@ -529,10 +537,10 @@ func (self *SHost) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 	}
 	for _, hoststorage := range self.GetHoststorages() {
 		storage := hoststorage.GetStorage()
+		hoststorage.Delete(ctx, userCred)
 		if storage != nil && storage.IsLocal() {
 			storage.Delete(ctx, userCred)
 		}
-		hoststorage.Delete(ctx, userCred)
 	}
 	for _, bn := range self.GetBaremetalnetworks() {
 		self.DeleteBaremetalnetwork(ctx, userCred, &bn, false)

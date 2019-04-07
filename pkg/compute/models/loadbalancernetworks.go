@@ -138,7 +138,7 @@ func (m *SLoadbalancernetworkManager) DeleteLoadbalancerNetwork(ctx context.Cont
 	return nil
 }
 
-func (m *SLoadbalancernetworkManager) SyncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential, req *SLoadbalancerNetworkRequestData) error {
+func (m *SLoadbalancernetworkManager) syncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential, req *SLoadbalancerNetworkRequestData) error {
 	_network, err := NetworkManager.FetchById(req.NetworkId)
 	if err != nil {
 		return err

@@ -111,7 +111,7 @@ func (self *SRegion) getIamClient() (*iam.IAM, error) {
 	return self.iamClient, nil
 }
 
-func (self *SRegion) getS3Client() (*s3.S3, error) {
+func (self *SRegion) GetS3Client() (*s3.S3, error) {
 	if self.s3Client == nil {
 		s, err := self.getAwsSession()
 

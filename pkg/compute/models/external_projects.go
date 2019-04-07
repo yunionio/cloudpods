@@ -77,13 +77,9 @@ func (self *SExternalProject) ValidateUpdateData(ctx context.Context, userCred m
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (manager *SExternalProjectManager) getProjectsByProvider(provider *SCloudprovider) ([]SExternalProject, error) {
+func (manager *SExternalProjectManager) getProjectsByProviderId(providerId string) ([]SExternalProject, error) {
 	projects := []SExternalProject{}
-	q := manager.Query()
-	if provider != nil {
-		q = q.Equals("manager_id", provider.Id)
-	}
-	err := db.FetchModelObjects(manager, q, &projects)
+	err := fetchByManagerId(manager, providerId, &projects)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +136,7 @@ func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCr
 
 	syncResult := compare.SyncResult{}
 
-	dbProjects, err := manager.getProjectsByProvider(provider)
+	dbProjects, err := manager.getProjectsByProviderId(provider.Id)
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult
