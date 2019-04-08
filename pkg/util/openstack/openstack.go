@@ -94,6 +94,8 @@ func (cli *SOpenStackClient) fetchRegions() error {
 					return nil
 				}
 			}
+		} else {
+			return nil
 		}
 	}
 	return fmt.Errorf("failed to find right endpoint type")
