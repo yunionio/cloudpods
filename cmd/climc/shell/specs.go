@@ -53,7 +53,7 @@ func init() {
 		options.BaseListOptions
 		HostType string   `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv"`
 		Ncpu     int64    `help:"#CPU count of host" metavar:"<CPU_COUNT>"`
-		MemSize  string   `help:"Memory GB size"`
+		MemSize  int64    `help:"Memory MB size"`
 		DiskSpec []string `help:"Disk spec string, like 'Linux_adapter0_HDD_111Gx4'"`
 		Nic      int64    `help:"#Nics count of host" metavar:"<NIC_COUNT>"`
 		GpuModel []string `help:"GPU model, like 'GeForce GTX 1050 Ti'"`
@@ -64,8 +64,8 @@ func init() {
 			if args.Ncpu > 0 {
 				keys = append(keys, fmt.Sprintf("cpu:%d", args.Ncpu))
 			}
-			if len(args.MemSize) != 0 {
-				keys = append(keys, fmt.Sprintf("mem:%s", args.MemSize))
+			if args.MemSize > 0 {
+				keys = append(keys, fmt.Sprintf("mem:%dM", args.MemSize))
 			}
 			for _, gm := range args.GpuModel {
 				keys = append(keys, fmt.Sprintf("gpu_model:%s", gm))
