@@ -368,6 +368,8 @@ func (self *GuestLiveMigrateTask) OnUndeploySrcGuestComplete(ctx context.Context
 	if status != guest.Status {
 		self.SetStage("OnGuestSyncStatus", nil)
 		guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
+	} else {
+		self.OnGuestSyncStatus(ctx, guest, nil)
 	}
 }
 
