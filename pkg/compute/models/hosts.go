@@ -877,15 +877,7 @@ func (manager *SHostManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
 	nCpu, _ := spec.Int("cpu")
 	memSize, _ := spec.Int("mem")
 	var memSizeStr string
-	if memSize < 1024 {
-		memSizeStr = fmt.Sprintf("mem:%dM", memSize)
-	} else {
-		memGB, err := utils.GetSizeGB(fmt.Sprintf("%d", memSize), "M")
-		if err != nil {
-			log.Errorf("Get mem size %d GB error: %v", memSize, err)
-		}
-		memSizeStr = fmt.Sprintf("mem:%dG", memGB)
-	}
+	memSizeStr = fmt.Sprintf("mem:%dM", memSize)
 	nicCount, _ := spec.Int("nic_count")
 	manufacture, _ := spec.GetString("manufacture")
 	model, _ := spec.GetString("model")
