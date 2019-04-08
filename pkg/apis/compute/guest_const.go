@@ -90,6 +90,9 @@ const (
 
 	VM_ADMIN = "admin"
 
+	VM_IMPORT        = "import"
+	VM_IMPORT_FAILED = "import_fail"
+
 	SHUTDOWN_STOP      = "stop"
 	SHUTDOWN_TERMINATE = "terminate"
 

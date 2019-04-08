@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -780,6 +782,36 @@ func init() {
 				log.Errorf("Import %s error: %v", descFile, err)
 			}
 		}
+		return nil
+	})
+
+	type ServersImportFromLibvirtOptions struct {
+		CONFIG_FILE string `help:"Config file path store json conf for import servers from libvirt,
+		json format is {'hosts': [{'servers': [{'uuid': 'id', 'mac_ip': {'mac1': 'ip1', ...}}]]}}"`
+	}
+	R(&ServersImportFromLibvirtOptions{}, "servers-import-from-libvirt", "Import servers from libvrt", func(s *mcclient.ClientSession, args *ServersImportFromLibvirtOptions) error {
+		rawConfig, err := ioutil.ReadFile(args.CONFIG_FILE)
+		if err != nil {
+			return fmt.Errorf("Read file error: %s", err)
+		}
+
+		config := &compute.SLibvirtImportConfig{}
+		err = json.Unmarshal(rawConfig, config)
+		if err != nil {
+			return fmt.Errorf("Parse config error %s", err)
+		}
+		params, err := jsonutils.Marshal(config.Hosts).GetArray()
+		if err != nil {
+			return err
+		}
+		for i := 0; i < len(params); i++ {
+			val := jsonutils.NewDict()
+			val.Set(modules.Servers.KeywordPlural, params[i])
+			params[i] = val
+		}
+
+		results := modules.Servers.BatchPerformClassAction(s, "import-from-libvirt", params)
+		printBatchResults(results, modules.Servers.GetColumns(s))
 		return nil
 	})
 }

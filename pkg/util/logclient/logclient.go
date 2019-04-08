@@ -121,6 +121,9 @@ const (
 	ACT_FETCH = "下载密钥"
 
 	ACT_VM_CHANGE_NIC = "更改网卡配置"
+
+	ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT = "libvirt托管虚拟机导入"
+	ACT_GUEST_CREATE_FROM_IMPORT         = "导入虚拟机创建"
 )
 
 // golang 不支持 const 的string array, http://t.cn/EzAvbw8

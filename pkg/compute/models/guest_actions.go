@@ -2694,91 +2694,9 @@ func (man *SGuestManager) AllowPerformImport(ctx context.Context, userCred mccli
 	return db.IsAdminAllowClassPerform(userCred, man, "import")
 }
 
-type SImportNic struct {
-	Index     int    `json:"index"`
-	Bridge    string `json:"bridge"`
-	Domain    string `json:"domain"`
-	Ip        string `json:"ip"`
-	Vlan      int    `json:"vlan"`
-	Driver    string `json:"driver"`
-	Masklen   int    `json:"masklen"`
-	Virtual   bool   `json:"virtual"`
-	Manual    bool   `json:"manual"`
-	WireId    string `json:"wire_id"`
-	NetId     string `json:"net_id"`
-	Mac       string `json:"mac"`
-	BandWidth int    `json:"bw"`
-	Dns       string `json:"dns"`
-	Net       string `json:"net"`
-	Interface string `json:"interface"`
-	Gateway   string `json:"gateway"`
-	Ifname    string `json:"ifname"`
-}
-
-func (n SImportNic) ToNetConfig(net *SNetwork) *api.NetworkConfig {
-	return &api.NetworkConfig{
-		Network: net.Id,
-		Wire:    net.WireId,
-		Address: n.Ip,
-		Mac:     n.Mac,
-		Driver:  n.Driver,
-		BwLimit: n.BandWidth,
-	}
-}
-
-type SImportDisk struct {
-	Index      int    `json:"index"`
-	DiskId     string `json:"disk_id"`
-	Driver     string `json:"driver"`
-	CacheMode  string `json:"cache_mode"`
-	AioMode    string `json:"aio_mode"`
-	SizeMb     int    `json:"size"`
-	Format     string `json:"format"`
-	Fs         string `json:"fs"`
-	Mountpoint string `json:"mountpoint"`
-	Dev        string `json:"dev"`
-	TemplateId string `json:"template_id"`
-}
-
-func (d SImportDisk) ToDiskConfig() *api.DiskConfig {
-	ret := &api.DiskConfig{
-		SizeMb:  d.SizeMb,
-		ImageId: d.TemplateId,
-		Format:  d.Format,
-		Driver:  d.Driver,
-		DiskId:  d.DiskId,
-		Cache:   d.CacheMode,
-	}
-	if len(d.Mountpoint) > 0 {
-		ret.Mountpoint = d.Mountpoint
-	}
-	if len(d.Fs) > 0 {
-		ret.Fs = d.Fs
-	}
-	return ret
-}
-
-type SImportGuestDesc struct {
-	Id          string            `json:"uuid"`
-	Name        string            `json:"name"`
-	Nics        []SImportNic      `json:"nics"`
-	Disks       []SImportDisk     `json:"disks"`
-	Metadata    map[string]string `json:"metadata"`
-	MemSizeMb   int               `json:"mem"`
-	Cpu         int               `json:"cpu"`
-	TemplateId  string            `json:"template_id"`
-	ImagePath   string            `json:"image_path"`
-	Vdi         string            `json:"vdi"`
-	Hypervisor  string            `json:"hypervisor"`
-	HostId      string            `json:"host"`
-	BootOrder   string            `json:"boot_order"`
-	IsSystem    bool              `json:"is_system"`
-	Description string            `json:"description"`
-}
-
 func (man *SGuestManager) PerformImport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	desc := SImportGuestDesc{}
-	if err := data.Unmarshal(&desc); err != nil {
+	desc := &api.SImportGuestDesc{}
+	if err := data.Unmarshal(desc); err != nil {
 		return nil, httperrors.NewInputParameterError("Invalid desc: %s", data.String())
 	}
 	if len(desc.Id) == 0 {
@@ -2798,6 +2716,16 @@ func (man *SGuestManager) PerformImport(ctx context.Context, userCred mcclient.T
 	} else {
 		desc.HostId = hostObj.GetId()
 	}
+	guset, err := man.DoImport(ctx, userCred, desc)
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(guset), nil
+}
+
+func (man *SGuestManager) DoImport(
+	ctx context.Context, userCred mcclient.TokenCredential, desc *api.SImportGuestDesc,
+) (*SGuest, error) {
 	// 1. create import guest on host
 	gst, err := man.createImportGuest(ctx, userCred, desc)
 	if err != nil {
@@ -2815,10 +2743,10 @@ func (man *SGuestManager) PerformImport(ctx context.Context, userCred mcclient.T
 	for k, v := range desc.Metadata {
 		gst.SetMetadata(ctx, k, v, userCred)
 	}
-	return jsonutils.Marshal(gst), nil
+	return gst, nil
 }
 
-func (man *SGuestManager) createImportGuest(ctx context.Context, userCred mcclient.TokenCredential, desc SImportGuestDesc) (*SGuest, error) {
+func (man *SGuestManager) createImportGuest(ctx context.Context, userCred mcclient.TokenCredential, desc *api.SImportGuestDesc) (*SGuest, error) {
 	model, err := db.NewModelObject(man)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
@@ -2832,7 +2760,7 @@ func (man *SGuestManager) createImportGuest(ctx context.Context, userCred mcclie
 	gst.Id = desc.Id
 	gst.Name = desc.Name
 	gst.HostId = desc.HostId
-	gst.Status = "import"
+	gst.Status = api.VM_IMPORT
 	gst.Hypervisor = desc.Hypervisor
 	gst.VmemSize = desc.MemSizeMb
 	gst.VcpuCount = int8(desc.Cpu)
@@ -2842,7 +2770,18 @@ func (man *SGuestManager) createImportGuest(ctx context.Context, userCred mcclie
 	return gst, err
 }
 
-func (self *SGuest) importNics(ctx context.Context, userCred mcclient.TokenCredential, nics []SImportNic) error {
+func ToNetConfig(n *api.SImportNic, net *SNetwork) *api.NetworkConfig {
+	return &api.NetworkConfig{
+		Network: net.Id,
+		Wire:    net.WireId,
+		Address: n.Ip,
+		Mac:     n.Mac,
+		Driver:  n.Driver,
+		BwLimit: n.BandWidth,
+	}
+}
+
+func (self *SGuest) importNics(ctx context.Context, userCred mcclient.TokenCredential, nics []api.SImportNic) error {
 	if len(nics) == 0 {
 		return httperrors.NewInputParameterError("Empty import nics")
 	}
@@ -2851,7 +2790,7 @@ func (self *SGuest) importNics(ctx context.Context, userCred mcclient.TokenCrede
 		if err != nil {
 			return httperrors.NewNotFoundError("Not found network by ip %s", nic.Ip)
 		}
-		_, err = self.attach2NetworkDesc(ctx, userCred, self.GetHost(), nic.ToNetConfig(net), nil)
+		_, err = self.attach2NetworkDesc(ctx, userCred, self.GetHost(), ToNetConfig(&nic, net), nil)
 		if err != nil {
 			return err
 		}
@@ -2859,16 +2798,67 @@ func (self *SGuest) importNics(ctx context.Context, userCred mcclient.TokenCrede
 	return nil
 }
 
-func (self *SGuest) importDisks(ctx context.Context, userCred mcclient.TokenCredential, disks []SImportDisk) error {
+func ToDiskConfig(d *api.SImportDisk) *api.DiskConfig {
+	ret := &api.DiskConfig{
+		SizeMb:  d.SizeMb,
+		ImageId: d.TemplateId,
+		Format:  d.Format,
+		Driver:  d.Driver,
+		DiskId:  d.DiskId,
+		Cache:   d.CacheMode,
+		Backend: d.Backend,
+	}
+	if len(d.Mountpoint) > 0 {
+		ret.Mountpoint = d.Mountpoint
+	}
+	if len(d.Fs) > 0 {
+		ret.Fs = d.Fs
+	}
+	return ret
+}
+
+func (self *SGuest) importDisks(ctx context.Context, userCred mcclient.TokenCredential, disks []api.SImportDisk) error {
 	if len(disks) == 0 {
 		return httperrors.NewInputParameterError("Empty import disks")
 	}
 	for _, disk := range disks {
-		disk, err := self.createDiskOnHost(ctx, userCred, self.GetHost(), disk.ToDiskConfig(), nil, true, true, nil)
+		disk, err := self.createDiskOnHost(ctx, userCred, self.GetHost(), ToDiskConfig(&disk), nil, true, true, nil)
 		if err != nil {
 			return err
 		}
 		disk.SetStatus(userCred, DISK_READY, "")
 	}
 	return nil
+}
+
+func (manager *SGuestManager) AllowPerformImportFromLibvirt(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowClassPerform(userCred, manager, "import-from-libvirt")
+}
+
+func (manager *SGuestManager) PerformImportFromLibvirt(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	host := &api.SLibvirtHostConfig{}
+	if err := data.Unmarshal(host); err != nil {
+		return nil, httperrors.NewInputParameterError("Unmarshal data error %s", err)
+	}
+	if len(host.XmlFilePath) == 0 {
+		return nil, httperrors.NewInputParameterError("Some host config missing xml_file_path")
+	}
+	if len(host.HostIp) == 0 {
+		return nil, httperrors.NewInputParameterError("Some host config missing host ip")
+	}
+	sHost, err := HostManager.GetHostByIp(host.HostIp)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Invalid host ip %s", host.HostIp)
+	}
+
+	taskData := jsonutils.NewDict()
+	taskData.Set("xml_file_path", jsonutils.NewString(host.XmlFilePath))
+	taskData.Set("servers", jsonutils.Marshal(host.Servers))
+	task, err := taskman.TaskManager.NewTask(ctx, "HostImportLibvirtServersTask", sHost, userCred,
+		taskData, "", "", nil)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("NewTask error: %s", err)
+	}
+	task.ScheduleRun(nil)
+	return nil, nil
 }

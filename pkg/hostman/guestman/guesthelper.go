@@ -73,3 +73,19 @@ type SDeleteDiskSnapshot struct {
 	ConvertSnapshot string
 	PendingDelete   bool
 }
+
+type SLibvirtServer struct {
+	Uuid  string
+	MacIp map[string]string
+}
+
+type SLibvirtDomainImportConfig struct {
+	LibvritDomainXmlDir string
+	Servers             []SLibvirtServer
+}
+
+type SGuestCreateFromLibvirt struct {
+	Sid       string
+	GuestDesc *jsonutils.JSONDict
+	DisksPath *jsonutils.JSONDict
+}
