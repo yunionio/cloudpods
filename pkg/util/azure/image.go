@@ -550,6 +550,18 @@ func (region *SRegion) getOfferedImage(offerId string) (SImage, error) {
 	return image, nil
 }
 
+func (region *SRegion) getOfferedImageId(image *SImage) (string, error) {
+	if isPrivateImageID(image.ID) {
+		return image.ID, nil
+	}
+	_image, err := region.getImageDetail(image.Publisher, image.Offer, image.Sku, image.Version)
+	if err != nil {
+		log.Errorf("failed to get offered image ID from %s error: %v", jsonutils.Marshal(image).PrettyString(), err)
+		return "", err
+	}
+	return _image.Id, nil
+}
+
 func (image *SImage) getImageReference() ImageReference {
 	if isPrivateImageID(image.ID) {
 		return ImageReference{
