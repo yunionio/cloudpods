@@ -95,7 +95,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 
 	filterByRandomNetwork := func() {
 		if err_msg := isRandomNetworkAvailable(false, false, ""); err_msg != "" {
-			h.AppendPredicateFailMsg(err_msg)
+			h.Exclude(err_msg)
 		}
 		h.SetCapacityCounter(counters)
 	}
@@ -124,7 +124,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		}
 
 		if len(errMsgs) > 0 {
-			h.AppendPredicateFailMsg(strings.Join(errMsgs, ", "))
+			h.Exclude(strings.Join(errMsgs, ", "))
 		}
 	}
 
