@@ -285,6 +285,10 @@ func (lbr *SLoadbalancerListenerRule) Delete(ctx context.Context, userCred mccli
 	return nil
 }
 
+func (lbr *SLoadbalancerListenerRule) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return lbr.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
 // Delete, Update
 
 func (man *SLoadbalancerListenerRuleManager) getLoadbalancerListenerRulesByListener(listener *SLoadbalancerListener) ([]SLoadbalancerListenerRule, error) {

@@ -144,6 +144,9 @@ func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Enabled {
 		return httperrors.NewInvalidStatusError("account is enabled")
 	}
+	if self.SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+		return httperrors.NewInvalidStatusError("account is not idle")
+	}
 	cloudproviders := self.GetCloudproviders()
 	for i := 0; i < len(cloudproviders); i++ {
 		if err := cloudproviders[i].ValidateDeleteCondition(ctx); err != nil {
@@ -154,14 +157,10 @@ func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SCloudaccount) PreDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	cloudproviders := self.GetCloudproviders()
-	for i := 0; i < len(cloudproviders); i++ {
-		cloudproviders[i].Delete(ctx, userCred)
-	}
-}
-
 func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if strings.Index(self.Status, "delet") >= 0 {
+		return nil, httperrors.NewInvalidStatusError("Cannot enable deleting account")
+	}
 	_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, data)
 	if err != nil {
 		return nil, err
@@ -177,16 +176,22 @@ func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.
 }
 
 func (self *SCloudaccount) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, data)
-	if err != nil {
-		return nil, err
-	}
 	cloudproviders := self.GetCloudproviders()
 	for i := 0; i < len(cloudproviders); i++ {
 		_, err := cloudproviders[i].PerformDisable(ctx, userCred, query, data)
 		if err != nil {
 			return nil, err
 		}
+	}
+	if self.EnableAutoSync {
+		err := self.disableAutoSync(ctx, userCred)
+		if err != nil {
+			return nil, err
+		}
+	}
+	_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
 	}
 	return nil, nil
 }
@@ -1215,4 +1220,31 @@ func (account *SCloudaccount) SyncCallSyncAccountTask(ctx context.Context, userC
 	account.SubmitSyncAccountTask(ctx, userCred, waitChan, false)
 	err := <-waitChan
 	return err
+}
+
+func (self *SCloudaccount) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	// override
+	log.Infof("cloud account delete do nothing")
+	return nil
+}
+
+func (self *SCloudaccount) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	self.SetStatus(userCred, api.CLOUD_PROVIDER_DELETED, "real delete")
+	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
+}
+
+func (self *SCloudaccount) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return self.StartCloudaccountDeleteTask(ctx, userCred, "")
+}
+
+func (self *SCloudaccount) StartCloudaccountDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	task, err := taskman.TaskManager.NewTask(ctx, "CloudAccountDeleteTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		log.Errorf("%s", err)
+		return err
+	}
+	self.SetStatus(userCred, api.CLOUD_PROVIDER_START_DELETE, "StartCloudaccountDeleteTask")
+	task.ScheduleRun(nil)
+	return nil
 }

@@ -260,6 +260,10 @@ func (lbcert *SLoadbalancerCertificate) Delete(ctx context.Context, userCred mcc
 	return nil
 }
 
+func (lbcert *SLoadbalancerCertificate) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return lbcert.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
 func (lbcert *SLoadbalancerCertificate) GetRegion() *SCloudregion {
 	region, err := CloudregionManager.FetchById(lbcert.CloudregionId)
 	if err != nil {

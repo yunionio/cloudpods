@@ -72,18 +72,11 @@ func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 		return
 	}
 
-	wires := vpc.GetWires()
-	if wires != nil {
-		for i := 0; i < len(wires); i += 1 {
-			hws, _ := wires[i].GetHostwires()
-			for j := 0; hws != nil && j < len(hws); j += 1 {
-				hws[j].Detach(ctx, self.UserCred)
-			}
-			wires[i].Delete(ctx, self.UserCred)
-		}
+	err = vpc.Purge(ctx, self.UserCred)
+	if err != nil {
+		self.taskFailed(ctx, vpc, err)
+		return
 	}
-
-	vpc.RealDelete(ctx, self.UserCred)
 
 	self.SetStageComplete(ctx, nil)
 }
