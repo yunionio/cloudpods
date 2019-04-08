@@ -33,4 +33,17 @@ func init() {
 		printObject(host)
 		return nil
 	})
+
+	shellutils.R(&HostShowOptions{}, "host-storages", "Show all storages of a given host", func(cli *esxi.SESXiClient, args *HostShowOptions) error {
+		host, err := cli.FindHostByIp(args.IP)
+		if err != nil {
+			return err
+		}
+		storages, err := host.GetIStorages()
+		if err != nil {
+			return err
+		}
+		printList(storages, nil)
+		return nil
+	})
 }

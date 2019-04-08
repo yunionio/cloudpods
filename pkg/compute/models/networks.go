@@ -1550,7 +1550,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	guestnetworks := make([]SGuestnetwork, 0)
-	err = GuestnetworkManager.Query().Equals("network_id", self.Id).All(&guestnetworks)
+	err = db.FetchModelObjects(GuestnetworkManager, GuestnetworkManager.Query().Equals("network_id", self.Id), &guestnetworks)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
@@ -1569,7 +1569,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	hostnetworks := make([]SHostnetwork, 0)
-	err = HostnetworkManager.Query().Equals("network_id", self.Id).All(&hostnetworks)
+	err = db.FetchModelObjects(HostnetworkManager, HostnetworkManager.Query().Equals("network_id", self.Id), &hostnetworks)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
@@ -1588,7 +1588,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	reservedips := make([]SReservedip, 0)
-	err = ReservedipManager.Query().Equals("network_id", self.Id).All(&reservedips)
+	err = db.FetchModelObjects(ReservedipManager, ReservedipManager.Query().Equals("network_id", self.Id), &reservedips)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
@@ -1607,7 +1607,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	groupnetwroks := make([]SGroupnetwork, 0)
-	err = GroupnetworkManager.Query().Equals("network_id", self.Id).All(&groupnetwroks)
+	err = db.FetchModelObjects(GroupnetworkManager, GroupnetworkManager.Query().Equals("network_id", self.Id), &groupnetwroks)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err

@@ -150,7 +150,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	}
 
 	// checking remote
-	s3client, err := self.region.getS3Client()
+	s3client, err := self.region.GetS3Client()
 	if err != nil {
 		return "", err
 	}
@@ -283,7 +283,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		return nil, err
 	}
 
-	s3Client, err := self.region.getS3Client()
+	s3Client, err := self.region.GetS3Client()
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +324,7 @@ func (self *SRegion) checkBucket(bucketName string) error {
 }
 
 func (self *SRegion) IsBucketExist(bucketName string) (bool, error) {
-	s3Client, err := self.getS3Client()
+	s3Client, err := self.GetS3Client()
 	if err != nil {
 		return false, err
 	}
@@ -345,7 +345,7 @@ func (self *SRegion) IsBucketExist(bucketName string) (bool, error) {
 }
 
 func (self *SRegion) GetBucketRegionId(bucketName string) (string, error) {
-	s3Client, err := self.getS3Client()
+	s3Client, err := self.GetS3Client()
 	if err != nil {
 		return "", err
 	}
@@ -477,7 +477,7 @@ func (self *SRegion) initVmimportBucket(bucketName string) error {
 		return nil
 	}
 
-	s3Client, err := self.getS3Client()
+	s3Client, err := self.GetS3Client()
 	if err != nil {
 		return err
 	}

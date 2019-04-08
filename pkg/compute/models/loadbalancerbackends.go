@@ -227,6 +227,10 @@ func (lbb *SLoadbalancerBackend) Delete(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
+func (lbb *SLoadbalancerBackend) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return lbb.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
 func (lbb *SLoadbalancerBackend) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, lbb, "purge")
 }

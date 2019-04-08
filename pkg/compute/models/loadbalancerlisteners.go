@@ -567,6 +567,10 @@ func (lblis *SLoadbalancerListener) Delete(ctx context.Context, userCred mcclien
 	return nil
 }
 
+func (lblis *SLoadbalancerListener) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return lblis.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
 func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovider.SLoadbalancerListener, error) {
 	listener := &cloudprovider.SLoadbalancerListener{
 		Name:               lblis.Name,

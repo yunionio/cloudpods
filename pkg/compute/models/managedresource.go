@@ -295,3 +295,8 @@ func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudpr
 
 	return info
 }
+
+func fetchByManagerId(manager db.IModelManager, providerId string, receiver interface{}) error {
+	q := manager.Query().Equals("manager_id", providerId)
+	return db.FetchModelObjects(manager, q, receiver)
+}

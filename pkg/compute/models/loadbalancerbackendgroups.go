@@ -317,6 +317,10 @@ func (lbbg *SLoadbalancerBackendGroup) Delete(ctx context.Context, userCred mccl
 	return nil
 }
 
+func (lbbg *SLoadbalancerBackendGroup) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return lbbg.SVirtualResourceBase.Delete(ctx, userCred)
+}
+
 func (man *SLoadbalancerBackendGroupManager) getLoadbalancerBackendgroupsByLoadbalancer(lb *SLoadbalancer) ([]SLoadbalancerBackendGroup, error) {
 	lbbgs := []SLoadbalancerBackendGroup{}
 	q := man.Query().Equals("loadbalancer_id", lb.Id)

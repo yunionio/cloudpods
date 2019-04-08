@@ -104,10 +104,13 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Enabled {
 		return httperrors.NewInvalidStatusError("provider is enabled")
 	}
-	usage := self.getUsage()
-	if !usage.isEmpty() {
-		return httperrors.NewNotEmptyError("Not an empty cloud provider")
+	if self.SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+		return httperrors.NewInvalidStatusError("provider is not idle")
 	}
+	// usage := self.getUsage()
+	// if !usage.isEmpty() {
+	// 	return httperrors.NewNotEmptyError("Not an empty cloud provider")
+	// }
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
@@ -918,43 +921,32 @@ func (self *SCloudprovider) Delete(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := self.deleteSyncedRegions(ctx, userCred)
-	if err != nil {
-		return err
+	var err error
+
+	for _, manager := range []IPurgeableManager{
+		HostManager,
+		SnapshotManager,
+		StorageManager,
+		StoragecacheManager,
+		LoadbalancerBackendManager,
+		LoadbalancerBackendGroupManager,
+		LoadbalancerListenerRuleManager,
+		LoadbalancerListenerManager,
+		LoadbalancerManager,
+		LoadbalancerAclManager,
+		LoadbalancerCertificateManager,
+		VpcManager,
+		ElasticipManager,
+		CloudproviderRegionManager,
+		ExternalProjectManager,
+	} {
+		manager.purgeAll(ctx, userCred, self.Id)
+		if err != nil {
+			return err
+		}
 	}
-	err = self.deleteProjectsMapping(ctx, userCred)
-	if err != nil {
-		return err
-	}
+
 	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
-}
-
-func (self *SCloudprovider) deleteSyncedRegions(ctx context.Context, userCred mcclient.TokenCredential) error {
-	cprs, err := CloudproviderRegionManager.fetchRecordsForCloudprovider(self)
-	if err != nil {
-		return err
-	}
-	for i := range cprs {
-		err = cprs[i].Detach(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (self *SCloudprovider) deleteProjectsMapping(ctx context.Context, userCred mcclient.TokenCredential) error {
-	projs, err := ExternalProjectManager.getProjectsByProvider(self)
-	if err != nil {
-		return err
-	}
-	for i := range projs {
-		err = projs[i].Delete(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (self *SCloudprovider) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
