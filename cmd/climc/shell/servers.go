@@ -824,4 +824,13 @@ func init() {
 		printBatchResults(results, modules.Servers.GetColumns(s))
 		return nil
 	})
+
+	R(&options.ServerIdOptions{}, "server-create-params", "Show server create params", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
+		ret, e := modules.Servers.GetSpecific(s, opts.ID, "create-params", nil)
+		if e != nil {
+			return e
+		}
+		printObject(ret)
+		return nil
+	})
 }

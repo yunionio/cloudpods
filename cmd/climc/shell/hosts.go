@@ -504,4 +504,16 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type HostSpecOptions struct {
+		ID string `help:"ID or name of host"`
+	}
+	R(&HostSpecOptions{}, "host-spec", "Get host spec info", func(s *mcclient.ClientSession, args *HostSpecOptions) error {
+		spec, err := modules.Hosts.GetSpecific(s, args.ID, "spec", nil)
+		if err != nil {
+			return err
+		}
+		printObject(spec)
+		return nil
+	})
 }

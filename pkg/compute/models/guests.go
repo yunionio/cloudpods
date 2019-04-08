@@ -3287,6 +3287,10 @@ func (manager *SGuestManager) FetchGuestById(guestId string) *SGuest {
 	return guest.(*SGuest)
 }
 
+func (manager *SGuestManager) GetSpecShouldCheckStatus(query *jsonutils.JSONDict) (bool, error) {
+	return true, nil
+}
+
 func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	if checkStatus {
 		if utils.IsInStringArray(self.Status, []string{VM_SCHEDULE_FAILED}) {

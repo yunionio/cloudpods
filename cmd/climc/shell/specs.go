@@ -17,6 +17,7 @@ func init() {
 		HostType string `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv"`
 		Gpu      bool   `help:"Only show gpu devices"`
 		Zone     string `help:"Filter by zone id or name"`
+		Occupied bool   `help:"show occupid host" json:"-"`
 	}
 	R(&ListOptions{}, "spec", "List all kinds of model specs", func(s *mcclient.ClientSession, args *ListOptions) error {
 		var params *jsonutils.JSONDict
@@ -41,6 +42,9 @@ func init() {
 		if args.Zone != "" {
 			params.Add(jsonutils.NewString(args.Zone), "zone")
 		}
+		if args.Occupied {
+			params.Add(jsonutils.JSONFalse, "is_empty")
+		}
 		result, err := modules.Specs.GetModelSpecs(s, model, params)
 		if err != nil {
 			return err
@@ -57,6 +61,7 @@ func init() {
 		DiskSpec []string `help:"Disk spec string, like 'Linux_adapter0_HDD_111Gx4'"`
 		Nic      int64    `help:"#Nics count of host" metavar:"<NIC_COUNT>"`
 		GpuModel []string `help:"GPU model, like 'GeForce GTX 1050 Ti'"`
+		Occupied bool     `help:"show occupid host" json:"-"`
 	}
 	R(&HostsQueryOptions{}, "spec-hosts-list", "List hosts according by specs", func(s *mcclient.ClientSession, args *HostsQueryOptions) error {
 		newHostSpecKeys := func() []string {
@@ -66,6 +71,9 @@ func init() {
 			}
 			if args.MemSize > 0 {
 				keys = append(keys, fmt.Sprintf("mem:%dM", args.MemSize))
+			}
+			if args.Nic > 0 {
+				keys = append(keys, fmt.Sprintf("nic:%d", args.Nic))
 			}
 			for _, gm := range args.GpuModel {
 				keys = append(keys, fmt.Sprintf("gpu_model:%s", gm))
@@ -86,6 +94,9 @@ func init() {
 		}
 		if len(args.HostType) > 0 {
 			params.Add(jsonutils.NewString(args.HostType), "host_type")
+		}
+		if args.Occupied {
+			params.Add(jsonutils.JSONFalse, "is_empty")
 		}
 		specKeys := newHostSpecKeys()
 		resp, err := modules.Specs.SpecsQueryModelObjects(s, "hosts", specKeys, params)

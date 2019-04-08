@@ -180,14 +180,24 @@ func handleQueryModel(
 		ret := jsonutils.NewArray()
 		return ret, nil
 	}
-	objs := QueryObjects(manager, objects, specKeys, isOkF)
+	statusCheck, err := manager.GetSpecShouldCheckStatus(query)
+	if err != nil {
+		return nil, err
+	}
+	objs := QueryObjects(manager, objects, specKeys, isOkF, statusCheck)
 	return QueryObjectsToJson(objs, ctx, userCred, query)
 }
 
-func QueryObjects(manager models.ISpecModelManager, objs []models.ISpecModel, specKeys []string, isOkF func(models.ISpecModel) bool) []models.ISpecModel {
+func QueryObjects(
+	manager models.ISpecModelManager,
+	objs []models.ISpecModel,
+	specKeys []string,
+	isOkF func(models.ISpecModel) bool,
+	statusCheck bool,
+) []models.ISpecModel {
 	selectedObjs := make([]models.ISpecModel, 0)
 	for _, obj := range objs {
-		specs := obj.GetSpec(true)
+		specs := obj.GetSpec(statusCheck)
 		if specs == nil {
 			continue
 		}
