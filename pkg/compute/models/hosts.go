@@ -1171,9 +1171,12 @@ func (self *SHost) GetGuestCount() int {
 	return q.Count()
 }
 
-func (self *SHost) GetContainerCount() int {
+func (self *SHost) GetContainerCount(status []string) int {
 	q := self.GetGuestsQuery()
 	q = q.Filter(sqlchemy.Equals(q.Field("hypervisor"), HYPERVISOR_CONTAINER))
+	if len(status) > 0 {
+		q = q.In("status", status)
+	}
 	return q.Count()
 }
 
@@ -2201,10 +2204,11 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 		extra.Add(jsonutils.NewInt(int64(usage.GuestVcpuCount)), "cpu_commit")
 		extra.Add(jsonutils.NewInt(int64(usage.GuestVmemSize)), "mem_commit")
 	}
-	containerCount := self.GetContainerCount()
+	containerCount := self.GetContainerCount(nil)
+	runningContainerCount := self.GetContainerCount(VM_RUNNING_STATUS)
 	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount()-containerCount)), "guests")
 	extra.Add(jsonutils.NewInt(int64(self.GetNonsystemGuestCount()-containerCount)), "nonsystem_guests")
-	extra.Add(jsonutils.NewInt(int64(self.GetRunningGuestCount()-containerCount)), "running_guests")
+	extra.Add(jsonutils.NewInt(int64(self.GetRunningGuestCount()-runningContainerCount)), "running_guests")
 	totalCpu := self.GetCpuCount()
 	cpuCommitRate := 0.0
 	if totalCpu > 0 && usage.GuestVcpuCount > 0 {
