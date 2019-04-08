@@ -51,7 +51,7 @@ func (p *AggregatePredicate) Clone() core.FitPredicate {
 func (p *AggregatePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
 	data := u.SchedData()
 
-	if len(data.Candidates) > 0 {
+	if !u.ShouldExecuteSchedtagFilter() {
 		return false, nil
 	}
 
