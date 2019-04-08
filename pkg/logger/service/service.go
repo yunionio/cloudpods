@@ -37,7 +37,6 @@ func StartService() {
 	models.StartNotifyToWebsocketWorker()
 
 	app := cloudcommon.InitApp(commonOpts, true)
-	cloudcommon.AppDBInit(app)
 	initHandlers(app)
 
 	if !db.CheckSync(opts.AutoSyncTable) {
