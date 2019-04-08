@@ -401,7 +401,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 	}
 	if showDetails && !query.Contains("export_keys") {
 		extraRows := manager.FetchCustomizeColumns(ctx, userCred, query, items, stringutils2.NewSortedStrings(fieldFilter))
-		log.Debugf("manager.FetchCustomizeColumns: %s %s", extraRows, listF)
+		// log.Debugf("manager.FetchCustomizeColumns: %s %s", extraRows, listF)
 		if len(extraRows) == len(results) {
 			for i := range results {
 				results[i].(*jsonutils.JSONDict).Update(extraRows[i])
