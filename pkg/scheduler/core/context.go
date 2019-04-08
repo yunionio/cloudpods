@@ -401,6 +401,10 @@ func (u *Unit) SchedData() *api.SchedInfo {
 	return u.SchedInfo
 }
 
+func (u *Unit) ShouldExecuteSchedtagFilter() bool {
+	return len(u.SchedData().Candidates) == 0
+}
+
 func (u *Unit) IsPublicCloudProvider() bool {
 	return u.SchedData().IsPublicCloudProvider()
 }
