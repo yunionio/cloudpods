@@ -143,30 +143,34 @@ func (w schedtagStorageW) ResourceType() string {
 	return models.StorageManager.KeywordPlural()
 }
 
-func (p *DiskSchedtagPredicate) check(d *computeapi.DiskConfig, s *api.CandidateStorage) (*PredicatedStorage, error) {
+func (p *DiskSchedtagPredicate) check(d *computeapi.DiskConfig, s *api.CandidateStorage, u *core.Unit) (*PredicatedStorage, error) {
 	allTags, err := GetAllSchedtags(models.StorageManager.KeywordPlural())
 	if err != nil {
 		return nil, err
 	}
 	tagPredicate := NewSchedtagPredicate(d.Schedtags, allTags)
-	if err := tagPredicate.Check(
-		schedtagStorageW{
-			candidater: s,
-			disk:       d,
-		},
-	); err != nil {
-		return nil, err
+	shouldExec := u.ShouldExecuteSchedtagFilter()
+	ps := newPredicatedStorage(s, nil, nil)
+	if shouldExec {
+		if err := tagPredicate.Check(
+			schedtagStorageW{
+				candidater: s,
+				disk:       d,
+			},
+		); err != nil {
+			return nil, err
+		}
+		ps.PreferTags = tagPredicate.GetPreferTags()
+		ps.AvoidTags = tagPredicate.GetAvoidTags()
 	}
-	avoidTags := tagPredicate.GetAvoidTags()
-	preferTags := tagPredicate.GetPreferTags()
-	return newPredicatedStorage(s, preferTags, avoidTags), nil
+	return ps, nil
 }
 
-func (p *DiskSchedtagPredicate) checkStorages(d *computeapi.DiskConfig, storages []*api.CandidateStorage) ([]*PredicatedStorage, error) {
+func (p *DiskSchedtagPredicate) checkStorages(d *computeapi.DiskConfig, storages []*api.CandidateStorage, u *core.Unit) ([]*PredicatedStorage, error) {
 	errs := make([]error, 0)
 	ret := make([]*PredicatedStorage, 0)
 	for _, s := range storages {
-		ps, err := p.check(d, s)
+		ps, err := p.check(d, s, u)
 		if err != nil {
 			// append err, storage not suit disk
 			errs = append(errs, err)
@@ -208,7 +212,7 @@ func (p *DiskSchedtagPredicate) Execute(u *core.Unit, c core.Candidater) (bool, 
 			break
 		}
 
-		matchedStorages, err := p.checkStorages(d, fitStorages)
+		matchedStorages, err := p.checkStorages(d, fitStorages, u)
 		if err != nil {
 			h.Exclude(err.Error())
 		}
