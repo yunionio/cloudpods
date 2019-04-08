@@ -496,6 +496,10 @@ func (self *SCloudaccount) GetProvider() (cloudprovider.ICloudProvider, error) {
 	if !self.Enabled {
 		return nil, fmt.Errorf("Cloud provider is not enabled")
 	}
+	return self.getProviderInternal()
+}
+
+func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, error) {
 	secret, err := self.getPassword()
 	if err != nil {
 		return nil, fmt.Errorf("Invalid password %s", err)
@@ -504,7 +508,7 @@ func (self *SCloudaccount) GetProvider() (cloudprovider.ICloudProvider, error) {
 }
 
 func (self *SCloudaccount) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	provider, err := self.GetProvider()
+	provider, err := self.getProviderInternal()
 	if err != nil {
 		return nil, err
 	}
@@ -1111,7 +1115,7 @@ func (account *SCloudaccount) getSyncIntervalSeconds() int {
 }
 
 func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred mcclient.TokenCredential) ([]cloudprovider.SSubAccount, error) {
-	manager, err := account.GetProvider()
+	manager, err := account.getProviderInternal()
 	if err != nil {
 		log.Errorf("account.GetProvider failed: %s", err)
 		return nil, err
