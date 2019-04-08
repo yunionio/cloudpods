@@ -832,6 +832,28 @@ func (self *SHost) ClearSchedDescCache() error {
 	return HostManager.ClearSchedDescCache(self.Id)
 }
 
+func (self *SHost) AllowGetDetailsSpec(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGetSpec(userCred, self, "spec")
+}
+
+func (self *SHost) GetDetailsSpec(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return GetModelSpec(HostManager, self)
+}
+
+func (man *SHostManager) GetSpecShouldCheckStatus(query *jsonutils.JSONDict) (bool, error) {
+	statusCheck := true
+	if query.Contains("is_empty") {
+		isEmpty, err := query.Bool("is_empty")
+		if err != nil {
+			return statusCheck, err
+		}
+		if !isEmpty {
+			statusCheck = false
+		}
+	}
+	return statusCheck, nil
+}
+
 func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	if statusCheck {
 		if !self.Enabled {
