@@ -439,6 +439,10 @@ func (self *SIsolatedDevice) getDesc() *jsonutils.JSONDict {
 	return desc
 }
 
+func (man *SIsolatedDeviceManager) GetSpecShouldCheckStatus(query *jsonutils.JSONDict) (bool, error) {
+	return true, nil
+}
+
 func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	if statusCheck {
 		if len(self.GuestId) > 0 {
