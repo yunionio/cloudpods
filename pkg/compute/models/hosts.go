@@ -515,9 +515,7 @@ func (self *SHost) StartDeleteBaremetalTask(ctx context.Context, userCred mcclie
 }
 
 func (self *SHost) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	for _, hostschedtag := range self.GetHostschedtags() {
-		hostschedtag.Delete(ctx, userCred)
-	}
+	DeleteResourceJointSchedtags(self, ctx, userCred)
 
 	IsolatedDeviceManager.DeleteDevicesByHost(ctx, userCred, self)
 
@@ -553,17 +551,6 @@ func (self *SHost) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 		}
 	}
 	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
-}
-
-func (self *SHost) GetHostschedtags() []SHostschedtag {
-	q := HostschedtagManager.Query().Equals("host_id", self.Id)
-	hostschedtags := make([]SHostschedtag, 0)
-	err := db.FetchModelObjects(HostschedtagManager, q, &hostschedtags)
-	if err != nil {
-		log.Errorf("GetHostschedtags error %s", err)
-		return nil
-	}
-	return hostschedtags
 }
 
 func (self *SHost) GetHoststoragesQuery() *sqlchemy.SQuery {
@@ -2193,14 +2180,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 		extra.Add(jsonutils.NewInt(int64(len(nicInfos))), "nic_count")
 		extra.Add(jsonutils.NewArray(nicInfos...), "nic_info")
 	}
-	schedtags := self.GetSchedtags()
-	if schedtags != nil && len(schedtags) > 0 {
-		info := make([]jsonutils.JSONObject, len(schedtags))
-		for i := 0; i < len(schedtags); i += 1 {
-			info[i] = schedtags[i].GetShortDesc(ctx)
-		}
-		extra.Add(jsonutils.NewArray(info...), "schedtags")
-	}
+	extra = GetSchedtagsDetailsToResource(self, ctx, extra)
 	var usage *SHostGuestResourceUsage
 	if options.Options.IgnoreNonrunningGuests {
 		usage = self.getGuestsResource(VM_RUNNING)
@@ -3802,63 +3782,11 @@ func (self *SHost) IsPrepaidRecycleResource() bool {
 }
 
 func (host *SHost) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, host, "set-schedtag")
-}
-
-func (host *SHost) getHostschedtags() []SHostschedtag {
-	tags := make([]SHostschedtag, 0)
-	hostschedtags := HostschedtagManager.Query().SubQuery()
-	q := hostschedtags.Query().Equals("host_id", host.Id)
-	err := db.FetchModelObjects(HostschedtagManager, q, &tags)
-	if err != nil {
-		log.Errorf("Get hostschedtags: %v", err)
-		return nil
-	}
-	return tags
+	return AllowPerformSetResourceSchedtag(host, ctx, userCred, query, data)
 }
 
 func (host *SHost) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	schedtags := jsonutils.GetArrayOfPrefix(data, "schedtag")
-	setTagsId := []string{}
-	for idx := 0; idx < len(schedtags); idx++ {
-		schedtagIdent, _ := schedtags[idx].GetString()
-		tag, err := SchedtagManager.FetchByIdOrName(userCred, schedtagIdent)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewNotFoundError("Schedtag %s not found", schedtagIdent)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		setTagsId = append(setTagsId, tag.GetId())
-	}
-	oldTags := host.getHostschedtags()
-	for _, oldTag := range oldTags {
-		if !utils.IsInStringArray(oldTag.SchedtagId, setTagsId) {
-			if err := oldTag.Detach(ctx, userCred); err != nil {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-	}
-	var oldTagIds []string
-	for _, tag := range oldTags {
-		oldTagIds = append(oldTagIds, tag.SchedtagId)
-	}
-	for _, setTagId := range setTagsId {
-		if !utils.IsInStringArray(setTagId, oldTagIds) {
-			if newTagObj, err := db.NewModelObject(HostschedtagManager); err != nil {
-				return nil, httperrors.NewGeneralError(err)
-			} else {
-				newTag := newTagObj.(*SHostschedtag)
-				newTag.HostId = host.Id
-				newTag.SchedtagId = setTagId
-				if err := newTag.GetModelManager().TableSpec().Insert(newTag); err != nil {
-					return nil, httperrors.NewGeneralError(err)
-				}
-			}
-		}
-	}
-	host.ClearSchedDescCache()
-	return nil, nil
+	return PerformSetResourceSchedtag(host, ctx, userCred, query, data)
 }
 
 func (host *SHost) GetDynamicConditionInput() *jsonutils.JSONDict {
@@ -3872,4 +3800,8 @@ func (host *SHost) PerformStatus(ctx context.Context, userCred mcclient.TokenCre
 	}
 	host.ClearSchedDescCache()
 	return ret, nil
+}
+
+func (host *SHost) GetSchedtagJointManager() ISchedtagJointManager {
+	return HostschedtagManager
 }

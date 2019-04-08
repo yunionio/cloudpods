@@ -183,6 +183,11 @@ func (self *SStorage) AllowDeleteItem(ctx context.Context, userCred mcclient.Tok
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
+func (self *SStorage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	DeleteResourceJointSchedtags(self, ctx, userCred)
+	return self.SStandaloneResourceBase.Delete(ctx, userCred)
+}
+
 func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	storageType, _ := data.GetString("storage_type")
 	mediumType, _ := data.GetString("medium_type")
@@ -360,7 +365,7 @@ func (self *SStorage) getStorageCapacity() SStorageCapacity {
 	return capa
 }
 
-func (self *SStorage) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SStorage) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	capa := self.getStorageCapacity()
 	extra.Update(capa.ToJson())
 
@@ -368,13 +373,14 @@ func (self *SStorage) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 
 	info := self.getCloudProviderInfo()
 	extra.Update(jsonutils.Marshal(&info))
+	extra = GetSchedtagsDetailsToResource(self, ctx, extra)
 
 	return extra
 }
 
 func (self *SStorage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	return self.getMoreDetails(extra)
+	return self.getMoreDetails(ctx, extra)
 }
 
 func (self *SStorage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
@@ -382,7 +388,7 @@ func (self *SStorage) GetExtraDetails(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, err
 	}
-	return self.getMoreDetails(extra), nil
+	return self.getMoreDetails(ctx, extra), nil
 }
 
 func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int {
@@ -1175,4 +1181,16 @@ func (self *SStorage) GetSchedtags() []SSchedtag {
 
 func (self *SStorage) GetDynamicConditionInput() *jsonutils.JSONDict {
 	return jsonutils.Marshal(self).(*jsonutils.JSONDict)
+}
+
+func (self *SStorage) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return AllowPerformSetResourceSchedtag(self, ctx, userCred, query, data)
+}
+
+func (self *SStorage) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return PerformSetResourceSchedtag(self, ctx, userCred, query, data)
+}
+
+func (self *SStorage) GetSchedtagJointManager() ISchedtagJointManager {
+	return StorageschedtagManager
 }
