@@ -100,10 +100,16 @@ func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, d
 				SourceURI:    blobUrl,
 			}
 		} else {
-			imgRef := image.getImageReference()
+			// 通过镜像创建的磁盘只能传ID参数，不能通过sku,offer等参数创建.
+			_imageId, err := self.getOfferedImageId(&image)
+			if err != nil {
+				return nil, err
+			}
 			disk.Properties.CreationData = CreationData{
-				CreateOption:   "FromImage",
-				ImageReference: &imgRef,
+				CreateOption: "FromImage",
+				ImageReference: &ImageReference{
+					ID: _imageId,
+				},
 			}
 		}
 		disk.Properties.OsType = image.GetOsType()
