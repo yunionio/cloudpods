@@ -832,7 +832,6 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 
 func (provider *SCloudprovider) markProviderDisconnected(ctx context.Context, userCred mcclient.TokenCredential, reason string) error {
 	_, err := db.UpdateWithLock(ctx, provider, func() error {
-		provider.Enabled = false
 		provider.HealthStatus = api.CLOUD_PROVIDER_HEALTH_UNKNOWN
 		return nil
 	})
@@ -994,4 +993,34 @@ func (self *SCloudprovider) ClearSchedDescCache() error {
 		}
 	}
 	return nil
+}
+
+func (self *SCloudprovider) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	_, err := self.SEnabledStatusStandaloneResourceBase.PerformEnable(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+	account := self.GetCloudaccount()
+	if account != nil {
+		providers := account.GetCloudproviders()
+		if len(providers) == 1 && !account.Enabled {
+			return account.PerformEnable(ctx, userCred, nil, nil)
+		}
+	}
+	return nil, nil
+}
+
+func (self *SCloudprovider) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+	account := self.GetCloudaccount()
+	if account != nil {
+		providers := account.GetCloudproviders()
+		if len(providers) == 1 && account.Enabled {
+			return account.PerformDisable(ctx, userCred, nil, nil)
+		}
+	}
+	return nil, nil
 }
