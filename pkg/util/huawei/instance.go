@@ -548,7 +548,7 @@ func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) err
 		return err
 	}
 
-	return cloudprovider.WaitStatus(self, models.VM_READY, 15*time.Second, 180*time.Second)
+	return cloudprovider.WaitStatusWithDelay(self, models.VM_READY, 10*time.Second, 15*time.Second, 180*time.Second)
 }
 
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
@@ -557,7 +557,7 @@ func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) e
 		return err
 	}
 
-	return cloudprovider.WaitStatus(self, models.VM_READY, 15*time.Second, 180*time.Second)
+	return cloudprovider.WaitStatusWithDelay(self, models.VM_READY, 10*time.Second, 15*time.Second, 180*time.Second)
 }
 
 // todo:// 返回jsonobject感觉很诡异。不能直接知道内部细节
@@ -1066,8 +1066,6 @@ func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, 
 		params.Add(resizeObj, "resize")
 		_, err := self.ecsClient.Servers.PerformAction2("resize", instanceId, params, "")
 		if err != nil {
-			// 等待10秒.华为主机状态变更为非ready状态
-			time.Sleep(10 * time.Second)
 			log.Errorf("Failed for %s: %s", t.ID, err)
 		} else {
 			return nil
@@ -1084,8 +1082,6 @@ func (self *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanceT
 	params.Add(resizeObj, "resize")
 
 	_, err := self.ecsClient.Servers.PerformAction2("resize", instanceId, params, "")
-	// 等待10秒.华为主机状态变更为非ready状态
-	time.Sleep(10 * time.Second)
 	return err
 }
 

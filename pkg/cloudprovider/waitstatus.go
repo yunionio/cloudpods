@@ -22,6 +22,11 @@ func WaitStatus(res ICloudResource, expect string, interval time.Duration, timeo
 	return ErrTimeout
 }
 
+func WaitStatusWithDelay(res ICloudResource, expect string, delay time.Duration, interval time.Duration, timeout time.Duration) error {
+	time.Sleep(delay)
+	return WaitStatus(res, expect, interval, timeout)
+}
+
 func WaitStatusWithInstanceErrorCheck(res ICloudResource, expect string, interval time.Duration, timeout time.Duration, errCheck func() error) error {
 	startTime := time.Now()
 	for time.Now().Sub(startTime) < timeout {
