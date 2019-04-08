@@ -214,5 +214,4 @@ func init() {
 		printObject(storage)
 		return nil
 	})
-
 }
