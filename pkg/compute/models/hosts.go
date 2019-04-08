@@ -384,6 +384,16 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		))
 	}
 
+	if query.Contains("is_empty") {
+		isEmpty := jsonutils.QueryBoolean(query, "is_empty", false)
+		sq := GuestManager.Query("host_id").IsNotEmpty("host_id").GroupBy("host_id").SubQuery()
+		if isEmpty {
+			q = q.NotIn("id", sq)
+		} else {
+			q = q.In("id", sq)
+		}
+	}
+
 	if query.Contains("baremetal") {
 		isBaremetal := jsonutils.QueryBoolean(query, "baremetal", false)
 		if isBaremetal {
