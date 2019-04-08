@@ -153,9 +153,11 @@ func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.
 	}
 	cloudproviders := self.GetCloudproviders()
 	for i := 0; i < len(cloudproviders); i++ {
-		_, err := cloudproviders[i].PerformEnable(ctx, userCred, query, data)
-		if err != nil {
-			return nil, err
+		if !cloudproviders[i].Enabled {
+			_, err := cloudproviders[i].PerformEnable(ctx, userCred, query, data)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return nil, nil
@@ -164,9 +166,11 @@ func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.
 func (self *SCloudaccount) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	cloudproviders := self.GetCloudproviders()
 	for i := 0; i < len(cloudproviders); i++ {
-		_, err := cloudproviders[i].PerformDisable(ctx, userCred, query, data)
-		if err != nil {
-			return nil, err
+		if cloudproviders[i].Enabled {
+			_, err := cloudproviders[i].PerformDisable(ctx, userCred, query, data)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	if self.EnableAutoSync {
