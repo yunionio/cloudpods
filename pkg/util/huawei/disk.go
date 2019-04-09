@@ -356,9 +356,8 @@ func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
 	if err != nil {
 		return err
 	}
-	// 等待异步任务执行
-	cloudprovider.WaitStatus(self, models.DISK_RESIZING, 5*time.Second, 10*time.Second)
-	return cloudprovider.WaitStatus(self, models.DISK_READY, 5*time.Second, 60*time.Second)
+
+	return cloudprovider.WaitStatusWithDelay(self, models.DISK_READY, 15*time.Second, 5*time.Second, 60*time.Second)
 }
 
 func (self *SDisk) Detach() error {
