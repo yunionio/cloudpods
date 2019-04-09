@@ -660,6 +660,14 @@ func (self *STask) GetParams() *jsonutils.JSONDict {
 	return self.Params
 }
 
+func (self *STask) IsSubTask() bool {
+	if params := self.GetParams(); params != nil {
+		subTask, _ := params.Bool("subtask")
+		return subTask
+	}
+	return false
+}
+
 func (self *STask) GetUserCred() mcclient.TokenCredential {
 	return self.UserCred
 }
