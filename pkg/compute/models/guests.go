@@ -156,7 +156,12 @@ const (
 	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
 )
 
-const VM_AWS_DEFAULT_LOGIN_USER = "ec2user"
+const (
+	VM_AWS_DEFAULT_LOGIN_USER = "ec2user"
+
+	VM_METADATA_APP_TAGS      = "app_tags"
+	VM_METADATA_CREATE_PARAMS = "create_params"
+)
 
 var VM_RUNNING_STATUS = api.VM_RUNNING_STATUS
 var VM_CREATING_STATUS = api.VM_CREATING_STATUS
@@ -1042,40 +1047,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		input.SecgroupId = "default"
 	}
 
-	eipStr := input.Eip
-	eipBw := input.EipBw
-	if len(eipStr) > 0 || eipBw > 0 {
-		if !GetDriver(hypervisor).IsSupportEip() {
-			return nil, httperrors.NewNotImplementedError("eip not supported for %s", hypervisor)
-		}
-		if len(eipStr) > 0 {
-			eipObj, err := ElasticipManager.FetchByIdOrName(userCred, eipStr)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2(ElasticipManager.Keyword(), eipStr)
-				} else {
-					return nil, httperrors.NewGeneralError(err)
-				}
-			}
-
-			eip := eipObj.(*SElasticip)
-			if eip.Status != EIP_STATUS_READY {
-				return nil, httperrors.NewInvalidStatusError("eip %s status invalid %s", eipStr, eip.Status)
-			}
-			if eip.IsAssociated() {
-				return nil, httperrors.NewResourceBusyError("eip %s has been associated", eipStr)
-			}
-			input.Eip = eipObj.GetId()
-
-			eipRegion := eip.GetRegion()
-			preferRegionId, _ := data.GetString("prefer_region_id")
-			if len(preferRegionId) > 0 && preferRegionId != eipRegion.Id {
-				return nil, httperrors.NewConflictError("cannot assoicate with eip %s: different region", eipStr)
-			}
-			input.PreferRegion = eipRegion.Id
-		} else {
-			// create new eip
-		}
+	preferRegionId, _ := data.GetString("prefer_region_id")
+	if err := manager.validateEip(userCred, input, preferRegionId); err != nil {
+		return nil, err
 	}
 
 	/*
@@ -1108,6 +1082,45 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 
 	input.Project = ownerProjId
 	return input.JSON(input), nil
+}
+
+func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, input *api.ServerCreateInput, preferRegionId string) error {
+	eipStr := input.Eip
+	eipBw := input.EipBw
+	if len(eipStr) > 0 || eipBw > 0 {
+		if !GetDriver(input.Hypervisor).IsSupportEip() {
+			return httperrors.NewNotImplementedError("eip not supported for %s", input.Hypervisor)
+		}
+		if len(eipStr) > 0 {
+			eipObj, err := ElasticipManager.FetchByIdOrName(userCred, eipStr)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return httperrors.NewResourceNotFoundError2(ElasticipManager.Keyword(), eipStr)
+				} else {
+					return httperrors.NewGeneralError(err)
+				}
+			}
+
+			eip := eipObj.(*SElasticip)
+			if eip.Status != EIP_STATUS_READY {
+				return httperrors.NewInvalidStatusError("eip %s status invalid %s", eipStr, eip.Status)
+			}
+			if eip.IsAssociated() {
+				return httperrors.NewResourceBusyError("eip %s has been associated", eipStr)
+			}
+			input.Eip = eipObj.GetId()
+
+			eipRegion := eip.GetRegion()
+			// preferRegionId, _ := data.GetString("prefer_region_id")
+			if len(preferRegionId) > 0 && preferRegionId != eipRegion.Id {
+				return httperrors.NewConflictError("cannot assoicate with eip %s: different region", eipStr)
+			}
+			input.PreferRegion = eipRegion.Id
+		} else {
+			// create new eip
+		}
+	}
+	return nil
 }
 
 func (manager *SGuestManager) checkCreateQuota(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, input *api.ServerCreateInput, hasBackup bool) error {
@@ -1209,6 +1222,7 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 		}
 	}
 	guest.setApptags(ctx, appTags, userCred)
+	guest.SetCreateParams(ctx, userCred, data)
 	osProfileJson, _ := data.Get("__os_profile__")
 	if osProfileJson != nil {
 		guest.setOSProfile(ctx, userCred, osProfileJson)
@@ -1221,10 +1235,25 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (guest *SGuest) setApptags(ctx context.Context, appTags []string, userCred mcclient.TokenCredential) {
-	err := guest.SetMetadata(ctx, "app_tags", strings.Join(appTags, ","), userCred)
+	err := guest.SetMetadata(ctx, VM_METADATA_APP_TAGS, strings.Join(appTags, ","), userCred)
 	if err != nil {
 		log.Errorln(err)
 	}
+}
+
+func (guest *SGuest) SetCreateParams(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
+	// delete deploy files info
+	data.(*jsonutils.JSONDict).Remove("deploy_configs")
+	err := guest.SetMetadata(ctx, VM_METADATA_CREATE_PARAMS, data.String(), userCred)
+	if err != nil {
+		log.Errorf("Server %s SetCreateParams: %v", guest.Name, err)
+	}
+}
+
+func (guest *SGuest) GetCreateParams(userCred mcclient.TokenCredential) (*api.ServerCreateInput, error) {
+	input := new(api.ServerCreateInput)
+	err := guest.GetMetadataJson(VM_METADATA_CREATE_PARAMS, userCred).Unmarshal(input)
+	return input, err
 }
 
 func (manager *SGuestManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -3258,6 +3287,10 @@ func (manager *SGuestManager) FetchGuestById(guestId string) *SGuest {
 	return guest.(*SGuest)
 }
 
+func (manager *SGuestManager) GetSpecShouldCheckStatus(query *jsonutils.JSONDict) (bool, error) {
+	return true, nil
+}
+
 func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	if checkStatus {
 		if utils.IsInStringArray(self.Status, []string{VM_SCHEDULE_FAILED}) {
@@ -3894,7 +3927,7 @@ func (self *SGuest) getDefaultStorageType() string {
 }
 
 func (self *SGuest) GetApptags() []string {
-	tagsStr := self.GetMetadata("app_tags", nil)
+	tagsStr := self.GetMetadata(VM_METADATA_APP_TAGS, nil)
 	if len(tagsStr) > 0 {
 		return strings.Split(tagsStr, ",")
 	}
@@ -4019,4 +4052,146 @@ func (guest *SGuest) GetDetailsTasks(ctx context.Context, userCred mcclient.Toke
 
 func (guest *SGuest) GetDynamicConditionInput() *jsonutils.JSONDict {
 	return guest.ToSchedDesc().ToConditionInput()
+}
+
+func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.ServerCreateInput {
+	genInput := self.toCreateInput()
+	userInput, err := self.GetCreateParams(userCred)
+	if err != nil {
+		return genInput
+	}
+	// fill missing create params like schedtags
+	for idx, disk := range genInput.Disks {
+		if idx < len(userInput.Disks) {
+			disk.Schedtags = userInput.Disks[idx].Schedtags
+			userInput.Disks[idx] = disk
+		} else {
+			userInput.Disks = append(userInput.Disks, disk)
+		}
+	}
+	for idx, net := range genInput.Networks {
+		if idx < len(userInput.Networks) {
+			userInput.Networks[idx] = net
+		} else {
+			userInput.Networks = append(userInput.Networks, net)
+		}
+	}
+	for idx, dev := range genInput.IsolatedDevices {
+		if idx < len(userInput.IsolatedDevices) {
+			userInput.IsolatedDevices[idx] = dev
+		} else {
+			userInput.IsolatedDevices = append(userInput.IsolatedDevices, dev)
+		}
+	}
+	userInput.KeypairId = genInput.KeypairId
+	userInput.Project = genInput.Project
+	return userInput
+}
+
+func (self *SGuest) toCreateInput() *api.ServerCreateInput {
+	r := new(api.ServerCreateInput)
+	r.VmemSize = self.VmemSize
+	r.VcpuCount = int(self.VcpuCount)
+	if guestCdrom := self.getCdrom(false); guestCdrom != nil {
+		r.Cdrom = guestCdrom.ImageId
+	}
+	r.Vga = self.Vga
+	r.Vdi = self.Vdi
+	r.Bios = self.Bios
+	r.Description = self.Description
+	r.BootOrder = self.BootOrder
+	r.DisableDelete = new(bool)
+	*r.DisableDelete = self.DisableDelete.Bool()
+	r.ShutdownBehavior = self.ShutdownBehavior
+	// r.DeployConfigs
+	r.IsSystem = self.IsSystem
+	// r.Duration
+	// r.AutoPrepaidRecycle
+	r.SecgroupId = self.SecgrpId
+
+	r.ServerConfigs = new(api.ServerConfigs)
+	r.Hypervisor = self.Hypervisor
+	r.InstanceType = self.InstanceType
+	r.Project = self.ProjectId
+	r.Count = 1
+	r.Disks = self.ToDisksConfig()
+	r.Networks = self.ToNetworksConfig()
+	r.IsolatedDevices = self.ToIsolatedDevicesConfig()
+
+	if keypair := self.getKeypair(); keypair != nil {
+		r.KeypairId = keypair.Id
+	}
+	if host := self.GetHost(); host != nil {
+		r.ResourceType = host.ResourceType
+	}
+	if zone := self.getZone(); zone != nil {
+		r.PreferRegion = zone.GetRegion().GetId()
+		r.PreferZone = zone.GetId()
+	}
+	return r
+}
+
+func (self *SGuest) ToDisksConfig() []*api.DiskConfig {
+	guestDisks := self.GetDisks()
+	if len(guestDisks) == 0 {
+		return nil
+	}
+	ret := make([]*api.DiskConfig, len(guestDisks))
+	for idx, guestDisk := range guestDisks {
+		diskConf := new(api.DiskConfig)
+		disk := guestDisk.GetDisk()
+		diskConf.Index = int(guestDisk.Index)
+		diskConf.ImageId = disk.GetTemplateId()
+		diskConf.SnapshotId = disk.SnapshotId
+		diskConf.DiskType = disk.DiskType
+		diskConf.SizeMb = disk.DiskSize
+		diskConf.Fs = disk.FsFormat
+		diskConf.Format = disk.DiskFormat
+		diskConf.Driver = guestDisk.Driver
+		diskConf.Cache = guestDisk.CacheMode
+		diskConf.Mountpoint = guestDisk.Mountpoint
+		storage := disk.GetStorage()
+		diskConf.Backend = storage.StorageType
+		diskConf.Medium = storage.MediumType
+		ret[idx] = diskConf
+	}
+	return ret
+}
+
+func (self *SGuest) ToNetworksConfig() []*api.NetworkConfig {
+	guestNetworks, _ := self.GetNetworks("")
+	if len(guestNetworks) == 0 {
+		return nil
+	}
+	ret := make([]*api.NetworkConfig, len(guestNetworks))
+	for idx, guestNetwork := range guestNetworks {
+		netConf := new(api.NetworkConfig)
+		network := guestNetwork.GetNetwork()
+		netConf.Index = int(guestNetwork.Index)
+
+		// XXX: same wire
+		netConf.Wire = network.WireId
+		netConf.Exit = guestNetwork.IsExit()
+		// netConf.Private
+		// netConf.Reserved
+		netConf.Driver = guestNetwork.Driver
+		netConf.BwLimit = guestNetwork.BwLimit
+		// netConf.NetType
+		ret[idx] = netConf
+	}
+	return ret
+}
+
+func (self *SGuest) ToIsolatedDevicesConfig() []*api.IsolatedDeviceConfig {
+	guestIsolatedDevices := self.GetIsolatedDevices()
+	if len(guestIsolatedDevices) == 0 {
+		return nil
+	}
+	ret := make([]*api.IsolatedDeviceConfig, len(guestIsolatedDevices))
+	for idx, guestIsolatedDevice := range guestIsolatedDevices {
+		devConf := new(api.IsolatedDeviceConfig)
+		devConf.Model = guestIsolatedDevice.Model
+		ret[idx] = devConf
+	}
+	return ret
 }

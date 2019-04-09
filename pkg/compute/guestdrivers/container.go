@@ -174,3 +174,7 @@ func (self *SContainerDriver) GetRandomNetworkTypes() []string {
 func (self *SContainerDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
 	return fmt.Errorf("Not Implement")
 }
+
+func (self *SContainerDriver) IsSupportGuestClone() bool {
+	return false
+}

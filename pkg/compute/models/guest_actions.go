@@ -301,6 +301,82 @@ func (self *SGuest) StartGuestLiveMigrateTask(ctx context.Context, userCred mccl
 	return nil
 }
 
+func (self *SGuest) AllowPerformClone(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "clone")
+}
+
+func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if len(self.BackupHostId) > 0 {
+		return nil, httperrors.NewBadRequestError("Can't clone guest with backup guest")
+	}
+
+	if !self.GetDriver().IsSupportGuestClone() {
+		return nil, httperrors.NewBadRequestError("Guest hypervisor %s does not support clone", self.Hypervisor)
+	}
+
+	if !utils.IsInStringArray(self.Status, []string{VM_RUNNING, VM_READY}) {
+		return nil, httperrors.NewInvalidStatusError("Cannot clone VM in status %s", self.Status)
+	}
+
+	cloneInput, err := cmdline.FetchServerCreateInputByJSON(data)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Unmarshal input error %s", err)
+	}
+	if len(cloneInput.Name) == 0 {
+		return nil, httperrors.NewMissingParameterError("name")
+	}
+	err = db.NewNameValidator(GuestManager, userCred.GetProjectId(), cloneInput.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	createInput := self.ToCreateInput(userCred)
+	createInput.Name = cloneInput.Name
+	createInput.AutoStart = cloneInput.AutoStart
+
+	createInput.EipBw = cloneInput.EipBw
+	createInput.Eip = cloneInput.Eip
+	createInput.EipChargeType = cloneInput.EipChargeType
+	if err := GuestManager.validateEip(userCred, createInput, createInput.PreferRegion); err != nil {
+		return nil, err
+	}
+
+	dataDict := createInput.JSON(createInput)
+	model, err := db.DoCreate(GuestManager, ctx, userCred, query, dataDict, createInput.Project)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+
+	func() {
+		lockman.LockObject(ctx, model)
+		defer lockman.ReleaseObject(ctx, model)
+
+		model.PostCreate(ctx, userCred, createInput.Project, query, dataDict)
+	}()
+
+	db.OpsLog.LogEvent(model, db.ACT_CREATE, model.GetShortDesc(ctx), userCred)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CREATE, "", userCred, true)
+
+	pendingUsage := getGuestResourceRequirements(ctx, userCred, createInput, 1, false)
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestCloneTask", model, userCred,
+		dataDict, "", "", &pendingUsage); err != nil {
+		log.Errorf(err.Error())
+		return nil, err
+	} else {
+		task.ScheduleRun(nil)
+	}
+	return nil, nil
+}
+
+func (self *SGuest) AllowGetDetailsCreateParams(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "create-params")
+}
+
+func (self *SGuest) GetDetailsCreateParams(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	input := self.ToCreateInput(userCred)
+	return input.JSON(input), nil
+}
+
 func (self *SGuest) AllowPerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "deploy")
 }

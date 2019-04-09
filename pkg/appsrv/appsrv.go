@@ -219,7 +219,7 @@ func (app *Application) handleCORS(w http.ResponseWriter, r *http.Request) bool 
 }
 
 func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, rid string) (*SHandlerInfo, *SAppParams) {
-	segs := SplitPath(r.URL.Path)
+	segs := SplitPath(r.URL.EscapedPath())
 	params := make(map[string]string)
 	w.Header().Set("Server", "Yunion AppServer/Go/2018.4")
 	w.Header().Set("X-Frame-Options", "SAMEORIGIN")

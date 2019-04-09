@@ -154,6 +154,16 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerCloneOptions{}, "server-clone", "Clone a server", func(s *mcclient.ClientSession, opts *options.ServerCloneOptions) error {
+		params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+		res, err := modules.Servers.PerformAction(s, opts.SOURCE, "clone", params)
+		if err != nil {
+			return err
+		}
+		printObject(res)
+		return nil
+	})
+
 	R(&options.ServerLoginInfoOptions{}, "server-logininfo", "Get login info of a server", func(s *mcclient.ClientSession, opts *options.ServerLoginInfoOptions) error {
 		srvid, e := modules.Servers.GetId(s, opts.ID, nil)
 		if e != nil {
@@ -812,6 +822,15 @@ func init() {
 
 		results := modules.Servers.BatchPerformClassAction(s, "import-from-libvirt", params)
 		printBatchResults(results, modules.Servers.GetColumns(s))
+		return nil
+	})
+
+	R(&options.ServerIdOptions{}, "server-create-params", "Show server create params", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
+		ret, e := modules.Servers.GetSpecific(s, opts.ID, "create-params", nil)
+		if e != nil {
+			return e
+		}
+		printObject(ret)
 		return nil
 	})
 }

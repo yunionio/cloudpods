@@ -14,6 +14,7 @@ import (
 
 type ISpecModelManager interface {
 	db.IStandaloneModelManager
+	GetSpecShouldCheckStatus(query *jsonutils.JSONDict) (bool, error)
 	GetSpecIdent(spec *jsonutils.JSONDict) []string
 }
 
@@ -51,21 +52,36 @@ func GetServerSpecs(ctx context.Context, userCred mcclient.TokenCredential, quer
 	return getModelSpecs(GuestManager, ctx, userCred, query)
 }
 
+func GetSpecIdentKey(keys []string) string {
+	sort.Strings(keys)
+	return strings.Join(keys, "/")
+}
+
+func GetModelSpec(manager ISpecModelManager, model ISpecModel) (jsonutils.JSONObject, error) {
+	spec := model.GetSpec(false)
+	specKey := GetSpecIdentKey(manager.GetSpecIdent(spec))
+	spec.Add(jsonutils.NewString(specKey), "spec_key")
+	return spec, nil
+}
+
 func getModelSpecs(manager ISpecModelManager, ctx context.Context, userCred mcclient.TokenCredential, query *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	items, err := ListItems(manager, ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
 	retDict := jsonutils.NewDict()
+	statusCheck, err := manager.GetSpecShouldCheckStatus(query)
+	if err != nil {
+		return nil, err
+	}
 	for _, obj := range items {
 		specObj := obj.(ISpecModel)
-		spec := specObj.GetSpec(true)
+		spec := specObj.GetSpec(statusCheck)
 		if spec == nil {
 			continue
 		}
 		specKeys := manager.GetSpecIdent(spec)
-		sort.Strings(specKeys)
-		specKey := strings.Join(specKeys, "/")
+		specKey := GetSpecIdentKey(specKeys)
 		if oldSpec, _ := retDict.Get(specKey); oldSpec == nil {
 			spec.Add(jsonutils.NewInt(1), "count")
 			retDict.Add(spec, specKey)
