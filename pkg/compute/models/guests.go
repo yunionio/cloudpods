@@ -4092,7 +4092,7 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	r := new(api.ServerCreateInput)
 	r.VmemSize = self.VmemSize
 	r.VcpuCount = int(self.VcpuCount)
-	if guestCdrom := self.getCdrom(); guestCdrom != nil {
+	if guestCdrom := self.getCdrom(false); guestCdrom != nil {
 		r.Cdrom = guestCdrom.ImageId
 	}
 	r.Vga = self.Vga
