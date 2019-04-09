@@ -123,7 +123,7 @@ func (p *DiskSchedtagPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (
 		return false, nil
 	}
 
-	p.Hypervisor = u.SchedData().Hypervisor
+	p.Hypervisor = computeapi.HOSTTYPE_HYPERVISOR[u.SchedData().Hypervisor]
 
 	// always select each storages to disks
 	u.AppendSelectPlugin(p)
