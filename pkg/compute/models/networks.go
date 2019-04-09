@@ -767,6 +767,9 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.Networ
 		if netConfig.BwLimit > MAX_BANDWIDTH {
 			return httperrors.NewInputParameterError("Bandwidth limit cannot exceed %dMbps", MAX_BANDWIDTH)
 		}
+		if net.getFreeAddressCount() < 1 {
+			return httperrors.NewInputParameterError("network %s(%s) has no free addresses", net.Name, net.Id)
+		}
 	}
 	/* scheduler to the check
 	else if ! netConfig.Vip {
