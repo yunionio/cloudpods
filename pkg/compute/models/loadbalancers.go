@@ -200,6 +200,13 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 	return region.GetDriver().ValidateCreateLoadbalancerData(ctx, userCred, data)
 }
 
+func (lb *SLoadbalancer) getCloudProviderInfo() SCloudProviderInfo {
+	zone := lb.GetZone()
+	region := lb.GetRegion()
+	provider := lb.GetCloudprovider()
+	return MakeCloudProviderInfo(region, zone, provider)
+}
+
 func (lb *SLoadbalancer) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return lb.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, lb, "status")
 }
@@ -417,12 +424,19 @@ func (lb *SLoadbalancer) GetCustomizeColumns(ctx context.Context, userCred mccli
 		return extra
 	}
 	extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
-	return extra
+	return lb.getMoreDetails(ctx, userCred, query, extra)
 }
 
 func (lb *SLoadbalancer) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra := lb.GetCustomizeColumns(ctx, userCred, query)
-	return extra, nil
+	return lb.getMoreDetails(ctx, userCred, query, extra), nil
+}
+
+func (lb *SLoadbalancer) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	info := lb.getCloudProviderInfo()
+	extra.Update(jsonutils.Marshal(&info))
+
+	return extra
 }
 
 func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
