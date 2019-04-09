@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/requests"
@@ -153,6 +155,8 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 			if err.Code == 499 && retry > 0 && request.GetMethod() == "GET" {
 				retry -= 1
 				time.Sleep(time.Second * time.Duration(MAX_RETRY-retry))
+			} else if err.Code == 404 || strings.Index(err.Details, "could not be found") > 0 {
+				return h, b, cloudprovider.ErrNotFound
 			} else {
 				return h, b, e
 			}
