@@ -381,6 +381,9 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		aclTypeV.Default(lblis.AclType)
 	}
 	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerProjId)
+	if len(lblis.AclId) > 0 {
+		aclV.Default(lblis.AclId)
+	}
 	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerProjId)
 	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
 	keyV := map[string]validators.IValidator{
