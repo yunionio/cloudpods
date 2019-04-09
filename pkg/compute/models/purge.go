@@ -12,6 +12,7 @@ import (
 )
 
 type IPurgeableManager interface {
+	Keyword() string
 	purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error
 }
 

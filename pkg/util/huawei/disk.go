@@ -429,6 +429,9 @@ func (self *SDisk) Rebuild(ctx context.Context) error {
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
+	if len(diskId) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
 	var disk SDisk
 	err := DoGet(self.ecsClient.Disks.Get, diskId, nil, &disk)
 	return &disk, err
