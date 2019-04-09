@@ -955,7 +955,10 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 	} {
 		manager.purgeAll(ctx, userCred, self.Id)
 		if err != nil {
+			log.Errorf("%s purgeall failed %s", manager.Keyword(), err)
 			return err
+		} else {
+			log.Debugf("%s purgeall success!", manager.Keyword())
 		}
 	}
 

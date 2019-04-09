@@ -26,6 +26,11 @@ func (self *CloudAccountDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	providers := account.GetCloudproviders()
 
+	if len(providers) == 0 {
+		self.OnAllCloudProviderDeleteComplete(ctx, account, nil)
+		return
+	}
+
 	self.SetStage("OnAllCloudProviderDeleteComplete", nil)
 
 	for i := range providers {

@@ -351,7 +351,8 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	if len(diskId) == 0 {
-		return nil, fmt.Errorf("GetDisk diskId should not be empty.")
+		// return nil, fmt.Errorf("GetDisk diskId should not be empty.")
+		return nil, cloudprovider.ErrNotFound
 	}
 	disks, total, err := self.GetDisks("", "", "", []string{diskId}, 0, 1)
 	if err != nil {
