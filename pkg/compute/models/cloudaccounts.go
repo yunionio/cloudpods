@@ -144,7 +144,7 @@ func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Enabled {
 		return httperrors.NewInvalidStatusError("account is enabled")
 	}
-	if self.SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+	if self.getSyncStatus() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
 		return httperrors.NewInvalidStatusError("account is not idle")
 	}
 	cloudproviders := self.GetCloudproviders()
@@ -167,9 +167,11 @@ func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.
 	}
 	cloudproviders := self.GetCloudproviders()
 	for i := 0; i < len(cloudproviders); i++ {
-		_, err := cloudproviders[i].PerformEnable(ctx, userCred, query, data)
-		if err != nil {
-			return nil, err
+		if !cloudproviders[i].Enabled {
+			_, err := cloudproviders[i].PerformEnable(ctx, userCred, query, data)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return nil, nil
@@ -178,9 +180,11 @@ func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.
 func (self *SCloudaccount) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	cloudproviders := self.GetCloudproviders()
 	for i := 0; i < len(cloudproviders); i++ {
-		_, err := cloudproviders[i].PerformDisable(ctx, userCred, query, data)
-		if err != nil {
-			return nil, err
+		if cloudproviders[i].Enabled {
+			_, err := cloudproviders[i].PerformDisable(ctx, userCred, query, data)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	if self.EnableAutoSync {
@@ -291,9 +295,9 @@ func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.Tok
 	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
 	self.savePassword(self.Secret)
 
-	if !self.EnableAutoSync {
-		self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{}, "")
-	}
+	// if !self.EnableAutoSync {
+	self.StartSyncCloudProviderInfoTask(ctx, userCred, nil, "")
+	// }
 }
 
 func (self *SCloudaccount) savePassword(secret string) error {
@@ -492,6 +496,10 @@ func (self *SCloudaccount) GetProvider() (cloudprovider.ICloudProvider, error) {
 	if !self.Enabled {
 		return nil, fmt.Errorf("Cloud provider is not enabled")
 	}
+	return self.getProviderInternal()
+}
+
+func (self *SCloudaccount) getProviderInternal() (cloudprovider.ICloudProvider, error) {
 	secret, err := self.getPassword()
 	if err != nil {
 		return nil, fmt.Errorf("Invalid password %s", err)
@@ -500,7 +508,7 @@ func (self *SCloudaccount) GetProvider() (cloudprovider.ICloudProvider, error) {
 }
 
 func (self *SCloudaccount) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
-	provider, err := self.GetProvider()
+	provider, err := self.getProviderInternal()
 	if err != nil {
 		return nil, err
 	}
@@ -706,6 +714,7 @@ func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.
 	}
 	extra.Add(projects, "projects")
 	extra.Set("sync_interval_seconds", jsonutils.NewInt(int64(self.getSyncIntervalSeconds())))
+	extra.Set("sync_status", jsonutils.NewString(self.getSyncStatus()))
 	return extra
 }
 
@@ -1093,7 +1102,7 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Contex
 	}
 
 	for i := range accounts {
-		if accounts[i].shouldProbeStatus() && accounts[i].needSync() && accounts[i].CanSync() && rand.Float32() < 0.6 {
+		if accounts[i].Enabled && accounts[i].shouldProbeStatus() && accounts[i].needSync() && accounts[i].CanSync() && rand.Float32() < 0.6 {
 			accounts[i].SubmitSyncAccountTask(ctx, userCred, nil, true)
 		}
 	}
@@ -1107,7 +1116,7 @@ func (account *SCloudaccount) getSyncIntervalSeconds() int {
 }
 
 func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred mcclient.TokenCredential) ([]cloudprovider.SSubAccount, error) {
-	manager, err := account.GetProvider()
+	manager, err := account.getProviderInternal()
 	if err != nil {
 		log.Errorf("account.GetProvider failed: %s", err)
 		return nil, err
@@ -1247,4 +1256,20 @@ func (self *SCloudaccount) StartCloudaccountDeleteTask(ctx context.Context, user
 	self.SetStatus(userCred, api.CLOUD_PROVIDER_START_DELETE, "StartCloudaccountDeleteTask")
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SCloudaccount) getSyncStatus() string {
+	cprs := CloudproviderRegionManager.Query().SubQuery()
+	providers := CloudproviderManager.Query().SubQuery()
+
+	q := cprs.Query()
+	q = q.Join(providers, sqlchemy.Equals(cprs.Field("cloudprovider_id"), providers.Field("id")))
+	q = q.Filter(sqlchemy.Equals(providers.Field("cloudaccount_id"), self.Id))
+	q = q.Filter(sqlchemy.NotEquals(cprs.Field("sync_status"), api.CLOUD_PROVIDER_SYNC_STATUS_IDLE))
+
+	if q.Count() > 0 {
+		return api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
+	} else {
+		return api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+	}
 }

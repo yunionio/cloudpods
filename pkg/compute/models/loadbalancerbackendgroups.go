@@ -245,7 +245,7 @@ func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Conte
 	}
 
 	region := lbbg.GetRegion()
-	if region != nil {
+	if region == nil {
 		return nil
 	}
 	return region.GetDriver().ValidateDeleteLoadbalancerBackendGroupCondition(ctx, lbbg)
