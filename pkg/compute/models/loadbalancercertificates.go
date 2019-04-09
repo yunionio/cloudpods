@@ -273,6 +273,31 @@ func (lbcert *SLoadbalancerCertificate) GetRegion() *SCloudregion {
 	return region.(*SCloudregion)
 }
 
+func (lbcert *SLoadbalancerCertificate) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lbcert.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	return lbcert.getMoreDetails(ctx, userCred, query, extra)
+}
+
+func (lbcert *SLoadbalancerCertificate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := lbcert.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return lbcert.getMoreDetails(ctx, userCred, query, extra), nil
+}
+
+func (lbcert *SLoadbalancerCertificate) getCloudProviderInfo() SCloudProviderInfo {
+	region := lbcert.GetRegion()
+	provider := lbcert.GetCloudprovider()
+	return MakeCloudProviderInfo(region, nil, provider)
+}
+
+func (lbcert *SLoadbalancerCertificate) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	info := lbcert.getCloudProviderInfo()
+	extra.Update(jsonutils.Marshal(&info))
+	return extra
+}
+
 func (lbcert *SLoadbalancerCertificate) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := lbcert.GetDriver()
 	if err != nil {

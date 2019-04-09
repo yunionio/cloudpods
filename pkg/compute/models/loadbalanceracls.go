@@ -226,6 +226,31 @@ func (lbacl *SLoadbalancerAcl) AllowPerformPatch(ctx context.Context, userCred m
 	return lbacl.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, lbacl, "patch")
 }
 
+func (lbacl *SLoadbalancerAcl) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lbacl.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	return lbacl.getMoreDetails(ctx, userCred, query, extra)
+}
+
+func (lbacl *SLoadbalancerAcl) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := lbacl.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	return lbacl.getMoreDetails(ctx, userCred, query, extra), nil
+}
+
+func (lbacl *SLoadbalancerAcl) getCloudProviderInfo() SCloudProviderInfo {
+	region := lbacl.GetRegion()
+	provider := lbacl.GetCloudprovider()
+	return MakeCloudProviderInfo(region, nil, provider)
+}
+
+func (lbacl *SLoadbalancerAcl) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	info := lbacl.getCloudProviderInfo()
+	extra.Update(jsonutils.Marshal(&info))
+	return extra
+}
+
 // PerformPatch patches acl entries by adding then deleting the specified acls.
 // This is intended mainly for command line operations.
 func (lbacl *SLoadbalancerAcl) PerformPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
