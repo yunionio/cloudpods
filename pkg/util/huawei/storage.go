@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -129,6 +130,12 @@ func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudpr
 		return nil, err
 	}
 	disk.storage = self
+
+	err = cloudprovider.WaitStatus(disk, models.DISK_READY, 5*time.Second, 120*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
 	return disk, nil
 }
 

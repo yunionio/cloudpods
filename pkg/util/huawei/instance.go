@@ -294,6 +294,11 @@ func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 }
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
+	err := self.Refresh()
+	if err != nil {
+		return nil, err
+	}
+
 	attached := self.OSExtendedVolumesVolumesAttached
 	disks := make([]SDisk, 0)
 	for _, vol := range attached {
@@ -551,11 +556,21 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, password strin
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
-	return self.host.zone.region.ChangeVMConfig(self.OSEXTAZAvailabilityZone, self.GetId(), ncpu, vmem, nil)
+	err := self.host.zone.region.ChangeVMConfig(self.OSEXTAZAvailabilityZone, self.GetId(), ncpu, vmem, nil)
+	if err != nil {
+		return err
+	}
+
+	return cloudprovider.WaitStatusWithDelay(self, models.VM_READY, 10*time.Second, 15*time.Second, 180*time.Second)
 }
 
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
-	return self.host.zone.region.ChangeVMConfig2(self.OSEXTAZAvailabilityZone, self.GetId(), instanceType, nil)
+	err := self.host.zone.region.ChangeVMConfig2(self.OSEXTAZAvailabilityZone, self.GetId(), instanceType, nil)
+	if err != nil {
+		return err
+	}
+
+	return cloudprovider.WaitStatusWithDelay(self, models.VM_READY, 10*time.Second, 15*time.Second, 180*time.Second)
 }
 
 // todo:// 返回jsonobject感觉很诡异。不能直接知道内部细节
