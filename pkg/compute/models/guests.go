@@ -4083,6 +4083,19 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 			userInput.IsolatedDevices = append(userInput.IsolatedDevices, dev)
 		}
 	}
+	userInput.Count = 1
+	// override some old userInput properties via genInput because of change config behavior
+	userInput.VmemSize = genInput.VmemSize
+	userInput.VcpuCount = genInput.VcpuCount
+	userInput.Vga = genInput.Vga
+	userInput.Vdi = genInput.Vdi
+	userInput.Bios = genInput.Bios
+	userInput.Description = genInput.Description
+	userInput.BootOrder = genInput.BootOrder
+	userInput.DisableDelete = genInput.DisableDelete
+	userInput.ShutdownBehavior = genInput.ShutdownBehavior
+	userInput.IsSystem = genInput.IsSystem
+	userInput.SecgroupId = genInput.SecgroupId
 	userInput.KeypairId = genInput.KeypairId
 	userInput.Project = genInput.Project
 	return userInput
@@ -4103,10 +4116,8 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	r.DisableDelete = new(bool)
 	*r.DisableDelete = self.DisableDelete.Bool()
 	r.ShutdownBehavior = self.ShutdownBehavior
-	// r.DeployConfigs
+	// ignore r.DeployConfigs
 	r.IsSystem = self.IsSystem
-	// r.Duration
-	// r.AutoPrepaidRecycle
 	r.SecgroupId = self.SecgrpId
 
 	r.ServerConfigs = new(api.ServerConfigs)
