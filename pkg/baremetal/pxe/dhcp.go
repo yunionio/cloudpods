@@ -235,12 +235,11 @@ func (req *dhcpRequest) findNetworkConf(session *mcclient.ClientSession, filterU
 
 func (req *dhcpRequest) findBaremetalsOfAnyMac(session *mcclient.ClientSession, isBaremetal bool) (*modules.ListResult, error) {
 	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(api.HOST_TYPE_BAREMETAL), "host_type")
 	params.Add(jsonutils.NewString(req.ClientMac.String()), "any_mac")
 	if isBaremetal {
 		params.Add(jsonutils.JSONTrue, "is_baremetal")
 	} else {
-		params.Add(jsonutils.NewString("baremetal"), "host_type")
+		params.Add(jsonutils.NewString(api.HOST_TYPE_BAREMETAL), "host_type")
 	}
 	return modules.Hosts.List(session, params)
 }
