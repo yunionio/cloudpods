@@ -909,8 +909,9 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 				rootDiskConfig.Backend = GetDriver(hypervisor).GetDefaultSysDiskBackend()
 			}
 		}
-		if rootDiskConfig.SizeMb == 0 {
-			rootDiskConfig.SizeMb = GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024
+		sysMinDiskMB := GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024
+		if rootDiskConfig.SizeMb < sysMinDiskMB {
+			rootDiskConfig.SizeMb = sysMinDiskMB
 		}
 		log.Debugf("ROOT DISK: %#v", rootDiskConfig)
 		data.Set("disk.0", jsonutils.Marshal(rootDiskConfig))
