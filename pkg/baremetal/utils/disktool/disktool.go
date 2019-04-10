@@ -104,7 +104,8 @@ func (p *Partition) Format(fs string, uuid string) error {
 		cmd = []string{"/usr/sbin/mkfs.ext3"}
 		cmdUUID = []string{"/usr/sbin/tune2fs", "-U", uuid}
 	case "ext4":
-		cmd = []string{"/usr/sbin/mkfs.ext4", "-O", "^64bit", "-E", "lazy_itable_init=1"}
+		// for baremetal, force 64bit support large disks
+		cmd = []string{"/usr/sbin/mkfs.ext4", "-O", "64bit", "-E", "lazy_itable_init=1"}
 		cmdUUID = []string{"/usr/sbin/tune2fs", "-U", uuid}
 	case "ext4dev":
 		cmd = []string{"/usr/sbin/mkfs.ext4dev", "-E", "lazy_itable_init=1"}

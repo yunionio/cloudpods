@@ -42,7 +42,7 @@ func NewBaremetalUnmaintenanceTask(
 		if err != nil {
 			return task, fmt.Errorf("EnsurePowerShutdown hard: %v", err)
 		}
-		err = task.EnsurePowerUp("disk")
+		err = task.EnsurePowerUp()
 		if err != nil {
 			return task, fmt.Errorf("EnsurePowerUp disk: %v", err)
 		}
