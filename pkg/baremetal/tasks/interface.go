@@ -34,7 +34,7 @@ type IBaremetal interface {
 	GetPowerStatus() (string, error)
 	DoPowerShutdown(soft bool) error
 	DoPXEBoot() error
-	DoDiskBoot() error
+	// DoDiskBoot() error
 
 	RemoveServer()
 }
