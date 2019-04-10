@@ -23,8 +23,8 @@ func NewBaremetalServerStartTask(
 	self := &SBaremetalServerStartTask{
 		SBaremetalTaskBase: baseTask,
 	}
-	if err := self.Baremetal.DoDiskBoot(); err != nil {
-		return nil, fmt.Errorf("DoDiskBoot: %v", err)
+	if err := self.Baremetal.DoPXEBoot(); err != nil {
+		return nil, fmt.Errorf("DoPXEBoot: %v", err)
 	}
 	self.SetStage(self.WaitForStart)
 	ExecuteTask(self, nil)
