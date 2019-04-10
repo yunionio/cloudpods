@@ -66,7 +66,7 @@ func (self *SBaremetalServerBaseDeployTask) OnPXEBoot(ctx context.Context, term 
 			return err
 		}
 		if onFinishAction == "restart" {
-			err = self.EnsurePowerUp("disk")
+			err = self.EnsurePowerUp()
 			if err != nil {
 				return err
 			}
