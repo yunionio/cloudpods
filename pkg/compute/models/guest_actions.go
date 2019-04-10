@@ -1807,9 +1807,11 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	var newDisks = make([]*api.DiskConfig, 0)
 	var resizeDisks = jsonutils.NewArray()
 
-	inputDisks, err := cmdline.FetchDiskConfigsByJSON(data)
-	if err != nil {
-		return nil, err
+	var inputDisks = make([]*api.DiskConfig, 0)
+	if disksConf, err := data.Get("disks"); err == nil {
+		if err = disksConf.Unmarshal(&inputDisks); err != nil {
+			return nil, httperrors.NewInputParameterError("Unmarshal disks configure error %s", err)
+		}
 	}
 
 	for _, diskConf := range inputDisks {
@@ -1871,9 +1873,6 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		log.Debugf("Skip storage free capacity validating for public cloud: %s", provider.GetId())
 	}
 
-	if len(newDisks) > 0 {
-		confs.Add(jsonutils.Marshal(newDisks), "create")
-	}
 	if resizeDisks.Length() > 0 {
 		confs.Add(resizeDisks, "resize")
 	}
@@ -1920,6 +1919,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 			QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
 			return nil, httperrors.NewBadRequestError("Create disk on host error: %s", err)
 		}
+		confs.Add(jsonutils.Marshal(newDisks), "create")
 	}
 	self.StartChangeConfigTask(ctx, userCred, confs, "", pendingUsage)
 	return nil, nil

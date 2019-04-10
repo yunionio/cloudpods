@@ -111,7 +111,7 @@ func (self *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, ob
 
 func (self *GuestChangeConfigTask) DoCreateDisksTask(ctx context.Context, guest *models.SGuest) {
 	disks := make([]*api.DiskConfig, 0)
-	err := self.Params.Unmarshal(disks, "create")
+	err := self.Params.Unmarshal(&disks, "create")
 	if err != nil || len(disks) == 0 {
 		self.OnCreateDisksComplete(ctx, guest, nil)
 		return
