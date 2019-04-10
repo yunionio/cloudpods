@@ -239,6 +239,10 @@ func (self *SLBListener) IsEmulated() bool {
 	return false
 }
 
+func (self *SLBListener) GetEgressMbps() int {
+	return 0
+}
+
 func (self *SLBListener) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }

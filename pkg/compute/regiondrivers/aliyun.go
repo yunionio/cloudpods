@@ -30,11 +30,18 @@ func (self *SAliyunRegionDriver) GetProvider() string {
 }
 
 func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	loadbalancerSpec, _ := data.GetString("loadbalancer_spec")
-	if len(loadbalancerSpec) != 0 && !utils.IsInStringArray(loadbalancerSpec, []string{"slb.s1.small", "slb.s2.small", "slb.s2.mediu", "slb.s3.small", "slb.s3.mediu", "slb.s3.large"}) {
-		return nil, httperrors.NewInputParameterError("Unsupport loadbalancer_spec %s, support slb.s1.small、slb.s2.small、slb.s2.medium、slb.s3.small、slb.s3.medium、slb.s3.large", loadbalancerSpec)
+	loadbalancerSpecV := validators.NewStringChoicesValidator("loadbalancer_spec", api.LB_ALIYUN_SPEC)
+	loadbalancerSpecV.Default(api.LB_ALIYUN_SPEC_S1_SMALL)
+	if err := loadbalancerSpecV.Validate(data); err != nil {
+		return nil, err
 	}
-	return data, nil
+	if chargeType, _ := data.GetString("charge_type"); chargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+		bandwidthV := validators.NewRangeValidator("bandwidth", 1, 5000)
+		if err := bandwidthV.Validate(data); err != nil {
+			return nil, err
+		}
+	}
+	return self.ValidateCreateLoadbalancerData(ctx, userCred, data)
 }
 
 func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -144,8 +151,23 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		return nil, httperrors.NewInputParameterError("health_check_domain must be in the range of 1 ~ 80")
 	}
 
+	bandwidth := 5000
+	if lb.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+		bandwidth = lb.Bandwidth
+	}
+
+	listeners, err := lb.GetLoadbalancerListeners()
+	if err != nil {
+		return nil, err
+	}
+	for _, listener := range listeners {
+		if listener.EgressMbps > 0 {
+			bandwidth -= listener.EgressMbps
+		}
+	}
+
 	keyV := map[string]validators.IValidator{
-		"bandwidth": validators.NewRangeValidator("bandwidth", 1, 5000),
+		"egress_mbps": validators.NewRangeValidator("egress_mbps", -1, int64(bandwidth)).Optional(true),
 
 		"client_request_timeout": validators.NewRangeValidator("client_request_timeout", 1, 180),
 

@@ -60,10 +60,12 @@ type SLoadbalancer struct {
 	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	VpcId       string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 
-	ChargeType       string `list:"user" get:"user" create:"optional"`
-	LoadbalancerSpec string `list:"user" get:"user" create:"optional"`
+	ChargeType string `list:"user" get:"user" create:"optional" update:"user"`
+	Bandwidth  int    `list:"user" get:"user" create:"optional" update:"user"`
 
-	BackendGroupId string               `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" update:"user"`
+	LoadbalancerSpec string `list:"user" get:"user" list:"user" create:"optional"`
+
+	BackendGroupId string               `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user"`
 	LBInfo         jsonutils.JSONObject `charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_optional"`
 }
 
@@ -95,7 +97,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerProjId)
 	addressType, _ := data.GetString("address_type")
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", "")
-	managerIdV := validators.NewModelIdOrNameValidator("manager_id", "cloudprovider", "")
+	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", "")
 	if addressType == api.LB_ADDR_TYPE_INTERNET {
 		networkV.Optional(true)
 	} else {
@@ -103,16 +105,19 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		managerIdV.Optional(true)
 	}
 	addressV := validators.NewIPv4AddrValidator("address")
+	chargeTypeV := validators.NewStringChoicesValidator("charge_type", api.LB_CHARGE_TYPE)
+	chargeTypeV.Default(api.LB_CHARGE_TYPE_BY_TRAFFIC)
 	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
 	{
 		keyV := map[string]validators.IValidator{
 			"status": validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
 
+			"charge_type":  chargeTypeV,
 			"address":      addressV.Optional(true),
 			"address_type": addressTypeV.Default(api.LB_ADDR_TYPE_INTRANET),
 			"network":      networkV,
 			"zone":         zoneV,
-			"manager_id":   managerIdV,
+			"manager":      managerIdV,
 		}
 		for _, v := range keyV {
 			if err := v.Validate(data); err != nil {
@@ -120,8 +125,13 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 			}
 		}
 	}
+
 	var region *SCloudregion
 	if addressTypeV.Value == api.LB_ADDR_TYPE_INTRANET {
+		if chargeTypeV.Value == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+			return nil, httperrors.NewUnsupportOperationError("intranet loadbalancer not support bandwidth charge type")
+		}
+
 		network := networkV.Model.(*SNetwork)
 		if ipAddr := addressV.IP; ipAddr != nil {
 			ipS := ipAddr.String()
@@ -151,6 +161,9 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		}
 		data.Set("vpc_id", jsonutils.NewString(vpc.Id))
 		if len(vpc.ManagerId) > 0 {
+			if managerIdV != nil && managerIdV.Model.GetId() != vpc.ManagerId {
+				return nil, httperrors.NewInputParameterError("manager %s(%s) not fetch vpc %s(%s) manager %s", managerIdV.Model.GetName(), managerIdV.Model.GetId(), vpc.GetName(), vpc.GetId(), vpc.ManagerId)
+			}
 			data.Set("manager_id", jsonutils.NewString(vpc.ManagerId))
 		}
 		zone := wire.GetZone()
@@ -172,6 +185,12 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		if region == nil {
 			return nil, fmt.Errorf("getting region failed")
 		}
+		if chargeTypeV.Value == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+			if _, err := data.Int("bandwidth"); err != nil {
+				return nil, httperrors.NewMissingParameterError("bandwidth")
+			}
+		}
+
 		// 公网 lb 实例和vpc、network无关联
 		data.Set("vpc_id", jsonutils.NewString(""))
 		data.Set("address", jsonutils.NewString(""))
@@ -326,6 +345,9 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		}
 		params.ZoneID = iZone.GetId()
 	}
+	if lb.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+		lb.Bandwidth = lb.Bandwidth
+	}
 	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET {
 		vpc := lb.GetVpc()
 		if vpc == nil {
@@ -428,6 +450,24 @@ func (lb *SLoadbalancer) GetExtraDetails(ctx context.Context, userCred mcclient.
 func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	lb.SetStatus(userCred, api.LB_STATUS_DELETING, "")
 	return lb.StartLoadBalancerDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
+}
+
+func (lb *SLoadbalancer) GetLoadbalancerListeners() ([]SLoadbalancerListener, error) {
+	listeners := []SLoadbalancerListener{}
+	q := LoadbalancerListenerManager.Query().Equals("loadbalancer_id", lb.Id)
+	if err := db.FetchModelObjects(LoadbalancerListenerManager, q, &listeners); err != nil {
+		return nil, err
+	}
+	return listeners, nil
+}
+
+func (lb *SLoadbalancer) GetLoadbalancerBackendgroups() ([]SLoadbalancerBackendGroup, error) {
+	lbbgs := []SLoadbalancerBackendGroup{}
+	q := LoadbalancerBackendGroupManager.Query().Equals("loadbalancer_id", lb.Id)
+	if err := db.FetchModelObjects(LoadbalancerListenerManager, q, &lbbgs); err != nil {
+		return nil, err
+	}
+	return lbbgs, nil
 }
 
 func (lb *SLoadbalancer) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
@@ -545,6 +585,7 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	lb.Status = extLb.GetStatus()
 	lb.LoadbalancerSpec = extLb.GetLoadbalancerSpec()
 	lb.ChargeType = extLb.GetChargeType()
+	lb.Bandwidth = extLb.GetBandwidth()
 	lb.ExternalId = extLb.GetGlobalId()
 	if networkId := extLb.GetNetworkId(); len(networkId) > 0 {
 		if network, err := NetworkManager.FetchByExternalId(networkId); err == nil && network != nil {
@@ -615,6 +656,7 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		lb.Status = extLb.GetStatus()
 		// lb.Name = extLb.GetName()
 		lb.LoadbalancerSpec = extLb.GetLoadbalancerSpec()
+		lb.Bandwidth = extLb.GetBandwidth()
 		lb.ChargeType = extLb.GetChargeType()
 
 		if extLb.GetMetadata() != nil {

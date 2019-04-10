@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -46,7 +47,11 @@ func (self *LoadbalancerCertificateDeleteTask) OnInit(ctx context.Context, obj d
 func (self *LoadbalancerCertificateDeleteTask) OnLoadbalancerCertificateDeleteComplete(ctx context.Context, lbcert *models.SLoadbalancerCertificate, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lbcert, db.ACT_DELETE, lbcert.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	lbcert.DoPendingDelete(ctx, self.GetUserCred())
+	err := lbcert.GetRegion().GetDriver().DeleteLoadbalancerCertificateModel(ctx, self.UserCred, lbcert)
+	if err != nil {
+		log.Errorf("delete %v error: %v", lbcert, err)
+	}
+	//lbcert.DoPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 

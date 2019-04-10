@@ -69,6 +69,10 @@ func (listerner *SLoadbalancerTCPListener) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
+func (listerner *SLoadbalancerTCPListener) GetEgressMbps() int {
+	return listerner.Bandwidth
+}
+
 func (listerner *SLoadbalancerTCPListener) IsEmulated() bool {
 	return false
 }
@@ -215,17 +219,10 @@ func (region *SRegion) GetLoadbalancerTCPListener(loadbalancerId string, listene
 func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) map[string]string {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
-	switch lb.InternetChargeType {
-	case "paybytraffic":
-		params["Bandwidth"] = "-1"
-	case "paybybandwidth":
-		if lb.Bandwidth > 5000 {
-			lb.Bandwidth = 5000
-		}
-		params["Bandwidth"] = fmt.Sprintf("%d", lb.Bandwidth)
-	default:
-		params["Bandwidth"] = fmt.Sprintf("%d", listener.Bandwidth)
+	if listener.EgressMbps == 0 {
+		listener.EgressMbps = -1
 	}
+	params["Bandwidth"] = fmt.Sprintf("%d", listener.EgressMbps)
 	params["ListenerPort"] = fmt.Sprintf("%d", listener.ListenerPort)
 	params["LoadBalancerId"] = lb.LoadBalancerId
 	if len(listener.AccessControlListID) > 0 {

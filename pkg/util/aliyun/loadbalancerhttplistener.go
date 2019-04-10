@@ -95,6 +95,10 @@ func (listerner *SLoadbalancerHTTPListener) IsEmulated() bool {
 	return false
 }
 
+func (listerner *SLoadbalancerHTTPListener) GetEgressMbps() int {
+	return listerner.Bandwidth
+}
+
 func (listerner *SLoadbalancerHTTPListener) Refresh() error {
 	lis, err := listerner.lb.region.GetLoadbalancerHTTPListener(listerner.lb.LoadBalancerId, listerner.ListenerPort)
 	if err != nil {

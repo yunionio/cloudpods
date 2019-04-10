@@ -21,6 +21,7 @@ func init() {
 				"listener_type",
 				"listener_port",
 				"backend_port",
+				"egress_mbps",
 				"acl_status",
 				"acl_type",
 			},
