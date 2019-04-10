@@ -677,15 +677,24 @@ func (b *SBaremetalInstance) GetNotifyUrl() string {
 }
 
 func (b *SBaremetalInstance) GetTFTPResponse() string {
-	return fmt.Sprintf(
-		`default start
+	resp := `default start
 serial 1 115200
+
 label start
     menu label ^Start
     menu default
-    kernel kernel
-    append initrd=initramfs token=%s url=%s`,
-		auth.GetTokenString(), b.GetNotifyUrl())
+`
+
+	if b.NeedPXEBoot() {
+		resp += "    kernel kernel\n"
+		resp += fmt.Sprintf("    append initrd=initramfs token=%s url=%s",
+			auth.GetTokenString(), b.GetNotifyUrl())
+	} else {
+		resp += "    COM32 chain.c32\n"
+		resp += "    APPEND hd0 0\n"
+	}
+	log.Infof("%s", resp)
+	return resp
 }
 
 func (b *SBaremetalInstance) GetTaskQueue() *tasks.TaskQueue {
@@ -920,6 +929,7 @@ func (b *SBaremetalInstance) DoPXEBoot() error {
 	return fmt.Errorf("Baremetal %s ipmitool is nil", b.GetId())
 }
 
+/*
 func (b *SBaremetalInstance) DoDiskBoot() error {
 	log.Infof("Do DISK Boot ........., wait")
 	b.ClearSSHConfig()
@@ -929,6 +939,7 @@ func (b *SBaremetalInstance) DoDiskBoot() error {
 	}
 	return fmt.Errorf("Baremetal %s ipmitool is nil", b.GetId())
 }
+*/
 
 func (b *SBaremetalInstance) GetPowerStatus() (string, error) {
 	ipmiCli := b.GetIPMITool()
@@ -1005,7 +1016,7 @@ func (b *SBaremetalInstance) StartBaremetalResetBMCTask(userCred mcclient.TokenC
 }
 
 func (b *SBaremetalInstance) DelayedServerReset(_ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := b.DoDiskBoot()
+	err := b.DoPXEBoot()
 	return nil, err
 }
 
