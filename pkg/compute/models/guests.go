@@ -819,10 +819,12 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 
 	passwd := input.Password
-	if resetPassword && len(passwd) > 0 {
+	if len(passwd) > 0 {
 		if !seclib2.MeetComplxity(passwd) {
 			return nil, httperrors.NewWeakPasswordError()
 		}
+		resetPassword = true
+		input.ResetPassword = &resetPassword
 	}
 
 	var hypervisor string
