@@ -561,7 +561,7 @@ func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) err
 		return err
 	}
 
-	return cloudprovider.WaitStatusWithDelay(self, models.VM_READY, 10*time.Second, 15*time.Second, 180*time.Second)
+	return cloudprovider.WaitStatusWithDelay(self, models.VM_READY, 15*time.Second, 15*time.Second, 180*time.Second)
 }
 
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
@@ -570,7 +570,7 @@ func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) e
 		return err
 	}
 
-	return cloudprovider.WaitStatusWithDelay(self, models.VM_READY, 10*time.Second, 15*time.Second, 180*time.Second)
+	return cloudprovider.WaitStatusWithDelay(self, models.VM_READY, 15*time.Second, 15*time.Second, 180*time.Second)
 }
 
 // todo:// 返回jsonobject感觉很诡异。不能直接知道内部细节
