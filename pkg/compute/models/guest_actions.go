@@ -342,7 +342,16 @@ func (self *SGuest) PerformDeploy(ctx context.Context, userCred mcclient.TokenCr
 		}
 	}
 
-	resetPasswd := jsonutils.QueryBoolean(kwargs, "reset_password", false)
+	var resetPasswd bool
+	passwdStr, _ := kwargs.GetString("password")
+	if len(passwdStr) > 0 {
+		if !seclib2.MeetComplxity(passwdStr) {
+			return nil, httperrors.NewWeakPasswordError()
+		}
+		resetPasswd = true
+	} else {
+		resetPasswd = jsonutils.QueryBoolean(kwargs, "reset_password", false)
+	}
 	if resetPasswd {
 		kwargs.Set("reset_password", jsonutils.JSONTrue)
 	} else {
