@@ -145,12 +145,14 @@ func (h *DHCPHandler) fetchConfig() (*dhcp.ResponseConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-		if h.baremetalInstance.NeedPXEBoot() {
-			return h.baremetalInstance.GetPXEDHCPConfig(h.ClientArch)
-		}
+		// always response PXE request
+		// let bootloader decide boot local or remote
+		// if req.baremetalInstance.NeedPXEBoot() {
+		return h.baremetalInstance.GetPXEDHCPConfig(h.ClientArch)
+		// }
 		// ignore
-		log.Warningf("No need to pxeboot, ignore the request ...(mac:%s guid:%s)", h.ClientMac, h.ClientGuid)
-		return nil, nil
+		// log.Warningf("No need to pxeboot, ignore the request ...(mac:%s guid:%s)", req.ClientMac, req.ClientGuid)
+		// return nil, nil
 	} else {
 		// handle normal DHCP request
 		bmInstance := h.baremetalManager.GetBaremetalByMac(h.ClientMac)
