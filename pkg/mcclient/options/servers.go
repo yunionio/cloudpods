@@ -449,11 +449,8 @@ func (opts *ServerDeployOptions) Params() (*computeapi.ServerDeployInput, error)
 			params.Keypair = opts.Keypair
 		}
 		params.AutoStart = opts.AutoStart
-		if opts.ResetPassword != nil {
-			params.ResetPassword = opts.ResetPassword
-		} else if len(opts.Password) > 0 {
-			params.Password = opts.Password
-		}
+		params.ResetPassword = opts.ResetPassword
+		params.Password = opts.Password
 	}
 	{
 		deployInfos, err := ParseServerDeployInfoList(opts.Deploy)
