@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -39,7 +40,11 @@ func (self *LoadbalancerBackendDeleteTask) OnInit(ctx context.Context, obj db.IS
 }
 
 func (self *LoadbalancerBackendDeleteTask) OnLoadbalancerBackendDeleteComplete(ctx context.Context, lbb *models.SLoadbalancerBackend, data jsonutils.JSONObject) {
-	lbb.DoPendingDelete(ctx, self.GetUserCred())
+	err := lbb.GetRegion().GetDriver().DeleteLoadbalancerBackendModel(ctx, self.UserCred, lbb)
+	if err != nil {
+		log.Errorf("delete %v error: %v", lbb, err)
+	}
+	//lbb.DoPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 
