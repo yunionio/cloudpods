@@ -1266,7 +1266,11 @@ func (guest *SGuest) SetCreateParams(ctx context.Context, userCred mcclient.Toke
 
 func (guest *SGuest) GetCreateParams(userCred mcclient.TokenCredential) (*api.ServerCreateInput, error) {
 	input := new(api.ServerCreateInput)
-	err := guest.GetMetadataJson(VM_METADATA_CREATE_PARAMS, userCred).Unmarshal(input)
+	data := guest.GetMetadataJson(VM_METADATA_CREATE_PARAMS, userCred)
+	if data == nil {
+		return nil, fmt.Errorf("Not found %s %s in metadata", guest.Name, VM_METADATA_CREATE_PARAMS)
+	}
+	err := data.Unmarshal(input)
 	return input, err
 }
 
@@ -4112,6 +4116,15 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	userInput.SecgroupId = genInput.SecgroupId
 	userInput.KeypairId = genInput.KeypairId
 	userInput.Project = genInput.Project
+	if genInput.ResourceType != "" {
+		userInput.ResourceType = genInput.ResourceType
+	}
+	if genInput.PreferRegion != "" {
+		userInput.PreferRegion = genInput.PreferRegion
+	}
+	if genInput.PreferZone != "" {
+		userInput.PreferZone = genInput.PreferZone
+	}
 	return userInput
 }
 
