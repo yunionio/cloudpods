@@ -2550,7 +2550,11 @@ func (self *SGuest) CreateDisksOnHost(
 		if err != nil {
 			return err
 		}
-		disk, err := self.createDiskOnHost(ctx, userCred, host, diskConfig, pendingUsage, inheritBilling, isWithServerCreate, candidate.Disks[idx])
+		var candidateDisk *schedapi.CandidateDisk
+		if candidate != nil && len(candidate.Disks) >= idx {
+			candidateDisk = candidate.Disks[idx]
+		}
+		disk, err := self.createDiskOnHost(ctx, userCred, host, diskConfig, pendingUsage, inheritBilling, isWithServerCreate, candidateDisk)
 		if err != nil {
 			return err
 		}

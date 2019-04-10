@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -538,9 +539,16 @@ func init() {
 		params, err := options.StructToParams(opts)
 		if len(opts.Disk) > 0 {
 			params.Remove("disk.0")
+			disksConf := make([]*compute.DiskConfig, 0)
 			for i, d := range opts.Disk {
-				params.Set(fmt.Sprintf("disk.%d", i+1), jsonutils.NewString(d))
+				// params.Set(key, value)
+				diskConfig, err := cmdline.ParseDiskConfig(d, i+1)
+				if err != nil {
+					return err
+				}
+				disksConf = append(disksConf, diskConfig)
 			}
+			params.Set("disks", jsonutils.Marshal(disksConf))
 		}
 
 		if err != nil {
