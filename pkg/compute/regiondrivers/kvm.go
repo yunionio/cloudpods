@@ -170,6 +170,10 @@ func (self *SKVMRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, use
 	return nil
 }
 
+func (self *SKVMRegionDriver) DeleteLoadbalancerModel(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer) error {
+	return lb.PendingDelete(ctx, userCred)
+}
+
 func (self *SKVMRegionDriver) RequestCreateLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SLoadbalancerAcl, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
@@ -185,6 +189,10 @@ func (self *SKVMRegionDriver) RequestDeleteLoadbalancerAcl(ctx context.Context, 
 	return nil
 }
 
+func (self *SKVMRegionDriver) DeleteLoadbalancerAclModel(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SLoadbalancerAcl) error {
+	return lbacl.DoPendingDelete(ctx, userCred)
+}
+
 func (self *SKVMRegionDriver) RequestCreateLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SLoadbalancerCertificate, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
@@ -193,6 +201,10 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancerCertificate(ctx context.C
 func (self *SKVMRegionDriver) RequestDeleteLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SLoadbalancerCertificate, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SKVMRegionDriver) DeleteLoadbalancerCertificateModel(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SLoadbalancerCertificate) error {
+	return lbcert.DoPendingDelete(ctx, userCred)
 }
 
 func (self *SKVMRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend, task taskman.ITask) error {
@@ -224,6 +236,11 @@ func (self *SKVMRegionDriver) RequestDeleteLoadbalancerBackendGroup(ctx context.
 	return nil
 }
 
+func (self *SKVMRegionDriver) DeleteLoadbalancerBackendGroupModel(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup) error {
+	lbbg.PreDeleteSubs(ctx, userCred)
+	return nil
+}
+
 func (self *SKVMRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
@@ -242,6 +259,10 @@ func (self *SKVMRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Conte
 	return nil
 }
 
+func (self *SKVMRegionDriver) DeleteLoadbalancerBackendModel(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend) error {
+	return lbb.DoPendingDelete(ctx, userCred)
+}
+
 func (self *SKVMRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
@@ -249,6 +270,11 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancerListener(ctx context.Cont
 
 func (self *SKVMRegionDriver) RequestDeleteLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMRegionDriver) DeleteLoadbalancerListenerModel(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener) error {
+	lblis.PreDeleteSubs(ctx, userCred)
 	return nil
 }
 
@@ -286,4 +312,8 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context.
 func (self *SKVMRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (self *SKVMRegionDriver) DeleteLoadbalancerListenerRuleModel(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule) error {
+	return lbr.DoPendingDelete(ctx, userCred)
 }

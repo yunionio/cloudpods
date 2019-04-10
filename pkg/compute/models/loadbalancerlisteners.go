@@ -58,6 +58,10 @@ type SLoadbalancerHTTPRateLimiter struct {
 	HTTPRequestRatePerSrc int `nullable:"false" list:"user" create:"optional" update:"user"`
 }
 
+type SLoadbalancerRateLimiter struct {
+	EgressMbps int `nullable:"false" list:"user" get:"user" create:"optional" update:"user"`
+}
+
 type SLoadbalancerHealthCheck struct {
 	HealthCheck     string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	HealthCheckType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
@@ -122,6 +126,8 @@ type SLoadbalancerListener struct {
 	AclStatus string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	AclType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	AclId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+
+	SLoadbalancerRateLimiter
 
 	SLoadbalancerTCPListener
 	SLoadbalancerUDPListener
@@ -200,8 +206,8 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		"acl_type":   aclTypeV.Optional(true),
 		"acl":        aclV.Optional(true),
 
-		"scheduler": validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
-		"bandwidth": validators.NewRangeValidator("bandwidth", 0, 10000).Optional(true),
+		"scheduler":   validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
+		"egress_mbps": validators.NewRangeValidator("egress_mbps", -1, 10000).Optional(true),
 
 		"client_request_timeout":  validators.NewRangeValidator("client_request_timeout", 0, 600).Default(10),
 		"client_idle_timeout":     validators.NewRangeValidator("client_idle_timeout", 0, 600).Default(90),
@@ -407,8 +413,8 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		"acl_type":   aclTypeV,
 		"acl":        aclV,
 
-		"scheduler": validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
-		"bandwidth": validators.NewRangeValidator("bandwidth", 0, 10000),
+		"scheduler":   validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
+		"egress_mbps": validators.NewRangeValidator("egress_mbps", -1, 10000).Optional(true),
 
 		"client_request_timeout":  validators.NewRangeValidator("client_request_timeout", 0, 600),
 		"client_idle_timeout":     validators.NewRangeValidator("client_idle_timeout", 0, 600),
@@ -599,7 +605,7 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovi
 		ListenerPort:       lblis.ListenerPort,
 		Scheduler:          lblis.Scheduler,
 		EnableHTTP2:        lblis.EnableHttp2,
-		Bandwidth:          0,
+		EgressMbps:         lblis.EgressMbps,
 		EstablishedTimeout: lblis.BackendConnectTimeout,
 
 		HealthCheck:         lblis.HealthCheck,
@@ -761,6 +767,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 	lblis.ManagerId = lb.ManagerId
 	// lblis.Name = extListener.GetName()
 	lblis.ListenerType = extListener.GetListenerType()
+	lblis.EgressMbps = extListener.GetEgressMbps()
 	lblis.ListenerPort = extListener.GetListenerPort()
 	lblis.Scheduler = extListener.GetScheduler()
 	lblis.Status = extListener.GetStatus()

@@ -75,6 +75,10 @@ func (self *SLoadbalancer) GetChargeType() string {
 	return api.LB_CHARGE_TYPE_BY_HOUR
 }
 
+func (self *SLoadbalancer) GetBandwidth() int {
+	return 0
+}
+
 // https://cloud.tencent.com/document/product/214/30689
 func (self *SLoadbalancer) Delete() error {
 	if self.Forward == LB_TYPE_APPLICATION {

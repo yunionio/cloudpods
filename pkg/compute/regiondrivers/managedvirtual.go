@@ -16,7 +16,6 @@ package regiondrivers
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -37,22 +36,13 @@ type SManagedVirtualizationRegionDriver struct {
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+	return self.ValidateManagerId(ctx, userCred, data)
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateManagerId(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	managerID := jsonutils.GetAnyString(data, []string{"manager_id", "manager"})
-	if len(managerID) == 0 {
-		return nil, httperrors.NewMissingParameterError("manager_id")
+	if managerId, _ := data.GetString("manager_id"); len(managerId) == 0 {
+		return nil, httperrors.NewMissingParameterError("manager")
 	}
-	provider, err := models.CloudproviderManager.FetchByIdOrName(userCred, managerID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("failed to find cloudprovider %s", managerID)
-		}
-		return nil, httperrors.NewGeneralError(err)
-	}
-	data.Set("manager_id", jsonutils.NewString(provider.GetId()))
 	return data, nil
 }
 
@@ -61,7 +51,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerAclDat
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+	return self.ValidateManagerId(ctx, userCred, data)
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -229,6 +219,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancer(ctx co
 	return nil
 }
 
+func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer) error {
+	return lb.RealDelete(ctx, userCred)
+}
+
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SLoadbalancerAcl, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iRegion, err := lbacl.GetIRegion()
@@ -298,6 +292,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerAcl(ctx
 	return nil
 }
 
+func (self *SManagedVirtualizationRegionDriver) DeleteLoadbalancerAclModel(ctx context.Context, userCred mcclient.TokenCredential, lbacl *models.SLoadbalancerAcl) error {
+	return lbacl.RealDelete(ctx, userCred)
+}
+
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SLoadbalancerCertificate, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iRegion, err := lbcert.GetIRegion()
@@ -340,6 +338,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerCertifi
 		return nil, iLoadbalancerCert.Delete()
 	})
 	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) DeleteLoadbalancerCertificateModel(ctx context.Context, userCred mcclient.TokenCredential, lbcert *models.SLoadbalancerCertificate) error {
+	return lbcert.RealDelete(ctx, userCred)
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend, task taskman.ITask) error {
@@ -411,6 +413,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 		return nil, iLoadbalancerBackendGroup.Delete()
 	})
 	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) DeleteLoadbalancerBackendGroupModel(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup) error {
+	return lbbg.RealDelete(ctx, userCred)
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
@@ -485,6 +491,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 	return nil
 }
 
+func (self *SManagedVirtualizationRegionDriver) DeleteLoadbalancerBackendModel(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend) error {
+	return lbb.RealDelete(ctx, userCred)
+}
+
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		params, err := lblis.GetLoadbalancerListenerParams()
@@ -542,6 +552,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 		return nil, iListener.Delete()
 	})
 	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) DeleteLoadbalancerListenerModel(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener) error {
+	return lblis.RealDelete(ctx, userCred)
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestStartLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
@@ -732,4 +746,8 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 		return nil, iListenerRule.Delete()
 	})
 	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) DeleteLoadbalancerListenerRuleModel(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule) error {
+	return lbr.RealDelete(ctx, userCred)
 }

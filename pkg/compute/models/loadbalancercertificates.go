@@ -146,6 +146,12 @@ func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Conte
 		return nil, err
 	}
 
+	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", "")
+	managerIdV.Optional(true)
+	if err := managerIdV.Validate(data); err != nil {
+		return nil, err
+	}
+
 	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerProjId)
 	regionV.Default("default")
 	if err := regionV.Validate(data); err != nil {
