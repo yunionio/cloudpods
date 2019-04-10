@@ -73,7 +73,7 @@ type DiskConfig struct {
 	Medium          string            `json:"medium"`
 	ImageProperties map[string]string `json:"image_properties"`
 
-	Storage string `json:"storage"`
+	Storage string `json:"storage_id"`
 	DiskId  string `json:"disk_id"`
 }
 
