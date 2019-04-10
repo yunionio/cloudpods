@@ -138,6 +138,8 @@ func (s *Server) serveTFTP(l net.PacketConn, handler *TFTPHandler) error {
 		InfoLog:     func(msg string) { log.Debugf("TFTP msg: %s", msg) },
 		TransferLog: handler.transferLog,
 		Dial:        bindDial,
+
+		MaxBlockSize: 512,
 	}
 	err := ts.Serve(l)
 	if err != nil {
