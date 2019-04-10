@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
@@ -19,6 +20,17 @@ type DiskResizeTask struct {
 
 func init() {
 	taskman.RegisterTask(DiskResizeTask{})
+}
+
+func (self *DiskResizeTask) SetDiskReady(ctx context.Context, disk *models.SDisk, userCred mcclient.TokenCredential, reason string) {
+	// 此函数主要避免虚机更改配置时，虚机可能出现中间状态
+	if self.IsSubTask() {
+		// 若是子任务，磁盘关联的虚拟机状态由父任务恢复，仅恢复磁盘自身状态即可
+		disk.SetStatus(userCred, models.DISK_READY, reason)
+	} else {
+		// 若不是子任务，由于扩容时设置了关联的虚机状态，虚机的状态也由自己恢复
+		disk.SetDiskReady(ctx, userCred, reason)
+	}
 }
 
 func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -39,7 +51,7 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 
 	reason := "Cannot find host for disk"
 	if host == nil || host.HostStatus != models.HOST_ONLINE {
-		disk.SetDiskReady(ctx, self.GetUserCred(), reason)
+		self.SetDiskReady(ctx, disk, self.GetUserCred(), reason)
 		self.SetStageFailed(ctx, reason)
 		db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, reason, self.GetUserCred())
 		logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, reason, self.UserCred, false)
@@ -70,7 +82,7 @@ func (self *DiskResizeTask) OnStartResizeDiskSucc(ctx context.Context, disk *mod
 }
 
 func (self *DiskResizeTask) OnStartResizeDiskFailed(ctx context.Context, disk *models.SDisk, reason error) {
-	disk.SetDiskReady(ctx, self.GetUserCred(), reason.Error())
+	self.SetDiskReady(ctx, disk, self.GetUserCred(), reason.Error())
 	self.SetStageFailed(ctx, reason.Error())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, reason.Error(), self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, reason.Error(), self.UserCred, false)
@@ -100,7 +112,7 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 		self.OnStartResizeDiskFailed(ctx, disk, err)
 		return
 	}
-	disk.SetDiskReady(ctx, self.GetUserCred(), "")
+	self.SetDiskReady(ctx, disk, self.GetUserCred(), "")
 	notes := fmt.Sprintf("%s=>%s", oldStatus, disk.Status)
 	db.OpsLog.LogEvent(disk, db.ACT_UPDATE_STATUS, notes, self.UserCred)
 	self.CleanHostSchedCache(disk)
@@ -114,7 +126,11 @@ func (self *DiskResizeTask) OnDiskResized(ctx context.Context, disk *models.SDis
 	if len(guestId) > 0 {
 		self.SetStage("TaskComplete", nil)
 		masterGuest := models.GuestManager.FetchGuestById(guestId)
-		masterGuest.StartSyncTask(ctx, self.UserCred, false, self.GetId())
+		if self.IsSubTask() {
+			masterGuest.StartSyncTaskWithoutSyncstatus(ctx, self.UserCred, false, self.GetId())
+		} else {
+			masterGuest.StartSyncTask(ctx, self.UserCred, false, self.GetId())
+		}
 	} else {
 		self.TaskComplete(ctx, disk, nil)
 	}
@@ -130,7 +146,7 @@ func (self *DiskResizeTask) TaskCompleteFailed(ctx context.Context, disk *models
 }
 
 func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	disk.SetDiskReady(ctx, self.GetUserCred(), data.String())
+	self.SetDiskReady(ctx, disk, self.GetUserCred(), data.String())
 	db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, disk.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESIZE, data.String(), self.UserCred, false)
 	guestId, _ := self.Params.GetString("guest_id")
