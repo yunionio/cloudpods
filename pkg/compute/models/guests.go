@@ -770,12 +770,12 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 }
 
 func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	resetPassword := jsonutils.QueryBoolean(data, "reset_password", true)
 	passwd, _ := data.GetString("password")
-	if resetPassword && len(passwd) > 0 {
+	if len(passwd) > 0 {
 		if !seclib2.MeetComplxity(passwd) {
 			return nil, httperrors.NewWeakPasswordError()
 		}
+		data.Set("reset_password", jsonutils.JSONTrue)
 	}
 
 	var err error
