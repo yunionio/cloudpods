@@ -138,6 +138,9 @@ func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclie
 	q := manager.Query()
 	var err error
 	if query != nil && !query.IsZero() {
+		if isListRbacAllowed(manager, userCred, true) {
+			query.(*jsonutils.JSONDict).Set("admin", jsonutils.JSONTrue)
+		}
 		q, err = listItemQueryFilters(manager, ctx, q, userCred, query)
 		if err != nil {
 			return nil, err
