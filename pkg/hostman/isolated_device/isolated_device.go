@@ -113,7 +113,9 @@ func (man *IsolatedDeviceManager) fillPCIDevices() error {
 	// only support gpu by now
 	gpus, err := getPassthroughGPUS()
 	if err != nil {
-		return fmt.Errorf("getPassthroughGPUS: %v", err)
+		// ignore getPassthroughGPUS error on old machines without VGA devices
+		log.Errorf("getPassthroughGPUS: %v", err)
+		return nil
 	}
 	for idx, gpu := range gpus {
 		man.Devices = append(man.Devices, newGPUHPCDevice(gpu))

@@ -117,7 +117,7 @@ func (s *Server) Serve(l net.PacketConn) error {
 	if err := l.SetDeadline(time.Time{}); err != nil {
 		return err
 	}
-	buf := make([]byte, 512)
+	buf := make([]byte, 2048)
 	for {
 		n, addr, err := l.ReadFrom(buf)
 		if err != nil {
