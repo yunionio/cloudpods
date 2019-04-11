@@ -551,6 +551,7 @@ func (host *SHost) newLocalStorageCache() (*SDatastoreImageCache, error) {
 	if err != nil {
 		return nil, err
 	}
+	var errmsg string
 	var cacheDs *SDatastore
 	var maxDs *SDatastore
 	var maxCapacity int
@@ -562,9 +563,12 @@ func (host *SHost) newLocalStorageCache() (*SDatastoreImageCache, error) {
 		_, err := ds.CheckFile(ctx, IMAGE_CACHE_DIR_NAME)
 		if err != nil {
 			if err != cloudprovider.ErrNotFound {
-				return nil, err
-			}
-			if maxCapacity < ds.GetCapacityMB() {
+				// return nil, err
+				if len(errmsg) > 0 {
+					errmsg += ","
+				}
+				errmsg += err.Error()
+			} else if maxCapacity < ds.GetCapacityMB() {
 				maxCapacity = ds.GetCapacityMB()
 				maxDs = ds
 			}
@@ -576,6 +580,10 @@ func (host *SHost) newLocalStorageCache() (*SDatastoreImageCache, error) {
 	if cacheDs == nil {
 		// if no existing image cache dir found, use the one with maximal capacilty
 		cacheDs = maxDs
+	}
+
+	if cacheDs == nil {
+		return nil, fmt.Errorf(errmsg)
 	}
 
 	return &SDatastoreImageCache{
