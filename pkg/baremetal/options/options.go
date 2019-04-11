@@ -20,7 +20,8 @@ type BaremetalOptions struct {
 	DhcpRenewalTime        int    `default:"67108864" help:"DHCP renewal time in seconds"` // 0x4000000
 	EnableGeneralGuestDhcp bool   `default:"false" help:"Enable DHCP service for general guest, e.g. those on VMware ESXi or Xen"`
 	ForceDhcpProbeIpmi     bool   `default:"false" help:"Force DHCP probe IPMI interface network connection"`
-	TftpMaxTimeoutRetries  int    `default:"20" help:"Maximal tftp timeout retries, default is 20"`
+	TftpBlockSizeInBytes   int    `default:"1024" help:"tftp block size, default is 1024"`
+	TftpMaxTimeoutRetries  int    `default:"50" help:"Maximal tftp timeout retries, default is 50"`
 	LengthyWorkerCount     int    `default:"8" help:"Parallel worker count for lengthy tasks"`
 	ShortWorkerCount       int    `default:"8" help:"Parallel worker count for short-lived tasks"`
 
