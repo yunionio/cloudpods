@@ -84,6 +84,9 @@ func (listerner *SLoadbalancerTCPListener) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (listerner *SLoadbalancerTCPListener) GetEgressMbps() int {
+	if listerner.Bandwidth < 1 {
+		return 0
+	}
 	return listerner.Bandwidth
 }
 
@@ -233,7 +236,7 @@ func (region *SRegion) GetLoadbalancerTCPListener(loadbalancerId string, listene
 func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, listener *cloudprovider.SLoadbalancerListener) map[string]string {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
-	if listener.EgressMbps == 0 {
+	if listener.EgressMbps < 1 {
 		listener.EgressMbps = -1
 	}
 	params["Bandwidth"] = fmt.Sprintf("%d", listener.EgressMbps)

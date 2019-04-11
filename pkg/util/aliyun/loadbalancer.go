@@ -259,7 +259,10 @@ func (lb *SLoadbalancer) GetChargeType() string {
 	return "unknown"
 }
 
-func (lb *SLoadbalancer) GetBandwidth() int {
+func (lb *SLoadbalancer) GetEgressMbps() int {
+	if lb.Bandwidth < 1 {
+		return 0
+	}
 	return lb.Bandwidth
 }
 

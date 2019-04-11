@@ -22,6 +22,7 @@ type Loadbalancer struct {
 	VirtualResource
 	ManagedResource
 
+	EgressMbps  int
 	Address     string
 	AddressType string
 	NetworkType string
@@ -68,6 +69,7 @@ type LoadbalancerListener struct {
 	LoadbalancerId string
 	ListenerType   string
 	ListenerPort   int
+	EgressMbps     int
 
 	Scheduler string
 

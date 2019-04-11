@@ -25,6 +25,6 @@ type SLoadbalancer struct {
 	AddressType      string
 	LoadbalancerSpec string
 	ChargeType       string
-	Bandwidth        int
+	EgressMbps       int
 	billingCycle     *billing.SBillingCycle
 }

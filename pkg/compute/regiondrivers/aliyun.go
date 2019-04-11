@@ -44,14 +44,22 @@ func (self *SAliyunRegionDriver) GetProvider() string {
 }
 
 func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	loadbalancerSpecV := validators.NewStringChoicesValidator("loadbalancer_spec", api.LB_ALIYUN_SPEC)
+	loadbalancerSpecV := validators.NewStringChoicesValidator("loadbalancer_spec", api.LB_ALIYUN_SPECS)
 	loadbalancerSpecV.Default(api.LB_ALIYUN_SPEC_S1_SMALL)
 	if err := loadbalancerSpecV.Validate(data); err != nil {
 		return nil, err
 	}
-	if chargeType, _ := data.GetString("charge_type"); chargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
-		bandwidthV := validators.NewRangeValidator("bandwidth", 1, 5000)
-		if err := bandwidthV.Validate(data); err != nil {
+	chargeType, _ := data.GetString("charge_type")
+	if len(chargeType) == 0 {
+		chargeType = api.LB_CHARGE_TYPE_BY_TRAFFIC
+		data.Set("charge_type", jsonutils.NewString(chargeType))
+	}
+	if !utils.IsInStringArray(chargeType, []string{api.LB_CHARGE_TYPE_BY_BANDWIDTH, api.LB_CHARGE_TYPE_BY_TRAFFIC}) {
+		return nil, httperrors.NewInputParameterError("Unsupport charge type %s, only support traffic or bandwidth")
+	}
+	if chargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+		egressMbps := validators.NewRangeValidator("egress_mbps", 1, 5000)
+		if err := egressMbps.Validate(data); err != nil {
 			return nil, err
 		}
 	}
@@ -165,9 +173,9 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		return nil, httperrors.NewInputParameterError("health_check_domain must be in the range of 1 ~ 80")
 	}
 
-	bandwidth := 5000
+	egressMbps := 5000
 	if lb.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
-		bandwidth = lb.Bandwidth
+		egressMbps = lb.EgressMbps
 	}
 
 	listeners, err := lb.GetLoadbalancerListeners()
@@ -176,12 +184,12 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 	}
 	for _, listener := range listeners {
 		if listener.EgressMbps > 0 {
-			bandwidth -= listener.EgressMbps
+			egressMbps -= listener.EgressMbps
 		}
 	}
 
 	keyV := map[string]validators.IValidator{
-		"egress_mbps": validators.NewRangeValidator("egress_mbps", -1, int64(bandwidth)).Optional(true),
+		"egress_mbps": validators.NewRangeValidator("egress_mbps", -1, int64(egressMbps)).Optional(true),
 
 		"client_request_timeout": validators.NewRangeValidator("client_request_timeout", 1, 180),
 
