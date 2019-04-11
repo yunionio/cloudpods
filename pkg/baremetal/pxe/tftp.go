@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/util/tftp"
 )
 
@@ -139,7 +140,8 @@ func (s *Server) serveTFTP(l net.PacketConn, handler *TFTPHandler) error {
 		TransferLog: handler.transferLog,
 		Dial:        bindDial,
 
-		MaxBlockSize: 512,
+		MaxBlockSize:  int64(options.Options.TftpBlockSizeInBytes),
+		WriteAttempts: options.Options.TftpMaxTimeoutRetries,
 	}
 	err := ts.Serve(l)
 	if err != nil {
