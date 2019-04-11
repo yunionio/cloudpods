@@ -131,7 +131,7 @@ type SHost struct {
 	AccessIp   string `width:"16" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`               // Column(VARCHAR(16, charset='ascii'), nullable=True)
 	ManagerUri string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`              // Column(VARCHAR(256, charset='ascii'), nullable=True)
 
-	SysInfo jsonutils.JSONObject `nullable:"true" search:"admin" get:"admin" update:"admin" create:"admin_optional"`               // Column(JSONEncodedDict, nullable=True)
+	SysInfo jsonutils.JSONObject `nullable:"true" search:"admin" list:"admin" update:"admin" create:"admin_optional"`              // Column(JSONEncodedDict, nullable=True)
 	SN      string               `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(128, charset='ascii'), nullable=True)
 
 	CpuCount    int8    `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`                           // Column(TINYINT, nullable=True) # cpu count
