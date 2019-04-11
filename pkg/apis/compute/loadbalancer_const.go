@@ -75,7 +75,12 @@ const (
 	LB_ALIYUN_SPEC_S3_LARGE  = "slb.s3.large"
 )
 
-var LB_ALIYUN_SPEC = choices.NewChoices(
+const (
+	LB_MbpsMin = 0
+	LB_MbpsMax = 10000
+)
+
+var LB_ALIYUN_SPECS = choices.NewChoices(
 	LB_ALIYUN_SPEC_S1_SMALL,
 	LB_ALIYUN_SPEC_S2_SMALL,
 	LB_ALIYUN_SPEC_S3_SMALL,
@@ -274,7 +279,7 @@ const (
 	LB_CHARGE_TYPE_BY_HOUR      = "hour"
 )
 
-var LB_CHARGE_TYPE = choices.NewChoices(
+var LB_CHARGE_TYPES = choices.NewChoices(
 	LB_CHARGE_TYPE_BY_TRAFFIC,
 	LB_CHARGE_TYPE_BY_BANDWIDTH,
 	LB_CHARGE_TYPE_BY_HOUR,

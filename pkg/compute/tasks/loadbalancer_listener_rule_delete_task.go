@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -47,11 +46,7 @@ func (self *LoadbalancerListenerRuleDeleteTask) OnInit(ctx context.Context, obj 
 func (self *LoadbalancerListenerRuleDeleteTask) OnLoadbalancerListenerRuleDeleteComplete(ctx context.Context, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lbr, db.ACT_DELETE, lbr.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	err := lbr.GetRegion().GetDriver().DeleteLoadbalancerListenerRuleModel(ctx, self.UserCred, lbr)
-	if err != nil {
-		log.Errorf("delete %v error: %v", lbr, err)
-	}
-	//lbr.DoPendingDelete(ctx, self.GetUserCred())
+	lbr.DoPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 

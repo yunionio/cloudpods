@@ -61,7 +61,7 @@ func (self *SLoadbalancer) GetChargeType() string {
 	return api.LB_CHARGE_TYPE_BY_HOUR
 }
 
-func (self *SLoadbalancer) GetBandwidth() int {
+func (self *SLoadbalancer) GetEgressMbps() int {
 	return 0
 }
 

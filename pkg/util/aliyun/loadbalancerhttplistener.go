@@ -96,6 +96,9 @@ func (listerner *SLoadbalancerHTTPListener) IsEmulated() bool {
 }
 
 func (listerner *SLoadbalancerHTTPListener) GetEgressMbps() int {
+	if listerner.Bandwidth < 1 {
+		return 0
+	}
 	return listerner.Bandwidth
 }
 
