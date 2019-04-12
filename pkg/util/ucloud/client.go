@@ -31,6 +31,7 @@ const UCLOUD_API_HOST = "https://api.ucloud.cn"
 
 // API返回结果对应的字段名
 var UCLOUD_API_RESULT_KEYS = map[string]string{
+	"AllocateEIP":            "EIPSet",
 	"GetProjectList":         "ProjectSet",
 	"GetRegion":              "Regions",
 	"DescribeVPC":            "DataSet",
@@ -44,6 +45,10 @@ var UCLOUD_API_RESULT_KEYS = map[string]string{
 	"DescribeEIP":            "EIPSet",
 	"DescribeFirewall":       "DataSet",
 	"DescribeSubnet":         "DataSet",
+	"DescribeBucket":         "DataSet",
+	"CreateUDisk":            "UDiskId",
+	"CreateVPC":              "VPCId",
+	"CreateUDiskSnapshot":    "SnapshotId",
 }
 
 type SParams struct {

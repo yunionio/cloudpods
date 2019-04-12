@@ -31,8 +31,24 @@ func (self *SUCloudGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_UCLOUD_CLOUD_SSD
 }
 
+func (self *SUCloudGuestDriver) GetDeployStatus() ([]string, error) {
+	return []string{api.VM_READY}, nil
+}
+
 func (self *SUCloudGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return 10
+}
+
+func (self *SUCloudGuestDriver) GetGuestInitialStateAfterCreate() string {
+	return api.VM_RUNNING
+}
+
+func (self *SUCloudGuestDriver) GetDetachDiskStatus() ([]string, error) {
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
+}
+
+func (self *SUCloudGuestDriver) GetAttachDiskStatus() ([]string, error) {
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func init() {

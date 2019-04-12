@@ -3021,7 +3021,7 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		registerVpcId := vpc.ExternalId
 		externalVpcId := vpc.ExternalId
 		switch self.Hypervisor {
-		case api.HYPERVISOR_ALIYUN, api.HYPERVISOR_HUAWEI:
+		case api.HYPERVISOR_ALIYUN, api.HYPERVISOR_HUAWEI, api.HYPERVISOR_UCLOUD:
 			break
 		case api.HYPERVISOR_AWS:
 			loginUser := cloudinit.NewUser(api.VM_AWS_DEFAULT_LOGIN_USER)

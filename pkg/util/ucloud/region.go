@@ -16,6 +16,7 @@ package ucloud
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -46,10 +47,10 @@ func (self *SRegion) GetId() string {
 
 func (self *SRegion) GetName() string {
 	if name, exist := UCLOUD_REGION_NAMES[self.GetId()]; exist {
-		return name
+		return fmt.Sprintf("%s %s", CLOUD_PROVIDER_UCLOUD_CN, name)
 	}
 
-	return self.GetId()
+	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_UCLOUD_CN, self.GetId())
 }
 
 func (self *SRegion) GetGlobalId() string {
@@ -154,7 +155,11 @@ func (self *SRegion) GetEipById(eipId string) (SEip, error) {
 	}
 
 	if len(eips) == 1 {
-		return eips[0], nil
+		eip := eips[0]
+		eip.region = self
+		return eip, nil
+	} else if len(eips) == 0 {
+		return SEip{}, cloudprovider.ErrNotFound
 	} else {
 		return SEip{}, fmt.Errorf("GetEipById %d eip found", len(eips))
 	}
@@ -193,7 +198,6 @@ func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name str
 		secgroupId = extID
 	}
 
-	// todo: implement me
 	return secgroupId, self.syncSecgroupRules(secgroupId, rules)
 }
 
@@ -212,35 +216,6 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 	}
 
 	return self.GetIVpcById(vpcId)
-}
-
-// https://docs.ucloud.cn/api/unet-api/allocate_eip
-// 增加共享带宽模式ShareBandwidth
-func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
-	params := NewUcloudParams()
-	params.Set("OperatorName", bgpType)
-	params.Set("Bandwidth", bwMbps)
-	params.Set("Name", name)
-	var payMode string
-	switch chargeType {
-	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
-		payMode = "Traffic"
-	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
-		payMode = "Bandwidth"
-	}
-	params.Set("PayMode", payMode)
-
-	eips := make([]SEip, 0)
-	err := self.DoAction("AllocateEIP", params, &eips)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(eips) == 1 {
-		return &eips[0], nil
-	} else {
-		return nil, fmt.Errorf("CreateEIP %d eip created", len(eips))
-	}
 }
 
 // https://docs.ucloud.cn/api/udisk-api/describe_udisk_snapshot
@@ -274,6 +249,8 @@ func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSn
 		snapshot := snapshots[0]
 		snapshot.region = self
 		return &snapshot, nil
+	} else if len(snapshots) == 0 {
+		return nil, cloudprovider.ErrNotFound
 	} else {
 		return nil, fmt.Errorf("GetISnapshotById %s %d snapshot found", snapshotId, len(snapshots))
 	}
@@ -402,7 +379,7 @@ func (self *SRegion) CreateILoadBalancerCertificate(cert *cloudprovider.SLoadbal
 }
 
 func (self *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return nil, cloudprovider.ErrNotSupported
 }
 
 func (self *SRegion) GetProvider() string {
@@ -487,7 +464,8 @@ func (self *SRegion) fetchIVpcs() error {
 		return err
 	}
 
-	for _, vpc := range vpcs {
+	for i := range vpcs {
+		vpc := vpcs[i]
 		vpc.region = self
 		self.ivpcs = append(self.ivpcs, &vpc)
 	}
@@ -514,6 +492,114 @@ func (self *SRegion) GetInstanceByID(instanceId string) (SInstance, error) {
 	}
 }
 
+func inList(s int, lst []int) bool {
+	for _, e := range lst {
+		if s == e {
+			return true
+		}
+	}
+
+	return false
+}
+
+func toUcloudSecurityRules(rules []secrules.SecurityRule) ([]string, error) {
+	ps := make([]int, 0)
+	for _, rule := range rules {
+		if rule.Direction == secrules.SecurityRuleIngress && !inList(rule.Priority, ps) {
+			ps = append(ps, rule.Priority)
+		}
+	}
+
+	if len(ps) > 3 {
+		return nil, fmt.Errorf("unable map local security group rule priority  %v to LOW/MEDIUM/LOW", ps)
+	}
+
+	sort.Ints(ps)
+	pmap := map[int]string{}
+	for i, p := range ps {
+		pmap[p] = []string{"LOW", "MEDIUM", "HIGH"}[i]
+	}
+
+	//
+	ucloudRules := make([]string, 0)
+	for _, rule := range rules {
+		if rule.Direction == secrules.SecurityRuleIngress {
+			ucloudRules = append(ucloudRules, toUcloudSecRule(rule, pmap)...)
+		}
+	}
+
+	return ucloudRules, nil
+}
+
+// GRE协议被忽略了
+func toUcloudSecRule(rule secrules.SecurityRule, pmap map[int]string) []string {
+	net := rule.IPNet.String()
+	priority := pmap[rule.Priority]
+	action := "DROP"
+	if rule.Action == secrules.SecurityRuleAllow {
+		action = "ACCEPT"
+	}
+
+	rules := make([]string, 0)
+	if len(rule.Ports) > 0 {
+		for _, port := range rule.Ports {
+			_rules := generatorRule(rule.Protocol, priority, net, action, port, port)
+			rules = append(rules, _rules...)
+		}
+	} else {
+		_rules := generatorRule(rule.Protocol, priority, net, action, rule.PortStart, rule.PortEnd)
+		rules = append(rules, _rules...)
+	}
+
+	return rules
+}
+
+func generatorRule(protocol, priority, net, action string, startPort, endPort int) []string {
+	rules := make([]string, 0)
+
+	var ports string
+	if startPort <= 0 || endPort <= 0 {
+		ports = "1-65535"
+	} else if startPort == endPort {
+		ports = fmt.Sprintf("%d", startPort)
+	} else {
+		ports = fmt.Sprintf("%d-%d", startPort, endPort)
+	}
+
+	template := fmt.Sprintf("%s|%s|%s|%s|%s|", "%s", "%s", net, action, priority)
+	switch protocol {
+	case secrules.PROTO_ANY:
+		rules = append(rules, fmt.Sprintf(template, "TCP", ports))
+		rules = append(rules, fmt.Sprintf(template, "UDP", ports))
+		rules = append(rules, fmt.Sprintf(template, "ICMP", ""))
+	case secrules.PROTO_TCP:
+		rules = append(rules, fmt.Sprintf(template, "TCP", ports))
+	case secrules.PROTO_UDP:
+		rules = append(rules, fmt.Sprintf(template, "UDP", ports))
+	case secrules.PROTO_ICMP:
+		rules = append(rules, fmt.Sprintf(template, "ICMP", ""))
+	}
+
+	return rules
+}
+
+// https://docs.ucloud.cn/api/unet-api/update_firewall
 func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.SecurityRule) error {
-	return cloudprovider.ErrNotImplemented
+	_rules, err := toUcloudSecurityRules(rules)
+	if err != nil {
+		return err
+	}
+
+	params := NewUcloudParams()
+	params.Set("FWId", secgroupId)
+	for i, r := range _rules {
+		N := i + 1
+		params.Set(fmt.Sprintf("Rule.%d", N), r)
+	}
+
+	return self.DoAction("UpdateFirewall", params, nil)
+}
+
+func (self *SRegion) GetClient() *SUcloudClient {
+	return self.client
 }
