@@ -227,10 +227,6 @@ func (lbb *SLoadbalancerBackend) Delete(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (lbb *SLoadbalancerBackend) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return lbb.SVirtualResourceBase.Delete(ctx, userCred)
-}
-
 func (lbb *SLoadbalancerBackend) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, lbb, "purge")
 }
@@ -258,7 +254,7 @@ func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendDeleteTask(ctx context.
 func (man *SLoadbalancerBackendManager) getLoadbalancerBackendsByLoadbalancerBackendgroup(loadbalancerBackendgroup *SLoadbalancerBackendGroup) ([]SLoadbalancerBackend, error) {
 	loadbalancerBackends := []SLoadbalancerBackend{}
 	q := man.Query().Equals("backend_group_id", loadbalancerBackendgroup.Id)
-	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
+	q = q.IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &loadbalancerBackends); err != nil {
 		return nil, err
 	}
@@ -363,7 +359,8 @@ func (lbb *SLoadbalancerBackend) syncRemoveCloudLoadbalancerBackend(ctx context.
 	if err != nil { // cannot delete
 		err = lbb.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lbb.MarkPendingDelete(userCred)
+		// err = lbb.MarkPendingDelete(userCred)
+		err = lbb.DoPendingDelete(ctx, userCred)
 	}
 	return err
 }

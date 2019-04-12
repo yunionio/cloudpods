@@ -449,7 +449,7 @@ func (self *SRouteTable) syncRemoveCloudRouteTable(ctx context.Context, userCred
 	if err != nil {
 		return err
 	}
-	err = self.Delete(ctx, userCred)
+	err = self.RealDelete(ctx, userCred)
 	return err
 }
 

@@ -32,7 +32,7 @@ func (self *SQcloudGuestDriver) GetHypervisor() string {
 }
 
 func (self *SQcloudGuestDriver) GetDefaultSysDiskBackend() string {
-	return models.STORAGE_CLOUD_BASIC
+	return models.STORAGE_CLOUD_PREMIUM
 }
 
 func (self *SQcloudGuestDriver) GetMinimalSysDiskSizeGb() int {

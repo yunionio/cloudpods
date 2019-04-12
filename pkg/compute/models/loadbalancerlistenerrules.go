@@ -271,15 +271,11 @@ func (lbr *SLoadbalancerListenerRule) Delete(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (lbr *SLoadbalancerListenerRule) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return lbr.SVirtualResourceBase.Delete(ctx, userCred)
-}
-
 // Delete, Update
 
 func (man *SLoadbalancerListenerRuleManager) getLoadbalancerListenerRulesByListener(listener *SLoadbalancerListener) ([]SLoadbalancerListenerRule, error) {
 	rules := []SLoadbalancerListenerRule{}
-	q := man.Query().Equals("listener_id", listener.Id)
+	q := man.Query().Equals("listener_id", listener.Id).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &rules); err != nil {
 		log.Errorf("failed to get lb listener rules for listener %s error: %v", listener.Name, err)
 		return nil, err
@@ -398,7 +394,7 @@ func (lbr *SLoadbalancerListenerRule) syncRemoveCloudLoadbalancerListenerRule(ct
 	if err != nil { // cannot delete
 		err = lbr.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lbr.Delete(ctx, userCred)
+		err = lbr.DoPendingDelete(ctx, userCred)
 	}
 	return err
 }

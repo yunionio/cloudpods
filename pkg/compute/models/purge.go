@@ -162,7 +162,7 @@ func (lbcert *SLoadbalancerCertificate) purge(ctx context.Context, userCred mccl
 		return err
 	}
 
-	return lbcert.RealDelete(ctx, userCred)
+	return lbcert.DoPendingDelete(ctx, userCred)
 }
 
 func (manager *SLoadbalancerAclManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
@@ -189,7 +189,7 @@ func (lbacl *SLoadbalancerAcl) purge(ctx context.Context, userCred mcclient.Toke
 		return err
 	}
 
-	return lbacl.RealDelete(ctx, userCred)
+	return lbacl.DoPendingDelete(ctx, userCred)
 }
 
 func (manager *SLoadbalancerManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
@@ -246,7 +246,8 @@ func (lb *SLoadbalancer) purge(ctx context.Context, userCred mcclient.TokenCrede
 		return err
 	}
 
-	return lb.RealDelete(ctx, userCred)
+	lb.PendingDelete(ctx, userCred)
+	return nil
 }
 
 func (manager *SLoadbalancerListenerManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
@@ -273,7 +274,8 @@ func (lbl *SLoadbalancerListener) purge(ctx context.Context, userCred mcclient.T
 		return err
 	}
 
-	return lbl.RealDelete(ctx, userCred)
+	lbl.PreDeleteSubs(ctx, userCred)
+	return nil
 }
 
 func (manager *SLoadbalancerListenerRuleManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
@@ -299,7 +301,7 @@ func (lblr *SLoadbalancerListenerRule) purge(ctx context.Context, userCred mccli
 	if err != nil {
 		return err
 	}
-	return lblr.RealDelete(ctx, userCred)
+	return lblr.DoPendingDelete(ctx, userCred)
 }
 
 func (manager *SLoadbalancerBackendGroupManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
@@ -326,7 +328,8 @@ func (lbbg *SLoadbalancerBackendGroup) purge(ctx context.Context, userCred mccli
 		return err
 	}
 
-	return lbbg.RealDelete(ctx, userCred)
+	lbbg.PreDeleteSubs(ctx, userCred)
+	return nil
 }
 
 func (manager *SLoadbalancerBackendManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
@@ -352,7 +355,7 @@ func (lbb *SLoadbalancerBackend) purge(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return err
 	}
-	return lbb.RealDelete(ctx, userCred)
+	return lbb.DoPendingDelete(ctx, userCred)
 }
 
 func (manager *SSnapshotManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {

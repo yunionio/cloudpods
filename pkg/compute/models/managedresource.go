@@ -144,20 +144,10 @@ func managedResourceFilterByCloudType(q *sqlchemy.SQuery, query jsonutils.JSONOb
 
 	if jsonutils.QueryBoolean(query, "private_cloud", false) || jsonutils.QueryBoolean(query, "is_private", false) {
 		if len(filterField) == 0 {
-			q = q.Filter(
-				sqlchemy.OR(
-					sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()),
-					sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
-				),
-			)
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
 		} else {
 			sq := subqFunc()
-			sq = sq.Filter(
-				sqlchemy.OR(
-					sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()),
-					sqlchemy.IsNullOrEmpty(sq.Field("manager_id")),
-				),
-			)
+			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	}
@@ -194,22 +184,6 @@ func managedResourceFilterByCloudType(q *sqlchemy.SQuery, query jsonutils.JSONOb
 
 	return q
 }
-
-/*func (self *SManagedResourceBase) getExtraDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	manager := self.GetCloudprovider()
-	if manager != nil {
-		extra.Add(jsonutils.NewString(manager.Name), "manager")
-		extra.Add(jsonutils.NewString(manager.ProjectId), "manager_tenant_id")
-		extra.Add(jsonutils.NewString(manager.ProjectId), "manager_project_id")
-		project := manager.getProject(ctx)
-		if project != nil {
-			extra.Add(jsonutils.NewString(project.Name), "manager_tenant")
-			extra.Add(jsonutils.NewString(project.Name), "manager_project")
-		}
-	}
-	return extra
-}
-*/
 
 type SCloudProviderInfo struct {
 	Provider         string `json:",omitempty"`
