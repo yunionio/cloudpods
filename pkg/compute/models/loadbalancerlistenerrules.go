@@ -65,7 +65,7 @@ func loadbalancerListenerRuleCheckUniqueness(ctx context.Context, lbls *SLoadbal
 	return nil
 }
 
-func (man *SLoadbalancerListenerRuleManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
+func (man *SLoadbalancerListenerRuleManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
 	subs := []SLoadbalancerListenerRule{}
 	db.FetchModelObjects(man, q, &subs)
 	for _, sub := range subs {
