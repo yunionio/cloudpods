@@ -244,6 +244,7 @@ func (h *HostDesc) GetGuestCount() int64 {
 	return h.GuestCount
 }
 
+// TODO: remove this ugly code
 func (h *HostDesc) Get(key string) interface{} {
 	switch key {
 	case "ID":

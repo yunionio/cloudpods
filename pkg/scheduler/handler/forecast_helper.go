@@ -64,7 +64,7 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 
 	items := make([]*core.SchedResultItem, 0)
 	for _, item := range result.Data {
-		hostType := item.Candidater.Get("HostType")
+		hostType := item.Candidater.Getter().HostType()
 		if result.Unit.SchedData().Hypervisor == hostType {
 			items = append(items, item)
 		}

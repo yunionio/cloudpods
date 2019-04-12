@@ -59,6 +59,7 @@ func (bd *BaremetalDesc) Type() int {
 	return 1
 }
 
+// TODO: remove this ugly code
 func (bd *BaremetalDesc) Get(key string) interface{} {
 	switch key {
 	case "ID":
