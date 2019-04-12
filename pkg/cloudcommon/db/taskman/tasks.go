@@ -668,7 +668,8 @@ func (self *STask) GetParams() *jsonutils.JSONDict {
 func (self *STask) IsSubTask() bool {
 	if params := self.GetParams(); params != nil {
 		subTask, _ := params.Bool("subtask")
-		return subTask
+		parendTaskId, _ := params.GetString(PARENT_TASK_ID_KEY)
+		return subTask || len(parendTaskId) > 0
 	}
 	return false
 }
