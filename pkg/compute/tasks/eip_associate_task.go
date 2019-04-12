@@ -30,23 +30,23 @@ func (self *EipAssociateTask) TaskFail(ctx context.Context, eip *models.SElastic
 func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
 
-	extEip, err := eip.GetIEip()
-	if err != nil {
-		msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
+	instanceId, _ := self.Params.GetString("instance_id")
+	server := models.GuestManager.FetchGuestById(instanceId)
+
+	if server == nil {
+		msg := fmt.Sprintf("fail to find server for instanceId %s", instanceId)
 		self.TaskFail(ctx, eip, msg, nil)
 		return
 	}
-
-	instanceId, _ := self.Params.GetString("instance_id")
-	server := models.GuestManager.FetchGuestById(instanceId)
 
 	if server.Status != models.VM_ASSOCIATE_EIP {
 		server.SetStatus(self.UserCred, models.VM_ASSOCIATE_EIP, "associate eip")
 	}
 
-	if server == nil {
-		msg := fmt.Sprintf("fail to find server for instanceId %s", instanceId)
-		self.TaskFail(ctx, eip, msg, nil)
+	extEip, err := eip.GetIEip()
+	if err != nil {
+		msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
+		self.TaskFail(ctx, eip, msg, server)
 		return
 	}
 
