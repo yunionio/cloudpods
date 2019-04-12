@@ -584,10 +584,6 @@ func (lblis *SLoadbalancerListener) Delete(ctx context.Context, userCred mcclien
 	return nil
 }
 
-func (lblis *SLoadbalancerListener) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return lblis.SVirtualResourceBase.Delete(ctx, userCred)
-}
-
 func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovider.SLoadbalancerListener, error) {
 	listener := &cloudprovider.SLoadbalancerListener{
 		Name:               lblis.Name,
@@ -687,7 +683,7 @@ func (lblis *SLoadbalancerListener) GetIRegion() (cloudprovider.ICloudRegion, er
 
 func (man *SLoadbalancerListenerManager) getLoadbalancerListenersByLoadbalancer(lb *SLoadbalancer) ([]SLoadbalancerListener, error) {
 	listeners := []SLoadbalancerListener{}
-	q := man.Query().Equals("loadbalancer_id", lb.Id)
+	q := man.Query().Equals("loadbalancer_id", lb.Id).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &listeners); err != nil {
 		return nil, err
 	}
@@ -822,7 +818,8 @@ func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx cont
 	if err != nil { // cannot delete
 		err = lblis.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lblis.RealDelete(ctx, userCred)
+		// err = lblis.PendingDelete(ctx, userCred)
+		lblis.PreDeleteSubs(ctx, userCred)
 	}
 	return err
 }

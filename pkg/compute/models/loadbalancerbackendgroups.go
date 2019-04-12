@@ -331,13 +331,9 @@ func (lbbg *SLoadbalancerBackendGroup) Delete(ctx context.Context, userCred mccl
 	return nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return lbbg.SVirtualResourceBase.Delete(ctx, userCred)
-}
-
 func (man *SLoadbalancerBackendGroupManager) getLoadbalancerBackendgroupsByLoadbalancer(lb *SLoadbalancer) ([]SLoadbalancerBackendGroup, error) {
 	lbbgs := []SLoadbalancerBackendGroup{}
-	q := man.Query().Equals("loadbalancer_id", lb.Id)
+	q := man.Query().Equals("loadbalancer_id", lb.Id).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &lbbgs); err != nil {
 		log.Errorf("failed to get lbbgs for lb: %s error: %v", lb.Name, err)
 		return nil, err
@@ -423,7 +419,7 @@ func (lbbg *SLoadbalancerBackendGroup) syncRemoveCloudLoadbalancerBackendgroup(c
 	if err != nil { // cannot delete
 		err = lbbg.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lbbg.RealDelete(ctx, userCred)
+		lbbg.PreDeleteSubs(ctx, userCred)
 	}
 	return err
 }
