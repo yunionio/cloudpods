@@ -416,18 +416,18 @@ func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.
 	return lb.StartLoadBalancerDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
-func (lb *SLoadbalancer) PendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+func (lb *SLoadbalancer) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	if len(lb.NetworkId) > 0 {
 		req := &SLoadbalancerNetworkDeleteData{
 			loadbalancer: lb,
 		}
 		LoadbalancernetworkManager.DeleteLoadbalancerNetwork(ctx, userCred, req)
 	}
+	lb.pendingDeleteSubs(ctx, userCred)
 	lb.DoPendingDelete(ctx, userCred)
-	lb.PreDeleteSubs(ctx, userCred)
 }
 
-func (lb *SLoadbalancer) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
+func (lb *SLoadbalancer) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
 	ownerProjId := lb.GetOwnerProjectId()
 	lbId := lb.Id
 	subMen := []ILoadbalancerSubResourceManager{
@@ -438,8 +438,8 @@ func (lb *SLoadbalancer) PreDeleteSubs(ctx context.Context, userCred mcclient.To
 		func(subMan ILoadbalancerSubResourceManager) {
 			lockman.LockClass(ctx, subMan, ownerProjId)
 			defer lockman.ReleaseClass(ctx, subMan, ownerProjId)
-			q := subMan.Query().Equals("loadbalancer_id", lbId)
-			subMan.PreDeleteSubs(ctx, userCred, q)
+			q := subMan.Query().IsFalse("pending_deleted").Equals("loadbalancer_id", lbId)
+			subMan.pendingDeleteSubs(ctx, userCred, q)
 		}(subMan)
 	}
 }
@@ -573,7 +573,7 @@ func (lb *SLoadbalancer) syncRemoveCloudLoadbalancer(ctx context.Context, userCr
 	if err != nil { // cannot delete
 		err = lb.SetStatus(userCred, consts.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lb.Delete(ctx, userCred)
+		lb.LBPendingDelete(ctx, userCred)
 	}
 	return err
 }

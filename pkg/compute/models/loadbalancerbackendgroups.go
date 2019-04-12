@@ -47,11 +47,11 @@ type SLoadbalancerBackendGroup struct {
 	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 }
 
-func (man *SLoadbalancerBackendGroupManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
-	subs := []SLoadbalancerBackendGroup{}
-	db.FetchModelObjects(man, q, &subs)
-	for _, sub := range subs {
-		sub.DoPendingDelete(ctx, userCred)
+func (man *SLoadbalancerBackendGroupManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
+	lbbgs := []SLoadbalancerBackendGroup{}
+	db.FetchModelObjects(man, q, &lbbgs)
+	for _, lbbg := range lbbgs {
+		lbbg.LBPendingDelete(ctx, userCred)
 	}
 }
 
@@ -278,7 +278,12 @@ func (lbbg *SLoadbalancerBackendGroup) StartLoadBalancerBackendGroupCreateTask(c
 	return nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
+func (lbbg *SLoadbalancerBackendGroup) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	lbbg.pendingDeleteSubs(ctx, userCred)
+	lbbg.DoPendingDelete(ctx, userCred)
+}
+
+func (lbbg *SLoadbalancerBackendGroup) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
 	lbbg.DoPendingDelete(ctx, userCred)
 	subMan := LoadbalancerBackendManager
 	ownerProjId := lbbg.GetOwnerProjectId()
@@ -286,7 +291,7 @@ func (lbbg *SLoadbalancerBackendGroup) PreDeleteSubs(ctx context.Context, userCr
 	lockman.LockClass(ctx, subMan, ownerProjId)
 	defer lockman.ReleaseClass(ctx, subMan, ownerProjId)
 	q := subMan.Query().Equals("backend_group_id", lbbg.Id)
-	subMan.PreDeleteSubs(ctx, userCred, q)
+	subMan.pendingDeleteSubs(ctx, userCred, q)
 }
 
 func (lbbg *SLoadbalancerBackendGroup) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -405,7 +410,7 @@ func (lbbg *SLoadbalancerBackendGroup) syncRemoveCloudLoadbalancerBackendgroup(c
 	if err != nil { // cannot delete
 		err = lbbg.SetStatus(userCred, consts.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lbbg.Delete(ctx, userCred)
+		lbbg.LBPendingDelete(ctx, userCred)
 	}
 	return err
 }
