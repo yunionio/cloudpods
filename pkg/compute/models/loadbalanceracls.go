@@ -311,13 +311,9 @@ func (lbacl *SLoadbalancerAcl) Delete(ctx context.Context, userCred mcclient.Tok
 	return nil
 }
 
-func (lbacl *SLoadbalancerAcl) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return lbacl.SSharableVirtualResourceBase.Delete(ctx, userCred)
-}
-
 func (man *SLoadbalancerAclManager) getLoadbalancerAclsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancerAcl, error) {
 	acls := []SLoadbalancerAcl{}
-	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id)
+	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &acls); err != nil {
 		log.Errorf("failed to get acls for region: %v provider: %v error: %v", region, provider, err)
 		return nil, err
@@ -387,7 +383,7 @@ func (self *SLoadbalancerAcl) syncRemoveCloudLoadbalanceAcl(ctx context.Context,
 	if err != nil { // cannot delete
 		err = self.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = self.RealDelete(ctx, userCred)
+		self.DoPendingDelete(ctx, userCred)
 	}
 	return err
 }

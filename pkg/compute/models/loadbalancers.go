@@ -423,8 +423,8 @@ func (lb *SLoadbalancer) PendingDelete(ctx context.Context, userCred mcclient.To
 		}
 		LoadbalancernetworkManager.DeleteLoadbalancerNetwork(ctx, userCred, req)
 	}
-	lb.DoPendingDelete(ctx, userCred)
 	lb.PreDeleteSubs(ctx, userCred)
+	lb.DoPendingDelete(ctx, userCred)
 }
 
 func (lb *SLoadbalancer) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
@@ -448,13 +448,9 @@ func (lb *SLoadbalancer) Delete(ctx context.Context, userCred mcclient.TokenCred
 	return nil
 }
 
-func (lb *SLoadbalancer) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return lb.SVirtualResourceBase.Delete(ctx, userCred)
-}
-
 func (man *SLoadbalancerManager) getLoadbalancersByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancer, error) {
 	lbs := []SLoadbalancer{}
-	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id)
+	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &lbs); err != nil {
 		log.Errorf("failed to get lbs for region: %v provider: %v error: %v", region, provider, err)
 		return nil, err
@@ -575,11 +571,11 @@ func (lb *SLoadbalancer) syncRemoveCloudLoadbalancer(ctx context.Context, userCr
 
 	err := lb.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
-		err = lb.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
+		return lb.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lb.RealDelete(ctx, userCred)
+		lb.PendingDelete(ctx, userCred)
+		return nil
 	}
-	return err
 }
 
 func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential) {

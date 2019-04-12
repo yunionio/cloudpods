@@ -246,10 +246,6 @@ func (lbcert *SLoadbalancerCertificate) Delete(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (lbcert *SLoadbalancerCertificate) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return lbcert.SVirtualResourceBase.Delete(ctx, userCred)
-}
-
 func (lbcert *SLoadbalancerCertificate) GetRegion() *SCloudregion {
 	region, err := CloudregionManager.FetchById(lbcert.CloudregionId)
 	if err != nil {
@@ -297,7 +293,7 @@ func (lbcert *SLoadbalancerCertificate) StartLoadBalancerCertificateDeleteTask(c
 
 func (man *SLoadbalancerCertificateManager) getLoadbalancerCertificatesByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancerCertificate, error) {
 	certificates := []SLoadbalancerCertificate{}
-	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id)
+	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &certificates); err != nil {
 		log.Errorf("failed to get lb certificates for region: %v provider: %v error: %v", region, provider, err)
 		return nil, err
@@ -394,7 +390,7 @@ func (lbcert *SLoadbalancerCertificate) syncRemoveCloudLoadbalancerCertificate(c
 	if err != nil { // cannot delete
 		err = lbcert.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lbcert.RealDelete(ctx, userCred)
+		err = lbcert.DoPendingDelete(ctx, userCred)
 	}
 	return err
 }
