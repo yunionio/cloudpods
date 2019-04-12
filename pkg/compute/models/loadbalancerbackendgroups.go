@@ -423,7 +423,7 @@ func (lbbg *SLoadbalancerBackendGroup) syncRemoveCloudLoadbalancerBackendgroup(c
 	if err != nil { // cannot delete
 		err = lbbg.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lbbg.Delete(ctx, userCred)
+		err = lbbg.RealDelete(ctx, userCred)
 	}
 	return err
 }

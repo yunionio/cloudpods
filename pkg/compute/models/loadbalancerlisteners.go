@@ -822,7 +822,7 @@ func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx cont
 	if err != nil { // cannot delete
 		err = lblis.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lblis.Delete(ctx, userCred)
+		err = lblis.RealDelete(ctx, userCred)
 	}
 	return err
 }

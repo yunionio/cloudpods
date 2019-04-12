@@ -377,7 +377,8 @@ func (lbb *SLoadbalancerBackend) syncRemoveCloudLoadbalancerBackend(ctx context.
 	if err != nil { // cannot delete
 		err = lbb.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lbb.MarkPendingDelete(userCred)
+		// err = lbb.MarkPendingDelete(userCred)
+		err = lbb.RealDelete(ctx, userCred)
 	}
 	return err
 }

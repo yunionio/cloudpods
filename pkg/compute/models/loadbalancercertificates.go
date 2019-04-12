@@ -408,7 +408,7 @@ func (lbcert *SLoadbalancerCertificate) syncRemoveCloudLoadbalancerCertificate(c
 	if err != nil { // cannot delete
 		err = lbcert.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lbcert.Delete(ctx, userCred)
+		err = lbcert.RealDelete(ctx, userCred)
 	}
 	return err
 }

@@ -401,7 +401,7 @@ func (self *SLoadbalancerAcl) syncRemoveCloudLoadbalanceAcl(ctx context.Context,
 	if err != nil { // cannot delete
 		err = self.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = self.Delete(ctx, userCred)
+		err = self.RealDelete(ctx, userCred)
 	}
 	return err
 }

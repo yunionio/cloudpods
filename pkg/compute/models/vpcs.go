@@ -330,7 +330,7 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 			err = self.SetStatus(userCred, VPC_STATUS_UNKNOWN, "sync to delete")
 		}
 	} else {
-		err = self.Delete(ctx, userCred)
+		err = self.RealDelete(ctx, userCred)
 	}
 	return err
 }

@@ -541,7 +541,7 @@ func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 	if err != nil { // cannot delete
 		err = self.SetStatus(userCred, NETWORK_STATUS_UNKNOWN, "Sync to remove")
 	} else {
-		err = self.Delete(ctx, userCred)
+		err = self.RealDelete(ctx, userCred)
 
 	}
 	return err

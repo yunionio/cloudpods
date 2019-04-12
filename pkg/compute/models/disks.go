@@ -1053,7 +1053,12 @@ func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.To
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	return self.SetStatus(userCred, DISK_UNKNOWN, "missing original disk after sync")
+	err := self.ValidatePurgeCondition(ctx)
+	if err != nil {
+		return self.SetStatus(userCred, DISK_UNKNOWN, "missing original disk after sync")
+	} else {
+		return self.RealDelete(ctx, userCred)
+	}
 }
 
 func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, extDisk cloudprovider.ICloudDisk, index int, projectId string) error {

@@ -1379,14 +1379,14 @@ func (self *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.To
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.ValidatePurgeCondition(ctx)
 	if err != nil {
 		err = self.SetStatus(userCred, HOST_OFFLINE, "sync to delete")
 		if err == nil {
 			_, err = self.PerformDisable(ctx, userCred, nil, nil)
 		}
 	} else {
-		err = self.Delete(ctx, userCred)
+		err = self.RealDelete(ctx, userCred)
 	}
 	return err
 }
