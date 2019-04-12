@@ -423,11 +423,11 @@ func (lb *SLoadbalancer) LBPendingDelete(ctx context.Context, userCred mcclient.
 		}
 		LoadbalancernetworkManager.DeleteLoadbalancerNetwork(ctx, userCred, req)
 	}
-	lb.PreDeleteSubs(ctx, userCred)
+	lb.pendingDeleteSubs(ctx, userCred)
 	lb.DoPendingDelete(ctx, userCred)
 }
 
-func (lb *SLoadbalancer) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
+func (lb *SLoadbalancer) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
 	ownerProjId := lb.GetOwnerProjectId()
 	lbId := lb.Id
 	subMen := []ILoadbalancerSubResourceManager{
@@ -439,7 +439,7 @@ func (lb *SLoadbalancer) PreDeleteSubs(ctx context.Context, userCred mcclient.To
 			lockman.LockClass(ctx, subMan, ownerProjId)
 			defer lockman.ReleaseClass(ctx, subMan, ownerProjId)
 			q := subMan.Query().Equals("loadbalancer_id", lbId)
-			subMan.PreDeleteSubs(ctx, userCred, q)
+			subMan.pendingDeleteSubs(ctx, userCred, q)
 		}(subMan)
 	}
 }
