@@ -24,7 +24,7 @@ func init() {
 
 func (self *DiskResizeTask) SetDiskReady(ctx context.Context, disk *models.SDisk, userCred mcclient.TokenCredential, reason string) {
 	// 此函数主要避免虚机更改配置时，虚机可能出现中间状态
-	if self.IsSubTask() {
+	if self.HasParentTask() {
 		// 若是子任务，磁盘关联的虚拟机状态由父任务恢复，仅恢复磁盘自身状态即可
 		disk.SetStatus(userCred, models.DISK_READY, reason)
 	} else {
@@ -126,7 +126,7 @@ func (self *DiskResizeTask) OnDiskResized(ctx context.Context, disk *models.SDis
 	if len(guestId) > 0 {
 		self.SetStage("TaskComplete", nil)
 		masterGuest := models.GuestManager.FetchGuestById(guestId)
-		if self.IsSubTask() {
+		if self.HasParentTask() {
 			masterGuest.StartSyncTaskWithoutSyncstatus(ctx, self.UserCred, false, self.GetId())
 		} else {
 			masterGuest.StartSyncTask(ctx, self.UserCred, false, self.GetId())
