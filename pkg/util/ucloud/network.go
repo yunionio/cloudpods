@@ -16,6 +16,8 @@ package ucloud
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -125,7 +127,7 @@ func (self *SNetwork) GetIsPublic() bool {
 }
 
 func (self *SNetwork) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return self.wire.region.DeleteNetwork(self.GetId())
 }
 
 func (self *SNetwork) GetAllocTimeoutSeconds() int {
@@ -147,10 +149,56 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 	}
 
 	if len(networks) == 1 {
-		return &networks[0], nil
+		network := networks[0]
+		vpc, err := self.getVpc(network.VPCID)
+		if err != nil {
+			return nil, err
+		}
+		network.wire = &SWire{region: self, vpc: vpc, inetworks: []cloudprovider.ICloudNetwork{&network}}
+		return &network, nil
 	} else if len(networks) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	} else {
 		return nil, fmt.Errorf("getNetwork %s %d found", networkId, len(networks))
 	}
+}
+
+// https://docs.ucloud.cn/api/vpc2.0-api/delete_subnet
+func (self *SRegion) DeleteNetwork(networkId string) error {
+	params := NewUcloudParams()
+	params.Set("SubnetId", networkId)
+
+	return self.DoAction("DeleteSubnet", params, nil)
+}
+
+// https://docs.ucloud.cn/api/vpc2.0-api/create_subnet
+func (self *SRegion) CreateNetwork(vpcId string, name string, cidr string, desc string) (*SNetwork, error) {
+	segs := strings.Split(cidr, "/")
+	if len(segs) != 2 {
+		return nil, fmt.Errorf("CreateINetwork invalid cidr %s", cidr)
+	}
+
+	netmask, err := strconv.Atoi(segs[1])
+	if err != nil {
+		return nil, fmt.Errorf("CreateINetwork invalid netmask %s", segs[1])
+	}
+
+	params := NewUcloudParams()
+	params.Set("VPCId", vpcId)
+	params.Set("Subnet", segs[0])
+	params.Set("Netmask", netmask)
+	params.Set("SubnetName", name)
+	params.Set("Remark", desc)
+
+	type SNet struct {
+		SubnetId string
+	}
+
+	net := SNet{}
+	err = self.DoAction("CreateSubnet", params, &net)
+	if err != nil {
+		return nil, err
+	}
+
+	return self.getNetwork(net.SubnetId)
 }
