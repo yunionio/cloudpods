@@ -60,7 +60,7 @@ func (self *LoadbalancerBackendGroupDeleteTask) OnInit(ctx context.Context, obj 
 func (self *LoadbalancerBackendGroupDeleteTask) OnLoadbalancerBackendGroupDeleteComplete(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lbbg, db.ACT_DELETE, lbbg.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	lbbg.PreDeleteSubs(ctx, self.GetUserCred())
+	lbbg.LBPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 
