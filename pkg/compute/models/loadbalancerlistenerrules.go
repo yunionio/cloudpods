@@ -39,8 +39,8 @@ func init() {
 type SLoadbalancerListenerRule struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
 
-	CloudregionId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 	ListenerId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 
@@ -234,6 +234,11 @@ func (lbr *SLoadbalancerListenerRule) GetCustomizeColumns(ctx context.Context, u
 		return extra
 	}
 	extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+
+	regionInfo := lbr.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if regionInfo != nil {
+		extra.Update(regionInfo)
+	}
 	return extra
 }
 
