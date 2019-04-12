@@ -119,11 +119,11 @@ func (manager *SCloudproviderManager) GetPublicProviderIdsQuery() *sqlchemy.SSub
 }
 
 func (manager *SCloudproviderManager) GetPrivateProviderIdsQuery() *sqlchemy.SSubQuery {
-	return manager.GetProviderIdsQuery(tristate.False, tristate.None)
+	return manager.GetProviderIdsQuery(tristate.False, tristate.False)
 }
 
 func (manager *SCloudproviderManager) GetOnPremiseProviderIdsQuery() *sqlchemy.SSubQuery {
-	return manager.GetProviderIdsQuery(tristate.False, tristate.True)
+	return manager.GetProviderIdsQuery(tristate.None, tristate.True)
 }
 
 func (manager *SCloudproviderManager) GetProviderIdsQuery(isPublic tristate.TriState, isOnPremise tristate.TriState) *sqlchemy.SSubQuery {
@@ -140,7 +140,7 @@ func (manager *SCloudproviderManager) GetProviderIdsQuery(isPublic tristate.TriS
 	if isOnPremise.IsTrue() {
 		q = q.Filter(sqlchemy.IsTrue(account.Field("is_on_premise")))
 	} else if isOnPremise.IsFalse() {
-		q = q.Filter(sqlchemy.IsTrue(account.Field("is_on_premise")))
+		q = q.Filter(sqlchemy.IsFalse(account.Field("is_on_premise")))
 	}
 	return q.SubQuery()
 }
