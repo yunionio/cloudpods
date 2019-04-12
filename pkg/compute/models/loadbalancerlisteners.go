@@ -569,6 +569,11 @@ func (lblis *SLoadbalancerListener) CustomizeDelete(ctx context.Context, userCre
 	return lblis.StartLoadBalancerListenerDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
+func (lblis *SLoadbalancerListener) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	lblis.PreDeleteSubs(ctx, userCred)
+	lblis.DoPendingDelete(ctx, userCred)
+}
+
 func (lblis *SLoadbalancerListener) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
 	subMan := LoadbalancerListenerRuleManager
 	ownerProjId := lblis.GetOwnerProjectId()
@@ -577,7 +582,6 @@ func (lblis *SLoadbalancerListener) PreDeleteSubs(ctx context.Context, userCred 
 	defer lockman.ReleaseClass(ctx, subMan, ownerProjId)
 	q := subMan.Query().Equals("listener_id", lblis.Id)
 	subMan.PreDeleteSubs(ctx, userCred, q)
-	lblis.DoPendingDelete(ctx, userCred)
 }
 
 func (lblis *SLoadbalancerListener) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -818,8 +822,7 @@ func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx cont
 	if err != nil { // cannot delete
 		err = lblis.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		// err = lblis.PendingDelete(ctx, userCred)
-		lblis.PreDeleteSubs(ctx, userCred)
+		lblis.LBPendingDelete(ctx, userCred)
 	}
 	return err
 }
