@@ -50,6 +50,7 @@ func init() {
 type SLoadbalancerCertificate struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
 
 	Certificate string `create:"required" list:"user" update:"user"`
 	PrivateKey  string `create:"required" list:"admin" update:"user"`
@@ -63,8 +64,6 @@ type SLoadbalancerCertificate struct {
 	NotAfter                time.Time `create:"optional" list:"user" update:"user"`
 	CommonName              string    `create:"optional" list:"user" update:"user"`
 	SubjectAlternativeNames string    `create:"optional" list:"user" update:"user"`
-
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 }
 
 func (man *SLoadbalancerCertificateManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
@@ -211,6 +210,24 @@ func (lbcert *SLoadbalancerCertificate) PostCreate(ctx context.Context, userCred
 	if err := lbcert.StartLoadBalancerCertificateCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancercertificate error: %v", err)
 	}
+}
+
+func (lbcert *SLoadbalancerCertificate) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lbcert.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	providerInfo := lbcert.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if providerInfo != nil {
+		extra.Update(providerInfo)
+	}
+	regionInfo := lbcert.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if regionInfo != nil {
+		extra.Update(regionInfo)
+	}
+	return extra
+}
+
+func (lbcert *SLoadbalancerCertificate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra := lbcert.GetCustomizeColumns(ctx, userCred, query)
+	return extra, nil
 }
 
 func (lbcert *SLoadbalancerCertificate) StartLoadBalancerCertificateCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
