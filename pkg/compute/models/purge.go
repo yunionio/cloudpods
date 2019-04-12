@@ -246,7 +246,7 @@ func (lb *SLoadbalancer) purge(ctx context.Context, userCred mcclient.TokenCrede
 		return err
 	}
 
-	lb.PendingDelete(ctx, userCred)
+	lb.LBPendingDelete(ctx, userCred)
 	return nil
 }
 
@@ -274,7 +274,7 @@ func (lbl *SLoadbalancerListener) purge(ctx context.Context, userCred mcclient.T
 		return err
 	}
 
-	lbl.PreDeleteSubs(ctx, userCred)
+	lbl.LBPendingDelete(ctx, userCred)
 	return nil
 }
 
@@ -328,7 +328,7 @@ func (lbbg *SLoadbalancerBackendGroup) purge(ctx context.Context, userCred mccli
 		return err
 	}
 
-	lbbg.PreDeleteSubs(ctx, userCred)
+	lbbg.LBPendingDelete(ctx, userCred)
 	return nil
 }
 

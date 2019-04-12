@@ -18,8 +18,8 @@ type SLoadbalancerStatus struct {
 type ILoadbalancerSubResourceManager interface {
 	db.IModelManager
 
-	// PreDeleteSubs is to be called by upper manager to PreDelete models managed by this one
-	PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery)
+	// pendingDeleteSubs applies pending delete to sub resources
+	pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery)
 }
 
 // TODO
