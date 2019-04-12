@@ -566,7 +566,7 @@ func (lblis *SLoadbalancerListener) pendingDeleteSubs(ctx context.Context, userC
 
 	lockman.LockClass(ctx, subMan, ownerProjId)
 	defer lockman.ReleaseClass(ctx, subMan, ownerProjId)
-	q := subMan.Query().Equals("listener_id", lblis.Id)
+	q := subMan.Query().IsFalse("pending_deleted").Equals("listener_id", lblis.Id)
 	subMan.pendingDeleteSubs(ctx, userCred, q)
 }
 
