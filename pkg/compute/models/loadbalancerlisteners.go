@@ -144,7 +144,7 @@ func (man *SLoadbalancerListenerManager) pendingDeleteSubs(ctx context.Context, 
 	subs := []SLoadbalancerListener{}
 	db.FetchModelObjects(man, q, &subs)
 	for _, sub := range subs {
-		sub.DoPendingDelete(ctx, userCred)
+		sub.LBPendingDelete(ctx, userCred)
 	}
 }
 
