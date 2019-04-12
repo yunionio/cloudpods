@@ -452,7 +452,7 @@ func (lb *SLoadbalancer) pendingDeleteSubs(ctx context.Context, userCred mcclien
 		func(subMan ILoadbalancerSubResourceManager) {
 			lockman.LockClass(ctx, subMan, ownerProjId)
 			defer lockman.ReleaseClass(ctx, subMan, ownerProjId)
-			q := subMan.Query().Equals("loadbalancer_id", lbId)
+			q := subMan.Query().IsFalse("pending_deleted").Equals("loadbalancer_id", lbId)
 			subMan.pendingDeleteSubs(ctx, userCred, q)
 		}(subMan)
 	}
