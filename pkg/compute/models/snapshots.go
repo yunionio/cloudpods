@@ -542,7 +542,7 @@ func (self *SSnapshot) syncRemoveCloudSnapshot(ctx context.Context, userCred mcc
 	if err != nil {
 		err = self.SetStatus(userCred, SNAPSHOT_UNKNOWN, "sync to delete")
 	} else {
-		err = self.Delete(ctx, userCred)
+		err = self.RealDelete(ctx, userCred)
 	}
 	return err
 }

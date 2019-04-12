@@ -279,7 +279,7 @@ func (self *SElasticip) syncRemoveCloudEip(ctx context.Context, userCred mcclien
 	if err != nil {
 		return self.SetStatus(userCred, EIP_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		return self.Delete(ctx, userCred)
+		return self.RealDelete(ctx, userCred)
 	}
 }
 
