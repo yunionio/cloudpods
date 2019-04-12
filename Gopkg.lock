@@ -1219,12 +1219,25 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:18752d0b95816a1b777505a97f71c7467a8445b8ffb55631a7bf779f6ba4fa83"
-  name = "github.com/stretchr/testify"
-  packages = ["assert"]
+  digest = "1:ac83cf90d08b63ad5f7e020ef480d319ae890c208f8524622a2f3136e2686b02"
+  name = "github.com/stretchr/objx"
+  packages = ["."]
   pruneopts = "UT"
-  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
-  version = "v1.2.2"
+  revision = "477a77ecc69700c7cdeb1fa9e129548e1c1c393c"
+  version = "v0.1.1"
+
+[[projects]]
+  digest = "1:288e2ba4192b77ec619875ab54d82e2179ca8978e8baa690dcb4343a4a1f4da7"
+  name = "github.com/stretchr/testify"
+  packages = [
+    "assert",
+    "mock",
+    "require",
+    "suite",
+  ]
+  pruneopts = "UT"
+  revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
+  version = "v1.3.0"
 
 [[projects]]
   digest = "1:a115409defa2eb9059f215a91573ac1126123c4feac6bbb8d97f05e2b7761fe2"
@@ -1711,7 +1724,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:32cf8108c3f042e8a66bd3c25a8a2ce692c892885f14cb79a5c69ce64f6befd3"
+  digest = "1:30ca06466aebad8751130956f96267bc520af0991990522109d4250086e3ae83"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1745,7 +1758,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "112112e3145b5cb385d415502db3cb1b4269d7fd"
+  revision = "fa6430d86cfb0b2b3cc6ea20bab3b4618186234b"
 
 [[projects]]
   branch = "master"
@@ -1849,6 +1862,8 @@
     "github.com/shirou/gopsutil/net",
     "github.com/shirou/gopsutil/process",
     "github.com/stretchr/testify/assert",
+    "github.com/stretchr/testify/mock",
+    "github.com/stretchr/testify/suite",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http",
