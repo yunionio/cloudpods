@@ -416,7 +416,7 @@ func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.
 	return lb.StartLoadBalancerDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
-func (lb *SLoadbalancer) PendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+func (lb *SLoadbalancer) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	if len(lb.NetworkId) > 0 {
 		req := &SLoadbalancerNetworkDeleteData{
 			loadbalancer: lb,
@@ -573,7 +573,7 @@ func (lb *SLoadbalancer) syncRemoveCloudLoadbalancer(ctx context.Context, userCr
 	if err != nil { // cannot delete
 		err = lb.SetStatus(userCred, consts.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lb.Delete(ctx, userCred)
+		lb.LBPendingDelete(ctx, userCred)
 	}
 	return err
 }

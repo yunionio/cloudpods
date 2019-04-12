@@ -46,7 +46,7 @@ func (self *LoadbalancerListenerDeleteTask) OnInit(ctx context.Context, obj db.I
 func (self *LoadbalancerListenerDeleteTask) OnLoadbalancerListenerDeleteComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lblis, db.ACT_DELETE, lblis.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	lblis.PreDeleteSubs(ctx, self.GetUserCred())
+	lblis.LBPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 
