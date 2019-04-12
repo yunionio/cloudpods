@@ -129,7 +129,7 @@ func (self *SUcloudClient) DoAction(action string, params SParams, result interf
 	resultKey, params := self.commonParams(params, action)
 	err := DoAction(self, action, params, resultKey, result)
 	if err != nil {
-		log.Debugf("Do %s with params %s failed: %s",action, params, err.Error())
+		log.Debugf("Do %s with params %s failed: %s", action, params, err.Error())
 		return err
 	}
 
