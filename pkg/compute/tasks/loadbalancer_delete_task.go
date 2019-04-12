@@ -46,7 +46,7 @@ func (self *LoadbalancerDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 func (self *LoadbalancerDeleteTask) OnLoadbalancerDeleteComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lb, db.ACT_DELETE, lb.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	lb.PendingDelete(ctx, self.GetUserCred())
+	lb.LBPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 
