@@ -140,6 +140,11 @@ func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudpr
 }
 
 func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
+	if len(idStr) == 0 {
+		log.Debugf("GetIDiskById disk id should not be empty")
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	if disk, err := self.zone.region.GetDisk(idStr); err != nil {
 		return nil, err
 	} else {
