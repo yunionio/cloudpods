@@ -65,7 +65,7 @@ type SLoadbalancerBackend struct {
 	Port           int    `nullable:"false" list:"user" create:"required" update:"user"`
 }
 
-func (man *SLoadbalancerBackendManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
+func (man *SLoadbalancerBackendManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
 	lbbs := []SLoadbalancerBackend{}
 	db.FetchModelObjects(man, q, &lbbs)
 	for _, lbb := range lbbs {

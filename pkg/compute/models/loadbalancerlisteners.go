@@ -154,7 +154,7 @@ func (man *SLoadbalancerListenerManager) checkListenerUniqueness(ctx context.Con
 	return nil
 }
 
-func (man *SLoadbalancerListenerManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
+func (man *SLoadbalancerListenerManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
 	subs := []SLoadbalancerListener{}
 	db.FetchModelObjects(man, q, &subs)
 	for _, sub := range subs {
@@ -570,18 +570,18 @@ func (lblis *SLoadbalancerListener) CustomizeDelete(ctx context.Context, userCre
 }
 
 func (lblis *SLoadbalancerListener) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	lblis.PreDeleteSubs(ctx, userCred)
+	lblis.pendingDeleteSubs(ctx, userCred)
 	lblis.DoPendingDelete(ctx, userCred)
 }
 
-func (lblis *SLoadbalancerListener) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
+func (lblis *SLoadbalancerListener) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
 	subMan := LoadbalancerListenerRuleManager
 	ownerProjId := lblis.GetOwnerProjectId()
 
 	lockman.LockClass(ctx, subMan, ownerProjId)
 	defer lockman.ReleaseClass(ctx, subMan, ownerProjId)
 	q := subMan.Query().Equals("listener_id", lblis.Id)
-	subMan.PreDeleteSubs(ctx, userCred, q)
+	subMan.pendingDeleteSubs(ctx, userCred, q)
 }
 
 func (lblis *SLoadbalancerListener) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {

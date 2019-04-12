@@ -61,7 +61,7 @@ type SLoadbalancerBackendGroup struct {
 	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 }
 
-func (man *SLoadbalancerBackendGroupManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
+func (man *SLoadbalancerBackendGroupManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
 	lbbgs := []SLoadbalancerBackendGroup{}
 	db.FetchModelObjects(man, q, &lbbgs)
 	for _, lbbg := range lbbgs {
@@ -293,11 +293,11 @@ func (lbbg *SLoadbalancerBackendGroup) StartLoadBalancerBackendGroupCreateTask(c
 }
 
 func (lbbg *SLoadbalancerBackendGroup) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	lbbg.PreDeleteSubs(ctx, userCred)
+	lbbg.pendingDeleteSubs(ctx, userCred)
 	lbbg.DoPendingDelete(ctx, userCred)
 }
 
-func (lbbg *SLoadbalancerBackendGroup) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
+func (lbbg *SLoadbalancerBackendGroup) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
 	lbbg.DoPendingDelete(ctx, userCred)
 	subMan := LoadbalancerBackendManager
 	ownerProjId := lbbg.GetOwnerProjectId()
@@ -305,7 +305,7 @@ func (lbbg *SLoadbalancerBackendGroup) PreDeleteSubs(ctx context.Context, userCr
 	lockman.LockClass(ctx, subMan, ownerProjId)
 	defer lockman.ReleaseClass(ctx, subMan, ownerProjId)
 	q := subMan.Query().Equals("backend_group_id", lbbg.Id)
-	subMan.PreDeleteSubs(ctx, userCred, q)
+	subMan.pendingDeleteSubs(ctx, userCred, q)
 }
 
 func (lbbg *SLoadbalancerBackendGroup) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
