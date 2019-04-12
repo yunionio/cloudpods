@@ -65,14 +65,14 @@ func init() {
 type SLoadbalancer struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
+	SZoneResourceBase
 
-	Address       string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	AddressType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NetworkType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NetworkId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	VpcId         string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	ZoneId        string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
+	Address     string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	AddressType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	NetworkType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	VpcId       string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 
 	ChargeType       string `list:"user" get:"user" create:"optional"`
 	LoadbalancerSpec string `list:"user" get:"user" create:"optional"`
@@ -407,16 +407,30 @@ func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclie
 
 func (lb *SLoadbalancer) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := lb.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if lb.BackendGroupId == "" {
-		return extra
+	providerInfo := lb.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if providerInfo != nil {
+		extra.Update(providerInfo)
 	}
-	lbbg, err := LoadbalancerBackendGroupManager.FetchById(lb.BackendGroupId)
-	if err != nil {
-		log.Errorf("loadbalancer %s(%s): fetch backend group (%s) error: %s",
-			lb.Name, lb.Id, lb.BackendGroupId, err)
-		return extra
+
+	zoneInfo := lb.SZoneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if zoneInfo != nil {
+		extra.Update(zoneInfo)
+	} else {
+		regionInfo := lb.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+		if regionInfo != nil {
+			extra.Update(regionInfo)
+		}
 	}
-	extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+
+	if lb.BackendGroupId != "" {
+		lbbg, err := LoadbalancerBackendGroupManager.FetchById(lb.BackendGroupId)
+		if err != nil {
+			log.Errorf("loadbalancer %s(%s): fetch backend group (%s) error: %s",
+				lb.Name, lb.Id, lb.BackendGroupId, err)
+			return extra
+		}
+		extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+	}
 	return extra
 }
 

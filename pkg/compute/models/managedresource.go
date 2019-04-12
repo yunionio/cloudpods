@@ -59,7 +59,7 @@ func (self *SManagedResourceBase) GetCustomizeColumns(ctx context.Context, userC
 		"manager_id": provider.GetId(),
 		"provider":   provider.Provider,
 	}
-	if (provider.ProjectId) > 0 {
+	if len(provider.ProjectId) > 0 {
 		info["manager_project_id"] = provider.ProjectId
 		tc, err := db.TenantCacheManager.FetchTenantById(appctx.Background, provider.ProjectId)
 		if err == nil {
@@ -71,7 +71,7 @@ func (self *SManagedResourceBase) GetCustomizeColumns(ctx context.Context, userC
 	info["account"] = account.GetName()
 	info["account_id"] = account.GetId()
 
-	return jsonutils.Marshal(info)
+	return jsonutils.Marshal(info).(*jsonutils.JSONDict)
 }
 
 func (self *SManagedResourceBase) GetProviderFactory() (cloudprovider.ICloudProviderFactory, error) {
