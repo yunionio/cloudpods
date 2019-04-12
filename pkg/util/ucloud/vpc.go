@@ -194,8 +194,11 @@ func (self *SRegion) getVpc(vpcId string) (*SVPC, error) {
 	}
 }
 
+// https://docs.ucloud.cn/api/vpc2.0-api/delete_vpc
 func (self *SRegion) DeleteVpc(vpcId string) error {
-	return cloudprovider.ErrNotImplemented
+	params := NewUcloudParams()
+	params.Set("VPCId", vpcId)
+	return self.DoAction("DeleteVPC", params, nil)
 }
 
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090625.html
@@ -212,7 +215,7 @@ func (self *SRegion) GetVpcs(vpcId string) ([]SVPC, error) {
 
 func (self *SRegion) GetNetworks(vpcId string) ([]SNetwork, error) {
 	params := NewUcloudParams()
-	if len(vpcId) == 0 {
+	if len(vpcId) > 0 {
 		params.Set("VPCId", vpcId)
 	}
 

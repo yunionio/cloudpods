@@ -41,6 +41,9 @@ UCloud DiskType貌似也是一个奇葩的存在
 1.在主机创建查询接口中 DISK type 对应 CLOUD_SSD|CLOUD_NORMAL|...
 2.在数据盘创建中对应  DataDisk|SSDDataDisk
 3.在数据盘查询接口请求中对应   DataDisk|SystemDisk 。在结果中对应DataDisk|SSDDataDisk|SSDSystemDisk|SystemDisk
+
+目前存在的问题：
+1.很多国外区域都需要单独申请开通权限才能使用。onecloud有可能调度到未开通权限区域导致失败。
 */
 
 const (
@@ -111,6 +114,11 @@ func (self *SUcloudClient) commonParams(params SParams, action string) (string, 
 	resultKey, exists := UCLOUD_API_RESULT_KEYS[action]
 	if !exists || len(resultKey) == 0 {
 		log.Debugf("Do %s no result key found or result key is empty", action)
+
+		// default key for describe actions
+		if strings.HasPrefix(action, "Describe") {
+			resultKey = "DataSet"
+		}
 	}
 
 	if len(self.projectId) > 0 {
@@ -134,7 +142,13 @@ func (self *SUcloudClient) DoListPart(action string, limit int, offset int, para
 
 func (self *SUcloudClient) DoAction(action string, params SParams, result interface{}) error {
 	resultKey, params := self.commonParams(params, action)
-	return DoAction(self, action, params, resultKey, result)
+	err := DoAction(self, action, params, resultKey, result)
+	if err != nil {
+		log.Debugf("Do %s with params %s failed: %s", action, params, err.Error())
+		return err
+	}
+
+	return nil
 }
 
 func (self *SUcloudClient) fetchRegions() error {

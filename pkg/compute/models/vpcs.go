@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -72,7 +73,7 @@ type SVpc struct {
 
 	IsDefault bool `default:"false" list:"admin" create:"admin_optional"`
 
-	CidrBlock string `width:"64" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
+	CidrBlock string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
 
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 }
@@ -451,9 +452,12 @@ func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcc
 
 	cidrBlock, _ := data.GetString("cidr_block")
 	if len(cidrBlock) > 0 {
-		_, err = netutils.NewIPV4Prefix(cidrBlock)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("invalid cidr_block %s", cidrBlock)
+		blocks := strings.Split(cidrBlock, ",")
+		for _, block := range blocks {
+			_, err = netutils.NewIPV4Prefix(block)
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("invalid cidr_block %s", cidrBlock)
+			}
 		}
 	}
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
@@ -545,17 +549,27 @@ func (self *SVpc) StartDeleteVpcTask(ctx context.Context, userCred mcclient.Toke
 	return nil
 }
 
-func (self *SVpc) getPrefix() netutils.IPV4Prefix {
+func (self *SVpc) getPrefix() []netutils.IPV4Prefix {
+	ret := []netutils.IPV4Prefix{}
 	if len(self.CidrBlock) > 0 {
-		prefix, _ := netutils.NewIPV4Prefix(self.CidrBlock)
-		return prefix
+		blocks := strings.Split(self.CidrBlock, ",")
+		for _, block := range blocks {
+			prefix, _ := netutils.NewIPV4Prefix(block)
+			ret = append(ret, prefix)
+		}
+		return ret
 	}
-	return netutils.IPV4Prefix{}
+	return ret
 }
 
-func (self *SVpc) getIPRange() netutils.IPV4AddrRange {
-	pref := self.getPrefix()
-	return pref.ToIPRange()
+func (self *SVpc) getIPRanges() []netutils.IPV4AddrRange {
+	ret := []netutils.IPV4AddrRange{}
+	prefs := self.getPrefix()
+	for _, pref := range prefs {
+		ret = append(ret, pref.ToIPRange())
+	}
+
+	return ret
 }
 
 func (self *SVpc) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

@@ -14,7 +14,10 @@
 
 package hostdrivers
 
-import "yunion.io/x/onecloud/pkg/compute/models"
+import (
+	"fmt"
+	"yunion.io/x/onecloud/pkg/compute/models"
+)
 
 type SUCloudHostDriver struct {
 	SManagedVirtualizationHostDriver
@@ -27,4 +30,20 @@ func init() {
 
 func (self *SUCloudHostDriver) GetHostType() string {
 	return models.HOST_TYPE_UCLOUD
+}
+
+func (self *SUCloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
+	if storage.StorageType == models.STORAGE_UCLOUD_CLOUD_NORMAL {
+		if sizeGb < 20 || sizeGb > 8000 {
+			return fmt.Errorf("The %s disk size must be in the range of 20G ~ 8000GB", storage.StorageType)
+		}
+	} else if storage.StorageType == models.STORAGE_UCLOUD_CLOUD_SSD {
+		if sizeGb < 20 || sizeGb > 4000 {
+			return fmt.Errorf("The %s disk size must be in the range of 20G ~ 4000GB", storage.StorageType)
+		}
+	} else {
+		return fmt.Errorf("Not support create %s disk", storage.StorageType)
+	}
+
+	return nil
 }

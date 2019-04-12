@@ -39,7 +39,7 @@ type ServerListOptions struct {
 	Gpu           *bool  `help:"Show gpu servers"`
 	Secgroup      string `help:"Secgroup ID or Name"`
 	AdminSecgroup string `help:"AdminSecgroup ID or Name"`
-	Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei"`
+	Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei|ucloud"`
 	Region        string `help:"Show servers in cloudregion"`
 	WithEip       *bool  `help:"Show Servers with EIP"`
 	WithoutEip    *bool  `help:"Show Servers without EIP"`
@@ -126,7 +126,7 @@ type ServerConfigs struct {
 	Host       string `help:"Preferred host where virtual server should be created" json:"prefer_host"`
 	BackupHost string `help:"Perfered host where virtual backup server should be created"`
 
-	Hypervisor   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack"`
+	Hypervisor   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack|ucloud"`
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 	Backup       bool   `help:"Create server with backup server"`
 
