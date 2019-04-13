@@ -82,9 +82,9 @@ type SLoadbalancerHTTPListener struct {
 //  - Use certificate for tcp listener
 //  - Customize ciphers?
 type SLoadbalancerHTTPSListener struct {
-	CertificateId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	TLSCipherPolicy string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	EnableHttp2     bool   `create:"optional" list:"user"`
+	CertificateId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	TLSCipherPolicy string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	EnableHttp2     bool   `create:"optional" list:"user" update:"user"`
 }
 
 type SLoadbalancerListener struct {
