@@ -105,9 +105,9 @@ func init() {
 type SLoadbalancerAcl struct {
 	db.SSharableVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
 
-	CloudregionId string                   `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"required"`
-	AclEntries    *SLoadbalancerAclEntries `list:"user" update:"user" create:"required"`
+	AclEntries *SLoadbalancerAclEntries `list:"user" update:"user" create:"required"`
 }
 
 func loadbalancerAclsValidateAclEntries(data *jsonutils.JSONDict, update bool) (*jsonutils.JSONDict, error) {
@@ -205,6 +205,24 @@ func (lbacl *SLoadbalancerAcl) GetIRegion() (cloudprovider.ICloudRegion, error) 
 		return nil, fmt.Errorf("failed to find region for lb %s", lbacl.Name)
 	}
 	return provider.GetIRegionById(region.ExternalId)
+}
+
+func (lbacl *SLoadbalancerAcl) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lbacl.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	providerInfo := lbacl.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if providerInfo != nil {
+		extra.Update(providerInfo)
+	}
+	regionInfo := lbacl.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if regionInfo != nil {
+		extra.Update(regionInfo)
+	}
+	return extra
+}
+
+func (lbacl *SLoadbalancerAcl) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra := lbacl.GetCustomizeColumns(ctx, userCred, query)
+	return extra, nil
 }
 
 func (lbacl *SLoadbalancerAcl) AllowPerformPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
