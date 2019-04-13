@@ -3,6 +3,7 @@ package guestdrivers
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -52,7 +53,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		if i == 0 {
 			config.SysDisk.Name = disk.Name
 			config.SysDisk.StorageType = storage.StorageType
-			config.SysDisk.SizeGB = disk.DiskSize / 1024
+			config.SysDisk.SizeGB = int(math.Ceil(float64(disk.DiskSize) / 1024))
 			cache := storage.GetStoragecache()
 			imageId := disk.GetTemplateId()
 			//避免因同步过来的instance没有对应的imagecache信息，重置密码时引发空指针访问
