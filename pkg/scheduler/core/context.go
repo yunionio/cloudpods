@@ -415,8 +415,20 @@ func (u *Unit) SchedData() *api.SchedInfo {
 	return u.SchedInfo
 }
 
-func (u *Unit) ShouldExecuteSchedtagFilter() bool {
-	return len(u.SchedData().Candidates) == 0
+func (u *Unit) ShouldExecuteSchedtagFilter(hostId string) bool {
+	schedData := u.SchedData()
+	if !schedData.Backup {
+		if len(schedData.PreferHost) != 0 {
+			return false
+		}
+		return true
+	}
+	for _, preferHost := range []string{schedData.PreferHost, schedData.PreferBackupHost} {
+		if preferHost == hostId {
+			return false
+		}
+	}
+	return true
 }
 
 func (u *Unit) IsPublicCloudProvider() bool {
