@@ -1009,6 +1009,10 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		}
 	}
 
+	// HACK: if input networks is empty, add one random network config
+	if len(input.Networks) == 0 {
+		input.Networks = append(input.Networks, &api.NetworkConfig{Exit: false})
+	}
 	netArray := input.Networks
 	for idx := 0; idx < len(netArray); idx += 1 {
 		netConfig, err := parseNetworkInfo(userCred, netArray[idx])
