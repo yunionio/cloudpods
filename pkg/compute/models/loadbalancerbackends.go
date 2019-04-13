@@ -54,8 +54,8 @@ func init() {
 type SLoadbalancerBackend struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
 
-	CloudregionId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	BackendId      string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	BackendType    string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
@@ -226,6 +226,24 @@ func (lbb *SLoadbalancerBackend) PostCreate(ctx context.Context, userCred mcclie
 	if err := lbb.StartLoadBalancerBackendCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancer backend error: %v", err)
 	}
+}
+
+func (lbb *SLoadbalancerBackend) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lbb.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	providerInfo := lbb.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if providerInfo != nil {
+		extra.Update(providerInfo)
+	}
+	regionInfo := lbb.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if regionInfo != nil {
+		extra.Update(regionInfo)
+	}
+	return extra
+}
+
+func (lbb *SLoadbalancerBackend) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra := lbb.GetCustomizeColumns(ctx, userCred, query)
+	return extra, nil
 }
 
 func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {

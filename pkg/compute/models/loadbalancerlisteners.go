@@ -104,8 +104,8 @@ type SLoadbalancerHTTPSListener struct {
 type SLoadbalancerListener struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
 
-	CloudregionId     string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 	LoadbalancerId    string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	ListenerType      string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	ListenerPort      int    `nullable:"false" list:"user" create:"required"`
@@ -500,16 +500,19 @@ func (lblis *SLoadbalancerListener) GetCustomizeColumns(ctx context.Context, use
 		extra.Set("loadbalancer", jsonutils.NewString(lb.GetName()))
 	}
 	{
-		if lblis.BackendGroupId == "" {
-			return extra
+		if lblis.BackendGroupId != "" {
+			lbbg, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
+			if err != nil {
+				log.Errorf("loadbalancer listener %s(%s): fetch backend group (%s) error: %s",
+					lblis.Name, lblis.Id, lblis.BackendGroupId, err)
+				return extra
+			}
+			extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
 		}
-		lbbg, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
-		if err != nil {
-			log.Errorf("loadbalancer listener %s(%s): fetch backend group (%s) error: %s",
-				lblis.Name, lblis.Id, lblis.BackendGroupId, err)
-			return extra
-		}
-		extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+	}
+	regionInfo := lblis.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if regionInfo != nil {
+		extra.Update(regionInfo)
 	}
 	return extra
 }

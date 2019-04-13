@@ -15,6 +15,7 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SManagedResourceBase struct {
@@ -45,6 +47,31 @@ func (self *SManagedResourceBase) GetCloudaccount() *SCloudaccount {
 		return nil
 	}
 	return cp.GetCloudaccount()
+}
+
+func (self *SManagedResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	provider := self.GetCloudprovider()
+	if provider == nil {
+		return nil
+	}
+	info := map[string]string{
+		"manager":    provider.GetName(),
+		"manager_id": provider.GetId(),
+		"provider":   provider.Provider,
+	}
+	if len(provider.ProjectId) > 0 {
+		info["manager_project_id"] = provider.ProjectId
+		tc, err := db.TenantCacheManager.FetchTenantById(appctx.Background, provider.ProjectId)
+		if err == nil {
+			info["manager_project"] = tc.GetName()
+		}
+	}
+
+	account := provider.GetCloudaccount()
+	info["account"] = account.GetName()
+	info["account_id"] = account.GetId()
+
+	return jsonutils.Marshal(info).(*jsonutils.JSONDict)
 }
 
 func (self *SManagedResourceBase) GetProviderFactory() (cloudprovider.ICloudProviderFactory, error) {

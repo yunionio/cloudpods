@@ -55,8 +55,8 @@ func init() {
 type SLoadbalancerBackendGroup struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
 
-	CloudregionId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 	Type           string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"normal" create:"optional"`
 	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 }
@@ -261,6 +261,10 @@ func (lbbg *SLoadbalancerBackendGroup) GetCustomizeColumns(ctx context.Context, 
 			return extra
 		}
 		extra.Set("loadbalancer", jsonutils.NewString(lb.GetName()))
+	}
+	regionInfo := lbbg.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if regionInfo != nil {
+		extra.Update(regionInfo)
 	}
 	return extra
 }
