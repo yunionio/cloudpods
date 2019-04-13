@@ -66,7 +66,7 @@ type SLoadbalancerCertificate struct {
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 }
 
-func (man *SLoadbalancerCertificateManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
+func (man *SLoadbalancerCertificateManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
 	subs := []SLoadbalancerCertificate{}
 	db.FetchModelObjects(man, q, &subs)
 	for _, sub := range subs {
