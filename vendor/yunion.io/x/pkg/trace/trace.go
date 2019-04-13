@@ -103,9 +103,12 @@ func StartServerTrace(w http.ResponseWriter, r *http.Request, localSpanName stri
 	shared := false
 	localEp := STraceEndpoint{ServiceName: localServiceName,
 		Addr: localAddr, Port: localPort}
-	addr, port := utils.GetAddrPort(r.RemoteAddr)
-	remoteEp := STraceEndpoint{ServiceName: peerSrvName,
-		Addr: addr, Port: port}
+	remoteEp := STraceEndpoint{ServiceName: peerSrvName}
+	if len(r.RemoteAddr) != 0 {
+		addr, port := utils.GetAddrPort(r.RemoteAddr)
+		remoteEp.Addr = addr
+		remoteEp.Port = port
+	}
 	var tags map[string]string
 	if srvTags != nil {
 		tags = make(map[string]string)
