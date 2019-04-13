@@ -444,12 +444,14 @@ func normalizeProvider(provider string) string {
 }
 
 func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sqlchemy.SQuery {
-	// 过滤出健康状态的sku
-	providerTable := CloudproviderManager.Query().SubQuery()
-	q = q.Join(providerTable, sqlchemy.Equals(q.Field("provider"), providerTable.Field("provider")))
-	q = q.Filter(sqlchemy.IsTrue(providerTable.Field("enabled")))
-	q = q.Filter(sqlchemy.In(providerTable.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
-	q = q.Filter(sqlchemy.Equals(providerTable.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
+	// 过滤出公有云provider状态健康的sku
+	if public_cloud {
+		providerTable := CloudproviderManager.Query().SubQuery()
+		q = q.Join(providerTable, sqlchemy.Equals(q.Field("provider"), providerTable.Field("provider")))
+		q = q.Filter(sqlchemy.IsTrue(providerTable.Field("enabled")))
+		q = q.Filter(sqlchemy.In(providerTable.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+		q = q.Filter(sqlchemy.Equals(providerTable.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
+	}
 
 	if provider == "all" {
 		// provider 参数为all时。表示查询所有instance type.
