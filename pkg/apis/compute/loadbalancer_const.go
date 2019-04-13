@@ -66,6 +66,29 @@ var LB_BACKENDGROUP_TYPE = choices.NewChoices(
 	LB_BACKENDGROUP_TYPE_MASTER_SLAVE,
 )
 
+const (
+	LB_ALIYUN_SPEC_S1_SMALL  = "slb.s1.small"
+	LB_ALIYUN_SPEC_S2_SMALL  = "slb.s2.small"
+	LB_ALIYUN_SPEC_S3_SMALL  = "slb.s3.small"
+	LB_ALIYUN_SPEC_S2_MEDIUM = "slb.s2.medium"
+	LB_ALIYUN_SPEC_S3_MEDIUM = "slb.s3.medium"
+	LB_ALIYUN_SPEC_S3_LARGE  = "slb.s3.large"
+)
+
+const (
+	LB_MbpsMin = 0
+	LB_MbpsMax = 10000
+)
+
+var LB_ALIYUN_SPECS = choices.NewChoices(
+	LB_ALIYUN_SPEC_S1_SMALL,
+	LB_ALIYUN_SPEC_S2_SMALL,
+	LB_ALIYUN_SPEC_S3_SMALL,
+	LB_ALIYUN_SPEC_S2_MEDIUM,
+	LB_ALIYUN_SPEC_S3_MEDIUM,
+	LB_ALIYUN_SPEC_S3_LARGE,
+)
+
 // Load Balancer network type (vpc or classic) determines viable backend
 // servers (they should be from the same network type as the load balancer).
 //
@@ -254,6 +277,12 @@ const (
 	LB_CHARGE_TYPE_BY_TRAFFIC   = "traffic"
 	LB_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
 	LB_CHARGE_TYPE_BY_HOUR      = "hour"
+)
+
+var LB_CHARGE_TYPES = choices.NewChoices(
+	LB_CHARGE_TYPE_BY_TRAFFIC,
+	LB_CHARGE_TYPE_BY_BANDWIDTH,
+	LB_CHARGE_TYPE_BY_HOUR,
 )
 
 const (
