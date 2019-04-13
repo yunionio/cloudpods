@@ -16,8 +16,10 @@ package aws
 
 import (
 	"fmt"
+	"math/rand"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"yunion.io/x/jsonutils"
@@ -49,6 +51,16 @@ type SSecurityGroup struct {
 
 	// CreationTime      time.Time
 	// InnerAccessPolicy string
+}
+
+func randomString(prefix string, length int) string {
+	bytes := []byte("0123456789abcdefghijklmnopqrstuvwxyz")
+	result := []byte{}
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < length; i++ {
+		result = append(result, bytes[r.Intn(len(bytes))])
+	}
+	return prefix + string(result)
 }
 
 func (self *SSecurityGroup) GetId() string {
@@ -245,7 +257,8 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTa
 }
 
 func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
-	secId, err := self.createSecurityGroup(vpcId, "vpc default", fmt.Sprintf("%s-default", vpcId), "vpc default group")
+	name := randomString(fmt.Sprintf("%s-", vpcId), 9)
+	secId, err := self.createSecurityGroup(vpcId, name, "default", "vpc default group")
 	if err != nil {
 		return "", err
 	}

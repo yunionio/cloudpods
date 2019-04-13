@@ -153,11 +153,7 @@ func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name str
 	secgrpId := ""
 	// 名称为default的安全组与aws默认安全组名冲突
 	if strings.ToLower(name) == "default" {
-		name = fmt.Sprintf("%s-%s", vpcId, name)
-	}
-
-	if strings.ToLower(secgroupId) == "default" {
-		secgroupId = fmt.Sprintf("%s-%s", vpcId, secgroupId)
+		name = randomString(fmt.Sprintf("%s-", vpcId), 9)
 	}
 
 	rules = SecurityRuleSetToAllowSet(rules)
