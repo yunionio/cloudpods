@@ -4221,6 +4221,8 @@ func (self *SGuest) ToIsolatedDevicesConfig() []*api.IsolatedDeviceConfig {
 	for idx, guestIsolatedDevice := range guestIsolatedDevices {
 		devConf := new(api.IsolatedDeviceConfig)
 		devConf.Model = guestIsolatedDevice.Model
+		devConf.Vendor = guestIsolatedDevice.getVendor()
+		devConf.DevType = guestIsolatedDevice.DevType
 		ret[idx] = devConf
 	}
 	return ret
