@@ -15,6 +15,8 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type SSyncableBaseResource struct {
@@ -549,6 +551,10 @@ func syncZoneSkusFromCloud(ctx context.Context, userCred mcclient.TokenCredentia
 	log.Infof("SyncCloudSkusByRegion for zone %s result: %s", localZone.Name, msg)
 	if result.IsError() {
 		return
+	}
+	s := auth.GetSession(ctx, userCred, "", "")
+	if _, err := modules.SchedManager.SyncSku(s, true); err != nil {
+		log.Errorf("Sync scheduler sku cache error: %v", err)
 	}
 }
 
