@@ -51,10 +51,10 @@ type SLoadbalancerBackend struct {
 }
 
 func (man *SLoadbalancerBackendManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
-	subs := []SLoadbalancerBackend{}
-	db.FetchModelObjects(man, q, &subs)
-	for _, sub := range subs {
-		sub.DoPendingDelete(ctx, userCred)
+	lbbs := []SLoadbalancerBackend{}
+	db.FetchModelObjects(man, q, &lbbs)
+	for _, lbb := range lbbs {
+		lbb.DoPendingDelete(ctx, userCred)
 	}
 }
 

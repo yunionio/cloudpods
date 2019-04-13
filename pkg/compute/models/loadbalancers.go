@@ -416,7 +416,7 @@ func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.
 	return lb.StartLoadBalancerDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
-func (lb *SLoadbalancer) PendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+func (lb *SLoadbalancer) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	if len(lb.NetworkId) > 0 {
 		req := &SLoadbalancerNetworkDeleteData{
 			loadbalancer: lb,

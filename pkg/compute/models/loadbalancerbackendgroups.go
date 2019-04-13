@@ -48,10 +48,10 @@ type SLoadbalancerBackendGroup struct {
 }
 
 func (man *SLoadbalancerBackendGroupManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
-	subs := []SLoadbalancerBackendGroup{}
-	db.FetchModelObjects(man, q, &subs)
-	for _, sub := range subs {
-		sub.DoPendingDelete(ctx, userCred)
+	lbbgs := []SLoadbalancerBackendGroup{}
+	db.FetchModelObjects(man, q, &lbbgs)
+	for _, lbbg := range lbbgs {
+		lbbg.LBPendingDelete(ctx, userCred)
 	}
 }
 
@@ -276,6 +276,11 @@ func (lbbg *SLoadbalancerBackendGroup) StartLoadBalancerBackendGroupCreateTask(c
 	}
 	task.ScheduleRun(nil)
 	return nil
+}
+
+func (lbbg *SLoadbalancerBackendGroup) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	lbbg.PreDeleteSubs(ctx, userCred)
+	lbbg.DoPendingDelete(ctx, userCred)
 }
 
 func (lbbg *SLoadbalancerBackendGroup) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
