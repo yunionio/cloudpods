@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -433,7 +434,7 @@ func (self *SImage) SaveImageFromStream(reader io.Reader) error {
 			self.DiskFormat = format
 		}
 		if virtualSizeBytes > 0 {
-			self.MinDiskMB = int32(virtualSizeBytes / 1024 / 1024)
+			self.MinDiskMB = int32(math.Ceil(float64(virtualSizeBytes) / 1024 / 1024))
 		}
 		return nil
 	})
