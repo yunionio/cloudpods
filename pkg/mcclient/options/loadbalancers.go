@@ -21,8 +21,9 @@ type LoadbalancerCreateOptions struct {
 	AddressType      string `choices:"intranet|internet"`
 	LoadbalancerSpec string `choices:"slb.s1.small|slb.s2.small|slb.s2.medium|slb.s3.small|slb.s3.medium|slb.s3.large"`
 	ChargeType       string `choices:"traffic|bandwidth"`
+	Bandwidth        int
 	Zone             string
-	ManagerId        string
+	Manager          string
 }
 
 type LoadbalancerGetOptions struct {

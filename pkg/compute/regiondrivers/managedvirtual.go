@@ -16,7 +16,6 @@ package regiondrivers
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -37,22 +36,13 @@ type SManagedVirtualizationRegionDriver struct {
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+	return self.ValidateManagerId(ctx, userCred, data)
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateManagerId(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	managerID := jsonutils.GetAnyString(data, []string{"manager_id", "manager"})
-	if len(managerID) == 0 {
-		return nil, httperrors.NewMissingParameterError("manager_id")
+	if managerId, _ := data.GetString("manager_id"); len(managerId) == 0 {
+		return nil, httperrors.NewMissingParameterError("manager")
 	}
-	provider, err := models.CloudproviderManager.FetchByIdOrName(userCred, managerID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("failed to find cloudprovider %s", managerID)
-		}
-		return nil, httperrors.NewGeneralError(err)
-	}
-	data.Set("manager_id", jsonutils.NewString(provider.GetId()))
 	return data, nil
 }
 
@@ -61,7 +51,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerAclDat
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+	return self.ValidateManagerId(ctx, userCred, data)
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

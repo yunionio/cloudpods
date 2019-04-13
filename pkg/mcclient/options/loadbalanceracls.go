@@ -70,10 +70,10 @@ func (entries AclEntries) String() string {
 }
 
 type LoadbalancerAclCreateOptions struct {
-	NAME      string
-	AclEntry  []string `help:"acl entry with cidr and comment separated by #, e.g. 10.9.0.0/16#no comment" json:"-"`
-	ManagerId string   `json:"manager_id"`
-	Region    string   `json:"cloudregion"`
+	NAME     string
+	AclEntry []string `help:"acl entry with cidr and comment separated by #, e.g. 10.9.0.0/16#no comment" json:"-"`
+	Manager  string   `json:"manager_id"`
+	Region   string   `json:"cloudregion"`
 }
 
 type LoadbalancerAclGetOptions struct {

@@ -439,6 +439,7 @@ type ICloudLoadbalancer interface {
 	GetZoneId() string
 	GetLoadbalancerSpec() string
 	GetChargeType() string
+	GetEgressMbps() int
 
 	Delete() error
 
@@ -465,6 +466,8 @@ type ICloudLoadbalancerListener interface {
 	GetAclStatus() string
 	GetAclType() string
 	GetAclId() string
+
+	GetEgressMbps() int
 
 	GetHealthCheck() string
 	GetHealthCheckType() string
