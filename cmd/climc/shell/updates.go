@@ -2,6 +2,7 @@ package shell
 
 import (
 	"fmt"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -45,12 +46,12 @@ func init() {
 			params.Add(jsonutils.JSONTrue, "cmp_only")
 		}
 
-		result, err := modules.Updates.List(s, nil)
+		modules.Updates.PerformAction(s, "", "", params)
 
+		result, err := modules.Updates.List(s, nil)
 		if err != nil {
 			return err
 		}
-		modules.Updates.DoUpdate(s, params)
 		printList(result, modules.Updates.GetColumns(s))
 		return nil
 	})
