@@ -11,22 +11,27 @@ import (
 	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
 )
 
-func transToBackupSchedResult(result *core.SchedResultItemList, preferMasterHost, preferBackupHost string, count int64) interface{} {
+func transToBackupSchedResult(result *core.SchedResultItemList, preferMasterHost, preferBackupHost string, count int64, setDirty bool) *schedapi.ScheduleOutput {
 	// clean each result sched result item's count
 	for _, item := range result.Data {
 		item.Count = 0
 	}
 
-	apiResults := newBackupSchedResult(result, preferMasterHost, preferBackupHost, count)
+	apiResults := newBackupSchedResult(result, preferMasterHost, preferBackupHost, count, setDirty)
 	return apiResults
 }
 
-func newBackupSchedResult(result *core.SchedResultItemList, preferMasterHost, preferBackupHost string, count int64) *schedapi.ScheduleOutput {
+func newBackupSchedResult(
+	result *core.SchedResultItemList,
+	preferMasterHost, preferBackupHost string,
+	count int64,
+	setDirty bool,
+) *schedapi.ScheduleOutput {
 	ret := new(schedapi.ScheduleOutput)
 	apiResults := make([]*schedapi.CandidateResource, 0)
 	for i := 0; i < int(count); i++ {
 		log.V(10).Debugf("Select backup host from result: %s", result)
-		target, err := getSchedBackupResult(result, preferMasterHost, preferBackupHost)
+		target, err := getSchedBackupResult(result, preferMasterHost, preferBackupHost, setDirty)
 		if err != nil {
 			er := &schedapi.CandidateResource{Error: err.Error()}
 			apiResults = append(apiResults, er)
@@ -38,18 +43,22 @@ func newBackupSchedResult(result *core.SchedResultItemList, preferMasterHost, pr
 	return ret
 }
 
-func getSchedBackupResult(result *core.SchedResultItemList, preferMasterHost, preferBackupHost string) (*schedapi.CandidateResource, error) {
+func getSchedBackupResult(
+	result *core.SchedResultItemList,
+	preferMasterHost, preferBackupHost string,
+	setDirty bool,
+) (*schedapi.CandidateResource, error) {
 	masterHost := selectMasterHost(result.Data, preferMasterHost, preferBackupHost)
 	if masterHost == nil {
-		return nil, fmt.Errorf("Can't find master host")
+		return nil, fmt.Errorf("Can't find master host %q", preferMasterHost)
 	}
 	backupHost := selectBackupHost(masterHost.ID, preferBackupHost, result.Data)
 	if backupHost == nil {
-		return nil, fmt.Errorf("Can't find backup host by master %s", masterHost.ID)
+		return nil, fmt.Errorf("Can't find backup host %q by master %q", preferBackupHost, masterHost.ID)
 	}
 
-	markHostUsed(masterHost)
-	markHostUsed(backupHost)
+	markHostUsed(masterHost, setDirty)
+	markHostUsed(backupHost, setDirty)
 	sort.Sort(sort.Reverse(result))
 
 	ret := masterHost.ToCandidateResource()
@@ -57,10 +66,12 @@ func getSchedBackupResult(result *core.SchedResultItemList, preferMasterHost, pr
 	return ret, nil
 }
 
-func markHostUsed(host *core.SchedResultItem) {
+func markHostUsed(host *core.SchedResultItem, setDirty bool) {
 	host.Count++
 	host.Capacity--
-	setHostDirty(host)
+	if setDirty {
+		setHostDirty(host)
+	}
 }
 
 // selectMasterID find master host id run VM
@@ -70,6 +81,13 @@ func selectMasterHost(result []*core.SchedResultItem, preferMasterHost, preferBa
 		return nil
 	}
 	host := result[0]
+	if host.ID == preferMasterHost {
+		if host.Capacity >= 1 {
+			return host
+		} else {
+			return nil
+		}
+	}
 	if host.Capacity >= 1 && host.ID != preferBackupHost {
 		if len(preferMasterHost) == 0 {
 			return host

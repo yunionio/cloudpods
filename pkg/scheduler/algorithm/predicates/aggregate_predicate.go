@@ -37,10 +37,6 @@ func (p *AggregatePredicate) Clone() core.FitPredicate {
 func (p *AggregatePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
 	data := u.SchedData()
 
-	if !u.ShouldExecuteSchedtagFilter() {
-		return false, nil
-	}
-
 	allAggs, err := GetAllSchedtags(computemodels.HostManager.KeywordPlural())
 	if err != nil {
 		return false, err
@@ -53,6 +49,10 @@ func (p *AggregatePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (boo
 
 func (p *AggregatePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := NewPredicateHelper(p, u, c)
+
+	if !u.ShouldExecuteSchedtagFilter(c.Getter().Id()) {
+		return true, nil, nil
+	}
 
 	if errMsg := p.exec(h); len(errMsg) > 0 {
 		h.Exclude(errMsg)
