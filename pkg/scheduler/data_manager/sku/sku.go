@@ -39,6 +39,18 @@ func Start(refreshInterval time.Duration) {
 	skuManager.sync()
 }
 
+func SyncOnce(wait bool) error {
+	if skuManager == nil {
+		return fmt.Errorf("sku manager not init")
+	}
+	if wait {
+		skuManager.syncOnce()
+	} else {
+		go skuManager.syncOnce()
+	}
+	return nil
+}
+
 func GetByZone(instanceType, zoneId string) *ServerSku {
 	return skuManager.GetByZone(instanceType, zoneId)
 }

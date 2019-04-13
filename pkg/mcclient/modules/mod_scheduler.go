@@ -101,6 +101,13 @@ func (this *SchedulerManager) Cleanup(s *mcclient.ClientSession, params jsonutil
 	return this._post(s, url, params, "")
 }
 
+func (this *SchedulerManager) SyncSku(s *mcclient.ClientSession, wait bool) (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewBool(wait), "wait")
+	url := newSchedURL("sync-sku")
+	return this._post(s, url, params, "")
+}
+
 func (this *SchedulerManager) Kill(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return nil, fmt.Errorf("Not impl")
 }
