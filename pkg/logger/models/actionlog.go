@@ -69,17 +69,19 @@ func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient
 	return nil
 }
 
-func (manager *SActionlogManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	actionLog := items[0].(*SActionlog)
-	if IsInActionWhiteList(actionLog.Action) {
-		select {
-		case logQueue <- actionLog:
-			return
-		default:
-			log.Warningf("Log queue full, insert failed, log ignored: %s", actionLog.Action)
-		}
-	}
-}
+// Websockets 不再拉取 ActionLog 的消息，因此注释掉如下代码
+// 可以保留，以便有需求时，再次打开
+// func (manager *SActionlogManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+//	actionLog := items[0].(*SActionlog)
+//	if IsInActionWhiteList(actionLog.Action) {
+//		select {
+//		case logQueue <- actionLog:
+//			return
+//		default:
+//			log.Warningf("Log queue full, insert failed, log ignored: %s", actionLog.Action)
+//		}
+//	}
+// }
 
 func StartNotifyToWebsocketWorker() {
 	go func() {
