@@ -15,6 +15,7 @@ import (
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	skuman "yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
 )
@@ -63,6 +64,8 @@ func schedulerActionHandler(c *gin.Context) {
 		doHistoryList(c)
 	case "clean-cache":
 		doCleanAllHostCache(c)
+	case "sync-sku":
+		doSyncSku(c)
 	//case "reserved-resources":
 	//doReservedResources(c)
 	default:
@@ -353,6 +356,23 @@ func doCleanAllHostCache(c *gin.Context) {
 	}
 
 	doCleanHostCacheByArgs(c, args)
+}
+
+type SyncSkuArgs struct {
+	Wait bool `json:"wait"`
+}
+
+func doSyncSku(c *gin.Context) {
+	args := new(SyncSkuArgs)
+	if err := c.BindJSON(args); err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	if err := skuman.SyncOnce(args.Wait); err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	c.JSON(http.StatusOK, nil)
 }
 
 func doCleanHostCache(c *gin.Context, hostID string) {

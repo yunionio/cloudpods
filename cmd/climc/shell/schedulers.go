@@ -154,4 +154,17 @@ func init() {
 			}
 			return nil
 		})
+
+	type SyncOpt struct {
+		Wait bool `help:"wait sync finish"`
+	}
+	R(&SyncOpt{}, "scheduler-sync-sku", "Sync scheduler SKU cache",
+		func(s *mcclient.ClientSession, args *SyncOpt) error {
+			result, err := modules.SchedManager.SyncSku(s, args.Wait)
+			if err != nil {
+				return err
+			}
+			fmt.Println(result.YAMLString())
+			return nil
+		})
 }
