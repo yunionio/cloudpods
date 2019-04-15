@@ -15,10 +15,14 @@
 package options
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
+
+	compute_apis "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/util/ansible"
 )
 
 type LoadbalancerAgentParamsOptions struct {
@@ -136,4 +140,24 @@ type LoadbalancerAgentActionPatchParamsOptions struct {
 
 func (opts *LoadbalancerAgentActionPatchParamsOptions) Params() (*jsonutils.JSONDict, error) {
 	return opts.LoadbalancerAgentParamsOptions.Params()
+}
+
+type LoadbalancerAgentActionDeployOptions struct {
+	ID string `json:"-"`
+
+	Host         string `help:"name or id of the server in format '<[server:]id|host:id>|ipaddr var=val'" json:"-"`
+	DeployMethod string `help:"use yum repo or use file copy" choices:"yum|copy" default:"copy"`
+}
+
+func (opts *LoadbalancerAgentActionDeployOptions) Params() (*jsonutils.JSONDict, error) {
+	host, err := ansible.ParseHostLine(opts.Host)
+	if err != nil {
+		return nil, fmt.Errorf("parse host: %v", err)
+	}
+	input := &compute_apis.LoadbalancerAgentDeployInput{
+		Host:         host,
+		DeployMethod: opts.DeployMethod,
+	}
+	params := input.JSON(input)
+	return params, nil
 }
