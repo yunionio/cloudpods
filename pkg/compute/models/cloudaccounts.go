@@ -1259,6 +1259,10 @@ func (self *SCloudaccount) StartCloudaccountDeleteTask(ctx context.Context, user
 }
 
 func (self *SCloudaccount) getSyncStatus() string {
+	if self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_QUEUED {
+		return self.SyncStatus
+	}
+
 	cprs := CloudproviderRegionManager.Query().SubQuery()
 	providers := CloudproviderManager.Query().SubQuery()
 
