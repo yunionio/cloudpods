@@ -20,6 +20,8 @@ type LoadbalancerListenerCreateOptions struct {
 	AclType   string `choices:"black|white"`
 	Acl       string
 
+	EgressMbps int
+
 	HealthCheck     string `choices:"on|off"`
 	HealthCheckType string `choices:"tcp|http"`
 

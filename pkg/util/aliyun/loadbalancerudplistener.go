@@ -68,6 +68,13 @@ func (listerner *SLoadbalancerUDPListener) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
+func (listerner *SLoadbalancerUDPListener) GetEgressMbps() int {
+	if listerner.Bandwidth < 1 {
+		return 0
+	}
+	return listerner.Bandwidth
+}
+
 func (listerner *SLoadbalancerUDPListener) IsEmulated() bool {
 	return false
 }

@@ -13,7 +13,7 @@ type SLoadbalancerListener struct {
 	AccessControlListID     string
 	EnableHTTP2             bool
 	CertificateID           string
-	Bandwidth               int
+	EgressMbps              int
 	Description             string
 	EstablishedTimeout      int
 
