@@ -439,7 +439,7 @@ func (self *SCloudaccount) markStartSync(userCred mcclient.TokenCredential) erro
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Fail tp update last_sync %s", err)
+		log.Errorf("Failed to markStartSync error: %v", err)
 		return err
 	}
 	return nil
@@ -453,7 +453,7 @@ func (self *SCloudaccount) MarkSyncing(userCred mcclient.TokenCredential) error 
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Fail tp update last_sync %s", err)
+		log.Errorf("Failed to MarkSyncing error: %v", err)
 		return err
 	}
 	return nil
@@ -483,7 +483,7 @@ func (self *SCloudaccount) markEndSync(userCred mcclient.TokenCredential) error 
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Fail tp update last_sync %s", err)
+		log.Errorf("Failed to markEndSync error: %v", err)
 		return err
 	}
 	return nil
@@ -1098,7 +1098,7 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Contex
 	accounts := make([]SCloudaccount, 0)
 	err := db.FetchModelObjects(manager, q, &accounts)
 	if err != nil {
-		log.Errorf("fail to fetch cloudaccount list to check status")
+		log.Errorf("Failed to fetch cloudaccount list to check status")
 		return
 	}
 
@@ -1150,7 +1150,7 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		return nil
 	})
 	if err != nil {
-		log.Errorf("fail to update db %s", err)
+		log.Errorf("Failed to update db %s", err)
 	} else {
 		db.OpsLog.LogSyncUpdate(account, diff, userCred)
 	}
@@ -1205,7 +1205,7 @@ func (account *SCloudaccount) markAutoSync(userCred mcclient.TokenCredential) er
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Fail tp update last_auto_sync %v", err)
+		log.Errorf("Failed to markAutoSync error: %v", err)
 		return err
 	}
 	return nil
@@ -1224,7 +1224,7 @@ func (account *SCloudaccount) SubmitSyncAccountTask(ctx context.Context, userCre
 			syncCnt := 0
 			if err == nil && autoSync && account.Enabled && account.EnableAutoSync {
 				syncRange := SSyncRange{FullSync: true}
-				account.markAutoSync()
+				account.markAutoSync(userCred)
 				providers := account.GetEnabledCloudproviders()
 				for i := range providers {
 					providers[i].syncCloudproviderRegions(ctx, userCred, syncRange, nil, autoSync)

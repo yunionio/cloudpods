@@ -497,7 +497,7 @@ func (self *SCloudprovider) markStartSync(userCred mcclient.TokenCredential) err
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Fail tp update last_sync %s", err)
+		log.Errorf("Failed to markStartSync error: %v", err)
 		return err
 	}
 	return nil
@@ -511,7 +511,7 @@ func (self *SCloudprovider) markSyncing(userCred mcclient.TokenCredential) error
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Fail tp update last_sync %s", err)
+		log.Errorf("Failed to markSyncing error: %v", err)
 		return err
 	}
 	return nil
@@ -551,7 +551,7 @@ func (self *SCloudprovider) markEndSync(userCred mcclient.TokenCredential) error
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Fail tp update last_sync %s", err)
+		log.Errorf("Failed to markEndSync error: %v", err)
 		return err
 	}
 	return nil
