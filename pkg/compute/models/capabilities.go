@@ -58,7 +58,7 @@ func getRegionZoneSubq(region *SCloudregion) *sqlchemy.SSubQuery {
 }
 
 func getHypervisors(region *SCloudregion, zone *SZone) []string {
-	q := HostManager.Query("host_type")
+	q := HostManager.Query("host_type", "manager_id")
 	if region != nil {
 		subq := getRegionZoneSubq(region)
 		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
@@ -78,8 +78,9 @@ func getHypervisors(region *SCloudregion, zone *SZone) []string {
 	hypervisors := make([]string, 0)
 	for rows.Next() {
 		var hostType string
-		rows.Scan(&hostType)
-		if len(hostType) > 0 {
+		var managerId string
+		rows.Scan(&hostType, &managerId)
+		if len(hostType) > 0 && IsProviderAccountEnabled(managerId) {
 			hypervisors = append(hypervisors, HOSTTYPE_HYPERVISOR[hostType])
 		}
 	}
@@ -87,7 +88,7 @@ func getHypervisors(region *SCloudregion, zone *SZone) []string {
 }
 
 func getResourceTypes(region *SCloudregion, zone *SZone) []string {
-	q := HostManager.Query("resource_type")
+	q := HostManager.Query("resource_type", "manager_id")
 	if region != nil {
 		subq := getRegionZoneSubq(region)
 		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
@@ -106,8 +107,9 @@ func getResourceTypes(region *SCloudregion, zone *SZone) []string {
 	resourceTypes := make([]string, 0)
 	for rows.Next() {
 		var resType string
-		rows.Scan(&resType)
-		if len(resType) > 0 {
+		var managerId string
+		rows.Scan(&resType, &managerId)
+		if len(resType) > 0 && IsProviderAccountEnabled(managerId) {
 			resourceTypes = append(resourceTypes, resType)
 		}
 	}
