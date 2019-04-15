@@ -192,8 +192,8 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		"acl_type":   aclTypeV.Optional(true),
 		"acl":        aclV.Optional(true),
 
-		"scheduler":   validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
-		"egress_mbps": validators.NewRangeValidator("egress_mbps", api.LB_MbpsMin, api.LB_MbpsMax).Optional(true),
+		"scheduler":   validators.NewStringChoicesValidator("scheduler", consts.LB_SCHEDULER_TYPES),
+		"egress_mbps": validators.NewRangeValidator("egress_mbps", consts.LB_MbpsMin, consts.LB_MbpsMax).Optional(true),
 
 		"client_request_timeout":  validators.NewRangeValidator("client_request_timeout", 0, 600).Default(10),
 		"client_idle_timeout":     validators.NewRangeValidator("client_idle_timeout", 0, 600).Default(90),
@@ -399,8 +399,8 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		"acl_type":   aclTypeV,
 		"acl":        aclV,
 
-		"scheduler":   validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
-		"egress_mbps": validators.NewRangeValidator("egress_mbps", api.LB_MbpsMin, api.LB_MbpsMax).Optional(true),
+		"scheduler":   validators.NewStringChoicesValidator("scheduler", consts.LB_SCHEDULER_TYPES),
+		"egress_mbps": validators.NewRangeValidator("egress_mbps", consts.LB_MbpsMin, consts.LB_MbpsMax).Optional(true),
 
 		"client_request_timeout":  validators.NewRangeValidator("client_request_timeout", 0, 600),
 		"client_idle_timeout":     validators.NewRangeValidator("client_idle_timeout", 0, 600),
