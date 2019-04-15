@@ -600,6 +600,28 @@ func (manager *SCloudproviderManager) FetchCloudproviderById(providerId string) 
 	return providerObj.(*SCloudprovider)
 }
 
+func IsProviderAccountEnabled(providerId string) bool {
+	if len(providerId) == 0 {
+		return true
+	}
+	return CloudproviderManager.IsProviderAccountEnabled(providerId)
+}
+
+func (manager *SCloudproviderManager) IsProviderAccountEnabled(providerId string) bool {
+	providerObj := manager.FetchCloudproviderById(providerId)
+	if providerObj == nil {
+		return false
+	}
+	if !providerObj.Enabled {
+		return false
+	}
+	account := providerObj.GetCloudaccount()
+	if account == nil {
+		return false
+	}
+	return account.Enabled
+}
+
 func (manager *SCloudproviderManager) FetchCloudproviderByIdOrName(providerId string) *SCloudprovider {
 	providerObj, err := manager.FetchByIdOrName(nil, providerId)
 	if err != nil {
