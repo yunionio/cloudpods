@@ -71,10 +71,6 @@ func NewSchedInfo(input *api.ScheduleInput) *SchedInfo {
 		candidates = append(candidates, data.PreferHost)
 	}
 
-	//if !data.Backup && data.PreferBaremetal != "" {
-	//candidates = append(candidates, data.PreferBaremetal)
-	//}
-
 	if data.ResourceType == "" {
 		data.ResourceType = models.HostResourceTypeShared
 	}
@@ -208,7 +204,7 @@ type ForecastResult struct {
 }
 
 type SchedForecastResult struct {
-	CanCreate bool              `json:"can_create"`
-	Filters   []*ForecastFilter `json:"filters"`
-	Results   []ForecastResult  `json:"results"`
+	CanCreate bool                     `json:"can_create"`
+	Filters   []*ForecastFilter        `json:"filters"`
+	Results   []*api.CandidateResource `json:"results"`
 }

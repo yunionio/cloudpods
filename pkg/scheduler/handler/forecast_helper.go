@@ -17,13 +17,15 @@ package handler
 import (
 	"fmt"
 
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
 func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 	unit := result.Unit
-	reqCount := int64(unit.SchedData().Count)
+	schedData := unit.SchedData()
+	reqCount := int64(schedData.Count)
 	var readyCount int64
 	filters := make([]*api.ForecastFilter, 0)
 
@@ -65,28 +67,37 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 	items := make([]*core.SchedResultItem, 0)
 	for _, item := range result.Data {
 		hostType := item.Candidater.Getter().HostType()
-		if result.Unit.SchedData().Hypervisor == hostType {
+		if schedData.Hypervisor == hostType {
 			items = append(items, item)
 		}
 	}
 
-	var results []api.ForecastResult
 	for _, item := range items {
 		addInfos(result.Unit.LogManager.FailedLogs(), item)
 	}
 
-	for _, item := range items {
-		if item.Count <= 0 {
-			continue
-		}
-		readyCount += item.Count
-		ret := api.ForecastResult{
-			Candidate: logIndex(item),
-			Count:     item.Count,
-			Capacity:  item.Capacity,
-		}
-		results = append(results, ret)
+	var output *schedapi.ScheduleOutput
+	if schedData.Backup {
+		output = transToBackupSchedResult(result, schedData.PreferHost, schedData.PreferBackupHost, int64(schedData.Count), false)
+	} else {
+		output = transToRegionSchedResult(result.Data, int64(schedData.Count))
 	}
+
+	for _, candi := range output.Candidates {
+		if len(candi.Error) != 0 {
+			info, exist := getOrNewFilter("select_candidate")
+			info.Count++
+			msg := candi.Error
+			info.Messages = append(info.Messages, msg)
+			if !exist {
+				filters = append(filters, info)
+			}
+			readyCount--
+		} else {
+			readyCount++
+		}
+	}
+
 	canCreate := true
 	if readyCount < reqCount {
 		canCreate = false
@@ -94,6 +105,6 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 	return &api.SchedForecastResult{
 		CanCreate: canCreate,
 		Filters:   filters,
-		Results:   results,
+		Results:   output.Candidates,
 	}
 }
