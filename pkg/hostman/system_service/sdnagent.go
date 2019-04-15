@@ -19,7 +19,7 @@ type SHostSdnagent struct {
 }
 
 func NewHostSdnagentService() *SHostSdnagent {
-	return &SHostSdnagent{&SBaseSystemService{"yunion-host-sdnagent", nil}}
+	return &SHostSdnagent{NewBaseSystemService("yunion-host-sdnagent", nil)}
 }
 
 func (s *SHostSdnagent) Reload(kwargs map[string]interface{}) error {

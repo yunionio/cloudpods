@@ -24,7 +24,7 @@ type STelegraf struct {
 }
 
 func NewTelegrafService() *STelegraf {
-	return &STelegraf{&SBaseSystemService{"telegraf", nil}}
+	return &STelegraf{NewBaseSystemService("telegraf", nil)}
 }
 
 func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {

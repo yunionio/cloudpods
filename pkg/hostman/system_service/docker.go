@@ -25,7 +25,7 @@ type SDocker struct {
 }
 
 func NewDockerService() *SDocker {
-	return &SDocker{&SBaseSystemService{"docker", nil}}
+	return &SDocker{NewBaseSystemService("docker", nil)}
 }
 
 func (s *SDocker) GetConfig(kwargs map[string]interface{}) string {

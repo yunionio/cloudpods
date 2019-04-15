@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/ethernet/arp"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 const (
@@ -383,8 +384,18 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		cpuType = ""
 		if osname == OS_NAME_MACOS {
 			cpuType = "Penryn,vendor=GenuineIntel"
-		} else {
+		} else if options.HostOptions.HostCpuPassthrough {
 			cpuType = "host"
+		} else {
+			cpuType = "qemu64"
+			if sysutils.IsProcessorIntel() {
+				cpuType += ",+vmx"
+				cpuType += ",+ssse3,+sse4.1,+sse4.2,-x2apic,+aes,+avx"
+				cpuType += ",+vme,+pat,+ss,+pclmulqdq,+xsave"
+				cpuType += ",level=13"
+			} else if sysutils.IsProcessorAmd() {
+				cpuType += ",+svm"
+			}
 		}
 
 		if !guestManger.GetHost().IsNestedVirtualization() {

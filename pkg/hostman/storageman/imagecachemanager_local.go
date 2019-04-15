@@ -127,7 +127,9 @@ func (c *SLocalImageCacheManager) PrefetchImageCache(ctx context.Context, data i
 	if err != nil {
 		return nil, err
 	}
-	format, _ := body.GetString("format")
+	// format, _ := body.GetString("format")
+	// force qcow2 for KVM
+	format := "qcow2"
 	srcUrl, _ := body.GetString("src_url")
 
 	if imgCache := c.AcquireImage(ctx, imageId, storageManager.GetZone(),

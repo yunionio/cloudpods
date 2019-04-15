@@ -29,7 +29,7 @@ type SFluentbit struct {
 }
 
 func NewFluentbitService() *SFluentbit {
-	return &SFluentbit{&SBaseSystemService{"fluentbit", nil}}
+	return &SFluentbit{NewBaseSystemService("fluentbit", nil)}
 }
 
 func (s *SFluentbit) GetConfig(kwargs map[string]interface{}) string {
