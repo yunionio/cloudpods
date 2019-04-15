@@ -199,7 +199,7 @@ func (self *SCloudproviderregion) markStartSync(userCred mcclient.TokenCredentia
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Fail tp update last_sync %s", err)
+		log.Errorf("Failed to markStartSync error: %v", err)
 		return err
 	}
 	return nil
@@ -213,7 +213,7 @@ func (self *SCloudproviderregion) markSyncing(userCred mcclient.TokenCredential)
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Fail tp update last_sync %s", err)
+		log.Errorf("Failed to markSyncing error: %v", err)
 		return err
 	}
 	return nil
@@ -243,7 +243,7 @@ func (self *SCloudproviderregion) markEndSyncInternal(userCred mcclient.TokenCre
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Fail tp update last_sync %s", err)
+		log.Errorf("Failed to markEndSyncInternal error: %v", err)
 		return err
 	}
 	return nil
@@ -275,7 +275,7 @@ func (self *SCloudproviderregion) DoSync(ctx context.Context, userCred mcclient.
 	provider := self.GetProvider()
 	driver, err := provider.GetProvider()
 	if err != nil {
-		log.Errorf("fail to get driver, connection problem?")
+		log.Errorf("Failed to get driver, connection problem?")
 		return err
 	}
 
