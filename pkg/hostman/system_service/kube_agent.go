@@ -7,7 +7,7 @@ type SKubeAgent struct {
 }
 
 func NewKubeAgentService() *SKubeAgent {
-	return &SKubeAgent{&SBaseSystemService{"yunion-kube-agent", nil}}
+	return &SKubeAgent{NewBaseSystemService("yunion-kube-agent", nil)}
 }
 
 func (s *SKubeAgent) GetConfig(kwargs map[string]interface{}) string {

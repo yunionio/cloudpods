@@ -83,6 +83,14 @@ func Zerofiles(sPath string) error {
 	return nil
 }
 
+func FileSetContents(filename string, content string) error {
+	return FilePutContents(filename, content, false)
+}
+
+func FileAppendContents(filename string, content string) error {
+	return FilePutContents(filename, content, true)
+}
+
 func FilePutContents(filename string, content string, modAppend bool) error {
 	var mode = os.O_WRONLY | os.O_CREATE
 	if modAppend {
