@@ -143,13 +143,13 @@ func (w schedtagStorageW) ResourceType() string {
 	return models.StorageManager.KeywordPlural()
 }
 
-func (p *DiskSchedtagPredicate) check(d *computeapi.DiskConfig, s *api.CandidateStorage, u *core.Unit) (*PredicatedStorage, error) {
+func (p *DiskSchedtagPredicate) check(d *computeapi.DiskConfig, s *api.CandidateStorage, u *core.Unit, c core.Candidater) (*PredicatedStorage, error) {
 	allTags, err := GetAllSchedtags(models.StorageManager.KeywordPlural())
 	if err != nil {
 		return nil, err
 	}
 	tagPredicate := NewSchedtagPredicate(d.Schedtags, allTags)
-	shouldExec := u.ShouldExecuteSchedtagFilter()
+	shouldExec := u.ShouldExecuteSchedtagFilter(c.Getter().Id())
 	ps := newPredicatedStorage(s, nil, nil)
 	if shouldExec {
 		if err := tagPredicate.Check(
@@ -166,11 +166,11 @@ func (p *DiskSchedtagPredicate) check(d *computeapi.DiskConfig, s *api.Candidate
 	return ps, nil
 }
 
-func (p *DiskSchedtagPredicate) checkStorages(d *computeapi.DiskConfig, storages []*api.CandidateStorage, u *core.Unit) ([]*PredicatedStorage, error) {
+func (p *DiskSchedtagPredicate) checkStorages(d *computeapi.DiskConfig, storages []*api.CandidateStorage, u *core.Unit, c core.Candidater) ([]*PredicatedStorage, error) {
 	errs := make([]error, 0)
 	ret := make([]*PredicatedStorage, 0)
 	for _, s := range storages {
-		ps, err := p.check(d, s, u)
+		ps, err := p.check(d, s, u, c)
 		if err != nil {
 			// append err, storage not suit disk
 			errs = append(errs, err)
@@ -212,7 +212,7 @@ func (p *DiskSchedtagPredicate) Execute(u *core.Unit, c core.Candidater) (bool, 
 			break
 		}
 
-		matchedStorages, err := p.checkStorages(d, fitStorages, u)
+		matchedStorages, err := p.checkStorages(d, fitStorages, u, c)
 		if err != nil {
 			h.Exclude(err.Error())
 		}
@@ -253,7 +253,7 @@ func (p *DiskSchedtagPredicate) OnSelectEnd(u *core.Unit, c core.Candidater, cou
 
 func (p *DiskSchedtagPredicate) allocatedDiskResource(c core.Candidater, disk *computeapi.DiskConfig, storages []*PredicatedStorage) *schedapi.CandidateDisk {
 	storage := p.selectStorage(disk, storages)
-	log.Debugf("Select storage %s:%s for disk: %s", storage.Id, storage.Name, disk.Index)
+	log.Debugf("Select %s storage %s:%s for disk: %s", c.Getter().Name(), storage.Id, storage.Name, disk.Index)
 	return &schedapi.CandidateDisk{
 		Index:     disk.Index,
 		StorageId: storage.Id,

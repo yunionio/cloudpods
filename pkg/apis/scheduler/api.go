@@ -77,8 +77,6 @@ type CandidateResource struct {
 
 	// used by backup schedule
 	BackupCandidate *CandidateResource `json:"backup_candidate"`
-	IsMaster        bool               `json:"is_master"`
-	IsSlave         bool               `json:"is_slave"`
 
 	// Error means no candidate found, include reasons
 	Error string `json:"error"`
