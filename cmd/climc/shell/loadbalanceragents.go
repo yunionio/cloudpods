@@ -119,4 +119,16 @@ func init() {
 		printLbagent(lbagent)
 		return nil
 	})
+	R(&options.LoadbalancerAgentActionDeployOptions{}, "lbagent-deploy", "Deploy lbagent", func(s *mcclient.ClientSession, opts *options.LoadbalancerAgentActionDeployOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		lbagent, err := modules.LoadbalancerAgents.PerformAction(s, opts.ID, "deploy", params)
+		if err != nil {
+			return err
+		}
+		printLbagent(lbagent)
+		return nil
+	})
 }
