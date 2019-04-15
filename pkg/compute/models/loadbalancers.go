@@ -98,16 +98,16 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 	addressType, _ := data.GetString("address_type")
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", "")
 	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", "")
-	if addressType == api.LB_ADDR_TYPE_INTERNET {
+	if addressType == consts.LB_ADDR_TYPE_INTERNET {
 		networkV.Optional(true)
 	} else {
 		zoneV.Optional(true)
 		managerIdV.Optional(true)
 	}
 	addressV := validators.NewIPv4AddrValidator("address")
-	chargeTypeV := validators.NewStringChoicesValidator("charge_type", api.LB_CHARGE_TYPES)
-	chargeTypeV.Default(api.LB_CHARGE_TYPE_BY_TRAFFIC)
-	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
+	chargeTypeV := validators.NewStringChoicesValidator("charge_type", consts.LB_CHARGE_TYPES)
+	chargeTypeV.Default(consts.LB_CHARGE_TYPE_BY_TRAFFIC)
+	addressTypeV := validators.NewStringChoicesValidator("address_type", consts.LB_ADDR_TYPES)
 	{
 		keyV := map[string]validators.IValidator{
 			"status": validators.NewStringChoicesValidator("status", consts.LB_STATUS_SPEC).Default(consts.LB_STATUS_ENABLED),
@@ -127,8 +127,8 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 	}
 
 	var region *SCloudregion
-	if addressTypeV.Value == api.LB_ADDR_TYPE_INTRANET {
-		if chargeTypeV.Value == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+	if addressTypeV.Value == consts.LB_ADDR_TYPE_INTRANET {
+		if chargeTypeV.Value == consts.LB_CHARGE_TYPE_BY_BANDWIDTH {
 			return nil, httperrors.NewUnsupportOperationError("intranet loadbalancer not support bandwidth charge type")
 		}
 
@@ -185,7 +185,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		if region == nil {
 			return nil, fmt.Errorf("getting region failed")
 		}
-		if chargeTypeV.Value == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+		if chargeTypeV.Value == consts.LB_CHARGE_TYPE_BY_BANDWIDTH {
 			egressMbpsV := validators.NewNonNegativeValidator("egress_mpbs")
 			if err := egressMbpsV.Validate(data); err != nil {
 				return nil, err
@@ -346,10 +346,10 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		}
 		params.ZoneID = iZone.GetId()
 	}
-	if lb.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+	if lb.ChargeType == consts.LB_CHARGE_TYPE_BY_BANDWIDTH {
 		lb.EgressMbps = lb.EgressMbps
 	}
-	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET {
+	if lb.AddressType == consts.LB_ADDR_TYPE_INTRANET {
 		vpc := lb.GetVpc()
 		if vpc == nil {
 			return nil, fmt.Errorf("failed to find vpc for lb %s", lb.Name)

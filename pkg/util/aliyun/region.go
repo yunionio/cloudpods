@@ -836,7 +836,7 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 		params["InternetChargeType"] = "payby" + loadbalancer.ChargeType
 	}
 
-	if loadbalancer.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH && loadbalancer.EgressMbps > 0 {
+	if loadbalancer.ChargeType == consts.LB_CHARGE_TYPE_BY_BANDWIDTH && loadbalancer.EgressMbps > 0 {
 		params["Bandwidth"] = fmt.Sprintf("%d", loadbalancer.EgressMbps)
 	}
 
