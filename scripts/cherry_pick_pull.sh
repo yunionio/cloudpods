@@ -156,6 +156,32 @@ EOF
 hub pull-request -F "${prtext}" -h "${GITHUB_USER}:${NEWBRANCH}" -b "${MAIN_REPO_ORG}:${rel}"
 }
 
+function extract-subject {
+  local patch="$1"
+
+  python -c '
+import os
+import email.parser
+import email.header
+with open("'"$patch"'", "r") as f:
+    m = email.parser.Parser().parse(f, headersonly=True)
+subj = m["subject"]
+subj = email.header.decode_header(subj)
+s = u""
+for txt, enc in subj:
+    txt = txt.decode(enc) if enc else txt
+    txt = txt.decode("ascii") if isinstance(txt, bytes) else txt
+    txt = txt.replace(u"\n", u"")
+    if txt.startswith(u"[PATCH"):
+        i = txt.index(u"]")
+        txt = txt[i+1:]
+    s += txt
+s = s.strip() + u"\n"
+s = s.encode("utf-8") # write out utf-8 bytes whatsoever
+os.write(1, s)
+'
+}
+
 git checkout -b "${NEWBRANCHUNIQ}" "${BRANCH}"
 cleanbranch="${NEWBRANCHUNIQ}"
 
@@ -194,10 +220,7 @@ for pull in "${PULLS[@]}"; do
   }
 
   # set the subject
-  subject=$(grep -m 1 "^Subject" "/tmp/${pull}.patch" | sed -e 's/Subject: \[PATCH//g' | sed 's/.*] //')
-  subject_=$(echo "$subject" | python -c 'from email.header import decode_header as f; import sys; \
-      s=sys.stdin.read(); v=f(s)[0]; print(v[0].decode(v[1]) if v[1] else v[0])')
-  [ -z "$subject_" ] || subject="$subject_"
+  subject=$(extract-subject "/tmp/${pull}.patch")
   SUBJECTS+=("#${pull}: ${subject}")
 
   # remove the patch file from /tmp
