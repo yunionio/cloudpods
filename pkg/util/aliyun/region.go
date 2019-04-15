@@ -832,8 +832,12 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 		params["LoadBalancerSpec"] = loadbalancer.LoadbalancerSpec
 	}
 
-	if loadbalancer.Bandwidth > 0 {
-		params["Bandwidth"] = fmt.Sprintf("%d", loadbalancer.Bandwidth)
+	if len(loadbalancer.ChargeType) > 0 {
+		params["InternetChargeType"] = "payby" + loadbalancer.ChargeType
+	}
+
+	if loadbalancer.ChargeType == consts.LB_CHARGE_TYPE_BY_BANDWIDTH && loadbalancer.EgressMbps > 0 {
+		params["Bandwidth"] = fmt.Sprintf("%d", loadbalancer.EgressMbps)
 	}
 
 	body, err := region.lbRequest("CreateLoadBalancer", params)

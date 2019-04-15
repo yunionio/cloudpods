@@ -245,6 +245,13 @@ func (lb *SLoadbalancer) GetChargeType() string {
 	return "unknown"
 }
 
+func (lb *SLoadbalancer) GetEgressMbps() int {
+	if lb.Bandwidth < 1 {
+		return 0
+	}
+	return lb.Bandwidth
+}
+
 func (lb *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (cloudprovider.ICloudLoadbalancerBackendGroup, error) {
 	groups, err := lb.GetILoadBalancerBackendGroups()
 	if err != nil {
