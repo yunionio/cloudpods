@@ -175,7 +175,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		}
 		data.Set("vpc_id", jsonutils.NewString(vpc.Id))
 		if len(vpc.ManagerId) > 0 {
-			if managerIdV != nil && managerIdV.Model.GetId() != vpc.ManagerId {
+			if managerIdV.Model != nil && managerIdV.Model.GetId() != vpc.ManagerId {
 				return nil, httperrors.NewInputParameterError("Loadbalancer's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)", managerIdV.Model.GetName(), managerIdV.Model.GetId(), vpc.GetName(), vpc.GetId(), vpc.ManagerId)
 			}
 			data.Set("manager_id", jsonutils.NewString(vpc.ManagerId))
