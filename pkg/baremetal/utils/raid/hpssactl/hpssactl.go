@@ -279,9 +279,8 @@ func (adapter *HPSARaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage
 }
 
 func (adapter *HPSARaidAdaptor) removeLogicVolume(idx int) error {
-	cmd := GetCommand("controller", fmt.Sprintf("slot=%d", adapter.index, "logicaldrive",
-		fmt.Sprintf("%d", idx), "delete", "forced",
-	))
+	cmd := GetCommand("controller", fmt.Sprintf("slot=%d", adapter.index), "logicaldrive",
+		fmt.Sprintf("%d", idx), "delete", "forced")
 	_, err := adapter.raid.term.Run(cmd)
 	return err
 }

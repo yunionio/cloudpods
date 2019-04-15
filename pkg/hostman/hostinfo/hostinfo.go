@@ -821,7 +821,7 @@ func (h *SHostInfo) setHostname(name string) {
 	h.FullName = name
 	_, err := procutils.NewCommand("hostnamectl", "set-hostname", name).Run()
 	if err != nil {
-		log.Errorln("Fail to set system hostname: %s", err)
+		log.Errorf("Fail to set system hostname: %s", err)
 	}
 }
 

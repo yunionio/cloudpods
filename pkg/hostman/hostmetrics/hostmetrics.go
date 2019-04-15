@@ -121,7 +121,7 @@ func (m *SHostMetricsCollector) reportUsageToTelegraf(data string) {
 			if res.StatusCode == 204 {
 				m.waitingReportData = m.waitingReportData[len(m.waitingReportData):]
 			} else {
-				log.Errorf("upload guest metric failed code: %s", res.StatusCode)
+				log.Errorf("upload guest metric failed code: %d", res.StatusCode)
 			}
 		}
 	}

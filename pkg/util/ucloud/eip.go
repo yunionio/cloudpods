@@ -132,7 +132,7 @@ func (self *SEip) GetExpiredAt() time.Time {
 
 func (self *SEip) GetIpAddr() string {
 	if len(self.EIPAddr) > 1 {
-		log.Warning("GetIpAddr %d eip addr found", len(self.EIPAddr))
+		log.Warningf("GetIpAddr %d eip addr found", len(self.EIPAddr))
 	} else if len(self.EIPAddr) == 0 {
 		return ""
 	}

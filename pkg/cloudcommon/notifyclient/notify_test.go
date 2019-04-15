@@ -66,10 +66,10 @@ func TestNotifyTemplate(t *testing.T) {
 			t.Logf("jsonData: %s", jsonData)
 			err = temp.Execute(&strBuild, jsonData.Interface())
 			if err != nil {
-				t.Error("execute template fail %s", err)
+				t.Errorf("execute template fail %s", err)
 			} else {
 				if strBuild.String() != c.want {
-					t.Error("fail: got %s want %s", strBuild.String(), c.want)
+					t.Errorf("fail: got %s want %s", strBuild.String(), c.want)
 				}
 			}
 		}

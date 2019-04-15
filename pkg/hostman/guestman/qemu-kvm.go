@@ -380,7 +380,7 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 				if s.IsMirrorJobSucc() {
 					_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), "running")
 					if err != nil {
-						log.Errorln("onReceiveQMPEvent update server status error: %s", err)
+						log.Errorf("onReceiveQMPEvent update server status error: %s", err)
 					}
 				}
 			}
@@ -698,7 +698,7 @@ func (s *SKVMGuestInstance) ExitCleanup(clear bool) {
 func (s *SKVMGuestInstance) CleanupCpuset() {
 	task := cgrouputils.NewCGroupCPUSetTask(strconv.Itoa(s.GetPid()), 0, "")
 	if !task.RemoveTask() {
-		log.Warningf("remove cpuset cgroup error: %s %s", s.Id, s.GetPid())
+		log.Warningf("remove cpuset cgroup error: %s, pid: %d", s.Id, s.GetPid())
 	}
 }
 

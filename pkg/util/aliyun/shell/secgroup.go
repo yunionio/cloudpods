@@ -60,7 +60,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		fmt.Println("secgroupId: %s", secgroupId)
+		fmt.Printf("secgroupId: %s", secgroupId)
 		return nil
 	})
 

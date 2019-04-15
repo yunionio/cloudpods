@@ -601,7 +601,7 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 			diskConfig = input.Disks[i]
 			diskConfig, err := parseDiskInfo(ctx, userCred, diskConfig)
 			if err != nil {
-				log.Debugf("parseDiskInfo %s fail %s", diskConfig, err)
+				log.Debugf("parseDiskInfo %#v fail %s", diskConfig, err)
 				return nil, err
 			}
 			diskConfig.SizeMb = idisks[i].GetDiskSizeMB()

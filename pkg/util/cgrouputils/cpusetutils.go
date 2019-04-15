@@ -50,7 +50,7 @@ func RebalanceProcesses(pids []string) {
 
 	err := rebalanceProcesses(pids)
 	if err != nil {
-		log.Errorln("rebalance processes error: %s", err)
+		log.Errorf("rebalance processes error: %s", err)
 	}
 	rebalanceProcessesRunning = false
 }

@@ -193,7 +193,7 @@ func (h *HaproxyHelper) handleUseCorpusCmd(ctx context.Context, cmd *LbagentCmd)
 					log.Errorf("writing %s failed: %s", p, err)
 				}
 			} else {
-				log.Errorf("making telegraf.conf failed: %s, tmpl:\n%s", err, tmpl)
+				log.Errorf("making telegraf.conf failed: %s, tmpl:\n%#v", err, tmpl)
 			}
 		}
 		return nil

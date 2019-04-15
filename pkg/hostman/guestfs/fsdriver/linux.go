@@ -1223,7 +1223,7 @@ func (d *SOpenWrtRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string
 	}
 	cont := string(bcont)
 	re := regexp.MustCompile("option hostname [^\n]+")
-	cont = re.ReplaceAllString(cont, fmt.Sprintf("option hostname %s", hn, cont))
+	cont = re.ReplaceAllString(cont, fmt.Sprintf("option hostname %s", hn))
 	return rootFs.FilePutContents(spath, cont, false, false)
 }
 

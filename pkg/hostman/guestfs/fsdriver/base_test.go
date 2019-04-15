@@ -36,7 +36,7 @@ func TestMergeAuthorizedKeys(t *testing.T) {
 				oldKeys: "Test KEY",
 				pubkeys: &sshkeys.SSHKeys{},
 			},
-			want: "KEY",
+			want: "Test KEY\n",
 		},
 	}
 	for _, tt := range tests {

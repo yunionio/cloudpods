@@ -179,7 +179,7 @@ func (this *JointResourceManager) Patch(s *mcclient.ClientSession, mid, sid stri
 	if query != nil {
 		queryStr := query.QueryString()
 		if len(queryStr) > 0 {
-			path = fmt.Sprint("%s?%s", path, queryStr)
+			path = fmt.Sprintf("%s?%s", path, queryStr)
 		}
 	}
 	result, err := this._patch(s, path, this.params2Body(s, params), this.Keyword)

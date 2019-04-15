@@ -179,7 +179,7 @@ func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
 		cmd := []string{"ip", "address", "del",
 			fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1]), "dev", d.inter.String()}
 		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
-			log.Errorln("Failed to remove slave address from interface %s: %s", d.inter, err)
+			log.Errorf("Failed to remove slave address from interface %s: %s", d.inter, err)
 		}
 
 		cmd = []string{"ip", "address", "add",
