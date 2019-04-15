@@ -3178,7 +3178,7 @@ func (self *SHost) Attach2Network(ctx context.Context, userCred mcclient.TokenCr
 		return err
 	}
 	if len(ipAddr) > 0 && ipAddr != freeIp && requireDesignatedIp {
-		return fmt.Errorf("IP address %s is occupied", ipAddr)
+		return fmt.Errorf("IP address %s is occupied, get %s instead", ipAddr, freeIp)
 	}
 	bn := &SHostnetwork{}
 	bn.BaremetalId = self.Id
