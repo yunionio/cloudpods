@@ -100,6 +100,8 @@ type SHostOptions struct {
 
 	EnableTelegraf          bool `default:"true" help:"enable send monitoring data to telegraf"`
 	WindowsDefaultAdminUser bool `default:"true" help:"Default account for Windows system is Administrator"`
+
+	HostCpuPassthrough bool `default:"true" help:"if it is true, set qemu cpu type as -cpu host, otherwise, qemu64. default is true"`
 }
 
 var HostOptions SHostOptions
