@@ -1,6 +1,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -27,21 +29,29 @@ func init() {
 	})
 
 	type SUpdatePerformOptions struct {
-		Cmp bool `help:"update all the compute nodes automatically"`
+		Cmp     bool `help:"update Controller And all the Compute nodes automatically"`
+		CmpOnly bool `help:"Updates only computes nodes, excluding controller nodes"`
 	}
 
 	R(&SUpdatePerformOptions{}, "update-perform", "Update the Controler", func(s *mcclient.ClientSession, args *SUpdatePerformOptions) error {
 		params := jsonutils.NewDict()
-		if args.Cmp {
-			params.Add(jsonutils.JSONTrue, "cmp")
+
+		if args.Cmp && args.CmpOnly {
+			return fmt.Errorf("--cmp and --cmp-only can't go together")
 		}
 
-		result, err := modules.Updates.List(s, nil)
+		if args.Cmp {
+			params.Add(jsonutils.JSONTrue, "cmp")
+		} else if args.CmpOnly {
+			params.Add(jsonutils.JSONTrue, "cmp_only")
+		}
 
+		modules.Updates.PerformAction(s, "", "", params)
+
+		result, err := modules.Updates.List(s, nil)
 		if err != nil {
 			return err
 		}
-		modules.Updates.DoUpdate(s, params)
 		printList(result, modules.Updates.GetColumns(s))
 		return nil
 	})
