@@ -14,6 +14,8 @@
 
 package nodeid
 
+// TODO: rewrite this test
+/*
 import (
 	"testing"
 )
@@ -25,4 +27,4 @@ func TestGetNodeId(t *testing.T) {
 	} else {
 		t.Logf("ID is %s", idstr)
 	}
-}
+}*/
