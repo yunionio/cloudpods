@@ -30,6 +30,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
+const (
+	SECGROUP_NOT_SUPPORT = "openstack_skip_security_group"
+)
+
 type SSecurityGroupRule struct {
 	Direction       string
 	Ethertype       string
@@ -218,6 +222,11 @@ func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name s
 	if len(secgroupId) == 0 {
 		secgroups, err := region.GetSecurityGroups()
 		if err != nil {
+			// 若返回 cloudprovider.ErrNotFound, 表明不支持安全组或者未安装安全组相关组件
+			if err == cloudprovider.ErrNotFound {
+				return SECGROUP_NOT_SUPPORT, nil
+			}
+			log.Errorf("failed to get secgroups: %v", err)
 			return "", err
 		}
 
