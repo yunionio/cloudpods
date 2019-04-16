@@ -33,4 +33,17 @@ func init() {
 		printList(result, []string{})
 		return nil
 	})
+
+	R(&options.TagListOptions{}, "tag-list", "List tags", func(s *mcclient.ClientSession, opts *options.TagListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
+		}
+		result, err := modules.Metadatas.Get(s, "tag-value-pairs", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
