@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -81,7 +82,10 @@ func getHypervisors(region *SCloudregion, zone *SZone) []string {
 		var managerId string
 		rows.Scan(&hostType, &managerId)
 		if len(hostType) > 0 && IsProviderAccountEnabled(managerId) {
-			hypervisors = append(hypervisors, HOSTTYPE_HYPERVISOR[hostType])
+			hypervisor := HOSTTYPE_HYPERVISOR[hostType]
+			if !utils.IsInStringArray(hypervisor, hypervisors) {
+				hypervisors = append(hypervisors, HOSTTYPE_HYPERVISOR[hostType])
+			}
 		}
 	}
 	return hypervisors
@@ -110,7 +114,9 @@ func getResourceTypes(region *SCloudregion, zone *SZone) []string {
 		var managerId string
 		rows.Scan(&resType, &managerId)
 		if len(resType) > 0 && IsProviderAccountEnabled(managerId) {
-			resourceTypes = append(resourceTypes, resType)
+			if !utils.IsInStringArray(resType, resourceTypes) {
+				resourceTypes = append(resourceTypes, resType)
+			}
 		}
 	}
 	return resourceTypes
