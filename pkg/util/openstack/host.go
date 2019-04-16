@@ -143,7 +143,9 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	secgroups := []map[string]string{}
 
 	for _, secgroupId := range desc.ExternalSecgroupIds {
-		secgroups = append(secgroups, map[string]string{"name": secgroupId})
+		if secgroupId != SECGROUP_NOT_SUPPORT {
+			secgroups = append(secgroups, map[string]string{"name": secgroupId})
+		}
 	}
 
 	image, err := host.zone.region.GetImage(desc.ExternalImageId)
