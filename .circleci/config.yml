@@ -21,6 +21,10 @@ jobs:
             echo $targets | tr ' ' '\n'
             make $targets
             ls -lh _output/bin/
+      - deploy:
+          name: code_coverage
+          command: |
+            ./scripts/coverage.sh --codecov
 
 workflows:
   version: 2
