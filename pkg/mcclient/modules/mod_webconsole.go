@@ -54,13 +54,13 @@ func (m WebConsoleManager) DoK8sLogConnect(s *mcclient.ClientSession, id string,
 }
 
 func (m WebConsoleManager) DoBaremetalConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return m.DoConnect(s, "baremetal", id, "", nil)
+	return m.DoConnect(s, "baremetal", id, "", params)
 }
 
 func (m WebConsoleManager) DoSshConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return m.DoConnect(s, "ssh", id, "", nil)
+	return m.DoConnect(s, "ssh", id, "", params)
 }
 
 func (m WebConsoleManager) DoServerConnect(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return m.DoConnect(s, "server", id, "", nil)
+	return m.DoConnect(s, "server", id, "", params)
 }

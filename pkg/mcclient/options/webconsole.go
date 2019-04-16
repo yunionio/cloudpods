@@ -57,7 +57,12 @@ func (opt *WebConsoleBaremetalOptions) Params() (*jsonutils.JSONDict, error) {
 
 type WebConsoleSshOptions struct {
 	WebConsoleOptions
-	IP string `help:"IP to connect"`
+	IP   string `help:"IP to connect"`
+	Port int    `help:"Remote server port"`
+}
+
+func (opt *WebConsoleSshOptions) Params() (*jsonutils.JSONDict, error) {
+	return StructToParams(opt)
 }
 
 type WebConsoleServerOptions struct {
