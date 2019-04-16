@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -81,7 +82,7 @@ func (self *GuestStartTask) startStart(ctx context.Context, guest *models.SGuest
 func (self *GuestStartTask) RequestStart(ctx context.Context, guest *models.SGuest) {
 	self.SetStage("OnStartComplete", nil)
 	host := guest.GetHost()
-	guest.SetStatus(self.UserCred, models.VM_STARTING, "")
+	guest.SetStatus(self.UserCred, api.VM_STARTING, "")
 	result, err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
 		self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
@@ -97,7 +98,7 @@ func (self *GuestStartTask) RequestStart(ctx context.Context, guest *models.SGue
 func (self *GuestStartTask) RequestStartBacking(ctx context.Context, guest *models.SGuest) {
 	self.SetStage("OnStartBackupGuestComplete", nil)
 	host := models.HostManager.FetchHostById(guest.BackupHostId)
-	guest.SetStatus(self.UserCred, models.VM_BACKUP_STARTING, "")
+	guest.SetStatus(self.UserCred, api.VM_BACKUP_STARTING, "")
 	result, err := guest.GetDriver().RequestStartOnHost(ctx, guest, host, self.UserCred, self)
 	if err != nil {
 		self.OnStartCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
@@ -143,7 +144,7 @@ func (self *GuestStartTask) OnGuestSyncstatusAfterStart(ctx context.Context, obj
 
 func (self *GuestStartTask) OnStartCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, models.VM_START_FAILED, err.String())
+	guest.SetStatus(self.UserCred, api.VM_START_FAILED, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_START_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_START, err, self.UserCred, false)
 	self.SetStageFailed(ctx, err.String())

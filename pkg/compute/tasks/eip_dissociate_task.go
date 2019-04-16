@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -35,10 +36,10 @@ func init() {
 }
 
 func (self *EipDissociateTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg string, vm *models.SGuest) {
-	eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, msg)
+	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, msg)
 	self.SetStageFailed(ctx, msg)
 	if vm != nil {
-		vm.SetStatus(self.UserCred, models.VM_DISSOCIATE_EIP_FAILED, msg)
+		vm.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg)
 	}
 }
 
@@ -48,8 +49,8 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	server := eip.GetAssociateVM()
 	if server != nil {
 
-		if server.Status != models.VM_DISSOCIATE_EIP {
-			server.SetStatus(self.UserCred, models.VM_DISSOCIATE_EIP, "dissociate eip")
+		if server.Status != api.VM_DISSOCIATE_EIP {
+			server.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP, "dissociate eip")
 		}
 
 		extEip, err := eip.GetIEip()
@@ -75,7 +76,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			return
 		}
 
-		eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, "dissociate")
+		eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, "dissociate")
 
 		server.StartSyncstatus(ctx, self.UserCred, "")
 	}

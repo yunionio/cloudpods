@@ -20,8 +20,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SLocalDisk struct {
@@ -34,7 +34,7 @@ type SLocalDisk struct {
 
 func (self *SLocalDisk) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(models.HYPERVISOR_QCLOUD), "hypervisor")
+	data.Add(jsonutils.NewString(api.HYPERVISOR_QCLOUD), "hypervisor")
 	return data
 }
 
@@ -89,11 +89,11 @@ func (self *SLocalDisk) GetExpiredAt() time.Time {
 func (self *SLocalDisk) GetDiskType() string {
 	switch self.DiskUsage {
 	case "SYSTEM_DISK":
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	case "DATA_DISK":
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	default:
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	}
 }
 
@@ -110,7 +110,7 @@ func (self *SLocalDisk) GetTemplateId() string {
 }
 
 func (self *SLocalDisk) GetStatus() string {
-	return models.DISK_READY
+	return api.DISK_READY
 }
 
 func (self *SLocalDisk) GetName() string {

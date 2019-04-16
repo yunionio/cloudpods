@@ -21,8 +21,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SDiskInfo struct {
@@ -113,7 +113,7 @@ func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.I
 	}
 	data.Add(metadataDict, "metadata")
 
-	if iVM.GetBillingType() == models.BILLING_TYPE_PREPAID {
+	if iVM.GetBillingType() == billing_api.BILLING_TYPE_PREPAID {
 		data.Add(jsonutils.NewTimeString(iVM.GetExpiredAt()), "expired_at")
 	}
 

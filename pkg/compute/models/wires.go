@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -277,7 +278,7 @@ func (self *SWire) markNetworkUnknown(userCred mcclient.TokenCredential) error {
 		return err
 	}
 	for i := 0; i < len(nets); i += 1 {
-		nets[i].SetStatus(userCred, NETWORK_STATUS_UNKNOWN, "wire sync to remove")
+		nets[i].SetStatus(userCred, api.NETWORK_STATUS_UNKNOWN, "wire sync to remove")
 	}
 	return nil
 }
@@ -419,7 +420,7 @@ func (self *SWire) getNetworks() ([]SNetwork, error) {
 func (self *SWire) getGatewayNetworkQuery() *sqlchemy.SQuery {
 	q := self.getNetworkQuery()
 	q = q.IsNotNull("guest_gateway").IsNotEmpty("guest_gateway")
-	q = q.Equals("status", NETWORK_STATUS_AVAILABLE)
+	q = q.Equals("status", api.NETWORK_STATUS_AVAILABLE)
 	return q
 }
 
@@ -528,7 +529,7 @@ func chooseCandidateNetworksByNetworkType(nets []SNetwork, isExit bool, serverTy
 		if isExit != net.IsExitNetwork() {
 			continue
 		}
-		if serverType == net.ServerType || (len(net.ServerType) == 0 && serverType == NETWORK_TYPE_GUEST) {
+		if serverType == net.ServerType || (len(net.ServerType) == 0 && serverType == api.NETWORK_TYPE_GUEST) {
 			matchingNets = append(matchingNets, &net)
 		} else {
 			notMatchingNets = append(notMatchingNets, &net)
@@ -559,7 +560,7 @@ func (manager *SWireManager) InitializeData() error {
 	for _, w := range wires {
 		if len(w.VpcId) == 0 {
 			db.Update(&w, func() error {
-				w.VpcId = DEFAULT_VPC_ID
+				w.VpcId = api.DEFAULT_VPC_ID
 				return nil
 			})
 		}
@@ -578,7 +579,7 @@ func (wire *SWire) getEnabledHosts() []SHost {
 		sqlchemy.IsFalse(hostwireQuery.Field("deleted"))))
 	q = q.Filter(sqlchemy.Equals(hostwireQuery.Field("wire_id"), wire.Id))
 	q = q.Filter(sqlchemy.IsTrue(hostQuery.Field("enabled")))
-	q = q.Filter(sqlchemy.Equals(hostQuery.Field("host_status"), HOST_ONLINE))
+	q = q.Filter(sqlchemy.Equals(hostQuery.Field("host_status"), api.HOST_ONLINE))
 
 	err := db.FetchModelObjects(HostManager, q, &hosts)
 	if err != nil {

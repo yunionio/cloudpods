@@ -19,8 +19,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
@@ -96,13 +96,13 @@ func (vpc *SVpc) GetCidrBlock() string {
 func (vpc *SVpc) GetStatus() string {
 	switch vpc.Status {
 	case VPC_STATUS_ACTIVE:
-		return models.VPC_STATUS_AVAILABLE
+		return api.VPC_STATUS_AVAILABLE
 	case VPC_STATUS_BUILD, VPC_STATUS_DOWN:
-		return models.VPC_STATUS_PENDING
+		return api.VPC_STATUS_PENDING
 	case VPC_STATUS_ERROR:
-		return models.VPC_STATUS_FAILED
+		return api.VPC_STATUS_FAILED
 	default:
-		return models.VPC_STATUS_UNKNOWN
+		return api.VPC_STATUS_UNKNOWN
 	}
 }
 

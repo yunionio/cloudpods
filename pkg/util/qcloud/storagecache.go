@@ -27,8 +27,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -237,7 +237,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	log.Debugf("Import image %s", imageName)
 	if image, err := self.region.ImportImage(imageName, osArch, osDist, osVersion, self.region.getCosUrl(bucketName, imageId)); err != nil {
 		return "", err
-	} else if cloudprovider.WaitStatus(image, models.CACHED_IMAGE_STATUS_READY, 15*time.Second, 3600*time.Second); err != nil {
+	} else if cloudprovider.WaitStatus(image, api.CACHED_IMAGE_STATUS_READY, 15*time.Second, 3600*time.Second); err != nil {
 		return "", err
 	} else {
 		return image.ImageId, nil

@@ -20,8 +20,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
@@ -330,19 +330,19 @@ func (host *SHost) GetStorageSizeMB() int {
 }
 
 func (host *SHost) GetStorageType() string {
-	return models.DISK_TYPE_HYBRID
+	return api.DISK_TYPE_HYBRID
 }
 
 func (host *SHost) GetHostType() string {
-	return models.HOST_TYPE_OPENSTACK
+	return api.HOST_TYPE_OPENSTACK
 }
 
 func (host *SHost) GetHostStatus() string {
 	switch host.State {
 	case "up", "":
-		return models.HOST_ONLINE
+		return api.HOST_ONLINE
 	default:
-		return models.HOST_OFFLINE
+		return api.HOST_OFFLINE
 	}
 }
 
@@ -369,7 +369,7 @@ func (host *SHost) GetManagerId() string {
 }
 
 func (host *SHost) GetStatus() string {
-	return models.HOST_STATUS_RUNNING
+	return api.HOST_STATUS_RUNNING
 }
 
 func (host *SHost) IsEmulated() bool {

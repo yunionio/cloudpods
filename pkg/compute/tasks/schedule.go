@@ -37,11 +37,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-const (
-	SCHEDULE        = models.VM_SCHEDULE
-	SCHEDULE_FAILED = models.VM_SCHEDULE_FAILED
-)
-
 type IScheduleModel interface {
 	db.IStandaloneModel
 
@@ -98,14 +93,14 @@ func (self *SSchedTask) GetFirstDisk() (*api.DiskConfig, error) {
 
 func (self *SSchedTask) OnStartSchedule(obj IScheduleModel) {
 	db.OpsLog.LogEvent(obj, db.ACT_ALLOCATING, nil, self.GetUserCred())
-	obj.SetStatus(self.GetUserCred(), SCHEDULE, "")
+	obj.SetStatus(self.GetUserCred(), api.VM_SCHEDULE, "")
 }
 
 func (self *SSchedTask) OnScheduleFailCallback(ctx context.Context, obj IScheduleModel, reason string) {
-	obj.SetStatus(self.GetUserCred(), SCHEDULE_FAILED, reason)
+	obj.SetStatus(self.GetUserCred(), api.VM_SCHEDULE_FAILED, reason)
 	db.OpsLog.LogEvent(obj, db.ACT_ALLOCATE_FAIL, reason, self.GetUserCred())
 	logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, reason, self.GetUserCred(), false)
-	notifyclient.NotifySystemError(obj.GetId(), obj.GetName(), SCHEDULE_FAILED, reason)
+	notifyclient.NotifySystemError(obj.GetId(), obj.GetName(), api.VM_SCHEDULE_FAILED, reason)
 }
 
 func (self *SSchedTask) OnScheduleComplete(ctx context.Context, items []db.IStandaloneModel, data *jsonutils.JSONDict) {

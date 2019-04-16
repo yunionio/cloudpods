@@ -22,9 +22,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/util/secrules"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 // https://docs.ucloud.cn/api/unet-api/describe_firewall
@@ -169,7 +170,7 @@ func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 
 func (self *SSecurityGroup) GetVpcId() string {
 	// 无vpc关联的安全组统一返回normal
-	return models.NORMAL_VPC_ID
+	return api.NORMAL_VPC_ID
 }
 
 func (self *SRegion) GetSecurityGroupById(secGroupId string) (*SSecurityGroup, error) {

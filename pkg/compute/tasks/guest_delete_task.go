@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -42,7 +43,7 @@ func init() {
 func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	host := guest.GetHost()
-	if guest.Hypervisor == models.HYPERVISOR_BAREMETAL && host != nil && host.HostType != models.HOST_TYPE_BAREMETAL {
+	if guest.Hypervisor == api.HYPERVISOR_BAREMETAL && host != nil && host.HostType != api.HOST_TYPE_BAREMETAL {
 		// if a fake server for converted hypervisor, then just skip stop
 		self.OnGuestStopComplete(ctx, obj, data)
 		return
@@ -80,7 +81,7 @@ func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.ISt
 	guest := obj.(*models.SGuest)
 
 	eip, _ := guest.GetEip()
-	if eip != nil && eip.Mode != models.EIP_MODE_INSTANCE_PUBLICIP {
+	if eip != nil && eip.Mode != api.EIP_MODE_INSTANCE_PUBLICIP {
 		// detach floating EIP only
 		if jsonutils.QueryBoolean(self.Params, "purge", false) {
 			// purge locally
@@ -157,8 +158,8 @@ func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IS
 		log.Debugf("XXXXXXX Do guest pending delete... XXXXXXX")
 		guestStatus, _ := self.Params.GetString("guest_status")
 		if !utils.IsInStringArray(guestStatus, []string{
-			models.VM_SCHEDULE_FAILED, models.VM_NETWORK_FAILED, models.VM_DISK_FAILED,
-			models.VM_CREATE_FAILED, models.VM_DEVICE_FAILED}) {
+			api.VM_SCHEDULE_FAILED, api.VM_NETWORK_FAILED, api.VM_DISK_FAILED,
+			api.VM_CREATE_FAILED, api.VM_DEVICE_FAILED}) {
 			self.StartPendingDeleteGuest(ctx, guest)
 			return
 		}
@@ -180,7 +181,7 @@ func (self *GuestDeleteTask) OnGuestDeleteFailed(ctx context.Context, obj db.ISt
 
 func (self *GuestDeleteTask) doStartDeleteGuest(ctx context.Context, obj db.IStandaloneModel) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, models.VM_DELETING, "delete server after stop")
+	guest.SetStatus(self.UserCred, api.VM_DELETING, "delete server after stop")
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATING, nil, self.UserCred)
 	self.StartDeleteGuest(ctx, guest)
 }
@@ -246,7 +247,7 @@ func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SG
 }
 
 func (self *GuestDeleteTask) OnFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, models.VM_DELETE_FAIL, err.String())
+	guest.SetStatus(self.UserCred, api.VM_DELETE_FAIL, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, err.String())

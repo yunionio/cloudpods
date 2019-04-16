@@ -45,11 +45,11 @@ func init() {
 }
 
 func (self *SAzureGuestDriver) GetHypervisor() string {
-	return models.HYPERVISOR_AZURE
+	return api.HYPERVISOR_AZURE
 }
 
 func (self *SAzureGuestDriver) GetDefaultSysDiskBackend() string {
-	return models.STORAGE_STANDARD_LRS
+	return api.STORAGE_STANDARD_LRS
 }
 
 func (self *SAzureGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -58,9 +58,9 @@ func (self *SAzureGuestDriver) GetMinimalSysDiskSizeGb() int {
 
 func (self *SAzureGuestDriver) GetStorageTypes() []string {
 	return []string{
-		models.STORAGE_STANDARD_LRS,
-		models.STORAGE_STANDARDSSD_LRS,
-		models.STORAGE_PREMIUM_LRS,
+		api.STORAGE_STANDARD_LRS,
+		api.STORAGE_STANDARDSSD_LRS,
+		api.STORAGE_PREMIUM_LRS,
 	}
 }
 
@@ -86,23 +86,23 @@ func (self *SAzureGuestDriver) GetMaxSecurityGroupCount() int {
 }
 
 func (self *SAzureGuestDriver) GetDetachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SAzureGuestDriver) GetAttachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SAzureGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SAzureGuestDriver) GetChangeConfigStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SAzureGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{models.VM_RUNNING}, nil
+	return []string{api.VM_RUNNING}, nil
 }
 
 func (self *SAzureGuestDriver) IsNeedRestartForResetLoginInfo() bool {
@@ -112,7 +112,7 @@ func (self *SAzureGuestDriver) IsNeedRestartForResetLoginInfo() bool {
 func (self *SAzureGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
 	//https://docs.microsoft.com/en-us/rest/api/compute/disks/update
 	//Resizes are only allowed if the disk is not attached to a running VM, and can only increase the disk's size
-	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY}) {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
 	return nil
@@ -149,11 +149,11 @@ func (self *SAzureGuestDriver) ValidateUpdateData(ctx context.Context, userCred 
 }
 
 func (self *SAzureGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return models.VM_RUNNING
+	return api.VM_RUNNING
 }
 
 func (self *SAzureGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return models.VM_READY
+	return api.VM_READY
 }
 
 func (self *SAzureGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {

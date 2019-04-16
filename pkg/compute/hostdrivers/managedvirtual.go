@@ -172,13 +172,13 @@ func (self *SManagedVirtualizationHostDriver) RequestSaveUploadImageOnHost(ctx c
 		osType, _ := params.GetString("properties", "os_type")
 
 		scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), iStoragecache.GetId(), imageId, "")
-		if scimg.Status != models.CACHED_IMAGE_STATUS_READY {
-			scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHING, "request_prepare_save_disk_on_host")
+		if scimg.Status != api.CACHED_IMAGE_STATUS_READY {
+			scimg.SetStatus(task.GetUserCred(), api.CACHED_IMAGE_STATUS_CACHING, "request_prepare_save_disk_on_host")
 		}
 		iImage, err := iStoragecache.CreateIImage(snapshot.GetId(), fmt.Sprintf("Image-%s", imageId), osType, "")
 		if err != nil {
 			log.Errorf("fail to create iImage: %v", err)
-			scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
+			scimg.SetStatus(task.GetUserCred(), api.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
 			return nil, err
 		}
 		scimg.SetExternalId(iImage.GetId())
@@ -189,7 +189,7 @@ func (self *SManagedVirtualizationHostDriver) RequestSaveUploadImageOnHost(ctx c
 		}
 		result, err := iStoragecache.DownloadImage(task.GetUserCred(), imageId, iImage.GetId(), options.Options.TempPath)
 		if err != nil {
-			scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
+			scimg.SetStatus(task.GetUserCred(), api.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
 			return nil, err
 		}
 		if err := iImage.Delete(ctx); err != nil {
@@ -198,7 +198,7 @@ func (self *SManagedVirtualizationHostDriver) RequestSaveUploadImageOnHost(ctx c
 		if err := snapshot.Delete(); err != nil {
 			log.Errorf("Delete snapshot %s failed: %v", snapshot.GetId(), err)
 		}
-		scimg.SetStatus(task.GetUserCred(), models.CACHED_IMAGE_STATUS_READY, "")
+		scimg.SetStatus(task.GetUserCred(), api.CACHED_IMAGE_STATUS_READY, "")
 		return result, nil
 	})
 	return nil

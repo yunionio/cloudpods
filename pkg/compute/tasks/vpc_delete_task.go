@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -37,7 +38,7 @@ func init() {
 
 func (self *VpcDeleteTask) taskFailed(ctx context.Context, vpc *models.SVpc, err error) {
 	log.Errorf("vpc delete task fail: %s", err)
-	vpc.SetStatus(self.UserCred, models.VPC_STATUS_DELETE_FAILED, err.Error())
+	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATE_FAIL, err.Error(), self.UserCred)
 	self.SetStageFailed(ctx, err.Error())
 }
@@ -45,7 +46,7 @@ func (self *VpcDeleteTask) taskFailed(ctx context.Context, vpc *models.SVpc, err
 func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	vpc := obj.(*models.SVpc)
 
-	vpc.SetStatus(self.UserCred, models.VPC_STATUS_DELETING, "")
+	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETING, "")
 	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATING, vpc.GetShortDesc(ctx), self.UserCred)
 
 	region, err := vpc.GetIRegion()

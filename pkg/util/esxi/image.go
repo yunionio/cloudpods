@@ -24,8 +24,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SImage struct {
@@ -68,14 +68,14 @@ func (self *SImage) GetStatus() string {
 	ctx := context.Background()
 	_, err := dm.QueryVirtualDiskInfo(ctx, self.getFullFilename(), self.getDatacenter(), true)
 	if err != nil {
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	}
-	return models.CACHED_IMAGE_STATUS_READY
+	return api.CACHED_IMAGE_STATUS_READY
 }
 
 func (self *SImage) GetImageStatus() string {
 	status := self.GetStatus()
-	if status == models.CACHED_IMAGE_STATUS_READY {
+	if status == api.CACHED_IMAGE_STATUS_READY {
 		return cloudprovider.IMAGE_STATUS_ACTIVE
 	}
 	return cloudprovider.IMAGE_STATUS_DELETED

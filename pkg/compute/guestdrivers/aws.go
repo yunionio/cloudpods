@@ -69,15 +69,15 @@ func fetchAwsUserName(desc cloudprovider.SManagedVMCreateConfig) string {
 
 func (self *SAwsGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	// return fetchAwsUserName(desc)
-	return models.VM_AWS_DEFAULT_LOGIN_USER
+	return api.VM_AWS_DEFAULT_LOGIN_USER
 }
 
 func (self *SAwsGuestDriver) GetHypervisor() string {
-	return models.HYPERVISOR_AWS
+	return api.HYPERVISOR_AWS
 }
 
 func (self *SAwsGuestDriver) GetDefaultSysDiskBackend() string {
-	return models.STORAGE_GP2_SSD
+	return api.STORAGE_GP2_SSD
 }
 
 func (self *SAwsGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -86,11 +86,11 @@ func (self *SAwsGuestDriver) GetMinimalSysDiskSizeGb() int {
 
 func (self *SAwsGuestDriver) GetStorageTypes() []string {
 	return []string{
-		models.STORAGE_GP2_SSD,
-		models.STORAGE_IO1_SSD,
-		models.STORAGE_ST1_HDD,
-		models.STORAGE_SC1_HDD,
-		models.STORAGE_STANDARD_HDD,
+		api.STORAGE_GP2_SSD,
+		api.STORAGE_IO1_SSD,
+		api.STORAGE_ST1_HDD,
+		api.STORAGE_SC1_HDD,
+		api.STORAGE_STANDARD_HDD,
 	}
 }
 
@@ -113,23 +113,23 @@ func (self *SAwsGuestDriver) ChooseHostStorage(host *models.SHost, backend strin
 }
 
 func (self *SAwsGuestDriver) GetDetachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SAwsGuestDriver) GetAttachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SAwsGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SAwsGuestDriver) GetChangeConfigStatus() ([]string, error) {
-	return []string{models.VM_READY}, nil
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SAwsGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SAwsGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
@@ -142,24 +142,24 @@ func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mc
 
 func (self *SAwsGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
 	// https://docs.amazonaws.cn/AWSEC2/latest/UserGuide/stop-start.html
-	if !utils.IsInStringArray(guest.Status, []string{models.VM_RUNNING, models.VM_READY}) {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if disk.DiskType == models.DISK_TYPE_SYS && !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_IO1_SSD, models.STORAGE_STANDARD_HDD, models.STORAGE_GP2_SSD}) {
+	if disk.DiskType == api.DISK_TYPE_SYS && !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_IO1_SSD, api.STORAGE_STANDARD_HDD, api.STORAGE_GP2_SSD}) {
 		return fmt.Errorf("Cannot resize system disk with unsupported volumes type %s", storage.StorageType)
 	}
-	if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_GP2_SSD, models.STORAGE_IO1_SSD, models.STORAGE_ST1_HDD, models.STORAGE_SC1_HDD, models.STORAGE_STANDARD_HDD}) {
+	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_GP2_SSD, api.STORAGE_IO1_SSD, api.STORAGE_ST1_HDD, api.STORAGE_SC1_HDD, api.STORAGE_STANDARD_HDD}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
 	return nil
 }
 
 func (self *SAwsGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return models.VM_RUNNING
+	return api.VM_RUNNING
 }
 
 func (self *SAwsGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return models.VM_READY
+	return api.VM_READY
 }
 
 /*func (self *SAwsGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {

@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -96,9 +97,9 @@ func getHypervisors(region *SCloudregion, zone *SZone) []string {
 		var managerId string
 		rows.Scan(&hostType, &managerId)
 		if len(hostType) > 0 && IsProviderAccountEnabled(managerId) {
-			hypervisor := HOSTTYPE_HYPERVISOR[hostType]
+			hypervisor := api.HOSTTYPE_HYPERVISOR[hostType]
 			if !utils.IsInStringArray(hypervisor, hypervisors) {
-				hypervisors = append(hypervisors, HOSTTYPE_HYPERVISOR[hostType])
+				hypervisors = append(hypervisors, hypervisor)
 			}
 		}
 	}
@@ -157,17 +158,17 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool) []string
 	if zone != nil {
 		q = q.Filter(sqlchemy.Equals(storages.Field("zone_id"), zone.Id))
 	}
-	q = q.Filter(sqlchemy.Equals(hosts.Field("resource_type"), HostResourceTypeShared))
+	q = q.Filter(sqlchemy.Equals(hosts.Field("resource_type"), api.HostResourceTypeShared))
 	q = q.Filter(sqlchemy.IsNotEmpty(storages.Field("storage_type")))
 	q = q.Filter(sqlchemy.IsNotNull(storages.Field("storage_type")))
 	q = q.Filter(sqlchemy.IsNotEmpty(storages.Field("medium_type")))
 	q = q.Filter(sqlchemy.IsNotNull(storages.Field("medium_type")))
-	q = q.Filter(sqlchemy.In(storages.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}))
+	q = q.Filter(sqlchemy.In(storages.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}))
 	q = q.Filter(sqlchemy.IsTrue(storages.Field("enabled")))
 	if isSysDisk {
 		q = q.Filter(sqlchemy.IsTrue(storages.Field("is_sys_disk_store")))
 	}
-	q = q.Filter(sqlchemy.NotEquals(hosts.Field("host_type"), HOST_TYPE_BAREMETAL))
+	q = q.Filter(sqlchemy.NotEquals(hosts.Field("host_type"), api.HOST_TYPE_BAREMETAL))
 	q = q.Distinct()
 	rows, err := q.Rows()
 	if err != nil {
@@ -231,7 +232,7 @@ func getNetworkCount(region *SCloudregion, zone *SZone) int {
 		q = q.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
 		q = q.Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id))
 	}
-	q = q.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+	q = q.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 
 	return q.Count()
 }

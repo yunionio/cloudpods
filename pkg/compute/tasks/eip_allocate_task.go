@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -49,7 +50,7 @@ func (self *EipAllocateTask) setGuestAllocateEipFailed(resion string) {
 			return
 		}
 		guest := instance.(*models.SGuest)
-		guest.SetStatus(self.UserCred, models.VM_ASSOCIATE_EIP_FAILED, resion)
+		guest.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP_FAILED, resion)
 	}
 }
 
@@ -68,7 +69,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	iregion, err := eip.GetIRegion()
 	if err != nil {
 		msg := fmt.Sprintf("fail to find iregion for eip %s", err)
-		eip.SetStatus(self.UserCred, models.EIP_STATUS_ALLOCATE_FAIL, msg)
+		eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, msg)
 		self.onFailed(ctx, msg)
 		return
 	}
@@ -76,7 +77,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 	extEip, err := iregion.CreateEIP(eip.Name, eip.Bandwidth, eip.ChargeType, eip.BgpType)
 	if err != nil {
 		msg := fmt.Sprintf("create eip fail %s", err)
-		eip.SetStatus(self.UserCred, models.EIP_STATUS_ALLOCATE_FAIL, msg)
+		eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, msg)
 		self.onFailed(ctx, msg)
 		return
 	}
@@ -85,7 +86,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 
 	if err != nil {
 		msg := fmt.Sprintf("sync eip fail %s", err)
-		eip.SetStatus(self.UserCred, models.EIP_STATUS_ALLOCATE_FAIL, msg)
+		eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, msg)
 		self.onFailed(ctx, msg)
 		return
 	}

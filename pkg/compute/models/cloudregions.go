@@ -35,13 +35,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-const (
-	CLOUD_REGION_STATUS_INSERVER     = "inservice"
-	CLOUD_REGION_STATUS_OUTOFSERVICE = "outofservice"
-
-	DEFAULT_REGION_ID = "default"
-)
-
 type SCloudregionManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
 }
@@ -99,7 +92,7 @@ func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context) error {
 	if self.GetZoneCount() > 0 || self.GetVpcCount() > 0 {
 		return httperrors.NewNotEmptyError("not empty cloud region")
 	}
-	if self.Id == DEFAULT_REGION_ID {
+	if self.Id == api.DEFAULT_REGION_ID {
 		return httperrors.NewProtectedResourceError("not allow to delete default cloud region")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -107,7 +100,7 @@ func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context) error {
 
 func (self *SCloudregion) GetZoneCount() int {
 	zones := ZoneManager.Query()
-	if self.Id == DEFAULT_REGION_ID {
+	if self.Id == api.DEFAULT_REGION_ID {
 		return zones.Filter(sqlchemy.OR(sqlchemy.IsNull(zones.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(zones.Field("cloudregion_id")),
 			sqlchemy.Equals(zones.Field("cloudregion_id"), self.Id))).Count()
@@ -118,7 +111,7 @@ func (self *SCloudregion) GetZoneCount() int {
 
 func (self *SCloudregion) GetGuestCount(increment bool) int {
 	zoneTable := ZoneManager.Query("id")
-	if self.Id == DEFAULT_REGION_ID {
+	if self.Id == api.DEFAULT_REGION_ID {
 		zoneTable = zoneTable.Filter(sqlchemy.OR(sqlchemy.IsNull(zoneTable.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(zoneTable.Field("cloudregion_id")),
 			sqlchemy.Equals(zoneTable.Field("cloudregion_id"), self.Id)))
@@ -137,7 +130,7 @@ func (self *SCloudregion) GetGuestCount(increment bool) int {
 
 func (self *SCloudregion) GetVpcCount() int {
 	vpcs := VpcManager.Query()
-	if self.Id == DEFAULT_REGION_ID {
+	if self.Id == api.DEFAULT_REGION_ID {
 		return vpcs.Filter(sqlchemy.OR(sqlchemy.IsNull(vpcs.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(vpcs.Field("cloudregion_id")),
 			sqlchemy.Equals(vpcs.Field("cloudregion_id"), self.Id))).Count()
@@ -284,7 +277,7 @@ func (self *SCloudregion) syncRemoveCloudRegion(ctx context.Context, userCred mc
 	// 	err = self.Delete(ctx, userCred)
 	// }
 
-	err := self.SetStatus(userCred, CLOUD_REGION_STATUS_OUTOFSERVICE, "Out of sync")
+	err := self.SetStatus(userCred, api.CLOUD_REGION_STATUS_OUTOFSERVICE, "Out of sync")
 	if err == nil {
 		_, err = self.PerformDisable(ctx, userCred, nil, nil)
 	}
@@ -385,15 +378,15 @@ func (manager *SCloudregionManager) FetchRegionById(id string) *SCloudregion {
 
 func (manager *SCloudregionManager) InitializeData() error {
 	// check if default region exists
-	_, err := manager.FetchById(DEFAULT_REGION_ID)
+	_, err := manager.FetchById(api.DEFAULT_REGION_ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			defRegion := SCloudregion{}
-			defRegion.Id = DEFAULT_REGION_ID
+			defRegion.Id = api.DEFAULT_REGION_ID
 			defRegion.Name = "Default"
 			defRegion.Enabled = true
 			defRegion.Description = "Default Region"
-			defRegion.Status = CLOUD_REGION_STATUS_INSERVER
+			defRegion.Status = api.CLOUD_REGION_STATUS_INSERVER
 			err = manager.TableSpec().Insert(&defRegion)
 			if err != nil {
 				log.Errorf("Insert default region fails: %s", err)
@@ -482,24 +475,24 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		}
 		sq = sq.Join(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
 		if usableNet {
-			sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+			sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 		}
 		sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
 		sq = sq.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
 		sq = sq.Filter(sqlchemy.Equals(providers.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
 		if usableVpc {
-			sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+			sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 		}
 
 		sq2 := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
 		if usableNet {
 			sq2 = sq2.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
 			sq2 = sq2.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
-			sq2 = sq2.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+			sq2 = sq2.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 		}
 		sq2 = sq2.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
 		if usableVpc {
-			sq2 = sq2.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+			sq2 = sq2.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 		}
 
 		q = q.Filter(sqlchemy.OR(

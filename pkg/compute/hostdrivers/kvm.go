@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -42,21 +43,21 @@ func init() {
 }
 
 func (self *SKVMHostDriver) GetHostType() string {
-	return models.HOST_TYPE_HYPERVISOR
+	return api.HOST_TYPE_HYPERVISOR
 }
 
 func (self *SKVMHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
-	if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_LOCAL, models.STORAGE_RBD, models.STORAGE_NFS}) {
+	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL, api.STORAGE_RBD, api.STORAGE_NFS}) {
 		return httperrors.NewUnsupportOperationError("Unsupport attach %s storage for %s host", storage.StorageType, host.HostType)
 	}
-	if storage.StorageType == models.STORAGE_RBD {
-		if host.HostStatus != models.HOST_ONLINE {
+	if storage.StorageType == api.STORAGE_RBD {
+		if host.HostStatus != api.HOST_ONLINE {
 			return httperrors.NewInvalidStatusError("Attach rbd storage require host status is online")
 		}
 		pool, _ := storage.StorageConf.GetString("pool")
 		data.Set("mount_point", jsonutils.NewString(fmt.Sprintf("rbd:%s", pool)))
-	} else if storage.StorageType == models.STORAGE_NFS {
-		if host.HostStatus != models.HOST_ONLINE {
+	} else if storage.StorageType == api.STORAGE_NFS {
+		if host.HostStatus != api.HOST_ONLINE {
 			return httperrors.NewInvalidStatusError("Attach nfs storage require host status is online")
 		}
 	}
@@ -65,7 +66,7 @@ func (self *SKVMHostDriver) ValidateAttachStorage(host *models.SHost, storage *m
 
 func (self *SKVMHostDriver) RequestAttachStorage(ctx context.Context, hoststorage *models.SHoststorage, host *models.SHost, storage *models.SStorage, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_NFS, models.STORAGE_RBD}) {
+		if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_NFS, api.STORAGE_RBD}) {
 			log.Infof("Attach SharedStorage[%s] on host %s ...", storage.Name, host.Name)
 			url := fmt.Sprintf("%s/storages/attach", host.ManagerUri)
 			headers := mcclient.GetTokenHeaders(task.GetUserCred())
@@ -93,7 +94,7 @@ func (self *SKVMHostDriver) RequestAttachStorage(ctx context.Context, hoststorag
 
 func (self *SKVMHostDriver) RequestDetachStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_NFS, models.STORAGE_RBD}) && host.HostStatus == models.HOST_ONLINE {
+		if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_NFS, api.STORAGE_RBD}) && host.HostStatus == api.HOST_ONLINE {
 			log.Infof("Detach SharedStorage[%s] on host %s ...", storage.Name, host.Name)
 			url := fmt.Sprintf("%s/storages/detach", host.ManagerUri)
 			headers := mcclient.GetTokenHeaders(task.GetUserCred())
@@ -126,7 +127,7 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 		return err
 	}
 	cacheImage := obj.(*models.SCachedimage)
-	srcHostCacheImage, err := cacheImage.ChooseSourceStoragecacheInRange(models.HOST_TYPE_HYPERVISOR, []string{host.Id}, []interface{}{host.GetZone()})
+	srcHostCacheImage, err := cacheImage.ChooseSourceStoragecacheInRange(api.HOST_TYPE_HYPERVISOR, []string{host.Id}, []interface{}{host.GetZone()})
 	if err != nil {
 		return err
 	}
@@ -447,7 +448,7 @@ func (self *SKVMHostDriver) PrepareUnconvert(host *models.SHost) error {
 	}
 	for i := 0; i < len(hoststorages); i++ {
 		storage := hoststorages[i].GetStorage()
-		if storage.IsLocal() && storage.StorageType != models.STORAGE_BAREMETAL && storage.GetDiskCount() > 0 {
+		if storage.IsLocal() && storage.StorageType != api.STORAGE_BAREMETAL && storage.GetDiskCount() > 0 {
 			return fmt.Errorf("Local host storage is not empty??? %s", storage.GetName())
 		}
 	}
@@ -460,7 +461,7 @@ func (self *SKVMHostDriver) FinishUnconvert(ctx context.Context, userCred mcclie
 		if storage == nil {
 			continue
 		}
-		if storage.StorageType != models.STORAGE_BAREMETAL {
+		if storage.StorageType != api.STORAGE_BAREMETAL {
 			hs.Delete(ctx, userCred)
 			if storage.IsLocal() {
 				storage.Delete(ctx, userCred)

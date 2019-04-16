@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -33,7 +34,7 @@ func init() {
 }
 
 func (self *SHuaweiHostDriver) GetHostType() string {
-	return models.HOST_TYPE_HUAWEI
+	return api.HOST_TYPE_HUAWEI
 }
 
 func (self *SHuaweiHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
@@ -43,7 +44,7 @@ func (self *SHuaweiHostDriver) ValidateAttachStorage(host *models.SHost, storage
 // 系统盘必须至少40G
 func (self *SHuaweiHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	switch storage.StorageType {
-	case models.STORAGE_HUAWEI_SSD, models.STORAGE_HUAWEI_SATA, models.STORAGE_HUAWEI_SAS:
+	case api.STORAGE_HUAWEI_SSD, api.STORAGE_HUAWEI_SATA, api.STORAGE_HUAWEI_SAS:
 		if sizeGb < 10 || sizeGb > 32768 {
 			return fmt.Errorf("The %s disk size must be in the range of 10G ~ 32768GB", storage.StorageType)
 		}

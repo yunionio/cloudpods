@@ -19,8 +19,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type ClassicStorageProperties struct {
@@ -118,9 +118,9 @@ func (self *SClassicStorage) GetManagerId() string {
 
 func (self *SClassicStorage) GetMediumType() string {
 	if strings.Contains(self.Properties.AccountType, "Premium") {
-		return models.DISK_TYPE_SSD
+		return api.DISK_TYPE_SSD
 	}
-	return models.DISK_TYPE_ROTATE
+	return api.DISK_TYPE_ROTATE
 }
 
 func (self *SClassicStorage) GetStorageConf() jsonutils.JSONObject {
@@ -129,7 +129,7 @@ func (self *SClassicStorage) GetStorageConf() jsonutils.JSONObject {
 }
 
 func (self *SClassicStorage) GetStatus() string {
-	return models.STORAGE_ONLINE
+	return api.STORAGE_ONLINE
 }
 
 func (self *SClassicStorage) GetStorageType() string {

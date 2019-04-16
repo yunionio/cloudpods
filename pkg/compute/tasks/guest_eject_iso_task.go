@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -38,7 +39,7 @@ func (self *GuestEjectISOTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 func (self *GuestEjectISOTask) startEjectIso(ctx context.Context, obj db.IStandaloneModel) {
 	guest := obj.(*models.SGuest)
-	if guest.EjectIso(self.UserCred) && guest.Status == models.VM_RUNNING {
+	if guest.EjectIso(self.UserCred) && guest.Status == api.VM_RUNNING {
 		self.SetStage("OnConfigSyncComplete", nil)
 		guest.StartSyncTask(ctx, self.UserCred, false, self.GetId())
 	} else {

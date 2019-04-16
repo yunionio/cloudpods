@@ -26,8 +26,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/osprofile"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -142,15 +143,15 @@ func (self *SInstance) GetGlobalId() string {
 func (self *SInstance) GetStatus() string {
 	switch self.Status {
 	case InstanceStatusRunning:
-		return models.VM_RUNNING
+		return api.VM_RUNNING
 	case InstanceStatusPending: // todo: pending ?
-		return models.VM_STARTING
+		return api.VM_STARTING
 	case InstanceStatusStopping:
-		return models.VM_STOPPING
+		return api.VM_STOPPING
 	case InstanceStatusStopped:
-		return models.VM_READY
+		return api.VM_READY
 	default:
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	}
 }
 
@@ -210,7 +211,7 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 
 func (self *SInstance) GetBillingType() string {
 	// todo: implement me
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
@@ -318,7 +319,7 @@ func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 }
 
 func (self *SInstance) GetHypervisor() string {
-	return models.HYPERVISOR_AWS
+	return api.HYPERVISOR_AWS
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
@@ -332,9 +333,9 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 			return err
 		}
 
-		if self.GetStatus() == models.VM_RUNNING {
+		if self.GetStatus() == api.VM_RUNNING {
 			return nil
-		} else if self.GetStatus() == models.VM_READY {
+		} else if self.GetStatus() == api.VM_READY {
 			err := self.host.zone.region.StartVM(self.InstanceId)
 			if err != nil {
 				return err
@@ -350,7 +351,7 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
+	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
@@ -641,7 +642,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 
 		// io1类型的卷需要指定IOPS参数。这里根据aws网站的建议值进行设置
 		// 卷每增加1G。IOPS增加50。最大不超过32000
-		if disk.Category == models.STORAGE_IO1_SSD {
+		if disk.Category == api.STORAGE_IO1_SSD {
 			iops := int64(disk.Size * 50)
 			if iops < 32000 {
 				ebs.SetIops(iops)
@@ -831,7 +832,7 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 
 	var rootDisk *SDisk
 	for _, disk := range disks {
-		if disk.Type == models.DISK_TYPE_SYS {
+		if disk.Type == api.DISK_TYPE_SYS {
 			rootDisk = &disk
 			break
 		}

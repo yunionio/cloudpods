@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -43,7 +44,7 @@ func (self *SHost) GetResourceType() string {
 	if len(self.ResourceType) > 0 {
 		return self.ResourceType
 	}
-	return HostResourceTypeDefault
+	return api.HostResourceTypeDefault
 }
 
 func (self *SGuest) AllowPerformPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -51,7 +52,7 @@ func (self *SGuest) AllowPerformPrepaidRecycle(ctx context.Context, userCred mcc
 }
 
 func (self *SGuest) CanPerformPrepaidRecycle() error {
-	if self.BillingType != BILLING_TYPE_PREPAID {
+	if self.BillingType != billing_api.BILLING_TYPE_PREPAID {
 		return fmt.Errorf("recycle prepaid server only")
 	}
 	if self.ExpiredAt.Before(time.Now()) {
@@ -68,7 +69,7 @@ func (self *SGuest) CanPerformPrepaidRecycle() error {
 }
 
 func (self *SGuest) PerformPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !self.IsInStatus(VM_READY, VM_RUNNING) {
+	if !self.IsInStatus(api.VM_READY, api.VM_RUNNING) {
 		return nil, httperrors.NewInvalidStatusError("cannot recycle in status %s", self.Status)
 	}
 	err := self.CanPerformPrepaidRecycle()
@@ -137,7 +138,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 		info.Index = int64(i)
 		info.Slot = i
 		info.Driver = baremetal.DISK_DRIVER_LINUX
-		info.Rotate = (storage.MediumType != DISK_TYPE_SSD)
+		info.Rotate = (storage.MediumType != api.DISK_TYPE_SSD)
 
 		storageInfo = append(storageInfo, info)
 	}
@@ -149,7 +150,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	fakeHost.ZoneId = self.getZone().GetId()
 	fakeHost.IsBaremetal = false
 	fakeHost.IsMaintenance = false
-	fakeHost.ResourceType = HostResourceTypePrepaidRecycle
+	fakeHost.ResourceType = api.HostResourceTypePrepaidRecycle
 
 	guestnics, err := self.GetNetworks("")
 	if err != nil || len(guestnics) == 0 {
@@ -160,12 +161,12 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	fakeHost.AccessIp = guestnics[0].IpAddr
 	fakeHost.AccessMac = guestnics[0].MacAddr
 
-	fakeHost.BillingType = BILLING_TYPE_PREPAID
+	fakeHost.BillingType = billing_api.BILLING_TYPE_PREPAID
 	fakeHost.BillingCycle = self.BillingCycle
 	fakeHost.ExpiredAt = self.ExpiredAt
 
-	fakeHost.Status = HOST_STATUS_RUNNING
-	fakeHost.HostStatus = HOST_ONLINE
+	fakeHost.Status = api.HOST_STATUS_RUNNING
+	fakeHost.HostStatus = api.HOST_ONLINE
 	fakeHost.Enabled = true
 	fakeHost.HostType = oHost.HostType
 	fakeHost.ExternalId = oHost.ExternalId
@@ -183,7 +184,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	for i := 0; i < len(guestnics); i += 1 {
 		var nicType string
 		if i == 0 {
-			nicType = NIC_TYPE_ADMIN
+			nicType = api.NIC_TYPE_ADMIN
 		}
 		err = fakeHost.addNetif(ctx, userCred,
 			guestnics[i].MacAddr,
@@ -211,7 +212,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
 		storage := disk.GetStorage()
-		if disk.BillingType == BILLING_TYPE_PREPAID {
+		if disk.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			storageSize += disk.DiskSize
 			if len(externalId) == 0 {
 				externalId = storage.ExternalId
@@ -233,13 +234,13 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 
 	fakeStorage.Name = fmt.Sprintf("%s-storage", self.Name)
 	fakeStorage.Capacity = storageSize
-	fakeStorage.StorageType = STORAGE_LOCAL
+	fakeStorage.StorageType = api.STORAGE_LOCAL
 	fakeStorage.MediumType = sysStorage.MediumType
 	fakeStorage.Cmtbound = 1.0
 	fakeStorage.ZoneId = fakeHost.ZoneId
 	fakeStorage.StoragecacheId = sysStorage.StoragecacheId
 	fakeStorage.Enabled = true
-	fakeStorage.Status = STORAGE_ONLINE
+	fakeStorage.Status = api.STORAGE_ONLINE
 	fakeStorage.Description = "fake storage for prepaid vm recycling"
 	fakeStorage.IsEmulated = true
 	fakeStorage.ManagerId = sysStorage.ManagerId
@@ -261,7 +262,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 
 	_, err = db.Update(self, func() error {
 		// clear billing information
-		self.BillingType = BILLING_TYPE_POSTPAID
+		self.BillingType = billing_api.BILLING_TYPE_POSTPAID
 		self.BillingCycle = ""
 		self.ExpiredAt = time.Time{}
 		// switch to fakeHost
@@ -277,9 +278,9 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
 
-		if disk.BillingType == BILLING_TYPE_PREPAID {
+		if disk.BillingType == billing_api.BILLING_TYPE_PREPAID {
 			_, err = db.Update(disk, func() error {
-				disk.BillingType = BILLING_TYPE_POSTPAID
+				disk.BillingType = billing_api.BILLING_TYPE_POSTPAID
 				disk.BillingCycle = ""
 				disk.ExpiredAt = time.Time{}
 				disk.StorageId = fakeStorage.Id
@@ -301,7 +302,7 @@ func (self *SGuest) AllowPerformUndoPrepaidRecycle(ctx context.Context, userCred
 }
 
 func (self *SGuest) PerformUndoPrepaidRecycle(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !self.IsInStatus(VM_READY, VM_RUNNING) {
+	if !self.IsInStatus(api.VM_READY, api.VM_RUNNING) {
 		return nil, httperrors.NewInvalidStatusError("cannot undo recycle in status %s", self.Status)
 	}
 
@@ -315,7 +316,7 @@ func (self *SGuest) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccl
 		return nil, httperrors.NewInvalidStatusError("host should be disabled")
 	}
 
-	if host.ResourceType != HostResourceTypePrepaidRecycle || host.BillingType != BILLING_TYPE_PREPAID {
+	if host.ResourceType != api.HostResourceTypePrepaidRecycle || host.BillingType != billing_api.BILLING_TYPE_PREPAID {
 		return nil, httperrors.NewInvalidStatusError("host is not a prepaid recycle host")
 	}
 
@@ -340,7 +341,7 @@ func (self *SHost) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccli
 		return nil, httperrors.NewInvalidStatusError("host should be disabled")
 	}
 
-	if self.ResourceType != HostResourceTypePrepaidRecycle || self.BillingType != BILLING_TYPE_PREPAID {
+	if self.ResourceType != api.HostResourceTypePrepaidRecycle || self.BillingType != billing_api.BILLING_TYPE_PREPAID {
 		return nil, httperrors.NewInvalidStatusError("host is not a prepaid recycle host")
 	}
 
@@ -354,7 +355,7 @@ func (self *SHost) PerformUndoPrepaidRecycle(ctx context.Context, userCred mccli
 		return nil, httperrors.NewInvalidStatusError("a recycle host shoud not allocate more than 1 guest")
 	}
 
-	if !guests[0].IsInStatus(VM_READY, VM_RUNNING) {
+	if !guests[0].IsInStatus(api.VM_READY, api.VM_RUNNING) {
 		return nil, httperrors.NewInvalidStatusError("cannot undo recycle in status %s", guests[0].Status)
 	}
 
@@ -409,7 +410,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 	q = q.Equals("host_type", host.HostType)
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.IsNullOrEmpty(q.Field("resource_type")),
-		sqlchemy.Equals(q.Field("resource_type"), HostResourceTypeShared),
+		sqlchemy.Equals(q.Field("resource_type"), api.HostResourceTypeShared),
 	))
 
 	oHostCnt := q.Count()
@@ -441,7 +442,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
 		storage := disk.GetStorage()
-		if storage.StorageType == STORAGE_LOCAL {
+		if storage.StorageType == api.STORAGE_LOCAL {
 			oHostStorage := oHost.GetHoststorageByExternalId(storage.ExternalId)
 			if oHostStorage == nil {
 				msg := fmt.Sprintf("oHost.GetHoststorageByExternalId not found %s", storage.ExternalId)
@@ -454,7 +455,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 	// check passed, do convert
 	_, err = db.Update(server, func() error {
 		// recover billing information
-		server.BillingType = BILLING_TYPE_PREPAID
+		server.BillingType = billing_api.BILLING_TYPE_PREPAID
 		server.BillingCycle = host.BillingCycle
 		server.ExpiredAt = host.ExpiredAt
 		// switch to original Host
@@ -470,7 +471,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 		disk := guestdisks[i].GetDisk()
 		storage := disk.GetStorage()
 
-		if storage.StorageType == STORAGE_LOCAL {
+		if storage.StorageType == api.STORAGE_LOCAL {
 			oHostStorage := oHost.GetHoststorageByExternalId(storage.ExternalId)
 			if oHostStorage == nil {
 				msg := fmt.Sprintf("oHost.GetHoststorageByExternalId not found %s", storage.ExternalId)
@@ -479,7 +480,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 			}
 			oStorage := oHostStorage.GetStorage()
 			_, err = db.Update(disk, func() error {
-				disk.BillingType = BILLING_TYPE_PREPAID
+				disk.BillingType = billing_api.BILLING_TYPE_PREPAID
 				disk.BillingCycle = host.BillingCycle
 				disk.ExpiredAt = host.ExpiredAt
 				disk.StorageId = oStorage.Id
@@ -512,10 +513,10 @@ func (self *SGuest) IsPrepaidRecycle() bool {
 }
 
 func (host *SHost) IsPrepaidRecycle() bool {
-	if host.ResourceType != HostResourceTypePrepaidRecycle {
+	if host.ResourceType != api.HostResourceTypePrepaidRecycle {
 		return false
 	}
-	if host.BillingType != BILLING_TYPE_PREPAID {
+	if host.BillingType != billing_api.BILLING_TYPE_PREPAID {
 		return false
 	}
 	return true
@@ -605,12 +606,12 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 				return nil, err
 			}
 			diskConfig.SizeMb = idisks[i].GetDiskSizeMB()
-			diskConfig.Backend = STORAGE_LOCAL
+			diskConfig.Backend = api.STORAGE_LOCAL
 			input.Disks[i] = diskConfig
 		} else {
 			conf := &api.DiskConfig{
 				SizeMb:  idisks[i].GetDiskSizeMB(),
-				Backend: STORAGE_LOCAL,
+				Backend: api.STORAGE_LOCAL,
 			}
 			conf, err = parseDiskInfo(ctx, userCred, conf)
 			if err != nil {
@@ -634,7 +635,7 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 	q = q.Equals("external_id", host.ExternalId)
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.IsNullOrEmpty(q.Field("resource_type")),
-		sqlchemy.Equals(q.Field("resource_type"), HostResourceTypeShared),
+		sqlchemy.Equals(q.Field("resource_type"), api.HostResourceTypeShared),
 	))
 
 	err := q.First(&oHost)
@@ -731,7 +732,7 @@ func (self *SHost) PerformRenewPrepaidRecycle(ctx context.Context, userCred mccl
 		return nil, httperrors.NewInputParameterError("invalid duration %s: %s", durationStr, err)
 	}
 
-	if !GetDriver(HOSTTYPE_HYPERVISOR[self.HostType]).IsSupportedBillingCycle(bc) {
+	if !GetDriver(api.HOSTTYPE_HYPERVISOR[self.HostType]).IsSupportedBillingCycle(bc) {
 		return nil, httperrors.NewInputParameterError("unsupported duration %s", durationStr)
 	}
 
@@ -757,8 +758,8 @@ func (self *SHost) startPrepaidRecycleHostRenewTask(ctx context.Context, userCre
 
 func (self *SHost) DoSaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
 	_, err := db.Update(self, func() error {
-		if self.BillingType != BILLING_TYPE_PREPAID {
-			self.BillingType = BILLING_TYPE_PREPAID
+		if self.BillingType != billing_api.BILLING_TYPE_PREPAID {
+			self.BillingType = billing_api.BILLING_TYPE_PREPAID
 		}
 		if expireAt != nil && !expireAt.IsZero() {
 			self.ExpiredAt = *expireAt

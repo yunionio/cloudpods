@@ -28,22 +28,12 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-)
-
-const (
-	CACHED_IMAGE_STATUS_INIT         = "init"
-	CACHED_IMAGE_STATUS_SAVING       = "saving"
-	CACHED_IMAGE_STATUS_CACHING      = "caching"
-	CACHED_IMAGE_STATUS_READY        = "ready"
-	CACHED_IMAGE_STATUS_DELETING     = "deleting"
-	CACHED_IMAGE_STATUS_CACHE_FAILED = "cache_fail"
-
-	DOWNLOAD_SESSION_LENGTH = 3600 * 3 // 3 hour
 )
 
 type SStoragecachedimageManager struct {
@@ -216,7 +206,7 @@ func (self *SStoragecachedimage) getDiskReferenceCount() int {
 		sqlchemy.IsFalse(storages.Field("deleted"))))
 	q = q.Filter(sqlchemy.Equals(storages.Field("storagecache_id"), self.StoragecacheId))
 	q = q.Filter(sqlchemy.Equals(disks.Field("template_id"), self.CachedimageId))
-	q = q.Filter(sqlchemy.NOT(sqlchemy.In(disks.Field("status"), []string{DISK_ALLOC_FAILED, DISK_INIT})))
+	q = q.Filter(sqlchemy.NOT(sqlchemy.In(disks.Field("status"), []string{api.DISK_ALLOC_FAILED, api.DISK_INIT})))
 
 	return q.Count()
 }
@@ -263,7 +253,7 @@ func (self *SStoragecachedimage) isCachedImageInUse() error {
 }
 
 func (self *SStoragecachedimage) isDownloadSessionExpire() bool {
-	if !self.LastDownload.IsZero() && time.Now().Sub(self.LastDownload) < DOWNLOAD_SESSION_LENGTH {
+	if !self.LastDownload.IsZero() && time.Now().Sub(self.LastDownload) < api.DOWNLOAD_SESSION_LENGTH {
 		return false
 	} else {
 		return true
@@ -291,11 +281,11 @@ func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mccl
 	}
 
 	if !isForce && !utils.IsInStringArray(self.Status,
-		[]string{CACHED_IMAGE_STATUS_READY, CACHED_IMAGE_STATUS_DELETING, CACHED_IMAGE_STATUS_CACHE_FAILED}) {
+		[]string{api.CACHED_IMAGE_STATUS_READY, api.CACHED_IMAGE_STATUS_DELETING, api.CACHED_IMAGE_STATUS_CACHE_FAILED}) {
 		return httperrors.NewInvalidStatusError("Cannot uncache in status %s", self.Status)
 	}
 	_, err = db.Update(self, func() error {
-		self.Status = CACHED_IMAGE_STATUS_DELETING
+		self.Status = api.CACHED_IMAGE_STATUS_DELETING
 		return nil
 	})
 	return err
@@ -316,7 +306,7 @@ func (manager *SStoragecachedimageManager) Register(ctx context.Context, userCre
 	cachedimage.StoragecacheId = cacheId
 	cachedimage.CachedimageId = imageId
 	if len(status) == 0 {
-		status = CACHED_IMAGE_STATUS_INIT
+		status = api.CACHED_IMAGE_STATUS_INIT
 	}
 	cachedimage.Status = status
 

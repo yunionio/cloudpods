@@ -22,8 +22,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SStorage struct {
@@ -83,9 +83,9 @@ func (self *SStorage) GetStorageType() string {
 
 func (self *SStorage) GetMediumType() string {
 	if strings.HasSuffix(self.storageType, "_ssd") {
-		return models.DISK_TYPE_SSD
+		return api.DISK_TYPE_SSD
 	} else {
-		return models.DISK_TYPE_ROTATE
+		return api.DISK_TYPE_ROTATE
 	}
 }
 
@@ -103,7 +103,7 @@ func (self *SStorage) GetManagerId() string {
 }
 
 func (self *SStorage) GetStatus() string {
-	return models.STORAGE_ONLINE
+	return api.STORAGE_ONLINE
 }
 
 func (self *SStorage) Refresh() error {

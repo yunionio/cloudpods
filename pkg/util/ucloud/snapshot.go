@@ -18,8 +18,8 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 // https://docs.ucloud.cn/api/udisk-api/describe_udisk_snapshot
@@ -66,13 +66,13 @@ func (self *SSnapshot) GetGlobalId() string {
 func (self *SSnapshot) GetStatus() string {
 	switch self.Status {
 	case "Normal":
-		return models.SNAPSHOT_READY
+		return api.SNAPSHOT_READY
 	case "Failed":
-		return models.SNAPSHOT_FAILED
+		return api.SNAPSHOT_FAILED
 	case "Creating":
-		return models.SNAPSHOT_CREATING
+		return api.SNAPSHOT_CREATING
 	default:
-		return models.SNAPSHOT_UNKNOWN
+		return api.SNAPSHOT_UNKNOWN
 	}
 }
 
@@ -108,9 +108,9 @@ func (self *SSnapshot) GetDiskId() string {
 // 磁盘类型，0:数据盘，1:系统盘
 func (self *SSnapshot) GetDiskType() string {
 	if self.DiskType == 1 {
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	} else {
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	}
 }
 

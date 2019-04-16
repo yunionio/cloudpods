@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -37,7 +38,7 @@ func init() {
 
 func (self *BaremetalDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	baremetal := obj.(*models.SHost)
-	baremetal.SetStatus(self.UserCred, models.BAREMETAL_DELETE, "")
+	baremetal.SetStatus(self.UserCred, api.BAREMETAL_DELETE, "")
 	if !baremetal.IsBaremetalAgentReady() {
 		self.OnDeleteBaremetalComplete(ctx, baremetal, nil)
 		return
@@ -66,6 +67,6 @@ func (self *BaremetalDeleteTask) OnDeleteBaremetalCompleteFailed(ctx context.Con
 }
 
 func (self *BaremetalDeleteTask) OnFailure(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
-	baremetal.SetStatus(self.UserCred, models.BAREMETAL_DELETE_FAIL, "")
+	baremetal.SetStatus(self.UserCred, api.BAREMETAL_DELETE_FAIL, "")
 	self.SetStageFailed(ctx, "")
 }

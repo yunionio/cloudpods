@@ -18,15 +18,16 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 // https://docs.ucloud.cn/api/udisk-api/create_udisk
 // UDisk 类型: DataDisk（普通数据盘），SSDDataDisk（SSD数据盘），默认值（DataDisk）
 var StorageTypes = []string{
-	models.STORAGE_UCLOUD_CLOUD_NORMAL,
-	models.STORAGE_UCLOUD_CLOUD_SSD,
+	api.STORAGE_UCLOUD_CLOUD_NORMAL,
+	api.STORAGE_UCLOUD_CLOUD_SSD,
 }
 
 type SZone struct {
@@ -91,7 +92,7 @@ func (self *SZone) GetGlobalId() string {
 }
 
 func (self *SZone) GetStatus() string {
-	return models.ZONE_ENABLE
+	return api.ZONE_ENABLE
 }
 
 func (self *SZone) Refresh() error {

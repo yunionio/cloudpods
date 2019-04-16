@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -33,7 +34,7 @@ func init() {
 }
 
 func (self *SLocalStorageDriver) GetStorageType() string {
-	return models.STORAGE_LOCAL
+	return api.STORAGE_LOCAL
 }
 
 func (self *SLocalStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

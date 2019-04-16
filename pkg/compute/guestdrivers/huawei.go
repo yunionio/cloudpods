@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -36,11 +37,11 @@ func init() {
 }
 
 func (self *SHuaweiGuestDriver) GetHypervisor() string {
-	return models.HYPERVISOR_HUAWEI
+	return api.HYPERVISOR_HUAWEI
 }
 
 func (self *SHuaweiGuestDriver) GetDefaultSysDiskBackend() string {
-	return models.STORAGE_HUAWEI_SATA
+	return api.STORAGE_HUAWEI_SATA
 }
 
 func (self *SHuaweiGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -48,7 +49,7 @@ func (self *SHuaweiGuestDriver) GetMinimalSysDiskSizeGb() int {
 }
 
 func (self *SHuaweiGuestDriver) GetStorageTypes() []string {
-	return []string{models.STORAGE_HUAWEI_SATA, models.STORAGE_HUAWEI_SAS, models.STORAGE_HUAWEI_SSD}
+	return []string{api.STORAGE_HUAWEI_SATA, api.STORAGE_HUAWEI_SAS, api.STORAGE_HUAWEI_SSD}
 }
 
 func (self *SHuaweiGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
@@ -70,23 +71,23 @@ func (self *SHuaweiGuestDriver) ChooseHostStorage(host *models.SHost, backend st
 }
 
 func (self *SHuaweiGuestDriver) GetDetachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SHuaweiGuestDriver) GetAttachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SHuaweiGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SHuaweiGuestDriver) GetChangeConfigStatus() ([]string, error) {
-	return []string{models.VM_READY}, nil
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SHuaweiGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SHuaweiGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
@@ -94,10 +95,10 @@ func (self *SHuaweiGuestDriver) RequestDetachDisk(ctx context.Context, guest *mo
 }
 
 func (self *SHuaweiGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
-	if !utils.IsInStringArray(guest.Status, []string{models.VM_RUNNING, models.VM_READY}) {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_HUAWEI_SATA, models.STORAGE_HUAWEI_SAS, models.STORAGE_HUAWEI_SSD}) {
+	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_HUAWEI_SATA, api.STORAGE_HUAWEI_SAS, api.STORAGE_HUAWEI_SSD}) {
 		return fmt.Errorf("Cannot resize disk with unsupported volumes type %s", storage.StorageType)
 	}
 
@@ -105,11 +106,11 @@ func (self *SHuaweiGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 }
 
 func (self *SHuaweiGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return models.VM_RUNNING
+	return api.VM_RUNNING
 }
 
 func (self *SHuaweiGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return models.VM_RUNNING
+	return api.VM_RUNNING
 }
 
 func (self *SHuaweiGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {

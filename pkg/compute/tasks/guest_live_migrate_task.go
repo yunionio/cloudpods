@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -60,7 +61,7 @@ func (self *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) 
 
 func (self *GuestMigrateTask) OnStartSchedule(obj IScheduleModel) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, models.VM_MIGRATING, "")
+	guest.SetStatus(self.UserCred, api.VM_MIGRATING, "")
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATING, "", self.UserCred)
 }
 
@@ -90,7 +91,7 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 	disks := guest.GetDisks()
 	disk := disks[0].GetDisk()
 	isLocalStorage := utils.IsInStringArray(disk.GetStorage().StorageType,
-		models.STORAGE_LOCAL_TYPES)
+		api.STORAGE_LOCAL_TYPES)
 	if isLocalStorage {
 		body.Set("is_local_storage", jsonutils.JSONTrue)
 	} else {
@@ -118,7 +119,7 @@ func (self *GuestMigrateTask) OnCachedImageComplete(ctx context.Context, guest *
 	header := self.GetTaskRequestHeader()
 	body := jsonutils.NewDict()
 	guestStatus, _ := self.Params.GetString("guest_status")
-	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == models.VM_RUNNING || guestStatus == models.VM_SUSPEND) {
+	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
 		body.Set("live_migrate", jsonutils.JSONTrue)
 	}
 
@@ -155,7 +156,7 @@ func (self *GuestMigrateTask) OnSrcPrepareComplete(ctx context.Context, guest *m
 		return
 	}
 	guestStatus, _ := self.Params.GetString("guest_status")
-	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == models.VM_RUNNING || guestStatus == models.VM_SUSPEND) {
+	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
 		body.Set("live_migrate", jsonutils.JSONTrue)
 	}
 
@@ -178,7 +179,7 @@ func (self *GuestMigrateTask) OnMigrateConfAndDiskCompleteFailed(ctx context.Con
 
 func (self *GuestMigrateTask) OnMigrateConfAndDiskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guestStatus, _ := self.Params.GetString("guest_status")
-	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == models.VM_RUNNING || guestStatus == models.VM_SUSPEND) {
+	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
 		// Live migrate
 		self.SetStage("OnStartDestComplete", nil)
 	} else {
@@ -306,12 +307,12 @@ func (self *GuestMigrateTask) setGuest(ctx context.Context, guest *models.SGuest
 	targetHostId, _ := self.Params.GetString("target_host_id")
 	if jsonutils.QueryBoolean(self.Params, "is_local_storage", false) {
 		targetHost := models.HostManager.FetchHostById(targetHostId)
-		targetStorage := targetHost.GetLeastUsedStorage(models.STORAGE_LOCAL)
+		targetStorage := targetHost.GetLeastUsedStorage(api.STORAGE_LOCAL)
 		guestDisks := guest.GetDisks()
 		for i := 0; i < len(guestDisks); i++ {
 			disk := guestDisks[i].GetDisk()
 			db.Update(disk, func() error {
-				disk.Status = models.DISK_READY
+				disk.Status = api.DISK_READY
 				disk.StorageId = targetStorage.Id
 				return nil
 			})
@@ -398,9 +399,9 @@ func (self *GuestMigrateTask) TaskComplete(ctx context.Context, guest *models.SG
 }
 
 func (self *GuestMigrateTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason string) {
-	guest.SetStatus(self.UserCred, models.VM_MIGRATE_FAILED, reason)
+	guest.SetStatus(self.UserCred, api.VM_MIGRATE_FAILED, reason)
 	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_MIGRATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
-	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_MIGRATE_FAILED, reason)
+	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_MIGRATE_FAILED, reason)
 }

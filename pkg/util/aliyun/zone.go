@@ -21,8 +21,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type TChargeType string
@@ -150,9 +150,9 @@ func (self *SZone) IsEmulated() bool {
 
 func (self *SZone) GetStatus() string {
 	if len(self.AvailableResourceCreation.ResourceTypes) == 0 || !utils.IsInStringArray("Instance", self.AvailableResourceCreation.ResourceTypes) {
-		return models.ZONE_SOLDOUT
+		return api.ZONE_SOLDOUT
 	} else {
-		return models.ZONE_ENABLE
+		return api.ZONE_ENABLE
 	}
 }
 

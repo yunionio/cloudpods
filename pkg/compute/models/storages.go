@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+/*
 const (
 	STORAGE_LOCAL     = api.STORAGE_LOCAL
 	STORAGE_BAREMETAL = api.STORAGE_BAREMETAL
@@ -106,6 +107,7 @@ var (
 
 	STORAGE_LIMITED_TYPES = api.STORAGE_LIMITED_TYPES
 )
+*/
 
 type SStorageManager struct {
 	db.SStandaloneResourceBaseManager
@@ -192,10 +194,10 @@ func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred
 	storageType, _ := data.GetString("storage_type")
 	mediumType, _ := data.GetString("medium_type")
 
-	if !utils.IsInStringArray(storageType, STORAGE_TYPES) {
+	if !utils.IsInStringArray(storageType, api.STORAGE_TYPES) {
 		return nil, httperrors.NewInputParameterError("Invalid storage type %s", storageType)
 	}
-	if !utils.IsInStringArray(mediumType, DISK_TYPES) {
+	if !utils.IsInStringArray(mediumType, api.DISK_TYPES) {
 		return nil, httperrors.NewInputParameterError("Invalid medium type %s", mediumType)
 	}
 	zoneId, err := data.GetString("zone")
@@ -305,8 +307,8 @@ func (self *SStorage) AllowPerformOnline(ctx context.Context, userCred mcclient.
 }
 
 func (self *SStorage) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != STORAGE_ONLINE {
-		err := self.SetStatus(userCred, STORAGE_ONLINE, "")
+	if self.Status != api.STORAGE_ONLINE {
+		err := self.SetStatus(userCred, api.STORAGE_ONLINE, "")
 		if err != nil {
 			return nil, err
 		}
@@ -320,8 +322,8 @@ func (self *SStorage) AllowPerformOffline(ctx context.Context, userCred mcclient
 }
 
 func (self *SStorage) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != STORAGE_OFFLINE {
-		err := self.SetStatus(userCred, STORAGE_OFFLINE, "")
+	if self.Status != api.STORAGE_OFFLINE {
+		err := self.SetStatus(userCred, api.STORAGE_OFFLINE, "")
 		if err != nil {
 			return nil, err
 		}
@@ -354,11 +356,11 @@ func (self *SStorage) GetSnapshotCount() int {
 }
 
 func (self *SStorage) IsLocal() bool {
-	return self.StorageType == STORAGE_LOCAL || self.StorageType == STORAGE_BAREMETAL
+	return self.StorageType == api.STORAGE_LOCAL || self.StorageType == api.STORAGE_BAREMETAL
 }
 
 func (self *SStorage) GetStorageCachePath(mountPoint, imageCachePath string) string {
-	if self.StorageType == STORAGE_NFS {
+	if self.StorageType == api.STORAGE_NFS {
 		return path.Join(mountPoint, imageCachePath)
 	} else {
 		return imageCachePath
@@ -407,9 +409,9 @@ func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int {
 	q := disks.Query(sqlchemy.SUM("sum", disks.Field("disk_size"))).Equals("storage_id", self.Id)
 	switch isReady {
 	case tristate.True:
-		q = q.Equals("status", DISK_READY)
+		q = q.Equals("status", api.DISK_READY)
 	case tristate.False:
-		q = q.NotEquals("status", DISK_READY)
+		q = q.NotEquals("status", api.DISK_READY)
 	}
 	if q.Count() == 0 {
 		return 0
@@ -440,7 +442,7 @@ func (self *SStorage) GetMasterHost() *SHost {
 		sqlchemy.IsFalse(hoststorages.Field("deleted"))))
 	q = q.Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), self.Id))
 	q = q.IsTrue("enabled")
-	q = q.Equals("host_status", HOST_ONLINE).Asc("id")
+	q = q.Equals("host_status", api.HOST_ONLINE).Asc("id")
 	host := SHost{}
 	host.SetModelManager(HostManager)
 	err := q.First(&host)
@@ -526,7 +528,7 @@ func (self *SStorage) SyncStatusWithHosts() {
 	online := 0
 	offline := 0
 	for _, h := range hosts {
-		if h.HostStatus == HOST_ONLINE {
+		if h.HostStatus == api.HOST_ONLINE {
 			online += 1
 		} else {
 			offline += 1
@@ -537,14 +539,14 @@ func (self *SStorage) SyncStatusWithHosts() {
 	if !self.IsLocal() {
 		status = self.Status
 		if online == 0 {
-			status = STORAGE_OFFLINE
+			status = api.STORAGE_OFFLINE
 		}
 	} else if online > 0 {
-		status = STORAGE_ONLINE
+		status = api.STORAGE_ONLINE
 	} else if offline > 0 {
-		status = STORAGE_OFFLINE
+		status = api.STORAGE_OFFLINE
 	} else {
-		status = STORAGE_OFFLINE
+		status = api.STORAGE_OFFLINE
 	}
 	if status != self.Status {
 		self.SetStatus(nil, status, "SyncStatusWithHosts")
@@ -655,7 +657,7 @@ func (self *SStorage) syncRemoveCloudStorage(ctx context.Context, userCred mccli
 
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
-		err = self.SetStatus(userCred, STORAGE_OFFLINE, "sync to delete")
+		err = self.SetStatus(userCred, api.STORAGE_OFFLINE, "sync to delete")
 		if err == nil {
 			_, err = self.PerformDisable(ctx, userCred, nil, nil)
 		}
@@ -732,7 +734,7 @@ func (manager *SStorageManager) disksReadyQ() *sqlchemy.SSubQuery {
 	q := disks.Query(
 		disks.Field("storage_id"),
 		sqlchemy.SUM("used_capacity", disks.Field("disk_size")),
-	).Equals("status", DISK_READY).GroupBy(disks.Field("storage_id")).SubQuery()
+	).Equals("status", api.DISK_READY).GroupBy(disks.Field("storage_id")).SubQuery()
 	return q
 }
 
@@ -749,7 +751,7 @@ func (manager *SStorageManager) diskIsAttachedQ(isAttached bool) *sqlchemy.SSubQ
 	q := disks.Query(
 		disks.Field("storage_id"),
 		sqlchemy.SUM(sumKey, disks.Field("disk_size")),
-	).Equals("status", DISK_READY).GroupBy(disks.Field("storage_id"))
+	).Equals("status", api.DISK_READY).GroupBy(disks.Field("storage_id"))
 	return q.SubQuery()
 }
 
@@ -766,7 +768,7 @@ func (manager *SStorageManager) disksFailedQ() *sqlchemy.SSubQuery {
 	q := disks.Query(
 		disks.Field("storage_id"),
 		sqlchemy.SUM("failed_capacity", disks.Field("disk_size")),
-	).NotEquals("status", DISK_READY).GroupBy(disks.Field("storage_id")).SubQuery()
+	).NotEquals("status", api.DISK_READY).GroupBy(disks.Field("storage_id")).SubQuery()
 	return q
 }
 
@@ -800,7 +802,7 @@ func (manager *SStorageManager) totalCapacityQ(
 		q = q.Join(hostStorages, sqlchemy.Equals(hostStorages.Field("storage_id"), storages.Field("id")))
 		q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostStorages.Field("host_id")))
 		q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
-		q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE))
+		q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE))
 
 		q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, nil, rangeObj)
 	}
@@ -909,7 +911,7 @@ func (self *SStorage) GetAllAttachingHosts() []SHost {
 		sqlchemy.IsFalse(hoststorages.Field("deleted"))))
 	q = q.Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), self.Id))
 	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
-	q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE))
+	q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE))
 
 	ret := make([]SHost, 0)
 	err := q.All(&ret)
@@ -1030,7 +1032,7 @@ func (manager *SStorageManager) InitializeData() error {
 				return nil
 			})
 		}
-		if len(s.StoragecacheId) == 0 && s.StorageType == STORAGE_RBD {
+		if len(s.StoragecacheId) == 0 && s.StorageType == api.STORAGE_RBD {
 			storagecache := &SStoragecache{}
 			storagecache.SetModelManager(StoragecacheManager)
 			storagecache.Name = "rbd-" + s.Id
@@ -1088,11 +1090,11 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	}
 
 	if jsonutils.QueryBoolean(query, "share", false) {
-		q = q.Filter(sqlchemy.NotIn(q.Field("storage_type"), STORAGE_LOCAL_TYPES))
+		q = q.Filter(sqlchemy.NotIn(q.Field("storage_type"), api.STORAGE_LOCAL_TYPES))
 	}
 
 	if jsonutils.QueryBoolean(query, "local", false) {
-		q = q.Filter(sqlchemy.In(q.Field("storage_type"), STORAGE_LOCAL_TYPES))
+		q = q.Filter(sqlchemy.In(q.Field("storage_type"), api.STORAGE_LOCAL_TYPES))
 	}
 
 	if jsonutils.QueryBoolean(query, "usable", false) {
@@ -1100,10 +1102,10 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		hostTable := HostManager.Query().SubQuery()
 		sq := hostStorageTable.Query(hostStorageTable.Field("storage_id")).Join(hostTable,
 			sqlchemy.Equals(hostTable.Field("id"), hostStorageTable.Field("host_id"))).
-			Filter(sqlchemy.Equals(hostTable.Field("host_status"), HOST_ONLINE))
+			Filter(sqlchemy.Equals(hostTable.Field("host_status"), api.HOST_ONLINE))
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), sq)).
-			Filter(sqlchemy.In(q.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE})).
+			Filter(sqlchemy.In(q.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE})).
 			Filter(sqlchemy.IsTrue(q.Field("enabled")))
 	}
 

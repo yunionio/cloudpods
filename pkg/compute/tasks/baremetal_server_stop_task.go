@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -37,7 +38,7 @@ func init() {
 func (self *BaremetalServerStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	db.OpsLog.LogEvent(guest, db.ACT_STOPPING, "", self.UserCred)
-	guest.SetStatus(self.UserCred, models.VM_START_STOP, "")
+	guest.SetStatus(self.UserCred, api.VM_START_STOP, "")
 	baremetal := guest.GetHost()
 	if baremetal != nil {
 		self.OnStopGuestFail(ctx, guest, "Baremetal is None")
@@ -63,15 +64,15 @@ func (self *BaremetalServerStopTask) OnInit(ctx context.Context, obj db.IStandal
 }
 
 func (self *BaremetalServerStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if guest.Status == models.VM_STOPPING {
-		guest.SetStatus(self.UserCred, models.VM_READY, "")
+	if guest.Status == api.VM_STOPPING {
+		guest.SetStatus(self.UserCred, api.VM_READY, "")
 		db.OpsLog.LogEvent(guest, db.ACT_STOP, "", self.UserCred)
 	}
 	baremetal := guest.GetHost()
-	baremetal.SetStatus(self.UserCred, models.BAREMETAL_READY, "")
+	baremetal.SetStatus(self.UserCred, api.BAREMETAL_READY, "")
 	self.SetStageComplete(ctx, nil)
-	if guest.Status == models.VM_READY {
-		if !jsonutils.QueryBoolean(self.Params, "reset", false) && guest.DisableDelete.IsFalse() && guest.ShutdownBehavior == models.SHUTDOWN_TERMINATE {
+	if guest.Status == api.VM_READY {
+		if !jsonutils.QueryBoolean(self.Params, "reset", false) && guest.DisableDelete.IsFalse() && guest.ShutdownBehavior == api.SHUTDOWN_TERMINATE {
 			guest.StartAutoDeleteGuestTask(ctx, self.UserCred, "")
 		}
 	}
@@ -81,7 +82,7 @@ func (self *BaremetalServerStopTask) OnGuestStopTaskCompleteFailed(ctx context.C
 	guest.SetStatus(self.UserCred, db.ACT_STOP_FAIL, data.String())
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, data.String(), self.UserCred)
 	baremetal := guest.GetHost()
-	baremetal.SetStatus(self.UserCred, models.BAREMETAL_READY, "")
+	baremetal.SetStatus(self.UserCred, api.BAREMETAL_READY, "")
 	self.SetStageFailed(ctx, data.String())
 }
 

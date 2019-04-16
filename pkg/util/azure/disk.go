@@ -23,8 +23,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type DiskSku struct {
@@ -164,7 +165,7 @@ func (self *SRegion) GetDisks() ([]SDisk, error) {
 
 func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(models.HYPERVISOR_AZURE), "hypervisor")
+	data.Add(jsonutils.NewString(api.HYPERVISOR_AZURE), "hypervisor")
 	return data
 }
 
@@ -173,15 +174,15 @@ func (self *SDisk) GetStatus() string {
 		status := self.Properties.ProvisioningState
 		switch status {
 		case "Updating":
-			return models.DISK_ALLOCATING
+			return api.DISK_ALLOCATING
 		case "Succeeded":
-			return models.DISK_READY
+			return api.DISK_READY
 		default:
 			log.Errorf("Unknow azure disk %s status: %s", self.ID, status)
-			return models.DISK_UNKNOWN
+			return api.DISK_UNKNOWN
 		}
 	}
-	return models.DISK_READY
+	return api.DISK_READY
 }
 
 func (self *SDisk) GetId() string {
@@ -267,9 +268,9 @@ func (self *SDisk) GetTemplateId() string {
 
 func (self *SDisk) GetDiskType() string {
 	if len(self.Properties.OsType) > 0 {
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	}
-	return models.DISK_TYPE_DATA
+	return api.DISK_TYPE_DATA
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
@@ -301,7 +302,7 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (self *SDisk) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {

@@ -17,10 +17,13 @@ package ucloud
 import (
 	"time"
 
-	"github.com/coredns/coredns/plugin/pkg/log"
+	"yunion.io/x/log"
+
 	"yunion.io/x/jsonutils"
+
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 // https://docs.ucloud.cn/api/unet-api/describe_eip
@@ -87,13 +90,13 @@ func (self *SEip) GetGlobalId() string {
 func (self *SEip) GetStatus() string {
 	switch self.Status {
 	case "used":
-		return models.EIP_STATUS_ASSOCIATE // ?
+		return api.EIP_STATUS_ASSOCIATE // ?
 	case "free":
-		return models.EIP_STATUS_READY
+		return api.EIP_STATUS_READY
 	case "freeze":
-		return models.EIP_STATUS_UNKNOWN
+		return api.EIP_STATUS_UNKNOWN
 	default:
-		return models.EIP_STATUS_UNKNOWN
+		return api.EIP_STATUS_UNKNOWN
 	}
 }
 
@@ -120,9 +123,9 @@ func (self *SEip) GetMetadata() *jsonutils.JSONDict {
 func (self *SEip) GetBillingType() string {
 	switch self.ChargeType {
 	case "Year", "Month":
-		return models.BILLING_TYPE_PREPAID
+		return billing_api.BILLING_TYPE_PREPAID
 	default:
-		return models.BILLING_TYPE_POSTPAID
+		return billing_api.BILLING_TYPE_POSTPAID
 	}
 }
 
@@ -141,7 +144,7 @@ func (self *SEip) GetIpAddr() string {
 }
 
 func (self *SEip) GetMode() string {
-	return models.EIP_MODE_STANDALONE_EIP
+	return api.EIP_MODE_STANDALONE_EIP
 }
 
 func (self *SEip) GetAssociationType() string {
@@ -167,11 +170,11 @@ func (self *SEip) GetBandwidth() int {
 func (self *SEip) GetInternetChargeType() string {
 	switch self.PayMode {
 	case "Bandwidth":
-		return models.EIP_CHARGE_TYPE_BY_BANDWIDTH
+		return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
 	case "Traffic":
-		return models.EIP_CHARGE_TYPE_BY_TRAFFIC
+		return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 	default:
-		return models.EIP_CHARGE_TYPE_BY_BANDWIDTH
+		return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
 	}
 }
 
