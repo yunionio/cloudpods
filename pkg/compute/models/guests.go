@@ -2355,7 +2355,7 @@ func filterGuestByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, hostTy
 	hosts := HostManager.Query().SubQuery()
 
 	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), q.Field("host_id")))
-	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+	//q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 	// q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE))
 
 	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, rangeObj)
