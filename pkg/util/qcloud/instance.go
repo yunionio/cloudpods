@@ -480,7 +480,7 @@ func (self *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	if instances[0].InstanceState == "LAUNCH_FAILED" {
 		return nil, cloudprovider.ErrNotFound
 	}
-	log.Debugf("%s", instances)
+	log.Debugf("%#v", instances)
 	return &instances[0], nil
 }
 

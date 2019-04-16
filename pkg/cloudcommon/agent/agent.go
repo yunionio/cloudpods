@@ -123,7 +123,7 @@ func (agent *SBaseAgent) FindListenIP(listenAddr string) (net.IP, error) {
 			return ip, nil
 		}
 	}
-	return nil, fmt.Errorf("Not found Address %s on Interface %s", listenAddr, agent.ListenInterface)
+	return nil, fmt.Errorf("Not found Address %s on Interface %#v", listenAddr, agent.ListenInterface)
 }
 
 func (agent *SBaseAgent) FindAccessIP(accessAddr string) (net.IP, error) {

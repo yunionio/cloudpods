@@ -4005,7 +4005,7 @@ func (self *SGuest) FillDiskSchedDesc(desc *api.ServerConfigs) {
 	guestDisks := make([]SGuestdisk, 0)
 	err := GuestdiskManager.Query().Equals("guest_id", self.Id).All(&guestDisks)
 	if err != nil {
-		log.Errorln("FillDiskSchedDesc: %v", err)
+		log.Errorf("FillDiskSchedDesc: %v", err)
 		return
 	}
 	for i := 0; i < len(guestDisks); i++ {
@@ -4020,7 +4020,7 @@ func (self *SGuest) FillNetSchedDesc(desc *api.ServerConfigs) {
 	guestNetworks := make([]SGuestnetwork, 0)
 	err := GuestnetworkManager.Query().Equals("guest_id", self.Id).All(&guestNetworks)
 	if err != nil {
-		log.Errorln("FillNetSchedDesc: %v", err)
+		log.Errorf("FillNetSchedDesc: %v", err)
 		return
 	}
 	if desc.Networks == nil {

@@ -69,7 +69,7 @@ func (self *SHost) searchNetorkInterface(IPAddr string, networkId string, secgro
 				if nic.Properties.NetworkSecurityGroup == nil || nic.Properties.NetworkSecurityGroup.ID != secgroupId {
 					nic.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
 					if err := self.zone.region.client.Update(jsonutils.Marshal(nic), nil); err != nil {
-						log.Errorf("assign secgroup %s for nic %s failed %d")
+						log.Errorf("assign secgroup %s for nic %#v failed: %v", secgroupId, nic, err)
 						return nil, err
 					}
 				}

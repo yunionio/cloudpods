@@ -102,7 +102,7 @@ func (m *SBaseMonitor) Connect(host string, port int) error {
 	address := fmt.Sprintf("%s:%d", host, port)
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
-		log.Errorln("Connect monitor error:%s", err)
+		log.Errorf("Connect monitor error: %s", err)
 		return err
 	}
 	// Setup reader timeout

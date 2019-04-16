@@ -64,7 +64,7 @@ func ParseBillingCycle(cycleStr string) (SBillingCycle, error) {
 	}
 	val, err := strconv.Atoi(cycleStr[:len(cycleStr)-1])
 	if err != nil {
-		log.Errorf("invalid BillingCycle string %s: %", cycleStr, err)
+		log.Errorf("invalid BillingCycle string %s: %v", cycleStr, err)
 		return cycle, ErrInvalidBillingCycle
 	}
 	cycle.Count = val

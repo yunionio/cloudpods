@@ -342,7 +342,7 @@ func SetLanPasswd(exector IPMIExecutor, rootId int, password string) error {
 	if err != nil {
 		return fmt.Errorf("EscapeEchoString for password: %v", err)
 	}
-	args := newArgs("user", "set", "password", rootId, fmt.Sprint("\"%s\"", password))
+	args := newArgs("user", "set", "password", rootId, fmt.Sprintf("\"%s\"", password))
 	return doActions(exector, "set_lan_passwd", args)
 }
 

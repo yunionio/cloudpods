@@ -320,7 +320,7 @@ func (manager *SIsolatedDeviceManager) attachSpecificDeviceToGuest(ctx context.C
 
 func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
 	if len(devConfig.Model) == 0 {
-		return fmt.Errorf("Not found model from info: %s", devConfig)
+		return fmt.Errorf("Not found model from info: %#v", devConfig)
 	}
 	devs, err := manager.findHostUnusedByModel(devConfig.Model, host.Id)
 	if err != nil || len(devs) == 0 {

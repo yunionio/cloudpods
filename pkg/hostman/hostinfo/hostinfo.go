@@ -673,7 +673,7 @@ func (h *SHostInfo) setHostname(name string) {
 	h.FullName = name
 	err := sysutils.SetHostname(name)
 	if err != nil {
-		log.Errorln("Fail to set system hostname: %s", err)
+		log.Errorf("Fail to set system hostname: %s", err)
 	}
 }
 

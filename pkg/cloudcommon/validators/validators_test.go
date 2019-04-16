@@ -26,6 +26,8 @@ import (
 	"testing"
 
 	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/util/choices"
 )
 
 func TestURLPathRegexp(t *testing.T) {
@@ -93,7 +95,7 @@ func testS(t *testing.T, v IValidator, c *C) {
 }
 
 func TestStringChoicesValidator(t *testing.T) {
-	choices := NewChoices("choice0", "choice1", "100")
+	choices := choices.NewChoices("choice0", "choice1", "100")
 	cases := []*C{
 		{
 			Name:      "missing non-optional",
@@ -164,7 +166,7 @@ func TestStringMultiChoicesValidator(t *testing.T) {
 		*C
 		KeepDup bool
 	}
-	choices := NewChoices("choice0", "choice1")
+	choices := choices.NewChoices("choice0", "choice1")
 	cases := []*MultiChoicesC{
 		{
 			C: &C{

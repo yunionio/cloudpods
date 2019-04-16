@@ -155,7 +155,7 @@ func (self *SRegion) GetAllResByOrderId(orderId string) ([]SResource, error) {
 		return nil, err
 	}
 
-	log.Debugf("GetAllResByOrderId %s", order.Resources)
+	log.Debugf("GetAllResByOrderId %#v", order.Resources)
 	return order.Resources, nil
 }
 

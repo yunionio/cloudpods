@@ -63,10 +63,7 @@ gencopyright:
 	@sh scripts/gencopyright.sh pkg cmd
 
 test:
-	@for PKG in $$( $(PKGS) | grep "$(filter-out $@,$(MAKECMDGOALS))" ); do \
-		echo $$PKG; \
-		$(GO_TEST) $$PKG; \
-	done
+	@go test $(shell go list ./... | egrep -v 'host-image|hostimage')
 
 vet:
 	go vet ./...

@@ -267,7 +267,7 @@ func (p *DiskSchedtagPredicate) OnSelectEnd(u *core.Unit, c core.Candidater, cou
 
 func (p *DiskSchedtagPredicate) allocatedDiskResource(c core.Candidater, disk *computeapi.DiskConfig, storages []*PredicatedStorage) *schedapi.CandidateDisk {
 	storage := p.selectStorage(disk, storages)
-	log.Debugf("Select %s storage %s:%s for disk: %s", c.Getter().Name(), storage.Id, storage.Name, disk.Index)
+	log.Debugf("Select %s storage %s:%s for disk: %d", c.Getter().Name(), storage.Id, storage.Name, disk.Index)
 	return &schedapi.CandidateDisk{
 		Index:     disk.Index,
 		StorageId: storage.Id,

@@ -18,7 +18,13 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
+
+func init() {
+	o.Options.KubectlPath = "/usr/bin/kubectl"
+}
 
 func TestKubectlExec_Command(t *testing.T) {
 	type fields struct {
@@ -43,7 +49,7 @@ func TestKubectlExec_Command(t *testing.T) {
 				cmd:  "bash",
 				args: []string{"-il"},
 			},
-			want: "kubectl --namespace system exec -i -t Pod1 -c Container1 -- bash -il",
+			want: "/usr/bin/kubectl --namespace system exec -i -t Pod1 -c Container1 -- bash -il",
 		},
 	}
 	for _, tt := range tests {

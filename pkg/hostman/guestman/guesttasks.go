@@ -872,7 +872,7 @@ func (s *SGuestSnapshotDeleteTask) doReloadDisk(device string) {
 func (s *SGuestSnapshotDeleteTask) onReloadBlkdevSucc(err string) {
 	var callback = s.onResumeSucc
 	if len(err) > 0 {
-		log.Errorln("Reload blkdev failed: %s", err)
+		log.Errorf("Reload blkdev failed: %s", err)
 		callback = s.onSnapshotBlkdevFail
 	}
 	s.Monitor.SimpleCommand("cont", callback)

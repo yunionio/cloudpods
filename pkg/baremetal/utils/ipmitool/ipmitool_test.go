@@ -17,6 +17,8 @@ package ipmitool
 import (
 	"reflect"
 	"testing"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
 func TestGetSysInfo(t *testing.T) {
@@ -26,7 +28,7 @@ func TestGetSysInfo(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *SystemInfo
+		want    *types.SIPMISystemInfo
 		wantErr bool
 	}{
 		// TODO: Add test cases.

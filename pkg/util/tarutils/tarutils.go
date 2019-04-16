@@ -34,7 +34,7 @@ func TarSparseFile(origin, tar string) error {
 	}
 	_, err := procutils.NewCommand("tar", "-Scf", tar, originFile).Run()
 	if err != nil {
-		log.Errorln("Tar sparse file error: %s", err)
+		log.Errorf("Tar sparse file error: %s", err)
 	}
 	return nil
 }

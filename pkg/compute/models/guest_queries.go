@@ -151,7 +151,7 @@ func fetchGuestDiskSizes(guestIds []string) map[string]sGustDiskSize {
 	gds := make([]sGustDiskSize, 0)
 	err := q.All(&gds)
 	if err != nil && err != sql.ErrNoRows {
-		log.Errorf("query sGustDiskSize fail %s")
+		log.Errorf("query sGustDiskSize fail: %v", err)
 		return nil
 	}
 

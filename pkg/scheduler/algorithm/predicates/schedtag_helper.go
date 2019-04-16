@@ -239,7 +239,7 @@ func (c *SchedtagChecker) mergeSchedtags(candiate ISchedtagCandidate, staticTags
 	for _, dt := range dynamicTags {
 		if !isIn(staticTags, dt) {
 			ret = append(ret, dt)
-			log.Debugf("Append dynamic schedtag %s to %s %q", dt, candiate.ResourceType(), candiate.IndexKey())
+			log.Debugf("Append dynamic schedtag %#v to %s %q", dt, candiate.ResourceType(), candiate.IndexKey())
 		}
 	}
 	return ret

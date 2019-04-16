@@ -14,6 +14,7 @@
 
 package policy
 
+/*
 import (
 	"testing"
 
@@ -45,4 +46,4 @@ func TestSerialize(t *testing.T) {
 		jsonEmb2 := jsonutils.Marshal(&nemb)
 		t.Logf("%s", jsonEmb2)
 	}
-}
+}*/

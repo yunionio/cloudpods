@@ -325,7 +325,7 @@ func (task *sBaremetalPrepareTask) tryLocalIpmiAddr(sshIPMI *ipmitool.SSHIPMI, i
 		break
 	}
 	if tried >= maxTries {
-		log.Errorf("Failed to get lan config after %s tries", tried)
+		log.Errorf("Failed to get lan config after %d tries", tried)
 		return false
 	}
 	rmcpIPMI := ipmitool.NewLanPlusIPMI(tryAddr, ipmiUser, ipmiPasswd)
