@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -45,7 +46,7 @@ func (self *DiskDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 
 func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SDisk) {
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATING, disk.GetShortDesc(ctx), self.UserCred)
-	if disk.Status == models.DISK_INIT {
+	if disk.Status == api.DISK_INIT {
 		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
 		return
 	}
@@ -55,7 +56,7 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 	if (host == nil || !host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		isPurge = true
 	}
-	disk.SetStatus(self.UserCred, models.DISK_DEALLOC, "")
+	disk.SetStatus(self.UserCred, api.DISK_DEALLOC, "")
 	if isPurge {
 		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
 	} else {
@@ -108,7 +109,7 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteComplete(ctx context.Context, obj d
 }
 
 func (self *DiskDeleteTask) OnGuestDiskDeleteCompleteFailed(ctx context.Context, disk *models.SDisk, resion jsonutils.JSONObject) {
-	disk.SetStatus(self.GetUserCred(), models.DISK_DEALLOC_FAILED, resion.String())
+	disk.SetStatus(self.GetUserCred(), api.DISK_DEALLOC_FAILED, resion.String())
 	self.SetStageFailed(ctx, resion.String())
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(ctx), self.GetUserCred())
 }

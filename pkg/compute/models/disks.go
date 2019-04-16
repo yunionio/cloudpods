@@ -17,6 +17,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -30,45 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/billing"
-)
-
-const (
-	DISK_INIT                = api.DISK_INIT
-	DISK_REBUILD             = api.DISK_REBUILD
-	DISK_ALLOC_FAILED        = api.DISK_ALLOC_FAILED
-	DISK_STARTALLOC          = api.DISK_STARTALLOC
-	DISK_BACKUP_STARTALLOC   = api.DISK_BACKUP_STARTALLOC
-	DISK_BACKUP_ALLOC_FAILED = api.DISK_BACKUP_ALLOC_FAILED
-	DISK_ALLOCATING          = api.DISK_ALLOCATING
-	DISK_READY               = api.DISK_READY
-	DISK_RESET               = api.DISK_RESET        // 快照回滚
-	DISK_RESET_FAILED        = api.DISK_RESET_FAILED // 快照回滚失败
-	DISK_DEALLOC             = api.DISK_DEALLOC
-	DISK_DEALLOC_FAILED      = api.DISK_DEALLOC_FAILED
-	DISK_UNKNOWN             = api.DISK_UNKNOWN
-	DISK_DETACHING           = api.DISK_DETACHING
-	DISK_ATTACHING           = api.DISK_ATTACHING
-	DISK_CLONING             = api.DISK_CLONING // 硬盘克隆
-
-	DISK_START_SAVE = api.DISK_START_SAVE
-	DISK_SAVING     = api.DISK_SAVING
-
-	DISK_START_RESIZE = api.DISK_START_RESIZE
-	DISK_RESIZING     = api.DISK_RESIZING
-
-	DISK_START_MIGRATE = api.DISK_START_MIGRATE
-	DISK_POST_MIGRATE  = api.DISK_POST_MIGRATE
-	DISK_MIGRATING     = api.DISK_MIGRATING
-
-	DISK_START_SNAPSHOT = api.DISK_START_SNAPSHOT
-	DISK_SNAPSHOTING    = api.DISK_SNAPSHOTING
-
-	DISK_TYPE_SYS    = api.DISK_TYPE_SYS
-	DISK_TYPE_SWAP   = api.DISK_TYPE_SWAP
-	DISK_TYPE_DATA   = api.DISK_TYPE_DATA
-	DISK_TYPE_VOLUME = api.DISK_TYPE_VOLUME
-
-	DISK_BACKING_IMAGE = api.DISK_BACKING_IMAGE
 )
 
 type SDiskManager struct {
@@ -149,7 +111,7 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	billingTypeStr, _ := queryDict.GetString("billing_type")
 	if len(billingTypeStr) > 0 {
-		if billingTypeStr == BILLING_TYPE_POSTPAID {
+		if billingTypeStr == billing_api.BILLING_TYPE_POSTPAID {
 			q = q.Filter(
 				sqlchemy.OR(
 					sqlchemy.IsNullOrEmpty(q.Field("billing_type")),
@@ -178,7 +140,7 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 
 	if jsonutils.QueryBoolean(query, "share", false) {
-		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.NotIn(storages.Field("storage_type"), STORAGE_LOCAL_TYPES))
+		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.NotIn(storages.Field("storage_type"), api.STORAGE_LOCAL_TYPES))
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	}
 
@@ -218,7 +180,7 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}*/
 
 	if jsonutils.QueryBoolean(query, "local", false) {
-		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.In(storages.Field("storage_type"), STORAGE_LOCAL_TYPES))
+		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.In(storages.Field("storage_type"), api.STORAGE_LOCAL_TYPES))
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	}
 
@@ -342,7 +304,7 @@ func (self *SDisk) GetRuningGuestCount() int {
 	return guests.Query().Join(guestdisks, sqlchemy.AND(
 		sqlchemy.Equals(guestdisks.Field("guest_id"), guests.Field("id")))).
 		Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id)).
-		Filter(sqlchemy.Equals(guests.Field("status"), VM_RUNNING)).Count()
+		Filter(sqlchemy.Equals(guests.Field("status"), api.VM_RUNNING)).Count()
 }
 
 func (self *SDisk) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -366,7 +328,7 @@ func (self *SDisk) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	}
 
 	if diskType, _ := data.GetString("disk_type"); diskType != "" {
-		if !utils.IsInStringArray(diskType, []string{DISK_TYPE_DATA, DISK_TYPE_VOLUME}) {
+		if !utils.IsInStringArray(diskType, []string{api.DISK_TYPE_DATA, api.DISK_TYPE_VOLUME}) {
 			return nil, httperrors.NewInputParameterError("not support update disk_type %s", diskType)
 		}
 	}
@@ -408,7 +370,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		}
 		input.Storage = storage.Id
 	} else {
-		diskConfig.Backend = STORAGE_LOCAL
+		diskConfig.Backend = api.STORAGE_LOCAL
 		serverInput, err := ValidateScheduleCreateData(ctx, userCred, input.ToServerCreateInput(), input.Hypervisor)
 		if err != nil {
 			return nil, err
@@ -430,7 +392,7 @@ func (manager *SDiskManager) validateDiskOnStorage(diskConfig *api.DiskConfig, s
 	if !storage.Enabled {
 		return httperrors.NewInputParameterError("Cannot create disk with disabled storage[%s]", storage.Name)
 	}
-	if !utils.IsInStringArray(storage.Status, []string{STORAGE_ENABLED, STORAGE_ONLINE}) {
+	if !utils.IsInStringArray(storage.Status, []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}) {
 		return httperrors.NewInputParameterError("Cannot create disk with offline storage[%s]", storage.Name)
 	}
 	if storage.StorageType != diskConfig.Backend {
@@ -483,7 +445,7 @@ func (disk *SDisk) SetStorageByHost(hostId string, diskConfig *api.DiskConfig) e
 		return fmt.Errorf("Backend is empty")
 	}
 	var storage *SStorage
-	if utils.IsInStringArray(backend, STORAGE_LIMITED_TYPES) {
+	if utils.IsInStringArray(backend, api.STORAGE_LIMITED_TYPES) {
 		storage = host.GetLeastUsedStorage(backend)
 	} else {
 		// unlimited pulic cloud storages
@@ -603,7 +565,7 @@ func (self *SDisk) GetDetailsConvertSnapshot(ctx context.Context, userCred mccli
 		return nil, httperrors.NewBadRequestError("Snapshot %s dose not have convert snapshot", deleteSnapshot.Id)
 	}
 	var FakeDelete bool
-	if deleteSnapshot.CreatedBy == MANUAL && !deleteSnapshot.FakeDeleted {
+	if deleteSnapshot.CreatedBy == api.SNAPSHOT_MANUAL && !deleteSnapshot.FakeDeleted {
 		FakeDelete = true
 	}
 	ret := jsonutils.NewDict()
@@ -662,7 +624,7 @@ func (self *SDisk) AllowPerformDiskReset(ctx context.Context, userCred mcclient.
 }
 
 func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != DISK_READY {
+	if self.Status != api.DISK_READY {
 		return nil, httperrors.NewInvalidStatusError("Cannot reset disk in status %s", self.Status)
 	}
 	snapshotId, err := data.GetString("snapshot_id")
@@ -673,7 +635,7 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 	if len(guests) > 1 {
 		return nil, httperrors.NewBadRequestError("Disk attach muti guests")
 	} else if len(guests) == 1 {
-		if guests[0].Status != VM_READY {
+		if guests[0].Status != api.VM_READY {
 			return nil, httperrors.NewServerStatusError("Disk attached guest status must be ready")
 		}
 	}
@@ -682,7 +644,7 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 		return nil, httperrors.NewNotFoundError("Snapshot %s not found", snapshotId)
 	}
 	snapshot := iSnapshot.(*SSnapshot)
-	if snapshot.Status != SNAPSHOT_READY {
+	if snapshot.Status != api.SNAPSHOT_READY {
 		return nil, httperrors.NewBadRequestError("Cannot reset disk with snapshot in status %s", snapshot.Status)
 	}
 	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
@@ -691,7 +653,7 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SDisk) StartResetDisk(ctx context.Context, userCred mcclient.TokenCredential, snapshotId string, autoStart bool) error {
-	self.SetStatus(userCred, DISK_RESET, "")
+	self.SetStatus(userCred, api.DISK_RESET, "")
 	params := jsonutils.NewDict()
 	params.Set("snapshot_id", jsonutils.NewString(snapshotId))
 	params.Set("auto_start", jsonutils.NewBool(autoStart))
@@ -717,7 +679,7 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	if err != nil {
 		return nil, err
 	}
-	if self.Status != DISK_READY {
+	if self.Status != api.DISK_READY {
 		return nil, httperrors.NewResourceNotReadyError("Resize disk when disk is READY")
 	}
 	if sizeMb < self.DiskSize {
@@ -818,7 +780,7 @@ func (self *SDisk) AllowPerformSave(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SDisk) PerformSave(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != DISK_READY {
+	if self.Status != api.DISK_READY {
 		return nil, httperrors.NewResourceNotReadyError("Save disk when disk is READY")
 
 	}
@@ -839,7 +801,7 @@ func (self *SDisk) PerformSave(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (self *SDisk) StartDiskSaveTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
-	self.SetStatus(userCred, DISK_START_SAVE, "")
+	self.SetStatus(userCred, api.DISK_START_SAVE, "")
 	if task, err := taskman.TaskManager.NewTask(ctx, "DiskSaveTask", self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorf("Start DiskSaveTask failed:%v", err)
 		return err
@@ -1041,7 +1003,7 @@ func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.To
 
 	err := self.ValidatePurgeCondition(ctx)
 	if err != nil {
-		return self.SetStatus(userCred, DISK_UNKNOWN, "missing original disk after sync")
+		return self.SetStatus(userCred, api.DISK_UNKNOWN, "missing original disk after sync")
 	} else {
 		return self.RealDelete(ctx, userCred)
 	}
@@ -1068,7 +1030,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		// self.TemplateId = extDisk.GetTemplateId() no sync template ID
 		self.DiskType = extDisk.GetDiskType()
 		if index == 0 {
-			self.DiskType = DISK_TYPE_SYS
+			self.DiskType = api.DISK_TYPE_SYS
 		}
 		// self.FsFormat = extDisk.GetFsFormat()
 		self.Nonpersistent = extDisk.GetIsNonPersistent()
@@ -1108,7 +1070,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	disk.AutoDelete = extDisk.GetIsAutoDelete()
 	disk.DiskType = extDisk.GetDiskType()
 	if index == 0 {
-		disk.DiskType = DISK_TYPE_SYS
+		disk.DiskType = api.DISK_TYPE_SYS
 	}
 	disk.Nonpersistent = extDisk.GetIsNonPersistent()
 
@@ -1140,9 +1102,9 @@ func totalDiskSize(projectId string, active tristate.TriState, ready tristate.Tr
 		q = q.Join(storages, sqlchemy.AND(sqlchemy.IsFalse(storages.Field("deleted")),
 			sqlchemy.Equals(storages.Field("id"), disks.Field("storage_id"))))
 		if active.IsTrue() {
-			q = q.Filter(sqlchemy.In(storages.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}))
+			q = q.Filter(sqlchemy.In(storages.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}))
 		} else {
-			q = q.Filter(sqlchemy.NotIn(storages.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}))
+			q = q.Filter(sqlchemy.NotIn(storages.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}))
 		}
 	}
 	if len(projectId) > 0 {
@@ -1150,9 +1112,9 @@ func totalDiskSize(projectId string, active tristate.TriState, ready tristate.Tr
 	}
 	if !ready.IsNone() {
 		if ready.IsTrue() {
-			q = q.Filter(sqlchemy.Equals(disks.Field("status"), DISK_READY))
+			q = q.Filter(sqlchemy.Equals(disks.Field("status"), api.DISK_READY))
 		} else {
-			q = q.Filter(sqlchemy.NotEquals(disks.Field("status"), DISK_READY))
+			q = q.Filter(sqlchemy.NotEquals(disks.Field("status"), api.DISK_READY))
 		}
 	}
 	if !includeSystem {
@@ -1258,7 +1220,7 @@ func parseIsoInfo(ctx context.Context, userCred mcclient.TokenCredential, imageI
 func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) {
 	if len(diskConfig.ImageId) > 0 {
 		self.TemplateId = diskConfig.ImageId
-		self.DiskType = DISK_TYPE_SYS
+		self.DiskType = api.DISK_TYPE_SYS
 	} else if len(diskConfig.SnapshotId) > 0 {
 		self.SnapshotId = diskConfig.SnapshotId
 		self.DiskType = diskConfig.DiskType
@@ -1267,13 +1229,13 @@ func (self *SDisk) fetchDiskInfo(diskConfig *api.DiskConfig) {
 		self.FsFormat = diskConfig.Fs
 	}
 	if self.FsFormat == "swap" {
-		self.DiskType = DISK_TYPE_SWAP
+		self.DiskType = api.DISK_TYPE_SWAP
 		self.Nonpersistent = true
 	} else {
 		if len(self.DiskType) == 0 {
-			diskType := DISK_TYPE_DATA
-			if diskConfig.DiskType == DISK_TYPE_VOLUME {
-				diskType = DISK_TYPE_VOLUME
+			diskType := api.DISK_TYPE_DATA
+			if diskConfig.DiskType == api.DISK_TYPE_VOLUME {
+				diskType = api.DISK_TYPE_VOLUME
 			}
 			self.DiskType = diskType
 		}
@@ -1485,7 +1447,7 @@ func (self *SDisk) GetAttachedGuests() []SGuest {
 }
 
 func (self *SDisk) SetDiskReady(ctx context.Context, userCred mcclient.TokenCredential, reason string) {
-	self.SetStatus(userCred, DISK_READY, reason)
+	self.SetStatus(userCred, api.DISK_READY, reason)
 	guests := self.GetAttachedGuests()
 	if guests != nil {
 		for _, guest := range guests {
@@ -1574,11 +1536,11 @@ func (self *SDisk) GetMountPoint() string {
 }
 
 func (self *SDisk) isReady() bool {
-	return self.Status == DISK_READY
+	return self.Status == api.DISK_READY
 }
 
 func (self *SDisk) isInit() bool {
-	return self.Status == DISK_INIT
+	return self.Status == api.DISK_INIT
 }
 
 func (self *SDisk) AllowPerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -1644,13 +1606,13 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 			log.Errorf("Disk %s(%s) is attached to %d guest(s)", disk.Name, disk.Id, len(guests))
 			continue
 		}
-		if !utils.IsInStringArray(guests[0].Status, []string{VM_RUNNING, VM_READY}) {
+		if !utils.IsInStringArray(guests[0].Status, []string{api.VM_RUNNING, api.VM_READY}) {
 			log.Errorf("Guest(%s) in status(%s) cannot do snapshot action", guests[0].Id, guests[0].Status)
 			continue
 		}
 		// name
 		name := "Auto-" + guests[0].Name + time.Now().Format("2006-01-02#15:04:05")
-		snap, err := SnapshotManager.CreateSnapshot(ctx, userCred, AUTO, disk.Id, guests[0].Id, "", name)
+		snap, err := SnapshotManager.CreateSnapshot(ctx, userCred, api.SNAPSHOT_AUTO, disk.Id, guests[0].Id, "", name)
 		if err != nil {
 			log.Errorln(err)
 			continue
@@ -1671,8 +1633,8 @@ func (disk *SDisk) StratCreateBackupTask(ctx context.Context, userCred mcclient.
 
 func (self *SDisk) SaveRenewInfo(ctx context.Context, userCred mcclient.TokenCredential, bc *billing.SBillingCycle, expireAt *time.Time) error {
 	_, err := db.Update(self, func() error {
-		if self.BillingType != BILLING_TYPE_PREPAID {
-			self.BillingType = BILLING_TYPE_PREPAID
+		if self.BillingType != billing_api.BILLING_TYPE_PREPAID {
+			self.BillingType = billing_api.BILLING_TYPE_PREPAID
 		}
 		if expireAt != nil && !expireAt.IsZero() {
 			self.ExpiredAt = *expireAt
@@ -1698,10 +1660,10 @@ func (self *SDisk) IsDetachable() bool {
 	if storage.IsLocal() {
 		return false
 	}
-	if self.BillingType == BILLING_TYPE_PREPAID {
+	if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
 		return false
 	}
-	if utils.IsInStringArray(self.DiskType, []string{DISK_TYPE_SYS, DISK_TYPE_SWAP}) {
+	if utils.IsInStringArray(self.DiskType, []string{api.DISK_TYPE_SYS, api.DISK_TYPE_SWAP}) {
 		return false
 	}
 	if self.AutoDelete {

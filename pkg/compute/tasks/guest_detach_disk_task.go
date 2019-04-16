@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -47,7 +48,7 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	guest.DetachDisk(ctx, disk, self.UserCred)
 	host := guest.GetHost()
 	purge := false
-	if host != nil && host.Status == models.HOST_DISABLED && jsonutils.QueryBoolean(self.Params, "purge", false) {
+	if host != nil && host.Status == api.HOST_DISABLED && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		purge = true
 	}
 	detachStatus, err := guest.GetDriver().GetDetachDiskStatus()
@@ -79,7 +80,7 @@ func (self *GuestDetachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 	keepDisk := jsonutils.QueryBoolean(self.Params, "keep_disk", true)
 	host := guest.GetHost()
 	purge := false
-	if host != nil && host.Status == models.HOST_DISABLED && jsonutils.QueryBoolean(self.Params, "purge", false) {
+	if host != nil && host.Status == api.HOST_DISABLED && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		purge = true
 	}
 	if !keepDisk && disk.GetGuestDiskCount() == 0 && disk.AutoDelete {
@@ -120,7 +121,7 @@ func (self *GuestDetachDiskTask) OnTaskFail(ctx context.Context, guest *models.S
 	if disk != nil {
 		disk.SetDiskReady(ctx, self.UserCred, "")
 	}
-	guest.SetStatus(self.UserCred, models.VM_DETACH_DISK_FAILED, err.Error())
+	guest.SetStatus(self.UserCred, api.VM_DETACH_DISK_FAILED, err.Error())
 	self.SetStageFailed(ctx, err.Error())
 	log.Errorf("Guest %s GuestDetachDiskTask failed %s", guest.Id, err.Error())
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DETACH_DISK, err.Error(), self.UserCred, false)

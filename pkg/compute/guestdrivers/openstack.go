@@ -28,7 +28,7 @@ func init() {
 }
 
 func (self *SOpenStackGuestDriver) GetHypervisor() string {
-	return models.HYPERVISOR_OPENSTACK
+	return api.HYPERVISOR_OPENSTACK
 }
 
 func (self *SOpenStackGuestDriver) IsSupportEip() bool {
@@ -36,7 +36,7 @@ func (self *SOpenStackGuestDriver) IsSupportEip() bool {
 }
 
 func (self *SOpenStackGuestDriver) GetDefaultSysDiskBackend() string {
-	return models.STORAGE_OPENSTACK_ISCSI
+	return api.STORAGE_OPENSTACK_ISCSI
 }
 
 func (self *SOpenStackGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -44,7 +44,7 @@ func (self *SOpenStackGuestDriver) GetMinimalSysDiskSizeGb() int {
 }
 
 func (self *SOpenStackGuestDriver) GetStorageTypes() []string {
-	return []string{models.STORAGE_OPENSTACK_ISCSI}
+	return []string{api.STORAGE_OPENSTACK_ISCSI}
 }
 
 func (self *SOpenStackGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
@@ -65,19 +65,19 @@ func (self *SOpenStackGuestDriver) ChooseHostStorage(host *models.SHost, backend
 }
 
 func (self *SOpenStackGuestDriver) GetDetachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SOpenStackGuestDriver) GetAttachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SOpenStackGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING, models.VM_REBUILD_ROOT_FAIL}, nil
+	return []string{api.VM_READY, api.VM_RUNNING, api.VM_REBUILD_ROOT_FAIL}, nil
 }
 
 func (self *SOpenStackGuestDriver) GetChangeConfigStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SOpenStackGuestDriver) IsNeedRestartForResetLoginInfo() bool {
@@ -85,7 +85,7 @@ func (self *SOpenStackGuestDriver) IsNeedRestartForResetLoginInfo() bool {
 }
 
 func (self *SOpenStackGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{models.VM_RUNNING}, nil
+	return []string{api.VM_RUNNING}, nil
 }
 
 func (self *SOpenStackGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
@@ -101,11 +101,11 @@ func (self *SOpenStackGuestDriver) ValidateCreateData(ctx context.Context, userC
 }
 
 func (self *SOpenStackGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return models.VM_RUNNING
+	return api.VM_RUNNING
 }
 
 func (self *SOpenStackGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return models.VM_READY
+	return api.VM_READY
 }
 
 /*func (self *SOpenStackGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {

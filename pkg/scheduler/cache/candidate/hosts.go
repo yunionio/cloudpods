@@ -15,7 +15,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	computedb "yunion.io/x/onecloud/pkg/cloudcommon/db"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
@@ -135,7 +135,7 @@ func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *computemodels.S
 	for _, g := range gst {
 		dSize := guestDiskSize(&g, true)
 		disk += int64(dSize)
-		if o.GetOptions().IgnoreNonrunningGuests && !utils.IsInStringArray(g.Status, api.VM_RUNNING_STATUS) {
+		if o.GetOptions().IgnoreNonrunningGuests && !utils.IsInStringArray(g.Status, computeapi.VM_RUNNING_STATUS) {
 			continue
 		}
 		cpu += int64(g.VcpuCount)
@@ -582,7 +582,7 @@ func (b *HostBuilder) init(ids []string, dbCache DBGroupCacher, syncCache SyncGr
 
 func (b *HostBuilder) setHosts(ids []string, errMessageChannel chan error) {
 	hosts := computemodels.HostManager.Query()
-	q := hosts.In("id", ids).NotEquals("host_type", computemodels.HOST_TYPE_BAREMETAL)
+	q := hosts.In("id", ids).NotEquals("host_type", computeapi.HOST_TYPE_BAREMETAL)
 	hostObjs := make([]computemodels.SHost, 0)
 	err := computedb.FetchModelObjects(computemodels.HostManager, q, &hostObjs)
 	if err != nil {
@@ -894,7 +894,7 @@ func (b *HostBuilder) Type() string {
 
 func (b *HostBuilder) AllIDs() ([]string, error) {
 	q := computemodels.HostManager.Query("id")
-	q = q.Filter(sqlchemy.NotEquals(q.Field("host_type"), computemodels.HOST_TYPE_BAREMETAL))
+	q = q.Filter(sqlchemy.NotEquals(q.Field("host_type"), computeapi.HOST_TYPE_BAREMETAL))
 	rs, err := q.Rows()
 	if err != nil {
 		return nil, err
@@ -1219,7 +1219,7 @@ func (vm *VendorModel) IsMatch(target *VendorModel) bool {
 	if target.Vendor != "" {
 		if vm.Vendor == target.Vendor {
 			vendorMatch = true
-		} else if api.ID_VENDOR_MAP[vm.Vendor] == target.Vendor {
+		} else if computeapi.ID_VENDOR_MAP[vm.Vendor] == target.Vendor {
 			vendorMatch = true
 		}
 	} else {

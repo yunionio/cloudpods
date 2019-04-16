@@ -5,7 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/compute/models"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 /*
@@ -63,17 +63,17 @@ func (self *SSnapshot) GetGlobalId() string {
 func (self *SSnapshot) GetStatus() string {
 	switch SnapshotStatusType(self.Status) {
 	case SnapshotStatusAvailable:
-		return models.SNAPSHOT_READY
+		return api.SNAPSHOT_READY
 	case SnapshotStatusCreating:
-		return models.SNAPSHOT_CREATING
+		return api.SNAPSHOT_CREATING
 	case SnapshotStatusDeleting:
-		return models.SNAPSHOT_DELETING
+		return api.SNAPSHOT_DELETING
 	case SnapshotStatusErrorDeleting, SnapshotStatusError:
-		return models.SNAPSHOT_FAILED
+		return api.SNAPSHOT_FAILED
 	case SnapshotStatusRollbacking:
-		return models.SNAPSHOT_ROLLBACKING
+		return api.SNAPSHOT_ROLLBACKING
 	default:
-		return models.SNAPSHOT_UNKNOWN
+		return api.SNAPSHOT_UNKNOWN
 	}
 }
 
@@ -108,9 +108,9 @@ func (self *SSnapshot) GetDiskId() string {
 
 func (self *SSnapshot) GetDiskType() string {
 	if self.Metadata.SystemEnableActive == "true" {
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	} else {
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	}
 }
 

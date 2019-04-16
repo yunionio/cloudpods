@@ -71,7 +71,7 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 			return
 		}
 		disk := iDisk.(*models.SDisk)
-		if disk.Status == models.DISK_INIT {
+		if disk.Status == api.DISK_INIT {
 			snapshotId := d.SnapshotId
 			err = disk.StartDiskCreateTask(ctx, self.UserCred, false, snapshotId, self.GetTaskId())
 			if err != nil {
@@ -97,14 +97,14 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 			return
 		}
 		disk := iDisk.(*models.SDisk)
-		if disk.Status != models.DISK_READY {
+		if disk.Status != api.DISK_READY {
 			diskReady = false
 			break
 		}
 	}
 	if diskReady {
 		guest := obj.(*models.SGuest)
-		if guest.Status == models.VM_RUNNING {
+		if guest.Status == api.VM_RUNNING {
 			self.SetStage("on_config_sync_complete", nil)
 			err := guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
 			if err != nil {
@@ -154,7 +154,7 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 			return
 		}
 		disk := iDisk.(*models.SDisk)
-		if disk.Status == models.DISK_INIT {
+		if disk.Status == api.DISK_INIT {
 			snapshot := d.SnapshotId
 			err = disk.StartDiskCreateTask(ctx, self.UserCred, false, snapshot, self.GetTaskId())
 			if err != nil {
@@ -175,7 +175,7 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 			return
 		}
 		disk := iDisk.(*models.SDisk)
-		if disk.Status != models.DISK_READY {
+		if disk.Status != api.DISK_READY {
 			self.SetStageFailed(ctx, fmt.Sprintf("disk %s is not ready", disk.Id))
 			return
 		}
@@ -233,7 +233,7 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 			self.SetStageFailed(ctx, fmt.Sprintf("Disk %s not found", diskId))
 			return
 		}
-		if disk.Status != models.DISK_INIT {
+		if disk.Status != api.DISK_INIT {
 			self.SetStageFailed(ctx, fmt.Sprintf("Disk %s already created??", diskId))
 			return
 		}
@@ -268,7 +268,7 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 			return
 		}
 
-		disk.SetStatus(self.UserCred, models.DISK_READY, "create disk success")
+		disk.SetStatus(self.UserCred, api.DISK_READY, "create disk success")
 		disk.GetStorage().ClearSchedDescCache()
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
 		db.OpsLog.LogAttachEvent(ctx, guest, disk, self.UserCred, disk.GetShortDesc(ctx))

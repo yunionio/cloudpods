@@ -11,6 +11,7 @@ import (
 
 	"yunion.io/x/log"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
@@ -175,7 +176,7 @@ func doCandidateDetail(c *gin.Context, id string) {
 
 	args := new(api.CandidateDetailArgs)
 	args.ID = id
-	if host.HostType == computemodels.HOST_TYPE_BAREMETAL {
+	if host.HostType == computeapi.HOST_TYPE_BAREMETAL {
 		args.Type = api.HostTypeBaremetal
 	} else {
 		args.Type = api.HostTypeHost

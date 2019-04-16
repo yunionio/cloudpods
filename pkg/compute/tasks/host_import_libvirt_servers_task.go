@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -119,7 +120,7 @@ func (self *HostImportLibvirtServersTask) FillLibvirtGuestDesc(
 	for i := 0; i < len(guestDesc.Disks); i++ {
 		guestDesc.Disks[i].DiskId = stringutils.UUID4()
 		if len(guestDesc.Disks[i].Backend) == 0 {
-			guestDesc.Disks[i].Backend = models.STORAGE_LOCAL
+			guestDesc.Disks[i].Backend = api.STORAGE_LOCAL
 		}
 	}
 }
@@ -178,7 +179,7 @@ func (self *CreateImportedLibvirtGuestTask) OnInit(
 			_, err := db.Update(disk, func() error {
 				disk.AccessPath = accessPath.String()
 				if guestDisks[i].Index == 0 {
-					disk.DiskType = models.DISK_TYPE_SYS
+					disk.DiskType = api.DISK_TYPE_SYS
 				}
 				return nil
 			})

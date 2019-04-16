@@ -9,8 +9,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SMountInstances struct {
@@ -63,7 +63,7 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	priceKey := fmt.Sprintf("%s::%s::%s", self.RegionId, self.Category, self.Type)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 
-	data.Add(jsonutils.NewString(models.HYPERVISOR_ALIYUN), "hypervisor")
+	data.Add(jsonutils.NewString(api.HYPERVISOR_ALIYUN), "hypervisor")
 
 	return data
 }
@@ -165,9 +165,9 @@ func (self *SDisk) GetStatus() string {
 	// In_use Available Attaching Detaching Creating ReIniting All
 	switch self.Status {
 	case "Creating", "ReIniting":
-		return models.DISK_ALLOCATING
+		return api.DISK_ALLOCATING
 	default:
-		return models.DISK_READY
+		return api.DISK_READY
 	}
 }
 
@@ -204,11 +204,11 @@ func (self *SDisk) GetTemplateId() string {
 func (self *SDisk) GetDiskType() string {
 	switch self.Type {
 	case "system":
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	case "data":
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	default:
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	}
 }
 
@@ -306,7 +306,7 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (clou
 		return nil, err
 	} else {
 		snapshot.region = self.storage.zone.region
-		if err := cloudprovider.WaitStatus(snapshot, models.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
+		if err := cloudprovider.WaitStatus(snapshot, api.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
 			return nil, err
 		}
 		return snapshot, nil

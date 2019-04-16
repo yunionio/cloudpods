@@ -9,8 +9,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type InstanceChargeType string
@@ -66,9 +66,9 @@ func (self *SZone) Refresh() error {
 
 func (self *SZone) GetStatus() string {
 	if self.ZoneState == "AVAILABLE" {
-		return models.ZONE_ENABLE
+		return api.ZONE_ENABLE
 	}
-	return models.ZONE_SOLDOUT
+	return api.ZONE_SOLDOUT
 }
 
 func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {

@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -114,10 +115,10 @@ func (self *SStoragecache) getHostId() (string, error) {
 	host := HostManager.Query().SubQuery()
 	q := host.Query(host.Field("id"))
 	err := q.Join(hoststorages, sqlchemy.AND(sqlchemy.Equals(hoststorages.Field("host_id"), host.Field("id")),
-		sqlchemy.Equals(host.Field("host_status"), HOST_ONLINE),
+		sqlchemy.Equals(host.Field("host_status"), api.HOST_ONLINE),
 		sqlchemy.IsTrue(host.Field("enabled")))).
 		Join(storages, sqlchemy.AND(sqlchemy.Equals(storages.Field("storagecache_id"), self.Id),
-			sqlchemy.In(storages.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}),
+			sqlchemy.In(storages.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}),
 			sqlchemy.IsTrue(storages.Field("enabled")))).
 		Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), storages.Field("id"))).All(&hosts)
 	if err != nil {
@@ -425,7 +426,7 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 		return nil, httperrors.NewResourceNotFoundError("storage not cache image")
 	}
 
-	if scimg.Status == CACHED_IMAGE_STATUS_INIT || isForce {
+	if scimg.Status == api.CACHED_IMAGE_STATUS_INIT || isForce {
 		err = scimg.Detach(ctx, userCred)
 		return nil, err
 	}

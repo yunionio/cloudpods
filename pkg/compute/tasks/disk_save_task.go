@@ -6,6 +6,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -43,9 +44,9 @@ func (self *DiskSaveTask) OnInit(ctx context.Context, obj db.IStandaloneModel, d
 		self.TaskFailed(ctx, resion)
 		db.OpsLog.LogEvent(disk, db.ACT_SAVE_FAIL, resion, self.GetUserCred())
 	} else {
-		disk.SetStatus(self.GetUserCred(), models.DISK_START_SAVE, "")
+		disk.SetStatus(self.GetUserCred(), api.DISK_START_SAVE, "")
 		for _, guest := range disk.GetGuests() {
-			guest.SetStatus(self.GetUserCred(), models.VM_SAVE_DISK, "")
+			guest.SetStatus(self.GetUserCred(), api.VM_SAVE_DISK, "")
 		}
 		self.StartBackupDisk(ctx, disk, host)
 	}
@@ -53,7 +54,7 @@ func (self *DiskSaveTask) OnInit(ctx context.Context, obj db.IStandaloneModel, d
 
 func (self *DiskSaveTask) StartBackupDisk(ctx context.Context, disk *models.SDisk, host *models.SHost) {
 	self.SetStage("on_disk_backup_complete", nil)
-	disk.SetStatus(self.GetUserCred(), models.DISK_SAVING, "")
+	disk.SetStatus(self.GetUserCred(), api.DISK_SAVING, "")
 	imageId, _ := self.GetParams().GetString("image_id")
 	if err := host.GetHostDriver().RequestPrepareSaveDiskOnHost(ctx, host, disk, imageId, self); err != nil {
 		log.Errorf("Backup failed: %v", err)

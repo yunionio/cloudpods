@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -28,7 +29,7 @@ func (self *EipDeallocateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		if err != nil {
 			if err != cloudprovider.ErrNotFound && err != cloudprovider.ErrInvalidProvider {
 				msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
-				eip.SetStatus(self.UserCred, models.EIP_STATUS_DEALLOCATE_FAIL, msg)
+				eip.SetStatus(self.UserCred, api.EIP_STATUS_DEALLOCATE_FAIL, msg)
 				self.SetStageFailed(ctx, msg)
 				return
 			}
@@ -36,7 +37,7 @@ func (self *EipDeallocateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			err = expEip.Delete()
 			if err != nil {
 				msg := fmt.Sprintf("fail to delete iEIP %s", err)
-				eip.SetStatus(self.UserCred, models.EIP_STATUS_DEALLOCATE_FAIL, msg)
+				eip.SetStatus(self.UserCred, api.EIP_STATUS_DEALLOCATE_FAIL, msg)
 				self.SetStageFailed(ctx, msg)
 				return
 			}
@@ -46,7 +47,7 @@ func (self *EipDeallocateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	err := eip.RealDelete(ctx, self.UserCred)
 	if err != nil {
 		msg := fmt.Sprintf("fail to delete EIP %s", err)
-		eip.SetStatus(self.UserCred, models.EIP_STATUS_DEALLOCATE_FAIL, msg)
+		eip.SetStatus(self.UserCred, api.EIP_STATUS_DEALLOCATE_FAIL, msg)
 		self.SetStageFailed(ctx, msg)
 		return
 	}

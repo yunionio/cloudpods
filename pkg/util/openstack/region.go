@@ -8,8 +8,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
@@ -57,7 +57,7 @@ func (region *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 }
 
 func (region *SRegion) GetStatus() string {
-	return models.CLOUD_REGION_STATUS_INSERVER
+	return api.CLOUD_REGION_STATUS_INSERVER
 }
 
 func (region *SRegion) Refresh() error {

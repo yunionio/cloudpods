@@ -10,8 +10,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SRegion struct {
@@ -582,9 +582,9 @@ func (self *SRegion) GetMetadata() *jsonutils.JSONDict {
 
 func (self *SRegion) GetStatus() string {
 	if self.RegionState == "AVAILABLE" {
-		return models.CLOUD_REGION_STATUS_INSERVER
+		return api.CLOUD_REGION_STATUS_INSERVER
 	}
-	return models.CLOUD_REGION_STATUS_OUTOFSERVICE
+	return api.CLOUD_REGION_STATUS_OUTOFSERVICE
 }
 
 func (self *SRegion) Refresh() error {

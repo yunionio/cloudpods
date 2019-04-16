@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -26,7 +27,7 @@ func init() {
 
 func (self *GuestCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, models.VM_CREATE_NETWORK, "")
+	guest.SetStatus(self.UserCred, api.VM_CREATE_NETWORK, "")
 	self.SetStage("on_wait_guest_networks_ready", nil)
 	self.OnWaitGuestNetworksReady(ctx, obj, nil)
 }
@@ -43,17 +44,17 @@ func (self *GuestCreateTask) OnWaitGuestNetworksReady(ctx context.Context, obj d
 }
 
 func (self *GuestCreateTask) OnGuestNetworkReady(ctx context.Context, guest *models.SGuest) {
-	guest.SetStatus(self.UserCred, models.VM_CREATE_DISK, "")
+	guest.SetStatus(self.UserCred, api.VM_CREATE_DISK, "")
 	self.SetStage("OnDiskPrepared", nil)
 	guest.GetDriver().RequestGuestCreateAllDisks(ctx, guest, self)
 }
 
 func (self *GuestCreateTask) OnDiskPreparedFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, models.VM_DISK_FAILED, "allocation failed")
+	guest.SetStatus(self.UserCred, api.VM_DISK_FAILED, "allocation failed")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
-	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DISK_FAILED, data.String())
+	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_DISK_FAILED, data.String())
 	self.SetStageFailed(ctx, data.String())
 }
 
@@ -73,16 +74,16 @@ func (self *GuestCreateTask) OnCdromPrepared(ctx context.Context, obj db.IStanda
 	log.Infof("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 	log.Infof("DEPLOY GUEST %s", guest.Name)
 	log.Infof("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-	guest.SetStatus(self.UserCred, models.VM_DEPLOYING, "")
+	guest.SetStatus(self.UserCred, api.VM_DEPLOYING, "")
 	self.StartDeployGuest(ctx, guest)
 }
 
 func (self *GuestCreateTask) OnCdromPreparedFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, models.VM_DISK_FAILED, "")
+	guest.SetStatus(self.UserCred, api.VM_DISK_FAILED, "")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
-	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DISK_FAILED, fmt.Sprintf("cdrom_failed %s", data))
+	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_DISK_FAILED, fmt.Sprintf("cdrom_failed %s", data))
 	self.SetStageFailed(ctx, fmt.Sprintf("cdrom_failed %s", data))
 }
 
@@ -107,10 +108,10 @@ func (self *GuestCreateTask) notifyServerCreated(ctx context.Context, guest *mod
 
 func (self *GuestCreateTask) OnDeployGuestDescCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, models.VM_DEPLOY_FAILED, "deploy_failed")
+	guest.SetStatus(self.UserCred, api.VM_DEPLOY_FAILED, "deploy_failed")
 	db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, data, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_ALLOCATE, data, self.UserCred, false)
-	notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_DEPLOY_FAILED, data.String())
+	notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_DEPLOY_FAILED, data.String())
 	self.SetStageFailed(ctx, data.String())
 }
 

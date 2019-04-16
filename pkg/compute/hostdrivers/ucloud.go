@@ -1,6 +1,9 @@
 package hostdrivers
 
-import "yunion.io/x/onecloud/pkg/compute/models"
+import (
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/compute/models"
+)
 
 type SUCloudHostDriver struct {
 	SManagedVirtualizationHostDriver
@@ -12,5 +15,5 @@ func init() {
 }
 
 func (self *SUCloudHostDriver) GetHostType() string {
-	return models.HOST_TYPE_UCLOUD
+	return api.HOST_TYPE_UCLOUD
 }

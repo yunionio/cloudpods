@@ -82,10 +82,10 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 
 	onError := func(err error) {
 		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, disk.ProjectId, &pendingUsage, &quotaStorage)
-		disk.SetStatus(self.UserCred, models.DISK_ALLOC_FAILED, err.Error())
+		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())
 		self.SetStageFailed(ctx, err.Error())
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
-		notifyclient.NotifySystemError(disk.Id, disk.Name, models.DISK_ALLOC_FAILED, err.Error())
+		notifyclient.NotifySystemError(disk.Id, disk.Name, api.DISK_ALLOC_FAILED, err.Error())
 	}
 
 	diskConfig, err := self.GetFirstDisk()
@@ -98,10 +98,10 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 	err = disk.SetStorage(candidate.Disks[0].StorageId, diskConfig)
 	if err != nil {
 		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, disk.ProjectId, &pendingUsage, &quotaStorage)
-		disk.SetStatus(self.UserCred, models.DISK_ALLOC_FAILED, err.Error())
+		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())
 		self.SetStageFailed(ctx, err.Error())
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
-		notifyclient.NotifySystemError(disk.Id, disk.Name, models.DISK_ALLOC_FAILED, err.Error())
+		notifyclient.NotifySystemError(disk.Id, disk.Name, api.DISK_ALLOC_FAILED, err.Error())
 		return
 	}
 

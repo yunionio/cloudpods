@@ -20,8 +20,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/vmdkutils"
 )
 
@@ -76,9 +76,9 @@ func (self *SDatastore) GetEnabled() bool {
 
 func (self *SDatastore) GetStatus() string {
 	if self.getDatastore().Summary.Accessible {
-		return models.STORAGE_ONLINE
+		return api.STORAGE_ONLINE
 	} else {
-		return models.STORAGE_OFFLINE
+		return api.STORAGE_OFFLINE
 	}
 }
 
@@ -283,12 +283,12 @@ func (self *SDatastore) GetStorageType() string {
 	switch strings.ToLower(moStore.Summary.Type) {
 	case "vmfs":
 		if self.isLocalVMFS() {
-			return models.STORAGE_LOCAL
+			return api.STORAGE_LOCAL
 		} else {
-			return models.STORAGE_NAS
+			return api.STORAGE_NAS
 		}
 	case "nfs", "nfs41", "cifs", "vsan":
-		return models.STORAGE_NAS
+		return api.STORAGE_NAS
 	default:
 		log.Fatalf("unsupported datastore type %s", moStore.Summary.Type)
 		return ""
@@ -299,9 +299,9 @@ func (self *SDatastore) GetMediumType() string {
 	moStore := self.getDatastore()
 	vmfsInfo, ok := moStore.Info.(*types.VmfsDatastoreInfo)
 	if ok && vmfsInfo.Vmfs.Ssd != nil && *vmfsInfo.Vmfs.Ssd {
-		return models.DISK_TYPE_SSD
+		return api.DISK_TYPE_SSD
 	}
-	return models.DISK_TYPE_ROTATE
+	return api.DISK_TYPE_ROTATE
 }
 
 func (self *SDatastore) GetStorageConf() jsonutils.JSONObject {

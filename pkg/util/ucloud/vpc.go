@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SVPC struct {
@@ -53,7 +53,7 @@ func (self *SVPC) GetGlobalId() string {
 }
 
 func (self *SVPC) GetStatus() string {
-	return models.VPC_STATUS_AVAILABLE
+	return api.VPC_STATUS_AVAILABLE
 }
 
 func (self *SVPC) Refresh() error {

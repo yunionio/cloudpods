@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -35,8 +36,8 @@ func (self *BaremetalServerRebuildRootTask) OnStopServerComplete(ctx context.Con
 }
 
 func (self *BaremetalServerRebuildRootTask) StartRebuildRootDisk(ctx context.Context, guest *models.SGuest) {
-	if guest.Status != models.VM_ADMIN {
-		guest.SetStatus(self.UserCred, models.VM_REBUILD_ROOT, "")
+	if guest.Status != api.VM_ADMIN {
+		guest.SetStatus(self.UserCred, api.VM_REBUILD_ROOT, "")
 	}
 	imageId, _ := self.Params.GetString("image_id")
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILDING_ROOT, imageId, self.UserCred)
@@ -44,7 +45,7 @@ func (self *BaremetalServerRebuildRootTask) StartRebuildRootDisk(ctx context.Con
 	oldStatus := gds.Root.Status
 	_, err := db.Update(gds.Root, func() error {
 		gds.Root.TemplateId = imageId
-		gds.Root.Status = models.DISK_REBUILD
+		gds.Root.Status = api.DISK_REBUILD
 		return nil
 	})
 	if err != nil {
@@ -53,7 +54,7 @@ func (self *BaremetalServerRebuildRootTask) StartRebuildRootDisk(ctx context.Con
 		return
 	} else {
 		db.OpsLog.LogEvent(gds.Root, db.ACT_UPDATE_STATUS,
-			fmt.Sprintf("%s=>%s", oldStatus, models.DISK_REBUILD), self.UserCred)
+			fmt.Sprintf("%s=>%s", oldStatus, api.DISK_REBUILD), self.UserCred)
 	}
 	self.SetStage("OnRebuildRootDiskComplete", nil)
 
@@ -74,8 +75,8 @@ func (self *BaremetalServerRebuildRootTask) OnRebuildRootDiskComplete(ctx contex
 
 func (self *BaremetalServerRebuildRootTask) OnRebuildRootDiskCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT_FAIL, data, self.UserCred)
-	if guest.Status != models.VM_ADMIN {
-		guest.SetStatus(self.UserCred, models.VM_REBUILD_ROOT_FAIL, "")
+	if guest.Status != api.VM_ADMIN {
+		guest.SetStatus(self.UserCred, api.VM_REBUILD_ROOT_FAIL, "")
 	}
 }
 

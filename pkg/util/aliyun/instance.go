@@ -12,8 +12,8 @@ import (
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -277,17 +277,17 @@ func (a byAttachedTime) Len() int      { return len(a) }
 func (a byAttachedTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a byAttachedTime) Less(i, j int) bool {
 	switch a[i].GetDiskType() {
-	case models.DISK_TYPE_SYS:
+	case api.DISK_TYPE_SYS:
 		return true
-	case models.DISK_TYPE_SWAP:
+	case api.DISK_TYPE_SWAP:
 		switch a[j].GetDiskType() {
-		case models.DISK_TYPE_SYS:
+		case api.DISK_TYPE_SYS:
 			return false
-		case models.DISK_TYPE_DATA:
+		case api.DISK_TYPE_DATA:
 			return true
 		}
-	case models.DISK_TYPE_DATA:
-		if a[j].GetDiskType() != models.DISK_TYPE_DATA {
+	case api.DISK_TYPE_DATA:
+		if a[j].GetDiskType() != api.DISK_TYPE_DATA {
 			return false
 		}
 	}
@@ -372,15 +372,15 @@ func (self *SInstance) GetStatus() string {
 	//Stopped：已停止
 	switch self.Status {
 	case InstanceStatusRunning:
-		return models.VM_RUNNING
+		return api.VM_RUNNING
 	case InstanceStatusStarting:
-		return models.VM_STARTING
+		return api.VM_STARTING
 	case InstanceStatusStopping:
-		return models.VM_STOPPING
+		return api.VM_STOPPING
 	case InstanceStatusStopped:
-		return models.VM_READY
+		return api.VM_READY
 	default:
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	}
 }
 
@@ -414,7 +414,7 @@ func (self *SInstance) GetRemoteStatus() string {
 */
 
 func (self *SInstance) GetHypervisor() string {
-	return models.HYPERVISOR_ALIYUN
+	return api.HYPERVISOR_ALIYUN
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
@@ -427,10 +427,10 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		log.Debugf("status %s expect %s", self.GetStatus(), models.VM_RUNNING)
-		if self.GetStatus() == models.VM_RUNNING {
+		log.Debugf("status %s expect %s", self.GetStatus(), api.VM_RUNNING)
+		if self.GetStatus() == api.VM_RUNNING {
 			return nil
-		} else if self.GetStatus() == models.VM_READY {
+		} else if self.GetStatus() == api.VM_READY {
 			err := self.host.zone.region.StartVM(self.InstanceId)
 			if err != nil {
 				return err
@@ -446,7 +446,7 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
+	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
 }
 
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {

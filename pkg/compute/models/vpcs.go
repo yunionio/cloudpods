@@ -11,28 +11,13 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-)
-
-const (
-	VPC_STATUS_PENDING       = "pending"
-	VPC_STATUS_AVAILABLE     = "available"
-	VPC_STATUS_FAILED        = "failed"
-	VPC_STATUS_START_DELETE  = "start_delete"
-	VPC_STATUS_DELETING      = "deleting"
-	VPC_STATUS_DELETE_FAILED = "delete_failed"
-	VPC_STATUS_DELETED       = "deleted"
-	VPC_STATUS_UNKNOWN       = "unknown"
-
-	MAX_VPC_PER_REGION = 3
-
-	DEFAULT_VPC_ID = "default"
-	NORMAL_VPC_ID  = "normal" // 没有关联VPC的安全组，统一使用normal
 )
 
 type SVpcManager struct {
@@ -89,7 +74,7 @@ func (self *SVpc) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SVpc) GetCloudRegionId() string {
 	if len(self.CloudregionId) == 0 {
-		return DEFAULT_REGION_ID
+		return api.DEFAULT_REGION_ID
 	} else {
 		return self.CloudregionId
 	}
@@ -107,7 +92,7 @@ func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
 	if self.GetNetworkCount() > 0 {
 		return httperrors.NewNotEmptyError("VPC not empty")
 	}
-	if self.Id == DEFAULT_VPC_ID {
+	if self.Id == api.DEFAULT_VPC_ID {
 		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -115,7 +100,7 @@ func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
 
 func (self *SVpc) getWireQuery() *sqlchemy.SQuery {
 	wires := WireManager.Query()
-	if self.Id == DEFAULT_VPC_ID {
+	if self.Id == api.DEFAULT_VPC_ID {
 		return wires.Filter(sqlchemy.OR(sqlchemy.IsNull(wires.Field("vpc_id")),
 			sqlchemy.IsEmpty(wires.Field("vpc_id")),
 			sqlchemy.Equals(wires.Field("vpc_id"), self.Id)))
@@ -313,7 +298,7 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 		self.markAllNetworksUnknown(userCred)
 		_, err := self.PerformDisable(ctx, userCred, nil, nil)
 		if err == nil {
-			err = self.SetStatus(userCred, VPC_STATUS_UNKNOWN, "sync to delete")
+			err = self.SetStatus(userCred, api.VPC_STATUS_UNKNOWN, "sync to delete")
 		}
 	} else {
 		err = self.RealDelete(ctx, userCred)
@@ -379,17 +364,17 @@ func (self *SVpc) markAllNetworksUnknown(userCred mcclient.TokenCredential) erro
 }
 
 func (manager *SVpcManager) InitializeData() error {
-	vpcObj, err := manager.FetchById(DEFAULT_VPC_ID)
+	vpcObj, err := manager.FetchById(api.DEFAULT_VPC_ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			defVpc := SVpc{}
 			defVpc.SetModelManager(VpcManager)
 
-			defVpc.Id = DEFAULT_VPC_ID
+			defVpc.Id = api.DEFAULT_VPC_ID
 			defVpc.Name = "Default"
-			defVpc.CloudregionId = DEFAULT_REGION_ID
+			defVpc.CloudregionId = api.DEFAULT_REGION_ID
 			defVpc.Description = "Default VPC"
-			defVpc.Status = VPC_STATUS_AVAILABLE
+			defVpc.Status = api.VPC_STATUS_AVAILABLE
 			defVpc.IsDefault = true
 			err = manager.TableSpec().Insert(&defVpc)
 			if err != nil {
@@ -401,9 +386,9 @@ func (manager *SVpcManager) InitializeData() error {
 		}
 	} else {
 		vpc := vpcObj.(*SVpc)
-		if vpc.Status != VPC_STATUS_AVAILABLE {
+		if vpc.Status != api.VPC_STATUS_AVAILABLE {
 			_, err = db.Update(vpc, func() error {
-				vpc.Status = VPC_STATUS_AVAILABLE
+				vpc.Status = api.VPC_STATUS_AVAILABLE
 				return nil
 			})
 			return err
@@ -499,7 +484,7 @@ func (self *SVpc) GetIVpc() (cloudprovider.ICloudVpc, error) {
 
 func (self *SVpc) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("SVpc delete do nothing")
-	self.SetStatus(userCred, VPC_STATUS_START_DELETE, "")
+	self.SetStatus(userCred, api.VPC_STATUS_START_DELETE, "")
 	return nil
 }
 
@@ -513,7 +498,7 @@ func (self *SVpc) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SVpc) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
-	self.SetStatus(userCred, VPC_STATUS_DELETED, "real delete")
+	self.SetStatus(userCred, api.VPC_STATUS_DELETED, "real delete")
 	routes := self.GetRouteTables()
 	for i := 0; i < len(routes); i++ {
 		routes[i].RealDelete(ctx, userCred)

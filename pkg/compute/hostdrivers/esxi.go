@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -24,7 +25,7 @@ func init() {
 }
 
 func (self *SESXiHostDriver) GetHostType() string {
-	return models.HOST_TYPE_ESXI
+	return api.HOST_TYPE_ESXI
 }
 
 func (self *SESXiHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
@@ -47,7 +48,7 @@ func (self *SESXiHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mo
 		return err
 	}
 	cacheImage := obj.(*models.SCachedimage)
-	srcHostCacheImage, err := cacheImage.ChooseSourceStoragecacheInRange(models.HOST_TYPE_ESXI, []string{host.Id},
+	srcHostCacheImage, err := cacheImage.ChooseSourceStoragecacheInRange(api.HOST_TYPE_ESXI, []string{host.Id},
 		[]interface{}{host.GetZone(), host.GetCloudprovider()})
 	if err != nil {
 		return err

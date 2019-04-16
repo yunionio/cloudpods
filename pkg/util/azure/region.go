@@ -7,8 +7,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/secrules"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -129,7 +129,7 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 }
 
 func (self *SRegion) GetStatus() string {
-	return models.CLOUD_REGION_STATUS_INSERVER
+	return api.CLOUD_REGION_STATUS_INSERVER
 }
 
 func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudprovider.ICloudVpc, error) {

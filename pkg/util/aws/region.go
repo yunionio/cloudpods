@@ -13,8 +13,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 var RegionLocations = map[string]string{
@@ -199,7 +199,7 @@ func (self *SRegion) GetGlobalId() string {
 }
 
 func (self *SRegion) GetStatus() string {
-	return models.CLOUD_REGION_STATUS_INSERVER
+	return api.CLOUD_REGION_STATUS_INSERVER
 }
 
 func (self *SRegion) Refresh() error {

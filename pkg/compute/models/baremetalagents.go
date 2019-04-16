@@ -9,23 +9,10 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-)
-
-const (
-	BAREMETAL_AGENT_ENABLED  = "enabled"
-	BAREMETAL_AGENT_DISABLED = "disabled"
-	BAREMETAL_AGENT_OFFLINE  = "offline"
-)
-
-type TAgentType string
-
-const (
-	AgentTypeBaremetal = TAgentType("baremetal")
-	AgentTypeEsxi      = TAgentType("esxiagent")
-	AgentTypeDefault   = AgentTypeBaremetal
 )
 
 type SBaremetalagentManager struct {
@@ -75,7 +62,7 @@ func (self *SBaremetalagent) AllowDeleteItem(ctx context.Context, userCred mccli
 }
 
 func (self *SBaremetalagent) ValidateDeleteCondition(ctx context.Context) error {
-	if self.Status == BAREMETAL_AGENT_ENABLED {
+	if self.Status == api.BAREMETAL_AGENT_ENABLED {
 		return fmt.Errorf("Cannot delete in status %s", self.Status)
 	}
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -107,9 +94,9 @@ func (self *SBaremetalagent) AllowPerformEnable(ctx context.Context, userCred mc
 }
 
 func (self *SBaremetalagent) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != BAREMETAL_AGENT_ENABLED {
+	if self.Status != api.BAREMETAL_AGENT_ENABLED {
 		db.Update(self, func() error {
-			self.Status = BAREMETAL_AGENT_ENABLED
+			self.Status = api.BAREMETAL_AGENT_ENABLED
 			return nil
 		})
 		db.OpsLog.LogEvent(self, db.ACT_ENABLE, "", userCred)
@@ -122,9 +109,9 @@ func (self *SBaremetalagent) AllowPerformDisable(ctx context.Context, userCred m
 }
 
 func (self *SBaremetalagent) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != BAREMETAL_AGENT_DISABLED {
+	if self.Status != api.BAREMETAL_AGENT_DISABLED {
 		db.Update(self, func() error {
-			self.Status = BAREMETAL_AGENT_DISABLED
+			self.Status = api.BAREMETAL_AGENT_DISABLED
 			return nil
 		})
 		db.OpsLog.LogEvent(self, db.ACT_DISABLE, "", userCred)
@@ -137,9 +124,9 @@ func (self *SBaremetalagent) AllowPerformOnline(ctx context.Context, userCred mc
 }
 
 func (self *SBaremetalagent) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status == BAREMETAL_AGENT_OFFLINE {
+	if self.Status == api.BAREMETAL_AGENT_OFFLINE {
 		db.Update(self, func() error {
-			self.Status = BAREMETAL_AGENT_ENABLED
+			self.Status = api.BAREMETAL_AGENT_ENABLED
 			return nil
 		})
 		db.OpsLog.LogEvent(self, db.ACT_ONLINE, "", userCred)
@@ -152,9 +139,9 @@ func (self *SBaremetalagent) AllowPerformOffline(ctx context.Context, userCred m
 }
 
 func (self *SBaremetalagent) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status == BAREMETAL_AGENT_ENABLED {
+	if self.Status == api.BAREMETAL_AGENT_ENABLED {
 		db.Update(self, func() error {
-			self.Status = BAREMETAL_AGENT_OFFLINE
+			self.Status = api.BAREMETAL_AGENT_OFFLINE
 			return nil
 		})
 		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, "", userCred)
@@ -181,7 +168,7 @@ func (self *SBaremetalagent) GetExtraDetails(ctx context.Context, userCred mccli
 	return extra, nil
 }
 
-func (manager *SBaremetalagentManager) GetAgent(agentType TAgentType, zoneId string) *SBaremetalagent {
+func (manager *SBaremetalagentManager) GetAgent(agentType api.TAgentType, zoneId string) *SBaremetalagent {
 	q := manager.Query().Equals("agent_type", agentType).Equals("zone_id", zoneId).Asc("created_at")
 	agents := make([]SBaremetalagent, 0)
 	err := db.FetchModelObjects(manager, q, &agents)
@@ -195,7 +182,7 @@ func (manager *SBaremetalagentManager) GetAgent(agentType TAgentType, zoneId str
 		return nil
 	}
 	for i := range agents {
-		if agents[i].Status == BAREMETAL_AGENT_ENABLED {
+		if agents[i].Status == api.BAREMETAL_AGENT_ENABLED {
 			return &agents[i]
 		}
 	}

@@ -8,8 +8,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type ZoneState struct {
@@ -60,7 +60,7 @@ func (zone *SZone) IsEmulated() bool {
 }
 
 func (zone *SZone) GetStatus() string {
-	return models.ZONE_ENABLE
+	return api.ZONE_ENABLE
 }
 
 func (zone *SZone) Refresh() error {

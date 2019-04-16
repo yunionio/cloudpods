@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
@@ -44,6 +45,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
+/*
 const (
 	VM_INIT            = api.VM_INIT
 	VM_UNKNOWN         = api.VM_UNKNOWN
@@ -175,6 +177,7 @@ var PUBLIC_CLOUD_HYPERVISORS = api.PUBLIC_CLOUD_HYPERVISORS
 var HYPERVISOR_HOSTTYPE = api.HYPERVISOR_HOSTTYPE
 
 var HOSTTYPE_HYPERVISOR = api.HOSTTYPE_HYPERVISOR
+*/
 
 type SGuestManager struct {
 	db.SVirtualResourceBaseManager
@@ -258,7 +261,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 
 	billingTypeStr, _ := queryDict.GetString("billing_type")
 	if len(billingTypeStr) > 0 {
-		if billingTypeStr == BILLING_TYPE_POSTPAID {
+		if billingTypeStr == billing_api.BILLING_TYPE_POSTPAID {
 			q = q.Filter(
 				sqlchemy.OR(
 					sqlchemy.IsNullOrEmpty(q.Field("billing_type")),
@@ -277,7 +280,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	}
 	isBMstr, _ := queryDict.GetString("baremetal")
 	if len(isBMstr) > 0 && utils.ToBool(isBMstr) {
-		queryDict.Add(jsonutils.NewString(HYPERVISOR_BAREMETAL), "hypervisor")
+		queryDict.Add(jsonutils.NewString(api.HYPERVISOR_BAREMETAL), "hypervisor")
 		queryDict.Remove("baremetal")
 	}
 	hypervisor, _ := queryDict.GetString("hypervisor")
@@ -290,7 +293,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		hosts := HostManager.Query().SubQuery()
 		subq := hosts.Query(hosts.Field("id"))
 		switch resourceTypeStr {
-		case HostResourceTypeShared:
+		case api.HostResourceTypeShared:
 			subq = subq.Filter(
 				sqlchemy.OR(
 					sqlchemy.IsNullOrEmpty(hosts.Field("resource_type")),
@@ -456,7 +459,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	withoutEip, _ := queryDict.GetString("without_eip")
 	if len(withEip) > 0 || len(withoutEip) > 0 {
 		eips := ElasticipManager.Query().SubQuery()
-		sq := eips.Query(eips.Field("associate_id")).Equals("associate_type", EIP_ASSOCIATE_TYPE_SERVER)
+		sq := eips.Query(eips.Field("associate_id")).Equals("associate_type", api.EIP_ASSOCIATE_TYPE_SERVER)
 		sq = sq.IsNotNull("associate_id").IsNotEmpty("associate_id")
 
 		if utils.ToBool(withEip) {
@@ -527,19 +530,19 @@ func (manager *SGuestManager) ExtraSearchConditions(ctx context.Context, q *sqlc
 
 func (guest *SGuest) GetHypervisor() string {
 	if len(guest.Hypervisor) == 0 {
-		return HYPERVISOR_DEFAULT
+		return api.HYPERVISOR_DEFAULT
 	} else {
 		return guest.Hypervisor
 	}
 }
 
 func (guest *SGuest) GetHostType() string {
-	return HYPERVISOR_HOSTTYPE[guest.Hypervisor]
+	return api.HYPERVISOR_HOSTTYPE[guest.Hypervisor]
 }
 
 func (guest *SGuest) GetDriver() IGuestDriver {
 	hypervisor := guest.GetHypervisor()
-	if !utils.IsInStringArray(hypervisor, HYPERVISORS) {
+	if !utils.IsInStringArray(hypervisor, api.HYPERVISORS) {
 		log.Fatalf("Unsupported hypervisor %s", hypervisor)
 	}
 	return GetDriver(hypervisor)
@@ -722,7 +725,7 @@ func ValidateCpuData(vcpuCount int, driver IGuestDriver) (int, error) {
 
 func ValidateMemCpuData(vmemSize, vcpuCount int, hypervisor string) (int, int, error) {
 	if len(hypervisor) == 0 {
-		hypervisor = HYPERVISOR_DEFAULT
+		hypervisor = api.HYPERVISOR_DEFAULT
 	}
 	driver := GetDriver(hypervisor)
 
@@ -760,10 +763,10 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	}
 
 	if vmemSize > 0 || vcpuCount > 0 {
-		if !utils.IsInStringArray(self.Status, []string{VM_READY}) && self.GetHypervisor() != HYPERVISOR_CONTAINER {
+		if !utils.IsInStringArray(self.Status, []string{api.VM_READY}) && self.GetHypervisor() != api.HYPERVISOR_CONTAINER {
 			return nil, httperrors.NewInvalidStatusError("Cannot modify Memory and CPU in status %s", self.Status)
 		}
-		if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
+		if self.GetHypervisor() == api.HYPERVISOR_BAREMETAL {
 			return nil, httperrors.NewInputParameterError("Cannot modify memory for baremetal")
 		}
 	}
@@ -817,7 +820,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	// var rootStorageType string
 	var osProf osprofile.SOSProfile
 	hypervisor = input.Hypervisor
-	if hypervisor != HYPERVISOR_CONTAINER {
+	if hypervisor != api.HYPERVISOR_CONTAINER {
 		if len(input.Disks) == 0 {
 			return nil, httperrors.NewInputParameterError("No disk information provided")
 		}
@@ -826,7 +829,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("Invalid root image: %s", err)
 		}
-		if len(diskConfig.SnapshotId) > 0 && diskConfig.DiskType != DISK_TYPE_SYS {
+		if len(diskConfig.SnapshotId) > 0 && diskConfig.DiskType != api.DISK_TYPE_SYS {
 			return nil, httperrors.NewBadRequestError("Snapshot error: disk index 0 but disk type is %s", diskConfig.DiskType)
 		}
 
@@ -881,7 +884,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 
 	hypervisor = input.Hypervisor
-	if hypervisor != HYPERVISOR_CONTAINER {
+	if hypervisor != api.HYPERVISOR_CONTAINER {
 		// support sku here
 		var sku *SServerSku
 		skuName := input.InstanceType
@@ -952,8 +955,8 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			if err != nil {
 				return nil, httperrors.NewInputParameterError("parse disk description error %s", err)
 			}
-			if diskConfig.DiskType == DISK_TYPE_SYS {
-				return nil, httperrors.NewBadRequestError("Snapshot error: disk index %d > 0 but disk type is %s", i+1, DISK_TYPE_SYS)
+			if diskConfig.DiskType == api.DISK_TYPE_SYS {
+				return nil, httperrors.NewBadRequestError("Snapshot error: disk index %d > 0 but disk type is %s", i+1, api.DISK_TYPE_SYS)
 			}
 			if len(diskConfig.Backend) == 0 {
 				diskConfig.Backend = rootDiskConfig.Backend
@@ -973,7 +976,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 				return nil, httperrors.NewForbiddenError("only admin can create prepaid resource")
 			}
 
-			if resourceTypeStr == HostResourceTypePrepaidRecycle {
+			if resourceTypeStr == api.HostResourceTypePrepaidRecycle {
 				return nil, httperrors.NewConflictError("cannot create prepaid server on prepaid resource type")
 			}
 
@@ -986,7 +989,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 				return nil, httperrors.NewInputParameterError("unsupported duration %s", durationStr)
 			}
 
-			input.BillingType = BILLING_TYPE_PREPAID
+			input.BillingType = billing_api.BILLING_TYPE_PREPAID
 			input.BillingCycle = billingCycle.String()
 			// expired_at will be set later by callback
 			// data.Add(jsonutils.NewTimeString(billingCycle.EndAt(time.Time{})), "expired_at")
@@ -1104,7 +1107,7 @@ func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, inp
 			}
 
 			eip := eipObj.(*SElasticip)
-			if eip.Status != EIP_STATUS_READY {
+			if eip.Status != api.EIP_STATUS_READY {
 				return httperrors.NewInvalidStatusError("eip %s status invalid %s", eipStr, eip.Status)
 			}
 			if eip.IsAssociated() {
@@ -1237,7 +1240,7 @@ func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCred
 }
 
 func (guest *SGuest) setApptags(ctx context.Context, appTags []string, userCred mcclient.TokenCredential) {
-	err := guest.SetMetadata(ctx, VM_METADATA_APP_TAGS, strings.Join(appTags, ","), userCred)
+	err := guest.SetMetadata(ctx, api.VM_METADATA_APP_TAGS, strings.Join(appTags, ","), userCred)
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -1246,7 +1249,7 @@ func (guest *SGuest) setApptags(ctx context.Context, appTags []string, userCred 
 func (guest *SGuest) SetCreateParams(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
 	// delete deploy files info
 	data.(*jsonutils.JSONDict).Remove("deploy_configs")
-	err := guest.SetMetadata(ctx, VM_METADATA_CREATE_PARAMS, data.String(), userCred)
+	err := guest.SetMetadata(ctx, api.VM_METADATA_CREATE_PARAMS, data.String(), userCred)
 	if err != nil {
 		log.Errorf("Server %s SetCreateParams: %v", guest.Name, err)
 	}
@@ -1254,9 +1257,9 @@ func (guest *SGuest) SetCreateParams(ctx context.Context, userCred mcclient.Toke
 
 func (guest *SGuest) GetCreateParams(userCred mcclient.TokenCredential) (*api.ServerCreateInput, error) {
 	input := new(api.ServerCreateInput)
-	data := guest.GetMetadataJson(VM_METADATA_CREATE_PARAMS, userCred)
+	data := guest.GetMetadataJson(api.VM_METADATA_CREATE_PARAMS, userCred)
 	if data == nil {
-		return nil, fmt.Errorf("Not found %s %s in metadata", guest.Name, VM_METADATA_CREATE_PARAMS)
+		return nil, fmt.Errorf("Not found %s %s in metadata", guest.Name, api.VM_METADATA_CREATE_PARAMS)
 	}
 	err := data.Unmarshal(input)
 	return input, err
@@ -1790,9 +1793,9 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	if self.BillingType == BILLING_TYPE_PREPAID {
+	if self.BillingType == billing_api.BILLING_TYPE_PREPAID {
 		diff, err := db.Update(self, func() error {
-			self.BillingType = BILLING_TYPE_POSTPAID
+			self.BillingType = billing_api.BILLING_TYPE_POSTPAID
 			self.ExpiredAt = time.Time{}
 			return nil
 		})
@@ -1813,8 +1816,8 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 		})
 	}
 
-	if self.Status != VM_UNKNOWN {
-		self.SetStatus(userCred, VM_UNKNOWN, "Sync lost")
+	if self.Status != api.VM_UNKNOWN {
+		self.SetStatus(userCred, api.VM_UNKNOWN, "Sync lost")
 	}
 
 	return nil
@@ -1853,7 +1856,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.InstanceType = instanceType
 		}
 
-		if extVM.GetHypervisor() == HYPERVISOR_AWS {
+		if extVM.GetHypervisor() == api.HYPERVISOR_AWS {
 			sku, err := ServerSkuManager.FetchSkuByNameAndHypervisor(instanceType, extVM.GetHypervisor(), false)
 			if err == nil {
 				self.VmemSize = sku.MemorySizeMB
@@ -1943,7 +1946,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		guest.InstanceType = instanceType
 	}
 
-	if extVM.GetHypervisor() == HYPERVISOR_AWS {
+	if extVM.GetHypervisor() == api.HYPERVISOR_AWS {
 		sku, err := ServerSkuManager.FetchSkuByNameAndHypervisor(instanceType, extVM.GetHypervisor(), false)
 		if err == nil {
 			guest.VmemSize = sku.MemorySizeMB
@@ -1964,7 +1967,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 
 	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
 
-	if guest.Status == VM_RUNNING {
+	if guest.Status == api.VM_RUNNING {
 		db.OpsLog.LogEvent(&guest, db.ACT_START, guest.GetShortDesc(ctx), userCred)
 	}
 
@@ -2576,7 +2579,7 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 
 	diskName := fmt.Sprintf("vdisk_%s_%d", self.Name, time.Now().UnixNano())
 
-	billingType := BILLING_TYPE_POSTPAID
+	billingType := billing_api.BILLING_TYPE_POSTPAID
 	billingCycle := ""
 	if inheritBilling {
 		billingType = self.BillingType
@@ -2584,7 +2587,7 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 	}
 
 	autoDelete := false
-	if storage.IsLocal() || billingType == BILLING_TYPE_PREPAID || isWithServerCreate {
+	if storage.IsLocal() || billingType == billing_api.BILLING_TYPE_PREPAID || isWithServerCreate {
 		autoDelete = true
 	}
 	disk, err := storage.createDisk(diskName, diskConfig, userCred, self.ProjectId, autoDelete, self.IsSystem,
@@ -2901,13 +2904,13 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 	onFinish := "shutdown"
 	if jsonutils.QueryBoolean(params, "auto_start", false) || jsonutils.QueryBoolean(params, "restart", false) {
 		onFinish = "none"
-	} else if utils.IsInStringArray(self.Status, []string{VM_ADMIN}) {
+	} else if utils.IsInStringArray(self.Status, []string{api.VM_ADMIN}) {
 		onFinish = "none"
 	}
 
 	config.Add(jsonutils.NewString(onFinish), "on_finish")
 
-	if deployAction == "create" && !utils.IsInStringArray(self.Hypervisor, []string{HYPERVISOR_KVM, HYPERVISOR_BAREMETAL, HYPERVISOR_CONTAINER, HYPERVISOR_ESXI, HYPERVISOR_XEN}) {
+	if deployAction == "create" && !utils.IsInStringArray(self.Hypervisor, []string{api.HYPERVISOR_KVM, api.HYPERVISOR_BAREMETAL, api.HYPERVISOR_CONTAINER, api.HYPERVISOR_ESXI, api.HYPERVISOR_XEN}) {
 		nets, err := self.GetNetworks("")
 		if err != nil || len(nets) == 0 {
 			return nil, fmt.Errorf("failed to find network for guest %s: %s", self.Name, err)
@@ -2917,10 +2920,10 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		registerVpcId := vpc.ExternalId
 		externalVpcId := vpc.ExternalId
 		switch self.Hypervisor {
-		case HYPERVISOR_ALIYUN, HYPERVISOR_HUAWEI:
+		case api.HYPERVISOR_ALIYUN, api.HYPERVISOR_HUAWEI:
 			break
-		case HYPERVISOR_AWS:
-			loginUser := cloudinit.NewUser(VM_AWS_DEFAULT_LOGIN_USER)
+		case api.HYPERVISOR_AWS:
+			loginUser := cloudinit.NewUser(api.VM_AWS_DEFAULT_LOGIN_USER)
 			loginUser.SudoPolicy(cloudinit.USER_SUDO_NOPASSWD)
 			if pub, _ := config.GetString("public_key"); len(pub) > 0 {
 				loginUser.SshKey(pub)
@@ -2945,9 +2948,9 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 
 			userdata := cloudconfig.UserDataBase64()
 			config.Add(jsonutils.NewString(userdata), "user_data")
-		case HYPERVISOR_QCLOUD, HYPERVISOR_OPENSTACK:
+		case api.HYPERVISOR_QCLOUD, api.HYPERVISOR_OPENSTACK:
 			registerVpcId = "normal"
-		case HYPERVISOR_AZURE:
+		case api.HYPERVISOR_AZURE:
 			registerVpcId, externalVpcId = "normal", "normal"
 			if strings.HasSuffix(host.Name, "-classic") {
 				registerVpcId, externalVpcId = "classic", "classic"
@@ -2959,7 +2962,7 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		if err != nil {
 			return nil, fmt.Errorf("failed to get iregion for host %s error: %v", host.Name, err)
 		}
-		if self.Hypervisor == HYPERVISOR_QCLOUD { //腾讯云目前仅支持shell,否则绑定秘钥会冲突失效
+		if self.Hypervisor == api.HYPERVISOR_QCLOUD { //腾讯云目前仅支持shell,否则绑定秘钥会冲突失效
 			config.Add(jsonutils.NewString(cloudprovider.CLOUD_SHELL), "user_data_type")
 		}
 		secgroupIds := jsonutils.NewArray()
@@ -3303,7 +3306,7 @@ func (manager *SGuestManager) GetSpecShouldCheckStatus(query *jsonutils.JSONDict
 
 func (self *SGuest) GetSpec(checkStatus bool) *jsonutils.JSONDict {
 	if checkStatus {
-		if utils.IsInStringArray(self.Status, []string{VM_SCHEDULE_FAILED}) {
+		if utils.IsInStringArray(self.Status, []string{api.VM_SCHEDULE_FAILED}) {
 			return nil
 		}
 	}
@@ -3471,7 +3474,7 @@ func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	host := self.GetHost()
 
 	spec := self.GetSpec(false)
-	if self.GetHypervisor() == HYPERVISOR_BAREMETAL {
+	if self.GetHypervisor() == api.HYPERVISOR_BAREMETAL {
 		if host != nil {
 			hostSpec := host.GetSpec(false)
 			hostSpecIdent := HostManager.GetSpecIdent(hostSpec)
@@ -3559,7 +3562,7 @@ func (self *SGuest) isAllDisksReady() bool {
 	}
 	for i := 0; i < len(disks); i += 1 {
 		disk := disks[i].GetDisk()
-		if !(disk.isReady() || disk.Status == DISK_START_MIGRATE) {
+		if !(disk.isReady() || disk.Status == api.DISK_START_MIGRATE) {
 			ready = false
 			break
 		}
@@ -3657,7 +3660,7 @@ func (manager *SGuestManager) getExpiredPrepaidGuests() []SGuest {
 	deadline := time.Now().Add(time.Duration(options.Options.PrepaidExpireCheckSeconds*-1) * time.Second)
 
 	q := manager.Query()
-	q = q.Equals("billing_type", BILLING_TYPE_PREPAID).LT("expired_at", deadline).Limit(options.Options.ExpiredPrepaidMaxCleanBatchSize)
+	q = q.Equals("billing_type", billing_api.BILLING_TYPE_PREPAID).LT("expired_at", deadline).Limit(options.Options.ExpiredPrepaidMaxCleanBatchSize)
 
 	guests := make([]SGuest, 0)
 	err := db.FetchModelObjects(GuestManager, q, &guests)
@@ -3892,7 +3895,7 @@ func (self *SGuest) DeleteEip(ctx context.Context, userCred mcclient.TokenCreden
 	if eip == nil {
 		return nil
 	}
-	if eip.Mode == EIP_MODE_INSTANCE_PUBLICIP {
+	if eip.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		err = eip.RealDelete(ctx, userCred)
 		if err != nil {
 			log.Errorf("Delete eip on delete server fail %s", err)
@@ -3933,11 +3936,11 @@ func (self *SGuest) getDefaultStorageType() string {
 			return rootStorage.StorageType
 		}
 	}
-	return STORAGE_LOCAL
+	return api.STORAGE_LOCAL
 }
 
 func (self *SGuest) GetApptags() []string {
-	tagsStr := self.GetMetadata(VM_METADATA_APP_TAGS, nil)
+	tagsStr := self.GetMetadata(api.VM_METADATA_APP_TAGS, nil)
 	if len(tagsStr) > 0 {
 		return strings.Split(tagsStr, ",")
 	}

@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -77,7 +78,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		}
 	}
 
-	if guest.BillingType == models.BILLING_TYPE_PREPAID {
+	if guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
 		bc, err := billing.ParseBillingCycle(guest.BillingCycle)
 		if err != nil {
 			log.Errorf("fail to parse billing cycle %s: %s", guest.BillingCycle, err)
@@ -142,7 +143,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Conte
 	}
 
 	result := jsonutils.NewDict()
-	if ivm.GetStatus() != models.VM_RUNNING {
+	if ivm.GetStatus() != api.VM_RUNNING {
 		if err := ivm.StartVM(ctx); err != nil {
 			return nil, e
 		} else {
@@ -199,11 +200,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 }
 
 func (self *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return models.VM_READY
+	return api.VM_READY
 }
 
 func (self *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return models.VM_READY
+	return api.VM_READY
 }
 
 func (self *SManagedVirtualizedGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
@@ -452,17 +453,17 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 
 	status := ivm.GetStatus()
 	switch status {
-	case models.VM_RUNNING:
+	case api.VM_RUNNING:
 		status = cloudprovider.CloudVMStatusRunning
-	case models.VM_READY:
+	case api.VM_READY:
 		status = cloudprovider.CloudVMStatusStopped
-	case models.VM_STARTING:
+	case api.VM_STARTING:
 		status = cloudprovider.CloudVMStatusStopped
-	case models.VM_STOPPING:
+	case api.VM_STOPPING:
 		status = cloudprovider.CloudVMStatusRunning
-	case models.VM_CHANGE_FLAVOR:
+	case api.VM_CHANGE_FLAVOR:
 		status = cloudprovider.CloudVMStatusChangeFlavor
-	case models.VM_DEPLOYING:
+	case api.VM_DEPLOYING:
 		status = cloudprovider.CloudVMStatusDeploying
 	default:
 		status = cloudprovider.CloudVMStatusOther
@@ -594,7 +595,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 				disk.DiskSize = diskInfo[i].Size
 				disk.ExternalId = diskInfo[i].Uuid
 				disk.DiskType = diskInfo[i].DiskType
-				disk.Status = models.DISK_READY
+				disk.Status = api.DISK_READY
 
 				disk.FsFormat = diskInfo[i].FsFromat
 				if diskInfo[i].AutoDelete {

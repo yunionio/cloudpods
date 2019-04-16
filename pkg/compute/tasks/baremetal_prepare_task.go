@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -31,7 +32,7 @@ func (self *BaremetalPrepareTask) OnInit(ctx context.Context, obj db.IStandalone
 }
 
 func (self *BaremetalPrepareTask) OnFailure(ctx context.Context, baremetal *models.SHost, reason string) {
-	baremetal.SetStatus(self.UserCred, models.BAREMETAL_PREPARE_FAIL, reason)
+	baremetal.SetStatus(self.UserCred, api.BAREMETAL_PREPARE_FAIL, reason)
 	self.SetStageFailed(ctx, reason)
 }
 

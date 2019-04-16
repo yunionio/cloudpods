@@ -8,6 +8,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -221,11 +222,11 @@ func (self *SBaseGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.Contex
 }
 
 func (self *SBaseGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return models.VM_READY
+	return api.VM_READY
 }
 
 func (self *SBaseGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return models.VM_READY
+	return api.VM_READY
 }
 
 func (self *SBaseGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {

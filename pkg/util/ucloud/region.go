@@ -5,9 +5,10 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/util/secrules"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SRegion struct {
@@ -42,7 +43,7 @@ func (self *SRegion) GetGlobalId() string {
 }
 
 func (self *SRegion) GetStatus() string {
-	return models.CLOUD_REGION_STATUS_INSERVER
+	return api.CLOUD_REGION_STATUS_INSERVER
 }
 
 func (self *SRegion) Refresh() error {
@@ -208,9 +209,9 @@ func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpTy
 	params.Set("Name", name)
 	var payMode string
 	switch chargeType {
-	case models.EIP_CHARGE_TYPE_BY_TRAFFIC:
+	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
 		payMode = "Traffic"
-	case models.EIP_CHARGE_TYPE_BY_BANDWIDTH:
+	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
 		payMode = "Bandwidth"
 	}
 	params.Set("PayMode", payMode)
