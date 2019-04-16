@@ -169,6 +169,10 @@ func (model *SVirtualResourceBase) AllowPerformMetadata(ctx context.Context, use
 	return model.IsOwner(userCred) || IsAdminAllowPerform(userCred, model, "metadata")
 }
 
+func (model *SVirtualResourceBase) AllowGetDetailsStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return model.IsOwner(userCred) || IsAdminAllowGetSpec(userCred, model, "status")
+}
+
 func (model *SVirtualResourceBase) GetTenantCache(ctx context.Context) (*STenant, error) {
 	// log.Debugf("Get tenant by Id %s", model.ProjectId)
 	return TenantCacheManager.FetchTenantById(ctx, model.ProjectId)
