@@ -486,6 +486,12 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 }
 
 func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	specsKey := "InstanceSpecs"
+	v := Cache.Get(specsKey)
+	if v != nil {
+		return v.(*jsonutils.JSONDict), nil
+	}
+
 	q := self.Query()
 	// 未明确指定provider或者public_cloud时，默认查询私有云
 	provider, _ := query.GetString("provider")
@@ -562,6 +568,8 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 
 	r_obj := jsonutils.Marshal(&cpu_mems_mb)
 	ret.Add(r_obj, "cpu_mems_mb")
+	// cache
+	Cache.Set(specsKey, ret)
 	return ret, nil
 }
 
