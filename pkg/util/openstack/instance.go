@@ -592,6 +592,9 @@ func (region *SRegion) AttachDisk(instanceId string, diskId string) error {
 }
 
 func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
+	if secgroupId == SECGROUP_NOT_SUPPORT {
+		return fmt.Errorf("Security groups are not supported. Security group components are not installed")
+	}
 	secgroup, err := instance.host.zone.region.GetSecurityGroup(secgroupId)
 	if err != nil {
 		return err
@@ -606,6 +609,10 @@ func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
 }
 
 func (instance *SInstance) RevokeSecurityGroup(secgroupId string) error {
+	// 若OpenStack不支持安全组，则忽略解绑安全组
+	if secgroupId == SECGROUP_NOT_SUPPORT {
+		return nil
+	}
 	secgroup, err := instance.host.zone.region.GetSecurityGroup(secgroupId)
 	if err != nil {
 		return err
