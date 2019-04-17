@@ -174,6 +174,13 @@ var HOSTTYPE_HYPERVISOR = map[string]string{
 const (
 	VM_AWS_DEFAULT_LOGIN_USER = "ec2user"
 
-	VM_METADATA_APP_TAGS      = "app_tags"
-	VM_METADATA_CREATE_PARAMS = "create_params"
+	VM_METADATA_APP_TAGS            = "app_tags"
+	VM_METADATA_CREATE_PARAMS       = "create_params"
+	VM_METADATA_LOGIN_ACCOUNT       = "login_account"
+	VM_METADATA_LOGIN_KEY           = "login_key"
+	VM_METADATA_LOGIN_KEY_TIMESTAMP = "login_key_timestamp"
+	VM_METADATA_OS_ARCH             = "os_arch"
+	VM_METADATA_OS_DISTRO           = "os_distribution"
+	VM_METADATA_OS_NAME             = "os_name"
+	VM_METADATA_OS_VERSION          = "os_version"
 )

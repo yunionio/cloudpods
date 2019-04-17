@@ -177,6 +177,13 @@ type IStandaloneModel interface {
 	// GetExternalId() string
 }
 
+type IMetadataModel interface {
+	IStandaloneModel
+
+	GetAllMetadata(userCred mcclient.TokenCredential) (map[string]string, error)
+	GetMetadataHideKeys() []string
+}
+
 type IVirtualModelManager interface {
 	IStandaloneModelManager
 }

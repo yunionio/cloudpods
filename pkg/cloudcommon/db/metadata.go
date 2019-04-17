@@ -360,11 +360,39 @@ func (manager *SMetadataManager) GetAll(obj IModel, keys []string, userCred mccl
 }
 
 func (manager *SMetadataManager) IsSystemAdminKey(key string) bool {
+	return IsMetadataKeySystemAdmin(key)
+}
+
+func IsMetadataKeySystemAdmin(key string) bool {
 	return strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX)
+}
+
+func IsMetadataKeySysTag(key string) bool {
+	return strings.HasPrefix(key, SYS_TAG_PREFIX)
 }
 
 func (manager *SMetadataManager) GetSysadminKey(key string) string {
 	return fmt.Sprintf("%s%s", SYSTEM_ADMIN_PREFIX, key)
+}
+
+func IsMetadataKeyVisiable(key string) bool {
+	return !(IsMetadataKeySysTag(key) || IsMetadataKeySystemAdmin(key))
+}
+
+func GetVisiableMetadata(model IMetadataModel, userCred mcclient.TokenCredential) (map[string]string, error) {
+	metaData, err := model.GetAllMetadata(userCred)
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range model.GetMetadataHideKeys() {
+		delete(metaData, key)
+	}
+	for key := range metaData {
+		if !IsMetadataKeyVisiable(key) {
+			delete(metaData, key)
+		}
+	}
+	return metaData, nil
 }
 
 /*

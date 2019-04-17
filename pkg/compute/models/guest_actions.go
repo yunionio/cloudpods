@@ -629,11 +629,11 @@ func (self *SGuest) NotifyServerEvent(userCred mcclient.TokenCredential, event s
 	kwargs.Add(jsonutils.NewString(self.Hypervisor), "hypervisor")
 	if loginInfo {
 		kwargs.Add(jsonutils.NewString(self.getNotifyIps()), "ips")
-		osName := meta["os_name"]
+		osName := meta[api.VM_METADATA_OS_NAME]
 		if osName == "Windows" {
 			kwargs.Add(jsonutils.JSONTrue, "windows")
 		}
-		loginAccount := meta["login_account"]
+		loginAccount := meta[api.VM_METADATA_LOGIN_ACCOUNT]
 		if len(loginAccount) > 0 {
 			kwargs.Add(jsonutils.NewString(loginAccount), "account")
 		}
@@ -641,7 +641,7 @@ func (self *SGuest) NotifyServerEvent(userCred mcclient.TokenCredential, event s
 		if len(keypair) > 0 {
 			kwargs.Add(jsonutils.NewString(keypair), "keypair")
 		} else {
-			loginKey := meta["login_key"]
+			loginKey := meta[api.VM_METADATA_LOGIN_KEY]
 			if len(loginKey) > 0 {
 				passwd, err := utils.DescryptAESBase64(self.Id, loginKey)
 				if err == nil {
