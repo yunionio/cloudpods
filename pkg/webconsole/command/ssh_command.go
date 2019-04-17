@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/log"
@@ -37,13 +38,14 @@ import (
 type SSHtoolSol struct {
 	*BaseCommand
 	IP       string
+	Port     int
 	Username string
 	reTry    int
 	showInfo string
 	keyFile  string
 }
 
-func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip string) (string, *BaseCommand, error) {
+func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip string, port int) (string, *BaseCommand, error) {
 	cmd := NewBaseCommand(o.Options.SshToolPath)
 	if !o.Options.EnableAutoLogin {
 		return "", nil, nil
@@ -76,30 +78,38 @@ func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip strin
 	cmd.AppendArgs("-o", "GlobalKnownHostsFile=/dev/null")
 	cmd.AppendArgs("-o", "UserKnownHostsFile=/dev/null")
 	cmd.AppendArgs("-o", "PasswordAuthentication=no")
+	cmd.AppendArgs("-p", fmt.Sprintf("%d", port))
 	cmd.AppendArgs(fmt.Sprintf("%s@%s", ansible.PUBLIC_CLOUD_ANSIBLE_USER, ip))
 	return file.Name(), cmd, nil
 }
 
-func NewSSHtoolSolCommand(ctx context.Context, userCred mcclient.TokenCredential, ip string) (*SSHtoolSol, error) {
-	if conn, err := net.DialTimeout("tcp", ip+":22", time.Second*2); err != nil {
-		return nil, fmt.Errorf("IPAddress %s not accessable", ip)
-	} else {
-		conn.Close()
-
-		keyFile, cmd, err := getCommand(ctx, userCred, ip)
-		if err != nil {
-			log.Errorf("getCommand error: %v", err)
+func NewSSHtoolSolCommand(ctx context.Context, userCred mcclient.TokenCredential, ip string, query jsonutils.JSONObject) (*SSHtoolSol, error) {
+	port := 22
+	if query != nil {
+		if _port, _ := query.Int("webconsole", "port"); _port != 0 {
+			port = int(_port)
 		}
-
-		return &SSHtoolSol{
-			BaseCommand: cmd,
-			IP:          ip,
-			Username:    "",
-			reTry:       0,
-			showInfo:    fmt.Sprintf("%s login: ", ip),
-			keyFile:     keyFile,
-		}, nil
 	}
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", ip, port), time.Second*2)
+	if err != nil {
+		return nil, fmt.Errorf("IPAddress %s:%d not accessable", ip, port)
+	}
+	defer conn.Close()
+
+	keyFile, cmd, err := getCommand(ctx, userCred, ip, port)
+	if err != nil {
+		log.Errorf("getCommand error: %v", err)
+	}
+
+	return &SSHtoolSol{
+		BaseCommand: cmd,
+		IP:          ip,
+		Port:        port,
+		Username:    "",
+		reTry:       0,
+		showInfo:    fmt.Sprintf("%s login: ", ip),
+		keyFile:     keyFile,
+	}, nil
 }
 
 func (c *SSHtoolSol) GetCommand() *exec.Cmd {
@@ -124,7 +134,7 @@ func (c *SSHtoolSol) GetProtocol() string {
 }
 
 func (c *SSHtoolSol) Connect() error {
-	conn, err := net.DialTimeout("tcp", c.IP+":22", time.Second*2)
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", c.IP, c.Port), time.Second*2)
 	if err != nil {
 		return err
 	}
@@ -141,7 +151,12 @@ func (c *SSHtoolSol) GetData(data string) (isShow bool, ouput string, command st
 		c.Username = data
 		return false, "Password:", ""
 	}
-	return true, "", fmt.Sprintf("%s -p %s %s -oGlobalKnownHostsFile=/dev/null -oUserKnownHostsFile=/dev/null -oStrictHostKeyChecking=no %s@%s", o.Options.SshpassToolPath, data, o.Options.SshToolPath, c.Username, c.IP)
+	args := []string{
+		o.Options.SshpassToolPath, "-p", data,
+		o.Options.SshToolPath, "-p", fmt.Sprintf("%d", c.Port), fmt.Sprintf("%s@%s", c.Username, c.IP),
+		"-oGlobalKnownHostsFile=/dev/null", "-oUserKnownHostsFile=/dev/null", "-oStrictHostKeyChecking=no",
+	}
+	return true, "", strings.Join(args, " ")
 }
 
 func (c *SSHtoolSol) ShowInfo() string {
