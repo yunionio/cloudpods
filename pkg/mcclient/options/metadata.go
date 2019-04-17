@@ -7,3 +7,5 @@ type MetadataListOptions struct {
 	UserMeta  *bool    `help:"Show user metadata olny"`
 	Admin     *bool    `help:"Show all metadata"`
 }
+
+type TagListOptions MetadataListOptions
