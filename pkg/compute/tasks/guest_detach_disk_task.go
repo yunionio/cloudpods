@@ -110,7 +110,7 @@ func (self *GuestDetachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DETACH_DISK, nil, self.UserCred, true)
 }
 
-func (self *GuestDetachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, resion jsonutils.JSONObject) {
+func (self *GuestDetachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, reason jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	driver, _ := self.Params.GetString("driver")
 	cache, _ := self.Params.GetString("cache")
@@ -122,7 +122,7 @@ func (self *GuestDetachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context,
 		return
 	}
 	disk := objDisk.(*models.SDisk)
-	db.OpsLog.LogEvent(disk, db.ACT_DETACH, resion.String(), self.UserCred)
+	db.OpsLog.LogEvent(disk, db.ACT_DETACH, reason.String(), self.UserCred)
 	disk.SetDiskReady(ctx, self.UserCred, "")
 	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint)
 	if err != nil {

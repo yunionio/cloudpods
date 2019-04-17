@@ -76,9 +76,9 @@ func (self *GuestStopTask) OnMasterStopTaskComplete(ctx context.Context, guest *
 	}
 }
 
-func (self *GuestStopTask) OnMasterStopTaskCompleteFailed(ctx context.Context, obj db.IStandaloneModel, resion jsonutils.JSONObject) {
+func (self *GuestStopTask) OnMasterStopTaskCompleteFailed(ctx context.Context, obj db.IStandaloneModel, reason jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	self.OnGuestStopTaskCompleteFailed(ctx, guest, resion)
+	self.OnGuestStopTaskCompleteFailed(ctx, guest, reason)
 }
 
 func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -94,9 +94,9 @@ func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *m
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, "", self.UserCred, true)
 }
 
-func (self *GuestStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, guest *models.SGuest, resion jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, api.VM_STOP_FAILED, resion.String())
-	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, resion.String(), self.UserCred)
-	self.SetStageFailed(ctx, resion.String())
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, resion.String(), self.UserCred, false)
+func (self *GuestStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
+	guest.SetStatus(self.UserCred, api.VM_STOP_FAILED, reason.String())
+	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, reason.String(), self.UserCred)
+	self.SetStageFailed(ctx, reason.String())
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, reason.String(), self.UserCred, false)
 }

@@ -85,6 +85,7 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, "associate")
 
 	server.StartSyncstatus(ctx, self.UserCred, "")
+	logclient.AddActionLogWithStartable(self, server, logclient.ACT_EIP_ASSOCIATE, nil, self.UserCred, true)
 
 	self.SetStageComplete(ctx, nil)
 }
