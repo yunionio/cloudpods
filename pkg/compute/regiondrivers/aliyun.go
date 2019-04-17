@@ -63,7 +63,7 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 			return nil, err
 		}
 	}
-	return self.ValidateCreateLoadbalancerData(ctx, userCred, data)
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, data)
 }
 
 func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
