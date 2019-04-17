@@ -111,6 +111,9 @@ const (
 	ACT_SWITCH_TO_BACKUP             = "主备切换"
 	ACT_RENEW                        = "续费"
 	ACT_MIGRATE                      = "迁移"
+	ACT_EIP_ASSOCIATE                = "绑定弹性IP"
+	ACT_EIP_DISSOCIATE               = "解绑弹性IP"
+	ACT_CHANGE_BANDWIDTH             = "调整带宽"
 
 	ACT_IMAGE_SAVE = "上传镜像"
 
