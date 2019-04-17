@@ -97,7 +97,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			return nil, err
 		}
 
-		defaultStorage := GetDriver(hypervisor).ChooseHostStorage(baremetal, "")
+		defaultStorage := GetDriver(hypervisor).ChooseHostStorage(baremetal, "", nil)
 		if defaultStorage == nil {
 			return nil, httperrors.NewInsufficientResourceError("no valid storage on host")
 		}

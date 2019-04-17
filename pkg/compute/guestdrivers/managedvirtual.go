@@ -778,3 +778,28 @@ func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(guest *models.S
 func (self *SManagedVirtualizedGuestDriver) IsSupportEip() bool {
 	return true
 }
+
+func (self *SManagedVirtualizedGuestDriver) chooseHostStorage(
+	drv models.IGuestDriver,
+	host *models.SHost,
+	backend string,
+	storageIds []string,
+) *models.SStorage {
+	if len(storageIds) != 0 {
+		return models.StorageManager.FetchStorageById(storageIds[0])
+	}
+	storages := host.GetAttachedStorages("")
+	for i := 0; i < len(storages); i += 1 {
+		if storages[i].StorageType == backend {
+			return &storages[i]
+		}
+	}
+	for _, stype := range drv.GetStorageTypes() {
+		for i := 0; i < len(storages); i += 1 {
+			if storages[i].StorageType == stype {
+				return &storages[i]
+			}
+		}
+	}
+	return nil
+}
