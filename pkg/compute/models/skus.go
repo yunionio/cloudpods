@@ -420,11 +420,41 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 	// 过滤出公有云provider状态健康的sku
 	if public_cloud {
 		providerTable := CloudproviderManager.Query().SubQuery()
-		q = q.Join(providerTable, sqlchemy.Equals(q.Field("provider"), providerTable.Field("provider")))
+		providerRegionTable := CloudproviderRegionManager.Query().SubQuery()
+		q = q.Join(providerRegionTable, sqlchemy.Equals(q.Field("cloudregion_id"), providerRegionTable.Field("cloudregion_id")))
+		q = q.Join(providerTable, sqlchemy.Equals(providerRegionTable.Field("cloudprovider_id"), providerTable.Field("id")))
 		q = q.Filter(sqlchemy.IsTrue(providerTable.Field("enabled")))
 		q = q.Filter(sqlchemy.In(providerTable.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
 		q = q.Filter(sqlchemy.Equals(providerTable.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
 	}
+
+	// 过滤出network usable的sku
+	providers := CloudproviderManager.Query().SubQuery()
+	networks := NetworkManager.Query().SubQuery()
+	wires := WireManager.Query().SubQuery()
+	vpcs := VpcManager.Query().SubQuery()
+
+	sq := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
+	sq = sq.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+	sq = sq.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+	sq = sq.Join(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
+	sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+	sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
+	sq = sq.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+	sq = sq.Filter(sqlchemy.Equals(providers.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
+	sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+
+	sq2 := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
+	sq2 = sq2.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+	sq2 = sq2.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
+	sq2 = sq2.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+	sq2 = sq2.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
+	sq2 = sq2.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.In(q.Field("cloudregion_id"), sq.SubQuery()),
+		sqlchemy.In(q.Field("cloudregion_id"), sq2.SubQuery()),
+	))
 
 	if provider == "all" {
 		// provider 参数为all时。表示查询所有instance type.
@@ -445,6 +475,12 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 }
 
 func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	specsKey := "InstanceSpecs"
+	v := Cache.Get(specsKey)
+	if v != nil {
+		return v.(*jsonutils.JSONDict), nil
+	}
+
 	q := self.Query()
 	// 未明确指定provider或者public_cloud时，默认查询私有云
 	provider, _ := query.GetString("provider")
@@ -521,6 +557,8 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 
 	r_obj := jsonutils.Marshal(&cpu_mems_mb)
 	ret.Add(r_obj, "cpu_mems_mb")
+	// cache
+	Cache.Set(specsKey, ret)
 	return ret, nil
 }
 
