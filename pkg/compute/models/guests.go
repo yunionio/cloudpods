@@ -175,8 +175,8 @@ const (
 const (
 	VM_AWS_DEFAULT_LOGIN_USER = "ec2user"
 
-	VM_METADATA_APP_TAGS      = "app_tags"
-	VM_METADATA_CREATE_PARAMS = "create_params"
+	VM_METADATA_APP_TAGS            = "app_tags"
+	VM_METADATA_CREATE_PARAMS       = "create_params"
 )
 
 var VM_RUNNING_STATUS = api.VM_RUNNING_STATUS
@@ -1376,6 +1376,15 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict, fields stringutils2
 	return extra
 }
 
+func (self *SGuest) GetMetadataHideKeys() []string {
+	return []string{
+		api.VM_METADATA_CREATE_PARAMS,
+		api.VM_METADATA_LOGIN_ACCOUNT,
+		api.VM_METADATA_LOGIN_KEY,
+		api.VM_METADATA_LOGIN_KEY_TIMESTAMP,
+	}
+}
+
 func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
@@ -1397,7 +1406,7 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		}
 	}
 
-	if metaData, err := self.GetAllMetadata(userCred); err == nil {
+	if metaData, err := db.GetVisiableMetadata(self, userCred); err == nil {
 		extra.Add(jsonutils.Marshal(metaData), "metadata")
 	}
 
@@ -3533,7 +3542,6 @@ func (self *SGuest) saveOsType(userCred mcclient.TokenCredential, osType string)
 }
 
 func (self *SGuest) SaveDeployInfo(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
-	// log.Infof("------SaveDeployInfo: %s", data.PrettyString())
 	info := make(map[string]interface{})
 	if data.Contains("os") {
 		osName, _ := data.GetString("os")
