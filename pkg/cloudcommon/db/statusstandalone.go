@@ -77,3 +77,13 @@ func (model *SStatusStandaloneResourceBase) PerformStatus(ctx context.Context, u
 func (model *SStatusStandaloneResourceBase) IsInStatus(status ...string) bool {
 	return utils.IsInStringArray(model.Status, status)
 }
+
+func (model *SStatusStandaloneResourceBase) AllowGetDetailsStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return IsAdminAllowGetSpec(userCred, model, "status")
+}
+
+func (model *SStatusStandaloneResourceBase) GetDetailsStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewString(model.Status), "status")
+	return ret, nil
+}
