@@ -232,6 +232,7 @@ func (ts *STableSpec) SyncSQL() []string {
 
 	for _, idx := range removeIndexes {
 		sql := fmt.Sprintf("DROP INDEX `%s` ON `%s`", idx.name, ts.name)
+		ret = append(ret, sql)
 		log.Infof(sql)
 	}
 
