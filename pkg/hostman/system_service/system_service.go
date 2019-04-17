@@ -46,8 +46,21 @@ func GetService(name string) ISystemService {
 }
 
 type SBaseSystemService struct {
-	name string
-	urls interface{}
+	manager IServiceManager
+	name    string
+	urls    interface{}
+}
+
+func NewBaseSystemService(name string, urls interface{}) *SBaseSystemService {
+	ss := SBaseSystemService{}
+	if SystemdServiceManager.Detect() {
+		ss.manager = SystemdServiceManager
+	} else {
+		ss.manager = SysVServiceManager
+	}
+	ss.name = name
+	ss.urls = urls
+	return &ss
 }
 
 func (s *SBaseSystemService) reload(conf, conFile string) error {
