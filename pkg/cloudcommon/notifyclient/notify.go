@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -22,6 +23,7 @@ import (
 
 var (
 	templatesTable        map[string]*template.Template
+	templatesTableLock    *sync.Mutex
 	notifyClientWorkerMan *appsrv.SWorkerManager
 
 	notifyAdminUsers  []string
@@ -30,6 +32,7 @@ var (
 
 func init() {
 	notifyClientWorkerMan = appsrv.NewWorkerManager("NotifyClientWorkerManager", 1, 50, false)
+	templatesTableLock = &sync.Mutex{}
 	templatesTable = make(map[string]*template.Template)
 }
 
@@ -47,6 +50,9 @@ func getTemplateString(topic string, contType string, channel notify.TNotifyChan
 
 func getTemplate(topic string, contType string, channel notify.TNotifyChannel) (*template.Template, error) {
 	key := fmt.Sprintf("%s.%s.%s", topic, contType, channel)
+	templatesTableLock.Lock()
+	defer templatesTableLock.Unlock()
+
 	if _, ok := templatesTable[key]; !ok {
 		cont, err := getTemplateString(topic, contType, channel)
 		if err != nil {
