@@ -80,8 +80,8 @@ func (input ScheduleInput) ToConditionInput() *jsonutils.JSONDict {
 }
 
 type CandidateDisk struct {
-	Index     int    `json:"index"`
-	StorageId string `json:"storage_id"`
+	Index      int      `json:"index"`
+	StorageIds []string `json:"storage_ids"`
 }
 
 type CandidateResource struct {

@@ -134,8 +134,11 @@ func (self *SVirtualizedGuestDriver) GetStorageTypes() []string {
 	return nil
 }
 
-func (self *SVirtualizedGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
-	return host.GetLeastUsedStorage(backend)
+func (self *SVirtualizedGuestDriver) ChooseHostStorage(host *models.SHost, backend string, storageIds []string) *models.SStorage {
+	if len(storageIds) == 0 {
+		return host.GetLeastUsedStorage(backend)
+	}
+	return models.StorageManager.FetchStorageById(storageIds[0])
 }
 
 func (self *SVirtualizedGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *models.SGuest, task taskman.ITask) error {
