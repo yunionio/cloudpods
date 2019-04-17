@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type EipDissociateTask struct {
@@ -40,6 +41,8 @@ func (self *EipDissociateTask) TaskFail(ctx context.Context, eip *models.SElasti
 	self.SetStageFailed(ctx, msg)
 	if vm != nil {
 		vm.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg)
+		db.OpsLog.LogEvent(vm, db.ACT_EIP_DETACH, msg, self.GetUserCred())
+		logclient.AddActionLogWithStartable(self, vm, logclient.ACT_EIP_DISSOCIATE, msg, self.UserCred, false)
 	}
 }
 
@@ -78,6 +81,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 		eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, "dissociate")
 
+		logclient.AddActionLogWithStartable(self, server, logclient.ACT_EIP_DISSOCIATE, nil, self.UserCred, true)
 		server.StartSyncstatus(ctx, self.UserCred, "")
 	}
 
