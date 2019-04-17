@@ -2965,3 +2965,112 @@ func (manager *SGuestManager) PerformImportFromLibvirt(ctx context.Context, user
 	task.ScheduleRun(nil)
 	return nil, nil
 }
+
+func (self *SGuest) AllowGetDetailsVirtInstall(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
+) bool {
+	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "virt-install")
+}
+
+func (self *SGuest) GetDetailsVirtInstall(
+	ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	if self.Hypervisor != api.HYPERVISOR_KVM {
+		return nil, httperrors.NewBadRequestError("Hypervisor %s can't generate libvirt xml", self.Hypervisor)
+	}
+
+	var (
+		vdiProtocol   string
+		vdiListenPort int64
+	)
+
+	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM}) {
+		vncInfo, err := self.GetDriver().GetGuestVncInfo(ctx, userCred, self, self.GetHost())
+		if err != nil {
+			log.Errorln(err)
+			return nil, err
+		}
+		vdiProtocol, _ = vncInfo.GetString("protocol")
+		vdiListenPort, _ = vncInfo.Int("port")
+	}
+
+	extraCmdline, _ := query.GetArray("extra_cmdline")
+	libvirtBridge, _ := query.GetString("libvirt_bridge")
+	if len(libvirtBridge) == 0 {
+		libvirtBridge = "virbr0"
+	}
+	virtInstallCmd, err := self.GenerateVirtInstallCommandLine(
+		vdiProtocol, vdiListenPort, extraCmdline, libvirtBridge)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("Generate xml failed: %s", err)
+	}
+
+	res := jsonutils.NewDict()
+	res.Set("virt-install-command-line", jsonutils.NewString(virtInstallCmd))
+	return res, nil
+}
+
+func (self *SGuest) GenerateVirtInstallCommandLine(
+	vdiProtocol string, vdiListenPort int64, extraCmdline []jsonutils.JSONObject, libvirtBridge string,
+) (string, error) {
+	L := func(s string) string { return s + " \\\n" }
+
+	cmd := L("virt-install")
+	cmd += L("--cpu host")
+	cmd += L("--boot cdrom,hd,network")
+	cmd += L(fmt.Sprintf("--name %s", self.Name))
+	cmd += L(fmt.Sprintf("--ram %d", self.VmemSize))
+	cmd += L(fmt.Sprintf("--vcpus %d", self.VcpuCount))
+
+	host := self.GetHost()
+
+	// disks
+	guestDisks := self.GetDisks()
+	for _, guestDisk := range guestDisks {
+		disk := guestDisk.GetDisk()
+		cmd += L(
+			fmt.Sprintf("--disk path=%s,bus=%s,cache=%s,io=%s",
+				disk.GetPathAtHost(host),
+				guestDisk.Driver,
+				guestDisk.CacheMode,
+				guestDisk.AioMode),
+		)
+	}
+
+	// networks
+	guestNetworks, err := self.GetNetworks("")
+	if err != nil {
+		return "", err
+	}
+	for _, guestNetwork := range guestNetworks {
+		cmd += L(
+			fmt.Sprintf("--network bridge,model=%s,source=%s,mac=%s",
+				guestNetwork.Driver, libvirtBridge, guestNetwork.MacAddr),
+		)
+	}
+
+	// isolated devices
+	isolatedDevices := self.GetIsolatedDevices()
+	for _, isolatedDev := range isolatedDevices {
+		cmd += L(fmt.Sprintf("--hostdev %s", isolatedDev.Addr))
+	}
+
+	if utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_BLOCK_STREAM}) {
+		// spice or vnc
+		cmd += L(fmt.Sprintf("--graphics %s,listen=0.0.0.0,port=%d", vdiProtocol, vdiListenPort))
+	} else {
+		// generate xml, and need virsh define xml
+		cmd += L("--print-xml")
+	}
+	cmd += L("--video vga")
+	cmd += L("--wait 0")
+
+	// some customized options, not verify
+	for _, cmdline := range extraCmdline {
+		cmd += L(cmdline.String())
+	}
+
+	// debug print
+	cmd += "-d"
+	return cmd, nil
+}

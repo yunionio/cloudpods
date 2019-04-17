@@ -576,6 +576,10 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		cmd += " -device virtio-rng-pci,rng=rng0,max-bytes=1024,period=1000"
 	}
 
+	// add serial device
+	cmd += " -chardev pty,id=charserial0"
+	cmd += " -device isa-serial,chardev=charserial0,id=serial0"
+
 	if jsonutils.QueryBoolean(data, "need_migrate", false) {
 		migratePort := s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE)
 		s.Desc.Set("live_migrate_dest_port", jsonutils.NewInt(int64(migratePort)))
