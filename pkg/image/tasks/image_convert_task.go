@@ -16,9 +16,11 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -39,9 +41,17 @@ func (self *ImageConvertTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 
 	self.SetStage("OnConvertComplete", nil)
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
-		// image.SetStatus(self.UserCred, models.IMAGE_STATUS_CONVERTING, "start convert")
-		// defer image.SetStatus(self.UserCred, models.IMAGE_STATUS_ACTIVE, "convert failed")
+		image.SetStatus(self.UserCred, api.IMAGE_STATUS_CONVERTING, "start convert")
 		err := image.ConvertAllSubformats()
+		var msg string
+		if err != nil {
+			msg = fmt.Sprintf("convert failed: %s", err)
+		} else {
+			msg = fmt.Sprintf("convert success")
+		}
+
+		image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, msg)
+
 		return nil, err
 	})
 }
