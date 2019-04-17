@@ -102,6 +102,32 @@ func (m *SMetadata) Delete(ctx context.Context, userCred mcclient.TokenCredentia
 	return DeleteModel(ctx, userCred, m)
 }
 
+func (manager *SMetadataManager) AllowGetPropertyTagValuePairs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (manager *SMetadataManager) GetPropertyTagValuePairs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	q := manager.Query("key", "value").Distinct()
+	sql, err := manager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	metadatas := []SMetadata{}
+	err = sql.All(&metadatas)
+	if err != nil {
+		return nil, err
+	}
+	result := map[string][]string{}
+	for i := 0; i < len(metadatas); i++ {
+		key, value := metadatas[i].Key, metadatas[i].Value
+		if _, ok := result[key]; !ok {
+			result[key] = []string{}
+		}
+		result[key] = append(result[key], value)
+	}
+	return jsonutils.Marshal(result), nil
+}
+
 func (manager *SMetadataManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return true
 }
