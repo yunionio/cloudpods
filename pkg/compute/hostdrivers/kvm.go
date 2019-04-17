@@ -120,7 +120,7 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 	if err != nil {
 		return err
 	}
-	format, _ := params.GetString("format")
+	// format, _ := params.GetString("format")
 	isForce := jsonutils.QueryBoolean(params, "is_force", false)
 	obj, err := models.CachedimageManager.FetchById(imageId)
 	if err != nil {
@@ -142,7 +142,8 @@ func (self *SKVMHostDriver) CheckAndSetCacheImage(ctx context.Context, host *mod
 
 	content := contentStruct{}
 	content.ImageId = imageId
-	content.Format = format
+	// content.Format = format
+	content.Format = "qcow2"
 
 	if srcHostCacheImage != nil {
 		err = srcHostCacheImage.AddDownloadRefcount()
