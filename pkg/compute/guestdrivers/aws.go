@@ -80,22 +80,8 @@ func (self *SAwsGuestDriver) GetStorageTypes() []string {
 	}
 }
 
-func (self *SAwsGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
-	storages := host.GetAttachedStorages("")
-	for i := 0; i < len(storages); i += 1 {
-		if storages[i].StorageType == backend {
-			return &storages[i]
-		}
-	}
-
-	for _, stype := range self.GetStorageTypes() {
-		for i := 0; i < len(storages); i += 1 {
-			if storages[i].StorageType == stype {
-				return &storages[i]
-			}
-		}
-	}
-	return nil
+func (self *SAwsGuestDriver) ChooseHostStorage(host *models.SHost, backend string, storageIds []string) *models.SStorage {
+	return self.chooseHostStorage(self, host, backend, storageIds)
 }
 
 func (self *SAwsGuestDriver) GetDetachDiskStatus() ([]string, error) {

@@ -47,21 +47,8 @@ func (self *SOpenStackGuestDriver) GetStorageTypes() []string {
 	return []string{api.STORAGE_OPENSTACK_ISCSI}
 }
 
-func (self *SOpenStackGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
-	storages := host.GetAttachedStorages("")
-	for i := 0; i < len(storages); i++ {
-		if storages[i].StorageType == backend {
-			return &storages[i]
-		}
-	}
-	for _, stype := range self.GetStorageTypes() {
-		for i := 0; i < len(storages); i++ {
-			if storages[i].StorageType == stype {
-				return &storages[i]
-			}
-		}
-	}
-	return nil
+func (self *SOpenStackGuestDriver) ChooseHostStorage(host *models.SHost, backend string, storageIds []string) *models.SStorage {
+	return self.chooseHostStorage(self, host, backend, storageIds)
 }
 
 func (self *SOpenStackGuestDriver) GetDetachDiskStatus() ([]string, error) {

@@ -217,21 +217,24 @@ func (self *GuestCreateBackupTask) SaveScheduleResult(ctx context.Context, obj I
 	guest.SetHostIdWithBackup(self.UserCred, guest.HostId, targetHostId)
 	db.OpsLog.LogEvent(guest, db.ACT_CREATE_BACKUP, fmt.Sprintf("guest backup start create on host %s", targetHostId), self.UserCred)
 
-	// backup disk only support disk backend local
-	storage := guest.GetDriver().ChooseHostStorage(targetHost, api.STORAGE_LOCAL)
-	if storage == nil {
-		self.TaskFailed(ctx, guest, "Get backup storage error")
-		return
-	}
-	self.StartCreateBackupDisks(ctx, guest, storage.Id)
+	self.StartCreateBackupDisks(ctx, guest, targetHost, candidate.Disks)
 }
 
-func (self *GuestCreateBackupTask) StartCreateBackupDisks(ctx context.Context, guest *models.SGuest, storageId string) {
+func (self *GuestCreateBackupTask) StartCreateBackupDisks(ctx context.Context, guest *models.SGuest, host *models.SHost, candidateDisks []*schedapi.CandidateDisk) {
 	guestDisks := guest.GetDisks()
 	for i := 0; i < len(guestDisks); i++ {
+		var candidateDisk *schedapi.CandidateDisk
+		if len(candidateDisks) >= i {
+			candidateDisk = candidateDisks[i]
+		}
+		storage := guest.ChooseHostStorage(host, api.STORAGE_LOCAL, candidateDisk)
+		if storage == nil {
+			self.TaskFailed(ctx, guest, "Get backup storage error")
+			return
+		}
 		disk := guestDisks[i].GetDisk()
 		db.Update(disk, func() error {
-			disk.BackupStorageId = storageId
+			disk.BackupStorageId = storage.Id
 			return nil
 		})
 	}

@@ -2,6 +2,7 @@ package predicates
 
 import (
 	"fmt"
+	"sort"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -252,15 +253,19 @@ func (p *DiskSchedtagPredicate) OnSelectEnd(u *core.Unit, c core.Candidater, cou
 }
 
 func (p *DiskSchedtagPredicate) allocatedDiskResource(c core.Candidater, disk *computeapi.DiskConfig, storages []*PredicatedStorage) *schedapi.CandidateDisk {
-	storage := p.selectStorage(disk, storages)
-	log.Debugf("Select %s storage %s:%s for disk: %s", c.Getter().Name(), storage.Id, storage.Name, disk.Index)
+	sortStorages := p.selectStorages(disk, storages)
+	storageIds := []string{}
+	for _, s := range sortStorages {
+		storageIds = append(storageIds, s.Id)
+	}
+	log.Debugf("Suggestion %s storages %v for disk: %d", c.Getter().Name(), storageIds, disk.Index)
 	return &schedapi.CandidateDisk{
-		Index:     disk.Index,
-		StorageId: storage.Id,
+		Index:      disk.Index,
+		StorageIds: storageIds,
 	}
 }
 
-func (p *DiskSchedtagPredicate) selectStorage(d *computeapi.DiskConfig, storages []*PredicatedStorage) *api.CandidateStorage {
+func (p *DiskSchedtagPredicate) selectStorages(d *computeapi.DiskConfig, storages []*PredicatedStorage) []*api.CandidateStorage {
 	preferStorages := []*api.CandidateStorage{}
 	noTagStorages := []*api.CandidateStorage{}
 	avoidStorages := []*api.CandidateStorage{}
@@ -278,10 +283,10 @@ func (p *DiskSchedtagPredicate) selectStorage(d *computeapi.DiskConfig, storages
 	sortStorages = append(sortStorages, preferStorages...)
 	sortStorages = append(sortStorages, noTagStorages...)
 	sortStorages = append(sortStorages, avoidStorages...)
-	return p.GetLeastUsedStorage(sortStorages, d.Backend)
+	return p.SortLeastUsedStorage(sortStorages, d.Backend)
 }
 
-func (p *DiskSchedtagPredicate) GetLeastUsedStorage(storages []*api.CandidateStorage, backend string) *api.CandidateStorage {
+func (p *DiskSchedtagPredicate) SortLeastUsedStorage(storages []*api.CandidateStorage, backend string) []*api.CandidateStorage {
 	backendStorages := make([]*api.CandidateStorage, 0)
 	if backend != "" {
 		for _, s := range storages {
@@ -295,21 +300,30 @@ func (p *DiskSchedtagPredicate) GetLeastUsedStorage(storages []*api.CandidateSto
 	if len(backendStorages) == 0 {
 		backendStorages = storages
 	}
-	return p.getLeastUsedStorage(backendStorages)
+	return p.sortByLeastUsedStorages(backendStorages)
 }
 
-func (p *DiskSchedtagPredicate) getLeastUsedStorage(storages []*api.CandidateStorage) *api.CandidateStorage {
-	var best *api.CandidateStorage
-	var bestCap int
-	for i := 0; i < len(storages); i++ {
-		s := storages[i]
-		capa := s.GetFreeCapacity()
-		if best == nil || bestCap < capa {
-			bestCap = capa
-			best = s
-		}
-	}
-	return best
+type sortStorages []*api.CandidateStorage
+
+func (s sortStorages) Len() int {
+	return len(s)
+}
+
+func (s sortStorages) Less(i, j int) bool {
+	s1, s2 := s[i], s[j]
+	cap1 := s1.GetFreeCapacity()
+	cap2 := s2.GetFreeCapacity()
+	return cap1 > cap2
+}
+
+func (s sortStorages) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (p *DiskSchedtagPredicate) sortByLeastUsedStorages(storages []*api.CandidateStorage) []*api.CandidateStorage {
+	ss := sortStorages(storages)
+	sort.Sort(ss)
+	return []*api.CandidateStorage(ss)
 }
 
 func (p *DiskSchedtagPredicate) GetHypervisorDriver() models.IGuestDriver {
