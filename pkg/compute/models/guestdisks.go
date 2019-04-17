@@ -173,14 +173,14 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	}
 	storage := disk.GetStorage()
 	// XXX ???
-	if host.HostType == HOST_TYPE_HYPERVISOR {
+	if host.HostType == api.HOST_TYPE_HYPERVISOR {
 		desc.Add(jsonutils.NewString(disk.StorageId), "storage_id")
 		localpath := disk.GetPathAtHost(host)
 		if len(localpath) == 0 {
 			desc.Add(jsonutils.JSONTrue, "migrating")
 			target := host.GetLeastUsedStorage(storage.StorageType)
 			desc.Add(jsonutils.NewString(target.Id), "target_storage_id")
-			disk.SetStatus(nil, DISK_START_MIGRATE, "migration")
+			disk.SetStatus(nil, api.DISK_START_MIGRATE, "migration")
 		} else {
 			desc.Add(jsonutils.NewString(localpath), "path")
 		}

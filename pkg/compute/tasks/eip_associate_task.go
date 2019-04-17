@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -34,10 +35,10 @@ func init() {
 }
 
 func (self *EipAssociateTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg string, vm *models.SGuest) {
-	eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, msg)
+	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, msg)
 	self.SetStageFailed(ctx, msg)
 	if vm != nil {
-		vm.SetStatus(self.UserCred, models.VM_ASSOCIATE_EIP_FAILED, msg)
+		vm.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP_FAILED, msg)
 	}
 }
 
@@ -53,8 +54,8 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 		return
 	}
 
-	if server.Status != models.VM_ASSOCIATE_EIP {
-		server.SetStatus(self.UserCred, models.VM_ASSOCIATE_EIP, "associate eip")
+	if server.Status != api.VM_ASSOCIATE_EIP {
+		server.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP, "associate eip")
 	}
 
 	extEip, err := eip.GetIEip()
@@ -78,7 +79,7 @@ func (self *EipAssociateTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 		return
 	}
 
-	eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, "associate")
+	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, "associate")
 
 	server.StartSyncstatus(ctx, self.UserCred, "")
 

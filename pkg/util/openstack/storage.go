@@ -21,8 +21,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SExtraSpecs struct {
@@ -79,9 +79,9 @@ func (storage *SStorage) GetStorageType() string {
 
 func (storage *SStorage) GetMediumType() string {
 	if strings.Contains(storage.Name, "SSD") {
-		return models.DISK_TYPE_SSD
+		return api.DISK_TYPE_SSD
 	}
-	return models.DISK_TYPE_ROTATE
+	return api.DISK_TYPE_ROTATE
 }
 
 func (storage *SStorage) GetCapacityMB() int {
@@ -98,7 +98,7 @@ func (storage *SStorage) GetManagerId() string {
 }
 
 func (storage *SStorage) GetStatus() string {
-	return models.STORAGE_ONLINE
+	return api.STORAGE_ONLINE
 }
 
 func (storage *SStorage) Refresh() error {
@@ -121,7 +121,7 @@ func (storage *SStorage) CreateIDisk(name string, sizeGb int, desc string) (clou
 		return nil, err
 	}
 	disk.storage = storage
-	return disk, cloudprovider.WaitStatus(disk, models.DISK_READY, time.Second*5, time.Minute*5)
+	return disk, cloudprovider.WaitStatus(disk, api.DISK_READY, time.Second*5, time.Minute*5)
 }
 
 func (storage *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {

@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -41,11 +42,11 @@ func init() {
 }
 
 func (self *SESXiGuestDriver) GetHypervisor() string {
-	return models.HYPERVISOR_ESXI
+	return api.HYPERVISOR_ESXI
 }
 
 func (self *SESXiGuestDriver) GetDefaultSysDiskBackend() string {
-	return models.STORAGE_LOCAL
+	return api.STORAGE_LOCAL
 }
 
 func (self *SESXiGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -63,15 +64,15 @@ func (self *SESXiGuestDriver) GetMaxSecurityGroupCount() int {
 }
 
 func (self *SESXiGuestDriver) GetDetachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SESXiGuestDriver) GetAttachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SESXiGuestDriver) GetChangeConfigStatus() ([]string, error) {
-	return []string{models.VM_READY}, nil
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SESXiGuestDriver) CanKeepDetachDisk() bool {
@@ -93,18 +94,18 @@ func (self *SESXiGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *
 }
 
 func (self *SESXiGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{models.VM_READY}, nil
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SESXiGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{models.VM_READY}, nil
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SESXiGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
-	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY}) {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if disk.DiskType == models.DISK_TYPE_SYS {
+	if disk.DiskType == api.DISK_TYPE_SYS {
 		return fmt.Errorf("Cannot resize system disk")
 	}
 	/*if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_PUBLIC_CLOUD, models.STORAGE_CLOUD_SSD, models.STORAGE_CLOUD_EFFICIENCY}) {

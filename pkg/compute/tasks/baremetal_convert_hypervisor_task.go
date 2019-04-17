@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -50,7 +51,7 @@ func (self *BaremetalConvertHypervisorTask) getHypervisor() string {
 func (self *BaremetalConvertHypervisorTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	baremetal := obj.(*models.SHost)
 
-	baremetal.SetStatus(self.UserCred, models.BAREMETAL_CONVERTING, "")
+	baremetal.SetStatus(self.UserCred, api.BAREMETAL_CONVERTING, "")
 
 	self.SetStage("on_guest_deploy_complete", nil)
 

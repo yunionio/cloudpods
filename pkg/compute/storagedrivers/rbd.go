@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -38,7 +39,7 @@ func init() {
 }
 
 func (self *SRbdStorageDriver) GetStorageType() string {
-	return models.STORAGE_RBD
+	return api.STORAGE_RBD
 }
 
 func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -61,7 +62,7 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 	}
 
 	storages := []models.SStorage{}
-	q := models.StorageManager.Query().Equals("storage_type", models.STORAGE_RBD)
+	q := models.StorageManager.Query().Equals("storage_type", api.STORAGE_RBD)
 	if err := db.FetchModelObjects(models.StorageManager, q, &storages); err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -83,7 +84,7 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 
 func (self *SRbdStorageDriver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, data jsonutils.JSONObject) {
 	storages := []models.SStorage{}
-	q := models.StorageManager.Query().Equals("storage_type", models.STORAGE_RBD)
+	q := models.StorageManager.Query().Equals("storage_type", api.STORAGE_RBD)
 	if err := db.FetchModelObjects(models.StorageManager, q, &storages); err != nil {
 		log.Errorf("fetch storages error: %v", err)
 		return

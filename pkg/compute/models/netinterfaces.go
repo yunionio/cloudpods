@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -266,7 +267,7 @@ func (self *SNetInterface) GetCandidateNetworkForIp(userCred mcclient.TokenCrede
 }
 
 func (self *SNetInterface) IsUsableServernic() bool {
-	if self.NicType == NIC_TYPE_IPMI {
+	if self.NicType == api.NIC_TYPE_IPMI {
 		return false
 	}
 	if len(self.WireId) == 0 {

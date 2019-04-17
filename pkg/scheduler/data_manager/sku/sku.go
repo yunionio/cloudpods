@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/util/wait"
 	"yunion.io/x/sqlchemy"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -126,8 +127,8 @@ func (m *SSkuManager) syncOnce() {
 	q := models.ServerSkuManager.Query("id", "name", "zone_id")
 	q = q.Filter(
 		sqlchemy.OR(
-			sqlchemy.Equals(q.Field("prepaid_status"), models.SkuStatusAvailable),
-			sqlchemy.Equals(q.Field("postpaid_status"), models.SkuStatusAvailable)))
+			sqlchemy.Equals(q.Field("prepaid_status"), computeapi.SkuStatusAvailable),
+			sqlchemy.Equals(q.Field("postpaid_status"), computeapi.SkuStatusAvailable)))
 	if err := q.All(&skus); err != nil {
 		log.Errorf("SkuManager query all available skus error: %v", err)
 		return

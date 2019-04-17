@@ -23,8 +23,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
@@ -69,9 +70,9 @@ func (self *SEipAddress) GetStatus() string {
 	switch self.Status {
 	// todo: EIP_STATUS_INUSE 对应READY？
 	case EIP_STATUS_AVAILABLE, EIP_STATUS_INUSE:
-		return models.EIP_STATUS_READY
+		return api.EIP_STATUS_READY
 	default:
-		return models.EIP_STATUS_UNKNOWN
+		return api.EIP_STATUS_UNKNOWN
 	}
 }
 
@@ -104,9 +105,9 @@ func (self *SEipAddress) GetIpAddr() string {
 
 func (self *SEipAddress) GetMode() string {
 	if self.InstanceId == self.AllocationId {
-		return models.EIP_MODE_INSTANCE_PUBLICIP
+		return api.EIP_MODE_INSTANCE_PUBLICIP
 	} else {
-		return models.EIP_MODE_STANDALONE_EIP
+		return api.EIP_MODE_STANDALONE_EIP
 	}
 }
 
@@ -125,7 +126,7 @@ func (self *SEipAddress) GetBandwidth() int {
 
 func (self *SEipAddress) GetInternetChargeType() string {
 	// todo : implement me
-	return models.EIP_CHARGE_TYPE_BY_TRAFFIC
+	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
 func (self *SEipAddress) GetManagerId() string {
@@ -141,7 +142,7 @@ func (self *SEipAddress) Associate(instanceId string) error {
 	if err != nil {
 		return err
 	}
-	err = cloudprovider.WaitStatus(self, models.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
+	err = cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
 	return err
 }
 
@@ -150,7 +151,7 @@ func (self *SEipAddress) Dissociate() error {
 	if err != nil {
 		return err
 	}
-	err = cloudprovider.WaitStatus(self, models.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
+	err = cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
 	return err
 }
 
@@ -315,7 +316,7 @@ func (self *SRegion) UpdateEipBandwidth(eipId string, bw int) error {
 }
 
 func (self *SEipAddress) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing.BILLING_TYPE_POSTPAID
 }
 
 func (self *SEipAddress) GetExpiredAt() time.Time {

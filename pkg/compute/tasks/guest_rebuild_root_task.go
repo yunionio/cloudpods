@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/osprofile"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -65,7 +66,7 @@ func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, gues
 	oldStatus := gds.Root.Status
 	_, err := db.Update(gds.Root, func() error {
 		gds.Root.TemplateId = imageId
-		gds.Root.Status = models.DISK_REBUILD
+		gds.Root.Status = api.DISK_REBUILD
 		return nil
 	})
 	if err != nil {
@@ -73,11 +74,11 @@ func (self *GuestRebuildRootTask) StartRebuildRootDisk(ctx context.Context, gues
 		return
 	} else {
 		db.OpsLog.LogEvent(gds.Root, db.ACT_UPDATE_STATUS,
-			fmt.Sprintf("%s=>%s", oldStatus, models.DISK_REBUILD), self.UserCred)
+			fmt.Sprintf("%s=>%s", oldStatus, api.DISK_REBUILD), self.UserCred)
 	}
 
 	self.SetStage("OnRebuildRootDiskComplete", nil)
-	guest.SetStatus(self.UserCred, models.VM_REBUILD_ROOT, "")
+	guest.SetStatus(self.UserCred, api.VM_REBUILD_ROOT, "")
 
 	// clear logininfo
 	loginParams := make(map[string]interface{})
@@ -96,7 +97,7 @@ func (self *GuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Context,
 		for i := 1; i < len(guestdisks); i += 1 {
 			disk := guestdisks[i].GetDisk()
 			if disk != nil {
-				disk.SetStatus(self.UserCred, models.DISK_INIT, "rebuild data disks")
+				disk.SetStatus(self.UserCred, api.DISK_INIT, "rebuild data disks")
 			}
 		}
 		self.SetStage("OnRebuildingDataDisksComplete", nil)
@@ -110,11 +111,11 @@ func (self *GuestRebuildRootTask) OnRebuildingDataDisksComplete(ctx context.Cont
 	diskReady := true
 	guestdisks := guest.GetDisks()
 	if len(guestdisks) > 0 {
-		guest.SetStatus(self.UserCred, models.VM_REBUILD_ROOT, "rebuild data disks")
+		guest.SetStatus(self.UserCred, api.VM_REBUILD_ROOT, "rebuild data disks")
 	}
 	for i := 1; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
-		if disk.Status == models.DISK_INIT {
+		if disk.Status == api.DISK_INIT {
 			diskReady = false
 			disk.StartDiskCreateTask(ctx, self.UserCred, true, "", self.GetTaskId())
 		}
@@ -170,12 +171,12 @@ func (self *GuestRebuildRootTask) OnRebuildAllDisksComplete(ctx context.Context,
 
 func (self *GuestRebuildRootTask) OnRebuildRootDiskCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT_FAIL, data, self.UserCred)
-	guest.SetStatus(self.UserCred, models.VM_REBUILD_ROOT_FAIL, "OnRebuildRootDiskCompleteFailed")
+	guest.SetStatus(self.UserCred, api.VM_REBUILD_ROOT_FAIL, "OnRebuildRootDiskCompleteFailed")
 	self.markFailed(ctx, guest, data.String())
 }
 
 func (self *GuestRebuildRootTask) OnSyncStatusComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if guest.Status == models.VM_READY && jsonutils.QueryBoolean(self.Params, "auto_start", false) {
+	if guest.Status == api.VM_READY && jsonutils.QueryBoolean(self.Params, "auto_start", false) {
 		self.SetStage("OnGuestStartComplete", nil)
 		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
 	} else {
@@ -207,7 +208,7 @@ func (self *KVMGuestRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Conte
 	guest := obj.(*models.SGuest)
 
 	self.SetStage("OnGuestDeployComplete", nil)
-	guest.SetStatus(self.UserCred, models.VM_DEPLOYING, "")
+	guest.SetStatus(self.UserCred, api.VM_DEPLOYING, "")
 	// params := jsonutils.NewDict()
 	// params.Set("reset_password", jsonutils.JSONTrue)
 	guest.StartGuestDeployTask(ctx, self.UserCred, self.GetParams(), "deploy", self.GetTaskId())
@@ -244,7 +245,7 @@ func (self *ManagedGuestRebuildRootTask) OnHostCacheImageComplete(ctx context.Co
 	guest := obj.(*models.SGuest)
 
 	self.SetStage("OnGuestDeployComplete", nil)
-	guest.SetStatus(self.UserCred, models.VM_DEPLOYING, "rebuild deploy")
+	guest.SetStatus(self.UserCred, api.VM_DEPLOYING, "rebuild deploy")
 	guest.StartGuestDeployTask(ctx, self.UserCred, self.Params, "rebuild", self.GetTaskId())
 }
 

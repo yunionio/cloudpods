@@ -19,14 +19,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 var StorageTypes = []string{
-	models.STORAGE_HUAWEI_SAS,
-	models.STORAGE_HUAWEI_SATA,
-	models.STORAGE_HUAWEI_SSD,
+	api.STORAGE_HUAWEI_SAS,
+	api.STORAGE_HUAWEI_SATA,
+	api.STORAGE_HUAWEI_SSD,
 }
 
 type ZoneState struct {

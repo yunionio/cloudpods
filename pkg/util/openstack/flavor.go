@@ -19,7 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/compute/models"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type SFlavor struct {
@@ -152,11 +152,11 @@ func (flavor *SFlavor) GetInstanceTypeCategory() string {
 }
 
 func (flavor *SFlavor) GetPrepaidStatus() string {
-	return models.SkuStatusSoldout
+	return api.SkuStatusSoldout
 }
 
 func (flavor *SFlavor) GetPostpaidStatus() string {
-	return models.SkuStatusAvailable
+	return api.SkuStatusAvailable
 }
 
 func (flavor *SFlavor) GetCpuCoreCount() int {

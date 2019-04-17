@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
@@ -33,7 +34,7 @@ func AttachUsageQuery(
 		q = q.Filter(sqlchemy.In(hosts.Field("host_type"), hostTypes))
 	}
 	if len(resourceTypes) > 0 {
-		if utils.IsInStringArray(HostResourceTypeShared, resourceTypes) {
+		if utils.IsInStringArray(api.HostResourceTypeShared, resourceTypes) {
 			q = q.Filter(sqlchemy.OR(
 				sqlchemy.IsNullOrEmpty(hosts.Field("resource_type")),
 				sqlchemy.In(hosts.Field("resource_type"), resourceTypes),

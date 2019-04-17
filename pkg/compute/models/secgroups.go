@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -98,7 +99,7 @@ func (self *SSecurityGroup) GetGuestsQuery() *sqlchemy.SQuery {
 			sqlchemy.Equals(guests.Field("admin_secgrp_id"), self.Id),
 			sqlchemy.In(guests.Field("id"), GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", self.Id).SubQuery()),
 		),
-	).Filter(sqlchemy.NotIn(guests.Field("hypervisor"), []string{HYPERVISOR_CONTAINER, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI}))
+	).Filter(sqlchemy.NotIn(guests.Field("hypervisor"), []string{api.HYPERVISOR_CONTAINER, api.HYPERVISOR_BAREMETAL, api.HYPERVISOR_ESXI}))
 }
 
 func (self *SSecurityGroup) GetGuestsCount() int {

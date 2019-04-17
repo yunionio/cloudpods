@@ -275,14 +275,14 @@ func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	var hostWire *SHostwire
 	for i := 0; i < len(hostwires); i++ {
 		if netInter, _ := NetInterfaceManager.FetchByMac(hostwires[i].MacAddr); netInter != nil {
-			if netInter.NicType == NIC_TYPE_ADMIN {
+			if netInter.NicType == api.NIC_TYPE_ADMIN {
 				hostWire = &hostwires[i]
 				break
 			}
 		}
 	}
 	if hostWire == nil {
-		log.Errorf("Host %s has no net interface on wire %s as guest network %s", host.Name, network.WireId, NIC_TYPE_ADMIN)
+		log.Errorf("Host %s has no net interface on wire %s as guest network %s", host.Name, network.WireId, api.NIC_TYPE_ADMIN)
 		return nil
 	}
 	return self.getGeneralJsonDesc(host, network, hostWire)
@@ -340,7 +340,7 @@ func (self *SGuestnetwork) getGeneralJsonDesc(host *SHost, network *SNetwork, ho
 	}
 
 	guest := self.getGuest()
-	if guest.GetHypervisor() != HYPERVISOR_KVM {
+	if guest.GetHypervisor() != api.HYPERVISOR_KVM {
 		desc.Add(jsonutils.JSONTrue, "manual")
 	}
 
@@ -520,7 +520,7 @@ func (self *SGuestnetwork) IsExit() bool {
 }
 
 func (self *SGuestnetwork) getBandwidth() int {
-	if self.BwLimit > 0 && self.BwLimit <= MAX_BANDWIDTH {
+	if self.BwLimit > 0 && self.BwLimit <= api.MAX_BANDWIDTH {
 		return self.BwLimit
 	} else {
 		net := self.GetNetwork()

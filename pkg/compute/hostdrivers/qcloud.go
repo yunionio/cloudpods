@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -35,7 +36,7 @@ func init() {
 }
 
 func (self *SQcloudHostDriver) GetHostType() string {
-	return models.HOST_TYPE_QCLOUD
+	return api.HOST_TYPE_QCLOUD
 }
 
 func (self *SQcloudHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
@@ -46,15 +47,15 @@ func (self *SQcloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 	if sizeGb%10 != 0 {
 		return fmt.Errorf("The disk size must be a multiple of 10Gb")
 	}
-	if storage.StorageType == models.STORAGE_CLOUD_BASIC {
+	if storage.StorageType == api.STORAGE_CLOUD_BASIC {
 		if sizeGb < 10 || sizeGb > 16000 {
 			return fmt.Errorf("The %s disk size must be in the range of 10 ~ 16000GB", storage.StorageType)
 		}
-	} else if storage.StorageType == models.STORAGE_CLOUD_PREMIUM {
+	} else if storage.StorageType == api.STORAGE_CLOUD_PREMIUM {
 		if sizeGb < 50 || sizeGb > 16000 {
 			return fmt.Errorf("The %s disk size must be in the range of 50 ~ 16000GB", storage.StorageType)
 		}
-	} else if storage.StorageType == models.STORAGE_CLOUD_SSD {
+	} else if storage.StorageType == api.STORAGE_CLOUD_SSD {
 		if sizeGb < 100 || sizeGb > 16000 {
 			return fmt.Errorf("The %s disk size must be in the range of 100 ~ 16000GB", storage.StorageType)
 		}

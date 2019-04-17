@@ -20,8 +20,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SnapshotStatusType string
@@ -58,11 +58,11 @@ func (self *SSnapshot) GetName() string {
 
 func (self *SSnapshot) GetStatus() string {
 	if self.Status == SnapshotStatusAccomplished {
-		return models.SNAPSHOT_READY
+		return api.SNAPSHOT_READY
 	} else if self.Status == SnapshotStatusProgress {
-		return models.SNAPSHOT_CREATING
+		return api.SNAPSHOT_CREATING
 	} else { // if self.Status == SnapshotStatusFailed
-		return models.SNAPSHOT_FAILED
+		return api.SNAPSHOT_FAILED
 	}
 }
 
@@ -76,9 +76,9 @@ func (self *SSnapshot) GetDiskId() string {
 
 func (self *SSnapshot) GetDiskType() string {
 	if self.SourceDiskType == SnapshotTypeSystem {
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	} else if self.SourceDiskType == SnapshotTypeData {
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	} else {
 		return ""
 	}

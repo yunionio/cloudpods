@@ -24,7 +24,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
@@ -72,7 +71,7 @@ func NewSchedInfo(input *api.ScheduleInput) *SchedInfo {
 	}
 
 	if data.ResourceType == "" {
-		data.ResourceType = models.HostResourceTypeShared
+		data.ResourceType = computeapi.HostResourceTypeShared
 	}
 
 	if len(data.BaremetalDiskConfigs) == 0 {
@@ -115,7 +114,7 @@ func (data *SchedInfo) reviseData() {
 }
 
 func (d *SchedInfo) SkipDirtyMarkHost() bool {
-	isSharePublicCloudProvider := d.IsPublicCloudProvider() && (d.ResourceType == "" || d.ResourceType == models.HostResourceTypeShared)
+	isSharePublicCloudProvider := d.IsPublicCloudProvider() && (d.ResourceType == "" || d.ResourceType == computeapi.HostResourceTypeShared)
 	skipByHypervisor := isSharePublicCloudProvider || d.IsContainer || d.Hypervisor == SchedTypeContainer
 	skipByBackup := d.Backup
 	return skipByHypervisor || skipByBackup

@@ -23,8 +23,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type TImageOwnerType string
@@ -104,13 +104,13 @@ func (self *SImage) GetGlobalId() string {
 func (self *SImage) GetStatus() string {
 	switch self.Status {
 	case ImageStatusQueued:
-		return models.CACHED_IMAGE_STATUS_CACHING
+		return api.CACHED_IMAGE_STATUS_CACHING
 	case ImageStatusActive:
-		return models.CACHED_IMAGE_STATUS_READY
+		return api.CACHED_IMAGE_STATUS_READY
 	case ImageStatusKilled:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	default:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	}
 }
 

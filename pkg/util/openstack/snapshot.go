@@ -17,8 +17,8 @@ package openstack
 import (
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
@@ -68,15 +68,15 @@ func (region *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloud
 func (snapshot *SSnapshot) GetStatus() string {
 	switch snapshot.Status {
 	case SNAPSHOT_STATUS_CREATING:
-		return models.SNAPSHOT_CREATING
+		return api.SNAPSHOT_CREATING
 	case SNAPSHOT_STATUS_AVAILABLE:
-		return models.SNAPSHOT_READY
+		return api.SNAPSHOT_READY
 	case SNAPSHOT_STATUS_BACKING_UP:
-		return models.SNAPSHOT_ROLLBACKING
+		return api.SNAPSHOT_ROLLBACKING
 	case SNAPSHOT_STATUS_DELETED, SNAPSHOT_STATUS_DELETING:
-		return models.SNAPSHOT_DELETING
+		return api.SNAPSHOT_DELETING
 	default:
-		return models.SNAPSHOT_UNKNOWN
+		return api.SNAPSHOT_UNKNOWN
 	}
 }
 
@@ -150,11 +150,11 @@ func (snapshot *SSnapshot) GetDiskType() string {
 	if len(snapshot.VolumeID) > 0 {
 		if disk, err := snapshot.region.GetDisk(snapshot.VolumeID); err == nil {
 			if disk.Bootable {
-				return models.DISK_TYPE_SYS
+				return api.DISK_TYPE_SYS
 			}
 		}
 	}
-	return models.DISK_TYPE_DATA
+	return api.DISK_TYPE_DATA
 }
 
 func (region *SRegion) DeleteSnapshot(snapshotId string) error {

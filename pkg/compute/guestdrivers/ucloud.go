@@ -14,18 +14,21 @@
 
 package guestdrivers
 
-import "yunion.io/x/onecloud/pkg/compute/models"
+import (
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/compute/models"
+)
 
 type SUCloudGuestDriver struct {
 	SManagedVirtualizedGuestDriver
 }
 
 func (self *SUCloudGuestDriver) GetHypervisor() string {
-	return models.HYPERVISOR_UCLOUD
+	return api.HYPERVISOR_UCLOUD
 }
 
 func (self *SUCloudGuestDriver) GetDefaultSysDiskBackend() string {
-	return models.STORAGE_UCLOUD_CLOUD_SSD
+	return api.STORAGE_UCLOUD_CLOUD_SSD
 }
 
 func (self *SUCloudGuestDriver) GetMinimalSysDiskSizeGb() int {

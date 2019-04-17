@@ -19,8 +19,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SClassicSnapshot struct {
@@ -49,7 +49,7 @@ func (self *SClassicSnapshot) GetName() string {
 }
 
 func (self *SClassicSnapshot) GetStatus() string {
-	return models.SNAPSHOT_READY
+	return api.SNAPSHOT_READY
 }
 
 func (self *SClassicSnapshot) IsEmulated() bool {

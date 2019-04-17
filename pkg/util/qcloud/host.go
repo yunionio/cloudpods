@@ -21,8 +21,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -223,19 +223,19 @@ func (self *SHost) GetEnabled() bool {
 }
 
 func (self *SHost) GetStatus() string {
-	return models.HOST_STATUS_RUNNING
+	return api.HOST_STATUS_RUNNING
 }
 
 func (self *SHost) GetHostStatus() string {
-	return models.HOST_ONLINE
+	return api.HOST_ONLINE
 }
 
 func (self *SHost) GetHostType() string {
-	return models.HOST_TYPE_QCLOUD
+	return api.HOST_TYPE_QCLOUD
 }
 
 func (self *SHost) GetStorageType() string {
-	return models.DISK_TYPE_HYBRID
+	return api.DISK_TYPE_HYBRID
 }
 
 func (self *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {

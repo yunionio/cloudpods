@@ -38,33 +38,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/hashcache"
 )
 
-const (
-	SkuCategoryGeneralPurpose      = "general_purpose"      // 通用型
-	SkuCategoryBurstable           = "burstable"            // 突发性能型
-	SkuCategoryComputeOptimized    = "compute_optimized"    // 计算优化型
-	SkuCategoryMemoryOptimized     = "memory_optimized"     // 内存优化型
-	SkuCategoryStorageIOOptimized  = "storage_optimized"    // 存储IO优化型
-	SkuCategoryHardwareAccelerated = "hardware_accelerated" // 硬件加速型
-	SkuCategoryHighStorage         = "high_storage"         // 高存储型
-	SkuCategoryHighMemory          = "high_memory"          // 高内存型
-)
-
-const (
-	SkuStatusAvailable = "available"
-	SkuStatusSoldout   = "soldout"
-)
-
-var InstanceFamilies = map[string]string{
-	SkuCategoryGeneralPurpose:      "g1",
-	SkuCategoryBurstable:           "t1",
-	SkuCategoryComputeOptimized:    "c1",
-	SkuCategoryMemoryOptimized:     "r1",
-	SkuCategoryStorageIOOptimized:  "i1",
-	SkuCategoryHardwareAccelerated: "",
-	SkuCategoryHighStorage:         "hc1",
-	SkuCategoryHighMemory:          "hr1",
-}
-
 var Cache *hashcache.Cache
 
 type SServerSkuManager struct {
@@ -320,7 +293,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 		}
 		data.Add(jsonutils.NewString(regionObj.GetId()), "cloudregion_id")
 	} else {
-		data.Add(jsonutils.NewString(DEFAULT_REGION_ID), "cloudregion_id")
+		data.Add(jsonutils.NewString(api.DEFAULT_REGION_ID), "cloudregion_id")
 	}
 	zoneStr := jsonutils.GetAnyString(data, []string{"zone", "zone_id"})
 	if len(zoneStr) > 0 {
@@ -350,7 +323,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	}
 
 	category, _ := data.GetString("instance_type_category")
-	family, exists := InstanceFamilies[category]
+	family, exists := api.InstanceFamilies[category]
 	if !exists {
 		return nil, httperrors.NewInputParameterError("instance_type_category %s is invalid", category)
 	}
@@ -637,18 +610,18 @@ func (self *SServerSku) ValidateUpdateData(
 
 	// 可用资源状态
 	if postpaid, err := data.GetString("postpaid_status"); err != nil {
-		if postpaid == SkuStatusSoldout {
-			data.Set("postpaid_status", jsonutils.NewString(SkuStatusSoldout))
+		if postpaid == api.SkuStatusSoldout {
+			data.Set("postpaid_status", jsonutils.NewString(api.SkuStatusSoldout))
 		} else {
-			data.Set("postpaid_status", jsonutils.NewString(SkuStatusAvailable))
+			data.Set("postpaid_status", jsonutils.NewString(api.SkuStatusAvailable))
 		}
 	}
 
 	prepaid, _ := data.GetString("prepaid_status")
-	if prepaid == SkuStatusSoldout {
-		data.Set("prepaid_status", jsonutils.NewString(SkuStatusSoldout))
+	if prepaid == api.SkuStatusSoldout {
+		data.Set("prepaid_status", jsonutils.NewString(api.SkuStatusSoldout))
 	} else {
-		data.Set("prepaid_status", jsonutils.NewString(SkuStatusAvailable))
+		data.Set("prepaid_status", jsonutils.NewString(api.SkuStatusAvailable))
 	}
 
 	// name 由服务器端生成
@@ -823,9 +796,9 @@ func (manager *SServerSkuManager) FetchSkuByNameAndHypervisor(name string, hyper
 	q = q.Equals("name", name)
 	if len(hypervisor) > 0 {
 		switch hypervisor {
-		case HYPERVISOR_BAREMETAL, HYPERVISOR_CONTAINER:
+		case api.HYPERVISOR_BAREMETAL, api.HYPERVISOR_CONTAINER:
 			return nil, httperrors.NewNotImplementedError("%s not supported", hypervisor)
-		case HYPERVISOR_KVM, HYPERVISOR_ESXI, HYPERVISOR_XEN, HOST_TYPE_HYPERV, HYPERVISOR_OPENSTACK:
+		case api.HYPERVISOR_KVM, api.HYPERVISOR_ESXI, api.HYPERVISOR_XEN, api.HYPERVISOR_HYPERV:
 			q = q.Filter(sqlchemy.OR(
 				sqlchemy.IsEmpty(q.Field("provider")),
 				sqlchemy.IsNull(q.Field("provider")),
@@ -1022,7 +995,7 @@ func (self *SServerSku) syncRemoveCloudSku(ctx context.Context, userCred mcclien
 	if err == nil {
 		err = self.Delete(ctx, userCred)
 	} else {
-		err = self.setPrepaidPostpaidStatus(userCred, SkuStatusSoldout, SkuStatusSoldout)
+		err = self.setPrepaidPostpaidStatus(userCred, api.SkuStatusSoldout, api.SkuStatusSoldout)
 	}
 	return err
 }
@@ -1079,8 +1052,8 @@ func (manager *SServerSkuManager) MarkAsSoldout(id string) error {
 	}
 
 	_, err = manager.TableSpec().Update(sku, func() error {
-		sku.PrepaidStatus = SkuStatusSoldout
-		sku.PostpaidStatus = SkuStatusSoldout
+		sku.PrepaidStatus = api.SkuStatusSoldout
+		sku.PostpaidStatus = api.SkuStatusSoldout
 		return nil
 	})
 
@@ -1114,8 +1087,8 @@ func (manager *SServerSkuManager) FetchAllAvailableSkuIdByZoneId(zoneId string) 
 	skus := make([]SServerSku, 0)
 	q = q.Equals("zone_id", zoneId)
 	q = q.Filter(sqlchemy.OR(
-		sqlchemy.Equals(q.Field("prepaid_status"), SkuStatusAvailable),
-		sqlchemy.Equals(q.Field("postpaid_status"), SkuStatusAvailable)))
+		sqlchemy.Equals(q.Field("prepaid_status"), api.SkuStatusAvailable),
+		sqlchemy.Equals(q.Field("postpaid_status"), api.SkuStatusAvailable)))
 
 	err := q.All(&skus)
 	if err != nil {

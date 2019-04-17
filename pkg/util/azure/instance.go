@@ -24,8 +24,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/osprofile"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -245,7 +246,7 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SInstance) GetHypervisor() string {
-	return models.HYPERVISOR_AZURE
+	return api.HYPERVISOR_AZURE
 }
 
 func (self *SInstance) IsEmulated() bool {
@@ -446,7 +447,7 @@ func (self *SInstance) GetStatus() string {
 		err := self.Refresh()
 		if err != nil {
 			log.Errorf("failed to get status for instance %s", self.Name)
-			return models.VM_UNKNOWN
+			return api.VM_UNKNOWN
 		}
 	}
 	for _, statuses := range self.Properties.InstanceView.Statuses {
@@ -454,18 +455,18 @@ func (self *SInstance) GetStatus() string {
 			if code[0] == "PowerState" {
 				switch code[1] {
 				case "stopped", "deallocated":
-					return models.VM_READY
+					return api.VM_READY
 				case "running":
-					return models.VM_RUNNING
+					return api.VM_RUNNING
 				case "stopping":
-					return models.VM_START_STOP
+					return api.VM_START_STOP
 				case "starting":
-					return models.VM_STARTING
+					return api.VM_STARTING
 				case "deleting":
-					return models.VM_DELETING
+					return api.VM_DELETING
 				default:
 					log.Errorf("Unknow instance status %s", code[1])
-					return models.VM_UNKNOWN
+					return api.VM_UNKNOWN
 				}
 			}
 		}
@@ -473,7 +474,7 @@ func (self *SInstance) GetStatus() string {
 			log.Errorf("Find error code: [%s] message: %s", statuses.Code, statuses.Message)
 		}
 	}
-	return models.VM_UNKNOWN
+	return api.VM_UNKNOWN
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
@@ -998,7 +999,7 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 		return err
 	}
 	self.host.zone.region.client.jsonRequest("PATCH", self.ID, jsonutils.Marshal(self).String())
-	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, api.VM_RUNNING, 10*time.Second, 300*time.Second)
 }
 
 func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
@@ -1007,7 +1008,7 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 		return err
 	}
 	self.host.zone.region.client.jsonRequest("PATCH", self.ID, jsonutils.Marshal(self).String())
-	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second)
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
@@ -1045,7 +1046,7 @@ func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 }
 
 func (self *SInstance) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {

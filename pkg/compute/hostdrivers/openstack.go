@@ -17,6 +17,7 @@ package hostdrivers
 import (
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -31,7 +32,7 @@ func init() {
 }
 
 func (self *SOpenStackHostDriver) GetHostType() string {
-	return models.HOST_TYPE_OPENSTACK
+	return api.HOST_TYPE_OPENSTACK
 }
 
 func (self *SOpenStackHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {

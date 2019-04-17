@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -51,7 +52,7 @@ func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) 
 		return
 	}
 	if !self.isSubtask() {
-		guest.SetStatus(self.UserCred, models.VM_STOPPING, "")
+		guest.SetStatus(self.UserCred, api.VM_STOPPING, "")
 	}
 	self.SetStage("OnMasterStopTaskComplete", nil)
 	err := guest.GetDriver().RequestStopOnHost(ctx, guest, host, self)
@@ -82,19 +83,19 @@ func (self *GuestStopTask) OnMasterStopTaskCompleteFailed(ctx context.Context, o
 
 func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	if !self.isSubtask() {
-		guest.SetStatus(self.UserCred, models.VM_READY, "")
+		guest.SetStatus(self.UserCred, api.VM_READY, "")
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_STOP, guest.GetShortDesc(ctx), self.UserCred)
 	models.HostManager.ClearSchedDescCache(guest.HostId)
 	self.SetStageComplete(ctx, nil)
-	if guest.Status == models.VM_READY && guest.DisableDelete.IsFalse() && guest.ShutdownBehavior == models.SHUTDOWN_TERMINATE {
+	if guest.Status == api.VM_READY && guest.DisableDelete.IsFalse() && guest.ShutdownBehavior == api.SHUTDOWN_TERMINATE {
 		guest.StartAutoDeleteGuestTask(ctx, self.UserCred, "")
 	}
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, "", self.UserCred, true)
 }
 
 func (self *GuestStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, guest *models.SGuest, resion jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, models.VM_STOP_FAILED, resion.String())
+	guest.SetStatus(self.UserCred, api.VM_STOP_FAILED, resion.String())
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, resion.String(), self.UserCred)
 	self.SetStageFailed(ctx, resion.String())
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, resion.String(), self.UserCred, false)

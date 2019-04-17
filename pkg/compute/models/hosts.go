@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -51,6 +52,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
+/*
 const (
 	HOST_TYPE_BAREMETAL  = api.HOST_TYPE_BAREMETAL
 	HOST_TYPE_HYPERVISOR = api.HOST_TYPE_HYPERVISOR // KVM
@@ -114,6 +116,8 @@ const (
 var HOST_TYPES = api.HOST_TYPES
 
 var NIC_TYPES = api.NIC_TYPES
+
+*/
 
 type SHostManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
@@ -226,11 +230,11 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		queryDict.Remove("resource_type")
 
 		switch resType {
-		case HostResourceTypeShared:
+		case api.HostResourceTypeShared:
 			q = q.Filter(
 				sqlchemy.OR(
 					sqlchemy.IsNullOrEmpty(q.Field("resource_type")),
-					sqlchemy.Equals(q.Field("resource_type"), HostResourceTypeShared),
+					sqlchemy.Equals(q.Field("resource_type"), api.HostResourceTypeShared),
 				),
 			)
 		default:
@@ -368,14 +372,14 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		hostQ1 = hostQ1.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
 		hostQ1 = hostQ1.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
 		hostQ1 = hostQ1.Filter(sqlchemy.Equals(providers.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
-		hostQ1 = hostQ1.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		hostQ1 = hostQ1.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 		hostQ1 = hostQ1.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 
 		hostQ2 := hosts.Query(hosts.Field("id"))
 		hostQ2 = hostQ2.Join(hostwires, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
 		hostQ2 = hostQ2.Join(networks, sqlchemy.Equals(hostwires.Field("wire_id"), networks.Field("wire_id")))
 		hostQ2 = hostQ2.Filter(sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")))
-		hostQ2 = hostQ2.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		hostQ2 = hostQ2.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 		hostQ2 = hostQ2.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 
 		q = q.Filter(sqlchemy.OR(
@@ -397,9 +401,9 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	if query.Contains("baremetal") {
 		isBaremetal := jsonutils.QueryBoolean(query, "baremetal", false)
 		if isBaremetal {
-			q = q.Equals("host_type", HOST_TYPE_BAREMETAL)
+			q = q.Equals("host_type", api.HOST_TYPE_BAREMETAL)
 		} else {
-			q = q.NotEquals("host_type", HOST_TYPE_BAREMETAL)
+			q = q.NotEquals("host_type", api.HOST_TYPE_BAREMETAL)
 		}
 	}
 
@@ -492,7 +496,7 @@ func (self *SHost) ValidatePurgeCondition(ctx context.Context) error {
 }
 
 func (self *SHost) validateDeleteCondition(ctx context.Context, purge bool) error {
-	if !purge && self.IsBaremetal && self.HostType != HOST_TYPE_BAREMETAL {
+	if !purge && self.IsBaremetal && self.HostType != api.HOST_TYPE_BAREMETAL {
 		return httperrors.NewInvalidStatusError("Host is a converted baremetal, should be unconverted before delete")
 	}
 	if self.Enabled {
@@ -643,7 +647,7 @@ func (self *SHost) GetBaremetalstorage() *SHoststorage {
 	q := hoststorages.Query()
 	q = q.Join(storages, sqlchemy.AND(sqlchemy.Equals(storages.Field("id"), hoststorages.Field("storage_id")),
 		sqlchemy.IsFalse(storages.Field("deleted"))))
-	q = q.Filter(sqlchemy.Equals(storages.Field("storage_type"), STORAGE_BAREMETAL))
+	q = q.Filter(sqlchemy.Equals(storages.Field("storage_type"), api.STORAGE_BAREMETAL))
 	q = q.Filter(sqlchemy.Equals(hoststorages.Field("host_id"), self.Id))
 	if q.Count() == 1 {
 		hs := SHoststorage{}
@@ -701,10 +705,10 @@ func (self *SHost) PerformUpdateStorage(
 		storage := SStorage{}
 		storage.Name = fmt.Sprintf("storage%s", self.GetName())
 		storage.Capacity = int(capacity)
-		storage.StorageType = STORAGE_BAREMETAL
+		storage.StorageType = api.STORAGE_BAREMETAL
 		storage.MediumType = self.StorageType
 		storage.Cmtbound = 1.0
-		storage.Status = STORAGE_ONLINE
+		storage.Status = api.STORAGE_ONLINE
 		storage.ZoneId = zoneId
 		err := StorageManager.TableSpec().Insert(&storage)
 		if err != nil {
@@ -774,9 +778,9 @@ func (self *SHost) _getAttachedStorages(isBaremetal tristate.TriState, enabled t
 		q = q.IsFalse("enabled")
 	}
 	if isBaremetal.IsTrue() {
-		q = q.Equals("storage_type", STORAGE_BAREMETAL)
+		q = q.Equals("storage_type", api.STORAGE_BAREMETAL)
 	} else if isBaremetal.IsFalse() {
-		q = q.NotEquals("storage_type", STORAGE_BAREMETAL)
+		q = q.NotEquals("storage_type", api.STORAGE_BAREMETAL)
 	}
 	if len(storageType) > 0 {
 		q = q.Equals("storage_type", storageType)
@@ -867,14 +871,14 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 		if !self.Enabled {
 			return nil
 		}
-		if utils.IsInStringArray(self.Status, []string{BAREMETAL_INIT, BAREMETAL_PREPARE_FAIL, BAREMETAL_PREPARE}) ||
+		if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_INIT, api.BAREMETAL_PREPARE_FAIL, api.BAREMETAL_PREPARE}) ||
 			self.GetBaremetalServer() != nil {
 			return nil
 		}
 		if self.MemSize == 0 || self.CpuCount == 0 {
 			return nil
 		}
-		if self.ResourceType == HostResourceTypePrepaidRecycle && self.GetGuestCount() > 0 {
+		if self.ResourceType == api.HostResourceTypePrepaidRecycle && self.GetGuestCount() > 0 {
 			return nil
 		}
 
@@ -894,7 +898,7 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	nifs := self.GetNetInterfaces()
 	var nicCount int64
 	for _, nif := range nifs {
-		if nif.NicType != NIC_TYPE_IPMI {
+		if nif.NicType != api.NIC_TYPE_IPMI {
 			nicCount++
 		}
 	}
@@ -1062,8 +1066,8 @@ func _getLeastUsedStorage(storages []SStorage, backends []string) *SStorage {
 
 func getLeastUsedStorage(storages []SStorage, backend string) *SStorage {
 	var backends []string
-	if backend == STORAGE_LOCAL {
-		backends = []string{STORAGE_NAS, STORAGE_LOCAL}
+	if backend == api.STORAGE_LOCAL {
+		backends = []string{api.STORAGE_NAS, api.STORAGE_LOCAL}
 	} else if len(backend) > 0 {
 		backends = []string{backend}
 	} else {
@@ -1195,7 +1199,7 @@ func (self *SHost) GetGuestCount() int {
 
 func (self *SHost) GetContainerCount(status []string) int {
 	q := self.GetGuestsQuery()
-	q = q.Filter(sqlchemy.Equals(q.Field("hypervisor"), HYPERVISOR_CONTAINER))
+	q = q.Filter(sqlchemy.Equals(q.Field("hypervisor"), api.HYPERVISOR_CONTAINER))
 	if len(status) > 0 {
 		q = q.In("status", status)
 	}
@@ -1210,7 +1214,7 @@ func (self *SHost) GetNonsystemGuestCount() int {
 
 func (self *SHost) GetRunningGuestCount() int {
 	q := self.GetGuestsQuery()
-	q = q.In("status", VM_RUNNING_STATUS)
+	q = q.In("status", api.VM_RUNNING_STATUS)
 	return q.Count()
 }
 
@@ -1262,7 +1266,7 @@ func (self *SHost) GetAdminNetInterface() *SNetInterface {
 	netif := SNetInterface{}
 	netif.SetModelManager(NetInterfaceManager)
 
-	q := NetInterfaceManager.Query().Equals("baremetal_id", self.Id).Equals("nic_type", NIC_TYPE_ADMIN)
+	q := NetInterfaceManager.Query().Equals("baremetal_id", self.Id).Equals("nic_type", api.NIC_TYPE_ADMIN)
 	err := q.First(&netif)
 	if err != nil {
 		log.Errorf("GetAdminNetInterface fail %s", err)
@@ -1289,7 +1293,7 @@ func (self *SHost) DeleteBaremetalnetwork(ctx context.Context, userCred mcclient
 }
 
 func (self *SHost) GetHostDriver() IHostDriver {
-	if !utils.IsInStringArray(self.HostType, HOST_TYPES) {
+	if !utils.IsInStringArray(self.HostType, api.HOST_TYPES) {
 		log.Fatalf("Unsupported host type %s", self.HostType)
 	}
 	return GetHostDriver(self.HostType)
@@ -1305,7 +1309,7 @@ func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SClou
 		q = q.Equals("manager_id", provider.Id)
 	}
 	// exclude prepaid_recycle fake hosts
-	q = q.NotEquals("resource_type", HostResourceTypePrepaidRecycle)
+	q = q.NotEquals("resource_type", api.HostResourceTypePrepaidRecycle)
 
 	err := db.FetchModelObjects(manager, q, &hosts)
 	if err != nil {
@@ -1381,7 +1385,7 @@ func (self *SHost) syncRemoveCloudHost(ctx context.Context, userCred mcclient.To
 
 	err := self.ValidatePurgeCondition(ctx)
 	if err != nil {
-		err = self.SetStatus(userCred, HOST_OFFLINE, "sync to delete")
+		err = self.SetStatus(userCred, api.HOST_OFFLINE, "sync to delete")
 		if err == nil {
 			_, err = self.PerformDisable(ctx, userCred, nil, nil)
 		}
@@ -1822,7 +1826,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		if added[i].GetBillingType() == BILLING_TYPE_PREPAID {
+		if added[i].GetBillingType() == billing_api.BILLING_TYPE_PREPAID {
 			vhost := HostManager.GetHostByRealExternalId(added[i].GetGlobalId())
 			if vhost != nil {
 				// this recycle vm is not build yet, skip synchronize
@@ -2134,7 +2138,7 @@ func (self *SHost) GetBaremetalServer() *SGuest {
 	}
 	guest := SGuest{}
 	guest.SetModelManager(GuestManager)
-	q := GuestManager.Query().Equals("host_id", self.Id).Equals("hypervisor", HOST_TYPE_BAREMETAL)
+	q := GuestManager.Query().Equals("host_id", self.Id).Equals("hypervisor", api.HOST_TYPE_BAREMETAL)
 	err := q.First(&guest)
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -2197,7 +2201,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 	if server != nil {
 		extra.Add(jsonutils.NewString(server.Id), "server_id")
 		extra.Add(jsonutils.NewString(server.Name), "server")
-		if self.HostType == HOST_TYPE_BAREMETAL {
+		if self.HostType == api.HOST_TYPE_BAREMETAL {
 			extra.Add(jsonutils.NewString(strings.Join(server.GetRealIPs(), ",")), "server_ips")
 		}
 	}
@@ -2218,7 +2222,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 	extra = GetSchedtagsDetailsToResource(self, ctx, extra)
 	var usage *SHostGuestResourceUsage
 	if options.Options.IgnoreNonrunningGuests {
-		usage = self.getGuestsResource(VM_RUNNING)
+		usage = self.getGuestsResource(api.VM_RUNNING)
 	} else {
 		usage = self.getGuestsResource("")
 	}
@@ -2227,7 +2231,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 		extra.Add(jsonutils.NewInt(int64(usage.GuestVmemSize)), "mem_commit")
 	}
 	containerCount := self.GetContainerCount(nil)
-	runningContainerCount := self.GetContainerCount(VM_RUNNING_STATUS)
+	runningContainerCount := self.GetContainerCount(api.VM_RUNNING_STATUS)
 	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount()-containerCount)), "guests")
 	extra.Add(jsonutils.NewInt(int64(self.GetNonsystemGuestCount()-containerCount)), "nonsystem_guests")
 	extra.Add(jsonutils.NewInt(int64(self.GetRunningGuestCount()-runningContainerCount)), "running_guests")
@@ -2281,7 +2285,7 @@ func (self *SHost) AllowGetDetailsVnc(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SHost) GetDetailsVnc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if utils.IsInStringArray(self.Status, []string{BAREMETAL_READY, BAREMETAL_RUNNING}) {
+	if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
 		retval := jsonutils.NewDict()
 		retval.Set("host_id", jsonutils.NewString(self.Id))
 		zone := self.GetZone()
@@ -2349,7 +2353,7 @@ func (self *SHost) Request(ctx context.Context, userCred mcclient.TokenCredentia
 }
 
 func (self *SHost) GetLocalStoragecache() *SStoragecache {
-	localStorages := self.GetAttachedStorages(STORAGE_LOCAL)
+	localStorages := self.GetAttachedStorages(api.STORAGE_LOCAL)
 	for i := 0; i < len(localStorages); i += 1 {
 		sc := localStorages[i].GetStoragecache()
 		if sc != nil {
@@ -2446,7 +2450,7 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 	memReserved, err := data.Int("mem_reserved")
 	if err != nil {
 		hostType, _ := data.GetString("host_type")
-		if hostType != HOST_TYPE_BAREMETAL {
+		if hostType != api.HOST_TYPE_BAREMETAL {
 			memSize, _ := data.Int("mem_size")
 			memReserved = memSize / 8
 			if memReserved > 4096 {
@@ -2549,9 +2553,9 @@ func (self *SHost) UpdateDnsRecord(netif *SNetInterface, isAdd bool) {
 }
 
 func (self *SHost) GetNetifName(netif *SNetInterface) string {
-	if netif.NicType == NIC_TYPE_IPMI {
+	if netif.NicType == api.NIC_TYPE_IPMI {
 		return self.GetName()
-	} else if netif.NicType == NIC_TYPE_ADMIN {
+	} else if netif.NicType == api.NIC_TYPE_ADMIN {
 		return self.GetName() + "-admin"
 	}
 	return ""
@@ -2599,18 +2603,18 @@ func (self *SHost) PerformStart(ctx context.Context, userCred mcclient.TokenCred
 	if !self.IsBaremetal {
 		return nil, httperrors.NewBadRequestError("Cannot start a non-baremetal host")
 	}
-	if !utils.IsInStringArray(self.Status, []string{BAREMETAL_READY}) {
+	if !utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot start baremetal with active guest")
 	}
 	guest := self.GetBaremetalServer()
 	if guest != nil {
-		if self.HostType == HOST_TYPE_BAREMETAL && utils.ToBool(guest.GetMetadata("is_fake_baremetal_server", userCred)) {
+		if self.HostType == api.HOST_TYPE_BAREMETAL && utils.ToBool(guest.GetMetadata("is_fake_baremetal_server", userCred)) {
 			return nil, self.InitializedGuestStart(ctx, userCred, guest)
 		}
 		//	if !utils.IsInStringArray(guest.Status, []string{VM_ADMIN}) {
 		//		return nil, httperrors.NewBadRequestError("Cannot start baremetal with active guest")
 		//	}
-		self.SetStatus(userCred, BAREMETAL_START_MAINTAIN, "")
+		self.SetStatus(userCred, api.BAREMETAL_START_MAINTAIN, "")
 		return guest.PerformStart(ctx, userCred, query, data)
 	}
 	params := jsonutils.NewDict()
@@ -2631,20 +2635,20 @@ func (self *SHost) PerformStop(ctx context.Context, userCred mcclient.TokenCrede
 	if !self.IsBaremetal {
 		return nil, httperrors.NewBadRequestError("Cannot stop a non-baremetal host")
 	}
-	if !utils.IsInStringArray(self.Status, []string{BAREMETAL_RUNNING}) {
+	if !utils.IsInStringArray(self.Status, []string{api.BAREMETAL_RUNNING}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot stop baremetal with non-active guest")
 	}
 	guest := self.GetBaremetalServer()
 	if guest != nil {
-		if self.HostType != HOST_TYPE_BAREMETAL {
-			if !utils.IsInStringArray(guest.Status, []string{VM_ADMIN}) {
+		if self.HostType != api.HOST_TYPE_BAREMETAL {
+			if !utils.IsInStringArray(guest.Status, []string{api.VM_ADMIN}) {
 				return nil, httperrors.NewBadRequestError("Cannot stop baremetal with active guest")
 			}
 		} else {
 			if utils.ToBool(guest.GetMetadata("is_fake_baremetal_server", userCred)) {
 				return nil, self.InitializedGuestStop(ctx, userCred, guest)
 			}
-			self.SetStatus(userCred, BAREMETAL_START_MAINTAIN, "")
+			self.SetStatus(userCred, api.BAREMETAL_START_MAINTAIN, "")
 			return guest.PerformStop(ctx, userCred, query, data)
 		}
 	}
@@ -2678,21 +2682,21 @@ func (self *SHost) AllowPerformMaintenance(ctx context.Context,
 }
 
 func (self *SHost) PerformMaintenance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(self.Status, []string{BAREMETAL_READY, BAREMETAL_RUNNING}) {
+	if !utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot do maintenance in status %s", self.Status)
 	}
 	guest := self.GetBaremetalServer()
-	if guest != nil && !utils.IsInStringArray(guest.Status, []string{VM_READY, VM_RUNNING, VM_ADMIN}) {
+	if guest != nil && !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_ADMIN}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot do maintenance while guest status %s", guest.Status)
 	}
 	params := jsonutils.NewDict()
 	if guest != nil {
-		if guest.Status == VM_RUNNING {
+		if guest.Status == api.VM_RUNNING {
 			params.Set("guest_running", jsonutils.NewBool(true))
 		}
-		guest.SetStatus(userCred, VM_ADMIN, "")
+		guest.SetStatus(userCred, api.VM_ADMIN, "")
 	}
-	if self.Status == BAREMETAL_RUNNING && jsonutils.QueryBoolean(data, "force_reboot", false) {
+	if self.Status == api.BAREMETAL_RUNNING && jsonutils.QueryBoolean(data, "force_reboot", false) {
 		params.Set("force_reboot", jsonutils.NewBool(true))
 	}
 	action := "maintenance"
@@ -2700,7 +2704,7 @@ func (self *SHost) PerformMaintenance(ctx context.Context, userCred mcclient.Tok
 		action, _ = data.GetString("action")
 	}
 	params.Set("action", jsonutils.NewString(action))
-	self.SetStatus(userCred, BAREMETAL_START_MAINTAIN, "")
+	self.SetStatus(userCred, api.BAREMETAL_START_MAINTAIN, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "BaremetalMaintenanceTask", self, userCred, params, "", "", nil)
 	if err != nil {
 		return nil, err
@@ -2717,11 +2721,11 @@ func (self *SHost) AllowPerformUnmaintenance(ctx context.Context,
 }
 
 func (self *SHost) PerformUnmaintenance(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !utils.IsInStringArray(self.Status, []string{BAREMETAL_RUNNING, BAREMETAL_READY}) {
+	if !utils.IsInStringArray(self.Status, []string{api.BAREMETAL_RUNNING, api.BAREMETAL_READY}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot do unmaintenance in status %s", self.Status)
 	}
 	guest := self.GetBaremetalServer()
-	if guest != nil && guest.Status != VM_ADMIN {
+	if guest != nil && guest.Status != api.VM_ADMIN {
 		return nil, httperrors.NewInvalidStatusError("Wrong guest status %s", guest.Status)
 	}
 	action, _ := data.GetString("action")
@@ -2737,7 +2741,7 @@ func (self *SHost) PerformUnmaintenance(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SHost) StartBaremetalUnmaintenanceTask(ctx context.Context, userCred mcclient.TokenCredential, startGuest bool, action string) error {
-	self.SetStatus(userCred, BAREMETAL_START_MAINTAIN, "")
+	self.SetStatus(userCred, api.BAREMETAL_START_MAINTAIN, "")
 	params := jsonutils.NewDict()
 	params.Set("guest_running", jsonutils.NewBool(startGuest))
 	if len(action) == 0 {
@@ -2773,9 +2777,9 @@ func (self *SHost) AllowPerformOffline(ctx context.Context,
 }
 
 func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.HostStatus != HOST_OFFLINE {
+	if self.HostStatus != api.HOST_OFFLINE {
 		_, err := self.SaveUpdates(func() error {
-			self.HostStatus = HOST_OFFLINE
+			self.HostStatus = api.HOST_OFFLINE
 			return nil
 		})
 		if err != nil {
@@ -2796,11 +2800,11 @@ func (self *SHost) AllowPerformOnline(ctx context.Context,
 }
 
 func (self *SHost) PerformOnline(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.HostStatus != HOST_ONLINE {
+	if self.HostStatus != api.HOST_ONLINE {
 		_, err := self.SaveUpdates(func() error {
 			self.LastPingAt = time.Now()
-			self.HostStatus = HOST_ONLINE
-			self.Status = BAREMETAL_RUNNING
+			self.HostStatus = api.HOST_ONLINE
+			self.Status = api.BAREMETAL_RUNNING
 			return nil
 		})
 		if err != nil {
@@ -2832,7 +2836,7 @@ func (self *SHost) AllowPerformPing(ctx context.Context,
 }
 
 func (self *SHost) PerformPing(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.HostStatus != HOST_ONLINE {
+	if self.HostStatus != api.HOST_ONLINE {
 		self.PerformOnline(ctx, userCred, query, data)
 	} else {
 		self.SaveUpdates(func() error {
@@ -2867,12 +2871,12 @@ func (self *SHost) AllowPerformPrepare(ctx context.Context,
 }
 
 func (self *SHost) PerformPrepare(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if utils.IsInStringArray(self.Status, []string{BAREMETAL_READY, BAREMETAL_RUNNING, BAREMETAL_PREPARE_FAIL}) {
+	if utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING, api.BAREMETAL_PREPARE_FAIL}) {
 		var onfinish string
 		if self.GetBaremetalServer() != nil {
-			if self.Status == BAREMETAL_RUNNING {
+			if self.Status == api.BAREMETAL_RUNNING {
 				onfinish = "restart"
-			} else if self.Status == BAREMETAL_READY {
+			} else if self.Status == api.BAREMETAL_READY {
 				onfinish = "shotdown"
 			}
 		}
@@ -2886,7 +2890,7 @@ func (self *SHost) StartPrepareTask(ctx context.Context, userCred mcclient.Token
 	if len(onfinish) > 0 {
 		data.Set("on_finish", jsonutils.NewString(onfinish))
 	}
-	self.SetStatus(userCred, BAREMETAL_PREPARE, "start prepare task")
+	self.SetStatus(userCred, api.BAREMETAL_PREPARE, "start prepare task")
 	if task, err := taskman.TaskManager.NewTask(ctx, "BaremetalPrepareTask", self, userCred, data, parentTaskId, "", nil); err != nil {
 		log.Errorln(err)
 		return err
@@ -3030,7 +3034,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 			if len(bridge) == 0 {
 				bridge = fmt.Sprintf("br%s", sw.GetName())
 			}
-			var isMaster = netif.NicType == NIC_TYPE_ADMIN
+			var isMaster = netif.NicType == api.NIC_TYPE_ADMIN
 			hw, err := HostwireManager.FetchByIdsAndMac(self.Id, sw.Id, mac)
 			if err != nil {
 				hw = &SHostwire{}
@@ -3077,7 +3081,7 @@ func (self *SHost) PerformEnableNetif(ctx context.Context, userCred mcclient.Tok
 	if netif == nil {
 		return nil, httperrors.NewBadRequestError("Interface %s not exist", mac)
 	}
-	if !utils.IsInStringArray(netif.NicType, NIC_TYPES) {
+	if !utils.IsInStringArray(netif.NicType, api.NIC_TYPES) {
 		return nil, httperrors.NewBadRequestError("Only ADMIN and IPMI nic can be enable")
 	}
 	network, _ := data.GetString("network")
@@ -3132,10 +3136,10 @@ func (self *SHost) EnableNetif(ctx context.Context, userCred mcclient.TokenCrede
 			}
 		} else {
 			var netTypes []string
-			if len(netType) > 0 && netType != NETWORK_TYPE_BAREMETAL {
-				netTypes = []string{netType, NETWORK_TYPE_BAREMETAL}
+			if len(netType) > 0 && netType != api.NETWORK_TYPE_BAREMETAL {
+				netTypes = []string{netType, api.NETWORK_TYPE_BAREMETAL}
 			} else {
-				netTypes = []string{NETWORK_TYPE_BAREMETAL}
+				netTypes = []string{api.NETWORK_TYPE_BAREMETAL}
 			}
 			net, err = wire.GetCandidatePrivateNetwork(userCred, false, netTypes)
 			if err != nil {
@@ -3272,7 +3276,7 @@ func (self *SHost) AllowPerformSyncstatus(ctx context.Context,
 }
 
 func (self *SHost) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	self.SetStatus(userCred, BAREMETAL_SYNCING_STATUS, "")
+	self.SetStatus(userCred, api.BAREMETAL_SYNCING_STATUS, "")
 	return nil, self.StartSyncstatus(ctx, userCred, "")
 }
 
@@ -3287,13 +3291,13 @@ func (self *SHost) PerformReset(ctx context.Context, userCred mcclient.TokenCred
 	if !self.IsBaremetal {
 		return nil, httperrors.NewBadRequestError("Cannot start a non-baremetal host")
 	}
-	if self.Status != BAREMETAL_RUNNING {
+	if self.Status != api.BAREMETAL_RUNNING {
 		return nil, httperrors.NewBadRequestError("Cannot reset baremetal in status %s", self.Status)
 	}
 	guest := self.GetBaremetalServer()
 	if guest != nil {
-		if self.HostType == HOST_TYPE_BAREMETAL {
-			if guest.Status != VM_ADMIN {
+		if self.HostType == api.HOST_TYPE_BAREMETAL {
+			if guest.Status != api.VM_ADMIN {
 				return nil, httperrors.NewBadRequestError("Cannot reset baremetal with active guest")
 			}
 		} else {
@@ -3316,7 +3320,7 @@ func (self *SHost) AllowPerformRemoveAllNetifs(ctx context.Context,
 func (self *SHost) PerformRemoveAllNetifs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	netifs := self.GetNetInterfaces()
 	for i := 0; i < len(netifs); i++ {
-		if !utils.IsInStringArray(netifs[i].NicType, NIC_TYPES) {
+		if !utils.IsInStringArray(netifs[i].NicType, api.NIC_TYPES) {
 			self.RemoveNetif(ctx, userCred, &netifs[i], false)
 		}
 	}
@@ -3376,7 +3380,7 @@ func (self *SHost) AllowPerformCacheImage(ctx context.Context,
 }
 
 func (self *SHost) PerformCacheImage(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.HostStatus != HOST_ONLINE {
+	if self.HostStatus != api.HOST_ONLINE {
 		return nil, httperrors.NewInvalidStatusError("Cannot perform cache image in status %s", self.Status)
 	}
 	imageId, _ := data.GetString("image")
@@ -3420,13 +3424,13 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 	if err != nil {
 		return nil, httperrors.NewNotAcceptableError("host_type must be specified")
 	}
-	if self.HostType != HOST_TYPE_BAREMETAL {
+	if self.HostType != api.HOST_TYPE_BAREMETAL {
 		return nil, httperrors.NewNotAcceptableError("Must be a baremetal host")
 	}
 	if self.GetBaremetalServer() != nil {
 		return nil, httperrors.NewNotAcceptableError("Baremetal host is aleady occupied")
 	}
-	if !utils.IsInStringArray(self.Status, []string{BAREMETAL_READY, BAREMETAL_RUNNING}) {
+	if !utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
 		return nil, httperrors.NewNotAcceptableError("Connot convert hypervisor in status %s", self.Status)
 	}
 	driver := GetHostDriver(hostType)
@@ -3475,7 +3479,7 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 	}
 	task.ScheduleRun(nil)
 
-	self.SetStatus(userCred, BAREMETAL_START_CONVERT, "")
+	self.SetStatus(userCred, api.BAREMETAL_START_CONVERT, "")
 	return nil, nil
 }
 
@@ -3490,13 +3494,13 @@ func (self *SHost) PerformUndoConvert(ctx context.Context, userCred mcclient.Tok
 	if !self.IsBaremetal {
 		return nil, httperrors.NewNotAcceptableError("Not a baremetal")
 	}
-	if self.HostType == HOST_TYPE_BAREMETAL {
+	if self.HostType == api.HOST_TYPE_BAREMETAL {
 		return nil, httperrors.NewNotAcceptableError("Not being convert to hypervisor")
 	}
 	if self.Enabled {
 		return nil, httperrors.NewNotAcceptableError("Host should be disabled")
 	}
-	if !utils.IsInStringArray(self.Status, []string{BAREMETAL_READY, BAREMETAL_RUNNING}) {
+	if !utils.IsInStringArray(self.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING}) {
 		return nil, httperrors.NewNotAcceptableError("Cannot unconvert in status %s", self.Status)
 	}
 	driver := self.GetDriverWithDefault()
@@ -3512,7 +3516,7 @@ func (self *SHost) PerformUndoConvert(ctx context.Context, userCred mcclient.Tok
 		return nil, httperrors.NewNotAcceptableError("Not an empty host")
 	} else if len(guests) == 1 {
 		guest := guests[0]
-		if guest.Hypervisor != HYPERVISOR_BAREMETAL {
+		if guest.Hypervisor != api.HYPERVISOR_BAREMETAL {
 			return nil, httperrors.NewNotAcceptableError("Not an converted hypervisor")
 		}
 		err := guest.SetDisableDelete(userCred, false)
@@ -3533,7 +3537,7 @@ func (self *SHost) PerformUndoConvert(ctx context.Context, userCred mcclient.Tok
 func (self *SHost) GetDriverWithDefault() IHostDriver {
 	hostType := self.HostType
 	if len(hostType) == 0 {
-		hostType = HOST_TYPE_DEFAULT
+		hostType = api.HOST_TYPE_DEFAULT
 	}
 	return GetHostDriver(hostType)
 }
@@ -3711,22 +3715,22 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 // }
 
 func (self *SHost) IsBaremetalAgentReady() bool {
-	return self.isAgentReady(AgentTypeBaremetal)
+	return self.isAgentReady(api.AgentTypeBaremetal)
 }
 
 func (self *SHost) BaremetalSyncRequest(ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	return self.doAgentRequest(AgentTypeBaremetal, ctx, method, url, headers, body)
+	return self.doAgentRequest(api.AgentTypeBaremetal, ctx, method, url, headers, body)
 }
 
 func (self *SHost) IsEsxiAgentReady() bool {
-	return self.isAgentReady(AgentTypeEsxi)
+	return self.isAgentReady(api.AgentTypeEsxi)
 }
 
 func (self *SHost) EsxiRequest(ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	return self.doAgentRequest(AgentTypeEsxi, ctx, method, url, headers, body)
+	return self.doAgentRequest(api.AgentTypeEsxi, ctx, method, url, headers, body)
 }
 
-func (self *SHost) isAgentReady(agentType TAgentType) bool {
+func (self *SHost) isAgentReady(agentType api.TAgentType) bool {
 	agent := BaremetalagentManager.GetAgent(agentType, self.ZoneId)
 	if agent == nil {
 		log.Errorf("%s ready: false", agentType)
@@ -3735,7 +3739,7 @@ func (self *SHost) isAgentReady(agentType TAgentType) bool {
 	return true
 }
 
-func (self *SHost) doAgentRequest(agentType TAgentType, ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
+func (self *SHost) doAgentRequest(agentType api.TAgentType, ctx context.Context, method httputils.THttpMethod, url string, headers http.Header, body *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
 	agent := BaremetalagentManager.GetAgent(agentType, self.ZoneId)
 	if agent == nil {
 		return nil, fmt.Errorf("no valid %s", agentType)
@@ -3785,15 +3789,15 @@ func (self *SHost) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 func (self *SHost) MarkGuestUnknown(userCred mcclient.TokenCredential) {
 	log.Errorln(self.GetGuests())
 	for _, guest := range self.GetGuests() {
-		guest.SetStatus(userCred, VM_UNKNOWN, "host offline")
+		guest.SetStatus(userCred, api.VM_UNKNOWN, "host offline")
 	}
 }
 
 func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	deadline := time.Now().Add(-1 * time.Duration(options.Options.HostOfflineMaxSeconds) * time.Second)
 
-	q := manager.Query().Equals("host_status", HOST_ONLINE).
-		Equals("host_type", HOST_TYPE_HYPERVISOR)
+	q := manager.Query().Equals("host_status", api.HOST_ONLINE).
+		Equals("host_type", api.HOST_TYPE_HYPERVISOR)
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("last_ping_at")),
 		sqlchemy.LT(q.Field("last_ping_at"), deadline)))
 
@@ -3814,7 +3818,7 @@ func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcc
 }
 
 func (self *SHost) IsPrepaidRecycleResource() bool {
-	return self.ResourceType == HostResourceTypePrepaidRecycle
+	return self.ResourceType == api.HostResourceTypePrepaidRecycle
 }
 
 func (host *SHost) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

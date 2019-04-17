@@ -21,8 +21,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type Capabilitie struct {
@@ -152,9 +152,9 @@ func (self *SStorage) GetManagerId() string {
 
 func (self *SStorage) GetMediumType() string {
 	if strings.HasPrefix(self.storageType, "premium") {
-		return models.DISK_TYPE_SSD
+		return api.DISK_TYPE_SSD
 	}
-	return models.DISK_TYPE_ROTATE
+	return api.DISK_TYPE_ROTATE
 }
 
 func (self *SStorage) GetStorageConf() jsonutils.JSONObject {
@@ -163,7 +163,7 @@ func (self *SStorage) GetStorageConf() jsonutils.JSONObject {
 }
 
 func (self *SStorage) GetStatus() string {
-	return models.STORAGE_ONLINE
+	return api.STORAGE_ONLINE
 }
 
 func (self *SStorage) GetStorageType() string {

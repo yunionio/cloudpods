@@ -22,8 +22,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SClassicDisk struct {
@@ -72,9 +73,9 @@ func (self *SRegion) GetStorageAccountDisksWithSnapshots(storageaccount SStorage
 
 			for _, file := range files {
 				if strings.HasSuffix(file.Name, ".vhd") {
-					diskType := models.DISK_TYPE_DATA
+					diskType := api.DISK_TYPE_DATA
 					if _diskType, ok := file.Metadata["microsoftazurecompute_disktype"]; ok && _diskType == "OSDisk" {
-						diskType = models.DISK_TYPE_SYS
+						diskType = api.DISK_TYPE_SYS
 					}
 					diskName := file.Name
 					if _diskName, ok := file.Metadata["microsoftazurecompute_diskname"]; ok {
@@ -118,7 +119,7 @@ func (self *SRegion) GetClassicDisks() ([]SClassicDisk, error) {
 
 func (self *SClassicDisk) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(models.HYPERVISOR_AZURE), "hypervisor")
+	data.Add(jsonutils.NewString(api.HYPERVISOR_AZURE), "hypervisor")
 	return data
 }
 
@@ -131,7 +132,7 @@ func (self *SClassicDisk) Delete(ctx context.Context) error {
 }
 
 func (self *SClassicDisk) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SClassicDisk) GetFsFormat() string {
@@ -211,7 +212,7 @@ func (self *SClassicDisk) GetName() string {
 }
 
 func (self *SClassicDisk) GetStatus() string {
-	return models.DISK_READY
+	return api.DISK_READY
 }
 
 func (self *SClassicDisk) IsEmulated() bool {

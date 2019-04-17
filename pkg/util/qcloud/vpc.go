@@ -19,8 +19,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SVpc struct {
@@ -73,7 +73,7 @@ func (self *SVpc) GetCidrBlock() string {
 }
 
 func (self *SVpc) GetStatus() string {
-	return models.VPC_STATUS_AVAILABLE
+	return api.VPC_STATUS_AVAILABLE
 }
 
 func (self *SVpc) Delete() error {

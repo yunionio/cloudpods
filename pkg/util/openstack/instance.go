@@ -24,8 +24,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -313,25 +314,26 @@ func (instance *SInstance) GetMachine() string {
 func (instance *SInstance) GetStatus() string {
 	switch instance.Status {
 	case INSTANCE_STATUS_ACTIVE, INSTANCE_STATUS_RESCUE:
-		return models.VM_RUNNING
+		return api.VM_RUNNING
 	case INSTANCE_STATUS_BUILD, INSTANCE_STATUS_PASSWORD:
-		return models.VM_DEPLOYING
+		return api.VM_DEPLOYING
 	case INSTANCE_STATUS_DELETED:
-		return models.VM_DELETING
+		return api.VM_DELETING
 	case INSTANCE_STATUS_HARD_REBOOT, INSTANCE_STATUS_REBOOT:
-		return models.VM_STARTING
+		return api.VM_STARTING
 	case INSTANCE_STATUS_MIGRATING:
-		return models.VM_MIGRATING
+		return api.VM_MIGRATING
 	case INSTANCE_STATUS_PAUSED, INSTANCE_STATUS_SUSPENDED:
-		return models.VM_SUSPEND
+		return api.VM_SUSPEND
 	case INSTANCE_STATUS_RESIZE:
-		return models.VM_CHANGE_FLAVOR
+		return api.VM_CHANGE_FLAVOR
 	case INSTANCE_STATUS_VERIFY_RESIZE:
-		return INSTANCE_STATUS_VERIFY_RESIZE
+		/// return INSTANCE_STATUS_VERIFY_RESIZE ??? use sync_status instead
+		return api.VM_SYNCING_STATUS
 	case INSTANCE_STATUS_SHELVED, INSTANCE_STATUS_SHELVED_OFFLOADED, INSTANCE_STATUS_SHUTOFF, INSTANCE_STATUS_SOFT_DELETED:
-		return models.VM_READY
+		return api.VM_READY
 	default:
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	}
 }
 
@@ -357,21 +359,21 @@ func (instance *SInstance) UpdateVM(ctx context.Context, name string) error {
 }
 
 func (instance *SInstance) GetHypervisor() string {
-	return models.HYPERVISOR_OPENSTACK
+	return api.HYPERVISOR_OPENSTACK
 }
 
 func (instance *SInstance) StartVM(ctx context.Context) error {
 	if err := instance.host.zone.region.StartVM(instance.ID); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(instance, models.VM_RUNNING, 10*time.Second, 8*time.Minute)
+	return cloudprovider.WaitStatus(instance, api.VM_RUNNING, 10*time.Second, 8*time.Minute)
 }
 
 func (instance *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err := instance.host.zone.region.StopVM(instance.ID, isForce); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(instance, models.VM_READY, 10*time.Second, 8*time.Minute)
+	return cloudprovider.WaitStatus(instance, api.VM_READY, 10*time.Second, 8*time.Minute)
 }
 
 func (region *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
@@ -500,8 +502,8 @@ func (region *SRegion) DeleteVM(instanceId string) error {
 	}
 	status := instance.GetStatus()
 	log.Debugf("Instance status on delete is %s", status)
-	if status != models.VM_READY {
-		log.Warningf("DeleteVM: vm status is %s expect %s", status, models.VM_READY)
+	if status != api.VM_READY {
+		log.Warningf("DeleteVM: vm status is %s expect %s", status, api.VM_READY)
 	}
 	return region.doDeleteVM(instanceId)
 }
@@ -669,7 +671,7 @@ func (instance *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 }
 
 func (instance *SInstance) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (instance *SInstance) GetExpiredAt() time.Time {

@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -39,7 +40,7 @@ func (self *EipSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	extEip, err := eip.GetIEip()
 	if err != nil {
 		msg := fmt.Sprintf("fail to find ieip for eip %s", err)
-		eip.SetStatus(self.UserCred, models.EIP_STATUS_UNKNOWN, msg)
+		eip.SetStatus(self.UserCred, api.EIP_STATUS_UNKNOWN, msg)
 		self.SetStageFailed(ctx, msg)
 		return
 	}
@@ -47,7 +48,7 @@ func (self *EipSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	err = extEip.Refresh()
 	if err != nil {
 		msg := fmt.Sprintf("fail to refresh eip status %s", err)
-		eip.SetStatus(self.UserCred, models.EIP_STATUS_UNKNOWN, msg)
+		eip.SetStatus(self.UserCred, api.EIP_STATUS_UNKNOWN, msg)
 		self.SetStageFailed(ctx, msg)
 		return
 	}
@@ -55,7 +56,7 @@ func (self *EipSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	err = eip.SyncWithCloudEip(ctx, self.UserCred, eip.GetCloudprovider(), extEip, "")
 	if err != nil {
 		msg := fmt.Sprintf("fail to sync eip status %s", err)
-		eip.SetStatus(self.UserCred, models.EIP_STATUS_UNKNOWN, msg)
+		eip.SetStatus(self.UserCred, api.EIP_STATUS_UNKNOWN, msg)
 		self.SetStageFailed(ctx, msg)
 		return
 	}
@@ -63,7 +64,7 @@ func (self *EipSyncstatusTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	err = eip.SyncInstanceWithCloudEip(ctx, self.UserCred, extEip)
 	if err != nil {
 		msg := fmt.Sprintf("fail to sync eip status %s", err)
-		eip.SetStatus(self.UserCred, models.EIP_STATUS_UNKNOWN, msg)
+		eip.SetStatus(self.UserCred, api.EIP_STATUS_UNKNOWN, msg)
 		self.SetStageFailed(ctx, msg)
 		return
 	}

@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -49,7 +50,7 @@ func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		log.Errorf(msg)
 		db.OpsLog.LogEvent(guest, db.ACT_REW_FAIL, msg, self.UserCred)
 		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RENEW, msg, self.UserCred, false)
-		guest.SetStatus(self.GetUserCred(), models.VM_RENEW_FAILED, msg)
+		guest.SetStatus(self.GetUserCred(), api.VM_RENEW_FAILED, msg)
 		self.SetStageFailed(ctx, msg)
 		return
 	}

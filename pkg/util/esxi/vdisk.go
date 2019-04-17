@@ -26,8 +26,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SVirtualDisk struct {
@@ -81,7 +81,7 @@ func (disk *SVirtualDisk) GetGlobalId() string {
 }
 
 func (disk *SVirtualDisk) GetStatus() string {
-	return models.DISK_READY
+	return api.DISK_READY
 }
 
 func (disk *SVirtualDisk) Refresh() error {
@@ -147,9 +147,9 @@ func (disk *SVirtualDisk) GetTemplateId() string {
 func (disk *SVirtualDisk) GetDiskType() string {
 	backing := disk.getBackingInfo()
 	if backing.Parent != nil {
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	}
-	return models.DISK_TYPE_DATA
+	return api.DISK_TYPE_DATA
 }
 
 func (disk *SVirtualDisk) GetFsFormat() string {

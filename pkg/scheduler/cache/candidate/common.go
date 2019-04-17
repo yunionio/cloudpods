@@ -19,28 +19,29 @@ import (
 
 	"yunion.io/x/pkg/util/sets"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 var (
 	VMRunningStatus = sets.NewString(
-		models.VM_START_START,
-		models.VM_STARTING,
-		models.VM_RUNNING,
-		models.VM_STOP_FAILED,
-		models.VM_BLOCK_STREAM,
-		models.VM_UNKNOWN,
-		models.VM_BACKUP_STARTING,
+		computeapi.VM_START_START,
+		computeapi.VM_STARTING,
+		computeapi.VM_RUNNING,
+		computeapi.VM_STOP_FAILED,
+		computeapi.VM_BLOCK_STREAM,
+		computeapi.VM_UNKNOWN,
+		computeapi.VM_BACKUP_STARTING,
 	)
 
 	VMCreatingStatus = sets.NewString(
-		models.VM_CREATE_NETWORK,
-		models.VM_CREATE_DISK,
-		models.VM_START_DEPLOY,
-		models.VM_DEPLOYING,
-		models.VM_BACKUP_CREATING,
-		models.VM_DEPLOYING_BACKUP,
+		computeapi.VM_CREATE_NETWORK,
+		computeapi.VM_CREATE_DISK,
+		computeapi.VM_START_DEPLOY,
+		computeapi.VM_DEPLOYING,
+		computeapi.VM_BACKUP_CREATING,
+		computeapi.VM_DEPLOYING_BACKUP,
 	)
 )
 

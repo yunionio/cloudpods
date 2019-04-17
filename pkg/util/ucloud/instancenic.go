@@ -15,8 +15,9 @@
 package ucloud
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/netutils"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SInstanceNic struct {
