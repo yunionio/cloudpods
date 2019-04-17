@@ -205,7 +205,6 @@ func (s *SKVMGuestInstance) RequestVerifyDirtyServer() {
 	}
 }
 
-// Delay Process
 func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	data, ok := params.(*jsonutils.JSONDict)
 	if !ok {
@@ -518,8 +517,8 @@ func (s *SKVMGuestInstance) CleanStartupTask() {
 func (s *SKVMGuestInstance) onMonitorTimeout(ctx context.Context, err error) {
 	log.Errorf("Monitor connect timeout, VM %s frozen!! force restart!!!!", s.Id)
 	s.ForceStop()
-	timeutils2.AddTimeout(time.Second*3,
-		func() { s.asyncScriptStart(ctx, jsonutils.NewDict()) })
+	timeutils2.AddTimeout(
+		time.Second*3, func() { s.StartGuest(ctx, jsonutils.NewDict()) })
 }
 
 func (s *SKVMGuestInstance) GetHmpMonitorPort(vncPort int) int {
@@ -611,7 +610,8 @@ func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 }
 
 func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params jsonutils.JSONObject) {
-	hostutils.DelayTaskWithoutReqctx(ctx, s.asyncScriptStart, params)
+	s.manager.GuestStartWorker.Run(
+		func() { s.asyncScriptStart(ctx, jsonutils.NewDict()) }, nil, nil)
 }
 
 func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
