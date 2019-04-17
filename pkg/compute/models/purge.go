@@ -4,11 +4,12 @@ import (
 	"context"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/tristate"
 )
 
 type IPurgeableManager interface {
@@ -75,7 +76,7 @@ func (host *SHost) purge(ctx context.Context, userCred mcclient.TokenCredential)
 	}
 
 	// clean all disks on locally attached storages
-	storages := host._getAttachedStorages(tristate.None, tristate.None, STORAGE_LOCAL)
+	storages := host._getAttachedStorages(tristate.None, tristate.None, api.STORAGE_LOCAL)
 	for i := range storages {
 		err := storages[i].purgeDisks(ctx, userCred)
 		if err != nil {

@@ -8,8 +8,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
@@ -102,13 +102,13 @@ func (image *SImage) Delete(ctx context.Context) error {
 func (image *SImage) GetStatus() string {
 	switch image.Status {
 	case QUEUED, SAVING, UPLOADING, IMPORTING:
-		return models.CACHED_IMAGE_STATUS_CACHING
+		return api.CACHED_IMAGE_STATUS_CACHING
 	case ACTIVE:
-		return models.CACHED_IMAGE_STATUS_READY
+		return api.CACHED_IMAGE_STATUS_READY
 	case DELETED, DEACTIVATED, PENDING_DELETE, KILLED:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	default:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	}
 }
 

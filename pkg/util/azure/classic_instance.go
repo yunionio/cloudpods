@@ -10,8 +10,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/osprofile"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -144,7 +145,7 @@ func (self *SClassicInstance) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SClassicInstance) GetHypervisor() string {
-	return models.HYPERVISOR_AZURE
+	return api.HYPERVISOR_AZURE
 }
 
 func (self *SClassicInstance) IsEmulated() bool {
@@ -259,21 +260,21 @@ func (self *SClassicInstance) GetStatus() string {
 		err := self.Refresh()
 		if err != nil {
 			log.Errorf("failed to get status for classic instance %s", self.Name)
-			return models.VM_UNKNOWN
+			return api.VM_UNKNOWN
 		}
 	}
 	switch self.Properties.InstanceView.Status {
 	case "StoppedDeallocated":
-		return models.VM_READY
+		return api.VM_READY
 	case "ReadyRole":
-		return models.VM_RUNNING
+		return api.VM_RUNNING
 	case "Stopped":
-		return models.VM_READY
+		return api.VM_READY
 	case "RoleStateUnknown":
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	default:
 		log.Errorf("Unknow classic instance %s status %s", self.Name, self.Properties.InstanceView.Status)
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	}
 }
 
@@ -435,7 +436,7 @@ func (self *SClassicInstance) StartVM(ctx context.Context) error {
 	if err := self.host.zone.region.StartVM(self.ID); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, api.VM_RUNNING, 10*time.Second, 300*time.Second)
 }
 
 func (self *SClassicInstance) StopVM(ctx context.Context, isForce bool) error {
@@ -443,7 +444,7 @@ func (self *SClassicInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second)
 }
 
 func (self *SRegion) StopClassicVM(instanceId string, isForce bool) error {
@@ -522,7 +523,7 @@ func (self *SClassicInstance) AssignSecurityGroup(secgroupId string) error {
 }
 
 func (self *SClassicInstance) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SClassicInstance) GetExpiredAt() time.Time {

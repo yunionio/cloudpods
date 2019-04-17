@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -59,7 +60,7 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnInit(ctx context.Context, obj db
 			return nil
 		})
 		bs := baremetal.GetBaremetalstorage().GetStorage()
-		bs.SetStatus(self.UserCred, models.STORAGE_OFFLINE, "")
+		bs.SetStatus(self.UserCred, api.STORAGE_OFFLINE, "")
 		if first && baremetal.Name != guest.Name {
 			db.Update(baremetal, func() error {
 				if models.HostManager.IsNewNameUnique(guest.Name, self.UserCred, nil) {
@@ -83,8 +84,8 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnInit(ctx context.Context, obj db
 func (self *BaremetalSyncAllGuestsStatusTask) OnGuestSyncStatusComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	var guests = make([]models.SGuest, 0)
 	for _, guest := range baremetal.GetGuests() {
-		if guest.Status == models.VM_UNKNOWN && guest.Hypervisor != models.HYPERVISOR_BAREMETAL {
-			guest.SetStatus(self.UserCred, models.VM_SYNCING_STATUS, "")
+		if guest.Status == api.VM_UNKNOWN && guest.Hypervisor != api.HYPERVISOR_BAREMETAL {
+			guest.SetStatus(self.UserCred, api.VM_SYNCING_STATUS, "")
 			guests = append(guests, guest)
 		}
 	}

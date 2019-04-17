@@ -6,6 +6,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
@@ -20,7 +21,7 @@ func init() {
 }
 
 func (self *SAwsHostDriver) GetHostType() string {
-	return models.HOST_TYPE_AWS
+	return api.HOST_TYPE_AWS
 }
 
 func (self *SAwsHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
@@ -28,19 +29,19 @@ func (self *SAwsHostDriver) ValidateAttachStorage(host *models.SHost, storage *m
 }
 
 func (self *SAwsHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
-	if storage.StorageType == models.STORAGE_GP2_SSD {
+	if storage.StorageType == api.STORAGE_GP2_SSD {
 		if sizeGb < 1 || sizeGb > 16384 {
 			return fmt.Errorf("The %s disk size must be in the range of 1G ~ 16384GB", storage.StorageType)
 		}
-	} else if storage.StorageType == models.STORAGE_IO1_SSD {
+	} else if storage.StorageType == api.STORAGE_IO1_SSD {
 		if sizeGb < 4 || sizeGb > 16384 {
 			return fmt.Errorf("The %s disk size must be in the range of 4G ~ 16384GB", storage.StorageType)
 		}
-	} else if utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_ST1_HDD, models.STORAGE_SC1_HDD}) {
+	} else if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_ST1_HDD, api.STORAGE_SC1_HDD}) {
 		if sizeGb < 500 || sizeGb > 16384 {
 			return fmt.Errorf("The %s disk size must be in the range of 500G ~ 16384GB", storage.StorageType)
 		}
-	} else if storage.StorageType == models.STORAGE_STANDARD_HDD {
+	} else if storage.StorageType == api.STORAGE_STANDARD_HDD {
 		if sizeGb < 1 || sizeGb > 1024 {
 			return fmt.Errorf("The %s disk size must be in the range of 1G ~ 1024GB", storage.StorageType)
 		}

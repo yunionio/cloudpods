@@ -7,8 +7,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type AllocationPool struct {
@@ -67,7 +67,7 @@ func (network *SNetwork) IsEmulated() bool {
 }
 
 func (network *SNetwork) GetStatus() string {
-	return models.NETWORK_STATUS_AVAILABLE
+	return api.NETWORK_STATUS_AVAILABLE
 }
 
 func (network *SNetwork) Delete() error {
@@ -115,7 +115,7 @@ func (network *SNetwork) GetIsPublic() bool {
 }
 
 func (network *SNetwork) GetServerType() string {
-	return models.NETWORK_TYPE_GUEST
+	return api.NETWORK_TYPE_GUEST
 }
 
 func (region *SRegion) GetNetwork(networkId string) (*SNetwork, error) {

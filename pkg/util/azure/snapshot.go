@@ -7,8 +7,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SnapshotSku struct {
@@ -47,10 +47,10 @@ func (self *SSnapshot) GetName() string {
 func (self *SSnapshot) GetStatus() string {
 	switch self.Properties.ProvisioningState {
 	case "Succeeded":
-		return models.SNAPSHOT_READY
+		return api.SNAPSHOT_READY
 	default:
 		log.Errorf("Unknow azure snapshot %s status: %s", self.ID, self.Properties.ProvisioningState)
-		return models.SNAPSHOT_UNKNOWN
+		return api.SNAPSHOT_UNKNOWN
 	}
 }
 

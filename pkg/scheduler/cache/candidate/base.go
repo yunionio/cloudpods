@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	computedb "yunion.io/x/onecloud/pkg/cloudcommon/db"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -70,7 +71,7 @@ func (b baseHostGetter) Storages() []*api.CandidateStorage {
 
 func reviseResourceType(resType string) string {
 	if resType == "" {
-		return computemodels.HostResourceTypeDefault
+		return computeapi.HostResourceTypeDefault
 	}
 	return resType
 }

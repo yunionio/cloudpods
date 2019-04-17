@@ -8,8 +8,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type PublicIPAddressSku struct {
@@ -59,7 +60,7 @@ func (region *SRegion) AllocateEIP(eipName string) (*SEipAddress, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &eip, cloudprovider.WaitStatus(&eip, models.EIP_STATUS_READY, 10*time.Second, 300*time.Second)
+	return &eip, cloudprovider.WaitStatus(&eip, api.EIP_STATUS_READY, 10*time.Second, 300*time.Second)
 }
 
 func (region *SRegion) CreateEIP(eipName string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
@@ -176,7 +177,7 @@ func (self *SEipAddress) GetId() string {
 }
 
 func (self *SEipAddress) GetInternetChargeType() string {
-	return models.EIP_CHARGE_TYPE_BY_TRAFFIC
+	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
 func (self *SEipAddress) GetIpAddr() string {
@@ -193,15 +194,15 @@ func (self *SEipAddress) GetMetadata() *jsonutils.JSONDict {
 
 func (self *SEipAddress) GetMode() string {
 	if self.IsEmulated() {
-		return models.EIP_MODE_INSTANCE_PUBLICIP
+		return api.EIP_MODE_INSTANCE_PUBLICIP
 	}
 	if self.Properties.IPConfiguration != nil {
 		nic, err := self.region.GetNetworkInterfaceDetail(self.Properties.IPConfiguration.ID)
 		if err == nil && nic.Properties.VirtualMachine != nil && len(nic.Properties.VirtualMachine.ID) > 0 {
-			return models.EIP_MODE_INSTANCE_PUBLICIP
+			return api.EIP_MODE_INSTANCE_PUBLICIP
 		}
 	}
-	return models.EIP_MODE_STANDALONE_EIP
+	return api.EIP_MODE_STANDALONE_EIP
 }
 
 func (self *SEipAddress) GetName() string {
@@ -211,12 +212,12 @@ func (self *SEipAddress) GetName() string {
 func (self *SEipAddress) GetStatus() string {
 	switch self.Properties.ProvisioningState {
 	case "Succeeded", "":
-		return models.EIP_STATUS_READY
+		return api.EIP_STATUS_READY
 	case "Updating":
-		return models.EIP_STATUS_ALLOCATE
+		return api.EIP_STATUS_ALLOCATE
 	default:
 		log.Errorf("Unknown eip status: %s", self.Properties.ProvisioningState)
-		return models.EIP_STATUS_UNKNOWN
+		return api.EIP_STATUS_UNKNOWN
 	}
 }
 
@@ -236,7 +237,7 @@ func (self *SEipAddress) Refresh() error {
 }
 
 func (self *SEipAddress) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SEipAddress) GetExpiredAt() time.Time {

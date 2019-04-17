@@ -31,11 +31,11 @@ func init() {
 }
 
 func (self *SKVMGuestDriver) GetHypervisor() string {
-	return models.HYPERVISOR_KVM
+	return api.HYPERVISOR_KVM
 }
 
 func (self *SKVMGuestDriver) GetDefaultSysDiskBackend() string {
-	return models.STORAGE_LOCAL
+	return api.STORAGE_LOCAL
 }
 
 func (self *SKVMGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -301,27 +301,27 @@ func (self *SKVMGuestDriver) RequestAttachDisk(ctx context.Context, guest *model
 }
 
 func (self *SKVMGuestDriver) GetDetachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SKVMGuestDriver) GetAttachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SKVMGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SKVMGuestDriver) GetChangeConfigStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SKVMGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_ADMIN}, nil
+	return []string{api.VM_READY, api.VM_ADMIN}, nil
 }
 
 func (self *SKVMGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
-	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY, models.VM_RUNNING}) {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
 	return nil

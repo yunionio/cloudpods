@@ -5,9 +5,10 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/util/netutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 // https://docs.ucloud.cn/api/vpc2.0-api/describe_subnet
@@ -53,7 +54,7 @@ func (self *SNetwork) GetGlobalId() string {
 }
 
 func (self *SNetwork) GetStatus() string {
-	return models.NETWORK_STATUS_AVAILABLE
+	return api.NETWORK_STATUS_AVAILABLE
 }
 
 func (self *SNetwork) Refresh() error {
@@ -102,7 +103,7 @@ func (self *SNetwork) GetGateway() string {
 }
 
 func (self *SNetwork) GetServerType() string {
-	return models.NETWORK_TYPE_GUEST
+	return api.NETWORK_TYPE_GUEST
 }
 
 func (self *SNetwork) GetIsPublic() bool {

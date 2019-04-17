@@ -16,7 +16,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SRegion struct {
@@ -181,7 +180,7 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 }
 
 func (self *SRegion) GetStatus() string {
-	return models.CLOUD_REGION_STATUS_INSERVER
+	return api.CLOUD_REGION_STATUS_INSERVER
 }
 
 func (self *SRegion) Refresh() error {

@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/pkg/util/sets"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -47,7 +48,7 @@ var (
 		AggregateStrategyAvoid,
 	)
 
-	PublicCloudProviders = sets.NewString(models.PUBLIC_CLOUD_HYPERVISORS...)
+	PublicCloudProviders = sets.NewString(computeapi.PUBLIC_CLOUD_HYPERVISORS...)
 
 	ValidGpuTypes = sets.NewString(
 		GPU_HPC_TYPE,

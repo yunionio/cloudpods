@@ -19,14 +19,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-const (
-	ZONE_INIT    = "init"
-	ZONE_ENABLE  = "enable"
-	ZONE_DISABLE = "disable"
-	ZONE_SOLDOUT = "soldout"
-	// ZONE_LACK    = "lack"
-)
-
 type SZoneManager struct {
 	db.SStatusStandaloneResourceBaseManager
 }
@@ -316,7 +308,7 @@ func (self *SZone) syncRemoveCloudZone(ctx context.Context, userCred mcclient.To
 
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
-		err = self.SetStatus(userCred, ZONE_DISABLE, "sync to delete")
+		err = self.SetStatus(userCred, api.ZONE_DISABLE, "sync to delete")
 	} else {
 		err = self.Delete(ctx, userCred)
 	}
@@ -387,13 +379,13 @@ func (manager *SZoneManager) InitializeData() error {
 	for _, z := range zones {
 		if len(z.CloudregionId) == 0 {
 			db.Update(&z, func() error {
-				z.CloudregionId = DEFAULT_REGION_ID
+				z.CloudregionId = api.DEFAULT_REGION_ID
 				return nil
 			})
 		}
-		if z.Status == ZONE_INIT || z.Status == ZONE_DISABLE {
+		if z.Status == api.ZONE_INIT || z.Status == api.ZONE_DISABLE {
 			db.Update(&z, func() error {
-				z.Status = ZONE_ENABLE
+				z.Status = api.ZONE_ENABLE
 				return nil
 			})
 		}
@@ -416,14 +408,14 @@ func (manager *SZoneManager) usableZoneQ1(providers, vpcs, wires, networks *sqlc
 
 	// add filters
 	if usableNet {
-		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 	}
 	sq = sq.Filter(sqlchemy.IsNotEmpty(wires.Field("zone_id")))
 	sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
 	sq = sq.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
 	sq = sq.Filter(sqlchemy.Equals(providers.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
 	if usableVpc {
-		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 	}
 
 	return sq.SubQuery()
@@ -443,12 +435,12 @@ func (manager *SZoneManager) usableZoneQ2(vpcs, wires, networks *sqlchemy.SSubQu
 
 	// add filters
 	if usableNet {
-		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 	}
 	sq = sq.Filter(sqlchemy.IsNotEmpty(wires.Field("zone_id")))
 	sq = sq.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
 	if usableVpc {
-		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 	}
 
 	return sq.SubQuery()
@@ -472,14 +464,14 @@ func (manager *SZoneManager) usableZoneQ3(providers, vpcs, wires, networks, zone
 
 	// add filters
 	if usableNet {
-		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 	}
 	sq = sq.Filter(sqlchemy.IsNullOrEmpty(wires.Field("zone_id")))
 	sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
 	sq = sq.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
 	sq = sq.Filter(sqlchemy.Equals(providers.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
 	if usableVpc {
-		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 	}
 
 	return sq.SubQuery()
@@ -502,12 +494,12 @@ func (manager *SZoneManager) usableZoneQ4(vpcs, wires, networks, zones *sqlchemy
 
 	// add filters
 	if usableNet {
-		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 	}
 	sq = sq.Filter(sqlchemy.IsNullOrEmpty(wires.Field("zone_id")))
 	sq = sq.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
 	if usableVpc {
-		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 	}
 
 	return sq.SubQuery()
@@ -585,7 +577,7 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 			sqlchemy.In(q.Field("id"), sq3),
 			sqlchemy.In(q.Field("id"), sq4),
 		))
-		q = q.Equals("status", ZONE_ENABLE)
+		q = q.Equals("status", api.ZONE_ENABLE)
 	}
 
 	managerStr, _ := query.GetString("manager")
@@ -693,6 +685,6 @@ func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mc
 		regionId = "default"
 	}
 	data.Add(jsonutils.NewString(regionId), "cloudregion_id")
-	data.Set("status", jsonutils.NewString(ZONE_ENABLE))
+	data.Set("status", jsonutils.NewString(api.ZONE_ENABLE))
 	return manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }

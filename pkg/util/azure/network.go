@@ -6,8 +6,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/netutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SNetwork struct {
@@ -98,7 +98,7 @@ func (self *SNetwork) GetIsPublic() bool {
 }
 
 func (self *SNetwork) GetServerType() string {
-	return models.NETWORK_TYPE_GUEST
+	return api.NETWORK_TYPE_GUEST
 }
 
 func (self *SNetwork) Refresh() error {

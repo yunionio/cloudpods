@@ -871,7 +871,7 @@ func (provider *SCloudprovider) prepareCloudproviderRegions(ctx context.Context,
 		return nil, err
 	}
 	if driver.GetFactory().IsOnPremise() {
-		cpr := CloudproviderRegionManager.FetchByIdsOrCreate(provider.Id, DEFAULT_REGION_ID)
+		cpr := CloudproviderRegionManager.FetchByIdsOrCreate(provider.Id, api.DEFAULT_REGION_ID)
 		return []SCloudproviderregion{*cpr}, nil
 	}
 	iregions := driver.GetIRegions()

@@ -10,8 +10,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -321,23 +322,23 @@ func (self *SInstance) GetMachine() string {
 func (self *SInstance) GetStatus() string {
 	switch self.InstanceState {
 	case "PENDING":
-		return models.VM_DEPLOYING
+		return api.VM_DEPLOYING
 	case "LAUNCH_FAILED":
-		return models.VM_DEPLOY_FAILED
+		return api.VM_DEPLOY_FAILED
 	case "RUNNING":
-		return models.VM_RUNNING
+		return api.VM_RUNNING
 	case "STOPPED":
-		return models.VM_READY
+		return api.VM_READY
 	case "STARTING", "REBOOTING":
-		return models.VM_STARTING
+		return api.VM_STARTING
 	case "STOPPING":
-		return models.VM_STOPPING
+		return api.VM_STOPPING
 	case "SHUTDOWN":
-		return models.VM_DEALLOCATED
+		return api.VM_DEALLOCATED
 	case "TERMINATING":
-		return models.VM_DELETING
+		return api.VM_DELETING
 	default:
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	}
 }
 
@@ -350,7 +351,7 @@ func (self *SInstance) Refresh() error {
 }
 
 func (self *SInstance) GetHypervisor() string {
-	return models.HYPERVISOR_QCLOUD
+	return api.HYPERVISOR_QCLOUD
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
@@ -363,11 +364,11 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		log.Debugf("status %s expect %s", self.GetStatus(), models.VM_RUNNING)
-		if self.GetStatus() == models.VM_RUNNING {
+		log.Debugf("status %s expect %s", self.GetStatus(), api.VM_RUNNING)
+		if self.GetStatus() == api.VM_RUNNING {
 			return nil
 		}
-		if self.GetStatus() == models.VM_READY {
+		if self.GetStatus() == api.VM_READY {
 			err := self.host.zone.region.StartVM(self.InstanceId)
 			if err != nil {
 				return err
@@ -383,7 +384,7 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 8*time.Minute) // 8 mintues, 腾讯云有时关机比较慢
+	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 8*time.Minute) // 8 mintues, 腾讯云有时关机比较慢
 }
 
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
@@ -780,11 +781,11 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 func (self *SInstance) GetBillingType() string {
 	switch self.InstanceChargeType {
 	case PrePaidInstanceChargeType:
-		return models.BILLING_TYPE_PREPAID
+		return billing_api.BILLING_TYPE_PREPAID
 	case PostPaidInstanceChargeType:
-		return models.BILLING_TYPE_POSTPAID
+		return billing_api.BILLING_TYPE_POSTPAID
 	default:
-		return models.BILLING_TYPE_PREPAID
+		return billing_api.BILLING_TYPE_PREPAID
 	}
 }
 

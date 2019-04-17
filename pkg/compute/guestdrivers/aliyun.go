@@ -25,11 +25,11 @@ func init() {
 }
 
 func (self *SAliyunGuestDriver) GetHypervisor() string {
-	return models.HYPERVISOR_ALIYUN
+	return api.HYPERVISOR_ALIYUN
 }
 
 func (self *SAliyunGuestDriver) GetDefaultSysDiskBackend() string {
-	return models.STORAGE_CLOUD_EFFICIENCY
+	return api.STORAGE_CLOUD_EFFICIENCY
 }
 
 func (self *SAliyunGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -38,11 +38,11 @@ func (self *SAliyunGuestDriver) GetMinimalSysDiskSizeGb() int {
 
 func (self *SAliyunGuestDriver) GetStorageTypes() []string {
 	return []string{
-		models.STORAGE_CLOUD_EFFICIENCY,
-		models.STORAGE_CLOUD_SSD,
-		models.STORAGE_CLOUD_ESSD,
-		models.STORAGE_PUBLIC_CLOUD,
-		models.STORAGE_EPHEMERAL_SSD,
+		api.STORAGE_CLOUD_EFFICIENCY,
+		api.STORAGE_CLOUD_SSD,
+		api.STORAGE_CLOUD_ESSD,
+		api.STORAGE_PUBLIC_CLOUD,
+		api.STORAGE_EPHEMERAL_SSD,
 	}
 }
 
@@ -64,33 +64,33 @@ func (self *SAliyunGuestDriver) ChooseHostStorage(host *models.SHost, backend st
 }
 
 func (self *SAliyunGuestDriver) GetDetachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SAliyunGuestDriver) GetAttachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SAliyunGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SAliyunGuestDriver) GetChangeConfigStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SAliyunGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SAliyunGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
-	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY, models.VM_RUNNING}) {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if disk.DiskType == models.DISK_TYPE_SYS {
+	if disk.DiskType == api.DISK_TYPE_SYS {
 		return fmt.Errorf("Cannot resize system disk")
 	}
-	if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_PUBLIC_CLOUD, models.STORAGE_CLOUD_SSD, models.STORAGE_CLOUD_EFFICIENCY}) {
+	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_PUBLIC_CLOUD, api.STORAGE_CLOUD_SSD, api.STORAGE_CLOUD_EFFICIENCY}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
 	return nil
@@ -113,15 +113,15 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 			return nil, httperrors.NewInputParameterError("The system disk size must be in the range of 20GB ~ 500Gb")
 		}
 		switch disk.Backend {
-		case models.STORAGE_CLOUD_EFFICIENCY, models.STORAGE_CLOUD_SSD, models.STORAGE_CLOUD_ESSD:
+		case api.STORAGE_CLOUD_EFFICIENCY, api.STORAGE_CLOUD_SSD, api.STORAGE_CLOUD_ESSD:
 			if disk.SizeMb < 20*1024 || disk.SizeMb > 32768*1024 {
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 20GB ~ 32768GB", disk.Backend)
 			}
-		case models.STORAGE_PUBLIC_CLOUD:
+		case api.STORAGE_PUBLIC_CLOUD:
 			if disk.SizeMb < 5*1024 || disk.SizeMb > 2000*1024 {
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 5GB ~ 2000GB", disk.Backend)
 			}
-		case models.STORAGE_EPHEMERAL_SSD:
+		case api.STORAGE_EPHEMERAL_SSD:
 			if disk.SizeMb < 5*1024 || disk.SizeMb > 800*1024 {
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 5GB ~ 800GB", disk.Backend)
 			}
@@ -131,11 +131,11 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 }
 
 func (self *SAliyunGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return models.VM_READY
+	return api.VM_READY
 }
 
 func (self *SAliyunGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return models.VM_READY
+	return api.VM_READY
 }
 
 func (self *SAliyunGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {

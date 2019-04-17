@@ -53,7 +53,7 @@ func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.
 }
 
 func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
-	return []string{models.NETWORK_TYPE_GUEST}
+	return []string{api.NETWORK_TYPE_GUEST}
 }
 
 func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
@@ -178,7 +178,7 @@ func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Conte
 	if host == nil {
 		host = guest.GetHost()
 	}
-	if host != nil && host.Enabled && host.HostStatus == models.HOST_ONLINE {
+	if host != nil && host.Enabled && host.HostStatus == api.HOST_ONLINE {
 		return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
 	}
 	if host != nil && !jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
@@ -193,7 +193,7 @@ func (self *SVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, use
 }
 
 func (self *SVirtualizedGuestDriver) ValidateCreateDataOnHost(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
-	if host.HostStatus != models.HOST_ONLINE {
+	if host.HostStatus != api.HOST_ONLINE {
 		return nil, httperrors.NewInvalidStatusError("Host %s is not online", bmName)
 	}
 	input.PreferHost = host.Id

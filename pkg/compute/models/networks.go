@@ -27,33 +27,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
-const (
-	// # DEFAULT_BANDWIDTH = options.default_bandwidth
-	MAX_BANDWIDTH = api.MAX_BANDWIDTH
-
-	NETWORK_TYPE_GUEST     = api.NETWORK_TYPE_GUEST
-	NETWORK_TYPE_BAREMETAL = api.NETWORK_TYPE_BAREMETAL
-	NETWORK_TYPE_CONTAINER = api.NETWORK_TYPE_CONTAINER
-	NETWORK_TYPE_PXE       = api.NETWORK_TYPE_PXE
-	NETWORK_TYPE_IPMI      = api.NETWORK_TYPE_IPMI
-
-	STATIC_ALLOC = api.STATIC_ALLOC
-
-	MAX_NETWORK_NAME_LEN = api.MAX_NETWORK_NAME_LEN
-
-	EXTRA_DNS_UPDATE_TARGETS = api.EXTRA_DNS_UPDATE_TARGETS
-
-	NETWORK_STATUS_INIT          = api.NETWORK_STATUS_INIT
-	NETWORK_STATUS_PENDING       = api.NETWORK_STATUS_PENDING
-	NETWORK_STATUS_AVAILABLE     = api.NETWORK_STATUS_AVAILABLE
-	NETWORK_STATUS_FAILED        = api.NETWORK_STATUS_FAILED
-	NETWORK_STATUS_UNKNOWN       = api.NETWORK_STATUS_UNKNOWN
-	NETWORK_STATUS_START_DELETE  = api.NETWORK_STATUS_START_DELETE
-	NETWORK_STATUS_DELETING      = api.NETWORK_STATUS_DELETING
-	NETWORK_STATUS_DELETED       = api.NETWORK_STATUS_DELETED
-	NETWORK_STATUS_DELETE_FAILED = api.NETWORK_STATUS_DELETE_FAILED
-)
-
 var (
 	ALL_NETWORK_TYPES = api.ALL_NETWORK_TYPES
 )
@@ -419,7 +392,7 @@ type DNSUpdateKeySecret struct {
 
 func (self *SNetwork) getDnsUpdateTargets() map[string][]DNSUpdateKeySecret {
 	targets := make(map[string][]DNSUpdateKeySecret)
-	targetsJson := self.GetMetadataJson(EXTRA_DNS_UPDATE_TARGETS, nil)
+	targetsJson := self.GetMetadataJson(api.EXTRA_DNS_UPDATE_TARGETS, nil)
 	if targetsJson == nil {
 		return nil
 	} else {
@@ -525,7 +498,7 @@ func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
-		err = self.SetStatus(userCred, NETWORK_STATUS_UNKNOWN, "Sync to remove")
+		err = self.SetStatus(userCred, api.NETWORK_STATUS_UNKNOWN, "Sync to remove")
 	} else {
 		err = self.RealDelete(ctx, userCred)
 
@@ -655,8 +628,8 @@ func (manager *SNetworkManager) allNetworksQ(providers []string, rangeObj db.ISt
 	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
 	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 	q = q.Filter(sqlchemy.OR(
-		sqlchemy.Equals(hosts.Field("host_type"), HOST_TYPE_BAREMETAL),
-		sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE)))
+		sqlchemy.Equals(hosts.Field("host_type"), api.HOST_TYPE_BAREMETAL),
+		sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE)))
 	return AttachUsageQuery(q, hosts, nil, nil, providers, rangeObj)
 }
 
@@ -764,8 +737,8 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.Networ
 				return httperrors.NewInputParameterError("Address %s has been used", netConfig.Address)
 			}
 		}
-		if netConfig.BwLimit > MAX_BANDWIDTH {
-			return httperrors.NewInputParameterError("Bandwidth limit cannot exceed %dMbps", MAX_BANDWIDTH)
+		if netConfig.BwLimit > api.MAX_BANDWIDTH {
+			return httperrors.NewInputParameterError("Bandwidth limit cannot exceed %dMbps", api.MAX_BANDWIDTH)
 		}
 		if net.getFreeAddressCount() < 1 {
 			return httperrors.NewInputParameterError("network %s(%s) has no free addresses", net.Name, net.Id)
@@ -1106,7 +1079,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		return nil, httperrors.NewInputParameterError("no valid vpc ???")
 	}
 
-	if vpc.Status != VPC_STATUS_AVAILABLE {
+	if vpc.Status != api.VPC_STATUS_AVAILABLE {
 		return nil, httperrors.NewInvalidStatusError("VPC not ready")
 	}
 
@@ -1120,7 +1093,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 
 	serverTypeStr, _ := data.GetString("server_type")
 	if len(serverTypeStr) == 0 {
-		serverTypeStr = NETWORK_TYPE_GUEST
+		serverTypeStr = api.NETWORK_TYPE_GUEST
 	} else if !utils.IsInStringArray(serverTypeStr, ALL_NETWORK_TYPES) {
 		return nil, httperrors.NewInputParameterError("Invalid server_type: %s", serverTypeStr)
 	}
@@ -1247,7 +1220,7 @@ func isOverlapNetworks(nets []SNetwork, startIp netutils.IPV4Addr, endIp netutil
 }
 
 func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if db.IsAdminAllowCreate(userCred, self.GetModelManager()) && ownerProjId == userCred.GetProjectId() && self.ServerType == NETWORK_TYPE_GUEST {
+	if db.IsAdminAllowCreate(userCred, self.GetModelManager()) && ownerProjId == userCred.GetProjectId() && self.ServerType == api.NETWORK_TYPE_GUEST {
 		self.IsPublic = true
 	} else {
 		self.IsPublic = false
@@ -1272,7 +1245,7 @@ func (self *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 			task.ScheduleRun(nil)
 		}
 	} else {
-		self.SetStatus(userCred, NETWORK_STATUS_AVAILABLE, "")
+		self.SetStatus(userCred, api.NETWORK_STATUS_AVAILABLE, "")
 	}
 }
 
@@ -1287,7 +1260,7 @@ func (self *SNetwork) GetPrefix() (netutils.IPV4Prefix, error) {
 
 func (self *SNetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("SNetwork delete do nothing")
-	self.SetStatus(userCred, NETWORK_STATUS_START_DELETE, "")
+	self.SetStatus(userCred, api.NETWORK_STATUS_START_DELETE, "")
 	return nil
 }
 
@@ -1301,7 +1274,7 @@ func (self *SNetwork) CustomizeDelete(ctx context.Context, userCred mcclient.Tok
 
 func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
-	self.SetStatus(userCred, NETWORK_STATUS_DELETED, "real delete")
+	self.SetStatus(userCred, api.NETWORK_STATUS_DELETED, "real delete")
 	return self.SSharableVirtualResourceBase.Delete(ctx, userCred)
 }
 
@@ -1450,9 +1423,9 @@ func (manager *SNetworkManager) InitializeData() error {
 		return err
 	}
 	for _, n := range networks {
-		if len(n.ExternalId) == 0 && len(n.WireId) > 0 && n.Status == NETWORK_STATUS_INIT {
+		if len(n.ExternalId) == 0 && len(n.WireId) > 0 && n.Status == api.NETWORK_STATUS_INIT {
 			db.Update(&n, func() error {
-				n.Status = NETWORK_STATUS_AVAILABLE
+				n.Status = api.NETWORK_STATUS_AVAILABLE
 				return nil
 			})
 		}

@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -24,7 +25,7 @@ func (self *EipChangeBandwidthTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	extEip, err := eip.GetIEip()
 	if err != nil {
-		eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, "fail to change bandwidth")
+		eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, "fail to change bandwidth")
 		msg := fmt.Sprintf("fail to find iEip %s", err)
 		self.SetStageFailed(ctx, msg)
 		return
@@ -32,7 +33,7 @@ func (self *EipChangeBandwidthTask) OnInit(ctx context.Context, obj db.IStandalo
 
 	bandwidth, _ := self.Params.Int("bandwidth")
 	if bandwidth <= 0 {
-		eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, "fail to change bandwidth")
+		eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, "fail to change bandwidth")
 		msg := fmt.Sprintf("invalid bandwidth %d", bandwidth)
 		self.SetStageFailed(ctx, msg)
 		return
@@ -41,7 +42,7 @@ func (self *EipChangeBandwidthTask) OnInit(ctx context.Context, obj db.IStandalo
 	err = extEip.ChangeBandwidth(int(bandwidth))
 
 	if err != nil {
-		eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, "fail to change bandwidth")
+		eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, "fail to change bandwidth")
 		msg := fmt.Sprintf("fail to find iEip %s", err)
 		self.SetStageFailed(ctx, msg)
 		return

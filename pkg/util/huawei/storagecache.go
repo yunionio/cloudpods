@@ -10,8 +10,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -276,8 +276,8 @@ func (self *SRegion) createIImage(snapshotId, imageName, imageDesc string) (stri
 		return "", err
 	}
 
-	if disk.GetDiskType() != models.DISK_TYPE_SYS {
-		return "", fmt.Errorf("disk type err, expected disk type %s", models.DISK_TYPE_SYS)
+	if disk.GetDiskType() != api.DISK_TYPE_SYS {
+		return "", fmt.Errorf("disk type err, expected disk type %s", api.DISK_TYPE_SYS)
 	}
 
 	if len(disk.Attachments) == 0 {

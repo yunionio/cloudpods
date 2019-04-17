@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -24,7 +25,7 @@ func init() {
 
 func (self *NetworkCreateTask) taskFailed(ctx context.Context, network *models.SNetwork, event string, err error) {
 	log.Errorf("network create task fail on %s: %s", event, err)
-	network.SetStatus(self.UserCred, models.NETWORK_STATUS_FAILED, err.Error())
+	network.SetStatus(self.UserCred, api.NETWORK_STATUS_FAILED, err.Error())
 	db.OpsLog.LogEvent(network, db.ACT_ALLOCATE_FAIL, err.Error(), self.UserCred)
 	self.SetStageFailed(ctx, err.Error())
 }
@@ -32,7 +33,7 @@ func (self *NetworkCreateTask) taskFailed(ctx context.Context, network *models.S
 func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	network := obj.(*models.SNetwork)
 
-	network.SetStatus(self.UserCred, models.NETWORK_STATUS_PENDING, "")
+	network.SetStatus(self.UserCred, api.NETWORK_STATUS_PENDING, "")
 
 	wire := network.GetWire()
 	if wire == nil {
@@ -59,7 +60,7 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	}
 	network.SetExternalId(self.UserCred, inet.GetGlobalId())
 
-	err = cloudprovider.WaitStatus(inet, models.NETWORK_STATUS_AVAILABLE, 10*time.Second, 300*time.Second)
+	err = cloudprovider.WaitStatus(inet, api.NETWORK_STATUS_AVAILABLE, 10*time.Second, 300*time.Second)
 	if err != nil {
 		self.taskFailed(ctx, network, "waitstatu", err)
 		return

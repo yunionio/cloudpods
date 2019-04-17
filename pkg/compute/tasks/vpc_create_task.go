@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -23,14 +24,14 @@ func init() {
 
 func (self *VpcCreateTask) TaskFailed(ctx context.Context, vpc *models.SVpc, err error) {
 	log.Errorf("vpc create task fail: %s", err)
-	vpc.SetStatus(self.UserCred, models.VPC_STATUS_FAILED, err.Error())
+	vpc.SetStatus(self.UserCred, api.VPC_STATUS_FAILED, err.Error())
 	db.OpsLog.LogEvent(vpc, db.ACT_ALLOCATE_FAIL, err.Error(), self.UserCred)
 	self.SetStageFailed(ctx, err.Error())
 }
 
 func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	vpc := obj.(*models.SVpc)
-	vpc.SetStatus(self.UserCred, models.VPC_STATUS_PENDING, "")
+	vpc.SetStatus(self.UserCred, api.VPC_STATUS_PENDING, "")
 
 	iregion, err := vpc.GetIRegion()
 	if err != nil {
@@ -44,7 +45,7 @@ func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	}
 	vpc.SetExternalId(self.UserCred, ivpc.GetGlobalId())
 
-	err = cloudprovider.WaitStatus(ivpc, models.VPC_STATUS_AVAILABLE, 10*time.Second, 300*time.Second)
+	err = cloudprovider.WaitStatus(ivpc, api.VPC_STATUS_AVAILABLE, 10*time.Second, 300*time.Second)
 	if err != nil {
 		self.TaskFailed(ctx, vpc, err)
 		return

@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -44,7 +45,7 @@ func (self *GuestAttachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 		self.OnTaskFail(ctx, guest, nil, err)
 		return
 	}
-	disk.SetStatus(self.UserCred, models.DISK_ATTACHING, "Disk attach")
+	disk.SetStatus(self.UserCred, api.DISK_ATTACHING, "Disk attach")
 	self.SetStage("on_sync_config_complete", nil)
 	guest.GetDriver().RequestAttachDisk(ctx, guest, self)
 }
@@ -61,7 +62,7 @@ func (self *GuestAttachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 		self.OnTaskFail(ctx, guest, nil, fmt.Errorf("Connot find disk %s", diskId))
 		return
 	}
-	disk.SetStatus(self.UserCred, models.DISK_READY, "")
+	disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	self.SetStageComplete(ctx, nil)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_ATTACH_DISK, nil, self.UserCred, true)
 }
@@ -76,16 +77,16 @@ func (self *GuestAttachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context,
 	}
 	disk := objDisk.(*models.SDisk)
 	db.OpsLog.LogEvent(disk, db.ACT_ATTACH, resion.String(), self.UserCred)
-	disk.SetStatus(self.UserCred, models.DISK_READY, "")
+	disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	guest.DetachDisk(ctx, disk, self.UserCred)
 	self.OnTaskFail(ctx, guest, disk, fmt.Errorf(resion.String()))
 }
 
 func (self *GuestAttachDiskTask) OnTaskFail(ctx context.Context, guest *models.SGuest, disk *models.SDisk, err error) {
 	if disk != nil {
-		disk.SetStatus(self.UserCred, models.DISK_READY, "")
+		disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	}
-	guest.SetStatus(self.UserCred, models.VM_ATTACH_DISK_FAILED, err.Error())
+	guest.SetStatus(self.UserCred, api.VM_ATTACH_DISK_FAILED, err.Error())
 	self.SetStageFailed(ctx, err.Error())
 	log.Errorf("Guest %s GuestAttachDiskTask failed %s", guest.Name, err.Error())
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_ATTACH_DISK, err.Error(), self.UserCred, false)

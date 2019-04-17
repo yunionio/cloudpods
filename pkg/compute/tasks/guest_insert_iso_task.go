@@ -5,6 +5,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -65,7 +66,7 @@ func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db
 	guest := obj.(*models.SGuest)
 	if guest.InsertIsoSucc(imageId, path, int(size), name) {
 		db.OpsLog.LogEvent(guest, db.ACT_ISO_ATTACH, guest.GetDetailsIso(self.UserCred), self.UserCred)
-		if guest.Status == models.VM_RUNNING {
+		if guest.Status == api.VM_RUNNING {
 			self.SetStage("OnConfigSyncComplete", nil)
 			guest.GetDriver().RequestGuestHotAddIso(ctx, guest, path, self)
 		} else {

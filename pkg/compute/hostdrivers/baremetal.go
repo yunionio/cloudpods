@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -21,7 +22,7 @@ func init() {
 }
 
 func (self *SBaremetalHostDriver) GetHostType() string {
-	return models.HOST_TYPE_BAREMETAL
+	return api.HOST_TYPE_BAREMETAL
 }
 
 func (self *SBaremetalHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {

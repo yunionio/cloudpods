@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -24,7 +25,7 @@ func init() {
 }
 
 func (self *SNfsStorageDriver) GetStorageType() string {
-	return models.STORAGE_NFS
+	return api.STORAGE_NFS
 }
 
 func (self *SNfsStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -53,7 +54,7 @@ func (self *SNfsStorageDriver) PostCreate(ctx context.Context, userCred mcclient
 	}
 	_, err := db.Update(storage, func() error {
 		storage.StoragecacheId = sc.Id
-		storage.Status = models.STORAGE_ONLINE
+		storage.Status = api.STORAGE_ONLINE
 		return nil
 	})
 	if err != nil {

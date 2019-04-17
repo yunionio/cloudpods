@@ -65,7 +65,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		input, err = host.SetGuestCreateNetworkAndDiskParams(ctx, self.UserCred, input)
 		if err != nil {
 			log.Errorf("host.SetGuestCreateNetworkAndDiskParams fail %s", err)
-			guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+			guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
 			return err
 		}
 		params := input.JSON(input)
@@ -74,7 +74,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 
 	input, err = self.GetCreateInput()
 	if err != nil {
-		guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+		guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
 		return err
 	}
 	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, input.Networks, &pendingUsage)
@@ -82,7 +82,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 
 	if err != nil {
 		log.Errorf("Network failed: %s", err)
-		guest.SetStatus(self.UserCred, models.VM_NETWORK_FAILED, err.Error())
+		guest.SetStatus(self.UserCred, api.VM_NETWORK_FAILED, err.Error())
 		return err
 	}
 
@@ -92,7 +92,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 
 	if err != nil {
 		log.Errorf("Disk create failed: %s", err)
-		guest.SetStatus(self.UserCred, models.VM_DISK_FAILED, err.Error())
+		guest.SetStatus(self.UserCred, api.VM_DISK_FAILED, err.Error())
 		return err
 	}
 
@@ -101,7 +101,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 
 	if err != nil {
 		log.Errorf("IsolatedDevices create failed: %s", err)
-		guest.SetStatus(self.UserCred, models.VM_DEVICE_FAILED, err.Error())
+		guest.SetStatus(self.UserCred, api.VM_DEVICE_FAILED, err.Error())
 		return err
 	}
 
@@ -111,7 +111,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		err := host.RebuildRecycledGuest(ctx, self.UserCred, guest)
 		if err != nil {
 			log.Errorf("start guest create task fail %s", err)
-			guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+			guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
 			return err
 		}
 
@@ -124,7 +124,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		err = guest.StartRebuildRootTask(ctx, self.UserCred, "", false, autoStart, passwd, resetPassword, true)
 		if err != nil {
 			log.Errorf("start guest create task fail %s", err)
-			guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+			guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
 			return err
 		}
 		return nil
@@ -133,7 +133,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	err = guest.StartGuestCreateTask(ctx, self.UserCred, input, nil, self.GetId())
 	if err != nil {
 		log.Errorf("start guest create task fail %s", err)
-		guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+		guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
 		return err
 	}
 	return nil
@@ -151,7 +151,7 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 	if err != nil {
 		db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, err.Error(), self.GetUserCred(), false)
-		notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_CREATE_FAILED, err.Error())
+		notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_CREATE_FAILED, err.Error())
 		self.SetStageFailed(ctx, err.Error())
 	}
 }

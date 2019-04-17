@@ -17,8 +17,9 @@ import (
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/regutils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -62,17 +63,17 @@ func (self *SVirtualMachine) GetStatus() string {
 	vm := object.NewVirtualMachine(self.manager.client.Client, self.getVirtualMachine().Self)
 	state, err := vm.PowerState(self.manager.context)
 	if err != nil {
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	}
 	switch state {
 	case types.VirtualMachinePowerStatePoweredOff:
-		return models.VM_READY
+		return api.VM_READY
 	case types.VirtualMachinePowerStatePoweredOn:
-		return models.VM_RUNNING
+		return api.VM_RUNNING
 	case types.VirtualMachinePowerStateSuspended:
-		return models.VM_SUSPEND
+		return api.VM_SUSPEND
 	default:
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	}
 }
 
@@ -288,7 +289,7 @@ func (self *SVirtualMachine) GetMachine() string {
 }
 
 func (self *SVirtualMachine) GetHypervisor() string {
-	return models.HYPERVISOR_ESXI
+	return api.HYPERVISOR_ESXI
 }
 
 func (self *SVirtualMachine) getVmObj() *object.VirtualMachine {
@@ -297,7 +298,7 @@ func (self *SVirtualMachine) getVmObj() *object.VirtualMachine {
 
 // ideopotent start
 func (self *SVirtualMachine) StartVM(ctx context.Context) error {
-	if self.GetStatus() == models.VM_RUNNING {
+	if self.GetStatus() == api.VM_RUNNING {
 		return nil
 	}
 	return self.startVM(ctx)
@@ -344,7 +345,7 @@ func makeNicStartConnected(nic *SVirtualNIC) *types.VirtualDeviceConfigSpec {
 }
 
 func (self *SVirtualMachine) StopVM(ctx context.Context, isForce bool) error {
-	if self.GetStatus() == models.VM_READY {
+	if self.GetStatus() == api.VM_READY {
 		return nil
 	}
 	if !isForce && self.isToolsOk() {
@@ -543,7 +544,7 @@ func (self *SVirtualMachine) SetSecurityGroups(secgroupIds []string) error {
 }
 
 func (self *SVirtualMachine) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SVirtualMachine) GetExpiredAt() time.Time {

@@ -6,8 +6,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SLocalStorage struct {
@@ -55,9 +55,9 @@ func (self *SLocalStorage) GetStorageType() string {
 
 func (self *SLocalStorage) GetMediumType() string {
 	if strings.HasSuffix(self.storageType, "_BASIC") {
-		return models.DISK_TYPE_ROTATE
+		return api.DISK_TYPE_ROTATE
 	}
-	return models.DISK_TYPE_SSD
+	return api.DISK_TYPE_SSD
 }
 
 func (self *SLocalStorage) GetCapacityMB() int {
@@ -74,7 +74,7 @@ func (self *SLocalStorage) GetManagerId() string {
 }
 
 func (self *SLocalStorage) GetStatus() string {
-	return models.STORAGE_ONLINE
+	return api.STORAGE_ONLINE
 }
 
 func (self *SLocalStorage) Refresh() error {

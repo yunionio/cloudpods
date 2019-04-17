@@ -28,11 +28,11 @@ func init() {
 }
 
 func (self *SQcloudGuestDriver) GetHypervisor() string {
-	return models.HYPERVISOR_QCLOUD
+	return api.HYPERVISOR_QCLOUD
 }
 
 func (self *SQcloudGuestDriver) GetDefaultSysDiskBackend() string {
-	return models.STORAGE_CLOUD_PREMIUM
+	return api.STORAGE_CLOUD_PREMIUM
 }
 
 func (self *SQcloudGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -41,11 +41,11 @@ func (self *SQcloudGuestDriver) GetMinimalSysDiskSizeGb() int {
 
 func (self *SQcloudGuestDriver) GetStorageTypes() []string {
 	return []string{
-		models.STORAGE_CLOUD_BASIC,
-		models.STORAGE_CLOUD_PREMIUM,
-		models.STORAGE_CLOUD_SSD,
-		models.STORAGE_LOCAL_BASIC,
-		models.STORAGE_LOCAL_SSD,
+		api.STORAGE_CLOUD_BASIC,
+		api.STORAGE_CLOUD_PREMIUM,
+		api.STORAGE_CLOUD_SSD,
+		api.STORAGE_LOCAL_BASIC,
+		api.STORAGE_LOCAL_SSD,
 	}
 }
 
@@ -67,34 +67,34 @@ func (self *SQcloudGuestDriver) ChooseHostStorage(host *models.SHost, backend st
 }
 
 func (self *SQcloudGuestDriver) GetDetachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SQcloudGuestDriver) GetAttachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SQcloudGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SQcloudGuestDriver) GetChangeConfigStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SQcloudGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SQcloudGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
 	//https://cloud.tencent.com/document/product/362/5747
-	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY, models.VM_RUNNING}) {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if disk.DiskType == models.DISK_TYPE_SYS {
+	if disk.DiskType == api.DISK_TYPE_SYS {
 		return fmt.Errorf("Cannot resize system disk")
 	}
-	if utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_LOCAL_BASIC, models.STORAGE_LOCAL_SSD}) {
+	if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
 	return nil
@@ -115,11 +115,11 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 
 	sysDisk := input.Disks[0]
 	switch sysDisk.Backend {
-	case models.STORAGE_CLOUD_BASIC, models.STORAGE_CLOUD_SSD:
+	case api.STORAGE_CLOUD_BASIC, api.STORAGE_CLOUD_SSD:
 		if sysDisk.SizeMb > 500*1024 {
 			return nil, fmt.Errorf("The %s system disk size must be less than 500GB", sysDisk.Backend)
 		}
-	case models.STORAGE_CLOUD_PREMIUM:
+	case api.STORAGE_CLOUD_PREMIUM:
 		if sysDisk.SizeMb > 1024*1024 {
 			return nil, fmt.Errorf("The %s system disk size must be less than 1024GB", sysDisk.Backend)
 		}
@@ -128,15 +128,15 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 	for i := 1; i < len(input.Disks); i++ {
 		disk := input.Disks[i]
 		switch disk.Backend {
-		case models.STORAGE_CLOUD_BASIC:
+		case api.STORAGE_CLOUD_BASIC:
 			if disk.SizeMb < 10*1024 || disk.SizeMb > 16000*1024 {
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 10GB ~ 16000GB", disk.Backend)
 			}
-		case models.STORAGE_CLOUD_PREMIUM:
+		case api.STORAGE_CLOUD_PREMIUM:
 			if disk.SizeMb < 50*1024 || disk.SizeMb > 16000*1024 {
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 50GB ~ 16000GB", disk.Backend)
 			}
-		case models.STORAGE_CLOUD_SSD:
+		case api.STORAGE_CLOUD_SSD:
 			if disk.SizeMb < 100*1024 || disk.SizeMb > 16000*1024 {
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 100GB ~ 16000GB", disk.Backend)
 			}
@@ -146,11 +146,11 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 }
 
 func (self *SQcloudGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return models.VM_RUNNING
+	return api.VM_RUNNING
 }
 
 func (self *SQcloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return models.VM_RUNNING
+	return api.VM_RUNNING
 }
 
 func (self *SQcloudGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {

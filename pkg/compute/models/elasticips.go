@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -19,30 +20,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-)
-
-const (
-	EIP_MODE_INSTANCE_PUBLICIP = "public_ip"
-	EIP_MODE_STANDALONE_EIP    = "elastic_ip"
-
-	EIP_ASSOCIATE_TYPE_SERVER = "server"
-
-	EIP_STATUS_READY           = "ready"
-	EIP_STATUS_UNKNOWN         = "unknown"
-	EIP_STATUS_ALLOCATE        = "allocate"
-	EIP_STATUS_ALLOCATE_FAIL   = "allocate_fail"
-	EIP_STATUS_DEALLOCATE      = "deallocate"
-	EIP_STATUS_DEALLOCATE_FAIL = "deallocate_fail"
-	EIP_STATUS_ASSOCIATE       = "associate"
-	EIP_STATUS_ASSOCIATE_FAIL  = "associate_fail"
-	EIP_STATUS_DISSOCIATE      = "dissociate"
-	EIP_STATUS_DISSOCIATE_FAIL = "dissociate_fail"
-
-	EIP_STATUS_CHANGE_BANDWIDTH = "change_bandwidth"
-
-	EIP_CHARGE_TYPE_BY_TRAFFIC   = "traffic"
-	EIP_CHARGE_TYPE_BY_BANDWIDTH = "bandwidth"
-	EIP_CHARGE_TYPE_DEFAULT      = EIP_CHARGE_TYPE_BY_TRAFFIC
 )
 
 type SElasticipManager struct {
@@ -147,7 +124,7 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 	if query.Contains("usable") {
 		usable := jsonutils.QueryBoolean(query, "usable", false)
 		if usable {
-			q = q.Equals("status", EIP_STATUS_READY)
+			q = q.Equals("status", api.EIP_STATUS_READY)
 			q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("associate_id")), sqlchemy.IsEmpty(q.Field("associate_id"))))
 		}
 	}
@@ -277,7 +254,7 @@ func (self *SElasticip) syncRemoveCloudEip(ctx context.Context, userCred mcclien
 
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil {
-		return self.SetStatus(userCred, EIP_STATUS_UNKNOWN, "sync to delete")
+		return self.SetStatus(userCred, api.EIP_STATUS_UNKNOWN, "sync to delete")
 	} else {
 		return self.RealDelete(ctx, userCred)
 	}
@@ -439,7 +416,7 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 		db.OpsLog.LogEvent(self, db.ACT_EIP_DETACH, vm.GetShortDesc(ctx), userCred)
 		db.OpsLog.LogEvent(vm, db.ACT_EIP_DETACH, self.GetShortDesc(ctx), userCred)
 	}
-	if self.Mode == EIP_MODE_INSTANCE_PUBLICIP {
+	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		self.Delete(ctx, userCred)
 	}
 	return nil
@@ -513,10 +490,10 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 
 	chargeType := jsonutils.GetAnyString(data, []string{"charge_type"})
 	if len(chargeType) == 0 {
-		chargeType = EIP_CHARGE_TYPE_DEFAULT
+		chargeType = api.EIP_CHARGE_TYPE_DEFAULT
 	}
 
-	if !utils.IsInStringArray(chargeType, []string{EIP_CHARGE_TYPE_BY_BANDWIDTH, EIP_CHARGE_TYPE_BY_TRAFFIC}) {
+	if !utils.IsInStringArray(chargeType, []string{api.EIP_CHARGE_TYPE_BY_BANDWIDTH, api.EIP_CHARGE_TYPE_BY_TRAFFIC}) {
 		return nil, httperrors.NewInputParameterError("charge type %s not supported", chargeType)
 	}
 
@@ -549,7 +526,7 @@ func (self *SElasticip) startEipAllocateTask(ctx context.Context, userCred mccli
 		log.Errorf("newtask EipAllocateTask fail %s", err)
 		return err
 	}
-	self.SetStatus(userCred, EIP_STATUS_ALLOCATE, "start allocate")
+	self.SetStatus(userCred, api.EIP_STATUS_ALLOCATE, "start allocate")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -580,7 +557,7 @@ func (self *SElasticip) StartEipDeallocateTask(ctx context.Context, userCred mcc
 		log.Errorf("newTask EipDeallocateTask fail %s", err)
 		return err
 	}
-	self.SetStatus(userCred, EIP_STATUS_DEALLOCATE, "start to delete")
+	self.SetStatus(userCred, api.EIP_STATUS_DEALLOCATE, "start to delete")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -594,11 +571,11 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewConflictError("eip has been associated with instance")
 	}
 
-	if self.Status != EIP_STATUS_READY {
+	if self.Status != api.EIP_STATUS_READY {
 		return nil, httperrors.NewInvalidStatusError("eip cannot associate in status %s", self.Status)
 	}
 
-	if self.Mode == EIP_MODE_INSTANCE_PUBLICIP {
+	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot be associated")
 	}
 
@@ -608,10 +585,10 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 	}
 	instanceType := jsonutils.GetAnyString(data, []string{"instance_type"})
 	if len(instanceType) == 0 {
-		instanceType = EIP_ASSOCIATE_TYPE_SERVER
+		instanceType = api.EIP_ASSOCIATE_TYPE_SERVER
 	}
 
-	if instanceType != EIP_ASSOCIATE_TYPE_SERVER {
+	if instanceType != api.EIP_ASSOCIATE_TYPE_SERVER {
 		return nil, httperrors.NewInputParameterError("Unsupported %s", instanceType)
 	}
 
@@ -638,7 +615,7 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewInvalidStatusError("instance is already associated with eip")
 	}
 
-	if ok, _ := utils.InStringArray(server.Status, []string{VM_READY, VM_RUNNING}); !ok {
+	if ok, _ := utils.InStringArray(server.Status, []string{api.VM_READY, api.VM_RUNNING}); !ok {
 		return nil, httperrors.NewInvalidStatusError("cannot associate server in status %s", server.Status)
 	}
 
@@ -673,7 +650,7 @@ func (self *SElasticip) StartEipAssociateInstanceTask(ctx context.Context, userC
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(server.ExternalId), "instance_external_id")
 	params.Add(jsonutils.NewString(server.Id), "instance_id")
-	params.Add(jsonutils.NewString(EIP_ASSOCIATE_TYPE_SERVER), "instance_type")
+	params.Add(jsonutils.NewString(api.EIP_ASSOCIATE_TYPE_SERVER), "instance_type")
 
 	return self.StartEipAssociateTask(ctx, userCred, params, parentTaskId)
 }
@@ -684,7 +661,7 @@ func (self *SElasticip) StartEipAssociateTask(ctx context.Context, userCred mccl
 		log.Errorf("create EipAssociateTask task fail %s", err)
 		return err
 	}
-	self.SetStatus(userCred, EIP_STATUS_ASSOCIATE, "start to associate")
+	self.SetStatus(userCred, api.EIP_STATUS_ASSOCIATE, "start to associate")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -703,11 +680,11 @@ func (self *SElasticip) PerformDissociate(ctx context.Context, userCred mcclient
 		return nil, self.Dissociate(ctx, userCred)
 	}
 
-	if self.Status != EIP_STATUS_READY {
+	if self.Status != api.EIP_STATUS_READY {
 		return nil, httperrors.NewInvalidStatusError("eip cannot dissociate in status %s", self.Status)
 	}
 
-	if self.Mode == EIP_MODE_INSTANCE_PUBLICIP {
+	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		return nil, httperrors.NewUnsupportOperationError("fixed public eip cannot be dissociated")
 	}
 
@@ -727,7 +704,7 @@ func (self *SElasticip) StartEipDissociateTask(ctx context.Context, userCred mcc
 		log.Errorf("create EipDissociateTask fail %s", err)
 		return nil
 	}
-	self.SetStatus(userCred, EIP_STATUS_DISSOCIATE, "start to dissociate")
+	self.SetStatus(userCred, api.EIP_STATUS_DISSOCIATE, "start to dissociate")
 	task.ScheduleRun(nil)
 	return nil
 }
@@ -763,7 +740,7 @@ func (self *SElasticip) PerformSync(ctx context.Context, userCred mcclient.Token
 		return nil, httperrors.NewInvalidStatusError("eip cannot syncstatus in status %s", self.Status)
 	}*/
 
-	if self.Mode == EIP_MODE_INSTANCE_PUBLICIP {
+	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		return nil, httperrors.NewUnsupportOperationError("fixed eip cannot sync status")
 	}
 
@@ -811,13 +788,13 @@ func (manager *SElasticipManager) AllocateEipAndAssociateVM(ctx context.Context,
 	region := host.GetRegion()
 
 	if len(chargeType) == 0 {
-		chargeType = EIP_CHARGE_TYPE_BY_TRAFFIC
+		chargeType = api.EIP_CHARGE_TYPE_BY_TRAFFIC
 	}
 
 	eip := SElasticip{}
 	eip.SetModelManager(manager)
 
-	eip.Mode = EIP_MODE_STANDALONE_EIP
+	eip.Mode = api.EIP_MODE_STANDALONE_EIP
 	// do not implicitly auto dellocate EIP, should be set by user explicitly
 	// eip.AutoDellocate = tristate.True
 	eip.Bandwidth = bw
@@ -836,9 +813,9 @@ func (manager *SElasticipManager) AllocateEipAndAssociateVM(ctx context.Context,
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(vm.ExternalId), "instance_external_id")
 	params.Add(jsonutils.NewString(vm.Id), "instance_id")
-	params.Add(jsonutils.NewString(EIP_ASSOCIATE_TYPE_SERVER), "instance_type")
+	params.Add(jsonutils.NewString(api.EIP_ASSOCIATE_TYPE_SERVER), "instance_type")
 
-	vm.SetStatus(userCred, VM_ASSOCIATE_EIP, "allocate and associate EIP")
+	vm.SetStatus(userCred, api.VM_ASSOCIATE_EIP, "allocate and associate EIP")
 
 	return eip.startEipAllocateTask(ctx, userCred, params, eipPendingUsage)
 }
@@ -848,7 +825,7 @@ func (self *SElasticip) AllowPerformChangeBandwidth(ctx context.Context, userCre
 }
 
 func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if self.Status != EIP_STATUS_READY {
+	if self.Status != api.EIP_STATUS_READY {
 		return nil, httperrors.NewInvalidStatusError("cannot change bandwidth in status %s", self.Status)
 	}
 
@@ -875,7 +852,7 @@ func (self *SElasticip) PerformChangeBandwidth(ctx context.Context, userCred mcc
 
 func (self *SElasticip) StartEipChangeBandwidthTask(ctx context.Context, userCred mcclient.TokenCredential, bandwidth int64) error {
 
-	self.SetStatus(userCred, EIP_STATUS_CHANGE_BANDWIDTH, "change bandwidth")
+	self.SetStatus(userCred, api.EIP_STATUS_CHANGE_BANDWIDTH, "change bandwidth")
 
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewInt(bandwidth), "bandwidth")
@@ -898,7 +875,7 @@ func (self *SElasticip) DoChangeBandwidth(userCred mcclient.TokenCredential, ban
 		return nil
 	})
 
-	self.SetStatus(userCred, EIP_STATUS_READY, "finish change bandwidth")
+	self.SetStatus(userCred, api.EIP_STATUS_READY, "finish change bandwidth")
 
 	if err != nil {
 		log.Errorf("DoChangeBandwidth update fail %s", err)
@@ -971,11 +948,11 @@ func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObj db.IStanda
 
 func (manager *SElasticipManager) TotalCount(projectId string, rangeObj db.IStandaloneModel, providers []string) EipUsage {
 	usage := EipUsage{}
-	q1 := manager.Query().Equals("mode", EIP_MODE_INSTANCE_PUBLICIP)
+	q1 := manager.Query().Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP)
 	q1 = manager.usageQ(q1, rangeObj, providers)
-	q2 := manager.Query().Equals("mode", EIP_MODE_STANDALONE_EIP)
+	q2 := manager.Query().Equals("mode", api.EIP_MODE_STANDALONE_EIP)
 	q2 = manager.usageQ(q2, rangeObj, providers)
-	q3 := manager.Query().Equals("mode", EIP_MODE_STANDALONE_EIP).IsNotEmpty("associate_id")
+	q3 := manager.Query().Equals("mode", api.EIP_MODE_STANDALONE_EIP).IsNotEmpty("associate_id")
 	q3 = manager.usageQ(q3, rangeObj, providers)
 	if len(projectId) > 0 {
 		q1 = q1.Equals("tenant_id", projectId)
@@ -1008,7 +985,7 @@ func (self *SElasticip) PerformPurge(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SElasticip) DoPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	if self.Mode == EIP_MODE_INSTANCE_PUBLICIP {
+	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		self.SVirtualResourceBase.DoPendingDelete(ctx, userCred)
 		return
 	}

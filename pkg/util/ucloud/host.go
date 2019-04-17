@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SHost struct {
@@ -27,7 +28,7 @@ func (self *SHost) GetGlobalId() string {
 }
 
 func (self *SHost) GetStatus() string {
-	return models.HOST_STATUS_RUNNING
+	return api.HOST_STATUS_RUNNING
 }
 
 func (self *SHost) Refresh() error {
@@ -84,7 +85,7 @@ func (self *SHost) GetEnabled() bool {
 }
 
 func (self *SHost) GetHostStatus() string {
-	return models.HOST_ONLINE
+	return api.HOST_ONLINE
 }
 
 func (self *SHost) GetAccessIp() string {
@@ -130,11 +131,11 @@ func (self *SHost) GetStorageSizeMB() int {
 }
 
 func (self *SHost) GetStorageType() string {
-	return models.DISK_TYPE_HYBRID
+	return api.DISK_TYPE_HYBRID
 }
 
 func (self *SHost) GetHostType() string {
-	return models.HOST_TYPE_UCLOUD
+	return api.HOST_TYPE_UCLOUD
 }
 
 func (self *SHost) GetIsMaintenance() bool {

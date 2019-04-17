@@ -8,8 +8,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type TInternetChargeType string
@@ -88,13 +88,13 @@ func (self *SEipAddress) GetGlobalId() string {
 func (self *SEipAddress) GetStatus() string {
 	switch self.Status {
 	case EIP_STATUS_AVAILABLE, EIP_STATUS_INUSE:
-		return models.EIP_STATUS_READY
+		return api.EIP_STATUS_READY
 	case EIP_STATUS_ASSOCIATING:
-		return models.EIP_STATUS_ASSOCIATE
+		return api.EIP_STATUS_ASSOCIATE
 	case EIP_STATUS_UNASSOCIATING:
-		return models.EIP_STATUS_DISSOCIATE
+		return api.EIP_STATUS_DISSOCIATE
 	default:
-		return models.EIP_STATUS_UNKNOWN
+		return api.EIP_STATUS_UNKNOWN
 	}
 }
 
@@ -128,9 +128,9 @@ func (self *SEipAddress) GetIpAddr() string {
 
 func (self *SEipAddress) GetMode() string {
 	if self.InstanceId == self.AllocationId {
-		return models.EIP_MODE_INSTANCE_PUBLICIP
+		return api.EIP_MODE_INSTANCE_PUBLICIP
 	} else {
-		return models.EIP_MODE_STANDALONE_EIP
+		return api.EIP_MODE_STANDALONE_EIP
 	}
 }
 
@@ -171,11 +171,11 @@ func (self *SEipAddress) GetBandwidth() int {
 func (self *SEipAddress) GetInternetChargeType() string {
 	switch self.InternetChargeType {
 	case InternetChargeByTraffic:
-		return models.EIP_CHARGE_TYPE_BY_TRAFFIC
+		return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 	case InternetChargeByBandwidth:
-		return models.EIP_CHARGE_TYPE_BY_BANDWIDTH
+		return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
 	default:
-		return models.EIP_CHARGE_TYPE_BY_TRAFFIC
+		return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 	}
 }
 
@@ -184,7 +184,7 @@ func (self *SEipAddress) Associate(instanceId string) error {
 	if err != nil {
 		return err
 	}
-	err = cloudprovider.WaitStatus(self, models.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
+	err = cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
 	return err
 }
 
@@ -193,7 +193,7 @@ func (self *SEipAddress) Dissociate() error {
 	if err != nil {
 		return err
 	}
-	err = cloudprovider.WaitStatus(self, models.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
+	err = cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
 	return err
 }
 
@@ -271,9 +271,9 @@ func (region *SRegion) AllocateEIP(bwMbps int, chargeType TInternetChargeType) (
 func (region *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
 	var ctype TInternetChargeType
 	switch chargeType {
-	case models.EIP_CHARGE_TYPE_BY_TRAFFIC:
+	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
 		ctype = InternetChargeByTraffic
-	case models.EIP_CHARGE_TYPE_BY_BANDWIDTH:
+	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
 		ctype = InternetChargeByBandwidth
 	}
 	eip, err := region.AllocateEIP(bwMbps, ctype)

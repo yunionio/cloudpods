@@ -6,6 +6,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -41,8 +42,8 @@ func (self *StorageCacheImageTask) OnRelinquishLeastUsedCachedImageComplete(ctx 
 	storageCache := obj.(*models.SStoragecache)
 
 	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, storageCache.Id, imageId, "")
-	if scimg.Status != models.CACHED_IMAGE_STATUS_READY {
-		scimg.SetStatus(self.UserCred, models.CACHED_IMAGE_STATUS_CACHING, "storage_cache_image_task")
+	if scimg.Status != api.CACHED_IMAGE_STATUS_READY {
+		scimg.SetStatus(self.UserCred, api.CACHED_IMAGE_STATUS_CACHING, "storage_cache_image_task")
 	}
 
 	db.OpsLog.LogEvent(storageCache, db.ACT_CACHING_IMAGE, imageId, self.UserCred)
@@ -73,7 +74,7 @@ func (self *StorageCacheImageTask) OnImageCacheCompleteFailed(ctx context.Contex
 }
 
 func (self *StorageCacheImageTask) OnCacheFailed(ctx context.Context, cache *models.SStoragecache, imageId string, scimg *models.SStoragecachedimage, err error, extImgId string) {
-	scimg.SetStatus(self.UserCred, models.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
+	scimg.SetStatus(self.UserCred, api.CACHED_IMAGE_STATUS_CACHE_FAILED, err.Error())
 	if len(extImgId) > 0 && scimg.ExternalId != extImgId {
 		scimg.SetExternalId(extImgId)
 	}
@@ -89,7 +90,7 @@ func (self *StorageCacheImageTask) OnCacheSucc(ctx context.Context, cache *model
 	scimg := models.StoragecachedimageManager.Register(ctx, self.UserCred, cache.Id, imageId, "")
 	extImgId, _ := data.GetString("image_id")
 
-	scimg.SetStatus(self.UserCred, models.CACHED_IMAGE_STATUS_READY, "cached")
+	scimg.SetStatus(self.UserCred, api.CACHED_IMAGE_STATUS_READY, "cached")
 	if len(extImgId) > 0 && scimg.ExternalId != extImgId {
 		scimg.SetExternalId(extImgId)
 	}

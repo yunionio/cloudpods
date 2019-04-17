@@ -7,6 +7,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -26,7 +27,7 @@ func (self *DiskResizeTask) SetDiskReady(ctx context.Context, disk *models.SDisk
 	// 此函数主要避免虚机更改配置时，虚机可能出现中间状态
 	if self.HasParentTask() {
 		// 若是子任务，磁盘关联的虚拟机状态由父任务恢复，仅恢复磁盘自身状态即可
-		disk.SetStatus(userCred, models.DISK_READY, reason)
+		disk.SetStatus(userCred, api.DISK_READY, reason)
 	} else {
 		// 若不是子任务，由于扩容时设置了关联的虚机状态，虚机的状态也由自己恢复
 		disk.SetDiskReady(ctx, userCred, reason)
@@ -50,7 +51,7 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	}
 
 	reason := "Cannot find host for disk"
-	if host == nil || host.HostStatus != models.HOST_ONLINE {
+	if host == nil || host.HostStatus != api.HOST_ONLINE {
 		self.SetDiskReady(ctx, disk, self.GetUserCred(), reason)
 		self.SetStageFailed(ctx, reason)
 		db.OpsLog.LogEvent(disk, db.ACT_RESIZE_FAIL, reason, self.GetUserCred())
@@ -58,9 +59,9 @@ func (self *DiskResizeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		return
 	}
 
-	disk.SetStatus(self.GetUserCred(), models.DISK_START_RESIZE, "")
+	disk.SetStatus(self.GetUserCred(), api.DISK_START_RESIZE, "")
 	if masterGuest != nil {
-		masterGuest.SetStatus(self.GetUserCred(), models.VM_RESIZE_DISK, "")
+		masterGuest.SetStatus(self.GetUserCred(), api.VM_RESIZE_DISK, "")
 	}
 	self.StartResizeDisk(ctx, host, storage, disk, masterGuest)
 }
@@ -78,7 +79,7 @@ func (self *DiskResizeTask) StartResizeDisk(ctx context.Context, host *models.SH
 }
 
 func (self *DiskResizeTask) OnStartResizeDiskSucc(ctx context.Context, disk *models.SDisk) {
-	disk.SetStatus(self.GetUserCred(), models.DISK_RESIZING, "")
+	disk.SetStatus(self.GetUserCred(), api.DISK_RESIZING, "")
 }
 
 func (self *DiskResizeTask) OnStartResizeDiskFailed(ctx context.Context, disk *models.SDisk, reason error) {
@@ -103,7 +104,7 @@ func (self *DiskResizeTask) OnDiskResizeComplete(ctx context.Context, disk *mode
 	}
 	oldStatus := disk.Status
 	_, err = db.Update(disk, func() error {
-		disk.Status = models.DISK_READY
+		disk.Status = api.DISK_READY
 		disk.DiskSize = int(sizeMb)
 		return nil
 	})
@@ -152,7 +153,7 @@ func (self *DiskResizeTask) OnDiskResizeCompleteFailed(ctx context.Context, disk
 	guestId, _ := self.Params.GetString("guest_id")
 	if len(guestId) > 0 {
 		masterGuest := models.GuestManager.FetchGuestById(guestId)
-		masterGuest.SetStatus(self.UserCred, models.VM_RESIZE_DISK_FAILED, data.String())
+		masterGuest.SetStatus(self.UserCred, api.VM_RESIZE_DISK_FAILED, data.String())
 	}
 	self.SetStageFailed(ctx, data.String())
 }

@@ -3,17 +3,17 @@ package aliyun
 import (
 	"time"
 
-	"yunion.io/x/onecloud/pkg/compute/models"
+	api "yunion.io/x/onecloud/pkg/apis/billing"
 )
 
 func convertChargeType(ct TChargeType) string {
 	switch ct {
 	case PrePaidInstanceChargeType:
-		return models.BILLING_TYPE_PREPAID
+		return api.BILLING_TYPE_PREPAID
 	case PostPaidInstanceChargeType:
-		return models.BILLING_TYPE_POSTPAID
+		return api.BILLING_TYPE_POSTPAID
 	default:
-		return models.BILLING_TYPE_PREPAID
+		return api.BILLING_TYPE_PREPAID
 	}
 }
 

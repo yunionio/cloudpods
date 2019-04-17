@@ -43,11 +43,11 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 	var err error
 
 	if input.Baremetal {
-		hypervisor = HYPERVISOR_BAREMETAL
+		hypervisor = api.HYPERVISOR_BAREMETAL
 	}
 
 	// base validate_create_data
-	if (input.PreferHost != "") && hypervisor != HYPERVISOR_CONTAINER {
+	if (input.PreferHost != "") && hypervisor != api.HYPERVISOR_CONTAINER {
 
 		if !userCred.IsAdminAllow(consts.GetServiceType(), GuestManager.KeywordPlural(), policy.PolicyActionPerform, "assign-host") {
 			return nil, httperrors.NewNotSufficientPrivilegeError("Only system admin can specify preferred host")
@@ -66,16 +66,16 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			return nil, httperrors.NewInvalidStatusError("Baremetal %s not enabled", bmName)
 		}
 
-		if len(hypervisor) > 0 && hypervisor != HOSTTYPE_HYPERVISOR[baremetal.HostType] {
+		if len(hypervisor) > 0 && hypervisor != api.HOSTTYPE_HYPERVISOR[baremetal.HostType] {
 			return nil, httperrors.NewInputParameterError("cannot run hypervisor %s on specified host with type %s", hypervisor, baremetal.HostType)
 		}
 
 		if len(hypervisor) == 0 {
-			hypervisor = HOSTTYPE_HYPERVISOR[baremetal.HostType]
+			hypervisor = api.HOSTTYPE_HYPERVISOR[baremetal.HostType]
 		}
 
 		if len(hypervisor) == 0 {
-			hypervisor = HYPERVISOR_DEFAULT
+			hypervisor = api.HYPERVISOR_DEFAULT
 		}
 
 		_, err = GetDriver(hypervisor).ValidateCreateDataOnHost(ctx, userCred, bmName, baremetal, input)
@@ -158,10 +158,10 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 
 	// default hypervisor
 	if len(hypervisor) == 0 {
-		hypervisor = HYPERVISOR_KVM
+		hypervisor = api.HYPERVISOR_KVM
 	}
 
-	if !utils.IsInStringArray(hypervisor, HYPERVISORS) {
+	if !utils.IsInStringArray(hypervisor, api.HYPERVISORS) {
 		return nil, httperrors.NewInputParameterError("Hypervisor %s not supported", hypervisor)
 	}
 

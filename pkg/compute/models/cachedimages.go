@@ -23,11 +23,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
-const (
-	CACHED_IMAGE_REFRESH_SECONDS                  = 900   // 15 minutes
-	CACHED_IMAGE_REFERENCE_SESSION_EXPIRE_SECONDS = 86400 // 1 day
-)
-
 type SCachedimageManager struct {
 	db.SStandaloneResourceBaseManager
 }
@@ -91,7 +86,7 @@ func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context) error {
 }
 
 func (self *SCachedimage) isReferenceSessionExpire() bool {
-	if !self.LastRef.IsZero() && time.Now().Sub(self.LastRef) < CACHED_IMAGE_REFERENCE_SESSION_EXPIRE_SECONDS*time.Second {
+	if !self.LastRef.IsZero() && time.Now().Sub(self.LastRef) < api.CACHED_IMAGE_REFERENCE_SESSION_EXPIRE_SECONDS*time.Second {
 		return false
 	} else {
 		return true
@@ -102,7 +97,7 @@ func (self *SCachedimage) isRefreshSessionExpire() bool {
 	if len(self.ExternalId) > 0 { // external image info never expires
 		return false
 	}
-	if !self.LastRef.IsZero() && time.Now().Sub(self.LastRef) < CACHED_IMAGE_REFRESH_SECONDS*time.Second {
+	if !self.LastRef.IsZero() && time.Now().Sub(self.LastRef) < api.CACHED_IMAGE_REFRESH_SECONDS*time.Second {
 		return false
 	} else {
 		return true
@@ -341,13 +336,13 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 		Join(hostStorage, sqlchemy.Equals(hostStorage.Field("storage_id"), storage.Field("id"))).
 		Join(host, sqlchemy.Equals(hostStorage.Field("host_id"), host.Field("id"))).
 		Filter(sqlchemy.Equals(storageCachedImage.Field("cachedimage_id"), self.Id)).
-		Filter(sqlchemy.Equals(storageCachedImage.Field("status"), CACHED_IMAGE_STATUS_READY)).
-		Filter(sqlchemy.Equals(host.Field("status"), HOST_STATUS_RUNNING)).
+		Filter(sqlchemy.Equals(storageCachedImage.Field("status"), api.CACHED_IMAGE_STATUS_READY)).
+		Filter(sqlchemy.Equals(host.Field("status"), api.HOST_STATUS_RUNNING)).
 		Filter(sqlchemy.IsTrue(host.Field("enabled"))).
-		Filter(sqlchemy.Equals(host.Field("host_status"), HOST_ONLINE)).
+		Filter(sqlchemy.Equals(host.Field("host_status"), api.HOST_ONLINE)).
 		Filter(sqlchemy.IsTrue(storage.Field("enabled"))).
-		Filter(sqlchemy.In(storage.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE})).
-		Filter(sqlchemy.Equals(storage.Field("storage_type"), STORAGE_LOCAL))
+		Filter(sqlchemy.In(storage.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE})).
+		Filter(sqlchemy.Equals(storage.Field("storage_type"), api.STORAGE_LOCAL))
 
 	if len(excludes) > 0 {
 		q = q.Filter(sqlchemy.NotIn(host.Field("id"), excludes))

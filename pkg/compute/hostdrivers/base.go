@@ -79,7 +79,7 @@ func (self *SBaseHostDriver) FinishUnconvert(ctx context.Context, userCred mccli
 	if bss != nil {
 		bs := bss.GetStorage()
 		if bs != nil {
-			bs.SetStatus(userCred, models.STORAGE_ONLINE, "")
+			bs.SetStatus(userCred, api.STORAGE_ONLINE, "")
 		} else {
 			log.Errorf("ERROR: baremetal storage is None???")
 		}
@@ -97,8 +97,8 @@ func (self *SBaseHostDriver) FinishUnconvert(ctx context.Context, userCred mccli
 	db.Update(host, func() error {
 		host.AccessIp = adminNic.IpAddr
 		host.Enabled = true
-		host.HostType = models.HOST_TYPE_BAREMETAL
-		host.HostStatus = models.HOST_OFFLINE
+		host.HostType = api.HOST_TYPE_BAREMETAL
+		host.HostStatus = api.HOST_OFFLINE
 		host.ManagerUri = ""
 		host.Version = ""
 		host.MemReserved = 0
@@ -129,13 +129,13 @@ func (self *SBaseHostDriver) FinishConvert(userCred mcclient.TokenCredential, ho
 		})
 	}
 	bs := host.GetBaremetalstorage().GetStorage()
-	bs.SetStatus(userCred, models.STORAGE_OFFLINE, "")
+	bs.SetStatus(userCred, api.STORAGE_OFFLINE, "")
 	db.Update(host, func() error {
 		host.CpuReserved = 0
 		host.MemReserved = 0
 		host.AccessIp = guest.GetRealIPs()[0]
 		host.Enabled = false
-		host.HostStatus = models.HOST_OFFLINE
+		host.HostStatus = api.HOST_OFFLINE
 		host.HostType = hostType
 		host.IsBaremetal = true
 		return nil

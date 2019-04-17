@@ -13,6 +13,7 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -20,19 +21,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-)
-
-const (
-	// create by
-	MANUAL = "manual"
-	AUTO   = "auto"
-
-	SNAPSHOT_CREATING    = "creating"
-	SNAPSHOT_ROLLBACKING = "rollbacking"
-	SNAPSHOT_FAILED      = "create_failed"
-	SNAPSHOT_READY       = "ready"
-	SNAPSHOT_DELETING    = "deleting"
-	SNAPSHOT_UNKNOWN     = "unknown"
 )
 
 type SSnapshotManager struct {
@@ -84,7 +72,7 @@ func ValidateSnapshotName(hypervisor, name, owner string) error {
 	if len(name) < 2 || len(name) > 128 {
 		return fmt.Errorf("Snapshot name length must within 2~128")
 	}
-	if hypervisor == HYPERVISOR_ALIYUN {
+	if hypervisor == api.HYPERVISOR_ALIYUN {
 		if strings.HasPrefix(name, "auto") || strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "https://") {
 			return fmt.Errorf("Snapshot name can't start with auto, http:// or https://")
 		}
@@ -117,7 +105,7 @@ func (manager *SSnapshotManager) ListItemFilter(ctx context.Context, q *sqlchemy
 
 	if jsonutils.QueryBoolean(query, "local", false) {
 		storages := StorageManager.Query().SubQuery()
-		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.Equals(storages.Field("storage_type"), STORAGE_LOCAL))
+		sq := storages.Query(storages.Field("id")).Filter(sqlchemy.Equals(storages.Field("storage_type"), api.STORAGE_LOCAL))
 		q = q.Filter(sqlchemy.In(q.Field("storage_id"), sq))
 	}
 
@@ -327,7 +315,7 @@ func (self *SSnapshotManager) GetDiskFirstSnapshot(diskId string) *SSnapshot {
 	dest := &SSnapshot{}
 	q := self.Query().SubQuery()
 	err := q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
-		sqlchemy.In(q.Field("status"), []string{SNAPSHOT_READY, SNAPSHOT_DELETING}),
+		sqlchemy.In(q.Field("status"), []string{api.SNAPSHOT_READY, api.SNAPSHOT_DELETING}),
 		sqlchemy.Equals(q.Field("out_of_chain"), false))).Asc("created_at").First(dest)
 	if err != nil {
 		log.Errorf("Get Disk First snapshot error: %s", err.Error())
@@ -364,7 +352,7 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mccli
 	snapshot.ManagerId = storage.ManagerId
 	snapshot.CloudregionId = storage.getZone().GetRegion().GetId()
 	snapshot.Name = name
-	snapshot.Status = SNAPSHOT_CREATING
+	snapshot.Status = api.SNAPSHOT_CREATING
 	err = SnapshotManager.TableSpec().Insert(snapshot)
 	if err != nil {
 		return nil, err
@@ -397,11 +385,11 @@ func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context) error {
 }
 
 func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if self.Status == SNAPSHOT_DELETING {
+	if self.Status == api.SNAPSHOT_DELETING {
 		return fmt.Errorf("Cannot delete snapshot in status %s", self.Status)
 	}
 	if len(self.ExternalId) == 0 {
-		if self.CreatedBy == MANUAL {
+		if self.CreatedBy == api.SNAPSHOT_MANUAL {
 			if !self.FakeDeleted {
 				return self.FakeDelete()
 			}
@@ -443,7 +431,7 @@ func (self *SSnapshotManager) GetConvertSnapshot(deleteSnapshot *SSnapshot) (*SS
 	dest := &SSnapshot{}
 	q := self.Query().SubQuery()
 	err := q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), deleteSnapshot.DiskId),
-		sqlchemy.In(q.Field("status"), []string{SNAPSHOT_READY, SNAPSHOT_DELETING}),
+		sqlchemy.In(q.Field("status"), []string{api.SNAPSHOT_READY, api.SNAPSHOT_DELETING}),
 		sqlchemy.Equals(q.Field("out_of_chain"), false),
 		sqlchemy.GT(q.Field("created_at"), deleteSnapshot.CreatedAt))).
 		Asc("created_at").First(dest)
@@ -471,7 +459,7 @@ func (self *SSnapshotManager) PerformDeleteDiskSnapshots(ctx context.Context, us
 		return nil, httperrors.NewNotFoundError("Disk %s dose not have snapshot", diskId)
 	}
 	for i := 0; i < len(snapshots); i++ {
-		if snapshots[i].CreatedBy == MANUAL && snapshots[i].FakeDeleted == false {
+		if snapshots[i].CreatedBy == api.SNAPSHOT_MANUAL && snapshots[i].FakeDeleted == false {
 			return nil, httperrors.NewBadRequestError("Can not delete disk snapshots, have manual snapshot")
 		}
 	}
@@ -540,7 +528,7 @@ func (self *SSnapshot) syncRemoveCloudSnapshot(ctx context.Context, userCred mcc
 
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil {
-		err = self.SetStatus(userCred, SNAPSHOT_UNKNOWN, "sync to delete")
+		err = self.SetStatus(userCred, api.SNAPSHOT_UNKNOWN, "sync to delete")
 	} else {
 		err = self.RealDelete(ctx, userCred)
 	}

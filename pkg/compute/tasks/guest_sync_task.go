@@ -6,6 +6,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -65,7 +66,7 @@ func (self *GuestSyncConfTask) OnDiskSyncCompleteFailed(ctx context.Context, obj
 
 func (self *GuestSyncConfTask) OnSyncCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.GetUserCred(), models.VM_SYNC_FAIL, data.String())
+	guest.SetStatus(self.GetUserCred(), api.VM_SYNC_FAIL, data.String())
 	log.Errorf("Guest sync config failed: %v", data.String())
 	db.OpsLog.LogEvent(guest, db.ACT_SYNC_CONF_FAIL, data.String(), self.UserCred)
 	self.SetStageFailed(ctx, data.String())

@@ -11,8 +11,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type ImageStatusType string
@@ -95,6 +95,7 @@ func (self *SRegion) GetImages(status string, owner string, imageIds []string, n
 	total, _ := body.Float("TotalCount")
 	return images, int(total), nil
 }
+
 func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
@@ -122,11 +123,11 @@ func (self *SImage) Delete(ctx context.Context) error {
 func (self *SImage) GetStatus() string {
 	switch self.ImageState {
 	case ImageStatusCreating, ImageStatusSycing, ImageStatusImporting:
-		return models.CACHED_IMAGE_STATUS_CACHING
+		return api.CACHED_IMAGE_STATUS_CACHING
 	case ImageStatusNormal, ImageStatusUsing:
-		return models.CACHED_IMAGE_STATUS_READY
+		return api.CACHED_IMAGE_STATUS_READY
 	default:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	}
 }
 
