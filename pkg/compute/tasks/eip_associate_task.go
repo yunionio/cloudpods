@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type EipAssociateTask struct {
@@ -39,6 +40,8 @@ func (self *EipAssociateTask) TaskFail(ctx context.Context, eip *models.SElastic
 	self.SetStageFailed(ctx, msg)
 	if vm != nil {
 		vm.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP_FAILED, msg)
+		db.OpsLog.LogEvent(vm, db.ACT_EIP_ATTACH, msg, self.GetUserCred())
+		logclient.AddActionLogWithStartable(self, vm, logclient.ACT_EIP_ASSOCIATE, msg, self.UserCred, false)
 	}
 }
 
