@@ -142,7 +142,7 @@ func handleSshShell(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	cmd, err := command.NewSSHtoolSolCommand(ctx, userCred, env.Params["<ip>"])
+	cmd, err := command.NewSSHtoolSolCommand(ctx, userCred, env.Params["<ip>"], env.Body)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
