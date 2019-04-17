@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/seclib"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -55,6 +56,8 @@ type SGuestManager struct {
 	CandidateServers map[string]*SKVMGuestInstance
 	ServersLock      *sync.Mutex
 
+	GuestStartWorker *appsrv.SWorkerManager
+
 	isLoaded bool
 }
 
@@ -65,6 +68,7 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager.Servers = make(map[string]*SKVMGuestInstance, 0)
 	manager.CandidateServers = make(map[string]*SKVMGuestInstance, 0)
 	manager.ServersLock = &sync.Mutex{}
+	manager.GuestStartWorker = appsrv.NewWorkerManager("GuestStart", 1, appsrv.DEFAULT_BACKLOG, false)
 	manager.StartCpusetBalancer()
 	manager.LoadExistingGuests()
 	return manager
