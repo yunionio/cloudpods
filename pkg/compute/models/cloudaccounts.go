@@ -701,7 +701,7 @@ func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.
 	}
 	extra.Add(projects, "projects")
 	extra.Set("sync_interval_seconds", jsonutils.NewInt(int64(self.getSyncIntervalSeconds())))
-	extra.Set("sync_status", jsonutils.NewString(self.getSyncStatus()))
+	extra.Set("sync_status2", jsonutils.NewString(self.getSyncStatus()))
 	return extra
 }
 
@@ -1259,10 +1259,6 @@ func (self *SCloudaccount) StartCloudaccountDeleteTask(ctx context.Context, user
 }
 
 func (self *SCloudaccount) getSyncStatus() string {
-	if self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_QUEUED {
-		return self.SyncStatus
-	}
-
 	cprs := CloudproviderRegionManager.Query().SubQuery()
 	providers := CloudproviderManager.Query().SubQuery()
 
