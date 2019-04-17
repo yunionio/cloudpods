@@ -94,8 +94,13 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 		return
 	}
 
-	//err = disk.SetStorageByHost(hostId, &diskConfig)
-	err = disk.SetStorage(candidate.Disks[0].StorageId, diskConfig)
+	storageIds := []string{}
+	var hostId string
+	if candidate != nil && len(candidate.Disks) != 0 {
+		hostId = candidate.HostId
+		storageIds = candidate.Disks[0].StorageIds
+	}
+	err = disk.SetStorageByHost(hostId, diskConfig, storageIds)
 	if err != nil {
 		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, disk.ProjectId, &pendingUsage, &quotaStorage)
 		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())

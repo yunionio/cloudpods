@@ -438,14 +438,16 @@ func (disk *SDisk) SetStorage(storageId string, diskConfig *api.DiskConfig) erro
 	return err
 }
 
-func (disk *SDisk) SetStorageByHost(hostId string, diskConfig *api.DiskConfig) error {
+func (disk *SDisk) SetStorageByHost(hostId string, diskConfig *api.DiskConfig, storageIds []string) error {
 	host := HostManager.FetchHostById(hostId)
 	backend := diskConfig.Backend
 	if backend == "" {
 		return fmt.Errorf("Backend is empty")
 	}
 	var storage *SStorage
-	if utils.IsInStringArray(backend, api.STORAGE_LIMITED_TYPES) {
+	if len(storageIds) != 0 {
+		storage = StorageManager.FetchStorageById(storageIds[0])
+	} else if utils.IsInStringArray(backend, api.STORAGE_LIMITED_TYPES) {
 		storage = host.GetLeastUsedStorage(backend)
 	} else {
 		// unlimited pulic cloud storages
