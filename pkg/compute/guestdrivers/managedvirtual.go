@@ -20,7 +20,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SManagedVirtualizedGuestDriver struct {
@@ -212,11 +211,6 @@ func (self *SManagedVirtualizedGuestDriver) GetLinuxDefaultAccount(desc cloudpro
 }
 
 func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
-	if len(desc.Password) == 0 {
-		//Azure创建必须要设置密码
-		desc.Password = seclib2.RandomPassword2(12)
-	}
-
 	ihost, _ := host.GetIHost()
 
 	iVM, err := func() (cloudprovider.ICloudVM, error) {

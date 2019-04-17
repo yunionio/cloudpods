@@ -10,6 +10,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/ansible"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SHost struct {
@@ -82,6 +83,12 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 			return nil, err
 		}
 	}
+
+	if len(desc.Password) == 0 {
+		//Azure创建必须要设置密码
+		desc.Password = seclib2.RandomPassword2(12)
+	}
+
 	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, nic.ID, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.PublicKey, desc.UserData)
 	if err != nil {
 		self.zone.region.DeleteNetworkInterface(nic.ID)
