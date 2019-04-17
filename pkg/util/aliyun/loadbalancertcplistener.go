@@ -37,12 +37,14 @@ type SLoadbalancerTCPListener struct {
 	VServerGroupId           string //	绑定的服务器组ID。
 	MasterSlaveServerGroupId string //	绑定的主备服务器组ID。
 	AclStatus                string //	是否开启访问控制功能。取值：on | off（默认值）
+	PersistenceTimeout       int    //是否开启了会话保持。取值为0时，表示没有开启。
 
 	AclType string //	访问控制类型
 
 	AclId string //	监听绑定的访问策略组ID。当AclStatus参数的值为on时，该参数必选。
 
 	HealthCheck               string //	是否开启健康检查。
+	HealthCheckType           string //TCP协议监听的健康检查方式。取值：tcp | http
 	HealthyThreshold          int    //	健康检查阈值。
 	UnhealthyThreshold        int    //	不健康检查阈值。
 	HealthCheckConnectTimeout int    //	每次健康检查响应的最大超时间，单位为秒。
@@ -137,7 +139,7 @@ func (listerner *SLoadbalancerTCPListener) GetHealthCheck() string {
 }
 
 func (listerner *SLoadbalancerTCPListener) GetHealthCheckType() string {
-	return ""
+	return listerner.HealthCheckType
 }
 
 func (listerner *SLoadbalancerTCPListener) GetHealthCheckDomain() string {
@@ -262,13 +264,19 @@ func (region *SRegion) constructBaseCreateListenerParams(lb *SLoadbalancer, list
 	if len(listener.Name) > 0 {
 		params["Description"] = listener.Name
 	}
-	if listener.EstablishedTimeout >= 10 && listener.EstablishedTimeout <= 900 {
-		params["EstablishedTimeout"] = fmt.Sprintf("%d", listener.EstablishedTimeout)
-	}
 
 	if utils.IsInStringArray(listener.ListenerType, []string{api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP}) {
 		if listener.HealthCheckTimeout >= 1 && listener.HealthCheckTimeout <= 300 {
 			params["HealthCheckConnectTimeout"] = fmt.Sprintf("%d", listener.HealthCheckTimeout)
+		}
+	}
+	switch listener.ListenerType {
+	case api.LB_LISTENER_TYPE_UDP:
+		if len(listener.HealthCheckReq) > 0 {
+			params["healthCheckReq"] = listener.HealthCheckReq
+		}
+		if len(listener.HealthCheckExp) > 0 {
+			params["healthCheckExp"] = listener.HealthCheckExp
 		}
 	}
 

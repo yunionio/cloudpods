@@ -63,3 +63,7 @@ type LoadbalancerActionStatusOptions struct {
 type LoadbalancerActionSyncStatusOptions struct {
 	ID string `json:-`
 }
+
+type LoadbalancerIdOptions struct {
+	ID string `json:-`
+}
