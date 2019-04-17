@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/image/models"
@@ -69,7 +70,7 @@ func (self *ImageDeleteTask) startDeleteImage(ctx context.Context, image *models
 		return
 	}
 
-	image.SetStatus(self.UserCred, models.IMAGE_STATUS_DELETED, "delete")
+	image.SetStatus(self.UserCred, api.IMAGE_STATUS_DELETED, "delete")
 
 	image.RealDelete(ctx, self.UserCred)
 

@@ -52,6 +52,10 @@ func doComputeEventList(s *mcclient.ClientSession, args *EventListOptions) error
 	return doEventList(modules.Logs, s, args)
 }
 
+func doImageEventList(s *mcclient.ClientSession, args *EventListOptions) error {
+	return doEventList(modules.ImageLogs, s, args)
+}
+
 func doEventList(man modules.ResourceManager, s *mcclient.ClientSession, args *EventListOptions) error {
 	params := jsonutils.NewDict()
 	if len(args.Type) > 0 {
@@ -157,5 +161,10 @@ func init() {
 	R(&TypeEventListOptions{}, "kubemachine-event", "Show operation event logs of kubernetes machine", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
 		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"kubemachine"}}
 		return doK8sEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "image-event", "Show operation event logs of glance images", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"image"}}
+		return doImageEventList(s, &nargs)
 	})
 }

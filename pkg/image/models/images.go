@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -47,29 +48,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/streamutils"
 )
 
-type TImageType string
-
 const (
-	// https://docs.openstack.org/glance/pike/user/statuses.html
-	//
-	IMAGE_STATUS_QUEUED = "queued"
-	IMAGE_STATUS_SAVING = "saving"
-	IMAGE_STATUS_ACTIVE = "active"
-	// IMAGE_STATUS_CONVERTING = "converting"
-
-	IMAGE_STATUS_DEACTIVATED    = "deactivated"
-	IMAGE_STATUS_KILLED         = "killed"
-	IMAGE_STATUS_DELETED        = "deleted"
-	IMAGE_STATUS_PENDING_DELETE = "pending_delete"
-
-	ImageTypeTemplate = TImageType("image")
-	ImageTypeISO      = TImageType("iso")
-
 	LocalFilePrefix = "file://"
-)
-
-var (
-	imageDeadStatus = []string{IMAGE_STATUS_DEACTIVATED, IMAGE_STATUS_KILLED, IMAGE_STATUS_DELETED, IMAGE_STATUS_PENDING_DELETE}
 )
 
 type SImageManager struct {
@@ -212,7 +192,7 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 		}
 	}
 
-	if status != IMAGE_STATUS_ACTIVE {
+	if status != api.IMAGE_STATUS_ACTIVE {
 		return nil, httperrors.NewInvalidStatusError("cannot download in status %s", status)
 	}
 
@@ -349,7 +329,7 @@ func (self *SImage) CustomizeCreate(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return err
 	}
-	self.Status = IMAGE_STATUS_QUEUED
+	self.Status = api.IMAGE_STATUS_QUEUED
 	self.Owner = self.ProjectId
 	return nil
 }
@@ -383,13 +363,14 @@ func (self *SImage) OnSaveTaskSuccess(task taskman.ITask, userCred mcclient.Toke
 }
 
 func (self *SImage) saveSuccess(userCred mcclient.TokenCredential, msg string) {
-	self.SetStatus(userCred, IMAGE_STATUS_ACTIVE, msg)
+	// do not set this status, until image converting complete
+	// self.SetStatus(userCred, api.IMAGE_STATUS_ACTIVE, msg)
 	db.OpsLog.LogEvent(self, db.ACT_SAVE, msg, userCred)
 }
 
 func (self *SImage) saveFailed(userCred mcclient.TokenCredential, msg string) {
 	log.Errorf(msg)
-	self.SetStatus(userCred, IMAGE_STATUS_QUEUED, msg)
+	self.SetStatus(userCred, api.IMAGE_STATUS_QUEUED, msg)
 	db.OpsLog.LogEvent(self, db.ACT_SAVE_FAIL, msg, userCred)
 }
 
@@ -460,7 +441,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 	appParams := appsrv.AppContextGetParams(ctx)
 	if appParams.Request.ContentLength > 0 {
 		db.OpsLog.LogEvent(self, db.ACT_SAVING, "create upload", userCred)
-		self.SetStatus(userCred, IMAGE_STATUS_SAVING, "create upload")
+		self.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "create upload")
 
 		err := self.SaveImageFromStream(appParams.Request.Body)
 		if err != nil {
@@ -480,7 +461,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if self.Status != IMAGE_STATUS_QUEUED {
+	if self.Status != api.IMAGE_STATUS_QUEUED {
 		appParams := appsrv.AppContextGetParams(ctx)
 		if appParams != nil && appParams.Request.ContentLength > 0 {
 			return nil, httperrors.NewInvalidStatusError("cannot upload in status %s", self.Status)
@@ -489,7 +470,7 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		appParams := appsrv.AppContextGetParams(ctx)
 		if appParams != nil {
 			if appParams.Request.ContentLength > 0 {
-				self.SetStatus(userCred, IMAGE_STATUS_SAVING, "update start upload")
+				self.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "update start upload")
 				err := self.SaveImageFromStream(appParams.Request.Body)
 				if err != nil {
 					self.OnSaveFailed(ctx, userCred, fmt.Sprintf("update upload failed %s", err))
@@ -570,8 +551,8 @@ func (self *SImage) CustomizeDelete(ctx context.Context, userCred mcclient.Token
 		purge = jsonutils.QueryBoolean(query, "purge", false)
 	}
 	if utils.IsInStringArray(self.Status, []string{
-		IMAGE_STATUS_KILLED,
-		IMAGE_STATUS_QUEUED,
+		api.IMAGE_STATUS_KILLED,
+		api.IMAGE_STATUS_QUEUED,
 	}) {
 		overridePendingDelete = true
 	}
@@ -588,7 +569,7 @@ func (self *SImage) startDeleteImageTask(ctx context.Context, userCred mcclient.
 	}
 	params.Add(jsonutils.NewString(self.Status), "image_status")
 
-	self.SetStatus(userCred, IMAGE_STATUS_DEACTIVATED, "")
+	self.SetStatus(userCred, api.IMAGE_STATUS_DEACTIVATED, "")
 
 	task, err := taskman.TaskManager.NewTask(ctx, "ImageDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
@@ -603,7 +584,7 @@ func (self *SImage) startImageCopyFromUrlTask(ctx context.Context, userCred mccl
 	params.Add(jsonutils.NewString(copyFrom), "copy_from")
 
 	msg := fmt.Sprintf("copy from url %s", copyFrom)
-	self.SetStatus(userCred, IMAGE_STATUS_SAVING, msg)
+	self.SetStatus(userCred, api.IMAGE_STATUS_SAVING, msg)
 	db.OpsLog.LogEvent(self, db.ACT_SAVING, msg, userCred)
 
 	task, err := taskman.TaskManager.NewTask(ctx, "ImageCopyFromUrlTask", self, userCred, params, parentTaskId, "", nil)
@@ -685,7 +666,7 @@ func (self *SImage) DoPendingDelete(ctx context.Context, userCred mcclient.Token
 		return err
 	}
 	_, err = db.Update(self, func() error {
-		self.Status = IMAGE_STATUS_PENDING_DELETE
+		self.Status = api.IMAGE_STATUS_PENDING_DELETE
 		return nil
 	})
 	return err
@@ -697,7 +678,7 @@ func (self *SImage) DoCancelPendingDelete(ctx context.Context, userCred mcclient
 		return err
 	}
 	_, err = db.Update(self, func() error {
-		self.Status = IMAGE_STATUS_ACTIVE
+		self.Status = api.IMAGE_STATUS_ACTIVE
 		return nil
 	})
 	return err
@@ -773,11 +754,11 @@ func expandUsageCount(usages map[string]int64, prefix, imgType, state string, co
 
 func (manager *SImageManager) Usage(projectId string, prefix string) map[string]int64 {
 	usages := make(map[string]int64)
-	count := manager.count(projectId, IMAGE_STATUS_ACTIVE, tristate.False, false)
+	count := manager.count(projectId, api.IMAGE_STATUS_ACTIVE, tristate.False, false)
 	expandUsageCount(usages, prefix, "img", "", count)
-	count = manager.count(projectId, IMAGE_STATUS_ACTIVE, tristate.True, false)
+	count = manager.count(projectId, api.IMAGE_STATUS_ACTIVE, tristate.True, false)
 	expandUsageCount(usages, prefix, "iso", "", count)
-	count = manager.count(projectId, IMAGE_STATUS_ACTIVE, tristate.None, false)
+	count = manager.count(projectId, api.IMAGE_STATUS_ACTIVE, tristate.None, false)
 	expandUsageCount(usages, prefix, "imgiso", "", count)
 	count = manager.count(projectId, "", tristate.False, true)
 	expandUsageCount(usages, prefix, "img", "pending_delete", count)
@@ -788,11 +769,11 @@ func (manager *SImageManager) Usage(projectId string, prefix string) map[string]
 	return usages
 }
 
-func (self *SImage) GetImageType() TImageType {
+func (self *SImage) GetImageType() api.TImageType {
 	if self.DiskFormat == string(qemuimg.ISO) {
-		return ImageTypeISO
+		return api.ImageTypeISO
 	} else {
-		return ImageTypeTemplate
+		return api.ImageTypeTemplate
 	}
 }
 
@@ -807,13 +788,13 @@ func (self *SImage) newSubformat(format qemuimg.TImageFormat, migrate bool) erro
 		subformat.Size = self.Size
 		subformat.Checksum = self.Checksum
 		subformat.FastHash = self.FastHash
-		subformat.Status = IMAGE_STATUS_ACTIVE
+		subformat.Status = api.IMAGE_STATUS_ACTIVE
 		subformat.Location = self.Location
 	} else {
-		subformat.Status = IMAGE_STATUS_QUEUED
+		subformat.Status = api.IMAGE_STATUS_QUEUED
 	}
 
-	subformat.TorrentStatus = IMAGE_STATUS_QUEUED
+	subformat.TorrentStatus = api.IMAGE_STATUS_QUEUED
 
 	err := ImageSubformatManager.TableSpec().Insert(subformat)
 	if err != nil {
@@ -838,7 +819,7 @@ func (self *SImage) MigrateSubImage() error {
 	if err != nil {
 		return err
 	}
-	if self.GetImageType() != ImageTypeISO && imgInst.IsSparse() {
+	if self.GetImageType() != api.ImageTypeISO && imgInst.IsSparse() {
 		// need to convert again
 		return self.newSubformat(qemuimg.String2ImageFormat(self.DiskFormat), false)
 	} else {
@@ -863,7 +844,7 @@ func (self *SImage) MigrateSubImage() error {
 }
 
 func (self *SImage) MakeSubImages() error {
-	if self.GetImageType() == ImageTypeISO {
+	if self.GetImageType() == api.ImageTypeISO {
 		return nil
 	}
 	log.Debugf("[MakeSubImages] convert image to %#v", options.Options.TargetImageFormats)
@@ -945,7 +926,7 @@ func (self *SImage) RemoveFiles() error {
 
 func (manager *SImageManager) getAllAliveImages() []SImage {
 	images := make([]SImage, 0)
-	q := manager.Query().NotIn("status", imageDeadStatus)
+	q := manager.Query().NotIn("status", api.ImageDeadStatus)
 	err := db.FetchModelObjects(manager, q, &images)
 	if err != nil {
 		log.Errorf("fail to query active images %s", err)
@@ -1026,12 +1007,12 @@ func (self *SImage) isActive(useFast bool) bool {
 }
 
 func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCredential, useFast bool) {
-	if utils.IsInStringArray(self.Status, imageDeadStatus) {
+	if utils.IsInStringArray(self.Status, api.ImageDeadStatus) {
 		return
 	}
 	if self.isActive(useFast) {
-		if self.Status != IMAGE_STATUS_ACTIVE {
-			self.SetStatus(userCred, IMAGE_STATUS_ACTIVE, "check active")
+		if self.Status != api.IMAGE_STATUS_ACTIVE {
+			self.SetStatus(userCred, api.IMAGE_STATUS_ACTIVE, "check active")
 		}
 		if len(self.FastHash) == 0 {
 			fastHash, err := fileutils2.FastCheckSum(self.getLocalLocation())
@@ -1066,8 +1047,8 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 			log.Warningf("fail to check image size of %s(%s)", self.Id, self.Name)
 		}
 	} else {
-		if self.Status != IMAGE_STATUS_QUEUED {
-			self.SetStatus(userCred, IMAGE_STATUS_QUEUED, "check inactive")
+		if self.Status != api.IMAGE_STATUS_QUEUED {
+			self.SetStatus(userCred, api.IMAGE_STATUS_QUEUED, "check inactive")
 		}
 	}
 	needConvert := false
@@ -1077,11 +1058,11 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 	for i := 0; i < len(subimgs); i += 1 {
 		subimgs[i].checkStatus(useFast)
-		if (subimgs[i].Status != IMAGE_STATUS_ACTIVE || subimgs[i].TorrentStatus != IMAGE_STATUS_ACTIVE) && utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) {
+		if (subimgs[i].Status != api.IMAGE_STATUS_ACTIVE || subimgs[i].TorrentStatus != api.IMAGE_STATUS_ACTIVE) && utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) {
 			needConvert = true
 		}
 	}
-	if self.Status == IMAGE_STATUS_ACTIVE {
+	if self.Status == api.IMAGE_STATUS_ACTIVE {
 		if needConvert {
 			log.Infof("Image %s is active and need convert", self.Name)
 			self.StartImageConvertTask(ctx, userCred, "")
