@@ -98,19 +98,24 @@ func (manager *SMetadataManager) GetPropertyTagValuePairs(ctx context.Context, u
 	if err != nil {
 		return nil, err
 	}
-	metadatas := []SMetadata{}
-	err = sql.All(&metadatas)
+	result := &struct {
+		Total int
+		Data  []struct {
+			Key   string
+			Value string
+		}
+	}{
+		Total: 0,
+		Data: []struct {
+			Key   string
+			Value string
+		}{},
+	}
+	err = sql.All(&result.Data)
 	if err != nil {
 		return nil, err
 	}
-	result := map[string][]string{}
-	for i := 0; i < len(metadatas); i++ {
-		key, value := metadatas[i].Key, metadatas[i].Value
-		if _, ok := result[key]; !ok {
-			result[key] = []string{}
-		}
-		result[key] = append(result[key], value)
-	}
+	result.Total = len(result.Data)
 	return jsonutils.Marshal(result), nil
 }
 
