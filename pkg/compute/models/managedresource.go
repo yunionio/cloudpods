@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -143,15 +144,26 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObje
 	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
 	if len(providerStr) > 0 {
 		queryDict.Remove("provider")
-		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
-		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-			queryDict.Remove("manager_id")
+		if providerStr == api.CLOUD_PROVIDER_ONECLOUD {
+			if len(filterField) == 0 {
+				q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("manager_id")))
+			} else {
+				sq := subqFunc()
+				sq = sq.Filter(sqlchemy.IsNullOrEmpty(sq.Field("manager_id")))
+				q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+				queryDict.Remove(filterField)
+			}
 		} else {
-			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq))
-			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
-			queryDict.Remove(filterField)
+			subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
+			if len(filterField) == 0 {
+				q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+				queryDict.Remove("manager_id")
+			} else {
+				sq := subqFunc()
+				sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq))
+				q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+				queryDict.Remove(filterField)
+			}
 		}
 	}
 
@@ -159,7 +171,9 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObje
 }
 
 func managedResourceFilterByCloudType(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) *sqlchemy.SQuery {
-	if jsonutils.QueryBoolean(query, "public_cloud", false) || jsonutils.QueryBoolean(query, "is_public", false) {
+	cloudEnvStr, _ := query.GetString("cloud_env")
+
+	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "public_cloud", false) || jsonutils.QueryBoolean(query, "is_public", false) {
 		if len(filterField) == 0 {
 			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
 		} else {
@@ -169,7 +183,7 @@ func managedResourceFilterByCloudType(q *sqlchemy.SQuery, query jsonutils.JSONOb
 		}
 	}
 
-	if jsonutils.QueryBoolean(query, "private_cloud", false) || jsonutils.QueryBoolean(query, "is_private", false) {
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "private_cloud", false) || jsonutils.QueryBoolean(query, "is_private", false) {
 		if len(filterField) == 0 {
 			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
 		} else {
@@ -179,7 +193,7 @@ func managedResourceFilterByCloudType(q *sqlchemy.SQuery, query jsonutils.JSONOb
 		}
 	}
 
-	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE || jsonutils.QueryBoolean(query, "is_on_premise", false) {
 		if len(filterField) == 0 {
 			q = q.Filter(
 				sqlchemy.OR(

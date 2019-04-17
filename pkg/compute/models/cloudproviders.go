@@ -815,20 +815,22 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 		q = q.Equals("id", providerObj.GetId())
 	}
 
-	if jsonutils.QueryBoolean(query, "public_cloud", false) {
+	cloudEnvStr, _ := query.GetString("cloud_env")
+	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "public_cloud", false) {
 		cloudaccounts := CloudaccountManager.Query().SubQuery()
 		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudaccounts.Field("id"), q.Field("cloudaccount_id")))
 		q = q.Filter(sqlchemy.IsTrue(cloudaccounts.Field("is_public_cloud")))
+		q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("is_on_premise")))
 	}
 
-	if jsonutils.QueryBoolean(query, "private_cloud", false) {
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "private_cloud", false) {
 		cloudaccounts := CloudaccountManager.Query().SubQuery()
 		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudaccounts.Field("id"), q.Field("cloudaccount_id")))
 		q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("is_public_cloud")))
 		q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("is_on_premise")))
 	}
 
-	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE || jsonutils.QueryBoolean(query, "is_on_premise", false) {
 		cloudaccounts := CloudaccountManager.Query().SubQuery()
 		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudaccounts.Field("id"), q.Field("cloudaccount_id")))
 		q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("is_public_cloud")))

@@ -897,8 +897,7 @@ func (self *SCloudaccount) PerformChangeProject(ctx context.Context, userCred mc
 func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	accountStr, _ := query.GetString("account")
 	if len(accountStr) > 0 {
-		queryDict := query.(*jsonutils.JSONDict)
-		queryDict.Remove("account")
+		query.(*jsonutils.JSONDict).Remove("account")
 		accountObj, err := manager.FetchByIdOrName(userCred, accountStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -928,15 +927,16 @@ func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlc
 		q = q.Equals("id", provider.CloudaccountId)
 	}
 
-	if jsonutils.QueryBoolean(query, "public_cloud", false) {
-		q = q.IsTrue("is_public_cloud")
+	cloudEnvStr, _ := query.GetString("cloud_env")
+	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "public_cloud", false) {
+		q = q.IsTrue("is_public_cloud").IsFalse("is_on_premise")
 	}
 
-	if jsonutils.QueryBoolean(query, "private_cloud", false) {
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "private_cloud", false) {
 		q = q.IsFalse("is_public_cloud").IsFalse("is_on_premise")
 	}
 
-	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE || jsonutils.QueryBoolean(query, "is_on_premise", false) {
 		q = q.IsTrue("is_on_premise").IsFalse("is_public_cloud")
 	}
 

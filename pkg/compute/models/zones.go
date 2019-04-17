@@ -511,22 +511,20 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		return nil, err
 	}
 
-	if jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private", false) || jsonutils.QueryBoolean(query, "private_cloud", false) {
+	cloudEnvStr, _ := query.GetString("cloud_env")
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private", false) || jsonutils.QueryBoolean(query, "private_cloud", false) {
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
-		subq = subq.Filter(sqlchemy.OR(
-			sqlchemy.In(regions.Field("provider"), cloudprovider.GetPrivateProviders()),
-			sqlchemy.IsNullOrEmpty(regions.Field("provider")),
-		))
+		subq = subq.Filter(sqlchemy.In(regions.Field("provider"), cloudprovider.GetPrivateProviders()))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
-	if jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public", false) || jsonutils.QueryBoolean(query, "public_cloud", false) {
+	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public", false) || jsonutils.QueryBoolean(query, "public_cloud", false) {
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
 		subq = subq.Filter(sqlchemy.In(regions.Field("provider"), cloudprovider.GetPublicProviders()))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
-	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE || jsonutils.QueryBoolean(query, "is_on_premise", false) {
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
 		subq = subq.Filter(sqlchemy.OR(
@@ -610,8 +608,14 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 	providerStr, _ := query.GetString("provider")
 	if len(providerStr) > 0 {
-		subq := CloudregionManager.Query("id").Equals("provider", providerStr).SubQuery()
-		q = q.In("cloudregion_id", subq)
+		subq := CloudregionManager.Query("id")
+		if providerStr == api.CLOUD_PROVIDER_ONECLOUD {
+			subq = subq.IsNullOrEmpty("provider")
+		} else {
+			subq = subq.Equals("provider", providerStr)
+		}
+
+		q = q.In("cloudregion_id", subq.SubQuery())
 	}
 
 	city, _ := query.GetString("city")
