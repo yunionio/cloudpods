@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type EipDeallocateTask struct {
@@ -20,6 +21,14 @@ func init() {
 	taskman.RegisterTask(EipDeallocateTask{})
 }
 
+func (self *EipDeallocateTask) taskFail(ctx context.Context, eip *models.SElasticip, msg string) {
+	eip.SetStatus(self.UserCred, models.EIP_STATUS_DEALLOCATE_FAIL, msg)
+	db.OpsLog.LogEvent(eip, db.ACT_DELOCATE, msg, self.GetUserCred())
+	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_DELETE, msg, self.UserCred, false)
+	self.SetStageFailed(ctx, msg)
+	return
+}
+
 func (self *EipDeallocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
 
@@ -28,16 +37,14 @@ func (self *EipDeallocateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		if err != nil {
 			if err != cloudprovider.ErrNotFound && err != cloudprovider.ErrInvalidProvider {
 				msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
-				eip.SetStatus(self.UserCred, models.EIP_STATUS_DEALLOCATE_FAIL, msg)
-				self.SetStageFailed(ctx, msg)
+				self.taskFail(ctx, eip, msg)
 				return
 			}
 		} else {
 			err = expEip.Delete()
 			if err != nil {
 				msg := fmt.Sprintf("fail to delete iEIP %s", err)
-				eip.SetStatus(self.UserCred, models.EIP_STATUS_DEALLOCATE_FAIL, msg)
-				self.SetStageFailed(ctx, msg)
+				self.taskFail(ctx, eip, msg)
 				return
 			}
 		}
@@ -46,8 +53,7 @@ func (self *EipDeallocateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 	err := eip.RealDelete(ctx, self.UserCred)
 	if err != nil {
 		msg := fmt.Sprintf("fail to delete EIP %s", err)
-		eip.SetStatus(self.UserCred, models.EIP_STATUS_DEALLOCATE_FAIL, msg)
-		self.SetStageFailed(ctx, msg)
+		self.taskFail(ctx, eip, msg)
 		return
 	}
 
