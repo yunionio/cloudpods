@@ -83,8 +83,8 @@ func (self *DiskDeleteTask) OnMasterStorageDeleteDiskComplete(ctx context.Contex
 	}
 }
 
-func (self *DiskDeleteTask) OnMasterStorageDeleteDiskCompleteFailed(ctx context.Context, disk *models.SDisk, resion jsonutils.JSONObject) {
-	self.OnGuestDiskDeleteCompleteFailed(ctx, disk, resion)
+func (self *DiskDeleteTask) OnMasterStorageDeleteDiskCompleteFailed(ctx context.Context, disk *models.SDisk, reason jsonutils.JSONObject) {
+	self.OnGuestDiskDeleteCompleteFailed(ctx, disk, reason)
 }
 
 func (self *DiskDeleteTask) startPendingDeleteDisk(ctx context.Context, disk *models.SDisk) {
@@ -107,8 +107,8 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteComplete(ctx context.Context, obj d
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *DiskDeleteTask) OnGuestDiskDeleteCompleteFailed(ctx context.Context, disk *models.SDisk, resion jsonutils.JSONObject) {
-	disk.SetStatus(self.GetUserCred(), models.DISK_DEALLOC_FAILED, resion.String())
-	self.SetStageFailed(ctx, resion.String())
+func (self *DiskDeleteTask) OnGuestDiskDeleteCompleteFailed(ctx context.Context, disk *models.SDisk, reason jsonutils.JSONObject) {
+	disk.SetStatus(self.GetUserCred(), models.DISK_DEALLOC_FAILED, reason.String())
+	self.SetStageFailed(ctx, reason.String())
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(ctx), self.GetUserCred())
 }

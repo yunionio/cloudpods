@@ -33,9 +33,9 @@ func (self *GuestSaveImageTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 
 func (self *GuestSaveImageTask) OnStopServerComplete(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
 	if guest.Status != models.VM_READY {
-		resion := fmt.Sprintf("Server %s not in ready status", guest.Name)
-		log.Errorf(resion)
-		self.SetStageFailed(ctx, resion)
+		reason := fmt.Sprintf("Server %s not in ready status", guest.Name)
+		log.Errorf(reason)
+		self.SetStageFailed(ctx, reason)
 	} else {
 		self.SetStage("on_save_root_image_complete", nil)
 		guest.SetStatus(self.GetUserCred(), models.VM_START_SAVE_DISK, "")

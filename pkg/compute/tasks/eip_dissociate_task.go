@@ -66,6 +66,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 
 		eip.SetStatus(self.UserCred, models.EIP_STATUS_READY, "dissociate")
 
+		logclient.AddActionLogWithStartable(self, server, logclient.ACT_EIP_DISSOCIATE, nil, self.UserCred, true)
 		server.StartSyncstatus(ctx, self.UserCred, "")
 	}
 

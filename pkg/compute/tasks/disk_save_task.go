@@ -38,10 +38,10 @@ func (self *DiskSaveTask) GetMasterHost(disk *models.SDisk) *models.SHost {
 func (self *DiskSaveTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
 	if host := self.GetMasterHost(disk); host == nil {
-		resion := "Cannot find host for disk"
-		disk.SetDiskReady(ctx, self.GetUserCred(), resion)
-		self.TaskFailed(ctx, resion)
-		db.OpsLog.LogEvent(disk, db.ACT_SAVE_FAIL, resion, self.GetUserCred())
+		reason := "Cannot find host for disk"
+		disk.SetDiskReady(ctx, self.GetUserCred(), reason)
+		self.TaskFailed(ctx, reason)
+		db.OpsLog.LogEvent(disk, db.ACT_SAVE_FAIL, reason, self.GetUserCred())
 	} else {
 		disk.SetStatus(self.GetUserCred(), models.DISK_START_SAVE, "")
 		for _, guest := range disk.GetGuests() {
@@ -98,8 +98,8 @@ func (self *DiskSaveTask) UploadDisk(ctx context.Context, host *models.SHost, di
 	return host.GetHostDriver().RequestSaveUploadImageOnHost(ctx, host, disk, imageId, self, jsonutils.Marshal(data))
 }
 
-func (self *DiskSaveTask) TaskFailed(ctx context.Context, resion string) {
-	self.SetStageFailed(ctx, resion)
+func (self *DiskSaveTask) TaskFailed(ctx context.Context, reason string) {
+	self.SetStageFailed(ctx, reason)
 	if imageId, err := self.GetParams().GetString("image_id"); err != nil && len(imageId) > 0 {
 		log.Errorf("save disk task failed, set image %s killed", imageId)
 		s := auth.GetAdminSession(ctx, options.Options.Region, "")
