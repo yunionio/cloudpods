@@ -3823,7 +3823,7 @@ func (self *SGuest) getSecgroupByCache(provider *SCloudprovider, externalId stri
 		return nil, fmt.Errorf("failed find secgroup cache from provider %s externalId %s", provider.Name, externalId)
 	}
 	if count > 1 {
-		return nil, fmt.Errorf("dumplicate secgroup cache for provider %s externalId %s", provider.Name, externalId)
+		return nil, fmt.Errorf("duplicate secgroup cache for provider %s externalId %s", provider.Name, externalId)
 	}
 	if err := q.First(&cache); err != nil {
 		return nil, err
