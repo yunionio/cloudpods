@@ -3,6 +3,7 @@ package regiondrivers
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
@@ -31,7 +32,7 @@ func (self *SAliyunRegionDriver) GetProvider() string {
 
 func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	loadbalancerSpecV := validators.NewStringChoicesValidator("loadbalancer_spec", api.LB_ALIYUN_SPECS)
-	loadbalancerSpecV.Default(api.LB_ALIYUN_SPEC_S1_SMALL)
+	loadbalancerSpecV.Default(api.LB_ALIYUN_SPEC_SHAREABLE)
 	if err := loadbalancerSpecV.Validate(data); err != nil {
 		return nil, err
 	}
@@ -72,6 +73,10 @@ func (self *SAliyunRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition
 		return httperrors.NewUnsupportOperationError("not allow to delete default backend group")
 	}
 	return nil
+}
+
+func (self *SAliyunRegionDriver) GetBackendStatusForAdd() []string {
+	return []string{api.VM_RUNNING}
 }
 
 func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backends []cloudprovider.SLoadbalancerBackend) (*jsonutils.JSONDict, error) {
@@ -147,8 +152,8 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		return nil, httperrors.NewMissingParameterError("backend_group")
 	}
 	listenerType, _ := data.GetString("listener_type")
-	if utils.IsInStringArray(listenerType, []string{api.LB_LISTENER_TYPE_HTTP, api.LB_LISTENER_TYPE_HTTPS}) && !utils.IsInStringArray(backendgroup.Type, []string{api.LB_BACKENDGROUP_TYPE_DEFAULT, api.LB_BACKENDGROUP_TYPE_MASTER_SLAVE}) {
-		return nil, httperrors.NewUnsupportOperationError("http or https listener only supportd default or master_slave backendgroup")
+	if utils.IsInStringArray(listenerType, []string{api.LB_LISTENER_TYPE_HTTP, api.LB_LISTENER_TYPE_HTTPS}) && !utils.IsInStringArray(backendgroup.Type, []string{api.LB_BACKENDGROUP_TYPE_DEFAULT, api.LB_BACKENDGROUP_TYPE_NORMAL}) {
+		return nil, httperrors.NewUnsupportOperationError("http or https listener only supportd default or normal backendgroup")
 	}
 
 	lb := backendgroup.GetLoadbalancer()
@@ -175,23 +180,82 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 	}
 
 	keyV := map[string]validators.IValidator{
-		"egress_mbps": validators.NewRangeValidator("egress_mbps", -1, int64(egressMbps)).Optional(true),
+		"egress_mbps": validators.NewRangeValidator("egress_mbps", 0, int64(egressMbps)).Optional(true),
 
-		"client_request_timeout": validators.NewRangeValidator("client_request_timeout", 1, 180),
-
-		"sticky_session_cookie_timeout": validators.NewRangeValidator("sticky_session_cookie_timeout", 1, 86400),
-
-		"health_check_rise":     validators.NewRangeValidator("health_check_rise", 2, 10),
-		"health_check_fall":     validators.NewRangeValidator("health_check_fall", 2, 10),
-		"health_check_timeout":  validators.NewRangeValidator("health_check_timeout", 1, 300),
-		"health_check_interval": validators.NewRangeValidator("health_check_interval", 1, 50),
+		"health_check_rise":     validators.NewRangeValidator("health_check_rise", 2, 10).Default(3),
+		"health_check_fall":     validators.NewRangeValidator("health_check_fall", 2, 10).Default(3),
+		"health_check_timeout":  validators.NewRangeValidator("health_check_timeout", 1, 300).Default(5),
+		"health_check_interval": validators.NewRangeValidator("health_check_interval", 1, 50).Default(2),
+		"scheduler":             validators.NewStringChoicesValidator("scheduler", api.LB_ALIYUN_COMMON_SCHEDULER_TYPES),
 	}
-	if !utils.IsInStringArray(listenerType, []string{api.LB_LISTENER_TYPE_UDP, api.LB_LISTENER_TYPE_TCP}) {
-		keyV["client_idle_timeout"] = validators.NewRangeValidator("client_idle_timeout", 1, 60)
+
+	strickySession, _ := data.GetString("sticky_session")
+
+	switch listenerType {
+	case api.LB_LISTENER_TYPE_UDP:
+		keyV["health_check_interval"] = validators.NewRangeValidator("health_check_interval", 1, 50).Default(5)
+		keyV["scheduler"] = validators.NewStringChoicesValidator("scheduler", api.LB_ALIYUN_UDP_SCHEDULER_TYPES)
+		for _, _key := range []string{"health_check_req", "health_check_exp"} {
+			if key, _ := data.GetString(_key); len(key) > 500 {
+				return nil, httperrors.NewInputParameterError("%s length must less 500 letters", key)
+			}
+		}
+	case api.LB_LISTENER_TYPE_HTTP:
+		if strickySession == api.LB_BOOL_ON {
+			strickySessionType, _ := data.GetString("sticky_session_type")
+			switch strickySessionType {
+			case api.LB_STICKY_SESSION_TYPE_INSERT:
+				keyV["sticky_session_cookie_timeout"] = validators.NewRangeValidator("sticky_session_cookie_timeout", 1, 86400).Default(1000)
+			case api.LB_STICKY_SESSION_TYPE_SERVER:
+				cookie, _ := data.GetString("sticky_session_cookie")
+				if len(cookie) < 1 || len(cookie) > 200 {
+					return nil, httperrors.NewInputParameterError("sticky_session_cookie length must within 1~200")
+				}
+				//只能包含字母、数字、‘_’和‘-’
+				regexpCookie := regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+				if !regexpCookie.MatchString(cookie) {
+					return nil, httperrors.NewInputParameterError("sticky_session_cookie can only contain letters, Numbers, '_' and '-'")
+				}
+			default:
+				return nil, httperrors.NewInputParameterError("Unknown sticky_session_type, only support %s or %s", api.LB_STICKY_SESSION_TYPE_INSERT, api.LB_STICKY_SESSION_TYPE_SERVER)
+			}
+		}
+		keyV["client_idle_timeout"] = validators.NewRangeValidator("client_idle_timeout", 1, 60).Default(15)
+		keyV["client_request_timeout"] = validators.NewRangeValidator("client_request_timeout", 1, 180).Default(60)
+	case api.LB_LISTENER_TYPE_HTTPS:
+		keyV["client_idle_timeout"] = validators.NewRangeValidator("client_idle_timeout", 1, 60).Default(15)
+		keyV["client_request_timeout"] = validators.NewRangeValidator("client_request_timeout", 1, 180).Default(60)
 	}
 
 	if backendgroup.Type == api.LB_BACKENDGROUP_TYPE_DEFAULT {
 		keyV["backend_server_port"] = validators.NewPortValidator("backend_server_port")
+	}
+
+	if scheduler, _ := data.GetString("scheduler"); utils.IsInStringArray(scheduler, []string{api.LB_SCHEDULER_SCH, api.LB_SCHEDULER_TCH, api.LB_SCHEDULER_QCH}) {
+		if len(lb.LoadbalancerSpec) == 0 {
+			return nil, httperrors.NewInputParameterError("The specified Scheduler %s is invalid for performance sharing loadbalancer", scheduler)
+		}
+		cloudregion := lb.GetRegion()
+		if cloudregion == nil {
+			return nil, httperrors.NewResourceNotFoundError("failed to find loadbalancer's %s(%s) region", lb.Name, lb.Id)
+		}
+		supportRegions := []string{}
+		for region := range map[string]string{
+			"ap-northeast-1":   "东京",
+			"ap-southeast-2":   "悉尼",
+			"ap-southeast-3":   "吉隆坡",
+			"ap-southeast-5":   "雅加达",
+			"eu-frankfurt":     "法兰克福",
+			"na-siliconvalley": "硅谷",
+			"us-east-1":        "弗吉利亚",
+			"me-east-1":        "迪拜",
+			"cn-huhehaote":     "呼和浩特",
+		} {
+			supportRegions = append(supportRegions, "Aliyun/"+region)
+		}
+		if !utils.IsInStringArray(cloudregion.ExternalId, supportRegions) {
+			return nil, httperrors.NewUnsupportOperationError("cloudregion %s(%d) not support %s scheduler", cloudregion.Name, cloudregion.Id, scheduler)
+		}
 	}
 
 	for _, v := range keyV {
@@ -199,37 +263,104 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 			return nil, err
 		}
 	}
-	return data, nil
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerListenerData(ctx, userCred, data, backendGroup)
 }
 
-func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lblis *models.SLoadbalancerListener, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	listenerType, _ := data.GetString("listener_type")
 
+	lb := lblis.GetLoadbalancer()
+	if lb == nil {
+		return nil, httperrors.NewInternalServerError("failed to found loadbalancer for listener %s(%s)", lblis.Name, lblis.Id)
+	}
+
+	egressMbps := 5000
+	if lb.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+		egressMbps = lb.EgressMbps
+	}
+
+	listeners, err := lb.GetLoadbalancerListeners()
+	if err != nil {
+		return nil, err
+	}
+	for _, listener := range listeners {
+		if listener.EgressMbps > 0 && listener.Id != lblis.Id {
+			egressMbps -= listener.EgressMbps
+		}
+	}
+
 	keyV := map[string]validators.IValidator{
-		"bandwidth": validators.NewRangeValidator("bandwidth", 1, 5000),
+		"egress_mbps": validators.NewRangeValidator("egress_mbps", 0, int64(egressMbps)).Optional(true),
 
-		"client_request_timeout": validators.NewRangeValidator("client_request_timeout", 1, 180),
+		"client_request_timeout": validators.NewRangeValidator("client_request_timeout", 1, 180).Optional(true),
 
-		"sticky_session_cookie_timeout": validators.NewRangeValidator("sticky_session_cookie_timeout", 1, 86400),
+		"sticky_session_cookie_timeout": validators.NewRangeValidator("sticky_session_cookie_timeout", 1, 86400).Optional(true),
 
-		"health_check_rise":     validators.NewRangeValidator("health_check_rise", 2, 10),
-		"health_check_fall":     validators.NewRangeValidator("health_check_fall", 2, 10),
-		"health_check_timeout":  validators.NewRangeValidator("health_check_timeout", 1, 300),
-		"health_check_interval": validators.NewRangeValidator("health_check_interval", 1, 50),
+		"health_check_rise":     validators.NewRangeValidator("health_check_rise", 2, 10).Optional(true),
+		"health_check_fall":     validators.NewRangeValidator("health_check_fall", 2, 10).Optional(true),
+		"health_check_timeout":  validators.NewRangeValidator("health_check_timeout", 1, 300).Optional(true),
+		"health_check_interval": validators.NewRangeValidator("health_check_interval", 1, 50).Optional(true),
+		"scheduler":             validators.NewStringChoicesValidator("scheduler", api.LB_ALIYUN_COMMON_SCHEDULER_TYPES).Optional(true),
+	}
+	if lblis.ListenerType == api.LB_LISTENER_TYPE_UDP {
+		keyV["scheduler"] = validators.NewStringChoicesValidator("scheduler", api.LB_ALIYUN_UDP_SCHEDULER_TYPES).Optional(true)
+	}
+
+	if scheduler, _ := data.GetString("scheduler"); utils.IsInStringArray(scheduler, []string{api.LB_SCHEDULER_SCH, api.LB_SCHEDULER_TCH, api.LB_SCHEDULER_QCH}) {
+		if len(lb.LoadbalancerSpec) == 0 {
+			return nil, httperrors.NewInputParameterError("The specified Scheduler %s is invalid for performance sharing loadbalancer", scheduler)
+		}
+		cloudregion := lb.GetRegion()
+		if cloudregion == nil {
+			return nil, httperrors.NewResourceNotFoundError("failed to find loadbalancer's %s(%s) region", lb.Name, lb.Id)
+		}
+		supportRegions := []string{}
+		for region := range map[string]string{
+			"ap-northeast-1":   "东京",
+			"ap-southeast-2":   "悉尼",
+			"ap-southeast-3":   "吉隆坡",
+			"ap-southeast-5":   "雅加达",
+			"eu-frankfurt":     "法兰克福",
+			"na-siliconvalley": "硅谷",
+			"us-east-1":        "弗吉利亚",
+			"me-east-1":        "迪拜",
+			"cn-huhehaote":     "呼和浩特",
+		} {
+			supportRegions = append(supportRegions, "Aliyun/"+region)
+		}
+		if !utils.IsInStringArray(cloudregion.ExternalId, supportRegions) {
+			return nil, httperrors.NewUnsupportOperationError("cloudregion %s(%d) not support %s scheduler", cloudregion.Name, cloudregion.Id, scheduler)
+		}
+	}
+
+	if healthCheck, _ := data.GetString("health_check"); healthCheck == api.LB_BOOL_ON {
+		for key, lisValue := range map[string]int{"health_check_rise": lblis.HealthCheckRise, "health_check_fall": lblis.HealthCheckFall, "health_check_timeout": lblis.HealthCheckTimeout, "health_check_interval": lblis.HealthCheckInterval} {
+			if value, _ := data.Int(key); value == 0 && lisValue == 0 {
+				return nil, httperrors.NewInputParameterError("%s cannot be set to 0", key)
+			}
+		}
 	}
 
 	if healthCheckDomain, _ := data.GetString("health_check_domain"); len(healthCheckDomain) > 80 {
 		return nil, httperrors.NewInputParameterError("health_check_domain must be in the range of 1 ~ 80")
 	}
 
+	for _, _key := range []string{"health_check_req", "health_check_exp"} {
+		if key, _ := data.GetString(_key); len(key) > 500 {
+			return nil, httperrors.NewInputParameterError("%s length must less 500 letters", key)
+		}
+	}
+
 	backendgroup, ok := backendGroup.(*models.SLoadbalancerBackendGroup)
 	if ok {
-		if utils.IsInStringArray(listenerType, []string{api.LB_LISTENER_TYPE_HTTP, api.LB_LISTENER_TYPE_HTTPS}) && !utils.IsInStringArray(backendgroup.Type, []string{api.LB_BACKENDGROUP_TYPE_DEFAULT, api.LB_BACKENDGROUP_TYPE_MASTER_SLAVE}) {
-			return nil, httperrors.NewUnsupportOperationError("http or https listener only supportd default or master_slave backendgroup")
+		if utils.IsInStringArray(listenerType, []string{api.LB_LISTENER_TYPE_HTTP, api.LB_LISTENER_TYPE_HTTPS}) && !utils.IsInStringArray(backendgroup.Type, []string{api.LB_BACKENDGROUP_TYPE_DEFAULT, api.LB_BACKENDGROUP_TYPE_NORMAL}) {
+			return nil, httperrors.NewUnsupportOperationError("http or https listener only supportd default or normal backendgroup")
 		}
 
 		if backendgroup.Type == api.LB_BACKENDGROUP_TYPE_DEFAULT {
-			keyV["backend_server_port"] = validators.NewPortValidator("backend_server_port")
+			if lblis.BackendServerPort == 0 {
+				keyV["backend_server_port"] = validators.NewPortValidator("backend_server_port")
+			}
 		}
 
 		lb := backendgroup.GetLoadbalancer()
@@ -239,14 +370,15 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 	}
 
 	if !utils.IsInStringArray(listenerType, []string{api.LB_LISTENER_TYPE_UDP, api.LB_LISTENER_TYPE_TCP}) {
-		keyV["client_idle_timeout"] = validators.NewRangeValidator("client_idle_timeout", 1, 60)
+		if lblis.ClientIdleTimeout == 0 {
+			keyV["client_idle_timeout"] = validators.NewRangeValidator("client_idle_timeout", 1, 60)
+		}
 	}
 
 	for _, v := range keyV {
-		v.Optional(true)
 		if err := v.Validate(data); err != nil {
 			return nil, err
 		}
 	}
-	return data, nil
+	return self.SManagedVirtualizationRegionDriver.ValidateUpdateLoadbalancerListenerData(ctx, userCred, data, lblis, backendGroup)
 }

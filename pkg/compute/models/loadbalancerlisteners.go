@@ -400,7 +400,7 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		"acl":        aclV,
 
 		"scheduler":   validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
-		"egress_mbps": validators.NewRangeValidator("egress_mbps", api.LB_MbpsMin, api.LB_MbpsMax).Optional(true),
+		"egress_mbps": validators.NewRangeValidator("egress_mbps", api.LB_MbpsMin, api.LB_MbpsMax),
 
 		"client_request_timeout":  validators.NewRangeValidator("client_request_timeout", 0, 600),
 		"client_idle_timeout":     validators.NewRangeValidator("client_idle_timeout", 0, 600),
@@ -440,6 +440,7 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 			return nil, err
 		}
 	}
+
 	if err := LoadbalancerListenerManager.validateAcl(aclStatusV, aclTypeV, aclV, data); err != nil {
 		return nil, err
 	}
@@ -458,7 +459,7 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer listener %s", lblis.Name)
 	}
 
-	return region.GetDriver().ValidateUpdateLoadbalancerListenerData(ctx, userCred, data, backendGroupV.Model)
+	return region.GetDriver().ValidateUpdateLoadbalancerListenerData(ctx, userCred, data, lblis, backendGroupV.Model)
 }
 
 func (lblis *SLoadbalancerListener) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -593,6 +594,9 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovi
 		EnableHTTP2:        lblis.EnableHttp2,
 		EgressMbps:         lblis.EgressMbps,
 		EstablishedTimeout: lblis.BackendConnectTimeout,
+
+		HealthCheckReq: lblis.HealthCheckReq,
+		HealthCheckExp: lblis.HealthCheckExp,
 
 		HealthCheck:         lblis.HealthCheck,
 		HealthCheckTimeout:  lblis.HealthCheckTimeout,
@@ -773,6 +777,9 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 	lblis.BackendServerPort = extListener.GetBackendServerPort()
 
 	switch lblis.ListenerType {
+	case api.LB_LISTENER_TYPE_UDP:
+		lblis.HealthCheckExp = extListener.GetHealthCheckExp()
+		lblis.HealthCheckReq = extListener.GetHealthCheckExp()
 	case api.LB_LISTENER_TYPE_HTTPS:
 		lblis.TLSCipherPolicy = extListener.GetTLSCipherPolicy()
 		lblis.EnableHttp2 = extListener.HTTP2Enabled()

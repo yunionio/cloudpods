@@ -67,6 +67,7 @@ var LB_BACKENDGROUP_TYPE = choices.NewChoices(
 )
 
 const (
+	LB_ALIYUN_SPEC_SHAREABLE = "" //性能共享型
 	LB_ALIYUN_SPEC_S1_SMALL  = "slb.s1.small"
 	LB_ALIYUN_SPEC_S2_SMALL  = "slb.s2.small"
 	LB_ALIYUN_SPEC_S3_SMALL  = "slb.s3.small"
@@ -81,6 +82,7 @@ const (
 )
 
 var LB_ALIYUN_SPECS = choices.NewChoices(
+	LB_ALIYUN_SPEC_SHAREABLE,
 	LB_ALIYUN_SPEC_S1_SMALL,
 	LB_ALIYUN_SPEC_S2_SMALL,
 	LB_ALIYUN_SPEC_S3_SMALL,
@@ -240,6 +242,7 @@ const (
 	LB_SCHEDULER_WLC = "wlc" // weighted least connection
 	LB_SCHEDULER_SCH = "sch" // source-ip-based consistent hash
 	LB_SCHEDULER_TCH = "tch" // 4-tuple-based consistent hash
+	LB_SCHEDULER_QCH = "qch"
 )
 
 var LB_SCHEDULER_TYPES = choices.NewChoices(
@@ -248,6 +251,21 @@ var LB_SCHEDULER_TYPES = choices.NewChoices(
 	LB_SCHEDULER_WLC,
 	LB_SCHEDULER_SCH,
 	LB_SCHEDULER_TCH,
+)
+
+var LB_ALIYUN_UDP_SCHEDULER_TYPES = choices.NewChoices(
+	LB_SCHEDULER_RR,
+	LB_SCHEDULER_WRR,
+	LB_SCHEDULER_WLC,
+	LB_SCHEDULER_SCH,
+	LB_SCHEDULER_TCH,
+	LB_SCHEDULER_QCH,
+)
+
+var LB_ALIYUN_COMMON_SCHEDULER_TYPES = choices.NewChoices(
+	LB_SCHEDULER_RR,
+	LB_SCHEDULER_WRR,
+	LB_SCHEDULER_WLC,
 )
 
 // TODO raw type
