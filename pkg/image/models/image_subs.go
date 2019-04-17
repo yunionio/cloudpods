@@ -8,6 +8,7 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/image/torrent"
@@ -99,15 +100,15 @@ func (self *SImageSubformat) DoConvert(image *SImage) error {
 }
 
 func (self *SImageSubformat) Save(image *SImage) error {
-	if self.Status == IMAGE_STATUS_ACTIVE {
+	if self.Status == api.IMAGE_STATUS_ACTIVE {
 		return nil
 	}
-	if self.Status != IMAGE_STATUS_QUEUED {
+	if self.Status != api.IMAGE_STATUS_QUEUED {
 		return nil // httperrors.NewInvalidStatusError("cannot save in status %s", self.Status)
 	}
 	location := image.GetPath(self.Format)
 	_, err := db.Update(self, func() error {
-		self.Status = IMAGE_STATUS_SAVING
+		self.Status = api.IMAGE_STATUS_SAVING
 		self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, location)
 		return nil
 	})
@@ -136,7 +137,7 @@ func (self *SImageSubformat) Save(image *SImage) error {
 		return err
 	}
 	_, err = db.Update(self, func() error {
-		self.Status = IMAGE_STATUS_ACTIVE
+		self.Status = api.IMAGE_STATUS_ACTIVE
 		self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, location)
 		self.Checksum = checksum
 		self.FastHash = fastHash
@@ -151,16 +152,16 @@ func (self *SImageSubformat) Save(image *SImage) error {
 }
 
 func (self *SImageSubformat) SaveTorrent() error {
-	if self.TorrentStatus == IMAGE_STATUS_ACTIVE {
+	if self.TorrentStatus == api.IMAGE_STATUS_ACTIVE {
 		return nil
 	}
-	if self.TorrentStatus != IMAGE_STATUS_QUEUED {
+	if self.TorrentStatus != api.IMAGE_STATUS_QUEUED {
 		return nil // httperrors.NewInvalidStatusError("cannot save torrent in status %s", self.Status)
 	}
 	imgPath := self.getLocalLocation()
 	torrentPath := filepath.Join(options.Options.TorrentStoreDir, fmt.Sprintf("%s.torrent", filepath.Base(imgPath)))
 	_, err := db.Update(self, func() error {
-		self.TorrentStatus = IMAGE_STATUS_SAVING
+		self.TorrentStatus = api.IMAGE_STATUS_SAVING
 		self.TorrentLocation = fmt.Sprintf("%s%s", LocalFilePrefix, torrentPath)
 		return nil
 	})
@@ -179,7 +180,7 @@ func (self *SImageSubformat) SaveTorrent() error {
 		return err
 	}
 	_, err = db.Update(self, func() error {
-		self.TorrentStatus = IMAGE_STATUS_ACTIVE
+		self.TorrentStatus = api.IMAGE_STATUS_ACTIVE
 		self.TorrentLocation = fmt.Sprintf("%s%s", LocalFilePrefix, torrentPath)
 		self.TorrentChecksum = checksum
 		self.TorrentSize = fileutils2.FileSize(torrentPath)
@@ -298,8 +299,8 @@ func (self *SImageSubformat) setTorrentStatus(status string) error {
 
 func (self *SImageSubformat) checkStatus(useFast bool) {
 	if self.isActive(useFast) {
-		if self.Status != IMAGE_STATUS_ACTIVE {
-			self.setStatus(IMAGE_STATUS_ACTIVE)
+		if self.Status != api.IMAGE_STATUS_ACTIVE {
+			self.setStatus(api.IMAGE_STATUS_ACTIVE)
 		}
 		if len(self.FastHash) == 0 {
 			fastHash, err := fileutils2.FastCheckSum(self.getLocalLocation())
@@ -316,17 +317,17 @@ func (self *SImageSubformat) checkStatus(useFast bool) {
 			}
 		}
 	} else {
-		if self.Status != IMAGE_STATUS_QUEUED {
-			self.setStatus(IMAGE_STATUS_QUEUED)
+		if self.Status != api.IMAGE_STATUS_QUEUED {
+			self.setStatus(api.IMAGE_STATUS_QUEUED)
 		}
 	}
 	if self.isTorrentActive() {
-		if self.TorrentStatus != IMAGE_STATUS_ACTIVE {
-			self.setTorrentStatus(IMAGE_STATUS_ACTIVE)
+		if self.TorrentStatus != api.IMAGE_STATUS_ACTIVE {
+			self.setTorrentStatus(api.IMAGE_STATUS_ACTIVE)
 		}
 	} else {
-		if self.TorrentStatus != IMAGE_STATUS_QUEUED {
-			self.setTorrentStatus(IMAGE_STATUS_QUEUED)
+		if self.TorrentStatus != api.IMAGE_STATUS_QUEUED {
+			self.setTorrentStatus(api.IMAGE_STATUS_QUEUED)
 		}
 	}
 }
