@@ -128,7 +128,7 @@ func (self *SCloudregion) GetVpcCount() int {
 func (self *SCloudregion) GetDriver() IRegionDriver {
 	provider := self.Provider
 	if len(provider) == 0 {
-		provider = api.CLOUD_PROVIDER_KVM
+		provider = api.CLOUD_PROVIDER_ONECLOUD
 	}
 	if !utils.IsInStringArray(provider, api.CLOUD_PROVIDERS) {
 		log.Fatalf("Unsupported region provider %s", provider)
@@ -386,23 +386,31 @@ func (manager *SCloudregionManager) InitializeData() error {
 }
 
 func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		query.(*jsonutils.JSONDict).Remove("provider")
+		if providerStr == api.CLOUD_PROVIDER_ONECLOUD {
+			q = q.IsNullOrEmpty("provider")
+		} else {
+			q = q.Equals("provider", providerStr)
+		}
+	}
+
 	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
 
-	if jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public_cloud", false) {
+	cloudEnvStr, _ := query.GetString("cloud_env")
+	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public_cloud", false) {
 		q = q.In("provider", cloudprovider.GetPublicProviders())
 	}
 
-	if jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private_cloud", false) {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.In(q.Field("provider"), cloudprovider.GetPrivateProviders()),
-			sqlchemy.IsNullOrEmpty(q.Field("provider")),
-		))
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private_cloud", false) {
+		q = q.In("provider", cloudprovider.GetPrivateProviders())
 	}
 
-	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE || jsonutils.QueryBoolean(query, "is_on_premise", false) {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.In(q.Field("provider"), cloudprovider.GetOnPremiseProviders()),
 			sqlchemy.IsNullOrEmpty(q.Field("provider")),
