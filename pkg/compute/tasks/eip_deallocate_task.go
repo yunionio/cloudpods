@@ -58,5 +58,6 @@ func (self *EipDeallocateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		return
 	}
 
+	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_DELETE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

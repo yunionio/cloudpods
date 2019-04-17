@@ -61,5 +61,6 @@ func (self *EipChangeBandwidthTask) OnInit(ctx context.Context, obj db.IStandalo
 		return
 	}
 
+	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_CHANGE_BANDWIDTH, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

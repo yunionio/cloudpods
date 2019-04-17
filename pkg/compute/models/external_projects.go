@@ -111,7 +111,7 @@ func (manager *SExternalProjectManager) GetProject(externalId string, providerId
 		return nil, fmt.Errorf("no external project record %s for provider %s", externalId, providerId)
 	}
 	if count > 1 {
-		return nil, fmt.Errorf("dumplicate external project record %s for provider %s", externalId, providerId)
+		return nil, fmt.Errorf("duplicate external project record %s for provider %s", externalId, providerId)
 	}
 	return project, q.First(project)
 }

@@ -22,10 +22,10 @@ func init() {
 	taskman.RegisterTask(EipAllocateTask{})
 }
 
-func (self *EipAllocateTask) onFailed(ctx context.Context, eip *models.SElasticip, resion string) {
+func (self *EipAllocateTask) onFailed(ctx context.Context, eip *models.SElasticip, reason string) {
 	self.finalReleasePendingUsage(ctx)
-	self.setGuestAllocateEipFailed(eip, resion)
-	self.SetStageFailed(ctx, resion)
+	self.setGuestAllocateEipFailed(eip, reason)
+	self.SetStageFailed(ctx, reason)
 }
 
 func (self *EipAllocateTask) setGuestAllocateEipFailed(eip *models.SElasticip, reason string) {
@@ -92,11 +92,14 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 			self.SetStageFailed(ctx, msg)
 		}
 	} else {
+		logclient.AddActionLogWithStartable(self, eip, logclient.ACT_ALLOCATE, nil, self.UserCred, true)
 		self.SetStageComplete(ctx, nil)
 	}
 }
 
 func (self *EipAllocateTask) OnEipAssociateComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	eip := obj.(*models.SElasticip)
+	logclient.AddActionLogWithStartable(self, eip, logclient.ACT_ALLOCATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
