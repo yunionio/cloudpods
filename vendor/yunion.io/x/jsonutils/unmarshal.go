@@ -429,7 +429,32 @@ func (this *JSONDict) unmarshalValue(val reflect.Value) error {
 	case reflect.Struct:
 		return this.unmarshalStruct(val)
 	case reflect.Interface:
-		val.Set(reflect.ValueOf(this.data))
+		if val.Type().Implements(gotypes.ISerializableType) {
+			objPtr, err := gotypes.NewSerializable(val.Type())
+			if err != nil {
+				return err
+			}
+			if objPtr == nil {
+				val.Set(reflect.ValueOf(this.data))
+				return nil
+			}
+			err = this.unmarshalValue(reflect.ValueOf(objPtr))
+			if err != nil {
+				return err
+			}
+			//
+			// XXX
+			//
+			// cannot unmarshal nested anonymous interface
+			// as nested anonymous interface is treated as a named field
+			// please use jsonutils.Deserialize to descrialize such interface
+			// ...
+			// objPtr = gotypes.Transform(val.Type(), objPtr)
+			//
+			val.Set(reflect.ValueOf(objPtr).Convert(val.Type()))
+		} else {
+			return fmt.Errorf("Do not known how to deserialize json into this interface type %s", val.Type())
+		}
 	case reflect.Ptr:
 		kind := val.Type().Elem().Kind()
 		if kind == reflect.Struct || kind == reflect.Map {
