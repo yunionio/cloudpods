@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
@@ -28,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -91,7 +91,7 @@ func syncRegionZones(ctx context.Context, userCred mcclient.TokenCredential, syn
 	return localZones, remoteZones, nil
 }
 
-func syncRegionSkus(localRegion *SCloudregion) {
+func syncRegionSkus(ctx context.Context, localRegion *SCloudregion) {
 	if localRegion == nil {
 		log.Debugf("local region is nil skipped.")
 		return
@@ -106,6 +106,11 @@ func syncRegionSkus(localRegion *SCloudregion) {
 			// 暂时不终止同步
 			// logSyncFailed(provider, task, msg)
 			return
+		}
+
+		_, err := modules.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region, ""), false)
+		if err != nil {
+			log.Errorf("SchedManager SyncSku %s", err)
 		}
 	}
 }
@@ -771,7 +776,7 @@ func syncPublicCloudProviderInfo(
 	localZones, remoteZones, _ := syncRegionZones(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 
 	if !driver.GetFactory().NeedSyncSkuFromCloud() {
-		syncRegionSkus(localRegion)
+		syncRegionSkus(ctx, localRegion)
 	}
 
 	// no need to lock public cloud region as cloud region for public cloud is readonly
