@@ -243,6 +243,12 @@ func ParseUserData(data string) (*SCloudConfig, error) {
 func (conf *SCloudConfig) MergeUser(u SUser) {
 	for i := 0; i < len(conf.Users); i += 1 {
 		if u.Name == conf.Users[i].Name {
+			// replace conf user password with input
+			if len(u.Passwd) > 0 {
+				conf.Users[i].Passwd = u.Passwd
+				conf.Users[i].LockPassword = u.LockPassword
+			}
+
 			// find user, merge keys
 			for j := 0; j < len(u.SshAuthorizedKeys); j += 1 {
 				if !utils.IsInStringArray(u.SshAuthorizedKeys[j], conf.Users[i].SshAuthorizedKeys) {
