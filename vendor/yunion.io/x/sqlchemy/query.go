@@ -10,6 +10,14 @@ import (
 	"yunion.io/x/pkg/util/reflectutils"
 )
 
+type IQuery interface {
+	String() string
+	QueryFields() []IQueryField
+	Variables() []interface{}
+	SubQuery() *SSubQuery
+	Field(name string) IQueryField
+}
+
 type IQuerySource interface {
 	Expression() string
 	Alias() string
@@ -67,7 +75,7 @@ type SQuery struct {
 }
 
 type SSubQuery struct {
-	query *SQuery
+	query IQuery
 	alias string
 }
 
@@ -117,7 +125,7 @@ func (sq *SSubQuery) Variables() []interface{} {
 }
 
 func (sq *SSubQuery) Field(id string, alias ...string) IQueryField {
-	for _, f := range sq.query.fields {
+	for _, f := range sq.query.QueryFields() {
 		if f.Name() == id {
 			sqf := SSubQueryField{query: sq, field: f}
 			if len(alias) > 0 {
@@ -131,7 +139,7 @@ func (sq *SSubQuery) Field(id string, alias ...string) IQueryField {
 
 func (sq *SSubQuery) Fields() []IQueryField {
 	ret := make([]IQueryField, 0)
-	for _, f := range sq.query.fields {
+	for _, f := range sq.query.QueryFields() {
 		sqf := SSubQueryField{query: sq, field: f}
 		ret = append(ret, &sqf)
 	}
@@ -184,34 +192,44 @@ func (tq *SQuery) _orderBy(order QueryOrderType, fields []IQueryField) *SQuery {
 	return tq
 }
 
-func (tq *SQuery) convertQueryField(fields []interface{}) []IQueryField {
+func (tq *SQuery) Asc(fields ...interface{}) *SQuery {
+	return tq._orderBy(SQL_ORDER_ASC, convertQueryField(tq, fields))
+}
+
+func (tq *SQuery) Desc(fields ...interface{}) *SQuery {
+	return tq._orderBy(SQL_ORDER_DESC, convertQueryField(tq, fields))
+}
+
+func convertQueryField(tq IQuery, fields []interface{}) []IQueryField {
 	nFields := make([]IQueryField, 0)
 	for _, f := range fields {
-		// log.Debugf("%s %s", f, reflect.TypeOf(f))
-		if fName, ok := f.(string); ok {
-			nFields = append(nFields, tq.Field(fName))
-		} else if fq, ok := f.(IQueryField); ok {
-			nFields = append(nFields, fq)
-		} else {
+		switch ff := f.(type) {
+		case string:
+			nFields = append(nFields, tq.Field(ff))
+		case IQueryField:
+			find := false
+			for _, f := range tq.QueryFields() {
+				if f.Name() == ff.Name() {
+					find = true
+					nFields = append(nFields, ff)
+					break
+				}
+			}
+			if !find {
+				log.Errorf("Fail to find query field %s in query", f)
+			}
+		default:
 			log.Errorf("Invalid query field %s neither string nor IQueryField", f)
 		}
 	}
 	return nFields
 }
 
-func (tq *SQuery) Asc(fields ...interface{}) *SQuery {
-	return tq._orderBy(SQL_ORDER_ASC, tq.convertQueryField(fields))
-}
-
-func (tq *SQuery) Desc(fields ...interface{}) *SQuery {
-	return tq._orderBy(SQL_ORDER_DESC, tq.convertQueryField(fields))
-}
-
 func (tq *SQuery) GroupBy(f ...interface{}) *SQuery {
 	if tq.groupBy == nil {
 		tq.groupBy = make([]IQueryField, 0)
 	}
-	qfs := tq.convertQueryField(f)
+	qfs := convertQueryField(tq, f)
 	tq.groupBy = append(tq.groupBy, qfs...)
 	return tq
 }
@@ -224,6 +242,10 @@ func (tq *SQuery) Limit(limit int) *SQuery {
 func (tq *SQuery) Offset(offset int) *SQuery {
 	tq.offset = offset
 	return tq
+}
+
+func (tq *SQuery) QueryFields() []IQueryField {
+	return tq.fields
 }
 
 func (tq *SQuery) String() string {
@@ -250,15 +272,13 @@ func queryString(tq *SQuery) string {
 	}
 	buf.WriteString(" FROM ")
 	buf.WriteString(fmt.Sprintf("%s AS `%s`", tq.from.Expression(), tq.from.Alias()))
-	if tq.joins != nil && len(tq.joins) > 0 {
-		for _, join := range tq.joins {
-			buf.WriteByte(' ')
-			buf.WriteString(string(join.jointype))
-			buf.WriteByte(' ')
-			buf.WriteString(fmt.Sprintf("%s AS `%s`", join.from.Expression(), join.from.Alias()))
-			buf.WriteString(" ON ")
-			buf.WriteString(join.condition.WhereClause())
-		}
+	for _, join := range tq.joins {
+		buf.WriteByte(' ')
+		buf.WriteString(string(join.jointype))
+		buf.WriteByte(' ')
+		buf.WriteString(fmt.Sprintf("%s AS `%s`", join.from.Expression(), join.from.Alias()))
+		buf.WriteString(" ON ")
+		buf.WriteString(join.condition.WhereClause())
 	}
 	if tq.where != nil {
 		buf.WriteString(" WHERE ")
@@ -323,13 +343,11 @@ func (tq *SQuery) Variables() []interface{} {
 		fromvars = tq.from.Variables()
 		vars = append(vars, fromvars...)
 	}
-	if tq.joins != nil && len(tq.joins) > 0 {
-		for _, join := range tq.joins {
-			fromvars = join.from.Variables()
-			vars = append(vars, fromvars...)
-			fromvars = join.condition.Variables()
-			vars = append(vars, fromvars...)
-		}
+	for _, join := range tq.joins {
+		fromvars = join.from.Variables()
+		vars = append(vars, fromvars...)
+		fromvars = join.condition.Variables()
+		vars = append(vars, fromvars...)
 	}
 	if tq.where != nil {
 		fromvars = tq.where.Variables()
