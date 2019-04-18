@@ -65,7 +65,6 @@ var TaskManager *STaskManager
 
 func init() {
 	TaskManager = &STaskManager{SResourceBaseManager: db.NewResourceBaseManager(STask{}, "tasks_tbl", "task", "tasks")}
-	TaskManager.TableSpec().AddIndex(true, "created_at", "stage", "obj_id", "obj_name")
 }
 
 type STask struct {
@@ -73,10 +72,10 @@ type STask struct {
 
 	Id string `width:"36" charset:"ascii" primary:"true" list:"user"` // Column(VARCHAR(36, charset='ascii'), primary_key=True, default=get_uuid)
 
-	ObjName  string                   `width:"128" charset:"utf8" nullable:"false" list:"user"`  //  Column(VARCHAR(128, charset='utf8'), nullable=False)
-	ObjId    string                   `width:"128" charset:"ascii" nullable:"false" list:"user"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
-	TaskName string                   `width:"64" charset:"ascii" nullable:"false" list:"user"`  // Column(VARCHAR(64, charset='ascii'), nullable=False)
-	UserCred mcclient.TokenCredential `width:"1024" charset:"ascii" nullable:"false" get:"user"` // Column(VARCHAR(1024, charset='ascii'), nullable=False)
+	ObjName  string                   `width:"128" charset:"utf8" nullable:"false" list:"user"`               //  Column(VARCHAR(128, charset='utf8'), nullable=False)
+	ObjId    string                   `width:"128" charset:"ascii" nullable:"false" list:"user" index:"true"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	TaskName string                   `width:"64" charset:"ascii" nullable:"false" list:"user"`               // Column(VARCHAR(64, charset='ascii'), nullable=False)
+	UserCred mcclient.TokenCredential `width:"1024" charset:"ascii" nullable:"false" get:"user"`              // Column(VARCHAR(1024, charset='ascii'), nullable=False)
 	// OwnerCred string `width:"512" charset:"ascii" nullable:"true"` // Column(VARCHAR(512, charset='ascii'), nullable=True)
 	Params *jsonutils.JSONDict `charset:"ascii" length:"medium" nullable:"false" get:"user"` // Column(MEDIUMTEXT(charset='ascii'), nullable=False)
 
@@ -706,48 +705,53 @@ func (task *STask) GetStartTime() time.Time {
 }
 
 func (manager *STaskManager) QueryTasksOfObject(obj db.IStandaloneModel, since time.Time, isOpen *bool) *sqlchemy.SQuery {
-	subq1 := manager.Query("id")
-	subq1 = subq1.Equals("obj_name", obj.Keyword())
-	subq1 = subq1.Equals("obj_id", obj.GetId())
-	if !since.IsZero() {
-		subq1 = subq1.GE("created_at", since)
-	}
-	if isOpen != nil {
-		if *isOpen {
-			subq1 = subq1.Filter(sqlchemy.NOT(
-				sqlchemy.In(subq1.Field("stage"), []string{"complete", "failed"}),
-			))
-		} else if !*isOpen {
-			subq1 = subq1.In("stage", []string{"complete", "failed"})
+	subq1 := manager.Query()
+	{
+		subq1 = subq1.Equals("obj_id", obj.GetId())
+		subq1 = subq1.Equals("obj_name", obj.Keyword())
+		if !since.IsZero() {
+			subq1 = subq1.GE("created_at", since)
+		}
+		if isOpen != nil {
+			if *isOpen {
+				subq1 = subq1.Filter(sqlchemy.NOT(
+					sqlchemy.In(subq1.Field("stage"), []string{"complete", "failed"}),
+				))
+			} else if !*isOpen {
+				subq1 = subq1.In("stage", []string{"complete", "failed"})
+			}
 		}
 	}
 
-	taskObjs := TaskObjectManager.Query().SubQuery()
-	subq2 := manager.Query("id").Distinct()
-	subq2 = subq2.Join(taskObjs, sqlchemy.Equals(taskObjs.Field("task_id"), subq2.Field("id")))
-	subq2 = subq2.Filter(sqlchemy.Equals(subq2.Field("obj_id"), MULTI_OBJECTS_ID))
-	subq2 = subq2.Filter(sqlchemy.Equals(subq2.Field("obj_name"), obj.Keyword()))
-	subq2 = subq2.Filter(sqlchemy.Equals(taskObjs.Field("obj_id"), obj.GetId()))
-	if !since.IsZero() {
-		subq2 = subq2.Filter(sqlchemy.GE(subq2.Field("created_at"), since))
-	}
-	if isOpen != nil {
-		if *isOpen {
-			subq2 = subq2.Filter(sqlchemy.NOT(
-				sqlchemy.In(subq2.Field("stage"), []string{"complete", "failed"}),
-			))
-		} else if !*isOpen {
-			subq2 = subq2.In("stage", []string{"complete", "failed"})
+	subq2 := manager.Query()
+	{
+		taskObjs := TaskObjectManager.TableSpec().Instance()
+		subq2 = subq2.Join(taskObjs, sqlchemy.AND(
+			sqlchemy.Equals(taskObjs.Field("task_id"), subq2.Field("id")),
+			sqlchemy.Equals(taskObjs.Field("obj_id"), obj.GetId()),
+		))
+		subq2 = subq2.Filter(sqlchemy.Equals(subq2.Field("obj_id"), MULTI_OBJECTS_ID))
+		subq2 = subq2.Filter(sqlchemy.Equals(subq2.Field("obj_name"), obj.Keyword()))
+		if !since.IsZero() {
+			subq2 = subq2.Filter(sqlchemy.GE(subq2.Field("created_at"), since))
+		}
+		if isOpen != nil {
+			if *isOpen {
+				subq2 = subq2.Filter(sqlchemy.NOT(
+					sqlchemy.In(subq2.Field("stage"), []string{"complete", "failed"}),
+				))
+			} else if !*isOpen {
+				subq2 = subq2.In("stage", []string{"complete", "failed"})
+			}
 		}
 	}
 
-	q := manager.Query()
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.In(q.Field("id"), subq1.SubQuery()),
-		sqlchemy.In(q.Field("id"), subq2.SubQuery()),
-	))
-	q = q.Desc("created_at")
+	// subq1 and subq2 do not intersect for the fact that they have
+	// different condition on tasks_tbl.obj_id field
+	uq := sqlchemy.Union(subq1, subq2)
+	uq = uq.Desc("created_at")
 
+	q := uq.SubQuery().Query()
 	return q
 }
 
