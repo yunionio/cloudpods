@@ -265,15 +265,16 @@ func (c *SchedtagChecker) Check(p ISchedtagPredicate, candidate ISchedtagCandida
 
 	log.V(10).Debugf("[SchedtagChecker] check candidate: %s requireTags: %#v, execludeTags: %#v, candidateTags: %#v", candidate.IndexKey(), requireTags, execludeTags, candidateTags)
 
+	candiInfo := fmt.Sprintf("%s:%s", candidate.ResourceType(), candidate.IndexKey())
 	if len(execludeTags) > 0 {
 		if ok, tag := c.HasIntersection(execludeTags, candidateTags); ok {
-			return fmt.Errorf("Execlude by schedtag: '%s:%s'", tag.Name, tag.Id)
+			return fmt.Errorf("schedtag %q exclude %s", tag.Name, candiInfo)
 		}
 	}
 
 	if len(requireTags) > 0 {
 		if ok, tag := c.Contains(candidateTags, requireTags); !ok {
-			return fmt.Errorf("Need schedtag: '%s'", tag.Id)
+			return fmt.Errorf("%s need schedtag: %q", candiInfo, tag.Id)
 		}
 	}
 

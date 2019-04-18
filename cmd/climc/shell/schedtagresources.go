@@ -121,5 +121,6 @@ func init() {
 	newSchedtagModelHelper(
 		modules.Schedtaghosts,
 		modules.Schedtagstorages,
+		modules.Schedtagnetworks,
 	).register()
 }

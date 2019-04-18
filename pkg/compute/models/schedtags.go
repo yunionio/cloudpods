@@ -99,6 +99,7 @@ func (manager *SSchedtagManager) InitializeData() error {
 	manager.BindJointManagers(
 		HostschedtagManager,
 		StorageschedtagManager,
+		NetworkschedtagManager,
 	)
 	return nil
 }

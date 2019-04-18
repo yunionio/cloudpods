@@ -134,6 +134,7 @@ type ServerConfigs struct {
 	Disk           []string `help:"Disk descriptions" nargs:"+"`
 	DiskSchedtag   []string `help:"Disk schedtag description, e.g. '0:<tag>:<strategy>'"`
 	Net            []string `help:"Network descriptions" metavar:"NETWORK"`
+	NetSchedtag    []string `help:"Network schedtag description, e.g. '0:<tag>:<strategy>'"`
 	IsolatedDevice []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
 	RaidConfig     []string `help:"Baremetal raid config" json:"-"`
 	Project        string   `help:"'Owner project ID or Name" json:"tenant"`
@@ -178,6 +179,17 @@ func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 			return nil, err
 		}
 		data.Networks = append(data.Networks, net)
+	}
+	for _, ntag := range o.NetSchedtag {
+		idx, tag, err := cmdline.ParseResourceSchedtagConfig(ntag)
+		if err != nil {
+			return nil, fmt.Errorf("ParseDiskSchedtag: %v", err)
+		}
+		if idx >= len(data.Networks) {
+			return nil, fmt.Errorf("Invalid network index: %d", idx)
+		}
+		n := data.Networks[idx]
+		n.Schedtags = append(n.Schedtags, tag)
 	}
 	for i, g := range o.IsolatedDevice {
 		dev, err := cmdline.ParseIsolatedDevice(g, i)

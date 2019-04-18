@@ -17,6 +17,7 @@ package modules
 var (
 	Schedtaghosts    JointResourceManager
 	Schedtagstorages JointResourceManager
+	Schedtagnetworks JointResourceManager
 )
 
 func newSchedtagJointManager(keyword, keywordPlural string, columns, adminColumns []string, slave Manager) JointResourceManager {
@@ -36,7 +37,12 @@ func init() {
 		[]string{},
 		&Storages)
 
-	registerCompute(&Schedtaghosts)
+	Schedtagnetworks = newSchedtagJointManager("schedtagnetwork", "schedtagnetworks",
+		[]string{"Network_ID", "Network"},
+		[]string{},
+		&Networks)
 
+	registerCompute(&Schedtaghosts)
 	registerCompute(&Schedtagstorages)
+	registerCompute(&Schedtagnetworks)
 }

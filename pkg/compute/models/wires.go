@@ -488,6 +488,10 @@ func (self *SWire) GetCandidateNetworkForIp(userCred mcclient.TokenCredential, i
 	return nil, nil
 }
 
+func ChooseNetworkByAddressCount(nets []*SNetwork) (*SNetwork, *SNetwork) {
+	return chooseNetworkByAddressCount(nets)
+}
+
 func chooseNetworkByAddressCount(nets []*SNetwork) (*SNetwork, *SNetwork) {
 	minCnt := 65535
 	maxCnt := 0

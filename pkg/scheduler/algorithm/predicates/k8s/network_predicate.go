@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/compute/models"
 
+	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 )
 
@@ -72,13 +73,13 @@ func (p *NetworkPredicate) Execute(cli *kubernetes.Clientset, pod *v1.Pod, node 
 	return true, nil
 }
 
-func (p NetworkPredicate) checkByNetworks(nets []models.SNetwork) error {
+func (p NetworkPredicate) checkByNetworks(nets []*api.CandidateNetwork) error {
 	if len(nets) == 0 {
 		return fmt.Errorf("Network is empty")
 	}
 	errs := make([]error, 0)
 	for _, net := range nets {
-		err := p.checkByNetwork(&net)
+		err := p.checkByNetwork(net.SNetwork)
 		if err == nil {
 			return nil
 		}
@@ -97,13 +98,13 @@ func (p NetworkPredicate) checkByNetwork(net *models.SNetwork) error {
 	return nil
 }
 
-func (p NetworkPredicate) checkNetworksIP(ip string, nets []models.SNetwork) error {
+func (p NetworkPredicate) checkNetworksIP(ip string, nets []*api.CandidateNetwork) error {
 	if len(nets) == 0 {
 		return fmt.Errorf("Network is empty")
 	}
 	errs := make([]error, 0)
 	for _, net := range nets {
-		err := p.checkNetworkIP(ip, &net)
+		err := p.checkNetworkIP(ip, net.SNetwork)
 		if err == nil {
 			return nil
 		}

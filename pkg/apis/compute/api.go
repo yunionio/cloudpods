@@ -50,8 +50,9 @@ type NetworkConfig struct {
 	StandbyPortCount int `json:"standby_port_count"`
 	StandbyAddrCount int `json:"standby_addr_count"`
 
-	Project string `json:"project_id"`
-	Ifname  string `json:"ifname"`
+	Project   string            `json:"project_id"`
+	Ifname    string            `json:"ifname"`
+	Schedtags []*SchedtagConfig `json:"schedtags"`
 }
 
 type DiskConfig struct {

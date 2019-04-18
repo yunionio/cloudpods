@@ -715,6 +715,10 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info *api.NetworkConfig
 	return info, nil
 }
 
+func (self *SNetwork) GetFreeAddressCount() int {
+	return self.getFreeAddressCount()
+}
+
 func (self *SNetwork) getFreeAddressCount() int {
 	return self.getIPRange().AddressCount() - self.GetTotalNicCount()
 }
@@ -807,7 +811,7 @@ func (self *SNetwork) GetPorts() int {
 	return self.getIPRange().AddressCount()
 }
 
-func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SNetwork) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	wire := self.GetWire()
 	extra.Add(jsonutils.NewString(wire.Name), "wire")
 	if self.IsExitNetwork() {
@@ -856,6 +860,7 @@ func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 
 	info := vpc.getCloudProviderInfo()
 	extra.Update(jsonutils.Marshal(&info))
+	extra = GetSchedtagsDetailsToResource(self, ctx, extra)
 
 	return extra
 }
@@ -865,13 +870,13 @@ func (self *SNetwork) GetExtraDetails(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, err
 	}
-	extra = self.getMoreDetails(extra)
+	extra = self.getMoreDetails(ctx, extra)
 	return extra, nil
 }
 
 func (self *SNetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = self.getMoreDetails(extra)
+	extra = self.getMoreDetails(ctx, extra)
 	return extra
 }
 
@@ -1788,4 +1793,32 @@ func (manager *SNetworkManager) IsValidOnPremiseNetworkIP(ipStr string) bool {
 		return true
 	}
 	return false
+}
+
+func (network *SNetwork) GetSchedtags() []SSchedtag {
+	return GetSchedtags(NetworkschedtagManager, network.Id)
+}
+
+func (network *SNetwork) GetDynamicConditionInput() *jsonutils.JSONDict {
+	return jsonutils.Marshal(network).(*jsonutils.JSONDict)
+}
+
+func (network *SNetwork) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return AllowPerformSetResourceSchedtag(network, ctx, userCred, query, data)
+}
+
+func (network *SNetwork) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return PerformSetResourceSchedtag(network, ctx, userCred, query, data)
+}
+
+func (network *SNetwork) GetSchedtagJointManager() ISchedtagJointManager {
+	return NetworkschedtagManager
+}
+
+func (network *SNetwork) ClearSchedDescCache() error {
+	wire := network.GetWire()
+	if wire == nil {
+		return nil
+	}
+	return wire.clearHostSchedDescCache()
 }
