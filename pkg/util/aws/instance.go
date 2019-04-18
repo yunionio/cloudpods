@@ -16,6 +16,7 @@ package aws
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
@@ -30,6 +31,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/cloudinit"
 )
 
 const (
@@ -121,7 +123,36 @@ type SInstance struct {
 }
 
 func (self *SInstance) UpdateUserData(userData string) error {
-	return cloudprovider.ErrNotImplemented
+	udata := &ec2.BlobAttributeValue{}
+	udata.SetValue([]byte(userData))
+
+	input := &ec2.ModifyInstanceAttributeInput{}
+	input.SetUserData(udata)
+	input.SetInstanceId(self.GetId())
+	_, err := self.host.zone.region.ec2Client.ModifyInstanceAttribute(input)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (self *SInstance) GetUserData() (string, error) {
+	input := &ec2.DescribeInstanceAttributeInput{}
+	input.SetInstanceId(self.GetId())
+	input.SetAttribute("userData")
+	ret, err := self.host.zone.region.ec2Client.DescribeInstanceAttribute(input)
+	if err != nil {
+		return "", err
+	}
+
+	d := StrVal(ret.UserData.Value)
+	udata, err := base64.StdEncoding.DecodeString(d)
+	if err != nil {
+		return "", fmt.Errorf("GetUserData decode user data %s", err)
+	}
+
+	return string(udata), nil
 }
 
 func (self *SInstance) GetId() string {
@@ -373,11 +404,33 @@ func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
 }
 
 func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
-	if len(publicKey) > 0 || len(passwd) > 0 {
-		return "", fmt.Errorf("aws rebuild root not support specific publickey/password")
+	udata, err := self.GetUserData()
+	if err != nil {
+		return "", err
 	}
 
-	diskId, err := self.host.zone.region.ReplaceSystemDisk(ctx, self.InstanceId, imageId, sysSizeGB)
+	var cloudconfig *cloudinit.SCloudConfig
+	if len(udata) == 0 {
+		cloudconfig = &cloudinit.SCloudConfig{}
+	} else {
+		cloudconfig, err = cloudinit.ParseUserDataBase64(udata)
+		if err != nil {
+			log.Debugf("RebuildRoot invalid instance user data %s", udata)
+			return "", fmt.Errorf("RebuildRoot invalid instance user data %s", err)
+		}
+	}
+
+	loginUser := cloudinit.NewUser(api.VM_AWS_DEFAULT_LOGIN_USER)
+	loginUser.SudoPolicy(cloudinit.USER_SUDO_NOPASSWD)
+	if len(publicKey) > 0 {
+		loginUser.SshKey(publicKey)
+		cloudconfig.MergeUser(loginUser)
+	} else if len(passwd) > 0 {
+		loginUser.Password(passwd)
+		cloudconfig.MergeUser(loginUser)
+	}
+
+	diskId, err := self.host.zone.region.ReplaceSystemDisk(ctx, self.InstanceId, imageId, sysSizeGB, cloudconfig.UserDataBase64())
 	if err != nil {
 		return "", err
 	}
@@ -673,11 +726,8 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 		InstanceType:        &instanceType,
 		MaxCount:            &count,
 		MinCount:            &count,
-		SubnetId:            &SubnetId,
-		PrivateIpAddress:    &ipAddr,
 		BlockDeviceMappings: blockDevices,
 		Placement:           &ec2.Placement{AvailabilityZone: &zoneId},
-		SecurityGroupIds:    []*string{&securityGroupId},
 		TagSpecifications:   []*ec2.TagSpecification{ec2TagSpec},
 	}
 
@@ -689,6 +739,21 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	// user data
 	if len(userData) > 0 {
 		params.SetUserData(userData)
+	}
+
+	// ip address
+	if len(ipAddr) > 0 {
+		params.SetPrivateIpAddress(ipAddr)
+	}
+
+	// subnet id
+	if len(SubnetId) > 0 {
+		params.SetSubnetId(SubnetId)
+	}
+
+	// security group
+	if len(securityGroupId) > 0 {
+		params.SetSecurityGroupIds([]*string{&securityGroupId})
 	}
 
 	res, err := self.ec2Client.RunInstances(&params)
@@ -819,12 +884,11 @@ func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
 	return fmt.Errorf("aws not support change hostname.")
 }
 
-func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, imageId string, sysDiskSizeGB int) (string, error) {
+func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, imageId string, sysDiskSizeGB int, userdata string) (string, error) {
 	instance, err := self.GetInstance(instanceId)
 	if err != nil {
 		return "", err
 	}
-
 	disks, _, err := self.GetDisks(instanceId, instance.ZoneId, "", nil, 0, 0)
 	if err != nil {
 		return "", err
@@ -843,39 +907,74 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 	}
 	log.Debugf("ReplaceSystemDisk replace root disk %s", rootDisk.DiskId)
 
-	image, err := self.GetImage(imageId)
-	if err != nil {
-		return "", err
+	// create tmp server
+	tempName := fmt.Sprintf("__tmp_%s", instance.GetName())
+	_id, err := self.CreateInstance(tempName,
+		imageId,
+		instance.InstanceType,
+		"",
+		"",
+		instance.ZoneId,
+		instance.Description,
+		[]SDisk{{Size: sysDiskSizeGB, Category: rootDisk.Category}},
+		"",
+		"",
+		userdata)
+	if err == nil {
+		defer self.DeleteVM(_id)
+	} else {
+		log.Debugf("ReplaceSystemDisk create temp server failed. %s", err)
+		return "",fmt.Errorf("ReplaceSystemDisk create temp server failed.")
 	}
 
-	diskId, err := self.CreateDisk(instance.ZoneId, rootDisk.Category, rootDisk.GetName(), sysDiskSizeGB, image.RootDevice.SnapshotId, "")
+	self.ec2Client.WaitUntilInstanceRunning(&ec2.DescribeInstancesInput{InstanceIds: []*string{&_id}})
+	err = self.StopVM(_id, true)
 	if err != nil {
-		return "", err
+		log.Debugf("ReplaceSystemDisk stop temp server failed %s", err)
+		return "", fmt.Errorf("ReplaceSystemDisk stop temp server failed")
 	}
+	self.ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&_id}})
 
-	self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&diskId}})
-	self.ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
+	// detach disks
+	tempInstance, err := self.GetInstance(_id)
+	if err != nil {
+		log.Debugf("ReplaceSystemDisk get temp server failed %s", err)
+		return "", fmt.Errorf("ReplaceSystemDisk get temp server failed")
+	}
 
 	err = self.DetachDisk(instance.GetId(), rootDisk.DiskId)
 	if err != nil {
 		log.Debugf("ReplaceSystemDisk detach disk %s: %s", rootDisk.DiskId, err)
 		return "", err
 	}
-	self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&rootDisk.DiskId}})
 
-	err = self.AttachDisk(instance.GetId(), diskId, rootDisk.Device)
+	err = self.DetachDisk(tempInstance.GetId(), tempInstance.Disks[0])
 	if err != nil {
-		log.Debugf("ReplaceSystemDisk attach disk %s: %s", diskId, err)
+		log.Debugf("ReplaceSystemDisk detach disk %s: %s", tempInstance.Disks[0], err)
+		return "", err
+	}
+	self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&rootDisk.DiskId}})
+	self.ec2Client.WaitUntilVolumeAvailable(&ec2.DescribeVolumesInput{VolumeIds: []*string{&tempInstance.Disks[0]}})
+
+	err = self.AttachDisk(instance.GetId(), tempInstance.Disks[0], rootDisk.Device)
+	if err != nil {
+		log.Debugf("ReplaceSystemDisk attach disk %s: %s", tempInstance.Disks[0], err)
 		return "", err
 	}
 	self.ec2Client.WaitUntilInstanceStopped(&ec2.DescribeInstancesInput{InstanceIds: []*string{&instanceId}})
-	self.ec2Client.WaitUntilVolumeInUse(&ec2.DescribeVolumesInput{VolumeIds: []*string{&diskId}})
+	self.ec2Client.WaitUntilVolumeInUse(&ec2.DescribeVolumesInput{VolumeIds: []*string{&tempInstance.Disks[0]}})
+
+	err = instance.UpdateUserData(userdata)
+	if err != nil {
+		log.Debugf("ReplaceSystemDisk update user data %", err)
+		return "", fmt.Errorf("ReplaceSystemDisk update user data failed")
+	}
 
 	err = self.DeleteDisk(rootDisk.DiskId)
 	if err != nil {
 		log.Debugf("ReplaceSystemDisk delete old disk %s: %s", rootDisk.DiskId, err)
 	}
-	return diskId, nil
+	return tempInstance.Disks[0], nil
 }
 
 func (self *SRegion) ChangeVMConfig(zoneId string, instanceId string, ncpu int, vmem int, disks []*SDisk) error {
