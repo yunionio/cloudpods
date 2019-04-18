@@ -16,6 +16,7 @@ package cloudprovider
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/osprofile"
 
 	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -66,15 +67,18 @@ func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) er
 	if publicKey, _ := config.GetString("public_key"); len(publicKey) > 0 {
 		vmConfig.PublicKey = publicKey
 	}
-	if userDataType, _ := config.GetString("user_data_type"); len(userDataType) > 0 {
-		vmConfig.UserDataType = userDataType
+	//目前所写的userData格式仅支持Linux
+	if vmConfig.OsType == osprofile.OS_TYPE_LINUX {
+		if userDataType, _ := config.GetString("user_data_type"); len(userDataType) > 0 {
+			vmConfig.UserDataType = userDataType
+		}
+
+		adminPublicKey, _ := config.GetString("admin_public_key")
+		projectPublicKey, _ := config.GetString("project_public_key")
+		oUserData, _ := config.GetString("user_data")
+
+		vmConfig.UserData = generateUserData(adminPublicKey, projectPublicKey, oUserData, vmConfig.UserDataType)
 	}
-
-	adminPublicKey, _ := config.GetString("admin_public_key")
-	projectPublicKey, _ := config.GetString("project_public_key")
-	oUserData, _ := config.GetString("user_data")
-
-	vmConfig.UserData = generateUserData(adminPublicKey, projectPublicKey, oUserData, vmConfig.UserDataType)
 
 	resetPassword := jsonutils.QueryBoolean(config, "reset_password", false)
 	vmConfig.Password, _ = config.GetString("password")
