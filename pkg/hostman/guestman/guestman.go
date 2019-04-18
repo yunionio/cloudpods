@@ -46,6 +46,12 @@ import (
 
 const (
 	VNC_PORT_BASE = 5900
+
+	GUEST_RUNNING      = "running"
+	GUEST_BLOCK_STREAM = "block_stream"
+	GUEST_SUSPEND      = "suspend"
+	GUSET_STOPPED      = "stopped"
+	GUEST_NOT_FOUND    = "notfound"
 )
 
 type SGuestManager struct {
@@ -340,19 +346,28 @@ func (m *SGuestManager) CpusetBalance(ctx context.Context, params interface{}) (
 }
 
 func (m *SGuestManager) Status(sid string) string {
+	if status := m.GetStatus(sid); status == GUEST_RUNNING && m.Servers[sid].Monitor == nil {
+		m.Servers[sid].StartMonitor(context.Background())
+		return status
+	} else {
+		return status
+	}
+}
+
+func (m *SGuestManager) GetStatus(sid string) string {
 	if guest, ok := m.Servers[sid]; ok {
 		if guest.Monitor != nil && guest.IsMaster() && !guest.IsMirrorJobSucc() {
-			return "block_stream"
+			return GUEST_BLOCK_STREAM
 		}
 		if guest.IsRunning() {
-			return "running"
+			return GUEST_RUNNING
 		} else if guest.IsSuspend() {
-			return "suspend"
+			return GUEST_SUSPEND
 		} else {
-			return "stopped"
+			return GUSET_STOPPED
 		}
 	} else {
-		return "notfound"
+		return GUEST_NOT_FOUND
 	}
 }
 
