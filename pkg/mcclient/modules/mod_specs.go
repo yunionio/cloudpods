@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -62,6 +63,22 @@ func (this *SpecsManager) GetAllSpecs(s *mcclient.ClientSession, params jsonutil
 
 func (this *SpecsManager) GetModelSpecs(s *mcclient.ClientSession, model string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	url := newSpecURL(model, params)
+	return this._get(s, url, this.Keyword)
+}
+
+func (this *SpecsManager) GetObjects(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	dict := params.(*jsonutils.JSONDict)
+	model, err := dict.GetString("kind")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Not found kind in query: %v", err)
+	}
+	dict.Remove("kind")
+	specKey, err := params.GetString("key")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Not found key in query: %v", err)
+	}
+	dict.Remove("key")
+	url := newSpecActionURL(model, specKey, "resource", dict)
 	return this._get(s, url, this.Keyword)
 }
 
