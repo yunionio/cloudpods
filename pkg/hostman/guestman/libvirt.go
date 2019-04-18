@@ -89,7 +89,7 @@ func setAttributeFromLibvirtConfig(
 ) (int, error) {
 	var Matched = true
 	for i, server := range libvirtConfig.Servers {
-		for mac, _ := range server.MacIp {
+		for mac := range server.MacIp {
 			if !IsMacInGuestConfig(guestConfig, mac) {
 				Matched = false
 				break
