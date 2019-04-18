@@ -2,7 +2,6 @@ package sqlchemy
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -51,7 +50,6 @@ func (index *STableIndex) QuotedColumns() []string {
 }
 
 func (ts *STableSpec) AddIndex(unique bool, cols ...string) bool {
-	sort.Sort(TColumnNames(cols))
 	for i := 0; i < len(ts.indexes); i += 1 {
 		if ts.indexes[i].IsIdentical(cols...) {
 			return false
