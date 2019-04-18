@@ -3001,10 +3001,6 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 				loginUser.SshKey(pub)
 			} else if pwd, _ := config.GetString("password"); len(pwd) > 0 {
 				loginUser.Password(pwd)
-			} else {
-				pwd = seclib2.RandomPassword2(12)
-				config.Set("password", jsonutils.NewString(pwd))
-				loginUser.Password(pwd)
 			}
 
 			cloudconfig := cloudinit.SCloudConfig{Users: []cloudinit.SUser{loginUser}}

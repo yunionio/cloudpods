@@ -85,10 +85,14 @@ func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
 	return self.wire
 }
 
+// 每个子网 CIDR 块中的前四个 IP 地址和最后一个 IP 地址无法使用
 func (self *SNetwork) GetIpStart() string {
 	pref, _ := netutils.NewIPV4Prefix(self.CidrBlock)
 	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
 	startIp = startIp.StepUp()                    // 1
+	startIp = startIp.StepUp()                    // 2
+	startIp = startIp.StepUp()                    // 3
+	startIp = startIp.StepUp()                    // 4
 	return startIp.String()
 }
 
@@ -96,8 +100,6 @@ func (self *SNetwork) GetIpEnd() string {
 	pref, _ := netutils.NewIPV4Prefix(self.CidrBlock)
 	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
 	endIp = endIp.StepDown()                          // 254
-	endIp = endIp.StepDown()                          // 253
-	endIp = endIp.StepDown()                          // 252
 	return endIp.String()
 }
 
