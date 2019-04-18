@@ -66,7 +66,7 @@ func (self *GuestAttachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_ATTACH_DISK, nil, self.UserCred, true)
 }
 
-func (self *GuestAttachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, resion jsonutils.JSONObject) {
+func (self *GuestAttachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, reason jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	diskId, _ := self.Params.GetString("disk_id")
 	objDisk, err := models.DiskManager.FetchById(diskId)
@@ -75,10 +75,10 @@ func (self *GuestAttachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context,
 		return
 	}
 	disk := objDisk.(*models.SDisk)
-	db.OpsLog.LogEvent(disk, db.ACT_ATTACH, resion.String(), self.UserCred)
+	db.OpsLog.LogEvent(disk, db.ACT_ATTACH, reason.String(), self.UserCred)
 	disk.SetStatus(self.UserCred, models.DISK_READY, "")
 	guest.DetachDisk(ctx, disk, self.UserCred)
-	self.OnTaskFail(ctx, guest, disk, fmt.Errorf(resion.String()))
+	self.OnTaskFail(ctx, guest, disk, fmt.Errorf(reason.String()))
 }
 
 func (self *GuestAttachDiskTask) OnTaskFail(ctx context.Context, guest *models.SGuest, disk *models.SDisk, err error) {
