@@ -354,12 +354,15 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx 
 			time.Sleep(time.Second * 5)
 			waited += 5
 		} else {
-			if idisks[0].GetGlobalId() != diskId {
-				log.Errorf("system disk id inconsistent %s != %s", idisks[0].GetGlobalId(), diskId)
+			if idisks[0].GetGlobalId() == diskId {
+				break
+			}
+			if waited > maxWaitSecs {
 				return nil, fmt.Errorf("inconsistent sys disk id after rebuild root")
 			}
-
-			break
+			log.Debugf("current system disk id inconsistent %s != %s, try after 5 seconds", idisks[0].GetGlobalId(), diskId)
+			time.Sleep(time.Second * 5)
+			waited += 5
 		}
 	}
 
