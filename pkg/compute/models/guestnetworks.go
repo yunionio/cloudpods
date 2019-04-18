@@ -255,8 +255,7 @@ func (self *SGuestnetwork) getJsonDescAtBaremetal(host *SHost) jsonutils.JSONObj
 	return self.getGeneralJsonDesc(host, network, hostwire)
 }
 
-func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
-	network := self.GetNetwork()
+func getHostNetworkAdminWire(host *SHost, network *SNetwork) (*SHostwire, error) {
 	hostwires := host.getHostwiresOfId(network.WireId)
 	var hostWire *SHostwire
 	for i := 0; i < len(hostwires); i++ {
@@ -268,8 +267,17 @@ func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 		}
 	}
 	if hostWire == nil {
-		log.Errorf("Host %s has no net interface on wire %s as guest network %s", host.Name, network.WireId, api.NIC_TYPE_ADMIN)
-		return nil
+		return nil, fmt.Errorf("Host %s has no net interface on wire %s as guest network %s",
+			host.Name, network.WireId, api.NIC_TYPE_ADMIN)
+	}
+	return hostWire, nil
+}
+
+func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
+	network := self.GetNetwork()
+	hostWire, err := getHostNetworkAdminWire(host, network)
+	if err != nil {
+		log.Errorln(err)
 	}
 	return self.getGeneralJsonDesc(host, network, hostWire)
 }

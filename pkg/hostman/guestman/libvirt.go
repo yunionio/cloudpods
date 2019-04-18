@@ -40,12 +40,14 @@ func (m *SGuestManager) GuestCreateFromLibvirt(
 		}
 		storageId, _ := disk.GetString("storage_id")
 		storage := storageman.GetManager().GetStorage(storageId)
+		if storage == nil {
+			return nil, fmt.Errorf("Host has no stroage %s", storageId)
+		}
 		iDisk := storage.CreateDisk(diskId)
 
 		output, err := procutils.NewCommand("mv", diskPath, iDisk.GetPath()).Run()
 		if err != nil {
-			log.Errorf("Create disk error %s", output)
-			return nil, fmt.Errorf("Create disk error %s", output)
+			return nil, fmt.Errorf("Mv disk from %s to %s error %s", diskPath, iDisk.GetPath(), output)
 		}
 		disksPath.Set(diskId, jsonutils.NewString(iDisk.GetPath()))
 	}
@@ -73,23 +75,39 @@ func (m *SGuestManager) PrepareImportFromLibvirt(
 	return guestDescs, nil
 }
 
-func importGuest(guestConfig *compute.SImportGuestDesc, libvirtConfig *compute.SLibvirtHostConfig) error {
-	for _, server := range libvirtConfig.Servers {
-		if server.Uuid != guestConfig.Id {
-			continue
+func IsMacInGuestConfig(guestConfig *compute.SImportGuestDesc, mac string) bool {
+	for _, nic := range guestConfig.Nics {
+		if nic.Mac == mac {
+			return true
 		}
-		for idx, nic := range guestConfig.Nics {
-			if ip, ok := server.MacIp[nic.Mac]; ok {
-				guestConfig.Nics[idx].Ip = ip
+	}
+	return false
+}
+
+func setAttributeFromLibvirtConfig(
+	guestConfig *compute.SImportGuestDesc, libvirtConfig *compute.SLibvirtHostConfig,
+) (int, error) {
+	var Matched = true
+	for i, server := range libvirtConfig.Servers {
+		for mac, _ := range server.MacIp {
+			if !IsMacInGuestConfig(guestConfig, mac) {
+				Matched = false
+				break
 			} else {
-				log.Errorf("Guest %s can't find mac address %s in import config", server.Uuid, nic.Mac)
-				return fmt.Errorf("Guest %s Mac Address %s Not Found", server.Uuid, nic.Mac)
+				Matched = true
 			}
 		}
-		log.Infof("Import guest %s ", server.Uuid)
-		return nil
+
+		if Matched {
+			for idx, nic := range guestConfig.Nics {
+				guestConfig.Nics[idx].Ip = server.MacIp[nic.Mac]
+			}
+
+			log.Infof("Import guest %s", guestConfig.Name)
+			return i, nil
+		}
 	}
-	return fmt.Errorf("No guest %s found in import config", guestConfig.Id)
+	return -1, fmt.Errorf("No guest %s found in import config", guestConfig.Id)
 }
 
 func (m *SGuestManager) GenerateDescFromXml(libvirtConfig *compute.SLibvirtHostConfig) (jsonutils.JSONObject, error) {
@@ -120,31 +138,17 @@ func (m *SGuestManager) GenerateDescFromXml(libvirtConfig *compute.SLibvirtHostC
 			log.Errorf("Parse libvirt domain failed %s", err)
 			continue
 		}
-		if err = importGuest(guestConfig, libvirtConfig); err != nil {
+		if idx, err := setAttributeFromLibvirtConfig(guestConfig, libvirtConfig); err != nil {
 			log.Errorf("Import guest %s error %s", guestConfig.Id, err)
 			continue
+		} else {
+			libvirtConfig.Servers = append(libvirtConfig.Servers[:idx], libvirtConfig.Servers[idx+1:]...)
+			libvirtServers = append(libvirtServers, guestConfig)
 		}
-		libvirtServers = append(libvirtServers, guestConfig)
 	}
 
-	var (
-		serverInImports = func(uuid string) bool {
-			for _, s := range libvirtConfig.Servers {
-				if s.Uuid == uuid {
-					return true
-				}
-			}
-			return false
-		}
-		serversNotMatch = []string{}
-	)
-	for _, server := range libvirtServers {
-		if !serverInImports(server.Id) {
-			serversNotMatch = append(serversNotMatch, server.Id)
-		}
-	}
 	ret := jsonutils.NewDict()
-	ret.Set("servers_not_match", jsonutils.NewStringArray(serversNotMatch))
+	ret.Set("servers_not_match", jsonutils.Marshal(libvirtConfig.Servers))
 	ret.Set("servers_matched", jsonutils.Marshal(libvirtServers))
 	return ret, nil
 }
@@ -167,24 +171,30 @@ func (m *SGuestManager) LibvirtDomainToGuestDesc(domain *libvirtxml.Domain) (*co
 		return nil, fmt.Errorf("Libvirt domain missing Devices config")
 	}
 	if 0 == len(domain.Devices.Disks) {
-		return nil, fmt.Errorf("Livbirt domain cann't find Disks")
+		return nil, fmt.Errorf("Livbirt domain has no Disks")
 	}
 	if 0 == len(domain.Devices.Interfaces) {
-		return nil, fmt.Errorf("Libvirt domain cann't find network Interfaces")
+		return nil, fmt.Errorf("Libvirt domain has no network Interfaces")
 	}
 
 	var memSizeMb uint
 	switch unicode.ToLower(rune(domain.CurrentMemory.Unit[0])) {
 	case 'k':
 		memSizeMb = domain.CurrentMemory.Value / 1024
+		if domain.CurrentMemory.Value%1024 > 0 {
+			memSizeMb += 1
+		}
 	case 'm':
 		memSizeMb = domain.CurrentMemory.Value
 	case 'g':
 		memSizeMb = domain.CurrentMemory.Value * 1024
 	case 'b':
 		memSizeMb = domain.CurrentMemory.Value / 1024 / 1024
+		if domain.CurrentMemory.Value%(1024*1024) > 0 {
+			memSizeMb += 1
+		}
 	default:
-		return nil, fmt.Errorf("Merory unit unknwon")
+		return nil, fmt.Errorf("Unknown memory unit %s", domain.CurrentMemory.Unit)
 	}
 
 	disksConfig, err := m.LibvirtDomainDiskToDiskConfig(domain.Devices.Disks)
@@ -215,7 +225,7 @@ func (m *SGuestManager) LibvirtDomainDiskToDiskConfig(
 			return nil, fmt.Errorf("Domain disk missing source file ?")
 		}
 		if disk.Target == nil {
-			return nil, fmt.Errorf("Domain disk missin target config")
+			return nil, fmt.Errorf("Domain disk missing target config")
 		}
 
 		// XXX: Ignore backing file
@@ -245,9 +255,13 @@ func (m *SGuestManager) LibvirtDomainInterfaceToNicConfig(
 	var nicConfigs = []compute.SImportNic{}
 	for idx, nic := range domainInterfaces {
 		if nic.MAC == nil {
-			return nil, fmt.Errorf("Domain interface missing mac address")
+			return nil, fmt.Errorf("Domain interface %#v missing mac address", nic)
 		}
-		nicConfigs = append(nicConfigs, compute.SImportNic{Index: idx, Mac: nic.MAC.Address})
+		nicConfigs = append(nicConfigs, compute.SImportNic{
+			Index:  idx,
+			Mac:    nic.MAC.Address,
+			Driver: "virtio", //default driver
+		})
 	}
 	return nicConfigs, nil
 }
