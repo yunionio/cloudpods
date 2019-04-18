@@ -103,6 +103,7 @@ func metaData(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 			resNames = append(resNames, "security-groups/")
 		}
 		hostutils.Response(ctx, w, strings.Join(resNames, "\n"))
+		return
 	} else {
 		resName := req[0]
 		switch resName {
