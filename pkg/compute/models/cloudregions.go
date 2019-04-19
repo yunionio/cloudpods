@@ -431,6 +431,14 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		))
 	}
 
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_ON_PREMISE {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("provider"), cloudprovider.GetPrivateProviders()),
+			sqlchemy.In(q.Field("provider"), cloudprovider.GetOnPremiseProviders()),
+			sqlchemy.IsNullOrEmpty(q.Field("provider")),
+		))
+	}
+
 	if jsonutils.QueryBoolean(query, "is_managed", false) {
 		q = q.IsNotEmpty("external_id")
 	}
