@@ -287,3 +287,7 @@ func (self *SKVMRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx context.
 	task.ScheduleRun(nil)
 	return nil
 }
+
+func (self *SKVMRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return data, nil
+}
