@@ -103,7 +103,7 @@ func (manager *SMetadataManager) GetPropertyTagValuePairs(ctx context.Context, u
 		Data  []struct {
 			Key   string
 			Value string
-		}
+		} `json:"data,allowempty"`
 	}{
 		Total: 0,
 		Data: []struct {
