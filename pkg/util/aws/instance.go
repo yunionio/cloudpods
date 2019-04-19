@@ -952,7 +952,7 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 
 	err = instance.UpdateUserData(userdata)
 	if err != nil {
-		log.Debugf("ReplaceSystemDisk update user data %", err)
+		log.Debugf("ReplaceSystemDisk update user data %s", err)
 		return "", fmt.Errorf("ReplaceSystemDisk update user data failed")
 	}
 
