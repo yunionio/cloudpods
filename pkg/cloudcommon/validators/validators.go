@@ -27,6 +27,8 @@ import (
 	"regexp"
 	"strings"
 
+	"yunion.io/x/pkg/util/netutils"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/regutils"
@@ -118,6 +120,35 @@ func (v *Validator) validateEx(data *jsonutils.JSONDict) (err error, isSet bool)
 	v.value = value
 	isSet = true
 	return
+}
+
+type ValidatorIPv4Prefix struct {
+	Validator
+	Value netutils.IPV4Prefix
+}
+
+func NewIPv4PrefixValidator(key string) *ValidatorIPv4Prefix {
+	v := &ValidatorIPv4Prefix{
+		Validator: Validator{Key: key},
+	}
+	v.parent = v
+	return v
+}
+
+func (v *ValidatorIPv4Prefix) Validate(data *jsonutils.JSONDict) error {
+	if err, isSet := v.Validator.validateEx(data); err != nil || !isSet {
+		return err
+	}
+	s, err := v.value.GetString()
+	if err != nil {
+		return newGeneralError(v.Key, err)
+	}
+	v.Value, err = netutils.NewIPV4Prefix(s)
+	if err != nil {
+		return err
+	}
+	data.Set(v.Key, jsonutils.NewString(s))
+	return nil
 }
 
 type ValidatorStringChoices struct {

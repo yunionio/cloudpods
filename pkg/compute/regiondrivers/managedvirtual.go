@@ -723,3 +723,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 	})
 	return nil
 }
+
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return data, nil
+}

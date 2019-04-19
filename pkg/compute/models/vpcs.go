@@ -441,7 +441,11 @@ func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcc
 			return nil, httperrors.NewInputParameterError("invalid cidr_block %s", cidrBlock)
 		}
 	}
-	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	data, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	if err != nil {
+		return nil, err
+	}
+	return region.GetDriver().ValidateCreateVpcData(ctx, userCred, data)
 }
 
 func (self *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {

@@ -18,12 +18,15 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -309,4 +312,15 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, "")
 	})
 	return nil
+}
+
+func (self *SQcloudRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	cidrV := validators.NewIPv4PrefixValidator("cidr_block")
+	if err := cidrV.Validate(data); err != nil {
+		return nil, err
+	}
+	if cidrV.Value.MaskLen < 16 || cidrV.Value.MaskLen > 28 {
+		return nil, httperrors.NewInputParameterError("%s request the mask range should be between 16 and 28", self.GetProvider())
+	}
+	return data, nil
 }
