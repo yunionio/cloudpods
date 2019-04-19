@@ -269,6 +269,15 @@ func (s *SRbdStorage) withCluster(doFunc func(*rados.Conn) (interface{}, error))
 			}
 		}
 	}
+	for key, timeout := range map[string]int64{"rados_osd_op_timeout": 3, "rados_mon_op_timeout": 3, "client_mount_timeout": 3} {
+		_timeout, _ := s.StorageConf.Int(key)
+		if _timeout > 0 {
+			timeout = _timeout
+		}
+		if err := conn.SetConfigOption(key, fmt.Sprintf("%d", timeout)); err != nil {
+			return nil, err
+		}
+	}
 	if err := conn.Connect(); err != nil {
 		log.Errorf("connect rbd cluster %s error: %v", s.StorageName, err)
 		return nil, err
@@ -364,8 +373,7 @@ func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	if len(s.StorageId) > 0 {
 		capacity, err := s.getCapacity()
 		if err != nil {
-			log.Errorf("get ceph capacity error: %v", err)
-			return modules.Storages.PerformAction(hostutils.GetComputeSession(context.Background()), s.StorageId, "offline", jsonutils.Marshal(map[string]string{"reason": err.Error()}))
+			return modules.Storages.PerformAction(hostutils.GetComputeSession(context.Background()), s.StorageId, "offline", nil)
 		}
 		content = map[string]interface{}{
 			"name":     s.StorageName,
