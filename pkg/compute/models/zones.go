@@ -533,6 +533,16 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_ON_PREMISE {
+		regions := CloudregionManager.Query().SubQuery()
+		subq := regions.Query(regions.Field("id"))
+		subq = subq.Filter(sqlchemy.OR(
+			sqlchemy.In(regions.Field("provider"), cloudprovider.GetPrivateProviders()),
+			sqlchemy.In(regions.Field("provider"), cloudprovider.GetOnPremiseProviders()),
+			sqlchemy.IsNullOrEmpty(regions.Field("provider")),
+		))
+		q = q.In("cloudregion_id", subq.SubQuery())
+	}
 	if jsonutils.QueryBoolean(query, "is_managed", false) {
 		q = q.IsNotEmpty("external_id")
 	}
