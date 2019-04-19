@@ -426,32 +426,63 @@ func NewBaremetalDiskConfigs(dss ...string) ([]*api.BaremetalDiskConfig, error) 
 	return ret, nil
 }
 
-type SpecSizeCount map[string]int
-type DiskSpec map[string]SpecSizeCount
-
-func GetDiskSpec(storages []*BaremetalStorage) DiskSpec {
-	diskSpec := make(map[string]SpecSizeCount)
-
-	for _, s := range storages {
-		var dtype string
-		if s.Rotate {
-			dtype = HDD_DISK_SPEC_TYPE
-		} else {
-			dtype = SSD_DISK_SPEC_TYPE
-		}
-
-		sizeStr := fmt.Sprintf("%d", s.Size)
-		sc, ok := diskSpec[dtype]
-		if !ok {
-			sc = make(map[string]int)
-			diskSpec[dtype] = sc
-		}
-		if _, ok := sc[sizeStr]; !ok {
-			sc[sizeStr] = 0
-		}
-		diskSpec[dtype][sizeStr] += 1
+func getStorageDiskType(isRotate bool) string {
+	if isRotate {
+		return HDD_DISK_SPEC_TYPE
 	}
-	return diskSpec
+	return SSD_DISK_SPEC_TYPE
+}
+
+func NewDiskSpec(s *BaremetalStorage, index int) *api.DiskSpec {
+	return &api.DiskSpec{
+		Type:       getStorageDiskType(s.Rotate),
+		Size:       s.Size,
+		StartIndex: index,
+		EndIndex:   index,
+		Count:      1,
+	}
+}
+
+func IsDiskSpecSameAs(ds *api.DiskSpec, s *BaremetalStorage, index int) bool {
+	if ds.Size != s.Size {
+		return false
+	}
+	dType := getStorageDiskType(s.Rotate)
+	if ds.Type != dType {
+		return false
+	}
+	// discontinuity check
+	if ds.EndIndex != (index - 1) {
+		return false
+	}
+	return true
+}
+
+func addDiskSpecStorage(ds *api.DiskSpec, s *BaremetalStorage, index int) {
+	ds.Count++
+	if s.Index != 0 {
+		ds.EndIndex = index
+	} else {
+		ds.EndIndex++
+	}
+}
+
+func GetDiskSpecs(storages []*BaremetalStorage) []*api.DiskSpec {
+	diskSpecs := make([]*api.DiskSpec, 0)
+
+	for idx, s := range storages {
+		var lastSpec *api.DiskSpec
+		if len(diskSpecs) != 0 {
+			lastSpec = diskSpecs[len(diskSpecs)-1]
+		}
+		if lastSpec == nil || !IsDiskSpecSameAs(lastSpec, s, idx) {
+			ds := NewDiskSpec(s, idx)
+			diskSpecs = append(diskSpecs, ds)
+		} else {
+			addDiskSpecStorage(lastSpec, s, idx)
+		}
+	}
+	return diskSpecs
 }
 
 func getStoragesByDriver(driver string, storages []*BaremetalStorage) []*BaremetalStorage {
@@ -480,23 +511,19 @@ func groupByAdapter(storages []*BaremetalStorage) map[string][]*BaremetalStorage
 	return ret
 }
 
-type DiskAdapterSpecs map[string]DiskSpec
-
-func getSpec(storages []*BaremetalStorage) DiskAdapterSpecs {
-	ret := make(map[string]DiskSpec)
+func getSpec(storages []*BaremetalStorage) api.DiskAdapterSpec {
+	ret := make(map[string][]*api.DiskSpec)
 	for adapterKey, newStorages := range groupByAdapter(storages) {
 		if len(newStorages) == 0 {
 			continue
 		}
-		ret[adapterKey] = GetDiskSpec(newStorages)
+		ret[adapterKey] = GetDiskSpecs(newStorages)
 	}
 	return ret
 }
 
-type DiskDriverSpecs map[string]DiskAdapterSpecs
-
-func GetDiskSpecV2(storages []*BaremetalStorage) DiskDriverSpecs {
-	spec := make(map[string]DiskAdapterSpecs)
+func GetDiskSpecV2(storages []*BaremetalStorage) api.DiskDriverSpec {
+	spec := make(map[string]api.DiskAdapterSpec)
 	for _, driver := range DISK_DRIVERS.List() {
 		driverStorages := getStoragesByDriver(driver, storages)
 		if len(driverStorages) == 0 {

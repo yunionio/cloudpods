@@ -894,15 +894,18 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 		}
 	}
 	spec := self.GetHardwareSpecification()
-	spec.Remove("storage_info")
+	specInfo := new(api.HostSpec)
+	if err := spec.Unmarshal(specInfo); err != nil {
+		return spec
+	}
 	nifs := self.GetNetInterfaces()
-	var nicCount int64
+	var nicCount int
 	for _, nif := range nifs {
 		if nif.NicType != api.NIC_TYPE_IPMI {
 			nicCount++
 		}
 	}
-	spec.Set("nic_count", jsonutils.NewInt(nicCount))
+	specInfo.NicCount = nicCount
 
 	var manufacture string
 	var model string
@@ -916,31 +919,24 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	if model == "" {
 		model = "Unknown"
 	}
-	spec.Set("manufacture", jsonutils.NewString(manufacture))
-	spec.Set("model", jsonutils.NewString(model))
-	return spec
+	specInfo.Manufacture = manufacture
+	specInfo.Model = model
+	return specInfo.JSON(specInfo)
 }
 
-func (manager *SHostManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
-	nCpu, _ := spec.Int("cpu")
-	memSize, _ := spec.Int("mem")
-	var memSizeStr string
-	memSizeStr = fmt.Sprintf("mem:%dM", memSize)
-	nicCount, _ := spec.Int("nic_count")
-	manufacture, _ := spec.GetString("manufacture")
-	model, _ := spec.GetString("model")
-
+func (manager *SHostManager) GetSpecIdent(input *jsonutils.JSONDict) []string {
+	spec := new(api.HostSpec)
+	input.Unmarshal(spec)
 	specKeys := []string{
-		fmt.Sprintf("cpu:%d", nCpu),
-		memSizeStr,
-		fmt.Sprintf("nic:%d", nicCount),
-		fmt.Sprintf("manufacture:%s", manufacture),
-		fmt.Sprintf("model:%s", model),
+		fmt.Sprintf("cpu:%d", spec.Cpu),
+		fmt.Sprintf("mem:%dM", spec.Mem),
+		fmt.Sprintf("nic:%d", spec.NicCount),
+		fmt.Sprintf("manufacture:%s", spec.Manufacture),
+		fmt.Sprintf("model:%s", spec.Model),
 	}
-	diskSpec, _ := spec.Get("disk")
-	if diskSpec != nil {
-		driverSpecs, _ := diskSpec.GetMap()
-		for driver, driverSpec := range driverSpecs {
+	diskDriverSpec := spec.Disk
+	if diskDriverSpec != nil {
+		for driver, driverSpec := range diskDriverSpec {
 			specKeys = append(specKeys, parseDiskDriverSpec(driver, driverSpec)...)
 		}
 	}
@@ -948,20 +944,13 @@ func (manager *SHostManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
 	return specKeys
 }
 
-func parseDiskDriverSpec(driver string, spec jsonutils.JSONObject) []string {
+func parseDiskDriverSpec(driver string, adapterSpecs api.DiskAdapterSpec) []string {
 	ret := make([]string, 0)
-	adapterSpecs, _ := spec.GetMap()
 	for adapterKey, adapterSpec := range adapterSpecs {
-		for _, diskType := range []string{baremetal.HDD_DISK_SPEC_TYPE, baremetal.SSD_DISK_SPEC_TYPE} {
-			sizeCountMap, _ := adapterSpec.GetMap(diskType)
-			if sizeCountMap == nil {
-				continue
-			}
-			for size, count := range sizeCountMap {
-				sizeGB, _ := utils.GetSizeGB(size, "M")
-				diskKey := fmt.Sprintf("disk:%s_%s_%s_%dGx%s", driver, adapterKey, diskType, sizeGB, count)
-				ret = append(ret, diskKey)
-			}
+		for _, diskSpec := range adapterSpec {
+			sizeGB, _ := utils.GetSizeGB(fmt.Sprintf("%d", diskSpec.Size), "M")
+			diskKey := fmt.Sprintf("disk:%s_%s_%s_%dGx%d", driver, adapterKey, diskSpec.Type, sizeGB, diskSpec.Count)
+			ret = append(ret, diskKey)
 		}
 	}
 	return ret
@@ -981,25 +970,28 @@ func ConvertStorageInfo2BaremetalStorages(storageInfo jsonutils.JSONObject) []*b
 	return ret
 }
 
-func GetDiskSpecV2(storageInfo jsonutils.JSONObject) jsonutils.JSONObject {
+func GetDiskSpecV2(storageInfo jsonutils.JSONObject) api.DiskDriverSpec {
 	refStorages := ConvertStorageInfo2BaremetalStorages(storageInfo)
 	if refStorages == nil {
 		return nil
 	}
-	diskSpec := baremetal.GetDiskSpecV2(refStorages)
-	return jsonutils.Marshal(diskSpec)
+	return baremetal.GetDiskSpecV2(refStorages)
 }
 
 func (self *SHost) GetHardwareSpecification() *jsonutils.JSONDict {
-	spec := jsonutils.NewDict()
-	spec.Set("cpu", jsonutils.NewInt(int64(self.CpuCount)))
-	spec.Set("mem", jsonutils.NewInt(int64(self.MemSize)))
-	if self.StorageInfo != nil {
-		spec.Set("disk", GetDiskSpecV2(self.StorageInfo))
-		spec.Set("driver", jsonutils.NewString(self.StorageDriver))
-		spec.Set("storage_info", self.StorageInfo)
+	spec := &api.HostSpec{
+		Cpu: int(self.CpuCount),
+		Mem: self.MemSize,
 	}
-	return spec
+	if self.StorageInfo != nil {
+		spec.Disk = GetDiskSpecV2(self.StorageInfo)
+		spec.Driver = self.StorageDriver
+	}
+	ret := spec.JSON(spec)
+	if self.StorageInfo != nil {
+		ret.Set("storage_info", self.StorageInfo)
+	}
+	return ret
 }
 
 type SStorageCapacity struct {
