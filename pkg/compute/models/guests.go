@@ -783,9 +783,11 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		return nil, err
 	}
 
-	err = self.checkUpdateQuota(ctx, userCred, vcpuCount, vmemSize)
-	if err != nil {
-		return nil, httperrors.NewOutOfQuotaError(err.Error())
+	if vcpuCount > 0 || vmemSize > 0 {
+		err = self.checkUpdateQuota(ctx, userCred, vcpuCount, vmemSize)
+		if err != nil {
+			return nil, httperrors.NewOutOfQuotaError(err.Error())
+		}
 	}
 
 	if data.Contains("name") {
