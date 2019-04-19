@@ -334,7 +334,8 @@ func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	if len(s.StorageId) > 0 {
 		capacity, err := s.getCapacity()
 		if err != nil {
-			return nil, err
+			log.Errorf("get ceph capacity error: %v", err)
+			return modules.Storages.PerformAction(hostutils.GetComputeSession(context.Background()), s.StorageId, "offline", jsonutils.Marshal(map[string]string{"reason": err.Error()}))
 		}
 		content = map[string]interface{}{
 			"name":     s.StorageName,
