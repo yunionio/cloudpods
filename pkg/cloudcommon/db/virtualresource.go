@@ -269,6 +269,18 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		return nil, err
 	}
 	OpsLog.SyncOwner(model, former, userCred)
+	notes := struct {
+		OldProjectId string
+		OldProject   string
+		NewProjectId string
+		NewProject   string
+	}{
+		OldProjectId: former.Id,
+		OldProject:   former.Name,
+		NewProjectId: tobj.GetId(),
+		NewProject:   tobj.GetName(),
+	}
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CHANGE_OWNER, notes, userCred, true)
 	return nil, nil
 }
 

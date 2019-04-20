@@ -292,7 +292,6 @@ func (self *SCloudprovider) saveProject(userCred mcclient.TokenCredential, proje
 			return err
 		}
 		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
-		logclient.AddSimpleActionLog(self, db.ACT_UPDATE, diff, userCred, true)
 	}
 	return nil
 }
@@ -478,11 +477,23 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 		return nil, nil
 	}
 
+	notes := struct {
+		OldProjectId string
+		NewProjectId string
+		NewProject   string
+	}{
+		OldProjectId: self.ProjectId,
+		NewProjectId: tenant.Id,
+		NewProject:   tenant.Name,
+	}
+
 	err = self.saveProject(userCred, tenant.Id)
 	if err != nil {
 		log.Errorf("Update cloudprovider error: %v", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
+
+	logclient.AddSimpleActionLog(self, logclient.ACT_CHANGE_OWNER, notes, userCred, true)
 
 	if self.GetCloudaccount().EnableAutoSync { // no need to sync rightnow, will do it in auto sync
 		return nil, nil
@@ -1029,8 +1040,14 @@ func (self *SCloudprovider) PerformEnable(ctx context.Context, userCred mcclient
 	}
 	account := self.GetCloudaccount()
 	if account != nil {
+		allEnabled := true
 		providers := account.GetCloudproviders()
-		if len(providers) == 1 && !account.Enabled {
+		for i := range providers {
+			if !providers[i].Enabled {
+				allEnabled = false
+			}
+		}
+		if allEnabled && !account.Enabled {
 			return account.PerformEnable(ctx, userCred, nil, nil)
 		}
 	}
@@ -1044,8 +1061,14 @@ func (self *SCloudprovider) PerformDisable(ctx context.Context, userCred mcclien
 	}
 	account := self.GetCloudaccount()
 	if account != nil {
+		allDisable := true
 		providers := account.GetCloudproviders()
-		if len(providers) == 1 && account.Enabled {
+		for i := range providers {
+			if providers[i].Enabled {
+				allDisable = false
+			}
+		}
+		if allDisable && account.Enabled {
 			return account.PerformDisable(ctx, userCred, nil, nil)
 		}
 	}
