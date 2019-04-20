@@ -32,6 +32,8 @@ func init() {
 
 		Usable *bool `help:"List all zones that is usable"`
 
+		Hypervisor string `help:"filter hosts by hypervisor"`
+
 		options.BaseListOptions
 	}
 	R(&HostListOptions{}, "host-list", "List hosts", func(s *mcclient.ClientSession, opts *HostListOptions) error {
