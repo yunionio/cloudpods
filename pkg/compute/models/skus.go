@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"crypto/md5"
 	"database/sql"
 	"fmt"
 	"math"
@@ -23,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -473,7 +475,7 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 	if provider == "all" {
 		// provider 参数为all时。表示查询所有instance type.
 		return q
-	} else if len(provider) > 0 {
+	} else if len(provider) > 0 && !utils.IsInStringArray(provider, []string{api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE, "kvm"}) {
 		q = q.Equals("provider", provider)
 	} else if public_cloud {
 		q = q.IsNotEmpty("provider")
@@ -488,17 +490,27 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 	return q
 }
 
+func queryCacheKey(prefix string, query jsonutils.JSONObject) string {
+	_ret := md5.Sum([]byte(query.QueryString()))
+	return prefix + fmt.Sprintf("%x", _ret)
+}
+
 func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	specsKey := "InstanceSpecs"
+	specsKey := queryCacheKey("InstanceSpecs", query)
 	v := Cache.Get(specsKey)
 	if v != nil {
-		return v.(*jsonutils.JSONDict), nil
+		if cacheRet, ok := v.(*jsonutils.JSONDict); ok {
+			return cacheRet, nil
+		}
 	}
 
 	q := self.Query()
 	// 未明确指定provider或者public_cloud时，默认查询私有云
-	provider, _ := query.GetString("provider")
+	provider := normalizeProvider(jsonutils.GetAnyString(query, []string{"provider"}))
 	public_cloud, _ := query.Bool("public_cloud")
+	if utils.IsInStringArray(provider, cloudprovider.GetPublicProviders()) {
+		public_cloud = true
+	}
 	q = providerFilter(q, provider, public_cloud)
 	q = excludeSkus(q)
 
@@ -571,8 +583,8 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 
 	r_obj := jsonutils.Marshal(&cpu_mems_mb)
 	ret.Add(r_obj, "cpu_mems_mb")
-	// cache
-	Cache.Set(specsKey, ret)
+	// cache 1min
+	Cache.Set(specsKey, ret, time.Now().Add(60*time.Second))
 	return ret, nil
 }
 
@@ -709,6 +721,9 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	provider := normalizeProvider(jsonutils.GetAnyString(query, []string{"provider"}))
 	public_cloud, _ := query.Bool("public_cloud")
+	if utils.IsInStringArray(provider, cloudprovider.GetPublicProviders()) {
+		public_cloud = true
+	}
 	queryDict := query.(*jsonutils.JSONDict)
 	// 手动处理provider查询
 	queryDict.Remove("provider")
