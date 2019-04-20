@@ -322,41 +322,14 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
 	}
 
-	// vcenter
-	// zone
-	// cachedimage
-
-	/*managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
-	if len(managerStr) > 0 {
-		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
+	hypervisorStr := jsonutils.GetAnyString(query, []string{"hypervisor"})
+	if len(hypervisorStr) > 0 {
+		hostType, ok := api.HYPERVISOR_HOSTTYPE[hypervisorStr]
+		if !ok {
+			return nil, httperrors.NewInputParameterError("not supported hypervisor %s", hypervisorStr)
 		}
-		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
-		queryDict.Remove("manager_id")
+		q = q.Filter(sqlchemy.Equals(q.Field("host_type"), hostType))
 	}
-
-	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
-	if len(accountStr) > 0 {
-		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
-		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}
-
-	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
-	if len(providerStr) > 0 {
-		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
-		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}*/
 
 	usable := jsonutils.QueryBoolean(query, "usable", false)
 	if usable {
