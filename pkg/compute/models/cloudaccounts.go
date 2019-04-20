@@ -915,12 +915,16 @@ func (manager *SCloudaccountManager) ListItemFilter(ctx context.Context, q *sqlc
 	}
 	managerStr, _ := query.GetString("manager")
 	if len(managerStr) > 0 {
-		cpr := CloudproviderRegionManager.Query().SubQuery()
-		sq := cpr.Query(cpr.Field("cloudregion_id"))
-		sq = sq.Filter(sqlchemy.Equals(cpr.Field("cloudprovider_id"), managerStr))
-		sq = sq.Filter(sqlchemy.IsTrue(cpr.Field("enabled")))
-
-		q = q.In("id", sq.SubQuery())
+		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		provider := providerObj.(*SCloudprovider)
+		q = q.Equals("id", provider.CloudaccountId)
 	}
 
 	cloudEnvStr, _ := query.GetString("cloud_env")

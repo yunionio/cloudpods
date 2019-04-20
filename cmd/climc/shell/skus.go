@@ -134,4 +134,25 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type ServerSkuSpecsListOptions struct {
+		Provider       string  `help:"List objects from the provider" choices:"OneCloud|VMware|Aliyun|Qcloud|Azure|Aws|Huawei|Openstack|Ucloud" json:"provider"`
+		PublicCloud    *bool   `help:"List objects belonging to public cloud" json:"public_cloud"`
+		Zone           string  `help:"zone Id or name"`
+		PostpaidStatus *string `help:"skus available status for postpaid instance" choices:"available|soldout"`
+		PrepaidStatus  *string `help:"skus available status for prepaid instance"  choices:"available|soldout"`
+		IngoreCache    bool    `help:"query without cache"`
+	}
+	R(&ServerSkuSpecsListOptions{}, "server-sku-specs-list", "List all avaiable Server SKU specifications", func(s *mcclient.ClientSession, args *ServerSkuSpecsListOptions) error {
+		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
+		}
+		result, err := modules.ServerSkus.Get(s, "instance-specs", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

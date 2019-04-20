@@ -590,30 +590,12 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	managerStr, _ := query.GetString("manager")
 	if len(managerStr) > 0 {
-		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		provider := providerObj.(*SCloudprovider)
-		subq := CloudregionManager.Query("id").Equals("provider", provider.Provider).SubQuery()
+		subq := CloudproviderRegionManager.QueryRelatedRegionIds("", managerStr)
 		q = q.In("cloudregion_id", subq)
 	}
 	accountStr, _ := query.GetString("account")
 	if len(accountStr) > 0 {
-		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		account := accountObj.(*SCloudaccount)
-		subq := CloudregionManager.Query("id").Equals("provider", account.Provider).SubQuery()
+		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountStr)
 		q = q.In("cloudregion_id", subq)
 	}
 	providerStr, _ := query.GetString("provider")
