@@ -443,25 +443,13 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 
 	managerStr, _ := query.GetString("manager")
 	if len(managerStr) > 0 {
-		cpr := CloudproviderRegionManager.Query().SubQuery()
-		sq := cpr.Query(cpr.Field("cloudregion_id"))
-		sq = sq.Filter(sqlchemy.Equals(cpr.Field("cloudprovider_id"), managerStr))
-		sq = sq.Filter(sqlchemy.IsTrue(cpr.Field("enabled")))
-
-		q = q.In("id", sq.SubQuery())
+		subq := CloudproviderRegionManager.QueryRelatedRegionIds("", managerStr)
+		q = q.In("id", subq)
 	}
 	accountStr, _ := query.GetString("account")
 	if len(accountStr) > 0 {
-		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		account := accountObj.(*SCloudaccount)
-		q = q.In("provider", account.Provider)
+		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountStr)
+		q = q.In("id", subq)
 	}
 
 	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {

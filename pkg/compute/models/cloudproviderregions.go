@@ -19,16 +19,15 @@ import (
 	"database/sql"
 	"math/rand"
 	"time"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/timeutils"
-
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/sqlchemy"
 )
 
 type SCloudproviderregionManager struct {
@@ -153,6 +152,28 @@ func (self *SCloudproviderregion) Delete(ctx context.Context, userCred mcclient.
 
 func (self *SCloudproviderregion) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return db.DetachJoint(ctx, userCred, self)
+}
+
+/*
+过滤出指定cloudAccountId || providerIds || cloudAccountId+providerIds关联的region id
+*/
+func (manager *SCloudproviderregionManager) QueryRelatedRegionIds(cloudAccountId string, providerIds ...string) *sqlchemy.SSubQuery {
+	q := manager.Query("cloudregion_id")
+	accounts := CloudaccountManager.Query().SubQuery()
+	providers := CloudproviderManager.Query().SubQuery()
+
+	q = q.Join(providers, sqlchemy.Equals(providers.Field("id"), q.Field("cloudprovider_id")))
+	q = q.Join(accounts, sqlchemy.Equals(accounts.Field("id"), providers.Field("cloudaccount_id")))
+
+	if len(providerIds) > 0  {
+		q = q.Filter(sqlchemy.In(providers.Field("id"), providerIds))
+	}
+
+	if len(cloudAccountId) > 0 {
+		q.Filter(sqlchemy.Equals(accounts.Field("id"), cloudAccountId))
+	}
+
+	return q.Distinct().SubQuery()
 }
 
 func (manager *SCloudproviderregionManager) FetchByIds(providerId string, regionId string) *SCloudproviderregion {
