@@ -4262,11 +4262,23 @@ func (self *SGuest) ToNetworksConfig() []*api.NetworkConfig {
 	if len(guestNetworks) == 0 {
 		return nil
 	}
-	ret := make([]*api.NetworkConfig, len(guestNetworks))
-	for idx, guestNetwork := range guestNetworks {
+	ret := make([]*api.NetworkConfig, 0)
+	teamMacs := []string{}
+	for _, gn := range guestNetworks {
+		if tg, _ := gn.GetTeamGuestnetwork(); tg != nil {
+			teamMacs = append(teamMacs, gn.TeamWith)
+		}
+	}
+	for _, guestNetwork := range guestNetworks {
 		netConf := new(api.NetworkConfig)
 		network := guestNetwork.GetNetwork()
-		netConf.Index = int(guestNetwork.Index)
+		requireTeaming := false
+		if tg, _ := guestNetwork.GetTeamGuestnetwork(); tg != nil {
+			requireTeaming = true
+		}
+		if utils.IsInStringArray(guestNetwork.MacAddr, teamMacs) {
+			continue
+		}
 
 		// XXX: same wire
 		netConf.Wire = network.WireId
@@ -4275,8 +4287,9 @@ func (self *SGuest) ToNetworksConfig() []*api.NetworkConfig {
 		// netConf.Reserved
 		netConf.Driver = guestNetwork.Driver
 		netConf.BwLimit = guestNetwork.BwLimit
+		netConf.RequireTeaming = requireTeaming
 		// netConf.NetType
-		ret[idx] = netConf
+		ret = append(ret, netConf)
 	}
 	return ret
 }
