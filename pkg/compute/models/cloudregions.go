@@ -3,9 +3,7 @@ package models
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"time"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
@@ -431,21 +429,12 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 
 	managerStr, _ := query.GetString("manager")
 	if len(managerStr) > 0 {
-		managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		manager := managerObj.(*SCloudprovider)
-		q = q.Equals("provider", manager.Provider)
-		if manager.Provider == api.CLOUD_PROVIDER_HUAWEI {
-			region := strings.Split(manager.Name, "_")[0]
-			prefix := api.CLOUD_PROVIDER_HUAWEI + "/" + region
-			q = q.Startswith("external_id", prefix)
-		}
+		cpr := CloudproviderRegionManager.Query().SubQuery()
+		sq := cpr.Query(cpr.Field("cloudregion_id"))
+		sq = sq.Filter(sqlchemy.Equals(cpr.Field("cloudprovider_id"), managerStr))
+		sq = sq.Filter(sqlchemy.IsTrue(cpr.Field("enabled")))
+
+		q = q.In("id", sq.SubQuery())
 	}
 	accountStr, _ := query.GetString("account")
 	if len(accountStr) > 0 {
