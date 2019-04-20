@@ -179,6 +179,10 @@ func (self *SCloudaccount) PerformEnable(ctx context.Context, userCred mcclient.
 }
 
 func (self *SCloudaccount) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
 	cloudproviders := self.GetCloudproviders()
 	for i := 0; i < len(cloudproviders); i++ {
 		if cloudproviders[i].Enabled {
@@ -193,10 +197,6 @@ func (self *SCloudaccount) PerformDisable(ctx context.Context, userCred mcclient
 		if err != nil {
 			return nil, err
 		}
-	}
-	_, err := self.SEnabledStatusStandaloneResourceBase.PerformDisable(ctx, userCred, query, data)
-	if err != nil {
-		return nil, err
 	}
 	return nil, nil
 }
