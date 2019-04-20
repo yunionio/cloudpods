@@ -188,7 +188,7 @@ func (self *GuestDeleteTask) doStartDeleteGuest(ctx context.Context, obj db.ISta
 
 func (self *GuestDeleteTask) StartPendingDeleteGuest(ctx context.Context, guest *models.SGuest) {
 	guest.DoPendingDelete(ctx, self.UserCred)
-	self.SetStage("on_pending_delete_complete", nil)
+	self.SetStage("OnPendingDeleteComplete", nil)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 }
 
@@ -197,18 +197,14 @@ func (self *GuestDeleteTask) OnPendingDeleteComplete(ctx context.Context, obj db
 	if !guest.IsSystem {
 		self.NotifyServerDeleted(ctx, guest)
 	}
-	self.SetStage("on_sync_guest_conf_complete", nil)
+	// self.SetStage("on_sync_guest_conf_complete", nil)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_PENDING_DELETE, nil, self.UserCred, true)
-	guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
-}
-
-func (self *GuestDeleteTask) OnSyncGuestConfComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	// guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *GuestDeleteTask) OnSyncGuestConfCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
-	self.OnFailed(ctx, guest, err)
+func (self *GuestDeleteTask) OnPendingDeleteCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.OnPendingDeleteComplete(ctx, obj, nil)
 }
 
 func (self *GuestDeleteTask) StartDeleteGuest(ctx context.Context, guest *models.SGuest) {

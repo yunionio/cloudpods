@@ -41,17 +41,13 @@ func (self *GuestStopTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	self.stopGuest(ctx, guest)
 }
 
-func (self *GuestStopTask) isSubtask() bool {
-	return jsonutils.QueryBoolean(self.Params, "subtask", false)
-}
-
 func (self *GuestStopTask) stopGuest(ctx context.Context, guest *models.SGuest) {
 	host := guest.GetHost()
 	if host == nil {
 		self.OnGuestStopTaskCompleteFailed(ctx, guest, jsonutils.NewString("no associated host"))
 		return
 	}
-	if !self.isSubtask() {
+	if !self.IsSubtask() {
 		guest.SetStatus(self.UserCred, api.VM_STOPPING, "")
 	}
 	self.SetStage("OnMasterStopTaskComplete", nil)
@@ -82,7 +78,7 @@ func (self *GuestStopTask) OnMasterStopTaskCompleteFailed(ctx context.Context, o
 }
 
 func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	if !self.isSubtask() {
+	if !self.IsSubtask() {
 		guest.SetStatus(self.UserCred, api.VM_READY, "")
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_STOP, guest.GetShortDesc(ctx), self.UserCred)
@@ -95,7 +91,9 @@ func (self *GuestStopTask) OnGuestStopTaskComplete(ctx context.Context, guest *m
 }
 
 func (self *GuestStopTask) OnGuestStopTaskCompleteFailed(ctx context.Context, guest *models.SGuest, reason jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, api.VM_STOP_FAILED, reason.String())
+	if !self.IsSubtask() {
+		guest.SetStatus(self.UserCred, api.VM_STOP_FAILED, reason.String())
+	}
 	db.OpsLog.LogEvent(guest, db.ACT_STOP_FAIL, reason.String(), self.UserCred)
 	self.SetStageFailed(ctx, reason.String())
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_STOP, reason.String(), self.UserCred, false)
