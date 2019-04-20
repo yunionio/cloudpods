@@ -17,9 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"time"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
@@ -445,34 +443,13 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 
 	managerStr, _ := query.GetString("manager")
 	if len(managerStr) > 0 {
-		managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		manager := managerObj.(*SCloudprovider)
-		q = q.Equals("provider", manager.Provider)
-		if manager.Provider == api.CLOUD_PROVIDER_HUAWEI {
-			region := strings.Split(manager.Name, "_")[0]
-			prefix := api.CLOUD_PROVIDER_HUAWEI + "/" + region
-			q = q.Startswith("external_id", prefix)
-		}
+		subq := CloudproviderRegionManager.QueryRelatedRegionIds("", managerStr)
+		q = q.In("id", subq)
 	}
 	accountStr, _ := query.GetString("account")
 	if len(accountStr) > 0 {
-		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		account := accountObj.(*SCloudaccount)
-		q = q.In("provider", account.Provider)
+		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountStr)
+		q = q.In("id", subq)
 	}
 
 	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {

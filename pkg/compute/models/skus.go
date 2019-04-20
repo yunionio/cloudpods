@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"crypto/md5"
 	"database/sql"
 	"fmt"
 	"math"
@@ -23,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -100,6 +103,44 @@ type SServerSku struct {
 	CloudregionId string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_required" update:"admin"`
 	ZoneId        string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`
 	Provider      string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"admin_optional" update:"admin"`
+}
+
+type SInstanceSpecQueryParams struct {
+	Provider       string
+	PublicCloud    bool
+	ZoneId         string
+	PostpaidStatus string
+	PrepaidStatus  string
+	IngoreCache    bool
+}
+
+func (self *SInstanceSpecQueryParams) GetCacheKey() string {
+	hashStr := fmt.Sprintf("%s:%t:%s:%s:%s", self.Provider, self.PublicCloud, self.ZoneId, self.PostpaidStatus, self.PrepaidStatus)
+	_md5 := md5.Sum([]byte(hashStr))
+	return "InstanceSpecs_" + fmt.Sprintf("%x", _md5)
+}
+
+func NewInstanceSpecQueryParams(query jsonutils.JSONObject) *SInstanceSpecQueryParams {
+	zone := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
+	postpaid, _ := query.GetString("postpaid_status")
+	prepaid, _ := query.GetString("prepaid_status")
+	ingore_cache, _ := query.Bool("ingore_cache")
+	provider := normalizeProvider(jsonutils.GetAnyString(query, []string{"provider"}))
+	public_cloud, _ := query.Bool("public_cloud")
+	if utils.IsInStringArray(provider, cloudprovider.GetPublicProviders()) {
+		public_cloud = true
+	}
+
+	params := &SInstanceSpecQueryParams{
+		Provider:       provider,
+		PublicCloud:    public_cloud,
+		ZoneId:         zone,
+		PostpaidStatus: postpaid,
+		PrepaidStatus:  prepaid,
+		IngoreCache:    ingore_cache,
+	}
+
+	return params
 }
 
 func sliceToJsonObject(items []int) jsonutils.JSONObject {
@@ -473,7 +514,7 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 	if provider == "all" {
 		// provider 参数为all时。表示查询所有instance type.
 		return q
-	} else if len(provider) > 0 {
+	} else if len(provider) > 0 && !utils.IsInStringArray(provider, []string{api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE, "kvm"}) {
 		q = q.Equals("provider", provider)
 	} else if public_cloud {
 		q = q.IsNotEmpty("provider")
@@ -489,26 +530,27 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 }
 
 func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	specsKey := "InstanceSpecs"
-	v := Cache.Get(specsKey)
-	if v != nil {
-		return v.(*jsonutils.JSONDict), nil
+	params := NewInstanceSpecQueryParams(query)
+	if !params.IngoreCache {
+		v := Cache.Get(params.GetCacheKey())
+		if v != nil {
+			if cacheRet, ok := v.(*jsonutils.JSONDict); ok {
+				return cacheRet, nil
+			}
+		}
 	}
 
 	q := self.Query()
 	// 未明确指定provider或者public_cloud时，默认查询私有云
-	provider, _ := query.GetString("provider")
-	public_cloud, _ := query.Bool("public_cloud")
-	q = providerFilter(q, provider, public_cloud)
+	q = providerFilter(q, params.Provider, params.PublicCloud)
 	q = excludeSkus(q)
 
 	// 如果是查询私有云需要忽略zone参数
-	zone := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
-	if public_cloud && len(zone) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zone)
+	if params.PublicCloud && len(params.ZoneId) > 0 {
+		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, params.ZoneId)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zone)
+				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), params.ZoneId)
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
@@ -517,14 +559,12 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 	}
 
 	skus := make([]SServerSku, 0)
-	postpaid, _ := query.GetString("postpaid_status")
-	if len(postpaid) > 0 {
-		q.Equals("postpaid_status", postpaid)
+	if len(params.PostpaidStatus) > 0 {
+		q.Equals("postpaid_status", params.PostpaidStatus)
 	}
 
-	prepaid, _ := query.GetString("prepaid_status")
-	if len(prepaid) > 0 {
-		q.Equals("prepaid_status", prepaid)
+	if len(params.PrepaidStatus) > 0 {
+		q.Equals("prepaid_status", params.PrepaidStatus)
 	}
 	q = q.GroupBy(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
 	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
@@ -571,8 +611,8 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 
 	r_obj := jsonutils.Marshal(&cpu_mems_mb)
 	ret.Add(r_obj, "cpu_mems_mb")
-	// cache
-	Cache.Set(specsKey, ret)
+	// cache 1min
+	Cache.Set(params.GetCacheKey(), ret, time.Now().Add(60*time.Second))
 	return ret, nil
 }
 
@@ -709,6 +749,9 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	provider := normalizeProvider(jsonutils.GetAnyString(query, []string{"provider"}))
 	public_cloud, _ := query.Bool("public_cloud")
+	if utils.IsInStringArray(provider, cloudprovider.GetPublicProviders()) {
+		public_cloud = true
+	}
 	queryDict := query.(*jsonutils.JSONDict)
 	// 手动处理provider查询
 	queryDict.Remove("provider")
