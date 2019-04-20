@@ -514,7 +514,7 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 	if provider == "all" {
 		// provider 参数为all时。表示查询所有instance type.
 		return q
-	} else if len(provider) > 0 && !utils.IsInStringArray(provider, []string{api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE, "kvm"}) {
+	} else if len(provider) > 0 && !utils.IsInStringArray(provider, []string{api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE, "kvm", "esxi"}) {
 		q = q.Equals("provider", provider)
 	} else if public_cloud {
 		q = q.IsNotEmpty("provider")
