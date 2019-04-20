@@ -328,8 +328,10 @@ func (instance *SInstance) GetStatus() string {
 	case INSTANCE_STATUS_RESIZE:
 		return api.VM_CHANGE_FLAVOR
 	case INSTANCE_STATUS_VERIFY_RESIZE:
-		// API请求更改配置后，会有一个确认的状态，即此状态
-		return api.VM_CHANGE_FLAVOR
+		// API请求更改配置后，状态先回变更到 INSTANCE_STATUS_RESIZE 等待一会变成此状态
+		// 到达此状态后需要再次发送确认请求，变更才会生效
+		// 此状态不能和INSTANCE_STATUS_RESIZE返回一样，避免在INSTANCE_STATUS_RESIZE状态下发送确认请求，导致更改配置失败
+		return api.VM_SYNC_CONFIG
 	case INSTANCE_STATUS_SHELVED, INSTANCE_STATUS_SHELVED_OFFLOADED, INSTANCE_STATUS_SHUTOFF, INSTANCE_STATUS_SOFT_DELETED:
 		return api.VM_READY
 	default:
@@ -448,7 +450,7 @@ func (region *SRegion) ChangeConfig(instance *SInstance, flavorId string) error 
 	if err != nil {
 		return err
 	}
-	if err := cloudprovider.WaitStatus(instance, api.VM_CHANGE_FLAVOR, time.Second*3, time.Minute*4); err != nil {
+	if err := cloudprovider.WaitStatus(instance, api.VM_SYNC_CONFIG, time.Second*3, time.Minute*4); err != nil {
 		return err
 	}
 	return region.instanceOperation(instance.ID, "confirmResize")
