@@ -2569,10 +2569,10 @@ func (self *SGuest) CreateDisksOnHost(
 		}
 		var candidateDisk *schedapi.CandidateDisk
 		var backupCandidateDisk *schedapi.CandidateDisk
-		if candidate != nil && len(candidate.Disks) >= idx {
+		if candidate != nil && len(candidate.Disks) > idx {
 			candidateDisk = candidate.Disks[idx]
 		}
-		if backupCandidate != nil && len(backupCandidate.Disks) >= idx {
+		if backupCandidate != nil && len(backupCandidate.Disks) > idx {
 			backupCandidateDisk = backupCandidate.Disks[idx]
 		}
 		disk, err := self.createDiskOnHost(ctx, userCred, host, diskConfig, pendingUsage, inheritBilling, isWithServerCreate, candidateDisk, backupCandidateDisk)
@@ -2651,7 +2651,7 @@ func (self *SGuest) createDiskOnHost(
 	// TODO: use scheduler candidate storage
 	if len(self.BackupHostId) > 0 {
 		backupHost := HostManager.FetchHostById(self.BackupHostId)
-		backupStorage := self.GetDriver().ChooseHostStorage(backupHost, diskConfig.Backend, backupCandidate.StorageIds)
+		backupStorage := self.ChooseHostStorage(backupHost, diskConfig.Backend, backupCandidate)
 		diff, err := db.Update(disk, func() error {
 			disk.BackupStorageId = backupStorage.Id
 			return nil
