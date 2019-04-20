@@ -145,18 +145,15 @@ func (self *SCloudproviderregion) Detach(ctx context.Context, userCred mcclient.
 */
 func (manager *SCloudproviderregionManager) QueryRelatedRegionIds(cloudAccountId string, providerIds ...string) *sqlchemy.SSubQuery {
 	q := manager.Query("cloudregion_id")
-	accounts := CloudaccountManager.Query().SubQuery()
-	providers := CloudproviderManager.Query().SubQuery()
-
-	q = q.Join(providers, sqlchemy.Equals(providers.Field("id"), q.Field("cloudprovider_id")))
-	q = q.Join(accounts, sqlchemy.Equals(accounts.Field("id"), providers.Field("cloudaccount_id")))
 
 	if len(providerIds) > 0  {
-		q = q.Filter(sqlchemy.In(providers.Field("id"), providerIds))
+		q = q.Filter(sqlchemy.In(q.Field("cloudprovider_id"), providerIds))
 	}
 
 	if len(cloudAccountId) > 0 {
-		q.Filter(sqlchemy.Equals(accounts.Field("id"), cloudAccountId))
+		providers := CloudproviderManager.Query().SubQuery()
+		q = q.Join(providers, sqlchemy.Equals(providers.Field("id"), q.Field("cloudprovider_id")))
+		q.Filter(sqlchemy.Equals(providers.Field("cloudaccount_id"), cloudAccountId))
 	}
 
 	return q.Distinct().SubQuery()
