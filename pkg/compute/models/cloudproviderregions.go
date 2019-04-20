@@ -146,7 +146,7 @@ func (self *SCloudproviderregion) Detach(ctx context.Context, userCred mcclient.
 func (manager *SCloudproviderregionManager) QueryRelatedRegionIds(cloudAccountId string, providerIds ...string) *sqlchemy.SSubQuery {
 	q := manager.Query("cloudregion_id")
 
-	if len(providerIds) > 0  {
+	if len(providerIds) > 0 {
 		q = q.Filter(sqlchemy.In(q.Field("cloudprovider_id"), providerIds))
 	}
 
