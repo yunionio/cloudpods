@@ -520,6 +520,9 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 	isNew := false
 	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id).Equals("account", subAccount.Account)
 	providerCount := q.Count()
+	if providerCount < 0 {
+		return nil, false, fmt.Errorf("fail to query subaccount")
+	}
 	if providerCount > 1 {
 		log.Errorf("cloudaccount %s has duplicate subaccount with name %s", self.Name, subAccount.Account)
 		return nil, isNew, cloudprovider.ErrDuplicateId
