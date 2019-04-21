@@ -403,10 +403,11 @@ func (s *SGuestResumeTask) confirmRunning() {
 func (s *SGuestResumeTask) onConfirmRunning(status string) {
 	if status == "running" || status == "paused (suspended)" || status == "paused (perlaunch)" {
 		s.onStartRunning()
+	} else if strings.Contains(status, "error") {
+		// handle error first, results may be 'paused (internal-error)'
+		s.taskFailed(status)
 	} else if strings.Contains(status, "paused") {
 		s.Monitor.GetBlocks(s.onGetBlockInfo)
-	} else if strings.Contains(status, "error") {
-		s.taskFailed(status)
 	} else {
 		if time.Now().Sub(s.startTime) >= time.Second*60 {
 			s.taskFailed("Timeout")
