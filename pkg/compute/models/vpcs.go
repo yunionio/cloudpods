@@ -103,7 +103,11 @@ func (self *SVpc) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetNetworkCount() > 0 {
+	cnt, err := self.GetNetworkCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetNetworkCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("VPC not empty")
 	}
 	if self.Id == api.DEFAULT_VPC_ID {
@@ -123,7 +127,7 @@ func (self *SVpc) getWireQuery() *sqlchemy.SQuery {
 	}
 }
 
-func (self *SVpc) GetWireCount() int {
+func (self *SVpc) GetWireCount() (int, error) {
 	q := self.getWireQuery()
 	return q.Count()
 }
@@ -146,7 +150,7 @@ func (self *SVpc) getNetworkQuery() *sqlchemy.SQuery {
 	return q
 }
 
-func (self *SVpc) GetNetworkCount() int {
+func (self *SVpc) GetNetworkCount() (int, error) {
 	q := self.getNetworkQuery()
 	return q.Count()
 }
@@ -162,14 +166,17 @@ func (self *SVpc) GetRouteTables() []SRouteTable {
 	return routes
 }
 
-func (self *SVpc) GetRouteTableCount() int {
+func (self *SVpc) GetRouteTableCount() (int, error) {
 	return self.GetRouteTableQuery().Count()
 }
 
 func (self *SVpc) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.NewInt(int64(self.GetWireCount())), "wire_count")
-	extra.Add(jsonutils.NewInt(int64(self.GetNetworkCount())), "network_count")
-	extra.Add(jsonutils.NewInt(int64(self.GetRouteTableCount())), "routetable_count")
+	cnt, _ := self.GetWireCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "wire_count")
+	cnt, _ = self.GetNetworkCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "network_count")
+	cnt, _ = self.GetRouteTableCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "routetable_count")
 	/* region, err := self.GetRegion()
 	if err != nil {
 		log.Errorf("failed getting region for vpc %s(%s)", self.Name, self.Id)
@@ -344,7 +351,11 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 	vpc := SVpc{}
 	vpc.SetModelManager(manager)
 
-	vpc.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extVPC.GetName())
+	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extVPC.GetName())
+	if err != nil {
+		return nil, err
+	}
+	vpc.Name = newName
 	vpc.Status = extVPC.GetStatus()
 	vpc.ExternalId = extVPC.GetGlobalId()
 	vpc.IsDefault = extVPC.GetIsDefault()
@@ -355,7 +366,7 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 
 	vpc.IsEmulated = extVPC.IsEmulated()
 
-	err := manager.TableSpec().Insert(&vpc)
+	err = manager.TableSpec().Insert(&vpc)
 	if err != nil {
 		log.Errorf("newFromCloudVpc fail %s", err)
 		return nil, err

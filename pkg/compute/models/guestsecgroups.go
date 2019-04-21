@@ -65,7 +65,11 @@ func (self *SGuestsecgroup) getSecgroup() *SSecurityGroup {
 func (manager *SGuestsecgroupManager) newGuestSecgroup(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, secgroup *SSecurityGroup) (*SGuestsecgroup, error) {
 	q := manager.Query()
 	q = q.Equals("guest_id", guest.Id).Equals("secgroup_id", secgroup.Id)
-	if count := q.Count(); count > 0 {
+	count, err := q.Count()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
 		return nil, fmt.Errorf("security group %s has already been assigned to guest %s", secgroup.Name, guest.Name)
 	}
 

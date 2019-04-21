@@ -448,8 +448,14 @@ func (self *SKVMHostDriver) PrepareUnconvert(host *models.SHost) error {
 	}
 	for i := 0; i < len(hoststorages); i++ {
 		storage := hoststorages[i].GetStorage()
-		if storage.IsLocal() && storage.StorageType != api.STORAGE_BAREMETAL && storage.GetDiskCount() > 0 {
-			return fmt.Errorf("Local host storage is not empty??? %s", storage.GetName())
+		if storage.IsLocal() && storage.StorageType != api.STORAGE_BAREMETAL {
+			cnt, err := storage.GetDiskCount()
+			if err != nil {
+				return err
+			}
+			if cnt > 0 {
+				return fmt.Errorf("Local host storage is not empty??? %s", storage.GetName())
+			}
 		}
 	}
 	return self.SBaseHostDriver.PrepareUnconvert(host)

@@ -38,7 +38,14 @@ func init() {
 func (self *DiskDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
 
-	if disk.GetGuestDiskCount() > 0 {
+	cnt, err := disk.GetGuestDiskCount()
+	if err != nil {
+		reason := "Disk GetGuestDiskCount fail: " + err.Error()
+		self.SetStageFailed(ctx, reason)
+		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
+		return
+	}
+	if cnt > 0 {
 		reason := "Disk has been attached to server"
 		self.SetStageFailed(ctx, reason)
 		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, reason, self.UserCred)

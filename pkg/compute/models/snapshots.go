@@ -77,7 +77,11 @@ func ValidateSnapshotName(hypervisor, name, owner string) error {
 	q := SnapshotManager.Query()
 	q = SnapshotManager.FilterByName(q, name)
 	q = SnapshotManager.FilterByOwner(q, owner)
-	if q.Count() != 0 {
+	cnt, err := q.Count()
+	if err != nil {
+		return err
+	}
+	if cnt != 0 {
 		return fmt.Errorf("Name conflict?")
 	}
 	if !('A' <= name[0] && name[0] <= 'Z' || 'a' <= name[0] && name[0] <= 'z') {
@@ -339,7 +343,7 @@ func (self *SSnapshotManager) GetDiskFirstSnapshot(diskId string) *SSnapshot {
 	return dest
 }
 
-func (self *SSnapshotManager) GetDiskSnapshotCount(diskId string) int {
+func (self *SSnapshotManager) GetDiskSnapshotCount(diskId string) (int, error) {
 	q := self.Query().SubQuery()
 	return q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
 		sqlchemy.Equals(q.Field("fake_deleted"), false))).Count()
@@ -509,7 +513,7 @@ func (self *SSnapshot) Delete(ctx context.Context, userCred mcclient.TokenCreden
 	return nil
 }
 
-func TotalSnapshotCount(projectId string, rangeObj db.IStandaloneModel, providers []string) int {
+func TotalSnapshotCount(projectId string, rangeObj db.IStandaloneModel, providers []string) (int, error) {
 	q := SnapshotManager.Query()
 	if len(projectId) > 0 {
 		q = q.Equals("tenant_id", projectId)
@@ -574,7 +578,11 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	snapshot := SSnapshot{}
 	snapshot.SetModelManager(manager)
 
-	snapshot.Name = db.GenerateName(manager, projectId, extSnapshot.GetName())
+	newName, err := db.GenerateName(manager, projectId, extSnapshot.GetName())
+	if err != nil {
+		return nil, err
+	}
+	snapshot.Name = newName
 	snapshot.Status = extSnapshot.GetStatus()
 	snapshot.ExternalId = extSnapshot.GetGlobalId()
 	if len(extSnapshot.GetDiskId()) > 0 {
@@ -591,7 +599,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	snapshot.ManagerId = provider.Id
 	snapshot.CloudregionId = region.Id
 
-	err := manager.TableSpec().Insert(&snapshot)
+	err = manager.TableSpec().Insert(&snapshot)
 	if err != nil {
 		log.Errorf("newFromCloudEip fail %s", err)
 		return nil, err

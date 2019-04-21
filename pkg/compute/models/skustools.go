@@ -341,7 +341,13 @@ func (self *SkusZoneList) SyncToLocalDB() error {
 // 全量同步sku列表.
 func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	if isStart {
-		if ServerSkuManager.GetSkuCountByProvider("") > 0 {
+		cnt, err := ServerSkuManager.GetSkuCountByProvider("")
+		if err != nil {
+			log.Errorf("GetSkuCountByProvider fail %s", err)
+			return
+		}
+		if cnt > 0 {
+			log.Debugf("GetSkuCountByProvider synced skus, skip...")
 			return
 		}
 	}

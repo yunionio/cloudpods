@@ -137,7 +137,11 @@ func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCr
 
 	// check duplication, 同一个namespace下,name不能 重复
 	q := manager.Query().Equals("name", name).Equals("namespace_id", namespace_id)
-	if q.Count() > 0 {
+	cnt, err := q.Count()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("check name duplication fail %s", err)
+	}
+	if cnt > 0 {
 		return nil, httperrors.NewDuplicateNameError("paramter %s has been created", name)
 	}
 

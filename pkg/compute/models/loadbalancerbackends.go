@@ -421,13 +421,17 @@ func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx cont
 	lbb.CloudregionId = loadbalancerBackendgroup.CloudregionId
 	lbb.ManagerId = loadbalancerBackendgroup.ManagerId
 
-	lbb.Name = db.GenerateName(man, projectId, extLoadbalancerBackend.GetName())
+	newName, err := db.GenerateName(man, projectId, extLoadbalancerBackend.GetName())
+	if err != nil {
+		return nil, err
+	}
+	lbb.Name = newName
 
 	if err := lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend); err != nil {
 		return nil, err
 	}
 
-	err := man.TableSpec().Insert(lbb)
+	err = man.TableSpec().Insert(lbb)
 
 	if err != nil {
 		return nil, err

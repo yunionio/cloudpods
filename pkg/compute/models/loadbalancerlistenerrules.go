@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -131,7 +130,7 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
 	listenerType := listener.ListenerType
 	if listenerType != api.LB_LISTENER_TYPE_HTTP && listenerType != api.LB_LISTENER_TYPE_HTTPS {
-		return nil, fmt.Errorf("listener type must be http/https, got %s", listenerType)
+		return nil, httperrors.NewInputParameterError("listener type must be http/https, got %s", listenerType)
 	}
 	{
 		if lbbg, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != listener.LoadbalancerId {
@@ -140,9 +139,12 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 		} else {
 			// 腾讯云backend group只能1v1关联
 			if listener.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
-				count := lbbg.RefCount()
+				count, err := lbbg.RefCount()
+				if err != nil {
+					return nil, httperrors.NewInternalServerError("get lbbg RefCount fail %s", err)
+				}
 				if count > 0 {
-					return nil, fmt.Errorf("backendgroup already related with other listener/rule")
+					return nil, httperrors.NewResourceBusyError("backendgroup already related with other listener/rule")
 				}
 			}
 		}
@@ -388,10 +390,14 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 	lbr.ListenerId = listener.Id
 	lbr.ManagerId = listener.ManagerId
 
-	lbr.Name = db.GenerateName(man, projectId, extRule.GetName())
+	newName, err := db.GenerateName(man, projectId, extRule.GetName())
+	if err != nil {
+		return nil, err
+	}
+	lbr.Name = newName
 	lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
 
-	err := man.TableSpec().Insert(lbr)
+	err = man.TableSpec().Insert(lbr)
 
 	if err != nil {
 		log.Errorf("newFromCloudLoadbalancerListenerRule fail %s", err)

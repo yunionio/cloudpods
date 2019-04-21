@@ -417,15 +417,23 @@ type IsolatedDeviceCountStat struct {
 	Gpus    int
 }
 
-func (manager *SIsolatedDeviceManager) totalCount(devType, hostTypes []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) int {
+func (manager *SIsolatedDeviceManager) totalCount(devType, hostTypes []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) (int, error) {
 	return manager.totalCountQ(devType, hostTypes, resourceTypes, providers, rangeObj).Count()
 }
 
-func (manager *SIsolatedDeviceManager) TotalCount(hostType []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) IsolatedDeviceCountStat {
-	return IsolatedDeviceCountStat{
-		Devices: manager.totalCount(nil, hostType, resourceTypes, providers, rangeObj),
-		Gpus:    manager.totalCount(VALID_GPU_TYPES, hostType, resourceTypes, providers, rangeObj),
+func (manager *SIsolatedDeviceManager) TotalCount(hostType []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) (IsolatedDeviceCountStat, error) {
+	stat := IsolatedDeviceCountStat{}
+	devCnt, err := manager.totalCount(nil, hostType, resourceTypes, providers, rangeObj)
+	if err != nil {
+		return stat, err
 	}
+	gpuCnt, err := manager.totalCount(VALID_GPU_TYPES, hostType, resourceTypes, providers, rangeObj)
+	if err != nil {
+		return stat, err
+	}
+	stat.Devices = devCnt
+	stat.Gpus = gpuCnt
+	return stat, nil
 }
 
 func (self *SIsolatedDevice) getDesc() *jsonutils.JSONDict {

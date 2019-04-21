@@ -310,13 +310,17 @@ func (lbacl *SLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context) erro
 	t := man.TableSpec().Instance()
 	pdF := t.Field("pending_deleted")
 	lbaclId := lbacl.Id
-	n := t.Query().
+	n, err := t.Query().
 		Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
 		Equals("acl_id", lbaclId).
 		Count()
+	if err != nil {
+		return httperrors.NewInternalServerError("get acl count fail %s", err)
+	}
 	if n > 0 {
-		return fmt.Errorf("acl %s is still referred to by %d %s",
-			lbaclId, n, man.KeywordPlural())
+		// return fmt.Errorf("acl %s is still referred to by %d %s",
+		// 	lbaclId, n, man.KeywordPlural())
+		return httperrors.NewResourceBusyError("acl %s is still referred to by %d %s", lbaclId, n, man.KeywordPlural())
 	}
 	return nil
 }
@@ -430,8 +434,12 @@ func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Cont
 	acl := SLoadbalancerAcl{}
 	acl.SetModelManager(man)
 
+	newName, err := db.GenerateName(man, projectId, extAcl.GetName())
+	if err != nil {
+		return nil, err
+	}
 	acl.ExternalId = extAcl.GetGlobalId()
-	acl.Name = db.GenerateName(man, projectId, extAcl.GetName())
+	acl.Name = newName
 	acl.ManagerId = provider.Id
 	acl.CloudregionId = region.Id
 
@@ -439,7 +447,7 @@ func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Cont
 	for _, entry := range extAcl.GetAclEntries() {
 		*acl.AclEntries = append(*acl.AclEntries, &SLoadbalancerAclEntry{Cidr: entry.CIDR, Comment: entry.Comment})
 	}
-	err := man.TableSpec().Insert(&acl)
+	err = man.TableSpec().Insert(&acl)
 	if err != nil {
 		log.Errorf("newFromCloudLoadbalancerAcl fail %s", err)
 		return nil, err

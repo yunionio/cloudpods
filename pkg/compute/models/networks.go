@@ -132,38 +132,63 @@ func (manager *SNetworkManager) AllowCreateItem(ctx context.Context, userCred mc
 }
 
 func (self *SNetwork) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetTotalNicCount() > 0 {
+	cnt, err := self.GetTotalNicCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetTotalNicCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("not an empty network")
 	}
 	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SNetwork) GetTotalNicCount() int {
-	total := self.GetGuestnicsCount() +
-		self.GetGroupNicsCount() +
-		self.GetBaremetalNicsCount() +
-		self.GetReservedNicsCount() +
-		self.GetLoadbalancerIpsCount()
-	return total
+func (self *SNetwork) GetTotalNicCount() (int, error) {
+	total := 0
+	cnt, err := self.GetGuestnicsCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
+	cnt, err = self.GetGroupNicsCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
+	cnt, err = self.GetBaremetalNicsCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
+	cnt, err = self.GetReservedNicsCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
+	cnt, err = self.GetLoadbalancerIpsCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
+	return total, nil
 }
 
-func (self *SNetwork) GetGuestnicsCount() int {
+func (self *SNetwork) GetGuestnicsCount() (int, error) {
 	return GuestnetworkManager.Query().Equals("network_id", self.Id).IsFalse("virtual").Count()
 }
 
-func (self *SNetwork) GetGroupNicsCount() int {
+func (self *SNetwork) GetGroupNicsCount() (int, error) {
 	return GroupnetworkManager.Query().Equals("network_id", self.Id).Count()
 }
 
-func (self *SNetwork) GetBaremetalNicsCount() int {
+func (self *SNetwork) GetBaremetalNicsCount() (int, error) {
 	return HostnetworkManager.Query().Equals("network_id", self.Id).Count()
 }
 
-func (self *SNetwork) GetReservedNicsCount() int {
+func (self *SNetwork) GetReservedNicsCount() (int, error) {
 	return ReservedipManager.Query().Equals("network_id", self.Id).Count()
 }
 
-func (self *SNetwork) GetLoadbalancerIpsCount() int {
+func (self *SNetwork) GetLoadbalancerIpsCount() (int, error) {
 	return LoadbalancernetworkManager.Query().Equals("network_id", self.Id).Count()
 }
 
@@ -552,7 +577,11 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	net := SNetwork{}
 	net.SetModelManager(manager)
 
-	net.Name = db.GenerateName(manager, projectId, extNet.GetName())
+	newName, err := db.GenerateName(manager, projectId, extNet.GetName())
+	if err != nil {
+		return nil, err
+	}
+	net.Name = newName
 	net.Status = extNet.GetStatus()
 	net.ExternalId = extNet.GetGlobalId()
 	net.WireId = wire.Id
@@ -565,7 +594,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 
 	net.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
-	err := manager.TableSpec().Insert(&net)
+	err = manager.TableSpec().Insert(&net)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)
 		return nil, err
@@ -583,7 +612,7 @@ func (self *SNetwork) isAddressInRange(address netutils.IPV4Addr) bool {
 	return self.getIPRange().Contains(address)
 }
 
-func (self *SNetwork) isAddressUsed(address string) bool {
+func (self *SNetwork) isAddressUsed(address string) (bool, error) {
 	managers := []db.IModelManager{
 		GuestnetworkManager,
 		GroupnetworkManager,
@@ -593,11 +622,15 @@ func (self *SNetwork) isAddressUsed(address string) bool {
 	}
 	for _, manager := range managers {
 		q := manager.Query().Equals("ip_addr", address).Equals("network_id", self.Id)
-		if q.Count() > 0 {
-			return true
+		cnt, err := q.Count()
+		if err != nil {
+			return false, err
+		}
+		if cnt > 0 {
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverType string, isPublic tristate.TriState) (*SNetwork, error) {
@@ -715,12 +748,16 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info *api.NetworkConfig
 	return info, nil
 }
 
-func (self *SNetwork) GetFreeAddressCount() int {
+func (self *SNetwork) GetFreeAddressCount() (int, error) {
 	return self.getFreeAddressCount()
 }
 
-func (self *SNetwork) getFreeAddressCount() int {
-	return self.getIPRange().AddressCount() - self.GetTotalNicCount()
+func (self *SNetwork) getFreeAddressCount() (int, error) {
+	used, err := self.GetTotalNicCount()
+	if err != nil {
+		return -1, err
+	}
+	return self.getIPRange().AddressCount() - used, nil
 }
 
 func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.NetworkConfig) error {
@@ -751,14 +788,24 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.Networ
 				if ReservedipManager.GetReservedIP(net, netConfig.Address) == nil {
 					return httperrors.NewInputParameterError("Address %s not reserved", netConfig.Address)
 				}
-			} else if net.isAddressUsed(netConfig.Address) {
-				return httperrors.NewInputParameterError("Address %s has been used", netConfig.Address)
+			} else {
+				used, err := net.isAddressUsed(netConfig.Address)
+				if err != nil {
+					return httperrors.NewInternalServerError("isAddressUsed fail %s", err)
+				}
+				if used {
+					return httperrors.NewInputParameterError("Address %s has been used", netConfig.Address)
+				}
 			}
 		}
 		if netConfig.BwLimit > api.MAX_BANDWIDTH {
 			return httperrors.NewInputParameterError("Bandwidth limit cannot exceed %dMbps", api.MAX_BANDWIDTH)
 		}
-		if net.getFreeAddressCount() < 1 {
+		freeCnt, err := net.getFreeAddressCount()
+		if err != nil {
+			return httperrors.NewInternalServerError("getFreeAddressCount fail %s", err)
+		}
+		if freeCnt < 1 {
 			return httperrors.NewInputParameterError("network %s(%s) has no free addresses", net.Name, net.Id)
 		}
 	}
@@ -820,30 +867,18 @@ func (self *SNetwork) getMoreDetails(ctx context.Context, extra *jsonutils.JSOND
 		extra.Add(jsonutils.JSONFalse, "exit")
 	}
 	extra.Add(jsonutils.NewInt(int64(self.GetPorts())), "ports")
-	extra.Add(jsonutils.NewInt(int64(self.GetTotalNicCount())), "ports_used")
-	extra.Add(jsonutils.NewInt(int64(self.GetGuestnicsCount())), "vnics")
-	extra.Add(jsonutils.NewInt(int64(self.GetBaremetalNicsCount())), "bm_vnics")
-	extra.Add(jsonutils.NewInt(int64(self.GetLoadbalancerIpsCount())), "lb_vnics")
-	extra.Add(jsonutils.NewInt(int64(self.GetGroupNicsCount())), "group_vnics")
-	extra.Add(jsonutils.NewInt(int64(self.GetReservedNicsCount())), "reserve_vnics")
-
-	/*zone := self.getZone()
-	if zone != nil {
-		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
-		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
-		if len(zone.GetExternalId()) > 0 {
-			extra.Add(jsonutils.NewString(zone.GetExternalId()), "zone_external_id")
-		}
-	}
-
-	region := self.getRegion()
-	if region != nil {
-		extra.Add(jsonutils.NewString(region.GetId()), "region_id")
-		extra.Add(jsonutils.NewString(region.GetName()), "region")
-		if len(region.GetExternalId()) > 0 {
-			extra.Add(jsonutils.NewString(region.GetExternalId()), "region_external_id")
-		}
-	}*/
+	portsUsed, _ := self.GetTotalNicCount()
+	extra.Add(jsonutils.NewInt(int64(portsUsed)), "ports_used")
+	vnics, _ := self.GetGuestnicsCount()
+	extra.Add(jsonutils.NewInt(int64(vnics)), "vnics")
+	bmVnics, _ := self.GetBaremetalNicsCount()
+	extra.Add(jsonutils.NewInt(int64(bmVnics)), "bm_vnics")
+	lbVnics, _ := self.GetLoadbalancerIpsCount()
+	extra.Add(jsonutils.NewInt(int64(lbVnics)), "lb_vnics")
+	groupVnics, _ := self.GetGroupNicsCount()
+	extra.Add(jsonutils.NewInt(int64(groupVnics)), "group_vnics")
+	reserveVnics, _ := self.GetReservedNicsCount()
+	extra.Add(jsonutils.NewInt(int64(reserveVnics)), "reserve_vnics")
 
 	vpc := self.getVpc()
 	if vpc != nil {
@@ -907,7 +942,11 @@ func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.To
 		if !self.isAddressInRange(ipAddr) {
 			return nil, httperrors.NewInputParameterError("Address %s not in network", ipstr)
 		}
-		if self.isAddressUsed(ipstr) {
+		used, err := self.isAddressUsed(ipstr)
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("isAddressUsed fail %s", err)
+		}
+		if used {
 			return nil, httperrors.NewConflictError("Address %s has been used", ipstr)
 		}
 		err = ReservedipManager.ReserveIP(userCred, self, ipstr, notes)
@@ -1663,7 +1702,11 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 			return nil, httperrors.NewInputParameterError("Duplicate name %s", name)
 		}
 	} else {
-		name = db.GenerateName(NetworkManager, userCred.GetProjectId(), fmt.Sprintf("%s#", self.Name))
+		newName, err := db.GenerateName(NetworkManager, userCred.GetProjectId(), fmt.Sprintf("%s#", self.Name))
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("GenerateName fail %s", err)
+		}
+		name = newName
 	}
 
 	network := &SNetwork{}

@@ -262,11 +262,15 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		q = q.Equals("access_url", url)
 	}
 
-	if q.Count() > 0 {
+	cnt, err := q.Count()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("check uniqness fail %s", err)
+	}
+	if cnt > 0 {
 		return nil, httperrors.NewConflictError("The account has been registered")
 	}
 
-	err := cloudprovider.IsValidCloudAccount(url, account, secret, provider)
+	err = cloudprovider.IsValidCloudAccount(url, account, secret, provider)
 	if err != nil {
 		if err == cloudprovider.ErrNoSuchProvder {
 			return nil, httperrors.NewResourceNotFoundError("no such provider %s", provider)
@@ -365,7 +369,11 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 		q = q.Equals("account", account.Account)
 		q = q.Equals("access_url", self.AccessUrl)
 		q = q.NotEquals("id", self.Id)
-		if q.Count() > 0 {
+		cnt, err := q.Count()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("check uniqueness fail %s", err)
+		}
+		if cnt > 0 {
 			return nil, httperrors.NewConflictError("account %s conflict", account.Account)
 		}
 	}
@@ -519,9 +527,9 @@ func (self *SCloudaccount) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclient.TokenCredential, subAccount cloudprovider.SSubAccount) (*SCloudprovider, bool, error) {
 	isNew := false
 	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id).Equals("account", subAccount.Account)
-	providerCount := q.Count()
-	if providerCount < 0 {
-		return nil, false, fmt.Errorf("fail to query subaccount")
+	providerCount, err := q.CountWithError()
+	if err != nil {
+		return nil, false, err
 	}
 	if providerCount > 1 {
 		log.Errorf("cloudaccount %s has duplicate subaccount with name %s", self.Name, subAccount.Account)
@@ -547,6 +555,10 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		lockman.LockClass(ctx, CloudproviderManager, "")
 		defer lockman.ReleaseClass(ctx, CloudproviderManager, "")
 
+		newName, err := db.GenerateName(CloudproviderManager, "", subAccount.Name)
+		if err != nil {
+			return nil, err
+		}
 		newCloudprovider := SCloudprovider{}
 		newCloudprovider.Account = subAccount.Account
 		newCloudprovider.Secret = self.Secret
@@ -556,14 +568,14 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		newCloudprovider.Enabled = true
 		newCloudprovider.Status = api.CLOUD_PROVIDER_CONNECTED
 		newCloudprovider.HealthStatus = self.HealthStatus
-		newCloudprovider.Name = db.GenerateName(CloudproviderManager, "", subAccount.Name)
+		newCloudprovider.Name = newName
 		if !self.AutoCreateProject {
 			newCloudprovider.ProjectId = auth.AdminCredential().GetProjectId()
 		}
 
 		newCloudprovider.SetModelManager(CloudproviderManager)
 
-		err := CloudproviderManager.TableSpec().Insert(&newCloudprovider)
+		err = CloudproviderManager.TableSpec().Insert(&newCloudprovider)
 		if err != nil {
 			return nil, err
 		} else {
@@ -627,55 +639,55 @@ func (manager *SCloudaccountManager) FetchCloudaccountByIdOrName(accountId strin
 	return providerObj.(*SCloudaccount)
 }
 
-func (self *SCloudaccount) getProviderCount() int {
+func (self *SCloudaccount) getProviderCount() (int, error) {
 	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id)
 	return q.Count()
 }
 
-func (self *SCloudaccount) getHostCount() int {
+func (self *SCloudaccount) getHostCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	q := HostManager.Query().In("manager_id", subq)
 	return q.Count()
 }
 
-func (self *SCloudaccount) getVpcCount() int {
+func (self *SCloudaccount) getVpcCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	q := VpcManager.Query().In("manager_id", subq)
 	return q.Count()
 }
 
-func (self *SCloudaccount) getStorageCount() int {
+func (self *SCloudaccount) getStorageCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	q := StorageManager.Query().In("manager_id", subq)
 	return q.Count()
 }
 
-func (self *SCloudaccount) getStoragecacheCount() int {
+func (self *SCloudaccount) getStoragecacheCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	q := StoragecacheManager.Query().In("manager_id", subq)
 	return q.Count()
 }
 
-func (self *SCloudaccount) getEipCount() int {
+func (self *SCloudaccount) getEipCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	q := ElasticipManager.Query().In("manager_id", subq)
 	return q.Count()
 }
 
-func (self *SCloudaccount) getRoutetableCount() int {
+func (self *SCloudaccount) getRoutetableCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	q := RouteTableManager.Query().In("manager_id", subq)
 	return q.Count()
 }
 
-func (self *SCloudaccount) getGuestCount() int {
+func (self *SCloudaccount) getGuestCount() (int, error) {
 	subsubq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	subq := HostManager.Query("id").In("manager_id", subsubq).SubQuery()
 	q := GuestManager.Query().In("host_id", subq)
 	return q.Count()
 }
 
-func (self *SCloudaccount) getDiskCount() int {
+func (self *SCloudaccount) getDiskCount() (int, error) {
 	subsubq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	subq := StorageManager.Query("id").In("manager_id", subsubq).SubQuery()
 	q := DiskManager.Query().In("storage_id", subq)
@@ -702,10 +714,12 @@ func (self *SCloudaccount) getProjectIds() []string {
 }
 
 func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.NewInt(int64(self.getProviderCount())), "provider_count")
-	extra.Add(jsonutils.NewInt(int64(self.getHostCount())), "host_count")
-	extra.Add(jsonutils.NewInt(int64(self.getGuestCount())), "guest_count")
-	extra.Add(jsonutils.NewInt(int64(self.getDiskCount())), "disk_count")
+	extra = db.FetchModelExtraCountProperties(self, extra)
+	// cnt, _ := self.getProviderCount()
+	// int64(cnt)), "provider_count")
+	// extra.Add(jsonutils.NewInt(int64(self.getHostCount())), "host_count")
+	// extra.Add(jsonutils.NewInt(int64(self.getGuestCount())), "guest_count")
+	// extra.Add(jsonutils.NewInt(int64(self.getDiskCount())), "disk_count")
 	// extra.Add(jsonutils.NewString(self.getVersion()), "version")
 	projects := jsonutils.NewArray()
 	for _, projectId := range self.getProjectIds() {
@@ -1284,7 +1298,11 @@ func (self *SCloudaccount) getSyncStatus() string {
 	q = q.Filter(sqlchemy.Equals(providers.Field("cloudaccount_id"), self.Id))
 	q = q.Filter(sqlchemy.NotEquals(cprs.Field("sync_status"), api.CLOUD_PROVIDER_SYNC_STATUS_IDLE))
 
-	if q.Count() > 0 {
+	cnt, err := q.Count()
+	if err != nil {
+		return api.CLOUD_PROVIDER_SYNC_STATUS_ERROR
+	}
+	if cnt > 0 {
 		return api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
 	} else {
 		return api.CLOUD_PROVIDER_SYNC_STATUS_IDLE

@@ -413,7 +413,11 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 		sqlchemy.Equals(q.Field("resource_type"), api.HostResourceTypeShared),
 	))
 
-	oHostCnt := q.Count()
+	oHostCnt, err := q.Count()
+
+	if err != nil {
+		return err
+	}
 
 	if oHostCnt == 0 {
 		msg := "orthordox host not found???"
@@ -429,7 +433,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 	oHost := SHost{}
 	oHost.SetModelManager(HostManager)
 
-	err := q.First(&oHost)
+	err = q.First(&oHost)
 	if err != nil {
 		msg := fmt.Sprintf("fail to query orthordox host %s", err)
 		log.Errorf(msg)

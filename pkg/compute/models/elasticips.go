@@ -346,7 +346,11 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip := SElasticip{}
 	eip.SetModelManager(manager)
 
-	eip.Name = db.GenerateName(manager, projectId, extEip.GetName())
+	newName, err := db.GenerateName(manager, projectId, extEip.GetName())
+	if err != nil {
+		return nil, err
+	}
+	eip.Name = newName
 	eip.Status = extEip.GetStatus()
 	eip.ExternalId = extEip.GetGlobalId()
 	eip.IpAddr = extEip.GetIpAddr()
@@ -356,7 +360,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip.CloudregionId = region.Id
 	eip.ChargeType = extEip.GetInternetChargeType()
 
-	err := manager.TableSpec().Insert(&eip)
+	err = manager.TableSpec().Insert(&eip)
 	if err != nil {
 		log.Errorf("newFromCloudEip fail %s", err)
 		return nil, err
@@ -973,9 +977,9 @@ func (manager *SElasticipManager) TotalCount(projectId string, rangeObj db.IStan
 		q2 = q2.Equals("tenant_id", projectId)
 		q3 = q3.Equals("tenant_id", projectId)
 	}
-	usage.PublicIPCount = q1.Count()
-	usage.EIPCount = q2.Count()
-	usage.EIPUsedCount = q3.Count()
+	usage.PublicIPCount, _ = q1.Count()
+	usage.EIPCount, _ = q2.Count()
+	usage.EIPUsedCount, _ = q3.Count()
 	return usage
 }
 

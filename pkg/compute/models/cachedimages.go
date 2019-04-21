@@ -90,7 +90,11 @@ func (self *SCachedimage) AllowDeleteItem(ctx context.Context, userCred mcclient
 }
 
 func (self *SCachedimage) ValidateDeleteCondition(ctx context.Context) error {
-	if self.getStoragecacheCount() > 0 {
+	cnt, err := self.getStoragecacheCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("ValidateDeleteCondition error %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("The image has been cached on storages")
 	}
 	if self.GetStatus() == "active" && !self.isReferenceSessionExpire() {
@@ -148,7 +152,7 @@ func (self *SCachedimage) getStoragecacheQuery() *sqlchemy.SQuery {
 	return q
 }
 
-func (self *SCachedimage) getStoragecacheCount() int {
+func (self *SCachedimage) getStoragecacheCount() (int, error) {
 	return self.getStoragecacheQuery().Count()
 }
 
@@ -183,9 +187,12 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 		name = imgId
 	}
 
-	name = db.GenerateName(manager, "", name)
+	name, err := db.GenerateName(manager, "", name)
+	if err != nil {
+		return nil, err
+	}
 
-	err := manager.RawQuery().Equals("id", imgId).First(&imageCache)
+	err = manager.RawQuery().Equals("id", imgId).First(&imageCache)
 	if err != nil {
 		if err == sql.ErrNoRows { // insert
 			imageCache.Id = imgId
@@ -308,7 +315,8 @@ func (self *SCachedimage) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.J
 			extra.Add(jsonutils.NewString(val), k)
 		}
 	}
-	extra.Add(jsonutils.NewInt(int64(self.getStoragecacheCount())), "cached_count")
+	cachedCnt, _ := self.getStoragecacheCount()
+	extra.Add(jsonutils.NewInt(int64(cachedCnt)), "cached_count")
 	return extra
 }
 
@@ -395,7 +403,12 @@ func (manager *SCachedimageManager) ImageAddRefCount(imageId string) {
 }
 
 func (self *SCachedimage) canDeleteLastCache() bool {
-	if self.getStoragecacheCount() != 1 {
+	cnt, err := self.getStoragecacheCount()
+	if err != nil {
+		// database error
+		return false
+	}
+	if cnt != 1 {
 		return true
 	}
 	if self.isReferenceSessionExpire() {
@@ -426,7 +439,12 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 	cachedImage := SCachedimage{}
 	cachedImage.SetModelManager(manager)
 
-	cachedImage.Name = db.GenerateName(manager, "", image.GetName())
+	newName, err := db.GenerateName(manager, "", image.GetName())
+	if err != nil {
+		return nil, err
+	}
+
+	cachedImage.Name = newName
 	cachedImage.Size = image.GetSize()
 	sImage := cloudprovider.CloudImage2Image(image)
 	cachedImage.Info = jsonutils.Marshal(&sImage)
@@ -434,7 +452,7 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 	cachedImage.ImageType = image.GetImageType()
 	cachedImage.ExternalId = image.GetGlobalId()
 
-	err := manager.TableSpec().Insert(&cachedImage)
+	err = manager.TableSpec().Insert(&cachedImage)
 	if err != nil {
 		return nil, err
 	}
