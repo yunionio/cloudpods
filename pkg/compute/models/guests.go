@@ -1839,6 +1839,11 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 		return nil
 	}
 
+	if options.SyncPurgeRemovedResources.Contains(self.Keyword()) {
+		log.Debugf("purge removed resource %s", self.Name)
+		return self.purge(ctx, userCred)
+	}
+
 	if !lostNamePattern.MatchString(self.Name) {
 		db.Update(self, func() error {
 			self.Name = fmt.Sprintf("%s-lost@%s", self.Name, timeutils.ShortDate(time.Now()))
