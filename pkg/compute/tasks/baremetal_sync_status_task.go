@@ -77,12 +77,12 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnInit(ctx context.Context, obj db
 		bs.SetStatus(self.UserCred, api.STORAGE_OFFLINE, "")
 		if first && baremetal.Name != guest.Name {
 			db.Update(baremetal, func() error {
-				if models.HostManager.IsNewNameUnique(guest.Name, self.UserCred, nil) {
-					baremetal.Name = guest.Name
-				} else {
-					baremetal.Name = db.GenerateName(baremetal.GetModelManager(),
-						self.UserCred.GetTokenString(), guest.Name)
+				newName, err := db.GenerateName(baremetal.GetModelManager(),
+					self.UserCred.GetTokenString(), guest.Name)
+				if err != nil {
+					return err
 				}
+				baremetal.Name = newName
 				return nil
 			})
 		}

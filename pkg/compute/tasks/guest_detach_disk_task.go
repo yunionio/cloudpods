@@ -97,17 +97,19 @@ func (self *GuestDetachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 	if host != nil && host.Status == api.HOST_DISABLED && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		purge = true
 	}
-	if !keepDisk && disk.GetGuestDiskCount() == 0 && disk.AutoDelete {
-		self.SetStage("OnDiskDeleteComplete", nil)
-		db.OpsLog.LogEvent(disk, db.ACT_DELETE, "", self.UserCred)
-		err := guest.GetDriver().RequestDeleteDetachedDisk(ctx, disk, self, purge)
-		if err != nil {
-			self.OnTaskFail(ctx, guest, disk, err)
+	if !keepDisk && disk.AutoDelete {
+		cnt, _ := disk.GetGuestDiskCount()
+		if cnt == 0 {
+			self.SetStage("OnDiskDeleteComplete", nil)
+			db.OpsLog.LogEvent(disk, db.ACT_DELETE, "", self.UserCred)
+			err := guest.GetDriver().RequestDeleteDetachedDisk(ctx, disk, self, purge)
+			if err != nil {
+				self.OnTaskFail(ctx, guest, disk, err)
+			}
+			return
 		}
-	} else {
-		self.SetStageComplete(ctx, nil)
 	}
-	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DETACH_DISK, nil, self.UserCred, true)
+	self.OnDiskDeleteComplete(ctx, guest, nil)
 }
 
 func (self *GuestDetachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, reason jsonutils.JSONObject) {
@@ -143,4 +145,5 @@ func (self *GuestDetachDiskTask) OnTaskFail(ctx context.Context, guest *models.S
 
 func (self *GuestDetachDiskTask) OnDiskDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
+	logclient.AddActionLogWithStartable(self, obj, logclient.ACT_VM_DETACH_DISK, nil, self.UserCred, true)
 }

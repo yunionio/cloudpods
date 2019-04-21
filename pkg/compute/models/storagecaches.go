@@ -180,7 +180,11 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Contex
 	local := SStoragecache{}
 	local.SetModelManager(manager)
 
-	local.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), cloudCache.GetName())
+	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), cloudCache.GetName())
+	if err != nil {
+		return nil, err
+	}
+	local.Name = newName
 	local.ExternalId = cloudCache.GetGlobalId()
 
 	local.IsEmulated = cloudCache.IsEmulated()
@@ -188,7 +192,7 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Contex
 
 	local.Path = cloudCache.GetPath()
 
-	err := manager.TableSpec().Insert(&local)
+	err = manager.TableSpec().Insert(&local)
 	if err != nil {
 		return nil, err
 	}

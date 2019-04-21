@@ -218,7 +218,7 @@ func getGPUs(region *SCloudregion, zone *SZone) []string {
 	return gpus
 }
 
-func getNetworkCount(region *SCloudregion, zone *SZone) int {
+func getNetworkCount(region *SCloudregion, zone *SZone) (int, error) {
 	wires := WireManager.Query().SubQuery()
 	networks := NetworkManager.Query().SubQuery()
 
@@ -282,7 +282,11 @@ func getMaxDataDiskCount(region *SCloudregion, zone *SZone) int {
 }
 
 func isUsable(region *SCloudregion, zone *SZone) bool {
-	if getNetworkCount(region, zone) > 0 {
+	cnt, err := getNetworkCount(region, zone)
+	if err != nil {
+		return false
+	}
+	if cnt > 0 {
 		return true
 	} else {
 		return false

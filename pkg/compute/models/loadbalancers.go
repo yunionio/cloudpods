@@ -157,11 +157,19 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 				return nil, httperrors.NewInputParameterError("address %s is not in the range of network %s(%s)",
 					ipS, network.Name, network.Id)
 			}
-			if network.isAddressUsed(ipS) {
+			used, err := network.isAddressUsed(ipS)
+			if err != nil {
+				return nil, httperrors.NewInternalServerError("isAddressUsed fail %s", err)
+			}
+			if used {
 				return nil, httperrors.NewInputParameterError("address %s is already occupied", ipS)
 			}
 		}
-		if network.getFreeAddressCount() <= 0 {
+		freeCnt, err := network.getFreeAddressCount()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("getFreeAddressCount fail %s", err)
+		}
+		if freeCnt <= 0 {
 			return nil, httperrors.NewNotAcceptableError("network %s(%s) has no free addresses",
 				network.Name, network.Id)
 		}
@@ -599,7 +607,12 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	lb.Address = extLb.GetAddress()
 	lb.AddressType = extLb.GetAddressType()
 	lb.NetworkType = extLb.GetNetworkType()
-	lb.Name = db.GenerateName(man, projectId, extLb.GetName())
+
+	newName, err := db.GenerateName(man, projectId, extLb.GetName())
+	if err != nil {
+		return nil, err
+	}
+	lb.Name = newName
 	lb.Status = extLb.GetStatus()
 	lb.LoadbalancerSpec = extLb.GetLoadbalancerSpec()
 	lb.ChargeType = extLb.GetChargeType()

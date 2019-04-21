@@ -122,8 +122,19 @@ func (wire *SWire) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 }
 
 func (wire *SWire) ValidateDeleteCondition(ctx context.Context) error {
-	if wire.HostCount() > 0 || wire.NetworkCount() > 0 {
-		return httperrors.NewNotEmptyError("not an empty wire")
+	cnt, err := wire.HostCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("HostCount fail %s", err)
+	}
+	if cnt > 0 {
+		return httperrors.NewNotEmptyError("wire contains hosts")
+	}
+	cnt, err = wire.NetworkCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("NetworkCount fail %s", err)
+	}
+	if cnt > 0 {
+		return httperrors.NewNotEmptyError("wire contains networks")
 	}
 	return wire.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
@@ -132,7 +143,7 @@ func (wire *SWire) getHostwireQuery() *sqlchemy.SQuery {
 	return HostwireManager.Query().Equals("wire_id", wire.Id)
 }
 
-func (wire *SWire) HostCount() int {
+func (wire *SWire) HostCount() (int, error) {
 	q := wire.getHostwireQuery()
 	return q.Count()
 }
@@ -147,7 +158,7 @@ func (wire *SWire) GetHostwires() ([]SHostwire, error) {
 	return hostwires, nil
 }
 
-func (wire *SWire) NetworkCount() int {
+func (wire *SWire) NetworkCount() (int, error) {
 	q := NetworkManager.Query().Equals("wire_id", wire.Id)
 	return q.Count()
 }
@@ -287,7 +298,11 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	wire := SWire{}
 	wire.SetModelManager(manager)
 
-	wire.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extWire.GetName())
+	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extWire.GetName())
+	if err != nil {
+		return nil, err
+	}
+	wire.Name = newName
 	wire.ExternalId = extWire.GetGlobalId()
 	wire.Bandwidth = extWire.GetBandwidth()
 	wire.VpcId = vpc.Id
@@ -304,7 +319,7 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 
 	wire.IsEmulated = extWire.IsEmulated()
 
-	err := manager.TableSpec().Insert(&wire)
+	err = manager.TableSpec().Insert(&wire)
 	if err != nil {
 		log.Errorf("newFromCloudWire fail %s", err)
 		return nil, err
@@ -498,8 +513,8 @@ func chooseNetworkByAddressCount(nets []*SNetwork) (*SNetwork, *SNetwork) {
 	var minSel *SNetwork
 	var maxSel *SNetwork
 	for _, net := range nets {
-		cnt := net.getFreeAddressCount()
-		if cnt <= 0 {
+		cnt, err := net.getFreeAddressCount()
+		if err != nil || cnt <= 0 {
 			continue
 		}
 		if minSel == nil || minCnt > cnt {
@@ -770,22 +785,8 @@ func (self *SWire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SWire) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.NewInt(int64(self.NetworkCount())), "networks")
-	/*zone := self.GetZone()
-	if zone != nil {
-		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
-		if len(zone.GetExternalId()) > 0 {
-			extra.Add(jsonutils.NewString(zone.GetExternalId()), "zone_external_id")
-		}
-	}
-	region := self.getRegion()
-	if region != nil {
-		extra.Add(jsonutils.NewString(region.GetId()), "region_id")
-		extra.Add(jsonutils.NewString(region.GetName()), "region")
-		if len(region.GetExternalId()) > 0 {
-			extra.Add(jsonutils.NewString(region.GetExternalId()), "region_external_id")
-		}
-	}*/
+	cnt, _ := self.NetworkCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "networks")
 	vpc := self.getVpc()
 	if vpc != nil {
 		extra.Add(jsonutils.NewString(vpc.GetName()), "vpc")

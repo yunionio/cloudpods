@@ -17,19 +17,24 @@ package db
 import (
 	"fmt"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
-func isNameUnique(manager IModelManager, owner string, name string) bool {
+func isNameUnique(manager IModelManager, owner string, name string) (bool, error) {
 	q := manager.Query()
 	q = manager.FilterByName(q, name)
 	if !consts.IsGlobalVirtualResourceNamespace() {
 		q = manager.FilterByOwner(q, owner)
 	}
-	return q.Count() == 0
+	cnt, err := q.Count()
+	if err != nil {
+		return false, err
+	}
+	return cnt == 0, nil
 }
 
 func NewNameValidator(manager IModelManager, ownerProjId string, name string) error {
@@ -37,13 +42,17 @@ func NewNameValidator(manager IModelManager, ownerProjId string, name string) er
 	if err != nil {
 		return err
 	}
-	if !isNameUnique(manager, ownerProjId, name) {
+	uniq, err := isNameUnique(manager, ownerProjId, name)
+	if err != nil {
+		return err
+	}
+	if !uniq {
 		return httperrors.NewDuplicateNameError("name", name)
 	}
 	return nil
 }
 
-func isAlterNameUnique(model IModel, name string) bool {
+func isAlterNameUnique(model IModel, name string) (bool, error) {
 	manager := model.GetModelManager()
 	q := manager.Query()
 	q = manager.FilterByName(q, name)
@@ -51,7 +60,11 @@ func isAlterNameUnique(model IModel, name string) bool {
 		q = manager.FilterByOwner(q, model.GetOwnerProjectId())
 	}
 	q = manager.FilterByNotId(q, model.GetId())
-	return q.Count() == 0
+	cnt, err := q.Count()
+	if err != nil {
+		return false, err
+	}
+	return cnt == 0, nil
 }
 
 func alterNameValidator(model IModel, name string) error {
@@ -59,13 +72,17 @@ func alterNameValidator(model IModel, name string) error {
 	if err != nil {
 		return err
 	}
-	if !isAlterNameUnique(model, name) {
+	uniq, err := isAlterNameUnique(model, name)
+	if err != nil {
+		return err
+	}
+	if !uniq {
 		return httperrors.NewDuplicateNameError("name", name)
 	}
 	return nil
 }
 
-func GenerateName(manager IModelManager, ownerProjId string, hint string) string {
+func GenerateName(manager IModelManager, ownerProjId string, hint string) (string, error) {
 	_, pattern, patternLen := stringutils.ParseNamePattern(hint)
 	var name string
 	idx := 1
@@ -75,9 +92,17 @@ func GenerateName(manager IModelManager, ownerProjId string, hint string) string
 		name = fmt.Sprintf(pattern, idx)
 		idx += 1
 	}
-	for !isNameUnique(manager, ownerProjId, name) {
+	for {
+		uniq, err := isNameUnique(manager, ownerProjId, name)
+		if err != nil {
+			return "", err
+		}
+		if uniq {
+			return name, nil
+		}
 		name = fmt.Sprintf(pattern, idx)
 		idx += 1
 	}
-	return name
+	log.Fatalln("here is not reachable!!!")
+	return "", nil
 }

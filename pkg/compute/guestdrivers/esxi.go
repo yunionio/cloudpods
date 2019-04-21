@@ -53,10 +53,9 @@ func (self *SESXiGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return options.Options.DefaultDiskSizeMB / 1024
 }
 
-// func (self *SESXiGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-// 	task.ScheduleRun(nil)
-// 	return nil
-// }
+func (self *SESXiGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	return nil // do nothing, not support securitygroup
+}
 
 func (self *SESXiGuestDriver) GetMaxSecurityGroupCount() int {
 	//暂不支持绑定安全组

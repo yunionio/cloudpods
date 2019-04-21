@@ -85,8 +85,11 @@ func (self *SBaremetalagent) ValidateDeleteCondition(ctx context.Context) error 
 func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	mangerUri, err := data.GetString("manager_uri")
 	if err == nil {
-		count := BaremetalagentManager.Query().Equals("manager_uri", mangerUri).
+		count, err := BaremetalagentManager.Query().Equals("manager_uri", mangerUri).
 			NotEquals("id", self.Id).Count()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
+		}
 		if count > 0 {
 			return nil, httperrors.NewConflictError("Conflict manager_uri %s", mangerUri)
 		}
@@ -96,7 +99,10 @@ func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mc
 
 func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	mangerUri, _ := data.GetString("manager_uri")
-	count := manager.Query().Equals("manager_uri", mangerUri).Count()
+	count, err := manager.Query().Equals("manager_uri", mangerUri).Count()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
+	}
 	if count > 0 {
 		return nil, httperrors.NewDuplicateResourceError("Duplicate manager_uri %s", mangerUri)
 	}

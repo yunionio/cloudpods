@@ -135,7 +135,7 @@ on_succ, on_fail, **kwargs)
 
 */
 
-func (manager *SZoneManager) Count() int {
+func (manager *SZoneManager) Count() (int, error) {
 	return manager.Query().Count()
 }
 
@@ -167,17 +167,17 @@ func (usage *ZoneGeneralUsage) isEmpty() bool {
 
 func (zone *SZone) GeneralUsage() ZoneGeneralUsage {
 	usage := ZoneGeneralUsage{}
-	usage.Hosts = zone.HostCount("", "", tristate.None, "", tristate.None)
-	usage.HostsEnabled = zone.HostCount("", "", tristate.True, "", tristate.None)
-	usage.Baremetals = zone.HostCount("", "", tristate.None, "", tristate.True)
-	usage.BaremetalsEnabled = zone.HostCount("", "", tristate.True, "", tristate.True)
-	usage.Wires = zone.getWireCount()
-	usage.Networks = zone.getNetworkCount()
-	usage.Storages = zone.getStorageCount()
+	usage.Hosts, _ = zone.HostCount("", "", tristate.None, "", tristate.None)
+	usage.HostsEnabled, _ = zone.HostCount("", "", tristate.True, "", tristate.None)
+	usage.Baremetals, _ = zone.HostCount("", "", tristate.None, "", tristate.True)
+	usage.BaremetalsEnabled, _ = zone.HostCount("", "", tristate.True, "", tristate.True)
+	usage.Wires, _ = zone.getWireCount()
+	usage.Networks, _ = zone.getNetworkCount()
+	usage.Storages, _ = zone.getStorageCount()
 	return usage
 }
 
-func (zone *SZone) HostCount(status string, hostStatus string, enabled tristate.TriState, hostType string, isBaremetal tristate.TriState) int {
+func (zone *SZone) HostCount(status string, hostStatus string, enabled tristate.TriState, hostType string, isBaremetal tristate.TriState) (int, error) {
 	q := HostManager.Query().Equals("zone_id", zone.Id)
 	if len(status) > 0 {
 		q = q.Equals("status", status)
@@ -201,17 +201,17 @@ func (zone *SZone) HostCount(status string, hostStatus string, enabled tristate.
 	return q.Count()
 }
 
-func (zone *SZone) getWireCount() int {
+func (zone *SZone) getWireCount() (int, error) {
 	q := WireManager.Query().Equals("zone_id", zone.Id)
 	return q.Count()
 }
 
-func (zone *SZone) getStorageCount() int {
+func (zone *SZone) getStorageCount() (int, error) {
 	q := StorageManager.Query().Equals("zone_id", zone.Id)
 	return q.Count()
 }
 
-func (zone *SZone) getNetworkCount() int {
+func (zone *SZone) getNetworkCount() (int, error) {
 	return getNetworkCount(nil, zone)
 }
 
@@ -352,7 +352,11 @@ func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mccl
 	zone := SZone{}
 	zone.SetModelManager(manager)
 
-	zone.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extZone.GetName())
+	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extZone.GetName())
+	if err != nil {
+		return nil, err
+	}
+	zone.Name = newName
 	zone.Status = extZone.GetStatus()
 	zone.ExternalId = extZone.GetGlobalId()
 
@@ -360,7 +364,7 @@ func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mccl
 
 	zone.CloudregionId = region.Id
 
-	err := manager.TableSpec().Insert(&zone)
+	err = manager.TableSpec().Insert(&zone)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)
 		return nil, err

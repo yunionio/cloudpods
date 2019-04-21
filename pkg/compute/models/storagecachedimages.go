@@ -185,16 +185,22 @@ func (self *SStoragecachedimage) getExtraDetails(extra *jsonutils.JSONDict) *jso
 		extra.Add(jsonutils.NewString(cachedImage.GetName()), "image")
 		extra.Add(jsonutils.NewInt(cachedImage.Size), "size")
 	}
-	extra.Add(jsonutils.NewInt(int64(self.getReferenceCount())), "reference")
+	cnt, _ := self.getReferenceCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "reference")
 	return extra
 }
 
-func (self *SStoragecachedimage) getCdromReferenceCount() int {
-	// TODO
-	return 0
+func (self *SStoragecachedimage) getCdromReferenceCount() (int, error) {
+	cdroms := GuestcdromManager.Query().SubQuery()
+	guests := GuestManager.Query().SubQuery()
+
+	q := cdroms.Query()
+	q = q.Join(guests, sqlchemy.Equals(cdroms.Field("id"), guests.Field("id")))
+	q = q.Filter(sqlchemy.Equals(cdroms.Field("image_id"), self.CachedimageId))
+	return q.Count()
 }
 
-func (self *SStoragecachedimage) getDiskReferenceCount() int {
+func (self *SStoragecachedimage) getDiskReferenceCount() (int, error) {
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	disks := DiskManager.Query().SubQuery()
 	storages := StorageManager.Query().SubQuery()
@@ -211,8 +217,19 @@ func (self *SStoragecachedimage) getDiskReferenceCount() int {
 	return q.Count()
 }
 
-func (self *SStoragecachedimage) getReferenceCount() int {
-	return self.getCdromReferenceCount() + self.getDiskReferenceCount()
+func (self *SStoragecachedimage) getReferenceCount() (int, error) {
+	totalCnt := 0
+	cnt, err := self.getCdromReferenceCount()
+	if err != nil {
+		return -1, err
+	}
+	totalCnt += cnt
+	cnt, err = self.getDiskReferenceCount()
+	if err != nil {
+		return -1, err
+	}
+	totalCnt += cnt
+	return totalCnt, nil
 }
 
 func (manager *SStoragecachedimageManager) GetStoragecachedimage(cacheId string, imageId string) *SStoragecachedimage {
@@ -235,7 +252,11 @@ func (self *SStoragecachedimage) Detach(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SStoragecachedimage) ValidateDeleteCondition(ctx context.Context) error {
-	if self.getReferenceCount() > 0 {
+	cnt, err := self.getReferenceCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("getReferenceCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Image is in use")
 	}
 	return self.SJointResourceBase.ValidateDeleteCondition(ctx)
@@ -372,10 +393,18 @@ func (self *SStoragecachedimage) syncRemoveCloudImage(ctx context.Context, userC
 	if err != nil {
 		return err
 	}
-	if image != nil && image.getStoragecacheCount() == 0 {
-		err = image.Delete(ctx, userCred)
+	if image != nil {
+		cnt, err := image.getStoragecacheCount()
 		if err != nil {
-			log.Errorf("image delete error %s", err)
+			log.Errorf("getStoragecacheCount fail %s", err)
+			return err
+		}
+		if cnt == 0 {
+			err = image.Delete(ctx, userCred)
+			if err != nil {
+				log.Errorf("image delete error %s", err)
+				return err
+			}
 		}
 	}
 	return nil

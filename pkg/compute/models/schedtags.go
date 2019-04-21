@@ -227,13 +227,25 @@ func (self *SSchedtag) ValidateUpdateData(ctx context.Context, userCred mcclient
 }
 
 func (self *SSchedtag) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetObjectCount() > 0 {
+	cnt, err := self.GetObjectCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetObjectCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Tag is associated with %s", self.ResourceType)
 	}
-	if self.getDynamicSchedtagCount() > 0 {
+	cnt, err = self.getDynamicSchedtagCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("getDynamicSchedtagCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("tag has dynamic rules")
 	}
-	if self.getSchedPoliciesCount() > 0 {
+	cnt, err = self.getSchedPoliciesCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("getSchedPoliciesCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("tag is associate with sched policies")
 	}
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -275,22 +287,25 @@ func (self *SSchedtag) GetJointManager() ISchedtagJointManager {
 	return SchedtagManager.jointsManager[self.ResourceType]
 }
 
-func (self *SSchedtag) GetObjectCount() int {
+func (self *SSchedtag) GetObjectCount() (int, error) {
 	return self.GetJointManager().Query().Equals("schedtag_id", self.Id).Count()
 }
 
-func (self *SSchedtag) getSchedPoliciesCount() int {
+func (self *SSchedtag) getSchedPoliciesCount() (int, error) {
 	return SchedpolicyManager.Query().Equals("schedtag_id", self.Id).Count()
 }
 
-func (self *SSchedtag) getDynamicSchedtagCount() int {
+func (self *SSchedtag) getDynamicSchedtagCount() (int, error) {
 	return DynamicschedtagManager.Query().Equals("schedtag_id", self.Id).Count()
 }
 
 func (self *SSchedtag) getMoreColumns(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.NewInt(int64(self.GetObjectCount())), fmt.Sprintf("%s_count", self.GetJointManager().GetMasterManager().Keyword()))
-	extra.Add(jsonutils.NewInt(int64(self.getDynamicSchedtagCount())), "dynamic_schedtag_count")
-	extra.Add(jsonutils.NewInt(int64(self.getSchedPoliciesCount())), "schedpolicy_count")
+	cnt, _ := self.GetObjectCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), fmt.Sprintf("%s_count", self.GetJointManager().GetMasterManager().Keyword()))
+	cnt, _ = self.getDynamicSchedtagCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "dynamic_schedtag_count")
+	cnt, _ = self.getSchedPoliciesCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "schedpolicy_count")
 	return extra
 }
 

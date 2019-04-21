@@ -730,7 +730,8 @@ func (manager *SImageManager) count(projectId string, status string, isISO trist
 		ret[u.Format] = SImageUsage{Count: u.Count, Size: u.Size}
 		totalSize += u.Size
 	}
-	ret["total"] = SImageUsage{Count: int64(sq.Count()), Size: totalSize}
+	cnt, _ := sq.Count()
+	ret["total"] = SImageUsage{Count: int64(cnt), Size: totalSize}
 	return ret
 }
 
