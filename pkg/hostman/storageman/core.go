@@ -345,7 +345,9 @@ func cleanDailyFiles(storagePath, subDir string, keepDay int) {
 		if date.Before(markTime) {
 			log.Infof("Real delete %s", file)
 			subDirPath := path.Join(recycleDir, file.Name())
-			procutils.NewCommand("rm", "-rf", subDirPath)
+			if _, err := procutils.NewCommand("rm", "-rf", subDirPath).Run(); err != nil {
+				log.Errorf("clean recycle dir %s error %s", subDirPath, err)
+			}
 		}
 	}
 }
