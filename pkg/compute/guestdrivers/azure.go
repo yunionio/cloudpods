@@ -17,7 +17,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
@@ -127,6 +126,10 @@ func (self *SAzureGuestDriver) ValidateUpdateData(ctx context.Context, userCred 
 	return data, nil
 }
 
+func (self *SAzureGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+	return cloudprovider.VM_AZURE_DEFAULT_LOGIN_USER
+}
+
 func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	config, err := guest.GetDeployConfigOnHost(ctx, task.GetUserCred(), host, task.GetParams())
 	if err != nil {
@@ -169,7 +172,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 				return nil, err
 			}
 
-			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, self.GetLinuxDefaultAccount(desc), desc.Password, action)
 			return data, nil
 		})
 	} else if action == "deploy" {
@@ -187,7 +190,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			if err != nil {
 				return nil, err
 			}
-			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, self.GetLinuxDefaultAccount(desc), desc.Password, action)
 			return data, nil
 		})
 	} else if action == "rebuild" {
@@ -204,7 +207,7 @@ func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gue
 			}
 
 			log.Debugf("VMrebuildRoot %s, and status is ready", iVM.GetGlobalId())
-			data := fetchIVMinfo(desc, iVM, guest.Id, ansible.PUBLIC_CLOUD_ANSIBLE_USER, desc.Password, action)
+			data := fetchIVMinfo(desc, iVM, guest.Id, self.GetLinuxDefaultAccount(desc), desc.Password, action)
 
 			return data, nil
 		})

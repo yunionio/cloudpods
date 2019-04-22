@@ -155,5 +155,9 @@ func (self *SRegion) CreateNetworkInterface(nicName string, ipAddr string, subne
 		Type: "Microsoft.Network/networkInterfaces",
 	}
 
+	if len(ipAddr) == 0 {
+		instancenic.Properties.IPConfigurations[0].Properties.PrivateIPAllocationMethod = "Dynamic"
+	}
+
 	return &instancenic, self.client.Create(jsonutils.Marshal(&instancenic), &instancenic)
 }
