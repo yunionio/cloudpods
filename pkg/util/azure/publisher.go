@@ -180,9 +180,10 @@ func publisherGetName(publisher, offer, sku, version string) string {
 }
 
 func publisherGetOsType(publisher string) string {
-	driver, ok := publisherDrivers[publisher]
-	if ok {
-		return driver.OsType
+	for _publisher, driver := range publisherDrivers {
+		if strings.ToLower(_publisher) == strings.ToLower(publisher) {
+			return driver.OsType
+		}
 	}
 	return "Linux"
 }
