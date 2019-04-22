@@ -168,6 +168,9 @@ func (this *DomainManager) DoDomainConfigUpdate(s *mcclient.ClientSession, domai
 
 	config := jsonutils.NewDict()
 	_config, _ := params.Get("config")
+	if _config == nil {
+		_config = jsonutils.NewDict()
+	}
 	_driver, _ := _config.GetString("identity", "driver")
 
 	if _driver == "ldap" {
