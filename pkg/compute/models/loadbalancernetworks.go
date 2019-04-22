@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
@@ -164,6 +165,26 @@ func (m *SLoadbalancernetworkManager) syncLoadbalancerNetwork(ctx context.Contex
 	return nil
 }
 
-func (lbNetwork *SLoadbalancerNetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return db.DeleteModel(ctx, userCred, lbNetwork)
+func (ln *SLoadbalancerNetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return db.DeleteModel(ctx, userCred, ln)
+}
+
+// Master implements db.IJointModel interface
+func (ln *SLoadbalancerNetwork) Master() db.IStandaloneModel {
+	return db.JointMaster(ln)
+}
+
+// Slave implements db.IJointModel interface
+func (ln *SLoadbalancerNetwork) Slave() db.IStandaloneModel {
+	return db.JointSlave(ln)
+}
+
+// Detach implements db.IJointModel interface
+func (ln *SLoadbalancerNetwork) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return db.DetachJoint(ctx, userCred, ln)
+}
+
+func (ln *SLoadbalancerNetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := jsonutils.NewDict()
+	return db.JointModelExtra(ln, extra)
 }
