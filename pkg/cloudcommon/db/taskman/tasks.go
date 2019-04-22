@@ -451,6 +451,10 @@ func (task *STask) ScheduleRun(data jsonutils.JSONObject) {
 	runTask(task.Id, data)
 }
 
+func (self *STask) IsSubtask() bool {
+	return self.HasParentTask()
+}
+
 func (self *STask) HasParentTask() bool {
 	parentTaskId, _ := self.Params.GetString(PARENT_TASK_ID_KEY)
 	if len(parentTaskId) > 0 {
