@@ -29,7 +29,7 @@ func init() {
 		Network      string `help:"ID or Name of network"`
 		Ip           string `help:"search the IP address"`
 	}
-	R(&LoadbalancerNetworkListOptions{}, "loadbalancer-network-list", "List loadbalancer network pairs", func(s *mcclient.ClientSession, args *LoadbalancerNetworkListOptions) error {
+	R(&LoadbalancerNetworkListOptions{}, "lbnetwork-list", "List loadbalancer network pairs", func(s *mcclient.ClientSession, args *LoadbalancerNetworkListOptions) error {
 		var params *jsonutils.JSONDict
 		{
 			var err error
@@ -57,5 +57,4 @@ func init() {
 		printList(result, modules.Loadbalancernetworks.GetColumns(s))
 		return nil
 	})
-
 }
