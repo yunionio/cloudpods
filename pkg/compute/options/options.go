@@ -87,6 +87,8 @@ type ComputeOptions struct {
 
 	NameSyncResources []string `help:"resources that need synchronization of name"`
 
+	SyncPurgeRemovedResources []string `help:"resources that shoud be purged immediately if found removed"`
+
 	DisconnectedCloudAccountRetryProbeIntervalHours int `help:"interval to wait to probe status of a disconnected cloud account" default:"24"`
 
 	SCapabilityOptions
