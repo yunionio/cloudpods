@@ -476,7 +476,10 @@ func (lb *SLoadbalancer) LBPendingDelete(ctx context.Context, userCred mcclient.
 		req := &SLoadbalancerNetworkDeleteData{
 			loadbalancer: lb,
 		}
-		LoadbalancernetworkManager.DeleteLoadbalancerNetwork(ctx, userCred, req)
+		err := LoadbalancernetworkManager.DeleteLoadbalancerNetwork(ctx, userCred, req)
+		if err != nil {
+			log.Errorf("failed detaching network of loadbalancer %s(%s): %v", lb.Name, lb.Id, err)
+		}
 	}
 	lb.pendingDeleteSubs(ctx, userCred)
 	lb.DoPendingDelete(ctx, userCred)
