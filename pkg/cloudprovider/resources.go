@@ -45,6 +45,7 @@ type IVirtualResource interface {
 
 type IBillingResource interface {
 	GetBillingType() string
+	GetCreatedAt() time.Time
 	GetExpiredAt() time.Time
 }
 

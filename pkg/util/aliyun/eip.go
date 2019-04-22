@@ -170,6 +170,10 @@ func (self *SEipAddress) GetBillingType() string {
 	return convertChargeType(self.ChargeType)
 }
 
+func (self *SEipAddress) GetCreatedAt() time.Time {
+	return self.AllocationTime
+}
+
 func (self *SEipAddress) GetExpiredAt() time.Time {
 	return convertExpiredAt(self.ExpiredTime)
 }

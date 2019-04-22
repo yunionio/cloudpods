@@ -803,6 +803,10 @@ func (self *SInstance) GetBillingType() string {
 	}
 }
 
+func (self *SInstance) GetCreatedAt() time.Time {
+	return self.CreatedTime
+}
+
 func (self *SInstance) GetExpiredAt() time.Time {
 	return self.ExpiredTime
 }
