@@ -94,23 +94,23 @@ type SFault struct {
 type SInstance struct {
 	host *SHost
 
-	DiskConfig         string `json:"OS-DCF:diskConfig,omitempty"`
-	AvailabilityZone   string `json:"OS-EXT-AZ:availability_zone,omitempty"`
-	Host               string `json:"OS-EXT-SRV-ATTR:host,omitempty"`
-	Hostname           string `json:"OS-EXT-SRV-ATTR:hostname,omitempty"`
-	HypervisorHostname string `json:"OS-EXT-SRV-ATTR:hypervisor_hostname,omitempty"`
-	InstanceName       string `json:"OS-EXT-SRV-ATTR:instance_name,omitempty"`
-	KernelID           string `json:"OS-EXT-SRV-ATTR:kernel_id,omitempty"`
-	LaunchIndex        int    `json:"OS-EXT-SRV-ATTR:launch_index,omitempty"`
-	RamdiskID          string `json:"OS-EXT-SRV-ATTR:ramdisk_id,omitempty"`
-	ReservationID      string `json:"OS-EXT-SRV-ATTR:reservation_id,omitempty"`
-	RootDeviceName     string `json:"OS-EXT-SRV-ATTR:root_device_name,omitempty"`
-	UserData           string `json:"OS-EXT-SRV-ATTR:user_data,omitempty"`
-	PowerState         int    `json:"OS-EXT-STS:power_state,omitempty"`
-	TaskState          string `json:"OS-EXT-STS:task_state,omitempty"`
-	VmState            string `json:"OS-EXT-STS:vm_state,omitempty"`
-	//LaunchedAt         time.Time `json:"OS-SRV-USG:launched_at,omitempty"`
-	TerminatedAt string `json:"OS-SRV-USG:terminated_at,omitempty"`
+	DiskConfig         string    `json:"OS-DCF:diskConfig,omitempty"`
+	AvailabilityZone   string    `json:"OS-EXT-AZ:availability_zone,omitempty"`
+	Host               string    `json:"OS-EXT-SRV-ATTR:host,omitempty"`
+	Hostname           string    `json:"OS-EXT-SRV-ATTR:hostname,omitempty"`
+	HypervisorHostname string    `json:"OS-EXT-SRV-ATTR:hypervisor_hostname,omitempty"`
+	InstanceName       string    `json:"OS-EXT-SRV-ATTR:instance_name,omitempty"`
+	KernelID           string    `json:"OS-EXT-SRV-ATTR:kernel_id,omitempty"`
+	LaunchIndex        int       `json:"OS-EXT-SRV-ATTR:launch_index,omitempty"`
+	RamdiskID          string    `json:"OS-EXT-SRV-ATTR:ramdisk_id,omitempty"`
+	ReservationID      string    `json:"OS-EXT-SRV-ATTR:reservation_id,omitempty"`
+	RootDeviceName     string    `json:"OS-EXT-SRV-ATTR:root_device_name,omitempty"`
+	UserData           string    `json:"OS-EXT-SRV-ATTR:user_data,omitempty"`
+	PowerState         int       `json:"OS-EXT-STS:power_state,omitempty"`
+	TaskState          string    `json:"OS-EXT-STS:task_state,omitempty"`
+	VmState            string    `json:"OS-EXT-STS:vm_state,omitempty"`
+	LaunchedAt         time.Time `json:"OS-SRV-USG:launched_at,omitempty"`
+	TerminatedAt       string    `json:"OS-SRV-USG:terminated_at,omitempty"`
 
 	AccessIPv4               string
 	AccessIPv6               string
@@ -674,6 +674,10 @@ func (instance *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 
 func (instance *SInstance) GetBillingType() string {
 	return billing_api.BILLING_TYPE_POSTPAID
+}
+
+func (instance *SInstance) GetCreatedAt() time.Time {
+	return instance.Created
 }
 
 func (instance *SInstance) GetExpiredAt() time.Time {

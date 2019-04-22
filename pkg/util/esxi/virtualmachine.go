@@ -561,6 +561,10 @@ func (self *SVirtualMachine) GetBillingType() string {
 	return billing_api.BILLING_TYPE_POSTPAID
 }
 
+func (self *SVirtualMachine) GetCreatedAt() time.Time {
+	return time.Time{}
+}
+
 func (self *SVirtualMachine) GetExpiredAt() time.Time {
 	return time.Time{}
 }

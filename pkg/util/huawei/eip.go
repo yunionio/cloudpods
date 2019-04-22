@@ -84,7 +84,7 @@ type SEipAddress struct {
 	PublicIPAddress     string    `json:"public_ip_address"`
 	PrivateIPAddress    string    `json:"private_ip_address"`
 	TenantID            string    `json:"tenant_id"`
-	CreateTime          string    `json:"create_time"`
+	CreateTime          time.Time `json:"create_time"`
 	BandwidthID         string    `json:"bandwidth_id"`
 	BandwidthShareType  string    `json:"bandwidth_share_type"`
 	BandwidthSize       int64     `json:"bandwidth_size"`
@@ -202,6 +202,10 @@ func (self *SEipAddress) GetBillingType() string {
 	} else {
 		return billing_api.BILLING_TYPE_PREPAID
 	}
+}
+
+func (self *SEipAddress) GetCreatedAt() time.Time {
+	return self.CreateTime
 }
 
 func (self *SEipAddress) GetExpiredAt() time.Time {
