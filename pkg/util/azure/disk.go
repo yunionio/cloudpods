@@ -124,7 +124,24 @@ func (self *SRegion) DeleteDisk(diskId string) error {
 
 func (self *SRegion) deleteDisk(diskId string) error {
 	if !strings.HasPrefix(diskId, "https://") {
-		return self.client.Delete(diskId)
+		startTime := time.Now()
+		timeout := 5 * time.Minute
+		for {
+			err := self.client.Delete(diskId)
+			if err == nil {
+				return nil
+			}
+			// Disk vdisk_stress-testvm-azure-1-1_1555940308395625000 is attached to VM /subscriptions/d4f0ec08-3e28-4ae5-bdf9-3dc7c5b0eeca/resourceGroups/Default/providers/Microsoft.Compute/virtualMachines/stress-testvm-azure-1.
+			// 更换系统盘后，数据未刷新会出现如上错误，多尝试几次即可
+			if strings.Contains(err.Error(), "is attached to VM") {
+				time.Sleep(time.Second * 5)
+			} else {
+				return err
+			}
+			if time.Now().Sub(startTime) > timeout {
+				return err
+			}
+		}
 	}
 	//TODO
 	return cloudprovider.ErrNotImplemented
