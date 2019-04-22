@@ -291,6 +291,10 @@ func (self *SDisk) GetBillingType() string {
 	return billing_api.BILLING_TYPE_POSTPAID
 }
 
+func (self *SDisk) GetCreatedAt() time.Time {
+	return time.Time{}
+}
+
 func (self *SDisk) GetExpiredAt() time.Time {
 	return time.Time{}
 }

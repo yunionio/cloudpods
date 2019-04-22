@@ -68,8 +68,12 @@ func (self *SLocalDisk) GetIsAutoDelete() bool {
 	return true
 }
 
+func (self *SLocalDisk) GetCreatedAt() time.Time {
+	return time.Time{}
+}
+
 func (self *SLocalDisk) GetExpiredAt() time.Time {
-	return time.Now()
+	return time.Time{}
 }
 
 func (self *SLocalDisk) GetDiskType() string {

@@ -292,6 +292,10 @@ func (self *SDisk) GetIsAutoDelete() bool {
 	return self.DeleteWithInstance
 }
 
+func (self *SDisk) GetCreatedAt() time.Time {
+	return self.CreateTime
+}
+
 func (self *SDisk) GetExpiredAt() time.Time {
 	return self.DeadlineTime
 }

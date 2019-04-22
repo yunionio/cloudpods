@@ -115,6 +115,10 @@ func (self *SEip) GetBillingType() string {
 	}
 }
 
+func (self *SEip) GetCreatedAt() time.Time {
+	return time.Unix(self.CreateTime, 0)
+}
+
 func (self *SEip) GetExpiredAt() time.Time {
 	return time.Unix(self.ExpireTime, 0)
 }

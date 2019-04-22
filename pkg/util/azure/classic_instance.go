@@ -526,8 +526,12 @@ func (self *SClassicInstance) GetBillingType() string {
 	return billing_api.BILLING_TYPE_POSTPAID
 }
 
+func (self *SClassicInstance) GetCreatedAt() time.Time {
+	return time.Time{}
+}
+
 func (self *SClassicInstance) GetExpiredAt() time.Time {
-	return time.Now()
+	return time.Time{}
 }
 
 func (self *SClassicInstance) UpdateUserData(userData string) error {
