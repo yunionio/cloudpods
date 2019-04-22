@@ -119,13 +119,22 @@ type Statuses struct {
 	//Time          time.Time
 }
 
-type VMAgent struct {
-	VmAgentVersion string   `json:"vmAgentVersion,omitempty"`
-	Statuses       Statuses `json:"statuses,omitempty"`
+type SVMAgent struct {
+	VmAgentVersion string     `json:"vmAgentVersion,omitempty"`
+	Statuses       []Statuses `json:"statuses,omitempty"`
+}
+
+type SExtension struct {
+	Name               string
+	Type               string
+	TypeHandlerVersion string     `json:"typeHandlerVersion,omitempty"`
+	Statuses           []Statuses `json:"statuses,omitempty"`
 }
 
 type VirtualMachineInstanceView struct {
-	Statuses []Statuses `json:"statuses,omitempty"`
+	Statuses   []Statuses   `json:"statuses,omitempty"`
+	VMAgent    SVMAgent     `json:"vmAgent,omitempty"`
+	Extensions []SExtension `json:"extensions,omitempty"`
 }
 
 type DomainName struct {
@@ -240,6 +249,50 @@ func (self *SInstance) IsEmulated() bool {
 
 func (self *SInstance) GetInstanceType() string {
 	return self.Properties.HardwareProfile.VMSize
+}
+
+func (self *SInstance) WaitEnableVMAccessReady() error {
+	if self.Properties.InstanceView == nil {
+		return fmt.Errorf("instance may not install VMAgent or VMAgent not running")
+	}
+	if len(self.Properties.InstanceView.VMAgent.VmAgentVersion) > 0 {
+		startTime := time.Now()
+		timeout := time.Minute * 5
+		for {
+			status := ""
+			for _, vmAgent := range self.Properties.InstanceView.VMAgent.Statuses {
+				status = vmAgent.DisplayStatus
+				if status == "Ready" {
+					break
+				}
+				log.Debugf("vmAgent %s status: %s waite for ready", self.Properties.InstanceView.VMAgent.VmAgentVersion, vmAgent.DisplayStatus)
+				time.Sleep(time.Second * 5)
+			}
+			if status == "Ready" {
+				break
+			}
+			self.Refresh()
+			if time.Now().Sub(startTime) > timeout {
+				return fmt.Errorf("timeout for waitting vmAgent ready, current status: %s", status)
+			}
+		}
+		return nil
+	}
+
+	for _, extension := range self.Properties.InstanceView.Extensions {
+		if extension.Name == "enablevmaccess" {
+			displayStatus := ""
+			for _, status := range extension.Statuses {
+				displayStatus = status.DisplayStatus
+				if displayStatus == "Provisioning succeeded" {
+					return nil
+				}
+			}
+			return self.host.zone.region.deleteExtension(self.ID, "enablevmaccess")
+		}
+	}
+
+	return fmt.Errorf("instance may not install VMAgent or VMAgent not running")
 }
 
 func (self *SInstance) getOsDisk() (*SDisk, error) {
@@ -588,6 +641,13 @@ func (region *SRegion) ChangeVMConfig(ctx context.Context, instanceId string, nc
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
+	if len(publicKey) > 0 || len(password) > 0 {
+		// 先判断系统是否安装了vmAgent,然后等待扩展准备完成后再重置密码
+		err := self.WaitEnableVMAccessReady()
+		if err != nil {
+			return err
+		}
+	}
 	return self.host.zone.region.DeployVM(ctx, self.ID, name, password, publicKey, deleteKeypair, description)
 }
 
@@ -689,33 +749,21 @@ func (region *SRegion) DeployVM(ctx context.Context, instanceId, name, password,
 	if len(publicKey) > 0 {
 		return region.resetPublicKey(instanceId, instance.Properties.OsProfile.AdminUsername, publicKey)
 	}
-	return region.resetPassword(instanceId, instance.Properties.OsProfile.AdminUsername, password)
+	if len(password) > 0 {
+		return region.resetPassword(instanceId, instance.Properties.OsProfile.AdminUsername, password)
+	}
+	return nil
 }
 
 func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
-	return self.host.zone.region.ReplaceSystemDisk(self.ID, imageId, passwd, publicKey, int32(sysSizeGB))
+	cpu := self.GetVcpuCount()
+	memoryMb := self.GetVmemSizeMB()
+	self.StopVM(ctx, true)
+	return self.host.zone.region.ReplaceSystemDisk(self, cpu, memoryMb, imageId, passwd, publicKey, sysSizeGB)
 }
 
-func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey string, sysSizeGB int32) (string, error) {
-	log.Debugf("ReplaceSystemDisk %s image: %s", instanceId, imageId)
-	instance, err := region.GetInstance(instanceId)
-	if err != nil {
-		return "", err
-	}
-	image, err := region.GetImageById(imageId)
-	if err != nil {
-		return "", err
-	}
-	err = region.StopVM(instanceId, true)
-	if err != nil {
-		return "", err
-	}
-	orgOsType := instance.GetOSType()
-	destOsType := image.GetOsType()
-	if orgOsType != destOsType {
-		return "", fmt.Errorf("Cannot replease osType %s => %s", orgOsType, destOsType)
-	}
-	diskName := fmt.Sprintf("vdisk_%s_%d", instance.Name, time.Now().UnixNano())
+func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int8, memoryMb int, imageId, passwd, publicKey string, sysSizeGB int) (string, error) {
+	log.Debugf("ReplaceSystemDisk %s image: %s", instance.ID, imageId)
 	storageType := instance.Properties.StorageProfile.OsDisk.ManagedDisk.StorageAccountType
 	if len(storageType) == 0 {
 		_disk, err := region.GetDisk(instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID)
@@ -724,58 +772,55 @@ func (region *SRegion) ReplaceSystemDisk(instanceId, imageId, passwd, publicKey 
 		}
 		storageType = _disk.Sku.Name
 	}
-	oldDiskId := instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID
-	disk, err := region.CreateDisk(storageType, diskName, sysSizeGB, "", imageId)
+	if len(instance.Properties.NetworkProfile.NetworkInterfaces) == 0 {
+		return "", fmt.Errorf("failed to find network for instance: %s", instance.Name)
+	}
+	nicId := instance.Properties.NetworkProfile.NetworkInterfaces[0].ID
+	nic, err := region.GetNetworkInterfaceDetail(nicId)
 	if err != nil {
-		log.Errorf("Create system disk error: %v", err)
+		log.Errorf("failed to find nic %s error: %v", nicId, err)
 		return "", err
 	}
-	instance.Properties.StorageProfile.OsDisk.Name = disk.Name
-	instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID = disk.ID
-	instance.Properties.StorageProfile.OsDisk.ManagedDisk.StorageAccountType = storageType
-
-	instance.Properties.OsProfile.AdminPassword = passwd
-	if len(publicKey) > 0 {
-		instance.Properties.OsProfile.LinuxConfiguration = &LinuxConfiguration{
-			SSH: &SSHConfiguration{
-				PublicKeys: []SSHPublicKey{
-					{
-						KeyData: publicKey,
-					},
-				},
-			},
-		}
+	if len(nic.Properties.IPConfigurations) == 0 {
+		return "", fmt.Errorf("failed to find networkId for nic %s", nicId)
 	}
-	for i := 0; i < len(instance.Properties.StorageProfile.DataDisks); i++ {
-		//避免因size更新不及时导致更换系统盘失败
-		instance.Properties.StorageProfile.DataDisks[i].DiskSizeGB = nil
+	if instance.Properties.StorageProfile.OsDisk.DiskSizeGB != nil && *instance.Properties.StorageProfile.OsDisk.DiskSizeGB > int32(sysSizeGB) {
+		sysSizeGB = int(*instance.Properties.StorageProfile.OsDisk.DiskSizeGB)
+	}
+	image, err := region.GetImageById(imageId)
+	if err != nil {
+		return "", err
+	}
+	if minOsDiskSizeGB := image.GetMinOsDiskSizeGb(); minOsDiskSizeGB > sysSizeGB {
+		sysSizeGB = minOsDiskSizeGB
 	}
 
+	networkId := nic.Properties.IPConfigurations[0].Properties.Subnet.ID
+	osType := instance.Properties.StorageProfile.OsDisk.OsType
+	newInstance, err := region.CreateInstanceSimple(instance.Name+"-1", imageId, osType, cpu, memoryMb, sysSizeGB, storageType, []int{}, networkId, passwd, publicKey)
+	if err != nil {
+		return "", err
+	}
+
+	newInstance.StopVM(context.Background(), true)
+	cloudprovider.WaitStatus(newInstance, models.VM_READY, time.Second*5, time.Minute*5)
+
+	newInstance.deleteVM(context.Background(), true)
+
+	//交换系统盘
+	instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID, newInstance.Properties.StorageProfile.OsDisk.ManagedDisk.ID = newInstance.Properties.StorageProfile.OsDisk.ManagedDisk.ID, instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID
+	instance.Properties.StorageProfile.OsDisk.Name = ""
 	instance.Properties.ProvisioningState = ""
 	instance.Properties.InstanceView = nil
 	err = region.client.Update(jsonutils.Marshal(instance), nil)
 	if err != nil {
+		// 更新失败，需要删除之前交换过的系统盘
+		region.DeleteDisk(instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID)
 		return "", err
 	}
-	for i := 0; i < 3; i++ {
-		log.Debugf("try delete old disk: %s", oldDiskId)
-		if err := region.deleteDisk(oldDiskId); err == nil {
-			break
-		}
-		time.Sleep(time.Second * time.Duration(i*10))
-	}
-	// Azure 数据刷新不及时，需要稍作等待
-	for i := 0; i < 3; i++ {
-		instance, err := region.GetInstance(instanceId)
-		if err != nil {
-			return "", err
-		}
-		if instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID == disk.ID {
-			break
-		}
-		time.Sleep(time.Second * time.Duration(i*10))
-	}
-	return disk.ID, nil
+	// 交换成功需要删掉旧的系统盘
+	region.DeleteDisk(newInstance.Properties.StorageProfile.OsDisk.ManagedDisk.ID)
+	return strings.ToLower(instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID), nil
 }
 
 func (self *SInstance) UpdateVM(ctx context.Context, name string) error {
@@ -798,7 +843,7 @@ func (self *SRegion) DeleteVM(instanceId string) error {
 	return self.doDeleteVM(instanceId)
 }
 
-func (self *SInstance) DeleteVM(ctx context.Context) error {
+func (self *SInstance) deleteVM(ctx context.Context, keepSysDisk bool) error {
 	sysDiskId := ""
 	if self.Properties.StorageProfile.OsDisk.ManagedDisk != nil {
 		sysDiskId = self.Properties.StorageProfile.OsDisk.ManagedDisk.ID
@@ -807,7 +852,7 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if len(sysDiskId) > 0 {
+	if len(sysDiskId) > 0 && !keepSysDisk {
 		err := self.host.zone.region.deleteDisk(sysDiskId)
 		if err != nil {
 			return err
@@ -826,6 +871,10 @@ func (self *SInstance) DeleteVM(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (self *SInstance) DeleteVM(ctx context.Context) error {
+	return self.deleteVM(ctx, false)
 }
 
 func (self *SInstance) getDiskWithStore(diskId string) (*SDisk, error) {

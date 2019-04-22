@@ -61,18 +61,20 @@ func init() {
 	})
 
 	type InstanceCrateOptions struct {
-		NAME      string `help:"name of instance"`
-		IMAGE     string `help:"image ID"`
-		CPU       int    `help:"CPU count"`
-		MEMORYGB  int    `help:"MemoryGB"`
-		Disk      []int  `help:"Data disk sizes int GB"`
-		STORAGE   string `help:"Storage type"`
-		NETWORK   string `help:"Network ID"`
-		PASSWD    string `help:"password"`
-		PublicKey string `help:"PublicKey"`
+		NAME          string `help:"Name of instance"`
+		IMAGE         string `help:"image ID"`
+		CPU           int8   `help:"CPU count"`
+		MEMORYGB      int    `help:"MemoryGB"`
+		SYSDISKSIZEGB int    `help:"System Disk Size"`
+		Disk          []int  `help:"Data disk sizes int GB"`
+		STORAGE       string `help:"Storage type"`
+		NETWORK       string `help:"Network ID"`
+		PASSWD        string `help:"password"`
+		PublicKey     string `help:"PublicKey"`
+		OsType        string `help:"Operation system type" choices:"Linux|Windows"`
 	}
 	shellutils.R(&InstanceCrateOptions{}, "instance-create", "Create a instance", func(cli *azure.SRegion, args *InstanceCrateOptions) error {
-		instance, e := cli.CreateInstanceSimple(args.NAME, args.IMAGE, args.CPU, args.MEMORYGB, args.STORAGE, args.Disk, args.NETWORK, args.PASSWD, args.PublicKey)
+		instance, e := cli.CreateInstanceSimple(args.NAME, args.IMAGE, args.OsType, args.CPU, args.MEMORYGB, args.SYSDISKSIZEGB, args.STORAGE, args.Disk, args.NETWORK, args.PASSWD, args.PublicKey)
 		if e != nil {
 			return e
 		}
@@ -106,18 +108,24 @@ func init() {
 
 	type InstanceRebuildOptions struct {
 		ID        string `help:"Instance ID"`
-		Image     string `help:"Image ID"`
+		CPU       int8   `help:"Instance CPU core"`
+		MEMORYMB  int    `help:"Instance Memory MB"`
+		IMAGE     string `help:"Image ID"`
 		Password  string `help:"pasword"`
 		PublicKey string `help:"Public Key"`
-		Size      int32  `help:"system disk size in GB"`
+		Size      int    `help:"system disk size in GB"`
 	}
 	shellutils.R(&InstanceRebuildOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *azure.SRegion, args *InstanceRebuildOptions) error {
-		if diskID, err := cli.ReplaceSystemDisk(args.ID, args.Image, args.Password, args.PublicKey, args.Size); err != nil {
+		instance, err := cli.GetInstance(args.ID)
+		if err != nil {
 			return err
-		} else {
-			fmt.Printf("New diskID is %s", diskID)
-			return nil
 		}
+		diskId, err := cli.ReplaceSystemDisk(instance, args.CPU, args.MEMORYMB, args.IMAGE, args.Password, args.PublicKey, args.Size)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("New diskId is %s", diskId)
+		return nil
 	})
 
 	type InstanceDiskOptions struct {

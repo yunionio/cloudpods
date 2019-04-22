@@ -15,7 +15,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -133,7 +132,7 @@ func (self *SAzureGuestDriver) GetGuestInitialStateAfterRebuild() string {
 }
 
 func (self *SAzureGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
-	return ansible.PUBLIC_CLOUD_ANSIBLE_USER
+	return cloudprovider.VM_AZURE_DEFAULT_LOGIN_USER
 }
 
 /* func (self *SAzureGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
