@@ -683,14 +683,16 @@ func (self *SRegion) ReplaceSystemDisk(instanceId string, imageId string, passwd
 	params["ImageId"] = imageId
 	params["EnhancedService.SecurityService.Enabled"] = "TRUE"
 	params["EnhancedService.MonitorService.Enabled"] = "TRUE"
-	if len(passwd) > 0 {
+
+	// 秘钥和密码及保留镜像设置只能选其一
+	if len(keypairName) > 0 {
+		params["LoginSettings.KeyIds.0"] = keypairName
+	} else if len(passwd) > 0 {
 		params["LoginSettings.Password"] = passwd
 	} else {
 		params["LoginSettings.KeepImageLogin"] = "TRUE"
 	}
-	if len(keypairName) > 0 {
-		params["LoginSettings.KeyIds.0"] = keypairName
-	}
+
 	if sysDiskSizeGB > 0 {
 		params["SystemDisk.DiskSize"] = fmt.Sprintf("%d", sysDiskSizeGB)
 	}
