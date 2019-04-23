@@ -200,8 +200,26 @@ func (self *GuestMigrateTask) OnNormalMigrateComplete(ctx context.Context, guest
 	guest.StartUndeployGuestTask(ctx, self.UserCred, self.GetTaskId(), oldHostId)
 }
 
+// Server migrate complete
 func (self *GuestMigrateTask) OnUndeployOldHostSucc(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if jsonutils.QueryBoolean(self.Params, "auto_start", false) {
+		self.SetStage("OnGuestStartSucc", nil)
+		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetId())
+	} else {
+		self.TaskComplete(ctx, guest)
+	}
+}
+
+func (self *GuestMigrateTask) OnUndeployOldHostSuccFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.TaskFailed(ctx, guest, fmt.Sprintf("Undeploy Old Guest Failed %s", data))
+}
+
+func (self *GuestMigrateTask) OnGuestStartSucc(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.TaskComplete(ctx, guest)
+}
+
+func (self *GuestMigrateTask) OnGuestStartSuccFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.TaskFailed(ctx, guest, fmt.Sprintf("Guest Start Failed %s", data))
 }
 
 func (self *GuestMigrateTask) sharedStorageMigrateConf(ctx context.Context, guest *models.SGuest, targetHost *models.SHost) (*jsonutils.JSONDict, bool) {
@@ -388,6 +406,7 @@ func (self *GuestLiveMigrateTask) OnUndeploySrcGuestComplete(ctx context.Context
 	}
 }
 
+// Server live migrate complete
 func (self *GuestLiveMigrateTask) OnGuestSyncStatus(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.TaskComplete(ctx, guest)
 }
