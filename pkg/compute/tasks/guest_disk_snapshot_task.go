@@ -96,7 +96,7 @@ func (self *GuestDiskSnapshotTask) TaskComplete(ctx context.Context, guest *mode
 	snapshotId, _ := self.Params.GetString("snapshot_id")
 	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
 	db.OpsLog.LogEvent(iSnapshot, db.ACT_SNAPSHOT_DONE, iSnapshot.GetShortDesc(ctx), self.UserCred)
-	logclient.AddActionLogWithStartable(self, iSnapshot, logclient.ACT_CREATE, nil, self.UserCred, true)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DISK_CREATE_SNAPSHOT, nil, self.UserCred, true)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 	self.SetStage("OnSyncStatus", nil)
 }
@@ -116,7 +116,7 @@ func (self *GuestDiskSnapshotTask) TaskFailed(ctx context.Context, guest *models
 	self.SetStageFailed(ctx, reason)
 	guest.SetStatus(self.UserCred, api.VM_SNAPSHOT_FAILED, reason)
 	db.OpsLog.LogEvent(iSnapshot, db.ACT_SNAPSHOT_FAIL, reason, self.UserCred)
-	logclient.AddActionLogWithStartable(self, iSnapshot, logclient.ACT_CREATE, reason, self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DISK_CREATE_SNAPSHOT, reason, self.UserCred, false)
 }
 
 /***************************** Snapshot Delete Task *****************************/
