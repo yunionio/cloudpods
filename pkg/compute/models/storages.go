@@ -351,11 +351,11 @@ func (self *SStorage) PerformOffline(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SStorage) GetHostCount() (int, error) {
-	return HoststorageManager.Query().Equals("storage_id", self.Id).Count()
+	return HoststorageManager.Query().Equals("storage_id", self.Id).CountWithError()
 }
 
 func (self *SStorage) GetDiskCount() (int, error) {
-	return DiskManager.Query().Equals("storage_id", self.Id).Count()
+	return DiskManager.Query().Equals("storage_id", self.Id).CountWithError()
 }
 
 func (self *SStorage) GetDisks() []SDisk {
@@ -370,7 +370,7 @@ func (self *SStorage) GetDisks() []SDisk {
 }
 
 func (self *SStorage) GetSnapshotCount() (int, error) {
-	return SnapshotManager.Query().Equals("storage_id", self.Id).Count()
+	return SnapshotManager.Query().Equals("storage_id", self.Id).CountWithError()
 }
 
 func (self *SStorage) IsLocal() bool {

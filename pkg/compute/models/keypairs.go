@@ -138,7 +138,7 @@ func (self *SKeypair) AllowDeleteItem(ctx context.Context, userCred mcclient.Tok
 }
 
 func (self *SKeypair) GetLinkedGuestsCount() (int, error) {
-	return GuestManager.Query().Equals("keypair_id", self.Id).Count()
+	return GuestManager.Query().Equals("keypair_id", self.Id).CountWithError()
 }
 
 func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -199,7 +199,7 @@ func (self *SKeypair) ValidateDeleteCondition(ctx context.Context) error {
 
 func totalKeypairCount(userId string) (int, error) {
 	q := KeypairManager.Query().Equals("owner_id", userId)
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {

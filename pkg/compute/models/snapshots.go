@@ -77,7 +77,7 @@ func ValidateSnapshotName(hypervisor, name, owner string) error {
 	q := SnapshotManager.Query()
 	q = SnapshotManager.FilterByName(q, name)
 	q = SnapshotManager.FilterByOwner(q, owner)
-	cnt, err := q.Count()
+	cnt, err := q.CountWithError()
 	if err != nil {
 		return err
 	}
@@ -346,7 +346,7 @@ func (self *SSnapshotManager) GetDiskFirstSnapshot(diskId string) *SSnapshot {
 func (self *SSnapshotManager) GetDiskSnapshotCount(diskId string) (int, error) {
 	q := self.Query().SubQuery()
 	return q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
-		sqlchemy.Equals(q.Field("fake_deleted"), false))).Count()
+		sqlchemy.Equals(q.Field("fake_deleted"), false))).CountWithError()
 }
 
 func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mcclient.TokenCredential, createdBy, diskId, guestId, location, name string) (*SSnapshot, error) {
@@ -537,7 +537,7 @@ func TotalSnapshotCount(projectId string, rangeObj db.IStandaloneModel, provider
 		q = q.In("manager_id", subq.SubQuery())
 	}
 	q = q.Equals("fake_deleted", false)
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SSnapshot) syncRemoveCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential) error {

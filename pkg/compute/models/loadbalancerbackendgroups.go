@@ -221,7 +221,7 @@ func (lbbg *SLoadbalancerBackendGroup) refCount(men db.IModelManager) (int, erro
 	return t.Query().
 		Equals("backend_group_id", lbbg.Id).
 		Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
-		Count()
+		CountWithError()
 }
 
 func (lbbg *SLoadbalancerBackendGroup) getRefManagers() []db.IModelManager {

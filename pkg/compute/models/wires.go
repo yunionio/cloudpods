@@ -145,7 +145,7 @@ func (wire *SWire) getHostwireQuery() *sqlchemy.SQuery {
 
 func (wire *SWire) HostCount() (int, error) {
 	q := wire.getHostwireQuery()
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (wire *SWire) GetHostwires() ([]SHostwire, error) {
@@ -160,7 +160,7 @@ func (wire *SWire) GetHostwires() ([]SHostwire, error) {
 
 func (wire *SWire) NetworkCount() (int, error) {
 	q := NetworkManager.Query().Equals("wire_id", wire.Id)
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (wire *SWire) GetVpcId() string {

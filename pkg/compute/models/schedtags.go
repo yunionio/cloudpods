@@ -288,15 +288,15 @@ func (self *SSchedtag) GetJointManager() ISchedtagJointManager {
 }
 
 func (self *SSchedtag) GetObjectCount() (int, error) {
-	return self.GetJointManager().Query().Equals("schedtag_id", self.Id).Count()
+	return self.GetJointManager().Query().Equals("schedtag_id", self.Id).CountWithError()
 }
 
 func (self *SSchedtag) getSchedPoliciesCount() (int, error) {
-	return SchedpolicyManager.Query().Equals("schedtag_id", self.Id).Count()
+	return SchedpolicyManager.Query().Equals("schedtag_id", self.Id).CountWithError()
 }
 
 func (self *SSchedtag) getDynamicSchedtagCount() (int, error) {
-	return DynamicschedtagManager.Query().Equals("schedtag_id", self.Id).Count()
+	return DynamicschedtagManager.Query().Equals("schedtag_id", self.Id).CountWithError()
 }
 
 func (self *SSchedtag) getMoreColumns(extra *jsonutils.JSONDict) *jsonutils.JSONDict {

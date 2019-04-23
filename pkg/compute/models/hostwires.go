@@ -117,7 +117,7 @@ func (self *SHostwire) GetGuestnicsCount() (int, error) {
 		sqlchemy.Equals(nets.Field("id"), guestnics.Field("network_id")),
 		sqlchemy.Equals(nets.Field("wire_id"), self.WireId)))
 
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SHostwire) ValidateDeleteCondition(ctx context.Context) error {

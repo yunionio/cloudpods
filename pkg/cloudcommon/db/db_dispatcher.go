@@ -466,7 +466,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, err
 	}
-	totalCnt, err := q.Count()
+	totalCnt, err := q.CountWithError()
 	if err != nil {
 		return nil, err
 	}

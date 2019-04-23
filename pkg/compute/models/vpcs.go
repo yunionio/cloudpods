@@ -129,7 +129,7 @@ func (self *SVpc) getWireQuery() *sqlchemy.SQuery {
 
 func (self *SVpc) GetWireCount() (int, error) {
 	q := self.getWireQuery()
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SVpc) GetWires() []SWire {
@@ -152,7 +152,7 @@ func (self *SVpc) getNetworkQuery() *sqlchemy.SQuery {
 
 func (self *SVpc) GetNetworkCount() (int, error) {
 	q := self.getNetworkQuery()
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SVpc) GetRouteTableQuery() *sqlchemy.SQuery {
@@ -167,7 +167,7 @@ func (self *SVpc) GetRouteTables() []SRouteTable {
 }
 
 func (self *SVpc) GetRouteTableCount() (int, error) {
-	return self.GetRouteTableQuery().Count()
+	return self.GetRouteTableQuery().CountWithError()
 }
 
 func (self *SVpc) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {

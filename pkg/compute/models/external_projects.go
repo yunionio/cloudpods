@@ -120,7 +120,7 @@ func (manager *SExternalProjectManager) GetProject(externalId string, providerId
 	project := &SExternalProject{}
 	project.SetModelManager(manager)
 	q := manager.Query().Equals("external_id", externalId).Equals("manager_id", providerId)
-	count, err := q.Count()
+	count, err := q.CountWithError()
 	if err != nil {
 		return nil, err
 	}

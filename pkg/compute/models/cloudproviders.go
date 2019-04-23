@@ -173,43 +173,43 @@ func (self *SCloudprovider) CleanSchedCache() {
 
 func (self *SCloudprovider) GetGuestCount() (int, error) {
 	sq := HostManager.Query("id").Equals("manager_id", self.Id)
-	return GuestManager.Query().In("host_id", sq).Count()
+	return GuestManager.Query().In("host_id", sq).CountWithError()
 }
 
 func (self *SCloudprovider) GetHostCount() (int, error) {
-	return HostManager.Query().Equals("manager_id", self.Id).Count()
+	return HostManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
 func (self *SCloudprovider) getVpcCount() (int, error) {
-	return VpcManager.Query().Equals("manager_id", self.Id).Count()
+	return VpcManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
 func (self *SCloudprovider) getStorageCount() (int, error) {
-	return StorageManager.Query().Equals("manager_id", self.Id).Count()
+	return StorageManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
 func (self *SCloudprovider) getStoragecacheCount() (int, error) {
-	return StoragecacheManager.Query().Equals("manager_id", self.Id).Count()
+	return StoragecacheManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
 func (self *SCloudprovider) getEipCount() (int, error) {
-	return ElasticipManager.Query().Equals("manager_id", self.Id).Count()
+	return ElasticipManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
 func (self *SCloudprovider) getSnapshotCount() (int, error) {
-	return SnapshotManager.Query().Equals("manager_id", self.Id).Count()
+	return SnapshotManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
 func (self *SCloudprovider) getLoadbalancerCount() (int, error) {
-	return LoadbalancerManager.Query().Equals("manager_id", self.Id).Count()
+	return LoadbalancerManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
 func (self *SCloudprovider) getExternalProjectCount() (int, error) {
-	return ExternalProjectManager.Query().Equals("manager_id", self.Id).Count()
+	return ExternalProjectManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
 func (self *SCloudprovider) getSyncRegionCount() (int, error) {
-	return CloudproviderRegionManager.Query().Equals("cloudprovider_id", self.Id).Count()
+	return CloudproviderRegionManager.Query().Equals("cloudprovider_id", self.Id).CountWithError()
 }
 
 func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

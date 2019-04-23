@@ -1527,7 +1527,7 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 					return nil, httperrors.NewInvalidStatusError("cannot change mac when guest is running")
 				}
 				// check mac duplication
-				cnt, err := GuestnetworkManager.Query().Equals("mac_addr", conf.Mac).Count()
+				cnt, err := GuestnetworkManager.Query().Equals("mac_addr", conf.Mac).CountWithError()
 				if err != nil {
 					return nil, httperrors.NewInternalServerError("check mac uniqueness fail %s", err)
 				}
@@ -2087,7 +2087,7 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 		q := SnapshotManager.Query()
 		cnt, err := q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
 			sqlchemy.Equals(q.Field("created_by"), api.SNAPSHOT_MANUAL),
-			sqlchemy.Equals(q.Field("fake_deleted"), false))).Count()
+			sqlchemy.Equals(q.Field("fake_deleted"), false))).CountWithError()
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("check disk snapshot count fail %s", err)
 		}

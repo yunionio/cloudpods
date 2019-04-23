@@ -99,7 +99,7 @@ func (manager *SStandaloneResourceBaseManager) FetchByIdOrName(userCred mcclient
 
 func (manager *SStandaloneResourceBaseManager) FetchByExternalId(idStr string) (IStandaloneModel, error) {
 	q := manager.Query().Equals("external_id", idStr)
-	count, err := q.Count()
+	count, err := q.CountWithError()
 	if err != nil {
 		return nil, err
 	}

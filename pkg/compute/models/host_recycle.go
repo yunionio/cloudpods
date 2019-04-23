@@ -413,7 +413,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 		sqlchemy.Equals(q.Field("resource_type"), api.HostResourceTypeShared),
 	))
 
-	oHostCnt, err := q.Count()
+	oHostCnt, err := q.CountWithError()
 
 	if err != nil {
 		return err

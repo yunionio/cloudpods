@@ -133,7 +133,7 @@ func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context,
 	cond := sqlchemy.AND(sqlchemy.Equals(query.Field("secgroup_id"), secgroupId), sqlchemy.Equals(query.Field("vpc_id"), vpcId), sqlchemy.Equals(query.Field("cloudregion_id"), regionId), sqlchemy.Equals(query.Field("manager_id"), providerId))
 	query = query.Filter(cond)
 
-	count, err := query.Count()
+	count, err := query.CountWithError()
 	if err != nil {
 		return nil, err
 	}

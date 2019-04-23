@@ -197,7 +197,7 @@ func (self *SStoragecachedimage) getCdromReferenceCount() (int, error) {
 	q := cdroms.Query()
 	q = q.Join(guests, sqlchemy.Equals(cdroms.Field("id"), guests.Field("id")))
 	q = q.Filter(sqlchemy.Equals(cdroms.Field("image_id"), self.CachedimageId))
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SStoragecachedimage) getDiskReferenceCount() (int, error) {
@@ -214,7 +214,7 @@ func (self *SStoragecachedimage) getDiskReferenceCount() (int, error) {
 	q = q.Filter(sqlchemy.Equals(disks.Field("template_id"), self.CachedimageId))
 	q = q.Filter(sqlchemy.NOT(sqlchemy.In(disks.Field("status"), []string{api.DISK_ALLOC_FAILED, api.DISK_INIT})))
 
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SStoragecachedimage) getReferenceCount() (int, error) {

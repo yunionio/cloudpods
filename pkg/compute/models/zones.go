@@ -136,7 +136,7 @@ on_succ, on_fail, **kwargs)
 */
 
 func (manager *SZoneManager) Count() (int, error) {
-	return manager.Query().Count()
+	return manager.Query().CountWithError()
 }
 
 type ZoneGeneralUsage struct {
@@ -198,17 +198,17 @@ func (zone *SZone) HostCount(status string, hostStatus string, enabled tristate.
 	} else if isBaremetal.IsFalse() {
 		q = q.IsFalse("is_baremetal")
 	}
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (zone *SZone) getWireCount() (int, error) {
 	q := WireManager.Query().Equals("zone_id", zone.Id)
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (zone *SZone) getStorageCount() (int, error) {
 	q := StorageManager.Query().Equals("zone_id", zone.Id)
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (zone *SZone) getNetworkCount() (int, error) {

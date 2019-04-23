@@ -153,7 +153,7 @@ func (self *SCachedimage) getStoragecacheQuery() *sqlchemy.SQuery {
 }
 
 func (self *SCachedimage) getStoragecacheCount() (int, error) {
-	return self.getStoragecacheQuery().Count()
+	return self.getStoragecacheQuery().CountWithError()
 }
 
 func (self *SCachedimage) GetImage() (*cloudprovider.SImage, error) {

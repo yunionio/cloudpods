@@ -173,23 +173,23 @@ func (self *SNetwork) GetTotalNicCount() (int, error) {
 }
 
 func (self *SNetwork) GetGuestnicsCount() (int, error) {
-	return GuestnetworkManager.Query().Equals("network_id", self.Id).IsFalse("virtual").Count()
+	return GuestnetworkManager.Query().Equals("network_id", self.Id).IsFalse("virtual").CountWithError()
 }
 
 func (self *SNetwork) GetGroupNicsCount() (int, error) {
-	return GroupnetworkManager.Query().Equals("network_id", self.Id).Count()
+	return GroupnetworkManager.Query().Equals("network_id", self.Id).CountWithError()
 }
 
 func (self *SNetwork) GetBaremetalNicsCount() (int, error) {
-	return HostnetworkManager.Query().Equals("network_id", self.Id).Count()
+	return HostnetworkManager.Query().Equals("network_id", self.Id).CountWithError()
 }
 
 func (self *SNetwork) GetReservedNicsCount() (int, error) {
-	return ReservedipManager.Query().Equals("network_id", self.Id).Count()
+	return ReservedipManager.Query().Equals("network_id", self.Id).CountWithError()
 }
 
 func (self *SNetwork) GetLoadbalancerIpsCount() (int, error) {
-	return LoadbalancernetworkManager.Query().Equals("network_id", self.Id).Count()
+	return LoadbalancernetworkManager.Query().Equals("network_id", self.Id).CountWithError()
 }
 
 func (self *SNetwork) GetUsedAddresses() map[string]bool {
@@ -622,7 +622,7 @@ func (self *SNetwork) isAddressUsed(address string) (bool, error) {
 	}
 	for _, manager := range managers {
 		q := manager.Query().Equals("ip_addr", address).Equals("network_id", self.Id)
-		cnt, err := q.Count()
+		cnt, err := q.CountWithError()
 		if err != nil {
 			return false, err
 		}
