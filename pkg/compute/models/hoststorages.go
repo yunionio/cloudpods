@@ -200,7 +200,11 @@ func (self *SHoststorage) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.
 	extra.Add(jsonutils.NewString(storage.MediumType), "medium_type")
 	extra.Add(jsonutils.NewBool(storage.Enabled), "enabled")
 	extra.Add(jsonutils.NewFloat(float64(storage.GetOvercommitBound())), "cmtbound")
-	extra.Add(jsonutils.NewInt(int64(self.GetGuestDiskCount())), "guest_disk_count")
+
+	//extra.Add(jsonutils.NewInt(int64(self.GetGuestDiskCount())), "guest_disk_count")
+
+	extra = db.FetchModelExtraCountProperties(self, extra)
+
 	if len(storage.StoragecacheId) > 0 {
 		storagecache := StoragecacheManager.FetchStoragecacheById(storage.StoragecacheId)
 		if storagecache != nil {
@@ -211,7 +215,7 @@ func (self *SHoststorage) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.
 	return extra
 }
 
-func (self *SHoststorage) GetGuestDiskCount() int {
+func (self *SHoststorage) GetGuestDiskCount() (int, error) {
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	guests := GuestManager.Query().SubQuery()
 	disks := DiskManager.Query().SubQuery()
@@ -224,11 +228,15 @@ func (self *SHoststorage) GetGuestDiskCount() int {
 		sqlchemy.Equals(disks.Field("id"), guestdisks.Field("disk_id")),
 		sqlchemy.Equals(disks.Field("storage_id"), self.StorageId)))
 
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SHoststorage) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetGuestDiskCount() > 0 {
+	cnt, err := self.GetGuestDiskCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetGuestDiskCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("guest on the host are using disks on this storage")
 	}
 	return self.SHostJointsBase.ValidateDeleteCondition(ctx)

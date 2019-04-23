@@ -249,9 +249,12 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		} else {
 			// 腾讯云backend group只能1v1关联
 			if lb.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
-				count := lbbg.RefCount()
+				count, err := lbbg.RefCount()
+				if err != nil {
+					return nil, httperrors.NewInternalServerError("get lbbg RefCount fail %s", err)
+				}
 				if count > 0 {
-					return nil, fmt.Errorf("backendgroup aready related with other listener/rule")
+					return nil, httperrors.NewResourceBusyError("backendgroup aready related with other listener/rule")
 				}
 			}
 		}
@@ -860,11 +863,15 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 	lblis.LoadbalancerId = lb.Id
 	lblis.ExternalId = extListener.GetGlobalId()
 
-	lblis.Name = db.GenerateName(man, projectId, extListener.GetName())
+	newName, err := db.GenerateName(man, projectId, extListener.GetName())
+	if err != nil {
+		return nil, err
+	}
+	lblis.Name = newName
 
 	lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
 
-	err := man.TableSpec().Insert(lblis)
+	err = man.TableSpec().Insert(lblis)
 	if err != nil {
 		return nil, err
 	}

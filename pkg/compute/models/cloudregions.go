@@ -87,7 +87,15 @@ func (self *SCloudregion) CustomizeCreate(ctx context.Context, userCred mcclient
 }
 
 func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetZoneCount() > 0 || self.GetVpcCount() > 0 {
+	zoneCnt, err := self.GetZoneCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetZoneCount fail %s", err)
+	}
+	vpcCnt, err := self.GetVpcCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetVpcCount fail %s", err)
+	}
+	if zoneCnt > 0 || vpcCnt > 0 {
 		return httperrors.NewNotEmptyError("not empty cloud region")
 	}
 	if self.Id == api.DEFAULT_REGION_ID {
@@ -96,18 +104,26 @@ func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SCloudregion) GetZoneCount() int {
+func (self *SCloudregion) GetZoneCount() (int, error) {
 	zones := ZoneManager.Query()
 	if self.Id == api.DEFAULT_REGION_ID {
 		return zones.Filter(sqlchemy.OR(sqlchemy.IsNull(zones.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(zones.Field("cloudregion_id")),
-			sqlchemy.Equals(zones.Field("cloudregion_id"), self.Id))).Count()
+			sqlchemy.Equals(zones.Field("cloudregion_id"), self.Id))).CountWithError()
 	} else {
-		return zones.Equals("cloudregion_id", self.Id).Count()
+		return zones.Equals("cloudregion_id", self.Id).CountWithError()
 	}
 }
 
-func (self *SCloudregion) GetGuestCount(increment bool) int {
+func (self *SCloudregion) GetGuestCount() (int, error) {
+	return self.getGuestCountInternal(false)
+}
+
+func (self *SCloudregion) GetGuestIncrementCount() (int, error) {
+	return self.getGuestCountInternal(true)
+}
+
+func (self *SCloudregion) getGuestCountInternal(increment bool) (int, error) {
 	zoneTable := ZoneManager.Query("id")
 	if self.Id == api.DEFAULT_REGION_ID {
 		zoneTable = zoneTable.Filter(sqlchemy.OR(sqlchemy.IsNull(zoneTable.Field("cloudregion_id")),
@@ -123,17 +139,17 @@ func (self *SCloudregion) GetGuestCount(increment bool) int {
 		startOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 		query.GE("created_at", startOfMonth)
 	}
-	return query.Count()
+	return query.CountWithError()
 }
 
-func (self *SCloudregion) GetVpcCount() int {
+func (self *SCloudregion) GetVpcCount() (int, error) {
 	vpcs := VpcManager.Query()
 	if self.Id == api.DEFAULT_REGION_ID {
 		return vpcs.Filter(sqlchemy.OR(sqlchemy.IsNull(vpcs.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(vpcs.Field("cloudregion_id")),
-			sqlchemy.Equals(vpcs.Field("cloudregion_id"), self.Id))).Count()
+			sqlchemy.Equals(vpcs.Field("cloudregion_id"), self.Id))).CountWithError()
 	} else {
-		return vpcs.Equals("cloudregion_id", self.Id).Count()
+		return vpcs.Equals("cloudregion_id", self.Id).CountWithError()
 	}
 }
 
@@ -149,11 +165,7 @@ func (self *SCloudregion) GetDriver() IRegionDriver {
 }
 
 func (self *SCloudregion) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.NewInt(int64(self.GetVpcCount())), "vpc_count")
-	extra.Add(jsonutils.NewInt(int64(self.GetZoneCount())), "zone_count")
-	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount(false))), "guest_count")
-	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount(true))), "guest_increment_count")
-	return extra
+	return db.FetchModelExtraCountProperties(self, extra)
 }
 
 func (self *SCloudregion) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -311,8 +323,12 @@ func (manager *SCloudregionManager) newFromCloudRegion(ctx context.Context, user
 	region := SCloudregion{}
 	region.SetModelManager(manager)
 
+	newName, err := db.GenerateName(manager, "", cloudRegion.GetName())
+	if err != nil {
+		return nil, err
+	}
 	region.ExternalId = cloudRegion.GetGlobalId()
-	region.Name = db.GenerateName(manager, "", cloudRegion.GetName())
+	region.Name = newName
 	region.SGeographicInfo = cloudRegion.GetGeographicInfo()
 	region.Status = cloudRegion.GetStatus()
 	region.Enabled = true
@@ -320,7 +336,7 @@ func (manager *SCloudregionManager) newFromCloudRegion(ctx context.Context, user
 
 	region.IsEmulated = cloudRegion.IsEmulated()
 
-	err := manager.TableSpec().Insert(&region)
+	err = manager.TableSpec().Insert(&region)
 	if err != nil {
 		log.Errorf("newFromCloudRegion fail %s", err)
 		return nil, err
@@ -527,7 +543,7 @@ func (self *SCloudregion) GetDetailsCapability(ctx context.Context, userCred mcc
 	return jsonutils.Marshal(&capa), nil
 }
 
-func (self *SCloudregion) getNetworkCount() int {
+func (self *SCloudregion) getNetworkCount() (int, error) {
 	return getNetworkCount(self, nil)
 }
 

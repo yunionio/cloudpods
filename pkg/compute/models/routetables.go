@@ -434,7 +434,11 @@ func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCre
 		Type:          cloudRouteTable.GetType(),
 		Routes:        (*SRoutes)(&routes),
 	}
-	routeTable.Name = db.GenerateName(man, userCred.GetProjectId(), cloudRouteTable.GetName())
+	newName, err := db.GenerateName(man, userCred.GetProjectId(), cloudRouteTable.GetName())
+	if err != nil {
+		return nil, err
+	}
+	routeTable.Name = newName
 	routeTable.ManagerId = vpc.ManagerId
 	routeTable.ExternalId = cloudRouteTable.GetGlobalId()
 	routeTable.Description = cloudRouteTable.GetDescription()

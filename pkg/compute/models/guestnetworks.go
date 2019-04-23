@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -111,7 +112,7 @@ func (gn *SGuestnetwork) AllowDeleteItem(ctx context.Context, userCred mcclient.
 
 const MAX_TRIES = 10
 
-func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string) string {
+func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string) (string, error) {
 	for tried := 0; tried < MAX_TRIES; tried += 1 {
 		var mac string
 		if len(suggestion) > 0 && regutils.MatchMacAddr(suggestion) {
@@ -130,11 +131,15 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 		if len(netId) > 0 {
 			q = q.Equals("network_id", netId)
 		}
-		if q.Count() == 0 {
-			return mac
+		cnt, err := q.CountWithError()
+		if err != nil {
+			return "", err
+		}
+		if cnt == 0 {
+			return mac, nil
 		}
 	}
-	return ""
+	return "", fmt.Errorf("maximal retry reached")
 }
 
 func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork,
@@ -159,7 +164,10 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 	lockman.LockObject(ctx, network)
 	defer lockman.ReleaseObject(ctx, network)
 
-	macAddr := manager.GenerateMac(network.Id, mac)
+	macAddr, err := manager.GenerateMac(network.Id, mac)
+	if err != nil {
+		return nil, err
+	}
 	if len(macAddr) == 0 {
 		log.Errorf("Mac address generate fails")
 		return nil, fmt.Errorf("mac address generate fails")
@@ -189,7 +197,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 	}
 	gn.Ifname = ifName
 	gn.TeamWith = teamWithMac
-	err := manager.TableSpec().Insert(&gn)
+	err = manager.TableSpec().Insert(&gn)
 	if err != nil {
 		return nil, err
 	}
@@ -382,14 +390,17 @@ func (self *SGuestnetwork) ValidateUpdateData(ctx context.Context, userCred mccl
 	if data.Contains("index") {
 		index, err := data.Int("index")
 		if err != nil {
-			return nil, fmt.Errorf("fail to fetch index %s", err)
+			return nil, httperrors.NewInternalServerError("fail to fetch index %s", err)
 		}
 		q := GuestnetworkManager.Query().SubQuery()
-		count := q.Query().Filter(sqlchemy.Equals(q.Field("guest_id"), self.GuestId)).
+		count, err := q.Query().Filter(sqlchemy.Equals(q.Field("guest_id"), self.GuestId)).
 			Filter(sqlchemy.NotEquals(q.Field("network_id"), self.NetworkId)).
-			Filter(sqlchemy.Equals(q.Field("index"), index)).Count()
+			Filter(sqlchemy.Equals(q.Field("index"), index)).CountWithError()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("checkout nic index uniqueness fail %s", err)
+		}
 		if count > 0 {
-			return nil, fmt.Errorf("NIC Index %d has been occupied", index)
+			return nil, httperrors.NewDuplicateResourceError("NIC Index %d has been occupied", index)
 		}
 	}
 	return self.SJointResourceBase.ValidateUpdateData(ctx, userCred, query, data)

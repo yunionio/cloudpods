@@ -120,7 +120,10 @@ func (manager *SExternalProjectManager) GetProject(externalId string, providerId
 	project := &SExternalProject{}
 	project.SetModelManager(manager)
 	q := manager.Query().Equals("external_id", externalId).Equals("manager_id", providerId)
-	count := q.Count()
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
 	if count == 0 {
 		return nil, fmt.Errorf("no external project record %s for provider %s", externalId, providerId)
 	}
@@ -205,13 +208,17 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	project := SExternalProject{}
 	project.SetModelManager(manager)
 
-	project.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extProject.GetName())
+	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extProject.GetName())
+	if err != nil {
+		return nil, err
+	}
+	project.Name = newName
 	project.ExternalId = extProject.GetGlobalId()
 	project.IsEmulated = extProject.IsEmulated()
 	project.ManagerId = provider.Id
 	project.ProjectId = provider.ProjectId
 
-	err := manager.TableSpec().Insert(&project)
+	err = manager.TableSpec().Insert(&project)
 	if err != nil {
 		log.Errorf("newFromCloudProject fail %s", err)
 		return nil, err

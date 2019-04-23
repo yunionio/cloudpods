@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SSecurityGroupManager struct {
@@ -102,8 +103,8 @@ func (self *SSecurityGroup) GetGuestsQuery() *sqlchemy.SQuery {
 	).Filter(sqlchemy.NotIn(guests.Field("hypervisor"), []string{api.HYPERVISOR_CONTAINER, api.HYPERVISOR_BAREMETAL, api.HYPERVISOR_ESXI}))
 }
 
-func (self *SSecurityGroup) GetGuestsCount() int {
-	return self.GetGuestsQuery().Count()
+func (self *SSecurityGroup) GetGuestsCount() (int, error) {
+	return self.GetGuestsQuery().CountWithError()
 }
 
 func (self *SSecurityGroup) GetGuests() []SGuest {
@@ -121,8 +122,8 @@ func (self *SSecurityGroup) GetSecgroupCacheQuery() *sqlchemy.SQuery {
 	return SecurityGroupCacheManager.Query().Equals("secgroup_id", self.Id)
 }
 
-func (self *SSecurityGroup) GetSecgroupCacheCount() int {
-	return self.GetSecgroupCacheQuery().Count()
+func (self *SSecurityGroup) GetSecgroupCacheCount() (int, error) {
+	return self.GetSecgroupCacheQuery().CountWithError()
 }
 
 func (self *SSecurityGroup) getDesc() jsonutils.JSONObject {
@@ -139,7 +140,8 @@ func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclie
 		return nil, err
 	}
 	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
-	extra.Add(jsonutils.NewInt(int64(self.GetSecgroupCacheCount())), "cache_cnt")
+	cnt, _ := self.GetSecgroupCacheCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "cache_cnt")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("")), "rules")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("in")), "in_rules")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("out")), "out_rules")
@@ -148,8 +150,10 @@ func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclie
 
 func (self *SSecurityGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+
 	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
-	extra.Add(jsonutils.NewInt(int64(self.GetSecgroupCacheCount())), "cache_cnt")
+	cnt, _ := self.GetSecgroupCacheCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "cache_cnt")
 	extra.Add(jsonutils.NewTimeString(self.CreatedAt), "created_at")
 	extra.Add(jsonutils.NewString(self.Description), "description")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("in")), "in_rules")
@@ -214,9 +218,9 @@ func (self *SSecurityGroup) getSecurityRuleString(direction string) string {
 	return strings.Join(rules, SECURITY_GROUP_SEPARATOR)
 }
 
-func totalSecurityGroupCount(projectId string) int {
+func totalSecurityGroupCount(projectId string) (int, error) {
 	q := SecurityGroupManager.Query().Equals("tenant_id", projectId)
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SSecurityGroup) AllowPerformAddRule(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -263,26 +267,32 @@ func (self *SSecurityGroup) AllowPerformClone(ctx context.Context, userCred mccl
 }
 
 func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if name, _ := data.GetString("name"); len(name) == 0 {
+	name, _ := data.GetString("name")
+	if len(name) == 0 {
 		return nil, httperrors.NewMissingParameterError("name")
-	} else {
-		sql := SecurityGroupManager.Query()
-		sql = SecurityGroupManager.FilterByName(sql, name)
-		if sql.Count() != 0 {
-			return nil, httperrors.NewDuplicateNameError("name", name)
+	}
+	_, err := SecurityGroupManager.FetchByName(userCred, name)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return nil, httperrors.NewInternalServerError("FetchByName fail %s", err)
 		}
+	} else {
+		return nil, httperrors.NewDuplicateNameError("name", name)
 	}
 
 	secgroup := &SSecurityGroup{}
 	secgroup.SetModelManager(SecurityGroupManager)
 
-	secgroup.Name, _ = data.GetString("name")
+	secgroup.Name = name
 	secgroup.Description, _ = data.GetString("description")
 	secgroup.ProjectId = userCred.GetTenantId()
-	if err := SecurityGroupManager.TableSpec().Insert(secgroup); err != nil {
+
+	err = SecurityGroupManager.TableSpec().Insert(secgroup)
+	if err != nil {
 		return nil, err
 		//db.OpsLog.LogCloneEvent(self, secgroup, userCred, nil)
 	}
+
 	secgrouprules := self.getSecurityRules("")
 	for _, rule := range secgrouprules {
 		secgrouprule := &SSecurityGroupRule{}
@@ -300,6 +310,8 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 			return nil, err
 		}
 	}
+
+	logclient.AddActionLogWithContext(ctx, secgroup, logclient.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred, true)
 	return nil, nil
 }
 
@@ -447,7 +459,11 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 
 	secgroup := SSecurityGroup{}
 	secgroup.SetModelManager(manager)
-	secgroup.Name = db.GenerateName(manager, "", extSec.GetName())
+	newName, err := db.GenerateName(manager, "", extSec.GetName())
+	if err != nil {
+		return nil, err
+	}
+	secgroup.Name = newName
 	secgroup.Description = extSec.GetDescription()
 	secgroup.ProjectId = userCred.GetProjectId()
 
@@ -555,7 +571,10 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 }
 
 func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context) error {
-	cnt := self.GetGuestsCount()
+	cnt, err := self.GetGuestsCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetGuestsCount fail %s", err)
+	}
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("the security group is in use")
 	}

@@ -201,23 +201,27 @@ func (lbbg *SLoadbalancerBackendGroup) GetBackends() ([]SLoadbalancerBackend, er
 }
 
 // 返回值 TotalRef
-func (lbbg *SLoadbalancerBackendGroup) RefCount() int {
+func (lbbg *SLoadbalancerBackendGroup) RefCount() (int, error) {
 	men := lbbg.getRefManagers()
 	var count int
 	for _, m := range men {
-		count += lbbg.refCount(m)
+		cnt, err := lbbg.refCount(m)
+		if err != nil {
+			return -1, err
+		}
+		count += cnt
 	}
 
-	return count
+	return count, nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) refCount(men db.IModelManager) int {
+func (lbbg *SLoadbalancerBackendGroup) refCount(men db.IModelManager) (int, error) {
 	t := men.TableSpec().Instance()
 	pdF := t.Field("pending_deleted")
 	return t.Query().
 		Equals("backend_group_id", lbbg.Id).
 		Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
-		Count()
+		CountWithError()
 }
 
 func (lbbg *SLoadbalancerBackendGroup) getRefManagers() []db.IModelManager {
@@ -237,9 +241,12 @@ func (lbbg *SLoadbalancerBackendGroup) AllowPerformStatus(ctx context.Context, u
 func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Context) error {
 	men := lbbg.getRefManagers()
 	for _, m := range men {
-		n := lbbg.refCount(m)
+		n, err := lbbg.refCount(m)
+		if err != nil {
+			return httperrors.NewInternalServerError("get refCount fail %s", err.Error())
+		}
 		if n > 0 {
-			return fmt.Errorf("backend group %s is still referred to by %d %s",
+			return httperrors.NewResourceBusyError("backend group %s is still referred to by %d %s",
 				lbbg.Id, n, m.KeywordPlural())
 		}
 	}
@@ -476,12 +483,17 @@ func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgrou
 
 	}*/
 
-	lbbg.Name = db.GenerateName(man, projectId, extLoadbalancerBackendgroup.GetName())
+	newName, err := db.GenerateName(man, projectId, extLoadbalancerBackendgroup.GetName())
+	if err != nil {
+		return nil, err
+	}
+
+	lbbg.Name = newName
 
 	lbbg.Type = extLoadbalancerBackendgroup.GetType()
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 
-	err := man.TableSpec().Insert(lbbg)
+	err = man.TableSpec().Insert(lbbg)
 	if err != nil {
 		return nil, err
 	}

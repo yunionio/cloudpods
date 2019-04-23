@@ -90,7 +90,7 @@ func (self *SQuota) FetchUsage(ctx context.Context, projectId string) error {
 	net := totalGuestNicCount(projectId, nil, false)
 	guest := totalGuestResourceCount(projectId, nil, nil, nil, false, false, nil, nil, nil)
 	eipUsage := ElasticipManager.TotalCount(projectId, nil, nil)
-	snapshotCount := TotalSnapshotCount(projectId, nil, nil)
+	snapshotCount, _ := TotalSnapshotCount(projectId, nil, nil)
 	// XXX
 	// keypair belongs to user
 	// keypair := totalKeypairCount(projectId)
@@ -105,7 +105,7 @@ func (self *SQuota) FetchUsage(ctx context.Context, projectId string) error {
 	self.Ebw = net.ExternalBandwidth
 	self.Keypair = 0 // keypair
 	self.Group = 0
-	self.Secgroup = totalSecurityGroupCount(projectId)
+	self.Secgroup, _ = totalSecurityGroupCount(projectId)
 	self.IsolatedDevice = guest.TotalIsolatedCount
 	self.Snapshot = snapshotCount
 	return nil

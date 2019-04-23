@@ -671,6 +671,41 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 	return nil
 }
 
+func (self *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	iVM, err := guest.GetIVM()
+	if err != nil {
+		return err
+	}
+	vpcId, err := guest.GetDriver().GetGuestSecgroupVpcid(guest)
+	if err != nil {
+		return err
+	}
+	iregion, err := host.GetIRegion()
+	if err != nil {
+		return err
+	}
+	secgroups := guest.GetSecgroups()
+	externalIds := []string{}
+	for _, secgroup := range secgroups {
+		lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
+		defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
+
+		secgroupCache, err := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), secgroup.Id, vpcId, host.GetRegion().Id, host.ManagerId)
+		if err != nil {
+			return fmt.Errorf("failed to registor secgroupCache for secgroup: %s vpc: %s: %s", secgroup.Id, vpcId, err)
+		}
+		extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, secgroup.Name, secgroup.Description, secgroup.GetSecRules(""))
+		if err != nil {
+			return err
+		}
+		if err = secgroupCache.SetExternalId(task.GetUserCred(), extID); err != nil {
+			return err
+		}
+		externalIds = append(externalIds, extID)
+	}
+	return iVM.SetSecurityGroups(externalIds)
+}
+
 func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		ihost, err := host.GetIHost()
@@ -682,42 +717,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 			return nil, err
 		}
 
-		if fwOnly, _ := task.GetParams().Bool("fw_only"); fwOnly {
-			vpcId := ""
-			guestnets, err := guest.GetNetworks("")
+		if jsonutils.QueryBoolean(task.GetParams(), "fw_only", false) {
+			err = guest.GetDriver().RequestSyncSecgroupsOnHost(ctx, guest, host, task)
 			if err != nil {
 				return nil, err
 			}
-			for _, network := range guestnets {
-				if vpc := network.GetNetwork().GetVpc(); vpc != nil {
-					vpcId = vpc.ExternalId
-					break
-				}
-			}
-			iregion, err := host.GetIRegion()
-			if err != nil {
-				return nil, err
-			}
-			secgroups := guest.GetSecgroups()
-			externalIds := []string{}
-			for _, secgroup := range secgroups {
-				lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
-				defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
-
-				secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), secgroup.Id, vpcId, host.GetRegion().Id, host.ManagerId)
-				if secgroupCache == nil {
-					return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s vpc: %s", secgroup.Id, vpcId)
-				}
-				extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, secgroup.Name, secgroup.Description, secgroup.GetSecRules(""))
-				if err != nil {
-					return nil, err
-				}
-				if err = secgroupCache.SetExternalId(task.GetUserCred(), extID); err != nil {
-					return nil, err
-				}
-				externalIds = append(externalIds, extID)
-			}
-			return nil, iVM.SetSecurityGroups(externalIds)
 		}
 
 		iDisks, err := iVM.GetIDisks()

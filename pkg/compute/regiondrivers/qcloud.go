@@ -104,8 +104,14 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 		}
 
 		// 兼容腾讯云，在fake的backend group 关联具体的转发策略之前。不需要同步后端服务器
-		if lbbg.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD && lbbg.RefCount() == 0 {
-			return nil, nil
+		if lbbg.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
+			cnt, err := lbbg.RefCount()
+			if err != nil {
+				return nil, err
+			}
+			if cnt == 0 {
+				return nil, nil
+			}
 		}
 
 		lb := lbbg.GetLoadbalancer()
@@ -156,7 +162,10 @@ func (self *SQcloudRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Co
 
 		// ===========兼容腾讯云,未关联具体转发规则时，直接删除本地数据即可===============
 		if iRegion.GetProvider() == api.CLOUD_PROVIDER_QCLOUD {
-			count := lbbg.RefCount()
+			count, err := lbbg.RefCount()
+			if err != nil {
+				return nil, err
+			}
 			if count == 0 {
 				return nil, nil
 			}
