@@ -1,7 +1,9 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -113,6 +115,9 @@ func (self *SSnapshot) Delete() error {
 	if self.region == nil {
 		return fmt.Errorf("not init region for snapshot %s", self.SnapshotId)
 	}
+	if err := self.region.SnapshotPreDelete(self.SnapshotId); err != nil {
+		return err
+	}
 	return self.region.DeleteSnapshot(self.SnapshotId)
 }
 
@@ -182,4 +187,23 @@ func (self *SRegion) DeleteSnapshot(snapshotId string) error {
 
 func (self *SSnapshot) GetProjectId() string {
 	return ""
+}
+
+// If snapshot linked images can't be delete
+// delete images first -- Aliyun
+func (self *SRegion) SnapshotPreDelete(snapshotId string) error {
+	images, _, err := self.GetImagesBySnapshot(snapshotId, 0, 0)
+	if err != nil {
+		return fmt.Errorf("PreDelete get images by snapshot %s error: %s", snapshotId, err)
+	}
+	for _, image := range images {
+		image.storageCache = &SStoragecache{region: self}
+		if err := image.Delete(context.Background()); err != nil {
+			return fmt.Errorf("PreDelete image %s error: %s", image.GetId(), err)
+		}
+		if err := cloudprovider.WaitDeleted(&image, 3*time.Second, 300*time.Second); err != nil {
+			return fmt.Errorf("PreDelete waite image %s deleted error: %s", image.GetId(), err)
+		}
+	}
+	return nil
 }

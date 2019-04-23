@@ -303,6 +303,8 @@ func (self *SnapshotDeleteTask) TaskFailed(ctx context.Context, snapshot *models
 	if snapshot.Status == api.SNAPSHOT_DELETING {
 		snapshot.SetStatus(self.UserCred, api.SNAPSHOT_READY, "On SnapshotDeleteTask TaskFailed")
 	}
+	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DELETE_FAIL, reason, self.UserCred)
+	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_DELOCATE, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 	guest, err := snapshot.GetGuest()
 	if err != nil {
