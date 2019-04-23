@@ -798,7 +798,39 @@ func (self *SGuest) StartInsertIsoTask(ctx context.Context, imageId string, host
 	return nil
 }
 
-func (self *SGuest) StartGueststartTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+func (self *SGuest) IsDisksShared() bool {
+	return self.getDefaultStorageType() == api.STORAGE_RBD
+}
+
+func (self *SGuest) StartGueststartTask(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	data *jsonutils.JSONDict, parentTaskId string,
+) error {
+	if self.Hypervisor == api.HYPERVISOR_KVM && self.IsDisksShared() {
+		return self.GuestSchedStartTask(ctx, userCred, data, parentTaskId)
+	} else {
+		return self.GuestNonSchedStartTask(ctx, userCred, data, parentTaskId)
+	}
+}
+
+func (self *SGuest) GuestSchedStartTask(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	data *jsonutils.JSONDict, parentTaskId string,
+) error {
+	self.SetStatus(userCred, api.VM_SCHEDULE, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestSchedStartTask", self, userCred, data,
+		parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SGuest) GuestNonSchedStartTask(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	data *jsonutils.JSONDict, parentTaskId string,
+) error {
 	self.SetStatus(userCred, api.VM_START_START, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestStartTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {

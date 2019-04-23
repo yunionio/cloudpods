@@ -1215,6 +1215,14 @@ func (self *SHost) GetRunningGuestCount() (int, error) {
 	return q.CountWithError()
 }
 
+func (self *SHost) GetRunningGuestMemorySize() int {
+	res := self.getGuestsResource(api.VM_RUNNING)
+	if res != nil {
+		return res.GuestVmemSize
+	}
+	return -1
+}
+
 func (self *SHost) GetBaremetalnetworksQuery() *sqlchemy.SQuery {
 	return HostnetworkManager.Query().Equals("baremetal_id", self.Id)
 }
