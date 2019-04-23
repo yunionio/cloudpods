@@ -197,6 +197,10 @@ func (self *SInstance) GetBillingType() string {
 	}
 }
 
+func (self *SInstance) GetCreatedAt() time.Time {
+	return time.Unix(self.CreateTime, 0)
+}
+
 func (self *SInstance) GetExpiredAt() time.Time {
 	return time.Unix(self.ExpireTime, 0)
 }

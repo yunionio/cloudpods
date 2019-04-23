@@ -102,7 +102,7 @@ type SDisk struct {
 	AvailabilityZone    string              `json:"availability_zone"`
 	SourceVolid         string              `json:"source_volid"`
 	SnapshotID          string              `json:"snapshot_id"`
-	CreatedAt           string              `json:"created_at"`
+	CreatedAt           time.Time           `json:"created_at"`
 	VolumeType          string              `json:"volume_type"`
 	VolumeImageMetadata VolumeImageMetadata `json:"volume_image_metadata"`
 	ReplicationStatus   string              `json:"replication_status"`
@@ -194,6 +194,10 @@ func (self *SDisk) GetBillingType() string {
 	} else {
 		return billing_api.BILLING_TYPE_PREPAID // ?
 	}
+}
+
+func (self *SDisk) GetCreatedAt() time.Time {
+	return self.CreatedAt
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
