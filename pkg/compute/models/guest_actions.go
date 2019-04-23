@@ -236,17 +236,24 @@ func (self *SGuest) PerformMigrate(ctx context.Context, userCred mcclient.TokenC
 		host := iHost.(*SHost)
 		preferHostId = host.Id
 	}
-	err := self.StartMigrateTask(ctx, userCred, isRescueMode, self.Status, preferHostId, "")
-	return nil, err
+
+	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
+	return nil, self.StartMigrateTask(ctx, userCred, isRescueMode, autoStart, self.Status, preferHostId, "")
 }
 
-func (self *SGuest) StartMigrateTask(ctx context.Context, userCred mcclient.TokenCredential, isRescueMode bool, guestStatus, preferHostId, parentTaskId string) error {
+func (self *SGuest) StartMigrateTask(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	isRescueMode, autoStart bool, guestStatus, preferHostId, parentTaskId string,
+) error {
 	data := jsonutils.NewDict()
 	if isRescueMode {
 		data.Set("is_rescue_mode", jsonutils.JSONTrue)
 	}
 	if len(preferHostId) > 0 {
 		data.Set("prefer_host_id", jsonutils.NewString(preferHostId))
+	}
+	if autoStart {
+		data.Set("auto_start", jsonutils.JSONTrue)
 	}
 	data.Set("guest_status", jsonutils.NewString(guestStatus))
 	if task, err := taskman.TaskManager.NewTask(ctx, "GuestMigrateTask", self, userCred, data, parentTaskId, "", nil); err != nil {
