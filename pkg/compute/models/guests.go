@@ -1892,6 +1892,10 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.ExpiredAt = extVM.GetExpiredAt()
 		}
 
+		if createdAt := extVM.GetCreatedAt(); !createdAt.IsZero() {
+			self.CreatedAt = createdAt
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -1940,6 +1944,10 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	if provider.GetFactory().IsSupportPrepaidResources() {
 		guest.BillingType = extVM.GetBillingType()
 		guest.ExpiredAt = extVM.GetExpiredAt()
+	}
+
+	if createdAt := extVM.GetCreatedAt(); !createdAt.IsZero() {
+		guest.CreatedAt = createdAt
 	}
 
 	guest.HostId = host.Id

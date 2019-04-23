@@ -1044,6 +1044,10 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 			self.ExpiredAt = extDisk.GetExpiredAt()
 		}
 
+		if createdAt := extDisk.GetCreatedAt(); !createdAt.IsZero() {
+			self.CreatedAt = createdAt
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -1081,6 +1085,10 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	if provider.GetFactory().IsSupportPrepaidResources() {
 		disk.BillingType = extDisk.GetBillingType()
 		disk.ExpiredAt = extDisk.GetExpiredAt()
+	}
+
+	if createAt := extDisk.GetCreatedAt(); !createAt.IsZero() {
+		disk.CreatedAt = createAt
 	}
 
 	err := manager.TableSpec().Insert(&disk)

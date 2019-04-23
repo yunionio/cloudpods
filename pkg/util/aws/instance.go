@@ -231,6 +231,10 @@ func (self *SInstance) GetBillingType() string {
 	return billing_api.BILLING_TYPE_POSTPAID
 }
 
+func (self *SInstance) GetCreatedAt() time.Time {
+	return self.CreationTime
+}
+
 func (self *SInstance) GetExpiredAt() time.Time {
 	return self.ExpiredTime
 }

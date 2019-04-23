@@ -315,6 +315,10 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 			self.ExpiredAt = ext.GetExpiredAt()
 		}
 
+		if createAt := ext.GetCreatedAt(); !createAt.IsZero() {
+			self.CreatedAt = createAt
+		}
+
 		return nil
 	})
 	if err != nil {

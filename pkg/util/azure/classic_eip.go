@@ -149,6 +149,10 @@ func (self *SClassicEipAddress) GetBillingType() string {
 	return billing_api.BILLING_TYPE_POSTPAID
 }
 
+func (self *SClassicEipAddress) GetCreatedAt() time.Time {
+	return time.Time{}
+}
+
 func (self *SClassicEipAddress) GetExpiredAt() time.Time {
 	return time.Time{}
 }

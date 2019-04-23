@@ -115,6 +115,10 @@ func (self *SDisk) GetBillingType() string {
 	}
 }
 
+func (self *SDisk) GetCreatedAt() time.Time {
+	return time.Unix(self.CreateTime, 0)
+}
+
 func (self *SDisk) GetExpiredAt() time.Time {
 	return time.Unix(self.ExpiredTime, 0)
 }

@@ -257,6 +257,10 @@ func (self *SInstance) GetBillingType() string {
 	}
 }
 
+func (self *SInstance) GetCreatedAt() time.Time {
+	return self.Created
+}
+
 // charging_mode “0”：按需计费  “1”：按包年包月计费
 func (self *SInstance) GetExpiredAt() time.Time {
 	var expiredTime time.Time

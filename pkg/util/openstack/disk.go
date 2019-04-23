@@ -97,8 +97,8 @@ type SDisk struct {
 	VolumeImageMetadata VolumeImageMetadata
 	NameID              string `json:"os-vol-mig-status-attr:name_id"`
 	Bootable            bool
-	//CreatedAt  time.Time
-	VolumeType string
+	CreatedAt           time.Time
+	VolumeType          string
 }
 
 func (disk *SDisk) GetMetadata() *jsonutils.JSONDict {
@@ -358,6 +358,10 @@ func (disk *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 
 func (disk *SDisk) GetBillingType() string {
 	return billing_api.BILLING_TYPE_POSTPAID
+}
+
+func (disk *SDisk) GetCreatedAt() time.Time {
+	return disk.CreatedAt
 }
 
 func (disk *SDisk) GetExpiredAt() time.Time {

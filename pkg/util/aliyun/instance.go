@@ -907,6 +907,10 @@ func (self *SInstance) GetBillingType() string {
 	return convertChargeType(self.InstanceChargeType)
 }
 
+func (self *SInstance) GetCreatedAt() time.Time {
+	return self.CreationTime
+}
+
 func (self *SInstance) GetExpiredAt() time.Time {
 	return convertExpiredAt(self.ExpiredTime)
 }

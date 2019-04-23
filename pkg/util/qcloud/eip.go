@@ -155,6 +155,10 @@ func (self *SEipAddress) GetBillingType() string {
 	return billing_api.BILLING_TYPE_POSTPAID
 }
 
+func (self *SEipAddress) GetCreatedAt() time.Time {
+	return self.CreatedTime
+}
+
 func (self *SEipAddress) GetExpiredAt() time.Time {
 	return time.Time{}
 }
