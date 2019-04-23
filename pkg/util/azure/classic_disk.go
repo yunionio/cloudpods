@@ -178,8 +178,12 @@ func (self *SClassicDisk) GetDiskType() string {
 	return self.diskType
 }
 
+func (self *SClassicDisk) GetCreatedAt() time.Time {
+	return time.Time{}
+}
+
 func (self *SClassicDisk) GetExpiredAt() time.Time {
-	return time.Now()
+	return time.Time{}
 }
 
 func (self *SClassicDisk) GetGlobalId() string {

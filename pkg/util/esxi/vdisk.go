@@ -251,6 +251,10 @@ func (disk *SVirtualDisk) GetBillingType() string {
 	return ""
 }
 
+func (disk *SVirtualDisk) GetCreatedAt() time.Time {
+	return time.Time{}
+}
+
 func (disk *SVirtualDisk) GetExpiredAt() time.Time {
 	return time.Time{}
 }
