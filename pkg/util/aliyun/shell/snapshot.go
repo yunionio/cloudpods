@@ -44,6 +44,9 @@ func init() {
 	}
 
 	shellutils.R(&SnapshotDeleteOptions{}, "snapshot-delete", "Delete snapshot", func(cli *aliyun.SRegion, args *SnapshotDeleteOptions) error {
+		if err := cli.SnapshotPreDelete(args.ID); err != nil {
+			return fmt.Errorf("Snapshot PreDelete error: %s", err)
+		}
 		return cli.DeleteSnapshot(args.ID)
 	})
 

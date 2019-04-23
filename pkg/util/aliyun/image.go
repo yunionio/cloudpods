@@ -278,7 +278,7 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 		return nil, err
 	}
 	if len(images) == 0 {
-		return nil, fmt.Errorf("image %s not found", imageId)
+		return nil, cloudprovider.ErrNotFound
 	}
 	return &images[0], nil
 }
@@ -292,6 +292,19 @@ func (self *SRegion) GetImageByName(name string) (*SImage, error) {
 		return nil, cloudprovider.ErrNotFound
 	}
 	return &images[0], nil
+}
+
+func (self *SRegion) GetImagesBySnapshot(snapshotId string, offset int, limit int) ([]SImage, int, error) {
+	if limit > 50 || limit <= 0 {
+		limit = 50
+	}
+	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
+	params["PageSize"] = fmt.Sprintf("%d", limit)
+	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
+	params["SnapshotId"] = snapshotId
+
+	return self.getImages(params)
 }
 
 func (self *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
@@ -327,8 +340,10 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 		params["ImageName"] = name
 	}
 
-	// log.Debugf("%s", params)
+	return self.getImages(params)
+}
 
+func (self *SRegion) getImages(params map[string]string) ([]SImage, int, error) {
 	body, err := self.ecsRequest("DescribeImages", params)
 	if err != nil {
 		log.Errorf("DescribeImages fail %s", err)
