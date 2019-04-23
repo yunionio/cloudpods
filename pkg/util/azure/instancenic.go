@@ -49,7 +49,7 @@ type InterfaceIPConfiguration struct {
 type InterfacePropertiesFormat struct {
 	NetworkSecurityGroup *SSecurityGroup            `json:"networkSecurityGroup,omitempty"`
 	IPConfigurations     []InterfaceIPConfiguration `json:"ipConfigurations,omitempty"`
-	MacAddress           string                     `json:"aacAddress,omitempty"`
+	MacAddress           string                     `json:"macAddress,omitempty"`
 	Primary              *bool                      `json:"primary,omitempty"`
 	VirtualMachine       *SubResource               `json:"virtualMachine,omitempty"`
 }
