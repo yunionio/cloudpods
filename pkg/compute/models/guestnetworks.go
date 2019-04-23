@@ -131,7 +131,7 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 		if len(netId) > 0 {
 			q = q.Equals("network_id", netId)
 		}
-		cnt, err := q.Count()
+		cnt, err := q.CountWithError()
 		if err != nil {
 			return "", err
 		}
@@ -395,7 +395,7 @@ func (self *SGuestnetwork) ValidateUpdateData(ctx context.Context, userCred mccl
 		q := GuestnetworkManager.Query().SubQuery()
 		count, err := q.Query().Filter(sqlchemy.Equals(q.Field("guest_id"), self.GuestId)).
 			Filter(sqlchemy.NotEquals(q.Field("network_id"), self.NetworkId)).
-			Filter(sqlchemy.Equals(q.Field("index"), index)).Count()
+			Filter(sqlchemy.Equals(q.Field("index"), index)).CountWithError()
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("checkout nic index uniqueness fail %s", err)
 		}

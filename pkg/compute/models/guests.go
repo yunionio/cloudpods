@@ -436,7 +436,7 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 		disk := diskI.(*SDisk)
 		guestdisks := GuestdiskManager.Query().SubQuery()
-		count, err := guestdisks.Query().Equals("disk_id", disk.Id).Count()
+		count, err := guestdisks.Query().Equals("disk_id", disk.Id).CountWithError()
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("checkout guestdisk count fail %s", err)
 		}
@@ -589,7 +589,7 @@ func (guest *SGuest) GetDisksQuery() *sqlchemy.SQuery {
 }
 
 func (guest *SGuest) DiskCount() (int, error) {
-	return guest.GetDisksQuery().Count()
+	return guest.GetDisksQuery().CountWithError()
 }
 
 func (guest *SGuest) GetDisks() []SGuestdisk {
@@ -626,7 +626,7 @@ func (guest *SGuest) GetNetworksQuery(netId string) *sqlchemy.SQuery {
 }
 
 func (guest *SGuest) NetworkCount() (int, error) {
-	return guest.GetNetworksQuery("").Count()
+	return guest.GetNetworksQuery("").CountWithError()
 }
 
 func (guest *SGuest) GetNetworks(netId string) ([]SGuestnetwork, error) {
@@ -2051,7 +2051,7 @@ func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenC
 func (self *SGuest) getAttach2NetworkCount(net *SNetwork) (int, error) {
 	q := GuestnetworkManager.Query()
 	q = q.Equals("guest_id", self.Id).Equals("network_id", net.Id)
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SGuest) getMaxNicIndex() int8 {
@@ -2296,7 +2296,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 
 func (self *SGuest) isAttach2Disk(disk *SDisk) (bool, error) {
 	q := GuestdiskManager.Query().Equals("disk_id", disk.Id).Equals("guest_id", self.Id)
-	cnt, err := q.Count()
+	cnt, err := q.CountWithError()
 	if err != nil {
 		return false, err
 	}
@@ -3894,7 +3894,7 @@ func (self *SGuest) getSecgroupByCache(provider *SCloudprovider, externalId stri
 	q := SecurityGroupCacheManager.Query().Equals("manager_id", provider.Id).Equals("external_id", externalId)
 	cache := SSecurityGroupCache{}
 	cache.SetModelManager(SecurityGroupCacheManager)
-	count, err := q.Count()
+	count, err := q.CountWithError()
 	if err != nil {
 		return nil, fmt.Errorf("getSecgroupByCache fail %s", err)
 	}

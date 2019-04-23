@@ -981,9 +981,9 @@ func (manager *SElasticipManager) TotalCount(projectId string, rangeObj db.IStan
 		q2 = q2.Equals("tenant_id", projectId)
 		q3 = q3.Equals("tenant_id", projectId)
 	}
-	usage.PublicIPCount, _ = q1.Count()
-	usage.EIPCount, _ = q2.Count()
-	usage.EIPUsedCount, _ = q3.Count()
+	usage.PublicIPCount, _ = q1.CountWithError()
+	usage.EIPCount, _ = q2.CountWithError()
+	usage.EIPUsedCount, _ = q3.CountWithError()
 	return usage
 }
 

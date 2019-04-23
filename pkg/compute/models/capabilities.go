@@ -234,7 +234,7 @@ func getNetworkCount(region *SCloudregion, zone *SZone) (int, error) {
 	}
 	q = q.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 
-	return q.Count()
+	return q.CountWithError()
 }
 
 func isSchedPolicySupported(region *SCloudregion, zone *SZone) bool {

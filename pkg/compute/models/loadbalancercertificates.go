@@ -270,7 +270,7 @@ func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Cont
 		n, err := t.Query().
 			Equals("certificate_id", lbcertId).
 			Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
-			Count()
+			CountWithError()
 		if err != nil {
 			return httperrors.NewInternalServerError("get certificate refcount fail %s", err)
 		}

@@ -205,7 +205,7 @@ func skuRelatedGuestCount(self *SServerSku) (int, error) {
 	}
 
 	q = q.Equals("instance_type", self.GetName())
-	return q.Count()
+	return q.CountWithError()
 }
 
 func getNameAndExtId(resId string, manager db.IModelManager) (string, string, error) {
@@ -386,7 +386,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 		sqlchemy.IsEmpty(q.Field("provider")),
 	))
 
-	cnt, err := q.Count()
+	cnt, err := q.CountWithError()
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("check duplication fail %s", err)
 	}
@@ -409,7 +409,7 @@ func (self *SServerSkuManager) FetchByZoneExtId(zoneExtId string, name string) (
 func (self *SServerSkuManager) FetchByZoneId(zoneId string, name string) (db.IModel, error) {
 	q := self.Query().Equals("zone_id", zoneId).Equals("name", name)
 
-	count, err := q.Count()
+	count, err := q.CountWithError()
 	if err != nil {
 		return nil, err
 	}
@@ -898,7 +898,7 @@ func (manager *SServerSkuManager) GetSkuCountByProvider(provider string) (int, e
 		q = q.Equals("provider", provider)
 	}
 
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (manager *SServerSkuManager) GetSkuCountByRegion(regionId string) (int, error) {
@@ -909,7 +909,7 @@ func (manager *SServerSkuManager) GetSkuCountByRegion(regionId string) (int, err
 		q = q.Equals("cloudregion_id", regionId)
 	}
 
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (manager *SServerSkuManager) GetSkuCountByZone(zoneId string) []SServerSku {

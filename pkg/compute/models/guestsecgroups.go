@@ -65,7 +65,7 @@ func (self *SGuestsecgroup) getSecgroup() *SSecurityGroup {
 func (manager *SGuestsecgroupManager) newGuestSecgroup(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, secgroup *SSecurityGroup) (*SGuestsecgroup, error) {
 	q := manager.Query()
 	q = q.Equals("guest_id", guest.Id).Equals("secgroup_id", secgroup.Id)
-	count, err := q.Count()
+	count, err := q.CountWithError()
 	if err != nil {
 		return nil, err
 	}

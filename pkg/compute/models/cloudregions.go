@@ -109,9 +109,9 @@ func (self *SCloudregion) GetZoneCount() (int, error) {
 	if self.Id == api.DEFAULT_REGION_ID {
 		return zones.Filter(sqlchemy.OR(sqlchemy.IsNull(zones.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(zones.Field("cloudregion_id")),
-			sqlchemy.Equals(zones.Field("cloudregion_id"), self.Id))).Count()
+			sqlchemy.Equals(zones.Field("cloudregion_id"), self.Id))).CountWithError()
 	} else {
-		return zones.Equals("cloudregion_id", self.Id).Count()
+		return zones.Equals("cloudregion_id", self.Id).CountWithError()
 	}
 }
 
@@ -139,7 +139,7 @@ func (self *SCloudregion) getGuestCountInternal(increment bool) (int, error) {
 		startOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 		query.GE("created_at", startOfMonth)
 	}
-	return query.Count()
+	return query.CountWithError()
 }
 
 func (self *SCloudregion) GetVpcCount() (int, error) {
@@ -147,9 +147,9 @@ func (self *SCloudregion) GetVpcCount() (int, error) {
 	if self.Id == api.DEFAULT_REGION_ID {
 		return vpcs.Filter(sqlchemy.OR(sqlchemy.IsNull(vpcs.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(vpcs.Field("cloudregion_id")),
-			sqlchemy.Equals(vpcs.Field("cloudregion_id"), self.Id))).Count()
+			sqlchemy.Equals(vpcs.Field("cloudregion_id"), self.Id))).CountWithError()
 	} else {
-		return vpcs.Equals("cloudregion_id", self.Id).Count()
+		return vpcs.Equals("cloudregion_id", self.Id).CountWithError()
 	}
 }
 

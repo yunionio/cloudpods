@@ -418,7 +418,7 @@ type IsolatedDeviceCountStat struct {
 }
 
 func (manager *SIsolatedDeviceManager) totalCount(devType, hostTypes []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) (int, error) {
-	return manager.totalCountQ(devType, hostTypes, resourceTypes, providers, rangeObj).Count()
+	return manager.totalCountQ(devType, hostTypes, resourceTypes, providers, rangeObj).CountWithError()
 }
 
 func (manager *SIsolatedDeviceManager) TotalCount(hostType []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) (IsolatedDeviceCountStat, error) {

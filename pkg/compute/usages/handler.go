@@ -379,7 +379,7 @@ func RegionUsage(providers []string) Usage {
 		q = q.In("provider", providers)
 	}
 	count := make(map[string]interface{})
-	count["regions"], _ = q.Count()
+	count["regions"], _ = q.CountWithError()
 	return count
 }
 
@@ -391,7 +391,7 @@ func ZoneUsage(providers []string) Usage {
 	}
 	q := models.ZoneManager.Query().In("cloudregion_id", subq.SubQuery())
 	count := make(map[string]interface{})
-	count["zones"], _ = q.Count()
+	count["zones"], _ = q.CountWithError()
 	return count
 }
 
@@ -403,7 +403,7 @@ func VpcUsage(providers []string) Usage {
 	}
 	q := models.VpcManager.Query().In("cloudregion_id", subq.SubQuery())
 	count := make(map[string]interface{})
-	count["vpcs"], _ = q.Count()
+	count["vpcs"], _ = q.CountWithError()
 	return count
 }
 

@@ -82,7 +82,7 @@ func (self *SGuestdisk) ValidateUpdateData(ctx context.Context, userCred mcclien
 			guestdisk := GuestdiskManager.Query().SubQuery()
 			count, err := guestdisk.Query().Filter(sqlchemy.Equals(guestdisk.Field("guest_id"), self.GuestId)).
 				Filter(sqlchemy.NotEquals(guestdisk.Field("disk_id"), self.DiskId)).
-				Filter(sqlchemy.Equals(guestdisk.Field("index"), index)).Count()
+				Filter(sqlchemy.Equals(guestdisk.Field("index"), index)).CountWithError()
 			if err != nil {
 				return nil, httperrors.NewInternalServerError("check disk index uniqueness fail %s", err)
 			}

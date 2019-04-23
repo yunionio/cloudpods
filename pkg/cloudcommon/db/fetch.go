@@ -46,7 +46,7 @@ func FetchJointByIds(manager IJointModelManager, masterId, slaveId string, query
 	cond := sqlchemy.AND(sqlchemy.Equals(masterField, masterId), sqlchemy.Equals(slaveField, slaveId))
 	q = q.Filter(cond)
 	q = manager.FilterByParams(q, query)
-	count, err := q.Count()
+	count, err := q.CountWithError()
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func FetchJointByIds(manager IJointModelManager, masterId, slaveId string, query
 func FetchById(manager IModelManager, idStr string) (IModel, error) {
 	q := manager.Query()
 	q = manager.FilterById(q, idStr)
-	count, err := q.Count()
+	count, err := q.CountWithError()
 	if err != nil {
 		return nil, err
 	}
@@ -94,13 +94,13 @@ func FetchByName(manager IModelManager, userCred mcclient.IIdentityProvider, idS
 	}
 	q := manager.Query()
 	q = manager.FilterByName(q, idStr)
-	count, err := q.Count()
+	count, err := q.CountWithError()
 	if err != nil {
 		return nil, err
 	}
 	if count > 1 {
 		q = manager.FilterByOwner(q, owner)
-		count, err = q.Count()
+		count, err = q.CountWithError()
 		if err != nil {
 			return nil, err
 		}
@@ -145,7 +145,7 @@ func fetchItemById(manager IModelManager, ctx context.Context, userCred mcclient
 		}
 	}
 	q = manager.FilterById(q, idStr)
-	count, err := q.Count()
+	count, err := q.CountWithError()
 	if err != nil {
 		return nil, err
 	}
@@ -176,13 +176,13 @@ func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclie
 		}
 	}
 	q = manager.FilterByName(q, idStr)
-	count, err := q.Count()
+	count, err := q.CountWithError()
 	if err != nil {
 		return nil, err
 	}
 	if count > 1 {
 		q = manager.FilterByOwner(q, manager.GetOwnerId(userCred))
-		count, err = q.Count()
+		count, err = q.CountWithError()
 		if err != nil {
 			return nil, err
 		}

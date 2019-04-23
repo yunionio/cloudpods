@@ -251,7 +251,7 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	q := model.GetModelManager().Query().Equals("name", model.GetName())
 	q = q.Equals("tenant_id", tobj.GetId())
 	q = q.NotEquals("id", model.GetId())
-	cnt, err := q.Count()
+	cnt, err := q.CountWithError()
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("check name duplication error: %s", err)
 	}

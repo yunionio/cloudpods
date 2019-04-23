@@ -271,7 +271,7 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 func (self *SDisk) GetGuestDiskCount() (int, error) {
 	guestdisks := GuestdiskManager.Query()
-	return guestdisks.Equals("disk_id", self.Id).Count()
+	return guestdisks.Equals("disk_id", self.Id).CountWithError()
 }
 
 func (self *SDisk) isAttached() (bool, error) {
@@ -313,7 +313,7 @@ func (self *SDisk) GetGuestsCount() (int, error) {
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	return guests.Query().Join(guestdisks, sqlchemy.AND(
 		sqlchemy.Equals(guestdisks.Field("guest_id"), guests.Field("id")))).
-		Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id)).Count()
+		Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id)).CountWithError()
 }
 
 func (self *SDisk) GetRuningGuestCount() (int, error) {
@@ -322,7 +322,7 @@ func (self *SDisk) GetRuningGuestCount() (int, error) {
 	return guests.Query().Join(guestdisks, sqlchemy.AND(
 		sqlchemy.Equals(guestdisks.Field("guest_id"), guests.Field("id")))).
 		Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id)).
-		Filter(sqlchemy.Equals(guests.Field("status"), api.VM_RUNNING)).Count()
+		Filter(sqlchemy.Equals(guests.Field("status"), api.VM_RUNNING)).CountWithError()
 }
 
 func (self *SDisk) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -529,7 +529,7 @@ func (self *SDisk) StartDiskCreateTask(ctx context.Context, userCred mcclient.To
 func (self *SDisk) GetSnapshotCount() (int, error) {
 	q := SnapshotManager.Query()
 	return q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), self.Id),
-		sqlchemy.Equals(q.Field("fake_deleted"), false))).Count()
+		sqlchemy.Equals(q.Field("fake_deleted"), false))).CountWithError()
 }
 
 func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SStorage, taskId string, userCred mcclient.TokenCredential, rebuild bool, snapshot string, task taskman.ITask) error {

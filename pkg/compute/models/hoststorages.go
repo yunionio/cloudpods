@@ -228,7 +228,7 @@ func (self *SHoststorage) GetGuestDiskCount() (int, error) {
 		sqlchemy.Equals(disks.Field("id"), guestdisks.Field("disk_id")),
 		sqlchemy.Equals(disks.Field("storage_id"), self.StorageId)))
 
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SHoststorage) ValidateDeleteCondition(ctx context.Context) error {

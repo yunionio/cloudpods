@@ -570,7 +570,7 @@ func (self *SHost) GetHoststoragesQuery() *sqlchemy.SQuery {
 }
 
 func (self *SHost) GetStorageCount() (int, error) {
-	return self.GetHoststoragesQuery().Count()
+	return self.GetHoststoragesQuery().CountWithError()
 }
 
 func (self *SHost) GetHoststorages() []SHoststorage {
@@ -639,7 +639,7 @@ func (self *SHost) GetBaremetalstorage() *SHoststorage {
 		sqlchemy.IsFalse(storages.Field("deleted"))))
 	q = q.Filter(sqlchemy.Equals(storages.Field("storage_type"), api.STORAGE_BAREMETAL))
 	q = q.Filter(sqlchemy.Equals(hoststorages.Field("host_id"), self.Id))
-	cnt, err := q.Count()
+	cnt, err := q.CountWithError()
 	if err != nil {
 		return nil
 	}
@@ -805,7 +805,7 @@ func (self *SHostManager) IsNewNameUnique(name string, userCred mcclient.TokenCr
 		zoneId, _ := kwargs.GetString("zone_id")
 		q.Equals("zone_id", zoneId)
 	}
-	cnt, err := q.Count()
+	cnt, err := q.CountWithError()
 	if err != nil {
 		return false, err
 	}
@@ -1086,7 +1086,7 @@ func (self *SHost) GetWiresQuery() *sqlchemy.SQuery {
 }
 
 func (self *SHost) GetWireCount() (int, error) {
-	return self.GetWiresQuery().Count()
+	return self.GetWiresQuery().CountWithError()
 }
 
 func (self *SHost) GetHostwires() []SHostwire {
@@ -1191,7 +1191,7 @@ func (self *SHost) GetGuests() []SGuest {
 
 func (self *SHost) GetGuestCount() (int, error) {
 	q := self.GetGuestsQuery()
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SHost) GetContainerCount(status []string) (int, error) {
@@ -1200,19 +1200,19 @@ func (self *SHost) GetContainerCount(status []string) (int, error) {
 	if len(status) > 0 {
 		q = q.In("status", status)
 	}
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SHost) GetNonsystemGuestCount() (int, error) {
 	q := self.GetGuestsQuery()
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SHost) GetRunningGuestCount() (int, error) {
 	q := self.GetGuestsQuery()
 	q = q.In("status", api.VM_RUNNING_STATUS)
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SHost) GetBaremetalnetworksQuery() *sqlchemy.SQuery {
@@ -2432,7 +2432,7 @@ func inputUniquenessCheck(data *jsonutils.JSONDict, zoneId string, hostId string
 			if len(hostId) > 0 {
 				q = q.NotEquals("id", hostId)
 			}
-			cnt, err := q.Count()
+			cnt, err := q.CountWithError()
 			if err != nil {
 				return nil, httperrors.NewInternalServerError("check %s duplication fail %s", key, err)
 			}
@@ -2452,7 +2452,7 @@ func inputUniquenessCheck(data *jsonutils.JSONDict, zoneId string, hostId string
 		if len(hostId) > 0 {
 			q = q.NotEquals("host_id", hostId)
 		}
-		cnt, err := q.Count()
+		cnt, err := q.CountWithError()
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("check access_mac duplication fail %s", err)
 		}
@@ -3433,7 +3433,7 @@ func (self *SHost) AllowPerformConvertHypervisor(ctx context.Context,
 
 func (self *SHost) isAlterNameUnique(name string) (bool, error) {
 	q := HostManager.Query().Equals("name", name).NotEquals("id", self.Id).Equals("zone_id", self.ZoneId)
-	cnt, err := q.Count()
+	cnt, err := q.CountWithError()
 	if err != nil {
 		return false, err
 	}

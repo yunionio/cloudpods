@@ -104,7 +104,7 @@ func (self *SSecurityGroup) GetGuestsQuery() *sqlchemy.SQuery {
 }
 
 func (self *SSecurityGroup) GetGuestsCount() (int, error) {
-	return self.GetGuestsQuery().Count()
+	return self.GetGuestsQuery().CountWithError()
 }
 
 func (self *SSecurityGroup) GetGuests() []SGuest {
@@ -123,7 +123,7 @@ func (self *SSecurityGroup) GetSecgroupCacheQuery() *sqlchemy.SQuery {
 }
 
 func (self *SSecurityGroup) GetSecgroupCacheCount() (int, error) {
-	return self.GetSecgroupCacheQuery().Count()
+	return self.GetSecgroupCacheQuery().CountWithError()
 }
 
 func (self *SSecurityGroup) getDesc() jsonutils.JSONObject {
@@ -220,7 +220,7 @@ func (self *SSecurityGroup) getSecurityRuleString(direction string) string {
 
 func totalSecurityGroupCount(projectId string) (int, error) {
 	q := SecurityGroupManager.Query().Equals("tenant_id", projectId)
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SSecurityGroup) AllowPerformAddRule(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

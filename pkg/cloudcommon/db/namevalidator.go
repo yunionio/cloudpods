@@ -30,7 +30,7 @@ func isNameUnique(manager IModelManager, owner string, name string) (bool, error
 	if !consts.IsGlobalVirtualResourceNamespace() {
 		q = manager.FilterByOwner(q, owner)
 	}
-	cnt, err := q.Count()
+	cnt, err := q.CountWithError()
 	if err != nil {
 		return false, err
 	}
@@ -60,7 +60,7 @@ func isAlterNameUnique(model IModel, name string) (bool, error) {
 		q = manager.FilterByOwner(q, model.GetOwnerProjectId())
 	}
 	q = manager.FilterByNotId(q, model.GetId())
-	cnt, err := q.Count()
+	cnt, err := q.CountWithError()
 	if err != nil {
 		return false, err
 	}

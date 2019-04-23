@@ -86,7 +86,7 @@ func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mc
 	mangerUri, err := data.GetString("manager_uri")
 	if err == nil {
 		count, err := BaremetalagentManager.Query().Equals("manager_uri", mangerUri).
-			NotEquals("id", self.Id).Count()
+			NotEquals("id", self.Id).CountWithError()
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
 		}
@@ -99,7 +99,7 @@ func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mc
 
 func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	mangerUri, _ := data.GetString("manager_uri")
-	count, err := manager.Query().Equals("manager_uri", mangerUri).Count()
+	count, err := manager.Query().Equals("manager_uri", mangerUri).CountWithError()
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("check agent uniqness fail %s", err)
 	}
