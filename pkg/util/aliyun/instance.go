@@ -598,12 +598,9 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 
 	if bc != nil {
 		params["InstanceChargeType"] = "PrePaid"
-		if bc.GetWeeks() <= 4 {
-			params["PeriodUnit"] = "Week"
-			params["Period"] = fmt.Sprintf("%d", bc.GetWeeks())
-		} else {
-			params["PeriodUnit"] = "Month"
-			params["Period"] = fmt.Sprintf("%d", bc.GetMonths())
+		err := billingCycle2Params(bc, params)
+		if err != nil {
+			return "", err
 		}
 		params["AutoRenew"] = "False"
 	} else {
@@ -937,18 +934,28 @@ func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 	return self.host.zone.region.RenewInstance(self.InstanceId, bc)
 }
 
-func (region *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) error {
-	params := make(map[string]string)
-	params["InstanceId"] = instanceId
-	if bc.GetWeeks() <= 4 {
+func billingCycle2Params(bc *billing.SBillingCycle, params map[string]string) error {
+	if bc.GetMonths() > 0 {
+		params["PeriodUnit"] = "Month"
+		params["Period"] = fmt.Sprintf("%d", bc.GetMonths())
+	} else if bc.GetWeeks() > 0 {
 		params["PeriodUnit"] = "Week"
 		params["Period"] = fmt.Sprintf("%d", bc.GetWeeks())
 	} else {
-		params["PeriodUnit"] = "Month"
-		params["Period"] = fmt.Sprintf("%d", bc.GetMonths())
+		return fmt.Errorf("invalid renew time period %s", bc.String())
+	}
+	return nil
+}
+
+func (region *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) error {
+	params := make(map[string]string)
+	params["InstanceId"] = instanceId
+	err := billingCycle2Params(&bc, params)
+	if err != nil {
+		return err
 	}
 	params["ClientToken"] = utils.GenRequestId(20)
-	_, err := region.ecsRequest("RenewInstance", params)
+	_, err = region.ecsRequest("RenewInstance", params)
 	if err != nil {
 		log.Errorf("RenewInstance fail %s", err)
 		return err
