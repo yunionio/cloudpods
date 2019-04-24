@@ -60,6 +60,7 @@ type CandidatePropertyGetter interface {
 	HostSchedtags() []computemodels.SSchedtag
 	Storages() []*api.CandidateStorage
 	Networks() []*api.CandidateNetwork
+	ResourceType() string
 }
 
 // Candidater replace host Candidate resource info
