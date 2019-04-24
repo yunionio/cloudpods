@@ -954,17 +954,19 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err) // should no error
 		}
-		if len(rootDiskConfig.Backend) == 0 {
-			defaultStorageType, _ := data.GetString("default_storage_type")
-			if len(defaultStorageType) > 0 {
-				rootDiskConfig.Backend = defaultStorageType
-			} else {
-				rootDiskConfig.Backend = GetDriver(hypervisor).GetDefaultSysDiskBackend()
+		if input.ResourceType != api.HostResourceTypePrepaidRecycle {
+			if len(rootDiskConfig.Backend) == 0 {
+				defaultStorageType, _ := data.GetString("default_storage_type")
+				if len(defaultStorageType) > 0 {
+					rootDiskConfig.Backend = defaultStorageType
+				} else {
+					rootDiskConfig.Backend = GetDriver(hypervisor).GetDefaultSysDiskBackend()
+				}
 			}
-		}
-		sysMinDiskMB := GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024
-		if rootDiskConfig.SizeMb < sysMinDiskMB {
-			rootDiskConfig.SizeMb = sysMinDiskMB
+			sysMinDiskMB := GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024
+			if rootDiskConfig.SizeMb < sysMinDiskMB {
+				rootDiskConfig.SizeMb = sysMinDiskMB
+			}
 		}
 		log.Debugf("ROOT DISK: %#v", rootDiskConfig)
 		input.Disks[0] = rootDiskConfig
@@ -987,26 +989,23 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			input.Disks[i+1] = diskConfig
 		}
 
-		resourceTypeStr := input.ResourceType
-		durationStr := input.Duration
-
-		if len(durationStr) > 0 {
+		if len(input.Duration) > 0 {
 
 			if !userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, "renew") {
 				return nil, httperrors.NewForbiddenError("only admin can create prepaid resource")
 			}
 
-			if resourceTypeStr == api.HostResourceTypePrepaidRecycle {
+			if input.ResourceType == api.HostResourceTypePrepaidRecycle {
 				return nil, httperrors.NewConflictError("cannot create prepaid server on prepaid resource type")
 			}
 
-			billingCycle, err := billing.ParseBillingCycle(durationStr)
+			billingCycle, err := billing.ParseBillingCycle(input.Duration)
 			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid duration %s", durationStr)
+				return nil, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
 			}
 
 			if !GetDriver(hypervisor).IsSupportedBillingCycle(billingCycle) {
-				return nil, httperrors.NewInputParameterError("unsupported duration %s", durationStr)
+				return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
 			}
 
 			input.BillingType = billing_api.BILLING_TYPE_PREPAID
@@ -1088,9 +1087,11 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 
 		}*/
 
-	input, err = GetDriver(hypervisor).ValidateCreateData(ctx, userCred, input)
-	if err != nil {
-		return nil, err
+	if input.ResourceType != api.HostResourceTypePrepaidRecycle {
+		input, err = GetDriver(hypervisor).ValidateCreateData(ctx, userCred, input)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, input.JSON(input))
@@ -1100,6 +1101,8 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	if err := data.Unmarshal(input); err != nil {
 		return nil, err
 	}
+
+	log.Debugf("Create data: %s", data)
 
 	if !input.IsSystem {
 		err = manager.checkCreateQuota(ctx, userCred, ownerProjId, input,
