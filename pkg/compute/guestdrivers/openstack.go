@@ -78,6 +78,10 @@ func (self *SOpenStackGuestDriver) IsNeedRestartForResetLoginInfo() bool {
 	return false
 }
 
+func (self *SOpenStackGuestDriver) IsRebuildRootSupportChangeImage() bool {
+	return false
+}
+
 func (self *SOpenStackGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{api.VM_RUNNING}, nil
 }

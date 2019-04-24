@@ -1123,6 +1123,16 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}
 
+	if !self.GetDriver().IsRebuildRootSupportChangeImage() && len(imageId) > 0 {
+		templateId := self.GetTemplateId()
+		if len(templateId) == 0 {
+			return nil, httperrors.NewBadRequestError("No template for root disk, cannot rebuild root")
+		}
+		if imageId != templateId {
+			return nil, httperrors.NewInputParameterError("%s not support rebuild root with a different image", self.GetDriver().GetHypervisor())
+		}
+	}
+
 	if !utils.IsInStringArray(self.Status, rebuildStatus) {
 		return nil, httperrors.NewInvalidStatusError("Cannot reset root in status %s", self.Status)
 	}
@@ -1163,13 +1173,17 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 	return nil, self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd, allDisks)
 }
 
+func (self *SGuest) GetTemplateId() string {
+	gdc := self.CategorizeDisks()
+	return gdc.Root.GetTemplateId()
+}
+
 func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool, allDisk bool) error {
 	data := jsonutils.NewDict()
 	if len(imageId) == 0 {
-		gdc := self.CategorizeDisks()
-		imageId = gdc.Root.GetTemplateId()
+		imageId = self.GetTemplateId()
 		if len(imageId) == 0 {
-			return httperrors.NewBadRequestError("No template for root disk")
+			return httperrors.NewBadRequestError("No template for root disk, cannot rebuild root")
 		}
 	}
 	data.Set("image_id", jsonutils.NewString(imageId))
