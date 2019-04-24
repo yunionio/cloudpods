@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -7,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -23,7 +38,7 @@ func init() {
 
 func (self *VpcDeleteTask) taskFailed(ctx context.Context, vpc *models.SVpc, err error) {
 	log.Errorf("vpc delete task fail: %s", err)
-	vpc.SetStatus(self.UserCred, models.VPC_STATUS_DELETE_FAILED, err.Error())
+	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATE_FAIL, err.Error(), self.UserCred)
 	self.SetStageFailed(ctx, err.Error())
 }
@@ -31,7 +46,7 @@ func (self *VpcDeleteTask) taskFailed(ctx context.Context, vpc *models.SVpc, err
 func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, body jsonutils.JSONObject) {
 	vpc := obj.(*models.SVpc)
 
-	vpc.SetStatus(self.UserCred, models.VPC_STATUS_DELETING, "")
+	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETING, "")
 	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATING, vpc.GetShortDesc(ctx), self.UserCred)
 
 	region, err := vpc.GetIRegion()
@@ -58,18 +73,11 @@ func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 		return
 	}
 
-	wires := vpc.GetWires()
-	if wires != nil {
-		for i := 0; i < len(wires); i += 1 {
-			hws, _ := wires[i].GetHostwires()
-			for j := 0; hws != nil && j < len(hws); j += 1 {
-				hws[j].Detach(ctx, self.UserCred)
-			}
-			wires[i].Delete(ctx, self.UserCred)
-		}
+	err = vpc.Purge(ctx, self.UserCred)
+	if err != nil {
+		self.taskFailed(ctx, vpc, err)
+		return
 	}
-
-	vpc.RealDelete(ctx, self.UserCred)
 
 	self.SetStageComplete(ctx, nil)
 }

@@ -1,6 +1,21 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -8,10 +23,12 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SManagedResourceBase struct {
@@ -31,6 +48,31 @@ func (self *SManagedResourceBase) GetCloudaccount() *SCloudaccount {
 		return nil
 	}
 	return cp.GetCloudaccount()
+}
+
+func (self *SManagedResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	provider := self.GetCloudprovider()
+	if provider == nil {
+		return nil
+	}
+	info := map[string]string{
+		"manager":    provider.GetName(),
+		"manager_id": provider.GetId(),
+		"provider":   provider.Provider,
+	}
+	if len(provider.ProjectId) > 0 {
+		info["manager_project_id"] = provider.ProjectId
+		tc, err := db.TenantCacheManager.FetchTenantById(appctx.Background, provider.ProjectId)
+		if err == nil {
+			info["manager_project"] = tc.GetName()
+		}
+	}
+
+	account := provider.GetCloudaccount()
+	info["account"] = account.GetName()
+	info["account_id"] = account.GetId()
+
+	return jsonutils.Marshal(info).(*jsonutils.JSONDict)
 }
 
 func (self *SManagedResourceBase) GetProviderFactory() (cloudprovider.ICloudProviderFactory, error) {
@@ -116,15 +158,26 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObje
 	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
 	if len(providerStr) > 0 {
 		queryDict.Remove("provider")
-		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
-		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-			queryDict.Remove("manager_id")
+		if providerStr == api.CLOUD_PROVIDER_ONECLOUD {
+			if len(filterField) == 0 {
+				q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("manager_id")))
+			} else {
+				sq := subqFunc()
+				sq = sq.Filter(sqlchemy.IsNullOrEmpty(sq.Field("manager_id")))
+				q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+				queryDict.Remove(filterField)
+			}
 		} else {
-			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq))
-			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
-			queryDict.Remove(filterField)
+			subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
+			if len(filterField) == 0 {
+				q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+				queryDict.Remove("manager_id")
+			} else {
+				sq := subqFunc()
+				sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq))
+				q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+				queryDict.Remove(filterField)
+			}
 		}
 	}
 
@@ -132,7 +185,9 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObje
 }
 
 func managedResourceFilterByCloudType(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) *sqlchemy.SQuery {
-	if jsonutils.QueryBoolean(query, "public_cloud", false) || jsonutils.QueryBoolean(query, "is_public", false) {
+	cloudEnvStr, _ := query.GetString("cloud_env")
+
+	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "public_cloud", false) || jsonutils.QueryBoolean(query, "is_public", false) {
 		if len(filterField) == 0 {
 			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
 		} else {
@@ -142,27 +197,17 @@ func managedResourceFilterByCloudType(q *sqlchemy.SQuery, query jsonutils.JSONOb
 		}
 	}
 
-	if jsonutils.QueryBoolean(query, "private_cloud", false) || jsonutils.QueryBoolean(query, "is_private", false) {
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "private_cloud", false) || jsonutils.QueryBoolean(query, "is_private", false) {
 		if len(filterField) == 0 {
-			q = q.Filter(
-				sqlchemy.OR(
-					sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()),
-					sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
-				),
-			)
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
 		} else {
 			sq := subqFunc()
-			sq = sq.Filter(
-				sqlchemy.OR(
-					sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()),
-					sqlchemy.IsNullOrEmpty(sq.Field("manager_id")),
-				),
-			)
+			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	}
 
-	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE || jsonutils.QueryBoolean(query, "is_on_premise", false) {
 		if len(filterField) == 0 {
 			q = q.Filter(
 				sqlchemy.OR(
@@ -195,22 +240,6 @@ func managedResourceFilterByCloudType(q *sqlchemy.SQuery, query jsonutils.JSONOb
 	return q
 }
 
-/*func (self *SManagedResourceBase) getExtraDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	manager := self.GetCloudprovider()
-	if manager != nil {
-		extra.Add(jsonutils.NewString(manager.Name), "manager")
-		extra.Add(jsonutils.NewString(manager.ProjectId), "manager_tenant_id")
-		extra.Add(jsonutils.NewString(manager.ProjectId), "manager_project_id")
-		project := manager.getProject(ctx)
-		if project != nil {
-			extra.Add(jsonutils.NewString(project.Name), "manager_tenant")
-			extra.Add(jsonutils.NewString(project.Name), "manager_project")
-		}
-	}
-	return extra
-}
-*/
-
 type SCloudProviderInfo struct {
 	Provider         string `json:",omitempty"`
 	Account          string `json:",omitempty"`
@@ -226,6 +255,24 @@ type SCloudProviderInfo struct {
 	ZoneId           string `json:",omitempty"`
 	ZoneExtId        string `json:",omitempty"`
 }
+
+var (
+	providerInfoFields = []string{
+		"provider",
+		"account",
+		"account_id",
+		"manager",
+		"manager_id",
+		"manager_project",
+		"manager_project_id",
+		"region",
+		"region_id",
+		"region_ext_id",
+		"zone",
+		"zone_id",
+		"zone_ext_id",
+	}
+)
 
 func fetchExternalId(extId string) string {
 	pos := strings.LastIndexByte(extId, '/')
@@ -276,4 +323,9 @@ func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudpr
 	}
 
 	return info
+}
+
+func fetchByManagerId(manager db.IModelManager, providerId string, receiver interface{}) error {
+	q := manager.Query().Equals("manager_id", providerId)
+	return db.FetchModelObjects(manager, q, receiver)
 }

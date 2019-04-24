@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -10,20 +24,13 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-)
-
-const (
-	ZONE_INIT    = "init"
-	ZONE_ENABLE  = "enable"
-	ZONE_DISABLE = "disable"
-	ZONE_SOLDOUT = "soldout"
-	// ZONE_LACK    = "lack"
 )
 
 type SZoneManager struct {
@@ -128,8 +135,8 @@ on_succ, on_fail, **kwargs)
 
 */
 
-func (manager *SZoneManager) Count() int {
-	return manager.Query().Count()
+func (manager *SZoneManager) Count() (int, error) {
+	return manager.Query().CountWithError()
 }
 
 type ZoneGeneralUsage struct {
@@ -160,17 +167,17 @@ func (usage *ZoneGeneralUsage) isEmpty() bool {
 
 func (zone *SZone) GeneralUsage() ZoneGeneralUsage {
 	usage := ZoneGeneralUsage{}
-	usage.Hosts = zone.HostCount("", "", tristate.None, "", tristate.None)
-	usage.HostsEnabled = zone.HostCount("", "", tristate.True, "", tristate.None)
-	usage.Baremetals = zone.HostCount("", "", tristate.None, "", tristate.True)
-	usage.BaremetalsEnabled = zone.HostCount("", "", tristate.True, "", tristate.True)
-	usage.Wires = zone.getWireCount()
-	usage.Networks = zone.getNetworkCount()
-	usage.Storages = zone.getStorageCount()
+	usage.Hosts, _ = zone.HostCount("", "", tristate.None, "", tristate.None)
+	usage.HostsEnabled, _ = zone.HostCount("", "", tristate.True, "", tristate.None)
+	usage.Baremetals, _ = zone.HostCount("", "", tristate.None, "", tristate.True)
+	usage.BaremetalsEnabled, _ = zone.HostCount("", "", tristate.True, "", tristate.True)
+	usage.Wires, _ = zone.getWireCount()
+	usage.Networks, _ = zone.getNetworkCount()
+	usage.Storages, _ = zone.getStorageCount()
 	return usage
 }
 
-func (zone *SZone) HostCount(status string, hostStatus string, enabled tristate.TriState, hostType string, isBaremetal tristate.TriState) int {
+func (zone *SZone) HostCount(status string, hostStatus string, enabled tristate.TriState, hostType string, isBaremetal tristate.TriState) (int, error) {
 	q := HostManager.Query().Equals("zone_id", zone.Id)
 	if len(status) > 0 {
 		q = q.Equals("status", status)
@@ -191,116 +198,22 @@ func (zone *SZone) HostCount(status string, hostStatus string, enabled tristate.
 	} else if isBaremetal.IsFalse() {
 		q = q.IsFalse("is_baremetal")
 	}
-	return q.Count()
+	return q.CountWithError()
 }
 
-func (zone *SZone) getWireCount() int {
+func (zone *SZone) getWireCount() (int, error) {
 	q := WireManager.Query().Equals("zone_id", zone.Id)
-	return q.Count()
+	return q.CountWithError()
 }
 
-func (zone *SZone) getStorageCount() int {
+func (zone *SZone) getStorageCount() (int, error) {
 	q := StorageManager.Query().Equals("zone_id", zone.Id)
-	return q.Count()
+	return q.CountWithError()
 }
 
-func (zone *SZone) getNetworkCount() int {
+func (zone *SZone) getNetworkCount() (int, error) {
 	return getNetworkCount(nil, zone)
 }
-
-/*def host_count(self, status=None, host_status=None, enabled=None, host_type=None, is_baremetal=None):
-from hosts import Hosts
-q = Hosts.query().filter(Hosts.zone_id==self.id)
-if status is not None:
-q = q.filter(Hosts.status==status)
-if host_status is not None:
-q = q.filter(Hosts.host_status==host_status)
-if enabled is not None:
-q = q.filter(Hosts.enabled==enabled)
-if host_type is not None:
-q = q.filter(Hosts.host_type==host_type)
-if is_baremetal is not None:
-q = q.filter(Hosts.is_baremetal==is_baremetal)
-return q.count()
-
-def wire_count(self):
-from wires import Wires
-q = Wires.query().filter(Wires.zone_id==self.id)
-return q.count()
-*/
-
-/*
-
-@classmethod
-def get_resident_zones_of_tenant(cls, tenant_id):
-from guests import Guests
-from hosts import Hosts
-q = Zones.query(Zones.id, func.count('*')) \
-.join(Hosts, and_(Hosts.zone_id==Zones.id,
-Hosts.deleted==False,
-Hosts.enabled==True,
-Hosts.host_status==Hosts.HOST_ONLINE)) \
-.join(Guests, and_(Guests.host_id==Hosts.id,
-Guests.deleted==False)) \
-.filter(Guests.tenant_id==tenant_id) \
-.group_by(Zones.id)
-ret = []
-for (zone_id, guest_cnt) in q.all():
-ret.append((Zones.fetch(zone_id), guest_cnt))
-return ret
-
-@classmethod
-def get_default_schedule_zone_of_tenant(cls, user_cred, tenant_id, params,
-count=1):
-from guests import Guests
-zones = cls.get_resident_zones_of_tenant(tenant_id)
-if len(zones) == 0:
-if options.default_zone is not None:
-zone = Zones.fetch(options.default_zone)
-ret = Guests.check_resource_limit(user_cred, params, count,
-range_obj=zone)
-if len(ret) > 0:
-logging.error('Default zone out of resources')
-return None
-else:
-return zone
-else:
-sel_z = None
-max_cnt = 0
-for (z, gcnt) in zones:
-ret = Guests.check_resource_limit(user_cred, params, count,
-range_obj=z)
-if len(ret) == 0:
-if max_cnt < gcnt:
-sel_z = z
-max_cnt = gcnt
-return sel_z
-
-def get_wires(self):
-from wires import Wires
-q = Wires.query().filter(Wires.zone_id==self.id)
-return q.all()
-
-def get_name_cn(self):
-return self.name_cn or self.name
-
-
-def get_more_details(self):
-ret = {}
-ret.update(self.general_usage(None))
-return ret
-
-def get_customize_columns(self, user_cred, kwargs):
-ret = super(Zones, self).get_customize_columns(user_cred, kwargs)
-ret.update(self.get_more_details())
-return ret
-
-def get_details(self, user_cred, kwargs):
-ret = super(Zones, self).get_details(user_cred, kwargs)
-ret.update(self.get_more_details())
-return ret
-
-*/
 
 func zoneExtra(zone *SZone, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	usage := zone.GeneralUsage()
@@ -409,7 +322,7 @@ func (self *SZone) syncRemoveCloudZone(ctx context.Context, userCred mcclient.To
 
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
-		err = self.SetStatus(userCred, ZONE_DISABLE, "sync to delete")
+		err = self.SetStatus(userCred, api.ZONE_DISABLE, "sync to delete")
 	} else {
 		err = self.Delete(ctx, userCred)
 	}
@@ -439,7 +352,11 @@ func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mccl
 	zone := SZone{}
 	zone.SetModelManager(manager)
 
-	zone.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extZone.GetName())
+	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extZone.GetName())
+	if err != nil {
+		return nil, err
+	}
+	zone.Name = newName
 	zone.Status = extZone.GetStatus()
 	zone.ExternalId = extZone.GetGlobalId()
 
@@ -447,7 +364,7 @@ func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mccl
 
 	zone.CloudregionId = region.Id
 
-	err := manager.TableSpec().Insert(&zone)
+	err = manager.TableSpec().Insert(&zone)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)
 		return nil, err
@@ -480,13 +397,13 @@ func (manager *SZoneManager) InitializeData() error {
 	for _, z := range zones {
 		if len(z.CloudregionId) == 0 {
 			db.Update(&z, func() error {
-				z.CloudregionId = DEFAULT_REGION_ID
+				z.CloudregionId = api.DEFAULT_REGION_ID
 				return nil
 			})
 		}
-		if z.Status == ZONE_INIT || z.Status == ZONE_DISABLE {
+		if z.Status == api.ZONE_INIT || z.Status == api.ZONE_DISABLE {
 			db.Update(&z, func() error {
-				z.Status = ZONE_ENABLE
+				z.Status = api.ZONE_ENABLE
 				return nil
 			})
 		}
@@ -509,13 +426,14 @@ func (manager *SZoneManager) usableZoneQ1(providers, vpcs, wires, networks *sqlc
 
 	// add filters
 	if usableNet {
-		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 	}
 	sq = sq.Filter(sqlchemy.IsNotEmpty(wires.Field("zone_id")))
 	sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
-	sq = sq.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
+	sq = sq.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+	sq = sq.Filter(sqlchemy.Equals(providers.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
 	if usableVpc {
-		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 	}
 
 	return sq.SubQuery()
@@ -535,12 +453,12 @@ func (manager *SZoneManager) usableZoneQ2(vpcs, wires, networks *sqlchemy.SSubQu
 
 	// add filters
 	if usableNet {
-		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 	}
 	sq = sq.Filter(sqlchemy.IsNotEmpty(wires.Field("zone_id")))
 	sq = sq.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
 	if usableVpc {
-		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 	}
 
 	return sq.SubQuery()
@@ -564,13 +482,14 @@ func (manager *SZoneManager) usableZoneQ3(providers, vpcs, wires, networks, zone
 
 	// add filters
 	if usableNet {
-		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 	}
 	sq = sq.Filter(sqlchemy.IsNullOrEmpty(wires.Field("zone_id")))
 	sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
-	sq = sq.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
+	sq = sq.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+	sq = sq.Filter(sqlchemy.Equals(providers.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
 	if usableVpc {
-		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 	}
 
 	return sq.SubQuery()
@@ -593,12 +512,12 @@ func (manager *SZoneManager) usableZoneQ4(vpcs, wires, networks, zones *sqlchemy
 
 	// add filters
 	if usableNet {
-		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 	}
 	sq = sq.Filter(sqlchemy.IsNullOrEmpty(wires.Field("zone_id")))
 	sq = sq.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
 	if usableVpc {
-		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 	}
 
 	return sq.SubQuery()
@@ -610,25 +529,33 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		return nil, err
 	}
 
-	if jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private", false) || jsonutils.QueryBoolean(query, "private_cloud", false) {
+	cloudEnvStr, _ := query.GetString("cloud_env")
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private", false) || jsonutils.QueryBoolean(query, "private_cloud", false) {
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
-		subq = subq.Filter(sqlchemy.OR(
-			sqlchemy.In(regions.Field("provider"), cloudprovider.GetPrivateProviders()),
-			sqlchemy.IsNullOrEmpty(regions.Field("provider")),
-		))
+		subq = subq.Filter(sqlchemy.In(regions.Field("provider"), cloudprovider.GetPrivateProviders()))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
-	if jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public", false) || jsonutils.QueryBoolean(query, "public_cloud", false) {
+	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public", false) || jsonutils.QueryBoolean(query, "public_cloud", false) {
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
 		subq = subq.Filter(sqlchemy.In(regions.Field("provider"), cloudprovider.GetPublicProviders()))
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
-	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE || jsonutils.QueryBoolean(query, "is_on_premise", false) {
 		regions := CloudregionManager.Query().SubQuery()
 		subq := regions.Query(regions.Field("id"))
 		subq = subq.Filter(sqlchemy.OR(
+			sqlchemy.In(regions.Field("provider"), cloudprovider.GetOnPremiseProviders()),
+			sqlchemy.IsNullOrEmpty(regions.Field("provider")),
+		))
+		q = q.In("cloudregion_id", subq.SubQuery())
+	}
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_ON_PREMISE {
+		regions := CloudregionManager.Query().SubQuery()
+		subq := regions.Query(regions.Field("id"))
+		subq = subq.Filter(sqlchemy.OR(
+			sqlchemy.In(regions.Field("provider"), cloudprovider.GetPrivateProviders()),
 			sqlchemy.In(regions.Field("provider"), cloudprovider.GetOnPremiseProviders()),
 			sqlchemy.IsNullOrEmpty(regions.Field("provider")),
 		))
@@ -676,41 +603,29 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 			sqlchemy.In(q.Field("id"), sq3),
 			sqlchemy.In(q.Field("id"), sq4),
 		))
-		q = q.Equals("status", ZONE_ENABLE)
+		q = q.Equals("status", api.ZONE_ENABLE)
 	}
 
 	managerStr, _ := query.GetString("manager")
 	if len(managerStr) > 0 {
-		providerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		provider := providerObj.(*SCloudprovider)
-		subq := CloudregionManager.Query("id").Equals("provider", provider.Provider).SubQuery()
+		subq := CloudproviderRegionManager.QueryRelatedRegionIds("", managerStr)
 		q = q.In("cloudregion_id", subq)
 	}
 	accountStr, _ := query.GetString("account")
 	if len(accountStr) > 0 {
-		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		account := accountObj.(*SCloudaccount)
-		subq := CloudregionManager.Query("id").Equals("provider", account.Provider).SubQuery()
+		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountStr)
 		q = q.In("cloudregion_id", subq)
 	}
 	providerStr, _ := query.GetString("provider")
 	if len(providerStr) > 0 {
-		subq := CloudregionManager.Query("id").Equals("provider", providerStr).SubQuery()
-		q = q.In("cloudregion_id", subq)
+		subq := CloudregionManager.Query("id")
+		if providerStr == api.CLOUD_PROVIDER_ONECLOUD {
+			subq = subq.IsNullOrEmpty("provider")
+		} else {
+			subq = subq.Equals("provider", providerStr)
+		}
+
+		q = q.In("cloudregion_id", subq.SubQuery())
 	}
 
 	city, _ := query.GetString("city")
@@ -784,6 +699,6 @@ func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mc
 		regionId = "default"
 	}
 	data.Add(jsonutils.NewString(regionId), "cloudregion_id")
-	data.Set("status", jsonutils.NewString(ZONE_ENABLE))
+	data.Set("status", jsonutils.NewString(api.ZONE_ENABLE))
 	return manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }

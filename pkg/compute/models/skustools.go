@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -10,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -230,7 +245,7 @@ func (self *SkusZone) getExternalZone() (string, string, string) {
 	if len(parts) == 3 {
 		// provider, region, zone
 		return parts[0], parts[1], parts[2]
-	} else if len(parts) == 2 && parts[0] == CLOUD_PROVIDER_AZURE {
+	} else if len(parts) == 2 && parts[0] == api.CLOUD_PROVIDER_AZURE {
 		// azure 没有zone的概念
 		return parts[0], parts[1], parts[1]
 	}
@@ -326,7 +341,13 @@ func (self *SkusZoneList) SyncToLocalDB() error {
 // 全量同步sku列表.
 func SyncSkus(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
 	if isStart {
-		if ServerSkuManager.GetSkuCountByProvider("") > 0 {
+		cnt, err := ServerSkuManager.GetSkuCountByProvider("")
+		if err != nil {
+			log.Errorf("GetSkuCountByProvider fail %s", err)
+			return
+		}
+		if cnt > 0 {
+			log.Debugf("GetSkuCountByProvider synced skus, skip...")
 			return
 		}
 	}

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package shell
 
 import (
@@ -31,6 +45,8 @@ func init() {
 		ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 
 		Usable *bool `help:"List all zones that is usable"`
+
+		Hypervisor string `help:"filter hosts by hypervisor"`
 
 		options.BaseListOptions
 	}
@@ -505,20 +521,15 @@ func init() {
 		return nil
 	})
 
-	type HostSetSchedtagOptions struct {
-		ID       string   `help:"ID or Name of host"`
-		Schedtag []string `help:"Ids of schedtag"`
+	type HostSpecOptions struct {
+		ID string `help:"ID or name of host"`
 	}
-	R(&HostSetSchedtagOptions{}, "host-set-schedtag", "Set schedtags to a host", func(s *mcclient.ClientSession, args *HostSetSchedtagOptions) error {
-		params := jsonutils.NewDict()
-		for idx, tag := range args.Schedtag {
-			params.Add(jsonutils.NewString(tag), fmt.Sprintf("schedtag.%d", idx))
-		}
-		result, err := modules.Hosts.PerformAction(s, args.ID, "set-schedtag", params)
+	R(&HostSpecOptions{}, "host-spec", "Get host spec info", func(s *mcclient.ClientSession, args *HostSpecOptions) error {
+		spec, err := modules.Hosts.GetSpecific(s, args.ID, "spec", nil)
 		if err != nil {
 			return err
 		}
-		printObject(result)
+		printObject(spec)
 		return nil
 	})
 }

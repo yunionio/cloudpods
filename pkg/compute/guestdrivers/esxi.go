@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package guestdrivers
 
 import (
@@ -9,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -27,21 +42,20 @@ func init() {
 }
 
 func (self *SESXiGuestDriver) GetHypervisor() string {
-	return models.HYPERVISOR_ESXI
+	return api.HYPERVISOR_ESXI
 }
 
 func (self *SESXiGuestDriver) GetDefaultSysDiskBackend() string {
-	return models.STORAGE_LOCAL
+	return api.STORAGE_LOCAL
 }
 
 func (self *SESXiGuestDriver) GetMinimalSysDiskSizeGb() int {
 	return options.Options.DefaultDiskSizeMB / 1024
 }
 
-// func (self *SESXiGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-// 	task.ScheduleRun(nil)
-// 	return nil
-// }
+func (self *SESXiGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	return nil // do nothing, not support securitygroup
+}
 
 func (self *SESXiGuestDriver) GetMaxSecurityGroupCount() int {
 	//暂不支持绑定安全组
@@ -49,15 +63,15 @@ func (self *SESXiGuestDriver) GetMaxSecurityGroupCount() int {
 }
 
 func (self *SESXiGuestDriver) GetDetachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SESXiGuestDriver) GetAttachDiskStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_RUNNING}, nil
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
 func (self *SESXiGuestDriver) GetChangeConfigStatus() ([]string, error) {
-	return []string{models.VM_READY}, nil
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SESXiGuestDriver) CanKeepDetachDisk() bool {
@@ -79,18 +93,18 @@ func (self *SESXiGuestDriver) RequestGuestHotAddIso(ctx context.Context, guest *
 }
 
 func (self *SESXiGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{models.VM_READY}, nil
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SESXiGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{models.VM_READY}, nil
+	return []string{api.VM_READY}, nil
 }
 
 func (self *SESXiGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
-	if !utils.IsInStringArray(guest.Status, []string{models.VM_READY}) {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if disk.DiskType == models.DISK_TYPE_SYS {
+	if disk.DiskType == api.DISK_TYPE_SYS {
 		return fmt.Errorf("Cannot resize system disk")
 	}
 	/*if !utils.IsInStringArray(storage.StorageType, []string{models.STORAGE_PUBLIC_CLOUD, models.STORAGE_CLOUD_SSD, models.STORAGE_CLOUD_EFFICIENCY}) {

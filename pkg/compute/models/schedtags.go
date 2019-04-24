@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -34,6 +48,17 @@ var STRATEGY_LIST = api.STRATEGY_LIST
 type ISchedtagJointManager interface {
 	db.IJointModelManager
 	GetMasterIdKey(db.IJointModelManager) string
+}
+
+type ISchedtagJointModel interface {
+	db.IJointModel
+	GetSchedtagId() string
+}
+
+type IModelWithSchedtag interface {
+	db.IModel
+	GetSchedtagJointManager() ISchedtagJointManager
+	ClearSchedDescCache() error
 }
 
 type SSchedtagManager struct {
@@ -74,6 +99,7 @@ func (manager *SSchedtagManager) InitializeData() error {
 	manager.BindJointManagers(
 		HostschedtagManager,
 		StorageschedtagManager,
+		NetworkschedtagManager,
 	)
 	return nil
 }
@@ -201,13 +227,25 @@ func (self *SSchedtag) ValidateUpdateData(ctx context.Context, userCred mcclient
 }
 
 func (self *SSchedtag) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetObjectCount() > 0 {
+	cnt, err := self.GetObjectCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetObjectCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Tag is associated with %s", self.ResourceType)
 	}
-	if self.getDynamicSchedtagCount() > 0 {
+	cnt, err = self.getDynamicSchedtagCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("getDynamicSchedtagCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("tag has dynamic rules")
 	}
-	if self.getSchedPoliciesCount() > 0 {
+	cnt, err = self.getSchedPoliciesCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("getSchedPoliciesCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("tag is associate with sched policies")
 	}
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -249,22 +287,25 @@ func (self *SSchedtag) GetJointManager() ISchedtagJointManager {
 	return SchedtagManager.jointsManager[self.ResourceType]
 }
 
-func (self *SSchedtag) GetObjectCount() int {
-	return self.GetJointManager().Query().Equals("schedtag_id", self.Id).Count()
+func (self *SSchedtag) GetObjectCount() (int, error) {
+	return self.GetJointManager().Query().Equals("schedtag_id", self.Id).CountWithError()
 }
 
-func (self *SSchedtag) getSchedPoliciesCount() int {
-	return SchedpolicyManager.Query().Equals("schedtag_id", self.Id).Count()
+func (self *SSchedtag) getSchedPoliciesCount() (int, error) {
+	return SchedpolicyManager.Query().Equals("schedtag_id", self.Id).CountWithError()
 }
 
-func (self *SSchedtag) getDynamicSchedtagCount() int {
-	return DynamicschedtagManager.Query().Equals("schedtag_id", self.Id).Count()
+func (self *SSchedtag) getDynamicSchedtagCount() (int, error) {
+	return DynamicschedtagManager.Query().Equals("schedtag_id", self.Id).CountWithError()
 }
 
 func (self *SSchedtag) getMoreColumns(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.NewInt(int64(self.GetObjectCount())), fmt.Sprintf("%s_count", self.GetJointManager().GetMasterManager().Keyword()))
-	extra.Add(jsonutils.NewInt(int64(self.getDynamicSchedtagCount())), "dynamic_schedtag_count")
-	extra.Add(jsonutils.NewInt(int64(self.getSchedPoliciesCount())), "schedpolicy_count")
+	cnt, _ := self.GetObjectCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), fmt.Sprintf("%s_count", self.GetJointManager().GetMasterManager().Keyword()))
+	cnt, _ = self.getDynamicSchedtagCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "dynamic_schedtag_count")
+	cnt, _ = self.getSchedPoliciesCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "schedpolicy_count")
 	return extra
 }
 
@@ -291,6 +332,33 @@ func (self *SSchedtag) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	return desc
 }
 
+func GetResourceJointSchedtags(obj IModelWithSchedtag) ([]ISchedtagJointModel, error) {
+	jointMan := obj.GetSchedtagJointManager()
+	q := jointMan.Query().Equals(jointMan.GetMasterIdKey(jointMan), obj.GetId())
+	jointTags := make([]ISchedtagJointModel, 0)
+	rows, err := q.Rows()
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		item, err := db.NewModelObject(jointMan)
+		if err != nil {
+			return nil, err
+		}
+		err = q.Row2Struct(rows, item)
+		if err != nil {
+			return nil, err
+		}
+		jointTags = append(jointTags, item.(ISchedtagJointModel))
+	}
+
+	return jointTags, nil
+}
+
 func GetSchedtags(jointMan ISchedtagJointManager, masterId string) []SSchedtag {
 	tags := make([]SSchedtag, 0)
 	schedtags := SchedtagManager.Query().SubQuery()
@@ -305,4 +373,87 @@ func GetSchedtags(jointMan ISchedtagJointManager, masterId string) []SSchedtag {
 		return nil
 	}
 	return tags
+}
+
+func AllowPerformSetResourceSchedtag(obj db.IModel, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, obj, "set-schedtag")
+}
+
+func PerformSetResourceSchedtag(obj IModelWithSchedtag, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	schedtags := jsonutils.GetArrayOfPrefix(data, "schedtag")
+	setTagsId := []string{}
+	for idx := 0; idx < len(schedtags); idx++ {
+		schedtagIdent, _ := schedtags[idx].GetString()
+		tag, err := SchedtagManager.FetchByIdOrName(userCred, schedtagIdent)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewNotFoundError("Schedtag %s not found", schedtagIdent)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		schedtag := tag.(*SSchedtag)
+		if schedtag.ResourceType != obj.KeywordPlural() {
+			return nil, httperrors.NewInputParameterError("Schedtag %s ResourceType is %s, not match %s", schedtag.GetName(), schedtag.ResourceType, obj.KeywordPlural())
+		}
+		setTagsId = append(setTagsId, schedtag.GetId())
+	}
+	oldTags, err := GetResourceJointSchedtags(obj)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(fmt.Errorf("Get old joint schedtags: %v", err))
+	}
+	for _, oldTag := range oldTags {
+		if !utils.IsInStringArray(oldTag.GetId(), setTagsId) {
+			if err := oldTag.Detach(ctx, userCred); err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+	}
+	var oldTagIds []string
+	for _, tag := range oldTags {
+		oldTagIds = append(oldTagIds, tag.GetSchedtagId())
+	}
+	jointMan := obj.GetSchedtagJointManager()
+	for _, setTagId := range setTagsId {
+		if !utils.IsInStringArray(setTagId, oldTagIds) {
+			if newTagObj, err := db.NewModelObject(jointMan); err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			} else {
+				objectKey := jointMan.GetMasterIdKey(jointMan)
+				createData := jsonutils.NewDict()
+				createData.Add(jsonutils.NewString(setTagId), "schedtag_id")
+				createData.Add(jsonutils.NewString(obj.GetId()), objectKey)
+				if err := createData.Unmarshal(newTagObj); err != nil {
+					return nil, httperrors.NewGeneralError(fmt.Errorf("Create %s joint schedtag error: %v", jointMan.Keyword(), err))
+				}
+				if err := newTagObj.GetModelManager().TableSpec().Insert(newTagObj); err != nil {
+					return nil, httperrors.NewGeneralError(err)
+				}
+			}
+		}
+	}
+	obj.ClearSchedDescCache()
+	return nil, nil
+}
+
+func DeleteResourceJointSchedtags(obj IModelWithSchedtag, ctx context.Context, userCred mcclient.TokenCredential) error {
+	jointTags, err := GetResourceJointSchedtags(obj)
+	if err != nil {
+		return fmt.Errorf("Get %s schedtags error: %v", obj.Keyword(), err)
+	}
+	for _, tag := range jointTags {
+		tag.Delete(ctx, userCred)
+	}
+	return nil
+}
+
+func GetSchedtagsDetailsToResource(obj IModelWithSchedtag, ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	schedtags := GetSchedtags(obj.GetSchedtagJointManager(), obj.GetId())
+	if schedtags != nil && len(schedtags) > 0 {
+		info := make([]jsonutils.JSONObject, len(schedtags))
+		for i := 0; i < len(schedtags); i += 1 {
+			info[i] = schedtags[i].GetShortDesc(ctx)
+		}
+		extra.Add(jsonutils.NewArray(info...), "schedtags")
+	}
+	return extra
 }

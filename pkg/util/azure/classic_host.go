@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package azure
 
 import (
@@ -6,8 +20,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SClassicHost struct {
@@ -35,7 +49,7 @@ func (self *SClassicHost) IsEmulated() bool {
 }
 
 func (self *SClassicHost) GetStatus() string {
-	return models.HOST_STATUS_RUNNING
+	return api.HOST_STATUS_RUNNING
 }
 
 func (self *SClassicHost) Refresh() error {
@@ -74,14 +88,14 @@ func (self *SClassicHost) GetEnabled() bool {
 }
 
 func (self *SClassicHost) GetHostStatus() string {
-	return models.HOST_ONLINE
+	return api.HOST_ONLINE
 }
 func (self *SClassicHost) GetNodeCount() int8 {
 	return 0
 }
 
 func (self *SClassicHost) GetHostType() string {
-	return models.HOST_TYPE_AZURE
+	return api.HOST_TYPE_AZURE
 }
 
 func (self *SClassicHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
@@ -140,7 +154,7 @@ func (self *SClassicHost) GetStorageSizeMB() int {
 }
 
 func (self *SClassicHost) GetStorageType() string {
-	return models.DISK_TYPE_HYBRID
+	return api.DISK_TYPE_HYBRID
 }
 
 func (self *SClassicHost) GetSN() string {

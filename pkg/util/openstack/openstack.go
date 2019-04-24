@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package openstack
 
 import (
@@ -10,8 +24,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -19,7 +33,7 @@ import (
 )
 
 const (
-	CLOUD_PROVIDER_OPENSTACK = models.CLOUD_PROVIDER_OPENSTACK
+	CLOUD_PROVIDER_OPENSTACK = api.CLOUD_PROVIDER_OPENSTACK
 	OPENSTACK_DEFAULT_REGION = "RegionOne"
 )
 
@@ -42,7 +56,7 @@ func NewOpenStackClient(providerID string, providerName string, authURL string, 
 	cli := &SOpenStackClient{
 		providerID:   providerID,
 		providerName: providerName,
-		authURL:      authURL,
+		authURL:      strings.TrimRight(authURL, "/"),
 		username:     username,
 		password:     password,
 		project:      project,
@@ -64,13 +78,27 @@ func (cli *SOpenStackClient) fetchRegions() error {
 	if err := cli.connect(); err != nil {
 		return err
 	}
+
 	regions := cli.tokenCredential.GetRegions()
 	cli.iregions = make([]cloudprovider.ICloudRegion, len(regions))
 	for i := 0; i < len(regions); i++ {
 		region := SRegion{client: cli, Name: regions[i]}
 		cli.iregions[i] = &region
 	}
-	return nil
+
+	for _, region := range regions {
+		if serviceURL, err := cli.tokenCredential.GetServiceURL("compute", region, "", cli.endpointType); err != nil || len(serviceURL) == 0 {
+			for _, endpointType := range []string{"internal", "admin", "public"} {
+				if serviceURL, err := cli.tokenCredential.GetServiceURL("compute", region, "", endpointType); err == nil && len(serviceURL) > 0 {
+					cli.endpointType = endpointType
+					return nil
+				}
+			}
+		} else {
+			return nil
+		}
+	}
+	return fmt.Errorf("failed to find right endpoint type")
 }
 
 func (cli *SOpenStackClient) Request(region, service, method string, url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {

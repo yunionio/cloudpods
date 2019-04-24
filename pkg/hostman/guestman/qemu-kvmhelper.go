@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package guestman
 
 import (
@@ -16,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/ethernet/arp"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 const (
@@ -369,8 +384,18 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		cpuType = ""
 		if osname == OS_NAME_MACOS {
 			cpuType = "Penryn,vendor=GenuineIntel"
-		} else {
+		} else if options.HostOptions.HostCpuPassthrough {
 			cpuType = "host"
+		} else {
+			cpuType = "qemu64"
+			if sysutils.IsProcessorIntel() {
+				cpuType += ",+vmx"
+				cpuType += ",+ssse3,+sse4.1,+sse4.2,-x2apic,+aes,+avx"
+				cpuType += ",+vme,+pat,+ss,+pclmulqdq,+xsave"
+				cpuType += ",level=13"
+			} else if sysutils.IsProcessorAmd() {
+				cpuType += ",+svm"
+			}
 		}
 
 		if !guestManger.GetHost().IsNestedVirtualization() {
@@ -550,6 +575,10 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		cmd += " -object rng-random,filename=/dev/random,id=rng0"
 		cmd += " -device virtio-rng-pci,rng=rng0,max-bytes=1024,period=1000"
 	}
+
+	// add serial device
+	cmd += " -chardev pty,id=charserial0"
+	cmd += " -device isa-serial,chardev=charserial0,id=serial0"
 
 	if jsonutils.QueryBoolean(data, "need_migrate", false) {
 		migratePort := s.manager.GetFreePortByBase(LIVE_MIGRATE_PORT_BASE)

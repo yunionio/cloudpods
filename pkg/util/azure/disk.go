@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package azure
 
 import (
@@ -9,8 +23,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type DiskSku struct {
@@ -86,10 +101,16 @@ func (self *SRegion) CreateDisk(storageType string, name string, sizeGb int32, d
 				SourceURI:    blobUrl,
 			}
 		} else {
-			imgRef := image.getImageReference()
+			// 通过镜像创建的磁盘只能传ID参数，不能通过sku,offer等参数创建.
+			_imageId, err := self.getOfferedImageId(&image)
+			if err != nil {
+				return nil, err
+			}
 			disk.Properties.CreationData = CreationData{
-				CreateOption:   "FromImage",
-				ImageReference: &imgRef,
+				CreateOption: "FromImage",
+				ImageReference: &ImageReference{
+					ID: _imageId,
+				},
 			}
 		}
 		disk.Properties.OsType = image.GetOsType()
@@ -144,7 +165,7 @@ func (self *SRegion) GetDisks() ([]SDisk, error) {
 
 func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(models.HYPERVISOR_AZURE), "hypervisor")
+	data.Add(jsonutils.NewString(api.HYPERVISOR_AZURE), "hypervisor")
 	return data
 }
 
@@ -153,15 +174,15 @@ func (self *SDisk) GetStatus() string {
 		status := self.Properties.ProvisioningState
 		switch status {
 		case "Updating":
-			return models.DISK_ALLOCATING
+			return api.DISK_ALLOCATING
 		case "Succeeded":
-			return models.DISK_READY
+			return api.DISK_READY
 		default:
 			log.Errorf("Unknow azure disk %s status: %s", self.ID, status)
-			return models.DISK_UNKNOWN
+			return api.DISK_UNKNOWN
 		}
 	}
-	return models.DISK_READY
+	return api.DISK_READY
 }
 
 func (self *SDisk) GetId() string {
@@ -247,9 +268,9 @@ func (self *SDisk) GetTemplateId() string {
 
 func (self *SDisk) GetDiskType() string {
 	if len(self.Properties.OsType) > 0 {
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	}
-	return models.DISK_TYPE_DATA
+	return api.DISK_TYPE_DATA
 }
 
 func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (cloudprovider.ICloudSnapshot, error) {
@@ -281,7 +302,11 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (self *SDisk) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
+}
+
+func (self *SDisk) GetCreatedAt() time.Time {
+	return time.Time{}
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {

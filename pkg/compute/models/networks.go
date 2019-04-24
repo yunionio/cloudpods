@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -25,33 +39,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-)
-
-const (
-	// # DEFAULT_BANDWIDTH = options.default_bandwidth
-	MAX_BANDWIDTH = api.MAX_BANDWIDTH
-
-	NETWORK_TYPE_GUEST     = api.NETWORK_TYPE_GUEST
-	NETWORK_TYPE_BAREMETAL = api.NETWORK_TYPE_BAREMETAL
-	NETWORK_TYPE_CONTAINER = api.NETWORK_TYPE_CONTAINER
-	NETWORK_TYPE_PXE       = api.NETWORK_TYPE_PXE
-	NETWORK_TYPE_IPMI      = api.NETWORK_TYPE_IPMI
-
-	STATIC_ALLOC = api.STATIC_ALLOC
-
-	MAX_NETWORK_NAME_LEN = api.MAX_NETWORK_NAME_LEN
-
-	EXTRA_DNS_UPDATE_TARGETS = api.EXTRA_DNS_UPDATE_TARGETS
-
-	NETWORK_STATUS_INIT          = api.NETWORK_STATUS_INIT
-	NETWORK_STATUS_PENDING       = api.NETWORK_STATUS_PENDING
-	NETWORK_STATUS_AVAILABLE     = api.NETWORK_STATUS_AVAILABLE
-	NETWORK_STATUS_FAILED        = api.NETWORK_STATUS_FAILED
-	NETWORK_STATUS_UNKNOWN       = api.NETWORK_STATUS_UNKNOWN
-	NETWORK_STATUS_START_DELETE  = api.NETWORK_STATUS_START_DELETE
-	NETWORK_STATUS_DELETING      = api.NETWORK_STATUS_DELETING
-	NETWORK_STATUS_DELETED       = api.NETWORK_STATUS_DELETED
-	NETWORK_STATUS_DELETE_FAILED = api.NETWORK_STATUS_DELETE_FAILED
 )
 
 var (
@@ -145,39 +132,64 @@ func (manager *SNetworkManager) AllowCreateItem(ctx context.Context, userCred mc
 }
 
 func (self *SNetwork) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetTotalNicCount() > 0 {
+	cnt, err := self.GetTotalNicCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetTotalNicCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("not an empty network")
 	}
 	return self.SSharableVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SNetwork) GetTotalNicCount() int {
-	total := self.GetGuestnicsCount() +
-		self.GetGroupNicsCount() +
-		self.GetBaremetalNicsCount() +
-		self.GetReservedNicsCount() +
-		self.GetLoadbalancerIpsCount()
-	return total
+func (self *SNetwork) GetTotalNicCount() (int, error) {
+	total := 0
+	cnt, err := self.GetGuestnicsCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
+	cnt, err = self.GetGroupNicsCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
+	cnt, err = self.GetBaremetalNicsCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
+	cnt, err = self.GetReservedNicsCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
+	cnt, err = self.GetLoadbalancerIpsCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
+	return total, nil
 }
 
-func (self *SNetwork) GetGuestnicsCount() int {
-	return GuestnetworkManager.Query().Equals("network_id", self.Id).IsFalse("virtual").Count()
+func (self *SNetwork) GetGuestnicsCount() (int, error) {
+	return GuestnetworkManager.Query().Equals("network_id", self.Id).IsFalse("virtual").CountWithError()
 }
 
-func (self *SNetwork) GetGroupNicsCount() int {
-	return GroupnetworkManager.Query().Equals("network_id", self.Id).Count()
+func (self *SNetwork) GetGroupNicsCount() (int, error) {
+	return GroupnetworkManager.Query().Equals("network_id", self.Id).CountWithError()
 }
 
-func (self *SNetwork) GetBaremetalNicsCount() int {
-	return HostnetworkManager.Query().Equals("network_id", self.Id).Count()
+func (self *SNetwork) GetBaremetalNicsCount() (int, error) {
+	return HostnetworkManager.Query().Equals("network_id", self.Id).CountWithError()
 }
 
-func (self *SNetwork) GetReservedNicsCount() int {
-	return ReservedipManager.Query().Equals("network_id", self.Id).Count()
+func (self *SNetwork) GetReservedNicsCount() (int, error) {
+	return ReservedipManager.Query().Equals("network_id", self.Id).CountWithError()
 }
 
-func (self *SNetwork) GetLoadbalancerIpsCount() int {
-	return LoadbalancernetworkManager.Query().Equals("network_id", self.Id).Count()
+func (self *SNetwork) GetLoadbalancerIpsCount() (int, error) {
+	return LoadbalancernetworkManager.Query().Equals("network_id", self.Id).CountWithError()
 }
 
 func (self *SNetwork) GetUsedAddresses() map[string]bool {
@@ -419,7 +431,7 @@ type DNSUpdateKeySecret struct {
 
 func (self *SNetwork) getDnsUpdateTargets() map[string][]DNSUpdateKeySecret {
 	targets := make(map[string][]DNSUpdateKeySecret)
-	targetsJson := self.GetMetadataJson(EXTRA_DNS_UPDATE_TARGETS, nil)
+	targetsJson := self.GetMetadataJson(api.EXTRA_DNS_UPDATE_TARGETS, nil)
 	if targetsJson == nil {
 		return nil
 	} else {
@@ -525,9 +537,9 @@ func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
-		err = self.SetStatus(userCred, NETWORK_STATUS_UNKNOWN, "Sync to remove")
+		err = self.SetStatus(userCred, api.NETWORK_STATUS_UNKNOWN, "Sync to remove")
 	} else {
-		err = self.Delete(ctx, userCred)
+		err = self.RealDelete(ctx, userCred)
 
 	}
 	return err
@@ -565,7 +577,11 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	net := SNetwork{}
 	net.SetModelManager(manager)
 
-	net.Name = db.GenerateName(manager, projectId, extNet.GetName())
+	newName, err := db.GenerateName(manager, projectId, extNet.GetName())
+	if err != nil {
+		return nil, err
+	}
+	net.Name = newName
 	net.Status = extNet.GetStatus()
 	net.ExternalId = extNet.GetGlobalId()
 	net.WireId = wire.Id
@@ -578,7 +594,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 
 	net.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
-	err := manager.TableSpec().Insert(&net)
+	err = manager.TableSpec().Insert(&net)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)
 		return nil, err
@@ -596,7 +612,7 @@ func (self *SNetwork) isAddressInRange(address netutils.IPV4Addr) bool {
 	return self.getIPRange().Contains(address)
 }
 
-func (self *SNetwork) isAddressUsed(address string) bool {
+func (self *SNetwork) isAddressUsed(address string) (bool, error) {
 	managers := []db.IModelManager{
 		GuestnetworkManager,
 		GroupnetworkManager,
@@ -606,11 +622,15 @@ func (self *SNetwork) isAddressUsed(address string) bool {
 	}
 	for _, manager := range managers {
 		q := manager.Query().Equals("ip_addr", address).Equals("network_id", self.Id)
-		if q.Count() > 0 {
-			return true
+		cnt, err := q.CountWithError()
+		if err != nil {
+			return false, err
+		}
+		if cnt > 0 {
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverType string, isPublic tristate.TriState) (*SNetwork, error) {
@@ -655,8 +675,8 @@ func (manager *SNetworkManager) allNetworksQ(providers []string, rangeObj db.ISt
 	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
 	q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 	q = q.Filter(sqlchemy.OR(
-		sqlchemy.Equals(hosts.Field("host_type"), HOST_TYPE_BAREMETAL),
-		sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE)))
+		sqlchemy.Equals(hosts.Field("host_type"), api.HOST_TYPE_BAREMETAL),
+		sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE)))
 	return AttachUsageQuery(q, hosts, nil, nil, providers, rangeObj)
 }
 
@@ -728,8 +748,16 @@ func parseNetworkInfo(userCred mcclient.TokenCredential, info *api.NetworkConfig
 	return info, nil
 }
 
-func (self *SNetwork) getFreeAddressCount() int {
-	return self.getIPRange().AddressCount() - self.GetTotalNicCount()
+func (self *SNetwork) GetFreeAddressCount() (int, error) {
+	return self.getFreeAddressCount()
+}
+
+func (self *SNetwork) getFreeAddressCount() (int, error) {
+	used, err := self.GetTotalNicCount()
+	if err != nil {
+		return -1, err
+	}
+	return self.getIPRange().AddressCount() - used, nil
 }
 
 func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.NetworkConfig) error {
@@ -760,12 +788,25 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.Networ
 				if ReservedipManager.GetReservedIP(net, netConfig.Address) == nil {
 					return httperrors.NewInputParameterError("Address %s not reserved", netConfig.Address)
 				}
-			} else if net.isAddressUsed(netConfig.Address) {
-				return httperrors.NewInputParameterError("Address %s has been used", netConfig.Address)
+			} else {
+				used, err := net.isAddressUsed(netConfig.Address)
+				if err != nil {
+					return httperrors.NewInternalServerError("isAddressUsed fail %s", err)
+				}
+				if used {
+					return httperrors.NewInputParameterError("Address %s has been used", netConfig.Address)
+				}
 			}
 		}
-		if netConfig.BwLimit > MAX_BANDWIDTH {
-			return httperrors.NewInputParameterError("Bandwidth limit cannot exceed %dMbps", MAX_BANDWIDTH)
+		if netConfig.BwLimit > api.MAX_BANDWIDTH {
+			return httperrors.NewInputParameterError("Bandwidth limit cannot exceed %dMbps", api.MAX_BANDWIDTH)
+		}
+		freeCnt, err := net.getFreeAddressCount()
+		if err != nil {
+			return httperrors.NewInternalServerError("getFreeAddressCount fail %s", err)
+		}
+		if freeCnt < 1 {
+			return httperrors.NewInputParameterError("network %s(%s) has no free addresses", net.Name, net.Id)
 		}
 	}
 	/* scheduler to the check
@@ -817,7 +858,7 @@ func (self *SNetwork) GetPorts() int {
 	return self.getIPRange().AddressCount()
 }
 
-func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+func (self *SNetwork) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	wire := self.GetWire()
 	extra.Add(jsonutils.NewString(wire.Name), "wire")
 	if self.IsExitNetwork() {
@@ -826,30 +867,18 @@ func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 		extra.Add(jsonutils.JSONFalse, "exit")
 	}
 	extra.Add(jsonutils.NewInt(int64(self.GetPorts())), "ports")
-	extra.Add(jsonutils.NewInt(int64(self.GetTotalNicCount())), "ports_used")
-	extra.Add(jsonutils.NewInt(int64(self.GetGuestnicsCount())), "vnics")
-	extra.Add(jsonutils.NewInt(int64(self.GetBaremetalNicsCount())), "bm_vnics")
-	extra.Add(jsonutils.NewInt(int64(self.GetLoadbalancerIpsCount())), "lb_vnics")
-	extra.Add(jsonutils.NewInt(int64(self.GetGroupNicsCount())), "group_vnics")
-	extra.Add(jsonutils.NewInt(int64(self.GetReservedNicsCount())), "reserve_vnics")
-
-	/*zone := self.getZone()
-	if zone != nil {
-		extra.Add(jsonutils.NewString(zone.GetId()), "zone_id")
-		extra.Add(jsonutils.NewString(zone.GetName()), "zone")
-		if len(zone.GetExternalId()) > 0 {
-			extra.Add(jsonutils.NewString(zone.GetExternalId()), "zone_external_id")
-		}
-	}
-
-	region := self.getRegion()
-	if region != nil {
-		extra.Add(jsonutils.NewString(region.GetId()), "region_id")
-		extra.Add(jsonutils.NewString(region.GetName()), "region")
-		if len(region.GetExternalId()) > 0 {
-			extra.Add(jsonutils.NewString(region.GetExternalId()), "region_external_id")
-		}
-	}*/
+	portsUsed, _ := self.GetTotalNicCount()
+	extra.Add(jsonutils.NewInt(int64(portsUsed)), "ports_used")
+	vnics, _ := self.GetGuestnicsCount()
+	extra.Add(jsonutils.NewInt(int64(vnics)), "vnics")
+	bmVnics, _ := self.GetBaremetalNicsCount()
+	extra.Add(jsonutils.NewInt(int64(bmVnics)), "bm_vnics")
+	lbVnics, _ := self.GetLoadbalancerIpsCount()
+	extra.Add(jsonutils.NewInt(int64(lbVnics)), "lb_vnics")
+	groupVnics, _ := self.GetGroupNicsCount()
+	extra.Add(jsonutils.NewInt(int64(groupVnics)), "group_vnics")
+	reserveVnics, _ := self.GetReservedNicsCount()
+	extra.Add(jsonutils.NewInt(int64(reserveVnics)), "reserve_vnics")
 
 	vpc := self.getVpc()
 	if vpc != nil {
@@ -866,6 +895,7 @@ func (self *SNetwork) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 
 	info := vpc.getCloudProviderInfo()
 	extra.Update(jsonutils.Marshal(&info))
+	extra = GetSchedtagsDetailsToResource(self, ctx, extra)
 
 	return extra
 }
@@ -875,13 +905,13 @@ func (self *SNetwork) GetExtraDetails(ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, err
 	}
-	extra = self.getMoreDetails(extra)
+	extra = self.getMoreDetails(ctx, extra)
 	return extra, nil
 }
 
 func (self *SNetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	extra = self.getMoreDetails(extra)
+	extra = self.getMoreDetails(ctx, extra)
 	return extra
 }
 
@@ -912,7 +942,11 @@ func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.To
 		if !self.isAddressInRange(ipAddr) {
 			return nil, httperrors.NewInputParameterError("Address %s not in network", ipstr)
 		}
-		if self.isAddressUsed(ipstr) {
+		used, err := self.isAddressUsed(ipstr)
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("isAddressUsed fail %s", err)
+		}
+		if used {
 			return nil, httperrors.NewConflictError("Address %s has been used", ipstr)
 		}
 		err = ReservedipManager.ReserveIP(userCred, self, ipstr, notes)
@@ -1062,7 +1096,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 
 				// 华为云wire zone_id 为空
 				var wires []SWire
-				if region.Provider == CLOUD_PROVIDER_HUAWEI {
+				if region.Provider == api.CLOUD_PROVIDER_HUAWEI {
 					wires, err = WireManager.getWiresByVpcAndZone(vpc, nil)
 				} else {
 					wires, err = WireManager.getWiresByVpcAndZone(vpc, zone)
@@ -1103,7 +1137,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		return nil, httperrors.NewInputParameterError("no valid vpc ???")
 	}
 
-	if vpc.Status != VPC_STATUS_AVAILABLE {
+	if vpc.Status != api.VPC_STATUS_AVAILABLE {
 		return nil, httperrors.NewInvalidStatusError("VPC not ready")
 	}
 
@@ -1117,7 +1151,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 
 	serverTypeStr, _ := data.GetString("server_type")
 	if len(serverTypeStr) == 0 {
-		serverTypeStr = NETWORK_TYPE_GUEST
+		serverTypeStr = api.NETWORK_TYPE_GUEST
 	} else if !utils.IsInStringArray(serverTypeStr, ALL_NETWORK_TYPES) {
 		return nil, httperrors.NewInputParameterError("Invalid server_type: %s", serverTypeStr)
 	}
@@ -1244,7 +1278,7 @@ func isOverlapNetworks(nets []SNetwork, startIp netutils.IPV4Addr, endIp netutil
 }
 
 func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if db.IsAdminAllowCreate(userCred, self.GetModelManager()) && ownerProjId == userCred.GetProjectId() && self.ServerType == NETWORK_TYPE_GUEST {
+	if db.IsAdminAllowCreate(userCred, self.GetModelManager()) && ownerProjId == userCred.GetProjectId() && self.ServerType == api.NETWORK_TYPE_GUEST {
 		self.IsPublic = true
 	} else {
 		self.IsPublic = false
@@ -1269,7 +1303,7 @@ func (self *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 			task.ScheduleRun(nil)
 		}
 	} else {
-		self.SetStatus(userCred, NETWORK_STATUS_AVAILABLE, "")
+		self.SetStatus(userCred, api.NETWORK_STATUS_AVAILABLE, "")
 	}
 }
 
@@ -1284,7 +1318,7 @@ func (self *SNetwork) GetPrefix() (netutils.IPV4Prefix, error) {
 
 func (self *SNetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("SNetwork delete do nothing")
-	self.SetStatus(userCred, NETWORK_STATUS_START_DELETE, "")
+	self.SetStatus(userCred, api.NETWORK_STATUS_START_DELETE, "")
 	return nil
 }
 
@@ -1298,7 +1332,7 @@ func (self *SNetwork) CustomizeDelete(ctx context.Context, userCred mcclient.Tok
 
 func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
-	self.SetStatus(userCred, NETWORK_STATUS_DELETED, "real delete")
+	self.SetStatus(userCred, api.NETWORK_STATUS_DELETED, "real delete")
 	return self.SSharableVirtualResourceBase.Delete(ctx, userCred)
 }
 
@@ -1435,6 +1469,18 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
 
+	cityStr, _ := query.GetString("city")
+	if len(cityStr) > 0 {
+		regions := CloudregionManager.Query().SubQuery()
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		sq := wires.Query(wires.Field("id")).
+			Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
+			Join(regions, sqlchemy.Equals(regions.Field("id"), vpcs.Field("cloudregion_id"))).
+			Filter(sqlchemy.Equals(regions.Field("city"), cityStr))
+		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
+	}
+
 	return q, nil
 }
 
@@ -1447,9 +1493,9 @@ func (manager *SNetworkManager) InitializeData() error {
 		return err
 	}
 	for _, n := range networks {
-		if len(n.ExternalId) == 0 && len(n.WireId) > 0 && n.Status == NETWORK_STATUS_INIT {
+		if len(n.ExternalId) == 0 && len(n.WireId) > 0 && n.Status == api.NETWORK_STATUS_INIT {
 			db.Update(&n, func() error {
-				n.Status = NETWORK_STATUS_AVAILABLE
+				n.Status = api.NETWORK_STATUS_AVAILABLE
 				return nil
 			})
 		}
@@ -1550,7 +1596,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	guestnetworks := make([]SGuestnetwork, 0)
-	err = GuestnetworkManager.Query().Equals("network_id", self.Id).All(&guestnetworks)
+	err = db.FetchModelObjects(GuestnetworkManager, GuestnetworkManager.Query().Equals("network_id", self.Id), &guestnetworks)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
@@ -1569,7 +1615,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	hostnetworks := make([]SHostnetwork, 0)
-	err = HostnetworkManager.Query().Equals("network_id", self.Id).All(&hostnetworks)
+	err = db.FetchModelObjects(HostnetworkManager, HostnetworkManager.Query().Equals("network_id", self.Id), &hostnetworks)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
@@ -1588,7 +1634,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	reservedips := make([]SReservedip, 0)
-	err = ReservedipManager.Query().Equals("network_id", self.Id).All(&reservedips)
+	err = db.FetchModelObjects(ReservedipManager, ReservedipManager.Query().Equals("network_id", self.Id), &reservedips)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
@@ -1607,7 +1653,7 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	groupnetwroks := make([]SGroupnetwork, 0)
-	err = GroupnetworkManager.Query().Equals("network_id", self.Id).All(&groupnetwroks)
+	err = db.FetchModelObjects(GroupnetworkManager, GroupnetworkManager.Query().Equals("network_id", self.Id), &groupnetwroks)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
 		return nil, err
@@ -1668,7 +1714,11 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 			return nil, httperrors.NewInputParameterError("Duplicate name %s", name)
 		}
 	} else {
-		name = db.GenerateName(NetworkManager, userCred.GetProjectId(), fmt.Sprintf("%s#", self.Name))
+		newName, err := db.GenerateName(NetworkManager, userCred.GetProjectId(), fmt.Sprintf("%s#", self.Name))
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("GenerateName fail %s", err)
+		}
+		name = newName
 	}
 
 	network := &SNetwork{}
@@ -1702,7 +1752,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	})
 
 	guestnetworks := make([]SGuestnetwork, 0)
-	err = GuestnetworkManager.Query().Equals("network_id", self.Id).All(&guestnetworks)
+	err = db.FetchModelObjects(GuestnetworkManager, GuestnetworkManager.Query().Equals("network_id", self.Id), &guestnetworks)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, err.Error(), userCred, false)
 		return nil, err
@@ -1721,7 +1771,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	hostnetworks := make([]SHostnetwork, 0)
-	err = HostnetworkManager.Query().Equals("network_id", self.Id).All(&hostnetworks)
+	err = db.FetchModelObjects(HostnetworkManager, HostnetworkManager.Query().Equals("network_id", self.Id), &hostnetworks)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, err.Error(), userCred, false)
 		return nil, err
@@ -1740,7 +1790,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	reservedips := make([]SReservedip, 0)
-	err = ReservedipManager.Query().Equals("network_id", self.Id).All(&reservedips)
+	err = db.FetchModelObjects(ReservedipManager, ReservedipManager.Query().Equals("network_id", self.Id), &reservedips)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, err.Error(), userCred, false)
 		return nil, err
@@ -1759,7 +1809,8 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	groupnetworks := make([]SGroupnetwork, 0)
-	err = GroupnetworkManager.Query().Equals("network_id", self.Id).All(&groupnetworks)
+	err = db.FetchModelObjects(
+		GroupnetworkManager, GroupnetworkManager.Query().Equals("network_id", self.Id), &groupnetworks)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, err.Error(), userCred, false)
 		return nil, err
@@ -1798,4 +1849,32 @@ func (manager *SNetworkManager) IsValidOnPremiseNetworkIP(ipStr string) bool {
 		return true
 	}
 	return false
+}
+
+func (network *SNetwork) GetSchedtags() []SSchedtag {
+	return GetSchedtags(NetworkschedtagManager, network.Id)
+}
+
+func (network *SNetwork) GetDynamicConditionInput() *jsonutils.JSONDict {
+	return jsonutils.Marshal(network).(*jsonutils.JSONDict)
+}
+
+func (network *SNetwork) AllowPerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return AllowPerformSetResourceSchedtag(network, ctx, userCred, query, data)
+}
+
+func (network *SNetwork) PerformSetSchedtag(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return PerformSetResourceSchedtag(network, ctx, userCred, query, data)
+}
+
+func (network *SNetwork) GetSchedtagJointManager() ISchedtagJointManager {
+	return NetworkschedtagManager
+}
+
+func (network *SNetwork) ClearSchedDescCache() error {
+	wire := network.GetWire()
+	if wire == nil {
+		return nil
+	}
+	return wire.clearHostSchedDescCache()
 }

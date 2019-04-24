@@ -1,18 +1,33 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package ucloud
 
 import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 // https://docs.ucloud.cn/api/udisk-api/create_udisk
 // UDisk 类型: DataDisk（普通数据盘），SSDDataDisk（SSD数据盘），默认值（DataDisk）
 var StorageTypes = []string{
-	models.STORAGE_UCLOUD_CLOUD_NORMAL,
-	models.STORAGE_UCLOUD_CLOUD_SSD,
+	api.STORAGE_UCLOUD_CLOUD_NORMAL,
+	api.STORAGE_UCLOUD_CLOUD_SSD,
 }
 
 type SZone struct {
@@ -77,7 +92,7 @@ func (self *SZone) GetGlobalId() string {
 }
 
 func (self *SZone) GetStatus() string {
-	return models.ZONE_ENABLE
+	return api.ZONE_ENABLE
 }
 
 func (self *SZone) Refresh() error {

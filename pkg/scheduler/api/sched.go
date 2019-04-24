@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package api
 
 import (
@@ -10,7 +24,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
@@ -57,12 +70,8 @@ func NewSchedInfo(input *api.ScheduleInput) *SchedInfo {
 		candidates = append(candidates, data.PreferHost)
 	}
 
-	//if !data.Backup && data.PreferBaremetal != "" {
-	//candidates = append(candidates, data.PreferBaremetal)
-	//}
-
 	if data.ResourceType == "" {
-		data.ResourceType = models.HostResourceTypeShared
+		data.ResourceType = computeapi.HostResourceTypeShared
 	}
 
 	if len(data.BaremetalDiskConfigs) == 0 {
@@ -105,7 +114,7 @@ func (data *SchedInfo) reviseData() {
 }
 
 func (d *SchedInfo) SkipDirtyMarkHost() bool {
-	isSharePublicCloudProvider := d.IsPublicCloudProvider() && (d.ResourceType == "" || d.ResourceType == models.HostResourceTypeShared)
+	isSharePublicCloudProvider := d.IsPublicCloudProvider() && (d.ResourceType == "" || d.ResourceType == computeapi.HostResourceTypeShared)
 	skipByHypervisor := isSharePublicCloudProvider || d.IsContainer || d.Hypervisor == SchedTypeContainer
 	skipByBackup := d.Backup
 	return skipByHypervisor || skipByBackup
@@ -194,7 +203,7 @@ type ForecastResult struct {
 }
 
 type SchedForecastResult struct {
-	CanCreate bool              `json:"can_create"`
-	Filters   []*ForecastFilter `json:"filters"`
-	Results   []ForecastResult  `json:"results"`
+	CanCreate bool                     `json:"can_create"`
+	Filters   []*ForecastFilter        `json:"filters"`
+	Results   []*api.CandidateResource `json:"results"`
 }

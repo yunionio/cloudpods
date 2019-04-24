@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package compute
 
 const (
@@ -22,6 +36,8 @@ const (
 	VM_START_STOP      = "start_stop"
 	VM_STOPPING        = "stopping"
 	VM_STOP_FAILED     = "stop_fail" // # = running
+	VM_RENEWING        = "renewing"
+	VM_RENEW_FAILED    = "renew_failed"
 
 	VM_BACKUP_STARTING         = "backup_starting"
 	VM_BACKUP_CREATING         = "backup_creating"
@@ -87,6 +103,9 @@ const (
 	VM_REMOVE_STATEFILE = "remove_state"
 
 	VM_ADMIN = "admin"
+
+	VM_IMPORT        = "import"
+	VM_IMPORT_FAILED = "import_fail"
 
 	SHUTDOWN_STOP      = "stop"
 	SHUTDOWN_TERMINATE = "terminate"
@@ -165,3 +184,17 @@ var HOSTTYPE_HYPERVISOR = map[string]string{
 	HOST_TYPE_OPENSTACK:  HYPERVISOR_OPENSTACK,
 	HOST_TYPE_UCLOUD:     HYPERVISOR_UCLOUD,
 }
+
+const (
+	VM_AWS_DEFAULT_LOGIN_USER = "ec2user"
+
+	VM_METADATA_APP_TAGS            = "app_tags"
+	VM_METADATA_CREATE_PARAMS       = "create_params"
+	VM_METADATA_LOGIN_ACCOUNT       = "login_account"
+	VM_METADATA_LOGIN_KEY           = "login_key"
+	VM_METADATA_LOGIN_KEY_TIMESTAMP = "login_key_timestamp"
+	VM_METADATA_OS_ARCH             = "os_arch"
+	VM_METADATA_OS_DISTRO           = "os_distribution"
+	VM_METADATA_OS_NAME             = "os_name"
+	VM_METADATA_OS_VERSION          = "os_version"
+)

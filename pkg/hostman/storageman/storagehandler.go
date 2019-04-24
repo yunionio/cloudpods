@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package storageman
 
 import (
@@ -69,8 +83,6 @@ func storageAttach(ctx context.Context, body jsonutils.JSONObject) (interface{},
 
 	storagecacheId, _ := body.GetString("storagecache_id")
 	imagecachePath, _ := body.GetString("imagecache_path")
-	storageManager.InitSharedStorageImageCache(storageType, storagecacheId, imagecachePath, storage)
-
 	storageId, _ := body.GetString("storage_id")
 	storageName, _ := body.GetString("name")
 	storageConf, _ := body.Get("storage_conf")
@@ -80,6 +92,7 @@ func storageAttach(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	if err != nil {
 		return nil, err
 	}
+	storageManager.InitSharedStorageImageCache(storageType, storagecacheId, imagecachePath, storage)
 	storageManager.Storages = append(storageManager.Storages, storage)
 	return resp, nil
 }

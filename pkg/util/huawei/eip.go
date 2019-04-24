@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package huawei
 
 import (
@@ -6,8 +20,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type TInternetChargeType string
@@ -69,7 +84,7 @@ type SEipAddress struct {
 	PublicIPAddress     string    `json:"public_ip_address"`
 	PrivateIPAddress    string    `json:"private_ip_address"`
 	TenantID            string    `json:"tenant_id"`
-	CreateTime          string    `json:"create_time"`
+	CreateTime          time.Time `json:"create_time"`
 	BandwidthID         string    `json:"bandwidth_id"`
 	BandwidthShareType  string    `json:"bandwidth_share_type"`
 	BandwidthSize       int64     `json:"bandwidth_size"`
@@ -99,17 +114,17 @@ func (self *SEipAddress) GetStatus() string {
 	// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090598.html
 	switch self.Status {
 	case "ACTIVE", "DOWN", "ELB":
-		return models.EIP_STATUS_READY
+		return api.EIP_STATUS_READY
 	case "PENDING_CREATE", "NOTIFYING":
-		return models.EIP_STATUS_ALLOCATE
+		return api.EIP_STATUS_ALLOCATE
 	case "BINDING":
-		return models.EIP_STATUS_ALLOCATE
+		return api.EIP_STATUS_ALLOCATE
 	case "BIND_ERROR":
-		return models.EIP_STATUS_ALLOCATE_FAIL
+		return api.EIP_STATUS_ALLOCATE_FAIL
 	case "PENDING_DELETE", "NOTIFY_DELETE":
-		return models.EIP_STATUS_DEALLOCATE
+		return api.EIP_STATUS_DEALLOCATE
 	default:
-		return models.EIP_STATUS_UNKNOWN
+		return api.EIP_STATUS_UNKNOWN
 	}
 }
 
@@ -137,7 +152,7 @@ func (self *SEipAddress) GetIpAddr() string {
 }
 
 func (self *SEipAddress) GetMode() string {
-	return models.EIP_MODE_STANDALONE_EIP
+	return api.EIP_MODE_STANDALONE_EIP
 }
 
 func (self *SEipAddress) GetAssociationType() string {
@@ -167,13 +182,13 @@ func (self *SEipAddress) GetInternetChargeType() string {
 	// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090603.html
 	bandwidth, err := self.region.GetEipBandwidth(self.BandwidthID)
 	if err != nil {
-		return models.EIP_CHARGE_TYPE_BY_TRAFFIC
+		return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 	}
 
 	if bandwidth.ChargeMode != "traffic" {
-		return models.EIP_CHARGE_TYPE_BY_BANDWIDTH
+		return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
 	} else {
-		return models.EIP_CHARGE_TYPE_BY_TRAFFIC
+		return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 	}
 }
 
@@ -183,10 +198,14 @@ func (self *SEipAddress) GetManagerId() string {
 
 func (self *SEipAddress) GetBillingType() string {
 	if self.Profile == nil {
-		return models.BILLING_TYPE_POSTPAID
+		return billing_api.BILLING_TYPE_POSTPAID
 	} else {
-		return models.BILLING_TYPE_PREPAID
+		return billing_api.BILLING_TYPE_PREPAID
 	}
+}
+
+func (self *SEipAddress) GetCreatedAt() time.Time {
+	return self.CreateTime
 }
 
 func (self *SEipAddress) GetExpiredAt() time.Time {
@@ -216,7 +235,7 @@ func (self *SEipAddress) Associate(instanceId string) error {
 		return err
 	}
 
-	err = cloudprovider.WaitStatus(self, models.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
+	err = cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
 	return err
 }
 
@@ -230,7 +249,7 @@ func (self *SEipAddress) Dissociate() error {
 	if err != nil {
 		return err
 	}
-	err = cloudprovider.WaitStatus(self, models.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
+	err = cloudprovider.WaitStatus(self, api.EIP_STATUS_READY, 10*time.Second, 180*time.Second)
 	return err
 }
 

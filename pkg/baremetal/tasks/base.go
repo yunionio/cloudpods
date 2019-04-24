@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -269,25 +283,15 @@ func (self *SBaremetalTaskBase) EnsurePowerShutdown(soft bool) error {
 	return nil
 }
 
-func (self *SBaremetalTaskBase) EnsurePowerUp(bootdev string) error {
-	log.Infof("EnsurePowerUp: bootdev=%s", bootdev)
-	var bootFunc func() error = nil
-	switch bootdev {
-	case "pxe":
-		bootFunc = self.Baremetal.DoPXEBoot
-	case "disk":
-		bootFunc = self.Baremetal.DoDiskBoot
-	}
-	if bootFunc == nil {
-		return fmt.Errorf("No boot func %s found", bootdev)
-	}
+func (self *SBaremetalTaskBase) EnsurePowerUp() error {
+	log.Infof("EnsurePowerUp: bootdev=pxe")
 	status, err := self.Baremetal.GetPowerStatus()
 	if err != nil {
 		return err
 	}
 	for status == "" || status == types.POWER_STATUS_OFF {
 		if status == types.POWER_STATUS_OFF {
-			err = bootFunc()
+			err = self.Baremetal.DoPXEBoot()
 			if err != nil {
 				return err
 			}
@@ -362,7 +366,7 @@ func (self *SBaremetalPXEBootTaskBase) InitPXEBootTask(pxeBootTask IPXEBootTask,
 	if err := self.EnsurePowerShutdown(false); err != nil {
 		return self, fmt.Errorf("EnsurePowerShutdown: %v", err)
 	}
-	if err := self.EnsurePowerUp("pxe"); err != nil {
+	if err := self.EnsurePowerUp(); err != nil {
 		return self, fmt.Errorf("EnsurePowerUp to pxe: %v", err)
 	}
 	// this stage will be called by baremetalInstance when pxe start notify
@@ -392,7 +396,7 @@ func (self *SBaremetalPXEBootTaskBase) WaitForShutdown(ctx context.Context, args
 }
 
 func (self *SBaremetalPXEBootTaskBase) OnStopComplete(ctx context.Context, args interface{}) error {
-	err := self.EnsurePowerUp("pxe")
+	err := self.EnsurePowerUp()
 	if err != nil {
 		return err
 	}

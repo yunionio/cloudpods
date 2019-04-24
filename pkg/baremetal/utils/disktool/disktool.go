@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package disktool
 
 import (
@@ -90,7 +104,8 @@ func (p *Partition) Format(fs string, uuid string) error {
 		cmd = []string{"/usr/sbin/mkfs.ext3"}
 		cmdUUID = []string{"/usr/sbin/tune2fs", "-U", uuid}
 	case "ext4":
-		cmd = []string{"/usr/sbin/mkfs.ext4", "-O", "^64bit", "-E", "lazy_itable_init=1"}
+		// for baremetal, force 64bit support large disks
+		cmd = []string{"/usr/sbin/mkfs.ext4", "-O", "64bit", "-E", "lazy_itable_init=1"}
 		cmdUUID = []string{"/usr/sbin/tune2fs", "-U", uuid}
 	case "ext4dev":
 		cmd = []string{"/usr/sbin/mkfs.ext4dev", "-E", "lazy_itable_init=1"}

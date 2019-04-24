@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package qcloud
 
 import (
@@ -13,8 +27,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -136,9 +150,10 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			log.Errorf("GetImageStatus error %s", err)
 		}
-		if status == ImageStatusAvailable && !isForce {
+		if (status == ImageStatusNormal || status == ImageStatusUsing) && !isForce {
 			return extId, nil
 		}
+		log.Debugf("image status: %s isForce: %v", status, isForce)
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}
@@ -222,7 +237,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	log.Debugf("Import image %s", imageName)
 	if image, err := self.region.ImportImage(imageName, osArch, osDist, osVersion, self.region.getCosUrl(bucketName, imageId)); err != nil {
 		return "", err
-	} else if cloudprovider.WaitStatus(image, models.CACHED_IMAGE_STATUS_READY, 15*time.Second, 3600*time.Second); err != nil {
+	} else if cloudprovider.WaitStatus(image, api.CACHED_IMAGE_STATUS_READY, 15*time.Second, 3600*time.Second); err != nil {
 		return "", err
 	} else {
 		return image.ImageId, nil

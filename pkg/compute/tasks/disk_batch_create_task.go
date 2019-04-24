@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -82,10 +96,10 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 
 	onError := func(err error) {
 		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, disk.ProjectId, &pendingUsage, &quotaStorage)
-		disk.SetStatus(self.UserCred, models.DISK_ALLOC_FAILED, err.Error())
+		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())
 		self.SetStageFailed(ctx, err.Error())
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
-		notifyclient.NotifySystemError(disk.Id, disk.Name, models.DISK_ALLOC_FAILED, err.Error())
+		notifyclient.NotifySystemError(disk.Id, disk.Name, api.DISK_ALLOC_FAILED, err.Error())
 	}
 
 	diskConfig, err := self.GetFirstDisk()
@@ -94,14 +108,19 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 		return
 	}
 
-	//err = disk.SetStorageByHost(hostId, &diskConfig)
-	err = disk.SetStorage(candidate.Disks[0].StorageId, diskConfig)
+	storageIds := []string{}
+	var hostId string
+	if candidate != nil && len(candidate.Disks) != 0 {
+		hostId = candidate.HostId
+		storageIds = candidate.Disks[0].StorageIds
+	}
+	err = disk.SetStorageByHost(hostId, diskConfig, storageIds)
 	if err != nil {
 		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, disk.ProjectId, &pendingUsage, &quotaStorage)
-		disk.SetStatus(self.UserCred, models.DISK_ALLOC_FAILED, err.Error())
+		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())
 		self.SetStageFailed(ctx, err.Error())
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
-		notifyclient.NotifySystemError(disk.Id, disk.Name, models.DISK_ALLOC_FAILED, err.Error())
+		notifyclient.NotifySystemError(disk.Id, disk.Name, api.DISK_ALLOC_FAILED, err.Error())
 		return
 	}
 

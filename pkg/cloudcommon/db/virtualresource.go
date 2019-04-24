@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package db
 
 import (
@@ -169,6 +183,10 @@ func (model *SVirtualResourceBase) AllowPerformMetadata(ctx context.Context, use
 	return model.IsOwner(userCred) || IsAdminAllowPerform(userCred, model, "metadata")
 }
 
+func (model *SVirtualResourceBase) AllowGetDetailsStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return model.IsOwner(userCred) || IsAdminAllowGetSpec(userCred, model, "status")
+}
+
 func (model *SVirtualResourceBase) GetTenantCache(ctx context.Context) (*STenant, error) {
 	// log.Debugf("Get tenant by Id %s", model.ProjectId)
 	return TenantCacheManager.FetchTenantById(ctx, model.ProjectId)
@@ -233,7 +251,11 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	q := model.GetModelManager().Query().Equals("name", model.GetName())
 	q = q.Equals("tenant_id", tobj.GetId())
 	q = q.NotEquals("id", model.GetId())
-	if q.Count() > 0 {
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("check name duplication error: %s", err)
+	}
+	if cnt > 0 {
 		return nil, httperrors.NewDuplicateNameError("name", model.GetName())
 	}
 	former, _ := TenantCacheManager.FetchTenantById(ctx, model.ProjectId)
@@ -242,17 +264,27 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		formerObj := NewTenant(model.ProjectId, "unknown")
 		former = &formerObj
 	}
-	diff, err := Update(model, func() error {
+	_, err = Update(model, func() error {
 		model.ProjectId = tobj.GetId()
 		model.ProjectSrc = string(PROJECT_SOURCE_LOCAL)
 		return nil
 	})
 	if err != nil {
-		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CHANGE_OWNER, err, userCred, false)
 		return nil, err
 	}
 	OpsLog.SyncOwner(model, former, userCred)
-	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CHANGE_OWNER, diff, userCred, true)
+	notes := struct {
+		OldProjectId string
+		OldProject   string
+		NewProjectId string
+		NewProject   string
+	}{
+		OldProjectId: former.Id,
+		OldProject:   former.Name,
+		NewProjectId: tobj.GetId(),
+		NewProject:   tobj.GetName(),
+	}
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CHANGE_OWNER, notes, userCred, true)
 	return nil, nil
 }
 
@@ -272,7 +304,7 @@ func (model *SVirtualResourceBase) MarkPendingDelete(userCred mcclient.TokenCred
 			return err
 		}
 		OpsLog.LogEvent(model, ACT_PENDING_DELETE, diff, userCred)
-		logclient.AddSimpleActionLog(model, logclient.ACT_PENDING_DELETE, diff, userCred, true)
+		logclient.AddSimpleActionLog(model, logclient.ACT_PENDING_DELETE, "", userCred, true)
 	}
 	return nil
 }
@@ -304,7 +336,6 @@ func (model *SVirtualResourceBase) DoCancelPendingDelete(ctx context.Context, us
 	err := model.CancelPendingDelete(ctx, userCred)
 	if err == nil {
 		OpsLog.LogEvent(model, ACT_CANCEL_DELETE, model.GetShortDesc(ctx), userCred)
-		logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CANCEL_DELETE, model.GetShortDesc(ctx), userCred, true)
 	}
 	return err
 }
@@ -326,8 +357,12 @@ func (model *SVirtualResourceBase) MarkCancelPendingDelete(ctx context.Context, 
 	lockman.LockClass(ctx, model.GetModelManager(), ownerProjId)
 	defer lockman.ReleaseClass(ctx, model.GetModelManager(), ownerProjId)
 
+	newName, err := GenerateName(model.GetModelManager(), ownerProjId, model.Name)
+	if err != nil {
+		return err
+	}
 	diff, err := Update(model, func() error {
-		model.Name = GenerateName(model.GetModelManager(), ownerProjId, model.Name)
+		model.Name = newName
 		model.PendingDeleted = false
 		model.PendingDeletedAt = time.Time{}
 		return nil
@@ -337,7 +372,6 @@ func (model *SVirtualResourceBase) MarkCancelPendingDelete(ctx context.Context, 
 		return err
 	}
 	OpsLog.LogEvent(model, ACT_CANCEL_DELETE, diff, userCred)
-	logclient.AddSimpleActionLog(model, logclient.ACT_CANCEL_DELETE, diff, userCred, true)
 	return nil
 }
 
@@ -362,7 +396,6 @@ func (model *SVirtualResourceBase) SyncCloudProjectId(userCred mcclient.TokenCre
 		})
 		if len(diff) > 0 {
 			OpsLog.LogEvent(model, ACT_SYNC_OWNER, diff, userCred)
-			logclient.AddSimpleActionLog(model, logclient.ACT_SYNC_CLOUD_OWNER, diff, userCred, true)
 		}
 	}
 }

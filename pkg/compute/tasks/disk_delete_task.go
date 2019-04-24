@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -6,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -23,7 +38,14 @@ func init() {
 func (self *DiskDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
 
-	if disk.GetGuestDiskCount() > 0 {
+	cnt, err := disk.GetGuestDiskCount()
+	if err != nil {
+		reason := "Disk GetGuestDiskCount fail: " + err.Error()
+		self.SetStageFailed(ctx, reason)
+		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
+		return
+	}
+	if cnt > 0 {
 		reason := "Disk has been attached to server"
 		self.SetStageFailed(ctx, reason)
 		db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
@@ -45,7 +67,7 @@ func (self *DiskDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 
 func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SDisk) {
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATING, disk.GetShortDesc(ctx), self.UserCred)
-	if disk.Status == models.DISK_INIT {
+	if disk.Status == api.DISK_INIT {
 		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
 		return
 	}
@@ -55,7 +77,7 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 	if (host == nil || !host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		isPurge = true
 	}
-	disk.SetStatus(self.UserCred, models.DISK_DEALLOC, "")
+	disk.SetStatus(self.UserCred, api.DISK_DEALLOC, "")
 	if isPurge {
 		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
 	} else {
@@ -83,8 +105,8 @@ func (self *DiskDeleteTask) OnMasterStorageDeleteDiskComplete(ctx context.Contex
 	}
 }
 
-func (self *DiskDeleteTask) OnMasterStorageDeleteDiskCompleteFailed(ctx context.Context, disk *models.SDisk, resion jsonutils.JSONObject) {
-	self.OnGuestDiskDeleteCompleteFailed(ctx, disk, resion)
+func (self *DiskDeleteTask) OnMasterStorageDeleteDiskCompleteFailed(ctx context.Context, disk *models.SDisk, reason jsonutils.JSONObject) {
+	self.OnGuestDiskDeleteCompleteFailed(ctx, disk, reason)
 }
 
 func (self *DiskDeleteTask) startPendingDeleteDisk(ctx context.Context, disk *models.SDisk) {
@@ -107,8 +129,8 @@ func (self *DiskDeleteTask) OnGuestDiskDeleteComplete(ctx context.Context, obj d
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *DiskDeleteTask) OnGuestDiskDeleteCompleteFailed(ctx context.Context, disk *models.SDisk, resion jsonutils.JSONObject) {
-	disk.SetStatus(self.GetUserCred(), models.DISK_DEALLOC_FAILED, resion.String())
-	self.SetStageFailed(ctx, resion.String())
+func (self *DiskDeleteTask) OnGuestDiskDeleteCompleteFailed(ctx context.Context, disk *models.SDisk, reason jsonutils.JSONObject) {
+	disk.SetStatus(self.GetUserCred(), api.DISK_DEALLOC_FAILED, reason.String())
+	self.SetStageFailed(ctx, reason.String())
 	db.OpsLog.LogEvent(disk, db.ACT_DELOCATE_FAIL, disk.GetShortDesc(ctx), self.GetUserCred())
 }

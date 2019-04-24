@@ -1,83 +1,33 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package predicates
 
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/errors"
+	"yunion.io/x/pkg/utils"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
-	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
-type DiskStoragesMap map[int][]*PredicatedStorage
-
-func (m DiskStoragesMap) getAllTags(isPrefer bool) []computeapi.SchedtagConfig {
-	ret := make([]computeapi.SchedtagConfig, 0)
-	for _, ss := range m {
-		for _, s := range ss {
-			var tags []computeapi.SchedtagConfig
-			if isPrefer {
-				tags = s.PreferTags
-			} else {
-				tags = s.AvoidTags
-			}
-			ret = append(ret, tags...)
-		}
-	}
-	return ret
-}
-
-func (m DiskStoragesMap) GetPreferTags() []computeapi.SchedtagConfig {
-	return m.getAllTags(true)
-}
-
-func (m DiskStoragesMap) GetAvoidTags() []computeapi.SchedtagConfig {
-	return m.getAllTags(false)
-}
-
-type CandidateDiskStoragesMap map[string]DiskStoragesMap
-
-type PredicatedStorage struct {
-	*api.CandidateStorage
-	PreferTags []computeapi.SchedtagConfig
-	AvoidTags  []computeapi.SchedtagConfig
-}
-
-func newPredicatedStorage(s *api.CandidateStorage, preferTags, avoidTags []computeapi.SchedtagConfig) *PredicatedStorage {
-	return &PredicatedStorage{
-		CandidateStorage: s,
-		PreferTags:       preferTags,
-		AvoidTags:        avoidTags,
-	}
-}
-
-func (s *PredicatedStorage) isNoTag() bool {
-	return len(s.PreferTags) == 0 && len(s.AvoidTags) == 0
-}
-
-func (s *PredicatedStorage) hasPreferTags() bool {
-	return len(s.PreferTags) != 0
-}
-
-func (s *PredicatedStorage) hasAvoidTags() bool {
-	return len(s.AvoidTags) != 0
-}
-
 type DiskSchedtagPredicate struct {
-	BasePredicate
-	plugin.BasePlugin
-
-	SchedtagPredicate *SchedtagPredicate
-
-	CandidateDiskStoragesMap CandidateDiskStoragesMap
-
-	Hypervisor string
+	*BaseSchedtagPredicate
 }
 
 func (p *DiskSchedtagPredicate) Name() string {
@@ -86,202 +36,109 @@ func (p *DiskSchedtagPredicate) Name() string {
 
 func (p *DiskSchedtagPredicate) Clone() core.FitPredicate {
 	return &DiskSchedtagPredicate{
-		CandidateDiskStoragesMap: make(map[string]DiskStoragesMap),
+		BaseSchedtagPredicate: NewBaseSchedtagPredicate(),
 	}
-}
-
-func (p *DiskSchedtagPredicate) getSchedtagDisks(disks []*computeapi.DiskConfig) ([]*computeapi.DiskConfig, []*computeapi.DiskConfig) {
-	noTagDisk := make([]*computeapi.DiskConfig, 0)
-	tagDisk := make([]*computeapi.DiskConfig, 0)
-	for _, d := range disks {
-		if len(d.Schedtags) != 0 {
-			tagDisk = append(tagDisk, d)
-		} else {
-			noTagDisk = append(noTagDisk, d)
-		}
-	}
-	return noTagDisk, tagDisk
 }
 
 func (p *DiskSchedtagPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
-	disks := u.SchedData().Disks
-	if len(disks) == 0 {
-		return false, nil
+	return p.BaseSchedtagPredicate.PreExecute(p, u, cs)
+}
+
+type diskW struct {
+	*computeapi.DiskConfig
+}
+
+func (d diskW) Keyword() string {
+	return "disk"
+}
+
+func (d diskW) GetSchedtags() []*computeapi.SchedtagConfig {
+	return d.DiskConfig.Schedtags
+}
+
+func (p *DiskSchedtagPredicate) GetInputs(u *core.Unit) []ISchedtagCustomer {
+	ret := make([]ISchedtagCustomer, 0)
+	for _, disk := range u.SchedData().Disks {
+		ret = append(ret, &diskW{disk})
 	}
-
-	p.Hypervisor = u.SchedData().Hypervisor
-
-	// always select each storages to disks
-	u.AppendSelectPlugin(p)
-
-	return true, nil
-}
-
-type schedtagStorageW struct {
-	candidater *api.CandidateStorage
-	disk       *computeapi.DiskConfig
-}
-
-func (w schedtagStorageW) IndexKey() string {
-	return fmt.Sprintf("%s:%s", w.candidater.GetName(), w.candidater.StorageType)
-}
-
-func (w schedtagStorageW) GetDynamicSchedDesc() *jsonutils.JSONDict {
-	ret := jsonutils.NewDict()
-	storageSchedDesc := w.candidater.GetDynamicConditionInput()
-	diskSchedDesc := w.disk.JSON(w.disk)
-	ret.Add(storageSchedDesc, models.StorageManager.Keyword())
-	ret.Add(diskSchedDesc, models.DiskManager.Keyword())
 	return ret
 }
 
-func (w schedtagStorageW) GetSchedtags() []models.SSchedtag {
-	return w.candidater.Schedtags
-}
-
-func (w schedtagStorageW) ResourceType() string {
-	return models.StorageManager.KeywordPlural()
-}
-
-func (p *DiskSchedtagPredicate) check(d *computeapi.DiskConfig, s *api.CandidateStorage) (*PredicatedStorage, error) {
-	allTags, err := GetAllSchedtags(models.StorageManager.KeywordPlural())
-	if err != nil {
-		return nil, err
+func (p *DiskSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCandidateResource {
+	ret := make([]ISchedtagCandidateResource, 0)
+	for _, storage := range c.Getter().Storages() {
+		ret = append(ret, storage)
 	}
-	tagPredicate := NewSchedtagPredicate(d.Schedtags, allTags)
-	if err := tagPredicate.Check(
-		schedtagStorageW{
-			candidater: s,
-			disk:       d,
-		},
-	); err != nil {
-		return nil, err
-	}
-	avoidTags := tagPredicate.GetAvoidTags()
-	preferTags := tagPredicate.GetPreferTags()
-	return newPredicatedStorage(s, preferTags, avoidTags), nil
+	return ret
 }
 
-func (p *DiskSchedtagPredicate) checkStorages(d *computeapi.DiskConfig, storages []*api.CandidateStorage) ([]*PredicatedStorage, error) {
-	errs := make([]error, 0)
-	ret := make([]*PredicatedStorage, 0)
-	for _, s := range storages {
-		ps, err := p.check(d, s)
-		if err != nil {
-			// append err, storage not suit disk
-			errs = append(errs, err)
-			continue
+func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, res ISchedtagCandidateResource, input ISchedtagCustomer) error {
+	storage := res.(*api.CandidateStorage)
+	d := input.(*diskW)
+	if d.Storage != "" {
+		if storage.Id != d.Storage && storage.Name != d.Storage {
+			return fmt.Errorf("Storage name %s != (%s:%s)", d.Storage, storage.Name, storage.Id)
 		}
-		ret = append(ret, ps)
 	}
-	if len(ret) == 0 {
-		return nil, errors.NewAggregate(errs)
+	if !(len(d.Backend) == 0 || d.Backend == computeapi.STORAGE_LOCAL) {
+		if storage.StorageType != d.Backend {
+			return fmt.Errorf("Storage %s backend %s != %s", storage.Name, storage.StorageType, d.Backend)
+		}
 	}
-	return ret, nil
-}
 
-func (p *DiskSchedtagPredicate) GetDiskStoragesMap(candidateId string) DiskStoragesMap {
-	ret, ok := p.CandidateDiskStoragesMap[candidateId]
-	if !ok {
-		ret = make(map[int][]*PredicatedStorage)
-		p.CandidateDiskStoragesMap[candidateId] = ret
+	storageTypes := p.GetHypervisorDriver().GetStorageTypes()
+	if len(storageTypes) != 0 && !utils.IsInStringArray(storage.StorageType, storageTypes) {
+		return fmt.Errorf("Storage %s storage type %s not in %v", storage.Name, storage.StorageType, storageTypes)
 	}
-	return ret
+	return nil
 }
 
 func (p *DiskSchedtagPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
-	h := NewPredicateHelper(p, u, c)
-
-	storages := c.Getter().Storages()
-
-	ds := p.GetDiskStoragesMap(c.IndexKey())
-	disks := u.SchedData().Disks
-	for idx, d := range disks {
-		fitStorages := make([]*api.CandidateStorage, 0)
-		for _, s := range storages {
-			if p.isStorageFitDisk(s, d) {
-				fitStorages = append(fitStorages, s)
-			}
-		}
-		if len(fitStorages) == 0 {
-			h.Exclude(fmt.Sprintf("Not found available storages for disk backend %q", d.Backend))
-			break
-		}
-
-		matchedStorages, err := p.checkStorages(d, fitStorages)
-		if err != nil {
-			h.Exclude(err.Error())
-		}
-		ds[idx] = matchedStorages
-	}
-
-	return h.GetResult()
+	return p.BaseSchedtagPredicate.Execute(p, u, c)
 }
 
 func (p *DiskSchedtagPredicate) OnPriorityEnd(u *core.Unit, c core.Candidater) {
-	storageTags := []models.SSchedtag{}
-	for _, s := range c.Getter().Storages() {
-		storageTags = append(storageTags, s.Schedtags...)
-	}
-
-	ds := p.GetDiskStoragesMap(c.IndexKey())
-	avoidTags := ds.GetAvoidTags()
-	preferTags := ds.GetPreferTags()
-
-	avoidCountMap := GetSchedtagCount(avoidTags, storageTags, api.AggregateStrategyAvoid)
-	preferCountMap := GetSchedtagCount(preferTags, storageTags, api.AggregateStrategyPrefer)
-
-	setScore := SetCandidateScoreBySchedtag
-
-	setScore(u, c, preferCountMap, true)
-	setScore(u, c, avoidCountMap, false)
+	p.BaseSchedtagPredicate.OnPriorityEnd(p, u, c)
 }
 
 func (p *DiskSchedtagPredicate) OnSelectEnd(u *core.Unit, c core.Candidater, count int64) {
-	res := u.GetAllocatedResource(c.IndexKey())
-	diskStorages := p.GetDiskStoragesMap(c.IndexKey())
-	res.Disks = make([]*schedapi.CandidateDisk, len(diskStorages))
-	disks := u.SchedData().Disks
-	for idx, ds := range diskStorages {
-		res.Disks[idx] = p.allocatedDiskResource(c, disks[idx], ds)
-	}
+	p.BaseSchedtagPredicate.OnSelectEnd(p, u, c, count)
 }
 
-func (p *DiskSchedtagPredicate) allocatedDiskResource(c core.Candidater, disk *computeapi.DiskConfig, storages []*PredicatedStorage) *schedapi.CandidateDisk {
-	storage := p.selectStorage(disk, storages)
-	log.Debugf("Select storage %s:%s for disk: %s", storage.Id, storage.Name, disk.Index)
-	return &schedapi.CandidateDisk{
-		Index:     disk.Index,
-		StorageId: storage.Id,
-	}
+func (p *DiskSchedtagPredicate) DoSelect(
+	c core.Candidater,
+	input ISchedtagCustomer,
+	res []ISchedtagCandidateResource,
+) []ISchedtagCandidateResource {
+	return p.GetUsedStorages(res, input.(*diskW).Backend)
 }
 
-func (p *DiskSchedtagPredicate) selectStorage(d *computeapi.DiskConfig, storages []*PredicatedStorage) *api.CandidateStorage {
-	preferStorages := []*api.CandidateStorage{}
-	noTagStorages := []*api.CandidateStorage{}
-	avoidStorages := []*api.CandidateStorage{}
-	for _, storage := range storages {
-		candi := storage.CandidateStorage
-		if storage.isNoTag() {
-			noTagStorages = append(noTagStorages, candi)
-		} else if storage.hasPreferTags() {
-			preferStorages = append(preferStorages, candi)
-		} else if storage.hasAvoidTags() {
-			avoidStorages = append(avoidStorages, candi)
-		}
-	}
-	sortStorages := []*api.CandidateStorage{}
-	sortStorages = append(sortStorages, preferStorages...)
-	sortStorages = append(sortStorages, noTagStorages...)
-	sortStorages = append(sortStorages, avoidStorages...)
-	return p.GetLeastUsedStorage(sortStorages, d.Backend)
+func (p *DiskSchedtagPredicate) GetCandidateResourceSortScore(selectRes ISchedtagCandidateResource) int {
+	return selectRes.(*api.CandidateStorage).GetFreeCapacity()
 }
 
-func (p *DiskSchedtagPredicate) GetLeastUsedStorage(storages []*api.CandidateStorage, backend string) *api.CandidateStorage {
-	backendStorages := make([]*api.CandidateStorage, 0)
+func (p *DiskSchedtagPredicate) AddSelectResult(index int, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource) {
+	storageIds := []string{}
+	for _, res := range selectRes {
+		storageIds = append(storageIds, res.GetId())
+	}
+	ret := &schedapi.CandidateDisk{
+		Index:      index,
+		StorageIds: storageIds,
+	}
+	log.Debugf("Suggestion storages %v for disk%d", storageIds, index)
+	output.Disks = append(output.Disks, ret)
+}
+
+func (p *DiskSchedtagPredicate) GetUsedStorages(res []ISchedtagCandidateResource, backend string) []ISchedtagCandidateResource {
+	storages := make([]ISchedtagCandidateResource, 0)
+	for _, s := range res {
+		storages = append(storages, s.(*api.CandidateStorage))
+	}
+	backendStorages := make([]ISchedtagCandidateResource, 0)
 	if backend != "" {
 		for _, s := range storages {
-			if s.StorageType == backend {
+			if s.(*api.CandidateStorage).StorageType == backend {
 				backendStorages = append(backendStorages, s)
 			}
 		}
@@ -291,42 +148,5 @@ func (p *DiskSchedtagPredicate) GetLeastUsedStorage(storages []*api.CandidateSto
 	if len(backendStorages) == 0 {
 		backendStorages = storages
 	}
-	return p.getLeastUsedStorage(backendStorages)
-}
-
-func (p *DiskSchedtagPredicate) getLeastUsedStorage(storages []*api.CandidateStorage) *api.CandidateStorage {
-	var best *api.CandidateStorage
-	var bestCap int
-	for i := 0; i < len(storages); i++ {
-		s := storages[i]
-		capa := s.GetFreeCapacity()
-		if best == nil || bestCap < capa {
-			bestCap = capa
-			best = s
-		}
-	}
-	return best
-}
-
-func (p *DiskSchedtagPredicate) GetHypervisorDriver() models.IGuestDriver {
-	return models.GetDriver(p.Hypervisor)
-}
-
-func (p *DiskSchedtagPredicate) isStorageFitDisk(storage *api.CandidateStorage, d *computeapi.DiskConfig) bool {
-	if d.Storage != "" {
-		if storage.Id == d.Storage || storage.Name == d.Storage {
-			return true
-		}
-		return false
-	}
-	if storage.StorageType == d.Backend {
-		return true
-	}
-
-	for _, stype := range p.GetHypervisorDriver().GetStorageTypes() {
-		if storage.StorageType == stype {
-			return true
-		}
-	}
-	return false
+	return backendStorages
 }

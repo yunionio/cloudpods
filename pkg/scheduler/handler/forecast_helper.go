@@ -1,15 +1,31 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package handler
 
 import (
 	"fmt"
 
+	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
 func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 	unit := result.Unit
-	reqCount := int64(unit.SchedData().Count)
+	schedData := unit.SchedData()
+	reqCount := int64(schedData.Count)
 	var readyCount int64
 	filters := make([]*api.ForecastFilter, 0)
 
@@ -50,36 +66,50 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 
 	items := make([]*core.SchedResultItem, 0)
 	for _, item := range result.Data {
-		hostType := item.Candidater.Get("HostType")
-		if result.Unit.SchedData().Hypervisor == hostType {
+		hostType := item.Candidater.Getter().HostType()
+		if schedData.Hypervisor == hostType {
 			items = append(items, item)
 		}
 	}
 
-	var results []api.ForecastResult
 	for _, item := range items {
 		addInfos(result.Unit.LogManager.FailedLogs(), item)
 	}
 
-	for _, item := range items {
-		if item.Count <= 0 {
-			continue
-		}
-		readyCount += item.Count
-		ret := api.ForecastResult{
-			Candidate: logIndex(item),
-			Count:     item.Count,
-			Capacity:  item.Capacity,
-		}
-		results = append(results, ret)
+	var output *schedapi.ScheduleOutput
+	if schedData.Backup {
+		output = transToBackupSchedResult(result, schedData.PreferHost, schedData.PreferBackupHost, int64(schedData.Count), false)
+	} else {
+		output = transToRegionSchedResult(result.Data, int64(schedData.Count))
 	}
+
+	for _, candi := range output.Candidates {
+		if len(candi.Error) != 0 {
+			info, exist := getOrNewFilter("select_candidate")
+			info.Count++
+			msg := candi.Error
+			info.Messages = append(info.Messages, msg)
+			if !exist {
+				filters = append(filters, info)
+			}
+			readyCount--
+		} else {
+			readyCount++
+		}
+	}
+
 	canCreate := true
 	if readyCount < reqCount {
 		canCreate = false
+		filters = append(filters, &api.ForecastFilter{
+			Messages: []string{
+				fmt.Sprintf("No enough resources: %d/%d(free/request)", readyCount, reqCount),
+			},
+		})
 	}
 	return &api.SchedForecastResult{
 		CanCreate: canCreate,
 		Filters:   filters,
-		Results:   results,
+		Results:   output.Candidates,
 	}
 }

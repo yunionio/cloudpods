@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package huawei
 
 import (
@@ -8,8 +22,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 /*
@@ -87,7 +102,7 @@ type SDisk struct {
 	AvailabilityZone    string              `json:"availability_zone"`
 	SourceVolid         string              `json:"source_volid"`
 	SnapshotID          string              `json:"snapshot_id"`
-	CreatedAt           string              `json:"created_at"`
+	CreatedAt           time.Time           `json:"created_at"`
 	VolumeType          string              `json:"volume_type"`
 	VolumeImageMetadata VolumeImageMetadata `json:"volume_image_metadata"`
 	ReplicationStatus   string              `json:"replication_status"`
@@ -118,37 +133,37 @@ func (self *SDisk) GetStatus() string {
 	// https://support.huaweicloud.com/api-evs/zh-cn_topic_0051803385.html
 	switch self.Status {
 	case "creating", "downloading":
-		return models.DISK_ALLOCATING
+		return api.DISK_ALLOCATING
 	case "available", "in-use":
-		return models.DISK_READY
+		return api.DISK_READY
 	case "error":
-		return models.DISK_ALLOC_FAILED
+		return api.DISK_ALLOC_FAILED
 	case "attaching":
-		return models.DISK_ATTACHING
+		return api.DISK_ATTACHING
 	case "detaching":
-		return models.DISK_DETACHING
+		return api.DISK_DETACHING
 	case "restoring-backup":
-		return models.DISK_REBUILD
+		return api.DISK_REBUILD
 	case "backing-up":
-		return models.DISK_BACKUP_STARTALLOC // ?
+		return api.DISK_BACKUP_STARTALLOC // ?
 	case "error_restoring":
-		return models.DISK_BACKUP_ALLOC_FAILED
+		return api.DISK_BACKUP_ALLOC_FAILED
 	case "uploading":
-		return models.DISK_SAVING //?
+		return api.DISK_SAVING //?
 	case "extending":
-		return models.DISK_RESIZING
+		return api.DISK_RESIZING
 	case "error_extending":
-		return models.DISK_ALLOC_FAILED // ?
+		return api.DISK_ALLOC_FAILED // ?
 	case "deleting":
-		return models.DISK_DEALLOC //?
+		return api.DISK_DEALLOC //?
 	case "error_deleting":
-		return models.DISK_DEALLOC_FAILED // ?
+		return api.DISK_DEALLOC_FAILED // ?
 	case "rollbacking":
-		return models.DISK_REBUILD
+		return api.DISK_REBUILD
 	case "error_rollbacking":
-		return models.DISK_UNKNOWN
+		return api.DISK_UNKNOWN
 	default:
-		return models.DISK_UNKNOWN
+		return api.DISK_UNKNOWN
 	}
 }
 
@@ -167,7 +182,7 @@ func (self *SDisk) IsEmulated() bool {
 func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	// todo: add price key
 	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(models.HYPERVISOR_HUAWEI), "hypervisor")
+	data.Add(jsonutils.NewString(api.HYPERVISOR_HUAWEI), "hypervisor")
 
 	return data
 }
@@ -175,10 +190,14 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 func (self *SDisk) GetBillingType() string {
 	// https://support.huaweicloud.com/api-evs/zh-cn_topic_0020235170.html
 	if self.Metadata.Billing == "1" {
-		return models.BILLING_TYPE_POSTPAID
+		return billing_api.BILLING_TYPE_POSTPAID
 	} else {
-		return models.BILLING_TYPE_PREPAID // ?
+		return billing_api.BILLING_TYPE_PREPAID // ?
 	}
+}
+
+func (self *SDisk) GetCreatedAt() time.Time {
+	return self.CreatedAt
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
@@ -186,7 +205,7 @@ func (self *SDisk) GetExpiredAt() time.Time {
 	if self.Metadata.Billing == "1" {
 		res, err := self.storage.zone.region.GetOrderResourceDetail(self.GetId())
 		if err != nil {
-			log.Debugf(err.Error())
+			log.Debugln(err)
 		}
 
 		expiredTime = res.ExpireTime
@@ -246,9 +265,9 @@ func (self *SDisk) GetTemplateId() string {
 // 启动盘 != 系统盘(必须是启动盘且挂载在root device上)
 func (self *SDisk) GetDiskType() string {
 	if self.Bootable == "true" {
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	} else {
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	}
 }
 
@@ -296,6 +315,8 @@ func (self *SDisk) Delete(ctx context.Context) error {
 		log.Errorf("Failed to find disk %s when delete", self.GetId())
 		return nil
 	} else if disk.Status != "deleting" {
+		// 等待硬盘ready
+		cloudprovider.WaitStatus(self, api.DISK_READY, 5*time.Second, 60*time.Second)
 		err := self.storage.zone.region.DeleteDisk(self.GetId())
 		if err != nil {
 			return err
@@ -313,7 +334,7 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string
 		return nil, err
 	} else {
 		snapshot.region = self.storage.zone.region
-		if err := cloudprovider.WaitStatus(snapshot, models.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
+		if err := cloudprovider.WaitStatus(snapshot, api.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
 			return nil, err
 		}
 		return snapshot, nil
@@ -344,8 +365,18 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
+	err := cloudprovider.WaitStatus(self, api.DISK_READY, 5*time.Second, 60*time.Second)
+	if err != nil {
+		return err
+	}
+
 	sizeGb := newSizeMB / 1024
-	return self.storage.zone.region.resizeDisk(self.GetId(), sizeGb)
+	err = self.storage.zone.region.resizeDisk(self.GetId(), sizeGb)
+	if err != nil {
+		return err
+	}
+
+	return cloudprovider.WaitStatusWithDelay(self, api.DISK_READY, 15*time.Second, 5*time.Second, 60*time.Second)
 }
 
 func (self *SDisk) Detach() error {
@@ -358,7 +389,7 @@ func (self *SDisk) Detach() error {
 	return cloudprovider.WaitCreated(5*time.Second, 60*time.Second, func() bool {
 		err := self.Refresh()
 		if err != nil {
-			log.Debugf(err.Error())
+			log.Debugln(err)
 			return false
 		}
 
@@ -377,7 +408,7 @@ func (self *SDisk) Attach(device string) error {
 		return err
 	}
 
-	return cloudprovider.WaitStatus(self, models.DISK_READY, 5*time.Second, 60*time.Second)
+	return cloudprovider.WaitStatus(self, api.DISK_READY, 5*time.Second, 60*time.Second)
 }
 
 // 在线卸载磁盘 https://support.huaweicloud.com/usermanual-ecs/zh-cn_topic_0036046828.html
@@ -396,7 +427,7 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 		return diskId, err
 	}
 
-	err = cloudprovider.WaitStatus(self, models.DISK_READY, 5*time.Second, 300*time.Second)
+	err = cloudprovider.WaitStatus(self, api.DISK_READY, 5*time.Second, 300*time.Second)
 	if err != nil {
 		return "", err
 	}
@@ -417,6 +448,9 @@ func (self *SDisk) Rebuild(ctx context.Context) error {
 }
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
+	if len(diskId) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
 	var disk SDisk
 	err := DoGet(self.ecsClient.Disks.Get, diskId, nil, &disk)
 	return &disk, err

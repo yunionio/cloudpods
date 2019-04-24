@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -5,8 +19,10 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -58,7 +74,7 @@ func getRegionZoneSubq(region *SCloudregion) *sqlchemy.SSubQuery {
 }
 
 func getHypervisors(region *SCloudregion, zone *SZone) []string {
-	q := HostManager.Query("host_type")
+	q := HostManager.Query("host_type", "manager_id")
 	if region != nil {
 		subq := getRegionZoneSubq(region)
 		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
@@ -78,16 +94,20 @@ func getHypervisors(region *SCloudregion, zone *SZone) []string {
 	hypervisors := make([]string, 0)
 	for rows.Next() {
 		var hostType string
-		rows.Scan(&hostType)
-		if len(hostType) > 0 {
-			hypervisors = append(hypervisors, HOSTTYPE_HYPERVISOR[hostType])
+		var managerId string
+		rows.Scan(&hostType, &managerId)
+		if len(hostType) > 0 && IsProviderAccountEnabled(managerId) {
+			hypervisor := api.HOSTTYPE_HYPERVISOR[hostType]
+			if !utils.IsInStringArray(hypervisor, hypervisors) {
+				hypervisors = append(hypervisors, hypervisor)
+			}
 		}
 	}
 	return hypervisors
 }
 
 func getResourceTypes(region *SCloudregion, zone *SZone) []string {
-	q := HostManager.Query("resource_type")
+	q := HostManager.Query("resource_type", "manager_id")
 	if region != nil {
 		subq := getRegionZoneSubq(region)
 		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
@@ -106,9 +126,12 @@ func getResourceTypes(region *SCloudregion, zone *SZone) []string {
 	resourceTypes := make([]string, 0)
 	for rows.Next() {
 		var resType string
-		rows.Scan(&resType)
-		if len(resType) > 0 {
-			resourceTypes = append(resourceTypes, resType)
+		var managerId string
+		rows.Scan(&resType, &managerId)
+		if len(resType) > 0 && IsProviderAccountEnabled(managerId) {
+			if !utils.IsInStringArray(resType, resourceTypes) {
+				resourceTypes = append(resourceTypes, resType)
+			}
 		}
 	}
 	return resourceTypes
@@ -135,17 +158,17 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool) []string
 	if zone != nil {
 		q = q.Filter(sqlchemy.Equals(storages.Field("zone_id"), zone.Id))
 	}
-	q = q.Filter(sqlchemy.Equals(hosts.Field("resource_type"), HostResourceTypeShared))
+	q = q.Filter(sqlchemy.Equals(hosts.Field("resource_type"), api.HostResourceTypeShared))
 	q = q.Filter(sqlchemy.IsNotEmpty(storages.Field("storage_type")))
 	q = q.Filter(sqlchemy.IsNotNull(storages.Field("storage_type")))
 	q = q.Filter(sqlchemy.IsNotEmpty(storages.Field("medium_type")))
 	q = q.Filter(sqlchemy.IsNotNull(storages.Field("medium_type")))
-	q = q.Filter(sqlchemy.In(storages.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}))
+	q = q.Filter(sqlchemy.In(storages.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}))
 	q = q.Filter(sqlchemy.IsTrue(storages.Field("enabled")))
 	if isSysDisk {
 		q = q.Filter(sqlchemy.IsTrue(storages.Field("is_sys_disk_store")))
 	}
-	q = q.Filter(sqlchemy.NotEquals(hosts.Field("host_type"), HOST_TYPE_BAREMETAL))
+	q = q.Filter(sqlchemy.NotEquals(hosts.Field("host_type"), api.HOST_TYPE_BAREMETAL))
 	q = q.Distinct()
 	rows, err := q.Rows()
 	if err != nil {
@@ -195,7 +218,7 @@ func getGPUs(region *SCloudregion, zone *SZone) []string {
 	return gpus
 }
 
-func getNetworkCount(region *SCloudregion, zone *SZone) int {
+func getNetworkCount(region *SCloudregion, zone *SZone) (int, error) {
 	wires := WireManager.Query().SubQuery()
 	networks := NetworkManager.Query().SubQuery()
 
@@ -209,9 +232,9 @@ func getNetworkCount(region *SCloudregion, zone *SZone) int {
 		q = q.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
 		q = q.Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id))
 	}
-	q = q.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+	q = q.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 
-	return q.Count()
+	return q.CountWithError()
 }
 
 func isSchedPolicySupported(region *SCloudregion, zone *SZone) bool {
@@ -259,7 +282,11 @@ func getMaxDataDiskCount(region *SCloudregion, zone *SZone) int {
 }
 
 func isUsable(region *SCloudregion, zone *SZone) bool {
-	if getNetworkCount(region, zone) > 0 {
+	cnt, err := getNetworkCount(region, zone)
+	if err != nil {
+		return false
+	}
+	if cnt > 0 {
 		return true
 	} else {
 		return false

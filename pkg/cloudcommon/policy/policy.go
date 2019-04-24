@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package policy
 
 import (
@@ -231,17 +245,37 @@ func (manager *SPolicyManager) allowWithoutCache(isAdmin bool, userCred mcclient
 		log.Warningf("no policies fetched")
 		return rbacutils.Deny
 	}
+	findMatchRule := false
+	findMatchPolicy := false
 	currentPriv := rbacutils.Deny
 	for _, p := range policies {
-		result := p.Allow(userCred, service, resource, action, extra...)
-		if currentPriv.StricterThan(result) {
-			currentPriv = result
+		if !p.Match(userCred) {
+			continue
+		}
+		findMatchPolicy = true
+		rule := p.GetMatchRule(service, resource, action, extra...)
+		if rule != nil {
+			findMatchRule = true
+			if currentPriv.StricterThan(rule.Result) {
+				currentPriv = rule.Result
+			}
+		}
+	}
+	if !findMatchPolicy {
+		currentPriv = rbacutils.Deny
+	} else if !findMatchRule {
+		if isAdmin {
+			currentPriv = rbacutils.AdminAllow
+		} else {
+			currentPriv = rbacutils.OwnerAllow
 		}
 	}
 	if !isAdmin && manager.defaultPolicy != nil {
-		result := manager.defaultPolicy.Allow(userCred, service, resource, action, extra...)
-		if currentPriv.StricterThan(result) {
-			currentPriv = result
+		rule := manager.defaultPolicy.GetMatchRule(service, resource, action, extra...)
+		if rule != nil {
+			if currentPriv.StricterThan(rule.Result) {
+				currentPriv = rule.Result
+			}
 		}
 	}
 	if consts.IsRbacDebug() {

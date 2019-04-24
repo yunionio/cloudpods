@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -40,8 +54,8 @@ func init() {
 type SLoadbalancerBackend struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
 
-	CloudregionId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	BackendId      string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	BackendType    string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
@@ -51,11 +65,11 @@ type SLoadbalancerBackend struct {
 	Port           int    `nullable:"false" list:"user" create:"required" update:"user"`
 }
 
-func (man *SLoadbalancerBackendManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
-	subs := []SLoadbalancerBackend{}
-	db.FetchModelObjects(man, q, &subs)
-	for _, sub := range subs {
-		sub.DoPendingDelete(ctx, userCred)
+func (man *SLoadbalancerBackendManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
+	lbbs := []SLoadbalancerBackend{}
+	db.FetchModelObjects(man, q, &lbbs)
+	for _, lbb := range lbbs {
+		lbb.DoPendingDelete(ctx, userCred)
 	}
 }
 
@@ -214,6 +228,24 @@ func (lbb *SLoadbalancerBackend) PostCreate(ctx context.Context, userCred mcclie
 	}
 }
 
+func (lbb *SLoadbalancerBackend) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lbb.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	providerInfo := lbb.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if providerInfo != nil {
+		extra.Update(providerInfo)
+	}
+	regionInfo := lbb.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if regionInfo != nil {
+		extra.Update(regionInfo)
+	}
+	return extra
+}
+
+func (lbb *SLoadbalancerBackend) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra := lbb.GetCustomizeColumns(ctx, userCred, query)
+	return extra, nil
+}
+
 func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerBackendCreateTask", lbb, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
@@ -254,7 +286,7 @@ func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendDeleteTask(ctx context.
 func (man *SLoadbalancerBackendManager) getLoadbalancerBackendsByLoadbalancerBackendgroup(loadbalancerBackendgroup *SLoadbalancerBackendGroup) ([]SLoadbalancerBackend, error) {
 	loadbalancerBackends := []SLoadbalancerBackend{}
 	q := man.Query().Equals("backend_group_id", loadbalancerBackendgroup.Id)
-	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
+	q = q.IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &loadbalancerBackends); err != nil {
 		return nil, err
 	}
@@ -359,7 +391,8 @@ func (lbb *SLoadbalancerBackend) syncRemoveCloudLoadbalancerBackend(ctx context.
 	if err != nil { // cannot delete
 		err = lbb.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lbb.MarkPendingDelete(userCred)
+		// err = lbb.MarkPendingDelete(userCred)
+		err = lbb.DoPendingDelete(ctx, userCred)
 	}
 	return err
 }
@@ -388,13 +421,17 @@ func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx cont
 	lbb.CloudregionId = loadbalancerBackendgroup.CloudregionId
 	lbb.ManagerId = loadbalancerBackendgroup.ManagerId
 
-	lbb.Name = db.GenerateName(man, projectId, extLoadbalancerBackend.GetName())
+	newName, err := db.GenerateName(man, projectId, extLoadbalancerBackend.GetName())
+	if err != nil {
+		return nil, err
+	}
+	lbb.Name = newName
 
 	if err := lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend); err != nil {
 		return nil, err
 	}
 
-	err := man.TableSpec().Insert(lbb)
+	err = man.TableSpec().Insert(lbb)
 
 	if err != nil {
 		return nil, err

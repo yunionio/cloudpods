@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package db
 
 import (
@@ -86,6 +100,37 @@ func (m *SMetadata) MarkDelete() error {
 
 func (m *SMetadata) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return DeleteModel(ctx, userCred, m)
+}
+
+func (manager *SMetadataManager) AllowGetPropertyTagValuePairs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (manager *SMetadataManager) GetPropertyTagValuePairs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	q := manager.Query("key", "value").Distinct()
+	sql, err := manager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	result := &struct {
+		Total int
+		Data  []struct {
+			Key   string
+			Value string
+		} `json:"data,allowempty"`
+	}{
+		Total: 0,
+		Data: []struct {
+			Key   string
+			Value string
+		}{},
+	}
+	err = sql.All(&result.Data)
+	if err != nil {
+		return nil, err
+	}
+	result.Total = len(result.Data)
+	return jsonutils.Marshal(result), nil
 }
 
 func (manager *SMetadataManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -334,11 +379,39 @@ func (manager *SMetadataManager) GetAll(obj IModel, keys []string, userCred mccl
 }
 
 func (manager *SMetadataManager) IsSystemAdminKey(key string) bool {
+	return IsMetadataKeySystemAdmin(key)
+}
+
+func IsMetadataKeySystemAdmin(key string) bool {
 	return strings.HasPrefix(key, SYSTEM_ADMIN_PREFIX)
+}
+
+func IsMetadataKeySysTag(key string) bool {
+	return strings.HasPrefix(key, SYS_TAG_PREFIX)
 }
 
 func (manager *SMetadataManager) GetSysadminKey(key string) string {
 	return fmt.Sprintf("%s%s", SYSTEM_ADMIN_PREFIX, key)
+}
+
+func IsMetadataKeyVisiable(key string) bool {
+	return !(IsMetadataKeySysTag(key) || IsMetadataKeySystemAdmin(key))
+}
+
+func GetVisiableMetadata(model IMetadataModel, userCred mcclient.TokenCredential) (map[string]string, error) {
+	metaData, err := model.GetAllMetadata(userCred)
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range model.GetMetadataHideKeys() {
+		delete(metaData, key)
+	}
+	for key := range metaData {
+		if !IsMetadataKeyVisiable(key) {
+			delete(metaData, key)
+		}
+	}
+	return metaData, nil
 }
 
 /*

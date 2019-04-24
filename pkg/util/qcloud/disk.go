@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package qcloud
 
 import (
@@ -12,8 +26,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type Placement struct {
@@ -74,7 +89,7 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	// priceKey := fmt.Sprintf("%s::%s::%s", self.RegionId, self.Category, self.Type)
 	// data.Add(jsonutils.NewString(priceKey), "price_key")
 
-	data.Add(jsonutils.NewString(models.HYPERVISOR_QCLOUD), "hypervisor")
+	data.Add(jsonutils.NewString(api.HYPERVISOR_QCLOUD), "hypervisor")
 	return data
 }
 
@@ -202,9 +217,9 @@ func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 func (self *SDisk) GetStatus() string {
 	switch self.DiskState {
 	case "ATTACHING", "DETACHING", "EXPANDING", "ROLLBACKING":
-		return models.DISK_ALLOCATING
+		return api.DISK_ALLOCATING
 	default:
-		return models.DISK_READY
+		return api.DISK_READY
 	}
 }
 
@@ -228,7 +243,7 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (clou
 	}
 	if total == 1 {
 		snapshot := &snapshots[0]
-		err := cloudprovider.WaitStatus(snapshot, models.SNAPSHOT_READY, 15*time.Second, 3600*time.Second)
+		err := cloudprovider.WaitStatus(snapshot, api.SNAPSHOT_READY, 15*time.Second, 3600*time.Second)
 		if err != nil {
 			return nil, err
 		}
@@ -240,11 +255,11 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (clou
 func (self *SDisk) GetDiskType() string {
 	switch self.DiskUsage {
 	case "SYSTEM_DISK":
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	case "DATA_DISK":
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	default:
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	}
 }
 
@@ -271,11 +286,11 @@ func (self *SDisk) GetMountpoint() string {
 func (self *SDisk) GetBillingType() string {
 	switch self.DiskChargeType {
 	case "PREPAID":
-		return models.BILLING_TYPE_PREPAID
+		return billing_api.BILLING_TYPE_PREPAID
 	case "POSTPAID_BY_HOUR":
-		return models.BILLING_TYPE_POSTPAID
+		return billing_api.BILLING_TYPE_POSTPAID
 	default:
-		return models.BILLING_TYPE_PREPAID
+		return billing_api.BILLING_TYPE_PREPAID
 	}
 }
 
@@ -289,6 +304,10 @@ func (self *SDisk) GetDiskSizeMB() int {
 
 func (self *SDisk) GetIsAutoDelete() bool {
 	return self.DeleteWithInstance
+}
+
+func (self *SDisk) GetCreatedAt() time.Time {
+	return self.CreateTime
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {

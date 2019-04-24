@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -7,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -32,13 +47,13 @@ func (self *GuestSaveImageTask) OnInit(ctx context.Context, obj db.IStandaloneMo
 }
 
 func (self *GuestSaveImageTask) OnStopServerComplete(ctx context.Context, guest *models.SGuest, body jsonutils.JSONObject) {
-	if guest.Status != models.VM_READY {
-		resion := fmt.Sprintf("Server %s not in ready status", guest.Name)
-		log.Errorf(resion)
-		self.SetStageFailed(ctx, resion)
+	if guest.Status != api.VM_READY {
+		reason := fmt.Sprintf("Server %s not in ready status", guest.Name)
+		log.Errorf(reason)
+		self.SetStageFailed(ctx, reason)
 	} else {
 		self.SetStage("on_save_root_image_complete", nil)
-		guest.SetStatus(self.GetUserCred(), models.VM_START_SAVE_DISK, "")
+		guest.SetStatus(self.GetUserCred(), api.VM_START_SAVE_DISK, "")
 		disks := guest.CategorizeDisks()
 		if err := disks.Root.StartDiskSaveTask(ctx, self.GetUserCred(), self.GetParams(), self.GetTaskId()); err != nil {
 			self.SetStageFailed(ctx, err.Error())
@@ -57,7 +72,7 @@ func (self *GuestSaveImageTask) OnSaveRootImageComplete(ctx context.Context, gue
 
 func (self *GuestSaveImageTask) OnSaveRootImageCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	log.Errorf("Guest save root image failed: %s", data.PrettyString())
-	guest.SetStatus(self.GetUserCred(), models.VM_SAVE_DISK_FAILED, data.PrettyString())
+	guest.SetStatus(self.GetUserCred(), api.VM_SAVE_DISK_FAILED, data.PrettyString())
 	self.SetStageFailed(ctx, data.PrettyString())
 }
 

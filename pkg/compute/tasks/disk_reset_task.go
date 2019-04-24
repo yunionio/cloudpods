@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -7,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -40,13 +55,13 @@ func (self *DiskResetTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 	disk := obj.(*models.SDisk)
 	storage := disk.GetStorage()
 	if storage == nil {
-		disk.SetStatus(self.UserCred, models.DISK_READY, "")
+		disk.SetStatus(self.UserCred, api.DISK_READY, "")
 		self.TaskFailed(ctx, disk, "Disk storage not found")
 		return
 	}
 	host := storage.GetMasterHost()
 	if host == nil {
-		disk.SetStatus(self.UserCred, models.DISK_READY, "")
+		disk.SetStatus(self.UserCred, api.DISK_READY, "")
 		self.TaskFailed(ctx, disk, "Storage master host not found")
 		return
 	}
@@ -56,7 +71,7 @@ func (self *DiskResetTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 func (self *DiskResetTask) RequestResetDisk(ctx context.Context, disk *models.SDisk, host *models.SHost) {
 	snapshotId, err := self.Params.GetString("snapshot_id")
 	if err != nil {
-		disk.SetStatus(self.UserCred, models.DISK_READY, "")
+		disk.SetStatus(self.UserCred, api.DISK_READY, "")
 		self.TaskFailed(ctx, disk, fmt.Sprintf("Get snapshotId error %s", err.Error()))
 		return
 	}
@@ -76,7 +91,7 @@ func (self *DiskResetTask) RequestResetDisk(ctx context.Context, disk *models.SD
 	self.SetStage("OnRequestResetDisk", nil)
 	err = host.GetHostDriver().RequestResetDisk(ctx, host, disk, params, self)
 	if err != nil {
-		disk.SetStatus(self.UserCred, models.DISK_READY, "")
+		disk.SetStatus(self.UserCred, api.DISK_READY, "")
 		self.TaskFailed(ctx, disk, err.Error())
 	}
 }
@@ -110,13 +125,13 @@ func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.
 		self.SetStage("OnStartGuest", nil)
 		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
 	} else {
-		disk.SetStatus(self.UserCred, models.DISK_READY, "")
+		disk.SetStatus(self.UserCred, api.DISK_READY, "")
 		self.TaskCompleted(ctx, disk, nil)
 	}
 }
 
 func (self *DiskResetTask) OnStartGuest(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	disk.SetStatus(self.UserCred, models.DISK_READY, "")
+	disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	self.TaskCompleted(ctx, disk, nil)
 }
 

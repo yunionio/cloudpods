@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package hostdrivers
 
 import (
@@ -61,6 +75,8 @@ func (self *SBaseHostDriver) PrepareConvert(host *models.SHost, image, raid stri
 	} else {
 		params.Set("name", jsonutils.NewString(host.Name))
 	}
+	params.Set("vcpu_count", jsonutils.NewInt(int64(host.CpuCount)))
+	params.Set("vmem_size", jsonutils.NewInt(int64(host.MemSize)))
 	params.Set("auto_start", jsonutils.NewBool(true))
 	params.Set("is_system", jsonutils.NewBool(true))
 	params.Set("prefer_baremetal", jsonutils.NewString(host.Id))
@@ -77,7 +93,7 @@ func (self *SBaseHostDriver) FinishUnconvert(ctx context.Context, userCred mccli
 	if bss != nil {
 		bs := bss.GetStorage()
 		if bs != nil {
-			bs.SetStatus(userCred, models.STORAGE_ONLINE, "")
+			bs.SetStatus(userCred, api.STORAGE_ONLINE, "")
 		} else {
 			log.Errorf("ERROR: baremetal storage is None???")
 		}
@@ -95,8 +111,8 @@ func (self *SBaseHostDriver) FinishUnconvert(ctx context.Context, userCred mccli
 	db.Update(host, func() error {
 		host.AccessIp = adminNic.IpAddr
 		host.Enabled = true
-		host.HostType = models.HOST_TYPE_BAREMETAL
-		host.HostStatus = models.HOST_OFFLINE
+		host.HostType = api.HOST_TYPE_BAREMETAL
+		host.HostStatus = api.HOST_OFFLINE
 		host.ManagerUri = ""
 		host.Version = ""
 		host.MemReserved = 0
@@ -127,13 +143,13 @@ func (self *SBaseHostDriver) FinishConvert(userCred mcclient.TokenCredential, ho
 		})
 	}
 	bs := host.GetBaremetalstorage().GetStorage()
-	bs.SetStatus(userCred, models.STORAGE_OFFLINE, "")
+	bs.SetStatus(userCred, api.STORAGE_OFFLINE, "")
 	db.Update(host, func() error {
 		host.CpuReserved = 0
 		host.MemReserved = 0
-		host.AccessIp = guest.GetRealIps()[0]
+		host.AccessIp = guest.GetRealIPs()[0]
 		host.Enabled = false
-		host.HostStatus = models.HOST_OFFLINE
+		host.HostStatus = api.HOST_OFFLINE
 		host.HostType = hostType
 		host.IsBaremetal = true
 		return nil

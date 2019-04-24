@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package modules
 
 import (
@@ -5,11 +19,13 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/requests"
@@ -116,7 +132,7 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 	// 拼接、编译、签名 requests here。
 	err := self.buildRequestWithSigner(request, self.signer)
 	if err != nil {
-		return nil, nil, fmt.Errorf(err.Error())
+		return nil, nil, err
 	}
 	header := http.Header{}
 	for k, v := range request.GetHeaders() {
@@ -153,6 +169,8 @@ func (self *SBaseManager) jsonRequest(request requests.IRequest) (http.Header, j
 			if err.Code == 499 && retry > 0 && request.GetMethod() == "GET" {
 				retry -= 1
 				time.Sleep(time.Second * time.Duration(MAX_RETRY-retry))
+			} else if err.Code == 404 || strings.Index(err.Details, "could not be found") > 0 {
+				return h, b, cloudprovider.ErrNotFound
 			} else {
 				return h, b, e
 			}

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -35,7 +49,7 @@ type IGuestDriver interface {
 
 	ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 
-	ValidateCreateHostData(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error)
+	ValidateCreateDataOnHost(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error)
 
 	PrepareDiskRaidConfig(userCred mcclient.TokenCredential, host *SHost, params []*api.BaremetalDiskConfig) error
 
@@ -45,7 +59,7 @@ type IGuestDriver interface {
 	GetRandomNetworkTypes() []string
 
 	GetStorageTypes() []string
-	ChooseHostStorage(host *SHost, backend string) *SStorage
+	ChooseHostStorage(host *SHost, backend string, storageIds []string) *SStorage
 
 	StartGuestCreateTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, pendingUsage quotas.IQuota, parentTaskId string) error
 
@@ -76,6 +90,8 @@ type IGuestDriver interface {
 	StartGuestSyncstatusTask(guest *SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error
 
 	RequestSyncConfigOnHost(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask) error
+	RequestSyncSecgroupsOnHost(ctx context.Context, guest *SGuest, host *SHost, task taskman.ITask) error
+	GetGuestSecgroupVpcid(guest *SGuest) (string, error)
 
 	RequestSyncstatusOnHost(ctx context.Context, guest *SGuest, host *SHost, userCred mcclient.TokenCredential) (jsonutils.JSONObject, error)
 
@@ -137,6 +153,7 @@ type IGuestDriver interface {
 	NeedStopForChangeSpec(guest *SGuest) bool
 
 	OnGuestChangeCpuMemFailed(ctx context.Context, guest *SGuest, data *jsonutils.JSONDict, task taskman.ITask) error
+	IsSupportGuestClone() bool
 }
 
 var guestDrivers map[string]IGuestDriver

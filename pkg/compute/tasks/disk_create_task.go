@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -7,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -50,7 +65,7 @@ func (self *DiskCreateTask) OnStorageCacheImageComplete(ctx context.Context, dis
 	storage := disk.GetStorage()
 	host := storage.GetMasterHost()
 	db.OpsLog.LogEvent(disk, db.ACT_ALLOCATING, disk.GetShortDesc(ctx), self.GetUserCred())
-	disk.SetStatus(self.GetUserCred(), models.DISK_STARTALLOC, "")
+	disk.SetStatus(self.GetUserCred(), api.DISK_STARTALLOC, "")
 	if len(disk.BackupStorageId) > 0 {
 		self.SetStage("OnMasterStorageCreateDiskComplete", nil)
 	} else {
@@ -67,7 +82,7 @@ func (self *DiskCreateTask) OnMasterStorageCreateDiskComplete(ctx context.Contex
 	storage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
 	host := storage.GetMasterHost()
 	db.OpsLog.LogEvent(disk, db.ACT_BACKUP_ALLOCATING, disk.GetShortDesc(ctx), self.GetUserCred())
-	disk.SetStatus(self.UserCred, models.DISK_BACKUP_STARTALLOC, "")
+	disk.SetStatus(self.UserCred, api.DISK_BACKUP_STARTALLOC, "")
 	self.SetStage("OnDiskReady", nil)
 	if err := disk.StartAllocate(ctx, host, storage, self.GetTaskId(), self.GetUserCred(), rebuild, snapshot, self); err != nil {
 		self.OnBackupAllocateFailed(ctx, disk, jsonutils.NewString(fmt.Sprintf("Backup disk alloctate failed: %s", err.Error())))
@@ -75,12 +90,12 @@ func (self *DiskCreateTask) OnMasterStorageCreateDiskComplete(ctx context.Contex
 }
 
 func (self *DiskCreateTask) OnBackupAllocateFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	disk.SetStatus(self.UserCred, models.DISK_BACKUP_ALLOC_FAILED, data.String())
+	disk.SetStatus(self.UserCred, api.DISK_BACKUP_ALLOC_FAILED, data.String())
 	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *DiskCreateTask) OnStartAllocateFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	disk.SetStatus(self.UserCred, models.DISK_ALLOC_FAILED, data.String())
+	disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, data.String())
 	self.SetStageFailed(ctx, data.String())
 }
 
@@ -95,14 +110,14 @@ func (self *DiskCreateTask) OnDiskReady(ctx context.Context, disk *models.SDisk,
 		log.Errorf("update disk info error: %v", err)
 	}
 
-	disk.SetStatus(self.UserCred, models.DISK_READY, "")
+	disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	self.CleanHostSchedCache(disk)
 	db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *DiskCreateTask) OnDiskReadyFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	disk.SetStatus(self.UserCred, models.DISK_ALLOC_FAILED, data.String())
+	disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, data.String())
 	self.SetStageFailed(ctx, data.String())
 }
 
@@ -126,7 +141,7 @@ func (self *DiskCreateBackupTask) OnInit(ctx context.Context, obj db.IStandalone
 func (self *DiskCreateBackupTask) OnDiskReady(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	bkStorage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
 	bkStorage.ClearSchedDescCache()
-	disk.SetStatus(self.UserCred, models.DISK_READY, "")
+	disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	db.OpsLog.LogEvent(disk, db.ACT_BACKUP_ALLOCATE, disk.GetShortDesc(ctx), self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }

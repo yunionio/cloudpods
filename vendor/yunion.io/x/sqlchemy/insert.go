@@ -41,7 +41,12 @@ func (t *STableSpec) insertSqlPrep(dataFields reflectutils.SStructFieldValueSet)
 		if ok && (dtc.IsCreatedAt || dtc.IsUpdatedAt) {
 			createdAtFields = append(createdAtFields, k)
 			names = append(names, fmt.Sprintf("`%s`", k))
-			format = append(format, "UTC_TIMESTAMP()")
+			if c.IsZero(ov) {
+				format = append(format, "UTC_TIMESTAMP()")
+			} else {
+				values = append(values, ov)
+				format = append(format, "?")
+			}
 		} else if c.IsSupportDefault() && len(c.Default()) > 0 && !gotypes.IsNil(ov) && c.IsZero(ov) { // empty text value
 			val := c.ConvertFromString(c.Default())
 			values = append(values, val)

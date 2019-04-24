@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package options
 
 import (
@@ -56,10 +70,10 @@ func (entries AclEntries) String() string {
 }
 
 type LoadbalancerAclCreateOptions struct {
-	NAME      string
-	AclEntry  []string `help:"acl entry with cidr and comment separated by #, e.g. 10.9.0.0/16#no comment" json:"-"`
-	ManagerId string   `json:"manager_id"`
-	Region    string   `json:"cloudregion"`
+	NAME     string
+	AclEntry []string `help:"acl entry with cidr and comment separated by #, e.g. 10.9.0.0/16#no comment" json:"-"`
+	Manager  string   `json:"manager_id"`
+	Region   string   `json:"cloudregion"`
 }
 
 type LoadbalancerAclGetOptions struct {

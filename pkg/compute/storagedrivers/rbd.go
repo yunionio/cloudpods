@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package storagedrivers
 
 import (
@@ -8,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -24,7 +39,7 @@ func init() {
 }
 
 func (self *SRbdStorageDriver) GetStorageType() string {
-	return models.STORAGE_RBD
+	return api.STORAGE_RBD
 }
 
 func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -47,7 +62,7 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 	}
 
 	storages := []models.SStorage{}
-	q := models.StorageManager.Query().Equals("storage_type", models.STORAGE_RBD)
+	q := models.StorageManager.Query().Equals("storage_type", api.STORAGE_RBD)
 	if err := db.FetchModelObjects(models.StorageManager, q, &storages); err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -69,7 +84,7 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 
 func (self *SRbdStorageDriver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, data jsonutils.JSONObject) {
 	storages := []models.SStorage{}
-	q := models.StorageManager.Query().Equals("storage_type", models.STORAGE_RBD)
+	q := models.StorageManager.Query().Equals("storage_type", api.STORAGE_RBD)
 	if err := db.FetchModelObjects(models.StorageManager, q, &storages); err != nil {
 		log.Errorf("fetch storages error: %v", err)
 		return

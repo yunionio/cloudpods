@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package baremetal
 
 import (
@@ -677,15 +691,24 @@ func (b *SBaremetalInstance) GetNotifyUrl() string {
 }
 
 func (b *SBaremetalInstance) GetTFTPResponse() string {
-	return fmt.Sprintf(
-		`default start
+	resp := `default start
 serial 1 115200
+
 label start
     menu label ^Start
     menu default
-    kernel kernel
-    append initrd=initramfs token=%s url=%s`,
-		auth.GetTokenString(), b.GetNotifyUrl())
+`
+
+	if b.NeedPXEBoot() {
+		resp += "    kernel kernel\n"
+		resp += fmt.Sprintf("    append initrd=initramfs token=%s url=%s",
+			auth.GetTokenString(), b.GetNotifyUrl())
+	} else {
+		resp += "    COM32 chain.c32\n"
+		resp += "    APPEND hd0 0\n"
+	}
+	log.Infof("%s", resp)
+	return resp
 }
 
 func (b *SBaremetalInstance) GetTaskQueue() *tasks.TaskQueue {
@@ -920,6 +943,7 @@ func (b *SBaremetalInstance) DoPXEBoot() error {
 	return fmt.Errorf("Baremetal %s ipmitool is nil", b.GetId())
 }
 
+/*
 func (b *SBaremetalInstance) DoDiskBoot() error {
 	log.Infof("Do DISK Boot ........., wait")
 	b.ClearSSHConfig()
@@ -929,6 +953,7 @@ func (b *SBaremetalInstance) DoDiskBoot() error {
 	}
 	return fmt.Errorf("Baremetal %s ipmitool is nil", b.GetId())
 }
+*/
 
 func (b *SBaremetalInstance) GetPowerStatus() (string, error) {
 	ipmiCli := b.GetIPMITool()
@@ -1005,7 +1030,7 @@ func (b *SBaremetalInstance) StartBaremetalResetBMCTask(userCred mcclient.TokenC
 }
 
 func (b *SBaremetalInstance) DelayedServerReset(_ jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := b.DoDiskBoot()
+	err := b.DoPXEBoot()
 	return nil, err
 }
 

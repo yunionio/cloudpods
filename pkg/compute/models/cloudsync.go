@@ -1,19 +1,36 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
 	"context"
 	"fmt"
 	"time"
-
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type SSyncableBaseResource struct {
@@ -23,7 +40,7 @@ type SSyncableBaseResource struct {
 }
 
 func (self *SSyncableBaseResource) CanSync() bool {
-	if self.SyncStatus == CLOUD_PROVIDER_SYNC_STATUS_QUEUED || self.SyncStatus == CLOUD_PROVIDER_SYNC_STATUS_SYNCING {
+	if self.SyncStatus == compute.CLOUD_PROVIDER_SYNC_STATUS_QUEUED || self.SyncStatus == compute.CLOUD_PROVIDER_SYNC_STATUS_SYNCING {
 		if self.LastSync.IsZero() || time.Now().Sub(self.LastSync) > 1800*time.Second {
 			return true
 		} else {
@@ -37,6 +54,7 @@ func (self *SSyncableBaseResource) CanSync() bool {
 type sStoragecacheSyncPair struct {
 	local  *SStoragecache
 	remote cloudprovider.ICloudStoragecache
+	isNew  bool
 }
 
 func (pair *sStoragecacheSyncPair) syncCloudImages(ctx context.Context, userCred mcclient.TokenCredential) compare.SyncResult {
@@ -44,7 +62,7 @@ func (pair *sStoragecacheSyncPair) syncCloudImages(ctx context.Context, userCred
 }
 
 func isInCache(pairs []sStoragecacheSyncPair, localCacheId string) bool {
-	log.Debugf("isInCache %d %s", len(pairs), localCacheId)
+	// log.Debugf("isInCache %d %s", len(pairs), localCacheId)
 	for i := range pairs {
 		if pairs[i].local.Id == localCacheId {
 			return true
@@ -73,22 +91,38 @@ func syncRegionZones(ctx context.Context, userCred mcclient.TokenCredential, syn
 	return localZones, remoteZones, nil
 }
 
-func syncRegionSkus(localRegion *SCloudregion) {
+func syncRegionSkus(ctx context.Context, localRegion *SCloudregion) {
 	if localRegion == nil {
-		log.Debugf("local region is nil skipped.")
+		log.Debugf("local region is nil, skipp...")
 		return
 	}
 
 	regionId := localRegion.GetId()
-	if len(regionId) > 0 && ServerSkuManager.GetSkuCountByRegion(regionId) == 0 {
-		// 提前同步instance type.如果同步失败可能导致vm 内存显示为0
-		if err := syncSkusByRegion(localRegion); err != nil {
-			msg := fmt.Sprintf("Get Skus for region %s failed %s", localRegion.GetName(), err)
-			log.Errorf(msg)
-			// 暂时不终止同步
-			// logSyncFailed(provider, task, msg)
-			return
-		}
+	if len(regionId) == 0 {
+		log.Debugf("local region Id is empty, skip...")
+		return
+	}
+
+	cnt, err := ServerSkuManager.GetSkuCountByRegion(regionId)
+	if err != nil {
+		log.Errorf("GetSkuCountByRegion fail %s", err)
+		return
+	}
+	if cnt > 0 {
+		return
+	}
+	// 提前同步instance type.如果同步失败可能导致vm 内存显示为0
+	if err = syncSkusByRegion(localRegion); err != nil {
+		msg := fmt.Sprintf("Get Skus for region %s failed %s", localRegion.GetName(), err)
+		log.Errorln(msg)
+		// 暂时不终止同步
+		// logSyncFailed(provider, task, msg)
+		return
+	}
+
+	_, err = modules.SchedManager.SyncSku(auth.GetAdminSession(ctx, options.Options.Region, ""), false)
+	if err != nil {
+		log.Errorf("SchedManager SyncSku %s", err)
 	}
 }
 
@@ -176,42 +210,8 @@ func syncVpcSecGroup(ctx context.Context, userCred mcclient.TokenCredential, syn
 		return
 	}
 
-	localSecgroups, removeSecgroups, result := SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, secgroups, localVpc)
+	_, _, result := SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, secgroups, localVpc)
 	syncResults.Add(SecurityGroupCacheManager, result)
-
-	msg := result.Result()
-	notes := fmt.Sprintf("SyncSecurityGroup for VPC %s result: %s", localVpc.Name, msg)
-	log.Infof(notes)
-	if result.IsError() {
-		return
-	}
-	for i := 0; i < len(localSecgroups); i++ {
-		func() {
-			lockman.LockObject(ctx, &localSecgroups[i])
-			defer lockman.ReleaseObject(ctx, &localSecgroups[i])
-
-			syncSecurityGroupRules(ctx, userCred, syncResults, &localSecgroups[i], removeSecgroups[i])
-		}()
-	}
-}
-
-func syncSecurityGroupRules(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localSecgroup *SSecurityGroup, remoteSecgroup cloudprovider.ICloudSecurityGroup) {
-	rules, err := remoteSecgroup.GetRules()
-	if err != nil {
-		msg := fmt.Sprintf("Get SecurityGroup Rules for secgroup %s failed %s", localSecgroup.Name, err)
-		log.Errorf(msg)
-		return
-	}
-
-	//可以同步规则的安全组都是本地刚新建的,所以安全组规则只需要添加就可以了
-	result := SecurityGroupRuleManager.SyncRules(ctx, userCred, localSecgroup, rules)
-	syncResults.Add(SecurityGroupRuleManager, result)
-	msg := result.Result()
-	notes := fmt.Sprintf("SyncSecurityGroupRule for Secgroup %s result: %s", localSecgroup.Name, msg)
-	log.Infof(notes)
-	if result.IsError() {
-		return
-	}
 }
 
 func syncVpcRouteTables(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, syncRange *SSyncRange) {
@@ -328,7 +328,7 @@ func syncZoneStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 
 func syncStorageCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localStorage *SStorage, remoteStorage cloudprovider.ICloudStorage) (cachePair sStoragecacheSyncPair) {
 	remoteCache := remoteStorage.GetIStoragecache()
-	localCache, err := StoragecacheManager.SyncWithCloudStoragecache(ctx, userCred, remoteCache)
+	localCache, isNew, err := StoragecacheManager.SyncWithCloudStoragecache(ctx, userCred, remoteCache)
 	if err != nil {
 		msg := fmt.Sprintf("SyncWithCloudStoragecache for storage %s failed %s", remoteStorage.GetName(), err)
 		log.Errorf(msg)
@@ -341,6 +341,7 @@ func syncStorageCaches(ctx context.Context, userCred mcclient.TokenCredential, p
 	}
 	cachePair.local = localCache
 	cachePair.remote = remoteCache
+	cachePair.isNew = isNew
 	return
 }
 
@@ -393,6 +394,7 @@ func syncZoneHosts(ctx context.Context, userCred mcclient.TokenCredential, syncR
 			lockman.LockObject(ctx, &localHosts[i])
 			defer lockman.ReleaseObject(ctx, &localHosts[i])
 
+			syncMetadata(ctx, userCred, &localHosts[i], remoteHosts[i])
 			newCachePairs = syncHostStorages(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i], storageCachePairs)
 			syncHostWires(ctx, userCred, syncResults, provider, &localHosts[i], remoteHosts[i])
 			syncHostVMs(ctx, userCred, syncResults, provider, driver, &localHosts[i], remoteHosts[i], syncRange)
@@ -423,6 +425,7 @@ func syncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 
 	newCacheIds := make([]sStoragecacheSyncPair, 0)
 	for i := 0; i < len(localStorages); i += 1 {
+		syncMetadata(ctx, userCred, &localStorages[i], remoteStorages[i])
 		if !isInCache(storageCachePairs, localStorages[i].StoragecacheId) && !isInCache(newCacheIds, localStorages[i].StoragecacheId) {
 			cachePair := syncStorageCaches(ctx, userCred, provider, &localStorages[i], remoteStorages[i])
 			if cachePair.remote != nil && cachePair.local != nil {
@@ -463,7 +466,7 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 		log.Errorf(msg)
 		return
 	}
-	localVMs, remoteVMs, result := localHost.SyncHostVMs(ctx, userCred, driver, vms, provider.ProjectId)
+	syncVMPairs, result := localHost.SyncHostVMs(ctx, userCred, driver, vms, provider.ProjectId)
 
 	syncResults.Add(GuestManager, result)
 
@@ -473,17 +476,22 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 	if result.IsError() {
 		return
 	}
+
 	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
-	for i := 0; i < len(localVMs); i += 1 {
+	for i := 0; i < len(syncVMPairs); i += 1 {
+		if !syncVMPairs[i].IsNew && !syncRange.DeepSync {
+			continue
+		}
 		func() {
-			lockman.LockObject(ctx, &localVMs[i])
-			defer lockman.ReleaseObject(ctx, &localVMs[i])
+			lockman.LockObject(ctx, syncVMPairs[i].Local)
+			defer lockman.ReleaseObject(ctx, syncVMPairs[i].Local)
 
-			syncVMNics(ctx, userCred, provider, localHost, &localVMs[i], remoteVMs[i])
-			syncVMDisks(ctx, userCred, provider, driver, localHost, &localVMs[i], remoteVMs[i], syncRange)
-			syncVMEip(ctx, userCred, provider, &localVMs[i], remoteVMs[i])
-			syncVMSecgroups(ctx, userCred, provider, &localVMs[i], remoteVMs[i])
+			syncMetadata(ctx, userCred, syncVMPairs[i].Local, syncVMPairs[i].Remote)
+			syncVMNics(ctx, userCred, provider, localHost, syncVMPairs[i].Local, syncVMPairs[i].Remote)
+			syncVMDisks(ctx, userCred, provider, driver, localHost, syncVMPairs[i].Local, syncVMPairs[i].Remote, syncRange)
+			syncVMEip(ctx, userCred, provider, syncVMPairs[i].Local, syncVMPairs[i].Remote)
+			syncVMSecgroups(ctx, userCred, provider, syncVMPairs[i].Local, syncVMPairs[i].Remote)
 
 		}()
 	}
@@ -542,7 +550,12 @@ func syncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider 
 }
 
 func syncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localVM *SGuest, remoteVM cloudprovider.ICloudVM) {
-	secgroupIds := remoteVM.GetSecurityGroupIds()
+	secgroupIds, err := remoteVM.GetSecurityGroupIds()
+	if err != nil {
+		msg := fmt.Sprintf("GetSecurityGroupIds for VM %s failed %s", remoteVM.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
 	result := localVM.SyncVMSecgroups(ctx, userCred, provider, secgroupIds)
 	msg := result.Result()
 	log.Infof("SyncVMSecgroups for VM %s result: %s", localVM.Name, msg)
@@ -568,6 +581,10 @@ func syncZoneSkusFromCloud(ctx context.Context, userCred mcclient.TokenCredentia
 	log.Infof("SyncCloudSkusByRegion for zone %s result: %s", localZone.Name, msg)
 	if result.IsError() {
 		return
+	}
+	s := auth.GetSession(ctx, userCred, "", "")
+	if _, err := modules.SchedManager.SyncSku(s, true); err != nil {
+		log.Errorf("Sync scheduler sku cache error: %v", err)
 	}
 }
 
@@ -770,7 +787,7 @@ func syncPublicCloudProviderInfo(
 	localZones, remoteZones, _ := syncRegionZones(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
 
 	if !driver.GetFactory().NeedSyncSkuFromCloud() {
-		syncRegionSkus(localRegion)
+		syncRegionSkus(ctx, localRegion)
 	}
 
 	// no need to lock public cloud region as cloud region for public cloud is readonly
@@ -808,12 +825,14 @@ func syncPublicCloudProviderInfo(
 
 	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 	for i := range storageCachePairs {
-		result := storageCachePairs[i].syncCloudImages(ctx, userCred)
+		if storageCachePairs[i].isNew || syncRange.DeepSync {
+			result := storageCachePairs[i].syncCloudImages(ctx, userCred)
 
-		syncResults.Add(StoragecachedimageManager, result)
+			syncResults.Add(StoragecachedimageManager, result)
 
-		msg := result.Result()
-		log.Infof("syncCloudImages result: %s", msg)
+			msg := result.Result()
+			log.Infof("syncCloudImages result: %s", msg)
+		}
 	}
 
 	return nil
@@ -872,10 +891,12 @@ func syncOnPremiseCloudProviderInfo(
 
 	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 	for i := range storageCachePairs {
-		result := storageCachePairs[i].syncCloudImages(ctx, userCred)
-		syncResults.Add(StoragecachedimageManager, result)
-		msg := result.Result()
-		log.Infof("syncCloudImages result: %s", msg)
+		if storageCachePairs[i].isNew || syncRange.DeepSync {
+			result := storageCachePairs[i].syncCloudImages(ctx, userCred)
+			syncResults.Add(StoragecachedimageManager, result)
+			msg := result.Result()
+			log.Infof("syncCloudImages result: %s", msg)
+		}
 	}
 	return nil
 }
@@ -905,7 +926,7 @@ func (manager *SCloudproviderregionManager) initAllRecords() {
 	recs := manager.fetchRecordsByQuery(manager.Query())
 	for i := range recs {
 		db.Update(&recs[i], func() error {
-			recs[i].SyncStatus = CLOUD_PROVIDER_SYNC_STATUS_IDLE
+			recs[i].SyncStatus = compute.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 			return nil
 		})
 	}
@@ -916,7 +937,7 @@ func SyncCloudProject(userCred mcclient.TokenCredential, model db.IVirtualModel,
 	if extProjectId := extModel.GetProjectId(); len(extProjectId) > 0 {
 		extProject, err := ExternalProjectManager.GetProject(extProjectId, managerId)
 		if err != nil {
-			log.Errorf(err.Error())
+			log.Errorln(err)
 		} else {
 			newId = extProject.ProjectId
 		}

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -20,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -46,6 +61,7 @@ func init() {
 				NetworkManager,
 			),
 		}
+		GuestnetworkManager.TableSpec().AddIndex(true, "ip_addr", "guest_id")
 	})
 }
 
@@ -96,7 +112,7 @@ func (gn *SGuestnetwork) AllowDeleteItem(ctx context.Context, userCred mcclient.
 
 const MAX_TRIES = 10
 
-func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string) string {
+func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string) (string, error) {
 	for tried := 0; tried < MAX_TRIES; tried += 1 {
 		var mac string
 		if len(suggestion) > 0 && regutils.MatchMacAddr(suggestion) {
@@ -115,11 +131,15 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 		if len(netId) > 0 {
 			q = q.Equals("network_id", netId)
 		}
-		if q.Count() == 0 {
-			return mac
+		cnt, err := q.CountWithError()
+		if err != nil {
+			return "", err
+		}
+		if cnt == 0 {
+			return mac, nil
 		}
 	}
-	return ""
+	return "", fmt.Errorf("maximal retry reached")
 }
 
 func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, network *SNetwork,
@@ -144,7 +164,10 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 	lockman.LockObject(ctx, network)
 	defer lockman.ReleaseObject(ctx, network)
 
-	macAddr := manager.GenerateMac(network.Id, mac)
+	macAddr, err := manager.GenerateMac(network.Id, mac)
+	if err != nil {
+		return nil, err
+	}
 	if len(macAddr) == 0 {
 		log.Errorf("Mac address generate fails")
 		return nil, fmt.Errorf("mac address generate fails")
@@ -174,7 +197,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 	}
 	gn.Ifname = ifName
 	gn.TeamWith = teamWithMac
-	err := manager.TableSpec().Insert(&gn)
+	err = manager.TableSpec().Insert(&gn)
 	if err != nil {
 		return nil, err
 	}
@@ -254,13 +277,31 @@ func (self *SGuestnetwork) getJsonDescAtBaremetal(host *SHost) jsonutils.JSONObj
 	return self.getGeneralJsonDesc(host, network, hostwire)
 }
 
+func getHostNetworkAdminWire(host *SHost, network *SNetwork) (*SHostwire, error) {
+	hostwires := host.getHostwiresOfId(network.WireId)
+	var hostWire *SHostwire
+	for i := 0; i < len(hostwires); i++ {
+		if netInter, _ := NetInterfaceManager.FetchByMac(hostwires[i].MacAddr); netInter != nil {
+			if netInter.NicType == api.NIC_TYPE_ADMIN {
+				hostWire = &hostwires[i]
+				break
+			}
+		}
+	}
+	if hostWire == nil {
+		return nil, fmt.Errorf("Host %s has no net interface on wire %s as guest network %s",
+			host.Name, network.WireId, api.NIC_TYPE_ADMIN)
+	}
+	return hostWire, nil
+}
+
 func (self *SGuestnetwork) getJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	network := self.GetNetwork()
-	hostwires := host.getHostwiresOfId(network.WireId)
-	if len(hostwires) > 1 {
-		log.Warningf("host attach to wire multiple times: %d", len(hostwires))
+	hostWire, err := getHostNetworkAdminWire(host, network)
+	if err != nil {
+		log.Errorln(err)
 	}
-	return self.getGeneralJsonDesc(host, network, &hostwires[0])
+	return self.getGeneralJsonDesc(host, network, hostWire)
 }
 
 func (self *SGuestnetwork) getGeneralJsonDesc(host *SHost, network *SNetwork, hostwire *SHostwire) jsonutils.JSONObject {
@@ -315,7 +356,7 @@ func (self *SGuestnetwork) getGeneralJsonDesc(host *SHost, network *SNetwork, ho
 	}
 
 	guest := self.getGuest()
-	if guest.GetHypervisor() != HYPERVISOR_KVM {
+	if guest.GetHypervisor() != api.HYPERVISOR_KVM {
 		desc.Add(jsonutils.JSONTrue, "manual")
 	}
 
@@ -349,14 +390,17 @@ func (self *SGuestnetwork) ValidateUpdateData(ctx context.Context, userCred mccl
 	if data.Contains("index") {
 		index, err := data.Int("index")
 		if err != nil {
-			return nil, fmt.Errorf("fail to fetch index %s", err)
+			return nil, httperrors.NewInternalServerError("fail to fetch index %s", err)
 		}
 		q := GuestnetworkManager.Query().SubQuery()
-		count := q.Query().Filter(sqlchemy.Equals(q.Field("guest_id"), self.GuestId)).
+		count, err := q.Query().Filter(sqlchemy.Equals(q.Field("guest_id"), self.GuestId)).
 			Filter(sqlchemy.NotEquals(q.Field("network_id"), self.NetworkId)).
-			Filter(sqlchemy.Equals(q.Field("index"), index)).Count()
+			Filter(sqlchemy.Equals(q.Field("index"), index)).CountWithError()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("checkout nic index uniqueness fail %s", err)
+		}
 		if count > 0 {
-			return nil, fmt.Errorf("NIC Index %d has been occupied", index)
+			return nil, httperrors.NewDuplicateResourceError("NIC Index %d has been occupied", index)
 		}
 	}
 	return self.SJointResourceBase.ValidateUpdateData(ctx, userCred, query, data)
@@ -495,7 +539,7 @@ func (self *SGuestnetwork) IsExit() bool {
 }
 
 func (self *SGuestnetwork) getBandwidth() int {
-	if self.BwLimit > 0 && self.BwLimit <= MAX_BANDWIDTH {
+	if self.BwLimit > 0 && self.BwLimit <= api.MAX_BANDWIDTH {
 		return self.BwLimit
 	} else {
 		net := self.GetNetwork()

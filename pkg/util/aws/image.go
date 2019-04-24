@@ -1,9 +1,22 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package aws
 
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -12,8 +25,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/timeutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type ImageStatusType string
@@ -91,7 +104,11 @@ func (self *SImage) GetId() string {
 }
 
 func (self *SImage) GetName() string {
-	return self.ImageName
+	if len(self.ImageName) > 0 {
+		return self.ImageName
+	}
+
+	return self.GetId()
 }
 
 func (self *SImage) GetGlobalId() string {
@@ -101,13 +118,13 @@ func (self *SImage) GetGlobalId() string {
 func (self *SImage) GetStatus() string {
 	switch self.Status {
 	case ImageStatusCreating:
-		return models.CACHED_IMAGE_STATUS_CACHING
+		return api.CACHED_IMAGE_STATUS_CACHING
 	case ImageStatusAvailable:
-		return models.CACHED_IMAGE_STATUS_READY
+		return api.CACHED_IMAGE_STATUS_READY
 	case ImageStatusCreateFailed:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	default:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	}
 }
 
@@ -368,10 +385,8 @@ func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType,
 	}
 
 	ret, err := self.ec2Client.DescribeImages(params)
+	err = parseNotFoundError(err)
 	if err != nil {
-		if strings.Contains(err.Error(), ".NotFound") {
-			return nil, cloudprovider.ErrNotFound
-		}
 		return nil, err
 	}
 
@@ -389,7 +404,7 @@ func (self *SRegion) getImages(status ImageStatusType, owners []TImageOwnerType,
 		size, err := getRootDiskSize(image)
 		if err != nil {
 			// fail to get disk size, ignore the image
-			/// log.Debugf(err.Error())
+			/// log.Debugln(err)
 			continue
 		}
 

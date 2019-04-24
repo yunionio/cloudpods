@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package huawei
 
 import (
@@ -5,7 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/compute/models"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 /*
@@ -63,17 +77,17 @@ func (self *SSnapshot) GetGlobalId() string {
 func (self *SSnapshot) GetStatus() string {
 	switch SnapshotStatusType(self.Status) {
 	case SnapshotStatusAvailable:
-		return models.SNAPSHOT_READY
+		return api.SNAPSHOT_READY
 	case SnapshotStatusCreating:
-		return models.SNAPSHOT_CREATING
+		return api.SNAPSHOT_CREATING
 	case SnapshotStatusDeleting:
-		return models.SNAPSHOT_DELETING
+		return api.SNAPSHOT_DELETING
 	case SnapshotStatusErrorDeleting, SnapshotStatusError:
-		return models.SNAPSHOT_FAILED
+		return api.SNAPSHOT_FAILED
 	case SnapshotStatusRollbacking:
-		return models.SNAPSHOT_ROLLBACKING
+		return api.SNAPSHOT_ROLLBACKING
 	default:
-		return models.SNAPSHOT_UNKNOWN
+		return api.SNAPSHOT_UNKNOWN
 	}
 }
 
@@ -108,9 +122,9 @@ func (self *SSnapshot) GetDiskId() string {
 
 func (self *SSnapshot) GetDiskType() string {
 	if self.Metadata.SystemEnableActive == "true" {
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	} else {
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	}
 }
 

@@ -1,12 +1,29 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package ucloud
 
 import (
 	"time"
 
-	"github.com/coredns/coredns/plugin/pkg/log"
+	"yunion.io/x/log"
+
 	"yunion.io/x/jsonutils"
+
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 // https://docs.ucloud.cn/api/unet-api/describe_eip
@@ -73,13 +90,13 @@ func (self *SEip) GetGlobalId() string {
 func (self *SEip) GetStatus() string {
 	switch self.Status {
 	case "used":
-		return models.EIP_STATUS_ASSOCIATE // ?
+		return api.EIP_STATUS_ASSOCIATE // ?
 	case "free":
-		return models.EIP_STATUS_READY
+		return api.EIP_STATUS_READY
 	case "freeze":
-		return models.EIP_STATUS_UNKNOWN
+		return api.EIP_STATUS_UNKNOWN
 	default:
-		return models.EIP_STATUS_UNKNOWN
+		return api.EIP_STATUS_UNKNOWN
 	}
 }
 
@@ -106,10 +123,14 @@ func (self *SEip) GetMetadata() *jsonutils.JSONDict {
 func (self *SEip) GetBillingType() string {
 	switch self.ChargeType {
 	case "Year", "Month":
-		return models.BILLING_TYPE_PREPAID
+		return billing_api.BILLING_TYPE_PREPAID
 	default:
-		return models.BILLING_TYPE_POSTPAID
+		return billing_api.BILLING_TYPE_POSTPAID
 	}
+}
+
+func (self *SEip) GetCreatedAt() time.Time {
+	return time.Unix(self.CreateTime, 0)
 }
 
 func (self *SEip) GetExpiredAt() time.Time {
@@ -118,7 +139,7 @@ func (self *SEip) GetExpiredAt() time.Time {
 
 func (self *SEip) GetIpAddr() string {
 	if len(self.EIPAddr) > 1 {
-		log.Warning("GetIpAddr %d eip addr found", len(self.EIPAddr))
+		log.Warningf("GetIpAddr %d eip addr found", len(self.EIPAddr))
 	} else if len(self.EIPAddr) == 0 {
 		return ""
 	}
@@ -127,7 +148,7 @@ func (self *SEip) GetIpAddr() string {
 }
 
 func (self *SEip) GetMode() string {
-	return models.EIP_MODE_STANDALONE_EIP
+	return api.EIP_MODE_STANDALONE_EIP
 }
 
 func (self *SEip) GetAssociationType() string {
@@ -153,11 +174,11 @@ func (self *SEip) GetBandwidth() int {
 func (self *SEip) GetInternetChargeType() string {
 	switch self.PayMode {
 	case "Bandwidth":
-		return models.EIP_CHARGE_TYPE_BY_BANDWIDTH
+		return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
 	case "Traffic":
-		return models.EIP_CHARGE_TYPE_BY_TRAFFIC
+		return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 	default:
-		return models.EIP_CHARGE_TYPE_BY_BANDWIDTH
+		return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
 	}
 }
 

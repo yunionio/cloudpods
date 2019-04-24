@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package openstack
 
 import (
@@ -6,8 +20,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
@@ -143,7 +157,9 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	secgroups := []map[string]string{}
 
 	for _, secgroupId := range desc.ExternalSecgroupIds {
-		secgroups = append(secgroups, map[string]string{"name": secgroupId})
+		if secgroupId != SECGROUP_NOT_SUPPORT {
+			secgroups = append(secgroups, map[string]string{"name": secgroupId})
+		}
 	}
 
 	image, err := host.zone.region.GetImage(desc.ExternalImageId)
@@ -314,19 +330,19 @@ func (host *SHost) GetStorageSizeMB() int {
 }
 
 func (host *SHost) GetStorageType() string {
-	return models.DISK_TYPE_HYBRID
+	return api.DISK_TYPE_HYBRID
 }
 
 func (host *SHost) GetHostType() string {
-	return models.HOST_TYPE_OPENSTACK
+	return api.HOST_TYPE_OPENSTACK
 }
 
 func (host *SHost) GetHostStatus() string {
 	switch host.State {
 	case "up", "":
-		return models.HOST_ONLINE
+		return api.HOST_ONLINE
 	default:
-		return models.HOST_OFFLINE
+		return api.HOST_OFFLINE
 	}
 }
 
@@ -353,7 +369,7 @@ func (host *SHost) GetManagerId() string {
 }
 
 func (host *SHost) GetStatus() string {
-	return models.HOST_STATUS_RUNNING
+	return api.HOST_STATUS_RUNNING
 }
 
 func (host *SHost) IsEmulated() bool {

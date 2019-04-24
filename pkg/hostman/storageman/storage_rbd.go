@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // +build linux
 
 package storageman
@@ -255,6 +269,15 @@ func (s *SRbdStorage) withCluster(doFunc func(*rados.Conn) (interface{}, error))
 			}
 		}
 	}
+	for key, timeout := range map[string]int64{"rados_osd_op_timeout": 3, "rados_mon_op_timeout": 3, "client_mount_timeout": 3} {
+		_timeout, _ := s.StorageConf.Int(key)
+		if _timeout > 0 {
+			timeout = _timeout
+		}
+		if err := conn.SetConfigOption(key, fmt.Sprintf("%d", timeout)); err != nil {
+			return nil, err
+		}
+	}
 	if err := conn.Connect(); err != nil {
 		log.Errorf("connect rbd cluster %s error: %v", s.StorageName, err)
 		return nil, err
@@ -350,7 +373,7 @@ func (s *SRbdStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	if len(s.StorageId) > 0 {
 		capacity, err := s.getCapacity()
 		if err != nil {
-			return nil, err
+			return modules.Storages.PerformAction(hostutils.GetComputeSession(context.Background()), s.StorageId, "offline", nil)
 		}
 		content = map[string]interface{}{
 			"name":     s.StorageName,

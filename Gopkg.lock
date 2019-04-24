@@ -852,6 +852,14 @@
   version = "v1.1.3"
 
 [[projects]]
+  branch = "master"
+  digest = "1:74e674486930998805335f2b2f0af5fd3b183c755973e53f532363a56831b7a3"
+  name = "github.com/libvirt/libvirt-go-xml"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "4b6d354bfe8a0c85cebc68f0f7e45f7d5a37de7b"
+
+[[projects]]
   digest = "1:4e878df5f4e9fd625bf9c9aac77ef7cbfa4a74c01265505527c23470c0e40300"
   name = "github.com/marstr/guid"
   packages = ["."]
@@ -1211,12 +1219,25 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:18752d0b95816a1b777505a97f71c7467a8445b8ffb55631a7bf779f6ba4fa83"
-  name = "github.com/stretchr/testify"
-  packages = ["assert"]
+  digest = "1:ac83cf90d08b63ad5f7e020ef480d319ae890c208f8524622a2f3136e2686b02"
+  name = "github.com/stretchr/objx"
+  packages = ["."]
   pruneopts = "UT"
-  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
-  version = "v1.2.2"
+  revision = "477a77ecc69700c7cdeb1fa9e129548e1c1c393c"
+  version = "v0.1.1"
+
+[[projects]]
+  digest = "1:288e2ba4192b77ec619875ab54d82e2179ca8978e8baa690dcb4343a4a1f4da7"
+  name = "github.com/stretchr/testify"
+  packages = [
+    "assert",
+    "mock",
+    "require",
+    "suite",
+  ]
+  pruneopts = "UT"
+  revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
+  version = "v1.3.0"
 
 [[projects]]
   digest = "1:a115409defa2eb9059f215a91573ac1126123c4feac6bbb8d97f05e2b7761fe2"
@@ -1684,26 +1705,26 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:5ef22fef33e8bfb5e66901f9adba50f5d594ad20263a132fdc62801033eb7712"
+  digest = "1:53c214ff8c2fd57db0962140b9a5e57b01b63066e7de7fe6897a633d15b78248"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "ff8561d72c32ba4eb91ee660f6f2ca9e6f64d268"
+  revision = "028b9007e455103eabacf3e6d71b5ce5060c3984"
 
 [[projects]]
   branch = "master"
-  digest = "1:636db180d3fc734536a5437d93bb6fe937feb036c1ed062c25872a47c4283163"
+  digest = "1:b098c5b757b7622dfeed71f9cdcf0621a42051b88967286b0e1bcfb8a910fc86"
   name = "yunion.io/x/log"
   packages = [
     ".",
     "hooks",
   ]
   pruneopts = "UT"
-  revision = "5185c49f6d361f61e561fbccba1bedcc7c62748b"
+  revision = "71a36f55dcfcfa2c8b2477c339e2c7ebd78c731d"
 
 [[projects]]
   branch = "master"
-  digest = "1:f1f1aa2c29c1de090cf90d661fa1ee6c45c2d828059b5ec265a88a771649f83b"
+  digest = "1:6f329a9c0743517bcdaa329db7524fbd93145b18c87e9bb3b55f80ad92907086"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1737,23 +1758,23 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "f92993f80cd49639f283ff29d6ab3d7cdd6ca941"
+  revision = "43cfeb36a15e9c34652df507d1218409cff2472a"
 
 [[projects]]
   branch = "master"
-  digest = "1:4137f40ed548a5dc02719ad2e6b6bdfd76a9d881fcd1a72eb5970956a7219d03"
+  digest = "1:cfdd1588eb169908b7d54bfe48338139647512617598b9ffae958e2013b168a0"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "4d8d8e9b16804336f16570787421b9be24a6da1f"
+  revision = "25c2afeeda322a9ddd6047d7e5ba19800e07f9bd"
 
 [[projects]]
   branch = "master"
-  digest = "1:6a0bb09937441c871c34278e62ea9c80320a6b9894d63261f5c4246c07aeb510"
+  digest = "1:cfa79b54c4ec8d1fe6b1599846b3975c50212f58114d807a6db69bbee5a16b7a"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "f370514c4558e64e798bd83abaff263dabef9f3a"
+  revision = "5b725f46d67547e7fb603b2118eddc5358ac2a39"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1827,6 +1848,7 @@
     "github.com/json-iterator/go",
     "github.com/koding/websocketproxy",
     "github.com/kr/pty",
+    "github.com/libvirt/libvirt-go-xml",
     "github.com/mholt/caddy",
     "github.com/mholt/caddy/startupshutdown",
     "github.com/miekg/dns",
@@ -1840,6 +1862,8 @@
     "github.com/shirou/gopsutil/net",
     "github.com/shirou/gopsutil/process",
     "github.com/stretchr/testify/assert",
+    "github.com/stretchr/testify/mock",
+    "github.com/stretchr/testify/suite",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http",

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package core
 
 import (
@@ -45,6 +59,7 @@ type CandidatePropertyGetter interface {
 	HostType() string
 	HostSchedtags() []computemodels.SSchedtag
 	Storages() []*api.CandidateStorage
+	Networks() []*api.CandidateNetwork
 }
 
 // Candidater replace host Candidate resource info
@@ -132,10 +147,12 @@ type Priority interface {
 
 type AllocatedResource struct {
 	Disks []*schedapi.CandidateDisk `json:"disks"`
+	Nets  []*schedapi.CandidateNet  `json:"nets"`
 }
 
 func NewAllocatedResource() *AllocatedResource {
 	return &AllocatedResource{
 		Disks: make([]*schedapi.CandidateDisk, 0),
+		Nets:  make([]*schedapi.CandidateNet, 0),
 	}
 }

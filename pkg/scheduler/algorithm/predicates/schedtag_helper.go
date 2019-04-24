@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package predicates
 
 import (
@@ -225,7 +239,7 @@ func (c *SchedtagChecker) mergeSchedtags(candiate ISchedtagCandidate, staticTags
 	for _, dt := range dynamicTags {
 		if !isIn(staticTags, dt) {
 			ret = append(ret, dt)
-			log.Debugf("Append dynamic schedtag %s to %s %q", dt, candiate.ResourceType(), candiate.IndexKey())
+			log.Debugf("Append dynamic schedtag %#v to %s %q", dt, candiate.ResourceType(), candiate.IndexKey())
 		}
 	}
 	return ret
@@ -251,15 +265,16 @@ func (c *SchedtagChecker) Check(p ISchedtagPredicate, candidate ISchedtagCandida
 
 	log.V(10).Debugf("[SchedtagChecker] check candidate: %s requireTags: %#v, execludeTags: %#v, candidateTags: %#v", candidate.IndexKey(), requireTags, execludeTags, candidateTags)
 
+	candiInfo := fmt.Sprintf("%s:%s", candidate.ResourceType(), candidate.IndexKey())
 	if len(execludeTags) > 0 {
 		if ok, tag := c.HasIntersection(execludeTags, candidateTags); ok {
-			return fmt.Errorf("Execlude by schedtag: '%s:%s'", tag.Name, tag.Id)
+			return fmt.Errorf("schedtag %q exclude %s", tag.Name, candiInfo)
 		}
 	}
 
 	if len(requireTags) > 0 {
 		if ok, tag := c.Contains(candidateTags, requireTags); !ok {
-			return fmt.Errorf("Need schedtag: '%s'", tag.Id)
+			return fmt.Errorf("%s need schedtag: %q", candiInfo, tag.Id)
 		}
 	}
 

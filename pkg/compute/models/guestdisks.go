@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -31,7 +45,9 @@ func init() {
 				DiskManager,
 			),
 		}
+		GuestdiskManager.TableSpec().AddIndex(true, "disk_id", "guest_id")
 	})
+
 }
 
 type SGuestdisk struct {
@@ -64,9 +80,12 @@ func (self *SGuestdisk) ValidateUpdateData(ctx context.Context, userCred mcclien
 			return nil, err
 		} else {
 			guestdisk := GuestdiskManager.Query().SubQuery()
-			count := guestdisk.Query().Filter(sqlchemy.Equals(guestdisk.Field("guest_id"), self.GuestId)).
+			count, err := guestdisk.Query().Filter(sqlchemy.Equals(guestdisk.Field("guest_id"), self.GuestId)).
 				Filter(sqlchemy.NotEquals(guestdisk.Field("disk_id"), self.DiskId)).
-				Filter(sqlchemy.Equals(guestdisk.Field("index"), index)).Count()
+				Filter(sqlchemy.Equals(guestdisk.Field("index"), index)).CountWithError()
+			if err != nil {
+				return nil, httperrors.NewInternalServerError("check disk index uniqueness fail %s", err)
+			}
 			if count > 0 {
 				return nil, httperrors.NewInputParameterError("DISK Index %d has been occupied", index)
 			}
@@ -157,14 +176,14 @@ func (self *SGuestdisk) GetJsonDescAtHost(host *SHost) jsonutils.JSONObject {
 	}
 	storage := disk.GetStorage()
 	// XXX ???
-	if host.HostType == HOST_TYPE_HYPERVISOR {
+	if host.HostType == api.HOST_TYPE_HYPERVISOR {
 		desc.Add(jsonutils.NewString(disk.StorageId), "storage_id")
 		localpath := disk.GetPathAtHost(host)
 		if len(localpath) == 0 {
 			desc.Add(jsonutils.JSONTrue, "migrating")
 			target := host.GetLeastUsedStorage(storage.StorageType)
 			desc.Add(jsonutils.NewString(target.Id), "target_storage_id")
-			disk.SetStatus(nil, DISK_START_MIGRATE, "migration")
+			disk.SetStatus(nil, api.DISK_START_MIGRATE, "migration")
 		} else {
 			desc.Add(jsonutils.NewString(localpath), "path")
 		}

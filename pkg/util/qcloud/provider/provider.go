@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package provider
 
 import (
@@ -7,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -135,12 +150,16 @@ func (self *SQcloudProvider) GetIRegionById(id string) (cloudprovider.ICloudRegi
 	return self.client.GetIRegionById(id)
 }
 
-func (self *SQcloudProvider) GetBalance() (float64, error) {
+func (self *SQcloudProvider) GetBalance() (float64, string, error) {
 	balance, err := self.client.QueryAccountBalance()
 	if err != nil {
-		return 0.0, err
+		return 0.0, api.CLOUD_PROVIDER_HEALTH_UNKNOWN, err
 	}
-	return balance.AvailableAmount, nil
+	status := api.CLOUD_PROVIDER_HEALTH_NORMAL
+	if balance.AvailableAmount <= 0.0 {
+		status = api.CLOUD_PROVIDER_HEALTH_ARREARS
+	}
+	return balance.AvailableAmount, status, nil
 }
 
 func (self *SQcloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {

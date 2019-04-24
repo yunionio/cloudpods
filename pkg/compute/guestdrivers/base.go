@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package guestdrivers
 
 import (
@@ -7,8 +21,8 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -21,39 +35,11 @@ type SBaseGuestDriver struct {
 }
 
 func (self *SBaseGuestDriver) StartGuestCreateTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, pendingUsage quotas.IQuota, parentTaskId string) error {
-	taskName, _ := data.GetString("__task__")
-	if len(taskName) > 0 {
-		data.Remove("__task__")
-		log.Infof("Start embedded guest start task")
-		switch taskName {
-		case taskman.CONVERT_TASK:
-			hostId, _ := data.GetString("prefer_host_id")
-			if len(hostId) == 0 {
-				hostId, _ = data.GetString("prefer_baremetal_id")
-			}
-			if len(hostId) == 0 {
-				return fmt.Errorf("Not target baremetal for convert task")
-			}
-			host, err := models.HostManager.FetchById(hostId)
-			if err != nil {
-				return fmt.Errorf("Cannot find host")
-			}
-			params := jsonutils.NewDict()
-			params.Add(jsonutils.NewString(guest.Id), "server_id")
-			params.Add(data, "server_params")
-			task, err := taskman.TaskManager.NewTask(ctx, "BaremetalConvertHypervisorTask", host, userCred, params, parentTaskId, "", pendingUsage)
-			if err != nil {
-				return err
-			}
-			task.ScheduleRun(nil)
-		}
-	} else {
-		task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateTask", guest, userCred, data, parentTaskId, "", pendingUsage)
-		if err != nil {
-			return err
-		}
-		task.ScheduleRun(nil)
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateTask", guest, userCred, data, parentTaskId, "", pendingUsage)
+	if err != nil {
+		return err
 	}
+	task.ScheduleRun(nil)
 	return nil
 }
 
@@ -250,11 +236,11 @@ func (self *SBaseGuestDriver) RemoteDeployGuestForRebuildRoot(ctx context.Contex
 }
 
 func (self *SBaseGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return models.VM_READY
+	return api.VM_READY
 }
 
 func (self *SBaseGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return models.VM_READY
+	return api.VM_READY
 }
 
 func (self *SBaseGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
@@ -271,4 +257,27 @@ func (self *SBaseGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, gue
 
 func (self *SBaseGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	return fmt.Errorf("SBaseGuestDriver: Not Implement")
+}
+
+func (self *SBaseGuestDriver) IsSupportGuestClone() bool {
+	return true
+}
+
+func (self *SBaseGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	return nil // do nothing
+}
+
+func (self *SBaseGuestDriver) GetGuestSecgroupVpcid(guest *models.SGuest) (string, error) {
+	vpcId := ""
+	guestnets, err := guest.GetNetworks("")
+	if err != nil {
+		return "", err
+	}
+	for _, network := range guestnets {
+		if vpc := network.GetNetwork().GetVpc(); vpc != nil {
+			vpcId = vpc.ExternalId
+			break
+		}
+	}
+	return vpcId, nil
 }

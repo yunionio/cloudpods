@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -24,13 +38,14 @@ func RunBatchCreateTask(
 	data jsonutils.JSONObject,
 	pendingUsage SQuota,
 	taskName string,
+	parentTaskId string,
 ) {
 	taskItems := make([]db.IStandaloneModel, len(items))
 	for i, t := range items {
 		taskItems[i] = t.(db.IStandaloneModel)
 	}
 	params := data.(*jsonutils.JSONDict)
-	task, err := taskman.TaskManager.NewParallelTask(ctx, taskName, taskItems, userCred, params, "", "", &pendingUsage)
+	task, err := taskman.TaskManager.NewParallelTask(ctx, taskName, taskItems, userCred, params, parentTaskId, "", &pendingUsage)
 	if err != nil {
 		log.Errorf("%s newTask error %s", taskName, err)
 	} else {
@@ -42,11 +57,11 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 	var err error
 
 	if input.Baremetal {
-		hypervisor = HYPERVISOR_BAREMETAL
+		hypervisor = api.HYPERVISOR_BAREMETAL
 	}
 
 	// base validate_create_data
-	if (input.PreferHost != "") && hypervisor != HYPERVISOR_CONTAINER {
+	if (input.PreferHost != "") && hypervisor != api.HYPERVISOR_CONTAINER {
 
 		if !userCred.IsAdminAllow(consts.GetServiceType(), GuestManager.KeywordPlural(), policy.PolicyActionPerform, "assign-host") {
 			return nil, httperrors.NewNotSufficientPrivilegeError("Only system admin can specify preferred host")
@@ -65,24 +80,30 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 			return nil, httperrors.NewInvalidStatusError("Baremetal %s not enabled", bmName)
 		}
 
-		if len(hypervisor) > 0 && hypervisor != HOSTTYPE_HYPERVISOR[baremetal.HostType] {
+		if len(hypervisor) > 0 && hypervisor != api.HOSTTYPE_HYPERVISOR[baremetal.HostType] {
 			return nil, httperrors.NewInputParameterError("cannot run hypervisor %s on specified host with type %s", hypervisor, baremetal.HostType)
 		}
 
 		if len(hypervisor) == 0 {
-			hypervisor = HOSTTYPE_HYPERVISOR[baremetal.HostType]
+			hypervisor = api.HOSTTYPE_HYPERVISOR[baremetal.HostType]
 		}
 
 		if len(hypervisor) == 0 {
-			hypervisor = HYPERVISOR_DEFAULT
+			hypervisor = api.HYPERVISOR_DEFAULT
 		}
 
-		_, err = GetDriver(hypervisor).ValidateCreateHostData(ctx, userCred, bmName, baremetal, input)
+		_, err = GetDriver(hypervisor).ValidateCreateDataOnHost(ctx, userCred, bmName, baremetal, input)
 		if err != nil {
 			return nil, err
 		}
 
+		defaultStorage := GetDriver(hypervisor).ChooseHostStorage(baremetal, "", nil)
+		if defaultStorage == nil {
+			return nil, httperrors.NewInsufficientResourceError("no valid storage on host")
+		}
 		input.PreferHost = baremetal.Id
+		input.DefaultStorageType = defaultStorage.StorageType
+
 		zone := baremetal.GetZone()
 		input.PreferZone = zone.Id
 		region := zone.GetRegion()
@@ -151,10 +172,10 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 
 	// default hypervisor
 	if len(hypervisor) == 0 {
-		hypervisor = HYPERVISOR_KVM
+		hypervisor = api.HYPERVISOR_KVM
 	}
 
-	if !utils.IsInStringArray(hypervisor, HYPERVISORS) {
+	if !utils.IsInStringArray(hypervisor, api.HYPERVISORS) {
 		return nil, httperrors.NewInputParameterError("Hypervisor %s not supported", hypervisor)
 	}
 

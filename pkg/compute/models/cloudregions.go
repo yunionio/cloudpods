@@ -1,30 +1,36 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"time"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-)
-
-const (
-	CLOUD_REGION_STATUS_INSERVER     = "inservice"
-	CLOUD_REGION_STATUS_OUTOFSERVICE = "outofservice"
-
-	DEFAULT_REGION_ID = "default"
 )
 
 type SCloudregionManager struct {
@@ -81,29 +87,45 @@ func (self *SCloudregion) CustomizeCreate(ctx context.Context, userCred mcclient
 }
 
 func (self *SCloudregion) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetZoneCount() > 0 || self.GetVpcCount() > 0 {
+	zoneCnt, err := self.GetZoneCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetZoneCount fail %s", err)
+	}
+	vpcCnt, err := self.GetVpcCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetVpcCount fail %s", err)
+	}
+	if zoneCnt > 0 || vpcCnt > 0 {
 		return httperrors.NewNotEmptyError("not empty cloud region")
 	}
-	if self.Id == DEFAULT_REGION_ID {
+	if self.Id == api.DEFAULT_REGION_ID {
 		return httperrors.NewProtectedResourceError("not allow to delete default cloud region")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SCloudregion) GetZoneCount() int {
+func (self *SCloudregion) GetZoneCount() (int, error) {
 	zones := ZoneManager.Query()
-	if self.Id == DEFAULT_REGION_ID {
+	if self.Id == api.DEFAULT_REGION_ID {
 		return zones.Filter(sqlchemy.OR(sqlchemy.IsNull(zones.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(zones.Field("cloudregion_id")),
-			sqlchemy.Equals(zones.Field("cloudregion_id"), self.Id))).Count()
+			sqlchemy.Equals(zones.Field("cloudregion_id"), self.Id))).CountWithError()
 	} else {
-		return zones.Equals("cloudregion_id", self.Id).Count()
+		return zones.Equals("cloudregion_id", self.Id).CountWithError()
 	}
 }
 
-func (self *SCloudregion) GetGuestCount(increment bool) int {
+func (self *SCloudregion) GetGuestCount() (int, error) {
+	return self.getGuestCountInternal(false)
+}
+
+func (self *SCloudregion) GetGuestIncrementCount() (int, error) {
+	return self.getGuestCountInternal(true)
+}
+
+func (self *SCloudregion) getGuestCountInternal(increment bool) (int, error) {
 	zoneTable := ZoneManager.Query("id")
-	if self.Id == DEFAULT_REGION_ID {
+	if self.Id == api.DEFAULT_REGION_ID {
 		zoneTable = zoneTable.Filter(sqlchemy.OR(sqlchemy.IsNull(zoneTable.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(zoneTable.Field("cloudregion_id")),
 			sqlchemy.Equals(zoneTable.Field("cloudregion_id"), self.Id)))
@@ -117,37 +139,33 @@ func (self *SCloudregion) GetGuestCount(increment bool) int {
 		startOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 		query.GE("created_at", startOfMonth)
 	}
-	return query.Count()
+	return query.CountWithError()
 }
 
-func (self *SCloudregion) GetVpcCount() int {
+func (self *SCloudregion) GetVpcCount() (int, error) {
 	vpcs := VpcManager.Query()
-	if self.Id == DEFAULT_REGION_ID {
+	if self.Id == api.DEFAULT_REGION_ID {
 		return vpcs.Filter(sqlchemy.OR(sqlchemy.IsNull(vpcs.Field("cloudregion_id")),
 			sqlchemy.IsEmpty(vpcs.Field("cloudregion_id")),
-			sqlchemy.Equals(vpcs.Field("cloudregion_id"), self.Id))).Count()
+			sqlchemy.Equals(vpcs.Field("cloudregion_id"), self.Id))).CountWithError()
 	} else {
-		return vpcs.Equals("cloudregion_id", self.Id).Count()
+		return vpcs.Equals("cloudregion_id", self.Id).CountWithError()
 	}
 }
 
 func (self *SCloudregion) GetDriver() IRegionDriver {
 	provider := self.Provider
 	if len(provider) == 0 {
-		provider = CLOUD_PROVIDER_KVM
+		provider = api.CLOUD_PROVIDER_ONECLOUD
 	}
-	if !utils.IsInStringArray(provider, CLOUD_PROVIDERS) {
+	if !utils.IsInStringArray(provider, api.CLOUD_PROVIDERS) {
 		log.Fatalf("Unsupported region provider %s", provider)
 	}
 	return GetRegionDriver(provider)
 }
 
 func (self *SCloudregion) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.NewInt(int64(self.GetVpcCount())), "vpc_count")
-	extra.Add(jsonutils.NewInt(int64(self.GetZoneCount())), "zone_count")
-	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount(false))), "guest_count")
-	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount(true))), "guest_increment_count")
-	return extra
+	return db.FetchModelExtraCountProperties(self, extra)
 }
 
 func (self *SCloudregion) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -269,7 +287,7 @@ func (self *SCloudregion) syncRemoveCloudRegion(ctx context.Context, userCred mc
 	// 	err = self.Delete(ctx, userCred)
 	// }
 
-	err := self.SetStatus(userCred, CLOUD_REGION_STATUS_OUTOFSERVICE, "Out of sync")
+	err := self.SetStatus(userCred, api.CLOUD_REGION_STATUS_OUTOFSERVICE, "Out of sync")
 	if err == nil {
 		_, err = self.PerformDisable(ctx, userCred, nil, nil)
 	}
@@ -305,8 +323,12 @@ func (manager *SCloudregionManager) newFromCloudRegion(ctx context.Context, user
 	region := SCloudregion{}
 	region.SetModelManager(manager)
 
+	newName, err := db.GenerateName(manager, "", cloudRegion.GetName())
+	if err != nil {
+		return nil, err
+	}
 	region.ExternalId = cloudRegion.GetGlobalId()
-	region.Name = db.GenerateName(manager, "", cloudRegion.GetName())
+	region.Name = newName
 	region.SGeographicInfo = cloudRegion.GetGeographicInfo()
 	region.Status = cloudRegion.GetStatus()
 	region.Enabled = true
@@ -314,7 +336,7 @@ func (manager *SCloudregionManager) newFromCloudRegion(ctx context.Context, user
 
 	region.IsEmulated = cloudRegion.IsEmulated()
 
-	err := manager.TableSpec().Insert(&region)
+	err = manager.TableSpec().Insert(&region)
 	if err != nil {
 		log.Errorf("newFromCloudRegion fail %s", err)
 		return nil, err
@@ -370,15 +392,15 @@ func (manager *SCloudregionManager) FetchRegionById(id string) *SCloudregion {
 
 func (manager *SCloudregionManager) InitializeData() error {
 	// check if default region exists
-	_, err := manager.FetchById(DEFAULT_REGION_ID)
+	_, err := manager.FetchById(api.DEFAULT_REGION_ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			defRegion := SCloudregion{}
-			defRegion.Id = DEFAULT_REGION_ID
+			defRegion.Id = api.DEFAULT_REGION_ID
 			defRegion.Name = "Default"
 			defRegion.Enabled = true
 			defRegion.Description = "Default Region"
-			defRegion.Status = CLOUD_REGION_STATUS_INSERVER
+			defRegion.Status = api.CLOUD_REGION_STATUS_INSERVER
 			err = manager.TableSpec().Insert(&defRegion)
 			if err != nil {
 				log.Errorf("Insert default region fails: %s", err)
@@ -392,24 +414,40 @@ func (manager *SCloudregionManager) InitializeData() error {
 }
 
 func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	if len(providerStr) > 0 {
+		query.(*jsonutils.JSONDict).Remove("provider")
+		if providerStr == api.CLOUD_PROVIDER_ONECLOUD {
+			q = q.IsNullOrEmpty("provider")
+		} else {
+			q = q.Equals("provider", providerStr)
+		}
+	}
+
 	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
 
-	if jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public_cloud", false) {
+	cloudEnvStr, _ := query.GetString("cloud_env")
+	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "is_public", false) || jsonutils.QueryBoolean(query, "public_cloud", false) {
 		q = q.In("provider", cloudprovider.GetPublicProviders())
 	}
 
-	if jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private_cloud", false) {
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "is_private", false) || jsonutils.QueryBoolean(query, "private_cloud", false) {
+		q = q.In("provider", cloudprovider.GetPrivateProviders())
+	}
+
+	if cloudEnvStr == api.CLOUD_ENV_ON_PREMISE || jsonutils.QueryBoolean(query, "is_on_premise", false) {
 		q = q.Filter(sqlchemy.OR(
-			sqlchemy.In(q.Field("provider"), cloudprovider.GetPrivateProviders()),
+			sqlchemy.In(q.Field("provider"), cloudprovider.GetOnPremiseProviders()),
 			sqlchemy.IsNullOrEmpty(q.Field("provider")),
 		))
 	}
 
-	if jsonutils.QueryBoolean(query, "is_on_premise", false) {
+	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_ON_PREMISE {
 		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("provider"), cloudprovider.GetPrivateProviders()),
 			sqlchemy.In(q.Field("provider"), cloudprovider.GetOnPremiseProviders()),
 			sqlchemy.IsNullOrEmpty(q.Field("provider")),
 		))
@@ -421,34 +459,13 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 
 	managerStr, _ := query.GetString("manager")
 	if len(managerStr) > 0 {
-		managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		manager := managerObj.(*SCloudprovider)
-		q = q.Equals("provider", manager.Provider)
-		if manager.Provider == CLOUD_PROVIDER_HUAWEI {
-			region := strings.Split(manager.Name, "_")[0]
-			prefix := CLOUD_PROVIDER_HUAWEI + "/" + region
-			q = q.Startswith("external_id", prefix)
-		}
+		subq := CloudproviderRegionManager.QueryRelatedRegionIds("", managerStr)
+		q = q.In("id", subq)
 	}
 	accountStr, _ := query.GetString("account")
 	if len(accountStr) > 0 {
-		accountObj, err := CloudaccountManager.FetchByIdOrName(userCred, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		account := accountObj.(*SCloudaccount)
-		q = q.In("provider", account.Provider)
+		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountStr)
+		q = q.In("id", subq)
 	}
 
 	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {
@@ -467,23 +484,24 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 		}
 		sq = sq.Join(providers, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
 		if usableNet {
-			sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+			sq = sq.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 		}
 		sq = sq.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
-		sq = sq.Filter(sqlchemy.In(providers.Field("status"), CLOUD_PROVIDER_VALID_STATUS))
+		sq = sq.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+		sq = sq.Filter(sqlchemy.Equals(providers.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
 		if usableVpc {
-			sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+			sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 		}
 
 		sq2 := vpcs.Query(sqlchemy.DISTINCT("cloudregion_id", vpcs.Field("cloudregion_id")))
 		if usableNet {
 			sq2 = sq2.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
 			sq2 = sq2.Join(networks, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id")))
-			sq2 = sq2.Filter(sqlchemy.Equals(networks.Field("status"), NETWORK_STATUS_AVAILABLE))
+			sq2 = sq2.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 		}
 		sq2 = sq2.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
 		if usableVpc {
-			sq2 = sq2.Filter(sqlchemy.Equals(vpcs.Field("status"), VPC_STATUS_AVAILABLE))
+			sq2 = sq2.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 		}
 
 		q = q.Filter(sqlchemy.OR(
@@ -525,7 +543,7 @@ func (self *SCloudregion) GetDetailsCapability(ctx context.Context, userCred mcc
 	return jsonutils.Marshal(&capa), nil
 }
 
-func (self *SCloudregion) getNetworkCount() int {
+func (self *SCloudregion) getNetworkCount() (int, error) {
 	return getNetworkCount(self, nil)
 }
 

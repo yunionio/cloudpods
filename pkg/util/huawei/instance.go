@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package huawei
 
 import (
@@ -13,8 +27,9 @@ import (
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/utils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/modules"
 )
@@ -159,7 +174,7 @@ func compareSet(currentSet []string, newSet []string) (add []string, remove []st
 
 // 启动盘 != 系统盘(必须是启动盘且挂载在root device上)
 func isBootDisk(server *SInstance, disk *SDisk) bool {
-	if disk.GetDiskType() != models.DISK_TYPE_SYS {
+	if disk.GetDiskType() != api.DISK_TYPE_SYS {
 		return false
 	}
 
@@ -187,15 +202,15 @@ func (self *SInstance) GetGlobalId() string {
 func (self *SInstance) GetStatus() string {
 	switch self.Status {
 	case "ACTIVE":
-		return models.VM_RUNNING
+		return api.VM_RUNNING
 	case "MIGRATING", "REBUILD", "BUILD", "RESIZE", "VERIFY_RESIZE": // todo: pending ?
-		return models.VM_STARTING
+		return api.VM_STARTING
 	case "REBOOT", "HARD_REBOOT":
-		return models.VM_STOPPING
+		return api.VM_STOPPING
 	case "SHUTOFF":
-		return models.VM_READY
+		return api.VM_READY
 	default:
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	}
 }
 
@@ -222,9 +237,8 @@ func (self *SInstance) GetInstanceType() string {
 	return self.Flavor.ID
 }
 
-func (self *SInstance) GetSecurityGroupIds() []string {
-	secgroupIds, _ := self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
-	return secgroupIds
+func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
+	return self.host.zone.region.GetInstanceSecrityGroupIds(self.GetId())
 }
 
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
@@ -251,10 +265,14 @@ func (self *SInstance) GetBillingType() string {
 	// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0094148849.html
 	// charging_mode “0”：按需计费    “1”：按包年包月计费
 	if self.Metadata.ChargingMode == "1" {
-		return models.BILLING_TYPE_PREPAID
+		return billing_api.BILLING_TYPE_PREPAID
 	} else {
-		return models.BILLING_TYPE_POSTPAID
+		return billing_api.BILLING_TYPE_POSTPAID
 	}
+}
+
+func (self *SInstance) GetCreatedAt() time.Time {
+	return self.Created
 }
 
 // charging_mode “0”：按需计费  “1”：按包年包月计费
@@ -263,7 +281,7 @@ func (self *SInstance) GetExpiredAt() time.Time {
 	if self.Metadata.ChargingMode == "1" {
 		res, err := self.host.zone.region.GetOrderResourceDetail(self.GetId())
 		if err != nil {
-			log.Debugf(err.Error())
+			log.Debugln(err)
 		}
 
 		expiredTime = res.ExpireTime
@@ -281,6 +299,11 @@ func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 }
 
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
+	err := self.Refresh()
+	if err != nil {
+		return nil, err
+	}
+
 	attached := self.OSExtendedVolumesVolumesAttached
 	disks := make([]SDisk, 0)
 	for _, vol := range attached {
@@ -413,7 +436,7 @@ func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 }
 
 func (self *SInstance) GetHypervisor() string {
-	return models.HYPERVISOR_HUAWEI
+	return api.HYPERVISOR_HUAWEI
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
@@ -431,9 +454,9 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 			return err
 		}
 
-		if self.GetStatus() == models.VM_RUNNING {
+		if self.GetStatus() == api.VM_RUNNING {
 			return nil
-		} else if self.GetStatus() == models.VM_READY {
+		} else if self.GetStatus() == api.VM_READY {
 			err := self.host.zone.region.StartVM(self.GetId())
 			if err != nil {
 				return err
@@ -458,7 +481,7 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
+	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
@@ -538,11 +561,21 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, password strin
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
-	return self.host.zone.region.ChangeVMConfig(self.OSEXTAZAvailabilityZone, self.GetId(), ncpu, vmem, nil)
+	err := self.host.zone.region.ChangeVMConfig(self.OSEXTAZAvailabilityZone, self.GetId(), ncpu, vmem, nil)
+	if err != nil {
+		return err
+	}
+
+	return cloudprovider.WaitStatusWithDelay(self, api.VM_READY, 15*time.Second, 15*time.Second, 180*time.Second)
 }
 
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
-	return self.host.zone.region.ChangeVMConfig2(self.OSEXTAZAvailabilityZone, self.GetId(), instanceType, nil)
+	err := self.host.zone.region.ChangeVMConfig2(self.OSEXTAZAvailabilityZone, self.GetId(), instanceType, nil)
+	if err != nil {
+		return err
+	}
+
+	return cloudprovider.WaitStatusWithDelay(self, api.VM_READY, 15*time.Second, 15*time.Second, 180*time.Second)
 }
 
 // todo:// 返回jsonobject感觉很诡异。不能直接知道内部细节
@@ -762,7 +795,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 
 			ids, err = self.getAllResIdsByType(_id, RESOURCE_TYPE_VM)
 			if err != nil {
-				log.Debugf(err.Error())
+				log.Debugln(err)
 				return false
 			}
 

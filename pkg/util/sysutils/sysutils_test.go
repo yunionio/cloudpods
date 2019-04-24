@@ -1,8 +1,26 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package sysutils
 
 import (
+	"fmt"
+	"net"
 	"reflect"
 	"testing"
+
+	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
@@ -54,7 +72,7 @@ func TestParseDMISysinfo(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *types.DMIInfo
+		want    *types.SDMISystemInfo
 		wantErr bool
 	}{
 		{
@@ -75,7 +93,7 @@ func TestParseDMISysinfo(t *testing.T) {
 				"        UUID: bca177cc-2bce-11b2-a85c-e98996f19d2f",
 				"        SKU Number: LENOVO_MT_20J6_BU_Think_FM_ThinkPad T470p",
 			}},
-			want: &types.DMIInfo{
+			want: &types.SDMISystemInfo{
 				Manufacture: "LENOVO",
 				Model:       "20J6CTO1WW",
 				Version:     "ThinkPad T470p",
@@ -90,7 +108,7 @@ func TestParseDMISysinfo(t *testing.T) {
 				"        Version: None",
 				"        Serial Number: PF112JKK",
 			}},
-			want: &types.DMIInfo{
+			want: &types.SDMISystemInfo{
 				Model:   "20J6CTO1WW",
 				Version: "",
 				SN:      "PF112JKK",
@@ -119,7 +137,7 @@ func TestParseCPUInfo(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *types.CPUInfo
+		want    *types.SCPUInfo
 		wantErr bool
 	}{
 		{
@@ -131,7 +149,7 @@ func TestParseCPUInfo(t *testing.T) {
 				"processor       : 1",
 				"cache size      : 16384 KB",
 			}},
-			want: &types.CPUInfo{
+			want: &types.SCPUInfo{
 				Model: "Intel(R) Xeon(R) CPU E5-2680 v2 @ 2.80GHz",
 				Count: 2,
 				Freq:  2793,
@@ -161,14 +179,14 @@ func TestParseDMICPUInfo(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *types.DMICPUInfo
+		want *types.SDMICPUInfo
 	}{
 		{
 			name: "NormalInput",
 			args: args{
 				lines: []string{"Processor Information"},
 			},
-			want: &types.DMICPUInfo{Nodes: 1},
+			want: &types.SDMICPUInfo{Nodes: 1},
 		},
 	}
 	for _, tt := range tests {
@@ -187,7 +205,7 @@ func TestParseDMIMemInfo(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *types.DMIMemInfo
+		want *types.SDMIMemInfo
 	}{
 		{
 			name: "NormalInputMB",
@@ -196,7 +214,7 @@ func TestParseDMIMemInfo(t *testing.T) {
 					"        Size: 16384 MB",
 					"        Size: No Module Installed"},
 			},
-			want: &types.DMIMemInfo{Total: 16384},
+			want: &types.SDMIMemInfo{Total: 16384},
 		},
 		{
 			name: "NormalInputGB",
@@ -205,7 +223,7 @@ func TestParseDMIMemInfo(t *testing.T) {
 					"        Size: 16 GB",
 					"        Size: No Module Installed"},
 			},
-			want: &types.DMIMemInfo{Total: 16 * 1024},
+			want: &types.SDMIMemInfo{Total: 16 * 1024},
 		},
 	}
 	for _, tt := range tests {
@@ -221,29 +239,36 @@ func TestParseNicInfo(t *testing.T) {
 	type args struct {
 		lines []string
 	}
+	mac1Str := "00:22:25:0b:ab:49"
+	mac2Str := "00:22:25:0b:ab:50"
+	mac1, _ := net.ParseMAC(mac1Str)
+	mac2, _ := net.ParseMAC(mac2Str)
 	tests := []struct {
 		name string
 		args args
-		want []*types.NicDevInfo
+		want []*types.SNicDevInfo
 	}{
 		{
 			name: "NormalInput",
 			args: args{
 				lines: []string{
-					"eth0 00:22:25:0b:ab:49 0 1 1500",
-					"eth1 00:22:25:0b:ab:50 0 0 1500",
+					fmt.Sprintf("eth0 %s 0 1 1500", mac1Str),
+					fmt.Sprintf("eth1 %s 0 0 1500", mac2Str),
 				},
 			},
-			want: []*types.NicDevInfo{
-				{Dev: "eth0", Mac: "00:22:25:0b:ab:49", Speed: 0, Up: true, Mtu: 1500},
-				{Dev: "eth1", Mac: "00:22:25:0b:ab:50", Speed: 0, Up: false, Mtu: 1500},
+			want: []*types.SNicDevInfo{
+				{Dev: "eth0", Mac: mac1, Speed: 0, Up: true, Mtu: 1500},
+				{Dev: "eth1", Mac: mac2, Speed: 0, Up: false, Mtu: 1500},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ParseNicInfo(tt.args.lines); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ParseNicInfo() = %v, want %v", got, tt.want)
+			got := ParseNicInfo(tt.args.lines)
+			gotJson := jsonutils.Marshal(got).String()
+			wantJson := jsonutils.Marshal(tt.want).String()
+			if gotJson != wantJson {
+				t.Errorf("ParseNicInfo() = %s, want %s", gotJson, wantJson)
 			}
 		})
 	}

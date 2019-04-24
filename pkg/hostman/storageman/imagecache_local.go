@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package storageman
 
 import (
@@ -196,13 +210,13 @@ func (l *SLocalImageCache) fetch(ctx context.Context, zone, srcUrl, format strin
 
 		bDesc, err := json.Marshal(l.Desc)
 		if err != nil {
-			log.Errorln("Marshal image desc error %s", err)
+			log.Errorf("Marshal image desc error %s", err)
 			return false
 		}
 
 		err = fileutils2.FilePutContents(l.GetInfPath(), string(bDesc), false)
 		if err != nil {
-			log.Errorln("File put content error %s", err)
+			log.Errorf("File put content error %s", err)
 			return false
 		}
 		return true

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package handler
 
 import (
@@ -11,10 +25,12 @@ import (
 
 	"yunion.io/x/log"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	skuman "yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
 )
@@ -63,6 +79,8 @@ func schedulerActionHandler(c *gin.Context) {
 		doHistoryList(c)
 	case "clean-cache":
 		doCleanAllHostCache(c)
+	case "sync-sku":
+		doSyncSku(c)
 	//case "reserved-resources":
 	//doReservedResources(c)
 	default:
@@ -172,7 +190,7 @@ func doCandidateDetail(c *gin.Context, id string) {
 
 	args := new(api.CandidateDetailArgs)
 	args.ID = id
-	if host.HostType == computemodels.HOST_TYPE_BAREMETAL {
+	if host.HostType == computeapi.HOST_TYPE_BAREMETAL {
 		args.Type = api.HostTypeBaremetal
 	} else {
 		args.Type = api.HostTypeHost
@@ -273,7 +291,7 @@ func doSyncSchedule(c *gin.Context) {
 	count := int64(schedInfo.Count)
 	var resp interface{}
 	if schedInfo.Backup {
-		resp = transToBackupSchedResult(result, schedInfo.HostId, schedInfo.PreferBackupHost, count)
+		resp = transToBackupSchedResult(result, schedInfo.PreferHost, schedInfo.PreferBackupHost, count, true)
 	} else {
 		resp = transToRegionSchedResult(result.Data, count)
 	}
@@ -353,6 +371,23 @@ func doCleanAllHostCache(c *gin.Context) {
 	}
 
 	doCleanHostCacheByArgs(c, args)
+}
+
+type SyncSkuArgs struct {
+	Wait bool `json:"wait"`
+}
+
+func doSyncSku(c *gin.Context) {
+	args := new(SyncSkuArgs)
+	if err := c.BindJSON(args); err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	if err := skuman.SyncOnce(args.Wait); err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	c.JSON(http.StatusOK, nil)
 }
 
 func doCleanHostCache(c *gin.Context, hostID string) {

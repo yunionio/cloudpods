@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package aliyun
 
 import (
@@ -9,8 +23,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SMountInstances struct {
@@ -63,7 +77,7 @@ func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	priceKey := fmt.Sprintf("%s::%s::%s", self.RegionId, self.Category, self.Type)
 	data.Add(jsonutils.NewString(priceKey), "price_key")
 
-	data.Add(jsonutils.NewString(models.HYPERVISOR_ALIYUN), "hypervisor")
+	data.Add(jsonutils.NewString(api.HYPERVISOR_ALIYUN), "hypervisor")
 
 	return data
 }
@@ -165,9 +179,9 @@ func (self *SDisk) GetStatus() string {
 	// In_use Available Attaching Detaching Creating ReIniting All
 	switch self.Status {
 	case "Creating", "ReIniting":
-		return models.DISK_ALLOCATING
+		return api.DISK_ALLOCATING
 	default:
-		return models.DISK_READY
+		return api.DISK_READY
 	}
 }
 
@@ -204,11 +218,11 @@ func (self *SDisk) GetTemplateId() string {
 func (self *SDisk) GetDiskType() string {
 	switch self.Type {
 	case "system":
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	case "data":
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	default:
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	}
 }
 
@@ -306,7 +320,7 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (clou
 		return nil, err
 	} else {
 		snapshot.region = self.storage.zone.region
-		if err := cloudprovider.WaitStatus(snapshot, models.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
+		if err := cloudprovider.WaitStatus(snapshot, api.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
 			return nil, err
 		}
 		return snapshot, nil
@@ -374,6 +388,10 @@ func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 
 func (self *SDisk) GetBillingType() string {
 	return convertChargeType(self.DiskChargeType)
+}
+
+func (self *SDisk) GetCreatedAt() time.Time {
+	return self.CreationTime
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {

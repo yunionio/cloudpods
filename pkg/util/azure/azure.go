@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package azure
 
 import (
@@ -15,13 +29,13 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 const (
-	CLOUD_PROVIDER_AZURE    = models.CLOUD_PROVIDER_AZURE
+	CLOUD_PROVIDER_AZURE    = api.CLOUD_PROVIDER_AZURE
 	CLOUD_PROVIDER_AZURE_CN = "微软"
 
 	AZURE_API_VERSION = "2016-02-01"
@@ -175,7 +189,7 @@ func (self *SAzureClient) Get(resourceId string, params []string, retVal interfa
 	if err != nil {
 		return err
 	}
-	fmt.Println(body)
+	//fmt.Println(body)
 	err = body.Unmarshal(retVal)
 	if err != nil {
 		return err
@@ -343,6 +357,10 @@ type AzureError struct {
 	Code    string             `json:"code,omitempty"`
 	Details []AzureErrorDetail `json:"details,omitempty"`
 	Message string             `json:"message,omitempty"`
+}
+
+func (e *AzureError) Error() string {
+	return jsonutils.Marshal(e).String()
 }
 
 func (self *SAzureClient) getUniqName(cli *autorest.Client, resourceType, name string, body jsonutils.JSONObject) (string, string, error) {
@@ -572,9 +590,21 @@ func waitForComplatetion(client *autorest.Client, req *http.Request, resp *http.
 					return nil, nil
 				case "Failed":
 					if asyncData.Contains("error") {
-						msg, _ := asyncData.Get("error")
-						log.Errorf("process %s %s error: %s", req.Method, req.URL.String(), msg.String())
-						return nil, fmt.Errorf(msg.String())
+						azureError := AzureError{}
+						if err := asyncData.Unmarshal(&azureError, "error"); err != nil {
+							log.Errorf("process %s %s error: %s", req.Method, req.URL.String(), asyncData.String())
+							return nil, fmt.Errorf("%s", asyncData.String())
+						}
+						switch azureError.Code {
+						// 忽略创建机器时初始化超时问题
+						case "OSProvisioningTimedOut", "OSProvisioningClientError", "OSProvisioningInternalError":
+							// {"code":"OSProvisioningInternalError","message":"OS Provisioning failed for VM 'stress-testvm-azure-1' due to an internal error: [000004] cloud-init appears to be running, this is not expected, cannot continue."}
+							log.Debugf("ignore OSProvisioning error: %s", azureError)
+							return nil, nil
+						default:
+							log.Errorf("process %s %s error: %s", req.Method, req.URL.String(), azureError)
+							return nil, &azureError
+						}
 					}
 				default:
 					log.Errorf("Unknow status %s when process %s %s", status, req.Method, req.URL.String())
@@ -721,7 +751,7 @@ func (self *SAzureClient) GetSubAccounts() (subAccounts []cloudprovider.SSubAcco
 			return nil, err
 		}
 
-		subAccounts[i].HealthStatus = models.CLOUD_PROVIDER_HEALTH_NORMAL
+		subAccounts[i].HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 	}
 	return subAccounts, nil
 }

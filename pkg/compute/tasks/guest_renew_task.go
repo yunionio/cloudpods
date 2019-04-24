@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -7,10 +21,12 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type GuestRenewTask struct {
@@ -32,6 +48,9 @@ func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 	if err != nil {
 		msg := fmt.Sprintf("RequestRenewInstance failed %s", err)
 		log.Errorf(msg)
+		db.OpsLog.LogEvent(guest, db.ACT_REW_FAIL, msg, self.UserCred)
+		logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RENEW, msg, self.UserCred, false)
+		guest.SetStatus(self.GetUserCred(), api.VM_RENEW_FAILED, msg)
 		self.SetStageFailed(ctx, msg)
 		return
 	}
@@ -44,6 +63,9 @@ func (self *GuestRenewTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 		return
 	}
 
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_RENEW, nil, self.UserCred, true)
+
+	guest.StartSyncstatus(ctx, self.UserCred, "")
 	self.SetStageComplete(ctx, nil)
 }
 

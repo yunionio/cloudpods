@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package openstack
 
 import (
@@ -10,8 +24,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -79,23 +94,23 @@ type SFault struct {
 type SInstance struct {
 	host *SHost
 
-	DiskConfig         string `json:"OS-DCF:diskConfig,omitempty"`
-	AvailabilityZone   string `json:"OS-EXT-AZ:availability_zone,omitempty"`
-	Host               string `json:"OS-EXT-SRV-ATTR:host,omitempty"`
-	Hostname           string `json:"OS-EXT-SRV-ATTR:hostname,omitempty"`
-	HypervisorHostname string `json:"OS-EXT-SRV-ATTR:hypervisor_hostname,omitempty"`
-	InstanceName       string `json:"OS-EXT-SRV-ATTR:instance_name,omitempty"`
-	KernelID           string `json:"OS-EXT-SRV-ATTR:kernel_id,omitempty"`
-	LaunchIndex        int    `json:"OS-EXT-SRV-ATTR:launch_index,omitempty"`
-	RamdiskID          string `json:"OS-EXT-SRV-ATTR:ramdisk_id,omitempty"`
-	ReservationID      string `json:"OS-EXT-SRV-ATTR:reservation_id,omitempty"`
-	RootDeviceName     string `json:"OS-EXT-SRV-ATTR:root_device_name,omitempty"`
-	UserData           string `json:"OS-EXT-SRV-ATTR:user_data,omitempty"`
-	PowerState         int    `json:"OS-EXT-STS:power_state,omitempty"`
-	TaskState          string `json:"OS-EXT-STS:task_state,omitempty"`
-	VmState            string `json:"OS-EXT-STS:vm_state,omitempty"`
-	//LaunchedAt         time.Time `json:"OS-SRV-USG:launched_at,omitempty"`
-	TerminatedAt string `json:"OS-SRV-USG:terminated_at,omitempty"`
+	DiskConfig         string    `json:"OS-DCF:diskConfig,omitempty"`
+	AvailabilityZone   string    `json:"OS-EXT-AZ:availability_zone,omitempty"`
+	Host               string    `json:"OS-EXT-SRV-ATTR:host,omitempty"`
+	Hostname           string    `json:"OS-EXT-SRV-ATTR:hostname,omitempty"`
+	HypervisorHostname string    `json:"OS-EXT-SRV-ATTR:hypervisor_hostname,omitempty"`
+	InstanceName       string    `json:"OS-EXT-SRV-ATTR:instance_name,omitempty"`
+	KernelID           string    `json:"OS-EXT-SRV-ATTR:kernel_id,omitempty"`
+	LaunchIndex        int       `json:"OS-EXT-SRV-ATTR:launch_index,omitempty"`
+	RamdiskID          string    `json:"OS-EXT-SRV-ATTR:ramdisk_id,omitempty"`
+	ReservationID      string    `json:"OS-EXT-SRV-ATTR:reservation_id,omitempty"`
+	RootDeviceName     string    `json:"OS-EXT-SRV-ATTR:root_device_name,omitempty"`
+	UserData           string    `json:"OS-EXT-SRV-ATTR:user_data,omitempty"`
+	PowerState         int       `json:"OS-EXT-STS:power_state,omitempty"`
+	TaskState          string    `json:"OS-EXT-STS:task_state,omitempty"`
+	VmState            string    `json:"OS-EXT-STS:vm_state,omitempty"`
+	LaunchedAt         time.Time `json:"OS-SRV-USG:launched_at,omitempty"`
+	TerminatedAt       string    `json:"OS-SRV-USG:terminated_at,omitempty"`
 
 	AccessIPv4               string
 	AccessIPv6               string
@@ -162,15 +177,16 @@ func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	return instance, resp.Unmarshal(instance, "server")
 }
 
-func (instance *SInstance) GetSecurityGroupIds() []string {
+func (instance *SInstance) GetSecurityGroupIds() ([]string, error) {
 	secgroupIds := []string{}
 	secgroups, err := instance.host.zone.region.GetSecurityGroupsByInstance(instance.ID)
-	if err == nil {
-		for _, secgroup := range secgroups {
-			secgroupIds = append(secgroupIds, secgroup.ID)
-		}
+	if err != nil {
+		return nil, err
 	}
-	return secgroupIds
+	for _, secgroup := range secgroups {
+		secgroupIds = append(secgroupIds, secgroup.ID)
+	}
+	return secgroupIds, nil
 }
 
 func (instance *SInstance) GetMetadata() *jsonutils.JSONDict {
@@ -298,25 +314,28 @@ func (instance *SInstance) GetMachine() string {
 func (instance *SInstance) GetStatus() string {
 	switch instance.Status {
 	case INSTANCE_STATUS_ACTIVE, INSTANCE_STATUS_RESCUE:
-		return models.VM_RUNNING
+		return api.VM_RUNNING
 	case INSTANCE_STATUS_BUILD, INSTANCE_STATUS_PASSWORD:
-		return models.VM_DEPLOYING
+		return api.VM_DEPLOYING
 	case INSTANCE_STATUS_DELETED:
-		return models.VM_DELETING
+		return api.VM_DELETING
 	case INSTANCE_STATUS_HARD_REBOOT, INSTANCE_STATUS_REBOOT:
-		return models.VM_STARTING
+		return api.VM_STARTING
 	case INSTANCE_STATUS_MIGRATING:
-		return models.VM_MIGRATING
+		return api.VM_MIGRATING
 	case INSTANCE_STATUS_PAUSED, INSTANCE_STATUS_SUSPENDED:
-		return models.VM_SUSPEND
+		return api.VM_SUSPEND
 	case INSTANCE_STATUS_RESIZE:
-		return models.VM_CHANGE_FLAVOR
+		return api.VM_CHANGE_FLAVOR
 	case INSTANCE_STATUS_VERIFY_RESIZE:
-		return INSTANCE_STATUS_VERIFY_RESIZE
+		// API请求更改配置后，状态先回变更到 INSTANCE_STATUS_RESIZE 等待一会变成此状态
+		// 到达此状态后需要再次发送确认请求，变更才会生效
+		// 此状态不能和INSTANCE_STATUS_RESIZE返回一样，避免在INSTANCE_STATUS_RESIZE状态下发送确认请求，导致更改配置失败
+		return api.VM_SYNC_CONFIG
 	case INSTANCE_STATUS_SHELVED, INSTANCE_STATUS_SHELVED_OFFLOADED, INSTANCE_STATUS_SHUTOFF, INSTANCE_STATUS_SOFT_DELETED:
-		return models.VM_READY
+		return api.VM_READY
 	default:
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	}
 }
 
@@ -342,21 +361,21 @@ func (instance *SInstance) UpdateVM(ctx context.Context, name string) error {
 }
 
 func (instance *SInstance) GetHypervisor() string {
-	return models.HYPERVISOR_OPENSTACK
+	return api.HYPERVISOR_OPENSTACK
 }
 
 func (instance *SInstance) StartVM(ctx context.Context) error {
 	if err := instance.host.zone.region.StartVM(instance.ID); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(instance, models.VM_RUNNING, 10*time.Second, 8*time.Minute)
+	return cloudprovider.WaitStatus(instance, api.VM_RUNNING, 10*time.Second, 8*time.Minute)
 }
 
 func (instance *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err := instance.host.zone.region.StopVM(instance.ID, isForce); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(instance, models.VM_READY, 10*time.Second, 8*time.Minute)
+	return cloudprovider.WaitStatus(instance, api.VM_READY, 10*time.Second, 8*time.Minute)
 }
 
 func (region *SRegion) GetInstanceVNCUrl(instanceId string) (string, error) {
@@ -431,7 +450,7 @@ func (region *SRegion) ChangeConfig(instance *SInstance, flavorId string) error 
 	if err != nil {
 		return err
 	}
-	if err := cloudprovider.WaitStatus(instance, INSTANCE_STATUS_VERIFY_RESIZE, time.Second*3, time.Minute*4); err != nil {
+	if err := cloudprovider.WaitStatus(instance, api.VM_SYNC_CONFIG, time.Second*3, time.Minute*4); err != nil {
 		return err
 	}
 	return region.instanceOperation(instance.ID, "confirmResize")
@@ -485,8 +504,8 @@ func (region *SRegion) DeleteVM(instanceId string) error {
 	}
 	status := instance.GetStatus()
 	log.Debugf("Instance status on delete is %s", status)
-	if status != models.VM_READY {
-		log.Warningf("DeleteVM: vm status is %s expect %s", status, models.VM_READY)
+	if status != api.VM_READY {
+		log.Warningf("DeleteVM: vm status is %s expect %s", status, api.VM_READY)
 	}
 	return region.doDeleteVM(instanceId)
 }
@@ -543,7 +562,24 @@ func (region *SRegion) ChangeVMConfig2(zoneId string, instanceId string, instanc
 
 func (region *SRegion) DetachDisk(instanceId string, diskId string) error {
 	_, err := region.Delete("compute", fmt.Sprintf("/servers/%s/os-volume_attachments/%s", instanceId, diskId), "")
-	return err
+	if err != nil {
+		return err
+	}
+	status := ""
+	startTime := time.Now()
+	for time.Now().Sub(startTime) < time.Minute*10 {
+		disk, err := region.GetDisk(diskId)
+		if err != nil {
+			return err
+		}
+		status = disk.Status
+		log.Debugf("status %s expect %s", status, DISK_STATUS_AVAILABLE)
+		if status == DISK_STATUS_AVAILABLE {
+			return nil
+		}
+		time.Sleep(time.Second * 15)
+	}
+	return fmt.Errorf("timeout for waitting detach disk, current status: %s", status)
 }
 
 func (region *SRegion) AttachDisk(instanceId string, diskId string) error {
@@ -553,10 +589,30 @@ func (region *SRegion) AttachDisk(instanceId string, diskId string) error {
 		},
 	}
 	_, _, err := region.Post("compute", fmt.Sprintf("/servers/%s/os-volume_attachments", instanceId), "", jsonutils.Marshal(params))
-	return err
+	if err != nil {
+		return err
+	}
+	status := ""
+	startTime := time.Now()
+	for time.Now().Sub(startTime) < time.Minute*10 {
+		disk, err := region.GetDisk(diskId)
+		if err != nil {
+			return err
+		}
+		status = disk.Status
+		log.Debugf("status %s expect %s", status, DISK_STATUS_IN_USE)
+		if status == DISK_STATUS_IN_USE {
+			return nil
+		}
+		time.Sleep(time.Second * 15)
+	}
+	return fmt.Errorf("timeout for waitting attach disk, current status: %s", status)
 }
 
 func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
+	if secgroupId == SECGROUP_NOT_SUPPORT {
+		return fmt.Errorf("Security groups are not supported. Security group components are not installed")
+	}
 	secgroup, err := instance.host.zone.region.GetSecurityGroup(secgroupId)
 	if err != nil {
 		return err
@@ -571,6 +627,10 @@ func (instance *SInstance) AssignSecurityGroup(secgroupId string) error {
 }
 
 func (instance *SInstance) RevokeSecurityGroup(secgroupId string) error {
+	// 若OpenStack不支持安全组，则忽略解绑安全组
+	if secgroupId == SECGROUP_NOT_SUPPORT {
+		return nil
+	}
 	secgroup, err := instance.host.zone.region.GetSecurityGroup(secgroupId)
 	if err != nil {
 		return err
@@ -613,7 +673,11 @@ func (instance *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 }
 
 func (instance *SInstance) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
+}
+
+func (instance *SInstance) GetCreatedAt() time.Time {
+	return instance.Created
 }
 
 func (instance *SInstance) GetExpiredAt() time.Time {

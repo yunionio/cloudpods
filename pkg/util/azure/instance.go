@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package azure
 
 import (
@@ -10,8 +24,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/osprofile"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -67,7 +82,7 @@ type DataDisk struct {
 type StorageProfile struct {
 	ImageReference ImageReference `json:"imageReference,omitempty"`
 	OsDisk         OSDisk         `json:"osDisk,omitempty"`
-	DataDisks      []DataDisk     `json:"dataDisks,omitempty"`
+	DataDisks      []DataDisk     `json:"dataDisks,allowempty"`
 }
 
 type SSHPublicKey struct {
@@ -193,7 +208,7 @@ func (self *SRegion) doDeleteVM(instanceId string) error {
 	return self.client.Delete(instanceId)
 }
 
-func (self *SInstance) GetSecurityGroupIds() []string {
+func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	secgroupIds := []string{}
 	if nics, err := self.getNics(); err == nil {
 		for _, nic := range nics {
@@ -204,7 +219,7 @@ func (self *SInstance) GetSecurityGroupIds() []string {
 			}
 		}
 	}
-	return secgroupIds
+	return secgroupIds, nil
 }
 
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
@@ -231,7 +246,7 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SInstance) GetHypervisor() string {
-	return models.HYPERVISOR_AZURE
+	return api.HYPERVISOR_AZURE
 }
 
 func (self *SInstance) IsEmulated() bool {
@@ -432,7 +447,7 @@ func (self *SInstance) GetStatus() string {
 		err := self.Refresh()
 		if err != nil {
 			log.Errorf("failed to get status for instance %s", self.Name)
-			return models.VM_UNKNOWN
+			return api.VM_UNKNOWN
 		}
 	}
 	for _, statuses := range self.Properties.InstanceView.Statuses {
@@ -440,18 +455,18 @@ func (self *SInstance) GetStatus() string {
 			if code[0] == "PowerState" {
 				switch code[1] {
 				case "stopped", "deallocated":
-					return models.VM_READY
+					return api.VM_READY
 				case "running":
-					return models.VM_RUNNING
+					return api.VM_RUNNING
 				case "stopping":
-					return models.VM_START_STOP
+					return api.VM_START_STOP
 				case "starting":
-					return models.VM_STARTING
+					return api.VM_STARTING
 				case "deleting":
-					return models.VM_DELETING
+					return api.VM_DELETING
 				default:
 					log.Errorf("Unknow instance status %s", code[1])
-					return models.VM_UNKNOWN
+					return api.VM_UNKNOWN
 				}
 			}
 		}
@@ -459,7 +474,7 @@ func (self *SInstance) GetStatus() string {
 			log.Errorf("Find error code: [%s] message: %s", statuses.Code, statuses.Message)
 		}
 	}
-	return models.VM_UNKNOWN
+	return api.VM_UNKNOWN
 }
 
 func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
@@ -467,10 +482,11 @@ func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 }
 
 func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
+	status := self.GetStatus()
 	if err := self.host.zone.region.AttachDisk(self.ID, diskId); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 }
 
 func (region *SRegion) AttachDisk(instanceId, diskId string) error {
@@ -509,10 +525,11 @@ func (region *SRegion) AttachDisk(instanceId, diskId string) error {
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
+	status := self.GetStatus()
 	if err := self.host.zone.region.DetachDisk(self.ID, diskId); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 }
 
 func (region *SRegion) DetachDisk(instanceId, diskId string) error {
@@ -537,6 +554,7 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
+	status := self.GetStatus()
 	for _, vmSize := range self.host.zone.region.getHardwareProfile(ncpu, vmem) {
 		self.Properties.HardwareProfile.VMSize = vmSize
 		self.Properties.ProvisioningState = ""
@@ -544,7 +562,7 @@ func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) err
 		log.Debugf("Try HardwareProfile : %s", vmSize)
 		err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
 		if err == nil {
-			return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+			return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 		} else {
 			log.Debugf("ChangeConfig %s", err)
 		}
@@ -553,13 +571,14 @@ func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) err
 }
 
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
+	status := self.GetStatus()
 	self.Properties.HardwareProfile.VMSize = instanceType
 	self.Properties.ProvisioningState = ""
 	self.Properties.InstanceView = nil
 	log.Debugf("Try HardwareProfile : %s", instanceType)
 	err := self.host.zone.region.client.Update(jsonutils.Marshal(self), nil)
 	if err == nil {
-		return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+		return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 	} else {
 		log.Errorf("ChangeConfig2 %s", err)
 	}
@@ -980,7 +999,7 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 		return err
 	}
 	self.host.zone.region.client.jsonRequest("PATCH", self.ID, jsonutils.Marshal(self).String())
-	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, api.VM_RUNNING, 10*time.Second, 300*time.Second)
 }
 
 func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
@@ -989,7 +1008,7 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 		return err
 	}
 	self.host.zone.region.client.jsonRequest("PATCH", self.ID, jsonutils.Marshal(self).String())
-	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second)
 }
 
 func (self *SRegion) StopVM(instanceId string, isForce bool) error {
@@ -1027,7 +1046,11 @@ func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 }
 
 func (self *SInstance) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
+}
+
+func (self *SInstance) GetCreatedAt() time.Time {
+	return time.Time{}
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {

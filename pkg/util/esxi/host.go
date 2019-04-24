@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package esxi
 
 import (
@@ -14,8 +28,8 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 var HOST_SYSTEM_PROPS = []string{"name", "parent", "summary", "config", "hardware", "vm", "datastore"}
@@ -120,11 +134,11 @@ func (self *SHost) GetStatus() string {
 	*/
 	switch self.getHostSystem().Summary.Runtime.PowerState {
 	case types.HostSystemPowerStatePoweredOn:
-		return models.HOST_STATUS_RUNNING
+		return api.HOST_STATUS_RUNNING
 	case types.HostSystemPowerStatePoweredOff:
-		return models.HOST_STATUS_READY
+		return api.HOST_STATUS_READY
 	default:
-		return models.HOST_STATUS_UNKNOWN
+		return api.HOST_STATUS_UNKNOWN
 	}
 }
 
@@ -234,9 +248,9 @@ func (self *SHost) GetHostStatus() string {
 	*/
 	switch self.getHostSystem().Summary.Runtime.ConnectionState {
 	case types.HostSystemConnectionStateConnected:
-		return models.HOST_ONLINE
+		return api.HOST_ONLINE
 	default:
-		return models.HOST_OFFLINE
+		return api.HOST_OFFLINE
 	}
 }
 
@@ -252,7 +266,7 @@ func findHostNicByMac(nicInfoList []SHostNicInfo, mac string) *SHostNicInfo {
 func (self *SHost) getAdminNic() *SHostNicInfo {
 	nics := self.getNicInfo()
 	for i := 0; i < len(nics); i += 1 {
-		if nics[i].NicType == models.NIC_TYPE_ADMIN {
+		if nics[i].NicType == api.NIC_TYPE_ADMIN {
 			return &nics[i]
 		}
 	}
@@ -292,7 +306,7 @@ func (self *SHost) fetchNicInfo() []SHostNicInfo {
 		if pnic != nil {
 			pnic.IpAddr = nic.Spec.Ip.IpAddress
 			if nic.Spec.Portgroup == "Management Network" {
-				pnic.NicType = models.NIC_TYPE_ADMIN
+				pnic.NicType = api.NIC_TYPE_ADMIN
 			}
 			pnic.LinkUp = true
 		}
@@ -493,16 +507,16 @@ func (self *SHost) GetStorageType() string {
 		}
 	}
 	if ssd == 0 && rotate > 0 {
-		return models.DISK_TYPE_ROTATE
+		return api.DISK_TYPE_ROTATE
 	} else if ssd > 0 && rotate == 0 {
-		return models.DISK_TYPE_SSD
+		return api.DISK_TYPE_SSD
 	} else {
-		return models.DISK_TYPE_HYBRID
+		return api.DISK_TYPE_HYBRID
 	}
 }
 
 func (self *SHost) GetHostType() string {
-	return models.HOST_TYPE_ESXI
+	return api.HOST_TYPE_ESXI
 }
 
 func (self *SHost) GetManagerId() string {
@@ -551,6 +565,7 @@ func (host *SHost) newLocalStorageCache() (*SDatastoreImageCache, error) {
 	if err != nil {
 		return nil, err
 	}
+	var errmsg string
 	var cacheDs *SDatastore
 	var maxDs *SDatastore
 	var maxCapacity int
@@ -562,9 +577,12 @@ func (host *SHost) newLocalStorageCache() (*SDatastoreImageCache, error) {
 		_, err := ds.CheckFile(ctx, IMAGE_CACHE_DIR_NAME)
 		if err != nil {
 			if err != cloudprovider.ErrNotFound {
-				return nil, err
-			}
-			if maxCapacity < ds.GetCapacityMB() {
+				// return nil, err
+				if len(errmsg) > 0 {
+					errmsg += ","
+				}
+				errmsg += err.Error()
+			} else if maxCapacity < ds.GetCapacityMB() {
 				maxCapacity = ds.GetCapacityMB()
 				maxDs = ds
 			}
@@ -576,6 +594,10 @@ func (host *SHost) newLocalStorageCache() (*SDatastoreImageCache, error) {
 	if cacheDs == nil {
 		// if no existing image cache dir found, use the one with maximal capacilty
 		cacheDs = maxDs
+	}
+
+	if cacheDs == nil {
+		return nil, fmt.Errorf(errmsg)
 	}
 
 	return &SDatastoreImageCache{

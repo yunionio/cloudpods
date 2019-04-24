@@ -29,14 +29,25 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 declare -r REPO_ROOT
 cd "${REPO_ROOT}"
 
+function git_remote_get_url() {
+    git remote get-url $1 2>/dev/null
+    if [ "$?" -ne "0" ]; then
+        git config remote.$1.url 2>/dev/null
+    fi
+    if [ "$?" -ne "0" ]; then
+        echo "git fail get remote url for $1"
+        exit 1
+    fi
+}
+
 STARTINGBRANCH=$(git symbolic-ref --short HEAD)
 declare -r STARTINGBRANCH
 declare -r REBASEMAGIC="${REPO_ROOT}/.git/rebase-apply"
 DRY_RUN=${DRY_RUN:-""}
 UPSTREAM_REMOTE=${UPSTREAM_REMOTE:-upstream}
 FORK_REMOTE=${FORK_REMOTE:-origin}
-MAIN_REPO_ORG=${MAIN_REPO_ORG:-$(git remote get-url "$UPSTREAM_REMOTE" | awk '{gsub(/http[s]:\/\/|git@/,"")}1' | awk -F'[@:./]' 'NR==1{print $3}')}
-MAIN_REPO_NAME=${MAIN_REPO_NAME:-$(git remote get-url "$UPSTREAM_REMOTE" | awk '{gsub(/http[s]:\/\/|git@/,"")}1' | awk -F'[@:./]' 'NR==1{print $4}')}
+MAIN_REPO_ORG=${MAIN_REPO_ORG:-$(git_remote_get_url "$UPSTREAM_REMOTE" | awk '{gsub(/http[s]:\/\/|git@/,"")}1' | awk -F'[@:./]' 'NR==1{print $3}')}
+MAIN_REPO_NAME=${MAIN_REPO_NAME:-$(git_remote_get_url "$UPSTREAM_REMOTE" | awk '{gsub(/http[s]:\/\/|git@/,"")}1' | awk -F'[@:./]' 'NR==1{print $4}')}
 
 if [[ -z ${GITHUB_USER:-} ]]; then
   echo "Please export GITHUB_USER=<your-user> (or GH organization, if that's where your fork lives)"
@@ -145,6 +156,32 @@ EOF
 hub pull-request -F "${prtext}" -h "${GITHUB_USER}:${NEWBRANCH}" -b "${MAIN_REPO_ORG}:${rel}"
 }
 
+function extract-subject {
+  local patch="$1"
+
+  python -c '
+import os
+import email.parser
+import email.header
+with open("'"$patch"'", "r") as f:
+    m = email.parser.Parser().parse(f, headersonly=True)
+subj = m["subject"]
+subj = email.header.decode_header(subj)
+s = u""
+for txt, enc in subj:
+    txt = txt.decode(enc) if enc else txt
+    txt = txt.decode("ascii") if isinstance(txt, bytes) else txt
+    txt = txt.replace(u"\n", u"")
+    if txt.startswith(u"[PATCH"):
+        i = txt.index(u"]")
+        txt = txt[i+1:]
+    s += txt
+s = s.strip() + u"\n"
+s = s.encode("utf-8") # write out utf-8 bytes whatsoever
+os.write(1, s)
+'
+}
+
 git checkout -b "${NEWBRANCHUNIQ}" "${BRANCH}"
 cleanbranch="${NEWBRANCHUNIQ}"
 
@@ -183,7 +220,7 @@ for pull in "${PULLS[@]}"; do
   }
 
   # set the subject
-  subject=$(grep -m 1 "^Subject" "/tmp/${pull}.patch" | sed -e 's/Subject: \[PATCH//g' | sed 's/.*] //')
+  subject=$(extract-subject "/tmp/${pull}.patch")
   SUBJECTS+=("#${pull}: ${subject}")
 
   # remove the patch file from /tmp

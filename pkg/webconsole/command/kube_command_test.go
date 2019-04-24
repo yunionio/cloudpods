@@ -1,10 +1,30 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package command
 
 import (
 	"reflect"
 	"strings"
 	"testing"
+
+	o "yunion.io/x/onecloud/pkg/webconsole/options"
 )
+
+func init() {
+	o.Options.KubectlPath = "/usr/bin/kubectl"
+}
 
 func TestKubectlExec_Command(t *testing.T) {
 	type fields struct {
@@ -29,7 +49,7 @@ func TestKubectlExec_Command(t *testing.T) {
 				cmd:  "bash",
 				args: []string{"-il"},
 			},
-			want: "kubectl --namespace system exec -i -t Pod1 -c Container1 -- bash -il",
+			want: "/usr/bin/kubectl --namespace system exec -i -t Pod1 -c Container1 -- bash -il",
 		},
 	}
 	for _, tt := range tests {

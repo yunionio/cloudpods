@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -79,7 +93,12 @@ func (self *SKeypair) AllowGetDetails(ctx context.Context, userCred mcclient.Tok
 func (self *SKeypair) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	extra.Add(jsonutils.NewInt(int64(len(self.PrivateKey))), "private_key_len")
-	extra.Add(jsonutils.NewInt(int64(self.GetLinkedGuestsCount())), "linked_guest_count")
+
+	guestCnt, err := self.GetLinkedGuestsCount()
+	if err == nil {
+		extra.Add(jsonutils.NewInt(int64(guestCnt)), "linked_guest_count")
+	}
+
 	return extra
 }
 
@@ -89,7 +108,13 @@ func (self *SKeypair) GetExtraDetails(ctx context.Context, userCred mcclient.Tok
 		return nil, err
 	}
 	extra.Add(jsonutils.NewInt(int64(len(self.PrivateKey))), "private_key_len")
-	extra.Add(jsonutils.NewInt(int64(self.GetLinkedGuestsCount())), "linked_guest_count")
+
+	guestCnt, err := self.GetLinkedGuestsCount()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("GetLinkedGuestsCount fail %s", err)
+	}
+	extra.Add(jsonutils.NewInt(int64(guestCnt)), "linked_guest_count")
+
 	if db.IsAdminAllowGet(userCred, self) {
 		extra.Add(jsonutils.NewString(self.OwnerId), "owner_id")
 		uc, _ := db.UserCacheManager.FetchUserById(self.OwnerId)
@@ -112,8 +137,8 @@ func (self *SKeypair) AllowDeleteItem(ctx context.Context, userCred mcclient.Tok
 	return self.IsOwner(userCred) || db.IsAdminAllowDelete(userCred, self)
 }
 
-func (self *SKeypair) GetLinkedGuestsCount() int {
-	return GuestManager.Query().Equals("keypair_id", self.Id).Count()
+func (self *SKeypair) GetLinkedGuestsCount() (int, error) {
+	return GuestManager.Query().Equals("keypair_id", self.Id).CountWithError()
 }
 
 func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -162,15 +187,19 @@ func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred
 }
 
 func (self *SKeypair) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetLinkedGuestsCount() > 0 {
+	guestCnt, err := self.GetLinkedGuestsCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetLinkedGuestsCount failed %s", err)
+	}
+	if guestCnt > 0 {
 		return httperrors.NewNotEmptyError("Cannot delete keypair used by servers")
 	}
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func totalKeypairCount(userId string) int {
+func totalKeypairCount(userId string) (int, error) {
 	q := KeypairManager.Query().Equals("owner_id", userId)
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {

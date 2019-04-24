@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package azure
 
 import (
@@ -10,8 +24,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/osprofile"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -64,7 +79,7 @@ type ClassicDisk struct {
 
 type ClassicStorageProfile struct {
 	OperatingSystemDisk ClassicDisk    `json:"operatingSystemDisk,omitempty"`
-	DataDisks           *[]ClassicDisk `json:"aataDisks,omitempty"`
+	DataDisks           *[]ClassicDisk `json:"dataDisks,allowempty"`
 }
 
 type ClassicHardwareProfile struct {
@@ -127,12 +142,12 @@ type SClassicInstance struct {
 	Location   string
 }
 
-func (self *SClassicInstance) GetSecurityGroupIds() []string {
+func (self *SClassicInstance) GetSecurityGroupIds() ([]string, error) {
 	secgroupIds := []string{}
 	if self.Properties.NetworkProfile.NetworkSecurityGroup != nil {
 		secgroupIds = append(secgroupIds, self.Properties.NetworkProfile.NetworkSecurityGroup.ID)
 	}
-	return secgroupIds
+	return secgroupIds, nil
 }
 
 func (self *SClassicInstance) GetMetadata() *jsonutils.JSONDict {
@@ -144,7 +159,7 @@ func (self *SClassicInstance) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SClassicInstance) GetHypervisor() string {
-	return models.HYPERVISOR_AZURE
+	return api.HYPERVISOR_AZURE
 }
 
 func (self *SClassicInstance) IsEmulated() bool {
@@ -259,21 +274,21 @@ func (self *SClassicInstance) GetStatus() string {
 		err := self.Refresh()
 		if err != nil {
 			log.Errorf("failed to get status for classic instance %s", self.Name)
-			return models.VM_UNKNOWN
+			return api.VM_UNKNOWN
 		}
 	}
 	switch self.Properties.InstanceView.Status {
 	case "StoppedDeallocated":
-		return models.VM_READY
+		return api.VM_READY
 	case "ReadyRole":
-		return models.VM_RUNNING
+		return api.VM_RUNNING
 	case "Stopped":
-		return models.VM_READY
+		return api.VM_READY
 	case "RoleStateUnknown":
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	default:
 		log.Errorf("Unknow classic instance %s status %s", self.Name, self.Properties.InstanceView.Status)
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	}
 }
 
@@ -282,17 +297,19 @@ func (self *SClassicInstance) GetIHost() cloudprovider.ICloudHost {
 }
 
 func (self *SClassicInstance) AttachDisk(ctx context.Context, diskId string) error {
+	status := self.GetStatus()
 	if err := self.host.zone.region.AttachDisk(self.ID, diskId); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 }
 
 func (self *SClassicInstance) DetachDisk(ctx context.Context, diskId string) error {
+	status := self.GetStatus()
 	if err := self.host.zone.region.DetachDisk(self.ID, diskId); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, self.GetStatus(), 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 }
 
 func (self *SClassicInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
@@ -433,7 +450,7 @@ func (self *SClassicInstance) StartVM(ctx context.Context) error {
 	if err := self.host.zone.region.StartVM(self.ID); err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, models.VM_RUNNING, 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, api.VM_RUNNING, 10*time.Second, 300*time.Second)
 }
 
 func (self *SClassicInstance) StopVM(ctx context.Context, isForce bool) error {
@@ -441,7 +458,7 @@ func (self *SClassicInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second)
+	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second)
 }
 
 func (self *SRegion) StopClassicVM(instanceId string, isForce bool) error {
@@ -520,11 +537,15 @@ func (self *SClassicInstance) AssignSecurityGroup(secgroupId string) error {
 }
 
 func (self *SClassicInstance) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
+}
+
+func (self *SClassicInstance) GetCreatedAt() time.Time {
+	return time.Time{}
 }
 
 func (self *SClassicInstance) GetExpiredAt() time.Time {
-	return time.Now()
+	return time.Time{}
 }
 
 func (self *SClassicInstance) UpdateUserData(userData string) error {

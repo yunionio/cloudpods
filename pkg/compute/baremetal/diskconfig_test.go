@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package baremetal
 
 import (
@@ -6,7 +20,6 @@ import (
 	"testing"
 
 	"yunion.io/x/log"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
@@ -614,37 +627,6 @@ func TestCheckDisksAllocable(t *testing.T) {
 	}
 }
 
-func TestGetDiskSpec(t *testing.T) {
-	type args struct {
-		storages []*BaremetalStorage
-	}
-	tests := []struct {
-		name string
-		args args
-		want DiskSpec
-	}{
-		{
-			name: "Only HDD",
-			args: args{testStorages},
-			want: map[string]SpecSizeCount{
-				"HDD": map[string]int{
-					"2861056": 12,
-					"953344":  2,
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := GetDiskSpec(tt.args.storages); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetDiskSpec() = %v, want %v", got, tt.want)
-			} else {
-				log.Debugf("GetDiskSpec() = %v", got)
-			}
-		})
-	}
-}
-
 var testStorages2 string = `
 [
   {
@@ -1005,6 +987,91 @@ func TestCalculateSize(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := CalculateSize(tt.args.conf, tt.args.storages); got != tt.want {
 				t.Errorf("CalculateSize() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetDiskSpecs(t *testing.T) {
+	tests := []struct {
+		name     string
+		storages []*BaremetalStorage
+		want     []*api.DiskSpec
+	}{
+		{
+			name:     "empty storage",
+			storages: []*BaremetalStorage{},
+			want:     []*api.DiskSpec{},
+		},
+		{
+			name:     "normal input",
+			storages: testStorages,
+			want: []*api.DiskSpec{
+				{
+					Type:       HDD_DISK_SPEC_TYPE,
+					Size:       2861056,
+					StartIndex: 0,
+					EndIndex:   11,
+					Count:      12,
+				},
+				{
+					Type:       HDD_DISK_SPEC_TYPE,
+					Size:       953344,
+					StartIndex: 12,
+					EndIndex:   13,
+					Count:      2,
+				},
+			},
+		},
+		{
+			name: "discontinuity check",
+			storages: []*BaremetalStorage{
+				{
+					Rotate: false,
+					Size:   30,
+				},
+				{
+					Rotate: true,
+					Size:   20,
+				},
+				{
+					Rotate: true,
+					Size:   20,
+				},
+				{
+					Rotate: false,
+					Size:   30,
+				},
+			},
+			want: []*api.DiskSpec{
+				{
+					Type:       getStorageDiskType(false),
+					Size:       30,
+					StartIndex: 0,
+					EndIndex:   0,
+					Count:      1,
+				},
+				{
+					Type:       getStorageDiskType(true),
+					Size:       20,
+					StartIndex: 1,
+					EndIndex:   2,
+					Count:      2,
+				},
+				{
+					Type:       getStorageDiskType(false),
+					Size:       30,
+					StartIndex: 3,
+					EndIndex:   3,
+					Count:      1,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetDiskSpecs(tt.storages); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetDiskSpecs() = %v, want %v", got, tt.want)
 			}
 		})
 	}

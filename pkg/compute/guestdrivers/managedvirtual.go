@@ -1,14 +1,30 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package guestdrivers
 
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -18,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SManagedVirtualizedGuestDriver struct {
@@ -54,7 +69,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		if i == 0 {
 			config.SysDisk.Name = disk.Name
 			config.SysDisk.StorageType = storage.StorageType
-			config.SysDisk.SizeGB = disk.DiskSize / 1024
+			config.SysDisk.SizeGB = int(math.Ceil(float64(disk.DiskSize) / 1024))
 			cache := storage.GetStoragecache()
 			imageId := disk.GetTemplateId()
 			//避免因同步过来的instance没有对应的imagecache信息，重置密码时引发空指针访问
@@ -76,7 +91,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		}
 	}
 
-	if guest.BillingType == models.BILLING_TYPE_PREPAID {
+	if guest.BillingType == billing_api.BILLING_TYPE_PREPAID {
 		bc, err := billing.ParseBillingCycle(guest.BillingCycle)
 		if err != nil {
 			log.Errorf("fail to parse billing cycle %s: %s", guest.BillingCycle, err)
@@ -141,7 +156,7 @@ func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Conte
 	}
 
 	result := jsonutils.NewDict()
-	if ivm.GetStatus() != models.VM_RUNNING {
+	if ivm.GetStatus() != api.VM_RUNNING {
 		if err := ivm.StartVM(ctx); err != nil {
 			return nil, e
 		} else {
@@ -198,11 +213,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 }
 
 func (self *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterCreate() string {
-	return models.VM_READY
+	return api.VM_READY
 }
 
 func (self *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterRebuild() string {
-	return models.VM_READY
+	return api.VM_READY
 }
 
 func (self *SManagedVirtualizedGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
@@ -210,11 +225,6 @@ func (self *SManagedVirtualizedGuestDriver) GetLinuxDefaultAccount(desc cloudpro
 }
 
 func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
-	if len(desc.Password) == 0 {
-		//Azure创建必须要设置密码
-		desc.Password = seclib2.RandomPassword2(12)
-	}
-
 	ihost, _ := host.GetIHost()
 
 	iVM, err := func() (cloudprovider.ICloudVM, error) {
@@ -358,12 +368,15 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx 
 			time.Sleep(time.Second * 5)
 			waited += 5
 		} else {
-			if idisks[0].GetGlobalId() != diskId {
-				log.Errorf("system disk id inconsistent %s != %s", idisks[0].GetGlobalId(), diskId)
+			if idisks[0].GetGlobalId() == diskId {
+				break
+			}
+			if waited > maxWaitSecs {
 				return nil, fmt.Errorf("inconsistent sys disk id after rebuild root")
 			}
-
-			break
+			log.Debugf("current system disk id inconsistent %s != %s, try after 5 seconds", idisks[0].GetGlobalId(), diskId)
+			time.Sleep(time.Second * 5)
+			waited += 5
 		}
 	}
 
@@ -451,17 +464,17 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncstatusOnHost(ctx context.
 
 	status := ivm.GetStatus()
 	switch status {
-	case models.VM_RUNNING:
+	case api.VM_RUNNING:
 		status = cloudprovider.CloudVMStatusRunning
-	case models.VM_READY:
+	case api.VM_READY:
 		status = cloudprovider.CloudVMStatusStopped
-	case models.VM_STARTING:
+	case api.VM_STARTING:
 		status = cloudprovider.CloudVMStatusStopped
-	case models.VM_STOPPING:
+	case api.VM_STOPPING:
 		status = cloudprovider.CloudVMStatusRunning
-	case models.VM_CHANGE_FLAVOR:
+	case api.VM_CHANGE_FLAVOR:
 		status = cloudprovider.CloudVMStatusChangeFlavor
-	case models.VM_DEPLOYING:
+	case api.VM_DEPLOYING:
 		status = cloudprovider.CloudVMStatusDeploying
 	default:
 		status = cloudprovider.CloudVMStatusOther
@@ -593,7 +606,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 				disk.DiskSize = diskInfo[i].Size
 				disk.ExternalId = diskInfo[i].Uuid
 				disk.DiskType = diskInfo[i].DiskType
-				disk.Status = models.DISK_READY
+				disk.Status = api.DISK_READY
 
 				disk.FsFormat = diskInfo[i].FsFromat
 				if diskInfo[i].AutoDelete {
@@ -658,6 +671,41 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 	return nil
 }
 
+func (self *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	iVM, err := guest.GetIVM()
+	if err != nil {
+		return err
+	}
+	vpcId, err := guest.GetDriver().GetGuestSecgroupVpcid(guest)
+	if err != nil {
+		return err
+	}
+	iregion, err := host.GetIRegion()
+	if err != nil {
+		return err
+	}
+	secgroups := guest.GetSecgroups()
+	externalIds := []string{}
+	for _, secgroup := range secgroups {
+		lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
+		defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
+
+		secgroupCache, err := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), secgroup.Id, vpcId, host.GetRegion().Id, host.ManagerId)
+		if err != nil {
+			return fmt.Errorf("failed to registor secgroupCache for secgroup: %s vpc: %s: %s", secgroup.Id, vpcId, err)
+		}
+		extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, secgroup.Name, secgroup.Description, secgroup.GetSecRules(""))
+		if err != nil {
+			return err
+		}
+		if err = secgroupCache.SetExternalId(task.GetUserCred(), extID); err != nil {
+			return err
+		}
+		externalIds = append(externalIds, extID)
+	}
+	return iVM.SetSecurityGroups(externalIds)
+}
+
 func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		ihost, err := host.GetIHost()
@@ -669,42 +717,11 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.
 			return nil, err
 		}
 
-		if fwOnly, _ := task.GetParams().Bool("fw_only"); fwOnly {
-			vpcId := ""
-			guestnets, err := guest.GetNetworks("")
+		if jsonutils.QueryBoolean(task.GetParams(), "fw_only", false) {
+			err = guest.GetDriver().RequestSyncSecgroupsOnHost(ctx, guest, host, task)
 			if err != nil {
 				return nil, err
 			}
-			for _, network := range guestnets {
-				if vpc := network.GetNetwork().GetVpc(); vpc != nil {
-					vpcId = vpc.ExternalId
-					break
-				}
-			}
-			iregion, err := host.GetIRegion()
-			if err != nil {
-				return nil, err
-			}
-			secgroups := guest.GetSecgroups()
-			externalIds := []string{}
-			for _, secgroup := range secgroups {
-				lockman.LockRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
-				defer lockman.ReleaseRawObject(ctx, "secgroupcache", fmt.Sprintf("%s-%s", guest.SecgrpId, vpcId))
-
-				secgroupCache := models.SecurityGroupCacheManager.Register(ctx, task.GetUserCred(), secgroup.Id, vpcId, host.GetRegion().Id, host.ManagerId)
-				if secgroupCache == nil {
-					return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s vpc: %s", secgroup.Id, vpcId)
-				}
-				extID, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, vpcId, secgroup.Name, secgroup.Description, secgroup.GetSecRules(""))
-				if err != nil {
-					return nil, err
-				}
-				if err = secgroupCache.SetExternalId(task.GetUserCred(), extID); err != nil {
-					return nil, err
-				}
-				externalIds = append(externalIds, extID)
-			}
-			return nil, iVM.SetSecurityGroups(externalIds)
 		}
 
 		iDisks, err := iVM.GetIDisks()
@@ -752,6 +769,10 @@ func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(guest *models.S
 	}
 	//避免有些云续费后过期时间刷新比较慢问题
 	cloudprovider.WaitCreated(15*time.Second, 5*time.Minute, func() bool {
+		err := iVM.Refresh()
+		if err != nil {
+			log.Errorf("failed refresh instance %s error: %v", guest.Name, err)
+		}
 		newExipred := iVM.GetExpiredAt()
 		if newExipred.After(oldExpired) {
 			return true
@@ -763,4 +784,29 @@ func (self *SManagedVirtualizedGuestDriver) RequestRenewInstance(guest *models.S
 
 func (self *SManagedVirtualizedGuestDriver) IsSupportEip() bool {
 	return true
+}
+
+func (self *SManagedVirtualizedGuestDriver) chooseHostStorage(
+	drv models.IGuestDriver,
+	host *models.SHost,
+	backend string,
+	storageIds []string,
+) *models.SStorage {
+	if len(storageIds) != 0 {
+		return models.StorageManager.FetchStorageById(storageIds[0])
+	}
+	storages := host.GetAttachedStorages("")
+	for i := 0; i < len(storages); i += 1 {
+		if storages[i].StorageType == backend {
+			return &storages[i]
+		}
+	}
+	for _, stype := range drv.GetStorageTypes() {
+		for i := 0; i < len(storages); i += 1 {
+			if storages[i].StorageType == stype {
+				return &storages[i]
+			}
+		}
+	}
+	return nil
 }

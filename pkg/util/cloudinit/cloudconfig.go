@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package cloudinit
 
 import (
@@ -23,6 +37,7 @@ type TSudoPolicy string
 
 const (
 	CLOUD_CONFIG_HEADER = "#cloud-config\n"
+	CLOUD_SHELL_HEADER  = "#!/usr/bin/env bash\n"
 
 	USER_SUDO_NOPASSWD = TSudoPolicy("sudo_nopasswd")
 	USER_SUDO          = TSudoPolicy("sudo")
@@ -77,6 +92,41 @@ func NewWriteFile(path string, content string, perm string, owner string, isBase
 	return f
 }
 
+func setFilePermission(path, permission, owner string) []string {
+	cmds := []string{}
+	if len(permission) > 0 {
+		cmds = append(cmds, fmt.Sprintf("chmod %s %s", permission, path))
+	}
+	if len(owner) > 0 {
+		cmds = append(cmds, fmt.Sprintf("chown %s:%s %s", owner, owner, path))
+	}
+	return cmds
+}
+
+func mkPutFileCmd(path string, content string, permission string, owner string) []string {
+	cmds := []string{}
+	cmds = append(cmds, fmt.Sprintf("mkdir -p $(dirname %s)", path))
+	cmds = append(cmds, fmt.Sprintf("cat > %s <<_END\n%s\n_END", path, content))
+	return append(cmds, setFilePermission(path, permission, owner)...)
+}
+
+func mkAppendFileCmd(path string, content string, permission string, owner string) []string {
+	cmds := []string{}
+	cmds = append(cmds, fmt.Sprintf("mkdir -p $(dirname %s)", path))
+	cmds = append(cmds, fmt.Sprintf("cat >> %s <<_END\n%s\n_END", path, content))
+	return append(cmds, setFilePermission(path, permission, owner)...)
+}
+
+func (wf *SWriteFile) ShellScripts() []string {
+	content := wf.Content
+	if wf.Encoding == "b64" {
+		_content, _ := base64.StdEncoding.DecodeString(wf.Content)
+		content = string(_content)
+	}
+
+	return mkPutFileCmd(wf.Path, content, wf.Permissions, wf.Owner)
+}
+
 func NewUser(name string) SUser {
 	u := SUser{Name: name}
 	return u
@@ -117,6 +167,30 @@ func (u *SUser) Password(passwd string) *SUser {
 	return u
 }
 
+func (u *SUser) ShellScripts() []string {
+	shells := []string{}
+
+	shells = append(shells, fmt.Sprintf("useradd -m %s || true", u.Name))
+	if len(u.Passwd) > 0 {
+		shells = append(shells, fmt.Sprintf("usermod -p '%s' %s", u.Passwd, u.Name))
+	}
+
+	home := "/" + u.Name
+	if home != "/root" {
+		home = "/home" + home
+	}
+
+	keyPath := fmt.Sprintf("%s/.ssh/authorized_keys", home)
+	shells = append(shells, mkAppendFileCmd(keyPath, strings.Join(u.SshAuthorizedKeys, "\n"), "600", u.Name)...)
+	shells = append(shells, fmt.Sprintf("chown -R %s:%s %s/.ssh", u.Name, u.Name, home))
+
+	if !utils.IsInStringArray(u.Sudo, []string{"", "False"}) {
+		shells = append(shells, mkPutFileCmd("/etc/sudoers.d/"+u.Name, fmt.Sprintf("%s	%s", u.Name, u.Sudo), "", "")...)
+	}
+
+	return shells
+}
+
 func (conf *SCloudConfig) UserData() string {
 	var buf bytes.Buffer
 	jsonConf := jsonutils.Marshal(conf)
@@ -125,8 +199,30 @@ func (conf *SCloudConfig) UserData() string {
 	return buf.String()
 }
 
+func (conf *SCloudConfig) UserDataScript() string {
+	shells := []string{}
+	for _, u := range conf.Users {
+		shells = append(shells, u.ShellScripts()...)
+	}
+	shells = append(shells, conf.Runcmd...)
+
+	for _, pkg := range conf.Packages {
+		shells = append(shells, "which yum &>/dev/null && yum install -y "+pkg)
+		shells = append(shells, "which apt-get &>/dev/null && apt-get install -y "+pkg)
+	}
+	for _, wf := range conf.WriteFiles {
+		shells = append(shells, wf.ShellScripts()...)
+	}
+	return CLOUD_SHELL_HEADER + strings.Join(shells, "\n")
+}
+
 func (conf *SCloudConfig) UserDataBase64() string {
 	data := conf.UserData()
+	return base64.StdEncoding.EncodeToString([]byte(data))
+}
+
+func (conf *SCloudConfig) UserDataScriptBase64() string {
+	data := conf.UserDataScript()
 	return base64.StdEncoding.EncodeToString([]byte(data))
 }
 
@@ -161,6 +257,12 @@ func ParseUserData(data string) (*SCloudConfig, error) {
 func (conf *SCloudConfig) MergeUser(u SUser) {
 	for i := 0; i < len(conf.Users); i += 1 {
 		if u.Name == conf.Users[i].Name {
+			// replace conf user password with input
+			if len(u.Passwd) > 0 {
+				conf.Users[i].Passwd = u.Passwd
+				conf.Users[i].LockPassword = u.LockPassword
+			}
+
 			// find user, merge keys
 			for j := 0; j < len(u.SshAuthorizedKeys); j += 1 {
 				if !utils.IsInStringArray(u.SshAuthorizedKeys[j], conf.Users[i].SshAuthorizedKeys) {

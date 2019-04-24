@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package core
 
 import (
@@ -399,6 +413,22 @@ func (u *Unit) SessionID() string {
 
 func (u *Unit) SchedData() *api.SchedInfo {
 	return u.SchedInfo
+}
+
+func (u *Unit) ShouldExecuteSchedtagFilter(hostId string) bool {
+	schedData := u.SchedData()
+	if !schedData.Backup {
+		if len(schedData.PreferHost) != 0 {
+			return false
+		}
+		return true
+	}
+	for _, preferHost := range []string{schedData.PreferHost, schedData.PreferBackupHost} {
+		if preferHost == hostId {
+			return false
+		}
+	}
+	return true
 }
 
 func (u *Unit) IsPublicCloudProvider() bool {

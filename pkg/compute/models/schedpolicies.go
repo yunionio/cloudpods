@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -154,6 +168,10 @@ func (manager *SSchedpolicyManager) getStorageEnabledPolicies() []SSchedpolicy {
 	return manager.getAllEnabledPoliciesByResource(StorageManager.KeywordPlural())
 }
 
+func (manager *SSchedpolicyManager) getNetworkEnabledPolicies() []SSchedpolicy {
+	return manager.getAllEnabledPoliciesByResource(NetworkManager.KeywordPlural())
+}
+
 func (self *SSchedpolicy) AllowPerformEvaluate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, self, "evaluate")
 }
@@ -258,15 +276,28 @@ func applyDiskSchedtags(policies []SSchedpolicy, input *api.DiskConfig) {
 	applyResourceSchedPolicy(policies, input.Schedtags, inputCond, setFunc)
 }
 
+func applyNetworkSchedtags(policies []SSchedpolicy, input *api.NetworkConfig) {
+	inputCond := GetDynamicConditionInput(NetworkManager, jsonutils.Marshal(input).(*jsonutils.JSONDict))
+	setFunc := func(tags []*api.SchedtagConfig) {
+		input.Schedtags = tags
+	}
+	applyResourceSchedPolicy(policies, input.Schedtags, inputCond, setFunc)
+}
+
 func ApplySchedPolicies(input *schedapi.ScheduleInput) *schedapi.ScheduleInput {
+	// TODO: refactor this duplicate code
 	hostPolicies := SchedpolicyManager.getHostEnabledPolicies()
 	storagePolicies := SchedpolicyManager.getStorageEnabledPolicies()
+	networkPolicies := SchedpolicyManager.getNetworkEnabledPolicies()
 
 	config := input.ServerConfigs
 
 	applyServerSchedtags(hostPolicies, input)
 	for _, disk := range config.Disks {
 		applyDiskSchedtags(storagePolicies, disk)
+	}
+	for _, net := range config.Networks {
+		applyNetworkSchedtags(networkPolicies, net)
 	}
 
 	input.ServerConfig.ServerConfigs = config

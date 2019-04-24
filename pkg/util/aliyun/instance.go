@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package aliyun
 
 import (
@@ -12,8 +26,8 @@ import (
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -204,8 +218,8 @@ func (self *SRegion) fetchTags(resourceType string, resourceId string) (*jsonuti
 	return tags, nil
 }
 
-func (self *SInstance) GetSecurityGroupIds() []string {
-	return self.SecurityGroupIds.SecurityGroupId
+func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
+	return self.SecurityGroupIds.SecurityGroupId, nil
 }
 
 func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
@@ -221,7 +235,7 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 
 	tags, err := self.host.zone.region.fetchTags("instance", self.InstanceId)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 	}
 	data.Update(tags)
 
@@ -249,6 +263,9 @@ func (self *SInstance) GetId() string {
 }
 
 func (self *SInstance) GetName() string {
+	if len(self.InstanceName) > 0 {
+		return self.InstanceName
+	}
 	return self.HostName
 }
 
@@ -274,17 +291,17 @@ func (a byAttachedTime) Len() int      { return len(a) }
 func (a byAttachedTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a byAttachedTime) Less(i, j int) bool {
 	switch a[i].GetDiskType() {
-	case models.DISK_TYPE_SYS:
+	case api.DISK_TYPE_SYS:
 		return true
-	case models.DISK_TYPE_SWAP:
+	case api.DISK_TYPE_SWAP:
 		switch a[j].GetDiskType() {
-		case models.DISK_TYPE_SYS:
+		case api.DISK_TYPE_SYS:
 			return false
-		case models.DISK_TYPE_DATA:
+		case api.DISK_TYPE_DATA:
 			return true
 		}
-	case models.DISK_TYPE_DATA:
-		if a[j].GetDiskType() != models.DISK_TYPE_DATA {
+	case api.DISK_TYPE_DATA:
+		if a[j].GetDiskType() != api.DISK_TYPE_DATA {
 			return false
 		}
 	}
@@ -369,15 +386,15 @@ func (self *SInstance) GetStatus() string {
 	//Stopped：已停止
 	switch self.Status {
 	case InstanceStatusRunning:
-		return models.VM_RUNNING
+		return api.VM_RUNNING
 	case InstanceStatusStarting:
-		return models.VM_STARTING
+		return api.VM_STARTING
 	case InstanceStatusStopping:
-		return models.VM_STOPPING
+		return api.VM_STOPPING
 	case InstanceStatusStopped:
-		return models.VM_READY
+		return api.VM_READY
 	default:
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	}
 }
 
@@ -411,7 +428,7 @@ func (self *SInstance) GetRemoteStatus() string {
 */
 
 func (self *SInstance) GetHypervisor() string {
-	return models.HYPERVISOR_ALIYUN
+	return api.HYPERVISOR_ALIYUN
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {
@@ -424,10 +441,10 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		log.Debugf("status %s expect %s", self.GetStatus(), models.VM_RUNNING)
-		if self.GetStatus() == models.VM_RUNNING {
+		log.Debugf("status %s expect %s", self.GetStatus(), api.VM_RUNNING)
+		if self.GetStatus() == api.VM_RUNNING {
 			return nil
-		} else if self.GetStatus() == models.VM_READY {
+		} else if self.GetStatus() == api.VM_READY {
 			err := self.host.zone.region.StartVM(self.InstanceId)
 			if err != nil {
 				return err
@@ -443,7 +460,7 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, models.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
+	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second) // 5mintues
 }
 
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
@@ -581,12 +598,9 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 
 	if bc != nil {
 		params["InstanceChargeType"] = "PrePaid"
-		if bc.GetWeeks() <= 4 {
-			params["PeriodUnit"] = "Week"
-			params["Period"] = fmt.Sprintf("%d", bc.GetWeeks())
-		} else {
-			params["PeriodUnit"] = "Month"
-			params["Period"] = fmt.Sprintf("%d", bc.GetMonths())
+		err := billingCycle2Params(bc, params)
+		if err != nil {
+			return "", err
 		}
 		params["AutoRenew"] = "False"
 	} else {
@@ -779,6 +793,7 @@ func (self *SRegion) UpdateVM(instanceId string, hostname string) error {
 	*/
 	params := make(map[string]string)
 	params["HostName"] = hostname
+	params["InstanceName"] = hostname
 	return self.modifyInstanceAttribute(instanceId, params)
 }
 
@@ -903,6 +918,10 @@ func (self *SInstance) GetBillingType() string {
 	return convertChargeType(self.InstanceChargeType)
 }
 
+func (self *SInstance) GetCreatedAt() time.Time {
+	return self.CreationTime
+}
+
 func (self *SInstance) GetExpiredAt() time.Time {
 	return convertExpiredAt(self.ExpiredTime)
 }
@@ -919,18 +938,28 @@ func (self *SInstance) Renew(bc billing.SBillingCycle) error {
 	return self.host.zone.region.RenewInstance(self.InstanceId, bc)
 }
 
-func (region *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) error {
-	params := make(map[string]string)
-	params["InstanceId"] = instanceId
-	if bc.GetWeeks() <= 4 {
+func billingCycle2Params(bc *billing.SBillingCycle, params map[string]string) error {
+	if bc.GetMonths() > 0 {
+		params["PeriodUnit"] = "Month"
+		params["Period"] = fmt.Sprintf("%d", bc.GetMonths())
+	} else if bc.GetWeeks() > 0 {
 		params["PeriodUnit"] = "Week"
 		params["Period"] = fmt.Sprintf("%d", bc.GetWeeks())
 	} else {
-		params["PeriodUnit"] = "Month"
-		params["Period"] = fmt.Sprintf("%d", bc.GetMonths())
+		return fmt.Errorf("invalid renew time period %s", bc.String())
+	}
+	return nil
+}
+
+func (region *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) error {
+	params := make(map[string]string)
+	params["InstanceId"] = instanceId
+	err := billingCycle2Params(&bc, params)
+	if err != nil {
+		return err
 	}
 	params["ClientToken"] = utils.GenRequestId(20)
-	_, err := region.ecsRequest("RenewInstance", params)
+	_, err = region.ecsRequest("RenewInstance", params)
 	if err != nil {
 		log.Errorf("RenewInstance fail %s", err)
 		return err

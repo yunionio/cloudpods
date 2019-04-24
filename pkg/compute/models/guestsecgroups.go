@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -51,7 +65,11 @@ func (self *SGuestsecgroup) getSecgroup() *SSecurityGroup {
 func (manager *SGuestsecgroupManager) newGuestSecgroup(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, secgroup *SSecurityGroup) (*SGuestsecgroup, error) {
 	q := manager.Query()
 	q = q.Equals("guest_id", guest.Id).Equals("secgroup_id", secgroup.Id)
-	if count := q.Count(); count > 0 {
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 0 {
 		return nil, fmt.Errorf("security group %s has already been assigned to guest %s", secgroup.Name, guest.Name)
 	}
 

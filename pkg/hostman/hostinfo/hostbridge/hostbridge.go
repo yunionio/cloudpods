@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package hostbridge
 
 import (
@@ -165,7 +179,7 @@ func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
 		cmd := []string{"ip", "address", "del",
 			fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1]), "dev", d.inter.String()}
 		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
-			log.Errorln("Failed to remove slave address from interface %s: %s", d.inter, err)
+			log.Errorf("Failed to remove slave address from interface %s: %s", d.inter, err)
 		}
 
 		cmd = []string{"ip", "address", "add",

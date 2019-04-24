@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package qcloud
 
 import (
@@ -6,8 +20,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SLocalDisk struct {
@@ -20,7 +34,7 @@ type SLocalDisk struct {
 
 func (self *SLocalDisk) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(models.HYPERVISOR_QCLOUD), "hypervisor")
+	data.Add(jsonutils.NewString(api.HYPERVISOR_QCLOUD), "hypervisor")
 	return data
 }
 
@@ -68,18 +82,22 @@ func (self *SLocalDisk) GetIsAutoDelete() bool {
 	return true
 }
 
+func (self *SLocalDisk) GetCreatedAt() time.Time {
+	return time.Time{}
+}
+
 func (self *SLocalDisk) GetExpiredAt() time.Time {
-	return time.Now()
+	return time.Time{}
 }
 
 func (self *SLocalDisk) GetDiskType() string {
 	switch self.DiskUsage {
 	case "SYSTEM_DISK":
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	case "DATA_DISK":
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	default:
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	}
 }
 
@@ -96,7 +114,7 @@ func (self *SLocalDisk) GetTemplateId() string {
 }
 
 func (self *SLocalDisk) GetStatus() string {
-	return models.DISK_READY
+	return api.DISK_READY
 }
 
 func (self *SLocalDisk) GetName() string {

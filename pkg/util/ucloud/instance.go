@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package ucloud
 
 import (
@@ -6,10 +20,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/pkg/util/osprofile"
+
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SInstance struct {
@@ -50,10 +66,10 @@ type SInstance struct {
 	BootDiskState      string    `json:"BootDiskState"`
 }
 
-func (self *SInstance) GetSecurityGroupIds() []string {
+func (self *SInstance) GetSecurityGroupIds() ([]string, error) {
 	secgroups, err := self.GetSecurityGroups()
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorln(err)
 	}
 
 	secgroupIds := make([]string, 0)
@@ -61,7 +77,7 @@ func (self *SInstance) GetSecurityGroupIds() []string {
 		secgroupIds = append(secgroupIds, secgroup.GetId())
 	}
 
-	return secgroupIds
+	return secgroupIds, nil
 }
 
 func (self *SInstance) GetProjectId() string {
@@ -124,21 +140,21 @@ func (self *SInstance) GetGlobalId() string {
 func (self *SInstance) GetStatus() string {
 	switch self.State {
 	case "Running":
-		return models.VM_RUNNING
+		return api.VM_RUNNING
 	case "Stopped":
-		return models.VM_READY
+		return api.VM_READY
 	case "Rebooting":
-		return models.VM_STOPPING
+		return api.VM_STOPPING
 	case "Initializing":
-		return models.VM_INIT
+		return api.VM_INIT
 	case "Starting":
-		return models.VM_STARTING
+		return api.VM_STARTING
 	case "Stopping":
-		return models.VM_STOPPING
+		return api.VM_STOPPING
 	case "Install Fail":
-		return models.VM_CREATE_FAILED
+		return api.VM_CREATE_FAILED
 	default:
-		return models.VM_UNKNOWN
+		return api.VM_UNKNOWN
 	}
 }
 
@@ -175,10 +191,14 @@ func (self *SInstance) GetMetadata() *jsonutils.JSONDict {
 func (self *SInstance) GetBillingType() string {
 	switch self.ChargeType {
 	case "Year", "Month":
-		return models.BILLING_TYPE_PREPAID
+		return billing_api.BILLING_TYPE_PREPAID
 	default:
-		return models.BILLING_TYPE_POSTPAID
+		return billing_api.BILLING_TYPE_POSTPAID
 	}
+}
+
+func (self *SInstance) GetCreatedAt() time.Time {
+	return time.Unix(self.CreateTime, 0)
 }
 
 func (self *SInstance) GetExpiredAt() time.Time {
@@ -208,7 +228,7 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	for i := 0; i < len(disks); i += 1 {
 		idisks[i] = &disks[i]
 		// 将系统盘放到第0个位置
-		if disks[i].GetDiskType() == models.DISK_TYPE_SYS {
+		if disks[i].GetDiskType() == api.DISK_TYPE_SYS {
 			idisks[0], idisks[i] = idisks[i], idisks[0]
 		}
 	}
@@ -296,7 +316,7 @@ func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
 }
 
 func (self *SInstance) GetHypervisor() string {
-	return models.HYPERVISOR_UCLOUD
+	return api.HYPERVISOR_UCLOUD
 }
 
 func (self *SInstance) StartVM(ctx context.Context) error {

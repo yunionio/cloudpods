@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package pxe
 
 import (
@@ -153,12 +167,14 @@ func (req *dhcpRequest) fetchConfig(session *mcclient.ClientSession) (*dhcp.Resp
 		if err != nil {
 			return nil, err
 		}
-		if req.baremetalInstance.NeedPXEBoot() {
-			return req.baremetalInstance.GetPXEDHCPConfig(req.ClientArch)
-		}
+		// always response PXE request
+		// let bootloader decide boot local or remote
+		// if req.baremetalInstance.NeedPXEBoot() {
+		return req.baremetalInstance.GetPXEDHCPConfig(req.ClientArch)
+		// }
 		// ignore
-		log.Warningf("No need to pxeboot, ignore the request ...(mac:%s guid:%s)", req.ClientMac, req.ClientGuid)
-		return nil, nil
+		// log.Warningf("No need to pxeboot, ignore the request ...(mac:%s guid:%s)", req.ClientMac, req.ClientGuid)
+		// return nil, nil
 	} else {
 		// handle normal DHCP request
 		bmInstance := req.baremetalManager.GetBaremetalByMac(req.ClientMac)
@@ -221,12 +237,11 @@ func (req *dhcpRequest) findNetworkConf(session *mcclient.ClientSession, filterU
 
 func (req *dhcpRequest) findBaremetalsOfAnyMac(session *mcclient.ClientSession, isBaremetal bool) (*modules.ListResult, error) {
 	params := jsonutils.NewDict()
-	params.Add(jsonutils.NewString(api.HOST_TYPE_BAREMETAL), "host_type")
 	params.Add(jsonutils.NewString(req.ClientMac.String()), "any_mac")
 	if isBaremetal {
 		params.Add(jsonutils.JSONTrue, "is_baremetal")
 	} else {
-		params.Add(jsonutils.NewString("baremetal"), "host_type")
+		params.Add(jsonutils.NewString(api.HOST_TYPE_BAREMETAL), "host_type")
 	}
 	return modules.Hosts.List(session, params)
 }

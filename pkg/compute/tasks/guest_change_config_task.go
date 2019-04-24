@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -97,7 +111,7 @@ func (self *GuestChangeConfigTask) OnDisksResizeComplete(ctx context.Context, ob
 
 func (self *GuestChangeConfigTask) DoCreateDisksTask(ctx context.Context, guest *models.SGuest) {
 	disks := make([]*api.DiskConfig, 0)
-	err := self.Params.Unmarshal(disks, "create")
+	err := self.Params.Unmarshal(&disks, "create")
 	if err != nil || len(disks) == 0 {
 		self.OnCreateDisksComplete(ctx, guest, nil)
 		return
@@ -227,7 +241,7 @@ func (self *GuestChangeConfigTask) OnSyncConfigComplete(ctx context.Context, obj
 
 func (self *GuestChangeConfigTask) OnSyncStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	if guest.Status == models.VM_READY && jsonutils.QueryBoolean(self.Params, "auto_start", false) {
+	if guest.Status == api.VM_READY && jsonutils.QueryBoolean(self.Params, "auto_start", false) {
 		self.SetStage("on_guest_start_complete", nil)
 		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
 	} else {
@@ -246,7 +260,7 @@ func (self *GuestChangeConfigTask) OnGuestStartComplete(ctx context.Context, obj
 }
 
 func (self *GuestChangeConfigTask) markStageFailed(ctx context.Context, guest *models.SGuest, reason string) {
-	guest.SetStatus(self.UserCred, models.VM_CHANGE_FLAVOR_FAIL, reason)
+	guest.SetStatus(self.UserCred, api.VM_CHANGE_FLAVOR_FAIL, reason)
 	db.OpsLog.LogEvent(guest, db.ACT_CHANGE_FLAVOR_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_CHANGE_FLAVOR, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)

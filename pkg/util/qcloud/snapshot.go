@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package qcloud
 
 import (
@@ -8,8 +22,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SnapshotStatusType string
@@ -60,13 +74,13 @@ func (self *SSnapshot) GetStatus() string {
 	// COPYING_FROM_REMOTE：跨地域复制快照拷贝中。
 	switch self.SnapshotState {
 	case "NORMAL", "COPYING_FROM_REMOTE":
-		return models.SNAPSHOT_READY
+		return api.SNAPSHOT_READY
 	case "CREATING":
-		return models.SNAPSHOT_CREATING
+		return api.SNAPSHOT_CREATING
 	case "ROLLBACKING":
-		return models.SNAPSHOT_ROLLBACKING
+		return api.SNAPSHOT_ROLLBACKING
 	}
-	return models.SNAPSHOT_UNKNOWN
+	return api.SNAPSHOT_UNKNOWN
 }
 
 func (self *SSnapshot) IsEmulated() bool {
@@ -193,11 +207,11 @@ func (self *SSnapshot) Delete() error {
 func (self *SSnapshot) GetDiskType() string {
 	switch self.DiskUsage {
 	case "SYSTEM_DISK":
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	case "DATA_DISK":
-		return models.DISK_TYPE_DATA
+		return api.DISK_TYPE_DATA
 	}
-	return models.DISK_TYPE_DATA
+	return api.DISK_TYPE_DATA
 }
 
 func (self *SRegion) DeleteSnapshot(snapshotId string) error {

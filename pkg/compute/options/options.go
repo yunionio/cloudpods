@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package options
 
 import (
@@ -24,8 +38,9 @@ type ComputeOptions struct {
 
 	pending_delete.SPendingDeleteOptions
 
-	PrepaidExpireCheckSeconds       int `default:"600" help:"How long to wait to scan expired prepaid VM or disks, default is 10 minutes"`
-	ExpiredPrepaidMaxCleanBatchSize int `default:"50" help:"How many expired prepaid servers can be deleted in a batch"`
+	PrepaidExpireCheck              bool `default:"false" help:"clean expired servers or disks"`
+	PrepaidExpireCheckSeconds       int  `default:"600" help:"How long to wait to scan expired prepaid VM or disks, default is 10 minutes"`
+	ExpiredPrepaidMaxCleanBatchSize int  `default:"50" help:"How many expired prepaid servers can be deleted in a batch"`
 
 	LoadbalancerPendingDeleteCheckInterval int `default:"3600" help:"Interval between checks of pending deleted loadbalancer objects, defaults to 1h"`
 
@@ -83,6 +98,10 @@ type ComputeOptions struct {
 	DefaultSyncIntervalSeconds   int `help:"minimal synchronization interval, default 1 minutes" default:"900"`
 	MinimalSyncIntervalSeconds   int `help:"minimal synchronization interval, default 1 minutes" default:"300"`
 	MaxCloudAccountErrorCount    int `help:"maximal consecutive error count allow for a cloud account" default:"5"`
+
+	NameSyncResources []string `help:"resources that need synchronization of name"`
+
+	SyncPurgeRemovedResources []string `help:"resources that shoud be purged immediately if found removed"`
 
 	DisconnectedCloudAccountRetryProbeIntervalHours int `help:"interval to wait to probe status of a disconnected cloud account" default:"24"`
 

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -6,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -38,14 +53,14 @@ func (self *DiskSaveTask) GetMasterHost(disk *models.SDisk) *models.SHost {
 func (self *DiskSaveTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
 	if host := self.GetMasterHost(disk); host == nil {
-		resion := "Cannot find host for disk"
-		disk.SetDiskReady(ctx, self.GetUserCred(), resion)
-		self.TaskFailed(ctx, resion)
-		db.OpsLog.LogEvent(disk, db.ACT_SAVE_FAIL, resion, self.GetUserCred())
+		reason := "Cannot find host for disk"
+		disk.SetDiskReady(ctx, self.GetUserCred(), reason)
+		self.TaskFailed(ctx, reason)
+		db.OpsLog.LogEvent(disk, db.ACT_SAVE_FAIL, reason, self.GetUserCred())
 	} else {
-		disk.SetStatus(self.GetUserCred(), models.DISK_START_SAVE, "")
+		disk.SetStatus(self.GetUserCred(), api.DISK_START_SAVE, "")
 		for _, guest := range disk.GetGuests() {
-			guest.SetStatus(self.GetUserCred(), models.VM_SAVE_DISK, "")
+			guest.SetStatus(self.GetUserCred(), api.VM_SAVE_DISK, "")
 		}
 		self.StartBackupDisk(ctx, disk, host)
 	}
@@ -53,7 +68,7 @@ func (self *DiskSaveTask) OnInit(ctx context.Context, obj db.IStandaloneModel, d
 
 func (self *DiskSaveTask) StartBackupDisk(ctx context.Context, disk *models.SDisk, host *models.SHost) {
 	self.SetStage("on_disk_backup_complete", nil)
-	disk.SetStatus(self.GetUserCred(), models.DISK_SAVING, "")
+	disk.SetStatus(self.GetUserCred(), api.DISK_SAVING, "")
 	imageId, _ := self.GetParams().GetString("image_id")
 	if err := host.GetHostDriver().RequestPrepareSaveDiskOnHost(ctx, host, disk, imageId, self); err != nil {
 		log.Errorf("Backup failed: %v", err)
@@ -98,8 +113,8 @@ func (self *DiskSaveTask) UploadDisk(ctx context.Context, host *models.SHost, di
 	return host.GetHostDriver().RequestSaveUploadImageOnHost(ctx, host, disk, imageId, self, jsonutils.Marshal(data))
 }
 
-func (self *DiskSaveTask) TaskFailed(ctx context.Context, resion string) {
-	self.SetStageFailed(ctx, resion)
+func (self *DiskSaveTask) TaskFailed(ctx context.Context, reason string) {
+	self.SetStageFailed(ctx, reason)
 	if imageId, err := self.GetParams().GetString("image_id"); err != nil && len(imageId) > 0 {
 		log.Errorf("save disk task failed, set image %s killed", imageId)
 		s := auth.GetAdminSession(ctx, options.Options.Region, "")

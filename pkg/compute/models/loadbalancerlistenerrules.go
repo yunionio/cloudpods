@@ -1,8 +1,21 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
 	"context"
-	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -40,8 +53,8 @@ func init() {
 type SLoadbalancerListenerRule struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
 
-	CloudregionId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 	ListenerId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 
@@ -66,7 +79,7 @@ func loadbalancerListenerRuleCheckUniqueness(ctx context.Context, lbls *SLoadbal
 	return nil
 }
 
-func (man *SLoadbalancerListenerRuleManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
+func (man *SLoadbalancerListenerRuleManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
 	subs := []SLoadbalancerListenerRule{}
 	db.FetchModelObjects(man, q, &subs)
 	for _, sub := range subs {
@@ -117,7 +130,7 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
 	listenerType := listener.ListenerType
 	if listenerType != api.LB_LISTENER_TYPE_HTTP && listenerType != api.LB_LISTENER_TYPE_HTTPS {
-		return nil, fmt.Errorf("listener type must be http/https, got %s", listenerType)
+		return nil, httperrors.NewInputParameterError("listener type must be http/https, got %s", listenerType)
 	}
 	{
 		if lbbg, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != listener.LoadbalancerId {
@@ -125,10 +138,13 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, listener.LoadbalancerId)
 		} else {
 			// 腾讯云backend group只能1v1关联
-			if listener.GetProviderName() == CLOUD_PROVIDER_QCLOUD {
-				count := lbbg.RefCount()
+			if listener.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
+				count, err := lbbg.RefCount()
+				if err != nil {
+					return nil, httperrors.NewInternalServerError("get lbbg RefCount fail %s", err)
+				}
 				if count > 0 {
-					return nil, fmt.Errorf("backendgroup already related with other listener/rule")
+					return nil, httperrors.NewResourceBusyError("backendgroup already related with other listener/rule")
 				}
 			}
 		}
@@ -235,6 +251,11 @@ func (lbr *SLoadbalancerListenerRule) GetCustomizeColumns(ctx context.Context, u
 		return extra
 	}
 	extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+
+	regionInfo := lbr.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if regionInfo != nil {
+		extra.Update(regionInfo)
+	}
 	return extra
 }
 
@@ -275,7 +296,7 @@ func (lbr *SLoadbalancerListenerRule) Delete(ctx context.Context, userCred mccli
 
 func (man *SLoadbalancerListenerRuleManager) getLoadbalancerListenerRulesByListener(listener *SLoadbalancerListener) ([]SLoadbalancerListenerRule, error) {
 	rules := []SLoadbalancerListenerRule{}
-	q := man.Query().Equals("listener_id", listener.Id)
+	q := man.Query().Equals("listener_id", listener.Id).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &rules); err != nil {
 		log.Errorf("failed to get lb listener rules for listener %s error: %v", listener.Name, err)
 		return nil, err
@@ -369,10 +390,14 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 	lbr.ListenerId = listener.Id
 	lbr.ManagerId = listener.ManagerId
 
-	lbr.Name = db.GenerateName(man, projectId, extRule.GetName())
+	newName, err := db.GenerateName(man, projectId, extRule.GetName())
+	if err != nil {
+		return nil, err
+	}
+	lbr.Name = newName
 	lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
 
-	err := man.TableSpec().Insert(lbr)
+	err = man.TableSpec().Insert(lbr)
 
 	if err != nil {
 		log.Errorf("newFromCloudLoadbalancerListenerRule fail %s", err)
@@ -394,7 +419,7 @@ func (lbr *SLoadbalancerListenerRule) syncRemoveCloudLoadbalancerListenerRule(ct
 	if err != nil { // cannot delete
 		err = lbr.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lbr.Delete(ctx, userCred)
+		err = lbr.DoPendingDelete(ctx, userCred)
 	}
 	return err
 }

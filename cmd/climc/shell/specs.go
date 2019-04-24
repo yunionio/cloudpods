@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package shell
 
 import (
@@ -17,6 +31,7 @@ func init() {
 		HostType string `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv"`
 		Gpu      bool   `help:"Only show gpu devices"`
 		Zone     string `help:"Filter by zone id or name"`
+		Occupied bool   `help:"show occupid host" json:"-"`
 	}
 	R(&ListOptions{}, "spec", "List all kinds of model specs", func(s *mcclient.ClientSession, args *ListOptions) error {
 		var params *jsonutils.JSONDict
@@ -41,6 +56,9 @@ func init() {
 		if args.Zone != "" {
 			params.Add(jsonutils.NewString(args.Zone), "zone")
 		}
+		if args.Occupied {
+			params.Add(jsonutils.JSONFalse, "is_empty")
+		}
 		result, err := modules.Specs.GetModelSpecs(s, model, params)
 		if err != nil {
 			return err
@@ -53,10 +71,11 @@ func init() {
 		options.BaseListOptions
 		HostType string   `help:"Host type filter" choices:"baremetal|hypervisor|esxi|kubelet|hyperv"`
 		Ncpu     int64    `help:"#CPU count of host" metavar:"<CPU_COUNT>"`
-		MemSize  string   `help:"Memory GB size"`
+		MemSize  int64    `help:"Memory MB size"`
 		DiskSpec []string `help:"Disk spec string, like 'Linux_adapter0_HDD_111Gx4'"`
 		Nic      int64    `help:"#Nics count of host" metavar:"<NIC_COUNT>"`
 		GpuModel []string `help:"GPU model, like 'GeForce GTX 1050 Ti'"`
+		Occupied bool     `help:"show occupid host" json:"-"`
 	}
 	R(&HostsQueryOptions{}, "spec-hosts-list", "List hosts according by specs", func(s *mcclient.ClientSession, args *HostsQueryOptions) error {
 		newHostSpecKeys := func() []string {
@@ -64,8 +83,11 @@ func init() {
 			if args.Ncpu > 0 {
 				keys = append(keys, fmt.Sprintf("cpu:%d", args.Ncpu))
 			}
-			if len(args.MemSize) != 0 {
-				keys = append(keys, fmt.Sprintf("mem:%s", args.MemSize))
+			if args.MemSize > 0 {
+				keys = append(keys, fmt.Sprintf("mem:%dM", args.MemSize))
+			}
+			if args.Nic > 0 {
+				keys = append(keys, fmt.Sprintf("nic:%d", args.Nic))
 			}
 			for _, gm := range args.GpuModel {
 				keys = append(keys, fmt.Sprintf("gpu_model:%s", gm))
@@ -86,6 +108,9 @@ func init() {
 		}
 		if len(args.HostType) > 0 {
 			params.Add(jsonutils.NewString(args.HostType), "host_type")
+		}
+		if args.Occupied {
+			params.Add(jsonutils.JSONFalse, "is_empty")
 		}
 		specKeys := newHostSpecKeys()
 		resp, err := modules.Specs.SpecsQueryModelObjects(s, "hosts", specKeys, params)

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -8,6 +22,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
@@ -28,7 +43,7 @@ func init() {
 func (self *GuestDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	host := guest.GetHost()
-	if guest.Hypervisor == models.HYPERVISOR_BAREMETAL && host != nil && host.HostType != models.HOST_TYPE_BAREMETAL {
+	if guest.Hypervisor == api.HYPERVISOR_BAREMETAL && host != nil && host.HostType != api.HOST_TYPE_BAREMETAL {
 		// if a fake server for converted hypervisor, then just skip stop
 		self.OnGuestStopComplete(ctx, obj, data)
 		return
@@ -66,7 +81,7 @@ func (self *GuestDeleteTask) OnGuestStopComplete(ctx context.Context, obj db.ISt
 	guest := obj.(*models.SGuest)
 
 	eip, _ := guest.GetEip()
-	if eip != nil && eip.Mode != models.EIP_MODE_INSTANCE_PUBLICIP {
+	if eip != nil && eip.Mode != api.EIP_MODE_INSTANCE_PUBLICIP {
 		// detach floating EIP only
 		if jsonutils.QueryBoolean(self.Params, "purge", false) {
 			// purge locally
@@ -143,8 +158,8 @@ func (self *GuestDeleteTask) OnSyncConfigComplete(ctx context.Context, obj db.IS
 		log.Debugf("XXXXXXX Do guest pending delete... XXXXXXX")
 		guestStatus, _ := self.Params.GetString("guest_status")
 		if !utils.IsInStringArray(guestStatus, []string{
-			models.VM_SCHEDULE_FAILED, models.VM_NETWORK_FAILED, models.VM_DISK_FAILED,
-			models.VM_CREATE_FAILED, models.VM_DEVICE_FAILED}) {
+			api.VM_SCHEDULE_FAILED, api.VM_NETWORK_FAILED, api.VM_DISK_FAILED,
+			api.VM_CREATE_FAILED, api.VM_DEVICE_FAILED}) {
 			self.StartPendingDeleteGuest(ctx, guest)
 			return
 		}
@@ -166,14 +181,14 @@ func (self *GuestDeleteTask) OnGuestDeleteFailed(ctx context.Context, obj db.ISt
 
 func (self *GuestDeleteTask) doStartDeleteGuest(ctx context.Context, obj db.IStandaloneModel) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, models.VM_DELETING, "delete server after stop")
+	guest.SetStatus(self.UserCred, api.VM_DELETING, "delete server after stop")
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATING, nil, self.UserCred)
 	self.StartDeleteGuest(ctx, guest)
 }
 
 func (self *GuestDeleteTask) StartPendingDeleteGuest(ctx context.Context, guest *models.SGuest) {
 	guest.DoPendingDelete(ctx, self.UserCred)
-	self.SetStage("on_pending_delete_complete", nil)
+	self.SetStage("OnPendingDeleteComplete", nil)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 }
 
@@ -182,18 +197,14 @@ func (self *GuestDeleteTask) OnPendingDeleteComplete(ctx context.Context, obj db
 	if !guest.IsSystem {
 		self.NotifyServerDeleted(ctx, guest)
 	}
-	self.SetStage("on_sync_guest_conf_complete", nil)
+	// self.SetStage("on_sync_guest_conf_complete", nil)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_PENDING_DELETE, nil, self.UserCred, true)
-	guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
-}
-
-func (self *GuestDeleteTask) OnSyncGuestConfComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	// guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *GuestDeleteTask) OnSyncGuestConfCompleteFailed(ctx context.Context, obj db.IStandaloneModel, err jsonutils.JSONObject) {
-	guest := obj.(*models.SGuest)
-	self.OnFailed(ctx, guest, err)
+func (self *GuestDeleteTask) OnPendingDeleteCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.OnPendingDeleteComplete(ctx, obj, nil)
 }
 
 func (self *GuestDeleteTask) StartDeleteGuest(ctx context.Context, guest *models.SGuest) {
@@ -232,7 +243,7 @@ func (self *GuestDeleteTask) DoDeleteGuest(ctx context.Context, guest *models.SG
 }
 
 func (self *GuestDeleteTask) OnFailed(ctx context.Context, guest *models.SGuest, err jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, models.VM_DELETE_FAIL, err.String())
+	guest.SetStatus(self.UserCred, api.VM_DELETE_FAIL, err.String())
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE_FAIL, err, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, err, self.UserCred, false)
 	self.SetStageFailed(ctx, err.String())
@@ -256,7 +267,7 @@ func (self *GuestDeleteTask) OnGuestDeleteComplete(ctx context.Context, obj db.I
 func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGuest) {
 	isPendingDeleted := guest.PendingDeleted
 	guest.RealDelete(ctx, self.UserCred)
-	guest.RemoveAllMetadata(ctx, self.UserCred)
+	// guest.RemoveAllMetadata(ctx, self.UserCred)
 	db.OpsLog.LogEvent(guest, db.ACT_DELOCATE, nil, self.UserCred)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_DELOCATE, nil, self.UserCred, true)
 	if !guest.IsSystem && !isPendingDeleted {

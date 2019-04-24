@@ -1,10 +1,24 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package openstack
 
 import (
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
@@ -54,15 +68,15 @@ func (region *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloud
 func (snapshot *SSnapshot) GetStatus() string {
 	switch snapshot.Status {
 	case SNAPSHOT_STATUS_CREATING:
-		return models.SNAPSHOT_CREATING
+		return api.SNAPSHOT_CREATING
 	case SNAPSHOT_STATUS_AVAILABLE:
-		return models.SNAPSHOT_READY
+		return api.SNAPSHOT_READY
 	case SNAPSHOT_STATUS_BACKING_UP:
-		return models.SNAPSHOT_ROLLBACKING
+		return api.SNAPSHOT_ROLLBACKING
 	case SNAPSHOT_STATUS_DELETED, SNAPSHOT_STATUS_DELETING:
-		return models.SNAPSHOT_DELETING
+		return api.SNAPSHOT_DELETING
 	default:
-		return models.SNAPSHOT_UNKNOWN
+		return api.SNAPSHOT_UNKNOWN
 	}
 }
 
@@ -136,11 +150,11 @@ func (snapshot *SSnapshot) GetDiskType() string {
 	if len(snapshot.VolumeID) > 0 {
 		if disk, err := snapshot.region.GetDisk(snapshot.VolumeID); err == nil {
 			if disk.Bootable {
-				return models.DISK_TYPE_SYS
+				return api.DISK_TYPE_SYS
 			}
 		}
 	}
-	return models.DISK_TYPE_DATA
+	return api.DISK_TYPE_DATA
 }
 
 func (region *SRegion) DeleteSnapshot(snapshotId string) error {

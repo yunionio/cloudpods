@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -46,7 +60,7 @@ func (self *LoadbalancerDeleteTask) OnInit(ctx context.Context, obj db.IStandalo
 func (self *LoadbalancerDeleteTask) OnLoadbalancerDeleteComplete(ctx context.Context, lb *models.SLoadbalancer, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lb, db.ACT_DELETE, lb.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lb, logclient.ACT_DELOCATE, nil, self.UserCred, true)
-	lb.PendingDelete(ctx, self.GetUserCred())
+	lb.LBPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 

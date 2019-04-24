@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package azure
 
 import (
@@ -7,8 +21,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type ClassicEipProperties struct {
@@ -71,7 +86,7 @@ func (self *SClassicEipAddress) GetId() string {
 }
 
 func (self *SClassicEipAddress) GetInternetChargeType() string {
-	return models.EIP_CHARGE_TYPE_BY_TRAFFIC
+	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
 func (self *SClassicEipAddress) GetIpAddr() string {
@@ -89,9 +104,9 @@ func (self *SClassicEipAddress) GetMetadata() *jsonutils.JSONDict {
 func (self *SClassicEipAddress) GetMode() string {
 	// TODO
 	if self.instanceId == self.ID {
-		return models.EIP_MODE_INSTANCE_PUBLICIP
+		return api.EIP_MODE_INSTANCE_PUBLICIP
 	}
-	return models.EIP_MODE_STANDALONE_EIP
+	return api.EIP_MODE_STANDALONE_EIP
 }
 
 func (self *SClassicEipAddress) GetName() string {
@@ -101,10 +116,10 @@ func (self *SClassicEipAddress) GetName() string {
 func (self *SClassicEipAddress) GetStatus() string {
 	switch self.Properties.Status {
 	case "Created", "":
-		return models.EIP_STATUS_READY
+		return api.EIP_STATUS_READY
 	default:
 		log.Errorf("Unknown eip status: %s", self.Properties.ProvisioningState)
-		return models.EIP_STATUS_UNKNOWN
+		return api.EIP_STATUS_UNKNOWN
 	}
 }
 
@@ -145,7 +160,11 @@ func (region *SRegion) GetClassicEips() ([]SClassicEipAddress, error) {
 }
 
 func (self *SClassicEipAddress) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
+}
+
+func (self *SClassicEipAddress) GetCreatedAt() time.Time {
+	return time.Time{}
 }
 
 func (self *SClassicEipAddress) GetExpiredAt() time.Time {

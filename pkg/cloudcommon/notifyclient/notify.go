@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package notifyclient
 
 import (
@@ -7,6 +21,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -22,6 +37,7 @@ import (
 
 var (
 	templatesTable        map[string]*template.Template
+	templatesTableLock    *sync.Mutex
 	notifyClientWorkerMan *appsrv.SWorkerManager
 
 	notifyAdminUsers  []string
@@ -30,6 +46,7 @@ var (
 
 func init() {
 	notifyClientWorkerMan = appsrv.NewWorkerManager("NotifyClientWorkerManager", 1, 50, false)
+	templatesTableLock = &sync.Mutex{}
 	templatesTable = make(map[string]*template.Template)
 }
 
@@ -47,6 +64,9 @@ func getTemplateString(topic string, contType string, channel notify.TNotifyChan
 
 func getTemplate(topic string, contType string, channel notify.TNotifyChannel) (*template.Template, error) {
 	key := fmt.Sprintf("%s.%s.%s", topic, contType, channel)
+	templatesTableLock.Lock()
+	defer templatesTableLock.Unlock()
+
 	if _, ok := templatesTable[key]; !ok {
 		cont, err := getTemplateString(topic, contType, channel)
 		if err != nil {

@@ -1,13 +1,28 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package huawei
 
 import (
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SStorage struct {
@@ -28,7 +43,7 @@ func (self *SStorage) GetGlobalId() string {
 }
 
 func (self *SStorage) GetStatus() string {
-	return models.STORAGE_ONLINE
+	return api.STORAGE_ONLINE
 }
 
 func (self *SStorage) Refresh() error {
@@ -79,10 +94,10 @@ func (self *SStorage) GetStorageType() string {
 }
 
 func (self *SStorage) GetMediumType() string {
-	if self.storageType == models.STORAGE_HUAWEI_SSD {
-		return models.DISK_TYPE_SSD
+	if self.storageType == api.STORAGE_HUAWEI_SSD {
+		return api.DISK_TYPE_SSD
 	} else {
-		return models.DISK_TYPE_ROTATE
+		return api.DISK_TYPE_ROTATE
 	}
 }
 
@@ -115,10 +130,21 @@ func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudpr
 		return nil, err
 	}
 	disk.storage = self
+
+	err = cloudprovider.WaitStatus(disk, api.DISK_READY, 5*time.Second, 120*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
 	return disk, nil
 }
 
 func (self *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
+	if len(idStr) == 0 {
+		log.Debugf("GetIDiskById disk id should not be empty")
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	if disk, err := self.zone.region.GetDisk(idStr); err != nil {
 		return nil, err
 	} else {

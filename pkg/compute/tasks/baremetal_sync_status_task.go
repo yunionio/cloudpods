@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -7,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -27,14 +42,17 @@ func (self *BaremetalSyncStatusTask) OnInit(ctx context.Context, obj db.IStandal
 }
 
 func (self *BaremetalSyncStatusTask) DoSyncStatus(ctx context.Context, baremetal *models.SHost) {
+	self.SetStage("OnSyncstatusComplete", nil)
 	url := fmt.Sprintf("/baremetals/%s/syncstatus", baremetal.Id)
 	headers := self.GetTaskRequestHeader()
 	_, err := baremetal.BaremetalSyncRequest(ctx, "POST", url, headers, nil)
-	if err == nil {
-		self.SetStageComplete(ctx, nil)
-	} else {
+	if err != nil {
 		self.SetStageFailed(ctx, err.Error())
 	}
+}
+
+func (self *BaremetalSyncStatusTask) OnSyncstatusComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
+	self.SetStageComplete(ctx, nil)
 }
 
 type BaremetalSyncAllGuestsStatusTask struct {
@@ -56,15 +74,15 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnInit(ctx context.Context, obj db
 			return nil
 		})
 		bs := baremetal.GetBaremetalstorage().GetStorage()
-		bs.SetStatus(self.UserCred, models.STORAGE_OFFLINE, "")
+		bs.SetStatus(self.UserCred, api.STORAGE_OFFLINE, "")
 		if first && baremetal.Name != guest.Name {
 			db.Update(baremetal, func() error {
-				if models.HostManager.IsNewNameUnique(guest.Name, self.UserCred, nil) {
-					baremetal.Name = guest.Name
-				} else {
-					baremetal.Name = db.GenerateName(baremetal.GetModelManager(),
-						self.UserCred.GetTokenString(), guest.Name)
+				newName, err := db.GenerateName(baremetal.GetModelManager(),
+					self.UserCred.GetTokenString(), guest.Name)
+				if err != nil {
+					return err
 				}
+				baremetal.Name = newName
 				return nil
 			})
 		}
@@ -80,8 +98,8 @@ func (self *BaremetalSyncAllGuestsStatusTask) OnInit(ctx context.Context, obj db
 func (self *BaremetalSyncAllGuestsStatusTask) OnGuestSyncStatusComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
 	var guests = make([]models.SGuest, 0)
 	for _, guest := range baremetal.GetGuests() {
-		if guest.Status == models.VM_UNKNOWN && guest.Hypervisor != models.HYPERVISOR_BAREMETAL {
-			guest.SetStatus(self.UserCred, models.VM_SYNCING_STATUS, "")
+		if guest.Status == api.VM_UNKNOWN && guest.Hypervisor != api.HYPERVISOR_BAREMETAL {
+			guest.SetStatus(self.UserCred, api.VM_SYNCING_STATUS, "")
 			guests = append(guests, guest)
 		}
 	}

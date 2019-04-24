@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package azure
 
 import (
@@ -8,8 +22,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SClassicDisk struct {
@@ -58,9 +73,9 @@ func (self *SRegion) GetStorageAccountDisksWithSnapshots(storageaccount SStorage
 
 			for _, file := range files {
 				if strings.HasSuffix(file.Name, ".vhd") {
-					diskType := models.DISK_TYPE_DATA
+					diskType := api.DISK_TYPE_DATA
 					if _diskType, ok := file.Metadata["microsoftazurecompute_disktype"]; ok && _diskType == "OSDisk" {
-						diskType = models.DISK_TYPE_SYS
+						diskType = api.DISK_TYPE_SYS
 					}
 					diskName := file.Name
 					if _diskName, ok := file.Metadata["microsoftazurecompute_diskname"]; ok {
@@ -104,7 +119,7 @@ func (self *SRegion) GetClassicDisks() ([]SClassicDisk, error) {
 
 func (self *SClassicDisk) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(models.HYPERVISOR_AZURE), "hypervisor")
+	data.Add(jsonutils.NewString(api.HYPERVISOR_AZURE), "hypervisor")
 	return data
 }
 
@@ -117,7 +132,7 @@ func (self *SClassicDisk) Delete(ctx context.Context) error {
 }
 
 func (self *SClassicDisk) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (self *SClassicDisk) GetFsFormat() string {
@@ -163,8 +178,12 @@ func (self *SClassicDisk) GetDiskType() string {
 	return self.diskType
 }
 
+func (self *SClassicDisk) GetCreatedAt() time.Time {
+	return time.Time{}
+}
+
 func (self *SClassicDisk) GetExpiredAt() time.Time {
-	return time.Now()
+	return time.Time{}
 }
 
 func (self *SClassicDisk) GetGlobalId() string {
@@ -197,7 +216,7 @@ func (self *SClassicDisk) GetName() string {
 }
 
 func (self *SClassicDisk) GetStatus() string {
-	return models.DISK_READY
+	return api.DISK_READY
 }
 
 func (self *SClassicDisk) IsEmulated() bool {

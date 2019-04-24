@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package db
 
 import (
@@ -7,7 +21,6 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SSharableVirtualResourceBase struct {
@@ -55,7 +68,6 @@ func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, us
 		})
 		if err == nil {
 			OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
-			logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, diff, userCred, true)
 		}
 		return nil, err
 	}
@@ -70,7 +82,6 @@ func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, u
 		})
 		if err == nil {
 			OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
-			logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, diff, userCred, true)
 		}
 		return nil, err
 	}

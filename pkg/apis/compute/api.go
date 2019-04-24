@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package compute
 
 import (
@@ -36,8 +50,9 @@ type NetworkConfig struct {
 	StandbyPortCount int `json:"standby_port_count"`
 	StandbyAddrCount int `json:"standby_addr_count"`
 
-	Project string `json:"project_id"`
-	Ifname  string `json:"ifname"`
+	Project   string            `json:"project_id"`
+	Ifname    string            `json:"ifname"`
+	Schedtags []*SchedtagConfig `json:"schedtags"`
 }
 
 type DiskConfig struct {
@@ -59,7 +74,7 @@ type DiskConfig struct {
 	Medium          string            `json:"medium"`
 	ImageProperties map[string]string `json:"image_properties"`
 
-	Storage string `json:"storage"`
+	Storage string `json:"storage_id"`
 	DiskId  string `json:"disk_id"`
 }
 
@@ -162,6 +177,24 @@ type ServerCreateInput struct {
 
 	// DEPRECATE or not used fields
 	Baremetal bool `json:"baremetal"`
+
+	// Used to store BaremetalConvertHypervisorTaskId
+	ParentTaskId string `json:"__parent_task_id,omitempty"`
+	// default stroage type if host is given
+	DefaultStorageType string `json:"default_storage_type,omitempty"`
+}
+
+type ServerCloneInput struct {
+	apis.Meta
+
+	Name      string `json:"name"`
+	AutoStart bool   `json:"auto_start"`
+
+	EipBw         int    `json:"eip_bw,omitzero"`
+	EipChargeType string `json:"eip_charge_type,omitempty"`
+	Eip           string `json:"eip,omitempty"`
+
+	PreferHost string `json:"prefer_host_id"`
 }
 
 type ServerDeployInput struct {
@@ -170,7 +203,7 @@ type ServerDeployInput struct {
 	Id string
 
 	Keypair       string          `json:"keypair"`
-	DeleteKeypair bool            `json:"__delete_keypair__"`
+	DeleteKeypair *bool           `json:"__delete_keypair__"`
 	DeployConfigs []*DeployConfig `json:"deploy_configs"`
 	ResetPassword *bool           `json:"reset_password"`
 	Password      string          `json:"password"`

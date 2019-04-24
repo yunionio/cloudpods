@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package options
 
 import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
@@ -18,7 +32,8 @@ type BaremetalOptions struct {
 	DhcpRenewalTime        int    `default:"67108864" help:"DHCP renewal time in seconds"` // 0x4000000
 	EnableGeneralGuestDhcp bool   `default:"false" help:"Enable DHCP service for general guest, e.g. those on VMware ESXi or Xen"`
 	ForceDhcpProbeIpmi     bool   `default:"false" help:"Force DHCP probe IPMI interface network connection"`
-	TftpMaxTimeoutRetries  int    `default:"20" help:"Maximal tftp timeout retries, default is 20"`
+	TftpBlockSizeInBytes   int    `default:"1024" help:"tftp block size, default is 1024"`
+	TftpMaxTimeoutRetries  int    `default:"50" help:"Maximal tftp timeout retries, default is 50"`
 	LengthyWorkerCount     int    `default:"8" help:"Parallel worker count for lengthy tasks"`
 	ShortWorkerCount       int    `default:"8" help:"Parallel worker count for short-lived tasks"`
 

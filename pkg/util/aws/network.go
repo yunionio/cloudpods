@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package aws
 
 import (
@@ -11,8 +25,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SNetwork struct {
@@ -71,10 +85,14 @@ func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
 	return self.wire
 }
 
+// 每个子网 CIDR 块中的前四个 IP 地址和最后一个 IP 地址无法使用
 func (self *SNetwork) GetIpStart() string {
 	pref, _ := netutils.NewIPV4Prefix(self.CidrBlock)
 	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
 	startIp = startIp.StepUp()                    // 1
+	startIp = startIp.StepUp()                    // 2
+	startIp = startIp.StepUp()                    // 3
+	startIp = startIp.StepUp()                    // 4
 	return startIp.String()
 }
 
@@ -82,8 +100,6 @@ func (self *SNetwork) GetIpEnd() string {
 	pref, _ := netutils.NewIPV4Prefix(self.CidrBlock)
 	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
 	endIp = endIp.StepDown()                          // 254
-	endIp = endIp.StepDown()                          // 253
-	endIp = endIp.StepDown()                          // 252
 	return endIp.String()
 }
 
@@ -100,7 +116,7 @@ func (self *SNetwork) GetGateway() string {
 }
 
 func (self *SNetwork) GetServerType() string {
-	return models.NETWORK_TYPE_GUEST
+	return api.NETWORK_TYPE_GUEST
 }
 
 func (self *SNetwork) GetIsPublic() bool {
@@ -181,6 +197,7 @@ func (self *SRegion) GetNetwroks(ids []string, vpcId string, limit int, offset i
 	}
 
 	ret, err := self.ec2Client.DescribeSubnets(params)
+	err = parseNotFoundError(err)
 	if err != nil {
 		return nil, 0, err
 	}

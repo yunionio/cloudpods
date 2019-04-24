@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -8,6 +22,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -136,7 +151,7 @@ func (self *SHoststorage) StartHostStorageAttachTask(ctx context.Context, userCr
 }
 
 func (self *SHoststorage) StartHostStorageDetachTask(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if host := self.GetHost(); host.HostStatus == HOST_ONLINE {
+	if host := self.GetHost(); host.HostStatus == api.HOST_ONLINE {
 		params := jsonutils.NewDict()
 		params.Set("storage_id", jsonutils.NewString(self.StorageId))
 		params.Set("mount_point", jsonutils.NewString(self.MountPoint))
@@ -156,10 +171,10 @@ func (self *SHoststorage) PostDelete(ctx context.Context, userCred mcclient.Toke
 
 func (self *SHoststorage) SyncStorageStatus(userCred mcclient.TokenCredential) {
 	storage := self.GetStorage()
-	status := STORAGE_OFFLINE
+	status := api.STORAGE_OFFLINE
 	for _, host := range storage.GetAttachedHosts() {
-		if host.HostStatus == HOST_ONLINE {
-			status = STORAGE_ONLINE
+		if host.HostStatus == api.HOST_ONLINE {
+			status = api.STORAGE_ONLINE
 		}
 	}
 	if status != storage.Status {
@@ -185,7 +200,11 @@ func (self *SHoststorage) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.
 	extra.Add(jsonutils.NewString(storage.MediumType), "medium_type")
 	extra.Add(jsonutils.NewBool(storage.Enabled), "enabled")
 	extra.Add(jsonutils.NewFloat(float64(storage.GetOvercommitBound())), "cmtbound")
-	extra.Add(jsonutils.NewInt(int64(self.GetGuestDiskCount())), "guest_disk_count")
+
+	//extra.Add(jsonutils.NewInt(int64(self.GetGuestDiskCount())), "guest_disk_count")
+
+	extra = db.FetchModelExtraCountProperties(self, extra)
+
 	if len(storage.StoragecacheId) > 0 {
 		storagecache := StoragecacheManager.FetchStoragecacheById(storage.StoragecacheId)
 		if storagecache != nil {
@@ -196,7 +215,7 @@ func (self *SHoststorage) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.
 	return extra
 }
 
-func (self *SHoststorage) GetGuestDiskCount() int {
+func (self *SHoststorage) GetGuestDiskCount() (int, error) {
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	guests := GuestManager.Query().SubQuery()
 	disks := DiskManager.Query().SubQuery()
@@ -209,11 +228,15 @@ func (self *SHoststorage) GetGuestDiskCount() int {
 		sqlchemy.Equals(disks.Field("id"), guestdisks.Field("disk_id")),
 		sqlchemy.Equals(disks.Field("storage_id"), self.StorageId)))
 
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SHoststorage) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetGuestDiskCount() > 0 {
+	cnt, err := self.GetGuestDiskCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetGuestDiskCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("guest on the host are using disks on this storage")
 	}
 	return self.SHostJointsBase.ValidateDeleteCondition(ctx)

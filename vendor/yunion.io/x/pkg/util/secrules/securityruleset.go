@@ -58,46 +58,44 @@ func (ssrs *SecurityGroupSubRuleSet) addRule(rule SecurityRule) {
 	}
 }
 
-func (ssrs *SecurityGroupSubRuleSet) isRulesEqual(rules *SecurityGroupSubSubRuleSet, _rules *SecurityGroupSubSubRuleSet) bool {
-	if rules == _rules { //都是nil
-		return true
+func (ssrs *SecurityGroupSubRuleSet) getDirectionRules() ([]SecurityRule, []SecurityRule) {
+	inRules, outRules := []SecurityRule{}, []SecurityRule{}
+	if ssrs.allowRules != nil {
+		for _, rule := range ssrs.allowRules.rules {
+			if rule.Direction == DIR_IN {
+				inRules = append(inRules, rule)
+			} else {
+				outRules = append(outRules, rule)
+			}
+		}
 	}
-	if rules == nil || _rules == nil { //其中一个是nil
-		return false
-	}
-	if len(rules.rules) != len(_rules.rules) {
+	return inRules, outRules
+}
+
+func isRuleEqual(rules []SecurityRule, _rules []SecurityRule) bool {
+	if len(rules) != len(_rules) {
 		return false
 	}
 
-	sort.Slice(rules.rules, func(i, j int) bool {
-		return rules.rules[i].Priority < rules.rules[j].Priority
+	sort.SliceStable(rules, func(i, j int) bool {
+		if rules[i].Priority < rules[j].Priority {
+			return true
+		} else if rules[i].Priority == rules[j].Priority {
+			return rules[i].String() < rules[j].String()
+		}
+		return false
 	})
-	sort.Slice(_rules.rules, func(i, j int) bool {
-		return _rules.rules[i].Priority < _rules.rules[j].Priority
+	sort.SliceStable(_rules, func(i, j int) bool {
+		if _rules[i].Priority < _rules[j].Priority {
+			return true
+		} else if _rules[i].Priority == _rules[j].Priority {
+			return _rules[i].String() < _rules[j].String()
+		}
+		return false
 	})
 
-	rulePriority, initPriority := 0, 0
-	_rulePriority, _initPriority := 0, 0
-	for i := 0; i < len(rules.rules); i++ {
-		if rulePriority != rules.rules[i].Priority {
-			rulePriority = rules.rules[i].Priority
-			initPriority++
-		}
-		find, ruleStr := false, rules.rules[i].String()
-		for j := 0; j < len(_rules.rules); j++ {
-			if _rulePriority != _rules.rules[j].Priority {
-				_rulePriority = _rules.rules[j].Priority
-				_initPriority++
-			}
-			//仅在每个优先级阶梯下进行对比
-			if initPriority != _initPriority {
-				continue
-			}
-			if _rules.rules[j].String() == ruleStr {
-				find = true
-			}
-		}
-		if !find {
+	for i := 0; i < len(rules); i++ {
+		if rules[i].String() != _rules[i].String() {
 			return false
 		}
 	}
@@ -108,7 +106,11 @@ func (ssrs *SecurityGroupSubRuleSet) isEqual(_ssrs *SecurityGroupSubRuleSet) boo
 	if _ssrs == nil {
 		return false
 	}
-	return ssrs.isRulesEqual(ssrs.allowRules, _ssrs.allowRules) && ssrs.isRulesEqual(ssrs.denyRules, _ssrs.denyRules)
+
+	inRules, outRules := ssrs.getDirectionRules()
+	_inRules, _outRules := _ssrs.getDirectionRules()
+
+	return isRuleEqual(inRules, _inRules) && isRuleEqual(outRules, _outRules)
 }
 
 type SecurityGroupRuleSet struct {

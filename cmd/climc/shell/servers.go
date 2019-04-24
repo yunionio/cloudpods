@@ -1,6 +1,21 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package shell
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -9,6 +24,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -149,6 +166,16 @@ func init() {
 				s.WaitTaskNotify()
 			}
 		}
+		return nil
+	})
+
+	R(&options.ServerCloneOptions{}, "server-clone", "Clone a server", func(s *mcclient.ClientSession, opts *options.ServerCloneOptions) error {
+		params := jsonutils.Marshal(opts).(*jsonutils.JSONDict)
+		res, err := modules.Servers.PerformAction(s, opts.SOURCE, "clone", params)
+		if err != nil {
+			return err
+		}
+		printObject(res)
 		return nil
 	})
 
@@ -526,9 +553,16 @@ func init() {
 		params, err := options.StructToParams(opts)
 		if len(opts.Disk) > 0 {
 			params.Remove("disk.0")
+			disksConf := make([]*compute.DiskConfig, 0)
 			for i, d := range opts.Disk {
-				params.Set(fmt.Sprintf("disk.%d", i+1), jsonutils.NewString(d))
+				// params.Set(key, value)
+				diskConfig, err := cmdline.ParseDiskConfig(d, i+1)
+				if err != nil {
+					return err
+				}
+				disksConf = append(disksConf, diskConfig)
 			}
+			params.Set("disks", jsonutils.Marshal(disksConf))
 		}
 
 		if err != nil {
@@ -780,6 +814,79 @@ func init() {
 				log.Errorf("Import %s error: %v", descFile, err)
 			}
 		}
+		return nil
+	})
+
+	type ServersImportFromLibvirtOptions struct {
+		CONFIG_FILE string `help:"JSON file describing servers from libvirt, e.g. 
+			{'hosts': 
+				[
+					{
+						'servers': [
+							{
+								'mac_ip': {'mac1': 'ip1', ...}
+							},
+						],
+						'xml_file_path': '/etc/libvirt/qemu',
+						'host_ip': '192.168.1.100',
+					},
+				],
+			}
+		"`
+	}
+	R(&ServersImportFromLibvirtOptions{}, "servers-import-from-libvirt", "Import servers from libvrt", func(s *mcclient.ClientSession, args *ServersImportFromLibvirtOptions) error {
+		rawConfig, err := ioutil.ReadFile(args.CONFIG_FILE)
+		if err != nil {
+			return fmt.Errorf("Read file error: %s", err)
+		}
+
+		config := &compute.SLibvirtImportConfig{}
+		err = json.Unmarshal(rawConfig, config)
+		if err != nil {
+			return fmt.Errorf("Parse config error %s", err)
+		}
+		params, err := jsonutils.Marshal(config.Hosts).GetArray()
+		if err != nil {
+			return err
+		}
+		for i := 0; i < len(params); i++ {
+			val := jsonutils.NewDict()
+			val.Set(modules.Servers.KeywordPlural, params[i])
+			params[i] = val
+		}
+
+		results := modules.Servers.BatchPerformClassAction(s, "import-from-libvirt", params)
+		printBatchResults(results, modules.Servers.GetColumns(s))
+		return nil
+	})
+
+	R(&options.ServerIdOptions{}, "server-create-params", "Show server create params", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
+		ret, e := modules.Servers.GetSpecific(s, opts.ID, "create-params", nil)
+		if e != nil {
+			return e
+		}
+		printObject(ret)
+		return nil
+	})
+
+	type ServerExportVirtInstallCommand struct {
+		ID            string   `help:"Server Id" json:"-"`
+		LibvirtBridge string   `help:"Libvirt default bridge" json:"libvirt_bridge"`
+		ExtraCmdline  []string `help:"Extra virt-install arguments add to script, eg:'--extra-args ...', '--console ...'" json:"extra_cmdline"`
+	}
+	R(&ServerExportVirtInstallCommand{}, "server-export-virt-install-command", "Export virt-install command line from existing guest", func(s *mcclient.ClientSession, args *ServerExportVirtInstallCommand) error {
+		params := jsonutils.NewDict()
+		if len(args.LibvirtBridge) > 0 {
+			params.Set("libvirt_bridge", jsonutils.NewString(args.LibvirtBridge))
+		}
+		if len(args.ExtraCmdline) > 0 {
+			params.Set("extra_cmdline", jsonutils.NewStringArray(args.ExtraCmdline))
+		}
+		result, err := modules.Servers.GetSpecific(s, args.ID, "virt-install", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
 		return nil
 	})
 }

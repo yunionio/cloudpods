@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package azure
 
 import (
@@ -10,8 +24,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type ImageStatusType string
@@ -112,12 +126,12 @@ func (self *SImage) GetGlobalId() string {
 func (self *SImage) GetStatus() string {
 	switch self.Properties.ProvisioningState {
 	case "created":
-		return models.CACHED_IMAGE_STATUS_CACHING
+		return api.CACHED_IMAGE_STATUS_CACHING
 	case "Succeeded":
-		return models.CACHED_IMAGE_STATUS_READY
+		return api.CACHED_IMAGE_STATUS_READY
 	default:
 		log.Errorf("Unknow image status: %s", self.Properties.ProvisioningState)
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	}
 }
 
@@ -183,7 +197,10 @@ func (self *SImage) GetOsVersion() string {
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
-	return 10
+	if self.Properties.StorageProfile.OsDisk.DiskSizeGB > 0 {
+		return int(self.Properties.StorageProfile.OsDisk.DiskSizeGB)
+	}
+	return 30
 }
 
 func (self *SImage) GetImageFormat() string {
@@ -299,22 +316,24 @@ func (self *SRegion) CreateImage(snapshotId, imageName, osType, imageDesc string
 
 func (self *SRegion) getOfferedImages(publishersFilter []string, offersFilter []string, skusFilter []string, verFilter []string, imageType string, latestVer bool) ([]SImage, error) {
 	images := make([]SImage, 0)
-	idList, err := self.GetOfferedImageIDs(publishersFilter, offersFilter, skusFilter, verFilter, latestVer)
+	idMap, err := self.GetOfferedImageIDs(publishersFilter, offersFilter, skusFilter, verFilter, latestVer)
 	if err != nil {
 		return nil, err
 	}
-	for _, id := range idList {
+	for id, _image := range idMap {
 		image, err := self.getOfferedImage(id)
-		image.ImageType = imageType
 		if err == nil {
+			image.ImageType = imageType
+			image.Properties.StorageProfile.OsDisk.DiskSizeGB = int32(_image.Properties.OsDiskImage.SizeInGb)
+			image.Properties.StorageProfile.OsDisk.OsType = _image.Properties.OsDiskImage.OperatingSystem
 			images = append(images, image)
 		}
 	}
 	return images, nil
 }
 
-func (self *SRegion) GetOfferedImageIDs(publishersFilter []string, offersFilter []string, skusFilter []string, verFilter []string, latestVer bool) ([]string, error) {
-	idList := make([]string, 0)
+func (self *SRegion) GetOfferedImageIDs(publishersFilter []string, offersFilter []string, skusFilter []string, verFilter []string, latestVer bool) (map[string]SAzureImageResource, error) {
+	idMap := map[string]SAzureImageResource{}
 	publishers, err := self.GetImagePublishers(toLowerStringArray(publishersFilter))
 	if err != nil {
 		return nil, err
@@ -340,12 +359,16 @@ func (self *SRegion) GetOfferedImageIDs(publishersFilter []string, offersFilter 
 				}
 				for _, ver := range vers {
 					idStr := strings.Join([]string{publisher, offer, sku, ver}, "/")
-					idList = append(idList, idStr)
+					image, err := self.getImageDetail(publisher, offer, sku, ver)
+					if err != nil {
+						return nil, err
+					}
+					idMap[idStr] = image
 				}
 			}
 		}
 	}
-	return idList, nil
+	return idMap, nil
 }
 
 func (self *SRegion) getPrivateImages() ([]SImage, error) {
@@ -407,10 +430,21 @@ func (self *SImage) Delete(ctx context.Context) error {
 	return self.storageCache.region.DeleteImage(self.ID)
 }
 
+type SOsDiskImage struct {
+	OperatingSystem string `json:"operatingSystem"`
+	SizeInGb        int    `json:"sizeInGb"`
+}
+
+type SAzureImageResourceProperties struct {
+	ReplicaType string       `json:"replicaType"`
+	OsDiskImage SOsDiskImage `json:"osDiskImage"`
+}
+
 type SAzureImageResource struct {
-	Id       string
-	Name     string
-	Location string
+	Id         string
+	Name       string
+	Location   string
+	Properties SAzureImageResourceProperties
 }
 
 func (region *SRegion) GetImagePublishers(filter []string) ([]string, error) {
@@ -473,6 +507,17 @@ func (region *SRegion) getImageVersions(publisher string, offer string, sku stri
 	return ret, nil
 }
 
+func (region *SRegion) getImageDetail(publisher string, offer string, sku string, version string) (SAzureImageResource, error) {
+	image := SAzureImageResource{}
+	id := "/Subscriptions/" + region.client.subscriptionId +
+		"/Providers/Microsoft.Compute/locations/" + region.Name +
+		"/publishers/" + publisher +
+		"/artifacttypes/vmimage/offers/" + offer +
+		"/skus/" + sku +
+		"/versions/" + version
+	return image, region.client.Get(id, []string{}, &image)
+}
+
 func (region *SRegion) getOfferedImage(offerId string) (SImage, error) {
 	image := SImage{}
 
@@ -497,7 +542,24 @@ func (region *SRegion) getOfferedImage(offerId string) (SImage, error) {
 	image.Sku = sku
 	image.Version = version
 	image.Properties.ProvisioningState = ImageStatusAvailable
+	_image, err := region.getImageDetail(publisher, offer, sku, version)
+	if err == nil {
+		image.Properties.StorageProfile.OsDisk.DiskSizeGB = int32(_image.Properties.OsDiskImage.SizeInGb)
+		image.Properties.StorageProfile.OsDisk.OperatingSystem = _image.Properties.OsDiskImage.OperatingSystem
+	}
 	return image, nil
+}
+
+func (region *SRegion) getOfferedImageId(image *SImage) (string, error) {
+	if isPrivateImageID(image.ID) {
+		return image.ID, nil
+	}
+	_image, err := region.getImageDetail(image.Publisher, image.Offer, image.Sku, image.Version)
+	if err != nil {
+		log.Errorf("failed to get offered image ID from %s error: %v", jsonutils.Marshal(image).PrettyString(), err)
+		return "", err
+	}
+	return _image.Id, nil
 }
 
 func (image *SImage) getImageReference() ImageReference {

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package guestdrivers
 
 import (
@@ -7,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -33,11 +48,11 @@ func (self *SContainerDriver) newUnsupportOperationError(option string) error {
 }
 
 func (self *SContainerDriver) GetHypervisor() string {
-	return models.HYPERVISOR_CONTAINER
+	return api.HYPERVISOR_CONTAINER
 }
 
 func (self *SContainerDriver) GetDefaultSysDiskBackend() string {
-	return models.STORAGE_LOCAL
+	return api.STORAGE_LOCAL
 }
 
 func (self *SContainerDriver) GetMinimalSysDiskSizeGb() int {
@@ -117,7 +132,7 @@ func (self *SContainerDriver) RequestUndeployGuestOnHost(ctx context.Context, gu
 }
 
 func (self *SContainerDriver) OnGuestDeployTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	guest.SetStatus(task.GetUserCred(), models.VM_RUNNING, "on deploy complete")
+	guest.SetStatus(task.GetUserCred(), api.VM_RUNNING, "on deploy complete")
 	task.SetStageComplete(ctx, nil)
 	return nil
 }
@@ -168,9 +183,13 @@ func (self *SContainerDriver) RequestRebuildRootDisk(ctx context.Context, guest 
 }
 
 func (self *SContainerDriver) GetRandomNetworkTypes() []string {
-	return []string{models.NETWORK_TYPE_CONTAINER, models.NETWORK_TYPE_GUEST}
+	return []string{api.NETWORK_TYPE_CONTAINER, api.NETWORK_TYPE_GUEST}
 }
 
 func (self *SContainerDriver) StartGuestRestartTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, isForce bool, parentTaskId string) error {
 	return fmt.Errorf("Not Implement")
+}
+
+func (self *SContainerDriver) IsSupportGuestClone() bool {
+	return false
 }

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -11,28 +25,13 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-)
-
-const (
-	VPC_STATUS_PENDING       = "pending"
-	VPC_STATUS_AVAILABLE     = "available"
-	VPC_STATUS_FAILED        = "failed"
-	VPC_STATUS_START_DELETE  = "start_delete"
-	VPC_STATUS_DELETING      = "deleting"
-	VPC_STATUS_DELETE_FAILED = "delete_failed"
-	VPC_STATUS_DELETED       = "deleted"
-	VPC_STATUS_UNKNOWN       = "unknown"
-
-	MAX_VPC_PER_REGION = 3
-
-	DEFAULT_VPC_ID = "default"
-	NORMAL_VPC_ID  = "normal" // 没有关联VPC的安全组，统一使用normal
 )
 
 type SVpcManager struct {
@@ -89,7 +88,7 @@ func (self *SVpc) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SVpc) GetCloudRegionId() string {
 	if len(self.CloudregionId) == 0 {
-		return DEFAULT_REGION_ID
+		return api.DEFAULT_REGION_ID
 	} else {
 		return self.CloudregionId
 	}
@@ -104,10 +103,14 @@ func (self *SVpc) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetNetworkCount() > 0 {
+	cnt, err := self.GetNetworkCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetNetworkCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("VPC not empty")
 	}
-	if self.Id == DEFAULT_VPC_ID {
+	if self.Id == api.DEFAULT_VPC_ID {
 		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -115,7 +118,7 @@ func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
 
 func (self *SVpc) getWireQuery() *sqlchemy.SQuery {
 	wires := WireManager.Query()
-	if self.Id == DEFAULT_VPC_ID {
+	if self.Id == api.DEFAULT_VPC_ID {
 		return wires.Filter(sqlchemy.OR(sqlchemy.IsNull(wires.Field("vpc_id")),
 			sqlchemy.IsEmpty(wires.Field("vpc_id")),
 			sqlchemy.Equals(wires.Field("vpc_id"), self.Id)))
@@ -124,9 +127,9 @@ func (self *SVpc) getWireQuery() *sqlchemy.SQuery {
 	}
 }
 
-func (self *SVpc) GetWireCount() int {
+func (self *SVpc) GetWireCount() (int, error) {
 	q := self.getWireQuery()
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SVpc) GetWires() []SWire {
@@ -147,9 +150,9 @@ func (self *SVpc) getNetworkQuery() *sqlchemy.SQuery {
 	return q
 }
 
-func (self *SVpc) GetNetworkCount() int {
+func (self *SVpc) GetNetworkCount() (int, error) {
 	q := self.getNetworkQuery()
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SVpc) GetRouteTableQuery() *sqlchemy.SQuery {
@@ -163,14 +166,17 @@ func (self *SVpc) GetRouteTables() []SRouteTable {
 	return routes
 }
 
-func (self *SVpc) GetRouteTableCount() int {
-	return self.GetRouteTableQuery().Count()
+func (self *SVpc) GetRouteTableCount() (int, error) {
+	return self.GetRouteTableQuery().CountWithError()
 }
 
 func (self *SVpc) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	extra.Add(jsonutils.NewInt(int64(self.GetWireCount())), "wire_count")
-	extra.Add(jsonutils.NewInt(int64(self.GetNetworkCount())), "network_count")
-	extra.Add(jsonutils.NewInt(int64(self.GetRouteTableCount())), "routetable_count")
+	cnt, _ := self.GetWireCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "wire_count")
+	cnt, _ = self.GetNetworkCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "network_count")
+	cnt, _ = self.GetRouteTableCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "routetable_count")
 	/* region, err := self.GetRegion()
 	if err != nil {
 		log.Errorf("failed getting region for vpc %s(%s)", self.Name, self.Id)
@@ -313,10 +319,10 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 		self.markAllNetworksUnknown(userCred)
 		_, err := self.PerformDisable(ctx, userCred, nil, nil)
 		if err == nil {
-			err = self.SetStatus(userCred, VPC_STATUS_UNKNOWN, "sync to delete")
+			err = self.SetStatus(userCred, api.VPC_STATUS_UNKNOWN, "sync to delete")
 		}
 	} else {
-		err = self.Delete(ctx, userCred)
+		err = self.RealDelete(ctx, userCred)
 	}
 	return err
 }
@@ -345,7 +351,11 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 	vpc := SVpc{}
 	vpc.SetModelManager(manager)
 
-	vpc.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extVPC.GetName())
+	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extVPC.GetName())
+	if err != nil {
+		return nil, err
+	}
+	vpc.Name = newName
 	vpc.Status = extVPC.GetStatus()
 	vpc.ExternalId = extVPC.GetGlobalId()
 	vpc.IsDefault = extVPC.GetIsDefault()
@@ -356,7 +366,7 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 
 	vpc.IsEmulated = extVPC.IsEmulated()
 
-	err := manager.TableSpec().Insert(&vpc)
+	err = manager.TableSpec().Insert(&vpc)
 	if err != nil {
 		log.Errorf("newFromCloudVpc fail %s", err)
 		return nil, err
@@ -379,17 +389,17 @@ func (self *SVpc) markAllNetworksUnknown(userCred mcclient.TokenCredential) erro
 }
 
 func (manager *SVpcManager) InitializeData() error {
-	vpcObj, err := manager.FetchById(DEFAULT_VPC_ID)
+	vpcObj, err := manager.FetchById(api.DEFAULT_VPC_ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			defVpc := SVpc{}
 			defVpc.SetModelManager(VpcManager)
 
-			defVpc.Id = DEFAULT_VPC_ID
+			defVpc.Id = api.DEFAULT_VPC_ID
 			defVpc.Name = "Default"
-			defVpc.CloudregionId = DEFAULT_REGION_ID
+			defVpc.CloudregionId = api.DEFAULT_REGION_ID
 			defVpc.Description = "Default VPC"
-			defVpc.Status = VPC_STATUS_AVAILABLE
+			defVpc.Status = api.VPC_STATUS_AVAILABLE
 			defVpc.IsDefault = true
 			err = manager.TableSpec().Insert(&defVpc)
 			if err != nil {
@@ -401,9 +411,9 @@ func (manager *SVpcManager) InitializeData() error {
 		}
 	} else {
 		vpc := vpcObj.(*SVpc)
-		if vpc.Status != VPC_STATUS_AVAILABLE {
+		if vpc.Status != api.VPC_STATUS_AVAILABLE {
 			_, err = db.Update(vpc, func() error {
-				vpc.Status = VPC_STATUS_AVAILABLE
+				vpc.Status = api.VPC_STATUS_AVAILABLE
 				return nil
 			})
 			return err
@@ -442,7 +452,11 @@ func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcc
 			return nil, httperrors.NewInputParameterError("invalid cidr_block %s", cidrBlock)
 		}
 	}
-	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	data, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	if err != nil {
+		return nil, err
+	}
+	return region.GetDriver().ValidateCreateVpcData(ctx, userCred, data)
 }
 
 func (self *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -499,7 +513,7 @@ func (self *SVpc) GetIVpc() (cloudprovider.ICloudVpc, error) {
 
 func (self *SVpc) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	log.Infof("SVpc delete do nothing")
-	self.SetStatus(userCred, VPC_STATUS_START_DELETE, "")
+	self.SetStatus(userCred, api.VPC_STATUS_START_DELETE, "")
 	return nil
 }
 
@@ -513,7 +527,7 @@ func (self *SVpc) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCr
 
 func (self *SVpc) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
-	self.SetStatus(userCred, VPC_STATUS_DELETED, "real delete")
+	self.SetStatus(userCred, api.VPC_STATUS_DELETED, "real delete")
 	routes := self.GetRouteTables()
 	for i := 0; i < len(routes); i++ {
 		routes[i].RealDelete(ctx, userCred)
@@ -571,42 +585,10 @@ func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	}
 	q = managedResourceFilterByCloudType(q, query, "", nil)
 
-	/*managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
-	if len(managerStr) > 0 {
-		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), provider.GetId()))
-		queryDict.Remove("manager_id")
-	}*/
-
 	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-
-	/* accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
-	if len(accountStr) > 0 {
-		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", account.GetId()).SubQuery()
-		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}
-
-	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
-	if len(providerStr) > 0 {
-		subq := CloudproviderManager.Query("id").Equals("provider", providerStr).SubQuery()
-		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	}*/
 
 	return q, nil
 }

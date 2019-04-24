@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package azure
 
 import (
@@ -7,9 +21,10 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/ansible"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SHost struct {
@@ -37,7 +52,7 @@ func (self *SHost) IsEmulated() bool {
 }
 
 func (self *SHost) GetStatus() string {
-	return models.HOST_STATUS_RUNNING
+	return api.HOST_STATUS_RUNNING
 }
 
 func (self *SHost) Refresh() error {
@@ -55,7 +70,7 @@ func (self *SHost) searchNetorkInterface(IPAddr string, networkId string, secgro
 				if nic.Properties.NetworkSecurityGroup == nil || nic.Properties.NetworkSecurityGroup.ID != secgroupId {
 					nic.Properties.NetworkSecurityGroup = &SSecurityGroup{ID: secgroupId}
 					if err := self.zone.region.client.Update(jsonutils.Marshal(nic), nil); err != nil {
-						log.Errorf("assign secgroup %s for nic %s failed %d")
+						log.Errorf("assign secgroup %s for nic %#v failed: %v", secgroupId, nic, err)
 						return nil, err
 					}
 				}
@@ -82,7 +97,13 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 			return nil, err
 		}
 	}
-	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, desc.ExternalNetworkId, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.PublicKey, desc.UserData)
+
+	if len(desc.Password) == 0 {
+		//Azure创建必须要设置密码
+		desc.Password = seclib2.RandomPassword2(12)
+	}
+
+	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, nic.ID, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.PublicKey, desc.UserData)
 	if err != nil {
 		self.zone.region.DeleteNetworkInterface(nic.ID)
 		return nil, err
@@ -195,7 +216,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 		}
 		return instance.ID, nil
 	}
-	return "", fmt.Errorf("Failed to create, %s", err.Error())
+	return "", fmt.Errorf("instance type %dC%dMB not avaiable", cpu, memMB)
 }
 
 func (self *SHost) GetAccessIp() string {
@@ -226,14 +247,14 @@ func (self *SHost) GetEnabled() bool {
 }
 
 func (self *SHost) GetHostStatus() string {
-	return models.HOST_ONLINE
+	return api.HOST_ONLINE
 }
 func (self *SHost) GetNodeCount() int8 {
 	return 0
 }
 
 func (self *SHost) GetHostType() string {
-	return models.HOST_TYPE_AZURE
+	return api.HOST_TYPE_AZURE
 }
 
 func (self *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
@@ -264,7 +285,7 @@ func (self *SHost) GetStorageSizeMB() int {
 }
 
 func (self *SHost) GetStorageType() string {
-	return models.DISK_TYPE_HYBRID
+	return api.DISK_TYPE_HYBRID
 }
 
 func (self *SHost) GetSN() string {

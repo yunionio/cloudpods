@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package candidate
 
 import (
@@ -12,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	computedb "yunion.io/x/onecloud/pkg/cloudcommon/db"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -21,7 +36,7 @@ type BaseHostDesc struct {
 	Region        *computemodels.SCloudregion   `json:"region"`
 	Zone          *computemodels.SZone          `json:"zone"`
 	Cloudprovider *computemodels.SCloudprovider `json:"cloudprovider"`
-	Networks      []computemodels.SNetwork      `json:"networks"`
+	Networks      []*api.CandidateNetwork       `json:"networks"`
 	Storages      []*api.CandidateStorage       `json:"storages"`
 
 	Tenants       map[string]int64          `json:"tenants"`
@@ -68,9 +83,13 @@ func (b baseHostGetter) Storages() []*api.CandidateStorage {
 	return b.h.Storages
 }
 
+func (b baseHostGetter) Networks() []*api.CandidateNetwork {
+	return b.h.Networks
+}
+
 func reviseResourceType(resType string) string {
 	if resType == "" {
-		return computemodels.HostResourceTypeDefault
+		return computeapi.HostResourceTypeDefault
 	}
 	return resType
 }
@@ -175,13 +194,18 @@ func (b *BaseHostDesc) fillNetworks(hostID string) error {
 	if err != nil {
 		return err
 	}
-	b.Networks = nets
+	b.Networks = make([]*api.CandidateNetwork, len(nets))
+	for idx, n := range nets {
+		b.Networks[idx] = &api.CandidateNetwork{
+			SNetwork:  &nets[idx],
+			Schedtags: n.GetSchedtags(),
+		}
+	}
 	return nil
 }
 
 func (b *BaseHostDesc) fillStorages(host *computemodels.SHost) error {
 	ss := make([]*api.CandidateStorage, 0)
-	//log.Errorf("====host %s append storages: %#v", b.Name, storages)
 	for _, s := range host.GetHoststorages() {
 		storage := s.GetStorage()
 		ss = append(ss, &api.CandidateStorage{

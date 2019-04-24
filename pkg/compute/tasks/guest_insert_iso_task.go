@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -5,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -65,7 +80,7 @@ func (self *GuestInsertIsoTask) OnIsoPrepareComplete(ctx context.Context, obj db
 	guest := obj.(*models.SGuest)
 	if guest.InsertIsoSucc(imageId, path, int(size), name) {
 		db.OpsLog.LogEvent(guest, db.ACT_ISO_ATTACH, guest.GetDetailsIso(self.UserCred), self.UserCred)
-		if guest.Status == models.VM_RUNNING {
+		if guest.Status == api.VM_RUNNING {
 			self.SetStage("OnConfigSyncComplete", nil)
 			guest.GetDriver().RequestGuestHotAddIso(ctx, guest, path, self)
 		} else {

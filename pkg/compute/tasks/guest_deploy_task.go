@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -7,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -58,7 +73,7 @@ func (self *GuestDeployTask) DeployBackup(ctx context.Context, guest *models.SGu
 		log.Errorf("request_deploy_guest_on_host %s", err)
 		self.OnDeployGuestFail(ctx, guest, err)
 	} else {
-		guest.SetStatus(self.UserCred, models.VM_DEPLOYING_BACKUP, "")
+		guest.SetStatus(self.UserCred, api.VM_DEPLOYING_BACKUP, "")
 	}
 }
 
@@ -68,7 +83,7 @@ func (self *GuestDeployTask) DeployOnHost(ctx context.Context, guest *models.SGu
 		log.Errorf("request_deploy_guest_on_host %s", err)
 		self.OnDeployGuestFail(ctx, guest, err)
 	} else {
-		guest.SetStatus(self.UserCred, models.VM_DEPLOYING, "")
+		guest.SetStatus(self.UserCred, api.VM_DEPLOYING, "")
 	}
 }
 
@@ -79,7 +94,7 @@ func (self *GuestDeployTask) OnSlaveHostDeployComplete(ctx context.Context, gues
 }
 
 func (self *GuestDeployTask) OnSlaveHostDeployCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, models.VM_DEPLOYING_BACKUP_FAILED, "")
+	guest.SetStatus(self.UserCred, api.VM_DEPLOYING_BACKUP_FAILED, "")
 	self.SetStage("OnUndeployBackupGuest", nil)
 	guest.StartUndeployGuestTask(ctx, self.UserCred, self.GetId(), guest.BackupHostId)
 }
@@ -89,7 +104,7 @@ func (self *GuestDeployTask) OnUndeployBackupGuest(ctx context.Context, guest *m
 }
 
 func (self *GuestDeployTask) OnDeployGuestFail(ctx context.Context, guest *models.SGuest, err error) {
-	guest.SetStatus(self.UserCred, models.VM_DEPLOY_FAILED, err.Error())
+	guest.SetStatus(self.UserCred, api.VM_DEPLOY_FAILED, err.Error())
 	self.SetStageFailed(ctx, err.Error())
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DEPLOY, err, self.UserCred, false)
 }
@@ -127,7 +142,18 @@ func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.I
 
 func (self *GuestDeployTask) OnDeployGuestCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, models.VM_DEPLOY_FAILED, data.String())
+	action, _ := self.Params.GetString("deploy_action")
+	keypair, _ := self.Params.GetString("keypair")
+	if action == "deploy" && len(keypair) >= 32 {
+		_, err := db.Update(guest, func() error {
+			guest.KeypairId = ""
+			return nil
+		})
+		if err != nil {
+			log.Errorf("unset guest %s keypair failed %v", guest.Name, err)
+		}
+	}
+	guest.SetStatus(self.UserCred, api.VM_DEPLOY_FAILED, data.String())
 	self.SetStageFailed(ctx, data.String())
 }
 

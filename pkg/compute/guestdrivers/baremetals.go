@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package guestdrivers
 
 import (
@@ -32,11 +46,11 @@ func init() {
 }
 
 func (self *SBaremetalGuestDriver) GetHypervisor() string {
-	return models.HYPERVISOR_BAREMETAL
+	return api.HYPERVISOR_BAREMETAL
 }
 
 func (self *SBaremetalGuestDriver) GetDefaultSysDiskBackend() string {
-	return models.STORAGE_LOCAL
+	return api.STORAGE_LOCAL
 }
 
 func (self *SBaremetalGuestDriver) GetMinimalSysDiskSizeGb() int {
@@ -79,7 +93,7 @@ func (self *SBaremetalGuestDriver) PrepareDiskRaidConfig(userCred mcclient.Token
 }
 
 func (self *SBaremetalGuestDriver) GetRebuildRootStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_ADMIN}, nil
+	return []string{api.VM_READY, api.VM_ADMIN}, nil
 }
 
 func (self *SBaremetalGuestDriver) GetChangeConfigStatus() ([]string, error) {
@@ -87,7 +101,7 @@ func (self *SBaremetalGuestDriver) GetChangeConfigStatus() ([]string, error) {
 }
 
 func (self *SBaremetalGuestDriver) GetDeployStatus() ([]string, error) {
-	return []string{models.VM_READY, models.VM_ADMIN}, nil
+	return []string{api.VM_READY, api.VM_ADMIN}, nil
 }
 
 func (self *SBaremetalGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
@@ -122,7 +136,7 @@ func (self *SBaremetalGuestDriver) GetNamedNetworkConfiguration(guest *models.SG
 }
 
 func (self *SBaremetalGuestDriver) GetRandomNetworkTypes() []string {
-	return []string{models.NETWORK_TYPE_BAREMETAL, models.NETWORK_TYPE_GUEST}
+	return []string{api.NETWORK_TYPE_BAREMETAL, api.NETWORK_TYPE_GUEST}
 }
 
 func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
@@ -195,11 +209,14 @@ func (self *SBaremetalGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ct
 
 func (self *SBaremetalGuestDriver) GetStorageTypes() []string {
 	return []string{
-		models.STORAGE_BAREMETAL,
+		api.STORAGE_BAREMETAL,
 	}
 }
 
-func (self *SBaremetalGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
+func (self *SBaremetalGuestDriver) ChooseHostStorage(host *models.SHost, backend string, storageIds []string) *models.SStorage {
+	if len(storageIds) != 0 {
+		return models.StorageManager.FetchStorageById(storageIds[0])
+	}
 	bs := host.GetBaremetalstorage()
 	if bs == nil {
 		return nil
@@ -235,7 +252,7 @@ func (self *SBaremetalGuestDriver) RequestStopGuestForDelete(ctx context.Context
 	overridePendingDelete := jsonutils.QueryBoolean(task.GetParams(), "override_pending_delete", false)
 	purge := jsonutils.QueryBoolean(task.GetParams(), "purge", false)
 	if host != nil && host.Enabled &&
-		(guestStatus == models.VM_RUNNING || strings.Index(guestStatus, "stop") >= 0) &&
+		(guestStatus == api.VM_RUNNING || strings.Index(guestStatus, "stop") >= 0) &&
 		options.Options.EnablePendingDelete &&
 		!guest.PendingDeleted &&
 		!overridePendingDelete &&
@@ -324,11 +341,11 @@ func (self *SBaremetalGuestDriver) ValidateCreateData(ctx context.Context, userC
 	return input, nil
 }
 
-func (self *SBaremetalGuestDriver) ValidateCreateHostData(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
-	if host.HostType != models.HOST_TYPE_BAREMETAL || !host.IsBaremetal {
+func (self *SBaremetalGuestDriver) ValidateCreateDataOnHost(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	if host.HostType != api.HOST_TYPE_BAREMETAL || !host.IsBaremetal {
 		return nil, httperrors.NewInputParameterError("Host %s is not a baremetal", bmName)
 	}
-	if !utils.IsInStringArray(host.Status, []string{models.BAREMETAL_READY, models.BAREMETAL_RUNNING, models.BAREMETAL_START_CONVERT}) {
+	if !utils.IsInStringArray(host.Status, []string{api.BAREMETAL_READY, api.BAREMETAL_RUNNING, api.BAREMETAL_START_CONVERT}) {
 		return nil, httperrors.NewInvalidStatusError("Baremetal %s is not ready", bmName)
 	}
 	if host.GetBaremetalServer() != nil {
@@ -376,13 +393,13 @@ func (self *SBaremetalGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Con
 			}
 			disk := iDisk.(*models.SDisk)
 			diskSize, _ := disks[i].Int("size")
-			notes := fmt.Sprintf("%s=>%s", disk.Status, models.DISK_READY)
+			notes := fmt.Sprintf("%s=>%s", disk.Status, api.DISK_READY)
 			_, err := db.Update(disk, func() error {
 				if disk.DiskSize < int(diskSize) {
 					disk.DiskSize = int(diskSize)
 				}
 				disk.DiskFormat = "raw"
-				disk.Status = models.DISK_READY
+				disk.Status = api.DISK_READY
 				return nil
 			})
 			if err != nil {
@@ -464,4 +481,8 @@ func (self *SBaremetalGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context
 		return baremetal.UpdateDiskConfig(userCred, nil)
 	}
 	return nil
+}
+
+func (self *SBaremetalGuestDriver) IsSupportGuestClone() bool {
+	return false
 }

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package openstack
 
 import (
@@ -9,8 +23,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 const (
@@ -96,14 +111,14 @@ type SDisk struct {
 	VolumeImageMetadata VolumeImageMetadata
 	NameID              string `json:"os-vol-mig-status-attr:name_id"`
 	Bootable            bool
-	//CreatedAt  time.Time
-	VolumeType string
+	CreatedAt           time.Time
+	VolumeType          string
 }
 
 func (disk *SDisk) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 
-	data.Add(jsonutils.NewString(models.HYPERVISOR_OPENSTACK), "hypervisor")
+	data.Add(jsonutils.NewString(api.HYPERVISOR_OPENSTACK), "hypervisor")
 	return data
 }
 
@@ -137,7 +152,24 @@ func (disk *SDisk) Delete(ctx context.Context) error {
 	return cloudprovider.WaitDeleted(disk, 10*time.Second, 8*time.Minute)
 }
 
+func (disk *SDisk) attachInstances(instanceIds []string) {
+	for _, instanceId := range instanceIds {
+		if err := disk.storage.zone.region.AttachDisk(instanceId, disk.ID); err != nil {
+			log.Errorf("recover attach disk %s => instance %s error: %v", disk.ID, instanceId, err)
+		}
+	}
+}
+
 func (disk *SDisk) Resize(ctx context.Context, sizeMb int64) error {
+	instanceIds := []string{}
+
+	defer disk.attachInstances(instanceIds)
+	for _, attachement := range disk.Attachments {
+		if err := disk.storage.zone.region.DetachDisk(attachement.ServerID, disk.ID); err != nil {
+			return err
+		}
+		instanceIds = append(instanceIds, attachement.ServerID)
+	}
 	return disk.storage.zone.region.ResizeDisk(disk.ID, sizeMb)
 }
 
@@ -163,21 +195,21 @@ func (disk *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 func (disk *SDisk) GetStatus() string {
 	switch disk.Status {
 	case DISK_STATUS_CREATING, DISK_STATUS_DOWNLOADING:
-		return models.DISK_ALLOCATING
+		return api.DISK_ALLOCATING
 	case DISK_STATUS_ATTACHING:
-		return models.DISK_ATTACHING
+		return api.DISK_ATTACHING
 	case DISK_STATUS_DETACHING:
-		return models.DISK_DETACHING
+		return api.DISK_DETACHING
 	case DISK_STATUS_EXTENDING:
-		return models.DISK_RESIZING
+		return api.DISK_RESIZING
 	case DISK_STATUS_RETYPING, DISK_STATUS_AVAILABLE, DISK_STATUS_RESERVED, DISK_STATUS_IN_USE, DISK_STATUS_MAINTENANCE, DISK_STATUS_AWAITING_TRANSFER, DISK_STATUS_BACKING_UP, DISK_STATUS_RESTORING_BACKUP, DISK_STATUS_UPLOADING:
-		return models.DISK_READY
+		return api.DISK_READY
 	case DISK_STATUS_DELETING:
-		return models.DISK_DEALLOC
+		return api.DISK_DEALLOC
 	case DISK_STATUS_ERROR:
-		return models.DISK_ALLOC_FAILED
+		return api.DISK_ALLOC_FAILED
 	default:
-		return models.DISK_UNKNOWN
+		return api.DISK_UNKNOWN
 	}
 }
 
@@ -211,9 +243,9 @@ func (disk *SDisk) GetTemplateId() string {
 
 func (disk *SDisk) GetDiskType() string {
 	if disk.Bootable {
-		return models.DISK_TYPE_SYS
+		return api.DISK_TYPE_SYS
 	}
-	return models.DISK_TYPE_DATA
+	return api.DISK_TYPE_DATA
 }
 
 func (disk *SDisk) GetFsFormat() string {
@@ -264,18 +296,18 @@ func (region *SRegion) CreateDisk(imageRef string, category string, name string,
 		if err != nil {
 			return nil, err
 		}
-		log.Debugf("disk status %s expect %s", disk.GetStatus(), models.DISK_READY)
+		log.Debugf("disk status %s expect %s", disk.GetStatus(), api.DISK_READY)
 		status := disk.GetStatus()
-		if status == models.DISK_READY {
+		if status == api.DISK_READY {
 			break
 		}
-		if status == models.DISK_ALLOC_FAILED {
+		if status == api.DISK_ALLOC_FAILED {
 			region.DeleteDisk(disk.GetGlobalId())
 			return nil, fmt.Errorf("allocate disk failed, status is error")
 		}
 		time.Sleep(time.Second * 10)
 	}
-	if disk.GetStatus() != models.DISK_READY {
+	if disk.GetStatus() != api.DISK_READY {
 		region.DeleteDisk(disk.GetGlobalId())
 		return nil, fmt.Errorf("timeout for waitting disk ready, current status: %s", disk.Status)
 	}
@@ -323,7 +355,7 @@ func (disk *SDisk) CreateISnapshot(ctx context.Context, name, desc string) (clou
 	if err != nil {
 		return nil, err
 	}
-	return snapshot, cloudprovider.WaitStatus(snapshot, models.SNAPSHOT_READY, time.Second*5, time.Minute*5)
+	return snapshot, cloudprovider.WaitStatus(snapshot, api.SNAPSHOT_READY, time.Second*5, time.Minute*5)
 }
 
 func (disk *SDisk) GetISnapshot(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
@@ -339,7 +371,11 @@ func (disk *SDisk) Reset(ctx context.Context, snapshotId string) (string, error)
 }
 
 func (disk *SDisk) GetBillingType() string {
-	return models.BILLING_TYPE_POSTPAID
+	return billing_api.BILLING_TYPE_POSTPAID
+}
+
+func (disk *SDisk) GetCreatedAt() time.Time {
+	return disk.CreatedAt
 }
 
 func (disk *SDisk) GetExpiredAt() time.Time {

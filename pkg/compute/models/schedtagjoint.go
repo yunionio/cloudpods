@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -101,6 +115,10 @@ func (self *SSchedtagJointsBase) AllowDeleteItem(ctx context.Context, userCred m
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
+func (joint *SSchedtagJointsBase) GetSchedtagId() string {
+	return joint.SchedtagId
+}
+
 func (joint *SSchedtagJointsBase) master(obj db.IJointModel) db.IStandaloneModel {
 	return db.JointMaster(obj)
 }
@@ -131,7 +149,7 @@ func (joint *SSchedtagJointsBase) Delete(ctx context.Context, userCred mcclient.
 }
 
 func (joint *SSchedtagJointsBase) delete(obj db.IJointModel, ctx context.Context, userCred mcclient.TokenCredential) error {
-	return db.DeleteModel(ctx, userCred, joint)
+	return db.DeleteModel(ctx, userCred, obj)
 }
 
 func (joint *SSchedtagJointsBase) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -139,5 +157,5 @@ func (joint *SSchedtagJointsBase) Detach(ctx context.Context, userCred mcclient.
 }
 
 func (joint *SSchedtagJointsBase) detach(obj db.IJointModel, ctx context.Context, userCred mcclient.TokenCredential) error {
-	return db.DetachJoint(ctx, userCred, joint)
+	return db.DetachJoint(ctx, userCred, obj)
 }

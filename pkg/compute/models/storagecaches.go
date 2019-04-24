@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -12,6 +26,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -114,10 +129,10 @@ func (self *SStoragecache) getHostId() (string, error) {
 	host := HostManager.Query().SubQuery()
 	q := host.Query(host.Field("id"))
 	err := q.Join(hoststorages, sqlchemy.AND(sqlchemy.Equals(hoststorages.Field("host_id"), host.Field("id")),
-		sqlchemy.Equals(host.Field("host_status"), HOST_ONLINE),
+		sqlchemy.Equals(host.Field("host_status"), api.HOST_ONLINE),
 		sqlchemy.IsTrue(host.Field("enabled")))).
 		Join(storages, sqlchemy.AND(sqlchemy.Equals(storages.Field("storagecache_id"), self.Id),
-			sqlchemy.In(storages.Field("status"), []string{STORAGE_ENABLED, STORAGE_ONLINE}),
+			sqlchemy.In(storages.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE}),
 			sqlchemy.IsTrue(storages.Field("enabled")))).
 		Filter(sqlchemy.Equals(hoststorages.Field("storage_id"), storages.Field("id"))).All(&hosts)
 	if err != nil {
@@ -137,22 +152,27 @@ func (self *SStoragecache) getHostId() (string, error) {
 	return ret, nil
 }
 
-func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache) (*SStoragecache, error) {
+func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache) (*SStoragecache, bool, error) {
 	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
 	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
 
 	localCacheObj, err := manager.FetchByExternalId(cloudCache.GetGlobalId())
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return manager.newFromCloudStoragecache(ctx, userCred, cloudCache)
+			localCache, err := manager.newFromCloudStoragecache(ctx, userCred, cloudCache)
+			if err != nil {
+				return nil, false, err
+			} else {
+				return localCache, true, nil
+			}
 		} else {
 			log.Errorf("%s", err)
-			return nil, err
+			return nil, false, err
 		}
 	} else {
 		localCache := localCacheObj.(*SStoragecache)
 		localCache.syncWithCloudStoragecache(ctx, userCred, cloudCache)
-		return localCache, nil
+		return localCache, false, nil
 	}
 }
 
@@ -160,7 +180,11 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Contex
 	local := SStoragecache{}
 	local.SetModelManager(manager)
 
-	local.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), cloudCache.GetName())
+	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), cloudCache.GetName())
+	if err != nil {
+		return nil, err
+	}
+	local.Name = newName
 	local.ExternalId = cloudCache.GetGlobalId()
 
 	local.IsEmulated = cloudCache.IsEmulated()
@@ -168,7 +192,7 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Contex
 
 	local.Path = cloudCache.GetPath()
 
-	err := manager.TableSpec().Insert(&local)
+	err = manager.TableSpec().Insert(&local)
 	if err != nil {
 		return nil, err
 	}
@@ -420,7 +444,7 @@ func (self *SStoragecache) PerformUncacheImage(ctx context.Context, userCred mcc
 		return nil, httperrors.NewResourceNotFoundError("storage not cache image")
 	}
 
-	if scimg.Status == CACHED_IMAGE_STATUS_INIT || isForce {
+	if scimg.Status == api.CACHED_IMAGE_STATUS_INIT || isForce {
 		err = scimg.Detach(ctx, userCred)
 		return nil, err
 	}

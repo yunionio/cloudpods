@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -63,13 +77,9 @@ func (self *SExternalProject) ValidateUpdateData(ctx context.Context, userCred m
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (manager *SExternalProjectManager) getProjectsByProvider(provider *SCloudprovider) ([]SExternalProject, error) {
+func (manager *SExternalProjectManager) getProjectsByProviderId(providerId string) ([]SExternalProject, error) {
 	projects := []SExternalProject{}
-	q := manager.Query()
-	if provider != nil {
-		q = q.Equals("manager_id", provider.Id)
-	}
-	err := db.FetchModelObjects(manager, q, &projects)
+	err := fetchByManagerId(manager, providerId, &projects)
 	if err != nil {
 		return nil, err
 	}
@@ -110,12 +120,15 @@ func (manager *SExternalProjectManager) GetProject(externalId string, providerId
 	project := &SExternalProject{}
 	project.SetModelManager(manager)
 	q := manager.Query().Equals("external_id", externalId).Equals("manager_id", providerId)
-	count := q.Count()
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
 	if count == 0 {
 		return nil, fmt.Errorf("no external project record %s for provider %s", externalId, providerId)
 	}
 	if count > 1 {
-		return nil, fmt.Errorf("dumplicate external project record %s for provider %s", externalId, providerId)
+		return nil, fmt.Errorf("duplicate external project record %s for provider %s", externalId, providerId)
 	}
 	return project, q.First(project)
 }
@@ -126,7 +139,7 @@ func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCr
 
 	syncResult := compare.SyncResult{}
 
-	dbProjects, err := manager.getProjectsByProvider(provider)
+	dbProjects, err := manager.getProjectsByProviderId(provider.Id)
 	if err != nil {
 		syncResult.Error(err)
 		return syncResult
@@ -195,13 +208,17 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	project := SExternalProject{}
 	project.SetModelManager(manager)
 
-	project.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extProject.GetName())
+	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extProject.GetName())
+	if err != nil {
+		return nil, err
+	}
+	project.Name = newName
 	project.ExternalId = extProject.GetGlobalId()
 	project.IsEmulated = extProject.IsEmulated()
 	project.ManagerId = provider.Id
 	project.ProjectId = provider.ProjectId
 
-	err := manager.TableSpec().Insert(&project)
+	err = manager.TableSpec().Insert(&project)
 	if err != nil {
 		log.Errorf("newFromCloudProject fail %s", err)
 		return nil, err

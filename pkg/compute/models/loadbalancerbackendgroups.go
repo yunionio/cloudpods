@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -41,17 +55,17 @@ func init() {
 type SLoadbalancerBackendGroup struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
 
-	CloudregionId  string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 	Type           string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"normal" create:"optional"`
 	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 }
 
-func (man *SLoadbalancerBackendGroupManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
-	subs := []SLoadbalancerBackendGroup{}
-	db.FetchModelObjects(man, q, &subs)
-	for _, sub := range subs {
-		sub.DoPendingDelete(ctx, userCred)
+func (man *SLoadbalancerBackendGroupManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
+	lbbgs := []SLoadbalancerBackendGroup{}
+	db.FetchModelObjects(man, q, &lbbgs)
+	for _, lbbg := range lbbgs {
+		lbbg.LBPendingDelete(ctx, userCred)
 	}
 }
 
@@ -187,23 +201,27 @@ func (lbbg *SLoadbalancerBackendGroup) GetBackends() ([]SLoadbalancerBackend, er
 }
 
 // 返回值 TotalRef
-func (lbbg *SLoadbalancerBackendGroup) RefCount() int {
+func (lbbg *SLoadbalancerBackendGroup) RefCount() (int, error) {
 	men := lbbg.getRefManagers()
 	var count int
 	for _, m := range men {
-		count += lbbg.refCount(m)
+		cnt, err := lbbg.refCount(m)
+		if err != nil {
+			return -1, err
+		}
+		count += cnt
 	}
 
-	return count
+	return count, nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) refCount(men db.IModelManager) int {
+func (lbbg *SLoadbalancerBackendGroup) refCount(men db.IModelManager) (int, error) {
 	t := men.TableSpec().Instance()
 	pdF := t.Field("pending_deleted")
 	return t.Query().
 		Equals("backend_group_id", lbbg.Id).
 		Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
-		Count()
+		CountWithError()
 }
 
 func (lbbg *SLoadbalancerBackendGroup) getRefManagers() []db.IModelManager {
@@ -223,15 +241,18 @@ func (lbbg *SLoadbalancerBackendGroup) AllowPerformStatus(ctx context.Context, u
 func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Context) error {
 	men := lbbg.getRefManagers()
 	for _, m := range men {
-		n := lbbg.refCount(m)
+		n, err := lbbg.refCount(m)
+		if err != nil {
+			return httperrors.NewInternalServerError("get refCount fail %s", err.Error())
+		}
 		if n > 0 {
-			return fmt.Errorf("backend group %s is still referred to by %d %s",
+			return httperrors.NewResourceBusyError("backend group %s is still referred to by %d %s",
 				lbbg.Id, n, m.KeywordPlural())
 		}
 	}
 
 	region := lbbg.GetRegion()
-	if region != nil {
+	if region == nil {
 		return nil
 	}
 	return region.GetDriver().ValidateDeleteLoadbalancerBackendGroupCondition(ctx, lbbg)
@@ -247,6 +268,10 @@ func (lbbg *SLoadbalancerBackendGroup) GetCustomizeColumns(ctx context.Context, 
 			return extra
 		}
 		extra.Set("loadbalancer", jsonutils.NewString(lb.GetName()))
+	}
+	regionInfo := lbbg.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if regionInfo != nil {
+		extra.Update(regionInfo)
 	}
 	return extra
 }
@@ -278,7 +303,12 @@ func (lbbg *SLoadbalancerBackendGroup) StartLoadBalancerBackendGroupCreateTask(c
 	return nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
+func (lbbg *SLoadbalancerBackendGroup) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	lbbg.pendingDeleteSubs(ctx, userCred)
+	lbbg.DoPendingDelete(ctx, userCred)
+}
+
+func (lbbg *SLoadbalancerBackendGroup) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
 	lbbg.DoPendingDelete(ctx, userCred)
 	subMan := LoadbalancerBackendManager
 	ownerProjId := lbbg.GetOwnerProjectId()
@@ -286,7 +316,7 @@ func (lbbg *SLoadbalancerBackendGroup) PreDeleteSubs(ctx context.Context, userCr
 	lockman.LockClass(ctx, subMan, ownerProjId)
 	defer lockman.ReleaseClass(ctx, subMan, ownerProjId)
 	q := subMan.Query().Equals("backend_group_id", lbbg.Id)
-	subMan.PreDeleteSubs(ctx, userCred, q)
+	subMan.pendingDeleteSubs(ctx, userCred, q)
 }
 
 func (lbbg *SLoadbalancerBackendGroup) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -319,7 +349,7 @@ func (lbbg *SLoadbalancerBackendGroup) Delete(ctx context.Context, userCred mccl
 
 func (man *SLoadbalancerBackendGroupManager) getLoadbalancerBackendgroupsByLoadbalancer(lb *SLoadbalancer) ([]SLoadbalancerBackendGroup, error) {
 	lbbgs := []SLoadbalancerBackendGroup{}
-	q := man.Query().Equals("loadbalancer_id", lb.Id)
+	q := man.Query().Equals("loadbalancer_id", lb.Id).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &lbbgs); err != nil {
 		log.Errorf("failed to get lbbgs for lb: %s error: %v", lb.Name, err)
 		return nil, err
@@ -405,7 +435,7 @@ func (lbbg *SLoadbalancerBackendGroup) syncRemoveCloudLoadbalancerBackendgroup(c
 	if err != nil { // cannot delete
 		err = lbbg.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lbbg.Delete(ctx, userCred)
+		lbbg.LBPendingDelete(ctx, userCred)
 	}
 	return err
 }
@@ -453,12 +483,17 @@ func (man *SLoadbalancerBackendGroupManager) newFromCloudLoadbalancerBackendgrou
 
 	}*/
 
-	lbbg.Name = db.GenerateName(man, projectId, extLoadbalancerBackendgroup.GetName())
+	newName, err := db.GenerateName(man, projectId, extLoadbalancerBackendgroup.GetName())
+	if err != nil {
+		return nil, err
+	}
+
+	lbbg.Name = newName
 
 	lbbg.Type = extLoadbalancerBackendgroup.GetType()
 	lbbg.Status = extLoadbalancerBackendgroup.GetStatus()
 
-	err := man.TableSpec().Insert(lbbg)
+	err = man.TableSpec().Insert(lbbg)
 	if err != nil {
 		return nil, err
 	}

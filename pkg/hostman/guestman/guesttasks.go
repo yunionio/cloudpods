@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package guestman
 
 import (
@@ -403,10 +417,11 @@ func (s *SGuestResumeTask) confirmRunning() {
 func (s *SGuestResumeTask) onConfirmRunning(status string) {
 	if status == "running" || status == "paused (suspended)" || status == "paused (perlaunch)" {
 		s.onStartRunning()
+	} else if strings.Contains(status, "error") {
+		// handle error first, results may be 'paused (internal-error)'
+		s.taskFailed(status)
 	} else if strings.Contains(status, "paused") {
 		s.Monitor.GetBlocks(s.onGetBlockInfo)
-	} else if strings.Contains(status, "error") {
-		s.taskFailed(status)
 	} else {
 		if time.Now().Sub(s.startTime) >= time.Second*60 {
 			s.taskFailed("Timeout")
@@ -858,7 +873,7 @@ func (s *SGuestSnapshotDeleteTask) doReloadDisk(device string) {
 func (s *SGuestSnapshotDeleteTask) onReloadBlkdevSucc(err string) {
 	var callback = s.onResumeSucc
 	if len(err) > 0 {
-		log.Errorln("Reload blkdev failed: %s", err)
+		log.Errorf("Reload blkdev failed: %s", err)
 		callback = s.onSnapshotBlkdevFail
 	}
 	s.Monitor.SimpleCommand("cont", callback)

@@ -1,6 +1,22 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -17,6 +33,8 @@ type BaseActionListOptions struct {
 	Action     []string `help:"Log action"`
 	Search     string   `help:"Filter action logs by obj_name, using 'like' syntax."`
 	Admin      bool     `help:"admin mode"`
+	Succ       bool     `help:"Show success action log only"`
+	Fail       bool     `help:"Show failed action log only"`
 }
 
 type ActionListOptions struct {
@@ -63,6 +81,15 @@ func doActionList(s *mcclient.ClientSession, args *ActionListOptions) error {
 	}
 	if args.Admin {
 		params.Add(jsonutils.JSONTrue, "admin")
+	}
+	if args.Succ && args.Fail {
+		return fmt.Errorf("succ and fail can't go together")
+	}
+	if args.Succ {
+		params.Add(jsonutils.JSONTrue, "success")
+	}
+	if args.Fail {
+		params.Add(jsonutils.JSONFalse, "success")
 	}
 	logs, err := modules.Actions.List(s, params)
 	if err != nil {

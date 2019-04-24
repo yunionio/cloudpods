@@ -1,14 +1,32 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package regiondrivers
 
 import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -22,7 +40,7 @@ func init() {
 }
 
 func (self *SQcloudRegionDriver) GetProvider() string {
-	return models.CLOUD_PROVIDER_QCLOUD
+	return api.CLOUD_PROVIDER_QCLOUD
 }
 
 func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend, task taskman.ITask) error {
@@ -33,7 +51,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx conte
 		}
 
 		// 腾讯云本身没有后端服务器组，因此不需要在qcloud端执行创建操作
-		if iRegion.GetProvider() == models.CLOUD_PROVIDER_QCLOUD {
+		if iRegion.GetProvider() == api.CLOUD_PROVIDER_QCLOUD {
 			return nil, nil
 		}
 
@@ -86,8 +104,14 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Co
 		}
 
 		// 兼容腾讯云，在fake的backend group 关联具体的转发策略之前。不需要同步后端服务器
-		if lbbg.GetProviderName() == models.CLOUD_PROVIDER_QCLOUD && lbbg.RefCount() == 0 {
-			return nil, nil
+		if lbbg.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
+			cnt, err := lbbg.RefCount()
+			if err != nil {
+				return nil, err
+			}
+			if cnt == 0 {
+				return nil, nil
+			}
 		}
 
 		lb := lbbg.GetLoadbalancer()
@@ -137,8 +161,11 @@ func (self *SQcloudRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Co
 		}
 
 		// ===========兼容腾讯云,未关联具体转发规则时，直接删除本地数据即可===============
-		if iRegion.GetProvider() == models.CLOUD_PROVIDER_QCLOUD {
-			count := lbbg.RefCount()
+		if iRegion.GetProvider() == api.CLOUD_PROVIDER_QCLOUD {
+			count, err := lbbg.RefCount()
+			if err != nil {
+				return nil, err
+			}
 			if count == 0 {
 				return nil, nil
 			}
@@ -188,7 +215,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.C
 		}
 
 		// ====腾讯云添加后端服务器=====
-		if iRegion.GetProvider() == models.CLOUD_PROVIDER_QCLOUD {
+		if iRegion.GetProvider() == api.CLOUD_PROVIDER_QCLOUD {
 			group := lblis.GetLoadbalancerBackendGroup()
 			if group != nil {
 				backends, err := group.GetBackends()
@@ -267,7 +294,7 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 			return nil, err
 		}
 		// ====腾讯云添加后端服务器=====
-		if listener.GetProviderName() == models.CLOUD_PROVIDER_QCLOUD && len(rule.BackendGroupID) > 0 {
+		if listener.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD && len(rule.BackendGroupID) > 0 {
 			ilbbg, err := iLoadbalancer.GetILoadBalancerBackendGroupById(rule.BackendGroupID)
 			if err != nil {
 				return nil, fmt.Errorf("failed to find backend group for listener rule %s: %s", lbr.Name, err)
@@ -294,4 +321,15 @@ func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListenerRule(ctx conte
 		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, "")
 	})
 	return nil
+}
+
+func (self *SQcloudRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	cidrV := validators.NewIPv4PrefixValidator("cidr_block")
+	if err := cidrV.Validate(data); err != nil {
+		return nil, err
+	}
+	if cidrV.Value.MaskLen < 16 || cidrV.Value.MaskLen > 28 {
+		return nil, httperrors.NewInputParameterError("%s request the mask range should be between 16 and 28", self.GetProvider())
+	}
+	return data, nil
 }

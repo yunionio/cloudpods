@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package guestdrivers
 
 import (
@@ -53,7 +67,7 @@ func (self *SVirtualizedGuestDriver) GetNamedNetworkConfiguration(guest *models.
 }
 
 func (self *SVirtualizedGuestDriver) GetRandomNetworkTypes() []string {
-	return []string{models.NETWORK_TYPE_GUEST}
+	return []string{api.NETWORK_TYPE_GUEST}
 }
 
 func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, netConfig *api.NetworkConfig, pendingUsage quotas.IQuota) ([]models.SGuestnetwork, error) {
@@ -120,8 +134,11 @@ func (self *SVirtualizedGuestDriver) GetStorageTypes() []string {
 	return nil
 }
 
-func (self *SVirtualizedGuestDriver) ChooseHostStorage(host *models.SHost, backend string) *models.SStorage {
-	return host.GetLeastUsedStorage(backend)
+func (self *SVirtualizedGuestDriver) ChooseHostStorage(host *models.SHost, backend string, storageIds []string) *models.SStorage {
+	if len(storageIds) == 0 {
+		return host.GetLeastUsedStorage(backend)
+	}
+	return models.StorageManager.FetchStorageById(storageIds[0])
 }
 
 func (self *SVirtualizedGuestDriver) RequestGuestCreateInsertIso(ctx context.Context, imageId string, guest *models.SGuest, task taskman.ITask) error {
@@ -178,7 +195,7 @@ func (self *SVirtualizedGuestDriver) RequestStopGuestForDelete(ctx context.Conte
 	if host == nil {
 		host = guest.GetHost()
 	}
-	if host != nil && host.Enabled && host.HostStatus == models.HOST_ONLINE {
+	if host != nil && host.Enabled && host.HostStatus == api.HOST_ONLINE {
 		return guest.StartGuestStopTask(ctx, task.GetUserCred(), true, task.GetTaskId())
 	}
 	if host != nil && !jsonutils.QueryBoolean(task.GetParams(), "purge", false) {
@@ -192,8 +209,8 @@ func (self *SVirtualizedGuestDriver) ValidateCreateData(ctx context.Context, use
 	return input, nil
 }
 
-func (self *SVirtualizedGuestDriver) ValidateCreateHostData(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
-	if host.HostStatus != models.HOST_ONLINE {
+func (self *SVirtualizedGuestDriver) ValidateCreateDataOnHost(ctx context.Context, userCred mcclient.TokenCredential, bmName string, host *models.SHost, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
+	if host.HostStatus != api.HOST_ONLINE {
 		return nil, httperrors.NewInvalidStatusError("Host %s is not online", bmName)
 	}
 	input.PreferHost = host.Id
@@ -201,7 +218,11 @@ func (self *SVirtualizedGuestDriver) ValidateCreateHostData(ctx context.Context,
 		input.VmemSize = host.MemSize
 		input.VcpuCount = int(host.CpuCount)
 
-		if host.GetGuestCount() >= 1 {
+		cnt, err := host.GetGuestCount()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("GetGuestCount fail %s", err)
+		}
+		if cnt >= 1 {
 			return nil, httperrors.NewInsufficientResourceError("host has been occupied")
 		}
 	}

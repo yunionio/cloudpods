@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -106,9 +120,9 @@ func init() {
 type SLoadbalancerAcl struct {
 	db.SSharableVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
 
-	CloudregionId string                   `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"required"`
-	AclEntries    *SLoadbalancerAclEntries `list:"user" update:"user" create:"required"`
+	AclEntries *SLoadbalancerAclEntries `list:"user" update:"user" create:"required"`
 }
 
 func loadbalancerAclsValidateAclEntries(data *jsonutils.JSONDict, update bool) (*jsonutils.JSONDict, error) {
@@ -130,6 +144,12 @@ func (man *SLoadbalancerAclManager) ValidateCreateData(ctx context.Context, user
 		return nil, err
 	}
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+		return nil, err
+	}
+
+	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", "")
+	managerIdV.Optional(true)
+	if err := managerIdV.Validate(data); err != nil {
 		return nil, err
 	}
 
@@ -199,13 +219,31 @@ func (lbacl *SLoadbalancerAcl) GetRegion() *SCloudregion {
 func (lbacl *SLoadbalancerAcl) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := lbacl.GetDriver()
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovide for lb %s: %s", lbacl.Name, err)
+		return nil, fmt.Errorf("No cloudprovider for lb %s: %s", lbacl.Name, err)
 	}
 	region := lbacl.GetRegion()
 	if region == nil {
 		return nil, fmt.Errorf("failed to find region for lb %s", lbacl.Name)
 	}
 	return provider.GetIRegionById(region.ExternalId)
+}
+
+func (lbacl *SLoadbalancerAcl) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lbacl.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	providerInfo := lbacl.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if providerInfo != nil {
+		extra.Update(providerInfo)
+	}
+	regionInfo := lbacl.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if regionInfo != nil {
+		extra.Update(regionInfo)
+	}
+	return extra
+}
+
+func (lbacl *SLoadbalancerAcl) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra := lbacl.GetCustomizeColumns(ctx, userCred, query)
+	return extra, nil
 }
 
 func (lbacl *SLoadbalancerAcl) AllowPerformPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
@@ -272,13 +310,17 @@ func (lbacl *SLoadbalancerAcl) ValidateDeleteCondition(ctx context.Context) erro
 	t := man.TableSpec().Instance()
 	pdF := t.Field("pending_deleted")
 	lbaclId := lbacl.Id
-	n := t.Query().
+	n, err := t.Query().
 		Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
 		Equals("acl_id", lbaclId).
-		Count()
+		CountWithError()
+	if err != nil {
+		return httperrors.NewInternalServerError("get acl count fail %s", err)
+	}
 	if n > 0 {
-		return fmt.Errorf("acl %s is still referred to by %d %s",
-			lbaclId, n, man.KeywordPlural())
+		// return fmt.Errorf("acl %s is still referred to by %d %s",
+		// 	lbaclId, n, man.KeywordPlural())
+		return httperrors.NewResourceBusyError("acl %s is still referred to by %d %s", lbaclId, n, man.KeywordPlural())
 	}
 	return nil
 }
@@ -313,7 +355,7 @@ func (lbacl *SLoadbalancerAcl) Delete(ctx context.Context, userCred mcclient.Tok
 
 func (man *SLoadbalancerAclManager) getLoadbalancerAclsByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancerAcl, error) {
 	acls := []SLoadbalancerAcl{}
-	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id)
+	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &acls); err != nil {
 		log.Errorf("failed to get acls for region: %v provider: %v error: %v", region, provider, err)
 		return nil, err
@@ -383,7 +425,7 @@ func (self *SLoadbalancerAcl) syncRemoveCloudLoadbalanceAcl(ctx context.Context,
 	if err != nil { // cannot delete
 		err = self.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = self.Delete(ctx, userCred)
+		self.DoPendingDelete(ctx, userCred)
 	}
 	return err
 }
@@ -392,8 +434,12 @@ func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Cont
 	acl := SLoadbalancerAcl{}
 	acl.SetModelManager(man)
 
+	newName, err := db.GenerateName(man, projectId, extAcl.GetName())
+	if err != nil {
+		return nil, err
+	}
 	acl.ExternalId = extAcl.GetGlobalId()
-	acl.Name = db.GenerateName(man, projectId, extAcl.GetName())
+	acl.Name = newName
 	acl.ManagerId = provider.Id
 	acl.CloudregionId = region.Id
 
@@ -401,7 +447,7 @@ func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Cont
 	for _, entry := range extAcl.GetAclEntries() {
 		*acl.AclEntries = append(*acl.AclEntries, &SLoadbalancerAclEntry{Cidr: entry.CIDR, Comment: entry.Comment})
 	}
-	err := man.TableSpec().Insert(&acl)
+	err = man.TableSpec().Insert(&acl)
 	if err != nil {
 		log.Errorf("newFromCloudLoadbalancerAcl fail %s", err)
 		return nil, err

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -44,6 +58,10 @@ type SLoadbalancerHTTPRateLimiter struct {
 	HTTPRequestRatePerSrc int `nullable:"false" list:"user" create:"optional" update:"user"`
 }
 
+type SLoadbalancerRateLimiter struct {
+	EgressMbps int `nullable:"false" list:"user" get:"user" create:"optional" update:"user"`
+}
+
 type SLoadbalancerHealthCheck struct {
 	HealthCheck     string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	HealthCheckType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
@@ -82,16 +100,16 @@ type SLoadbalancerHTTPListener struct {
 //  - Use certificate for tcp listener
 //  - Customize ciphers?
 type SLoadbalancerHTTPSListener struct {
-	CertificateId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	TLSCipherPolicy string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	EnableHttp2     bool   `create:"optional" list:"user"`
+	CertificateId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	TLSCipherPolicy string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+	EnableHttp2     bool   `create:"optional" list:"user" update:"user"`
 }
 
 type SLoadbalancerListener struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
 
-	CloudregionId     string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 	LoadbalancerId    string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	ListenerType      string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	ListenerPort      int    `nullable:"false" list:"user" create:"required"`
@@ -108,6 +126,8 @@ type SLoadbalancerListener struct {
 	AclStatus string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	AclType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	AclId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
+
+	SLoadbalancerRateLimiter
 
 	SLoadbalancerTCPListener
 	SLoadbalancerUDPListener
@@ -140,11 +160,11 @@ func (man *SLoadbalancerListenerManager) checkListenerUniqueness(ctx context.Con
 	return nil
 }
 
-func (man *SLoadbalancerListenerManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
+func (man *SLoadbalancerListenerManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
 	subs := []SLoadbalancerListener{}
 	db.FetchModelObjects(man, q, &subs)
 	for _, sub := range subs {
-		sub.DoPendingDelete(ctx, userCred)
+		sub.LBPendingDelete(ctx, userCred)
 	}
 }
 
@@ -186,8 +206,8 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		"acl_type":   aclTypeV.Optional(true),
 		"acl":        aclV.Optional(true),
 
-		"scheduler": validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
-		"bandwidth": validators.NewRangeValidator("bandwidth", 0, 10000).Optional(true),
+		"scheduler":   validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
+		"egress_mbps": validators.NewRangeValidator("egress_mbps", api.LB_MbpsMin, api.LB_MbpsMax).Optional(true),
 
 		"client_request_timeout":  validators.NewRangeValidator("client_request_timeout", 0, 600).Default(10),
 		"client_idle_timeout":     validators.NewRangeValidator("client_idle_timeout", 0, 600).Default(90),
@@ -228,10 +248,13 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, lb.Id)
 		} else {
 			// 腾讯云backend group只能1v1关联
-			if lb.GetProviderName() == CLOUD_PROVIDER_QCLOUD {
-				count := lbbg.RefCount()
+			if lb.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
+				count, err := lbbg.RefCount()
+				if err != nil {
+					return nil, httperrors.NewInternalServerError("get lbbg RefCount fail %s", err)
+				}
 				if count > 0 {
-					return nil, fmt.Errorf("backendgroup aready related with other listener/rule")
+					return nil, httperrors.NewResourceBusyError("backendgroup aready related with other listener/rule")
 				}
 			}
 		}
@@ -381,6 +404,9 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		aclTypeV.Default(lblis.AclType)
 	}
 	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerProjId)
+	if len(lblis.AclId) > 0 {
+		aclV.Default(lblis.AclId)
+	}
 	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerProjId)
 	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
 	keyV := map[string]validators.IValidator{
@@ -390,8 +416,8 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 		"acl_type":   aclTypeV,
 		"acl":        aclV,
 
-		"scheduler": validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
-		"bandwidth": validators.NewRangeValidator("bandwidth", 0, 10000),
+		"scheduler":   validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
+		"egress_mbps": validators.NewRangeValidator("egress_mbps", api.LB_MbpsMin, api.LB_MbpsMax).Optional(true),
 
 		"client_request_timeout":  validators.NewRangeValidator("client_request_timeout", 0, 600),
 		"client_idle_timeout":     validators.NewRangeValidator("client_idle_timeout", 0, 600),
@@ -483,16 +509,19 @@ func (lblis *SLoadbalancerListener) GetCustomizeColumns(ctx context.Context, use
 		extra.Set("loadbalancer", jsonutils.NewString(lb.GetName()))
 	}
 	{
-		if lblis.BackendGroupId == "" {
-			return extra
+		if lblis.BackendGroupId != "" {
+			lbbg, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
+			if err != nil {
+				log.Errorf("loadbalancer listener %s(%s): fetch backend group (%s) error: %s",
+					lblis.Name, lblis.Id, lblis.BackendGroupId, err)
+				return extra
+			}
+			extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
 		}
-		lbbg, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
-		if err != nil {
-			log.Errorf("loadbalancer listener %s(%s): fetch backend group (%s) error: %s",
-				lblis.Name, lblis.Id, lblis.BackendGroupId, err)
-			return extra
-		}
-		extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+	}
+	regionInfo := lblis.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if regionInfo != nil {
+		extra.Update(regionInfo)
 	}
 	return extra
 }
@@ -552,15 +581,19 @@ func (lblis *SLoadbalancerListener) CustomizeDelete(ctx context.Context, userCre
 	return lblis.StartLoadBalancerListenerDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
-func (lblis *SLoadbalancerListener) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
+func (lblis *SLoadbalancerListener) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	lblis.pendingDeleteSubs(ctx, userCred)
+	lblis.DoPendingDelete(ctx, userCred)
+}
+
+func (lblis *SLoadbalancerListener) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
 	subMan := LoadbalancerListenerRuleManager
 	ownerProjId := lblis.GetOwnerProjectId()
 
 	lockman.LockClass(ctx, subMan, ownerProjId)
 	defer lockman.ReleaseClass(ctx, subMan, ownerProjId)
-	q := subMan.Query().Equals("listener_id", lblis.Id)
-	subMan.PreDeleteSubs(ctx, userCred, q)
-	lblis.DoPendingDelete(ctx, userCred)
+	q := subMan.Query().IsFalse("pending_deleted").Equals("listener_id", lblis.Id)
+	subMan.pendingDeleteSubs(ctx, userCred, q)
 }
 
 func (lblis *SLoadbalancerListener) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -575,7 +608,7 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovi
 		ListenerPort:       lblis.ListenerPort,
 		Scheduler:          lblis.Scheduler,
 		EnableHTTP2:        lblis.EnableHttp2,
-		Bandwidth:          0,
+		EgressMbps:         lblis.EgressMbps,
 		EstablishedTimeout: lblis.BackendConnectTimeout,
 
 		HealthCheck:         lblis.HealthCheck,
@@ -666,7 +699,7 @@ func (lblis *SLoadbalancerListener) GetIRegion() (cloudprovider.ICloudRegion, er
 
 func (man *SLoadbalancerListenerManager) getLoadbalancerListenersByLoadbalancer(lb *SLoadbalancer) ([]SLoadbalancerListener, error) {
 	listeners := []SLoadbalancerListener{}
-	q := man.Query().Equals("loadbalancer_id", lb.Id)
+	q := man.Query().Equals("loadbalancer_id", lb.Id).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &listeners); err != nil {
 		return nil, err
 	}
@@ -737,6 +770,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 	lblis.ManagerId = lb.ManagerId
 	// lblis.Name = extListener.GetName()
 	lblis.ListenerType = extListener.GetListenerType()
+	lblis.EgressMbps = extListener.GetEgressMbps()
 	lblis.ListenerPort = extListener.GetListenerPort()
 	lblis.Scheduler = extListener.GetScheduler()
 	lblis.Status = extListener.GetStatus()
@@ -801,7 +835,7 @@ func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx cont
 	if err != nil { // cannot delete
 		err = lblis.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lblis.Delete(ctx, userCred)
+		lblis.LBPendingDelete(ctx, userCred)
 	}
 	return err
 }
@@ -829,11 +863,15 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 	lblis.LoadbalancerId = lb.Id
 	lblis.ExternalId = extListener.GetGlobalId()
 
-	lblis.Name = db.GenerateName(man, projectId, extListener.GetName())
+	newName, err := db.GenerateName(man, projectId, extListener.GetName())
+	if err != nil {
+		return nil, err
+	}
+	lblis.Name = newName
 
 	lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
 
-	err := man.TableSpec().Insert(lblis)
+	err = man.TableSpec().Insert(lblis)
 	if err != nil {
 		return nil, err
 	}

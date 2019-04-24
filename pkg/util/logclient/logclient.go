@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package logclient
 
 import (
@@ -32,6 +46,28 @@ var BlackList = []string{
 	ACT_UPDATE,
 	ACT_VM_SYNC_STATUS,
 	ACT_VM_SYNC_CONF,
+}
+
+// 这些状态需要做 websocket 通知
+var WhiteList = []string{
+	ACT_ADDTAG, ACT_ALLOCATE, ACT_DELOCATE, ACT_BM_CONVERT_HYPER,
+	ACT_BM_MAINTENANCE, ACT_BM_UNCONVERT_HYPER, ACT_BM_UNMAINTENANCE,
+	ACT_CANCEL_DELETE, ACT_CHANGE_OWNER, ACT_SYNC_CLOUD_OWNER,
+	ACT_CLOUD_SYNC, ACT_DISABLE, ACT_ENABLE,
+	ACT_GUEST_ATTACH_ISOLATED_DEVICE, ACT_GUEST_DETACH_ISOLATED_DEVICE,
+	ACT_MERGE, ACT_OFFLINE, ACT_ONLINE, ACT_RELEASE_IP,
+	ACT_RESERVE_IP, ACT_RESIZE, ACT_RMTAG, ACT_SPLIT,
+	ACT_UNCACHED_IMAGE, ACT_VM_ATTACH_DISK, ACT_VM_BIND_KEYPAIR,
+	ACT_VM_CHANGE_FLAVOR, ACT_VM_DEPLOY, ACT_VM_DETACH_DISK,
+	ACT_VM_PURGE, ACT_VM_REBUILD, ACT_VM_RESET_PSWD,
+	ACT_VM_CHANGE_BANDWIDTH, ACT_VM_START, ACT_VM_STOP,
+	ACT_VM_RESTART, ACT_VM_UNBIND_KEYPAIR, ACT_VM_ASSIGNSECGROUP,
+	ACT_VM_REVOKESECGROUP, ACT_VM_SETSECGROUP, ACT_RESET_DISK,
+	ACT_SYNC_STATUS, ACT_SYNC_CONF, ACT_CREATE_BACKUP,
+	ACT_SWITCH_TO_BACKUP, ACT_RENEW, ACT_MIGRATE,
+	ACT_IMAGE_SAVE, ACT_RECYCLE_PREPAID, ACT_UNDO_RECYCLE_PREPAID,
+	ACT_FETCH, ACT_VM_CHANGE_NIC, ACT_HOST_IMPORT_LIBVIRT_SERVERS,
+	ACT_GUEST_CREATE_FROM_IMPORT, ACT_DISK_CREATE_SNAPSHOT,
 }
 
 const (
@@ -89,6 +125,12 @@ const (
 	ACT_SYNC_CONF                    = "同步配置"
 	ACT_CREATE_BACKUP                = "创建备份机"
 	ACT_SWITCH_TO_BACKUP             = "主备切换"
+	ACT_RENEW                        = "续费"
+	ACT_MIGRATE                      = "迁移"
+	ACT_EIP_ASSOCIATE                = "绑定弹性IP"
+	ACT_EIP_DISSOCIATE               = "解绑弹性IP"
+	ACT_CHANGE_BANDWIDTH             = "调整带宽"
+	ACT_DISK_CREATE_SNAPSHOT         = "磁盘创建快照"
 
 	ACT_IMAGE_SAVE = "上传镜像"
 
@@ -98,6 +140,9 @@ const (
 	ACT_FETCH = "下载密钥"
 
 	ACT_VM_CHANGE_NIC = "更改网卡配置"
+
+	ACT_HOST_IMPORT_LIBVIRT_SERVERS = "libvirt托管虚拟机导入"
+	ACT_GUEST_CREATE_FROM_IMPORT    = "导入虚拟机创建"
 )
 
 // golang 不支持 const 的string array, http://t.cn/EzAvbw8
@@ -159,7 +204,6 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 		}
 	}
 
-	token := userCred
 	notes := stringutils.Interface2String(iNotes)
 
 	objId := model.GetId()
@@ -177,13 +221,13 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	logentry.Add(jsonutils.NewString(model.Keyword()), "obj_type")
 	logentry.Add(jsonutils.NewString(objId), "obj_id")
 	logentry.Add(jsonutils.NewString(action), "action")
-	logentry.Add(jsonutils.NewString(token.GetUserId()), "user_id")
-	logentry.Add(jsonutils.NewString(token.GetUserName()), "user")
-	logentry.Add(jsonutils.NewString(token.GetTenantId()), "tenant_id")
-	logentry.Add(jsonutils.NewString(token.GetTenantName()), "tenant")
-	logentry.Add(jsonutils.NewString(token.GetDomainId()), "domain_id")
-	logentry.Add(jsonutils.NewString(token.GetDomainName()), "domain")
-	logentry.Add(jsonutils.NewString(strings.Join(token.GetRoles(), ",")), "roles")
+	logentry.Add(jsonutils.NewString(userCred.GetUserId()), "user_id")
+	logentry.Add(jsonutils.NewString(userCred.GetUserName()), "user")
+	logentry.Add(jsonutils.NewString(userCred.GetTenantId()), "tenant_id")
+	logentry.Add(jsonutils.NewString(userCred.GetTenantName()), "tenant")
+	logentry.Add(jsonutils.NewString(userCred.GetDomainId()), "domain_id")
+	logentry.Add(jsonutils.NewString(userCred.GetDomainName()), "domain")
+	logentry.Add(jsonutils.NewString(strings.Join(userCred.GetRoles(), ",")), "roles")
 
 	service := consts.GetServiceType()
 	if len(service) > 0 {

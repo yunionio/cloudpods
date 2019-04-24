@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package aliyun
 
 import (
@@ -12,8 +26,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type ImageStatusType string
@@ -112,15 +126,15 @@ func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 func (self *SImage) GetStatus() string {
 	switch self.Status {
 	case ImageStatusCreating:
-		return models.CACHED_IMAGE_STATUS_SAVING
+		return api.CACHED_IMAGE_STATUS_SAVING
 	case ImageStatusAvailable:
-		return models.CACHED_IMAGE_STATUS_READY
+		return api.CACHED_IMAGE_STATUS_READY
 	case ImageStatusUnAvailable:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	case ImageStatusCreateFailed:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	default:
-		return models.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	}
 }
 
@@ -264,7 +278,7 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 		return nil, err
 	}
 	if len(images) == 0 {
-		return nil, fmt.Errorf("image %s not found", imageId)
+		return nil, cloudprovider.ErrNotFound
 	}
 	return &images[0], nil
 }
@@ -278,6 +292,19 @@ func (self *SRegion) GetImageByName(name string) (*SImage, error) {
 		return nil, cloudprovider.ErrNotFound
 	}
 	return &images[0], nil
+}
+
+func (self *SRegion) GetImagesBySnapshot(snapshotId string, offset int, limit int) ([]SImage, int, error) {
+	if limit > 50 || limit <= 0 {
+		limit = 50
+	}
+	params := make(map[string]string)
+	params["RegionId"] = self.RegionId
+	params["PageSize"] = fmt.Sprintf("%d", limit)
+	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
+	params["SnapshotId"] = snapshotId
+
+	return self.getImages(params)
 }
 
 func (self *SRegion) GetImageStatus(imageId string) (ImageStatusType, error) {
@@ -313,8 +340,10 @@ func (self *SRegion) GetImages(status ImageStatusType, owner ImageOwnerType, ima
 		params["ImageName"] = name
 	}
 
-	// log.Debugf("%s", params)
+	return self.getImages(params)
+}
 
+func (self *SRegion) getImages(params map[string]string) ([]SImage, int, error) {
 	body, err := self.ecsRequest("DescribeImages", params)
 	if err != nil {
 		log.Errorf("DescribeImages fail %s", err)

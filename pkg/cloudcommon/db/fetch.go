@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package db
 
 import (
@@ -32,7 +46,10 @@ func FetchJointByIds(manager IJointModelManager, masterId, slaveId string, query
 	cond := sqlchemy.AND(sqlchemy.Equals(masterField, masterId), sqlchemy.Equals(slaveField, slaveId))
 	q = q.Filter(cond)
 	q = manager.FilterByParams(q, query)
-	count := q.Count()
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
 	if count > 1 {
 		return nil, sqlchemy.ErrDuplicateEntry
 	} else if count == 0 {
@@ -48,7 +65,10 @@ func FetchJointByIds(manager IJointModelManager, masterId, slaveId string, query
 func FetchById(manager IModelManager, idStr string) (IModel, error) {
 	q := manager.Query()
 	q = manager.FilterById(q, idStr)
-	count := q.Count()
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
 	if count == 1 {
 		obj, err := NewModelObject(manager)
 		if err != nil {
@@ -74,10 +94,16 @@ func FetchByName(manager IModelManager, userCred mcclient.IIdentityProvider, idS
 	}
 	q := manager.Query()
 	q = manager.FilterByName(q, idStr)
-	count := q.Count()
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
 	if count > 1 {
 		q = manager.FilterByOwner(q, owner)
-		count = q.Count()
+		count, err = q.CountWithError()
+		if err != nil {
+			return nil, err
+		}
 	}
 	if count == 1 {
 		obj, err := NewModelObject(manager)
@@ -110,13 +136,19 @@ func fetchItemById(manager IModelManager, ctx context.Context, userCred mcclient
 	q := manager.Query()
 	var err error
 	if query != nil && !query.IsZero() {
+		if isListRbacAllowed(manager, userCred, true) {
+			query.(*jsonutils.JSONDict).Set("admin", jsonutils.JSONTrue)
+		}
 		q, err = listItemQueryFilters(manager, ctx, q, userCred, query)
 		if err != nil {
 			return nil, err
 		}
 	}
 	q = manager.FilterById(q, idStr)
-	count := q.Count()
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
 	if count == 1 {
 		item, err := NewModelObject(manager)
 		if err != nil {
@@ -144,10 +176,16 @@ func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclie
 		}
 	}
 	q = manager.FilterByName(q, idStr)
-	count := q.Count()
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
 	if count > 1 {
 		q = manager.FilterByOwner(q, manager.GetOwnerId(userCred))
-		count = q.Count()
+		count, err = q.CountWithError()
+		if err != nil {
+			return nil, err
+		}
 	}
 	if count == 1 {
 		item, err := NewModelObject(manager)

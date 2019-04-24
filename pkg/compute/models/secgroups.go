@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -13,6 +27,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -20,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SSecurityGroupManager struct {
@@ -84,11 +100,11 @@ func (self *SSecurityGroup) GetGuestsQuery() *sqlchemy.SQuery {
 			sqlchemy.Equals(guests.Field("admin_secgrp_id"), self.Id),
 			sqlchemy.In(guests.Field("id"), GuestsecgroupManager.Query("guest_id").Equals("secgroup_id", self.Id).SubQuery()),
 		),
-	).Filter(sqlchemy.NotIn(guests.Field("hypervisor"), []string{HYPERVISOR_CONTAINER, HYPERVISOR_BAREMETAL, HYPERVISOR_ESXI}))
+	).Filter(sqlchemy.NotIn(guests.Field("hypervisor"), []string{api.HYPERVISOR_CONTAINER, api.HYPERVISOR_BAREMETAL, api.HYPERVISOR_ESXI}))
 }
 
-func (self *SSecurityGroup) GetGuestsCount() int {
-	return self.GetGuestsQuery().Count()
+func (self *SSecurityGroup) GetGuestsCount() (int, error) {
+	return self.GetGuestsQuery().CountWithError()
 }
 
 func (self *SSecurityGroup) GetGuests() []SGuest {
@@ -106,15 +122,15 @@ func (self *SSecurityGroup) GetSecgroupCacheQuery() *sqlchemy.SQuery {
 	return SecurityGroupCacheManager.Query().Equals("secgroup_id", self.Id)
 }
 
-func (self *SSecurityGroup) GetSecgroupCacheCount() int {
-	return self.GetSecgroupCacheQuery().Count()
+func (self *SSecurityGroup) GetSecgroupCacheCount() (int, error) {
+	return self.GetSecgroupCacheQuery().CountWithError()
 }
 
 func (self *SSecurityGroup) getDesc() jsonutils.JSONObject {
 	desc := jsonutils.NewDict()
 	desc.Add(jsonutils.NewString(self.Name), "name")
 	desc.Add(jsonutils.NewString(self.Id), "id")
-	desc.Add(jsonutils.NewString(self.getSecurityRuleString("")), "security_rules")
+	//desc.Add(jsonutils.NewString(self.getSecurityRuleString("")), "security_rules")
 	return desc
 }
 
@@ -124,7 +140,8 @@ func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclie
 		return nil, err
 	}
 	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
-	extra.Add(jsonutils.NewInt(int64(self.GetSecgroupCacheCount())), "cache_cnt")
+	cnt, _ := self.GetSecgroupCacheCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "cache_cnt")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("")), "rules")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("in")), "in_rules")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("out")), "out_rules")
@@ -133,8 +150,10 @@ func (self *SSecurityGroup) GetExtraDetails(ctx context.Context, userCred mcclie
 
 func (self *SSecurityGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+
 	extra.Add(jsonutils.NewInt(int64(len(self.GetGuests()))), "guest_cnt")
-	extra.Add(jsonutils.NewInt(int64(self.GetSecgroupCacheCount())), "cache_cnt")
+	cnt, _ := self.GetSecgroupCacheCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "cache_cnt")
 	extra.Add(jsonutils.NewTimeString(self.CreatedAt), "created_at")
 	extra.Add(jsonutils.NewString(self.Description), "description")
 	extra.Add(jsonutils.NewString(self.getSecurityRuleString("in")), "in_rules")
@@ -182,7 +201,7 @@ func (self *SSecurityGroup) GetSecRules(direction string) []secrules.SecurityRul
 		//这里没必要拆分为单个单个的端口,到公有云那边适配
 		rule, err := _rule.toRule()
 		if err != nil {
-			log.Errorf(err.Error())
+			log.Errorln(err)
 			continue
 		}
 		rules = append(rules, *rule)
@@ -199,9 +218,9 @@ func (self *SSecurityGroup) getSecurityRuleString(direction string) string {
 	return strings.Join(rules, SECURITY_GROUP_SEPARATOR)
 }
 
-func totalSecurityGroupCount(projectId string) int {
+func totalSecurityGroupCount(projectId string) (int, error) {
 	q := SecurityGroupManager.Query().Equals("tenant_id", projectId)
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SSecurityGroup) AllowPerformAddRule(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -248,26 +267,32 @@ func (self *SSecurityGroup) AllowPerformClone(ctx context.Context, userCred mccl
 }
 
 func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if name, _ := data.GetString("name"); len(name) == 0 {
+	name, _ := data.GetString("name")
+	if len(name) == 0 {
 		return nil, httperrors.NewMissingParameterError("name")
-	} else {
-		sql := SecurityGroupManager.Query()
-		sql = SecurityGroupManager.FilterByName(sql, name)
-		if sql.Count() != 0 {
-			return nil, httperrors.NewDuplicateNameError("name", name)
+	}
+	_, err := SecurityGroupManager.FetchByName(userCred, name)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return nil, httperrors.NewInternalServerError("FetchByName fail %s", err)
 		}
+	} else {
+		return nil, httperrors.NewDuplicateNameError("name", name)
 	}
 
 	secgroup := &SSecurityGroup{}
 	secgroup.SetModelManager(SecurityGroupManager)
 
-	secgroup.Name, _ = data.GetString("name")
+	secgroup.Name = name
 	secgroup.Description, _ = data.GetString("description")
 	secgroup.ProjectId = userCred.GetTenantId()
-	if err := SecurityGroupManager.TableSpec().Insert(secgroup); err != nil {
+
+	err = SecurityGroupManager.TableSpec().Insert(secgroup)
+	if err != nil {
 		return nil, err
 		//db.OpsLog.LogCloneEvent(self, secgroup, userCred, nil)
 	}
+
 	secgrouprules := self.getSecurityRules("")
 	for _, rule := range secgrouprules {
 		secgrouprule := &SSecurityGroupRule{}
@@ -285,6 +310,8 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 			return nil, err
 		}
 	}
+
+	logclient.AddActionLogWithContext(ctx, secgroup, logclient.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred, true)
 	return nil, nil
 }
 
@@ -405,18 +432,47 @@ func (manager *SSecurityGroupManager) getSecurityGroups() ([]SSecurityGroup, err
 }
 
 func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extSec cloudprovider.ICloudSecurityGroup) (*SSecurityGroup, error) {
+	srs := secrules.SecurityGroupRuleSet{}
+	rules, err := extSec.GetRules()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(rules); i++ {
+		srs.AddRule(rules[i])
+	}
+
+	// 查询所有的安全组，比对寻找一个与云上安全组规则相同的安全组
+	secgroups := []SSecurityGroup{}
+	q := manager.Query()
+	if err := db.FetchModelObjects(manager, q, &secgroups); err != nil {
+		log.Errorf("failed to fetch secgroups %v", err)
+	}
+	for _, secgroup := range secgroups {
+		_srs := secgroup.getSecurityGroupRuleSet()
+		if srs.IsEqual(_srs) {
+			return &secgroup, nil
+		}
+	}
+
 	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
 	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
 
 	secgroup := SSecurityGroup{}
 	secgroup.SetModelManager(manager)
-	secgroup.Name = db.GenerateName(manager, "", extSec.GetName())
+	newName, err := db.GenerateName(manager, "", extSec.GetName())
+	if err != nil {
+		return nil, err
+	}
+	secgroup.Name = newName
 	secgroup.Description = extSec.GetDescription()
 	secgroup.ProjectId = userCred.GetProjectId()
 
 	if err := manager.TableSpec().Insert(&secgroup); err != nil {
 		return nil, err
 	}
+
+	//这里必须先同步下规则,不然下次对比此安全组规则为空
+	SecurityGroupRuleManager.SyncRules(ctx, userCred, &secgroup, rules)
 
 	db.OpsLog.LogEvent(&secgroup, db.ACT_CREATE, secgroup.GetShortDesc(ctx), userCred)
 
@@ -515,7 +571,10 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 }
 
 func (self *SSecurityGroup) ValidateDeleteCondition(ctx context.Context) error {
-	cnt := self.GetGuestsCount()
+	cnt, err := self.GetGuestsCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetGuestsCount fail %s", err)
+	}
 	if cnt > 0 {
 		return httperrors.NewNotEmptyError("the security group is in use")
 	}

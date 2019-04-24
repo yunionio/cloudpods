@@ -1,8 +1,21 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package regiondrivers
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -23,22 +36,13 @@ type SManagedVirtualizationRegionDriver struct {
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+	return self.ValidateManagerId(ctx, userCred, data)
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateManagerId(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	managerID := jsonutils.GetAnyString(data, []string{"manager_id", "manager"})
-	if len(managerID) == 0 {
-		return nil, httperrors.NewMissingParameterError("manager_id")
+	if managerId, _ := data.GetString("manager_id"); len(managerId) == 0 {
+		return nil, httperrors.NewMissingParameterError("manager")
 	}
-	provider, err := models.CloudproviderManager.FetchByIdOrName(userCred, managerID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("failed to find cloudprovider %s", managerID)
-		}
-		return nil, httperrors.NewGeneralError(err)
-	}
-	data.Set("manager_id", jsonutils.NewString(provider.GetId()))
 	return data, nil
 }
 
@@ -47,7 +51,7 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerAclDat
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return data, nil
+	return self.ValidateManagerId(ctx, userCred, data)
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -718,4 +722,8 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerListene
 		return nil, iListenerRule.Delete()
 	})
 	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return data, nil
 }

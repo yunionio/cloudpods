@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -90,7 +104,7 @@ func (hw *SHostwire) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 	return extra
 }
 
-func (self *SHostwire) GetGuestnicsCount() int {
+func (self *SHostwire) GetGuestnicsCount() (int, error) {
 	guestnics := GuestnetworkManager.Query().SubQuery()
 	guests := GuestManager.Query().SubQuery()
 	nets := NetworkManager.Query().SubQuery()
@@ -103,11 +117,15 @@ func (self *SHostwire) GetGuestnicsCount() int {
 		sqlchemy.Equals(nets.Field("id"), guestnics.Field("network_id")),
 		sqlchemy.Equals(nets.Field("wire_id"), self.WireId)))
 
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SHostwire) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetGuestnicsCount() > 0 {
+	cnt, err := self.GetGuestnicsCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetGuestnicsCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("guest on the host are using networks on this wire")
 	}
 	return self.SHostJointsBase.ValidateDeleteCondition(ctx)

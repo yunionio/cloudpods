@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package guestman
 
 import (
@@ -205,7 +219,6 @@ func (s *SKVMGuestInstance) RequestVerifyDirtyServer() {
 	}
 }
 
-// Delay Process
 func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	data, ok := params.(*jsonutils.JSONDict)
 	if !ok {
@@ -366,7 +379,7 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 				if s.IsMirrorJobSucc() {
 					_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), "running")
 					if err != nil {
-						log.Errorln("onReceiveQMPEvent update server status error: %s", err)
+						log.Errorf("onReceiveQMPEvent update server status error: %s", err)
 					}
 				}
 			}
@@ -518,8 +531,8 @@ func (s *SKVMGuestInstance) CleanStartupTask() {
 func (s *SKVMGuestInstance) onMonitorTimeout(ctx context.Context, err error) {
 	log.Errorf("Monitor connect timeout, VM %s frozen!! force restart!!!!", s.Id)
 	s.ForceStop()
-	timeutils2.AddTimeout(time.Second*3,
-		func() { s.asyncScriptStart(ctx, jsonutils.NewDict()) })
+	timeutils2.AddTimeout(
+		time.Second*3, func() { s.StartGuest(ctx, jsonutils.NewDict()) })
 }
 
 func (s *SKVMGuestInstance) GetHmpMonitorPort(vncPort int) int {
@@ -611,7 +624,8 @@ func (s *SKVMGuestInstance) SaveDesc(desc jsonutils.JSONObject) error {
 }
 
 func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params jsonutils.JSONObject) {
-	hostutils.DelayTaskWithoutReqctx(ctx, s.asyncScriptStart, params)
+	s.manager.GuestStartWorker.Run(
+		func() { s.asyncScriptStart(ctx, jsonutils.NewDict()) }, nil, nil)
 }
 
 func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
@@ -684,7 +698,7 @@ func (s *SKVMGuestInstance) ExitCleanup(clear bool) {
 func (s *SKVMGuestInstance) CleanupCpuset() {
 	task := cgrouputils.NewCGroupCPUSetTask(strconv.Itoa(s.GetPid()), 0, "")
 	if !task.RemoveTask() {
-		log.Warningf("remove cpuset cgroup error: %s %s", s.Id, s.GetPid())
+		log.Warningf("remove cpuset cgroup error: %s, pid: %d", s.Id, s.GetPid())
 	}
 }
 

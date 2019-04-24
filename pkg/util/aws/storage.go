@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package aws
 
 import (
@@ -6,8 +20,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SStorage struct {
@@ -28,7 +42,7 @@ func (self *SStorage) GetGlobalId() string {
 }
 
 func (self *SStorage) GetStatus() string {
-	return models.STORAGE_ONLINE
+	return api.STORAGE_ONLINE
 }
 
 func (self *SStorage) Refresh() error {
@@ -77,10 +91,10 @@ func (self *SStorage) GetStorageType() string {
 }
 
 func (self *SStorage) GetMediumType() string {
-	if self.storageType == models.STORAGE_GP2_SSD || self.storageType == models.STORAGE_IO1_SSD {
-		return models.DISK_TYPE_SSD
+	if self.storageType == api.STORAGE_GP2_SSD || self.storageType == api.STORAGE_IO1_SSD {
+		return api.DISK_TYPE_SSD
 	} else {
-		return models.DISK_TYPE_ROTATE
+		return api.DISK_TYPE_ROTATE
 	}
 }
 

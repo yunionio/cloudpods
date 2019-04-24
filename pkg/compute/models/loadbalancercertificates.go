@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -50,6 +64,7 @@ func init() {
 type SLoadbalancerCertificate struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
 
 	Certificate string `create:"required" list:"user" update:"user"`
 	PrivateKey  string `create:"required" list:"admin" update:"user"`
@@ -63,11 +78,9 @@ type SLoadbalancerCertificate struct {
 	NotAfter                time.Time `create:"optional" list:"user" update:"user"`
 	CommonName              string    `create:"optional" list:"user" update:"user"`
 	SubjectAlternativeNames string    `create:"optional" list:"user" update:"user"`
-
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
 }
 
-func (man *SLoadbalancerCertificateManager) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
+func (man *SLoadbalancerCertificateManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
 	subs := []SLoadbalancerCertificate{}
 	db.FetchModelObjects(man, q, &subs)
 	for _, sub := range subs {
@@ -130,6 +143,12 @@ func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Conte
 		return nil, err
 	}
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+		return nil, err
+	}
+
+	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", "")
+	managerIdV.Optional(true)
+	if err := managerIdV.Validate(data); err != nil {
 		return nil, err
 	}
 
@@ -213,6 +232,24 @@ func (lbcert *SLoadbalancerCertificate) PostCreate(ctx context.Context, userCred
 	}
 }
 
+func (lbcert *SLoadbalancerCertificate) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lbcert.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	providerInfo := lbcert.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if providerInfo != nil {
+		extra.Update(providerInfo)
+	}
+	regionInfo := lbcert.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if regionInfo != nil {
+		extra.Update(regionInfo)
+	}
+	return extra
+}
+
+func (lbcert *SLoadbalancerCertificate) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra := lbcert.GetCustomizeColumns(ctx, userCred, query)
+	return extra, nil
+}
+
 func (lbcert *SLoadbalancerCertificate) StartLoadBalancerCertificateCreateTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerCertificateCreateTask", lbcert, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
@@ -230,12 +267,15 @@ func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Cont
 	for _, man := range men {
 		t := man.TableSpec().Instance()
 		pdF := t.Field("pending_deleted")
-		n := t.Query().
+		n, err := t.Query().
 			Equals("certificate_id", lbcertId).
 			Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
-			Count()
+			CountWithError()
+		if err != nil {
+			return httperrors.NewInternalServerError("get certificate refcount fail %s", err)
+		}
 		if n > 0 {
-			return fmt.Errorf("certificate %s is still referred to by %d %s",
+			return httperrors.NewResourceBusyError("certificate %s is still referred to by %d %s",
 				lbcertId, n, man.KeywordPlural())
 		}
 	}
@@ -258,7 +298,7 @@ func (lbcert *SLoadbalancerCertificate) GetRegion() *SCloudregion {
 func (lbcert *SLoadbalancerCertificate) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := lbcert.GetDriver()
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovide for lbcert %s: %s", lbcert.Name, err)
+		return nil, fmt.Errorf("No cloudprovider for lbcert %s: %s", lbcert.Name, err)
 	}
 	region := lbcert.GetRegion()
 	if region == nil {
@@ -293,7 +333,7 @@ func (lbcert *SLoadbalancerCertificate) StartLoadBalancerCertificateDeleteTask(c
 
 func (man *SLoadbalancerCertificateManager) getLoadbalancerCertificatesByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancerCertificate, error) {
 	certificates := []SLoadbalancerCertificate{}
-	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id)
+	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &certificates); err != nil {
 		log.Errorf("failed to get lb certificates for region: %v provider: %v error: %v", region, provider, err)
 		return nil, err
@@ -359,7 +399,11 @@ func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(
 	lbcert := SLoadbalancerCertificate{}
 	lbcert.SetModelManager(man)
 
-	lbcert.Name = db.GenerateName(man, projectId, extCertificate.GetName())
+	newName, err := db.GenerateName(man, projectId, extCertificate.GetName())
+	if err != nil {
+		return nil, err
+	}
+	lbcert.Name = newName
 	lbcert.ExternalId = extCertificate.GetGlobalId()
 	lbcert.ManagerId = provider.Id
 	lbcert.CloudregionId = region.Id
@@ -369,7 +413,7 @@ func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(
 	lbcert.Fingerprint = extCertificate.GetFingerprint()
 	lbcert.NotAfter = extCertificate.GetExpireTime()
 
-	err := man.TableSpec().Insert(&lbcert)
+	err = man.TableSpec().Insert(&lbcert)
 	if err != nil {
 		log.Errorf("newFromCloudLoadbalancerCertificate fail %s", err)
 		return nil, err
@@ -390,7 +434,7 @@ func (lbcert *SLoadbalancerCertificate) syncRemoveCloudLoadbalancerCertificate(c
 	if err != nil { // cannot delete
 		err = lbcert.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lbcert.Delete(ctx, userCred)
+		err = lbcert.DoPendingDelete(ctx, userCred)
 	}
 	return err
 }

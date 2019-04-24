@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package guestman
 
 import (
@@ -16,6 +30,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/seclib"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -32,6 +47,12 @@ import (
 
 const (
 	VNC_PORT_BASE = 5900
+
+	GUEST_RUNNING      = "running"
+	GUEST_BLOCK_STREAM = "block_stream"
+	GUEST_SUSPEND      = "suspend"
+	GUSET_STOPPED      = "stopped"
+	GUEST_NOT_FOUND    = "notfound"
 )
 
 type SGuestManager struct {
@@ -40,6 +61,8 @@ type SGuestManager struct {
 	Servers          map[string]*SKVMGuestInstance
 	CandidateServers map[string]*SKVMGuestInstance
 	ServersLock      *sync.Mutex
+
+	GuestStartWorker *appsrv.SWorkerManager
 
 	isLoaded bool
 }
@@ -51,6 +74,7 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager.Servers = make(map[string]*SKVMGuestInstance, 0)
 	manager.CandidateServers = make(map[string]*SKVMGuestInstance, 0)
 	manager.ServersLock = &sync.Mutex{}
+	manager.GuestStartWorker = appsrv.NewWorkerManager("GuestStart", 1, appsrv.DEFAULT_BACKLOG, false)
 	manager.StartCpusetBalancer()
 	manager.LoadExistingGuests()
 	return manager
@@ -326,19 +350,28 @@ func (m *SGuestManager) CpusetBalance(ctx context.Context, params interface{}) (
 }
 
 func (m *SGuestManager) Status(sid string) string {
+	if status := m.GetStatus(sid); status == GUEST_RUNNING && m.Servers[sid].Monitor == nil {
+		m.Servers[sid].StartMonitor(context.Background())
+		return status
+	} else {
+		return status
+	}
+}
+
+func (m *SGuestManager) GetStatus(sid string) string {
 	if guest, ok := m.Servers[sid]; ok {
 		if guest.Monitor != nil && guest.IsMaster() && !guest.IsMirrorJobSucc() {
-			return "block_stream"
+			return GUEST_BLOCK_STREAM
 		}
 		if guest.IsRunning() {
-			return "running"
+			return GUEST_RUNNING
 		} else if guest.IsSuspend() {
-			return "suspend"
+			return GUEST_SUSPEND
 		} else {
-			return "stopped"
+			return GUSET_STOPPED
 		}
 	} else {
-		return "notfound"
+		return GUEST_NOT_FOUND
 	}
 }
 

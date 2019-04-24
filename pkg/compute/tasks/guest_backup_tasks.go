@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -7,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -85,7 +100,7 @@ func (self *GuestSwitchToBackupTask) OnNewMasterStarted(ctx context.Context, gue
 }
 
 func (self *GuestSwitchToBackupTask) OnFail(ctx context.Context, guest *models.SGuest, reason string) {
-	guest.SetStatus(self.UserCred, models.VM_SWITCH_TO_BACKUP_FAILED, reason)
+	guest.SetStatus(self.UserCred, api.VM_SWITCH_TO_BACKUP_FAILED, reason)
 	db.OpsLog.LogEvent(guest, db.ACT_SWITCH_FAILED, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_SWITCH_TO_BACKUP, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
@@ -93,7 +108,7 @@ func (self *GuestSwitchToBackupTask) OnFail(ctx context.Context, guest *models.S
 
 func (self *GuestSwitchToBackupTask) OnSwitched(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	oldStatus, _ := self.Params.GetString("old_status")
-	if utils.IsInStringArray(oldStatus, models.VM_RUNNING_STATUS) {
+	if utils.IsInStringArray(oldStatus, api.VM_RUNNING_STATUS) {
 		self.SetStage("OnNewMasterStarted", nil)
 		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
 	} else {
@@ -149,7 +164,7 @@ func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuest(ctx context.Contex
 	guest.SetMetadata(ctx, "backup_nbd_server_uri", nbdServerUri, self.UserCred)
 
 	db.OpsLog.LogEvent(guest, db.ACT_BACKUP_START, "", self.UserCred)
-	if utils.IsInStringArray(guest.Status, models.VM_RUNNING_STATUS) {
+	if utils.IsInStringArray(guest.Status, api.VM_RUNNING_STATUS) {
 		self.SetStage("OnRequestSyncToBackup", nil)
 		err := guest.GetDriver().RequestSyncToBackup(ctx, guest, self)
 		if err != nil {
@@ -166,7 +181,7 @@ func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuestFailed(ctx context.
 }
 
 func (self *GuestStartAndSyncToBackupTask) OnRequestSyncToBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, models.VM_BLOCK_STREAM, "OnSyncToBackup")
+	guest.SetStatus(self.UserCred, api.VM_BLOCK_STREAM, "OnSyncToBackup")
 	self.SetStageComplete(ctx, nil)
 }
 
@@ -180,7 +195,7 @@ func (self *GuestCreateBackupTask) OnInit(ctx context.Context, obj db.IStandalon
 
 func (self *GuestCreateBackupTask) OnStartSchedule(obj IScheduleModel) {
 	guest := obj.(*models.SGuest)
-	guest.SetStatus(self.UserCred, models.VM_BACKUP_CREATING, "")
+	guest.SetStatus(self.UserCred, api.VM_BACKUP_CREATING, "")
 	db.OpsLog.LogEvent(guest, db.ACT_START_CREATE_BACKUP, "", self.UserCred)
 }
 
@@ -216,21 +231,24 @@ func (self *GuestCreateBackupTask) SaveScheduleResult(ctx context.Context, obj I
 	guest.SetHostIdWithBackup(self.UserCred, guest.HostId, targetHostId)
 	db.OpsLog.LogEvent(guest, db.ACT_CREATE_BACKUP, fmt.Sprintf("guest backup start create on host %s", targetHostId), self.UserCred)
 
-	// backup disk only support disk backend local
-	storage := guest.GetDriver().ChooseHostStorage(targetHost, models.STORAGE_LOCAL)
-	if storage == nil {
-		self.TaskFailed(ctx, guest, "Get backup storage error")
-		return
-	}
-	self.StartCreateBackupDisks(ctx, guest, storage.Id)
+	self.StartCreateBackupDisks(ctx, guest, targetHost, candidate.Disks)
 }
 
-func (self *GuestCreateBackupTask) StartCreateBackupDisks(ctx context.Context, guest *models.SGuest, storageId string) {
+func (self *GuestCreateBackupTask) StartCreateBackupDisks(ctx context.Context, guest *models.SGuest, host *models.SHost, candidateDisks []*schedapi.CandidateDisk) {
 	guestDisks := guest.GetDisks()
 	for i := 0; i < len(guestDisks); i++ {
+		var candidateDisk *schedapi.CandidateDisk
+		if len(candidateDisks) >= i {
+			candidateDisk = candidateDisks[i]
+		}
+		storage := guest.ChooseHostStorage(host, api.STORAGE_LOCAL, candidateDisk)
+		if storage == nil {
+			self.TaskFailed(ctx, guest, "Get backup storage error")
+			return
+		}
 		disk := guestDisks[i].GetDisk()
 		db.Update(disk, func() error {
-			disk.BackupStorageId = storageId
+			disk.BackupStorageId = storage.Id
 			return nil
 		})
 	}
@@ -241,9 +259,27 @@ func (self *GuestCreateBackupTask) StartCreateBackupDisks(ctx context.Context, g
 	}
 }
 
-func (self *GuestCreateBackupTask) OnCreateBackupDisks(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+func (self *GuestCreateBackupTask) StartInsertIso(ctx context.Context, guest *models.SGuest, imageId string) {
+	self.SetStage("OnInsertIso", nil)
+	guest.StartInsertIsoTask(ctx, imageId, guest.BackupHostId, self.UserCred, self.GetTaskId())
+}
+
+func (self *GuestCreateBackupTask) OnInsertIso(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStage("OnCreateBackup", nil)
 	guest.StartCreateBackup(ctx, self.UserCred, self.GetTaskId(), nil)
+}
+
+func (self *GuestCreateBackupTask) OnInsertIsoFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.TaskFailed(ctx, guest, fmt.Sprintf("Backup guest insert ISO failed %s", data.String()))
+}
+
+func (self *GuestCreateBackupTask) OnCreateBackupDisks(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	if cdrom := guest.GetCdrom(); cdrom != nil && len(cdrom.ImageId) > 0 {
+		self.StartInsertIso(ctx, guest, cdrom.ImageId)
+	} else {
+		self.SetStage("OnCreateBackup", nil)
+		guest.StartCreateBackup(ctx, self.UserCred, self.GetTaskId(), nil)
+	}
 }
 
 func (self *GuestCreateBackupTask) OnCreateBackupDisksFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
@@ -257,7 +293,7 @@ func (self *GuestCreateBackupTask) OnCreateBackupFailed(ctx context.Context, gue
 func (self *GuestCreateBackupTask) OnCreateBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guestStatus, _ := self.Params.GetString("guest_status")
 	guest.SetStatus(self.UserCred, guestStatus, "")
-	if utils.IsInStringArray(guestStatus, models.VM_RUNNING_STATUS) {
+	if utils.IsInStringArray(guestStatus, api.VM_RUNNING_STATUS) {
 		self.OnGuestStart(ctx, guest, nil)
 	} else {
 		self.TaskCompleted(ctx, guest, "")
@@ -283,7 +319,7 @@ func (self *GuestCreateBackupTask) TaskCompleted(ctx context.Context, guest *mod
 }
 
 func (self *GuestCreateBackupTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason string) {
-	guest.SetStatus(self.UserCred, models.VM_BACKUP_CREATE_FAILED, reason)
+	guest.SetStatus(self.UserCred, api.VM_BACKUP_CREATE_FAILED, reason)
 	db.OpsLog.LogEvent(guest, db.ACT_CREATE_BACKUP_FAILED, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_CREATE_BACKUP, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)

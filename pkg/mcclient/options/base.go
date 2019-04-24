@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package options
 
 import (
@@ -173,7 +187,7 @@ type BaseListOptions struct {
 	Order            string   `help:"List order" choices:"desc|asc"`
 	Details          *bool    `help:"Show more details" default:"false"`
 	Search           string   `help:"Filter results by a simple keyword search"`
-	Meta             *bool    `help:"Piggyback metadata information"`
+	Meta             *bool    `help:"Piggyback metadata information" json:"with_meta" token:"meta"`
 	Filter           []string `help:"Filters"`
 	JointFilter      []string `help:"Filters with joint table col; joint_tbl.related_key(origin_key).filter_col.filter_cond(filters)"`
 	FilterAny        *bool    `help:"If true, match if any of the filters matches; otherwise, match if all of the filters match"`
@@ -192,7 +206,8 @@ type BaseListOptions struct {
 
 	Manager      string `help:"List objects belonging to the cloud provider" json:"manager,omitempty"`
 	Account      string `help:"List objects belonging to the cloud account" json:"account,omitempty"`
-	Provider     string `help:"List objects from the provider" choices:"VMware|Aliyun|Qcloud|Azure|Aws|Huawei|Openstack" json:"provider,omitempty"`
+	Provider     string `help:"List objects from the provider" choices:"OneCloud|VMware|Aliyun|Qcloud|Azure|Aws|Huawei|Openstack|Ucloud" json:"provider,omitempty"`
+	CloudEnv     string `help:"Cloud environment" choices:"public|private|onpremise|private_or_onpremise" json:"cloud_env,omitempty"`
 	PublicCloud  *bool  `help:"List objects belonging to public cloud" json:"public_cloud"`
 	PrivateCloud *bool  `help:"List objects belonging to private cloud" json:"private_cloud"`
 	IsOnPremise  *bool  `help:"List objects belonging to on premise infrastructures" token:"on-premise" json:"is_on_premise"`

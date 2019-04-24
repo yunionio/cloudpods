@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package guest
 
 import (
@@ -13,6 +27,7 @@ import (
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
+	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
@@ -82,7 +97,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 				errMsgs = append(errMsgs, errMsg)
 			}
 
-			if !isMatchServerType(&n) {
+			if !isMatchServerType(n.SNetwork) {
 				appendError(predicates.ErrServerTypeIsNotMatch)
 			}
 
@@ -105,7 +120,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 			if len(errMsgs) == 0 {
 				// add resource
 				reservedNetworks := 0
-				counter := counterOfNetwork(u, &n, reservedNetworks)
+				counter := counterOfNetwork(u, n.SNetwork, reservedNetworks)
 				p.SelectedNetworks.Store(n.GetId(), counter.GetCount())
 				counters.Add(counter)
 				found = true
@@ -126,13 +141,13 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	filterByRandomNetwork := func() {
 		counters := core.NewCounters()
 		if err_msg := isRandomNetworkAvailable(false, false, "", counters); err_msg != "" {
-			h.AppendPredicateFailMsg(err_msg)
+			h.Exclude(err_msg)
 		}
 		h.SetCapacityCounter(counters)
 	}
 
 	isNetworkAvaliable := func(n *computeapi.NetworkConfig, counters *core.MinCounters,
-		networks []models.SNetwork) string {
+		networks []*api.CandidateNetwork) string {
 		if n.Network == "" {
 			counters0 := core.NewCounters()
 			ret_msg := isRandomNetworkAvailable(n.Private, n.Exit, n.Wire, counters0)
@@ -159,7 +174,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 			} else {
 				// add resource
 				reservedNetworks := 0
-				counter := counterOfNetwork(u, &net, reservedNetworks)
+				counter := counterOfNetwork(u, net.SNetwork, reservedNetworks)
 				if counter.GetCount() < int64(d.Count) {
 					errMsgs = append(errMsgs, fmt.Sprintf("%s: ports not enough, free: %d, required: %d", net.Name, counter.GetCount(), d.Count))
 					continue
@@ -188,7 +203,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		}
 
 		if len(errMsgs) > 0 {
-			h.AppendPredicateFailMsg(strings.Join(errMsgs, ", "))
+			h.Exclude(strings.Join(errMsgs, ", "))
 		} else {
 			h.SetCapacityCounter(counters)
 		}

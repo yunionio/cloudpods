@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -51,19 +65,21 @@ func init() {
 type SLoadbalancer struct {
 	db.SVirtualResourceBase
 	SManagedResourceBase
+	SCloudregionResourceBase
+	SZoneResourceBase
+	SLoadbalancerRateLimiter
 
-	Address       string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	AddressType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NetworkType   string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NetworkId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	VpcId         string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	ZoneId        string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" default:"default" create:"optional"`
+	Address     string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	AddressType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	NetworkType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	VpcId       string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 
-	ChargeType       string `list:"user" get:"user" create:"optional"`
-	LoadbalancerSpec string `list:"user" get:"user" create:"optional"`
+	ChargeType string `list:"user" get:"user" create:"optional" update:"user"`
 
-	BackendGroupId string               `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user" update:"user"`
+	LoadbalancerSpec string `list:"user" get:"user" list:"user" create:"optional"`
+
+	BackendGroupId string               `width:"36" charset:"ascii" nullable:"true" list:"user" update:"user"`
 	LBInfo         jsonutils.JSONObject `charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_optional"`
 }
 
@@ -95,7 +111,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerProjId)
 	addressType, _ := data.GetString("address_type")
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", "")
-	managerIdV := validators.NewModelIdOrNameValidator("manager_id", "cloudprovider", "")
+	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", "")
 	if addressType == api.LB_ADDR_TYPE_INTERNET {
 		networkV.Optional(true)
 	} else {
@@ -103,16 +119,19 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		managerIdV.Optional(true)
 	}
 	addressV := validators.NewIPv4AddrValidator("address")
+	chargeTypeV := validators.NewStringChoicesValidator("charge_type", api.LB_CHARGE_TYPES)
+	chargeTypeV.Default(api.LB_CHARGE_TYPE_BY_TRAFFIC)
 	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
 	{
 		keyV := map[string]validators.IValidator{
 			"status": validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
 
+			"charge_type":  chargeTypeV,
 			"address":      addressV.Optional(true),
 			"address_type": addressTypeV.Default(api.LB_ADDR_TYPE_INTRANET),
 			"network":      networkV,
 			"zone":         zoneV,
-			"manager_id":   managerIdV,
+			"manager":      managerIdV,
 		}
 		for _, v := range keyV {
 			if err := v.Validate(data); err != nil {
@@ -120,8 +139,13 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 			}
 		}
 	}
+
 	var region *SCloudregion
 	if addressTypeV.Value == api.LB_ADDR_TYPE_INTRANET {
+		if chargeTypeV.Value == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+			return nil, httperrors.NewUnsupportOperationError("intranet loadbalancer not support bandwidth charge type")
+		}
+
 		network := networkV.Model.(*SNetwork)
 		if ipAddr := addressV.IP; ipAddr != nil {
 			ipS := ipAddr.String()
@@ -133,11 +157,19 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 				return nil, httperrors.NewInputParameterError("address %s is not in the range of network %s(%s)",
 					ipS, network.Name, network.Id)
 			}
-			if network.isAddressUsed(ipS) {
+			used, err := network.isAddressUsed(ipS)
+			if err != nil {
+				return nil, httperrors.NewInternalServerError("isAddressUsed fail %s", err)
+			}
+			if used {
 				return nil, httperrors.NewInputParameterError("address %s is already occupied", ipS)
 			}
 		}
-		if network.getFreeAddressCount() <= 0 {
+		freeCnt, err := network.getFreeAddressCount()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("getFreeAddressCount fail %s", err)
+		}
+		if freeCnt <= 0 {
 			return nil, httperrors.NewNotAcceptableError("network %s(%s) has no free addresses",
 				network.Name, network.Id)
 		}
@@ -151,6 +183,9 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		}
 		data.Set("vpc_id", jsonutils.NewString(vpc.Id))
 		if len(vpc.ManagerId) > 0 {
+			if managerIdV.Model != nil && managerIdV.Model.GetId() != vpc.ManagerId {
+				return nil, httperrors.NewInputParameterError("Loadbalancer's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)", managerIdV.Model.GetName(), managerIdV.Model.GetId(), vpc.GetName(), vpc.GetId(), vpc.ManagerId)
+			}
 			data.Set("manager_id", jsonutils.NewString(vpc.ManagerId))
 		}
 		zone := wire.GetZone()
@@ -172,6 +207,13 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		if region == nil {
 			return nil, fmt.Errorf("getting region failed")
 		}
+		if chargeTypeV.Value == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+			egressMbpsV := validators.NewNonNegativeValidator("egress_mpbs")
+			if err := egressMbpsV.Validate(data); err != nil {
+				return nil, err
+			}
+		}
+
 		// 公网 lb 实例和vpc、network无关联
 		data.Set("vpc_id", jsonutils.NewString(""))
 		data.Set("address", jsonutils.NewString(""))
@@ -294,7 +336,7 @@ func (lb *SLoadbalancer) GetNetwork() *SNetwork {
 func (lb *SLoadbalancer) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	provider, err := lb.GetDriver()
 	if err != nil {
-		return nil, fmt.Errorf("No cloudprovide for lb %s: %s", lb.Name, err)
+		return nil, fmt.Errorf("No cloudprovider for lb %s: %s", lb.Name, err)
 	}
 	region := lb.GetRegion()
 	if region == nil {
@@ -326,6 +368,9 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		}
 		params.ZoneID = iZone.GetId()
 	}
+	if lb.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
+		lb.EgressMbps = lb.EgressMbps
+	}
 	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET {
 		vpc := lb.GetVpc()
 		if vpc == nil {
@@ -354,9 +399,9 @@ func (lb *SLoadbalancer) AllowPerformPurge(ctx context.Context, userCred mcclien
 }
 
 func (lb *SLoadbalancer) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	parasm := jsonutils.NewDict()
-	parasm.Add(jsonutils.JSONTrue, "purge")
-	return nil, lb.StartLoadBalancerDeleteTask(ctx, userCred, parasm, "")
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.JSONTrue, "purge")
+	return nil, lb.StartLoadBalancerDeleteTask(ctx, userCred, params, "")
 }
 
 func (lb *SLoadbalancer) StartLoadBalancerDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
@@ -393,16 +438,30 @@ func (lb *SLoadbalancer) ValidateUpdateData(ctx context.Context, userCred mcclie
 
 func (lb *SLoadbalancer) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := lb.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
-	if lb.BackendGroupId == "" {
-		return extra
+	providerInfo := lb.SManagedResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if providerInfo != nil {
+		extra.Update(providerInfo)
 	}
-	lbbg, err := LoadbalancerBackendGroupManager.FetchById(lb.BackendGroupId)
-	if err != nil {
-		log.Errorf("loadbalancer %s(%s): fetch backend group (%s) error: %s",
-			lb.Name, lb.Id, lb.BackendGroupId, err)
-		return extra
+
+	zoneInfo := lb.SZoneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	if zoneInfo != nil {
+		extra.Update(zoneInfo)
+	} else {
+		regionInfo := lb.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
+		if regionInfo != nil {
+			extra.Update(regionInfo)
+		}
 	}
-	extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+
+	if lb.BackendGroupId != "" {
+		lbbg, err := LoadbalancerBackendGroupManager.FetchById(lb.BackendGroupId)
+		if err != nil {
+			log.Errorf("loadbalancer %s(%s): fetch backend group (%s) error: %s",
+				lb.Name, lb.Id, lb.BackendGroupId, err)
+			return extra
+		}
+		extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
+	}
 	return extra
 }
 
@@ -416,18 +475,39 @@ func (lb *SLoadbalancer) CustomizeDelete(ctx context.Context, userCred mcclient.
 	return lb.StartLoadBalancerDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
-func (lb *SLoadbalancer) PendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+func (lb *SLoadbalancer) GetLoadbalancerListeners() ([]SLoadbalancerListener, error) {
+	listeners := []SLoadbalancerListener{}
+	q := LoadbalancerListenerManager.Query().Equals("loadbalancer_id", lb.Id).IsFalse("pending_deleted")
+	if err := db.FetchModelObjects(LoadbalancerListenerManager, q, &listeners); err != nil {
+		return nil, err
+	}
+	return listeners, nil
+}
+
+func (lb *SLoadbalancer) GetLoadbalancerBackendgroups() ([]SLoadbalancerBackendGroup, error) {
+	lbbgs := []SLoadbalancerBackendGroup{}
+	q := LoadbalancerBackendGroupManager.Query().Equals("loadbalancer_id", lb.Id).IsFalse("pending_deleted")
+	if err := db.FetchModelObjects(LoadbalancerListenerManager, q, &lbbgs); err != nil {
+		return nil, err
+	}
+	return lbbgs, nil
+}
+
+func (lb *SLoadbalancer) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	if len(lb.NetworkId) > 0 {
 		req := &SLoadbalancerNetworkDeleteData{
 			loadbalancer: lb,
 		}
-		LoadbalancernetworkManager.DeleteLoadbalancerNetwork(ctx, userCred, req)
+		err := LoadbalancernetworkManager.DeleteLoadbalancerNetwork(ctx, userCred, req)
+		if err != nil {
+			log.Errorf("failed detaching network of loadbalancer %s(%s): %v", lb.Name, lb.Id, err)
+		}
 	}
+	lb.pendingDeleteSubs(ctx, userCred)
 	lb.DoPendingDelete(ctx, userCred)
-	lb.PreDeleteSubs(ctx, userCred)
 }
 
-func (lb *SLoadbalancer) PreDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
+func (lb *SLoadbalancer) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
 	ownerProjId := lb.GetOwnerProjectId()
 	lbId := lb.Id
 	subMen := []ILoadbalancerSubResourceManager{
@@ -438,8 +518,8 @@ func (lb *SLoadbalancer) PreDeleteSubs(ctx context.Context, userCred mcclient.To
 		func(subMan ILoadbalancerSubResourceManager) {
 			lockman.LockClass(ctx, subMan, ownerProjId)
 			defer lockman.ReleaseClass(ctx, subMan, ownerProjId)
-			q := subMan.Query().Equals("loadbalancer_id", lbId)
-			subMan.PreDeleteSubs(ctx, userCred, q)
+			q := subMan.Query().IsFalse("pending_deleted").Equals("loadbalancer_id", lbId)
+			subMan.pendingDeleteSubs(ctx, userCred, q)
 		}(subMan)
 	}
 }
@@ -450,7 +530,7 @@ func (lb *SLoadbalancer) Delete(ctx context.Context, userCred mcclient.TokenCred
 
 func (man *SLoadbalancerManager) getLoadbalancersByRegion(region *SCloudregion, provider *SCloudprovider) ([]SLoadbalancer, error) {
 	lbs := []SLoadbalancer{}
-	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id)
+	q := man.Query().Equals("cloudregion_id", region.Id).Equals("manager_id", provider.Id).IsFalse("pending_deleted")
 	if err := db.FetchModelObjects(man, q, &lbs); err != nil {
 		log.Errorf("failed to get lbs for region: %v provider: %v error: %v", region, provider, err)
 		return nil, err
@@ -527,10 +607,16 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	lb.Address = extLb.GetAddress()
 	lb.AddressType = extLb.GetAddressType()
 	lb.NetworkType = extLb.GetNetworkType()
-	lb.Name = db.GenerateName(man, projectId, extLb.GetName())
+
+	newName, err := db.GenerateName(man, projectId, extLb.GetName())
+	if err != nil {
+		return nil, err
+	}
+	lb.Name = newName
 	lb.Status = extLb.GetStatus()
 	lb.LoadbalancerSpec = extLb.GetLoadbalancerSpec()
 	lb.ChargeType = extLb.GetChargeType()
+	lb.EgressMbps = extLb.GetEgressMbps()
 	lb.ExternalId = extLb.GetGlobalId()
 	if networkId := extLb.GetNetworkId(); len(networkId) > 0 {
 		if network, err := NetworkManager.FetchByExternalId(networkId); err == nil && network != nil {
@@ -571,11 +657,11 @@ func (lb *SLoadbalancer) syncRemoveCloudLoadbalancer(ctx context.Context, userCr
 
 	err := lb.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
-		err = lb.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
+		return lb.SetStatus(userCred, api.LB_STATUS_UNKNOWN, "sync to delete")
 	} else {
-		err = lb.Delete(ctx, userCred)
+		lb.LBPendingDelete(ctx, userCred)
+		return nil
 	}
-	return err
 }
 
 func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential) {
@@ -585,7 +671,7 @@ func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred m
 			NetworkId:    lb.NetworkId,
 			Address:      lb.Address,
 		}
-		err := LoadbalancernetworkManager.SyncLoadbalancerNetwork(ctx, userCred, lbNetReq)
+		err := LoadbalancernetworkManager.syncLoadbalancerNetwork(ctx, userCred, lbNetReq)
 		if err != nil {
 			log.Errorf("failed to create loadbalancer network: %v", err)
 		}
@@ -601,6 +687,7 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 		lb.Status = extLb.GetStatus()
 		// lb.Name = extLb.GetName()
 		lb.LoadbalancerSpec = extLb.GetLoadbalancerSpec()
+		lb.EgressMbps = extLb.GetEgressMbps()
 		lb.ChargeType = extLb.GetChargeType()
 
 		if extLb.GetMetadata() != nil {

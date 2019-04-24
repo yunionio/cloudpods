@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package options
 
 import (
@@ -112,7 +126,7 @@ type ServerConfigs struct {
 	Host       string `help:"Preferred host where virtual server should be created" json:"prefer_host"`
 	BackupHost string `help:"Perfered host where virtual backup server should be created"`
 
-	Hypervisor   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei"`
+	Hypervisor   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack"`
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 	Backup       bool   `help:"Create server with backup server"`
 
@@ -120,6 +134,7 @@ type ServerConfigs struct {
 	Disk           []string `help:"Disk descriptions" nargs:"+"`
 	DiskSchedtag   []string `help:"Disk schedtag description, e.g. '0:<tag>:<strategy>'"`
 	Net            []string `help:"Network descriptions" metavar:"NETWORK"`
+	NetSchedtag    []string `help:"Network schedtag description, e.g. '0:<tag>:<strategy>'"`
 	IsolatedDevice []string `help:"Isolated device model or ID" metavar:"ISOLATED_DEVICE"`
 	RaidConfig     []string `help:"Baremetal raid config" json:"-"`
 	Project        string   `help:"'Owner project ID or Name" json:"tenant"`
@@ -165,6 +180,17 @@ func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 		}
 		data.Networks = append(data.Networks, net)
 	}
+	for _, ntag := range o.NetSchedtag {
+		idx, tag, err := cmdline.ParseResourceSchedtagConfig(ntag)
+		if err != nil {
+			return nil, fmt.Errorf("ParseDiskSchedtag: %v", err)
+		}
+		if idx >= len(data.Networks) {
+			return nil, fmt.Errorf("Invalid network index: %d", idx)
+		}
+		n := data.Networks[idx]
+		n.Schedtags = append(n.Schedtags, tag)
+	}
 	for i, g := range o.IsolatedDevice {
 		dev, err := cmdline.ParseIsolatedDevice(g, i)
 		if err != nil {
@@ -192,6 +218,16 @@ func (o ServerConfigs) Data() (*computeapi.ServerConfigs, error) {
 		data.Schedtags = append(data.Schedtags, schedtag)
 	}
 	return data, nil
+}
+
+type ServerCloneOptions struct {
+	SOURCE      string `help:"Source server id or name"  json:"-"`
+	TARGET_NAME string `help:"Name of newly server" json:"name"`
+	AutoStart   bool   `help:"Auto start server after it is created"`
+
+	EipBw         int    `help:"allocate EIP with bandwidth in MB when server is created" json:"eip_bw,omitzero"`
+	EipChargeType string `help:"newly allocated EIP charge type, either traffic or bandwidth" choices:"traffic|bandwidth" json:"eip_charge_type,omitempty"`
+	Eip           string `help:"associate with an existing EIP when server is created" json:"eip,omitempty"`
 }
 
 type ServerCreateOptions struct {
@@ -419,12 +455,14 @@ type ServerDeployOptions struct {
 func (opts *ServerDeployOptions) Params() (*computeapi.ServerDeployInput, error) {
 	params := new(computeapi.ServerDeployInput)
 	{
-		deleteKeyPair := BoolV(opts.DeleteKeypair)
-		if deleteKeyPair {
-			params.DeleteKeypair = true
+		if opts.DeleteKeypair != nil {
+			params.DeleteKeypair = opts.DeleteKeypair
 		} else if len(opts.Keypair) > 0 {
 			params.Keypair = opts.Keypair
 		}
+		params.AutoStart = opts.AutoStart
+		params.ResetPassword = opts.ResetPassword
+		params.Password = opts.Password
 	}
 	{
 		deployInfos, err := ParseServerDeployInfoList(opts.Deploy)
@@ -500,6 +538,7 @@ type ServerRestartOptions struct {
 type ServerMigrateOptions struct {
 	ID         string `help:"ID of server" json:"-"`
 	PreferHost string `help:"Server migration prefer host id or name" json:"prefer_host"`
+	AutoStart  *bool  `help: "Server auto start after migrate" json:"auto_start"`
 	RescueMode *bool  `help:"Migrate server in rescue mode,
 					  all disk must store in shared storage;
 					  default false" json:"rescue_mode"`

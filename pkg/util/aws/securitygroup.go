@@ -1,13 +1,27 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package aws
 
 import (
 	"fmt"
+	"math/rand"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/golang-plus/uuid"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/secrules"
@@ -31,12 +45,22 @@ type SSecurityGroup struct {
 	VpcId             string
 	SecurityGroupId   string
 	Description       string
-	SecurityGroupName string //对应tag中的name标签
+	SecurityGroupName string
 	Permissions       []secrules.SecurityRule
 	Tags              Tags
 
 	// CreationTime      time.Time
 	// InnerAccessPolicy string
+}
+
+func randomString(prefix string, length int) string {
+	bytes := []byte("0123456789abcdefghijklmnopqrstuvwxyz")
+	result := []byte{}
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < length; i++ {
+		result = append(result, bytes[r.Intn(len(bytes))])
+	}
+	return prefix + string(result)
 }
 
 func (self *SSecurityGroup) GetId() string {
@@ -207,12 +231,7 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTa
 	params.SetVpcId(vpcId)
 	// 这里的描述aws 上层代码拼接的描述。并非用户提交的描述，用户描述放置在Yunion本地数据库中。）
 	params.SetDescription(desc)
-	// aws name 要求唯一，且不含中文等字符。所以随机生成一个uuid作为name。实际用户传入的name使用tag标记
-	secid, err := uuid.NewV4()
-	if err != nil {
-		return "", err
-	}
-	params.SetGroupName(secid.String())
+	params.SetGroupName(name)
 
 	group, err := self.ec2Client.CreateSecurityGroup(params)
 	if err != nil {
@@ -238,7 +257,8 @@ func (self *SRegion) createSecurityGroup(vpcId string, name string, secgroupIdTa
 }
 
 func (self *SRegion) createDefaultSecurityGroup(vpcId string) (string, error) {
-	secId, err := self.createSecurityGroup(vpcId, "vpc default", fmt.Sprintf("%s-default", vpcId), "vpc default group")
+	name := randomString(fmt.Sprintf("%s-", vpcId), 9)
+	secId, err := self.createSecurityGroup(vpcId, name, "default", "vpc default group")
 	if err != nil {
 		return "", err
 	}
@@ -267,9 +287,11 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 	params.SetGroupIds([]*string{&secGroupId})
 
 	ret, err := self.ec2Client.DescribeSecurityGroups(params)
+	err = parseNotFoundError(err)
 	if err != nil {
 		return nil, err
 	}
+
 	if len(ret.SecurityGroups) == 1 {
 		s := ret.SecurityGroups[0]
 		vpc, err := self.getVpc(*s.VpcId)
@@ -279,14 +301,11 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 
 		permissions := self.getSecRules(s.IpPermissions, s.IpPermissionsEgress)
 
-		tagspec := TagSpec{ResourceType: "scuritygroup"}
-		tagspec.LoadingEc2Tags(s.Tags)
-
 		return &SSecurityGroup{
 			vpc:               vpc,
 			Description:       *s.Description,
 			SecurityGroupId:   *s.GroupId,
-			SecurityGroupName: tagspec.GetNameTag(),
+			SecurityGroupName: *s.GroupName,
 			VpcId:             *s.VpcId,
 			Permissions:       permissions,
 			RegionId:          self.RegionId,
@@ -395,7 +414,7 @@ func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPe
 	for _, p := range ingress {
 		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleIngress, *p)
 		if err != nil {
-			log.Debugf(err.Error())
+			log.Debugln(err)
 		}
 
 		for _, rule := range ret {
@@ -406,7 +425,7 @@ func (self *SRegion) getSecRules(ingress []*ec2.IpPermission, egress []*ec2.IpPe
 	for _, p := range egress {
 		ret, err := AwsIpPermissionToYunion(secrules.SecurityRuleEgress, *p)
 		if err != nil {
-			log.Debugf(err.Error())
+			log.Debugln(err)
 		}
 
 		for _, rule := range ret {
@@ -433,6 +452,7 @@ func (self *SRegion) GetSecurityGroups(vpcId string, secgroupId string, offset i
 	}
 
 	ret, err := self.ec2Client.DescribeSecurityGroups(params)
+	err = parseNotFoundError(err)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -454,15 +474,12 @@ func (self *SRegion) GetSecurityGroups(vpcId string, secgroupId string, offset i
 			continue
 		}
 
-		tagspec := TagSpec{ResourceType: "scuritygroup"}
-		tagspec.LoadingEc2Tags(item.Tags)
-
 		permissions := self.getSecRules(item.IpPermissions, item.IpPermissionsEgress)
 		group := SSecurityGroup{
 			vpc:               vpc,
 			Description:       *item.Description,
 			SecurityGroupId:   *item.GroupId,
-			SecurityGroupName: tagspec.GetNameTag(),
+			SecurityGroupName: *item.GroupName,
 			VpcId:             *item.VpcId,
 			Permissions:       permissions,
 			RegionId:          self.RegionId,

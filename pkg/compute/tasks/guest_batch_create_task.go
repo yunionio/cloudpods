@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -65,7 +79,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		input, err = host.SetGuestCreateNetworkAndDiskParams(ctx, self.UserCred, input)
 		if err != nil {
 			log.Errorf("host.SetGuestCreateNetworkAndDiskParams fail %s", err)
-			guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+			guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
 			return err
 		}
 		params := input.JSON(input)
@@ -74,25 +88,29 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 
 	input, err = self.GetCreateInput()
 	if err != nil {
-		guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+		guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
 		return err
 	}
-	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, input.Networks, &pendingUsage)
+	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, input.Networks, &pendingUsage, candidate.Nets)
 	self.SetPendingUsage(&pendingUsage)
 
 	if err != nil {
 		log.Errorf("Network failed: %s", err)
-		guest.SetStatus(self.UserCred, models.VM_NETWORK_FAILED, err.Error())
+		guest.SetStatus(self.UserCred, api.VM_NETWORK_FAILED, err.Error())
 		return err
 	}
 
 	guest.GetDriver().PrepareDiskRaidConfig(self.UserCred, host, input.BaremetalDiskConfigs)
-	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, input.Disks, &pendingUsage, true, true, candidate)
+	var backupCandidateDisks []*schedapi.CandidateDisk
+	if candidate.BackupCandidate != nil {
+		backupCandidateDisks = candidate.BackupCandidate.Disks
+	}
+	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, input.Disks, &pendingUsage, true, true, candidate.Disks, backupCandidateDisks)
 	self.SetPendingUsage(&pendingUsage)
 
 	if err != nil {
 		log.Errorf("Disk create failed: %s", err)
-		guest.SetStatus(self.UserCred, models.VM_DISK_FAILED, err.Error())
+		guest.SetStatus(self.UserCred, api.VM_DISK_FAILED, err.Error())
 		return err
 	}
 
@@ -101,7 +119,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 
 	if err != nil {
 		log.Errorf("IsolatedDevices create failed: %s", err)
-		guest.SetStatus(self.UserCred, models.VM_DEVICE_FAILED, err.Error())
+		guest.SetStatus(self.UserCred, api.VM_DEVICE_FAILED, err.Error())
 		return err
 	}
 
@@ -111,7 +129,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		err := host.RebuildRecycledGuest(ctx, self.UserCred, guest)
 		if err != nil {
 			log.Errorf("start guest create task fail %s", err)
-			guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+			guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
 			return err
 		}
 
@@ -124,7 +142,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		err = guest.StartRebuildRootTask(ctx, self.UserCred, "", false, autoStart, passwd, resetPassword, true)
 		if err != nil {
 			log.Errorf("start guest create task fail %s", err)
-			guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+			guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
 			return err
 		}
 		return nil
@@ -133,7 +151,7 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	err = guest.StartGuestCreateTask(ctx, self.UserCred, input, nil, self.GetId())
 	if err != nil {
 		log.Errorf("start guest create task fail %s", err)
-		guest.SetStatus(self.UserCred, models.VM_CREATE_FAILED, err.Error())
+		guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
 		return err
 	}
 	return nil
@@ -151,7 +169,7 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 	if err != nil {
 		db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, err.Error(), self.GetUserCred(), false)
-		notifyclient.NotifySystemError(guest.Id, guest.Name, models.VM_CREATE_FAILED, err.Error())
+		notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_CREATE_FAILED, err.Error())
 		self.SetStageFailed(ctx, err.Error())
 	}
 }

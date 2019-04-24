@@ -1,9 +1,24 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
@@ -124,7 +139,7 @@ func (m *SLoadbalancernetworkManager) DeleteLoadbalancerNetwork(ctx context.Cont
 	return nil
 }
 
-func (m *SLoadbalancernetworkManager) SyncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential, req *SLoadbalancerNetworkRequestData) error {
+func (m *SLoadbalancernetworkManager) syncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential, req *SLoadbalancerNetworkRequestData) error {
 	_network, err := NetworkManager.FetchById(req.NetworkId)
 	if err != nil {
 		return err
@@ -164,6 +179,26 @@ func (m *SLoadbalancernetworkManager) SyncLoadbalancerNetwork(ctx context.Contex
 	return nil
 }
 
-func (lbNetwork *SLoadbalancerNetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return db.DeleteModel(ctx, userCred, lbNetwork)
+func (ln *SLoadbalancerNetwork) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return db.DeleteModel(ctx, userCred, ln)
+}
+
+// Master implements db.IJointModel interface
+func (ln *SLoadbalancerNetwork) Master() db.IStandaloneModel {
+	return db.JointMaster(ln)
+}
+
+// Slave implements db.IJointModel interface
+func (ln *SLoadbalancerNetwork) Slave() db.IStandaloneModel {
+	return db.JointSlave(ln)
+}
+
+// Detach implements db.IJointModel interface
+func (ln *SLoadbalancerNetwork) Detach(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return db.DetachJoint(ctx, userCred, ln)
+}
+
+func (ln *SLoadbalancerNetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := jsonutils.NewDict()
+	return db.JointModelExtra(ln, extra)
 }

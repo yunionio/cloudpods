@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package aws
 
 import (
@@ -12,8 +26,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis/billing"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
 type SMountInstances struct {
@@ -84,13 +99,13 @@ func (self *SDisk) GetStatus() string {
 	// creating | available | in-use | deleting | deleted | error
 	switch self.Status {
 	case "creating":
-		return models.DISK_ALLOCATING
+		return api.DISK_ALLOCATING
 	case "deleting":
-		return models.DISK_DEALLOC
+		return api.DISK_DEALLOC
 	case "error":
-		return models.DISK_ALLOC_FAILED
+		return api.DISK_ALLOC_FAILED
 	default:
-		return models.DISK_READY
+		return api.DISK_READY
 	}
 }
 
@@ -108,14 +123,18 @@ func (self *SDisk) IsEmulated() bool {
 
 func (self *SDisk) GetMetadata() *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
-	data.Add(jsonutils.NewString(models.HYPERVISOR_AWS), "hypervisor")
+	data.Add(jsonutils.NewString(api.HYPERVISOR_AWS), "hypervisor")
 
 	return data
 }
 
 func (self *SDisk) GetBillingType() string {
 	// todo: implement me
-	return models.BILLING_TYPE_PREPAID
+	return billing.BILLING_TYPE_POSTPAID
+}
+
+func (self *SDisk) GetCreatedAt() time.Time {
+	return self.CreationTime
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {
@@ -182,7 +201,7 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string
 		return nil, err
 	} else {
 		snapshot.region = self.storage.zone.region
-		if err := cloudprovider.WaitStatus(snapshot, models.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
+		if err := cloudprovider.WaitStatus(snapshot, api.SNAPSHOT_READY, 15*time.Second, 3600*time.Second); err != nil {
 			return nil, err
 		}
 		return snapshot, nil
@@ -307,12 +326,12 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 				}
 
 				if disk.Device == instance.RootDeviceName {
-					disk.Type = models.DISK_TYPE_SYS
+					disk.Type = api.DISK_TYPE_SYS
 				} else {
-					disk.Type = models.DISK_TYPE_DATA
+					disk.Type = api.DISK_TYPE_DATA
 				}
 			} else {
-				disk.Type = models.DISK_TYPE_DATA
+				disk.Type = api.DISK_TYPE_DATA
 			}
 		}
 
@@ -321,11 +340,11 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 
 	// 	系统盘必须放在第零个位置
 	sort.Slice(disks, func(i, j int) bool {
-		if disks[i].Type == models.DISK_TYPE_SYS {
+		if disks[i].Type == api.DISK_TYPE_SYS {
 			return true
 		}
 
-		if disks[j].Type != models.DISK_TYPE_SYS && disks[i].Device < disks[j].Device {
+		if disks[j].Type != api.DISK_TYPE_SYS && disks[i].Device < disks[j].Device {
 			return true
 		}
 
@@ -337,7 +356,8 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	if len(diskId) == 0 {
-		return nil, fmt.Errorf("GetDisk diskId should not be empty.")
+		// return nil, fmt.Errorf("GetDisk diskId should not be empty.")
+		return nil, cloudprovider.ErrNotFound
 	}
 	disks, total, err := self.GetDisks("", "", "", []string{diskId}, 0, 1)
 	if err != nil {

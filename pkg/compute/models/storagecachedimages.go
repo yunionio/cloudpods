@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -14,22 +28,12 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-)
-
-const (
-	CACHED_IMAGE_STATUS_INIT         = "init"
-	CACHED_IMAGE_STATUS_SAVING       = "saving"
-	CACHED_IMAGE_STATUS_CACHING      = "caching"
-	CACHED_IMAGE_STATUS_READY        = "ready"
-	CACHED_IMAGE_STATUS_DELETING     = "deleting"
-	CACHED_IMAGE_STATUS_CACHE_FAILED = "cache_fail"
-
-	DOWNLOAD_SESSION_LENGTH = 3600 * 3 // 3 hour
 )
 
 type SStoragecachedimageManager struct {
@@ -181,16 +185,22 @@ func (self *SStoragecachedimage) getExtraDetails(extra *jsonutils.JSONDict) *jso
 		extra.Add(jsonutils.NewString(cachedImage.GetName()), "image")
 		extra.Add(jsonutils.NewInt(cachedImage.Size), "size")
 	}
-	extra.Add(jsonutils.NewInt(int64(self.getReferenceCount())), "reference")
+	cnt, _ := self.getReferenceCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "reference")
 	return extra
 }
 
-func (self *SStoragecachedimage) getCdromReferenceCount() int {
-	// TODO
-	return 0
+func (self *SStoragecachedimage) getCdromReferenceCount() (int, error) {
+	cdroms := GuestcdromManager.Query().SubQuery()
+	guests := GuestManager.Query().SubQuery()
+
+	q := cdroms.Query()
+	q = q.Join(guests, sqlchemy.Equals(cdroms.Field("id"), guests.Field("id")))
+	q = q.Filter(sqlchemy.Equals(cdroms.Field("image_id"), self.CachedimageId))
+	return q.CountWithError()
 }
 
-func (self *SStoragecachedimage) getDiskReferenceCount() int {
+func (self *SStoragecachedimage) getDiskReferenceCount() (int, error) {
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	disks := DiskManager.Query().SubQuery()
 	storages := StorageManager.Query().SubQuery()
@@ -202,13 +212,24 @@ func (self *SStoragecachedimage) getDiskReferenceCount() int {
 		sqlchemy.IsFalse(storages.Field("deleted"))))
 	q = q.Filter(sqlchemy.Equals(storages.Field("storagecache_id"), self.StoragecacheId))
 	q = q.Filter(sqlchemy.Equals(disks.Field("template_id"), self.CachedimageId))
-	q = q.Filter(sqlchemy.NOT(sqlchemy.In(disks.Field("status"), []string{DISK_ALLOC_FAILED, DISK_INIT})))
+	q = q.Filter(sqlchemy.NOT(sqlchemy.In(disks.Field("status"), []string{api.DISK_ALLOC_FAILED, api.DISK_INIT})))
 
-	return q.Count()
+	return q.CountWithError()
 }
 
-func (self *SStoragecachedimage) getReferenceCount() int {
-	return self.getCdromReferenceCount() + self.getDiskReferenceCount()
+func (self *SStoragecachedimage) getReferenceCount() (int, error) {
+	totalCnt := 0
+	cnt, err := self.getCdromReferenceCount()
+	if err != nil {
+		return -1, err
+	}
+	totalCnt += cnt
+	cnt, err = self.getDiskReferenceCount()
+	if err != nil {
+		return -1, err
+	}
+	totalCnt += cnt
+	return totalCnt, nil
 }
 
 func (manager *SStoragecachedimageManager) GetStoragecachedimage(cacheId string, imageId string) *SStoragecachedimage {
@@ -231,7 +252,11 @@ func (self *SStoragecachedimage) Detach(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SStoragecachedimage) ValidateDeleteCondition(ctx context.Context) error {
-	if self.getReferenceCount() > 0 {
+	cnt, err := self.getReferenceCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("getReferenceCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Image is in use")
 	}
 	return self.SJointResourceBase.ValidateDeleteCondition(ctx)
@@ -249,7 +274,7 @@ func (self *SStoragecachedimage) isCachedImageInUse() error {
 }
 
 func (self *SStoragecachedimage) isDownloadSessionExpire() bool {
-	if !self.LastDownload.IsZero() && time.Now().Sub(self.LastDownload) < DOWNLOAD_SESSION_LENGTH {
+	if !self.LastDownload.IsZero() && time.Now().Sub(self.LastDownload) < api.DOWNLOAD_SESSION_LENGTH {
 		return false
 	} else {
 		return true
@@ -277,11 +302,11 @@ func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mccl
 	}
 
 	if !isForce && !utils.IsInStringArray(self.Status,
-		[]string{CACHED_IMAGE_STATUS_READY, CACHED_IMAGE_STATUS_DELETING, CACHED_IMAGE_STATUS_CACHE_FAILED}) {
+		[]string{api.CACHED_IMAGE_STATUS_READY, api.CACHED_IMAGE_STATUS_DELETING, api.CACHED_IMAGE_STATUS_CACHE_FAILED}) {
 		return httperrors.NewInvalidStatusError("Cannot uncache in status %s", self.Status)
 	}
 	_, err = db.Update(self, func() error {
-		self.Status = CACHED_IMAGE_STATUS_DELETING
+		self.Status = api.CACHED_IMAGE_STATUS_DELETING
 		return nil
 	})
 	return err
@@ -302,7 +327,7 @@ func (manager *SStoragecachedimageManager) Register(ctx context.Context, userCre
 	cachedimage.StoragecacheId = cacheId
 	cachedimage.CachedimageId = imageId
 	if len(status) == 0 {
-		status = CACHED_IMAGE_STATUS_INIT
+		status = api.CACHED_IMAGE_STATUS_INIT
 	}
 	cachedimage.Status = status
 
@@ -368,10 +393,18 @@ func (self *SStoragecachedimage) syncRemoveCloudImage(ctx context.Context, userC
 	if err != nil {
 		return err
 	}
-	if image != nil && image.getStoragecacheCount() == 0 {
-		err = image.Delete(ctx, userCred)
+	if image != nil {
+		cnt, err := image.getStoragecacheCount()
 		if err != nil {
-			log.Errorf("image delete error %s", err)
+			log.Errorf("getStoragecacheCount fail %s", err)
+			return err
+		}
+		if cnt == 0 {
+			err = image.Delete(ctx, userCred)
+			if err != nil {
+				log.Errorf("image delete error %s", err)
+				return err
+			}
 		}
 	}
 	return nil

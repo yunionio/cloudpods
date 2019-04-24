@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package db
 
 import (
@@ -124,33 +138,57 @@ func isJointObjectRbacAllowed(manager IJointModelManager, item IJointModel, user
 }
 
 func IsAdminAllowList(userCred mcclient.TokenCredential, manager IModelManager) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
 }
 
 func IsAdminAllowCreate(userCred mcclient.TokenCredential, manager IModelManager) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionCreate)
 }
 
 func IsAdminAllowClassPerform(userCred mcclient.TokenCredential, manager IModelManager, action string) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, action)
 }
 
 func IsAdminAllowGet(userCred mcclient.TokenCredential, obj IModel) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionGet)
 }
 
 func IsAdminAllowGetSpec(userCred mcclient.TokenCredential, obj IModel, spec string) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionGet, spec)
 }
 
 func IsAdminAllowPerform(userCred mcclient.TokenCredential, obj IModel, action string) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionPerform, action)
 }
 
 func IsAdminAllowUpdate(userCred mcclient.TokenCredential, obj IModel) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionUpdate)
 }
 
 func IsAdminAllowDelete(userCred mcclient.TokenCredential, obj IModel) bool {
+	if userCred == nil {
+		return false
+	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionDelete)
 }

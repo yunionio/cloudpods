@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -306,7 +320,7 @@ func (manager *SIsolatedDeviceManager) attachSpecificDeviceToGuest(ctx context.C
 
 func (manager *SIsolatedDeviceManager) attachHostDeviceToGuestByModel(ctx context.Context, guest *SGuest, host *SHost, devConfig *api.IsolatedDeviceConfig, userCred mcclient.TokenCredential) error {
 	if len(devConfig.Model) == 0 {
-		return fmt.Errorf("Not found model from info: %s", devConfig)
+		return fmt.Errorf("Not found model from info: %#v", devConfig)
 	}
 	devs, err := manager.findHostUnusedByModel(devConfig.Model, host.Id)
 	if err != nil || len(devs) == 0 {
@@ -403,15 +417,23 @@ type IsolatedDeviceCountStat struct {
 	Gpus    int
 }
 
-func (manager *SIsolatedDeviceManager) totalCount(devType, hostTypes []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) int {
-	return manager.totalCountQ(devType, hostTypes, resourceTypes, providers, rangeObj).Count()
+func (manager *SIsolatedDeviceManager) totalCount(devType, hostTypes []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) (int, error) {
+	return manager.totalCountQ(devType, hostTypes, resourceTypes, providers, rangeObj).CountWithError()
 }
 
-func (manager *SIsolatedDeviceManager) TotalCount(hostType []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) IsolatedDeviceCountStat {
-	return IsolatedDeviceCountStat{
-		Devices: manager.totalCount(nil, hostType, resourceTypes, providers, rangeObj),
-		Gpus:    manager.totalCount(VALID_GPU_TYPES, hostType, resourceTypes, providers, rangeObj),
+func (manager *SIsolatedDeviceManager) TotalCount(hostType []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) (IsolatedDeviceCountStat, error) {
+	stat := IsolatedDeviceCountStat{}
+	devCnt, err := manager.totalCount(nil, hostType, resourceTypes, providers, rangeObj)
+	if err != nil {
+		return stat, err
 	}
+	gpuCnt, err := manager.totalCount(VALID_GPU_TYPES, hostType, resourceTypes, providers, rangeObj)
+	if err != nil {
+		return stat, err
+	}
+	stat.Devices = devCnt
+	stat.Gpus = gpuCnt
+	return stat, nil
 }
 
 func (self *SIsolatedDevice) getDesc() *jsonutils.JSONDict {
@@ -425,13 +447,17 @@ func (self *SIsolatedDevice) getDesc() *jsonutils.JSONDict {
 	return desc
 }
 
+func (man *SIsolatedDeviceManager) GetSpecShouldCheckStatus(query *jsonutils.JSONDict) (bool, error) {
+	return true, nil
+}
+
 func (self *SIsolatedDevice) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 	if statusCheck {
 		if len(self.GuestId) > 0 {
 			return nil
 		}
 		host := self.getHost()
-		if host.Status != BAREMETAL_RUNNING || !host.Enabled {
+		if host.Status != api.BAREMETAL_RUNNING || !host.Enabled {
 			return nil
 		}
 	}

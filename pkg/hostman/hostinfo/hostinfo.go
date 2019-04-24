@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package hostinfo
 
 import (
@@ -37,16 +51,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/winutils"
 )
 
-var (
-	KVM_MODULE_INTEL     = "kvm-intel"
-	KVM_MODULE_AMD       = "kvm-amd"
-	KVM_MODULE_UNSUPPORT = "unsupport"
-
-	HOST_NEST_UNSUPPORT = "0"
-	HOST_NEST_SUPPORT   = "1"
-	HOST_NEST_ENABLE    = "3"
-)
-
 type SHostInfo struct {
 	isRegistered     bool
 	IsRegistered     chan struct{}
@@ -55,9 +59,6 @@ type SHostInfo struct {
 
 	saved  bool
 	pinger *SHostPingTask
-
-	kvmModuleSupport string
-	nestStatus       string
 
 	Cpu     *SCPUInfo
 	Mem     *SMemory
@@ -107,10 +108,7 @@ func (h *SHostInfo) GetMediumType() string {
 }
 
 func (h *SHostInfo) IsKvmSupport() bool {
-	if h.kvmModuleSupport == KVM_MODULE_UNSUPPORT {
-		return false
-	}
-	return true
+	return sysutils.IsKvmSupport()
 }
 
 func (h *SHostInfo) IsNestedVirtualization() bool {
@@ -276,9 +274,8 @@ func (h *SHostInfo) detectHostInfo() error {
 	}
 	h.sysinfo.SDMISystemInfo = sysinfo
 
-	h.detectiveKVMModuleSupport()
-	h.detectiveNestSupport()
-	h.tryEnableNest()
+	h.detectKvmModuleSupport()
+	h.detectNestSupport()
 
 	if err := h.detectiveSyssoftwareInfo(); err != nil {
 		return err
@@ -382,7 +379,7 @@ func (h *SHostInfo) EnableNativeHugepages() error {
 			log.Errorln(err)
 			_, err = procutils.NewCommand("sh", "-c", "echo 0 > /proc/sys/vm/nr_hugepages").Run()
 			if err != nil {
-				log.Warningf(err.Error())
+				log.Warningln(err)
 			}
 			return fmt.Errorf("Failed to set native hugepages, " +
 				"the system might have run out of contiguous memory, fall back to 0")
@@ -444,147 +441,16 @@ func (h *SHostInfo) resetIptables() error {
 	return nil
 }
 
-func (h *SHostInfo) detectiveKVMModuleSupport() {
-	if len(h.kvmModuleSupport) == 0 {
-		h.kvmModuleSupport = h._detectiveKVMModuleSupport()
-	}
+func (h *SHostInfo) detectKvmModuleSupport() string {
+	return sysutils.GetKVMModuleSupport()
 }
 
-func (h *SHostInfo) _detectiveKVMModuleSupport() string {
-	var km = KVM_MODULE_UNSUPPORT
-	if h.modprobeKvmModule(KVM_MODULE_INTEL, false, false) {
-		km = KVM_MODULE_INTEL
-	} else if h.modprobeKvmModule(KVM_MODULE_AMD, false, false) {
-		km = KVM_MODULE_AMD
-	}
-	return km
-}
-
-func (h *SHostInfo) modprobeKvmModule(name string, remove, nest bool) bool {
-	var params = []string{"modprobe"}
-	if remove {
-		params = append(params, "-r")
-	}
-	params = append(params, name)
-	if nest {
-		params = append(params, "nested=1")
-	}
-	if _, err := procutils.NewCommand(params[0], params[1:]...).Run(); err != nil {
-		return false
-	}
-	return true
-}
-
-func (h *SHostInfo) getKvmModuleSupport() string {
-	if len(h.kvmModuleSupport) == 0 {
-		h.detectiveKVMModuleSupport()
-	}
-	return h.kvmModuleSupport
-}
-
-func (h *SHostInfo) detectiveNestSupport() {
-	if len(h.nestStatus) == 0 {
-		h.nestStatus = h._detectiveNestSupport()
-	}
-	h.sysinfo.Nest = h.nestStatus2Str(h.nestStatus)
-}
-
-func (h *SHostInfo) _detectiveNestSupport() string {
-	var (
-		moduleName = h.getKvmModuleSupport()
-		nestStatus = HOST_NEST_UNSUPPORT
-	)
-
-	if moduleName != KVM_MODULE_UNSUPPORT && h._isNestSupport(moduleName) {
-		nestStatus = HOST_NEST_SUPPORT
-	}
-	return nestStatus
-}
-
-func (h *SHostInfo) _isNestSupport(name string) bool {
-	output, err := procutils.NewCommand("modinfo", name).Run()
-	if err != nil {
-		log.Errorln(err)
-		return false
-	}
-
-	// TODO Test
-	var re = regexp.MustCompile(`parm:\s*nested:`)
-	for _, line := range strings.Split(string(output), "\n") {
-		if re.MatchString(line) {
-			return true
-		}
-	}
-	return false
-}
-
-func (h *SHostInfo) nestStatus2Str(status string) string {
-	if status == HOST_NEST_ENABLE {
-		return "enabled"
+func (h *SHostInfo) detectNestSupport() {
+	if sysutils.IsNestEnabled() {
+		h.sysinfo.Nest = "enabled"
 	} else {
-		return "disbaled"
+		h.sysinfo.Nest = "disabled"
 	}
-}
-
-func (h *SHostInfo) tryEnableNest() {
-	if h.nestStatus == HOST_NEST_SUPPORT {
-		if h.loadKvmModuleWithNest(h.kvmModuleSupport) {
-			h.nestStatus = HOST_NEST_ENABLE
-		}
-	}
-	h.sysinfo.Nest = h.nestStatus2Str(h.nestStatus)
-}
-
-func (h *SHostInfo) loadKvmModuleWithNest(name string) bool {
-	var notload = true
-	if h.checkKvmModuleInstall(name) {
-		nest := h.getModuleParameter(name, "nested")
-		if nest == "Y" {
-			return true
-		}
-		notload = h.unloadKvmModule(name)
-	}
-	if notload {
-		if h.modprobeKvmModule(name, false, true) {
-			return true
-		}
-	}
-	return false
-}
-
-func (h *SHostInfo) unloadKvmModule(name string) bool {
-	return h.modprobeKvmModule(name, true, false)
-}
-
-func (h *SHostInfo) getModuleParameter(name, moduel string) string {
-	pa := path.Join("/sys/module/", strings.Replace(name, "-", "_", -1), "/parameters/", moduel)
-	if f, err := os.Stat(pa); err == nil {
-		if f.IsDir() {
-			return ""
-		}
-		cont, err := fileutils2.FileGetContents(pa)
-		if err != nil {
-			log.Errorln(err)
-			return ""
-		}
-		return strings.TrimSpace(cont)
-	}
-	return ""
-}
-
-func (h *SHostInfo) checkKvmModuleInstall(name string) bool {
-	output, err := procutils.NewCommand("lsmod").Run()
-	if err != nil {
-		log.Errorln(err)
-		return false
-	}
-	for _, line := range strings.Split(string(output), "\n") {
-		lm := strings.Split(line, " ")
-		if len(lm) > 0 && utils.IsInStringArray(strings.Replace(name, "-", "_", -1), lm) {
-			return true
-		}
-	}
-	return false
 }
 
 func (h *SHostInfo) detectiveOsDist() {
@@ -805,9 +671,9 @@ func (h *SHostInfo) getHostInfo(zoneId string) {
 
 func (h *SHostInfo) setHostname(name string) {
 	h.FullName = name
-	_, err := procutils.NewCommand("hostnamectl", "set-hostname", name).Run()
+	err := sysutils.SetHostname(name)
 	if err != nil {
-		log.Errorln("Fail to set system hostname: %s", err)
+		log.Errorf("Fail to set system hostname: %s", err)
 	}
 }
 
@@ -815,8 +681,21 @@ func (h *SHostInfo) fetchHostname() string {
 	if len(options.HostOptions.Hostname) > 0 {
 		return options.HostOptions.Hostname
 	} else {
+		hn, err := os.Hostname()
+		if err != nil {
+			log.Fatalf("fail to get hostname %s", err)
+			return ""
+		}
+		dotIdx := strings.IndexByte(hn, '.')
+		if dotIdx >= 0 {
+			hn = hn[:dotIdx]
+		}
+		hn = strings.ToLower(hn)
+		if len(hn) == 0 {
+			hn = "host"
+		}
 		masterIp := h.GetMasterIp()
-		return "host-" + masterIp
+		return hn + "-" + strings.Replace(masterIp, ".", "-", -1)
 	}
 }
 
@@ -1483,7 +1362,7 @@ func Instance() *SHostInfo {
 		var err error
 		hostInfo, err = NewHostInfo()
 		if err != nil {
-			log.Fatalf(err.Error())
+			log.Fatalln(err)
 		}
 	}
 	return hostInfo

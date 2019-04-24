@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package qcloud
 
 import (
@@ -7,8 +21,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -102,7 +116,7 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 		log.Errorf("getiamge fail %s", err)
 		return "", err
 	}
-	if img.ImageState != ImageStatusAvailable {
+	if img.ImageState != ImageStatusNormal && img.ImageState != ImageStatusUsing {
 		log.Errorf("image %s status %s", imgId, img.ImageState)
 		return "", fmt.Errorf("image not ready")
 	}
@@ -209,19 +223,19 @@ func (self *SHost) GetEnabled() bool {
 }
 
 func (self *SHost) GetStatus() string {
-	return models.HOST_STATUS_RUNNING
+	return api.HOST_STATUS_RUNNING
 }
 
 func (self *SHost) GetHostStatus() string {
-	return models.HOST_ONLINE
+	return api.HOST_ONLINE
 }
 
 func (self *SHost) GetHostType() string {
-	return models.HOST_TYPE_QCLOUD
+	return api.HOST_TYPE_QCLOUD
 }
 
 func (self *SHost) GetStorageType() string {
-	return models.DISK_TYPE_HYBRID
+	return api.DISK_TYPE_HYBRID
 }
 
 func (self *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
