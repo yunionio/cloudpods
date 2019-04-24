@@ -60,7 +60,7 @@ func init() {
 		return nil
 	})
 
-	type InstanceCrateOptions struct {
+	type InstanceCreateOptions struct {
 		NAME          string `help:"Name of instance"`
 		IMAGE         string `help:"image ID"`
 		CPU           int8   `help:"CPU count"`
@@ -73,7 +73,7 @@ func init() {
 		PublicKey     string `help:"PublicKey"`
 		OsType        string `help:"Operation system type" choices:"Linux|Windows"`
 	}
-	shellutils.R(&InstanceCrateOptions{}, "instance-create", "Create a instance", func(cli *azure.SRegion, args *InstanceCrateOptions) error {
+	shellutils.R(&InstanceCreateOptions{}, "instance-create", "Create a instance", func(cli *azure.SRegion, args *InstanceCreateOptions) error {
 		instance, e := cli.CreateInstanceSimple(args.NAME, args.IMAGE, args.OsType, args.CPU, args.MEMORYGB, args.SYSDISKSIZEGB, args.STORAGE, args.Disk, args.NETWORK, args.PASSWD, args.PublicKey)
 		if e != nil {
 			return e
