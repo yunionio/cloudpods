@@ -870,6 +870,11 @@ func (self *SDisk) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SDisk) GetTemplateId() string {
+	imageObj, err := CachedimageManager.FetchById(self.TemplateId)
+	if err != nil || imageObj == nil {
+		log.Errorf("failed to found disk %s(%s) templateId", self.Name, self.Id)
+		return ""
+	}
 	return self.TemplateId
 }
 
