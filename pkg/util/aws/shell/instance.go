@@ -25,7 +25,7 @@ func init() {
 		return nil
 	})
 
-	type InstanceCrateOptions struct {
+	type InstanceCreateOptions struct {
 		NAME      string `help:"name of instance"`
 		IMAGE     string `help:"image ID"`
 		CPU       int    `help:"CPU count"`
@@ -35,7 +35,7 @@ func init() {
 		NETWORK   string `help:"Network ID"`
 		PUBLICKEY string `help:"PublicKey file path"`
 	}
-	shellutils.R(&InstanceCrateOptions{}, "instance-create", "Create a instance", func(cli *aws.SRegion, args *InstanceCrateOptions) error {
+	shellutils.R(&InstanceCreateOptions{}, "instance-create", "Create a instance", func(cli *aws.SRegion, args *InstanceCreateOptions) error {
 		content, err := ioutil.ReadFile(args.PUBLICKEY)
 		if err != nil {
 			return err

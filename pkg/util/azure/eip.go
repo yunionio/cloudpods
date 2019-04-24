@@ -109,7 +109,24 @@ func (self *SEipAddress) Delete() error {
 }
 
 func (region *SRegion) DeallocateEIP(eipId string) error {
-	return region.client.Delete(eipId)
+	startTime := time.Now()
+	timeout := time.Minute * 3
+	for {
+		err := region.client.Delete(eipId)
+		if err == nil {
+			return nil
+		}
+		// {"error":{"code":"PublicIPAddressCannotBeDeleted","details":[],"message":"Public IP address /subscriptions/d4f0ec08-3e28-4ae5-bdf9-3dc7c5b0eeca/resourceGroups/Default/providers/Microsoft.Network/publicIPAddresses/eip-for-test-wwl can not be deleted since it is still allocated to resource /subscriptions/d4f0ec08-3e28-4ae5-bdf9-3dc7c5b0eeca/resourceGroups/Default/providers/Microsoft.Network/networkInterfaces/test-wwl-ipconfig."}}
+		// 刚解绑eip后可能数据未刷新，需要再次尝试
+		if strings.Contains(err.Error(), "it is still allocated to resource") {
+			time.Sleep(time.Second * 5)
+		} else {
+			return err
+		}
+		if time.Now().Sub(startTime) > timeout {
+			return err
+		}
+	}
 }
 
 func (self *SEipAddress) Dissociate() error {

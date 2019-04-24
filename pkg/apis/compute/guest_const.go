@@ -172,7 +172,8 @@ var HOSTTYPE_HYPERVISOR = map[string]string{
 }
 
 const (
-	VM_AWS_DEFAULT_LOGIN_USER = "ec2user"
+	VM_AWS_DEFAULT_LOGIN_USER   = "ec2user"
+	VM_AZURE_DEFAULT_LOGIN_USER = "toor"
 
 	VM_METADATA_APP_TAGS            = "app_tags"
 	VM_METADATA_CREATE_PARAMS       = "create_params"
