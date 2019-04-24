@@ -59,7 +59,7 @@ func (p *NetworkSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCa
 	return ret
 }
 
-func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, res ISchedtagCandidateResource, input ISchedtagCustomer) error {
+func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, _ core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) error {
 	network := res.(*api.CandidateNetwork)
 	net := input.(*netW)
 	if net.Network != "" {
