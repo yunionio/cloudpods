@@ -45,9 +45,10 @@ func (m *SGuestManager) GuestCreateFromLibvirt(
 		}
 		iDisk := storage.CreateDisk(diskId)
 
-		output, err := procutils.NewCommand("mv", diskPath, iDisk.GetPath()).Run()
+		// use symbol link replace mv, more security
+		output, err := procutils.NewCommand("ln", "-s", diskPath, iDisk.GetPath()).Run()
 		if err != nil {
-			return nil, fmt.Errorf("Mv disk from %s to %s error %s", diskPath, iDisk.GetPath(), output)
+			return nil, fmt.Errorf("Symbol link disk from %s to %s error %s", diskPath, iDisk.GetPath(), output)
 		}
 		disksPath.Set(diskId, jsonutils.NewString(iDisk.GetPath()))
 	}
@@ -221,6 +222,9 @@ func (m *SGuestManager) LibvirtDomainDiskToDiskConfig(
 	domainDisks []libvirtxml.DomainDisk) ([]compute.SImportDisk, error) {
 	var diskConfigs = []compute.SImportDisk{}
 	for _, disk := range domainDisks {
+		if disk.Device != "disk" {
+			continue
+		}
 		if disk.Source == nil || disk.Source.File == nil {
 			return nil, fmt.Errorf("Domain disk missing source file ?")
 		}
