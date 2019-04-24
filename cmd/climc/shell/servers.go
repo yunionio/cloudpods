@@ -87,6 +87,32 @@ func init() {
 		return nil
 	})
 
+	R(&options.ServerBatchMetadataOptions{}, "server-batch-add-tag", "add tags for some server", func(s *mcclient.ClientSession, opts *options.ServerBatchMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Servers.PerformClassAction(s, "batch-user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.ServerBatchMetadataOptions{}, "server-batch-set-tag", "Set tags for some server", func(s *mcclient.ClientSession, opts *options.ServerBatchMetadataOptions) error {
+		params, err := opts.Params()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Servers.PerformClassAction(s, "batch-set-user-metadata", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&options.ServerMetadataOptions{}, "server-add-tag", "Set tag of a server", func(s *mcclient.ClientSession, opts *options.ServerMetadataOptions) error {
 		params, err := opts.Params()
 		if err != nil {

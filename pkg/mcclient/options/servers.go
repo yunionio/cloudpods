@@ -545,3 +545,32 @@ func (opts *ServerMetadataOptions) Params() (*jsonutils.JSONDict, error) {
 	}
 	return params, nil
 }
+
+type ServerBatchMetadataOptions struct {
+	Guests []string `help:"IDs or names of server" json:"-"`
+	TAGS   []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`
+}
+
+func (opts *ServerBatchMetadataOptions) Params() (*jsonutils.JSONDict, error) {
+	params := jsonutils.NewDict()
+	if len(opts.Guests) == 0 {
+		return nil, fmt.Errorf("missing guest option")
+	}
+	params.Add(jsonutils.Marshal(opts.Guests), "guests")
+	metadata := jsonutils.NewDict()
+	for _, tag := range opts.TAGS {
+		info := strings.Split(tag, "=")
+		if len(info) == 2 {
+			if len(info[0]) == 0 {
+				return nil, fmt.Errorf("invalidate tag info %s", tag)
+			}
+			metadata.Add(jsonutils.NewString(info[1]), info[0])
+		} else if len(info) == 1 {
+			metadata.Add(jsonutils.NewString(info[0]), info[0])
+		} else {
+			return nil, fmt.Errorf("invalidate tag info %s", tag)
+		}
+	}
+	params.Add(metadata, "metadata")
+	return params, nil
+}
