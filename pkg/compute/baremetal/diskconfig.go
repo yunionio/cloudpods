@@ -592,3 +592,36 @@ func GroupLayoutResultsByDriverAdapter(layouts []Layout) []*DriverAdapterDiskCon
 	}
 	return ret
 }
+
+func ValidateDiskConfigs(confs []*api.BaremetalDiskConfig) error {
+	if len(confs) == 0 {
+		return nil
+	}
+	for idx, conf := range confs {
+		if conf.Conf != DISK_CONF_NONE {
+			// raid validate
+			if idx > 0 {
+				preConf := confs[idx-1]
+				if preConf.Conf == DISK_CONF_NONE {
+					return fmt.Errorf("Raid config %d must before none raid config", idx)
+				}
+			}
+		} else {
+			// none raid validate
+			if idx+1 == len(confs) {
+				return nil
+			}
+			restConfs := confs[idx+1:]
+			hasRaidConf := false
+			for _, restConf := range restConfs {
+				if restConf.Conf != DISK_CONF_NONE {
+					hasRaidConf = true
+				}
+			}
+			if hasRaidConf {
+				return fmt.Errorf("Raid config after none raid config %d", idx)
+			}
+		}
+	}
+	return nil
+}
