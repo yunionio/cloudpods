@@ -1062,3 +1062,59 @@ func TestGetDiskSpecs(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateDiskConfigs(t *testing.T) {
+	tests := []struct {
+		name    string
+		confs   []*api.BaremetalDiskConfig
+		wantErr bool
+	}{
+		{
+			name:    "empty",
+			confs:   []*api.BaremetalDiskConfig{},
+			wantErr: false,
+		},
+		{
+			name: "none_raid",
+			confs: []*api.BaremetalDiskConfig{
+				{Conf: DISK_CONF_NONE},
+				{Conf: DISK_CONF_RAID0},
+			},
+			wantErr: true,
+		},
+		{
+			name: "raid_none_raid",
+			confs: []*api.BaremetalDiskConfig{
+				{Conf: DISK_CONF_RAID0},
+				{Conf: DISK_CONF_NONE},
+				{Conf: DISK_CONF_RAID5},
+			},
+			wantErr: true,
+		},
+		{
+			name: "nones",
+			confs: []*api.BaremetalDiskConfig{
+				{Conf: DISK_CONF_NONE},
+				{Conf: DISK_CONF_NONE},
+			},
+			wantErr: false,
+		},
+		{
+			name: "raids_nones",
+			confs: []*api.BaremetalDiskConfig{
+				{Conf: DISK_CONF_RAID0},
+				{Conf: DISK_CONF_RAID5},
+				{Conf: DISK_CONF_NONE},
+				{Conf: DISK_CONF_NONE},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ValidateDiskConfigs(tt.confs); (err != nil) != tt.wantErr {
+				t.Errorf("ValidateDiskConfigs() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
