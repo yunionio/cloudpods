@@ -5,7 +5,7 @@ type SOpenvswitch struct {
 }
 
 func NewOpenvswitchService() *SOpenvswitch {
-	return &SOpenvswitch{&SBaseSystemService{"openvswitch", nil}}
+	return &SOpenvswitch{NewBaseSystemService("openvswitch", nil)}
 }
 
 func (s *SOpenvswitch) Reload(kwargs map[string]interface{}) error {

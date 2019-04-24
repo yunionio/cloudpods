@@ -5,7 +5,7 @@ type SLxcfs struct {
 }
 
 func NewLxcfsService() *SLxcfs {
-	return &SLxcfs{&SBaseSystemService{"lxcfs", nil}}
+	return &SLxcfs{NewBaseSystemService("lxcfs", nil)}
 }
 
 func (s *SLxcfs) Reload(kwargs map[string]interface{}) error {

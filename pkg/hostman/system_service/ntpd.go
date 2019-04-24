@@ -7,7 +7,7 @@ type SNtpd struct {
 }
 
 func NewNtpdService() *SNtpd {
-	return &SNtpd{&SBaseSystemService{"ntpd", nil}}
+	return &SNtpd{NewBaseSystemService("ntpd", nil)}
 }
 
 func (s *SNtpd) GetConfig(kwargs map[string]interface{}) string {
