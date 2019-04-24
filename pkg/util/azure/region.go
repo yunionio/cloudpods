@@ -414,7 +414,7 @@ func (self *SRegion) fetchInfrastructure() error {
 	return nil
 }
 
-func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, memGB int, storageType string, dataDiskSizesGB []int, networkId string, passwd string, publicKey string) (*SInstance, error) {
+func (self *SRegion) CreateInstanceSimple(name string, imgId, osType string, cpu int8, memMb int, sysDiskSizeGB int, storageType string, dataDiskSizesGB []int, networkId string, passwd string, publicKey string) (*SInstance, error) {
 	izones, err := self.GetIZones()
 	if err != nil {
 		return nil, err
@@ -427,22 +427,29 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId string, cpu int, me
 			desc := &cloudprovider.SManagedVMCreateConfig{
 				Name:              name,
 				ExternalImageId:   imgId,
-				SysDisk:           cloudprovider.SDiskInfo{SizeGB: 0, StorageType: storageType},
-				Cpu:               cpu,
-				MemoryMB:          memGB * 1024,
+				SysDisk:           cloudprovider.SDiskInfo{SizeGB: sysDiskSizeGB, StorageType: storageType},
+				Cpu:               int(cpu),
+				MemoryMB:          memMb,
 				ExternalNetworkId: networkId,
 				Password:          seclib2.RandomPassword2(12),
 				DataDisks:         []cloudprovider.SDiskInfo{},
 				PublicKey:         publicKey,
+				OsType:            osType,
+			}
+			if len(passwd) > 0 {
+				desc.Password = passwd
 			}
 			for _, sizeGB := range dataDiskSizesGB {
 				desc.DataDisks = append(desc.DataDisks, cloudprovider.SDiskInfo{SizeGB: sizeGB, StorageType: storageType})
 			}
-			inst, err := z.getHost().CreateVM(desc)
+			host := z.getHost()
+			inst, err := host.CreateVM(desc)
 			if err != nil {
 				return nil, err
 			}
-			return inst.(*SInstance), nil
+			instance := inst.(*SInstance)
+			instance.host = host
+			return instance, nil
 		}
 	}
 	return nil, fmt.Errorf("cannot find network %s", networkId)
