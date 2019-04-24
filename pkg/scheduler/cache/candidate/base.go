@@ -69,6 +69,10 @@ func (b baseHostGetter) Storages() []*api.CandidateStorage {
 	return b.h.Storages
 }
 
+func (b baseHostGetter) ResourceType() string {
+	return reviseResourceType(b.h.ResourceType)
+}
+
 func reviseResourceType(resType string) string {
 	if resType == "" {
 		return computeapi.HostResourceTypeDefault

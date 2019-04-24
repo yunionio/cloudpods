@@ -204,7 +204,7 @@ func (p *DiskSchedtagPredicate) Execute(u *core.Unit, c core.Candidater) (bool, 
 	for idx, d := range disks {
 		fitStorages := make([]*api.CandidateStorage, 0)
 		for _, s := range storages {
-			if p.isStorageFitDisk(s, d) {
+			if p.isStorageFitDisk(s, c, d) {
 				fitStorages = append(fitStorages, s)
 			}
 		}
@@ -330,12 +330,15 @@ func (p *DiskSchedtagPredicate) GetHypervisorDriver() models.IGuestDriver {
 	return models.GetDriver(p.Hypervisor)
 }
 
-func (p *DiskSchedtagPredicate) isStorageFitDisk(storage *api.CandidateStorage, d *computeapi.DiskConfig) bool {
+func (p *DiskSchedtagPredicate) isStorageFitDisk(storage *api.CandidateStorage, c core.Candidater, d *computeapi.DiskConfig) bool {
 	if d.Storage != "" {
 		if storage.Id == d.Storage || storage.Name == d.Storage {
 			return true
 		}
 		return false
+	}
+	if c.Getter().ResourceType() == computeapi.HostResourceTypePrepaidRecycle {
+		return true
 	}
 	if storage.StorageType == d.Backend {
 		return true
