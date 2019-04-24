@@ -72,13 +72,16 @@ func (p *DiskSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCandi
 	return ret
 }
 
-func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, res ISchedtagCandidateResource, input ISchedtagCustomer) error {
+func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) error {
 	storage := res.(*api.CandidateStorage)
 	d := input.(*diskW)
 	if d.Storage != "" {
 		if storage.Id != d.Storage && storage.Name != d.Storage {
 			return fmt.Errorf("Storage name %s != (%s:%s)", d.Storage, storage.Name, storage.Id)
 		}
+	}
+	if c.Getter().ResourceType() == computeapi.HostResourceTypePrepaidRecycle {
+		return nil
 	}
 	if !(len(d.Backend) == 0 || d.Backend == computeapi.STORAGE_LOCAL) {
 		if storage.StorageType != d.Backend {
