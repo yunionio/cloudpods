@@ -98,6 +98,7 @@ func (self *HostImportLibvirtServersTask) StartImportServers(
 		}
 
 		if success {
+			guest.SetMetadata(ctx, "__is_import", "ture", self.UserCred)
 			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_LIBVIRT_SERVERS, note, self.UserCred)
 		} else {
 			log.Errorln(note)
