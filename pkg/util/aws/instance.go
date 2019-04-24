@@ -914,7 +914,7 @@ func (self *SRegion) ReplaceSystemDisk(ctx context.Context, instanceId string, i
 		defer self.DeleteVM(_id)
 	} else {
 		log.Debugf("ReplaceSystemDisk create temp server failed. %s", err)
-		return "",fmt.Errorf("ReplaceSystemDisk create temp server failed.")
+		return "", fmt.Errorf("ReplaceSystemDisk create temp server failed.")
 	}
 
 	self.ec2Client.WaitUntilInstanceRunning(&ec2.DescribeInstancesInput{InstanceIds: []*string{&_id}})

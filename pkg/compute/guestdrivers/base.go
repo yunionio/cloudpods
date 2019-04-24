@@ -248,3 +248,31 @@ func (self *SBaseGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest
 func (self *SBaseGuestDriver) IsSupportGuestClone() bool {
 	return true
 }
+
+func (self *SBaseGuestDriver) RequestSyncSecgroupsOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
+	return nil // do nothing
+}
+
+func (self *SBaseGuestDriver) GetGuestSecgroupVpcid(guest *models.SGuest) (string, error) {
+	vpcId := ""
+	guestnets, err := guest.GetNetworks("")
+	if err != nil {
+		return "", err
+	}
+	for _, network := range guestnets {
+		if vpc := network.GetNetwork().GetVpc(); vpc != nil {
+			vpcId = vpc.ExternalId
+			break
+		}
+	}
+	return vpcId, nil
+}
+
+func (self *SBaseGuestDriver) OnGuestDeployTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	if jsonutils.QueryBoolean(task.GetParams(), "restart", false) {
+		task.SetStage("OnDeployStartGuestComplete", nil)
+		return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
+	}
+	task.SetStage("OnDeployGuestSyncstatusComplete", nil)
+	return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
+}

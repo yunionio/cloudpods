@@ -158,15 +158,6 @@ func (self *SVirtualizedGuestDriver) RequestDeleteDetachedDisk(ctx context.Conte
 		jsonutils.QueryBoolean(task.GetParams(), "override_pending_delete", false))
 }
 
-func (self *SVirtualizedGuestDriver) OnGuestDeployTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	if jsonutils.QueryBoolean(task.GetParams(), "restart", false) {
-		task.SetStage("OnDeployStartGuestComplete", nil)
-		return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
-	}
-	task.SetStage("OnDeployGuestSyncstatusComplete", nil)
-	return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
-}
-
 func (self *SVirtualizedGuestDriver) StartGuestSyncstatusTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestSyncstatusTask", guest, userCred, nil, parentTaskId, "", nil)
 	if err != nil {
