@@ -87,6 +87,10 @@ func (b baseHostGetter) Networks() []*api.CandidateNetwork {
 	return b.h.Networks
 }
 
+func (b baseHostGetter) ResourceType() string {
+	return reviseResourceType(b.h.ResourceType)
+}
+
 func reviseResourceType(resType string) string {
 	if resType == "" {
 		return computeapi.HostResourceTypeDefault

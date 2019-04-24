@@ -237,7 +237,7 @@ type ISchedtagPredicateInstance interface {
 
 	GetInputs(u *core.Unit) []ISchedtagCustomer
 	GetResources(c core.Candidater) []ISchedtagCandidateResource
-	IsResourceFitInput(unit *core.Unit, res ISchedtagCandidateResource, input ISchedtagCustomer) error
+	IsResourceFitInput(unit *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) error
 
 	DoSelect(c core.Candidater, input ISchedtagCustomer, res []ISchedtagCandidateResource) []ISchedtagCandidateResource
 	AddSelectResult(index int, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource)
@@ -392,7 +392,7 @@ func (p *BaseSchedtagPredicate) Execute(
 		fitResources := make([]ISchedtagCandidateResource, 0)
 		errs := make([]error, 0)
 		for _, res := range resources {
-			if err := sp.IsResourceFitInput(u, res, input); err == nil {
+			if err := sp.IsResourceFitInput(u, c, res, input); err == nil {
 				fitResources = append(fitResources, res)
 			} else {
 				errs = append(errs, err)
@@ -408,7 +408,6 @@ func (p *BaseSchedtagPredicate) Execute(
 
 		matchedResources, err := p.checkResources(input, fitResources, u, c)
 		if err != nil {
-			log.Errorf("=========err: %v, filterErrs: %v", err, filterErrs)
 			aggErr := errors.NewAggregate(filterErrs)
 			errMsg := fmt.Sprintf("schedtag: %v", err.Error())
 			if aggErr != nil {
