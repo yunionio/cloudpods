@@ -2491,6 +2491,98 @@ func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient
 	return nil, nil
 }
 
+func (manager *SGuestManager) getGuests(userCred mcclient.TokenCredential, data jsonutils.JSONObject) ([]SGuest, error) {
+	_guests := []string{}
+	data.Unmarshal(&_guests, "guests")
+	if len(_guests) == 0 {
+		return nil, httperrors.NewMissingParameterError("guests")
+	}
+	guests := []SGuest{}
+	q := manager.Query()
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.In(q.Field("id"), _guests),
+		sqlchemy.In(q.Field("name"), _guests),
+	))
+	q = manager.FilterByOwner(q, manager.GetOwnerId(userCred))
+	err := db.FetchModelObjects(manager, q, &guests)
+	if err != nil {
+		return nil, err
+	}
+	guestStr := []string{}
+	for _, guest := range guests {
+		guestStr = append(guestStr, guest.Id)
+		guestStr = append(guestStr, guest.Name)
+	}
+
+	for _, guest := range _guests {
+		if !utils.IsInStringArray(guest, guestStr) {
+			return nil, httperrors.NewResourceNotFoundError("failed to found guest %s", guest)
+		}
+	}
+	return guests, nil
+}
+
+func (manager *SGuestManager) getUserMetadata(data jsonutils.JSONObject) (map[string]interface{}, error) {
+	if !data.Contains("metadata") {
+		return nil, httperrors.NewMissingParameterError("metadata")
+	}
+	metadata, err := data.GetMap("metadata")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("input data not key value dict")
+	}
+	dictStore := map[string]interface{}{}
+	for k, v := range metadata {
+		dictStore["user:"+k], _ = v.GetString()
+	}
+	return dictStore, nil
+}
+
+func (manager *SGuestManager) AllowPerformBatchUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowClassPerform(userCred, manager, "batch-user-metadata")
+}
+
+func (manager *SGuestManager) PerformBatchUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	guests, err := manager.getGuests(userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	metadata, err := manager.getUserMetadata(data)
+	if err != nil {
+		return nil, err
+	}
+	for _, guest := range guests {
+		err := guest.SetUserMetadataValues(ctx, metadata, userCred)
+		if err != nil {
+			msg := fmt.Errorf("set guest %s(%s) user-metadata error: %v", guest.Name, guest.Id, err)
+			return nil, httperrors.NewGeneralError(msg)
+		}
+	}
+	return jsonutils.Marshal(guests), nil
+}
+
+func (manager *SGuestManager) AllowPerformBatchSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowClassPerform(userCred, manager, "batch-set-user-metadata")
+}
+
+func (manager *SGuestManager) PerformBatchSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	guests, err := manager.getGuests(userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	metadata, err := manager.getUserMetadata(data)
+	if err != nil {
+		return nil, err
+	}
+	for _, guest := range guests {
+		err := guest.SetUserMetadataAll(ctx, metadata, userCred)
+		if err != nil {
+			msg := fmt.Errorf("set guest %s(%s) user-metadata error: %v", guest.Name, guest.Id, err)
+			return nil, httperrors.NewGeneralError(msg)
+		}
+	}
+	return jsonutils.Marshal(guests), nil
+}
+
 func (manager *SGuestManager) AllowPerformDirtyServerStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowClassPerform(userCred, manager, "dirty-server-start")
 }
