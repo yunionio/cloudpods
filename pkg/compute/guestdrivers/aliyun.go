@@ -110,22 +110,25 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
 	}
 	for i, disk := range input.Disks {
-		if i == 0 && (disk.SizeMb < 20*1024 || disk.SizeMb > 500*1024) {
-			return nil, httperrors.NewInputParameterError("The system disk size must be in the range of 20GB ~ 500Gb")
-		}
+		minGB := -1
+		maxGB := -1
 		switch disk.Backend {
 		case api.STORAGE_CLOUD_EFFICIENCY, api.STORAGE_CLOUD_SSD, api.STORAGE_CLOUD_ESSD:
-			if disk.SizeMb < 20*1024 || disk.SizeMb > 32768*1024 {
-				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 20GB ~ 32768GB", disk.Backend)
-			}
+			minGB = 20
+			maxGB = 32768
 		case api.STORAGE_PUBLIC_CLOUD:
-			if disk.SizeMb < 5*1024 || disk.SizeMb > 2000*1024 {
-				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 5GB ~ 2000GB", disk.Backend)
-			}
+			minGB = 5
+			maxGB = 2000
 		case api.STORAGE_EPHEMERAL_SSD:
-			if disk.SizeMb < 5*1024 || disk.SizeMb > 800*1024 {
-				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 5GB ~ 800GB", disk.Backend)
-			}
+			minGB = 5
+			maxGB = 800
+		}
+		if i == 0 {
+			minGB = 20
+			maxGB = 500
+		}
+		if disk.SizeMb < minGB*1024 || disk.SizeMb > maxGB*1024 {
+			return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of %dGB ~ %dGB", disk.Backend, minGB, maxGB)
 		}
 	}
 	return input, nil
