@@ -4345,3 +4345,7 @@ func (self *SGuest) ToIsolatedDevicesConfig() []*api.IsolatedDeviceConfig {
 	}
 	return ret
 }
+
+func (self *SGuest) IsImport(userCred mcclient.TokenCredential) bool {
+	return self.GetMetadata("__is_import", userCred) == "true"
+}
