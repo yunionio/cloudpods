@@ -97,6 +97,7 @@ func (self *HostImportLibvirtServersTask) StartImportServers(
 	end:
 		if success {
 			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT, note, self.UserCred)
+			guest.SetMetadata(ctx, "__is_import", "ture", self.UserCred)
 		} else {
 			log.Errorln(note)
 			guest.SetStatus(self.UserCred, compute.VM_IMPORT_FAILED, note)

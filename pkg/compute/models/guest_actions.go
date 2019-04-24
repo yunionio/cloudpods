@@ -2049,6 +2049,10 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 	if !utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot do snapshot when VM in status %s", self.Status)
 	}
+	if self.IsImport(userCred) {
+		return nil, httperrors.NewBadRequestError("VM is import form libvirt, can't do snapshot")
+	}
+
 	diskId, err := data.GetString("disk_id")
 	if err != nil {
 		return nil, httperrors.NewBadRequestError(err.Error())
