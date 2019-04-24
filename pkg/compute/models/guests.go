@@ -436,7 +436,10 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 		disk := diskI.(*SDisk)
 		guestdisks := GuestdiskManager.Query().SubQuery()
-		count := guestdisks.Query().Equals("disk_id", disk.Id).Count()
+		count, err := guestdisks.Query().Equals("disk_id", disk.Id).CountWithError()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("checkout guestdisk count fail %s", err)
+		}
 		if count > 0 {
 			sgq := guestdisks.Query(guestdisks.Field("guest_id")).Equals("disk_id", disk.Id).SubQuery()
 			q = q.Filter(sqlchemy.In(q.Field("id"), sgq))
@@ -585,8 +588,8 @@ func (guest *SGuest) GetDisksQuery() *sqlchemy.SQuery {
 	return GuestdiskManager.Query().Equals("guest_id", guest.Id)
 }
 
-func (guest *SGuest) DiskCount() int {
-	return guest.GetDisksQuery().Count()
+func (guest *SGuest) DiskCount() (int, error) {
+	return guest.GetDisksQuery().CountWithError()
 }
 
 func (guest *SGuest) GetDisks() []SGuestdisk {
@@ -622,8 +625,8 @@ func (guest *SGuest) GetNetworksQuery(netId string) *sqlchemy.SQuery {
 	return q
 }
 
-func (guest *SGuest) NetworkCount() int {
-	return guest.GetNetworksQuery("").Count()
+func (guest *SGuest) NetworkCount() (int, error) {
+	return guest.GetNetworksQuery("").CountWithError()
 }
 
 func (guest *SGuest) GetNetworks(netId string) ([]SGuestnetwork, error) {
@@ -1947,7 +1950,11 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	if options.NameSyncResources.Contains(manager.Keyword()) {
 		guest.Name = extVM.GetName()
 	} else {
-		guest.Name = db.GenerateName(manager, projectId, extVM.GetName())
+		newName, err := db.GenerateName(manager, projectId, extVM.GetName())
+		if err != nil {
+			return nil, err
+		}
+		guest.Name = newName
 	}
 	guest.VcpuCount = extVM.GetVcpuCount()
 	guest.BootOrder = extVM.GetBootOrder()
@@ -2041,10 +2048,10 @@ func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenC
 	return nil
 }
 
-func (self *SGuest) getAttach2NetworkCount(net *SNetwork) int {
+func (self *SGuest) getAttach2NetworkCount(net *SNetwork) (int, error) {
 	q := GuestnetworkManager.Query()
 	q = q.Equals("guest_id", self.Id).Equals("network_id", net.Id)
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SGuest) getMaxNicIndex() int8 {
@@ -2287,9 +2294,13 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 	return result
 }
 
-func (self *SGuest) isAttach2Disk(disk *SDisk) bool {
+func (self *SGuest) isAttach2Disk(disk *SDisk) (bool, error) {
 	q := GuestdiskManager.Query().Equals("disk_id", disk.Id).Equals("guest_id", self.Id)
-	return q.Count() > 0
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return false, err
+	}
+	return cnt > 0, nil
 }
 
 func (self *SGuest) getMaxDiskIndex() int8 {
@@ -2302,7 +2313,11 @@ func (self *SGuest) AttachDisk(ctx context.Context, disk *SDisk, userCred mcclie
 }
 
 func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
-	if self.isAttach2Disk(disk) {
+	attached, err := self.isAttach2Disk(disk)
+	if err != nil {
+		return err
+	}
+	if attached {
 		return fmt.Errorf("Guest has been attached to disk")
 	}
 	index := self.getMaxDiskIndex()
@@ -2316,7 +2331,7 @@ func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mccli
 	guestdisk.DiskId = disk.Id
 	guestdisk.GuestId = self.Id
 	guestdisk.Index = index
-	err := guestdisk.DoSave(driver, cache, mountpoint)
+	err = guestdisk.DoSave(driver, cache, mountpoint)
 	if err == nil {
 		db.OpsLog.LogAttachEvent(ctx, self, disk, userCred, nil)
 	}
@@ -3044,9 +3059,9 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		secgroupIds := jsonutils.NewArray()
 		secgroups := self.GetSecgroups()
 		for i, secgroup := range secgroups {
-			secgroupCache := SecurityGroupCacheManager.Register(ctx, userCred, secgroup.Id, registerVpcId, vpc.CloudregionId, vpc.ManagerId)
-			if secgroupCache == nil {
-				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s(%s), vpc: %s", secgroup.Name, secgroup.Id, vpc.Name)
+			secgroupCache, err := SecurityGroupCacheManager.Register(ctx, userCred, secgroup.Id, registerVpcId, vpc.CloudregionId, vpc.ManagerId)
+			if err != nil {
+				return nil, fmt.Errorf("failed to registor secgroupCache for secgroup: %s(%s), vpc: %s: %s", secgroup.Name, secgroup.Id, vpc.Name, err)
 			}
 
 			externalSecgroupId, err := iregion.SyncSecurityGroup(secgroupCache.ExternalId, externalVpcId, secgroup.Name, secgroup.Description, secgroup.GetSecRules(""))
@@ -3879,7 +3894,10 @@ func (self *SGuest) getSecgroupByCache(provider *SCloudprovider, externalId stri
 	q := SecurityGroupCacheManager.Query().Equals("manager_id", provider.Id).Equals("external_id", externalId)
 	cache := SSecurityGroupCache{}
 	cache.SetModelManager(SecurityGroupCacheManager)
-	count := q.Count()
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, fmt.Errorf("getSecgroupByCache fail %s", err)
+	}
 	if count == 0 {
 		return nil, fmt.Errorf("failed find secgroup cache from provider %s externalId %s", provider.Name, externalId)
 	}
@@ -4091,14 +4109,18 @@ func (self *SGuest) FillNetSchedDesc(desc *api.ServerConfigs) {
 	}
 }
 
-func (self *SGuest) GuestDisksHasSnapshot() bool {
+func (self *SGuest) GuestDisksHasSnapshot() (bool, error) {
 	guestDisks := self.GetDisks()
 	for i := 0; i < len(guestDisks); i++ {
-		if SnapshotManager.GetDiskSnapshotCount(guestDisks[i].DiskId) > 0 {
-			return true
+		cnt, err := SnapshotManager.GetDiskSnapshotCount(guestDisks[i].DiskId)
+		if err != nil {
+			return false, err
+		}
+		if cnt > 0 {
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 func (self *SGuest) OnScheduleToHost(ctx context.Context, userCred mcclient.TokenCredential, hostId string) error {

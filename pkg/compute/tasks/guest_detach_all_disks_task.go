@@ -39,7 +39,12 @@ func (self *GuestDetachAllDisksTask) OnInit(ctx context.Context, obj db.IStandal
 
 func (self *GuestDetachAllDisksTask) OnDiskDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
-	if guest.DiskCount() == 0 {
+	cnt, err := guest.DiskCount()
+	if err != nil {
+		self.SetStageFailed(ctx, err.Error())
+		return
+	}
+	if cnt == 0 {
 		self.SetStageComplete(ctx, nil)
 		return
 	}

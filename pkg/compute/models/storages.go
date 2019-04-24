@@ -224,8 +224,26 @@ func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred
 }
 
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetHostCount() > 0 || self.GetDiskCount() > 0 || self.GetSnapshotCount() > 0 {
-		return httperrors.NewNotEmptyError("Not an empty storage provider")
+	cnt, err := self.GetHostCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetHostCount fail %s", err)
+	}
+	if cnt > 0 {
+		return httperrors.NewNotEmptyError("storage has associate hosts")
+	}
+	cnt, err = self.GetDiskCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetDiskCount fail %s", err)
+	}
+	if cnt > 0 {
+		return httperrors.NewNotEmptyError("storage has disks")
+	}
+	cnt, err = self.GetSnapshotCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetSnapshotCount fail %s", err)
+	}
+	if cnt > 0 {
+		return httperrors.NewNotEmptyError("storage has snapshots")
 	}
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
@@ -332,12 +350,12 @@ func (self *SStorage) PerformOffline(ctx context.Context, userCred mcclient.Toke
 	return nil, nil
 }
 
-func (self *SStorage) GetHostCount() int {
-	return HoststorageManager.Query().Equals("storage_id", self.Id).Count()
+func (self *SStorage) GetHostCount() (int, error) {
+	return HoststorageManager.Query().Equals("storage_id", self.Id).CountWithError()
 }
 
-func (self *SStorage) GetDiskCount() int {
-	return DiskManager.Query().Equals("storage_id", self.Id).Count()
+func (self *SStorage) GetDiskCount() (int, error) {
+	return DiskManager.Query().Equals("storage_id", self.Id).CountWithError()
 }
 
 func (self *SStorage) GetDisks() []SDisk {
@@ -351,8 +369,8 @@ func (self *SStorage) GetDisks() []SDisk {
 	return disks
 }
 
-func (self *SStorage) GetSnapshotCount() int {
-	return SnapshotManager.Query().Equals("storage_id", self.Id).Count()
+func (self *SStorage) GetSnapshotCount() (int, error) {
+	return SnapshotManager.Query().Equals("storage_id", self.Id).CountWithError()
 }
 
 func (self *SStorage) IsLocal() bool {
@@ -412,9 +430,6 @@ func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int {
 		q = q.Equals("status", api.DISK_READY)
 	case tristate.False:
 		q = q.NotEquals("status", api.DISK_READY)
-	}
-	if q.Count() == 0 {
-		return 0
 	}
 	row := q.Row()
 	var sum int
@@ -696,7 +711,11 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 	storage := SStorage{}
 	storage.SetModelManager(manager)
 
-	storage.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extStorage.GetName())
+	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extStorage.GetName())
+	if err != nil {
+		return nil, err
+	}
+	storage.Name = newName
 	storage.Status = extStorage.GetStatus()
 	storage.ExternalId = extStorage.GetGlobalId()
 	storage.ZoneId = zone.Id
@@ -713,7 +732,7 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 
 	storage.IsSysDiskStore = extStorage.IsSysDiskStore()
 
-	err := manager.TableSpec().Insert(&storage)
+	err = manager.TableSpec().Insert(&storage)
 	if err != nil {
 		log.Errorf("newFromCloudStorage fail %s", err)
 		return nil, err

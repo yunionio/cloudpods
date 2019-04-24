@@ -193,7 +193,7 @@ func genInstanceType(family string, cpu, mem_mb int64) (string, error) {
 	return fmt.Sprintf("ecs.%s.c%dm%d", family, cpu, mem_mb/1024), nil
 }
 
-func skuRelatedGuestCount(self *SServerSku) int {
+func skuRelatedGuestCount(self *SServerSku) (int, error) {
 	var q *sqlchemy.SQuery
 	if len(self.ZoneId) > 0 {
 		hostTable := HostManager.Query().SubQuery()
@@ -205,7 +205,7 @@ func skuRelatedGuestCount(self *SServerSku) int {
 	}
 
 	q = q.Equals("instance_type", self.GetName())
-	return q.Count()
+	return q.CountWithError()
 }
 
 func getNameAndExtId(resId string, manager db.IModelManager) (string, string, error) {
@@ -263,12 +263,13 @@ func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclie
 	countKey := self.GetId() + ".total_guest_count"
 	v := Cache.Get(countKey)
 	if v == nil {
-		count = skuRelatedGuestCount(self)
+
 		Cache.Set(countKey, count)
 	} else {
 		count = v.(int)
 	}
 
+	count, _ = skuRelatedGuestCount(self)
 	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
 
 	// zone
@@ -299,7 +300,7 @@ func (self *SServerSku) GetExtraDetails(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return nil, err
 	}
-	count := skuRelatedGuestCount(self)
+	count, _ := skuRelatedGuestCount(self)
 	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
 	return extra, nil
 }
@@ -385,7 +386,11 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 		sqlchemy.IsEmpty(q.Field("provider")),
 	))
 
-	if q.Count() > 0 {
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("check duplication fail %s", err)
+	}
+	if cnt > 0 {
 		return nil, httperrors.NewDuplicateResourceError("Duplicate sku %s", name)
 	}
 
@@ -403,7 +408,12 @@ func (self *SServerSkuManager) FetchByZoneExtId(zoneExtId string, name string) (
 
 func (self *SServerSkuManager) FetchByZoneId(zoneId string, name string) (db.IModel, error) {
 	q := self.Query().Equals("zone_id", zoneId).Equals("name", name)
-	count := q.Count()
+
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
+
 	if count == 1 {
 		obj, err := db.NewModelObject(self)
 		if err != nil {
@@ -721,18 +731,21 @@ func (self *SServerSku) AllowDeleteItem(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SServerSku) ValidateDeleteCondition(ctx context.Context) error {
-	serverCount := GuestManager.Query().Equals("instance_type", self.Id).Count()
+	serverCount, err := skuRelatedGuestCount(self)
+	if err != nil {
+		return httperrors.NewInternalServerError("check instance")
+	}
 	if serverCount > 0 {
-		return httperrors.NewForbiddenError("now allow to delete inuse instance_type.please remove related servers first: %s", self.Name)
+		return httperrors.NewNotEmptyError("now allow to delete inuse instance_type.please remove related servers first: %s", self.Name)
 	}
 
 	if !inWhiteList(self.Provider) {
 		return httperrors.NewForbiddenError("not allow to delete public cloud instance_type: %s", self.Name)
 	}
-	count := GuestManager.Query().Equals("instance_type", self.Name).Count()
+	/*count := GuestManager.Query().Equals("instance_type", self.Id).Count()
 	if count > 0 {
 		return httperrors.NewNotEmptyError("instance_type used by servers")
-	}
+	}*/
 	return nil
 }
 
@@ -877,7 +890,7 @@ func (manager *SServerSkuManager) FetchSkuByNameAndHypervisor(name string, hyper
 	return &skus[0], nil
 }
 
-func (manager *SServerSkuManager) GetSkuCountByProvider(provider string) int {
+func (manager *SServerSkuManager) GetSkuCountByProvider(provider string) (int, error) {
 	q := manager.Query()
 	if len(provider) == 0 {
 		q = q.IsNotEmpty("provider")
@@ -885,10 +898,10 @@ func (manager *SServerSkuManager) GetSkuCountByProvider(provider string) int {
 		q = q.Equals("provider", provider)
 	}
 
-	return q.Count()
+	return q.CountWithError()
 }
 
-func (manager *SServerSkuManager) GetSkuCountByRegion(regionId string) int {
+func (manager *SServerSkuManager) GetSkuCountByRegion(regionId string) (int, error) {
 	q := manager.Query()
 	if len(regionId) == 0 {
 		q = q.IsNotEmpty("cloudregion_id")
@@ -896,7 +909,7 @@ func (manager *SServerSkuManager) GetSkuCountByRegion(regionId string) int {
 		q = q.Equals("cloudregion_id", regionId)
 	}
 
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (manager *SServerSkuManager) GetSkuCountByZone(zoneId string) []SServerSku {
@@ -1063,7 +1076,8 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 		Provider:      provider.Provider,
 	}
 	sku.constructSku(extSku)
-	sku.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extSku.GetName())
+
+	sku.Name = extSku.GetName()
 	sku.ExternalId = extSku.GetGlobalId()
 	sku.SetModelManager(manager)
 	err := manager.TableSpec().Insert(sku)

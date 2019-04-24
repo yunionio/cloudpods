@@ -466,13 +466,16 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, err
 	}
-	totalCnt := int64(q.Count())
+	totalCnt, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
 	// log.Debugf("total count %d", totalCnt)
 	if totalCnt == 0 {
 		emptyList := modules.ListResult{Data: []jsonutils.JSONObject{}}
 		return &emptyList, nil
 	}
-	if totalCnt > maxLimit && (limit <= 0 || limit > maxLimit) {
+	if int64(totalCnt) > maxLimit && (limit <= 0 || limit > maxLimit) {
 		limit = maxLimit
 	}
 	orderBy := jsonutils.GetQueryStringArray(queryDict, "order_by")
@@ -524,14 +527,14 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		return nil, httperrors.NewGeneralError(err)
 	}
 	if len(retList) != retCount {
-		totalCnt = int64(len(retList))
+		totalCnt = len(retList)
 	}
 	paginate := false
 	if !customizeFilters.IsEmpty() {
 		// query not use Limit and Offset, do manual pagination
 		paginate = true
 	}
-	return calculateListResult(retList, totalCnt, limit, offset, paginate), nil
+	return calculateListResult(retList, int64(totalCnt), limit, offset, paginate), nil
 }
 
 func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64, paginate bool) *modules.ListResult {
@@ -883,7 +886,11 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 	generateName, _ := dataDict.GetString("generate_name")
 	if len(generateName) > 0 {
 		dataDict.Remove("generate_name")
-		dataDict.Add(jsonutils.NewString(GenerateName(manager, ownerProjId, generateName)), "name")
+		newName, err := GenerateName(manager, ownerProjId, generateName)
+		if err != nil {
+			return nil, err
+		}
+		dataDict.Add(jsonutils.NewString(newName), "name")
 	} else {
 		name, _ := data.GetString("name")
 		if len(name) > 0 {

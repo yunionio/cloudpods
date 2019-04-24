@@ -506,7 +506,11 @@ func (self *SGuest) ValidateAttachDisk(ctx context.Context, disk *SDisk) error {
 		}
 	}
 
-	if disk.isAttached() {
+	attached, err := disk.isAttached()
+	if err != nil {
+		return httperrors.NewInternalServerError("isAttached check failed %s", err)
+	}
+	if attached {
 		return httperrors.NewInputParameterError("Disk %s has been attached", disk.Name)
 	}
 	if len(disk.GetPathAtHost(self.GetHost())) == 0 {
@@ -1316,7 +1320,11 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 	}
 	disk := iDisk.(*SDisk)
 	if disk != nil {
-		if self.isAttach2Disk(disk) {
+		attached, err := self.isAttach2Disk(disk)
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("check isAttach2Disk fail %s", err)
+		}
+		if attached {
 			if disk.DiskType == api.DISK_TYPE_SYS {
 				return nil, httperrors.NewUnsupportOperationError("Cannot detach sys disk")
 			}
@@ -1526,7 +1534,11 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 					return nil, httperrors.NewInvalidStatusError("cannot change mac when guest is running")
 				}
 				// check mac duplication
-				if GuestnetworkManager.Query().Equals("mac_addr", conf.Mac).Count() > 0 {
+				cnt, err := GuestnetworkManager.Query().Equals("mac_addr", conf.Mac).CountWithError()
+				if err != nil {
+					return nil, httperrors.NewInternalServerError("check mac uniqueness fail %s", err)
+				}
+				if cnt > 0 {
 					return nil, httperrors.NewConflictError("mac addr %s has been occupied", conf.Mac)
 				}
 			} else {
@@ -2080,9 +2092,12 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 	}
 	if self.GetHypervisor() == api.HYPERVISOR_KVM {
 		q := SnapshotManager.Query()
-		cnt := q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
+		cnt, err := q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
 			sqlchemy.Equals(q.Field("created_by"), api.SNAPSHOT_MANUAL),
-			sqlchemy.Equals(q.Field("fake_deleted"), false))).Count()
+			sqlchemy.Equals(q.Field("fake_deleted"), false))).CountWithError()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("check disk snapshot count fail %s", err)
+		}
 		if cnt >= options.Options.DefaultMaxManualSnapshotCount {
 			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
 		}
@@ -2573,12 +2588,16 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 	if len(self.GetIsolatedDevices()) > 0 {
 		return nil, httperrors.NewBadRequestError("Cannot create backup with isolated devices")
 	}
-	if self.GuestDisksHasSnapshot() {
+	hasSnapshot, err := self.GuestDisksHasSnapshot()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("GuestDisksHasSnapshot fail %s", err)
+	}
+	if hasSnapshot {
 		return nil, httperrors.NewBadRequestError("Cannot create backup with snapshot")
 	}
 
 	req := self.getGuestBackupResourceRequirements(ctx, userCred)
-	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, self.GetOwnerProjectId(), &req)
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.GetOwnerProjectId(), &req)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
 	}

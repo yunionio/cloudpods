@@ -98,7 +98,10 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, res ISchedta
 			return fmt.Errorf("Address %s not in range", net.Address)
 		}
 	}
-	free := network.GetFreeAddressCount()
+	free, err := network.GetFreeAddressCount()
+	if err != nil {
+		return err
+	}
 	req := u.SchedData().Count
 	if free < req {
 		return fmt.Errorf("Network %s no free IPs, free %d, require %d", network.Name, free, req)
@@ -127,7 +130,11 @@ func (p *NetworkSchedtagPredicate) OnSelectEnd(u *core.Unit, c core.Candidater, 
 }
 
 func (p *NetworkSchedtagPredicate) GetCandidateResourceSortScore(selectRes ISchedtagCandidateResource) int {
-	return selectRes.(*api.CandidateNetwork).GetFreeAddressCount()
+	cnt, err := selectRes.(*api.CandidateNetwork).GetFreeAddressCount()
+	if err != nil {
+		return -1
+	}
+	return cnt
 }
 
 func (p *NetworkSchedtagPredicate) DoSelect(

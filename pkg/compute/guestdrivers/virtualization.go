@@ -218,7 +218,11 @@ func (self *SVirtualizedGuestDriver) ValidateCreateDataOnHost(ctx context.Contex
 		input.VmemSize = host.MemSize
 		input.VcpuCount = int(host.CpuCount)
 
-		if host.GetGuestCount() >= 1 {
+		cnt, err := host.GetGuestCount()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("GetGuestCount fail %s", err)
+		}
+		if cnt >= 1 {
 			return nil, httperrors.NewInsufficientResourceError("host has been occupied")
 		}
 	}

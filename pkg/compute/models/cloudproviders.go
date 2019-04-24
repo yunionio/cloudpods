@@ -171,45 +171,45 @@ func (self *SCloudprovider) CleanSchedCache() {
 	}
 }
 
-func (self *SCloudprovider) GetGuestCount() int {
+func (self *SCloudprovider) GetGuestCount() (int, error) {
 	sq := HostManager.Query("id").Equals("manager_id", self.Id)
-	return GuestManager.Query().In("host_id", sq).Count()
+	return GuestManager.Query().In("host_id", sq).CountWithError()
 }
 
-func (self *SCloudprovider) GetHostCount() int {
-	return HostManager.Query().Equals("manager_id", self.Id).Count()
+func (self *SCloudprovider) GetHostCount() (int, error) {
+	return HostManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
-func (self *SCloudprovider) getVpcCount() int {
-	return VpcManager.Query().Equals("manager_id", self.Id).Count()
+func (self *SCloudprovider) getVpcCount() (int, error) {
+	return VpcManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
-func (self *SCloudprovider) getStorageCount() int {
-	return StorageManager.Query().Equals("manager_id", self.Id).Count()
+func (self *SCloudprovider) getStorageCount() (int, error) {
+	return StorageManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
-func (self *SCloudprovider) getStoragecacheCount() int {
-	return StoragecacheManager.Query().Equals("manager_id", self.Id).Count()
+func (self *SCloudprovider) getStoragecacheCount() (int, error) {
+	return StoragecacheManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
-func (self *SCloudprovider) getEipCount() int {
-	return ElasticipManager.Query().Equals("manager_id", self.Id).Count()
+func (self *SCloudprovider) getEipCount() (int, error) {
+	return ElasticipManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
-func (self *SCloudprovider) getSnapshotCount() int {
-	return SnapshotManager.Query().Equals("manager_id", self.Id).Count()
+func (self *SCloudprovider) getSnapshotCount() (int, error) {
+	return SnapshotManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
-func (self *SCloudprovider) getLoadbalancerCount() int {
-	return LoadbalancerManager.Query().Equals("manager_id", self.Id).Count()
+func (self *SCloudprovider) getLoadbalancerCount() (int, error) {
+	return LoadbalancerManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
-func (self *SCloudprovider) getExternalProjectCount() int {
-	return ExternalProjectManager.Query().Equals("manager_id", self.Id).Count()
+func (self *SCloudprovider) getExternalProjectCount() (int, error) {
+	return ExternalProjectManager.Query().Equals("manager_id", self.Id).CountWithError()
 }
 
-func (self *SCloudprovider) getSyncRegionCount() int {
-	return CloudproviderRegionManager.Query().Equals("cloudprovider_id", self.Id).Count()
+func (self *SCloudprovider) getSyncRegionCount() (int, error) {
+	return CloudproviderRegionManager.Query().Equals("cloudprovider_id", self.Id).CountWithError()
 }
 
 func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -691,16 +691,16 @@ func (usage *SCloudproviderUsage) isEmpty() bool {
 func (self *SCloudprovider) getUsage() *SCloudproviderUsage {
 	usage := SCloudproviderUsage{}
 
-	usage.GuestCount = self.GetGuestCount()
-	usage.HostCount = self.GetHostCount()
-	usage.VpcCount = self.getVpcCount()
-	usage.StorageCount = self.getStorageCount()
-	usage.StorageCacheCount = self.getStoragecacheCount()
-	usage.EipCount = self.getEipCount()
-	usage.SnapshotCount = self.getSnapshotCount()
-	usage.LoadbalancerCount = self.getLoadbalancerCount()
-	usage.ProjectCount = self.getExternalProjectCount()
-	usage.SyncRegionCount = self.getSyncRegionCount()
+	usage.GuestCount, _ = self.GetGuestCount()
+	usage.HostCount, _ = self.GetHostCount()
+	usage.VpcCount, _ = self.getVpcCount()
+	usage.StorageCount, _ = self.getStorageCount()
+	usage.StorageCacheCount, _ = self.getStoragecacheCount()
+	usage.EipCount, _ = self.getEipCount()
+	usage.SnapshotCount, _ = self.getSnapshotCount()
+	usage.LoadbalancerCount, _ = self.getLoadbalancerCount()
+	usage.ProjectCount, _ = self.getExternalProjectCount()
+	usage.SyncRegionCount, _ = self.getSyncRegionCount()
 
 	return &usage
 }
@@ -796,8 +796,12 @@ func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
 	cp := SCloudprovider{}
 	cp.SetModelManager(manager)
 
+	newName, err := db.GenerateName(manager, "", vc.Name)
+	if err != nil {
+		return err
+	}
 	cp.Id = vc.Id
-	cp.Name = db.GenerateName(manager, "", vc.Name)
+	cp.Name = newName
 	cp.Status = vc.Status
 	cp.AccessUrl = fmt.Sprintf("https://%s:%d", vc.Hostname, vc.Port)
 	cp.Account = vc.Account

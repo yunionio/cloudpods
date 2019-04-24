@@ -475,14 +475,25 @@ func (self *SHost) validateDeleteCondition(ctx context.Context, purge bool) erro
 	if self.Enabled {
 		return httperrors.NewInvalidStatusError("Host is not disabled")
 	}
-	if self.GetGuestCount() > 0 {
+	cnt, err := self.GetGuestCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("getGuestCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Not an empty host")
 	}
 	for _, hoststorage := range self.GetHoststorages() {
 		storage := hoststorage.GetStorage()
-		if storage != nil && storage.IsLocal() && storage.GetDiskCount() > 0 {
-			return httperrors.NewNotEmptyError("Local host storage is not empty???")
+		if storage != nil && storage.IsLocal() {
+			cnt, err := storage.GetDiskCount()
+			if err != nil {
+				return httperrors.NewInternalServerError("GetDiskCount fail %s", err)
+			}
+			if cnt > 0 {
+				return httperrors.NewNotEmptyError("Local host storage is not empty???")
+			}
 		}
+
 	}
 	return self.SEnabledStatusStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
@@ -516,8 +527,14 @@ func (self *SHost) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 
 	for _, hoststorage := range self.GetHoststorages() {
 		storage := hoststorage.GetStorage()
-		if storage != nil && storage.IsLocal() && storage.GetDiskCount() > 0 {
-			return httperrors.NewNotEmptyError("Inconsistent: local storage is not empty???")
+		if storage != nil && storage.IsLocal() {
+			cnt, err := storage.GetDiskCount()
+			if err != nil {
+				return err
+			}
+			if cnt > 0 {
+				return httperrors.NewNotEmptyError("Inconsistent: local storage is not empty???")
+			}
 		}
 	}
 	for _, hoststorage := range self.GetHoststorages() {
@@ -552,8 +569,8 @@ func (self *SHost) GetHoststoragesQuery() *sqlchemy.SQuery {
 	return HoststorageManager.Query().Equals("host_id", self.Id)
 }
 
-func (self *SHost) GetStorageCount() int {
-	return self.GetHoststoragesQuery().Count()
+func (self *SHost) GetStorageCount() (int, error) {
+	return self.GetHoststoragesQuery().CountWithError()
 }
 
 func (self *SHost) GetHoststorages() []SHoststorage {
@@ -622,7 +639,11 @@ func (self *SHost) GetBaremetalstorage() *SHoststorage {
 		sqlchemy.IsFalse(storages.Field("deleted"))))
 	q = q.Filter(sqlchemy.Equals(storages.Field("storage_type"), api.STORAGE_BAREMETAL))
 	q = q.Filter(sqlchemy.Equals(hoststorages.Field("host_id"), self.Id))
-	if q.Count() == 1 {
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return nil
+	}
+	if cnt == 1 {
 		hs := SHoststorage{}
 		hs.SetModelManager(HoststorageManager)
 		err := q.First(&hs)
@@ -632,7 +653,7 @@ func (self *SHost) GetBaremetalstorage() *SHoststorage {
 		}
 		return &hs
 	}
-	log.Errorf("Cannof find baremetalstorage??")
+	log.Errorf("Cannot find baremetalstorage??")
 	return nil
 }
 
@@ -778,13 +799,17 @@ func (self *SHost) SyncAttachedStorageStatus() {
 	}
 }
 
-func (self *SHostManager) IsNewNameUnique(name string, userCred mcclient.TokenCredential, kwargs *jsonutils.JSONDict) bool {
+func (self *SHostManager) IsNewNameUnique(name string, userCred mcclient.TokenCredential, kwargs *jsonutils.JSONDict) (bool, error) {
 	q := self.Query().Equals("name", name)
 	if kwargs != nil && kwargs.Contains("zone_id") {
 		zoneId, _ := kwargs.GetString("zone_id")
 		q.Equals("zone_id", zoneId)
 	}
-	return q.Count() == 0
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return false, err
+	}
+	return cnt == 0, nil
 }
 
 func (self *SHostManager) AllowGetPropertyBmStartRegisterScript(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -851,8 +876,15 @@ func (self *SHost) GetSpec(statusCheck bool) *jsonutils.JSONDict {
 		if self.MemSize == 0 || self.CpuCount == 0 {
 			return nil
 		}
-		if self.ResourceType == api.HostResourceTypePrepaidRecycle && self.GetGuestCount() > 0 {
-			return nil
+		if self.ResourceType == api.HostResourceTypePrepaidRecycle {
+			cnt, err := self.GetGuestCount()
+			if err != nil {
+				return nil
+			}
+			if cnt > 0 {
+				// occupied
+				return nil
+			}
 		}
 
 		if len(self.ManagerId) > 0 {
@@ -1053,8 +1085,8 @@ func (self *SHost) GetWiresQuery() *sqlchemy.SQuery {
 	return HostwireManager.Query().Equals("host_id", self.Id)
 }
 
-func (self *SHost) GetWireCount() int {
-	return self.GetWiresQuery().Count()
+func (self *SHost) GetWireCount() (int, error) {
+	return self.GetWiresQuery().CountWithError()
 }
 
 func (self *SHost) GetHostwires() []SHostwire {
@@ -1157,30 +1189,30 @@ func (self *SHost) GetGuests() []SGuest {
 	return guests
 }
 
-func (self *SHost) GetGuestCount() int {
+func (self *SHost) GetGuestCount() (int, error) {
 	q := self.GetGuestsQuery()
-	return q.Count()
+	return q.CountWithError()
 }
 
-func (self *SHost) GetContainerCount(status []string) int {
+func (self *SHost) GetContainerCount(status []string) (int, error) {
 	q := self.GetGuestsQuery()
 	q = q.Filter(sqlchemy.Equals(q.Field("hypervisor"), api.HYPERVISOR_CONTAINER))
 	if len(status) > 0 {
 		q = q.In("status", status)
 	}
-	return q.Count()
+	return q.CountWithError()
 }
 
-func (self *SHost) GetNonsystemGuestCount() int {
+func (self *SHost) GetNonsystemGuestCount() (int, error) {
 	q := self.GetGuestsQuery()
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
-	return q.Count()
+	return q.CountWithError()
 }
 
-func (self *SHost) GetRunningGuestCount() int {
+func (self *SHost) GetRunningGuestCount() (int, error) {
 	q := self.GetGuestsQuery()
 	q = q.In("status", api.VM_RUNNING_STATUS)
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SHost) GetBaremetalnetworksQuery() *sqlchemy.SQuery {
@@ -1441,7 +1473,11 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 		izone = wire.GetZone()
 	}
 
-	host.Name = db.GenerateName(manager, manager.GetOwnerId(userCred), extHost.GetName())
+	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extHost.GetName())
+	if err != nil {
+		return nil, fmt.Errorf("generate name fail %s", err)
+	}
+	host.Name = newName
 	host.ExternalId = extHost.GetGlobalId()
 	host.ZoneId = izone.Id
 
@@ -1471,7 +1507,7 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 	host.IsMaintenance = extHost.GetIsMaintenance()
 	host.Version = extHost.GetVersion()
 
-	err := manager.TableSpec().Insert(&host)
+	err = manager.TableSpec().Insert(&host)
 	if err != nil {
 		log.Errorf("newFromCloudHost fail %s", err)
 		return nil, err
@@ -1837,7 +1873,11 @@ func (self *SHost) GetNetinterfacesWithIdAndCredential(netId string, userCred mc
 		return nil, nil
 	}
 	net := netObj.(*SNetwork)
-	if net.getFreeAddressCount() == 0 && !reserved {
+	used, err := net.getFreeAddressCount()
+	if err != nil {
+		return nil, nil
+	}
+	if used == 0 && !reserved {
 		return nil, nil
 	}
 	matchNetIfs := make([]SNetInterface, 0)
@@ -1874,7 +1914,14 @@ func (self *SHost) GetNetworkWithIdAndCredential(netId string, userCred mcclient
 	if err != nil {
 		return nil, err
 	}
-	if reserved || net.getFreeAddressCount() > 0 {
+	if reserved {
+		return &net, nil
+	}
+	freeCnt, err := net.getFreeAddressCount()
+	if err != nil {
+		return nil, err
+	}
+	if freeCnt > 0 {
 		return &net, nil
 	}
 	return nil, fmt.Errorf("No IP address")
@@ -2195,11 +2242,14 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 		extra.Add(jsonutils.NewInt(int64(usage.GuestVcpuCount)), "cpu_commit")
 		extra.Add(jsonutils.NewInt(int64(usage.GuestVmemSize)), "mem_commit")
 	}
-	containerCount := self.GetContainerCount(nil)
-	runningContainerCount := self.GetContainerCount(api.VM_RUNNING_STATUS)
-	extra.Add(jsonutils.NewInt(int64(self.GetGuestCount()-containerCount)), "guests")
-	extra.Add(jsonutils.NewInt(int64(self.GetNonsystemGuestCount()-containerCount)), "nonsystem_guests")
-	extra.Add(jsonutils.NewInt(int64(self.GetRunningGuestCount()-runningContainerCount)), "running_guests")
+	containerCount, _ := self.GetContainerCount(nil)
+	runningContainerCount, _ := self.GetContainerCount(api.VM_RUNNING_STATUS)
+	guestCount, _ := self.GetGuestCount()
+	nonesysGuestCnt, _ := self.GetNonsystemGuestCount()
+	runningGuestCnt, _ := self.GetRunningGuestCount()
+	extra.Add(jsonutils.NewInt(int64(guestCount-containerCount)), "guests")
+	extra.Add(jsonutils.NewInt(int64(nonesysGuestCnt-containerCount)), "nonsystem_guests")
+	extra.Add(jsonutils.NewInt(int64(runningGuestCnt-runningContainerCount)), "running_guests")
 	totalCpu := self.GetCpuCount()
 	cpuCommitRate := 0.0
 	if totalCpu > 0 && usage.GuestVcpuCount > 0 {
@@ -2366,32 +2416,74 @@ func (manager *SHostManager) ValidateSizeParams(data *jsonutils.JSONDict) (*json
 	return data, nil
 }
 
+func inputUniquenessCheck(data *jsonutils.JSONDict, zoneId string, hostId string) (*jsonutils.JSONDict, error) {
+	for _, key := range []string{
+		"manager_uri",
+		"access_ip",
+	} {
+		val, _ := data.GetString(key)
+		if len(val) > 0 {
+			q := HostManager.Query().Equals(key, val)
+			if len(zoneId) > 0 {
+				q = q.Equals("zone_id", zoneId)
+			} else {
+				q = q.IsNullOrEmpty("zone_id")
+			}
+			if len(hostId) > 0 {
+				q = q.NotEquals("id", hostId)
+			}
+			cnt, err := q.CountWithError()
+			if err != nil {
+				return nil, httperrors.NewInternalServerError("check %s duplication fail %s", key, err)
+			}
+			if cnt > 0 {
+				return nil, httperrors.NewConflictError("duplicate %s %s", key, val)
+			}
+		}
+	}
+
+	accessMac, _ := data.GetString("access_mac")
+	if len(accessMac) > 0 {
+		accessMac2 := netutils.FormatMacAddr(accessMac)
+		if len(accessMac2) == 0 {
+			return nil, httperrors.NewInputParameterError("invalid macAddr %s", accessMac)
+		}
+		q := HostManager.Query().Equals("access_mac", accessMac2)
+		if len(hostId) > 0 {
+			q = q.NotEquals("host_id", hostId)
+		}
+		cnt, err := q.CountWithError()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("check access_mac duplication fail %s", err)
+		}
+		if cnt > 0 {
+			return nil, httperrors.NewConflictError("duplicate access_mac %s", accessMac)
+		}
+		data.Set("access_mac", jsonutils.NewString(accessMac2))
+	}
+	return data, nil
+}
+
 func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	zoneId, _ := data.GetString("zone_id")
-	if len(zoneId) > 0 && ZoneManager.Query().Equals("id", zoneId).Count() == 0 {
-		return nil, httperrors.NewInputParameterError("Zone id %s not found", zoneId)
-	}
-	mangerUri, err := data.GetString("manager_uri")
-	if err == nil {
-		count := manager.Query().Equals("manager_uri", mangerUri).Count()
-		if count > 0 {
-			return nil, httperrors.NewConflictError("Conflict manager_uri %s", mangerUri)
+	zoneId := jsonutils.GetAnyString(data, []string{"zone_id", "zone"})
+	if len(zoneId) > 0 {
+		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zoneId)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
 		}
+		zoneId = zoneObj.GetId()
+		data.Set("zone_id", jsonutils.NewString(zoneObj.GetId()))
 	}
-	accessIp, err := data.GetString("access_ip")
-	if err == nil {
-		count := manager.Query().Equals("access_ip", accessIp).Count()
-		if count > 0 {
-			return nil, httperrors.NewDuplicateResourceError("Duplicate access_ip %s", accessIp)
-		}
+
+	data, err := inputUniquenessCheck(data, zoneId, "")
+	if err != nil {
+		return nil, err
 	}
-	accessMac, err := data.GetString("access_mac")
-	if err == nil {
-		count := HostManager.Query().Equals("access_mac", accessMac).Count()
-		if count > 0 {
-			return nil, httperrors.NewDuplicateResourceError("Duplicate access_mac %s", accessMac)
-		}
-	}
+
 	data, err = manager.ValidateSizeParams(data)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
@@ -2423,33 +2515,11 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 }
 
 func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	mangerUri, err := data.GetString("manager_uri")
-	if err == nil {
-		count := HostManager.Query().Equals("manager_uri", mangerUri).
-			NotEquals("id", self.Id).Equals("zone_id", self.ZoneId).Count()
-		if count > 0 {
-			return nil, httperrors.NewConflictError("Conflict manager_uri %s", mangerUri)
-		}
+	data, err := inputUniquenessCheck(data, self.ZoneId, self.Id)
+	if err != nil {
+		return nil, err
 	}
-	accessIp, err := data.GetString("access_ip")
-	if err == nil {
-		count := HostManager.Query().Equals("access_ip", accessIp).
-			NotEquals("id", self.Id).Equals("zone_id", self.ZoneId).Count()
-		if count > 0 {
-			return nil, httperrors.NewDuplicateResourceError("Duplicate access_ip %s", accessIp)
-		}
-	}
-	accessMac, err := data.GetString("access_mac")
-	if err == nil {
-		accessMac = netutils.FormatMacAddr(accessMac)
-		if len(accessMac) == 0 {
-			return nil, httperrors.NewInputParameterError("invalid access_mac address")
-		}
-		q := HostManager.Query().Equals("access_mac", accessMac).NotEquals("id", self.Id)
-		if q.Count() > 0 {
-			return nil, httperrors.NewDuplicateResourceError("Duplicate access_mac %s", accessMac)
-		}
-	}
+
 	data, err = HostManager.ValidateSizeParams(data)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
@@ -3361,11 +3431,13 @@ func (self *SHost) AllowPerformConvertHypervisor(ctx context.Context,
 	return db.IsAdminAllowPerform(userCred, self, "convert-hypervisor")
 }
 
-func (self *SHost) isAlterNameUnique(name string) bool {
-	if self.GetModelManager().Query().Equals("name", name).NotEquals("id", self.Id).Equals("zone_id", self.ZoneId).Count() == 0 {
-		return true
+func (self *SHost) isAlterNameUnique(name string) (bool, error) {
+	q := HostManager.Query().Equals("name", name).NotEquals("id", self.Id).Equals("zone_id", self.ZoneId)
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return false, err
 	}
-	return false
+	return cnt == 0, nil
 }
 
 func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -3392,8 +3464,12 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 		if err != nil {
 			return nil, err
 		}
-		if !self.isAlterNameUnique(name) {
-			return nil, httperrors.NewInputParameterError("Invalid name %s", name)
+		uniq, err := self.isAlterNameUnique(name)
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("isAlterNameUnique fail %s", err)
+		}
+		if !uniq {
+			return nil, httperrors.NewDuplicateNameError(name, self.Id)
 		}
 	}
 	image, _ := data.GetString("image")

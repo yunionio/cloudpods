@@ -251,7 +251,11 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	q := model.GetModelManager().Query().Equals("name", model.GetName())
 	q = q.Equals("tenant_id", tobj.GetId())
 	q = q.NotEquals("id", model.GetId())
-	if q.Count() > 0 {
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("check name duplication error: %s", err)
+	}
+	if cnt > 0 {
 		return nil, httperrors.NewDuplicateNameError("name", model.GetName())
 	}
 	former, _ := TenantCacheManager.FetchTenantById(ctx, model.ProjectId)
@@ -260,7 +264,7 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		formerObj := NewTenant(model.ProjectId, "unknown")
 		former = &formerObj
 	}
-	_, err := Update(model, func() error {
+	_, err = Update(model, func() error {
 		model.ProjectId = tobj.GetId()
 		model.ProjectSrc = string(PROJECT_SOURCE_LOCAL)
 		return nil
@@ -353,8 +357,12 @@ func (model *SVirtualResourceBase) MarkCancelPendingDelete(ctx context.Context, 
 	lockman.LockClass(ctx, model.GetModelManager(), ownerProjId)
 	defer lockman.ReleaseClass(ctx, model.GetModelManager(), ownerProjId)
 
+	newName, err := GenerateName(model.GetModelManager(), ownerProjId, model.Name)
+	if err != nil {
+		return err
+	}
 	diff, err := Update(model, func() error {
-		model.Name = GenerateName(model.GetModelManager(), ownerProjId, model.Name)
+		model.Name = newName
 		model.PendingDeleted = false
 		model.PendingDeletedAt = time.Time{}
 		return nil

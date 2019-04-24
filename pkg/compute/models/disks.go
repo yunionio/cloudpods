@@ -269,13 +269,17 @@ func (manager *SDiskManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	return q, nil
 }
 
-func (self *SDisk) GetGuestDiskCount() int {
+func (self *SDisk) GetGuestDiskCount() (int, error) {
 	guestdisks := GuestdiskManager.Query()
-	return guestdisks.Equals("disk_id", self.Id).Count()
+	return guestdisks.Equals("disk_id", self.Id).CountWithError()
 }
 
-func (self *SDisk) isAttached() bool {
-	return GuestdiskManager.Query().Equals("disk_id", self.Id).Count() > 0
+func (self *SDisk) isAttached() (bool, error) {
+	cnt, err := self.GetGuestDiskCount()
+	if err != nil {
+		return false, err
+	}
+	return cnt > 0, nil
 }
 
 func (self *SDisk) GetGuestdisks() []SGuestdisk {
@@ -304,21 +308,21 @@ func (self *SDisk) GetGuests() []SGuest {
 	return result
 }
 
-func (self *SDisk) GetGuestsCount() int {
+func (self *SDisk) GetGuestsCount() (int, error) {
 	guests := GuestManager.Query().SubQuery()
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	return guests.Query().Join(guestdisks, sqlchemy.AND(
 		sqlchemy.Equals(guestdisks.Field("guest_id"), guests.Field("id")))).
-		Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id)).Count()
+		Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id)).CountWithError()
 }
 
-func (self *SDisk) GetRuningGuestCount() int {
+func (self *SDisk) GetRuningGuestCount() (int, error) {
 	guests := GuestManager.Query().SubQuery()
 	guestdisks := GuestdiskManager.Query().SubQuery()
 	return guests.Query().Join(guestdisks, sqlchemy.AND(
 		sqlchemy.Equals(guestdisks.Field("guest_id"), guests.Field("id")))).
 		Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id)).
-		Filter(sqlchemy.Equals(guests.Field("status"), api.VM_RUNNING)).Count()
+		Filter(sqlchemy.Equals(guests.Field("status"), api.VM_RUNNING)).CountWithError()
 }
 
 func (self *SDisk) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -522,11 +526,10 @@ func (self *SDisk) StartDiskCreateTask(ctx context.Context, userCred mcclient.To
 	return nil
 }
 
-func (self *SDisk) GetSnapshotCount() int {
+func (self *SDisk) GetSnapshotCount() (int, error) {
 	q := SnapshotManager.Query()
-	count := q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), self.Id),
-		sqlchemy.Equals(q.Field("fake_deleted"), false))).Count()
-	return count
+	return q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), self.Id),
+		sqlchemy.Equals(q.Field("fake_deleted"), false))).CountWithError()
 }
 
 func (self *SDisk) StartAllocate(ctx context.Context, host *SHost, storage *SStorage, taskId string, userCred mcclient.TokenCredential, rebuild bool, snapshot string, task taskman.ITask) error {
@@ -800,7 +803,11 @@ func (self *SDisk) PerformSave(ctx context.Context, userCred mcclient.TokenCrede
 		return nil, httperrors.NewResourceNotReadyError("Save disk when disk is READY")
 
 	}
-	if self.GetRuningGuestCount() > 0 {
+	cnt, err := self.GetRuningGuestCount()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("GetRuningGuestCount fail %s", err)
+	}
+	if cnt > 0 {
 		return nil, httperrors.NewResourceNotReadyError("Save disk when not being USED")
 	}
 
@@ -836,7 +843,11 @@ func (self *SDisk) ValidatePurgeCondition(ctx context.Context) error {
 }
 
 func (self *SDisk) validateDeleteCondition(ctx context.Context, isPurge bool) error {
-	if self.GetGuestDiskCount() > 0 {
+	cnt, err := self.GetGuestDiskCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetGuestDiskCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("Virtual disk used by virtual servers")
 	}
 	if !isPurge && self.IsValidPrePaid() {
@@ -1080,7 +1091,11 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	disk := SDisk{}
 	disk.SetModelManager(manager)
 
-	disk.Name = db.GenerateName(manager, projectId, extDisk.GetName())
+	newName, err := db.GenerateName(manager, projectId, extDisk.GetName())
+	if err != nil {
+		return nil, err
+	}
+	disk.Name = newName
 	disk.Status = extDisk.GetStatus()
 	disk.ExternalId = extDisk.GetGlobalId()
 	disk.StorageId = storage.Id
@@ -1105,7 +1120,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 		disk.CreatedAt = createAt
 	}
 
-	err := manager.TableSpec().Insert(&disk)
+	err = manager.TableSpec().Insert(&disk)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)
 		return nil, err
@@ -1353,8 +1368,14 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 	}
 
 	provider := self.GetCloudprovider()
-	if provider != nil && provider.Provider == api.CLOUD_PROVIDER_HUAWEI && self.GetSnapshotCount() > 0 {
-		return nil, httperrors.NewForbiddenError("not allow to purge. Virtual disk must not have snapshots")
+	if provider != nil && provider.Provider == api.CLOUD_PROVIDER_HUAWEI {
+		cnt, err := self.GetSnapshotCount()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("GetSnapshotCount fail %s", err)
+		}
+		if cnt > 0 {
+			return nil, httperrors.NewForbiddenError("not allow to purge. Virtual disk must not have snapshots")
+		}
 	}
 
 	return nil, self.StartDiskDeleteTask(ctx, userCred, "", true, false)
@@ -1362,8 +1383,14 @@ func (self *SDisk) PerformPurge(ctx context.Context, userCred mcclient.TokenCred
 
 func (self *SDisk) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	provider := self.GetCloudprovider()
-	if provider != nil && provider.Provider == api.CLOUD_PROVIDER_HUAWEI && self.GetSnapshotCount() > 0 {
-		return httperrors.NewForbiddenError("not allow to delete. Virtual disk must not have snapshots")
+	if provider != nil && provider.Provider == api.CLOUD_PROVIDER_HUAWEI {
+		cnt, err := self.GetSnapshotCount()
+		if err != nil {
+			return httperrors.NewInternalServerError("GetSnapshotCount fail %s", err)
+		}
+		if cnt > 0 {
+			return httperrors.NewForbiddenError("not allow to delete. Virtual disk must not have snapshots")
+		}
 	}
 
 	return self.StartDiskDeleteTask(ctx, userCred, "", false,
@@ -1621,7 +1648,11 @@ func (manager *SDiskManager) AutoDiskSnapshot(ctx context.Context, userCred mccl
 		return
 	}
 	for _, disk := range disks {
-		snapCount := disk.GetSnapshotCount()
+		snapCount, err := disk.GetSnapshotCount()
+		if err != nil {
+			log.Errorf("GetSnapshotCount fail %s", err)
+			continue
+		}
 		if snapCount >= options.Options.DefaultMaxSnapshotCount {
 			continue
 		}

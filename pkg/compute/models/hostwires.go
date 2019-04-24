@@ -104,7 +104,7 @@ func (hw *SHostwire) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.JSOND
 	return extra
 }
 
-func (self *SHostwire) GetGuestnicsCount() int {
+func (self *SHostwire) GetGuestnicsCount() (int, error) {
 	guestnics := GuestnetworkManager.Query().SubQuery()
 	guests := GuestManager.Query().SubQuery()
 	nets := NetworkManager.Query().SubQuery()
@@ -117,11 +117,15 @@ func (self *SHostwire) GetGuestnicsCount() int {
 		sqlchemy.Equals(nets.Field("id"), guestnics.Field("network_id")),
 		sqlchemy.Equals(nets.Field("wire_id"), self.WireId)))
 
-	return q.Count()
+	return q.CountWithError()
 }
 
 func (self *SHostwire) ValidateDeleteCondition(ctx context.Context) error {
-	if self.GetGuestnicsCount() > 0 {
+	cnt, err := self.GetGuestnicsCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetGuestnicsCount fail %s", err)
+	}
+	if cnt > 0 {
 		return httperrors.NewNotEmptyError("guest on the host are using networks on this wire")
 	}
 	return self.SHostJointsBase.ValidateDeleteCondition(ctx)

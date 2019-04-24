@@ -267,12 +267,15 @@ func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Cont
 	for _, man := range men {
 		t := man.TableSpec().Instance()
 		pdF := t.Field("pending_deleted")
-		n := t.Query().
+		n, err := t.Query().
 			Equals("certificate_id", lbcertId).
 			Filter(sqlchemy.OR(sqlchemy.IsNull(pdF), sqlchemy.IsFalse(pdF))).
-			Count()
+			CountWithError()
+		if err != nil {
+			return httperrors.NewInternalServerError("get certificate refcount fail %s", err)
+		}
 		if n > 0 {
-			return fmt.Errorf("certificate %s is still referred to by %d %s",
+			return httperrors.NewResourceBusyError("certificate %s is still referred to by %d %s",
 				lbcertId, n, man.KeywordPlural())
 		}
 	}
@@ -396,7 +399,11 @@ func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(
 	lbcert := SLoadbalancerCertificate{}
 	lbcert.SetModelManager(man)
 
-	lbcert.Name = db.GenerateName(man, projectId, extCertificate.GetName())
+	newName, err := db.GenerateName(man, projectId, extCertificate.GetName())
+	if err != nil {
+		return nil, err
+	}
+	lbcert.Name = newName
 	lbcert.ExternalId = extCertificate.GetGlobalId()
 	lbcert.ManagerId = provider.Id
 	lbcert.CloudregionId = region.Id
@@ -406,7 +413,7 @@ func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(
 	lbcert.Fingerprint = extCertificate.GetFingerprint()
 	lbcert.NotAfter = extCertificate.GetExpireTime()
 
-	err := man.TableSpec().Insert(&lbcert)
+	err = man.TableSpec().Insert(&lbcert)
 	if err != nil {
 		log.Errorf("newFromCloudLoadbalancerCertificate fail %s", err)
 		return nil, err
