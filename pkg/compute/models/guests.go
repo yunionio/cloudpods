@@ -4098,13 +4098,15 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	if err != nil {
 		return genInput
 	}
-	// fill missing create params like schedtags
-	for idx, disk := range genInput.Disks {
-		if idx < len(userInput.Disks) {
-			disk.Schedtags = userInput.Disks[idx].Schedtags
-			userInput.Disks[idx] = disk
-		} else {
-			userInput.Disks = append(userInput.Disks, disk)
+	if self.GetHypervisor() != api.HYPERVISOR_BAREMETAL {
+		// fill missing create params like schedtags
+		for idx, disk := range genInput.Disks {
+			if idx < len(userInput.Disks) {
+				disk.Schedtags = userInput.Disks[idx].Schedtags
+				userInput.Disks[idx] = disk
+			} else {
+				userInput.Disks = append(userInput.Disks, disk)
+			}
 		}
 	}
 	for idx, net := range genInput.Networks {
