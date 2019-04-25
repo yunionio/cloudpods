@@ -462,11 +462,13 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 	if public_cloud {
 		providerTable := CloudproviderManager.Query().SubQuery()
 		providerRegionTable := CloudproviderRegionManager.Query().SubQuery()
-		q = q.Join(providerRegionTable, sqlchemy.Equals(q.Field("cloudregion_id"), providerRegionTable.Field("cloudregion_id")))
-		q = q.Join(providerTable, sqlchemy.Equals(providerRegionTable.Field("cloudprovider_id"), providerTable.Field("id")))
-		q = q.Filter(sqlchemy.IsTrue(providerTable.Field("enabled")))
-		q = q.Filter(sqlchemy.In(providerTable.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
-		q = q.Filter(sqlchemy.Equals(providerTable.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
+
+		subq := providerRegionTable.Query(sqlchemy.DISTINCT("cloudregion_id", providerRegionTable.Field("cloudregion_id")))
+		subq = subq.Join(providerTable, sqlchemy.Equals(providerRegionTable.Field("cloudprovider_id"), providerTable.Field("id")))
+		subq = subq.Filter(sqlchemy.IsTrue(providerTable.Field("enabled")))
+		subq = subq.Filter(sqlchemy.In(providerTable.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+		subq = subq.Filter(sqlchemy.Equals(providerTable.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
+		q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), subq.SubQuery()))
 	}
 
 	// 过滤出network usable的sku
