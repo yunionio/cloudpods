@@ -44,6 +44,8 @@ type SAzureClient struct {
 	env                 azureenv.Environment
 	authorizer          autorest.Authorizer
 	iregions            []cloudprovider.ICloudRegion
+
+	debug bool
 }
 
 var DEFAULT_API_VERSION = map[string]string{
@@ -79,6 +81,8 @@ func NewAzureClient(providerId string, providerName string, accessKey string, se
 			providerName: providerName,
 			secret:       secret,
 			envName:      envName,
+
+			debug: false,
 		}
 		client.clientId, client.clientScret = clientInfo[0], strings.Join(clientInfo[1:], "/")
 		client.tenantId = accountInfo[0]
@@ -110,7 +114,7 @@ func (self *SAzureClient) getDefaultClient() (*autorest.Client, error) {
 		return nil, err
 	}
 	client.Authorizer = authorizer
-	if DEBUG {
+	if self.debug {
 		client.RequestInspector = LogRequest()
 		client.ResponseInspector = LogResponse()
 	}

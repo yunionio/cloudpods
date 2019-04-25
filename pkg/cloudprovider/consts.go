@@ -20,3 +20,7 @@ var ErrTimeout = errors.New("timeout")
 var ErrNotImplemented = errors.New("Not implemented")
 var ErrNotSupported = errors.New("Not supported")
 var ErrInvalidProvider = errors.New("Invalid provider")
+
+const (
+	VM_AZURE_DEFAULT_LOGIN_USER = "toor"
+)
