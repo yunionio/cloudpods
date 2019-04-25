@@ -133,9 +133,9 @@ func InArray(v interface{}, in interface{}) (ok bool, i int) {
 func TruncateString(v interface{}, maxLen int) string {
 	str := fmt.Sprintf("%s", v)
 	if len(str) > maxLen {
-		str = str[:maxLen]
+		str = str[:maxLen] + ".."
 	}
-	return fmt.Sprintf("%s...", str)
+	return str
 }
 
 func IsAscii(str string) bool {
