@@ -1711,7 +1711,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:32cf8108c3f042e8a66bd3c25a8a2ce692c892885f14cb79a5c69ce64f6befd3"
+  digest = "1:777d274ba9317e4901e544a75138520b2fb0fd88d6c66fb446262824571835a8"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1745,15 +1745,15 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "112112e3145b5cb385d415502db3cb1b4269d7fd"
+  revision = "df1afe907f81bfa2adddae023d8577074784a964"
 
 [[projects]]
   branch = "master"
-  digest = "1:29f0a99ba079309ef8c82def5b9c452d0871837780ee702d7ae7c1ebe47478b0"
+  digest = "1:ff4e73f338d767968f1a664f407877a9f4e1adc21ea938387a6e93130d23be4d"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "5e43c9cfbb8eb2870882b87d3ab429062d69be2b"
+  revision = "b34ca088f7b65fa0e466e39daa9d99e01fcb073d"
 
 [[projects]]
   branch = "master"
