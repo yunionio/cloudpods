@@ -2450,7 +2450,7 @@ func inputUniquenessCheck(data *jsonutils.JSONDict, zoneId string, hostId string
 		}
 		q := HostManager.Query().Equals("access_mac", accessMac2)
 		if len(hostId) > 0 {
-			q = q.NotEquals("host_id", hostId)
+			q = q.NotEquals("id", hostId)
 		}
 		cnt, err := q.CountWithError()
 		if err != nil {
