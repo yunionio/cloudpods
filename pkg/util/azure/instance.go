@@ -795,6 +795,13 @@ func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int8, memoryMb
 
 	networkId := nic.Properties.IPConfigurations[0].Properties.Subnet.ID
 	osType := instance.Properties.StorageProfile.OsDisk.OsType
+
+	// https://support.microsoft.com/zh-cn/help/4018933/the-default-size-of-windows-server-images-in-azure-is-changed-from-128
+	// windows默认系统盘是128G, 若重装系统时，系统盘小于128G，则会出现 {"error":{"code":"ResizeDiskError","message":"Disk size reduction is not supported. Current size is 137438953472 bytes, requested size is 33285996544 bytes.","target":"osDisk.diskSizeGB"}} 错误
+	if osType == osprofile.OS_TYPE_WINDOWS && sysSizeGB < 128 {
+		sysSizeGB = 128
+	}
+
 	newInstance, err := region.CreateInstanceSimple(instance.Name+"-1", imageId, osType, cpu, memoryMb, sysSizeGB, storageType, []int{}, networkId, passwd, publicKey)
 	if err != nil {
 		return "", err
@@ -807,6 +814,7 @@ func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int8, memoryMb
 
 	//交换系统盘
 	instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID, newInstance.Properties.StorageProfile.OsDisk.ManagedDisk.ID = newInstance.Properties.StorageProfile.OsDisk.ManagedDisk.ID, instance.Properties.StorageProfile.OsDisk.ManagedDisk.ID
+	instance.Properties.StorageProfile.OsDisk.DiskSizeGB = newInstance.Properties.StorageProfile.OsDisk.DiskSizeGB
 	instance.Properties.StorageProfile.OsDisk.Name = ""
 	instance.Properties.ProvisioningState = ""
 	instance.Properties.InstanceView = nil
