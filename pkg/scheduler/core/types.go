@@ -61,6 +61,7 @@ type CandidatePropertyGetter interface {
 	Storages() []*api.CandidateStorage
 	Networks() []*api.CandidateNetwork
 	ResourceType() string
+	NetInterfaces() map[string][]computemodels.SNetInterface
 }
 
 // Candidater replace host Candidate resource info
