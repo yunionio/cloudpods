@@ -179,7 +179,15 @@ func (u *SUser) ShellScripts() []string {
 
 func (conf *SCloudConfig) UserData() string {
 	var buf bytes.Buffer
-	jsonConf := jsonutils.Marshal(conf)
+	jsonConf := jsonutils.Marshal(conf).(*jsonutils.JSONDict)
+	if jsonConf.Contains("users") {
+		userArray := jsonutils.NewArray(jsonutils.NewString("default"))
+		users, _ := jsonConf.GetArray("users")
+		if users != nil {
+			userArray.Add(users...)
+			jsonConf.Set("users", userArray)
+		}
+	}
 	buf.WriteString(CLOUD_CONFIG_HEADER)
 	buf.WriteString(jsonConf.YAMLString())
 	return buf.String()
@@ -231,8 +239,21 @@ func ParseUserData(data string) (*SCloudConfig, error) {
 		log.Errorf("parse userdata yaml error %s", err)
 		return nil, err
 	}
+	jsonDict := jsonConf.(*jsonutils.JSONDict)
+	if jsonDict.Contains("users") {
+		userArray := jsonutils.NewArray()
+		users, _ := jsonConf.GetArray("users")
+		if users != nil {
+			for i := 0; i < len(users); i++ {
+				if users[i].String() != `"default"` {
+					userArray.Add(users[i])
+				}
+			}
+			jsonDict.Set("users", userArray)
+		}
+	}
 	config := SCloudConfig{}
-	err = jsonConf.Unmarshal(&config)
+	err = jsonDict.Unmarshal(&config)
 	if err != nil {
 		log.Errorf("unable to unmarchal userdata %s", err)
 		return nil, err
