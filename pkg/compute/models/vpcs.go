@@ -310,7 +310,7 @@ func (self *SVpc) syncRemoveCloudVpc(ctx context.Context, userCred mcclient.Toke
 	err := self.ValidateDeleteCondition(ctx)
 	if err != nil { // cannot delete
 		self.markAllNetworksUnknown(userCred)
-		_, err := self.PerformDisable(ctx, userCred, nil, nil)
+		_, err = self.PerformDisable(ctx, userCred, nil, nil)
 		if err == nil {
 			err = self.SetStatus(userCred, VPC_STATUS_UNKNOWN, "sync to delete")
 		}
