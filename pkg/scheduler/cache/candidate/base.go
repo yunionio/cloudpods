@@ -33,11 +33,12 @@ import (
 
 type BaseHostDesc struct {
 	*computemodels.SHost
-	Region        *computemodels.SCloudregion   `json:"region"`
-	Zone          *computemodels.SZone          `json:"zone"`
-	Cloudprovider *computemodels.SCloudprovider `json:"cloudprovider"`
-	Networks      []*api.CandidateNetwork       `json:"networks"`
-	Storages      []*api.CandidateStorage       `json:"storages"`
+	Region        *computemodels.SCloudregion              `json:"region"`
+	Zone          *computemodels.SZone                     `json:"zone"`
+	Cloudprovider *computemodels.SCloudprovider            `json:"cloudprovider"`
+	Networks      []*api.CandidateNetwork                  `json:"networks"`
+	NetInterfaces map[string][]computemodels.SNetInterface `json:"net_interfaces"`
+	Storages      []*api.CandidateStorage                  `json:"storages"`
 
 	Tenants       map[string]int64          `json:"tenants"`
 	HostSchedtags []computemodels.SSchedtag `json:"schedtags"`
@@ -91,6 +92,10 @@ func (b baseHostGetter) ResourceType() string {
 	return reviseResourceType(b.h.ResourceType)
 }
 
+func (b baseHostGetter) NetInterfaces() map[string][]computemodels.SNetInterface {
+	return b.h.NetInterfaces
+}
+
 func reviseResourceType(resType string) string {
 	if resType == "" {
 		return computeapi.HostResourceTypeDefault
@@ -108,7 +113,7 @@ func newBaseHostDesc(host *computemodels.SHost) (*BaseHostDesc, error) {
 		return nil, fmt.Errorf("Fill cloudprovider info error: %v", err)
 	}
 
-	if err := desc.fillNetworks(desc.Id); err != nil {
+	if err := desc.fillNetworks(host); err != nil {
 		return nil, fmt.Errorf("Fill networks error: %v", err)
 	}
 
@@ -186,15 +191,15 @@ func (b *BaseHostDesc) fillSchedtags() error {
 	return nil
 }
 
-func (b *BaseHostDesc) fillNetworks(hostID string) error {
+func (b *BaseHostDesc) fillNetworks(host *computemodels.SHost) error {
+	hostId := host.Id
 	hostwires := computemodels.HostwireManager.Query().SubQuery()
-	sq := hostwires.Query(sqlchemy.DISTINCT("wire_id", hostwires.Field("wire_id"))).Equals("host_id", hostID)
+	sq := hostwires.Query(sqlchemy.DISTINCT("wire_id", hostwires.Field("wire_id"))).Equals("host_id", hostId)
 	networks := computemodels.NetworkManager.Query().SubQuery()
 	q := networks.Query().In("wire_id", sq)
 
 	nets := make([]computemodels.SNetwork, 0)
 	err := computedb.FetchModelObjects(computemodels.NetworkManager, q, &nets)
-
 	if err != nil {
 		return err
 	}
@@ -205,6 +210,24 @@ func (b *BaseHostDesc) fillNetworks(hostID string) error {
 			Schedtags: n.GetSchedtags(),
 		}
 	}
+
+	netifs := host.GetNetInterfaces()
+	netifIndexs := make(map[string][]computemodels.SNetInterface, 0)
+	for _, netif := range netifs {
+		if !netif.IsUsableServernic() {
+			continue
+		}
+		wire := netif.GetWire()
+		if wire == nil {
+			continue
+		}
+		if _, exist := netifIndexs[wire.Id]; !exist {
+			netifIndexs[wire.Id] = make([]computemodels.SNetInterface, 0)
+		}
+		netifIndexs[wire.Id] = append(netifIndexs[wire.Id], netif)
+	}
+	b.NetInterfaces = netifIndexs
+
 	return nil
 }
 
