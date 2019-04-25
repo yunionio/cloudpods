@@ -182,12 +182,15 @@ func (self *SHost) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId s
 		},
 		Type: "Microsoft.Compute/virtualMachines",
 	}
-	if len(desc.PublicKey) > 0 {
+	if len(desc.PublicKey) > 0 && desc.OsType == osprofile.OS_TYPE_LINUX {
 		instance.Properties.OsProfile.LinuxConfiguration = &LinuxConfiguration{
 			DisablePasswordAuthentication: false,
 			SSH: &SSHConfiguration{
 				PublicKeys: []SSHPublicKey{
-					{KeyData: desc.PublicKey},
+					{
+						KeyData: desc.PublicKey,
+						Path:    fmt.Sprintf("/home/%s/.ssh/authorized_keys", api.VM_AZURE_DEFAULT_LOGIN_USER),
+					},
 				},
 			},
 		}
