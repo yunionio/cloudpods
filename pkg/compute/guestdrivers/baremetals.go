@@ -351,11 +351,6 @@ func (self *SBaremetalGuestDriver) CheckDiskTemplateOnStorage(ctx context.Contex
 	return nil
 }
 
-func (self *SBaremetalGuestDriver) OnGuestDeployTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	task.SetStage("OnDeployGuestSyncstatusComplete", nil)
-	return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
-}
-
 func (self *SBaremetalGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
 	if data.Contains("disks") {
 		disks, _ := data.GetArray("disks")
