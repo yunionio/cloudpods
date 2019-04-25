@@ -175,7 +175,7 @@ func (self *SHost) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId s
 				PublicKeys: []SSHPublicKey{
 					{
 						KeyData: desc.PublicKey,
-						Path:    fmt.Sprintf("/home/%s/.ssh/authorized_keys", api.VM_AZURE_DEFAULT_LOGIN_USER),
+						Path:    fmt.Sprintf("/home/%s/.ssh/authorized_keys", cloudprovider.VM_AZURE_DEFAULT_LOGIN_USER),
 					},
 				},
 			},
