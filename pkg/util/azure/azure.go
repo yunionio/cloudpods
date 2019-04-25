@@ -114,7 +114,7 @@ func (self *SAzureClient) getDefaultClient() (*autorest.Client, error) {
 		return nil, err
 	}
 	client.Authorizer = authorizer
-	if DEBUG {
+	if self.debug {
 		client.RequestInspector = LogRequest()
 		client.ResponseInspector = LogResponse()
 	}
