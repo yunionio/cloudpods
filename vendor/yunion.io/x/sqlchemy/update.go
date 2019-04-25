@@ -52,16 +52,20 @@ type SUpdateDiff struct {
 	col IColumnSpec
 }
 
+func (ud *SUpdateDiff) String() string {
+	return fmt.Sprintf("%s->%s",
+		utils.TruncateString(ud.old, 32),
+		utils.TruncateString(ud.new, 32))
+}
+
 type UpdateDiffs map[string]SUpdateDiff
 
 func (uds UpdateDiffs) String() string {
 	items := make([]string, 0, len(uds))
 	for k, v := range uds {
-		items = append(items, fmt.Sprintf("%s: %s -> %s", k,
-			utils.TruncateString(v.old, 32),
-			utils.TruncateString(v.new, 32)))
+		items = append(items, fmt.Sprintf("%s:%s", k, v.String()))
 	}
-	return strings.Join(items, "; ")
+	return strings.Join(items, ";")
 }
 
 func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
