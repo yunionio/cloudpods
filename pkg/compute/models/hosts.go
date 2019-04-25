@@ -2966,25 +2966,40 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 	reserve bool, requireDesignatedIp bool,
 ) error {
 	var sw *SWire
-	if len(wire) > 0 && len(ipAddr) == 0 {
+	if len(wire) > 0 {
 		iWire, err := WireManager.FetchByIdOrName(userCred, wire)
 		if err != nil {
-			return httperrors.NewBadRequestError("Wire %s not found", wire)
+			if err == sql.ErrNoRows {
+				return httperrors.NewResourceNotFoundError2(WireManager.Keyword(), wire)
+			} else {
+				return httperrors.NewInternalServerError("find Wire %s error: %s", wire, err)
+			}
 		}
 		sw = iWire.(*SWire)
+		if len(ipAddr) > 0 {
+			iIpAddr, err := netutils.NewIPV4Addr(ipAddr)
+			if err != nil {
+				return httperrors.NewInputParameterError("invalid ipaddr %s", ipAddr)
+			}
+			findAddr := false
+			swNets, err := sw.getNetworks()
+			if err != nil {
+				return httperrors.NewInputParameterError("no networks on wire %s", wire)
+			}
+			for i := range swNets {
+				if swNets[i].isAddressInRange(iIpAddr) {
+					findAddr = true
+					break
+				}
+			}
+			if !findAddr {
+				return httperrors.NewBadRequestError("IP %s not attach to wire %s", ipAddr, wire)
+			}
+		}
 	} else if len(ipAddr) > 0 && len(wire) == 0 {
 		ipWire, err := WireManager.GetOnPremiseWireOfIp(ipAddr)
 		if err != nil {
 			return httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
-		}
-		sw = ipWire
-	} else if len(wire) > 0 && len(ipAddr) > 0 {
-		ipWire, err := WireManager.GetOnPremiseWireOfIp(ipAddr)
-		if err != nil {
-			return httperrors.NewBadRequestError("IP %s not attach to any wire", ipAddr)
-		}
-		if ipWire.Id != wire && ipWire.GetName() != wire {
-			return httperrors.NewBadRequestError("IP %s not attach to wire %s", ipAddr, wire)
 		}
 		sw = ipWire
 	}

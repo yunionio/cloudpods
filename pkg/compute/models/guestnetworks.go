@@ -133,6 +133,7 @@ func (manager *SGuestnetworkManager) GenerateMac(netId string, suggestion string
 		}
 		cnt, err := q.CountWithError()
 		if err != nil {
+			log.Errorf("find mac %s error %s", mac, err)
 			return "", err
 		}
 		if cnt == 0 {
