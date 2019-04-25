@@ -1027,9 +1027,9 @@ func (self *SRegion) DeployVM(instanceId string, name string, password string, k
 		serverObj.Add(jsonutils.NewString(name), "name")
 	}
 
-	if len(description) > 0 {
-		serverObj.Add(jsonutils.NewString(description), "description")
-	}
+	// if len(description) > 0 {
+	// 	serverObj.Add(jsonutils.NewString(description), "description")
+	// }
 
 	if serverObj.Size() > 0 {
 		params := jsonutils.NewDict()

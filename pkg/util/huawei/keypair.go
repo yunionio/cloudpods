@@ -58,20 +58,13 @@ func (self *SRegion) lookUpKeypair(publicKey string) (string, error) {
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212678.html
 func (self *SRegion) ImportKeypair(name, publicKey string) (*SKeypair, error) {
-	fingerprint, err := self.getFingerprint(publicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	keypair := SKeypair{
-		Name:        name,
-		PublicKey:   publicKey,
-		Fingerprint: fingerprint,
-	}
-
-	keypairObj := jsonutils.Marshal(keypair)
+	keypairObj := jsonutils.NewDict()
+	keypairObj.Add(jsonutils.NewString(name), "name")
+	keypairObj.Add(jsonutils.NewString(publicKey), "public_key")
+	params := jsonutils.NewDict()
+	params.Set("keypair", keypairObj)
 	ret := SKeypair{}
-	err = DoCreate(self.ecsClient.Keypairs.Create, keypairObj, &ret)
+	err := DoCreate(self.ecsClient.Keypairs.Create, params, &ret)
 	return &ret, err
 }
 
