@@ -481,7 +481,7 @@ func (self *SVpc) GetIVpc() (cloudprovider.ICloudVpc, error) {
 	ivpc, err := iregion.GetIVpcById(self.ExternalId)
 	if err != nil {
 		log.Errorf("fail to find ivpc by id %s %s", self.ExternalId, err)
-		return nil, fmt.Errorf("fail to find ivpc by id %s", err)
+		return nil, err
 	}
 	return ivpc, nil
 }
