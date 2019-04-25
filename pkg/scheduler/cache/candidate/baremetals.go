@@ -285,10 +285,6 @@ func (bb *BaremetalBuilder) fillServerID(desc *BaremetalDesc, b *models.Host) er
 	return nil
 }
 
-func (bb *BaremetalBuilder) fillNetworks(desc *BaremetalDesc, b *models.Host) error {
-	return desc.fillNetworks(b.ID)
-}
-
 func (b *BaremetalBuilder) getZoneID(bm *models.Host) string {
 	return bm.ZoneID
 }
