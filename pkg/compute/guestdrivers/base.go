@@ -96,6 +96,10 @@ func (self *SBaseGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetRebuildRootStatus")
 }
 
+func (self *SBaseGuestDriver) IsRebuildRootSupportChangeImage() bool {
+	return true
+}
+
 func (self *SBaseGuestDriver) GetChangeConfigStatus() ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetChangeConfigStatus")
 }
