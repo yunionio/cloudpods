@@ -3509,20 +3509,6 @@ func (manager *SGuestManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
 	return specKeys
 }
 
-func (self *SGuest) GetTemplateId() string {
-	guestdisks := self.GetDisks()
-	for _, guestdisk := range guestdisks {
-		disk := guestdisk.GetDisk()
-		if disk != nil {
-			templateId := disk.GetTemplateId()
-			if len(templateId) > 0 {
-				return templateId
-			}
-		}
-	}
-	return ""
-}
-
 func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc := self.SVirtualResourceBase.GetShortDesc(ctx)
 	desc.Set("mem", jsonutils.NewInt(int64(self.VmemSize)))
