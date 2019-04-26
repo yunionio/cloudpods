@@ -605,3 +605,11 @@ func (host *SHost) newLocalStorageCache() (*SDatastoreImageCache, error) {
 		host:      host,
 	}, nil
 }
+
+func (host *SHost) GetManagementServerIp() string {
+	return host.getHostSystem().Summary.ManagementServerIp
+}
+
+func (host *SHost) IsManagedByVCenter() bool {
+	return len(host.getHostSystem().Summary.ManagementServerIp) > 0
+}
