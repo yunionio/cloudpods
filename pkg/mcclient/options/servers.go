@@ -245,6 +245,7 @@ type ServerCreateOptions struct {
 	Bios             string   `help:"BIOS" choices:"BIOS|UEFI"`
 	Desc             string   `help:"Description" metavar:"<DESCRIPTION>" json:"description"`
 	Boot             string   `help:"Boot device" metavar:"<BOOT_DEVICE>" choices:"disk|cdrom" json:"-"`
+	EnableCloudInit  bool     `help:"Enable cloud-init service"`
 	NoAccountInit    *bool    `help:"Not reset account password"`
 	AllowDelete      *bool    `help:"Unlock server to allow deleting" json:"-"`
 	ShutdownBehavior string   `help:"Behavior after VM server shutdown, stop or terminate server" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate"`
@@ -337,6 +338,7 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 		EipBw:              opts.EipBw,
 		EipChargeType:      opts.EipChargeType,
 		Eip:                opts.Eip,
+		EnableCloudInit:    opts.EnableCloudInit,
 	}
 
 	if opts.GenerateName {
