@@ -178,6 +178,7 @@ func (self *SNetInterface) getServerJsonDesc() *jsonutils.JSONDict {
 	gn := self.getServernetwork()
 	if gn != nil {
 		desc.Update(gn.getJsonDescAtBaremetal(self.GetBaremetal()))
+		desc.Set("index", jsonutils.NewInt(int64(self.Index))) // override, preserve orginal network interface index
 	}
 	return desc
 }
@@ -225,7 +226,10 @@ func (self *SNetInterface) Remove(ctx context.Context, userCred mcclient.TokenCr
 			return err
 		}
 		if hw != nil {
-			hw.Delete(ctx, userCred)
+			err := hw.Delete(ctx, userCred)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	_, err := db.Update(self, func() error {
@@ -233,7 +237,7 @@ func (self *SNetInterface) Remove(ctx context.Context, userCred mcclient.TokenCr
 		self.BaremetalId = ""
 		self.Rate = 0
 		self.NicType = ""
-		self.Index = 0
+		self.Index = -1
 		self.LinkUp = false
 		self.Mtu = 0
 		return nil
@@ -241,7 +245,7 @@ func (self *SNetInterface) Remove(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		log.Errorf("Save Updates: %s", err)
 	}
-	return nil
+	return err
 }
 
 func (self *SNetInterface) GetCandidateNetworkForIp(userCred mcclient.TokenCredential, ipAddr string) (*SNetwork, error) {
