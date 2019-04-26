@@ -900,7 +900,7 @@ func (self *SStorage) GetAllAttachingHosts() []SHost {
 	q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE))
 
 	ret := make([]SHost, 0)
-	err := q.All(&ret)
+	err := db.FetchModelObjects(HostManager, q, &ret)
 	if err != nil {
 		log.Errorf("%s", err)
 		return nil

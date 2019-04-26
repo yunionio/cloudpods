@@ -267,7 +267,7 @@ func (self *SDisk) isAttached() bool {
 func (self *SDisk) GetGuestdisks() []SGuestdisk {
 	guestdisks := make([]SGuestdisk, 0)
 	q := GuestdiskManager.Query().Equals("disk_id", self.Id)
-	err := q.All(&guestdisks)
+	err := db.FetchModelObjects(GuestdiskManager, q, &guestdisks)
 	if err != nil {
 		log.Errorf("%s", err)
 		return nil
