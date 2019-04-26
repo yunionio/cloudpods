@@ -335,7 +335,7 @@ func (manager *SIsolatedDeviceManager) FindUnusedByModels(models []string) ([]SI
 	devs := make([]SIsolatedDevice, 0)
 	q := manager.findUnusedQuery()
 	q = q.In("model", models)
-	err := q.All(&devs)
+	err := db.FetchModelObjects(manager, q, &devs)
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +346,7 @@ func (manager *SIsolatedDeviceManager) FindUnusedGpusOnHost(hostId string) ([]SI
 	devs := make([]SIsolatedDevice, 0)
 	q := manager.UnusedGpuQuery()
 	q = q.Equals("host_id", hostId)
-	err := q.All(&devs)
+	err := db.FetchModelObjects(manager, q, &devs)
 	if err != nil {
 		return nil, err
 	}
