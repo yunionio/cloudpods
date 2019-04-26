@@ -217,8 +217,8 @@ type SGuest struct {
 
 	SBillingResourceBase
 
-	VcpuCount int8 `nullable:"false" default:"1" list:"user" create:"optional"` // Column(TINYINT, nullable=False, default=1)
-	VmemSize  int  `nullable:"false" list:"user" create:"required"`             // Column(Integer, nullable=False)
+	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"` // Column(TINYINT, nullable=False, default=1)
+	VmemSize  int `nullable:"false" list:"user" create:"required"`             // Column(Integer, nullable=False)
 
 	BootOrder string `width:"8" charset:"ascii" nullable:"true" default:"cdn" list:"user" update:"user" create:"optional"` // Column(VARCHAR(8, charset='ascii'), nullable=True, default='cdn')
 

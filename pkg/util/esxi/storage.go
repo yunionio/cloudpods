@@ -79,9 +79,9 @@ func (self *SDatastore) GetName() string {
 	return fmt.Sprintf("%s-%s", self.getVolumeType(), volName)
 }
 
-func (self *SDatastore) GetCapacityMB() int {
+func (self *SDatastore) GetCapacityMB() int64 {
 	moStore := self.getDatastore()
-	return int(moStore.Summary.Capacity / 1024 / 1024)
+	return moStore.Summary.Capacity / 1024 / 1024
 }
 
 func (self *SDatastore) GetEnabled() bool {

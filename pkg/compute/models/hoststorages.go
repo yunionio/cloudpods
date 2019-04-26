@@ -59,7 +59,7 @@ type SHoststorage struct {
 	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 
 	Config       *jsonutils.JSONArray `nullable:"true" get:"admin"`  // Column(JSONEncodedDict, nullable=True)
-	RealCapacity int                  `nullable:"true" list:"admin"` // Column(Integer, nullable=True)
+	RealCapacity int64                `nullable:"true" list:"admin"` // Column(Integer, nullable=True)
 }
 
 func (joint *SHoststorage) Master() db.IStandaloneModel {

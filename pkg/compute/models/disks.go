@@ -432,7 +432,7 @@ func (manager *SDiskManager) validateDiskOnStorage(diskConfig *api.DiskConfig, s
 	if len(hoststorage) == 0 {
 		return httperrors.NewInputParameterError("Storage[%s] must attach to a host", storage.Name)
 	}
-	if diskConfig.SizeMb > storage.GetFreeCapacity() && !storage.IsEmulated {
+	if int64(diskConfig.SizeMb) > storage.GetFreeCapacity() && !storage.IsEmulated {
 		return httperrors.NewInputParameterError("Not enough free space")
 	}
 	return nil
@@ -716,7 +716,7 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 			return nil, httperrors.NewInputParameterError(err.Error())
 		}
 	}
-	if addDisk > storage.GetFreeCapacity() && !storage.IsEmulated {
+	if int64(addDisk) > storage.GetFreeCapacity() && !storage.IsEmulated {
 		return nil, httperrors.NewOutOfResourceError("Not enough free space")
 	}
 	if guests := self.GetGuests(); len(guests) > 0 {
@@ -1065,6 +1065,12 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 			self.AutoDelete = true
 		}
 		// self.TemplateId = extDisk.GetTemplateId() no sync template ID
+		if templateId := extDisk.GetTemplateId(); len(templateId) > 0 {
+			cachedImage, err := CachedimageManager.FetchByExternalId(templateId)
+			if err == nil && cachedImage != nil {
+				self.TemplateId = cachedImage.GetId()
+			}
+		}
 		self.DiskType = extDisk.GetDiskType()
 		if index == 0 {
 			self.DiskType = api.DISK_TYPE_SYS

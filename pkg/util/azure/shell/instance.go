@@ -77,7 +77,7 @@ func init() {
 	type InstanceCreateOptions struct {
 		NAME          string `help:"Name of instance"`
 		IMAGE         string `help:"image ID"`
-		CPU           int8   `help:"CPU count"`
+		CPU           int    `help:"CPU count"`
 		MEMORYGB      int    `help:"MemoryGB"`
 		SYSDISKSIZEGB int    `help:"System Disk Size"`
 		Disk          []int  `help:"Data disk sizes int GB"`
@@ -122,7 +122,7 @@ func init() {
 
 	type InstanceRebuildOptions struct {
 		ID        string `help:"Instance ID"`
-		CPU       int8   `help:"Instance CPU core"`
+		CPU       int    `help:"Instance CPU core"`
 		MEMORYMB  int    `help:"Instance Memory MB"`
 		IMAGE     string `help:"Image ID"`
 		Password  string `help:"pasword"`

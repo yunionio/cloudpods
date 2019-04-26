@@ -165,7 +165,7 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 
 	_, err := db.Update(guest, func() error {
 		if vcpuCount > 0 {
-			guest.VcpuCount = int8(vcpuCount)
+			guest.VcpuCount = int(vcpuCount)
 		}
 		if vmemSize > 0 {
 			guest.VmemSize = int(vmemSize)

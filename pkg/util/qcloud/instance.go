@@ -100,7 +100,7 @@ type SInstance struct {
 	Placement           Placement
 	InstanceId          string
 	InstanceType        string
-	CPU                 int8
+	CPU                 int
 	Memory              int
 	RestrictState       string //NORMAL EXPIRED PROTECTIVELY_ISOLATED
 	InstanceName        string
@@ -280,7 +280,7 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	return nics, nil
 }
 
-func (self *SInstance) GetVcpuCount() int8 {
+func (self *SInstance) GetVcpuCount() int {
 	return self.CPU
 }
 

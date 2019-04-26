@@ -74,7 +74,7 @@ func (self *SLocalStorage) GetMediumType() string {
 	return api.DISK_TYPE_SSD
 }
 
-func (self *SLocalStorage) GetCapacityMB() int {
+func (self *SLocalStorage) GetCapacityMB() int64 {
 	return 0 // unlimited
 }
 

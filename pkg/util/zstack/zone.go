@@ -2,23 +2,22 @@ package zstack
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type SZone struct {
 	region *SRegion
 
-	Name        string
-	UUID        string
-	Description string
-	Type        string
-	State       string
+	ZStackBasic
+	Type  string
+	State string
 
 	iwires    []cloudprovider.ICloudWire
 	istorages []cloudprovider.ICloudStorage
 
-	//storageTypes []string
 	ihosts []cloudprovider.ICloudHost
 }
 
@@ -44,9 +43,9 @@ func (zone *SZone) IsEmulated() bool {
 
 func (zone *SZone) GetStatus() string {
 	if zone.State == "Enabled" {
-		return models.ZONE_ENABLE
+		return api.ZONE_ENABLE
 	}
-	return models.ZONE_DISABLE
+	return api.ZONE_DISABLE
 }
 
 func (zone *SZone) Refresh() error {
@@ -58,29 +57,63 @@ func (zone *SZone) GetIRegion() cloudprovider.ICloudRegion {
 	return zone.region
 }
 
-func (zone *SZone) getStorages(clusterUUID string) ([]SStorage, error) {
-	storages := []SStorage{}
-	params := []string{"q=zone.uuid=" + zone.UUID}
-	if len(clusterUUID) > 0 {
-		params = append(params, "q=cluster.uuid="+clusterUUID)
+func (region *SRegion) GetStorageWithZone(storageId string) (*SStorage, error) {
+	storage, err := region.GetStorage(storageId)
+	if err != nil {
+		log.Errorf("failed to found storage %s error: %v", storageId, err)
+		return nil, err
 	}
-	err := zone.region.client.listAll("primary-storage", params, &storages)
+	zone, err := region.GetZone(storage.ZoneUUID)
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(storages); i++ {
-		storages[i].zone = zone
-	}
-	return storages, nil
+	storage.zone = zone
+	return storage, nil
 }
 
-func (zone *SZone) fetchStorages(clusterUUID string) error {
-	storages, err := zone.getStorages("")
+func (region *SRegion) GetStorage(storageId string) (*SStorage, error) {
+	storages, err := region.GetStorages("", "", storageId)
+	if err != nil {
+		return nil, err
+	}
+	if len(storages) == 1 {
+		if storages[0].UUID == storageId {
+			return &storages[0], nil
+		}
+		return nil, cloudprovider.ErrNotFound
+	}
+	if len(storages) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return nil, cloudprovider.ErrDuplicateId
+}
+
+func (region *SRegion) GetStorages(zoneId, clusterId, storageId string) ([]SStorage, error) {
+	storages := []SStorage{}
+	params := []string{}
+	if len(zoneId) > 0 {
+		params = append(params, "q=zone.uuid="+zoneId)
+	}
+	if len(clusterId) > 0 {
+		params = append(params, "q=cluster.uuid="+clusterId)
+	}
+	if SkipEsxi {
+		params = append(params, "q=type!=VCenter")
+	}
+	if len(storageId) > 0 {
+		params = append(params, "q=uuid="+storageId)
+	}
+	return storages, region.client.listAll("primary-storage", params, &storages)
+}
+
+func (zone *SZone) fetchStorages(clusterId string) error {
+	storages, err := zone.region.GetStorages(zone.UUID, clusterId, "")
 	if err != nil {
 		return err
 	}
 	zone.istorages = []cloudprovider.ICloudStorage{}
 	for i := 0; i < len(storages); i++ {
+		storages[i].zone = zone
 		zone.istorages = append(zone.istorages, &storages[i])
 	}
 	return nil
@@ -93,32 +126,67 @@ func (zone *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	return zone.istorages, nil
 }
 
-func (zone *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return nil, cloudprovider.ErrNotFound
-}
-
-func (zone *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	hosts := []SHost{}
-	params := []string{"q=uuid=" + id, "q=zone.uuid=" + zone.UUID}
-	err := zone.region.client.listAll("hosts", params, &hosts)
+func (zone *SZone) GetIStorageById(storageId string) (cloudprovider.ICloudStorage, error) {
+	storages, err := zone.region.GetStorages(zone.UUID, "", storageId)
 	if err != nil {
 		return nil, err
 	}
-	count := len(hosts)
-	switch count {
-	case 0:
+	if len(storages) == 1 {
+		if storages[0].UUID == storageId {
+			storages[0].zone = zone
+			return &storages[0], nil
+		}
 		return nil, cloudprovider.ErrNotFound
-	case 1:
-		hosts[0].zone = zone
-		return &hosts[0], nil
-	default:
-		return nil, cloudprovider.ErrDuplicateId
 	}
+	if len(storages) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return nil, cloudprovider.ErrDuplicateId
+}
+
+func (region *SRegion) GetHosts(zoneId string, hostId string) ([]SHost, error) {
+	hosts := []SHost{}
+	params := []string{}
+	if len(zoneId) > 0 {
+		params = append(params, "q=zone.uuid="+zoneId)
+	}
+	if len(hostId) > 0 {
+		params = append(params, "q=uuid="+hostId)
+	}
+	if SkipEsxi {
+		params = append(params, "q=hypervisorType!=ESX")
+	}
+	return hosts, region.client.listAll("hosts", params, &hosts)
+}
+
+func (region *SRegion) GetHost(zoneId string, hostId string) (*SHost, error) {
+	hosts, err := region.GetHosts(zoneId, hostId)
+	if err != nil {
+		return nil, err
+	}
+	if len(hosts) == 1 {
+		if hosts[0].UUID == hostId {
+			return &hosts[0], nil
+		}
+		return nil, cloudprovider.ErrNotFound
+	}
+	if len(hosts) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return nil, cloudprovider.ErrDuplicateId
+}
+
+func (zone *SZone) GetIHostById(hostId string) (cloudprovider.ICloudHost, error) {
+	host, err := zone.region.GetHost(zone.UUID, hostId)
+	if err != nil {
+		return nil, err
+	}
+	host.zone = zone
+	return host, nil
 }
 
 func (zone *SZone) fetchHosts() error {
-	hosts := []SHost{}
-	err := zone.region.client.listAll("hosts", []string{"q=zoneUuid=" + zone.UUID}, &hosts)
+	hosts, err := zone.region.GetHosts(zone.UUID, "")
 	if err != nil {
 		return err
 	}
@@ -138,5 +206,15 @@ func (zone *SZone) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 }
 
 func (zone *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
+	if zone.iwires == nil || len(zone.iwires) == 0 {
+		wires, err := zone.region.GetWires(zone.UUID, "", "")
+		if err != nil {
+			return nil, err
+		}
+		zone.iwires = []cloudprovider.ICloudWire{}
+		for i := 0; i < len(wires); i++ {
+			zone.iwires = append(zone.iwires, &wires[i])
+		}
+	}
 	return zone.iwires, nil
 }

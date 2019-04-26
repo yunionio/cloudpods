@@ -126,7 +126,7 @@ func (self *SHost) GetSN() string {
 	return ""
 }
 
-func (self *SHost) GetCpuCount() int8 {
+func (self *SHost) GetCpuCount() int {
 	return 0
 }
 

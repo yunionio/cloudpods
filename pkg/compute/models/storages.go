@@ -130,8 +130,8 @@ type SStorage struct {
 	db.SStandaloneResourceBase
 	SManagedResourceBase
 
-	Capacity    int                  `nullable:"false" list:"admin" update:"admin" create:"admin_required"`                           // Column(Integer, nullable=False) # capacity of disk in MB
-	Reserved    int                  `nullable:"true" default:"0" list:"admin" update:"admin"`                                        // Column(Integer, nullable=True, default=0)
+	Capacity    int64                `nullable:"false" list:"admin" update:"admin" create:"admin_required"`                           // Column(Integer, nullable=False) # capacity of disk in MB
+	Reserved    int64                `nullable:"true" default:"0" list:"admin" update:"admin"`                                        // Column(Integer, nullable=True, default=0)
 	StorageType string               `width:"32" charset:"ascii" nullable:"false" list:"user" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False)
 	MediumType  string               `width:"32" charset:"ascii" nullable:"false" list:"user" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False)
 	Cmtbound    float32              `nullable:"true" default:"1" list:"admin" update:"admin"`                                        // Column(Float, nullable=True)
@@ -394,7 +394,7 @@ func (self *SStorage) getStorageCapacity() SStorageCapacity {
 	capa.Capacity = self.GetCapacity()
 	capa.Used = self.GetUsedCapacity(tristate.True)
 	capa.Wasted = self.GetUsedCapacity(tristate.False)
-	capa.VCapacity = int(float32(self.GetCapacity()) * self.GetOvercommitBound())
+	capa.VCapacity = int64(float32(self.GetCapacity()) * self.GetOvercommitBound())
 
 	return capa
 }
@@ -425,7 +425,7 @@ func (self *SStorage) GetExtraDetails(ctx context.Context, userCred mcclient.Tok
 	return self.getMoreDetails(ctx, extra), nil
 }
 
-func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int {
+func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int64 {
 	disks := DiskManager.Query().SubQuery()
 	q := disks.Query(sqlchemy.SUM("sum", disks.Field("disk_size"))).Equals("storage_id", self.Id)
 	switch isReady {
@@ -435,7 +435,7 @@ func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int {
 		q = q.NotEquals("status", api.DISK_READY)
 	}
 	row := q.Row()
-	var sum int
+	var sum int64
 	err := row.Scan(&sum)
 	if err != nil {
 		log.Errorf("GetUsedCapacity fail: %s", err)
@@ -508,16 +508,16 @@ func (self *SStorage) GetRegion() *SCloudregion {
 	return zone.GetRegion()
 }
 
-func (self *SStorage) GetReserved() int {
+func (self *SStorage) GetReserved() int64 {
 	return self.Reserved
 }
 
-func (self *SStorage) GetCapacity() int {
+func (self *SStorage) GetCapacity() int64 {
 	return self.Capacity - self.GetReserved()
 }
 
-func (self *SStorage) GetFreeCapacity() int {
-	return int(float32(self.GetCapacity())*self.GetOvercommitBound()) - self.GetUsedCapacity(tristate.None)
+func (self *SStorage) GetFreeCapacity() int64 {
+	return int64(float32(self.GetCapacity())*self.GetOvercommitBound()) - self.GetUsedCapacity(tristate.None)
 }
 
 func (self *SStorage) GetAttachedHosts() []SHost {

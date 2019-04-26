@@ -113,7 +113,7 @@ func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 	return self.storageCache
 }
 
-func (self *SImage) GetSize() int64 {
+func (self *SImage) GetSizeByte() int64 {
 	return self.ImageSizeGB * 1024 * 1024 * 1024
 }
 

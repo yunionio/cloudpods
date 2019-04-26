@@ -16,8 +16,8 @@ package provider
 
 import (
 	"context"
-	"fmt"
-	"strings"
+
+	"yunion.io/x/onecloud/pkg/httperrors"
 
 	"yunion.io/x/jsonutils"
 
@@ -60,23 +60,40 @@ func (self *SZStackProviderFactory) NeedSyncSkuFromCloud() bool {
 }
 
 func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
+	username, _ := data.GetString("username")
+	if len(username) == 0 {
+		return httperrors.NewMissingParameterError("username")
+	}
+	password, _ := data.GetString("password")
+	if len(password) == 0 {
+		return httperrors.NewMissingParameterError("password")
+	}
+	authURL, _ := data.GetString("auth_url")
+	if len(authURL) == 0 {
+		return httperrors.NewMissingParameterError("auth_url")
+	}
+	data.Set("account", jsonutils.NewString(username))
+	data.Set("secret", jsonutils.NewString("password"))
+	data.Set("access_url", jsonutils.NewString(authURL))
 	return nil
 }
 
 func (self *SZStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
-	account := &cloudprovider.SCloudaccount{}
+	if username, _ := data.GetString("username"); len(username) > 0 {
+		cloudaccount = username
+	}
+	password, _ := data.GetString("password")
+	if len(password) > 0 {
+		return nil, httperrors.NewMissingParameterError("password")
+	}
+	account := &cloudprovider.SCloudaccount{
+		Account: cloudaccount,
+		Secret:  password,
+	}
 	return account, nil
 }
 
-func (self *SZStackProviderFactory) GetProvider(providerId, providerName, url, account, password string) (cloudprovider.ICloudProvider, error) {
-	accountInfo := strings.Split(account, "/")
-	if len(accountInfo) < 2 {
-		return nil, fmt.Errorf("Missing username or project name %s", account)
-	}
-	project, username, endpointType := accountInfo[0], accountInfo[1], "internal"
-	if len(accountInfo) == 3 {
-		endpointType = accountInfo[2]
-	}
+func (self *SZStackProviderFactory) GetProvider(providerId, providerName, url, username, password string) (cloudprovider.ICloudProvider, error) {
 	client, err := zstack.NewZStackClient(providerId, providerName, url, username, password, false)
 	if err != nil {
 		return nil, err

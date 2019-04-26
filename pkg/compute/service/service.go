@@ -42,6 +42,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/util/openstack/provider"
 	_ "yunion.io/x/onecloud/pkg/util/qcloud/provider"
 	_ "yunion.io/x/onecloud/pkg/util/ucloud/provider"
+	_ "yunion.io/x/onecloud/pkg/util/zstack/provider"
 )
 
 func StartService() {

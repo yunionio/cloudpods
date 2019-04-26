@@ -84,7 +84,7 @@ func (storage *SStorage) GetMediumType() string {
 	return api.DISK_TYPE_ROTATE
 }
 
-func (storage *SStorage) GetCapacityMB() int {
+func (storage *SStorage) GetCapacityMB() int64 {
 	return 0 // unlimited
 }
 

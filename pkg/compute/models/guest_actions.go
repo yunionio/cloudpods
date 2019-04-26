@@ -1312,7 +1312,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, "No valid storage on current host", userCred, false)
 			return nil, httperrors.NewBadRequestError("No valid storage on current host")
 		}
-		if storage.GetCapacity() > 0 && storage.GetCapacity() < size {
+		if storage.GetCapacity() > 0 && storage.GetCapacity() < int64(size) {
 			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, "Not eough storage space on current host", userCred, false)
 			return nil, httperrors.NewBadRequestError("Not eough storage space on current host")
 		}
@@ -1943,7 +1943,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 				return nil, httperrors.NewBadRequestError("Fetch storage error: %s", err)
 			}
 			storage := iStorage.(*SStorage)
-			if storage.GetFreeCapacity() < needSize {
+			if storage.GetFreeCapacity() < int64(needSize) {
 				return nil, httperrors.NewInsufficientResourceError("Not enough free space")
 			}
 		}
@@ -3049,7 +3049,7 @@ func (man *SGuestManager) createImportGuest(ctx context.Context, userCred mcclie
 	gst.Status = api.VM_IMPORT
 	gst.Hypervisor = desc.Hypervisor
 	gst.VmemSize = desc.MemSizeMb
-	gst.VcpuCount = int8(desc.Cpu)
+	gst.VcpuCount = desc.Cpu
 	gst.BootOrder = desc.BootOrder
 	gst.Description = desc.Description
 	err = man.TableSpec().Insert(gst)

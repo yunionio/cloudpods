@@ -7,14 +7,11 @@ import (
 
 func init() {
 	type HostListOptions struct {
-		ZONE string
+		ZoneId string
+		HostId string
 	}
 	shellutils.R(&HostListOptions{}, "host-list", "List hosts", func(cli *zstack.SRegion, args *HostListOptions) error {
-		zone, err := cli.GetIZoneById(args.ZONE)
-		if err != nil {
-			return err
-		}
-		hosts, err := zone.GetIHosts()
+		hosts, err := cli.GetHosts(args.ZoneId, args.HostId)
 		if err != nil {
 			return err
 		}

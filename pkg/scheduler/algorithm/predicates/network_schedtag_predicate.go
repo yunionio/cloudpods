@@ -143,12 +143,12 @@ func (p *NetworkSchedtagPredicate) OnSelectEnd(u *core.Unit, c core.Candidater, 
 	p.BaseSchedtagPredicate.OnSelectEnd(p, u, c, count)
 }
 
-func (p *NetworkSchedtagPredicate) GetCandidateResourceSortScore(selectRes ISchedtagCandidateResource) int {
+func (p *NetworkSchedtagPredicate) GetCandidateResourceSortScore(selectRes ISchedtagCandidateResource) int64 {
 	cnt, err := selectRes.(*api.CandidateNetwork).GetFreeAddressCount()
 	if err != nil {
 		return -1
 	}
-	return cnt
+	return int64(cnt)
 }
 
 func (p *NetworkSchedtagPredicate) DoSelect(

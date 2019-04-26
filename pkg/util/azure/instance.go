@@ -777,7 +777,7 @@ func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd s
 	return self.host.zone.region.ReplaceSystemDisk(self, cpu, memoryMb, imageId, passwd, publicKey, sysSizeGB)
 }
 
-func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int8, memoryMb int, imageId, passwd, publicKey string, sysSizeGB int) (string, error) {
+func (region *SRegion) ReplaceSystemDisk(instance *SInstance, cpu int, memoryMb int, imageId, passwd, publicKey string, sysSizeGB int) (string, error) {
 	log.Debugf("ReplaceSystemDisk %s image: %s", instance.ID, imageId)
 	storageType := instance.Properties.StorageProfile.OsDisk.ManagedDisk.StorageAccountType
 	if len(storageType) == 0 {
@@ -1019,13 +1019,13 @@ func (self *SInstance) fetchVMSize() error {
 	return nil
 }
 
-func (self *SInstance) GetVcpuCount() int8 {
+func (self *SInstance) GetVcpuCount() int {
 	err := self.fetchVMSize()
 	if err != nil {
 		log.Errorf("fetchVMSize error: %v", err)
 		return 0
 	}
-	return int8(self.vmSize.NumberOfCores)
+	return self.vmSize.NumberOfCores
 }
 
 func (self *SInstance) GetVmemSizeMB() int {

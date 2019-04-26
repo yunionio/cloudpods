@@ -285,8 +285,8 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	return nil, nil
 }
 
-func (self *SInstance) GetVcpuCount() int8 {
-	return int8(self.CPU)
+func (self *SInstance) GetVcpuCount() int {
+	return self.CPU
 }
 
 func (self *SInstance) GetVmemSizeMB() int {

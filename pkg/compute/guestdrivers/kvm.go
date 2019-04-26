@@ -416,7 +416,7 @@ func (self *SKVMGuestDriver) OnGuestChangeCpuMemFailed(ctx context.Context, gues
 	}
 	if cpuAdded > 0 {
 		_, err := db.Update(guest, func() error {
-			guest.VcpuCount = guest.VcpuCount + int8(cpuAdded)
+			guest.VcpuCount = guest.VcpuCount + int(cpuAdded)
 			return nil
 		})
 		if err != nil {

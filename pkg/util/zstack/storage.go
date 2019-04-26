@@ -1,12 +1,11 @@
 package zstack
 
 import (
-	"fmt"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type TStorageType string
@@ -20,14 +19,12 @@ const (
 type SStorage struct {
 	zone *SZone
 
-	Name string
-	UUID string
-
+	ZStackBasic
 	VCenterUUID               string       `json:"VCenterUuid"`
 	Datastore                 string       `json:"datastore"`
 	ZoneUUID                  string       `json:"zoneUuid"`
 	URL                       string       `json:"url"`
-	TotalCapacity             int          `json:"totalCapacity"`
+	TotalCapacity             int64        `json:"totalCapacity"`
 	AvailableCapacity         int          `json:"availableCapacity"`
 	TotalPhysicalCapacity     int          `json:"totalPhysicalCapacity"`
 	AvailablePhysicalCapacity int          `json:"availablePhysicalCapacity"`
@@ -36,9 +33,7 @@ type SStorage struct {
 	Status                    string       `json:"status"`
 	MountPath                 string       `json:"mountPath"`
 	AttachedClusterUUIDs      []string     `json:"attachedClusterUuids"`
-
-	//CreateDate                time.Time `json:"createDate"`
-	//LastOpDate                time.Time `json:"lastOpDate"`
+	ZStackTime
 }
 
 func (storage *SStorage) GetMetadata() *jsonutils.JSONDict {
@@ -79,15 +74,15 @@ func (storage *SStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 }
 
 func (storage *SStorage) GetStorageType() string {
-	return fmt.Sprintf("ZStack/%s", storage.Type)
+	return string(storage.Type)
 }
 
 func (storage *SStorage) GetMediumType() string {
-	return models.DISK_TYPE_ROTATE
+	return api.DISK_TYPE_ROTATE
 }
 
-func (storage *SStorage) GetCapacityMB() int {
-	return storage.TotalCapacity / 1024
+func (storage *SStorage) GetCapacityMB() int64 {
+	return storage.TotalCapacity / 1024 / 1024
 }
 
 func (storage *SStorage) GetStorageConf() jsonutils.JSONObject {
@@ -101,9 +96,9 @@ func (storage *SStorage) GetManagerId() string {
 
 func (storage *SStorage) GetStatus() string {
 	if storage.Status == "Connected" {
-		return models.STORAGE_ONLINE
+		return api.STORAGE_ONLINE
 	}
-	return models.STORAGE_OFFLINE
+	return api.STORAGE_OFFLINE
 }
 
 func (storage *SStorage) Refresh() error {
@@ -116,8 +111,8 @@ func (storage *SStorage) GetEnabled() bool {
 }
 
 func (storage *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
-	return nil
-	//return storage.zone.region.getStoragecache()
+	storage.zone.region.GetIStoragecaches()
+	return storage.zone.region.storageCache
 }
 
 func (storage *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
@@ -136,14 +131,22 @@ func (storage *SStorage) CreateIDisk(name string, sizeGb int, desc string) (clou
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (storage *SStorage) GetIDiskById(idStr string) (cloudprovider.ICloudDisk, error) {
-	return nil, cloudprovider.ErrNotImplemented
-	// if disk, err := storage.zone.region.getDisk(idStr); err != nil {
-	// 	return nil, err
-	// } else {
-	// 	disk.storage = storage
-	// 	return disk, nil
-	// }
+func (storage *SStorage) GetIDiskById(diskId string) (cloudprovider.ICloudDisk, error) {
+	disks, err := storage.zone.region.GetDisks(storage.UUID, diskId)
+	if err != nil {
+		return nil, err
+	}
+	if len(disks) == 1 {
+		if disks[0].UUID == diskId {
+			disks[0].storage = storage
+			return &disks[0], nil
+		}
+		return nil, cloudprovider.ErrNotFound
+	}
+	if len(disks) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return nil, cloudprovider.ErrDuplicateId
 }
 
 func (storage *SStorage) GetMountPoint() string {

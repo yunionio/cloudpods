@@ -79,7 +79,7 @@ type SInstance struct {
 	HostName          string
 	InstanceName      string
 	InstanceType      string
-	Cpu               int8
+	Cpu               int
 	Memory            int // MB
 	IoOptimized       bool
 	KeyPairName       string
@@ -305,7 +305,7 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	}
 }
 
-func (self *SInstance) GetVcpuCount() int8 {
+func (self *SInstance) GetVcpuCount() int {
 	return self.Cpu
 }
 
@@ -594,7 +594,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				InstanceId:        *instance.InstanceId,
 				ImageId:           *instance.ImageId,
 				InstanceType:      *instance.InstanceType,
-				Cpu:               int8(*instance.CpuOptions.CoreCount),
+				Cpu:               int(*instance.CpuOptions.CoreCount),
 				IoOptimized:       *instance.EbsOptimized,
 				KeyPairName:       *instance.KeyName,
 				CreationTime:      *instance.LaunchTime,

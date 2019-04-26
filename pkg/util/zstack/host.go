@@ -1,21 +1,22 @@
 package zstack
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/compute/models"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type SHost struct {
 	zone *SZone
 
+	ZStackBasic
 	Username                string `json:"username"`
 	SSHPort                 int    `json:"sshPort"`
 	ZoneUUID                string `json:"zoneUuid"`
-	Name                    string `json:"name"`
-	UUID                    string `json:"uuid"`
 	ClusterUUID             string `json:"clusterUuid"`
-	Description             string `json:"description"`
 	ManagementIP            string `json:"managementIp"`
 	HypervisorType          string `json:"hypervisorType"`
 	State                   string `json:"state"`
@@ -26,8 +27,7 @@ type SHost struct {
 	TotalMemoryCapacity     int    `json:"totalMemoryCapacity"`
 	AvailableMemoryCapacity int    `json:"availableMemoryCapacity"`
 	CPUNum                  int    `json:"cpuNum"`
-	//CreateDate              time.Time `json:"createDate"`
-	//LastOpDate              time.Time `json:"lastOpDate"`
+	ZStackTime
 }
 
 func (host *SHost) GetMetadata() *jsonutils.JSONDict {
@@ -35,16 +35,25 @@ func (host *SHost) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (host *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
-	return host.zone.GetIWires()
+	wires, err := host.zone.region.GetWires(host.ZoneUUID, "", host.ClusterUUID)
+	if err != nil {
+		return nil, err
+	}
+	iwires := []cloudprovider.ICloudWire{}
+	for i := 0; i < len(wires); i++ {
+		iwires = append(iwires, &wires[i])
+	}
+	return iwires, nil
 }
 
 func (host *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	storages, err := host.zone.getStorages(host.ClusterUUID)
+	storages, err := host.zone.region.GetStorages(host.zone.UUID, host.ClusterUUID, "")
 	if err != nil {
 		return nil, err
 	}
 	istorages := []cloudprovider.ICloudStorage{}
 	for i := 0; i < len(storages); i++ {
+		storages[i].zone = host.zone
 		istorages = append(istorages, &storages[i])
 	}
 	return istorages, nil
@@ -55,11 +64,34 @@ func (host *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 }
 
 func (host *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotFound
+	instances, err := host.zone.region.GetInstances(host.UUID, "", "")
+	if err != nil {
+		return nil, err
+	}
+	iInstnace := []cloudprovider.ICloudVM{}
+	for i := 0; i < len(instances); i++ {
+		instances[i].host = host
+		iInstnace = append(iInstnace, &instances[i])
+	}
+	return iInstnace, nil
 }
 
-func (host *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotFound
+func (host *SHost) GetIVMById(instanceId string) (cloudprovider.ICloudVM, error) {
+	instances, err := host.zone.region.GetInstances(host.UUID, instanceId, "")
+	if err != nil {
+		return nil, err
+	}
+	if len(instances) == 1 {
+		if instances[0].UUID == instanceId {
+			instances[0].host = host
+			return &instances[0], nil
+		}
+		return nil, cloudprovider.ErrNotFound
+	}
+	if len(instances) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return nil, cloudprovider.ErrDuplicateId
 }
 
 func (host *SHost) GetId() string {
@@ -80,7 +112,7 @@ func (host *SHost) IsEmulated() bool {
 
 func (host *SHost) GetStatus() string {
 	//TODO
-	return models.HOST_STATUS_RUNNING
+	return api.HOST_STATUS_RUNNING
 }
 
 func (host *SHost) Refresh() error {
@@ -88,7 +120,7 @@ func (host *SHost) Refresh() error {
 }
 
 func (host *SHost) GetHostStatus() string {
-	return models.HOST_ONLINE
+	return api.HOST_ONLINE
 }
 
 func (host *SHost) GetEnabled() bool {
@@ -113,8 +145,8 @@ func (host *SHost) GetSN() string {
 	return ""
 }
 
-func (host *SHost) GetCpuCount() int8 {
-	return int8(host.CPUNum)
+func (host *SHost) GetCpuCount() int {
+	return host.TotalCPUCapacity
 }
 
 func (host *SHost) GetNodeCount() int8 {
@@ -130,28 +162,57 @@ func (host *SHost) GetCpuMhz() int {
 }
 
 func (host *SHost) GetMemSizeMB() int {
-	return 0
+	return host.TotalMemoryCapacity / 1024 / 1024
+}
+
+type SLocalStorageCapacity struct {
+	HostUUID                  string `json:"hostUuid"`
+	TotalCapacity             int    `json:"totalCapacity"`
+	AvailableCapacity         int    `json:"availableCapacity"`
+	TotalPhysicalCapacity     int    `json:"totalPhysicalCapacity"`
+	AvailablePhysicalCapacity int    `json:"availablePhysicalCapacity"`
+}
+
+func (region *SRegion) GetLocalStorage(storageId string, hostId string) ([]SLocalStorageCapacity, error) {
+	localStorage := []SLocalStorageCapacity{}
+	params := []string{}
+	if len(hostId) > 0 {
+		params = append(params, "hostUuid="+hostId)
+	}
+	return localStorage, region.client.listAll(fmt.Sprintf("primary-storage/local-storage/%s/capacities", storageId), params, &localStorage)
 }
 
 func (host *SHost) GetStorageSizeMB() int {
-	return 0
+	storages, err := host.zone.region.GetStorages(host.zone.UUID, host.ClusterUUID, "")
+	if err != nil {
+		return 0
+	}
+	totalStorage := 0
+	for _, storage := range storages {
+		if storage.Type == "LocalStorage" {
+			localStorages, err := host.zone.region.GetLocalStorage(storage.UUID, host.UUID)
+			if err != nil {
+				return 0
+			}
+			for i := 0; i < len(localStorages); i++ {
+				totalStorage += localStorages[i].TotalCapacity
+			}
+		}
+	}
+	return totalStorage / 1024 / 1024
 }
 
 func (host *SHost) GetStorageType() string {
-	return models.DISK_TYPE_HYBRID
+	return api.DISK_TYPE_HYBRID
 }
 
 func (host *SHost) GetHostType() string {
-	return models.HOST_TYPE_ZSTACK
+	return api.HOST_TYPE_ZSTACK
 }
 
 func (host *SHost) GetManagerId() string {
 	return host.zone.region.client.providerID
 }
-
-// func (host *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
-// 	return nil, cloudprovider.ErrNotImplemented
-// }
 
 func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
 	return nil, cloudprovider.ErrNotImplemented

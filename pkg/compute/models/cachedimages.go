@@ -419,7 +419,7 @@ func (self *SCachedimage) canDeleteLastCache() bool {
 func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mcclient.TokenCredential, image cloudprovider.ICloudImage) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Name = image.GetName()
-		self.Size = image.GetSize()
+		self.Size = image.GetSizeByte()
 		self.ExternalId = image.GetGlobalId()
 		self.ImageType = image.GetImageType()
 		sImage := cloudprovider.CloudImage2Image(image)
@@ -444,7 +444,7 @@ func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userC
 	}
 
 	cachedImage.Name = newName
-	cachedImage.Size = image.GetSize()
+	cachedImage.Size = image.GetSizeByte()
 	sImage := cloudprovider.CloudImage2Image(image)
 	cachedImage.Info = jsonutils.Marshal(&sImage)
 	cachedImage.LastSync = time.Now().UTC()

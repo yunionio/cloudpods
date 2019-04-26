@@ -73,7 +73,7 @@ func (self *SClassicStorage) GetEnabled() bool {
 	return false
 }
 
-func (self *SClassicStorage) GetCapacityMB() int {
+func (self *SClassicStorage) GetCapacityMB() int64 {
 	return 0 // unlimited
 }
 
