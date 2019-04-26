@@ -2965,6 +2965,7 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 	// if deployAction == "deploy" {
 	resetPasswd := jsonutils.QueryBoolean(params, "reset_password", true)
 	//}
+	config.Add(jsonutils.NewBool(jsonutils.QueryBoolean(params, "enable_cloud_init", false)), "enable_cloud_init")
 
 	if resetPasswd {
 		config.Add(jsonutils.JSONTrue, "reset_password")

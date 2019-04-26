@@ -126,9 +126,11 @@ func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pub
 	return DeployAuthorizedKeys(rootFs, usrDir, pubkeys, false)
 }
 
-func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *sshkeys.SSHKeys) error {
+func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *sshkeys.SSHKeys, isInit, enableCloudInit bool) error {
 	l.DisableSelinux(rootFs)
-	l.DisableCloudinit(rootFs)
+	if !enableCloudInit && isInit {
+		l.DisableCloudinit(rootFs)
+	}
 	var yunionroot = YUNIONROOT_USER
 	if err := rootFs.UserAdd(yunionroot, false); err != nil && !strings.Contains(err.Error(), "already exists") {
 		log.Errorf("UserAdd %s: %v", yunionroot, err)
