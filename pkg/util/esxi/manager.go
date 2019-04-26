@@ -56,12 +56,28 @@ type SESXiClient struct {
 }
 
 func NewESXiClient(providerId string, providerName string, host string, port int, account string, passwd string) (*SESXiClient, error) {
+	return NewESXiClient2(providerId, providerName, host, port, account, passwd, true)
+}
+
+func NewESXiClient2(providerId string, providerName string, host string, port int, account string, passwd string, managed bool) (*SESXiClient, error) {
 	cli := &SESXiClient{providerId: providerId, providerName: providerName,
 		host: host, port: port, account: account, password: passwd, context: context.Background()}
 
 	err := cli.connect()
 	if err != nil {
 		return nil, err
+	}
+
+	if !cli.IsVCenter() {
+		err := cli.checkHostManagedByVCenter()
+		if err != nil {
+			if managed {
+				cli.disconnect()
+				return nil, err
+			} else {
+				log.Warningf("%s", err)
+			}
+		}
 	}
 	return cli, nil
 }
@@ -259,6 +275,17 @@ func (cli *SESXiClient) getPrivateId(idStr string) string {
 		idStr = idStr[len(cli.providerId)+1:]
 	}
 	return idStr
+}
+
+func (cli *SESXiClient) checkHostManagedByVCenter() error {
+	host, err := cli.FindHostByIp(cli.host)
+	if err != nil {
+		return err
+	}
+	if host.IsManagedByVCenter() {
+		return fmt.Errorf("ESXi host is managed by vcenter %s, please connect to vcenter instead for full management functions!", host.GetManagementServerIp())
+	}
+	return nil
 }
 
 func (cli *SESXiClient) FindHostByIp(hostIp string) (*SHost, error) {
