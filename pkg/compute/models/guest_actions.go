@@ -1078,7 +1078,7 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 func (self *SGuest) GetTemplateId() string {
 	gdc := self.CategorizeDisks()
 	if gdc.Root != nil {
-		gdc.Root.GetTemplateId()
+		return gdc.Root.GetTemplateId()
 	}
 	return ""
 }
