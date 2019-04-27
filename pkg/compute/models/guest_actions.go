@@ -1157,7 +1157,10 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 
 func (self *SGuest) GetTemplateId() string {
 	gdc := self.CategorizeDisks()
-	return gdc.Root.GetTemplateId()
+	if gdc.Root != nil {
+		gdc.Root.GetTemplateId()
+	}
+	return ""
 }
 
 func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool, allDisk bool) error {
