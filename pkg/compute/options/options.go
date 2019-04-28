@@ -66,8 +66,8 @@ type ComputeOptions struct {
 	// aws instance type file
 	DefaultAwsInstanceTypeFile string `default:"/etc/yunion/aws_instance_types.json" help:"aws instance type json file"`
 
-	ConvertHypervisorDefaultTemplate string `default:"Default template" help:"Kvm baremetal convert option"`
-	ConvertEsxiDefaultTemplate       string `default:"Default template" help:"ESXI baremetal convert option"`
+	ConvertHypervisorDefaultTemplate string `help:"Kvm baremetal convert option"`
+	ConvertEsxiDefaultTemplate       string `help:"ESXI baremetal convert option"`
 	ConvertKubeletDockerVolumeSize   string `default:"256g" help:"Docker volume size"`
 
 	NfsDefaultImageCacheDir string `default:"image_cache"`

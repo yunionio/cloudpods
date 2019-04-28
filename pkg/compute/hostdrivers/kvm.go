@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -337,66 +338,80 @@ func (self *SKVMHostDriver) RequestCleanUpDiskSnapshots(ctx context.Context, hos
 	return err
 }
 
-func (self *SKVMHostDriver) PrepareConvert(host *models.SHost, image, raid string, data jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+func (self *SKVMHostDriver) PrepareConvert(host *models.SHost, image, raid string, data jsonutils.JSONObject) (*api.ServerCreateInput, error) {
 	params, err := self.SBaseHostDriver.PrepareConvert(host, image, raid, data)
 	if err != nil {
 		return nil, err
 	}
-	// TODO: use api.ServerCreateInput
 	var sysSize = "60g"
-	if data.Contains("baremetal_disk_config.0") {
-		jsonArray := jsonutils.GetArrayOfPrefix(data, "baremetal_disk_config")
-		for i := 0; i < len(jsonArray); i += 1 { // } .Contains(fmt.Sprintf("baremetal_disk_config.%d", i)); i++ {
-			// v, _ := data.Get(fmt.Sprintf("baremetal_disk_config.%d", i))
-			params.Set(fmt.Sprintf("baremetal_disk_config.%d", i), jsonArray[i])
-		}
-	} else {
+	raidConfs, _ := cmdline.FetchBaremetalDiskConfigsByJSON(data)
+	if len(raidConfs) == 0 {
 		raid, err = self.GetRaidScheme(host, raid)
 		if err != nil {
 			return nil, err
 		}
 		if raid != baremetal.DISK_CONF_NONE {
-			params.Set("baremetal_disk_config.0", jsonutils.NewString(fmt.Sprintf("%s:(%s,)", raid, sysSize)))
+			raidConfs = []*api.BaremetalDiskConfig{
+				{
+					Conf:   raid,
+					Splits: fmt.Sprintf("%s,", sysSize),
+					Type:   api.DISK_TYPE_HYBRID,
+				},
+			}
 		}
 	}
-	if data.Contains("disk.0") {
-		jsonArray := jsonutils.GetArrayOfPrefix(data, "disk")
-		for i := 0; i < len(jsonArray); i += 1 { // } data.Contains(fmt.Sprintf("disk.%d", i)); i++ {
-			// v, _ := data.Get(fmt.Sprintf("disk.%d", i))
-			params.Set(fmt.Sprintf("disk.%d", i), jsonArray[i])
-		}
-	} else {
+	params.BaremetalDiskConfigs = raidConfs
+	disks, _ := cmdline.FetchDiskConfigsByJSON(data)
+	if len(disks) == 0 {
 		if len(image) == 0 {
 			image = options.Options.ConvertHypervisorDefaultTemplate
 		}
 		if len(image) == 0 {
 			return nil, fmt.Errorf("Not default image specified for converting %s", self.GetHostType())
 		}
+		rootDisk := &api.DiskConfig{}
 		if raid != baremetal.DISK_CONF_NONE {
-			params.Set("disk.0", jsonutils.NewString(fmt.Sprintf("%s:autoextend", image)))
+			rootDisk = &api.DiskConfig{
+				ImageId: image,
+				SizeMb:  -1,
+			}
 		} else if host.StorageInfo.(*jsonutils.JSONArray).Length() > 1 {
-			params.Set("disk.0", jsonutils.NewString(fmt.Sprintf("%s:autoextend", image)))
+			rootDisk = &api.DiskConfig{
+				ImageId: image,
+				SizeMb:  -1,
+			}
 		} else {
-			params.Set("disk.0", jsonutils.NewString(fmt.Sprintf("%s:%s", image, sysSize)))
+			rootDisk = &api.DiskConfig{
+				ImageId: image,
+				SizeMb:  60 * 1024, // 60g
+			}
 		}
-		params.Set("disk.1", jsonutils.NewString("ext4:autoextend:/opt/cloud/workspace"))
+		optDisk := &api.DiskConfig{
+			Fs:         "ext4",
+			SizeMb:     -1,
+			Mountpoint: "/opt/cloud/workspace",
+		}
+		disks = append(disks, rootDisk, optDisk)
 	}
-	if data.Contains("net.0") {
-		jsonArray := jsonutils.GetArrayOfPrefix(data, "net")
-		for i := 0; i < len(jsonArray); i += 1 { // } data.Contains(fmt.Sprintf("net.%d", i)); i++ {
-			// v, _ := data.Get(fmt.Sprintf("net.%d", i))
-			params.Set(fmt.Sprintf("net.%d", i), jsonArray[i])
-		}
-	} else {
+	params.Disks = disks
+	nets, _ := cmdline.FetchNetworkConfigsByJSON(data)
+	if len(nets) == 0 {
 		wire := host.GetMasterWire()
 		if wire == nil {
 			return nil, fmt.Errorf("No master wire?")
 		}
-		params.Set("net.0", jsonutils.NewString(fmt.Sprintf("wire=%s:[private]:[try-teaming]", wire.GetName())))
+		net := &api.NetworkConfig{
+			Wire:       wire.GetId(),
+			Private:    true,
+			TryTeaming: true,
+		}
+		nets = append(nets, net)
 	}
-	params.Set("deploy.0.path", jsonutils.NewString("/etc/sysconfig/yunionauth"))
-	params.Set("deploy.0.action", jsonutils.NewString("create"))
-	log.Infof("%v", params)
+	params.Networks = nets
+	deployConf := &api.DeployConfig{
+		Action: "create",
+		Path:   "/etc/sysconfig/yunionauth",
+	}
 	authLoc, err := url.Parse(options.Options.AuthURL)
 	if err != nil {
 		return nil, err
@@ -423,7 +438,9 @@ func (self *SKVMHostDriver) PrepareConvert(host *models.SHost, image, raid strin
 	authInfo += fmt.Sprintf("YUNION_HOST_PASSWORD=%s\n", options.Options.AdminPassword)
 	authInfo += fmt.Sprintf("YUNION_HOST_PROJECT=%s\n", options.Options.AdminProject)
 	authInfo += fmt.Sprintf("YUNION_START=yes\n")
-	params.Set("deploy.0.content", jsonutils.NewString(authInfo))
+	deployConf.Content = authInfo
+	params.DeployConfigs = []*api.DeployConfig{deployConf}
+	log.Infof("%v", params)
 	return params, nil
 }
 
