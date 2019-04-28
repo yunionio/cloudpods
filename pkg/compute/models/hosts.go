@@ -3489,10 +3489,11 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 	}
 	image, _ := data.GetString("image")
 	raid, _ := data.GetString("raid")
-	params, err := driver.PrepareConvert(self, image, raid, data)
+	input, err := driver.PrepareConvert(self, image, raid, data)
 	if err != nil {
 		return nil, httperrors.NewNotAcceptableError("Convert error: %s", err.Error())
 	}
+	params := input.JSON(input)
 	ownerProjId := userCred.GetProjectId()
 	guest, err := db.DoCreate(GuestManager, ctx, userCred, nil, params, ownerProjId)
 	if err != nil {
