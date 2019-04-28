@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -48,7 +49,7 @@ type IHostDriver interface {
 	RequestDeleteSnapshotsWithStorage(ctx context.Context, host *SHost, snapshot *SSnapshot, task taskman.ITask) error
 	RequestResetDisk(ctx context.Context, host *SHost, disk *SDisk, params *jsonutils.JSONDict, task taskman.ITask) error
 	RequestCleanUpDiskSnapshots(ctx context.Context, host *SHost, disk *SDisk, params *jsonutils.JSONDict, task taskman.ITask) error
-	PrepareConvert(host *SHost, image, raid string, data jsonutils.JSONObject) (*jsonutils.JSONDict, error)
+	PrepareConvert(host *SHost, image, raid string, data jsonutils.JSONObject) (*api.ServerCreateInput, error)
 	PrepareUnconvert(host *SHost) error
 	FinishUnconvert(ctx context.Context, userCred mcclient.TokenCredential, host *SHost) error
 	FinishConvert(userCred mcclient.TokenCredential, host *SHost, guest *SGuest, hostType string) error
