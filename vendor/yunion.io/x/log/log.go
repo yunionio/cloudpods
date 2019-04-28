@@ -127,6 +127,13 @@ func Fatalln(args ...interface{}) {
 	logrus.Fatalln(args...)
 }
 
+func DisableColors() {
+	formatter, ok := logger.Formatter.(*TextFormatter)
+	if ok {
+		formatter.DisableColors = true
+	}
+}
+
 func AddHookFormatter(logger *logrus.Logger) {
 	logger.Hooks.Add(new(hooks.CallerHook))
 

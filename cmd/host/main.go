@@ -14,9 +14,14 @@
 
 package main
 
-import "yunion.io/x/onecloud/pkg/hostman"
+import (
+	"yunion.io/x/onecloud/pkg/hostman"
+	"yunion.io/x/onecloud/pkg/util/atexit"
+)
 
 func main() {
+	defer atexit.Handle()
+
 	var srv = hostman.SHostService{}
 	srv.StartService()
 }
