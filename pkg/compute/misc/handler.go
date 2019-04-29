@@ -28,12 +28,13 @@ func addHandler(method, prefix string, f appsrv.FilterHandler, app *appsrv.Appli
 }
 
 func getBmAgentUrl(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	body, _ := appsrv.FetchJSON(r)
-	if body == nil || !body.Contains("ip") {
-		httperrors.InputParameterError(w, "Missing ip ?")
+	_, query, _ := appsrv.FetchEnv(ctx, w, r)
+	ipAddr, err := query.GetString("ip")
+	if err != nil {
+		httperrors.MissingParameterError(w, "ip")
 		return
 	}
-	ipAddr, _ := body.GetString("ip")
+
 	n, _ := models.NetworkManager.GetOnPremiseNetworkOfIP(ipAddr, "baremetal", tristate.None)
 	if n == nil {
 		httperrors.NotFoundError(w, "Network not found")
