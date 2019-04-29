@@ -15,12 +15,15 @@
 package esxi
 
 import (
+	"strings"
+
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -129,7 +132,7 @@ func (dc *SDatacenter) getDcObj() *object.Datacenter {
 	return object.NewDatacenter(dc.manager.client.Client, dc.object.Reference())
 }
 
-func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference) ([]cloudprovider.ICloudVM, error) {
+func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool) ([]cloudprovider.ICloudVM, error) {
 	var vms []mo.VirtualMachine
 	if vmRefs != nil {
 		err := dc.manager.references2Objects(vmRefs, VIRTUAL_MACHINE_PROPS, &vms)
@@ -139,9 +142,11 @@ func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference) ([]cloudp
 		}
 	}
 
-	retVms := make([]cloudprovider.ICloudVM, len(vms))
+	retVms := make([]cloudprovider.ICloudVM, 0)
 	for i := 0; i < len(vms); i += 1 {
-		retVms[i] = NewVirtualMachine(dc.manager, &vms[i], dc)
+		if all || !strings.HasPrefix(vms[i].Entity().Name, api.ESXI_IMAGE_CACHE_TMP_PREFIX) {
+			retVms = append(retVms, NewVirtualMachine(dc.manager, &vms[i], dc))
+		}
 	}
 	return retVms, nil
 }
