@@ -414,14 +414,15 @@ func (self *SNetwork) IsExitNetwork() bool {
 }
 
 func (manager *SNetworkManager) getNetworksByWire(wire *SWire) ([]SNetwork, error) {
-	nets := make([]SNetwork, 0)
+	return wire.getNetworks()
+	/* nets := make([]SNetwork, 0)
 	q := manager.Query().Equals("wire_id", wire.Id)
 	err := db.FetchModelObjects(manager, q, &nets)
 	if err != nil {
 		log.Errorf("getNetworkByWire fail %s", err)
 		return nil, err
 	}
-	return nets, nil
+	return nets, nil */
 }
 
 func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork, projectId string) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {

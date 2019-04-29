@@ -49,10 +49,10 @@ type SBaseSystemService struct {
 
 func NewBaseSystemService(name string, urls interface{}) *SBaseSystemService {
 	ss := SBaseSystemService{}
-	if SysVServiceManager.Detect() {
-		ss.manager = SysVServiceManager
-	} else {
+	if SystemdServiceManager.Detect() {
 		ss.manager = SystemdServiceManager
+	} else {
+		ss.manager = SysVServiceManager
 	}
 	ss.name = name
 	ss.urls = urls

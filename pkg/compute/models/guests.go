@@ -1849,7 +1849,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	// metaData := extVM.GetMetadata()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extVM.Refresh()
-		if options.NameSyncResources.Contains(self.Keyword()) {
+		if options.NameSyncResources.Contains(self.Keyword()) && !recycle {
 			self.Name = extVM.GetName()
 		}
 		if !self.IsFailureStatus() {
@@ -1892,8 +1892,10 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.ExpiredAt = extVM.GetExpiredAt()
 		}
 
-		if createdAt := extVM.GetCreatedAt(); !createdAt.IsZero() {
-			self.CreatedAt = createdAt
+		if !recycle {
+			if createdAt := extVM.GetCreatedAt(); !createdAt.IsZero() {
+				self.CreatedAt = createdAt
+			}
 		}
 
 		return nil

@@ -233,6 +233,9 @@ func (self *SRegion) ImportImage(name string, osArch string, osType string, osDi
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["ImageName"] = name
+	if osDist == "RHEL" {
+		osDist = "CentOS"
+	}
 	params["Platform"] = osDist     // "Others Linux"
 	params["OSType"] = osType       // "linux"
 	params["Architecture"] = osArch // "x86_64"

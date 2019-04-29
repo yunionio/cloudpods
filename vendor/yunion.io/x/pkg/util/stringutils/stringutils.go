@@ -41,21 +41,20 @@ func Interface2String(val interface{}) string {
 	if val == nil {
 		return ""
 	}
-	switch val.(type) {
+	switch vval := val.(type) {
 	case string:
-		return val.(string)
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, bool:
-		return fmt.Sprintf("%d", val)
-	case jsonutils.JSONObject:
-		json := val.(jsonutils.JSONObject)
-		return json.String()
+		return vval
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return fmt.Sprintf("%d", vval)
+	case float32, float64:
+		return fmt.Sprintf("%f", vval)
+	case bool:
+		return fmt.Sprintf("%v", vval)
 	case time.Time:
-		tm := val.(time.Time)
-		return timeutils.FullIsoTime(tm)
+		return timeutils.FullIsoTime(vval)
+	case fmt.Stringer:
+		return vval.String()
 	default:
-		if s, ok := val.(fmt.Stringer); ok {
-			return s.String()
-		}
 		json := jsonutils.Marshal(val)
 		return json.String()
 	}
