@@ -77,7 +77,7 @@ func (self *BaremetalConvertHypervisorTask) OnGuestDeployCompleteFailed(ctx cont
 	guest.SetDisableDelete(self.UserCred, false)
 	self.SetStage("OnGuestDeleteComplete", nil)
 	guest.StartDeleteGuestTask(ctx, self.UserCred, self.GetTaskId(), false, true)
-	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_CONVERT_HYPER, "convert deploy failed", self.UserCred, false)
+	logclient.AddActionLogWithStartable(self, baremetal, logclient.ACT_BM_CONVERT_HYPER, fmt.Sprintf("convert deploy failed: %s", body.String()), self.UserCred, false)
 }
 
 func (self *BaremetalConvertHypervisorTask) OnGuestDeleteComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {

@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"yunion.io/x/log"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
@@ -477,10 +476,6 @@ func TestCheckDisksAllocable(t *testing.T) {
 		t.Fatalf("Calculate bitmain layout err: %v", err)
 	}
 
-	log.Debugf("defaultLayout: %s", defaultLayout)
-	log.Debugf("layout: %s", layout)
-	log.Debugf("Bitmain layout: %s", bitmainLayout)
-
 	tdiskDefault := []*Disk{
 		{Size: -1},
 		{Size: -1},
@@ -935,11 +930,10 @@ func TestStorageLoad(t *testing.T) {
 		t.Fatalf("NewDiskConfigs err: %v", err)
 	}
 	json.Unmarshal([]byte(testStorages2), &ss)
-	layout, err := CalculateLayout(confs, ss)
+	_, err = CalculateLayout(confs, ss)
 	if err != nil {
 		t.Fatalf("CalculateLayout err: %v", err)
 	}
-	log.Debugf("layout: %s", layout)
 }
 
 func TestCalculateSize(t *testing.T) {
@@ -1114,6 +1108,126 @@ func TestValidateDiskConfigs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := ValidateDiskConfigs(tt.confs); (err != nil) != tt.wantErr {
 				t.Errorf("ValidateDiskConfigs() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRetrieveStorages(t *testing.T) {
+	type args struct {
+		diskConfig *api.BaremetalDiskConfig
+		storages   []*BaremetalStorage
+	}
+	s1 := &BaremetalStorage{
+		Size:    1,
+		Driver:  "MegaRaid",
+		Adapter: 0,
+	}
+	s2 := &BaremetalStorage{
+		Size:    1,
+		Driver:  "MegaRaid",
+		Adapter: 0,
+	}
+	s3 := &BaremetalStorage{
+		Size:    2,
+		Driver:  "MegaRaid",
+		Adapter: 0,
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantSelected []*BaremetalStorage
+		wantRest     []*BaremetalStorage
+	}{
+		{
+			name: "select all",
+			args: args{
+				diskConfig: &api.BaremetalDiskConfig{
+					Driver: "MegaRaid",
+					Count:  0,
+					Type:   api.DISK_TYPE_HYBRID,
+				},
+				storages: []*BaremetalStorage{s1, s2, s3},
+			},
+			wantSelected: []*BaremetalStorage{s1, s2, s3},
+			wantRest:     []*BaremetalStorage{},
+		},
+		{
+			name: "select count 2",
+			args: args{
+				diskConfig: &api.BaremetalDiskConfig{
+					Driver: "MegaRaid",
+					Count:  2,
+					Type:   api.DISK_TYPE_HYBRID,
+				},
+				storages: []*BaremetalStorage{s1, s2, s3},
+			},
+			wantSelected: []*BaremetalStorage{s1, s2},
+			wantRest:     []*BaremetalStorage{s3},
+		},
+		{
+			name: "select by range",
+			args: args{
+				diskConfig: &api.BaremetalDiskConfig{
+					Driver: "MegaRaid",
+					Range:  []int64{1, 2},
+					Type:   api.DISK_TYPE_HYBRID,
+				},
+				storages: []*BaremetalStorage{s1, s2, s3},
+			},
+			wantSelected: []*BaremetalStorage{s2, s3},
+			wantRest:     []*BaremetalStorage{s1},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotSelected, gotRest := RetrieveStorages(tt.args.diskConfig, tt.args.storages)
+			if !reflect.DeepEqual(gotSelected, tt.wantSelected) {
+				t.Errorf("RetrieveStorages() gotSelected = %v, want %v", gotSelected, tt.wantSelected)
+			}
+			if !reflect.DeepEqual(gotRest, tt.wantRest) {
+				t.Errorf("RetrieveStorages() gotRest = %v, want %v", gotRest, tt.wantRest)
+			}
+		})
+	}
+}
+
+func TestGetSplitSizes(t *testing.T) {
+	type args struct {
+		size      int64
+		splitConf string
+	}
+	var totalSize int64 = 22889472
+	size10p := int64(float64(totalSize) * 0.1)
+	tests := []struct {
+		name string
+		args args
+		want []int64
+	}{
+		{
+			name: "split gb",
+			args: args{
+				size:      totalSize,
+				splitConf: "60g,",
+			},
+			want: []int64{61440, totalSize - 61440},
+		},
+		{
+			name: "split by percent",
+			args: args{
+				size:      totalSize,
+				splitConf: "10%,",
+			},
+			want: []int64{
+				size10p,
+				totalSize - size10p,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetSplitSizes(tt.args.size, tt.args.splitConf); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetSplitSizes() = %v, want %v", got, tt.want)
 			}
 		})
 	}

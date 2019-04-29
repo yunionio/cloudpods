@@ -52,21 +52,24 @@ func (self *SBaseHostDriver) RequestCleanUpDiskSnapshots(ctx context.Context, ho
 	return fmt.Errorf("Not Implement")
 }
 
-func (self *SBaseHostDriver) PrepareConvert(host *models.SHost, image, raid string, data jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	params := jsonutils.NewDict()
-	params.Set("description", jsonutils.NewString("Baremetal convered Hypervisor"))
-	name, err := data.Get("name")
-	if err == nil {
-		params.Set("name", name)
-	} else {
-		params.Set("name", jsonutils.NewString(host.Name))
+func (self *SBaseHostDriver) PrepareConvert(host *models.SHost, image, raid string, data jsonutils.JSONObject) (*api.ServerCreateInput, error) {
+	params := &api.ServerCreateInput{
+		ServerConfigs: &api.ServerConfigs{
+			PreferHost: host.Id,
+		},
+		Description: "Baremetal convered Hypervisor",
+		VcpuCount:   int(host.CpuCount),
+		VmemSize:    host.MemSize,
+		AutoStart:   true,
+		IsSystem:    true,
+		Baremetal:   true,
 	}
-	params.Set("vcpu_count", jsonutils.NewInt(int64(host.CpuCount)))
-	params.Set("vmem_size", jsonutils.NewInt(int64(host.MemSize)))
-	params.Set("auto_start", jsonutils.NewBool(true))
-	params.Set("is_system", jsonutils.NewBool(true))
-	params.Set("prefer_baremetal", jsonutils.NewString(host.Id))
-	params.Set("baremetal", jsonutils.NewBool(true))
+	name, err := data.GetString("name")
+	if err == nil {
+		params.Name = name
+	} else {
+		params.Name = host.Name
+	}
 	return params, nil
 }
 
