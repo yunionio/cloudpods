@@ -16,16 +16,20 @@ package options
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 
 	"yunion.io/x/log"
+	"yunion.io/x/log/hooks"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/structarg"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/util/atexit"
 )
 
 type CommonOptions struct {
@@ -34,6 +38,7 @@ type CommonOptions struct {
 
 	LogLevel        string `help:"log level" default:"info" choices:"debug|info|warn|error"`
 	LogVerboseLevel int    `help:"log verbosity level" default:"0"`
+	LogFilePrefix   string `help:"prefix of log files"`
 
 	Region             string   `help:"Region name or ID" alias:"auth-region"`
 	AuthURL            string   `help:"Keystone auth URL" alias:"auth-uri"`
@@ -147,6 +152,28 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 	err = log.SetLogLevelByString(log.Logger(), optionsRef.LogLevel)
 	if err != nil {
 		log.Fatalf("Set log level %q: %v", optionsRef.LogLevel, err)
+	}
+	if optionsRef.LogFilePrefix != "" {
+		dir, name := filepath.Split(optionsRef.LogFilePrefix)
+		h := &hooks.LogFileRotateHook{
+			RotateNum:  10,
+			RotateSize: 100 * 1024 * 1024,
+			LogFileHook: hooks.LogFileHook{
+				FileDir:  dir,
+				FileName: name,
+			},
+		}
+		h.Init()
+		log.DisableColors()
+		log.Logger().AddHook(h)
+		log.Logger().Out = ioutil.Discard
+		atexit.Register(atexit.ExitHandler{
+			Prio:   atexit.PRIO_LOG_CLOSE,
+			Reason: "deinit log rotate hook",
+			Func: func(atexit.ExitHandler) {
+				h.DeInit()
+			},
+		})
 	}
 
 	log.V(10).Debugf("Parsed options: %#v", optStruct)

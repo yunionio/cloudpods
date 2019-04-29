@@ -34,6 +34,7 @@ import (
 	_ "github.com/mholt/caddy/startupshutdown"
 
 	_ "yunion.io/x/onecloud/pkg/dns"
+	"yunion.io/x/onecloud/pkg/util/atexit"
 )
 
 var directives = []string{
@@ -58,5 +59,7 @@ func init() {
 }
 
 func main() {
+	defer atexit.Handle()
+
 	coremain.Run()
 }

@@ -1713,14 +1713,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:b098c5b757b7622dfeed71f9cdcf0621a42051b88967286b0e1bcfb8a910fc86"
+  digest = "1:20590bdd812710ad3257e92c23c7d19d9595a48ed69b200ac1d23ac76eee848e"
   name = "yunion.io/x/log"
   packages = [
     ".",
     "hooks",
   ]
   pruneopts = "UT"
-  revision = "71a36f55dcfcfa2c8b2477c339e2c7ebd78c731d"
+  revision = "3c4f24289a1b2fd39b94a9ccbd40931b3a20aab7"
 
 [[projects]]
   branch = "master"
@@ -1895,6 +1895,7 @@
     "k8s.io/kubernetes/pkg/scheduler/api/v1",
     "yunion.io/x/jsonutils",
     "yunion.io/x/log",
+    "yunion.io/x/log/hooks",
     "yunion.io/x/pkg/gotypes",
     "yunion.io/x/pkg/prettytable",
     "yunion.io/x/pkg/trace",
