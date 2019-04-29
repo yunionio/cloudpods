@@ -252,14 +252,22 @@ func NewNIC(desc string) (*SNIC, error) {
 		return nil, err
 	}
 
-	confirm, err := nic.BridgeDev.ConfirmToConfig(nic.BridgeDev.Exists(), nic.BridgeDev.Interfaces())
+	exist, err := nic.BridgeDev.Exists()
+	if err != nil {
+		return nil, err
+	}
+	infs, err := nic.BridgeDev.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	confirm, err := nic.BridgeDev.ConfirmToConfig(exist, infs)
 	if err != nil {
 		log.Errorln(err)
 		return nil, err
 	}
 	if !confirm {
 		log.Infof("Not confirm to configuration")
-		if err = nic.BridgeDev.Setup(); err != nil {
+		if err = nic.BridgeDev.Setup(nic.BridgeDev); err != nil {
 			log.Errorln(err)
 			return nil, err
 		}
