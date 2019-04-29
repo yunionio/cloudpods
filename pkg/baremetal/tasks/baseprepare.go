@@ -248,14 +248,15 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 	if err := task.sendStorageInfo(size); err != nil {
 		log.Errorf("sendStorageInfo error: %v", err)
 	}
-	for i := range nicsInfo {
-		if nicsInfo[i].Mac.String() == adminNic.GetMac().String() {
-			if i != 0 {
-				nicsInfo = append(nicsInfo[i:], nicsInfo[0:i]...)
-			}
-			break
-		}
-	}
+	// XXX do not change nic order anymore
+	// for i := range nicsInfo {
+	// 	if nicsInfo[i].Mac.String() == adminNic.GetMac().String() {
+	// 		if i != 0 {
+	// 			nicsInfo = append(nicsInfo[i:], nicsInfo[0:i]...)
+	// 		}
+	// 		break
+	// 	}
+	// }
 	err = task.removeAllNics()
 	if err != nil {
 		return err
