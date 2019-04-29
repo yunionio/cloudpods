@@ -358,10 +358,10 @@ func (s *SGuestMonitorCollector) addDiskio(curInfo, prevInfo jsonutils.JSONObjec
 }
 
 func (s *SGuestMonitorCollector) addNetio(curInfo, prevInfo jsonutils.JSONObject, fields []string) {
-	curMap, _ := curInfo.GetArray()
-	prevMap, _ := prevInfo.GetArray()
-	for _, v1 := range curMap {
-		for _, v2 := range prevMap {
+	curArray, _ := curInfo.GetArray()
+	prevArray, _ := prevInfo.GetArray()
+	for _, v1 := range curArray {
+		for _, v2 := range prevArray {
 			if v1.Contains("meta", "ip") && v2.Contains("meta", "ip") {
 				ip1, _ := v1.GetString("meta", "ip")
 				ip2, _ := v2.GetString("meta", "ip")
