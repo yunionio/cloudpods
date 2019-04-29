@@ -546,7 +546,7 @@ func (s *SGuestStreamDisksTask) checkBlockDrives() {
 }
 
 func (s *SGuestStreamDisksTask) onBlockDrivesSucc(res *jsonutils.JSONArray) {
-	streamDevs := []string{}
+	s.streamDevs = []string{}
 	drvs, _ := res.GetArray()
 	for _, drv := range drvs {
 		device, err := drv.GetString("device")
@@ -555,7 +555,7 @@ func (s *SGuestStreamDisksTask) onBlockDrivesSucc(res *jsonutils.JSONArray) {
 			continue
 		}
 		inserted, err := drv.Get("inserted")
-		if err != nil && inserted.Contains("file") && inserted.Contains("backing_file") {
+		if err == nil && inserted.Contains("file") && inserted.Contains("backing_file") {
 			var stream = false
 			idx := device[len(device)-1] - '0'
 			for i := 0; i < len(s.disksIdx); i++ {
@@ -566,11 +566,11 @@ func (s *SGuestStreamDisksTask) onBlockDrivesSucc(res *jsonutils.JSONArray) {
 			if !stream {
 				continue
 			}
-			streamDevs = append(streamDevs, device)
+			s.streamDevs = append(s.streamDevs, device)
 		}
 	}
-	s.streamDevs = streamDevs
-	if len(streamDevs) == 0 {
+	log.Infof("Stream devices: %v", s.streamDevs)
+	if len(s.streamDevs) == 0 {
 		s.taskComplete()
 	} else {
 		s.SyncStatus()
@@ -583,32 +583,29 @@ func (s *SGuestStreamDisksTask) startDoBlockStream() {
 		dev := s.streamDevs[0]
 		s.streamDevs = s.streamDevs[1:]
 		s.Monitor.BlockStream(dev, s.startWaitBlockStream)
+	} else {
+		s.taskComplete()
 	}
 }
 
 func (s *SGuestStreamDisksTask) startWaitBlockStream(res string) {
-	if s.c == nil {
-		s.c = make(chan struct{})
-		for {
-			select {
-			case <-s.c:
-				s.c = nil
-				return
-			case <-time.After(time.Second * 1):
-				s.Monitor.GetBlockJobCounts(s.checkStreamJobs)
-			}
+	log.Infof("Block stream command res: %s", res)
+	s.c = make(chan struct{})
+	for {
+		select {
+		case <-s.c:
+			s.c = nil
+			return
+		case <-time.After(time.Second * 3):
+			s.Monitor.GetBlockJobCounts(s.checkStreamJobs)
 		}
 	}
 }
 
 func (s *SGuestStreamDisksTask) checkStreamJobs(jobs int) {
 	if jobs == 0 {
-		if len(s.streamDevs) == 0 {
-			close(s.c)
-			s.taskComplete()
-		} else {
-			close(s.c)
-		}
+		close(s.c)
+		s.startDoBlockStream()
 	}
 }
 

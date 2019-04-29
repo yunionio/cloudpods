@@ -271,11 +271,11 @@ func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, c
 	var (
 		// diskPath            = path.Join(s.Path, createParams.DiskId)
 		snapshotUrl, _      = createParams.DiskInfo.GetString("snapshot_url")
-		transferProtocol, _ = createParams.DiskInfo.GetString("url")
+		transferProtocol, _ = createParams.DiskInfo.GetString("protocol")
 	)
 
 	if len(snapshotUrl) == 0 || len(transferProtocol) == 0 {
-		return nil, fmt.Errorf("Create disk form snapshot missing params snapshot url or protocol")
+		return nil, fmt.Errorf("Create disk from snapshot missing params snapshot url or protocol")
 	}
 
 	if transferProtocol == "url" {

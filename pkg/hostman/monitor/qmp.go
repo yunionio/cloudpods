@@ -691,7 +691,7 @@ func (m *QmpMonitor) DriveMirror(callback StringCallback, drive, target, syncMod
 
 func (m *QmpMonitor) BlockStream(drive string, callback StringCallback) {
 	var (
-		speed = 30 // MB/s
+		speed = 30 * 1024 * 1024 // qmp speed default unit is byte
 		cb    = func(res *Response) {
 			callback(m.actionResult(res))
 		}

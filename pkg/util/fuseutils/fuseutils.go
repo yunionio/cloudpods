@@ -59,7 +59,7 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 	opts += fmt.Sprintf(",token=%s", token)
 	opts += fmt.Sprintf(",blocksize=%d", blocksize)
 
-	var cmd = []string{fetcherfsPath, "-s", "-p", opts, mntpath}
+	var cmd = []string{fetcherfsPath, "-s", "-o", opts, mntpath}
 	log.Infof("%s", strings.Join(cmd, " "))
 	_, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run()
 	if err != nil {
