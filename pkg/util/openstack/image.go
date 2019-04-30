@@ -220,9 +220,10 @@ func (region *SRegion) GetImageByName(name string) (*SImage, error) {
 
 func (region *SRegion) CreateImage(imageName string) (*SImage, error) {
 	params := map[string]string{
-		"container_format": "bare",
-		"disk_format":      "vmdk",
-		"name":             imageName,
+		"container_format":    "bare",
+		"disk_format":         "vmdk",
+		"name":                imageName,
+		"hw_qemu_guest_agent": "yes",
 	}
 
 	_, resp, err := region.Post("image", "/v2/images", "", jsonutils.Marshal(params))
