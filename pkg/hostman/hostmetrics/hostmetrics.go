@@ -346,7 +346,7 @@ func (s *SGuestMonitorCollector) reportIo(curInfo, prevInfo jsonutils.JSONObject
 			prev, _ := prevInfo.GetString(field)
 			fcur, _ := strconv.ParseFloat(cur, 64)
 			fprev, _ := strconv.ParseFloat(prev, 64)
-			ioInfo.Set(s.GetIoFiledName(field), jsonutils.NewFloat((fcur - fprev)/float64(diffTime)))
+			ioInfo.Set(s.GetIoFiledName(field), jsonutils.NewFloat((fcur-fprev)/float64(diffTime)))
 		}
 	}
 	return ioInfo
