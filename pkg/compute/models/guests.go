@@ -1272,8 +1272,8 @@ func (guest *SGuest) setApptags(ctx context.Context, appTags []string, userCred 
 
 func (guest *SGuest) SetCreateParams(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
 	// delete deploy files info
-	data.(*jsonutils.JSONDict).Remove("deploy_configs")
-	err := guest.SetMetadata(ctx, api.VM_METADATA_CREATE_PARAMS, data.String(), userCred)
+	createParams := data.(*jsonutils.JSONDict).CopyExcludes("deploy_configs")
+	err := guest.SetMetadata(ctx, api.VM_METADATA_CREATE_PARAMS, createParams.String(), userCred)
 	if err != nil {
 		log.Errorf("Server %s SetCreateParams: %v", guest.Name, err)
 	}
