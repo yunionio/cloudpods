@@ -2111,6 +2111,11 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 	if self.GetGuestDisk(diskId) == nil {
 		return nil, httperrors.NewNotFoundError("Guest disk %s not found", diskId)
 	}
+	pendingUsage := &SQuota{Snapshot: 1}
+	_, err = QuotaManager.CheckQuota(ctx, userCred, self.ProjectId, pendingUsage)
+	if err != nil {
+		return nil, httperrors.NewOutOfQuotaError("Out of snapshot quota %s", err)
+	}
 	if self.GetHypervisor() == api.HYPERVISOR_KVM {
 		q := SnapshotManager.Query()
 		cnt, err := q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
@@ -2122,13 +2127,7 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 		if cnt >= options.Options.DefaultMaxManualSnapshotCount {
 			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
 		}
-		pendingUsage := &SQuota{Snapshot: 1}
-		err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
-		if err != nil {
-			return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
-		}
 		snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, api.SNAPSHOT_MANUAL, diskId, self.Id, "", name)
-		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
 		if err != nil {
 			return nil, err
 		}

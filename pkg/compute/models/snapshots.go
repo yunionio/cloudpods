@@ -25,12 +25,14 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -46,18 +48,18 @@ type SSnapshot struct {
 	SManagedResourceBase
 
 	DiskId      string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user"`
-	StorageId   string `width:"36" charset:"ascii" nullable:"true" list:"admin"`
-	CreatedBy   string `width:"36" charset:"ascii" nullable:"false" default:"manual" list:"admin"`
-	Location    string `charset:"ascii" nullable:"true" list:"admin"`
-	Size        int    `nullable:"false" list:"user"` // MB
-	OutOfChain  bool   `nullable:"false" default:"false" index:"true" list:"admin"`
-	FakeDeleted bool   `nullable:"false" default:"false" index:"true"`
-	DiskType    string `width:"32" charset:"ascii" nullable:"true" list:"user"`
+	StorageId   string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
+	CreatedBy   string `width:"36" charset:"ascii" nullable:"false" default:"manual" list:"admin" create:"optional"`
+	Location    string `charset:"ascii" nullable:"true" list:"admin" create:"optional"`
+	Size        int    `nullable:"false" list:"user" create:"required"` // MB
+	OutOfChain  bool   `nullable:"false" default:"false" list:"admin"`
+	FakeDeleted bool   `nullable:"false" default:"false"`
+	DiskType    string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	// create disk from snapshot, snapshot as disk backing file
 	RefCount int `nullable:"false" default:"0" list:"user"`
 
-	CloudregionId string `width:"36" charset:"ascii" nullable:"true" list:"user"`
+	CloudregionId string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
 var SnapshotManager *SSnapshotManager
@@ -82,17 +84,18 @@ func ValidateSnapshotName(hypervisor, name, owner string) error {
 		return err
 	}
 	if cnt != 0 {
-		return fmt.Errorf("Name conflict?")
+		return httperrors.NewConflictError("Name %s conflict", name)
 	}
 	if !('A' <= name[0] && name[0] <= 'Z' || 'a' <= name[0] && name[0] <= 'z') {
-		return fmt.Errorf("Name must start with letter")
+		return httperrors.NewBadRequestError("Name must start with letter")
 	}
 	if len(name) < 2 || len(name) > 128 {
-		return fmt.Errorf("Snapshot name length must within 2~128")
+		return httperrors.NewBadRequestError("Snapshot name length must within 2~128")
 	}
 	if hypervisor == api.HYPERVISOR_ALIYUN {
 		if strings.HasPrefix(name, "auto") || strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "https://") {
-			return fmt.Errorf("Snapshot name can't start with auto, http:// or https://")
+			return httperrors.NewBadRequestError(
+				"Snapshot for %s name can't start with auto, http:// or https://", hypervisor)
 		}
 	}
 	return nil
@@ -234,8 +237,81 @@ func (self *SSnapshot) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	return res
 }
 
-func (self *SSnapshot) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
+func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	diskV := validators.NewModelIdOrNameValidator("disk", "disk", userCred.GetProjectId())
+	if err := diskV.Validate(data); err != nil {
+		return nil, err
+	}
+	disk := diskV.Model.(*SDisk)
+
+	snapshotName, err := data.GetString("name")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("name")
+	}
+
+	guests := disk.GetGuests()
+	if len(guests) != 1 {
+		return nil, httperrors.NewBadRequestError("Disk %s dosen't attach guest ?", disk.Id)
+	}
+
+	guest := guests[0]
+	if len(guest.BackupHostId) > 0 {
+		return nil, httperrors.NewBadRequestError(
+			"Disk attached Guest has backup, Can't create snapshot")
+	}
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
+		return nil, httperrors.NewInvalidStatusError("Cannot do snapshot when VM in status %s", guest.Status)
+	}
+	err = ValidateSnapshotName(guest.Hypervisor, snapshotName, userCred.GetProjectId())
+	if err != nil {
+		return nil, err
+	}
+	if guest.GetHypervisor() == api.HYPERVISOR_KVM {
+		q := SnapshotManager.Query()
+		cnt, err := q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), disk.Id),
+			sqlchemy.Equals(q.Field("created_by"), api.SNAPSHOT_MANUAL),
+			sqlchemy.IsFalse(q.Field("fake_deleted")))).CountWithError()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("check disk snapshot count fail %s", err)
+		}
+		if cnt >= options.Options.DefaultMaxManualSnapshotCount {
+			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", disk.Id)
+		}
+	}
+	pendingUsage := &SQuota{Snapshot: 1}
+	_, err = QuotaManager.CheckQuota(ctx, userCred, ownerProjId, pendingUsage)
+	if err != nil {
+		return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
+	}
+
+	input := &api.SSnapshotCreateInput{}
+	input.Name = snapshotName
+	input.ProjectId = ownerProjId
+	input.DiskId = disk.Id
+	input.CreatedBy = api.SNAPSHOT_MANUAL
+	input.Size = disk.DiskSize
+	input.DiskType = disk.DiskType
+	storage := disk.GetStorage()
+	if len(disk.ExternalId) == 0 {
+		input.StorageId = disk.StorageId
+	}
+	if cloudregion := storage.GetRegion(); cloudregion != nil {
+		input.CloudregionId = cloudregion.GetId()
+	}
+	return input.JSON(input), nil
+}
+
+func (self *SSnapshot) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
+}
+
+func (manager *SSnapshotManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	snapshot := items[0].(*SSnapshot)
+	guest, _ := snapshot.GetGuest()
+	params := jsonutils.NewDict()
+	params.Set("snapshot_id", jsonutils.NewString(snapshot.Id))
+	params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
+	guest.GetDriver().StartGuestDiskSnapshotTask(ctx, userCred, guest, params)
 }
 
 func (self *SSnapshot) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -244,10 +320,6 @@ func (self *SSnapshot) AllowGetDetails(ctx context.Context, userCred mcclient.To
 
 func (self *SSnapshot) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	return false
-}
-
-func (self *SSnapshot) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
 }
 
 func (self *SSnapshot) GetGuest() (*SGuest, error) {
@@ -368,7 +440,9 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mccli
 	snapshot.Location = location
 	snapshot.CreatedBy = createdBy
 	snapshot.ManagerId = storage.ManagerId
-	snapshot.CloudregionId = storage.getZone().GetRegion().GetId()
+	if cloudregion := storage.GetRegion(); cloudregion != nil {
+		snapshot.CloudregionId = cloudregion.GetId()
+	}
 	snapshot.Name = name
 	snapshot.Status = api.SNAPSHOT_CREATING
 	err = SnapshotManager.TableSpec().Insert(snapshot)
