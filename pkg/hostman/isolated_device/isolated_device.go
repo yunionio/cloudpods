@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/util/sets"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -35,12 +36,6 @@ import (
 )
 
 const (
-	// TODO: merge  models/isolated_devices in new file
-	DIRECT_PCI_TYPE = "PCI"
-	GPU_HPC_TYPE    = "GPU-HPC" // # for compute
-	GPU_VGA_TYPE    = "GPU-VGA" // # for display
-	USB_TYPE        = "USB"
-
 	CLASS_CODE_VGA = "0300"
 	CLASS_CODE_3D  = "0302"
 )
@@ -381,7 +376,7 @@ type sGPUVGADevice struct {
 }
 
 func (gpu *sGPUVGADevice) GetDeviceType() string {
-	return GPU_VGA_TYPE
+	return api.GPU_VGA_TYPE
 }
 
 func (gpu *sGPUVGADevice) GetVGACmd() string {
@@ -411,13 +406,15 @@ type sGPUHPCDevice struct {
 }
 
 func newGPUHPCDevice(dev *PCIDevice) *sGPUHPCDevice {
-	return &sGPUHPCDevice{
+	gpuDev := &sGPUHPCDevice{
 		sGPUBaseDevice: newGPUBaseDevice(dev),
 	}
+	gpuDev.devType = gpuDev.GetDeviceType()
+	return gpuDev
 }
 
 func (gpu *sGPUHPCDevice) GetDeviceType() string {
-	return GPU_HPC_TYPE
+	return api.GPU_HPC_TYPE
 }
 
 func (gpu *sGPUHPCDevice) GetPassthroughCmd(index int) string {
@@ -798,7 +795,7 @@ func getQemuParams(man *IsolatedDeviceManager, devAddrs []string) *QemuParams {
 			continue
 		}
 		devCmds = append(devCmds, GetDeviceCmd(dev, idx))
-		if dev.GetVGACmd() != vgaCmd && dev.GetDeviceType() == GPU_VGA_TYPE {
+		if dev.GetVGACmd() != vgaCmd && dev.GetDeviceType() == api.GPU_VGA_TYPE {
 			vgaCmd = dev.GetVGACmd()
 		}
 		if dev.GetCPUCmd() != cpuCmd {
