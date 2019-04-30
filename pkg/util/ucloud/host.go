@@ -247,7 +247,7 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 	}
 
 	if len(secgroupId) == 0 {
-		return "", fmt.Errorf("CreateVM no secgroupId specificated")
+		return "", fmt.Errorf("CreateVM no secgroupId specified")
 	}
 
 	if len(passwd) == 0 {

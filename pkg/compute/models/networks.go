@@ -1150,6 +1150,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	for _, vpcRange := range vpcRanges {
 		if vpcRange.ContainsRange(netRange) {
 			inRange = true
+			break
 		}
 	}
 
@@ -1222,6 +1223,7 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 		for _, vpcRange := range vpcRanges {
 			if vpcRange.ContainsRange(netRange) {
 				inRange = true
+				break
 			}
 		}
 
