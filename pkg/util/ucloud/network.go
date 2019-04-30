@@ -16,9 +16,6 @@ package ucloud
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
@@ -173,20 +170,15 @@ func (self *SRegion) DeleteNetwork(networkId string) error {
 
 // https://docs.ucloud.cn/api/vpc2.0-api/create_subnet
 func (self *SRegion) CreateNetwork(vpcId string, name string, cidr string, desc string) (*SNetwork, error) {
-	segs := strings.Split(cidr, "/")
-	if len(segs) != 2 {
-		return nil, fmt.Errorf("CreateINetwork invalid cidr %s", cidr)
-	}
-
-	netmask, err := strconv.Atoi(segs[1])
+	ip, mask, err := netutils.ParsePrefix(cidr)
 	if err != nil {
-		return nil, fmt.Errorf("CreateINetwork invalid netmask %s", segs[1])
+		return nil, fmt.Errorf("CreateINetwork invalid cidr %s", cidr)
 	}
 
 	params := NewUcloudParams()
 	params.Set("VPCId", vpcId)
-	params.Set("Subnet", segs[0])
-	params.Set("Netmask", netmask)
+	params.Set("Subnet", ip.String())
+	params.Set("Netmask", int(mask))
 	params.Set("SubnetName", name)
 	params.Set("Remark", desc)
 
