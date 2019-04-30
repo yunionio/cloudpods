@@ -76,7 +76,7 @@ type SIsolatedDevice struct {
 	HostId string `width:"36" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False, default='', server_default='', index=True)
 
 	// # PCI / GPU-HPC / GPU-VGA / USB / NIC
-	DevType string `width:"16" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required"` // Column(VARCHAR(16, charset='ascii'), nullable=False, default='', server_default='', index=True)
+	DevType string `width:"16" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required" update:"admin"` // Column(VARCHAR(16, charset='ascii'), nullable=False, default='', server_default='', index=True)
 
 	// # Specific device name read from lspci command, e.g. `Tesla K40m` ...
 	Model string `width:"32" charset:"ascii" nullable:"false" default:"" index:"true" list:"admin" create:"admin_required" update:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=False, default='', server_default='', index=True)
