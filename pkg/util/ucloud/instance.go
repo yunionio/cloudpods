@@ -526,7 +526,10 @@ func (self *SRegion) RenewInstance(instanceId string, bc billing.SBillingCycle) 
 	params.Set("ResourceId", instanceId)
 	params.Set("ResourceType", "Host")
 
-	if bc.GetMonths() > 10 {
+	if bc.GetMonths() >= 10 && bc.GetMonths() < 12 {
+		params.Set("ChargeType", "Year")
+		params.Set("Quantity", 1)
+	} else if bc.GetYears() >= 1 {
 		params.Set("ChargeType", "Year")
 		params.Set("Quantity", bc.GetYears())
 	} else {

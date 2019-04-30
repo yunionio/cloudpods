@@ -257,7 +257,7 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 	// 镜像及硬盘配置
 	img, err := self.zone.region.GetImage(imgId)
 	if err != nil {
-		log.Errorf("getiamge %s fail %s", imgId, err)
+		log.Errorf("GetImage %s fail %s", imgId, err)
 		return "", err
 	}
 	if img.GetStatus() != cloudprovider.IMAGE_STATUS_ACTIVE {
@@ -297,7 +297,7 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 
 	vmId, err = self.zone.region.CreateInstance(name, imgId, i.UHostType, passwd, net.wire.vpc.GetId(), networkId, secgroupId, self.zone.ZoneId, desc, ipAddr, i.CPU, i.MemoryMB, i.GPU, disks, bc)
 	if err != nil {
-		return "", fmt.Errorf("Failed to create, %s", err.Error())
+		return "", fmt.Errorf("Failed to create: %v", err)
 	}
 
 	return vmId, nil
@@ -314,7 +314,6 @@ func (self *SRegion) CreateInstance(name, imageId, hostType, password, vpcId, Su
 	params.Set("Password", base64.StdEncoding.EncodeToString([]byte(password)))
 	params.Set("LoginMode", "Password")
 	params.Set("Name", name)
-	params.Set("Quantity", 1)
 	params.Set("UHostType", hostType)
 	params.Set("CPU", cpu)
 	params.Set("Memory", memMB)
@@ -325,10 +324,15 @@ func (self *SRegion) CreateInstance(name, imageId, hostType, password, vpcId, Su
 		params.Set("GPU", gpu)
 	}
 
-	if bc != nil && bc.GetMonths() >= 1 && bc.GetMonths() <= 10 {
+	if bc != nil && bc.GetMonths() >= 1 && bc.GetMonths() < 10 {
 		params.Set("ChargeType", "Month")
+		params.Set("Quantity", bc.GetMonths())
+	} else if bc != nil && bc.GetMonths() >= 10 && bc.GetMonths() < 12 {
+		params.Set("ChargeType", "Year")
+		params.Set("Quantity", 1)
 	} else if bc != nil && bc.GetYears() >= 1 {
 		params.Set("ChargeType", "Year")
+		params.Set("Quantity", bc.GetYears())
 	} else {
 		params.Set("ChargeType", "Dynamic")
 	}
