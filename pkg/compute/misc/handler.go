@@ -8,6 +8,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -35,19 +36,25 @@ func getBmAgentUrl(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	n, _ := models.NetworkManager.GetOnPremiseNetworkOfIP(ipAddr, "baremetal", tristate.None)
+	n, _ := models.NetworkManager.GetOnPremiseNetworkOfIP(
+		ipAddr, compute.NETWORK_TYPE_IPMI, tristate.None)
+	if n == nil {
+		n, _ = models.NetworkManager.GetOnPremiseNetworkOfIP(
+			ipAddr, compute.NETWORK_TYPE_BAREMETAL, tristate.None)
+	}
 	if n == nil {
 		httperrors.NotFoundError(w, "Network not found")
 		return
 	}
+
 	zoneId := n.GetWire().ZoneId
-	bmAgentUrl, err := auth.GetServiceURL("baremetal", options.Options.Region, zoneId, "")
-	if err != nil {
-		log.Errorln(err)
-		httperrors.InternalServerError(w, err.Error())
+	bmAgent := models.BaremetalagentManager.GetAgent(compute.AgentTypeBaremetal, zoneId)
+	if bmAgent == nil {
+		httperrors.InternalServerError(w, "Baremetal agent not found")
 		return
 	}
-	fmt.Fprintf(w, bmAgentUrl)
+
+	fmt.Fprintf(w, bmAgent.ManagerUri)
 }
 
 func getBmPrepareScript(ctx context.Context, w http.ResponseWriter, r *http.Request) {
