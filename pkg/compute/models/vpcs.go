@@ -58,7 +58,7 @@ type SVpc struct {
 
 	IsDefault bool `default:"false" list:"admin" create:"admin_optional"`
 
-	CidrBlock string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
+	CidrBlock string `charset:"ascii" nullable:"true" list:"admin" create:"admin_required"`
 
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 }

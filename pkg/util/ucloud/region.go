@@ -191,7 +191,7 @@ func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name str
 	}
 
 	if len(secgroupId) == 0 {
-		extID, err := self.CreateSecurityGroup(name, desc)
+		extID, err := self.CreateDefaultSecurityGroup(name, desc)
 		if err != nil {
 			return "", err
 		}
@@ -520,10 +520,10 @@ func toUcloudSecurityRules(rules []secrules.SecurityRule) ([]string, error) {
 		pmap[p] = []string{"LOW", "MEDIUM", "HIGH"}[i]
 	}
 
-	//
 	ucloudRules := make([]string, 0)
 	for _, rule := range rules {
 		if rule.Direction == secrules.SecurityRuleIngress {
+			// GRE协议被忽略了
 			ucloudRules = append(ucloudRules, toUcloudSecRule(rule, pmap)...)
 		}
 	}

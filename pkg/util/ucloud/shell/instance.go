@@ -61,7 +61,7 @@ func init() {
 	}
 	shellutils.R(&InstanceCrateOptions{}, "instance-create", "Create a instance", func(cli *ucloud.SRegion, args *InstanceCrateOptions) error {
 		disk := ucloud.SDisk{DiskType: args.STORAGE, SizeGB: args.DISKSIZE}
-		instance, e := cli.CreateInstance(args.NAME, args.IMAGE, args.HOSTTYPE, args.PASSWORD, args.VPC, args.NETWORK, args.SECGROUP, args.ZONE, "", "", args.CPU, args.MEMORYGB*1024, []ucloud.SDisk{disk}, nil)
+		instance, e := cli.CreateInstance(args.NAME, args.IMAGE, args.HOSTTYPE, args.PASSWORD, args.VPC, args.NETWORK, args.SECGROUP, args.ZONE, "", "", args.CPU, args.MEMORYGB*1024, 0, []ucloud.SDisk{disk}, nil)
 		if e != nil {
 			return e
 		}

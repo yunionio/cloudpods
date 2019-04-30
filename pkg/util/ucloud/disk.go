@@ -239,7 +239,13 @@ func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
-	sizeGB := newSizeMB / 1024
+	var sizeGB int64
+	// 向上取整
+	if (newSizeMB % 1024) > 0 {
+		sizeGB = newSizeMB/1024 + 1
+	} else {
+		sizeGB = newSizeMB / 1024
+	}
 	return self.storage.zone.region.resizeDisk(self.Zone, self.GetId(), sizeGB)
 }
 

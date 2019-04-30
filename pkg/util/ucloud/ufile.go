@@ -118,7 +118,6 @@ func (self *SFile) Delete() error {
 func (self *SFile) request(req *http.Request) error {
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		defer res.Body.Close()
 		return err
 	}
 
