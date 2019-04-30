@@ -19,8 +19,6 @@ import (
 	"net/http"
 	"strings"
 
-	"yunion.io/x/log"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -113,8 +111,6 @@ func (self *SUcloudClient) UpdateAccount(accessKey, secret string) error {
 func (self *SUcloudClient) commonParams(params SParams, action string) (string, SParams) {
 	resultKey, exists := UCLOUD_API_RESULT_KEYS[action]
 	if !exists || len(resultKey) == 0 {
-		log.Debugf("Do %s no result key found or result key is empty", action)
-
 		// default key for describe actions
 		if strings.HasPrefix(action, "Describe") {
 			resultKey = "DataSet"

@@ -46,22 +46,24 @@ func init() {
 	})
 
 	type InstanceCrateOptions struct {
-		NAME     string `help:"name of instance"`
-		IMAGE    string `help:"image ID"`
-		HOSTTYPE string `help:"host type" choices:"N1|N2|N3|C1||I2|G1|G2|G3|I1"`
-		PASSWORD string `help:"password"`
-		VPC      string `help:"VPC ID"`
-		NETWORK  string `help:"Network ID"`
-		SECGROUP string `help:"secgroup ID"`
-		ZONE     string `help:"zone ID"`
-		CPU      int    `help:"CPU count"`
-		MEMORYGB int    `help:"MemoryGB"`
-		STORAGE  string `help:"Storage type" choices:"CLOUD_NORMAL|CLOUD_SSD"`
-		DISKSIZE int    `help:"root disk size GB"`
+		NAME         string `help:"name of instance"`
+		IMAGE        string `help:"image ID"`
+		INSTANCETYPE string `help:"intance type.eg. N2.c1.m1"`
+		PASSWORD     string `help:"password"`
+		VPC          string `help:"VPC ID"`
+		NETWORK      string `help:"Network ID"`
+		SECGROUP     string `help:"secgroup ID"`
+		ZONE         string `help:"zone ID"`
+		STORAGE      string `help:"Storage type" choices:"CLOUD_NORMAL|CLOUD_SSD|LOCAL_NORMAL|LOCAL_SSD"`
+		DISKSIZE     int    `help:"root disk size GB"`
 	}
 	shellutils.R(&InstanceCrateOptions{}, "instance-create", "Create a instance", func(cli *ucloud.SRegion, args *InstanceCrateOptions) error {
 		disk := ucloud.SDisk{DiskType: args.STORAGE, SizeGB: args.DISKSIZE}
-		instance, e := cli.CreateInstance(args.NAME, args.IMAGE, args.HOSTTYPE, args.PASSWORD, args.VPC, args.NETWORK, args.SECGROUP, args.ZONE, "", "", args.CPU, args.MEMORYGB*1024, 0, []ucloud.SDisk{disk}, nil)
+		i, err := ucloud.ParseInstanceType(args.INSTANCETYPE)
+		if err != nil {
+			return err
+		}
+		instance, e := cli.CreateInstance(args.NAME, args.IMAGE, i.UHostType, args.PASSWORD, args.VPC, args.NETWORK, args.SECGROUP, args.ZONE, "", "", i.CPU, i.MemoryMB, i.GPU, []ucloud.SDisk{disk}, nil)
 		if e != nil {
 			return e
 		}
