@@ -33,6 +33,7 @@ import (
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
@@ -318,7 +319,20 @@ func (self *SVirtualMachine) StartVM(ctx context.Context) error {
 	return self.startVM(ctx)
 }
 
+func (self *SVirtualMachine) lockHost(ctx context.Context) {
+	ihost := self.GetIHost()
+	lockman.LockRawObject(ctx, "host", ihost.GetGlobalId())
+}
+
+func (self *SVirtualMachine) releaseHost(ctx context.Context) {
+	ihost := self.GetIHost()
+	lockman.ReleaseRawObject(ctx, "host", ihost.GetGlobalId())
+}
+
 func (self *SVirtualMachine) startVM(ctx context.Context) error {
+	self.lockHost(ctx)
+	defer self.releaseHost(ctx)
+
 	err := self.makeNicsStartConnected(ctx)
 	if err != nil {
 		return err

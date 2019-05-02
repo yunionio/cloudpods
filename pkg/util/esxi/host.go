@@ -159,7 +159,7 @@ func (self *SHost) IsEmulated() bool {
 	return false
 }
 
-func (self *SHost) fetchVMs() error {
+func (self *SHost) fetchVMs(all bool) error {
 	if self.vms != nil {
 		return nil
 	}
@@ -175,7 +175,7 @@ func (self *SHost) fetchVMs() error {
 		return nil
 	}
 
-	vms, err := dc.fetchVms(hostVms)
+	vms, err := dc.fetchVms(hostVms, all)
 	if err != nil {
 		return err
 	}
@@ -183,8 +183,16 @@ func (self *SHost) fetchVMs() error {
 	return nil
 }
 
+func (self *SHost) GetIVMs2() ([]cloudprovider.ICloudVM, error) {
+	err := self.fetchVMs(true)
+	if err != nil {
+		return nil, err
+	}
+	return self.vms, nil
+}
+
 func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
-	err := self.fetchVMs()
+	err := self.fetchVMs(false)
 	if err != nil {
 		return nil, err
 	}
@@ -212,9 +220,13 @@ func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
 
 func (self *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	moHost := self.getHostSystem()
+	dc, err := self.GetDatacenter()
+	if err != nil {
+		return nil, err
+	}
 	istorages := make([]cloudprovider.ICloudStorage, len(moHost.Datastore))
 	for i := 0; i < len(moHost.Datastore); i += 1 {
-		storage, err := self.datacenter.GetIStorageByMoId(moRefId(moHost.Datastore[i]))
+		storage, err := dc.GetIStorageByMoId(moRefId(moHost.Datastore[i]))
 		if err != nil {
 			return nil, err
 		}
