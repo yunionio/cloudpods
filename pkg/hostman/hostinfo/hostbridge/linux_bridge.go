@@ -1,0 +1,161 @@
+package hostbridge
+
+import (
+	"bytes"
+	"fmt"
+	"regexp"
+	"strings"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/hostman/options"
+	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/pkg/utils"
+)
+
+func NewLinuxBridgeDeriver(bridge, inter, ip string) (*SLinuxBridgeDriver, error) {
+	base, err := NewBaseBridgeDriver(bridge, inter, ip)
+	if err != nil {
+		return nil, err
+	}
+	return &SLinuxBridgeDriver{*base}, nil
+}
+
+func LinuxBridgePrepare() error {
+	return nil
+}
+
+func cleanLinuxBridge() {
+	// pass
+}
+
+type SLinuxBridgeDriver struct {
+	SBaseBridgeDriver
+}
+
+func (l *SLinuxBridgeDriver) Exists() (bool, error) {
+	data, err := procutils.NewCommand("brctl", "show").Run()
+	if err != nil {
+		return false, err
+	}
+
+	re := regexp.MustCompile(`\s+`)
+	for _, line := range bytes.Split(data, []byte{'\n'}) {
+		info := re.Split(string(line), -1)
+		if info[0] == l.bridge.String() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (l *SLinuxBridgeDriver) Interfaces() ([]string, error) {
+	data, err := procutils.NewCommand("brctl", "show", l.bridge.String()).Run()
+	if err != nil {
+		return nil, err
+	}
+
+	infs := make([]string, 0)
+	re := regexp.MustCompile(`\s+`)
+	for _, line := range bytes.Split(data, []byte{'\n'}) {
+		info := re.Split(string(line), -1)
+		infs = append(infs, info[len(info)-1])
+	}
+	return infs, nil
+}
+
+func (l *SLinuxBridgeDriver) GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject) error {
+	return l.generateIfdownScripts(l, scriptPath, nic)
+}
+
+func (l *SLinuxBridgeDriver) GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject) error {
+	return l.generateIfupScripts(l, scriptPath, nic)
+}
+
+func (l *SLinuxBridgeDriver) getUpScripts(nic jsonutils.JSONObject) (string, error) {
+	s := "#!/bin/bash\n\n"
+	s += fmt.Sprintf("switch='%s'\n", l.bridge)
+	if options.HostOptions.TunnelPaddingBytes > 0 {
+		s += fmt.Sprintf("/sbin/ifconfig $1 mtu %d\n", 1500+options.HostOptions.TunnelPaddingBytes)
+	}
+	s += "/sbin/ifconfig $1 0.0.0.0 up\n"
+	s += "brctl addif ${switch} $1\n"
+	return s, nil
+}
+
+func (l *SLinuxBridgeDriver) getDownScripts(nic jsonutils.JSONObject) (string, error) {
+	s := "#!/bin/sh\n\n"
+	s += fmt.Sprintf("switch='%s'\n", l.bridge)
+	s += "brctl show ${switch} | grep $1\n"
+	s += "if [ $? -ne '0' ]; then\n"
+	s += "    exit 0\n"
+	s += "fi\n"
+	s += "/sbin/ifconfig $1 0.0.0.0 down\n"
+	s += "brctl delif ${switch} $1\n"
+	return s, nil
+}
+
+func (l *SLinuxBridgeDriver) SetupBridgeDev() error {
+	exist, err := l.Exists()
+	if err != nil {
+		return err
+	}
+	if !exist {
+		_, err := procutils.NewCommand("brctl", "addbr", l.bridge.String()).Run()
+		if err != nil {
+			return fmt.Errorf("Failed to create bridge %s", l.bridge)
+		}
+	}
+	return nil
+}
+
+func (l *SLinuxBridgeDriver) RegisterHostlocalServer(mac, ip string) error {
+	metadataPort := l.GetMetadataServerPort()
+	metadataServerLoc := fmt.Sprintf("%s:%d", ip, metadataPort)
+	hostDnsServerLoc := fmt.Sprintf("%s:%d", ip, 53)
+
+	cmd := "iptables -t nat -F"
+	cmd1 := strings.Split(cmd, " ")
+	output, err := procutils.NewCommand(cmd1[0], cmd1[1:]...).Run()
+	if err != nil {
+		log.Errorf("Clean iptables failed: %s", output)
+		return err
+	}
+
+	cmd = "iptables -t nat -A PREROUTING -s 0.0.0.0/0"
+	cmd += " -d 169.254.169.254/32 -p tcp -m tcp --dport 80"
+	cmd += fmt.Sprintf(" -j DNAT --to-destination %s", metadataServerLoc)
+	cmd1 = strings.Split(cmd, " ")
+	output, err = procutils.NewCommand(cmd1[0], cmd1[1:]...).Run()
+	if err != nil {
+		log.Errorf("Inject DNAT rule failed: %s", output)
+		return err
+	}
+
+	cmd = "sysctl -w net.ipv4.ip_forward=1"
+	cmd1 = strings.Split(cmd, " ")
+	output, err = procutils.NewCommand(cmd1[0], cmd1[1:]...).Run()
+	if err != nil {
+		log.Errorf("Enable ip forwarding failed: %s", output)
+		return err
+	}
+
+	log.Infof("Bridge: metadata server=%s", metadataServerLoc)
+	log.Infof("Bridge: host dns server=%s", hostDnsServerLoc)
+	return nil
+}
+
+func (l *SLinuxBridgeDriver) SetupInterface() error {
+	infs, err := l.Interfaces()
+	if err != nil {
+		return err
+	}
+	if l.inter != nil && !utils.IsInStringArray(l.inter.String(), infs) {
+		_, err := procutils.NewCommand(
+			"brctl", "addif", l.bridge.String(), l.inter.String()).Run()
+		if err != nil {
+			return fmt.Errorf("Failed to add interface %s", l.inter)
+		}
+	}
+	return nil
+}
