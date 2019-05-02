@@ -18,7 +18,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		vms, err := host.GetIVMs()
+		vms, err := host.GetIVMs2()
 		if err != nil {
 			return err
 		}

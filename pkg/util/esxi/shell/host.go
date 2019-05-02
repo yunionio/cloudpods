@@ -46,4 +46,17 @@ func init() {
 		printList(storages, nil)
 		return nil
 	})
+
+	shellutils.R(&HostShowOptions{}, "host-nics", "Show all nics of a given host", func(cli *esxi.SESXiClient, args *HostShowOptions) error {
+		host, err := cli.FindHostByIp(args.IP)
+		if err != nil {
+			return err
+		}
+		nics, err := host.GetIHostNics()
+		if err != nil {
+			return err
+		}
+		printList(nics, nil)
+		return nil
+	})
 }
