@@ -225,7 +225,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		return nil, hostutils.ParamsError
 	}
 
-	hostbridge.CleanDeletedPorts()
+	hostbridge.CleanDeletedPorts(options.HostOptions.BridgeDriver)
 
 	time.Sleep(100 * time.Millisecond)
 	var isStarted, tried = false, 0
