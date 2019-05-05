@@ -190,6 +190,9 @@ func (secgroup *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 		subRules := rule.toRules()
 		rules = append(rules, subRules...)
 	}
+	defaultDenyRule := secrules.MustParseSecurityRule("out:deny any")
+	defaultDenyRule.Priority = 1
+	rules = append(rules, *defaultDenyRule)
 	return rules, nil
 }
 
@@ -259,6 +262,24 @@ func (region *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Sec
 	if err != nil {
 		return "", err
 	}
+
+	// OpenStack仅支持allow规则添加，需要将规则全转换为allow rules
+	inRules, outRules := secrules.SecurityRuleSet{}, secrules.SecurityRuleSet{}
+	for i := 0; i < len(rules); i++ {
+		if rules[i].Direction == secrules.DIR_IN {
+			inRules = append(inRules, rules[i])
+		} else {
+			outRules = append(outRules, rules[i])
+		}
+	}
+
+	// OpenStack Out方向默认是禁止所有流量，需要给本地安全组规则加一条优先级最低的allow any规则，和OpenStack规则语义保持一致
+	defaultAllow := secrules.MustParseSecurityRule("out:allow any")
+	defaultAllow.Priority = 0
+	outRules = append(outRules, *defaultAllow)
+
+	rules = inRules.AllowList()
+	rules = append(rules, outRules.AllowList()...)
 
 	sort.Sort(secrules.SecurityRuleSet(rules))
 	sort.Sort(SecurigyGroupRuleSet(secgroup.SecurityGroupRules))
