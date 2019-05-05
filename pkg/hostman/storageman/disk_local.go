@@ -155,7 +155,7 @@ func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string) error 
 
 	var (
 		localPath   = d.Storage.GetFuseTmpPath()
-		mntPath     = path.Join(d.Storage.GetFuseMountPath())
+		mntPath     = path.Join(d.Storage.GetFuseMountPath(), d.Id)
 		contentPath = path.Join(mntPath, "content")
 		newImg, err = qemuimg.NewQemuImage(d.getPath())
 	)

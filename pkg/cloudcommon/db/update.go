@@ -22,11 +22,11 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
-func Update(model IModel, updateFunc func() error) (map[string]sqlchemy.SUpdateDiff, error) {
+func Update(model IModel, updateFunc func() error) (sqlchemy.UpdateDiffs, error) {
 	return model.GetModelManager().TableSpec().Update(model, updateFunc)
 }
 
-func UpdateWithLock(ctx context.Context, model IModel, updateFunc func() error) (map[string]sqlchemy.SUpdateDiff, error) {
+func UpdateWithLock(ctx context.Context, model IModel, updateFunc func() error) (sqlchemy.UpdateDiffs, error) {
 	lockman.LockObject(ctx, model)
 	defer lockman.ReleaseObject(ctx, model)
 

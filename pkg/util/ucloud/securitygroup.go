@@ -156,8 +156,7 @@ func (self *SSecurityGroup) UcloudSecRuleToOnecloud(rule Rule) secrules.Security
 }
 
 // https://docs.ucloud.cn/network/firewall/firewall
-// 貌似没有出方向规则
-// todo: fix me
+// 只有入方向规则
 func (self *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	rules := make([]secrules.SecurityRule, 0)
 	for _, r := range self.Rule {
@@ -188,8 +187,34 @@ func (self *SRegion) GetSecurityGroupById(secGroupId string) (*SSecurityGroup, e
 	}
 }
 
-func (self *SRegion) CreateSecurityGroup(name, description string) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+func (self *SRegion) CreateDefaultSecurityGroup(name, description string) (string, error) {
+	return self.CreateSecurityGroup(name, description, []string{"TCP|22|0.0.0.0/0|ACCEPT|LOW"})
+}
+
+// https://docs.ucloud.cn/api/unet-api/create_firewall
+func (self *SRegion) CreateSecurityGroup(name, description string, rules []string) (string, error) {
+	params := NewUcloudParams()
+	params.Set("Name", name)
+	params.Set("Remark", description)
+	if len(rules) == 0 {
+		return "", fmt.Errorf("CreateSecurityGroup required at least one rule")
+	}
+
+	for i, rule := range rules {
+		params.Set(fmt.Sprintf("Rule.%d", i), rule)
+	}
+
+	type Firewall struct {
+		FWId string
+	}
+
+	firewall := Firewall{}
+	err := self.DoAction("CreateFirewall", params, &firewall)
+	if err != nil {
+		return "", err
+	}
+
+	return firewall.FWId, nil
 }
 
 // https://docs.ucloud.cn/api/unet-api/describe_firewall

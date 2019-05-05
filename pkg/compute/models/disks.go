@@ -285,7 +285,7 @@ func (self *SDisk) isAttached() (bool, error) {
 func (self *SDisk) GetGuestdisks() []SGuestdisk {
 	guestdisks := make([]SGuestdisk, 0)
 	q := GuestdiskManager.Query().Equals("disk_id", self.Id)
-	err := q.All(&guestdisks)
+	err := db.FetchModelObjects(GuestdiskManager, q, &guestdisks)
 	if err != nil {
 		log.Errorf("%s", err)
 		return nil
@@ -870,6 +870,14 @@ func (self *SDisk) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SDisk) GetTemplateId() string {
+	if len(self.TemplateId) == 0 {
+		return ""
+	}
+	imageObj, err := CachedimageManager.FetchById(self.TemplateId)
+	if err != nil || imageObj == nil {
+		log.Errorf("failed to found disk %s(%s) templateId %s: %s", self.Name, self.Id, self.TemplateId, err)
+		return ""
+	}
 	return self.TemplateId
 }
 

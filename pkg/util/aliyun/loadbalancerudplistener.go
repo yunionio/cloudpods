@@ -47,6 +47,9 @@ type SLoadbalancerUDPListener struct {
 	HealthCheckConnectTimeout int    //	每次健康检查响应的最大超时间，单位为秒。
 	HealthCheckInterval       int    //	健康检查的时间间隔，单位为秒。
 	HealthCheckConnectPort    int    //	健康检查的端口。
+
+	HealthCheckExp string // UDP监听健康检查的响应串
+	HealthCheckReq string // UDP监听健康检查的请求串
 }
 
 func (listener *SLoadbalancerUDPListener) GetName() string {
@@ -141,7 +144,7 @@ func (listerner *SLoadbalancerUDPListener) GetHealthCheck() string {
 }
 
 func (listerner *SLoadbalancerUDPListener) GetHealthCheckType() string {
-	return ""
+	return api.LB_HEALTH_CHECK_UDP
 }
 
 func (listerner *SLoadbalancerUDPListener) GetHealthCheckDomain() string {
@@ -173,11 +176,11 @@ func (listerner *SLoadbalancerUDPListener) GetHealthCheckInterval() int {
 }
 
 func (listerner *SLoadbalancerUDPListener) GetHealthCheckReq() string {
-	return ""
+	return listerner.HealthCheckReq
 }
 
 func (listerner *SLoadbalancerUDPListener) GetHealthCheckExp() string {
-	return ""
+	return listerner.HealthCheckExp
 }
 
 func (listerner *SLoadbalancerUDPListener) GetStickySession() string {

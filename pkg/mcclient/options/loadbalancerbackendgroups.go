@@ -121,6 +121,10 @@ type LoadbalancerBackendGroupDeleteOptions struct {
 	ID string `json:-`
 }
 
+type LoadbalancerBackendGroupIDOptions struct {
+	ID string `json:-`
+}
+
 type LoadbalancerBackendGroupListOptions struct {
 	BaseListOptions
 	Loadbalancer string

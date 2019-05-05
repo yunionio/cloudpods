@@ -39,7 +39,7 @@ type ServerListOptions struct {
 	Gpu           *bool  `help:"Show gpu servers"`
 	Secgroup      string `help:"Secgroup ID or Name"`
 	AdminSecgroup string `help:"AdminSecgroup ID or Name"`
-	Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei"`
+	Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei|ucloud"`
 	Region        string `help:"Show servers in cloudregion"`
 	WithEip       *bool  `help:"Show Servers with EIP"`
 	WithoutEip    *bool  `help:"Show Servers without EIP"`
@@ -126,7 +126,7 @@ type ServerConfigs struct {
 	Host       string `help:"Preferred host where virtual server should be created" json:"prefer_host"`
 	BackupHost string `help:"Perfered host where virtual backup server should be created"`
 
-	Hypervisor   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack"`
+	Hypervisor   string `help:"Hypervisor type" choices:"kvm|esxi|baremetal|container|aliyun|azure|qcloud|aws|huawei|openstack|ucloud"`
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 	Backup       bool   `help:"Create server with backup server"`
 
@@ -245,6 +245,7 @@ type ServerCreateOptions struct {
 	Bios             string   `help:"BIOS" choices:"BIOS|UEFI"`
 	Desc             string   `help:"Description" metavar:"<DESCRIPTION>" json:"description"`
 	Boot             string   `help:"Boot device" metavar:"<BOOT_DEVICE>" choices:"disk|cdrom" json:"-"`
+	EnableCloudInit  bool     `help:"Enable cloud-init service"`
 	NoAccountInit    *bool    `help:"Not reset account password"`
 	AllowDelete      *bool    `help:"Unlock server to allow deleting" json:"-"`
 	ShutdownBehavior string   `help:"Behavior after VM server shutdown, stop or terminate server" metavar:"<SHUTDOWN_BEHAVIOR>" choices:"stop|terminate"`
@@ -337,6 +338,7 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 		EipBw:              opts.EipBw,
 		EipChargeType:      opts.EipChargeType,
 		Eip:                opts.Eip,
+		EnableCloudInit:    opts.EnableCloudInit,
 	}
 
 	if opts.GenerateName {
@@ -569,5 +571,34 @@ func (opts *ServerMetadataOptions) Params() (*jsonutils.JSONDict, error) {
 			return nil, fmt.Errorf("invalidate tag info %s", tag)
 		}
 	}
+	return params, nil
+}
+
+type ServerBatchMetadataOptions struct {
+	Guests []string `help:"IDs or names of server" json:"-"`
+	TAGS   []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`
+}
+
+func (opts *ServerBatchMetadataOptions) Params() (*jsonutils.JSONDict, error) {
+	params := jsonutils.NewDict()
+	if len(opts.Guests) == 0 {
+		return nil, fmt.Errorf("missing guest option")
+	}
+	params.Add(jsonutils.Marshal(opts.Guests), "guests")
+	metadata := jsonutils.NewDict()
+	for _, tag := range opts.TAGS {
+		info := strings.Split(tag, "=")
+		if len(info) == 2 {
+			if len(info[0]) == 0 {
+				return nil, fmt.Errorf("invalidate tag info %s", tag)
+			}
+			metadata.Add(jsonutils.NewString(info[1]), info[0])
+		} else if len(info) == 1 {
+			metadata.Add(jsonutils.NewString(info[0]), info[0])
+		} else {
+			return nil, fmt.Errorf("invalidate tag info %s", tag)
+		}
+	}
+	params.Add(metadata, "metadata")
 	return params, nil
 }

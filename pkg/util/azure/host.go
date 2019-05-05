@@ -16,14 +16,17 @@ package azure
 
 import (
 	"fmt"
+	"strings"
 	"time"
+
+	"yunion.io/x/pkg/util/osprofile"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/util/ansible"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -103,7 +106,7 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		desc.Password = seclib2.RandomPassword2(12)
 	}
 
-	vmId, err := self._createVM(desc.Name, desc.ExternalImageId, desc.SysDisk, desc.Cpu, desc.MemoryMB, desc.InstanceType, nic.ID, desc.IpAddr, desc.Description, desc.Password, desc.DataDisks, desc.PublicKey, desc.UserData)
+	vmId, err := self._createVM(desc, nic.ID)
 	if err != nil {
 		self.zone.region.DeleteNetworkInterface(nic.ID)
 		return nil, err
@@ -116,34 +119,45 @@ func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	}
 }
 
-func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SDiskInfo, cpu int, memMB int, instanceType string, nicId string, ipAddr string, desc string, passwd string, dataDisks []cloudprovider.SDiskInfo, publicKey string, userData string) (string, error) {
-	image, err := self.zone.region.GetImageById(imgId)
+func (self *SHost) _createVM(desc *cloudprovider.SManagedVMCreateConfig, nicId string) (string, error) {
+	image, err := self.zone.region.GetImageById(desc.ExternalImageId)
 	if err != nil {
-		log.Errorf("Get Image %s fail %s", imgId, err)
+		log.Errorf("Get Image %s fail %s", desc.ExternalImageId, err)
 		return "", err
 	}
 
 	if image.Properties.ProvisioningState != ImageStatusAvailable {
-		log.Errorf("image %s status %s", imgId, image.Properties.ProvisioningState)
+		log.Errorf("image %s status %s", desc.ExternalImageId, image.Properties.ProvisioningState)
 		return "", fmt.Errorf("image not ready")
 	}
-	storage, err := self.zone.getStorageByType(sysDisk.StorageType)
+	storage, err := self.zone.getStorageByType(desc.SysDisk.StorageType)
 	if err != nil {
-		return "", fmt.Errorf("Storage %s not avaiable: %s", sysDisk.StorageType, err)
+		return "", fmt.Errorf("Storage %s not avaiable: %s", desc.SysDisk.StorageType, err)
 	}
-	sysDiskSize := int32(sysDisk.SizeGB)
+	if !utils.IsInStringArray(desc.OsType, []string{osprofile.OS_TYPE_LINUX, osprofile.OS_TYPE_WINDOWS}) {
+		desc.OsType = image.GetOsType()
+	}
+	sysDiskSize := int32(desc.SysDisk.SizeGB)
+	computeName := desc.Name
+	for _, k := range []string{"`", "~", "!", "@", "#", "$", `%`, "^", "&", "*", "(", ")", "=", "+", "_", "[", "]", "{", "}", "\\", "|", ";", ":", ".", "'", `"`, ",", "<", ">", "/", "?"} {
+		computeName = strings.Replace(computeName, k, "", -1)
+	}
+	if len(computeName) > 15 {
+		computeName = computeName[:15]
+	}
 	instance := SInstance{
-		Name:     name,
+		Name:     desc.Name,
 		Location: self.zone.region.Name,
 		Properties: VirtualMachineProperties{
 			HardwareProfile: HardwareProfile{
 				VMSize: "",
 			},
 			OsProfile: OsProfile{
-				ComputerName:  name,
-				AdminUsername: ansible.PUBLIC_CLOUD_ANSIBLE_USER,
-				AdminPassword: passwd,
-				CustomData:    userData,
+				// Windows computer name cannot be more than 15 characters long, be entirely numeric, or contain the following characters: ` ~ ! @ # $ % ^ & * ( ) = + _ [ ] { } \\ | ; : . ' \" , < > / ?."
+				ComputerName:  computeName,
+				AdminUsername: api.VM_AZURE_DEFAULT_LOGIN_USER,
+				AdminPassword: desc.Password,
+				CustomData:    desc.UserData,
 			},
 			NetworkProfile: NetworkProfile{
 				NetworkInterfaces: []NetworkInterfaceReference{
@@ -155,34 +169,37 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 			StorageProfile: StorageProfile{
 				ImageReference: image.getImageReference(),
 				OsDisk: OSDisk{
-					Name:    fmt.Sprintf("vdisk_%s_%d", name, time.Now().UnixNano()),
+					Name:    fmt.Sprintf("vdisk_%s_%d", desc.Name, time.Now().UnixNano()),
 					Caching: "ReadWrite",
 					ManagedDisk: &ManagedDiskParameters{
 						StorageAccountType: storage.Name,
 					},
 					CreateOption: "FromImage",
 					DiskSizeGB:   &sysDiskSize,
-					OsType:       image.GetOsType(),
+					OsType:       desc.OsType,
 				},
 			},
 		},
 		Type: "Microsoft.Compute/virtualMachines",
 	}
-	if len(publicKey) > 0 {
+	if len(desc.PublicKey) > 0 && desc.OsType == osprofile.OS_TYPE_LINUX {
 		instance.Properties.OsProfile.LinuxConfiguration = &LinuxConfiguration{
 			DisablePasswordAuthentication: false,
 			SSH: &SSHConfiguration{
 				PublicKeys: []SSHPublicKey{
-					{KeyData: publicKey},
+					{
+						KeyData: desc.PublicKey,
+						Path:    fmt.Sprintf("/home/%s/.ssh/authorized_keys", api.VM_AZURE_DEFAULT_LOGIN_USER),
+					},
 				},
 			},
 		}
 	}
 
 	_dataDisks := []DataDisk{}
-	for i := 0; i < len(dataDisks); i++ {
-		diskName := fmt.Sprintf("vdisk_%s_%d", name, time.Now().UnixNano())
-		size := int32(dataDisks[i].SizeGB)
+	for i := 0; i < len(desc.DataDisks); i++ {
+		diskName := fmt.Sprintf("vdisk_%s_%d", desc.Name, time.Now().UnixNano())
+		size := int32(desc.DataDisks[i].SizeGB)
 		lun := int32(i)
 		_dataDisks = append(_dataDisks, DataDisk{
 			Name:         diskName,
@@ -195,28 +212,33 @@ func (self *SHost) _createVM(name string, imgId string, sysDisk cloudprovider.SD
 		instance.Properties.StorageProfile.DataDisks = _dataDisks
 	}
 
-	if len(instanceType) > 0 {
-		instance.Properties.HardwareProfile.VMSize = instanceType
-		log.Debugf("Try HardwareProfile : %s", instanceType)
+	if len(desc.InstanceType) > 0 {
+		instance.Properties.HardwareProfile.VMSize = desc.InstanceType
+		log.Debugf("Try HardwareProfile : %s", desc.InstanceType)
 		err = self.zone.region.client.Create(jsonutils.Marshal(instance), &instance)
 		if err != nil {
-			log.Errorf("Failed for %s: %s", instanceType, err)
-			return "", fmt.Errorf("Failed to create specification %s.%s", instanceType, err.Error())
+			log.Errorf("Failed for %s: %s", desc.InstanceType, err)
+			return "", fmt.Errorf("Failed to create specification %s.%s", desc.InstanceType, err.Error())
 		}
 		return instance.ID, nil
 	}
 
-	for _, profile := range self.zone.region.getHardwareProfile(cpu, memMB) {
+	for _, profile := range self.zone.region.getHardwareProfile(desc.Cpu, desc.MemoryMB) {
 		instance.Properties.HardwareProfile.VMSize = profile
 		log.Debugf("Try HardwareProfile : %s", profile)
 		err = self.zone.region.client.Create(jsonutils.Marshal(instance), &instance)
 		if err != nil {
+			for _, key := range []string{`"code":"InvalidParameter"`, `"code":"NicInUse"`} {
+				if strings.Contains(err.Error(), key) {
+					return "", err
+				}
+			}
 			log.Errorf("Failed for %s: %s", profile, err)
 			continue
 		}
 		return instance.ID, nil
 	}
-	return "", fmt.Errorf("instance type %dC%dMB not avaiable", cpu, memMB)
+	return "", fmt.Errorf("instance type %dC%dMB not avaiable", desc.Cpu, desc.MemoryMB)
 }
 
 func (self *SHost) GetAccessIp() string {

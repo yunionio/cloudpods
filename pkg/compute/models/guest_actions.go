@@ -798,7 +798,39 @@ func (self *SGuest) StartInsertIsoTask(ctx context.Context, imageId string, host
 	return nil
 }
 
-func (self *SGuest) StartGueststartTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+func (self *SGuest) IsDisksShared() bool {
+	return self.getDefaultStorageType() == api.STORAGE_RBD
+}
+
+func (self *SGuest) StartGueststartTask(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	data *jsonutils.JSONDict, parentTaskId string,
+) error {
+	if self.Hypervisor == api.HYPERVISOR_KVM && self.IsDisksShared() {
+		return self.GuestSchedStartTask(ctx, userCred, data, parentTaskId)
+	} else {
+		return self.GuestNonSchedStartTask(ctx, userCred, data, parentTaskId)
+	}
+}
+
+func (self *SGuest) GuestSchedStartTask(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	data *jsonutils.JSONDict, parentTaskId string,
+) error {
+	self.SetStatus(userCred, api.VM_SCHEDULE, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "GuestSchedStartTask", self, userCred, data,
+		parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SGuest) GuestNonSchedStartTask(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	data *jsonutils.JSONDict, parentTaskId string,
+) error {
 	self.SetStatus(userCred, api.VM_START_START, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestStartTask", self, userCred, data, parentTaskId, "", nil)
 	if err != nil {
@@ -1123,6 +1155,16 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}
 
+	if !self.GetDriver().IsRebuildRootSupportChangeImage() && len(imageId) > 0 {
+		templateId := self.GetTemplateId()
+		if len(templateId) == 0 {
+			return nil, httperrors.NewBadRequestError("No template for root disk, cannot rebuild root")
+		}
+		if imageId != templateId {
+			return nil, httperrors.NewInputParameterError("%s not support rebuild root with a different image", self.GetDriver().GetHypervisor())
+		}
+	}
+
 	if !utils.IsInStringArray(self.Status, rebuildStatus) {
 		return nil, httperrors.NewInvalidStatusError("Cannot reset root in status %s", self.Status)
 	}
@@ -1163,13 +1205,20 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 	return nil, self.StartRebuildRootTask(ctx, userCred, imageId, needStop, autoStart, passwd, resetPasswd, allDisks)
 }
 
+func (self *SGuest) GetTemplateId() string {
+	gdc := self.CategorizeDisks()
+	if gdc.Root != nil {
+		return gdc.Root.GetTemplateId()
+	}
+	return ""
+}
+
 func (self *SGuest) StartRebuildRootTask(ctx context.Context, userCred mcclient.TokenCredential, imageId string, needStop, autoStart bool, passwd string, resetPasswd bool, allDisk bool) error {
 	data := jsonutils.NewDict()
 	if len(imageId) == 0 {
-		gdc := self.CategorizeDisks()
-		imageId = gdc.Root.GetTemplateId()
+		imageId = self.GetTemplateId()
 		if len(imageId) == 0 {
-			return httperrors.NewBadRequestError("No template for root disk")
+			return httperrors.NewBadRequestError("No template for root disk, cannot rebuild root")
 		}
 	}
 	data.Set("image_id", jsonutils.NewString(imageId))
@@ -2075,6 +2124,10 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 	if !utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot do snapshot when VM in status %s", self.Status)
 	}
+	if self.IsImport(userCred) {
+		return nil, httperrors.NewBadRequestError("VM is import form libvirt, can't do snapshot")
+	}
+
 	diskId, err := data.GetString("disk_id")
 	if err != nil {
 		return nil, httperrors.NewBadRequestError(err.Error())
@@ -2090,6 +2143,11 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 	if self.GetGuestDisk(diskId) == nil {
 		return nil, httperrors.NewNotFoundError("Guest disk %s not found", diskId)
 	}
+	pendingUsage := &SQuota{Snapshot: 1}
+	_, err = QuotaManager.CheckQuota(ctx, userCred, self.ProjectId, pendingUsage)
+	if err != nil {
+		return nil, httperrors.NewOutOfQuotaError("Out of snapshot quota %s", err)
+	}
 	if self.GetHypervisor() == api.HYPERVISOR_KVM {
 		q := SnapshotManager.Query()
 		cnt, err := q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
@@ -2101,13 +2159,7 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 		if cnt >= options.Options.DefaultMaxManualSnapshotCount {
 			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
 		}
-		pendingUsage := &SQuota{Snapshot: 1}
-		err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
-		if err != nil {
-			return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
-		}
 		snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, api.SNAPSHOT_MANUAL, diskId, self.Id, "", name)
-		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
 		if err != nil {
 			return nil, err
 		}
@@ -2489,6 +2541,98 @@ func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient
 		task.ScheduleRun(nil)
 	}
 	return nil, nil
+}
+
+func (manager *SGuestManager) getGuests(userCred mcclient.TokenCredential, data jsonutils.JSONObject) ([]SGuest, error) {
+	_guests := []string{}
+	data.Unmarshal(&_guests, "guests")
+	if len(_guests) == 0 {
+		return nil, httperrors.NewMissingParameterError("guests")
+	}
+	guests := []SGuest{}
+	q := manager.Query()
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.In(q.Field("id"), _guests),
+		sqlchemy.In(q.Field("name"), _guests),
+	))
+	q = manager.FilterByOwner(q, manager.GetOwnerId(userCred))
+	err := db.FetchModelObjects(manager, q, &guests)
+	if err != nil {
+		return nil, err
+	}
+	guestStr := []string{}
+	for _, guest := range guests {
+		guestStr = append(guestStr, guest.Id)
+		guestStr = append(guestStr, guest.Name)
+	}
+
+	for _, guest := range _guests {
+		if !utils.IsInStringArray(guest, guestStr) {
+			return nil, httperrors.NewResourceNotFoundError("failed to found guest %s", guest)
+		}
+	}
+	return guests, nil
+}
+
+func (manager *SGuestManager) getUserMetadata(data jsonutils.JSONObject) (map[string]interface{}, error) {
+	if !data.Contains("metadata") {
+		return nil, httperrors.NewMissingParameterError("metadata")
+	}
+	metadata, err := data.GetMap("metadata")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("input data not key value dict")
+	}
+	dictStore := map[string]interface{}{}
+	for k, v := range metadata {
+		dictStore["user:"+k], _ = v.GetString()
+	}
+	return dictStore, nil
+}
+
+func (manager *SGuestManager) AllowPerformBatchUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowClassPerform(userCred, manager, "batch-user-metadata")
+}
+
+func (manager *SGuestManager) PerformBatchUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	guests, err := manager.getGuests(userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	metadata, err := manager.getUserMetadata(data)
+	if err != nil {
+		return nil, err
+	}
+	for _, guest := range guests {
+		err := guest.SetUserMetadataValues(ctx, metadata, userCred)
+		if err != nil {
+			msg := fmt.Errorf("set guest %s(%s) user-metadata error: %v", guest.Name, guest.Id, err)
+			return nil, httperrors.NewGeneralError(msg)
+		}
+	}
+	return jsonutils.Marshal(guests), nil
+}
+
+func (manager *SGuestManager) AllowPerformBatchSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowClassPerform(userCred, manager, "batch-set-user-metadata")
+}
+
+func (manager *SGuestManager) PerformBatchSetUserMetadata(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	guests, err := manager.getGuests(userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	metadata, err := manager.getUserMetadata(data)
+	if err != nil {
+		return nil, err
+	}
+	for _, guest := range guests {
+		err := guest.SetUserMetadataAll(ctx, metadata, userCred)
+		if err != nil {
+			msg := fmt.Errorf("set guest %s(%s) user-metadata error: %v", guest.Name, guest.Id, err)
+			return nil, httperrors.NewGeneralError(msg)
+		}
+	}
+	return jsonutils.Marshal(guests), nil
 }
 
 func (manager *SGuestManager) AllowPerformDirtyServerStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

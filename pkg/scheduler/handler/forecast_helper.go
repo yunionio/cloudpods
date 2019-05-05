@@ -86,7 +86,6 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 	for _, candi := range output.Candidates {
 		if len(candi.Error) != 0 {
 			info, exist := getOrNewFilter("select_candidate")
-			info.Count++
 			msg := candi.Error
 			info.Messages = append(info.Messages, msg)
 			if !exist {

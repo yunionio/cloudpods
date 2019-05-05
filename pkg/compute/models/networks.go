@@ -453,14 +453,15 @@ func (self *SNetwork) IsExitNetwork() bool {
 }
 
 func (manager *SNetworkManager) getNetworksByWire(wire *SWire) ([]SNetwork, error) {
-	nets := make([]SNetwork, 0)
+	return wire.getNetworks()
+	/* nets := make([]SNetwork, 0)
 	q := manager.Query().Equals("wire_id", wire.Id)
 	err := db.FetchModelObjects(manager, q, &nets)
 	if err != nil {
 		log.Errorf("getNetworkByWire fail %s", err)
 		return nil, err
 	}
-	return nets, nil
+	return nets, nil */
 }
 
 func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork, projectId string) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
@@ -1094,9 +1095,9 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 					return nil, httperrors.NewInternalServerError("zone %s related region not found", zone.Id)
 				}
 
-				// 华为云wire zone_id 为空
+				// 华为云,ucloud wire zone_id 为空
 				var wires []SWire
-				if region.Provider == api.CLOUD_PROVIDER_HUAWEI {
+				if utils.IsInStringArray(region.Provider, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_UCLOUD}) {
 					wires, err = WireManager.getWiresByVpcAndZone(vpc, nil)
 				} else {
 					wires, err = WireManager.getWiresByVpcAndZone(vpc, zone)
@@ -1141,11 +1142,19 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 		return nil, httperrors.NewInvalidStatusError("VPC not ready")
 	}
 
-	vpcRange := vpc.getIPRange()
+	vpcRanges := vpc.getIPRanges()
 
 	netRange := netutils.NewIPV4AddrRange(startIp, endIp)
 
-	if !vpcRange.ContainsRange(netRange) {
+	inRange := false
+	for _, vpcRange := range vpcRanges {
+		if vpcRange.ContainsRange(netRange) {
+			inRange = true
+			break
+		}
+	}
+
+	if !inRange {
 		return nil, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
 	}
 
@@ -1206,11 +1215,19 @@ func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.
 
 		vpc := self.GetVpc()
 
-		vpcRange := vpc.getIPRange()
+		vpcRanges := vpc.getIPRanges()
 
 		netRange := netutils.NewIPV4AddrRange(startIp, endIp)
 
-		if !vpcRange.ContainsRange(netRange) {
+		inRange := false
+		for _, vpcRange := range vpcRanges {
+			if vpcRange.ContainsRange(netRange) {
+				inRange = true
+				break
+			}
+		}
+
+		if !inRange {
 			return nil, httperrors.NewInputParameterError("Network not in range of VPC cidrblock %s", vpc.CidrBlock)
 		}
 

@@ -112,6 +112,10 @@ func (self *SBaseGuestDriver) GetRebuildRootStatus() ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetRebuildRootStatus")
 }
 
+func (self *SBaseGuestDriver) IsRebuildRootSupportChangeImage() bool {
+	return true
+}
+
 func (self *SBaseGuestDriver) GetChangeConfigStatus() ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetChangeConfigStatus")
 }
@@ -280,4 +284,13 @@ func (self *SBaseGuestDriver) GetGuestSecgroupVpcid(guest *models.SGuest) (strin
 		}
 	}
 	return vpcId, nil
+}
+
+func (self *SBaseGuestDriver) OnGuestDeployTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+	if jsonutils.QueryBoolean(task.GetParams(), "restart", false) {
+		task.SetStage("OnDeployStartGuestComplete", nil)
+		return guest.StartGueststartTask(ctx, task.GetUserCred(), nil, task.GetTaskId())
+	}
+	task.SetStage("OnDeployGuestSyncstatusComplete", nil)
+	return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
 }

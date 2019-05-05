@@ -126,9 +126,11 @@ func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pub
 	return DeployAuthorizedKeys(rootFs, usrDir, pubkeys, false)
 }
 
-func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *sshkeys.SSHKeys) error {
+func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *sshkeys.SSHKeys, isInit, enableCloudInit bool) error {
 	l.DisableSelinux(rootFs)
-	l.DisableCloudinit(rootFs)
+	if !enableCloudInit && isInit {
+		l.DisableCloudinit(rootFs)
+	}
 	var yunionroot = YUNIONROOT_USER
 	if err := rootFs.UserAdd(yunionroot, false); err != nil && !strings.Contains(err.Error(), "already exists") {
 		log.Errorf("UserAdd %s: %v", yunionroot, err)
@@ -249,7 +251,7 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jso
 		}
 		var nicRules string
 		for _, nic := range nics {
-			nicRules += `KERNEL=="eth*", SUBSYSTEM=="net", ACTION=="add", `
+			nicRules += `KERNEL=="*", SUBSYSTEM=="net", ACTION=="add", `
 			nicRules += `DRIVERS=="?*", `
 			mac, _ := nic.GetString("mac")
 			nicRules += fmt.Sprintf(`ATTR{address}=="%s", ATTR{type}=="1", `, strings.ToLower(mac))
@@ -277,7 +279,7 @@ func (l *sLinuxRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nic
 	for _, nic := range nicsStandby {
 		nicType, _ := nic.GetString("nic_type")
 		if !nic.Contains("nic_type") || nicType != "impi" {
-			nicRules += `KERNEL=="eth*", SUBSYSTEM=="net", ACTION=="add", `
+			nicRules += `KERNEL=="*", SUBSYSTEM=="net", ACTION=="add", `
 			nicRules += `DRIVERS=="?*", `
 			mac, _ := nic.GetString("mac")
 			nicRules += fmt.Sprintf(`ATTR{address}=="%s", ATTR{type}=="1", `, strings.ToLower(mac))
@@ -743,18 +745,6 @@ func (r *sRedhatLikeRootFs) DeployHostname(rootFs IDiskPartition, hn, domain str
 	return nil
 }
 
-/*
-   udev_path = '/etc/udev/rules.d/'
-   if self.root_fs.exists(udev_path):
-       nic_rules = ''
-       for nic in nics:
-           nic_rules += 'KERNEL=="eth*", '
-           nic_rules += 'SYSFS{address}=="%s", ' % (nic['mac'].lower())
-           nic_rules += 'NAME="eth%d"\n' % (nic['index'])
-       print nic_rules
-       self.root_fs.file_put_contents(os.path.join(udev_path, '60-net.rules'), nic_rules)
-*/
-
 func (r *sRedhatLikeRootFs) Centos5DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
 	var udevPath = "/etc/udev/rules.d/"
 	if rootFs.Exists(udevPath, false) {
@@ -764,7 +754,7 @@ func (r *sRedhatLikeRootFs) Centos5DeployNetworkingScripts(rootFs IDiskPartition
 			if err := nic.Unmarshal(nicdesc); err != nil {
 				return err
 			}
-			nicRules += `KERNEL=="eth*", `
+			nicRules += `KERNEL=="*", `
 			nicRules += fmt.Sprintf(`SYSFS{address}=="%s", `, strings.ToLower(nicdesc.Mac))
 			nicRules += fmt.Sprintf("NAME=\"eth%d\"\n", nicdesc.Index)
 		}

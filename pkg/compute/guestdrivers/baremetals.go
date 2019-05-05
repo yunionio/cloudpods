@@ -312,23 +312,11 @@ func (self *SBaremetalGuestDriver) StartGuestSyncstatusTask(guest *models.SGuest
 }
 
 func (self *SBaremetalGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
-	/*var confs = make([]api.BaremetalDiskConfig, 0)*/
-	//jsonArray := jsonutils.GetArrayOfPrefix(data, "baremetal_disk_config")
-	//for i := 0; i < len(jsonArray); i += 1 {
-	//// for data.Contains(fmt.Sprintf("baremetal_disk_config.%d", len(confs))) {
-	//desc, _ := jsonArray[i].GetString() // data.GetString(fmt.Sprintf("baremetal_disk_config.%d", len(confs)))
-	//data.Remove(fmt.Sprintf("baremetal_disk_config.%d", i))
-	//bmConf, err := baremetal.ParseDiskConfig(desc)
-	//if err != nil {
-	//return nil, httperrors.NewInputParameterError("baremetal_disk_config.%d", i)
-	//}
-	//confs = append(confs, bmConf)
-	//}
-	//if len(confs) == 0 {
-	//bmConf, _ := baremetal.ParseDiskConfig("")
-	//confs = append(confs, bmConf)
-	//}
-	/*data.Set("baremetal_disk_config", jsonutils.Marshal(confs))*/
+	if len(input.BaremetalDiskConfigs) != 0 {
+		if err := baremetal.ValidateDiskConfigs(input.BaremetalDiskConfigs); err != nil {
+			return nil, httperrors.NewInputParameterError("Invalid raid config: %v", err)
+		}
+	}
 	if len(input.Disks) <= 0 {
 		return nil, httperrors.NewInputParameterError("Root disk must be present")
 	}
@@ -375,11 +363,6 @@ func (self *SBaremetalGuestDriver) PerformStart(ctx context.Context, userCred mc
 func (self *SBaremetalGuestDriver) CheckDiskTemplateOnStorage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, format string, storageId string, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (self *SBaremetalGuestDriver) OnGuestDeployTaskComplete(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	task.SetStage("OnDeployGuestSyncstatusComplete", nil)
-	return guest.StartSyncstatus(ctx, task.GetUserCred(), task.GetTaskId())
 }
 
 func (self *SBaremetalGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {

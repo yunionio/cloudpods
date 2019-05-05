@@ -954,17 +954,19 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err) // should no error
 		}
-		if len(rootDiskConfig.Backend) == 0 {
-			defaultStorageType, _ := data.GetString("default_storage_type")
-			if len(defaultStorageType) > 0 {
-				rootDiskConfig.Backend = defaultStorageType
-			} else {
-				rootDiskConfig.Backend = GetDriver(hypervisor).GetDefaultSysDiskBackend()
+		if input.ResourceType != api.HostResourceTypePrepaidRecycle {
+			if len(rootDiskConfig.Backend) == 0 {
+				defaultStorageType, _ := data.GetString("default_storage_type")
+				if len(defaultStorageType) > 0 {
+					rootDiskConfig.Backend = defaultStorageType
+				} else {
+					rootDiskConfig.Backend = GetDriver(hypervisor).GetDefaultSysDiskBackend()
+				}
 			}
-		}
-		sysMinDiskMB := GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024
-		if rootDiskConfig.SizeMb < sysMinDiskMB {
-			rootDiskConfig.SizeMb = sysMinDiskMB
+			sysMinDiskMB := GetDriver(hypervisor).GetMinimalSysDiskSizeGb() * 1024
+			if rootDiskConfig.SizeMb < sysMinDiskMB {
+				rootDiskConfig.SizeMb = sysMinDiskMB
+			}
 		}
 		log.Debugf("ROOT DISK: %#v", rootDiskConfig)
 		input.Disks[0] = rootDiskConfig
@@ -987,26 +989,23 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			input.Disks[i+1] = diskConfig
 		}
 
-		resourceTypeStr := input.ResourceType
-		durationStr := input.Duration
-
-		if len(durationStr) > 0 {
+		if len(input.Duration) > 0 {
 
 			if !userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, "renew") {
 				return nil, httperrors.NewForbiddenError("only admin can create prepaid resource")
 			}
 
-			if resourceTypeStr == api.HostResourceTypePrepaidRecycle {
+			if input.ResourceType == api.HostResourceTypePrepaidRecycle {
 				return nil, httperrors.NewConflictError("cannot create prepaid server on prepaid resource type")
 			}
 
-			billingCycle, err := billing.ParseBillingCycle(durationStr)
+			billingCycle, err := billing.ParseBillingCycle(input.Duration)
 			if err != nil {
-				return nil, httperrors.NewInputParameterError("invalid duration %s", durationStr)
+				return nil, httperrors.NewInputParameterError("invalid duration %s", input.Duration)
 			}
 
 			if !GetDriver(hypervisor).IsSupportedBillingCycle(billingCycle) {
-				return nil, httperrors.NewInputParameterError("unsupported duration %s", durationStr)
+				return nil, httperrors.NewInputParameterError("unsupported duration %s", input.Duration)
 			}
 
 			input.BillingType = billing_api.BILLING_TYPE_PREPAID
@@ -1088,9 +1087,11 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 
 		}*/
 
-	input, err = GetDriver(hypervisor).ValidateCreateData(ctx, userCred, input)
-	if err != nil {
-		return nil, err
+	if input.ResourceType != api.HostResourceTypePrepaidRecycle {
+		input, err = GetDriver(hypervisor).ValidateCreateData(ctx, userCred, input)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, input.JSON(input))
@@ -1100,6 +1101,8 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	if err := data.Unmarshal(input); err != nil {
 		return nil, err
 	}
+
+	log.Debugf("Create data: %s", data)
 
 	if !input.IsSystem {
 		err = manager.checkCreateQuota(ctx, userCred, ownerProjId, input,
@@ -1272,8 +1275,8 @@ func (guest *SGuest) setApptags(ctx context.Context, appTags []string, userCred 
 
 func (guest *SGuest) SetCreateParams(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) {
 	// delete deploy files info
-	data.(*jsonutils.JSONDict).Remove("deploy_configs")
-	err := guest.SetMetadata(ctx, api.VM_METADATA_CREATE_PARAMS, data.String(), userCred)
+	createParams := data.(*jsonutils.JSONDict).CopyExcludes("deploy_configs")
+	err := guest.SetMetadata(ctx, api.VM_METADATA_CREATE_PARAMS, createParams.String(), userCred)
 	if err != nil {
 		log.Errorf("Server %s SetCreateParams: %v", guest.Name, err)
 	}
@@ -1871,7 +1874,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	// metaData := extVM.GetMetadata()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extVM.Refresh()
-		if options.NameSyncResources.Contains(self.Keyword()) {
+		if options.NameSyncResources.Contains(self.Keyword()) && !recycle {
 			self.Name = extVM.GetName()
 		}
 		if !self.IsFailureStatus() {
@@ -1914,8 +1917,10 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 			self.ExpiredAt = extVM.GetExpiredAt()
 		}
 
-		if createdAt := extVM.GetCreatedAt(); !createdAt.IsZero() {
-			self.CreatedAt = createdAt
+		if !recycle {
+			if createdAt := extVM.GetCreatedAt(); !createdAt.IsZero() {
+				self.CreatedAt = createdAt
+			}
 		}
 
 		return nil
@@ -2960,6 +2965,7 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 	// if deployAction == "deploy" {
 	resetPasswd := jsonutils.QueryBoolean(params, "reset_password", true)
 	//}
+	config.Add(jsonutils.NewBool(jsonutils.QueryBoolean(params, "enable_cloud_init", false)), "enable_cloud_init")
 
 	if resetPasswd {
 		config.Add(jsonutils.JSONTrue, "reset_password")
@@ -3015,7 +3021,7 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		registerVpcId := vpc.ExternalId
 		externalVpcId := vpc.ExternalId
 		switch self.Hypervisor {
-		case api.HYPERVISOR_ALIYUN, api.HYPERVISOR_HUAWEI:
+		case api.HYPERVISOR_ALIYUN, api.HYPERVISOR_HUAWEI, api.HYPERVISOR_UCLOUD:
 			break
 		case api.HYPERVISOR_AWS:
 			loginUser := cloudinit.NewUser(api.VM_AWS_DEFAULT_LOGIN_USER)
@@ -3505,20 +3511,6 @@ func (manager *SGuestManager) GetSpecIdent(spec *jsonutils.JSONDict) []string {
 		}
 	}
 	return specKeys
-}
-
-func (self *SGuest) GetTemplateId() string {
-	guestdisks := self.GetDisks()
-	for _, guestdisk := range guestdisks {
-		disk := guestdisk.GetDisk()
-		if disk != nil {
-			templateId := disk.GetTemplateId()
-			if len(templateId) > 0 {
-				return templateId
-			}
-		}
-	}
-	return ""
 }
 
 func (self *SGuest) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
@@ -4170,13 +4162,15 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	if err != nil {
 		return genInput
 	}
-	// fill missing create params like schedtags
-	for idx, disk := range genInput.Disks {
-		if idx < len(userInput.Disks) {
-			disk.Schedtags = userInput.Disks[idx].Schedtags
-			userInput.Disks[idx] = disk
-		} else {
-			userInput.Disks = append(userInput.Disks, disk)
+	if self.GetHypervisor() != api.HYPERVISOR_BAREMETAL {
+		// fill missing create params like schedtags
+		for idx, disk := range genInput.Disks {
+			if idx < len(userInput.Disks) {
+				disk.Schedtags = userInput.Disks[idx].Schedtags
+				userInput.Disks[idx] = disk
+			} else {
+				userInput.Disks = append(userInput.Disks, disk)
+			}
 		}
 	}
 	for idx, net := range genInput.Networks {
@@ -4339,4 +4333,8 @@ func (self *SGuest) ToIsolatedDevicesConfig() []*api.IsolatedDeviceConfig {
 		ret[idx] = devConf
 	}
 	return ret
+}
+
+func (self *SGuest) IsImport(userCred mcclient.TokenCredential) bool {
+	return self.GetMetadata("__is_import", userCred) == "true"
 }

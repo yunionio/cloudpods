@@ -156,6 +156,7 @@ type ServerCreateInput struct {
 	Bios               string          `json:"bios"`
 	Description        string          `json:"description"`
 	BootOrder          string          `json:"boot_order"`
+	EnableCloudInit    bool            `json:"enable_cloud_init"`
 	ResetPassword      *bool           `json:"reset_password"`
 	DisableDelete      *bool           `json:"disable_delete"`
 	ShutdownBehavior   string          `json:"shutdown_behavior"`

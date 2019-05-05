@@ -486,11 +486,13 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 	if public_cloud {
 		providerTable := CloudproviderManager.Query().SubQuery()
 		providerRegionTable := CloudproviderRegionManager.Query().SubQuery()
-		q = q.Join(providerRegionTable, sqlchemy.Equals(q.Field("cloudregion_id"), providerRegionTable.Field("cloudregion_id")))
-		q = q.Join(providerTable, sqlchemy.Equals(providerRegionTable.Field("cloudprovider_id"), providerTable.Field("id")))
-		q = q.Filter(sqlchemy.IsTrue(providerTable.Field("enabled")))
-		q = q.Filter(sqlchemy.In(providerTable.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
-		q = q.Filter(sqlchemy.Equals(providerTable.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
+
+		subq := providerRegionTable.Query(sqlchemy.DISTINCT("cloudregion_id", providerRegionTable.Field("cloudregion_id")))
+		subq = subq.Join(providerTable, sqlchemy.Equals(providerRegionTable.Field("cloudprovider_id"), providerTable.Field("id")))
+		subq = subq.Filter(sqlchemy.IsTrue(providerTable.Field("enabled")))
+		subq = subq.Filter(sqlchemy.In(providerTable.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+		subq = subq.Filter(sqlchemy.Equals(providerTable.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
+		q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), subq.SubQuery()))
 	}
 
 	// 过滤出network usable的sku
@@ -539,7 +541,7 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 	return q
 }
 
-func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (manager *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	params := NewInstanceSpecQueryParams(query)
 	if !params.IngoreCache {
 		v := Cache.Get(params.GetCacheKey())
@@ -550,7 +552,7 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 		}
 	}
 
-	q := self.Query()
+	q := manager.Query()
 	// 未明确指定provider或者public_cloud时，默认查询私有云
 	q = providerFilter(q, params.Provider, params.PublicCloud)
 	q = excludeSkus(q)
@@ -578,7 +580,7 @@ func (self *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, use
 	}
 	q = q.GroupBy(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
 	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
-	err := q.All(&skus)
+	err := db.FetchModelObjects(manager, q, &skus)
 	if err != nil {
 		log.Errorf("%s", err)
 		return nil, httperrors.NewBadRequestError("instance specs list query error")
@@ -1147,7 +1149,7 @@ func (manager *SServerSkuManager) FetchAllAvailableSkuIdByZoneId(zoneId string) 
 		sqlchemy.Equals(q.Field("prepaid_status"), api.SkuStatusAvailable),
 		sqlchemy.Equals(q.Field("postpaid_status"), api.SkuStatusAvailable)))
 
-	err := q.All(&skus)
+	err := db.FetchModelObjects(manager, q, &skus)
 	if err != nil {
 		return nil, err
 	}

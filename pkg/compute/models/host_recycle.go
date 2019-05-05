@@ -17,7 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
-	"strings"
+	// "strings"
 	"time"
 
 	"github.com/golang-plus/errors"
@@ -583,11 +583,12 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 			if err != nil {
 				return nil, err
 			}
-			packedMac := strings.Replace(netifs[i].Mac, ":", "", -1)
+			// packedMac := strings.Replace(netifs[i].Mac, ":", "", -1)
 			input.Networks = append(input.Networks, &api.NetworkConfig{
-				Network: hn.NetworkId,
-				Mac:     packedMac,
-				Address: hn.IpAddr,
+				Network:  hn.NetworkId,
+				Mac:      netifs[i].Mac,
+				Address:  hn.IpAddr,
+				Reserved: true,
 			})
 			netIdx += 1
 		}

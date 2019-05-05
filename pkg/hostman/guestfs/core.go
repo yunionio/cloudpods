@@ -34,6 +34,7 @@ type SDeployInfo struct {
 	enableTty               bool
 	defaultRootUser         bool
 	windowsDefaultAdminUser bool
+	enableCloudInit         bool
 }
 
 func NewDeployInfo(
@@ -44,6 +45,7 @@ func NewDeployInfo(
 	enableTty bool,
 	defaultRootUser bool,
 	windowsDefaultAdminUser bool,
+	enableCloudInit bool,
 ) *SDeployInfo {
 	return &SDeployInfo{
 		publicKey:               publicKey,
@@ -53,12 +55,13 @@ func NewDeployInfo(
 		enableTty:               enableTty,
 		defaultRootUser:         defaultRootUser,
 		windowsDefaultAdminUser: windowsDefaultAdminUser,
+		enableCloudInit:         enableCloudInit,
 	}
 }
 
 func (d *SDeployInfo) String() string {
-	return fmt.Sprintf("deplys: %s, password %s, isInit: %v, enableTty: %v, defaultRootUser: %v",
-		d.deploys, d.password, d.isInit, d.enableTty, d.defaultRootUser)
+	return fmt.Sprintf("deplys: %s, password %s, isInit: %v, enableTty: %v, defaultRootUser: %v, enableCloudInit: %v",
+		d.deploys, d.password, d.isInit, d.enableTty, d.defaultRootUser, d.enableCloudInit)
 }
 
 func DetectRootFs(part fsdriver.IDiskPartition) fsdriver.IRootFsDriver {
@@ -179,7 +182,7 @@ func DeployGuestFs(
 		}
 	}
 
-	if err = rootfs.DeployYunionroot(partition, deployInfo.publicKey); err != nil {
+	if err = rootfs.DeployYunionroot(partition, deployInfo.publicKey, deployInfo.isInit, deployInfo.enableCloudInit); err != nil {
 		return nil, fmt.Errorf("DeployYunionroot: %v", err)
 	}
 	if partition.SupportSerialPorts() {

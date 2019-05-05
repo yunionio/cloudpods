@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -750,7 +751,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 		content.Set("slots", jsonutils.NewString(options.HostOptions.Slots))
 	}
 	content.Set("__meta__", jsonutils.Marshal(h.getSysInfo()))
-	// content.Set("version", GetVersion())
+	content.Set("version", jsonutils.NewString(version.GetShortString()))
 	body := jsonutils.NewDict()
 	body.Set("host", content)
 	session := h.GetSession()
