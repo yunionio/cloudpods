@@ -100,7 +100,7 @@ func parseHosts(data string) ([]jsonutils.JSONObject, string) {
 		}
 
 		fields := strings.Split(host, ",")
-		if len(fields) != 4 {
+		if len(fields) != 5 {
 			msg += fmt.Sprintf("第%d行： %s (格式不正确)\n", i, host)
 			continue
 		}
@@ -127,6 +127,10 @@ func parseHosts(data string) ([]jsonutils.JSONObject, string) {
 
 		if len(fields[3]) > 0 {
 			params.Add(jsonutils.NewString(fields[3]), "ipmi_password")
+		}
+
+		if len(fields[4]) > 0 {
+			params.Add(jsonutils.NewString(fields[4]), "ipmi_username")
 		}
 
 		ret = append(ret, params)
