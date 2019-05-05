@@ -145,7 +145,7 @@ func (listerner *SLoadbalancerHTTPSListener) GetHealthCheck() string {
 }
 
 func (listerner *SLoadbalancerHTTPSListener) GetHealthCheckType() string {
-	return ""
+	return api.LB_HEALTH_CHECK_HTTP
 }
 
 func (listerner *SLoadbalancerHTTPSListener) GetHealthCheckDomain() string {

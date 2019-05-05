@@ -2,6 +2,7 @@ package regiondrivers
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -84,10 +85,50 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerListen
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+	_, err := self.ValidateManagerId(ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	loadbalancerId, _ := data.GetString("loadbalancer_id")
+	_loadbalancer, err := models.LoadbalancerManager.FetchById(loadbalancerId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError("failed to find loadbalancer %s", loadbalancerId)
+		}
+		return nil, httperrors.NewGeneralError(err)
+	}
+	lb := _loadbalancer.(*models.SLoadbalancer)
+
+	if aclStatus, _ := data.GetString("acl_status"); aclStatus == api.LB_BOOL_ON {
+		aclId, _ := data.GetString("acl_id")
+		if len(aclId) == 0 {
+			return nil, httperrors.NewMissingParameterError("acl")
+		}
+		_acl, err := models.LoadbalancerAclManager.FetchById(aclId)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("failed to find acl %s", aclId)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		acl := _acl.(*models.SLoadbalancerAcl)
+		if acl.ManagerId != lb.ManagerId {
+			return nil, httperrors.NewInputParameterError("acl %s(%s) and loadbalancer %s(%s) not belong to the same account", acl.GetName(), acl.GetId(), lb.GetName(), lb.GetId())
+		}
+		if acl.CloudregionId != lb.CloudregionId {
+			return nil, httperrors.NewInputParameterError("acl %s(%s) and loadbalancer %s(%s) are not in the same region", acl.GetName(), acl.GetId(), lb.GetName(), lb.GetId())
+		}
+	}
 	return data, nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lblis *models.SLoadbalancerListener, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+	if listenerType, _ := data.GetString("listener_type"); len(listenerType) > 0 && lblis.ListenerType != listenerType {
+		return nil, httperrors.NewInputParameterError("cannot change loadbalancer listener listener_type")
+	}
+	if listenerPort, _ := data.Int("listener_port"); listenerPort != 0 && listenerPort != int64(lblis.ListenerPort) {
+		return nil, httperrors.NewInputParameterError("cannot change loadbalancer listener listener_port")
+	}
 	return data, nil
 }
 
@@ -97,6 +138,10 @@ func (self *SManagedVirtualizationRegionDriver) ValidateDeleteLoadbalancerBacken
 
 func (self *SManagedVirtualizationRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup) error {
 	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) GetBackendStatusForAdd() []string {
+	return []string{api.VM_RUNNING}
 }
 
 func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *models.SLoadbalancer, task taskman.ITask) error {

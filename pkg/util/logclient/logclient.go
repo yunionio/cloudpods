@@ -117,6 +117,7 @@ const (
 	ACT_EIP_DISSOCIATE               = "解绑弹性IP"
 	ACT_CHANGE_BANDWIDTH             = "调整带宽"
 	ACT_DISK_CREATE_SNAPSHOT         = "磁盘创建快照"
+	ACT_LB_ADD_BACKEND               = "添加后端服务器"
 
 	ACT_IMAGE_SAVE = "上传镜像"
 

@@ -17,6 +17,9 @@ type SLoadbalancerListener struct {
 	Description             string
 	EstablishedTimeout      int
 
+	HealthCheckReq string
+	HealthCheckExp string
+
 	HealthCheck         string
 	HealthCheckTimeout  int
 	HealthCheckDomain   string
