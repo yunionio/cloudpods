@@ -1216,7 +1216,7 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 		// }
 		// diskConfig.ImageDiskFormat = image.DiskFormat
 		CachedimageManager.ImageAddRefCount(image.Id)
-		if diskConfig.SizeMb < image.MinDiskMB {
+		if diskConfig.SizeMb != api.DISK_SIZE_AUTOEXTEND && diskConfig.SizeMb < image.MinDiskMB {
 			diskConfig.SizeMb = image.MinDiskMB // MB
 		}
 	}
