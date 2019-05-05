@@ -106,7 +106,7 @@ func (self *SImage) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (self *SImage) Delete(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return self.storageCache.region.DeleteImage(self.GetId())
 }
 
 func (self *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
@@ -212,4 +212,12 @@ func (self *SRegion) GetImages(imageType string, imageId string) ([]SImage, erro
 	images := make([]SImage, 0)
 	err := self.DoListAll("DescribeImage", params, &images)
 	return images, err
+}
+
+// https://docs.ucloud.cn/api/uhost-api/terminate_custom_image
+func (self *SRegion) DeleteImage(imageId string) error {
+	params := NewUcloudParams()
+	params.Set("ImageId", imageId)
+
+	return self.DoAction("TerminateCustomImage", params, nil)
 }

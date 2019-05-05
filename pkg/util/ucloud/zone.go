@@ -167,3 +167,17 @@ func (self *SRegion) GetInstances(zoneId string, instanceId string) ([]SInstance
 	err := self.DoListAll("DescribeUHostInstance", params, &instances)
 	return instances, err
 }
+
+func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {
+	storages, err := self.GetIStorages()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(storages); i += 1 {
+		storage := storages[i].(*SStorage)
+		if storage.storageType == category {
+			return storage, nil
+		}
+	}
+	return nil, fmt.Errorf("No such storage %s", category)
+}
