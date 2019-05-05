@@ -451,6 +451,7 @@ func init() {
 		MAC        string `help:"Default MAC address of baremetal"`
 		Rack       string `help:"Rack number of baremetal"`
 		Slots      string `help:"Slots number of baremetal"`
+		IpmiUser   string `help:"IPMI user name"`
 		IpmiPasswd string `help:"IPMI user password"`
 		IpmiAddr   string `help:"IPMI IP address"`
 	}
@@ -464,6 +465,9 @@ func init() {
 		}
 		if len(args.Slots) > 0 {
 			params.Add(jsonutils.NewString(args.Slots), "slots")
+		}
+		if len(args.IpmiUser) > 0 {
+			params.Add(jsonutils.NewString(args.IpmiUser), "ipmi_username")
 		}
 		if len(args.IpmiPasswd) > 0 {
 			params.Add(jsonutils.NewString(args.IpmiPasswd), "ipmi_password")
