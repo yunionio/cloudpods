@@ -326,15 +326,15 @@ func normalizeOsName(normalizeOsType string, fullVersion string) string {
 		if len(fullVersion) >= 3 {
 			return fmt.Sprintf("%s %s 64位", normalizeOsType, fullVersion[0:3])
 		} else {
-			return fmt.Sprintf("%s %s.0 64位", normalizeOsType, fullVersion[0])
+			return fmt.Sprintf("%s %s.0 64位", normalizeOsType, fullVersion[0:1])
 		}
 	}
 
 	if normalizeOsType == "Ubuntu" {
 		if len(fullVersion) >= 5 {
-			return fmt.Sprint("Ubuntu %s 64位", fullVersion[0:5])
+			return fmt.Sprintf("Ubuntu %s 64位", fullVersion[0:5])
 		} else if len(fullVersion) >= 2 {
-			return fmt.Sprint("Ubuntu %s.04 64位", fullVersion[0:2])
+			return fmt.Sprintf("Ubuntu %s.04 64位", fullVersion[0:2])
 		} else {
 			// 默认猜一个？
 			return "Ubuntu 14.04 64位"
@@ -343,7 +343,7 @@ func normalizeOsName(normalizeOsType string, fullVersion string) string {
 
 	if normalizeOsType == "Windows" {
 		if len(fullVersion) >= 4 {
-			return fmt.Sprint("Windows %s 64位", fullVersion[0:4])
+			return fmt.Sprintf("Windows %s 64位", fullVersion[0:4])
 		} else {
 			// 默认猜一个？
 			return "Windows 2016 64位"
