@@ -51,4 +51,6 @@ const (
 	DISK_TYPE_VOLUME = "volume"
 
 	DISK_BACKING_IMAGE = "image"
+
+	DISK_SIZE_AUTOEXTEND = -1
 )

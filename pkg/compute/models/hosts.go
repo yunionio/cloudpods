@@ -2589,7 +2589,6 @@ func fetchIpmiInfo(data *jsonutils.JSONDict, hostId string) (*jsonutils.JSONDict
 		if strings.HasPrefix(key, IPMI_KEY_PERFIX) {
 			value, _ := data.GetString(key)
 			subkey := key[len(IPMI_KEY_PERFIX):]
-			data.Remove(key)
 			if subkey == "password" && len(hostId) > 0 {
 				value, err = utils.EncryptAESBase64(hostId, value)
 				if err != nil {
