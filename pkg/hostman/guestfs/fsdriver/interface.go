@@ -41,6 +41,7 @@ type IDiskPartition interface {
 	SupportSerialPorts() bool
 
 	Mount() bool
+	MountPartReadOnly() bool
 	Umount() bool
 	GetMountPath() string
 }
@@ -69,6 +70,7 @@ type IRootFsDriver interface {
 	DisableSerialConsole(IDiskPartition) error
 	CommitChanges(IDiskPartition) error
 	DeployFiles(deploys []jsonutils.JSONObject) error
+	DetectIsUEFISupport(IDiskPartition) bool
 
 	PrepareFsForTemplate(IDiskPartition) error
 }

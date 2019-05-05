@@ -431,6 +431,10 @@ func (l *sLinuxRootFs) disableSerialConsoleSystemd(rootFs IDiskPartition) {
 	}
 }
 
+func (l *sLinuxRootFs) DetectIsUEFISupport(part IDiskPartition) bool {
+	return part.Exists("/efi", false)
+}
+
 type sDebianLikeRootFs struct {
 	*sLinuxRootFs
 }

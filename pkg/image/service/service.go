@@ -33,6 +33,7 @@ import (
 	_ "yunion.io/x/onecloud/pkg/image/tasks"
 	"yunion.io/x/onecloud/pkg/image/torrent"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 const (
@@ -44,6 +45,14 @@ func StartService() {
 	commonOpts := &opts.CommonOptions
 	dbOpts := &opts.DBOptions
 	common_options.ParseOptions(opts, os.Args, "glance-api.conf", SERVICE_TYPE)
+
+	isRoot, err := sysutils.IsRootPermission()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if !isRoot {
+		log.Fatalf("glance service must running with root permissions")
+	}
 
 	if opts.PortV2 > 0 {
 		log.Infof("Port V2 %d is specified, use v2 port", opts.PortV2)

@@ -38,6 +38,7 @@ import (
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -865,6 +866,12 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		input.Disks[0] = diskConfig
 
 		imgProperties := diskConfig.ImageProperties
+		imgSupportUEFI := imgProperties[imageapi.IMAGE_UEFI_SUPPORT] == "true"
+		imgIsWindows := imgProperties[imageapi.IMAGE_OS_TYPE] == "Windows"
+		if imgSupportUEFI && imgIsWindows && len(input.IsolatedDevices) > 0 {
+			input.Bios = "UEFI" // windows gpu passthrough
+		}
+
 		if input.Cdrom != "" {
 			cdromStr := input.Cdrom
 			image, err := parseIsoInfo(ctx, userCred, cdromStr)

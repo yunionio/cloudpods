@@ -57,6 +57,22 @@ func (p *SKVMGuestDiskPartition) getFsFormat() string {
 	return fileutils2.GetFsFormat(p.partDev)
 }
 
+func (p *SKVMGuestDiskPartition) MountPartReadOnly() bool {
+	if len(p.fs) == 0 || utils.IsInStringArray(p.fs, []string{"swap", "btrfs"}) {
+		return false
+	}
+
+	// no fsck, becasue read only
+
+	err := p.mount(true)
+	if err != nil {
+		log.Errorf("SKVMGuestDiskPartition mount as readonly error: %s", err)
+		return false
+	}
+	p.readonly = true
+	return true
+}
+
 func (p *SKVMGuestDiskPartition) Mount() bool {
 	if len(p.fs) == 0 || utils.IsInStringArray(p.fs, []string{"swap", "btrfs"}) {
 		return false

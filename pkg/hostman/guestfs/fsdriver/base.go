@@ -109,11 +109,15 @@ func (d *sGuestRootFsDriver) CommitChanges(rootfs IDiskPartition) error {
 	return nil
 }
 
+func (d *sGuestRootFsDriver) DetectIsUEFISupport(IDiskPartition) bool {
+	return false
+}
+
 type SReleaseInfo struct {
-	Distro   string
-	Version  string
-	Arch     string
-	Language string
+	Distro   string `json:"os_distribution,omitempty"`
+	Version  string `json:"os_version,omitempty"`
+	Arch     string `json:"os_arch,omitempty"`
+	Language string `json:"os_language,omitempty"`
 }
 
 func newReleaseInfo(distro, version, arch string) *SReleaseInfo {

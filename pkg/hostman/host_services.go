@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/metadata"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
 type SHostService struct {
@@ -43,8 +44,15 @@ type SHostService struct {
 
 func (host *SHostService) StartService() {
 	common_options.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
-	options.HostOptions.EnableRbac = false // disable rbac
+	isRoot, err := sysutils.IsRootPermission()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if !isRoot {
+		log.Fatalf("host service must running with root permissions")
+	}
 
+	options.HostOptions.EnableRbac = false // disable rbac
 	app := app_common.InitApp(&options.HostOptions.CommonOptions, false)
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {

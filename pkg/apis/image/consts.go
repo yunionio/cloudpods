@@ -19,6 +19,14 @@ const (
 	ImageTypeISO      = TImageType("iso")
 
 	LocalFilePrefix = "file://"
+
+	// image properties
+	IMAGE_OS_ARCH          = "os_arch"
+	IMAGE_OS_DISTRO        = "os_distribution"
+	IMAGE_OS_TYPE          = "os_type"
+	IMAGE_OS_VERSION       = "os_version"
+	IMAGE_UEFI_SUPPORT     = "uefi_support"
+	IMAGE_IS_LVM_PARTITION = "is_lvm_partition"
 )
 
 var (

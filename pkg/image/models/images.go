@@ -117,7 +117,7 @@ type SImage struct {
 func (manager *SImageManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
 	switch info.GetName(nil) {
 	case "get_details", "create", "update":
-		info.SetProcessTimeout(time.Minute * 30).SetWorkerManager(imgStreamingWorkerMan)
+		info.SetProcessTimeout(time.Minute * 120).SetWorkerManager(imgStreamingWorkerMan)
 	}
 }
 
@@ -450,14 +450,27 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 		}
 
 		self.OnSaveSuccess(ctx, userCred, "create upload success")
-
-		self.StartImageConvertTask(ctx, userCred, "")
+		self.ImageProbeAndCustomization(ctx, userCred, true)
 	} else {
 		copyFrom := appParams.Request.Header.Get(modules.IMAGE_META_COPY_FROM)
 		if len(copyFrom) > 0 {
 			self.startImageCopyFromUrlTask(ctx, userCred, copyFrom, "")
 		}
 	}
+}
+
+func (self *SImage) ImageProbeAndCustomization(
+	ctx context.Context, userCred mcclient.TokenCredential, doConvertAfterProbe bool,
+) error {
+	data := jsonutils.NewDict()
+	data.Set("do_convert", jsonutils.NewBool(doConvertAfterProbe))
+	task, err := taskman.TaskManager.NewTask(
+		ctx, "ImageProbeTask", self, userCred, data, "", "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -478,7 +491,7 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 				}
 				self.OnSaveSuccess(ctx, userCred, "update upload success")
 				data.Remove("status")
-				self.StartImageConvertTask(ctx, userCred, "")
+				self.ImageProbeAndCustomization(ctx, userCred, true)
 			} else {
 				copyFrom := appParams.Request.Header.Get(modules.IMAGE_META_COPY_FROM)
 				if len(copyFrom) > 0 {
@@ -1054,9 +1067,9 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 	needConvert := false
 	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
-	if len(subimgs) == 0 {
-		needConvert = true
-	}
+	// if len(subimgs) == 0 {
+	// 	needConvert = true
+	// }
 	for i := 0; i < len(subimgs); i += 1 {
 		subimgs[i].checkStatus(useFast)
 		if (subimgs[i].Status != api.IMAGE_STATUS_ACTIVE || subimgs[i].TorrentStatus != api.IMAGE_STATUS_ACTIVE) && utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) {
