@@ -2728,10 +2728,9 @@ func (self *SGuest) createDiskOnHost(
 	if err != nil {
 		return nil, err
 	}
-	// TODO: use scheduler candidate storage
 	if len(self.BackupHostId) > 0 {
 		backupHost := HostManager.FetchHostById(self.BackupHostId)
-		backupStorage := self.GetDriver().ChooseHostStorage(backupHost, diskConfig.Backend, backupCandidate.StorageIds)
+		backupStorage := self.ChooseHostStorage(backupHost, diskConfig.Backend, backupCandidate)
 		diff, err := db.Update(disk, func() error {
 			disk.BackupStorageId = backupStorage.Id
 			return nil
