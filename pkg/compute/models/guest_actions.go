@@ -2599,7 +2599,7 @@ func (manager *SGuestManager) PerformDirtyServerStart(ctx context.Context, userC
 		return nil, err
 	} else if guest.BackupHostId == hostId {
 		// slave guest
-		err := guest.GuestStartAndSyncToBackup(ctx, userCred, nil, "")
+		err := guest.GuestStartAndSyncToBackup(ctx, userCred, "", guest.Status)
 		return nil, err
 	}
 	return nil, nil
@@ -2643,9 +2643,13 @@ func (self *SGuest) StartGuestDeleteOnHostTask(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (guest *SGuest) GuestStartAndSyncToBackup(ctx context.Context, userCred mcclient.TokenCredential,
-	data *jsonutils.JSONDict, parentTaskId string) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestStartAndSyncToBackupTask", guest, userCred, data, parentTaskId, "", nil)
+func (guest *SGuest) GuestStartAndSyncToBackup(
+	ctx context.Context, userCred mcclient.TokenCredential, parentTaskId, guestStatus string,
+) error {
+	data := jsonutils.NewDict()
+	data.Set("guest_status", jsonutils.NewString(guestStatus))
+	task, err := taskman.TaskManager.NewTask(
+		ctx, "GuestStartAndSyncToBackupTask", guest, userCred, data, parentTaskId, "", nil)
 	if err != nil {
 		log.Errorln(err)
 		return err
