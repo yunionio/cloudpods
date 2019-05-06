@@ -189,6 +189,8 @@ type SHost struct {
 	ResourceType string `width:"36" charset:"ascii" nullable:"false" list:"admin" update:"admin" create:"admin_optional" default:"shared"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 
 	RealExternalId string `width:"256" charset:"utf8" get:"admin"`
+
+	IsImport bool `nullable:"true" default:"false" list:"admin" create:"admin_optional"`
 }
 
 func (manager *SHostManager) GetContextManager() []db.IModelManager {
@@ -2965,6 +2967,13 @@ func (self *SHost) PerformInitialize(
 	}
 	guest.SetAllMetadata(ctx, map[string]interface{}{
 		"is_fake_baremetal_server": true, "host_ip": self.AccessIp}, userCred)
+
+	caps := self.GetAttachedStorageCapacity()
+	diskConfig := &api.DiskConfig{SizeMb: caps.GetFree()}
+	err = guest.CreateDisksOnHost(ctx, userCred, self, []*api.DiskConfig{diskConfig}, nil, true, true, nil, nil)
+	if err != nil {
+		log.Errorf("Host perform initialize failed on create disk %s", err)
+	}
 	return nil, nil
 }
 
