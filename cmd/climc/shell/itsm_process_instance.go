@@ -42,12 +42,13 @@ func init() {
 		variables_params.Add(jsonutils.NewString(args.SERVER_CREATE_PARAMTER), "server-create-paramter")
 		if len(args.UserId) > 0 {
 			variables_params.Add(jsonutils.NewString(args.UserId), "user-id")
-		}
-		if len(args.RoleId) > 0 {
-			variables_params.Add(jsonutils.NewString(args.RoleId), "role-id")
-		}
-		if len(args.ProjectId) > 0 {
-			variables_params.Add(jsonutils.NewString(args.ProjectId), "project-id")
+		} else {
+			if len(args.RoleId) > 0 {
+				variables_params.Add(jsonutils.NewString(args.RoleId), "role-id")
+			}
+			if len(args.ProjectId) > 0 {
+				variables_params.Add(jsonutils.NewString(args.ProjectId), "project-id")
+			}
 		}
 		if len(args.Percent) > 0 {
 			variables_params.Add(jsonutils.NewString(args.Percent), "percent")
