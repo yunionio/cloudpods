@@ -550,8 +550,8 @@ func (self *SVpc) StartDeleteVpcTask(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SVpc) getPrefix() []netutils.IPV4Prefix {
-	ret := []netutils.IPV4Prefix{}
 	if len(self.CidrBlock) > 0 {
+		ret := []netutils.IPV4Prefix{}
 		blocks := strings.Split(self.CidrBlock, ",")
 		for _, block := range blocks {
 			prefix, _ := netutils.NewIPV4Prefix(block)
@@ -559,7 +559,7 @@ func (self *SVpc) getPrefix() []netutils.IPV4Prefix {
 		}
 		return ret
 	}
-	return ret
+	return []netutils.IPV4Prefix{{}}
 }
 
 func (self *SVpc) getIPRanges() []netutils.IPV4AddrRange {
