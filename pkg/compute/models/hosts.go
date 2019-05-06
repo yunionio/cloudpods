@@ -738,11 +738,16 @@ func (self *SHost) PerformUpdateStorage(
 	return nil, nil
 }
 
-func (self *SHost) GetFetchUrl() string {
+func (self *SHost) GetFetchUrl(disableHttps bool) string {
 	managerUrl, err := url.Parse(self.ManagerUri)
 	if err != nil {
 		log.Errorf("GetFetchUrl fail to parse url: %s", err)
 	}
+
+	if disableHttps {
+		managerUrl.Scheme = "http"
+	}
+
 	portStr := managerUrl.Port()
 	var port int
 	if len(portStr) > 0 {

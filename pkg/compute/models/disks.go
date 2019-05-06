@@ -920,7 +920,7 @@ func (self *SDisk) GetPathAtHost(host *SHost) string {
 func (self *SDisk) GetFetchUrl() string {
 	storage := self.GetStorage()
 	host := storage.GetMasterHost()
-	return fmt.Sprintf("%s/disks/%s", host.GetFetchUrl(), self.Id)
+	return fmt.Sprintf("%s/disks/%s", host.GetFetchUrl(true), self.Id)
 }
 
 func (self *SDisk) GetFsFormat() string {
