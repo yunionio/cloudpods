@@ -162,11 +162,17 @@ func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuest(ctx context.Contex
 	backupHost := models.HostManager.FetchHostById(guest.BackupHostId)
 	nbdServerUri := fmt.Sprintf("nbd:%s:%d", backupHost.AccessIp, nbdServerPort)
 	guest.SetMetadata(ctx, "backup_nbd_server_uri", nbdServerUri, self.UserCred)
-
 	db.OpsLog.LogEvent(guest, db.ACT_BACKUP_START, "", self.UserCred)
-	if utils.IsInStringArray(guest.Status, api.VM_RUNNING_STATUS) {
+
+	// try get origin guest status
+	guestStatus, err := self.Params.GetString("guest_status")
+	if err != nil {
+		guestStatus = guest.Status
+	}
+
+	if utils.IsInStringArray(guestStatus, api.VM_RUNNING_STATUS) {
 		self.SetStage("OnRequestSyncToBackup", nil)
-		err := guest.GetDriver().RequestSyncToBackup(ctx, guest, self)
+		err = guest.GetDriver().RequestSyncToBackup(ctx, guest, self)
 		if err != nil {
 			self.SetStageFailed(ctx, fmt.Sprintf("Guest Request Sync to backup failed %s", err))
 		}
@@ -292,17 +298,16 @@ func (self *GuestCreateBackupTask) OnCreateBackupFailed(ctx context.Context, gue
 
 func (self *GuestCreateBackupTask) OnCreateBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	guestStatus, _ := self.Params.GetString("guest_status")
-	guest.SetStatus(self.UserCred, guestStatus, "")
 	if utils.IsInStringArray(guestStatus, api.VM_RUNNING_STATUS) {
-		self.OnGuestStart(ctx, guest, nil)
+		self.OnGuestStart(ctx, guest, guestStatus)
 	} else {
 		self.TaskCompleted(ctx, guest, "")
 	}
 }
 
-func (self *GuestCreateBackupTask) OnGuestStart(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+func (self *GuestCreateBackupTask) OnGuestStart(ctx context.Context, guest *models.SGuest, guestStatus string) {
 	self.SetStage("OnSyncToBackup", nil)
-	err := guest.GuestStartAndSyncToBackup(ctx, self.UserCred, nil, self.GetTaskId())
+	err := guest.GuestStartAndSyncToBackup(ctx, self.UserCred, self.GetTaskId(), guestStatus)
 	if err != nil {
 		self.TaskFailed(ctx, guest, fmt.Sprintf("Guest sycn to backup error %s", err.Error()))
 	}
@@ -316,6 +321,7 @@ func (self *GuestCreateBackupTask) TaskCompleted(ctx context.Context, guest *mod
 	db.OpsLog.LogEvent(guest, db.ACT_CREATE_BACKUP, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_CREATE_BACKUP, reason, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
+	guest.StartSyncstatus(ctx, self.UserCred, "")
 }
 
 func (self *GuestCreateBackupTask) TaskFailed(ctx context.Context, guest *models.SGuest, reason string) {

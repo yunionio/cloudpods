@@ -2597,7 +2597,6 @@ func fetchIpmiInfo(data *jsonutils.JSONDict, hostId string) (*jsonutils.JSONDict
 		if strings.HasPrefix(key, IPMI_KEY_PERFIX) {
 			value, _ := data.GetString(key)
 			subkey := key[len(IPMI_KEY_PERFIX):]
-			data.Remove(key)
 			if subkey == "password" && len(hostId) > 0 {
 				value, err = utils.EncryptAESBase64(hostId, value)
 				if err != nil {
@@ -2925,6 +2924,56 @@ func (self *SHost) StartPrepareTask(ctx context.Context, userCred mcclient.Token
 		task.ScheduleRun(nil)
 		return nil
 	}
+}
+
+func (self *SHost) AllowPerformInitialize(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowPerform(userCred, self, "initialize")
+}
+
+func (self *SHost) PerformInitialize(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	if !utils.IsInStringArray(
+		self.Status, []string{api.BAREMETAL_INIT, api.BAREMETAL_PREPARE_FAIL}) {
+		return nil, httperrors.NewBadRequestError(
+			"Cannot do initialization in status %s", self.Status)
+	}
+
+	name, err := data.GetString("name")
+	if err != nil || self.GetBaremetalServer() != nil {
+		return nil, nil
+	}
+	err = db.NewNameValidator(GuestManager, userCred.GetProjectId(), name)
+	if err != nil {
+		return nil, err
+	}
+
+	if self.IpmiInfo == nil || !self.IpmiInfo.Contains("ip_addr") ||
+		!self.IpmiInfo.Contains("password") {
+		return nil, httperrors.NewBadRequestError("IPMI infomation not configured")
+	}
+	guest := &SGuest{}
+	guest.Name = name
+	guest.VmemSize = self.MemSize
+	guest.VcpuCount = self.CpuCount
+	guest.DisableDelete = tristate.True
+	guest.Hypervisor = api.HYPERVISOR_BAREMETAL
+	guest.HostId = self.Id
+	guest.ProjectId = userCred.GetProjectId()
+	guest.Status = api.VM_RUNNING
+	guest.OsType = "Linux"
+	guest.SetModelManager(GuestManager)
+	err = GuestManager.TableSpec().Insert(guest)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("Guest Insert error: %s", err)
+	}
+	guest.SetAllMetadata(ctx, map[string]interface{}{
+		"is_fake_baremetal_server": true, "host_ip": self.AccessIp}, userCred)
+	return nil, nil
 }
 
 func (self *SHost) AllowPerformAddNetif(ctx context.Context,
