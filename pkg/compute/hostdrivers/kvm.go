@@ -204,7 +204,7 @@ func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, ho
 			content.Set("snapshot_out_of_chain", jsonutils.NewBool(snapshot.OutOfChain))
 		} else if options.Options.SnapshotCreateDiskProtocol == "fuse" {
 			content.Set("snapshot_url", jsonutils.NewString(fmt.Sprintf("%s/snapshots/%s/%s",
-				snapshotHost.GetFetchUrl(), snapshot.DiskId, snapshot.Id)))
+				snapshotHost.GetFetchUrl(true), snapshot.DiskId, snapshot.Id)))
 		}
 		content.Set("protocol", jsonutils.NewString(options.Options.SnapshotCreateDiskProtocol))
 	}

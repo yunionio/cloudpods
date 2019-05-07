@@ -16,7 +16,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
@@ -25,7 +24,7 @@ import (
 )
 
 type SHostImageOptions struct {
-	cloudcommon.Options
+	common_options.CommonOptions
 	LocalImagePath    []string `help:"Local Image Paths"`
 	SnapshotDirSuffix string   `help:"Snapshot dir name equal diskId concat snapshot dir suffix" default:"_snap"`
 }
@@ -34,14 +33,15 @@ var HostImageOptions SHostImageOptions
 
 func StartService() {
 	consts.SetServiceType("host-image")
-	common_options.ParseOptions(&HostImageOptions, &HostImageOptions.Options, os.Args, "host.conf")
+	common_options.ParseOptions(&HostImageOptions, os.Args, "host.conf", "host-image")
+	HostImageOptions.EnableSsl = false
 	HostImageOptions.Port += 40000
-	app_common.InitAuth(&HostImageOptions.Options, func() {
+	app_common.InitAuth(&HostImageOptions.CommonOptions, func() {
 		log.Infof("Auth complete!!")
 	})
-	app := app_common.InitApp(&HostImageOptions.Options)
+	app := app_common.InitApp(&HostImageOptions.CommonOptions, false)
 	initHandlers(app, "")
-	app_common.ServeForever(app, &HostImageOptions.Options)
+	app_common.ServeForever(app, &HostImageOptions.CommonOptions)
 }
 
 func initHandlers(app *appsrv.Application, prefix string) {
