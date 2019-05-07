@@ -402,7 +402,7 @@ func PerformSetResourceSchedtag(obj IModelWithSchedtag, ctx context.Context, use
 		return nil, httperrors.NewGeneralError(fmt.Errorf("Get old joint schedtags: %v", err))
 	}
 	for _, oldTag := range oldTags {
-		if !utils.IsInStringArray(oldTag.GetId(), setTagsId) {
+		if !utils.IsInStringArray(oldTag.GetSchedtagId(), setTagsId) {
 			if err := oldTag.Detach(ctx, userCred); err != nil {
 				return nil, httperrors.NewGeneralError(err)
 			}
