@@ -639,55 +639,55 @@ func (manager *SCloudaccountManager) FetchCloudaccountByIdOrName(accountId strin
 	return providerObj.(*SCloudaccount)
 }
 
-func (self *SCloudaccount) getProviderCount() (int, error) {
+func (self *SCloudaccount) GetProviderCount() (int, error) {
 	q := CloudproviderManager.Query().Equals("cloudaccount_id", self.Id)
 	return q.CountWithError()
 }
 
-func (self *SCloudaccount) getHostCount() (int, error) {
+func (self *SCloudaccount) GetHostCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	q := HostManager.Query().In("manager_id", subq)
 	return q.CountWithError()
 }
 
-func (self *SCloudaccount) getVpcCount() (int, error) {
+func (self *SCloudaccount) GetVpcCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	q := VpcManager.Query().In("manager_id", subq)
 	return q.CountWithError()
 }
 
-func (self *SCloudaccount) getStorageCount() (int, error) {
+func (self *SCloudaccount) GetStorageCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	q := StorageManager.Query().In("manager_id", subq)
 	return q.CountWithError()
 }
 
-func (self *SCloudaccount) getStoragecacheCount() (int, error) {
+func (self *SCloudaccount) GetStoragecacheCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	q := StoragecacheManager.Query().In("manager_id", subq)
 	return q.CountWithError()
 }
 
-func (self *SCloudaccount) getEipCount() (int, error) {
+func (self *SCloudaccount) GetEipCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	q := ElasticipManager.Query().In("manager_id", subq)
 	return q.CountWithError()
 }
 
-func (self *SCloudaccount) getRoutetableCount() (int, error) {
+func (self *SCloudaccount) GetRoutetableCount() (int, error) {
 	subq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	q := RouteTableManager.Query().In("manager_id", subq)
 	return q.CountWithError()
 }
 
-func (self *SCloudaccount) getGuestCount() (int, error) {
+func (self *SCloudaccount) GetGuestCount() (int, error) {
 	subsubq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	subq := HostManager.Query("id").In("manager_id", subsubq).SubQuery()
 	q := GuestManager.Query().In("host_id", subq)
 	return q.CountWithError()
 }
 
-func (self *SCloudaccount) getDiskCount() (int, error) {
+func (self *SCloudaccount) GetDiskCount() (int, error) {
 	subsubq := CloudproviderManager.Query("id").Equals("cloudaccount_id", self.Id).SubQuery()
 	subq := StorageManager.Query("id").In("manager_id", subsubq).SubQuery()
 	q := DiskManager.Query().In("storage_id", subq)
