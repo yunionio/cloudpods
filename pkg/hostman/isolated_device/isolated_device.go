@@ -389,8 +389,8 @@ func getGuestAddr(index int) string {
 }
 
 func (gpu *sGPUVGADevice) GetPassthroughCmd(index int) string {
-	vAddr := getGuestAddr(index)
-	return fmt.Sprintf(" -device vfio-pci,host=%s,multifunction=on,x-vga=on,addr=%s", gpu.GetAddr(), vAddr)
+	// vAddr := getGuestAddr(index)
+	return fmt.Sprintf(" -device vfio-pci,host=%s,multifunction=on,x-vga=on", gpu.GetAddr())
 }
 
 func (gpu *sGPUVGADevice) CustomProbe() error {
@@ -418,8 +418,8 @@ func (gpu *sGPUHPCDevice) GetDeviceType() string {
 }
 
 func (gpu *sGPUHPCDevice) GetPassthroughCmd(index int) string {
-	vAddr := getGuestAddr(index)
-	return fmt.Sprintf(" -device vfio-pci,host=%s,multifunction=on,addr=%s", gpu.GetAddr(), vAddr)
+	// vAddr := getGuestAddr(index)
+	return fmt.Sprintf(" -device vfio-pci,host=%s,multifunction=on", gpu.GetAddr())
 }
 
 func bashOutput(cmd string) ([]string, error) {
