@@ -24,7 +24,7 @@ func (vpc *SVpc) GetId() string {
 }
 
 func (vpc *SVpc) GetName() string {
-	return "ZStackVPC"
+	return DEFAULT_VPC_NAME
 }
 
 func (vpc *SVpc) GetGlobalId() string {

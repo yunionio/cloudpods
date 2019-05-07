@@ -32,7 +32,7 @@ func (region *SRegion) GetInstanceOffering(offerId string) (*SInstanceOffering, 
 		}
 		return nil, cloudprovider.ErrNotFound
 	}
-	if len(offerings) == 0 {
+	if len(offerings) == 0 || len(offerId) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
 	return nil, cloudprovider.ErrDuplicateId

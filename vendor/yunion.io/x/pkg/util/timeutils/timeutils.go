@@ -133,7 +133,7 @@ func ParseShortDate(str string) (time.Time, error) {
 }
 
 func ParseZStackDate(str string) (time.Time, error) {
-	return time.Parse(ZStackTimeFormat, str)
+	return time.ParseInLocation(ZStackTimeFormat, str, time.Local)
 }
 
 func ParseTimeStr(str string) (time.Time, error) {

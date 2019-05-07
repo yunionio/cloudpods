@@ -141,11 +141,16 @@ func (cli *SZStackClient) _list(resource string, start int, limit int, params []
 }
 
 func (cli *SZStackClient) getDeleteURL(resource, resourceId, deleteMode string) string {
-	return cli.authURL + fmt.Sprintf("/zstack/%s/%s/%s?deleteMode=%s", ZSTACK_API_VERSION, resource, resourceId, deleteMode)
+	url := cli.authURL + fmt.Sprintf("/zstack/%s/%s/%s", ZSTACK_API_VERSION, resource, resourceId)
+	if len(deleteMode) > 0 {
+		url += "?deleteMode=" + deleteMode
+	}
+	return url
 }
 
-func (cli *SZStackClient) delete(resource, resourceId, deleteMode string) (jsonutils.JSONObject, error) {
-	return cli._delete(resource, resourceId, deleteMode)
+func (cli *SZStackClient) delete(resource, resourceId, deleteMode string) error {
+	_, err := cli._delete(resource, resourceId, deleteMode)
+	return err
 }
 
 func (cli *SZStackClient) _delete(resource, resourceId, deleteMode string) (jsonutils.JSONObject, error) {
@@ -155,6 +160,13 @@ func (cli *SZStackClient) _delete(resource, resourceId, deleteMode string) (json
 	header.Add("Authorization", "OAuth "+cli.sessionID)
 	requestURL := cli.getDeleteURL(resource, resourceId, deleteMode)
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "DELETE", requestURL, header, nil, cli.debug)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Contains("location") {
+		location, _ := resp.GetString("location")
+		return cli.wait(client, header, "delete", requestURL, jsonutils.NewDict(), location)
+	}
 	return resp, err
 }
 
@@ -177,7 +189,14 @@ func (cli *SZStackClient) _put(resource, resourceId string, params jsonutils.JSO
 	header.Add("Authorization", "OAuth "+cli.sessionID)
 	requestURL := cli.getURL(resource, resourceId, "actions")
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "PUT", requestURL, header, params, cli.debug)
-	return resp, err
+	if err != nil {
+		return nil, err
+	}
+	if resp.Contains("location") {
+		location, _ := resp.GetString("location")
+		return cli.wait(client, header, "update", requestURL, params, location)
+	}
+	return resp, nil
 }
 
 func (cli *SZStackClient) get(resource, resourceId string, spec string) (jsonutils.JSONObject, error) {
@@ -198,6 +217,30 @@ func (cli *SZStackClient) post(resource string, params jsonutils.JSONObject) (js
 	return cli._post(resource, params)
 }
 
+func (cli *SZStackClient) wait(client *http.Client, header http.Header, action string, requestURL string, params jsonutils.JSONObject, location string) (jsonutils.JSONObject, error) {
+	startTime := time.Now()
+	timeout := time.Minute * 30
+	for {
+		resp, err := httputils.Request(client, context.Background(), "GET", location, header, nil, cli.debug)
+		if err != nil {
+			return nil, err
+		}
+		_, result, err := httputils.ParseJSONResponse(resp, err, cli.debug)
+		if err != nil {
+			return nil, err
+		}
+		if time.Now().Sub(startTime) > timeout {
+			return nil, fmt.Errorf("timeout for waitting %s %s params: %s", action, requestURL, params.PrettyString())
+		}
+		if resp.StatusCode != 200 {
+			log.Debugf("wait for job %s %s %s complete", action, requestURL, params.String())
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		return result, nil
+	}
+}
+
 func (cli *SZStackClient) _post(resource string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	client := httputils.GetDefaultClient()
 	header := http.Header{}
@@ -209,27 +252,10 @@ func (cli *SZStackClient) _post(resource string, params jsonutils.JSONObject) (j
 		return nil, err
 	}
 	if resp.Contains("location") {
-		startTime := time.Now()
-		timeout := time.Minute * 30
 		location, _ := resp.GetString("location")
-		for {
-			_resp, err := httputils.Request(client, context.Background(), "GET", location, header, nil, cli.debug)
-			if err != nil {
-				return nil, err
-			}
-			_, resp, err = httputils.ParseJSONResponse(_resp, err, cli.debug)
-			if time.Now().Sub(startTime) > timeout {
-				return nil, fmt.Errorf("timeout for waitting post %s params: %s", requestURL, params.PrettyString())
-			}
-			if _resp.StatusCode != 200 {
-				log.Debugf("wait for job %s %s complete", requestURL, params.String())
-				time.Sleep(5 * time.Second)
-				continue
-			}
-			break
-		}
+		return cli.wait(client, header, "create", requestURL, params, location)
 	}
-	return resp, err
+	return resp, nil
 }
 
 func (cli *SZStackClient) list(baseURL string, start int, limit int, params []string, retVal interface{}) error {

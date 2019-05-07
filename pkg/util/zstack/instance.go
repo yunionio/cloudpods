@@ -55,7 +55,7 @@ func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 		}
 		return nil, cloudprovider.ErrNotFound
 	}
-	if len(instances) == 0 {
+	if len(instances) == 0 || len(instanceId) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
 	return nil, cloudprovider.ErrDuplicateId

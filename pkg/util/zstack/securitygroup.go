@@ -48,7 +48,7 @@ func (region *SRegion) GetSecurityGroup(secgroupId string) (*SSecurityGroup, err
 		}
 		return nil, cloudprovider.ErrNotFound
 	}
-	if len(secgroups) == 0 {
+	if len(secgroups) == 0 || len(secgroupId) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
 	return nil, cloudprovider.ErrDuplicateId

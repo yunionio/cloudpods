@@ -68,7 +68,16 @@ func (region *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error)
 }
 
 func (region *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
-	return region.GetStorageWithZone(id)
+	storages, err := region.getIStorages("")
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(storages); i++ {
+		if storages[i].GetGlobalId() == id {
+			return storages[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (region *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
@@ -84,15 +93,7 @@ func (region *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 }
 
 func (region *SRegion) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	storages, err := region.GetStorages("", "", "")
-	if err != nil {
-		return nil, err
-	}
-	istorages := []cloudprovider.ICloudStorage{}
-	for i := 0; i < len(storages); i++ {
-		istorages = append(istorages, &storages[i])
-	}
-	return istorages, nil
+	return region.getIStorages("")
 }
 
 func (region *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStoragecache, error) {
@@ -141,7 +142,7 @@ func (region *SRegion) GetZone(zoneId string) (*SZone, error) {
 		}
 		return nil, cloudprovider.ErrNotFound
 	}
-	if len(zones) == 0 {
+	if len(zones) == 0 || len(zoneId) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
 	return nil, cloudprovider.ErrDuplicateId

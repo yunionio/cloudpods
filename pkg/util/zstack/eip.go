@@ -32,7 +32,7 @@ func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 		}
 		return nil, cloudprovider.ErrNotFound
 	}
-	if len(eips) == 0 {
+	if len(eips) == 0 || len(eipId) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
 	return nil, cloudprovider.ErrDuplicateId

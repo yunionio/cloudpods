@@ -1,6 +1,8 @@
 package zstack
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -84,7 +86,7 @@ func (region *SRegion) GetSnapshot(snapshotId string) (*SSnapshot, error) {
 		}
 		return nil, cloudprovider.ErrNotFound
 	}
-	if len(snapshots) == 0 {
+	if len(snapshots) == 0 || len(snapshotId) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
 	return nil, cloudprovider.ErrDuplicateId
@@ -117,10 +119,25 @@ func (snapshot *SSnapshot) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (region *SRegion) DeleteSnapshot(snapshotId string) error {
-	_, err := region.client.delete("volume-snapshots", snapshotId, "Enforcing")
-	return err
+	return region.client.delete("volume-snapshots", snapshotId, "Enforcing")
 }
 
 func (snapshot *SSnapshot) GetProjectId() string {
 	return ""
+}
+
+func (region *SRegion) CreateSnapshot(name, diskId, desc string) (*SSnapshot, error) {
+	params := map[string]interface{}{
+		"params": map[string]string{
+			"name":        name,
+			"description": desc,
+		},
+	}
+	resource := fmt.Sprintf("volumes/%s/volume-snapshots", diskId)
+	resp, err := region.client.post(resource, jsonutils.Marshal(params))
+	if err != nil {
+		return nil, err
+	}
+	snapshot := &SSnapshot{region: region}
+	return snapshot, resp.Unmarshal(snapshot, "inventory")
 }

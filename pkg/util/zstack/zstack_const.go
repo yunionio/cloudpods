@@ -12,3 +12,7 @@ type ZStackBasic struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
+
+const (
+	DEFAULT_VPC_NAME = "ZStackVPC"
+)

@@ -48,7 +48,7 @@ func (region *SRegion) GetNetwork(zoneId, wireId, l3Id, networkId string) (*SNet
 		}
 		return nil, cloudprovider.ErrNotFound
 	}
-	if len(networks) == 0 {
+	if len(networks) == 0 || len(networkId) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
 	return nil, cloudprovider.ErrDuplicateId
@@ -65,7 +65,7 @@ func (region *SRegion) GetL3Network(zoneId string, wireId string, l3Id string) (
 		}
 		return nil, cloudprovider.ErrNotFound
 	}
-	if len(l3Networks) == 0 {
+	if len(l3Networks) == 0 || len(l3Id) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
 	return nil, cloudprovider.ErrDuplicateId

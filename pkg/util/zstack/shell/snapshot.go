@@ -18,4 +18,27 @@ func init() {
 		printList(snapshots, len(snapshots), 0, 0, []string{})
 		return nil
 	})
+
+	type SnapshoDeleteOptions struct {
+		ID string
+	}
+
+	shellutils.R(&SnapshoDeleteOptions{}, "snapshot-delete", "Delete snapshot", func(cli *zstack.SRegion, args *SnapshoDeleteOptions) error {
+		return cli.DeleteSnapshot(args.ID)
+	})
+
+	type SnapshoCreateOptions struct {
+		DISKID string
+		NAME   string
+		Desc   string
+	}
+
+	shellutils.R(&SnapshoCreateOptions{}, "snapshot-create", "Create snapshot", func(cli *zstack.SRegion, args *SnapshoCreateOptions) error {
+		snapshot, err := cli.CreateSnapshot(args.NAME, args.DISKID, args.Desc)
+		if err != nil {
+			return err
+		}
+		printObject(snapshot)
+		return nil
+	})
 }

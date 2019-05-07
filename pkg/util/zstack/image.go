@@ -65,7 +65,6 @@ func (image *SImage) IsEmulated() bool {
 
 func (image *SImage) Delete(ctx context.Context) error {
 	return cloudprovider.ErrNotImplemented
-	//return image.storageCache.region.DeleteImage(image.UUID)
 }
 
 func (image *SImage) GetGlobalId() string {
@@ -153,7 +152,7 @@ func (region *SRegion) GetImage(imageId string) (*SImage, error) {
 		}
 		return nil, cloudprovider.ErrNotFound
 	}
-	if len(images) == 0 {
+	if len(images) == 0 || len(imageId) == 0 {
 		return nil, cloudprovider.ErrNotFound
 	}
 	return nil, cloudprovider.ErrDuplicateId
