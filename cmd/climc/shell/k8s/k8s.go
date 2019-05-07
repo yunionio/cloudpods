@@ -33,6 +33,7 @@ func init() {
 	initKubeCluster()
 	initKubeMachine()
 	initNode()
+	initKubeCerts()
 
 	// helm resources
 	initTiller()

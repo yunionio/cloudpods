@@ -47,6 +47,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/compute/sshkeys"
@@ -1129,6 +1130,10 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 
 	log.Debugf("Create data: %s", data)
+
+	if err := userdata.ValidateUserdata(input.UserData); err != nil {
+		return nil, httperrors.NewInputParameterError("Invalid userdata: %v", err)
+	}
 
 	if !input.IsSystem {
 		err = manager.checkCreateQuota(ctx, userCred, ownerProjId, input,
@@ -3288,6 +3293,10 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 
 	userData := meta["user_data"]
 	if len(userData) > 0 {
+		decodeData, _ := userdata.Decode(userData)
+		if len(decodeData) > 0 {
+			userData = decodeData
+		}
 		desc.Add(jsonutils.NewString(userData), "user_data")
 	}
 

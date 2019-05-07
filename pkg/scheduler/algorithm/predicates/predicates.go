@@ -370,6 +370,9 @@ func (p *BaseSchedtagPredicate) PreExecute(sp ISchedtagPredicateInstance, u *cor
 	}
 
 	p.Hypervisor = computeapi.HOSTTYPE_HYPERVISOR[u.SchedData().Hypervisor]
+	if len(p.Hypervisor) == 0 {
+		p.Hypervisor = u.SchedData().Hypervisor
+	}
 
 	// always do select step
 	u.AppendSelectPlugin(sp)

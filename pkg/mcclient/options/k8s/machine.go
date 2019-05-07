@@ -15,7 +15,12 @@
 package k8s
 
 import (
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/util/fileutils"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 )
 
 type MachineCreateOptions struct {
@@ -24,9 +29,12 @@ type MachineCreateOptions struct {
 	Type     string `help:"Resource type" choices:"vm|baremetal" json:"resource_type"`
 	Instance string `help:"VM or host instance id" json:"resource_id"`
 	Name     string `help:"Name of node"`
+	DiskSize string `help:"VM root disk size, e.g. 100G"`
+	Cpu      int    `help:"VM cpu count"`
+	Memory   string `help:"VM memory size, e.g. 1G"`
 }
 
-func (o MachineCreateOptions) Params() *jsonutils.JSONDict {
+func (o MachineCreateOptions) Params() (*jsonutils.JSONDict, error) {
 	params := jsonutils.NewDict()
 	if o.Name != "" {
 		params.Add(jsonutils.NewString(o.Name), "name")
@@ -41,5 +49,27 @@ func (o MachineCreateOptions) Params() *jsonutils.JSONDict {
 	if o.Type != "" {
 		params.Add(jsonutils.NewString(o.Type), "resource_type")
 	}
-	return params
+	if o.Type != "vm" {
+		return params, nil
+	}
+	vmConfig := jsonutils.NewDict()
+	if len(o.DiskSize) != 0 {
+		diskConf, err := cmdline.ParseDiskConfig(o.DiskSize, 0)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Parse disk %s", o.DiskSize)
+		}
+		vmConfig.Add(jsonutils.NewArray(diskConf.JSON(diskConf)), "disks")
+	}
+	if len(o.Memory) != 0 {
+		memSize, err := fileutils.GetSizeMb(o.Memory, 'M', 1024)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Parse memory %s", o.Memory)
+		}
+		vmConfig.Add(jsonutils.NewInt(int64(memSize)), "vmem_size")
+	}
+	if o.Cpu > 0 {
+		vmConfig.Add(jsonutils.NewInt(int64(o.Cpu)), "vcpu_count")
+	}
+	params.Add(vmConfig, "config", "vm")
+	return params, nil
 }

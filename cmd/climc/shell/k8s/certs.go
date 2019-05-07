@@ -15,21 +15,27 @@
 package k8s
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"fmt"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/k8s"
+	o "yunion.io/x/onecloud/pkg/mcclient/options/k8s"
 )
 
-var (
-	Clusters     *ResourceManager
-	KubeClusters *ResourceManager
-)
-
-func init() {
-	Clusters = NewResourceManager("kube_cluster", "kube_clusters",
-		NewResourceCols("mode", "k8s_version", "status", "api_endpoint"),
-		NewColumns("is_public"))
-	KubeClusters = NewResourceManager("kubecluster", "kubeclusters",
-		NewResourceCols("cluster_type", "resource_type", "cloud_type", "version", "status", "mode", "provider", "machines"),
-		NewColumns())
-	modules.Register(Clusters)
-	modules.Register(KubeClusters)
+func initKubeCerts() {
+	cmdN := func(action string) string {
+		return fmt.Sprintf("kubecert-%s", action)
+	}
+	R(&o.CertListOptions{}, cmdN("list"), "List k8s cluster certificates key pairs", func(s *mcclient.ClientSession, args *o.CertListOptions) error {
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
+		ret, err := k8s.KubeCerts.List(s, params)
+		if err != nil {
+			return err
+		}
+		printList(ret, k8s.KubeCerts.GetColumns(s))
+		return nil
+	})
 }

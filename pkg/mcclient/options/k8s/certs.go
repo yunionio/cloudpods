@@ -15,21 +15,16 @@
 package k8s
 
 import (
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
-var (
-	Clusters     *ResourceManager
-	KubeClusters *ResourceManager
-)
+type CertListOptions struct {
+	options.BaseListOptions
+	Cluster string `help:"Filter by cluster"`
+}
 
-func init() {
-	Clusters = NewResourceManager("kube_cluster", "kube_clusters",
-		NewResourceCols("mode", "k8s_version", "status", "api_endpoint"),
-		NewColumns("is_public"))
-	KubeClusters = NewResourceManager("kubecluster", "kubeclusters",
-		NewResourceCols("cluster_type", "resource_type", "cloud_type", "version", "status", "mode", "provider", "machines"),
-		NewColumns())
-	modules.Register(Clusters)
-	modules.Register(KubeClusters)
+func (o CertListOptions) Params() (*jsonutils.JSONDict, error) {
+	return options.ListStructToParams(&o)
 }
