@@ -27,7 +27,8 @@ func init() {
 	 * 使用文件创建部署
 	 */
 	type DeploymentCreateOptions struct {
-		FILE string `help:"The local bpmn filename to Upload"`
+		FILE     string `help:"The local bpmn filename to Upload"`
+		TenantID string `help:"ID of tenant"`
 	}
 	R(&DeploymentCreateOptions{}, "process-deployment-create", "Create deployment by upload BPMN file", func(s *mcclient.ClientSession, args *DeploymentCreateOptions) error {
 		// TODO

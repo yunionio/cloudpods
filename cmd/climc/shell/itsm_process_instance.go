@@ -29,15 +29,30 @@ func init() {
 	type ProcessInstanceCreateOptions struct {
 		PROCESS_DEFINITION_KEY string `help:"Key of the process definition"`
 		INITIATOR              string `help:"ID of user who launch the process instance"`
-		ASSIGNEE               string `help:"ID of assignee"`
 		SERVER_CREATE_PARAMTER string `help:"Onecloud server create spec json string"`
+		UserId                 string `help:"ID of user"`
+		RoleId                 string `help:"ID of role"`
+		ProjectId              string `help:"ID of project"`
+		Percent                string `help:"Great than Percent of nrOfCompletedInstances/nrOfInstances"`
 	}
 	R(&ProcessInstanceCreateOptions{}, "process-instance-create", "Create process instance", func(s *mcclient.ClientSession, args *ProcessInstanceCreateOptions) error {
 		variables_params := jsonutils.NewDict()
 		variables_params.Add(jsonutils.NewString(args.PROCESS_DEFINITION_KEY), "process_definition_key")
 		variables_params.Add(jsonutils.NewString(args.INITIATOR), "initiator")
-		variables_params.Add(jsonutils.NewString(args.ASSIGNEE), "assignee")
 		variables_params.Add(jsonutils.NewString(args.SERVER_CREATE_PARAMTER), "server-create-paramter")
+		if len(args.UserId) > 0 {
+			variables_params.Add(jsonutils.NewString(args.UserId), "user-id")
+		} else {
+			if len(args.RoleId) > 0 {
+				variables_params.Add(jsonutils.NewString(args.RoleId), "role-id")
+			}
+			if len(args.ProjectId) > 0 {
+				variables_params.Add(jsonutils.NewString(args.ProjectId), "project-id")
+			}
+		}
+		if len(args.Percent) > 0 {
+			variables_params.Add(jsonutils.NewString(args.Percent), "percent")
+		}
 		params := jsonutils.NewDict()
 		params.Add(variables_params, "variables")
 		result, err := modules.ProcessInstance.Create(s, params)
