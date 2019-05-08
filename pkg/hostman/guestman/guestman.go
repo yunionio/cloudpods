@@ -77,6 +77,7 @@ func NewGuestManager(host hostutils.IHost, serversPath string) *SGuestManager {
 	manager.GuestStartWorker = appsrv.NewWorkerManager("GuestStart", 1, appsrv.DEFAULT_BACKLOG, false)
 	manager.StartCpusetBalancer()
 	manager.LoadExistingGuests()
+	manager.host.StartDHCPServer()
 	return manager
 }
 
