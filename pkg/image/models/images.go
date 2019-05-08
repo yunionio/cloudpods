@@ -208,7 +208,7 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 	}
 	defer fp.Close()
 
-	_, err = streamutils.StreamPipe(fp, appParams.Response)
+	_, err = streamutils.StreamPipe(fp, appParams.Response, false)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -374,19 +374,20 @@ func (self *SImage) saveFailed(userCred mcclient.TokenCredential, msg string) {
 	db.OpsLog.LogEvent(self, db.ACT_SAVE_FAIL, msg, userCred)
 }
 
-func (self *SImage) saveImageFromStream(localPath string, reader io.Reader) (*streamutils.SStreamProperty, error) {
+func (self *SImage) saveImageFromStream(localPath string, reader io.Reader, calChecksum bool) (*streamutils.SStreamProperty, error) {
 	fp, err := os.Create(localPath)
 	if err != nil {
 		return nil, err
 	}
 	defer fp.Close()
-	return streamutils.StreamPipe(reader, fp)
+	return streamutils.StreamPipe(reader, fp, calChecksum)
 }
 
-func (self *SImage) SaveImageFromStream(reader io.Reader) error {
+//Image always do probe and customize after save from stream
+func (self *SImage) SaveImageFromStream(reader io.Reader, calChecksum bool) error {
 	localPath := self.GetPath("")
 
-	sp, err := self.saveImageFromStream(localPath, reader)
+	sp, err := self.saveImageFromStream(localPath, reader, calChecksum)
 	if err != nil {
 		log.Errorf("saveImageFromStream fail %s", err)
 		return err
@@ -401,15 +402,20 @@ func (self *SImage) SaveImageFromStream(reader io.Reader) error {
 	format = string(img.Format)
 	virtualSizeBytes = img.SizeBytes
 
-	fastChksum, err := fileutils2.FastCheckSum(localPath)
-	if err != nil {
-		return err
+	var fastChksum string
+	if calChecksum {
+		fastChksum, err = fileutils2.FastCheckSum(localPath)
+		if err != nil {
+			return err
+		}
 	}
 
 	db.Update(self, func() error {
 		self.Size = sp.Size
-		self.Checksum = sp.CheckSum
-		self.FastHash = fastChksum
+		if calChecksum {
+			self.Checksum = sp.CheckSum
+			self.FastHash = fastChksum
+		}
 		self.Location = fmt.Sprintf("%s%s", LocalFilePrefix, localPath)
 		if len(format) > 0 {
 			self.DiskFormat = format
@@ -443,7 +449,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 		db.OpsLog.LogEvent(self, db.ACT_SAVING, "create upload", userCred)
 		self.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "create upload")
 
-		err := self.SaveImageFromStream(appParams.Request.Body)
+		err := self.SaveImageFromStream(appParams.Request.Body, false)
 		if err != nil {
 			self.OnSaveFailed(ctx, userCred, fmt.Sprintf("create upload fail %s", err))
 			return
@@ -459,6 +465,8 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 	}
 }
 
+// After image probe and customization, image size and checksum changed
+// will recalculate checksum in the end
 func (self *SImage) ImageProbeAndCustomization(
 	ctx context.Context, userCred mcclient.TokenCredential, doConvertAfterProbe bool,
 ) error {
@@ -484,7 +492,7 @@ func (self *SImage) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 		if appParams != nil {
 			if appParams.Request.ContentLength > 0 {
 				self.SetStatus(userCred, api.IMAGE_STATUS_SAVING, "update start upload")
-				err := self.SaveImageFromStream(appParams.Request.Body)
+				err := self.SaveImageFromStream(appParams.Request.Body, false)
 				if err != nil {
 					self.OnSaveFailed(ctx, userCred, fmt.Sprintf("update upload failed %s", err))
 					return nil, httperrors.NewGeneralError(err)
@@ -1067,9 +1075,9 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 	needConvert := false
 	subimgs := ImageSubformatManager.GetAllSubImages(self.Id)
-	// if len(subimgs) == 0 {
-	// 	needConvert = true
-	// }
+	if len(subimgs) == 0 {
+		needConvert = true
+	}
 	for i := 0; i < len(subimgs); i += 1 {
 		subimgs[i].checkStatus(useFast)
 		if (subimgs[i].Status != api.IMAGE_STATUS_ACTIVE || subimgs[i].TorrentStatus != api.IMAGE_STATUS_ACTIVE) && utils.IsInStringArray(subimgs[i].Format, options.Options.TargetImageFormats) {

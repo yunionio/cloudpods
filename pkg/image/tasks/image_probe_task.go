@@ -15,6 +15,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type ImageProbeTask struct {
@@ -31,51 +32,44 @@ func (self *ImageProbeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 }
 
 func (self *ImageProbeTask) StartImageProbe(ctx context.Context, image *models.SImage) {
-	var (
-		probeSucc bool = true
-		errMsg    string
-	)
-
-	// probe image info
-	func() {
-		diskPath := image.GetPath("")
-		kvmDisk := storageman.NewKVMGuestDisk(diskPath)
-		defer kvmDisk.Disconnect()
-		if !kvmDisk.Connect() {
-			probeSucc = false
-			errMsg = "Disk connector failed to connect image"
-			return
-		}
-
-		rootfs := kvmDisk.MountKvmRootfs()
-		if rootfs == nil {
-			probeSucc = false
-			errMsg = "Failed mounting rootfs for kvm disk"
-			return
-		}
-		defer kvmDisk.UmountKvmRootfs(rootfs)
-
-		imageInfo := self.getImageInfo(kvmDisk, rootfs)
-		self.updateImageInfo(ctx, image, imageInfo)
-	}()
+	probeErr := self.doProbe(ctx, image)
 
 	// if failed, set image unavailable, because size and chksum changed
-	if err := self.updataeImageSizeAndChksum(ctx, image); err != nil {
+	if err := self.updataeImageMetadata(ctx, image); err != nil {
 		image.SetStatus(self.UserCred, api.IMAGE_STATUS_KILLED,
 			fmt.Sprintf("Image update failed after probe %s", err))
-		probeSucc = false
-		errMsg = err.Error()
+		self.SetStageFailed(ctx, err.Error())
+		return
 	}
 
-	if probeSucc {
-		self.TaskComplete(ctx, image)
+	if probeErr == nil {
+		self.OnProbeSuccess(ctx, image)
 	} else {
-		self.TaskFailed(ctx, image, errMsg)
+		self.OnProbeFailed(ctx, image, probeErr.Error())
 	}
-
 }
 
-func (self *ImageProbeTask) updataeImageSizeAndChksum(
+func (self *ImageProbeTask) doProbe(ctx context.Context, image *models.SImage) error {
+	diskPath := image.GetPath("")
+	kvmDisk := storageman.NewKVMGuestDisk(diskPath)
+	defer kvmDisk.Disconnect()
+	if !kvmDisk.Connect() {
+		return fmt.Errorf("Disk connector failed to connect image")
+	}
+
+	// Fsck is executed during mount
+	rootfs := kvmDisk.MountKvmRootfs()
+	if rootfs == nil {
+		return fmt.Errorf("Failed mounting rootfs for kvm disk")
+	}
+	defer kvmDisk.UmountKvmRootfs(rootfs)
+
+	imageInfo := self.getImageInfo(kvmDisk, rootfs)
+	self.updateImageInfo(ctx, image, imageInfo)
+	return nil
+}
+
+func (self *ImageProbeTask) updataeImageMetadata(
 	ctx context.Context, image *models.SImage,
 ) error {
 	imagePath := image.GetPath("")
@@ -143,13 +137,25 @@ func (self *ImageProbeTask) getImageInfo(kvmDisk *storageman.SKVMGuestDisk, root
 	}
 }
 
-func (self *ImageProbeTask) TaskFailed(ctx context.Context, image *models.SImage, reason string) {
-	log.Errorln(reason)
-	self.SetStageFailed(ctx, reason)
+func (self *ImageProbeTask) OnProbeFailed(ctx context.Context, image *models.SImage, reason string) {
+	log.Infof("Image %s Probe Failed ...", image.Name)
+	db.OpsLog.LogEvent(image, db.ACT_PROBE_FAIL, reason, self.UserCred)
+	logclient.AddActionLogWithContext(ctx, image, logclient.ACT_IMAGE_PROBE, reason, self.UserCred, false)
+
+	if jsonutils.QueryBoolean(self.Params, "do_convert", false) {
+		self.SetStage("OnConvertComplete", nil)
+		image.StartImageConvertTask(ctx, self.UserCred, self.GetId())
+	} else {
+		self.SetStageFailed(ctx, reason)
+	}
 }
 
-func (self *ImageProbeTask) TaskComplete(ctx context.Context, image *models.SImage) {
-	log.Infof("Image Probe Complete ...")
+func (self *ImageProbeTask) OnProbeSuccess(ctx context.Context, image *models.SImage) {
+	log.Infof("Image %s Probe Success ...", image.Name)
+	db.OpsLog.LogEvent(image, db.ACT_PROBE, "Image Probe Success", self.UserCred)
+	logclient.AddActionLogWithContext(
+		ctx, image, logclient.ACT_IMAGE_PROBE, "Image Probe Success", self.UserCred, true)
+
 	if jsonutils.QueryBoolean(self.Params, "do_convert", false) {
 		self.SetStage("OnConvertComplete", nil)
 		image.StartImageConvertTask(ctx, self.UserCred, self.GetId())

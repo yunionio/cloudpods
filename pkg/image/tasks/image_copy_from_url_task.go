@@ -50,7 +50,7 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 		if err != nil {
 			return nil, err
 		}
-		err = image.SaveImageFromStream(resp.Body)
+		err = image.SaveImageFromStream(resp.Body, false)
 		if err != nil {
 			return nil, err
 		}
