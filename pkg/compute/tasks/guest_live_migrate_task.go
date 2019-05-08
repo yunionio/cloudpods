@@ -382,7 +382,7 @@ func (self *GuestLiveMigrateTask) OnResumeDestGuestComplete(ctx context.Context,
 }
 
 func (self *GuestLiveMigrateTask) OnUndeploySrcGuestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE, "", self.UserCred)
+	db.OpsLog.LogEvent(guest, db.ACT_MIGRATE, "OnUndeploySrcGuestComplete", self.UserCred)
 	status, _ := self.Params.GetString("guest_status")
 	if status != guest.Status {
 		self.SetStage("OnGuestSyncStatus", nil)

@@ -54,6 +54,7 @@ type SKVMGuestInstance struct {
 	manager *SGuestManager
 
 	startupTask *SGuestResumeTask
+	stopping    bool
 }
 
 func NewKVMGuestInstance(id string, manager *SGuestManager) *SKVMGuestInstance {
@@ -61,6 +62,10 @@ func NewKVMGuestInstance(id string, manager *SGuestManager) *SKVMGuestInstance {
 		Id:      id,
 		manager: manager,
 	}
+}
+
+func (s *SKVMGuestInstance) IsStopping() bool {
+	return s.stopping
 }
 
 func (s *SKVMGuestInstance) GetId() string {
