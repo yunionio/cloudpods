@@ -143,7 +143,7 @@ func ArrangeProcesses(infos []*ProcessCPUinfo, cpuCount int) []CPULoad {
 
 	for _, info := range infos {
 		procs.AddProcess(info)
-		if info.Cpuset != nil {
+		if info.Cpuset != nil && *info.Cpuset < cpuCount {
 			cpus[*info.Cpuset].AddProcess(info)
 		} else {
 			newProc = true

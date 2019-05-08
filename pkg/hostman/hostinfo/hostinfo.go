@@ -93,6 +93,12 @@ func (h *SHostInfo) GetBridgeDev(bridge string) hostbridge.IBridgeDriver {
 	return nil
 }
 
+func (h *SHostInfo) StartDHCPServer() {
+	for _, nic := range h.Nics {
+		nic.dhcpServer.Start()
+	}
+}
+
 func (h *SHostInfo) GetHostId() string {
 	return h.HostId
 }
