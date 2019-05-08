@@ -50,6 +50,8 @@ func (self *SDiskBaseTask) CleanHostSchedCache(disk *models.SDisk) {
 	disk.GetStorage().ClearSchedDescCache()
 	if len(disk.BackupStorageId) > 0 {
 		bkStorage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
-		bkStorage.ClearSchedDescCache()
+		if bkStorage != nil {
+			bkStorage.ClearSchedDescCache()
+		}
 	}
 }
