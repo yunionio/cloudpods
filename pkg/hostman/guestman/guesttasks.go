@@ -47,6 +47,7 @@ func NewGuestStopTask(guest *SKVMGuestInstance, ctx context.Context, timeout int
 }
 
 func (s *SGuestStopTask) Start() {
+	s.stopping = true
 	if s.IsRunning() && s.IsMonitorAlive() {
 		s.Monitor.SimpleCommand("system_powerdown", s.onPowerdownGuest)
 	} else {
@@ -63,6 +64,7 @@ func (s *SGuestStopTask) onPowerdownGuest(results string) {
 func (s *SGuestStopTask) checkGuestRunning() {
 	if !s.IsRunning() || time.Now().Sub(s.startPowerdown) > time.Duration(s.timeout)*time.Second {
 		s.Stop() // force stop
+		s.stopping = false
 		hostutils.TaskComplete(s.ctx, nil)
 	} else {
 		s.CheckGuestRunningLater()

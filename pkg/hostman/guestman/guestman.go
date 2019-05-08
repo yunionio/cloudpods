@@ -336,12 +336,11 @@ func (m *SGuestManager) CpusetBalance(ctx context.Context, params interface{}) (
 }
 
 func (m *SGuestManager) Status(sid string) string {
-	if status := m.GetStatus(sid); status == GUEST_RUNNING && m.Servers[sid].Monitor == nil {
+	status := m.GetStatus(sid)
+	if status == GUEST_RUNNING && m.Servers[sid].Monitor == nil && !m.Servers[sid].IsStopping() {
 		m.Servers[sid].StartMonitor(context.Background())
-		return status
-	} else {
-		return status
 	}
+	return status
 }
 
 func (m *SGuestManager) GetStatus(sid string) string {
