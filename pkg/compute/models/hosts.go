@@ -623,7 +623,7 @@ func (self *SHost) GetStorageByFilePath(path string) *SStorage {
 		return nil
 	}
 	for i := 0; i < len(hoststorages); i += 1 {
-		if strings.HasPrefix(path, hoststorages[i].MountPoint) {
+		if len(hoststorages[i].MountPoint) > 0 && strings.HasPrefix(path, hoststorages[i].MountPoint) {
 			return hoststorages[i].GetStorage()
 		}
 	}
