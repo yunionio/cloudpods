@@ -523,7 +523,7 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		subq = subq.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
 		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
 		subq = subq.Join(cloudproviders, sqlchemy.Equals(storageCaches.Field("manager_id"), cloudproviders.Field("id")))
-		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr)).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
 	}
@@ -547,7 +547,7 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		subq = subq.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
 		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
 		subq = subq.Join(cloudproviders, sqlchemy.Equals(storageCaches.Field("manager_id"), cloudproviders.Field("id")))
-		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), accountObj.GetId()))
+		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), accountObj.GetId())).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
 	}
@@ -569,7 +569,7 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		subq := cachedImages.Query(cachedImages.Field("id"))
 		subq = subq.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
 		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
-		subq = subq.Filter(sqlchemy.Equals(storageCaches.Field("manager_id"), managerObj.GetId()))
+		subq = subq.Filter(sqlchemy.Equals(storageCaches.Field("manager_id"), managerObj.GetId())).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
 	}
@@ -595,7 +595,7 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
 		subq = subq.Join(storages, sqlchemy.Equals(storageCaches.Field("id"), storages.Field("storagecache_id")))
 		subq = subq.Join(zones, sqlchemy.Equals(storages.Field("zone_id"), zones.Field("id")))
-		subq = subq.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), regionObj.GetId()))
+		subq = subq.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), regionObj.GetId())).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
 	}
@@ -619,7 +619,7 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		subq = subq.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
 		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
 		subq = subq.Join(storages, sqlchemy.Equals(storageCaches.Field("id"), storages.Field("storagecache_id")))
-		subq = subq.Filter(sqlchemy.Equals(storages.Field("zone_id"), zoneObj.GetId()))
+		subq = subq.Filter(sqlchemy.Equals(storages.Field("zone_id"), zoneObj.GetId())).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
 	}
