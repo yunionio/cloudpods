@@ -60,6 +60,10 @@ func (self *LoadbalancerListenerRuleDeleteTask) OnInit(ctx context.Context, obj 
 func (self *LoadbalancerListenerRuleDeleteTask) OnLoadbalancerListenerRuleDeleteComplete(ctx context.Context, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lbr, db.ACT_DELETE, lbr.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_DELOCATE, nil, self.UserCred, true)
+	lblis := lbr.GetLoadbalancerListener()
+	if lblis != nil {
+		logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_LB_REMOVE_LISTENER_RULE, nil, self.UserCred, true)
+	}
 	lbr.DoPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }

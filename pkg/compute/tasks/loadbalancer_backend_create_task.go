@@ -65,6 +65,10 @@ func (self *LoadbalancerBackendCreateTask) OnLoadbalancerBackendCreateComplete(c
 	lbb.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbb, db.ACT_ALLOCATE, lbb.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_CREATE, nil, self.UserCred, true)
+	lbbg := lbb.GetLoadbalancerBackendGroup()
+	if lbbg != nil {
+		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_LB_ADD_BACKEND, nil, self.UserCred, true)
+	}
 	self.SetStageComplete(ctx, nil)
 }
 
