@@ -415,7 +415,7 @@ func (manager *SZoneManager) InitializeData() error {
 Query 1:
 vpc.manager_id is not empty && wire.zone_id is not empty
 */
-func (manager *SZoneManager) usableZoneQ1(providers, vpcs, wires, networks *sqlchemy.SSubQuery, usableNet, usableVpc bool) *sqlchemy.SSubQuery {
+func usableZoneQ1(providers, vpcs, wires, networks *sqlchemy.SSubQuery, usableNet, usableVpc bool) *sqlchemy.SSubQuery {
 	// join tables
 	sq := wires.Query(sqlchemy.DISTINCT("zone_id", wires.Field("zone_id")))
 	if usableNet {
@@ -443,7 +443,7 @@ func (manager *SZoneManager) usableZoneQ1(providers, vpcs, wires, networks *sqlc
 Query 2:
 vpc.manager_id is empty && wire.zone_id is not empty
 */
-func (manager *SZoneManager) usableZoneQ2(vpcs, wires, networks *sqlchemy.SSubQuery, usableNet, usableVpc bool) *sqlchemy.SSubQuery {
+func usableZoneQ2(vpcs, wires, networks *sqlchemy.SSubQuery, usableNet, usableVpc bool) *sqlchemy.SSubQuery {
 	// join tables
 	sq := wires.Query(sqlchemy.DISTINCT("zone_id", wires.Field("zone_id")))
 	if usableNet {
@@ -470,7 +470,7 @@ vpc.manager_id is not empty && wire.zone_id is empty
 
 2019.01.17 目前华为云子网在整个region 可用。wire中zone_id留空。
 */
-func (manager *SZoneManager) usableZoneQ3(providers, vpcs, wires, networks, zones *sqlchemy.SSubQuery, usableNet, usableVpc bool) *sqlchemy.SSubQuery {
+func usableZoneQ3(providers, vpcs, wires, networks, zones *sqlchemy.SSubQuery, usableNet, usableVpc bool) *sqlchemy.SSubQuery {
 	// join tables
 	sq := zones.Query(sqlchemy.DISTINCT("zone_id", zones.Field("id")))
 	sq = sq.Join(vpcs, sqlchemy.Equals(zones.Field("cloudregion_id"), vpcs.Field("cloudregion_id")))
@@ -501,7 +501,7 @@ vpc.manager_id is empty && wire.zone_id is empty
 
 2019.01.17 目前华为云子网在整个region 可用。wire中zone_id留空。
 */
-func (manager *SZoneManager) usableZoneQ4(vpcs, wires, networks, zones *sqlchemy.SSubQuery, usableNet, usableVpc bool) *sqlchemy.SSubQuery {
+func usableZoneQ4(vpcs, wires, networks, zones *sqlchemy.SSubQuery, usableNet, usableVpc bool) *sqlchemy.SSubQuery {
 	// join tables
 	sq := zones.Query(sqlchemy.DISTINCT("zone_id", zones.Field("id")))
 	sq = sq.Join(vpcs, sqlchemy.Equals(zones.Field("cloudregion_id"), vpcs.Field("cloudregion_id")))
@@ -521,6 +521,41 @@ func (manager *SZoneManager) usableZoneQ4(vpcs, wires, networks, zones *sqlchemy
 	}
 
 	return sq.SubQuery()
+}
+
+func networkUsableZoneQueries(usableNet, usableVpc bool) []*sqlchemy.SSubQuery {
+	queries := make([]*sqlchemy.SSubQuery, 4)
+	queries[0] = usableZoneQ1(CloudproviderManager.Query().SubQuery(),
+		VpcManager.Query().SubQuery(),
+		WireManager.Query().SubQuery(),
+		NetworkManager.Query().SubQuery(),
+		usableNet, usableVpc)
+	queries[1] = usableZoneQ2(VpcManager.Query().SubQuery(),
+		WireManager.Query().SubQuery(),
+		NetworkManager.Query().SubQuery(),
+		usableNet, usableVpc)
+	queries[2] = usableZoneQ3(CloudproviderManager.Query().SubQuery(),
+		VpcManager.Query().SubQuery(),
+		WireManager.Query().SubQuery(),
+		NetworkManager.Query().SubQuery(),
+		ZoneManager.Query().SubQuery(),
+		usableNet, usableVpc)
+	queries[3] = usableZoneQ4(VpcManager.Query().SubQuery(),
+		WireManager.Query().SubQuery(),
+		NetworkManager.Query().SubQuery(),
+		ZoneManager.Query().SubQuery(),
+		usableNet, usableVpc)
+	return queries
+}
+
+func NetworkUsableZoneQueries(field sqlchemy.IQueryField, usableNet, usableVpc bool) []sqlchemy.ICondition {
+	queries := networkUsableZoneQueries(usableNet, usableVpc)
+	iconditions := make([]sqlchemy.ICondition, 0)
+	for i := range queries {
+		iconditions = append(iconditions, sqlchemy.In(field, queries[i]))
+	}
+
+	return iconditions
 }
 
 func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
@@ -567,42 +602,10 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 
 	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {
 		usableNet := jsonutils.QueryBoolean(query, "usable", false)
-		usableVpc := jsonutils.QueryBoolean(query, "usable_vpc", false)
-
-		sq1 := manager.usableZoneQ1(
-			CloudproviderManager.Query().SubQuery(),
-			VpcManager.Query().SubQuery(),
-			WireManager.Query().SubQuery(),
-			NetworkManager.Query().SubQuery(),
-			usableNet, usableVpc)
-
-		sq2 := manager.usableZoneQ2(
-			VpcManager.Query().SubQuery(),
-			WireManager.Query().SubQuery(),
-			NetworkManager.Query().SubQuery(),
-			usableNet, usableVpc)
-
-		sq3 := manager.usableZoneQ3(
-			CloudproviderManager.Query().SubQuery(),
-			VpcManager.Query().SubQuery(),
-			WireManager.Query().SubQuery(),
-			NetworkManager.Query().SubQuery(),
-			ZoneManager.Query().SubQuery(),
-			usableNet, usableVpc)
-
-		sq4 := manager.usableZoneQ4(
-			VpcManager.Query().SubQuery(),
-			WireManager.Query().SubQuery(),
-			NetworkManager.Query().SubQuery(),
-			ZoneManager.Query().SubQuery(),
-			usableNet, usableVpc)
-
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.In(q.Field("id"), sq1),
-			sqlchemy.In(q.Field("id"), sq2),
-			sqlchemy.In(q.Field("id"), sq3),
-			sqlchemy.In(q.Field("id"), sq4),
-		))
+		usableVpc := jsonutils.QueryBoolean(query, "usable_vpc",
+			false)
+		iconditions := NetworkUsableZoneQueries(q.Field("id"), usableNet, usableVpc)
+		q = q.Filter(sqlchemy.OR(iconditions...))
 		q = q.Equals("status", api.ZONE_ENABLE)
 	}
 
