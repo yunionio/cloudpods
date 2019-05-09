@@ -124,6 +124,19 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 		if status == ImageStatusAvailable && !isForce {
 			return extId, nil
 		}
+		// 不能直接删除 ImageStatusCreating 状态的image ,需要先取消importImage Task
+		if status == ImageStatusCreating {
+			err := self.region.CancelImageImportTasks()
+			if err != nil {
+				log.Errorln(err)
+			}
+		}
+		if len(status) > 0 {
+			err = self.region.DeleteImage(extId)
+			if err != nil {
+				log.Errorf("failed to delete image %s(%s) error: %v", extId, status, err)
+			}
+		}
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}
@@ -216,7 +229,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	}
 
 	// timeout: 1hour = 3600 seconds
-	err = self.region.waitTaskStatus(ImportImageTask, task.TaskId, "Finished", 15*time.Second, 3600*time.Second)
+	err = self.region.waitTaskStatus(ImportImageTask, task.TaskId, TaskStatusFinished, 15*time.Second, 3600*time.Second)
 	if err != nil {
 		log.Errorf("waitTaskStatus %s", err)
 		return task.ImageId, err
@@ -341,7 +354,7 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 		return nil, err
 	} else if task, err := self.region.ExportImage(extId, bucket); err != nil {
 		return nil, err
-	} else if err := self.region.waitTaskStatus(ExportImageTask, task.TaskId, "Finished", 15*time.Second, 3600*time.Second); err != nil {
+	} else if err := self.region.waitTaskStatus(ExportImageTask, task.TaskId, TaskStatusFinished, 15*time.Second, 3600*time.Second); err != nil {
 		return nil, err
 	} else if imageList, err := bucket.ListObjects(oss.Prefix(fmt.Sprintf("%sexport", strings.Replace(extId, "-", "", -1)))); err != nil {
 		return nil, err
