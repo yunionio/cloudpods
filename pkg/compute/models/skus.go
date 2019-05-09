@@ -457,21 +457,8 @@ func normalizeProvider(provider string) string {
 	return provider
 }
 
-func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sqlchemy.SQuery {
-	// 过滤出公有云provider状态健康的sku
-	if public_cloud {
-		providerTable := CloudproviderManager.Query().SubQuery()
-		providerRegionTable := CloudproviderRegionManager.Query().SubQuery()
-
-		subq := providerRegionTable.Query(sqlchemy.DISTINCT("cloudregion_id", providerRegionTable.Field("cloudregion_id")))
-		subq = subq.Join(providerTable, sqlchemy.Equals(providerRegionTable.Field("cloudprovider_id"), providerTable.Field("id")))
-		subq = subq.Filter(sqlchemy.IsTrue(providerTable.Field("enabled")))
-		subq = subq.Filter(sqlchemy.In(providerTable.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
-		subq = subq.Filter(sqlchemy.Equals(providerTable.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
-		q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), subq.SubQuery()))
-	}
-
-	// 过滤出network usable的sku
+func networkUsableRegionQueries(f sqlchemy.IQueryField) []sqlchemy.ICondition {
+	iconditions := make([]sqlchemy.ICondition, 0)
 	providers := CloudproviderManager.Query().SubQuery()
 	networks := NetworkManager.Query().SubQuery()
 	wires := WireManager.Query().SubQuery()
@@ -494,10 +481,34 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 	sq2 = sq2.Filter(sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")))
 	sq2 = sq2.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.In(q.Field("cloudregion_id"), sq.SubQuery()),
-		sqlchemy.In(q.Field("cloudregion_id"), sq2.SubQuery()),
-	))
+	iconditions = append(iconditions, sqlchemy.In(f, sq.SubQuery()))
+	iconditions = append(iconditions, sqlchemy.In(f, sq2.SubQuery()))
+	return iconditions
+}
+
+func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sqlchemy.SQuery {
+	// 过滤出公有云provider状态健康的sku
+	if public_cloud {
+		providerTable := CloudproviderManager.Query().SubQuery()
+		providerRegionTable := CloudproviderRegionManager.Query().SubQuery()
+
+		subq := providerRegionTable.Query(sqlchemy.DISTINCT("cloudregion_id", providerRegionTable.Field("cloudregion_id")))
+		subq = subq.Join(providerTable, sqlchemy.Equals(providerRegionTable.Field("cloudprovider_id"), providerTable.Field("id")))
+		subq = subq.Filter(sqlchemy.IsTrue(providerTable.Field("enabled")))
+		subq = subq.Filter(sqlchemy.In(providerTable.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+		subq = subq.Filter(sqlchemy.Equals(providerTable.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
+		q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), subq.SubQuery()))
+	}
+
+	// 过滤出network usable的sku
+	if public_cloud {
+		iconditions := NetworkUsableZoneQueries(q.Field("zone_id"), true, true)
+		q = q.Filter(sqlchemy.OR(iconditions...))
+	} else {
+		// 私有云sku 只定义到region层级, zone id 为空.因此只能按region查询
+		iconditions := networkUsableRegionQueries(q.Field("cloudregion_id"))
+		q = q.Filter(sqlchemy.OR(iconditions...))
+	}
 
 	if provider == "all" {
 		// provider 参数为all时。表示查询所有instance type.
