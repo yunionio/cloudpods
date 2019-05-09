@@ -271,8 +271,7 @@ func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat, fsFo
 	}
 
 	if err != nil {
-		log.Errorln(err)
-		fmt.Errorf("create_raw: Fail to create disk")
+		return nil, fmt.Errorf("create_raw: Fail to create disk: %s", err)
 	}
 
 	if options.HostOptions.EnableFallocateDisk {
