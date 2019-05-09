@@ -32,21 +32,21 @@ type LoadbalancerListenerRuleListOptions struct {
 }
 
 type LoadbalancerListenerRuleUpdateOptions struct {
-	ID   string `json:-`
+	ID   string `json:"-"`
 	Name string
 
 	BackendGroup string
 }
 
 type LoadbalancerListenerRuleGetOptions struct {
-	ID string `json:-`
+	ID string `json:"-"`
 }
 
 type LoadbalancerListenerRuleDeleteOptions struct {
-	ID string `json:-`
+	ID string `json:"-"`
 }
 
 type LoadbalancerListenerRuleActionStatusOptions struct {
-	ID     string `json:-`
+	ID     string `json:"-"`
 	Status string `choices:"enabled|disabled"`
 }

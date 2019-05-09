@@ -885,7 +885,7 @@ type ListPartsOutput struct {
 	MaxParts             int              `xml:"MaxParts"`
 	IsTruncated          bool             `xml:"IsTruncated"`
 	StorageClass         StorageClassType `xml:"StorageClass"`
-	Initiator            Initiator        `xml:"Initiator“`
+	Initiator            Initiator        `xml:"Initiator"`
 	Owner                Owner            `xml:"Owner"`
 	Parts                []Part           `xml:"Part"`
 }

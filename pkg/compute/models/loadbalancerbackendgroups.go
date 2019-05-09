@@ -174,7 +174,7 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 func (lbbg *SLoadbalancerBackendGroup) GetLoadbalancer() *SLoadbalancer {
 	lb, err := LoadbalancerManager.FetchById(lbbg.LoadbalancerId)
 	if err != nil {
-		fmt.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
+		log.Errorf("failed to find loadbalancer for backendgroup %s", lbbg.Name)
 		return nil
 	}
 	return lb.(*SLoadbalancer)
