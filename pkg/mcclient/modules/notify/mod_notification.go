@@ -13,7 +13,7 @@ var (
 
 type SNotifyMessage struct {
 	Uid         string          `json:"uid,omitempty"`
-	Gid         string          `json:"uid,omitempty"`
+	Gid         string          `json:"gid,omitempty"`
 	ContactType TNotifyChannel  `json:"contact_type,omitempty"`
 	Topic       string          `json:"topic,omitempty"`
 	Priority    TNotifyPriority `json:"priority,omitempty"`

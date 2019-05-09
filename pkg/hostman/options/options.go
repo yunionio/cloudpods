@@ -7,7 +7,7 @@ type SHostOptions struct {
 
 	HostType        string   `help:"Host server type, either hypervisor or kubelet" default:"hypervisor"`
 	ListenInterface string   `help:"Master address of host server"`
-	BridgeDriver    string   `help:"Bridge driver, bridge or openvswitch" default: "openvswitch"`
+	BridgeDriver    string   `help:"Bridge driver, bridge or openvswitch" default:"openvswitch"`
 	Networks        []string `help:"Network interface information"`
 	Rack            string   `help:"Rack of host (optional)"`
 	Slots           string   `help:"Slots of host (optional)"`
@@ -28,7 +28,7 @@ type SHostOptions struct {
 	EnableFallocateDisk      bool `help:"Automatically allocate all spaces using fallocate"`
 
 	EnableMonitor  bool `help:"Enable monitor"`
-	ReportInterval int  `help:"Report interval in seconds", default:"60"`
+	ReportInterval int  `help:"Report interval in seconds" default:"60"`
 
 	EnableTcBwlimit     bool `help:"Enable linux tc bandwidth limit"`
 	BwDownloadBandwidth int  `help:"Default ingress bandwidth in mbit (0 disabled)" default:"10"`

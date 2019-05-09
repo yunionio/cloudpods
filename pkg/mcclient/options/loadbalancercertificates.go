@@ -56,11 +56,11 @@ func (opts *LoadbalancerCertificateCreateOptions) Params() (*jsonutils.JSONDict,
 }
 
 type LoadbalancerCertificateGetOptions struct {
-	ID string `json:-`
+	ID string `json:"-"`
 }
 
 type LoadbalancerCertificateDeleteOptions struct {
-	ID string `json:-`
+	ID string `json:"-"`
 }
 
 type LoadbalancerCertificateListOptions struct {
@@ -72,7 +72,7 @@ type LoadbalancerCertificateListOptions struct {
 }
 
 type LoadbalancerCertificateUpdateOptions struct {
-	ID   string `json:-`
+	ID   string `json:"-"`
 	Name string
 
 	Cert string `json:"-" help:"path to certificate file"`
