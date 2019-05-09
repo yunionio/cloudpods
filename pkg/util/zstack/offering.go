@@ -1,8 +1,9 @@
 package zstack
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
@@ -22,27 +23,38 @@ type SInstanceOffering struct {
 }
 
 func (region *SRegion) GetInstanceOffering(offerId string) (*SInstanceOffering, error) {
-	offerings, err := region.GetInstanceOfferings(offerId)
+	offer := &SInstanceOffering{region: region}
+	return offer, region.client.getResource("instance-offerings", offerId, offer)
+}
+
+func (region *SRegion) GetInstanceOfferingByType(instanceType string) (*SInstanceOffering, error) {
+	offerings, err := region.GetInstanceOfferings("", instanceType, 0, 0)
 	if err != nil {
 		return nil, err
 	}
 	if len(offerings) == 1 {
-		if offerings[0].UUID == offerId {
-			return &offerings[0], nil
-		}
-		return nil, cloudprovider.ErrNotFound
+		return &offerings[0], nil
 	}
-	if len(offerings) == 0 || len(offerId) == 0 {
-		return nil, cloudprovider.ErrNotFound
+	if len(offerings) == 0 {
+		return nil, fmt.Errorf("instanceType %s not found", instanceType)
 	}
-	return nil, cloudprovider.ErrDuplicateId
+	return nil, fmt.Errorf("duplicate instanceType %s", instanceType)
 }
 
-func (region *SRegion) GetInstanceOfferings(offerId string) ([]SInstanceOffering, error) {
+func (region *SRegion) GetInstanceOfferings(offerId string, name string, cpu int, memorySizeMb int) ([]SInstanceOffering, error) {
 	offerings := []SInstanceOffering{}
-	params := []string{"q=type=UserVM"}
+	params := []string{"q=type=UserVM", "q=state=Enabled"}
 	if len(offerId) > 0 {
 		params = append(params, "q=uuid="+offerId)
+	}
+	if len(name) > 0 {
+		params = append(params, "q=name="+name)
+	}
+	if cpu != 0 {
+		params = append(params, fmt.Sprintf("q=cpuNum=%d", cpu))
+	}
+	if memorySizeMb != 0 {
+		params = append(params, fmt.Sprintf("q=memorySize=%d", memorySizeMb*1024*1024))
 	}
 	if err := region.client.listAll("instance-offerings", params, &offerings); err != nil {
 		return nil, err

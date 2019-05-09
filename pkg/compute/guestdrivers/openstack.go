@@ -17,6 +17,7 @@ package guestdrivers
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -90,6 +91,10 @@ func (self *SOpenStackGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{api.VM_RUNNING}, nil
 }
 
+func (self *SOpenStackGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	return httperrors.NewInputParameterError("%s not support create eip, it only support bind eip", self.GetHypervisor())
+}
+
 func (self *SOpenStackGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
 	var err error
 	input, err = self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
@@ -98,6 +103,9 @@ func (self *SOpenStackGuestDriver) ValidateCreateData(ctx context.Context, userC
 	}
 	if len(input.Networks) >= 2 {
 		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
+	}
+	if len(input.Eip) > 0 || input.EipBw > 0 {
+		return nil, httperrors.NewUnsupportOperationError("%s not support create virtual machine with eip", self.GetHypervisor())
 	}
 	return input, nil
 }

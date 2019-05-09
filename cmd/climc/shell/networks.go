@@ -234,16 +234,16 @@ func init() {
 	})
 
 	type NetworkCreateOptions2 struct {
-		Wire    string `help:"ID or Name of wire in which the network is created"`
-		Vpc     string `help:"ID or Name of vpc in which the network is created"`
-		Zone    string `help:"ID or Name of zone in which the network is created"`
-		NETWORK string `help:"Name of new network"`
-		PREFIX  string `help:"Start of IPv4 address range"`
-		Desc    string `help:"Description" metavar:"DESCRIPTION"`
+		Wire   string `help:"ID or Name of wire in which the network is created"`
+		Vpc    string `help:"ID or Name of vpc in which the network is created"`
+		Zone   string `help:"ID or Name of zone in which the network is created"`
+		NAME   string `help:"Name of new network"`
+		PREFIX string `help:"Start of IPv4 address range"`
+		Desc   string `help:"Description" metavar:"DESCRIPTION"`
 	}
 	R(&NetworkCreateOptions2{}, "network-create2", "Create a virtual network", func(s *mcclient.ClientSession, args *NetworkCreateOptions2) error {
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.NETWORK), "name")
+		params.Add(jsonutils.NewString(args.NAME), "name")
 		params.Add(jsonutils.NewString(args.PREFIX), "guest_ip_prefix")
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")

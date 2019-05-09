@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/golang-plus/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
@@ -60,14 +61,15 @@ type SElasticip struct {
 	SManagedResourceBase
 	SBillingResourceBase
 
-	Mode string `width:"32" charset:"ascii" list:"user"`
+	NetworkId string `width:"36" charset:"ascii" nullable:"false" get:"user" list:"user" create:"optional"`
+	Mode      string `width:"32" charset:"ascii" list:"user"`
 
-	IpAddr string `width:"17" charset:"ascii" list:"user"`
+	IpAddr string `width:"17" charset:"ascii" list:"user" create:"optional"`
 
 	AssociateType string `width:"32" charset:"ascii" list:"user"`
 	AssociateId   string `width:"256" charset:"ascii" list:"user"`
 
-	Bandwidth int `list:"user" create:"required"`
+	Bandwidth int `list:"user" create:"optional" default:"0"`
 
 	ChargeType string `name:"charge_type" list:"user" create:"required"`
 	BgpType    string `list:"user" create:"optional"` // 目前只有华为云此字段是必需填写的。
@@ -362,6 +364,15 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip.ManagerId = provider.Id
 	eip.CloudregionId = region.Id
 	eip.ChargeType = extEip.GetInternetChargeType()
+	if networkId := extEip.GetINetworkId(); len(networkId) > 0 {
+		network, err := NetworkManager.FetchByExternalId(networkId)
+		if err != nil {
+			msg := fmt.Sprintf("failed to found network by externalId %s error: %v", networkId, err)
+			log.Errorf(msg)
+			return nil, errors.New(msg)
+		}
+		eip.NetworkId = network.GetId()
+	}
 
 	err = manager.TableSpec().Insert(&eip)
 	if err != nil {
@@ -484,7 +495,7 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 	if len(regionStr) == 0 {
 		return nil, httperrors.NewMissingParameterError("region_id")
 	}
-	region, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
+	_region, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return nil, httperrors.NewGeneralError(err)
@@ -492,6 +503,7 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 			return nil, httperrors.NewResourceNotFoundError("Region %s not found", regionStr)
 		}
 	}
+	region := _region.(*SCloudregion)
 	data.Add(jsonutils.NewString(region.GetId()), "cloudregion_id")
 
 	managerStr := jsonutils.GetAnyString(data, []string{"manager", "manager_id"})
@@ -532,13 +544,18 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
 	}
 
-	return data, nil
+	return region.GetDriver().ValidateCreateEipData(ctx, userCred, data)
 }
 
 func (self *SElasticip) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+	params := jsonutils.NewDict()
+	if data.Contains("ip") {
+		ip, _ := data.GetString("ip")
+		params.Add(jsonutils.NewString(ip), "ip")
+	}
 	eipPendingUsage := &SQuota{Eip: 1}
-	self.startEipAllocateTask(ctx, userCred, nil, eipPendingUsage)
+	self.startEipAllocateTask(ctx, userCred, params, eipPendingUsage)
 }
 
 func (self *SElasticip) startEipAllocateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, pendingUsage quotas.IQuota) error {

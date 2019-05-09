@@ -402,7 +402,7 @@ func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (region *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
+func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 

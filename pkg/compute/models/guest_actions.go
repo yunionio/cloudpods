@@ -2434,14 +2434,17 @@ func (self *SGuest) AllowPerformCreateEip(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	bw, err := data.Int("bandwidth")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("bandwidth")
-	}
-
+	var bw int64
 	chargeType, _ := data.GetString("charge_type")
 	if len(chargeType) == 0 {
 		chargeType = api.EIP_CHARGE_TYPE_DEFAULT
+	}
+
+	if chargeType == api.EIP_CHARGE_TYPE_BY_BANDWIDTH {
+		bw, _ = data.Int("bandwidth")
+		if bw == 0 {
+			return nil, httperrors.NewMissingParameterError("bandwidth")
+		}
 	}
 
 	if len(self.ExternalId) == 0 {
@@ -2452,7 +2455,7 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewInvalidStatusError("No host???")
 	}
 
-	_, err = host.GetDriver()
+	_, err := host.GetDriver()
 	if err != nil {
 		return nil, httperrors.NewInvalidStatusError("No valid cloud provider")
 	}
@@ -2460,6 +2463,11 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 	region := host.GetRegion()
 	if region == nil {
 		return nil, httperrors.NewInvalidStatusError("No cloudregion???")
+	}
+
+	err = self.GetDriver().ValidateCreateEip(ctx, userCred, data)
+	if err != nil {
+		return nil, err
 	}
 
 	eipPendingUsage := &SQuota{Eip: 1}

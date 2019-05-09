@@ -1,6 +1,7 @@
 package zstack
 
 import (
+	"fmt"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -22,20 +23,8 @@ type SWire struct {
 }
 
 func (region *SRegion) GetWire(wireId string) (*SWire, error) {
-	wires, err := region.GetWires("", wireId, "")
-	if err != nil {
-		return nil, err
-	}
-	if len(wires) == 1 {
-		if wires[0].UUID == wireId {
-			return &wires[0], nil
-		}
-		return nil, cloudprovider.ErrNotFound
-	}
-	if len(wires) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return nil, cloudprovider.ErrDuplicateId
+	wire := &SWire{vpc: region.GetVpc()}
+	return wire, region.client.getResource("l2-networks", wireId, wire)
 }
 
 func (region *SRegion) GetWires(zoneId string, wireId string, clusterId string) ([]SWire, error) {
@@ -121,9 +110,23 @@ func (wire *SWire) GetBandwidth() int {
 }
 
 func (wire *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	network, err := wire.vpc.region.CreateNetwork(name, cidr, wire.UUID, desc)
+	if err != nil {
+		return nil, err
+	}
+	network.wire = wire
+	return network, nil
 }
 
 func (wire *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	idInfo := strings.Split(netid, "/")
+	if len(idInfo) == 2 {
+		network, err := wire.vpc.region.GetNetwork(wire.ZoneUUID, wire.UUID, idInfo[0], idInfo[1])
+		if err != nil {
+			return nil, err
+		}
+		network.wire = wire
+		return network, nil
+	}
+	return nil, fmt.Errorf("invalid netid %s", netid)
 }

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -42,6 +43,10 @@ func (self *SZStackGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_ZSTACK
 }
 
+func (self *SZStackGuestDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_ZSTACK
+}
+
 func (self *SZStackGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_ZSTACK_LOCAL_STORAGE
 }
@@ -53,9 +58,12 @@ func (self *SZStackGuestDriver) GetMinimalSysDiskSizeGb() int {
 func (self *SZStackGuestDriver) GetStorageTypes() []string {
 	return []string{
 		api.STORAGE_ZSTACK_LOCAL_STORAGE,
-		api.STORAGE_ZSTACK_DATA,
-		api.STORAGE_ZSTACK_ROOT,
+		api.STORAGE_ZSTACK_CEPH,
 	}
+}
+
+func (self *SZStackGuestDriver) GetMaxSecurityGroupCount() int {
+	return 1
 }
 
 func (self *SZStackGuestDriver) ChooseHostStorage(host *models.SHost, backend string, storageIds []string) *models.SStorage {
@@ -86,14 +94,15 @@ func (self *SZStackGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
-	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_ZSTACK_LOCAL_STORAGE, api.STORAGE_ZSTACK_ROOT, api.STORAGE_ZSTACK_DATA}) {
-		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
-	}
 	return nil
 }
 
 func (self *SZStackGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
+}
+
+func (self *SZStackGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	return httperrors.NewInputParameterError("%s not support create eip, it only support bind eip", self.GetHypervisor())
 }
 
 func (self *SZStackGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
@@ -104,6 +113,9 @@ func (self *SZStackGuestDriver) ValidateCreateData(ctx context.Context, userCred
 	if len(input.Networks) > 2 {
 		return nil, httperrors.NewInputParameterError("cannot support more than 1 nic")
 	}
+	if len(input.Eip) > 0 || input.EipBw > 0 {
+		return nil, httperrors.NewUnsupportOperationError("%s not support create virtual machine with eip", self.GetHypervisor())
+	}
 	return input, nil
 }
 
@@ -113,6 +125,10 @@ func (self *SZStackGuestDriver) GetGuestInitialStateAfterCreate() string {
 
 func (self *SZStackGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
+}
+
+func (self *SZStackGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
+	return true
 }
 
 func (self *SZStackGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {

@@ -1799,11 +1799,7 @@
     "utils",
   ]
   pruneopts = "UT"
-<<<<<<< HEAD
-  revision = "740ce1e70d2417c195f669bbddf8ade8ec967419"
-=======
   revision = "91e7c6f49631cea6aa6b65d6d3e9e779f13ebc1e"
->>>>>>> 细化存储信息
 
 [[projects]]
   branch = "master"

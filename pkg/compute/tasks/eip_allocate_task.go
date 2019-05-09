@@ -18,11 +18,14 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -79,7 +82,51 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		return
 	}
 
-	extEip, err := iregion.CreateEIP(eip.Name, eip.Bandwidth, eip.ChargeType, eip.BgpType)
+	args := &cloudprovider.SEip{
+		Name:          eip.Name,
+		BandwidthMbps: eip.Bandwidth,
+		ChargeType:    eip.ChargeType,
+		BGPType:       eip.BgpType,
+		IP:            eip.IpAddr,
+	}
+
+	if len(eip.NetworkId) > 0 {
+		_network, err := models.NetworkManager.FetchById(eip.NetworkId)
+		if err != nil {
+			msg := fmt.Sprintf("failed to found network %s error: %v", eip.NetworkId, err)
+			self.onFailed(ctx, eip, msg)
+			return
+		}
+		network := _network.(*models.SNetwork)
+		ip, _ := self.GetParams().GetString("ip")
+		if len(ip) > 0 {
+			lockman.LockObject(ctx, network)
+			defer lockman.ReleaseObject(ctx, network)
+
+			addrTable := network.GetUsedAddresses()
+			ipAddr, err := network.GetFreeIP(ctx, self.UserCred, addrTable, nil, ip, models.IPAllocationNone, false)
+			if err != nil {
+				self.onFailed(ctx, eip, err.Error())
+				return
+			}
+			if ipAddr != ip {
+				msg := fmt.Sprintf("candidate ip %s is occupoed!", ip)
+				self.onFailed(ctx, eip, msg)
+				return
+			}
+			_, err = db.Update(eip, func() error {
+				eip.IpAddr = ipAddr
+				return nil
+			})
+			if err != nil {
+				self.onFailed(ctx, eip, err.Error())
+				return
+			}
+		}
+		args.NetworkExternalId = network.ExternalId
+	}
+
+	extEip, err := iregion.CreateEIP(args)
 	if err != nil {
 		msg := fmt.Sprintf("create eip fail %s", err)
 		eip.SetStatus(self.UserCred, api.EIP_STATUS_ALLOCATE_FAIL, msg)

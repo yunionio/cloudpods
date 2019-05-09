@@ -3056,6 +3056,8 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 			if strings.HasSuffix(host.Name, "-classic") {
 				registerVpcId, externalVpcId = "classic", "classic"
 			}
+		case api.HYPERVISOR_ZSTACK:
+			break
 		default:
 			return nil, fmt.Errorf("Unknown guest %s hypervisor %s for sync secgroup", self.Name, self.Hypervisor)
 		}

@@ -1,12 +1,19 @@
 package zstack
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"sort"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
@@ -79,6 +86,8 @@ func (image *SImage) GetStatus() string {
 	switch image.Status {
 	case "Ready":
 		return api.CACHED_IMAGE_STATUS_READY
+	case "Downloading":
+		return api.CACHED_IMAGE_STATUS_CACHING
 	default:
 		log.Errorf("Unknown image status: %s", image.Status)
 		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
@@ -142,20 +151,8 @@ func (image *SImage) GetCreateTime() time.Time {
 }
 
 func (region *SRegion) GetImage(imageId string) (*SImage, error) {
-	images, err := region.GetImages(imageId)
-	if err != nil {
-		return nil, err
-	}
-	if len(images) == 1 {
-		if images[0].UUID == imageId {
-			return &images[0], nil
-		}
-		return nil, cloudprovider.ErrNotFound
-	}
-	if len(images) == 0 || len(imageId) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return nil, cloudprovider.ErrDuplicateId
+	image := &SImage{storageCache: region.getStorageCache()}
+	return image, region.client.getResource("images", imageId, image)
 }
 
 func (region *SRegion) GetImages(imageId string) ([]SImage, error) {
@@ -168,4 +165,87 @@ func (region *SRegion) GetImages(imageId string) ([]SImage, error) {
 		params = append(params, "q=type!=vmware")
 	}
 	return images, region.client.listAll("images", params, &images)
+}
+
+func (region *SRegion) GetBackupStorageUUID() ([]string, error) {
+	imageServers, err := region.GetImageServers("")
+	if err != nil {
+		return nil, err
+	}
+	if len(imageServers) == 0 {
+		return nil, fmt.Errorf("failed to found any image servers")
+	}
+	servers := ImageServers(imageServers)
+	sort.Sort(servers)
+	return []string{servers[0].UUID}, nil
+}
+
+func (region *SRegion) CreateImage(imageName, format, osType, desc string, reader io.Reader, size int64) (*SImage, error) {
+	backupStorageUUIDs, err := region.GetBackupStorageUUID()
+	if err != nil {
+		return nil, err
+	}
+	platform := ""
+	switch osType {
+	case "linux":
+		platform = "Linux"
+	case "windows":
+		platform = "Windows"
+	default:
+		platform = "Other"
+	}
+	parmas := map[string]interface{}{
+		"params": map[string]interface{}{
+			"name":               imageName,
+			"url":                fmt.Sprintf("upload://%s", imageName),
+			"description":        desc,
+			"mediaType":          "RootVolumeTemplate",
+			"system":             false,
+			"format":             format,
+			"platform":           platform,
+			"backupStorageUuids": backupStorageUUIDs,
+			"systemTags":         []string{"qemuga", "bootMode::Legacy"},
+		},
+	}
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("", imageName)
+	if err != nil {
+		return nil, err
+	}
+
+	if reader == nil {
+		return nil, fmt.Errorf("invalid reader")
+	}
+
+	if size == 0 {
+		return nil, fmt.Errorf("invalid image size")
+	}
+
+	_, err = io.Copy(part, reader)
+	if err != nil {
+		return nil, err
+	}
+
+	err = writer.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	image := &SImage{storageCache: region.getStorageCache()}
+	err = region.client.create("images", jsonutils.Marshal(parmas), image)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(image.BackupStorageRefs) < 0 {
+		return nil, fmt.Errorf("no InstallPath reture")
+	}
+	header := http.Header{}
+	header.Add("X-IMAGE-UUID", image.UUID)
+	header.Add("X-IMAGE-SIZE", fmt.Sprintf("%d", size))
+	header.Add("Content-Type", writer.FormDataContentType())
+	_, err = httputils.Request(httputils.GetDefaultClient(), context.Background(), "POST", image.BackupStorageRefs[0].InstallPath, header, body, false)
+	return image, err
 }

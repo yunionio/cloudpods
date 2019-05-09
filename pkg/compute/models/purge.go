@@ -552,6 +552,22 @@ func (net *SNetwork) purgeLoadbalancernetworks(ctx context.Context, userCred mcc
 	return nil
 }
 
+func (net *SNetwork) purgeEipnetworks(ctx context.Context, userCred mcclient.TokenCredential) error {
+	q := ElasticipManager.Query().Equals("network_id", net.Id)
+	eips := make([]SElasticip, 0)
+	err := db.FetchModelObjects(ElasticipManager, q, &eips)
+	if err != nil {
+		return err
+	}
+	for i := range eips {
+		err = eips[i].RealDelete(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (net *SNetwork) purgeReservedIps(ctx context.Context, userCred mcclient.TokenCredential) error {
 	q := ReservedipManager.Query().Equals("network_id", net.Id)
 	rips := make([]SReservedip, 0)
@@ -585,6 +601,10 @@ func (net *SNetwork) purge(ctx context.Context, userCred mcclient.TokenCredentia
 		return err
 	}
 	err = net.purgeLoadbalancernetworks(ctx, userCred)
+	if err != nil {
+		return err
+	}
+	err = net.purgeEipnetworks(ctx, userCred)
 	if err != nil {
 		return err
 	}

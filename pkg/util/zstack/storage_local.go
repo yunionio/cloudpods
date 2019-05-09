@@ -5,12 +5,13 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SLocalStorage struct {
-	zone *SZone
+	region *SRegion
 
 	primaryStorageID          string
 	HostUUID                  string `json:"hostUuid"`
@@ -48,19 +49,19 @@ func (region *SRegion) GetLocalStorages(storageId string, hostId string) ([]SLoc
 		return nil, err
 	}
 	for i := 0; i < len(localStorage); i++ {
+		localStorage[i].region = region
 		localStorage[i].primaryStorageID = storageId
 	}
 	return localStorage, nil
 }
 
-func (region *SRegion) getILocalStorages(zone *SZone, storageId, hostId string) ([]cloudprovider.ICloudStorage, error) {
+func (region *SRegion) getILocalStorages(storageId, hostId string) ([]cloudprovider.ICloudStorage, error) {
 	storages, err := region.GetLocalStorages(storageId, hostId)
 	if err != nil {
 		return nil, err
 	}
 	istorage := []cloudprovider.ICloudStorage{}
 	for i := 0; i < len(storages); i++ {
-		storages[i].zone = zone
 		istorage = append(istorage, &storages[i])
 	}
 	return istorage, nil
@@ -71,15 +72,15 @@ func (storage *SLocalStorage) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (storage *SLocalStorage) GetId() string {
-	return fmt.Sprintf("%s/%s", storage.primaryStorageID, storage.HostUUID)
+	return storage.primaryStorageID
 }
 
 func (storage *SLocalStorage) GetName() string {
-	primaryStorage, err := storage.zone.region.GetPrimaryStorage(storage.primaryStorageID)
+	primaryStorage, err := storage.region.GetStorage(storage.primaryStorageID)
 	if err != nil {
 		return "Unknown"
 	}
-	host, err := storage.zone.region.GetHost(storage.zone.UUID, storage.HostUUID)
+	host, err := storage.region.GetHost(storage.HostUUID)
 	if err != nil {
 		return "Unknown"
 	}
@@ -87,7 +88,7 @@ func (storage *SLocalStorage) GetName() string {
 }
 
 func (storage *SLocalStorage) GetGlobalId() string {
-	return storage.GetId()
+	return fmt.Sprintf("%s/%s", storage.primaryStorageID, storage.HostUUID)
 }
 
 func (storage *SLocalStorage) IsEmulated() bool {
@@ -95,11 +96,20 @@ func (storage *SLocalStorage) IsEmulated() bool {
 }
 
 func (storage *SLocalStorage) GetIZone() cloudprovider.ICloudZone {
-	return storage.zone
+	host, err := storage.region.GetHost(storage.HostUUID)
+	if err != nil {
+		log.Errorf("failed get host info %s error: %v", storage.HostUUID, err)
+		return nil
+	}
+	zone, err := storage.region.GetZone(host.ZoneUUID)
+	if err != nil {
+		log.Errorf("failed get zone info %s error: %v", host.ZoneUUID, err)
+	}
+	return zone
 }
 
 func (storage *SLocalStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
-	tags, err := storage.zone.region.GetSysTags("", "VolumeVO", "", "localStorage::hostUuid::"+storage.HostUUID)
+	tags, err := storage.region.GetSysTags("", "VolumeVO", "", "localStorage::hostUuid::"+storage.HostUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -107,14 +117,17 @@ func (storage *SLocalStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	for i := 0; i < len(tags); i++ {
 		diskIds = append(diskIds, tags[i].ResourceUUID)
 	}
-	disks, err := storage.zone.region.GetDisks(storage.primaryStorageID, diskIds, "")
+	idisks := []cloudprovider.ICloudDisk{}
+	if len(diskIds) == 0 {
+		return idisks, nil
+	}
+	disks, err := storage.region.GetDisks(storage.primaryStorageID, diskIds, "")
 	if err != nil {
 		return nil, err
 	}
-	idisks := []cloudprovider.ICloudDisk{}
 	for i := 0; i < len(disks); i++ {
 		disks[i].localStorage = storage
-		disks[i].region = storage.zone.region
+		disks[i].region = storage.region
 		idisks = append(idisks, &disks[i])
 	}
 	return idisks, nil
@@ -137,12 +150,8 @@ func (storage *SLocalStorage) GetStorageConf() jsonutils.JSONObject {
 	return conf
 }
 
-func (storage *SLocalStorage) GetManagerId() string {
-	return storage.zone.region.client.providerID
-}
-
 func (storage *SLocalStorage) GetStatus() string {
-	primaryStorage, err := storage.zone.region.GetPrimaryStorage(storage.primaryStorageID)
+	primaryStorage, err := storage.region.GetStorage(storage.primaryStorageID)
 	if err != nil {
 		return api.STORAGE_OFFLINE
 	}
@@ -159,12 +168,12 @@ func (storage *SLocalStorage) GetEnabled() bool {
 }
 
 func (storage *SLocalStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
-	storage.zone.region.GetIStoragecaches()
-	return storage.zone.region.storageCache
+	storage.region.GetIStoragecaches()
+	return storage.region.storageCache
 }
 
 func (storage *SLocalStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
-	disk, err := storage.zone.region.CreateDisk(name, storage.primaryStorageID, storage.HostUUID, "", sizeGb, desc)
+	disk, err := storage.region.CreateDisk(name, storage.primaryStorageID, storage.HostUUID, "", sizeGb, desc)
 	if err != nil {
 		return nil, err
 	}
@@ -173,23 +182,16 @@ func (storage *SLocalStorage) CreateIDisk(name string, sizeGb int, desc string) 
 }
 
 func (storage *SLocalStorage) GetIDiskById(diskId string) (cloudprovider.ICloudDisk, error) {
-	tags, err := storage.zone.region.GetSysTags("", "VolumeVO", diskId, "localStorage::hostUuid::"+storage.HostUUID)
+	disk, err := storage.region.GetDisk(diskId)
 	if err != nil {
 		return nil, err
 	}
-	if len(tags) == 1 {
-		disk, err := storage.zone.region.GetDisk(diskId)
-		if err != nil {
-			return nil, err
-		}
-		disk.localStorage = storage
-		disk.region = storage.zone.region
-		return disk, nil
-	}
-	if len(tags) == 0 || len(diskId) == 0 {
+	if disk.PrimaryStorageUUID != storage.primaryStorageID {
 		return nil, cloudprovider.ErrNotFound
 	}
-	return nil, cloudprovider.ErrDuplicateId
+	disk.localStorage = storage
+	disk.region = storage.region
+	return disk, nil
 }
 
 func (storage *SLocalStorage) GetMountPoint() string {

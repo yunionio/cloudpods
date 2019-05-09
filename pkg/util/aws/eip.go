@@ -124,6 +124,10 @@ func (self *SEipAddress) GetBandwidth() int {
 	return self.Bandwidth
 }
 
+func (self *SEipAddress) GetINetworkId() string {
+	return ""
+}
+
 func (self *SEipAddress) GetInternetChargeType() string {
 	// todo : implement me
 	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
@@ -250,14 +254,14 @@ func (self *SRegion) AllocateEIP(domainType string) (*SEipAddress, error) {
 	return self.GetEip(*eip.AllocationId)
 }
 
-func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
+func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
 	// todo: aws 不支持指定bwMbps, chargeType ？
 	log.Debugf("CreateEip: aws not support specific params name/bwMbps/chargeType.")
 	ieip, err := self.AllocateEIP("vpc")
-	if err == nil && len(name) > 0 {
+	if err == nil && len(eip.Name) > 0 {
 		eipId := ieip.GetId()
 		k := "Name"
-		nameTag := &ec2.Tag{Key: &k, Value: &name}
+		nameTag := &ec2.Tag{Key: &k, Value: &eip.Name}
 		params := &ec2.CreateTagsInput{}
 		params.SetResources([]*string{&eipId})
 		params.SetTags([]*ec2.Tag{nameTag})

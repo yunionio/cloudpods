@@ -77,6 +77,10 @@ func (self *SClassicEipAddress) GetBandwidth() int {
 	return 0
 }
 
+func (self *SClassicEipAddress) GetINetworkId() string {
+	return ""
+}
+
 func (self *SClassicEipAddress) GetGlobalId() string {
 	return strings.ToLower(self.ID)
 }

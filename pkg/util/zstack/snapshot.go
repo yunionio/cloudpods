@@ -5,7 +5,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
@@ -76,20 +75,8 @@ func (snapshot *SSnapshot) IsEmulated() bool {
 }
 
 func (region *SRegion) GetSnapshot(snapshotId string) (*SSnapshot, error) {
-	snapshots, err := region.GetSnapshots(snapshotId, "")
-	if err != nil {
-		return nil, err
-	}
-	if len(snapshots) == 1 {
-		if snapshots[0].UUID == snapshotId {
-			return &snapshots[0], nil
-		}
-		return nil, cloudprovider.ErrNotFound
-	}
-	if len(snapshots) == 0 || len(snapshotId) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return nil, cloudprovider.ErrDuplicateId
+	snapshot := &SSnapshot{region: region}
+	return snapshot, region.client.getResource("volume-snapshots", snapshotId, snapshot)
 }
 
 func (region *SRegion) GetSnapshots(snapshotId string, diskId string) ([]SSnapshot, error) {

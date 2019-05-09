@@ -793,9 +793,10 @@ func syncPublicCloudProviderInfo(
 
 	// no need to lock public cloud region as cloud region for public cloud is readonly
 
-	syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
-
+	// 需要先同步vpc，避免私有云eip找不到network
 	syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+
+	syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
 	for j := 0; j < len(localZones); j += 1 {
 

@@ -11,8 +11,8 @@ func init() {
 		ClusterId string
 		Id        string
 	}
-	shellutils.R(&StorageListOptions{}, "primary-storage-list", "List storages", func(cli *zstack.SRegion, args *StorageListOptions) error {
-		storages, err := cli.GetPrimaryStorages(args.ZoneId, args.ClusterId, args.Id)
+	shellutils.R(&StorageListOptions{}, "storage-list", "List storages", func(cli *zstack.SRegion, args *StorageListOptions) error {
+		storages, err := cli.GetStorages(args.ZoneId, args.ClusterId, args.Id)
 		if err != nil {
 			return err
 		}

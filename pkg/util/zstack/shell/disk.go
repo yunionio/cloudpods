@@ -20,6 +20,23 @@ func init() {
 		return nil
 	})
 
+	type DiskIdOptions struct {
+		ID string
+	}
+
+	shellutils.R(&DiskIdOptions{}, "disk-show", "Show disk", func(cli *zstack.SRegion, args *DiskIdOptions) error {
+		disk, err := cli.GetDisk(args.ID)
+		if err != nil {
+			return err
+		}
+		printObject(disk)
+		return nil
+	})
+
+	shellutils.R(&DiskIdOptions{}, "disk-delete", "Delete disk", func(cli *zstack.SRegion, args *DiskIdOptions) error {
+		return cli.DeleteDisk(args.ID)
+	})
+
 	type DiskCreateOptions struct {
 		NAME        string
 		Description string
@@ -36,14 +53,6 @@ func init() {
 		}
 		printObject(disk)
 		return nil
-	})
-
-	type DiskDelete struct {
-		ID string
-	}
-
-	shellutils.R(&DiskDelete{}, "disk-delete", "Delete disk", func(cli *zstack.SRegion, args *DiskDelete) error {
-		return cli.DeleteDisk(args.ID)
 	})
 
 	type DiskResize struct {

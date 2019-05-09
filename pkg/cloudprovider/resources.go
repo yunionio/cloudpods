@@ -67,7 +67,7 @@ type ICloudRegion interface {
 	SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error)
 
 	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
-	CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (ICloudEIP, error)
+	CreateEIP(eip *SEip) (ICloudEIP, error)
 
 	GetISnapshots() ([]ICloudSnapshot, error)
 	GetISnapshotById(snapshotId string) (ICloudSnapshot, error)
@@ -275,6 +275,7 @@ type ICloudEIP interface {
 
 	GetIpAddr() string
 	GetMode() string
+	GetINetworkId() string
 	GetAssociationType() string
 	GetAssociationExternalId() string
 

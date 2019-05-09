@@ -85,42 +85,13 @@ func (zone *SZone) GetIStorageById(storageId string) (cloudprovider.ICloudStorag
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (region *SRegion) GetHosts(zoneId string, hostId string) ([]SHost, error) {
-	hosts := []SHost{}
-	params := []string{}
-	if len(zoneId) > 0 {
-		params = append(params, "q=zone.uuid="+zoneId)
-	}
-	if len(hostId) > 0 {
-		params = append(params, "q=uuid="+hostId)
-	}
-	if SkipEsxi {
-		params = append(params, "q=hypervisorType!=ESX")
-	}
-	return hosts, region.client.listAll("hosts", params, &hosts)
-}
-
-func (region *SRegion) GetHost(zoneId string, hostId string) (*SHost, error) {
-	hosts, err := region.GetHosts(zoneId, hostId)
-	if err != nil {
-		return nil, err
-	}
-	if len(hosts) == 1 {
-		if hosts[0].UUID == hostId {
-			return &hosts[0], nil
-		}
-		return nil, cloudprovider.ErrNotFound
-	}
-	if len(hosts) == 0 || len(hostId) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return nil, cloudprovider.ErrDuplicateId
-}
-
 func (zone *SZone) GetIHostById(hostId string) (cloudprovider.ICloudHost, error) {
-	host, err := zone.region.GetHost(zone.UUID, hostId)
+	host, err := zone.region.GetHost(hostId)
 	if err != nil {
 		return nil, err
+	}
+	if host.ZoneUUID != zone.UUID {
+		return nil, cloudprovider.ErrNotFound
 	}
 	host.zone = zone
 	return host, nil

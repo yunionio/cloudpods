@@ -379,9 +379,9 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 // 华东-上海二：5_sbgp
 // 华北-北京一：5_bgp、5_sbgp
 // 亚太-香港：5_bgp
-func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
+func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
 	var ctype TInternetChargeType
-	switch chargeType {
+	switch eip.ChargeType {
 	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
 		ctype = InternetChargeByTraffic
 	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
@@ -389,27 +389,27 @@ func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpTy
 	}
 
 	// todo: 如何避免hardcode。集成到cloudmeta服务中？
-	if len(bgpType) == 0 {
+	if len(eip.BGPType) == 0 {
 		switch self.GetId() {
 		case "cn-north-1", "cn-east-2", "cn-south-1":
-			bgpType = "5_sbgp"
+			eip.BGPType = "5_sbgp"
 		case "cn-northeast-1":
-			bgpType = "5_telcom"
+			eip.BGPType = "5_telcom"
 		case "cn-north-4", "ap-southeast-1", "ap-southeast-2", "eu-west-0":
-			bgpType = "5_bgp"
+			eip.BGPType = "5_bgp"
 		default:
-			bgpType = "5_bgp"
+			eip.BGPType = "5_bgp"
 		}
 	}
 
-	eip, err := self.AllocateEIP(name, bwMbps, ctype, bgpType)
-	eip.region = self
+	ieip, err := self.AllocateEIP(eip.Name, eip.BandwidthMbps, ctype, eip.BGPType)
+	ieip.region = self
 	if err != nil {
 		return nil, err
 	}
 
-	err = cloudprovider.WaitStatus(eip, api.EIP_STATUS_READY, 5*time.Second, 60*time.Second)
-	return eip, err
+	err = cloudprovider.WaitStatus(ieip, api.EIP_STATUS_READY, 5*time.Second, 60*time.Second)
+	return ieip, err
 }
 
 func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {

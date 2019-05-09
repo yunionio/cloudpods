@@ -47,7 +47,9 @@ func init() {
 		MANAGER    string `help:"cloud provider"`
 		REGION     string `help:"cloud region in which EIP is allocated"`
 		NAME       string `help:"name of the EIP"`
-		BW         int    `help:"Bandwidth in Mbps"`
+		Bandwidth  int    `help:"Bandwidth in Mbps"`
+		Ip         string `help:"IP address of the EIP"`
+		Network    string `help:"Network of the EIP"`
 		ChargeType string `help:"bandwidth charge type, either traffic or bandwidth" choices:"traffic|bandwidth"`
 	}
 	R(&EipCreateOptions{}, "eip-create", "Create an EIP", func(s *mcclient.ClientSession, args *EipCreateOptions) error {
@@ -55,10 +57,20 @@ func init() {
 		params.Add(jsonutils.NewString(args.MANAGER), "manager")
 		params.Add(jsonutils.NewString(args.REGION), "region")
 		params.Add(jsonutils.NewString(args.NAME), "name")
-		params.Add(jsonutils.NewInt(int64(args.BW)), "bandwidth")
+		if args.Bandwidth != 0 {
+			params.Add(jsonutils.NewInt(int64(args.Bandwidth)), "bandwidth")
+		}
 
 		if len(args.ChargeType) > 0 {
 			params.Add(jsonutils.NewString(args.ChargeType), "charge_type")
+		}
+
+		if len(args.Network) > 0 {
+			params.Add(jsonutils.NewString(args.Network), "network")
+		}
+
+		if len(args.Ip) > 0 {
+			params.Add(jsonutils.NewString(args.Ip), "ip")
 		}
 
 		result, err := modules.Elasticips.Create(s, params)

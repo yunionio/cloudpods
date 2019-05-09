@@ -2,6 +2,7 @@ package zstack
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -35,11 +36,11 @@ func (region *SRegion) GetId() string {
 }
 
 func (region *SRegion) GetName() string {
-	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_ZSTACK, region.Name)
+	return region.client.providerName
 }
 
 func (region *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_ZSTACK, region.Name)
+	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_ZSTACK, region.client.providerID)
 }
 
 func (region *SRegion) IsEmulated() bool {
@@ -64,7 +65,7 @@ func (region *SRegion) Refresh() error {
 }
 
 func (region *SRegion) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
-	return region.GetHost("", id)
+	return region.GetHost(id)
 }
 
 func (region *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
@@ -114,6 +115,10 @@ func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, 
 	return []cloudprovider.ICloudStoragecache{region.storageCache}, nil
 }
 
+func (region *SRegion) getStorageCache() *SStoragecache {
+	return &SStoragecache{region: region}
+}
+
 func (region *SRegion) GetIVpcById(vpcId string) (cloudprovider.ICloudVpc, error) {
 	return &SVpc{region: region}, nil
 }
@@ -132,20 +137,8 @@ func (region *SRegion) GetIZoneById(id string) (cloudprovider.ICloudZone, error)
 }
 
 func (region *SRegion) GetZone(zoneId string) (*SZone, error) {
-	zones, err := region.GetZones(zoneId)
-	if err != nil {
-		return nil, err
-	}
-	if len(zones) == 1 {
-		if zones[0].UUID == zoneId {
-			return &zones[0], nil
-		}
-		return nil, cloudprovider.ErrNotFound
-	}
-	if len(zones) == 0 || len(zoneId) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return nil, cloudprovider.ErrDuplicateId
+	zone := &SZone{region: region}
+	return zone, region.client.getResource("zones", zoneId, zone)
 }
 
 func (region *SRegion) GetZones(zoneId string) ([]SZone, error) {
@@ -206,8 +199,23 @@ func (region *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudp
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (region *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
-	return nil, cloudprovider.ErrNotImplemented
+func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
+	if len(eip.NetworkExternalId) == 0 {
+		return nil, fmt.Errorf("networkId cannot be empty")
+	}
+	networkInfo := strings.Split(eip.NetworkExternalId, "/")
+	if len(networkInfo) != 2 {
+		return nil, fmt.Errorf("invalid network externalId, it should be `l3networId/networkId` format")
+	}
+	_, err := region.GetL3Network(networkInfo[0])
+	if err != nil {
+		return nil, err
+	}
+	vip, err := region.CreateVirtualIP(eip.Name, "", eip.IP, networkInfo[0])
+	if err != nil {
+		return nil, err
+	}
+	return region.CreateEip(eip.Name, vip.UUID, "")
 }
 
 func (region *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
@@ -284,7 +292,7 @@ func (region *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloud
 }
 
 func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
-	offerings, err := region.GetInstanceOfferings("")
+	offerings, err := region.GetInstanceOfferings("", "", 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -296,5 +304,22 @@ func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error)
 }
 
 func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
-	return "", cloudprovider.ErrNotImplemented
+	if len(secgroupId) > 0 {
+		_, err := region.GetSecurityGroup(secgroupId)
+		if err != nil {
+			if err == cloudprovider.ErrNotFound {
+				secgroupId = ""
+			} else {
+				return "", err
+			}
+		}
+	}
+	if len(secgroupId) == 0 {
+		secgroup, err := region.CreateSecurityGroup(name, desc)
+		if err != nil {
+			return "", err
+		}
+		secgroupId = secgroup.UUID
+	}
+	return secgroupId, region.syncSecgroupRules(secgroupId, rules)
 }

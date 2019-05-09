@@ -16,7 +16,6 @@ package hostdrivers
 
 import (
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -41,8 +40,5 @@ func (self *SZStackHostDriver) ValidateAttachStorage(host *models.SHost, storage
 }
 
 func (self *SZStackHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
-	if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_ZSTACK_IMAGECACHE, api.STORAGE_ZSTACK_ROOT}) {
-		return httperrors.NewUnsupportOperationError("Not support create %s disk", storage.StorageType)
-	}
 	return nil
 }

@@ -297,7 +297,7 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 		if ce.Code == 0 {
 			ce.Code = resp.StatusCode
 		}
-		if edetail := jsonutils.GetAnyString(jrbody2, []string{"message", "detail", "error_msg"}); len(edetail) > 0 {
+		if edetail := jsonutils.GetAnyString(jrbody2, []string{"message", "detail", "details", "error_msg"}); len(edetail) > 0 {
 			ce.Details = edetail
 		}
 		if eclass := jsonutils.GetAnyString(jrbody2, []string{"title", "type", "error_code"}); len(eclass) > 0 {

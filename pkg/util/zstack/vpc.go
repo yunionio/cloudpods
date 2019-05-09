@@ -24,7 +24,7 @@ func (vpc *SVpc) GetId() string {
 }
 
 func (vpc *SVpc) GetName() string {
-	return DEFAULT_VPC_NAME
+	return fmt.Sprintf("%s-VPC", vpc.region.client.providerName)
 }
 
 func (vpc *SVpc) GetGlobalId() string {
@@ -93,10 +93,6 @@ func (vpc *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, erro
 
 func (vpc *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 	return nil, cloudprovider.ErrNotSupported
-}
-
-func (vpc *SVpc) GetManagerId() string {
-	return vpc.region.client.providerID
 }
 
 func (vpc *SVpc) Delete() error {

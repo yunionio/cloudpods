@@ -141,6 +141,9 @@ func (cli *SZStackClient) _list(resource string, start int, limit int, params []
 }
 
 func (cli *SZStackClient) getDeleteURL(resource, resourceId, deleteMode string) string {
+	if len(resourceId) == 0 {
+		return cli.authURL + fmt.Sprintf("/zstack/%s/%s", ZSTACK_API_VERSION, resource)
+	}
 	url := cli.authURL + fmt.Sprintf("/zstack/%s/%s/%s", ZSTACK_API_VERSION, resource, resourceId)
 	if len(deleteMode) > 0 {
 		url += "?deleteMode=" + deleteMode
@@ -171,6 +174,12 @@ func (cli *SZStackClient) _delete(resource, resourceId, deleteMode string) (json
 }
 
 func (cli *SZStackClient) getURL(resource, resourceId, spec string) string {
+	if len(resourceId) == 0 {
+		return cli.authURL + fmt.Sprintf("/zstack/%s/%s", ZSTACK_API_VERSION, resource)
+	}
+	if len(spec) == 0 {
+		return cli.authURL + fmt.Sprintf("/zstack/%s/%s/%s", ZSTACK_API_VERSION, resource, resourceId)
+	}
 	return cli.authURL + fmt.Sprintf("/zstack/%s/%s/%s/%s", ZSTACK_API_VERSION, resource, resourceId, spec)
 }
 
@@ -199,6 +208,27 @@ func (cli *SZStackClient) _put(resource, resourceId string, params jsonutils.JSO
 	return resp, nil
 }
 
+func (cli *SZStackClient) getResource(resource, resourceId string, retval interface{}) error {
+	if len(resourceId) == 0 {
+		return cloudprovider.ErrNotFound
+	}
+	resp, err := cli._get(resource, resourceId, "")
+	if err != nil {
+		return err
+	}
+	inventories, err := resp.GetArray("inventories")
+	if err != nil {
+		return err
+	}
+	if len(inventories) == 1 {
+		return inventories[0].Unmarshal(retval)
+	}
+	if len(inventories) == 0 {
+		return cloudprovider.ErrNotFound
+	}
+	return cloudprovider.ErrDuplicateId
+}
+
 func (cli *SZStackClient) get(resource, resourceId string, spec string) (jsonutils.JSONObject, error) {
 	return cli._get(resource, resourceId, spec)
 }
@@ -210,7 +240,25 @@ func (cli *SZStackClient) _get(resource, resourceId string, spec string) (jsonut
 	header.Add("Authorization", "OAuth "+cli.sessionID)
 	requestURL := cli.getURL(resource, resourceId, spec)
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "GET", requestURL, header, nil, cli.debug)
-	return resp, err
+	if err != nil {
+		return nil, err
+	}
+	if resp.Contains("location") {
+		location, _ := resp.GetString("location")
+		return cli.wait(client, header, "get", requestURL, jsonutils.NewDict(), location)
+	}
+	return resp, nil
+}
+
+func (cli *SZStackClient) create(resource string, params jsonutils.JSONObject, retval interface{}) error {
+	resp, err := cli._post(resource, params)
+	if err != nil {
+		return err
+	}
+	if retval == nil {
+		return nil
+	}
+	return resp.Unmarshal(retval, "inventory")
 }
 
 func (cli *SZStackClient) post(resource string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {

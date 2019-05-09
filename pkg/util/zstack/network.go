@@ -1,6 +1,8 @@
 package zstack
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/netutils"
@@ -54,21 +56,9 @@ func (region *SRegion) GetNetwork(zoneId, wireId, l3Id, networkId string) (*SNet
 	return nil, cloudprovider.ErrDuplicateId
 }
 
-func (region *SRegion) GetL3Network(zoneId string, wireId string, l3Id string) (*SL3Network, error) {
-	l3Networks, err := region.GetL3Networks(zoneId, wireId, l3Id)
-	if err != nil {
-		return nil, err
-	}
-	if len(l3Networks) == 1 {
-		if l3Networks[0].UUID == l3Id {
-			return &l3Networks[0], nil
-		}
-		return nil, cloudprovider.ErrNotFound
-	}
-	if len(l3Networks) == 0 || len(l3Id) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return nil, cloudprovider.ErrDuplicateId
+func (region *SRegion) GetL3Network(l3Id string) (*SL3Network, error) {
+	l3network := &SL3Network{}
+	return l3network, region.client.getResource("l3-networks", l3Id, l3network)
 }
 
 func (region *SRegion) GetL3Networks(zoneId string, wireId string, l3Id string) ([]SL3Network, error) {
@@ -115,7 +105,7 @@ func (network *SNetwork) GetName() string {
 }
 
 func (network *SNetwork) GetGlobalId() string {
-	return network.UUID
+	return fmt.Sprintf("%s/%s", network.L3NetworkUUID, network.UUID)
 }
 
 func (network *SNetwork) IsEmulated() bool {
@@ -131,7 +121,18 @@ func (network *SNetwork) Delete() error {
 }
 
 func (region *SRegion) DeleteNetwork(networkId string) error {
-	return cloudprovider.ErrNotImplemented
+	network, err := region.GetNetwork("", "", "", networkId)
+	if err != nil {
+		return err
+	}
+	l3, err := region.GetL3Network(network.L3NetworkUUID)
+	if err != nil {
+		return err
+	}
+	if len(l3.Networks) == 1 {
+		return region.client.delete("l3-networks", l3.UUID, "")
+	}
+	return region.client.delete("l3-networks/ip-ranges", networkId, "")
 }
 
 func (network *SNetwork) GetIWire() cloudprovider.ICloudWire {
@@ -160,6 +161,14 @@ func (network *SNetwork) GetIPRange() netutils.IPV4AddrRange {
 	return netutils.NewIPV4AddrRange(start, end)
 }
 
+func (network *SNetwork) Contains(ipAddr string) bool {
+	ip, err := netutils.NewIPV4Addr(ipAddr)
+	if err != nil {
+		return false
+	}
+	return network.GetIPRange().Contains(ip)
+}
+
 func (network *SNetwork) GetIpMask() int8 {
 	return int8(network.PrefixLen)
 }
@@ -183,4 +192,40 @@ func (network *SNetwork) Refresh() error {
 
 func (network *SNetwork) GetProjectId() string {
 	return ""
+}
+
+func (region *SRegion) CreateNetwork(name string, cidr string, wireId string, desc string) (*SNetwork, error) {
+	params := map[string]interface{}{
+		"params": map[string]interface{}{
+			"name":          name,
+			"type":          "L3BasicNetwork",
+			"l2NetworkUuid": wireId,
+			"category":      "Private",
+			"system":        false,
+		},
+	}
+	l3 := &SL3Network{}
+	resp, err := region.client.post("l3-networks", jsonutils.Marshal(params))
+	if err != nil {
+		return nil, err
+	}
+	err = resp.Unmarshal(l3, "inventory")
+	if err != nil {
+		return nil, err
+	}
+	region.AttachServiceForl3Network(l3.UUID, []string{"Flat", "SecurityGroup"})
+	params = map[string]interface{}{
+		"params": map[string]interface{}{
+			"name":        name,
+			"networkCidr": cidr,
+		},
+	}
+	resource := fmt.Sprintf("l3-networks/%s/ip-ranges/by-cidr", l3.UUID)
+	resp, err = region.client.post(resource, jsonutils.Marshal(params))
+	if err != nil {
+		region.client.delete("l3-networks", l3.UUID, "")
+		return nil, err
+	}
+	network := &SNetwork{}
+	return network, resp.Unmarshal(network, "inventory")
 }

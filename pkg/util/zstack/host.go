@@ -1,7 +1,12 @@
 package zstack
 
 import (
+	"fmt"
+	"strings"
+	"time"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -28,6 +33,35 @@ type SHost struct {
 	ZStackTime
 }
 
+func (region *SRegion) GetHosts(zoneId string, hostId string) ([]SHost, error) {
+	hosts := []SHost{}
+	params := []string{}
+	if len(zoneId) > 0 {
+		params = append(params, "q=zone.uuid="+zoneId)
+	}
+	if len(hostId) > 0 {
+		params = append(params, "q=uuid="+hostId)
+	}
+	if SkipEsxi {
+		params = append(params, "q=hypervisorType!=ESX")
+	}
+	return hosts, region.client.listAll("hosts", params, &hosts)
+}
+
+func (region *SRegion) GetHost(hostId string) (*SHost, error) {
+	host := &SHost{}
+	err := region.client.getResource("hosts", hostId, host)
+	if err != nil {
+		return nil, err
+	}
+	zone, err := region.GetZone(host.ZoneUUID)
+	if err != nil {
+		return nil, err
+	}
+	host.zone = zone
+	return host, nil
+}
+
 func (host *SHost) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
@@ -45,25 +79,21 @@ func (host *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
 }
 
 func (host *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	primaryStorages, err := host.zone.region.GetPrimaryStorages(host.zone.UUID, host.ClusterUUID, "")
+	storages, err := host.zone.region.GetStorages(host.zone.UUID, host.ClusterUUID, "")
 	if err != nil {
 		return nil, err
 	}
 	istorages := []cloudprovider.ICloudStorage{}
-	for i := 0; i < len(primaryStorages); i++ {
-		switch primaryStorages[i].Type {
+	for i := 0; i < len(storages); i++ {
+		switch storages[i].Type {
 		case StorageTypeLocal:
-			storages, err := host.zone.region.getILocalStorages(host.zone, primaryStorages[i].UUID, host.UUID)
+			localStorages, err := host.zone.region.getILocalStorages(storages[i].UUID, host.UUID)
 			if err != nil {
 				return nil, err
 			}
-			istorages = append(istorages, storages...)
+			istorages = append(istorages, localStorages...)
 		case StorageTypeCeph:
-			storages, err := host.zone.region.getICephStorages(host.zone, primaryStorages[i].UUID)
-			if err != nil {
-				return nil, err
-			}
-			istorages = append(istorages, storages...)
+			istorages = append(istorages, &storages[i])
 		case StorageTypeVCenter:
 		}
 	}
@@ -88,21 +118,12 @@ func (host *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 }
 
 func (host *SHost) GetIVMById(instanceId string) (cloudprovider.ICloudVM, error) {
-	instances, err := host.zone.region.GetInstances(host.UUID, instanceId, "")
+	instance, err := host.zone.region.GetInstance(instanceId)
 	if err != nil {
 		return nil, err
 	}
-	if len(instances) == 1 {
-		if instances[0].UUID == instanceId {
-			instances[0].host = host
-			return &instances[0], nil
-		}
-		return nil, cloudprovider.ErrNotFound
-	}
-	if len(instances) == 0 || len(instanceId) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return nil, cloudprovider.ErrDuplicateId
+	instance.host = host
+	return instance, nil
 }
 
 func (host *SHost) GetId() string {
@@ -179,7 +200,7 @@ func (host *SHost) GetMemSizeMB() int {
 }
 
 func (host *SHost) GetStorageSizeMB() int {
-	storages, err := host.zone.region.GetPrimaryStorages(host.zone.UUID, host.ClusterUUID, "")
+	storages, err := host.zone.region.GetStorages(host.zone.UUID, host.ClusterUUID, "")
 	if err != nil {
 		return 0
 	}
@@ -206,12 +227,164 @@ func (host *SHost) GetHostType() string {
 	return api.HOST_TYPE_ZSTACK
 }
 
-func (host *SHost) GetManagerId() string {
-	return host.zone.region.client.providerID
+func (region *SRegion) cleanDisks(diskIds []string) {
+	for i := 0; i < len(diskIds); i++ {
+		err := region.DeleteDisk(diskIds[i])
+		if err != nil {
+			log.Errorf("clean disk %s error: %v", diskIds[i], err)
+		}
+	}
+}
+
+func (region *SRegion) createDataDisks(name, hostId string, storages []cloudprovider.ICloudStorage, disks []cloudprovider.SDiskInfo) ([]string, error) {
+	diskIds := []string{}
+	for i := 0; i < len(disks); i++ {
+		for j := 0; j < len(storages); j++ {
+			poolName := ""
+			if storages[i].GetStorageType() == disks[i].StorageType {
+				switch disks[i].StorageType {
+				case "localstorage":
+					poolName = ""
+				case "ceph":
+					hostId = ""
+					storage := storages[j].(*SStorage)
+					poolName, _ := storage.GetDataPoolName()
+					if len(poolName) == 0 {
+						return []string{}, fmt.Errorf("failed to found data pool for ceph storage %s", storage.Name)
+					}
+				default:
+					return diskIds, fmt.Errorf("not support storageType %s", disks[i].StorageType)
+				}
+				name := fmt.Sprintf("vdisk_%s_%d", name, time.Now().UnixNano())
+				disk, err := region.CreateDisk(name, storages[j].GetId(), hostId, poolName, disks[i].SizeGB, "")
+				if err != nil {
+					return diskIds, err
+				}
+				diskIds = append(diskIds, disk.UUID)
+			}
+		}
+	}
+	return diskIds, nil
 }
 
 func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	storages, err := host.GetIStorages()
+	if err != nil {
+		return nil, err
+	}
+	diskIds, err := host.zone.region.createDataDisks(desc.Name, host.UUID, storages, desc.DataDisks)
+	if err != nil {
+		defer host.zone.region.cleanDisks(diskIds)
+		return nil, err
+	}
+	rootStorageId := ""
+	for i := 0; i < len(storages); i++ {
+		if storages[i].GetStorageType() == desc.SysDisk.StorageType {
+			rootStorageId = storages[i].GetId()
+		}
+	}
+	if len(rootStorageId) == 0 {
+		return nil, fmt.Errorf("failed to found appropriate storage for root disk")
+	}
+	instance, err := host.zone.region._createVM(desc, host.UUID, rootStorageId)
+	if err != nil {
+		defer host.zone.region.cleanDisks(diskIds)
+		return nil, err
+	}
+	for i := 0; i < len(diskIds); i++ {
+		err = host.zone.region.AttachDisk(instance.UUID, diskIds[i])
+		if err != nil {
+			log.Errorf("failed to attach disk %s into instance %s error: %v", diskIds[i], instance.Name, err)
+		}
+	}
+	err = host.zone.region.AssignSecurityGroup(instance.UUID, desc.ExternalSecgroupId)
+	if err != nil {
+		return nil, err
+	}
+	return host.GetIVMById(instance.UUID)
+}
+
+func (region *SRegion) _createVM(desc *cloudprovider.SManagedVMCreateConfig, hostId string, rootStorageId string) (*SInstance, error) {
+	l3Id := strings.Split(desc.ExternalNetworkId, "/")[0]
+	if len(l3Id) == 0 {
+		return nil, fmt.Errorf("invalid networkid: %s", desc.ExternalNetworkId)
+	}
+	_, err := region.GetL3Network(l3Id)
+	if err != nil {
+		log.Errorf("failed to found l3network %s error: %v", l3Id, err)
+		return nil, err
+	}
+	offerings := map[string]string{}
+	if len(desc.InstanceType) > 0 {
+		offering, err := region.GetInstanceOfferingByType(desc.InstanceType)
+		if err != nil {
+			return nil, err
+		}
+		offerings[offering.Name] = offering.UUID
+	} else {
+		_offerings, err := region.GetInstanceOfferings("", "", desc.Cpu, desc.MemoryMB)
+		if err != nil {
+			return nil, err
+		}
+		for _, offering := range _offerings {
+			offerings[offering.Name] = offering.UUID
+		}
+		if len(offerings) == 0 {
+			return nil, fmt.Errorf("instance type %dC%dMB not avaiable", desc.Cpu, desc.MemoryMB)
+		}
+	}
+	return region.CreateInstance(desc, l3Id, hostId, rootStorageId, offerings)
+}
+
+func (region *SRegion) CreateInstance(desc *cloudprovider.SManagedVMCreateConfig, l3Id, hostId, rootStorageId string, offerings map[string]string) (*SInstance, error) {
+	instance := &SInstance{}
+	systemTags := []string{
+		"cdroms::Empty::None::None",
+		"usbRedirect::false",
+		fmt.Sprintf("staticIp::%s::%s", l3Id, desc.IpAddr),
+		"vmConsoleMode::vnc",
+		"cleanTraffic::false",
+	}
+	if len(desc.UserData) > 0 {
+		systemTags = append(systemTags, "userdata::"+desc.UserData)
+	}
+	if len(desc.PublicKey) > 0 {
+		systemTags = append(systemTags, "sshkey::"+desc.PublicKey)
+	}
+	var err error
+	for offerName, offerId := range offerings {
+		params := map[string]interface{}{
+			"params": map[string]interface{}{
+				"name":                 desc.Name,
+				"description":          desc.Description,
+				"instanceOfferingUuid": offerId,
+				"imageUuid":            desc.ExternalImageId,
+				"l3NetworkUuids": []string{
+					l3Id,
+				},
+				"hostUuid":                        hostId,
+				"dataVolumeSystemTags":            []string{},
+				"rootVolumeSystemTags":            []string{},
+				"vmMachineType":                   "",
+				"tagUuids":                        []string{},
+				"defaultL3NetworkUuid":            l3Id,
+				"primaryStorageUuidForRootVolume": rootStorageId,
+				"dataDiskOfferingUuids":           []string{},
+				"systemTags":                      systemTags,
+				"vmNicConfig":                     []string{},
+			},
+		}
+		log.Debugf("Try instanceOffering : %s", offerName)
+		err = region.client.create("vm-instances", jsonutils.Marshal(params), instance)
+		if err == nil {
+			return instance, nil
+		}
+		log.Errorf("create %s instance failed error: %v", offerName, err)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return nil, fmt.Errorf("instance type %dC%dMB not avaiable", desc.Cpu, desc.MemoryMB)
 }
 
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {

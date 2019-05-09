@@ -15,7 +15,7 @@ import (
 
 type SDisk struct {
 	localStorage *SLocalStorage
-	cephStorage  *SCephStorage
+	storage      *SStorage
 	region       *SRegion
 
 	ZStackBasic
@@ -24,7 +24,7 @@ type SDisk struct {
 	DiskOfferingUUID   string  `json:"diskOfferingUuid"`
 	RootImageUUID      string  `json:"rootImageUuid"`
 	InstallPath        string  `json:"installPath"`
-	Type               string  `json:"Type"`
+	Type               string  `json:"type"`
 	Format             string  `json:"format"`
 	Size               int     `json:"size"`
 	ActualSize         int     `json:"actualSize"`
@@ -36,36 +36,38 @@ type SDisk struct {
 }
 
 func (region *SRegion) GetDisk(diskId string) (*SDisk, error) {
-	disks, err := region.GetDisks("", []string{diskId}, "")
-	if err != nil {
-		return nil, err
-	}
-	if len(disks) == 1 {
-		if disks[0].UUID == diskId {
-			return &disks[0], nil
-		}
-		return nil, cloudprovider.ErrNotFound
-	}
-	if len(disks) == 0 || len(diskId) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return nil, cloudprovider.ErrDuplicateId
+	disk := &SDisk{region: region}
+	return disk, region.client.getResource("volumes", diskId, disk)
 }
 
 func (region *SRegion) GetDiskWithStorage(diskId string) (*SDisk, error) {
 	disk, err := region.GetDisk(diskId)
 	if err != nil {
+		log.Errorf("Get Disk %s error: %v", diskId, err)
 		return nil, err
 	}
-	disk.region = region
-	storage, err := region.GetPrimaryStorage(disk.PrimaryStorageUUID)
+	storage, err := region.GetStorage(disk.PrimaryStorageUUID)
 	if err != nil {
+		log.Errorf("Get primary storage %s error: %v", disk.PrimaryStorageUUID, err)
 		return nil, err
 	}
 	switch storage.Type {
 	case StorageTypeLocal:
+		if len(disk.VMInstanceUUID) > 0 {
+			instance, err := region.GetInstance(disk.VMInstanceUUID)
+			if err != nil {
+				return nil, err
+			}
+			hostId := instance.LastHostUUID
+			if len(hostId) == 0 {
+				hostId = instance.HostUUID
+			}
+			disk.localStorage = &SLocalStorage{region: region, primaryStorageID: storage.UUID, HostUUID: hostId}
+			return disk, nil
+		}
 		tags, err := region.GetSysTags("", "VolumeVO", disk.UUID, "")
 		if err != nil {
+			log.Errorf("get disk tag error: %v", err)
 			return nil, err
 		}
 		for i := 0; i < len(tags); i++ {
@@ -84,23 +86,8 @@ func (region *SRegion) GetDiskWithStorage(diskId string) (*SDisk, error) {
 		}
 		return nil, cloudprovider.ErrNotFound
 	case StorageTypeCeph:
-		storage, err := region.GetPrimaryStorage(disk.PrimaryStorageUUID)
-		if err != nil {
-			return nil, err
-		}
-		for i := 0; i < len(storage.Pools); i++ {
-			if strings.Contains(disk.InstallPath, storage.Pools[i].PoolName) {
-				zone, err := region.GetZone(storage.ZoneUUID)
-				if err != nil {
-					return nil, err
-				}
-				cephStorage := storage.Pools[i]
-				cephStorage.zone = zone
-				disk.cephStorage = &cephStorage
-				return disk, nil
-			}
-		}
-		return nil, fmt.Errorf("failed to found ceph storage for disk %s", disk.Name)
+		disk.storage = storage
+		return disk, nil
 	default:
 		return nil, fmt.Errorf("Unsupport StorageType %s", storage.Type)
 	}
@@ -156,8 +143,8 @@ func (disk *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 	if disk.localStorage != nil {
 		return disk.localStorage, nil
 	}
-	if disk.cephStorage != nil {
-		return disk.cephStorage, nil
+	if disk.storage != nil {
+		return disk.storage, nil
 	}
 	return nil, cloudprovider.ErrNotFound
 }
@@ -167,7 +154,10 @@ func (disk *SDisk) GetStatus() string {
 	case "Ready":
 		return api.DISK_READY
 	case "NotInstantiated":
-		return api.DISK_READY
+		//数据云盘特有的状态。在这个连接状态中，数据云盘只存在于数据库的表记录中。NotInstantiated状态的数据云盘可以挂载到任何类型虚拟机管理程序管理的云主机上；当挂载到云主机上后，数据云盘的hypervisorType域会存储云主机对应的虚拟机管理程序类型，在主存储上被实例化为虚拟机管理程序类型的实际二进制文件，同时连接状态会改为就绪（Ready）；在这之后，这些数据云盘就只能被重新挂载到相同类型虚拟机管理程序管理的云主机上了。
+		return api.DISK_INIT
+	case "Creating":
+		return api.DISK_ALLOCATING
 	default:
 		log.Errorf("Unknown disk %s(%s) status %s", disk.Name, disk.UUID, disk.Status)
 		return api.DISK_UNKNOWN
@@ -258,12 +248,23 @@ func (region *SRegion) CreateDisk(name string, storageId string, hostId string, 
 		params["systemTags"] = []string{"ceph::pool::" + poolName}
 	}
 	resp, err := region.client.post("volumes/data", jsonutils.Marshal(params))
-	disk := &SDisk{}
+	if err != nil {
+		return nil, err
+	}
+	disk := &SDisk{region: region}
 	return disk, resp.Unmarshal(disk, "inventory")
 }
 
 func (region *SRegion) DeleteDisk(diskId string) error {
-	return region.client.delete("volumes", diskId, "Enforcing")
+	err := region.client.delete("volumes", diskId, "Enforcing")
+	if err != nil {
+		return err
+	}
+	params := map[string]interface{}{
+		"expungeDataVolume": jsonutils.NewDict(),
+	}
+	_, err = region.client.put("volumes", diskId, jsonutils.Marshal(params))
+	return err
 }
 
 func (region *SRegion) ResizeDisk(diskId string, sizeMb int64) error {

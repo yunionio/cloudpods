@@ -31,6 +31,7 @@ const (
 	SPICE     = "spice"
 	WMKS      = "wmks"
 	VMRC      = "vmrc"
+	ZSTACK    = "zstack"
 )
 
 type RemoteConsoleInfo struct {
@@ -108,7 +109,7 @@ func (info *RemoteConsoleInfo) GetConnectParams() (string, error) {
 		return info.getAliyunURL()
 	case QCLOUD:
 		return info.getQcloudURL()
-	case OPENSTACK, VMRC:
+	case OPENSTACK, VMRC, ZSTACK:
 		return info.Url, nil
 	default:
 		return "", fmt.Errorf("Can't convert protocol %s to connect params", info.Protocol)

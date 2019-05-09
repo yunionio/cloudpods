@@ -1,6 +1,7 @@
 package zstack
 
 import (
+	"fmt"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -22,20 +23,8 @@ type SEipAddress struct {
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	eips, err := region.GetEips(eipId, "")
-	if err != nil {
-		return nil, err
-	}
-	if len(eips) == 1 {
-		if eips[0].UUID == eipId {
-			return &eips[0], nil
-		}
-		return nil, cloudprovider.ErrNotFound
-	}
-	if len(eips) == 0 || len(eipId) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return nil, cloudprovider.ErrDuplicateId
+	eip := &SEipAddress{region: region}
+	return eip, region.client.getResource("eips", eipId, eip)
 }
 
 func (region *SRegion) GetEips(eipId, instanceId string) ([]SEipAddress, error) {
@@ -104,15 +93,11 @@ func (eip *SEipAddress) GetAssociationType() string {
 func (eip *SEipAddress) GetAssociationExternalId() string {
 	if len(eip.VMNicUUID) > 0 {
 		instances, err := eip.region.GetInstances("", "", eip.VMNicUUID)
-		if err != nil && len(instances) == 1 {
+		if err == nil && len(instances) == 1 {
 			return instances[0].UUID
 		}
 	}
 	return ""
-}
-
-func (eip *SEipAddress) GetManagerId() string {
-	return eip.region.client.providerID
 }
 
 func (eip *SEipAddress) GetBillingType() string {
@@ -128,11 +113,19 @@ func (eip *SEipAddress) GetExpiredAt() time.Time {
 }
 
 func (eip *SEipAddress) Delete() error {
-	return cloudprovider.ErrNotImplemented
+	return eip.region.DeleteVirtualIP(eip.VipUUID)
 }
 
 func (eip *SEipAddress) GetBandwidth() int {
 	return 0
+}
+
+func (eip *SEipAddress) GetINetworkId() string {
+	vip, err := eip.region.GetVirtualIP(eip.VipUUID)
+	if err == nil {
+		return eip.region.GetNetworkId(vip)
+	}
+	return ""
 }
 
 func (eip *SEipAddress) GetInternetChargeType() string {
@@ -140,11 +133,11 @@ func (eip *SEipAddress) GetInternetChargeType() string {
 }
 
 func (eip *SEipAddress) Associate(instanceId string) error {
-	return cloudprovider.ErrNotImplemented
+	return eip.region.AssociateEip(instanceId, eip.UUID)
 }
 
 func (eip *SEipAddress) Dissociate() error {
-	return cloudprovider.ErrNotImplemented
+	return eip.region.DisassociateEip(eip.UUID)
 }
 
 func (eip *SEipAddress) ChangeBandwidth(bw int) error {
@@ -153,4 +146,41 @@ func (eip *SEipAddress) ChangeBandwidth(bw int) error {
 
 func (eip *SEipAddress) GetProjectId() string {
 	return ""
+}
+
+func (region *SRegion) CreateEip(name string, vipId string, desc string) (*SEipAddress, error) {
+	params := map[string]map[string]string{
+		"params": {
+			"name":        name,
+			"description": desc,
+			"vipUuid":     vipId,
+		},
+	}
+	eip := &SEipAddress{region: region}
+	resp, err := region.client.post("eips", jsonutils.Marshal(params))
+	if err != nil {
+		return nil, err
+	}
+	return eip, resp.Unmarshal(eip, "inventory")
+}
+
+func (region *SRegion) AssociateEip(instanceId, eipId string) error {
+	instance, err := region.GetInstance(instanceId)
+	if err != nil {
+		return err
+	}
+	if len(instance.VMNics) == 0 {
+		return fmt.Errorf("instance %s does not have any nic", instance.Name)
+	}
+	resource := fmt.Sprintf("eips/%s/vm-instances/nics/%s", eipId, instance.VMNics[0].UUID)
+	params := map[string]interface{}{
+		"params": jsonutils.NewDict(),
+	}
+	_, err = region.client.post(resource, jsonutils.Marshal(params))
+	return err
+}
+
+func (region *SRegion) DisassociateEip(eipId string) error {
+	resource := fmt.Sprintf("eips/%s/vm-instances/nics", eipId)
+	return region.client.delete(resource, "", "")
 }

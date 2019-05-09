@@ -541,7 +541,7 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 		q = q.Equals("provider", provider)
 	} else if public_cloud {
 		q = q.IsNotEmpty("provider")
-		q = q.NotIn("provider", []string{api.CLOUD_PROVIDER_OPENSTACK})
+		q = q.NotIn("provider", []string{api.CLOUD_PROVIDER_OPENSTACK, api.CLOUD_PROVIDER_ZSTACK})
 	} else {
 		q = q.Filter(sqlchemy.OR(
 			sqlchemy.IsNull(q.Field("provider")),
