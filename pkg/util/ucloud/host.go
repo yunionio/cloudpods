@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/util/billing"
 
@@ -163,10 +164,6 @@ func (self *SHost) GetIsMaintenance() bool {
 
 func (self *SHost) GetVersion() string {
 	return UCLOUD_API_VERSION
-}
-
-func (self *SHost) GetManagerId() string {
-	return self.zone.region.client.providerId
 }
 
 // 不支持user data
