@@ -33,7 +33,7 @@ type LoadbalancerBackendListOptions struct {
 }
 
 type LoadbalancerBackendUpdateOptions struct {
-	ID   string `json:-`
+	ID   string `json:"-"`
 	Name string
 
 	Weight *int
@@ -41,9 +41,9 @@ type LoadbalancerBackendUpdateOptions struct {
 }
 
 type LoadbalancerBackendGetOptions struct {
-	ID string `json:-`
+	ID string `json:"-"`
 }
 
 type LoadbalancerBackendDeleteOptions struct {
-	ID string `json:-`
+	ID string `json:"-"`
 }

@@ -145,7 +145,6 @@ var centos = SAWSImagePublisherInfo{
 		} else {
 			return parts[1]
 		}
-		return ""
 	},
 	GetOSBuildID: func(image SImage) string {
 		build := centosDatePattern.FindString(image.ImageName)
