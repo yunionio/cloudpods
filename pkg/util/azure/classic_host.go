@@ -179,10 +179,6 @@ func (self *SClassicHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	return self.zone.GetIClassicWires()
 }
 
-func (self *SClassicHost) GetManagerId() string {
-	return self.zone.region.client.providerId
-}
-
 func (host *SClassicHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
 	return nil, cloudprovider.ErrNotSupported
 }

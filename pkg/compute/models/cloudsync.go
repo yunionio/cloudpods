@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
@@ -328,7 +329,7 @@ func syncZoneStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 
 func syncStorageCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localStorage *SStorage, remoteStorage cloudprovider.ICloudStorage) (cachePair sStoragecacheSyncPair) {
 	remoteCache := remoteStorage.GetIStoragecache()
-	localCache, isNew, err := StoragecacheManager.SyncWithCloudStoragecache(ctx, userCred, remoteCache)
+	localCache, isNew, err := StoragecacheManager.SyncWithCloudStoragecache(ctx, userCred, remoteCache, provider)
 	if err != nil {
 		msg := fmt.Sprintf("SyncWithCloudStoragecache for storage %s failed %s", remoteStorage.GetName(), err)
 		log.Errorf(msg)
@@ -410,7 +411,7 @@ func syncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 		log.Errorf(msg)
 		return nil
 	}
-	localStorages, remoteStorages, result := localHost.SyncHostStorages(ctx, userCred, storages)
+	localStorages, remoteStorages, result := localHost.SyncHostStorages(ctx, userCred, storages, provider)
 
 	syncResults.Add(StorageManager, result)
 
