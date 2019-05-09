@@ -214,10 +214,6 @@ func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 	return self.routeTables, nil
 }
 
-func (self *SVpc) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SVpc) Delete() error {
 	err := self.fetchSecurityGroups()
 	if err != nil {

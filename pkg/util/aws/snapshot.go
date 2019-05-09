@@ -85,10 +85,6 @@ func (self *SSnapshot) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-func (self *SSnapshot) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SSnapshot) GetSize() int32 {
 	return self.SourceDiskSize
 }

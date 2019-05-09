@@ -516,10 +516,6 @@ func (self *SHost) GetHostType() string {
 	return api.HOST_TYPE_ESXI
 }
 
-func (self *SHost) GetManagerId() string {
-	return self.manager.providerId
-}
-
 func (self *SHost) GetIsMaintenance() bool {
 	moHost := self.getHostSystem()
 	return moHost.Summary.Runtime.InMaintenanceMode

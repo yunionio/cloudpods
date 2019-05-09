@@ -326,10 +326,6 @@ func (self *SDatastore) GetStorageConf() jsonutils.JSONObject {
 	return conf
 }
 
-func (self *SDatastore) GetManagerId() string {
-	return self.manager.providerId
-}
-
 const dsPrefix = "ds://"
 
 func (self *SDatastore) GetUrl() string {

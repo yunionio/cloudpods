@@ -78,10 +78,6 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }

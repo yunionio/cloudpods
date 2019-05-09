@@ -123,8 +123,6 @@ type ICloudStoragecache interface {
 
 	GetPath() string
 
-	GetManagerId() string
-
 	CreateIImage(snapshotId, imageName, osType, imageDesc string) (ICloudImage, error)
 
 	DownloadImage(userCred mcclient.TokenCredential, imageId string, extId string, path string) (jsonutils.JSONObject, error)
@@ -145,8 +143,6 @@ type ICloudStorage interface {
 	GetCapacityMB() int // MB
 	GetStorageConf() jsonutils.JSONObject
 	GetEnabled() bool
-
-	GetManagerId() string
 
 	CreateIDisk(name string, sizeGb int, desc string) (ICloudDisk, error)
 
@@ -185,8 +181,6 @@ type ICloudHost interface {
 
 	GetIsMaintenance() bool
 	GetVersion() string
-
-	GetManagerId() string
 
 	CreateVM(desc *SManagedVMCreateConfig) (ICloudVM, error)
 	GetIHostNics() ([]ICloudHostNetInterface, error)
@@ -274,8 +268,6 @@ type ICloudEIP interface {
 
 	GetInternetChargeType() string
 
-	GetManagerId() string
-
 	Delete() error
 
 	Associate(instanceId string) error
@@ -295,7 +287,6 @@ type ICloudSecurityGroup interface {
 
 type ICloudRouteTable interface {
 	ICloudResource
-	GetManagerId() string
 
 	GetDescription() string
 	GetRegionId() string
@@ -365,8 +356,6 @@ type ICloudVpc interface {
 	GetIWires() ([]ICloudWire, error)
 	GetISecurityGroups() ([]ICloudSecurityGroup, error)
 	GetIRouteTables() ([]ICloudRouteTable, error)
-
-	GetManagerId() string
 
 	Delete() error
 

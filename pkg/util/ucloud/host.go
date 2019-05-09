@@ -146,10 +146,8 @@ func (self *SHost) GetVersion() string {
 	return UCLOUD_API_VERSION
 }
 
-func (self *SHost) GetManagerId() string {
-	return self.zone.region.client.providerId
-}
-
+// 不支持user data
+// 不支持指定keypair
 func (self *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }

@@ -97,10 +97,6 @@ func (self *SStorage) GetEnabled() bool {
 	return true
 }
 
-func (self *SStorage) GetManagerId() string {
-	return self.zone.region.client.providerId
-}
-
 func (self *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
 	diskId, err := self.zone.region.CreateDisk(self.zone.ZoneId, self.storageType, name, sizeGb, "", desc)
 	if err != nil {

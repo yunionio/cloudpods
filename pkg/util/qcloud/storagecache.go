@@ -56,10 +56,6 @@ func (self *SStoragecache) IsEmulated() bool {
 	return false
 }
 
-func (self *SStoragecache) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
 	// if imageId, err := self.region.createIImage(snapshoutId, imageName, imageDesc); err != nil {
 	// 	return nil, err

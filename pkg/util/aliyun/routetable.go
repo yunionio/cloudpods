@@ -92,10 +92,6 @@ func (self *SRouteTable) GetGlobalId() string {
 	return self.RouteTableId
 }
 
-func (self *SRouteTable) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SRouteTable) GetName() string {
 	return self.RouteTableName
 }

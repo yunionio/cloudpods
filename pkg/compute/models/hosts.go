@@ -1324,7 +1324,7 @@ func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.To
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudHost(ctx, userCred, added[i], zone)
+		new, err := manager.newFromCloudHost(ctx, userCred, added[i], provider, zone)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -1372,7 +1372,6 @@ func (self *SHost) syncWithCloudHost(ctx context.Context, userCred mcclient.Toke
 		self.StorageType = extHost.GetStorageType()
 		self.HostType = extHost.GetHostType()
 
-		self.ManagerId = extHost.GetManagerId()
 		self.IsEmulated = extHost.IsEmulated()
 		self.Enabled = extHost.GetEnabled()
 
@@ -1419,7 +1418,7 @@ func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SH
 	return err
 }
 
-func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, izone *SZone) (*SHost, error) {
+func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, provider *SCloudprovider, izone *SZone) (*SHost, error) {
 	host := SHost{}
 	host.SetModelManager(manager)
 
@@ -1458,7 +1457,7 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 	host.CpuCmtbound = 8.0
 	host.MemCmtbound = 1.0
 
-	host.ManagerId = extHost.GetManagerId()
+	host.ManagerId = provider.Id
 	host.IsEmulated = extHost.IsEmulated()
 
 	host.IsMaintenance = extHost.GetIsMaintenance()
@@ -1479,7 +1478,7 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 	return &host, nil
 }
 
-func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, storages []cloudprovider.ICloudStorage) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
+func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, storages []cloudprovider.ICloudStorage, provider *SCloudprovider) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
 	lockman.LockClass(ctx, StorageManager, StorageManager.GetOwnerId(userCred))
 	defer lockman.ReleaseClass(ctx, StorageManager, StorageManager.GetOwnerId(userCred))
 
@@ -1536,7 +1535,7 @@ func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.Token
 
 	for i := 0; i < len(added); i += 1 {
 		log.Infof("host %s is found connected with %s, to add ...", self.Id, added[i].GetId())
-		local, err := self.newCloudHostStorage(ctx, userCred, added[i])
+		local, err := self.newCloudHostStorage(ctx, userCred, added[i], provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -1598,13 +1597,13 @@ func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCr
 	return nil
 }
 
-func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage) (*SStorage, error) {
+func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, provider *SCloudprovider) (*SStorage, error) {
 	storageObj, err := StorageManager.FetchByExternalId(extStorage.GetGlobalId())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// no cloud storage found, this may happen for on-premise host
 			// create the storage right now
-			storageObj, err = StorageManager.newFromCloudStorage(ctx, userCred, extStorage, self.GetZone())
+			storageObj, err = StorageManager.newFromCloudStorage(ctx, userCred, extStorage, provider, self.GetZone())
 			if err != nil {
 				log.Errorf("create by cloud storage fail %s", err)
 				return nil, err
