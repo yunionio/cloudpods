@@ -94,8 +94,8 @@ func init() {
 	})
 
 	type SnapshotCreateOptions struct {
-		Disk string `help: "Id of disk to take snapshot" json:"disk" required:"true"`
-		NAME string `help: "Name of snapshot" json:"name"`
+		Disk string `help:"Id of disk to take snapshot" json:"disk" required:"true"`
+		NAME string `help:"Name of snapshot" json:"name"`
 	}
 	R(&SnapshotCreateOptions{}, "snapshot-create", "Create a snapshot", func(s *mcclient.ClientSession, args *SnapshotCreateOptions) error {
 		params, err := options.StructToParams(args)

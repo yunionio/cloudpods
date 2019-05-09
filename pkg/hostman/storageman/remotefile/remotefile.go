@@ -33,7 +33,7 @@ import (
 type SImageDesc struct {
 	Name   string `json:"name"`
 	Format string `json:"format"`
-	Id     string `json:"id:`
+	Id     string `json:"id"`
 	Chksum string `json:"chksum"`
 	Path   string `json:"path"`
 	Size   int64  `json:"size"`
@@ -242,8 +242,6 @@ func (r *SRemoteFile) downloadInternal(getData bool, preChksum string) bool {
 			return false
 		}
 	}
-	return false
-
 }
 
 func (r *SRemoteFile) setProperties(header http.Header) {

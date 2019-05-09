@@ -17,7 +17,6 @@ package db
 import (
 	"fmt"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -103,6 +102,4 @@ func GenerateName(manager IModelManager, ownerProjId string, hint string) (strin
 		name = fmt.Sprintf(pattern, idx)
 		idx += 1
 	}
-	log.Fatalln("here is not reachable!!!")
-	return "", nil
 }
