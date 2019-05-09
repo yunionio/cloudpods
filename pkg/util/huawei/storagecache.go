@@ -115,10 +115,6 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 // 目前支持使用vhd、zvhd、vmdk、qcow2、raw、zvhd2、vhdx、qcow、vdi或qed格式镜像文件创建私有镜像。
 // 快速通道功能可快速完成镜像制作，但镜像文件需转换为raw或zvhd2格式并完成镜像优化。
 // https://support.huaweicloud.com/api-ims/zh-cn_topic_0083905788.html

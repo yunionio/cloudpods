@@ -162,10 +162,6 @@ func (self *SEipAddress) GetAssociationExternalId() string {
 	return self.InstanceId
 }
 
-func (self *SEipAddress) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SEipAddress) GetBillingType() string {
 	return convertChargeType(self.ChargeType)
 }

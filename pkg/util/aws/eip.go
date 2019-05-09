@@ -129,10 +129,6 @@ func (self *SEipAddress) GetInternetChargeType() string {
 	return api.EIP_CHARGE_TYPE_BY_TRAFFIC
 }
 
-func (self *SEipAddress) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SEipAddress) Delete() error {
 	return self.region.DeallocateEIP(self.AllocationId)
 }

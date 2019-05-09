@@ -80,10 +80,6 @@ func (self *SClassicSnapshot) GetDiskId() string {
 	return self.diskID
 }
 
-func (self *SClassicSnapshot) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SClassicSnapshot) GetRegionId() string {
 	return self.region.GetId()
 }

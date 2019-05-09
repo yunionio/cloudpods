@@ -170,10 +170,6 @@ func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
 	return rts, nil
 }
 
-func (self *SVpc) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SVpc) Delete() error {
 	// todo: 确定删除VPC的逻辑
 	return self.region.DeleteVpc(self.GetId())
