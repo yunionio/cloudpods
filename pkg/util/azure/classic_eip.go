@@ -93,10 +93,6 @@ func (self *SClassicEipAddress) GetIpAddr() string {
 	return self.Properties.IpAddress
 }
 
-func (self *SClassicEipAddress) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SClassicEipAddress) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }

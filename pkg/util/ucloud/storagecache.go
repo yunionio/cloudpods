@@ -20,6 +20,7 @@ import (
 	"math"
 	"strings"
 	"time"
+
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -104,10 +105,6 @@ func (self *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImag
 
 func (self *SStoragecache) GetPath() string {
 	return ""
-}
-
-func (self *SStoragecache) GetManagerId() string {
-	return self.region.client.providerId
 }
 
 func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {

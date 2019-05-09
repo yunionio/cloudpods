@@ -288,10 +288,6 @@ func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	return self.zone.GetIWires()
 }
 
-func (self *SHost) GetManagerId() string {
-	return self.zone.region.client.providerId
-}
-
 func (self *SHost) GetSysInfo() jsonutils.JSONObject {
 	info := jsonutils.NewDict()
 	info.Add(jsonutils.NewString(CLOUD_PROVIDER_QCLOUD), "manufacture")

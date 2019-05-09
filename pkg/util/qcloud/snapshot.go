@@ -173,10 +173,6 @@ func (self *SSnapshot) GetRegionId() string {
 	return self.region.GetId()
 }
 
-func (self *SSnapshot) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SSnapshot) GetSize() int32 {
 	return self.DiskSize
 }

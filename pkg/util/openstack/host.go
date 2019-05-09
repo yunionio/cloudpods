@@ -364,10 +364,6 @@ func (host *SHost) GetVersion() string {
 	return version
 }
 
-func (host *SHost) GetManagerId() string {
-	return host.zone.region.client.providerID
-}
-
 func (host *SHost) GetStatus() string {
 	return api.HOST_STATUS_RUNNING
 }

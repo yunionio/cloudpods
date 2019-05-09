@@ -332,10 +332,6 @@ func (self *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	return self.zone.GetIWires()
 }
 
-func (self *SHost) GetManagerId() string {
-	return self.zone.region.client.providerId
-}
-
 func (host *SHost) GetIHostNics() ([]cloudprovider.ICloudHostNetInterface, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
