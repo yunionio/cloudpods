@@ -19,7 +19,7 @@ type ResourceType struct {
 	ApiVersions  []string `json:"apiVersions,omitempty"`
 	Capabilities string   `json:"capabilities,omitempty"`
 	Locations    []string `json:"locations,omitempty"`
-	ResourceType string   `json:"locations,omitempty"`
+	ResourceType string   `json:"resourceType,omitempty"`
 }
 
 func (self *SRegion) ListServices() ([]SService, error) {

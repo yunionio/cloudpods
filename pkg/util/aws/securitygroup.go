@@ -282,7 +282,7 @@ func (self *SRegion) GetSecurityGroupDetails(secGroupId string) (*SSecurityGroup
 		s := ret.SecurityGroups[0]
 		vpc, err := self.getVpc(*s.VpcId)
 		if err != nil {
-			fmt.Errorf("vpc %s not found", *s.VpcId)
+			return nil, fmt.Errorf("vpc %s not found", *s.VpcId)
 		}
 
 		permissions := self.getSecRules(s.IpPermissions, s.IpPermissionsEgress)

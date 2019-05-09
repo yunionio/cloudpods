@@ -41,7 +41,7 @@ func init() {
 
 	type DatastoreShowOptions struct {
 		DATACENTER string `help:"Datacenter"`
-		DSID       string `help:"Datastore ID""`
+		DSID       string `help:"Datastore ID"`
 	}
 	shellutils.R(&DatastoreShowOptions{}, "ds-show", "Show details of a datastore", func(cli *esxi.SESXiClient, args *DatastoreShowOptions) error {
 		ds, err := getDatastore(cli, args.DATACENTER, args.DSID)
@@ -78,7 +78,7 @@ func init() {
 
 	type DatastoreListDirOptions struct {
 		DATACENTER string `help:"Datacenter"`
-		DSID       string `help:"Datastore ID""`
+		DSID       string `help:"Datastore ID"`
 		DIR        string `help:"directory"`
 	}
 	shellutils.R(&DatastoreListDirOptions{}, "ds-list-dir", "List directory of a datastore", func(cli *esxi.SESXiClient, args *DatastoreListDirOptions) error {
@@ -181,7 +181,7 @@ func init() {
 
 	type DatastoreDownloadOptions struct {
 		DATACENTER string `help:"Datacenter"`
-		DSID       string `help:"Datastore ID""`
+		DSID       string `help:"Datastore ID"`
 		DIR        string `help:"directory"`
 		LOCAL      string `help:"local file"`
 	}

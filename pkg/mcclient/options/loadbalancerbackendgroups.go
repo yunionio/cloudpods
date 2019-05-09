@@ -95,20 +95,20 @@ func (opts *LoadbalancerBackendGroupCreateOptions) Params() (*jsonutils.JSONDict
 }
 
 type LoadbalancerBackendGroupGetOptions struct {
-	ID string `json:-`
+	ID string `json:"-"`
 }
 
 type LoadbalancerBackendGroupUpdateOptions struct {
-	ID   string `json:-`
+	ID   string `json:"-"`
 	Name string
 }
 
 type LoadbalancerBackendGroupDeleteOptions struct {
-	ID string `json:-`
+	ID string `json:"-"`
 }
 
 type LoadbalancerBackendGroupIDOptions struct {
-	ID string `json:-`
+	ID string `json:"-"`
 }
 
 type LoadbalancerBackendGroupListOptions struct {

@@ -493,7 +493,6 @@ func recoverFromError(client *autorest.Client, domain, subscriptionId string, az
 	default:
 		return false
 	}
-	return false
 }
 
 func jsonRequest(client *autorest.Client, method, domain, baseUrl string, subscriptionId string, body string) (jsonutils.JSONObject, error) {

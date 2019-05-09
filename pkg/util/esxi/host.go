@@ -92,7 +92,6 @@ func formatName(name string) string {
 		}
 		return name
 	}
-	return name
 }
 
 func (self *SHost) GetName() string {
