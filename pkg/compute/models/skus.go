@@ -505,6 +505,7 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 		iconditions := NetworkUsableZoneQueries(q.Field("zone_id"), true, true)
 		q = q.Filter(sqlchemy.OR(iconditions...))
 	} else {
+		// 私有云sku 只定义到region层级, zone id 为空.因此只能按region查询
 		iconditions := networkUsableRegionQueries(q.Field("cloudregion_id"))
 		q = q.Filter(sqlchemy.OR(iconditions...))
 	}
