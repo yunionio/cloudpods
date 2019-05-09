@@ -27,6 +27,10 @@ func (self *LoadbalancerListenerRuleCreateTask) taskFail(ctx context.Context, lb
 	db.OpsLog.LogEvent(lbr, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_CREATE, reason, self.UserCred, false)
 	notifyclient.NotifySystemError(lbr.Id, lbr.Name, api.LB_CREATE_FAILED, reason)
+	lblis := lbr.GetLoadbalancerListener()
+	if lblis != nil {
+		logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_LB_ADD_LISTENER_RULE, reason, self.UserCred, false)
+	}
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -47,6 +51,10 @@ func (self *LoadbalancerListenerRuleCreateTask) OnLoadbalancerListenerRuleCreate
 	lbr.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbr, db.ACT_ALLOCATE, lbr.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbr, logclient.ACT_CREATE, nil, self.UserCred, true)
+	lblis := lbr.GetLoadbalancerListener()
+	if lblis != nil {
+		logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_LB_ADD_LISTENER_RULE, nil, self.UserCred, true)
+	}
 	self.SetStageComplete(ctx, nil)
 }
 
