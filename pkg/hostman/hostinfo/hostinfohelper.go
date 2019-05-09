@@ -298,7 +298,7 @@ func NewNIC(desc string) (*SNIC, error) {
 	if err != nil {
 		return nil, err
 	}
-	nic.dhcpServer.Start()
+	// dhcp server start after guest manager init
 	return nic, nil
 }
 
