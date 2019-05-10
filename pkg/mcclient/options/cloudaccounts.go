@@ -119,6 +119,11 @@ type SHuaweiCloudAccountCreateOptions struct {
 	SAccessKeyCredentialWithEnvironment
 }
 
+type SUcloudCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	SAccessKeyCredential
+}
+
 // update credential options
 
 type SCloudAccountUpdateCredentialBaseOptions struct {
