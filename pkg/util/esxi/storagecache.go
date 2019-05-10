@@ -143,8 +143,6 @@ func (self *SDatastoreImageCache) DownloadImage(userCred mcclient.TokenCredentia
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SDatastoreImageCache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential,
-	imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool,
-) (string, error) {
+func (self *SDatastoreImageCache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
 	return "", cloudprovider.ErrNotImplemented
 }

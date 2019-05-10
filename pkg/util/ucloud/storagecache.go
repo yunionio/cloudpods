@@ -116,30 +116,30 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 }
 
 // https://docs.ucloud.cn/api/uhost-api/import_custom_image
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
-	if len(extId) > 0 {
-		log.Debugf("UploadImage: Image external ID exists %s", extId)
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+	if len(image.ExternalId) > 0 {
+		log.Debugf("UploadImage: Image external ID exists %s", image.ExternalId)
 
-		image, err := self.region.GetImage(extId)
+		img, err := self.region.GetImage(image.ExternalId)
 		if err != nil {
 			log.Errorf("GetImageStatus error %s", err)
 		}
-		if image.GetStatus() == cloudprovider.IMAGE_STATUS_ACTIVE && !isForce {
-			return extId, nil
+		if img.GetStatus() == cloudprovider.IMAGE_STATUS_ACTIVE && !isForce {
+			return image.ExternalId, nil
 		}
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}
 
-	return self.uploadImage(ctx, userCred, imageId, osArch, osType, osDist, osVersion, isForce)
+	return self.uploadImage(ctx, userCred, image, isForce)
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, osVersion string, isForce bool) (string, error) {
-	if len(osVersion) == 0 {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+	if len(image.OsVersion) == 0 {
 		return "", fmt.Errorf("uploadImage os version is empty")
 	}
 
-	bucketName := GetBucketName(self.region.GetId(), imageId)
+	bucketName := GetBucketName(self.region.GetId(), image.ImageId)
 
 	// create bucket
 	if _, err := self.region.GetBucketDomain(bucketName); err != nil {
@@ -157,12 +157,12 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 
 	// upload to  ucloud
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	meta, reader, err := modules.Images.Download(s, imageId, string(qemuimg.VMDK), false)
+	meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
 		return "", err
 	}
 	log.Debugf("Images meta data %s", meta)
-	_image, err := modules.Images.Get(s, imageId, nil)
+	_image, err := modules.Images.Get(s, image.ImageId, nil)
 	if err != nil {
 		return "", err
 	}
@@ -183,7 +183,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		BucketName: bucketName,
 		File:       reader,
 		FileSize:   size,
-		FileName:   imageId,
+		FileName:   image.ImageId,
 		FileMD5:    md5,
 	}
 
@@ -199,9 +199,9 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	}() // remove object
 
 	// check image name, avoid name conflict
-	imageBaseName := imageId
+	imageBaseName := image.ImageId
 	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
-		imageBaseName = fmt.Sprintf("img%s", imageId)
+		imageBaseName = fmt.Sprintf("img%s", image.ImageId)
 	}
 	imageName := imageBaseName
 	nameIdx := 1
@@ -221,7 +221,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		log.Debugf("uploadImage Match remote name %s", imageName)
 	}
 
-	imgId, err := self.region.ImportImage(imageName, file.FetchFileUrl(), osDist, osVersion, diskFormat)
+	imgId, err := self.region.ImportImage(imageName, file.FetchFileUrl(), image.OsDistribution, image.OsVersion, diskFormat)
 
 	if err != nil {
 		log.Errorf("ImportImage error %s %s", file.FetchFileUrl(), err)

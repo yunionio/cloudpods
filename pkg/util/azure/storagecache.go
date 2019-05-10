@@ -110,20 +110,20 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
-	if len(extId) > 0 {
-		log.Debugf("UploadImage: Image external ID exists %s", extId)
-		status, err := self.region.GetImageStatus(extId)
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+	if len(image.ExternalId) > 0 {
+		log.Debugf("UploadImage: Image external ID exists %s", image.ExternalId)
+		status, err := self.region.GetImageStatus(image.ExternalId)
 		if err != nil {
 			log.Errorf("GetImageStatus error %s", err)
 		}
 		if status == ImageStatusAvailable && !isForce {
-			return extId, nil
+			return image.ExternalId, nil
 		}
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}
-	return self.uploadImage(ctx, userCred, imageId, osArch, osType, osDist, isForce, options.Options.TempPath)
+	return self.uploadImage(ctx, userCred, image, isForce, options.Options.TempPath)
 }
 
 func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
@@ -158,9 +158,9 @@ func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
 	return storageaccount, nil
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool, tmpPath string) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool, tmpPath string) (string, error) {
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	meta, reader, err := modules.Images.Download(s, imageId, string(qemuimg.VHD), false)
+	meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VHD), false)
 	if err != nil {
 		return "", err
 	}
@@ -216,11 +216,11 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 
 	size, _ := meta.Int("size")
 
-	image, err := self.region.CreateImageByBlob(imageId, osType, blobURI, int32(size>>30))
+	img, err := self.region.CreateImageByBlob(image.ImageId, image.OsType, blobURI, int32(size>>30))
 	if err != nil {
 		return "", err
 	}
-	return image.GetGlobalId(), nil
+	return img.GetGlobalId(), nil
 }
 
 func (self *SStoragecache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {

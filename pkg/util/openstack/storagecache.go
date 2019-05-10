@@ -100,35 +100,32 @@ func (cache *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (cache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
-	if len(extId) > 0 {
-		log.Debugf("UploadImage: Image external ID exists %s", extId)
+func (cache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+	if len(image.ExternalId) > 0 {
+		log.Debugf("UploadImage: Image external ID exists %s", image.ExternalId)
 
-		statsu, err := cache.region.GetImageStatus(extId)
+		statsu, err := cache.region.GetImageStatus(image.ExternalId)
 		if err != nil {
 			log.Errorf("GetImageStatus error %s", err)
 		}
 		if statsu == ACTIVE && !isForce {
-			return extId, nil
+			return image.ExternalId, nil
 		}
 	}
 	log.Debugf("UploadImage: no external ID")
-	return cache.uploadImage(ctx, userCred, imageId, osArch, osType, osDist, osVersion, isForce)
+	return cache.uploadImage(ctx, userCred, image, isForce)
 }
 
-func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, isForce bool) (string, error) {
+func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
-	meta, reader, err := modules.Images.Download(s, imageId, string(qemuimg.VMDK), false)
+	meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
 		return "", err
 	}
 	log.Infof("meta data %s", meta)
 
-	imageBaseName := imageId
-	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
-		imageBaseName = fmt.Sprintf("img%s", imageId)
-	}
+	imageBaseName := image.ImageName
 	imageName := imageBaseName
 	nameIdx := 1
 
@@ -145,18 +142,18 @@ func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.T
 		nameIdx++
 	}
 
-	image, err := cache.region.CreateImage(imageName)
+	img, err := cache.region.CreateImage(imageName)
 	if err != nil {
 		return "", err
 	}
 
-	image.storageCache = cache
+	img.storageCache = cache
 
-	_, err = cache.region.client.StreamRequest(cache.region.Name, "image", "PUT", fmt.Sprintf("/v2/images/%s/file", image.ID), "", reader)
+	_, err = cache.region.client.StreamRequest(cache.region.Name, "image", "PUT", fmt.Sprintf("/v2/images/%s/file", img.ID), "", reader)
 	if err != nil {
 		return "", err
 	}
-	return image.ID, cloudprovider.WaitStatus(image, api.CACHED_IMAGE_STATUS_READY, 15*time.Second, 3600*time.Second)
+	return img.ID, cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_READY, 15*time.Second, 3600*time.Second)
 }
 
 func (cache *SStoragecache) CreateIImage(snapshoutId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
