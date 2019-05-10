@@ -112,17 +112,17 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
 
-	if len(extId) > 0 {
-		log.Debugf("UploadImage: Image external ID exists %s", extId)
+	if len(image.ExternalId) > 0 {
+		log.Debugf("UploadImage: Image external ID exists %s", image.ExternalId)
 
-		status, err := self.region.GetImageStatus(extId)
+		status, err := self.region.GetImageStatus(image.ExternalId)
 		if err != nil {
 			log.Errorf("GetImageStatus error %s", err)
 		}
 		if status == ImageStatusAvailable && !isForce {
-			return extId, nil
+			return image.ExternalId, nil
 		}
 		// 不能直接删除 ImageStatusCreating 状态的image ,需要先取消importImage Task
 		if status == ImageStatusCreating {
@@ -132,23 +132,23 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 			}
 		}
 		if len(status) > 0 {
-			err = self.region.DeleteImage(extId)
+			err = self.region.DeleteImage(image.ExternalId)
 			if err != nil {
-				log.Errorf("failed to delete image %s(%s) error: %v", extId, status, err)
+				log.Errorf("failed to delete image %s(%s) error: %v", image.ExternalId, status, err)
 			}
 		}
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}
 
-	return self.uploadImage(ctx, userCred, imageId, osArch, osType, osDist, isForce)
+	return self.uploadImage(ctx, userCred, image, isForce)
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
 	// first upload image to oss
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
-	meta, reader, err := modules.Images.Download(s, imageId, string(qemuimg.QCOW2), false)
+	meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
 	if err != nil {
 		return "", err
 	}
@@ -158,7 +158,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		log.Errorf("GetOssClient err %s", err)
 		return "", err
 	}
-	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s-%s", self.region.GetId(), imageId))
+	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s-%s", self.region.GetId(), image.ImageId))
 	exist, err := oss.IsBucketExist(bucketName)
 	if err != nil {
 		log.Errorf("IsBucketExist err %s", err)
@@ -183,17 +183,17 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", err
 	}
 	log.Debugf("To upload image to bucket %s ...", bucketName)
-	err = bucket.PutObject(imageId, reader)
+	err = bucket.PutObject(image.ImageId, reader)
 	if err != nil {
-		log.Errorf("PutObject error %s %s", imageId, err)
+		log.Errorf("PutObject error %s %s", image.ImageId, err)
 		return "", err
 	}
 
-	defer bucket.DeleteObject(imageId) // remove object
+	defer bucket.DeleteObject(image.ImageId) // remove object
 
-	imageBaseName := imageId
+	imageBaseName := image.ImageId
 	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
-		imageBaseName = fmt.Sprintf("img%s", imageId)
+		imageBaseName = fmt.Sprintf("img%s", image.ImageId)
 	}
 	imageName := imageBaseName
 	nameIdx := 1
@@ -221,10 +221,10 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", err
 	}
 
-	task, err := self.region.ImportImage(imageName, osArch, osType, osDist, bucketName, imageId)
+	task, err := self.region.ImportImage(imageName, image.OsArch, image.OsType, image.OsDistribution, bucketName, image.ImageId)
 
 	if err != nil {
-		log.Errorf("ImportImage error %s %s %s", imageId, bucketName, err)
+		log.Errorf("ImportImage error %s %s %s", image.ImageId, bucketName, err)
 		return "", err
 	}
 

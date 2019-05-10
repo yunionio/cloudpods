@@ -120,22 +120,22 @@ func (self *SStoragecache) DownloadImage(userCred mcclient.TokenCredential, imag
 	return self.downloadImage(userCred, imageId, extId)
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
-	if len(extId) > 0 {
-		log.Debugf("UploadImage: Image external ID exists %s", extId)
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+	if len(image.ExternalId) > 0 {
+		log.Debugf("UploadImage: Image external ID exists %s", image.ExternalId)
 
-		status, err := self.region.GetImageStatus(extId)
+		status, err := self.region.GetImageStatus(image.ExternalId)
 		if err != nil {
 			log.Errorf("GetImageStatus error %s", err)
 		}
 		if status == ImageStatusAvailable && !isForce {
-			return extId, nil
+			return image.ExternalId, nil
 		}
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}
 
-	return self.uploadImage(ctx, userCred, imageId, osArch, osType, osDist, isForce)
+	return self.uploadImage(ctx, userCred, image, isForce)
 
 }
 
@@ -152,8 +152,8 @@ func (self *SStoragecache) fetchImages() error {
 	return nil
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, isForce bool) (string, error) {
-	bucketName := GetBucketName(self.region.GetId(), imageId)
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+	bucketName := GetBucketName(self.region.GetId(), image.ImageId)
 	err := self.region.initVmimport(bucketName)
 	if err != nil {
 		return "", err
@@ -169,10 +169,10 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 
 	var diskFormat string
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	_, err = s3client.GetObject(&s3.GetObjectInput{Bucket: &bucketName, Key: &imageId})
+	_, err = s3client.GetObject(&s3.GetObjectInput{Bucket: &bucketName, Key: &image.ImageId})
 	if err != nil {
 		// first upload image to oss
-		meta, reader, err := modules.Images.Download(s, imageId, string(qemuimg.VMDK), false)
+		meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 		if err != nil {
 			return "", err
 		}
@@ -186,7 +186,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		// uploader to aws s3
 		input := &s3manager.UploadInput{
 			Bucket: &bucketName,
-			Key:    &imageId,
+			Key:    &image.ImageId,
 			Body:   reader,
 		}
 
@@ -200,9 +200,9 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			return "", err
 		}
-		defer s3client.DeleteObject(&s3.DeleteObjectInput{Bucket: &bucketName, Key: &imageId}) // remove object
+		defer s3client.DeleteObject(&s3.DeleteObjectInput{Bucket: &bucketName, Key: &image.ImageId}) // remove object
 	} else {
-		meta, _, err := modules.Images.Download(s, imageId, string(qemuimg.VMDK), false)
+		meta, _, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 		if err != nil {
 			return "", err
 		}
@@ -213,9 +213,9 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		}
 	}
 
-	imageBaseName := imageId
+	imageBaseName := image.ImageId
 	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
-		imageBaseName = fmt.Sprintf("img%s", imageId)
+		imageBaseName = fmt.Sprintf("img%s", image.ImageId)
 	}
 	imageName := imageBaseName
 	nameIdx := 1
@@ -236,10 +236,10 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		log.Debugf("uploadImage Match remote name %s", imageName)
 	}
 
-	task, err := self.region.ImportImage(imageName, osArch, osType, osDist, diskFormat, bucketName, imageId)
+	task, err := self.region.ImportImage(imageName, image.OsArch, image.OsType, image.OsDistribution, diskFormat, bucketName, image.ImageId)
 
 	if err != nil {
-		log.Errorf("ImportImage error %s %s %s", imageId, bucketName, err)
+		log.Errorf("ImportImage error %s %s %s", image.ImageId, bucketName, err)
 		return "", err
 	}
 
@@ -260,7 +260,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		for _, item := range ret.ImportImageTasks {
 			if *item.Status == "completed" {
 				// add name tag
-				self.region.addTags(*item.ImageId, "Name", imageId)
+				self.region.addTags(*item.ImageId, "Name", image.ImageId)
 				return *item.ImageId, nil
 			}
 		}

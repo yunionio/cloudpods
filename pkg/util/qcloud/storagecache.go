@@ -138,22 +138,22 @@ func (self *SStoragecache) GetPath() string {
 	return ""
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
-	if len(extId) > 0 {
-		log.Debugf("UploadImage: Image external ID exists %s", extId)
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+	if len(image.ExternalId) > 0 {
+		log.Debugf("UploadImage: Image external ID exists %s", image.ExternalId)
 
-		status, err := self.region.GetImageStatus(extId)
+		status, err := self.region.GetImageStatus(image.ExternalId)
 		if err != nil {
 			log.Errorf("GetImageStatus error %s", err)
 		}
 		if (status == ImageStatusNormal || status == ImageStatusUsing) && !isForce {
-			return extId, nil
+			return image.ExternalId, nil
 		}
 		log.Debugf("image status: %s isForce: %v", status, isForce)
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}
-	return self.uploadImage(ctx, userCred, imageId, osArch, osType, osDist, osVersion, isForce)
+	return self.uploadImage(ctx, userCred, image, isForce)
 }
 
 func (self *SRegion) getCosUrl(bucket, object string) string {
@@ -161,16 +161,16 @@ func (self *SRegion) getCosUrl(bucket, object string) string {
 	return fmt.Sprintf("http://%s-%s.cos.%s.myqcloud.com/%s", bucket, self.client.AppID, self.Region, object)
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, isForce bool) (string, error) {
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
 	// first upload image to oss
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
-	meta, reader, err := modules.Images.Download(s, imageId, string(qemuimg.VMDK), false)
+	meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
 		return "", err
 	}
 
-	tmpFile := fmt.Sprintf("%s/%s", options.Options.TempPath, imageId)
+	tmpFile := fmt.Sprintf("%s/%s", options.Options.TempPath, image.ImageId)
 	defer os.Remove(tmpFile)
 	f, err := os.Create(tmpFile)
 	if err != nil {
@@ -200,18 +200,18 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		log.Debugf("Bucket %s exists", bucketName)
 	}
 	log.Debugf("To upload image to bucket %s ...", bucketName)
-	err = cos.Bucket(bucketName).UploadObjectBySlice(context.Background(), imageId, tmpFile, 3, map[string]string{})
+	err = cos.Bucket(bucketName).UploadObjectBySlice(context.Background(), image.ImageId, tmpFile, 3, map[string]string{})
 	if err != nil {
-		log.Errorf("UploadObject error %s %s", imageId, err)
+		log.Errorf("UploadObject error %s %s", image.ImageId, err)
 		return "", err
 	}
 
-	defer cos.Bucket(bucketName).DeleteObject(context.Background(), imageId)
+	defer cos.Bucket(bucketName).DeleteObject(context.Background(), image.ImageId)
 
 	// 腾讯云镜像名称需要小于20个字符
-	imageBaseName := imageId[:10]
+	imageBaseName := image.ImageId[:10]
 	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
-		imageBaseName = fmt.Sprintf("img%s", imageId[:10])
+		imageBaseName = fmt.Sprintf("img%s", image.ImageId[:10])
 	}
 	imageName := imageBaseName
 	nameIdx := 1
@@ -231,11 +231,13 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	}
 
 	log.Debugf("Import image %s", imageName)
-	if image, err := self.region.ImportImage(imageName, osArch, osDist, osVersion, self.region.getCosUrl(bucketName, imageId)); err != nil {
+	img, err := self.region.ImportImage(imageName, image.OsArch, image.OsDistribution, image.OsVersion, self.region.getCosUrl(bucketName, image.ImageId))
+	if err != nil {
 		return "", err
-	} else if cloudprovider.WaitStatus(image, api.CACHED_IMAGE_STATUS_READY, 15*time.Second, 3600*time.Second); err != nil {
-		return "", err
-	} else {
-		return image.ImageId, nil
 	}
+	err = cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_READY, 15*time.Second, 3600*time.Second)
+	if err != nil {
+		return "", err
+	}
+	return img.ImageId, nil
 }
