@@ -854,7 +854,7 @@ func (h *SHostInfo) uploadNetworkInfo() {
 			if len(nic.Network) == 0 {
 				kwargs := jsonutils.NewDict()
 				kwargs.Set("ip", jsonutils.NewString(nic.Ip))
-				kwargs.Set("is_private", jsonutils.JSONTrue)
+				kwargs.Set("is_on_premise", jsonutils.JSONTrue)
 				kwargs.Set("limit", jsonutils.NewInt(0))
 
 				wireInfo, err := hostutils.GetWireOfIp(context.Background(), kwargs)

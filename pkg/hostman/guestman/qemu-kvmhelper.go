@@ -601,12 +601,10 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	cmd += "    $CMD\n"
 	cmd += "fi\n"
 
-	/*
-	   # cmd += 'sleep 1\n'
-	   # cmd += 'PID_NUM=$(cat $PID_FILE)\n'
-	   # cmd += 'echo -17 > /proc/$PID_NUM/oom_adj\n'
-	   # cmd += 'echo "qemu started"\n'
-	*/
+	cmd += "sleep 1\n"
+	cmd += "PID_NUM=$(cat $PID_FILE)\n"
+	cmd += "echo -17 > /proc/$PID_NUM/oom_adj\n"
+	cmd += "echo \"qemu started\"\n"
 
 	return cmd, nil
 }
