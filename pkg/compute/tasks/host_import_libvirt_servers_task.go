@@ -78,29 +78,29 @@ func (self *HostImportLibvirtServersTask) StartImportServers(
 		success bool
 	)
 	for i := 0; i < len(guestsDesc); i++ {
-		log.Errorln("StartImportServers", guestsDesc[i])
 		self.FillLibvirtGuestDesc(ctx, host, &guestsDesc[i])
 		guest, err := models.GuestManager.DoImport(ctx, self.UserCred, &guestsDesc[i])
 		if err != nil {
 			note = fmt.Sprintf("Guest %s import failed: %s", guestsDesc[i].Id, err)
 			success = false
-			goto end
+		} else {
+			if err := self.CreateImportedLibvirtGuestOnHost(ctx, host, guest, &guestsDesc[i]); err != nil {
+				note = fmt.Sprintf("Guest  %s create on host failed: %s", guestsDesc[i].Id, err)
+				success = false
+			} else {
+				note = fmt.Sprintf("Guest %s import success, started create on host", guestsDesc[i].Id)
+				success = true
+			}
 		}
-		if err := self.CreateImportedLibvirtGuestOnHost(ctx, host, guest, &guestsDesc[i]); err != nil {
-			note = fmt.Sprintf("Guest  %s create on host failed: %s", guestsDesc[i].Id, err)
-			success = false
-			goto end
-		}
-		note = fmt.Sprintf("Guest %s import success, started create on host", guestsDesc[i].Id)
-		success = true
 
-	end:
 		if success {
 			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT, note, self.UserCred)
 			guest.SetMetadata(ctx, "__is_import", "ture", self.UserCred)
 		} else {
 			log.Errorln(note)
-			guest.SetStatus(self.UserCred, compute.VM_IMPORT_FAILED, note)
+			if guest != nil {
+				guest.SetStatus(self.UserCred, compute.VM_IMPORT_FAILED, note)
+			}
 			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT_FAIL, note, self.UserCred)
 		}
 		logclient.AddActionLogWithContext(ctx, host,
