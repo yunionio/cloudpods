@@ -159,6 +159,8 @@ func (w *SWindowsRootFs) putGuestScriptContents(spath, content string) error {
 	}
 	if j < contentLen {
 		contentArr = append(contentArr, content[j:])
+	} else {
+		contentArr = append(contentArr, "")
 	}
 
 	content = strings.Join(contentArr, "\r\n")
