@@ -150,6 +150,10 @@ func (self *SRegion) GetSnapshots(diskId string, snapshotId string) ([]SSnapshot
 		return nil, err
 	}
 
+	for i := range snapshots {
+		snapshots[i].region = self
+	}
+
 	return snapshots, nil
 }
 

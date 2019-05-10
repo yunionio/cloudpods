@@ -156,6 +156,17 @@ func init() {
 		return nil
 	})
 
+	R(&options.SUcloudCloudAccountCreateOptions{}, "cloud-account-create-ucloud", "Create a Ucloud cloud account", func(s *mcclient.ClientSession, args *options.SUcloudCloudAccountCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("Ucloud"), "provider")
+		result, err := modules.Cloudaccounts.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type CloudaccountUpdateOptions struct {
 		ID        string `help:"ID or Name of cloud account"`
 		Name      string `help:"New name to update"`
