@@ -192,9 +192,9 @@ func DeployGuestFs(
 				return nil, fmt.Errorf("DisableSerialConsole: %v", err)
 			}
 		}
-		if err = rootfs.CommitChanges(partition); err != nil {
-			return nil, fmt.Errorf("CommitChanges: %v", err)
-		}
+	}
+	if err = rootfs.CommitChanges(partition); err != nil {
+		return nil, fmt.Errorf("CommitChanges: %v", err)
 	}
 
 	log.Debugf("Deploy finished, return: %s", ret.String())
