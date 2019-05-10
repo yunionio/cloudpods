@@ -61,10 +61,6 @@ func (self *SStoragecache) IsEmulated() bool {
 	return false
 }
 
-func (self *SStoragecache) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SStoragecache) fetchImages() error {
 	if images, err := self.region.GetImages(""); err != nil {
 		return err

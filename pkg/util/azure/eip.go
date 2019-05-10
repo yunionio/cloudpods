@@ -201,10 +201,6 @@ func (self *SEipAddress) GetIpAddr() string {
 	return self.Properties.IPAddress
 }
 
-func (self *SEipAddress) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SEipAddress) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }

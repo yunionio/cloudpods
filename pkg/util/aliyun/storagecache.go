@@ -55,10 +55,6 @@ func (self *SStoragecache) IsEmulated() bool {
 	return false
 }
 
-func (self *SStoragecache) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SStoragecache) fetchImages() error {
 	images := make([]SImage, 0)
 	for {

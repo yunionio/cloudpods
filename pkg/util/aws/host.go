@@ -147,10 +147,6 @@ func (self *SHost) GetHostType() string {
 	return api.HOST_TYPE_AWS
 }
 
-func (self *SHost) GetManagerId() string {
-	return self.zone.region.client.providerId
-}
-
 func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 	inst, err := self.zone.region.GetInstance(instanceId)
 	if err != nil {

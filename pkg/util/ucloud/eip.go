@@ -168,10 +168,6 @@ func (self *SEip) GetInternetChargeType() string {
 	}
 }
 
-func (self *SEip) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SEip) Delete() error {
 	return cloudprovider.ErrNotImplemented
 }

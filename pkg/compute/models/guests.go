@@ -3736,7 +3736,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 		// do nothing
 	} else if eip == nil && extEip != nil {
 		// add
-		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, self.getRegion(), projectId)
+		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, self.getRegion(), projectId)
 		if err != nil {
 			log.Errorf("getEipByExtEip error %v", err)
 			result.AddError(err)
@@ -3767,7 +3767,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 				result.DeleteError(err)
 			} else {
 				result.Delete()
-				neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, self.getRegion(), projectId)
+				neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, self.getRegion(), projectId)
 				if err != nil {
 					result.AddError(err)
 				} else {

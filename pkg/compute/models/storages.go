@@ -623,7 +623,7 @@ func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudStorage(ctx, userCred, added[i], zone)
+		new, err := manager.newFromCloudStorage(ctx, userCred, added[i], provider, zone)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -665,7 +665,6 @@ func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclien
 		self.Enabled = extStorage.GetEnabled()
 
 		self.IsEmulated = extStorage.IsEmulated()
-		self.ManagerId = extStorage.GetManagerId()
 
 		self.IsSysDiskStore = extStorage.IsSysDiskStore()
 
@@ -678,7 +677,7 @@ func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclien
 	return err
 }
 
-func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, zone *SZone) (*SStorage, error) {
+func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, provider *SCloudprovider, zone *SZone) (*SStorage, error) {
 	storage := SStorage{}
 	storage.SetModelManager(manager)
 
@@ -695,7 +694,7 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 	storage.Enabled = extStorage.GetEnabled()
 
 	storage.IsEmulated = extStorage.IsEmulated()
-	storage.ManagerId = extStorage.GetManagerId()
+	storage.ManagerId = provider.Id
 
 	storage.IsSysDiskStore = extStorage.IsSysDiskStore()
 

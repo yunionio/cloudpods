@@ -150,10 +150,6 @@ func (self *SHost) GetVersion() string {
 	return HUAWEI_API_VERSION
 }
 
-func (self *SHost) GetManagerId() string {
-	return self.zone.region.client.providerId
-}
-
 func (self *SHost) GetInstanceById(instanceId string) (*SInstance, error) {
 	instance, err := self.zone.region.GetInstanceByID(instanceId)
 	if err != nil {

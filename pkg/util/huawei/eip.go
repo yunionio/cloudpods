@@ -178,10 +178,6 @@ func (self *SEipAddress) GetInternetChargeType() string {
 	}
 }
 
-func (self *SEipAddress) GetManagerId() string {
-	return self.region.client.providerId
-}
-
 func (self *SEipAddress) GetBillingType() string {
 	if self.Profile == nil {
 		return billing_api.BILLING_TYPE_POSTPAID

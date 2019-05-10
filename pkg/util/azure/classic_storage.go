@@ -98,10 +98,6 @@ func (self *SClassicStorage) GetIStoragecache() cloudprovider.ICloudStoragecache
 	return self.zone.region.getStoragecache()
 }
 
-func (self *SClassicStorage) GetManagerId() string {
-	return self.zone.region.client.providerId
-}
-
 func (self *SClassicStorage) GetMediumType() string {
 	if strings.Contains(self.Properties.AccountType, "Premium") {
 		return api.DISK_TYPE_SSD

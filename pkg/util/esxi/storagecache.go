@@ -121,10 +121,6 @@ func (self *SDatastoreImageCache) GetIImageById(extId string) (cloudprovider.ICl
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (self *SDatastoreImageCache) GetManagerId() string {
-	return self.datastore.manager.providerId
-}
-
 func (self *SDatastoreImageCache) CreateIImage(snapshotId, imageName, osType, imageDesc string) (cloudprovider.ICloudImage, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }

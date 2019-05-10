@@ -275,7 +275,7 @@ func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.Toke
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudVpc(ctx, userCred, added[i], region)
+		new, err := manager.newFromCloudVpc(ctx, userCred, added[i], provider, region)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -326,7 +326,7 @@ func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenC
 	return nil
 }
 
-func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc, region *SCloudregion) (*SVpc, error) {
+func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc, provider *SCloudprovider, region *SCloudregion) (*SVpc, error) {
 	vpc := SVpc{}
 	vpc.SetModelManager(manager)
 
@@ -337,7 +337,7 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 	vpc.CidrBlock = extVPC.GetCidrBlock()
 	vpc.CloudregionId = region.Id
 
-	vpc.ManagerId = extVPC.GetManagerId()
+	vpc.ManagerId = provider.Id
 
 	vpc.IsEmulated = extVPC.IsEmulated()
 

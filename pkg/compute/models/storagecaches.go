@@ -138,14 +138,14 @@ func (self *SStoragecache) getHostId() (string, error) {
 	return ret, nil
 }
 
-func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache) (*SStoragecache, bool, error) {
+func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache, provider *SCloudprovider) (*SStoragecache, bool, error) {
 	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
 	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
 
 	localCacheObj, err := manager.FetchByExternalId(cloudCache.GetGlobalId())
 	if err != nil {
 		if err == sql.ErrNoRows {
-			localCache, err := manager.newFromCloudStoragecache(ctx, userCred, cloudCache)
+			localCache, err := manager.newFromCloudStoragecache(ctx, userCred, cloudCache, provider)
 			if err != nil {
 				return nil, false, err
 			} else {
@@ -157,12 +157,12 @@ func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Conte
 		}
 	} else {
 		localCache := localCacheObj.(*SStoragecache)
-		localCache.syncWithCloudStoragecache(ctx, userCred, cloudCache)
+		localCache.syncWithCloudStoragecache(ctx, userCred, cloudCache, provider)
 		return localCache, false, nil
 	}
 }
 
-func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache) (*SStoragecache, error) {
+func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache, provider *SCloudprovider) (*SStoragecache, error) {
 	local := SStoragecache{}
 	local.SetModelManager(manager)
 
@@ -170,7 +170,7 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Contex
 	local.ExternalId = cloudCache.GetGlobalId()
 
 	local.IsEmulated = cloudCache.IsEmulated()
-	local.ManagerId = cloudCache.GetManagerId()
+	local.ManagerId = provider.Id
 
 	local.Path = cloudCache.GetPath()
 
@@ -184,14 +184,14 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Contex
 	return &local, nil
 }
 
-func (self *SStoragecache) syncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache) error {
+func (self *SStoragecache) syncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache, provider *SCloudprovider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Name = cloudCache.GetName()
 
 		self.Path = cloudCache.GetPath()
 
 		self.IsEmulated = cloudCache.IsEmulated()
-		self.ManagerId = cloudCache.GetManagerId()
+		self.ManagerId = provider.Id
 
 		return nil
 	})

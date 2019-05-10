@@ -69,10 +69,6 @@ func (self *SLocalStorage) GetStorageConf() jsonutils.JSONObject {
 	return conf
 }
 
-func (self *SLocalStorage) GetManagerId() string {
-	return self.zone.region.client.providerId
-}
-
 func (self *SLocalStorage) GetStatus() string {
 	return api.STORAGE_ONLINE
 }

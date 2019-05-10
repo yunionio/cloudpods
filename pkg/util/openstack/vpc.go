@@ -175,10 +175,6 @@ func (vpc *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	return vpc.iwires, nil
 }
 
-func (vpc *SVpc) GetManagerId() string {
-	return vpc.region.client.providerID
-}
-
 func (vpc *SVpc) GetRegion() cloudprovider.ICloudRegion {
 	return vpc.region
 }
