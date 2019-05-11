@@ -31,6 +31,10 @@ func (self *SESXiGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_ESXI
 }
 
+func (self *SESXiGuestDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_VMWARE
+}
+
 func (self *SESXiGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_LOCAL
 }

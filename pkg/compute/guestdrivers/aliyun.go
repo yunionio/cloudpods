@@ -28,6 +28,10 @@ func (self *SAliyunGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_ALIYUN
 }
 
+func (self *SAliyunGuestDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_ALIYUN
+}
+
 func (self *SAliyunGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_CLOUD_EFFICIENCY
 }
