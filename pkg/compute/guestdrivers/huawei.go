@@ -40,6 +40,10 @@ func (self *SHuaweiGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_HUAWEI
 }
 
+func (self *SHuaweiGuestDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_HUAWEI
+}
+
 func (self *SHuaweiGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_HUAWEI_SATA
 }
