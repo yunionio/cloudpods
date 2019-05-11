@@ -199,7 +199,7 @@ func (self *SUcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	subAccounts := make([]cloudprovider.SSubAccount, 0)
 	for _, project := range projects {
 		subAccount := cloudprovider.SSubAccount{}
-		subAccount.Name = self.providerName
+		subAccount.Name = fmt.Sprintf("%s-%s", self.providerName, project.ProjectName)
 		// ucloud账号ID中可能包含/。因此使用::作为分割符号
 		subAccount.Account = fmt.Sprintf("%s::%s", self.accessKeyId, project.ProjectID)
 		subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
