@@ -228,6 +228,7 @@ func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpTy
 		payMode = "Bandwidth"
 	}
 	params.Set("PayMode", payMode)
+	params.Set("ChargeType", "Dynamic") // 按需付费
 
 	eips := make([]SEip, 0)
 	err := self.DoAction("AllocateEIP", params, &eips)
