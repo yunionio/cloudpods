@@ -18,7 +18,7 @@ import (
 )
 
 type SManagedResourceBase struct {
-	ManagerId string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"admin_optional"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=True)
+	ManagerId string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=True)
 }
 
 func (self *SManagedResourceBase) GetCloudprovider() *SCloudprovider {
