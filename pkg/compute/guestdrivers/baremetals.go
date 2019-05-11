@@ -49,6 +49,10 @@ func (self *SBaremetalGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_BAREMETAL
 }
 
+func (self *SBaremetalGuestDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_ONECLOUD
+}
+
 func (self *SBaremetalGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_LOCAL
 }
