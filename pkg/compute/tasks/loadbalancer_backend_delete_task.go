@@ -10,6 +10,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type LoadbalancerBackendDeleteTask struct {
@@ -22,6 +23,12 @@ func init() {
 
 func (self *LoadbalancerBackendDeleteTask) taskFail(ctx context.Context, lbb *models.SLoadbalancerBackend, reason string) {
 	lbb.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason)
+	db.OpsLog.LogEvent(lbb, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
+	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_DELOCATE, reason, self.UserCred, false)
+	lbbg := lbb.GetLoadbalancerBackendGroup()
+	if lbbg != nil {
+		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_LB_REMOVE_BACKEND, reason, self.UserCred, false)
+	}
 	self.SetStageFailed(ctx, reason)
 }
 
@@ -40,6 +47,12 @@ func (self *LoadbalancerBackendDeleteTask) OnInit(ctx context.Context, obj db.IS
 
 func (self *LoadbalancerBackendDeleteTask) OnLoadbalancerBackendDeleteComplete(ctx context.Context, lbb *models.SLoadbalancerBackend, data jsonutils.JSONObject) {
 	lbb.DoPendingDelete(ctx, self.GetUserCred())
+	db.OpsLog.LogEvent(lbb, db.ACT_DELETE, lbb.GetShortDesc(ctx), self.UserCred)
+	logclient.AddActionLogWithStartable(self, lbb, logclient.ACT_DELOCATE, nil, self.UserCred, true)
+	lbbg := lbb.GetLoadbalancerBackendGroup()
+	if lbbg != nil {
+		logclient.AddActionLogWithStartable(self, lbbg, logclient.ACT_LB_REMOVE_BACKEND, nil, self.UserCred, true)
+	}
 	self.SetStageComplete(ctx, nil)
 }
 

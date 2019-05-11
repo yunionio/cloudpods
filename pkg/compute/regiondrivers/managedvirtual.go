@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -499,7 +500,15 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 		}
 		guest := lbb.GetGuest()
 		if guest == nil {
-			return nil, fmt.Errorf("failed to find guest for lbb %s", lbb.Name)
+			log.Warningf("failed to find guest for lbb %s", lbb.Name)
+			return nil, nil
+		}
+		_, err = guest.GetIVM()
+		if err != nil {
+			if err == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
+			return nil, err
 		}
 		return nil, iLoadbalancerBackendGroup.RemoveBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
 	})
