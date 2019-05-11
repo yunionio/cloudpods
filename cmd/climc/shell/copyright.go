@@ -23,12 +23,12 @@ import (
 )
 
 func init() {
-	type CopyRightUpdateOptions struct {
+	type CopyrightUpdateOptions struct {
 		Copyright string `help:"The copyright"`
 		Email     string `help:"The Email"`
 	}
 
-	R(&CopyRightUpdateOptions{}, "copyright-update", "update copyright", func(s *mcclient.ClientSession, args *CopyRightUpdateOptions) error {
+	R(&CopyrightUpdateOptions{}, "copyright-update", "update copyright", func(s *mcclient.ClientSession, args *CopyrightUpdateOptions) error {
 		if !s.HasSystemAdminPrivilege() {
 			return fmt.Errorf("require admin privilege")
 		}
@@ -42,7 +42,7 @@ func init() {
 			params.Add(jsonutils.NewString(args.Email), "email")
 		}
 
-		r, err := modules.CopyRight.Create(s, params)
+		r, err := modules.Copyright.Create(s, params)
 		if err != nil {
 			return err
 		}

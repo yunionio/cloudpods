@@ -1,16 +1,16 @@
 package modules
 
-type CopyRightManager struct {
+type CopyrightManager struct {
 	ResourceManager
 }
 
 var (
-	CopyRight CopyRightManager
+	Copyright CopyrightManager
 )
 
 func init() {
-	CopyRight = CopyRightManager{NewYunionAgentManager("info", "infos",
+	Copyright = CopyrightManager{NewYunionAgentManager("info", "infos",
 		[]string{"copyright", "email"},
 		[]string{})}
-	register(&CopyRight)
+	register(&Copyright)
 }
