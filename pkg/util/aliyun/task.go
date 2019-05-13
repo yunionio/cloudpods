@@ -61,10 +61,9 @@ func (self *SRegion) waitTaskStatus(action TaskActionType, taskId string, target
 			return err
 		}
 		if status == targetStatus {
-			break
-		} else {
-			time.Sleep(interval)
+			return nil
 		}
+		time.Sleep(interval)
 	}
 	return fmt.Errorf("timeout for waitting task %s(%s) after %f minutes", taskId, action, timeout.Minutes())
 }
