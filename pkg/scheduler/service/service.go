@@ -67,7 +67,8 @@ func StartService() error {
 		startSched()
 	})
 
-	//app := cloudcommon.InitApp(commonOpts, true)
+	app := app_common.InitApp(commonOpts, true)
+	cloudcommon.AppDBInit(app)
 
 	//InitHandlers(app)
 	return startHTTP(opts)
