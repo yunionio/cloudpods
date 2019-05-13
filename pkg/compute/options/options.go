@@ -78,6 +78,8 @@ type ComputeOptions struct {
 
 	MinimalIpAddrReusedIntervalSeconds int `help:"Minimal seconds when a release IP address can be reallocate" default:"30"`
 
+	IsSlaveNode bool `help:"Region service slave node"`
+
 	SCapabilityOptions
 	cloudcommon.CommonOptions
 	cloudcommon.DBOptions
