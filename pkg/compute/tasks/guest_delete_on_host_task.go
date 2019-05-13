@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 func init() {
@@ -76,6 +77,10 @@ func (self *GuestDeleteOnHostTask) OnStopGuest(ctx context.Context, guest *model
 	}
 }
 
+func (self *GuestDeleteOnHostTask) OnUnDeployGuestFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.OnFail(ctx, guest, data.String())
+}
+
 func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	hostId, _ := self.Params.GetString("host_id")
 	if guest.BackupHostId == hostId {
@@ -87,6 +92,8 @@ func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *m
 			self.OnFail(ctx, guest, err.Error())
 			return
 		}
+		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_DELETE_BACKUP, "GuestDeleteOnHost", self.UserCred, true)
+		db.OpsLog.LogEvent(guest, db.ACT_DELETE_BACKUP, "GuestDeleteOnHost", self.UserCred)
 	}
 	self.SetStage("OnSync", nil)
 	guest.StartSyncTask(ctx, self.UserCred, false, self.GetTaskId())
@@ -97,6 +104,11 @@ func (self *GuestDeleteOnHostTask) OnSync(ctx context.Context, guest *models.SGu
 }
 
 func (self *GuestDeleteOnHostTask) OnFail(ctx context.Context, guest *models.SGuest, reason string) {
+	hostId, _ := self.Params.GetString("host_id")
+	if guest.BackupHostId == hostId {
+		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_DELETE_BACKUP, "GuestDeleteOnHost", self.UserCred, false)
+		db.OpsLog.LogEvent(guest, db.ACT_DELETE_BACKUP_FAILED, "GuestDeleteOnHost", self.UserCred)
+	}
 	failedStatus, _ := self.Params.GetString("failed_status")
 	if len(failedStatus) > 0 {
 		guest.SetStatus(self.UserCred, failedStatus, reason)
