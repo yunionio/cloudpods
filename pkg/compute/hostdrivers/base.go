@@ -165,8 +165,40 @@ func (self *SBaseHostDriver) ConvertFailed(host *models.SHost) error {
 	return self.CleanSchedCache(host)
 }
 
+func (self *SBaseHostDriver) checkSameDiskSpec(host *models.SHost) error {
+	diskSpec := models.GetDiskSpecV2(host.StorageInfo)
+	if len(diskSpec) == 0 {
+		return fmt.Errorf("No raid driver")
+	}
+	if len(diskSpec) > 1 {
+		return fmt.Errorf("Raid driver is not same")
+	}
+	var driverName string
+	var adapterSpec api.DiskAdapterSpec
+	for key, as := range diskSpec {
+		driverName = key
+		adapterSpec = as
+	}
+	if len(adapterSpec) > 1 {
+		return fmt.Errorf("Raid driver %s adapter not same", driverName)
+	}
+	var diskSpecs []*api.DiskSpec
+	var adapterKey string
+	for key, ds := range adapterSpec {
+		adapterKey = key
+		diskSpecs = ds
+	}
+	if len(diskSpecs) > 1 {
+		return fmt.Errorf("Raid driver %s adapter %s disk not same", driverName, adapterKey)
+	}
+	return nil
+}
+
 func (self *SBaseHostDriver) GetRaidScheme(host *models.SHost, raid string) (string, error) {
 	var candidates []string
+	if err := self.checkSameDiskSpec(host); err != nil {
+		return "", fmt.Errorf("check same disk spec: %v", err)
+	}
 	if len(raid) == 0 {
 		candidates = []string{baremetal.DISK_CONF_RAID10, baremetal.DISK_CONF_RAID1, baremetal.DISK_CONF_RAID5, baremetal.DISK_CONF_RAID0, baremetal.DISK_CONF_NONE}
 	} else {
