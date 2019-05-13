@@ -45,6 +45,10 @@ func (self *SAzureGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_AZURE
 }
 
+func (self *SAzureGuestDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_AZURE
+}
+
 func (self *SAzureGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_STANDARD_LRS
 }
