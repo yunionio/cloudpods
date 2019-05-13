@@ -326,6 +326,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	}
 
 	cmd += fmt.Sprintf("STATE_FILE=`ls -d %s* | head -n 1`\n", s.getStateFilePathRootPrefix())
+	cmd += fmt.Sprintf("PID_FILE=%s\n", s.GetPidFilePath())
 
 	var qemuCmd = qemutils.GetQemu(qemuVersion)
 	cmd += fmt.Sprintf("DEFAULT_QEMU_CMD='%s'\n", qemuCmd)
