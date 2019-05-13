@@ -32,7 +32,9 @@ import (
 	"yunion.io/x/onecloud/pkg/util/atexit"
 )
 
-type CommonOptions struct {
+type BaseOptions struct {
+	Region string `help:"Region name or ID" alias:"auth-region"`
+
 	Port    int    `help:"The port that the service runs on" alias:"bind-port"`
 	Address string `help:"The IP address to serve on (set to 0.0.0.0 for all interfaces)" default:"0.0.0.0" alias:"bind-host"`
 
@@ -40,28 +42,19 @@ type CommonOptions struct {
 	LogVerboseLevel int    `help:"log verbosity level" default:"0"`
 	LogFilePrefix   string `help:"prefix of log files"`
 
-	Region             string   `help:"Region name or ID" alias:"auth-region"`
-	AuthURL            string   `help:"Keystone auth URL" alias:"auth-uri"`
-	AdminUser          string   `help:"Admin username"`
-	AdminDomain        string   `help:"Admin user domain"`
-	AdminPassword      string   `help:"Admin password" alias:"admin-passwd"`
-	AdminProject       string   `help:"Admin project" default:"system" alias:"admin-tenant-name"`
-	CorsHosts          []string `help:"List of hostname that allow CORS"`
-	AuthTokenCacheSize uint32   `help:"Auth token Cache Size" default:"2048"`
-	TempPath           string   `help:"Path for store temp file, at least 40G space" default:"/opt/yunion/tmp"`
-
-	DebugClient bool `help:"Switch on/off mcclient debugs" default:"false"`
+	CorsHosts []string `help:"List of hostname that allow CORS"`
+	TempPath  string   `help:"Path for store temp file, at least 40G space" default:"/opt/yunion/tmp"`
 
 	ApplicationID      string `help:"Application ID"`
 	RequestWorkerCount int    `default:"4" help:"Request worker thread count, default is 4"`
-
-	NotifyAdminUsers  []string `default:"sysadmin" help:"System administrator user ID or name to notify system events, if domain is not default, specify domain as prefix ending with double backslash, e.g. domain\\\\user"`
-	NotifyAdminGroups []string `help:"System administrator group ID or name to notify system events, if domain is not default, specify domain as prefix ending with double backslash, e.g. domain\\\\group"`
 
 	EnableSsl   bool   `help:"Enable https"`
 	SslCaCerts  string `help:"ssl certificate ca root file, separating ca and cert file is not encouraged" alias:"ca-file"`
 	SslCertfile string `help:"ssl certification file, normally combines all the certificates in the chain" alias:"cert-file"`
 	SslKeyfile  string `help:"ssl certification private key file" alias:"key-file"`
+
+	NotifyAdminUsers  []string `default:"sysadmin" help:"System administrator user ID or name to notify system events, if domain is not default, specify domain as prefix ending with double backslash, e.g. domain\\\\user"`
+	NotifyAdminGroups []string `help:"System administrator group ID or name to notify system events, if domain is not default, specify domain as prefix ending with double backslash, e.g. domain\\\\group"`
 
 	EnableRbac                       bool `help:"Switch on Role-based Access Control" default:"true"`
 	RbacDebug                        bool `help:"turn on rbac debug log" default:"false"`
@@ -71,8 +64,21 @@ type CommonOptions struct {
 	structarg.BaseOptions
 }
 
+type CommonOptions struct {
+	AuthURL            string `help:"Keystone auth URL" alias:"auth-uri"`
+	AdminUser          string `help:"Admin username"`
+	AdminDomain        string `help:"Admin user domain"`
+	AdminPassword      string `help:"Admin password" alias:"admin-passwd"`
+	AdminProject       string `help:"Admin project" default:"system" alias:"admin-tenant-name"`
+	AuthTokenCacheSize uint32 `help:"Auth token Cache Size" default:"2048"`
+
+	DebugClient bool `help:"Switch on/off mcclient debugs" default:"false"`
+
+	BaseOptions
+}
+
 type DBOptions struct {
-	SqlConnection string `help:"SQL connection string"`
+	SqlConnection string `help:"SQL connection string" alias:"connection"`
 	AutoSyncTable bool   `help:"Automatically synchronize table changes if differences are detected"`
 
 	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources"`
@@ -105,7 +111,7 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 		log.Fatalf("Parse arguments error: %v", err)
 	}
 
-	var optionsRef *CommonOptions
+	var optionsRef *BaseOptions
 
 	err = reflectutils.FindAnonymouStructPointer(optStruct, &optionsRef)
 	if err != nil {
@@ -178,5 +184,7 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 
 	log.V(10).Debugf("Parsed options: %#v", optStruct)
 
-	consts.SetRegion(optionsRef.Region)
+	if len(optionsRef.Region) > 0 {
+		consts.SetRegion(optionsRef.Region)
+	}
 }

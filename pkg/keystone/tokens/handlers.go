@@ -1,0 +1,155 @@
+package tokens
+
+import (
+	"context"
+	"net/http"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
+	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/models"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+)
+
+func AddHandler(app *appsrv.Application) {
+	app.AddHandler2("POST", "/v2.0/tokens", authenticateTokensV2, nil, "auth_tokens_v2", nil)
+	app.AddHandler2("POST", "/v3/auth/tokens", authenticateTokensV3, nil, "auth_tokens_v3", nil)
+	app.AddHandler2("GET", "/v2.0/tokens/<token>", authenticateToken(verifyTokensV2), nil, "verify_tokens_v2", nil)
+	app.AddHandler2("GET", "/v3/auth/tokens", authenticateToken(verifyTokensV3), nil, "verify_tokens_v3", nil)
+}
+
+func authenticateTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, _, body := appsrv.FetchEnv(ctx, w, r)
+	input := mcclient.SAuthenticationInputV2{}
+	err := body.Unmarshal(&input)
+	if err != nil {
+		httperrors.InvalidInputError(w, "unrecognized input %s", err)
+		return
+	}
+	token, err := AuthenticateV2(ctx, input)
+	if token == nil {
+		httperrors.UnauthorizedError(w, "unauthorized %s", err)
+		return
+	}
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.Marshal(token), "access")
+	appsrv.SendJSON(w, ret)
+}
+
+func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	log.Infof("authenticateTokensV3")
+	_, _, body := appsrv.FetchEnv(ctx, w, r)
+	input := mcclient.SAuthenticationInputV3{}
+	err := body.Unmarshal(&input)
+	if err != nil {
+		httperrors.InvalidInputError(w, "unrecognized input %s", err)
+		return
+	}
+	log.Debugf("%s", jsonutils.Marshal(&input))
+	token, err := AuthenticateV3(ctx, input)
+	if token == nil {
+		httperrors.UnauthorizedError(w, "unauthorized %s", err)
+		return
+	}
+	w.Header().Set(api.AUTH_SUBJECT_TOKEN_HEADER, token.Id)
+	token.Id = ""
+	appsrv.SendJSON(w, jsonutils.Marshal(token))
+}
+
+func verifyTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	params, _, _ := appsrv.FetchEnv(ctx, w, r)
+	tokenStr := params["<token>"]
+	token, err := verifyCommon(ctx, w, tokenStr)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	user, err := models.UserManager.FetchUserExtended(token.UserId, "", "", "")
+	if err != nil {
+		httperrors.InvalidCredentialError(w, "invalid user")
+		return
+	}
+	project, err := models.ProjectManager.FetchProject(token.ProjectId, "", "", "")
+	if err != nil {
+		httperrors.InvalidCredentialError(w, "invalid project")
+		return
+	}
+	v2token, err := token.getTokenV2(user, project)
+	if err != nil {
+		httperrors.InternalServerError(w, "internal server error %s", err)
+		return
+	}
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.Marshal(v2token), "access")
+	appsrv.SendJSON(w, ret)
+}
+
+func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	tokenStr := r.Header.Get(api.AUTH_SUBJECT_TOKEN_HEADER)
+	token, err := verifyCommon(ctx, w, tokenStr)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+
+	user, err := models.UserManager.FetchUserExtended(token.UserId, "", "", "")
+	if err != nil {
+		httperrors.InvalidCredentialError(w, "invalid user")
+		return
+	}
+	var projExt *models.SProjectExtended
+	var domain *models.SDomain
+	if len(token.ProjectId) > 0 {
+		project, err := models.ProjectManager.FetchProject(token.ProjectId, "", "", "")
+		if err != nil {
+			httperrors.InvalidCredentialError(w, "invalid project")
+			return
+		}
+		projExt, err = project.FetchExtend()
+		if err != nil {
+			httperrors.InvalidCredentialError(w, "invalid project")
+			return
+		}
+	} else {
+		domain, err = models.DomainManager.FetchDomainById(token.DomainId)
+		if err != nil {
+			httperrors.InvalidCredentialError(w, "invalid domain")
+			return
+		}
+	}
+
+	v3token, err := token.getTokenV3(user, projExt, domain)
+	if err != nil {
+		httperrors.InternalServerError(w, "internal server error %s", err)
+		return
+	}
+	w.Header().Set(api.AUTH_SUBJECT_TOKEN_HEADER, v3token.Id)
+	v3token.Id = ""
+	appsrv.SendJSON(w, jsonutils.Marshal(v3token))
+}
+
+func verifyCommon(ctx context.Context, w http.ResponseWriter, tokenStr string) (*SAuthToken, error) {
+	adminToken := policy.FetchUserCredential(ctx)
+	if !adminToken.IsAdminAllow(api.SERVICE_TYPE, "tokens", "perform", "auth") {
+		return nil, httperrors.NewForbiddenError("not allow to auth")
+	}
+	token := SAuthToken{}
+	err := token.ParseFernetToken(tokenStr)
+	if err != nil {
+		return nil, httperrors.NewInvalidCredentialError("invalid token")
+	}
+	return &token, nil
+}
+
+func authenticateToken(f appsrv.FilterHandler) appsrv.FilterHandler {
+	return authenticateTokenWithDelayDecision(f, true)
+}
+
+func authenticateTokenWithDelayDecision(f appsrv.FilterHandler, delayDecision bool) appsrv.FilterHandler {
+	return auth.AuthenticateWithDelayDecision(f, delayDecision)
+}

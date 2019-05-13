@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -30,11 +31,15 @@ var (
 	GuestToken = mcclient.SSimpleToken{
 		User: "guest",
 	}
+
+	DefaultTokenVerifier = Verify
 )
 
 const (
 	AUTH_TOKEN = appctx.AppContextKey("X_AUTH_TOKEN")
 )
+
+type TokenVerifyFunc func(string) (mcclient.TokenCredential, error)
 
 func Authenticate(f appsrv.FilterHandler) appsrv.FilterHandler {
 	return AuthenticateWithDelayDecision(f, false)
@@ -42,7 +47,7 @@ func Authenticate(f appsrv.FilterHandler) appsrv.FilterHandler {
 
 func AuthenticateWithDelayDecision(f appsrv.FilterHandler, delayDecision bool) appsrv.FilterHandler {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-		tokenStr := r.Header.Get(mcclient.AUTH_TOKEN)
+		tokenStr := r.Header.Get(api.AUTH_TOKEN_HEADER)
 		var token mcclient.TokenCredential
 		if len(tokenStr) == 0 {
 			log.Errorf("no auth_token found!")
@@ -53,7 +58,7 @@ func AuthenticateWithDelayDecision(f appsrv.FilterHandler, delayDecision bool) a
 			token = &GuestToken
 		} else {
 			var err error
-			token, err = Verify(tokenStr)
+			token, err = DefaultTokenVerifier(tokenStr)
 			if err != nil {
 				log.Errorf("Verify token failed: %s", err)
 				if !delayDecision {

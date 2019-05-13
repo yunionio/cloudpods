@@ -193,8 +193,10 @@ type SHost struct {
 	IsImport bool `nullable:"true" default:"false" list:"admin" create:"admin_optional"`
 }
 
-func (manager *SHostManager) GetContextManager() []db.IModelManager {
-	return []db.IModelManager{ZoneManager}
+func (manager *SHostManager) GetContextManagers() [][]db.IModelManager {
+	return [][]db.IModelManager{
+		{ZoneManager},
+	}
 }
 
 func (self *SHostManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

@@ -63,8 +63,10 @@ type SVpc struct {
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 }
 
-func (manager *SVpcManager) GetContextManager() []db.IModelManager {
-	return []db.IModelManager{CloudregionManager}
+func (manager *SVpcManager) GetContextManagers() [][]db.IModelManager {
+	return [][]db.IModelManager{
+		{CloudregionManager},
+	}
 }
 
 func (self *SVpcManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

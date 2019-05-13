@@ -390,7 +390,6 @@ func (self *SCachedimage) ChooseSourceStoragecacheInRange(hostType string, exclu
 		return nil, nil
 	}
 
-	rand.Seed(time.Now().Unix())
 	return &scimgs[rand.Intn(len(scimgs))], nil
 }
 

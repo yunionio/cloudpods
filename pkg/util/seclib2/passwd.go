@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/tredoe/osutil/user/crypt/sha512_crypt"
+	"golang.org/x/crypto/bcrypt"
 
 	"yunion.io/x/pkg/util/seclib"
 )
@@ -31,4 +32,16 @@ func GeneratePassword(passwd string) (string, error) {
 func VerifyPassword(passwd string, hash string) error {
 	sha512Crypt := sha512_crypt.New()
 	return sha512Crypt.Verify(hash, []byte(passwd))
+}
+
+func BcryptPassword(passwd string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(passwd), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), err
+}
+
+func BcryptVerifyPassword(passwd string, hash string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(passwd))
 }

@@ -154,7 +154,7 @@ func init() {
 		if args.Enabled && !args.Disabled {
 			params.Add(jsonutils.JSONTrue, "enabled")
 		} else if !args.Enabled && args.Disabled {
-			params.Add(jsonutils.JSONTrue, "disabled")
+			params.Add(jsonutils.JSONFalse, "enabled")
 		}
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")

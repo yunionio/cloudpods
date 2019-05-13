@@ -23,6 +23,7 @@ import (
 
 func init() {
 	type GroupListOptions struct {
+		Admin  bool   `help:"admin mode"`
 		Name   string `help:"Name of the groups to filter"`
 		Domain string `help:"Domain to filter"`
 		Limit  int64  `help:"Items per page" default:"20"`
@@ -40,6 +41,10 @@ func init() {
 				return e
 			}
 			params.Add(jsonutils.NewString(domainId), "domain_id")
+			params.Add(jsonutils.JSONTrue, "admin")
+		}
+		if args.Admin {
+			params.Add(jsonutils.JSONTrue, "admin")
 		}
 		if args.Limit > 0 {
 			params.Add(jsonutils.NewInt(args.Limit), "limit")

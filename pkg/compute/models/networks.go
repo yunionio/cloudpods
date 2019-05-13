@@ -107,8 +107,10 @@ type SNetwork struct {
 	AllocTimoutSeconds int `default:"0" nullable:"true" get:"admin"`
 }
 
-func (manager *SNetworkManager) GetContextManager() []db.IModelManager {
-	return []db.IModelManager{WireManager}
+func (manager *SNetworkManager) GetContextManagers() [][]db.IModelManager {
+	return [][]db.IModelManager{
+		{WireManager},
+	}
 }
 
 func (self *SNetwork) GetWire() *SWire {

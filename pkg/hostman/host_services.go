@@ -50,7 +50,7 @@ func (host *SHostService) StartService() {
 	}
 
 	options.HostOptions.EnableRbac = false // disable rbac
-	app := app_common.InitApp(&options.HostOptions.CommonOptions, false)
+	app := app_common.InitApp(&options.HostOptions.BaseOptions, false)
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {
 		log.Fatalf(err.Error())
@@ -77,14 +77,14 @@ func (host *SHostService) StartService() {
 
 	// Init Metadata handler
 	go metadata.StartService(
-		app_common.InitApp(&options.HostOptions.CommonOptions, false),
+		app_common.InitApp(&options.HostOptions.BaseOptions, false),
 		options.HostOptions.Address, options.HostOptions.Port+1000)
 
 	cronManager := cronman.GetCronJobManager(false)
 	cronManager.AddJob2(
 		"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
 
-	app_common.ServeForeverWithCleanup(app, &options.HostOptions.CommonOptions, func() {
+	app_common.ServeForeverWithCleanup(app, &options.HostOptions.BaseOptions, func() {
 		hostinfo.Stop()
 		storageman.Stop()
 		hostmetrics.Stop()

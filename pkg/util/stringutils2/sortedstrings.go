@@ -14,6 +14,21 @@ func NewSortedStrings(strs []string) SSortedStrings {
 	return SSortedStrings(strs)
 }
 
+func Append(ss SSortedStrings, ele ...string) SSortedStrings {
+	for _, e := range ele {
+		pos, find := ss.Index(e)
+		if find {
+			continue
+		}
+		ss = append(ss, e)
+		for i := len(ss) - 1; i > pos; i -= 1 {
+			ss[i] = ss[i-1]
+		}
+		ss[pos] = e
+	}
+	return ss
+}
+
 func (ss SSortedStrings) Index(needle string) (int, bool) {
 	i := 0
 	j := len(ss) - 1

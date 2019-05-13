@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
@@ -123,100 +124,11 @@ func (this *Client) rawRequest(ctx context.Context, endpoint string, token strin
 }
 
 func (this *Client) jsonRequest(ctx context.Context, endpoint string, token string, method httputils.THttpMethod, url string, header http.Header, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
-	/*bodystr := ""
-	if body != nil {
-		bodystr = body.String()
-	}
-	jbody := strings.NewReader(bodystr)
-	if header == nil {
-		header = http.Header{}
-	}
-	header.Add("Content-Type", "application/json")
-	resp, err := this.rawRequest(endpoint, token, method, url, header, jbody)
-	return this.parseJSONResponse(resp, err)*/
 	return httputils.JSONRequest(this.httpconn, ctx, method, joinUrl(endpoint, url), getDefaultHeader(header, token), body, this.debug)
 }
 
-/*func (this *Client) parseJSONResponse(resp *http.Response, err error) (http.Header, jsonutils.JSONObject, error) {
-	if err != nil {
-		ce := JSONClientError{}
-		ce.Code = 499
-		ce.Details = err.Error()
-		return nil, nil, &ce
-	}
-	defer resp.Body.Close()
-	if this.debug {
-		if resp.StatusCode < 300 {
-			green("Status:", resp.StatusCode)
-			green(resp.Header)
-		} else if resp.StatusCode < 400 {
-			yellow("Status:", resp.StatusCode)
-			yellow(resp.Header)
-		} else {
-			red("Status:", resp.StatusCode)
-			red(resp.Header)
-		}
-	}
-	rbody, err := ioutil.ReadAll(resp.Body)
-	if this.debug {
-		fmt.Println(string(rbody))
-	}
-	if err != nil {
-		return nil, nil, fmt.Errorf("Fail to read body: %s", err)
-	}
-	var jrbody jsonutils.JSONObject = nil
-	if len(rbody) > 0 {
-		jrbody, _ = jsonutils.Parse(rbody)
-		///// XXX: ignore error case
-		// if err != nil && resp.StatusCode < 300 {
-		//     return nil, nil, fmt.Errorf("Fail to decode body: %s", err)
-		// }
-		if jrbody != nil && this.debug {
-			fmt.Println(jrbody)
-		}
-	}
-	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		ce := JSONClientError{}
-		ce.Code = resp.StatusCode
-		ce.Details = resp.Header.Get("Location")
-		ce.Class = "redirect"
-		return nil, nil, &ce
-	} else if resp.StatusCode >= 400 {
-		ce := JSONClientError{}
-		if jrbody == nil {
-			ce.Code = resp.StatusCode
-			ce.Details = resp.Status
-			return nil, nil, &ce
-		} else {
-			jrbody2, e := jrbody.Get("error")
-			if e == nil {
-				ecode, e := jrbody2.Int("code")
-				if e == nil {
-					ce.Code = int(ecode)
-					ce.Details, _ = jrbody2.GetString("message")
-					ce.Class, _ = jrbody2.GetString("title")
-					return nil, nil, &ce
-				} else {
-					ce.Code = resp.StatusCode
-					ce.Details = jrbody2.String()
-					return nil, nil, &ce
-				}
-			} else {
-				err = jrbody.Unmarshal(&ce)
-				if err != nil {
-					return nil, nil, err
-				} else {
-					return nil, nil, &ce
-				}
-			}
-		}
-	} else {
-		return resp.Header, jrbody, nil
-	}
-}*/
-
 func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, token string) (TokenCredential, error) {
-	body := jsonutils.NewDict()
+	/*body := jsonutils.NewDict()
 	if len(uname) > 0 && len(passwd) > 0 { // Password authentication
 		body.Add(jsonutils.NewArray(jsonutils.NewString("password")), "auth", "identity", "methods")
 		body.Add(jsonutils.NewString(uname), "auth", "identity", "password", "user", "name")
@@ -236,11 +148,33 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, t
 	if len(projectName) > 0 {
 		body.Add(jsonutils.NewString("default"), "auth", "scope", "project", "domain", "id")
 		body.Add(jsonutils.NewString(projectName), "auth", "scope", "project", "name")
+	}*/
+	input := SAuthenticationInputV3{}
+	if len(uname) > 0 && len(passwd) > 0 { // Password authentication
+		input.Auth.Identity.Methods = []string{api.AUTH_METHOD_PASSWORD}
+		input.Auth.Identity.Password.User.Name = uname
+		input.Auth.Identity.Password.User.Password = passwd
+		if len(domainName) > 0 {
+			input.Auth.Identity.Password.User.Domain.Name = domainName
+		} else {
+			input.Auth.Identity.Password.User.Domain.Name = api.DEFAULT_DOMAIN_ID
+		}
+	} else if len(token) > 0 {
+		input.Auth.Identity.Methods = []string{api.AUTH_METHOD_TOKEN}
+		input.Auth.Identity.Token.Id = token
 	}
-	hdr, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "POST", "/auth/tokens", nil, body)
+	if len(projectId) > 0 {
+		input.Auth.Scope.Project.Id = projectId
+	}
+	if len(projectName) > 0 {
+		input.Auth.Scope.Project.Name = projectName
+		input.Auth.Scope.Project.Domain.Id = api.DEFAULT_DOMAIN_ID
+	}
+	hdr, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "POST", "/auth/tokens", nil, jsonutils.Marshal(&input))
 	if err != nil {
 		return nil, err
 	}
+
 	tokenId := hdr.Get("X-Subject-Token")
 	if len(tokenId) == 0 {
 		return nil, fmt.Errorf("No X-Subject-Token in header")
@@ -250,7 +184,7 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, t
 }
 
 func (this *Client) _authV2(uname, passwd, tenantId, tenantName, token string) (TokenCredential, error) {
-	body := jsonutils.NewDict()
+	/*body := jsonutils.NewDict()
 	if len(uname) > 0 && len(passwd) > 0 {
 		body.Add(jsonutils.NewString(uname), "auth", "passwordCredentials", "username")
 		body.Add(jsonutils.NewString(passwd), "auth", "passwordCredentials", "password")
@@ -263,8 +197,20 @@ func (this *Client) _authV2(uname, passwd, tenantId, tenantName, token string) (
 	}
 	if len(token) > 0 {
 		body.Add(jsonutils.NewString(token), "auth", "token", "id")
+	}*/
+	input := SAuthenticationInputV2{}
+	input.Auth.PasswordCredentials.Username = uname
+	input.Auth.PasswordCredentials.Password = passwd
+	if len(tenantName) > 0 {
+		input.Auth.TenantName = tenantName
 	}
-	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "POST", "/tokens", nil, body)
+	if len(tenantId) > 0 {
+		input.Auth.TenantId = tenantId
+	}
+	if len(token) > 0 {
+		input.Auth.Token.Id = token
+	}
+	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "POST", "/tokens", nil, jsonutils.Marshal(&input))
 	if err != nil {
 		return nil, err
 	}
@@ -313,8 +259,8 @@ func (this *Client) unmarshalV2Token(rbody jsonutils.JSONObject) (cred TokenCred
 
 func (this *Client) verifyV3(adminToken, token string) (TokenCredential, error) {
 	header := http.Header{}
-	header.Add("X-Auth-Token", adminToken)
-	header.Add("X-Subject-Token", token)
+	header.Add(api.AUTH_TOKEN_HEADER, adminToken)
+	header.Add(api.AUTH_SUBJECT_TOKEN_HEADER, token)
 	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "GET", "/auth/tokens", header, nil)
 	if err != nil {
 		return nil, err
@@ -324,7 +270,7 @@ func (this *Client) verifyV3(adminToken, token string) (TokenCredential, error) 
 
 func (this *Client) verifyV2(adminToken, token string) (TokenCredential, error) {
 	header := http.Header{}
-	header.Add("X-Auth-Token", adminToken)
+	header.Add(api.AUTH_TOKEN_HEADER, adminToken)
 	verifyUrl := fmt.Sprintf("/tokens/%s", token)
 	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "GET", verifyUrl, header, nil)
 	if err != nil {

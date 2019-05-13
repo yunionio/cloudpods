@@ -64,7 +64,7 @@ func (manager *SModelBaseManager) KeywordPlural() string {
 	return manager.keywordPlural
 }
 
-func (manager *SModelBaseManager) GetContextManager() []IModelManager {
+func (manager *SModelBaseManager) GetContextManagers() [][]IModelManager {
 	return nil
 }
 
@@ -342,5 +342,13 @@ func (model *SModelBase) IsSharable() bool {
 }
 
 func (model *SModelBase) CustomizedGetDetailsBody(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+func (model *SModelBase) UpdateInContext(ctx context.Context, userCred mcclient.TokenCredential, ctxObjs []IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, nil
+}
+
+func (model *SModelBase) DeleteInContext(ctx context.Context, userCred mcclient.TokenCredential, ctxObjs []IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return nil, nil
 }

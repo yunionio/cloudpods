@@ -67,6 +67,10 @@ func InitAuth(options *common_options.CommonOptions, authComplete auth.AuthCompl
 
 	authComplete()
 
+	InitBaseAuth(&options.BaseOptions)
+}
+
+func InitBaseAuth(options *common_options.BaseOptions) {
 	if options.EnableRbac {
 		policy.EnableGlobalRbac(time.Duration(options.RbacPolicySyncPeriodSeconds)*time.Second,
 			time.Duration(options.RbacPolicySyncFailedRetrySeconds)*time.Second,

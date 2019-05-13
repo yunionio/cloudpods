@@ -28,13 +28,14 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (
 	TASK_ID         = "X-Task-Id"
 	TASK_NOTIFY_URL = "X-Task-Notify-Url"
-	AUTH_TOKEN      = "X-Auth-Token"
+	AUTH_TOKEN      = api.AUTH_TOKEN_HEADER //  "X-Auth-Token"
 	REGION_VERSION  = "X-Region-Version"
 
 	DEFAULT_API_VERSION = "v1"

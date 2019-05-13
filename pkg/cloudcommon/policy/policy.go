@@ -46,14 +46,18 @@ const (
 	PolicyActionPerform = "perform"
 )
 
+type PolicyFetchFunc func() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRbacPolicy, error)
+
 var (
-	PolicyManager *SPolicyManager
+	PolicyManager        *SPolicyManager
+	DefaultPolicyFetcher PolicyFetchFunc
 )
 
 func init() {
 	PolicyManager = &SPolicyManager{
 		lock: &sync.Mutex{},
 	}
+	DefaultPolicyFetcher = remotePolicyFetcher
 }
 
 type SPolicyManager struct {
@@ -92,7 +96,7 @@ func parseJsonPolicy(obj jsonutils.JSONObject) (string, rbacutils.SRbacPolicy, e
 	return typeStr, policy, nil
 }
 
-func fetchPolicies() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRbacPolicy, error) {
+func remotePolicyFetcher() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRbacPolicy, error) {
 	s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "v1")
 
 	policies := make(map[string]rbacutils.SRbacPolicy)
@@ -148,7 +152,7 @@ func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterva
 }
 
 func (manager *SPolicyManager) SyncOnce() error {
-	policies, adminPolicies, err := fetchPolicies()
+	policies, adminPolicies, err := DefaultPolicyFetcher()
 	if err != nil {
 		log.Errorf("sync rbac policy failed: %s", err)
 		return err

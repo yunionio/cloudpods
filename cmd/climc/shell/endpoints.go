@@ -30,10 +30,6 @@ func init() {
 		Interface string `help:"Search by interface"`
 	}
 	R(&EndpointListOptions{}, "endpoint-list", "List service endpoints", func(s *mcclient.ClientSession, args *EndpointListOptions) error {
-		mod, err := modules.GetModule(s, "endpoints")
-		if err != nil {
-			return err
-		}
 		query := jsonutils.NewDict()
 		if args.Limit > 0 {
 			query.Add(jsonutils.NewInt(args.Limit), "limit")
@@ -45,11 +41,7 @@ func init() {
 			query.Add(jsonutils.NewString(args.Region), "region_id")
 		}
 		if len(args.Service) > 0 {
-			srvMod, err := modules.GetModule(s, "services")
-			if err != nil {
-				return err
-			}
-			srvId, err := srvMod.GetId(s, args.Service, nil)
+			srvId, err := modules.ServicesV3.GetId(s, args.Service, nil)
 			if err != nil {
 				return err
 			}
@@ -58,11 +50,11 @@ func init() {
 		if len(args.Interface) > 0 {
 			query.Add(jsonutils.NewString(args.Interface), "interface")
 		}
-		result, err := mod.List(s, query)
+		result, err := modules.EndpointsV3.List(s, query)
 		if err != nil {
 			return err
 		}
-		printList(result, mod.GetColumns(s))
+		printList(result, modules.EndpointsV3.GetColumns(s))
 		return nil
 	})
 
@@ -70,11 +62,7 @@ func init() {
 		ID string `help:"ID or name of endpoints"`
 	}
 	R(&EndpointDetailOptions{}, "endpoint-show", "Show details of an endpoint", func(s *mcclient.ClientSession, args *EndpointDetailOptions) error {
-		mod, err := modules.GetModule(s, "endpoints")
-		if err != nil {
-			return err
-		}
-		ep, err := mod.Get(s, args.ID, nil)
+		ep, err := modules.EndpointsV3.Get(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
@@ -83,11 +71,7 @@ func init() {
 	})
 
 	R(&EndpointDetailOptions{}, "endpoint-delete", "Delete an endpoint", func(s *mcclient.ClientSession, args *EndpointDetailOptions) error {
-		mod, err := modules.GetModule(s, "endpoints")
-		if err != nil {
-			return err
-		}
-		ep, err := mod.Delete(s, args.ID, nil)
+		ep, err := modules.EndpointsV3.Delete(s, args.ID, nil)
 		if err != nil {
 			return err
 		}

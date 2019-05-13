@@ -148,8 +148,11 @@ type SStorage struct {
 	IsSysDiskStore bool `nullable:"false" default:"true" list:"user" create:"optional" update:"admin"`
 }
 
-func (manager *SStorageManager) GetContextManager() []db.IModelManager {
-	return []db.IModelManager{ZoneManager, StoragecacheManager}
+func (manager *SStorageManager) GetContextManagers() [][]db.IModelManager {
+	return [][]db.IModelManager{
+		{ZoneManager},
+		{StoragecacheManager},
+	}
 }
 
 func (manager *SStorageManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

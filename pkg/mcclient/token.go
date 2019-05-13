@@ -39,6 +39,7 @@ type IIdentityProvider interface {
 	GetProjectId() string
 	GetUserId() string
 	GetTenantId() string
+	GetProjectDomainId() string
 }
 
 type TokenCredential interface {
@@ -53,6 +54,9 @@ type TokenCredential interface {
 	GetDomainName() string
 	GetTenantName() string
 	GetProjectName() string
+
+	GetProjectDomain() string
+
 	GetUserName() string
 	GetRoles() []string
 	GetExpires() time.Time
