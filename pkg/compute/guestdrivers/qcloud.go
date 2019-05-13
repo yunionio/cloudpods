@@ -31,6 +31,10 @@ func (self *SQcloudGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_QCLOUD
 }
 
+func (self *SQcloudGuestDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_QCLOUD
+}
+
 func (self *SQcloudGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_CLOUD_PREMIUM
 }

@@ -464,6 +464,7 @@ func (image *SCachedimage) getValidStoragecache() []SStoragecache {
 	q = q.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
 	q = q.Filter(sqlchemy.Equals(providers.Field("health_status"), api.CLOUD_PROVIDER_HEALTH_NORMAL))
 	q = q.Filter(sqlchemy.Equals(storagecacheimages.Field("cachedimage_id"), image.Id))
+	q = q.Filter(sqlchemy.Equals(storagecacheimages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
 
 	caches := make([]SStoragecache, 0)
 	err := db.FetchModelObjects(StoragecacheManager, q, &caches)
@@ -472,6 +473,18 @@ func (image *SCachedimage) getValidStoragecache() []SStoragecache {
 		return nil
 	}
 	return caches
+}
+
+func (image *SCachedimage) GetCloudprovider() (*SCloudprovider, error) {
+	caches := image.getValidStoragecache()
+	if len(caches) == 0 {
+		return nil, fmt.Errorf("no valid storagecache for image %s(%s)", image.Name, image.Id)
+	}
+	cloudprovider := caches[0].GetCloudprovider()
+	if cloudprovider == nil {
+		return nil, fmt.Errorf("failed to found cloudprovider for storagecache %s(%s)", caches[0].Name, caches[0].Id)
+	}
+	return cloudprovider, nil
 }
 
 func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {

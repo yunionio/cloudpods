@@ -62,6 +62,10 @@ func (self *SAwsGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_AWS
 }
 
+func (self *SAwsGuestDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_AWS
+}
+
 func (self *SAwsGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_GP2_SSD
 }

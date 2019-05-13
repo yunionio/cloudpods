@@ -2,6 +2,7 @@ package guestdrivers
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math"
 	"time"
@@ -115,6 +116,29 @@ func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Conte
 	if input.Cdrom != "" {
 		return nil, httperrors.NewInputParameterError("%s not support cdrom params", input.Hypervisor)
 	}
+
+	_image, err := models.CachedimageManager.FetchById(input.Disks[0].ImageId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2("image", input.Disks[0].ImageId)
+		}
+		return nil, httperrors.NewGeneralError(err)
+	}
+	image := _image.(*models.SCachedimage)
+	if image.ImageType == cloudprovider.CachedImageTypeSystem {
+		cloudprovider, err := image.GetCloudprovider()
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("failed to found image %s(%s) provider", image.Name, image.Id)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		provider := models.GetDriver(input.Hypervisor).GetProvider()
+		if provider != cloudprovider.Provider {
+			return nil, httperrors.NewInputParameterError("image %s(%s) not support provider %s only support %s", image.Name, image.Id, provider, cloudprovider.Provider)
+		}
+	}
+
 	return input, nil
 }
 

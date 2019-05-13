@@ -37,6 +37,10 @@ func (self *SContainerDriver) GetHypervisor() string {
 	return api.HYPERVISOR_CONTAINER
 }
 
+func (self *SContainerDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_ONECLOUD
+}
+
 func (self *SContainerDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_LOCAL
 }

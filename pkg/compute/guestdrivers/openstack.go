@@ -31,6 +31,10 @@ func (self *SOpenStackGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_OPENSTACK
 }
 
+func (self *SOpenStackGuestDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_OPENSTACK
+}
+
 func (self *SOpenStackGuestDriver) IsSupportEip() bool {
 	return false
 }

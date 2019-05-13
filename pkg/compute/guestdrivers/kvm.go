@@ -34,6 +34,10 @@ func (self *SKVMGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_KVM
 }
 
+func (self *SKVMGuestDriver) GetProvider() string {
+	return api.CLOUD_PROVIDER_ONECLOUD
+}
+
 func (self *SKVMGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_LOCAL
 }
