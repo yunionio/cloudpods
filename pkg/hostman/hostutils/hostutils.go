@@ -45,6 +45,7 @@ type IHost interface {
 	IsNestedVirtualization() bool
 
 	PutHostOnline() error
+	StartDHCPServer()
 
 	GetBridgeDev(bridge string) hostbridge.IBridgeDriver
 	GetIsolatedDeviceManager() *isolated_device.IsolatedDeviceManager
