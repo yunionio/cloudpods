@@ -110,7 +110,7 @@ func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	}
 
 	ieips := []cloudprovider.ICloudEIP{}
-	for i, _ := range eips {
+	for i := range eips {
 		eip := eips[i]
 		eip.region = self
 		ieips = append(ieips, &eip)
