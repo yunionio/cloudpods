@@ -230,17 +230,48 @@ func (lbbg *SLoadbalancerBackendGroup) GetDetailsUsableBackendList(ctx context.C
 	for _, backend := range backends {
 		backendIds = append(backendIds, backend.BackendId)
 	}
-	q := GuestManager.Query().NotIn("id", backendIds)
-	host := HostManager.Query().SubQuery()
-	zone := ZoneManager.Query().SubQuery()
-	cloudregion := CloudregionManager.Query().SubQuery()
-	q = q.Join(host, sqlchemy.Equals(host.Field("id"), q.Field("host_id"))).
-		Join(zone, sqlchemy.Equals(host.Field("zone_id"), zone.Field("id"))).
-		Join(cloudregion, sqlchemy.Equals(zone.Field("cloudregion_id"), cloudregion.Field("id"))).
-		Filter(sqlchemy.Equals(cloudregion.Field("id"), lbbg.CloudregionId))
+	vpcId := ""
+	lb := lbbg.GetLoadbalancer()
+	if lb != nil && len(lb.VpcId) > 0 {
+		vpcId = lb.VpcId
+	}
+	if len(vpcId) == 0 {
+		for _, backend := range backends {
+			if backend.Status == api.LB_STATUS_ENABLED {
+				if guest := backend.GetGuest(); guest != nil {
+					vpc, err := guest.GetVpc()
+					if err != nil {
+						return nil, err
+					}
+					vpcId = vpc.Id
+					break
+				}
+			}
+		}
+	}
+	q := GuestManager.Query()
+	hosts := HostManager.Query().SubQuery()
+	guestnetworks := GuestnetworkManager.Query().SubQuery()
+	networks := NetworkManager.Query().SubQuery()
+	wires := WireManager.Query().SubQuery()
+	vpcs := VpcManager.Query().SubQuery()
+	zones := ZoneManager.Query().SubQuery()
+	cloudregions := CloudregionManager.Query().SubQuery()
+	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), q.Field("host_id"))).
+		Join(zones, sqlchemy.Equals(hosts.Field("zone_id"), zones.Field("id"))).
+		Join(cloudregions, sqlchemy.Equals(zones.Field("cloudregion_id"), cloudregions.Field("id"))).
+		Filter(sqlchemy.Equals(cloudregions.Field("id"), lbbg.CloudregionId)).
+		Filter(sqlchemy.NotIn(q.Field("id"), backendIds))
+	if len(vpcId) > 0 {
+		q = q.Join(guestnetworks, sqlchemy.Equals(guestnetworks.Field("guest_id"), q.Field("id"))).
+			Join(networks, sqlchemy.Equals(networks.Field("id"), guestnetworks.Field("network_id"))).
+			Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id"))).
+			Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id"))).
+			Filter(sqlchemy.Equals(vpcs.Field("id"), vpcId))
+	}
 	q = q.In("status", lbbg.GetRegion().GetDriver().GetBackendStatusForAdd())
 	if len(lbbg.ManagerId) > 0 {
-		q = q.Filter(sqlchemy.Equals(host.Field("manager_id"), lbbg.ManagerId))
+		q = q.Filter(sqlchemy.Equals(hosts.Field("manager_id"), lbbg.ManagerId))
 		q.Filter(sqlchemy.NOT(sqlchemy.IsNullOrEmpty(q.Field("external_id"))))
 	}
 	result := &struct {
