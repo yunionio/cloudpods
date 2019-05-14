@@ -503,6 +503,11 @@ func (lblis *SLoadbalancerListener) GetCustomizeColumns(ctx context.Context, use
 			extra.Set("backend_group", jsonutils.NewString(lbbg.GetName()))
 		}
 	}
+	if len(lblis.AclId) > 0 {
+		if acl := lblis.GetLoadbalancerAcl(); acl != nil {
+			extra.Set("acl_name", jsonutils.NewString(acl.Name))
+		}
+	}
 	regionInfo := lblis.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	if regionInfo != nil {
 		extra.Update(regionInfo)
@@ -638,36 +643,56 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerCertificate() *SLoadbalancerC
 	if len(lblis.CertificateId) == 0 {
 		return nil
 	}
-	certificate, err := LoadbalancerCertificateManager.FetchById(lblis.CertificateId)
+	_certificate, err := LoadbalancerCertificateManager.FetchById(lblis.CertificateId)
 	if err != nil {
 		return nil
 	}
-	return certificate.(*SLoadbalancerCertificate)
+	certificate := _certificate.(*SLoadbalancerCertificate)
+	if certificate.PendingDeleted {
+		log.Errorf("certificate %s(%s) has been deleted", certificate.Name, certificate.Id)
+		return nil
+	}
+	return certificate
 }
 
 func (lblis *SLoadbalancerListener) GetLoadbalancerAcl() *SLoadbalancerAcl {
-	acl, err := LoadbalancerAclManager.FetchById(lblis.AclId)
+	_acl, err := LoadbalancerAclManager.FetchById(lblis.AclId)
 	if err != nil {
 		return nil
 	}
-	return acl.(*SLoadbalancerAcl)
+	acl := _acl.(*SLoadbalancerAcl)
+	if acl.PendingDeleted {
+		log.Errorf("acl %s(%s) has been deleted", acl.Name, acl.Id)
+		return nil
+	}
+	return acl
 }
 
 func (lblis *SLoadbalancerListener) GetLoadbalancerBackendGroup() *SLoadbalancerBackendGroup {
-	group, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
+	_group, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
 	if err != nil {
 		return nil
 	}
-	return group.(*SLoadbalancerBackendGroup)
+	group := _group.(*SLoadbalancerBackendGroup)
+	if group.PendingDeleted {
+		log.Errorf("backendgroup %s(%s) has been deleted", group.Name, group.Id)
+		return nil
+	}
+	return group
 }
 
 func (lblis *SLoadbalancerListener) GetLoadbalancer() *SLoadbalancer {
-	loadbalancer, err := LoadbalancerManager.FetchById(lblis.LoadbalancerId)
+	_loadbalancer, err := LoadbalancerManager.FetchById(lblis.LoadbalancerId)
 	if err != nil {
 		log.Errorf("failed to find loadbalancer for loadbalancer listener %s", lblis.Name)
 		return nil
 	}
-	return loadbalancer.(*SLoadbalancer)
+	loadbalancer := _loadbalancer.(*SLoadbalancer)
+	if loadbalancer.PendingDeleted {
+		log.Errorf("loadbalancer %s(%s) has been deleted", loadbalancer.Name, loadbalancer.Id)
+		return nil
+	}
+	return loadbalancer
 }
 
 func (lblis *SLoadbalancerListener) GetRegion() *SCloudregion {
