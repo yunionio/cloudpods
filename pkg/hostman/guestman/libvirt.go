@@ -11,6 +11,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -78,7 +79,7 @@ func (m *SGuestManager) PrepareImportFromLibvirt(
 
 func IsMacInGuestConfig(guestConfig *compute.SImportGuestDesc, mac string) bool {
 	for _, nic := range guestConfig.Nics {
-		if nic.Mac == mac {
+		if netutils.FormatMacAddr(nic.Mac) == netutils.FormatMacAddr(mac) {
 			return true
 		}
 	}
@@ -90,18 +91,20 @@ func setAttributeFromLibvirtConfig(
 ) (int, error) {
 	var Matched = true
 	for i, server := range libvirtConfig.Servers {
+		macMap := make(map[string]string, 0)
 		for mac := range server.MacIp {
 			if !IsMacInGuestConfig(guestConfig, mac) {
 				Matched = false
 				break
 			} else {
+				macMap[netutils.FormatMacAddr(mac)] = server.MacIp[mac]
 				Matched = true
 			}
 		}
 
 		if Matched {
 			for idx, nic := range guestConfig.Nics {
-				guestConfig.Nics[idx].Ip = server.MacIp[nic.Mac]
+				guestConfig.Nics[idx].Ip = macMap[netutils.FormatMacAddr(nic.Mac)]
 			}
 
 			log.Infof("Import guest %s", guestConfig.Name)
