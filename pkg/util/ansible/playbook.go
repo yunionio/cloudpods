@@ -1,0 +1,211 @@
+package ansible
+
+import (
+	"bytes"
+	"context"
+	"io"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+
+	"github.com/pkg/errors"
+
+	"yunion.io/x/pkg/gotypes"
+	yerrors "yunion.io/x/pkg/util/errors"
+)
+
+type pbState int
+
+const (
+	pbStateInit pbState = iota
+	pbStateRunning
+	pbStateStopped
+)
+
+func (pbs pbState) String() string {
+	switch pbs {
+	case pbStateInit:
+		return "init"
+	case pbStateRunning:
+		return "running"
+	case pbStateStopped:
+		return "stopped"
+	}
+	return "unknown"
+}
+
+type Playbook struct {
+	Inventory  Inventory
+	Modules    []Module
+	PrivateKey []byte
+
+	tmpdir        string
+	noCleanOnExit bool
+	stdio         *bytes.Buffer
+	state         pbState
+	stateMux      *sync.Mutex
+}
+
+func NewPlaybook() *Playbook {
+	pb := &Playbook{
+		state:    pbStateInit,
+		stateMux: &sync.Mutex{},
+		stdio:    &bytes.Buffer{},
+	}
+	return pb
+}
+
+func (pb *Playbook) Copy() *Playbook {
+	pb1 := NewPlaybook()
+	pb1.Inventory = gotypes.DeepCopy(pb.Inventory).(Inventory)
+	pb1.Modules = gotypes.DeepCopy(pb.Modules).([]Module)
+	pb1.PrivateKey = gotypes.DeepCopy(pb.PrivateKey).([]byte)
+	return pb1
+}
+
+// CleanOnExit decide whether temporary workdir will be cleaned up after Run
+func (pb *Playbook) CleanOnExit(b bool) {
+	pb.noCleanOnExit = !b
+}
+
+// State returns current state of the playbook
+func (pb *Playbook) State() pbState {
+	pb.stateMux.Lock()
+	defer pb.stateMux.Unlock()
+	return pb.state
+}
+
+// Runnable returns whether the playbook is in a state feasible to be run
+func (pb *Playbook) Runnable() bool {
+	return pb.state == pbStateInit
+}
+
+// Running returns whether the playbook is currently running
+func (pb *Playbook) Running() bool {
+	return pb.state == pbStateRunning
+}
+
+// Run runs the playbook
+func (pb *Playbook) Run(ctx context.Context) (err error) {
+	var (
+		tmpdir string
+	)
+
+	pb.stateMux.Lock()
+	if pb.state != pbStateInit {
+		return errors.Errorf("playbook state %s, want %s",
+			pb.state, pbStateInit)
+	}
+	pb.state = pbStateRunning
+	pb.stateMux.Unlock()
+	defer func() {
+		pb.stateMux.Lock()
+		pb.state = pbStateStopped
+		pb.stateMux.Unlock()
+	}()
+
+	if pb.Inventory.IsEmpty() {
+		return errors.New("empty inventory")
+	}
+
+	// make tmpdir
+	tmpdir, err = ioutil.TempDir("", "onecloud-ansible")
+	if err != nil {
+		err = errors.WithMessage(err, "making tmp dir")
+		return
+	}
+	pb.tmpdir = tmpdir
+	defer func() {
+		if pb.noCleanOnExit {
+			return
+		}
+		if err1 := os.RemoveAll(tmpdir); err1 != nil {
+			err = errors.WithMessagef(err1, "removing %q", tmpdir)
+		}
+	}()
+
+	// write out inventory
+	inventory := filepath.Join(tmpdir, "inventory")
+	err = ioutil.WriteFile(inventory, pb.Inventory.Data(), os.FileMode(0600))
+	if err != nil {
+		err = errors.WithMessagef(err, "writing inventory %s", inventory)
+		return
+	}
+
+	// write out private key
+	var privateKey string
+	if len(pb.PrivateKey) > 0 {
+		privateKey = filepath.Join(tmpdir, "private_key")
+		err = ioutil.WriteFile(privateKey, pb.PrivateKey, os.FileMode(0600))
+		if err != nil {
+			err = errors.WithMessagef(err, "writing private key %s", privateKey)
+			return
+		}
+	}
+
+	// run modules one by one
+	var errs []error
+	defer func() {
+		if len(errs) > 0 {
+			err = yerrors.NewAggregate(errs)
+		}
+	}()
+	for _, m := range pb.Modules {
+		select {
+		case <-ctx.Done():
+			err = ctx.Err()
+			return
+		default:
+		}
+		modArgs := strings.Join(m.Args, " ")
+		args := []string{
+			"--inventory", inventory,
+			"--module-name", m.Name,
+			"--args", modArgs,
+			"all",
+		}
+		if privateKey != "" {
+			args = append(args, "--private-key", privateKey)
+		}
+		cmd := exec.CommandContext(ctx, "ansible", args...)
+		cmd.Env = os.Environ()
+		cmd.Env = append(cmd.Env, "ANSIBLE_HOST_KEY_CHECKING=False")
+		stdout, _ := cmd.StdoutPipe()
+		stderr, _ := cmd.StderrPipe()
+		if err1 := cmd.Start(); err1 != nil {
+			errs = append(errs, errors.WithMessagef(err1, "run module %q, args %q", m.Name, modArgs))
+			return
+		}
+		f := func(r io.Reader) {
+			b := make([]byte, 4096)
+			for {
+				n, err := r.Read(b)
+				if n > 0 {
+					// Mix stdout, stderr
+					pb.stdio.Write(b[:n])
+				}
+				if err != nil {
+					return
+				}
+			}
+		}
+		go f(stdout)
+		go f(stderr)
+		if err1 := cmd.Wait(); err1 != nil {
+			errs = append(errs, errors.WithMessagef(err1, "wait module %q, args %q", m.Name, modArgs))
+			// continue to next
+		}
+	}
+	return nil
+}
+
+// Output returns the stdio output of the playbook
+func (pb *Playbook) Output() []byte {
+	if pb.stdio != nil {
+		return pb.stdio.Bytes()
+	}
+	return nil
+}
