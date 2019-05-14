@@ -72,6 +72,10 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBacken
 	return data, nil
 }
 
+func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lbbg *models.SLoadbalancerBackendGroup) (*jsonutils.JSONDict, error) {
+	return data, nil
+}
+
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBackendGroupData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backends []cloudprovider.SLoadbalancerBackend) (*jsonutils.JSONDict, error) {
 	for _, backend := range backends {
 		if len(backend.ExternalID) == 0 {
@@ -511,6 +515,49 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 			return nil, err
 		}
 		return nil, iLoadbalancerBackendGroup.RemoveBackendServer(guest.ExternalId, lbb.Weight, lbb.Port)
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		lbbg := lbb.GetLoadbalancerBackendGroup()
+		if lbbg == nil {
+			return nil, fmt.Errorf("failed to find lbbg for backend %s", lbb.Name)
+		}
+		lb := lbbg.GetLoadbalancer()
+		if lb == nil {
+			return nil, fmt.Errorf("failed to find lb for backendgroup %s", lbbg.Name)
+		}
+		iRegion, err := lb.GetIRegion()
+		if err != nil {
+			return nil, err
+		}
+		iLoadbalancer, err := iRegion.GetILoadBalancerById(lb.ExternalId)
+		if err != nil {
+			return nil, err
+		}
+		iLoadbalancerBackendGroup, err := iLoadbalancer.GetILoadBalancerBackendGroupById(lbbg.ExternalId)
+		if err != nil {
+			return nil, err
+		}
+
+		iBackend, err := iLoadbalancerBackendGroup.GetILoadbalancerBackendById(lbb.ExternalId)
+		if err != nil {
+			return nil, err
+		}
+
+		err = iBackend.SyncConf(lbb.Port, lbb.Weight)
+		if err != nil {
+			return nil, err
+		}
+
+		iBackend, err = iLoadbalancerBackendGroup.GetILoadbalancerBackendById(lbb.ExternalId)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, "")
 	})
 	return nil
 }

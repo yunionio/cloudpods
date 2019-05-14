@@ -119,6 +119,7 @@ const (
 	ACT_DISK_CREATE_SNAPSHOT         = "磁盘创建快照"
 	ACT_LB_ADD_BACKEND               = "添加后端服务器"
 	ACT_LB_REMOVE_BACKEND            = "移除后端服务器"
+	ACL_LB_SYNC_BACKEND_CONF         = "同步后端服务器配置"
 	ACT_LB_ADD_LISTENER_RULE         = "添加负载均衡转发规则"
 	ACT_LB_REMOVE_LISTENER_RULE      = "移除负载均衡转发规则"
 	ACT_DELETE_BACKUP                = "删除备份机"

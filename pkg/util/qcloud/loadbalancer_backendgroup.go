@@ -193,10 +193,24 @@ func (self *SLBBackendGroup) GetILoadbalancerBackends() ([]cloudprovider.ICloudL
 
 	ibackends := make([]cloudprovider.ICloudLoadbalancerBackend, len(backends))
 	for i := range backends {
+		backends[i].group = self
 		ibackends[i] = &backends[i]
 	}
 
 	return ibackends, nil
+}
+
+func (self *SLBBackendGroup) GetILoadbalancerBackendById(backendId string) (cloudprovider.ICloudLoadbalancerBackend, error) {
+	backends, err := self.GetILoadbalancerBackends()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(backends); i++ {
+		if backends[i].GetGlobalId() == backendId {
+			return backends[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SLBBackendGroup) GetBackends() ([]SLBBackend, error) {

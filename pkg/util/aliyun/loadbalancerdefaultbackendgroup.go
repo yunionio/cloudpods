@@ -62,6 +62,19 @@ func (backendgroup *SLoadbalancerDefaultBackendGroup) GetILoadbalancerBackends()
 	return ibackends, nil
 }
 
+func (backendgroup *SLoadbalancerDefaultBackendGroup) GetILoadbalancerBackendById(backendId string) (cloudprovider.ICloudLoadbalancerBackend, error) {
+	backends, err := backendgroup.GetILoadbalancerBackends()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(backends); i++ {
+		if backends[i].GetGlobalId() == backendId {
+			return backends[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
 func (backendgroup *SLoadbalancerDefaultBackendGroup) Sync(name string) error {
 	return cloudprovider.ErrNotSupported
 }

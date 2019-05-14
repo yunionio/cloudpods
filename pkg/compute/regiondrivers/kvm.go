@@ -91,6 +91,10 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 	return data, nil
 }
 
+func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lbbg *models.SLoadbalancerBackendGroup) (*jsonutils.JSONDict, error) {
+	return data, nil
+}
+
 func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	return data, nil
 }
@@ -228,6 +232,11 @@ func (self *SKVMRegionDriver) GetBackendStatusForAdd() []string {
 }
 
 func (self *SKVMRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
 }

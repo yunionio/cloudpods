@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -31,7 +33,7 @@ func (backend *SLoadbalancerMasterSlaveBackend) GetGlobalId() string {
 }
 
 func (backend *SLoadbalancerMasterSlaveBackend) GetStatus() string {
-	return ""
+	return api.LB_STATUS_ENABLED
 }
 
 func (backend *SLoadbalancerMasterSlaveBackend) GetMetadata() *jsonutils.JSONDict {
@@ -68,4 +70,8 @@ func (backend *SLoadbalancerMasterSlaveBackend) GetBackendId() string {
 
 func (backend *SLoadbalancerMasterSlaveBackend) GetProjectId() string {
 	return ""
+}
+
+func (backend *SLoadbalancerMasterSlaveBackend) SyncConf(port, weight int) error {
+	return cloudprovider.ErrNotSupported
 }
