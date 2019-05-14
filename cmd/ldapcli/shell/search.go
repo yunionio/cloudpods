@@ -26,6 +26,7 @@ func init() {
 		Base        string   `help:"base DN, e.g. OU=tech,DC=example,DC=com"`
 		Objectclass string   `help:"objectclass, e.g. organizationalPerson"`
 		Search      []string `help:"search conditions, in format of field:value"`
+		Field       []string `help:"retrieve field info"`
 	}
 	shellutils.R(&LdapSearchOptions{}, "search", "search ldap", func(cli *ldaputils.SLDAPClient, args *LdapSearchOptions) error {
 		search := make(map[string]string)
@@ -36,13 +37,30 @@ func init() {
 			}
 			search[s[:colonPos]] = s[(colonPos + 1):]
 		}
-		entries, err := cli.Search(args.Base, args.Objectclass, search, nil)
+		entries, err := cli.Search(args.Base, args.Objectclass, search, args.Field)
 		if err != nil {
 			return err
 		}
 		for _, entry := range entries {
 			entry.PrettyPrint(2)
 		}
+		return nil
+	})
+
+	type LdapAuthOptions struct {
+		Base        string   `help:"base DN, e.g. OU=tech,DC=example,DC=com"`
+		Objectclass string   `help:"objectclass, e.g. organizationalPerson"`
+		ATTR        string   `help:"account attribute name"`
+		ACCOUNT     string   `help:"account name to auth"`
+		PASSWORD    string   `help:"Password to auth"`
+		Field       []string `help:"retrieve field info"`
+	}
+	shellutils.R(&LdapAuthOptions{}, "auth", "authenticate against ldap", func(cli *ldaputils.SLDAPClient, args *LdapAuthOptions) error {
+		entry, err := cli.Authenticate(args.Base, args.Objectclass, args.ATTR, args.ACCOUNT, args.PASSWORD, args.Field)
+		if err != nil {
+			return err
+		}
+		entry.PrettyPrint(2)
 		return nil
 	})
 }

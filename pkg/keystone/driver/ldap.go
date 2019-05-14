@@ -107,8 +107,9 @@ func (self *SLDAPDriver) entry2User(entry *ldap.Entry) SUserInfo {
 	info.Name = entry.GetAttributeValue(self.ldapConfig.UserNameAttribute)
 	enabledStr := entry.GetAttributeValue(self.ldapConfig.UserEnabledAttribute)
 	if len(enabledStr) == 0 {
-		info.Enabled = utils.ToBool(self.ldapConfig.UserEnabledDefault)
-	} else if self.ldapConfig.UserEnabledMask > 0 {
+		enabledStr = self.ldapConfig.UserEnabledDefault
+	}
+	if self.ldapConfig.UserEnabledMask > 0 {
 		enabled, _ := strconv.ParseInt(enabledStr, 0, 64)
 		if (enabled & self.ldapConfig.UserEnabledMask) != 0 {
 			info.Enabled = true
@@ -184,6 +185,7 @@ func (self *SLDAPDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 		password,
 		self.userAttributeList())
 	if err != nil {
+		log.Errorf("LDAP AUTH error: %s", err)
 		return nil, errors.Wrap(err, "Authenticate error")
 	}
 

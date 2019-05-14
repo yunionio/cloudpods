@@ -56,7 +56,7 @@ func ServeForeverExtended(app *appsrv.Application, options *common_options.BaseO
 	var certfile string
 	var sslfile string
 	if options.EnableSsl {
-		certfile := options.SslCertfile
+		certfile = options.SslCertfile
 		if len(options.SslCaCerts) > 0 {
 			var err error
 			certfile, err = seclib2.MergeCaCertFiles(options.SslCaCerts, options.SslCertfile)

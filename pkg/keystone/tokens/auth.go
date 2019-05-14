@@ -19,6 +19,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
 	"context"
@@ -101,10 +102,12 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 	}
 	// user not found
 	if user == nil {
+		log.Errorf("user not found???")
 		return nil, nil
 	}
 	// user is not enabled
 	if !user.Enabled {
+		log.Errorf("user not enabled???")
 		return nil, nil
 	}
 	token := SAuthToken{}

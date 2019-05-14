@@ -453,7 +453,7 @@ func (app *Application) listenAndServeInternal(s *http.Server, certFile, keyFile
 		err = s.ListenAndServeTLS(certFile, keyFile)
 	}
 	if err != nil && err != http.ErrServerClosed {
-		log.Fatalf("ListAndServer fail: %s", err)
+		log.Fatalf("ListAndServer fail: %s (cert=%s key=%s)", err, certFile, keyFile)
 	}
 }
 

@@ -51,6 +51,10 @@ func StartService() {
 	dbOpts := &opts.DBOptions
 	common_options.ParseOptions(opts, os.Args, "keystone.conf", api.SERVICE_TYPE)
 
+	if opts.Port == 0 {
+		opts.Port = 5000 // keystone well-known port
+	}
+
 	err := keys.Init(opts.TokenKeyRepository, opts.CredentialKeyRepository)
 	if err != nil {
 		log.Fatalf("init fernet keys fail %s", err)

@@ -66,8 +66,12 @@ func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Re
 	}
 	log.Debugf("%s", jsonutils.Marshal(&input))
 	token, err := AuthenticateV3(ctx, input)
-	if token == nil {
+	if err != nil {
 		httperrors.UnauthorizedError(w, "unauthorized %s", err)
+		return
+	}
+	if token == nil {
+		httperrors.UnauthorizedError(w, "user not found or not enabled")
 		return
 	}
 	w.Header().Set(api.AUTH_SUBJECT_TOKEN_HEADER, token.Id)

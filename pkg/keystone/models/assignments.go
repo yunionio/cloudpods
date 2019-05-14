@@ -422,16 +422,31 @@ func (assign *SAssignment) getRoleAssignment(domains, projects, groups, users, r
 func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, projectId string, includeNames, effective, includeSub bool) ([]SRoleAssignment, error) {
 	var q *sqlchemy.SQuery
 	if effective {
-		usrq := manager.queryAll(userId, groupId, roleId, domainId, projectId).In("type", []string{api.AssignmentUserProject, api.AssignmentUserDomain})
-
-		grpq := manager.queryAll(userId, groupId, roleId, domainId, projectId).In("type", []string{api.AssignmentUserProject, api.AssignmentUserDomain}).SubQuery()
+		usrq := manager.queryAll(userId, "", roleId, domainId, projectId).In("type", []string{api.AssignmentUserProject, api.AssignmentUserDomain})
 
 		memberships := UsergroupManager.Query("user_id", "group_id").SubQuery()
 
-		q2 := grpq.Query(grpq.Field("type"), memberships.Field("user_id", "actor_id"), grpq.Field("target_id"), grpq.Field("role_id"))
-		q2 = q2.Join(memberships, sqlchemy.Equals(grpq.Field("actor_id"), memberships.Field("group_id")))
+		grpproj := manager.queryAll("", groupId, roleId, domainId, projectId).Equals("type", api.AssignmentGroupProject).SubQuery()
+		q2 := grpproj.Query(sqlchemy.NewStringField(api.AssignmentUserProject).Label("type"),
+			memberships.Field("user_id", "actor_id"),
+			grpproj.Field("target_id"), grpproj.Field("role_id"))
+		q2 = q2.Join(memberships, sqlchemy.Equals(grpproj.Field("actor_id"), memberships.Field("group_id")))
+		q2 = q2.Filter(sqlchemy.Equals(grpproj.Field("type"), api.AssignmentGroupProject))
+		if len(userId) > 0 {
+			q2 = q2.Filter(sqlchemy.Equals(memberships.Field("user_id"), userId))
+		}
 
-		q = sqlchemy.Union(usrq, q2).Query().Distinct()
+		grpdom := manager.queryAll("", groupId, roleId, domainId, projectId).Equals("type", api.AssignmentGroupDomain).SubQuery()
+		q3 := grpdom.Query(sqlchemy.NewStringField(api.AssignmentUserDomain).Label("type"),
+			memberships.Field("user_id", "actor_id"),
+			grpdom.Field("target_id"), grpdom.Field("role_id"))
+		q3 = q3.Join(memberships, sqlchemy.Equals(grpdom.Field("actor_id"), memberships.Field("group_id")))
+		q3 = q3.Filter(sqlchemy.Equals(grpdom.Field("type"), api.AssignmentGroupDomain))
+		if len(userId) > 0 {
+			q3 = q3.Filter(sqlchemy.Equals(memberships.Field("user_id"), userId))
+		}
+
+		q = sqlchemy.Union(usrq, q2, q3).Query().Distinct()
 	} else {
 		q = manager.queryAll(userId, groupId, roleId, domainId, projectId).Distinct()
 	}

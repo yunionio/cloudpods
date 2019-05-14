@@ -17,9 +17,9 @@ package service
 import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
-	"yunion.io/x/pkg/utils"
 )
 
 func localPolicyFetcher() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRbacPolicy, error) {
@@ -32,10 +32,14 @@ func localPolicyFetcher() (map[string]rbacutils.SRbacPolicy, map[string]rbacutil
 	adminPolicies := make(map[string]rbacutils.SRbacPolicy)
 
 	for i := range policyList {
-		log.Debugf("BLOB: %#v", policyList[i].Blob)
 		typeStr := policyList[i].Name
 		policy := rbacutils.SRbacPolicy{}
-		policyJson, err := jsonutils.ParseString(utils.Unquote(policyList[i].Blob))
+		policyStr, err := policyList[i].Blob.GetString()
+		if err != nil {
+			log.Errorf("fail to get string of blob %s", err)
+			continue
+		}
+		policyJson, err := jsonutils.ParseString(policyStr)
 		if err != nil {
 			log.Errorf("fail to deocde policy blob into JSON %s", err)
 			continue

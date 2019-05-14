@@ -217,9 +217,13 @@ func listItemsQueryByColumn(manager IModelManager, q *sqlchemy.SQuery, userCred 
 				strV, _ := val.GetString()
 				if len(op) > 0 {
 					filter := fmt.Sprintf("%s.%s(%s)", fn, op, strV)
-					log.Debugf("XXXXX %s %s %s %s", key, fn, op, filter)
-					cond := filterclause.ParseFilterClause(filter).QueryCondition(q)
-					q = q.Filter(cond)
+					fc := filterclause.ParseFilterClause(filter)
+					if fc != nil {
+						cond := fc.QueryCondition(q)
+						if cond != nil {
+							q = q.Filter(cond)
+						}
+					}
 				} else if len(strV) > 0 {
 					strV := colSpec.ConvertFromString(strV)
 					q = q.Equals(fn, strV)

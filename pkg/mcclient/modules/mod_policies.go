@@ -16,8 +16,6 @@ package modules
 
 import (
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
-	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -34,10 +32,6 @@ func policyReadFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, q
 	ret := ss.CopyIncludes("id", "type", "enabled")
 	blobStr, _ := ss.GetString("blob")
 	if len(blobStr) > 0 {
-		for blobStr[0] == '"' {
-			blobStr = utils.Unquote(blobStr)
-		}
-		log.Debugf("%s", blobStr)
 		policy := rbacutils.SRbacPolicy{}
 		blobJson, _ := jsonutils.ParseString(blobStr)
 		err := policy.Decode(blobJson)
@@ -80,7 +74,7 @@ func policyWriteFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, 
 				return nil, err
 			}
 		}
-		ret.Add(blobJson, "blob")
+		ret.Add(jsonutils.NewString(blobJson.String()), "blob")
 	}
 	if s.Contains("type") {
 		typeStr, err := s.GetString("type")

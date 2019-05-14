@@ -59,7 +59,8 @@ type SPolicy struct {
 	db.SStandaloneResourceBase
 
 	Type string `width:"255" charset:"utf8" nullable:"false" list:"user" update:"admin"`
-	Blob string `nullable:"false" list:"user" update:"admin"`
+
+	Blob jsonutils.JSONObject `nullable:"false" list:"user" update:"admin"`
 
 	Extra *jsonutils.JSONDict `nullable:"true" list:"user"`
 
