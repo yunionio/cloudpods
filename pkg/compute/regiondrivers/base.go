@@ -83,6 +83,10 @@ func (self *SBaseRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Cont
 	return fmt.Errorf("Not Implement RequestDeleteLoadbalancerBackend")
 }
 
+func (self *SBaseRegionDriver) RequestSyncLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, lbb *models.SLoadbalancerBackend, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestSyncLoadbalancerBackend")
+}
+
 func (self *SBaseRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestCreateLoadbalancerListener")
 }

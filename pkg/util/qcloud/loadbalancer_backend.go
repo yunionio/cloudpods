@@ -68,7 +68,7 @@ func (self *SLBBackend) GetGlobalId() string {
 }
 
 func (self *SLBBackend) GetStatus() string {
-	return ""
+	return api.LB_STATUS_ENABLED
 }
 
 func (self *SLBBackend) Refresh() error {
@@ -187,4 +187,8 @@ func (self *SRegion) GetLBBackends(t LB_TYPE, lbId, listenerId, ruleId string) (
 
 func (self *SLBBackend) GetProjectId() string {
 	return ""
+}
+
+func (self *SLBBackend) SyncConf(port, weight int) error {
+	return cloudprovider.ErrNotImplemented
 }

@@ -44,7 +44,7 @@ func (backend *SLoadbalancerBackend) GetGlobalId() string {
 }
 
 func (backend *SLoadbalancerBackend) GetStatus() string {
-	return ""
+	return api.LB_STATUS_ENABLED
 }
 
 func (backend *SLoadbalancerBackend) GetMetadata() *jsonutils.JSONDict {
@@ -102,4 +102,12 @@ func (region *SRegion) GetLoadbalancerBackends(backendgroupId string) ([]SLoadba
 
 func (backend *SLoadbalancerBackend) GetProjectId() string {
 	return ""
+}
+
+func (backend *SLoadbalancerBackend) SyncConf(port, weight int) error {
+	err := backend.lbbg.lb.region.RemoveBackendVServer(backend.lbbg.lb.LoadBalancerId, backend.lbbg.VServerGroupId, backend.ServerId, backend.Port)
+	if err != nil {
+		return err
+	}
+	return backend.lbbg.lb.region.AddBackendVServer(backend.lbbg.lb.LoadBalancerId, backend.lbbg.VServerGroupId, backend.ServerId, weight, port)
 }
