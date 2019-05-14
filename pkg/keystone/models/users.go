@@ -1,16 +1,32 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
-	"context"
-	"database/sql"
-	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/log"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -93,6 +109,39 @@ func (manager *SUserManager) InitializeData() error {
 			users[i].Description = desc
 			return nil
 		})
+	}
+	return manager.initSysUser()
+}
+
+func (manager *SUserManager) initSysUser() error {
+	q := manager.Query().Equals("name", options.Options.AdminUserName)
+	q = q.Equals("domain_id", options.Options.AdminUserDomainId)
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return errors.WithMessage(err, "query")
+	}
+	if cnt == 1 {
+		return nil
+	}
+	if cnt > 2 {
+		// ???
+		log.Fatalf("duplicate sysadmin account???")
+	}
+	// insert
+	usr := SUser{}
+	usr.Name = options.Options.AdminUserName
+	usr.DomainId = options.Options.AdminUserDomainId
+	usr.Enabled = tristate.True
+	usr.Description = "Boostrap system default admin user"
+	usr.SetModelManager(manager)
+
+	err = manager.TableSpec().Insert(&usr)
+	if err != nil {
+		return errors.WithMessage(err, "insert")
+	}
+	err = usr.initLocalData(options.Options.BootstrapAdminUserPassword)
+	if err != nil {
+		return errors.WithMessage(err, "initLocalData")
 	}
 	return nil
 }
@@ -303,21 +352,28 @@ func userExtra(user *SUser, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	return extra
 }
 
-func (user *SUser) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	user.SEnabledIdentityBaseResource.PostCreate(ctx, userCred, ownerProjId, query, data)
-
+func (user *SUser) initLocalData(passwd string) error {
 	localUsr, err := LocalUserManager.register(user.Id, user.DomainId, user.Name)
 	if err != nil {
-		log.Errorf("fail to register localUser %s", err)
-		return
+		return errors.WithMessage(err, "register localuser")
 	}
-	passwd, _ := data.GetString("password")
 	if len(passwd) > 0 {
 		err = PasswordManager.savePassword(localUsr.Id, passwd)
 		if err != nil {
-			log.Errorf("fail to set password %s", err)
-			return
+			return errors.WithMessage(err, "save password")
 		}
+	}
+	return nil
+}
+
+func (user *SUser) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	user.SEnabledIdentityBaseResource.PostCreate(ctx, userCred, ownerProjId, query, data)
+
+	passwd, _ := data.GetString("password")
+	err := user.initLocalData(passwd)
+	if err != nil {
+		log.Errorf("fail to register localUser %s", err)
+		return
 	}
 }
 
@@ -347,6 +403,9 @@ func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {
 	prjCnt, _ := user.GetProjectCount()
 	if prjCnt > 0 {
 		return httperrors.NewNotEmptyError("user joins project")
+	}
+	if user.IsAdminUser() {
+		return httperrors.NewForbiddenError("cannot delete system user")
 	}
 	return user.SIdentityBaseResource.ValidateDeleteCondition(ctx)
 }

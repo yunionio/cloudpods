@@ -750,13 +750,9 @@ func (manager *STaskManager) QueryTasksOfObject(obj db.IStandaloneModel, since t
 		}
 	}
 
-	// subq1 and subq2 do not intersect for the fact that they have
-	// different condition on tasks_tbl.obj_id field
-	uq := sqlchemy.Union(subq1, subq2)
-	uq = uq.Desc("created_at")
-
-	q := uq.SubQuery().Query()
-	return q
+	// subq1 and subq2 do not overlap for the fact that they have
+	// different conditions on tasks_tbl.obj_id field
+	return sqlchemy.Union(subq1, subq2).Query().Desc("created_at")
 }
 
 func (manager *STaskManager) IsInTask(obj db.IStandaloneModel) bool {

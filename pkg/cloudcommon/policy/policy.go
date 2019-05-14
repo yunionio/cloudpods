@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -51,6 +52,8 @@ type PolicyFetchFunc func() (map[string]rbacutils.SRbacPolicy, map[string]rbacut
 var (
 	PolicyManager        *SPolicyManager
 	DefaultPolicyFetcher PolicyFetchFunc
+
+	syncWorkerManager *appsrv.SWorkerManager
 )
 
 func init() {
@@ -58,6 +61,8 @@ func init() {
 		lock: &sync.Mutex{},
 	}
 	DefaultPolicyFetcher = remotePolicyFetcher
+
+	syncWorkerManager = appsrv.NewWorkerManager("sync_policy_worker", 1, 1000, false)
 }
 
 type SPolicyManager struct {
@@ -65,6 +70,8 @@ type SPolicyManager struct {
 	adminPolicies map[string]rbacutils.SRbacPolicy
 	defaultPolicy *rbacutils.SRbacPolicy
 	lastSync      time.Time
+
+	defaultAdminPolicy *rbacutils.SRbacPolicy
 
 	failedRetryInterval time.Duration
 	refreshInterval     time.Duration
@@ -148,10 +155,14 @@ func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterva
 	}
 
 	manager.cache = hashcache.NewCache(2048, manager.refreshInterval/2)
-	manager.sync()
+	manager.SyncOnce()
 }
 
-func (manager *SPolicyManager) SyncOnce() error {
+func (manager *SPolicyManager) SyncOnce() {
+	syncWorkerManager.Run(manager.sync, nil, nil)
+}
+
+func (manager *SPolicyManager) doSync() error {
 	policies, adminPolicies, err := DefaultPolicyFetcher()
 	if err != nil {
 		log.Errorf("sync rbac policy failed: %s", err)
@@ -170,15 +181,19 @@ func (manager *SPolicyManager) SyncOnce() error {
 	return nil
 }
 
+func (manager *SPolicyManager) RegisterDefaultAdminPolicy(policy *rbacutils.SRbacPolicy) {
+	manager.defaultAdminPolicy = policy
+}
+
 func (manager *SPolicyManager) sync() {
-	err := manager.SyncOnce()
+	err := manager.doSync()
 	var interval time.Duration
 	if err != nil {
 		interval = manager.failedRetryInterval
 	} else {
 		interval = manager.refreshInterval
 	}
-	time.AfterFunc(interval, manager.sync)
+	time.AfterFunc(interval, manager.SyncOnce)
 }
 
 func queryKey(isAdmin bool, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) string {
@@ -276,6 +291,14 @@ func (manager *SPolicyManager) allowWithoutCache(isAdmin bool, userCred mcclient
 	}
 	if !isAdmin && manager.defaultPolicy != nil {
 		rule := manager.defaultPolicy.GetMatchRule(service, resource, action, extra...)
+		if rule != nil {
+			if currentPriv.StricterThan(rule.Result) {
+				currentPriv = rule.Result
+			}
+		}
+	}
+	if isAdmin && manager.defaultAdminPolicy != nil && manager.defaultAdminPolicy.Match(userCred) {
+		rule := manager.defaultAdminPolicy.GetMatchRule(service, resource, action, extra...)
 		if rule != nil {
 			if currentPriv.StricterThan(rule.Result) {
 				currentPriv = rule.Result

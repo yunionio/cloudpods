@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"sort"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -29,7 +30,6 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
-	"sort"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -976,7 +976,7 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	err = manager.TableSpec().Insert(model)
+	err = manager.TableSpec().InsertOrUpdate(model)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}

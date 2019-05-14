@@ -54,6 +54,7 @@ func ServeForeverExtended(app *appsrv.Application, options *common_options.BaseO
 	}
 	log.Infof("Start listen on %s://%s", proto, addr)
 	var certfile string
+	var sslfile string
 	if options.EnableSsl {
 		certfile := options.SslCertfile
 		if len(options.SslCaCerts) > 0 {
@@ -70,6 +71,7 @@ func ServeForeverExtended(app *appsrv.Application, options *common_options.BaseO
 		if len(options.SslKeyfile) == 0 {
 			log.Fatalf("Missing ssl-keyfile")
 		}
+		sslfile = options.SslKeyfile
 	}
-	app.ListenAndServeTLSWithCleanup2(addr, certfile, options.SslKeyfile, onStop, isMaster)
+	app.ListenAndServeTLSWithCleanup2(addr, certfile, sslfile, onStop, isMaster)
 }

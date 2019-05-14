@@ -42,12 +42,12 @@ func (s *BaremetalService) StartService() {
 	common_options.ParseOptions(&o.Options, os.Args, "baremetal.conf", "baremetal")
 	app_common.InitAuth(&o.Options.CommonOptions, s.startAgent)
 
-	app := app_common.InitApp(&o.Options.CommonOptions, false)
+	app := app_common.InitApp(&o.Options.BaseOptions, false)
 	handler.InitHandlers(app)
 
 	s.startFileServer()
 
-	app_common.ServeForeverWithCleanup(app, &o.Options.CommonOptions, func() {
+	app_common.ServeForeverWithCleanup(app, &o.Options.BaseOptions, func() {
 		tasks.OnStop()
 		baremetal.Stop()
 	})

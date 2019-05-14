@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd/models/base"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -56,7 +57,7 @@ func (disp *SEtcdModelHandler) KeywordPlural() string {
 	return disp.manager.KeywordPlural()
 }
 
-func (disp *SEtcdModelHandler) ContextKeywordPlural() []string {
+func (disp *SEtcdModelHandler) ContextKeywordPlurals() [][]string {
 	return nil
 }
 
@@ -72,7 +73,7 @@ func (disp *SEtcdModelHandler) FetchUpdateHeaderData(ctx context.Context, header
 	return disp.manager.FetchUpdateHeaderData(ctx, header)
 }
 
-func (disp *SEtcdModelHandler) List(ctx context.Context, query jsonutils.JSONObject, ctxId string) (*modules.ListResult, error) {
+func (disp *SEtcdModelHandler) List(ctx context.Context, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modules.ListResult, error) {
 	objs, err := disp.manager.AllJson(ctx)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
@@ -166,11 +167,11 @@ func (disp *SEtcdModelHandler) GetSpecific(ctx context.Context, idstr string, sp
 	}
 }
 
-func (disp *SEtcdModelHandler) Create(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxId string) (jsonutils.JSONObject, error) {
+func (disp *SEtcdModelHandler) Create(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 	return nil, httperrors.NewNotImplementedError("not implemented")
 }
 
-func (disp *SEtcdModelHandler) BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxId string) ([]modules.SubmitResult, error) {
+func (disp *SEtcdModelHandler) BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxIds []dispatcher.SResourceContext) ([]modules.SubmitResult, error) {
 	return nil, httperrors.NewNotImplementedError("not implemented")
 }
 
@@ -182,10 +183,18 @@ func (disp *SEtcdModelHandler) PerformAction(ctx context.Context, idstr string, 
 	return nil, httperrors.NewNotImplementedError("not implemented")
 }
 
-func (disp *SEtcdModelHandler) Update(ctx context.Context, idstr string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (disp *SEtcdModelHandler) Update(ctx context.Context, idstr string, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 	return nil, httperrors.NewNotImplementedError("not implemented")
 }
 
-func (disp *SEtcdModelHandler) Delete(ctx context.Context, idstr string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func (disp *SEtcdModelHandler) Delete(ctx context.Context, idstr string, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
+	return nil, httperrors.NewNotImplementedError("not implemented")
+}
+
+func (disp *SEtcdModelHandler) UpdateSpec(ctx context.Context, idstr string, spec string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, httperrors.NewNotImplementedError("not implemented")
+}
+
+func (disp *SEtcdModelHandler) DeleteSpec(ctx context.Context, idstr string, spec string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	return nil, httperrors.NewNotImplementedError("not implemented")
 }

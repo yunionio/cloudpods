@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -96,4 +110,25 @@ func regionExtra(region *SRegion, extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	epCnt, _ := region.GetEndpointCount()
 	extra.Add(jsonutils.NewInt(int64(epCnt)), "endpoint_count")
 	return extra
+}
+
+func (manager *SRegionManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	idStr, _ := data.GetString("id")
+	if len(idStr) == 0 {
+		return nil, httperrors.NewInputParameterError("missing input field id")
+	}
+	if !data.Contains("name") {
+		data.Set("name", jsonutils.NewString(idStr))
+	}
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+}
+
+func (region *SRegion) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	err := region.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
+	if err != nil {
+		return err
+	}
+	idStr, _ := data.GetString("id")
+	region.Id = idStr
+	return nil
 }

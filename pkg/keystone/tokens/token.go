@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tokens
 
 import (
@@ -114,10 +128,12 @@ func (t *SAuthToken) GetSimpleUserCred(token string) (mcclient.TokenCredential, 
 		return nil, err
 	}
 	ret := mcclient.SSimpleToken{
-		Token:   token,
-		UserId:  t.UserId,
-		User:    userExt.Name,
-		Expires: t.ExpiresAt,
+		Token:    token,
+		UserId:   t.UserId,
+		User:     userExt.Name,
+		Domain:   userExt.DomainName,
+		DomainId: userExt.DomainId,
+		Expires:  t.ExpiresAt,
 	}
 	var roles []models.SRole
 	if len(t.ProjectId) > 0 {
@@ -127,15 +143,16 @@ func (t *SAuthToken) GetSimpleUserCred(token string) (mcclient.TokenCredential, 
 		}
 		ret.ProjectId = t.ProjectId
 		ret.Project = proj.Name
+		ret.ProjectDomainId = proj.DomainId
+		ret.ProjectDomain = proj.GetDomain().Name
 		roles, err = models.AssignmentManager.FetchUserProjectRoles(t.UserId, t.ProjectId)
 	} else if len(t.DomainId) > 0 {
 		domain, err := models.DomainManager.FetchDomainById(t.DomainId)
 		if err != nil {
 			return nil, err
 		}
-
-		ret.DomainId = t.DomainId
-		ret.Domain = domain.Name
+		ret.ProjectDomainId = t.DomainId
+		ret.ProjectDomain = domain.Name
 		roles, err = models.AssignmentManager.FetchUserProjectRoles(t.UserId, t.DomainId)
 	}
 	roleStrs := make([]string, len(roles))

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -5,7 +19,10 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
@@ -68,6 +85,37 @@ func (manager *SProjectManager) GetContextManagers() [][]db.IModelManager {
 }
 
 func (manager *SProjectManager) InitializeData() error {
+	return manager.initSysProject()
+}
+
+func (manager *SProjectManager) initSysProject() error {
+	q := manager.Query().Equals("name", options.Options.AdminProjectName)
+	q = q.Equals("domain_id", options.Options.AdminProjectDomainId)
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return errors.WithMessage(err, "query")
+	}
+	if cnt == 1 {
+		return nil
+	}
+	if cnt > 2 {
+		// ???
+		log.Fatalf("duplicate system project???")
+	}
+	// insert
+	project := SProject{}
+	project.Name = options.Options.AdminProjectName
+	project.DomainId = options.Options.AdminProjectDomainId
+	project.Enabled = tristate.True
+	project.Description = "Boostrap system default admin project"
+	project.IsDomain = tristate.False
+	project.ParentId = options.Options.AdminProjectDomainId
+	project.SetModelManager(manager)
+
+	err = manager.TableSpec().Insert(&project)
+	if err != nil {
+		return errors.WithMessage(err, "insert")
+	}
 	return nil
 }
 

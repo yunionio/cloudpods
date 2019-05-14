@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -280,4 +294,30 @@ func (endpoint *SEndpoint) GetExtraDetails(ctx context.Context, userCred mcclien
 
 func endpointExtra(endpoint *SEndpoint, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	return extra
+}
+
+func (manager *SEndpointManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	infname, _ := data.GetString("interface")
+	if len(infname) == 0 {
+		return nil, httperrors.NewInputParameterError("missing input field interface")
+	}
+	serviceStr := jsonutils.GetAnyString(data, []string{"service_id", "service"})
+	if len(serviceStr) > 0 {
+		servObj, err := ServiceManager.FetchByIdOrName(userCred, serviceStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(ServiceManager.Keyword(), serviceStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		service := servObj.(*SService)
+		if !data.Contains("name") {
+			data.Set("name", jsonutils.NewString(fmt.Sprintf("%s-%s", service.Type, infname)))
+		}
+		data.Set("service_id", jsonutils.NewString(service.Id))
+	} else {
+		return nil, httperrors.NewInputParameterError("missing input field service/service_id")
+	}
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
 }

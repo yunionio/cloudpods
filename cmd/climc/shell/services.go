@@ -27,6 +27,7 @@ func init() {
 		Offset int64  `help:"Offset, default 0, i.e. no offset"`
 		Name   string `help:"Search by name"`
 		Type   string `help:"Search by type"`
+		Search string `help:"search any fields"`
 	}
 	R(&ServiceListOptions{}, "service-list", "List services", func(s *mcclient.ClientSession, args *ServiceListOptions) error {
 		query := jsonutils.NewDict()
@@ -41,6 +42,9 @@ func init() {
 		}
 		if len(args.Type) > 0 {
 			query.Add(jsonutils.NewString(args.Type), "type__icontains")
+		}
+		if len(args.Search) > 0 {
+			query.Add(jsonutils.NewString(args.Search), "search")
 		}
 		result, err := modules.ServicesV3.List(s, query)
 		if err != nil {

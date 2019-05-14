@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -15,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -57,6 +72,55 @@ type SAssignment struct {
 	RoleId   string `width:"64" charset:"ascii" nullable:"false" primary:"true" list:"admin"`
 
 	Inherited tristate.TriState `nullable:"false" primary:"true" list:"admin"`
+}
+
+func (manager *SAssignmentManager) InitializeData() error {
+	return manager.initSysAssignment()
+}
+
+func (manager *SAssignmentManager) initSysAssignment() error {
+	adminUser, err := UserManager.FetchUserExtended("", options.Options.AdminUserName, options.Options.AdminUserDomainId, "")
+	if err != nil {
+		return errors.WithMessage(err, "FetchUserExtended")
+	}
+	adminProject, err := ProjectManager.FetchProjectByName(options.Options.AdminProjectName, options.Options.AdminProjectDomainId, "")
+	if err != nil {
+		return errors.WithMessage(err, "FetchProjectByName")
+	}
+	adminRole, err := RoleManager.FetchRoleByName(options.Options.AdminRoleName, options.Options.AdminRoleDomainId, "")
+	if err != nil {
+		return errors.WithMessage(err, "FetchRoleByName")
+	}
+
+	q := manager.Query().Equals("type", api.AssignmentUserProject)
+	q = q.Equals("actor_id", adminUser.Id)
+	q = q.Equals("target_id", adminProject.Id)
+	q = q.Equals("role_id", adminRole.Id)
+	q = q.IsFalse("inherited")
+
+	assign := SAssignment{}
+	assign.SetModelManager(manager)
+
+	err = q.First(&assign)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.WithMessage(err, "query")
+	}
+	if err == nil {
+		return nil
+	}
+	// no data
+	assign.Type = api.AssignmentUserProject
+	assign.ActorId = adminUser.Id
+	assign.TargetId = adminProject.Id
+	assign.RoleId = adminRole.Id
+	assign.Inherited = tristate.False
+
+	err = manager.TableSpec().Insert(&assign)
+	if err != nil {
+		return errors.WithMessage(err, "insert")
+	}
+
+	return nil
 }
 
 func (manager *SAssignmentManager) FetchUserProjectRoles(userId, projId string) ([]SRole, error) {

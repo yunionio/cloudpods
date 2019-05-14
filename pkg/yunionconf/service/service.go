@@ -34,6 +34,7 @@ import (
 func StartService() {
 
 	opts := &options.Options
+	baseOpts := &options.Options.BaseOptions
 	commonOpts := &options.Options.CommonOptions
 	dbOpts := &options.Options.DBOptions
 	common_options.ParseOptions(opts, os.Args, "yunionconf.conf", "yunionconf")
@@ -47,14 +48,14 @@ func StartService() {
 
 	cloudcommon.InitDB(dbOpts)
 
-	app := app_common.InitApp(commonOpts, true)
+	app := app_common.InitApp(baseOpts, true)
 	yunionconf.InitHandlers(app)
 	cloudcommon.AppDBInit(app)
 
 	if db.CheckSync(opts.AutoSyncTable) {
 		err := models.InitDB()
 		if err == nil {
-			app_common.ServeForeverWithCleanup(app, commonOpts, func() {
+			app_common.ServeForeverWithCleanup(app, baseOpts, func() {
 				cloudcommon.CloseDB()
 			})
 		} else {

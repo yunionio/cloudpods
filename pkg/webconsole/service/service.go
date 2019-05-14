@@ -63,8 +63,9 @@ func StartService() {
 }
 
 func start() {
-	commonOpts := &o.Options.CommonOptions
-	app := app_common.InitApp(commonOpts, false)
+	baseOpts := &o.Options.BaseOptions
+	// commonOpts := &o.Options.CommonOptions
+	app := app_common.InitApp(baseOpts, false)
 	webconsole.InitHandlers(app)
 
 	root := mux.NewRouter()

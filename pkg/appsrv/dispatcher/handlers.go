@@ -71,7 +71,7 @@ type IJointModelDispatchHandler interface {
 	MasterKeywordPlural() string
 	SlaveKeywordPlural() string
 
-	List(ctx context.Context, query jsonutils.JSONObject, ctxId string) (*modules.ListResult, error)
+	List(ctx context.Context, query jsonutils.JSONObject, ctxIds []SResourceContext) (*modules.ListResult, error)
 	ListMasterDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modules.ListResult, error)
 	ListSlaveDescendent(ctx context.Context, idStr string, query jsonutils.JSONObject) (*modules.ListResult, error)
 	Get(ctx context.Context, id1 string, id2 string, query jsonutils.JSONObject) (jsonutils.JSONObject, error)

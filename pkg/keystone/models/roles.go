@@ -1,15 +1,34 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
 	"context"
 	"database/sql"
+	"fmt"
+
+	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -63,19 +82,30 @@ func (manager *SRoleManager) InitializeData() error {
 	roles := make([]SRole, 0)
 	err := db.FetchModelObjects(manager, q, &roles)
 	if err != nil {
-		return err
+		return errors.WithMessage(err, "query")
 	}
 	for i := range roles {
 		desc, _ := roles[i].Extra.GetString("description")
-		db.Update(&roles[i], func() error {
+		_, err = db.Update(&roles[i], func() error {
 			roles[i].Description = desc
 			return nil
 		})
+		if err != nil {
+			return errors.WithMessage(err, "update description")
+		}
 	}
-	return manager.InitializeDomainId()
+	err = manager.initializeDomainId()
+	if err != nil {
+		return errors.WithMessage(err, "InitializeDomainId")
+	}
+	err = manager.initSysRole()
+	if err != nil {
+		return errors.WithMessage(err, "initSysRole")
+	}
+	return nil
 }
 
-func (manager *SRoleManager) InitializeDomainId() error {
+func (manager *SRoleManager) initializeDomainId() error {
 	q := manager.Query().Equals("domain_id", ROLE_DEFAULT_DOMAIN_ID)
 	roles := make([]SRole, 0)
 	err := db.FetchModelObjects(manager, q, &roles)
@@ -87,6 +117,34 @@ func (manager *SRoleManager) InitializeDomainId() error {
 			roles[i].DomainId = api.DEFAULT_DOMAIN_ID
 			return nil
 		})
+	}
+	return nil
+}
+
+func (manager *SRoleManager) initSysRole() error {
+	q := manager.Query().Equals("name", options.Options.AdminRoleName)
+	q = q.Equals("domain_id", options.Options.AdminRoleDomainId)
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return errors.WithMessage(err, "query")
+	}
+	if cnt == 1 {
+		return nil
+	}
+	if cnt > 2 {
+		// ???
+		log.Fatalf("duplicate system role???")
+	}
+	// insert
+	role := SRole{}
+	role.Name = options.Options.AdminRoleName
+	role.DomainId = options.Options.AdminRoleDomainId
+	role.Description = "Boostrap system default admin role"
+	role.SetModelManager(manager)
+
+	err = manager.TableSpec().Insert(&role)
+	if err != nil {
+		return errors.WithMessage(err, "insert")
 	}
 	return nil
 }
@@ -113,6 +171,10 @@ func (role *SRole) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	return role.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
 }
 
+func (role *SRole) IsSystemRole() bool {
+	return role.Name == options.Options.AdminRoleName && role.DomainId == options.Options.AdminRoleDomainId
+}
+
 func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
 	usrCnt, _ := role.GetUserCount()
 	if usrCnt > 0 {
@@ -121,6 +183,9 @@ func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
 	grpCnt, _ := role.GetGroupCount()
 	if grpCnt > 0 {
 		return httperrors.NewNotEmptyError("role is being assigned to group")
+	}
+	if role.IsSystemRole() {
+		return httperrors.NewForbiddenError("cannot delete system role")
 	}
 	return role.SIdentityBaseResource.ValidateDeleteCondition(ctx)
 }
@@ -238,4 +303,44 @@ func (role *SRole) DeleteInContext(ctx context.Context, userCred mcclient.TokenC
 	default:
 		return nil, httperrors.NewInputParameterError("not supported secondary update context %s", ctxObjs[0].Keyword())
 	}
+}
+
+func (manager *SRoleManager) FetchRoleByName(roleName string, domainId, domainName string) (*SRole, error) {
+	obj, err := db.NewModelObject(manager)
+	if err != nil {
+		return nil, err
+	}
+	domain, err := DomainManager.FetchDomain(domainId, domainName)
+	if err != nil {
+		return nil, err
+	}
+	q := manager.Query().Equals("name", roleName).Equals("domain_id", domain.Id)
+	err = q.First(obj)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*SRole), err
+}
+
+func (manager *SRoleManager) FetchRoleById(roleId string) (*SRole, error) {
+	obj, err := db.NewModelObject(manager)
+	if err != nil {
+		return nil, err
+	}
+	q := manager.Query().Equals("id", roleId)
+	err = q.First(obj)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*SRole), err
+}
+
+func (manager *SRoleManager) FetchRole(roleId, roleName string, domainId, domainName string) (*SRole, error) {
+	if len(roleId) > 0 {
+		return manager.FetchRoleById(roleId)
+	}
+	if len(roleName) > 0 {
+		return manager.FetchRoleByName(roleName, domainId, domainName)
+	}
+	return nil, fmt.Errorf("no role Id or name provided")
 }
