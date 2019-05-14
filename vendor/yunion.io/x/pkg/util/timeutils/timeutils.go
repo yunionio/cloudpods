@@ -20,6 +20,13 @@ func Utcify(now time.Time) time.Time {
 	}
 }
 
+func Localify(now time.Time) time.Time {
+	if now.IsZero() {
+		return time.Now().Local()
+	}
+	return now.Local()
+}
+
 const (
 	IsoTimeFormat         = "2006-01-02T15:04:05Z"
 	IsoNoSecondTimeFormat = "2006-01-02T15:04Z"
@@ -30,7 +37,9 @@ const (
 	CompactTimeFormat     = "20060102150405"
 	DateFormat            = "2006-01-02"
 	ShortDateFormat       = "20060102"
-	RFC2882Format         = time.RFC1123
+	ZStackTimeFormat      = "Jan 2, 2006 15:04:05 PM"
+
+	RFC2882Format = time.RFC1123
 )
 
 func IsoTime(now time.Time) string {
@@ -63,6 +72,10 @@ func DateStr(now time.Time) string {
 
 func ShortDate(now time.Time) string {
 	return Utcify(now).Format(ShortDateFormat)
+}
+
+func ZStackTime(now time.Time) string {
+	return Localify(now).Format(ZStackTimeFormat)
 }
 
 func ParseIsoTime(str string) (time.Time, error) {
@@ -105,6 +118,10 @@ func ParseShortDate(str string) (time.Time, error) {
 	return time.Parse(ShortDateFormat, str)
 }
 
+func ParseZStackDate(str string) (time.Time, error) {
+	return time.ParseInLocation(ZStackTimeFormat, str, time.Local)
+}
+
 func ParseTimeStr(str string) (time.Time, error) {
 	if regutils.MatchFullISOTime(str) {
 		return ParseFullIsoTime(str)
@@ -126,6 +143,8 @@ func ParseTimeStr(str string) (time.Time, error) {
 		return ParseDate(str)
 	} else if regutils.MatchDateCompact(str) {
 		return ParseShortDate(str)
+	} else if regutils.MatchZStackTime(str) {
+		return ParseZStackDate(str)
 	} else {
 		return time.Time{}, fmt.Errorf("unknown time format %s", str)
 	}

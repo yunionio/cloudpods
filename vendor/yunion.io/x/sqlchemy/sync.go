@@ -1,7 +1,22 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package sqlchemy
 
 import (
 	"fmt"
+	"math/bits"
 	"regexp"
 	"sort"
 	"strconv"
@@ -99,6 +114,23 @@ func (info *SSqlColumnInfo) toColumnSpec() IColumnSpec {
 	} else if typeStr == "DATETIME" {
 		c := NewDateTimeColumn(info.Field, tagmap, false)
 		return &c
+	} else if typeStr == "DATE" || typeStr == "TIMESTAMP" {
+		c := NewTimeTypeColumn(info.Field, typeStr, tagmap, false)
+		return &c
+	} else if strings.HasPrefix(typeStr, "ENUM(") {
+		// enum type, force convert to text
+		// discourage use of enum, use text instead
+		enums := utils.FindWords([]byte(typeStr[5:len(typeStr)-1]), 0)
+
+		width := 0
+		for i := range enums {
+			if width < len(enums[i]) {
+				width = len(enums[i])
+			}
+		}
+		tagmap[TAG_WIDTH] = fmt.Sprintf("%d", 1<<uint(bits.Len(uint(width))))
+		c := NewTextColumn(info.Field, tagmap, false)
+		return &c
 	} else {
 		log.Errorf("unsupported type %s", typeStr)
 		return nil
@@ -106,7 +138,7 @@ func (info *SSqlColumnInfo) toColumnSpec() IColumnSpec {
 }
 
 func (ts *STableSpec) fetchColumnDefs() ([]IColumnSpec, error) {
-	sql := fmt.Sprintf("SHOW FULL COLUMNS IN %s", ts.name)
+	sql := fmt.Sprintf("SHOW FULL COLUMNS IN `%s`", ts.name)
 	query := NewRawQuery(sql, "field", "type", "collation", "null", "key", "default", "extra", "privileges", "comment")
 	infos := make([]SSqlColumnInfo, 0)
 	err := query.All(&infos)
@@ -121,7 +153,7 @@ func (ts *STableSpec) fetchColumnDefs() ([]IColumnSpec, error) {
 }
 
 func (ts *STableSpec) fetchIndexesAndConstraints() ([]STableIndex, []STableConstraint, error) {
-	sql := fmt.Sprintf("SHOW CREATE TABLE %s", ts.name)
+	sql := fmt.Sprintf("SHOW CREATE TABLE `%s`", ts.name)
 	query := NewRawQuery(sql, "table", "create table")
 	row := query.Row()
 	var name, defStr string
@@ -139,7 +171,7 @@ func compareColumnSpec(c1, c2 IColumnSpec) int {
 	return strings.Compare(c1.Name(), c2.Name())
 }
 
-func diffCols(cols1 []IColumnSpec, cols2 []IColumnSpec) ([]IColumnSpec, []IColumnSpec, []IColumnSpec) {
+func diffCols(tableName string, cols1 []IColumnSpec, cols2 []IColumnSpec) ([]IColumnSpec, []IColumnSpec, []IColumnSpec) {
 	sort.Slice(cols1, func(i, j int) bool {
 		return compareColumnSpec(cols1[i], cols1[j]) < 0
 	})
@@ -156,7 +188,7 @@ func diffCols(cols1 []IColumnSpec, cols2 []IColumnSpec) ([]IColumnSpec, []IColum
 			comp := compareColumnSpec(cols1[i], cols2[j])
 			if comp == 0 {
 				if cols1[i].DefinitionString() != cols2[j].DefinitionString() {
-					log.Infof("UPDATE: %s => %s", cols1[i].DefinitionString(), cols2[j].DefinitionString())
+					log.Infof("UPDATE %s: %s => %s", tableName, cols1[i].DefinitionString(), cols2[j].DefinitionString())
 					update = append(update, cols2[j])
 				}
 				i += 1
@@ -200,6 +232,23 @@ func diffIndexes(exists []STableIndex, defs []STableIndex) (added []STableIndex,
 	return diffIndexes2(defs, exists), diffIndexes2(exists, defs)
 }
 
+func (ts *STableSpec) DropForeignKeySQL() []string {
+	_, constraints, err := ts.fetchIndexesAndConstraints()
+	if err != nil {
+		log.Errorf("fetchIndexesAndConstraints fail %s", err)
+		return nil
+	}
+
+	ret := make([]string, 0)
+	for _, constraint := range constraints {
+		sql := fmt.Sprintf("ALTER TABLE `%s` DROP FOREIGN KEY `%s`", ts.name, constraint.name)
+		ret = append(ret, sql)
+		log.Infof(sql)
+	}
+
+	return ret
+}
+
 func (ts *STableSpec) SyncSQL() []string {
 	tables := GetTables()
 	in, _ := utils.InStringArray(ts.name, tables)
@@ -209,7 +258,7 @@ func (ts *STableSpec) SyncSQL() []string {
 		return []string{sql}
 	}
 
-	indexes, constraints, err := ts.fetchIndexesAndConstraints()
+	indexes, _, err := ts.fetchIndexesAndConstraints()
 	if err != nil {
 		log.Errorf("fetchIndexesAndConstraints fail %s", err)
 		return nil
@@ -222,12 +271,6 @@ func (ts *STableSpec) SyncSQL() []string {
 		return nil
 	}
 
-	for _, constraint := range constraints {
-		sql := fmt.Sprintf("ALTER TABLE %s DROP FOREIGN KEY %s", ts.name, constraint.name)
-		ret = append(ret, sql)
-		log.Infof(sql)
-	}
-
 	addIndexes, removeIndexes := diffIndexes(indexes, ts.indexes)
 
 	for _, idx := range removeIndexes {
@@ -236,19 +279,56 @@ func (ts *STableSpec) SyncSQL() []string {
 		log.Infof(sql)
 	}
 
-	remove, update, add := diffCols(cols, ts.columns)
+	alters := make([]string, 0)
+	remove, update, add := diffCols(ts.name, cols, ts.columns)
+	// first check if primary key is modifed
+	changePrimary := false
+	for _, col := range remove {
+		if col.IsPrimary() {
+			changePrimary = true
+		}
+	}
+	// for _, col := range update {
+	// 	if col.IsPrimary() {
+	// 		changePrimary = true
+	// 	}
+	// }
+	for _, col := range add {
+		if col.IsPrimary() {
+			changePrimary = true
+		}
+	}
+	if changePrimary {
+		sql := fmt.Sprintf("DROP PRIMARY KEY")
+		alters = append(alters, sql)
+	}
 	/* IGNORE DROP STATEMENT */
 	for _, col := range remove {
-		sql := fmt.Sprintf("ALTER TABLE `%s` DROP COLUMN `%s`;", ts.name, col.Name())
-		// ret = append(ret, sql)
-		log.Infof(sql)
+		sql := fmt.Sprintf("DROP COLUMN `%s`", col.Name())
+		// alters = append(alters, sql)
+		log.Infof("ALTER TABLE %s %s", ts.name, sql)
 	}
 	for _, col := range update {
-		sql := fmt.Sprintf("ALTER TABLE `%s` MODIFY %s;", ts.name, col.DefinitionString())
-		ret = append(ret, sql)
+		sql := fmt.Sprintf("MODIFY %s", col.DefinitionString())
+		alters = append(alters, sql)
 	}
 	for _, col := range add {
-		sql := fmt.Sprintf("ALTER TABLE `%s` ADD %s;", ts.name, col.DefinitionString())
+		sql := fmt.Sprintf("ADD %s", col.DefinitionString())
+		alters = append(alters, sql)
+	}
+	if changePrimary {
+		primaries := make([]string, 0)
+		for _, c := range ts.columns {
+			if c.IsPrimary() {
+				primaries = append(primaries, fmt.Sprintf("`%s`", c.Name()))
+			}
+		}
+		sql := fmt.Sprintf("ADD PRIMARY KEY(%s)", strings.Join(primaries, ", "))
+		alters = append(alters, sql)
+	}
+
+	if len(alters) > 0 {
+		sql := fmt.Sprintf("ALTER TABLE `%s` %s;", ts.name, strings.Join(alters, ", "))
 		ret = append(ret, sql)
 	}
 

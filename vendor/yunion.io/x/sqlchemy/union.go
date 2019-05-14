@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package sqlchemy
 
 import (
@@ -8,7 +22,9 @@ import (
 )
 
 type SUnionQueryField struct {
-	name string
+	union *SUnion
+	name  string
+	alias string
 }
 
 func (sqf *SUnionQueryField) Expression() string {
@@ -16,18 +32,26 @@ func (sqf *SUnionQueryField) Expression() string {
 }
 
 func (sqf *SUnionQueryField) Name() string {
-	return sqf.name
+	if len(sqf.alias) > 0 {
+		return sqf.alias
+	} else {
+		return sqf.name
+	}
 }
 
 func (sqf *SUnionQueryField) Reference() string {
-	return sqf.name
+	return fmt.Sprintf("`%s`.`%s`", sqf.union.Alias(), sqf.name)
 }
 
 func (sqf *SUnionQueryField) Label(label string) IQueryField {
+	if len(label) > 0 && label != sqf.name {
+		sqf.alias = label
+	}
 	return sqf
 }
 
-type SUnionQuery struct {
+type SUnion struct {
+	alias   string
 	queries []IQuery
 	fields  []IQueryField
 	orderBy []SQueryOrder
@@ -35,8 +59,13 @@ type SUnionQuery struct {
 	offset  int
 }
 
-func (uq *SUnionQuery) String() string {
+func (uq *SUnion) Alias() string {
+	return uq.alias
+}
+
+func (uq *SUnion) Expression() string {
 	var buf strings.Builder
+	buf.WriteByte('(')
 	for i := range uq.queries {
 		if i != 0 {
 			buf.WriteString(" UNION ")
@@ -60,10 +89,11 @@ func (uq *SUnionQuery) String() string {
 	if uq.offset > 0 {
 		buf.WriteString(fmt.Sprintf(" OFFSET %d", uq.offset))
 	}
+	buf.WriteByte(')')
 	return buf.String()
 }
 
-func (tq *SUnionQuery) _orderBy(order QueryOrderType, fields []IQueryField) *SUnionQuery {
+/*func (tq *SUnion) _orderBy(order QueryOrderType, fields []IQueryField) *SUnion {
 	if tq.orderBy == nil {
 		tq.orderBy = make([]SQueryOrder, 0)
 	}
@@ -73,38 +103,42 @@ func (tq *SUnionQuery) _orderBy(order QueryOrderType, fields []IQueryField) *SUn
 	return tq
 }
 
-func (tq *SUnionQuery) Asc(fields ...interface{}) *SUnionQuery {
+func (tq *SUnion) Asc(fields ...interface{}) *SUnion {
 	return tq._orderBy(SQL_ORDER_ASC, convertQueryField(tq, fields))
 }
 
-func (tq *SUnionQuery) Desc(fields ...interface{}) *SUnionQuery {
+func (tq *SUnion) Desc(fields ...interface{}) *SUnion {
 	return tq._orderBy(SQL_ORDER_DESC, convertQueryField(tq, fields))
 }
+*/
 
-func (uq *SUnionQuery) Limit(limit int) *SUnionQuery {
+func (uq *SUnion) Limit(limit int) *SUnion {
 	uq.limit = limit
 	return uq
 }
 
-func (uq *SUnionQuery) Offset(offset int) *SUnionQuery {
+func (uq *SUnion) Offset(offset int) *SUnion {
 	uq.offset = offset
 	return uq
 }
 
-func (uq *SUnionQuery) QueryFields() []IQueryField {
+func (uq *SUnion) Fields() []IQueryField {
 	return uq.fields
 }
 
-func (uq *SUnionQuery) Field(name string) IQueryField {
+func (uq *SUnion) Field(name string, alias ...string) IQueryField {
 	for i := range uq.fields {
 		if name == uq.fields[i].Name() {
+			if len(alias) > 0 {
+				uq.fields[i].Label(alias[0])
+			}
 			return uq.fields[i]
 		}
 	}
 	return nil
 }
 
-func (uq *SUnionQuery) Variables() []interface{} {
+func (uq *SUnion) Variables() []interface{} {
 	ret := make([]interface{}, 0)
 	for i := range uq.queries {
 		ret = append(ret, uq.queries[i].Variables()...)
@@ -112,12 +146,7 @@ func (uq *SUnionQuery) Variables() []interface{} {
 	return ret
 }
 
-func (uq *SUnionQuery) SubQuery() *SSubQuery {
-	sq := SSubQuery{query: uq, alias: getTableAliasName()}
-	return &sq
-}
-
-func Union(query ...IQuery) *SUnionQuery {
+func Union(query ...IQuery) *SUnion {
 	fieldNames := make([]string, 0)
 	for _, f := range query[0].QueryFields() {
 		fieldNames = append(fieldNames, f.Name())
@@ -136,14 +165,20 @@ func Union(query ...IQuery) *SUnionQuery {
 	}
 
 	fields := make([]IQueryField, len(fieldNames))
-	for i := range fieldNames {
-		fields[i] = &SUnionQueryField{name: fieldNames[i]}
-	}
 
-	uq := &SUnionQuery{
+	uq := &SUnion{
+		alias:   getTableAliasName(),
 		queries: query,
 		fields:  fields,
 	}
 
+	for i := range fieldNames {
+		fields[i] = &SUnionQueryField{name: fieldNames[i], union: uq}
+	}
+
 	return uq
+}
+
+func (uq *SUnion) Query(f ...IQueryField) *SQuery {
+	return DoQuery(uq, f...)
 }

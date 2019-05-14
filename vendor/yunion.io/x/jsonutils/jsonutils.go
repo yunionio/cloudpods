@@ -665,8 +665,8 @@ func Parse(str []byte) (JSONObject, error) {
 			val = &JSONArray{}
 			i, e = val.parse(str, i)
 		default:
-			// val, i, e = parseJSONValue(str, i)
-			return nil, NewJSONError(str, i, "Invalid JSON string")
+			val, i, e = parseJSONValue(str, i)
+			// return nil, NewJSONError(str, i, "Invalid JSON string")
 		}
 		if e != nil {
 			return nil, e

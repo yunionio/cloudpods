@@ -24,6 +24,7 @@ var DATE_COMPACT_REG *regexp.Regexp
 var ISO_TIME_REG *regexp.Regexp
 var ISO_NO_SECOND_TIME_REG *regexp.Regexp
 var FULLISO_TIME_REG *regexp.Regexp
+var ZSTACK_TIME_REG *regexp.Regexp
 var COMPACT_TIME_REG *regexp.Regexp
 var MYSQL_TIME_REG *regexp.Regexp
 var NORMAL_TIME_REG *regexp.Regexp
@@ -55,6 +56,7 @@ func init() {
 	ISO_NO_SECOND_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z$`)
 	FULLISO_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$`)
 	COMPACT_TIME_REG = regexp.MustCompile(`^\d{14}$`)
+	ZSTACK_TIME_REG = regexp.MustCompile(`^\w+ \d{1,2}, \d{4} \d{1,2}:\d{1,2}:\d{1,2} (AM|PM)$`) //ZStack time format "Apr 1, 2019 3:23:17 PM"
 	MYSQL_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$`)
 	NORMAL_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$`)
 	FULLNORMAL_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}$`)
@@ -147,6 +149,10 @@ func MatchDate(str string) bool {
 
 func MatchDateCompact(str string) bool {
 	return DATE_COMPACT_REG.MatchString(str)
+}
+
+func MatchZStackTime(str string) bool {
+	return ZSTACK_TIME_REG.MatchString(str)
 }
 
 func MatchISOTime(str string) bool {

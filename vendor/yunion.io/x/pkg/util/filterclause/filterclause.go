@@ -73,6 +73,8 @@ func (fc *SFilterClause) QueryCondition(q *sqlchemy.SQuery) sqlchemy.ICondition 
 		return sqlchemy.IsEmpty(field)
 	case "isnotempty":
 		return sqlchemy.IsNotEmpty(field)
+	case "isnullorempty":
+		return sqlchemy.IsNullOrEmpty(field)
 	default:
 		return nil
 	}

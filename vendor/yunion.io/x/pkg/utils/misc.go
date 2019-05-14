@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"net/url"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -537,8 +538,27 @@ func TransSQLAchemyURL(pySQLSrc string) (dialect, ret string, err error) {
 		err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
 		return
 	}
-	user, passwd, host, port, url := strs[1], strs[2], strs[3], strs[4], strs[5]
-	ret = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s&parseTime=True", user, passwd, host, port, url)
+	user, passwd, host, port, dburl := strs[1], strs[2], strs[3], strs[4], strs[5]
+	queryPos := strings.IndexByte(dburl, '?')
+	if queryPos == 0 {
+		err = fmt.Errorf("Missing database name")
+		return
+	}
+	var query url.Values
+	if queryPos > 0 {
+		queryStr := dburl[queryPos+1:]
+		if len(queryStr) > 0 {
+			query, err = url.ParseQuery(queryStr)
+			if err != nil {
+				return
+			}
+		}
+		dburl = dburl[:queryPos]
+	} else {
+		query = url.Values{}
+	}
+	query.Set("parseTime", "True")
+	ret = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", user, passwd, host, port, dburl, query.Encode())
 	return
 }
 
