@@ -178,17 +178,5 @@ var (
 			Action:   PolicyActionGet,
 			Result:   rbacutils.OwnerAllow,
 		},
-		{
-			Service:  "identity",
-			Resource: "policies",
-			Action:   PolicyActionList,
-			Result:   rbacutils.UserAllow,
-		},
-		{
-			Service:  "identity",
-			Resource: "policies",
-			Action:   PolicyActionGet,
-			Result:   rbacutils.UserAllow,
-		},
 	}
 )

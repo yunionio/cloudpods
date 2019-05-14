@@ -72,6 +72,39 @@ func StartService() {
 	models.InitDB()
 
 	app_common.InitBaseAuth(commonOpts)
+	// register bootstrap default policy
+	defaultAdminPolicy := rbacutils.SRbacPolicy{
+		IsAdmin:  true,
+		Projects: []string{options.Options.AdminProjectName},
+		Roles:    []string{options.Options.AdminRoleName},
+		Rules: []rbacutils.SRbacRule{
+			{
+				Service:  api.SERVICE_TYPE,
+				Resource: "policies",
+				Action:   policy.PolicyActionCreate,
+				Result:   rbacutils.AdminAllow,
+			},
+			{
+				Service:  api.SERVICE_TYPE,
+				Resource: "policies",
+				Action:   policy.PolicyActionList,
+				Result:   rbacutils.AdminAllow,
+			},
+			{
+				Service:  api.SERVICE_TYPE,
+				Resource: "policies",
+				Action:   policy.PolicyActionUpdate,
+				Result:   rbacutils.AdminAllow,
+			},
+			{
+				Service:  api.SERVICE_TYPE,
+				Resource: "policies",
+				Action:   policy.PolicyActionGet,
+				Result:   rbacutils.AdminAllow,
+			},
+		},
+	}
+	policy.PolicyManager.RegisterDefaultAdminPolicy(&defaultAdminPolicy)
 
 	// cron := cronman.GetCronJobManager(true)
 	// cron.AddJob1("CleanPendingDeleteImages", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)
