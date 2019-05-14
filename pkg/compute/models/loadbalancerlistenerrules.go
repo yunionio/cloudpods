@@ -373,6 +373,7 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 	lbr.ExternalId = extRule.GetGlobalId()
 	lbr.ListenerId = listener.Id
 	lbr.ManagerId = listener.ManagerId
+	lbr.CloudregionId = listener.CloudregionId
 
 	lbr.Name = db.GenerateName(man, projectId, extRule.GetName())
 	lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
@@ -409,6 +410,7 @@ func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx 
 	diff, err := db.UpdateWithLock(ctx, lbr, func() error {
 		lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
 		lbr.ManagerId = listener.ManagerId
+		lbr.CloudregionId = listener.CloudregionId
 		return nil
 	})
 	if err != nil {

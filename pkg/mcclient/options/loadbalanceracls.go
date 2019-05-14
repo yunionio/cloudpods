@@ -68,6 +68,7 @@ type LoadbalancerAclGetOptions struct {
 
 type LoadbalancerAclListOptions struct {
 	BaseListOptions
+	Cloudregion string
 }
 
 type LoadbalancerAclUpdateOptions struct {

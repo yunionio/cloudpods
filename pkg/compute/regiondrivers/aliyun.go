@@ -352,10 +352,17 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 		}
 	}
 
-	if healthCheck, _ := data.GetString("health_check"); healthCheck == api.LB_BOOL_ON {
-		for key, lisValue := range map[string]int{"health_check_rise": lblis.HealthCheckRise, "health_check_fall": lblis.HealthCheckFall, "health_check_timeout": lblis.HealthCheckTimeout, "health_check_interval": lblis.HealthCheckInterval} {
-			if value, _ := data.Int(key); value == 0 && lisValue == 0 {
-				return nil, httperrors.NewInputParameterError("%s cannot be set to 0", key)
+	if healthCheck, _ := data.GetString("health_check"); len(healthCheck) > 0 {
+		switch healthCheck {
+		case api.LB_BOOL_ON:
+			for key, lisValue := range map[string]int{"health_check_rise": lblis.HealthCheckRise, "health_check_fall": lblis.HealthCheckFall, "health_check_timeout": lblis.HealthCheckTimeout, "health_check_interval": lblis.HealthCheckInterval} {
+				if value, _ := data.Int(key); value == 0 && lisValue == 0 {
+					return nil, httperrors.NewInputParameterError("%s cannot be set to 0", key)
+				}
+			}
+		case api.LB_BOOL_OFF:
+			if utils.IsInStringArray(lblis.ListenerType, []string{api.LB_LISTENER_TYPE_TCP, api.LB_LISTENER_TYPE_UDP}) {
+				return nil, httperrors.NewUnsupportOperationError("%s not support close tcp or udp loadbalancer listener health check", self.GetProvider())
 			}
 		}
 	}

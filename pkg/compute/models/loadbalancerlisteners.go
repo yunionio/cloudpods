@@ -165,6 +165,8 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(ctx context.Context, q *
 		{Key: "loadbalancer", ModelKeyword: "loadbalancer", ProjectId: userProjId},
 		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", ProjectId: userProjId},
 		{Key: "acl", ModelKeyword: "loadbalanceracl", ProjectId: userProjId},
+		{Key: "cloudregion", ModelKeyword: "cloudregion", ProjectId: userProjId},
+		{Key: "manager", ModelKeyword: "cloudprovider", ProjectId: userProjId},
 	})
 	if err != nil {
 		return nil, err
@@ -284,15 +286,21 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 			}
 		}
 	}
-	if err := man.validateAcl(aclStatusV, aclTypeV, aclV, data); err != nil {
-		return nil, err
-	}
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
 		return nil, err
 	}
 	region := lb.GetRegion()
 	if region == nil {
 		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
+	}
+	if err := man.validateAcl(aclStatusV, aclTypeV, aclV, data); err != nil {
+		return nil, err
+	}
+	if aclV.Model != nil {
+		acl := aclV.Model.(*SLoadbalancerAcl)
+		if acl.CloudregionId != lb.CloudregionId {
+			return nil, httperrors.NewInputParameterError("acl %s(%s) and lb %s(%s) are not in the same region", acl.Name, acl.Id, lb.Name, lb.Id)
+		}
 	}
 	return region.GetDriver().ValidateCreateLoadbalancerListenerData(ctx, userCred, data, backendGroupV.Model)
 }
@@ -591,14 +599,15 @@ func (lblis *SLoadbalancerListener) Delete(ctx context.Context, userCred mcclien
 
 func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovider.SLoadbalancerListener, error) {
 	listener := &cloudprovider.SLoadbalancerListener{
-		Name:               lblis.Name,
-		Description:        lblis.Description,
-		ListenerType:       lblis.ListenerType,
-		ListenerPort:       lblis.ListenerPort,
-		Scheduler:          lblis.Scheduler,
-		EnableHTTP2:        lblis.EnableHttp2,
-		EgressMbps:         lblis.EgressMbps,
-		EstablishedTimeout: lblis.BackendConnectTimeout,
+		Name:                    lblis.Name,
+		Description:             lblis.Description,
+		ListenerType:            lblis.ListenerType,
+		ListenerPort:            lblis.ListenerPort,
+		Scheduler:               lblis.Scheduler,
+		EnableHTTP2:             lblis.EnableHttp2,
+		EgressMbps:              lblis.EgressMbps,
+		EstablishedTimeout:      lblis.BackendConnectTimeout,
+		AccessControlListStatus: lblis.AclStatus,
 
 		HealthCheckReq: lblis.HealthCheckReq,
 		HealthCheckExp: lblis.HealthCheckExp,
@@ -626,7 +635,6 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovi
 	if acl := lblis.GetLoadbalancerAcl(); acl != nil {
 		listener.AccessControlListID = acl.ExternalId
 		listener.AccessControlListType = lblis.AclType
-		listener.AccessControlListStatus = lblis.AclStatus
 	}
 	if certificate := lblis.GetLoadbalancerCertificate(); certificate != nil && lblis.ListenerType == api.LB_LISTENER_TYPE_HTTPS {
 		listener.CertificateID = certificate.ExternalId
@@ -780,6 +788,7 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 
 func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener) {
 	lblis.ManagerId = lb.ManagerId
+	lblis.CloudregionId = lb.CloudregionId
 	// lblis.Name = extListener.GetName()
 	lblis.ListenerType = extListener.GetListenerType()
 	lblis.EgressMbps = extListener.GetEgressMbps()
