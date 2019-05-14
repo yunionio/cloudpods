@@ -128,4 +128,5 @@ type LoadbalancerBackendGroupIDOptions struct {
 type LoadbalancerBackendGroupListOptions struct {
 	BaseListOptions
 	Loadbalancer string
+	Cloudregion  string
 }

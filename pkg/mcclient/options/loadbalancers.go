@@ -53,6 +53,7 @@ type LoadbalancerListOptions struct {
 	NetworkType  string `choices:"classic|vpc"`
 	Network      string
 	BackendGroup string
+	Cloudregion  string
 }
 
 type LoadbalancerActionStatusOptions struct {
