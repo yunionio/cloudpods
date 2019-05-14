@@ -46,7 +46,7 @@ func localPolicyFetcher() (map[string]rbacutils.SRbacPolicy, map[string]rbacutil
 		}
 		err = policy.Decode(policyJson)
 		if err != nil {
-			log.Errorf("fail to decode policy %s %s", typeStr, policyList[i].Blob, err)
+			log.Errorf("fail to decode policy %s %s %s", typeStr, policyList[i].Blob, err)
 			continue
 		}
 

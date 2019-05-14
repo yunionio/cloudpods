@@ -81,7 +81,7 @@ func StartService() error {
 		startSched()
 	})
 
-	app := app_common.InitApp(commonOpts, true)
+	app := app_common.InitApp(&opts.BaseOptions, true)
 	cloudcommon.AppDBInit(app)
 
 	//InitHandlers(app)
