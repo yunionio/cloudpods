@@ -3,6 +3,7 @@ package hostinfo
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"os"
 	"regexp"
 	"strconv"
@@ -216,6 +217,9 @@ func (n *SNIC) ExitCleanup() {
 func NewNIC(desc string) (*SNIC, error) {
 	nic := new(SNIC)
 	data := strings.Split(desc, "/")
+	if len(data) < 3 {
+		return nil, fmt.Errorf("Parse nic conf %s failed, too short", desc)
+	}
 	nic.Inter = data[0]
 	nic.Bridge = data[1]
 	if regutils.MatchIP4Addr(data[2]) {
@@ -252,15 +256,7 @@ func NewNIC(desc string) (*SNIC, error) {
 		return nil, err
 	}
 
-	exist, err := nic.BridgeDev.Exists()
-	if err != nil {
-		return nil, err
-	}
-	infs, err := nic.BridgeDev.Interfaces()
-	if err != nil {
-		return nil, err
-	}
-	confirm, err := nic.BridgeDev.ConfirmToConfig(exist, infs)
+	confirm, err := nic.BridgeDev.ConfirmToConfig()
 	if err != nil {
 		log.Errorln(err)
 		return nil, err
@@ -274,6 +270,9 @@ func NewNIC(desc string) (*SNIC, error) {
 		time.Sleep(time.Second * 1)
 	} else {
 		log.Infof("Confirm to configuration!!")
+	}
+	if err := nic.BridgeDev.PersistentMac(); err != nil {
+		return nil, err
 	}
 
 	var dhcpRelay []string

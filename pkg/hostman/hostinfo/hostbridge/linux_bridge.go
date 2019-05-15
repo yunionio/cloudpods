@@ -18,7 +18,9 @@ func NewLinuxBridgeDeriver(bridge, inter, ip string) (*SLinuxBridgeDriver, error
 	if err != nil {
 		return nil, err
 	}
-	return &SLinuxBridgeDriver{*base}, nil
+	linuxBridgeDrv := &SLinuxBridgeDriver{*base}
+	linuxBridgeDrv.drv = linuxBridgeDrv
+	return linuxBridgeDrv, nil
 }
 
 func LinuxBridgePrepare() error {
@@ -105,6 +107,14 @@ func (l *SLinuxBridgeDriver) SetupBridgeDev() error {
 		if err != nil {
 			return fmt.Errorf("Failed to create bridge %s", l.bridge)
 		}
+	}
+	return nil
+}
+
+func (d *SLinuxBridgeDriver) PersistentMac() error {
+	output, err := procutils.NewCommand("ifconfig", d.bridge.String(), "hw", "ether", d.inter.Mac).Run()
+	if err != nil {
+		return fmt.Errorf("Linux bridge set mac address failed %s %s", output, err)
 	}
 	return nil
 }
