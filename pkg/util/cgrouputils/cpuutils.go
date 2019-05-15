@@ -141,7 +141,11 @@ func (d *CPUDie) GetCoreStr() string {
 	for _, c := range d.CoreList {
 		coreIdx = append(coreIdx, strconv.Itoa(c.Index))
 	}
-	sort.Slice(coreIdx, func(i int, j int) bool { return coreIdx[i] < coreIdx[j] })
+	sort.Slice(coreIdx, func(i int, j int) bool {
+		si, _ := strconv.Atoi(coreIdx[i])
+		sj, _ := strconv.Atoi(coreIdx[j])
+		return si < sj
+	})
 	return strings.Join(coreIdx, ",")
 }
 
@@ -171,7 +175,7 @@ func ParseCpusetStr(cpuset string) string {
 			ses := strings.Split(idxstr, "-")
 			start, _ := strconv.Atoi(ses[0])
 			end, _ := strconv.Atoi(ses[1])
-			for start < end {
+			for start <= end {
 				idxList = append(idxList, strconv.Itoa(start))
 				start += 1
 			}
@@ -179,16 +183,32 @@ func ParseCpusetStr(cpuset string) string {
 			idxList = append(idxList, idxstr)
 		}
 	}
-	sort.Slice(idxList, func(i int, j int) bool { return idxList[i] < idxList[j] })
+	sort.Slice(idxList, func(i int, j int) bool {
+		si, _ := strconv.Atoi(idxList[i])
+		sj, _ := strconv.Atoi(idxList[j])
+		return si < sj
+	})
 	return strings.Join(idxList, ",")
 }
 
 type ProcessCPUinfo struct {
 	Pid    int
-	Share  *int
+	Share  *float64
 	Cpuset *int
 	Util   float64
 	Weight float64
+}
+
+func (p *ProcessCPUinfo) String() string {
+	share := -1.0
+	if p.Share != nil {
+		share = *p.Share
+	}
+	cpuset := -1
+	if p.Cpuset != nil {
+		cpuset = *p.Cpuset
+	}
+	return fmt.Sprintf("(%d, %f, %f, %f, %d)", p.Pid, p.Weight, p.Util, share, cpuset)
 }
 
 func Average(arr []float64) float64 {
@@ -199,9 +219,9 @@ func Average(arr []float64) float64 {
 	return total / float64(len(arr))
 }
 
-func GetProcessWeight(share *int, util float64) float64 {
+func GetProcessWeight(share *float64, util float64) float64 {
 	if share != nil {
-		return float64(*share) * (util*0.8 + 30)
+		return (*share) * (util*0.8 + 30)
 	}
 	return 0.0
 }
@@ -214,11 +234,11 @@ func NewProcessCPUinfo(pid int) (*ProcessCPUinfo, error) {
 	cpuTask := NewCGroupCPUTask(spid, 0)
 	if cpuTask.taskIsExist() {
 		share := cpuTask.GetParam("cpu.shares")
-		ishare, err := strconv.Atoi(share)
-		ishare /= 1024.0
+		ishare, err := strconv.ParseFloat(share, 64)
 		if err != nil {
 			log.Errorln(err)
 		} else {
+			ishare /= 1024.0
 			cpuinfo.Share = &ishare
 		}
 	}
