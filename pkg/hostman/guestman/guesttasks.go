@@ -457,6 +457,7 @@ func (s *SGuestResumeTask) onStartRunning() {
 	}
 	s.SyncMetadataInfo()
 	s.SyncStatus()
+	s.optimizeOom()
 	timeutils2.AddTimeout(time.Second*5, s.SetCgroup)
 	disksIdx := s.GetNeedMergeBackingFileDiskIndexs()
 	if len(disksIdx) > 0 {
