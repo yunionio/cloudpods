@@ -315,5 +315,7 @@ func NewOVSBridgeDriver(bridge, inter, ip string) (*SOVSBridgeDriver, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SOVSBridgeDriver{*base}, nil
+	ovsDrv := &SOVSBridgeDriver{*base}
+	ovsDrv.drv = ovsDrv
+	return ovsDrv, nil
 }

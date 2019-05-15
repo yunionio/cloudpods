@@ -31,7 +31,7 @@ import (
 )
 
 type IBridgeDriver interface {
-	ConfirmToConfig(bool, []string) (bool, error)
+	ConfirmToConfig() (bool, error)
 	GetMac() string
 	FetchConfig()
 	Setup(IBridgeDriver) error
@@ -46,6 +46,7 @@ type IBridgeDriver interface {
 	CleanupConfig()
 	SetupBridgeDev() error
 	SetupInterface() error
+	PersistentMac() error
 
 	GenerateIfupScripts(scriptPath string, nic jsonutils.JSONObject) error
 	GenerateIfdownScripts(scriptPath string, nic jsonutils.JSONObject) error
@@ -59,6 +60,8 @@ type SBaseBridgeDriver struct {
 	bridge *netutils2.SNetInterface
 	ip     string
 	inter  *netutils2.SNetInterface
+
+	drv IBridgeDriver
 }
 
 func NewBaseBridgeDriver(bridge, inter, ip string) (*SBaseBridgeDriver, error) {
@@ -89,6 +92,10 @@ func (d *SBaseBridgeDriver) GetMac() string {
 	return d.bridge.Mac
 }
 
+func (d *SBaseBridgeDriver) PersistentMac() error {
+	return nil
+}
+
 func (d *SBaseBridgeDriver) BringupInterface() error {
 	var infs = []*netutils2.SNetInterface{d.bridge}
 	if d.inter != nil {
@@ -106,8 +113,12 @@ func (d *SBaseBridgeDriver) BringupInterface() error {
 	return nil
 }
 
-func (d *SBaseBridgeDriver) ConfirmToConfig(exists bool, infs []string) (bool, error) {
-	if exists {
+func (d *SBaseBridgeDriver) ConfirmToConfig() (bool, error) {
+	exist, err := d.drv.Exists()
+	if err != nil {
+		return false, err
+	}
+	if exist {
 		d.bridge.FetchConfig()
 		if len(d.ip) > 0 {
 			if len(d.bridge.Addr) == 0 {
@@ -135,6 +146,10 @@ func (d *SBaseBridgeDriver) ConfirmToConfig(exists bool, infs []string) (bool, e
 			if !d.bridge.IsSecretInterface() {
 				return false, fmt.Errorf("%s should have address in 169.254.0.0/16", d.bridge)
 			}
+		}
+		infs, err := d.drv.Interfaces()
+		if err != nil {
+			return false, err
 		}
 		if d.inter != nil && !utils.IsInStringArray(d.inter.String(), infs) {
 			log.Infof("Interface %s not in bridge...", d.inter)
