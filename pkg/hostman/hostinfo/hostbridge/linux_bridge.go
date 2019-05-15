@@ -114,19 +114,19 @@ func (l *SLinuxBridgeDriver) RegisterHostlocalServer(mac, ip string) error {
 	metadataServerLoc := fmt.Sprintf("%s:%d", ip, metadataPort)
 	hostDnsServerLoc := fmt.Sprintf("%s:%d", ip, 53)
 
-	cmd := "iptables -t nat -F"
-	cmd1 := strings.Split(cmd, " ")
-	output, err := procutils.NewCommand(cmd1[0], cmd1[1:]...).Run()
-	if err != nil {
-		log.Errorf("Clean iptables failed: %s", output)
-		return err
-	}
+	// cmd := "iptables -t nat -F"
+	// cmd1 := strings.Split(cmd, " ")
+	// output, err := procutils.NewCommand(cmd1[0], cmd1[1:]...).Run()
+	// if err != nil {
+	// 	log.Errorf("Clean iptables failed: %s", output)
+	// 	return err
+	// }
 
-	cmd = "iptables -t nat -A PREROUTING -s 0.0.0.0/0"
+	cmd := "iptables -t nat -A PREROUTING -s 0.0.0.0/0"
 	cmd += " -d 169.254.169.254/32 -p tcp -m tcp --dport 80"
 	cmd += fmt.Sprintf(" -j DNAT --to-destination %s", metadataServerLoc)
-	cmd1 = strings.Split(cmd, " ")
-	output, err = procutils.NewCommand(cmd1[0], cmd1[1:]...).Run()
+	cmd1 := strings.Split(cmd, " ")
+	output, err := procutils.NewCommand(cmd1[0], cmd1[1:]...).Run()
 	if err != nil {
 		log.Errorf("Inject DNAT rule failed: %s", output)
 		return err
