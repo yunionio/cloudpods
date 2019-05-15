@@ -149,6 +149,25 @@ func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerBackendData(ctx conte
 	return data, nil
 }
 
+func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lbbg *models.SLoadbalancerBackendGroup) (*jsonutils.JSONDict, error) {
+	switch lbbg.Type {
+	case api.LB_BACKENDGROUP_TYPE_DEFAULT:
+		if data.Contains("port") {
+			return nil, httperrors.NewInputParameterError("%s backend group not support change port", lbbg.Type)
+		}
+	case api.LB_BACKENDGROUP_TYPE_NORMAL:
+		weightV := validators.NewRangeValidator("weight", 1, 100).Optional(true)
+		return data, weightV.Validate(data)
+	case api.LB_BACKENDGROUP_TYPE_MASTER_SLAVE:
+		if data.Contains("port") || data.Contains("weight") {
+			return data, httperrors.NewInputParameterError("%s backend group not support change port or weight", lbbg.Type)
+		}
+	default:
+		return nil, httperrors.NewInputParameterError("Unknown backend group type %s", lbbg.Type)
+	}
+	return data, nil
+}
+
 func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	backendgroup, ok := backendGroup.(*models.SLoadbalancerBackendGroup)
 	if !ok {

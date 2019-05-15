@@ -42,7 +42,7 @@ func (backend *SLoadbalancerDefaultBackend) GetGlobalId() string {
 }
 
 func (backend *SLoadbalancerDefaultBackend) GetStatus() string {
-	return ""
+	return api.LB_STATUS_ENABLED
 }
 
 func (backend *SLoadbalancerDefaultBackend) GetMetadata() *jsonutils.JSONDict {
@@ -79,4 +79,33 @@ func (backend *SLoadbalancerDefaultBackend) GetBackendId() string {
 
 func (backend *SLoadbalancerDefaultBackend) GetProjectId() string {
 	return ""
+}
+
+func (backend *SLoadbalancerDefaultBackend) SyncConf(port, weight int) error {
+	params := map[string]string{}
+	params["RegionId"] = backend.lbbg.lb.region.RegionId
+	params["LoadBalancerId"] = backend.lbbg.lb.LoadBalancerId
+	loadbalancer, err := backend.lbbg.lb.region.GetLoadbalancerDetail(backend.lbbg.lb.LoadBalancerId)
+	if err != nil {
+		return err
+	}
+	servers := jsonutils.NewArray()
+	for i := 0; i < len(loadbalancer.BackendServers.BackendServer); i++ {
+		_backend := loadbalancer.BackendServers.BackendServer[i]
+		_backend.lbbg = backend.lbbg
+		if _backend.GetGlobalId() == backend.GetGlobalId() {
+			_backend.Weight = weight
+		}
+		servers.Add(
+			jsonutils.Marshal(
+				map[string]string{
+					"ServerId": _backend.ServerId,
+					"Weight":   fmt.Sprintf("%d", _backend.Weight),
+				},
+			))
+	}
+
+	params["BackendServers"] = servers.String()
+	_, err = backend.lbbg.lb.region.lbRequest("SetBackendServers", params)
+	return err
 }

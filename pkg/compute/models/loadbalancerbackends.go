@@ -217,7 +217,37 @@ func (lbb *SLoadbalancerBackend) ValidateUpdateData(ctx context.Context, userCre
 			return nil, err
 		}
 	}
-	return lbb.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	_, err := lbb.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+	region := lbb.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewResourceNotFoundError("failed to found region for loadbalancer backend %s", lbb.Name)
+	}
+	lbbg := lbb.GetLoadbalancerBackendGroup()
+	if lbbg == nil {
+		return nil, httperrors.NewResourceNotFoundError("failed to found backendgroup for backend %s(%s)", lbb.Name, lbb.Id)
+	}
+	return region.GetDriver().ValidateUpdateLoadbalancerBackendData(ctx, userCred, data, lbbg)
+}
+
+func (lbb *SLoadbalancerBackend) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	lbb.SVirtualResourceBase.PostUpdate(ctx, userCred, query, data)
+	if data.Contains("port") || data.Contains("weight") {
+		lbb.StartLoadBalancerBackendSyncTask(ctx, userCred, "")
+	}
+}
+
+func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendSyncTask(ctx context.Context, userCred mcclient.TokenCredential, parentTaskId string) error {
+	params := jsonutils.NewDict()
+	lbb.SetStatus(userCred, api.LB_SYNC_CONF, "")
+	task, err := taskman.TaskManager.NewTask(ctx, "LoadbalancerBackendSyncTask", lbb, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (lbb *SLoadbalancerBackend) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
