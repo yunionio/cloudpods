@@ -87,14 +87,15 @@ func GROUP_CONCAT(name string, field IQueryField) IQueryField {
 
 type SStringField struct {
 	strConst string
+	alias    string
 }
 
 func (s *SStringField) Expression() string {
-	return ""
+	return fmt.Sprintf("%s AS `%s`", s.Reference(), s.Name())
 }
 
 func (s *SStringField) Name() string {
-	return ""
+	return s.alias
 }
 
 func (s *SStringField) Reference() string {
@@ -102,6 +103,9 @@ func (s *SStringField) Reference() string {
 }
 
 func (s *SStringField) Label(label string) IQueryField {
+	if len(label) > 0 {
+		s.alias = label
+	}
 	return s
 }
 

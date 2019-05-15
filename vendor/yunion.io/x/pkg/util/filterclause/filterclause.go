@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package filterclause
 
 import (
@@ -35,7 +49,7 @@ func (jfc *SJointFilterClause) GetJointModelName() string {
 func (fc *SFilterClause) QueryCondition(q *sqlchemy.SQuery) sqlchemy.ICondition {
 	field := q.Field(fc.field)
 	if field == nil {
-		log.Errorf("Cannot find filed %s", fc.field)
+		log.Errorf("Cannot find field %s", fc.field)
 		return nil
 	}
 	switch fc.funcName {
@@ -44,27 +58,49 @@ func (fc *SFilterClause) QueryCondition(q *sqlchemy.SQuery) sqlchemy.ICondition 
 	case "notin":
 		return sqlchemy.NotIn(field, fc.params)
 	case "between":
-		return sqlchemy.Between(field, fc.params[0], fc.params[1])
+		if len(fc.params) == 2 {
+			return sqlchemy.Between(field, fc.params[0], fc.params[1])
+		}
 	case "ge":
-		return sqlchemy.GE(field, fc.params[0])
+		if len(fc.params) == 1 {
+			return sqlchemy.GE(field, fc.params[0])
+		}
 	case "gt":
-		return sqlchemy.GT(field, fc.params[0])
+		if len(fc.params) == 1 {
+			return sqlchemy.GT(field, fc.params[0])
+		}
 	case "le":
-		return sqlchemy.LE(field, fc.params[0])
+		if len(fc.params) == 1 {
+			return sqlchemy.LE(field, fc.params[0])
+		}
 	case "lt":
-		return sqlchemy.LT(field, fc.params[0])
+		if len(fc.params) == 1 {
+			return sqlchemy.LT(field, fc.params[0])
+		}
 	case "like":
-		return sqlchemy.Like(field, fc.params[0])
+		if len(fc.params) == 1 {
+			return sqlchemy.Like(field, fc.params[0])
+		}
 	case "contains":
-		return sqlchemy.Contains(field, fc.params[0])
+		if len(fc.params) == 1 {
+			return sqlchemy.Contains(field, fc.params[0])
+		}
 	case "startswith":
-		return sqlchemy.Startswith(field, fc.params[0])
+		if len(fc.params) == 1 {
+			return sqlchemy.Startswith(field, fc.params[0])
+		}
 	case "endswith":
-		return sqlchemy.Endswith(field, fc.params[0])
+		if len(fc.params) == 1 {
+			return sqlchemy.Endswith(field, fc.params[0])
+		}
 	case "equals":
-		return sqlchemy.Equals(field, fc.params[0])
+		if len(fc.params) == 1 {
+			return sqlchemy.Equals(field, fc.params[0])
+		}
 	case "notequals":
-		return sqlchemy.NOT(sqlchemy.Equals(field, fc.params[0]))
+		if len(fc.params) == 1 {
+			return sqlchemy.NOT(sqlchemy.Equals(field, fc.params[0]))
+		}
 	case "isnull":
 		return sqlchemy.IsNull(field)
 	case "isnotnull":
@@ -75,9 +111,8 @@ func (fc *SFilterClause) QueryCondition(q *sqlchemy.SQuery) sqlchemy.ICondition 
 		return sqlchemy.IsNotEmpty(field)
 	case "isnullorempty":
 		return sqlchemy.IsNullOrEmpty(field)
-	default:
-		return nil
 	}
+	return nil
 }
 
 func (fc *SFilterClause) GetField() string {
