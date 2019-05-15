@@ -26,9 +26,11 @@ type HiProcInstManager struct {
 	ResourceManager
 }
 
-func (this *HiProcInstManager) DoGetStatistics(s *mcclient.ClientSession, user_id string) (jsonutils.JSONObject, error) {
-	hiProcInstPath := fmt.Sprintf("/historic-process-instances?status=unfinished&user_id=%s", user_id)
-	procTaskPath := fmt.Sprintf("/process-tasks?user_id=%s", user_id)
+func (this *HiProcInstManager) DoGetStatistics(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	userId, _ := params.GetString("user_id")
+
+	hiProcInstPath := fmt.Sprintf("/historic-process-instances?status=unfinished&user_id=%s", userId)
+	procTaskPath := fmt.Sprintf("/process-tasks?user_id=%s", userId)
 
 	hiProcInstObj, _ := this._list(s, hiProcInstPath, "historic-process-instances")
 	procTaskObj, _ := this._list(s, procTaskPath, "process-tasks")
