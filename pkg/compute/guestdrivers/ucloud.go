@@ -55,6 +55,18 @@ func (self *SUCloudGuestDriver) GetAttachDiskStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
+func (self *SUCloudGuestDriver) GetChangeConfigStatus() ([]string, error) {
+	return []string{api.VM_READY}, nil
+}
+
+func (self *SUCloudGuestDriver) GetRebuildRootStatus() ([]string, error) {
+	return []string{api.VM_READY, api.VM_RUNNING}, nil
+}
+
+func (self *SUCloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
+	return api.VM_RUNNING
+}
+
 func init() {
 	driver := SUCloudGuestDriver{}
 	models.RegisterGuestDriver(&driver)

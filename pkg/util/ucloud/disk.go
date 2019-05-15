@@ -178,6 +178,18 @@ func (self *SDisk) GetDiskType() string {
 	return api.DISK_TYPE_DATA
 }
 
+func (self *SDisk) GetStorageType() string {
+	if self.storage == nil {
+		if strings.Contains(self.DiskType, "SSD") {
+			return api.STORAGE_UCLOUD_CLOUD_SSD
+		} else {
+			return api.STORAGE_UCLOUD_CLOUD_NORMAL
+		}
+	}
+
+	return self.storage.storageType
+}
+
 func (self *SDisk) GetFsFormat() string {
 	return ""
 }
@@ -245,6 +257,20 @@ func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
 		sizeGB = newSizeMB/1024 + 1
 	} else {
 		sizeGB = newSizeMB / 1024
+	}
+
+	if self.Status == "InUse" {
+		err := self.storage.zone.region.DetachDisk(self.Zone, self.UHostID, self.UDiskID)
+		if err != nil {
+			return err
+		}
+
+		defer self.storage.zone.region.AttachDisk(self.Zone, self.UHostID, self.UDiskID)
+		err = cloudprovider.WaitStatusWithDelay(self, api.DISK_READY, 10*time.Second, 5*time.Second, 60*time.Second)
+		if err != nil {
+			return err
+		}
+
 	}
 	return self.storage.zone.region.resizeDisk(self.Zone, self.GetId(), sizeGB)
 }
