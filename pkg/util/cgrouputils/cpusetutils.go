@@ -179,7 +179,7 @@ func GetProcessesCpuinfo(pids []string) ([]*ProcessCPUinfo, error) {
 			log.Errorln(err)
 			return nil, err
 		}
-		if info.Share != nil && *info.Share < coreCnt {
+		if info.Share != nil && *info.Share < float64(coreCnt) {
 			ret = append(ret, info)
 		}
 	}
