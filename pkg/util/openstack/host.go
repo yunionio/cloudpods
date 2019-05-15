@@ -302,6 +302,18 @@ func (host *SHost) GetCpuCount() int8 {
 }
 
 func (host *SHost) GetNodeCount() int8 {
+	if len(host.CpuInfo) > 0 {
+		info, err := jsonutils.Parse([]byte(host.CpuInfo))
+		if err == nil {
+			cpuInfo := &CpuInfo{}
+			err = info.Unmarshal(cpuInfo)
+			if err == nil {
+				if cell, ok := cpuInfo.Topology["cells"]; ok {
+					return int8(cell)
+				}
+			}
+		}
+	}
 	return host.GetCpuCount()
 }
 
