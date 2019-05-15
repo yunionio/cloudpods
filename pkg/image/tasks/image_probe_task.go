@@ -35,7 +35,7 @@ func (self *ImageProbeTask) StartImageProbe(ctx context.Context, image *models.S
 	probeErr := self.doProbe(ctx, image)
 
 	// if failed, set image unavailable, because size and chksum changed
-	if err := self.updataeImageMetadata(ctx, image); err != nil {
+	if err := self.updateImageMetadata(ctx, image); err != nil {
 		image.SetStatus(self.UserCred, api.IMAGE_STATUS_KILLED,
 			fmt.Sprintf("Image update failed after probe %s", err))
 		self.SetStageFailed(ctx, err.Error())
@@ -69,7 +69,7 @@ func (self *ImageProbeTask) doProbe(ctx context.Context, image *models.SImage) e
 	return nil
 }
 
-func (self *ImageProbeTask) updataeImageMetadata(
+func (self *ImageProbeTask) updateImageMetadata(
 	ctx context.Context, image *models.SImage,
 ) error {
 	imagePath := image.GetPath("")
@@ -107,33 +107,50 @@ func (self *ImageProbeTask) updataeImageMetadata(
 }
 
 func (self *ImageProbeTask) updateImageInfo(ctx context.Context, image *models.SImage, imageInfo *sImageInfo) {
+	imageProperties := jsonutils.Marshal(imageInfo.osInfo).(*jsonutils.JSONDict)
 	if len(imageInfo.OsType) > 0 {
-		models.ImagePropertyManager.SaveProperty(ctx, self.UserCred, image.Id, api.IMAGE_OS_TYPE, imageInfo.OsType)
+		imageProperties.Set(api.IMAGE_OS_TYPE, jsonutils.NewString(imageInfo.OsType))
 	}
 	if imageInfo.IsUEFISupport {
-		models.ImagePropertyManager.SaveProperty(ctx, self.UserCred, image.Id, api.IMAGE_UEFI_SUPPORT, "true")
+		imageProperties.Set(api.IMAGE_UEFI_SUPPORT, jsonutils.JSONTrue)
 	}
 	if imageInfo.IsLVMPartition {
-		models.ImagePropertyManager.SaveProperty(ctx, self.UserCred, image.Id, api.IMAGE_IS_LVM_PARTITION, "true")
+		imageProperties.Set(api.IMAGE_IS_LVM_PARTITION, jsonutils.JSONTrue)
 	}
-	models.ImagePropertyManager.SaveProperties(ctx, self.UserCred, image.Id, jsonutils.Marshal(imageInfo.osInfo))
+	if imageInfo.IsReadonly {
+		imageProperties.Set(api.IMAGE_IS_READONLY, jsonutils.JSONTrue)
+	}
+	if imageInfo.IsInstalledCloudInit {
+		imageProperties.Set(api.IMAGE_INSTALLED_CLOUDINIT, jsonutils.JSONTrue)
+
+	}
+	if len(imageInfo.PhysicalPartitionType) > 0 {
+		imageProperties.Set(api.IMAGE_PARTITION_TYPE, jsonutils.NewString(imageInfo.PhysicalPartitionType))
+	}
+	models.ImagePropertyManager.SaveProperties(ctx, self.UserCred, image.Id, imageProperties)
 }
 
 type sImageInfo struct {
 	osInfo *fsdriver.SReleaseInfo
 
-	OsType         string
-	IsUEFISupport  bool
-	IsLVMPartition bool
+	OsType                string
+	IsUEFISupport         bool
+	IsLVMPartition        bool
+	IsReadonly            bool
+	PhysicalPartitionType string // mbr or gbt or unknown
+	IsInstalledCloudInit  bool
 }
 
 func (self *ImageProbeTask) getImageInfo(kvmDisk *storageman.SKVMGuestDisk, rootfs fsdriver.IRootFsDriver) *sImageInfo {
 	partition := rootfs.GetPartition()
 	return &sImageInfo{
-		osInfo:         rootfs.GetReleaseInfo(partition),
-		OsType:         rootfs.GetOs(),
-		IsUEFISupport:  kvmDisk.DetectIsUEFISupport(rootfs),
-		IsLVMPartition: kvmDisk.IsLVMPartition(),
+		osInfo:                rootfs.GetReleaseInfo(partition),
+		OsType:                rootfs.GetOs(),
+		IsUEFISupport:         kvmDisk.DetectIsUEFISupport(rootfs),
+		IsLVMPartition:        kvmDisk.IsLVMPartition(),
+		IsReadonly:            partition.IsReadonly(),
+		PhysicalPartitionType: partition.GetPhysicalPartitionType(),
+		IsInstalledCloudInit:  rootfs.IsCloudinitInstall(),
 	}
 }
 

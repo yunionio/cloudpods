@@ -145,7 +145,7 @@ func (d *SKVMGuestDisk) findPartitions() error {
 	}
 	for i := 0; i < len(files); i++ {
 		if files[i].Name() != dev && strings.HasPrefix(files[i].Name(), dev+"p") {
-			var part = guestfs.NewKVMGuestDiskPartition(path.Join(devpath, files[i].Name()))
+			var part = guestfs.NewKVMGuestDiskPartition(path.Join(devpath, files[i].Name()), "", false)
 			d.partitions = append(d.partitions, part)
 		}
 	}

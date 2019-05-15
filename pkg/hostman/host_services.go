@@ -44,10 +44,7 @@ type SHostService struct {
 
 func (host *SHostService) StartService() {
 	common_options.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
-	isRoot, err := sysutils.IsRootPermission()
-	if err != nil {
-		log.Fatalln(err)
-	}
+	isRoot := sysutils.IsRootPermission()
 	if !isRoot {
 		log.Fatalf("host service must running with root permissions")
 	}

@@ -46,10 +46,7 @@ func StartService() {
 	dbOpts := &opts.DBOptions
 	common_options.ParseOptions(opts, os.Args, "glance-api.conf", SERVICE_TYPE)
 
-	isRoot, err := sysutils.IsRootPermission()
-	if err != nil {
-		log.Fatalln(err)
-	}
+	isRoot := sysutils.IsRootPermission()
 	if !isRoot {
 		log.Fatalf("glance service must running with root permissions")
 	}

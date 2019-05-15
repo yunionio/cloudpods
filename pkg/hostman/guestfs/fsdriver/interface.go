@@ -44,6 +44,8 @@ type IDiskPartition interface {
 	MountPartReadOnly() bool
 	Umount() bool
 	GetMountPath() string
+	IsReadonly() bool
+	GetPhysicalPartitionType() string
 }
 
 type IRootFsDriver interface {
@@ -71,6 +73,7 @@ type IRootFsDriver interface {
 	CommitChanges(IDiskPartition) error
 	DeployFiles(deploys []jsonutils.JSONObject) error
 	DetectIsUEFISupport(IDiskPartition) bool
+	IsCloudinitInstall() bool
 
 	PrepareFsForTemplate(IDiskPartition) error
 }

@@ -192,7 +192,7 @@ func (p *SKVMGuestLVMPartition) FindPartitions() []*guestfs.SKVMGuestDiskPartiti
 	parts := []*guestfs.SKVMGuestDiskPartition{}
 	for _, f := range files {
 		partPath := fmt.Sprintf("/dev/%s/%s", p.vgname, f.Name())
-		part := guestfs.NewKVMGuestDiskPartition(partPath)
+		part := guestfs.NewKVMGuestDiskPartition(partPath, p.partDev, true)
 		parts = append(parts, part)
 	}
 	return parts

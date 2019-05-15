@@ -435,6 +435,10 @@ func (l *sLinuxRootFs) DetectIsUEFISupport(part IDiskPartition) bool {
 	return part.Exists("/efi", false)
 }
 
+func (l *sLinuxRootFs) IsCloudinitInstall() bool {
+	return l.GetPartition().Exists("/usr/bin/cloud-init", false)
+}
+
 type sDebianLikeRootFs struct {
 	*sLinuxRootFs
 }

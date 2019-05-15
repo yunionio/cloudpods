@@ -113,6 +113,10 @@ func (d *sGuestRootFsDriver) DetectIsUEFISupport(IDiskPartition) bool {
 	return false
 }
 
+func (l *sGuestRootFsDriver) IsCloudinitInstall() bool {
+	return false
+}
+
 type SReleaseInfo struct {
 	Distro   string `json:"os_distribution,omitempty"`
 	Version  string `json:"os_version,omitempty"`

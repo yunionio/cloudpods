@@ -21,12 +21,15 @@ const (
 	LocalFilePrefix = "file://"
 
 	// image properties
-	IMAGE_OS_ARCH          = "os_arch"
-	IMAGE_OS_DISTRO        = "os_distribution"
-	IMAGE_OS_TYPE          = "os_type"
-	IMAGE_OS_VERSION       = "os_version"
-	IMAGE_UEFI_SUPPORT     = "uefi_support"
-	IMAGE_IS_LVM_PARTITION = "is_lvm_partition"
+	IMAGE_OS_ARCH             = "os_arch"
+	IMAGE_OS_DISTRO           = "os_distribution"
+	IMAGE_OS_TYPE             = "os_type"
+	IMAGE_OS_VERSION          = "os_version"
+	IMAGE_UEFI_SUPPORT        = "uefi_support"
+	IMAGE_IS_LVM_PARTITION    = "is_lvm_partition"
+	IMAGE_IS_READONLY         = "is_readonly"
+	IMAGE_PARTITION_TYPE      = "partition_type"
+	IMAGE_INSTALLED_CLOUDINIT = "installed_cloud_init"
 )
 
 var (
