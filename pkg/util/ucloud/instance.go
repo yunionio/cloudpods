@@ -349,7 +349,7 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, api.VM_RUNNING, 5*time.Second, 180*time.Second)
+	return cloudprovider.WaitStatusWithDelay(self, api.VM_RUNNING, 10*time.Second, 10*time.Second, 600*time.Second)
 }
 
 func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
@@ -357,7 +357,7 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatus(self, api.VM_READY, 5*time.Second, 180*time.Second)
+	return cloudprovider.WaitStatusWithDelay(self, api.VM_READY, 10*time.Second, 10*time.Second, 600*time.Second)
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
@@ -400,7 +400,23 @@ func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd s
 
 		}
 	}
-	return self.GetId(), self.host.zone.region.RebuildRoot(self.GetId(), imageId, passwd)
+
+	err := self.host.zone.region.RebuildRoot(self.GetId(), imageId, passwd)
+	if err != nil {
+		return "", err
+	}
+
+	err = cloudprovider.WaitStatusWithDelay(self, api.VM_RUNNING, 10*time.Second, 15*time.Second, 300*time.Second)
+	if err != nil {
+		return "", err
+	}
+
+	disks, err := self.GetIDisks()
+	if len(disks) > 0 {
+		return disks[0].GetId(), nil
+	} else {
+		return "", fmt.Errorf("RebuildRoot %s", err)
+	}
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {
@@ -416,12 +432,14 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, password strin
 		return fmt.Errorf("DeployVM instance status %s , expected %s.", self.GetStatus(), api.VM_READY)
 	}
 
-	err := self.host.zone.region.ResetVMPasswd(self.GetId(), password)
-	if err != nil {
-		return err
+	if len(password) > 0 {
+		err := self.host.zone.region.ResetVMPasswd(self.GetId(), password)
+		if err != nil {
+			return err
+		}
 	}
 
-	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 120*time.Second)
+	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second)
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
@@ -429,7 +447,12 @@ func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) err
 }
 
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
-	return cloudprovider.ErrNotSupported
+	i, err := ParseInstanceType(instanceType)
+	if err != nil {
+		return err
+	}
+
+	return self.host.zone.region.ResizeVM(self.GetId(), i.CPU, i.MemoryMB)
 }
 
 func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
@@ -441,7 +464,18 @@ func (self *SInstance) AttachDisk(ctx context.Context, diskId string) error {
 }
 
 func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
-	return self.host.zone.region.DetachDisk(self.host.zone.GetId(), self.GetId(), diskId)
+	err := self.host.zone.region.DetachDisk(self.host.zone.GetId(), self.GetId(), diskId)
+	if err != nil {
+		return err
+	}
+
+	disk, err := self.host.zone.region.GetDisk(diskId)
+	if err != nil {
+		return err
+	}
+
+	disk.storage = &SStorage{zone: self.host.zone, storageType: disk.GetStorageType()}
+	return cloudprovider.WaitStatusWithDelay(disk, api.DISK_READY, 10*time.Second, 10*time.Second, 60*time.Second)
 }
 
 func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
@@ -564,6 +598,7 @@ func (self *SRegion) RebuildRoot(instanceId, imageId, password string) error {
 // https://docs.ucloud.cn/api/uhost-api/resize_uhost_instance
 func (self *SRegion) ResizeVM(instanceId string, cpu, memoryMB int) error {
 	params := NewUcloudParams()
+	params.Set("UHostId", instanceId)
 	params.Set("CPU", cpu)
 	params.Set("Memory", memoryMB)
 
