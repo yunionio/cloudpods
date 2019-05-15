@@ -502,6 +502,7 @@ type ICloudLoadbalancerBackendGroup interface {
 	IsDefault() bool
 	GetType() string
 	GetILoadbalancerBackends() ([]ICloudLoadbalancerBackend, error)
+	GetILoadbalancerBackendById(backendId string) (ICloudLoadbalancerBackend, error)
 	AddBackendServer(serverId string, weight int, port int) (ICloudLoadbalancerBackend, error)
 	RemoveBackendServer(serverId string, weight int, port int) error
 
@@ -518,6 +519,7 @@ type ICloudLoadbalancerBackend interface {
 	GetBackendType() string
 	GetBackendRole() string
 	GetBackendId() string
+	SyncConf(port, weight int) error
 }
 
 type ICloudLoadbalancerCertificate interface {
