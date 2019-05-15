@@ -126,6 +126,19 @@ func (backendgroup *SLoadbalancerBackendGroup) GetILoadbalancerBackends() ([]clo
 	return ibackends, nil
 }
 
+func (backendgroup *SLoadbalancerBackendGroup) GetILoadbalancerBackendById(backendId string) (cloudprovider.ICloudLoadbalancerBackend, error) {
+	backends, err := backendgroup.GetILoadbalancerBackends()
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(backends); i++ {
+		if backends[i].GetGlobalId() == backendId {
+			return backends[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
 func (region *SRegion) CreateLoadbalancerBackendGroup(name, loadbalancerId string, backends []cloudprovider.SLoadbalancerBackend) (*SLoadbalancerBackendGroup, error) {
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
