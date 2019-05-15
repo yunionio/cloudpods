@@ -172,7 +172,7 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Contex
 				log.Errorf("get metadata id scan error: %v", err)
 				return nil, err
 			}
-			resourceIds = append(resourceIds, strings.TrimLeft(metadataID, manager.Keyword()+"::"))
+			resourceIds = append(resourceIds, strings.TrimPrefix(metadataID, manager.Keyword()+"::"))
 		}
 		q = q.Filter(sqlchemy.In(q.Field("id"), resourceIds))
 	}
