@@ -64,4 +64,21 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type HistoricProcessInstanceStaticticsOptions struct {
+		ID string `help:"ID of user"`
+	}
+	R(&HistoricProcessInstanceStaticticsOptions{}, "historic-process-instance-statistics", "Delete all contacts for the user", func(s *mcclient.ClientSession, args *HistoricProcessInstanceStaticticsOptions) error {
+		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.ID), "user_id")
+
+		rst, err := modules.HistoricProcessInstance.GetStatistics(s, params)
+
+		if err != nil {
+			return err
+		}
+
+		printObject(rst)
+		return nil
+	})
 }

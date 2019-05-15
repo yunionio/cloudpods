@@ -14,14 +14,44 @@
 
 package modules
 
+import (
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
+)
+
+type HiProcInstManager struct {
+	ResourceManager
+}
+
+func (this *HiProcInstManager) GetStatistics(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	userId, _ := params.GetString("user_id")
+
+	hiProcInstPath := fmt.Sprintf("/historic-process-instances?status=unfinished&user_id=%s", userId)
+	procTaskPath := fmt.Sprintf("/process-tasks?user_id=%s", userId)
+
+	hiProcInstObj, _ := this._list(s, hiProcInstPath, "historic-process-instances")
+	procTaskObj, _ := this._list(s, procTaskPath, "process-tasks")
+
+	nrHiProcInst := hiProcInstObj.Total
+	nrProcTask := procTaskObj.Total
+
+	rst := jsonutils.NewDict()
+	rst.Add(jsonutils.NewInt(int64(nrHiProcInst)), "nr-historic-process-instance")
+	rst.Add(jsonutils.NewInt(int64(nrProcTask)), "nr-process-task")
+
+	return rst, nil
+}
+
 var (
-	HistoricProcessInstance ResourceManager
+	HistoricProcessInstance HiProcInstManager
 )
 
 func init() {
-	HistoricProcessInstance = NewITSMManager("historic-process-instance", "historic-process-instances",
+	HistoricProcessInstance = HiProcInstManager{NewITSMManager("historic-process-instance", "historic-process-instances",
 		[]string{"id", "process_definition_key", "start_activity_id", "end_time", "duration_in_millis", "removal_time", "business_key", "end_activity_id", "process_definition_version", "delete_reason", "process_definition_id", "start_time", "start_user_id", "case_instance_id", "root_process_instance_id", "super_case_instance_id", "state", "process_definition_name", "super_process_instance_id", "tenant_id"},
-		[]string{},
-	)
+		[]string{})}
 	register(&HistoricProcessInstance)
 }
