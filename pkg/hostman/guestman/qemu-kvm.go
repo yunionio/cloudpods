@@ -1067,6 +1067,14 @@ func (s *SKVMGuestInstance) GetQemuVersionStr() string {
 	return s.QemuVersion
 }
 
+func (s *SKVMGuestInstance) optimizeOom() error {
+	pid := s.GetPid()
+	if pid > 0 {
+		return fileutils2.FilePutContents(fmt.Sprintf("/proc/%d/oom_adj", pid), "-17", false)
+	}
+	return fmt.Errorf("Guest %s not running?", s.GetId())
+}
+
 func (s *SKVMGuestInstance) SyncMetadata(meta *jsonutils.JSONDict) {
 	_, err := modules.Servers.SetMetadata(hostutils.GetComputeSession(context.Background()),
 		s.Id, meta)
