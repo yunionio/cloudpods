@@ -30,6 +30,14 @@ type SLBCertificate struct {
 	SCertificate
 }
 
+func (self *SLBCertificate) GetPublickKey() string {
+	return ""
+}
+
+func (self *SLBCertificate) GetPrivateKey() string {
+	return ""
+}
+
 // 证书不能修改
 func (self *SLBCertificate) Sync(name, privateKey, publickKey string) error {
 	return nil

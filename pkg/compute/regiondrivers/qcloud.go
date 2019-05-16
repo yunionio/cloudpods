@@ -191,6 +191,64 @@ func (self *SQcloudRegionDriver) RequestDeleteLoadbalancerBackend(ctx context.Co
 
 func (self *SQcloudRegionDriver) RequestCreateLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		{
+			certId, _ := task.GetParams().GetString("certificate")
+			if len(certId) > 0 {
+				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				if provider == nil {
+					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
+				}
+
+				cert, err := models.LoadbalancerCertificateManager.FetchById(certId)
+				if err != nil {
+					return nil, err
+				}
+
+				lbcert, err := models.CachedLoadbalancerCertificateManager.GetOrCreateCachedCertificate(ctx, userCred, provider, lblis, cert.(*models.SLoadbalancerCertificate))
+				if err != nil {
+					return nil, err
+				}
+
+				if len(lbcert.ExternalId) == 0 {
+					err = self.RequestCreateLoadbalancerCertificate(ctx, userCred, lbcert, task)
+					if err != nil {
+						return nil, err
+					}
+				}
+
+				// lblis.ExternalId = lbcert.ExternalId
+			}
+		}
+
+		{
+			aclId, _ := task.GetParams().GetString("acl_id")
+			if len(aclId) > 0 {
+				provider := models.CloudproviderManager.FetchCloudproviderById(lblis.ManagerId)
+				if provider == nil {
+					return nil, fmt.Errorf("failed to find provider for lblis %s", lblis.Name)
+				}
+
+				acl, err := models.LoadbalancerAclManager.FetchById(aclId)
+				if err != nil {
+					return nil, err
+				}
+
+				lbacl, err := models.CachedLoadbalancerAclManager.GetOrCreateCachedAcl(ctx, userCred, provider, lblis, acl.(*models.SLoadbalancerAcl))
+				if err != nil {
+					return nil, err
+				}
+
+				if len(lbacl.ExternalId) == 0 {
+					err = self.RequestCreateLoadbalancerAcl(ctx, userCred, lbacl, task)
+					if err != nil {
+						return nil, err
+					}
+				}
+
+				// lblis.AclId = lbacl.ExternalId
+			}
+		}
+
 		params, err := lblis.GetLoadbalancerListenerParams()
 		if err != nil {
 			return nil, err
@@ -332,5 +390,9 @@ func (self *SQcloudRegionDriver) ValidateCreateVpcData(ctx context.Context, user
 	if cidrV.Value.MaskLen < 16 || cidrV.Value.MaskLen > 28 {
 		return nil, httperrors.NewInputParameterError("%s request the mask range should be between 16 and 28", self.GetProvider())
 	}
+	return data, nil
+}
+
+func (self *SQcloudRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lbbg *models.SLoadbalancerBackendGroup) (*jsonutils.JSONDict, error) {
 	return data, nil
 }

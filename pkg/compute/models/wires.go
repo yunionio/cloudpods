@@ -839,6 +839,13 @@ func (self *SWire) getRegion() *SCloudregion {
 	if zone != nil {
 		return zone.GetRegion()
 	}
+
+	vpc := self.getVpc()
+	if vpc != nil {
+		region, _ := vpc.GetRegion()
+		return region
+	}
+
 	return nil
 }
 

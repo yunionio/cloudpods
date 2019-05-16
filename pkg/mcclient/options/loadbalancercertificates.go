@@ -50,10 +50,8 @@ func loadbalancerCertificateLoadFiles(cert, pkey string, allowEmpty bool) (*json
 type LoadbalancerCertificateCreateOptions struct {
 	NAME string
 
-	Cert    string `required:"true" json:"-" help:"path to certificate file"`
-	Pkey    string `required:"true" json:"-" help:"path to private key file"`
-	Region  string `json:"cloudregion"`
-	Manager string
+	Cert string `required:"true" json:"-" help:"path to certificate file"`
+	Pkey string `required:"true" json:"-" help:"path to private key file"`
 }
 
 func (opts *LoadbalancerCertificateCreateOptions) Params() (*jsonutils.JSONDict, error) {

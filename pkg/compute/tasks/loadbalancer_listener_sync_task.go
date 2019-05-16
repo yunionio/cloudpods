@@ -51,10 +51,39 @@ func (self *LoadbalancerListenerSyncTask) OnInit(ctx context.Context, obj db.ISt
 		self.taskFail(ctx, lblis, fmt.Sprintf("failed to find region for lblis %s", lblis.Name))
 		return
 	}
+
+	if lblis.GetProviderName() != api.CLOUD_PROVIDER_HUAWEI {
+		self.OnLoadbalancerBackendgroupSyncComplete(ctx, lblis, data)
+		return
+	}
+
+	lbbg := lblis.GetLoadbalancerBackendGroup()
+	if lbbg == nil {
+		self.taskFail(ctx, lblis, fmt.Sprintf("failed to find region for lblis %s", lblis.Name))
+		return
+	}
+
+	self.SetStage("OnLoadbalancerBackendgroupSyncComplete", nil)
+	if err := region.GetDriver().RequestSyncLoadbalancerBackendGroup(ctx, self.GetUserCred(), lblis, lbbg, self); err != nil {
+		self.taskFail(ctx, lblis, err.Error())
+	}
+}
+
+func (self *LoadbalancerListenerSyncTask) OnLoadbalancerBackendgroupSyncComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
+	region := lblis.GetRegion()
+	if region == nil {
+		self.taskFail(ctx, lblis, fmt.Sprintf("failed to find region for lblis %s", lblis.Name))
+		return
+	}
 	self.SetStage("OnLoadbalancerListenerSyncComplete", nil)
 	if err := region.GetDriver().RequestSyncLoadbalancerListener(ctx, self.GetUserCred(), lblis, self); err != nil {
 		self.taskFail(ctx, lblis, err.Error())
 	}
+}
+
+func (self *LoadbalancerListenerSyncTask) OnLoadbalancerBackendgroupSyncCompleteFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
+	lblis.SetStatus(self.GetUserCred(), api.LB_SYNC_CONF_FAILED, reason.String())
+	self.SetStageFailed(ctx, reason.String())
 }
 
 func (self *LoadbalancerListenerSyncTask) OnLoadbalancerListenerSyncComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {

@@ -14,7 +14,9 @@
 
 package huawei
 
-import "strconv"
+import (
+	"strconv"
+)
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212656.html
 type SInstanceType struct {
