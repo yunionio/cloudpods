@@ -191,7 +191,7 @@ func (m *SBaremetalManager) GetBaremetalById(bmId string) *SBaremetalInstance {
 }
 
 func (m *SBaremetalManager) GetBaremetalByMac(mac net.HardwareAddr) pxe.IBaremetalInstance {
-	var obj *SBaremetalInstance
+	var obj pxe.IBaremetalInstance
 	getter := func(key, val interface{}) bool {
 		instance := val.(*SBaremetalInstance)
 		if instance.GetNicByMac(mac) != nil {
@@ -690,24 +690,41 @@ func (b *SBaremetalInstance) GetNotifyUrl() string {
 	return fmt.Sprintf("%s/baremetals/%s/notify", b.manager.Agent.GetManagerUri(), b.GetId())
 }
 
+func (b *SBaremetalInstance) getTftpFileUrl(filename string) string {
+	serverIP, err := b.manager.Agent.GetDHCPServerIP()
+	if err != nil {
+		log.Errorf("Get http file server: %v", err)
+		return filename
+	}
+	if o.Options.EnableTftpHttpDownload {
+		return fmt.Sprintf("http://%s:%d/tftp/%s", serverIP, o.Options.Port+1000, filename)
+	}
+	return filename
+}
+
 func (b *SBaremetalInstance) GetTFTPResponse() string {
-	resp := `default start
+	resp := `DEFAULT start
 serial 1 115200
 
-label start
-    menu label ^Start
-    menu default
+LABEL start
+    MENU LABEL ^Start
+    MENU default
 `
 
 	if b.NeedPXEBoot() {
-		resp += "    kernel kernel\n"
-		resp += fmt.Sprintf("    append initrd=initramfs token=%s url=%s",
-			auth.GetTokenString(), b.GetNotifyUrl())
+		resp += fmt.Sprintf("    kernel %s\n", b.getTftpFileUrl("kernel"))
+		args := []string{
+			fmt.Sprintf("initrd=%s", b.getTftpFileUrl("initramfs")),
+			fmt.Sprintf("token=%s", auth.GetTokenString()),
+			fmt.Sprintf("url=%s", b.GetNotifyUrl()),
+		}
+		resp += fmt.Sprintf("    append %s\n", strings.Join(args, " "))
 	} else {
-		resp += "    COM32 chain.c32\n"
+		resp += fmt.Sprintf("    COM32 %s\n", b.getTftpFileUrl("chain.c32"))
 		resp += "    APPEND hd0 0\n"
+		b.ClearSSHConfig()
 	}
-	log.Infof("%s", resp)
+	log.Infof("[TFTP response]: \n%s", resp)
 	return resp
 }
 

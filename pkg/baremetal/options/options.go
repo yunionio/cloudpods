@@ -22,7 +22,7 @@ type BaremetalOptions struct {
 	ListenInterface        string `help:"Master net interface of baremetal server" default:"br0"`
 	AccessAddress          string `help:"Management IP address of baremetal server, only need to use when multiple address bind to ListenInterface"`
 	ListenAddress          string `help:"PXE serve IP address to select when multiple address bind to ListenInterface" default:"0.0.0.0"`
-	TftpRoot               string `help:"tftp root directory"`
+	TftpRoot               string `default:"/opt/cloud/yunion/baremetal" help:"tftp root directory"`
 	AutoRegisterBaremetal  bool   `default:"true" help:"Automatically create a baremetal instance"`
 	BaremetalsPath         string `default:"/opt/cloud/workspace/baremetals" help:"Path for baremetals configuration files"`
 	LinuxDefaultRootUser   bool   `default:"false" help:"Default account for linux system is root"`
@@ -41,6 +41,7 @@ type BaremetalOptions struct {
 	DefaultStrongIpmiPassword string `help:"Default strong IPMI passowrd"`
 
 	WindowsDefaultAdminUser bool `default:"true" help:"Default account for Windows system is Administrator"`
+	EnableTftpHttpDownload  bool `default:"true" help:"Pxelinux download file through http"`
 }
 
 var (
