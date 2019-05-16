@@ -33,8 +33,13 @@ type LoadbalancerLoadbalancerBackendGroupCreateTask struct {
 	taskman.STask
 }
 
+type HuaweiLoadbalancerLoadbalancerBackendGroupCreateTask struct {
+	LoadbalancerLoadbalancerBackendGroupCreateTask
+}
+
 func init() {
 	taskman.RegisterTask(LoadbalancerLoadbalancerBackendGroupCreateTask{})
+	taskman.RegisterTask(HuaweiLoadbalancerLoadbalancerBackendGroupCreateTask{})
 }
 
 func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) taskFail(ctx context.Context, lbacl *models.SLoadbalancerBackendGroup, reason string) {
@@ -55,6 +60,13 @@ func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.C
 	backends := []cloudprovider.SLoadbalancerBackend{}
 	self.GetParams().Unmarshal(&backends, "backends")
 	self.SetStage("OnLoadbalancerBackendGroupCreateComplete", nil)
+	// 为统一前端交互，华为后端服务器组。不能通过此任务创建，需要绕道HuaweiLoadbalancerLoadbalancerBackendGroupCreateTask。
+	if lbbg.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI {
+		lbbg.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
+		self.SetStageComplete(ctx, nil)
+		return
+	}
+
 	if err := region.GetDriver().RequestCreateLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, backends, self); err != nil {
 		self.taskFail(ctx, lbbg, err.Error())
 	}
@@ -69,4 +81,24 @@ func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnLoadbalancerBacken
 
 func (self *LoadbalancerLoadbalancerBackendGroupCreateTask) OnLoadbalancerBackendGroupCreateCompleteFailed(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup, reason jsonutils.JSONObject) {
 	self.taskFail(ctx, lbbg, reason.String())
+}
+
+func (self *HuaweiLoadbalancerLoadbalancerBackendGroupCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	lbbg := obj.(*models.SLoadbalancerBackendGroup)
+	region := lbbg.GetRegion()
+	if region == nil {
+		self.taskFail(ctx, lbbg, fmt.Sprintf("failed to find region for lb backendgroup %s", lbbg.Name))
+		return
+	}
+
+	backends, err := lbbg.GetBackendsParams()
+	if err != nil {
+		self.taskFail(ctx, lbbg, err.Error())
+		return
+	}
+
+	self.SetStage("OnLoadbalancerBackendGroupCreateComplete", nil)
+	if err := region.GetDriver().RequestCreateLoadbalancerBackendGroup(ctx, self.GetUserCred(), lbbg, backends, self); err != nil {
+		self.taskFail(ctx, lbbg, err.Error())
+	}
 }

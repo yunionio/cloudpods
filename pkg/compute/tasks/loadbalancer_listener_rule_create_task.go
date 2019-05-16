@@ -17,7 +17,6 @@ package tasks
 import (
 	"context"
 	"fmt"
-
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -55,10 +54,84 @@ func (self *LoadbalancerListenerRuleCreateTask) OnInit(ctx context.Context, obj 
 		self.taskFail(ctx, lbr, fmt.Sprintf("failed to find region for lbr %s", lbr.Name))
 		return
 	}
+
+	self.OnPrepareLoadbalancerBackendgroup(ctx, region, lbr, data)
+}
+
+func (self *LoadbalancerListenerRuleCreateTask) OnPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SCloudregion, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject) {
+	lbbg := lbr.GetLoadbalancerBackendGroup()
+	// 目前只有华为才需要在创建监听器规则时创建服务器组,其他云直接绕过此步骤
+	if lbr.GetProviderName() != api.CLOUD_PROVIDER_HUAWEI {
+		self.OnCreateLoadbalancerListenerRule(ctx, lbr, data)
+		return
+	}
+
+	lblis := lbr.GetLoadbalancerListener()
+	if lblis == nil {
+		self.taskFail(ctx, lbr, "huawei loadbalancer listener rule releated listener not found")
+		return
+	}
+
+	params := jsonutils.NewDict()
+	params.Set("ruleId", jsonutils.NewString(lbr.GetId()))
+
+	if lbr.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI && lbbg == nil {
+		self.taskFail(ctx, lbr, "huawei loadbalancer listener rule releated backend group not found")
+		return
+	}
+
+	group, _ := models.HuaweiCachedLbbgManager.GetUsableCachedBackendGroup(lbbg.GetId(), lblis.ListenerType)
+	if group != nil {
+		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
+		if err != nil {
+			self.taskFail(ctx, lbr, err.Error())
+			return
+		}
+
+		groupParams, err := lbbg.GetHuaweiBackendGroupParams(lblis, lbr)
+		if err != nil {
+			self.taskFail(ctx, lbr, err.Error())
+			return
+		}
+		groupParams.ListenerID = ""
+		// 服务器组已经存在，直接同步即可
+		if err := ilbbg.Sync(&groupParams); err != nil {
+			self.taskFail(ctx, lbr, err.Error())
+			return
+		} else {
+			group.SetModelManager(models.HuaweiCachedLbbgManager, group)
+			if _, err := db.UpdateWithLock(ctx, group, func() error {
+				group.AssociatedId = lbr.GetId()
+				group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
+				return nil
+			}); err != nil {
+				self.taskFail(ctx, lbr, err.Error())
+				return
+			}
+
+			self.OnCreateLoadbalancerListenerRule(ctx, lbr, data)
+		}
+	} else {
+		// 服务器组不存在
+		self.SetStage("OnCreateLoadbalancerListenerRule", nil)
+		lbbg.StartHuaweiLoadBalancerBackendGroupCreateTask(ctx, self.GetUserCred(), params, self.GetTaskId())
+	}
+}
+
+func (self *LoadbalancerListenerRuleCreateTask) OnCreateLoadbalancerListenerRule(ctx context.Context, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject) {
+	region := lbr.GetRegion()
+	if region == nil {
+		self.taskFail(ctx, lbr, fmt.Sprintf("failed to find region for lbr %s", lbr.Name))
+		return
+	}
 	self.SetStage("OnLoadbalancerListenerRuleCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerListenerRule(ctx, self.GetUserCred(), lbr, self); err != nil {
 		self.taskFail(ctx, lbr, err.Error())
 	}
+}
+
+func (self *LoadbalancerListenerRuleCreateTask) OnCreateLoadbalancerListenerRuleFailed(ctx context.Context, lbr *models.SLoadbalancerListenerRule, reason jsonutils.JSONObject) {
+	self.taskFail(ctx, lbr, reason.String())
 }
 
 func (self *LoadbalancerListenerRuleCreateTask) OnLoadbalancerListenerRuleCreateComplete(ctx context.Context, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject) {

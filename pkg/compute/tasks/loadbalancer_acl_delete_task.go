@@ -36,7 +36,7 @@ func init() {
 	taskman.RegisterTask(LoadbalancerAclDeleteTask{})
 }
 
-func (self *LoadbalancerAclDeleteTask) taskFail(ctx context.Context, lbacl *models.SLoadbalancerAcl, reason string) {
+func (self *LoadbalancerAclDeleteTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason string) {
 	lbacl.SetStatus(self.GetUserCred(), api.LB_STATUS_DELETE_FAILED, reason)
 	db.OpsLog.LogEvent(lbacl, db.ACT_DELOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_DELOCATE, reason, self.UserCred, false)
@@ -45,7 +45,7 @@ func (self *LoadbalancerAclDeleteTask) taskFail(ctx context.Context, lbacl *mode
 }
 
 func (self *LoadbalancerAclDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	lbacl := obj.(*models.SLoadbalancerAcl)
+	lbacl := obj.(*models.SCachedLoadbalancerAcl)
 	region := lbacl.GetRegion()
 	if region == nil {
 		self.taskFail(ctx, lbacl, fmt.Sprintf("failed to find region for lbacl %s", lbacl.Name))
@@ -57,13 +57,13 @@ func (self *LoadbalancerAclDeleteTask) OnInit(ctx context.Context, obj db.IStand
 	}
 }
 
-func (self *LoadbalancerAclDeleteTask) OnLoadbalancerAclDeleteComplete(ctx context.Context, lbacl *models.SLoadbalancerAcl, data jsonutils.JSONObject) {
+func (self *LoadbalancerAclDeleteTask) OnLoadbalancerAclDeleteComplete(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(lbacl, db.ACT_DELETE, lbacl.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_DELOCATE, nil, self.UserCred, true)
 	lbacl.DoPendingDelete(ctx, self.GetUserCred())
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *LoadbalancerAclDeleteTask) OnLoadbalancerAclDeleteCompleteFailed(ctx context.Context, lbacl *models.SLoadbalancerAcl, reason jsonutils.JSONObject) {
+func (self *LoadbalancerAclDeleteTask) OnLoadbalancerAclDeleteCompleteFailed(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason jsonutils.JSONObject) {
 	self.taskFail(ctx, lbacl, reason.String())
 }

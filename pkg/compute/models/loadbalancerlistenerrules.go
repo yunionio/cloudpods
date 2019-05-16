@@ -366,9 +366,10 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 	// lbr.Name = extRule.GetName()
 	lbr.Domain = extRule.GetDomain()
 	lbr.Path = extRule.GetPath()
+	lbr.Status = extRule.GetStatus()
 	if groupId := extRule.GetBackendGroupId(); len(groupId) > 0 {
 		// 腾讯云兼容代码。主要目的是在关联listener rule时回写一个fake的backend group external id
-		if len(groupId) > 0 && len(lbr.BackendGroupId) > 0 {
+		if lbr.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD && len(groupId) > 0 && len(lbr.BackendGroupId) > 0 {
 			ilbbg, err := LoadbalancerBackendGroupManager.FetchById(lbr.BackendGroupId)
 			lbbg := ilbbg.(*SLoadbalancerBackendGroup)
 			if err == nil && (len(lbbg.ExternalId) == 0 || lbbg.ExternalId != groupId) {
@@ -379,7 +380,14 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 			}
 		}
 
-		if backendgroup, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
+		if lbr.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI {
+			group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)
+			if err != nil {
+				log.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+			}
+
+			lbr.BackendGroupId = group.(*SHuaweiCachedLbbg).BackendGroupId
+		} else if backendgroup, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
 			lbr.BackendGroupId = backendgroup.GetId()
 		}
 	}
@@ -406,6 +414,24 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 	if err != nil {
 		log.Errorf("newFromCloudLoadbalancerListenerRule fail %s", err)
 		return nil, err
+	}
+
+	groupId := extRule.GetBackendGroupId()
+	if lbr.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI && len(groupId) > 0 {
+		group, err := db.FetchByExternalId(HuaweiCachedLbbgManager, groupId)
+		if err != nil {
+			log.Errorf("Fetch huawei loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+		}
+
+		cachedGroup := group.(*SHuaweiCachedLbbg)
+		_, err = db.UpdateWithLock(context.Background(), cachedGroup, func() error {
+			cachedGroup.AssociatedId = lbr.GetId()
+			cachedGroup.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
+			return nil
+		})
+		if err != nil {
+			log.Errorf("Update huawei loadbalancer backendgroup cache %s failed: %s", groupId, err)
+		}
 	}
 
 	SyncCloudProject(userCred, lbr, syncOwnerId, extRule, listener.ManagerId)
