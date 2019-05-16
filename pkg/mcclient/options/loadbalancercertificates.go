@@ -83,6 +83,7 @@ type LoadbalancerCertificateListOptions struct {
 	PublicKeyAlgorithm string
 	PublicKeyBitLen    *int
 	SignatureAlgorithm string
+	Cloudregion        string
 }
 
 type LoadbalancerCertificateUpdateOptions struct {

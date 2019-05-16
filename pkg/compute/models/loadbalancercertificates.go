@@ -137,6 +137,23 @@ func (man *SLoadbalancerCertificateManager) validateCertKey(ctx context.Context,
 	return data, nil
 }
 
+func (man *SLoadbalancerCertificateManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := man.SVirtualResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	userProjId := userCred.GetProjectId()
+	data := query.(*jsonutils.JSONDict)
+	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+		{Key: "cloudregion", ModelKeyword: "cloudregion", ProjectId: userProjId},
+		{Key: "manager", ModelKeyword: "cloudprovider", ProjectId: userProjId},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return q, nil
+}
+
 func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	data, err := man.validateCertKey(ctx, data)
 	if err != nil {

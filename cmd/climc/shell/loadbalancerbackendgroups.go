@@ -82,12 +82,4 @@ func init() {
 		return nil
 	})
 
-	R(&options.LoadbalancerBackendGroupIDOptions{}, "lbbackendgroup-usable-backend-list", "Displays a list of bindable backend", func(s *mcclient.ClientSession, opts *options.LoadbalancerBackendGroupIDOptions) error {
-		ret, e := modules.LoadbalancerBackendGroups.GetSpecific(s, opts.ID, "usable-backend-list", nil)
-		if e != nil {
-			return e
-		}
-		printObject(ret)
-		return nil
-	})
 }

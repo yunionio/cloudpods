@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -83,11 +84,56 @@ func (man *SLoadbalancerBackendManager) ListItemFilter(ctx context.Context, q *s
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", ProjectId: userProjId},
 		{Key: "backend", ModelKeyword: "server", ProjectId: userProjId}, // NOTE extend this when new backend_type was added
+		{Key: "cloudregion", ModelKeyword: "cloudregion", ProjectId: userProjId},
+		{Key: "manager", ModelKeyword: "cloudprovider", ProjectId: userProjId},
 	})
 	if err != nil {
 		return nil, err
 	}
 	return q, nil
+}
+
+func (man *SLoadbalancerBackendManager) ValidateBackendVpc(lb *SLoadbalancer, guest *SGuest, backendgroup *SLoadbalancerBackendGroup) error {
+	region := lb.GetRegion()
+	if region == nil {
+		return httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
+	}
+	requireStatus := region.GetDriver().GetBackendStatusForAdd()
+	if !utils.IsInStringArray(guest.Status, requireStatus) {
+		return httperrors.NewUnsupportOperationError("%s requires the virtual machine state to be %s before it can be added backendgroup, but current state of the virtual machine is %s", region.GetDriver().GetProvider(), requireStatus, guest.Status)
+	}
+	vpc, err := guest.GetVpc()
+	if err != nil {
+		return err
+	}
+	if len(lb.VpcId) > 0 {
+		if vpc.Id != lb.VpcId {
+			return fmt.Errorf("guest %s(%s) vpc %s(%s) not same as loadbalancer vpc %s", guest.Name, guest.Id, vpc.Name, vpc.Id, lb.VpcId)
+		}
+		return nil
+	}
+	backends, err := backendgroup.GetBackends()
+	if err != nil {
+		return err
+	}
+	for _, backend := range backends {
+		_server, err := GuestManager.FetchById(backend.BackendId)
+		if err != nil {
+			return err
+		}
+		server := _server.(*SGuest)
+		_vpc, err := server.GetVpc()
+		if err != nil {
+			return err
+		}
+		if _vpc.Id != vpc.Id {
+			return fmt.Errorf("guest %s(%s) vpc %s(%s) not same as vpc %s(%s)", guest.Name, guest.Id, vpc.Name, vpc.Id, _vpc.Name, _vpc.Id)
+		}
+		if _server.GetId() == guest.Id {
+			return fmt.Errorf("guest %s(%s) is already in the backendgroup %s(%s)", guest.Name, guest.Id, backendgroup.Name, backendgroup.Id)
+		}
+	}
+	return nil
 }
 
 func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -120,6 +166,10 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 		}
 		guest := backendV.Model.(*SGuest)
 		baseName = guest.Name
+		err = man.ValidateBackendVpc(lb, guest, backendGroup)
+		if err != nil {
+			return nil, err
+		}
 	case api.LB_BACKEND_HOST:
 		if !db.IsAdminAllowCreate(userCred, man) {
 			return nil, fmt.Errorf("only sysadmin can specify host as backend")
@@ -264,6 +314,18 @@ func (lbb *SLoadbalancerBackend) GetCustomizeColumns(ctx context.Context, userCr
 	if providerInfo != nil {
 		extra.Update(providerInfo)
 	}
+	_guest, err := GuestManager.FetchById(lbb.BackendId)
+	if err != nil {
+		log.Errorf("failed to find guest for loadbalancer backend %s(%s)", lbb.Name, lbb.Id)
+		return extra
+	}
+	guest := _guest.(*SGuest)
+	vpc, err := guest.GetVpc()
+	if err != nil {
+		log.Errorf("failed to find vpc for guest %s(%s)", guest.Name, guest.Id)
+		return extra
+	}
+	extra.Set("vpc_id", jsonutils.NewString(vpc.Id))
 	regionInfo := lbb.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	if regionInfo != nil {
 		extra.Update(regionInfo)
