@@ -55,6 +55,7 @@ func (self *LoadbalancerBackendCreateTask) OnInit(ctx context.Context, obj db.IS
 		self.taskFail(ctx, lbb, fmt.Sprintf("failed to find region for lbb %s", lbb.Name))
 		return
 	}
+
 	self.SetStage("OnLoadbalancerBackendCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerBackend(ctx, self.GetUserCred(), lbb, self); err != nil {
 		self.taskFail(ctx, lbb, err.Error())

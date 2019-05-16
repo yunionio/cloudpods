@@ -74,6 +74,7 @@ type LoadbalancerAclCreateOptions struct {
 	AclEntry []string `help:"acl entry with cidr and comment separated by #, e.g. 10.9.0.0/16#no comment" json:"-"`
 	Manager  string   `json:"manager_id"`
 	Region   string   `json:"cloudregion"`
+	Listener string   `help:"Huawei listener id"`
 }
 
 type LoadbalancerAclGetOptions struct {

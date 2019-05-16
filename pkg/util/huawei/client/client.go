@@ -42,6 +42,15 @@ type Client struct {
 	Interface          *modules.SInterfaceManager
 	Jobs               *modules.SJobManager
 	Keypairs           *modules.SKeypairManager
+	Elb                *modules.SLoadbalancerManager
+	ElbBackend         *modules.SElbBackendManager
+	ElbBackendGroup    *modules.SElbBackendGroupManager
+	ElbListeners       *modules.SElbListenersManager
+	ElbCertificates    *modules.SElbCertificatesManager
+	ElbHealthCheck     *modules.SElbHealthCheckManager
+	ElbL7policies      *modules.SElbL7policiesManager
+	ElbPolicies        *modules.SElbPoliciesManager
+	ElbWhitelist       *modules.SElbWhitelistManager
 	Orders             *modules.SOrderManager
 	Port               *modules.SPortManager
 	Projects           *modules.SProjectManager
@@ -112,6 +121,15 @@ func (self *Client) initManagers() {
 		self.Disks = modules.NewDiskManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Domains = modules.NewDomainManager(self.signer, self.debug)
 		self.Keypairs = modules.NewKeypairManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Elb = modules.NewLoadbalancerManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.ElbBackend = modules.NewElbBackendManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.ElbBackendGroup = modules.NewElbBackendGroupManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.ElbListeners = modules.NewElbListenersManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.ElbCertificates = modules.NewElbCertificatesManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.ElbHealthCheck = modules.NewElbHealthCheckManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.ElbL7policies = modules.NewElbL7policiesManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.ElbPolicies = modules.NewElbPoliciesManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.ElbWhitelist = modules.NewElbWhitelistManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Orders = modules.NewOrderManager(self.signer, self.debug)
 		self.SecurityGroupRules = modules.NewSecgroupRuleManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.SecurityGroups = modules.NewSecurityGroupManager(self.regionId, self.projectId, self.signer, self.debug)

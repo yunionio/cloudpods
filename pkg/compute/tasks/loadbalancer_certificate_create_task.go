@@ -36,7 +36,7 @@ func init() {
 	taskman.RegisterTask(LoadbalancerCertificateCreateTask{})
 }
 
-func (self *LoadbalancerCertificateCreateTask) taskFail(ctx context.Context, lbcert *models.SLoadbalancerCertificate, reason string) {
+func (self *LoadbalancerCertificateCreateTask) taskFail(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, reason string) {
 	lbcert.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason)
 	db.OpsLog.LogEvent(lbcert, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_CREATE, reason, self.UserCred, false)
@@ -45,7 +45,7 @@ func (self *LoadbalancerCertificateCreateTask) taskFail(ctx context.Context, lbc
 }
 
 func (self *LoadbalancerCertificateCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	lbcert := obj.(*models.SLoadbalancerCertificate)
+	lbcert := obj.(*models.SCachedLoadbalancerCertificate)
 	region := lbcert.GetRegion()
 	if region == nil {
 		self.taskFail(ctx, lbcert, fmt.Sprintf("failed to find region for lbcert %s", lbcert.Name))
@@ -57,13 +57,13 @@ func (self *LoadbalancerCertificateCreateTask) OnInit(ctx context.Context, obj d
 	}
 }
 
-func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateComplete(ctx context.Context, lbcert *models.SLoadbalancerCertificate, data jsonutils.JSONObject) {
+func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateComplete(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, data jsonutils.JSONObject) {
 	lbcert.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbcert, db.ACT_ALLOCATE, lbcert.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbcert, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateCompleteFailed(ctx context.Context, lbcert *models.SLoadbalancerCertificate, reason jsonutils.JSONObject) {
+func (self *LoadbalancerCertificateCreateTask) OnLoadbalancerCertificateCreateCompleteFailed(ctx context.Context, lbcert *models.SCachedLoadbalancerCertificate, reason jsonutils.JSONObject) {
 	self.taskFail(ctx, lbcert, reason.String())
 }

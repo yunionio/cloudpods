@@ -495,14 +495,14 @@ func (lbb *SLoadbalancerBackend) constructFieldsFromCloudLoadbalancerBackend(ext
 	lbb.Port = extLoadbalancerBackend.GetPort()
 
 	lbb.BackendType = extLoadbalancerBackend.GetBackendType()
-	lbb.BackendId = extLoadbalancerBackend.GetBackendId()
 	lbb.BackendRole = extLoadbalancerBackend.GetBackendRole()
 
-	instance, err := db.FetchByExternalId(GuestManager, lbb.BackendId)
+	instance, err := db.FetchByExternalId(GuestManager, extLoadbalancerBackend.GetBackendId())
 	if err != nil {
 		return err
 	}
 	guest := instance.(*SGuest)
+
 	lbb.BackendId = guest.Id
 	address, err := LoadbalancerBackendManager.GetGuestAddress(guest)
 	if err != nil {

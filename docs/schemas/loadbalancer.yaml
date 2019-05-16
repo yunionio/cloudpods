@@ -37,7 +37,7 @@ LoadbalancerListener:
       type: string
       description: 调度算法
       readOnly: true
-      
+
 LoadbalancerBackendGroup:
   type: object
   description: Loadbalancer后端服务器组实例
@@ -144,7 +144,7 @@ LoadbalancerListenerResponse:
     loadbalancerlistener:
       type: object
       $ref: '#/LoadbalancerListener'
-        
+
 LoadbalancerBackendGroupListResponse:
   type: object
   properties:

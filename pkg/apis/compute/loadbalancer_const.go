@@ -147,6 +147,19 @@ var LB_LISTENER_TYPES = choices.NewChoices(
 	LB_LISTENER_TYPE_HTTPS,
 )
 
+// huawei backend group protocal choices
+var HUAWEI_LBBG_PROTOCOL_TYPES = choices.NewChoices(
+	LB_LISTENER_TYPE_TCP,
+	LB_LISTENER_TYPE_UDP,
+	LB_LISTENER_TYPE_HTTP,
+)
+
+var HUAWEI_LBBG_SCHDULERS = choices.NewChoices(
+	LB_SCHEDULER_WLC,
+	LB_SCHEDULER_RR,
+	LB_SCHEDULER_SCH,
+)
+
 const (
 	LB_ACL_TYPE_BLACK = "black"
 	LB_ACL_TYPE_WHITE = "white"
@@ -354,4 +367,9 @@ var LB_HA_STATES = choices.NewChoices(
 const (
 	LBAGENT_QUERY_ORIG_KEY = "_orig"
 	LBAGENT_QUERY_ORIG_VAL = "lbagent"
+)
+
+const (
+	LB_ASSOCIATE_TYPE_LISTENER = "listener"
+	LB_ASSOCIATE_TYPE_RULE     = "rule"
 )
