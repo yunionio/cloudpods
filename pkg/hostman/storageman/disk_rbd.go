@@ -111,22 +111,8 @@ func (d *SRBDDisk) Resize(ctx context.Context, params interface{}) (jsonutils.JS
 		return nil, err
 	}
 
-	if err := d.ResizeFs(); err != nil {
-		return nil, err
-	}
-
+	d.ResizeFs(d.GetPath())
 	return d.GetDiskDesc(), nil
-}
-
-func (d *SRBDDisk) ResizeFs() error {
-	disk := NewKVMGuestDisk(d.GetPath())
-	if disk.Connect() {
-		defer disk.Disconnect()
-		if err := disk.ResizePartition(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (d *SRBDDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
