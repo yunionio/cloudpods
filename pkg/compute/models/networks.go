@@ -861,6 +861,11 @@ func (self *SNetwork) GetPorts() int {
 
 func (self *SNetwork) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	wire := self.GetWire()
+	zone := self.getZone()
+	if zone != nil {
+		extra.Add(jsonutils.NewString(zone.Name), "zone")
+		extra.Add(jsonutils.NewString(zone.Id), "zone_id")
+	}
 	extra.Add(jsonutils.NewString(wire.Name), "wire")
 	if self.IsExitNetwork() {
 		extra.Add(jsonutils.JSONTrue, "exit")

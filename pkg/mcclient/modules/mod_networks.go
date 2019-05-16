@@ -20,7 +20,7 @@ var (
 
 func init() {
 	Networks = NewComputeManager("network", "networks",
-		[]string{"ID", "Name", "Guest_ip_start",
+		[]string{"ID", "Name", "Guest_ip_start", "zone", "zone_id",
 			"Guest_ip_end", "Guest_ip_mask",
 			"wire_id", "wire", "is_public", "exit", "Ports",
 			"vnics", "guest_gateway",
