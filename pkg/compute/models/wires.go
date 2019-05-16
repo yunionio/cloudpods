@@ -669,7 +669,6 @@ func (manager *SWireManager) GetOnPremiseWireOfIp(ipAddr string) (*SWire, error)
 
 func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	var err error
-
 	q, err = managedResourceFilterByAccount(q, query, "vpc_id", func() *sqlchemy.SQuery {
 		vpcs := VpcManager.Query().SubQuery()
 		subq := vpcs.Query(vpcs.Field("id"))
@@ -786,6 +785,10 @@ func (self *SWire) GetExtraDetails(ctx context.Context, userCred mcclient.TokenC
 
 func (self *SWire) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	cnt, _ := self.NetworkCount()
+	zone := self.GetZone()
+	if zone != nil {
+		extra.Add(jsonutils.NewString(string(zone.Name)), "zone")
+	}
 	extra.Add(jsonutils.NewInt(int64(cnt)), "networks")
 	vpc := self.getVpc()
 	if vpc != nil {
