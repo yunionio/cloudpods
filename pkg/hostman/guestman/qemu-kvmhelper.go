@@ -523,12 +523,6 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		cmd += s.getVdiskDesc(disk)
 	}
 
-	if isolatedDevsParams != nil {
-		for _, each := range isolatedDevsParams.Devices {
-			cmd += each
-		}
-	}
-
 	if osname != OS_NAME_MACOS {
 		cmd += " -device ide-cd,drive=ide0-cd0,bus=ide.1"
 		if !s.isQ35() {
@@ -565,6 +559,12 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		cmd += s.getVnicDesc(nics[i])
 	}
 
+	if isolatedDevsParams != nil {
+		for _, each := range isolatedDevsParams.Devices {
+			cmd += each
+		}
+	}
+
 	cmd += fmt.Sprintf(" -pidfile %s", s.GetPidFilePath())
 	extraOptions, _ := s.Desc.GetMap("extra_options")
 	for k, v := range extraOptions {
@@ -592,6 +592,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 		cmd += " -S"
 	}
 	// cmd += fmt.Sprintf(" -D %s", path.Join(s.HomeDir(), "log"))
+	cmd += " -device pvpanic"
 
 	cmd += "\"\n"
 	cmd += "if [ ! -z \"$STATE_FILE\" ] && [ -d \"$STATE_FILE\" ] && [ -f \"$STATE_FILE/content\" ]; then\n"
@@ -601,11 +602,6 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	cmd += "else\n"
 	cmd += "    $CMD\n"
 	cmd += "fi\n"
-
-	// cmd += "sleep 1\n"
-	// cmd += "PID_NUM=$(cat $PID_FILE)\n"
-	// cmd += "echo -17 > /proc/$PID_NUM/oom_adj\n"
-	// cmd += "echo \"qemu started\"\n"
 
 	return cmd, nil
 }
