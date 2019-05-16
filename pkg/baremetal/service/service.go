@@ -15,6 +15,8 @@
 package service
 
 import (
+	"fmt"
+	"net/http"
 	"os"
 
 	"yunion.io/x/log"
@@ -43,10 +45,25 @@ func (s *BaremetalService) StartService() {
 	app := app_common.InitApp(&o.Options.CommonOptions, false)
 	handler.InitHandlers(app)
 
+	s.startFileServer()
+
 	app_common.ServeForeverWithCleanup(app, &o.Options.CommonOptions, func() {
 		tasks.OnStop()
 		baremetal.Stop()
 	})
+}
+
+func (s *BaremetalService) startFileServer() {
+	if !o.Options.EnableTftpHttpDownload {
+		return
+	}
+	fs := http.FileServer(http.Dir(o.Options.TftpRoot))
+	http.Handle("/tftp/", http.StripPrefix("/tftp/", fs))
+	go func() {
+		if err := http.ListenAndServe(fmt.Sprintf("%s:%d", o.Options.Address, o.Options.Port+1000), nil); err != nil {
+			panic(fmt.Sprintf("start http file server: %v", err))
+		}
+	}()
 }
 
 func (s *BaremetalService) startAgent() {
