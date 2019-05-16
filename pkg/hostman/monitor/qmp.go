@@ -558,7 +558,7 @@ func (m *QmpMonitor) MigrateSetCapability(capability, state string, callback Str
 	}
 
 	cmd := &Command{
-		Execute: "query-migrate-capabilities",
+		Execute: "migrate-set-capabilities",
 		Args: map[string]interface{}{
 			"capabilities": []interface{}{
 				map[string]interface{}{
