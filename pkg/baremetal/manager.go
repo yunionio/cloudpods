@@ -589,6 +589,9 @@ func (b *SBaremetalInstance) GetSSHConfig() (*types.SSHConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(conf.RemoteIP) == 0 {
+		return nil, nil
+	}
 	conf.Password, err = utils.DescryptAESBase64(b.GetId(), conf.Password)
 	if err != nil {
 		return nil, err

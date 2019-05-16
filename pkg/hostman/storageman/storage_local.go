@@ -159,6 +159,7 @@ func (s *SLocalStorage) Accessible() bool {
 }
 
 func (s *SLocalStorage) DeleteDiskfile(diskpath string) error {
+	log.Infof("Start Delete %s", diskpath)
 	if options.HostOptions.RecycleDiskfile {
 		var (
 			destDir  = s.getRecyclePath()

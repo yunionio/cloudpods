@@ -139,7 +139,7 @@ func (m *SGuestManager) OnVerifyExistingGuestsSucc(servers []jsonutils.JSONObjec
 	} else {
 		var unknownServerrs = make([]*SKVMGuestInstance, 0)
 		for _, server := range m.CandidateServers {
-			go server.RequestVerifyDirtyServer()
+			go m.RequestVerifyDirtyServer(server)
 			log.Errorf("Server %s not found on this host", server.GetName())
 			unknownServerrs = append(unknownServerrs, server)
 		}
@@ -666,6 +666,21 @@ func (m *SGuestManager) ExitGuestCleanup() {
 
 func (m *SGuestManager) GetHost() hostutils.IHost {
 	return m.host
+}
+
+func (m *SGuestManager) RequestVerifyDirtyServer(s *SKVMGuestInstance) {
+	hostId, _ := s.Desc.GetString("host_id")
+	var body = jsonutils.NewDict()
+	body.Set("guest_id", jsonutils.NewString(s.Id))
+	body.Set("host_id", jsonutils.NewString(hostId))
+	ret, err := modules.Servers.PerformClassAction(
+		hostutils.GetComputeSession(context.Background()), "dirty-server-verify", body)
+	if err != nil {
+		log.Errorf("Dirty server request start error: %s", err)
+	} else if jsonutils.QueryBoolean(ret, "guest_unknown_need_clean", false) {
+		m.Delete(s.Id)
+		s.CleanGuest(context.Background(), true)
+	}
 }
 
 var guestManger *SGuestManager
