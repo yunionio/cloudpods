@@ -100,6 +100,8 @@ func (man *SLoadbalancerManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "network", ModelKeyword: "network", ProjectId: userProjId},
 		{Key: "zone", ModelKeyword: "zone", ProjectId: userProjId},
+		{Key: "manager", ModelKeyword: "cloudprovider", ProjectId: userProjId},
+		{Key: "cloudregion", ModelKeyword: "cloudregion", ProjectId: userProjId},
 	})
 	if err != nil {
 		return nil, err
@@ -258,54 +260,6 @@ func (lb *SLoadbalancer) StartLoadBalancerStopTask(ctx context.Context, userCred
 	}
 	task.ScheduleRun(nil)
 	return nil
-}
-
-func (lb *SLoadbalancer) AllowGetDetailsUsableAclList(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return lb.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, lb, "usable-acl-list")
-}
-
-func (lb *SLoadbalancer) GetDetailsUsableAclList(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	q := LoadbalancerAclManager.Query().Equals("cloudregion_id", lb.CloudregionId)
-	if len(lb.ManagerId) > 0 {
-		q = q.Equals("manager_id", lb.ManagerId)
-	}
-	result := &struct {
-		Total int
-		Data  []SLoadbalancerAcl `json:"data,allowempty"`
-	}{
-		Total: 0,
-		Data:  []SLoadbalancerAcl{},
-	}
-	err := db.FetchModelObjects(LoadbalancerAclManager, q, &result.Data)
-	if err != nil {
-		return nil, err
-	}
-	result.Total = len(result.Data)
-	return jsonutils.Marshal(result), nil
-}
-
-func (lb *SLoadbalancer) AllowGetDetailsUsableCertList(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return lb.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, lb, "usable-cert-list")
-}
-
-func (lb *SLoadbalancer) GetDetailsUsableCertList(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	q := LoadbalancerCertificateManager.Query().Equals("cloudregion_id", lb.CloudregionId)
-	if len(lb.ManagerId) > 0 {
-		q = q.Equals("manager_id", lb.ManagerId)
-	}
-	result := &struct {
-		Total int
-		Data  []SLoadbalancerCertificate `json:"data,allowempty"`
-	}{
-		Total: 0,
-		Data:  []SLoadbalancerCertificate{},
-	}
-	err := db.FetchModelObjects(LoadbalancerCertificateManager, q, &result.Data)
-	if err != nil {
-		return nil, err
-	}
-	result.Total = len(result.Data)
-	return jsonutils.Marshal(result), nil
 }
 
 func (lb *SLoadbalancer) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

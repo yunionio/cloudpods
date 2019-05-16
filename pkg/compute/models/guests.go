@@ -629,6 +629,25 @@ func (guest *SGuest) NetworkCount() (int, error) {
 	return guest.GetNetworksQuery("").CountWithError()
 }
 
+func (guest *SGuest) GetVpc() (*SVpc, error) {
+	q := guest.GetNetworksQuery("")
+	guestnic := &SGuestnetwork{}
+	err := q.First(guestnic)
+	if err != nil {
+		return nil, err
+	}
+	guestnic.SetModelManager(GuestnetworkManager)
+	network := guestnic.GetNetwork()
+	if network == nil {
+		return nil, fmt.Errorf("failed to found network for guest %s(%s)", guest.Name, guest.Id)
+	}
+	vpc := network.GetVpc()
+	if vpc == nil {
+		return nil, fmt.Errorf("failed to found vpc for network %s(%s)", network.Name, network.Id)
+	}
+	return vpc, nil
+}
+
 func (guest *SGuest) GetNetworks(netId string) ([]SGuestnetwork, error) {
 	guestnics := make([]SGuestnetwork, 0)
 	q := guest.GetNetworksQuery(netId).Asc("index")
