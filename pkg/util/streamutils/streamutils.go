@@ -17,6 +17,7 @@ package streamutils
 import (
 	"crypto/md5"
 	"fmt"
+	"hash"
 	"io"
 )
 
@@ -25,17 +26,22 @@ type SStreamProperty struct {
 	Size     int64
 }
 
-func StreamPipe(reader io.Reader, writer io.Writer) (*SStreamProperty, error) {
+func StreamPipe(reader io.Reader, writer io.Writer, CalChecksum bool) (*SStreamProperty, error) {
 	sp := SStreamProperty{}
 
-	md5sum := md5.New()
+	var md5sum hash.Hash
+	if CalChecksum {
+		md5sum = md5.New()
+	}
 
 	buf := make([]byte, 4096)
 	for {
 		n, err := reader.Read(buf)
 		if n > 0 {
 			sp.Size += int64(n)
-			md5sum.Write(buf[:n])
+			if CalChecksum {
+				md5sum.Write(buf[:n])
+			}
 			offset := 0
 			for offset < n {
 				m, err := writer.Write(buf[offset:n])
@@ -53,6 +59,8 @@ func StreamPipe(reader io.Reader, writer io.Writer) (*SStreamProperty, error) {
 		}
 	}
 
-	sp.CheckSum = fmt.Sprintf("%x", md5sum.Sum(nil))
+	if CalChecksum {
+		sp.CheckSum = fmt.Sprintf("%x", md5sum.Sum(nil))
+	}
 	return &sp, nil
 }

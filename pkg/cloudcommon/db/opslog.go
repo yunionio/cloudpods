@@ -74,9 +74,11 @@ const (
 	ACT_SPLIT = "net_split"
 	ACT_MERGE = "net_merge"
 
-	ACT_SAVING    = "saving"
-	ACT_SAVE      = "save"
-	ACT_SAVE_FAIL = "save_fail"
+	ACT_SAVING     = "saving"
+	ACT_SAVE       = "save"
+	ACT_SAVE_FAIL  = "save_fail"
+	ACT_PROBE      = "probe"
+	ACT_PROBE_FAIL = "probe_fail"
 
 	ACT_SWITCHED      = "switched"
 	ACT_SWITCH_FAILED = "switch_failed"

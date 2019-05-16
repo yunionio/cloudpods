@@ -50,7 +50,7 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 		if err != nil {
 			return nil, err
 		}
-		err = image.SaveImageFromStream(resp.Body)
+		err = image.SaveImageFromStream(resp.Body, false)
 		if err != nil {
 			return nil, err
 		}
@@ -61,7 +61,7 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 func (self *ImageCopyFromUrlTask) OnImageImportComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	image := obj.(*models.SImage)
 	image.OnSaveTaskSuccess(self, self.UserCred, "create upload success")
-	image.StartImageConvertTask(ctx, self.UserCred, "")
+	image.ImageProbeAndCustomization(ctx, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 

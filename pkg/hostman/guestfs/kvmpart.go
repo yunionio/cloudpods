@@ -32,17 +32,47 @@ type SKVMGuestDiskPartition struct {
 	partDev string
 	fs      string
 
-	readonly bool
+	readonly  bool
+	sourceDev string
+	IsLVMPart bool
 }
 
-func NewKVMGuestDiskPartition(devPath string) *SKVMGuestDiskPartition {
+func NewKVMGuestDiskPartition(devPath, sourceDev string, isLVM bool) *SKVMGuestDiskPartition {
 	var res = new(SKVMGuestDiskPartition)
 	res.partDev = devPath
 	res.fs = res.getFsFormat()
+	res.sourceDev = sourceDev
+	res.IsLVMPart = isLVM
 	fileutils2.CleanFailedMountpoints()
 	mountPath := fmt.Sprintf("/tmp/%s", strings.Replace(devPath, "/", "_", -1))
 	res.SLocalGuestFS = NewLocalGuestFS(mountPath)
 	return res
+}
+
+func (p *SKVMGuestDiskPartition) GetPhysicalPartitionType() string {
+	dev := p.partDev
+	if p.IsLVMPart {
+		// for lvm part, sourceDev like /dev/nbdxpx
+		idx := strings.LastIndexByte(p.sourceDev, 'p')
+		if idx > 0 {
+			dev = p.sourceDev[:idx]
+		} else {
+			dev = p.sourceDev
+		}
+	}
+	cmd := fmt.Sprintf(`fdisk -l %s | grep "Disk label type:"`, dev)
+	output, err := procutils.NewCommand("sh", "-c", cmd).Run()
+	if err != nil {
+		log.Errorf("get disk label type error %s", output)
+		return ""
+	}
+	idx := strings.Index(string(output), "Disk label type:")
+	tp := strings.TrimSpace(string(output)[idx+len("Disk label type:"):])
+	if tp == "dos" {
+		return "mbr"
+	} else {
+		return tp
+	}
 }
 
 func (p *SKVMGuestDiskPartition) GetPartDev() string {
@@ -55,6 +85,22 @@ func (p *SKVMGuestDiskPartition) IsReadonly() bool {
 
 func (p *SKVMGuestDiskPartition) getFsFormat() string {
 	return fileutils2.GetFsFormat(p.partDev)
+}
+
+func (p *SKVMGuestDiskPartition) MountPartReadOnly() bool {
+	if len(p.fs) == 0 || utils.IsInStringArray(p.fs, []string{"swap", "btrfs"}) {
+		return false
+	}
+
+	// no fsck, becasue read only
+
+	err := p.mount(true)
+	if err != nil {
+		log.Errorf("SKVMGuestDiskPartition mount as readonly error: %s", err)
+		return false
+	}
+	p.readonly = true
+	return true
 }
 
 func (p *SKVMGuestDiskPartition) Mount() bool {

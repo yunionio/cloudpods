@@ -58,6 +58,10 @@ func NewKVMGuestDisk(imagePath string) *SKVMGuestDisk {
 	return ret
 }
 
+func (d *SKVMGuestDisk) IsLVMPartition() bool {
+	return len(d.lvms) > 0
+}
+
 func (d *SKVMGuestDisk) Connect() bool {
 	d.nbdDev = nbd.GetNBDManager().AcquireNbddev()
 	if len(d.nbdDev) == 0 {
@@ -141,7 +145,7 @@ func (d *SKVMGuestDisk) findPartitions() error {
 	}
 	for i := 0; i < len(files); i++ {
 		if files[i].Name() != dev && strings.HasPrefix(files[i].Name(), dev+"p") {
-			var part = guestfs.NewKVMGuestDiskPartition(path.Join(devpath, files[i].Name()))
+			var part = guestfs.NewKVMGuestDiskPartition(path.Join(devpath, files[i].Name()), "", false)
 			d.partitions = append(d.partitions, part)
 		}
 	}
@@ -259,9 +263,35 @@ func (d *SKVMGuestDisk) Disconnect() bool {
 	}
 }
 
-func (d *SKVMGuestDisk) MountKvmRootfs() fsdriver.IRootFsDriver {
+func (d *SKVMGuestDisk) DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool {
 	for i := 0; i < len(d.partitions); i++ {
-		if d.partitions[i].Mount() {
+		if d.partitions[i].IsMounted() {
+			if rootfs.DetectIsUEFISupport(d.partitions[i]) {
+				return true
+			}
+		} else {
+			if d.partitions[i].Mount() {
+				support := rootfs.DetectIsUEFISupport(d.partitions[i])
+				d.partitions[i].Umount()
+				if support {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func (d *SKVMGuestDisk) MountKvmRootfs() fsdriver.IRootFsDriver {
+	return d.mountKvmRootfs(false)
+}
+func (d *SKVMGuestDisk) mountKvmRootfs(readonly bool) fsdriver.IRootFsDriver {
+	for i := 0; i < len(d.partitions); i++ {
+		mountFunc := d.partitions[i].Mount
+		if readonly {
+			mountFunc = d.partitions[i].MountPartReadOnly
+		}
+		if mountFunc() {
 			if fs := guestfs.DetectRootFs(d.partitions[i]); fs != nil {
 				log.Infof("Use rootfs %s, partition %s",
 					fs, d.partitions[i].GetPartDev())
@@ -272,6 +302,10 @@ func (d *SKVMGuestDisk) MountKvmRootfs() fsdriver.IRootFsDriver {
 		}
 	}
 	return nil
+}
+
+func (d *SKVMGuestDisk) MountKvmRootfsReadOnly() fsdriver.IRootFsDriver {
+	return d.mountKvmRootfs(true)
 }
 
 func (d *SKVMGuestDisk) UmountKvmRootfs(fd fsdriver.IRootFsDriver) {

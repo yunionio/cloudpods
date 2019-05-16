@@ -65,7 +65,7 @@ func AddDownloadHandler(prefix string, app *appsrv.Application) {
 func customizeHandlerInfo(info *appsrv.SHandlerInfo) {
 	switch info.GetName(nil) {
 	case "disk_download", "download", "snapshot_download":
-		info.SetProcessTimeout(time.Minute * 30).SetWorkerManager(streamingWorkerMan)
+		info.SetProcessTimeout(time.Minute * 60).SetWorkerManager(streamingWorkerMan)
 	}
 }
 

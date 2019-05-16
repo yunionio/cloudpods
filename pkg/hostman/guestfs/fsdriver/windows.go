@@ -476,3 +476,22 @@ func (w *SWindowsRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []jsonu
 	w.putGuestScriptContents("/windows/mountdisk.js", WinScriptMountDisk)
 	return nil
 }
+
+func (w *SWindowsRootFs) DetectIsUEFISupport(part IDiskPartition) bool {
+	content, err := w.rootFs.FileGetContents("/windows/panther/setupact.log", true)
+	if err != nil {
+		log.Errorln(err)
+		return false
+	}
+	contentStr := string(content)
+	sep := "Detected boot environment: "
+	idx := strings.Index(contentStr, sep)
+	if idx < 0 {
+		return false
+	}
+	if strings.HasPrefix(contentStr[idx+len(sep):], "EFI") ||
+		strings.HasPrefix(contentStr[idx+len(sep):], "UEFI") {
+		return true
+	}
+	return false
+}

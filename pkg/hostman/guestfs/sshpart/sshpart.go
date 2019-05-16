@@ -113,6 +113,18 @@ func (p *SSHPartition) osPathExists(path string) bool {
 	return true
 }
 
+func (p *SSHPartition) MountPartReadOnly() bool {
+	return false // Not implement
+}
+
+func (p *SSHPartition) IsReadonly() bool {
+	return false // sshpart not implement mount as readonly
+}
+
+func (p *SSHPartition) GetPhysicalPartitionType() string {
+	return "" // Not implement
+}
+
 func (p *SSHPartition) Mount() bool {
 	if err := p.osMkdirP(p.mountPath, 0); err != nil {
 		log.Errorf("SSHPartition mount error: %s", err)
