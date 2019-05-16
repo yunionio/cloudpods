@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -65,6 +64,8 @@ func (man *SLoadbalancerBackendGroupManager) ListItemFilter(ctx context.Context,
 	data := query.(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "loadbalancer", ModelKeyword: "loadbalancer", ProjectId: userProjId},
+		{Key: "cloudregion", ModelKeyword: "cloudregion", ProjectId: userProjId},
+		{Key: "manager", ModelKeyword: "cloudprovider", ProjectId: userProjId},
 	})
 	if err != nil {
 		return nil, err
@@ -215,65 +216,6 @@ func (lbbg *SLoadbalancerBackendGroup) getRefManagers() []db.IModelManager {
 		LoadbalancerListenerRuleManager,
 	}
 
-}
-
-func (lbbg *SLoadbalancerBackendGroup) AllowGetDetailsUsableBackendList(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return lbbg.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, lbbg, "usable-backend-list")
-}
-
-func (lbbg *SLoadbalancerBackendGroup) GetDetailsUsableBackendList(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	backendIds := []string{}
-	backends, err := lbbg.GetBackends()
-	if err != nil {
-		return nil, err
-	}
-	for _, backend := range backends {
-		backendIds = append(backendIds, backend.BackendId)
-	}
-	q := GuestManager.Query().NotIn("id", backendIds)
-	host := HostManager.Query().SubQuery()
-	zone := ZoneManager.Query().SubQuery()
-	cloudregion := CloudregionManager.Query().SubQuery()
-	q = q.Join(host, sqlchemy.Equals(host.Field("id"), q.Field("host_id"))).
-		Join(zone, sqlchemy.Equals(host.Field("zone_id"), zone.Field("id"))).
-		Join(cloudregion, sqlchemy.Equals(zone.Field("cloudregion_id"), cloudregion.Field("id"))).
-		Filter(sqlchemy.Equals(cloudregion.Field("id"), lbbg.CloudregionId))
-	q = q.In("status", lbbg.GetRegion().GetDriver().GetBackendStatusForAdd())
-	if len(lbbg.ManagerId) > 0 {
-		q = q.Filter(sqlchemy.Equals(host.Field("manager_id"), lbbg.ManagerId))
-		q.Filter(sqlchemy.NOT(sqlchemy.IsNullOrEmpty(q.Field("external_id"))))
-	}
-	result := &struct {
-		Total int
-		Data  []struct {
-			SGuest
-			IPs string
-		} `json:"data,allowempty"`
-	}{
-		Total: 0,
-		Data: []struct {
-			SGuest
-			IPs string
-		}{},
-	}
-	guests := []SGuest{}
-	err = db.FetchModelObjects(GuestManager, q, &guests)
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < len(guests); i++ {
-		result.Data = append(result.Data,
-			struct {
-				SGuest
-				IPs string
-			}{
-				SGuest: guests[i],
-				IPs:    strings.Join(guests[i].getIPs(), ","),
-			},
-		)
-	}
-	result.Total = len(result.Data)
-	return jsonutils.Marshal(result), nil
 }
 
 func (lbbg *SLoadbalancerBackendGroup) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

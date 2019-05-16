@@ -85,21 +85,4 @@ func init() {
 		return nil
 	})
 
-	R(&options.LoadbalancerIdOptions{}, "lb-usable-acl-list", "Displays a list of bindable acls", func(s *mcclient.ClientSession, opts *options.LoadbalancerIdOptions) error {
-		ret, e := modules.Loadbalancers.GetSpecific(s, opts.ID, "usable-acl-list", nil)
-		if e != nil {
-			return e
-		}
-		printObject(ret)
-		return nil
-	})
-
-	R(&options.LoadbalancerIdOptions{}, "lb-usable-cert-list", "Displays a list of bindable certs", func(s *mcclient.ClientSession, opts *options.LoadbalancerIdOptions) error {
-		ret, e := modules.Loadbalancers.GetSpecific(s, opts.ID, "usable-cert-list", nil)
-		if e != nil {
-			return e
-		}
-		printObject(ret)
-		return nil
-	})
 }
