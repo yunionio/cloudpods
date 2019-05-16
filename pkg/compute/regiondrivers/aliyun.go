@@ -47,6 +47,10 @@ func (self *SAliyunRegionDriver) GetProvider() string {
 }
 
 func (self *SAliyunRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	data.Set("vpc_id", jsonutils.NewString(""))
+	data.Set("address", jsonutils.NewString(""))
+	data.Set("network_id", jsonutils.NewString(""))
+
 	loadbalancerSpecV := validators.NewStringChoicesValidator("loadbalancer_spec", api.LB_ALIYUN_SPECS)
 	loadbalancerSpecV.Default(api.LB_ALIYUN_SPEC_SHAREABLE)
 	if err := loadbalancerSpecV.Validate(data); err != nil {

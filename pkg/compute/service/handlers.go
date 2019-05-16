@@ -92,6 +92,8 @@ func InitHandlers(app *appsrv.Application) {
 		models.LoadbalancerCertificateManager,
 		models.LoadbalancerAclManager,
 		models.LoadbalancerAgentManager,
+		models.CachedLoadbalancerAclManager,
+		models.CachedLoadbalancerCertificateManager,
 		models.RouteTableManager,
 
 		models.SchedpolicyManager,

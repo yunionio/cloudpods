@@ -64,6 +64,7 @@ func (self *SManagerContext) GetPath() string {
 
 type SResourceManager struct {
 	SBaseManager
+	ctx           manager.IManagerContext
 	ServiceName   ServiceNameType // 服务名称： ecs
 	Region        string          // 区域： cn-north-1
 	ProjectId     string          // 项目ID： uuid
@@ -126,7 +127,7 @@ func (self *SResourceManager) newRequest(method, rid, spec string, ctx manager.I
 }
 
 func (self *SResourceManager) List(queries map[string]string) (*responses.ListResult, error) {
-	return self.ListInContext(nil, queries)
+	return self.ListInContext(self.ctx, queries)
 }
 
 func (self *SResourceManager) ListInContext(ctx manager.IManagerContext, queries map[string]string) (*responses.ListResult, error) {
@@ -143,7 +144,7 @@ func (self *SResourceManager) ListInContextWithSpec(ctx manager.IManagerContext,
 }
 
 func (self *SResourceManager) Get(id string, queries map[string]string) (jsonutils.JSONObject, error) {
-	return self.GetInContext(nil, id, queries)
+	return self.GetInContext(self.ctx, id, queries)
 }
 
 func (self *SResourceManager) GetInContext(ctx manager.IManagerContext, id string, queries map[string]string) (jsonutils.JSONObject, error) {
@@ -160,7 +161,7 @@ func (self *SResourceManager) GetInContextWithSpec(ctx manager.IManagerContext, 
 }
 
 func (self *SResourceManager) Create(params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return self.CreateInContext(nil, params)
+	return self.CreateInContext(self.ctx, params)
 }
 
 func (self *SResourceManager) CreateInContext(ctx manager.IManagerContext, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -179,7 +180,7 @@ func (self *SResourceManager) AsyncCreate(params jsonutils.JSONObject) (string, 
 }
 
 func (self *SResourceManager) Update(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return self.UpdateInContext(nil, id, params)
+	return self.UpdateInContext(self.ctx, id, params)
 }
 
 func (self *SResourceManager) UpdateInContext(ctx manager.IManagerContext, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -197,7 +198,7 @@ func (self *SResourceManager) UpdateInContextWithSpec(ctx manager.IManagerContex
 }
 
 func (self *SResourceManager) Delete(id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return self.DeleteInContext(nil, id, params)
+	return self.DeleteInContext(self.ctx, id, params)
 }
 
 func (self *SResourceManager) DeleteInContext(ctx manager.IManagerContext, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {

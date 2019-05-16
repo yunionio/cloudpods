@@ -141,7 +141,7 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, listener.LoadbalancerId)
 		} else {
 			// 腾讯云backend group只能1v1关联
-			if listener.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
+			if listener.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD || listener.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI {
 				count, err := lbbg.RefCount()
 				if err != nil {
 					return nil, httperrors.NewInternalServerError("get lbbg RefCount fail %s", err)

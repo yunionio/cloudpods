@@ -18,4 +18,35 @@ type SLoadbalancerBackendGroup struct {
 	Name      string
 	GroupType string
 	Backends  []SLoadbalancerBackend
+
+	// huawei only
+	LoadbalancerID string // 负载均衡ID
+	ListenerID     string // 监听器ID
+	ListenType     string // 后端服务器组监听类型
+	Scheduler      string
+	StickySession  *SLoadbalancerStickySession
+	HealthCheck    *SLoadbalancerHealthCheck
+}
+
+type SLoadbalancerHealthCheck struct {
+	HealthCheckType string
+	HealthCheckReq  string
+	HealthCheckExp  string
+
+	HealthCheck         string
+	HealthCheckTimeout  int
+	HealthCheckDomain   string
+	HealthCheckHttpCode string
+	HealthCheckURI      string
+	HealthCheckInterval int
+
+	HealthCheckRise int
+	HealthCheckFail int
+}
+
+type SLoadbalancerStickySession struct {
+	StickySession              string
+	StickySessionCookie        string
+	StickySessionType          string
+	StickySessionCookieTimeout int
 }

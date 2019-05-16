@@ -536,11 +536,15 @@ type ICloudLoadbalancerBackendGroup interface {
 	GetType() string
 	GetILoadbalancerBackends() ([]ICloudLoadbalancerBackend, error)
 	GetILoadbalancerBackendById(backendId string) (ICloudLoadbalancerBackend, error)
+	GetProtocolType() string                                // huawei only .后端云服务器组的后端协议。
+	GetScheduler() string                                   // huawei only
+	GetHealthCheck() (*SLoadbalancerHealthCheck, error)     // huawei only
+	GetStickySession() (*SLoadbalancerStickySession, error) // huawei only
 	AddBackendServer(serverId string, weight int, port int) (ICloudLoadbalancerBackend, error)
 	RemoveBackendServer(serverId string, weight int, port int) error
 
 	Delete() error
-	Sync(name string) error
+	Sync(group *SLoadbalancerBackendGroup) error
 }
 
 type ICloudLoadbalancerBackend interface {
@@ -566,12 +570,15 @@ type ICloudLoadbalancerCertificate interface {
 	GetSubjectAlternativeNames() string
 	GetFingerprint() string // return value format: <algo>:<fingerprint>，比如sha1:7454a14fdb8ae1ea8b2f72e458a24a76bd23ec19
 	GetExpireTime() time.Time
+	GetPublickKey() string
+	GetPrivateKey() string
 }
 
 type ICloudLoadbalancerAcl interface {
 	ICloudResource
 	IVirtualResource
 
+	GetAclListenerID() string // huawei only
 	GetAclEntries() []SLoadbalancerAccessControlListEntry
 	Sync(acl *SLoadbalancerAccessControlList) error
 	Delete() error

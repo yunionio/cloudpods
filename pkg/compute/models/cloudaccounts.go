@@ -1156,6 +1156,7 @@ func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Contex
 
 	if isStart {
 		// mark all the records to be init
+
 		CloudproviderRegionManager.initAllRecords()
 	}
 

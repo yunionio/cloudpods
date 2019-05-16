@@ -39,6 +39,10 @@ type SLoadbalancerAcl struct {
 	AclEntrys AclEntrys
 }
 
+func (acl *SLoadbalancerAcl) GetAclListenerID() string {
+	return ""
+}
+
 func (acl *SLoadbalancerAcl) GetName() string {
 	return acl.AclName
 }

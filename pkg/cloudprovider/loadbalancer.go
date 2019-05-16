@@ -21,6 +21,7 @@ type SLoadbalancer struct {
 	ZoneID           string
 	VpcID            string
 	NetworkID        string
+	EipID            string // eip id
 	Address          string
 	AddressType      string
 	LoadbalancerSpec string

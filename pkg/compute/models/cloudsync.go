@@ -596,12 +596,12 @@ func syncRegionLoadbalancerCertificates(ctx context.Context, userCred mcclient.T
 		log.Errorf(msg)
 		return
 	}
-	result := LoadbalancerCertificateManager.SyncLoadbalancerCertificates(ctx, userCred, provider, localRegion, certificates, syncRange)
+	result := CachedLoadbalancerCertificateManager.SyncLoadbalancerCertificates(ctx, userCred, provider, localRegion, certificates, syncRange)
 
-	syncResults.Add(LoadbalancerCertificateManager, result)
+	syncResults.Add(CachedLoadbalancerCertificateManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncLoadbalancerCertificates for region %s result: %s", localRegion.Name, msg)
+	log.Infof("SyncLoadbalancerCachedCertificates for region %s result: %s", localRegion.Name, msg)
 	if result.IsError() {
 		return
 	}
@@ -614,12 +614,12 @@ func syncRegionLoadbalancerAcls(ctx context.Context, userCred mcclient.TokenCred
 		log.Errorf(msg)
 		return
 	}
-	result := LoadbalancerAclManager.SyncLoadbalancerAcls(ctx, userCred, provider, localRegion, acls, syncRange)
+	result := CachedLoadbalancerAclManager.SyncLoadbalancerAcls(ctx, userCred, provider, localRegion, acls, syncRange)
 
-	syncResults.Add(LoadbalancerAclManager, result)
+	syncResults.Add(CachedLoadbalancerAclManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncLoadbalancerAcls for region %s result: %s", localRegion.Name, msg)
+	log.Infof("SyncLoadbalancerCachedAcls for region %s result: %s", localRegion.Name, msg)
 	if result.IsError() {
 		return
 	}

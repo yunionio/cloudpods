@@ -443,7 +443,7 @@ func (self *SElasticip) IsAssociated() bool {
 }
 
 func (self *SElasticip) GetAssociateVM() *SGuest {
-	if self.AssociateType == "server" && len(self.AssociateId) > 0 {
+	if self.AssociateType == api.EIP_ASSOCIATE_TYPE_SERVER && len(self.AssociateId) > 0 {
 		return GuestManager.FetchGuestById(self.AssociateId)
 	}
 	return nil
@@ -484,7 +484,7 @@ func (self *SElasticip) AssociateVM(ctx context.Context, userCred mcclient.Token
 		return fmt.Errorf("EIP has been associated!!")
 	}
 	_, err := db.Update(self, func() error {
-		self.AssociateType = "server"
+		self.AssociateType = api.EIP_ASSOCIATE_TYPE_SERVER
 		self.AssociateId = vm.Id
 		return nil
 	})

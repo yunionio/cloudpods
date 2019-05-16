@@ -16,12 +16,25 @@ package qcloud
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 // 腾讯云没有LB ACL
 type SLBACL struct{}
+
+func (self *SLBACL) GetAclListenerID() string {
+	return ""
+}
+
+func (self *SLBACL) Sync(acl *cloudprovider.SLoadbalancerAccessControlList) error {
+	return nil
+}
+
+func (self *SLBACL) Delete() error {
+	return nil
+}
 
 func (self *SLBACL) GetId() string {
 	return ""

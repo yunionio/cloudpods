@@ -55,6 +55,14 @@ func (self *LoadbalancerBackendCreateTask) OnInit(ctx context.Context, obj db.IS
 		self.taskFail(ctx, lbb, fmt.Sprintf("failed to find region for lbb %s", lbb.Name))
 		return
 	}
+
+	// 华为后端服务器组在创建监听之前并不会创建。此时服务器组external id为空，不能进行添加后端服务器操作
+	lbbg := lbb.GetLoadbalancerBackendGroup()
+	if lbb.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI && lbbg != nil && len(lbbg.ExternalId) == 0 {
+		self.OnLoadbalancerBackendCreateComplete(ctx, lbb, data)
+		return
+	}
+
 	self.SetStage("OnLoadbalancerBackendCreateComplete", nil)
 	if err := region.GetDriver().RequestCreateLoadbalancerBackend(ctx, self.GetUserCred(), lbb, self); err != nil {
 		self.taskFail(ctx, lbb, err.Error())

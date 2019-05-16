@@ -45,6 +45,14 @@ type SLoadbalancerServerCertificate struct {
 	RegionId                string                  //	负载均衡实例的地域。
 }
 
+func (certificate *SLoadbalancerServerCertificate) GetPublickKey() string {
+	return ""
+}
+
+func (certificate *SLoadbalancerServerCertificate) GetPrivateKey() string {
+	return ""
+}
+
 func (certificate *SLoadbalancerServerCertificate) GetName() string {
 	return certificate.ServerCertificateName
 }

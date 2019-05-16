@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -76,6 +77,7 @@ type SProfile struct {
 // https://support.huaweicloud.com/api-vpc/zh-cn_topic_0020090598.html
 type SEipAddress struct {
 	region *SRegion
+	port   *Port
 
 	ID                  string    `json:"id"`
 	Status              string    `json:"status"`
@@ -155,19 +157,44 @@ func (self *SEipAddress) GetMode() string {
 	return api.EIP_MODE_STANDALONE_EIP
 }
 
+func (self *SEipAddress) GetPort() *Port {
+	if len(self.PortId) > 0 {
+		return nil
+	}
+
+	if self.port != nil {
+		return self.port
+	}
+
+	port, err := self.region.GetPort(self.PortId)
+	if err != nil {
+		return nil
+	} else {
+		self.port = &port
+	}
+
+	return self.port
+}
+
 func (self *SEipAddress) GetAssociationType() string {
-	return "server"
+	port := self.GetPort()
+	if port != nil {
+		return port.DeviceID
+	}
+
+	owner := port.DeviceOwner
+	if strings.Contains(owner, "LOADBALANCER") {
+		return api.EIP_ASSOCIATE_TYPE_ELB
+	} else {
+		return api.EIP_ASSOCIATE_TYPE_SERVER
+	}
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {
 	// network/0273a359d61847fc83405926c958c746/ext-floatingips?tenantId=0273a359d61847fc83405926c958c746&limit=2000
 	// 只能通过 port id 反查device id.
-	if len(self.PortId) > 0 {
-		port, err := self.region.GetPort(self.PortId)
-		if err != nil {
-			return ""
-		}
-
+	port := self.GetPort()
+	if port != nil {
 		return port.DeviceID
 	}
 
