@@ -118,6 +118,17 @@ func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict
 	return guestfs.DeployGuestFs(root, guestDesc, deployInfo)
 }
 
+func (d *SBaseDisk) ResizeFs(diskPath string) error {
+	disk := NewKVMGuestDisk(diskPath)
+	if disk.Connect() {
+		defer disk.Disconnect()
+		if err := disk.ResizePartition(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (d *SBaseDisk) GetDiskSetupScripts(diskIndex int) string {
 	return ""
 }

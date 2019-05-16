@@ -132,22 +132,9 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 		// d.Fallocate()
 	}
 
-	if err = d.ResizeFs(); err != nil {
-		return nil, err
-	}
+	d.ResizeFs(d.GetPath())
 
 	return d.GetDiskDesc(), nil
-}
-
-func (d *SLocalDisk) ResizeFs() error {
-	disk := NewKVMGuestDisk(d.GetPath())
-	if disk.Connect() {
-		defer disk.Disconnect()
-		if err := disk.ResizePartition(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string) error {
