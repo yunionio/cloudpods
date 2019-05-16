@@ -995,13 +995,12 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 		CloudproviderRegionManager,
 		ExternalProjectManager,
 	} {
-		manager.purgeAll(ctx, userCred, self.Id)
+		err = manager.purgeAll(ctx, userCred, self.Id)
 		if err != nil {
 			log.Errorf("%s purgeall failed %s", manager.Keyword(), err)
 			return err
-		} else {
-			log.Debugf("%s purgeall success!", manager.Keyword())
 		}
+		log.Debugf("%s purgeall success!", manager.Keyword())
 	}
 
 	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
