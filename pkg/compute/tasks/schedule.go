@@ -143,7 +143,7 @@ func doScheduleObjects(
 		onSchedulerRequestFail(ctx, task, objs, fmt.Sprintf("Scheduler fail: %s", err))
 		return
 	}
-	schedInput = models.ApplySchedPolicies(schedInput)
+	//schedInput = models.ApplySchedPolicies(schedInput)
 
 	params := jsonutils.Marshal(schedInput).(*jsonutils.JSONDict)
 	task.SetStage("OnScheduleComplete", params)
