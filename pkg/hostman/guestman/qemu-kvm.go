@@ -273,7 +273,10 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 		return nil, nil
 	} else {
 		log.Infof("Async start server %s failed: %s!!!", s.GetName(), err)
-		timeutils2.AddTimeout(100*time.Millisecond, s.SyncStatus)
+		if ctx != nil && len(appctx.AppContextTaskId(ctx)) >= 0 {
+			hostutils.TaskFailed(ctx, fmt.Sprintf("Async start server failed: %s", err))
+		}
+		s.SyncStatus()
 		return nil, err
 	}
 }
@@ -750,10 +753,10 @@ func (s *SKVMGuestInstance) Stop() bool {
 }
 
 func (s *SKVMGuestInstance) scriptStart() error {
-	_, err := procutils.NewCommand("sh", s.GetStartScriptPath()).Run()
+	output, err := procutils.NewCommand("sh", s.GetStartScriptPath()).Run()
 	if err != nil {
 		s.scriptStop()
-		return err
+		return fmt.Errorf("Start VM Failed %s %s", output, err)
 	}
 	return nil
 }
