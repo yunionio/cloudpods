@@ -364,9 +364,10 @@ func (s *SGuestLiveMigrateTask) startMigrate(string) {
 
 func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(string) {
 	s.c = make(chan struct{})
-	for {
+	for s.c != nil {
 		select {
 		case <-s.c: // on c close
+			s.c = nil
 			break
 		case <-time.After(time.Second * 1):
 			s.Monitor.GetMigrateStatus(s.onGetMigrateStatus)
