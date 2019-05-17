@@ -23,14 +23,19 @@ import (
 )
 
 type IDiskPartition interface {
+	// GetLocalPath join mountpoint as full path
 	GetLocalPath(sPath string, caseInsensitive bool) string
+	// FileGetContents will get file contents by join mountpoint as full path
 	FileGetContents(sPath string, caseInsensitive bool) ([]byte, error)
+	// FileGetContentsByPath get file contents directly
+	FileGetContentsByPath(sPath string) ([]byte, error)
 	FilePutContents(sPath, content string, modAppend, caseInsensitive bool) error
 	Exists(sPath string, caseInsensitive bool) bool
 	Chown(sPath string, uid, gid int, caseInsensitive bool) error
 	Chmod(sPath string, mode uint32, caseInsensitive bool) error
 	UserAdd(user string, caseInsensitive bool) error
 	Stat(sPath string, caseInsensitive bool) os.FileInfo
+	Symlink(src, dst string, caseInsensitive bool) error
 
 	Passwd(account, password string, caseInsensitive bool) error
 	Mkdir(sPath string, mode int, caseInsensitive bool) error
