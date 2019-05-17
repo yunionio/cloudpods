@@ -118,5 +118,13 @@ dep:
 %:
 	@:
 
+# Use docker build binaries
+# Args:
+#   WHAT: Directory names to build
+#
+#
+# Example:
+# make docker_build
+# make docker_build WHAT='cmd/climc cmd/region'
 docker_build:
-	$(ROOT_DIR)/build/docker_build.sh
+	$(ROOT_DIR)/build/docker_build.sh $(WHAT)
