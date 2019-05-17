@@ -113,6 +113,23 @@ func (p *SSHPartition) osPathExists(path string) bool {
 	return true
 }
 
+func (p *SSHPartition) osSymlink(src, dst string) error {
+	_, err := p.term.Run(fmt.Sprintf("ln -s %s %s", src, dst))
+	return err
+}
+
+func (p *SSHPartition) MountPartReadOnly() bool {
+	return false // Not implement
+}
+
+func (p *SSHPartition) IsReadonly() bool {
+	return false // sshpart not implement mount as readonly
+}
+
+func (p *SSHPartition) GetPhysicalPartitionType() string {
+	return "" // Not implement
+}
+
 func (p *SSHPartition) Mount() bool {
 	if err := p.osMkdirP(p.mountPath, 0); err != nil {
 		log.Errorf("SSHPartition mount error: %s", err)
@@ -211,27 +228,35 @@ func (p *SSHPartition) GetLocalPath(sPath string, caseI bool) string {
 	var fullPath = p.mountPath
 	pathSegs := strings.Split(sPath, "/")
 	for _, seg := range pathSegs {
-		if len(seg) > 0 {
-			var realSeg string
-			files, err := p.osListDir(fullPath)
-			if err != nil {
-				log.Errorf("List dir %s error: %v", sPath, err)
-				return ""
+		if len(seg) == 0 {
+			continue
+		}
+
+		var realSeg string
+		files, err := p.osListDir(fullPath)
+		if err != nil {
+			log.Errorf("List dir %s error: %v", sPath, err)
+			return ""
+		}
+		for _, f := range files {
+			if f == seg || (caseI && (strings.ToLower(f)) == strings.ToLower(seg)) {
+				realSeg = f
+				break
 			}
-			for _, f := range files {
-				if f == seg || (caseI && (strings.ToLower(f)) == strings.ToLower(seg)) {
-					realSeg = f
-					break
-				}
-			}
-			if len(realSeg) > 0 {
-				fullPath = path.Join(fullPath, realSeg)
-			} else {
-				return ""
-			}
+		}
+		if len(realSeg) > 0 {
+			fullPath = path.Join(fullPath, realSeg)
+		} else {
+			return ""
 		}
 	}
 	return fullPath
+}
+
+func (f *SSHPartition) Symlink(src string, dst string, caseInsensitive bool) error {
+	f.Mkdir(path.Dir(dst), 0755, caseInsensitive)
+	odstDir := f.GetLocalPath(path.Dir(dst), caseInsensitive)
+	return f.osSymlink(src, path.Join(odstDir, path.Base(dst)))
 }
 
 func (p *SSHPartition) Exists(sPath string, caseInsensitive bool) bool {
@@ -257,10 +282,14 @@ func (p *SSHPartition) sshFileGetContents(path string) ([]byte, error) {
 
 func (p *SSHPartition) FileGetContents(sPath string, caseInsensitive bool) ([]byte, error) {
 	sPath = p.GetLocalPath(sPath, caseInsensitive)
-	if len(sPath) > 0 {
-		return p.sshFileGetContents(sPath)
+	return p.FileGetContentsByPath(sPath)
+}
+
+func (p *SSHPartition) FileGetContentsByPath(sPath string) ([]byte, error) {
+	if len(sPath) == 0 {
+		return nil, fmt.Errorf("Path is not provide")
 	}
-	return nil, fmt.Errorf("Cann't find path: %s", sPath)
+	return p.sshFileGetContents(sPath)
 }
 
 func (p *SSHPartition) sshFilePutContents(sPath, content string, modAppend bool) error {
