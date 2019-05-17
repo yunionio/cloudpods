@@ -34,6 +34,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 const (
@@ -42,6 +43,7 @@ const (
 
 type SESXiClient struct {
 	cloudprovider.SFakeOnPremiseRegion
+	multicloud.SRegion
 
 	providerId   string
 	providerName string

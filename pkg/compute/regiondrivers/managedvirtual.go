@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -831,4 +832,77 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateVpcData(ctx contex
 
 func (self *SManagedVirtualizationRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return data, nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestCreateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRegion, err := sp.GetIRegion()
+		if err != nil {
+			return nil, err
+		}
+		input, err := sp.GenerateCreateSpParams()
+		if err != nil {
+			return nil, err
+		}
+		policyId, err := iRegion.CreateSnapshotPolicy(input)
+		if err != nil {
+			return nil, err
+		}
+		sp.SetExternalId(userCred, policyId)
+		if err != nil {
+			return nil, err
+		}
+
+		iPolicy, err := iRegion.GetISnapshotPolicyById(policyId)
+		if err != nil {
+			return nil, err
+		}
+		err = cloudprovider.WaitStatus(iPolicy, api.SNAPSHOT_POLICY_READY, 10*time.Second, 300*time.Second)
+		if err != nil {
+			return nil, err
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestDeleteSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRegion, err := sp.GetIRegion()
+		if err != nil {
+			return nil, err
+		}
+		err = iRegion.DeleteSnapshotPolicy(sp.GetExternalId())
+		if err != nil {
+			return nil, err
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskIds []string) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRegion, err := sp.GetIRegion()
+		if err != nil {
+			return nil, err
+		}
+		err = iRegion.ApplySnapshotPolicyToDisks(sp.GetExternalId(), diskIds)
+		if err != nil {
+			return nil, err
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, region cloudprovider.ICloudRegion, task taskman.ITask, diskIds []string) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		err := region.CancelSnapshotPolicyToDisks(diskIds)
+		if err != nil {
+			return nil, err
+		}
+		return nil, nil
+	})
+	return nil
 }

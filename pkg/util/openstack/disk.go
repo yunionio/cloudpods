@@ -26,6 +26,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 const (
@@ -84,6 +85,7 @@ type VolumeImageMetadata struct {
 
 type SDisk struct {
 	storage *SStorage
+	multicloud.SDisk
 
 	ID   string
 	Name string

@@ -28,14 +28,18 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SVirtualDisk struct {
+	multicloud.SDisk
+
 	SVirtualDevice
 }
 
 func NewVirtualDisk(vm *SVirtualMachine, dev types.BaseVirtualDevice, index int) SVirtualDisk {
 	return SVirtualDisk{
+		multicloud.SDisk{},
 		NewVirtualDevice(vm, dev, index),
 	}
 }

@@ -25,6 +25,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 /*
@@ -88,6 +89,7 @@ type VolumeImageMetadata struct {
 // https://support.huaweicloud.com/api-evs/zh-cn_topic_0124881427.html
 type SDisk struct {
 	storage *SStorage
+	multicloud.SDisk
 
 	ID                  string              `json:"id"`
 	Name                string              `json:"name"`

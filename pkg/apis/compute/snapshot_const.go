@@ -25,4 +25,11 @@ const (
 	SNAPSHOT_READY       = "ready"
 	SNAPSHOT_DELETING    = "deleting"
 	SNAPSHOT_UNKNOWN     = "unknown"
+
+	SNAPSHOT_POLICY_CREATING      = "creating"
+	SNAPSHOT_POLICY_READY         = "ready"
+	SNAPSHOT_POLICY_CREATE_FAILED = "create_failed"
+	SNAPSHOT_POLICY_UNKNOWN       = "unknown"
+	SNAPSHOT_POLICY_DELETING      = "deleting"
+	SNAPSHOT_POLICY_DELETE_FAILED = "delete_failed"
 )

@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SMountInstances struct {
@@ -41,6 +42,7 @@ type STags struct {
 
 type SDisk struct {
 	storage *SStorage
+	multicloud.SDisk
 
 	RegionId string
 	ZoneId   string // AvailabilityZone
