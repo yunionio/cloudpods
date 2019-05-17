@@ -99,7 +99,7 @@ func init() {
 		} else {
 			fio = os.Stdout
 		}
-		prop, err := streamutils.StreamPipe(output.Body, fio)
+		prop, err := streamutils.StreamPipe(output.Body, fio, true)
 		if err != nil {
 			return err
 		}
