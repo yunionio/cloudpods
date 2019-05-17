@@ -22,6 +22,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/pkg/errors"
 	yaml "gopkg.in/yaml.v2"
 
 	"yunion.io/x/jsonutils"
@@ -365,7 +366,7 @@ func (l *sLinuxRootFs) getSerialPorts(rootFs IDiskPartition) []string {
 	}
 	// XXX HACK, only sshpart.SSHPartition support this
 	var confpath = "/proc/tty/driver/serial"
-	content, err := rootFs.FileGetContents(confpath, false)
+	content, err := rootFs.FileGetContentsByPath(confpath)
 	if err != nil {
 		log.Errorf("Get %s error: %v", confpath, err)
 		return nil
@@ -416,7 +417,10 @@ func (l *sLinuxRootFs) enableSerialConsoleSystemd(rootFs IDiskPartition) error {
 	for _, tty := range l.getSerialPorts(rootFs) {
 		sPath := fmt.Sprintf("/etc/systemd/system/getty.target.wants/getty@%s.service", tty)
 		if rootFs.Exists(sPath, false) {
-			//rootFs.Symlink("/usr/lib/systemd/system/getty@.service", sPath)
+			rootFs.Remove(sPath, false)
+		}
+		if err := rootFs.Symlink("/usr/lib/systemd/system/getty@.service", sPath, false); err != nil {
+			return errors.Wrapf(err, "Symbol link tty %s", tty)
 		}
 	}
 	return nil
@@ -946,8 +950,42 @@ func (r *sRedhatLikeRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition
 	return nil
 }
 
-//TODO enable_serial_console
-//TODO disable_serial_console
+func (r *sRedhatLikeRootFs) getReleaseMajorVersion(drv IRootFsDriver, rootFs IDiskPartition) (int, error) {
+	relInfo := drv.GetReleaseInfo(rootFs)
+	if len(relInfo.Version) == 0 {
+		return 0, fmt.Errorf("release info version is empty")
+	}
+	log.Infof("Get release info: %#v", relInfo)
+	ver, err := strconv.Atoi(string(relInfo.Version[0]))
+	if err != nil {
+		return 0, fmt.Errorf("Release version %s not start with digit", relInfo.Version)
+	}
+	return ver, nil
+}
+
+func (r *sRedhatLikeRootFs) enableSerialConsole(drv IRootFsDriver, rootFs IDiskPartition, sysInfo *jsonutils.JSONDict) error {
+	ver, err := r.getReleaseMajorVersion(drv, rootFs)
+	if err != nil {
+		return errors.Wrap(err, "Get release major version")
+	}
+	if ver <= 6 {
+		return r.enableSerialConsoleInitCentos(rootFs)
+	}
+	return r.enableSerialConsoleSystemd(rootFs)
+}
+
+func (r *sRedhatLikeRootFs) disableSerialConcole(drv IRootFsDriver, rootFs IDiskPartition) error {
+	ver, err := r.getReleaseMajorVersion(drv, rootFs)
+	if err != nil {
+		return errors.Wrap(err, "Get release major version")
+	}
+	if ver <= 6 {
+		r.disableSerialConsoleInit(rootFs)
+		return nil
+	}
+	r.disableSerialConsoleSystemd(rootFs)
+	return nil
+}
 
 type SCentosRootFs struct {
 	*sRedhatLikeRootFs
@@ -1004,6 +1042,14 @@ func (c *SCentosRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []js
 	return nil
 }
 
+func (c *SCentosRootFs) EnableSerialConsole(rootFs IDiskPartition, sysInfo *jsonutils.JSONDict) error {
+	return c.enableSerialConsole(c, rootFs, sysInfo)
+}
+
+func (c *SCentosRootFs) DisableSerialConsole(rootFs IDiskPartition) error {
+	return c.disableSerialConcole(c, rootFs)
+}
+
 type SFedoraRootFs struct {
 	*sRedhatLikeRootFs
 }
@@ -1049,6 +1095,14 @@ func (c *SFedoraRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []js
 	return nil
 }
 
+func (c *SFedoraRootFs) EnableSerialConsole(rootFs IDiskPartition, sysInfo *jsonutils.JSONDict) error {
+	return c.enableSerialConsole(c, rootFs, sysInfo)
+}
+
+func (c *SFedoraRootFs) DisableSerialConsole(rootFs IDiskPartition) error {
+	return c.disableSerialConcole(c, rootFs)
+}
+
 type SRhelRootFs struct {
 	*sRedhatLikeRootFs
 }
@@ -1083,6 +1137,14 @@ func (d *SRhelRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []json
 		return err
 	}
 	return nil
+}
+
+func (c *SRhelRootFs) EnableSerialConsole(rootFs IDiskPartition, sysInfo *jsonutils.JSONDict) error {
+	return c.enableSerialConsole(c, rootFs, sysInfo)
+}
+
+func (c *SRhelRootFs) DisableSerialConsole(rootFs IDiskPartition) error {
+	return c.disableSerialConcole(c, rootFs)
 }
 
 type SGentooRootFs struct {

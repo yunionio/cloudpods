@@ -23,6 +23,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -181,6 +183,16 @@ func (f *SLocalGuestFS) Stat(usrDir string, caseInsensitive bool) os.FileInfo {
 	return nil
 }
 
+func (f *SLocalGuestFS) Symlink(src string, dst string, caseInsensitive bool) error {
+	dir := path.Dir(src)
+	if err := f.Mkdir(path.Dir(src), 0755, caseInsensitive); err != nil {
+		return errors.Wrapf(err, "Mkdir %s", dir)
+	}
+	src = f.GetLocalPath(src, caseInsensitive)
+	dst = f.GetLocalPath(dst, caseInsensitive)
+	return os.Symlink(src, dst)
+}
+
 func (f *SLocalGuestFS) Exists(sPath string, caseInsensitive bool) bool {
 	sPath = f.GetLocalPath(sPath, caseInsensitive)
 	if len(sPath) > 0 {
@@ -218,6 +230,10 @@ func (f *SLocalGuestFS) UserAdd(user string, caseInsensitive bool) error {
 
 func (f *SLocalGuestFS) FileGetContents(sPath string, caseInsensitive bool) ([]byte, error) {
 	sPath = f.GetLocalPath(sPath, caseInsensitive)
+	return f.FileGetContentsByPath(sPath)
+}
+
+func (f *SLocalGuestFS) FileGetContentsByPath(sPath string) ([]byte, error) {
 	if len(sPath) > 0 {
 		return ioutil.ReadFile(sPath)
 	}
