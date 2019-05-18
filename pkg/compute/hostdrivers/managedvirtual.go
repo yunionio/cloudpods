@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
@@ -37,30 +38,29 @@ type SManagedVirtualizationHostDriver struct {
 
 func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
 	params := task.GetParams()
-	imageId, err := params.GetString("image_id")
+	image := &cloudprovider.SImageCreateOption{}
+	err := params.Unmarshal(image)
 	if err != nil {
 		return err
 	}
 
-	osArch, _ := params.GetString("os_arch")
-	osType, _ := params.GetString("os_type")
-	osDist, _ := params.GetString("os_distribution")
-	var osVersion string
+	if len(image.ImageId) == 0 {
+		return fmt.Errorf("no image_id params")
+	}
+
 	providerName := storageCache.GetProviderName()
 	if utils.IsInStringArray(providerName, []string{api.CLOUD_PROVIDER_HUAWEI, api.CLOUD_PROVIDER_UCLOUD}) {
-		osVersion, _ = params.GetString("os_full_version")
-	} else {
-		osVersion, _ = params.GetString("os_version")
+		image.OsVersion, _ = params.GetString("os_full_version")
 	}
 
 	isForce := jsonutils.QueryBoolean(params, "is_force", false)
 	userCred := task.GetUserCred()
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 
-		lockman.LockRawObject(ctx, "cachedimages", fmt.Sprintf("%s-%s", storageCache.Id, imageId))
-		defer lockman.ReleaseRawObject(ctx, "cachedimages", fmt.Sprintf("%s-%s", storageCache.Id, imageId))
+		lockman.LockRawObject(ctx, "cachedimages", fmt.Sprintf("%s-%s", storageCache.Id, image.ImageId))
+		defer lockman.ReleaseRawObject(ctx, "cachedimages", fmt.Sprintf("%s-%s", storageCache.Id, image.ImageId))
 
-		scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), storageCache.Id, imageId, "")
+		scimg := models.StoragecachedimageManager.Register(ctx, task.GetUserCred(), storageCache.Id, image.ImageId, "")
 
 		cachedImage := scimg.GetCachedimage()
 		if cachedImage == nil {
@@ -72,16 +72,16 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 			return nil, err
 		}
 
-		var extImgId string
+		image.ExternalId = scimg.ExternalId
 		if cachedImage.ImageType == cloudprovider.CachedImageTypeCustomized {
-			extImgId, err = iStorageCache.UploadImage(ctx, userCred, imageId, osArch, osType, osDist, osVersion, scimg.ExternalId, isForce)
+			image.ExternalId, err = iStorageCache.UploadImage(ctx, userCred, image, isForce)
 		} else {
 			_, err = iStorageCache.GetIImageById(cachedImage.ExternalId)
 			if err != nil {
 				log.Errorf("remote image fetch error %s", err)
 				return nil, err
 			}
-			extImgId = cachedImage.ExternalId
+			image.ExternalId = cachedImage.ExternalId
 		}
 
 		if err != nil {
@@ -91,7 +91,7 @@ func (self *SManagedVirtualizationHostDriver) CheckAndSetCacheImage(ctx context.
 		// scimg.SetExternalId(extImgId)
 
 		ret := jsonutils.NewDict()
-		ret.Add(jsonutils.NewString(extImgId), "image_id")
+		ret.Add(jsonutils.NewString(image.ExternalId), "image_id")
 		return ret, nil
 	})
 	return nil
