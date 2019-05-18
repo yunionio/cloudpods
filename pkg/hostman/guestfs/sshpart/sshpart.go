@@ -106,7 +106,8 @@ func (p *SSHPartition) osRmDir(path string) error {
 }
 
 func (p *SSHPartition) osPathExists(path string) bool {
-	_, err := p.term.Run(fmt.Sprintf("test -e %s", path))
+	// test file or symbolic link exists
+	_, err := p.term.Run(fmt.Sprintf("test -e %s || test -L %s", path, path))
 	if err != nil {
 		return false
 	}
