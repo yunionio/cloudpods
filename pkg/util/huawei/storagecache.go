@@ -142,26 +142,26 @@ func (self *SStoragecache) downloadImage(userCred mcclient.TokenCredential, imag
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist, osVersion string, extId string, isForce bool) (string, error) {
-	if len(extId) > 0 {
-		log.Debugf("UploadImage: Image external ID exists %s", extId)
+func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+	if len(image.ExternalId) > 0 {
+		log.Debugf("UploadImage: Image external ID exists %s", image.ExternalId)
 
-		image, err := self.region.GetImage(extId)
+		img, err := self.region.GetImage(image.ExternalId)
 		if err != nil {
 			log.Errorf("GetImageStatus error %s", err)
 		}
-		if image.Status == ImageStatusActive && !isForce {
-			return extId, nil
+		if img.Status == ImageStatusActive && !isForce {
+			return image.ExternalId, nil
 		}
 	} else {
 		log.Debugf("UploadImage: no external ID")
 	}
 
-	return self.uploadImage(ctx, userCred, imageId, osArch, osType, osDist, osVersion, isForce)
+	return self.uploadImage(ctx, userCred, image, isForce)
 }
 
-func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, imageId string, osArch, osType, osDist string, osVersion string, isForce bool) (string, error) {
-	bucketName := GetBucketName(self.region.GetId(), imageId)
+func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+	bucketName := GetBucketName(self.region.GetId(), image.ImageId)
 	obsClient, err := self.region.getOBSClient()
 	if err != nil {
 		return "", err
@@ -179,12 +179,12 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 
 	// upload to huawei cloud
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	meta, reader, err := modules.Images.Download(s, imageId, string(qemuimg.VMDK), false)
+	meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
 		return "", err
 	}
 	log.Debugf("Images meta data %s", meta)
-	_image, err := modules.Images.Get(s, imageId, nil)
+	_image, err := modules.Images.Get(s, image.ImageId, nil)
 	if err != nil {
 		return "", err
 	}
@@ -201,7 +201,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	// upload to huawei cloud
 	obj := &obs.PutObjectInput{}
 	obj.Bucket = bucketName
-	obj.Key = imageId
+	obj.Key = image.ImageId
 	obj.Body = reader
 
 	_, err = obsClient.PutObject(obj)
@@ -211,13 +211,13 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 
 	objDelete := &obs.DeleteObjectInput{}
 	objDelete.Bucket = bucketName
-	objDelete.Key = imageId
+	objDelete.Key = image.ImageId
 	defer obsClient.DeleteObject(objDelete) // remove object
 
 	// check image name, avoid name conflict
-	imageBaseName := imageId
+	imageBaseName := image.ImageId
 	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
-		imageBaseName = fmt.Sprintf("img%s", imageId)
+		imageBaseName = fmt.Sprintf("img%s", image.ImageId)
 	}
 	imageName := imageBaseName
 	nameIdx := 1
@@ -237,10 +237,10 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		log.Debugf("uploadImage Match remote name %s", imageName)
 	}
 
-	jobId, err := self.region.ImportImageJob(imageName, osDist, osVersion, osArch, bucketName, imageId, int64(minDiskGB))
+	jobId, err := self.region.ImportImageJob(imageName, image.OsDistribution, image.OsVersion, image.OsArch, bucketName, image.ImageId, int64(minDiskGB))
 
 	if err != nil {
-		log.Errorf("ImportImage error %s %s %s %s", jobId, imageId, bucketName, err)
+		log.Errorf("ImportImage error %s %s %s %s", jobId, image.ImageId, bucketName, err)
 		return "", err
 	}
 

@@ -71,3 +71,14 @@ func CloudImage2Image(image ICloudImage) SImage {
 		Status:    image.GetImageStatus(),
 	}
 }
+
+type SImageCreateOption struct {
+	ImageId        string
+	ExternalId     string
+	ImageName      string
+	OsType         string
+	OsArch         string
+	OsDistribution string
+	OsVersion      string
+	OsFullVersion  string
+}
