@@ -156,6 +156,8 @@ type IGuestDriver interface {
 
 	OnGuestChangeCpuMemFailed(ctx context.Context, guest *SGuest, data *jsonutils.JSONDict, task taskman.ITask) error
 	IsSupportGuestClone() bool
+
+	IsNeedInjectPasswordByCloudInit() bool
 }
 
 var guestDrivers map[string]IGuestDriver
