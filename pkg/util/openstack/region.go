@@ -51,11 +51,11 @@ func (region *SRegion) GetId() string {
 }
 
 func (region *SRegion) GetName() string {
-	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_OPENSTACK, region.Name)
+	return fmt.Sprintf("%s-%s", region.client.providerName, region.Name)
 }
 
 func (region *SRegion) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_OPENSTACK, region.Name)
+	return fmt.Sprintf("%s/%s/%s", CLOUD_PROVIDER_OPENSTACK, region.Name, region.client.providerID)
 }
 
 func (region *SRegion) IsEmulated() bool {
