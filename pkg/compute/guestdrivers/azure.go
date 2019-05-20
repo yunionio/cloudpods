@@ -126,10 +126,6 @@ func (self *SAzureGuestDriver) ValidateUpdateData(ctx context.Context, userCred 
 	if err != nil {
 		return nil, err
 	}
-	input, err = self.SManagedVirtualizedGuestDriver.ValidateCreateData(ctx, userCred, input)
-	if err != nil {
-		return nil, err
-	}
 	if input.Name != "" {
 		return nil, httperrors.NewInputParameterError("cannot support change azure instance name")
 	}
