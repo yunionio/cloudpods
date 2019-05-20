@@ -48,11 +48,11 @@ func (zone *SZone) GetId() string {
 }
 
 func (zone *SZone) GetName() string {
-	return fmt.Sprintf("%s %s", CLOUD_PROVIDER_OPENSTACK, zone.ZoneName)
+	return zone.ZoneName
 }
 
 func (zone *SZone) GetGlobalId() string {
-	return fmt.Sprintf("%s/%s", zone.region.GetGlobalId(), zone.ZoneName)
+	return fmt.Sprintf("%s/%s/%s", CLOUD_PROVIDER_OPENSTACK, zone.region.Name, zone.ZoneName)
 }
 
 func (zone *SZone) IsEmulated() bool {
