@@ -42,6 +42,7 @@ func InitDB() error {
 		LoadbalancerListenerRuleManager,
 		LoadbalancerBackendGroupManager,
 		LoadbalancerBackendManager,
+		AnsiblePlaybookManager,
 		SchedtagManager,
 		DynamicschedtagManager,
 		ServerSkuManager,
