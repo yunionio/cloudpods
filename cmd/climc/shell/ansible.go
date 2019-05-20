@@ -94,7 +94,7 @@ func doList(s *mcclient.ClientSession, args *AnsibleHostsOptions) error {
 	output.Add(children, "all", "children")
 	output.Add(hosts, "ungrouped", "hosts")
 
-	fmt.Printf("%s", output.PrettyString())
+	fmt.Printf("%s\n", output.PrettyString())
 
 	return nil
 }
@@ -123,7 +123,7 @@ func doHost(s *mcclient.ClientSession, host string, args *AnsibleHostsOptions) e
 		hostVar.Add(jsonutils.NewString(args.UserBecome), "ansible_become_user")
 	}
 
-	fmt.Printf("%s", hostVar.PrettyString())
+	fmt.Printf("%s\n", hostVar.PrettyString())
 
 	return nil
 }
