@@ -206,6 +206,15 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 		return err
 	}
 
+	desc.Account = guest.GetDriver().GetLinuxDefaultAccount(desc)
+
+	if guest.GetDriver().IsNeedInjectPasswordByCloudInit() {
+		err = desc.InjectPasswordByCloudInit()
+		if err != nil {
+			log.Warningf("failed to inject password by cloud-init error: %v", err)
+		}
+	}
+
 	action, err := config.GetString("action")
 	if err != nil {
 		return err
@@ -246,6 +255,10 @@ func (self *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterRebuild() s
 
 func (self *SManagedVirtualizedGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	return "root"
+}
+
+func (self *SManagedVirtualizedGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
+	return false
 }
 
 func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
@@ -300,9 +313,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		return nil, err
 	}
 
-	account := guest.GetDriver().GetLinuxDefaultAccount(desc)
-
-	data := fetchIVMinfo(desc, iVM, guest.Id, account, desc.Password, "create")
+	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, "create")
 	return data, nil
 }
 
@@ -335,8 +346,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx conte
 		return nil, err
 	}
 
-	account := guest.GetDriver().GetLinuxDefaultAccount(desc)
-	data := fetchIVMinfo(desc, iVM, guest.Id, account, desc.Password, "deploy")
+	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, "deploy")
 
 	return data, nil
 }
@@ -404,8 +414,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx 
 		}
 	}
 
-	account := guest.GetDriver().GetLinuxDefaultAccount(desc)
-	data := fetchIVMinfo(desc, iVM, guest.Id, account, desc.Password, "rebuild")
+	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, "rebuild")
 
 	return data, nil
 }
