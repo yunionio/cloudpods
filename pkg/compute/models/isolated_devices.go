@@ -589,7 +589,8 @@ func (manager *SIsolatedDeviceManager) FindByHost(id string) []SIsolatedDevice {
 
 func (manager *SIsolatedDeviceManager) FindByHosts(ids []string) []SIsolatedDevice {
 	dest := make([]SIsolatedDevice, 0)
-	err := manager.Query().In("host_id", ids).All(&dest)
+	q := manager.Query().In("host_id", ids)
+	err := db.FetchModelObjects(manager, q, &dest)
 	if err != nil {
 		log.Errorln(err)
 		return nil
