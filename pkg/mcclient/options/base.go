@@ -19,7 +19,6 @@ import (
 	"reflect"
 	"strings"
 	"time"
-	"unicode"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
@@ -202,7 +201,9 @@ type BaseListOptions struct {
 	ExportFile       string   `help:"Export to file" metavar:"<EXPORT_FILE_PATH>" json:"-"`
 	ExportKeys       string   `help:"Export field keys"`
 	ExportTexts      string   `help:"Export field displayname texts" json:"-"`
-	Tags             []string `help:"Tags info, eg: hypervisor=aliyun、os_type=Linux、os_version"`
+	Tags             []string `help:"Tags info, eg: hypervisor=aliyun, os_type=Linux, os_version" json:"-"`
+	UserTags         []string `help:"UserTags info, eg: group=rd" json:"-"`
+	CloudTags        []string `help:"CloudTags info, eg: price_key=cn-beijing" json:"-"`
 
 	Manager      string `help:"List objects belonging to the cloud provider" json:"manager,omitempty"`
 	Account      string `help:"List objects belonging to the cloud account" json:"account,omitempty"`
@@ -212,6 +213,22 @@ type BaseListOptions struct {
 	PrivateCloud *bool  `help:"List objects belonging to private cloud" json:"private_cloud"`
 	IsOnPremise  *bool  `help:"List objects belonging to on premise infrastructures" token:"on-premise" json:"is_on_premise"`
 	IsManaged    *bool  `help:"List objects managed by external providers" token:"managed" json:"is_managed"`
+}
+
+func (opts *BaseListOptions) addTag(prefix, tag string, idx int, params *jsonutils.JSONDict) error {
+	tagInfo := strings.Split(tag, "=")
+	if len(tagInfo) > 2 {
+		return fmt.Errorf("Too many equal characters %s", tag)
+	}
+	key := tagInfo[0]
+	if len(key) == 0 {
+		return fmt.Errorf("Key must not be empty")
+	}
+	params.Add(jsonutils.NewString(prefix+key), fmt.Sprintf("tags.%d.key", idx))
+	if len(tagInfo) == 2 {
+		params.Add(jsonutils.NewString(tagInfo[1]), fmt.Sprintf("tags.%d.value", idx))
+	}
+	return nil
 }
 
 func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
@@ -235,23 +252,27 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 			params.Set("admin", jsonutils.JSONTrue)
 		}
 	}
-	for idx, tag := range opts.Tags {
-		tagInfo := strings.Split(tag, "=")
-		if len(tagInfo) > 2 {
-			return nil, fmt.Errorf("failed parse tags info %s", tag)
+	tagIdx := 0
+	for _, tag := range opts.Tags {
+		err = opts.addTag("", tag, tagIdx, params)
+		if err != nil {
+			return nil, err
 		}
-		if len(tagInfo[0]) == 0 {
-			return nil, fmt.Errorf("Not support empty key")
+		tagIdx++
+	}
+	for _, tag := range opts.UserTags {
+		err = opts.addTag("user:", tag, tagIdx, params)
+		if err != nil {
+			return nil, err
 		}
-		for _, k := range tagInfo[0] {
-			if k != rune('_') && !unicode.IsLetter(k) && !unicode.IsDigit(k) {
-				return nil, fmt.Errorf("Not support tag key with %s", string(k))
-			}
+		tagIdx++
+	}
+	for _, tag := range opts.CloudTags {
+		err = opts.addTag("ext:", tag, tagIdx, params)
+		if err != nil {
+			return nil, err
 		}
-		params.Add(jsonutils.NewString(tagInfo[0]), fmt.Sprintf("tags.%d.key", idx))
-		if len(tagInfo) == 2 {
-			params.Add(jsonutils.NewString(tagInfo[1]), fmt.Sprintf("tags.%d.value", idx))
-		}
+		tagIdx++
 	}
 	return params, nil
 }
