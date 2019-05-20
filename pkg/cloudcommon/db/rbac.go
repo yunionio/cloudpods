@@ -186,9 +186,23 @@ func IsAdminAllowUpdate(userCred mcclient.TokenCredential, obj IModel) bool {
 	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionUpdate)
 }
 
+func IsAdminAllowUpdateSpec(userCred mcclient.TokenCredential, obj IModel, spec string) bool {
+	if userCred == nil {
+		return false
+	}
+	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionUpdate, spec)
+}
+
 func IsAdminAllowDelete(userCred mcclient.TokenCredential, obj IModel) bool {
 	if userCred == nil {
 		return false
 	}
 	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionDelete)
+}
+
+func IsAdminAllowDeleteSpec(userCred mcclient.TokenCredential, obj IModel, spec string) bool {
+	if userCred == nil {
+		return false
+	}
+	return userCred.IsAdminAllow(consts.GetServiceType(), obj.KeywordPlural(), policy.PolicyActionDelete, spec)
 }

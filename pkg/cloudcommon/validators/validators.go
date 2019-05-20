@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
+	identity "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/util/choices"
 )
@@ -393,6 +394,10 @@ func (v *ValidatorModelIdOrName) GetUserId() string {
 
 func (v *ValidatorModelIdOrName) GetTenantId() string {
 	return v.ProjectId
+}
+
+func (v *ValidatorModelIdOrName) GetProjectDomainId() string {
+	return identity.DEFAULT_DOMAIN_ID
 }
 
 func (v *ValidatorModelIdOrName) getValue() interface{} {

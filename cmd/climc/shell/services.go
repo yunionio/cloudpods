@@ -27,12 +27,9 @@ func init() {
 		Offset int64  `help:"Offset, default 0, i.e. no offset"`
 		Name   string `help:"Search by name"`
 		Type   string `help:"Search by type"`
+		Search string `help:"search any fields"`
 	}
 	R(&ServiceListOptions{}, "service-list", "List services", func(s *mcclient.ClientSession, args *ServiceListOptions) error {
-		mod, err := modules.GetModule(s, "services")
-		if err != nil {
-			return err
-		}
 		query := jsonutils.NewDict()
 		if args.Limit > 0 {
 			query.Add(jsonutils.NewInt(args.Limit), "limit")
@@ -46,11 +43,14 @@ func init() {
 		if len(args.Type) > 0 {
 			query.Add(jsonutils.NewString(args.Type), "type__icontains")
 		}
-		result, err := mod.List(s, query)
+		if len(args.Search) > 0 {
+			query.Add(jsonutils.NewString(args.Search), "search")
+		}
+		result, err := modules.ServicesV3.List(s, query)
 		if err != nil {
 			return err
 		}
-		printList(result, mod.GetColumns(s))
+		printList(result, modules.ServicesV3.GetColumns(s))
 		return nil
 	})
 
@@ -58,15 +58,11 @@ func init() {
 		ID string `help:"ID of service"`
 	}
 	R(&ServiceShowOptions{}, "service-show", "Show details of a service", func(s *mcclient.ClientSession, args *ServiceShowOptions) error {
-		mod, err := modules.GetModule(s, "services")
+		srvId, err := modules.ServicesV3.GetId(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
-		srvId, err := mod.GetId(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		result, err := mod.Get(s, srvId, nil)
+		result, err := modules.ServicesV3.Get(s, srvId, nil)
 		if err != nil {
 			return err
 		}
@@ -74,15 +70,11 @@ func init() {
 		return nil
 	})
 	R(&ServiceShowOptions{}, "service-delete", "Delete a service", func(s *mcclient.ClientSession, args *ServiceShowOptions) error {
-		mod, err := modules.GetModule(s, "services")
+		srvId, err := modules.ServicesV3.GetId(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
-		srvId, err := mod.GetId(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		result, err := mod.Delete(s, srvId, nil)
+		result, err := modules.ServicesV3.Delete(s, srvId, nil)
 		if err != nil {
 			return err
 		}
@@ -109,11 +101,7 @@ func init() {
 		} else if !args.Enabled && args.Disabled {
 			params.Add(jsonutils.JSONFalse, "enabled")
 		}
-		mod, err := modules.GetModule(s, "services")
-		if err != nil {
-			return err
-		}
-		srv, err := mod.Create(s, params)
+		srv, err := modules.ServicesV3.Create(s, params)
 		if err != nil {
 			return err
 		}
@@ -130,11 +118,7 @@ func init() {
 		Disabled bool   `help:"Disabled"`
 	}
 	R(&ServiceUpdateOptions{}, "service-update", "Update a service", func(s *mcclient.ClientSession, args *ServiceUpdateOptions) error {
-		mod, err := modules.GetModule(s, "services")
-		if err != nil {
-			return err
-		}
-		srvId, err := mod.GetId(s, args.ID, nil)
+		srvId, err := modules.ServicesV3.GetId(s, args.ID, nil)
 		if err != nil {
 			return err
 		}
@@ -153,7 +137,7 @@ func init() {
 		} else if !args.Enabled && args.Disabled {
 			params.Add(jsonutils.JSONFalse, "enabled")
 		}
-		srv, err := mod.Patch(s, srvId, params)
+		srv, err := modules.ServicesV3.Patch(s, srvId, params)
 		if err != nil {
 			return err
 		}

@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	"strings"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -38,16 +39,20 @@ func AddModelDispatcher(prefix string, app *appsrv.Application, manager IModelDi
 		manager.Filter(listHandler), metadata, "list", tags)
 	manager.CustomizeHandlerInfo(h)
 
-	ctxs := manager.ContextKeywordPlural()
+	ctxss := manager.ContextKeywordPlurals()
 	// list in context
-	if ctxs != nil && len(ctxs) > 0 {
-		for _, ctx := range ctxs {
-			h = app.AddHandler2("GET",
-				fmt.Sprintf("%s/%s/<resid>/%s", prefix, ctx, manager.KeywordPlural()),
-				manager.Filter(listInContextHandler), metadata, fmt.Sprintf("list_in_%s", ctx), tags)
-			manager.CustomizeHandlerInfo(h)
+	for _, ctxs := range ctxss {
+		segs := make([]string, 0)
+		segs = append(segs, prefix)
+		for i, ctx := range ctxs {
+			segs = append(segs, ctx, fmt.Sprintf("<resid_%d>", i))
 		}
+		segs = append(segs, manager.KeywordPlural())
+		h = app.AddHandler2("GET", strings.Join(segs, "/"),
+			manager.Filter(listInContextHandler), metadata, fmt.Sprintf("list_in_%s", strings.Join(ctxs, "_")), tags)
+		manager.CustomizeHandlerInfo(h)
 	}
+
 	// Head
 	h = app.AddHandler2("HEAD",
 		fmt.Sprintf("%s/%s/<resid>", prefix, manager.KeywordPlural()),
@@ -69,22 +74,26 @@ func AddModelDispatcher(prefix string, app *appsrv.Application, manager IModelDi
 		fmt.Sprintf("%s/%s", prefix, manager.KeywordPlural()),
 		manager.Filter(createHandler), metadata, "create", tags)
 	manager.CustomizeHandlerInfo(h)
+
 	// create in context
-	if ctxs != nil && len(ctxs) > 0 {
-		for _, ctx := range ctxs {
-			h = app.AddHandler2("POST",
-				fmt.Sprintf("%s/%s/<resid>/%s", prefix, ctx, manager.KeywordPlural()),
-				manager.Filter(createInContextHandler), metadata, fmt.Sprintf("create_in_%s", ctx), tags)
-			manager.CustomizeHandlerInfo(h)
+	for _, ctxs := range ctxss {
+		segs := make([]string, 0)
+		segs = append(segs, prefix)
+		for i, ctx := range ctxs {
+			segs = append(segs, ctx, fmt.Sprintf("<resid_%d>", i))
 		}
+		segs = append(segs, manager.KeywordPlural())
+		h = app.AddHandler2("POST", strings.Join(segs, "/"),
+			manager.Filter(createInContextHandler), metadata, fmt.Sprintf("create_in_%s", strings.Join(ctxs, "_")), tags)
+		manager.CustomizeHandlerInfo(h)
 	}
+
 	// batchPerformAction
 	h = app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/<action>", prefix, manager.KeywordPlural()),
 		manager.Filter(performClassActionHandler), metadata, "perform_class_action", tags)
 	manager.CustomizeHandlerInfo(h)
 	// performAction
-	// create in context
 	h = app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/<resid>/<action>", prefix, manager.KeywordPlural()),
 		manager.Filter(performActionHandler), metadata, "perform_action", tags)
@@ -99,6 +108,39 @@ func AddModelDispatcher(prefix string, app *appsrv.Application, manager IModelDi
 		fmt.Sprintf("%s/%s/<resid>", prefix, manager.KeywordPlural()),
 		manager.Filter(updateHandler), metadata, "update", tags)
 	manager.CustomizeHandlerInfo(h)
+	// patch
+	h = app.AddHandler2("PATCH",
+		fmt.Sprintf("%s/%s/<resid>", prefix, manager.KeywordPlural()),
+		manager.Filter(updateHandler), metadata, "patch", tags)
+	manager.CustomizeHandlerInfo(h)
+
+	// update/patch in context
+	for _, ctxs := range ctxss {
+		segs := make([]string, 0)
+		segs = append(segs, prefix)
+		for i, ctx := range ctxs {
+			segs = append(segs, ctx, fmt.Sprintf("<resid_%d>", i))
+		}
+		segs = append(segs, manager.KeywordPlural(), "<resid>")
+		h = app.AddHandler2("PUT", strings.Join(segs, "/"),
+			manager.Filter(updateInContextHandler), metadata, fmt.Sprintf("update_in_%s", strings.Join(ctxs, "_")), tags)
+		manager.CustomizeHandlerInfo(h)
+		h = app.AddHandler2("PATCH", strings.Join(segs, "/"),
+			manager.Filter(updateInContextHandler), metadata, fmt.Sprintf("patch_in_%s", strings.Join(ctxs, "_")), tags)
+		manager.CustomizeHandlerInfo(h)
+	}
+
+	// update spec
+	h = app.AddHandler2("PUT",
+		fmt.Sprintf("%s/%s/<resid>/<spec>", prefix, manager.KeywordPlural()),
+		manager.Filter(updateSpecHandler), metadata, "update_spec", tags)
+	manager.CustomizeHandlerInfo(h)
+	// patch spec
+	h = app.AddHandler2("PATCH",
+		fmt.Sprintf("%s/%s/<resid>/<spec>", prefix, manager.KeywordPlural()),
+		manager.Filter(updateSpecHandler), metadata, "patch_spec", tags)
+	manager.CustomizeHandlerInfo(h)
+
 	// batch Delete
 	/* app.AddHandler2("DELTE",
 	fmt.Sprintf("%s/%s", prefix, manager.KeywordPlural()),
@@ -108,6 +150,25 @@ func AddModelDispatcher(prefix string, app *appsrv.Application, manager IModelDi
 	h = app.AddHandler2("DELETE",
 		fmt.Sprintf("%s/%s/<resid>", prefix, manager.KeywordPlural()),
 		manager.Filter(deleteHandler), metadata, "delete", tags)
+	manager.CustomizeHandlerInfo(h)
+
+	// delete in context
+	for _, ctxs := range ctxss {
+		segs := make([]string, 0)
+		segs = append(segs, prefix)
+		for i, ctx := range ctxs {
+			segs = append(segs, ctx, fmt.Sprintf("<resid_%d>", i))
+		}
+		segs = append(segs, manager.KeywordPlural(), "<resid>")
+		h = app.AddHandler2("DELETE", strings.Join(segs, "/"),
+			manager.Filter(deleteInContextHandler), metadata, fmt.Sprintf("delete_in_%s", strings.Join(ctxs, "_")), tags)
+		manager.CustomizeHandlerInfo(h)
+	}
+
+	// Delete Spec
+	h = app.AddHandler2("DELETE",
+		fmt.Sprintf("%s/%s/<resid>/<spec>", prefix, manager.KeywordPlural()),
+		manager.Filter(deleteSpecHandler), metadata, "delete_spec", tags)
 	manager.CustomizeHandlerInfo(h)
 }
 
@@ -136,11 +197,11 @@ func mergeQueryParams(params map[string]string, query jsonutils.JSONObject, excl
 
 func listHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchEnv(ctx, w, r)
-	handleList(ctx, w, manager, "", mergeQueryParams(params, query))
+	handleList(ctx, w, manager, nil, mergeQueryParams(params, query))
 }
 
-func handleList(ctx context.Context, w http.ResponseWriter, manager IModelDispatchHandler, ctxId string, query jsonutils.JSONObject) {
-	listResult, err := manager.List(ctx, query, ctxId)
+func handleList(ctx context.Context, w http.ResponseWriter, manager IModelDispatchHandler, ctxIds []SResourceContext, query jsonutils.JSONObject) {
+	listResult, err := manager.List(ctx, query, ctxIds)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -148,10 +209,26 @@ func handleList(ctx context.Context, w http.ResponseWriter, manager IModelDispat
 	appsrv.SendJSON(w, modules.ListResult2JSONWithKey(listResult, manager.KeywordPlural()))
 }
 
+func fetchContextIds(segs []string, params map[string]string) ([]SResourceContext, []string) {
+	ctxIds := make([]SResourceContext, 0)
+	keys := make([]string, 0)
+	idx := 0
+	key := fmt.Sprintf("<resid_%d>", idx)
+	for i := 0; i < len(segs); i += 1 {
+		if segs[i] == key {
+			ctxIds = append(ctxIds, SResourceContext{Type: segs[i-1], Id: params[key]})
+			keys = append(keys, key)
+			idx += 1
+			key = fmt.Sprintf("<resid_%d>", idx)
+		}
+	}
+	return ctxIds, keys
+}
+
 func listInContextHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchEnv(ctx, w, r)
-	ctxId := params["<resid>"]
-	handleList(ctx, w, manager, ctxId, mergeQueryParams(params, query, "<resid>"))
+	ctxIds, ctxKeys := fetchContextIds(appctx.AppContextCurrentRoot(ctx), params)
+	handleList(ctx, w, manager, ctxIds, mergeQueryParams(params, query, ctxKeys...))
 }
 
 func wrapBody(body jsonutils.JSONObject, key string) jsonutils.JSONObject {
@@ -179,6 +256,17 @@ func headHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func sendJSON(ctx context.Context, w http.ResponseWriter, result jsonutils.JSONObject, keyword string) {
+	appParams := appsrv.AppContextGetParams(ctx)
+	var body jsonutils.JSONObject
+	if appParams != nil && appParams.OverrideResponseBodyWrapper {
+		body = result
+	} else {
+		body = wrapBody(result, keyword)
+	}
+	appsrv.SendJSON(w, body)
+}
+
 func getHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchEnv(ctx, w, r)
 	result, err := manager.Get(ctx, params["<resid>"], mergeQueryParams(params, query, "<resid>"), false)
@@ -187,14 +275,7 @@ func getHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if result != nil {
-		appParams := appsrv.AppContextGetParams(ctx)
-		var body jsonutils.JSONObject
-		if appParams != nil && appParams.OverrideResponseBodyWrapper {
-			body = result
-		} else {
-			body = wrapBody(result, manager.Keyword())
-		}
-		appsrv.SendJSON(w, body)
+		sendJSON(ctx, w, result, manager.Keyword())
 	}
 }
 
@@ -206,16 +287,16 @@ func getSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if result != nil {
-		appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
+		sendJSON(ctx, w, result, manager.Keyword())
 	}
 }
 
 func createHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, body := fetchEnv(ctx, w, r)
-	handleCreate(ctx, w, manager, "", mergeQueryParams(params, query), body, r)
+	handleCreate(ctx, w, manager, nil, mergeQueryParams(params, query), body, r)
 }
 
-func handleCreate(ctx context.Context, w http.ResponseWriter, manager IModelDispatchHandler, ctxId string, query jsonutils.JSONObject, body jsonutils.JSONObject, r *http.Request) {
+func handleCreate(ctx context.Context, w http.ResponseWriter, manager IModelDispatchHandler, ctxIds []SResourceContext, query jsonutils.JSONObject, body jsonutils.JSONObject, r *http.Request) {
 	count := int64(1)
 	var data jsonutils.JSONObject
 	var err error
@@ -236,14 +317,14 @@ func handleCreate(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 		}
 	}
 	if count <= 1 {
-		result, err := manager.Create(ctx, query, data, ctxId)
+		result, err := manager.Create(ctx, query, data, ctxIds)
 		if err != nil {
 			httperrors.GeneralServerError(w, err)
 			return
 		}
 		appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
 	} else {
-		results, err := manager.BatchCreate(ctx, query, data, int(count), ctxId)
+		results, err := manager.BatchCreate(ctx, query, data, int(count), ctxIds)
 		if err != nil {
 			httperrors.GeneralServerError(w, err)
 			return
@@ -261,17 +342,21 @@ func handleCreate(ctx context.Context, w http.ResponseWriter, manager IModelDisp
 
 func createInContextHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, body := fetchEnv(ctx, w, r)
-	ctxId := params["<resid>"]
-	handleCreate(ctx, w, manager, ctxId, mergeQueryParams(params, query, "<resid>"), body, r)
+	ctxIds, ctxKeys := fetchContextIds(appctx.AppContextCurrentRoot(ctx), params)
+	handleCreate(ctx, w, manager, ctxIds, mergeQueryParams(params, query, ctxKeys...), body, r)
 }
 
 func performClassActionHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, body := fetchEnv(ctx, w, r)
 	var data jsonutils.JSONObject
 	if body != nil {
-		data, _ = body.Get(manager.KeywordPlural())
-		if data == nil {
-			data = body.(*jsonutils.JSONDict)
+		if body.Contains(manager.KeywordPlural()) {
+			data, _ = body.Get(manager.KeywordPlural())
+			if data == nil {
+				data = body.(*jsonutils.JSONDict)
+			}
+		} else {
+			data = body
 		}
 	} else {
 		data = jsonutils.NewDict()
@@ -284,16 +369,21 @@ func performClassActionHandler(ctx context.Context, w http.ResponseWriter, r *ht
 	if results == nil {
 		results = jsonutils.NewDict()
 	}
-	appsrv.SendJSON(w, wrapBody(results, manager.KeywordPlural()))
+	sendJSON(ctx, w, results, manager.KeywordPlural())
+	// appsrv.SendJSON(w, wrapBody(results, manager.KeywordPlural()))
 }
 
 func performActionHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, body := fetchEnv(ctx, w, r)
 	var data jsonutils.JSONObject
 	if body != nil {
-		data, _ = body.Get(manager.Keyword())
-		if data == nil {
-			data = body.(*jsonutils.JSONDict)
+		if body.Contains(manager.Keyword()) {
+			data, _ = body.Get(manager.Keyword())
+			if data == nil {
+				data = body.(*jsonutils.JSONDict)
+			}
+		} else {
+			data = body
 		}
 	} else {
 		data = jsonutils.NewDict()
@@ -303,7 +393,8 @@ func performActionHandler(ctx context.Context, w http.ResponseWriter, r *http.Re
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
+	sendJSON(ctx, w, result, manager.Keyword())
+	// appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
 }
 
 /*
@@ -326,14 +417,22 @@ func updateClassHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 func updateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, body := fetchEnv(ctx, w, r)
+	handleUpdate(ctx, w, manager, params["<resid>"], nil, mergeQueryParams(params, query, "<resid>"), body, r)
+}
+
+func handleUpdate(ctx context.Context, w http.ResponseWriter, manager IModelDispatchHandler, resId string, ctxIds []SResourceContext, query jsonutils.JSONObject, body jsonutils.JSONObject, r *http.Request) {
 	var data jsonutils.JSONObject
 	var err error
 	if body != nil {
-		data, err = body.Get(manager.Keyword())
-		if err != nil {
-			httperrors.InvalidInputError(w,
-				fmt.Sprintf("No request key: %s", manager.Keyword()))
-			return
+		if body.Contains(manager.Keyword()) {
+			data, err = body.Get(manager.Keyword())
+			if err != nil {
+				httperrors.InvalidInputError(w,
+					fmt.Sprintf("No request key: %s", manager.Keyword()))
+				return
+			}
+		} else {
+			data = body
 		}
 	} else {
 		data, err = manager.FetchUpdateHeaderData(ctx, r.Header)
@@ -343,12 +442,52 @@ func updateHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
-	result, err := manager.Update(ctx, params["<resid>"], mergeQueryParams(params, query, "<resid>"), data)
+	result, err := manager.Update(ctx, resId, query, data, ctxIds)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
+	sendJSON(ctx, w, result, manager.Keyword())
+	// appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
+}
+
+func updateInContextHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	manager, params, query, body := fetchEnv(ctx, w, r)
+	ctxIds, ctxKeys := fetchContextIds(appctx.AppContextCurrentRoot(ctx), params)
+	ctxKeys = append(ctxKeys, "<resid>")
+	handleUpdate(ctx, w, manager, params["<resid>"], ctxIds, mergeQueryParams(params, query, ctxKeys...), body, r)
+}
+
+func updateSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	manager, params, query, body := fetchEnv(ctx, w, r)
+	var data jsonutils.JSONObject
+	var err error
+	if body != nil {
+		if body.Contains(manager.Keyword()) {
+			data, err = body.Get(manager.Keyword())
+			if err != nil {
+				httperrors.InvalidInputError(w,
+					fmt.Sprintf("No request key: %s", manager.Keyword()))
+				return
+			}
+		} else {
+			data = body
+		}
+	} else {
+		data, err = manager.FetchUpdateHeaderData(ctx, r.Header)
+		if err != nil {
+			httperrors.InvalidInputError(w,
+				fmt.Sprintf("In valid request header: %s", err))
+			return
+		}
+	}
+	result, err := manager.UpdateSpec(ctx, params["<resid>"], params["<spec>"], mergeQueryParams(params, query, "<resid>", "<spec>"), data)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	sendJSON(ctx, w, result, manager.Keyword())
+	// appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
 }
 
 /*
@@ -374,22 +513,65 @@ func deleteClassHandler(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 func deleteHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, body := fetchEnv(ctx, w, r)
+	handleDelete(ctx, w, manager, params["<resid>"], nil, mergeQueryParams(params, query, "<resid>"), body, r)
+}
+
+func handleDelete(ctx context.Context, w http.ResponseWriter, manager IModelDispatchHandler, resId string, ctxIds []SResourceContext, query jsonutils.JSONObject, body jsonutils.JSONObject, r *http.Request) {
 	var data jsonutils.JSONObject
 	var err error
 	if body != nil {
-		data, err = body.Get(manager.Keyword())
-		if err != nil {
-			httperrors.InvalidInputError(w,
-				fmt.Sprintf("No request key: %s", manager.Keyword()))
-			return
+		if body.Contains(manager.Keyword()) {
+			data, err = body.Get(manager.Keyword())
+			if err != nil {
+				httperrors.InvalidInputError(w,
+					fmt.Sprintf("No request key: %s", manager.Keyword()))
+				return
+			}
+		} else {
+			data = body
 		}
 	} else {
 		data = jsonutils.NewDict()
 	}
-	result, err := manager.Delete(ctx, params["<resid>"], mergeQueryParams(params, query, "<resid>"), data)
+	result, err := manager.Delete(ctx, resId, query, data, ctxIds)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
+	sendJSON(ctx, w, result, manager.Keyword())
+	// appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
+}
+
+func deleteInContextHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	manager, params, query, body := fetchEnv(ctx, w, r)
+	ctxIds, ctxKeys := fetchContextIds(appctx.AppContextCurrentRoot(ctx), params)
+	ctxKeys = append(ctxKeys, "<resid>")
+	handleDelete(ctx, w, manager, params["<resid>"], ctxIds, mergeQueryParams(params, query, ctxKeys...), body, r)
+}
+
+func deleteSpecHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	manager, params, query, body := fetchEnv(ctx, w, r)
+	var data jsonutils.JSONObject
+	var err error
+	if body != nil {
+		if body.Contains(manager.Keyword()) {
+			data, err = body.Get(manager.Keyword())
+			if err != nil {
+				httperrors.InvalidInputError(w,
+					fmt.Sprintf("No request key: %s", manager.Keyword()))
+				return
+			}
+		} else {
+			data = body
+		}
+	} else {
+		data = jsonutils.NewDict()
+	}
+	result, err := manager.DeleteSpec(ctx, params["<resid>"], params["<spec>"], mergeQueryParams(params, query, "<resid>", "<spec>"), data)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+	sendJSON(ctx, w, result, manager.Keyword())
+	// appsrv.SendJSON(w, wrapBody(result, manager.Keyword()))
 }

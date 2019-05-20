@@ -30,3 +30,26 @@ func TestGeneratePassword(t *testing.T) {
 		t.Errorf("fail to verify %s", err)
 	}
 }
+
+func TestGeneratePassword2(t *testing.T) {
+	passwd := "Hello world!"
+	dk, err := BcryptPassword(passwd)
+	if err != nil {
+		t.Errorf("%s", err)
+		return
+	}
+	t.Logf("%s", dk)
+
+	err = BcryptVerifyPassword(passwd, dk)
+	if err != nil {
+		t.Errorf("fail to verify %s", err)
+	}
+
+	hash := "$2b$12$PhhOkNNNa2wWU643XKVC3uS6cVR8JY4ZkJ2p.GlmZWCiv7oqp2a9m"
+	pass := "MxqhTC2VKe067jtD"
+
+	err = BcryptVerifyPassword(pass, hash)
+	if err != nil {
+		t.Errorf("Verify existing fail %s", err)
+	}
+}

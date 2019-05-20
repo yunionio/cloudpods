@@ -30,16 +30,16 @@ type KeystoneEndpointV3 struct {
 	Id        string `json:"id"`
 	Interface string `json:"interface"`
 	Region    string `json:"region"`
-	Region_id string `json:"region_id"`
+	RegionId  string `json:"region_id"`
 	Url       string `json:"url"`
 	Name      string `json:"name"`
 }
 
 type KeystoneServiceV3 struct {
-	Id        string               `json:"id"`
-	Name      string               `json:"name"`
-	Type      string               `json:"type"`
-	Endpoints []KeystoneEndpointV3 `json:"endpoint"`
+	Id        string               `json:"id,omitempty"`
+	Name      string               `json:"name,omitempty"`
+	Type      string               `json:"type,omitempty"`
+	Endpoints []KeystoneEndpointV3 `json:"endpoints,omitempty"`
 }
 
 type KeystoneDomainV3 struct {
@@ -68,20 +68,20 @@ type KeystoneUserV3 struct {
 type KeystoneServiceCatalogV3 []KeystoneServiceV3
 
 type KeystoneTokenV3 struct {
-	Audit_ids  []string
-	Expires_at time.Time
-	Is_domain  bool
-	Issued_at  time.Time
-	Methods    []string
-	Project    KeystoneProjectV3
-	Roles      []KeystoneRoleV3
-	User       KeystoneUserV3
-	Catalog    KeystoneServiceCatalogV3
+	AuditIds  []string                 `json:"audit_ids"`
+	ExpiresAt time.Time                `json:"expires_at"`
+	IsDomain  bool                     `json:"is_domain,allowfalse"`
+	IssuedAt  time.Time                `json:"issued_at"`
+	Methods   []string                 `json:"methods"`
+	Project   KeystoneProjectV3        `json:"project"`
+	Roles     []KeystoneRoleV3         `json:"roles"`
+	User      KeystoneUserV3           `json:"user"`
+	Catalog   KeystoneServiceCatalogV3 `json:"catalog"`
 }
 
 type TokenCredentialV3 struct {
 	Token KeystoneTokenV3
-	Id    string
+	Id    string `json:"id,omitempty"`
 }
 
 func (token *TokenCredentialV3) GetTokenString() string {
@@ -112,6 +112,14 @@ func (token *TokenCredentialV3) GetTenantName() string {
 	return token.Token.Project.Name
 }
 
+func (token *TokenCredentialV3) GetProjectDomainId() string {
+	return token.Token.Project.Domain.Id
+}
+
+func (token *TokenCredentialV3) GetProjectDomain() string {
+	return token.Token.Project.Domain.Name
+}
+
 func (token *TokenCredentialV3) GetUserName() string {
 	return token.Token.User.Name
 }
@@ -129,7 +137,7 @@ func (token *TokenCredentialV3) GetRoles() []string {
 }
 
 func (this *TokenCredentialV3) GetExpires() time.Time {
-	return this.Token.Expires_at
+	return this.Token.ExpiresAt
 }
 
 func (this *TokenCredentialV3) IsValid() bool {
@@ -137,7 +145,7 @@ func (this *TokenCredentialV3) IsValid() bool {
 }
 
 func (this *TokenCredentialV3) ValidDuration() time.Duration {
-	return time.Until(this.Token.Expires_at)
+	return time.Until(this.Token.ExpiresAt)
 }
 
 func (this *TokenCredentialV3) IsAdmin() bool {
@@ -190,7 +198,7 @@ func (catalog KeystoneServiceCatalogV3) getInternalServices(region string) []str
 	for i := 0; i < len(catalog); i++ {
 		exit := false
 		for j := 0; j < len(catalog[i].Endpoints); j++ {
-			if catalog[i].Endpoints[j].Region_id == region &&
+			if catalog[i].Endpoints[j].RegionId == region &&
 				catalog[i].Endpoints[j].Interface == "internal" {
 				exit = true
 				break
@@ -207,7 +215,7 @@ func (catalog KeystoneServiceCatalogV3) getExternalServices(region string) []Ext
 	services := make([]ExternalService, 0)
 	for i := 0; i < len(catalog); i++ {
 		for j := 0; j < len(catalog[i].Endpoints); j++ {
-			if catalog[i].Endpoints[j].Region_id == region &&
+			if catalog[i].Endpoints[j].RegionId == region &&
 				catalog[i].Endpoints[j].Interface == "public" &&
 				len(catalog[i].Endpoints[j].Name) > 0 {
 				srv := ExternalService{Name: catalog[i].Endpoints[j].Name,
@@ -223,7 +231,7 @@ func (catalog KeystoneServiceCatalogV3) getRegions() []string {
 	regions := make([]string, 0)
 	for i := 0; i < len(catalog); i++ {
 		for j := 0; j < len(catalog[i].Endpoints); j++ {
-			r, _ := Id2RegionZone(catalog[i].Endpoints[j].Region_id)
+			r, _ := Id2RegionZone(catalog[i].Endpoints[j].RegionId)
 			if !stringArrayContains(regions, r) {
 				regions = append(regions, r)
 			}
@@ -238,10 +246,10 @@ func (catalog KeystoneServiceCatalogV3) getEndpoints(region string, endpointType
 	for i := 0; i < len(catalog); i++ {
 		for j := 0; j < len(catalog[i].Endpoints); j++ {
 			endpoint := catalog[i].Endpoints[j]
-			if (endpoint.Region_id == region || strings.HasPrefix(endpoint.Region_id, region+"-")) && endpoint.Interface == endpointType {
+			if (endpoint.RegionId == region || strings.HasPrefix(endpoint.RegionId, region+"-")) && endpoint.Interface == endpointType {
 				endpoints = append(endpoints, Endpoint{
 					endpoint.Id,
-					endpoint.Region_id,
+					endpoint.RegionId,
 					catalog[i].Id,
 					catalog[i].Name,
 					endpoint.Url,
@@ -296,14 +304,14 @@ func (catalog KeystoneServiceCatalogV3) GetServiceURLs(service, region, zone, en
 			}
 			for j := 0; j < len(catalog[i].Endpoints); j++ {
 				ep := catalog[i].Endpoints[j]
-				if strings.HasPrefix(endpointType, ep.Interface) && (ep.Region_id == region ||
-					ep.Region_id == regionzone ||
+				if strings.HasPrefix(endpointType, ep.Interface) && (ep.RegionId == region ||
+					ep.RegionId == regionzone ||
 					len(region) == 0) {
-					_, ok := regeps[ep.Region_id]
+					_, ok := regeps[ep.RegionId]
 					if !ok {
-						regeps[ep.Region_id] = make([]string, 0)
+						regeps[ep.RegionId] = make([]string, 0)
 					}
-					regeps[ep.Region_id] = append(regeps[ep.Region_id], ep.Url)
+					regeps[ep.RegionId] = append(regeps[ep.RegionId], ep.Url)
 				}
 			}
 			if len(region) == 0 {

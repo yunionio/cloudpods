@@ -14,7 +14,9 @@
 
 package policy
 
-import "yunion.io/x/onecloud/pkg/util/rbacutils"
+import (
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
+)
 
 var (
 	defaultRules = []rbacutils.SRbacRule{

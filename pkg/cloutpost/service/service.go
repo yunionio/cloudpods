@@ -33,6 +33,7 @@ const (
 
 func StartService() {
 	opts := &options.Options
+	baseOpts := &opts.BaseOptions
 	commonOpts := &opts.CommonOptions
 	common_options.ParseOptions(opts, os.Args, "cloutpost.conf", SERVICE_TYPE)
 
@@ -46,7 +47,7 @@ func StartService() {
 	}
 	defer etcd.CloseDefaultEtcdClient()
 
-	app := app_common.InitApp(commonOpts, false)
+	app := app_common.InitApp(baseOpts, false)
 	cloudcommon.AppDBInit(app)
 	initHandlers(app)
 
@@ -65,5 +66,5 @@ func StartService() {
 		log.Fatalf("fail to register service %s", err)
 	}
 
-	app_common.ServeForever(app, commonOpts)
+	app_common.ServeForever(app, baseOpts)
 }

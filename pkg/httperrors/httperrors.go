@@ -18,6 +18,7 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -38,6 +39,7 @@ func HTTPError(w http.ResponseWriter, msg string, statusCode int, class string, 
 	err.Add(jsonutils.NewStringArray(error.Fields), "fields")
 	body.Add(err, "data")
 	w.Write([]byte(body.String()))
+	log.Errorf("Send error %s", err)
 }
 
 func JsonClientError(w http.ResponseWriter, e *httputils.JSONClientError) {

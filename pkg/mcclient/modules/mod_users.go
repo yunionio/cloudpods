@@ -54,12 +54,12 @@ type UserManagerV3 struct {
 }
 
 func (this *UserManagerV3) GetProjects(session *mcclient.ClientSession, uid string) (*ListResult, error) {
-	url := fmt.Sprintf("/users/%s/projects", uid)
+	url := fmt.Sprintf("/users/%s/projects?admin=true", uid)
 	return this._list(session, url, "projects")
 }
 
 func (this *UserManagerV3) GetGroups(session *mcclient.ClientSession, uid string) (*ListResult, error) {
-	url := fmt.Sprintf("/users/%s/groups", uid)
+	url := fmt.Sprintf("/users/%s/groups?admin=true", uid)
 	return this._list(session, url, "groups")
 }
 
@@ -188,7 +188,7 @@ func init() {
 	UsersV3 = UserManagerV3{NewIdentityV3Manager("user", "users",
 		[]string{},
 		[]string{"ID", "Name", "Domain_Id", "default_project_id",
-			"Enabled", "Email", "Mobile"})}
+			"Enabled", "Email", "Mobile", "Displayname"})}
 
 	register(&UsersV3)
 }

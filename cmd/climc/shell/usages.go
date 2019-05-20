@@ -143,4 +143,15 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type IdentityUsageOptions struct {
+	}
+	R(&IdentityUsageOptions{}, "identity-usage", "Show general usage of identity", func(s *mcclient.ClientSession, args *IdentityUsageOptions) error {
+		result, err := modules.IdentityUsages.GetUsage(s, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

@@ -39,6 +39,7 @@ func StartService() {
 	consts.DisableOpsLog()
 
 	opts := &options.Options
+	baseOpts := &opts.BaseOptions
 	commonOpts := &opts.CommonOptions
 	dbOpts := &opts.DBOptions
 	common_options.ParseOptions(opts, os.Args, "log.conf", SERVICE_TYPE)
@@ -52,7 +53,7 @@ func StartService() {
 
 	models.StartNotifyToWebsocketWorker()
 
-	app := app_common.InitApp(commonOpts, true)
+	app := app_common.InitApp(baseOpts, true)
 	cloudcommon.AppDBInit(app)
 	initHandlers(app)
 
@@ -60,5 +61,5 @@ func StartService() {
 		log.Fatalf("database schema not in sync!")
 	}
 
-	app_common.ServeForever(app, commonOpts)
+	app_common.ServeForever(app, baseOpts)
 }

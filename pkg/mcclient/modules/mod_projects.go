@@ -298,7 +298,7 @@ func (this *ProjectManagerV3) AddTags(session *mcclient.ClientSession, id string
 func init() {
 	Projects = ProjectManagerV3{NewIdentityV3Manager("project", "projects",
 		[]string{},
-		[]string{"ID", "Name", "Domain_Id", "Enabled", "Description"})}
+		[]string{"ID", "Name", "Domain_Id", "Domain", "Parent_Id", "Enabled", "Description", "Created_At"})}
 
 	register(&Projects)
 }

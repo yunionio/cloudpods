@@ -510,6 +510,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:660e6c59164572d31b7983efcddc8584a112fdf7cdd23b02417a1db16be2990d"
+  name = "github.com/fernet/fernet-go"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "9eac43b88a5efb8651d24de9b68e87567e029736"
+
+[[projects]]
+  branch = "master"
   digest = "1:50a46ab1d5edbbdd55125b4d37f1bf503d0807c26461f9ad7b358d6006641d09"
   name = "github.com/flynn/go-shlex"
   packages = ["."]
@@ -1288,6 +1296,17 @@
   revision = "9c7f9b7a2bc3a520f7c7b30b34b7f85f47fe27b6"
 
 [[projects]]
+  digest = "1:01d5dc3bfb14cf8fb2c924dcf026231218604b8ed15daaa028875d49e7f09071"
+  name = "github.com/vmihailenco/msgpack"
+  packages = [
+    ".",
+    "codes",
+  ]
+  pruneopts = "UT"
+  revision = "c2fc210f30a2aca9db880cc017a92c169c999253"
+  version = "v4.0.4"
+
+[[projects]]
   digest = "1:506f2f0fee9b0e75b987286233a3b0d3fbf7cb145d754b0719b672822246cbc6"
   name = "github.com/vmware/govmomi"
   packages = [
@@ -1337,9 +1356,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bb52d5f63c8e08efb5bca4cf600f07690f75f3aa738e0bdfc25112385a2e674c"
+  digest = "1:cc72e3461310e6287e526d8611d91dabd5d69971cb24c995b95c3820d5242ff1"
   name = "golang.org/x/crypto"
   packages = [
+    "bcrypt",
+    "blowfish",
     "curve25519",
     "ed25519",
     "ed25519/internal/edwards25519",
@@ -1432,14 +1453,18 @@
   revision = "85acf8d2951cb2a3bde7632f9ff273ef0379bcbd"
 
 [[projects]]
-  digest = "1:a623ed4965cad144a32551cb009b9bad9ad247c22ca1afdd934fc85d0c891f93"
+  digest = "1:aee4de7ff868145d797de04621e3f7ae0d363244acd3df52bf5c49ad808f4ca8"
   name = "google.golang.org/appengine"
   packages = [
+    ".",
     "cloudsql",
+    "datastore",
     "internal",
+    "internal/app_identity",
     "internal/base",
     "internal/datastore",
     "internal/log",
+    "internal/modules",
     "internal/remote_api",
     "internal/urlfetch",
     "urlfetch",
@@ -1498,6 +1523,14 @@
   version = "v1.17.0"
 
 [[projects]]
+  digest = "1:af07c44dc04418be522bfd4e21ca9130d58169ea084e3a883e23772003a381c4"
+  name = "gopkg.in/asn1-ber.v1"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f715ec2f112d1e4195b827ad68cf44017a3ef2b1"
+  version = "v1.3"
+
+[[projects]]
   digest = "1:2655728699af00d823b0a68bd7169fd241a30c04252f456b34421908701b9c3f"
   name = "gopkg.in/gin-gonic/gin.v1"
   packages = ["."]
@@ -1520,6 +1553,14 @@
   pruneopts = "UT"
   revision = "d2d2541c53f18d2a059457998ce2876cc8e67cbf"
   version = "v0.9.1"
+
+[[projects]]
+  digest = "1:e9a0fa7c2dfc90e0fae16be5825ad98074d8704f5fcebfdc289a8e8fb0f8e4b5"
+  name = "gopkg.in/ldap.v3"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "9f0d712775a0973b7824a1585a86a4ea1d5263d9"
+  version = "v3.0.3"
 
 [[projects]]
   digest = "1:4d2e5a73dc1500038e504a8d78b986630e3626dc027bc030ba5c75da257cdb96"
@@ -1705,26 +1746,26 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:53c214ff8c2fd57db0962140b9a5e57b01b63066e7de7fe6897a633d15b78248"
+  digest = "1:dd1650e297358d848ef6dcee19dfc771c3797a4d4de4a35308776a6cb7ef4f55"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "028b9007e455103eabacf3e6d71b5ce5060c3984"
+  revision = "c321606ff64b549fbcfc530f26f8b1858695918d"
 
 [[projects]]
   branch = "master"
-  digest = "1:20590bdd812710ad3257e92c23c7d19d9595a48ed69b200ac1d23ac76eee848e"
+  digest = "1:b41b7202c73bb184085e87e1373d2729f0a4fb5776c0b41376c14809159508af"
   name = "yunion.io/x/log"
   packages = [
     ".",
     "hooks",
   ]
   pruneopts = "UT"
-  revision = "3c4f24289a1b2fd39b94a9ccbd40931b3a20aab7"
+  revision = "04ce53b17c6b0db6eaff6bd810db2c6106232176"
 
 [[projects]]
   branch = "master"
-  digest = "1:777d274ba9317e4901e544a75138520b2fb0fd88d6c66fb446262824571835a8"
+  digest = "1:0fbe21d28e25757df5cfc5266c9c8d8183da6b1749dd20dfe06a94ba801db4fe"
   name = "yunion.io/x/pkg"
   packages = [
     "gotypes",
@@ -1758,23 +1799,23 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "df1afe907f81bfa2adddae023d8577074784a964"
+  revision = "740ce1e70d2417c195f669bbddf8ade8ec967419"
 
 [[projects]]
   branch = "master"
-  digest = "1:ff4e73f338d767968f1a664f407877a9f4e1adc21ea938387a6e93130d23be4d"
+  digest = "1:66d19ef38985070b76f8ca9f9fc468e69e923bf331cb9bf4488d7997f2f4a7b0"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "b34ca088f7b65fa0e466e39daa9d99e01fcb073d"
+  revision = "b100553e017505920d398be5bb4bafe7914d6ef0"
 
 [[projects]]
   branch = "master"
-  digest = "1:cfa79b54c4ec8d1fe6b1599846b3975c50212f58114d807a6db69bbee5a16b7a"
+  digest = "1:505f3ac78ea58d528c24f804b58e03638515fb817bd0e07f4809bc0200316d33"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "5b725f46d67547e7fb603b2118eddc5358ac2a39"
+  revision = "4a479a4597e8856097209f3e3b38b8e39fbbd9e1"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1834,6 +1875,7 @@
     "github.com/coredns/coredns/plugin/trace",
     "github.com/coredns/coredns/request",
     "github.com/fatih/color",
+    "github.com/fernet/fernet-go",
     "github.com/fsnotify/fsnotify",
     "github.com/go-sql-driver/mysql",
     "github.com/golang-plus/errors",
@@ -1855,6 +1897,7 @@
     "github.com/moul/http2curl",
     "github.com/nelsonken/cos-go-sdk-v5/cos",
     "github.com/pierrec/lz4",
+    "github.com/pkg/errors",
     "github.com/serialx/hashring",
     "github.com/shirou/gopsutil/cpu",
     "github.com/shirou/gopsutil/host",
@@ -1869,6 +1912,7 @@
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile",
     "github.com/tredoe/osutil/user/crypt/sha512_crypt",
+    "github.com/vmihailenco/msgpack",
     "github.com/vmware/govmomi",
     "github.com/vmware/govmomi/object",
     "github.com/vmware/govmomi/property",
@@ -1878,11 +1922,13 @@
     "github.com/vmware/govmomi/vim25/mo",
     "github.com/vmware/govmomi/vim25/types",
     "go.etcd.io/etcd/clientv3",
+    "golang.org/x/crypto/bcrypt",
     "golang.org/x/crypto/ssh",
     "golang.org/x/net/bpf",
     "golang.org/x/net/ipv4",
     "golang.org/x/sys/unix",
     "gopkg.in/gin-gonic/gin.v1",
+    "gopkg.in/ldap.v3",
     "gopkg.in/yaml.v2",
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/errors",

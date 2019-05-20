@@ -350,7 +350,7 @@ func (app *Application) initServer(addr string) *http.Server {
 		db.SetMaxOpenConns(app.connMax + 1)
 	}
 	*/
-	app.addDefaultHandlers()
+
 	s := &http.Server{
 		Addr:              addr,
 		Handler:           app,
@@ -424,18 +424,28 @@ func (app *Application) ListenAndServeWithCleanup(addr string, onStop func()) {
 }
 
 func (app *Application) ListenAndServeTLSWithCleanup(addr string, certFile, keyFile string, onStop func()) {
-	s := app.initServer(addr)
-	app.registerCleanShutdown(s, onStop)
-	app.listenAndServe(s, certFile, keyFile)
-	app.waitCleanShutdown()
+	app.ListenAndServeTLSWithCleanup2(addr, certFile, keyFile, onStop, true)
 }
 
 func (app *Application) ListenAndServeWithoutCleanup(addr, certFile, keyFile string) {
-	s := app.initServer(addr)
-	app.listenAndServe(s, certFile, keyFile)
+	app.ListenAndServeTLSWithCleanup2(addr, certFile, keyFile, nil, false)
 }
 
-func (app *Application) listenAndServe(s *http.Server, certFile, keyFile string) {
+func (app *Application) ListenAndServeTLSWithCleanup2(addr string, certFile, keyFile string, onStop func(), isMaster bool) {
+	if isMaster {
+		app.addDefaultHandlers()
+	}
+	s := app.initServer(addr)
+	if isMaster {
+		app.registerCleanShutdown(s, onStop)
+	}
+	app.listenAndServeInternal(s, certFile, keyFile)
+	if isMaster {
+		app.waitCleanShutdown()
+	}
+}
+
+func (app *Application) listenAndServeInternal(s *http.Server, certFile, keyFile string) {
 	var err error
 	if len(certFile) == 0 && len(keyFile) == 0 {
 		err = s.ListenAndServe()
@@ -443,7 +453,7 @@ func (app *Application) listenAndServe(s *http.Server, certFile, keyFile string)
 		err = s.ListenAndServeTLS(certFile, keyFile)
 	}
 	if err != nil && err != http.ErrServerClosed {
-		log.Fatalf("ListAndServer fail: %s", err)
+		log.Fatalf("ListAndServer fail: %s (cert=%s key=%s)", err, certFile, keyFile)
 	}
 }
 

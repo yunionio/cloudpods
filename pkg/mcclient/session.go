@@ -28,13 +28,14 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (
 	TASK_ID         = "X-Task-Id"
 	TASK_NOTIFY_URL = "X-Task-Notify-Url"
-	AUTH_TOKEN      = "X-Auth-Token"
+	AUTH_TOKEN      = api.AUTH_TOKEN_HEADER //  "X-Auth-Token"
 	REGION_VERSION  = "X-Region-Version"
 
 	DEFAULT_API_VERSION = "v1"
@@ -143,6 +144,9 @@ func (this *ClientSession) GetServiceVersionURL(service, endpointType, apiVersio
 	if err != nil {
 		url, err = this.client.serviceCatalog.GetServiceURL(service, this.region, this.zone, endpointType)
 	}
+	if err != nil && service == api.SERVICE_TYPE {
+		return this.client.authUrl, nil
+	}
 	return url, err
 }
 
@@ -159,6 +163,9 @@ func (this *ClientSession) GetServiceVersionURLs(service, endpointType, apiVersi
 	urls, err := this.token.GetServiceURLs(service, this.region, this.zone, endpointType)
 	if err != nil {
 		urls, err = this.client.serviceCatalog.GetServiceURLs(service, this.region, this.zone, endpointType)
+	}
+	if err != nil && service == api.SERVICE_TYPE {
+		return []string{this.client.authUrl}, nil
 	}
 	return urls, err
 }

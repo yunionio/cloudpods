@@ -26,7 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
-func InitApp(options *common_options.CommonOptions, dbAccess bool) *appsrv.Application {
+func InitApp(options *common_options.BaseOptions, dbAccess bool) *appsrv.Application {
 	// cache := appsrv.NewCache(options.AuthTokenCacheSize)
 	app := appsrv.NewApplication(options.ApplicationID, options.RequestWorkerCount, dbAccess)
 	app.CORSAllowHosts(options.CorsHosts)
@@ -38,19 +38,25 @@ func InitApp(options *common_options.CommonOptions, dbAccess bool) *appsrv.Appli
 	return app
 }
 
-func ServeForever(app *appsrv.Application, options *common_options.CommonOptions) {
+func ServeForever(app *appsrv.Application, options *common_options.BaseOptions) {
 	ServeForeverWithCleanup(app, options, nil)
 }
 
-func ServeForeverWithCleanup(app *appsrv.Application, options *common_options.CommonOptions, onStop func()) {
-	addr := net.JoinHostPort(options.Address, strconv.Itoa(options.Port))
+func ServeForeverWithCleanup(app *appsrv.Application, options *common_options.BaseOptions, onStop func()) {
+	ServeForeverExtended(app, options, options.Port, onStop, true)
+}
+
+func ServeForeverExtended(app *appsrv.Application, options *common_options.BaseOptions, port int, onStop func(), isMaster bool) {
+	addr := net.JoinHostPort(options.Address, strconv.Itoa(port))
 	proto := "http"
 	if options.EnableSsl {
 		proto = "https"
 	}
 	log.Infof("Start listen on %s://%s", proto, addr)
+	var certfile string
+	var sslfile string
 	if options.EnableSsl {
-		certfile := options.SslCertfile
+		certfile = options.SslCertfile
 		if len(options.SslCaCerts) > 0 {
 			var err error
 			certfile, err = seclib2.MergeCaCertFiles(options.SslCaCerts, options.SslCertfile)
@@ -65,8 +71,7 @@ func ServeForeverWithCleanup(app *appsrv.Application, options *common_options.Co
 		if len(options.SslKeyfile) == 0 {
 			log.Fatalf("Missing ssl-keyfile")
 		}
-		app.ListenAndServeTLSWithCleanup(addr, certfile, options.SslKeyfile, onStop)
-	} else {
-		app.ListenAndServeWithCleanup(addr, onStop)
+		sslfile = options.SslKeyfile
 	}
+	app.ListenAndServeTLSWithCleanup2(addr, certfile, sslfile, onStop, isMaster)
 }

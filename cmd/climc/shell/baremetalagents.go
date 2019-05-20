@@ -64,4 +64,13 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	R(&BaremetalAgentOpsOperations{}, "baremetal-agent-delete", "Delete baremetal agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
+		result, err := modules.Baremetalagents.Delete(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

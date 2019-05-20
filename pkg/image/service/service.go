@@ -43,6 +43,7 @@ const (
 func StartService() {
 	opts := &options.Options
 	commonOpts := &opts.CommonOptions
+	baseOpts := &opts.BaseOptions
 	dbOpts := &opts.DBOptions
 	common_options.ParseOptions(opts, os.Args, "glance-api.conf", SERVICE_TYPE)
 
@@ -91,7 +92,7 @@ func StartService() {
 
 	cloudcommon.InitDB(dbOpts)
 
-	app := app_common.InitApp(commonOpts, true)
+	app := app_common.InitApp(baseOpts, true)
 	initHandlers(app)
 
 	if !db.CheckSync(opts.AutoSyncTable) {
@@ -108,7 +109,7 @@ func StartService() {
 	cron.Start()
 
 	cloudcommon.AppDBInit(app)
-	app_common.ServeForeverWithCleanup(app, commonOpts, func() {
+	app_common.ServeForeverWithCleanup(app, baseOpts, func() {
 		cloudcommon.CloseDB()
 
 		cron.Stop()

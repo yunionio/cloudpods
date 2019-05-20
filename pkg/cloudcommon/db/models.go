@@ -59,15 +59,26 @@ func mustCheckModelManager(modelMan IModelManager) {
 
 func CheckSync(autoSync bool) bool {
 	log.Infof("Start check database ...")
+	examinedTables := make(map[string]bool)
+	allDropFKSqls := make([]string, 0)
 	allSqls := make([]string, 0)
 	for modelName, modelMan := range globalTables {
 		log.Infof("# check table of model %s", modelName)
 		tableSpec := modelMan.TableSpec()
+		if _, ok := examinedTables[tableSpec.Name()]; ok {
+			continue
+		}
+		examinedTables[tableSpec.Name()] = true
+		dropFKSqls := tableSpec.DropForeignKeySQL()
+		if len(dropFKSqls) > 0 {
+			allDropFKSqls = append(allDropFKSqls, dropFKSqls...)
+		}
 		sqls := tableSpec.SyncSQL()
-		for _, sql := range sqls {
-			allSqls = append(allSqls, sql)
+		if len(sqls) > 0 {
+			allSqls = append(allSqls, sqls...)
 		}
 	}
+	allSqls = append(allDropFKSqls, allSqls...)
 	if len(allSqls) > 0 {
 		if autoSync {
 			err := commitSqlDIffs(allSqls)

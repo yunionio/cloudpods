@@ -48,6 +48,7 @@ func StartService() {
 
 	opts := &options.Options
 	commonOpts := &options.Options.CommonOptions
+	baseOpts := &options.Options.BaseOptions
 	dbOpts := &options.Options.DBOptions
 	common_options.ParseOptions(opts, os.Args, "region.conf", "compute")
 
@@ -65,7 +66,7 @@ func StartService() {
 	cloudcommon.InitDB(dbOpts)
 	defer cloudcommon.CloseDB()
 
-	app := app_common.InitApp(commonOpts, true)
+	app := app_common.InitApp(baseOpts, true)
 	cloudcommon.AppDBInit(app)
 	InitHandlers(app)
 
@@ -104,5 +105,5 @@ func StartService() {
 		defer cron.Stop()
 	}
 
-	app_common.ServeForever(app, commonOpts)
+	app_common.ServeForever(app, baseOpts)
 }

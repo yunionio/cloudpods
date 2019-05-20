@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 )
 
 type KeystoneEndpointV2 struct {
@@ -80,11 +82,11 @@ func (token *TokenCredentialV2) GetTokenString() string {
 }
 
 func (token *TokenCredentialV2) GetDomainId() string {
-	return "default"
+	return api.DEFAULT_DOMAIN_ID
 }
 
 func (token *TokenCredentialV2) GetDomainName() string {
-	return "Default"
+	return api.DEFAULT_DOMAIN_NAME
 }
 
 func (token *TokenCredentialV2) GetTenantId() string {
@@ -101,6 +103,14 @@ func (token *TokenCredentialV2) GetProjectId() string {
 
 func (token *TokenCredentialV2) GetProjectName() string {
 	return token.GetTenantName()
+}
+
+func (token *TokenCredentialV2) GetProjectDomainId() string {
+	return api.DEFAULT_DOMAIN_ID
+}
+
+func (token *TokenCredentialV2) GetProjectDomain() string {
+	return api.DEFAULT_DOMAIN_NAME
 }
 
 func (token *TokenCredentialV2) GetUserName() string {

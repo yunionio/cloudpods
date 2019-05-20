@@ -123,7 +123,7 @@ func (dispatcher *DBJointModelDispatcher) _listJoint(ctx context.Context, userCr
 		return nil, httperrors.NewForbiddenError("Not allow to list")
 	}
 
-	items, err := ListItems(dispatcher.JointModelManager(), ctx, userCred, queryDict, "")
+	items, err := ListItems(dispatcher.JointModelManager(), ctx, userCred, queryDict, nil)
 	if err != nil {
 		log.Errorf("Fail to list items: %s", err)
 		return nil, httperrors.NewGeneralError(err)

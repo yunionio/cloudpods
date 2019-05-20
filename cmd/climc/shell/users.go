@@ -23,6 +23,7 @@ import (
 
 func init() {
 	type UserListOptions struct {
+		Admin            bool   `help:"admin mode"`
 		Domain           string `help:"Filter by domain"`
 		Name             string `help:"Filter by name"`
 		Limit            int64  `help:"Limit, default 0, i.e. no limit"`
@@ -32,10 +33,6 @@ func init() {
 		NoDefaultProject bool   `help:"Filter users without valid default_project_id"`
 	}
 	R(&UserListOptions{}, "user-list", "List users", func(s *mcclient.ClientSession, args *UserListOptions) error {
-		mod, err := modules.GetModule(s, "users")
-		if err != nil {
-			return err
-		}
 		params := jsonutils.NewDict()
 		if len(args.Domain) > 0 {
 			domainId, err := modules.Domains.GetId(s, args.Domain, nil)
@@ -43,6 +40,10 @@ func init() {
 				return err
 			}
 			params.Add(jsonutils.NewString(domainId), "domain_id")
+			params.Add(jsonutils.JSONTrue, "admin")
+		}
+		if args.Admin {
+			params.Add(jsonutils.JSONTrue, "admin")
 		}
 		if len(args.Name) > 0 {
 			params.Add(jsonutils.NewString(args.Name), "name")
@@ -65,11 +66,11 @@ func init() {
 		} else if args.NoDefaultProject {
 			params.Add(jsonutils.NewString(""), "default_project_id__iempty")
 		}
-		result, err := mod.List(s, params)
+		result, err := modules.UsersV3.List(s, params)
 		if err != nil {
 			return err
 		}
-		printList(result, mod.GetColumns(s))
+		printList(result, modules.UsersV3.GetColumns(s))
 		return nil
 	})
 
@@ -78,10 +79,6 @@ func init() {
 		Domain string `help:"Domain"`
 	}
 	R(&UserDetailOptions{}, "user-show", "Show details of user", func(s *mcclient.ClientSession, args *UserDetailOptions) error {
-		mod, e := modules.GetModule(s, "users")
-		if e != nil {
-			return e
-		}
 		query := jsonutils.NewDict()
 		if len(args.Domain) > 0 {
 			domainId, err := modules.Domains.GetId(s, args.Domain, nil)
@@ -90,7 +87,7 @@ func init() {
 			}
 			query.Add(jsonutils.NewString(domainId), "domain_id")
 		}
-		user, e := mod.Get(s, args.ID, query)
+		user, e := modules.UsersV3.Get(s, args.ID, query)
 		if e != nil {
 			return e
 		}
@@ -98,10 +95,6 @@ func init() {
 		return nil
 	})
 	R(&UserDetailOptions{}, "user-delete", "Delete user", func(s *mcclient.ClientSession, args *UserDetailOptions) error {
-		mod, e := modules.GetModule(s, "users")
-		if e != nil {
-			return e
-		}
 		query := jsonutils.NewDict()
 		if len(args.Domain) > 0 {
 			domainId, err := modules.Domains.GetId(s, args.Domain, nil)
@@ -110,11 +103,11 @@ func init() {
 			}
 			query.Add(jsonutils.NewString(domainId), "domain_id")
 		}
-		uid, e := mod.GetId(s, args.ID, query)
+		uid, e := modules.UsersV3.GetId(s, args.ID, query)
 		if e != nil {
 			return e
 		}
-		_, e = mod.Delete(s, uid, nil)
+		_, e = modules.UsersV3.Delete(s, uid, nil)
 		if e != nil {
 			return e
 		}
@@ -155,11 +148,11 @@ func init() {
 		if err != nil {
 			return err
 		}
-		projects, e := modules.UsersV3.GetGroups(s, uid)
+		groups, e := modules.UsersV3.GetGroups(s, uid)
 		if e != nil {
 			return e
 		}
-		printList(projects, modules.Groups.GetColumns(s))
+		printList(groups, modules.Groups.GetColumns(s))
 		return nil
 	})
 
@@ -195,10 +188,6 @@ func init() {
 		DefaultProject string `help:"Default project"`
 	}
 	R(&UserCreateOptions{}, "user-create", "Create a user", func(s *mcclient.ClientSession, args *UserCreateOptions) error {
-		mod, err := modules.GetModule(s, "users")
-		if err != nil {
-			return err
-		}
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
 		if len(args.Domain) > 0 {
@@ -237,7 +226,7 @@ func init() {
 			params.Add(jsonutils.NewString(projId), "default_project_id")
 		}
 
-		user, err := mod.Create(s, params)
+		user, err := modules.UsersV3.Create(s, params)
 		if err != nil {
 			return err
 		}

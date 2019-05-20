@@ -116,7 +116,7 @@ func fetchJointEnv(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 
 func jointListHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	manager, params, query, _ := fetchJointEnv(ctx, w, r)
-	listResult, err := manager.List(ctx, mergeQueryParams(params, query), "")
+	listResult, err := manager.List(ctx, mergeQueryParams(params, query), nil)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return

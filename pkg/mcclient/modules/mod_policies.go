@@ -29,7 +29,7 @@ var Policies SPolicyManager
 
 func policyReadFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	ss := s.(*jsonutils.JSONDict)
-	ret := ss.CopyIncludes("id", "type")
+	ret := ss.CopyIncludes("id", "type", "enabled")
 	blobStr, _ := ss.GetString("blob")
 	if len(blobStr) > 0 {
 		policy := rbacutils.SRbacPolicy{}
@@ -83,12 +83,19 @@ func policyWriteFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, 
 		}
 		ret.Add(jsonutils.NewString(typeStr), "type")
 	}
+	if s.Contains("enabled") {
+		enabled, err := s.Get("enabled")
+		if err != nil {
+			return nil, err
+		}
+		ret.Add(enabled, "enabled")
+	}
 	return ret, nil
 }
 
 func init() {
 	Policies = SPolicyManager{NewIdentityV3Manager("policy", "policies",
-		[]string{"id", "type", "policy"},
+		[]string{"id", "type", "policy", "enabled"},
 		[]string{})}
 
 	Policies.SetReadFilter(policyReadFilter).SetWriteFilter(policyWriteFilter).SetNameField("type")

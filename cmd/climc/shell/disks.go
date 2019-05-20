@@ -91,12 +91,12 @@ func init() {
 		return nil
 	})
 
-	R(&DiskDetailOptions{}, "disk-purge", "Delete a disk record in database, not actually do deletion", func(s *mcclient.ClientSession, args *DiskDetailOptions) error {
-		disk, e := modules.Disks.PerformAction(s, args.ID, "purge", nil)
-		if e != nil {
-			return e
-		}
-		printObject(disk)
+	type DiskBatchOpsOptions struct {
+		ID []string `help:"id list of disks to operate"`
+	}
+	R(&DiskBatchOpsOptions{}, "disk-purge", "Delete a disk record in database, not actually do deletion", func(s *mcclient.ClientSession, args *DiskBatchOpsOptions) error {
+		ret := modules.Disks.BatchPerformAction(s, args.ID, "purge", nil)
+		printBatchResults(ret, modules.Disks.GetColumns(s))
 		return nil
 	})
 

@@ -30,10 +30,6 @@ func init() {
 		Search string `help:"search text"`
 	}
 	R(&RoleListOptions{}, "role-list", "List keystone Roles", func(s *mcclient.ClientSession, args *RoleListOptions) error {
-		mod, err := modules.GetModule(s, "roles")
-		if err != nil {
-			return err
-		}
 		query := jsonutils.NewDict()
 		if len(args.Name) > 0 {
 			query.Add(jsonutils.NewString(args.Name), "name")
@@ -54,11 +50,11 @@ func init() {
 		if len(args.Search) > 0 {
 			query.Add(jsonutils.NewString(args.Search), "name__icontains")
 		}
-		result, err := mod.List(s, query)
+		result, err := modules.RolesV3.List(s, query)
 		if err != nil {
 			return err
 		}
-		printList(result, mod.GetColumns(s))
+		printList(result, modules.RolesV3.GetColumns(s))
 		return nil
 	})
 
@@ -67,10 +63,6 @@ func init() {
 		Domain string `help:"Domain"`
 	}
 	R(&RoleDetailOptions{}, "role-show", "Show details of a role", func(s *mcclient.ClientSession, args *RoleDetailOptions) error {
-		mod, err := modules.GetModule(s, "roles")
-		if err != nil {
-			return err
-		}
 		query := jsonutils.NewDict()
 		if len(args.Domain) > 0 {
 			domainId, err := modules.Domains.GetId(s, args.Domain, nil)
@@ -79,7 +71,7 @@ func init() {
 			}
 			query.Add(jsonutils.NewString(domainId), "domain_id")
 		}
-		role, err := mod.Get(s, args.ID, query)
+		role, err := modules.RolesV3.Get(s, args.ID, query)
 		if err != nil {
 			return err
 		}
@@ -95,15 +87,11 @@ func init() {
 			}
 			query.Add(jsonutils.NewString(domainId), "domain_id")
 		}
-		mod, err := modules.GetModule(s, "roles")
+		rid, err := modules.RolesV3.GetId(s, args.ID, query)
 		if err != nil {
 			return err
 		}
-		rid, err := mod.GetId(s, args.ID, query)
-		if err != nil {
-			return err
-		}
-		role, err := mod.Delete(s, rid, nil)
+		role, err := modules.RolesV3.Delete(s, rid, nil)
 		if err != nil {
 			return err
 		}
@@ -129,11 +117,7 @@ func init() {
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
-		mod, err := modules.GetModule(s, "roles")
-		if err != nil {
-			return err
-		}
-		role, err := mod.Create(s, params)
+		role, err := modules.RolesV3.Create(s, params)
 		if err != nil {
 			return err
 		}
@@ -156,11 +140,7 @@ func init() {
 			}
 			query.Add(jsonutils.NewString(domainId), "domain_id")
 		}
-		mod, err := modules.GetModule(s, "roles")
-		if err != nil {
-			return err
-		}
-		rid, err := mod.GetId(s, args.ID, query)
+		rid, err := modules.RolesV3.GetId(s, args.ID, query)
 		if err != nil {
 			return err
 		}
@@ -171,7 +151,7 @@ func init() {
 		if len(args.Desc) > 0 {
 			params.Add(jsonutils.NewString(args.Desc), "description")
 		}
-		role, err := mod.Patch(s, rid, params)
+		role, err := modules.RolesV3.Patch(s, rid, params)
 		if err != nil {
 			return err
 		}

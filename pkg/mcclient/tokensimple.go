@@ -22,6 +22,8 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
+
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 )
 
 type SSimpleToken struct {
@@ -32,8 +34,12 @@ type SSimpleToken struct {
 	UserId    string
 	Project   string `json:"tenant"`
 	ProjectId string `json:"tenant_id"`
-	Roles     string
-	Expires   time.Time
+
+	ProjectDomain   string
+	ProjectDomainId string
+
+	Roles   string
+	Expires time.Time
 }
 
 func (self *SSimpleToken) GetTokenString() string {
@@ -62,6 +68,20 @@ func (self *SSimpleToken) GetProjectId() string {
 
 func (self *SSimpleToken) GetProjectName() string {
 	return self.Project
+}
+
+func (self *SSimpleToken) GetProjectDomainId() string {
+	if len(self.ProjectDomainId) == 0 {
+		return api.DEFAULT_DOMAIN_ID
+	}
+	return self.ProjectDomainId
+}
+
+func (self *SSimpleToken) GetProjectDomain() string {
+	if len(self.ProjectDomain) == 0 {
+		return api.DEFAULT_DOMAIN_NAME
+	}
+	return self.ProjectDomain
 }
 
 func (self *SSimpleToken) GetUserId() string {
@@ -146,8 +166,12 @@ func SimplifyToken(token TokenCredential) TokenCredential {
 		UserId:    token.GetUserId(),
 		Project:   token.GetProjectName(),
 		ProjectId: token.GetProjectId(),
-		Roles:     strings.Join(token.GetRoles(), ","),
-		Expires:   token.GetExpires(),
+
+		ProjectDomain:   token.GetProjectDomain(),
+		ProjectDomainId: token.GetProjectDomainId(),
+
+		Roles:   strings.Join(token.GetRoles(), ","),
+		Expires: token.GetExpires(),
 	}
 }
 

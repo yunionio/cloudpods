@@ -63,8 +63,10 @@ type SZone struct {
 	CloudregionId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`
 }
 
-func (manager *SZoneManager) GetContextManager() []db.IModelManager {
-	return []db.IModelManager{CloudregionManager}
+func (manager *SZoneManager) GetContextManagers() [][]db.IModelManager {
+	return [][]db.IModelManager{
+		{CloudregionManager},
+	}
 }
 
 func (self *SZoneManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

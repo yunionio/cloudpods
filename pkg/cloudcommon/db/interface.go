@@ -30,7 +30,7 @@ import (
 type IModelManager interface {
 	lockman.ILockedClass
 
-	GetContextManager() []IModelManager
+	GetContextManagers() [][]IModelManager
 
 	// Table() *sqlchemy.STable
 	TableSpec() *sqlchemy.STableSpec
@@ -128,6 +128,8 @@ type IModel interface {
 	PreUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject)
 	PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject)
 
+	UpdateInContext(ctx context.Context, userCred mcclient.TokenCredential, ctxObjs []IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
+
 	// delete hooks
 	AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool
 	ValidateDeleteCondition(ctx context.Context) error
@@ -136,6 +138,8 @@ type IModel interface {
 	MarkDelete() error
 	Delete(ctx context.Context, userCred mcclient.TokenCredential) error
 	PostDelete(ctx context.Context, userCred mcclient.TokenCredential)
+
+	DeleteInContext(ctx context.Context, userCred mcclient.TokenCredential, ctxObjs []IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error)
 
 	GetOwnerProjectId() string
 	IsSharable() bool

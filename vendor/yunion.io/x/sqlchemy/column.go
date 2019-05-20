@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package sqlchemy
 
 import (
@@ -606,22 +620,20 @@ func NewStringColumn(name string, sqltype string, tagmap map[string]string) SStr
 	return sc
 }*/
 
-type SDateTimeColumn struct {
+type STimeTypeColumn struct {
 	SBaseColumn
-	IsCreatedAt bool
-	IsUpdatedAt bool
 }
 
-func (c *SDateTimeColumn) IsText() bool {
+func (c *STimeTypeColumn) IsText() bool {
 	return true
 }
 
-func (c *SDateTimeColumn) DefinitionString() string {
+func (c *STimeTypeColumn) DefinitionString() string {
 	buf := definitionBuffer(c)
 	return buf.String()
 }
 
-func (c *SDateTimeColumn) IsZero(val interface{}) bool {
+func (c *STimeTypeColumn) IsZero(val interface{}) bool {
 	if c.isPointer {
 		bVal := val.(*time.Time)
 		return bVal == nil
@@ -629,7 +641,19 @@ func (c *SDateTimeColumn) IsZero(val interface{}) bool {
 		bVal := val.(time.Time)
 		return bVal.IsZero()
 	}
+}
 
+func NewTimeTypeColumn(name string, typeStr string, tagmap map[string]string, isPointer bool) STimeTypeColumn {
+	dc := STimeTypeColumn{
+		NewBaseColumn(name, typeStr, tagmap, isPointer),
+	}
+	return dc
+}
+
+type SDateTimeColumn struct {
+	STimeTypeColumn
+	IsCreatedAt bool
+	IsUpdatedAt bool
 }
 
 func NewDateTimeColumn(name string, tagmap map[string]string, isPointer bool) SDateTimeColumn {
@@ -644,7 +668,7 @@ func NewDateTimeColumn(name string, tagmap map[string]string, isPointer bool) SD
 		updatedAt = utils.ToBool(v)
 	}
 	dtc := SDateTimeColumn{
-		NewBaseColumn(name, "DATETIME", tagmap, isPointer),
+		NewTimeTypeColumn(name, "DATETIME", tagmap, isPointer),
 		createdAt, updatedAt,
 	}
 	return dtc

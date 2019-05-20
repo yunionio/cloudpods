@@ -15,10 +15,14 @@
 package policy
 
 import (
+	"context"
+
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -64,4 +68,12 @@ func FilterPolicyCredential(token mcclient.TokenCredential) mcclient.TokenCreden
 	default:
 		return &SPolicyTokenCredential{TokenCredential: token}
 	}
+}
+
+func FetchUserCredential(ctx context.Context) mcclient.TokenCredential {
+	token := auth.FetchUserCredential(ctx, FilterPolicyCredential)
+	if token == nil && !consts.IsRbacEnabled() {
+		log.Fatalf("user token credential not found?")
+	}
+	return token
 }

@@ -31,6 +31,12 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+type UUIDGenerator func() string
+
+var (
+	DefaultUUIDGenerator = stringutils.UUID4
+)
+
 type SStandaloneResourceBase struct {
 	SResourceBase
 
@@ -45,7 +51,7 @@ type SStandaloneResourceBase struct {
 
 func (model *SStandaloneResourceBase) BeforeInsert() {
 	if len(model.Id) == 0 {
-		model.Id = stringutils.UUID4()
+		model.Id = DefaultUUIDGenerator()
 	}
 }
 

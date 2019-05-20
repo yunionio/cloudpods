@@ -56,6 +56,10 @@ func doImageEventList(s *mcclient.ClientSession, args *EventListOptions) error {
 	return doEventList(modules.ImageLogs, s, args)
 }
 
+func doIdentityEventList(s *mcclient.ClientSession, args *EventListOptions) error {
+	return doEventList(modules.IdentityLogs, s, args)
+}
+
 func doEventList(man modules.ResourceManager, s *mcclient.ClientSession, args *EventListOptions) error {
 	params := jsonutils.NewDict()
 	if len(args.Type) > 0 {
@@ -166,5 +170,50 @@ func init() {
 	R(&TypeEventListOptions{}, "image-event", "Show operation event logs of glance images", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
 		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"image"}}
 		return doImageEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "user-event", "Show operation event logs of keystone users", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"user"}}
+		return doIdentityEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "group-event", "Show operation event logs of keystone groups", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"group"}}
+		return doIdentityEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "domain-event", "Show operation event logs of keystone domains", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"domain"}}
+		return doIdentityEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "project-event", "Show operation event logs of keystone projects", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"project"}}
+		return doIdentityEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "role-event", "Show operation event logs of keystone roles", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"role"}}
+		return doIdentityEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "policy-event", "Show operation event logs of keystone policies", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"policy"}}
+		return doIdentityEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "endpoint-event", "Show operation event logs of keystone endpoints", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"endpoint"}}
+		return doIdentityEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "service-event", "Show operation event logs of keystone services", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"service"}}
+		return doIdentityEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "credential-event", "Show operation event logs of keystone credentials", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"credential"}}
+		return doIdentityEventList(s, &nargs)
 	})
 }

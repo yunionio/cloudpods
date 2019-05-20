@@ -159,7 +159,7 @@ func (manager *SImageManager) GetPropertyDetail(ctx context.Context, userCred mc
 	queryDict := query.(*jsonutils.JSONDict)
 	queryDict.Add(jsonutils.JSONTrue, "details")
 
-	items, err := db.ListItems(manager, ctx, userCred, queryDict, "")
+	items, err := db.ListItems(manager, ctx, userCred, queryDict, nil)
 	if err != nil {
 		log.Errorf("Fail to list items: %s", err)
 		return nil, httperrors.NewGeneralError(err)

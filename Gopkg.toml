@@ -207,6 +207,15 @@
 [[constraint]]
   name="github.com/ceph/go-ceph"
   branch = "master"
+
 [[constraint]]
   branch = "master"
   name = "github.com/libvirt/libvirt-go-xml"
+
+[[constraint]]
+  version = "v3.0.3"
+  name = "gopkg.in/ldap.v3"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/fernet/fernet-go"

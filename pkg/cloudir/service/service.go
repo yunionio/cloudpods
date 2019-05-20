@@ -28,6 +28,7 @@ import (
 
 func StartService() {
 	opts := &options.Options
+	baseOpts := &opts.BaseOptions
 	commonOpts := &opts.CommonOptions
 	common_options.ParseOptions(opts, os.Args, "cloudir.conf", "cloudir")
 
@@ -41,11 +42,11 @@ func StartService() {
 		return
 	}
 
-	app := app_common.InitApp(commonOpts, false)
+	app := app_common.InitApp(baseOpts, false)
 	cloudcommon.AppDBInit(app)
 	initHandlers(app)
 
-	app_common.ServeForeverWithCleanup(app, commonOpts, func() {
+	app_common.ServeForeverWithCleanup(app, baseOpts, func() {
 		etcd.CloseDefaultEtcdClient()
 	})
 }

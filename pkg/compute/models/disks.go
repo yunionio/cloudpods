@@ -92,8 +92,10 @@ type SDisk struct {
 	AutoSnapshot  bool `default:"false" nullable:"true" get:"user" update:"user"`
 }
 
-func (manager *SDiskManager) GetContextManager() []db.IModelManager {
-	return []db.IModelManager{StorageManager}
+func (manager *SDiskManager) GetContextManagers() [][]db.IModelManager {
+	return [][]db.IModelManager{
+		{StorageManager},
+	}
 }
 
 func (manager *SDiskManager) FetchDiskById(diskId string) *SDisk {
