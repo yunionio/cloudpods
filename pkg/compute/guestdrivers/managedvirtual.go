@@ -137,6 +137,15 @@ func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Conte
 		if provider != cloudprovider.Provider {
 			return nil, httperrors.NewInputParameterError("image %s(%s) not support provider %s only support %s", image.Name, image.Id, provider, cloudprovider.Provider)
 		}
+		if len(input.PreferRegion) == 0 && len(input.PreferZone) == 0 && len(input.PreferHost) == 0 {
+			regions, err := image.GetRegions()
+			if err != nil {
+				log.Warningf("failed to get regions for image %s(%s) error: %v", image.Name, image.Id, err)
+			}
+			if len(regions) > 0 {
+				input.PreferRegion = regions[0].Id
+			}
+		}
 	}
 
 	return input, nil

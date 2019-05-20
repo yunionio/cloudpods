@@ -120,7 +120,13 @@ func (vmConfig *SManagedVMCreateConfig) InjectPasswordByCloudInit() error {
 		loginUser.Password(vmConfig.Password)
 	}
 
-	cloudconfig := cloudinit.SCloudConfig{Users: []cloudinit.SUser{loginUser}}
+	cloudconfig := cloudinit.SCloudConfig{
+		DisableRoot: 0,
+		SshPwauth:   1,
+		Users: []cloudinit.SUser{
+			loginUser,
+		},
+	}
 
 	if len(vmConfig.UserData) > 0 {
 		oCloudConfig, err := cloudinit.ParseUserDataBase64(vmConfig.UserData)

@@ -107,6 +107,18 @@ func (self *SStoragecache) GetHost() (*SHost, error) {
 	return h, nil
 }
 
+func (self *SStoragecache) GetRegion() (*SCloudregion, error) {
+	host, err := self.GetHost()
+	if err != nil {
+		return nil, err
+	}
+	region := host.GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("failed to get region for host %s(%s)", host.Name, host.Id)
+	}
+	return region, nil
+}
+
 func (self *SStoragecache) getHostId() (string, error) {
 	hoststorages := HoststorageManager.Query().SubQuery()
 	storages := StorageManager.Query().SubQuery()
