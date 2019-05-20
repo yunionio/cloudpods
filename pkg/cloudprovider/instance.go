@@ -1,6 +1,8 @@
 package cloudprovider
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/osprofile"
 
@@ -39,6 +41,7 @@ type SManagedVMCreateConfig struct {
 	PublicKey           string
 	ExternalSecgroupId  string
 	ExternalSecgroupIds []string
+	Account             string
 	Password            string
 	UserData            string
 	UserDataType        string
@@ -102,4 +105,35 @@ func generateUserData(adminPublicKey, projectPublicKey, oUserData string, userDa
 	}
 
 	return cloudConfig.UserDataBase64()
+}
+
+func (vmConfig *SManagedVMCreateConfig) InjectPasswordByCloudInit() error {
+	if vmConfig.OsType != osprofile.OS_TYPE_LINUX {
+		return fmt.Errorf("Only support inject Linux password, current osType is %s", vmConfig.OsType)
+	}
+	loginUser := cloudinit.NewUser(vmConfig.Account)
+	loginUser.SudoPolicy(cloudinit.USER_SUDO_NOPASSWD)
+	if len(vmConfig.PublicKey) > 0 {
+		loginUser.SshKey(vmConfig.PublicKey)
+	}
+	if len(vmConfig.Password) > 0 {
+		loginUser.Password(vmConfig.Password)
+	}
+
+	cloudconfig := cloudinit.SCloudConfig{Users: []cloudinit.SUser{loginUser}}
+
+	if len(vmConfig.UserData) > 0 {
+		oCloudConfig, err := cloudinit.ParseUserDataBase64(vmConfig.UserData)
+		if err != nil {
+			return err
+		}
+		cloudconfig.Merge(oCloudConfig)
+	}
+	switch vmConfig.UserDataType {
+	case CLOUD_SHELL:
+		vmConfig.UserData = cloudconfig.UserDataScriptBase64()
+	default:
+		vmConfig.UserData = cloudconfig.UserDataBase64()
+	}
+	return nil
 }
