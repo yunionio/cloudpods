@@ -49,6 +49,7 @@ func (self *BaremetalUnconvertHypervisorTask) OnInit(ctx context.Context, obj db
 	} else {
 		self.OnGuestDeleteComplete(ctx, baremetal, nil)
 	}
+	models.IsolatedDeviceManager.DeleteDevicesByHost(ctx, self.GetUserCred(), baremetal)
 }
 
 func (self *BaremetalUnconvertHypervisorTask) OnGuestDeleteComplete(ctx context.Context, baremetal *models.SHost, body jsonutils.JSONObject) {
