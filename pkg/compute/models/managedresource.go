@@ -181,6 +181,26 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObje
 		}
 	}
 
+	brandStr := jsonutils.GetAnyString(query, []string{"brand"})
+	if len(brandStr) > 0 {
+		queryDict.Remove("brand")
+
+		account := CloudaccountManager.Query().SubQuery()
+		_subq := CloudproviderManager.Query("id")
+		subq := _subq.Join(account, sqlchemy.Equals(account.Field("id"), _subq.Field("cloudaccount_id"))).
+			Filter(sqlchemy.Equals(account.Field("brand"), brandStr)).SubQuery()
+
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+			queryDict.Remove("manager_id")
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+			queryDict.Remove(filterField)
+		}
+	}
+
 	return q, nil
 }
 
@@ -242,6 +262,7 @@ func managedResourceFilterByCloudType(q *sqlchemy.SQuery, query jsonutils.JSONOb
 
 type SCloudProviderInfo struct {
 	Provider         string `json:",omitempty"`
+	Brand            string `json:",omitempty"`
 	Account          string `json:",omitempty"`
 	AccountId        string `json:",omitempty"`
 	Manager          string `json:",omitempty"`
@@ -259,6 +280,7 @@ type SCloudProviderInfo struct {
 var (
 	providerInfoFields = []string{
 		"provider",
+		"brand",
 		"account",
 		"account_id",
 		"manager",
@@ -313,6 +335,7 @@ func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudpr
 		info.AccountId = account.GetId()
 
 		info.Provider = provider.Provider
+		info.Brand = account.Brand
 
 		if region != nil {
 			info.RegionExtId = fetchExternalId(region.ExternalId)
