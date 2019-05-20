@@ -91,6 +91,8 @@ type SCloudaccount struct {
 	Version string               `width:"32" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
 	Sysinfo jsonutils.JSONObject `get:"admin"`                                             // Column(JSONEncodedDict, nullable=True)
 
+	Brand string `width:"64" charset:"utf8" nullable:"true" list:"admin" create:"optional"`
+
 	Options *jsonutils.JSONDict `get:"admin" create:"admin_optional" update:"admin"`
 }
 
@@ -292,6 +294,9 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 
 func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	self.Enabled = true
+	if len(self.Brand) == 0 {
+		self.Brand = self.Provider
+	}
 	// self.EnableAutoSync = false
 	return self.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
 }
