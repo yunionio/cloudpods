@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -102,6 +103,10 @@ func (self *SESXiGuestDriver) GetRebuildRootStatus() ([]string, error) {
 
 func (self *SESXiGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{api.VM_READY}, nil
+}
+
+func (self *SESXiGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	return httperrors.NewInputParameterError("%s not support create eip", self.GetHypervisor())
 }
 
 func (self *SESXiGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {

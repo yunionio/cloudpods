@@ -15,6 +15,7 @@
 package shell
 
 import (
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 	"yunion.io/x/onecloud/pkg/util/ucloud"
 )
@@ -37,7 +38,12 @@ func init() {
 		BGP  string `help:"bgp type" choices:"Bgp|International"`
 	}
 	shellutils.R(&EipAllocateOptions{}, "eip-create", "Allocate an EIP", func(cli *ucloud.SRegion, args *EipAllocateOptions) error {
-		eip, err := cli.CreateEIP(args.NAME, args.BW, ucloud.EIP_CHARGE_TYPE_BY_TRAFFIC, args.BGP)
+		option := cloudprovider.SEip{
+			Name:          args.NAME,
+			BandwidthMbps: args.BW,
+			BGPType:       args.BGP,
+		}
+		eip, err := cli.CreateEIP(&option)
 		if err != nil {
 			return err
 		}

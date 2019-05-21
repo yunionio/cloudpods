@@ -67,7 +67,7 @@ func CloudImage2Image(image ICloudImage) SImage {
 			"os_arch":         image.GetOsArch(),
 		},
 		Protected: true,
-		SizeBytes: image.GetSize(),
+		SizeBytes: image.GetSizeByte(),
 		Status:    image.GetImageStatus(),
 	}
 }

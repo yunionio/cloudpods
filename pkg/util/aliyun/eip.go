@@ -182,6 +182,10 @@ func (self *SEipAddress) GetBandwidth() int {
 	return self.Bandwidth
 }
 
+func (self *SEipAddress) GetINetworkId() string {
+	return ""
+}
+
 func (self *SEipAddress) GetInternetChargeType() string {
 	switch self.InternetChargeType {
 	case InternetChargeByTraffic:
@@ -282,16 +286,15 @@ func (region *SRegion) AllocateEIP(bwMbps int, chargeType TInternetChargeType) (
 	return region.GetEip(eipId)
 }
 
-func (region *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
+func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
 	var ctype TInternetChargeType
-	switch chargeType {
+	switch eip.ChargeType {
 	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
 		ctype = InternetChargeByTraffic
 	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
 		ctype = InternetChargeByBandwidth
 	}
-	eip, err := region.AllocateEIP(bwMbps, ctype)
-	return eip, err
+	return region.AllocateEIP(eip.BandwidthMbps, ctype)
 }
 
 func (region *SRegion) DeallocateEIP(eipId string) error {

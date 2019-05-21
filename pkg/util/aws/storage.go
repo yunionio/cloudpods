@@ -98,7 +98,7 @@ func (self *SStorage) GetMediumType() string {
 	}
 }
 
-func (self *SStorage) GetCapacityMB() int {
+func (self *SStorage) GetCapacityMB() int64 {
 	return 0 // unlimited
 }
 

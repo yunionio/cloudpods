@@ -176,7 +176,7 @@ func (self *SImage) GetImageType() string {
 	}
 }
 
-func (self *SImage) GetSize() int64 {
+func (self *SImage) GetSizeByte() int64 {
 	return int64(self.Size) * 1024 * 1024 * 1024
 }
 

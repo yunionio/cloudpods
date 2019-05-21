@@ -150,7 +150,7 @@ func init() {
 	})
 
 	type ServerSkuSpecsListOptions struct {
-		Provider       string  `help:"List objects from the provider" choices:"OneCloud|VMware|Aliyun|Qcloud|Azure|Aws|Huawei|Openstack|Ucloud" json:"provider"`
+		Provider       string  `help:"List objects from the provider" choices:"OneCloud|VMware|Aliyun|Qcloud|Azure|Aws|Huawei|Openstack|Ucloud|ZStack" json:"provider"`
 		PublicCloud    *bool   `help:"List objects belonging to public cloud" json:"public_cloud"`
 		Zone           string  `help:"zone Id or name"`
 		PostpaidStatus *string `help:"skus available status for postpaid instance" choices:"available|soldout"`

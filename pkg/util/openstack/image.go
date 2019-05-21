@@ -158,7 +158,7 @@ func (image *SImage) GetImageType() string {
 	}
 }
 
-func (image *SImage) GetSize() int64 {
+func (image *SImage) GetSizeByte() int64 {
 	return int64(image.Size)
 }
 

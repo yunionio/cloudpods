@@ -86,7 +86,7 @@ type SInstance struct {
 
 	AutoReleaseTime         string
 	ClusterId               string
-	Cpu                     int8
+	Cpu                     int
 	CreationTime            time.Time
 	DedicatedHostAttribute  SDedicatedHostAttribute
 	Description             string
@@ -343,7 +343,7 @@ func (self *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	return nics, nil
 }
 
-func (self *SInstance) GetVcpuCount() int8 {
+func (self *SInstance) GetVcpuCount() int {
 	return self.Cpu
 }
 

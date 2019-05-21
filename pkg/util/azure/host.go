@@ -249,7 +249,7 @@ func (self *SHost) GetAccessMac() string {
 	return ""
 }
 
-func (self *SHost) GetCpuCount() int8 {
+func (self *SHost) GetCpuCount() int {
 	return 0
 }
 

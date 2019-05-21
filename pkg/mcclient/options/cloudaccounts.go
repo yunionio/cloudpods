@@ -125,6 +125,12 @@ type SUcloudCloudAccountCreateOptions struct {
 	SAccessKeyCredential
 }
 
+type SZStackCloudAccountCreateOptions struct {
+	SCloudAccountCreateBaseOptions
+	SUserPasswordCredential
+	AuthURL string `help:"ZStack auth_url" positional:"true" json:"auth_url"`
+}
+
 // update credential options
 
 type SCloudAccountUpdateCredentialBaseOptions struct {
@@ -210,4 +216,9 @@ type SOpenStackCloudAccountUpdateOptions struct {
 
 type SHuaweiCloudAccountUpdateOptions struct {
 	SCloudAccountUpdateBaseOptions
+}
+
+type SZStackCloudAccountUpdateOptions struct {
+	SCloudAccountUpdateBaseOptions
+	SUserPasswordCredential
 }

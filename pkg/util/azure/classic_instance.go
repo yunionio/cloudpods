@@ -421,7 +421,7 @@ func (self *SClassicInstance) GetVdi() string {
 	return "vnc"
 }
 
-func (self *SClassicInstance) GetVcpuCount() int8 {
+func (self *SClassicInstance) GetVcpuCount() int {
 	if vmSize, ok := CLASSIC_VM_SIZES[self.Properties.HardwareProfile.Size]; ok {
 		return vmSize.NumberOfCores
 	}

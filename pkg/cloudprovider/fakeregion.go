@@ -82,7 +82,7 @@ func (region *SFakeOnPremiseRegion) CreateIVpc(name string, desc string, cidr st
 	return nil, ErrNotSupported
 }
 
-func (region *SFakeOnPremiseRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (ICloudEIP, error) {
+func (region *SFakeOnPremiseRegion) CreateEIP(eip *SEip) (ICloudEIP, error) {
 	return nil, ErrNotSupported
 }
 

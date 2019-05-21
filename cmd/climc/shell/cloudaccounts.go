@@ -167,6 +167,17 @@ func init() {
 		return nil
 	})
 
+	R(&options.SZStackCloudAccountCreateOptions{}, "cloud-account-create-zstack", "Create a ZStack cloud account", func(s *mcclient.ClientSession, args *options.SZStackCloudAccountCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("ZStack"), "provider")
+		result, err := modules.Cloudaccounts.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type CloudaccountUpdateOptions struct {
 		ID        string `help:"ID or Name of cloud account"`
 		Name      string `help:"New name to update"`
@@ -293,6 +304,19 @@ func init() {
 	})
 
 	R(&options.SHuaweiCloudAccountUpdateOptions{}, "cloud-account-update-huawei", "update a Huawei cloud account", func(s *mcclient.ClientSession, args *options.SHuaweiCloudAccountUpdateOptions) error {
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
+		if params.Size() == 0 {
+			return InvalidUpdateError()
+		}
+		result, err := modules.Cloudaccounts.Update(s, args.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SZStackCloudAccountUpdateOptions{}, "cloud-account-update-zstack", "update a ZStack cloud account", func(s *mcclient.ClientSession, args *options.SZStackCloudAccountUpdateOptions) error {
 		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
 		if params.Size() == 0 {
 			return InvalidUpdateError()

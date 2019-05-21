@@ -360,8 +360,8 @@ func (self *SHost) GetSN() string {
 	return self.getHostSystem().Hardware.SystemInfo.SerialNumber
 }
 
-func (self *SHost) GetCpuCount() int8 {
-	return int8(self.getHostSystem().Summary.Hardware.NumCpuThreads)
+func (self *SHost) GetCpuCount() int {
+	return int(self.getHostSystem().Summary.Hardware.NumCpuThreads)
 }
 
 func (self *SHost) GetNodeCount() int8 {
@@ -575,7 +575,7 @@ func (host *SHost) newLocalStorageCache() (*SDatastoreImageCache, error) {
 	var errmsg string
 	var cacheDs *SDatastore
 	var maxDs *SDatastore
-	var maxCapacity int
+	var maxCapacity int64
 	for i := 0; i < len(istorages); i += 1 {
 		ds := istorages[i].(*SDatastore)
 		if !ds.isLocalVMFS() {

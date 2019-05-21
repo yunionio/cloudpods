@@ -69,6 +69,7 @@ const (
 	HOST_TYPE_HUAWEI    = api.HOST_TYPE_HUAWEI
 	HOST_TYPE_OPENSTACK = api.HOST_TYPE_OPENSTACK
 	HOST_TYPE_UCLOUD    = api.HOST_TYPE_UCLOUD
+	HOST_TYPE_ZSTACK    = api.HOST_TYPE_ZSTACK
 
 	HOST_TYPE_DEFAULT = HOST_TYPE_HYPERVISOR
 
@@ -152,12 +153,12 @@ type SHost struct {
 	SysInfo jsonutils.JSONObject `nullable:"true" search:"admin" list:"admin" update:"admin" create:"admin_optional"`              // Column(JSONEncodedDict, nullable=True)
 	SN      string               `width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(128, charset='ascii'), nullable=True)
 
-	CpuCount    int8    `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`                           // Column(TINYINT, nullable=True) # cpu count
+	CpuCount    int     `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`                           // Column(TINYINT, nullable=True) # cpu count
 	NodeCount   int8    `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`                           // Column(TINYINT, nullable=True)
 	CpuDesc     string  `width:"64" charset:"ascii" nullable:"true" get:"admin" update:"admin" create:"admin_optional"` // Column(VARCHAR(64, charset='ascii'), nullable=True)
 	CpuMhz      int     `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`                            // Column(Integer, nullable=True) # cpu MHz
 	CpuCache    int     `nullable:"true" get:"admin" update:"admin" create:"admin_optional"`                            // Column(Integer, nullable=True) # cpu Cache in KB
-	CpuReserved int8    `nullable:"true" default:"0" list:"admin" update:"admin" create:"admin_optional"`               // Column(TINYINT, nullable=True, default=0)
+	CpuReserved int     `nullable:"true" default:"0" list:"admin" update:"admin" create:"admin_optional"`               // Column(TINYINT, nullable=True, default=0)
 	CpuCmtbound float32 `nullable:"true" default:"8" list:"admin" update:"admin" create:"admin_optional"`               // = Column(Float, nullable=True)
 
 	MemSize     int     `nullable:"true" list:"admin" update:"admin" create:"admin_optional"`             // Column(Integer, nullable=True) # memory size in MB
@@ -702,7 +703,7 @@ func (self *SHost) PerformUpdateStorage(
 		// 1. create storage
 		storage := SStorage{}
 		storage.Name = fmt.Sprintf("storage%s", self.GetName())
-		storage.Capacity = int(capacity)
+		storage.Capacity = capacity
 		storage.StorageType = api.STORAGE_BAREMETAL
 		storage.MediumType = self.StorageType
 		storage.Cmtbound = 1.0
@@ -718,7 +719,7 @@ func (self *SHost) PerformUpdateStorage(
 		bmStorage := SHoststorage{}
 		bmStorage.HostId = self.Id
 		bmStorage.StorageId = storage.Id
-		bmStorage.RealCapacity = int(capacity)
+		bmStorage.RealCapacity = capacity
 		bmStorage.MountPoint = ""
 		err = HoststorageManager.TableSpec().Insert(&bmStorage)
 		if err != nil {
@@ -731,7 +732,7 @@ func (self *SHost) PerformUpdateStorage(
 	storage := bs.GetStorage()
 	if capacity != int64(storage.Capacity) {
 		diff, err := db.Update(storage, func() error {
-			storage.Capacity = int(capacity)
+			storage.Capacity = capacity
 			return nil
 		})
 		if err != nil {
@@ -1009,13 +1010,13 @@ func (self *SHost) GetHardwareSpecification() *jsonutils.JSONDict {
 }
 
 type SStorageCapacity struct {
-	Capacity  int `json:"capacity,omitzero"`
-	Used      int `json:"used_capacity,omitzero"`
-	Wasted    int `json:"waste_capacity,omitzero"`
-	VCapacity int `json:"virtual_capacity,omitzero"`
+	Capacity  int64 `json:"capacity,omitzero"`
+	Used      int64 `json:"used_capacity,omitzero"`
+	Wasted    int64 `json:"waste_capacity,omitzero"`
+	VCapacity int64 `json:"virtual_capacity,omitzero"`
 }
 
-func (cap *SStorageCapacity) GetFree() int {
+func (cap *SStorageCapacity) GetFree() int64 {
 	return cap.VCapacity - cap.Used - cap.Wasted
 }
 
@@ -1052,7 +1053,7 @@ func (self *SHost) GetAttachedStorageCapacity() SStorageCapacity {
 
 func _getLeastUsedStorage(storages []SStorage, backends []string) *SStorage {
 	var best *SStorage
-	var bestCap int
+	var bestCap int64
 	for i := 0; i < len(storages); i++ {
 		s := storages[i]
 		if len(backends) > 0 {
@@ -2983,7 +2984,7 @@ func (self *SHost) PerformInitialize(
 		"is_fake_baremetal_server": true, "host_ip": self.AccessIp}, userCred)
 
 	caps := self.GetAttachedStorageCapacity()
-	diskConfig := &api.DiskConfig{SizeMb: caps.GetFree()}
+	diskConfig := &api.DiskConfig{SizeMb: int(caps.GetFree())}
 	err = guest.CreateDisksOnHost(ctx, userCred, self, []*api.DiskConfig{diskConfig}, nil, true, true, nil, nil)
 	if err != nil {
 		log.Errorf("Host perform initialize failed on create disk %s", err)
@@ -3665,7 +3666,7 @@ func (self *SHost) UpdateDiskConfig(userCred mcclient.TokenCredential, layouts [
 				for i := 0; i < len(layouts); i++ {
 					size += layouts[i].Size
 				}
-				bs.RealCapacity = int(size)
+				bs.RealCapacity = size
 			} else {
 				bs.Config = jsonutils.NewArray()
 				bs.RealCapacity = bs.GetStorage().Capacity

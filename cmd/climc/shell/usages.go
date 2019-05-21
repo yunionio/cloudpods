@@ -22,8 +22,8 @@ import (
 )
 
 type GeneralUsageOptions struct {
-	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv|aliyun|azure|aws|huawei|qcloud"`
-	Provider []string `help:"Provider" choices:"VMware|Aliyun|Azure|Aws|Qcloud|Huawei"`
+	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv|aliyun|azure|aws|huawei|qcloud|openstack|ucloud|zstack"`
+	Provider []string `help:"Provider" choices:"VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|ZStack"`
 	Project  string
 }
 

@@ -43,7 +43,7 @@ type Service struct {
 }
 
 type SResource struct {
-	CPU      int8
+	CPU      int
 	DiskGB   int
 	Host     string
 	MemoryMb int
@@ -72,7 +72,7 @@ type SHost struct {
 	MemoryMbUsed       int
 	RunningVms         int
 	Service            Service
-	Vcpus              int8
+	Vcpus              int
 	VcpusUsed          int8
 
 	// less then version 2.28
@@ -293,7 +293,7 @@ func (host *SHost) GetSN() string {
 	return ""
 }
 
-func (host *SHost) GetCpuCount() int8 {
+func (host *SHost) GetCpuCount() int {
 	if host.Vcpus > 0 {
 		return host.Vcpus
 	}
@@ -314,7 +314,7 @@ func (host *SHost) GetNodeCount() int8 {
 			}
 		}
 	}
-	return host.GetCpuCount()
+	return int8(host.GetCpuCount())
 }
 
 func (host *SHost) GetCpuDesc() string {

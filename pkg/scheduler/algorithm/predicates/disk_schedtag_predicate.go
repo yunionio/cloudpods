@@ -116,7 +116,7 @@ func (p *DiskSchedtagPredicate) DoSelect(
 	return p.GetUsedStorages(res, input.(*diskW).Backend)
 }
 
-func (p *DiskSchedtagPredicate) GetCandidateResourceSortScore(selectRes ISchedtagCandidateResource) int {
+func (p *DiskSchedtagPredicate) GetCandidateResourceSortScore(selectRes ISchedtagCandidateResource) int64 {
 	return selectRes.(*api.CandidateStorage).GetFreeCapacity()
 }
 

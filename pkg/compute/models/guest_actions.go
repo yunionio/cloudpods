@@ -1312,7 +1312,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, "No valid storage on current host", userCred, false)
 			return nil, httperrors.NewBadRequestError("No valid storage on current host")
 		}
-		if storage.GetCapacity() > 0 && storage.GetCapacity() < size {
+		if storage.GetCapacity() > 0 && storage.GetCapacity() < int64(size) {
 			logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, "Not eough storage space on current host", userCred, false)
 			return nil, httperrors.NewBadRequestError("Not eough storage space on current host")
 		}
@@ -1943,7 +1943,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 				return nil, httperrors.NewBadRequestError("Fetch storage error: %s", err)
 			}
 			storage := iStorage.(*SStorage)
-			if storage.GetFreeCapacity() < needSize {
+			if storage.GetFreeCapacity() < int64(needSize) {
 				return nil, httperrors.NewInsufficientResourceError("Not enough free space")
 			}
 		}
@@ -2434,14 +2434,17 @@ func (self *SGuest) AllowPerformCreateEip(ctx context.Context, userCred mcclient
 }
 
 func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	bw, err := data.Int("bandwidth")
-	if err != nil {
-		return nil, httperrors.NewMissingParameterError("bandwidth")
-	}
-
+	var bw int64
 	chargeType, _ := data.GetString("charge_type")
 	if len(chargeType) == 0 {
 		chargeType = api.EIP_CHARGE_TYPE_DEFAULT
+	}
+
+	if chargeType == api.EIP_CHARGE_TYPE_BY_BANDWIDTH {
+		bw, _ = data.Int("bandwidth")
+		if bw == 0 {
+			return nil, httperrors.NewMissingParameterError("bandwidth")
+		}
 	}
 
 	if len(self.ExternalId) == 0 {
@@ -2452,7 +2455,7 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		return nil, httperrors.NewInvalidStatusError("No host???")
 	}
 
-	_, err = host.GetDriver()
+	_, err := host.GetDriver()
 	if err != nil {
 		return nil, httperrors.NewInvalidStatusError("No valid cloud provider")
 	}
@@ -2460,6 +2463,11 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 	region := host.GetRegion()
 	if region == nil {
 		return nil, httperrors.NewInvalidStatusError("No cloudregion???")
+	}
+
+	err = self.GetDriver().ValidateCreateEip(ctx, userCred, data)
+	if err != nil {
+		return nil, err
 	}
 
 	eipPendingUsage := &SQuota{Eip: 1}
@@ -3049,7 +3057,7 @@ func (man *SGuestManager) createImportGuest(ctx context.Context, userCred mcclie
 	gst.Status = api.VM_IMPORT
 	gst.Hypervisor = desc.Hypervisor
 	gst.VmemSize = desc.MemSizeMb
-	gst.VcpuCount = int8(desc.Cpu)
+	gst.VcpuCount = desc.Cpu
 	gst.BootOrder = desc.BootOrder
 	gst.Description = desc.Description
 	err = man.TableSpec().Insert(gst)

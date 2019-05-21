@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+
 	// "strings"
 	"time"
 
@@ -207,13 +208,13 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 		}
 	}
 
-	storageSize := 0
+	storageSize := int64(0)
 	var externalId string
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
 		storage := disk.GetStorage()
 		if disk.BillingType == billing_api.BILLING_TYPE_PREPAID {
-			storageSize += disk.DiskSize
+			storageSize += int64(disk.DiskSize)
 			if len(externalId) == 0 {
 				externalId = storage.ExternalId
 			} else {

@@ -20,7 +20,7 @@ import (
 )
 
 type CloudSyncOptions struct {
-	Provider    string `help:"Public cloud provider" choices:"Aliyun|Azure|Aws|Qcloud"`
+	Provider    string `help:"Public cloud provider" choices:"Aliyun|Azure|Aws|Qcloud|OpenStack|Ucloud|Huawei|ZStack"`
 	Environment string `help:"environment of public cloud"`
 	Cloudregion string `help:"region of public cloud"`
 	Zone        string `help:"availability zone of public cloud"`

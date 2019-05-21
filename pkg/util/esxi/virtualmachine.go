@@ -213,8 +213,8 @@ func (self *SVirtualMachine) GetIEIP() (cloudprovider.ICloudEIP, error) {
 	return nil, nil
 }
 
-func (self *SVirtualMachine) GetVcpuCount() int8 {
-	return int8(self.getVirtualMachine().Summary.Config.NumCpu)
+func (self *SVirtualMachine) GetVcpuCount() int {
+	return int(self.getVirtualMachine().Summary.Config.NumCpu)
 }
 
 func (self *SVirtualMachine) GetVmemSizeMB() int {
@@ -526,7 +526,7 @@ func (self *SVirtualMachine) GetVersion() string {
 func (self *SVirtualMachine) doChangeConfig(ctx context.Context, ncpu int32, vmemMB int64, guestId string, version string) error {
 	changed := false
 	configSpec := types.VirtualMachineConfigSpec{}
-	if int8(ncpu) != self.GetVcpuCount() {
+	if int(ncpu) != self.GetVcpuCount() {
 		configSpec.NumCPUs = ncpu
 		changed = true
 	}

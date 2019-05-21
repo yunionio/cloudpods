@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
@@ -118,6 +119,10 @@ func (self *SBaseGuestDriver) IsRebuildRootSupportChangeImage() bool {
 
 func (self *SBaseGuestDriver) GetChangeConfigStatus() ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetChangeConfigStatus")
+}
+
+func (self *SBaseGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	return httperrors.NewInputParameterError("Not Implement ValidateCreateEip")
 }
 
 func (self *SBaseGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {

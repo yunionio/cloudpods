@@ -29,7 +29,7 @@ import (
 type SVMSize struct {
 	//MaxDataDiskCount     int32 `json:"maxDataDiskCount,omitempty"` //Unmarshal会出错
 	MemoryInMB           int32 `json:"memoryInMB,omitempty"`
-	NumberOfCores        int32 `json:"numberOfCores,omitempty"`
+	NumberOfCores        int   `json:"numberOfCores,omitempty"`
 	Name                 string
 	OsDiskSizeInMB       int32 `json:"osDiskSizeInMB,omitempty"`
 	ResourceDiskSizeInMB int32 `json:"resourceDiskSizeInMB,omitempty"`
@@ -88,7 +88,7 @@ func (self *SRegion) getHardwareProfile(cpu, memMB int) []string {
 	} else {
 		profiles := make([]string, 0)
 		for vmSize, info := range vmSizes {
-			if info.MemoryInMB == int32(memMB) && info.NumberOfCores == int32(cpu) {
+			if info.MemoryInMB == int32(memMB) && info.NumberOfCores == cpu {
 				profiles = append(profiles, vmSize)
 			}
 		}
@@ -414,7 +414,7 @@ func (self *SRegion) fetchInfrastructure() error {
 	return nil
 }
 
-func (self *SRegion) CreateInstanceSimple(name string, imgId, osType string, cpu int8, memMb int, sysDiskSizeGB int, storageType string, dataDiskSizesGB []int, networkId string, passwd string, publicKey string) (*SInstance, error) {
+func (self *SRegion) CreateInstanceSimple(name string, imgId, osType string, cpu int, memMb int, sysDiskSizeGB int, storageType string, dataDiskSizesGB []int, networkId string, passwd string, publicKey string) (*SInstance, error) {
 	izones, err := self.GetIZones()
 	if err != nil {
 		return nil, err
@@ -428,7 +428,7 @@ func (self *SRegion) CreateInstanceSimple(name string, imgId, osType string, cpu
 				Name:              name,
 				ExternalImageId:   imgId,
 				SysDisk:           cloudprovider.SDiskInfo{SizeGB: sysDiskSizeGB, StorageType: storageType},
-				Cpu:               int(cpu),
+				Cpu:               cpu,
 				MemoryMB:          memMb,
 				ExternalNetworkId: networkId,
 				Password:          seclib2.RandomPassword2(12),

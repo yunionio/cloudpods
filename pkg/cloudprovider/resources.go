@@ -67,7 +67,7 @@ type ICloudRegion interface {
 	SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error)
 
 	CreateIVpc(name string, desc string, cidr string) (ICloudVpc, error)
-	CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (ICloudEIP, error)
+	CreateEIP(eip *SEip) (ICloudEIP, error)
 
 	GetISnapshots() ([]ICloudSnapshot, error)
 	GetISnapshotById(snapshotId string) (ICloudSnapshot, error)
@@ -116,7 +116,7 @@ type ICloudImage interface {
 	Delete(ctx context.Context) error
 	GetIStoragecache() ICloudStoragecache
 
-	GetSize() int64
+	GetSizeByte() int64
 	GetImageType() string
 	GetImageStatus() string
 	GetOsType() string
@@ -154,7 +154,7 @@ type ICloudStorage interface {
 
 	GetStorageType() string
 	GetMediumType() string
-	GetCapacityMB() int // MB
+	GetCapacityMB() int64 // MB
 	GetStorageConf() jsonutils.JSONObject
 	GetEnabled() bool
 
@@ -184,7 +184,7 @@ type ICloudHost interface {
 	GetAccessMac() string  //
 	GetSysInfo() jsonutils.JSONObject
 	GetSN() string
-	GetCpuCount() int8
+	GetCpuCount() int
 	GetNodeCount() int8
 	GetCpuDesc() string
 	GetCpuMhz() int
@@ -216,7 +216,7 @@ type ICloudVM interface {
 	// GetStatus() string
 	// GetRemoteStatus() string
 
-	GetVcpuCount() int8
+	GetVcpuCount() int
 	GetVmemSizeMB() int //MB
 	GetBootOrder() string
 	GetVga() string
@@ -275,6 +275,7 @@ type ICloudEIP interface {
 
 	GetIpAddr() string
 	GetMode() string
+	GetINetworkId() string
 	GetAssociationType() string
 	GetAssociationExternalId() string
 

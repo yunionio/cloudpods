@@ -161,6 +161,10 @@ func (self *SEipAddress) GetBandwidth() int {
 	return 0
 }
 
+func (self *SEipAddress) GetINetworkId() string {
+	return ""
+}
+
 func (self *SEipAddress) GetBillingType() string {
 	return billing_api.BILLING_TYPE_POSTPAID
 }
@@ -292,15 +296,15 @@ func (region *SRegion) AllocateEIP(name string, bwMbps int, chargeType TInternet
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (region *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
+func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
 	var ctype TInternetChargeType
-	switch chargeType {
+	switch eip.ChargeType {
 	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
 		ctype = InternetChargeByTraffic
 	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:
 		ctype = InternetChargeByBandwidth
 	}
-	return region.AllocateEIP(name, bwMbps, ctype)
+	return region.AllocateEIP(eip.Name, eip.BandwidthMbps, ctype)
 }
 
 func (region *SRegion) DeallocateEIP(eipId string) error {

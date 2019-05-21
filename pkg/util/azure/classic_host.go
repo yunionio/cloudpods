@@ -68,7 +68,7 @@ func (self *SClassicHost) GetAccessMac() string {
 	return ""
 }
 
-func (self *SClassicHost) GetCpuCount() int8 {
+func (self *SClassicHost) GetCpuCount() int {
 	return 0
 }
 

@@ -16,7 +16,7 @@ package azure
 
 type ClassicVMSize struct {
 	MemoryInMB    int
-	NumberOfCores int8
+	NumberOfCores int
 	StorageSize   int
 	MaxNic        int
 }

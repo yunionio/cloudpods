@@ -241,7 +241,7 @@ type ISchedtagPredicateInstance interface {
 
 	DoSelect(c core.Candidater, input ISchedtagCustomer, res []ISchedtagCandidateResource) []ISchedtagCandidateResource
 	AddSelectResult(index int, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource)
-	GetCandidateResourceSortScore(candidate ISchedtagCandidateResource) int
+	GetCandidateResourceSortScore(candidate ISchedtagCandidateResource) int64
 }
 
 type BaseSchedtagPredicate struct {

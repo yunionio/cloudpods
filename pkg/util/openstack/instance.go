@@ -273,7 +273,7 @@ func (instance *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	return nics, nil
 }
 
-func (instance *SInstance) GetVcpuCount() int8 {
+func (instance *SInstance) GetVcpuCount() int {
 	instance.fetchFlavor()
 	return instance.Flavor.Vcpus
 }
@@ -418,7 +418,7 @@ func (instance *SInstance) RebuildRoot(ctx context.Context, imageId string, pass
 }
 
 func (instance *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
-	if instance.GetVcpuCount() != int8(ncpu) || instance.GetVmemSizeMB() != vmem {
+	if instance.GetVcpuCount() != ncpu || instance.GetVmemSizeMB() != vmem {
 		flavorId, err := instance.host.zone.region.syncFlavor("", ncpu, vmem, 40)
 		if err != nil {
 			return err

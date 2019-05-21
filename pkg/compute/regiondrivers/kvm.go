@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
@@ -303,4 +305,8 @@ func (self *SKVMRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx context.
 
 func (self *SKVMRegionDriver) ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return data, nil
+}
+
+func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return nil, httperrors.NewNotImplementedError("Not Implement EIP")
 }

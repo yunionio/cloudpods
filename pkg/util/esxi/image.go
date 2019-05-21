@@ -105,7 +105,7 @@ func (self *SImage) GetImageType() string {
 	return cloudprovider.CachedImageTypeCustomized
 }
 
-func (self *SImage) GetSize() int64 {
+func (self *SImage) GetSizeByte() int64 {
 	return self.size
 }
 
@@ -126,7 +126,7 @@ func (self *SImage) GetOsArch() string {
 }
 
 func (self *SImage) GetMinOsDiskSizeGb() int {
-	return int(self.GetSize() / 1024 / 1024 / 1024)
+	return int(self.GetSizeByte() / 1024 / 1024 / 1024)
 }
 
 func (self *SImage) GetImageFormat() string {

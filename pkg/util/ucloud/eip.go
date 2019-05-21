@@ -177,6 +177,10 @@ func (self *SEip) GetBandwidth() int {
 	return self.BandwidthMb
 }
 
+func (self *SEip) GetINetworkId() string {
+	return ""
+}
+
 // 弹性IP的计费模式, 枚举值为: "Bandwidth", 带宽计费; "Traffic", 流量计费; "ShareBandwidth",共享带宽模式. 默认为 "Bandwidth".
 func (self *SEip) GetInternetChargeType() string {
 	switch self.PayMode {
@@ -207,21 +211,21 @@ func (self *SEip) ChangeBandwidth(bw int) error {
 
 // https://docs.ucloud.cn/api/unet-api/allocate_eip
 // 增加共享带宽模式ShareBandwidth
-func (self *SRegion) CreateEIP(name string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
-	if len(bgpType) == 0 {
+func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
+	if len(eip.BGPType) == 0 {
 		if strings.HasPrefix(self.GetId(), "cn-") {
-			bgpType = "Bgp"
+			eip.BGPType = "Bgp"
 		} else {
-			bgpType = "International"
+			eip.BGPType = "International"
 		}
 	}
 
 	params := NewUcloudParams()
-	params.Set("OperatorName", bgpType)
-	params.Set("Bandwidth", bwMbps)
-	params.Set("Name", name)
+	params.Set("OperatorName", eip.BGPType)
+	params.Set("Bandwidth", eip.BandwidthMbps)
+	params.Set("Name", eip.Name)
 	var payMode string
-	switch chargeType {
+	switch eip.ChargeType {
 	case api.EIP_CHARGE_TYPE_BY_TRAFFIC:
 		payMode = "Traffic"
 	case api.EIP_CHARGE_TYPE_BY_BANDWIDTH:

@@ -171,6 +171,11 @@ func (self *SNetwork) GetTotalNicCount() (int, error) {
 		return -1, err
 	}
 	total += cnt
+	cnt, err = self.GetEipsCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
 	return total, nil
 }
 
@@ -194,6 +199,10 @@ func (self *SNetwork) GetLoadbalancerIpsCount() (int, error) {
 	return LoadbalancernetworkManager.Query().Equals("network_id", self.Id).CountWithError()
 }
 
+func (self *SNetwork) GetEipsCount() (int, error) {
+	return ElasticipManager.Query().Equals("network_id", self.Id).CountWithError()
+}
+
 func (self *SNetwork) GetUsedAddresses() map[string]bool {
 	used := make(map[string]bool)
 
@@ -203,6 +212,7 @@ func (self *SNetwork) GetUsedAddresses() map[string]bool {
 		HostnetworkManager.Query().SubQuery(),
 		ReservedipManager.Query().SubQuery(),
 		LoadbalancernetworkManager.Query().SubQuery(),
+		ElasticipManager.Query().SubQuery(),
 	} {
 		q := tbl.Query(tbl.Field("ip_addr")).Equals("network_id", self.Id)
 		rows, err := q.Rows()
@@ -883,6 +893,8 @@ func (self *SNetwork) getMoreDetails(ctx context.Context, extra *jsonutils.JSOND
 	extra.Add(jsonutils.NewInt(int64(bmVnics)), "bm_vnics")
 	lbVnics, _ := self.GetLoadbalancerIpsCount()
 	extra.Add(jsonutils.NewInt(int64(lbVnics)), "lb_vnics")
+	eips, _ := self.GetEipsCount()
+	extra.Add(jsonutils.NewInt(int64(eips)), "eip_vnics")
 	groupVnics, _ := self.GetGroupNicsCount()
 	extra.Add(jsonutils.NewInt(int64(groupVnics)), "group_vnics")
 	reserveVnics, _ := self.GetReservedNicsCount()

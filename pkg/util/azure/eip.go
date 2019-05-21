@@ -77,8 +77,8 @@ func (region *SRegion) AllocateEIP(eipName string) (*SEipAddress, error) {
 	return &eip, cloudprovider.WaitStatus(&eip, api.EIP_STATUS_READY, 10*time.Second, 300*time.Second)
 }
 
-func (region *SRegion) CreateEIP(eipName string, bwMbps int, chargeType string, bgpType string) (cloudprovider.ICloudEIP, error) {
-	return region.AllocateEIP(eipName)
+func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
+	return region.AllocateEIP(eip.Name)
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
@@ -197,6 +197,10 @@ func (self *SEipAddress) GetAssociationType() string {
 
 func (self *SEipAddress) GetBandwidth() int {
 	return 0
+}
+
+func (self *SEipAddress) GetINetworkId() string {
+	return ""
 }
 
 func (self *SEipAddress) GetGlobalId() string {

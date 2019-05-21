@@ -165,6 +165,10 @@ func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Conte
 	return input, nil
 }
 
+func (self *SManagedVirtualizedGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	return nil
+}
+
 func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }

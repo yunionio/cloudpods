@@ -151,6 +151,7 @@ type IGuestDriver interface {
 	RequestSyncToBackup(ctx context.Context, guest *SGuest, task taskman.ITask) error
 
 	IsSupportEip() bool
+	ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error
 
 	NeedStopForChangeSpec(guest *SGuest) bool
 

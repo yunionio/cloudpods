@@ -217,8 +217,8 @@ type SGuest struct {
 
 	SBillingResourceBase
 
-	VcpuCount int8 `nullable:"false" default:"1" list:"user" create:"optional"` // Column(TINYINT, nullable=False, default=1)
-	VmemSize  int  `nullable:"false" list:"user" create:"required"`             // Column(Integer, nullable=False)
+	VcpuCount int `nullable:"false" default:"1" list:"user" create:"optional"` // Column(TINYINT, nullable=False, default=1)
+	VmemSize  int `nullable:"false" list:"user" create:"required"`             // Column(Integer, nullable=False)
 
 	BootOrder string `width:"8" charset:"ascii" nullable:"true" default:"cdn" list:"user" update:"user" create:"optional"` // Column(VARCHAR(8, charset='ascii'), nullable=True, default='cdn')
 
@@ -3056,6 +3056,8 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 			if strings.HasSuffix(host.Name, "-classic") {
 				registerVpcId, externalVpcId = "classic", "classic"
 			}
+		case api.HYPERVISOR_ZSTACK:
+			break
 		default:
 			return nil, fmt.Errorf("Unknown guest %s hypervisor %s for sync secgroup", self.Name, self.Hypervisor)
 		}

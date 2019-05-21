@@ -32,7 +32,7 @@ type SFlavor struct {
 	Name         string
 	RAM          int
 	Swap         string
-	Vcpus        int8
+	Vcpus        int
 }
 
 func (region *SRegion) GetFlavors() ([]SFlavor, error) {
