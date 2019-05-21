@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -67,11 +66,8 @@ func (self *SOpenStackProviderFactory) ValidateCreateCloudaccountData(ctx contex
 		return httperrors.NewMissingParameterError("auth_url")
 	}
 	account := fmt.Sprintf("%s/%s", projectName, username)
-	if endpointType, _ := data.GetString("endpoint_type"); len(endpointType) > 0 {
-		if !utils.IsInStringArray(endpointType, EndpointTypes) {
-			return httperrors.NewInputParameterError("Unsupport endpoint_type %s only support %s", endpointType, EndpointTypes)
-		}
-		account = fmt.Sprintf("%s/%s", account, endpointType)
+	if domainName, _ := data.GetString("domain_name"); len(domainName) > 0 {
+		account = fmt.Sprintf("%s/%s", account, domainName)
 	}
 
 	data.Set("account", jsonutils.NewString(account))
@@ -99,18 +95,15 @@ func (self *SOpenStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx 
 	}
 
 	_account := fmt.Sprintf("%s/%s", projectName, username)
-	endpointType, _ := data.GetString("endpoint_type")
-	if len(endpointType) == 0 {
+	domainName, _ := data.GetString("domain_name")
+	if len(domainName) == 0 {
 		if accountInfo := strings.Split(cloudaccount, "/"); len(accountInfo) == 3 {
-			endpointType = accountInfo[2]
+			domainName = accountInfo[2]
 		}
 	}
 
-	if len(endpointType) > 0 {
-		if !utils.IsInStringArray(endpointType, EndpointTypes) {
-			return nil, httperrors.NewInputParameterError("Unsupport endpoint_type %s only support %s", endpointType, EndpointTypes)
-		}
-		_account = fmt.Sprintf("%s/%s", _account, endpointType)
+	if len(domainName) > 0 {
+		_account = fmt.Sprintf("%s/%s", _account, domainName)
 	}
 
 	account := &cloudprovider.SCloudaccount{
@@ -125,11 +118,11 @@ func (self *SOpenStackProviderFactory) GetProvider(providerId, providerName, url
 	if len(accountInfo) < 2 {
 		return nil, fmt.Errorf("Missing username or project name %s", account)
 	}
-	project, username, endpointType := accountInfo[0], accountInfo[1], "internal"
+	project, username, endpointType, domainName := accountInfo[0], accountInfo[1], "internal", ""
 	if len(accountInfo) == 3 {
-		endpointType = accountInfo[2]
+		domainName = accountInfo[2]
 	}
-	client, err := openstack.NewOpenStackClient(providerId, providerName, url, username, password, project, endpointType, false)
+	client, err := openstack.NewOpenStackClient(providerId, providerName, url, username, password, project, endpointType, domainName, false)
 	if err != nil {
 		return nil, err
 	}
