@@ -67,6 +67,10 @@ func fetchAwsUserName(desc cloudprovider.SManagedVMCreateConfig) string {
 	}
 }
 
+func (self *SAwsGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
+	return true
+}
+
 func (self *SAwsGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	// return fetchAwsUserName(desc)
 	return api.VM_AWS_DEFAULT_LOGIN_USER
