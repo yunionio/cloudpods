@@ -233,6 +233,10 @@ func (self *SBaseGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
 }
 
+func (self *SBaseGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
+	return false
+}
+
 func (self *SBaseGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	userName := "root"
 	if desc.ImageType == "system" && desc.OsType == "Windows" {

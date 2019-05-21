@@ -38,7 +38,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/billing"
-	"yunion.io/x/onecloud/pkg/util/cloudinit"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -2974,27 +2973,7 @@ func (self *SGuest) GetDeployConfigOnHost(ctx context.Context, userCred mcclient
 		case api.HYPERVISOR_ALIYUN, api.HYPERVISOR_HUAWEI:
 			break
 		case api.HYPERVISOR_AWS:
-			loginUser := cloudinit.NewUser(api.VM_AWS_DEFAULT_LOGIN_USER)
-			loginUser.SudoPolicy(cloudinit.USER_SUDO_NOPASSWD)
-			if pub, _ := config.GetString("public_key"); len(pub) > 0 {
-				loginUser.SshKey(pub)
-			} else if pwd, _ := config.GetString("password"); len(pwd) > 0 {
-				loginUser.Password(pwd)
-			}
-
-			cloudconfig := cloudinit.SCloudConfig{Users: []cloudinit.SUser{loginUser}}
-
-			if d, _ := config.GetString("user_data"); len(d) > 0 {
-				_d, err := cloudinit.ParseUserDataBase64(d)
-				if err != nil {
-					return nil, fmt.Errorf("invalid user data %s", d)
-				}
-
-				cloudconfig.Merge(_d)
-			}
-
-			userdata := cloudconfig.UserDataBase64()
-			config.Add(jsonutils.NewString(userdata), "user_data")
+			break
 		case api.HYPERVISOR_QCLOUD, api.HYPERVISOR_OPENSTACK:
 			registerVpcId = "normal"
 		case api.HYPERVISOR_AZURE:
