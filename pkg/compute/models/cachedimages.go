@@ -507,6 +507,19 @@ func (image *SCachedimage) getValidStoragecache() []SStoragecache {
 	return caches
 }
 
+func (image *SCachedimage) GetRegions() ([]SCloudregion, error) {
+	regions := []SCloudregion{}
+	caches := image.getValidStoragecache()
+	for _, cache := range caches {
+		region, err := cache.GetRegion()
+		if err != nil {
+			return nil, err
+		}
+		regions = append(regions, *region)
+	}
+	return regions, nil
+}
+
 func (image *SCachedimage) GetCloudprovider() (*SCloudprovider, error) {
 	caches := image.getValidStoragecache()
 	if len(caches) == 0 {
