@@ -30,25 +30,25 @@ type Route struct {
 type Routes []*Route
 
 type RoutesOptions struct {
-	RouteType        []string
-	RouteCidr        []string
-	RouteNextHopType []string
-	RouteNextHopId   []string
+	Type        []string
+	Cidr        []string
+	NextHopType []string
+	NextHopId   []string
 }
 
 func (opts *RoutesOptions) Params() (jsonutils.JSONObject, error) {
-	len0 := len(opts.RouteType)
-	len1 := len(opts.RouteCidr)
-	if len0 != len1 || len0 != len(opts.RouteNextHopType) || len1 != len(opts.RouteNextHopId) {
-		return nil, fmt.Errorf("there must be equal number of options of --route-xxx")
+	len0 := len(opts.Type)
+	len1 := len(opts.Cidr)
+	if len0 != len1 || len0 != len(opts.NextHopType) || len1 != len(opts.NextHopId) {
+		return nil, fmt.Errorf("there must be equal number of options for each route")
 	}
 	routes := []*Route{}
 	for i := 0; i < len0; i++ {
 		routes = append(routes, &Route{
-			Type:        opts.RouteType[i],
-			Cidr:        opts.RouteCidr[i],
-			NextHopType: opts.RouteNextHopType[i],
-			NextHopId:   opts.RouteNextHopId[i],
+			Type:        opts.Type[i],
+			Cidr:        opts.Cidr[i],
+			NextHopType: opts.NextHopType[i],
+			NextHopId:   opts.NextHopId[i],
 		})
 	}
 	routesJson := jsonutils.Marshal(routes)
@@ -91,7 +91,7 @@ func (opts *RouteTableUpdateOptions) Params() (*jsonutils.JSONDict, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(opts.RouteCidr) != 0 {
+	if len(opts.Cidr) != 0 {
 		routesJson, err := opts.RoutesOptions.Params()
 		if err != nil {
 			return nil, err
@@ -108,7 +108,7 @@ type RouteTableAddRoutesOptions struct {
 }
 
 func (opts *RouteTableAddRoutesOptions) Params() (*jsonutils.JSONDict, error) {
-	if len(opts.RouteCidr) == 0 {
+	if len(opts.Cidr) == 0 {
 		return nil, fmt.Errorf("nothing to add")
 	}
 	routesJson, err := opts.RoutesOptions.Params()
@@ -123,15 +123,15 @@ func (opts *RouteTableAddRoutesOptions) Params() (*jsonutils.JSONDict, error) {
 type RouteTableDelRoutesOptions struct {
 	ID string `json:"-"`
 
-	RouteCidr []string
+	Cidr []string
 }
 
 func (opts *RouteTableDelRoutesOptions) Params() (*jsonutils.JSONDict, error) {
-	if len(opts.RouteCidr) == 0 {
+	if len(opts.Cidr) == 0 {
 		return nil, fmt.Errorf("nothing to del")
 	}
 	params := jsonutils.NewDict()
-	params.Set("cidrs", jsonutils.Marshal(opts.RouteCidr))
+	params.Set("cidrs", jsonutils.Marshal(opts.Cidr))
 	return params, nil
 }
 
