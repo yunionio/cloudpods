@@ -168,7 +168,11 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, t
 	}
 	if len(projectName) > 0 {
 		input.Auth.Scope.Project.Name = projectName
-		input.Auth.Scope.Project.Domain.Id = api.DEFAULT_DOMAIN_ID
+		if len(domainName) > 0 {
+			input.Auth.Scope.Project.Domain.Name = domainName
+		} else {
+			input.Auth.Scope.Project.Domain.Id = api.DEFAULT_DOMAIN_ID
+		}
 	}
 	hdr, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "POST", "/auth/tokens", nil, jsonutils.Marshal(&input))
 	if err != nil {
