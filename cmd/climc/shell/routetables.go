@@ -25,10 +25,10 @@ func init() {
 				typ, _ := routeObj.GetString("type")
 				cidr, _ := routeObj.GetString("cidr")
 				next_hop_type, _ := routeObj.GetString("next_hop_type")
-				next_hop, _ := routeObj.GetString("next_hop")
+				next_hop_id, _ := routeObj.GetString("next_hop_id")
 				route := fmt.Sprintf("%8s: %18s %s", typ, cidr, next_hop_type)
-				if len(next_hop) > 0 {
-					route += fmt.Sprintf(":%s", next_hop)
+				if next_hop_id != "" {
+					route += fmt.Sprintf(":%s", next_hop_id)
 				}
 				routes = append(routes, route)
 			}
