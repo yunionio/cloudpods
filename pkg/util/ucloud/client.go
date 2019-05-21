@@ -178,7 +178,7 @@ func jsonRequest(client *SUcloudClient, params SParams) (jsonutils.JSONObject, e
 
 		switch e := err.(type) {
 		case *httputils.JSONClientError:
-			if e.Code >= 500 {
+			if e.Code >= 499 {
 				time.Sleep(3 * time.Second)
 				retry += 1
 				continue
