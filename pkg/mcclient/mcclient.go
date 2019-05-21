@@ -220,7 +220,11 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, t
 		body.Add(jsonutils.NewString(projectId), "auth", "scope", "project", "id")
 	}
 	if len(projectName) > 0 {
-		body.Add(jsonutils.NewString("default"), "auth", "scope", "project", "domain", "id")
+		if len(domainName) > 0 {
+			body.Add(jsonutils.NewString(domainName), "auth", "scope", "project", "domain", "name")
+		} else {
+			body.Add(jsonutils.NewString("default"), "auth", "scope", "project", "domain", "id")
+		}
 		body.Add(jsonutils.NewString(projectName), "auth", "scope", "project", "name")
 	}
 	hdr, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "POST", "/auth/tokens", nil, body)
