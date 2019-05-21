@@ -34,6 +34,7 @@ type BaseOptions struct {
 	Password     string `help:"Password" default:"$OPENSTACK_PASSWORD"`
 	Project      string `help:"Project" default:"$OPENSTACK_PROJECT"`
 	EndpointType string `help:"Project" default:"$OPENSTACK_ENDPOINT_TYPE|internal"`
+	DomainName   string `help:"DomainName" default:"$OPENSTACK_DOMAIN_NAME"`
 	RegionID     string `help:"RegionId" default:"$OPENSTACK_REGION_ID"`
 	SUBCOMMAND   string `help:"openstackcli subcommand" subcommand:"true"`
 }
@@ -91,7 +92,7 @@ func newClient(options *BaseOptions) (*openstack.SRegion, error) {
 		return nil, fmt.Errorf("Missing Password")
 	}
 
-	cli, err := openstack.NewOpenStackClient("", "", options.AuthURL, options.Username, options.Password, options.Project, options.EndpointType, options.Debug)
+	cli, err := openstack.NewOpenStackClient("", "", options.AuthURL, options.Username, options.Password, options.Project, options.EndpointType, options.DomainName, options.Debug)
 	if err != nil {
 		return nil, err
 	}
