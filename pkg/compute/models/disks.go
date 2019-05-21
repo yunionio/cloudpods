@@ -1005,6 +1005,24 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	}
 
 	for i := 0; i < len(added); i += 1 {
+		extId := added[i].GetGlobalId()
+		_disk, err := manager.FetchByExternalId(extId)
+		if err != nil && err != sql.ErrNoRows {
+			//主要是显示duplicate err及 general err,方便排错
+			msg := fmt.Errorf("failed to found disk by external Id %s error: %v", extId, err)
+			syncResult.Error(msg)
+			continue
+		}
+		if _disk != nil {
+			disk := _disk.(*SDisk)
+			err = disk.syncDiskStorage(ctx, userCred, added[i])
+			if err != nil {
+				syncResult.UpdateError(err)
+			} else {
+				syncResult.Update()
+			}
+			continue
+		}
 		new, err := manager.newFromCloudDisk(ctx, userCred, provider, added[i], storage, -1, syncOwnerId)
 		if err != nil {
 			syncResult.AddError(err)
@@ -1017,6 +1035,32 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 	}
 
 	return localDisks, remoteDisks, syncResult
+}
+
+func (self *SDisk) syncDiskStorage(ctx context.Context, userCred mcclient.TokenCredential, idisk cloudprovider.ICloudDisk) error {
+	extId := idisk.GetGlobalId()
+	istorage, err := idisk.GetIStorage()
+	if err != nil {
+		log.Errorf("failed to get istorage for disk %s error: %v", extId, err)
+		return err
+	}
+	storageExtId := istorage.GetGlobalId()
+	storage, err := StorageManager.FetchByExternalId(storageExtId)
+	if err != nil {
+		log.Errorf("failed to found storage by istorage %s error: %v", storageExtId, err)
+		return err
+	}
+	diff, err := db.UpdateWithLock(ctx, self, func() error {
+		self.StorageId = storage.GetId()
+		self.Status = idisk.GetStatus()
+		return nil
+	})
+	if err != nil {
+		log.Errorf("syncWithCloudDisk error %s", err)
+		return err
+	}
+	db.OpsLog.LogSyncUpdate(self, diff, userCred)
+	return nil
 }
 
 func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.TokenCredential) error {
