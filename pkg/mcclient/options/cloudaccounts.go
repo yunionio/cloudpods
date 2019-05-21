@@ -50,7 +50,7 @@ type SOpenStackCredential struct {
 
 	SUserPasswordCredential
 
-	EndpointType string `help:"OpenStack endpoint type" choices:"internal|public|admin"`
+	DomainName string `help:"OpenStack domain name"`
 }
 
 type SOpenStackCredentialWithAuthURL struct {
