@@ -2130,9 +2130,14 @@ func (self *SGuest) AllowPerformSyncstatus(ctx context.Context, userCred mcclien
 }
 
 func (self *SGuest) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	var openTask = true
+	count := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-1*time.Hour), &openTask).Count()
+	if count > 0 {
+		return nil, httperrors.NewBadRequestError("Guest has %d task active, can't sync status", count)
+	}
+
 	self.SetStatus(userCred, api.VM_SYNCING_STATUS, "perform_syncstatus")
-	err := self.StartSyncstatus(ctx, userCred, "")
-	return nil, err
+	return nil, self.StartSyncstatus(ctx, userCred, "")
 }
 
 func (self *SGuest) isNotRunningStatus(status string) bool {
