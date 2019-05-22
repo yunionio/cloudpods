@@ -17,12 +17,14 @@ package models
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
+	//"encoding/base64"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -41,6 +43,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/userdata"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -2486,11 +2489,14 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 }
 
 func (self *SGuest) setUserData(ctx context.Context, userCred mcclient.TokenCredential, data string) error {
-	data = base64.StdEncoding.EncodeToString([]byte(data))
-	if len(data) > 16*1024 {
-		return fmt.Errorf("User data is limited to 16 KB.")
+	if err := userdata.ValidateUserdata(data); err != nil {
+		return err
 	}
-	err := self.SetMetadata(ctx, "user_data", data, userCred)
+	encodeData, err := userdata.Encode(data)
+	if err != nil {
+		return errors.Wrap(err, "encode guest userdata")
+	}
+	err = self.SetMetadata(ctx, "user_data", encodeData, userCred)
 	if err != nil {
 		return err
 	}

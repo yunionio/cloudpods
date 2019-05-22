@@ -113,6 +113,19 @@ func initKubeCluster() {
 		return nil
 	})
 
+	R(&o.IdentOptions{}, cmdN("addons"), "Get addon manifest of a cluster", func(s *mcclient.ClientSession, args *o.IdentOptions) error {
+		ret, err := k8s.KubeClusters.GetSpecific(s, args.ID, "addons", nil)
+		if err != nil {
+			return err
+		}
+		conf, err := ret.GetString("addons")
+		if err != nil {
+			return err
+		}
+		fmt.Println(conf)
+		return nil
+	})
+
 	R(&o.ClusterK8sVersions{}, cmdN("k8s-versions"), "Get kubernetes deployable versions", func(s *mcclient.ClientSession, args *o.ClusterK8sVersions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.PROVIDER), "provider")

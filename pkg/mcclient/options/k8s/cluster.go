@@ -72,20 +72,29 @@ func (o ClusterCreateOptions) Params() *jsonutils.JSONDict {
 	return params
 }
 
-type KubeClusterCreateOptions struct {
-	NAME          string   `help:"Name of cluster"`
-	ClusterType   string   `help:"Cluster cluster type" choices:"default|serverless"`
-	CloudType     string   `help:"Cluster cloud type" choices:"private|public|hybrid"`
-	Mode          string   `help:"Cluster mode type" choices:"customize|managed"`
-	Provider      string   `help:"Cluster provider" choices:"onecloud|aws|aliyun|azure|qcloud"`
-	ServiceCidr   string   `help:"Cluster service CIDR, e.g. 10.43.0.0/16"`
-	ServiceDomain string   `help:"Cluster service domain, e.g. cluster.local"`
-	Vip           string   `help:"Cluster api server static loadbalancer vip"`
-	Version       string   `help:"Cluster kubernetes version"`
-	Machine       []string `help:"Machine create desc, e.g. host01:baremetal:controlplane"`
+type AddMachineOptions struct {
+	Machine         []string `help:"Machine create desc, e.g. host01:baremetal:controlplane"`
+	MachineDiskSize string   `help:"Machine root disk size, e.g. 100G"`
+	MachineCpu      int      `help:"Machine cpu count"`
+	MachineMemory   string   `help:"Machine memory size, e.g. 1G"`
 }
 
-func parseMachineDesc(desc string) (*MachineCreateOptions, error) {
+type KubeClusterCreateOptions struct {
+	NAME          string `help:"Name of cluster"`
+	ClusterType   string `help:"Cluster cluster type" choices:"default|serverless"`
+	ResourceType  string `help:"Cluster cluster type" choices:"host|guest"`
+	CloudType     string `help:"Cluster cloud type" choices:"private|public|hybrid"`
+	Mode          string `help:"Cluster mode type" choices:"customize|managed|import"`
+	Provider      string `help:"Cluster provider" choices:"onecloud|aws|aliyun|azure|qcloud|system"`
+	ServiceCidr   string `help:"Cluster service CIDR, e.g. 10.43.0.0/16"`
+	ServiceDomain string `help:"Cluster service domain, e.g. cluster.local"`
+	Vip           string `help:"Cluster api server static loadbalancer vip"`
+	Version       string `help:"Cluster kubernetes version"`
+
+	AddMachineOptions
+}
+
+func parseMachineDesc(desc string, diskSize string, ncpu int, memorySize string) (*MachineCreateOptions, error) {
 	matchType := func(p string) bool {
 		switch p {
 		case "baremetal", "vm":
@@ -119,6 +128,9 @@ func parseMachineDesc(desc string) (*MachineCreateOptions, error) {
 	if mo.Type == "" {
 		return nil, fmt.Errorf("Machine type is empty")
 	}
+	mo.DiskSize = diskSize
+	mo.Cpu = ncpu
+	mo.Memory = memorySize
 	return mo, nil
 }
 
@@ -127,6 +139,9 @@ func (o KubeClusterCreateOptions) Params() (*jsonutils.JSONDict, error) {
 	params.Add(jsonutils.NewString(o.NAME), "name")
 	if o.ClusterType != "" {
 		params.Add(jsonutils.NewString(o.ClusterType), "cluster_type")
+	}
+	if o.ResourceType != "" {
+		params.Add(jsonutils.NewString(o.ResourceType), "resource_type")
 	}
 	if o.CloudType != "" {
 		params.Add(jsonutils.NewString(o.CloudType), "cloud_type")
@@ -146,17 +161,11 @@ func (o KubeClusterCreateOptions) Params() (*jsonutils.JSONDict, error) {
 	if o.Vip != "" {
 		params.Add(jsonutils.NewString(o.Vip), "vip")
 	}
-	if len(o.Machine) != 0 {
-		machineObjs := jsonutils.NewArray()
-		for _, m := range o.Machine {
-			machine, err := parseMachineDesc(m)
-			if err != nil {
-				return nil, err
-			}
-			machineObjs.Add(machine.Params())
-		}
-		params.Add(machineObjs, "machines")
+	machineObjs, err := o.AddMachineOptions.Params()
+	if err != nil {
+		return nil, err
 	}
+	params.Add(machineObjs, "machines")
 	return params, nil
 }
 
@@ -234,18 +243,33 @@ func (o ClusterKubeconfigOptions) Params() *jsonutils.JSONDict {
 
 type KubeClusterAddMachinesOptions struct {
 	IdentOptions
-	Machine []string `help:"Node spec, 'host:[role]' e.g: --machine host01:controlplane:baremetal --node-config host02:node:baremetal"`
+	AddMachineOptions
+}
+
+func (o AddMachineOptions) Params() (*jsonutils.JSONArray, error) {
+	machineObjs := jsonutils.NewArray()
+	if len(o.Machine) == 0 {
+		return machineObjs, nil
+	}
+	for _, m := range o.Machine {
+		machine, err := parseMachineDesc(m, o.MachineDiskSize, o.MachineCpu, o.MachineMemory)
+		if err != nil {
+			return nil, err
+		}
+		params, err := machine.Params()
+		if err != nil {
+			return nil, err
+		}
+		machineObjs.Add(params)
+	}
+	return machineObjs, nil
 }
 
 func (o KubeClusterAddMachinesOptions) Params() (*jsonutils.JSONDict, error) {
 	params := jsonutils.NewDict()
-	machinesArray := jsonutils.NewArray()
-	for _, config := range o.Machine {
-		opt, err := parseMachineDesc(config)
-		if err != nil {
-			return nil, err
-		}
-		machinesArray.Add(jsonutils.Marshal(opt))
+	machinesArray, err := o.AddMachineOptions.Params()
+	if err != nil {
+		return nil, err
 	}
 	params.Add(machinesArray, "machines")
 	return params, nil

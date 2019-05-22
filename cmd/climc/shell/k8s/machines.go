@@ -40,7 +40,10 @@ func initKubeMachine() {
 	})
 
 	R(&o.MachineCreateOptions{}, cmdN("create"), "Create k8s machine", func(s *mcclient.ClientSession, args *o.MachineCreateOptions) error {
-		params := args.Params()
+		params, err := args.Params()
+		if err != nil {
+			return err
+		}
 		node, err := k8s.KubeMachines.Create(s, params)
 		if err != nil {
 			return err
