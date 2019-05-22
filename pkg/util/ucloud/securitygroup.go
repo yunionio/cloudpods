@@ -19,6 +19,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"yunion.io/x/pkg/util/stringutils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -188,6 +189,10 @@ func (self *SRegion) GetSecurityGroupById(secGroupId string) (*SSecurityGroup, e
 }
 
 func (self *SRegion) CreateDefaultSecurityGroup(name, description string) (string, error) {
+	if strings.ToLower(name) == "default" {
+		// 避免与default安全组名称冲突
+		name = name + stringutils.UUID4()
+	}
 	return self.CreateSecurityGroup(name, description, []string{"TCP|22|0.0.0.0/0|ACCEPT|LOW"})
 }
 

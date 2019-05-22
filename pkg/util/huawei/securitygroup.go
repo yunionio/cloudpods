@@ -103,6 +103,19 @@ func SecurityRuleSetToAllowSet(srs secrules.SecurityRuleSet) secrules.SecurityRu
 	sort.Sort(outRuleSet)
 
 	inRuleSet = inRuleSet.AllowList()
+	// out方向空规则默认全部放行
+	if outRuleSet.Len() == 0 {
+		_, ipNet, _ := net.ParseCIDR("0.0.0.0/0")
+		outRuleSet = append(outRuleSet, secrules.SecurityRule{
+			Priority:    0,
+			Action:      secrules.SecurityRuleAllow,
+			IPNet:       ipNet,
+			Protocol:    secrules.PROTO_ANY,
+			Direction:   secrules.SecurityRuleEgress,
+			PortStart:   -1,
+			PortEnd:     -1,
+		})
+	}
 	outRuleSet = outRuleSet.AllowList()
 
 	ret := secrules.SecurityRuleSet{}

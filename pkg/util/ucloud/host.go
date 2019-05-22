@@ -284,9 +284,6 @@ func (self *SHost) _createVM(name, imgId string, sysDisk cloudprovider.SDiskInfo
 			return "", err
 		} else {
 			i.UHostType = "N2"
-			if strings.HasPrefix(self.zone.ZoneId, "cn") {
-				i.UHostType = "N1"
-			}
 			i.CPU = cpu
 			i.MemoryMB = memMB
 		}

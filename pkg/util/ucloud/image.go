@@ -65,13 +65,13 @@ func (self *SImage) GetGlobalId() string {
 func (self *SImage) GetStatus() string {
 	switch self.State {
 	case "Available":
-		return cloudprovider.IMAGE_STATUS_ACTIVE
+		return api.CACHED_IMAGE_STATUS_READY
 	case "Making":
-		return cloudprovider.IMAGE_STATUS_QUEUED
+		return api.CACHED_IMAGE_STATUS_CACHING
 	case "Unavailable":
-		return cloudprovider.IMAGE_STATUS_KILLED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	default:
-		return cloudprovider.IMAGE_STATUS_KILLED
+		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
 	}
 }
 
@@ -134,13 +134,13 @@ func (self *SImage) GetImageType() string {
 func (self *SImage) GetImageStatus() string {
 	switch self.State {
 	case "Available":
-		return api.CACHED_IMAGE_STATUS_READY
+		return cloudprovider.IMAGE_STATUS_ACTIVE
 	case "Making":
-		return api.CACHED_IMAGE_STATUS_CACHING
+		return cloudprovider.IMAGE_STATUS_QUEUED
 	case "Unavailable":
-		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return cloudprovider.IMAGE_STATUS_KILLED
 	default:
-		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
+		return cloudprovider.IMAGE_STATUS_KILLED
 	}
 }
 
