@@ -31,4 +31,11 @@ func init() {
 		return nil
 	})
 
+	type EipDeleteOptions struct {
+		ID string
+	}
+	shellutils.R(&EipDeleteOptions{}, "eip-delete", "Delete eip", func(cli *openstack.SRegion, args *EipDeleteOptions) error {
+		return cli.DeleteEip(args.ID)
+	})
+
 }

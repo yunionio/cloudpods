@@ -102,8 +102,10 @@ func (eip *SEipAddress) GetStatus() string {
 	switch eip.Status {
 	case "ACTIVE":
 		return api.EIP_STATUS_READY
-	case "DOWN":
+	case "DOWN": //实际是未绑定在机器上
 		return api.EIP_STATUS_READY
+	case "ERROR":
+		return api.EIP_STATUS_UNKNOWN
 	default:
 		log.Errorf("Unknown eip %s status %s", eip.ID, eip.Status)
 		return api.EIP_STATUS_UNKNOWN
