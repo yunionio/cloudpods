@@ -1692,6 +1692,21 @@ func (self *SGuest) getVirtualIPs() []string {
 	return ips
 }
 
+func (self *SGuest) GetPrivateIPs() []string {
+	ips := self.GetRealIPs()
+	for i := len(ips) - 1; i >= 0; i-- {
+		ipAddr, err := netutils.NewIPV4Addr(ips[i])
+		if err != nil {
+			log.Errorf("guest %s(%s) has bad ipv4 address (%s): %v", self.Name, self.Id, ips[i], err)
+			continue
+		}
+		if !netutils.IsPrivate(ipAddr) {
+			ips = append(ips[:i], ips[i+1:]...)
+		}
+	}
+	return ips
+}
+
 func (self *SGuest) getIPs() []string {
 	ips := self.GetRealIPs()
 	vips := self.getVirtualIPs()
