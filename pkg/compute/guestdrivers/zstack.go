@@ -90,6 +90,10 @@ func (self *SZStackGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{api.VM_RUNNING}, nil
 }
 
+func (self *SZStackGuestDriver) IsNeedRestartForResetLoginInfo() bool {
+	return false
+}
+
 func (self *SZStackGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY, api.VM_RUNNING}) {
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)

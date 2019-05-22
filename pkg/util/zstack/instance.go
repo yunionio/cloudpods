@@ -278,7 +278,7 @@ func (instance *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 		return nil, err
 	}
 	authURL, _ := url.Parse(instance.host.zone.region.client.authURL)
-	url := fmt.Sprintf("%s://%s:5000/thirdparty/vnc_auto.html?host=%s&port=%d&token=%s&title=%s", info.Scheme, authURL.Host, info.Hostname, info.Port, info.Token, instance.Name)
+	url := fmt.Sprintf("%s://%s:5000/thirdparty/vnc_auto.html?host=%s&port=%d&token=%s&title=%s", info.Scheme, authURL.Hostname(), info.Hostname, info.Port, info.Token, instance.Name)
 	password, _ := instance.host.zone.region.GetInstanceConsolePassword(instance.UUID)
 	if len(password) > 0 {
 		url = url + fmt.Sprintf("&password=%s", password)
@@ -346,6 +346,7 @@ func (instance *SInstance) DeployVM(ctx context.Context, name string, password s
 			return err
 		}
 	}
+
 	return nil
 }
 

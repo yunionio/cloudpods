@@ -199,5 +199,5 @@ func (storage *SLocalStorage) GetMountPoint() string {
 }
 
 func (storage *SLocalStorage) IsSysDiskStore() bool {
-	return false
+	return true
 }

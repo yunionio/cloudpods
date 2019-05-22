@@ -353,6 +353,15 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx conte
 		lockman.LockObject(ctx, guest)
 		defer lockman.ReleaseObject(ctx, guest)
 
+		// 避免DeployVM函数里面执行顺序不一致导致与预期结果不符
+		if deleteKeypair {
+			desc.Password, desc.PublicKey = "", ""
+		}
+
+		if len(desc.PublicKey) > 0 {
+			desc.Password = ""
+		}
+
 		return iVM.DeployVM(ctx, desc.Name, desc.Password, desc.PublicKey, deleteKeypair, desc.Description)
 	}()
 	if err != nil {
