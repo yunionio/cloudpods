@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -47,4 +48,26 @@ func (self *SOpenStackRegionDriver) ValidateCreateLoadbalancerAclData(ctx contex
 
 func (self *SOpenStackRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewNotImplementedError("%s does not currently support creating loadbalancer certificate", self.GetProvider())
+}
+
+func (self *SOpenStackRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	networkV := validators.NewModelIdOrNameValidator("network", "network", "")
+	err := networkV.Validate(data)
+	if err != nil {
+		return nil, err
+	}
+	network := networkV.Model.(*models.SNetwork)
+
+	vpc := network.GetVpc()
+	if vpc == nil {
+		return nil, httperrors.NewInputParameterError("failed to found vpc for network %s(%s)", network.Name, network.Id)
+	}
+	region, err := vpc.GetRegion()
+	if err != nil {
+		return nil, err
+	}
+	if region.GetDriver().GetProvider() != self.GetProvider() {
+		return nil, httperrors.NewUnsupportOperationError("network %s(%s) does not belong to %s", network.Name, network.Id, self.GetProvider())
+	}
+	return data, nil
 }

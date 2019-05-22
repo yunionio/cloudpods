@@ -266,8 +266,10 @@ func (instance *SInstance) GetINics() ([]cloudprovider.ICloudNic, error) {
 	nics := []cloudprovider.ICloudNic{}
 	for networkName, address := range instance.Addresses {
 		for i := 0; i < len(address); i++ {
-			instance.Addresses[networkName][i].instance = instance
-			nics = append(nics, &instance.Addresses[networkName][i])
+			if instance.Addresses[networkName][i].Type == "fixed" {
+				instance.Addresses[networkName][i].instance = instance
+				nics = append(nics, &instance.Addresses[networkName][i])
+			}
 		}
 	}
 	return nics, nil
@@ -669,7 +671,14 @@ func (instance *SInstance) SetSecurityGroups(secgroupIds []string) error {
 }
 
 func (instance *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	return nil, cloudprovider.ErrNotSupported
+	for networkName, address := range instance.Addresses {
+		for i := 0; i < len(address); i++ {
+			if instance.Addresses[networkName][i].Type == "floating" {
+				return instance.host.zone.region.GetEipByIp(instance.Addresses[networkName][i].Addr)
+			}
+		}
+	}
+	return nil, nil
 }
 
 func (instance *SInstance) GetBillingType() string {
