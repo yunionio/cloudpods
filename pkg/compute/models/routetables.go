@@ -46,18 +46,23 @@ func (route *SRoute) Validate(data *jsonutils.JSONDict) error {
 
 type SRoutes []*SRoute
 
-func (routes *SRoutes) String() string {
+func (routes SRoutes) String() string {
 	return jsonutils.Marshal(routes).String()
 }
-func (routes *SRoutes) IsZero() bool {
-	if len([]*SRoute(*routes)) == 0 {
+func (routes SRoutes) IsZero() bool {
+	if len(routes) == 0 {
 		return true
 	}
 	return false
 }
 
 func (routes *SRoutes) Validate(data *jsonutils.JSONDict) error {
-	found := map[string]bool{}
+	if routes == nil {
+		*routes = SRoutes{}
+		return nil
+	}
+
+	found := map[string]struct{}{}
 	for _, route := range *routes {
 		if err := route.Validate(data); err != nil {
 			return err
@@ -67,7 +72,7 @@ func (routes *SRoutes) Validate(data *jsonutils.JSONDict) error {
 			return httperrors.NewInputParameterError("duplicate route cidr %s", route.Cidr)
 		}
 		// TODO aliyun: check overlap with System type route
-		found[route.Cidr] = true
+		found[route.Cidr] = struct{}{}
 	}
 	return nil
 }
@@ -244,7 +249,11 @@ func (rt *SRouteTable) AllowPerformDelRoutes(ctx context.Context, userCred mccli
 // PerformAddRoutes patches acl entries by adding then deleting the specified acls.
 // This is intended mainly for command line operations.
 func (rt *SRouteTable) PerformAddRoutes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	routes := gotypes.DeepCopy(rt.Routes).(SRoutes)
+	var routes SRoutes
+	if rt.Routes != nil {
+		routes_ := gotypes.DeepCopy(rt.Routes).(*SRoutes)
+		routes = *routes_
+	}
 	{
 		adds := SRoutes{}
 		addsV := validators.NewStructValidator("routes", &adds)
@@ -277,7 +286,11 @@ func (rt *SRouteTable) PerformAddRoutes(ctx context.Context, userCred mcclient.T
 }
 
 func (rt *SRouteTable) PerformDelRoutes(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	routes := gotypes.DeepCopy(rt.Routes).(SRoutes)
+	var routes SRoutes
+	if rt.Routes != nil {
+		routes_ := gotypes.DeepCopy(rt.Routes).(*SRoutes)
+		routes = *routes_
+	}
 	{
 		cidrs := []string{}
 		err := data.Unmarshal(&cidrs, "cidrs")
@@ -398,7 +411,7 @@ func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcc
 }
 
 func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTable cloudprovider.ICloudRouteTable) (*SRouteTable, error) {
-	routes := []*SRoute{}
+	routes := SRoutes{}
 	{
 		cloudRoutes, err := cloudRouteTable.GetIRoutes()
 		if err != nil {
@@ -418,7 +431,7 @@ func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCre
 		CloudregionId: vpc.CloudregionId,
 		VpcId:         vpc.Id,
 		Type:          cloudRouteTable.GetType(),
-		Routes:        (*SRoutes)(&routes),
+		Routes:        &routes,
 	}
 	routeTable.Name = db.GenerateName(man, userCred.GetProjectId(), cloudRouteTable.GetName())
 	routeTable.ManagerId = vpc.ManagerId
