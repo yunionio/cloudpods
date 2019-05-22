@@ -1500,16 +1500,20 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 
 	netDesc, err := data.Get("net_desc")
 	if err != nil {
-		log.Errorf("net_desc not found")
 		return nil, httperrors.NewMissingParameterError("net_desc")
 	}
 	conf, err := cmdline.ParseNetworkConfigByJSON(netDesc, -1)
 	if err != nil {
 		return nil, err
 	}
+	if conf.BwLimit == 0 {
+		conf.BwLimit = gn.BwLimit
+	}
+	if conf.Index == 0 {
+		conf.Index = int(gn.Index)
+	}
 	conf, err = parseNetworkInfo(userCred, conf)
 	if err != nil {
-		log.Errorf("parseNetworkInfo fail %s", err)
 		return nil, err
 	}
 	err = isValidNetworkInfo(userCred, conf)
