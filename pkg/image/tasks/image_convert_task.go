@@ -24,7 +24,9 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/image/models"
+	"yunion.io/x/onecloud/pkg/mcclient/modules/notify"
 )
 
 type ImageConvertTask struct {
@@ -41,6 +43,7 @@ func (self *ImageConvertTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 
 	self.SetStage("OnConvertComplete", nil)
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
+		imgOldStatus := image.Status
 		image.SetStatus(self.UserCred, api.IMAGE_STATUS_CONVERTING, "start convert")
 		err := image.ConvertAllSubformats()
 		var msg string
@@ -51,7 +54,15 @@ func (self *ImageConvertTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 		}
 
 		image.SetStatus(self.UserCred, api.IMAGE_STATUS_ACTIVE, msg)
-
+		if imgOldStatus != api.IMAGE_STATUS_ACTIVE {
+			kwargs := jsonutils.NewDict()
+			kwargs.Set("name", jsonutils.NewString(image.GetName()))
+			osType, err := models.ImagePropertyManager.GetProperty(image.Id, api.IMAGE_OS_TYPE)
+			if err != nil {
+				kwargs.Set("os_type", jsonutils.NewString(osType.Value))
+			}
+			notifyclient.SystemNotify(notify.NotifyPriorityNormal, notifyclient.IMAGE_ACTIVED, kwargs)
+		}
 		return nil, err
 	})
 }

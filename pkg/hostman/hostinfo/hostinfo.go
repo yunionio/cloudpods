@@ -449,7 +449,8 @@ func (h *SHostInfo) resetIptables() error {
 }
 
 func (h *SHostInfo) detectKvmModuleSupport() string {
-	return sysutils.GetKVMModuleSupport()
+	h.sysinfo.KvmModule = sysutils.GetKVMModuleSupport()
+	return h.sysinfo.KvmModule
 }
 
 func (h *SHostInfo) detectNestSupport() {
