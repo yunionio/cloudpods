@@ -57,32 +57,8 @@ func (self *GuestDeleteOnHostTask) OnInit(ctx context.Context, obj db.IStandalon
 
 func (self *GuestDeleteOnHostTask) OnStopGuest(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	hostId, _ := self.Params.GetString("host_id")
-	host := models.HostManager.FetchHostById(hostId)
-
 	isPurge := jsonutils.QueryBoolean(self.Params, "purge", false)
-	disks := guest.GetDisks()
 
-	for _, guestDiks := range disks {
-		disk := guestDiks.GetDisk()
-		storage := host.GetStorageByFilePath(disk.AccessPath)
-		// storage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
-		if storage != nil && !isPurge {
-			if err := host.GetHostDriver().RequestDeallocateBackupDiskOnHost(ctx, host, storage, disk, self); err != nil {
-				self.OnFail(ctx, guest, err.Error())
-				return
-			}
-		}
-		if disk.BackupStorageId == storage.Id {
-			_, err := db.Update(disk, func() error {
-				disk.BackupStorageId = ""
-				return nil
-			})
-			if err != nil {
-				self.OnFail(ctx, guest, err.Error())
-				return
-			}
-		}
-	}
 	if !isPurge {
 		self.SetStage("OnUnDeployGuest", nil)
 		guest.StartUndeployGuestTask(ctx, self.GetUserCred(), self.GetTaskId(), hostId)
@@ -105,6 +81,18 @@ func (self *GuestDeleteOnHostTask) OnUnDeployGuest(ctx context.Context, guest *m
 		if err != nil {
 			self.OnFail(ctx, guest, err.Error())
 			return
+		}
+		guestdisks := guest.GetDisks()
+		for i := 0; i < len(guestdisks); i++ {
+			disk := guestdisks[i].GetDisk()
+			_, err := db.Update(disk, func() error {
+				disk.BackupStorageId = ""
+				return nil
+			})
+			if err != nil {
+				self.OnFail(ctx, guest, err.Error())
+				return
+			}
 		}
 		logclient.AddActionLogWithContext(ctx, guest, logclient.ACT_DELETE_BACKUP, "GuestDeleteOnHost", self.UserCred, true)
 		db.OpsLog.LogEvent(guest, db.ACT_DELETE_BACKUP, "GuestDeleteOnHost", self.UserCred)

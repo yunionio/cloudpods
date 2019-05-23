@@ -343,7 +343,7 @@ func cleanDailyFiles(storagePath, subDir string, keepDay int) {
 			continue
 		}
 		if date.Before(markTime) {
-			log.Infof("Real delete %s", file)
+			log.Infof("Cron Job Clean Recycle Bin: start delete %s", file.Name())
 			subDirPath := path.Join(recycleDir, file.Name())
 			if _, err := procutils.NewCommand("rm", "-rf", subDirPath).Run(); err != nil {
 				log.Errorf("clean recycle dir %s error %s", subDirPath, err)

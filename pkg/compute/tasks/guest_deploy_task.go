@@ -94,19 +94,14 @@ func (self *GuestDeployTask) OnSlaveHostDeployComplete(ctx context.Context, gues
 }
 
 func (self *GuestDeployTask) OnSlaveHostDeployCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.SetStatus(self.UserCred, api.VM_DEPLOYING_BACKUP_FAILED, "")
-	self.SetStage("OnUndeployBackupGuest", nil)
-	guest.StartUndeployGuestTask(ctx, self.UserCred, self.GetId(), guest.BackupHostId)
-}
-
-func (self *GuestDeployTask) OnUndeployBackupGuest(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.SetStageFailed(ctx, "deploy backup failed")
+	self.OnDeployGuestFail(ctx, guest, fmt.Errorf("deploy backup failed %s", data))
 }
 
 func (self *GuestDeployTask) OnDeployGuestFail(ctx context.Context, guest *models.SGuest, err error) {
 	guest.SetStatus(self.UserCred, api.VM_DEPLOY_FAILED, err.Error())
 	self.SetStageFailed(ctx, err.Error())
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DEPLOY, err, self.UserCred, false)
+	db.OpsLog.LogEvent(guest, db.ACT_VM_DEPLOY_FAIL, err.Error(), self.UserCred)
 }
 
 func (self *GuestDeployTask) OnDeployGuestComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
@@ -187,6 +182,11 @@ func (self *GuestDeployBackupTask) OnInit(ctx context.Context, obj db.IStandalon
 }
 
 func (self *GuestDeployBackupTask) OnDeployGuestComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStageComplete(ctx, nil)
+}
+
+func (self *GuestDeployBackupTask) OnDeployGuestCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.SetStatus(self.UserCred, api.VM_DEPLOYING_BACKUP_FAILED, data.String())
 	self.SetStageComplete(ctx, nil)
 }
 
