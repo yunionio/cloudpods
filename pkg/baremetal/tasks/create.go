@@ -74,6 +74,7 @@ func (self *SBaremetalServerCreateTask) DoDeploys(term *ssh.Client) (jsonutils.J
 }
 
 func (self *SBaremetalServerCreateTask) onError(term *ssh.Client, err error) error {
+	log.Errorf("Create server error: %+v", err)
 	if err1 := self.Baremetal.GetServer().DoEraseDisk(term); err1 != nil {
 		log.Warningf("EraseDisk error: %v", err1)
 	}

@@ -103,3 +103,14 @@ func GetModules(term *ssh.Client) []string {
 	}
 	return ret
 }
+
+func ReverseIntArray(input []int) []int {
+	s := make([]int, len(input))
+	for i := range input {
+		s[i] = input[i]
+	}
+	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
+		s[i], s[j] = s[j], s[i]
+	}
+	return s
+}

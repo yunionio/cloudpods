@@ -70,8 +70,7 @@ func DetectStorageInfo(term *ssh.Client, wait bool) ([]*baremetal.BaremetalStora
 		raidDrivers = append(raidDrivers, drv.GetName())
 	}
 
-	log.Infof("Get Raid drivers: %v", raidDrivers)
-
+	log.Infof("Get Raid drivers: %v, collecting disks info ...", raidDrivers)
 	pcieRet, err := term.Run("/lib/mos/lsdisk --pcie")
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("Fail to retrieve PCIE DISK info")
