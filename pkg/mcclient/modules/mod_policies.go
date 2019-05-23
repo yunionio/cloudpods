@@ -79,6 +79,7 @@ func policyWriteFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, 
 				return nil, err
 			}
 		}
+		// ret.Add(jsonutils.NewString(blobJson.String()), "blob")
 		ret.Add(blobJson, "blob")
 	}
 	if s.Contains("type") {

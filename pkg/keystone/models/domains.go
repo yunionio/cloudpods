@@ -126,7 +126,7 @@ func (manager *SDomainManager) FetchDomainById(domainId string) (*SDomain, error
 	if err != nil {
 		return nil, err
 	}
-	q := manager.Query().Equals("id", domainId).NotEquals("id", api.KeystoneDomainRoot)
+	q := manager.Query().Equals("id", domainId) // .NotEquals("id", api.KeystoneDomainRoot)
 	err = q.First(obj)
 	if err != nil {
 		return nil, err
