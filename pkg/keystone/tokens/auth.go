@@ -15,14 +15,13 @@
 package tokens
 
 import (
+	"context"
 	"time"
 
 	"github.com/pkg/errors"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	"context"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
@@ -42,7 +41,7 @@ func authUserByToken(ctx context.Context, tokenStr string) (*models.SUserExtende
 	token := SAuthToken{}
 	err := token.ParseFernetToken(tokenStr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "token.ParseFernetToken")
 	}
 	return models.UserManager.FetchUserExtended(token.UserId, "", "", "")
 }
@@ -63,11 +62,11 @@ func authUserByIdentityV3(ctx context.Context, input mcclient.SAuthenticationInp
 func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdentity) (*models.SUserExtended, error) {
 	domain, err := models.DomainManager.FetchDomain(ident.Password.User.Domain.Id, ident.Password.User.Domain.Name)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "DomainManager.FetchDomain")
 	}
 	conf, err := domain.GetConfig(true)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "domain.GetConfig")
 	}
 	domainDriver, err := driver.GetDriver(domain.Id, conf)
 	if err != nil {
@@ -75,7 +74,7 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 	}
 	usrExt, err := domainDriver.Authenticate(ctx, ident)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "domainDriver.Authenticate")
 	}
 	return usrExt, nil
 }
@@ -84,31 +83,29 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 	var user *models.SUserExtended
 	var err error
 	if len(input.Auth.Identity.Methods) != 1 {
-		return nil, errors.New("invalid auth methods")
+		return nil, ErrInvalidAuthMethod
 	}
 	method := input.Auth.Identity.Methods[0]
 	if method == api.AUTH_METHOD_TOKEN {
 		// auth by token
 		user, err = authUserByTokenV3(ctx, input)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "authUserByTokenV3")
 		}
 	} else {
 		// auth by other methods, password, openid, saml, etc...
 		user, err = authUserByIdentityV3(ctx, input)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "authUserByIdentityV3")
 		}
 	}
 	// user not found
 	if user == nil {
-		log.Errorf("user not found???")
-		return nil, nil
+		return nil, ErrUserNotFound
 	}
 	// user is not enabled
 	if !user.Enabled {
-		log.Errorf("user not enabled???")
-		return nil, nil
+		return nil, ErrUserDisabled
 	}
 	token := SAuthToken{}
 	token.UserId = user.Id
@@ -116,10 +113,11 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 	token.AuditIds = []string{utils.GenRequestId(16)}
 	now := time.Now().UTC()
 	token.ExpiresAt = now.Add(time.Duration(options.Options.TokenExpirationSeconds) * time.Second)
+	token.Context = input.Auth.Context
 
 	if len(input.Auth.Scope.Project.Id) == 0 && len(input.Auth.Scope.Project.Name) == 0 && len(input.Auth.Scope.Domain.Id) == 0 && len(input.Auth.Scope.Domain.Name) == 0 {
 		// unscoped auth
-		return token.getTokenV3(user, nil, nil)
+		return token.getTokenV3(ctx, user, nil, nil)
 	}
 	var projExt *models.SProjectExtended
 	var domain *models.SDomain
@@ -129,22 +127,28 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 			input.Auth.Scope.Project.Domain.Id,
 			input.Auth.Scope.Project.Domain.Name)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "ProjectManager.FetchProject")
+		}
+		if project.Enabled.IsFalse() {
+			return nil, ErrProjectDisabled
 		}
 		projExt, err = project.FetchExtend()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "project.FetchExtend")
 		}
 		token.ProjectId = project.Id
 	} else {
 		domain, err = models.DomainManager.FetchDomain(input.Auth.Scope.Domain.Id,
 			input.Auth.Scope.Domain.Name)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "DomainManager.FetchDomain")
+		}
+		if domain.Enabled.IsFalse() {
+			return nil, ErrDomainDisabled
 		}
 		token.DomainId = domain.Id
 	}
-	return token.getTokenV3(user, projExt, domain)
+	return token.getTokenV3(ctx, user, projExt, domain)
 }
 
 func AuthenticateV2(ctx context.Context, input mcclient.SAuthenticationInputV2) (*mcclient.TokenCredentialV2, error) {
@@ -155,24 +159,24 @@ func AuthenticateV2(ctx context.Context, input mcclient.SAuthenticationInputV2) 
 		// auth by token
 		user, err = authUserByTokenV2(ctx, input)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "authUserByTokenV2")
 		}
 		method = api.AUTH_METHOD_TOKEN
 	} else {
 		// auth by password
 		user, err = authUserByPasswordV2(ctx, input)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "authUserByPasswordV2")
 		}
 		method = api.AUTH_METHOD_PASSWORD
 	}
 	// user not found
 	if user == nil {
-		return nil, nil
+		return nil, ErrUserNotFound
 	}
 	// user is not enabled
 	if !user.Enabled {
-		return nil, nil
+		return nil, ErrUserDisabled
 	}
 	token := SAuthToken{}
 	token.UserId = user.Id
@@ -180,19 +184,27 @@ func AuthenticateV2(ctx context.Context, input mcclient.SAuthenticationInputV2) 
 	token.AuditIds = []string{utils.GenRequestId(16)}
 	now := time.Now().UTC()
 	token.ExpiresAt = now.Add(time.Duration(options.Options.TokenExpirationSeconds) * time.Second)
+	token.Context = input.Auth.Context
 
 	if len(input.Auth.TenantId) == 0 && len(input.Auth.TenantName) == 0 {
 		// unscoped auth
-		return token.getTokenV2(user, nil)
+		return token.getTokenV2(ctx, user, nil)
 	}
 	project, err := models.ProjectManager.FetchProject(
 		input.Auth.TenantId,
 		input.Auth.TenantName,
 		api.DEFAULT_DOMAIN_ID, "")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ProjectManager.FetchProject")
+	}
+	if project.Enabled.IsFalse() {
+		return nil, ErrProjectDisabled
 	}
 	token.ProjectId = project.Id
+	projExt, err := project.FetchExtend()
+	if err != nil {
+		return nil, errors.Wrap(err, "project.FetchExtend")
+	}
 
-	return token.getTokenV2(user, project)
+	return token.getTokenV2(ctx, user, projExt)
 }

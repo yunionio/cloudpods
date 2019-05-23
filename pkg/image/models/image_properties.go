@@ -38,6 +38,7 @@ func init() {
 			"image_properties",
 		),
 	}
+	ImagePropertyManager.SetVirtualObject(ImagePropertyManager)
 	ImagePropertyManager.TableSpec().AddIndex(true, "image_id", "name")
 }
 
@@ -105,7 +106,7 @@ func (manager *SImagePropertyManager) SaveProperty(ctx context.Context, userCred
 func (manager *SImagePropertyManager) GetProperty(imageId string, key string) (*SImageProperty, error) {
 	q := manager.Query().Equals("image_id", imageId).Equals("name", key)
 	prop := SImageProperty{}
-	prop.SetModelManager(manager)
+	prop.SetModelManager(manager, &prop)
 
 	err := q.First(&prop)
 	if err != nil {
@@ -125,7 +126,7 @@ func (manager *SImagePropertyManager) NewProperty(ctx context.Context, userCred 
 	if err != nil {
 		return nil, err
 	}
-	prop.SetModelManager(manager)
+	prop.SetModelManager(manager, &prop)
 	return &prop, nil
 }
 

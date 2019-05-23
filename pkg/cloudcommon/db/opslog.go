@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -213,23 +214,30 @@ type SOpsLogManager struct {
 type SOpsLog struct {
 	SModelBase
 
-	Id        int64  `primary:"true" auto_increment:"true" list:"user"`                           // = Column(BigInteger, primary_key=True)
-	ObjType   string `width:"40" charset:"ascii" nullable:"false" list:"user" create:"required"`  // = Column(VARCHAR(40, charset='ascii'), nullable=False)
-	ObjId     string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"` //  = Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
-	ObjName   string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`  //= Column(VARCHAR(128, charset='utf8'), nullable=False)
-	Action    string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"required"`   //= Column(VARCHAR(32, charset='ascii'), nullable=False)
-	Notes     string `width:"2048" charset:"utf8" list:"user" create:"required"`                  // = Column(VARCHAR(2048, charset='utf8'))
+	Id      int64  `primary:"true" auto_increment:"true" list:"user"`                           // = Column(BigInteger, primary_key=True)
+	ObjType string `width:"40" charset:"ascii" nullable:"false" list:"user" create:"required"`  // = Column(VARCHAR(40, charset='ascii'), nullable=False)
+	ObjId   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"required"` //  = Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	ObjName string `width:"128" charset:"utf8" nullable:"false" list:"user" create:"required"`  //= Column(VARCHAR(128, charset='utf8'), nullable=False)
+	Action  string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"required"`   //= Column(VARCHAR(32, charset='ascii'), nullable=False)
+	Notes   string `width:"2048" charset:"utf8" list:"user" create:"required"`                  // = Column(VARCHAR(2048, charset='utf8'))
+
 	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" list:"user" create:"required"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
 	Project   string `name:"tenant" width:"128" charset:"utf8" list:"user" create:"required"`     // tenant    = Column(VARCHAR(128, charset='utf8'))
-	UserId    string `width:"128" charset:"ascii" list:"user" create:"required"`                  // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
-	User      string `width:"128" charset:"utf8" list:"user" create:"required"`                   // = Column(VARCHAR(128, charset='utf8'))
-	DomainId  string `width:"128" charset:"ascii" list:"user" create:"optional"`
-	Domain    string `width:"128" charset:"utf8" list:"user" create:"optional"`
-	Roles     string `width:"64" charset:"ascii" list:"user" create:"optional"` // = Column(VARCHAR(64, charset='ascii'))
+
+	ProjectDomainId string `name:"project_domain_id" default:"default" width:"128" charset:"ascii" list:"user" create:"required"`
+	ProjectDomain   string `name:"project_domain" default:"Default" width:"128" charset:"ascii" list:"user" create:"required"`
+
+	UserId   string `width:"128" charset:"ascii" list:"user" create:"required"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
+	User     string `width:"128" charset:"utf8" list:"user" create:"required"`  // = Column(VARCHAR(128, charset='utf8'))
+	DomainId string `width:"128" charset:"ascii" list:"user" create:"optional"`
+	Domain   string `width:"128" charset:"utf8" list:"user" create:"optional"`
+	Roles    string `width:"64" charset:"ascii" list:"user" create:"optional"` // = Column(VARCHAR(64, charset='ascii'))
 
 	// BillingType    string    `width:"64" charset:"ascii" default:"postpaid" list:"user" create:"user"`      // billing_type = Column(VARCHAR(64, charset='ascii'), nullable=True)
-	OpsTime        time.Time `nullable:"false" list:"user"`                                                     // = Column(DateTime, nullable=False)
-	OwnerProjectId string    `name:"owner_tenant_id" width:"128" charset:"ascii" list:"user" create:"optional"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
+	OpsTime time.Time `nullable:"false" list:"user"` // = Column(DateTime, nullable=False)
+
+	OwnerDomainId  string `name:"owner_domain_id" default:"default" width:"128" charset:"ascii" list:"user" create:"optional"`
+	OwnerProjectId string `name:"owner_tenant_id" width:"128" charset:"ascii" list:"user" create:"optional"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
 	// owner_user_id   = Column(VARCHAR(ID_LENGTH, charset='ascii'))
 }
 
@@ -240,6 +248,7 @@ var _ IModel = (*SOpsLog)(nil)
 
 func init() {
 	OpsLog = &SOpsLogManager{NewModelBaseManager(SOpsLog{}, "opslog_tbl", "event", "events")}
+	OpsLog.SetVirtualObject(OpsLog)
 }
 
 func (opslog *SOpsLog) GetId() string {
@@ -286,6 +295,8 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 	opslog.Notes = stringutils.Interface2String(notes)
 	opslog.ProjectId = userCred.GetProjectId()
 	opslog.Project = userCred.GetProjectName()
+	opslog.ProjectDomainId = userCred.GetProjectDomainId()
+	opslog.ProjectDomain = userCred.GetProjectDomain()
 	opslog.UserId = userCred.GetUserId()
 	opslog.User = userCred.GetUserName()
 	opslog.DomainId = userCred.GetDomainId()
@@ -294,7 +305,11 @@ func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes inter
 	opslog.OpsTime = time.Now().UTC()
 
 	if virtualModel, ok := model.(IVirtualModel); ok && virtualModel != nil {
-		opslog.OwnerProjectId = virtualModel.GetOwnerProjectId()
+		ownerId := virtualModel.GetOwnerId()
+		if ownerId != nil {
+			opslog.OwnerProjectId = ownerId.GetProjectId()
+			opslog.OwnerDomainId = ownerId.GetProjectDomainId()
+		}
 	}
 
 	err := manager.TableSpec().Insert(&opslog)
@@ -386,6 +401,7 @@ func (manager *SOpsLogManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 
 func (manager *SOpsLogManager) SyncOwner(m IModel, former *STenant, userCred mcclient.TokenCredential) {
 	notes := jsonutils.NewDict()
+	notes.Add(jsonutils.NewString(former.GetDomain()), "former_domain_id")
 	notes.Add(jsonutils.NewString(former.GetId()), "former_project_id")
 	notes.Add(jsonutils.NewString(former.GetName()), "former_project")
 	manager.LogEvent(m, ACT_CHANGE_OWNER, notes, userCred)
@@ -406,7 +422,7 @@ func (manager *SOpsLogManager) AllowCreateItem(ctx context.Context, userCred mcc
 }
 
 func (self *SOpsLog) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return IsAdminAllowGet(userCred, self) || userCred.GetProjectId() == self.ProjectId || userCred.GetProjectId() == self.OwnerProjectId
+	return IsAllowGet(rbacutils.ScopeSystem, userCred, self) || ((userCred.GetProjectDomainId() == self.OwnerDomainId || userCred.GetProjectDomainId() == self.ProjectDomainId) && IsAllowGet(rbacutils.ScopeDomain, userCred, self)) || userCred.GetProjectId() == self.ProjectId || userCred.GetProjectId() == self.OwnerProjectId
 }
 
 func (self *SOpsLog) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
@@ -435,22 +451,27 @@ func (self *SOpsLogManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlch
 	return q
 }
 
-func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
-	if len(owner) > 0 {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.Equals(q.Field("owner_tenant_id"), owner),
-			sqlchemy.Equals(q.Field("tenant_id"), owner),
-		))
+func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
+	if ownerId != nil {
+		if len(ownerId.GetProjectId()) > 0 {
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.Equals(q.Field("owner_tenant_id"), ownerId.GetProjectId()),
+				sqlchemy.Equals(q.Field("tenant_id"), ownerId.GetProjectId()),
+			))
+		}
 	}
 	return q
 }
 
-func (manager *SOpsLogManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
-	return userCred.GetProjectId()
+func (manager *SOpsLogManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
+	owner := SOwnerId{DomainId: userCred.GetProjectDomainId(), Domain: userCred.GetProjectDomain(),
+		ProjectId: userCred.GetProjectId(), Project: userCred.GetProjectName()}
+	return &owner
 }
 
-func (self *SOpsLog) GetOwnerProjectId() string {
-	return self.OwnerProjectId
+func (self *SOpsLog) GetOwnerId() mcclient.IIdentityProvider {
+	owner := SOwnerId{DomainId: self.OwnerDomainId, ProjectId: self.OwnerProjectId}
+	return &owner
 }
 
 func (self *SOpsLog) IsSharable() bool {

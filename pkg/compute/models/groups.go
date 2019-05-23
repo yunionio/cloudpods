@@ -36,6 +36,7 @@ func init() {
 			"groups",
 		),
 	}
+	GroupManager.SetVirtualObject(GroupManager)
 }
 
 type SGroup struct {

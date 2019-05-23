@@ -171,7 +171,7 @@ func (manager *SParameterManager) AllowCreateItem(ctx context.Context, userCred 
 	return db.IsAdminAllowCreate(userCred, manager)
 }
 
-func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	// check duplication
 	name, _ := data.GetString("name")
 	uid := userCred.GetUserId()
@@ -206,12 +206,14 @@ func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCr
 	return data, nil
 }
 
-func (manager *SParameterManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
-	return userCred.GetUserId()
+func (manager *SParameterManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
+	owner := db.SOwnerId{UserId: userCred.GetUserId(), User: userCred.GetUserName(),
+		UserDomainId: userCred.GetDomainId(), UserDomain: userCred.GetDomainName()}
+	return &owner
 }
 
-func (manager *SParameterManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
-	return q.Equals("created_by", owner)
+func (manager *SParameterManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
+	return q.Equals("created_by", owner.GetUserId())
 }
 
 func (manager *SParameterManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {
@@ -305,6 +307,7 @@ func (model *SParameter) AllowGetDetails(ctx context.Context, userCred mcclient.
 	return model.IsOwner(userCred) || db.IsAdminAllowGet(userCred, model)
 }
 
-func (model *SParameter) GetOwnerProjectId() string {
-	return model.CreatedBy
+func (model *SParameter) GetOwnerId() mcclient.IIdentityProvider {
+	owner := db.SOwnerId{UserId: model.CreatedBy}
+	return &owner
 }

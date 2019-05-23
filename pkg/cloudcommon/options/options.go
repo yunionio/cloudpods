@@ -38,6 +38,8 @@ type BaseOptions struct {
 	Port    int    `help:"The port that the service runs on" alias:"bind-port"`
 	Address string `help:"The IP address to serve on (set to 0.0.0.0 for all interfaces)" default:"0.0.0.0" alias:"bind-host"`
 
+	DebugClient bool `help:"Switch on/off mcclient debugs" default:"false"`
+
 	LogLevel        string `help:"log level" default:"info" choices:"debug|info|warn|error"`
 	LogVerboseLevel int    `help:"log verbosity level" default:"0"`
 	LogFilePrefix   string `help:"prefix of log files"`
@@ -72,8 +74,6 @@ type CommonOptions struct {
 	AdminProject       string `help:"Admin project" default:"system" alias:"admin-tenant-name"`
 	AuthTokenCacheSize uint32 `help:"Auth token Cache Size" default:"2048"`
 
-	DebugClient bool `help:"Switch on/off mcclient debugs" default:"false"`
-
 	BaseOptions
 }
 
@@ -81,7 +81,7 @@ type DBOptions struct {
 	SqlConnection string `help:"SQL connection string" alias:"connection"`
 	AutoSyncTable bool   `help:"Automatically synchronize table changes if differences are detected"`
 
-	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources"`
+	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources" default:"false"`
 	DebugSqlchemy                  bool `default:"false" help:"Print SQL executed by sqlchemy"`
 }
 

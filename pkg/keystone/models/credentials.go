@@ -40,6 +40,7 @@ func init() {
 			"credentials",
 		),
 	}
+	CredentialManager.SetVirtualObject(CredentialManager)
 }
 
 /*
@@ -92,7 +93,7 @@ func (manager *SCredentialManager) InitializeData() error {
 	return nil
 }
 
-func (manager *SCredentialManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SCredentialManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if !data.Contains("type") {
 		return nil, httperrors.NewInputParameterError("missing input feild type")
 	}
@@ -110,7 +111,8 @@ func (manager *SCredentialManager) ValidateCreateData(ctx context.Context, userC
 	}
 	data.Add(jsonutils.NewString(string(blobEnc)), "encrypted_blob")
 	data.Add(jsonutils.NewString(keys.CredentialKeyManager.PrimaryKeyHash()), "key_hash")
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SCredential) ValidateDeleteCondition(ctx context.Context) error {

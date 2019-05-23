@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SSecurityGroupManager struct {
@@ -55,6 +56,7 @@ func init() {
 	}
 	SecurityGroupManager.NameLength = 128
 	SecurityGroupManager.NameRequireAscii = true
+	SecurityGroupManager.SetVirtualObject(SecurityGroupManager)
 }
 
 const (
@@ -164,12 +166,12 @@ func (self *SSecurityGroup) GetCustomizeColumns(ctx context.Context, userCred mc
 func (manager *SSecurityGroupManager) ValidateCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
-	ownerProjId string,
+	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
 	// TODO: check set pending quota
-	return manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (manager *SSecurityGroupManager) FetchSecgroupById(secId string) *SSecurityGroup {
@@ -218,8 +220,18 @@ func (self *SSecurityGroup) getSecurityRuleString(direction string) string {
 	return strings.Join(rules, SECURITY_GROUP_SEPARATOR)
 }
 
-func totalSecurityGroupCount(projectId string) (int, error) {
-	q := SecurityGroupManager.Query().Equals("tenant_id", projectId)
+func totalSecurityGroupCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) (int, error) {
+	q := SecurityGroupManager.Query()
+
+	switch scope {
+	case rbacutils.ScopeSystem:
+		// do nothing
+	case rbacutils.ScopeDomain:
+		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+	case rbacutils.ScopeProject:
+		q = q.Equals("tenant_id", ownerId.GetProjectId())
+	}
+
 	return q.CountWithError()
 }
 
@@ -229,7 +241,7 @@ func (self *SSecurityGroup) AllowPerformAddRule(ctx context.Context, userCred mc
 
 func (self *SSecurityGroup) PerformAddRule(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	secgrouprule := &SSecurityGroupRule{SecgroupID: self.Id}
-	secgrouprule.SetModelManager(SecurityGroupRuleManager)
+	secgrouprule.SetModelManager(SecurityGroupRuleManager, secgrouprule)
 	if err := data.Unmarshal(secgrouprule); err != nil {
 		return nil, err
 	}
@@ -281,7 +293,7 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 	}
 
 	secgroup := &SSecurityGroup{}
-	secgroup.SetModelManager(SecurityGroupManager)
+	secgroup.SetModelManager(SecurityGroupManager, secgroup)
 
 	secgroup.Name = name
 	secgroup.Description, _ = data.GetString("description")
@@ -296,7 +308,7 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 	secgrouprules := self.getSecurityRules("")
 	for _, rule := range secgrouprules {
 		secgrouprule := &SSecurityGroupRule{}
-		secgrouprule.SetModelManager(SecurityGroupRuleManager)
+		secgrouprule.SetModelManager(SecurityGroupRuleManager, secgrouprule)
 
 		secgrouprule.Priority = rule.Priority
 		secgrouprule.Protocol = rule.Protocol
@@ -332,7 +344,7 @@ func (self *SSecurityGroup) PerformUnion(ctx context.Context, userCred mcclient.
 			return nil, httperrors.NewResourceNotFoundError("failed to find secgroup %s error: %v", secgroupId, err)
 		}
 		secgroup := _secgroup.(*SSecurityGroup)
-		secgroup.SetModelManager(SecurityGroupManager)
+		secgroup.SetModelManager(SecurityGroupManager, secgroup)
 		_srs := secgroup.getSecurityGroupRuleSet()
 		if !srs.IsEqual(_srs) {
 			return nil, httperrors.NewUnsupportOperationError("secgroup %s rules not equals %s rules", secgroup.Name, self.Name)
@@ -454,12 +466,12 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 		}
 	}
 
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	secgroup := SSecurityGroup{}
-	secgroup.SetModelManager(manager)
-	newName, err := db.GenerateName(manager, "", extSec.GetName())
+	secgroup.SetModelManager(manager, &secgroup)
+	newName, err := db.GenerateName(manager, userCred, extSec.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -526,11 +538,11 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 	if err == sql.ErrNoRows {
 		var secGrp *SSecurityGroup
 		secGrp = &SSecurityGroup{}
-		secGrp.SetModelManager(manager)
+		secGrp.SetModelManager(manager, secGrp)
 		secGrp.Id = "default"
 		secGrp.Name = "Default"
 		secGrp.ProjectId = auth.AdminCredential().GetProjectId()
-		secGrp.IsEmulated = false
+		// secGrp.IsEmulated = false
 		secGrp.IsPublic = true
 		err = manager.TableSpec().Insert(secGrp)
 		if err != nil {
@@ -539,7 +551,7 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		}
 
 		defRule := SSecurityGroupRule{}
-		defRule.SetModelManager(SecurityGroupRuleManager)
+		defRule.SetModelManager(SecurityGroupRuleManager, &defRule)
 		defRule.Direction = secrules.DIR_IN
 		defRule.Protocol = secrules.PROTO_ANY
 		defRule.Priority = 1

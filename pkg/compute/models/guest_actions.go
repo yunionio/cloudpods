@@ -54,6 +54,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -350,7 +351,7 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 	if len(cloneInput.Name) == 0 {
 		return nil, httperrors.NewMissingParameterError("name")
 	}
-	err = db.NewNameValidator(GuestManager, userCred.GetProjectId(), cloneInput.Name)
+	err = db.NewNameValidator(GuestManager, userCred, cloneInput.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +368,8 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 	}
 
 	dataDict := createInput.JSON(createInput)
-	model, err := db.DoCreate(GuestManager, ctx, userCred, query, dataDict, createInput.Project)
+	// ownerId := db.SOwnerId{DomainId: createInput.Domain, ProjectId: createInput.Project}
+	model, err := db.DoCreate(GuestManager, ctx, userCred, query, dataDict, userCred)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -376,14 +378,14 @@ func (self *SGuest) PerformClone(ctx context.Context, userCred mcclient.TokenCre
 		lockman.LockObject(ctx, model)
 		defer lockman.ReleaseObject(ctx, model)
 
-		model.PostCreate(ctx, userCred, createInput.Project, query, dataDict)
+		model.PostCreate(ctx, userCred, userCred, query, dataDict)
 	}()
 
 	db.OpsLog.LogEvent(model, db.ACT_CREATE, model.GetShortDesc(ctx), userCred)
 	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CREATE, "", userCred, true)
 
 	pendingUsage := getGuestResourceRequirements(ctx, userCred, createInput, 1, false)
-	if task, err := taskman.TaskManager.NewTask(ctx, "GuestCloneTask", model, userCred,
+	if task, err := taskman.TaskManager.NewTask(ctx, "GuestCloneTask", model.(db.IStandaloneModel), userCred,
 		dataDict, "", "", &pendingUsage); err != nil {
 		log.Errorln(err)
 		return nil, err
@@ -1025,7 +1027,7 @@ func (self *SGuest) PerformAssignSecgroup(ctx context.Context, userCred mcclient
 	if !utils.IsInStringArray(self.Status, []string{api.VM_READY, api.VM_RUNNING, api.VM_SUSPEND}) {
 		return nil, httperrors.NewInputParameterError("Cannot assign security rules in status %s", self.Status)
 	}
-	secgrpV := validators.NewModelIdOrNameValidator("secgrp", "secgroup", userCred.GetProjectId())
+	secgrpV := validators.NewModelIdOrNameValidator("secgrp", "secgroup", userCred)
 	if err := secgrpV.Validate(data.(*jsonutils.JSONDict)); err != nil {
 		return nil, err
 	}
@@ -1323,7 +1325,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 	pendingUsage := &SQuota{
 		Storage: diskSize,
 	}
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.ProjectId, pendingUsage)
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), pendingUsage)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, err.Error(), userCred, false)
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
@@ -1334,7 +1336,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 
 	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage, false, false, nil, nil)
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
+		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), nil, pendingUsage)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, err.Error(), userCred, false)
 		return nil, httperrors.NewBadRequestError(err.Error())
 	}
@@ -1728,15 +1730,15 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 			Bw:    ibw,
 			Ebw:   ebw,
 		}
-		projectId := self.GetOwnerProjectId()
-		err = QuotaManager.CheckSetPendingQuota(ctx, userCred, projectId, pendingUsage)
+		ownerId := self.GetOwnerId()
+		err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, pendingUsage)
 		if err != nil {
 			return nil, httperrors.NewOutOfQuotaError(err.Error())
 		}
 		host := self.GetHost()
 		_, err = self.attach2NetworkDesc(ctx, userCred, host, conf, pendingUsage, nil)
 		if err != nil {
-			QuotaManager.CancelPendingUsage(ctx, userCred, projectId, nil, pendingUsage)
+			QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, ownerId, nil, pendingUsage)
 			return nil, httperrors.NewBadRequestError(err.Error())
 		}
 		host.ClearSchedDescCache()
@@ -1992,7 +1994,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		pendingUsage.Storage = addDisk
 	}
 	if !pendingUsage.IsEmpty() {
-		err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), pendingUsage)
+		err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, pendingUsage)
 		if err != nil {
 			return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
 		}
@@ -2001,7 +2003,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if len(newDisks) > 0 {
 		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage, false, false, nil, nil)
 		if err != nil {
-			QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, pendingUsage)
+			QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), nil, pendingUsage)
 			return nil, httperrors.NewBadRequestError("Create disk on host error: %s", err)
 		}
 		confs.Add(jsonutils.Marshal(newDisks), "create")
@@ -2152,7 +2154,7 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 	if err != nil {
 		return nil, httperrors.NewBadRequestError(err.Error())
 	}
-	err = ValidateSnapshotName(self.Hypervisor, name, userCred.GetProjectId())
+	err = ValidateSnapshotName(self.Hypervisor, name, userCred)
 	if err != nil {
 		return nil, httperrors.NewBadRequestError(err.Error())
 	}
@@ -2160,7 +2162,7 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewNotFoundError("Guest disk %s not found", diskId)
 	}
 	pendingUsage := &SQuota{Snapshot: 1}
-	_, err = QuotaManager.CheckQuota(ctx, userCred, self.ProjectId, pendingUsage)
+	_, err = QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), pendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Out of snapshot quota %s", err)
 	}
@@ -2492,14 +2494,14 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 	}
 
 	eipPendingUsage := &SQuota{Eip: 1}
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), eipPendingUsage)
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, eipPendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
 	}
 
 	err = ElasticipManager.AllocateEipAndAssociateVM(ctx, userCred, self, int(bw), chargeType, eipPendingUsage)
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, userCred.GetProjectId(), eipPendingUsage, eipPendingUsage)
+		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, userCred, eipPendingUsage, eipPendingUsage)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
@@ -2807,7 +2809,7 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 	}
 
 	req := self.getGuestBackupResourceRequirements(ctx, userCred)
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, self.GetOwnerProjectId(), &req)
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), &req)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
 	}
@@ -2816,7 +2818,7 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 	params.Set("guest_status", jsonutils.NewString(self.Status))
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateBackupTask", self, userCred, params, "", "", &req)
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, nil, &req)
+		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), nil, &req)
 		log.Errorln(err)
 		return nil, err
 	} else {
@@ -3035,7 +3037,7 @@ func (man *SGuestManager) PerformImport(ctx context.Context, userCred mcclient.T
 	if obj, _ := man.FetchByIdOrName(userCred, desc.Id); obj != nil {
 		return nil, httperrors.NewInputParameterError("Server %s already exists", desc.Id)
 	}
-	if err := db.NewNameValidator(man, userCred.GetProjectId(), desc.Name); err != nil {
+	if err := db.NewNameValidator(man, userCred, desc.Name); err != nil {
 		return nil, err
 	}
 	if hostObj, _ := HostManager.FetchByIdOrName(userCred, desc.HostId); hostObj == nil {

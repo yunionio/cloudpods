@@ -16,11 +16,12 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
-	"database/sql"
 	"github.com/golang-plus/uuid"
 	"github.com/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
@@ -40,6 +41,7 @@ func init() {
 			"id_mappings",
 		),
 	}
+	IdmappingManager.SetVirtualObject(IdmappingManager)
 }
 
 /*
@@ -72,7 +74,7 @@ func (manager *SIdmappingManager) registerIdMap(ctx context.Context, domainId st
 	mapping := SIdmapping{}
 	err := q.First(&mapping)
 	if err != nil && err != sql.ErrNoRows {
-		return "", errors.WithMessage(err, "Query")
+		return "", errors.Wrap(err, "Query")
 	}
 	if err == sql.ErrNoRows {
 		u1, _ := uuid.NewV4()
@@ -84,7 +86,7 @@ func (manager *SIdmappingManager) registerIdMap(ctx context.Context, domainId st
 
 		err = manager.TableSpec().Insert(&mapping)
 		if err != nil {
-			return "", errors.WithMessage(err, "Insert")
+			return "", errors.Wrap(err, "Insert")
 		}
 	}
 

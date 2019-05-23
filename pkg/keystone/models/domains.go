@@ -28,12 +28,11 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SDomainManager struct {
-	SIdentityBaseResourceManager
+	SEnabledIdentityBaseResourceManager
 }
 
 var (
@@ -42,13 +41,14 @@ var (
 
 func init() {
 	DomainManager = &SDomainManager{
-		SIdentityBaseResourceManager: NewIdentityBaseResourceManager(
+		SEnabledIdentityBaseResourceManager: NewEnabledIdentityBaseResourceManager(
 			SDomain{},
 			"project",
 			"domain",
 			"domains",
 		),
 	}
+	DomainManager.SetVirtualObject(DomainManager)
 }
 
 type SDomain struct {
@@ -95,8 +95,12 @@ func (manager *SDomainManager) InitializeData() error {
 	return nil
 }
 
-func (manager *SDomainManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
-	return api.KeystoneDomainRoot
+func (manager *SDomainManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
+	return nil
+}
+
+func (manager *SDomainManager) Query(fields ...string) *sqlchemy.SQuery {
+	return manager.SEnabledIdentityBaseResourceManager.Query(fields...).IsTrue("is_domain")
 }
 
 func (manager *SDomainManager) FetchDomainByName(domainName string) (*SDomain, error) {
@@ -104,7 +108,7 @@ func (manager *SDomainManager) FetchDomainByName(domainName string) (*SDomain, e
 	if err != nil {
 		return nil, err
 	}
-	q := manager.Query().Equals("name", domainName).IsTrue("is_domain").NotEquals("id", api.KeystoneDomainRoot)
+	q := manager.Query().Equals("name", domainName).NotEquals("id", api.KeystoneDomainRoot)
 	err = q.First(obj)
 	if err != nil {
 		return nil, err
@@ -117,7 +121,7 @@ func (manager *SDomainManager) FetchDomainById(domainId string) (*SDomain, error
 	if err != nil {
 		return nil, err
 	}
-	q := manager.Query().Equals("id", domainId).IsTrue("is_domain") // .NotEquals("id", api.KeystoneDomainRoot)
+	q := manager.Query().Equals("id", domainId) // .NotEquals("id", api.KeystoneDomainRoot)
 	err = q.First(obj)
 	if err != nil {
 		return nil, err
@@ -141,7 +145,7 @@ func (manager *SDomainManager) FetchDomainByIdOrName(domain string) (*SDomain, e
 	if err != nil {
 		return nil, err
 	}
-	q := manager.Query().IsTrue("is_domain").NotEquals("id", api.KeystoneDomainRoot)
+	q := manager.Query().NotEquals("id", api.KeystoneDomainRoot)
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.Equals(q.Field("id"), domain),
 		sqlchemy.Equals(q.Field("name"), domain),
@@ -154,11 +158,11 @@ func (manager *SDomainManager) FetchDomainByIdOrName(domain string) (*SDomain, e
 }
 
 func (manager *SDomainManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := manager.SEnabledIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-	q = q.NotEquals("id", api.KeystoneDomainRoot).IsTrue("is_domain")
+	q = q.NotEquals("id", api.KeystoneDomainRoot)
 	return q, nil
 }
 
@@ -194,14 +198,14 @@ func (self *SDomain) GetConfig(all bool) (TDomainConfigs, error) {
 	return config2map(opts), nil
 }
 
-func (manager *SDomainManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data.Set("domain_id", jsonutils.NewString(api.KeystoneDomainRoot))
-	data.Set("is_domain", jsonutils.JSONTrue)
-	return manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+func (domain *SDomain) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	domain.ParentId = ownerId.GetProjectDomainId()
+	domain.IsDomain = tristate.True
+	return domain.SBaseProject.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (domain *SDomain) GetProjectCount() (int, error) {
-	q := ProjectManager.Query().IsFalse("is_domain").Equals("domain_id", domain.Id)
+	q := ProjectManager.Query().Equals("domain_id", domain.Id)
 	return q.CountWithError()
 }
 
@@ -228,8 +232,8 @@ func (domain *SDomain) ValidateDeleteCondition(ctx context.Context) error {
 	if grpCnt > 0 {
 		return httperrors.NewNotEmptyError("domain is in use")
 	}
-	if domain.Id == options.Options.AdminUserDomainId || domain.Id == options.Options.AdminProjectDomainId {
-		return httperrors.NewForbiddenError("cannot delete admin domain")
+	if domain.Id == api.DEFAULT_DOMAIN_ID {
+		return httperrors.NewForbiddenError("cannot delete default domain")
 	}
 	return domain.SEnabledIdentityBaseResource.ValidateDeleteCondition(ctx)
 }
@@ -242,7 +246,7 @@ func (domain *SDomain) GetDriver() string {
 func (domain *SDomain) getDriver() (string, error) {
 	opts, err := WhitelistedConfigManager.fetchConfigs(domain.Id, []string{"identity"}, []string{"driver"})
 	if err != nil {
-		return "", errors.WithMessage(err, "WhitelistedConfigManager.fetchConfigs")
+		return "", errors.Wrap(err, "WhitelistedConfigManager.fetchConfigs")
 	}
 	if len(opts) == 1 {
 		return opts[0].Value.GetString()
@@ -250,7 +254,7 @@ func (domain *SDomain) getDriver() (string, error) {
 	return api.IdentityDriverSQL, nil
 }
 
-func (domain *SDomain) IsReadOnly() bool {
+func (domain *SDomain) isReadOnly() bool {
 	if domain.GetDriver() == api.IdentityDriverSQL {
 		return false
 	}
@@ -271,7 +275,7 @@ func (domain *SDomain) GetExtraDetails(ctx context.Context, userCred mcclient.To
 }
 
 func domainExtra(domain *SDomain, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	if domain.IsReadOnly() {
+	if domain.isReadOnly() {
 		extra.Add(jsonutils.JSONTrue, "readonly")
 	}
 	extra.Add(jsonutils.NewString(domain.GetDriver()), "driver")

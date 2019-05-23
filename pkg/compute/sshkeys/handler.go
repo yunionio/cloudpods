@@ -30,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func AddSshKeysHandler(prefix string, app *appsrv.Application) {
@@ -40,7 +41,7 @@ func AddSshKeysHandler(prefix string, app *appsrv.Application) {
 func adminSshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	publicOnly := false
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
-	if !userCred.IsAdminAllow(consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet) {
+	if !userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet) {
 		publicOnly = true
 	}
 	params := appctx.AppContextParams(ctx)
@@ -84,7 +85,7 @@ func sshKeysHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)
 func sendSshKey(ctx context.Context, w http.ResponseWriter, userCred mcclient.TokenCredential, projectId string, isAdmin bool, publicOnly bool) {
 	var privKey, pubKey string
 
-	if isAdmin && userCred.IsAdminAllow(consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet) {
+	if isAdmin && userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), "sshkeypairs", policy.PolicyActionGet) {
 		privKey, pubKey, _ = GetSshAdminKeypair(ctx)
 	} else {
 		privKey, pubKey, _ = GetSshProjectKeypair(ctx, projectId)

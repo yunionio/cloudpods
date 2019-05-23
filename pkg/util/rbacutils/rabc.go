@@ -15,26 +15,38 @@
 package rbacutils
 
 import (
-	"fmt"
 	"regexp"
+	"strings"
+
+	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
 )
 
 type TRbacResult string
+type TRbacScope string
 
 const (
 	WILD_MATCH = "*"
 
 	Allow = TRbacResult("allow")
+	Deny  = TRbacResult("deny")
 
-	AdminAllow = TRbacResult("admin")
-	OwnerAllow = TRbacResult("owner")
-	UserAllow  = TRbacResult("user")
-	GuestAllow = TRbacResult("guest")
-	Deny       = TRbacResult("deny")
+	// no more many allow levels, only allow/deny
+
+	AdminAllow = TRbacResult("admin") // deprecated
+	OwnerAllow = TRbacResult("owner") // deprecated
+	UserAllow  = TRbacResult("user")  // deprecated
+	GuestAllow = TRbacResult("guest") // deprecated
+
+	ScopeSystem  = TRbacScope("system")
+	ScopeDomain  = TRbacScope("domain")
+	ScopeProject = TRbacScope("project")
+	// ScopeObject  = "object"
+	ScopeUser = TRbacScope("user")
+	ScopeNone = TRbacScope("none")
 )
 
 var (
@@ -44,6 +56,15 @@ var (
 		OwnerAllow: 2,
 		UserAllow:  3,
 		GuestAllow: 4,
+		Allow:      5,
+	}
+
+	scopeScore = map[TRbacScope]int{
+		ScopeNone:    0,
+		ScopeUser:    1,
+		ScopeProject: 2,
+		ScopeDomain:  3,
+		ScopeSystem:  4,
 	}
 )
 
@@ -55,12 +76,31 @@ func (r1 TRbacResult) StricterThan(r2 TRbacResult) bool {
 	return r1.Strictness() < r2.Strictness()
 }
 
+func (s1 TRbacScope) HigherEqual(s2 TRbacScope) bool {
+	return scopeScore[s1] >= scopeScore[s2]
+}
+
+func (s1 TRbacScope) HigherThan(s2 TRbacScope) bool {
+	return scopeScore[s1] > scopeScore[s2]
+}
+
 type SRbacPolicy struct {
-	Condition string
-	IsAdmin   bool
-	Rules     []SRbacRule
-	Projects  []string
-	Roles     []string
+	// condition, when the policy takes effects
+	Condition string // deprecated
+
+	DomainId string
+
+	Projects []string
+	Roles    []string
+	Ips      []netutils.IPV4Prefix
+	Auth     bool // whether needs authentication
+
+	// scope, the scope of the policy, system/domain/project
+	Scope   TRbacScope
+	IsAdmin bool // deprecated, is_admin=true means system scope, is_admin=false means project scope
+
+	// rules, the exact rules
+	Rules []SRbacRule
 }
 
 type SRbacRule struct {
@@ -228,7 +268,6 @@ func searchMatchRoles(condstr string) []string {
 
 func (policy *SRbacPolicy) Decode(policyJson jsonutils.JSONObject) error {
 	policy.Condition, _ = policyJson.GetString("condition")
-	policy.IsAdmin = jsonutils.QueryBoolean(policyJson, "is_admin", false)
 	if policyJson.Contains("projects") {
 		projectJson, _ := policyJson.GetArray("projects")
 		policy.Projects = jsonutils.JSONArray2StringArray(projectJson)
@@ -247,18 +286,50 @@ func (policy *SRbacPolicy) Decode(policyJson jsonutils.JSONObject) error {
 	// empty condition, no longer use this field
 	policy.Condition = ""
 
+	scopeStr, _ := policyJson.GetString("scope")
+	if len(scopeStr) > 0 {
+		policy.Scope = TRbacScope(scopeStr)
+	} else {
+		policy.IsAdmin = jsonutils.QueryBoolean(policyJson, "is_admin", false)
+		if len(policy.Scope) == 0 {
+			if policy.IsAdmin {
+				policy.Scope = ScopeSystem
+			} else {
+				policy.Scope = ScopeProject
+			}
+		}
+	}
+
+	if policyJson.Contains("ips") {
+		ipsJson, _ := policyJson.GetArray("ips")
+		ipStrs := jsonutils.JSONArray2StringArray(ipsJson)
+		policy.Ips = make([]netutils.IPV4Prefix, 0)
+		for _, ipStr := range ipStrs {
+			prefix, err := netutils.NewIPV4Prefix(ipStr)
+			if err != nil {
+				continue
+			}
+			policy.Ips = append(policy.Ips, prefix)
+		}
+	}
+
+	policy.Auth = jsonutils.QueryBoolean(policyJson, "auth", true)
+	if len(policy.Ips) > 0 || len(policy.Roles) > 0 || len(policy.Projects) > 0 {
+		policy.Auth = true
+	}
+
 	ruleJson, err := policyJson.Get("policy")
 	if err != nil {
 		return err
 	}
 
-	rules, err := decode(policy.IsAdmin, ruleJson, SRbacRule{}, levelService)
+	rules, err := decode(ruleJson, SRbacRule{}, levelService)
 	if err != nil {
 		return err
 	}
 
 	if len(rules) == 0 {
-		return fmt.Errorf("empty policy")
+		return ErrEmptyPolicy
 	}
 
 	policy.Rules = CompactRules(rules)
@@ -273,36 +344,24 @@ const (
 	levelExtra    = 3
 )
 
-func decode(isAdmin bool, rules jsonutils.JSONObject, decodeRule SRbacRule, level int) ([]SRbacRule, error) {
+func decode(rules jsonutils.JSONObject, decodeRule SRbacRule, level int) ([]SRbacRule, error) {
 	switch rules.(type) {
 	case *jsonutils.JSONString:
 		ruleJsonStr := rules.(*jsonutils.JSONString)
 		ruleStr, _ := ruleJsonStr.GetString()
 		switch ruleStr {
-		case string(Allow):
-			if isAdmin {
-				decodeRule.Result = AdminAllow
-			} else {
-				decodeRule.Result = OwnerAllow
-			}
-		case string(AdminAllow):
-			decodeRule.Result = AdminAllow
-		case string(OwnerAllow):
-			decodeRule.Result = OwnerAllow
-		case string(UserAllow):
-			decodeRule.Result = UserAllow
-		case string(GuestAllow):
-			decodeRule.Result = GuestAllow
-		case string(Deny):
-			decodeRule.Result = Deny
+		case string(Allow), string(AdminAllow), string(OwnerAllow), string(UserAllow), string(GuestAllow):
+			decodeRule.Result = Allow
 		default:
-			return nil, fmt.Errorf("unsupported rule string %s", ruleStr)
+			decodeRule.Result = Deny
+			// default:
+			//	return nil, fmt.Errorf("unsupported rule string %s", ruleStr)
 		}
 		return []SRbacRule{decodeRule}, nil
 	case *jsonutils.JSONDict:
 		ruleJsonDict, err := rules.GetMap()
 		if err != nil {
-			return nil, fmt.Errorf("get rule map fail %s", err)
+			return nil, errors.Wrap(err, "get rule map fail")
 		}
 		rules := make([]SRbacRule, 0)
 		for key, ruleJson := range ruleJsonDict {
@@ -322,15 +381,15 @@ func decode(isAdmin bool, rules jsonutils.JSONObject, decodeRule SRbacRule, leve
 					rule.Extra = append(rule.Extra, key)
 				}
 			}
-			decoded, err := decode(isAdmin, ruleJson, rule, level+1)
+			decoded, err := decode(ruleJson, rule, level+1)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "decode")
 			}
 			rules = append(rules, decoded...)
 		}
 		return rules, nil
 	default:
-		return nil, fmt.Errorf("unsupport rule data %s", rules.String())
+		return nil, errors.WithMessage(ErrUnsuportRuleData, rules.String())
 	}
 }
 
@@ -355,13 +414,13 @@ func addRule2Json(nodeJson *jsonutils.JSONDict, keys []string, result TRbacResul
 			nextJson, _ := nodeJson.Get(keys[0])
 			switch nextJson.(type) {
 			case *jsonutils.JSONString: // conflict??
-				return fmt.Errorf("conflict?")
+				return ErrConflict // fmt.Errorf("conflict?")
 			case *jsonutils.JSONDict:
 				nextJsonDict := nextJson.(*jsonutils.JSONDict)
 				addRule2Json(nextJsonDict, []string{WILD_MATCH}, result)
 				return nil
 			default:
-				return fmt.Errorf("invalid rules")
+				return ErrInvalidRules // fmt.Errorf("invalid rules")
 			}
 		} else {
 			nodeJson.Add(jsonutils.NewString(string(result)), keys[0])
@@ -381,7 +440,7 @@ func addRule2Json(nodeJson *jsonutils.JSONDict, keys []string, result TRbacResul
 			existDict := exist.(*jsonutils.JSONDict)
 			return addRule2Json(existDict, keys[1:], result)
 		default:
-			return fmt.Errorf("invalid rules")
+			return ErrInvalidRules // fmt.Errorf("invalid rules")
 		}
 	} else {
 		next := jsonutils.NewDict()
@@ -396,23 +455,40 @@ func (policy *SRbacPolicy) Encode() (jsonutils.JSONObject, error) {
 		keys := policy.Rules[i].toStringArray()
 		err := addRule2Json(rules, keys, policy.Rules[i].Result)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "addRule2Json")
 		}
 	}
 
 	ret := jsonutils.NewDict()
 	// ret.Add(jsonutils.NewString(policy.Condition), "condition")
-	if policy.IsAdmin {
-		ret.Add(jsonutils.JSONTrue, "is_admin")
+	// if policy.IsAdmin {
+	// 	ret.Add(jsonutils.JSONTrue, "is_admin")
+	// } else {
+	// 	ret.Add(jsonutils.JSONFalse, "is_admin")
+	// }
+
+	ret.Add(jsonutils.NewString(string(policy.Scope)), "scope")
+
+	if !policy.Auth && len(policy.Projects) == 0 && len(policy.Roles) == 0 && len(policy.Ips) == 0 {
+		ret.Add(jsonutils.JSONFalse, "auth")
 	} else {
-		ret.Add(jsonutils.JSONFalse, "is_admin")
+		ret.Add(jsonutils.JSONTrue, "auth")
 	}
+
 	if len(policy.Projects) > 0 {
 		ret.Add(jsonutils.NewStringArray(policy.Projects), "projects")
 	}
 	if len(policy.Roles) > 0 {
 		ret.Add(jsonutils.NewStringArray(policy.Roles), "roles")
 	}
+	if len(policy.Ips) > 0 {
+		ipStrs := make([]string, len(policy.Ips))
+		for i := range policy.Ips {
+			ipStrs[i] = policy.Ips[i].String()
+		}
+		ret.Add(jsonutils.NewStringArray(ipStrs), "ips")
+	}
+
 	ret.Add(rules, "policy")
 	return ret, nil
 }
@@ -450,20 +526,51 @@ func intersect(s1 []string, s2 []string) bool {
 	return false
 }
 
-func (policy *SRbacPolicy) Match(userCred mcclient.TokenCredential) bool {
-	if (len(policy.Projects) == 0 || (userCred != nil && contains(policy.Projects, userCred.GetProjectName()))) && (len(policy.Roles) == 0 || (userCred != nil && intersect(policy.Roles, userCred.GetRoles()))) {
+func containsIp(ips []netutils.IPV4Prefix, ipStr string) bool {
+	ip, err := netutils.NewIPV4Addr(ipStr)
+	if err != nil {
+		log.Errorf("invalid ipv4 addr %s: %s", ipStr, err)
+		return false
+	}
+	for i := range ips {
+		if ips[i].Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+type IRbacIdentity interface {
+	GetProjectDomainId() string
+	GetProjectName() string
+	GetRoles() []string
+	GetLoginIp() string
+}
+
+func (policy *SRbacPolicy) Match(userCred IRbacIdentity) bool {
+	if !policy.Auth && len(policy.Projects) == 0 && len(policy.Roles) == 0 && len(policy.Ips) == 0 {
+		return true
+	}
+	if userCred == nil {
+		return false
+	}
+	if (len(policy.Projects) == 0 || (policy.DomainId == userCred.GetProjectDomainId() && contains(policy.Projects, userCred.GetProjectName()))) && (len(policy.Roles) == 0 || (policy.DomainId == userCred.GetProjectDomainId() && intersect(policy.Roles, userCred.GetRoles()))) && (len(policy.Ips) == 0 || containsIp(policy.Ips, userCred.GetLoginIp())) {
 		return true
 	}
 	return false
 }
 
-/*func (policy *SRbacPolicy) Allow(userCred mcclient.TokenCredential, service, resource, action string, extra ...string) TRbacResult {
-	if !policy.Match(userCred) {
-		return Deny
+func String2Scope(str string) TRbacScope {
+	switch strings.ToLower(str) {
+	case string(ScopeSystem):
+		return ScopeSystem
+	case string(ScopeDomain):
+		return ScopeDomain
+	case string(ScopeProject):
+		return ScopeProject
+	case "true":
+		return ScopeSystem
+	default:
+		return ScopeProject
 	}
-	rule := policy.GetMatchRule(service, resource, action, extra...)
-	if rule == nil {
-		return Deny
-	}
-	return rule.Result
-}*/
+}

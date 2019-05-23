@@ -15,12 +15,16 @@
 package models
 
 import (
+	"context"
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 var (
 	defaultAdminCred mcclient.TokenCredential
+
+	defaultClient = mcclient.NewClient("", 300, options.Options.DebugClient, true, "", "")
 )
 
 func GetDefaultAdminCred() mcclient.TokenCredential {
@@ -32,16 +36,20 @@ func GetDefaultAdminCred() mcclient.TokenCredential {
 
 func getDefaultAdminCred() mcclient.TokenCredential {
 	token := mcclient.SSimpleToken{}
-	usr, _ := UserManager.FetchUserExtended("", options.Options.AdminUserName, options.Options.AdminUserDomainId, "")
+	usr, _ := UserManager.FetchUserExtended("", api.SystemAdminUser, api.DEFAULT_DOMAIN_ID, "")
 	token.UserId = usr.Id
 	token.User = usr.Name
 	token.DomainId = usr.DomainId
 	token.Domain = usr.DomainName
-	prj, _ := ProjectManager.FetchProject("", options.Options.AdminProjectName, options.Options.AdminProjectDomainId, "")
+	prj, _ := ProjectManager.FetchProject("", api.SystemAdminProject, api.DEFAULT_DOMAIN_ID, "")
 	token.ProjectId = prj.Id
 	token.Project = prj.Name
 	token.ProjectDomainId = prj.DomainId
 	token.ProjectDomain = prj.GetDomain().Name
-	token.Roles = "admin"
+	token.Roles = api.SystemAdminRole
 	return &token
+}
+
+func GetDefaultClientSession(ctx context.Context, token mcclient.TokenCredential, region, apiVersion string) *mcclient.ClientSession {
+	return defaultClient.NewSession(ctx, region, "", "", token, apiVersion)
 }

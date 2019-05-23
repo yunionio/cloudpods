@@ -47,6 +47,7 @@ func init() {
 				StorageManager,
 			),
 		}
+		HoststorageManager.SetVirtualObject(HoststorageManager)
 	})
 }
 
@@ -101,7 +102,7 @@ func (self *SHoststorage) GetStorage() *SStorage {
 	return nil
 }
 
-func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	storageId, _ := data.GetString("storage_id")
 	if len(storageId) == 0 {
 		return nil, httperrors.NewMissingParameterError("storage_id")
@@ -126,11 +127,11 @@ func (manager *SHoststorageManager) ValidateCreateData(ctx context.Context, user
 		return nil, err
 	}
 
-	return manager.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
-func (self *SHoststorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SHostJointsBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (self *SHoststorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SHostJointsBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	if err := self.StartHostStorageAttachTask(ctx, userCred); err != nil {
 		log.Errorf("failed to attach storage error: %v", err)

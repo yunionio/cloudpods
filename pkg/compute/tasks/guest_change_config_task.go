@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type GuestChangeConfigTask struct {
@@ -197,7 +198,7 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 	lockman.LockClass(ctx, guest.GetModelManager(), guest.ProjectId)
 	defer lockman.ReleaseClass(ctx, guest.GetModelManager(), guest.ProjectId)
 
-	err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, guest.ProjectId, &pendingUsage, &cancelUsage)
+	err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, guest.GetOwnerId(), &pendingUsage, &cancelUsage)
 	if err != nil {
 		self.markStageFailed(ctx, guest, fmt.Sprintf("CancelPendingUsage fail %s", err))
 		return

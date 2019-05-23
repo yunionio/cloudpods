@@ -66,6 +66,7 @@ func init() {
 			"isolated_devices",
 		),
 	}
+	IsolatedDeviceManager.SetVirtualObject(IsolatedDeviceManager)
 }
 
 type SIsolatedDevice struct {
@@ -106,7 +107,7 @@ func (manager *SIsolatedDeviceManager) AllowCreateItem(ctx context.Context, user
 	return db.IsAdminAllowCreate(userCred, manager)
 }
 
-func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	hostId, _ := data.GetString("host_id")
 	host := HostManager.FetchHostById(hostId)
 	if host == nil {
@@ -116,7 +117,7 @@ func (manager *SIsolatedDeviceManager) ValidateCreateData(ctx context.Context, u
 		name = fmt.Sprintf("dev_%s_%d", host.GetName(), time.Now().UnixNano())
 		data.Set("name", jsonutils.NewString(name))
 	}
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SIsolatedDevice) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
@@ -207,7 +208,7 @@ func (manager *SIsolatedDeviceManager) findAttachedDevicesOfGuest(guest *SGuest)
 
 func (manager *SIsolatedDeviceManager) fuzzyMatchModel(fuzzyStr string) *SIsolatedDevice {
 	dev := SIsolatedDevice{}
-	dev.SetModelManager(manager)
+	dev.SetModelManager(manager, &dev)
 
 	q := manager.Query().Contains("model", fuzzyStr)
 	err := q.First(&dev)
@@ -399,7 +400,7 @@ func (manager *SIsolatedDeviceManager) ReleaseDevicesOfGuest(ctx context.Context
 
 func (manager *SIsolatedDeviceManager) totalCountQ(
 	devType []string, hostTypes []string,
-	resourceTypes []string, providers []string,
+	resourceTypes []string, providers []string, cloudEnv string,
 	rangeObj db.IStandaloneModel,
 ) *sqlchemy.SQuery {
 	hosts := HostManager.Query().SubQuery()
@@ -409,7 +410,7 @@ func (manager *SIsolatedDeviceManager) totalCountQ(
 	if len(devType) != 0 {
 		q = q.Filter(sqlchemy.In(devs.Field("dev_type"), devType))
 	}
-	return AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, rangeObj)
+	return AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, cloudEnv, rangeObj)
 }
 
 type IsolatedDeviceCountStat struct {
@@ -417,17 +418,17 @@ type IsolatedDeviceCountStat struct {
 	Gpus    int
 }
 
-func (manager *SIsolatedDeviceManager) totalCount(devType, hostTypes []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) (int, error) {
-	return manager.totalCountQ(devType, hostTypes, resourceTypes, providers, rangeObj).CountWithError()
+func (manager *SIsolatedDeviceManager) totalCount(devType, hostTypes []string, resourceTypes []string, providers []string, cloudEnv string, rangeObj db.IStandaloneModel) (int, error) {
+	return manager.totalCountQ(devType, hostTypes, resourceTypes, providers, cloudEnv, rangeObj).CountWithError()
 }
 
-func (manager *SIsolatedDeviceManager) TotalCount(hostType []string, resourceTypes []string, providers []string, rangeObj db.IStandaloneModel) (IsolatedDeviceCountStat, error) {
+func (manager *SIsolatedDeviceManager) TotalCount(hostType []string, resourceTypes []string, providers []string, cloudEnv string, rangeObj db.IStandaloneModel) (IsolatedDeviceCountStat, error) {
 	stat := IsolatedDeviceCountStat{}
-	devCnt, err := manager.totalCount(nil, hostType, resourceTypes, providers, rangeObj)
+	devCnt, err := manager.totalCount(nil, hostType, resourceTypes, providers, cloudEnv, rangeObj)
 	if err != nil {
 		return stat, err
 	}
-	gpuCnt, err := manager.totalCount(VALID_GPU_TYPES, hostType, resourceTypes, providers, rangeObj)
+	gpuCnt, err := manager.totalCount(VALID_GPU_TYPES, hostType, resourceTypes, providers, cloudEnv, rangeObj)
 	if err != nil {
 		return stat, err
 	}

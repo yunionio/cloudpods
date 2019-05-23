@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -61,6 +62,7 @@ func init() {
 				NetworkManager,
 			),
 		}
+		GuestnetworkManager.SetVirtualObject(GuestnetworkManager)
 		GuestnetworkManager.TableSpec().AddIndex(true, "ip_addr", "guest_id")
 	})
 }
@@ -148,7 +150,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 	allocDir IPAddlocationDirection, requiredDesignatedIp bool, ifName string, teamWithMac string) (*SGuestnetwork, error) {
 
 	gn := SGuestnetwork{}
-	gn.SetModelManager(GuestnetworkManager)
+	gn.SetModelManager(GuestnetworkManager, &gn)
 
 	gn.GuestId = guest.Id
 	gn.NetworkId = network.Id
@@ -373,7 +375,7 @@ func (manager *SGuestnetworkManager) GetGuestByAddress(address string) *SGuest {
 		sqlchemy.Equals(networks.Field("guest_id"), guests.Field("id")),
 	))
 	guest := &SGuest{}
-	guest.SetModelManager(GuestManager)
+	guest.SetModelManager(GuestManager, guest)
 	err := q.First(guest)
 	if err == nil {
 		return guest
@@ -445,7 +447,7 @@ func (manager *SGuestnetworkManager) getGuestNicByIP(ip string, networkId string
 		}
 		return nil, nil
 	}
-	gn.SetModelManager(manager)
+	gn.SetModelManager(manager, &gn)
 	return &gn, nil
 }
 
@@ -465,7 +467,7 @@ func (self *SGuestnetwork) Detach(ctx context.Context, userCred mcclient.TokenCr
 	return db.DetachJoint(ctx, userCred, self)
 }
 
-func totalGuestNicCount(projectId string, rangeObj db.IStandaloneModel, includeSystem bool) GuestnicsCount {
+func totalGuestNicCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, includeSystem bool) GuestnicsCount {
 	guests := GuestManager.Query().SubQuery()
 	guestnics := GuestnetworkManager.Query().SubQuery()
 	q := guestnics.Query().Join(guests, sqlchemy.Equals(guests.Field("id"), guestnics.Field("guest_id")))
@@ -485,9 +487,16 @@ func totalGuestNicCount(projectId string, rangeObj db.IStandaloneModel, includeS
 
 		}
 	}
-	if len(projectId) > 0 {
-		q = q.Filter(sqlchemy.Equals(guests.Field("tenant_id"), projectId))
+
+	switch scope {
+	case rbacutils.ScopeSystem:
+		// do nothing
+	case rbacutils.ScopeDomain:
+		q = q.Filter(sqlchemy.Equals(guests.Field("domain_id"), ownerId.GetProjectDomainId()))
+	case rbacutils.ScopeProject:
+		q = q.Filter(sqlchemy.Equals(guests.Field("tenant_id"), ownerId.GetProjectId()))
 	}
+
 	if !includeSystem {
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(guests.Field("is_system")),
 			sqlchemy.IsFalse(guests.Field("is_system"))))

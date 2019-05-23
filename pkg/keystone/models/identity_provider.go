@@ -15,8 +15,9 @@
 package models
 
 import (
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/pkg/tristate"
+
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
 type SIdentityProviderManager struct {
@@ -36,6 +37,7 @@ func init() {
 			"identity_providers",
 		),
 	}
+	IdentityProviderManager.SetVirtualObject(IdentityProviderManager)
 }
 
 /*

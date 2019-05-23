@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	prompt "github.com/c-bata/go-prompt"
+	"github.com/c-bata/go-prompt"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/version"
@@ -174,10 +174,11 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	}
 
 	if cacheToken == nil {
-		token, err := client.Authenticate(options.OsUsername,
+		token, err := client.AuthenticateWithSource(options.OsUsername,
 			options.OsPassword,
 			options.OsDomainName,
-			options.OsProjectName)
+			options.OsProjectName,
+			mcclient.AuthSourceCli)
 		if err != nil {
 			return nil, err
 		}

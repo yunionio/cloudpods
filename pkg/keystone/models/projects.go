@@ -29,25 +29,25 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SProjectManager struct {
-	SIdentityBaseResourceManager
+	SEnabledIdentityBaseResourceManager
 }
 
 var ProjectManager *SProjectManager
 
 func init() {
 	ProjectManager = &SProjectManager{
-		SIdentityBaseResourceManager: NewIdentityBaseResourceManager(
+		SEnabledIdentityBaseResourceManager: NewEnabledIdentityBaseResourceManager(
 			SProject{},
 			"project",
 			"project",
 			"projects",
 		),
 	}
+	ProjectManager.SetVirtualObject(ProjectManager)
 }
 
 /*
@@ -70,7 +70,7 @@ type SBaseProject struct {
 	SEnabledIdentityBaseResource
 
 	ParentId string            `width:"64" charset:"ascii" index:"true" list:"admin" create:"admin_optional"`
-	IsDomain tristate.TriState `default:"false" nullable:"false" create:"admin_required"`
+	IsDomain tristate.TriState `default:"false" nullable:"false" create:"admin_optional"`
 }
 
 type SProject struct {
@@ -89,11 +89,11 @@ func (manager *SProjectManager) InitializeData() error {
 }
 
 func (manager *SProjectManager) initSysProject() error {
-	q := manager.Query().Equals("name", options.Options.AdminProjectName)
-	q = q.Equals("domain_id", options.Options.AdminProjectDomainId)
+	q := manager.Query().Equals("name", api.SystemAdminProject)
+	q = q.Equals("domain_id", api.DEFAULT_DOMAIN_ID)
 	cnt, err := q.CountWithError()
 	if err != nil {
-		return errors.WithMessage(err, "query")
+		return errors.Wrap(err, "query")
 	}
 	if cnt == 1 {
 		return nil
@@ -104,19 +104,23 @@ func (manager *SProjectManager) initSysProject() error {
 	}
 	// insert
 	project := SProject{}
-	project.Name = options.Options.AdminProjectName
-	project.DomainId = options.Options.AdminProjectDomainId
+	project.Name = api.SystemAdminProject
+	project.DomainId = api.DEFAULT_DOMAIN_ID
 	project.Enabled = tristate.True
 	project.Description = "Boostrap system default admin project"
 	project.IsDomain = tristate.False
-	project.ParentId = options.Options.AdminProjectDomainId
-	project.SetModelManager(manager)
+	project.ParentId = api.DEFAULT_DOMAIN_ID
+	project.SetModelManager(manager, &project)
 
 	err = manager.TableSpec().Insert(&project)
 	if err != nil {
-		return errors.WithMessage(err, "insert")
+		return errors.Wrap(err, "insert")
 	}
 	return nil
+}
+
+func (manager *SProjectManager) Query(fields ...string) *sqlchemy.SQuery {
+	return manager.SEnabledIdentityBaseResourceManager.Query(fields...).IsFalse("is_domain")
 }
 
 func (manager *SProjectManager) FetchProjectByName(projectName string, domainId, domainName string) (*SProject, error) {
@@ -128,7 +132,7 @@ func (manager *SProjectManager) FetchProjectByName(projectName string, domainId,
 	if err != nil {
 		return nil, err
 	}
-	q := manager.Query().Equals("name", projectName).IsFalse("is_domain").Equals("domain_id", domain.Id)
+	q := manager.Query().Equals("name", projectName).Equals("domain_id", domain.Id)
 	err = q.First(obj)
 	if err != nil {
 		return nil, err
@@ -141,7 +145,7 @@ func (manager *SProjectManager) FetchProjectById(projectId string) (*SProject, e
 	if err != nil {
 		return nil, err
 	}
-	q := manager.Query().Equals("id", projectId).IsFalse("is_domain")
+	q := manager.Query().Equals("id", projectId)
 	err = q.First(obj)
 	if err != nil {
 		return nil, err
@@ -182,11 +186,10 @@ func (proj *SProject) FetchExtend() (*SProjectExtended, error) {
 }
 
 func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := manager.SEnabledIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-	q = q.NotEquals("id", api.KeystoneDomainRoot).IsFalse("is_domain")
 
 	userStr := jsonutils.GetAnyString(query, []string{"user_id"})
 	if len(userStr) > 0 {
@@ -219,26 +222,10 @@ func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	return q, nil
 }
 
-func (manager *SProjectManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	var domainId string
-	domainStr := jsonutils.GetAnyString(data, []string{"domain", "domain_id"})
-	if len(domainStr) == 0 {
-		domainId = api.DEFAULT_DOMAIN_ID
-	} else {
-		domain, err := DomainManager.FetchByIdOrName(userCred, domainStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("domain", domainStr)
-			} else {
-				return nil, httperrors.NewInternalServerError("FetchByIdOrName %s: %s", domainStr, err)
-			}
-		}
-		domainId = domain.GetId()
-	}
-	data.Set("domain_id", jsonutils.NewString(domainId))
-	data.Set("parent_id", jsonutils.NewString(domainId))
-	data.Set("is_domain", jsonutils.JSONFalse)
-	return manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+func (model *SProject) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	model.ParentId = ownerId.GetProjectDomainId()
+	model.IsDomain = tristate.False
+	return model.SBaseProject.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (proj *SProject) GetUserCount() (int, error) {
@@ -267,7 +254,7 @@ func (proj *SProject) ValidateDeleteCondition(ctx context.Context) error {
 }
 
 func (proj *SProject) IsAdminProject() bool {
-	return proj.Name == options.Options.AdminProjectName && proj.DomainId == options.Options.AdminProjectDomainId
+	return proj.Name == api.SystemAdminProject && proj.DomainId == api.DEFAULT_DOMAIN_ID
 }
 
 func (proj *SProject) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -293,11 +280,6 @@ func (proj *SProject) GetExtraDetails(ctx context.Context, userCred mcclient.Tok
 }
 
 func projectExtra(proj *SProject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	domain := proj.GetDomain()
-	if domain != nil {
-		extra.Add(jsonutils.NewString(domain.Name), "domain")
-	}
-
 	grpCnt, _ := proj.GetGroupCount()
 	extra.Add(jsonutils.NewInt(int64(grpCnt)), "group_count")
 	usrCnt, _ := proj.GetUserCount()

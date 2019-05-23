@@ -41,6 +41,7 @@ func init() {
 			"reservedips",
 		),
 	}
+	ReservedipManager.SetVirtualObject(ReservedipManager)
 }
 
 type SReservedip struct {
@@ -85,7 +86,7 @@ func (manager *SReservedipManager) ReserveIP(userCred mcclient.TokenCredential, 
 
 func (manager *SReservedipManager) GetReservedIP(network *SNetwork, ip string) *SReservedip {
 	rip := SReservedip{}
-	rip.SetModelManager(manager)
+	rip.SetModelManager(manager, &rip)
 
 	err := manager.Query().Equals("network_id", network.Id).Equals("ip_addr", ip).First(&rip)
 	if err != nil {

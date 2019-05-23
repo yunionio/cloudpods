@@ -44,6 +44,7 @@ import (
 
 type SCloudaccountManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SDomainizedResourceBaseManager
 }
 
 var CloudaccountManager *SCloudaccountManager
@@ -57,10 +58,12 @@ func init() {
 			"cloudaccounts",
 		),
 	}
+	CloudaccountManager.SetVirtualObject(CloudaccountManager)
 }
 
 type SCloudaccount struct {
 	db.SEnabledStatusStandaloneResourceBase
+	db.SDomainizedResourceBase
 
 	SSyncableBaseResource
 	LastAutoSync time.Time `list:"admin"`
@@ -237,7 +240,7 @@ func (self *SCloudaccount) ValidateUpdateData(ctx context.Context, userCred mccl
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	// check provider
 	// name, _ := data.GetString("name")
 	provider, _ := data.GetString("provider")
@@ -289,20 +292,20 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 	}
 	data.Set("sync_interval_seconds", jsonutils.NewInt(syncIntervalSecs))
 
-	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
-func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	self.Enabled = true
 	if len(self.Brand) == 0 {
 		self.Brand = self.Provider
 	}
 	// self.EnableAutoSync = false
-	return self.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
+	return self.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (self *SCloudaccount) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	self.savePassword(self.Secret)
 
 	// if !self.EnableAutoSync {
@@ -560,7 +563,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		lockman.LockClass(ctx, CloudproviderManager, "")
 		defer lockman.ReleaseClass(ctx, CloudproviderManager, "")
 
-		newName, err := db.GenerateName(CloudproviderManager, "", subAccount.Name)
+		newName, err := db.GenerateName(CloudproviderManager, nil, subAccount.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -578,7 +581,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 			newCloudprovider.ProjectId = auth.AdminCredential().GetProjectId()
 		}
 
-		newCloudprovider.SetModelManager(CloudproviderManager)
+		newCloudprovider.SetModelManager(CloudproviderManager, &newCloudprovider)
 
 		err = CloudproviderManager.TableSpec().Insert(&newCloudprovider)
 		if err != nil {
@@ -772,7 +775,7 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 	}
 
 	account := SCloudaccount{}
-	account.SetModelManager(CloudaccountManager)
+	account.SetModelManager(CloudaccountManager, &account)
 	q := CloudaccountManager.Query().Equals("access_url", cloudprovider.AccessUrl).
 		Equals("account", mainAccount).
 		Equals("provider", cloudprovider.Provider)

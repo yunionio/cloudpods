@@ -17,6 +17,8 @@ package driver
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -41,11 +43,11 @@ func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthent
 		ident.Password.User.Domain.Name,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
 	}
 	err = usrExt.VerifyPassword(ident.Password.User.Password)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "usrExt.VerifyPassword")
 	}
 	return usrExt, nil
 }

@@ -46,6 +46,7 @@ func init() {
 			"image_subformats",
 		),
 	}
+	ImageSubformatManager.SetVirtualObject(ImageSubformatManager)
 
 	ImageSubformatManager.TableSpec().AddIndex(true, "image_id", "format")
 }

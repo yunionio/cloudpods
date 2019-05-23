@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func init() {
@@ -37,6 +38,7 @@ func init() {
 		Search string `help:"Search by name"`
 		Type   string `help:"filter by type"`
 		Format string `help:"policy format, default to yaml" default:"yaml" choices:"yaml|json"`
+		Admin  bool   `help:"admin mode"`
 	}
 	R(&PolicyListOptions{}, "policy-list", "List all policies", func(s *mcclient.ClientSession, args *PolicyListOptions) error {
 		params := jsonutils.NewDict()
@@ -52,6 +54,9 @@ func init() {
 		}
 		if len(args.Type) > 0 {
 			params.Add(jsonutils.NewString(args.Type), "type")
+		}
+		if args.Admin {
+			params.Add(jsonutils.JSONTrue, "admin")
 		}
 		result, err := modules.Policies.List(s, params)
 		if err != nil {
@@ -222,10 +227,11 @@ func init() {
 	})
 
 	type PolicyAdminCapableOptions struct {
-		User       string   `help:"For user"`
-		UserDomain string   `help:"Domain for user"`
-		Project    string   `help:"Role assignments for project"`
-		Role       []string `help:"Roles"`
+		User          string   `help:"For user"`
+		UserDomain    string   `help:"Domain for user"`
+		Project       string   `help:"Role assignments for project"`
+		ProjectDomain string   `help:"Domain for project"`
+		Role          []string `help:"Roles"`
 	}
 	R(&PolicyAdminCapableOptions{}, "policy-admin-capable", "Check admin capable", func(s *mcclient.ClientSession, args *PolicyAdminCapableOptions) error {
 		auth.InitFromClientSession(s)
@@ -234,17 +240,29 @@ func init() {
 		var token mcclient.TokenCredential
 		if len(args.User) > 0 {
 			token = &mcclient.SSimpleToken{
-				Domain:  args.UserDomain,
-				User:    args.User,
-				Project: args.Project,
-				Roles:   strings.Join(args.Role, ","),
+				Domain:        args.UserDomain,
+				User:          args.User,
+				Project:       args.Project,
+				ProjectDomain: args.ProjectDomain,
+				Roles:         strings.Join(args.Role, ","),
 			}
 		} else {
 			token = s.GetToken()
 		}
 
-		capable := policy.PolicyManager.IsAdminCapable(token)
-		fmt.Printf("%v\n", capable)
+		fmt.Println("Token", token)
+
+		for _, scope := range []rbacutils.TRbacScope{
+			rbacutils.ScopeSystem,
+			rbacutils.ScopeDomain,
+			rbacutils.ScopeProject,
+			rbacutils.ScopeUser,
+			rbacutils.ScopeNone,
+		} {
+			fmt.Printf("%s: ", scope)
+			capable := policy.PolicyManager.IsScopeCapable(token, scope)
+			fmt.Println(capable)
+		}
 
 		return nil
 	})
@@ -254,7 +272,7 @@ func init() {
 		UserDomain string   `help:"Domain for user"`
 		Project    string   `help:"Role assignments for project"`
 		Role       []string `help:"Roles"`
-		Request    []string `help:"explain request, in format of key:is_admin:service:resource:action:extra"`
+		Request    []string `help:"explain request, in format of key:scope:service:resource:action:extra"`
 		Name       string   `help:"policy name"`
 	}
 	R(&PolicyExplainOptions{}, "policy-explain", "Explain policy result", func(s *mcclient.ClientSession, args *PolicyExplainOptions) error {
@@ -269,14 +287,7 @@ func init() {
 			}
 			key := parts[0]
 			data := make([]jsonutils.JSONObject, 1)
-			if parts[1] == "true" {
-				data[0] = jsonutils.JSONTrue
-			} else if parts[1] == "false" {
-				data[0] = jsonutils.JSONFalse
-			} else {
-				return fmt.Errorf("invalid request, is_admin should be true|false")
-			}
-			for i := 2; i < len(parts); i += 1 {
+			for i := 1; i < len(parts); i += 1 {
 				data = append(data, jsonutils.NewString(parts[i]))
 			}
 			req.Add(jsonutils.NewArray(data...), key)
@@ -302,10 +313,16 @@ func init() {
 		printObject(result)
 
 		fmt.Println("userCred:", token)
-		m := policy.PolicyManager.MatchedPolicies(false, token)
-		fmt.Println("matched policies:", m)
-		m = policy.PolicyManager.MatchedPolicies(true, token)
-		fmt.Println("matched admin policies:", m)
+		for _, scope := range []rbacutils.TRbacScope{
+			rbacutils.ScopeSystem,
+			rbacutils.ScopeDomain,
+			rbacutils.ScopeProject,
+			rbacutils.ScopeUser,
+			rbacutils.ScopeNone,
+		} {
+			m := policy.PolicyManager.MatchedPolicies(scope, token)
+			fmt.Println("matched", scope, "policies:", m)
+		}
 		return nil
 	})
 }

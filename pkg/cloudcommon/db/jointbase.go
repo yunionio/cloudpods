@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SJointResourceBase struct {
@@ -59,6 +60,10 @@ func NewJointResourceBaseManager(dt interface{}, tableName string, keyword strin
 	}
 }
 
+func (manager *SJointResourceBaseManager) GetIJointModelManager() IJointModelManager {
+	return manager.GetVirtualObject().(IJointModelManager)
+}
+
 func (manager *SJointResourceBaseManager) GetMasterManager() IStandaloneModelManager {
 	return manager._master
 }
@@ -88,11 +93,11 @@ func (manager *SJointResourceBaseManager) FilterByParams(q *sqlchemy.SQuery, par
 }
 
 func (manager *SJointResourceBaseManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model IStandaloneModel, query jsonutils.JSONObject) bool {
-	return IsAdminAllowList(userCred, manager)
+	return IsAllowList(rbacutils.ScopeSystem, userCred, manager)
 }
 
 func (manager *SJointResourceBaseManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, slave IStandaloneModel) bool {
-	return IsAdminAllowCreate(userCred, manager)
+	return IsAllowCreate(rbacutils.ScopeSystem, userCred, manager)
 }
 
 func JointModelExtra(jointModel IJointModel, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
@@ -148,7 +153,7 @@ func JointMaster(joint IJointModel) IStandaloneModel { // need override
 	//log.Debugf("MasterID: %s %s", masterId, masterMan.KeywordPlural())
 	if len(masterId) > 0 {
 		master, _ := masterMan.FetchById(masterId)
-		return master
+		return master.(IStandaloneModel)
 	}
 	return nil
 }
@@ -159,9 +164,13 @@ func JointSlave(joint IJointModel) IStandaloneModel { // need override
 	//log.Debugf("SlaveID: %s %s", slaveId, slaveMan.KeywordPlural())
 	if len(slaveId) > 0 {
 		slave, _ := slaveMan.FetchById(slaveId)
-		return slave
+		return slave.(IStandaloneModel)
 	}
 	return nil
+}
+
+func (joint *SJointResourceBase) GetIJointModel() IJointModel {
+	return joint.GetVirtualObject().(IJointModel)
 }
 
 func (joint *SJointResourceBase) Master() IStandaloneModel {
@@ -176,7 +185,7 @@ func (self *SJointResourceBase) AllowGetJointDetails(ctx context.Context, userCr
 	master := item.Master()
 	switch master.(type) {
 	case IVirtualModel:
-		return master.(IVirtualModel).IsOwner(userCred) || IsAdminAllowGet(userCred, master)
+		return master.(IVirtualModel).IsOwner(userCred) || IsAllowGet(rbacutils.ScopeSystem, userCred, master)
 	default: // case item implemented customized AllowGetDetails, eg hostjoints
 		return item.AllowGetDetails(ctx, userCred, query)
 	}
@@ -186,10 +195,14 @@ func (self *SJointResourceBase) AllowUpdateJointItem(ctx context.Context, userCr
 	master := item.Master()
 	switch master.(type) {
 	case IVirtualModel:
-		return master.(IVirtualModel).IsOwner(userCred) || IsAdminAllowUpdate(userCred, master)
+		return master.(IVirtualModel).IsOwner(userCred) || IsAllowUpdate(rbacutils.ScopeSystem, userCred, master)
 	default: // case item implemented customized AllowGetDetails, eg hostjoints
 		return item.AllowUpdateItem(ctx, userCred)
 	}
+}
+
+func (self *SJointResourceBase) AllowDetach(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return false
 }
 
 /*

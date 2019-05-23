@@ -157,7 +157,7 @@ func syncRegionEips(ctx context.Context, userCred mcclient.TokenCredential, sync
 		return
 	}
 
-	result := ElasticipManager.SyncEips(ctx, userCred, provider, localRegion, eips, provider.ProjectId)
+	result := ElasticipManager.SyncEips(ctx, userCred, provider, localRegion, eips, provider.GetOwnerId())
 
 	syncResults.Add(ElasticipManager, result)
 
@@ -272,7 +272,7 @@ func syncWireNetworks(ctx context.Context, userCred mcclient.TokenCredential, sy
 		log.Errorf(msg)
 		return
 	}
-	_, _, result := NetworkManager.SyncNetworks(ctx, userCred, localWire, nets, provider.ProjectId)
+	_, _, result := NetworkManager.SyncNetworks(ctx, userCred, localWire, nets, provider.GetOwnerId())
 
 	if syncResults != nil {
 		syncResults.Add(NetworkManager, result)
@@ -353,7 +353,7 @@ func syncStorageDisks(ctx context.Context, userCred mcclient.TokenCredential, sy
 		log.Errorf(msg)
 		return
 	}
-	_, _, result := DiskManager.SyncDisks(ctx, userCred, driver, localStorage, disks, provider.ProjectId)
+	_, _, result := DiskManager.SyncDisks(ctx, userCred, driver, localStorage, disks, provider.GetOwnerId())
 
 	syncResults.Add(DiskManager, result)
 
@@ -467,7 +467,7 @@ func syncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, syncRes
 		log.Errorf(msg)
 		return
 	}
-	syncVMPairs, result := localHost.SyncHostVMs(ctx, userCred, driver, vms, provider.ProjectId)
+	syncVMPairs, result := localHost.SyncHostVMs(ctx, userCred, driver, vms, provider.GetOwnerId())
 
 	syncResults.Add(GuestManager, result)
 
@@ -523,7 +523,7 @@ func syncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, provide
 		log.Errorf(msg)
 		return
 	}
-	result := localVM.SyncVMDisks(ctx, userCred, driver, host, disks, provider.ProjectId)
+	result := localVM.SyncVMDisks(ctx, userCred, driver, host, disks, provider.GetOwnerId())
 	msg := result.Result()
 	notes := fmt.Sprintf("syncVMDisks for VM %s result: %s", localVM.Name, msg)
 	log.Infof(notes)
@@ -541,7 +541,7 @@ func syncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider 
 		log.Errorf(msg)
 		return
 	}
-	result := localVM.SyncVMEip(ctx, userCred, provider, eip, provider.ProjectId)
+	result := localVM.SyncVMEip(ctx, userCred, provider, eip, provider.GetOwnerId())
 	msg := result.Result()
 	log.Infof("syncVMEip for VM %s result: %s", localVM.Name, msg)
 	if result.IsError() {
@@ -751,7 +751,7 @@ func syncRegionSnapshots(ctx context.Context, userCred mcclient.TokenCredential,
 		return
 	}
 
-	result := SnapshotManager.SyncSnapshots(ctx, userCred, provider, localRegion, snapshots, provider.ProjectId)
+	result := SnapshotManager.SyncSnapshots(ctx, userCred, provider, localRegion, snapshots, provider.GetOwnerId())
 
 	syncResults.Add(SnapshotManager, result)
 
@@ -954,21 +954,21 @@ func (manager *SCloudproviderregionManager) initAllRecords() {
 	}
 }
 
-func SyncCloudProject(userCred mcclient.TokenCredential, model db.IVirtualModel, projectId string, extModel cloudprovider.IVirtualResource, managerId string) {
-	newId := ""
+func SyncCloudProject(userCred mcclient.TokenCredential, model db.IVirtualModel, syncOwnerId mcclient.IIdentityProvider, extModel cloudprovider.IVirtualResource, managerId string) {
+	var newOwnerId mcclient.IIdentityProvider
 	if extProjectId := extModel.GetProjectId(); len(extProjectId) > 0 {
 		extProject, err := ExternalProjectManager.GetProject(extProjectId, managerId)
 		if err != nil {
 			log.Errorln(err)
 		} else {
-			newId = extProject.ProjectId
+			newOwnerId = extProject.GetOwnerId()
 		}
 	}
-	if len(newId) == 0 && len(projectId) > 0 {
-		newId = projectId
+	if newOwnerId == nil && syncOwnerId != nil && len(syncOwnerId.GetProjectId()) > 0 {
+		newOwnerId = syncOwnerId
 	}
-	if len(newId) == 0 {
-		newId = userCred.GetProjectId()
+	if newOwnerId == nil {
+		newOwnerId = userCred
 	}
-	model.SyncCloudProjectId(userCred, newId)
+	model.SyncCloudProjectId(userCred, newOwnerId)
 }

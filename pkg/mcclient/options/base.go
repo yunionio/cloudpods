@@ -192,6 +192,7 @@ type BaseListOptions struct {
 	FilterAny        *bool    `help:"If true, match if any of the filters matches; otherwise, match if all of the filters match"`
 	Admin            *bool    `help:"Is an admin call?"`
 	Tenant           string   `help:"Tenant ID or Name" alias:"project"`
+	ProjectDomain    string   `help:"Project domain filter"`
 	User             string   `help:"User ID or Name"`
 	System           *bool    `help:"Show system resource"`
 	PendingDelete    *bool    `help:"Show only pending deleted resource"`
@@ -246,6 +247,7 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 	}
 	if opts.Admin == nil {
 		requiresSystem := len(opts.Tenant) > 0 ||
+			len(opts.ProjectDomain) > 0 ||
 			BoolV(opts.System) ||
 			BoolV(opts.PendingDelete) ||
 			BoolV(opts.PendingDeleteAll)

@@ -40,7 +40,7 @@ type ILoadbalancerSubResourceManager interface {
 // notify on post create/update/delete
 type SLoadbalancerNotifier struct{}
 
-func (n *SLoadbalancerNotifier) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+func (n *SLoadbalancerNotifier) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	return
 }
 

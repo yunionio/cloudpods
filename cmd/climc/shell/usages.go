@@ -24,7 +24,9 @@ import (
 type GeneralUsageOptions struct {
 	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv|aliyun|azure|aws|huawei|qcloud|openstack|ucloud|zstack"`
 	Provider []string `help:"Provider" choices:"VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|ZStack"`
-	Project  string
+	Project  string   `help:"show usage of specified project"`
+	Domain   string   `help:"show usage of specified domain"`
+	CloudEnv string   `help:"show usage of specified cloudenv, e.g public_cloud/private_cloud/on_premise" choices:"public|private|onpremise"`
 }
 
 func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {
@@ -35,6 +37,9 @@ func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {
 	if len(args.Provider) > 0 {
 		params.Add(jsonutils.NewStringArray(args.Provider), "provider")
 	}
+	if len(args.CloudEnv) > 0 {
+		params.Add(jsonutils.NewString(args.CloudEnv), "cloud_env")
+	}
 	return params
 }
 
@@ -43,6 +48,8 @@ func init() {
 		params := fetchHostTypeOptions(args)
 		if args.Project != "" {
 			params.Add(jsonutils.NewString(args.Project), "project")
+		} else if args.Domain != "" {
+			params.Add(jsonutils.NewString(args.Domain), "domain")
 		}
 		result, err := modules.Usages.GetGeneralUsage(s, params)
 		if err != nil {
@@ -130,11 +137,14 @@ func init() {
 
 	type ImageUsageOptions struct {
 		Project string `help:"check image usage of a project"`
+		Domain  string `help:"check image usage of a domain"`
 	}
 	R(&ImageUsageOptions{}, "image-usage", "Show general usage of images", func(s *mcclient.ClientSession, args *ImageUsageOptions) error {
 		params := jsonutils.NewDict()
 		if args.Project != "" {
 			params.Add(jsonutils.NewString(args.Project), "project")
+		} else if args.Domain != "" {
+			params.Add(jsonutils.NewString(args.Domain), "domain")
 		}
 		result, err := modules.Images.GetUsage(s, params)
 		if err != nil {

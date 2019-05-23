@@ -59,6 +59,7 @@ func init() {
 		),
 	}
 	ServerSkuManager.NameRequireAscii = false
+	ServerSkuManager.SetVirtualObject(ServerSkuManager)
 
 	Cache = hashcache.NewCache(2048, time.Second*300)
 }
@@ -66,6 +67,7 @@ func init() {
 // SServerSku 实际对应的是instance type清单. 这里的Sku实际指的是instance type。
 type SServerSku struct {
 	db.SStandaloneResourceBase
+	db.SExternalizedResourceBase
 
 	// SkuId       string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`                 // x2.large
 	InstanceTypeFamily   string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`           // x2
@@ -308,7 +310,7 @@ func (manager *SServerSkuManager) AllowCreateItem(ctx context.Context, userCred 
 
 func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	userCred mcclient.TokenCredential,
-	ownerProjId string,
+	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
@@ -391,11 +393,11 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 		return nil, httperrors.NewDuplicateResourceError("Duplicate sku %s", name)
 	}
 
-	return self.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return self.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SServerSkuManager) FetchByZoneExtId(zoneExtId string, name string) (db.IModel, error) {
-	zoneObj, err := ZoneManager.FetchByExternalId(zoneExtId)
+	zoneObj, err := db.FetchByExternalId(ZoneManager, zoneExtId)
 	if err != nil {
 		return nil, err
 	}
@@ -959,8 +961,8 @@ func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
 }
 
 func (manager *SServerSkuManager) SyncCloudSkusByZone(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, skus []cloudprovider.ICloudSku) compare.SyncResult {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	syncResult := compare.SyncResult{}
 	dbSkus := manager.GetSkuCountByZone(zone.Id)
@@ -1089,7 +1091,7 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 
 	sku.Name = extSku.GetName()
 	sku.ExternalId = extSku.GetGlobalId()
-	sku.SetModelManager(manager)
+	sku.SetModelManager(manager, sku)
 	err := manager.TableSpec().Insert(sku)
 	if err != nil {
 		log.Errorf("insert fail %s", err)

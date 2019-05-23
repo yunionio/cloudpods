@@ -33,6 +33,7 @@ func init() {
 			"idp_remote_ids",
 		),
 	}
+	IdpRemoteIdsManager.SetVirtualObject(IdpRemoteIdsManager)
 }
 
 /*

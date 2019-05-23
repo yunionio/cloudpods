@@ -33,6 +33,8 @@ import (
 
 type SExternalProjectManager struct {
 	db.SStandaloneResourceBaseManager
+
+	db.SProjectizedResourceBaseManager
 }
 
 var ExternalProjectManager *SExternalProjectManager
@@ -46,13 +48,18 @@ func init() {
 			"externalprojects",
 		),
 	}
+	ExternalProjectManager.SetVirtualObject(ExternalProjectManager)
 }
 
 type SExternalProject struct {
 	db.SStandaloneResourceBase
 	SManagedResourceBase
 
-	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin"`
+	db.SProjectizedResourceBase
+
+	db.SExternalizedResourceBase
+
+	//ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" list:"admin" update:"admin"`
 }
 
 func (manager *SExternalProjectManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -118,7 +125,7 @@ func (self *SExternalProject) GetExtraDetails(ctx context.Context, userCred mccl
 
 func (manager *SExternalProjectManager) GetProject(externalId string, providerId string) (*SExternalProject, error) {
 	project := &SExternalProject{}
-	project.SetModelManager(manager)
+	project.SetModelManager(manager, project)
 	q := manager.Query().Equals("external_id", externalId).Equals("manager_id", providerId)
 	count, err := q.CountWithError()
 	if err != nil {
@@ -134,8 +141,8 @@ func (manager *SExternalProjectManager) GetProject(externalId string, providerId
 }
 
 func (manager *SExternalProjectManager) SyncProjects(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, projects []cloudprovider.ICloudProject) compare.SyncResult {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	syncResult := compare.SyncResult{}
 
@@ -206,7 +213,7 @@ func (self *SExternalProject) SyncWithCloudProject(ctx context.Context, userCred
 
 func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extProject cloudprovider.ICloudProject) (*SExternalProject, error) {
 	project := SExternalProject{}
-	project.SetModelManager(manager)
+	project.SetModelManager(manager, &project)
 
 	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extProject.GetName())
 	if err != nil {
@@ -216,6 +223,7 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	project.ExternalId = extProject.GetGlobalId()
 	project.IsEmulated = extProject.IsEmulated()
 	project.ManagerId = provider.Id
+	project.DomainId = provider.DomainId
 	project.ProjectId = provider.ProjectId
 
 	err = manager.TableSpec().Insert(&project)

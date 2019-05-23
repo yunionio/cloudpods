@@ -46,6 +46,7 @@ func init() {
 			"dnsrecords",
 		),
 	}
+	DnsRecordManager.SetVirtualObject(DnsRecordManager)
 }
 
 const DNS_RECORDS_SEPARATOR = ","
@@ -274,7 +275,7 @@ func (man *SDnsRecordManager) checkRecordValue(typ, val string) error {
 func (man *SDnsRecordManager) validateModelData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
-	ownerProjId string,
+	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
@@ -318,11 +319,11 @@ func (man *SDnsRecordManager) validateModelData(
 func (man *SDnsRecordManager) ValidateCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
-	ownerProjId string,
+	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
-	data, err := man.validateModelData(ctx, userCred, ownerProjId, query, data)
+	data, err := man.validateModelData(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +343,7 @@ func (man *SDnsRecordManager) QueryDns(projectId, name string) *SDnsRecord {
 		))
 	}
 	rec := &SDnsRecord{}
-	rec.SetModelManager(DnsRecordManager)
+	rec.SetModelManager(DnsRecordManager, rec)
 	if err := q.First(rec); err != nil {
 		return nil
 	}
@@ -379,7 +380,7 @@ func (rec *SDnsRecord) GetInfo() []string {
 
 func (rec *SDnsRecord) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	data.UpdateDefault(jsonutils.Marshal(rec))
-	data, err := DnsRecordManager.validateModelData(ctx, userCred, rec.GetOwnerProjectId(), query, data)
+	data, err := DnsRecordManager.validateModelData(ctx, userCred, rec.GetOwnerId(), query, data)
 	if err != nil {
 		return nil, err
 	}

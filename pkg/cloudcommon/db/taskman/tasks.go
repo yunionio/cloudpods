@@ -36,6 +36,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
@@ -65,7 +66,9 @@ type STaskManager struct {
 var TaskManager *STaskManager
 
 func init() {
-	TaskManager = &STaskManager{SResourceBaseManager: db.NewResourceBaseManager(STask{}, "tasks_tbl", "task", "tasks")}
+	TaskManager = &STaskManager{
+		SResourceBaseManager: db.NewResourceBaseManager(STask{}, "tasks_tbl", "task", "tasks")}
+	TaskManager.SetVirtualObject(TaskManager)
 }
 
 type STask struct {
@@ -118,16 +121,26 @@ func (manager *STaskManager) PerformAction(ctx context.Context, userCred mcclien
 	return resp, nil
 }
 
-func (manager *STaskManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
-	return userCred.GetProjectId()
+func (manager *STaskManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
+	owner := db.SOwnerId{DomainId: userCred.GetProjectDomainId(), ProjectId: userCred.GetProjectId()}
+	return &owner
 }
 
-func (self *STask) GetOwnerProjectId() string {
-	return self.UserCred.GetProjectId()
+func (self *STask) GetOwnerId() mcclient.IIdentityProvider {
+	owner := db.SOwnerId{DomainId: self.UserCred.GetProjectDomainId(), Domain: self.UserCred.GetProjectDomain(),
+		ProjectId: self.UserCred.GetProjectId(), Project: self.UserCred.GetProjectName()}
+	return &owner
 }
 
-func (manager *STaskManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
-	q = q.Contains("user_cred", owner)
+func (manager *STaskManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
+	if owner != nil {
+		if len(owner.GetProjectDomainId()) > 0 {
+			q = q.Contains("user_cred", owner.GetProjectDomainId())
+		}
+		if len(owner.GetProjectId()) > 0 {
+			q = q.Contains("user_cred", owner.GetProjectId())
+		}
+	}
 	return q
 }
 
@@ -144,7 +157,11 @@ func (self *STask) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *STask) ValidateDeleteCondition(ctx context.Context) error {
-	return fmt.Errorf("forbidden")
+	return httperrors.NewForbiddenError("forbidden")
+}
+
+func (self *STask) ValidateUpdateCondition(ctx context.Context) error {
+	return httperrors.NewForbiddenError("forbidden")
 }
 
 func (self *STask) BeforeInsert() {
@@ -421,7 +438,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 				task.SaveRequestContext(&ctxData)
 				return
 			}
-			objs[i] = obj
+			objs[i] = obj.(db.IStandaloneModel)
 		}
 		task.taskObjects = objs
 
@@ -438,7 +455,7 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 			task.SaveRequestContext(&ctxData)
 			return
 		}
-		task.taskObject = obj
+		task.taskObject = obj.(db.IStandaloneModel)
 
 		lockman.LockObject(ctx, obj)
 		defer lockman.ReleaseObject(ctx, obj)

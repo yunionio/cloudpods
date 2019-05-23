@@ -31,6 +31,8 @@ const (
 func initHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
+	db.RegistUserCredCacheUpdater()
+
 	quotas.AddQuotaHandler(models.QuotaManager, API_VERSION, app)
 	usages.AddUsageHandler(API_VERSION, app)
 	taskman.AddTaskHandler(API_VERSION, app)
@@ -39,9 +41,8 @@ func initHandlers(app *appsrv.Application) {
 		taskman.TaskManager,
 		taskman.SubTaskManager,
 		taskman.TaskObjectManager,
-		// db.UserCacheManager,
+		db.UserCacheManager,
 		db.TenantCacheManager,
-		db.Metadata,
 		models.ImageTagManager,
 		models.ImageMemberManager,
 		models.ImagePropertyManager,
@@ -52,6 +53,7 @@ func initHandlers(app *appsrv.Application) {
 
 	for _, manager := range []db.IModelManager{
 		db.OpsLog,
+		db.Metadata,
 		models.ImageManager,
 	} {
 		db.RegisterModelManager(manager)

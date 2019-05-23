@@ -46,6 +46,7 @@ func init() {
 				NetworkManager,
 			),
 		}
+		LoadbalancernetworkManager.SetVirtualObject(LoadbalancernetworkManager)
 	})
 }
 
@@ -92,7 +93,7 @@ func (m *SLoadbalancernetworkManager) NewLoadbalancerNetwork(ctx context.Context
 		LoadbalancerId: req.Loadbalancer.Id,
 		NetworkId:      network.Id,
 	}
-	ln.SetModelManager(m)
+	ln.SetModelManager(m, ln)
 
 	lockman.LockObject(ctx, network)
 	defer lockman.ReleaseObject(ctx, network)

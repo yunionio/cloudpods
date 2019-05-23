@@ -24,6 +24,8 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/compute/options"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var QuotaManager *quotas.SQuotaManager
@@ -85,12 +87,12 @@ func (self *SQuota) FetchSystemQuota() {
 	self.Snapshot = options.Options.DefaultSnapshotQuota
 }
 
-func (self *SQuota) FetchUsage(ctx context.Context, projectId string) error {
-	diskSize := totalDiskSize(projectId, tristate.None, tristate.None, false)
-	net := totalGuestNicCount(projectId, nil, false)
-	guest := totalGuestResourceCount(projectId, nil, nil, nil, false, false, nil, nil, nil)
-	eipUsage := ElasticipManager.TotalCount(projectId, nil, nil)
-	snapshotCount, _ := TotalSnapshotCount(projectId, nil, nil)
+func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) error {
+	diskSize := totalDiskSize(scope, ownerId, tristate.None, tristate.None, false)
+	net := totalGuestNicCount(scope, ownerId, nil, false)
+	guest := totalGuestResourceCount(scope, ownerId, nil, nil, nil, false, false, nil, nil, nil, "")
+	eipUsage := ElasticipManager.TotalCount(scope, ownerId, nil, nil, "")
+	snapshotCount, _ := TotalSnapshotCount(scope, ownerId, nil, nil, "")
 	// XXX
 	// keypair belongs to user
 	// keypair := totalKeypairCount(projectId)
@@ -105,7 +107,7 @@ func (self *SQuota) FetchUsage(ctx context.Context, projectId string) error {
 	self.Ebw = net.ExternalBandwidth
 	self.Keypair = 0 // keypair
 	self.Group = 0
-	self.Secgroup, _ = totalSecurityGroupCount(projectId)
+	self.Secgroup, _ = totalSecurityGroupCount(scope, ownerId)
 	self.IsolatedDevice = guest.TotalIsolatedCount
 	self.Snapshot = snapshotCount
 	return nil

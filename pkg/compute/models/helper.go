@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func RunBatchCreateTask(
@@ -63,7 +64,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 	// base validate_create_data
 	if (input.PreferHost != "") && hypervisor != api.HYPERVISOR_CONTAINER {
 
-		if !userCred.IsAdminAllow(consts.GetServiceType(), GuestManager.KeywordPlural(), policy.PolicyActionPerform, "assign-host") {
+		if !userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), GuestManager.KeywordPlural(), policy.PolicyActionPerform, "assign-host") {
 			return nil, httperrors.NewNotSufficientPrivilegeError("Only system admin can specify preferred host")
 		}
 		bmName := input.PreferHost

@@ -16,7 +16,6 @@ package quotas
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"net/http"
 
@@ -29,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -44,7 +44,15 @@ func AddQuotaHandler(manager *SQuotaManager, prefix string, app *appsrv.Applicat
 
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s/<tenantid>", prefix, _manager.Keyword()),
-		auth.Authenticate(getQuotaHanlder), nil, "get_quota", nil)
+		auth.Authenticate(getQuotaHanlder), nil, "get_quota_for_project", nil)
+
+	app.AddHandler2("GET",
+		fmt.Sprintf("%s/%s/domains/<domainid>", prefix, _manager.Keyword()),
+		auth.Authenticate(getQuotaHanlder), nil, "get_quota_for_domain", nil)
+
+	app.AddHandler2("GET",
+		fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, _manager.Keyword()),
+		auth.Authenticate(getQuotaHanlder), nil, "get_quota_for_project", nil)
 
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s", prefix, _manager.Keyword()),
@@ -52,28 +60,36 @@ func AddQuotaHandler(manager *SQuotaManager, prefix string, app *appsrv.Applicat
 
 	app.AddHandler2("POST",
 		fmt.Sprintf("%s/%s/<tenantid>", prefix, _manager.Keyword()),
-		auth.Authenticate(setQuotaHanlder), nil, "set_quota", nil)
+		auth.Authenticate(setQuotaHanlder), nil, "set_quota_for_project", nil)
 
 	app.AddHandler2("POST",
-		fmt.Sprintf("%s/%s/<tenantid>/<action>", prefix, _manager.Keyword()),
-		auth.Authenticate(checkQuotaHanlder), nil, "check_quota", nil)
+		fmt.Sprintf("%s/%s/domains/<domainid>", prefix, _manager.Keyword()),
+		auth.Authenticate(setQuotaHanlder), nil, "set_quota_for_domain", nil)
+
+	app.AddHandler2("POST",
+		fmt.Sprintf("%s/%s/projects/<tenantid>", prefix, _manager.Keyword()),
+		auth.Authenticate(setQuotaHanlder), nil, "set_quota_for_project", nil)
+
+	/*app.AddHandler2("POST",
+	fmt.Sprintf("%s/%s/<tenantid>/<action>", prefix, _manager.Keyword()),
+	auth.Authenticate(checkQuotaHanlder), nil, "check_quota", nil)*/
 }
 
-func queryQuota(ctx context.Context, projectId string) (*jsonutils.JSONDict, error) {
+func queryQuota(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) (*jsonutils.JSONDict, error) {
 	ret := jsonutils.NewDict()
 
 	quota := _manager.newQuota()
-	err := _manager.GetQuota(ctx, projectId, quota)
+	err := _manager.GetQuota(ctx, scope, ownerId, quota)
 	if err != nil {
 		return nil, err
 	}
 	usage := _manager.newQuota()
-	err = usage.FetchUsage(ctx, projectId)
+	err = usage.FetchUsage(ctx, scope, ownerId)
 	if err != nil {
 		return nil, err
 	}
 	pending := _manager.newQuota()
-	err = _manager.GetPendingUsage(ctx, projectId, pending)
+	err = _manager.GetPendingUsage(ctx, scope, ownerId, pending)
 	if err != nil {
 		return nil, err
 	}
@@ -89,51 +105,30 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 	params := appctx.AppContextParams(ctx)
 
+	var ownerId mcclient.IIdentityProvider
+	var scope rbacutils.TRbacScope
+	var err error
+
 	projectId := params["<tenantid>"]
-	if len(projectId) == 0 {
-		projectId = userCred.GetProjectId()
-		if consts.IsRbacEnabled() {
-			result := policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
-				_manager.Keyword(), policy.PolicyActionGet)
-			if result == rbacutils.Deny {
-				httperrors.ForbiddenError(w, "not allow to get quota")
-				return
-			}
+	domainId := params["<domainid>"]
+	if len(projectId) > 0 || len(domainId) > 0 {
+		data := jsonutils.NewDict()
+		if len(projectId) > 0 {
+			data.Add(jsonutils.NewString(projectId), "project")
+		} else if len(domainId) > 0 {
+			data.Add(jsonutils.NewString(domainId), "domain")
 		}
-	} else {
-		isAllow := false
-		if consts.IsRbacEnabled() {
-			result := policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-				policy.PolicyDelegation, policy.PolicyActionGet)
-			isAllow = result == rbacutils.AdminAllow
-		} else {
-			isAllow = userCred.IsAdminAllow(consts.GetServiceType(), policy.PolicyDelegation, policy.PolicyActionGet)
-		}
-		if !isAllow {
-			httperrors.ForbiddenError(w, "not allow to delegate query quota")
+		ownerId, scope, err = db.FetchQueryOwnerScope(ctx, userCred, data, _manager.Keyword(), policy.PolicyActionGet)
+		if err != nil {
+			httperrors.GeneralServerError(w, err)
 			return
 		}
-		if consts.IsRbacEnabled() {
-			if policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-				_manager.Keyword(), policy.PolicyActionGet) != rbacutils.AdminAllow {
-				httperrors.ForbiddenError(w, "not allow to query quota")
-				return
-			}
-		}
-
-		tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, projectId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				httperrors.TenantNotFoundError(w, "project %s not found", projectId)
-				return
-			} else {
-				httperrors.GeneralServerError(w, err)
-				return
-			}
-		}
-		projectId = tenant.Id
+	} else {
+		ownerId = userCred
+		scope = rbacutils.ScopeProject
 	}
-	quota, err := queryQuota(ctx, projectId)
+
+	quota, err := queryQuota(ctx, scope, ownerId)
 
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
@@ -146,38 +141,56 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 	appsrv.SendJSON(w, body)
 }
 
+func FetchSetQuotaScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error) {
+	var scope rbacutils.TRbacScope
+	ownerId, err := db.FetchProjectInfo(ctx, data)
+	if err != nil {
+		return nil, scope, err
+	}
+	ownerScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), _manager.Keyword(), policy.PolicyActionUpdate)
+	if ownerId != nil {
+		var requestScope rbacutils.TRbacScope
+		if len(ownerId.GetProjectId()) > 0 {
+			// project level
+			scope = rbacutils.ScopeProject
+			if ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+				requestScope = rbacutils.ScopeDomain
+			} else {
+				requestScope = rbacutils.ScopeSystem
+			}
+		} else {
+			// domain level if len(ownerId.GetProjectDomainId()) > 0 {
+			scope = rbacutils.ScopeDomain
+			requestScope = rbacutils.ScopeSystem
+		}
+		if requestScope.HigherThan(ownerScope) {
+			return nil, scope, httperrors.NewForbiddenError("not enough privilleges")
+		}
+	} else {
+		ownerId = userCred
+		scope = rbacutils.ScopeProject
+	}
+	return ownerId, scope, nil
+}
+
 func setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
+	params := appctx.AppContextParams(ctx)
 
-	var isAllow bool
-	if consts.IsRbacEnabled() {
-		isAllow = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-			_manager.Keyword(), policy.PolicyActionUpdate) == rbacutils.AdminAllow
-	} else {
-		isAllow = userCred.IsAdminAllow(consts.GetServiceType(),
-			_manager.Keyword(), policy.PolicyActionUpdate)
+	projectId := params["<tenantid>"]
+	domainId := params["<domainid>"]
+	data := jsonutils.NewDict()
+	if len(projectId) > 0 {
+		data.Add(jsonutils.NewString(projectId), "project")
+	} else if len(domainId) > 0 {
+		data.Add(jsonutils.NewString(domainId), "domain")
 	}
-	if !isAllow {
-		httperrors.ForbiddenError(w, "not allow to set quota")
+	ownerId, scope, err := FetchSetQuotaScope(ctx, userCred, data)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
 		return
 	}
-	params := appctx.AppContextParams(ctx)
-	projectId := params["<tenantid>"]
-	if len(projectId) == 0 {
-		projectId = userCred.GetProjectId()
-	} else {
-		tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, projectId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				httperrors.TenantNotFoundError(w, "project %s not found", projectId)
-				return
-			} else {
-				httperrors.GeneralServerError(w, err)
-				return
-			}
-		}
-		projectId = tenant.Id
-	}
+
 	body, err := appsrv.FetchJSON(r)
 	if err != nil {
 		log.Errorf("Fail to decode JSON request body: %s", err)
@@ -192,14 +205,14 @@ func setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 		return
 	}
 	oquota := _manager.newQuota()
-	err = _manager.GetQuota(ctx, projectId, oquota)
+	err = _manager.GetQuota(ctx, scope, ownerId, oquota)
 	if err != nil {
 		log.Errorf("get quota fail %s", err)
 		httperrors.GeneralServerError(w, err)
 		return
 	}
 	oquota.Update(quota)
-	err = _manager.SetQuota(ctx, userCred, projectId, oquota)
+	err = _manager.SetQuota(ctx, userCred, scope, ownerId, oquota)
 	if err != nil {
 		log.Errorf("set quota fail %s", err)
 		httperrors.GeneralServerError(w, err)
@@ -210,15 +223,15 @@ func setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 	appsrv.SendJSON(w, rbody)
 }
 
-func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+/*func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
 	isAllow := false
 	if consts.IsRbacEnabled() {
-		isAllow = policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-			policy.PolicyDelegation, policy.PolicyActionGet) == rbacutils.AdminAllow
+		isAllow = policy.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(),
+			policy.PolicyDelegation, policy.PolicyActionGet) == rbacutils.Allow
 	} else {
-		isAllow = userCred.IsAdminAllow(consts.GetServiceType(),
+		isAllow = userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(),
 			policy.PolicyDelegation, policy.PolicyActionGet)
 	}
 	if !isAllow {
@@ -226,17 +239,20 @@ func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if consts.IsRbacEnabled() {
-		if policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-			_manager.Keyword(), policy.PolicyActionGet) != rbacutils.AdminAllow {
+		if policy.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(),
+			_manager.Keyword(), policy.PolicyActionGet) != rbacutils.Allow {
 			httperrors.ForbiddenError(w, "not allow to query quota")
 			return
 		}
 	}
 
 	params := appctx.AppContextParams(ctx)
+
+	var ownerId mcclient.IIdentityProvider
+
 	projectId := params["<tenantid>"]
 	if len(projectId) == 0 {
-		projectId = userCred.GetProjectId()
+		ownerId = userCred
 	} else {
 		tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, projectId)
 		if err != nil {
@@ -248,7 +264,12 @@ func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Reque
 				return
 			}
 		}
-		projectId = tenant.Id
+		ownerId = &db.SOwnerId{
+			DomainId:  tenant.DomainId,
+			Domain:    tenant.Domain,
+			ProjectId: tenant.Id,
+			Project:   tenant.Name,
+		}
 	}
 	body, err := appsrv.FetchJSON(r)
 	quota := _manager.newQuota()
@@ -258,7 +279,7 @@ func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		httperrors.InvalidInputError(w, "fail to decode body")
 		return
 	}
-	used, err := _manager.CheckQuota(ctx, userCred, projectId, quota)
+	used, err := _manager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, quota)
 	if err != nil {
 		httperrors.OutOfQuotaError(w, "Out of quota: %s", err)
 		return
@@ -266,4 +287,4 @@ func checkQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	rbody := jsonutils.NewDict()
 	rbody.Add(used.ToJSON(""), _manager.Keyword())
 	appsrv.SendJSON(w, rbody)
-}
+}*/

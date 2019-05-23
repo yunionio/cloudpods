@@ -33,7 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 func keystoneUUIDGenerator() string {
@@ -45,10 +45,9 @@ func StartService() {
 	auth.DefaultTokenVerifier = tokens.FernetTokenVerifier
 	db.DefaultUUIDGenerator = keystoneUUIDGenerator
 	policy.DefaultPolicyFetcher = localPolicyFetcher
+	logclient.DefaultSessionGenerator = models.GetDefaultClientSession
 
 	opts := &options.Options
-	commonOpts := &opts.BaseOptions
-	dbOpts := &opts.DBOptions
 	common_options.ParseOptions(opts, os.Args, "keystone.conf", api.SERVICE_TYPE)
 
 	if opts.Port == 0 {
@@ -60,10 +59,10 @@ func StartService() {
 		log.Fatalf("init fernet keys fail %s", err)
 	}
 
-	app := app_common.InitApp(commonOpts, true)
+	app := app_common.InitApp(&opts.BaseOptions, true)
 	initHandlers(app)
 
-	cloudcommon.InitDB(dbOpts)
+	cloudcommon.InitDB(&opts.DBOptions)
 
 	if !db.CheckSync(opts.AutoSyncTable) {
 		log.Fatalf("database schema not in sync!")
@@ -71,40 +70,7 @@ func StartService() {
 
 	models.InitDB()
 
-	app_common.InitBaseAuth(commonOpts)
-	// register bootstrap default policy
-	defaultAdminPolicy := rbacutils.SRbacPolicy{
-		IsAdmin:  true,
-		Projects: []string{options.Options.AdminProjectName},
-		Roles:    []string{options.Options.AdminRoleName},
-		Rules: []rbacutils.SRbacRule{
-			{
-				Service:  api.SERVICE_TYPE,
-				Resource: "policies",
-				Action:   policy.PolicyActionCreate,
-				Result:   rbacutils.AdminAllow,
-			},
-			{
-				Service:  api.SERVICE_TYPE,
-				Resource: "policies",
-				Action:   policy.PolicyActionList,
-				Result:   rbacutils.AdminAllow,
-			},
-			{
-				Service:  api.SERVICE_TYPE,
-				Resource: "policies",
-				Action:   policy.PolicyActionUpdate,
-				Result:   rbacutils.AdminAllow,
-			},
-			{
-				Service:  api.SERVICE_TYPE,
-				Resource: "policies",
-				Action:   policy.PolicyActionGet,
-				Result:   rbacutils.AdminAllow,
-			},
-		},
-	}
-	policy.PolicyManager.RegisterDefaultAdminPolicy(&defaultAdminPolicy)
+	app_common.InitBaseAuth(&opts.BaseOptions)
 
 	// cron := cronman.GetCronJobManager(true)
 	// cron.AddJob1("CleanPendingDeleteImages", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)
@@ -114,10 +80,10 @@ func StartService() {
 	cloudcommon.AppDBInit(app)
 
 	go func() {
-		app_common.ServeForeverExtended(app, commonOpts, options.Options.AdminPort, nil, false)
+		app_common.ServeForeverExtended(app, &opts.BaseOptions, options.Options.AdminPort, nil, false)
 	}()
 
-	app_common.ServeForeverWithCleanup(app, commonOpts, func() {
+	app_common.ServeForeverWithCleanup(app, &opts.BaseOptions, func() {
 		cloudcommon.CloseDB()
 		// cron.Stop()
 	})

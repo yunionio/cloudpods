@@ -49,7 +49,7 @@ func NewLDAPDriver(domainId string, conf models.TDomainConfigs) (IIdentityBacken
 	drv.virtual = &drv
 	err := drv.prepareConfig()
 	if err != nil {
-		return nil, errors.WithMessage(err, "prepareConfig")
+		return nil, errors.Wrap(err, "prepareConfig")
 	}
 	return &drv, nil
 }
@@ -60,7 +60,7 @@ func (self *SLDAPDriver) prepareConfig() error {
 		confJson := jsonutils.Marshal(self.config["ldap"])
 		err := confJson.Unmarshal(&conf)
 		if err != nil {
-			return errors.WithMessage(err, "json.Unmarshal")
+			return errors.Wrap(err, "json.Unmarshal")
 		}
 		log.Debugf("%s %s %#v", self.config, confJson, self.ldapConfig)
 		self.ldapConfig = &conf
@@ -148,7 +148,7 @@ func (self *SLDAPDriver) getClient() (*ldaputils.SLDAPClient, error) {
 	)
 	err := cli.Connect()
 	if err != nil {
-		return nil, errors.WithMessage(err, "Connect")
+		return nil, errors.Wrap(err, "Connect")
 	}
 	return cli, nil
 }
@@ -240,13 +240,13 @@ func registerNonlocalUser(ctx context.Context, ui SUserInfo, nonLocal *models.SN
 
 	userObj, err := db.NewModelObject(models.UserManager)
 	if err != nil {
-		return errors.WithMessage(err, "db.NewModelObject")
+		return errors.Wrap(err, "db.NewModelObject")
 	}
 	user := userObj.(*models.SUser)
 	q := models.UserManager.Query().Equals("id", nonLocal.UserId)
 	err = q.First(user)
 	if err != nil && err != sql.ErrNoRows {
-		return errors.WithMessage(err, "Query")
+		return errors.Wrap(err, "Query")
 	}
 	if err == nil {
 		// update
@@ -255,14 +255,14 @@ func registerNonlocalUser(ctx context.Context, ui SUserInfo, nonLocal *models.SN
 			return nil
 		})
 		if err != nil {
-			return errors.WithMessage(err, "Update")
+			return errors.Wrap(err, "Update")
 		}
 	} else {
 		// insert
 		copyUserInfo(ui, nonLocal, user)
 		err = models.UserManager.TableSpec().Insert(user)
 		if err != nil {
-			return errors.WithMessage(err, "Insert")
+			return errors.Wrap(err, "Insert")
 		}
 	}
 	return nil
@@ -271,13 +271,13 @@ func registerNonlocalUser(ctx context.Context, ui SUserInfo, nonLocal *models.SN
 func (self *SLDAPDriver) syncUserDB(ctx context.Context, userCred mcclient.TokenCredential, ui SUserInfo, groups []SGroupInfo) (*models.SUserExtended, error) {
 	nonLocalUser, err := models.NonlocalUserManager.Register(ctx, self.domainId, ui.Id)
 	if err != nil {
-		return nil, errors.WithMessage(err, "models.NonlocalUserManager.Register")
+		return nil, errors.Wrap(err, "models.NonlocalUserManager.Register")
 	}
 
 	// insert nonlocal user
 	err = registerNonlocalUser(ctx, ui, nonLocalUser)
 	if err != nil {
-		return nil, errors.WithMessage(err, "registerNonlocalUser")
+		return nil, errors.Wrap(err, "registerNonlocalUser")
 	}
 
 	// sync group

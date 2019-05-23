@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SSharableVirtualResourceBase struct {
@@ -37,15 +38,19 @@ func NewSharableVirtualResourceBaseManager(dt interface{}, tableName string, key
 	return SSharableVirtualResourceBaseManager{SVirtualResourceBaseManager: NewVirtualResourceBaseManager(dt, tableName, keyword, keywordPlural)}
 }
 
-func (manager *SSharableVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
-	q = q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("tenant_id"), owner), sqlchemy.IsTrue(q.Field("is_public"))))
+func (manager *SSharableVirtualResourceBaseManager) GetISharableVirtualModelManager() ISharableVirtualModelManager {
+	return manager.GetVirtualObject().(ISharableVirtualModelManager)
+}
+
+func (manager *SSharableVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
+	q = q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("tenant_id"), owner.GetProjectId()), sqlchemy.IsTrue(q.Field("is_public"))))
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
 	return q
 }
 
 func (model *SSharableVirtualResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return model.IsOwner(userCred) || model.IsPublic || IsAdminAllowGet(userCred, model)
+	return model.IsOwner(userCred) || model.IsPublic || IsAllowGet(rbacutils.ScopeSystem, userCred, model)
 }
 
 func (model *SSharableVirtualResourceBase) IsSharable() bool {
@@ -53,11 +58,11 @@ func (model *SSharableVirtualResourceBase) IsSharable() bool {
 }
 
 func (model *SSharableVirtualResourceBase) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return IsAdminAllowPerform(userCred, model, "public")
+	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "public")
 }
 
 func (model *SSharableVirtualResourceBase) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return IsAdminAllowPerform(userCred, model, "private")
+	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "private")
 }
 
 func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -86,4 +91,8 @@ func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, u
 		return nil, err
 	}
 	return nil, nil
+}
+
+func (model *SSharableVirtualResourceBase) GetISharableVirtualModel() ISharableVirtualModel {
+	return model.GetVirtualObject().(ISharableVirtualModel)
 }
