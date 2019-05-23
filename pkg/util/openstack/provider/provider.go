@@ -165,6 +165,10 @@ func (self *SOpenStackProvider) GetBalance() (float64, error) {
 	return 0.0, cloudprovider.ErrNotSupported
 }
 
+func (self *SOpenStackProvider) GetCloudRegionExternalIdPrefix() string {
+	return self.client.GetCloudRegionExternalIdPrefix()
+}
+
 func (self *SOpenStackProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return self.client.GetIProjects()
 }
