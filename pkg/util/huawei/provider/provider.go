@@ -27,6 +27,7 @@ import (
 )
 
 type SHuaweiProviderFactory struct {
+	cloudprovider.SPublicCloudBaseProviderFactor
 }
 
 func (self *SHuaweiProviderFactory) GetId() string {
@@ -35,26 +36,6 @@ func (self *SHuaweiProviderFactory) GetId() string {
 
 func (self *SHuaweiProviderFactory) GetName() string {
 	return huawei.CLOUD_PROVIDER_HUAWEI_CN
-}
-
-func (self *SHuaweiProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
-	return nil
-}
-
-func (self *SHuaweiProviderFactory) IsPublicCloud() bool {
-	return true
-}
-
-func (self *SHuaweiProviderFactory) IsOnPremise() bool {
-	return false
-}
-
-func (self *SHuaweiProviderFactory) IsSupportPrepaidResources() bool {
-	return true
-}
-
-func (self *SHuaweiProviderFactory) NeedSyncSkuFromCloud() bool {
-	return false
 }
 
 func (self *SHuaweiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {

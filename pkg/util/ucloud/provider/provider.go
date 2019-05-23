@@ -28,6 +28,7 @@ import (
 
 // tag:finished
 type SUcloudProviderFactory struct {
+	cloudprovider.SPublicCloudBaseProviderFactor
 }
 
 func (self *SUcloudProviderFactory) GetId() string {
@@ -36,26 +37,6 @@ func (self *SUcloudProviderFactory) GetId() string {
 
 func (self *SUcloudProviderFactory) GetName() string {
 	return ucloud.CLOUD_PROVIDER_UCLOUD_CN
-}
-
-func (self *SUcloudProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
-	return nil
-}
-
-func (self *SUcloudProviderFactory) IsPublicCloud() bool {
-	return true
-}
-
-func (self *SUcloudProviderFactory) IsOnPremise() bool {
-	return false
-}
-
-func (self *SUcloudProviderFactory) IsSupportPrepaidResources() bool {
-	return true
-}
-
-func (self *SUcloudProviderFactory) NeedSyncSkuFromCloud() bool {
-	return false
 }
 
 func (self *SUcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
