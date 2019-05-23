@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
-	"sort"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -90,91 +89,6 @@ func (dispatcher *DBModelDispatcher) CustomizeHandlerInfo(handler *appsrv.SHandl
 
 func fetchUserCredential(ctx context.Context) mcclient.TokenCredential {
 	return policy.FetchUserCredential(ctx)
-}
-
-/**
- * Column metadata fields to control list, search, details, update, create
- *  list: user | admin
- *  search: user | admin
- *  get: user | admin
- *  create: required | optional | admin_required | admin_optional
- *  update: user | admin
- *
- */
-func listFields(manager IModelManager, userCred mcclient.TokenCredential) []string {
-	ret := make([]string, 0)
-	for _, col := range manager.TableSpec().Columns() {
-		tags := col.Tags()
-		list, _ := tags["list"]
-		if list == "user" || (list == "admin" && IsAdminAllowList(userCred, manager)) {
-			ret = append(ret, col.Name())
-		}
-	}
-	return ret
-}
-
-func searchFields(manager IModelManager, userCred mcclient.TokenCredential) stringutils2.SSortedStrings {
-	ret := make([]string, 0)
-	for _, col := range manager.TableSpec().Columns() {
-		tags := col.Tags()
-		list := tags["list"]
-		search := tags["search"]
-		if list == "user" || search == "user" || ((list == "admin" || search == "admin") && IsAdminAllowList(userCred, manager)) {
-			ret = append(ret, col.Name())
-		}
-	}
-	sort.Strings(ret)
-	return stringutils2.SSortedStrings(ret)
-}
-
-func GetDetailFields(manager IModelManager, userCred mcclient.TokenCredential) []string {
-	ret := make([]string, 0)
-	for _, col := range manager.TableSpec().Columns() {
-		tags := col.Tags()
-		list := tags["list"]
-		get := tags["get"]
-		if list == "user" || get == "user" || ((list == "admin" || get == "admin") && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionGet)) {
-			ret = append(ret, col.Name())
-		}
-	}
-	return ret
-}
-
-func createRequireFields(manager IModelManager, userCred mcclient.TokenCredential) []string {
-	ret := make([]string, 0)
-	for _, col := range manager.TableSpec().Columns() {
-		tags := col.Tags()
-		create, _ := tags["create"]
-		if create == "required" || (create == "admin_required" && IsAdminAllowCreate(userCred, manager)) {
-			ret = append(ret, col.Name())
-		}
-	}
-	return ret
-}
-
-func createFields(manager IModelManager, userCred mcclient.TokenCredential) []string {
-	ret := make([]string, 0)
-	for _, col := range manager.TableSpec().Columns() {
-		tags := col.Tags()
-		create, _ := tags["create"]
-		update := tags["update"]
-		if update == "user" || (update == "admin" && IsAdminAllowCreate(userCred, manager)) || create == "required" || create == "optional" || ((create == "admin_required" || create == "admin_optional") && IsAdminAllowCreate(userCred, manager)) {
-			ret = append(ret, col.Name())
-		}
-	}
-	return ret
-}
-
-func updateFields(manager IModelManager, userCred mcclient.TokenCredential) []string {
-	ret := make([]string, 0)
-	for _, col := range manager.TableSpec().Columns() {
-		tags := col.Tags()
-		update := tags["update"]
-		if update == "user" || (update == "admin" && userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionUpdate)) {
-			ret = append(ret, col.Name())
-		}
-	}
-	return ret
 }
 
 var (
@@ -316,12 +230,6 @@ func ListItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchem
 func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 
-	if !jsonutils.QueryBoolean(query, "admin", false) {
-		ownerId := manager.GetOwnerId(userCred)
-		if len(ownerId) > 0 {
-			q = manager.FilterByOwner(q, ownerId)
-		}
-	}
 	q, err := manager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
@@ -355,7 +263,7 @@ func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchem
 	return q, nil
 }
 
-func mergeFields(metaFields, queryFields []string, isAdmin bool) stringutils2.SSortedStrings {
+func mergeFields(metaFields, queryFields []string, isSysAdmin bool) stringutils2.SSortedStrings {
 	meta := stringutils2.NewSortedStrings(metaFields)
 	if len(queryFields) == 0 {
 		return meta
@@ -364,7 +272,7 @@ func mergeFields(metaFields, queryFields []string, isAdmin bool) stringutils2.SS
 	query := stringutils2.NewSortedStrings(queryFields)
 	_, mAndQ, qNoM := stringutils2.Split(meta, query)
 
-	if !isAdmin {
+	if !isSysAdmin {
 		return mAndQ
 	}
 
@@ -375,7 +283,7 @@ func mergeFields(metaFields, queryFields []string, isAdmin bool) stringutils2.SS
 func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
 	metaFields := listFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
-	listF := mergeFields(metaFields, fieldFilter, IsAdminAllowList(userCred, manager))
+	listF := mergeFields(metaFields, fieldFilter, IsAllowList(rbacutils.ScopeSystem, userCred, manager))
 
 	showDetails := false
 	showDetailsJson, _ := query.Get("details")
@@ -501,11 +409,56 @@ func fetchContextObject(manager IModelManager, ctx context.Context, userCred mcc
 }
 
 func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modules.ListResult, error) {
+	var isAllow bool
+	scope := manager.ResourceScope()
+	isAdmin := jsonutils.QueryBoolean(query, "admin", false)
+
+	if consts.IsRbacEnabled() {
+		scope = getListRbacAllowedScope(manager, userCred)
+		if isAdmin {
+			switch scope {
+			case rbacutils.ScopeSystem, rbacutils.ScopeDomain:
+				isAllow = true
+			}
+		} else {
+			resScope := manager.GetIModelManager().ResourceScope()
+			if !resScope.HigherThan(scope) {
+				isAllow = true
+			}
+		}
+	} else {
+		isAllow = manager.AllowListItems(ctx, userCred, query)
+	}
+	if !isAllow {
+		return nil, httperrors.NewForbiddenError("Not allow to list")
+	}
+
 	var maxLimit int64 = 2048
 	limit, _ := query.Int("limit")
 	offset, _ := query.Int("offset")
 	q := manager.Query()
+
+	var ownerId mcclient.IIdentityProvider
 	var err error
+	if isAdmin {
+		ownerId, err = manager.FetchOwnerId(ctx, query)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		if ownerId != nil {
+			// if scope == domain && ownerId.DomainId != userCred.DomainId, list across domains, which is forbidden
+			if scope == rbacutils.ScopeDomain && ownerId.GetProjectDomainId() != userCred.GetProjectDomainId() {
+				return nil, httperrors.NewForbiddenError("Not allow to list")
+			}
+		} else if scope == rbacutils.ScopeDomain {
+			ownerId = &SOwnerId{DomainId: userCred.GetProjectDomainId()}
+		}
+
+	} else {
+		ownerId = userCred
+	}
+	q = manager.FilterByOwner(q, ownerId)
+
 	queryDict, ok := query.(*jsonutils.JSONDict)
 	if !ok {
 		return nil, fmt.Errorf("invalid query format")
@@ -516,6 +469,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			return nil, err
 		}
 	}
+
 	queryDict, err = manager.ValidateListConditions(ctx, userCred, queryDict)
 	if err != nil {
 		return nil, err
@@ -619,28 +573,12 @@ func calculateListResult(data []jsonutils.JSONObject, total, limit, offset int64
 func (dispatcher *DBModelDispatcher) List(ctx context.Context, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modules.ListResult, error) {
 	userCred := fetchUserCredential(ctx)
 
-	var isAllow bool
-	if consts.IsRbacEnabled() {
-		isAdmin := jsonutils.QueryBoolean(query, "admin", false)
-		manager := dispatcher.modelManager
-		jointManager, ok := manager.(IJointModelManager)
-		if ok {
-			isAllow = isJointListRbacAllowed(jointManager, userCred, isAdmin)
-		} else {
-			isAllow = isListRbacAllowed(manager, userCred, isAdmin)
-		}
-	} else {
-		isAllow = dispatcher.modelManager.AllowListItems(ctx, userCred, query)
-	}
-	if !isAllow {
-		return nil, httperrors.NewForbiddenError("Not allow to list")
-	}
-
 	items, err := ListItems(dispatcher.modelManager, ctx, userCred, query, ctxIds)
 	if err != nil {
 		log.Errorf("Fail to list items: %s", err)
 		return nil, httperrors.NewGeneralError(err)
 	}
+
 	if userCred != nil && userCred.HasSystemAdminPrivilege() && dispatcher.modelManager.ListSkipLog(ctx, userCred, query) {
 		appParams := appsrv.AppContextGetParams(ctx)
 		if appParams != nil {
@@ -702,7 +640,7 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 
 	metaFields := GetDetailFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
-	getFields := mergeFields(metaFields, fieldFilter, IsAdminAllowGet(userCred, item))
+	getFields := mergeFields(metaFields, fieldFilter, IsAllowGet(rbacutils.ScopeSystem, userCred, item))
 
 	jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
 	jsonDict = jsonDict.CopyIncludes(getFields...)
@@ -779,7 +717,7 @@ func (dispatcher *DBModelDispatcher) Get(ctx context.Context, idStr string, quer
 	// log.Debugf("Get found %s", model)
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isObjectRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionGet)
+		isAllow = isObjectRbacAllowed(model, userCred, policy.PolicyActionGet)
 	} else {
 		isAllow = model.AllowGetDetails(ctx, userCred, query)
 	}
@@ -815,7 +753,7 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isObjectRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionGet, spec)
+		isAllow = isObjectRbacAllowed(model, userCred, policy.PolicyActionGet, spec)
 	} else {
 		funcName := fmt.Sprintf("AllowGetDetails%s", specCamel)
 
@@ -859,20 +797,36 @@ func (dispatcher *DBModelDispatcher) GetSpecific(ctx context.Context, idStr stri
 	}
 }
 
-func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (string, error) {
+func fetchOwnerId(ctx context.Context, manager IModelManager, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	var ownerId mcclient.IIdentityProvider
+	var err error
+	if manager.ResourceScope() != rbacutils.ScopeSystem {
+		ownerId, err = manager.FetchOwnerId(ctx, data)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+	}
+	if ownerId == nil {
+		ownerId = userCred
+	}
+	return ownerId, nil
+}
+
+/*func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (string, error) {
 	var projId string
 	if data != nil {
-		projId = jsonutils.GetAnyString(data, []string{"project", "tenant", "project_id", "tenant_id"})
+		// projId = jsonutils.GetAnyString(data, []string{"project", "tenant", "project_id", "tenant_id"})
+		projId = manager.FetchOwnerId(data)
 	}
 	ownerProjId := manager.GetOwnerId(userCred)
 	if len(projId) == 0 {
 		return ownerProjId, nil
 	}
-	t, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, projId)
-	if t == nil {
-		return "", httperrors.NewNotFoundError("Project %s not found", projId)
+	tid, err := manager.ValidateOwnerId(ctx, projId)
+	if err != nil {
+		return "", httperrors.NewInputParameterError("Invalid owner %s", projId)
 	}
-	if t.GetId() == ownerProjId {
+	if tid == ownerProjId {
 		return ownerProjId, nil
 	}
 	var isAllow bool
@@ -888,15 +842,15 @@ func fetchOwnerProjectId(ctx context.Context, manager IModelManager, userCred mc
 	if !isAllow {
 		return "", httperrors.NewForbiddenError("Delegation not allowed")
 	}
-	return t.GetId(), nil
-}
+	return tid, nil
+}*/
 
 func NewModelObject(modelManager IModelManager) (IModel, error) {
 	m, ok := reflect.New(modelManager.TableSpec().DataType()).Interface().(IModel)
-	m.SetModelManager(modelManager)
 	if !ok {
-		return nil, fmt.Errorf("inconsistent type")
+		return nil, ErrInconsistentDataType
 	}
+	m.SetModelManager(modelManager, m)
 	return m, nil
 }
 
@@ -926,14 +880,14 @@ func FetchModelObjects(modelManager IModelManager, query *sqlchemy.SQuery, targe
 	return nil
 }
 
-func DoCreate(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject, ownerProjId string) (IModel, error) {
-	lockman.LockClass(ctx, manager, ownerProjId)
-	defer lockman.ReleaseClass(ctx, manager, ownerProjId)
+func DoCreate(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject, ownerId mcclient.IIdentityProvider) (IModel, error) {
+	lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
+	defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
 
-	return doCreateItem(manager, ctx, userCred, ownerProjId, nil, data)
+	return doCreateItem(manager, ctx, userCred, ownerId, nil, data)
 }
 
-func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) (IModel, error) {
+func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) (IModel, error) {
 	dataDict, ok := data.(*jsonutils.JSONDict)
 	if !ok {
 		log.Errorf("doCreateItem: fail to decode json data %s", data)
@@ -944,7 +898,7 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 	generateName, _ := dataDict.GetString("generate_name")
 	if len(generateName) > 0 {
 		dataDict.Remove("generate_name")
-		newName, err := GenerateName(manager, ownerProjId, generateName)
+		newName, err := GenerateName(manager, ownerId, generateName)
 		if err != nil {
 			return nil, err
 		}
@@ -952,14 +906,14 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 	} else {
 		name, _ := data.GetString("name")
 		if len(name) > 0 {
-			err = NewNameValidator(manager, ownerProjId, name)
+			err = NewNameValidator(manager, ownerId, name)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	dataDict, err = manager.ValidateCreateData(ctx, userCred, ownerProjId, query, dataDict)
+	dataDict, err = manager.ValidateCreateData(ctx, userCred, ownerId, query, dataDict)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -976,7 +930,7 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
-	err = model.CustomizeCreate(ctx, userCred, ownerProjId, query, dataDict)
+	err = model.CustomizeCreate(ctx, userCred, ownerId, query, dataDict)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -995,15 +949,11 @@ func (dispatcher *DBModelDispatcher) FetchCreateHeaderData(ctx context.Context, 
 
 func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
+	manager := dispatcher.modelManager
 
-	var ownerProjId string
-	var err error
-
-	if len(dispatcher.modelManager.GetOwnerId(userCred)) > 0 {
-		ownerProjId, err = fetchOwnerProjectId(ctx, dispatcher.modelManager, userCred, data)
-		if err != nil {
-			return nil, httperrors.NewGeneralError(err)
-		}
+	ownerId, err := fetchOwnerId(ctx, manager, userCred, data)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
 	}
 
 	if len(ctxIds) > 0 {
@@ -1021,7 +971,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isClassActionRbacAllowed(dispatcher.modelManager, userCred, ownerProjId, policy.PolicyActionCreate)
+		isAllow = isClassRbacAllowed(dispatcher.modelManager, userCred, ownerId, policy.PolicyActionCreate)
 	} else {
 		isAllow = dispatcher.modelManager.AllowCreateItem(ctx, userCred, query, data)
 	}
@@ -1029,7 +979,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		return nil, httperrors.NewForbiddenError("Not allow to create item")
 	}
 
-	model, err := DoCreate(dispatcher.modelManager, ctx, userCred, query, data, ownerProjId)
+	model, err := DoCreate(dispatcher.modelManager, ctx, userCred, query, data, ownerId)
 	if err != nil {
 		log.Errorf("fail to doCreateItem %s", err)
 		return nil, httperrors.NewGeneralError(err)
@@ -1039,7 +989,7 @@ func (dispatcher *DBModelDispatcher) Create(ctx context.Context, query jsonutils
 		lockman.LockObject(ctx, model)
 		defer lockman.ReleaseObject(ctx, model)
 
-		model.PostCreate(ctx, userCred, ownerProjId, query, data)
+		model.PostCreate(ctx, userCred, ownerId, query, data)
 	}()
 
 	OpsLog.LogEvent(model, ACT_CREATE, model.GetShortDesc(ctx), userCred)
@@ -1071,7 +1021,9 @@ func expandMultiCreateParams(data jsonutils.JSONObject, count int) ([]jsonutils.
 func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query jsonutils.JSONObject, data jsonutils.JSONObject, count int, ctxIds []dispatcher.SResourceContext) ([]modules.SubmitResult, error) {
 	userCred := fetchUserCredential(ctx)
 
-	ownerProjId, err := fetchOwnerProjectId(ctx, dispatcher.modelManager, userCred, data)
+	manager := dispatcher.modelManager
+
+	ownerId, err := fetchOwnerId(ctx, manager, userCred, data)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -1081,7 +1033,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		if !ok {
 			return nil, fmt.Errorf("fail to parse body")
 		}
-		data, err = fetchContextObjectsIds(dispatcher.modelManager, ctx, userCred, ctxIds, dataDict)
+		data, err = fetchContextObjectsIds(manager, ctx, userCred, ctxIds, dataDict)
 		if err != nil {
 			return nil, err
 		}
@@ -1089,9 +1041,9 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isClassActionRbacAllowed(dispatcher.modelManager, userCred, ownerProjId, policy.PolicyActionCreate)
+		isAllow = isClassRbacAllowed(manager, userCred, ownerId, policy.PolicyActionCreate)
 	} else {
-		isAllow = dispatcher.modelManager.AllowCreateItem(ctx, userCred, query, data)
+		isAllow = manager.AllowCreateItem(ctx, userCred, query, data)
 	}
 	if !isAllow {
 		return nil, httperrors.NewForbiddenError("Not allow to create item")
@@ -1105,8 +1057,8 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 	var multiData []jsonutils.JSONObject
 
 	createResults, err := func() ([]sCreateResult, error) {
-		lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
-		defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
+		lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
+		defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
 
 		multiData, err = expandMultiCreateParams(data, count)
 		if err != nil {
@@ -1114,7 +1066,7 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		}
 		ret := make([]sCreateResult, len(multiData))
 		for i, cdata := range multiData {
-			model, err := doCreateItem(dispatcher.modelManager, ctx, userCred, ownerProjId, query, cdata)
+			model, err := doCreateItem(manager, ctx, userCred, ownerId, query, cdata)
 			ret[i] = sCreateResult{model: model, err: err}
 		}
 		return ret, nil
@@ -1140,10 +1092,10 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 			lockman.LockObject(ctx, res.model)
 			defer lockman.ReleaseObject(ctx, res.model)
 
-			res.model.PostCreate(ctx, userCred, ownerProjId, query, data)
+			res.model.PostCreate(ctx, userCred, ownerId, query, data)
 
 			models = append(models, res.model)
-			body, err := getItemDetails(dispatcher.modelManager, res.model, ctx, userCred, query)
+			body, err := getItemDetails(manager, res.model, ctx, userCred, query)
 			if err != nil {
 				result.Status = 500
 				result.Data = jsonutils.NewString(err.Error())
@@ -1155,10 +1107,10 @@ func (dispatcher *DBModelDispatcher) BatchCreate(ctx context.Context, query json
 		results[i] = result
 	}
 	if len(models) > 0 {
-		lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
-		defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
+		lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
+		defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
 
-		dispatcher.modelManager.OnCreateComplete(ctx, models, userCred, query, multiData[0])
+		manager.OnCreateComplete(ctx, models, userCred, query, multiData[0])
 	}
 	return results, nil
 }
@@ -1168,7 +1120,7 @@ func managerPerformCheckCreateData(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	action string,
-	ownerProjId string,
+	ownerId mcclient.IIdentityProvider,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
@@ -1180,7 +1132,7 @@ func managerPerformCheckCreateData(
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isClassActionRbacAllowed(manager, userCred, ownerProjId, policy.PolicyActionPerform, action)
+		isAllow = isClassRbacAllowed(manager, userCred, ownerId, policy.PolicyActionPerform, action)
 	} else {
 		isAllow = manager.AllowPerformCheckCreateData(ctx, userCred, query, data)
 	}
@@ -1188,23 +1140,24 @@ func managerPerformCheckCreateData(
 		return nil, httperrors.NewForbiddenError("not allow to perform %s", action)
 	}
 
-	return manager.ValidateCreateData(ctx, userCred, ownerProjId, query, bodyDict)
+	return manager.ValidateCreateData(ctx, userCred, ownerId, query, bodyDict)
 }
 
 func (dispatcher *DBModelDispatcher) PerformClassAction(ctx context.Context, action string, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	userCred := fetchUserCredential(ctx)
+	manager := dispatcher.modelManager
 
-	ownerProjId, err := fetchOwnerProjectId(ctx, dispatcher.modelManager, userCred, data)
+	ownerId, err := fetchOwnerId(ctx, manager, userCred, data)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
 
-	lockman.LockClass(ctx, dispatcher.modelManager, ownerProjId)
-	defer lockman.ReleaseClass(ctx, dispatcher.modelManager, ownerProjId)
+	lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
+	defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
 
 	if action == "check-create-data" {
 		return managerPerformCheckCreateData(dispatcher.modelManager,
-			ctx, userCred, action, ownerProjId, query, data)
+			ctx, userCred, action, ownerId, query, data)
 	}
 
 	managerValue := reflect.ValueOf(dispatcher.modelManager)
@@ -1302,10 +1255,13 @@ func reflectDispatcherInternal(
 	var isAllow bool
 	if consts.IsRbacEnabled() {
 		if model == nil {
-			ownerProjId, _ := fetchOwnerProjectId(ctx, dispatcher.modelManager, userCred, data)
-			isAllow = isClassActionRbacAllowed(dispatcher.modelManager, userCred, ownerProjId, operator, spec)
+			ownerId, err := fetchOwnerId(ctx, dispatcher.modelManager, userCred, data)
+			if err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+			isAllow = isClassRbacAllowed(dispatcher.modelManager, userCred, ownerId, operator, spec)
 		} else {
-			isAllow = isObjectRbacAllowed(dispatcher.modelManager, model, userCred, operator, spec)
+			isAllow = isObjectRbacAllowed(model, userCred, operator, spec)
 		}
 	} else {
 		allowFuncName := "Allow" + funcName
@@ -1413,7 +1369,7 @@ func (dispatcher *DBModelDispatcher) Update(ctx context.Context, idStr string, q
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isObjectRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionUpdate)
+		isAllow = isObjectRbacAllowed(model, userCred, policy.PolicyActionUpdate)
 	} else {
 		isAllow = model.AllowUpdateItem(ctx, userCred)
 	}
@@ -1517,7 +1473,7 @@ func (dispatcher *DBModelDispatcher) Delete(ctx context.Context, idstr string, q
 
 	var isAllow bool
 	if consts.IsRbacEnabled() {
-		isAllow = isObjectRbacAllowed(dispatcher.modelManager, model, userCred, policy.PolicyActionDelete)
+		isAllow = isObjectRbacAllowed(model, userCred, policy.PolicyActionDelete)
 	} else {
 		isAllow = model.AllowDeleteItem(ctx, userCred, query, data)
 	}

@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SElasticipManager struct {
@@ -52,11 +53,14 @@ func init() {
 			"eips",
 		),
 	}
+	ElasticipManager.SetVirtualObject(ElasticipManager)
 	ElasticipManager.TableSpec().AddIndex(true, "associate_id", "associate_type")
 }
 
 type SElasticip struct {
 	db.SVirtualResourceBase
+
+	db.SExternalizedResourceBase
 
 	SManagedResourceBase
 	SBillingResourceBase
@@ -200,11 +204,11 @@ func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	return desc
 }
 
-func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP, projectId string) compare.SyncResult {
-	ownerProjId := projectId
+func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, eips []cloudprovider.ICloudEIP, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
+	// ownerProjId := projectId
 
-	lockman.LockClass(ctx, manager, ownerProjId)
-	defer lockman.ReleaseClass(ctx, manager, ownerProjId)
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 
 	// localEips := make([]SElasticip, 0)
 	// remoteEips := make([]cloudprovider.ICloudEIP, 0)
@@ -243,7 +247,7 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudEip(ctx, userCred, provider, commonext[i], projectId)
+		err = commondb[i].SyncWithCloudEip(ctx, userCred, provider, commonext[i], syncOwnerId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -252,7 +256,25 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudEip(ctx, userCred, added[i], provider, region, ownerProjId)
+		vmExtId := added[i].GetAssociationExternalId()
+		if len(vmExtId) > 0 {
+			vm, err := db.FetchByExternalId(GuestManager, vmExtId)
+			if err != nil && err != sql.ErrNoRows {
+				log.Errorf("failed to found guest by externalId %s error: %v", vmExtId, err)
+				continue
+			}
+			if vm != nil {
+				guest := vm.(*SGuest)
+				result := guest.SyncVMEip(ctx, userCred, provider, added[i], projectId)
+				if result.IsError() {
+					syncResult.UpdateError(fmt.Errorf(result.Result()))
+				} else {
+					syncResult.Update()
+				}
+				continue
+			}
+		}
+		new, err := manager.newFromCloudEip(ctx, userCred, added[i], provider, region, syncOwnerId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -296,7 +318,7 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 	}
 
 	if len(vmExtId) > 0 {
-		newVM, err := GuestManager.FetchByExternalId(vmExtId)
+		newVM, err := db.FetchByExternalId(GuestManager, vmExtId)
 		if err != nil {
 			log.Errorf("fail to find vm by external ID %s", vmExtId)
 			return err
@@ -311,7 +333,7 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 	return nil
 }
 
-func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudEIP, projectId string) error {
+func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, ext cloudprovider.ICloudEIP, syncOwnerId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 
 		// self.Name = ext.GetName()
@@ -342,16 +364,16 @@ func (self *SElasticip) SyncWithCloudEip(ctx context.Context, userCred mcclient.
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
-	SyncCloudProject(userCred, self, projectId, ext, self.ManagerId)
+	SyncCloudProject(userCred, self, syncOwnerId, ext, self.ManagerId)
 
 	return nil
 }
 
-func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, provider *SCloudprovider, region *SCloudregion, projectId string) (*SElasticip, error) {
+func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, provider *SCloudprovider, region *SCloudregion, syncOwnerId mcclient.IIdentityProvider) (*SElasticip, error) {
 	eip := SElasticip{}
-	eip.SetModelManager(manager)
+	eip.SetModelManager(manager, &eip)
 
-	newName, err := db.GenerateName(manager, projectId, extEip.GetName())
+	newName, err := db.GenerateName(manager, syncOwnerId, extEip.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +402,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		return nil, err
 	}
 
-	SyncCloudProject(userCred, &eip, projectId, extEip, eip.ManagerId)
+	SyncCloudProject(userCred, &eip, syncOwnerId, extEip, eip.ManagerId)
 
 	db.OpsLog.LogEvent(&eip, db.ACT_CREATE, eip.GetShortDesc(ctx), userCred)
 
@@ -405,7 +427,7 @@ func (manager *SElasticipManager) getEipForInstance(instanceType string, instanc
 		}
 	}
 
-	eip.SetModelManager(manager)
+	eip.SetModelManager(manager, &eip)
 
 	return &eip, nil
 }
@@ -477,8 +499,8 @@ func (self *SElasticip) AssociateVM(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-func (manager *SElasticipManager) getEipByExtEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, provider *SCloudprovider, region *SCloudregion, projectId string) (*SElasticip, error) {
-	eipObj, err := manager.FetchByExternalId(extEip.GetGlobalId())
+func (manager *SElasticipManager) getEipByExtEip(ctx context.Context, userCred mcclient.TokenCredential, extEip cloudprovider.ICloudEIP, provider *SCloudprovider, region *SCloudregion, syncOwnerId mcclient.IIdentityProvider) (*SElasticip, error) {
+	eipObj, err := db.FetchByExternalId(manager, extEip.GetGlobalId())
 	if err == nil {
 		return eipObj.(*SElasticip), nil
 	}
@@ -487,10 +509,10 @@ func (manager *SElasticipManager) getEipByExtEip(ctx context.Context, userCred m
 		return nil, err
 	}
 
-	return manager.newFromCloudEip(ctx, userCred, extEip, provider, region, projectId)
+	return manager.newFromCloudEip(ctx, userCred, extEip, provider, region, syncOwnerId)
 }
 
-func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id"})
 	if len(regionStr) == 0 {
 		return nil, httperrors.NewMissingParameterError("region_id")
@@ -532,14 +554,14 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 
 	data.Add(jsonutils.NewString(chargeType), "charge_type")
 
-	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return nil, err
 	}
 
 	//避免参数重名后还有pending.eip残留
 	eipPendingUsage := &SQuota{Eip: 1}
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), eipPendingUsage)
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, eipPendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
 	}
@@ -547,8 +569,8 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 	return region.GetDriver().ValidateCreateEipData(ctx, userCred, data)
 }
 
-func (self *SElasticip) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (self *SElasticip) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	params := jsonutils.NewDict()
 	if data.Contains("ip") {
 		ip, _ := data.GetString("ip")
@@ -830,7 +852,7 @@ func (manager *SElasticipManager) AllocateEipAndAssociateVM(ctx context.Context,
 	}
 
 	eip := SElasticip{}
-	eip.SetModelManager(manager)
+	eip.SetModelManager(manager, &eip)
 
 	eip.Mode = api.EIP_MODE_STANDALONE_EIP
 	// do not implicitly auto dellocate EIP, should be set by user explicitly
@@ -946,6 +968,27 @@ func (manager *SElasticipManager) usageQByProvider(q *sqlchemy.SQuery, providers
 	return q
 }
 
+func (manager *SElasticipManager) usageQByCloudEnv(q *sqlchemy.SQuery, cloudEnv string) *sqlchemy.SQuery {
+	if len(cloudEnv) == 0 {
+		return q
+	}
+
+	switch cloudEnv {
+	case api.CLOUD_ENV_PUBLIC_CLOUD:
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
+	case api.CLOUD_ENV_PRIVATE_CLOUD:
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
+	case api.CLOUD_ENV_ON_PREMISE:
+		q = q.Filter(
+			sqlchemy.OR(
+				sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
+				sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
+			),
+		)
+	}
+	return q
+}
+
 func (manager *SElasticipManager) usageQByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
 	if rangeObj == nil {
 		return q
@@ -978,24 +1021,32 @@ func (manager *SElasticipManager) usageQByRange(q *sqlchemy.SQuery, rangeObj db.
 	return q
 }
 
-func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, providers []string) *sqlchemy.SQuery {
+func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, providers []string, cloudEnv string) *sqlchemy.SQuery {
 	q = manager.usageQByRange(q, rangeObj)
 	q = manager.usageQByProvider(q, providers)
+	q = manager.usageQByCloudEnv(q, cloudEnv)
 	return q
 }
 
-func (manager *SElasticipManager) TotalCount(projectId string, rangeObj db.IStandaloneModel, providers []string) EipUsage {
+func (manager *SElasticipManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, providers []string, cloudEnv string) EipUsage {
 	usage := EipUsage{}
 	q1 := manager.Query().Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP)
-	q1 = manager.usageQ(q1, rangeObj, providers)
+	q1 = manager.usageQ(q1, rangeObj, providers, cloudEnv)
 	q2 := manager.Query().Equals("mode", api.EIP_MODE_STANDALONE_EIP)
-	q2 = manager.usageQ(q2, rangeObj, providers)
+	q2 = manager.usageQ(q2, rangeObj, providers, cloudEnv)
 	q3 := manager.Query().Equals("mode", api.EIP_MODE_STANDALONE_EIP).IsNotEmpty("associate_id")
-	q3 = manager.usageQ(q3, rangeObj, providers)
-	if len(projectId) > 0 {
-		q1 = q1.Equals("tenant_id", projectId)
-		q2 = q2.Equals("tenant_id", projectId)
-		q3 = q3.Equals("tenant_id", projectId)
+	q3 = manager.usageQ(q3, rangeObj, providers, cloudEnv)
+	switch scope {
+	case rbacutils.ScopeSystem:
+		// do nothing
+	case rbacutils.ScopeDomain:
+		q1 = q1.Equals("domain_id", ownerId.GetProjectDomainId())
+		q2 = q2.Equals("domain_id", ownerId.GetProjectDomainId())
+		q3 = q3.Equals("domain_id", ownerId.GetProjectDomainId())
+	case rbacutils.ScopeProject:
+		q1 = q1.Equals("tenant_id", ownerId.GetProjectId())
+		q2 = q2.Equals("tenant_id", ownerId.GetProjectId())
+		q3 = q3.Equals("tenant_id", ownerId.GetProjectId())
 	}
 	usage.PublicIPCount, _ = q1.CountWithError()
 	usage.EIPCount, _ = q2.CountWithError()

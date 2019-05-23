@@ -52,10 +52,12 @@ func init() {
 	}
 	WireManager.NameLength = 9
 	WireManager.NameRequireAscii = true
+	WireManager.SetVirtualObject(WireManager)
 }
 
 type SWire struct {
 	db.SStandaloneResourceBase
+	db.SExternalizedResourceBase
 
 	Bandwidth    int    `list:"admin" update:"admin" nullable:"false" create:"admin_required"`            // = Column(Integer, nullable=False) # bandwidth of network in Mbps
 	ScheduleRank int    `list:"admin" update:"admin"`                                                     // = Column(Integer, default=0, nullable=True)
@@ -90,7 +92,7 @@ func (self *SWire) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	bandwidth, err := data.Int("bandwidth")
 	if err != nil || bandwidth == 0 {
 		return nil, httperrors.NewInputParameterError("invalid bandwidth")
@@ -113,7 +115,7 @@ func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mc
 		data.Add(jsonutils.NewString(vpcObj.GetId()), "vpc_id")
 	}
 
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (wire *SWire) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -192,8 +194,8 @@ func (manager *SWireManager) getWiresByVpcAndZone(vpc *SVpc, zone *SZone) ([]SWi
 }
 
 func (manager *SWireManager) SyncWires(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, wires []cloudprovider.ICloudWire) ([]SWire, []cloudprovider.ICloudWire, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	localWires := make([]SWire, 0)
 	remoteWires := make([]cloudprovider.ICloudWire, 0)
@@ -299,7 +301,7 @@ func (self *SWire) markNetworkUnknown(userCred mcclient.TokenCredential) error {
 
 func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire, vpc *SVpc) (*SWire, error) {
 	wire := SWire{}
-	wire.SetModelManager(manager)
+	wire.SetModelManager(manager, &wire)
 
 	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extWire.GetName())
 	if err != nil {
@@ -311,7 +313,7 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	wire.VpcId = vpc.Id
 	izone := extWire.GetIZone()
 	if izone != nil {
-		zoneObj, err := ZoneManager.FetchByExternalId(izone.GetGlobalId())
+		zoneObj, err := db.FetchByExternalId(ZoneManager, izone.GetGlobalId())
 		if err != nil {
 			log.Errorf("cannot find zone for wire %s", err)
 			return nil, err
@@ -332,7 +334,7 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	return &wire, nil
 }
 
-func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes []string, providers []string) *sqlchemy.SQuery {
+func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, cloudEnv string) *sqlchemy.SQuery {
 	guests := GuestManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
 
@@ -388,7 +390,7 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 		sq := hostwires.Query(hostwires.Field("wire_id"))
 		sq = sq.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
 		sq = sq.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
-		sq = AttachUsageQuery(sq, hosts, hostTypes, nil, nil, rangeObj)
+		sq = AttachUsageQuery(sq, hosts, hostTypes, nil, nil, "", rangeObj)
 		q = q.Filter(sqlchemy.In(wires.Field("id"), sq.Distinct()))
 	}
 
@@ -398,6 +400,25 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 		subq := vpcs.Query(vpcs.Field("id"))
 		subq = subq.Join(cloudproviders, sqlchemy.Equals(vpcs.Field("manager_id"), cloudproviders.Field("id")))
 		subq = subq.Filter(sqlchemy.In(cloudproviders.Field("provider"), providers))
+		q = q.Filter(sqlchemy.In(wires.Field("vpc_id"), subq.SubQuery()))
+	}
+
+	if len(cloudEnv) > 0 {
+		vpcs := VpcManager.Query().SubQuery()
+		subq := vpcs.Query(vpcs.Field("id"))
+		switch cloudEnv {
+		case api.CLOUD_ENV_PUBLIC_CLOUD:
+			subq = subq.In("manager_id", CloudproviderManager.GetPublicProviderIdsQuery())
+		case api.CLOUD_ENV_PRIVATE_CLOUD:
+			subq = subq.In("manager_id", CloudproviderManager.GetPrivateProviderIdsQuery())
+		case api.CLOUD_ENV_ON_PREMISE:
+			subq = subq.Filter(
+				sqlchemy.OR(
+					sqlchemy.In(vpcs.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
+					sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")),
+				),
+			)
+		}
 		q = q.Filter(sqlchemy.In(wires.Field("vpc_id"), subq.SubQuery()))
 	}
 
@@ -412,9 +433,9 @@ type WiresCountStat struct {
 	ReservedCount int
 }
 
-func (manager *SWireManager) TotalCount(rangeObj db.IStandaloneModel, hostTypes []string, providers []string) WiresCountStat {
+func (manager *SWireManager) TotalCount(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, cloudEnv string) WiresCountStat {
 	stat := WiresCountStat{}
-	err := manager.totalCountQ(rangeObj, hostTypes, providers).First(&stat)
+	err := manager.totalCountQ(rangeObj, hostTypes, providers, cloudEnv).First(&stat)
 	if err != nil {
 		log.Errorf("Wire total count: %v", err)
 	}
@@ -799,10 +820,8 @@ func (self *SWire) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict
 		if len(vpc.GetExternalId()) > 0 {
 			extra.Add(jsonutils.NewString(vpc.GetExternalId()), "vpc_ext_id")
 		}
+		info := vpc.getCloudProviderInfo()
+		extra.Update(jsonutils.Marshal(&info))
 	}
-
-	info := vpc.getCloudProviderInfo()
-	extra.Update(jsonutils.Marshal(&info))
-
 	return extra
 }

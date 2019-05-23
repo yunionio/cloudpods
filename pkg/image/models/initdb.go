@@ -26,6 +26,7 @@ func InitDB() error {
 		 * Important!!!
 		 * initialization order matters, do not change the order
 		 */
+		db.TenantCacheManager,
 		ImageManager,
 	} {
 		err := manager.InitializeData()

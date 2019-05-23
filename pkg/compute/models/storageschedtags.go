@@ -40,6 +40,7 @@ func init() {
 				SchedtagManager,
 			),
 		}
+		StorageschedtagManager.SetVirtualObject(StorageschedtagManager)
 	})
 }
 

@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type KeystoneEndpointV2 struct {
@@ -55,6 +56,10 @@ type KeystoneTenantV2 struct {
 	Name        string
 	Enabled     bool
 	Description string
+	Domain      struct {
+		Id   string
+		Name string
+	}
 }
 
 type KeystoneTokenV2 struct {
@@ -75,6 +80,7 @@ type TokenCredentialV2 struct {
 	ServiceCatalog KeystoneServiceCatalogV2
 	User           KeystoneUserV2
 	Metadata       KeystoneMetadataV2
+	Context        SAuthContext
 }
 
 func (token *TokenCredentialV2) GetTokenString() string {
@@ -158,8 +164,12 @@ func (this *TokenCredentialV2) HasSystemAdminPrivilege() bool {
 	return this.IsAdmin() && this.GetTenantName() == "system"
 }
 
-func (this *TokenCredentialV2) IsAdminAllow(service string, resource string, action string, extra ...string) bool {
-	return this.HasSystemAdminPrivilege()
+func (this *TokenCredentialV2) IsAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) bool {
+	if scope == rbacutils.ScopeSystem || scope == rbacutils.ScopeDomain {
+		return this.HasSystemAdminPrivilege()
+	} else {
+		return true
+	}
 }
 
 func (this *TokenCredentialV2) GetServiceURL(service, region, zone, endpointType string) (string, error) {
@@ -184,6 +194,14 @@ func (this *TokenCredentialV2) GetEndpoints(region string, endpointType string) 
 
 func (this *TokenCredentialV2) GetServiceCatalog() IServiceCatalog {
 	return this.ServiceCatalog
+}
+
+func (this *TokenCredentialV2) GetLoginSource() string {
+	return this.Context.Source
+}
+
+func (this *TokenCredentialV2) GetLoginIp() string {
+	return this.Context.Ip
 }
 
 func stringArrayContains(arr []string, needle string) bool {

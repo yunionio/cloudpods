@@ -23,6 +23,8 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/image/options"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var QuotaManager *quotas.SQuotaManager
@@ -46,8 +48,8 @@ func (self *SQuota) FetchSystemQuota() {
 	self.Image = options.Options.DefaultImageQuota
 }
 
-func (self *SQuota) FetchUsage(ctx context.Context, projectId string) error {
-	count := ImageManager.count(projectId, "", tristate.None, false)
+func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) error {
+	count := ImageManager.count(scope, ownerId, "", tristate.None, false)
 	self.Image = int(count["total"].Count)
 	return nil
 }

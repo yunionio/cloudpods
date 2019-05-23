@@ -34,8 +34,8 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/sqlchemy"
 
-	identity "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/choices"
 )
 
@@ -377,37 +377,60 @@ func NewNonNegativeValidator(key string) *ValidatorRange {
 type ValidatorModelIdOrName struct {
 	Validator
 	ModelKeyword string
-	ProjectId    string
-	UserId       string
+	OwnerId      mcclient.IIdentityProvider
 	ModelManager db.IModelManager
 	Model        db.IModel
 	modelIdKey   string
 }
 
 func (v *ValidatorModelIdOrName) GetProjectId() string {
-	return v.ProjectId
+	return v.OwnerId.GetProjectId()
 }
 
 func (v *ValidatorModelIdOrName) GetUserId() string {
-	return v.UserId
+	return v.OwnerId.GetUserId()
 }
 
 func (v *ValidatorModelIdOrName) GetTenantId() string {
-	return v.ProjectId
+	return v.OwnerId.GetTenantId()
 }
 
 func (v *ValidatorModelIdOrName) GetProjectDomainId() string {
-	return identity.DEFAULT_DOMAIN_ID
+	return v.OwnerId.GetProjectDomainId()
+}
+
+func (v *ValidatorModelIdOrName) GetUserName() string {
+	return v.OwnerId.GetUserName()
+}
+
+func (v *ValidatorModelIdOrName) GetProjectName() string {
+	return v.OwnerId.GetProjectName()
+}
+
+func (v *ValidatorModelIdOrName) GetTenantName() string {
+	return v.OwnerId.GetTenantName()
+}
+
+func (v *ValidatorModelIdOrName) GetProjectDomain() string {
+	return v.OwnerId.GetProjectDomain()
+}
+
+func (v *ValidatorModelIdOrName) GetDomainId() string {
+	return v.OwnerId.GetDomainId()
+}
+
+func (v *ValidatorModelIdOrName) GetDomainName() string {
+	return v.OwnerId.GetDomainName()
 }
 
 func (v *ValidatorModelIdOrName) getValue() interface{} {
 	return v.Model
 }
 
-func NewModelIdOrNameValidator(key string, modelKeyword string, projectId string) *ValidatorModelIdOrName {
+func NewModelIdOrNameValidator(key string, modelKeyword string, ownerId mcclient.IIdentityProvider) *ValidatorModelIdOrName {
 	v := &ValidatorModelIdOrName{
 		Validator:    Validator{Key: key},
-		ProjectId:    projectId,
+		OwnerId:      ownerId,
 		ModelKeyword: modelKeyword,
 		modelIdKey:   key + "_id",
 	}

@@ -31,10 +31,11 @@ func (this *QuotaManager) getURL(params jsonutils.JSONObject) string {
 	if params != nil {
 		tenant, _ := params.GetString("tenant")
 		if len(tenant) > 0 {
-			url = fmt.Sprintf("%s/%s", url, tenant)
-			user, _ := params.GetString("user")
-			if len(user) > 0 {
-				url = fmt.Sprintf("%s/%s", url, user)
+			url = fmt.Sprintf("%s/projects/%s", url, tenant)
+		} else {
+			domain, _ := params.GetString("domain")
+			if len(domain) > 0 {
+				url = fmt.Sprintf("%s/domains/%s", url, domain)
 			}
 		}
 	}

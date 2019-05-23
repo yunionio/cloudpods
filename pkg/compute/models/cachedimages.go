@@ -52,11 +52,13 @@ func init() {
 			"cachedimages",
 		),
 	}
+	CachedimageManager.SetVirtualObject(CachedimageManager)
 }
 
 type SCachedimage struct {
 	db.SStandaloneResourceBase
 	// SManagedResourceBase
+	db.SExternalizedResourceBase
 
 	Size int64 `nullable:"false" list:"user" update:"admin" create:"admin_required"` // = Column(BigInteger, nullable=False) # in Byte
 	// virtual_size = Column(BigInteger, nullable=False) # in Byte
@@ -170,8 +172,8 @@ func (self *SCachedimage) GetImage() (*cloudprovider.SImage, error) {
 }
 
 func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SCachedimage, error) {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	imgId, _ := info.GetString("id")
 	if len(imgId) == 0 {
@@ -179,7 +181,7 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 	}
 
 	imageCache := SCachedimage{}
-	imageCache.SetModelManager(manager)
+	imageCache.SetModelManager(manager, &imageCache)
 
 	size, _ := info.Int("size")
 	name, _ := info.GetString("name")
@@ -187,7 +189,7 @@ func (manager *SCachedimageManager) cacheGlanceImageInfo(ctx context.Context, us
 		name = imgId
 	}
 
-	name, err := db.GenerateName(manager, "", name)
+	name, err := db.GenerateName(manager, nil, name)
 	if err != nil {
 		return nil, err
 	}
@@ -432,13 +434,13 @@ func (self *SCachedimage) syncWithCloudImage(ctx context.Context, userCred mccli
 }
 
 func (manager *SCachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, image cloudprovider.ICloudImage) (*SCachedimage, error) {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	cachedImage := SCachedimage{}
-	cachedImage.SetModelManager(manager)
+	cachedImage.SetModelManager(manager, &cachedImage)
 
-	newName, err := db.GenerateName(manager, "", image.GetName())
+	newName, err := db.GenerateName(manager, nil, image.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -465,12 +467,25 @@ func (image *SCachedimage) requestRefreshExternalImage(ctx context.Context, user
 		log.Errorf("requestRefreshExternalImage: no valid storage cache")
 		return nil, fmt.Errorf("no valid storage cache")
 	}
-	iCache, err := caches[0].GetIStorageCache()
+	var cache *SStoragecache
+	var cachedImage *SStoragecachedimage
+	for i := range caches {
+		ci := StoragecachedimageManager.GetStoragecachedimage(caches[i].Id, image.Id)
+		if ci != nil {
+			cache = &caches[i]
+			cachedImage = ci
+			break
+		}
+	}
+	if cache == nil {
+		return nil, fmt.Errorf("no cached image found")
+	}
+	iCache, err := cache.GetIStorageCache()
 	if err != nil {
 		log.Errorf("GetIStorageCache fail %s", err)
 		return nil, err
 	}
-	iImage, err := iCache.GetIImageById(image.ExternalId)
+	iImage, err := iCache.GetIImageById(cachedImage.ExternalId)
 	if err != nil {
 		log.Errorf("iCache.GetIImageById fail %s", err)
 		return nil, err
@@ -532,12 +547,45 @@ func (image *SCachedimage) GetCloudprovider() (*SCloudprovider, error) {
 }
 
 func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	var err error
+
+	q, err = managedResourceFilterByAccount(q, query, "id", func() *sqlchemy.SQuery {
+		cachedImages := CachedimageManager.Query().SubQuery()
+		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
+		storageCaches := StoragecacheManager.Query().SubQuery()
+
+		subq := cachedImages.Query(cachedImages.Field("id"))
+		subq = subq.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
+		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
+		return subq
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
+	q = managedResourceFilterByCloudType(q, query, "id", func() *sqlchemy.SQuery {
+		cachedImages := CachedimageManager.Query().SubQuery()
+		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
+		storageCaches := StoragecacheManager.Query().SubQuery()
+
+		subq := cachedImages.Query(cachedImages.Field("id"))
+		subq = subq.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
+		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
+		return subq
+	})
+
+	q, err = managedResourceFilterByAccount(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	q = managedResourceFilterByCloudType(q, query, "", nil)
+
+	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
+	/*providerStr := jsonutils.GetAnyString(query, []string{"provider"})
 	if len(providerStr) > 0 {
 		cachedImages := CachedimageManager.Query().SubQuery()
 		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
@@ -647,7 +695,7 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		subq = subq.Filter(sqlchemy.Equals(storages.Field("zone_id"), zoneObj.GetId())).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
-	}
+	}*/
 
 	return q, nil
 }

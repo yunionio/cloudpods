@@ -45,6 +45,7 @@ func init() {
 			"endpoints",
 		),
 	}
+	EndpointManager.SetVirtualObject(EndpointManager)
 }
 
 /*
@@ -296,7 +297,7 @@ func endpointExtra(endpoint *SEndpoint, extra *jsonutils.JSONDict) *jsonutils.JS
 	return extra
 }
 
-func (manager *SEndpointManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SEndpointManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	infname, _ := data.GetString("interface")
 	if len(infname) == 0 {
 		return nil, httperrors.NewInputParameterError("missing input field interface")
@@ -319,5 +320,5 @@ func (manager *SEndpointManager) ValidateCreateData(ctx context.Context, userCre
 	} else {
 		return nil, httperrors.NewInputParameterError("missing input field service/service_id")
 	}
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }

@@ -33,6 +33,7 @@ func init() {
 			"federated_users",
 		),
 	}
+	FederatedUserManager.SetVirtualObject(FederatedUserManager)
 }
 
 /*

@@ -20,6 +20,10 @@ const (
 	DEFAULT_DOMAIN_ID   = "default"
 	DEFAULT_DOMAIN_NAME = "Default"
 
+	SystemAdminUser    = "sysadmin"
+	SystemAdminProject = "system"
+	SystemAdminRole    = "admin"
+
 	AUTH_METHOD_PASSWORD = "password"
 	AUTH_METHOD_TOKEN    = "token"
 

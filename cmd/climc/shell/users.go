@@ -23,6 +23,7 @@ import (
 
 func init() {
 	type UserListOptions struct {
+		System           bool   `help:"system mode"`
 		Admin            bool   `help:"admin mode"`
 		Domain           string `help:"Filter by domain"`
 		Name             string `help:"Filter by name"`
@@ -44,6 +45,9 @@ func init() {
 		}
 		if args.Admin {
 			params.Add(jsonutils.JSONTrue, "admin")
+		}
+		if args.System {
+			params.Add(jsonutils.JSONTrue, "system")
 		}
 		if len(args.Name) > 0 {
 			params.Add(jsonutils.NewString(args.Name), "name")
@@ -185,7 +189,10 @@ func init() {
 		Enabled     bool   `help:"Enabled"`
 		Disabled    bool   `help:"Disabled"`
 
-		DefaultProject string `help:"Default project"`
+		// DefaultProject string `help:"Default project"`
+		SystemAccount bool `help:"is a system account?"`
+		NoWebConsole  bool `help:"allow web console access"`
+		EnableMfa     bool `help:"enable TOTP mfa"`
 	}
 	R(&UserCreateOptions{}, "user-create", "Create a user", func(s *mcclient.ClientSession, args *UserCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -218,13 +225,23 @@ func init() {
 			params.Add(jsonutils.JSONFalse, "enabled")
 		}
 
-		if len(args.DefaultProject) > 0 {
+		if args.SystemAccount {
+			params.Add(jsonutils.JSONTrue, "is_system_account")
+		}
+		if args.NoWebConsole {
+			params.Add(jsonutils.JSONFalse, "allow_web_console")
+		}
+		if args.EnableMfa {
+			params.Add(jsonutils.JSONTrue, "enable_mfa")
+		}
+
+		/*if len(args.DefaultProject) > 0 {
 			projId, err := modules.Projects.GetId(s, args.DefaultProject, nil)
 			if err != nil {
 				return err
 			}
 			params.Add(jsonutils.NewString(projId), "default_project_id")
-		}
+		}*/
 
 		user, err := modules.UsersV3.Create(s, params)
 		if err != nil {

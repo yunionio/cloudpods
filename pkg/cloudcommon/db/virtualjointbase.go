@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SVirtualJointResourceBase struct {
@@ -41,7 +42,7 @@ func NewVirtualJointResourceBaseManager(dt interface{}, tableName string, keywor
 }
 
 func (manager *SVirtualJointResourceBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	if jsonutils.QueryBoolean(query, "admin", false) && !IsAdminAllowList(userCred, manager) {
+	if jsonutils.QueryBoolean(query, "admin", false) && !IsAllowList(rbacutils.ScopeSystem, userCred, manager) {
 		return false
 	}
 	return true
@@ -50,7 +51,7 @@ func (manager *SVirtualJointResourceBaseManager) AllowListItems(ctx context.Cont
 
 func (manager *SVirtualJointResourceBaseManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, query jsonutils.JSONObject) bool {
 	masterVirtual := master.(IVirtualModel)
-	if masterVirtual.IsOwner(userCred) || IsAdminAllowList(userCred, manager) {
+	if masterVirtual.IsOwner(userCred) || IsAllowList(rbacutils.ScopeSystem, userCred, manager) {
 		return true
 	}
 	return false
@@ -59,7 +60,7 @@ func (manager *SVirtualJointResourceBaseManager) AllowListDescendent(ctx context
 func (manager *SVirtualJointResourceBaseManager) AllowAttach(ctx context.Context, userCred mcclient.TokenCredential, master IStandaloneModel, slave IStandaloneModel) bool {
 	masterVirtual := master.(IVirtualModel)
 	slaveVirtual := slave.(IVirtualModel)
-	if masterVirtual.GetOwnerProjectId() == slaveVirtual.GetOwnerProjectId() {
+	if masterVirtual.GetOwnerId() == slaveVirtual.GetOwnerId() {
 		return true
 	} else {
 		slaveValue := reflect.Indirect(reflect.ValueOf(slaveVirtual))
@@ -76,12 +77,12 @@ func (manager *SVirtualJointResourceBaseManager) AllowAttach(ctx context.Context
 
 func (self *SVirtualJointResourceBase) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	masterVirtual := self.Master().(IVirtualModel)
-	return masterVirtual.IsOwner(userCred) || IsAdminAllowGet(userCred, self)
+	return masterVirtual.IsOwner(userCred) || IsAllowGet(rbacutils.ScopeSystem, userCred, self)
 }
 
 func (self *SVirtualJointResourceBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	masterVirtual := self.Master().(IVirtualModel)
-	return masterVirtual.IsOwner(userCred) || IsAdminAllowUpdate(userCred, self)
+	return masterVirtual.IsOwner(userCred) || IsAllowUpdate(rbacutils.ScopeSystem, userCred, self)
 }
 
 func (manager *SVirtualJointResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {

@@ -57,6 +57,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -210,11 +211,14 @@ func init() {
 			"servers",
 		),
 	}
+	GuestManager.SetVirtualObject(GuestManager)
 	GuestManager.SetAlias("guest", "guests")
 }
 
 type SGuest struct {
 	db.SVirtualResourceBase
+
+	db.SExternalizedResourceBase
 
 	SBillingResourceBase
 
@@ -674,7 +678,7 @@ func (guest *SGuest) getGuestnetworkByIpOrMac(ipAddr string, macAddr string) (*S
 	if err != nil {
 		return nil, err
 	}
-	guestnic.SetModelManager(GuestnetworkManager)
+	guestnic.SetModelManager(GuestnetworkManager, &guestnic)
 	return &guestnic, nil
 }
 
@@ -699,9 +703,9 @@ func (guest *SGuest) IsNetworkAllocated() bool {
 	return true
 }
 
-func (guest *SGuest) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+func (guest *SGuest) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	guest.HostId = ""
-	return guest.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
+	return guest.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (guest *SGuest) GetHost() *SHost {
@@ -836,7 +840,7 @@ func (self *SGuest) ValidateUpdateData(ctx context.Context, userCred mcclient.To
 	return self.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	// TODO: 定义 api.ServerCreateInput 的 Unmarshal 函数，直接通过 data.Unmarshal(input) 解析参数
 	input, err := cmdline.FetchServerCreateInputByJSON(data)
 	if err != nil {
@@ -1021,7 +1025,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 
 		if len(input.Duration) > 0 {
 
-			if !userCred.IsAdminAllow(consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, "renew") {
+			if !userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionPerform, "renew") {
 				return nil, httperrors.NewForbiddenError("only admin can create prepaid resource")
 			}
 
@@ -1124,7 +1128,7 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		}
 	}
 
-	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, input.JSON(input))
+	data, err = manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, input.JSON(input))
 	if err != nil {
 		return nil, err
 	}
@@ -1139,14 +1143,16 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 
 	if !input.IsSystem {
-		err = manager.checkCreateQuota(ctx, userCred, ownerProjId, input,
+		err = manager.checkCreateQuota(ctx, userCred, ownerId, input,
 			input.Backup)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	input.Project = ownerProjId
+	input.Project = ownerId.GetProjectId()
+	input.Domain = ownerId.GetProjectDomainId()
+
 	return input.JSON(input), nil
 }
 
@@ -1189,9 +1195,9 @@ func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, inp
 	return nil
 }
 
-func (manager *SGuestManager) checkCreateQuota(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, input *api.ServerCreateInput, hasBackup bool) error {
+func (manager *SGuestManager) checkCreateQuota(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.ServerCreateInput, hasBackup bool) error {
 	req := getGuestResourceRequirements(ctx, userCred, input, 1, hasBackup)
-	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, ownerProjId, &req)
+	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, &req)
 	if err != nil {
 		return httperrors.NewOutOfQuotaError(err.Error())
 	} else {
@@ -1210,7 +1216,7 @@ func (self *SGuest) checkUpdateQuota(ctx context.Context, userCred mcclient.Toke
 		req.Memory = vmemSize - self.VmemSize
 	}
 
-	_, err := QuotaManager.CheckQuota(ctx, userCred, self.ProjectId, &req)
+	_, err := QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), &req)
 
 	return err
 }
@@ -1278,8 +1284,8 @@ func (guest *SGuest) getGuestBackupResourceRequirements(ctx context.Context, use
 	}
 }
 
-func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	guest.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (guest *SGuest) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	guest.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	tags := []string{"cpu_bound", "io_bound", "io_hardlimit"}
 	appTags := make([]string, 0)
 	for _, tag := range tags {
@@ -1592,7 +1598,7 @@ func (self *SGuest) GetCdrom() *SGuestcdrom {
 
 func (self *SGuest) getCdrom(create bool) *SGuestcdrom {
 	cdrom := SGuestcdrom{}
-	cdrom.SetModelManager(GuestcdromManager)
+	cdrom.SetModelManager(GuestcdromManager, &cdrom)
 
 	err := GuestcdromManager.Query().Equals("id", self.Id).First(&cdrom)
 	if err != nil {
@@ -1895,7 +1901,7 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 	return nil
 }
 
-func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, projectId string) error {
+func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider) error {
 	recycle := false
 
 	if provider.GetFactory().IsSupportPrepaidResources() && self.IsPrepaidRecycle() {
@@ -1963,7 +1969,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
-	SyncCloudProject(userCred, self, projectId, extVM, host.ManagerId)
+	SyncCloudProject(userCred, self, syncOwnerId, extVM, host.ManagerId)
 
 	if provider.GetFactory().IsSupportPrepaidResources() && recycle {
 		vhost := self.GetHost()
@@ -1976,17 +1982,17 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 	return nil
 }
 
-func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, projectId string) (*SGuest, error) {
+func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, extVM cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider) (*SGuest, error) {
 
 	guest := SGuest{}
-	guest.SetModelManager(manager)
+	guest.SetModelManager(manager, &guest)
 
 	guest.Status = extVM.GetStatus()
 	guest.ExternalId = extVM.GetGlobalId()
 	if options.NameSyncResources.Contains(manager.Keyword()) {
 		guest.Name = extVM.GetName()
 	} else {
-		newName, err := db.GenerateName(manager, projectId, extVM.GetName())
+		newName, err := db.GenerateName(manager, syncOwnerId, extVM.GetName())
 		if err != nil {
 			return nil, err
 		}
@@ -2049,7 +2055,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 		return nil, err
 	}
 
-	SyncCloudProject(userCred, &guest, projectId, extVM, host.ManagerId)
+	SyncCloudProject(userCred, &guest, syncOwnerId, extVM, host.ManagerId)
 
 	db.OpsLog.LogEvent(&guest, db.ACT_CREATE, guest.GetShortDesc(ctx), userCred)
 
@@ -2061,12 +2067,14 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 }
 
 func (manager *SGuestManager) TotalCount(
-	projectId string, rangeObj db.IStandaloneModel,
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
+	rangeObj db.IStandaloneModel,
 	status []string, hypervisors []string,
 	includeSystem bool, pendingDelete bool,
-	hostTypes []string, resourceTypes []string, providers []string,
+	hostTypes []string, resourceTypes []string, providers []string, cloudEnv string,
 ) SGuestCountStat {
-	return totalGuestResourceCount(projectId, rangeObj, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers)
+	return totalGuestResourceCount(scope, ownerId, rangeObj, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, cloudEnv)
 }
 
 func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool, deploy bool) error {
@@ -2185,7 +2193,7 @@ func (self *SGuest) attach2NetworkOnce(ctx context.Context, userCred mcclient.To
 			cancelUsage.Port = 1
 			cancelUsage.Bw = bwLimit
 		}
-		err = QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, pendingUsage, &cancelUsage)
+		err = QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), pendingUsage, &cancelUsage)
 		if err != nil {
 			log.Warningf("QuotaManager.CancelPendingUsage fail %s", err)
 		}
@@ -2219,7 +2227,7 @@ func getCloudNicNetwork(vnic cloudprovider.ICloudNic, host *SHost) (*SNetwork, e
 			return host.getNetworkOfIPOnHost(ip)
 		}
 	}
-	localNetObj, err := NetworkManager.FetchByExternalId(vnet.GetGlobalId())
+	localNetObj, err := db.FetchByExternalId(NetworkManager, vnet.GetGlobalId())
 	if err != nil {
 		return nil, fmt.Errorf("Cannot find network of external_id %s: %v", vnet.GetGlobalId(), err)
 	}
@@ -2381,7 +2389,8 @@ func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mccli
 		driver = osProf.DiskDriver
 	}
 	guestdisk := SGuestdisk{}
-	guestdisk.SetModelManager(GuestdiskManager)
+	guestdisk.SetModelManager(GuestdiskManager, &guestdisk)
+
 	guestdisk.DiskId = disk.Id
 	guestdisk.GuestId = self.Id
 
@@ -2401,7 +2410,7 @@ type sSyncDiskPair struct {
 	vdisk cloudprovider.ICloudDisk
 }
 
-func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, vdisks []cloudprovider.ICloudDisk, projectId string) compare.SyncResult {
+func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, host *SHost, vdisks []cloudprovider.ICloudDisk, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	newdisks := make([]sSyncDiskPair, 0)
@@ -2409,7 +2418,7 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 		if len(vdisks[i].GetGlobalId()) == 0 {
 			continue
 		}
-		disk, err := DiskManager.syncCloudDisk(ctx, userCred, provider, vdisks[i], i, projectId)
+		disk, err := DiskManager.syncCloudDisk(ctx, userCred, provider, vdisks[i], i, syncOwnerId)
 		if err != nil {
 			log.Errorf("syncCloudDisk error: %v", err)
 			result.Error(err)
@@ -2470,14 +2479,14 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 	return result
 }
 
-func filterGuestByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string) *sqlchemy.SQuery {
+func filterGuestByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, cloudEnv string) *sqlchemy.SQuery {
 	hosts := HostManager.Query().SubQuery()
 
 	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), q.Field("host_id")))
 	//q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 	// q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE))
 
-	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, rangeObj)
+	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, cloudEnv, rangeObj)
 	return q
 }
 
@@ -2494,7 +2503,8 @@ type SGuestCountStat struct {
 }
 
 func totalGuestResourceCount(
-	projectId string,
+	scope rbacutils.TRbacScope,
+	ownerId mcclient.IIdentityProvider,
 	rangeObj db.IStandaloneModel,
 	status []string,
 	hypervisors []string,
@@ -2502,7 +2512,7 @@ func totalGuestResourceCount(
 	pendingDelete bool,
 	hostTypes []string,
 	resourceTypes []string,
-	providers []string,
+	providers []string, cloudEnv string,
 ) SGuestCountStat {
 
 	guestdisks := GuestdiskManager.Query().SubQuery()
@@ -2554,11 +2564,16 @@ func totalGuestResourceCount(
 
 	q = q.LeftJoin(isoDevSubQuery, sqlchemy.Equals(isoDevSubQuery.Field("guest_id"), guests.Field("id")))
 
-	q = filterGuestByRange(q, rangeObj, hostTypes, resourceTypes, providers)
+	q = filterGuestByRange(q, rangeObj, hostTypes, resourceTypes, providers, cloudEnv)
 
-	if len(projectId) > 0 {
-		q = q.Filter(sqlchemy.Equals(guests.Field("tenant_id"), projectId))
+	switch scope {
+	case rbacutils.ScopeSystem:
+	case rbacutils.ScopeDomain:
+		q = q.Filter(sqlchemy.Equals(guests.Field("domain_id"), ownerId.GetProjectDomainId()))
+	case rbacutils.ScopeProject:
+		q = q.Filter(sqlchemy.Equals(guests.Field("tenant_id"), ownerId.GetProjectId()))
 	}
+
 	if len(status) > 0 {
 		q = q.Filter(sqlchemy.In(guests.Field("status"), status))
 	}
@@ -2752,7 +2767,7 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 
 	cancelUsage := SQuota{}
 	cancelUsage.Storage = disk.DiskSize
-	err = QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, pendingUsage, &cancelUsage)
+	err = QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), pendingUsage, &cancelUsage)
 
 	return disk, nil
 }
@@ -2821,7 +2836,7 @@ func (self *SGuest) createIsolatedDeviceOnHost(ctx context.Context, userCred mcc
 	}
 
 	cancelUsage := SQuota{IsolatedDevice: 1}
-	err = QuotaManager.CancelPendingUsage(ctx, userCred, self.ProjectId, pendingUsage, &cancelUsage)
+	err = QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), pendingUsage, &cancelUsage)
 	return err
 }
 
@@ -3802,7 +3817,7 @@ func (self *SGuest) doExternalSync(ctx context.Context, userCred mcclient.TokenC
 	if err != nil {
 		return err
 	}
-	return self.syncWithCloudVM(ctx, userCred, iprovider, host, iVM, "")
+	return self.syncWithCloudVM(ctx, userCred, iprovider, host, iVM, nil)
 }
 
 func (manager *SGuestManager) DeleteExpiredPrepaidServers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
@@ -3827,7 +3842,7 @@ func (self *SGuest) GetEip() (*SElasticip, error) {
 	return ElasticipManager.getEipForInstance("server", self.Id)
 }
 
-func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEip cloudprovider.ICloudEIP, projectId string) compare.SyncResult {
+func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEip cloudprovider.ICloudEIP, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	eip, err := self.GetEip()
@@ -3840,7 +3855,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 		// do nothing
 	} else if eip == nil && extEip != nil {
 		// add
-		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, self.getRegion(), projectId)
+		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, self.getRegion(), syncOwnerId)
 		if err != nil {
 			log.Errorf("getEipByExtEip error %v", err)
 			result.AddError(err)
@@ -3871,7 +3886,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 				result.DeleteError(err)
 			} else {
 				result.Delete()
-				neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, self.getRegion(), projectId)
+				neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, self.getRegion(), syncOwnerId)
 				if err != nil {
 					result.AddError(err)
 				} else {
@@ -3885,7 +3900,7 @@ func (self *SGuest) SyncVMEip(ctx context.Context, userCred mcclient.TokenCreden
 			}
 		} else {
 			// do nothing
-			err := eip.SyncWithCloudEip(ctx, userCred, provider, extEip, projectId)
+			err := eip.SyncWithCloudEip(ctx, userCred, provider, extEip, syncOwnerId)
 			if err != nil {
 				result.UpdateError(err)
 			} else {
@@ -3920,7 +3935,7 @@ func (self *SGuest) getSecgroupExternalIds(provider *SCloudprovider) []string {
 func (self *SGuest) getSecgroupByCache(provider *SCloudprovider, externalId string) (*SSecurityGroup, error) {
 	q := SecurityGroupCacheManager.Query().Equals("manager_id", provider.Id).Equals("external_id", externalId)
 	cache := SSecurityGroupCache{}
-	cache.SetModelManager(SecurityGroupCacheManager)
+	cache.SetModelManager(SecurityGroupCacheManager, &cache)
 	count, err := q.CountWithError()
 	if err != nil {
 		return nil, fmt.Errorf("getSecgroupByCache fail %s", err)

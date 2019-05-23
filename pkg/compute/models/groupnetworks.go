@@ -32,7 +32,16 @@ var GroupnetworkManager *SGroupnetworkManager
 
 func init() {
 	db.InitManager(func() {
-		GroupnetworkManager = &SGroupnetworkManager{SGroupJointsManager: NewGroupJointsManager(SGroupnetwork{}, "groupnetworks_tbl", "groupnetwork", "groupnetworks", NetworkManager)}
+		GroupnetworkManager = &SGroupnetworkManager{
+			SGroupJointsManager: NewGroupJointsManager(
+				SGroupnetwork{},
+				"groupnetworks_tbl",
+				"groupnetwork",
+				"groupnetworks",
+				NetworkManager,
+			),
+		}
+		GroupnetworkManager.SetVirtualObject(GroupnetworkManager)
 	})
 }
 

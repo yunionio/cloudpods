@@ -49,11 +49,13 @@ func init() {
 			"cloudregions",
 		),
 	}
+	CloudregionManager.SetVirtualObject(CloudregionManager)
 }
 
 type SCloudregion struct {
 	db.SEnabledStatusStandaloneResourceBase
 	SManagedResourceBase
+	db.SExternalizedResourceBase
 
 	cloudprovider.SGeographicInfo
 
@@ -80,7 +82,7 @@ func (self *SCloudregion) AllowDeleteItem(ctx context.Context, userCred mcclient
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (self *SCloudregion) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+func (self *SCloudregion) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	idstr, _ := data.GetString("id")
 	if len(idstr) > 0 {
 		self.Id = idstr
@@ -250,8 +252,8 @@ func (manager *SCloudregionManager) SyncRegions(
 	[]SCloudproviderregion,
 	compare.SyncResult,
 ) {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, manager.GetOwnerId(userCred)))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, manager.GetOwnerId(userCred)))
 
 	syncResult := compare.SyncResult{}
 	localRegions := make([]SCloudregion, 0)
@@ -365,9 +367,9 @@ func (self *SCloudregion) syncWithCloudRegion(ctx context.Context, userCred mccl
 
 func (manager *SCloudregionManager) newFromCloudRegion(ctx context.Context, userCred mcclient.TokenCredential, cloudRegion cloudprovider.ICloudRegion, provider *SCloudprovider) (*SCloudregion, error) {
 	region := SCloudregion{}
-	region.SetModelManager(manager)
+	region.SetModelManager(manager, &region)
 
-	newName, err := db.GenerateName(manager, "", cloudRegion.GetName())
+	newName, err := db.GenerateName(manager, nil, cloudRegion.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -564,8 +566,8 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 	return q, nil
 }
 
-func (manager *SCloudregionManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+func (manager *SCloudregionManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SCloudregion) isManaged() bool {

@@ -50,10 +50,13 @@ func init() {
 			"vpcs",
 		),
 	}
+	VpcManager.SetVirtualObject(VpcManager)
 }
 
 type SVpc struct {
 	db.SEnabledStatusStandaloneResourceBase
+	db.SExternalizedResourceBase
+
 	SManagedResourceBase
 
 	IsDefault bool `default:"false" list:"admin" create:"admin_optional"`
@@ -97,12 +100,12 @@ func (self *SVpc) GetCloudRegionId() string {
 	}
 }
 
-func (self *SVpc) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+func (self *SVpc) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	idstr, _ := data.GetString("id")
 	if len(idstr) > 0 {
 		self.Id = idstr
 	}
-	return nil
+	return self.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
@@ -248,8 +251,8 @@ func (self *SVpc) setDefault(def bool) error {
 }
 
 func (manager *SVpcManager) SyncVPCs(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, vpcs []cloudprovider.ICloudVpc) ([]SVpc, []cloudprovider.ICloudVpc, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	localVPCs := make([]SVpc, 0)
 	remoteVPCs := make([]cloudprovider.ICloudVpc, 0)
@@ -352,7 +355,7 @@ func (self *SVpc) SyncWithCloudVpc(ctx context.Context, userCred mcclient.TokenC
 
 func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclient.TokenCredential, extVPC cloudprovider.ICloudVpc, provider *SCloudprovider, region *SCloudregion) (*SVpc, error) {
 	vpc := SVpc{}
-	vpc.SetModelManager(manager)
+	vpc.SetModelManager(manager, &vpc)
 
 	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extVPC.GetName())
 	if err != nil {
@@ -396,7 +399,7 @@ func (manager *SVpcManager) InitializeData() error {
 	if err != nil {
 		if err == sql.ErrNoRows {
 			defVpc := SVpc{}
-			defVpc.SetModelManager(VpcManager)
+			defVpc.SetModelManager(VpcManager, &defVpc)
 
 			defVpc.Id = api.DEFAULT_VPC_ID
 			defVpc.Name = "Default"
@@ -425,7 +428,7 @@ func (manager *SVpcManager) InitializeData() error {
 	return nil
 }
 
-func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	regionId, err := data.GetString("cloudregion_id")
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("cloudregion_id")
@@ -458,14 +461,14 @@ func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcc
 			}
 		}
 	}
-	data, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	data, err = manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return nil, err
 	}
 	return region.GetDriver().ValidateCreateVpcData(ctx, userCred, data)
 }
 
-func (self *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+func (self *SVpc) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	if len(self.ManagerId) == 0 {
 		return
 	}

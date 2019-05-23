@@ -40,6 +40,7 @@ func init() {
 			"passwords",
 		),
 	}
+	PasswordManager.SetVirtualObject(PasswordManager)
 }
 
 /*
@@ -91,7 +92,7 @@ func (manager *SPasswordManager) fetchByLocaluserId(localUserId int) ([]SPasswor
 func (manager *SPasswordManager) savePassword(localUserId int, password string) error {
 	hash, err := seclib2.BcryptPassword(password)
 	if err != nil {
-		return errors.WithMessage(err, "seclib2.BcryptPassword")
+		return errors.Wrap(err, "seclib2.BcryptPassword")
 	}
 	rec := SPassword{}
 	rec.LocalUserId = localUserId
@@ -99,7 +100,7 @@ func (manager *SPasswordManager) savePassword(localUserId int, password string) 
 	rec.CreatedAtInt = time.Now().UnixNano() / 1000
 	err = manager.TableSpec().Insert(&rec)
 	if err != nil {
-		return errors.WithMessage(err, "Insert")
+		return errors.Wrap(err, "Insert")
 	}
 	return nil
 }
@@ -107,14 +108,14 @@ func (manager *SPasswordManager) savePassword(localUserId int, password string) 
 func (manager *SPasswordManager) delete(localUserId int) error {
 	recs, err := manager.fetchByLocaluserId(localUserId)
 	if err != nil {
-		return errors.WithMessage(err, "manager.fetchByLocaluserId")
+		return errors.Wrap(err, "manager.fetchByLocaluserId")
 	}
 	for i := range recs {
 		_, err = db.Update(&recs[i], func() error {
 			return recs[i].MarkDelete()
 		})
 		if err != nil {
-			return errors.WithMessage(err, "recs[i].MarkDelete")
+			return errors.Wrap(err, "recs[i].MarkDelete")
 		}
 	}
 	return nil

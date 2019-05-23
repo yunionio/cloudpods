@@ -45,6 +45,7 @@ func init() {
 				"usergroups",
 			),
 		}
+		UsergroupManager.SetVirtualObject(UsergroupManager)
 	})
 }
 
@@ -94,7 +95,7 @@ func (manager *SUsergroupManager) SyncUserGroups(ctx context.Context, userCred m
 
 	deleted, _, added := stringutils2.Split(stringutils2.SSortedStrings(oldGroupIds), stringutils2.SSortedStrings(groupIds))
 
-	usr := UserManager.fetchUserById(userId)
+	usr, _ := UserManager.fetchUserById(userId)
 	for _, gid := range deleted {
 		grp := GroupManager.fetchGroupById(gid)
 		manager.remove(ctx, userCred, usr, grp)
@@ -108,16 +109,16 @@ func (manager *SUsergroupManager) SyncUserGroups(ctx context.Context, userCred m
 func (manager *SUsergroupManager) remove(ctx context.Context, userCred mcclient.TokenCredential, usr *SUser, grp *SGroup) error {
 	q := manager.Query().Equals("user_id", usr.Id).Equals("group_id", grp.Id)
 	membership := SUsergroupMembership{}
-	membership.SetModelManager(manager)
+	membership.SetModelManager(manager, &membership)
 	err := q.First(&membership)
 	if err != nil {
-		return errors.WithMessage(err, "Query")
+		return errors.Wrap(err, "Query")
 	}
 	_, err = db.Update(&membership, func() error {
 		return membership.MarkDelete()
 	})
 	if err != nil {
-		return errors.WithMessage(err, "MarkDelete")
+		return errors.Wrap(err, "MarkDelete")
 	}
 	db.OpsLog.LogEvent(usr, db.ACT_DETACH, grp.GetShortDesc(ctx), userCred)
 	return nil
@@ -126,10 +127,10 @@ func (manager *SUsergroupManager) remove(ctx context.Context, userCred mcclient.
 func (manager *SUsergroupManager) add(ctx context.Context, userCred mcclient.TokenCredential, user *SUser, group *SGroup) error {
 	q := manager.RawQuery().Equals("user_id", user.Id).Equals("group_id", group.Id)
 	membership := SUsergroupMembership{}
-	membership.SetModelManager(manager)
+	membership.SetModelManager(manager, &membership)
 	err := q.First(&membership)
 	if err != nil && err != sql.ErrNoRows {
-		return errors.WithMessage(err, "Query")
+		return errors.Wrap(err, "Query")
 	}
 	if err == nil {
 		if membership.Deleted {
@@ -138,7 +139,7 @@ func (manager *SUsergroupManager) add(ctx context.Context, userCred mcclient.Tok
 				return nil
 			})
 			if err != nil {
-				return errors.WithMessage(err, "Update to undelete")
+				return errors.Wrap(err, "Update to undelete")
 			}
 		} else {
 			return nil
@@ -149,7 +150,7 @@ func (manager *SUsergroupManager) add(ctx context.Context, userCred mcclient.Tok
 		membership.GroupId = group.Id
 		err = manager.TableSpec().Insert(&membership)
 		if err != nil {
-			return errors.WithMessage(err, "insert")
+			return errors.Wrap(err, "insert")
 		}
 	}
 	db.OpsLog.LogEvent(user, db.ACT_ATTACH, group.GetShortDesc(ctx), userCred)

@@ -53,6 +53,7 @@ func init() {
 			"baremetalagent",
 			"baremetalagents",
 		)}
+	BaremetalagentManager.SetVirtualObject(BaremetalagentManager)
 }
 
 func (self *SBaremetalagentManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -97,7 +98,7 @@ func (self *SBaremetalagent) ValidateUpdateData(ctx context.Context, userCred mc
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	mangerUri, _ := data.GetString("manager_uri")
 	count, err := manager.Query().Equals("manager_uri", mangerUri).CountWithError()
 	if err != nil {
@@ -106,7 +107,7 @@ func (manager *SBaremetalagentManager) ValidateCreateData(ctx context.Context, u
 	if count > 0 {
 		return nil, httperrors.NewDuplicateResourceError("Duplicate manager_uri %s", mangerUri)
 	}
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SBaremetalagent) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

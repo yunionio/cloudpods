@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/pkg/util/netutils"
 )
 
 func TestSRabcRule_Match(t *testing.T) {
@@ -133,8 +134,9 @@ func TestContains(t *testing.T) {
 }
 
 func TestSRabcPolicy_Encode(t *testing.T) {
-	policyStr := `{
-        "condition": "usercred.project != \"system\" && usercred.roles==\"projectowner\"",
+	cases := []string{
+		`{
+        "condition": "tenant == \"system\" && roles.contains(\"projectowner\")",
         "is_admin": false,
         "policy": {
             "compute": {
@@ -149,50 +151,90 @@ func TestSRabcPolicy_Encode(t *testing.T) {
 				 "*": "allow"
 			}
         }
-    }`
-	policyJson, err := jsonutils.ParseString(policyStr)
-	if err != nil {
-		t.Errorf("fail to parse json string %s", err)
-		return
+    }`,
+		`{
+		"auth": false,
+		"ips": ["10.0.0.0/8", "192.168.222.171"],
+		"projects": ["system"],
+        "roles": ["projectowner","admin"],
+        "scope": "domain",
+        "policy": {
+            "compute": {
+				 "keypair": "allow",
+				 "server": "deny",
+                 "*": {
+                      "*": "allow",
+                      "create": "deny"
+                 }
+            },
+			"meter": {
+				 "*": "allow"
+			}
+        }
+    }`,
+		`{
+		"auth": false,
+        "scope": "domain",
+        "policy": {
+            "compute": {
+				 "keypair": "allow",
+				 "server": "deny",
+                 "*": {
+                      "*": "allow",
+                      "create": "deny"
+                 }
+            },
+			"meter": {
+				 "*": "allow"
+			}
+        }
+    }`,
 	}
+	for _, policyStr := range cases {
+		policyJson, err := jsonutils.ParseString(policyStr)
+		if err != nil {
+			t.Errorf("fail to parse json string %s", err)
+			return
+		}
 
-	policy := SRbacPolicy{}
+		policy := SRbacPolicy{}
 
-	err = policy.Decode(policyJson)
-	if err != nil {
-		t.Errorf("decode error %s", err)
-		return
+		err = policy.Decode(policyJson)
+		if err != nil {
+			t.Errorf("decode error %s", err)
+			return
+		}
+
+		policyJson1, err := policy.Encode()
+		if err != nil {
+			t.Errorf("encode error %s", err)
+			return
+		}
+
+		policy2 := SRbacPolicy{}
+
+		err = policy2.Decode(policyJson1)
+		if err != nil {
+			t.Errorf("decode error 2 %s", err)
+			return
+		}
+
+		policyJson2, err := policy2.Encode()
+		if err != nil {
+			t.Errorf("encode error 2 %s", err)
+			return
+		}
+
+		policyStr1 := policyJson1.PrettyString()
+		policyStr2 := policyJson2.PrettyString()
+
+		if policyStr1 != policyStr2 {
+			t.Errorf("%s != %s", policyStr1, policyStr2)
+			return
+		}
+
+		t.Logf("%s", policyStr1)
 	}
-
-	policyJson1, err := policy.Encode()
-	if err != nil {
-		t.Errorf("encode error %s", err)
-		return
-	}
-
-	policy2 := SRbacPolicy{}
-
-	err = policy2.Decode(policyJson1)
-	if err != nil {
-		t.Errorf("decode error 2 %s", err)
-		return
-	}
-
-	policyJson2, err := policy2.Encode()
-	if err != nil {
-		t.Errorf("encode error 2 %s", err)
-		return
-	}
-
-	policyStr1 := policyJson1.PrettyString()
-	policyStr2 := policyJson2.PrettyString()
-
-	if policyStr1 != policyStr2 {
-		t.Errorf("%s != %s", policyStr1, policyStr2)
-		return
-	}
-
-	t.Logf("%s", policyStr1)
 }
 
 func TestSRabcPolicy_Explain(t *testing.T) {
@@ -252,6 +294,7 @@ func TestConditionParser(t *testing.T) {
 }
 
 func TestSRbacPolicyMatch(t *testing.T) {
+	prefix, _ := netutils.NewIPV4Prefix("10.168.22.0/24")
 	cases := []struct {
 		policy   SRbacPolicy
 		userCred mcclient.TokenCredential
@@ -325,6 +368,87 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			},
 			nil,
 			false,
+		},
+		{
+			SRbacPolicy{
+				Auth: false,
+			},
+			nil,
+			true,
+		},
+		{
+			SRbacPolicy{
+				Projects: []string{"system"},
+				Roles:    []string{"admin"},
+				Ips:      []netutils.IPV4Prefix{prefix},
+			},
+			&mcclient.SSimpleToken{
+				Project: "system",
+				Roles:   "admin",
+				Context: mcclient.SAuthContext{
+					Ip: "10.0.0.23",
+				},
+			},
+			false,
+		},
+		{
+			SRbacPolicy{
+				Projects: []string{"system"},
+				Roles:    []string{"admin"},
+				Ips:      []netutils.IPV4Prefix{prefix},
+			},
+			&mcclient.SSimpleToken{
+				Project: "system",
+				Roles:   "admin",
+				Context: mcclient.SAuthContext{
+					Ip: "10.168.22.23",
+				},
+			},
+			true,
+		},
+		{
+			SRbacPolicy{
+				Projects: []string{"system"},
+				Roles:    []string{"admin"},
+				Ips:      []netutils.IPV4Prefix{prefix},
+			},
+			&mcclient.SSimpleToken{
+				Project: "system",
+				Roles:   "_member_",
+				Context: mcclient.SAuthContext{
+					Ip: "10.168.22.23",
+				},
+			},
+			false,
+		},
+		{
+			SRbacPolicy{
+				Roles: []string{"admin"},
+				Ips:   []netutils.IPV4Prefix{prefix},
+			},
+			&mcclient.SSimpleToken{
+				Project: "system",
+				Roles:   "_member_,admin",
+				Context: mcclient.SAuthContext{
+					Ip: "10.168.22.23",
+				},
+			},
+			true,
+		},
+		{
+			SRbacPolicy{
+				Projects: []string{"system"},
+				Roles:    []string{"admin", "_member_"},
+				Ips:      []netutils.IPV4Prefix{prefix},
+			},
+			&mcclient.SSimpleToken{
+				Project: "system",
+				Roles:   "_member_,projectowner",
+				Context: mcclient.SAuthContext{
+					Ip: "10.168.22.23",
+				},
+			},
+			true,
 		},
 	}
 	for _, c := range cases {

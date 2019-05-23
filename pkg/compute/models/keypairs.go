@@ -46,6 +46,7 @@ func init() {
 			"keypairs",
 		),
 	}
+	KeypairManager.SetVirtualObject(KeypairManager)
 }
 
 type SKeypair struct {
@@ -141,7 +142,7 @@ func (self *SKeypair) GetLinkedGuestsCount() (int, error) {
 	return GuestManager.Query().Equals("keypair_id", self.Id).CountWithError()
 }
 
-func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	publicKey, _ := data.GetString("public_key")
 	if len(publicKey) == 0 {
 		scheme, _ := data.GetString("scheme")
@@ -181,9 +182,9 @@ func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred
 
 	data.Set("fingerprint", jsonutils.NewString(ssh.FingerprintLegacyMD5(pubKey)))
 	data.Set("scheme", jsonutils.NewString(scheme))
-	data.Set("owner_id", jsonutils.NewString(userCred.GetUserId()))
+	// data.Set("owner_id", jsonutils.NewString(userCred.GetUserId()))
 
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SKeypair) ValidateDeleteCondition(ctx context.Context) error {
@@ -202,16 +203,18 @@ func totalKeypairCount(userId string) (int, error) {
 	return q.CountWithError()
 }
 
-func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
-	return q.Equals("owner_id", owner)
+func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
+	return q.Equals("owner_id", owner.GetUserId())
 }
 
-func (self *SKeypair) GetOwnerProjectId() string {
-	return self.OwnerId
+func (self *SKeypair) GetOwnerId() mcclient.IIdentityProvider {
+	owner := db.SOwnerId{UserId: self.OwnerId}
+	return &owner
 }
 
-func (manager *SKeypairManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
-	return userCred.GetUserId()
+func (manager *SKeypairManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
+	owner := db.SOwnerId{User: userCred.GetUserName(), UserId: userCred.GetUserId()}
+	return &owner
 }
 
 func (manager *SKeypairManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (db.IModel, error) {

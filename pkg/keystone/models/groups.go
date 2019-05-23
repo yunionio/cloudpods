@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SGroupManager struct {
@@ -45,6 +46,7 @@ func init() {
 			"groups",
 		),
 	}
+	GroupManager.SetVirtualObject(GroupManager)
 }
 
 /*
@@ -146,11 +148,6 @@ func (group *SGroup) GetExtraDetails(ctx context.Context, userCred mcclient.Toke
 }
 
 func groupExtra(group *SGroup, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	domain := group.GetDomain()
-	if domain != nil {
-		extra.Add(jsonutils.NewString(domain.Name), "domain")
-	}
-
 	usrCnt, _ := group.GetUserCount()
 	extra.Add(jsonutils.NewInt(int64(usrCnt)), "user_count")
 	prjCnt, _ := group.GetProjectCount()
@@ -164,16 +161,16 @@ func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, domainI
 
 	pubId, err := IdmappingManager.registerIdMap(ctx, domainId, groupId, api.IdMappingEntityGroup)
 	if err != nil {
-		return nil, errors.WithMessage(err, "IdmappingManager.registerIdMap")
+		return nil, errors.Wrap(err, "IdmappingManager.registerIdMap")
 	}
 
 	group := SGroup{}
-	group.SetModelManager(manager)
+	group.SetModelManager(manager, &group)
 
 	q := manager.Query().Equals("id", pubId)
 	err = q.First(&group)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.WithMessage(err, "Query")
+		return nil, errors.Wrap(err, "Query")
 	}
 	if err == sql.ErrNoRows {
 		group.Id = pubId
@@ -183,7 +180,7 @@ func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, domainI
 
 		err = manager.TableSpec().Insert(&group)
 		if err != nil {
-			return nil, errors.WithMessage(err, "Insert")
+			return nil, errors.Wrap(err, "Insert")
 		}
 	}
 
@@ -200,4 +197,12 @@ func (manager *SGroupManager) fetchGroupById(gid string) *SGroup {
 		return obj.(*SGroup)
 	}
 	return nil
+}
+
+func (manager *SGroupManager) IsDomainReadonly(domain *SDomain) bool {
+	return domain.isReadOnly()
+}
+
+func (manager *SGroupManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeDomain
 }

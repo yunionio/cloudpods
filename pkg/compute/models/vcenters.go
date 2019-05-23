@@ -39,6 +39,7 @@ func init() {
 			"vcenters",
 		),
 	}
+	VCenterManager.SetVirtualObject(VCenterManager)
 }
 
 type SVCenter struct {

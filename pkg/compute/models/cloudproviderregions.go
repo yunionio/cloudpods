@@ -48,6 +48,7 @@ func init() {
 				CloudregionManager,
 			),
 		}
+		CloudproviderRegionManager.SetVirtualObject(CloudproviderRegionManager)
 	})
 }
 
@@ -138,7 +139,7 @@ func (self *SCloudproviderregion) getExtraDetails(extra *jsonutils.JSONDict) *js
 	return extra
 }
 
-func (manager *SCloudproviderregion) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SCloudproviderregion) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewForbiddenError("not allow to create")
 }
 
@@ -196,7 +197,7 @@ func (manager *SCloudproviderregionManager) FetchByIdsOrCreate(providerId string
 		return cpr
 	}
 	cpr = &SCloudproviderregion{}
-	cpr.SetModelManager(manager)
+	cpr.SetModelManager(manager, cpr)
 
 	cpr.CloudproviderId = providerId
 	cpr.CloudregionId = regionId

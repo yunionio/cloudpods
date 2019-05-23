@@ -42,6 +42,10 @@ func NewResourceBaseManager(dt interface{}, tableName string, keyword string, ke
 	return SResourceBaseManager{NewModelBaseManager(dt, tableName, keyword, keywordPlural)}
 }
 
+func (manager *SResourceBaseManager) GetIResourceModelManager() IResourceModelManager {
+	return manager.GetVirtualObject().(IResourceModelManager)
+}
+
 func (manager *SResourceBaseManager) Query(fields ...string) *sqlchemy.SQuery {
 	return manager.SModelBaseManager.Query(fields...).IsFalse("deleted")
 }
@@ -50,17 +54,21 @@ func (manager *SResourceBaseManager) RawQuery(fields ...string) *sqlchemy.SQuery
 	return manager.SModelBaseManager.Query(fields...)
 }
 
-func CanDelete(model IModel, ctx context.Context) bool {
+/*func CanDelete(model IModel, ctx context.Context) bool {
 	err := model.ValidateDeleteCondition(ctx)
 	if err == nil {
 		return true
 	} else {
 		return false
 	}
-}
+}*/
 
 func (model *SResourceBase) ResourceModelManager() IResourceModelManager {
 	return model.GetModelManager().(IResourceModelManager)
+}
+
+func (model *SResourceBase) GetIResourceModel() IResourceModel {
+	return model.GetVirtualObject().(IResourceModel)
 }
 
 /*func (model *SResourceBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {

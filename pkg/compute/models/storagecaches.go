@@ -51,10 +51,13 @@ func init() {
 			"storagecaches",
 		),
 	}
+	StoragecacheManager.SetVirtualObject(StoragecacheManager)
 }
 
 type SStoragecache struct {
 	db.SStandaloneResourceBase
+	db.SExternalizedResourceBase
+
 	SManagedResourceBase
 
 	Path string `width:"256" charset:"utf8" nullable:"true" list:"user" update:"admin" create:"admin_optional"` // = Column(VARCHAR(256, charset='utf8'), nullable=True)
@@ -165,10 +168,10 @@ func (self *SStoragecache) getHostId() (string, error) {
 }
 
 func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache, provider *SCloudprovider) (*SStoragecache, bool, error) {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
-	localCacheObj, err := manager.FetchByExternalId(cloudCache.GetGlobalId())
+	localCacheObj, err := db.FetchByExternalId(manager, cloudCache.GetGlobalId())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			localCache, err := manager.newFromCloudStoragecache(ctx, userCred, cloudCache, provider)
@@ -190,7 +193,7 @@ func (manager *SStoragecacheManager) SyncWithCloudStoragecache(ctx context.Conte
 
 func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Context, userCred mcclient.TokenCredential, cloudCache cloudprovider.ICloudStoragecache, provider *SCloudprovider) (*SStoragecache, error) {
 	local := SStoragecache{}
-	local.SetModelManager(manager)
+	local.SetModelManager(manager, &local)
 
 	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), cloudCache.GetName())
 	if err != nil {
@@ -507,8 +510,8 @@ func (cache *SStoragecache) SyncCloudImages(
 	lockman.LockObject(ctx, cache)
 	defer lockman.ReleaseObject(ctx, cache)
 
-	lockman.LockClass(ctx, StoragecachedimageManager, StoragecachedimageManager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, StoragecachedimageManager, StoragecachedimageManager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, StoragecachedimageManager, db.GetLockClassKey(StoragecachedimageManager, userCred))
+	defer lockman.ReleaseClass(ctx, StoragecachedimageManager, db.GetLockClassKey(StoragecachedimageManager, userCred))
 
 	syncResult := compare.SyncResult{}
 

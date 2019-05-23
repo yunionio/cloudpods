@@ -39,6 +39,7 @@ func init() {
 			"services",
 		),
 	}
+	ServiceManager.SetVirtualObject(ServiceManager)
 }
 
 /*

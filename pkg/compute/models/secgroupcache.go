@@ -50,7 +50,15 @@ type SSecurityGroupCache struct {
 var SecurityGroupCacheManager *SSecurityGroupCacheManager
 
 func init() {
-	SecurityGroupCacheManager = &SSecurityGroupCacheManager{SResourceBaseManager: db.NewResourceBaseManager(SSecurityGroupCache{}, "secgroupcache_tbl", "secgroupcache", "secgroupcaches")}
+	SecurityGroupCacheManager = &SSecurityGroupCacheManager{
+		SResourceBaseManager: db.NewResourceBaseManager(
+			SSecurityGroupCache{},
+			"secgroupcache_tbl",
+			"secgroupcache",
+			"secgroupcaches",
+		),
+	}
+	SecurityGroupCacheManager.SetVirtualObject(SecurityGroupCacheManager)
 }
 
 func (self *SSecurityGroupCache) BeforeInsert() {
@@ -144,7 +152,7 @@ func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context,
 		return nil, nil
 	}
 	query.First(&secgroupCache)
-	secgroupCache.SetModelManager(manager)
+	secgroupCache.SetModelManager(manager, &secgroupCache)
 	return &secgroupCache, nil
 }
 
@@ -166,7 +174,7 @@ func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCre
 		CloudregionId: regionId,
 	}
 	secgroupCache.ManagerId = providerId
-	secgroupCache.SetModelManager(manager)
+	secgroupCache.SetModelManager(manager, secgroupCache)
 	if err := manager.TableSpec().Insert(secgroupCache); err != nil {
 		log.Errorf("insert secgroupcache error: %v", err)
 		return nil, err
@@ -192,8 +200,8 @@ func (self *SSecurityGroupCache) GetSecgroup() (*SSecurityGroup, error) {
 }
 
 func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, secgroups []cloudprovider.ICloudSecurityGroup, vpc *SVpc) ([]SSecurityGroup, []cloudprovider.ICloudSecurityGroup, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	localSecgroups := []SSecurityGroup{}
 	remoteSecgroups := []cloudprovider.ICloudSecurityGroup{}

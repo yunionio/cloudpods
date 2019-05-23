@@ -38,6 +38,7 @@ func init() {
 			"regions",
 		),
 	}
+	RegionManager.SetVirtualObject(RegionManager)
 }
 
 /*
@@ -112,7 +113,7 @@ func regionExtra(region *SRegion, extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	return extra
 }
 
-func (manager *SRegionManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SRegionManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	idStr, _ := data.GetString("id")
 	if len(idStr) == 0 {
 		return nil, httperrors.NewInputParameterError("missing input field id")
@@ -120,11 +121,11 @@ func (manager *SRegionManager) ValidateCreateData(ctx context.Context, userCred 
 	if !data.Contains("name") {
 		data.Set("name", jsonutils.NewString(idStr))
 	}
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
-func (region *SRegion) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	err := region.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
+func (region *SRegion) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	err := region.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return err
 	}

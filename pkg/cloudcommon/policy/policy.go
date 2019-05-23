@@ -16,11 +16,12 @@ package policy
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -47,7 +48,7 @@ const (
 	PolicyActionPerform = "perform"
 )
 
-type PolicyFetchFunc func() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRbacPolicy, error)
+type PolicyFetchFunc func() (map[rbacutils.TRbacScope]map[string]*rbacutils.SRbacPolicy, error)
 
 var (
 	PolicyManager        *SPolicyManager
@@ -66,12 +67,9 @@ func init() {
 }
 
 type SPolicyManager struct {
-	policies      map[string]rbacutils.SRbacPolicy
-	adminPolicies map[string]rbacutils.SRbacPolicy
-	defaultPolicy *rbacutils.SRbacPolicy
-	lastSync      time.Time
-
-	defaultAdminPolicy *rbacutils.SRbacPolicy
+	policies        map[rbacutils.TRbacScope]map[string]*rbacutils.SRbacPolicy
+	defaultPolicies map[rbacutils.TRbacScope][]*rbacutils.SRbacPolicy
+	lastSync        time.Time
 
 	failedRetryInterval time.Duration
 	refreshInterval     time.Duration
@@ -81,44 +79,48 @@ type SPolicyManager struct {
 	lock *sync.Mutex
 }
 
-func parseJsonPolicy(obj jsonutils.JSONObject) (string, rbacutils.SRbacPolicy, error) {
-	policy := rbacutils.SRbacPolicy{}
+func parseJsonPolicy(obj jsonutils.JSONObject) (string, *rbacutils.SRbacPolicy, error) {
 	typeStr, err := obj.GetString("type")
 	if err != nil {
-		log.Errorf("get type error %s", err)
-		return "", policy, err
+		return "", nil, errors.Wrap(err, "missing type")
+	}
+	domainId, err := obj.GetString("domain_id")
+	if err != nil {
+		return "", nil, errors.Wrap(err, "missing domain_id")
 	}
 
 	blob, err := obj.Get("policy")
 	if err != nil {
 		log.Errorf("get blob error %s", err)
-		return "", policy, err
+		return "", nil, errors.Wrap(err, "json.Get")
 	}
+
+	policy := rbacutils.SRbacPolicy{}
 	err = policy.Decode(blob)
 	if err != nil {
 		log.Errorf("policy decode error %s", err)
-		return "", policy, err
+		return "", nil, errors.Wrap(err, "policy.Decode")
 	}
 
-	return typeStr, policy, nil
+	policy.DomainId = domainId
+
+	return typeStr, &policy, nil
 }
 
-func remotePolicyFetcher() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRbacPolicy, error) {
+func remotePolicyFetcher() (map[rbacutils.TRbacScope]map[string]*rbacutils.SRbacPolicy, error) {
 	s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "v1")
 
-	policies := make(map[string]rbacutils.SRbacPolicy)
-	adminPolicies := make(map[string]rbacutils.SRbacPolicy)
+	policies := make(map[rbacutils.TRbacScope]map[string]*rbacutils.SRbacPolicy)
 
 	offset := 0
 	for {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewInt(2048), "limit")
 		params.Add(jsonutils.NewInt(int64(offset)), "offset")
+		params.Add(jsonutils.JSONTrue, "admin")
 		result, err := modules.Policies.List(s, params)
-
 		if err != nil {
-			log.Errorf("fetch policy failed")
-			return nil, nil, err
+			return nil, errors.Wrap(err, "modules.Policies.List")
 		}
 
 		for i := 0; i < len(result.Data); i += 1 {
@@ -128,11 +130,10 @@ func remotePolicyFetcher() (map[string]rbacutils.SRbacPolicy, map[string]rbacuti
 				continue
 			}
 
-			if policy.IsAdmin {
-				adminPolicies[typeStr] = policy
-			} else {
-				policies[typeStr] = policy
+			if _, ok := policies[policy.Scope]; !ok {
+				policies[policy.Scope] = make(map[string]*rbacutils.SRbacPolicy)
 			}
+			policies[policy.Scope][typeStr] = policy
 		}
 
 		offset += len(result.Data)
@@ -140,21 +141,30 @@ func remotePolicyFetcher() (map[string]rbacutils.SRbacPolicy, map[string]rbacuti
 			break
 		}
 	}
-
-	return policies, adminPolicies, nil
+	return policies, nil
 }
 
 func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterval time.Duration) {
 	log.Infof("PolicyManager start to fetch policies ...")
 	manager.refreshInterval = refreshInterval
 	manager.failedRetryInterval = retryInterval
-	if len(defaultRules) > 0 {
-		manager.defaultPolicy = &rbacutils.SRbacPolicy{
-			Rules: rbacutils.CompactRules(defaultRules),
+	if len(defaultPolicies) > 0 {
+		manager.defaultPolicies = make(map[rbacutils.TRbacScope][]*rbacutils.SRbacPolicy)
+		for _, policy := range defaultPolicies {
+			if _, ok := manager.defaultPolicies[policy.Scope]; !ok {
+				manager.defaultPolicies[policy.Scope] = make([]*rbacutils.SRbacPolicy, 0)
+			}
+			manager.defaultPolicies[policy.Scope] = append(manager.defaultPolicies[policy.Scope], &policy)
 		}
 	}
 
 	manager.cache = hashcache.NewCache(2048, manager.refreshInterval/2)
+	err := manager.doSync()
+	if err != nil {
+		log.Errorf("doSync error %s", err)
+		return
+	}
+
 	manager.SyncOnce()
 }
 
@@ -163,26 +173,21 @@ func (manager *SPolicyManager) SyncOnce() {
 }
 
 func (manager *SPolicyManager) doSync() error {
-	policies, adminPolicies, err := DefaultPolicyFetcher()
+	policies, err := DefaultPolicyFetcher()
 	if err != nil {
-		log.Errorf("sync rbac policy failed: %s", err)
-		return err
+		// log.Errorf("sync rbac policy failed: %s", err)
+		return errors.Wrap(err, "DefaultPolicyFetcher")
 	}
 
 	manager.lock.Lock()
 	defer manager.lock.Unlock()
 
 	manager.policies = policies
-	manager.adminPolicies = adminPolicies
 
 	manager.lastSync = time.Now()
 	manager.cache.Invalidate()
 
 	return nil
-}
-
-func (manager *SPolicyManager) RegisterDefaultAdminPolicy(policy *rbacutils.SRbacPolicy) {
-	manager.defaultAdminPolicy = policy
 }
 
 func (manager *SPolicyManager) sync() {
@@ -196,8 +201,8 @@ func (manager *SPolicyManager) sync() {
 	time.AfterFunc(interval, manager.SyncOnce)
 }
 
-func queryKey(isAdmin bool, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) string {
-	queryKeys := []string{fmt.Sprintf("%v", isAdmin)}
+func queryKey(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) string {
+	queryKeys := []string{string(scope)}
 	queryKeys = append(queryKeys, userCred.GetProjectId(), userCred.GetDomainId(), userCred.GetUserId())
 	roles := userCred.GetRoles()
 	if len(roles) > 0 {
@@ -222,46 +227,50 @@ func queryKey(isAdmin bool, userCred mcclient.TokenCredential, service string, r
 	return strings.Join(queryKeys, "-")
 }
 
-func (manager *SPolicyManager) Allow(isAdmin bool, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
+func (manager *SPolicyManager) AllowScope(userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacScope {
+	for _, scope := range []rbacutils.TRbacScope{
+		rbacutils.ScopeSystem,
+		rbacutils.ScopeDomain,
+		rbacutils.ScopeProject,
+		rbacutils.ScopeUser,
+	} {
+		result := manager.Allow(scope, userCred, service, resource, action, extra...)
+		if result == rbacutils.Allow {
+			return scope
+		}
+	}
+	return rbacutils.ScopeNone
+}
+
+func (manager *SPolicyManager) Allow(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
 	if manager.cache != nil && userCred != nil {
-		key := queryKey(isAdmin, userCred, service, resource, action, extra...)
+		key := queryKey(scope, userCred, service, resource, action, extra...)
 		val := manager.cache.Get(key)
 		if val != nil {
 			return val.(rbacutils.TRbacResult)
 		}
-		result := manager.allowWithoutCache(isAdmin, userCred, service, resource, action, extra...)
+		result := manager.allowWithoutCache(scope, userCred, service, resource, action, extra...)
 		manager.cache.Set(key, result)
 		return result
 	} else {
-		return manager.allowWithoutCache(isAdmin, userCred, service, resource, action, extra...)
+		return manager.allowWithoutCache(scope, userCred, service, resource, action, extra...)
 	}
 }
 
-func (manager *SPolicyManager) findPolicyByName(isAdmin bool, name string) *rbacutils.SRbacPolicy {
-	var policies map[string]rbacutils.SRbacPolicy
-	if isAdmin {
-		policies = manager.adminPolicies
-	} else {
-		policies = manager.policies
-	}
-	if policies == nil {
-		return nil
-	}
-	if p, ok := policies[name]; ok {
-		return &p
+func (manager *SPolicyManager) findPolicyByName(scope rbacutils.TRbacScope, name string) *rbacutils.SRbacPolicy {
+	if policies, ok := manager.policies[scope]; ok {
+		if p, ok := policies[name]; ok {
+			return p
+		}
 	}
 	return nil
 }
 
-func (manager *SPolicyManager) allowWithoutCache(isAdmin bool, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
-	var policies map[string]rbacutils.SRbacPolicy
-	if isAdmin {
-		policies = manager.adminPolicies
-	} else {
-		policies = manager.policies
-	}
-	if policies == nil {
-		log.Warningf("no policies fetched")
+func (manager *SPolicyManager) allowWithoutCache(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
+	// var policies map[string]*rbacutils.SRbacPolicy
+	policies, ok := manager.policies[scope]
+	if !ok {
+		log.Warningf("no policies fetched for scope %s", scope)
 		return rbacutils.Deny
 	}
 	findMatchRule := false
@@ -283,70 +292,50 @@ func (manager *SPolicyManager) allowWithoutCache(isAdmin bool, userCred mcclient
 	if !findMatchPolicy {
 		currentPriv = rbacutils.Deny
 	} else if !findMatchRule {
-		if isAdmin {
-			currentPriv = rbacutils.AdminAllow
-		} else {
-			currentPriv = rbacutils.OwnerAllow
-		}
+		currentPriv = rbacutils.Allow
 	}
-	if !isAdmin && manager.defaultPolicy != nil {
-		rule := manager.defaultPolicy.GetMatchRule(service, resource, action, extra...)
-		if rule != nil {
-			if currentPriv.StricterThan(rule.Result) {
-				currentPriv = rule.Result
-			}
-		}
+	if currentPriv == rbacutils.Allow {
+		return currentPriv
 	}
-	if isAdmin && manager.defaultAdminPolicy != nil && manager.defaultAdminPolicy.Match(userCred) {
-		rule := manager.defaultAdminPolicy.GetMatchRule(service, resource, action, extra...)
-		if rule != nil {
-			if currentPriv.StricterThan(rule.Result) {
-				currentPriv = rule.Result
-			}
+	// try default policies
+	defaultPolicies, ok := manager.defaultPolicies[scope]
+	if !ok {
+		return currentPriv
+	}
+	for _, p := range defaultPolicies {
+		if !p.Match(userCred) {
+			continue
+		}
+		rule := p.GetMatchRule(service, resource, action, extra...)
+		if rule != nil && currentPriv.StricterThan(rule.Result) {
+			currentPriv = rule.Result
 		}
 	}
 	if consts.IsRbacDebug() {
-		log.Debugf("[RBAC: %v] %s %s %s %#v permission %s userCred: %s", isAdmin, service, resource, action, extra, currentPriv, userCred)
-	}
-	return unifyRbacResult(isAdmin, currentPriv)
-}
-
-func unifyRbacResult(isAdmin bool, currentPriv rbacutils.TRbacResult) rbacutils.TRbacResult {
-	if isAdmin {
-		switch currentPriv {
-		case rbacutils.OwnerAllow, rbacutils.UserAllow, rbacutils.GuestAllow:
-			currentPriv = rbacutils.AdminAllow
-		}
-	} else {
-		switch currentPriv {
-		case rbacutils.AdminAllow:
-			currentPriv = rbacutils.UserAllow
-		}
-	}
-	return currentPriv
-}
-
-func exportRbacResult(currentPriv rbacutils.TRbacResult) rbacutils.TRbacResult {
-	if currentPriv == rbacutils.AdminAllow || currentPriv == rbacutils.OwnerAllow {
-		// if currentPriv == rbacutils.AdminAllow {
-		return rbacutils.Allow
+		log.Debugf("[RBAC: %s] %s %s %s %#v permission %s userCred: %s", scope, service, resource, action, extra, currentPriv, userCred)
 	}
 	return currentPriv
 }
 
 func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject, name string) ([]string, rbacutils.TRbacResult, error) {
-	isAdmin, request, result, err := manager.explainPolicyInternal(userCred, policyReq, name)
-	if !isAdmin && isAdminResource(request[0], request[1]) && result == rbacutils.OwnerAllow {
-		result = rbacutils.Deny
+	scope, request, result, err := manager.explainPolicyInternal(userCred, policyReq, name)
+	if err != nil {
+		return request, result, err
 	}
-	result = exportRbacResult(result)
+	if result == rbacutils.Allow {
+		if scope == rbacutils.ScopeProject && !isProjectResource(request[0], request[1]) {
+			result = rbacutils.Deny
+		} else if scope == rbacutils.ScopeDomain && isSystemResource(request[0], request[1]) {
+			result = rbacutils.Deny
+		}
+	}
 	return request, result, err
 }
 
-func (manager *SPolicyManager) explainPolicyInternal(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject, name string) (bool, []string, rbacutils.TRbacResult, error) {
+func (manager *SPolicyManager) explainPolicyInternal(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject, name string) (rbacutils.TRbacScope, []string, rbacutils.TRbacResult, error) {
 	policySeq, err := policyReq.GetArray()
 	if err != nil {
-		return false, nil, rbacutils.Deny, httperrors.NewInputParameterError("invalid format")
+		return rbacutils.ScopeSystem, nil, rbacutils.Deny, httperrors.NewInputParameterError("invalid format")
 	}
 	service := rbacutils.WILD_MATCH
 	resource := rbacutils.WILD_MATCH
@@ -373,29 +362,31 @@ func (manager *SPolicyManager) explainPolicyInternal(userCred mcclient.TokenCred
 		reqStrs = append(reqStrs, extra...)
 	}
 
-	isAdmin, _ := policySeq[0].Bool()
+	scopeStr, _ := policySeq[0].GetString()
+	scope := rbacutils.String2Scope(scopeStr)
 	if !consts.IsRbacEnabled() {
-		if !isAdmin {
-			return isAdmin, reqStrs, rbacutils.OwnerAllow, nil
-		} else if isAdmin && userCred.HasSystemAdminPrivilege() {
-			return isAdmin, reqStrs, rbacutils.AdminAllow, nil
+		if scope == rbacutils.ScopeProject || (scope == rbacutils.ScopeSystem && userCred.HasSystemAdminPrivilege()) {
+			return scope, reqStrs, rbacutils.Allow, nil
 		} else {
-			return isAdmin, reqStrs, rbacutils.Deny, httperrors.NewForbiddenError("operation not allowed")
+			return scope, reqStrs, rbacutils.Deny, httperrors.NewForbiddenError("operation not allowed")
 		}
 	}
+
 	if len(name) == 0 {
-		return isAdmin, reqStrs, manager.allowWithoutCache(isAdmin, userCred, service, resource, action, extra...), nil
+		return scope, reqStrs, manager.allowWithoutCache(scope, userCred, service, resource, action, extra...), nil
 	}
-	policy := manager.findPolicyByName(isAdmin, name)
+
+	policy := manager.findPolicyByName(scope, name)
 	if policy == nil {
-		return isAdmin, reqStrs, rbacutils.Deny, httperrors.NewNotFoundError("policy %s not found", name)
+		return scope, reqStrs, rbacutils.Deny, httperrors.NewNotFoundError("policy %s not found", name)
 	}
+
 	rule := policy.GetMatchRule(service, resource, action, extra...)
 	result := rbacutils.Deny
 	if rule != nil {
 		result = rule.Result
 	}
-	return isAdmin, reqStrs, unifyRbacResult(isAdmin, result), nil
+	return scope, reqStrs, result, nil
 }
 
 func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, params jsonutils.JSONObject, name string) (jsonutils.JSONObject, error) {
@@ -415,27 +406,33 @@ func (manager *SPolicyManager) ExplainRpc(userCred mcclient.TokenCredential, par
 	return ret, nil
 }
 
-func (manager *SPolicyManager) IsAdminCapable(userCred mcclient.TokenCredential) bool {
-	if !consts.IsRbacEnabled() && userCred.HasSystemAdminPrivilege() {
-		return true
+func (manager *SPolicyManager) IsScopeCapable(userCred mcclient.TokenCredential, scope rbacutils.TRbacScope) bool {
+	if !consts.IsRbacEnabled() {
+		if userCred.HasSystemAdminPrivilege() {
+			return true
+		}
+		if scope == rbacutils.ScopeProject {
+			return true
+		}
+		return false
 	}
 
-	for _, p := range manager.adminPolicies {
-		if p.Match(userCred) {
-			return true
+	if policies, ok := manager.policies[scope]; ok {
+		for _, p := range policies {
+			if p.Match(userCred) {
+				return true
+			}
 		}
 	}
 	return false
 }
 
-func (manager *SPolicyManager) MatchedPolicies(isAdmin bool, userCred mcclient.TokenCredential) []string {
-	var policies map[string]rbacutils.SRbacPolicy
-	if isAdmin {
-		policies = manager.adminPolicies
-	} else {
-		policies = manager.policies
-	}
+func (manager *SPolicyManager) MatchedPolicies(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential) []string {
 	ret := make([]string, 0)
+	policies, ok := manager.policies[scope]
+	if !ok {
+		return ret
+	}
 	for k, p := range policies {
 		if p.Match(userCred) {
 			ret = append(ret, k)

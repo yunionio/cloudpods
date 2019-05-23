@@ -118,6 +118,7 @@ type ServerConfigs struct {
 	ResourceType string `json:"resource_type"`
 	InstanceType string `json:"instance_type"`
 	Project      string `json:"project_id"`
+	Domain       string `json:"domain_id"`
 	Backup       bool   `json:"backup"`
 	Count        int    `json:"count"`
 

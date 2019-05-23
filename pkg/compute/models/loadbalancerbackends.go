@@ -50,10 +50,13 @@ func init() {
 			"loadbalancerbackends",
 		),
 	}
+	LoadbalancerBackendManager.SetVirtualObject(LoadbalancerBackendManager)
 }
 
 type SLoadbalancerBackend struct {
 	db.SVirtualResourceBase
+	db.SExternalizedResourceBase
+
 	SManagedResourceBase
 	SCloudregionResourceBase
 
@@ -81,13 +84,13 @@ func (man *SLoadbalancerBackendManager) ListItemFilter(ctx context.Context, q *s
 	if err != nil {
 		return nil, err
 	}
-	userProjId := userCred.GetProjectId()
+	// userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", ProjectId: userProjId},
-		{Key: "backend", ModelKeyword: "server", ProjectId: userProjId}, // NOTE extend this when new backend_type was added
-		{Key: "cloudregion", ModelKeyword: "cloudregion", ProjectId: userProjId},
-		{Key: "manager", ModelKeyword: "cloudprovider", ProjectId: userProjId},
+		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", OwnerId: userCred},
+		{Key: "backend", ModelKeyword: "server", OwnerId: userCred}, // NOTE extend this when new backend_type was added
+		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
+		{Key: "manager", ModelKeyword: "cloudprovider", OwnerId: userCred},
 	})
 	if err != nil {
 		return nil, err
@@ -138,8 +141,8 @@ func (man *SLoadbalancerBackendManager) ValidateBackendVpc(lb *SLoadbalancer, gu
 	return nil
 }
 
-func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerProjId)
+func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
 	backendTypeV := validators.NewStringChoicesValidator("backend_type", api.LB_BACKEND_TYPES)
 	keyV := map[string]validators.IValidator{
 		"backend_group": backendGroupV,
@@ -164,7 +167,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	)
 	switch backendType {
 	case api.LB_BACKEND_GUEST:
-		backendV := validators.NewModelIdOrNameValidator("backend", "server", ownerProjId)
+		backendV := validators.NewModelIdOrNameValidator("backend", "server", ownerId)
 		err := backendV.Validate(data)
 		if err != nil {
 			return nil, err
@@ -180,7 +183,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 		if !db.IsAdminAllowCreate(userCred, man) {
 			return nil, fmt.Errorf("only sysadmin can specify host as backend")
 		}
-		backendV := validators.NewModelIdOrNameValidator("backend", "host", userCred.GetProjectId())
+		backendV := validators.NewModelIdOrNameValidator("backend", "host", userCred)
 		err := backendV.Validate(data)
 		if err != nil {
 			return nil, err
@@ -217,7 +220,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	//  - Use name from input query
 	name := fmt.Sprintf("%s-%s-%s", backendGroup.Name, backendType, basename)
 	data.Set("name", jsonutils.NewString(name))
-	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
 		return nil, err
 	}
 	region := lb.GetRegion()
@@ -320,8 +323,8 @@ func (lbb *SLoadbalancerBackend) StartLoadBalancerBackendSyncTask(ctx context.Co
 	return nil
 }
 
-func (lbb *SLoadbalancerBackend) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	lbb.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (lbb *SLoadbalancerBackend) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	lbb.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	lbb.SetStatus(userCred, api.LB_CREATING, "")
 	if err := lbb.StartLoadBalancerBackendCreateTask(ctx, userCred, ""); err != nil {
 		log.Errorf("Failed to create loadbalancer backend error: %v", err)
@@ -417,10 +420,10 @@ func (lbb *SLoadbalancerBackend) ValidateDeleteCondition(ctx context.Context) er
 }
 
 func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, loadbalancerBackendgroup *SLoadbalancerBackendGroup, lbbs []cloudprovider.ICloudLoadbalancerBackend, syncRange *SSyncRange) compare.SyncResult {
-	syncOwnerId := provider.ProjectId
+	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockClass(ctx, man, syncOwnerId)
-	defer lockman.ReleaseClass(ctx, man, syncOwnerId)
+	lockman.LockClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
+	defer lockman.ReleaseClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
 
 	syncResult := compare.SyncResult{}
 
@@ -450,7 +453,7 @@ func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Con
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerBackend(ctx, userCred, commonext[i], provider.ProjectId)
+		err = commondb[i].SyncWithCloudLoadbalancerBackend(ctx, userCred, commonext[i], syncOwnerId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -481,7 +484,7 @@ func (lbb *SLoadbalancerBackend) constructFieldsFromCloudLoadbalancerBackend(ext
 	lbb.BackendId = extLoadbalancerBackend.GetBackendId()
 	lbb.BackendRole = extLoadbalancerBackend.GetBackendRole()
 
-	instance, err := GuestManager.FetchByExternalId(lbb.BackendId)
+	instance, err := db.FetchByExternalId(GuestManager, lbb.BackendId)
 	if err != nil {
 		return err
 	}
@@ -509,7 +512,7 @@ func (lbb *SLoadbalancerBackend) syncRemoveCloudLoadbalancerBackend(ctx context.
 	return err
 }
 
-func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, projectId string) error {
+func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, syncOwnerId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, lbb, func() error {
 		return lbb.constructFieldsFromCloudLoadbalancerBackend(extLoadbalancerBackend)
 	})
@@ -518,14 +521,14 @@ func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Co
 	}
 	db.OpsLog.LogSyncUpdate(lbb, diff, userCred)
 
-	SyncCloudProject(userCred, lbb, projectId, extLoadbalancerBackend, lbb.ManagerId)
+	SyncCloudProject(userCred, lbb, syncOwnerId, extLoadbalancerBackend, lbb.ManagerId)
 
 	return nil
 }
 
-func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, loadbalancerBackendgroup *SLoadbalancerBackendGroup, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, projectId string) (*SLoadbalancerBackend, error) {
+func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, loadbalancerBackendgroup *SLoadbalancerBackendGroup, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerBackend, error) {
 	lbb := &SLoadbalancerBackend{}
-	lbb.SetModelManager(man)
+	lbb.SetModelManager(man, lbb)
 
 	lbb.BackendGroupId = loadbalancerBackendgroup.Id
 	lbb.ExternalId = extLoadbalancerBackend.GetGlobalId()
@@ -533,7 +536,7 @@ func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx cont
 	lbb.CloudregionId = loadbalancerBackendgroup.CloudregionId
 	lbb.ManagerId = loadbalancerBackendgroup.ManagerId
 
-	newName, err := db.GenerateName(man, projectId, extLoadbalancerBackend.GetName())
+	newName, err := db.GenerateName(man, syncOwnerId, extLoadbalancerBackend.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -549,7 +552,7 @@ func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx cont
 		return nil, err
 	}
 
-	SyncCloudProject(userCred, lbb, projectId, extLoadbalancerBackend, loadbalancerBackendgroup.ManagerId)
+	SyncCloudProject(userCred, lbb, syncOwnerId, extLoadbalancerBackend, loadbalancerBackendgroup.ManagerId)
 
 	db.OpsLog.LogEvent(lbb, db.ACT_CREATE, lbb.GetShortDesc(ctx), userCred)
 

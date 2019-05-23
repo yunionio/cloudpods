@@ -125,10 +125,13 @@ func init() {
 			"storages",
 		),
 	}
+	StorageManager.SetVirtualObject(StorageManager)
 }
 
 type SStorage struct {
 	db.SStandaloneResourceBase
+	db.SExternalizedResourceBase
+
 	SManagedResourceBase
 
 	Capacity    int64                `nullable:"false" list:"admin" update:"admin" create:"admin_required"`                           // Column(Integer, nullable=False) # capacity of disk in MB
@@ -194,7 +197,7 @@ func (self *SStorage) Delete(ctx context.Context, userCred mcclient.TokenCredent
 	return self.SStandaloneResourceBase.Delete(ctx, userCred)
 }
 
-func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	storageType, _ := data.GetString("storage_type")
 	mediumType, _ := data.GetString("medium_type")
 
@@ -224,7 +227,7 @@ func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred
 		return nil, err
 	}
 
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
@@ -252,8 +255,8 @@ func (self *SStorage) ValidateDeleteCondition(ctx context.Context) error {
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (self *SStorage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	storageDriver := GetStorageDriver(self.StorageType)
 	if storageDriver != nil {
@@ -470,7 +473,7 @@ func (self *SStorage) GetMasterHost() *SHost {
 	q = q.IsTrue("enabled")
 	q = q.Equals("host_status", api.HOST_ONLINE).Asc("id")
 	host := SHost{}
-	host.SetModelManager(HostManager)
+	host.SetModelManager(HostManager, &host)
 	err := q.First(&host)
 	if err != nil {
 		log.Errorf("GetMasterHost fail %s", err)
@@ -609,8 +612,8 @@ func (manager *SStorageManager) scanLegacyStorages() error {
 }
 
 func (manager *SStorageManager) SyncStorages(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, storages []cloudprovider.ICloudStorage) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	localStorages := make([]SStorage, 0)
 	remoteStorages := make([]cloudprovider.ICloudStorage, 0)
@@ -719,7 +722,7 @@ func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclien
 
 func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, provider *SCloudprovider, zone *SZone) (*SStorage, error) {
 	storage := SStorage{}
-	storage.SetModelManager(manager)
+	storage.SetModelManager(manager, &storage)
 
 	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extStorage.GetName())
 	if err != nil {
@@ -803,7 +806,7 @@ func (manager *SStorageManager) disksFailedQ() *sqlchemy.SSubQuery {
 
 func (manager *SStorageManager) totalCapacityQ(
 	rangeObj db.IStandaloneModel, hostTypes []string,
-	resourceTypes []string, providers []string,
+	resourceTypes []string, providers []string, cloudEnv string,
 ) *sqlchemy.SQuery {
 	stmt := manager.disksReadyQ()
 	stmt2 := manager.disksFailedQ()
@@ -833,7 +836,7 @@ func (manager *SStorageManager) totalCapacityQ(
 		q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 		q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE))
 
-		q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, nil, rangeObj)
+		q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, nil, "", rangeObj)
 	}
 
 	if len(providers) > 0 {
@@ -841,6 +844,22 @@ func (manager *SStorageManager) totalCapacityQ(
 		subq := cloudproviders.Query(cloudproviders.Field("id"))
 		subq = subq.Filter(sqlchemy.In(cloudproviders.Field("provider"), providers))
 		q = q.Filter(sqlchemy.In(storages.Field("manager_id"), subq.SubQuery()))
+	}
+
+	if len(cloudEnv) > 0 {
+		switch cloudEnv {
+		case api.CLOUD_ENV_PUBLIC_CLOUD:
+			q = q.Filter(sqlchemy.In(storages.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
+		case api.CLOUD_ENV_PRIVATE_CLOUD:
+			q = q.Filter(sqlchemy.In(storages.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
+		case api.CLOUD_ENV_ON_PREMISE:
+			q = q.Filter(
+				sqlchemy.OR(
+					sqlchemy.In(storages.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
+					sqlchemy.IsNullOrEmpty(storages.Field("manager_id")),
+				),
+			)
+		}
 	}
 
 	return q
@@ -900,8 +919,8 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 	}
 }
 
-func (manager *SStorageManager) TotalCapacity(rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string) StoragesCapacityStat {
-	res1 := manager.calculateCapacity(manager.totalCapacityQ(rangeObj, hostTypes, resourceTypes, providers))
+func (manager *SStorageManager) TotalCapacity(rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, cloudEnv string) StoragesCapacityStat {
+	res1 := manager.calculateCapacity(manager.totalCapacityQ(rangeObj, hostTypes, resourceTypes, providers, cloudEnv))
 	return res1
 }
 
@@ -910,7 +929,7 @@ func (self *SStorage) createDisk(name string, diskConfig *api.DiskConfig, userCr
 	billingType string, billingCycle string,
 ) (*SDisk, error) {
 	disk := SDisk{}
-	disk.SetModelManager(DiskManager)
+	disk.SetModelManager(DiskManager, &disk)
 
 	disk.Name = name
 	disk.fetchDiskInfo(diskConfig)
@@ -1063,7 +1082,7 @@ func (manager *SStorageManager) InitializeData() error {
 		}
 		if len(s.StoragecacheId) == 0 && s.StorageType == api.STORAGE_RBD {
 			storagecache := &SStoragecache{}
-			storagecache.SetModelManager(StoragecacheManager)
+			storagecache.SetModelManager(StoragecacheManager, storagecache)
 			storagecache.Name = "rbd-" + s.Id
 			if pool, err := s.StorageConf.GetString("pool"); err != nil {
 				log.Fatalf("Get storage %s pool info error", s.Name)

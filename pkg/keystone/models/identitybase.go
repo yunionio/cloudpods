@@ -27,10 +27,29 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
+
+type IIdentityModelManager interface {
+	db.IStandaloneModelManager
+
+	GetIIdentityModelManager() IIdentityModelManager
+
+	IsDomainReadonly(domain *SDomain) bool
+}
+
+type IIdentityModel interface {
+	db.IStandaloneModel
+
+	GetIIdentityModelManager() IIdentityModelManager
+
+	GetIIdentityModel() IIdentityModel
+}
 
 type SIdentityBaseResourceManager struct {
 	db.SStandaloneResourceBaseManager
+	db.SDomainizedResourceBaseManager
 }
 
 func NewIdentityBaseResourceManager(dt interface{}, tableName string, keyword string, keywordPlural string) SIdentityBaseResourceManager {
@@ -41,9 +60,10 @@ func NewIdentityBaseResourceManager(dt interface{}, tableName string, keyword st
 
 type SIdentityBaseResource struct {
 	db.SStandaloneResourceBase
+	db.SDomainizedResourceBase
 
-	Extra    *jsonutils.JSONDict `nullable:"true"`
-	DomainId string              `width:"64" charset:"ascii" nullable:"false" index:"true" list:"admin" create:"admin_required"`
+	Extra *jsonutils.JSONDict `nullable:"true"`
+	// DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true" list:"user"`
 }
 
 type SEnabledIdentityBaseResourceManager struct {
@@ -62,12 +82,16 @@ type SEnabledIdentityBaseResource struct {
 	Enabled tristate.TriState `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
 }
 
-func (model *SIdentityBaseResource) IsOwner(userCred mcclient.TokenCredential) bool {
-	return userCred.GetProjectDomainId() == model.DomainId
+func (model *SIdentityBaseResource) GetIIdentityModelManager() IIdentityModelManager {
+	return model.GetModelManager().(IIdentityModelManager)
 }
 
-func (model *SIdentityBaseResource) GetOwnerProjectId() string {
-	return model.DomainId
+func (model *SIdentityBaseResource) GetIIdentityModel() IIdentityModel {
+	return model.GetVirtualObject().(IIdentityModel)
+}
+
+func (model *SIdentityBaseResource) IsOwner(userCred mcclient.TokenCredential) bool {
+	return userCred.GetProjectDomainId() == model.DomainId
 }
 
 func (model *SIdentityBaseResource) GetDomain() *SDomain {
@@ -81,9 +105,12 @@ func (model *SIdentityBaseResource) GetDomain() *SDomain {
 	return nil
 }
 
-func (manager *SIdentityBaseResourceManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
-	q = q.Equals("domain_id", owner)
-	return q
+func (manager *SIdentityBaseResourceManager) GetIIdentityModelManager() IIdentityModelManager {
+	return manager.GetVirtualObject().(IIdentityModelManager)
+}
+
+func (manager *SIdentityBaseResourceManager) IsDomainReadonly(domain *SDomain) bool {
+	return false
 }
 
 func (manager *SIdentityBaseResourceManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (db.IModel, error) {
@@ -94,56 +121,98 @@ func (manager *SIdentityBaseResourceManager) FetchByIdOrName(userCred mcclient.I
 	return db.FetchByIdOrName(manager, userCred, idStr)
 }
 
-func (manager *SIdentityBaseResourceManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
-	return userCred.GetProjectDomainId()
-}
-
 func (manager *SIdentityBaseResourceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-	if jsonutils.QueryBoolean(query, "admin", false) { // admin
-		domainStr := jsonutils.GetAnyString(query, []string{"domain", "domain_id", "project_domain", "project_domain_id"})
-		if len(domainStr) > 0 {
-			domain, err := DomainManager.FetchDomainByIdOrName(domainStr)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					return nil, httperrors.NewResourceNotFoundError2("domain", domainStr)
-				} else {
-					return nil, httperrors.NewGeneralError(err)
-				}
-			}
-			q = q.Equals("domain_id", domain.Id)
-		}
-	}
 	return q, nil
 }
 
-func (manager *SIdentityBaseResourceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	domainStr := jsonutils.GetAnyString(data, []string{"domain_id", "domain"})
-	if len(domainStr) > 0 && domainStr != api.KeystoneDomainRoot {
-		domain, err := DomainManager.FetchDomainByIdOrName(domainStr)
+func (manager *SIdentityBaseResourceManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	domainId := jsonutils.GetAnyString(data, []string{"domain", "domain_id", "project_domain", "project_domain_id"})
+	if len(domainId) > 0 {
+		domain, err := DomainManager.FetchDomainByIdOrName(domainId)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), domainStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
+				return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), domainId)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		owner := db.SOwnerId{DomainId: domain.Id, Domain: domain.Name}
+		return &owner, nil
+	}
+	return nil, nil
+}
+
+func (manager *SIdentityBaseResourceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	domain, _ := DomainManager.FetchDomainById(ownerId.GetProjectDomainId())
+	if manager.GetIIdentityModelManager().IsDomainReadonly(domain) {
+		return nil, httperrors.NewForbiddenError("domain is readonly")
+	}
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+}
+
+func (manager *SIdentityBaseResourceManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeSystem
+}
+
+func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
+	rows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
+	domainIds := stringutils2.SSortedStrings{}
+	for i := range objs {
+		idStr := objs[i].GetOwnerId().GetProjectDomainId()
+		if idStr != api.KeystoneDomainRoot {
+			domainIds = stringutils2.Append(domainIds, idStr)
+		}
+	}
+	if len(fields) == 0 || fields.Contains("domain") || fields.Contains("domain_readonly") {
+		domains := fetchDomain(domainIds)
+		if domains != nil {
+			for i := range rows {
+				idStr := objs[i].GetOwnerId().GetProjectDomainId()
+				if idStr != api.KeystoneDomainRoot {
+					if domain, ok := domains[idStr]; ok {
+						if len(fields) == 0 || fields.Contains("domain") {
+							rows[i].Add(jsonutils.NewString(domain.Name), "domain")
+						}
+						if len(fields) == 0 || fields.Contains("domain_readonly") {
+							if domain.isReadOnly() {
+								rows[i].Add(jsonutils.JSONTrue, "domain_readonly")
+							} else {
+								rows[i].Add(jsonutils.JSONFalse, "domain_readonly")
+							}
+						}
+					}
+				}
 			}
 		}
-		if domain.IsReadOnly() {
-			return nil, httperrors.NewForbiddenError("domain is readonly")
-		}
-		data.Add(jsonutils.NewString(domain.Id), "domain_id")
-	} else if len(domainStr) == 0 {
-		data.Add(jsonutils.NewString(api.DEFAULT_DOMAIN_ID), "domain_id")
 	}
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return rows
+}
+
+func fetchDomain(domainIds []string) map[string]SDomain {
+	q := DomainManager.Query().In("id", domainIds)
+	domains := make([]SDomain, 0)
+	err := db.FetchModelObjects(DomainManager, q, &domains)
+	if err != nil {
+		return nil
+	}
+	ret := make(map[string]SDomain)
+	for i := range domains {
+		ret[domains[i].Id] = domains[i]
+	}
+	return ret
+}
+
+func (model *SIdentityBaseResource) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	model.DomainId = ownerId.GetProjectDomainId()
+	return model.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SIdentityBaseResource) ValidateDeleteCondition(ctx context.Context) error {
 	domain := self.GetDomain()
-	if domain != nil && domain.IsReadOnly() {
+	if self.GetIIdentityModelManager().IsDomainReadonly(domain) {
 		return httperrors.NewForbiddenError("readonly domain")
 	}
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
@@ -152,7 +221,7 @@ func (self *SIdentityBaseResource) ValidateDeleteCondition(ctx context.Context) 
 func (self *SIdentityBaseResource) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	if data.Contains("name") {
 		domain := self.GetDomain()
-		if domain != nil && domain.IsReadOnly() {
+		if self.GetIIdentityModelManager().IsDomainReadonly(domain) {
 			return nil, httperrors.NewForbiddenError("cannot update name in readonly domain")
 		}
 	}

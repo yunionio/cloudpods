@@ -33,6 +33,7 @@ func init() {
 			"implied_roles",
 		),
 	}
+	ImpliedRoleManager.SetVirtualObject(ImpliedRoleManager)
 }
 
 /*

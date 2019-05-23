@@ -1,7 +1,7 @@
 # rbac for project owner, not allow for delete
 roles:
   - project_owner
-is_admin: false
+scope: project
 policy:
   *:
     *:

@@ -187,8 +187,9 @@ func init() {
 
 	UsersV3 = UserManagerV3{NewIdentityV3Manager("user", "users",
 		[]string{},
-		[]string{"ID", "Name", "Domain_Id", "default_project_id",
-			"Enabled", "Email", "Mobile", "Displayname"})}
+		[]string{"ID", "Name", "Domain_Id", "Domain", "domain_readonly",
+			"Enabled", "Email", "Mobile", "Displayname",
+			"is_system_account", "allow_web_console", "enable_mfa"})}
 
 	register(&UsersV3)
 }

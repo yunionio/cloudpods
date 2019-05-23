@@ -48,10 +48,13 @@ func init() {
 			"loadbalancerlistenerrules",
 		),
 	}
+	LoadbalancerListenerRuleManager.SetVirtualObject(LoadbalancerListenerRuleManager)
 }
 
 type SLoadbalancerListenerRule struct {
 	db.SVirtualResourceBase
+	db.SExternalizedResourceBase
+
 	SManagedResourceBase
 	SCloudregionResourceBase
 
@@ -92,11 +95,11 @@ func (man *SLoadbalancerListenerRuleManager) ListItemFilter(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	userProjId := userCred.GetProjectId()
+	// userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "listener", ModelKeyword: "loadbalancerlistener", ProjectId: userProjId},
-		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", ProjectId: userProjId},
+		{Key: "listener", ModelKeyword: "loadbalancerlistener", OwnerId: userCred},
+		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", OwnerId: userCred},
 	})
 	if err != nil {
 		return nil, err
@@ -104,9 +107,9 @@ func (man *SLoadbalancerListenerRuleManager) ListItemFilter(ctx context.Context,
 	return q, nil
 }
 
-func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerProjId)
-	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerProjId)
+func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerId)
+	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
 	domainV := validators.NewDomainNameValidator("domain")
 	pathV := validators.NewURLPathValidator("path")
 	keyV := map[string]validators.IValidator{
@@ -153,7 +156,7 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	if err != nil {
 		return nil, err
 	}
-	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
 		return nil, err
 	}
 	region := listener.GetRegion()
@@ -164,8 +167,8 @@ func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Cont
 	return region.GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, data, backendGroupV.Model)
 }
 
-func (lbr *SLoadbalancerListenerRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	lbr.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (lbr *SLoadbalancerListenerRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	lbr.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	lbr.SetStatus(userCred, api.LB_CREATING, "")
 	if err := lbr.StartLoadBalancerListenerRuleCreateTask(ctx, userCred, ""); err != nil {
@@ -211,7 +214,7 @@ func (lbr *SLoadbalancerListenerRule) AllowPerformStatus(ctx context.Context, us
 }
 
 func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", lbr.GetOwnerProjectId())
+	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", lbr.GetOwnerId())
 	keyV := map[string]validators.IValidator{
 		"backend_group":             backendGroupV,
 		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate"),
@@ -305,10 +308,10 @@ func (man *SLoadbalancerListenerRuleManager) getLoadbalancerListenerRulesByListe
 }
 
 func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, listener *SLoadbalancerListener, rules []cloudprovider.ICloudLoadbalancerListenerRule, syncRange *SSyncRange) compare.SyncResult {
-	syncOwnerId := provider.ProjectId
+	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockClass(ctx, man, syncOwnerId)
-	defer lockman.ReleaseClass(ctx, man, syncOwnerId)
+	lockman.LockClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
+	defer lockman.ReleaseClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
 
 	syncResult := compare.SyncResult{}
 
@@ -338,7 +341,7 @@ func (man *SLoadbalancerListenerRuleManager) SyncLoadbalancerListenerRules(ctx c
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerListenerRule(ctx, userCred, commonext[i], provider.ProjectId)
+		err = commondb[i].SyncWithCloudLoadbalancerListenerRule(ctx, userCred, commonext[i], syncOwnerId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -369,29 +372,29 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 			ilbbg, err := LoadbalancerBackendGroupManager.FetchById(lbr.BackendGroupId)
 			lbbg := ilbbg.(*SLoadbalancerBackendGroup)
 			if err == nil && (len(lbbg.ExternalId) == 0 || lbbg.ExternalId != groupId) {
-				err = lbbg.SetExternalId(userCred, groupId)
+				err = db.SetExternalId(lbbg, userCred, groupId)
 				if err != nil {
 					log.Errorf("Update loadbalancer BackendGroup(%s) external id failed: %s", lbbg.GetId(), err)
 				}
 			}
 		}
 
-		if backendgroup, err := LoadbalancerBackendGroupManager.FetchByExternalId(groupId); err == nil {
+		if backendgroup, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
 			lbr.BackendGroupId = backendgroup.GetId()
 		}
 	}
 }
 
-func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, listener *SLoadbalancerListener, extRule cloudprovider.ICloudLoadbalancerListenerRule, projectId string) (*SLoadbalancerListenerRule, error) {
+func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, listener *SLoadbalancerListener, extRule cloudprovider.ICloudLoadbalancerListenerRule, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerListenerRule, error) {
 	lbr := &SLoadbalancerListenerRule{}
-	lbr.SetModelManager(man)
+	lbr.SetModelManager(man, lbr)
 
 	lbr.ExternalId = extRule.GetGlobalId()
 	lbr.ListenerId = listener.Id
 	lbr.ManagerId = listener.ManagerId
 	lbr.CloudregionId = listener.CloudregionId
 
-	newName, err := db.GenerateName(man, projectId, extRule.GetName())
+	newName, err := db.GenerateName(man, syncOwnerId, extRule.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +408,7 @@ func (man *SLoadbalancerListenerRuleManager) newFromCloudLoadbalancerListenerRul
 		return nil, err
 	}
 
-	SyncCloudProject(userCred, lbr, projectId, extRule, listener.ManagerId)
+	SyncCloudProject(userCred, lbr, syncOwnerId, extRule, listener.ManagerId)
 
 	db.OpsLog.LogEvent(lbr, db.ACT_CREATE, lbr.GetShortDesc(ctx), userCred)
 
@@ -425,7 +428,7 @@ func (lbr *SLoadbalancerListenerRule) syncRemoveCloudLoadbalancerListenerRule(ct
 	return err
 }
 
-func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, extRule cloudprovider.ICloudLoadbalancerListenerRule, projectId string) error {
+func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, extRule cloudprovider.ICloudLoadbalancerListenerRule, syncOwnerId mcclient.IIdentityProvider) error {
 	listener := lbr.GetLoadbalancerListener()
 	diff, err := db.UpdateWithLock(ctx, lbr, func() error {
 		lbr.constructFieldsFromCloudListenerRule(userCred, extRule)
@@ -438,7 +441,7 @@ func (lbr *SLoadbalancerListenerRule) SyncWithCloudLoadbalancerListenerRule(ctx 
 	}
 	db.OpsLog.LogSyncUpdate(lbr, diff, userCred)
 
-	SyncCloudProject(userCred, lbr, projectId, extRule, listener.ManagerId)
+	SyncCloudProject(userCred, lbr, syncOwnerId, extRule, listener.ManagerId)
 
 	return nil
 }

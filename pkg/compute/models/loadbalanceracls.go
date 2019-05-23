@@ -115,10 +115,13 @@ func init() {
 			"loadbalanceracls",
 		),
 	}
+	LoadbalancerAclManager.SetVirtualObject(LoadbalancerAclManager)
 }
 
 type SLoadbalancerAcl struct {
 	db.SSharableVirtualResourceBase
+	db.SExternalizedResourceBase
+
 	SManagedResourceBase
 	SCloudregionResourceBase
 
@@ -155,22 +158,22 @@ func (man *SLoadbalancerAclManager) ListItemFilter(ctx context.Context, q *sqlch
 	return q, nil
 }
 
-func (man *SLoadbalancerAclManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (man *SLoadbalancerAclManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	data, err := loadbalancerAclsValidateAclEntries(data, false)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
 		return nil, err
 	}
 
-	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", "")
+	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerId)
 	managerIdV.Optional(true)
 	if err := managerIdV.Validate(data); err != nil {
 		return nil, err
 	}
 
-	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerProjId)
+	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerId)
 	regionV.Default("default")
 	if err := regionV.Validate(data); err != nil {
 		return nil, err
@@ -206,8 +209,8 @@ func (lbacl *SLoadbalancerAcl) StartLoadBalancerAclSyncTask(ctx context.Context,
 	return nil
 }
 
-func (lbacl *SLoadbalancerAcl) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	lbacl.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (lbacl *SLoadbalancerAcl) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	lbacl.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	lbacl.SetStatus(userCred, api.LB_CREATING, "")
 	if err := lbacl.StartLoadBalancerAclCreateTask(ctx, userCred, ""); err != nil {
@@ -381,10 +384,10 @@ func (man *SLoadbalancerAclManager) getLoadbalancerAclsByRegion(region *SCloudre
 }
 
 func (man *SLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, acls []cloudprovider.ICloudLoadbalancerAcl, syncRange *SSyncRange) compare.SyncResult {
-	ownerProjId := provider.ProjectId
+	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockClass(ctx, man, ownerProjId)
-	defer lockman.ReleaseClass(ctx, man, ownerProjId)
+	lockman.LockClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
+	defer lockman.ReleaseClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
 
 	syncResult := compare.SyncResult{}
 
@@ -414,7 +417,7 @@ func (man *SLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, us
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerAcl(ctx, userCred, commonext[i], provider.ProjectId)
+		err = commondb[i].SyncWithCloudLoadbalancerAcl(ctx, userCred, commonext[i], syncOwnerId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -423,7 +426,7 @@ func (man *SLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, us
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		local, err := man.newFromCloudLoadbalancerAcl(ctx, userCred, provider, added[i], region, ownerProjId)
+		local, err := man.newFromCloudLoadbalancerAcl(ctx, userCred, provider, added[i], region, syncOwnerId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -447,11 +450,11 @@ func (self *SLoadbalancerAcl) syncRemoveCloudLoadbalanceAcl(ctx context.Context,
 	return err
 }
 
-func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extAcl cloudprovider.ICloudLoadbalancerAcl, region *SCloudregion, projectId string) (*SLoadbalancerAcl, error) {
+func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extAcl cloudprovider.ICloudLoadbalancerAcl, region *SCloudregion, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerAcl, error) {
 	acl := SLoadbalancerAcl{}
-	acl.SetModelManager(man)
+	acl.SetModelManager(man, &acl)
 
-	newName, err := db.GenerateName(man, projectId, extAcl.GetName())
+	newName, err := db.GenerateName(man, syncOwnerId, extAcl.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -470,14 +473,14 @@ func (man *SLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx context.Cont
 		return nil, err
 	}
 
-	SyncCloudProject(userCred, &acl, projectId, extAcl, acl.ManagerId)
+	SyncCloudProject(userCred, &acl, syncOwnerId, extAcl, acl.ManagerId)
 
 	db.OpsLog.LogEvent(&acl, db.ACT_CREATE, acl.GetShortDesc(ctx), userCred)
 
 	return &acl, nil
 }
 
-func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, projectId string) error {
+func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, userCred mcclient.TokenCredential, extAcl cloudprovider.ICloudLoadbalancerAcl, syncOwnerId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, acl, func() error {
 		acl.Name = extAcl.GetName()
 		acl.AclEntries = &SLoadbalancerAclEntries{}
@@ -491,7 +494,7 @@ func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, u
 	}
 	db.OpsLog.LogSyncUpdate(acl, diff, userCred)
 
-	SyncCloudProject(userCred, acl, projectId, extAcl, acl.ManagerId)
+	SyncCloudProject(userCred, acl, syncOwnerId, extAcl, acl.ManagerId)
 
 	return nil
 }

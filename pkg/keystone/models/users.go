@@ -32,6 +32,8 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -50,6 +52,7 @@ func init() {
 			"users",
 		),
 	}
+	UserManager.SetVirtualObject(UserManager)
 }
 
 /*
@@ -74,8 +77,17 @@ type SUser struct {
 
 	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
 
-	LastActiveAt     time.Time `nullable:"true" list:"admin"`
-	DefaultProjectId string    `width:"64" charset:"ascii" index:"true" list:"admin" update:"admin" create:"admin_optional"`
+	LastActiveAt time.Time `nullable:"true" list:"admin"`
+
+	LastLoginIp     string `nullable:"true" list:"admin"`
+	LastLoginSource string `nullable:"true" list:"admin"`
+
+	IsSystemAccount tristate.TriState `nullable:"false" default:"false" list:"admin" update:"admin" create:"admin_optional"`
+
+	DefaultProjectId string `width:"64" charset:"ascii" nullable:"true"`
+
+	AllowWebConsole tristate.TriState `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
+	EnableMfa       tristate.TriState `nullable:"false" default:"false" list:"admin" update:"admin" create:"admin_optional"`
 }
 
 func (manager *SUserManager) GetContextManagers() [][]db.IModelManager {
@@ -86,39 +98,75 @@ func (manager *SUserManager) GetContextManagers() [][]db.IModelManager {
 }
 
 func (manager *SUserManager) InitializeData() error {
-	q := manager.Query()
-	q = q.IsNullOrEmpty("name")
+	q := manager.Query().IsNullOrEmpty("name")
 	users := make([]SUser, 0)
 	err := db.FetchModelObjects(manager, q, &users)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "FetchModelObjects")
 	}
 	for i := range users {
 		extUser, err := manager.FetchUserExtended(users[i].Id, "", "", "")
 		if err != nil {
-			return err
+			return errors.Wrap(err, "FetchUserExtended")
 		}
 		name := extUser.Name
 		desc, _ := users[i].Extra.GetString("description")
 		email, _ := users[i].Extra.GetString("email")
 		mobile, _ := users[i].Extra.GetString("mobile")
-		db.Update(&users[i], func() error {
+		dispName, _ := users[i].Extra.GetString("displayname")
+		_, err = db.Update(&users[i], func() error {
 			users[i].Name = name
-			users[i].Email = email
-			users[i].Mobile = mobile
-			users[i].Description = desc
+			if len(email) > 0 {
+				users[i].Email = email
+			}
+			if len(mobile) > 0 {
+				users[i].Mobile = mobile
+			}
+			if len(dispName) > 0 {
+				users[i].Displayname = dispName
+			}
+			if len(desc) > 0 {
+				users[i].Description = desc
+			}
 			return nil
 		})
+		if err != nil {
+			return errors.Wrap(err, "update")
+		}
+	}
+	err = manager.initSystemAccount()
+	if err != nil {
+		return errors.Wrap(err, "initSystemAccount")
 	}
 	return manager.initSysUser()
 }
 
+func (manager *SUserManager) initSystemAccount() error {
+	q := manager.Query().IsNotEmpty("default_project_id")
+	users := make([]SUser, 0)
+	err := db.FetchModelObjects(manager, q, &users)
+	if err != nil {
+		return errors.Wrap(err, "FetchModelObjects")
+	}
+	for i := range users {
+		_, err = db.Update(&users[i], func() error {
+			users[i].IsSystemAccount = tristate.True
+			users[i].DefaultProjectId = ""
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "update")
+		}
+	}
+	return nil
+}
+
 func (manager *SUserManager) initSysUser() error {
-	q := manager.Query().Equals("name", options.Options.AdminUserName)
-	q = q.Equals("domain_id", options.Options.AdminUserDomainId)
+	q := manager.Query().Equals("name", api.SystemAdminUser)
+	q = q.Equals("domain_id", api.DEFAULT_DOMAIN_ID)
 	cnt, err := q.CountWithError()
 	if err != nil {
-		return errors.WithMessage(err, "query")
+		return errors.Wrap(err, "query")
 	}
 	if cnt == 1 {
 		return nil
@@ -129,19 +177,19 @@ func (manager *SUserManager) initSysUser() error {
 	}
 	// insert
 	usr := SUser{}
-	usr.Name = options.Options.AdminUserName
-	usr.DomainId = options.Options.AdminUserDomainId
+	usr.Name = api.SystemAdminUser
+	usr.DomainId = api.DEFAULT_DOMAIN_ID
 	usr.Enabled = tristate.True
 	usr.Description = "Boostrap system default admin user"
-	usr.SetModelManager(manager)
+	usr.SetModelManager(manager, &usr)
 
 	err = manager.TableSpec().Insert(&usr)
 	if err != nil {
-		return errors.WithMessage(err, "insert")
+		return errors.Wrap(err, "insert")
 	}
 	err = usr.initLocalData(options.Options.BootstrapAdminUserPassword)
 	if err != nil {
-		return errors.WithMessage(err, "initLocalData")
+		return errors.Wrap(err, "initLocalData")
 	}
 	return nil
 }
@@ -173,7 +221,7 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 	localUsers := LocalUserManager.Query().SubQuery()
 	nonlocalUsers := NonlocalUserManager.Query().SubQuery()
 	users := UserManager.Query().SubQuery()
-	domains := ProjectManager.Query().SubQuery()
+	domains := DomainManager.Query().SubQuery()
 
 	q := users.Query(
 		users.Field("id"),
@@ -187,10 +235,7 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 		nonlocalUsers.Field("name", "nonlocal_name"),
 		domains.Field("name", "domain_name"),
 	)
-	q = q.Join(domains, sqlchemy.AND(
-		sqlchemy.IsTrue(domains.Field("is_domain")),
-		sqlchemy.Equals(users.Field("domain_id"), domains.Field("id")),
-	))
+	q = q.Join(domains, sqlchemy.Equals(users.Field("domain_id"), domains.Field("id")))
 	q = q.LeftJoin(localUsers, sqlchemy.Equals(localUsers.Field("user_id"), users.Field("id")))
 	q = q.LeftJoin(nonlocalUsers, sqlchemy.Equals(nonlocalUsers.Field("user_id"), users.Field("id")))
 
@@ -286,6 +331,10 @@ func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", subq.SubQuery())
 	}
 
+	if !(jsonutils.QueryBoolean(query, "admin", false) && jsonutils.QueryBoolean(query, "system", false)) {
+		q = q.IsFalse("is_system_account")
+	}
+
 	return q, nil
 }
 
@@ -298,16 +347,16 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	return user.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (manager *SUserManager) fetchUserById(uid string) *SUser {
-	obj, _ := manager.FetchById(uid)
-	if obj != nil {
-		return obj.(*SUser)
+func (manager *SUserManager) fetchUserById(uid string) (*SUser, error) {
+	obj, err := manager.FetchById(uid)
+	if err != nil {
+		return nil, errors.Wrap(err, "manager.FetchById")
 	}
-	return nil
+	return obj.(*SUser), nil
 }
 
 func (user *SUser) IsAdminUser() bool {
-	return user.Name == options.Options.AdminUserName && user.DomainId == options.Options.AdminUserDomainId
+	return user.Name == api.SystemAdminUser && user.DomainId == api.DEFAULT_DOMAIN_ID
 }
 
 func (user *SUser) GetGroupCount() (int, error) {
@@ -339,10 +388,6 @@ func (user *SUser) GetExtraDetails(ctx context.Context, userCred mcclient.TokenC
 }
 
 func userExtra(user *SUser, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	domain := user.GetDomain()
-	if domain != nil {
-		extra.Add(jsonutils.NewString(domain.Name), "domain")
-	}
 	grpCnt, _ := user.GetGroupCount()
 	extra.Add(jsonutils.NewInt(int64(grpCnt)), "group_count")
 	prjCnt, _ := user.GetProjectCount()
@@ -355,19 +400,19 @@ func userExtra(user *SUser, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 func (user *SUser) initLocalData(passwd string) error {
 	localUsr, err := LocalUserManager.register(user.Id, user.DomainId, user.Name)
 	if err != nil {
-		return errors.WithMessage(err, "register localuser")
+		return errors.Wrap(err, "register localuser")
 	}
 	if len(passwd) > 0 {
 		err = PasswordManager.savePassword(localUsr.Id, passwd)
 		if err != nil {
-			return errors.WithMessage(err, "save password")
+			return errors.Wrap(err, "save password")
 		}
 	}
 	return nil
 }
 
-func (user *SUser) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	user.SEnabledIdentityBaseResource.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (user *SUser) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	user.SEnabledIdentityBaseResource.PostCreate(ctx, userCred, ownerId, query, data)
 
 	passwd, _ := data.GetString("password")
 	err := user.initLocalData(passwd)
@@ -427,7 +472,7 @@ func (user *SUser) PostDelete(ctx context.Context, userCred mcclient.TokenCreden
 }
 
 func (user *SUser) UpdateInContext(ctx context.Context, userCred mcclient.TokenCredential, ctxObjs []db.IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if user.GetDomain().IsReadOnly() {
+	if user.GetDomain().isReadOnly() {
 		return nil, httperrors.NewForbiddenError("readonly domain")
 	}
 	if len(ctxObjs) != 1 {
@@ -444,7 +489,7 @@ func (user *SUser) UpdateInContext(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (user *SUser) DeleteInContext(ctx context.Context, userCred mcclient.TokenCredential, ctxObjs []db.IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if user.GetDomain().IsReadOnly() {
+	if user.GetDomain().isReadOnly() {
 		return nil, httperrors.NewForbiddenError("readonly domain")
 	}
 	if len(ctxObjs) != 1 {
@@ -455,4 +500,76 @@ func (user *SUser) DeleteInContext(ctx context.Context, userCred mcclient.TokenC
 		return nil, httperrors.NewInputParameterError("not supported update context %s", ctxObjs[0].Keyword())
 	}
 	return nil, UsergroupManager.remove(ctx, userCred, user, group)
+}
+
+func (manager *SUserManager) TraceLoginV2(ctx context.Context, token *mcclient.TokenCredentialV2) {
+	s := tokenV2LoginSession(token)
+	manager.traceLoginEvent(ctx, token, s, token.Context)
+}
+
+func (manager *SUserManager) TraceLoginV3(ctx context.Context, token *mcclient.TokenCredentialV3) {
+	s := tokenV3LoginSession(token)
+	manager.traceLoginEvent(ctx, token, s, token.Token.Context)
+}
+
+func (manager *SUserManager) traceLoginEvent(ctx context.Context, token mcclient.TokenCredential, s sLoginSession, authCtx mcclient.SAuthContext) {
+	usr, err := manager.fetchUserById(token.GetUserId())
+	if err != nil {
+		// very unlikely
+		log.Errorf("fetchUserById fail %s", err)
+		return
+	}
+	db.Update(usr, func() error {
+		usr.LastActiveAt = time.Now().UTC()
+		usr.LastLoginIp = authCtx.Ip
+		usr.LastLoginSource = authCtx.Source
+		return nil
+	})
+	db.OpsLog.LogEvent(usr, "auth", &s, token)
+	logclient.AddActionLogWithContext(ctx, usr, logclient.ACT_AUTHENTICATE, &s, token, true)
+}
+
+type sLoginSession struct {
+	Version         string
+	Source          string
+	Ip              string
+	Project         string
+	ProjectId       string
+	ProjectDomain   string
+	ProjectDomainId string
+	Token           string
+}
+
+func tokenV2LoginSession(token *mcclient.TokenCredentialV2) sLoginSession {
+	s := sLoginSession{}
+	s.Version = "v2"
+	s.Source = token.Context.Source
+	s.Ip = token.Context.Ip
+	s.Project = token.Token.Tenant.Name
+	s.ProjectId = token.Token.Tenant.Id
+	s.ProjectDomain = token.Token.Tenant.Domain.Name
+	s.ProjectDomainId = token.Token.Tenant.Domain.Id
+	s.Token = token.Token.Id
+	return s
+}
+
+func tokenV3LoginSession(token *mcclient.TokenCredentialV3) sLoginSession {
+	s := sLoginSession{}
+	s.Version = "v3"
+	s.Source = token.Token.Context.Source
+	s.Ip = token.Token.Context.Ip
+	s.Project = token.Token.Project.Name
+	s.ProjectId = token.Token.Project.Id
+	s.ProjectDomain = token.Token.Project.Domain.Name
+	s.ProjectDomainId = token.Token.Project.Domain.Id
+	s.Token = token.Id
+	return s
+}
+
+func (manager *SUserManager) IsDomainReadonly(domain *SDomain) bool {
+	return domain.isReadOnly()
+}
+
+func (manager *SUserManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeDomain
 }

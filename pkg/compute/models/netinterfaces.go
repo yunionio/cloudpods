@@ -55,6 +55,7 @@ func init() {
 			"netinterfaces",
 		),
 	}
+	NetInterfaceManager.SetVirtualObject(NetInterfaceManager)
 }
 
 func (netif *SNetInterface) GetId() string {
@@ -95,7 +96,7 @@ func (netif *SNetInterface) GetBaremetal() *SHost {
 
 func (netif *SNetInterface) GetBaremetalNetwork() *SHostnetwork {
 	bn := SHostnetwork{}
-	bn.SetModelManager(HostnetworkManager)
+	bn.SetModelManager(HostnetworkManager, &bn)
 
 	q := HostnetworkManager.Query()
 	q = q.Equals("baremetal_id", netif.BaremetalId).Equals("mac_addr", netif.Mac)

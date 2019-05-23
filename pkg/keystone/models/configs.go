@@ -45,6 +45,7 @@ func init() {
 			"sensitive_configs",
 		),
 	}
+	SensitiveConfigManager.SetVirtualObject(SensitiveConfigManager)
 	WhitelistedConfigManager = &SConfigOptionManager{
 		SResourceBaseManager: db.NewResourceBaseManager(
 			SConfigOption{},
@@ -53,6 +54,7 @@ func init() {
 			"whitelisted_configs",
 		),
 	}
+	WhitelistedConfigManager.SetVirtualObject(WhitelistedConfigManager)
 }
 
 /*
@@ -87,7 +89,7 @@ func (manager *SConfigOptionManager) fetchConfigs(domainId string, groups []stri
 	opts := make(TConfigOptions, 0)
 	err := db.FetchModelObjects(manager, q, &opts)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, err
+		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
 	sort.Sort(opts)
 	return opts, nil
@@ -112,7 +114,7 @@ func (manager *SConfigOptionManager) deleteConfig(ctx context.Context, userCred 
 func (manager *SConfigOptionManager) syncConfig(ctx context.Context, userCred mcclient.TokenCredential, domainId string, newOpts TConfigOptions) error {
 	oldOpts, err := manager.fetchConfigs(domainId, nil, nil)
 	if err != nil {
-		return errors.WithMessage(err, "fetchOldConfigs")
+		return errors.Wrap(err, "fetchOldConfigs")
 	}
 	deleted, updated1, updated2, added := compareConfigOptions(oldOpts, newOpts)
 	for i := range deleted {
@@ -120,7 +122,7 @@ func (manager *SConfigOptionManager) syncConfig(ctx context.Context, userCred mc
 			return deleted[i].MarkDelete()
 		})
 		if err != nil {
-			return errors.WithMessage(err, "Delete")
+			return errors.Wrap(err, "Delete")
 		}
 	}
 	for i := range updated1 {
@@ -129,13 +131,13 @@ func (manager *SConfigOptionManager) syncConfig(ctx context.Context, userCred mc
 			return nil
 		})
 		if err != nil {
-			return errors.WithMessage(err, "Update")
+			return errors.Wrap(err, "Update")
 		}
 	}
 	for i := range added {
 		err = manager.TableSpec().InsertOrUpdate(&added[i])
 		if err != nil {
-			return errors.WithMessage(err, "Insert")
+			return errors.Wrap(err, "Insert")
 		}
 	}
 	return nil
