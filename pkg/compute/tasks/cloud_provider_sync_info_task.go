@@ -137,6 +137,8 @@ func syncPublicCloudProviderInfo(ctx context.Context, provider *models.SCloudpro
 	externalIdPrefix := provider.Provider
 	if externalIdPrefix == models.CLOUD_PROVIDER_HUAWEI {
 		externalIdPrefix = externalIdPrefix + "/" + strings.Split(provider.Name, "_")[0]
+	} else if externalIdPrefix == models.CLOUD_PROVIDER_OPENSTACK {
+		externalIdPrefix = fmt.Sprintf("%s/%s/", externalIdPrefix, provider.Id)
 	}
 
 	localRegions, remoteRegions, result := models.CloudregionManager.SyncRegions(ctx, task.UserCred, externalIdPrefix, regions)
