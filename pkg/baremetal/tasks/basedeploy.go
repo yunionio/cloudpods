@@ -17,6 +17,8 @@ package tasks
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
@@ -64,25 +66,25 @@ func (self *SBaremetalServerBaseDeployTask) OnPXEBoot(ctx context.Context, term 
 	log.Infof("%s called on stage pxeboot, args: %v", self.GetName(), args)
 	result, err := self.serverDeployTask.DoDeploys(term)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Do deploy")
 	}
 	_, err = term.Run(
 		"/bin/sync",
 		"/sbin/sysctl -w vm.drop_caches=3",
 	)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Sync disk")
 	}
 	onFinishAction := self.GetFinishAction()
 	if utils.IsInStringArray(onFinishAction, []string{"restart", "shutdown"}) {
 		err = self.EnsurePowerShutdown(false)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "Ensure power off")
 		}
 		if onFinishAction == "restart" {
 			err = self.EnsurePowerUp()
 			if err != nil {
-				return err
+				return errors.Wrap(err, "Ensure power up")
 			}
 		}
 	}

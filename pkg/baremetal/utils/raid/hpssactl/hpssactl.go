@@ -20,7 +20,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
@@ -39,6 +42,11 @@ type HPSARaidPhyDev struct {
 func newHPSARaidPhyDev(addr string, adapter int, rotate bool) *HPSARaidPhyDev {
 	b := raid.NewRaidBasePhyDev(baremetal.DISK_DRIVER_HPSARAID)
 	b.Adapter = adapter
+	if rotate {
+		b.Rotate = tristate.True
+	} else {
+		b.Rotate = tristate.False
+	}
 	return &HPSARaidPhyDev{
 		RaidBasePhyDev: b,
 		addr:           addr,
@@ -133,16 +141,20 @@ func (adapter *HPSARaidAdaptor) ParsePhyDevs() error {
 		adapter.parsePhyDevs(ret, isRotate)
 		return nil
 	}
-	cmd1 := GetCommand("controller", "slot=%d", fmt.Sprintf("%d", adapter.index), "ssdphysicaldrive", "all", "show", "detail")
-	cmd2 := GetCommand("controller", "slot=%d", fmt.Sprintf("%d", adapter.index), "physicaldrive", "all", "show", "detail")
-	var err error
-	if err = parseByCmd(cmd1, false); err != nil {
-		log.Errorf("parsePhyDevs by cmd %q: %v", cmd1, err)
+	cmd1 := GetCommand("controller", fmt.Sprintf("slot=%d", adapter.index), "ssdphysicaldrive", "all", "show", "detail")
+	cmd2 := GetCommand("controller", fmt.Sprintf("slot=%d", adapter.index), "physicaldrive", "all", "show", "detail")
+	var err1 error
+	var err2 error
+	if err1 = parseByCmd(cmd1, false); err1 != nil {
+		err1 = errors.Errorf("parsePhyDevs by cmd %q: %v", cmd1, err1)
 	}
-	if err = parseByCmd(cmd2, true); err != nil {
-		log.Errorf("parsePhyDevs by cmd %q: %v", cmd1, err)
+	if err2 = parseByCmd(cmd2, true); err2 != nil {
+		err2 = errors.Errorf("parsePhyDevs by cmd %q: %v", cmd1, err2)
 	}
-	return err
+	if err1 != nil && err2 != nil {
+		return errors.Errorf("ssd: %v, hdd: %v", err1, err2)
+	}
+	return nil
 }
 
 func (adapter *HPSARaidAdaptor) parsePhyDevs(lines []string, isRotate bool) {
@@ -153,7 +165,7 @@ func (adapter *HPSARaidAdaptor) parsePhyDevs(lines []string, isRotate bool) {
 			phydev = newHPSARaidPhyDev(m["addr"], adapter.index, isRotate)
 		} else if phydev != nil && phydev.parseLine(line) && phydev.isComplete() {
 			oldDev := adapter.getPhyDevByAddr(phydev.addr)
-			if oldDev != nil {
+			if oldDev == nil {
 				adapter.devs = append(adapter.devs, phydev)
 			}
 			phydev = nil
@@ -263,7 +275,7 @@ func (adapter *HPSARaidAdaptor) BuildRaid5(devs []*baremetal.BaremetalStorage, c
 }
 
 func (adapter *HPSARaidAdaptor) BuildRaid10(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig) error {
-	return adapter.buildRaid("10", devs, conf)
+	return adapter.buildRaid("1+0", devs, conf)
 }
 
 func (adapter *HPSARaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage) error {
@@ -315,7 +327,7 @@ func (adapter *HPSARaidAdaptor) RemoveLogicVolumes() error {
 	if err != nil {
 		return fmt.Errorf("Failed to get logic volumes: %v", err)
 	}
-	for i := len(lvs) - 1; i >= 0; i-- {
+	for _, i := range raid.ReverseIntArray(lvs) {
 		if err := adapter.removeLogicVolume(i); err != nil {
 			return fmt.Errorf("Remove %d logical volume: %v", i, err)
 		}

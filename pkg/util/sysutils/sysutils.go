@@ -233,10 +233,25 @@ func ParseSCSIDiskInfo(lines []string) []*types.SDiskInfo {
 	return ParseDiskInfo(lines, baremetal.DISK_DRIVER_LINUX)
 }
 
+func GetSecureTTYs(lines []string) []string {
+	ttys := []string{}
+	for _, l := range lines {
+		if len(l) == 0 {
+			continue
+		}
+		if strings.HasPrefix(l, "#") {
+			continue
+		}
+		ttys = append(ttys, l)
+	}
+	return ttys
+}
+
 func GetSerialPorts(lines []string) []string {
+	// http://wiki.networksecuritytoolkit.org/index.php/Console_Output_and_Serial_Terminals
 	ret := []string{}
 	for _, l := range lines {
-		if strings.Contains(l, "CTS") {
+		if strings.Contains(l, "CTS") || strings.Contains(l, "RTS") {
 			pos := strings.Index(l, ":")
 			if pos < 0 {
 				continue

@@ -25,9 +25,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/errors"
+	yerrors "yunion.io/x/pkg/util/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/util/sets"
@@ -120,7 +122,7 @@ func (m *SBaremetalManager) loadConfigs() error {
 			errs = append(errs, <-errsChannel)
 		}
 	}
-	return errors.NewAggregate(errs)
+	return yerrors.NewAggregate(errs)
 }
 
 func (m *SBaremetalManager) initBaremetal(session *mcclient.ClientSession, bmId string) error {
@@ -1016,6 +1018,7 @@ func (b *SBaremetalInstance) StartNewTask(factory tasks.TaskFactory, taskId stri
 	go func() {
 		task, err := factory(b, taskId, data)
 		if err != nil {
+			log.Errorf("New task %#v error: %v", factory, err)
 			tasks.SetTaskFail(task, err)
 			return
 		}
@@ -1328,40 +1331,40 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 	storages = append(storages, pcie...)
 	confs, err := s.GetDiskConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "do disk config")
 	}
 	layouts, err := baremetal.CalculateLayout(confs, storages)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "CalculateLayout")
 	}
 
 	tool := disktool.NewSSHPartitionTool(term)
 	tool.FetchDiskConfs(baremetal.GetDiskConfigurations(layouts))
 	err = tool.RetrieveDiskInfo()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "RetrieveDiskInfo")
 	}
 
 	disks, _ := s.desc.GetArray("disks")
 	if len(disks) == 0 {
-		return nil, fmt.Errorf("Empty disks in desc")
+		return nil, errors.New("Empty disks in desc")
 	}
 
 	rootDisk := disks[0]
 	rootSize, _ := rootDisk.Int("size")
 	err = s.doCreateRoot(term, tool.GetRootDisk().GetDevName())
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create root: %v", err)
+		return nil, errors.Wrapf(err, "Failed to create root")
 	}
 
 	tool.RetrievePartitionInfo()
 	parts := tool.GetPartitions()
 	if len(parts) == 0 {
-		return nil, fmt.Errorf("Root disk create failed, no partitions")
+		return nil, errors.New("Root disk create failed, no partitions")
 	}
 	log.Infof("Resize root to %d MB", rootSize)
 	if err := tool.ResizePartition(0, rootSize); err != nil {
-		return nil, fmt.Errorf("Fail to resize root to %d, err: %v", rootSize, err)
+		return nil, errors.Wrapf(err, "Fail to resize root to %d", rootSize)
 	}
 	if len(disks) > 1 {
 		for _, disk := range disks[1:] {
@@ -1374,7 +1377,7 @@ func (s *SBaremetalServer) DoPartitionDisk(term *ssh.Client) ([]*disktool.Partit
 			driver, _ := disk.GetString("driver")
 			log.Infof("Create partition %d %s", sz, fs)
 			if err := tool.CreatePartition(-1, sz, fs, true, driver, uuid); err != nil {
-				return nil, fmt.Errorf("Fail to create disk %s: %v", disk.String(), err)
+				return nil, errors.Wrapf(err, "Fail to create disk %s", disk.String())
 			}
 		}
 	}
