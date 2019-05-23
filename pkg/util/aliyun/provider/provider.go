@@ -27,6 +27,7 @@ import (
 )
 
 type SAliyunProviderFactory struct {
+	cloudprovider.SPublicCloudBaseProviderFactor
 }
 
 func (self *SAliyunProviderFactory) GetId() string {
@@ -35,26 +36,6 @@ func (self *SAliyunProviderFactory) GetId() string {
 
 func (self *SAliyunProviderFactory) GetName() string {
 	return aliyun.CLOUD_PROVIDER_ALIYUN_CN
-}
-
-func (self *SAliyunProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
-	return nil
-}
-
-func (self *SAliyunProviderFactory) IsPublicCloud() bool {
-	return true
-}
-
-func (self *SAliyunProviderFactory) IsOnPremise() bool {
-	return false
-}
-
-func (self *SAliyunProviderFactory) IsSupportPrepaidResources() bool {
-	return true
-}
-
-func (self *SAliyunProviderFactory) NeedSyncSkuFromCloud() bool {
-	return false
 }
 
 func (self *SAliyunProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
