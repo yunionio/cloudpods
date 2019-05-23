@@ -55,6 +55,10 @@ func NewZStackClient(providerID string, providerName string, authURL string, use
 	return cli, nil
 }
 
+func (cli *SZStackClient) GetCloudRegionExternalIdPrefix() string {
+	return fmt.Sprintf("%s/%s", CLOUD_PROVIDER_ZSTACK, cli.providerID)
+}
+
 func (cli *SZStackClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{
 		Account:      cli.username,
