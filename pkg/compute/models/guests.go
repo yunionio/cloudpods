@@ -2293,9 +2293,28 @@ func (self *SGuest) isAttach2Disk(disk *SDisk) bool {
 	return q.Count() > 0
 }
 
-func (self *SGuest) getMaxDiskIndex() int8 {
+func (self *SGuest) getDiskIndex() int8 {
 	guestdisks := self.GetDisks()
-	return int8(len(guestdisks))
+	var max uint
+	for i := 0; i < len(guestdisks); i++ {
+		if uint(guestdisks[i].Index) > max {
+			max = uint(guestdisks[i].Index)
+		}
+	}
+
+	idxs := make([]int, max+1)
+	for i := 0; i < len(guestdisks); i++ {
+		idxs[guestdisks[i].Index] = 1
+	}
+
+	// find first idx not set
+	for i := 0; i < len(idxs); i++ {
+		if idxs[i] != 1 {
+			return int8(i)
+		}
+	}
+
+	return int8(max + 1)
 }
 
 func (self *SGuest) AttachDisk(ctx context.Context, disk *SDisk, userCred mcclient.TokenCredential, driver string, cache string, mountpoint string) error {
@@ -2306,17 +2325,19 @@ func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mccli
 	if self.isAttach2Disk(disk) {
 		return fmt.Errorf("Guest has been attached to disk")
 	}
-	index := self.getMaxDiskIndex()
+
 	if len(driver) == 0 {
 		osProf := self.getOSProfile()
 		driver = osProf.DiskDriver
 	}
 	guestdisk := SGuestdisk{}
 	guestdisk.SetModelManager(GuestdiskManager)
-
 	guestdisk.DiskId = disk.Id
 	guestdisk.GuestId = self.Id
-	guestdisk.Index = index
+	defer lockman.ReleaseObject(ctx, self)
+	lockman.LockObject(ctx, self)
+
+	guestdisk.Index = self.getDiskIndex()
 	err := guestdisk.DoSave(driver, cache, mountpoint)
 	if err == nil {
 		db.OpsLog.LogAttachEvent(ctx, self, disk, userCred, nil)
