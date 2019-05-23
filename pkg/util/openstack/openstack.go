@@ -54,6 +54,10 @@ func NewOpenStackClient(providerID string, providerName string, authURL string, 
 	return cli, cli.fetchRegions()
 }
 
+func (cli *SOpenStackClient) GetCloudRegionExternalIdPrefix() string {
+	return fmt.Sprintf("%s/%s/", CLOUD_PROVIDER_OPENSTACK, cli.providerID)
+}
+
 func (cli *SOpenStackClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount := cloudprovider.SSubAccount{
 		Account: fmt.Sprintf("%s/%s", cli.project, cli.username),
