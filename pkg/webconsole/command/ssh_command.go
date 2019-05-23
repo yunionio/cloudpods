@@ -10,9 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coredns/coredns/plugin/pkg/log"
-
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -45,20 +44,23 @@ func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip strin
 	if err != nil {
 		return "", nil, err
 	}
-	privKey, err := key.GetString("private_key")
-	if err != nil {
-		return "", nil, err
+	defer file.Close()
+	filename := file.Name()
+	{
+		err = os.Chmod(filename, 0600)
+		if err != nil {
+			return "", nil, err
+		}
+		privKey, err := key.GetString("private_key")
+		if err != nil {
+			return "", nil, err
+		}
+		_, err = file.Write([]byte(privKey))
+		if err != nil {
+			return "", nil, err
+		}
 	}
-	_, err = file.Write([]byte(privKey))
-	if err != nil {
-		return "", nil, err
-	}
-	file.Close()
-	err = os.Chmod(file.Name(), 0700)
-	if err != nil {
-		return "", nil, err
-	}
-	cmd.AppendArgs("-i", file.Name())
+	cmd.AppendArgs("-i", filename)
 	cmd.AppendArgs("-q")
 	cmd.AppendArgs("-o", "StrictHostKeyChecking=no")
 	cmd.AppendArgs("-o", "GlobalKnownHostsFile=/dev/null")
@@ -66,7 +68,7 @@ func getCommand(ctx context.Context, userCred mcclient.TokenCredential, ip strin
 	cmd.AppendArgs("-o", "PasswordAuthentication=no")
 	cmd.AppendArgs("-p", fmt.Sprintf("%d", port))
 	cmd.AppendArgs(fmt.Sprintf("%s@%s", ansible.PUBLIC_CLOUD_ANSIBLE_USER, ip))
-	return file.Name(), cmd, nil
+	return filename, cmd, nil
 }
 
 func NewSSHtoolSolCommand(ctx context.Context, userCred mcclient.TokenCredential, ip string, query jsonutils.JSONObject) (*SSHtoolSol, error) {
