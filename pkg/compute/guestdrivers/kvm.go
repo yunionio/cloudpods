@@ -179,8 +179,7 @@ func (self *SKVMGuestDriver) RequestUndeployGuestOnHost(ctx context.Context, gue
 	header := self.getTaskRequestHeader(task)
 	body := jsonutils.NewDict()
 
-	// XXXXXXXX
-	if guest.HostId != host.Id && guest.BackupHostId != host.Id {
+	if guest.HostId != host.Id {
 		body.Set("migrated", jsonutils.JSONTrue)
 	}
 	_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "DELETE", url, header, body, false)

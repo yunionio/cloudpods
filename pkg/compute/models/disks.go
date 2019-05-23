@@ -872,6 +872,17 @@ func (self *SDisk) GetStorage() *SStorage {
 	return nil
 }
 
+func (self *SDisk) GetBackupStorage() *SStorage {
+	if len(self.BackupStorageId) == 0 {
+		return nil
+	}
+	store, _ := StorageManager.FetchById(self.BackupStorageId)
+	if store != nil {
+		return store.(*SStorage)
+	}
+	return nil
+}
+
 func (self *SDisk) GetCloudprovider() *SCloudprovider {
 	if storage := self.GetStorage(); storage != nil {
 		return storage.GetCloudprovider()

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -438,6 +439,21 @@ func execITask(taskValue reflect.Value, task *STask, odata jsonutils.JSONObject,
 		log.Errorf("Cannot locate baseTask embedded struct, give up...")
 		return
 	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			// call set stage failed, should not call task.SetStageFailed
+			// func SetStageFailed may be overloading
+			log.Errorf("Task %s PANIC on stage %s: %v \n%s", task.TaskName, stageName, r, debug.Stack())
+			SetStageFailedFuncValue := taskValue.MethodByName("SetStageFailed")
+			SetStageFailedFuncValue.Call(
+				[]reflect.Value{
+					reflect.ValueOf(ctx),
+					reflect.ValueOf(fmt.Sprintf("%v", r)),
+				},
+			)
+		}
+	}()
 
 	log.Debugf("Call %s %s %#v", task.TaskName, stageName, params)
 	funcValue.Call(params)
