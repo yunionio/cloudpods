@@ -60,6 +60,11 @@ type Validator struct {
 	value      jsonutils.JSONObject
 }
 
+func (v *Validator) SetParent(parent IValidator) IValidator {
+	v.parent = parent
+	return parent
+}
+
 func (v *Validator) Optional(optional bool) IValidator {
 	v.optional = optional
 	return v.parent
@@ -132,7 +137,7 @@ func NewIPv4PrefixValidator(key string) *ValidatorIPv4Prefix {
 	v := &ValidatorIPv4Prefix{
 		Validator: Validator{Key: key},
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
 
@@ -164,7 +169,7 @@ func NewStringChoicesValidator(key string, choices choices.Choices) *ValidatorSt
 		Validator: Validator{Key: key},
 		Choices:   choices,
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
 
@@ -210,7 +215,7 @@ func NewStringMultiChoicesValidator(key string, choices choices.Choices) *Valida
 		Validator: Validator{Key: key},
 		Choices:   choices,
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
 
@@ -311,7 +316,7 @@ func NewBoolValidator(key string) *ValidatorBool {
 	v := &ValidatorBool{
 		Validator: Validator{Key: key},
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
 
@@ -354,7 +359,7 @@ func NewRangeValidator(key string, lower int64, upper int64) *ValidatorRange {
 		Lower:     lower,
 		Upper:     upper,
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
 
@@ -434,7 +439,7 @@ func NewModelIdOrNameValidator(key string, modelKeyword string, ownerId mcclient
 		ModelKeyword: modelKeyword,
 		modelIdKey:   key + "_id",
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
 
@@ -535,7 +540,7 @@ func NewRegexpValidator(key string, regexp *regexp.Regexp) *ValidatorRegexp {
 		Validator: Validator{Key: key},
 		Regexp:    regexp,
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
 
@@ -547,7 +552,7 @@ func NewDomainNameValidator(key string) *ValidatorDomainName {
 	v := &ValidatorDomainName{
 		ValidatorRegexp: *NewRegexpValidator(key, regutils.DOMAINNAME_REG),
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
 
@@ -562,7 +567,7 @@ func NewURLPathValidator(key string) *ValidatorURLPath {
 	v := &ValidatorURLPath{
 		ValidatorRegexp: *NewRegexpValidator(key, regexpURLPath),
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
 
@@ -598,7 +603,7 @@ func NewStructValidator(key string, value interface{}) *ValidatorStruct {
 		Validator: Validator{Key: key},
 		Value:     value,
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
 
@@ -645,6 +650,6 @@ func NewIPv4AddrValidator(key string) *ValidatorIPv4Addr {
 	v := &ValidatorIPv4Addr{
 		Validator: Validator{Key: key},
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
