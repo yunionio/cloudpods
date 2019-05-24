@@ -823,6 +823,27 @@ func migrateCloudprovider(cloudprovider *SCloudprovider) error {
 	return nil
 }
 
+func (manager *SCloudaccountManager) InitializeBrand() error {
+	accounts := []SCloudaccount{}
+	q := manager.Query().IsNullOrEmpty("brand")
+	err := db.FetchModelObjects(manager, q, &accounts)
+	if err != nil {
+		log.Errorf("fetch all clound account fail %v", err)
+		return err
+	}
+	for i := 0; i < len(accounts); i++ {
+		account := &accounts[i]
+		_, err = db.Update(account, func() error {
+			account.Brand = account.Provider
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (manager *SCloudaccountManager) InitializeData() error {
 	cloudproviders := []SCloudprovider{}
 	q := CloudproviderManager.Query()
@@ -838,7 +859,7 @@ func (manager *SCloudaccountManager) InitializeData() error {
 			return err
 		}
 	}
-	return nil
+	return manager.InitializeBrand()
 }
 
 func (self *SCloudaccount) GetBalance() (float64, error) {
