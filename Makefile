@@ -133,13 +133,50 @@ mod:
 %:
 	@:
 
-# Use docker build binaries
-# Args:
-#   WHAT: Directory names to build
-#
-#
-# Example:
-# make docker_build
-# make docker_build WHAT='cmd/climc cmd/region'
-docker_build:
-	$(ROOT_DIR)/build/docker_build.sh $(WHAT)
+
+DOCKER_BUILD_IMAGE_VERSION?=latest
+
+define dockerBuildCmd
+set -o errexit
+set -o pipefail
+cd /home/build/onecloud
+export GOFLAGS=-mod=vendor
+make $(1)
+endef
+
+docker-build: export dockerBuildCmd:=$(call dockerBuildCmd,$(F))
+docker-build:
+	echo "$$dockerBuildCmd"
+	docker rm --force onecloud-ci-build &>/dev/null || true
+	docker run \
+		--name onecloud-ci-build \
+		--rm \
+		--volume $(CURDIR):/home/build/onecloud \
+		yunionio/onecloud-ci:$(DOCKER_BUILD_IMAGE_VERSION) \
+		/bin/bash -c "$$dockerBuildCmd"
+	chown -R $$(id -u):$$(id -g) _output
+	ls -lh _output/bin
+
+# NOTE we need a way to stop and remove the container started by docker-build.
+# No --tty, --stop-signal won't work
+docker-build-stop:
+	docker stop --time 0 onecloud-ci-build || true
+
+.PHONY: docker-build
+.PHONY: docker-build-stop
+
+define helpText
+Build with docker
+
+	make docker-build F='-j4'
+	make docker-build F='-j4 cmd/region cmd/climc'
+	make docker-build-stop
+
+Tidy up go modules and vendor directory
+
+	make mod
+endef
+
+help: export helpText:=$(helpText)
+help:
+	@echo "$$helpText"
