@@ -310,6 +310,7 @@ type SSysInfo struct {
 	KernelVersion  string `json:"kernel_version"`
 	QemuVersion    string `json:"qemu_version"`
 	OvsVersion     string `json:"ovs_version"`
+	KvmModule      string `json:"kvm_module"`
 
 	StorageType string `json:"storage_type"`
 }
