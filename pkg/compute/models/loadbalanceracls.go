@@ -146,11 +146,10 @@ func (man *SLoadbalancerAclManager) ListItemFilter(ctx context.Context, q *sqlch
 	if err != nil {
 		return nil, err
 	}
-	userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "cloudregion", ModelKeyword: "cloudregion", ProjectId: userProjId},
-		{Key: "manager", ModelKeyword: "cloudprovider", ProjectId: userProjId},
+		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
+		{Key: "manager", ModelKeyword: "cloudprovider", OwnerId: userCred},
 	})
 	if err != nil {
 		return nil, err

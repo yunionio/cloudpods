@@ -51,7 +51,7 @@ type IEtcdModel interface {
 	lockman.ILockedObject
 
 	GetModelManager() IEtcdModelManager
-	SetModelManager(IEtcdModelManager)
+	SetModelManager(IEtcdModelManager, IEtcdModel)
 
 	SetId(id string)
 

@@ -19,10 +19,13 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SEtcdBaseModel struct {
+	object.SObject
+
 	manager IEtcdModelManager
 
 	ID string
@@ -36,8 +39,9 @@ func (model *SEtcdBaseModel) GetModelManager() IEtcdModelManager {
 	return model.manager
 }
 
-func (model *SEtcdBaseModel) SetModelManager(manager IEtcdModelManager) {
+func (model *SEtcdBaseModel) SetModelManager(manager IEtcdModelManager, virtual IEtcdModel) {
 	model.manager = manager
+	model.SetVirtualObject(virtual)
 }
 
 func (model *SEtcdBaseModel) GetId() string {

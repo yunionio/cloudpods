@@ -387,7 +387,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 	eip.CloudregionId = region.Id
 	eip.ChargeType = extEip.GetInternetChargeType()
 	if networkId := extEip.GetINetworkId(); len(networkId) > 0 {
-		network, err := NetworkManager.FetchByExternalId(networkId)
+		network, err := db.FetchByExternalId(NetworkManager, networkId)
 		if err != nil {
 			msg := fmt.Sprintf("failed to found network by externalId %s error: %v", networkId, err)
 			log.Errorf(msg)
