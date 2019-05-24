@@ -399,15 +399,24 @@ func (region *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 }
 
 func (region *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	return nil, cloudprovider.ErrNotSupported
+	eips, err := region.GetEips()
+	if err != nil {
+		return nil, err
+	}
+	ieips := []cloudprovider.ICloudEIP{}
+	for i := 0; i < len(eips); i++ {
+		eips[i].region = region
+		ieips = append(ieips, &eips[i])
+	}
+	return ieips, nil
 }
 
 func (region *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP, error) {
-	return nil, cloudprovider.ErrNotSupported
+	return region.CreateEip(eip)
 }
 
 func (region *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
-	return nil, cloudprovider.ErrNotSupported
+	return region.GetEip(eipId)
 }
 
 func (region *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {

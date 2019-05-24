@@ -119,6 +119,20 @@ func (network *SNetwork) GetIpEnd() string {
 	return ""
 }
 
+func (network *SNetwork) GetIPRange() netutils.IPV4AddrRange {
+	start, _ := netutils.NewIPV4Addr(network.GetIpStart())
+	end, _ := netutils.NewIPV4Addr(network.GetIpEnd())
+	return netutils.NewIPV4AddrRange(start, end)
+}
+
+func (network *SNetwork) Contains(ipAddr string) bool {
+	ip, err := netutils.NewIPV4Addr(ipAddr)
+	if err != nil {
+		return false
+	}
+	return network.GetIPRange().Contains(ip)
+}
+
 func (network *SNetwork) GetIpMask() int8 {
 	pref, _ := netutils.NewIPV4Prefix(network.CIDR)
 	return pref.MaskLen
