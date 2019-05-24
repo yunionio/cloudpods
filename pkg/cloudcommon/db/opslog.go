@@ -104,6 +104,9 @@ const (
 	ACT_SET_METADATA = "set_meta"
 	ACT_DEL_METADATA = "del_meta"
 
+	ACT_VM_DEPLOY      = "deploy"
+	ACT_VM_DEPLOY_FAIL = "deploy_fail"
+
 	ACT_REBUILDING_ROOT   = "rebuilding_root"
 	ACT_REBUILD_ROOT      = "rebuild_root"
 	ACT_REBUILD_ROOT_FAIL = "rebuild_root_fail"
