@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -287,18 +289,18 @@ func (self *SBaremetalTaskBase) EnsurePowerUp() error {
 	log.Infof("EnsurePowerUp: bootdev=pxe")
 	status, err := self.Baremetal.GetPowerStatus()
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "Get power status")
 	}
 	for status == "" || status == types.POWER_STATUS_OFF {
 		if status == types.POWER_STATUS_OFF {
 			err = self.Baremetal.DoPXEBoot()
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "Do PXE boot")
 			}
 		}
 		status, err = self.Baremetal.GetPowerStatus()
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "Get power status")
 		}
 		if status == "" || status == types.POWER_STATUS_OFF {
 			time.Sleep(40 * time.Second)
@@ -367,7 +369,7 @@ func (self *SBaremetalPXEBootTaskBase) InitPXEBootTask(pxeBootTask IPXEBootTask,
 		return self, fmt.Errorf("EnsurePowerShutdown: %v", err)
 	}
 	if err := self.EnsurePowerUp(); err != nil {
-		return self, fmt.Errorf("EnsurePowerUp to pxe: %v", err)
+		return self, errors.Wrapf(err, "EnsurePowerUp to pxe")
 	}
 	// this stage will be called by baremetalInstance when pxe start notify
 	self.SetSSHStage(pxeBootTask.OnPXEBoot)

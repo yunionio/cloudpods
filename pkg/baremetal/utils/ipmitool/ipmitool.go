@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/stringutils"
@@ -444,7 +446,7 @@ func DoReboot(exector IPMIExecutor) error {
 	var err error
 	status, err = GetChassisPowerStatus(exector)
 	if err != nil {
-		return err
+		log.Errorf("DoReboot get power status 1st: %v", err)
 	}
 
 	isValidStatus := func(s string) bool {
@@ -455,25 +457,24 @@ func DoReboot(exector IPMIExecutor) error {
 		time.Sleep(1 * time.Second)
 		status, err = GetChassisPowerStatus(exector)
 		if err != nil {
-			return err
+			log.Errorf("DoReboot %d tries to get power status: %v", tried, err)
 		}
 	}
 
 	if !isValidStatus(status) {
-		return fmt.Errorf("Unexpected status: %s", status)
+		return fmt.Errorf("Unexpected power status: %q", status)
 	}
 
 	// do shutdown
 	if status == types.POWER_STATUS_ON {
-		err = DoHardShutdown(exector)
-		if err != nil {
-			return err
+		if err := DoHardShutdown(exector); err != nil {
+			log.Errorf("DoHardShutdown: %v", err)
 		}
 		time.Sleep(1 * time.Second)
 		for tried := 0; tried < maxTries; tried++ {
 			status, err = GetChassisPowerStatus(exector)
 			if err != nil {
-				return err
+				log.Errorf("DoReboot %d tries to get power status: %v", tried, err)
 			}
 			if status == types.POWER_STATUS_OFF {
 				break
@@ -483,28 +484,24 @@ func DoReboot(exector IPMIExecutor) error {
 	}
 
 	// do power on
-	status, err = GetChassisPowerStatus(exector)
-	if err != nil {
-		return err
-	}
+	status, _ = GetChassisPowerStatus(exector)
 	for tried := 0; status != types.POWER_STATUS_ON && tried < maxTries; tried++ {
-		err = DoPowerOn(exector)
-		if err != nil {
-			return err
+		if err := DoPowerOn(exector); err != nil {
+			log.Errorf("DoReboot %d tries to power on: %v", tried, err)
 		}
 		time.Sleep(1 * time.Second)
 		status, err = GetChassisPowerStatus(exector)
 		if err != nil {
-			return err
+			log.Errorf("DoReboot %d tries to get power status: %v", tried, err)
 		}
 	}
 
 	status, err = GetChassisPowerStatus(exector)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Get power status after power on")
 	}
 	if status != types.POWER_STATUS_ON {
-		return fmt.Errorf("do reboot fail to poweron, current status: %s", status)
+		return errors.Errorf("do reboot fail to poweron, current status: %s", status)
 	}
 	return nil
 }

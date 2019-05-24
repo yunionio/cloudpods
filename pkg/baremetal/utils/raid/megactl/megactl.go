@@ -602,7 +602,7 @@ func (adapter *MegaRaidAdaptor) RemoveLogicVolumes() error {
 	if err != nil {
 		return err
 	}
-	for i := len(lvIdx) - 1; i >= 0; i-- {
+	for _, i := range raiddrivers.ReverseIntArray(lvIdx) {
 		cmd := GetCommand("-CfgLdDel", fmt.Sprintf("-L%d", i), "-Force", fmt.Sprintf("-a%d", adapter.index))
 		cmds = append(cmds, cmd)
 	}
