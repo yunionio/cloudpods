@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"path"
 
@@ -435,13 +436,20 @@ func (self *SStorage) GetUsedCapacity(isReady tristate.TriState) int64 {
 		q = q.NotEquals("status", api.DISK_READY)
 	}
 	row := q.Row()
-	var sum int64
+
+	// sum can be null, deal with null:
+	// https://github.com/golang/go/wiki/SQLInterface#dealing-with-null
+	var sum sql.NullInt64
 	err := row.Scan(&sum)
 	if err != nil {
 		log.Errorf("GetUsedCapacity fail: %s", err)
 		return 0
 	}
-	return sum
+	if sum.Valid {
+		return sum.Int64
+	} else {
+		return 0
+	}
 }
 
 func (self *SStorage) GetOvercommitBound() float32 {
