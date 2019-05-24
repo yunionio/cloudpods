@@ -371,7 +371,9 @@ func (l *sLinuxRootFs) getSerialPorts(rootFs IDiskPartition) []string {
 		log.Errorf("Get %s error: %v", confpath, err)
 		return nil
 	}
-	return sysutils.GetSerialPorts(strings.Split(string(content), "\n"))
+	ttys := sysutils.GetSerialPorts(strings.Split(string(content), "\n"))
+	log.Infof("Get serial ports content:\n%s, find serial ttys: %#v", string(content), ttys)
+	return ttys
 }
 
 func (l *sLinuxRootFs) enableSerialConsoleInitCentos(rootFs IDiskPartition) error {
@@ -390,10 +392,26 @@ exec /sbin/agetty /dev/%s 115200 vt100`, tty, tty, tty)
 	return err
 }
 
+func (l *sLinuxRootFs) enableSerialConsoleRootLogin(rootFs IDiskPartition, tty string) error {
+	secureTTYFile := "/etc/securetty"
+	content, err := rootFs.FileGetContents(secureTTYFile, false)
+	if err != nil {
+		return errors.Wrapf(err, "get contents of %s", secureTTYFile)
+	}
+	secureTTYs := sysutils.GetSecureTTYs(strings.Split(string(content), "\n"))
+	if utils.IsInStringArray(tty, secureTTYs) {
+		return nil
+	}
+	return rootFs.FilePutContents(secureTTYFile, fmt.Sprintf("\n%s", tty), true, false)
+}
+
 func (l *sLinuxRootFs) enableSerialConsoleInit(rootFs IDiskPartition) error {
 	// https://help.ubuntu.com/community/SerialConsoleHowto
 	var err error
 	for _, tty := range l.getSerialPorts(rootFs) {
+		if err := l.enableSerialConsoleRootLogin(rootFs, tty); err != nil {
+			log.Errorf("Enable %s root login: %v", tty, err)
+		}
 		content := fmt.Sprintf(
 			`start on stopped rc or RUNLEVEL=[12345]
 stop on runlevel [!12345]
@@ -415,6 +433,9 @@ func (l *sLinuxRootFs) disableSerialConsoleInit(rootFs IDiskPartition) {
 
 func (l *sLinuxRootFs) enableSerialConsoleSystemd(rootFs IDiskPartition) error {
 	for _, tty := range l.getSerialPorts(rootFs) {
+		if err := l.enableSerialConsoleRootLogin(rootFs, tty); err != nil {
+			log.Errorf("Enable %s root login: %v", tty, err)
+		}
 		sPath := fmt.Sprintf("/etc/systemd/system/getty.target.wants/getty@%s.service", tty)
 		if rootFs.Exists(sPath, false) {
 			rootFs.Remove(sPath, false)

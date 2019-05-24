@@ -186,7 +186,7 @@ func (adapter *MarvelRaidAdaptor) RemoveLogicVolumes() error {
 	if err != nil {
 		return fmt.Errorf("Failed to get logic volumes: %v", err)
 	}
-	for i := len(lvs) - 1; i >= 0; i-- {
+	for _, i := range raid.ReverseIntArray(lvs) {
 		if err := adapter.removeLogicVolume(i); err != nil {
 			return fmt.Errorf("Remove %d logical volume: %v", i, err)
 		}

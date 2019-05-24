@@ -273,3 +273,38 @@ func TestParseNicInfo(t *testing.T) {
 		})
 	}
 }
+
+func TestGetSecureTTYs(t *testing.T) {
+	tests := []struct {
+		name  string
+		lines []string
+		want  []string
+	}{
+		{
+			name:  "empty tty",
+			lines: []string{"", "#comment"},
+			want:  []string{},
+		},
+		{
+			name: "ttys",
+			lines: []string{
+				"tty1",
+				"ttyS0",
+				"console",
+				"#tty0",
+			},
+			want: []string{
+				"tty1",
+				"ttyS0",
+				"console",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GetSecureTTYs(tt.lines); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetSecureTTYs() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
