@@ -18,13 +18,15 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/pkg/utils"
 )
 
 func (this *JSONDict) parseQueryString(str string) error {
 	m, err := url.ParseQuery(str)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "url.ParseQuery")
 	}
 	for k, v := range m {
 		keys := strings.Split(k, ".")
@@ -45,7 +47,7 @@ func ParseQueryString(str string) (JSONObject, error) {
 	dict := NewDict()
 	err := dict.parseQueryString(str)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "dict.parseQueryString")
 	}
 	return dict, nil
 }

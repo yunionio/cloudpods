@@ -17,6 +17,8 @@ package jsonutils
 import (
 	"fmt"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 func NewStringArray(arr []string) *JSONArray {
@@ -84,15 +86,15 @@ func GetQueryStringArray(query JSONObject, key string) []string {
 func CheckRequiredFields(data JSONObject, fields []string) error {
 	jsonMap, err := data.GetMap()
 	if err != nil {
-		return fmt.Errorf("fail to convert input to map")
+		return errors.Wrap(err, "data.GetMap") //fmt.Errorf("fail to convert input to map")
 	}
 	for _, f := range fields {
 		jsonVal, ok := jsonMap[f]
 		if !ok {
-			return fmt.Errorf("missing input field %s", f)
+			return errors.WithMessage(ErrMisingInputField, f)
 		}
 		if jsonVal == JSONNull {
-			return fmt.Errorf("input field %s is null", f)
+			return errors.WithMessage(ErrNilInputField, f)
 		}
 	}
 	return nil
