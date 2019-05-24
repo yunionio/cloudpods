@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -140,7 +141,7 @@ func getNamespaceInContext(userCred mcclient.TokenCredential, query jsonutils.JS
 
 func getNamespace(userCred mcclient.TokenCredential, resource string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (string, string, error) {
 	var namespace, namespace_id string
-	if userCred.IsAdminAllow(consts.GetServiceType(), resource, policy.PolicyActionList) {
+	if userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), resource, policy.PolicyActionList) {
 		if name, nameId, e := getNamespaceInContext(userCred, query, data); e != nil {
 			return "", "", e
 		} else {

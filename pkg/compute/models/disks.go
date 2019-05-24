@@ -1173,7 +1173,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		}
 		// self.TemplateId = extDisk.GetTemplateId() no sync template ID
 		if templateId := extDisk.GetTemplateId(); len(templateId) > 0 {
-			cachedImage, err := CachedimageManager.FetchByExternalId(templateId)
+			cachedImage, err := db.FetchByExternalId(CachedimageManager, templateId)
 			if err == nil && cachedImage != nil {
 				self.TemplateId = cachedImage.GetId()
 			}

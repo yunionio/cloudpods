@@ -23,7 +23,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/yunionconf"
@@ -41,10 +40,6 @@ func StartService() {
 	app_common.InitAuth(commonOpts, func() {
 		log.Infof("Auth complete!!")
 	})
-
-	if opts.GlobalVirtualResourceNamespace {
-		consts.EnableGlobalVirtualResourceNamespace()
-	}
 
 	cloudcommon.InitDB(dbOpts)
 

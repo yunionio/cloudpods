@@ -19,7 +19,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/pkg/util/netutils"
 )
 
@@ -293,16 +292,39 @@ func TestConditionParser(t *testing.T) {
 	t.Logf("%s", roles)
 }
 
+type sRbacIdentity struct {
+	DomainId string
+	Project string
+	Roles []string
+	Ip string
+}
+
+func (ri *sRbacIdentity) GetProjectDomainId() string {
+	return ri.DomainId
+}
+
+func (ri *sRbacIdentity) GetProjectName() string {
+	return ri.Project
+}
+
+func (ri *sRbacIdentity) GetRoles() []string {
+	return ri.Roles
+}
+
+func (ri *sRbacIdentity) GetLoginIp() string {
+	return ri.Ip
+}
+
 func TestSRbacPolicyMatch(t *testing.T) {
 	prefix, _ := netutils.NewIPV4Prefix("10.168.22.0/24")
 	cases := []struct {
 		policy   SRbacPolicy
-		userCred mcclient.TokenCredential
+		userCred IRbacIdentity
 		want     bool
 	}{
 		{
 			SRbacPolicy{},
-			&mcclient.SSimpleToken{},
+			&sRbacIdentity{},
 			true,
 		},
 		{
@@ -314,7 +336,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			SRbacPolicy{
 				Projects: []string{"system"},
 			},
-			&mcclient.SSimpleToken{
+			&sRbacIdentity{
 				Project: "system",
 			},
 			true,
@@ -323,7 +345,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			SRbacPolicy{
 				Projects: []string{"system"},
 			},
-			&mcclient.SSimpleToken{
+			&sRbacIdentity{
 				Project: "demo",
 			},
 			false,
@@ -333,9 +355,9 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Projects: []string{"system"},
 				Roles:    []string{"admin"},
 			},
-			&mcclient.SSimpleToken{
+			&sRbacIdentity{
 				Project: "system",
-				Roles:   "admin",
+				Roles:   []string{"admin"},
 			},
 			true,
 		},
@@ -344,9 +366,9 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Projects: []string{"system"},
 				Roles:    []string{"admin"},
 			},
-			&mcclient.SSimpleToken{
+			&sRbacIdentity{
 				Project: "system",
-				Roles:   "admin,_member_",
+				Roles:   []string{"admin", "_member_"},
 			},
 			true,
 		},
@@ -355,9 +377,9 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Projects: []string{"system"},
 				Roles:    []string{"admin"},
 			},
-			&mcclient.SSimpleToken{
+			&sRbacIdentity{
 				Project: "system",
-				Roles:   "_member_",
+				Roles:   []string{"_member_"},
 			},
 			false,
 		},
@@ -382,12 +404,10 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Roles:    []string{"admin"},
 				Ips:      []netutils.IPV4Prefix{prefix},
 			},
-			&mcclient.SSimpleToken{
+			&sRbacIdentity{
 				Project: "system",
-				Roles:   "admin",
-				Context: mcclient.SAuthContext{
-					Ip: "10.0.0.23",
-				},
+				Roles:   []string{"admin"},
+				Ip: "10.0.0.23",
 			},
 			false,
 		},
@@ -397,12 +417,10 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Roles:    []string{"admin"},
 				Ips:      []netutils.IPV4Prefix{prefix},
 			},
-			&mcclient.SSimpleToken{
+			&sRbacIdentity{
 				Project: "system",
-				Roles:   "admin",
-				Context: mcclient.SAuthContext{
-					Ip: "10.168.22.23",
-				},
+				Roles:   []string{"admin"},
+				Ip: "10.168.22.23",
 			},
 			true,
 		},
@@ -412,12 +430,10 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Roles:    []string{"admin"},
 				Ips:      []netutils.IPV4Prefix{prefix},
 			},
-			&mcclient.SSimpleToken{
+			&sRbacIdentity{
 				Project: "system",
-				Roles:   "_member_",
-				Context: mcclient.SAuthContext{
-					Ip: "10.168.22.23",
-				},
+				Roles:   []string{"_member_"},
+				Ip: "10.168.22.23",
 			},
 			false,
 		},
@@ -426,12 +442,10 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Roles: []string{"admin"},
 				Ips:   []netutils.IPV4Prefix{prefix},
 			},
-			&mcclient.SSimpleToken{
+			&sRbacIdentity{
 				Project: "system",
-				Roles:   "_member_,admin",
-				Context: mcclient.SAuthContext{
-					Ip: "10.168.22.23",
-				},
+				Roles:   []string{"_member_", "admin"},
+				Ip: "10.168.22.23",
 			},
 			true,
 		},
@@ -441,12 +455,10 @@ func TestSRbacPolicyMatch(t *testing.T) {
 				Roles:    []string{"admin", "_member_"},
 				Ips:      []netutils.IPV4Prefix{prefix},
 			},
-			&mcclient.SSimpleToken{
+			&sRbacIdentity{
 				Project: "system",
-				Roles:   "_member_,projectowner",
-				Context: mcclient.SAuthContext{
-					Ip: "10.168.22.23",
-				},
+				Roles:   []string{"_member_", "projectowner"},
+				Ip: "10.168.22.23",
 			},
 			true,
 		},

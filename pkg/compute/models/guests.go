@@ -641,7 +641,7 @@ func (guest *SGuest) GetVpc() (*SVpc, error) {
 	if err != nil {
 		return nil, err
 	}
-	guestnic.SetModelManager(GuestnetworkManager)
+	guestnic.SetModelManager(GuestnetworkManager, guestnic)
 	network := guestnic.GetNetwork()
 	if network == nil {
 		return nil, fmt.Errorf("failed to found network for guest %s(%s)", guest.Name, guest.Id)
