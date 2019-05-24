@@ -5,7 +5,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: yunionio/onecloud-ci:20190328
+      - image: yunionio/onecloud-ci:v1.0.2
 
     #### TEMPLATE_NOTE: go expects specific checkout path representing url
     #### expecting it in the form of
@@ -24,7 +24,7 @@ jobs:
 
   test:
     docker:
-      - image: yunionio/onecloud-ci:20190328
+      - image: yunionio/onecloud-ci:v1.0.2
     working_directory: /home/build/go/src/yunion.io/x/onecloud
     steps:
       - checkout
