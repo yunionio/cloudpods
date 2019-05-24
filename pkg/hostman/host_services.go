@@ -78,6 +78,7 @@ func (host *SHostService) StartService() {
 	cronManager := cronman.GetCronJobManager(false)
 	cronManager.AddJob2(
 		"CleanRecycleDiskFiles", 1, 3, 0, 0, storageman.CleanRecycleDiskfiles, false)
+	cronManager.Start()
 
 	app_common.ServeForeverWithCleanup(app, &options.HostOptions.CommonOptions, func() {
 		hostinfo.Stop()
