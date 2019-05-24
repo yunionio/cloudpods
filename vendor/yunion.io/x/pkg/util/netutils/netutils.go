@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/pkg/util/regutils"
 )
 
@@ -55,13 +57,16 @@ func IP2Number(ipstr string) (uint32, error) {
 		for i := 0; i < 4; i += 1 {
 			n, e := strconv.Atoi(parts[i])
 			if e != nil {
-				return 0, fmt.Errorf("invalid number %s", parts[i])
+				return 0, ErrInvalidNumber // fmt.Errorf("invalid number %s", parts[i])
+			}
+			if n < 0 || n > 255 {
+				return 0, ErrOutOfRange
 			}
 			num = num | (uint32(n) << uint32(24-i*8))
 		}
 		return num, nil
 	}
-	return 0, fmt.Errorf("invalid ip address %s", ipstr)
+	return 0, ErrInvalidIPAddr // fmt.Errorf("invalid ip address %s", ipstr)
 }
 
 /*func IP2Bytes(ipstr string) ([]byte, error) {
@@ -102,7 +107,7 @@ func NewIPV4Addr(ipstr string) (IPV4Addr, error) {
 	if len(ipstr) > 0 {
 		num, err := IP2Number(ipstr)
 		if err != nil {
-			return addr, err
+			return addr, errors.Wrap(err, "IP2Number")
 		}
 		addr = IPV4Addr(num)
 	}
@@ -313,10 +318,15 @@ func Masklen2Mask(maskLen int8) IPV4Addr {
 type IPV4Prefix struct {
 	Address IPV4Addr
 	MaskLen int8
+	ipRange *IPV4AddrRange
 }
 
 func (pref *IPV4Prefix) String() string {
-	return fmt.Sprintf("%s/%d", pref.Address.NetAddr(pref.MaskLen).String(), pref.MaskLen)
+	if pref.MaskLen == 32 {
+		return pref.Address.String()
+	} else {
+		return fmt.Sprintf("%s/%d", pref.Address.NetAddr(pref.MaskLen).String(), pref.MaskLen)
+	}
 }
 
 func Mask2Len(mask IPV4Addr) int8 {
@@ -335,29 +345,29 @@ func ParsePrefix(prefix string) (IPV4Addr, int8, error) {
 	if slash > 0 {
 		addr, err := NewIPV4Addr(prefix[:slash])
 		if err != nil {
-			return 0, 0, err
+			return 0, 0, errors.Wrap(err, "NewIPV4Addr")
 		}
 		if regutils.MatchIP4Addr(prefix[slash+1:]) {
 			mask, err := NewIPV4Addr(prefix[slash+1:])
 			if err != nil {
-				return 0, 0, err
+				return 0, 0, errors.Wrap(err, "NewIPV4Addr")
 			}
 			maskLen := Mask2Len(mask)
 			return addr.NetAddr(maskLen), maskLen, nil
 		} else {
 			maskLen, err := strconv.Atoi(prefix[slash+1:])
 			if err != nil {
-				return 0, 0, fmt.Errorf("invalid masklen %s", err)
+				return 0, 0, ErrInvalidMask // fmt.Errorf("invalid masklen %s", err)
 			}
 			if maskLen < 0 || maskLen > 32 {
-				return 0, 0, fmt.Errorf("out of range masklen")
+				return 0, 0, ErrOutOfRangeMask // fmt.Errorf("out of range masklen")
 			}
 			return addr.NetAddr(int8(maskLen)), int8(maskLen), nil
 		}
 	} else {
 		addr, err := NewIPV4Addr(prefix)
 		if err != nil {
-			return 0, 0, err
+			return 0, 0, errors.Wrap(err, "NewIPV4Addr")
 		}
 		return addr, 32, nil
 	}
@@ -366,7 +376,7 @@ func ParsePrefix(prefix string) (IPV4Addr, int8, error) {
 func NewIPV4Prefix(prefix string) (IPV4Prefix, error) {
 	addr, maskLen, err := ParsePrefix(prefix)
 	if err != nil {
-		return IPV4Prefix{}, err
+		return IPV4Prefix{}, errors.Wrap(err, "ParsePrefix")
 	}
 	return IPV4Prefix{Address: addr, MaskLen: maskLen}, nil
 }
@@ -375,6 +385,14 @@ func (prefix IPV4Prefix) ToIPRange() IPV4AddrRange {
 	start := prefix.Address.NetAddr(prefix.MaskLen)
 	end := prefix.Address.BroadcastAddr(prefix.MaskLen)
 	return IPV4AddrRange{start: start, end: end}
+}
+
+func (prefix IPV4Prefix) Contains(ip IPV4Addr) bool {
+	if prefix.ipRange == nil {
+		ipRange := prefix.ToIPRange()
+		prefix.ipRange = &ipRange
+	}
+	return prefix.ipRange.Contains(ip)
 }
 
 const (

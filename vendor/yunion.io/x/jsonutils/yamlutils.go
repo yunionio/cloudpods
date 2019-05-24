@@ -17,6 +17,8 @@ package jsonutils
 import (
 	"fmt"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 func parseYAMLArray(lines []string) ([]JSONObject, error) {
@@ -25,7 +27,7 @@ func parseYAMLArray(lines []string) ([]JSONObject, error) {
 	for indent < len(lines[0]) && lines[0][indent] == ' ' {
 		indent++
 	}
-	var sublines []string = make([]string, 0)
+	var sublines = make([]string, 0)
 	for _, line := range lines {
 		if indent >= len(line) && len(strings.Trim(line, " ")) == 0 {
 			continue
@@ -33,7 +35,7 @@ func parseYAMLArray(lines []string) ([]JSONObject, error) {
 		if line[0] == '-' && len(sublines) > 0 {
 			o, e := parseYAMLLines(sublines)
 			if e != nil {
-				return array, e
+				return array, errors.Wrap(e, "parseYAMLLines")
 			} else {
 				array = append(array, o)
 			}
@@ -44,7 +46,7 @@ func parseYAMLArray(lines []string) ([]JSONObject, error) {
 	if len(sublines) > 0 {
 		o, e := parseYAMLLines(sublines)
 		if e != nil {
-			return array, e
+			return array, errors.Wrap(e, "parseYAMLLines")
 		} else {
 			array = append(array, o)
 		}
@@ -55,7 +57,7 @@ func parseYAMLArray(lines []string) ([]JSONObject, error) {
 func parseYAMLJSONArray(lines []string) (*JSONArray, error) {
 	o, e := parseYAMLArray(lines)
 	if e != nil {
-		return nil, e
+		return nil, errors.Wrap(e, "parseYAMLArray")
 	} else {
 		return &JSONArray{data: o}, nil
 	}
@@ -71,7 +73,7 @@ func parseYAMLDict(lines []string) (map[string]JSONObject, error) {
 		}
 		var keypos = strings.IndexByte(lines[i], ':')
 		if keypos <= 0 {
-			return dict, fmt.Errorf("Cannot find JSONDict key: %s", lines[i])
+			return dict, errors.WithMessage(ErrYamlMissingDictKey, lines[i])
 		} else {
 			key := lines[i][0:keypos]
 			val := strings.Trim(lines[i][keypos+1:], " ")
@@ -88,7 +90,7 @@ func parseYAMLDict(lines []string) (map[string]JSONObject, error) {
 				}
 				if j < len(lines) {
 					if lines[j][0] != ' ' {
-						return dict, fmt.Errorf("Illformat")
+						return dict, ErrYamlIllFormat // fmt.Errorf("Illformat")
 					}
 
 					indent := 0
@@ -113,7 +115,7 @@ func parseYAMLDict(lines []string) (map[string]JSONObject, error) {
 				} else {
 					o, e := parseYAMLLines(sublines)
 					if e != nil {
-						return dict, e
+						return dict, errors.Wrap(e, "parseYAMLLines")
 					}
 					dict[key] = o
 				}
@@ -128,7 +130,7 @@ func parseYAMLDict(lines []string) (map[string]JSONObject, error) {
 func parseYAMLJSONDict(lines []string) (*JSONDict, error) {
 	o, e := parseYAMLDict(lines)
 	if e != nil {
-		return nil, e
+		return nil, errors.Wrap(e, "parseYAMLDict")
 	} else {
 		return &JSONDict{data: o}, nil
 	}
@@ -140,7 +142,7 @@ func parseYAMLLines(lines []string) (JSONObject, error) {
 		i++
 	}
 	if i >= len(lines) {
-		return nil, fmt.Errorf("invalid yaml")
+		return nil, ErrYamlIllFormat // fmt.Errorf("invalid yaml")
 	}
 	if lines[i][0] == '-' {
 		return parseYAMLJSONArray(lines[i:])
