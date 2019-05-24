@@ -54,9 +54,11 @@ func (region *SRegion) CreateVirtualIP(name, desc, ip string, l3Id string) (*SVi
 		"params": {
 			"name":          name,
 			"description":   desc,
-			"requiredIp":    ip,
 			"l3NetworkUuid": l3Id,
 		},
+	}
+	if len(ip) > 0 {
+		params["params"]["requiredIp"] = ip
 	}
 	resp, err := region.client.post("vips", jsonutils.Marshal(params))
 	if err != nil {
