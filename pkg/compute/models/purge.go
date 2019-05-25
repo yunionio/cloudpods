@@ -683,3 +683,90 @@ func (manager *SExternalProjectManager) purgeAll(ctx context.Context, userCred m
 	}
 	return nil
 }
+
+func (zone *SZone) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, zone)
+	defer lockman.ReleaseObject(ctx, zone)
+
+	err := zone.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+
+	return zone.Delete(ctx, userCred)
+}
+
+func (region *SCloudregion) purgeZones(ctx context.Context, userCred mcclient.TokenCredential) error {
+	zones, err := region.GetZones()
+	if err != nil {
+		return err
+	}
+	for i := range zones {
+		err = zones[i].Purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (sku *SServerSku) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, sku)
+	defer lockman.ReleaseObject(ctx, sku)
+
+	err := sku.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+	return sku.Delete(ctx, userCred)
+}
+
+func (region *SCloudregion) purgeSkus(ctx context.Context, userCred mcclient.TokenCredential) error {
+	skus, err := region.GetSkus()
+	if err != nil {
+		return err
+	}
+	for i := range skus {
+		err = skus[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (region *SCloudregion) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, region)
+	defer lockman.ReleaseObject(ctx, region)
+
+	err := region.purgeZones(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = region.purgeSkus(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = region.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+
+	return region.Delete(ctx, userCred)
+}
+
+func (manager *SCloudregionManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	regions, err := manager.getCloudregionsByProviderId(providerId)
+	if err != nil {
+		return err
+	}
+	for i := range regions {
+		err = regions[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
