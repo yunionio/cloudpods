@@ -135,6 +135,9 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 			return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of %dGB ~ %dGB", disk.Backend, minGB, maxGB)
 		}
 	}
+	if input.EipBw > 100 {
+		return nil, httperrors.NewInputParameterError("%s requires that the eip bandwidth must be less than 100Mbps", self.GetHypervisor())
+	}
 	return input, nil
 }
 
