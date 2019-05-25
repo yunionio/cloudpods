@@ -30,105 +30,61 @@ import (
 )
 
 const (
-	PATH_NOT_FOUND = 0
-	LVM_PATH       = 1
-	NON_LVM_PATH   = 2
+	PATH_TYPE_UNKNOWN = 0
+	LVM_PATH          = 1
+	NON_LVM_PATH      = 2
 )
 
-type SLVMImageConnectUniqueTool struct {
-	cond     *sync.Cond
-	refCount int
-}
-
-func NewLVMImageConnectUniqueTool() *SLVMImageConnectUniqueTool {
-	return &SLVMImageConnectUniqueTool{
-		cond: sync.NewCond(&sync.Mutex{}),
-	}
-}
-
-func (t *SLVMImageConnectUniqueTool) AddRef() {
-	t.cond.L.Lock()
-	defer t.cond.L.Unlock()
-	t.refCount++
-}
-
-func (t *SLVMImageConnectUniqueTool) Wait() {
-	t.cond.L.Lock()
-	defer t.cond.L.Unlock()
-	t.refCount++
-	t.cond.Wait()
-}
-
-func (t *SLVMImageConnectUniqueTool) Signal() {
-	t.cond.L.Lock()
-	defer t.cond.L.Unlock()
-	t.refCount--
-	t.cond.Signal()
-}
-
-func (t *SLVMImageConnectUniqueTool) CanBeDestoryed() bool {
-	t.cond.L.Lock()
-	defer t.cond.L.Unlock()
-	return t.refCount == 0
-}
-
 type SLVMImageConnectUniqueToolSet struct {
-	lvms               map[string]*SLVMImageConnectUniqueTool
-	nonLVMImagePathSet map[string]struct{}
-	lock               *sync.Mutex
+	lvms    map[string]*sync.Mutex
+	nonLvms map[string]struct{}
+	lock    *sync.Mutex
 }
 
 func NewLVMImageConnectUniqueToolSet() *SLVMImageConnectUniqueToolSet {
 	return &SLVMImageConnectUniqueToolSet{
-		lvms:               make(map[string]*SLVMImageConnectUniqueTool),
-		nonLVMImagePathSet: make(map[string]struct{}),
-		lock:               new(sync.Mutex),
+		lvms:    make(map[string]*sync.Mutex),
+		nonLvms: make(map[string]struct{}),
+		lock:    new(sync.Mutex),
 	}
-}
-
-func (s *SLVMImageConnectUniqueToolSet) Add(imagePath string) {
-	s.lock.Lock()
-	if _, ok := s.lvms[imagePath]; !ok {
-		s.lvms[imagePath] = NewLVMImageConnectUniqueTool()
-	}
-	s.lock.Unlock()
-
-	s.lvms[imagePath].AddRef()
 }
 
 func (s *SLVMImageConnectUniqueToolSet) CacheNonLvmImagePath(imagePath string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.nonLVMImagePathSet[imagePath] = struct{}{}
+	s.nonLvms[imagePath] = struct{}{}
 }
 
 func (s *SLVMImageConnectUniqueToolSet) GetPathType(imagePath string) int {
 	if _, ok := s.lvms[imagePath]; ok {
 		return LVM_PATH
-	} else if _, ok := s.nonLVMImagePathSet[imagePath]; ok {
+	} else if _, ok := s.nonLvms[imagePath]; ok {
 		return NON_LVM_PATH
 	} else {
-		return PATH_NOT_FOUND
+		return PATH_TYPE_UNKNOWN
 	}
 }
 
-func (s *SLVMImageConnectUniqueToolSet) Wait(imagePath string) {
-	if tool, ok := s.lvms[imagePath]; ok {
-		tool.Wait()
+func (s *SLVMImageConnectUniqueToolSet) Release(imagePath string) {
+	if _, ok := s.lvms[imagePath]; ok {
+		s.lvms[imagePath].Unlock()
 	}
+	s.lock.Lock()
+	if _, ok := s.nonLvms[imagePath]; ok {
+		delete(s.lvms, imagePath)
+	}
+	s.lock.Unlock()
 }
 
-func (s *SLVMImageConnectUniqueToolSet) Signal(imagePath string) {
-	if tool, ok := s.lvms[imagePath]; ok {
-		tool.Signal()
-
-		if tool.CanBeDestoryed() {
-			s.lock.Lock()
-			defer s.lock.Unlock()
-			delete(s.lvms, imagePath)
-		}
+func (s *SLVMImageConnectUniqueToolSet) Acquire(imagePath string) {
+	s.lock.Lock()
+	if _, ok := s.lvms[imagePath]; !ok {
+		s.lvms[imagePath] = new(sync.Mutex)
 	}
+	s.lock.Unlock()
+
+	s.lvms[imagePath].Lock()
 }
 
 type SKVMGuestLVMPartition struct {

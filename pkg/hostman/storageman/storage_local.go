@@ -232,9 +232,8 @@ func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath str
 	)
 
 	if err := func() error {
+		defer kvmDisk.Disconnect()
 		if kvmDisk.Connect() {
-			defer kvmDisk.Disconnect()
-
 			var err error
 			func() {
 				if root := kvmDisk.MountKvmRootfs(); root != nil {

@@ -481,9 +481,6 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 			return nil, fmt.Errorf("Target storage %s not found", migParams.TargetStorageId)
 		}
 
-		// 可能可以不用?
-		// guest.CreateFromUrl(ctx, migParams.ServerUrl, migParams.Desc)
-
 		disks, _ := migParams.Desc.GetArray("disks")
 		for i, diskinfo := range disks {
 			var (
@@ -538,7 +535,6 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 			diskDesc.Set("path", jsonutils.NewString(disk.GetPath()))
 		}
 
-		// 可能可以不要
 		if err := guest.SaveDesc(migParams.Desc); err != nil {
 			log.Errorln(err)
 			return nil, err
