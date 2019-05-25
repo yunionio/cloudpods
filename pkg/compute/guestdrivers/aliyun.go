@@ -118,6 +118,9 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 			}
 		}
 	}
+	if input.EipBw > 100 {
+		return nil, httperrors.NewInputParameterError("%s requires that the eip bandwidth must be less than 100Mbps", self.GetHypervisor())
+	}
 	return input, nil
 }
 
