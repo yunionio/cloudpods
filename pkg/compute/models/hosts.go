@@ -2752,7 +2752,7 @@ func (self *SHost) PerformOffline(ctx context.Context, userCred mcclient.TokenCr
 			return nil, err
 		}
 		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, "", userCred)
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_ONLINE, nil, userCred, true)
+		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_OFFLINE, nil, userCred, true)
 		self.SyncAttachedStorageStatus()
 	}
 	return nil, nil

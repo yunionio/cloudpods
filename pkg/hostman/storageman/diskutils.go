@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -51,7 +52,7 @@ func (d *SKVMGuestDisk) Connect() bool {
 		return false
 	}
 
-	d.connectionPrecheck()
+	pathType := d.connectionPrecheck()
 
 	var cmd []string
 	if strings.HasPrefix(d.imagePath, "rbd:") || d.getImageFormat() == "raw" {
@@ -91,9 +92,10 @@ func (d *SKVMGuestDisk) Connect() bool {
 		tried += 1
 	}
 
-	if !d.isNonLvmImagePath() {
-		hasLVM, err := d.setupLVMS()
-		if !hasLVM && err == nil {
+	if pathType == LVM_PATH {
+		d.setupLVMS()
+	} else if pathType == PATH_TYPE_UNKNOWN {
+		if hasLVM, err := d.setupLVMS(); !hasLVM && err == nil {
 			d.cacheNonLVMImagePath()
 		}
 	}
@@ -143,7 +145,7 @@ func (d *SKVMGuestDisk) findLVMPartitions(partDev string) string {
 	return findVgname(partDev)
 }
 
-func (d *SKVMGuestDisk) rootBackingFilePath() string {
+func (d *SKVMGuestDisk) rootImagePath() string {
 	if len(d.imageRootBackFilePath) > 0 {
 		return d.imageRootBackFilePath
 	}
@@ -165,29 +167,32 @@ func (d *SKVMGuestDisk) rootBackingFilePath() string {
 }
 
 func (d *SKVMGuestDisk) isNonLvmImagePath() bool {
-	pathType := lvmTool.GetPathType(d.rootBackingFilePath())
+	pathType := lvmTool.GetPathType(d.rootImagePath())
 	return pathType == NON_LVM_PATH
 }
 
 func (d *SKVMGuestDisk) cacheNonLVMImagePath() {
-	lvmTool.CacheNonLvmImagePath(d.rootBackingFilePath())
+	lvmTool.CacheNonLvmImagePath(d.rootImagePath())
 }
 
-func (d *SKVMGuestDisk) connectionPrecheck() {
-	pathType := lvmTool.GetPathType(d.rootBackingFilePath())
-	switch pathType {
-	case LVM_PATH:
-		lvmTool.Wait(d.rootBackingFilePath())
-		lvmTool.Add(d.rootBackingFilePath())
-	case NON_LVM_PATH:
-		return
-	case PATH_NOT_FOUND:
-		lvmTool.Add(d.rootBackingFilePath())
+func (d *SKVMGuestDisk) connectionPrecheck() int {
+	pathType := lvmTool.GetPathType(d.rootImagePath())
+	if pathType == LVM_PATH || pathType == PATH_TYPE_UNKNOWN {
+		lvmTool.Acquire(d.rootImagePath())
 	}
+	return pathType
 }
 
 func (d *SKVMGuestDisk) LvmDisconnectNotify() {
-	lvmTool.Signal(d.rootBackingFilePath())
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("Catch panic on LvmDisconnectNotify %v \n %s", r, debug.Stack())
+		}
+	}()
+	pathType := lvmTool.GetPathType(d.rootImagePath())
+	if pathType != NON_LVM_PATH {
+		lvmTool.Release(d.rootImagePath())
+	}
 }
 
 func (d *SKVMGuestDisk) setupLVMS() (bool, error) {
@@ -229,9 +234,9 @@ func (d *SKVMGuestDisk) PutdownLVMs() {
 
 func (d *SKVMGuestDisk) Disconnect() bool {
 	if len(d.nbdDev) > 0 {
+		defer d.LvmDisconnectNotify()
 		d.PutdownLVMs()
 		_, err := procutils.NewCommand(qemutils.GetQemuNbd(), "-d", d.nbdDev).Run()
-		d.LvmDisconnectNotify()
 		if err != nil {
 			log.Errorln(err.Error())
 			return false
