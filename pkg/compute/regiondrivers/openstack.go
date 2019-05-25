@@ -51,7 +51,7 @@ func (self *SOpenStackRegionDriver) ValidateCreateLoadbalancerCertificateData(ct
 }
 
 func (self *SOpenStackRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	networkV := validators.NewModelIdOrNameValidator("network", "network", "")
+	networkV := validators.NewModelIdOrNameValidator("network", "network", nil)
 	err := networkV.Validate(data)
 	if err != nil {
 		return nil, err
