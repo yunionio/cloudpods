@@ -162,11 +162,8 @@ func sliceToJsonObject(items []int) jsonutils.JSONObject {
 
 func inWhiteList(provider string) bool {
 	// provider 字段为空时表示私有云套餐
-	if len(provider) == 0 {
-		return true
-	} else {
-		return false
-	}
+	// 私有云套餐也允许更新删除
+	return utils.IsInStringArray(provider, []string{"", api.CLOUD_PROVIDER_OPENSTACK, api.CLOUD_PROVIDER_ZSTACK})
 }
 
 func excludeSkus(q *sqlchemy.SQuery) *sqlchemy.SQuery {
