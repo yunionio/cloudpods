@@ -32,8 +32,15 @@ func (this *HiProcInstManager) GetStatistics(s *mcclient.ClientSession, params j
 	hiProcInstPath := fmt.Sprintf("/historic-process-instances?status=unfinished&user_id=%s", userId)
 	procTaskPath := fmt.Sprintf("/process-tasks?user_id=%s", userId)
 
-	hiProcInstObj, _ := this._list(s, hiProcInstPath, "historic-process-instances")
-	procTaskObj, _ := this._list(s, procTaskPath, "process-tasks")
+	hiProcInstObj, err := this._list(s, hiProcInstPath, "historic-process-instances")
+	if err != nil {
+		return nil, err
+	}
+
+	procTaskObj, err := this._list(s, procTaskPath, "process-tasks")
+	if err != nil {
+		return nil, err
+	}
 
 	nrHiProcInst := hiProcInstObj.Total
 	nrProcTask := procTaskObj.Total
