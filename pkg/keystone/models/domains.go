@@ -15,15 +15,16 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 
+	"github.com/pkg/errors"
+
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
-	"context"
-	"github.com/pkg/errors"
-	"yunion.io/x/jsonutils"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -32,7 +33,7 @@ import (
 )
 
 type SDomainManager struct {
-	SEnabledIdentityBaseResourceManager
+	db.SStandaloneResourceBaseManager
 }
 
 var (
@@ -41,7 +42,7 @@ var (
 
 func init() {
 	DomainManager = &SDomainManager{
-		SEnabledIdentityBaseResourceManager: NewEnabledIdentityBaseResourceManager(
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
 			SDomain{},
 			"project",
 			"domain",
@@ -52,7 +53,15 @@ func init() {
 }
 
 type SDomain struct {
-	SBaseProject
+	db.SStandaloneResourceBase
+
+	Extra *jsonutils.JSONDict `nullable:"true"`
+
+	Enabled  tristate.TriState `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
+	IsDomain tristate.TriState `default:"false" nullable:"false" create:"admin_optional"`
+
+	// ParentId string `width:"64" charset:"ascii" index:"true" list:"admin" create:"admin_optional"`
+	DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true"`
 }
 
 func (manager *SDomainManager) InitializeData() error {
@@ -62,7 +71,7 @@ func (manager *SDomainManager) InitializeData() error {
 		root.Id = api.KeystoneDomainRoot
 		root.Name = api.KeystoneDomainRoot
 		root.IsDomain = tristate.True
-		root.ParentId = api.KeystoneDomainRoot
+		// root.ParentId = api.KeystoneDomainRoot
 		root.DomainId = api.KeystoneDomainRoot
 		root.Enabled = tristate.False
 		root.Description = "The hidden root domain"
@@ -80,7 +89,7 @@ func (manager *SDomainManager) InitializeData() error {
 		defDomain.Id = api.DEFAULT_DOMAIN_ID
 		defDomain.Name = api.DEFAULT_DOMAIN_NAME
 		defDomain.IsDomain = tristate.True
-		defDomain.ParentId = api.KeystoneDomainRoot
+		// defDomain.ParentId = api.KeystoneDomainRoot
 		defDomain.DomainId = api.KeystoneDomainRoot
 		defDomain.Enabled = tristate.True
 		defDomain.Description = "The default domain"
@@ -95,12 +104,8 @@ func (manager *SDomainManager) InitializeData() error {
 	return nil
 }
 
-func (manager *SDomainManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
-	return nil
-}
-
 func (manager *SDomainManager) Query(fields ...string) *sqlchemy.SQuery {
-	return manager.SEnabledIdentityBaseResourceManager.Query(fields...).IsTrue("is_domain")
+	return manager.SStandaloneResourceBaseManager.Query(fields...).IsTrue("is_domain")
 }
 
 func (manager *SDomainManager) FetchDomainByName(domainName string) (*SDomain, error) {
@@ -121,7 +126,7 @@ func (manager *SDomainManager) FetchDomainById(domainId string) (*SDomain, error
 	if err != nil {
 		return nil, err
 	}
-	q := manager.Query().Equals("id", domainId) // .NotEquals("id", api.KeystoneDomainRoot)
+	q := manager.Query().Equals("id", domainId).NotEquals("id", api.KeystoneDomainRoot)
 	err = q.First(obj)
 	if err != nil {
 		return nil, err
@@ -158,7 +163,7 @@ func (manager *SDomainManager) FetchDomainByIdOrName(domain string) (*SDomain, e
 }
 
 func (manager *SDomainManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -199,9 +204,10 @@ func (self *SDomain) GetConfig(all bool) (TDomainConfigs, error) {
 }
 
 func (domain *SDomain) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	domain.ParentId = ownerId.GetProjectDomainId()
+	// domain.ParentId = api.KeystoneDomainRoot
+	domain.DomainId = api.KeystoneDomainRoot
 	domain.IsDomain = tristate.True
-	return domain.SBaseProject.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return domain.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (domain *SDomain) GetProjectCount() (int, error) {
@@ -235,7 +241,7 @@ func (domain *SDomain) ValidateDeleteCondition(ctx context.Context) error {
 	if domain.Id == api.DEFAULT_DOMAIN_ID {
 		return httperrors.NewForbiddenError("cannot delete default domain")
 	}
-	return domain.SEnabledIdentityBaseResource.ValidateDeleteCondition(ctx)
+	return domain.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (domain *SDomain) GetDriver() string {
@@ -262,12 +268,12 @@ func (domain *SDomain) isReadOnly() bool {
 }
 
 func (domain *SDomain) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := domain.SEnabledIdentityBaseResource.GetCustomizeColumns(ctx, userCred, query)
+	extra := domain.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	return domainExtra(domain, extra)
 }
 
 func (domain *SDomain) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := domain.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query)
+	extra, err := domain.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}

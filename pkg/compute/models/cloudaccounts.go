@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SCloudaccountManager struct {
@@ -1336,4 +1337,25 @@ func (self *SCloudaccount) getSyncStatus() string {
 	} else {
 		return api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 	}
+}
+
+func (manager *SCloudaccountManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
+	rows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
+	if len(fields) == 0 || fields.Contains("domain") {
+		domainIds := stringutils2.SSortedStrings{}
+		for i := range objs {
+			idStr := objs[i].GetOwnerId().GetProjectDomainId()
+			domainIds = stringutils2.Append(domainIds, idStr)
+		}
+		domains := db.FetchProjects(domainIds, true)
+		if domains != nil {
+			for i := range rows {
+				idStr := objs[i].GetOwnerId().GetProjectDomainId()
+				if domain, ok := domains[idStr]; ok {
+					rows[i].Add(jsonutils.NewString(domain.Name), "domain")
+				}
+			}
+		}
+	}
+	return rows
 }

@@ -113,6 +113,13 @@ func GetSystemResources() map[string][]string {
 	return systemResources
 }
 
+func GetResources() map[string]map[string][]string {
+	ret := make(map[string]map[string][]string)
+	ret["system"] = systemResources
+	ret["domain"] = domainResources
+	return ret
+}
+
 func isSystemResource(service string, resource string) bool {
 	resList, ok := systemResources[service]
 	if ok {

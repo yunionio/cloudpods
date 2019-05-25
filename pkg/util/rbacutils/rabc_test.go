@@ -294,9 +294,9 @@ func TestConditionParser(t *testing.T) {
 
 type sRbacIdentity struct {
 	DomainId string
-	Project string
-	Roles []string
-	Ip string
+	Project  string
+	Roles    []string
+	Ip       string
 }
 
 func (ri *sRbacIdentity) GetProjectDomainId() string {
@@ -407,7 +407,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			&sRbacIdentity{
 				Project: "system",
 				Roles:   []string{"admin"},
-				Ip: "10.0.0.23",
+				Ip:      "10.0.0.23",
 			},
 			false,
 		},
@@ -420,7 +420,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			&sRbacIdentity{
 				Project: "system",
 				Roles:   []string{"admin"},
-				Ip: "10.168.22.23",
+				Ip:      "10.168.22.23",
 			},
 			true,
 		},
@@ -433,7 +433,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			&sRbacIdentity{
 				Project: "system",
 				Roles:   []string{"_member_"},
-				Ip: "10.168.22.23",
+				Ip:      "10.168.22.23",
 			},
 			false,
 		},
@@ -445,7 +445,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			&sRbacIdentity{
 				Project: "system",
 				Roles:   []string{"_member_", "admin"},
-				Ip: "10.168.22.23",
+				Ip:      "10.168.22.23",
 			},
 			true,
 		},
@@ -458,7 +458,7 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			&sRbacIdentity{
 				Project: "system",
 				Roles:   []string{"_member_", "projectowner"},
-				Ip: "10.168.22.23",
+				Ip:      "10.168.22.23",
 			},
 			true,
 		},
