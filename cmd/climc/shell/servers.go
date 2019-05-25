@@ -18,9 +18,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
+	yaml "gopkg.in/yaml.v2"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -844,34 +848,98 @@ func init() {
 	})
 
 	type ServersImportFromLibvirtOptions struct {
-		CONFIG_FILE string `help:"JSON file describing servers from libvirt, e.g. 
-			{'hosts': 
-				[
-					{
-						'servers': [
-							{
-								'mac_ip': {'mac1': 'ip1', ...}
-							},
-						],
-						'xml_file_path': '/etc/libvirt/qemu',
-						'host_ip': '192.168.1.100',
-					},
-				],
-			}
-		"`
+		ConfigFile string `help:"File Path describing servers from libvirt"`
 	}
+	type LibvirtImportOptions struct {
+		Hosts []struct {
+			HostIp      string `yaml:"host_ip"`
+			XmlFilePath string `yaml:"xml_file_path"`
+			Servers     []struct {
+				mac_ip string `yaml:"mac_ip"`
+			} `yaml:"servers"`
+		} `yaml:"hosts"`
+	}
+
 	R(&ServersImportFromLibvirtOptions{}, "servers-import-from-libvirt", "Import servers from libvrt", func(s *mcclient.ClientSession, args *ServersImportFromLibvirtOptions) error {
-		rawConfig, err := ioutil.ReadFile(args.CONFIG_FILE)
-		if err != nil {
-			return fmt.Errorf("Read file error: %s", err)
+		var (
+			rawConfig []byte
+			err       error
+		)
+		if len(args.ConfigFile) == 0 {
+			rawConfig, err = generateLibvirtImportConfig()
+		} else {
+			rawConfig, err = ioutil.ReadFile(args.ConfigFile)
+			if err != nil {
+				return fmt.Errorf("Read config file %s error: %s", args.ConfigFile, err)
+			}
 		}
 
-		config := &compute.SLibvirtImportConfig{}
-		err = json.Unmarshal(rawConfig, config)
-		if err != nil {
-			return fmt.Errorf("Parse config error %s", err)
+		var (
+			params []jsonutils.JSONObject
+			config = &compute.SLibvirtImportConfig{}
+		)
+		{ // Try parse as json first
+			err = json.Unmarshal(rawConfig, config)
+			if err != nil {
+				goto YAML
+			}
+			for i := 0; i < len(config.Hosts); i++ {
+				if nIp := net.ParseIP(config.Hosts[i].HostIp); nIp == nil {
+					return fmt.Errorf("Parse host ip %s failed", config.Hosts[i].HostIp)
+				}
+				for _, server := range config.Hosts[i].Servers {
+					for mac, ip := range server.MacIp {
+						if _, err := net.ParseMAC(mac); err != nil {
+							return fmt.Errorf("Parse mac %s error %s", mac, err)
+						}
+						if nIp := net.ParseIP(ip); nIp == nil {
+							return fmt.Errorf("Parse ip %s failed", ip)
+						}
+					}
+				}
+			}
+
+			goto REQUEST
 		}
-		params, err := jsonutils.Marshal(config.Hosts).GetArray()
+
+	YAML: // Try Parse as yaml
+		{
+			yamlConfig := &LibvirtImportOptions{}
+			err = yaml.Unmarshal(rawConfig, yamlConfig)
+			if err != nil {
+				return err
+			}
+			config.Hosts = make([]compute.SLibvirtHostConfig, len(yamlConfig.Hosts))
+			for i := 0; i < len(yamlConfig.Hosts); i++ {
+				if nIp := net.ParseIP(yamlConfig.Hosts[i].HostIp); nIp == nil {
+					return fmt.Errorf("Parse host ip %s failed", yamlConfig.Hosts[i].HostIp)
+				}
+				config.Hosts[i].HostIp = yamlConfig.Hosts[i].HostIp
+				config.Hosts[i].XmlFilePath = yamlConfig.Hosts[i].XmlFilePath
+				config.Hosts[i].Servers = make([]compute.SLibvirtServerConfig, len(yamlConfig.Hosts[i].Servers))
+				for j := 0; j < len(yamlConfig.Hosts[i].Servers); j++ {
+					vals := strings.Split(strings.TrimSpace(yamlConfig.Hosts[i].Servers[j].mac_ip), " ")
+					if len(vals) < 2 {
+						return fmt.Errorf("Parse server config %s failed",
+							yamlConfig.Hosts[i].Servers[j].mac_ip)
+					}
+					mac := vals[0]
+					_, err := net.ParseMAC(mac)
+					if err != nil {
+						return fmt.Errorf("Parse mac address %s error %s", mac, err)
+					}
+					ip := vals[len(vals)-1]
+					nIp := net.ParseIP(ip)
+					if len(nIp) == 0 {
+						return fmt.Errorf("Parse ip address %s failed", ip)
+					}
+					config.Hosts[i].Servers[j].MacIp[mac] = ip
+				}
+			}
+		}
+
+	REQUEST:
+		params, err = jsonutils.Marshal(config.Hosts).GetArray()
 		if err != nil {
 			return err
 		}
@@ -915,4 +983,43 @@ func init() {
 		printObject(result)
 		return nil
 	})
+}
+
+func generateLibvirtImportConfig() ([]byte, error) {
+	tmpfile, err := ioutil.TempFile("", "libvirt-import")
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(tmpfile.Name()) // clean up
+
+	yaml := `# Input YAML Example:
+
+# hosts:
+#  host_ip: host ip
+#  servers:
+#    - mac1 ip1
+#    - mac2 ip2
+#  xml_file_path: xml file path
+`
+
+	if _, err := tmpfile.Write([]byte(yaml)); err != nil {
+		return nil, err
+	}
+	if err := tmpfile.Close(); err != nil {
+		return nil, err
+	}
+
+	cmd := exec.Command("vim", tmpfile.Name())
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	err = cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	rawConfig, err := ioutil.ReadFile(tmpfile.Name())
+	if err != nil {
+		return nil, err
+	}
+	return rawConfig, nil
 }

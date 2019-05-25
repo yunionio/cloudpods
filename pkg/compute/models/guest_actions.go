@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -3097,6 +3098,14 @@ func (self *SGuest) importNics(ctx context.Context, userCred mcclient.TokenCrede
 		return httperrors.NewInputParameterError("Empty import nics")
 	}
 	for _, nic := range nics {
+		q := GuestnetworkManager.Query()
+		count := q.Filter(sqlchemy.OR(
+			sqlchemy.Equals(q.Field("mac_addr"), nic.Mac),
+			sqlchemy.Equals(q.Field("ip_addr"), nic.Ip)),
+		).Count()
+		if count > 0 {
+			return httperrors.NewInputParameterError("ip %s or mac %s has been registered", nic.Ip, nic.Mac)
+		}
 		net, err := NetworkManager.GetOnPremiseNetworkOfIP(nic.Ip, "", tristate.None)
 		if err != nil {
 			return httperrors.NewNotFoundError("Not found network by ip %s", nic.Ip)
@@ -3160,6 +3169,27 @@ func (manager *SGuestManager) PerformImportFromLibvirt(ctx context.Context, user
 	sHost, err := HostManager.GetHostByIp(host.HostIp)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("Invalid host ip %s", host.HostIp)
+	}
+
+	for _, server := range host.Servers {
+		for mac, ip := range server.MacIp {
+			_, err = net.ParseMAC(mac)
+			if err != nil {
+				return nil, httperrors.NewBadRequestError("Invalid server mac address %s", mac)
+			}
+			nIp := net.ParseIP(ip)
+			if nIp == nil {
+				return nil, httperrors.NewBadRequestError("Invalid server ip address %s", ip)
+			}
+			q := GuestnetworkManager.Query()
+			count := q.Filter(sqlchemy.OR(
+				sqlchemy.Equals(q.Field("mac_addr"), mac),
+				sqlchemy.Equals(q.Field("ip_addr"), ip)),
+			).Count()
+			if count > 0 {
+				return nil, httperrors.NewInputParameterError("ip %s or mac %s has been registered", mac, ip)
+			}
+		}
 	}
 
 	taskData := jsonutils.NewDict()
