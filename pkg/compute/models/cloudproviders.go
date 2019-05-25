@@ -1098,7 +1098,7 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(ctx context.Context,
 		projectIds = stringutils2.Append(projectIds, idStr)
 	}
 	if len(fields) == 0 || fields.Contains("tenant") || fields.Contains("domain") {
-		projects := db.FetchProjects(projectIds)
+		projects := db.FetchProjects(projectIds, false)
 		if projects != nil {
 			for i := range rows {
 				idStr := objs[i].GetOwnerId().GetProjectId()

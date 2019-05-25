@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -189,13 +190,13 @@ func (manager *SVirtualResourceBaseManager) AllowCreateItem(ctx context.Context,
 
 func (manager *SVirtualResourceBaseManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
 	rows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	projectIds := stringutils2.SSortedStrings{}
-	for i := range objs {
-		idStr := objs[i].GetOwnerId().GetProjectId()
-		projectIds = stringutils2.Append(projectIds, idStr)
-	}
 	if len(fields) == 0 || fields.Contains("tenant") || fields.Contains("domain") {
-		projects := FetchProjects(projectIds)
+		projectIds := stringutils2.SSortedStrings{}
+		for i := range objs {
+			idStr := objs[i].GetOwnerId().GetProjectId()
+			projectIds = stringutils2.Append(projectIds, idStr)
+		}
+		projects := FetchProjects(projectIds, false)
 		if projects != nil {
 			for i := range rows {
 				idStr := objs[i].GetOwnerId().GetProjectId()
@@ -214,8 +215,13 @@ func (manager *SVirtualResourceBaseManager) FetchCustomizeColumns(ctx context.Co
 	return rows
 }
 
-func FetchProjects(projectIds []string) map[string]STenant {
+func FetchProjects(projectIds []string, isDomain bool) map[string]STenant {
 	q := TenantCacheManager.Query().In("id", projectIds)
+	if isDomain {
+		q = q.Equals("domain_id", identityapi.KeystoneDomainRoot)
+	} else {
+		q = q.NotEquals("domain_id", identityapi.KeystoneDomainRoot)
+	}
 	projects := make([]STenant, 0)
 	err := FetchModelObjects(TenantCacheManager, q, &projects)
 	if err != nil {

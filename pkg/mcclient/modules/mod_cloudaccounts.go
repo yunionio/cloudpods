@@ -23,7 +23,7 @@ func init() {
 		[]string{"ID", "Name", "Enabled", "Status", "Access_url",
 			"balance", "error_count", "health_status",
 			"Sync_Status", "Last_sync",
-			"guest_count",
+			"guest_count", "domain", "domain_id",
 			"Provider", "Enable_Auto_Sync", "Sync_Interval_Seconds"},
 		[]string{})
 
