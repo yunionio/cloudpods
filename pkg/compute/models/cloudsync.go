@@ -771,7 +771,7 @@ func syncRegionSnapshotPolicies(ctx context.Context, userCred mcclient.TokenCred
 	}
 
 	result := SnapshotPolicyManager.SyncSnapshotPolicies(
-		ctx, userCred, provider, localRegion, snapshotPolicies, provider.ProjectId)
+		ctx, userCred, provider, localRegion, snapshotPolicies, provider.GetOwnerId())
 	syncResults.Add(SnapshotPolicyManager, result)
 	msg := result.Result()
 	log.Infof("SyncSnapshotPolicies for region %s result: %s", localRegion.Name, msg)

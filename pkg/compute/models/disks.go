@@ -757,7 +757,7 @@ func (self *SDisk) PerformApplySnapshotPolicy(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
-	spv := validators.NewModelIdOrNameValidator("snapshotpolicy", "snapshotpolicy", userCred.GetProjectId())
+	spv := validators.NewModelIdOrNameValidator("snapshotpolicy", "snapshotpolicy", userCred)
 	if err := spv.Validate(data.(*jsonutils.JSONDict)); err != nil {
 		return nil, err
 	}
@@ -1198,7 +1198,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 
 		extPolicyId := extDisk.GetExtSnapshotPolicyId()
 		if len(extPolicyId) > 0 {
-			isp, _ := SnapshotPolicyManager.FetchByExternalId(extPolicyId)
+			isp, _ := db.FetchByExternalId(SnapshotPolicyManager, extPolicyId)
 			if isp != nil {
 				self.SnapshotPolicyId = isp.GetId()
 			}
@@ -1253,7 +1253,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 
 	extPolicyId := extDisk.GetExtSnapshotPolicyId()
 	if len(extPolicyId) > 0 {
-		isp, _ := SnapshotPolicyManager.FetchByExternalId(extPolicyId)
+		isp, _ := db.FetchByExternalId(SnapshotPolicyManager, extPolicyId)
 		if isp != nil {
 			disk.SnapshotPolicyId = isp.GetId()
 		}

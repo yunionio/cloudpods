@@ -40,6 +40,8 @@ type SSnapshotPolicyManager struct {
 
 type SSnapshotPolicy struct {
 	db.SVirtualResourceBase
+	db.SExternalizedResourceBase
+
 	SManagedResourceBase
 	SCloudregionResourceBase
 
@@ -63,26 +65,26 @@ func init() {
 	}
 }
 
-func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	input := &compute.SSnapshotPolicyCreateInput{}
 	err := data.Unmarshal(input)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("Unmarshal input failed %s", err)
 	}
-	input.ProjectId = ownerProjId
+	input.ProjectId = ownerId.GetProjectId()
 
-	err = db.NewNameValidator(manager, ownerProjId, input.Name)
+	err = db.NewNameValidator(manager, ownerId, input.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", "")
+	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", nil)
 	if err := managerIdV.Validate(data); err != nil {
 		return nil, err
 	}
 	input.ManagerId, _ = data.GetString("manager_id")
 
-	cloudregionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerProjId)
+	cloudregionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerId)
 	err = cloudregionV.Validate(data)
 	if err != nil {
 		return nil, err
@@ -98,11 +100,11 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, u
 	return data, nil
 }
 
-func (self *SSnapshotPolicy) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.StartCreateSnapshotPolicy(ctx, userCred, ownerProjId, query, data)
+func (self *SSnapshotPolicy) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.StartCreateSnapshotPolicy(ctx, userCred, ownerId, query, data)
 }
 
-func (self *SSnapshotPolicy) StartCreateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+func (self *SSnapshotPolicy) StartCreateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	if task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyCreateTask", self, userCred, nil, "", "", nil); err != nil {
 		return err
 	} else {
@@ -180,11 +182,9 @@ func (self *SSnapshotPolicy) GenerateCreateSpParams() (*cloudprovider.SnapshotPo
 	}, nil
 }
 
-func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshotPolicy, projectId string) compare.SyncResult {
-	syncOwnerProjId := projectId
-
-	lockman.LockClass(ctx, manager, syncOwnerProjId)
-	defer lockman.ReleaseClass(ctx, manager, syncOwnerProjId)
+func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshotPolicy, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 	syncResult := compare.SyncResult{}
 	dbSnapshotPolicies, err := manager.getProviderSnapshotPolicies(region, provider)
 	if err != nil {
@@ -210,7 +210,7 @@ func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context,
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudSnapshotPolicy(ctx, userCred, commonext[i], projectId, region)
+		err = commondb[i].SyncWithCloudSnapshotPolicy(ctx, userCred, commonext[i], syncOwnerId, region)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -219,7 +219,7 @@ func (manager *SSnapshotPolicyManager) SyncSnapshotPolicies(ctx context.Context,
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		local, err := manager.newFromCloudSnapshotPolicy(ctx, userCred, added[i], region, syncOwnerProjId, provider)
+		local, err := manager.newFromCloudSnapshotPolicy(ctx, userCred, added[i], region, syncOwnerId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -260,7 +260,7 @@ func (self *SSnapshotPolicy) RealDelete(ctx context.Context, userCred mcclient.T
 	return db.DeleteModel(ctx, userCred, self)
 }
 
-func (self *SSnapshotPolicy) SyncWithCloudSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshotPolicy, projectId string, region *SCloudregion) error {
+func (self *SSnapshotPolicy) SyncWithCloudSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshotPolicy, ownerId mcclient.IIdentityProvider, region *SCloudregion) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Name = ext.GetName()
 		self.Status = ext.GetStatus()
@@ -280,19 +280,19 @@ func (self *SSnapshotPolicy) SyncWithCloudSnapshotPolicy(ctx context.Context, us
 		return nil
 	})
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
-	SyncCloudProject(userCred, self, projectId, ext, self.ManagerId)
+	SyncCloudProject(userCred, self, ownerId, ext, self.ManagerId)
 	return err
 }
 func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	ext cloudprovider.ICloudSnapshotPolicy, region *SCloudregion,
-	projectId string, provider *SCloudprovider,
+	syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider,
 ) (*SSnapshotPolicy, error) {
 
 	snapshotPolicy := SSnapshotPolicy{}
-	snapshotPolicy.SetModelManager(manager)
+	snapshotPolicy.SetModelManager(manager, &snapshotPolicy)
 
-	newName, err := db.GenerateName(manager, projectId, ext.GetName())
+	newName, err := db.GenerateName(manager, syncOwnerId, ext.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +319,7 @@ func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 		return nil, err
 	}
 
-	SyncCloudProject(userCred, &snapshotPolicy, projectId, ext, snapshotPolicy.ManagerId)
+	SyncCloudProject(userCred, &snapshotPolicy, syncOwnerId, ext, snapshotPolicy.ManagerId)
 	db.OpsLog.LogEvent(&snapshotPolicy, db.ACT_CREATE, snapshotPolicy.GetShortDesc(ctx), userCred)
 	return &snapshotPolicy, nil
 }

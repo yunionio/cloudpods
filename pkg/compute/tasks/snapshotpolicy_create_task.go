@@ -70,11 +70,13 @@ type SnapshotPolicyApplyTask struct {
 func (self *SnapshotPolicyApplyTask) taskFail(ctx context.Context, sp *models.SSnapshotPolicy, reason string) {
 	stringIds, _ := getDiskIds(self)
 	disks := make([]models.SDisk, 0)
-	models.DiskManager.Query().In("id", stringIds).All(&disks)
-	for i := 0; i < len(disks); i++ {
-		disks[i].SetModelManager(models.DiskManager)
-		db.OpsLog.LogEvent(&disks[i], db.ACT_APPLY_SNAPSHOT_POLICY_FAILED, reason, self.UserCred)
-		logclient.AddActionLogWithStartable(self, &disks[i], logclient.ACT_APPLY_SNAPSHOT_POLICY, reason, self.UserCred, false)
+	q := models.DiskManager.Query().In("id", stringIds)
+	err := db.FetchModelObjects(models.DiskManager, q, &disks)
+	if err == nil {
+		for i := 0; i < len(disks); i++ {
+			db.OpsLog.LogEvent(&disks[i], db.ACT_APPLY_SNAPSHOT_POLICY_FAILED, reason, self.UserCred)
+			logclient.AddActionLogWithStartable(self, &disks[i], logclient.ACT_APPLY_SNAPSHOT_POLICY, reason, self.UserCred, false)
+		}
 	}
 	self.SetStageFailed(ctx, reason)
 }
@@ -129,13 +131,13 @@ func (self *SnapshotPolicyApplyTask) OnInit(ctx context.Context, obj db.IStandal
 func (self *SnapshotPolicyApplyTask) OnSnapshotPolicyApply(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
 	stringIds, _ := getDiskIds(self)
 	disks := make([]models.SDisk, 0)
-	err := models.DiskManager.Query().In("id", stringIds).All(&disks)
+	q := models.DiskManager.Query().In("id", stringIds)
+	err := db.FetchModelObjects(models.DiskManager, q, &disks)
 	if err != nil {
-		self.taskFail(ctx, sp, fmt.Sprintf("Fetch disks  failed %s", err))
+		self.taskFail(ctx, sp, fmt.Sprintf("Fetch disks failed %s", err))
 		return
 	}
 	for i := 0; i < len(disks); i++ {
-		disks[i].SetModelManager(models.DiskManager)
 		disks[i].SetSnapshotPolicy(sp.Id)
 		db.OpsLog.LogEvent(&disks[i], db.ACT_APPLY_SNAPSHOT_POLICY, nil, self.UserCred)
 		logclient.AddActionLogWithStartable(self, &disks[i], logclient.ACT_APPLY_SNAPSHOT_POLICY, nil, self.UserCred, true)

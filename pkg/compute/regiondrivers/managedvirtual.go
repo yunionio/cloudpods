@@ -848,7 +848,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateSnapshotPolicy(ctx 
 		if err != nil {
 			return nil, err
 		}
-		sp.SetExternalId(userCred, policyId)
+		err = db.SetExternalId(sp, userCred, policyId)
 		if err != nil {
 			return nil, err
 		}
