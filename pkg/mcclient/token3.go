@@ -209,9 +209,8 @@ func (catalog KeystoneServiceCatalogV3) getRegions() []string {
 	regions := make([]string, 0)
 	for i := 0; i < len(catalog); i++ {
 		for j := 0; j < len(catalog[i].Endpoints); j++ {
-			r, _ := Id2RegionZone(catalog[i].Endpoints[j].Region_id)
-			if !stringArrayContains(regions, r) {
-				regions = append(regions, r)
+			if len(catalog[i].Endpoints[j].Region_id) > 0 && !stringArrayContains(regions, catalog[i].Endpoints[j].Region_id) {
+				regions = append(regions, catalog[i].Endpoints[j].Region_id)
 			}
 		}
 	}
