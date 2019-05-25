@@ -1783,6 +1783,32 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(added); i += 1 {
+		vm, err := GuestManager.FetchByExternalId(added[i].GetGlobalId())
+		if err != nil && err != sql.ErrNoRows {
+			log.Errorf("failed to found guest by externalId %s error: %v", added[i].GetGlobalId(), err)
+			continue
+		}
+		if vm != nil {
+			guest := vm.(*SGuest)
+			ihost := added[i].GetIHost()
+			if ihost == nil {
+				log.Errorf("failed to found ihost from vm %s", added[i].GetGlobalId())
+				continue
+			}
+			_host, err := HostManager.FetchByExternalId(ihost.GetGlobalId())
+			if err != nil {
+				log.Errorf("failed to found host by externalId %s", ihost.GetGlobalId())
+				continue
+			}
+			host := _host.(*SHost)
+			err = guest.syncWithCloudVM(ctx, userCred, iprovider, host, added[i], syncOwnerId)
+			if err != nil {
+				syncResult.UpdateError(err)
+			} else {
+				syncResult.Update()
+			}
+			continue
+		}
 		if added[i].GetBillingType() == billing_api.BILLING_TYPE_PREPAID {
 			vhost := HostManager.GetHostByRealExternalId(added[i].GetGlobalId())
 			if vhost != nil {
