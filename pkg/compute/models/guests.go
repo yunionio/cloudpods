@@ -891,6 +891,10 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 			input.Bios = "UEFI" // windows gpu passthrough
 		}
 
+		if imgProperties[imageapi.IMAGE_DISK_FORMAT] == "iso" {
+			return nil, httperrors.NewInputParameterError("System disk does not support iso image, please consider using cdrom parameter")
+		}
+
 		if input.Cdrom != "" {
 			cdromStr := input.Cdrom
 			image, err := parseIsoInfo(ctx, userCred, cdromStr)

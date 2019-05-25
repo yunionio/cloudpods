@@ -33,6 +33,7 @@ import (
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	imageapi "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -1323,6 +1324,7 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 		}
 		diskConfig.ImageId = image.Id
 		diskConfig.ImageProperties = image.Properties
+		diskConfig.ImageProperties[imageapi.IMAGE_DISK_FORMAT] = image.DiskFormat
 		// if len(diskConfig.Format) == 0 {
 		// 	diskConfig.Format = image.DiskFormat
 		// }
