@@ -29,6 +29,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type Placement struct {
@@ -38,6 +39,7 @@ type Placement struct {
 
 type SDisk struct {
 	storage *SStorage
+	multicloud.SDisk
 
 	Attached             bool
 	AutoRenewFlagError   bool

@@ -83,6 +83,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.DnsRecordManager,
 		models.ElasticipManager,
 		models.SnapshotManager,
+		models.SnapshotPolicyManager,
 		models.BaremetalagentManager,
 		models.LoadbalancerManager,
 		models.LoadbalancerListenerManager,

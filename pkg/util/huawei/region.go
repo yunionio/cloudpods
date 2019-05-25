@@ -26,6 +26,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/huawei/client"
 	"yunion.io/x/onecloud/pkg/util/huawei/obs"
 )
@@ -37,6 +38,8 @@ type Locales struct {
 
 // https://support.huaweicloud.com/api-iam/zh-cn_topic_0067148043.html
 type SRegion struct {
+	multicloud.SRegion
+
 	client    *SHuaweiClient
 	ecsClient *client.Client
 	obsClient *obs.ObsClient // 对象存储client.请勿直接引用。

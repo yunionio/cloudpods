@@ -981,6 +981,7 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 	for _, manager := range []IPurgeableManager{
 		HostManager,
 		SnapshotManager,
+		SnapshotPolicyManager,
 		StorageManager,
 		StoragecacheManager,
 		LoadbalancerBackendManager,

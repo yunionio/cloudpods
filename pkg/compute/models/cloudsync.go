@@ -763,6 +763,23 @@ func syncRegionSnapshots(ctx context.Context, userCred mcclient.TokenCredential,
 	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
+func syncRegionSnapshotPolicies(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	snapshotPolicies, err := remoteRegion.GetISnapshotPolicies()
+	if err != nil {
+		log.Errorf("GetISnapshotPolicies for region %s failed %s", remoteRegion.GetName(), err)
+		return
+	}
+
+	result := SnapshotPolicyManager.SyncSnapshotPolicies(
+		ctx, userCred, provider, localRegion, snapshotPolicies, provider.ProjectId)
+	syncResults.Add(SnapshotPolicyManager, result)
+	msg := result.Result()
+	log.Infof("SyncSnapshotPolicies for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return
+	}
+}
+
 func syncPublicCloudProviderInfo(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -797,6 +814,8 @@ func syncPublicCloudProviderInfo(
 	syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
 	syncRegionEips(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	// sync snapshot policies before sync disks
+	syncRegionSnapshotPolicies(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
 	for j := 0; j < len(localZones); j += 1 {
 
@@ -819,6 +838,7 @@ func syncPublicCloudProviderInfo(
 		}
 	}
 
+	// sync snapshots after sync disks
 	syncRegionSnapshots(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
 	syncRegionLoadbalancerAcls(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)

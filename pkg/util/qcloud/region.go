@@ -26,9 +26,12 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SRegion struct {
+	multicloud.SRegion
+
 	client    *SQcloudClient
 	cosClient *cos.Client
 

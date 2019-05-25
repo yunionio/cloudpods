@@ -25,6 +25,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SMountInstances struct {
@@ -37,6 +38,7 @@ type STags struct {
 
 type SDisk struct {
 	storage *SStorage
+	multicloud.SDisk
 
 	AttachedTime                  time.Time
 	AutoSnapshotPolicyId          string
@@ -392,6 +394,10 @@ func (self *SDisk) GetBillingType() string {
 
 func (self *SDisk) GetCreatedAt() time.Time {
 	return self.CreationTime
+}
+
+func (self *SDisk) GetExtSnapshotPolicyId() string {
+	return self.AutoSnapshotPolicyId
 }
 
 func (self *SDisk) GetExpiredAt() time.Time {

@@ -23,6 +23,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -36,6 +37,7 @@ type SVMSize struct {
 }
 
 type SRegion struct {
+	multicloud.SRegion
 	client *SAzureClient
 
 	izones       []cloudprovider.ICloudZone

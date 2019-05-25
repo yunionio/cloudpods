@@ -399,6 +399,32 @@ func (snapshot *SSnapshot) purge(ctx context.Context, userCred mcclient.TokenCre
 	return snapshot.RealDelete(ctx, userCred)
 }
 
+func (manager *SSnapshotPolicyManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	sps := make([]SSnapshotPolicy, 0)
+	err := fetchByManagerId(manager, providerId, &sps)
+	if err != nil {
+		return err
+	}
+	for i := range sps {
+		err := sps[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (sp *SSnapshotPolicy) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, sp)
+	defer lockman.ReleaseObject(ctx, sp)
+
+	err := sp.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+	return sp.RealDelete(ctx, userCred)
+}
+
 func (manager *SStoragecacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
 	scs := make([]SStoragecache, 0)
 	err := fetchByManagerId(manager, providerId, &scs)

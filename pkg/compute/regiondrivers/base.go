@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
@@ -117,4 +118,24 @@ func (self *SBaseRegionDriver) RequestCreateLoadbalancerListenerRule(ctx context
 
 func (self *SBaseRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx context.Context, userCred mcclient.TokenCredential, lbr *models.SLoadbalancerListenerRule, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestDeleteLoadbalancerListenerRule")
+}
+
+func (self *SBaseRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, data *compute.SSnapshotPolicyCreateInput) error {
+	return fmt.Errorf("Not Implement ValidateCreateSnapshotPolicyData")
+}
+
+func (self *SBaseRegionDriver) RequestCreateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestCreateSnapshotPolicy")
+}
+
+func (self *SBaseRegionDriver) RequestDeleteSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestDeleteSnapshotPolicy")
+}
+
+func (self *SBaseRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskIds []string) error {
+	return fmt.Errorf("Not Implement RequestApplySnapshotPolicy")
+}
+
+func (self *SBaseRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, region cloudprovider.ICloudRegion, task taskman.ITask, diskIds []string) error {
+	return fmt.Errorf("Not Implement RequestApplySnapshotPolicy")
 }

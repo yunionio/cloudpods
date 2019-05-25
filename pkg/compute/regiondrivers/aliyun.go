@@ -18,10 +18,12 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"sort"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
@@ -421,4 +423,48 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 		}
 	}
 	return self.SManagedVirtualizationRegionDriver.ValidateUpdateLoadbalancerListenerData(ctx, userCred, data, lblis, backendGroup)
+}
+
+func daysValidate(days []int, min, max int) ([]int, error) {
+	if len(days) == 0 {
+		return days, nil
+	}
+	sort.Ints(days)
+
+	var tmp *int
+	for i := 0; i < len(days); i++ {
+		if days[i] < min || days[i] > max {
+			return days, fmt.Errorf("Day %d out of range", days[i])
+		}
+		if tmp != nil && *tmp == days[i] {
+			return days, fmt.Errorf("Has repeat day %v", days)
+		} else {
+			tmp = &days[i]
+		}
+	}
+	return days, nil
+}
+
+func (self *SAliyunRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, data *compute.SSnapshotPolicyCreateInput) error {
+	var err error
+	if data.RetentionDays < -1 || data.RetentionDays == 0 || data.RetentionDays > 65535 {
+		return httperrors.NewInputParameterError("Retention days must in 1~65535 or -1")
+	}
+
+	if len(data.RepeatWeekdays) == 0 {
+		return httperrors.NewMissingParameterError("repeat_weekdays")
+	}
+	data.RepeatWeekdays, err = daysValidate(data.RepeatWeekdays, 1, 7)
+	if err != nil {
+		return httperrors.NewInputParameterError(err.Error())
+	}
+
+	if len(data.TimePoints) == 0 {
+		return httperrors.NewInputParameterError("time_points")
+	}
+	data.TimePoints, err = daysValidate(data.TimePoints, 0, 23)
+	if err != nil {
+		return httperrors.NewInputParameterError(err.Error())
+	}
+	return nil
 }

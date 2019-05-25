@@ -29,6 +29,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 var RegionLocations = map[string]string{
@@ -54,6 +55,8 @@ var RegionLocations = map[string]string{
 }
 
 type SRegion struct {
+	multicloud.SRegion
+
 	client    *SAwsClient
 	ec2Client *ec2.EC2
 	iamClient *iam.IAM
