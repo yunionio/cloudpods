@@ -76,6 +76,10 @@ func (self *GuestSaveImageTask) OnSaveRootImageCompleteFailed(ctx context.Contex
 	self.SetStageFailed(ctx, data.PrettyString())
 }
 
+func (self *GuestSaveImageTask) OnStartServerComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.SetStageComplete(ctx, nil)
+}
+
 func (self *GuestSaveImageTask) OnStartServerCompleteFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 }
