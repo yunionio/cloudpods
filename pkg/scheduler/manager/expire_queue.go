@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/sets"
 	u "yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/scheduler/api"
@@ -41,19 +42,31 @@ func (e *ExpireManager) Add(expireArgs *api.ExpireArgs) {
 	e.expireChannel <- expireArgs
 }
 
+type expireHost struct {
+	Id        string
+	SessionId string
+}
+
+func newExpireHost(id string, sid string) *expireHost {
+	return &expireHost{
+		Id:        id,
+		SessionId: sid,
+	}
+}
+
 func (e *ExpireManager) Run() {
 	t := time.Tick(u.ToDuration(o.GetOptions().ExpireQueueConsumptionPeriod))
 
-	notInSession := func(ids []string, resType string) []string {
-		//var newIds []string
-		//for _, id := range ids {
-		//if !schedManager.ReservedPoolManager.InSession(resType, id) {
-		//newIds = append(newIds, id)
-		//}
-		//}
-		//return newIds
-		return ids
-	}
+	//notInSession := func(hosts []*expireHost, resType string) []*expireHost {
+	////var newIds []string
+	////for _, id := range ids {
+	////if !schedManager.ReservedPoolManager.InSession(resType, id) {
+	////newIds = append(newIds, id)
+	////}
+	////}
+	////return newIds
+	//return ids
+	//}
 
 	waitTimeOut := func(wg *sync.WaitGroup, timeout time.Duration) bool {
 		ch := make(chan struct{})
@@ -75,25 +88,21 @@ func (e *ExpireManager) Run() {
 		if expireRequestNumber <= 0 {
 			return
 		}
-		dirtyHostMap := make(map[string]int, expireRequestNumber)
-		dirtyBaremetalMap := make(map[string]int, expireRequestNumber)
-		dirtyHosts := make([]string, 0)
-		dirtyBaremetals := make([]string, 0)
+		dirtyHostSets := sets.NewString()
+		dirtyBaremetalSets := sets.NewString()
+		dirtyHosts := make([]*expireHost, 0)
+		dirtyBaremetals := make([]*expireHost, 0)
 		// Merge all same host.
 		for i := 0; i < expireRequestNumber; i++ {
 			expireArgs := <-e.expireChannel
 			log.V(4).Infof("Get expireArgs from channel: %#v", expireArgs)
+			dirtyHostSets.Insert(expireArgs.DirtyHosts...)
 			for _, host := range expireArgs.DirtyHosts {
-				if _, ok := dirtyHostMap[host]; !ok {
-					dirtyHostMap[host] = len(dirtyHosts)
-					dirtyHosts = append(dirtyHosts, host)
-				}
+				dirtyHosts = append(dirtyHosts, newExpireHost(host, expireArgs.SessionId))
 			}
+			dirtyBaremetalSets.Insert(expireArgs.DirtyBaremetals...)
 			for _, baremetal := range expireArgs.DirtyBaremetals {
-				if _, ok := dirtyBaremetalMap[baremetal]; !ok {
-					dirtyBaremetalMap[baremetal] = len(dirtyBaremetals)
-					dirtyBaremetals = append(dirtyBaremetals, baremetal)
-				}
+				dirtyBaremetals = append(dirtyBaremetals, newExpireHost(baremetal, expireArgs.SessionId))
 			}
 		}
 		log.V(4).Infof("batchMergeExpire dirtyHosts: %v, dirtyBaremetals: %v", dirtyHosts, dirtyBaremetals)
@@ -101,27 +110,25 @@ func (e *ExpireManager) Run() {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			dirtyHosts = notInSession(dirtyHosts, "host")
+			//dirtyHosts = notInSession(dirtyHosts, "host")
 			if len(dirtyHosts) > 0 {
 				log.V(10).Debugf("CleanDirty Hosts: %v\n", dirtyHosts)
-				_, err := schedManager.CandidateManager.Reload("host", dirtyHosts)
-				schedManager.CandidateManager.CleanDirtyCandidatesOnce(dirtyHosts)
-				if err != nil {
-					log.Errorf("%v", err)
+				if _, err := schedManager.CandidateManager.Reload("host", dirtyHostSets.List()); err != nil {
+					log.Errorf("Clean dirty hosts %v: %v", dirtyHosts, err)
 				}
+				schedManager.HistoryManager.CancelCandidatesPendingUsage(dirtyHosts)
 			}
 		}()
 
 		go func() {
 			defer wg.Done()
-			dirtyBaremetals = notInSession(dirtyBaremetals, "baremetal")
+			//dirtyBaremetals = notInSession(dirtyBaremetals, "baremetal")
 			if len(dirtyBaremetals) > 0 {
 				log.V(10).Debugf("CleanDirty Baremetals: %v\n", dirtyBaremetals)
-				_, err := schedManager.CandidateManager.Reload("baremetal", dirtyBaremetals)
-				schedManager.CandidateManager.CleanDirtyCandidatesOnce(dirtyBaremetals)
-				if err != nil {
-					log.Errorf("%v", err)
+				if _, err := schedManager.CandidateManager.Reload("baremetal", dirtyBaremetalSets.List()); err != nil {
+					log.Errorf("Clean dirty baremetals %v: %v", dirtyBaremetals, err)
 				}
+				schedManager.HistoryManager.CancelCandidatesPendingUsage(dirtyBaremetals)
 			}
 		}()
 		if ok := waitTimeOut(wg, u.ToDuration(o.GetOptions().ExpireQueueConsumptionTimeout)); !ok {

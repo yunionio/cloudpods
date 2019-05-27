@@ -23,12 +23,12 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/scheduler/api"
-	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	computedb "yunion.io/x/onecloud/pkg/cloudcommon/db"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
+	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
 type BaseHostDesc struct {
@@ -52,10 +52,6 @@ func newBaseHostGetter(h *BaseHostDesc) *baseHostGetter {
 	return &baseHostGetter{h}
 }
 
-func (b *BaseHostDesc) Getter() core.CandidatePropertyGetter {
-	return newBaseHostGetter(b)
-}
-
 func (b baseHostGetter) Id() string {
 	return b.h.GetId()
 }
@@ -66,6 +62,10 @@ func (b baseHostGetter) Name() string {
 
 func (b baseHostGetter) Zone() *computemodels.SZone {
 	return b.h.Zone
+}
+
+func (b baseHostGetter) Cloudprovider() *computemodels.SCloudprovider {
+	return b.h.Cloudprovider
 }
 
 func (b baseHostGetter) Region() *computemodels.SCloudregion {
@@ -94,6 +94,56 @@ func (b baseHostGetter) ResourceType() string {
 
 func (b baseHostGetter) NetInterfaces() map[string][]computemodels.SNetInterface {
 	return b.h.NetInterfaces
+}
+
+func (b baseHostGetter) Status() string {
+	return b.h.Status
+}
+
+func (b baseHostGetter) HostStatus() string {
+	return b.h.HostStatus
+}
+
+func (b baseHostGetter) Enabled() bool {
+	return b.h.Enabled
+}
+
+func (b baseHostGetter) ProjectGuests() map[string]int64 {
+	return b.h.Tenants
+}
+
+func (b baseHostGetter) CreatingGuestCount() int {
+	return 0
+}
+
+func (b baseHostGetter) RunningCPUCount() int64 {
+	return 0
+}
+
+func (b baseHostGetter) TotalCPUCount(_ bool) int64 {
+	return int64(b.h.CpuCount)
+}
+
+func (b baseHostGetter) RunningMemorySize() int64 {
+	return 0
+}
+
+func (b baseHostGetter) TotalMemorySize(_ bool) int64 {
+	return int64(b.h.MemSize)
+}
+
+func (b baseHostGetter) GetFreeStorageSizeOfType(storageType string, useRsvd bool) int64 {
+	var size int64
+	for _, s := range b.Storages() {
+		if s.StorageType == storageType {
+			size += int64(float32(s.Capacity) * s.Cmtbound)
+		}
+	}
+	return size
+}
+
+func (b baseHostGetter) GetFreePort(netId string) int {
+	return b.h.GetFreePort(netId)
 }
 
 func reviseResourceType(resType string) string {
@@ -152,6 +202,29 @@ func (b BaseHostDesc) GetSchedDesc() *jsonutils.JSONDict {
 	}
 
 	return desc
+}
+
+func (b *BaseHostDesc) GetPendingUsage() *schedmodels.SPendingUsage {
+	usage, err := schedmodels.HostPendingUsageManager.GetPendingUsage(b.GetId())
+	if err != nil {
+		return schedmodels.NewPendingUsageBySchedInfo(b.GetId(), nil)
+	}
+	return usage
+}
+
+func (b *BaseHostDesc) GetFreePort(netId string) int {
+	var selNet *api.CandidateNetwork = nil
+	for _, n := range b.Networks {
+		if n.GetId() == netId {
+			selNet = n
+			break
+		}
+	}
+	if selNet == nil {
+		return 0
+	}
+	freeCount, _ := selNet.GetFreeAddressCount()
+	return freeCount
 }
 
 func (b BaseHostDesc) GetResourceType() string {

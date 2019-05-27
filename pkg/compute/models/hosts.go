@@ -838,18 +838,25 @@ func (self *SHostManager) GetPropertyBmStartRegisterScript(ctx context.Context, 
 	return res, nil
 }
 
-func (maanger *SHostManager) ClearAllSchedDescCache() error {
-	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
-	return modules.SchedManager.CleanCache(s, "")
+func (self *SHostManager) ClearAllSchedDescCache() error {
+	return self.ClearSchedDescSessionCache("", "")
 }
 
-func (maanger *SHostManager) ClearSchedDescCache(hostId string) error {
+func (self *SHostManager) ClearSchedDescCache(hostId string) error {
+	return self.ClearSchedDescSessionCache(hostId, "")
+}
+
+func (self *SHostManager) ClearSchedDescSessionCache(hostId, sessionId string) error {
 	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
-	return modules.SchedManager.CleanCache(s, hostId)
+	return modules.SchedManager.CleanCache(s, hostId, sessionId)
 }
 
 func (self *SHost) ClearSchedDescCache() error {
-	return HostManager.ClearSchedDescCache(self.Id)
+	return self.ClearSchedDescSessionCache("")
+}
+
+func (self *SHost) ClearSchedDescSessionCache(sessionId string) error {
+	return HostManager.ClearSchedDescSessionCache(self.Id, sessionId)
 }
 
 func (self *SHost) AllowGetDetailsSpec(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

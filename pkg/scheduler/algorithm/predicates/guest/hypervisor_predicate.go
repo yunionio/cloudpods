@@ -51,7 +51,8 @@ func hostHasContainerTag(c core.Candidater) bool {
 }
 
 func hostAllowRunContainer(c core.Candidater) bool {
-	hostType := c.Get("HostType")
+	getter := c.Getter()
+	hostType := getter.HostType()
 	if hostType == api.HostTypeKubelet {
 		return true
 	}
@@ -65,7 +66,7 @@ func hostAllowRunContainer(c core.Candidater) bool {
 func (f *HypervisorPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(f, u, c)
 
-	hostType := c.Get("HostType")
+	hostType := c.Getter().HostType()
 	guestNeedType := u.SchedData().Hypervisor
 
 	if guestNeedType != hostType {

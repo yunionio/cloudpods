@@ -245,8 +245,8 @@ func onMasterSlaveScheduleSucc(
 	lockman.LockObject(ctx, obj)
 	defer lockman.ReleaseObject(ctx, obj)
 	task.SaveScheduleResultWithBackup(ctx, obj, master, slave)
-	models.HostManager.ClearSchedDescCache(master.HostId)
-	models.HostManager.ClearSchedDescCache(slave.HostId)
+	models.HostManager.ClearSchedDescSessionCache(master.HostId, master.SessionId)
+	models.HostManager.ClearSchedDescSessionCache(slave.HostId, slave.SessionId)
 }
 
 func onScheduleSucc(
@@ -260,5 +260,5 @@ func onScheduleSucc(
 	defer lockman.ReleaseRawObject(ctx, models.HostManager.KeywordPlural(), hostId)
 
 	task.SaveScheduleResult(ctx, obj, candidate)
-	models.HostManager.ClearSchedDescCache(candidate.HostId)
+	models.HostManager.ClearSchedDescSessionCache(candidate.HostId, candidate.SessionId)
 }
