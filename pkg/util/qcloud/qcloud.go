@@ -117,6 +117,12 @@ func wssRequest(client *common.Client, apiName string, params map[string]string,
 	return _phpJsonRequest(client, &wssJsonResponse{}, domain, "/v2/index.php", "", apiName, params, debug)
 }
 
+// 2017版API
+func vpc2017Request(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
+	domain := "vpc.api.qcloud.com"
+	return _phpJsonRequest(client, &vpc2017JsonResponse{}, domain, "/v2/index.php", "", apiName, params, debug)
+}
+
 func billingRequest(client *common.Client, apiName string, params map[string]string, debug bool) (jsonutils.JSONObject, error) {
 	domain := "billing.tencentcloudapi.com"
 	return _jsonRequest(client, domain, QCLOUD_BILLING_API_VERSION, apiName, params, debug, true)
@@ -152,6 +158,40 @@ func (r *phpJsonRequest) GetUrl() string {
 
 func (r *phpJsonRequest) GetPath() string {
 	return r.Path
+}
+
+// 2017vpc专用response
+type vpc2017JsonResponse struct {
+	Code       int          `json:"code"`
+	CodeDesc   string       `json:"codeDesc"`
+	Message    string       `json:"message"`
+	TotalCount int          `json:"totalCount"`
+	Response   *interface{} `json:"data"`
+}
+
+func (r *vpc2017JsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
+	resp := &vpc2017JsonResponse{}
+	err = json.Unmarshal(body, resp)
+	if err != nil {
+		return
+	}
+	if resp.Code != 0 {
+		return errors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
+	}
+
+	return nil
+}
+
+func (r *vpc2017JsonResponse) GetResponse() *interface{} {
+	if r.Response == nil {
+		result, _ := jsonutils.Parse([]byte(`{"data":[],"totalCount":0}`))
+		return func(resp interface{}) *interface{} {
+			return &resp
+		}(result)
+	}
+	return func(resp interface{}) *interface{} {
+		return &resp
+	}(jsonutils.Marshal(r))
 }
 
 // SSL证书专用response
@@ -361,6 +401,14 @@ func (client *SQcloudClient) wssRequest(apiName string, params map[string]string
 		return nil, err
 	}
 	return wssRequest(cli, apiName, params, client.Debug)
+}
+
+func (client *SQcloudClient) vpc2017Request(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	cli, err := client.getDefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	return vpc2017Request(cli, apiName, params, client.Debug)
 }
 
 func (client *SQcloudClient) billingRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {

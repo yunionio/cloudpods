@@ -108,13 +108,37 @@ func (self *SVpc) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCr
 	return self.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
+func (self *SVpc) getNatgatewayQuery() *sqlchemy.SQuery {
+	return NatGatewayManager.Query().Equals("vpc_id", self.Id)
+}
+
+func (self *SVpc) GetNatgatewayCount() (int, error) {
+	return self.getNatgatewayQuery().CountWithError()
+}
+
+func (self *SVpc) GetNatgateways() ([]SNatGateway, error) {
+	nats := []SNatGateway{}
+	err := db.FetchModelObjects(NatGatewayManager, self.getNatgatewayQuery(), &nats)
+	if err != nil {
+		return nil, err
+	}
+	return nats, nil
+}
+
 func (self *SVpc) ValidateDeleteCondition(ctx context.Context) error {
 	cnt, err := self.GetNetworkCount()
 	if err != nil {
 		return httperrors.NewInternalServerError("GetNetworkCount fail %s", err)
 	}
 	if cnt > 0 {
-		return httperrors.NewNotEmptyError("VPC not empty")
+		return httperrors.NewNotEmptyError("VPC not empty, please delete network first")
+	}
+	cnt, err = self.GetNatgatewayCount()
+	if err != nil {
+		return httperrors.NewInternalServerError("GetNatgatewayCount fail %v", err)
+	}
+	if cnt > 0 {
+		return httperrors.NewNotEmptyError("VPC not empty, please delete nat gateway first")
 	}
 	if self.Id == api.DEFAULT_VPC_ID {
 		return httperrors.NewProtectedResourceError("not allow to delete default vpc")
@@ -183,6 +207,8 @@ func (self *SVpc) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict 
 	extra.Add(jsonutils.NewInt(int64(cnt)), "network_count")
 	cnt, _ = self.GetRouteTableCount()
 	extra.Add(jsonutils.NewInt(int64(cnt)), "routetable_count")
+	cnt, _ = self.GetNatgatewayCount()
+	extra.Add(jsonutils.NewInt(int64(cnt)), "natgateway_count")
 	/* region, err := self.GetRegion()
 	if err != nil {
 		log.Errorf("failed getting region for vpc %s(%s)", self.Name, self.Id)

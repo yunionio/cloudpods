@@ -16,6 +16,7 @@ package aliyun
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -151,7 +152,9 @@ func (self *SEipAddress) GetMode() string {
 func (self *SEipAddress) GetAssociationType() string {
 	switch self.InstanceType {
 	case EIP_INSTANCE_TYPE_ECS:
-		return "server"
+		return api.EIP_ASSOCIATE_TYPE_SERVER
+	case EIP_INSTANCE_TYPE_NAT:
+		return api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
 	default:
 		log.Fatalf("unsupported type: %s", self.InstanceType)
 		return "unsupported"
@@ -219,7 +222,7 @@ func (self *SEipAddress) ChangeBandwidth(bw int) error {
 	return self.region.UpdateEipBandwidth(self.AllocationId, bw)
 }
 
-func (region *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddress, int, error) {
+func (region *SRegion) GetEips(eipId string, associatedId string, offset int, limit int) ([]SEipAddress, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
 	}
@@ -231,6 +234,15 @@ func (region *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddre
 
 	if len(eipId) > 0 {
 		params["AllocationId"] = eipId
+	}
+
+	if len(associatedId) > 0 {
+		params["AssociatedInstanceId"] = associatedId
+		for prefix, instanceType := range map[string]string{"i-": "EcsInstance", "ngw-": "Nat", "lb-": "SlbInstance"} {
+			if strings.HasPrefix(associatedId, prefix) {
+				params["AssociatedInstanceType"] = instanceType
+			}
+		}
 	}
 
 	body, err := region.ecsRequest("DescribeEipAddresses", params)
@@ -253,7 +265,7 @@ func (region *SRegion) GetEips(eipId string, offset int, limit int) ([]SEipAddre
 }
 
 func (region *SRegion) GetEip(eipId string) (*SEipAddress, error) {
-	eips, total, err := region.GetEips(eipId, 0, 1)
+	eips, total, err := region.GetEips(eipId, "", 0, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -312,6 +324,11 @@ func (region *SRegion) AssociateEip(eipId string, instanceId string) error {
 	params := make(map[string]string)
 	params["AllocationId"] = eipId
 	params["InstanceId"] = instanceId
+	for prefix, instanceType := range map[string]string{"i-": "EcsInstance", "lb-": "SlbInstance", "ngw-": "Nat"} {
+		if strings.HasPrefix(instanceId, prefix) {
+			params["InstanceType"] = instanceType
+		}
+	}
 
 	_, err := region.ecsRequest("AssociateEipAddress", params)
 	if err != nil {
@@ -324,6 +341,11 @@ func (region *SRegion) DissociateEip(eipId string, instanceId string) error {
 	params := make(map[string]string)
 	params["AllocationId"] = eipId
 	params["InstanceId"] = instanceId
+	for prefix, instanceType := range map[string]string{"i-": "EcsInstance", "lb-": "SlbInstance", "ngw-": "Nat"} {
+		if strings.HasPrefix(instanceId, prefix) {
+			params["InstanceType"] = instanceType
+		}
+	}
 
 	_, err := region.ecsRequest("UnassociateEipAddress", params)
 	if err != nil {

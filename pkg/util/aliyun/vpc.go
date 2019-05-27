@@ -18,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/multicloud"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -40,6 +42,8 @@ type SVSwitchIds struct {
 }
 
 type SVpc struct {
+	multicloud.SVpc
+
 	region *SRegion
 
 	iwires []cloudprovider.ICloudWire
@@ -262,4 +266,24 @@ func (self *SVpc) getNatGateways() ([]SNatGetway, error) {
 		natgatways[i].vpc = self
 	}
 	return natgatways, nil
+}
+
+func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
+	nats := []SNatGetway{}
+	for {
+		parts, total, err := self.region.GetNatGateways(self.VpcId, "", len(nats), 50)
+		if err != nil {
+			return nil, err
+		}
+		nats = append(nats, parts...)
+		if len(nats) >= total {
+			break
+		}
+	}
+	inats := []cloudprovider.ICloudNatGateway{}
+	for i := 0; i < len(nats); i++ {
+		nats[i].vpc = self
+		inats = append(inats, &nats[i])
+	}
+	return inats, nil
 }

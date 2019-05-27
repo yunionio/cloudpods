@@ -19,11 +19,14 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type SVpc struct {
+	multicloud.SVpc
+
 	region *SRegion
 
 	iwires []cloudprovider.ICloudWire

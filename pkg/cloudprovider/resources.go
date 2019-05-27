@@ -393,6 +393,7 @@ type ICloudVpc interface {
 	Delete() error
 
 	GetIWireById(wireId string) (ICloudWire, error)
+	GetINatGateways() ([]ICloudNatGateway, error)
 }
 
 type ICloudWire interface {
@@ -614,4 +615,34 @@ type ICloudSku interface {
 
 type ICloudProject interface {
 	ICloudResource
+}
+
+type ICloudNatGateway interface {
+	ICloudResource
+	IBillingResource
+
+	// 获取 NAT 规格
+	GetNatSpec() string
+	GetIEips() ([]ICloudEIP, error)
+	GetINatDTables() ([]ICloudNatDTable, error)
+	GetINatSTables() ([]ICloudNatSTable, error)
+}
+
+type ICloudNatDTable interface {
+	ICloudResource
+
+	GetIpProtocol() string
+	GetExternalIp() string
+	GetExternalPort() int
+
+	GetInternalIp() string
+	GetInternalPort() int
+}
+
+type ICloudNatSTable interface {
+	ICloudResource
+
+	GetIP() string
+	GetSourceCIDR() string
+	GetNetworkId() string
 }

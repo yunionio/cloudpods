@@ -1,0 +1,130 @@
+package qcloud
+
+import (
+	"fmt"
+	"time"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
+)
+
+type SNatGateway struct {
+	multicloud.SNatGatewayBase
+	vpc *SVpc
+
+	NatId            string  `json:"natId"`
+	NatName          string  `json:"natName"`
+	ProductionStatus float32 `json:"productionStatus"`
+	State            float32 `json:"state"`
+	UnVpcId          string  `json:"unVpcId"`
+	VpcId            float32 `json:"vpcId"`
+	VpcName          string  `json:"vpcName"`
+	Zone             string  `json:"zone"`
+
+	Bandwidth     float32   `json:"bandwidth"`
+	CreateTime    time.Time `json:"createTime"`
+	EipCount      float32   `json:"eipCount"`
+	MaxConcurrent float32   `json:"maxConcurrent"`
+}
+
+func (nat *SNatGateway) GetName() string {
+	if len(nat.NatName) > 0 {
+		return nat.NatName
+	}
+	return nat.NatId
+}
+
+func (nat *SNatGateway) GetId() string {
+	return nat.NatId
+}
+
+func (nat *SNatGateway) GetGlobalId() string {
+	return nat.NatId
+}
+
+func (nat *SNatGateway) GetStatus() string {
+	// NAT网关状态，0:运行中, 1:不可用, 2:欠费停服
+	switch int(nat.State) {
+	case 0:
+		return api.NAT_STAUTS_AVAILABLE
+	case 1, 2:
+		return api.NAT_STATUS_UNKNOWN
+	default:
+		return api.NAT_STATUS_UNKNOWN
+	}
+}
+
+func (nat *SNatGateway) GetNatSpec() string {
+	switch int(nat.MaxConcurrent) {
+	case 100 * 10000:
+		return api.QCLOUD_NAT_SPEC_SMALL
+	case 300 * 10000:
+		return api.QCLOUD_NAT_SPEC_MIDDLE
+	case 1000 * 10000:
+		return api.QCLOUD_NAT_SPEC_LARGE
+	}
+	return ""
+}
+
+func (nat *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
+	eips := []SEipAddress{}
+	for {
+		part, total, err := nat.vpc.region.GetEips("", nat.NatId, len(eips), 50)
+		if err != nil {
+			return nil, err
+		}
+		eips = append(eips, part...)
+		if len(eips) >= total {
+			break
+		}
+	}
+	ieips := []cloudprovider.ICloudEIP{}
+	for i := 0; i < len(eips); i++ {
+		eips[i].region = nat.vpc.region
+		ieips = append(ieips, &eips[i])
+	}
+	return ieips, nil
+}
+
+func (nat *SNatGateway) GetINatSTables() ([]cloudprovider.ICloudNatSTable, error) {
+	return []cloudprovider.ICloudNatSTable{}, nil
+}
+
+func (nat *SNatGateway) GetINatDTables() ([]cloudprovider.ICloudNatDTable, error) {
+	tables, err := nat.vpc.region.GetDTables(nat.NatId, nat.vpc.VpcId)
+	if err != nil {
+		return nil, err
+	}
+	itables := []cloudprovider.ICloudNatDTable{}
+	for i := 0; i < len(tables); i++ {
+		tables[i].nat = nat
+		itables = append(itables, &tables[i])
+	}
+	return itables, nil
+}
+
+func (region *SRegion) GetNatGateways(vpcId string, offset int, limit int) ([]SNatGateway, int, error) {
+	if limit > 50 || limit <= 0 {
+		limit = 50
+	}
+
+	params := make(map[string]string)
+	params["Limit"] = fmt.Sprintf("%d", limit)
+	params["Offset"] = fmt.Sprintf("%d", offset)
+	if len(vpcId) > 0 {
+		params["vpcId"] = vpcId
+	}
+	body, err := region.vpc2017Request("DescribeNatGateway", params)
+	if err != nil {
+		return nil, 0, err
+	}
+	nats := []SNatGateway{}
+	err = body.Unmarshal(&nats, "data")
+	if err != nil {
+		return nil, 0, err
+	}
+	total, _ := body.Float("totalCount")
+	return nats, int(total), nil
+}

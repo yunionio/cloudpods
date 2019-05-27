@@ -156,7 +156,7 @@ func (self *SEipAddress) GetMode() string {
 }
 
 func (self *SEipAddress) GetAssociationType() string {
-	return "server"
+	return api.EIP_ASSOCIATE_TYPE_SERVER
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {

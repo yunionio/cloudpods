@@ -16,6 +16,7 @@ package qcloud
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -133,15 +134,14 @@ func (self *SEipAddress) GetMode() string {
 }
 
 func (self *SEipAddress) GetAssociationType() string {
-	switch self.AddressType {
-	case EIP_TYPE_EIP, EIP_TYPE_ANYCASTEIP, EIP_TYPE_WANIP:
-		return "server"
-	case EIP_TYPE_CALCIP:
-		return "server"
-	default:
-		log.Fatalf("unsupported type: %s", self.AddressType)
-		return "unsupported"
+	if len(self.InstanceId) > 0 {
+		for prefix, instanceType := range map[string]string{"nat-": api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY, "ins-": api.EIP_ASSOCIATE_TYPE_SERVER} {
+			if strings.HasPrefix(prefix, self.InstanceId) {
+				return instanceType
+			}
+		}
 	}
+	return ""
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {
@@ -154,8 +154,10 @@ func (self *SEipAddress) Delete() error {
 
 func (self *SEipAddress) GetBandwidth() int {
 	if len(self.InstanceId) > 0 {
-		if instance, err := self.region.GetInstance(self.InstanceId); err == nil {
-			return instance.InternetAccessible.InternetMaxBandwidthOut
+		if strings.HasPrefix(self.InstanceId, "ins-") {
+			if instance, err := self.region.GetInstance(self.InstanceId); err == nil {
+				return instance.InternetAccessible.InternetMaxBandwidthOut
+			}
 		}
 	}
 	return 0
@@ -179,12 +181,14 @@ func (self *SEipAddress) GetExpiredAt() time.Time {
 
 func (self *SEipAddress) GetInternetChargeType() string {
 	if len(self.InstanceId) > 0 {
-		if instance, err := self.region.GetInstance(self.InstanceId); err == nil {
-			switch instance.InternetAccessible.InternetChargeType {
-			case InternetChargeTypeTrafficPostpaidByHour:
-				return api.EIP_CHARGE_TYPE_BY_TRAFFIC
-			default:
-				return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
+		if strings.HasPrefix(self.InstanceId, "ins-") {
+			if instance, err := self.region.GetInstance(self.InstanceId); err == nil {
+				switch instance.InternetAccessible.InternetChargeType {
+				case InternetChargeTypeTrafficPostpaidByHour:
+					return api.EIP_CHARGE_TYPE_BY_TRAFFIC
+				default:
+					return api.EIP_CHARGE_TYPE_BY_BANDWIDTH
+				}
 			}
 		}
 	}

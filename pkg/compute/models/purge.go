@@ -830,3 +830,93 @@ func (manager *SCloudregionManager) purgeAll(ctx context.Context, userCred mccli
 	}
 	return nil
 }
+
+func (table *SNatSTable) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, table)
+	defer lockman.ReleaseObject(ctx, table)
+
+	err := table.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+
+	return table.Delete(ctx, userCred)
+}
+
+func (nat *SNatGateway) purgeSTables(ctx context.Context, userCred mcclient.TokenCredential) error {
+	tables, err := nat.GetSTables()
+	if err != nil {
+		return err
+	}
+
+	for i := range tables {
+		err = tables[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (table *SNatDTable) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, table)
+	defer lockman.ReleaseObject(ctx, table)
+
+	err := table.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+
+	return table.Delete(ctx, userCred)
+}
+
+func (nat *SNatGateway) purgeDTables(ctx context.Context, userCred mcclient.TokenCredential) error {
+	tables, err := nat.GetDTables()
+	if err != nil {
+		return err
+	}
+
+	for i := range tables {
+		err = tables[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (nat *SNatGateway) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, nat)
+	defer lockman.ReleaseObject(ctx, nat)
+
+	err := nat.purgeDTables(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = nat.purgeSTables(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = nat.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nat.Delete(ctx, userCred)
+}
+
+func (manager *SNatGetewayManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	nats, err := manager.getNatgatewaysByProviderId(providerId)
+	if err != nil {
+		return err
+	}
+	for i := range nats {
+		err = nats[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

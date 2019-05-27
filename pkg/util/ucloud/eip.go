@@ -159,7 +159,7 @@ func (self *SEip) GetMode() string {
 }
 
 func (self *SEip) GetAssociationType() string {
-	return "server"
+	return api.EIP_ASSOCIATE_TYPE_SERVER
 }
 
 // 已绑定的资源类型, 枚举值为: uhost, 云主机；natgw：NAT网关；ulb：负载均衡器；upm: 物理机; hadoophost: 大数据集群;fortresshost：堡垒机；udockhost：容器；udhost：私有专区主机；vpngw：IPSec VPN；ucdr：云灾备；dbaudit：数据库审计。

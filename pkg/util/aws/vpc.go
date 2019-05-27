@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/util/secrules"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SUserCIDRs struct {
@@ -32,6 +33,8 @@ type SUserCIDRs struct {
 }
 
 type SVpc struct {
+	multicloud.SVpc
+
 	region *SRegion
 
 	iwires    []cloudprovider.ICloudWire

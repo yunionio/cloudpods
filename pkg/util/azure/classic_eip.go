@@ -70,7 +70,7 @@ func (self *SClassicEipAddress) GetAssociationExternalId() string {
 }
 
 func (self *SClassicEipAddress) GetAssociationType() string {
-	return "server"
+	return api.EIP_ASSOCIATE_TYPE_SERVER
 }
 
 func (self *SClassicEipAddress) GetBandwidth() int {
