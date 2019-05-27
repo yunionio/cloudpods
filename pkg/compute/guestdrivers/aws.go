@@ -67,7 +67,7 @@ func fetchAwsUserName(desc cloudprovider.SManagedVMCreateConfig) string {
 	}
 }
 
-func (self *SAwsGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
+func (self *SAwsGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
 	return true
 }
 
