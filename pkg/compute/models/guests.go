@@ -1889,6 +1889,21 @@ var (
 	lostNamePattern = regexp.MustCompile(`-lost@\d{8}$`)
 )
 
+func (self *SGuest) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	host := self.GetHost()
+	if host == nil {
+		return nil, fmt.Errorf("failed to get host by guest %s(%s)", self.Name, self.Id)
+	}
+	provider, err := host.GetDriver()
+	if err != nil {
+		return nil, fmt.Errorf("No cloudprovider for host: %s", err)
+	}
+	if provider.GetFactory().IsOnPremise() {
+		return provider.GetOnPremiseIRegion()
+	}
+	return host.GetIRegion()
+}
+
 func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
@@ -1909,6 +1924,15 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 		return nil
 	}
 
+	iregion, err := self.GetIRegion()
+	if err != nil {
+		return err
+	}
+	_, err = iregion.GetIVMById(self.ExternalId)
+	if err != cloudprovider.ErrNotFound {
+		return err
+	}
+
 	if options.SyncPurgeRemovedResources.Contains(self.Keyword()) {
 		log.Debugf("purge removed resource %s", self.Name)
 		return self.purge(ctx, userCred)
@@ -1924,7 +1948,6 @@ func (self *SGuest) syncRemoveCloudVM(ctx context.Context, userCred mcclient.Tok
 	if self.Status != api.VM_UNKNOWN {
 		self.SetStatus(userCred, api.VM_UNKNOWN, "Sync lost")
 	}
-
 	return nil
 }
 

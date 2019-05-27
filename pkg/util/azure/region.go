@@ -218,6 +218,14 @@ func (self *SRegion) GetIStorageById(id string) (cloudprovider.ICloudStorage, er
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	return self.GetInstance(id)
+}
+
+func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+	return self.GetDisk(id)
+}
+
 func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 	iHosts := make([]cloudprovider.ICloudHost, 0)
 
