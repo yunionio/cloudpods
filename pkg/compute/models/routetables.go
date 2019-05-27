@@ -362,7 +362,7 @@ func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcc
 	syncResult := compare.SyncResult{}
 
 	dbRouteTables := []SRouteTable{}
-	if err := db.FetchModelObjects(man, man.Query(), &dbRouteTables); err != nil {
+	if err := db.FetchModelObjects(man, man.Query().Equals("vpc_id", vpc.Id), &dbRouteTables); err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
 	}
