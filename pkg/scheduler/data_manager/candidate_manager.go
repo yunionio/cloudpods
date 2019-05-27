@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	"yunion.io/x/pkg/util/ttlpool"
+	//"yunion.io/x/pkg/util/ttlpool"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/scheduler/cache"
@@ -196,13 +196,6 @@ type CandidateManager struct {
 	stopCh      <-chan struct{}
 	dataManager *DataManager
 	impls       map[string]*CandidateManagerImpl
-
-	dirtyPool *ttlpool.CountPool
-}
-
-func (cm *CandidateManager) DirtyPoolHas(id string) bool {
-	ok, _ := cm.dirtyPool.HasByKey(id)
-	return ok
 }
 
 func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candidater, error) {
@@ -248,10 +241,6 @@ func (cm *CandidateManager) GetCandidates(args CandidateGetArgs) ([]core.Candida
 	for _, c := range candidates {
 		r := c.(core.Candidater)
 
-		if cm.DirtyPoolHas(r.IndexKey()) {
-			continue
-		}
-
 		if !matchRegion(r, args.RegionID) {
 			continue
 		}
@@ -278,10 +267,6 @@ func (cm *CandidateManager) GetCandidatesByIds(resType string, ids []string) ([]
 
 	candidates := []core.Candidater{}
 	for _, id := range ids {
-		if cm.DirtyPoolHas(id) {
-			continue
-		}
-
 		c, err2 := impl.GetCandidate(id)
 		if err2 != nil {
 			return nil, err2
@@ -296,10 +281,6 @@ func (cm *CandidateManager) GetCandidate(id string, resType string) (interface{}
 	impl, err := cm.getImpl(resType)
 	if err != nil {
 		return nil, err
-	}
-
-	if cm.DirtyPoolHas(id) {
-		return nil, fmt.Errorf("%s in dirtyPool", id)
 	}
 
 	c, err := impl.GetCandidate(id)
@@ -332,7 +313,7 @@ func NewCandidateManager(dataManager *DataManager, stopCh <-chan struct{}) *Cand
 		stopCh:      stopCh,
 		impls:       make(map[string]*CandidateManagerImpl),
 		dataManager: dataManager,
-		dirtyPool:   ttlpool.NewCountPool(),
+		//dirtyPool:   ttlpool.NewCountPool(),
 	}
 
 	candidateManager.AddImpl("host", NewCandidateManagerImpl(
@@ -385,22 +366,22 @@ func (cm *CandidateManager) ReloadAll(resType string) ([]interface{}, error) {
 	return impl.ReloadAll()
 }
 
-type IDirtyPoolItem interface {
-	ttlpool.Item
-	GetCount() uint64
-}
+//type IDirtyPoolItem interface {
+//ttlpool.Item
+//GetCount() uint64
+//}
 
-func (cm *CandidateManager) SetCandidateDirty(item IDirtyPoolItem) {
-	cm.dirtyPool.Add(item, item.GetCount())
-}
+//func (cm *CandidateManager) SetCandidateDirty(item IDirtyPoolItem) {
+//cm.dirtyPool.Add(item, item.GetCount())
+//}
 
-func (cm *CandidateManager) CleanDirtyCandidatesOnce(keys []string) {
-	for _, key := range keys {
-		cm.dirtyPool.DeleteByKey(key)
-	}
-}
+//func (cm *CandidateManager) CleanDirtyCandidatesOnce(keys []string, sessionId string) {
+//for _, key := range keys {
+//cm.dirtyPool.DeleteByKey(key)
+//}
+//}
 
-func ToHostCandidate(c interface{}) (*candidatecache.HostDesc, error) {
+/*func ToHostCandidate(c interface{}) (*candidatecache.HostDesc, error) {
 	h, ok := c.(*candidatecache.HostDesc)
 	if !ok {
 		return nil, fmt.Errorf("can't convert %#v to *candidatecache.HostDesc", c)
@@ -418,4 +399,4 @@ func ToHostCandidates(cs []core.Candidater) ([]*candidatecache.HostDesc, error) 
 		hs = append(hs, h)
 	}
 	return hs, nil
-}
+}*/
