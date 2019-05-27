@@ -285,6 +285,14 @@ func (self *SRegion) GetClient() *SQcloudClient {
 	return self.client
 }
 
+func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	return self.GetInstance(id)
+}
+
+func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+	return self.GetDisk(id)
+}
+
 func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
 	if len(eipId) == 0 {
 		return nil, cloudprovider.ErrNotFound
