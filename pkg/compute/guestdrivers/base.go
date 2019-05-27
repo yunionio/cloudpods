@@ -247,8 +247,12 @@ func (self *SBaseGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_READY
 }
 
-func (self *SBaseGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
+func (self *SBaseGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
 	return false
+}
+
+func (self *SBaseGuestDriver) GetUserDataType() string {
+	return cloudprovider.CLOUD_CONFIG
 }
 
 func (self *SBaseGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {

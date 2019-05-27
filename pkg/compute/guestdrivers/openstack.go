@@ -18,6 +18,7 @@ import (
 	"context"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -76,6 +77,10 @@ func (self *SOpenStackGuestDriver) GetRebuildRootStatus() ([]string, error) {
 
 func (self *SOpenStackGuestDriver) GetChangeConfigStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
+}
+
+func (self *SOpenStackGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+	return true
 }
 
 func (self *SOpenStackGuestDriver) IsNeedRestartForResetLoginInfo() bool {
