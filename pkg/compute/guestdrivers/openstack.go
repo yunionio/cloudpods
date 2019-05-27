@@ -71,6 +71,10 @@ func (self *SOpenStackGuestDriver) GetChangeConfigStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
 }
 
+func (self *SOpenStackGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
+	return true
+}
+
 func (self *SOpenStackGuestDriver) IsNeedRestartForResetLoginInfo() bool {
 	return false
 }

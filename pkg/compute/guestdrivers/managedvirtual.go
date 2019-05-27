@@ -7,6 +7,8 @@ import (
 	"math"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/util/cloudinit"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
@@ -203,11 +205,19 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 
 	desc.Account = guest.GetDriver().GetLinuxDefaultAccount(desc)
 
-	if guest.GetDriver().IsNeedInjectPasswordByCloudInit() {
+	if guest.GetDriver().IsNeedInjectPasswordByCloudInit(&desc) {
 		err = desc.InjectPasswordByCloudInit()
 		if err != nil {
 			log.Warningf("failed to inject password by cloud-init error: %v", err)
 		}
+	}
+
+	oUserData, _ := cloudinit.ParseUserData(desc.UserData)
+	switch guest.GetDriver().GetUserDataType() {
+	case cloudprovider.CLOUD_SHELL:
+		desc.UserData = oUserData.UserDataScriptBase64()
+	default:
+		desc.UserData = oUserData.UserDataBase64()
 	}
 
 	action, err := config.GetString("action")
@@ -250,10 +260,6 @@ func (self *SManagedVirtualizedGuestDriver) GetGuestInitialStateAfterRebuild() s
 
 func (self *SManagedVirtualizedGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	return "root"
-}
-
-func (self *SManagedVirtualizedGuestDriver) IsNeedInjectPasswordByCloudInit() bool {
-	return false
 }
 
 func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
