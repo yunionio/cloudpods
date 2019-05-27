@@ -15,8 +15,6 @@
 package priorities
 
 import (
-	"yunion.io/x/onecloud/pkg/scheduler/algorithm"
-	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/core/score"
 )
@@ -103,10 +101,6 @@ func (b *BasePriority) Reduce(u *core.Unit, cs []core.Candidater, result core.Ho
 
 func (b *BasePriority) Name() string {
 	return "base_priorites_should_not_be_called"
-}
-
-func (b *BasePriority) HostCandidate(c core.Candidater) (*candidate.HostDesc, error) {
-	return algorithm.ToHostCandidate(c)
 }
 
 func (b *BasePriority) ScoreIntervals() score.Intervals {

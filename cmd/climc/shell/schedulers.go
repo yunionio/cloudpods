@@ -107,6 +107,19 @@ func init() {
 			return nil
 		})
 
+	type SchedulerCleanCacheOptions struct {
+		HostId    string `help:"ID of host" short-token:"h"`
+		SessionId string `help:"Session id" short-token:"s"`
+	}
+	R(&SchedulerCleanCacheOptions{}, "scheduler-clean-cache", "Clean scheduler hosts cache",
+		func(s *mcclient.ClientSession, args *SchedulerCleanCacheOptions) error {
+			err := modules.SchedManager.CleanCache(s, args.HostId, args.SessionId)
+			if err != nil {
+				return err
+			}
+			return nil
+		})
+
 	type SchedulerHistoryListOptions struct {
 		Limit  int  `default:"50" help:"Page limit"`
 		Offset int  `default:"0" help:"Page offset"`

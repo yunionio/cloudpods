@@ -32,6 +32,34 @@ import (
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 )
 
+type baremetalGetter struct {
+	*baseHostGetter
+	bm *BaremetalDesc
+}
+
+func newBaremetalGetter(bm *BaremetalDesc) *baremetalGetter {
+	return &baremetalGetter{
+		baseHostGetter: newBaseHostGetter(bm.BaseHostDesc),
+		bm:             bm,
+	}
+}
+
+func (h baremetalGetter) FreeCPUCount(_ bool) int64 {
+	return h.bm.FreeCPUCount()
+}
+
+func (h baremetalGetter) FreeMemorySize(_ bool) int64 {
+	return h.bm.FreeMemSize()
+}
+
+func (h baremetalGetter) IsEmpty() bool {
+	return h.bm.ServerID == ""
+}
+
+func (h baremetalGetter) StorageInfo() []*baremetal.BaremetalStorage {
+	return h.bm.StorageInfo
+}
+
 type BaremetalDesc struct {
 	*BaseHostDesc
 
@@ -49,6 +77,10 @@ type BaremetalBuilder struct {
 	residentTenantDict map[string]map[string]interface{}
 }
 
+func (bd *BaremetalDesc) Getter() core.CandidatePropertyGetter {
+	return newBaremetalGetter(bd)
+}
+
 func (bd *BaremetalDesc) String() string {
 	s, _ := fjson.Marshal(bd)
 	return string(s)
@@ -59,74 +91,11 @@ func (bd *BaremetalDesc) Type() int {
 	return 1
 }
 
-// TODO: remove this ugly code
-func (bd *BaremetalDesc) Get(key string) interface{} {
-	switch key {
-	case "ID":
-		return bd.Id
-
-	case "Name":
-		return bd.Name
-
-	case "Status":
-		return bd.Status
-
-	case "ZoneID":
-		return bd.ZoneId
-
-	case "ServerID":
-		return bd.ServerID
-
-	case "CPUCount":
-		return int64(bd.CpuCount)
-
-	case "FreeCPUCount":
-		return bd.FreeCPUCount()
-
-	case "NodeCount":
-		return int64(bd.NodeCount)
-
-	case "MemSize":
-		return bd.MemSize
-
-	case "FreeMemSize":
-		return bd.FreeMemSize()
-
-	case "Storages":
-		return bd.StorageType
-
-	case "StorageSize":
-		return bd.StorageSize
-
-	case "StorageType":
-		return bd.StorageType
-
-	case "StorageInfo":
-		return bd.StorageInfo
-
-	case "StorageDriver":
-		return bd.StorageDriver
-
-	case "FreeStorageSize":
-		return bd.FreeStorageSize()
-
-	case "HostStatus":
-		return bd.HostStatus
-
-	default:
-		return nil
-	}
-}
-
 func (bd *BaremetalDesc) GetGuestCount() int64 {
 	if bd.ServerID == "" {
 		return 0
 	}
 	return 1
-}
-
-func (bd *BaremetalDesc) XGet(key string, kind core.Kind) interface{} {
-	return core.XGetCalculator(bd, key, kind)
 }
 
 func (bd *BaremetalDesc) IndexKey() string {

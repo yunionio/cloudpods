@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
+	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
@@ -46,9 +47,10 @@ func (f *IsolatedDevicePredicate) PreExecute(u *core.Unit, cs []core.Candidater)
 func (f *IsolatedDevicePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(f, u, c)
 	reqIsoDevs := u.SchedData().IsolatedDevices
-	hc, err := h.HostCandidate()
-	if err != nil {
-		return false, nil, err
+	// TODO: use interface function
+	hc, ok := c.(*candidate.HostDesc)
+	if !ok {
+		return false, nil, fmt.Errorf("Candidater is not *candidate.HostDesc")
 	}
 
 	minCapacity := int64(0xFFFFFFFF)
@@ -71,7 +73,7 @@ func (f *IsolatedDevicePredicate) Execute(u *core.Unit, c core.Candidater) (bool
 	}
 
 	reqCount := len(reqIsoDevs)
-	freeCount := len(hc.UnusedIsolatedDevices())
+	freeCount := len(hc.UnusedIsolatedDevices()) - hc.GetPendingUsage().IsolatedDevice
 	totalCount := len(hc.IsolatedDevices)
 
 	// check host isolated device count

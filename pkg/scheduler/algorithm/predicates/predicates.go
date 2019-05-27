@@ -26,12 +26,9 @@ import (
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/scheduler/algorithm"
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
-	"yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	"yunion.io/x/onecloud/pkg/scheduler/data_manager"
 )
 
 // BasePredicate is a default struct for all the predicates that will
@@ -112,7 +109,7 @@ func (h *PredicateHelper) AppendPredicateFailMsg(reason string) {
 
 func (h *PredicateHelper) AppendInsufficientResourceError(req, total, free int64) {
 	h.AppendPredicateFail(
-		NewInsufficientResourceError(h.Candidate.Get("Name").(string), req, total, free))
+		NewInsufficientResourceError(h.Candidate.Getter().Name(), req, total, free))
 }
 
 // SetCapacity returns the current resource capacity calculated by a filter.
@@ -142,39 +139,6 @@ func (h *PredicateHelper) Exclude(reason string) {
 
 func (h *PredicateHelper) Exclude2(predicateName string, current, expected interface{}) {
 	h.Exclude(fmt.Sprintf("%s is '%v', expected '%v'", predicateName, current, expected))
-}
-
-func (h *PredicateHelper) Get(key string) interface{} {
-	return h.Candidate.Get(key)
-}
-
-func (h *PredicateHelper) GetInt64(key string, def int64) int64 {
-	value := h.Get(key)
-	if value == nil {
-		return def
-	}
-	return value.(int64)
-}
-
-func (h *PredicateHelper) GetGroupCounts() (*data_manager.GroupResAlgorithmResult, error) {
-	value := h.Get("Groups")
-	if value == nil {
-		return nil, nil
-	}
-
-	if r, ok := value.(*data_manager.GroupResAlgorithmResult); ok {
-		return r, nil
-	}
-
-	return nil, fmt.Errorf("type error: not *data_manager.GroupResAlgorithmResult (GetGroupCounts)")
-}
-
-func (h *PredicateHelper) HostCandidate() (*candidate.HostDesc, error) {
-	return algorithm.ToHostCandidate(h.Candidate)
-}
-
-func (h *PredicateHelper) BaremetalCandidate() (*candidate.BaremetalDesc, error) {
-	return algorithm.ToBaremetalCandidate(h.Candidate)
 }
 
 // UseReserved check whether the unit can use guest reserved resource

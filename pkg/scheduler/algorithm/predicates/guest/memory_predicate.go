@@ -51,16 +51,13 @@ func (p *MemoryPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, 
 func (p *MemoryPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
 	d := u.SchedData()
-	hc, err := h.HostCandidate()
-	if err != nil {
-		return false, nil, err
-	}
 
 	useRsvd := h.UseReserved()
-	freeMemSize := hc.GetFreeMemSize(useRsvd)
+	getter := c.Getter()
+	freeMemSize := getter.FreeMemorySize(useRsvd)
 	reqMemSize := int64(d.Memory)
 	if freeMemSize < reqMemSize {
-		totalMemSize := hc.GetTotalMemSize(useRsvd)
+		totalMemSize := getter.TotalMemorySize(useRsvd)
 		h.AppendInsufficientResourceError(reqMemSize, totalMemSize, freeMemSize)
 	}
 
