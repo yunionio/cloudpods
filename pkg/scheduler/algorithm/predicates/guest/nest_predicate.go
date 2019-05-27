@@ -1,6 +1,6 @@
 package guest
 
-import (
+/*import (
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/predicates"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
@@ -37,4 +37,4 @@ func (p *NestPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.P
 	}
 
 	return h.GetResult()
-}
+}*/

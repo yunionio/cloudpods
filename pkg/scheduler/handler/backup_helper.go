@@ -8,16 +8,16 @@ import (
 
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
+	//schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
 )
 
-func transToBackupSchedResult(result *core.SchedResultItemList, preferMasterHost, preferBackupHost string, count int64, setDirty bool) *schedapi.ScheduleOutput {
+func transToBackupSchedResult(result *core.SchedResultItemList, preferMasterHost, preferBackupHost string, count int64, sid string) *schedapi.ScheduleOutput {
 	// clean each result sched result item's count
 	for _, item := range result.Data {
 		item.Count = 0
 	}
 
-	apiResults := newBackupSchedResult(result, preferMasterHost, preferBackupHost, count, setDirty)
+	apiResults := newBackupSchedResult(result, preferMasterHost, preferBackupHost, count, sid)
 	return apiResults
 }
 
@@ -25,13 +25,13 @@ func newBackupSchedResult(
 	result *core.SchedResultItemList,
 	preferMasterHost, preferBackupHost string,
 	count int64,
-	setDirty bool,
+	sid string,
 ) *schedapi.ScheduleOutput {
 	ret := new(schedapi.ScheduleOutput)
 	apiResults := make([]*schedapi.CandidateResource, 0)
 	for i := 0; i < int(count); i++ {
 		log.V(10).Debugf("Select backup host from result: %s", result)
-		target, err := getSchedBackupResult(result, preferMasterHost, preferBackupHost, setDirty)
+		target, err := getSchedBackupResult(result, preferMasterHost, preferBackupHost, sid)
 		if err != nil {
 			er := &schedapi.CandidateResource{Error: err.Error()}
 			apiResults = append(apiResults, er)
@@ -46,7 +46,7 @@ func newBackupSchedResult(
 func getSchedBackupResult(
 	result *core.SchedResultItemList,
 	preferMasterHost, preferBackupHost string,
-	setDirty bool,
+	sid string,
 ) (*schedapi.CandidateResource, error) {
 	masterHost := selectMasterHost(result.Data, preferMasterHost, preferBackupHost)
 	if masterHost == nil {
@@ -57,21 +57,20 @@ func getSchedBackupResult(
 		return nil, fmt.Errorf("Can't find backup host %q by master %q", preferBackupHost, masterHost.ID)
 	}
 
-	markHostUsed(masterHost, setDirty)
-	markHostUsed(backupHost, setDirty)
+	markHostUsed(masterHost)
+	markHostUsed(backupHost)
 	sort.Sort(sort.Reverse(result))
 
 	ret := masterHost.ToCandidateResource()
 	ret.BackupCandidate = backupHost.ToCandidateResource()
+	ret.SessionId = sid
+	ret.BackupCandidate.SessionId = sid
 	return ret, nil
 }
 
-func markHostUsed(host *core.SchedResultItem, setDirty bool) {
+func markHostUsed(host *core.SchedResultItem) {
 	host.Count++
 	host.Capacity--
-	if setDirty {
-		setHostDirty(host)
-	}
 }
 
 // selectMasterID find master host id run VM
@@ -145,8 +144,4 @@ func (a *dirtyItemAdapter) Index() (string, error) {
 
 func (a *dirtyItemAdapter) GetCount() uint64 {
 	return uint64(a.Count)
-}
-
-func setHostDirty(host *core.SchedResultItem) {
-	schedman.GetCandidateManager().SetCandidateDirty(&dirtyItemAdapter{SchedResultItem: host})
 }

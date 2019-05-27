@@ -63,7 +63,7 @@ type Scheduler interface {
 
 	// mark already selected candidates dirty that
 	// can't be use again until cleanup them
-	DirtySelectedCandidates([]*SelectedCandidate)
+	//DirtySelectedCandidates([]*SelectedCandidate)
 }
 
 type GenericScheduler struct {
@@ -155,11 +155,6 @@ func (g *GenericScheduler) Schedule(unit *Unit, candidates []Candidater) (*Sched
 		return nil, err
 	}
 
-	// sync schedule candidates dirty mark
-	if !isSuggestion && !unit.SkipDirtyMarkHost() {
-		g.DirtySelectedCandidates(selectedCandidates)
-	}
-
 	return &SchedResultItemList{Unit: unit, Data: resultItems}, nil
 }
 
@@ -170,7 +165,7 @@ func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
 		ID:                id,
 		Count:             count,
 		Capacity:          u.GetCapacity(id),
-		Name:              fmt.Sprintf("%v", c.Get("Name")),
+		Name:              c.Getter().Name(),
 		Score:             u.GetScore(id).DigitString(),
 		Data:              u.GetFiltedData(id, count),
 		Candidater:        c,
@@ -519,7 +514,7 @@ func unitFitsOnCandidate(
 			}
 		}
 
-		candidateLogIndex := fmt.Sprintf("%v:%s", candidate.Get("Name"), candidate.IndexKey())
+		candidateLogIndex := fmt.Sprintf("%v:%s", candidate.Getter().Name(), candidate.IndexKey())
 
 		return NewSchedLog(candidateLogIndex, stage, fmt.Sprintf("%v %v", sFit, message), !fit)
 	}

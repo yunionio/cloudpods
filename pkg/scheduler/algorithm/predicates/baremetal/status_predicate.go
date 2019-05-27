@@ -26,22 +26,21 @@ func (p *StatusPredicate) Clone() core.FitPredicate {
 func (p *StatusPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
 
-	bm, err := h.BaremetalCandidate()
-	if err != nil {
-		return false, nil, err
-	}
+	getter := c.Getter()
 
-	if !ExpectedStatus.Has(bm.Status) {
-		h.Exclude2("status", bm.Status, ExpectedStatus)
+	status := getter.Status()
+	enabled := getter.Enabled()
+	if !ExpectedStatus.Has(status) {
+		h.Exclude2("status", status, ExpectedStatus)
 		return h.GetResult()
 	}
 
-	if !bm.Enabled {
+	if !enabled {
 		h.Exclude2("enable_status", "disable", "enable")
 		return h.GetResult()
 	}
 
-	if bm.ServerID == "" {
+	if getter.IsEmpty() {
 		h.SetCapacity(1)
 	} else {
 		h.AppendPredicateFailMsg(predicates.ErrBaremetalHasAlreadyBeenOccupied)

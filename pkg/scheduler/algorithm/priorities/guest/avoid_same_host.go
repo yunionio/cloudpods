@@ -20,13 +20,8 @@ func (p *AvoidSameHostPriority) Clone() core.Priority {
 func (p *AvoidSameHostPriority) Map(u *core.Unit, c core.Candidater) (core.HostPriority, error) {
 	h := priorities.NewPriorityHelper(p, u, c)
 
-	hc, err := p.HostCandidate(c)
-	if err != nil {
-		return core.HostPriority{}, err
-	}
-
 	ownerTenantID := u.SchedData().Project
-	if count, ok := hc.Tenants[ownerTenantID]; ok && count > 0 {
+	if count, ok := c.Getter().ProjectGuests()[ownerTenantID]; ok && count > 0 {
 		h.SetFrontRawScore(-1 * int(count))
 	}
 
