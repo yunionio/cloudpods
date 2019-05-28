@@ -73,12 +73,15 @@ func initSocketHandler(so socketio.Socket, p *session.Pty) {
 					so.Emit(OUTPUT_EVENT, string(buf[0:n]))
 				}
 				if !p.IsOk {
-					if err := p.Session.Connect(); err != nil {
-						so.Emit(DISCONNECT_EVENT, "")
-						cleanUp(so, p)
+					err := p.Stop()
+					//之前有cmd命令运行，并且正常退出，认为程序是正常退出的
+					if err == nil && p.Cmd != nil {
+						so.Disconnect()
 						return
 					}
-					p.Stop()
+					if err != nil {
+						log.Warningf("stop tty error: %v", err)
+					}
 					if info := p.Session.ShowInfo(); len(info) > 0 {
 						so.Emit(OUTPUT_EVENT, info)
 					}
@@ -95,11 +98,6 @@ func initSocketHandler(so socketio.Socket, p *session.Pty) {
 	// handle write
 	so.On(INPUT_EVENT, func(data string) {
 		if !p.IsOk {
-			if err := p.Session.Connect(); err != nil {
-				so.Emit(DISCONNECT_EVENT, "")
-				cleanUp(so, p)
-				return
-			}
 			if data == "\r" {
 				p.Show, p.Output, p.Command = p.Session.GetData(p.Buffer)
 				so.Emit(OUTPUT_EVENT, "\r\n")
