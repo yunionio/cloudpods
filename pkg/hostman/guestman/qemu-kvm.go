@@ -392,6 +392,16 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 				}
 			}
 		}
+	} else if event.Event == `"BLOCK_JOB_ERROR"` {
+		params := jsonutils.NewDict()
+		params.Set("reason", jsonutils.NewString("BLOCK_JOB_ERROR"))
+		_, err := modules.Servers.PerformAction(
+			hostutils.GetComputeSession(context.Background()),
+			s.GetId(), "block-stream-failed", params,
+		)
+		if err != nil {
+			log.Errorf("Server %s perform block-stream-failed got error %s", s.GetId(), err)
+		}
 	}
 }
 

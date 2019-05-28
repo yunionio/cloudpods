@@ -1245,7 +1245,7 @@ func reflectDispatcher(
 ) (jsonutils.JSONObject, error) {
 	result, err := reflectDispatcherInternal(
 		dispatcher, model, modelValue, ctx, userCred, operator, generalFuncName, funcPrefix, spec, query, data)
-	if err == nil && result == nil {
+	if model != nil && err == nil && result == nil {
 		return getItemDetails(dispatcher.modelManager, model, ctx, userCred, query)
 	} else {
 		return result, err
