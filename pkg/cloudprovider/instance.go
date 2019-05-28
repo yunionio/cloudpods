@@ -58,7 +58,6 @@ type SManagedVMCreateConfig struct {
 	Account             string
 	Password            string
 	UserData            string
-	UserDataType        string
 
 	BillingCycle *billing.SBillingCycle
 }
@@ -72,15 +71,11 @@ func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) er
 	}
 	//目前所写的userData格式仅支持Linux
 	if vmConfig.OsType == osprofile.OS_TYPE_LINUX {
-		if userDataType, _ := config.GetString("user_data_type"); len(userDataType) > 0 {
-			vmConfig.UserDataType = userDataType
-		}
-
 		adminPublicKey, _ := config.GetString("admin_public_key")
 		projectPublicKey, _ := config.GetString("project_public_key")
 		oUserData, _ := config.GetString("user_data")
 
-		vmConfig.UserData = generateUserData(adminPublicKey, projectPublicKey, oUserData, vmConfig.UserDataType)
+		vmConfig.UserData = generateUserData(adminPublicKey, projectPublicKey, oUserData)
 	}
 
 	resetPassword := jsonutils.QueryBoolean(config, "reset_password", false)
@@ -91,11 +86,11 @@ func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) er
 	return nil
 }
 
-func generateUserData(adminPublicKey, projectPublicKey, oUserData string, userDataType string) string {
+func generateUserData(adminPublicKey, projectPublicKey, oUserData string) string {
 	var oCloudConfig *cloudinit.SCloudConfig
 
 	if len(oUserData) > 0 {
-		oCloudConfig, _ = cloudinit.ParseUserDataBase64(oUserData)
+		oCloudConfig, _ = cloudinit.ParseUserData(oUserData)
 	}
 
 	ansibleUser := cloudinit.NewUser(ansible.PUBLIC_CLOUD_ANSIBLE_USER)
@@ -114,11 +109,7 @@ func generateUserData(adminPublicKey, projectPublicKey, oUserData string, userDa
 		cloudConfig.Merge(oCloudConfig)
 	}
 
-	if userDataType == CLOUD_SHELL {
-		return cloudConfig.UserDataScriptBase64()
-	}
-
-	return cloudConfig.UserDataBase64()
+	return cloudConfig.UserData()
 }
 
 func (vmConfig *SManagedVMCreateConfig) InjectPasswordByCloudInit() error {
@@ -143,17 +134,12 @@ func (vmConfig *SManagedVMCreateConfig) InjectPasswordByCloudInit() error {
 	}
 
 	if len(vmConfig.UserData) > 0 {
-		oCloudConfig, err := cloudinit.ParseUserDataBase64(vmConfig.UserData)
+		oCloudConfig, err := cloudinit.ParseUserData(vmConfig.UserData)
 		if err != nil {
 			return err
 		}
 		cloudconfig.Merge(oCloudConfig)
 	}
-	switch vmConfig.UserDataType {
-	case CLOUD_SHELL:
-		vmConfig.UserData = cloudconfig.UserDataScriptBase64()
-	default:
-		vmConfig.UserData = cloudconfig.UserDataBase64()
-	}
+	vmConfig.UserData = cloudconfig.UserData()
 	return nil
 }
