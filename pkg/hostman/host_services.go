@@ -39,10 +39,10 @@ import (
 )
 
 type SHostService struct {
-	service.SServiceBase
+	*service.SServiceBase
 }
 
-func (host *SHostService) StartService() {
+func (host *SHostService) InitService() {
 	common_options.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
 	isRoot := sysutils.IsRootPermission()
 	if !isRoot {
@@ -50,6 +50,14 @@ func (host *SHostService) StartService() {
 	}
 
 	options.HostOptions.EnableRbac = false // disable rbac
+	host.SServiceBase.O = &options.HostOptions.BaseOptions
+}
+
+func (host *SHostService) OnExitService() {
+	// TODO
+}
+
+func (host *SHostService) RunService() {
 	app := app_common.InitApp(&options.HostOptions.BaseOptions, false)
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {
