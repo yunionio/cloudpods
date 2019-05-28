@@ -252,6 +252,24 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
+		vmExtId := added[i].GetAssociationExternalId()
+		if len(vmExtId) > 0 {
+			vm, err := GuestManager.FetchByExternalId(vmExtId)
+			if err != nil && err != sql.ErrNoRows {
+				log.Errorf("failed to found guest by externalId %s error: %v", vmExtId, err)
+				continue
+			}
+			if vm != nil {
+				guest := vm.(*SGuest)
+				result := guest.SyncVMEip(ctx, userCred, provider, added[i], projectId)
+				if result.IsError() {
+					syncResult.UpdateError(fmt.Errorf(result.Result()))
+				} else {
+					syncResult.Update()
+				}
+				continue
+			}
+		}
 		new, err := manager.newFromCloudEip(ctx, userCred, added[i], provider, region, ownerProjId)
 		if err != nil {
 			syncResult.AddError(err)
