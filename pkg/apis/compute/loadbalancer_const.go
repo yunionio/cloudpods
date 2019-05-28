@@ -272,11 +272,13 @@ var LB_ALIYUN_COMMON_SCHEDULER_TYPES = choices.NewChoices(
 const (
 	LB_BACKEND_GUEST = "guest"
 	LB_BACKEND_HOST  = "host"
+	LB_BACKEND_IP    = "ip"
 )
 
 var LB_BACKEND_TYPES = choices.NewChoices(
 	LB_BACKEND_GUEST,
 	LB_BACKEND_HOST,
+	LB_BACKEND_IP,
 )
 
 const (
