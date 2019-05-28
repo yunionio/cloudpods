@@ -24,14 +24,22 @@ import (
 )
 
 type SHostService struct {
-	service.SServiceBase
+	*service.SServiceBase
 }
 
-func (host *SHostService) StartService() {
+func (host *SHostService) InitService() {
 	common_options.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
 	options.HostOptions.EnableRbac = false // disable rbac
+	host.SServiceBase.O = &options.HostOptions.CommonOptions
+}
 
+func (host *SHostService) OnExitService() {
+	// TODO
+}
+
+func (host *SHostService) RunService() {
 	app := app_common.InitApp(&options.HostOptions.CommonOptions, false)
+
 	hostInstance := hostinfo.Instance()
 	if err := hostInstance.Init(); err != nil {
 		log.Fatalf(err.Error())
