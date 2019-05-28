@@ -376,7 +376,7 @@ func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcc
 	syncResult := compare.SyncResult{}
 
 	dbRouteTables := []SRouteTable{}
-	if err := db.FetchModelObjects(man, man.Query(), &dbRouteTables); err != nil {
+	if err := db.FetchModelObjects(man, man.Query().Equals("vpc_id", vpc.Id), &dbRouteTables); err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
 	}
@@ -447,17 +447,30 @@ func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCre
 		Type:          cloudRouteTable.GetType(),
 		Routes:        &routes,
 	}
-	newName, err := db.GenerateName(man, userCred.GetProjectId(), cloudRouteTable.GetName())
-	if err != nil {
-		return nil, err
+	{
+		basename := routeTableBasename(cloudRouteTable.GetName(), vpc.Name)
+		newName, err := db.GenerateName(man, userCred.GetProjectId(), basename)
+		if err != nil {
+			return nil, err
+		}
+		routeTable.Name = newName
 	}
-	routeTable.Name = newName
 	routeTable.ManagerId = vpc.ManagerId
 	routeTable.ExternalId = cloudRouteTable.GetGlobalId()
 	routeTable.Description = cloudRouteTable.GetDescription()
 	routeTable.ProjectId = userCred.GetProjectId()
 	routeTable.SetModelManager(man)
 	return routeTable, nil
+}
+
+func routeTableBasename(name, vpcName string) string {
+	if name != "" {
+		return name
+	} else if vpcName != "" {
+		return "rtbl-" + vpcName
+	} else {
+		return "rtbl"
+	}
 }
 
 func (man *SRouteTableManager) insertFromCloud(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTable cloudprovider.ICloudRouteTable) (*SRouteTable, error) {
