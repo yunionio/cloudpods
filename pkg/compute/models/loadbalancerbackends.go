@@ -155,26 +155,29 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
 	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
 	backendType := backendTypeV.Value
-	var baseName string
-	var backendV *validators.ValidatorModelIdOrName
+	var (
+		basename     string
+		backendModel db.IModel
+	)
 	switch backendType {
 	case api.LB_BACKEND_GUEST:
-		backendV = validators.NewModelIdOrNameValidator("backend", "server", ownerProjId)
+		backendV := validators.NewModelIdOrNameValidator("backend", "server", ownerProjId)
 		err := backendV.Validate(data)
 		if err != nil {
 			return nil, err
 		}
 		guest := backendV.Model.(*SGuest)
-		baseName = guest.Name
 		err = man.ValidateBackendVpc(lb, guest, backendGroup)
 		if err != nil {
 			return nil, err
 		}
+		basename = guest.Name
+		backendModel = backendV.Model
 	case api.LB_BACKEND_HOST:
 		if !db.IsAdminAllowCreate(userCred, man) {
 			return nil, fmt.Errorf("only sysadmin can specify host as backend")
 		}
-		backendV = validators.NewModelIdOrNameValidator("backend", "host", userCred.GetProjectId())
+		backendV := validators.NewModelIdOrNameValidator("backend", "host", userCred.GetProjectId())
 		err := backendV.Validate(data)
 		if err != nil {
 			return nil, err
@@ -186,7 +189,20 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 			}
 			data.Set("address", jsonutils.NewString(host.AccessIp))
 		}
-		baseName = host.Name
+		basename = host.Name
+		backendModel = backendV.Model
+	case api.LB_BACKEND_IP:
+		if !db.IsAdminAllowCreate(userCred, man) {
+			return nil, fmt.Errorf("only sysadmin can specify ip address as backend")
+		}
+		backendV := validators.NewIPv4AddrValidator("backend")
+		err := backendV.Validate(data)
+		if err != nil {
+			return nil, err
+		}
+		ip := backendV.IP.String()
+		data.Set("address", jsonutils.NewString(ip))
+		basename = ip
 	default:
 		return nil, fmt.Errorf("internal error: unexpected backend type %s", backendType)
 	}
@@ -196,7 +212,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	//
 	//  - Mix in loadbalancer name if needed
 	//  - Use name from input query
-	name := fmt.Sprintf("%s-%s-%s", backendGroup.Name, backendType, baseName)
+	name := fmt.Sprintf("%s-%s-%s", backendGroup.Name, backendType, basename)
 	data.Set("name", jsonutils.NewString(name))
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
 		return nil, err
@@ -205,7 +221,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	if region == nil {
 		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
 	}
-	return region.GetDriver().ValidateCreateLoadbalancerBackendData(ctx, userCred, data, backendType, lb, backendGroup, backendV.Model)
+	return region.GetDriver().ValidateCreateLoadbalancerBackendData(ctx, userCred, data, backendType, lb, backendGroup, backendModel)
 }
 
 func (lbb *SLoadbalancerBackend) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
