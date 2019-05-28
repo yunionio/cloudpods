@@ -30,7 +30,7 @@ type SNBDManager struct {
 
 var nbdManager *SNBDManager
 
-func init() {
+func Init() {
 	nbdManager = NewNBDManager()
 }
 
