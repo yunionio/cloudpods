@@ -280,7 +280,7 @@ func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSO
 		}
 		disksBack, err := body.Get("disks_back")
 		if err != nil {
-			return nil, httperrors.NewMissingParameterError("disks_back")
+			params.DisksBackingFile = jsonutils.NewDict()
 		} else {
 			params.DisksBackingFile = disksBack
 		}

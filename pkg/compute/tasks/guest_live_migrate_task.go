@@ -86,7 +86,7 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 
 	self.SetStage("OnCachedImageComplete", body)
 	// prepare disk for migration
-	if isLocalStorage {
+	if len(disk.TemplateId) > 0 && isLocalStorage {
 		targetStorageCache := targetHost.GetLocalStoragecache()
 		if targetStorageCache != nil {
 			err := targetStorageCache.StartImageCacheTask(
@@ -94,10 +94,10 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 			if err != nil {
 				self.TaskFailed(ctx, guest, err.Error())
 			}
+			return
 		}
-	} else {
-		self.OnSrcPrepareComplete(ctx, guest, nil)
 	}
+	self.OnSrcPrepareComplete(ctx, guest, nil)
 }
 
 // For local storage get disk info

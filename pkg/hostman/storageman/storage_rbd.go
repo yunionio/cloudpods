@@ -459,9 +459,8 @@ func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 	)
 
 	if err := func() error {
+		defer kvmDisk.Disconnect()
 		if kvmDisk.Connect() {
-			defer kvmDisk.Disconnect()
-
 			if root := kvmDisk.MountKvmRootfs(); root != nil {
 				defer kvmDisk.UmountKvmRootfs(root)
 

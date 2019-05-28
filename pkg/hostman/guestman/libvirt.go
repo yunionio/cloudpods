@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"strings"
 	"unicode"
 
 	libvirtxml "github.com/libvirt/libvirt-go-xml"
@@ -237,7 +238,7 @@ func (m *SGuestManager) LibvirtDomainDiskToDiskConfig(
 
 		// XXX: Ignore backing file
 		var diskConfig = compute.SImportDisk{
-			AccessPath: disk.Source.File.File,
+			AccessPath: strings.Trim(disk.Source.File.File, "\""),
 			Index:      int(disk.Source.Index),
 		}
 		if disk.Target.Bus != "virtio" {

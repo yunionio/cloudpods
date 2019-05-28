@@ -207,8 +207,8 @@ func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFromat string,
 func (d *SRBDDisk) FormatFs(fsFormat, uuid string) {
 	log.Infof("Make disk %s fs %s", uuid, fsFormat)
 	gd := NewKVMGuestDisk(d.GetPath())
+	defer gd.Disconnect()
 	if gd.Connect() {
-		defer gd.Disconnect()
 		if err := gd.MakePartition(fsFormat); err == nil {
 			err = gd.FormatPartition(fsFormat, uuid)
 			if err != nil {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"yunion.io/x/log"
@@ -47,6 +48,10 @@ func (d *SDownloadProvider) Start(
 	}
 
 	log.Infof("Downloader Start Transfer %s, compress %t", downloadFilePath, d.compress)
+	spath, err := filepath.EvalSymlinks(downloadFilePath)
+	if err == nil {
+		downloadFilePath = spath
+	}
 	fi, err := os.Open(downloadFilePath)
 	if err != nil {
 		log.Errorln(err)

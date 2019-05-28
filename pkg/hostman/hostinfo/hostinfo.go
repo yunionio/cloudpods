@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/nbd"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -201,6 +202,7 @@ func (h *SHostInfo) prepareEnv() error {
 	if err != nil {
 		log.Errorf("Failed to activate nbd device: %s", output)
 	}
+	nbd.Init()
 
 	if !winutils.CheckTool(options.HostOptions.ChntpwPath) {
 		return fmt.Errorf("Failed to find chntpw tool")
