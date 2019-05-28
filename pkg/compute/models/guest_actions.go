@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -2189,6 +2190,12 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 	if err != nil {
 		return nil, err
 	}
+
+	status, _ := data.GetString("status")
+	if len(self.BackupHostId) > 0 && status == api.VM_RUNNING {
+		self.SetMetadata(ctx, "__mirror_job_status", "ready", userCred)
+	}
+
 	if preStatus != self.Status && !self.isNotRunningStatus(preStatus) && self.isNotRunningStatus(self.Status) {
 		db.OpsLog.LogEvent(self, db.ACT_STOP, "", userCred)
 		if self.Status == api.VM_READY && !self.DisableDelete.Bool() && self.ShutdownBehavior == api.SHUTDOWN_TERMINATE {
@@ -2515,6 +2522,12 @@ func (self *SGuest) PerformSwitchToBackup(ctx context.Context, userCred mcclient
 	if len(self.BackupHostId) == 0 {
 		return nil, httperrors.NewBadRequestError("Guest no backup host")
 	}
+
+	mirrorJobStatus := self.GetMetadata("__mirror_job_status", userCred)
+	if mirrorJobStatus != "ready" {
+		return nil, httperrors.NewBadRequestError("Guest can't switch to backup, mirror job not ready")
+	}
+
 	oldStatus := self.Status
 	self.SetStatus(userCred, api.VM_SWITCH_TO_BACKUP, "Switch to backup")
 	deleteBackup := jsonutils.QueryBoolean(data, "delete_backup", false)
@@ -2623,6 +2636,21 @@ func (manager *SGuestManager) PerformBatchSetUserMetadata(ctx context.Context, u
 		}
 	}
 	return jsonutils.Marshal(guests), nil
+}
+
+func (self *SGuest) AllowPerformBlockStreamFailed(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "block-stream-failed")
+}
+
+func (self *SGuest) PerformBlockStreamFailed(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if len(self.BackupHostId) > 0 {
+		self.SetMetadata(ctx, "__mirror_job_status", "failed", userCred)
+	}
+	if self.Status == api.VM_BLOCK_STREAM {
+		reason, _ := data.GetString("reason")
+		return nil, self.SetStatus(userCred, api.VM_BLOCK_STREAM_FAIL, reason)
+	}
+	return nil, nil
 }
 
 func (manager *SGuestManager) AllowPerformDirtyServerStart(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -2807,18 +2835,6 @@ func (self *SGuest) StartCreateBackup(ctx context.Context, userCred mcclient.Tok
 		task.ScheduleRun(nil)
 	}
 	return nil
-}
-
-func (self *SGuest) AllowPerformMirrorJobFailed(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "mirror-job-failed")
-}
-
-func (self *SGuest) PerformMirrorJobFailed(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if len(self.BackupHostId) == 0 {
-		return nil, nil
-	} else {
-		return nil, self.SetStatus(userCred, api.VM_MIRROR_FAIL, "OnSyncToBackup")
-	}
 }
 
 func (self *SGuest) AllowPerformSetExtraOption(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -3053,6 +3069,14 @@ func (self *SGuest) importNics(ctx context.Context, userCred mcclient.TokenCrede
 		return httperrors.NewInputParameterError("Empty import nics")
 	}
 	for _, nic := range nics {
+		q := GuestnetworkManager.Query()
+		count := q.Filter(sqlchemy.OR(
+			sqlchemy.Equals(q.Field("mac_addr"), nic.Mac),
+			sqlchemy.Equals(q.Field("ip_addr"), nic.Ip)),
+		).Count()
+		if count > 0 {
+			return httperrors.NewInputParameterError("ip %s or mac %s has been registered", nic.Ip, nic.Mac)
+		}
 		net, err := NetworkManager.GetOnPremiseNetworkOfIP(nic.Ip, "", tristate.None)
 		if err != nil {
 			return httperrors.NewNotFoundError("Not found network by ip %s", nic.Ip)
@@ -3116,6 +3140,27 @@ func (manager *SGuestManager) PerformImportFromLibvirt(ctx context.Context, user
 	sHost, err := HostManager.GetHostByIp(host.HostIp)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("Invalid host ip %s", host.HostIp)
+	}
+
+	for _, server := range host.Servers {
+		for mac, ip := range server.MacIp {
+			_, err = net.ParseMAC(mac)
+			if err != nil {
+				return nil, httperrors.NewBadRequestError("Invalid server mac address %s", mac)
+			}
+			nIp := net.ParseIP(ip)
+			if nIp == nil {
+				return nil, httperrors.NewBadRequestError("Invalid server ip address %s", ip)
+			}
+			q := GuestnetworkManager.Query()
+			count := q.Filter(sqlchemy.OR(
+				sqlchemy.Equals(q.Field("mac_addr"), mac),
+				sqlchemy.Equals(q.Field("ip_addr"), ip)),
+			).Count()
+			if count > 0 {
+				return nil, httperrors.NewInputParameterError("ip %s or mac %s has been registered", mac, ip)
+			}
+		}
 	}
 
 	taskData := jsonutils.NewDict()

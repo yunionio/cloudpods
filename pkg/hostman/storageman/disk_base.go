@@ -120,8 +120,8 @@ func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict
 
 func (d *SBaseDisk) ResizeFs(diskPath string) error {
 	disk := NewKVMGuestDisk(diskPath)
+	defer disk.Disconnect()
 	if disk.Connect() {
-		defer disk.Disconnect()
 		if err := disk.ResizePartition(); err != nil {
 			return err
 		}
