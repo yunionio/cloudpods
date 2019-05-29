@@ -230,12 +230,17 @@ func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context
 		}
 	}
 
-	oUserData, _ := cloudinit.ParseUserData(desc.UserData)
-	switch guest.GetDriver().GetUserDataType() {
-	case cloudprovider.CLOUD_SHELL:
-		desc.UserData = oUserData.UserDataScriptBase64()
-	default:
-		desc.UserData = oUserData.UserDataBase64()
+	if len(desc.UserData) > 0 {
+		oUserData, err := cloudinit.ParseUserData(desc.UserData)
+		if err != nil {
+			return err
+		}
+		switch guest.GetDriver().GetUserDataType() {
+		case cloudprovider.CLOUD_SHELL:
+			desc.UserData = oUserData.UserDataScriptBase64()
+		default:
+			desc.UserData = oUserData.UserDataBase64()
+		}
 	}
 
 	action, err := config.GetString("action")
