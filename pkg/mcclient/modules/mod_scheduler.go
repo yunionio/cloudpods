@@ -185,10 +185,13 @@ func (this *SchedulerManager) HistoryShow(s *mcclient.ClientSession, id string, 
 	return this._post(s, url, params, "history")
 }
 
-func (this *SchedulerManager) CleanCache(s *mcclient.ClientSession, hostId string) error {
+func (this *SchedulerManager) CleanCache(s *mcclient.ClientSession, hostId, sessionId string) error {
 	url := newSchedURL("clean-cache")
 	if len(hostId) > 0 {
 		url = fmt.Sprintf("%s/%s", url, hostId)
+	}
+	if len(sessionId) > 0 {
+		url = fmt.Sprintf("%s?session=%s", url, sessionId)
 	}
 	resp, err := this.rawRequest(s, "POST", url, nil, nil)
 	if err != nil {

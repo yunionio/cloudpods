@@ -57,14 +57,11 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	h := predicates.NewPredicateHelper(p, u, c)
 	schedData := u.SchedData()
 
-	candidate, err := h.BaremetalCandidate()
-	if err != nil {
-		return false, nil, err
-	}
+	storageInfo := c.Getter().StorageInfo()
 
 	layouts, err := baremetal.CalculateLayout(
 		schedData.BaremetalDiskConfigs,
-		candidate.StorageInfo,
+		storageInfo,
 	)
 
 	if err == nil && baremetal.CheckDisksAllocable(layouts, toBaremetalDisks(schedData.Disks)) {
