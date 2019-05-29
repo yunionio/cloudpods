@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -219,7 +220,9 @@ func (m SchedtagInputResourcesMap) GetAvoidTags() []computeapi.SchedtagConfig {
 	return m.getAllTags(false)
 }
 
-type CandidateInputResourcesMap map[string]SchedtagInputResourcesMap
+type CandidateInputResourcesMap struct {
+	*sync.Map // map[string]SchedtagInputResourcesMap
+}
 
 type ISchedtagCandidateResource interface {
 	GetName() string
@@ -248,14 +251,14 @@ type BaseSchedtagPredicate struct {
 	BasePredicate
 	plugin.BasePlugin
 
-	CandidateInputResourcesMap CandidateInputResourcesMap
+	CandidateInputResources *CandidateInputResourcesMap
 
 	Hypervisor string
 }
 
 func NewBaseSchedtagPredicate() *BaseSchedtagPredicate {
 	return &BaseSchedtagPredicate{
-		CandidateInputResourcesMap: make(map[string]SchedtagInputResourcesMap),
+		CandidateInputResources: &CandidateInputResourcesMap{Map: new(sync.Map)}, // make(map[string]SchedtagInputResourcesMap),
 	}
 }
 
@@ -355,12 +358,12 @@ func (p *BaseSchedtagPredicate) checkResources(input ISchedtagCustomer, ress []I
 }
 
 func (p *BaseSchedtagPredicate) GetInputResourcesMap(candidateId string) SchedtagInputResourcesMap {
-	ret, ok := p.CandidateInputResourcesMap[candidateId]
+	ret, ok := p.CandidateInputResources.Load(candidateId)
 	if !ok {
 		ret = make(map[int][]*PredicatedSchedtagResource)
-		p.CandidateInputResourcesMap[candidateId] = ret
+		p.CandidateInputResources.Store(candidateId, ret)
 	}
-	return ret
+	return ret.(map[int][]*PredicatedSchedtagResource)
 }
 
 func (p *BaseSchedtagPredicate) PreExecute(sp ISchedtagPredicateInstance, u *core.Unit, cs []core.Candidater) (bool, error) {
