@@ -16,6 +16,9 @@ package models
 
 import (
 	"context"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/yunionconf/options"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -69,20 +72,66 @@ func isAdminQuery(query jsonutils.JSONObject) bool {
 	return false
 }
 
+func getUserId(user string) (string, error) {
+	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	userObj, err := modules.UsersV3.Get(s, user, nil)
+	if err != nil {
+		return "", err
+	}
+
+	uid, err := userObj.GetString("id")
+	if err != nil {
+		return "", err
+	}
+
+	return uid, nil
+}
+
+func getServiceId(service string) (string, error) {
+	s := auth.GetAdminSession(context.Background(), options.Options.Region, "")
+	serviceObj, err := modules.ServicesV3.Get(s, service, nil)
+	if err != nil {
+		return "", err
+	}
+
+	uid, err := serviceObj.GetString("id")
+	if err != nil {
+		return "", err
+	}
+
+	return uid, nil
+}
+
 func getNamespaceInContext(userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (namespace string, namespaceId string, err error) {
 	// 优先匹配上线文中的参数, /users/<user_id>/parameters  /services/<service_id>/parameters
 	if query != nil {
-		if uid, _ := query.GetString("user_id"); len(uid) > 0 {
+		if uid := jsonutils.GetAnyString(query, []string{"user", "user_id"}); len(uid) > 0 {
+			uid, err := getUserId(uid)
+			if err != nil {
+				return "", "", err
+			}
 			return NAMESPACE_USER, uid, nil
-		} else if sid, _ := query.GetString("service_id"); len(sid) > 0 {
+		} else if sid := jsonutils.GetAnyString(query, []string{"service", "service_id"}); len(sid) > 0 {
+			sid, err := getServiceId(sid)
+			if err != nil {
+				return "", "", err
+			}
 			return NAMESPACE_SERVICE, sid, nil
 		}
 	}
 
 	// 匹配/parameters中的参数
-	if uid, _ := data.GetString("user_id"); len(uid) > 0 {
+	if uid := jsonutils.GetAnyString(data, []string{"user", "user_id"}); len(uid) > 0 {
+		uid, err := getUserId(uid)
+		if err != nil {
+			return "", "", err
+		}
 		return NAMESPACE_USER, uid, nil
-	} else if sid, _ := data.GetString("service_id"); len(sid) > 0 {
+	} else if sid := jsonutils.GetAnyString(data, []string{"service", "service_id"}); len(sid) > 0 {
+		sid, err := getServiceId(sid)
+		if err != nil {
+			return "", "", err
+		}
 		return NAMESPACE_SERVICE, sid, nil
 	} else {
 		return NAMESPACE_USER, userCred.GetUserId(), nil
@@ -145,6 +194,11 @@ func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCr
 		return nil, httperrors.NewDuplicateNameError("paramter %s has been created", name)
 	}
 
+	_, err = data.Get("value")
+	if err != nil {
+		return nil, err
+	}
+
 	data.Add(jsonutils.NewString(uid), "created_by")
 	data.Add(jsonutils.NewString(uid), "updated_by")
 	data.Add(jsonutils.NewString(namespace), "namespace")
@@ -172,10 +226,18 @@ func (manager *SParameterManager) ListItemFilter(ctx context.Context, q *sqlchem
 	if db.IsAdminAllowList(userCred, manager) {
 		if id, _ := query.GetString("namespace_id"); len(id) > 0 {
 			q = q.Equals("namespace_id", id)
-		} else if id, _ := query.GetString("service_id"); len(id) > 0 {
-			q = q.Equals("namespace_id", id).Equals("namespace", NAMESPACE_SERVICE)
-		} else if id, _ := query.GetString("user_id"); len(id) > 0 {
-			q = q.Equals("namespace_id", id).Equals("namespace", NAMESPACE_USER)
+		} else if id := jsonutils.GetAnyString(query, []string{"service", "service_id"}); len(id) > 0 {
+			if sid, err := getServiceId(id); err != nil {
+				return q, err
+			} else {
+				q = q.Equals("namespace_id", sid).Equals("namespace", NAMESPACE_SERVICE)
+			}
+		} else if id := jsonutils.GetAnyString(query, []string{"user", "user_id"}); len(id) > 0 {
+			if uid, err := getUserId(id); err != nil {
+				return q, err
+			} else {
+				q = q.Equals("namespace_id", uid).Equals("namespace", NAMESPACE_USER)
+			}
 		} else {
 			//  not admin
 			admin, _ := query.GetString("admin")
@@ -207,6 +269,12 @@ func (model *SParameter) ValidateUpdateData(ctx context.Context, userCred mcclie
 	if e != nil {
 		return nil, e
 	}
+
+	_, err := data.Get("value")
+	if err != nil {
+		return nil, err
+	}
+
 	data.Add(jsonutils.NewString(uid), "updated_by")
 	data.Add(jsonutils.NewString(namespace_id), "namespace_id")
 	data.Add(jsonutils.NewString(namespace), "namespace")
