@@ -17,10 +17,13 @@ package handler
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
@@ -56,6 +59,11 @@ func srvIdPrefix() string {
 func srvActionPrefix(action string) string {
 	// baremetals/<bm_id>/servers/<srv_id>/action
 	return fmt.Sprintf("%s/%s", srvIdPrefix(), action)
+}
+
+func bmRegisterPrefix() string {
+	// baremetals/register-baremetal
+	return fmt.Sprintf("%s/register-baremetal", BM_PREFIX)
 }
 
 type handlerFunc func(ctx *Context)
@@ -118,6 +126,75 @@ func srvObjMiddleware(h srvObjHandlerFunc) appsrv.FilterHandler {
 		}
 		srv := baremetal.GetServer()
 		h(newCtx, baremetal, srv)
+	}
+}
+
+type bmRegisterFunc func(*Context, *baremetal.BmRegisterInput)
+
+func bmRegisterMiddleware(h bmRegisterFunc) appsrv.FilterHandler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		newCtx := NewContext(ctx, w, r)
+		sshPasswd, _ := newCtx.Data().GetString("ssh_password")
+		if len(sshPasswd) == 0 {
+			sshPasswd = "yunion@123"
+		}
+		hostname, err := newCtx.Data().GetString("hostname")
+		if err != nil {
+			newCtx.ResponseError(httperrors.NewMissingParameterError("hostname"))
+			return
+		}
+		remoteIp, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			newCtx.ResponseError(httperrors.NewInternalServerError("Parse ip error %s", err))
+			return
+		}
+		sshPort, err := newCtx.Data().Int("ssh_port")
+		if err != nil {
+			newCtx.ResponseError(httperrors.NewMissingParameterError("ssh_port"))
+			return
+		}
+		username, err := newCtx.Data().GetString("username")
+		if err != nil {
+			newCtx.ResponseError(httperrors.NewMissingParameterError("username"))
+			return
+		}
+		password, err := newCtx.Data().GetString("password")
+		if err != nil {
+			newCtx.ResponseError(httperrors.NewMissingParameterError("password"))
+			return
+		}
+		ipAddr, err := newCtx.Data().GetString("ip_addr")
+		if err != nil {
+			newCtx.ResponseError(httperrors.NewMissingParameterError("ip_addr"))
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(ctx, time.Second*175)
+		defer cancel()
+
+		data := &baremetal.BmRegisterInput{
+			Ctx:       ctx,
+			R:         r,
+			W:         w,
+			C:         make(chan struct{}),
+			SshPort:   int(sshPort),
+			SshPasswd: sshPasswd,
+			Hostname:  hostname,
+			RemoteIp:  remoteIp,
+			Username:  username,
+			Password:  password,
+			IpAddr:    ipAddr,
+		}
+
+		h(newCtx, data)
+
+		select {
+		case <-ctx.Done():
+			log.Errorln("Register timeout")
+			newCtx.ResponseError(httperrors.NewTimeoutError("RegisterTimeOut"))
+		case <-data.C:
+			return
+		}
 	}
 }
 

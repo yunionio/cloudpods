@@ -15,39 +15,72 @@
 package handler
 
 import (
+	"context"
+	"net/http"
+	"time"
+
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/baremetal"
 	baremetaltypes "yunion.io/x/onecloud/pkg/baremetal/types"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
+
+var registerWorkMan *appsrv.SWorkerManager
+
+func init() {
+	registerWorkMan = appsrv.NewWorkerManager("bm_register_worker", 20, 1024, false)
+}
 
 func InitHandlers(app *appsrv.Application) {
 	initBaremetalsHandler(app)
 }
 
+func AddHandler(app *appsrv.Application, method string, prefix string,
+	handler func(context.Context, http.ResponseWriter, *http.Request)) *appsrv.SHandlerInfo {
+	return app.AddHandler(method, prefix, auth.Authenticate(handler))
+}
+
+func AddHandler2(app *appsrv.Application, method string, prefix string,
+	handler func(context.Context, http.ResponseWriter, *http.Request),
+	metadata map[string]interface{}, name string, tags map[string]string) *appsrv.SHandlerInfo {
+	return app.AddHandler2(method, prefix, auth.Authenticate(handler), metadata, name, tags)
+}
+
+func customizeHandlerInfo(info *appsrv.SHandlerInfo) {
+	if info.GetName(nil) == "baremetal-register" {
+		info.SetProcessTimeout(time.Second * 180).SetWorkerManager(registerWorkMan)
+	}
+}
+
 func initBaremetalsHandler(app *appsrv.Application) {
 	// baremetal actions handler
-	app.AddHandler("GET", bmActionPrefix("notify"), bmObjMiddleware(handleBaremetalNotify))
-	app.AddHandler("POST", bmActionPrefix("maintenance"), bmObjMiddleware(handleBaremetalMaintenance))
-	app.AddHandler("POST", bmActionPrefix("unmaintenance"), bmObjMiddleware(handleBaremetalUnmaintenance))
-	app.AddHandler("POST", bmActionPrefix("delete"), bmObjMiddleware(handleBaremetalDelete))
-	app.AddHandler("POST", bmActionPrefix("syncstatus"), bmObjMiddleware(handleBaremetalSyncStatus))
-	app.AddHandler("POST", bmActionPrefix("sync-config"), bmObjMiddleware(handleBaremetalSyncConfig))
-	app.AddHandler("POST", bmActionPrefix("sync-ipmi"), bmObjMiddleware(handleBaremetalSyncIPMI))
-	app.AddHandler("POST", bmActionPrefix("prepare"), bmObjMiddleware(handleBaremetalPrepare))
-	app.AddHandler("POST", bmActionPrefix("reset-bmc"), bmObjMiddleware(handleBaremetalResetBMC))
+	AddHandler(app, "GET", bmActionPrefix("notify"), bmObjMiddleware(handleBaremetalNotify))
+	AddHandler(app, "POST", bmActionPrefix("maintenance"), bmObjMiddleware(handleBaremetalMaintenance))
+	AddHandler(app, "POST", bmActionPrefix("unmaintenance"), bmObjMiddleware(handleBaremetalUnmaintenance))
+	AddHandler(app, "POST", bmActionPrefix("delete"), bmObjMiddleware(handleBaremetalDelete))
+	AddHandler(app, "POST", bmActionPrefix("syncstatus"), bmObjMiddleware(handleBaremetalSyncStatus))
+	AddHandler(app, "POST", bmActionPrefix("sync-config"), bmObjMiddleware(handleBaremetalSyncConfig))
+	AddHandler(app, "POST", bmActionPrefix("sync-ipmi"), bmObjMiddleware(handleBaremetalSyncIPMI))
+	AddHandler(app, "POST", bmActionPrefix("prepare"), bmObjMiddleware(handleBaremetalPrepare))
+	AddHandler(app, "POST", bmActionPrefix("reset-bmc"), bmObjMiddleware(handleBaremetalResetBMC))
 
 	// server actions handler
-	app.AddHandler("POST", srvActionPrefix("create"), srvClassMiddleware(handleServerCreate))
-	app.AddHandler("POST", srvActionPrefix("deploy"), srvObjMiddleware(handleServerDeploy))
-	app.AddHandler("POST", srvActionPrefix("rebuild"), srvObjMiddleware(handleServerRebuild))
-	app.AddHandler("POST", srvActionPrefix("start"), srvObjMiddleware(handleServerStart))
-	app.AddHandler("POST", srvActionPrefix("stop"), srvObjMiddleware(handleServerStop))
-	app.AddHandler("POST", srvActionPrefix("reset"), srvObjMiddleware(handleServerReset))
-	app.AddHandler("POST", srvActionPrefix("status"), srvObjMiddleware(handleServerStatus))
-	app.AddHandler("DELETE", srvIdPrefix(), srvObjMiddleware(handleServerDelete))
+	AddHandler(app, "POST", srvActionPrefix("create"), srvClassMiddleware(handleServerCreate))
+	AddHandler(app, "POST", srvActionPrefix("deploy"), srvObjMiddleware(handleServerDeploy))
+	AddHandler(app, "POST", srvActionPrefix("rebuild"), srvObjMiddleware(handleServerRebuild))
+	AddHandler(app, "POST", srvActionPrefix("start"), srvObjMiddleware(handleServerStart))
+	AddHandler(app, "POST", srvActionPrefix("stop"), srvObjMiddleware(handleServerStop))
+	AddHandler(app, "POST", srvActionPrefix("reset"), srvObjMiddleware(handleServerReset))
+	AddHandler(app, "POST", srvActionPrefix("status"), srvObjMiddleware(handleServerStatus))
+	AddHandler(app, "DELETE", srvIdPrefix(), srvObjMiddleware(handleServerDelete))
+
+	handInfo := AddHandler2(app, "POST", bmRegisterPrefix(),
+		bmRegisterMiddleware(handleBaremetalRegister), nil, "baremetal-register", nil)
+	customizeHandlerInfo(handInfo)
 }
 
 func handleBaremetalNotify(ctx *Context, bm *baremetal.SBaremetalInstance) {
@@ -164,4 +197,11 @@ func handleServerReset(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremet
 func handleServerStatus(ctx *Context, bm *baremetal.SBaremetalInstance, _ baremetaltypes.IBaremetalServer) {
 	ctx.DelayProcess(bm.DelayedServerStatus, nil)
 	ctx.ResponseOk()
+}
+
+func handleBaremetalRegister(ctx *Context, input *baremetal.BmRegisterInput) {
+	ctx.DelayProcess(func(data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+		baremetal.GetBaremetalManager().RegisterBaremetal(input)
+		return nil, nil
+	}, nil)
 }

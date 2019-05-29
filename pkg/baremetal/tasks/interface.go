@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/baremetal/pxe"
 	baremetaltypes "yunion.io/x/onecloud/pkg/baremetal/types"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -51,4 +52,13 @@ type IBaremetal interface {
 	// DoDiskBoot() error
 
 	RemoveServer()
+	InitializeServer(name string) error
+	SaveSSHConfig(remoteAddr string, key string) error
+	ServerLoadDesc() error
+}
+
+type IBmManager interface {
+	GetZoneId() string
+	AddBaremetal(jsonutils.JSONObject) (pxe.IBaremetalInstance, error)
+	GetClientSession() *mcclient.ClientSession
 }
