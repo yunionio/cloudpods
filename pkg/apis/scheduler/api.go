@@ -90,10 +90,11 @@ type CandidateNet struct {
 }
 
 type CandidateResource struct {
-	HostId string           `json:"host_id"`
-	Name   string           `json:"name"`
-	Disks  []*CandidateDisk `json:"disks"`
-	Nets   []*CandidateNet  `json:"nets"`
+	SessionId string           `json:"session_id"`
+	HostId    string           `json:"host_id"`
+	Name      string           `json:"name"`
+	Disks     []*CandidateDisk `json:"disks"`
+	Nets      []*CandidateNet  `json:"nets"`
 
 	// used by backup schedule
 	BackupCandidate *CandidateResource `json:"backup_candidate"`

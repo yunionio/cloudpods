@@ -35,10 +35,12 @@ func (p *MemoryPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 	h := predicates.NewPredicateHelper(p, u, c)
 	d := u.SchedData()
 
-	freeMemSize := h.GetInt64("FreeMemSize", 0)
+	useRsvd := h.UseReserved()
+	getter := c.Getter()
+	freeMemSize := getter.FreeMemorySize(useRsvd)
 	reqMemSize := int64(d.Memory)
 	if freeMemSize < reqMemSize {
-		totalMemSize := h.GetInt64("MemSize", 0)
+		totalMemSize := getter.TotalMemorySize(useRsvd)
 		h.AppendInsufficientResourceError(reqMemSize, totalMemSize, freeMemSize)
 		h.SetCapacity(0)
 	} else {

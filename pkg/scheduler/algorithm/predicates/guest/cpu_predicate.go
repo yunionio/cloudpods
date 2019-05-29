@@ -50,16 +50,13 @@ func (f *CPUPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, err
 func (f *CPUPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(f, u, c)
 	d := u.SchedData()
-	hc, err := h.HostCandidate()
-	if err != nil {
-		return false, nil, err
-	}
 
 	useRsvd := h.UseReserved()
-	freeCPUCount := hc.GetFreeCPUCount(useRsvd)
+	getter := c.Getter()
+	freeCPUCount := getter.FreeCPUCount(useRsvd)
 	reqCPUCount := int64(d.Ncpu)
 	if freeCPUCount < reqCPUCount {
-		totalCPUCount := hc.GetTotalCPUCount(useRsvd)
+		totalCPUCount := getter.TotalCPUCount(useRsvd)
 		h.AppendInsufficientResourceError(reqCPUCount, totalCPUCount, freeCPUCount)
 	}
 
