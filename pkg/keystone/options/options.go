@@ -30,6 +30,10 @@ type SKeystoneOptions struct {
 	CredentialKeyRepository string `help:"fernet key repo directory for credentials" token:"credential_key_repository"`
 
 	BootstrapAdminUserPassword string `help:"bootstreap sysadmin user password" default:"sysadmin"`
+
+	AutoSyncIntervalSeconds int `help:"frequency to check auto sync tasks" default:"30"`
+
+	DefaultSyncIntervalSeoncds int `help:"frequency to do auto sync tasks" default:"900"`
 }
 
 var (

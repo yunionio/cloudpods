@@ -87,7 +87,7 @@ type SUser struct {
 	DefaultProjectId string `width:"64" charset:"ascii" nullable:"true"`
 
 	AllowWebConsole tristate.TriState `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
-	EnableMfa       tristate.TriState `nullable:"false" default:"false" list:"admin" update:"admin" create:"admin_optional"`
+	EnableMfa       tristate.TriState `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
 }
 
 func (manager *SUserManager) GetContextManagers() [][]db.IModelManager {
@@ -194,34 +194,19 @@ func (manager *SUserManager) initSysUser() error {
 	return nil
 }
 
-type SUserExtended struct {
-	Id               string
-	Name             string
-	Enabled          bool
-	DefaultProjectId string
-	CreatedAt        time.Time
-	LastActiveAt     time.Time
-	DomainId         string
-
-	LocalId      int
-	LocalName    string
-	NonlocalName string
-	DomainName   string
-	IsLocal      bool
-}
-
 /*
  Fetch extended userinfo by Id or name + domainId or name + domainName
 */
-func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domainName string) (*SUserExtended, error) {
+func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domainName string) (*api.SUserExtended, error) {
 	if len(userId) == 0 && len(userName) == 0 {
 		return nil, sqlchemy.ErrEmptyQuery
 	}
 
 	localUsers := LocalUserManager.Query().SubQuery()
-	nonlocalUsers := NonlocalUserManager.Query().SubQuery()
+	// nonlocalUsers := NonlocalUserManager.Query().SubQuery()
 	users := UserManager.Query().SubQuery()
 	domains := DomainManager.Query().SubQuery()
+	idmappings := IdmappingManager.Query().SubQuery()
 
 	q := users.Query(
 		users.Field("id"),
@@ -231,21 +216,20 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 		users.Field("last_active_at"),
 		users.Field("domain_id"),
 		localUsers.Field("id", "local_id"),
-		localUsers.Field("name", "local_name"),
-		nonlocalUsers.Field("name", "nonlocal_name"),
 		domains.Field("name", "domain_name"),
+		domains.Field("enabled", "domain_enabled"),
+		idmappings.Field("domain_id", "idp_id"),
+		idmappings.Field("local_id", "idp_name"),
 	)
+
 	q = q.Join(domains, sqlchemy.Equals(users.Field("domain_id"), domains.Field("id")))
 	q = q.LeftJoin(localUsers, sqlchemy.Equals(localUsers.Field("user_id"), users.Field("id")))
-	q = q.LeftJoin(nonlocalUsers, sqlchemy.Equals(nonlocalUsers.Field("user_id"), users.Field("id")))
+	q = q.LeftJoin(idmappings, sqlchemy.Equals(users.Field("id"), idmappings.Field("public_id")))
 
 	if len(userId) > 0 {
 		q = q.Filter(sqlchemy.Equals(users.Field("id"), userId))
 	} else if len(userName) > 0 {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.Equals(localUsers.Field("name"), userName),
-			sqlchemy.Equals(nonlocalUsers.Field("name"), userName),
-		))
+		q = q.Filter(sqlchemy.Equals(users.Field("name"), userName))
 		if len(domainId) == 0 && len(domainName) == 0 {
 			domainId = api.DEFAULT_DOMAIN_ID
 		}
@@ -256,31 +240,29 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 		}
 	}
 
-	extUser := SUserExtended{}
+	extUser := api.SUserExtended{}
 	err := q.First(&extUser)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(extUser.NonlocalName) > 0 {
+	if len(extUser.IdpName) > 0 {
 		extUser.IsLocal = false
-		extUser.Name = extUser.NonlocalName
 	} else {
 		extUser.IsLocal = true
-		extUser.Name = extUser.LocalName
 	}
 	return &extUser, nil
 }
 
-func (user *SUserExtended) VerifyPassword(passwd string) error {
+func VerifyPassword(user *api.SUserExtended, passwd string) error {
 	if user.IsLocal {
-		return user.localUserVerifyPassword(passwd)
+		return localUserVerifyPassword(user, passwd)
 	} else {
 		return fmt.Errorf("not implemented")
 	}
 }
 
-func (user *SUserExtended) localUserVerifyPassword(passwd string) error {
+func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 	passes, err := PasswordManager.fetchByLocaluserId(user.LocalId)
 	if err != nil {
 		return err
@@ -339,11 +321,12 @@ func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 }
 
 func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("name") {
-		if user.IsAdminUser() {
-			return nil, httperrors.NewForbiddenError("cannot alter name of system user")
-		}
+	if user.IsAdminUser() {
+		return nil, httperrors.NewForbiddenError("system admin user is protected")
 	}
+	// if user.IsReadOnly() {
+	// 	return nil, httperrors.NewForbiddenError("readonly")
+	// }
 	return user.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
 }
 
@@ -440,17 +423,28 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	}
 }
 
-func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {
-	grpCnt, _ := user.GetGroupCount()
-	if grpCnt > 0 {
-		return httperrors.NewNotEmptyError("group contains user")
-	}
+func (user *SUser) ValidatePurgeCondition(ctx context.Context) error {
 	prjCnt, _ := user.GetProjectCount()
 	if prjCnt > 0 {
 		return httperrors.NewNotEmptyError("user joins project")
 	}
 	if user.IsAdminUser() {
 		return httperrors.NewForbiddenError("cannot delete system user")
+	}
+	return nil
+}
+
+func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {
+	// grpCnt, _ := user.GetGroupCount()
+	// if grpCnt > 0 {
+	// 	return httperrors.NewNotEmptyError("group contains user")
+	// }
+	err := user.ValidatePurgeCondition(ctx)
+	if err != nil {
+		return err
+	}
+	if user.IsReadOnly() {
+		return httperrors.NewForbiddenError("readonly")
 	}
 	return user.SIdentityBaseResource.ValidateDeleteCondition(ctx)
 }
@@ -469,12 +463,15 @@ func (user *SUser) PostDelete(ctx context.Context, userCred mcclient.TokenCreden
 		log.Errorf("PasswordManager.delete fail %s", err)
 		return
 	}
+
+	err = UsergroupManager.delete(user.Id, "")
+	if err != nil {
+		log.Errorf("UsergroupManager.delete fail %s", err)
+		return
+	}
 }
 
 func (user *SUser) UpdateInContext(ctx context.Context, userCred mcclient.TokenCredential, ctxObjs []db.IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if user.GetDomain().isReadOnly() {
-		return nil, httperrors.NewForbiddenError("readonly domain")
-	}
 	if len(ctxObjs) != 1 {
 		return nil, httperrors.NewInputParameterError("not supported update context")
 	}
@@ -489,9 +486,6 @@ func (user *SUser) UpdateInContext(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (user *SUser) DeleteInContext(ctx context.Context, userCred mcclient.TokenCredential, ctxObjs []db.IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if user.GetDomain().isReadOnly() {
-		return nil, httperrors.NewForbiddenError("readonly domain")
-	}
 	if len(ctxObjs) != 1 {
 		return nil, httperrors.NewInputParameterError("not supported update context")
 	}
@@ -566,10 +560,39 @@ func tokenV3LoginSession(token *mcclient.TokenCredentialV3) sLoginSession {
 	return s
 }
 
-func (manager *SUserManager) IsDomainReadonly(domain *SDomain) bool {
-	return domain.isReadOnly()
-}
-
 func (manager *SUserManager) NamespaceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
+}
+
+func (user *SUser) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	localUser, err := LocalUserManager.delete(user.Id, user.DomainId)
+	if err != nil {
+		return errors.Wrap(err, "LocalUserManager.delete")
+	}
+
+	if localUser != nil {
+		err = PasswordManager.delete(localUser.Id)
+		if err != nil {
+			return errors.Wrap(err, "PasswordManager.delete")
+		}
+	}
+
+	err = UsergroupManager.delete(user.Id, "")
+	if err != nil {
+		return errors.Wrap(err, "UsergroupManager.delete")
+	}
+
+	return user.Delete(ctx, userCred)
+}
+
+func (user *SUser) getIdmapping() (*SIdmapping, error) {
+	return IdmappingManager.FetchEntity(user.Id, api.IdMappingEntityUser)
+}
+
+func (user *SUser) IsReadOnly() bool {
+	idmap, _ := user.getIdmapping()
+	if idmap != nil {
+		return true
+	}
+	return false
 }

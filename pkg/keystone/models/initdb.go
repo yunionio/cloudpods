@@ -31,6 +31,7 @@ func InitDB() error {
 		EndpointManager,
 		PolicyManager,
 
+		IdentityProviderManager,
 		DomainManager,
 		ProjectManager,
 		RoleManager,

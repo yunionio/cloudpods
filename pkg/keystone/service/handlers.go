@@ -18,6 +18,7 @@ import (
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
 	"yunion.io/x/onecloud/pkg/keystone/usages"
@@ -32,14 +33,14 @@ func initHandlers(app *appsrv.Application) {
 
 	// quotas.AddQuotaHandler(models.QuotaManager, API_VERSION, app)
 	usages.AddUsageHandler(API_VERSION, app)
-	// taskman.AddTaskHandler(API_VERSION, app)
+	taskman.AddTaskHandler(API_VERSION, app)
 
 	tokens.AddHandler(app)
 
 	for _, manager := range []db.IModelManager{
-		// taskman.TaskManager,
-		// taskman.SubTaskManager,
-		// taskman.TaskObjectManager,
+		taskman.TaskManager,
+		taskman.SubTaskManager,
+		taskman.TaskObjectManager,
 		db.Metadata,
 		models.SensitiveConfigManager,
 		models.WhitelistedConfigManager,
@@ -72,6 +73,7 @@ func initHandlers(app *appsrv.Application) {
 		models.AssignmentManager,
 		models.PolicyManager,
 		models.CredentialManager,
+		models.IdentityProviderManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

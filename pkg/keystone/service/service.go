@@ -16,6 +16,7 @@ package service
 
 import (
 	"os"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-plus/uuid"
@@ -25,6 +26,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
+	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -34,6 +36,10 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+
+	_ "yunion.io/x/onecloud/pkg/keystone/driver/ldap"
+	_ "yunion.io/x/onecloud/pkg/keystone/driver/sql"
+	_ "yunion.io/x/onecloud/pkg/keystone/tasks"
 )
 
 func keystoneUUIDGenerator() string {
@@ -46,6 +52,9 @@ func StartService() {
 	db.DefaultUUIDGenerator = keystoneUUIDGenerator
 	policy.DefaultPolicyFetcher = localPolicyFetcher
 	logclient.DefaultSessionGenerator = models.GetDefaultClientSession
+	cronman.DefaultAdminSessionGenerator = models.GetDefaultAdminCred
+
+	models.InitSyncWorkers()
 
 	opts := &options.Options
 	common_options.ParseOptions(opts, os.Args, "keystone.conf", api.SERVICE_TYPE)
@@ -72,10 +81,14 @@ func StartService() {
 
 	app_common.InitBaseAuth(&opts.BaseOptions)
 
-	// cron := cronman.GetCronJobManager(true)
-	// cron.AddJob1("CleanPendingDeleteImages", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)
+	if !opts.IsSlaveNode {
+		cron := cronman.GetCronJobManager(true)
 
-	// cron.Start()
+		cron.AddJob1WithStartRun("AutoSyncIdentityProviderTask", time.Duration(opts.AutoSyncIntervalSeconds)*time.Second, models.AutoSyncIdentityProviderTask, true)
+
+		cron.Start()
+		defer cron.Stop()
+	}
 
 	cloudcommon.AppDBInit(app)
 

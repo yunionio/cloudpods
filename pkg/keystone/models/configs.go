@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -71,15 +72,15 @@ func init() {
 type SConfigOption struct {
 	db.SResourceBase
 
-	DomainId string `width:"64" charset:"ascii" primary:"true"`
-	Group    string `width:"255" charset:"utf8" primary:"true"`
-	Option   string `width:"255" charset:"utf8" primary:"true"`
+	IdpId  string `name:"domain_id" width:"64" charset:"ascii" primary:"true"`
+	Group  string `width:"255" charset:"utf8" primary:"true"`
+	Option string `width:"255" charset:"utf8" primary:"true"`
 
 	Value jsonutils.JSONObject `nullable:"false"`
 }
 
-func (manager *SConfigOptionManager) fetchConfigs(domainId string, groups []string, options []string) (TConfigOptions, error) {
-	q := manager.Query().Equals("domain_id", domainId)
+func (manager *SConfigOptionManager) fetchConfigs(idpId string, groups []string, options []string) (TConfigOptions, error) {
+	q := manager.Query().Equals("domain_id", idpId)
 	if len(groups) > 0 {
 		q = q.In("group", groups)
 	}
@@ -95,8 +96,8 @@ func (manager *SConfigOptionManager) fetchConfigs(domainId string, groups []stri
 	return opts, nil
 }
 
-func config2map(opts []SConfigOption) TDomainConfigs {
-	conf := make(TDomainConfigs)
+func config2map(opts []SConfigOption) api.TIdentityProviderConfigs {
+	conf := make(api.TIdentityProviderConfigs)
 	for i := range opts {
 		opt := opts[i]
 		if _, ok := conf[opt.Group]; !ok {
@@ -107,12 +108,12 @@ func config2map(opts []SConfigOption) TDomainConfigs {
 	return conf
 }
 
-func (manager *SConfigOptionManager) deleteConfig(ctx context.Context, userCred mcclient.TokenCredential, domainId string) error {
-	return manager.syncConfig(ctx, userCred, domainId, nil)
+func (manager *SConfigOptionManager) deleteConfig(ctx context.Context, userCred mcclient.TokenCredential, idpId string) error {
+	return manager.syncConfig(ctx, userCred, idpId, nil)
 }
 
-func (manager *SConfigOptionManager) syncConfig(ctx context.Context, userCred mcclient.TokenCredential, domainId string, newOpts TConfigOptions) error {
-	oldOpts, err := manager.fetchConfigs(domainId, nil, nil)
+func (manager *SConfigOptionManager) syncConfig(ctx context.Context, userCred mcclient.TokenCredential, idpId string, newOpts TConfigOptions) error {
+	oldOpts, err := manager.fetchConfigs(idpId, nil, nil)
 	if err != nil {
 		return errors.Wrap(err, "fetchOldConfigs")
 	}
@@ -143,15 +144,13 @@ func (manager *SConfigOptionManager) syncConfig(ctx context.Context, userCred mc
 	return nil
 }
 
-type TDomainConfigs map[string]map[string]jsonutils.JSONObject
-
-func (conf TDomainConfigs) getConfigOptions(domainId string, sensitiveList map[string]string) (TConfigOptions, TConfigOptions) {
+func getConfigOptions(conf api.TIdentityProviderConfigs, idpId string, sensitiveList map[string]string) (TConfigOptions, TConfigOptions) {
 	options := make(TConfigOptions, 0)
 	sensitive := make(TConfigOptions, 0)
 	for group, groupConf := range conf {
 		for optKey, optVal := range groupConf {
 			opt := SConfigOption{}
-			opt.DomainId = domainId
+			opt.IdpId = idpId
 			opt.Group = group
 			opt.Option = optKey
 			opt.Value = optVal
@@ -226,4 +225,15 @@ func compareConfigOptions(opts1, opts2 TConfigOptions) (deleted, updated1, updat
 		added = append(added, opts2[j:]...)
 	}
 	return
+}
+
+func (manager *SConfigOptionManager) getDriver(idStr string) (string, error) {
+	opts, err := manager.fetchConfigs(idStr, []string{"identity"}, []string{"driver"})
+	if err != nil {
+		return "", errors.Wrap(err, "WhitelistedConfigManager.fetchConfigs")
+	}
+	if len(opts) == 1 {
+		return opts[0].Value.GetString()
+	}
+	return api.IdentityDriverSQL, nil
 }

@@ -263,7 +263,16 @@ func init() {
 		Enabled     bool   `help:"Enabled"`
 		Disabled    bool   `help:"Disabled"`
 
-		DefaultProject string `help:"Default project"`
+		SystemAccount    bool `help:"Turn on is_system_account"`
+		NotSystemAccount bool `help:"Turn off is_system_account"`
+
+		AllowWebConsole    bool `help:"Turn on allow_web_console"`
+		DisallowWebConsole bool `help:"Turn off allow_web_console"`
+
+		EnableMfa  bool `help:"turn on enable_mfa"`
+		DisableMfa bool `help:"turn off enable_mfa"`
+
+		// DefaultProject string `help:"Default project"`
 		// Option []string `help:"User options"`
 	}
 	R(&UserUpdateOptions{}, "user-update", "Update a user", func(s *mcclient.ClientSession, args *UserUpdateOptions) error {
@@ -303,25 +312,40 @@ func init() {
 		} else if !args.Enabled && args.Disabled {
 			params.Add(jsonutils.JSONFalse, "enabled")
 		}
-		if len(args.DefaultProject) > 0 {
-			projId, err := modules.Projects.GetId(s, args.DefaultProject, nil)
-			if err != nil {
-				return err
-			}
-			params.Add(jsonutils.NewString(projId), "default_project_id")
+		if args.SystemAccount {
+			params.Add(jsonutils.JSONTrue, "is_system_account")
+		} else if args.NotSystemAccount {
+			params.Add(jsonutils.JSONFalse, "is_system_account")
 		}
-		/*
-		   if len(args.Option) > 0 {
-		       uoptions := jsonutils.NewDict()
-		       for _, opt := range args.Option {
-		           pos := strings.IndexByte(opt, ':')
-		           key := opt[:pos]
-		           val := opt[pos+1:]
-		           uoptions.Add(jsonutils.NewString(val), key)
-		       }
-		       params.Add(uoptions, "_resource_options")
-		   }
-		*/
+		if args.AllowWebConsole {
+			params.Add(jsonutils.JSONTrue, "allow_web_console")
+		} else if args.DisallowWebConsole {
+			params.Add(jsonutils.JSONFalse, "allow_web_console")
+		}
+		if args.EnableMfa {
+			params.Add(jsonutils.JSONTrue, "enable_mfa")
+		} else if args.DisableMfa {
+			params.Add(jsonutils.JSONFalse, "enable_mfa")
+		}
+		// if len(args.DefaultProject) > 0 {
+		// 	projId, err := modules.Projects.GetId(s, args.DefaultProject, nil)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	params.Add(jsonutils.NewString(projId), "default_project_id")
+		// }
+		//
+		//   if len(args.Option) > 0 {
+		//       uoptions := jsonutils.NewDict()
+		//       for _, opt := range args.Option {
+		//           pos := strings.IndexByte(opt, ':')
+		//           key := opt[:pos]
+		//           val := opt[pos+1:]
+		//           uoptions.Add(jsonutils.NewString(val), key)
+		//       }
+		//       params.Add(uoptions, "_resource_options")
+		//   }
+		//
 		user, err := modules.UsersV3.Patch(s, uid, params)
 		if err != nil {
 			return err

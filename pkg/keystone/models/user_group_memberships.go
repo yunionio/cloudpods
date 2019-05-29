@@ -88,6 +88,21 @@ func (manager *SUsergroupManager) getUserGroupIds(userId string) []string {
 	return groupIds
 }
 
+func (manager *SUsergroupManager) getGroupUserIds(groupId string) []string {
+	members := make([]SUsergroupMembership, 0)
+	q := manager.Query().Equals("group_id", groupId)
+	err := db.FetchModelObjects(manager, q, &members)
+	if err != nil {
+		log.Errorf("getGroupUserIds fail %s", err)
+		return nil
+	}
+	userIds := make([]string, len(members))
+	for i := range members {
+		userIds[i] = members[i].UserId
+	}
+	return userIds
+}
+
 func (manager *SUsergroupManager) SyncUserGroups(ctx context.Context, userCred mcclient.TokenCredential, userId string, groupIds []string) {
 	oldGroupIds := manager.getUserGroupIds(userId)
 	sort.Strings(oldGroupIds)
@@ -103,6 +118,30 @@ func (manager *SUsergroupManager) SyncUserGroups(ctx context.Context, userCred m
 	for _, gid := range added {
 		grp := GroupManager.fetchGroupById(gid)
 		manager.add(ctx, userCred, usr, grp)
+	}
+}
+
+func (manager *SUsergroupManager) SyncGroupUsers(ctx context.Context, userCred mcclient.TokenCredential, groupId string, userIds []string) {
+	oldUserIds := manager.getGroupUserIds(groupId)
+	sort.Strings(oldUserIds)
+	sort.Strings(userIds)
+
+	deleted, _, added := stringutils2.Split(stringutils2.SSortedStrings(oldUserIds), stringutils2.SSortedStrings(userIds))
+
+	grp := GroupManager.fetchGroupById(groupId)
+	if grp != nil {
+		for _, uid := range deleted {
+			usr, _ := UserManager.fetchUserById(uid)
+			if usr != nil {
+				manager.remove(ctx, userCred, usr, grp)
+			}
+		}
+		for _, uid := range added {
+			usr, _ := UserManager.fetchUserById(uid)
+			if usr != nil {
+				manager.add(ctx, userCred, usr, grp)
+			}
+		}
 	}
 }
 
@@ -154,5 +193,29 @@ func (manager *SUsergroupManager) add(ctx context.Context, userCred mcclient.Tok
 		}
 	}
 	db.OpsLog.LogEvent(user, db.ACT_ATTACH, group.GetShortDesc(ctx), userCred)
+	return nil
+}
+
+func (manager *SUsergroupManager) delete(userId string, groupId string) error {
+	q := manager.Query()
+	if len(userId) > 0 {
+		q = q.Equals("user_id", userId)
+	}
+	if len(groupId) > 0 {
+		q = q.Equals("group_id", groupId)
+	}
+	memberships := make([]SUsergroupMembership, 0)
+	err := db.FetchModelObjects(manager, q, &memberships)
+	if err != nil {
+		return errors.Wrap(err, "Query")
+	}
+	for i := range memberships {
+		_, err = db.Update(&memberships[i], func() error {
+			return memberships[i].MarkDelete()
+		})
+		if err != nil {
+			return errors.Wrap(err, "MarkDelete")
+		}
+	}
 	return nil
 }

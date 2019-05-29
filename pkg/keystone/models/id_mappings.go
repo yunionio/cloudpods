@@ -27,14 +27,14 @@ import (
 )
 
 type SIdmappingManager struct {
-	db.SModelBaseManager
+	db.SResourceBaseManager
 }
 
 var IdmappingManager *SIdmappingManager
 
 func init() {
 	IdmappingManager = &SIdmappingManager{
-		SModelBaseManager: db.NewModelBaseManager(
+		SResourceBaseManager: db.NewResourceBaseManager(
 			SIdmapping{},
 			"id_mapping",
 			"id_mapping",
@@ -56,20 +56,24 @@ func init() {
 */
 
 type SIdmapping struct {
-	db.SModelBase
+	db.SResourceBase
 
-	PublicId   string `width:"64" charset:"ascii" nullable:"false" primary:"true"`
-	DomainId   string `width:"64" charset:"ascii" nullable:"false" index:"true"`
-	LocalId    string `width:"64" charset:"ascii" nullable:"false"`
-	EntityType string `width:"10" charset:"ascii" nullable:"false"`
+	PublicId    string `width:"64" charset:"ascii" nullable:"false" primary:"true"`
+	IdpId       string `name:"domain_id" width:"64" charset:"ascii" nullable:"false" index:"true"`
+	IdpEntityId string `name:"local_id" width:"128" charset:"utf8" nullable:"false"`
+	EntityType  string `width:"10" charset:"ascii" nullable:"false"`
 }
 
-func (manager *SIdmappingManager) registerIdMap(ctx context.Context, domainId string, localId string, entityType string) (string, error) {
-	key := fmt.Sprintf("%s-%s-%s", entityType, domainId, localId)
+func (manager *SIdmappingManager) RegisterIdMap(ctx context.Context, idpId string, entityId string, entityType string) (string, error) {
+	return manager.RegisterIdMapWithId(ctx, idpId, entityId, entityType, "")
+}
+
+func (manager *SIdmappingManager) RegisterIdMapWithId(ctx context.Context, idpId string, entityId string, entityType string, publicId string) (string, error) {
+	key := fmt.Sprintf("%s-%s-%s", entityType, idpId, entityId)
 	lockman.LockRawObject(ctx, manager.Keyword(), key)
 	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), key)
 
-	q := manager.Query().Equals("domain_id", domainId).Equals("local_id", localId).Equals("entity_type", entityType)
+	q := manager.Query().Equals("domain_id", idpId).Equals("local_id", entityId).Equals("entity_type", entityType)
 
 	mapping := SIdmapping{}
 	err := q.First(&mapping)
@@ -77,18 +81,50 @@ func (manager *SIdmappingManager) registerIdMap(ctx context.Context, domainId st
 		return "", errors.Wrap(err, "Query")
 	}
 	if err == sql.ErrNoRows {
-		u1, _ := uuid.NewV4()
-		u2, _ := uuid.NewV4()
-		mapping.PublicId = u1.Format(uuid.StyleWithoutDash) + u2.Format(uuid.StyleWithoutDash)
-		mapping.DomainId = domainId
-		mapping.LocalId = localId
+		if len(publicId) == 0 {
+			u1, _ := uuid.NewV4()
+			u2, _ := uuid.NewV4()
+			publicId = u1.Format(uuid.StyleWithoutDash) + u2.Format(uuid.StyleWithoutDash)
+		}
+		mapping.PublicId = publicId
+		mapping.IdpId = idpId
+		mapping.IdpEntityId = entityId
 		mapping.EntityType = entityType
 
-		err = manager.TableSpec().Insert(&mapping)
+		err = manager.TableSpec().InsertOrUpdate(&mapping)
 		if err != nil {
 			return "", errors.Wrap(err, "Insert")
 		}
 	}
 
 	return mapping.PublicId, nil
+}
+
+func (manager *SIdmappingManager) FetchEntity(idStr string, entType string) (*SIdmapping, error) {
+	q := manager.Query().Equals("public_id", idStr).Equals("entity_type", entType)
+	idMap := SIdmapping{}
+	idMap.SetModelManager(manager, &idMap)
+	err := q.First(&idMap)
+	if err != nil {
+		return nil, err
+	}
+	return &idMap, nil
+}
+
+func (manager *SIdmappingManager) deleteByIdpId(idpId string) error {
+	q := manager.Query().Equals("domain_id", idpId)
+	idmappings := make([]SIdmapping, 0)
+	err := db.FetchModelObjects(manager, q, &idmappings)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.Wrap(err, "FetchModelObjects")
+	}
+	for i := range idmappings {
+		_, err = db.Update(&idmappings[i], func() error {
+			return idmappings[i].MarkDelete()
+		})
+		if err != nil {
+			return errors.Wrap(err, "markdelete")
+		}
+	}
+	return nil
 }
