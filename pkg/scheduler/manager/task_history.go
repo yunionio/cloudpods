@@ -19,10 +19,13 @@ import (
 	"sync"
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/wait"
 	u "yunion.io/x/pkg/utils"
 
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
+
+	"yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
 type HistoryItem struct {
@@ -157,4 +160,29 @@ func (m *HistoryManager) GetHistory(sessionId string) *HistoryItem {
 	}
 
 	return nil
+}
+
+func (m *HistoryManager) GetCancelUsage(sessionId string, hostId string) *models.SessionPendingUsage {
+	item := m.GetHistory(sessionId)
+	if item == nil {
+		return nil
+	}
+	usage, _ := models.HostPendingUsageManager.GetSessionUsage(sessionId, hostId)
+	return usage
+}
+
+func (m *HistoryManager) CancelCandidatesPendingUsage(hosts []*expireHost) {
+	for _, h := range hosts {
+		hostId := h.Id
+		sid := h.SessionId
+		if len(sid) == 0 {
+			continue
+		}
+		cancelUsage := m.GetCancelUsage(sid, hostId)
+		if err := models.HostPendingUsageManager.CancelPendingUsage(hostId, cancelUsage); err != nil {
+			log.Errorf("Cancel host %s usage %#v: %v", hostId, cancelUsage, err)
+		} else {
+			cancelUsage.StopTimer()
+		}
+	}
 }

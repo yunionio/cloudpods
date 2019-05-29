@@ -75,18 +75,3 @@ func ReservedSub(key string, value value_t, reserved value_t) value_t {
 	}
 	return value
 }
-
-func XGetCalculator(c Candidater, key string, kind Kind) value_t {
-	value := c.Get(key)
-
-	switch kind {
-	case KindFree:
-		// TODO: reserved not impl by now
-		return ReservedSub(key, value, nil)
-	case KindRaw:
-		return value
-	case KindReserved:
-		return nil
-	}
-	return nil
-}

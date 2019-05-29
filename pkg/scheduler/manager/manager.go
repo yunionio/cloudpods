@@ -482,16 +482,8 @@ func GetHistoryDetail(historyDetailArgs *api.HistoryDetailArgs) (*api.HistoryDet
 	}, nil
 }
 
-func GetCandidateHostsDesc() ([]*candidate.HostDesc, error) {
-	cs, err := GetCandidateManager().GetCandidates(data_manager.CandidateGetArgs{ResType: "host"})
-	if err != nil {
-		return nil, err
-	}
-	hosts, err := data_manager.ToHostCandidates(cs)
-	if err != nil {
-		return nil, err
-	}
-	return hosts, nil
+func GetCandidateHostsDesc() ([]core.Candidater, error) {
+	return GetCandidateManager().GetCandidates(data_manager.CandidateGetArgs{ResType: "host"})
 }
 
 func GetK8sCandidateHosts(nodesName ...string) ([]*candidatecache.HostDesc, error) {
@@ -501,8 +493,8 @@ func GetK8sCandidateHosts(nodesName ...string) ([]*candidatecache.HostDesc, erro
 	}
 	findHost := func(nodeName string) *candidatecache.HostDesc {
 		for _, host := range hosts {
-			if host.Name == nodeName {
-				return host
+			if host.Getter().Name() == nodeName {
+				return host.(*candidatecache.HostDesc)
 			}
 		}
 		return nil
