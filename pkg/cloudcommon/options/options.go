@@ -63,6 +63,8 @@ type BaseOptions struct {
 	RbacPolicySyncPeriodSeconds      int  `help:"policy sync interval in seconds, default 15 minutes" default:"900"`
 	RbacPolicySyncFailedRetrySeconds int  `help:"seconds to wait after a failed sync, default 30 seconds" default:"30"`
 
+	IsSlaveNode bool `help:"Region service slave node"`
+
 	structarg.BaseOptions
 }
 

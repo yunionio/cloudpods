@@ -16,13 +16,13 @@ package models
 
 import (
 	"context"
-
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/sqlchemy"
-
 	"database/sql"
 
-	"github.com/pkg/errors"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
+
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -122,16 +122,37 @@ func (group *SGroup) GetProjectCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (group *SGroup) ValidateDeleteCondition(ctx context.Context) error {
-	usrCnt, _ := group.GetUserCount()
-	if usrCnt > 0 {
-		return httperrors.NewNotEmptyError("group contains user")
-	}
+func (group *SGroup) ValidatePurgeCondition(ctx context.Context) error {
 	prjCnt, _ := group.GetProjectCount()
 	if prjCnt > 0 {
 		return httperrors.NewNotEmptyError("group joins project")
 	}
+	return nil
+}
+
+func (group *SGroup) ValidateDeleteCondition(ctx context.Context) error {
+	// usrCnt, _ := group.GetUserCount()
+	// if usrCnt > 0 {
+	// 	return httperrors.NewNotEmptyError("group contains user")
+	// }
+	err := group.ValidatePurgeCondition(ctx)
+	if err != nil {
+		return err
+	}
+	if group.IsReadOnly() {
+		return httperrors.NewForbiddenError("readonly")
+	}
 	return group.SIdentityBaseResource.ValidateDeleteCondition(ctx)
+}
+
+func (group *SGroup) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	group.SIdentityBaseResource.PostDelete(ctx, userCred)
+
+	err := UsergroupManager.delete("", group.Id)
+	if err != nil {
+		log.Errorf("PasswordManager.delete fail %s", err)
+		return
+	}
 }
 
 func (group *SGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -155,11 +176,11 @@ func groupExtra(group *SGroup, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	return extra
 }
 
-func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, domainId string, groupId string, groupName string) (*SGroup, error) {
-	lockman.LockClass(ctx, manager, domainId)
-	defer lockman.ReleaseClass(ctx, manager, domainId)
+func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, idpId string, domainId string, groupId string, groupName string) (*SGroup, error) {
+	lockman.LockClass(ctx, manager, idpId)
+	defer lockman.ReleaseClass(ctx, manager, idpId)
 
-	pubId, err := IdmappingManager.registerIdMap(ctx, domainId, groupId, api.IdMappingEntityGroup)
+	pubId, err := IdmappingManager.RegisterIdMap(ctx, idpId, groupId, api.IdMappingEntityGroup)
 	if err != nil {
 		return nil, errors.Wrap(err, "IdmappingManager.registerIdMap")
 	}
@@ -175,7 +196,7 @@ func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, domainI
 	if err == sql.ErrNoRows {
 		group.Id = pubId
 		group.DomainId = domainId
-		group.Name = groupId
+		group.Name = groupName
 		group.Displayname = groupName
 
 		err = manager.TableSpec().Insert(&group)
@@ -199,10 +220,26 @@ func (manager *SGroupManager) fetchGroupById(gid string) *SGroup {
 	return nil
 }
 
-func (manager *SGroupManager) IsDomainReadonly(domain *SDomain) bool {
-	return domain.isReadOnly()
-}
-
 func (manager *SGroupManager) NamespaceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
+}
+
+func (group *SGroup) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := UsergroupManager.delete("", group.Id)
+	if err != nil {
+		return errors.Wrap(err, "UsergroupManager.delete")
+	}
+	return group.Delete(ctx, userCred)
+}
+
+func (group *SGroup) getIdmapping() (*SIdmapping, error) {
+	return IdmappingManager.FetchEntity(group.Id, api.IdMappingEntityGroup)
+}
+
+func (group *SGroup) IsReadOnly() bool {
+	idmap, _ := group.getIdmapping()
+	if idmap != nil {
+		return true
+	}
+	return false
 }

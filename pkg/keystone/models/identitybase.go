@@ -147,9 +147,12 @@ func (manager *SIdentityBaseResourceManager) FetchOwnerId(ctx context.Context, d
 
 func (manager *SIdentityBaseResourceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	domain, _ := DomainManager.FetchDomainById(ownerId.GetProjectDomainId())
-	if manager.GetIIdentityModelManager().IsDomainReadonly(domain) {
-		return nil, httperrors.NewForbiddenError("domain is readonly")
+	if domain.Enabled.IsFalse() {
+		return nil, httperrors.NewInvalidStatusError("domain is disabled")
 	}
+	// if manager.GetIIdentityModelManager().IsDomainReadonly(domain) {
+	// 	return nil, httperrors.NewForbiddenError("domain is readonly")
+	// }
 	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
@@ -166,7 +169,7 @@ func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(ctx context.C
 			domainIds = stringutils2.Append(domainIds, idStr)
 		}
 	}
-	if len(fields) == 0 || fields.Contains("domain") || fields.Contains("domain_readonly") {
+	if len(fields) == 0 || fields.Contains("domain") {
 		domains := fetchDomain(domainIds)
 		if domains != nil {
 			for i := range rows {
@@ -175,13 +178,6 @@ func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(ctx context.C
 					if domain, ok := domains[idStr]; ok {
 						if len(fields) == 0 || fields.Contains("domain") {
 							rows[i].Add(jsonutils.NewString(domain.Name), "domain")
-						}
-						if len(fields) == 0 || fields.Contains("domain_readonly") {
-							if domain.isReadOnly() {
-								rows[i].Add(jsonutils.JSONTrue, "domain_readonly")
-							} else {
-								rows[i].Add(jsonutils.JSONFalse, "domain_readonly")
-							}
 						}
 					}
 				}

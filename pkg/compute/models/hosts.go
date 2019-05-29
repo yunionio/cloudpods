@@ -1852,7 +1852,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		vm, err := GuestManager.FetchByExternalId(added[i].GetGlobalId())
+		vm, err := db.FetchByExternalId(GuestManager, added[i].GetGlobalId())
 		if err != nil && err != sql.ErrNoRows {
 			log.Errorf("failed to found guest by externalId %s error: %v", added[i].GetGlobalId(), err)
 			continue
@@ -1864,7 +1864,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 				log.Errorf("failed to found ihost from vm %s", added[i].GetGlobalId())
 				continue
 			}
-			_host, err := HostManager.FetchByExternalId(ihost.GetGlobalId())
+			_host, err := db.FetchByExternalId(HostManager, ihost.GetGlobalId())
 			if err != nil {
 				log.Errorf("failed to found host by externalId %s", ihost.GetGlobalId())
 				continue

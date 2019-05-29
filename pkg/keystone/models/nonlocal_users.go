@@ -15,15 +15,7 @@
 package models
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
-
-	"github.com/pkg/errors"
-
-	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 type SNonlocalUserManager struct {
@@ -62,6 +54,7 @@ type SNonlocalUser struct {
 	UserId   string `width:"64" charset:"ascii" nullable:"false" index:"true"`
 }
 
+/*
 func (manager *SNonlocalUserManager) Register(ctx context.Context, domainId string, name string) (*SNonlocalUser, error) {
 	key := fmt.Sprintf("%s-%s", domainId, name)
 	lockman.LockRawObject(ctx, manager.Keyword(), key)
@@ -97,3 +90,4 @@ func (manager *SNonlocalUserManager) Register(ctx context.Context, domainId stri
 
 	return nonlocalUser, nil
 }
+*/

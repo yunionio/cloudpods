@@ -12,30 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package driver
+package sql
 
 import (
 	"context"
 
 	"github.com/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SSQLDriver struct {
-	SBaseDomainDriver
+	driver.SBaseIdentityDriver
 }
 
-func NewSQLDriver(domainId string, conf models.TDomainConfigs) (IIdentityBackend, error) {
-	drv := SSQLDriver{
-		NewBaseDomainDriver(domainId, conf),
+func NewSQLDriver(idpId, idpName, template string, conf api.TIdentityProviderConfigs) (driver.IIdentityBackend, error) {
+	base, err := driver.NewBaseIdentityDriver(idpId, idpName, template, conf)
+	if err != nil {
+		return nil, err
 	}
-	drv.virtual = &drv
+	drv := SSQLDriver{base}
+	drv.SetVirtualObject(&drv)
 	return &drv, nil
 }
 
-func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthenticationIdentity) (*models.SUserExtended, error) {
+func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthenticationIdentity) (*api.SUserExtended, error) {
 	usrExt, err := models.UserManager.FetchUserExtended(
 		ident.Password.User.Id,
 		ident.Password.User.Name,
@@ -45,9 +49,17 @@ func (sql *SSQLDriver) Authenticate(ctx context.Context, ident mcclient.SAuthent
 	if err != nil {
 		return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
 	}
-	err = usrExt.VerifyPassword(ident.Password.User.Password)
+	err = models.VerifyPassword(usrExt, ident.Password.User.Password)
 	if err != nil {
 		return nil, errors.Wrap(err, "usrExt.VerifyPassword")
 	}
 	return usrExt, nil
+}
+
+func (sql *SSQLDriver) Sync(ctx context.Context) error {
+	return nil
+}
+
+func (sql *SSQLDriver) Probe(ctx context.Context) error {
+	return nil
 }

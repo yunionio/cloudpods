@@ -14,15 +14,16 @@
 
 package tokens
 
-import "github.com/pkg/errors"
+import "yunion.io/x/pkg/errors"
 
-var (
-	ErrVerMismatch        = errors.New("version mismatch")
-	ErrProjectDisabled    = errors.New("project disabled")
-	ErrUserDisabled       = errors.New("user disabled")
-	ErrExpiredToken       = errors.New("expired token")
-	ErrInvalidFernetToken = errors.New("invalid fernet token")
-	ErrInvalidAuthMethod  = errors.New("invalid auth methods")
-	ErrUserNotFound       = errors.New("user not found")
-	ErrDomainDisabled     = errors.New("domain is disabled")
+const (
+	ErrVerMismatch        = errors.Error("version mismatch")
+	ErrProjectDisabled    = errors.Error("project disabled")
+	ErrUserDisabled       = errors.Error("user disabled")
+	ErrExpiredToken       = errors.Error("expired token")
+	ErrInvalidFernetToken = errors.Error("invalid fernet token")
+	ErrInvalidAuthMethod  = errors.Error("invalid auth methods")
+	ErrUserNotFound       = errors.Error("user not found")
+	ErrDomainDisabled     = errors.Error("domain is disabled")
+	ErrEmptyAuth          = errors.Error("empty auth request")
 )

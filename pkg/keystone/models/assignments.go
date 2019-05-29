@@ -262,6 +262,9 @@ func (manager *SAssignmentManager) projectAddUser(ctx context.Context, userCred 
 }
 
 func (manager *SAssignmentManager) projectRemoveUser(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, user *SUser, role *SRole) error {
+	if project.IsAdminProject() && user.IsAdminUser() && role.IsSystemRole() {
+		return httperrors.NewForbiddenError("sysadmin is protected")
+	}
 	err := manager.remove(api.AssignmentUserProject, user.Id, project.Id, role.Id)
 	if err == nil {
 		db.OpsLog.LogEvent(user, db.ACT_DETACH, project.GetShortDesc(ctx), userCred)

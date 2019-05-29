@@ -17,9 +17,21 @@ package shell
 import (
 	"fmt"
 	"strings"
+
+	"gopkg.in/ldap.v3"
+
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/util/ldaputils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
+
+func queryScope(scope string) int {
+	if scope == api.QueryScopeOne {
+		return ldap.ScopeSingleLevel
+	} else {
+		return ldap.ScopeWholeSubtree
+	}
+}
 
 func init() {
 	type LdapSearchOptions struct {
@@ -27,6 +39,7 @@ func init() {
 		Objectclass string   `help:"objectclass, e.g. organizationalPerson"`
 		Search      []string `help:"search conditions, in format of field:value"`
 		Field       []string `help:"retrieve field info"`
+		Scope       string   `help:"query scope" choices:"one|sub" default:"sub"`
 	}
 	shellutils.R(&LdapSearchOptions{}, "search", "search ldap", func(cli *ldaputils.SLDAPClient, args *LdapSearchOptions) error {
 		search := make(map[string]string)
@@ -37,7 +50,7 @@ func init() {
 			}
 			search[s[:colonPos]] = s[(colonPos + 1):]
 		}
-		entries, err := cli.Search(args.Base, args.Objectclass, search, args.Field)
+		entries, err := cli.Search(args.Base, args.Objectclass, search, "", args.Field, queryScope(args.Scope))
 		if err != nil {
 			return err
 		}
@@ -54,9 +67,10 @@ func init() {
 		ACCOUNT     string   `help:"account name to auth"`
 		PASSWORD    string   `help:"Password to auth"`
 		Field       []string `help:"retrieve field info"`
+		Scope       string   `help:"query scope" choices:"one|sub" default:"sub"`
 	}
 	shellutils.R(&LdapAuthOptions{}, "auth", "authenticate against ldap", func(cli *ldaputils.SLDAPClient, args *LdapAuthOptions) error {
-		entry, err := cli.Authenticate(args.Base, args.Objectclass, args.ATTR, args.ACCOUNT, args.PASSWORD, args.Field)
+		entry, err := cli.Authenticate(args.Base, args.Objectclass, args.ATTR, args.ACCOUNT, args.PASSWORD, "", args.Field, queryScope(args.Scope))
 		if err != nil {
 			return err
 		}

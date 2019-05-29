@@ -21,6 +21,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
@@ -218,7 +219,7 @@ func (t *SAuthToken) getRoles() ([]models.SRole, error) {
 
 func (t *SAuthToken) getTokenV3(
 	ctx context.Context,
-	user *models.SUserExtended,
+	user *api.SUserExtended,
 	project *models.SProjectExtended,
 	domain *models.SDomain,
 ) (*mcclient.TokenCredentialV3, error) {
@@ -277,7 +278,7 @@ func (t *SAuthToken) getTokenV3(
 
 func (t *SAuthToken) getTokenV2(
 	ctx context.Context,
-	user *models.SUserExtended,
+	user *api.SUserExtended,
 	project *models.SProjectExtended,
 ) (*mcclient.TokenCredentialV2, error) {
 	token := mcclient.TokenCredentialV2{}

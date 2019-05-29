@@ -15,11 +15,8 @@
 package shell
 
 import (
-	"fmt"
-
 	"yunion.io/x/jsonutils"
 
-	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
@@ -72,30 +69,7 @@ func init() {
 		printObject(result)
 		return nil
 	})
-	R(&DomainDetailOptions{}, "domain-config-show", "Show detail of a domain config", func(s *mcclient.ClientSession, args *DomainDetailOptions) error {
-		objId, err := modules.Domains.GetId(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		config, err := modules.Domains.GetConfig(s, objId)
-		if err != nil {
-			return err
-		}
-		fmt.Println(config.PrettyString())
-		return nil
-	})
-	R(&DomainDetailOptions{}, "domain-config-delete", "Delete a domain config", func(s *mcclient.ClientSession, args *DomainDetailOptions) error {
-		objId, err := modules.Domains.GetId(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		config, err := modules.Domains.DeleteConfig(s, objId)
-		if err != nil {
-			return err
-		}
-		printObject(config)
-		return nil
-	})
+
 	/* R(&DomainDetailOptions{}, "domain-config-sql", "Config a domain with SQL driver", func(s *mcclient.ClientSession, args *DomainDetailOptions) error {
 	    config := jsonutils.NewDict()
 	    config.Add(jsonutils.NewString("sql"), "config", "identity", "driver")
@@ -110,26 +84,6 @@ func init() {
 	    fmt.Println(nconf.PrettyString())
 	    return nil
 	}) */
-
-	type DomainConfigLDAPOptions struct {
-		ID string `help:"ID of domain to config" json:"-"`
-		api.SDomainLDAPConfigOptions
-	}
-	R(&DomainConfigLDAPOptions{}, "domain-config-ldap", "Config a domain with LDAP driver", func(s *mcclient.ClientSession, args *DomainConfigLDAPOptions) error {
-		config := jsonutils.NewDict()
-		config.Add(jsonutils.NewString("ldap"), "config", "identity", "driver")
-		config.Add(jsonutils.Marshal(args), "config", "ldap")
-		objId, err := modules.Domains.GetId(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		nconf, err := modules.Domains.UpdateConfig(s, objId, config)
-		if err != nil {
-			return err
-		}
-		fmt.Println(nconf.PrettyString())
-		return nil
-	})
 
 	type DomainCreateOptions struct {
 		NAME     string `help:"Name of domain"`

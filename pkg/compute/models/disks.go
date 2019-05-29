@@ -1084,7 +1084,7 @@ func (manager *SDiskManager) SyncDisks(ctx context.Context, userCred mcclient.To
 
 	for i := 0; i < len(added); i += 1 {
 		extId := added[i].GetGlobalId()
-		_disk, err := manager.FetchByExternalId(extId)
+		_disk, err := db.FetchByExternalId(manager, extId)
 		if err != nil && err != sql.ErrNoRows {
 			//主要是显示duplicate err及 general err,方便排错
 			msg := fmt.Errorf("failed to found disk by external Id %s error: %v", extId, err)
@@ -1123,7 +1123,7 @@ func (self *SDisk) syncDiskStorage(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 	storageExtId := istorage.GetGlobalId()
-	storage, err := StorageManager.FetchByExternalId(storageExtId)
+	storage, err := db.FetchByExternalId(StorageManager, storageExtId)
 	if err != nil {
 		log.Errorf("failed to found storage by istorage %s error: %v", storageExtId, err)
 		return err

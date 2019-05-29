@@ -265,7 +265,7 @@ func (manager *SElasticipManager) SyncEips(ctx context.Context, userCred mcclien
 			}
 			if vm != nil {
 				guest := vm.(*SGuest)
-				result := guest.SyncVMEip(ctx, userCred, provider, added[i], projectId)
+				result := guest.SyncVMEip(ctx, userCred, provider, added[i], syncOwnerId)
 				if result.IsError() {
 					syncResult.UpdateError(fmt.Errorf(result.Result()))
 				} else {

@@ -20,6 +20,10 @@ const (
 	DEFAULT_DOMAIN_ID   = "default"
 	DEFAULT_DOMAIN_NAME = "Default"
 
+	DefaultRemoteDomainId = "default_domain"
+
+	DEFAULT_IDP_ID = DEFAULT_DOMAIN_ID
+
 	SystemAdminUser    = "sysadmin"
 	SystemAdminProject = "system"
 	SystemAdminRole    = "admin"
@@ -44,11 +48,26 @@ const (
 
 	KeystoneDomainRoot = "<<keystone.domain.root>>"
 
-	IdMappingEntityUser  = "user"
-	IdMappingEntityGroup = "group"
+	IdMappingEntityUser   = "user"
+	IdMappingEntityGroup  = "group"
+	IdMappingEntityDomain = "domain"
 
 	IdentityDriverSQL  = "sql"
 	IdentityDriverLDAP = "ldap"
+
+	IdentityDriverStatusConnected    = "connected"
+	IdentityDriverStatusDisconnected = "disconnected"
+	IdentityDriverStatusDeleting     = "deleting"
+
+	IdentityProviderSyncLocal  = "local"
+	IdentityProviderSyncFull   = "full"
+	IdentityProviderSyncOnAuth = "auth"
+
+	IdentitySyncStatusQueued  = "queued"
+	IdentitySyncStatusSyncing = "syncing"
+	IdentitySyncStatusIdle    = "idle"
+
+	MinimalSyncIntervalSeconds = 5 * 60 // 5 minutes
 )
 
 var (

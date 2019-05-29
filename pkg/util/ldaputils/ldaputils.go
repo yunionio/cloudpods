@@ -78,10 +78,10 @@ func (cli *SLDAPClient) Close() {
 	}
 }
 
-func (cli *SLDAPClient) Authenticate(baseDN string, objClass string, uidAttr string, uname string, passwd string, fields []string) (*ldap.Entry, error) {
+func (cli *SLDAPClient) Authenticate(baseDN string, objClass string, uidAttr string, uname string, passwd string, filter string, fields []string, queryScope int) (*ldap.Entry, error) {
 	attrMap := make(map[string]string)
 	attrMap[uidAttr] = uname
-	entries, err := cli.Search(baseDN, objClass, attrMap, fields)
+	entries, err := cli.Search(baseDN, objClass, attrMap, filter, fields, queryScope)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Search")
 	}
@@ -100,7 +100,7 @@ func (cli *SLDAPClient) Authenticate(baseDN string, objClass string, uidAttr str
 	return entry, nil
 }
 
-func (cli *SLDAPClient) Search(base string, objClass string, condition map[string]string, fields []string) ([]*ldap.Entry, error) {
+func (cli *SLDAPClient) Search(base string, objClass string, condition map[string]string, filter string, fields []string, queryScope int) ([]*ldap.Entry, error) {
 	searches := strings.Builder{}
 	if len(condition) == 0 && len(objClass) == 0 {
 		searches.WriteString("(objectClass=*)")
@@ -117,15 +117,22 @@ func (cli *SLDAPClient) Search(base string, objClass string, condition map[strin
 		searches.WriteString(v)
 		searches.WriteString(")")
 	}
+	if len(filter) > 0 && strings.HasPrefix(filter, "(") && strings.HasSuffix(filter, ")") {
+		searches.WriteString(filter)
+	}
 	searchStr := fmt.Sprintf("(&%s)", searches.String())
 
 	if len(base) == 0 {
 		base = cli.baseDN
 	}
 
+	if queryScope != ldap.ScopeWholeSubtree && queryScope != ldap.ScopeSingleLevel && queryScope != ldap.ScopeBaseObject {
+		queryScope = ldap.ScopeWholeSubtree
+	}
+
 	searchRequest := ldap.NewSearchRequest(
 		base, // The base dn to search
-		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
+		queryScope, ldap.NeverDerefAliases, 0, 0, false,
 		searchStr,
 		fields, // A list attributes to retrieve
 		nil,

@@ -105,8 +105,6 @@ type ComputeOptions struct {
 
 	DisconnectedCloudAccountRetryProbeIntervalHours int `help:"interval to wait to probe status of a disconnected cloud account" default:"24"`
 
-	IsSlaveNode bool `help:"Region service slave node"`
-
 	SCapabilityOptions
 	common_options.CommonOptions
 	common_options.DBOptions
