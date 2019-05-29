@@ -26,6 +26,14 @@ tags:
   - name: loadbalancerbackendgroups
   - name: loadbalancerbackends
 
+securityDefinitions:
+  keystone:
+    type: apiKey
+    in: header
+    name: X-Auth-Token
+security:
+  - keystone: []
+
 paths:
   /loadbalancers:
     get:
