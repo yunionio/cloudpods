@@ -262,6 +262,7 @@ func (item *SchedResultItem) ToCandidateResource() *schedapi.CandidateResource {
 		HostId: item.ID,
 		Name:   item.Name,
 		Disks:  item.Disks,
+		Nets:   item.Nets,
 	}
 }
 
