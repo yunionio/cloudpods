@@ -13,7 +13,7 @@ import (
 
 type LoadbalancerBackendGroupCreateOptions struct {
 	NAME         string
-	LOADBALANCER string
+	Loadbalancer string
 	Type         string   `choices:"default|normal|master_slave"`
 	Backend      []string `help:"backends with separated by ',' e.g. weight:80,port:443,id:01e9d393-d2b8-4d2e-85fb-023b83889070,backend_type:guest" json:"-"`
 }
