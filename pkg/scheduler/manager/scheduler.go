@@ -101,7 +101,7 @@ type Scheduler interface {
 	Unit() *core.Unit
 	Candidates() ([]core.Candidater, error)
 
-	DirtySelectedCandidates([]*core.SelectedCandidate)
+	//DirtySelectedCandidates([]*core.SelectedCandidate)
 }
 
 type BaseScheduler struct {
@@ -137,11 +137,11 @@ func (s *BaseScheduler) BeforePredicate() error {
 	return nil
 }
 
-func (s *BaseScheduler) DirtySelectedCandidates(scs []*core.SelectedCandidate) {
-	for _, sc := range scs {
-		s.CandidateManager().SetCandidateDirty(sc)
-	}
-}
+//func (s *BaseScheduler) DirtySelectedCandidates(scs []*core.SelectedCandidate) {
+//for _, sc := range scs {
+//s.CandidateManager().SetCandidateDirty(sc)
+//}
+//}
 
 // GuestScheduler for guest type schedule
 type GuestScheduler struct {

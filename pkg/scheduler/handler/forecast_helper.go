@@ -12,7 +12,6 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 	unit := result.Unit
 	schedData := unit.SchedData()
 	reqCount := int64(schedData.Count)
-	var readyCount int64
 	filters := make([]*api.ForecastFilter, 0)
 
 	filtersMap := make(map[string]*api.ForecastFilter)
@@ -31,7 +30,10 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 	}
 
 	logIndex := func(item *core.SchedResultItem) string {
-		return fmt.Sprintf("%s:%s", item.Candidater.Get("Name"), item.Candidater.Get("ID"))
+		getter := item.Candidater.Getter()
+		name := getter.Name()
+		id := getter.Id()
+		return fmt.Sprintf("%s:%s", name, id)
 	}
 	addInfos := func(logs core.SchedLogList, item *core.SchedResultItem) {
 		for preName, cnt := range item.CapacityDetails {
@@ -63,12 +65,14 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 	}
 
 	var output *schedapi.ScheduleOutput
+	sid := schedData.SessionId
 	if schedData.Backup {
-		output = transToBackupSchedResult(result, schedData.PreferHost, schedData.PreferBackupHost, int64(schedData.Count), false)
+		output = transToBackupSchedResult(result, schedData.PreferHost, schedData.PreferBackupHost, int64(schedData.Count), sid)
 	} else {
-		output = transToRegionSchedResult(result.Data, int64(schedData.Count))
+		output = transToRegionSchedResult(result.Data, int64(schedData.Count), sid)
 	}
 
+	var readyCount int64
 	for _, candi := range output.Candidates {
 		if len(candi.Error) != 0 {
 			info, exist := getOrNewFilter("select_candidate")
@@ -77,7 +81,6 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 			if !exist {
 				filters = append(filters, info)
 			}
-			readyCount--
 		} else {
 			readyCount++
 		}

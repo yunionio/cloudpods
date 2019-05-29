@@ -3,22 +3,23 @@ package handler
 import (
 	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"time"
 
 	simplejson "github.com/bitly/go-simplejson"
 	gin "gopkg.in/gin-gonic/gin.v1"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	skuman "yunion.io/x/onecloud/pkg/scheduler/data_manager/sku"
-	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 	schedman "yunion.io/x/onecloud/pkg/scheduler/manager"
+	schedmodels "yunion.io/x/onecloud/pkg/scheduler/models"
 )
 
 // InstallHandler is an interface that registes route and
@@ -35,12 +36,6 @@ func InstallHandler(r *gin.Engine) {
 func timer(f gin.HandlerFunc) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		startTime := time.Now()
-		bytes, _ := httputil.DumpRequest(c.Request, true)
-		log.V(10).Debugf(`
->>>>>>>>>>>>>
-HTTP Request:
-%s
->>>>>>>>>>>>>`, string(bytes))
 		f(c)
 		log.Infof("Handler %q cost: %v", c.Request.URL.Path, time.Since(startTime))
 	}
@@ -275,17 +270,32 @@ func doSyncSchedule(c *gin.Context) {
 	}
 
 	count := int64(schedInfo.Count)
-	var resp interface{}
+	var resp *schedapi.ScheduleOutput
+	sid := schedInfo.SessionId
 	if schedInfo.Backup {
-		resp = transToBackupSchedResult(result, schedInfo.PreferHost, schedInfo.PreferBackupHost, count, true)
+		resp = transToBackupSchedResult(result, schedInfo.PreferHost, schedInfo.PreferBackupHost, count, sid)
 	} else {
-		resp = transToRegionSchedResult(result.Data, count)
+		resp = transToRegionSchedResult(result.Data, count, sid)
 	}
 
+	if err := setSchedPendingUsage(schedInfo, resp); err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
 	c.JSON(http.StatusOK, resp)
 }
 
-func transToRegionSchedResult(result []*core.SchedResultItem, count int64) *schedapi.ScheduleOutput {
+func setSchedPendingUsage(req *api.SchedInfo, resp *schedapi.ScheduleOutput) error {
+	if req.IsSuggestion || req.SkipDirtyMarkHost() {
+		return nil
+	}
+	for _, item := range resp.Candidates {
+		schedmodels.HostPendingUsageManager.SetPendingUsage(req, item)
+	}
+	return nil
+}
+
+func transToRegionSchedResult(result []*core.SchedResultItem, count int64, sid string) *schedapi.ScheduleOutput {
 	apiResults := make([]*schedapi.CandidateResource, 0)
 	succCount := 0
 	for _, nr := range result {
@@ -294,6 +304,7 @@ func transToRegionSchedResult(result []*core.SchedResultItem, count int64) *sche
 				break
 			}
 			tr := nr.ToCandidateResource()
+			tr.SessionId = sid
 			apiResults = append(apiResults, tr)
 			nr.Count--
 			succCount++
@@ -320,37 +331,40 @@ func regionResponse(v interface{}) interface{} {
 	}{Result: v}
 }
 
-func newExpireArgsByHostIDs(ids []string) (*api.ExpireArgs, error) {
-	hs, err := models.FetchHostByIDs(ids)
-	if err != nil {
-		return nil, err
-	}
-	if len(hs) == 0 {
-		return nil, fmt.Errorf("Hostscache %v not found", ids)
+func newExpireArgsByHostIDs(ids []string, sid string) (*api.ExpireArgs, error) {
+	hs := []computemodels.SHost{}
+	q := computemodels.HostManager.Query().In("id", ids)
+	if err := db.FetchModelObjects(computemodels.HostManager, q, &hs); err != nil {
+		return nil, fmt.Errorf("Fetch hosts by ids %v: %v", ids, err)
 	}
 
 	expireArgs := &api.ExpireArgs{
 		DirtyBaremetals: []string{},
 		DirtyHosts:      []string{},
+		SessionId:       sid,
 	}
-	for _, obj := range hs {
-		host := obj.(*models.Host)
-		if !host.IsHypervisor() {
-			expireArgs.DirtyBaremetals = append(expireArgs.DirtyBaremetals, host.ID)
+	for _, host := range hs {
+		if host.HostType == computeapi.HOST_TYPE_BAREMETAL {
+			expireArgs.DirtyBaremetals = append(expireArgs.DirtyBaremetals, host.GetId())
 		} else {
-			expireArgs.DirtyHosts = append(expireArgs.DirtyHosts, host.ID)
+			expireArgs.DirtyHosts = append(expireArgs.DirtyHosts, host.GetId())
 		}
 	}
 	return expireArgs, nil
 }
 
 func doCleanAllHostCache(c *gin.Context) {
-	ids, err := models.AllIDs(models.Hosts)
+	idMap, err := computemodels.HostManager.Query("id").AllStringMap()
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
-	args, err := newExpireArgsByHostIDs(ids)
+	ids := []string{}
+	for _, obj := range idMap {
+		ids = append(ids, obj["id"])
+	}
+	sid := getSessionId(c)
+	args, err := newExpireArgsByHostIDs(ids, sid)
 	if err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
@@ -376,8 +390,18 @@ func doSyncSku(c *gin.Context) {
 	c.JSON(http.StatusOK, nil)
 }
 
+func getSessionId(c *gin.Context) string {
+	query, err := jsonutils.ParseQueryString(c.Request.URL.RawQuery)
+	if err != nil {
+		log.Warningf("not found session id in query")
+		return ""
+	}
+	return jsonutils.GetAnyString(query, []string{"session", "session_id"})
+}
+
 func doCleanHostCache(c *gin.Context, hostID string) {
-	args, err := newExpireArgsByHostIDs([]string{hostID})
+	sid := getSessionId(c)
+	args, err := newExpireArgsByHostIDs([]string{hostID}, sid)
 	if err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return

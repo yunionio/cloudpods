@@ -1,6 +1,6 @@
 package guest
 
-import (
+/*import (
 	"fmt"
 
 	"yunion.io/x/onecloud/pkg/scheduler/algorithm/plugin"
@@ -96,4 +96,4 @@ func (p *GroupPredicate) OnPriorityEnd(u *core.Unit, c core.Candidater) {
 				p.Name()+":prefer",
 			))
 	}
-}
+}*/

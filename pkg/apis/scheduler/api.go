@@ -71,9 +71,10 @@ type CandidateDisk struct {
 }
 
 type CandidateResource struct {
-	HostId string           `json:"host_id"`
-	Name   string           `json:"name"`
-	Disks  []*CandidateDisk `json:"disks"`
+	SessionId string           `json:"session_id"`
+	HostId    string           `json:"host_id"`
+	Name      string           `json:"name"`
+	Disks     []*CandidateDisk `json:"disks"`
 
 	// used by backup schedule
 	BackupCandidate *CandidateResource `json:"backup_candidate"`

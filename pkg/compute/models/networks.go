@@ -706,6 +706,10 @@ func (self *SNetwork) getFreeAddressCount() int {
 	return self.getIPRange().AddressCount() - self.GetTotalNicCount()
 }
 
+func (self *SNetwork) GetFreeAddressCount() int {
+	return self.getFreeAddressCount()
+}
+
 func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.NetworkConfig) error {
 	if len(netConfig.Network) > 0 {
 		netObj, err := NetworkManager.FetchByIdOrName(userCred, netConfig.Network)

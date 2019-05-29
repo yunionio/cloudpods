@@ -30,14 +30,11 @@ func (p *StatusPredicate) Clone() core.FitPredicate {
 
 func (p *StatusPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
-	hc, err := h.HostCandidate()
-	if err != nil {
-		return false, nil, err
-	}
 
-	curStatus := hc.Status
-	curHostStatus := hc.HostStatus
-	curEnableStatus := hc.Enabled
+	getter := c.Getter()
+	curStatus := getter.Status()
+	curHostStatus := getter.HostStatus()
+	curEnableStatus := getter.Enabled()
 
 	if curStatus != ExpectedStatus {
 		h.Exclude2("status", curStatus, ExpectedStatus)
@@ -51,16 +48,18 @@ func (p *StatusPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 		h.Exclude2("enable_status", curEnableStatus, true)
 	}
 
-	if hc.Zone.Status != ExpectedEnableStatus {
-		h.Exclude2("zone_status", hc.Zone.Status, ExpectedEnableStatus)
+	zone := getter.Zone()
+	if zone.Status != ExpectedEnableStatus {
+		h.Exclude2("zone_status", zone.Status, ExpectedEnableStatus)
 	}
 
-	if hc.Cloudprovider != nil {
-		if !utils.IsInStringArray(hc.Cloudprovider.Status, api.CLOUD_PROVIDER_VALID_STATUS) {
-			h.Exclude2("cloud_provider_status", hc.Cloudprovider.Status, api.CLOUD_PROVIDER_VALID_STATUS)
+	cloudprovider := getter.Cloudprovider()
+	if cloudprovider != nil {
+		if !utils.IsInStringArray(cloudprovider.Status, api.CLOUD_PROVIDER_VALID_STATUS) {
+			h.Exclude2("cloud_provider_status", cloudprovider.Status, api.CLOUD_PROVIDER_VALID_STATUS)
 		}
-		if hc.Cloudprovider.HealthStatus != api.CLOUD_PROVIDER_HEALTH_NORMAL {
-			h.Exclude2("cloud_provider_health_status", hc.Cloudprovider.HealthStatus, api.CLOUD_PROVIDER_HEALTH_NORMAL)
+		if cloudprovider.HealthStatus != api.CLOUD_PROVIDER_HEALTH_NORMAL {
+			h.Exclude2("cloud_provider_health_status", cloudprovider.HealthStatus, api.CLOUD_PROVIDER_HEALTH_NORMAL)
 		}
 	}
 

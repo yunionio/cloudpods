@@ -17,11 +17,68 @@ import (
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	computedb "yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
+
+type hostGetter struct {
+	*baseHostGetter
+	h *HostDesc
+}
+
+func newHostGetter(h *HostDesc) *hostGetter {
+	return &hostGetter{
+		baseHostGetter: newBaseHostGetter(h.BaseHostDesc),
+		h:              h,
+	}
+}
+
+func (h *hostGetter) CreatingGuestCount() int {
+	return int(h.h.CreatingGuestCount)
+}
+
+func (h *hostGetter) RunningCPUCount() int64 {
+	return h.h.RunningCPUCount
+}
+
+func (h *hostGetter) TotalCPUCount(useRsvd bool) int64 {
+	return h.h.GetTotalCPUCount(useRsvd)
+}
+
+func (h *hostGetter) FreeCPUCount(useRsvd bool) int64 {
+	return h.h.GetFreeCPUCount(useRsvd)
+}
+
+func (h *hostGetter) FreeMemorySize(useRsvd bool) int64 {
+	return h.h.GetFreeMemSize(useRsvd)
+}
+
+func (h *hostGetter) RunningMemorySize() int64 {
+	return h.h.RunningMemSize
+}
+
+func (h *hostGetter) TotalMemorySize(useRsvd bool) int64 {
+	return h.h.GetTotalMemSize(useRsvd)
+}
+
+func (h *hostGetter) IsEmpty() bool {
+	return h.h.GuestCount == 0
+}
+
+func (h *hostGetter) StorageInfo() []*baremetal.BaremetalStorage {
+	return nil
+}
+
+func (h *hostGetter) GetFreeStorageSizeOfType(storageType string, useRsvd bool) int64 {
+	return h.h.GetFreeStorageSizeOfType(storageType, useRsvd)
+}
+
+func (h *hostGetter) GetFreePort(netId string) int {
+	return h.h.GetFreePort(netId)
+}
 
 type HostDesc struct {
 	*BaseHostDesc
@@ -147,38 +204,6 @@ func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *computemodels.S
 	return
 }
 
-//type Storage struct {
-//ID            string   `json:"id"`
-//Name          string   `json:"name"`
-//Capacity      int64    `json:"capacity"`
-//StorageType   string   `json:"type"`
-//UsedCapacity  int64    `json:"used"`
-//WasteCapacity int64    `json:"waste"`
-//FreeCapacity  int64    `json:"free"`
-//VCapacity     int64    `json:"vcapacity"`
-//Cmtbound      float64  `json:"cmtbound"`
-//StorageDriver string   `json:"driver"`
-//Adapter       string   `json:"adapter"`
-//Splits        []string `json:"splits"`
-//Range         string   `json:"range"`
-//Conf          string   `json:"conf"`
-//MinStripSize  int      `json:"min_strip_size"`
-//MaxStripSize  int      `json:"max_strip_size"`
-//Size          int      `json:"size"`
-//}
-
-//func (storage *Storage) GetFreeSize() int64 {
-//return storage.GetTotalSize() - storage.UsedCapacity - storage.WasteCapacity
-//}
-
-//func (storage *Storage) GetTotalSize() int64 {
-//return int64(float64(storage.Capacity) * storage.Cmtbound)
-//}
-
-//func (storage *Storage) IsLocal() bool {
-//return utils.IsLocalStorage(storage.StorageType)
-//}
-
 type HostBuilder struct {
 	residentTenantDict map[string]map[string]interface{}
 
@@ -226,94 +251,12 @@ func (h *HostDesc) Type() int {
 	return 0
 }
 
+func (h *HostDesc) Getter() core.CandidatePropertyGetter {
+	return newHostGetter(h)
+}
+
 func (h *HostDesc) GetGuestCount() int64 {
 	return h.GuestCount
-}
-
-// TODO: remove this ugly code
-func (h *HostDesc) Get(key string) interface{} {
-	switch key {
-	case "ID":
-		return h.Id
-
-	case "Name":
-		return h.Name
-
-	case "CPUCount":
-		return h.CpuCount
-
-	case "MemSize":
-		return h.MemSize
-
-	case "ZoneID":
-		return h.ZoneId
-
-	case "TotalCPUCount":
-		return h.GetTotalCPUCount(true)
-
-	case "FreeCPUCount":
-		return h.GetFreeCPUCount(false)
-
-	case "TotalMemSize":
-		return h.GetTotalMemSize(true)
-
-	case "FreeMemSize":
-		return h.GetFreeMemSize(false)
-
-	case "Groups":
-		return h.Groups
-
-	case "IsolatedDevices":
-		return h.IsolatedDevices
-
-	case "Status":
-		return h.Status
-
-	case "TotalStorageSize":
-		return h.totalStorageSize(false, true)
-
-	case "TotalLocalStorageSize":
-		return h.totalStorageSize(true, true)
-
-	case "FreeStorageSize":
-		return h.freeStorageSize(false, false)
-
-	case "FreeLocalStorageSize":
-		return h.freeStorageSize(true, false)
-
-	case "StorageTypes":
-		return h.StorageTypes
-
-	case "HostStatus":
-		return h.HostStatus
-
-	case "EnableStatus":
-		return h.GetEnableStatus()
-
-	case "HostType":
-		return h.HostType
-
-	case "IsBaremetal":
-		return h.IsBaremetal
-
-	default:
-		index := strings.Index(key, ":")
-		if index >= 0 {
-			masterKey := key[0:index]
-			slaveKey := key[index+1:]
-
-			switch masterKey {
-			case "FreeStorageSize":
-				storageType := slaveKey
-				return h.freeStorageSizeOfType(storageType, false)
-			}
-		}
-		return nil
-	}
-}
-
-func (h *HostDesc) XGet(key string, kind core.Kind) interface{} {
-	return core.XGetCalculator(h, key, kind)
 }
 
 func (h *HostDesc) GetTotalLocalStorageSize(useRsvd bool) int64 {
@@ -364,7 +307,7 @@ func (h *HostDesc) GetFreeStorageSizeOfType(sType string, useRsvd bool) int64 {
 }
 
 func (h *HostDesc) freeStorageSizeOfType(storageType string, useRsvd bool) int64 {
-	total := int64(0)
+	var total int64
 	for _, storage := range h.Storages {
 		if storage.StorageType == storageType {
 			total += int64(storage.GetFreeCapacity())
@@ -381,7 +324,12 @@ func (h *HostDesc) freeStorageSizeOfType(storageType string, useRsvd bool) int64
 		return reservedResourceAddCal(total, h.GuestReservedStorageSizeFree(), useRsvd)
 	}
 
-	return total
+	return total - int64(h.GetPendingUsage().DiskUsage.Get(storageType))
+}
+
+func (h *HostDesc) GetFreePort(netId string) int {
+	freeCnt := h.BaseHostDesc.GetFreePort(netId)
+	return freeCnt - h.GetPendingUsage().NetUsage.Get(netId)
 }
 
 func reservedResourceCal(
@@ -412,7 +360,7 @@ func (h *HostDesc) GetTotalMemSize(useRsvd bool) int64 {
 }
 
 func (h *HostDesc) GetFreeMemSize(useRsvd bool) int64 {
-	return reservedResourceAddCal(h.FreeMemSize, h.GuestReservedMemSizeFree(), useRsvd)
+	return reservedResourceAddCal(h.FreeMemSize, h.GuestReservedMemSizeFree(), useRsvd) - int64(h.GetPendingUsage().Memory)
 }
 
 func (h *HostDesc) GuestReservedMemSizeFree() int64 {
@@ -444,7 +392,7 @@ func (h *HostDesc) GetTotalCPUCount(useRsvd bool) int64 {
 }
 
 func (h *HostDesc) GetFreeCPUCount(useRsvd bool) int64 {
-	return reservedResourceAddCal(h.FreeCPUCount, h.GuestReservedCPUCountFree(), useRsvd)
+	return reservedResourceAddCal(h.FreeCPUCount, h.GuestReservedCPUCountFree(), useRsvd) - int64(h.GetPendingUsage().Cpu)
 }
 
 func (h *HostDesc) IndexKey() string {

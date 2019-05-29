@@ -36,12 +36,9 @@ func (p *StoragePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool,
 func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
 
-	hc, err := h.HostCandidate()
-	if err != nil {
-		return false, nil, err
-	}
-
 	d := u.SchedData()
+	getter := c.Getter()
+	storages := getter.Storages()
 
 	isMigrate := func() bool {
 		return len(d.HostId) > 0
@@ -52,7 +49,7 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	}
 
 	isStorageAccessible := func(storage string) bool {
-		for _, s := range hc.Storages {
+		for _, s := range storages {
 			if storage == s.Id || storage == s.Name {
 				return true
 			}
@@ -62,7 +59,7 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	}
 
 	getStorageCapacity := func(backend string, reqMaxSize int64, reqTotalSize int64, useRsvd bool) (int64, int64) {
-		totalFree := hc.GetFreeStorageSizeOfType(backend, useRsvd)
+		totalFree := getter.GetFreeStorageSizeOfType(backend, useRsvd)
 		capacity := totalFree / utils.Max(reqTotalSize, 1)
 
 		return capacity, totalFree
@@ -81,7 +78,7 @@ func (p *StoragePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 
 	getStorageFreeStr := func(backend string, useRsvd bool) string {
 		ss := []string{}
-		for _, s := range hc.Storages {
+		for _, s := range getter.Storages() {
 			if s.StorageType == backend {
 				total := int64(float32(s.Capacity) * s.Cmtbound)
 				used := s.GetUsedCapacity(tristate.True)

@@ -4,6 +4,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
+	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core/score"
@@ -41,12 +42,33 @@ type CandidatePropertyGetter interface {
 	Id() string
 	Name() string
 	Zone() *computemodels.SZone
+	Cloudprovider() *computemodels.SCloudprovider
 	Region() *computemodels.SCloudregion
 	HostType() string
 	HostSchedtags() []computemodels.SSchedtag
 	Storages() []*api.CandidateStorage
+	Networks() []computemodels.SNetwork
+	Status() string
+	HostStatus() string
+	Enabled() bool
+	IsEmpty() bool
 	ResourceType() string
 	NetInterfaces() map[string][]computemodels.SNetInterface
+	ProjectGuests() map[string]int64
+	CreatingGuestCount() int
+
+	RunningCPUCount() int64
+	TotalCPUCount(useRsvd bool) int64
+	FreeCPUCount(useRsvd bool) int64
+
+	RunningMemorySize() int64
+	TotalMemorySize(useRsvd bool) int64
+	FreeMemorySize(useRsvd bool) int64
+
+	StorageInfo() []*baremetal.BaremetalStorage
+	GetFreeStorageSizeOfType(storageType string, useRsvd bool) int64
+
+	GetFreePort(netId string) int
 }
 
 // Candidater replace host Candidate resource info
@@ -54,10 +76,6 @@ type Candidater interface {
 	Getter() CandidatePropertyGetter
 	// IndexKey return candidate cache item's ident, usually host ID
 	IndexKey() string
-	// Get return candidate cache item's value by key
-	Get(key string) interface{}
-	// XGet return candidate cache item's value by key and kind
-	XGet(key string, kind Kind) interface{}
 	Type() int
 
 	GetSchedDesc() *jsonutils.JSONDict

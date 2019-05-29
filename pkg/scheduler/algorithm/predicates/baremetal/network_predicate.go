@@ -46,10 +46,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 	h := predicates.NewPredicateHelper(p, u, c)
 	schedData := u.SchedData()
 
-	candidate, err := h.BaremetalCandidate()
-	if err != nil {
-		return false, nil, err
-	}
+	networks := c.Getter().Networks()
 
 	counters := core.NewCounters()
 
@@ -59,7 +56,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 
 	isRandomNetworkAvailable := func(private bool, exit bool, wire string) string {
 		var errMsgs []string
-		for _, network := range candidate.Networks {
+		for _, network := range networks {
 			appendError := func(errMsg string) {
 				errMsgs = append(errMsgs, fmt.Sprintf("%s: %s", network.Id, errMsg))
 			}
@@ -104,7 +101,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		if network.Network == "" {
 			return isRandomNetworkAvailable(network.Private, network.Exit, network.Wire)
 		}
-		for _, net := range candidate.Networks {
+		for _, net := range networks {
 			if (network.Network == net.Id || network.Network == net.Name) && (net.IsPublic || net.ProjectId == schedData.Project) && (net.GetPorts() > 0 || isMigrate()) {
 				h.SetCapacity(1)
 				return ""

@@ -45,10 +45,8 @@ func (p *NetworkPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool,
 func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
 
-	hc, err := h.HostCandidate()
-	if err != nil {
-		return false, nil, err
-	}
+	getter := c.Getter()
+	networks := getter.Networks()
 
 	d := u.SchedData()
 
@@ -63,7 +61,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 
 	counterOfNetwork := func(u *core.Unit, n *models.SNetwork, r int) core.Counter {
 		counter := u.CounterManager.GetOrCreate("net:"+n.Id, func() core.Counter {
-			return core.NewNormalCounter(int64(n.GetPorts() - r))
+			return core.NewNormalCounter(int64(getter.GetFreePort(n.Id) - r))
 		})
 
 		u.SharedResourceManager.Add(n.GetId(), counter)
@@ -76,7 +74,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		var fullErrMsgs []string
 		found := false
 
-		for _, n := range hc.Networks {
+		for _, n := range networks {
 			errMsgs := []string{}
 			appendError := func(errMsg string) {
 				errMsgs = append(errMsgs, errMsg)
@@ -139,13 +137,13 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 			counters.Add(counters0)
 			return ret_msg
 		}
-		if len(hc.Networks) == 0 {
+		if len(networks) == 0 {
 			return predicates.ErrNoAvailableNetwork
 		}
 
 		errMsgs := make([]string, 0)
 
-		for _, net := range hc.Networks {
+		for _, net := range networks {
 			/*if !isMatchServerType(net) {
 				errMsgs = append(errMsgs, fmt.Sprintf("%v(%v): server type not matched", net.Name, net.ID))
 				continue
@@ -182,7 +180,7 @@ func (p *NetworkPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []cor
 		var errMsgs []string
 
 		for _, n := range d.Networks {
-			if err_msg := isNetworkAvaliable(n, counters, hc.Networks); err_msg != "" {
+			if err_msg := isNetworkAvaliable(n, counters, networks); err_msg != "" {
 				errMsgs = append(errMsgs, err_msg)
 			}
 		}
