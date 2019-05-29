@@ -370,7 +370,7 @@ func (self *SImage) saveSuccess(userCred mcclient.TokenCredential, msg string) {
 
 func (self *SImage) saveFailed(userCred mcclient.TokenCredential, msg string) {
 	log.Errorf(msg)
-	self.SetStatus(userCred, api.IMAGE_STATUS_QUEUED, msg)
+	self.SetStatus(userCred, api.IMAGE_STATUS_KILLED, msg)
 	db.OpsLog.LogEvent(self, db.ACT_SAVE_FAIL, msg, userCred)
 }
 
