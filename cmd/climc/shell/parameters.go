@@ -97,9 +97,14 @@ func init() {
 	}
 
 	R(&ParametersCreateOptions{}, "parameter-create", "create a parameter", func(s *mcclient.ClientSession, args *ParametersCreateOptions) error {
+		value, err := jsonutils.ParseString(args.VALUE)
+		if err != nil {
+			return err
+		}
+
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
-		params.Add(jsonutils.NewString(args.VALUE), "value")
+		params.Add(value, "value")
 
 		if len(args.User) > 0 {
 			params.Add(jsonutils.NewString(args.User), "user_id")
@@ -123,13 +128,18 @@ func init() {
 	}
 
 	R(&ParametersUpdateOptions{}, "parameter-update", "update parameter", func(s *mcclient.ClientSession, args *ParametersUpdateOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.VALUE) > 0 {
-			params.Add(jsonutils.NewString(args.VALUE), "value")
-		}
-
 		var parameter jsonutils.JSONObject
 		var err error
+		value, err := jsonutils.ParseString(args.VALUE)
+		if err != nil {
+			return err
+		}
+
+		params := jsonutils.NewDict()
+		if len(args.VALUE) > 0 {
+			params.Add(value, "value")
+		}
+
 		if len(args.User) > 0 {
 			parameter, err = modules.Parameters.PutInContext(s, args.NAME, params, &modules.UsersV3, args.User)
 		} else if len(args.Service) > 0 {
