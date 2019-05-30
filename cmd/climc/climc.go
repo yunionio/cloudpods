@@ -52,7 +52,9 @@ type BaseOptions struct {
 	OsUsername     string `default:"$OS_USERNAME" help:"Username, defaults to env[OS_USERNAME]"`
 	OsPassword     string `default:"$OS_PASSWORD" help:"Password, defaults to env[OS_PASSWORD]"`
 	// OsProjectId string `default:"$OS_PROJECT_ID" help:"Proejct ID, defaults to env[OS_PROJECT_ID]"`
-	OsProjectName  string `default:"$OS_PROJECT_NAME" help:"Project name, defaults to env[OS_PROJECT_NAME]"`
+	OsProjectName   string `default:"$OS_PROJECT_NAME" help:"Project name, defaults to env[OS_PROJECT_NAME]"`
+	OsProjectDomain string `default:"$OS_PROJECT_DOMAIN" help:"Domain name of project, defaults to env[OS_PROJECT_DOMAIN]"`
+
 	OsDomainName   string `default:"$OS_DOMAIN_NAME" help:"Domain name, defaults to env[OS_DOMAIN_NAME]"`
 	OsAuthURL      string `default:"$OS_AUTH_URL" help:"Defaults to env[OS_AUTH_URL]"`
 	OsRegionName   string `default:"$OS_REGION_NAME" help:"Defaults to env[OS_REGION_NAME]"`
@@ -178,6 +180,7 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 			options.OsPassword,
 			options.OsDomainName,
 			options.OsProjectName,
+			options.OsProjectDomain,
 			mcclient.AuthSourceCli)
 		if err != nil {
 			return nil, err

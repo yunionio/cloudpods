@@ -40,7 +40,8 @@ type AuthInfo struct {
 	Username string
 	Passwd   string
 	// Project is tenant when v2 auth
-	Project string
+	Project       string
+	ProjectDomain string
 }
 
 func SetTimeout(t time.Duration) {
@@ -48,16 +49,17 @@ func SetTimeout(t time.Duration) {
 }
 
 func NewV2AuthInfo(authUrl, user, passwd, tenant string) *AuthInfo {
-	return NewAuthInfo(authUrl, "", user, passwd, tenant)
+	return NewAuthInfo(authUrl, "", user, passwd, tenant, "")
 }
 
-func NewAuthInfo(authUrl, domain, user, passwd, project string) *AuthInfo {
+func NewAuthInfo(authUrl, domain, user, passwd, project, projectDomain string) *AuthInfo {
 	return &AuthInfo{
-		AuthUrl:  authUrl,
-		Domain:   domain,
-		Username: user,
-		Passwd:   passwd,
-		Project:  project,
+		AuthUrl:       authUrl,
+		Domain:        domain,
+		Username:      user,
+		Passwd:        passwd,
+		Project:       project,
+		ProjectDomain: projectDomain,
 	}
 }
 
@@ -154,8 +156,8 @@ func (a *authManager) authAdmin() error {
 	var token mcclient.TokenCredential
 	var err error
 	token, err = a.client.AuthenticateWithSource(
-		a.info.Username, a.info.Passwd,
-		a.info.Domain, a.info.Project, mcclient.AuthSourceSrv)
+		a.info.Username, a.info.Passwd, a.info.Domain,
+		a.info.Project, a.info.ProjectDomain, mcclient.AuthSourceSrv)
 	if err != nil {
 		log.Errorf("Admin auth failed: %s", err)
 		return err

@@ -74,6 +74,7 @@ type CommonOptions struct {
 	AdminDomain        string `help:"Admin user domain"`
 	AdminPassword      string `help:"Admin password" alias:"admin-passwd"`
 	AdminProject       string `help:"Admin project" default:"system" alias:"admin-tenant-name"`
+	AdminProjectDomain string `help:"Domain of Admin project"`
 	AuthTokenCacheSize uint32 `help:"Auth token Cache Size" default:"2048"`
 
 	BaseOptions
