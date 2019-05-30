@@ -135,9 +135,10 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, t
 		input.Auth.Identity.Password.User.Password = passwd
 		if len(domainName) > 0 {
 			input.Auth.Identity.Password.User.Domain.Name = domainName
-		} else {
-			input.Auth.Identity.Password.User.Domain.Name = api.DEFAULT_DOMAIN_ID
 		}
+		// else {
+		//	input.Auth.Identity.Password.User.Domain.Name = api.DEFAULT_DOMAIN_ID
+		//}
 	} else if len(token) > 0 {
 		input.Auth.Identity.Methods = []string{api.AUTH_METHOD_TOKEN}
 		input.Auth.Identity.Token.Id = token

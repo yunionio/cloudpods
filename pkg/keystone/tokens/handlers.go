@@ -19,6 +19,8 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -86,7 +88,11 @@ func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Re
 	input.Auth.Context = FetchAuthContext(input.Auth.Context, r)
 	token, err := AuthenticateV3(ctx, input)
 	if err != nil {
-		httperrors.UnauthorizedError(w, "unauthorized %s", err)
+		if errors.Cause(err) == sqlchemy.ErrDuplicateEntry {
+			httperrors.ConflictError(w, "duplicate username")
+		} else {
+			httperrors.UnauthorizedError(w, "unauthorized %s", err)
+		}
 		return
 	}
 	if token == nil {

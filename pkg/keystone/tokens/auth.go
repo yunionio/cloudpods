@@ -91,10 +91,14 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 				return nil, errors.Wrap(err, "Query user")
 			}
 			idmap, err := models.IdmappingManager.FetchEntity(usr.Id, api.IdMappingEntityUser)
-			if err != nil {
+			if err != nil && err != sql.ErrNoRows {
 				return nil, errors.Wrap(err, "IdmappingManager.FetchEntity")
 			}
-			idpId = idmap.IdpId
+			if idmap == nil { // sql
+				idpId = api.DEFAULT_IDP_ID
+			} else {
+				idpId = idmap.IdpId
+			}
 		}
 	} else {
 		usrExt, err := models.UserManager.FetchUserExtended(ident.Password.User.Id, ident.Password.User.Name,
