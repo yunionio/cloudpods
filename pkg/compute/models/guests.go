@@ -1416,15 +1416,16 @@ func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict, fields stringutils2
 		}
 	}
 
+	if metaData, err := db.GetVisiableMetadata(self, nil); err == nil {
+		extra.Add(jsonutils.Marshal(metaData), "metadata")
+	}
+
 	return extra
 }
 
 func (self *SGuest) GetMetadataHideKeys() []string {
 	return []string{
 		api.VM_METADATA_CREATE_PARAMS,
-		api.VM_METADATA_LOGIN_ACCOUNT,
-		api.VM_METADATA_LOGIN_KEY,
-		api.VM_METADATA_LOGIN_KEY_TIMESTAMP,
 	}
 }
 
@@ -1447,10 +1448,6 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		if len(self.OsType) == 0 {
 			extra.Add(jsonutils.NewString(osName), "os_type")
 		}
-	}
-
-	if metaData, err := db.GetVisiableMetadata(self, userCred); err == nil {
-		extra.Add(jsonutils.Marshal(metaData), "metadata")
 	}
 
 	if db.IsAdminAllowGet(userCred, self) {
