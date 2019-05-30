@@ -118,6 +118,8 @@ type SLoadbalancerListener struct {
 
 	Scheduler string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required" update:"user"`
 
+	SendProxy string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user" default:"off"`
+
 	ClientRequestTimeout  int `nullable:"false" list:"user" create:"optional" update:"user"`
 	ClientIdleTimeout     int `nullable:"false" list:"user" create:"optional" update:"user"`
 	BackendConnectTimeout int `nullable:"false" list:"user" create:"optional" update:"user"`
@@ -203,6 +205,8 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		"listener_type": listenerTypeV,
 		"listener_port": listenerPortV,
 		"backend_group": backendGroupV.Optional(true),
+
+		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Default(api.LB_SENDPROXY_OFF),
 
 		"acl_status": aclStatusV.Default(api.LB_BOOL_OFF),
 		"acl_type":   aclTypeV.Optional(true),
@@ -419,6 +423,8 @@ func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, user
 	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
 	keyV := map[string]validators.IValidator{
 		"backend_group": backendGroupV,
+
+		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES),
 
 		"acl_status": aclStatusV,
 		"acl_type":   aclTypeV,

@@ -64,6 +64,8 @@ type SLoadbalancerBackend struct {
 	Weight         int    `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 	Address        string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	Port           int    `nullable:"false" list:"user" create:"required" update:"user"`
+
+	SendProxy string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user" default:"off"`
 }
 
 func (man *SLoadbalancerBackendManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
@@ -144,6 +146,7 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 		"backend_type":  backendTypeV,
 		"weight":        validators.NewRangeValidator("weight", 1, 256).Default(1),
 		"port":          validators.NewPortValidator("port"),
+		"send_proxy":    validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Default(api.LB_SENDPROXY_OFF),
 	}
 	for _, v := range keyV {
 		if err := v.Validate(data); err != nil {
@@ -274,8 +277,9 @@ func (man *SLoadbalancerBackendManager) GetGuestAddress(guest *SGuest) (string, 
 
 func (lbb *SLoadbalancerBackend) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	keyV := map[string]validators.IValidator{
-		"weight": validators.NewRangeValidator("weight", 1, 256),
-		"port":   validators.NewPortValidator("port"),
+		"weight":     validators.NewRangeValidator("weight", 1, 256),
+		"port":       validators.NewPortValidator("port"),
+		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES),
 	}
 	for _, v := range keyV {
 		v.Optional(true)

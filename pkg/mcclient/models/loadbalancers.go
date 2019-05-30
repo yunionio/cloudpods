@@ -73,6 +73,8 @@ type LoadbalancerListener struct {
 
 	Scheduler string
 
+	SendProxy string
+
 	ClientRequestTimeout  int
 	ClientIdleTimeout     int
 	BackendConnectTimeout int
@@ -143,6 +145,8 @@ type LoadbalancerBackend struct {
 	Weight         int
 	Address        string
 	Port           int
+
+	SendProxy string
 }
 
 type LoadbalancerAclEntry struct {
