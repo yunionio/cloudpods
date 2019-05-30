@@ -14,7 +14,7 @@
 
 package data_manager
 
-import (
+/*import (
 	"sync"
 
 	"yunion.io/x/log"
@@ -179,4 +179,4 @@ func (m *NetworkManager) getNetworkCache() (cache.Cache, error) {
 
 	cache.WaitForReady()
 	return cache, nil
-}
+}*/

@@ -24,7 +24,6 @@ import (
 	u "yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/scheduler/cache"
-	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 	"yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
@@ -38,10 +37,10 @@ const (
 	BaremetalDescBuilder = BaremetalCandidateCache
 )
 
-func defaultCadidateItems(db DBGroupCacher, sync SyncGroupCacher) []cache.CachedItem {
+func defaultCadidateItems() []cache.CachedItem {
 	return []cache.CachedItem{
-		newHostCache(db, sync),
-		newBaremetalCache(db, sync),
+		newHostCache(),
+		newBaremetalCache(),
 	}
 }
 
@@ -49,12 +48,12 @@ func uuidKey(obj interface{}) (string, error) {
 	return obj.(descer).GetId(), nil
 }
 
-func generalUpdateFunc(db DBGroupCacher, sync SyncGroupCacher, act BuildActor, mutex *gosync.Mutex) cache.UpdateFunc {
+func generalUpdateFunc(act BuildActor, mutex *gosync.Mutex) cache.UpdateFunc {
 	return func(ids []string) ([]interface{}, error) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		newAct := act.Clone()
-		builder := NewDescBuilder(db, sync, newAct)
+		builder := NewDescBuilder(newAct)
 		descs, err := builder.Build(ids)
 		if err != nil {
 			return nil, err
@@ -64,12 +63,12 @@ func generalUpdateFunc(db DBGroupCacher, sync SyncGroupCacher, act BuildActor, m
 	}
 }
 
-func generalLoadFunc(db DBGroupCacher, sync SyncGroupCacher, act BuildActor, mutex *gosync.Mutex) cache.LoadFunc {
+func generalLoadFunc(act BuildActor, mutex *gosync.Mutex) cache.LoadFunc {
 	return func() ([]interface{}, error) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		newAct := act.Clone()
-		builder := NewDescBuilder(db, sync, newAct)
+		builder := NewDescBuilder(newAct)
 
 		ids, err := act.AllIDs()
 		if err != nil {
@@ -119,7 +118,7 @@ func generalGetUpdateFunc(isBaremetal bool) cache.GetUpdateFunc {
 		}
 
 		fullUpdateCounter++
-		modified, err := models.AllHostStatus(isBaremetal)
+		modified, err := FetchHostsUpdateStatus(isBaremetal)
 		if err != nil {
 			return nil, err
 		}
@@ -127,8 +126,8 @@ func generalGetUpdateFunc(isBaremetal bool) cache.GetUpdateFunc {
 		// Aggregate the updated hosts
 		for _, status := range modified {
 			// If host does not exist[ok=false] or has updated will be in update list.
-			if t, ok := allStatus[status.ID]; !ok || !t.Equal(status.UpdatedAt) {
-				modifiedIds = append(modifiedIds, status.ID)
+			if t, ok := allStatus[status.Id]; !ok || !t.Equal(status.UpdatedAt) {
+				modifiedIds = append(modifiedIds, status.Id)
 			}
 		}
 		if len(modifiedIds) == 0 {
@@ -138,10 +137,10 @@ func generalGetUpdateFunc(isBaremetal bool) cache.GetUpdateFunc {
 	}
 }
 
-func newHostCache(db DBGroupCacher, sync SyncGroupCacher) cache.CachedItem {
+func newHostCache() cache.CachedItem {
 	mutex := new(gosync.Mutex)
-	update := generalUpdateFunc(db, sync, &HostBuilder{}, mutex)
-	load := generalLoadFunc(db, sync, &HostBuilder{}, mutex)
+	update := generalUpdateFunc(newHostBuilder(), mutex)
+	load := generalLoadFunc(newHostBuilder(), mutex)
 	getUpdate := generalGetUpdateFunc(false)
 	item := new(candidateItem)
 
@@ -157,11 +156,11 @@ func newHostCache(db DBGroupCacher, sync SyncGroupCacher) cache.CachedItem {
 	return item
 }
 
-func newBaremetalCache(db DBGroupCacher, sync SyncGroupCacher) cache.CachedItem {
+func newBaremetalCache() cache.CachedItem {
 	// The mutex solves the possible dirty data asked lead to over-commit.
 	mutex := new(gosync.Mutex)
-	update := generalUpdateFunc(db, sync, &BaremetalBuilder{}, mutex)
-	load := generalLoadFunc(db, sync, &BaremetalBuilder{}, mutex)
+	update := generalUpdateFunc(newBaremetalBuilder(), mutex)
+	load := generalLoadFunc(newBaremetalBuilder(), mutex)
 	getUpdate := generalGetUpdateFunc(true)
 	item := new(candidateItem)
 

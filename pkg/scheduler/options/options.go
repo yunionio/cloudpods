@@ -74,9 +74,6 @@ type SchedOptions struct {
 	NetworkCacheTTL    string `help:"Build network info from database to cache TTL" default:"0s"`
 	NetworkCachePeriod string `help:"Build network info from database to cache TTL" default:"1m"`
 
-	ClusterDBCacheTTL    string `help:"Cluster database cache TTL" default:"0s"`
-	ClusterDBCachePeriod string `help:"Cluster database cache period" default:"5m"`
-
 	BaremetalAgentDBCacheTTL    string `help:"BaremetalAgent database cache TTL" default:"0s"`
 	BaremetalAgentDBCachePeriod string `help:"BaremetalAgent database cache period" default:"5m"`
 
