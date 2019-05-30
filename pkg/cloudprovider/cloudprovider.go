@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -169,4 +170,79 @@ func GetOnPremiseProviders() []string {
 		}
 	}
 	return providers
+}
+
+type baseProviderFactory struct {
+}
+
+func (factory *baseProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
+	return nil
+}
+
+func (factory *baseProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
+	return httperrors.NewNotImplementedError("Not Implemented ValidateCreateCloudaccountData")
+}
+
+func (factory *baseProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*SCloudaccount, error) {
+	return nil, httperrors.NewNotImplementedError("Not Implemented ValidateUpdateCloudaccountCredential")
+}
+
+func (factory *baseProviderFactory) GetProvider(providerId, providerName, url, username, password string) (ICloudProvider, error) {
+	return nil, httperrors.NewNotImplementedError("Not Implemented GetProvider")
+}
+
+func (factory *baseProviderFactory) IsOnPremise() bool {
+	return false
+}
+
+type SPremiseBaseProviderFactory struct {
+	baseProviderFactory
+}
+
+func (factory *SPremiseBaseProviderFactory) IsPublicCloud() bool {
+	return false
+}
+
+func (factory *SPremiseBaseProviderFactory) IsSupportPrepaidResources() bool {
+	return false
+}
+
+func (factory *SPremiseBaseProviderFactory) IsOnPremise() bool {
+	return true
+}
+
+func (factory *SPremiseBaseProviderFactory) NeedSyncSkuFromCloud() bool {
+	return false
+}
+
+type SPublicCloudBaseProviderFactor struct {
+	baseProviderFactory
+}
+
+func (factory *SPublicCloudBaseProviderFactor) IsPublicCloud() bool {
+	return true
+}
+
+func (factory *SPublicCloudBaseProviderFactor) IsSupportPrepaidResources() bool {
+	return true
+}
+
+func (factory *SPublicCloudBaseProviderFactor) NeedSyncSkuFromCloud() bool {
+	return false
+}
+
+type SPrivateCloudBaseProviderFactor struct {
+	baseProviderFactory
+}
+
+func (factory *SPrivateCloudBaseProviderFactor) IsPublicCloud() bool {
+	return false
+}
+
+func (factory *SPrivateCloudBaseProviderFactor) IsSupportPrepaidResources() bool {
+	return false
+}
+
+func (factory *SPrivateCloudBaseProviderFactor) NeedSyncSkuFromCloud() bool {
+	return true
 }

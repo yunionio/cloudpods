@@ -32,6 +32,7 @@ import (
 )
 
 type SESXiProviderFactory struct {
+	cloudprovider.SPremiseBaseProviderFactory
 }
 
 func (self *SESXiProviderFactory) GetId() string {
@@ -44,22 +45,6 @@ func (self *SESXiProviderFactory) GetName() string {
 
 func (self *SESXiProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	return fmt.Errorf("Changing %s bandwidth is not supported", esxi.CLOUD_PROVIDER_VMWARE)
-}
-
-func (self *SESXiProviderFactory) IsPublicCloud() bool {
-	return false
-}
-
-func (self *SESXiProviderFactory) IsOnPremise() bool {
-	return true
-}
-
-func (self *SESXiProviderFactory) IsSupportPrepaidResources() bool {
-	return false
-}
-
-func (self *SESXiProviderFactory) NeedSyncSkuFromCloud() bool {
-	return false
 }
 
 func (self *SESXiProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {

@@ -27,6 +27,7 @@ import (
 )
 
 type SAwsProviderFactory struct {
+	cloudprovider.SPublicCloudBaseProviderFactor
 }
 
 func (self *SAwsProviderFactory) GetId() string {
@@ -37,23 +38,7 @@ func (self *SAwsProviderFactory) GetName() string {
 	return aws.CLOUD_PROVIDER_AWS_CN
 }
 
-func (self *SAwsProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
-	return nil
-}
-
-func (self *SAwsProviderFactory) IsPublicCloud() bool {
-	return true
-}
-
-func (self *SAwsProviderFactory) IsOnPremise() bool {
-	return false
-}
-
 func (self *SAwsProviderFactory) IsSupportPrepaidResources() bool {
-	return true
-}
-
-func (self *SAwsProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
 
