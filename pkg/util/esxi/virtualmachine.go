@@ -34,6 +34,7 @@ type SVirtualMachine struct {
 	vga    SVirtualVGA
 	cdroms []SVirtualCdrom
 	devs   map[int32]SVirtualDevice
+	ihost  cloudprovider.ICloudHost
 
 	guestIps map[string]string
 }
@@ -155,6 +156,13 @@ func (self *SVirtualMachine) GetCreateTime() time.Time {
 }
 
 func (self *SVirtualMachine) GetIHost() cloudprovider.ICloudHost {
+	if self.ihost == nil {
+		self.ihost = self.getIHost()
+	}
+	return self.ihost
+}
+
+func (self *SVirtualMachine) getIHost() cloudprovider.ICloudHost {
 	vm := self.getVmObj()
 
 	hostsys, err := vm.HostSystem(self.manager.context)
@@ -321,6 +329,7 @@ func (self *SVirtualMachine) startVM(ctx context.Context) error {
 
 	err := self.makeNicsStartConnected(ctx)
 	if err != nil {
+		log.Errorf("self.makeNicsStartConnected %s", err)
 		return err
 	}
 
@@ -328,9 +337,15 @@ func (self *SVirtualMachine) startVM(ctx context.Context) error {
 
 	task, err := vm.PowerOn(ctx)
 	if err != nil {
+		log.Errorf("vm.PowerOn %s", err)
 		return err
 	}
-	return task.Wait(ctx)
+	err = task.Wait(ctx)
+	if err != nil {
+		log.Errorf("task.Wait %s", err)
+		return err
+	}
+	return nil
 }
 
 func (self *SVirtualMachine) makeNicsStartConnected(ctx context.Context) error {
@@ -580,6 +595,15 @@ func (self *SVirtualMachine) fetchHardwareInfo() {
 	self.devs = make(map[int32]SVirtualDevice)
 
 	moVM := self.getVirtualMachine()
+
+	MAX_TRIES := 3
+	for tried := 0; tried < MAX_TRIES && (moVM == nil || moVM.Config == nil || moVM.Config.Hardware.Device == nil); tried += 1 {
+		time.Sleep(time.Second)
+	}
+
+	if moVM == nil || moVM.Config == nil || moVM.Config.Hardware.Device == nil {
+		return
+	}
 
 	for i := 0; i < len(moVM.Config.Hardware.Device); i += 1 {
 		dev := moVM.Config.Hardware.Device[i]
