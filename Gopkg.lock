@@ -1765,9 +1765,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:80b6e83e951313a5cde2995b9a158002bb73fd3a819c633f66d52ae0f52fe1cd"
+  digest = "1:04187b7fe2d9788ad901137fd8976272f464bd4080963e7a7f28aa9615d1e47a"
   name = "yunion.io/x/pkg"
   packages = [
+    "errors",
     "gotypes",
     "prettytable",
     "trace",
@@ -1792,22 +1793,21 @@
     "util/stringutils",
     "util/timeutils",
     "util/trace",
-    "util/ttlpool",
     "util/version",
     "util/wait",
     "util/workqueue",
     "utils",
   ]
   pruneopts = "UT"
-  revision = "43fa4e20e9663f2012e5c3cf455ad3dd6e10adfa"
+  revision = "3afb7f847aad0b254d5768f961d226b24aa24cea"
 
 [[projects]]
   branch = "master"
-  digest = "1:66d19ef38985070b76f8ca9f9fc468e69e923bf331cb9bf4488d7997f2f4a7b0"
+  digest = "1:a1d55c54bf4a9a83c1d955b9038a003cf1edc7c8707d07799608c796b2790034"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "b100553e017505920d398be5bb4bafe7914d6ef0"
+  revision = "4e836c2494cbadad5c5a22f83abbf1d87df6d439"
 
 [[projects]]
   branch = "master"
@@ -1942,6 +1942,7 @@
     "yunion.io/x/jsonutils",
     "yunion.io/x/log",
     "yunion.io/x/log/hooks",
+    "yunion.io/x/pkg/errors",
     "yunion.io/x/pkg/gotypes",
     "yunion.io/x/pkg/prettytable",
     "yunion.io/x/pkg/trace",
@@ -1964,7 +1965,6 @@
     "yunion.io/x/pkg/util/stringutils",
     "yunion.io/x/pkg/util/timeutils",
     "yunion.io/x/pkg/util/trace",
-    "yunion.io/x/pkg/util/ttlpool",
     "yunion.io/x/pkg/util/version",
     "yunion.io/x/pkg/util/wait",
     "yunion.io/x/pkg/util/workqueue",
