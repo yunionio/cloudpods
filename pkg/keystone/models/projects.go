@@ -126,18 +126,36 @@ func (manager *SProjectManager) Query(fields ...string) *sqlchemy.SQuery {
 func (manager *SProjectManager) FetchProjectByName(projectName string, domainId, domainName string) (*SProject, error) {
 	obj, err := db.NewModelObject(manager)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "db.NewModelObject")
 	}
-	domain, err := DomainManager.FetchDomain(domainId, domainName)
-	if err != nil {
-		return nil, err
+	if len(domainId) == 0 && len(domainName) == 0 {
+		q := manager.Query().Equals("name", projectName)
+		cnt, err := q.CountWithError()
+		if err != nil {
+			return nil, errors.Wrap(err, "CountWithError")
+		}
+		if cnt == 0 {
+			return nil, sql.ErrNoRows
+		}
+		if cnt > 1 {
+			return nil, sqlchemy.ErrDuplicateEntry
+		}
+		err = q.First(obj)
+		if err != nil {
+			return nil, errors.Wrap(err, "q.First")
+		}
+	} else {
+		domain, err := DomainManager.FetchDomain(domainId, domainName)
+		if err != nil {
+			return nil, errors.Wrap(err, "DomainManager.FetchDomain")
+		}
+		q := manager.Query().Equals("name", projectName).Equals("domain_id", domain.Id)
+		err = q.First(obj)
+		if err != nil {
+			return nil, errors.Wrap(err, "q.First")
+		}
 	}
-	q := manager.Query().Equals("name", projectName).Equals("domain_id", domain.Id)
-	err = q.First(obj)
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*SProject), err
+	return obj.(*SProject), nil
 }
 
 func (manager *SProjectManager) FetchProjectById(projectId string) (*SProject, error) {

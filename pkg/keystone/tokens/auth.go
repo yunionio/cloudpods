@@ -90,6 +90,7 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 			if err != nil {
 				return nil, errors.Wrap(err, "Query user")
 			}
+			ident.Password.User.Domain.Id = usr.DomainId
 			idmap, err := models.IdmappingManager.FetchEntity(usr.Id, api.IdMappingEntityUser)
 			if err != nil && err != sql.ErrNoRows {
 				return nil, errors.Wrap(err, "IdmappingManager.FetchEntity")

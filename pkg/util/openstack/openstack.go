@@ -44,6 +44,7 @@ type SOpenStackClient struct {
 	username        string
 	password        string
 	project         string
+	projectDomain   string
 	endpointType    string
 	domainName      string
 	client          *mcclient.Client
@@ -53,17 +54,18 @@ type SOpenStackClient struct {
 	Debug bool
 }
 
-func NewOpenStackClient(providerID string, providerName string, authURL string, username string, password string, project string, endpointType string, domainName string, isDebug bool) (*SOpenStackClient, error) {
+func NewOpenStackClient(providerID string, providerName string, authURL string, username string, password string, project string, endpointType string, domainName string, projectDomainName string, isDebug bool) (*SOpenStackClient, error) {
 	cli := &SOpenStackClient{
-		providerID:   providerID,
-		providerName: providerName,
-		authURL:      strings.TrimRight(authURL, "/"),
-		username:     username,
-		password:     password,
-		project:      project,
-		endpointType: endpointType,
-		domainName:   domainName,
-		Debug:        isDebug,
+		providerID:    providerID,
+		providerName:  providerName,
+		authURL:       strings.TrimRight(authURL, "/"),
+		username:      username,
+		password:      password,
+		project:       project,
+		projectDomain: projectDomainName,
+		endpointType:  endpointType,
+		domainName:    domainName,
+		Debug:         isDebug,
 	}
 	return cli, cli.fetchRegions()
 }
@@ -192,7 +194,7 @@ func (cli *SOpenStackClient) getVersion(region string, service string) (string, 
 
 func (cli *SOpenStackClient) connect() error {
 	cli.client = mcclient.NewClient(cli.authURL, 5, cli.Debug, false, "", "")
-	tokenCredential, err := cli.client.Authenticate(cli.username, cli.password, cli.domainName, cli.project)
+	tokenCredential, err := cli.client.Authenticate(cli.username, cli.password, cli.domainName, cli.project, cli.projectDomain)
 	if err != nil {
 		return err
 	}

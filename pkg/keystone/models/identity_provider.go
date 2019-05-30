@@ -269,6 +269,7 @@ func (manager *SIdentityProviderManager) ValidateCreateData(ctx context.Context,
 			return nil, httperrors.NewInputParameterError("invalid template")
 		}
 		drvName = api.IdpTemplateDriver[template]
+		data.Set("driver", jsonutils.NewString(drvName))
 	} else {
 		drvName, _ = data.GetString("driver")
 		if len(drvName) == 0 {
