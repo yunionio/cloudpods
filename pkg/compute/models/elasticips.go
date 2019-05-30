@@ -19,9 +19,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/golang-plus/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
@@ -391,7 +391,7 @@ func (manager *SElasticipManager) newFromCloudEip(ctx context.Context, userCred 
 		if err != nil {
 			msg := fmt.Sprintf("failed to found network by externalId %s error: %v", networkId, err)
 			log.Errorf(msg)
-			return nil, errors.New(msg)
+			return nil, errors.Error(msg)
 		}
 		eip.NetworkId = network.GetId()
 	}
