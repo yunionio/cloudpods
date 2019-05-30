@@ -73,6 +73,7 @@ var (
 	logDomainResources = []string{}
 
 	identitySystemResources = []string{
+		"identity_providers",
 		"domains",
 		"services",
 		"endpoints",
