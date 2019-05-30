@@ -70,18 +70,25 @@ func (p *Pty) Resize(size *pty.Winsize) {
 	p.sizeCh <- syscall.SIGWINCH
 }
 
-func (p *Pty) Stop() {
+func (p *Pty) Stop() error {
 	if p.Pty != nil {
-		if err := p.Pty.Close(); err != nil {
+		err := p.Pty.Close()
+		if err != nil {
 			log.Errorf("Close PTY error: %v", err)
+			return err
 		}
 	}
 	if p.Cmd != nil && p.Cmd.Process != nil {
-		if err := p.Cmd.Process.Signal(os.Kill); err != nil {
+		err := p.Cmd.Process.Signal(os.Kill)
+		if err != nil {
 			log.Errorf("Kill command process error: %v", err)
-		} else if err := p.Cmd.Wait(); err != nil {
+			return err
+		}
+		err = p.Cmd.Wait()
+		if err != nil {
 			log.Errorf("Wait command error: %v", err)
+			return err
 		}
 	}
-	p.Session.Close()
+	return p.Session.Close()
 }
