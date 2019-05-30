@@ -52,8 +52,8 @@ func (self *ImageProbeTask) StartImageProbe(ctx context.Context, image *models.S
 func (self *ImageProbeTask) doProbe(ctx context.Context, image *models.SImage) error {
 	diskPath := image.GetPath("")
 	kvmDisk := storageman.NewKVMGuestDisk(diskPath)
-	defer kvmDisk.Disconnect()
-	if !kvmDisk.Connect() {
+	defer kvmDisk.DisconnectWithoutLvm()
+	if !kvmDisk.ConnectWithoutDetectLvm() {
 		return fmt.Errorf("Disk connector failed to connect image")
 	}
 
@@ -144,10 +144,10 @@ type sImageInfo struct {
 func (self *ImageProbeTask) getImageInfo(kvmDisk *storageman.SKVMGuestDisk, rootfs fsdriver.IRootFsDriver) *sImageInfo {
 	partition := rootfs.GetPartition()
 	return &sImageInfo{
-		osInfo:                rootfs.GetReleaseInfo(partition),
-		OsType:                rootfs.GetOs(),
-		IsUEFISupport:         kvmDisk.DetectIsUEFISupport(rootfs),
-		IsLVMPartition:        kvmDisk.IsLVMPartition(),
+		osInfo:        rootfs.GetReleaseInfo(partition),
+		OsType:        rootfs.GetOs(),
+		IsUEFISupport: kvmDisk.DetectIsUEFISupport(rootfs),
+		// IsLVMPartition:        kvmDisk.IsLVMPartition(),
 		IsReadonly:            partition.IsReadonly(),
 		PhysicalPartitionType: partition.GetPhysicalPartitionType(),
 		IsInstalledCloudInit:  rootfs.IsCloudinitInstall(),
@@ -155,7 +155,7 @@ func (self *ImageProbeTask) getImageInfo(kvmDisk *storageman.SKVMGuestDisk, root
 }
 
 func (self *ImageProbeTask) OnProbeFailed(ctx context.Context, image *models.SImage, reason string) {
-	log.Infof("Image %s Probe Failed ...", image.Name)
+	log.Infof("Image %s Probe Failed: %s", image.Name, reason)
 	db.OpsLog.LogEvent(image, db.ACT_PROBE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, image, logclient.ACT_IMAGE_PROBE, reason, self.UserCred, false)
 

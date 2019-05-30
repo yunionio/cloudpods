@@ -63,14 +63,16 @@ func (d *SKVMGuestDisk) IsLVMPartition() bool {
 	return len(d.lvms) > 0
 }
 
-func (d *SKVMGuestDisk) Connect() bool {
+func (d *SKVMGuestDisk) ConnectWithoutDetectLvm() bool {
+	return d.connect()
+}
+
+func (d *SKVMGuestDisk) connect() bool {
 	d.nbdDev = nbd.GetNBDManager().AcquireNbddev()
 	if len(d.nbdDev) == 0 {
 		log.Errorln("Cannot get nbd device")
 		return false
 	}
-
-	pathType := d.connectionPrecheck()
 
 	var cmd []string
 	if strings.HasPrefix(d.imagePath, "rbd:") || d.getImageFormat() == "raw" {
@@ -108,6 +110,15 @@ func (d *SKVMGuestDisk) Connect() bool {
 			return false
 		}
 		tried += 1
+	}
+	return true
+}
+
+func (d *SKVMGuestDisk) Connect() bool {
+	pathType := d.connectionPrecheck()
+
+	if d.connect() == false {
+		return false
 	}
 
 	if pathType == LVM_PATH {
@@ -250,22 +261,31 @@ func (d *SKVMGuestDisk) PutdownLVMs() {
 	d.lvms = []*SKVMGuestLVMPartition{}
 }
 
+func (d *SKVMGuestDisk) DisconnectWithoutLvm() bool {
+	return d.disconnect()
+}
+
 func (d *SKVMGuestDisk) Disconnect() bool {
 	if len(d.nbdDev) > 0 {
 		defer d.LvmDisconnectNotify()
 		d.PutdownLVMs()
-		_, err := procutils.NewCommand(qemutils.GetQemuNbd(), "-d", d.nbdDev).Run()
-		if err != nil {
-			log.Errorln(err.Error())
-			return false
-		}
-		nbd.GetNBDManager().ReleaseNbddev(d.nbdDev)
-		d.nbdDev = ""
-		d.partitions = d.partitions[len(d.partitions):]
-		return true
+		return d.disconnect()
 	} else {
 		return false
 	}
+}
+
+func (d *SKVMGuestDisk) disconnect() bool {
+	_, err := procutils.NewCommand(qemutils.GetQemuNbd(), "-d", d.nbdDev).Run()
+	if err != nil {
+		log.Errorln(err.Error())
+		return false
+	}
+	nbd.GetNBDManager().ReleaseNbddev(d.nbdDev)
+	d.nbdDev = ""
+	d.partitions = d.partitions[len(d.partitions):]
+	return true
+
 }
 
 func (d *SKVMGuestDisk) DetectIsUEFISupport(rootfs fsdriver.IRootFsDriver) bool {
