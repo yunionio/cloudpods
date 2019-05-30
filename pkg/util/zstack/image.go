@@ -112,10 +112,7 @@ func (image *SImage) Refresh() error {
 }
 
 func (image *SImage) GetImageType() string {
-	if image.System {
-		return cloudprovider.CachedImageTypeSystem
-	}
-	return cloudprovider.CachedImageTypeCustomized
+	return cloudprovider.CachedImageTypeSystem
 }
 
 func (image *SImage) GetSizeByte() int64 {
@@ -157,7 +154,7 @@ func (region *SRegion) GetImage(imageId string) (*SImage, error) {
 
 func (region *SRegion) GetImages(imageId string) ([]SImage, error) {
 	images := []SImage{}
-	params := []string{}
+	params := []string{"q=system=false"}
 	if len(imageId) > 0 {
 		params = append(params, "q=uuid="+imageId)
 	}
