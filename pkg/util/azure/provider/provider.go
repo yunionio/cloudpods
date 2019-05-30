@@ -29,6 +29,7 @@ import (
 )
 
 type SAzureProviderFactory struct {
+	cloudprovider.SPublicCloudBaseProviderFactor
 }
 
 func (self *SAzureProviderFactory) GetId() string {
@@ -43,19 +44,7 @@ func (self *SAzureProviderFactory) ValidateChangeBandwidth(instanceId string, ba
 	return fmt.Errorf("Changing %s bandwidth is not supported", azure.CLOUD_PROVIDER_AZURE)
 }
 
-func (self *SAzureProviderFactory) IsPublicCloud() bool {
-	return true
-}
-
-func (self *SAzureProviderFactory) IsOnPremise() bool {
-	return false
-}
-
 func (self *SAzureProviderFactory) IsSupportPrepaidResources() bool {
-	return true
-}
-
-func (self *SAzureProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
 

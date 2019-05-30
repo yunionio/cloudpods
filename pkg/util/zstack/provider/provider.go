@@ -28,7 +28,7 @@ import (
 )
 
 type SZStackProviderFactory struct {
-	// providerTable map[string]*SZStackProvider
+	cloudprovider.SPrivateCloudBaseProviderFactor
 }
 
 func (self *SZStackProviderFactory) GetId() string {
@@ -37,26 +37,6 @@ func (self *SZStackProviderFactory) GetId() string {
 
 func (self *SZStackProviderFactory) GetName() string {
 	return zstack.CLOUD_PROVIDER_ZSTACK
-}
-
-func (self *SZStackProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
-	return nil
-}
-
-func (self *SZStackProviderFactory) IsPublicCloud() bool {
-	return false
-}
-
-func (self *SZStackProviderFactory) IsOnPremise() bool {
-	return false
-}
-
-func (self *SZStackProviderFactory) IsSupportPrepaidResources() bool {
-	return false
-}
-
-func (self *SZStackProviderFactory) NeedSyncSkuFromCloud() bool {
-	return true
 }
 
 func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {

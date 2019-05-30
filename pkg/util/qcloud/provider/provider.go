@@ -29,7 +29,7 @@ import (
 )
 
 type SQcloudProviderFactory struct {
-	// providerTable map[string]*SQcloudProvider
+	cloudprovider.SPublicCloudBaseProviderFactor
 }
 
 func (self *SQcloudProviderFactory) GetId() string {
@@ -45,22 +45,6 @@ func (self *SQcloudProviderFactory) ValidateChangeBandwidth(instanceId string, b
 		return fmt.Errorf("Only changes to the binding machine's EIP bandwidth are supported")
 	}
 	return nil
-}
-
-func (self *SQcloudProviderFactory) IsPublicCloud() bool {
-	return true
-}
-
-func (self *SQcloudProviderFactory) IsOnPremise() bool {
-	return false
-}
-
-func (self *SQcloudProviderFactory) IsSupportPrepaidResources() bool {
-	return true
-}
-
-func (self *SQcloudProviderFactory) NeedSyncSkuFromCloud() bool {
-	return false
 }
 
 func (self *SQcloudProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {

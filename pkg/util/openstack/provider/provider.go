@@ -29,7 +29,7 @@ import (
 )
 
 type SOpenStackProviderFactory struct {
-	// providerTable map[string]*SOpenStackProvider
+	cloudprovider.SPrivateCloudBaseProviderFactor
 }
 
 var EndpointTypes = []string{"admin", "internal", "public"}
@@ -40,26 +40,6 @@ func (self *SOpenStackProviderFactory) GetId() string {
 
 func (self *SOpenStackProviderFactory) GetName() string {
 	return openstack.CLOUD_PROVIDER_OPENSTACK
-}
-
-func (self *SOpenStackProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
-	return nil
-}
-
-func (self *SOpenStackProviderFactory) IsPublicCloud() bool {
-	return false
-}
-
-func (self *SOpenStackProviderFactory) IsOnPremise() bool {
-	return false
-}
-
-func (self *SOpenStackProviderFactory) IsSupportPrepaidResources() bool {
-	return false
-}
-
-func (self *SOpenStackProviderFactory) NeedSyncSkuFromCloud() bool {
-	return true
 }
 
 func (self *SOpenStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
