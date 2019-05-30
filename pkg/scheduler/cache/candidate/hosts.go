@@ -34,7 +34,6 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
-	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 	o "yunion.io/x/onecloud/pkg/scheduler/options"
 )
 
@@ -129,7 +128,7 @@ type HostDesc struct {
 	CreatingGuestCount int64 `json:"creating_guest_count"`
 	RunningGuestCount  int64 `json:"running_guest_count"`
 
-	Groups                    *GroupCounts          `json:"groups"`
+	//Groups                    *GroupCounts          `json:"groups"`
 	Metadata                  map[string]string     `json:"metadata"`
 	IsolatedDevices           []*IsolatedDeviceDesc `json:"isolated_devices"`
 	IsMaintenance             bool                  `json:"is_maintenance"`
@@ -219,6 +218,8 @@ func NewGuestReservedResourceUsedByBuilder(b *HostBuilder, host *computemodels.S
 }
 
 type HostBuilder struct {
+	*baseBuilder
+
 	residentTenantDict map[string]map[string]interface{}
 
 	hosts    []computemodels.SHost
@@ -236,23 +237,29 @@ type HostBuilder struct {
 	hostGuests       map[string][]interface{}
 	hostBackupGuests map[string][]interface{}
 
-	groupGuests        []interface{}
-	groups             []interface{}
-	groupDict          map[string]interface{}
-	hostGroupCountDict HostGroupCountDict
+	//groupGuests        []interface{}
+	//groups             []interface{}
+	//groupDict          map[string]interface{}
+	//hostGroupCountDict HostGroupCountDict
 
-	hostMetadatas      []interface{}
-	hostMetadatasDict  map[string][]interface{}
-	guestMetadatas     []interface{}
-	guestMetadatasDict map[string][]interface{}
+	//hostMetadatas      []interface{}
+	//hostMetadatasDict  map[string][]interface{}
+	//guestMetadatas     []interface{}
+	//guestMetadatasDict map[string][]interface{}
 
-	diskStats           []models.StorageCapacity
+	//diskStats           []models.StorageCapacity
 	isolatedDevicesDict map[string][]interface{}
 
 	cpuIOLoads map[string]map[string]float64
 
 	schedtags []computemodels.SSchedtag
 	zoneSkus  map[string][]computemodels.SServerSku
+}
+
+func newHostBuilder() *HostBuilder {
+	return &HostBuilder{
+		baseBuilder: newBaseBuilder(HostDescBuilder),
+	}
 }
 
 func (h *HostDesc) String() string {
@@ -499,7 +506,7 @@ func waitTimeOut(wg *WaitGroupWrapper, timeout time.Duration) bool {
 	}
 }
 
-func (b *HostBuilder) init(ids []string, dbCache DBGroupCacher, syncCache SyncGroupCacher) error {
+func (b *HostBuilder) init(ids []string) error {
 	wg := &WaitGroupWrapper{}
 	errMessageChannel := make(chan error, 12)
 	defer close(errMessageChannel)
@@ -508,16 +515,8 @@ func (b *HostBuilder) init(ids []string, dbCache DBGroupCacher, syncCache SyncGr
 		func() { b.setSchedtags(ids, errMessageChannel) },
 		func() {
 			b.setGuests(ids, errMessageChannel)
-			b.setGroupInfo(errMessageChannel)
-			b.setMetadataInfo(ids, errMessageChannel)
+			b.setIsolatedDevs(ids, errMessageChannel)
 		},
-		func() {
-			//b.setStorages(ids, errMessageChannel)
-			b.setDiskStats(errMessageChannel)
-		},
-		func() { b.setMetadataInfo(ids, errMessageChannel) },
-		func() { b.setIsolatedDevs(ids, errMessageChannel) },
-		func() { b.setCPUIOLoadInfo(errMessageChannel) },
 	}
 
 	for _, f := range setFuncs {
@@ -577,33 +576,6 @@ func (b *HostBuilder) setSchedtags(ids []string, errMessageChannel chan error) {
 	b.schedtags = tags
 }
 
-//func (b *HostBuilder) setStorages(ids []string, errMessageChannel chan error) {
-//q := computemodels.HoststorageManager.Query().In("host_id", ids)
-//hostStorages := make([]computemodels.SHoststorage, 0)
-//err := computedb.FetchModelObjects(computemodels.HoststorageManager, q, &hostStorages)
-//if err != nil {
-//errMessageChannel <- err
-//return
-//}
-
-////hostStoragesDict := make(map[string][]*computemodels.SStorage)
-
-//for _, s := range hostStorages {
-//if ss, ok := hostStoragesDict[s.HostId]; !ok {
-//storage := s.GetStorage()
-//ss = make([]*computemodels.SStorage, 0)
-//ss = append(ss, storage)
-//hostStoragesDict[s.HostId] = ss
-//} else {
-//ss = append(ss, s.GetStorage())
-//}
-//}
-
-//b.hostStorages = hostStorages
-//b.hostStoragesDict = hostStoragesDict
-//return
-//}
-
 func (b *HostBuilder) setGuests(ids []string, errMessageChannel chan error) {
 	guests, err := FetchGuestByHostIDs(ids)
 	if err != nil {
@@ -660,158 +632,154 @@ func (b *HostBuilder) setGuests(ids []string, errMessageChannel chan error) {
 	return
 }
 
-func (b *HostBuilder) setGroupInfo(errMessageChannel chan error) {
-	groupGuests, err := models.FetchByGuestIDs(models.GroupGuests, b.guestIDs)
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
+//func (b *HostBuilder) setGroupInfo(errMessageChannel chan error) {
+//groupGuests, err := models.FetchByGuestIDs(models.GroupGuests, b.guestIDs)
+//if err != nil {
+//errMessageChannel <- err
+//return
+//}
 
-	groupIds, err := utils.SelectDistinct(groupGuests, func(obj interface{}) (string, error) {
-		g, ok := obj.(*models.GroupGuest)
-		if !ok {
-			return "", utils.ConvertError(obj, "*models.GroupGuest")
-		}
-		return g.GroupID, nil
-	})
+//groupIds, err := utils.SelectDistinct(groupGuests, func(obj interface{}) (string, error) {
+//g, ok := obj.(*models.GroupGuest)
+//if !ok {
+//return "", utils.ConvertError(obj, "*models.GroupGuest")
+//}
+//return g.GroupID, nil
+//})
 
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
+//if err != nil {
+//errMessageChannel <- err
+//return
+//}
 
-	groups, err := models.FetchGroupByIDs(groupIds)
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
+//groups, err := models.FetchGroupByIDs(groupIds)
+//if err != nil {
+//errMessageChannel <- err
+//return
+//}
 
-	groupDict, err := utils.ToDict(groups, func(obj interface{}) (string, error) {
-		grp, ok := obj.(*models.Group)
-		if !ok {
-			return "", utils.ConvertError(obj, "*models.Group")
-		}
-		return grp.ID, nil
-	})
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-	b.groups = groups
-	b.groupDict = groupDict
-	b.groupGuests = groupGuests
-	hostGroupCountDict, err := b.toHostGroupCountDict(groupGuests)
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-	b.hostGroupCountDict = hostGroupCountDict
-	return
-}
+//groupDict, err := utils.ToDict(groups, func(obj interface{}) (string, error) {
+//grp, ok := obj.(*models.Group)
+//if !ok {
+//return "", utils.ConvertError(obj, "*models.Group")
+//}
+//return grp.ID, nil
+//})
+//if err != nil {
+//errMessageChannel <- err
+//return
+//}
+//b.groups = groups
+//b.groupDict = groupDict
+//b.groupGuests = groupGuests
+//hostGroupCountDict, err := b.toHostGroupCountDict(groupGuests)
+//if err != nil {
+//errMessageChannel <- err
+//return
+//}
+//b.hostGroupCountDict = hostGroupCountDict
+//return
+//}
 
-type GroupCount struct {
-	ID    string `json:"id"`    // group id
-	Name  string `json:"name"`  // group name
-	Count int64  `json:"count"` // guest count
-}
+//type GroupCount struct {
+//ID    string `json:"id"`    // group id
+//Name  string `json:"name"`  // group name
+//Count int64  `json:"count"` // guest count
+//}
 
-type GroupCounts struct {
-	Data map[string]*GroupCount `json:"data"` // group_id: group_count
-}
+//type GroupCounts struct {
+//Data map[string]*GroupCount `json:"data"` // group_id: group_count
+//}
 
-func NewGroupCounts() *GroupCounts {
-	return &GroupCounts{
-		Data: make(map[string]*GroupCount),
-	}
-}
+//func NewGroupCounts() *GroupCounts {
+//return &GroupCounts{
+//Data: make(map[string]*GroupCount),
+//}
+//}
 
-type HostGroupCountDict map[string]*GroupCounts
+//type HostGroupCountDict map[string]*GroupCounts
 
-func (b *HostBuilder) toHostGroupCountDict(groupGuests []interface{}) (HostGroupCountDict, error) {
-	d := make(map[string]*GroupCounts)
-	for _, groupGuestObj := range groupGuests {
-		groupGuest := groupGuestObj.(*models.GroupGuest)
-		groupObj, grpOK := b.groupDict[groupGuest.GroupID]
-		guestObj, gstOK := b.guestDict[*groupGuest.GuestID]
-		if !grpOK || !gstOK {
-			continue
-		}
-		hostObj, ok := b.hostDict[guestObj.(*models.Guest).HostID]
-		if !ok {
-			continue
-		}
-		host := hostObj.(*models.Host)
-		group := groupObj.(*models.Group)
+//func (b *HostBuilder) toHostGroupCountDict(groupGuests []interface{}) (HostGroupCountDict, error) {
+//d := make(map[string]*GroupCounts)
+//for _, groupGuestObj := range groupGuests {
+//groupGuest := groupGuestObj.(*models.GroupGuest)
+//groupObj, grpOK := b.groupDict[groupGuest.GroupID]
+//guestObj, gstOK := b.guestDict[*groupGuest.GuestID]
+//if !grpOK || !gstOK {
+//continue
+//}
+//hostObj, ok := b.hostDict[guestObj.(*models.Guest).HostID]
+//if !ok {
+//continue
+//}
+//host := hostObj.(*models.Host)
+//group := groupObj.(*models.Group)
 
-		counts, ok := d[host.ID]
-		if !ok {
-			counts = NewGroupCounts()
-			d[host.ID] = counts
-		}
-		count, ok := counts.Data[group.ID]
-		if !ok {
-			count = &GroupCount{ID: group.ID, Name: group.Name, Count: 1}
-			counts.Data[group.ID] = count
-		} else {
-			count.Count++
-		}
-		counts.Data[host.ID] = count
-	}
-	return d, nil
-}
+//counts, ok := d[host.ID]
+//if !ok {
+//counts = NewGroupCounts()
+//d[host.ID] = counts
+//}
+//count, ok := counts.Data[group.ID]
+//if !ok {
+//count = &GroupCount{ID: group.ID, Name: group.Name, Count: 1}
+//counts.Data[group.ID] = count
+//} else {
+//count.Count++
+//}
+//counts.Data[host.ID] = count
+//}
+//return d, nil
+//}
 
-func (b *HostBuilder) setMetadataInfo(hostIDs []string, errMessageChannel chan error) {
-	hostMetadataNames := []string{"dynamic_load_cpu_percent", "dynamic_load_io_util",
-		"enable_sriov", "bridge_driver"}
-	hostMetadataNames = append(hostMetadataNames, models.HostExtraFeature...)
-	hostMetadatas, err := models.FetchMetadatas(models.HostResourceName, hostIDs, hostMetadataNames)
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-	guestMetadataNames := []string{"app_tags"}
-	guestMetadatas, err := models.FetchMetadatas(models.GuestResourceName, b.guestIDs, guestMetadataNames)
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-	idFunc := func(obj interface{}) (string, error) {
-		metadata, ok := obj.(*models.Metadata)
-		if !ok {
-			return "", utils.ConvertError(obj, "*models.Metadata")
-		}
-		id := strings.Split(metadata.ID, "::")[1]
-		return id, nil
-	}
-	hostMetadatasDict, err := utils.GroupBy(hostMetadatas, idFunc)
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-	guestMetadatasDict, err := utils.GroupBy(guestMetadatas, idFunc)
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
-	b.hostMetadatas = hostMetadatas
-	b.hostMetadatasDict = hostMetadatasDict
-	b.guestMetadatas = guestMetadatas
-	b.guestMetadatasDict = guestMetadatasDict
-	return
-}
+//func (b *HostBuilder) setMetadataInfo(hostIDs []string, errMessageChannel chan error) {
+//hostMetadataNames := []string{"dynamic_load_cpu_percent", "dynamic_load_io_util",
+//"enable_sriov", "bridge_driver"}
+//hostMetadataNames = append(hostMetadataNames, models.HostExtraFeature...)
+//hostMetadatas, err := models.FetchMetadatas(models.HostResourceName, hostIDs, hostMetadataNames)
+//if err != nil {
+//errMessageChannel <- err
+//return
+//}
+//guestMetadataNames := []string{"app_tags"}
+//guestMetadatas, err := models.FetchMetadatas(models.GuestResourceName, b.guestIDs, guestMetadataNames)
+//if err != nil {
+//errMessageChannel <- err
+//return
+//}
+//idFunc := func(obj interface{}) (string, error) {
+//metadata, ok := obj.(*models.Metadata)
+//if !ok {
+//return "", utils.ConvertError(obj, "*models.Metadata")
+//}
+//id := strings.Split(metadata.ID, "::")[1]
+//return id, nil
+//}
+//hostMetadatasDict, err := utils.GroupBy(hostMetadatas, idFunc)
+//if err != nil {
+//errMessageChannel <- err
+//return
+//}
+//guestMetadatasDict, err := utils.GroupBy(guestMetadatas, idFunc)
+//if err != nil {
+//errMessageChannel <- err
+//return
+//}
+//b.hostMetadatas = hostMetadatas
+//b.hostMetadatasDict = hostMetadatasDict
+//b.guestMetadatas = guestMetadatas
+//b.guestMetadatasDict = guestMetadatasDict
+//return
+//}
 
 func (b *HostBuilder) setIsolatedDevs(ids []string, errMessageChannel chan error) {
-	devs, err := models.FetchByHostIDs(models.IsolatedDevices, ids)
-	if err != nil {
-		errMessageChannel <- err
-		return
-	}
+	devs := computemodels.IsolatedDeviceManager.FindByHosts(ids)
 	dict, err := utils.GroupBy(devs, func(obj interface{}) (string, error) {
-		dev, ok := obj.(*models.IsolatedDevice)
+		dev, ok := obj.(computemodels.SIsolatedDevice)
 		if !ok {
-			return "", utils.ConvertError(obj, "*models.IsolatedDevice")
+			return "", utils.ConvertError(obj, "computemodels.SIsolatedDevice")
 		}
-		return dev.HostID, nil
+		return dev.HostId, nil
 	})
 	if err != nil {
 		errMessageChannel <- err
@@ -820,7 +788,7 @@ func (b *HostBuilder) setIsolatedDevs(ids []string, errMessageChannel chan error
 	b.isolatedDevicesDict = dict
 }
 
-func (b *HostBuilder) setDiskStats(errMessageChannel chan error) {
+/*func (b *HostBuilder) setDiskStats(errMessageChannel chan error) {
 	storageIDs := make([]string, len(b.storages))
 	func() {
 		for i, s := range b.storages {
@@ -840,41 +808,22 @@ func (b *HostBuilder) setDiskStats(errMessageChannel chan error) {
 	b.storageStatesSizeDict = storageStatesSizeDict
 	b.diskStats = capacities
 	return
-}
-
-func (b *HostBuilder) setCPUIOLoadInfo(errMessageChannel chan error) {
-	return
-}
+}*/
 
 func (b *HostBuilder) Clone() BuildActor {
-	return &HostBuilder{}
-}
-
-func (b *HostBuilder) Type() string {
-	return HostDescBuilder
+	return &HostBuilder{
+		baseBuilder: newBaseBuilder(HostDescBuilder),
+	}
 }
 
 func (b *HostBuilder) AllIDs() ([]string, error) {
 	q := computemodels.HostManager.Query("id")
 	q = q.Filter(sqlchemy.NotEquals(q.Field("host_type"), computeapi.HOST_TYPE_BAREMETAL))
-	rs, err := q.Rows()
-	if err != nil {
-		return nil, err
-	}
-	ret := []string{}
-	defer rs.Close()
-	for rs.Next() {
-		var id string
-		if err := rs.Scan(&id); err != nil {
-			return nil, err
-		}
-		ret = append(ret, id)
-	}
-	return ret, nil
+	return FetchModelIds(q)
 }
 
-func (b *HostBuilder) Do(ids []string, dbCache DBGroupCacher, syncCache SyncGroupCacher) ([]interface{}, error) {
-	err := b.init(ids, dbCache, syncCache)
+func (b *HostBuilder) Do(ids []string) ([]interface{}, error) {
+	err := b.init(ids)
 	if err != nil {
 		return nil, err
 	}
@@ -943,7 +892,7 @@ func (b *HostBuilder) buildOne(host *computemodels.SHost) (interface{}, error) {
 
 	fillFuncs := []func(*HostDesc, *computemodels.SHost) error{
 		b.fillGuestsResourceInfo,
-		b.fillResidentGroups,
+		//b.fillResidentGroups,
 		b.fillMetadata,
 		b.fillIsolatedDevices,
 		b.fillCPUIOLoads,
@@ -1011,14 +960,14 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 		cpuReqCount += int64(guest.VcpuCount)
 		memReqSize += int64(guest.VmemSize)
 
-		appTags := b.guestAppTags(guest)
-		for _, tag := range appTags {
-			if tag == "cpu_bound" {
-				cpuBoundCount += int64(guest.VcpuCount)
-			} else if tag == "io_bound" {
-				ioBoundCount++
-			}
-		}
+		//appTags := b.guestAppTags(guest)
+		//for _, tag := range appTags {
+		//if tag == "cpu_bound" {
+		//cpuBoundCount += int64(guest.VcpuCount)
+		//} else if tag == "io_bound" {
+		//ioBoundCount++
+		//}
+		//}
 	}
 	desc.GuestCount = guestCount
 	desc.CreatingGuestCount = creatingGuestCount
@@ -1073,7 +1022,7 @@ func (b *HostBuilder) fillGuestsResourceInfo(desc *HostDesc, host *computemodels
 	return nil
 }
 
-func (b *HostBuilder) guestAppTags(guest computemodels.SGuest) []string {
+/*func (b *HostBuilder) guestAppTags(guest computemodels.SGuest) []string {
 	metadatas, ok := b.guestMetadatasDict[guest.GetId()]
 	if !ok {
 		return []string{}
@@ -1123,20 +1072,15 @@ func (b *HostBuilder) fillResidentGroups(desc *HostDesc, host *computemodels.SHo
 	}
 	desc.Groups = groups
 	return nil
-}
+}*/
 
 func (b *HostBuilder) fillMetadata(desc *HostDesc, host *computemodels.SHost) error {
-	metadataObjs, ok := b.hostMetadatasDict[host.Id]
-	if !ok {
+	metadata, err := host.GetAllMetadata(nil)
+	if err != nil {
+		log.Errorf("Get host %s metadata: %v", desc.GetId(), err)
 		return nil
 	}
-	for _, obj := range metadataObjs {
-		metadata, ok := obj.(*models.Metadata)
-		if !ok {
-			return utils.ConvertError(obj, "*models.Metadata")
-		}
-		desc.Metadata[metadata.Key] = metadata.Value
-	}
+	desc.Metadata = metadata
 	return nil
 }
 
@@ -1200,23 +1144,23 @@ func (i *IsolatedDeviceDesc) GetVendorModel() *VendorModel {
 	}
 }
 
-func (b *HostBuilder) getIsolatedDevices(hostID string) (devs []*models.IsolatedDevice) {
+func (b *HostBuilder) getIsolatedDevices(hostID string) (devs []computemodels.SIsolatedDevice) {
 	devObjs, ok := b.isolatedDevicesDict[hostID]
-	devs = make([]*models.IsolatedDevice, 0)
+	devs = make([]computemodels.SIsolatedDevice, 0)
 	if !ok {
 		return
 	}
 	for _, obj := range devObjs {
-		dev := obj.(*models.IsolatedDevice)
+		dev := obj.(computemodels.SIsolatedDevice)
 		devs = append(devs, dev)
 	}
 	return
 }
 
-func (b *HostBuilder) getUsedIsolatedDevices(hostID string) (devs []*models.IsolatedDevice) {
-	devs = make([]*models.IsolatedDevice, 0)
+func (b *HostBuilder) getUsedIsolatedDevices(hostID string) (devs []computemodels.SIsolatedDevice) {
+	devs = make([]computemodels.SIsolatedDevice, 0)
 	for _, dev := range b.getIsolatedDevices(hostID) {
-		if len(dev.GuestID) != 0 {
+		if len(dev.GuestId) != 0 {
 			devs = append(devs, dev)
 		}
 	}
@@ -1231,7 +1175,7 @@ func (b *HostBuilder) getIsolatedDeviceGuests(hostID string) (guests []computemo
 	}
 	ids := sets.NewString()
 	for _, dev := range usedDevs {
-		g, ok := b.guestDict[dev.GuestID]
+		g, ok := b.guestDict[dev.GuestId]
 		if !ok {
 			continue
 		}
@@ -1244,10 +1188,10 @@ func (b *HostBuilder) getIsolatedDeviceGuests(hostID string) (guests []computemo
 	return
 }
 
-func (b *HostBuilder) getUnusedIsolatedDevices(hostID string) (devs []*models.IsolatedDevice) {
-	devs = make([]*models.IsolatedDevice, 0)
+func (b *HostBuilder) getUnusedIsolatedDevices(hostID string) (devs []computemodels.SIsolatedDevice) {
+	devs = make([]computemodels.SIsolatedDevice, 0)
 	for _, dev := range b.getIsolatedDevices(hostID) {
-		if len(dev.GuestID) == 0 {
+		if len(dev.GuestId) == 0 {
 			devs = append(devs, dev)
 		}
 	}
@@ -1264,13 +1208,13 @@ func (b *HostBuilder) fillIsolatedDevices(desc *HostDesc, host *computemodels.SH
 	devs := make([]*IsolatedDeviceDesc, len(allDevs))
 	for index, devModel := range allDevs {
 		dev := &IsolatedDeviceDesc{
-			ID:             devModel.ID,
-			GuestID:        devModel.GuestID,
-			HostID:         devModel.HostID,
+			ID:             devModel.Id,
+			GuestID:        devModel.GuestId,
+			HostID:         devModel.HostId,
 			DevType:        devModel.DevType,
 			Model:          devModel.Model,
 			Addr:           devModel.Addr,
-			VendorDeviceID: devModel.VendorDeviceID,
+			VendorDeviceID: devModel.VendorDeviceId,
 		}
 		devs[index] = dev
 	}

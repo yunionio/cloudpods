@@ -19,17 +19,14 @@ import (
 	"strings"
 	"time"
 
-	fjson "github.com/json-iterator/go"
-
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/sqlchemy"
 
+	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
-	"yunion.io/x/onecloud/pkg/scheduler/cache"
-	"yunion.io/x/onecloud/pkg/scheduler/cache/db"
-	"yunion.io/x/onecloud/pkg/scheduler/core"
-	"yunion.io/x/onecloud/pkg/scheduler/db/models"
-
 	computemodels "yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
 type baremetalGetter struct {
@@ -63,16 +60,15 @@ func (h baremetalGetter) StorageInfo() []*baremetal.BaremetalStorage {
 type BaremetalDesc struct {
 	*BaseHostDesc
 
-	StorageInfo   []*baremetal.BaremetalStorage `json:"storage_info"`
-	StorageType   string                        `json:"storage_type"`
-	StorageSize   int64                         `json:"storage_size"`
-	StorageDriver string                        `json:"storage_driver"`
-	ServerID      string                        `json:"server_id"`
+	StorageInfo []*baremetal.BaremetalStorage `json:"storage_info"`
+	StorageType string                        `json:"storage_type"`
+	StorageSize int64                         `json:"storage_size"`
+	ServerID    string                        `json:"server_id"`
 }
 
 type BaremetalBuilder struct {
-	baremetalAgents cache.Cache
-	baremetals      []interface{}
+	*baseBuilder
+	baremetals []computemodels.SHost
 
 	residentTenantDict map[string]map[string]interface{}
 }
@@ -82,8 +78,7 @@ func (bd *BaremetalDesc) Getter() core.CandidatePropertyGetter {
 }
 
 func (bd *BaremetalDesc) String() string {
-	s, _ := fjson.Marshal(bd)
-	return string(s)
+	return jsonutils.Marshal(bd).String()
 }
 
 func (bd *BaremetalDesc) Type() int {
@@ -123,18 +118,19 @@ func (bd *BaremetalDesc) FreeStorageSize() int64 {
 	return 0
 }
 
-func (bb *BaremetalBuilder) init(ids []string, dbCache DBGroupCacher, syncCache SyncGroupCacher) error {
-	agents, err := dbCache.Get(db.BaremetalAgentDBCache)
+func newBaremetalBuilder() *BaremetalBuilder {
+	return &BaremetalBuilder{
+		baseBuilder: newBaseBuilder(BaremetalDescBuilder),
+	}
+}
+
+func (bb *BaremetalBuilder) init(ids []string) error {
+	bms, err := FetchHostsByIds(ids)
 	if err != nil {
 		return err
 	}
 
-	bms, err := models.FetchBaremetalHostByIDs(ids)
-	if err != nil {
-		return err
-	}
-
-	bb.baremetalAgents = agents
+	//bb.baremetalAgents = agents
 	bb.baremetals = bms
 
 	wg := &WaitGroupWrapper{}
@@ -164,19 +160,19 @@ func (bb *BaremetalBuilder) init(ids []string, dbCache DBGroupCacher, syncCache 
 }
 
 func (bb *BaremetalBuilder) Clone() BuildActor {
-	return &BaremetalBuilder{}
-}
-
-func (bb *BaremetalBuilder) Type() string {
-	return BaremetalDescBuilder
+	return &BaremetalBuilder{
+		baseBuilder: newBaseBuilder(BaremetalDescBuilder),
+	}
 }
 
 func (bb *BaremetalBuilder) AllIDs() ([]string, error) {
-	return models.AllBaremetalIDs()
+	q := computemodels.HostManager.Query("id")
+	q = q.Filter(sqlchemy.Equals(q.Field("host_type"), computeapi.HOST_TYPE_BAREMETAL))
+	return FetchModelIds(q)
 }
 
-func (bb *BaremetalBuilder) Do(ids []string, dbCache DBGroupCacher, syncCache SyncGroupCacher) ([]interface{}, error) {
-	err := bb.init(ids, dbCache, syncCache)
+func (bb *BaremetalBuilder) Do(ids []string) ([]interface{}, error) {
+	err := bb.init(ids)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +187,7 @@ func (bb *BaremetalBuilder) Do(ids []string, dbCache DBGroupCacher, syncCache Sy
 func (bb *BaremetalBuilder) build() ([]interface{}, error) {
 	schedDescs := []interface{}{}
 	for _, bm := range bb.baremetals {
-		desc, err := bb.buildOne(bm.(*models.Host))
+		desc, err := bb.buildOne(&bm)
 		if err != nil {
 			log.Errorf("BaremetalBuilder error: %v", err)
 			continue
@@ -201,8 +197,7 @@ func (bb *BaremetalBuilder) build() ([]interface{}, error) {
 	return schedDescs, nil
 }
 
-func (bb *BaremetalBuilder) buildOne(bm *models.Host) (interface{}, error) {
-	hostObj := computemodels.HostManager.FetchHostById(bm.ID)
+func (bb *BaremetalBuilder) buildOne(hostObj *computemodels.SHost) (interface{}, error) {
 	baseDesc, err := newBaseHostDesc(hostObj)
 	if err != nil {
 		return nil, err
@@ -211,22 +206,15 @@ func (bb *BaremetalBuilder) buildOne(bm *models.Host) (interface{}, error) {
 		BaseHostDesc: baseDesc,
 	}
 
-	desc.StorageDriver = bm.StorageDriver
-	desc.StorageType = bm.StorageType
-	desc.StorageSize = int64(bm.StorageSize)
+	desc.StorageDriver = hostObj.StorageDriver
+	desc.StorageType = hostObj.StorageType
+	desc.StorageSize = int64(hostObj.StorageSize)
 
-	var baremetalStorages []*baremetal.BaremetalStorage
-	err = fjson.Unmarshal([]byte(bm.StorageInfo), &baremetalStorages)
-	if err != nil {
-		// StorageInfo maybe is NULL
-		if bm.StorageInfo != "" {
-			log.Errorln(err)
-		}
-	}
+	baremetalStorages := computemodels.ConvertStorageInfo2BaremetalStorages(hostObj.StorageInfo)
 	desc.StorageInfo = baremetalStorages
 	desc.Tenants = make(map[string]int64, 0)
 
-	err = bb.fillServerID(desc, bm)
+	err = bb.fillServerID(desc, hostObj)
 	if err != nil {
 		return nil, err
 	}
@@ -234,26 +222,13 @@ func (bb *BaremetalBuilder) buildOne(bm *models.Host) (interface{}, error) {
 	return desc, nil
 }
 
-func (bb *BaremetalBuilder) fillServerID(desc *BaremetalDesc, b *models.Host) error {
-	guests, err := models.FetchGuestByHostIDsWithCond([]string{b.ID},
-		map[string]interface{}{
-			"hypervisor": "baremetal",
-		})
-	if err != nil {
-		return err
+func (bb *BaremetalBuilder) fillServerID(desc *BaremetalDesc, b *computemodels.SHost) error {
+	guest := b.GetBaremetalServer()
+	srvId := ""
+	if guest != nil {
+		srvId = guest.GetId()
 	}
-
-	if len(guests) == 0 {
-		desc.ServerID = ""
-	} else if len(guests) == 1 {
-		desc.ServerID = guests[0].(*models.Guest).ID
-	} else {
-		return fmt.Errorf("One baremetal %q contains %d guests, %v", b.Name, len(guests), guests)
-	}
+	desc.ServerID = srvId
 
 	return nil
-}
-
-func (b *BaremetalBuilder) getZoneID(bm *models.Host) string {
-	return bm.ZoneID
 }

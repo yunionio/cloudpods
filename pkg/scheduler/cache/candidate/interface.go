@@ -38,5 +38,6 @@ type BuildActor interface {
 	Clone() BuildActor
 	Type() string
 	AllIDs() ([]string, error)
-	Do(ids []string, db DBGroupCacher, sync SyncGroupCacher) ([]interface{}, error)
+	//Do(ids []string, db DBGroupCacher, sync SyncGroupCacher) ([]interface{}, error)
+	Do(ids []string) ([]interface{}, error)
 }
