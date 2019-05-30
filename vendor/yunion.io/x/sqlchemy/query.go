@@ -398,6 +398,7 @@ func (tq *SQuery) Rows() (*sql.Rows, error) {
 	return _db.Query(sqlstr, vars...)
 }
 
+// deprecated
 func (tq *SQuery) Count() int {
 	cnt, _ := tq.CountWithError()
 	return cnt
