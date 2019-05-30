@@ -18,13 +18,10 @@ import (
 	"fmt"
 	"time"
 
-	//"yunion.io/x/pkg/util/ttlpool"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/scheduler/cache"
 	candidatecache "yunion.io/x/onecloud/pkg/scheduler/cache/candidate"
-	dbcache "yunion.io/x/onecloud/pkg/scheduler/cache/db"
-	synccache "yunion.io/x/onecloud/pkg/scheduler/cache/sync"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
 )
 
@@ -37,24 +34,20 @@ type CandidateGetArgs struct {
 }
 
 type DataManager struct {
-	DBCacheGroup   cache.CacheGroup
 	SyncCacheGroup cache.CacheGroup
 	CandidateGroup cache.CacheGroup
 }
 
 func NewDataManager(stopCh <-chan struct{}) *DataManager {
 	m := new(DataManager)
-	m.DBCacheGroup = dbcache.NewCacheManager(stopCh)
-	m.SyncCacheGroup = synccache.NewSyncManager(stopCh)
-	m.CandidateGroup = candidatecache.NewCandidateManager(
-		m.DBCacheGroup, m.SyncCacheGroup, stopCh)
+	//m.SyncCacheGroup = synccache.NewSyncManager(stopCh)
+	m.CandidateGroup = candidatecache.NewCandidateManager(stopCh)
 
 	return m
 }
 
 func (m *DataManager) Run() {
-	go m.DBCacheGroup.Run()
-	go m.SyncCacheGroup.Run()
+	//go m.SyncCacheGroup.Run()
 	go m.CandidateGroup.Run()
 }
 
@@ -330,16 +323,6 @@ func (cm *CandidateManager) Run() {
 	for _, impl := range cm.impls {
 		impl.Run()
 	}
-}
-
-func (cm *CandidateManager) GetData(name string) ([]interface{}, error) {
-	cache, err := cm.dataManager.DBCacheGroup.Get(name)
-	if err != nil {
-		return nil, err
-	}
-
-	cache.WaitForReady()
-	return cache.List(), nil
 }
 
 func (cm *CandidateManager) Reload(resType string, candidateIds []string) (

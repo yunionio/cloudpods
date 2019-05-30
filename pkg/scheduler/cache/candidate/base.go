@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/scheduler/api"
-	"yunion.io/x/onecloud/pkg/scheduler/db/models"
 
 	computeapi "yunion.io/x/onecloud/pkg/apis/compute"
 	computedb "yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -332,7 +331,7 @@ func (h *BaseHostDesc) GetHostType() string {
 }
 
 func HostsResidentTenantStats(hostIDs []string) (map[string]map[string]interface{}, error) {
-	residentTenantStats, err := models.ResidentTenantsInHosts(hostIDs)
+	residentTenantStats, err := FetchHostsResidentTenants(hostIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -361,19 +360,15 @@ func HostResidentTenantCount(id string) (map[string]int64, error) {
 }
 
 type DescBuilder struct {
-	dbGroupCache   DBGroupCacher
-	syncGroupCache SyncGroupCacher
-	actor          BuildActor
+	actor BuildActor
 }
 
-func NewDescBuilder(db DBGroupCacher, sync SyncGroupCacher, act BuildActor) *DescBuilder {
+func NewDescBuilder(act BuildActor) *DescBuilder {
 	return &DescBuilder{
-		dbGroupCache:   db,
-		syncGroupCache: sync,
-		actor:          act,
+		actor: act,
 	}
 }
 
 func (d *DescBuilder) Build(ids []string) ([]interface{}, error) {
-	return d.actor.Do(ids, d.dbGroupCache, d.syncGroupCache)
+	return d.actor.Do(ids)
 }
