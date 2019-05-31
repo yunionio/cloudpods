@@ -20,17 +20,18 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
-	"github.com/pkg/errors"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -49,6 +50,7 @@ func init() {
 			"assignments",
 		),
 	}
+	AssignmentManager.SetVirtualObject(AssignmentManager)
 }
 
 /*
@@ -79,17 +81,17 @@ func (manager *SAssignmentManager) InitializeData() error {
 }
 
 func (manager *SAssignmentManager) initSysAssignment() error {
-	adminUser, err := UserManager.FetchUserExtended("", options.Options.AdminUserName, options.Options.AdminUserDomainId, "")
+	adminUser, err := UserManager.FetchUserExtended("", api.SystemAdminUser, api.DEFAULT_DOMAIN_ID, "")
 	if err != nil {
-		return errors.WithMessage(err, "FetchUserExtended")
+		return errors.Wrap(err, "FetchUserExtended")
 	}
-	adminProject, err := ProjectManager.FetchProjectByName(options.Options.AdminProjectName, options.Options.AdminProjectDomainId, "")
+	adminProject, err := ProjectManager.FetchProjectByName(api.SystemAdminProject, api.DEFAULT_DOMAIN_ID, "")
 	if err != nil {
-		return errors.WithMessage(err, "FetchProjectByName")
+		return errors.Wrap(err, "FetchProjectByName")
 	}
-	adminRole, err := RoleManager.FetchRoleByName(options.Options.AdminRoleName, options.Options.AdminRoleDomainId, "")
+	adminRole, err := RoleManager.FetchRoleByName(api.SystemAdminRole, api.DEFAULT_DOMAIN_ID, "")
 	if err != nil {
-		return errors.WithMessage(err, "FetchRoleByName")
+		return errors.Wrap(err, "FetchRoleByName")
 	}
 
 	q := manager.Query().Equals("type", api.AssignmentUserProject)
@@ -99,11 +101,11 @@ func (manager *SAssignmentManager) initSysAssignment() error {
 	q = q.IsFalse("inherited")
 
 	assign := SAssignment{}
-	assign.SetModelManager(manager)
+	assign.SetModelManager(manager, &assign)
 
 	err = q.First(&assign)
 	if err != nil && err != sql.ErrNoRows {
-		return errors.WithMessage(err, "query")
+		return errors.Wrap(err, "query")
 	}
 	if err == nil {
 		return nil
@@ -117,7 +119,7 @@ func (manager *SAssignmentManager) initSysAssignment() error {
 
 	err = manager.TableSpec().Insert(&assign)
 	if err != nil {
-		return errors.WithMessage(err, "insert")
+		return errors.Wrap(err, "insert")
 	}
 
 	return nil
@@ -240,6 +242,17 @@ func (manager *SAssignmentManager) fetchProjectUserIdsQuery(projId string) *sqlc
 }
 
 func (manager *SAssignmentManager) projectAddUser(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, user *SUser, role *SRole) error {
+	if project.DomainId != user.DomainId {
+		if project.DomainId != api.DEFAULT_DOMAIN_ID {
+			return httperrors.NewInputParameterError("join user into project of default domain or identical domain")
+		} else if !db.IsAllowPerform(rbacutils.ScopeSystem, userCred, user, "join-project") {
+			return httperrors.NewForbiddenError("not enough privilege")
+		}
+	} else {
+		if !db.IsAllowPerform(rbacutils.ScopeDomain, userCred, user, "join-project") {
+			return httperrors.NewForbiddenError("not enough privilege")
+		}
+	}
 	err := manager.add(api.AssignmentUserProject, user.Id, project.Id, role.Id)
 	if err == nil {
 		db.OpsLog.LogEvent(user, db.ACT_ATTACH, project.GetShortDesc(ctx), userCred)
@@ -249,6 +262,9 @@ func (manager *SAssignmentManager) projectAddUser(ctx context.Context, userCred 
 }
 
 func (manager *SAssignmentManager) projectRemoveUser(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, user *SUser, role *SRole) error {
+	if project.IsAdminProject() && user.IsAdminUser() && role.IsSystemRole() {
+		return httperrors.NewForbiddenError("sysadmin is protected")
+	}
 	err := manager.remove(api.AssignmentUserProject, user.Id, project.Id, role.Id)
 	if err == nil {
 		db.OpsLog.LogEvent(user, db.ACT_DETACH, project.GetShortDesc(ctx), userCred)
@@ -258,6 +274,17 @@ func (manager *SAssignmentManager) projectRemoveUser(ctx context.Context, userCr
 }
 
 func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, group *SGroup, role *SRole) error {
+	if project.DomainId != group.DomainId {
+		if project.DomainId != api.DEFAULT_DOMAIN_ID {
+			return httperrors.NewInputParameterError("join group into project of default domain or identical domain")
+		} else if !db.IsAllowPerform(rbacutils.ScopeSystem, userCred, group, "join-project") {
+			return httperrors.NewForbiddenError("not enough privilege")
+		}
+	} else {
+		if !db.IsAllowPerform(rbacutils.ScopeDomain, userCred, group, "join-project") {
+			return httperrors.NewForbiddenError("not enough privilege")
+		}
+	}
 	err := manager.add(api.AssignmentGroupProject, group.Id, project.Id, role.Id)
 	if err == nil {
 		db.OpsLog.LogEvent(group, db.ACT_ATTACH, project.GetShortDesc(ctx), userCred)
@@ -283,7 +310,7 @@ func (manager *SAssignmentManager) remove(typeStr, actorId, projectId, roleId st
 		RoleId:    roleId,
 		Inherited: tristate.False,
 	}
-	assign.SetModelManager(manager)
+	assign.SetModelManager(manager, &assign)
 	_, err := db.Update(&assign, func() error {
 		return assign.MarkDelete()
 	})
@@ -301,7 +328,7 @@ func (manager *SAssignmentManager) add(typeStr, actorId, projectId, roleId strin
 		RoleId:    roleId,
 		Inherited: tristate.False,
 	}
-	assign.SetModelManager(manager)
+	assign.SetModelManager(manager, &assign)
 	return manager.TableSpec().InsertOrUpdate(&assign)
 }
 
@@ -482,23 +509,23 @@ func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, p
 
 	domains, err := fetchObjects(DomainManager, domainIds)
 	if err != nil {
-		return nil, errors.WithMessage(err, "fetchObjects DomainManager")
+		return nil, errors.Wrap(err, "fetchObjects DomainManager")
 	}
 	projects, err := fetchObjects(ProjectManager, projectIds)
 	if err != nil {
-		return nil, errors.WithMessage(err, "fetchObjects ProjectManager")
+		return nil, errors.Wrap(err, "fetchObjects ProjectManager")
 	}
 	groups, err := fetchObjects(GroupManager, groupIds)
 	if err != nil {
-		return nil, errors.WithMessage(err, "fetchObjects GroupManager")
+		return nil, errors.Wrap(err, "fetchObjects GroupManager")
 	}
 	users, err := fetchObjects(UserManager, userIds)
 	if err != nil {
-		return nil, errors.WithMessage(err, "fetchObjects UserManager")
+		return nil, errors.Wrap(err, "fetchObjects UserManager")
 	}
 	roles, err := fetchObjects(RoleManager, roleIds)
 	if err != nil {
-		return nil, errors.WithMessage(err, "fetchObjects RoleManager")
+		return nil, errors.Wrap(err, "fetchObjects RoleManager")
 	}
 
 	results := make([]SRoleAssignment, len(assigns))
@@ -528,7 +555,7 @@ func fetchObjects(manager db.IModelManager, idList []string) (map[string]SFetchD
 	objs := make([]SFetchDomainObject, 0)
 	err := q.All(&objs)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.WithMessage(err, "query")
+		return nil, errors.Wrap(err, "query")
 	}
 	for i := range objs {
 		results[objs[i].Id] = objs[i]

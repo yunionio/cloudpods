@@ -754,21 +754,29 @@ func (this *ArgumentParser) HelpString() string {
 	return buf.String()
 }
 
-func (this *ArgumentParser) findOptionalArgument(token string) Argument {
+func tokenMatch(argToken, input string, exactMatch bool) bool {
+	if exactMatch {
+		return argToken == input
+	} else {
+		return strings.HasPrefix(argToken, input)
+	}
+}
+
+func (this *ArgumentParser) findOptionalArgument(token string, exactMatch bool) Argument {
 	var match_arg Argument = nil
 	match_len := -1
 	for _, arg := range this.optArgs {
-		if strings.HasPrefix(arg.Token(), token) {
+		if tokenMatch(arg.Token(), token, exactMatch) {
 			if match_len < 0 || match_len > len(arg.Token()) {
 				match_len = len(arg.Token())
 				match_arg = arg
 			}
-		} else if strings.HasPrefix(arg.ShortToken(), token) {
+		} else if tokenMatch(arg.ShortToken(), token, exactMatch) {
 			if match_len < 0 || match_len > len(arg.ShortToken()) {
 				match_len = len(arg.ShortToken())
 				match_arg = arg
 			}
-		} else if strings.HasPrefix(arg.AliasToken(), token) {
+		} else if tokenMatch(arg.AliasToken(), token, exactMatch) {
 			if match_len < 0 || match_len > len(arg.AliasToken()) {
 				match_len = len(arg.AliasToken())
 				match_arg = arg
@@ -825,7 +833,7 @@ func (this *ArgumentParser) ParseArgs2(args []string, ignore_unknown bool, setDe
 	for i := 0; i < len(args) && err == nil; i++ {
 		argStr = args[i]
 		if strings.HasPrefix(argStr, "-") {
-			arg = this.findOptionalArgument(strings.TrimLeft(argStr, "-"))
+			arg = this.findOptionalArgument(strings.TrimLeft(argStr, "-"), false)
 			if arg != nil {
 				if arg.NeedData() {
 					if i+1 < len(args) {
@@ -899,7 +907,7 @@ func isQuoted(str string) bool {
 }
 
 func (this *ArgumentParser) parseKeyValue(key, value string) error {
-	arg := this.findOptionalArgument(key)
+	arg := this.findOptionalArgument(key, true)
 	if arg != nil {
 		if arg.IsMulti() {
 			if value[0] == '(' {

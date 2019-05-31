@@ -15,25 +15,23 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
-	"context"
-	"github.com/pkg/errors"
-	"yunion.io/x/jsonutils"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SDomainManager struct {
-	SIdentityBaseResourceManager
+	db.SStandaloneResourceBaseManager
 }
 
 var (
@@ -42,17 +40,27 @@ var (
 
 func init() {
 	DomainManager = &SDomainManager{
-		SIdentityBaseResourceManager: NewIdentityBaseResourceManager(
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
 			SDomain{},
 			"project",
 			"domain",
 			"domains",
 		),
 	}
+	DomainManager.SetVirtualObject(DomainManager)
 }
 
 type SDomain struct {
-	SBaseProject
+	db.SStandaloneResourceBase
+
+	Extra *jsonutils.JSONDict `nullable:"true"`
+
+	Enabled  tristate.TriState `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
+	IsDomain tristate.TriState `default:"false" nullable:"false" create:"admin_optional"`
+
+	// IdpId string `token:"parent_id" width:"64" charset:"ascii" index:"true" list:"admin"`
+
+	DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true"`
 }
 
 func (manager *SDomainManager) InitializeData() error {
@@ -62,7 +70,7 @@ func (manager *SDomainManager) InitializeData() error {
 		root.Id = api.KeystoneDomainRoot
 		root.Name = api.KeystoneDomainRoot
 		root.IsDomain = tristate.True
-		root.ParentId = api.KeystoneDomainRoot
+		// root.ParentId = api.KeystoneDomainRoot
 		root.DomainId = api.KeystoneDomainRoot
 		root.Enabled = tristate.False
 		root.Description = "The hidden root domain"
@@ -80,7 +88,7 @@ func (manager *SDomainManager) InitializeData() error {
 		defDomain.Id = api.DEFAULT_DOMAIN_ID
 		defDomain.Name = api.DEFAULT_DOMAIN_NAME
 		defDomain.IsDomain = tristate.True
-		defDomain.ParentId = api.KeystoneDomainRoot
+		// defDomain.ParentId = api.KeystoneDomainRoot
 		defDomain.DomainId = api.KeystoneDomainRoot
 		defDomain.Enabled = tristate.True
 		defDomain.Description = "The default domain"
@@ -95,8 +103,8 @@ func (manager *SDomainManager) InitializeData() error {
 	return nil
 }
 
-func (manager *SDomainManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
-	return api.KeystoneDomainRoot
+func (manager *SDomainManager) Query(fields ...string) *sqlchemy.SQuery {
+	return manager.SStandaloneResourceBaseManager.Query(fields...).IsTrue("is_domain")
 }
 
 func (manager *SDomainManager) FetchDomainByName(domainName string) (*SDomain, error) {
@@ -104,7 +112,7 @@ func (manager *SDomainManager) FetchDomainByName(domainName string) (*SDomain, e
 	if err != nil {
 		return nil, err
 	}
-	q := manager.Query().Equals("name", domainName).IsTrue("is_domain").NotEquals("id", api.KeystoneDomainRoot)
+	q := manager.Query().Equals("name", domainName).NotEquals("id", api.KeystoneDomainRoot)
 	err = q.First(obj)
 	if err != nil {
 		return nil, err
@@ -117,7 +125,7 @@ func (manager *SDomainManager) FetchDomainById(domainId string) (*SDomain, error
 	if err != nil {
 		return nil, err
 	}
-	q := manager.Query().Equals("id", domainId).IsTrue("is_domain") // .NotEquals("id", api.KeystoneDomainRoot)
+	q := manager.Query().Equals("id", domainId)
 	err = q.First(obj)
 	if err != nil {
 		return nil, err
@@ -141,7 +149,7 @@ func (manager *SDomainManager) FetchDomainByIdOrName(domain string) (*SDomain, e
 	if err != nil {
 		return nil, err
 	}
-	q := manager.Query().IsTrue("is_domain").NotEquals("id", api.KeystoneDomainRoot)
+	q := manager.Query().NotEquals("id", api.KeystoneDomainRoot)
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.Equals(q.Field("id"), domain),
 		sqlchemy.Equals(q.Field("name"), domain),
@@ -154,54 +162,33 @@ func (manager *SDomainManager) FetchDomainByIdOrName(domain string) (*SDomain, e
 }
 
 func (manager *SDomainManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-	q = q.NotEquals("id", api.KeystoneDomainRoot).IsTrue("is_domain")
+	q = q.NotEquals("id", api.KeystoneDomainRoot)
 	return q, nil
 }
 
-func (self *SDomain) AllowGetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
-	return db.IsAdminAllowGetSpec(userCred, self, "config")
-}
-
-func (self *SDomain) GetDetailsConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	appParams := appsrv.AppContextGetParams(ctx)
-	appParams.OverrideResponseBodyWrapper = true
-
-	conf, err := self.GetConfig(false)
-	if err != nil {
-		return nil, err
-	}
-	result := jsonutils.NewDict()
-	result.Add(jsonutils.Marshal(conf), "config")
-	return result, nil
-}
-
-func (self *SDomain) GetConfig(all bool) (TDomainConfigs, error) {
-	opts, err := WhitelistedConfigManager.fetchConfigs(self.Id, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	if all {
-		opts2, err := SensitiveConfigManager.fetchConfigs(self.Id, nil, nil)
-		if err != nil {
-			return nil, err
-		}
-		opts = append(opts, opts2...)
-	}
-	return config2map(opts), nil
-}
-
-func (manager *SDomainManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	data.Set("domain_id", jsonutils.NewString(api.KeystoneDomainRoot))
-	data.Set("is_domain", jsonutils.JSONTrue)
-	return manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+func (domain *SDomain) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	// domain.ParentId = api.KeystoneDomainRoot
+	domain.DomainId = api.KeystoneDomainRoot
+	domain.IsDomain = tristate.True
+	return domain.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (domain *SDomain) GetProjectCount() (int, error) {
-	q := ProjectManager.Query().IsFalse("is_domain").Equals("domain_id", domain.Id)
+	q := ProjectManager.Query().Equals("domain_id", domain.Id)
+	return q.CountWithError()
+}
+
+func (domain *SDomain) GetRoleCount() (int, error) {
+	q := RoleManager.Query().Equals("domain_id", domain.Id)
+	return q.CountWithError()
+}
+
+func (domain *SDomain) GetPolicyCount() (int, error) {
+	q := PolicyManager.Query().Equals("domain_id", domain.Id)
 	return q.CountWithError()
 }
 
@@ -215,55 +202,68 @@ func (domain *SDomain) GetGroupCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (domain *SDomain) ValidateDeleteCondition(ctx context.Context) error {
+func (domain *SDomain) ValidatePurgeCondition(ctx context.Context) error {
+	if domain.Enabled.IsTrue() {
+		return httperrors.NewInvalidStatusError("domain is enabled")
+	}
 	projCnt, _ := domain.GetProjectCount()
 	if projCnt > 0 {
-		return httperrors.NewNotEmptyError("domain is in use")
+		return httperrors.NewNotEmptyError("domain is in use by project")
 	}
-	usrCnt, _ := domain.GetUserCount()
-	if usrCnt > 0 {
-		return httperrors.NewNotEmptyError("domain is in use")
+	roleCnt, _ := domain.GetRoleCount()
+	if roleCnt > 0 {
+		return httperrors.NewNotEmptyError("domain is in use by role")
 	}
-	grpCnt, _ := domain.GetGroupCount()
-	if grpCnt > 0 {
-		return httperrors.NewNotEmptyError("domain is in use")
+	policyCnt, _ := domain.GetPolicyCount()
+	if policyCnt > 0 {
+		return httperrors.NewNotEmptyError("domain is in use by policy")
 	}
-	if domain.Id == options.Options.AdminUserDomainId || domain.Id == options.Options.AdminProjectDomainId {
-		return httperrors.NewForbiddenError("cannot delete admin domain")
+	if domain.Id == api.DEFAULT_DOMAIN_ID {
+		return httperrors.NewForbiddenError("cannot delete default domain")
 	}
-	return domain.SEnabledIdentityBaseResource.ValidateDeleteCondition(ctx)
+	return nil
 }
 
-func (domain *SDomain) GetDriver() string {
-	drv, _ := domain.getDriver()
-	return drv
-}
-
-func (domain *SDomain) getDriver() (string, error) {
-	opts, err := WhitelistedConfigManager.fetchConfigs(domain.Id, []string{"identity"}, []string{"driver"})
+func (domain *SDomain) ValidateDeleteCondition(ctx context.Context) error {
+	// usrCnt, _ := domain.GetUserCount()
+	// if usrCnt > 0 {
+	// 	return httperrors.NewNotEmptyError("domain is in use")
+	// }
+	// grpCnt, _ := domain.GetGroupCount()
+	// if grpCnt > 0 {
+	// 	return httperrors.NewNotEmptyError("domain is in use")
+	// }
+	err := domain.ValidatePurgeCondition(ctx)
 	if err != nil {
-		return "", errors.WithMessage(err, "WhitelistedConfigManager.fetchConfigs")
+		return err
 	}
-	if len(opts) == 1 {
-		return opts[0].Value.GetString()
+	if domain.IsReadOnly() {
+		return httperrors.NewForbiddenError("readonly")
 	}
-	return api.IdentityDriverSQL, nil
+	return domain.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (domain *SDomain) IsReadOnly() bool {
+func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if domain.Id == api.DEFAULT_DOMAIN_ID {
+		return nil, httperrors.NewForbiddenError("default domain is protected")
+	}
+	return domain.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+}
+
+/*func (domain *SDomain) isReadOnly() bool {
 	if domain.GetDriver() == api.IdentityDriverSQL {
 		return false
 	}
 	return true
-}
+}*/
 
 func (domain *SDomain) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := domain.SEnabledIdentityBaseResource.GetCustomizeColumns(ctx, userCred, query)
+	extra := domain.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	return domainExtra(domain, extra)
 }
 
 func (domain *SDomain) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := domain.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query)
+	extra, err := domain.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -271,10 +271,10 @@ func (domain *SDomain) GetExtraDetails(ctx context.Context, userCred mcclient.To
 }
 
 func domainExtra(domain *SDomain, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	if domain.IsReadOnly() {
-		extra.Add(jsonutils.JSONTrue, "readonly")
-	}
-	extra.Add(jsonutils.NewString(domain.GetDriver()), "driver")
+	// idp, _ := domain.GetIdentityProvider()
+	// if idp != nil {
+	//	extra.Add(jsonutils.NewString(idp.Name), "driver")
+	// }
 
 	usrCnt, _ := domain.GetUserCount()
 	extra.Add(jsonutils.NewInt(int64(usrCnt)), "user_count")
@@ -285,40 +285,66 @@ func domainExtra(domain *SDomain, extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	return extra
 }
 
-func (domain *SDomain) AllowUpdateConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return db.IsAdminAllowUpdateSpec(userCred, domain, "config")
+func (domain *SDomain) getUsers() ([]SUser, error) {
+	q := UserManager.Query().Equals("domain_id", domain.Id)
+	usrs := make([]SUser, 0)
+	err := db.FetchModelObjects(UserManager, q, &usrs)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "FetchModelObjects")
+	}
+	return usrs, nil
 }
 
-func (domain *SDomain) UpdateConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	opts := TDomainConfigs{}
-	err := data.Unmarshal(&opts, "config")
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid input data")
+func (domain *SDomain) getGroups() ([]SGroup, error) {
+	q := GroupManager.Query().Equals("domain_id", domain.Id)
+	grps := make([]SGroup, 0)
+	err := db.FetchModelObjects(GroupManager, q, &grps)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "FetchModelObjects")
 	}
-	whiteListedOpts, sensitiveOpts := opts.getConfigOptions(domain.Id, api.SensitiveDomainConfigMap)
-	err = WhitelistedConfigManager.syncConfig(ctx, userCred, domain.Id, whiteListedOpts)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("WhitelistedConfigManager.syncConfig fail %s", err)
-	}
-	err = SensitiveConfigManager.syncConfig(ctx, userCred, domain.Id, sensitiveOpts)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("SensitiveConfigManager.syncConfig fail %s", err)
-	}
-	return domain.GetDetailsConfig(ctx, userCred, query)
+	return grps, nil
 }
 
-func (domain *SDomain) AllowDeleteConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
-	return db.IsAdminAllowDeleteSpec(userCred, domain, "config")
+func (domain *SDomain) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	usrs, err := domain.getUsers()
+	if err != nil {
+		return errors.Wrap(err, "domain.getUsers")
+	}
+	for i := range usrs {
+		err = usrs[i].ValidatePurgeCondition(ctx)
+		if err != nil {
+			return errors.Wrap(err, "usr.ValidatePurgeCondition")
+		}
+		err = usrs[i].purge(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "usr.purge")
+		}
+	}
+	grps, err := domain.getGroups()
+	if err != nil {
+		return errors.Wrap(err, "domain.getGroups")
+	}
+	for i := range grps {
+		err = grps[i].ValidatePurgeCondition(ctx)
+		if err != nil {
+			return errors.Wrap(err, "grp.ValidatePurgeCondition")
+		}
+		err = grps[i].purge(ctx, userCred)
+		if err != nil {
+			return errors.Wrap(err, "grp.purge")
+		}
+	}
+	return domain.Delete(ctx, userCred)
 }
 
-func (domain *SDomain) DeleteConfig(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (jsonutils.JSONObject, error) {
-	err := WhitelistedConfigManager.deleteConfig(ctx, userCred, domain.Id)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("WhitelistedConfigManager.syncConfig fail %s", err)
+func (domain *SDomain) getIdmapping() (*SIdmapping, error) {
+	return IdmappingManager.FetchEntity(domain.Id, api.IdMappingEntityDomain)
+}
+
+func (domain *SDomain) IsReadOnly() bool {
+	idmap, _ := domain.getIdmapping()
+	if idmap != nil {
+		return true
 	}
-	err = SensitiveConfigManager.deleteConfig(ctx, userCred, domain.Id)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("SensitiveConfigManager.syncConfig fail %s", err)
-	}
-	return domain.GetDetailsConfig(ctx, userCred, query)
+	return false
 }

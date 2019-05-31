@@ -28,6 +28,7 @@ func init() {
 		Limit  int64  `help:"Items per page" default:"20"`
 		Offset int64  `help:"Offset"`
 		Search string `help:"search text"`
+		Admin  bool   `help:"admin mode"`
 	}
 	R(&RoleListOptions{}, "role-list", "List keystone Roles", func(s *mcclient.ClientSession, args *RoleListOptions) error {
 		query := jsonutils.NewDict()
@@ -49,6 +50,9 @@ func init() {
 		}
 		if len(args.Search) > 0 {
 			query.Add(jsonutils.NewString(args.Search), "name__icontains")
+		}
+		if args.Admin {
+			query.Add(jsonutils.JSONTrue, "admin")
 		}
 		result, err := modules.RolesV3.List(s, query)
 		if err != nil {

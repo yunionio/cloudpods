@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/pkg/gotypes"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SSimpleToken struct {
@@ -40,6 +41,8 @@ type SSimpleToken struct {
 
 	Roles   string
 	Expires time.Time
+
+	Context SAuthContext
 }
 
 func (self *SSimpleToken) GetTokenString() string {
@@ -122,8 +125,12 @@ func (self *SSimpleToken) HasSystemAdminPrivilege() bool {
 	return self.IsAdmin() && self.Project == "system"
 }
 
-func (this *SSimpleToken) IsAdminAllow(service string, resource string, action string, extra ...string) bool {
-	return this.HasSystemAdminPrivilege()
+func (this *SSimpleToken) IsAllow(scope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) bool {
+	if scope == rbacutils.ScopeSystem || scope == rbacutils.ScopeDomain {
+		return this.HasSystemAdminPrivilege()
+	} else {
+		return true
+	}
 }
 
 func (self *SSimpleToken) GetRegions() []string {
@@ -154,6 +161,14 @@ func (this *SSimpleToken) GetServiceCatalog() IServiceCatalog {
 	return nil
 }
 
+func (this *SSimpleToken) GetLoginSource() string {
+	return this.Context.Source
+}
+
+func (this *SSimpleToken) GetLoginIp() string {
+	return this.Context.Ip
+}
+
 func SimplifyToken(token TokenCredential) TokenCredential {
 	simToken, ok := token.(*SSimpleToken)
 	if ok {
@@ -172,6 +187,10 @@ func SimplifyToken(token TokenCredential) TokenCredential {
 
 		Roles:   strings.Join(token.GetRoles(), ","),
 		Expires: token.GetExpires(),
+		Context: SAuthContext{
+			Source: token.GetLoginSource(),
+			Ip:     token.GetLoginIp(),
+		},
 	}
 }
 

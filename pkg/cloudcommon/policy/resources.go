@@ -17,7 +17,7 @@ package policy
 import "yunion.io/x/pkg/utils"
 
 var (
-	computeAdminResources = []string{
+	computeSystemResources = []string{
 		"hosts",
 		"zones",
 		"storages",
@@ -29,95 +29,124 @@ var (
 		"schedtags",
 		"serverskus",
 		"cachedimages",
-		"cloudaccounts",
 		"dynamicschedtags",
 		"baremetalagents",
 		"schedpolicies",
 		"isolated-devices",
 		"reservedips",
 		"dnsrecords",
+		"metadatas",
 	}
-	notifyAdminResources = []string{
+	computeDomainResources = []string{
+		"cloudaccounts",
+	}
+
+	notifySystemResources = []string{
 		"configs",
 		"contacts",
 	}
-	meterAdminResources = []string{
+	notifyDomainResources = []string{}
+
+	meterSystemResources = []string{
 		"rates",
 		"res_results",
 	}
-	k8sAdminResources = []string{
+	meterDomainResources = []string{}
+
+	k8sSystemResources = []string{
 		"kube_clusters",
 		"kube_nodes",
 	}
-	yunionagentAdminResources = []string{
+	k8sDomainResources = []string{}
+
+	yunionagentSystemResources = []string{
 		"notices",
 		"readmarks",
 		"infos",
 	}
-	yunionconfAdminResources = []string{}
-	logAdminResources        = []string{}
-	identityAdminResources   = []string{
-		"users",
-		"groups",
+	yunionagentDomainResources = []string{}
+
+	yunionconfSystemResources = []string{}
+	yunionconfDomainResources = []string{}
+
+	logSystemResources = []string{}
+	logDomainResources = []string{}
+
+	identitySystemResources = []string{
+		"identity_providers",
 		"domains",
-		"projects",
-		"roles",
-		"policies",
 		"services",
 		"endpoints",
 	}
 
-	adminResources = map[string][]string{
-		"compute":     computeAdminResources,
-		"notify":      notifyAdminResources,
-		"meter":       meterAdminResources,
-		"k8s":         k8sAdminResources,
-		"yunionagent": yunionagentAdminResources,
-		"yunionconf":  yunionconfAdminResources,
-		"log":         logAdminResources,
-		"identity":    identityAdminResources,
+	identityDomainResources = []string{
+		"users",
+		"groups",
+		"projects",
+		"roles",
+		"policies",
+	}
+
+	systemResources = map[string][]string{
+		"compute":     computeSystemResources,
+		"notify":      notifySystemResources,
+		"meter":       meterSystemResources,
+		"k8s":         k8sSystemResources,
+		"yunionagent": yunionagentSystemResources,
+		"yunionconf":  yunionconfSystemResources,
+		"log":         logSystemResources,
+		"identity":    identitySystemResources,
+	}
+
+	domainResources = map[string][]string{
+		"compute":     computeDomainResources,
+		"notify":      notifyDomainResources,
+		"meter":       meterDomainResources,
+		"k8s":         k8sDomainResources,
+		"yunionagent": yunionagentDomainResources,
+		"yunionconf":  yunionconfDomainResources,
+		"log":         logDomainResources,
+		"identity":    identityDomainResources,
 	}
 )
 
-func GetAdminResources() map[string][]string {
-	return adminResources
+func GetSystemResources() map[string][]string {
+	return systemResources
 }
 
-func isAdminResource(service string, resource string) bool {
-	switch service {
-	case "identity":
-		return true
-	case "compute":
-		if utils.IsInStringArray(resource, computeAdminResources) {
+func GetResources() map[string]map[string][]string {
+	ret := make(map[string]map[string][]string)
+	ret["system"] = systemResources
+	ret["domain"] = domainResources
+	return ret
+}
+
+func isSystemResource(service string, resource string) bool {
+	resList, ok := systemResources[service]
+	if ok {
+		if utils.IsInStringArray(resource, resList) {
 			return true
 		}
-		return false
-	case "notify":
-		if utils.IsInStringArray(resource, notifyAdminResources) {
-			return true
-		}
-		return false
-	case "k8s":
-		if utils.IsInStringArray(resource, k8sAdminResources) {
-			return true
-		}
-		return false
-	case "meters":
-		if utils.IsInStringArray(resource, meterAdminResources) {
-			return true
-		}
-		return false
-	case "yunionagent":
-		if utils.IsInStringArray(resource, yunionagentAdminResources) {
-			return true
-		}
-		return false
-	case "log":
-		if utils.IsInStringArray(resource, logAdminResources) {
-			return true
-		}
-	default:
-		return false
 	}
 	return false
+}
+
+func isDomainResource(service string, resource string) bool {
+	resList, ok := domainResources[service]
+	if ok {
+		if utils.IsInStringArray(resource, resList) {
+			return true
+		}
+	}
+	return false
+}
+
+func isProjectResource(service string, resource string) bool {
+	if isSystemResource(service, resource) {
+		return false
+	}
+	if isDomainResource(service, resource) {
+		return false
+	}
+	return true
 }

@@ -107,7 +107,7 @@ func (self *SRbdStorageDriver) PostCreate(ctx context.Context, userCred mcclient
 	}
 	if len(storage.StoragecacheId) == 0 {
 		sc := &models.SStoragecache{}
-		sc.SetModelManager(models.StoragecacheManager)
+		sc.SetModelManager(models.StoragecacheManager, sc)
 		sc.Name = fmt.Sprintf("imagecache-%s", storage.Id)
 		pool, _ := data.GetString("rbd_pool")
 		sc.Path = fmt.Sprintf("rbd:%s", pool)

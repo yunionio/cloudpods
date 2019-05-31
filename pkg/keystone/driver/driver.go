@@ -17,24 +17,19 @@ package driver
 import (
 	"context"
 
-	"yunion.io/x/onecloud/pkg/keystone/models"
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+type IIdentityBackendClass interface {
+	SingletonInstance() bool
+	SyncMethod() string
+	Name() string
+	NewDriver(idpId, idpName, template string, conf api.TIdentityProviderConfigs) (IIdentityBackend, error)
+}
+
 type IIdentityBackend interface {
-	Authenticate(ctx context.Context, identity mcclient.SAuthenticationIdentity) (*models.SUserExtended, error)
-}
-
-type SUserInfo struct {
-	DN      string
-	Id      string
-	Name    string
-	Enabled bool
-	Extra   map[string]string
-}
-
-type SGroupInfo struct {
-	Id      string
-	Name    string
-	Members []string
+	Authenticate(ctx context.Context, identity mcclient.SAuthenticationIdentity) (*api.SUserExtended, error)
+	Sync(ctx context.Context) error
+	Probe(ctx context.Context) error
 }

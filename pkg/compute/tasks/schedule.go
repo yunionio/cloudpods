@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type IScheduleModel interface {
@@ -169,8 +170,11 @@ func cancelPendingUsage(ctx context.Context, task IScheduleTask) {
 		log.Errorf("cancelPendingUsage GetSchedParams fail: %s", err)
 		return
 	}
-	ownerProjectId := schedInput.ServerConfig.Project
-	err = models.QuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), ownerProjectId, &pendingUsage, &pendingUsage)
+	ownerId := db.SOwnerId{
+		ProjectId: schedInput.ServerConfig.Project,
+		DomainId:  schedInput.ServerConfig.Domain,
+	}
+	err = models.QuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), rbacutils.ScopeProject, &ownerId, &pendingUsage, &pendingUsage)
 	if err != nil {
 		log.Errorf("cancelpendingusage error %s", err)
 	}

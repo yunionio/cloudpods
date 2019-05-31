@@ -40,6 +40,7 @@ func init() {
 				SchedtagManager,
 			),
 		}
+		NetworkschedtagManager.SetVirtualObject(NetworkschedtagManager)
 	})
 }
 

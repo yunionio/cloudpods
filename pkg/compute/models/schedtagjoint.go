@@ -72,7 +72,7 @@ func (man *SSchedtagJointsManager) FetchSchedtagById(id string) *SSchedtag {
 	return schedtagObj.(*SSchedtag)
 }
 
-func (man *SSchedtagJointsManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (man *SSchedtagJointsManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	schedtagId, err := data.GetString("schedtag_id")
 	if err != nil || schedtagId == "" {
 		return nil, httperrors.NewInputParameterError("schedtag_id not provide")
@@ -88,7 +88,7 @@ func (man *SSchedtagJointsManager) ValidateCreateData(ctx context.Context, userC
 	if resourceType != schedtag.ResourceType {
 		return nil, httperrors.NewInputParameterError("Schedtag %s resource_type mismatch: %s != %s", schedtag.GetName(), schedtag.ResourceType, resourceType)
 	}
-	return man.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return man.SJointResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (man *SSchedtagJointsManager) AllowListDescendent(ctx context.Context, userCred mcclient.TokenCredential, model db.IStandaloneModel, query jsonutils.JSONObject) bool {

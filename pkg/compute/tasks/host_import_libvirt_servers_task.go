@@ -133,7 +133,7 @@ func (self *HostImportLibvirtServersTask) FillLibvirtGuestDesc(
 	// Generate new uuid for guest to prevent duplicate
 	guestDesc.Id = stringutils.UUID4()
 	guestDesc.HostId = host.Id
-	newName, err := db.GenerateName(models.GuestManager, self.UserCred.GetProjectId(), guestDesc.Name)
+	newName, err := db.GenerateName(models.GuestManager, self.UserCred, guestDesc.Name)
 	if err != nil {
 		return err
 	}

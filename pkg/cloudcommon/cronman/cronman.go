@@ -28,6 +28,10 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
+var (
+	DefaultAdminSessionGenerator = auth.AdminCredential
+)
+
 type TCronJobFunction func(ctx context.Context, userCred mcclient.TokenCredential, isStart bool)
 
 var manager *SCronJobManager
@@ -227,7 +231,7 @@ func (job *SCronJob) runJobInWorker(isStart bool) {
 
 	// log.Debugf("Cron job: %s started", job.Name)
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "Region-Cron-Service")
-	userCred := auth.AdminCredential()
+	ctx = context.WithValue(ctx, appctx.APP_CONTEXT_KEY_APPNAME, "Cron-Service")
+	userCred := DefaultAdminSessionGenerator()
 	job.job(ctx, userCred, isStart)
 }

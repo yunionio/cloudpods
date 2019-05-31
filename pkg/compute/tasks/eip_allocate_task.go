@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type EipAllocateTask struct {
@@ -65,7 +66,7 @@ func (self *EipAllocateTask) setGuestAllocateEipFailed(eip *models.SElasticip, r
 func (self *EipAllocateTask) finalReleasePendingUsage(ctx context.Context) {
 	pendingUsage := models.SQuota{}
 	if err := self.GetPendingUsage(&pendingUsage); err == nil && !pendingUsage.IsEmpty() {
-		if err := models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, self.UserCred.GetProjectId(), nil, &pendingUsage); err != nil {
+		if err := models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, self.UserCred, nil, &pendingUsage); err != nil {
 			log.Errorf("CancelPendingUsage error: %v", err)
 		}
 	}
@@ -134,7 +135,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		return
 	}
 
-	err = eip.SyncWithCloudEip(ctx, self.UserCred, eip.GetCloudprovider(), extEip, "")
+	err = eip.SyncWithCloudEip(ctx, self.UserCred, eip.GetCloudprovider(), extEip, nil)
 
 	if err != nil {
 		msg := fmt.Sprintf("sync eip fail %s", err)

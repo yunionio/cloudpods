@@ -1,5 +1,5 @@
 # rbac for normal user, not allow for delete
-is_admin: false
+scope: project
 policy:
   *:
     *:

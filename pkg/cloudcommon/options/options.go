@@ -38,6 +38,8 @@ type BaseOptions struct {
 	Port    int    `help:"The port that the service runs on" alias:"bind-port"`
 	Address string `help:"The IP address to serve on (set to 0.0.0.0 for all interfaces)" default:"0.0.0.0" alias:"bind-host"`
 
+	DebugClient bool `help:"Switch on/off mcclient debugs" default:"false"`
+
 	LogLevel        string `help:"log level" default:"info" choices:"debug|info|warn|error"`
 	LogVerboseLevel int    `help:"log verbosity level" default:"0"`
 	LogFilePrefix   string `help:"prefix of log files"`
@@ -61,6 +63,8 @@ type BaseOptions struct {
 	RbacPolicySyncPeriodSeconds      int  `help:"policy sync interval in seconds, default 15 minutes" default:"900"`
 	RbacPolicySyncFailedRetrySeconds int  `help:"seconds to wait after a failed sync, default 30 seconds" default:"30"`
 
+	IsSlaveNode bool `help:"Region service slave node"`
+
 	structarg.BaseOptions
 }
 
@@ -70,9 +74,8 @@ type CommonOptions struct {
 	AdminDomain        string `help:"Admin user domain"`
 	AdminPassword      string `help:"Admin password" alias:"admin-passwd"`
 	AdminProject       string `help:"Admin project" default:"system" alias:"admin-tenant-name"`
+	AdminProjectDomain string `help:"Domain of Admin project"`
 	AuthTokenCacheSize uint32 `help:"Auth token Cache Size" default:"2048"`
-
-	DebugClient bool `help:"Switch on/off mcclient debugs" default:"false"`
 
 	BaseOptions
 }
@@ -81,7 +84,7 @@ type DBOptions struct {
 	SqlConnection string `help:"SQL connection string" alias:"connection"`
 	AutoSyncTable bool   `help:"Automatically synchronize table changes if differences are detected"`
 
-	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources"`
+	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources" default:"false"`
 	DebugSqlchemy                  bool `default:"false" help:"Print SQL executed by sqlchemy"`
 }
 

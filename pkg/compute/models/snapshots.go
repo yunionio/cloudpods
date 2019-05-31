@@ -37,6 +37,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SSnapshotManager struct {
@@ -45,6 +46,8 @@ type SSnapshotManager struct {
 
 type SSnapshot struct {
 	db.SVirtualResourceBase
+	db.SExternalizedResourceBase
+
 	SManagedResourceBase
 
 	DiskId      string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user"`
@@ -73,9 +76,10 @@ func init() {
 			"snapshots",
 		),
 	}
+	SnapshotManager.SetVirtualObject(SnapshotManager)
 }
 
-func ValidateSnapshotName(hypervisor, name, owner string) error {
+func ValidateSnapshotName(hypervisor, name string, owner mcclient.IIdentityProvider) error {
 	q := SnapshotManager.Query()
 	q = SnapshotManager.FilterByName(q, name)
 	q = SnapshotManager.FilterByOwner(q, owner)
@@ -237,8 +241,8 @@ func (self *SSnapshot) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	return res
 }
 
-func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	diskV := validators.NewModelIdOrNameValidator("disk", "disk", userCred.GetProjectId())
+func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	diskV := validators.NewModelIdOrNameValidator("disk", "disk", ownerId)
 	if err := diskV.Validate(data); err != nil {
 		return nil, err
 	}
@@ -262,7 +266,7 @@ func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCre
 	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
 		return nil, httperrors.NewInvalidStatusError("Cannot do snapshot when VM in status %s", guest.Status)
 	}
-	err = ValidateSnapshotName(guest.Hypervisor, snapshotName, userCred.GetProjectId())
+	err = ValidateSnapshotName(guest.Hypervisor, snapshotName, ownerId)
 	if err != nil {
 		return nil, err
 	}
@@ -279,14 +283,14 @@ func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCre
 		}
 	}
 	pendingUsage := &SQuota{Snapshot: 1}
-	_, err = QuotaManager.CheckQuota(ctx, userCred, ownerProjId, pendingUsage)
+	_, err = QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, pendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
 	}
 
 	input := &api.SSnapshotCreateInput{}
 	input.Name = snapshotName
-	input.ProjectId = ownerProjId
+	input.ProjectId = ownerId.GetProjectId()
 	input.DiskId = disk.Id
 	input.CreatedBy = api.SNAPSHOT_MANUAL
 	input.Size = disk.DiskSize
@@ -301,8 +305,8 @@ func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCre
 	return input.JSON(input), nil
 }
 
-func (self *SSnapshot) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
+func (self *SSnapshot) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	return self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (manager *SSnapshotManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -374,15 +378,13 @@ func (self *SSnapshotManager) AddRefCount(snapshotId string, count int) {
 func (self *SSnapshotManager) GetDiskSnapshotsByCreate(diskId, createdBy string) []SSnapshot {
 	dest := make([]SSnapshot, 0)
 	q := self.Query().SubQuery()
-	err := q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
+	sq := q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
 		sqlchemy.Equals(q.Field("created_by"), createdBy),
-		sqlchemy.Equals(q.Field("fake_deleted"), false))).All(&dest)
+		sqlchemy.Equals(q.Field("fake_deleted"), false)))
+	err := db.FetchModelObjects(self, sq, &dest)
 	if err != nil {
 		log.Errorf("GetDiskSnapshots error: %s", err)
 		return nil
-	}
-	for i := 0; i < len(dest); i++ {
-		dest[i].SetModelManager(self)
 	}
 	return dest
 }
@@ -390,13 +392,11 @@ func (self *SSnapshotManager) GetDiskSnapshotsByCreate(diskId, createdBy string)
 func (self *SSnapshotManager) GetDiskSnapshots(diskId string) []SSnapshot {
 	dest := make([]SSnapshot, 0)
 	q := self.Query().SubQuery()
-	err := q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId))).All(&dest)
+	sq := q.Query().Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId)))
+	err := db.FetchModelObjects(self, sq, &dest)
 	if err != nil {
 		log.Errorf("GetDiskSnapshots error: %s", err)
 		return nil
-	}
-	for i := 0; i < len(dest); i++ {
-		dest[i].SetModelManager(self)
 	}
 	return dest
 }
@@ -411,7 +411,7 @@ func (self *SSnapshotManager) GetDiskFirstSnapshot(diskId string) *SSnapshot {
 		log.Errorf("Get Disk First snapshot error: %s", err.Error())
 		return nil
 	}
-	dest.SetModelManager(self)
+	dest.SetModelManager(self, dest)
 	return dest
 }
 
@@ -429,7 +429,7 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mccli
 	disk := iDisk.(*SDisk)
 	storage := disk.GetStorage()
 	snapshot := &SSnapshot{}
-	snapshot.SetModelManager(self)
+	snapshot.SetModelManager(self, snapshot)
 	snapshot.ProjectId = userCred.GetProjectId()
 	snapshot.DiskId = disk.Id
 	if len(disk.ExternalId) == 0 {
@@ -587,11 +587,17 @@ func (self *SSnapshot) Delete(ctx context.Context, userCred mcclient.TokenCreden
 	return nil
 }
 
-func TotalSnapshotCount(projectId string, rangeObj db.IStandaloneModel, providers []string) (int, error) {
+func TotalSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, providers []string, cloudEnv string) (int, error) {
 	q := SnapshotManager.Query()
-	if len(projectId) > 0 {
-		q = q.Equals("tenant_id", projectId)
+
+	switch scope {
+	case rbacutils.ScopeSystem:
+	case rbacutils.ScopeDomain:
+		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+	case rbacutils.ScopeProject:
+		q = q.Equals("tenant_id", ownerId.GetProjectId())
 	}
+
 	if rangeObj != nil {
 		switch rangeObj.Keyword() {
 		case "cloudprovider":
@@ -610,6 +616,23 @@ func TotalSnapshotCount(projectId string, rangeObj db.IStandaloneModel, provider
 		subq = subq.In("provider", providers)
 		q = q.In("manager_id", subq.SubQuery())
 	}
+
+	if len(cloudEnv) > 0 {
+		switch cloudEnv {
+		case api.CLOUD_ENV_PUBLIC_CLOUD:
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
+		case api.CLOUD_ENV_PRIVATE_CLOUD:
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
+		case api.CLOUD_ENV_ON_PREMISE:
+			q = q.Filter(
+				sqlchemy.OR(
+					sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
+					sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
+				),
+			)
+		}
+	}
+
 	q = q.Equals("fake_deleted", false)
 	return q.CountWithError()
 }
@@ -628,7 +651,7 @@ func (self *SSnapshot) syncRemoveCloudSnapshot(ctx context.Context, userCred mcc
 }
 
 // Only sync snapshot status
-func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot, projectId string, region *SCloudregion) error {
+func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudSnapshot, syncOwnerId mcclient.IIdentityProvider, region *SCloudregion) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		// self.Name = ext.GetName()
 		self.Status = ext.GetStatus()
@@ -643,16 +666,16 @@ func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mccli
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
-	SyncCloudProject(userCred, self, projectId, ext, self.ManagerId)
+	SyncCloudProject(userCred, self, syncOwnerId, ext, self.ManagerId)
 
 	return nil
 }
 
-func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion, projectId string, provider *SCloudprovider) (*SSnapshot, error) {
+func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userCred mcclient.TokenCredential, extSnapshot cloudprovider.ICloudSnapshot, region *SCloudregion, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider) (*SSnapshot, error) {
 	snapshot := SSnapshot{}
-	snapshot.SetModelManager(manager)
+	snapshot.SetModelManager(manager, &snapshot)
 
-	newName, err := db.GenerateName(manager, projectId, extSnapshot.GetName())
+	newName, err := db.GenerateName(manager, syncOwnerId, extSnapshot.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -660,7 +683,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	snapshot.Status = extSnapshot.GetStatus()
 	snapshot.ExternalId = extSnapshot.GetGlobalId()
 	if len(extSnapshot.GetDiskId()) > 0 {
-		disk, err := DiskManager.FetchByExternalId(extSnapshot.GetDiskId())
+		disk, err := db.FetchByExternalId(DiskManager, extSnapshot.GetDiskId())
 		if err != nil {
 			log.Errorf("snapshot %s missing disk?", snapshot.Name)
 		} else {
@@ -679,7 +702,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 		return nil, err
 	}
 
-	SyncCloudProject(userCred, &snapshot, projectId, extSnapshot, snapshot.ManagerId)
+	SyncCloudProject(userCred, &snapshot, syncOwnerId, extSnapshot, snapshot.ManagerId)
 
 	db.OpsLog.LogEvent(&snapshot, db.ACT_CREATE, snapshot.GetShortDesc(ctx), userCred)
 
@@ -699,11 +722,9 @@ func (manager *SSnapshotManager) getProviderSnapshotsByRegion(region *SCloudregi
 	return snapshots, nil
 }
 
-func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshot, projectId string) compare.SyncResult {
-	syncOwnerProjId := projectId
-
-	lockman.LockClass(ctx, manager, syncOwnerProjId)
-	defer lockman.ReleaseClass(ctx, manager, syncOwnerProjId)
+func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, snapshots []cloudprovider.ICloudSnapshot, syncOwnerId mcclient.IIdentityProvider) compare.SyncResult {
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 
 	syncResult := compare.SyncResult{}
 	dbSnapshots, err := manager.getProviderSnapshotsByRegion(region, provider)
@@ -730,7 +751,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudSnapshot(ctx, userCred, commonext[i], projectId, region)
+		err = commondb[i].SyncWithCloudSnapshot(ctx, userCred, commonext[i], syncOwnerId, region)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -739,7 +760,7 @@ func (manager *SSnapshotManager) SyncSnapshots(ctx context.Context, userCred mcc
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		local, err := manager.newFromCloudSnapshot(ctx, userCred, added[i], region, syncOwnerProjId, provider)
+		local, err := manager.newFromCloudSnapshot(ctx, userCred, added[i], region, syncOwnerId, provider)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {

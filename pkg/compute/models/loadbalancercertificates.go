@@ -55,6 +55,7 @@ func init() {
 			"loadbalancercertificates",
 		),
 	}
+	LoadbalancerCertificateManager.SetVirtualObject(LoadbalancerCertificateManager)
 }
 
 // TODO
@@ -63,6 +64,8 @@ func init() {
 //  - ca info: self-signed, public ca
 type SLoadbalancerCertificate struct {
 	db.SVirtualResourceBase
+	db.SExternalizedResourceBase
+
 	SManagedResourceBase
 	SCloudregionResourceBase
 
@@ -142,11 +145,10 @@ func (man *SLoadbalancerCertificateManager) ListItemFilter(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "cloudregion", ModelKeyword: "cloudregion", ProjectId: userProjId},
-		{Key: "manager", ModelKeyword: "cloudprovider", ProjectId: userProjId},
+		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
+		{Key: "manager", ModelKeyword: "cloudprovider", OwnerId: userCred},
 	})
 	if err != nil {
 		return nil, err
@@ -154,22 +156,22 @@ func (man *SLoadbalancerCertificateManager) ListItemFilter(ctx context.Context, 
 	return q, nil
 }
 
-func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	data, err := man.validateCertKey(ctx, data)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
 		return nil, err
 	}
 
-	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", "")
+	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerId)
 	managerIdV.Optional(true)
 	if err := managerIdV.Validate(data); err != nil {
 		return nil, err
 	}
 
-	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerProjId)
+	regionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerId)
 	regionV.Default("default")
 	if err := regionV.Validate(data); err != nil {
 		return nil, err
@@ -240,8 +242,8 @@ func (lbcert *SLoadbalancerCertificate) ValidateUpdateData(ctx context.Context, 
 	return region.GetDriver().ValidateUpdateLoadbalancerCertificateData(ctx, userCred, data)
 }
 
-func (lbcert *SLoadbalancerCertificate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	lbcert.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (lbcert *SLoadbalancerCertificate) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	lbcert.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	lbcert.SetStatus(userCred, api.LB_CREATING, "")
 	if err := lbcert.StartLoadBalancerCertificateCreateTask(ctx, userCred, ""); err != nil {
@@ -359,10 +361,10 @@ func (man *SLoadbalancerCertificateManager) getLoadbalancerCertificatesByRegion(
 }
 
 func (man *SLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, certificates []cloudprovider.ICloudLoadbalancerCertificate, syncRange *SSyncRange) compare.SyncResult {
-	ownerProjId := provider.ProjectId
+	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockClass(ctx, man, ownerProjId)
-	defer lockman.ReleaseClass(ctx, man, ownerProjId)
+	lockman.LockClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
+	defer lockman.ReleaseClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
 
 	syncResult := compare.SyncResult{}
 
@@ -392,7 +394,7 @@ func (man *SLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx con
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerCertificate(ctx, userCred, commonext[i], provider.ProjectId)
+		err = commondb[i].SyncWithCloudLoadbalancerCertificate(ctx, userCred, commonext[i], syncOwnerId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -401,7 +403,7 @@ func (man *SLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx con
 		}
 	}
 	for i := 0; i < len(added); i++ {
-		local, err := man.newFromCloudLoadbalancerCertificate(ctx, userCred, provider, added[i], region, ownerProjId)
+		local, err := man.newFromCloudLoadbalancerCertificate(ctx, userCred, provider, added[i], region, syncOwnerId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -412,11 +414,11 @@ func (man *SLoadbalancerCertificateManager) SyncLoadbalancerCertificates(ctx con
 	return syncResult
 }
 
-func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extCertificate cloudprovider.ICloudLoadbalancerCertificate, region *SCloudregion, projectId string) (*SLoadbalancerCertificate, error) {
+func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extCertificate cloudprovider.ICloudLoadbalancerCertificate, region *SCloudregion, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerCertificate, error) {
 	lbcert := SLoadbalancerCertificate{}
-	lbcert.SetModelManager(man)
+	lbcert.SetModelManager(man, &lbcert)
 
-	newName, err := db.GenerateName(man, projectId, extCertificate.GetName())
+	newName, err := db.GenerateName(man, syncOwnerId, extCertificate.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +438,7 @@ func (man *SLoadbalancerCertificateManager) newFromCloudLoadbalancerCertificate(
 		return nil, err
 	}
 
-	SyncCloudProject(userCred, &lbcert, projectId, extCertificate, lbcert.ManagerId)
+	SyncCloudProject(userCred, &lbcert, syncOwnerId, extCertificate, lbcert.ManagerId)
 
 	db.OpsLog.LogEvent(&lbcert, db.ACT_CREATE, lbcert.GetShortDesc(ctx), userCred)
 
@@ -456,7 +458,7 @@ func (lbcert *SLoadbalancerCertificate) syncRemoveCloudLoadbalancerCertificate(c
 	return err
 }
 
-func (lbcert *SLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, extCertificate cloudprovider.ICloudLoadbalancerCertificate, projectId string) error {
+func (lbcert *SLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx context.Context, userCred mcclient.TokenCredential, extCertificate cloudprovider.ICloudLoadbalancerCertificate, syncOwnerId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, lbcert, func() error {
 		lbcert.Name = extCertificate.GetName()
 		lbcert.CommonName = extCertificate.GetCommonName()
@@ -470,7 +472,7 @@ func (lbcert *SLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx
 	}
 	db.OpsLog.LogSyncUpdate(lbcert, diff, userCred)
 
-	SyncCloudProject(userCred, lbcert, projectId, extCertificate, lbcert.ManagerId)
+	SyncCloudProject(userCred, lbcert, syncOwnerId, extCertificate, lbcert.ManagerId)
 
 	return nil
 }

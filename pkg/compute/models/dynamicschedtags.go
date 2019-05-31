@@ -58,6 +58,7 @@ func init() {
 		StandaloneResourcesManager: make(map[string]IDynamicResourceManager),
 		VirtualResourcesManager:    make(map[string]IDynamicResourceManager),
 	}
+	DynamicschedtagManager.SetVirtualObject(DynamicschedtagManager)
 }
 
 func (man *SDynamicschedtagManager) bindDynamicResourceManager(
@@ -151,12 +152,12 @@ func validateDynamicSchedtagInputData(data *jsonutils.JSONDict, create bool) err
 	return nil
 }
 
-func (manager *SDynamicschedtagManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SDynamicschedtagManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	err := validateDynamicSchedtagInputData(data, true)
 	if err != nil {
 		return nil, err
 	}
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SDynamicschedtag) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

@@ -16,10 +16,8 @@ package modules
 
 import (
 	"fmt"
-	"strings"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -71,6 +69,7 @@ func (this *UserManagerV3) GetProjectsRPC(s *mcclient.ClientSession, uid string,
 	return ListResult2JSON(ret), nil
 }
 
+/*
 func (this *UserManagerV3) GetIsLdapUser(s *mcclient.ClientSession, uid string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.JSONFalse, "isldap")
@@ -98,7 +97,7 @@ func (this *UserManagerV3) GetIsLdapUser(s *mcclient.ClientSession, uid string, 
 	}
 
 	return ret, nil
-}
+}*/
 
 func (this *UserManagerV3) _groupAction(s *mcclient.ClientSession, gid, uid, action string, ch chan int) error {
 
@@ -187,8 +186,9 @@ func init() {
 
 	UsersV3 = UserManagerV3{NewIdentityV3Manager("user", "users",
 		[]string{},
-		[]string{"ID", "Name", "Domain_Id", "default_project_id",
-			"Enabled", "Email", "Mobile", "Displayname"})}
+		[]string{"ID", "Name", "Domain_Id", "Domain", "readonly", "idp_id",
+			"Enabled", "Email", "Mobile", "Displayname",
+			"is_system_account", "allow_web_console", "enable_mfa"})}
 
 	register(&UsersV3)
 }

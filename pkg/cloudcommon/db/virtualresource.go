@@ -25,10 +25,12 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type TProjectSource string
@@ -40,6 +42,7 @@ const (
 
 type SVirtualResourceBaseManager struct {
 	SStatusStandaloneResourceBaseManager
+	SProjectizedResourceBaseManager
 }
 
 func NewVirtualResourceBaseManager(dt interface{}, tableName string, keyword string, keywordPlural string) SVirtualResourceBaseManager {
@@ -49,8 +52,8 @@ func NewVirtualResourceBaseManager(dt interface{}, tableName string, keyword str
 
 type SVirtualResourceBase struct {
 	SStatusStandaloneResourceBase
+	SProjectizedResourceBase
 
-	ProjectId  string `name:"tenant_id" width:"128" charset:"ascii" nullable:"false" index:"true" list:"user"`
 	ProjectSrc string `width:"10" charset:"ascii" nullable:"false" list:"user" default:""`
 
 	IsSystem bool `nullable:"true" default:"false" list:"admin" create:"optional"`
@@ -63,16 +66,12 @@ func (model *SVirtualResourceBase) IsOwner(userCred mcclient.TokenCredential) bo
 	return userCred.GetProjectId() == model.ProjectId
 }
 
-/*func (model *SVirtualResourceBase) IsAdmin(userCred mcclient.TokenCredential) bool {
-	return userCred.IsSystemAdmin() || (userCred.GetProjectId() == model.ProjectId && userCred.IsAdmin())
-}*/
-
-func (model *SVirtualResourceBase) GetOwnerProjectId() string {
-	return model.ProjectId
+func (manager *SVirtualResourceBaseManager) GetIVirtualModelManager() IVirtualModelManager {
+	return manager.GetVirtualObject().(IVirtualModelManager)
 }
 
-func (manager *SVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
-	q = q.Equals("tenant_id", owner)
+func (manager *SVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
+	q = manager.SProjectizedResourceBaseManager.FilterByOwner(q, owner)
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
 	return q
@@ -86,30 +85,51 @@ func (manager *SVirtualResourceBaseManager) FetchByIdOrName(userCred mcclient.II
 	return FetchByIdOrName(manager, userCred, idStr)
 }
 
-func (manager *SVirtualResourceBaseManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
-	return userCred.GetProjectId()
+/*
+func (manager *SVirtualResourceBaseManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	tenantId := jsonutils.GetAnyString(data, []string{"project", "project_id", "tenant", "tenant_id"})
+	if len(tenantId) > 0 {
+		t, err := TenantCacheManager.FetchTenantByIdOrName(ctx, tenantId)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("project", tenantId)
+			}
+			return nil, errors.Wrap(err, "FetchTenantByIdOrName")
+		}
+		ownerId := SOwnerId{
+			Domain:    t.Domain,
+			DomainId:  t.DomainId,
+			ProjectId: t.Id,
+			Project:   t.Name,
+		}
+		return &ownerId, nil
+	}
+	domainId := jsonutils.GetAnyString(data, []string{"domain", "domain_id"})
+	if len(domainId) > 0 {
+		d, err := FetchDomain(ctx, domainId)
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("domain", domainId)
+			}
+			return nil, errors.Wrap(err, "FetchDomain")
+		}
+		ownerId := SOwnerId{
+			DomainId: d.Id,
+			Domain:   d.Name,
+		}
+		return &ownerId, nil
+	}
+	return nil, nil
 }
-
-/*func (manager *SVirtualResourceBaseManager) IsOwnerFilter(q *sqlchemy.SQuery, userCred mcclient.TokenCredential) *sqlchemy.SQuery {
-	return q.Equals("tenant_id", userCred.GetProjectId())
-}*/
+*/
 
 func (manager *SVirtualResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
-	admin, _ := query.GetString("admin")
-	if utils.ToBool(admin) { // admin
-		tenant := jsonutils.GetAnyString(query, []string{"project", "project_id", "tenant", "tenant_id"})
-		if len(tenant) > 0 {
-			tobj, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, tenant)
-			if tobj != nil {
-				q = q.Equals("tenant_id", tobj.GetId())
-			} else {
-				return nil, httperrors.NewTenantNotFoundError("tenant %s not found", tenant)
-			}
-		}
+	// admin, _ := query.GetString("admin")
+	if jsonutils.QueryBoolean(query, "admin", false) { // admin mode
 		isSystem, err := query.Bool("system")
 		if err == nil && isSystem {
 			// no filter
@@ -131,16 +151,17 @@ func (manager *SVirtualResourceBaseManager) ListItemFilter(ctx context.Context, 
 	return q, nil
 }
 
-func (manager *SVirtualResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SVirtualResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	isSystem, err := data.Bool("is_system")
 	if err == nil && isSystem && !IsAdminAllowCreate(userCred, manager) {
 		return nil, httperrors.NewNotSufficientPrivilegeError("non-admin user not allowed to create system object")
 	}
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
-func (model *SVirtualResourceBase) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	model.ProjectId = ownerProjId
+func (model *SVirtualResourceBase) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	model.DomainId = ownerId.GetProjectDomainId()
+	model.ProjectId = ownerId.GetProjectId()
 	isSystem, err := data.Bool("is_system")
 	if err == nil && isSystem {
 		model.IsSystem = true
@@ -148,7 +169,7 @@ func (model *SVirtualResourceBase) CustomizeCreate(ctx context.Context, userCred
 		model.IsSystem = false
 	}
 	model.ProjectSrc = string(PROJECT_SOURCE_LOCAL)
-	return model.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
+	return model.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (manager *SVirtualResourceBaseManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -165,6 +186,52 @@ func (model *SVirtualResourceBase) AllowGetDetails(ctx context.Context, userCred
 
 func (manager *SVirtualResourceBaseManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return true
+}
+
+func (manager *SVirtualResourceBaseManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
+	rows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
+	if len(fields) == 0 || fields.Contains("tenant") || fields.Contains("domain") {
+		projectIds := stringutils2.SSortedStrings{}
+		for i := range objs {
+			idStr := objs[i].GetOwnerId().GetProjectId()
+			projectIds = stringutils2.Append(projectIds, idStr)
+		}
+		projects := FetchProjects(projectIds, false)
+		if projects != nil {
+			for i := range rows {
+				idStr := objs[i].GetOwnerId().GetProjectId()
+				if proj, ok := projects[idStr]; ok {
+					if len(fields) == 0 || fields.Contains("domain") {
+						rows[i].Add(jsonutils.NewString(proj.Domain), "domain")
+					}
+					if len(fields) == 0 || fields.Contains("tenant") {
+						rows[i].Add(jsonutils.NewString(proj.Name), "tenant")
+					}
+				}
+
+			}
+		}
+	}
+	return rows
+}
+
+func FetchProjects(projectIds []string, isDomain bool) map[string]STenant {
+	q := TenantCacheManager.Query().In("id", projectIds)
+	if isDomain {
+		q = q.Equals("domain_id", identityapi.KeystoneDomainRoot)
+	} else {
+		q = q.NotEquals("domain_id", identityapi.KeystoneDomainRoot)
+	}
+	projects := make([]STenant, 0)
+	err := FetchModelObjects(TenantCacheManager, q, &projects)
+	if err != nil {
+		return nil
+	}
+	ret := make(map[string]STenant)
+	for i := range projects {
+		ret[projects[i].Id] = projects[i]
+	}
+	return ret
 }
 
 func (model *SVirtualResourceBase) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
@@ -193,16 +260,16 @@ func (model *SVirtualResourceBase) GetTenantCache(ctx context.Context) (*STenant
 }
 
 func (model *SVirtualResourceBase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	if IsAdminAllowGet(userCred, model) {
-		// log.Debugf("GetCustomizeColumns")
-		tobj, err := model.GetTenantCache(ctx)
-		if err == nil {
-			// log.Debugf("GetTenantFromCache %s", jsonutils.Marshal(tobj))
-			extra.Add(jsonutils.NewString(tobj.GetName()), "tenant")
-		} else {
-			log.Errorf("GetTenantCache fail %s", err)
-		}
-	}
+	//if IsAdminAllowGet(userCred, model) {
+	// log.Debugf("GetCustomizeColumns")
+	// tobj, err := model.GetTenantCache(ctx)
+	// if err == nil {
+	// log.Debugf("GetTenantFromCache %s", jsonutils.Marshal(tobj))
+	// extra.Add(jsonutils.NewString(tobj.GetName()), "tenant")
+	// } else {
+	// 	log.Errorf("GetTenantCache fail %s", err)
+	// }
+	// }
 	admin, _ := query.GetString("admin")
 	if utils.ToBool(admin) { // admin
 		pendingDelete, _ := query.GetString("pending_delete")
@@ -232,15 +299,14 @@ func (model *SVirtualResourceBase) AllowPerformChangeOwner(ctx context.Context, 
 }
 
 func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	tenant := jsonutils.GetAnyString(data, []string{"project", "tenant", "project_id", "tenant_id"})
-	if len(tenant) == 0 {
-		return nil, httperrors.NewMissingParameterError("tenant_id")
+	ownerId, err := model.GetModelManager().FetchOwnerId(ctx, data)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
 	}
-	tobj, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, tenant)
-	if tobj == nil {
-		return nil, httperrors.NewTenantNotFoundError("tenant %s not found", tenant)
+	if len(ownerId.GetProjectId()) == 0 {
+		return nil, httperrors.NewInputParameterError("missing new project/tenant")
 	}
-	if tobj.GetId() == model.ProjectId {
+	if ownerId.GetProjectId() == model.ProjectId {
 		// do nothing
 		Update(model, func() error {
 			model.ProjectSrc = string(PROJECT_SOURCE_LOCAL)
@@ -248,8 +314,9 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		})
 		return nil, nil
 	}
-	q := model.GetModelManager().Query().Equals("name", model.GetName())
-	q = q.Equals("tenant_id", tobj.GetId())
+	manager := model.GetModelManager()
+	q := manager.Query().Equals("name", model.GetName())
+	q = manager.FilterByOwner(q, ownerId)
 	q = q.NotEquals("id", model.GetId())
 	cnt, err := q.CountWithError()
 	if err != nil {
@@ -260,12 +327,13 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	}
 	former, _ := TenantCacheManager.FetchTenantById(ctx, model.ProjectId)
 	if former == nil {
-		log.Errorf("tenant_id %s not found", model.ProjectId)
-		formerObj := NewTenant(model.ProjectId, "unknown")
+		log.Warningf("tenant_id %s not found", model.ProjectId)
+		formerObj := NewTenant(model.ProjectId, "unknown", model.DomainId, "unknown")
 		former = &formerObj
 	}
 	_, err = Update(model, func() error {
-		model.ProjectId = tobj.GetId()
+		model.DomainId = ownerId.GetProjectDomainId()
+		model.ProjectId = ownerId.GetProjectId()
 		model.ProjectSrc = string(PROJECT_SOURCE_LOCAL)
 		return nil
 	})
@@ -278,11 +346,19 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		OldProject   string
 		NewProjectId string
 		NewProject   string
+		OldDomainId  string
+		OldDomain    string
+		NewDomainId  string
+		NewDomain    string
 	}{
 		OldProjectId: former.Id,
 		OldProject:   former.Name,
-		NewProjectId: tobj.GetId(),
-		NewProject:   tobj.GetName(),
+		NewProjectId: ownerId.GetProjectId(),
+		NewProject:   ownerId.GetProjectName(),
+		OldDomainId:  former.DomainId,
+		OldDomain:    former.Domain,
+		NewDomainId:  ownerId.GetProjectDomainId(),
+		NewDomain:    ownerId.GetProjectDomain(),
 	}
 	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CHANGE_OWNER, notes, userCred, true)
 	return nil, nil
@@ -320,12 +396,8 @@ func (model *SVirtualResourceBase) AllowPerformCancelDelete(ctx context.Context,
 	return false
 }
 
-/*func DoCancelPendingDelete(model IVirtualModel, ctx context.Context, userCred mcclient.TokenCredential) error {
-	return model.DoCancelPendingDelete(ctx, userCred)
-}*/
-
 func (model *SVirtualResourceBase) PerformCancelDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if model.PendingDeleted {
+	if model.PendingDeleted && !model.Deleted {
 		err := model.DoCancelPendingDelete(ctx, userCred)
 		return nil, err
 	}
@@ -344,20 +416,25 @@ func (model *SVirtualResourceBase) VirtualModelManager() IVirtualModelManager {
 	return model.GetModelManager().(IVirtualModelManager)
 }
 
+func (model *SVirtualResourceBase) GetIVirtualModel() IVirtualModel {
+	return model.GetVirtualObject().(IVirtualModel)
+}
+
 func (model *SVirtualResourceBase) CancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if model.PendingDeleted {
+	if model.PendingDeleted && !model.Deleted {
 		return model.MarkCancelPendingDelete(ctx, userCred)
 	}
 	return nil
 }
 
 func (model *SVirtualResourceBase) MarkCancelPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	ownerProjId := model.GetOwnerProjectId()
+	manager := model.GetModelManager()
+	ownerId := model.GetOwnerId()
 
-	lockman.LockClass(ctx, model.GetModelManager(), ownerProjId)
-	defer lockman.ReleaseClass(ctx, model.GetModelManager(), ownerProjId)
+	lockman.LockClass(ctx, manager, GetLockClassKey(manager, ownerId))
+	defer lockman.ReleaseClass(ctx, manager, GetLockClassKey(manager, ownerId))
 
-	newName, err := GenerateName(model.GetModelManager(), ownerProjId, model.Name)
+	newName, err := GenerateName(manager, ownerId, model.Name)
 	if err != nil {
 		return err
 	}
@@ -385,13 +462,12 @@ func (model *SVirtualResourceBase) GetShortDesc(ctx context.Context) *jsonutils.
 	return desc
 }
 
-func (model *SVirtualResourceBase) SyncCloudProjectId(userCred mcclient.TokenCredential, projectId string) {
-	if model.ProjectSrc != string(PROJECT_SOURCE_LOCAL) && len(projectId) > 0 {
+func (model *SVirtualResourceBase) SyncCloudProjectId(userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider) {
+	if model.ProjectSrc != string(PROJECT_SOURCE_LOCAL) && ownerId != nil && len(ownerId.GetProjectId()) > 0 {
 		diff, _ := Update(model, func() error {
 			model.ProjectSrc = string(PROJECT_SOURCE_CLOUD)
-			if len(projectId) > 0 {
-				model.ProjectId = projectId
-			}
+			model.ProjectId = ownerId.GetProjectId()
+			model.DomainId = ownerId.GetProjectDomainId()
 			return nil
 		})
 		if len(diff) > 0 {

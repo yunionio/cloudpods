@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type DiskBatchCreateTask struct {
@@ -95,7 +96,7 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 	quotaStorage := models.SQuota{Storage: disk.DiskSize}
 
 	onError := func(err error) {
-		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, disk.ProjectId, &pendingUsage, &quotaStorage)
+		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), &pendingUsage, &quotaStorage)
 		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())
 		self.SetStageFailed(ctx, err.Error())
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
@@ -116,7 +117,7 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 	}
 	err = disk.SetStorageByHost(hostId, diskConfig, storageIds)
 	if err != nil {
-		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, disk.ProjectId, &pendingUsage, &quotaStorage)
+		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), &pendingUsage, &quotaStorage)
 		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())
 		self.SetStageFailed(ctx, err.Error())
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
@@ -134,7 +135,7 @@ func (self *DiskBatchCreateTask) startCreateDisk(ctx context.Context, disk *mode
 		log.Errorf("GetPendingUsage fail %s", err)
 	}
 	quotaStorage := models.SQuota{Storage: disk.DiskSize}
-	models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, disk.ProjectId, &pendingUsage, &quotaStorage)
+	models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), &pendingUsage, &quotaStorage)
 	self.SetPendingUsage(&pendingUsage)
 
 	disk.StartDiskCreateTask(ctx, self.GetUserCred(), false, "", self.GetTaskId())

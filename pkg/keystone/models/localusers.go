@@ -39,6 +39,7 @@ func init() {
 			"local_users",
 		),
 	}
+	LocalUserManager.SetVirtualObject(LocalUserManager)
 }
 
 /*
@@ -75,12 +76,12 @@ func (user *SLocalUser) GetName() string {
 
 func (manager *SLocalUserManager) register(userId string, domainId string, name string) (*SLocalUser, error) {
 	localUser := SLocalUser{}
-	localUser.SetModelManager(manager)
+	localUser.SetModelManager(manager, &localUser)
 
 	q := manager.Query().Equals("user_id", userId).Equals("domain_id", domainId)
 	err := q.First(&localUser)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.WithMessage(err, "Query")
+		return nil, errors.Wrap(err, "Query")
 	}
 	if err == nil {
 		return &localUser, nil
@@ -91,7 +92,7 @@ func (manager *SLocalUserManager) register(userId string, domainId string, name 
 
 	err = manager.TableSpec().Insert(&localUser)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Insert")
+		return nil, errors.Wrap(err, "Insert")
 	}
 
 	return &localUser, nil
@@ -99,12 +100,12 @@ func (manager *SLocalUserManager) register(userId string, domainId string, name 
 
 func (manager *SLocalUserManager) delete(userId string, domainId string) (*SLocalUser, error) {
 	localUser := SLocalUser{}
-	localUser.SetModelManager(manager)
+	localUser.SetModelManager(manager, &localUser)
 
 	q := manager.Query().Equals("user_id", userId).Equals("domain_id", domainId)
 	err := q.First(&localUser)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.WithMessage(err, "Query")
+		return nil, errors.Wrap(err, "Query")
 	}
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -115,7 +116,7 @@ func (manager *SLocalUserManager) delete(userId string, domainId string) (*SLoca
 	})
 
 	if err != nil {
-		return nil, errors.WithMessage(err, "MarkDelete")
+		return nil, errors.Wrap(err, "MarkDelete")
 	}
 
 	return &localUser, nil

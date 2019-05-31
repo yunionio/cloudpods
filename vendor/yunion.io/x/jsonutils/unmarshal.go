@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
@@ -37,7 +39,7 @@ import (
 )
 
 func (this *JSONValue) Unmarshal(obj interface{}, keys ...string) error {
-	return fmt.Errorf("unsupported operation Unmarshal")
+	return ErrUnsupported
 }
 
 func (this *JSONArray) Unmarshal(obj interface{}, keys ...string) error {
@@ -53,7 +55,7 @@ func jsonUnmarshal(jo JSONObject, o interface{}, keys []string) error {
 		var err error = nil
 		jo, err = jo.Get(keys...)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "Get")
 		}
 	}
 	value := reflect.Indirect(reflect.ValueOf(o))
@@ -92,7 +94,7 @@ func (this *JSONInt) unmarshalValue(val reflect.Value) error {
 		}
 		return nil
 	case JSONBoolType, JSONFloatType, JSONArrayType, JSONDictType, JSONBoolPtrType, JSONFloatPtrType, JSONArrayPtrType, JSONDictPtrType:
-		return fmt.Errorf("JSONInt type mismatch %s", val.Type())
+		return ErrTypeMismatch // fmt.Errorf("JSONInt type mismatch %s", val.Type())
 	case tristate.TriStateType:
 		if this.data == 0 {
 			val.Set(tristate.TriStateFalseValue)
@@ -125,7 +127,8 @@ func (this *JSONInt) unmarshalValue(val reflect.Value) error {
 	case reflect.Interface:
 		val.Set(reflect.ValueOf(this.data))
 	default:
-		return fmt.Errorf("JSONInt type mismatch: %s", val.Type())
+		log.Errorf("JSONDict type mismatch: %s", val.Type())
+		return ErrTypeMismatch // fmt.Errorf("JSONInt type mismatch: %s", val.Type())
 	}
 	return nil
 }
@@ -154,7 +157,7 @@ func (this *JSONBool) unmarshalValue(val reflect.Value) error {
 		}
 		return nil
 	case JSONIntType, JSONFloatType, JSONArrayType, JSONDictType, JSONIntPtrType, JSONFloatPtrType, JSONArrayPtrType, JSONDictPtrType:
-		return fmt.Errorf("JSONBool type mismatch %s", val.Type())
+		return ErrTypeMismatch // fmt.Errorf("JSONBool type mismatch %s", val.Type())
 	case tristate.TriStateType:
 		if this.data {
 			val.Set(tristate.TriStateTrueValue)
@@ -192,7 +195,8 @@ func (this *JSONBool) unmarshalValue(val reflect.Value) error {
 	case reflect.Interface:
 		val.Set(reflect.ValueOf(this.data))
 	default:
-		return fmt.Errorf("JSONBool type mismatch: %s", val.Type())
+		log.Errorf("JSONDict type mismatch: %s", val.Type())
+		return ErrTypeMismatch // fmt.Errorf("JSONBool type mismatch: %s", val.Type())
 	}
 	return nil
 }
@@ -238,7 +242,7 @@ func (this *JSONFloat) unmarshalValue(val reflect.Value) error {
 		json.data = (int(this.data) != 0)
 		return nil
 	case JSONArrayType, JSONDictType, JSONBoolPtrType, JSONArrayPtrType, JSONDictPtrType:
-		return fmt.Errorf("JSONFloat type mismatch %s", val.Type())
+		return ErrTypeMismatch // fmt.Errorf("JSONFloat type mismatch %s", val.Type())
 	case tristate.TriStateType:
 		if int(this.data) == 0 {
 			val.Set(tristate.TriStateFalseValue)
@@ -268,7 +272,8 @@ func (this *JSONFloat) unmarshalValue(val reflect.Value) error {
 	case reflect.Interface:
 		val.Set(reflect.ValueOf(this.data))
 	default:
-		return fmt.Errorf("JSONFloat type mismatch: %s", val.Type())
+		log.Errorf("JSONDict type mismatch: %s", val.Type())
+		return ErrTypeMismatch // fmt.Errorf("JSONFloat type mismatch: %s", val.Type())
 	}
 	return nil
 }
@@ -288,7 +293,7 @@ func (this *JSONString) unmarshalValue(val reflect.Value) error {
 		if len(this.data) > 0 {
 			tm, err = timeutils.ParseTimeStr(this.data)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "timeutils.ParseTimeStr")
 			}
 		} else {
 			tm = time.Time{}
@@ -321,7 +326,7 @@ func (this *JSONString) unmarshalValue(val reflect.Value) error {
 		return nil
 	case JSONIntType, JSONFloatType, JSONArrayType, JSONDictType,
 		JSONBoolPtrType, JSONIntPtrType, JSONFloatPtrType, JSONArrayPtrType, JSONDictPtrType:
-		return fmt.Errorf("JSONString type mismatch %s", val.Type())
+		return ErrTypeMismatch // fmt.Errorf("JSONString type mismatch %s", val.Type())
 	case tristate.TriStateType:
 		switch strings.ToLower(this.data) {
 		case "true", "yes", "on", "1":
@@ -358,7 +363,8 @@ func (this *JSONString) unmarshalValue(val reflect.Value) error {
 	case reflect.Interface:
 		val.Set(reflect.ValueOf(this.data))
 	default:
-		return fmt.Errorf("JSONString type mismatch: %s", val.Type())
+		log.Errorf("JSONDict type mismatch: %s", val.Type())
+		return ErrTypeMismatch // fmt.Errorf("JSONString type mismatch: %s", val.Type())
 	}
 	return nil
 }
@@ -377,7 +383,7 @@ func (this *JSONArray) unmarshalValue(val reflect.Value) error {
 		return nil
 	case JSONDictType, JSONIntType, JSONStringType, JSONBoolType, JSONFloatType,
 		JSONDictPtrType, JSONIntPtrType, JSONStringPtrType, JSONBoolPtrType, JSONFloatPtrType:
-		return fmt.Errorf("JSONArray type mismatch %s", val.Type())
+		return ErrTypeMismatch //fmt.Errorf("JSONArray type mismatch %s", val.Type())
 	}
 	switch val.Kind() {
 	case reflect.String:
@@ -391,14 +397,13 @@ func (this *JSONArray) unmarshalValue(val reflect.Value) error {
 			}
 			return this.unmarshalValue(val.Elem())
 		}
-		return fmt.Errorf("JSONArray type mismatch %s", val.Type())
+		return ErrTypeMismatch // fmt.Errorf("JSONArray type mismatch %s", val.Type())
 	case reflect.Interface:
 		val.Set(reflect.ValueOf(this.data))
 	case reflect.Slice, reflect.Array:
 		if val.Kind() == reflect.Array {
 			if val.Len() != len(this.data) {
-				return fmt.Errorf("JSONArray length unmatch %s: %d != %d",
-					val.Type(), val.Len(), len(this.data))
+				return ErrArrayLengthMismatch // fmt.Errorf("JSONArray length unmatch %s: %d != %d", val.Type(), val.Len(), len(this.data))
 			}
 		} else if val.Kind() == reflect.Slice {
 			dataLen := len(this.data)
@@ -412,11 +417,12 @@ func (this *JSONArray) unmarshalValue(val reflect.Value) error {
 		for i, json := range this.data {
 			err := json.unmarshalValue(val.Index(i))
 			if err != nil {
-				return err
+				return errors.Wrap(err, "unmarshalValue")
 			}
 		}
 	default:
-		return fmt.Errorf("JSONArray type mismatch: %s", val.Type())
+		log.Errorf("JSONDict type mismatch: %s", val.Type())
+		return ErrTypeMismatch // fmt.Errorf("JSONArray type mismatch: %s", val.Type())
 	}
 	return nil
 }
@@ -432,7 +438,7 @@ func (this *JSONDict) unmarshalValue(val reflect.Value) error {
 		return nil
 	case JSONArrayType, JSONIntType, JSONBoolType, JSONFloatType, JSONStringType,
 		JSONArrayPtrType, JSONIntPtrType, JSONBoolPtrType, JSONFloatPtrType, JSONStringPtrType:
-		return fmt.Errorf("JSONDict type mismatch %s", val.Type())
+		return ErrTypeMismatch // fmt.Errorf("JSONDict type mismatch %s", val.Type())
 	}
 	switch val.Kind() {
 	case reflect.String:
@@ -454,7 +460,7 @@ func (this *JSONDict) unmarshalValue(val reflect.Value) error {
 			}
 			err = this.unmarshalValue(reflect.ValueOf(objPtr))
 			if err != nil {
-				return err
+				return errors.Wrap(err, "unmarshalValue")
 			}
 			//
 			// XXX
@@ -467,7 +473,8 @@ func (this *JSONDict) unmarshalValue(val reflect.Value) error {
 			//
 			val.Set(reflect.ValueOf(objPtr).Convert(val.Type()))
 		} else {
-			return fmt.Errorf("Do not known how to deserialize json into this interface type %s", val.Type())
+			log.Errorf("Do not known how to deserialize json into this interface type %s", val.Type())
+			return ErrInterfaceUnsupported
 		}
 	case reflect.Ptr:
 		kind := val.Type().Elem().Kind()
@@ -480,7 +487,8 @@ func (this *JSONDict) unmarshalValue(val reflect.Value) error {
 		}
 		fallthrough
 	default:
-		return fmt.Errorf("JSONDict type mismatch: %s", val.Type())
+		log.Errorf("JSONDict type mismatch: %s", val.Type())
+		return ErrTypeMismatch
 	}
 	return nil
 }
@@ -493,7 +501,7 @@ func (this *JSONDict) unmarshalMap(val reflect.Value) error {
 	valType := val.Type()
 	keyType := valType.Key()
 	if keyType.Kind() != reflect.String {
-		return fmt.Errorf("map key must be string")
+		return ErrMapKeyMustString // fmt.Errorf("map key must be string")
 	}
 	for k, v := range this.data {
 		keyVal := reflect.ValueOf(k)
@@ -502,7 +510,7 @@ func (this *JSONDict) unmarshalMap(val reflect.Value) error {
 		err := v.unmarshalValue(valVal)
 		if err != nil {
 			log.Debugf("unmarshalMap field %s error %s", k, err)
-			return err
+			return errors.Wrap(err, "unmarshalValue")
 		}
 		val.SetMapIndex(keyVal, valVal)
 	}
@@ -517,7 +525,7 @@ func (this *JSONDict) unmarshalStruct(val reflect.Value) error {
 			err := v.unmarshalValue(fieldValue)
 			if err != nil {
 				log.Debugf("unmarshalStruct field %s error %s", k, err)
-				return err
+				return errors.Wrap(err, "unmarshalValue")
 			}
 		}
 	}

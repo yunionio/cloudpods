@@ -296,7 +296,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		if err != nil {
 			return nil, err
 		}
-		guest.SetExternalId(userCred, iVM.GetGlobalId())
+		db.SetExternalId(guest, userCred, iVM.GetGlobalId())
 
 		return iVM, nil
 	}()
@@ -645,7 +645,7 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 
 	uuid, _ := data.GetString("uuid")
 	if len(uuid) > 0 {
-		guest.SetExternalId(task.GetUserCred(), uuid)
+		db.SetExternalId(guest, task.GetUserCred(), uuid)
 	}
 
 	recycle := false

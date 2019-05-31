@@ -54,6 +54,7 @@ func init() {
 				CachedimageManager,
 			),
 		}
+		StoragecachedimageManager.SetVirtualObject(StoragecachedimageManager)
 	})
 }
 
@@ -313,8 +314,8 @@ func (self *SStoragecachedimage) markDeleting(ctx context.Context, userCred mccl
 }
 
 func (manager *SStoragecachedimageManager) Register(ctx context.Context, userCred mcclient.TokenCredential, cacheId, imageId string, status string) *SStoragecachedimage {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	cachedimage := manager.GetStoragecachedimage(cacheId, imageId)
 	if cachedimage != nil {
@@ -322,7 +323,7 @@ func (manager *SStoragecachedimageManager) Register(ctx context.Context, userCre
 	}
 
 	cachedimage = &SStoragecachedimage{}
-	cachedimage.SetModelManager(manager)
+	cachedimage.SetModelManager(manager, cachedimage)
 
 	cachedimage.StoragecacheId = cacheId
 	cachedimage.CachedimageId = imageId
@@ -421,7 +422,7 @@ func (self *SStoragecachedimage) syncWithCloudImage(ctx context.Context, userCre
 
 func (manager *SStoragecachedimageManager) newFromCloudImage(ctx context.Context, userCred mcclient.TokenCredential, image cloudprovider.ICloudImage, cache *SStoragecache) error {
 	var cachedImage *SCachedimage
-	imgObj, err := CachedimageManager.FetchByExternalId(image.GetGlobalId())
+	imgObj, err := db.FetchByExternalId(CachedimageManager, image.GetGlobalId())
 	if err != nil {
 		if err != sql.ErrNoRows {
 			// unhandled error
@@ -435,7 +436,7 @@ func (manager *SStoragecachedimageManager) newFromCloudImage(ctx context.Context
 			if strings.HasPrefix(name, "img") {
 				name = name[3:]
 			}
-			imgObj, err = CachedimageManager.FetchById(name)
+			imgObj, err := CachedimageManager.FetchById(name)
 			if err == nil && imgObj != nil {
 				cachedImage = imgObj.(*SCachedimage)
 			}

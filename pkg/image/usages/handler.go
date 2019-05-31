@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -40,71 +39,26 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	_, query, _ := appsrv.FetchEnv(ctx, w, r)
 	userCred := auth.FetchUserCredential(ctx, policy.FilterPolicyCredential)
 
-	projectName := jsonutils.GetAnyString(query, []string{"project", "tenant"})
-	if projectName != "" {
-		isAllow := false
-		if consts.IsRbacEnabled() {
-			result := policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-				policy.PolicyDelegation, policy.PolicyActionGet)
-			isAllow = result == rbacutils.AdminAllow
-		} else {
-			isAllow = userCred.IsAdminAllow(consts.GetServiceType(), policy.PolicyDelegation, policy.PolicyActionGet)
-		}
-		if !isAllow {
-			httperrors.ForbiddenError(w, "not allow to delegate query usage")
-			return
-		}
-		var err error
-		userCred, err = db.TenantCacheManager.GenerateProjectUserCred(ctx, projectName)
-		if err != nil {
-			httperrors.GeneralServerError(w, err)
-			return
-		}
-	}
-
-	isAdmin := false
-	if consts.IsRbacEnabled() {
-		if policy.PolicyManager.Allow(true, userCred, consts.GetServiceType(),
-			"usages", policy.PolicyActionGet) == rbacutils.AdminAllow {
-			isAdmin = true
-		}
-	} else {
-		isAdmin = userCred.IsAdminAllow(consts.GetServiceType(), "usages", policy.PolicyActionGet)
-	}
-
-	var adminUsage map[string]int64
-	var projectUsage map[string]int64
-	if isAdmin {
-		adminUsage = models.ImageManager.Usage("", "all")
-	}
-
-	isProject := false
-	if consts.IsRbacEnabled() {
-		if policy.PolicyManager.Allow(false, userCred, consts.GetServiceType(),
-			"usages", policy.PolicyActionGet) == rbacutils.Deny {
-			isProject = false
-		} else {
-			isProject = true
-		}
-	} else {
-		isProject = true
-	}
-
-	if isProject {
-		projectUsage = models.ImageManager.Usage(userCred.GetProjectId(), "")
-	}
-
-	if !isAdmin && !isProject {
-		httperrors.ForbiddenError(w, "not allow to get usage")
+	ownerId, scope, err := db.FetchUsageOwnerScope(ctx, userCred, query)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
 		return
 	}
 
 	usages := jsonutils.NewDict()
-	if isProject {
-		usages.Update(jsonutils.Marshal(projectUsage))
-	}
-	if isAdmin {
+	if scope == rbacutils.ScopeSystem {
+		adminUsage := models.ImageManager.Usage(scope, ownerId, "all")
 		usages.Update(jsonutils.Marshal(adminUsage))
+	}
+
+	if scope.HigherEqual(rbacutils.ScopeDomain) {
+		domainUsage := models.ImageManager.Usage(scope, ownerId, "domain")
+		usages.Update(jsonutils.Marshal(domainUsage))
+	}
+
+	if scope.HigherEqual(rbacutils.ScopeProject) {
+		projectUsage := models.ImageManager.Usage(scope, ownerId, "")
+		usages.Update(jsonutils.Marshal(projectUsage))
 	}
 
 	body := jsonutils.NewDict()

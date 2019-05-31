@@ -125,7 +125,7 @@ func (r *SRegionDNS) getAdminSession(ctx context.Context) *mcclient.ClientSessio
 }
 
 func (r *SRegionDNS) initAuth() {
-	authInfo := auth.NewAuthInfo(r.AuthUrl, "", r.AdminUser, r.AdminPassword, r.AdminProject)
+	authInfo := auth.NewAuthInfo(r.AuthUrl, "", r.AdminUser, r.AdminPassword, r.AdminProject, "")
 	auth.Init(authInfo, false, true, "", "")
 }
 

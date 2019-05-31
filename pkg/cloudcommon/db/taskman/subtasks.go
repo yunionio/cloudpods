@@ -51,7 +51,7 @@ type SSubTask struct {
 
 func (manager *SSubTaskmanager) GetSubTask(ptaskId string, subtaskId string) *SSubTask {
 	subtask := SSubTask{}
-	subtask.SetModelManager(manager)
+	subtask.SetModelManager(manager, &subtask)
 	err := manager.Query().Equals("task_id", ptaskId).Equals("subtask_id", subtaskId).First(&subtask)
 	if err != nil {
 		if err != sql.ErrNoRows {

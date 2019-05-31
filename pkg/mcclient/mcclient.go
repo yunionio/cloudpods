@@ -127,28 +127,7 @@ func (this *Client) jsonRequest(ctx context.Context, endpoint string, token stri
 	return httputils.JSONRequest(this.httpconn, ctx, method, joinUrl(endpoint, url), getDefaultHeader(header, token), body, this.debug)
 }
 
-func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, token string) (TokenCredential, error) {
-	/*body := jsonutils.NewDict()
-	if len(uname) > 0 && len(passwd) > 0 { // Password authentication
-		body.Add(jsonutils.NewArray(jsonutils.NewString("password")), "auth", "identity", "methods")
-		body.Add(jsonutils.NewString(uname), "auth", "identity", "password", "user", "name")
-		body.Add(jsonutils.NewString(passwd), "auth", "identity", "password", "user", "password")
-		if len(domainName) > 0 {
-			body.Add(jsonutils.NewString(domainName), "auth", "identity", "password", "user", "domain", "name")
-		} else {
-			body.Add(jsonutils.NewString("default"), "auth", "identity", "password", "user", "domain", "id")
-		}
-	} else if len(token) > 0 {
-		body.Add(jsonutils.NewArray(jsonutils.NewString("token")), "auth", "identity", "methods")
-		body.Add(jsonutils.NewString(token), "auth", "identity", "token", "id")
-	}
-	if len(projectId) > 0 {
-		body.Add(jsonutils.NewString(projectId), "auth", "scope", "project", "id")
-	}
-	if len(projectName) > 0 {
-		body.Add(jsonutils.NewString("default"), "auth", "scope", "project", "domain", "id")
-		body.Add(jsonutils.NewString(projectName), "auth", "scope", "project", "name")
-	}*/
+func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, projectDomain, token string, aCtx SAuthContext) (TokenCredential, error) {
 	input := SAuthenticationInputV3{}
 	if len(uname) > 0 && len(passwd) > 0 { // Password authentication
 		input.Auth.Identity.Methods = []string{api.AUTH_METHOD_PASSWORD}
@@ -156,9 +135,10 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, t
 		input.Auth.Identity.Password.User.Password = passwd
 		if len(domainName) > 0 {
 			input.Auth.Identity.Password.User.Domain.Name = domainName
-		} else {
-			input.Auth.Identity.Password.User.Domain.Name = api.DEFAULT_DOMAIN_ID
 		}
+		// else {
+		//	input.Auth.Identity.Password.User.Domain.Name = api.DEFAULT_DOMAIN_ID
+		//}
 	} else if len(token) > 0 {
 		input.Auth.Identity.Methods = []string{api.AUTH_METHOD_TOKEN}
 		input.Auth.Identity.Token.Id = token
@@ -168,12 +148,14 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, t
 	}
 	if len(projectName) > 0 {
 		input.Auth.Scope.Project.Name = projectName
-		if len(domainName) > 0 {
+		if len(projectDomain) > 0 {
 			input.Auth.Scope.Project.Domain.Name = domainName
-		} else {
-			input.Auth.Scope.Project.Domain.Id = api.DEFAULT_DOMAIN_ID
 		}
+		// else {
+		// 	input.Auth.Scope.Project.Domain.Id = api.DEFAULT_DOMAIN_ID
+		// }
 	}
+	input.Auth.Context = aCtx
 	hdr, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "POST", "/auth/tokens", nil, jsonutils.Marshal(&input))
 	if err != nil {
 		return nil, err
@@ -187,21 +169,7 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, t
 	return ret, err
 }
 
-func (this *Client) _authV2(uname, passwd, tenantId, tenantName, token string) (TokenCredential, error) {
-	/*body := jsonutils.NewDict()
-	if len(uname) > 0 && len(passwd) > 0 {
-		body.Add(jsonutils.NewString(uname), "auth", "passwordCredentials", "username")
-		body.Add(jsonutils.NewString(passwd), "auth", "passwordCredentials", "password")
-	}
-	if len(tenantName) > 0 {
-		body.Add(jsonutils.NewString(tenantName), "auth", "tenantName")
-	}
-	if len(tenantId) > 0 {
-		body.Add(jsonutils.NewString(tenantId), "auth", "tenantId")
-	}
-	if len(token) > 0 {
-		body.Add(jsonutils.NewString(token), "auth", "token", "id")
-	}*/
+func (this *Client) _authV2(uname, passwd, tenantId, tenantName, token string, aCtx SAuthContext) (TokenCredential, error) {
 	input := SAuthenticationInputV2{}
 	input.Auth.PasswordCredentials.Username = uname
 	input.Auth.PasswordCredentials.Password = passwd
@@ -214,6 +182,7 @@ func (this *Client) _authV2(uname, passwd, tenantId, tenantName, token string) (
 	if len(token) > 0 {
 		input.Auth.Token.Id = token
 	}
+	input.Auth.Context = aCtx
 	_, rbody, err := this.jsonRequest(context.Background(), this.authUrl, "", "POST", "/tokens", nil, jsonutils.Marshal(&input))
 	if err != nil {
 		return nil, err
@@ -221,11 +190,34 @@ func (this *Client) _authV2(uname, passwd, tenantId, tenantName, token string) (
 	return this.unmarshalV2Token(rbody)
 }
 
-func (this *Client) Authenticate(uname, passwd, domainName, tenantName string) (TokenCredential, error) {
-	if this.AuthVersion() == "v3" {
-		return this._authV3(domainName, uname, passwd, "", tenantName, "")
+func (this *Client) Authenticate(uname, passwd, domainName, tenantName, tenantDomain string) (TokenCredential, error) {
+	return this.AuthenticateApi(uname, passwd, domainName, tenantName, tenantDomain)
+}
+
+func (this *Client) AuthenticateApi(uname, passwd, domainName, tenantName, tenantDomain string) (TokenCredential, error) {
+	return this.AuthenticateWithSource(uname, passwd, domainName, tenantName, tenantDomain, AuthSourceAPI)
+}
+
+func (this *Client) AuthenticateWeb(uname, passwd, domainName, tenantName, tenantDomain string, cliIp string) (TokenCredential, error) {
+	aCtx := SAuthContext{
+		Source: AuthSourceWeb,
+		Ip:     cliIp,
 	}
-	return this._authV2(uname, passwd, "", tenantName, "")
+	return this.authenticateWithContext(uname, passwd, domainName, tenantName, tenantDomain, aCtx)
+}
+
+func (this *Client) AuthenticateWithSource(uname, passwd, domainName, tenantName, tenantDomain string, source string) (TokenCredential, error) {
+	aCtx := SAuthContext{
+		Source: source,
+	}
+	return this.authenticateWithContext(uname, passwd, domainName, tenantName, tenantDomain, aCtx)
+}
+
+func (this *Client) authenticateWithContext(uname, passwd, domainName, tenantName, tenantDomain string, aCtx SAuthContext) (TokenCredential, error) {
+	if this.AuthVersion() == "v3" {
+		return this._authV3(domainName, uname, passwd, "", tenantName, tenantDomain, "", aCtx)
+	}
+	return this._authV2(uname, passwd, "", tenantName, "", aCtx)
 }
 
 func (this *Client) unmarshalV3Token(rbody jsonutils.JSONObject, tokenId string) (cred TokenCredential, err error) {
@@ -290,15 +282,19 @@ func (this *Client) Verify(adminToken, token string) (cred TokenCredential, err 
 	return this.verifyV2(adminToken, token)
 }
 
-func (this *Client) SetTenant(tenantId, tenantName string, token TokenCredential) (TokenCredential, error) {
-	return this.SetProject(tenantId, tenantName, token)
+func (this *Client) SetTenant(tenantId, tenantName, tenantDomain string, token TokenCredential) (TokenCredential, error) {
+	return this.SetProject(tenantId, tenantName, tenantDomain, token)
 }
 
-func (this *Client) SetProject(tenantId, tenantName string, token TokenCredential) (TokenCredential, error) {
+func (this *Client) SetProject(tenantId, tenantName, tenantDomain string, token TokenCredential) (TokenCredential, error) {
+	aCtx := SAuthContext{
+		Source: token.GetLoginSource(),
+		Ip:     token.GetLoginIp(),
+	}
 	if this.AuthVersion() == "v3" {
-		return this._authV3("", "", "", tenantId, tenantName, token.GetTokenString())
+		return this._authV3("", "", "", tenantId, tenantName, tenantDomain, token.GetTokenString(), aCtx)
 	} else {
-		return this._authV2("", "", "", tenantName, token.GetTokenString())
+		return this._authV2("", "", "", tenantName, token.GetTokenString(), aCtx)
 	}
 }
 

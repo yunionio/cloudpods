@@ -15,18 +15,17 @@
 package tokens
 
 import (
-	"errors"
+	"context"
+	"strings"
 	"time"
 
-	"strings"
+	"github.com/pkg/errors"
+
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
-)
-
-var (
-	ErrInvalidFernetToken = errors.New("invalid fernet token")
 )
 
 type SAuthToken struct {
@@ -37,11 +36,14 @@ type SAuthToken struct {
 	ExpiresAt time.Time
 	AuditIds  []string
 
-	// Token string
+	Context mcclient.SAuthContext
 }
 
 func (t *SAuthToken) Decode(tk []byte) error {
 	for _, payload := range []ITokenPayload{
+		&SProjectScopedPayloadWithContext{},
+		&SDomainScopedPayloadWithContext{},
+		&SUnscopedPayloadWithContext{},
 		&SProjectScopedPayload{},
 		&SDomainScopedPayload{},
 		&SUnscopedPayload{},
@@ -66,6 +68,18 @@ func (t *SAuthToken) getProjectScopedPayload() ITokenPayload {
 	return &p
 }
 
+func (t *SAuthToken) getProjectScopedPayloadWithContext() ITokenPayload {
+	p := SProjectScopedPayloadWithContext{}
+	p.Version = SProjectScopedPayloadWithContextVersion
+	p.UserId.parse(t.UserId)
+	p.ProjectId.parse(t.ProjectId)
+	p.Method = authMethodStr2Id(t.Method)
+	p.ExpiresAt = float64(t.ExpiresAt.Unix())
+	p.AuditIds = auditStrings2Bytes(t.AuditIds)
+	p.Context = authContext2Payload(t.Context)
+	return &p
+}
+
 func (t *SAuthToken) getDomainScopedPayload() ITokenPayload {
 	p := SDomainScopedPayload{}
 	p.Version = SDomainScopedPayloadVersion
@@ -74,6 +88,18 @@ func (t *SAuthToken) getDomainScopedPayload() ITokenPayload {
 	p.Method = authMethodStr2Id(t.Method)
 	p.ExpiresAt = float64(t.ExpiresAt.Unix())
 	p.AuditIds = auditStrings2Bytes(t.AuditIds)
+	return &p
+}
+
+func (t *SAuthToken) getDomainScopedPayloadWithContext() ITokenPayload {
+	p := SDomainScopedPayloadWithContext{}
+	p.Version = SDomainScopedPayloadVersion
+	p.UserId.parse(t.UserId)
+	p.DomainId.parse(t.DomainId)
+	p.Method = authMethodStr2Id(t.Method)
+	p.ExpiresAt = float64(t.ExpiresAt.Unix())
+	p.AuditIds = auditStrings2Bytes(t.AuditIds)
+	p.Context = authContext2Payload(t.Context)
 	return &p
 }
 
@@ -87,14 +113,25 @@ func (t *SAuthToken) getUnscopedPayload() ITokenPayload {
 	return &p
 }
 
+func (t *SAuthToken) getUnscopedPayloadWithContext() ITokenPayload {
+	p := SUnscopedPayloadWithContext{}
+	p.Version = SUnscopedPayloadVersion
+	p.UserId.parse(t.UserId)
+	p.Method = authMethodStr2Id(t.Method)
+	p.ExpiresAt = float64(t.ExpiresAt.Unix())
+	p.AuditIds = auditStrings2Bytes(t.AuditIds)
+	p.Context = authContext2Payload(t.Context)
+	return &p
+}
+
 func (t *SAuthToken) getPayload() ITokenPayload {
 	if len(t.ProjectId) > 0 {
-		return t.getProjectScopedPayload()
+		return t.getProjectScopedPayloadWithContext()
 	}
 	if len(t.DomainId) > 0 {
-		return t.getDomainScopedPayload()
+		return t.getDomainScopedPayloadWithContext()
 	}
-	return t.getUnscopedPayload()
+	return t.getUnscopedPayloadWithContext()
 }
 
 func (t *SAuthToken) Encode() ([]byte, error) {
@@ -103,9 +140,12 @@ func (t *SAuthToken) Encode() ([]byte, error) {
 
 func (t *SAuthToken) ParseFernetToken(tokenStr string) error {
 	tk := keys.TokenKeysManager.Decrypt([]byte(tokenStr), time.Duration(options.Options.TokenExpirationSeconds)*time.Second)
+	if tk == nil {
+		return ErrExpiredToken
+	}
 	err := t.Decode(tk)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "decode error")
 	}
 	return nil
 }
@@ -113,11 +153,11 @@ func (t *SAuthToken) ParseFernetToken(tokenStr string) error {
 func (t *SAuthToken) EncodeFernetToken() (string, error) {
 	tk, err := t.Encode()
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "encode error")
 	}
 	ftk, err := keys.TokenKeysManager.Encrypt(tk)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "TokenKeysManager.Encrypt")
 	}
 	return string(ftk), nil
 }
@@ -125,7 +165,7 @@ func (t *SAuthToken) EncodeFernetToken() (string, error) {
 func (t *SAuthToken) GetSimpleUserCred(token string) (mcclient.TokenCredential, error) {
 	userExt, err := models.UserManager.FetchUserExtended(t.UserId, "", "", "")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "UserManager.FetchUserExtended")
 	}
 	ret := mcclient.SSimpleToken{
 		Token:    token,
@@ -134,12 +174,13 @@ func (t *SAuthToken) GetSimpleUserCred(token string) (mcclient.TokenCredential, 
 		Domain:   userExt.DomainName,
 		DomainId: userExt.DomainId,
 		Expires:  t.ExpiresAt,
+		Context:  t.Context,
 	}
 	var roles []models.SRole
 	if len(t.ProjectId) > 0 {
 		proj, err := models.ProjectManager.FetchProjectById(t.ProjectId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "ProjectManager.FetchProjectById")
 		}
 		ret.ProjectId = t.ProjectId
 		ret.Project = proj.Name
@@ -149,7 +190,7 @@ func (t *SAuthToken) GetSimpleUserCred(token string) (mcclient.TokenCredential, 
 	} else if len(t.DomainId) > 0 {
 		domain, err := models.DomainManager.FetchDomainById(t.DomainId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "DomainManager.FetchDomainById")
 		}
 		ret.ProjectDomainId = t.DomainId
 		ret.ProjectDomain = domain.Name
@@ -177,7 +218,8 @@ func (t *SAuthToken) getRoles() ([]models.SRole, error) {
 }
 
 func (t *SAuthToken) getTokenV3(
-	user *models.SUserExtended,
+	ctx context.Context,
+	user *api.SUserExtended,
 	project *models.SProjectExtended,
 	domain *models.SDomain,
 ) (*mcclient.TokenCredentialV3, error) {
@@ -190,16 +232,17 @@ func (t *SAuthToken) getTokenV3(
 	token.Token.User.Name = user.Name
 	token.Token.User.Domain.Id = user.DomainId
 	token.Token.User.Domain.Name = user.DomainName
+	token.Token.Context = t.Context
 
 	tk, err := t.EncodeFernetToken()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "EncodeFernetToken")
 	}
 	token.Id = tk
 
 	roles, err := t.getRoles()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getRoles")
 	}
 
 	if len(roles) > 0 {
@@ -223,7 +266,7 @@ func (t *SAuthToken) getTokenV3(
 
 		endpoints, err := models.EndpointManager.FetchAll()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "EndpointManager.FetchAll")
 		}
 		if endpoints != nil {
 			token.Token.Catalog = endpoints.GetKeystoneCatalogV3()
@@ -234,29 +277,35 @@ func (t *SAuthToken) getTokenV3(
 }
 
 func (t *SAuthToken) getTokenV2(
-	user *models.SUserExtended,
-	project *models.SProject,
+	ctx context.Context,
+	user *api.SUserExtended,
+	project *models.SProjectExtended,
 ) (*mcclient.TokenCredentialV2, error) {
 	token := mcclient.TokenCredentialV2{}
 	token.User.Name = user.Name
 	token.User.Id = user.Id
 	token.User.Username = user.Name
+	token.Context = t.Context
 
 	tk, err := t.EncodeFernetToken()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "EncodeFernetToken")
 	}
 	token.Token.Id = tk
 	token.Token.Expires = t.ExpiresAt
 
 	roles, err := t.getRoles()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getRoles")
 	}
 
 	if len(roles) > 0 {
 		token.Token.Tenant.Id = project.Id
 		token.Token.Tenant.Name = project.Name
+		token.Token.Tenant.Enabled = project.Enabled.Bool()
+		token.Token.Tenant.Description = project.Description
+		token.Token.Tenant.Domain.Id = project.DomainId
+		token.Token.Tenant.Domain.Name = project.DomainName
 
 		token.User.Roles = make([]mcclient.KeystoneRoleV2, len(roles))
 		token.Metadata.Roles = make([]string, len(roles))
@@ -266,7 +315,7 @@ func (t *SAuthToken) getTokenV2(
 		}
 		endpoints, err := models.EndpointManager.FetchAll()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "EndpointManager.FetchAll")
 		}
 		if endpoints != nil {
 			token.ServiceCatalog = endpoints.GetKeystoneCatalogV2()

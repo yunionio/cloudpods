@@ -45,6 +45,7 @@ func init() {
 			"schedpolicies",
 		),
 	}
+	SchedpolicyManager.SetVirtualObject(SchedpolicyManager)
 }
 
 // sched policy is called before calling scheduler, add additional preferences for schedtags
@@ -96,13 +97,13 @@ func (self *SSchedpolicy) AllowDeleteItem(ctx context.Context, userCred mcclient
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (manager *SSchedpolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SSchedpolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	err := validateSchedpolicyInputData(data, true)
 	if err != nil {
 		return nil, err
 	}
 
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SSchedpolicy) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

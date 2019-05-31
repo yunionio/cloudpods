@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
@@ -70,11 +84,13 @@ type SnapshotPolicyApplyTask struct {
 func (self *SnapshotPolicyApplyTask) taskFail(ctx context.Context, sp *models.SSnapshotPolicy, reason string) {
 	stringIds, _ := getDiskIds(self)
 	disks := make([]models.SDisk, 0)
-	models.DiskManager.Query().In("id", stringIds).All(&disks)
-	for i := 0; i < len(disks); i++ {
-		disks[i].SetModelManager(models.DiskManager)
-		db.OpsLog.LogEvent(&disks[i], db.ACT_APPLY_SNAPSHOT_POLICY_FAILED, reason, self.UserCred)
-		logclient.AddActionLogWithStartable(self, &disks[i], logclient.ACT_APPLY_SNAPSHOT_POLICY, reason, self.UserCred, false)
+	q := models.DiskManager.Query().In("id", stringIds)
+	err := db.FetchModelObjects(models.DiskManager, q, &disks)
+	if err == nil {
+		for i := 0; i < len(disks); i++ {
+			db.OpsLog.LogEvent(&disks[i], db.ACT_APPLY_SNAPSHOT_POLICY_FAILED, reason, self.UserCred)
+			logclient.AddActionLogWithStartable(self, &disks[i], logclient.ACT_APPLY_SNAPSHOT_POLICY, reason, self.UserCred, false)
+		}
 	}
 	self.SetStageFailed(ctx, reason)
 }
@@ -129,13 +145,13 @@ func (self *SnapshotPolicyApplyTask) OnInit(ctx context.Context, obj db.IStandal
 func (self *SnapshotPolicyApplyTask) OnSnapshotPolicyApply(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
 	stringIds, _ := getDiskIds(self)
 	disks := make([]models.SDisk, 0)
-	err := models.DiskManager.Query().In("id", stringIds).All(&disks)
+	q := models.DiskManager.Query().In("id", stringIds)
+	err := db.FetchModelObjects(models.DiskManager, q, &disks)
 	if err != nil {
-		self.taskFail(ctx, sp, fmt.Sprintf("Fetch disks  failed %s", err))
+		self.taskFail(ctx, sp, fmt.Sprintf("Fetch disks failed %s", err))
 		return
 	}
 	for i := 0; i < len(disks); i++ {
-		disks[i].SetModelManager(models.DiskManager)
 		disks[i].SetSnapshotPolicy(sp.Id)
 		db.OpsLog.LogEvent(&disks[i], db.ACT_APPLY_SNAPSHOT_POLICY, nil, self.UserCred)
 		logclient.AddActionLogWithStartable(self, &disks[i], logclient.ACT_APPLY_SNAPSHOT_POLICY, nil, self.UserCred, true)

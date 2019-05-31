@@ -40,6 +40,7 @@ func init() {
 				GuestManager,
 			),
 		}
+		GroupguestManager.SetVirtualObject(GroupguestManager)
 	})
 }
 

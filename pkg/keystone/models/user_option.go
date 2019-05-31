@@ -33,6 +33,7 @@ func init() {
 			"user_options",
 		),
 	}
+	UserOptionManager.SetVirtualObject(UserOptionManager)
 }
 
 /*
