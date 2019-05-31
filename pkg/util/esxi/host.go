@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
@@ -168,17 +169,23 @@ func (self *SHost) fetchVMs(all bool) error {
 		return err
 	}
 
-	hostVms := self.getHostSystem().Vm
-	if len(hostVms) == 0 {
-		// log.Errorf("host VMs are nil!!!!!")
-		return nil
-	}
+	MAX_TRIES := 3
+	for tried := 0; tried < MAX_TRIES; tried += 1 {
+		hostVms := self.getHostSystem().Vm
+		if len(hostVms) == 0 {
+			// log.Errorf("host VMs are nil!!!!!")
+			return nil
+		}
 
-	vms, err := dc.fetchVms(hostVms, all)
-	if err != nil {
-		return err
+		vms, err := dc.fetchVms(hostVms, all)
+		if err != nil {
+			log.Errorf("dc.fetchVms fail %s", err)
+			time.Sleep(time.Second)
+			self.Refresh()
+			continue
+		}
+		self.vms = vms
 	}
-	self.vms = vms
 	return nil
 }
 
