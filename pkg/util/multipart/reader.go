@@ -1,13 +1,13 @@
 package multipart
 
 import (
-	"io"
+	"bytes"
 	"crypto/rand"
 	"fmt"
+	"io"
 	"net/textproto"
-	"strings"
-	"bytes"
 	"sort"
+	"strings"
 )
 
 type SReader struct {

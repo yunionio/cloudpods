@@ -1,10 +1,10 @@
 package multipart
 
 import (
-	"testing"
-	"strings"
 	"bytes"
 	"io"
+	"strings"
+	"testing"
 )
 
 func TestReader(t *testing.T) {
