@@ -356,7 +356,7 @@ func (self *GuestLiveMigrateTask) OnLiveMigrateComplete(ctx context.Context, gue
 	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(),
 		ctx, "POST", url, headers, body, false)
 	if err != nil {
-		self.TaskFailed(ctx, guest, err.Error())
+		self.OnResumeDestGuestCompleteFailed(ctx, guest, jsonutils.NewString(err.Error()))
 	}
 }
 
