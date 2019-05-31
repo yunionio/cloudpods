@@ -1,13 +1,13 @@
 package multipart
 
 import (
-	"io"
+	"bytes"
 	"crypto/rand"
 	"fmt"
+	"io"
 	"net/textproto"
-	"strings"
-	"bytes"
 	"sort"
+	"strings"
 )
 
 type SReader struct {
@@ -88,12 +88,10 @@ func (r *SReader) Read(p []byte) (n int, err error) {
 	if read < len(p) && !r.bodyEof {
 		n, err := r.body.Read(p[read:])
 		read += n
-		if err != nil {
-			if err == io.EOF {
-				r.bodyEof = true
-			} else {
-				return read, err
-			}
+		if err == io.EOF || n == 0 {
+			r.bodyEof = true
+		} else {
+			return read, err
 		}
 	}
 	for read < len(p) && r.tailOffset < len(r.tail) {
