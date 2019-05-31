@@ -1746,11 +1746,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:dd1650e297358d848ef6dcee19dfc771c3797a4d4de4a35308776a6cb7ef4f55"
+  digest = "1:d3c072ad0d07c2fd34aa7b302b034dbfaf02a111153f9f454c22b5cbc4e0c112"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "c321606ff64b549fbcfc530f26f8b1858695918d"
+  revision = "5ced58e220e149b07afbd1c6f2824f028da609a9"
 
 [[projects]]
   branch = "master"
@@ -1765,9 +1765,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:126c297dd61405797b67233b92fa057489cc10323468d413fffba72fd1f64211"
+  digest = "1:04187b7fe2d9788ad901137fd8976272f464bd4080963e7a7f28aa9615d1e47a"
   name = "yunion.io/x/pkg"
   packages = [
+    "errors",
     "gotypes",
     "prettytable",
     "trace",
@@ -1792,30 +1793,29 @@
     "util/stringutils",
     "util/timeutils",
     "util/trace",
-    "util/ttlpool",
     "util/version",
     "util/wait",
     "util/workqueue",
     "utils",
   ]
   pruneopts = "UT"
-  revision = "91e7c6f49631cea6aa6b65d6d3e9e779f13ebc1e"
+  revision = "3afb7f847aad0b254d5768f961d226b24aa24cea"
 
 [[projects]]
   branch = "master"
-  digest = "1:66d19ef38985070b76f8ca9f9fc468e69e923bf331cb9bf4488d7997f2f4a7b0"
+  digest = "1:a1d55c54bf4a9a83c1d955b9038a003cf1edc7c8707d07799608c796b2790034"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "b100553e017505920d398be5bb4bafe7914d6ef0"
+  revision = "4e836c2494cbadad5c5a22f83abbf1d87df6d439"
 
 [[projects]]
   branch = "master"
-  digest = "1:505f3ac78ea58d528c24f804b58e03638515fb817bd0e07f4809bc0200316d33"
+  digest = "1:1675fa8745954519c295e45a04529f77f4a1801e5cab3b9c17aeb48ff22a8171"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "4a479a4597e8856097209f3e3b38b8e39fbbd9e1"
+  revision = "ab732d688d05e720930da068681231623854817d"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1942,6 +1942,7 @@
     "yunion.io/x/jsonutils",
     "yunion.io/x/log",
     "yunion.io/x/log/hooks",
+    "yunion.io/x/pkg/errors",
     "yunion.io/x/pkg/gotypes",
     "yunion.io/x/pkg/prettytable",
     "yunion.io/x/pkg/trace",
@@ -1964,7 +1965,6 @@
     "yunion.io/x/pkg/util/stringutils",
     "yunion.io/x/pkg/util/timeutils",
     "yunion.io/x/pkg/util/trace",
-    "yunion.io/x/pkg/util/ttlpool",
     "yunion.io/x/pkg/util/version",
     "yunion.io/x/pkg/util/wait",
     "yunion.io/x/pkg/util/workqueue",

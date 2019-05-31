@@ -16,13 +16,14 @@ package validators
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/sqlchemy"
 )
 
 type ModelFilterOptions struct {
 	Key          string
 	ModelKeyword string
-	ProjectId    string
+	OwnerId      mcclient.IIdentityProvider
 }
 
 func ApplyModelFilters(q *sqlchemy.SQuery, data *jsonutils.JSONDict, opts []*ModelFilterOptions) (*sqlchemy.SQuery, error) {
@@ -31,7 +32,7 @@ func ApplyModelFilters(q *sqlchemy.SQuery, data *jsonutils.JSONDict, opts []*Mod
 		v := NewModelIdOrNameValidator(
 			opt.Key,
 			opt.ModelKeyword,
-			opt.ProjectId,
+			opt.OwnerId,
 		)
 		v.Optional(true)
 		q, err = v.QueryFilter(q, data)

@@ -15,6 +15,8 @@
 package service
 
 import (
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -22,14 +24,13 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-func localPolicyFetcher() (map[string]rbacutils.SRbacPolicy, map[string]rbacutils.SRbacPolicy, error) {
+func localPolicyFetcher() (map[rbacutils.TRbacScope]map[string]*rbacutils.SRbacPolicy, error) {
 	policyList, err := models.PolicyManager.FetchEnabledPolicies()
 	if err != nil {
-		return nil, nil, err
+		return nil, errors.Wrap(err, "models.PolicyManager.FetchEnabledPolicies")
 	}
 
-	policies := make(map[string]rbacutils.SRbacPolicy)
-	adminPolicies := make(map[string]rbacutils.SRbacPolicy)
+	policies := make(map[rbacutils.TRbacScope]map[string]*rbacutils.SRbacPolicy)
 
 	for i := range policyList {
 		typeStr := policyList[i].Name
@@ -50,12 +51,14 @@ func localPolicyFetcher() (map[string]rbacutils.SRbacPolicy, map[string]rbacutil
 			continue
 		}
 
-		if policy.IsAdmin {
-			adminPolicies[typeStr] = policy
-		} else {
-			policies[typeStr] = policy
+		policy.DomainId = policyList[i].DomainId
+
+		if _, ok := policies[policy.Scope]; !ok {
+			policies[policy.Scope] = make(map[string]*rbacutils.SRbacPolicy)
 		}
+
+		policies[policy.Scope][typeStr] = &policy
 	}
 
-	return policies, adminPolicies, nil
+	return policies, nil
 }

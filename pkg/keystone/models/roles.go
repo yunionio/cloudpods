@@ -28,7 +28,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -47,6 +46,7 @@ func init() {
 			"roles",
 		),
 	}
+	RoleManager.SetVirtualObject(RoleManager)
 }
 
 /*
@@ -78,11 +78,11 @@ const (
 
 func (manager *SRoleManager) InitializeData() error {
 	q := manager.Query()
-	q = q.IsNull("description")
+	q = q.IsNull("description").IsNotNull("extra")
 	roles := make([]SRole, 0)
 	err := db.FetchModelObjects(manager, q, &roles)
 	if err != nil {
-		return errors.WithMessage(err, "query")
+		return errors.Wrap(err, "query")
 	}
 	for i := range roles {
 		desc, _ := roles[i].Extra.GetString("description")
@@ -91,16 +91,16 @@ func (manager *SRoleManager) InitializeData() error {
 			return nil
 		})
 		if err != nil {
-			return errors.WithMessage(err, "update description")
+			return errors.Wrap(err, "update description")
 		}
 	}
 	err = manager.initializeDomainId()
 	if err != nil {
-		return errors.WithMessage(err, "InitializeDomainId")
+		return errors.Wrap(err, "InitializeDomainId")
 	}
 	err = manager.initSysRole()
 	if err != nil {
-		return errors.WithMessage(err, "initSysRole")
+		return errors.Wrap(err, "initSysRole")
 	}
 	return nil
 }
@@ -122,11 +122,11 @@ func (manager *SRoleManager) initializeDomainId() error {
 }
 
 func (manager *SRoleManager) initSysRole() error {
-	q := manager.Query().Equals("name", options.Options.AdminRoleName)
-	q = q.Equals("domain_id", options.Options.AdminRoleDomainId)
+	q := manager.Query().Equals("name", api.SystemAdminRole)
+	q = q.Equals("domain_id", api.DEFAULT_DOMAIN_ID)
 	cnt, err := q.CountWithError()
 	if err != nil {
-		return errors.WithMessage(err, "query")
+		return errors.Wrap(err, "query")
 	}
 	if cnt == 1 {
 		return nil
@@ -137,14 +137,14 @@ func (manager *SRoleManager) initSysRole() error {
 	}
 	// insert
 	role := SRole{}
-	role.Name = options.Options.AdminRoleName
-	role.DomainId = options.Options.AdminRoleDomainId
+	role.Name = api.SystemAdminRole
+	role.DomainId = api.DEFAULT_DOMAIN_ID
 	role.Description = "Boostrap system default admin role"
-	role.SetModelManager(manager)
+	role.SetModelManager(manager, &role)
 
 	err = manager.TableSpec().Insert(&role)
 	if err != nil {
-		return errors.WithMessage(err, "insert")
+		return errors.Wrap(err, "insert")
 	}
 	return nil
 }
@@ -172,7 +172,7 @@ func (role *SRole) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 }
 
 func (role *SRole) IsSystemRole() bool {
-	return role.Name == options.Options.AdminRoleName && role.DomainId == options.Options.AdminRoleDomainId
+	return role.Name == api.SystemAdminRole && role.DomainId == api.DEFAULT_DOMAIN_ID
 }
 
 func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
@@ -204,11 +204,6 @@ func (role *SRole) GetExtraDetails(ctx context.Context, userCred mcclient.TokenC
 }
 
 func roleExtra(role *SRole, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
-	domain := role.GetDomain()
-	if domain != nil {
-		extra.Add(jsonutils.NewString(domain.Name), "domain")
-	}
-
 	usrCnt, _ := role.GetUserCount()
 	extra.Add(jsonutils.NewInt(int64(usrCnt)), "user_count")
 	grpCnt, _ := role.GetGroupCount()
@@ -276,6 +271,9 @@ func (role *SRole) UpdateInContext(ctx context.Context, userCred mcclient.TokenC
 	project, ok := ctxObjs[0].(*SProject)
 	if !ok {
 		return nil, httperrors.NewInputParameterError("not supported update context %s", ctxObjs[0].Keyword())
+	}
+	if project.DomainId != role.DomainId {
+		return nil, httperrors.NewInputParameterError("inconsistent domain for project and roles")
 	}
 	switch obj := ctxObjs[1].(type) {
 	case *SUser:

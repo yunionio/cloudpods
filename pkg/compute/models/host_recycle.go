@@ -109,7 +109,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	oHost := self.GetHost()
 
 	fakeHost := SHost{}
-	fakeHost.SetModelManager(HostManager)
+	fakeHost.SetModelManager(HostManager, &fakeHost)
 
 	fakeHost.Name = fmt.Sprintf("%s-host", self.Name)
 	fakeHost.CpuCount = self.VcpuCount
@@ -231,7 +231,7 @@ func (self *SGuest) doPrepaidRecycleNoLock(ctx context.Context, userCred mcclien
 	sysStorage := guestdisks[0].GetDisk().GetStorage()
 
 	fakeStorage := SStorage{}
-	fakeStorage.SetModelManager(StorageManager)
+	fakeStorage.SetModelManager(StorageManager, &fakeStorage)
 
 	fakeStorage.Name = fmt.Sprintf("%s-storage", self.Name)
 	fakeStorage.Capacity = storageSize
@@ -432,7 +432,7 @@ func doUndoPrepaidRecycleNoLock(ctx context.Context, userCred mcclient.TokenCred
 	}
 
 	oHost := SHost{}
-	oHost.SetModelManager(HostManager)
+	oHost.SetModelManager(HostManager, &oHost)
 
 	err = q.First(&oHost)
 	if err != nil {
@@ -635,7 +635,7 @@ func (host *SHost) SetGuestCreateNetworkAndDiskParams(ctx context.Context, userC
 
 func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest) error {
 	oHost := SHost{}
-	oHost.SetModelManager(HostManager)
+	oHost.SetModelManager(HostManager, &oHost)
 
 	q := HostManager.Query()
 	q = q.Equals("external_id", host.ExternalId)
@@ -650,7 +650,7 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 		return err
 	}
 
-	err = guest.SetExternalId(userCred, host.RealExternalId)
+	err = db.SetExternalId(guest, userCred, host.RealExternalId)
 	if err != nil {
 		log.Errorf("guest.SetExternalId fail %s", err)
 		return err
@@ -668,7 +668,7 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 		return err
 	}
 
-	err = guest.syncWithCloudVM(ctx, userCred, iprovider, &oHost, extVM, "")
+	err = guest.syncWithCloudVM(ctx, userCred, iprovider, &oHost, extVM, nil)
 	if err != nil {
 		log.Errorf("guest.syncWithCloudVM fail %s", err)
 		return err
@@ -683,12 +683,12 @@ func (host *SHost) RebuildRecycledGuest(ctx context.Context, userCred mcclient.T
 	guestdisks := guest.GetDisks()
 	for i := 0; i < len(guestdisks); i += 1 {
 		disk := guestdisks[i].GetDisk()
-		err = disk.SetExternalId(userCred, idisks[i].GetGlobalId())
+		err = db.SetExternalId(disk, userCred, idisks[i].GetGlobalId())
 		if err != nil {
 			log.Errorf("disk.SetExternalId fail %s", err)
 			return err
 		}
-		err = disk.syncWithCloudDisk(ctx, userCred, iprovider, idisks[i], i, guest.ProjectId)
+		err = disk.syncWithCloudDisk(ctx, userCred, iprovider, idisks[i], i, guest.GetOwnerId())
 		if err != nil {
 			log.Errorf("disk.syncWithCloudDisk fail %s", err)
 			return err
@@ -703,7 +703,7 @@ func (manager *SHostManager) GetHostByRealExternalId(eid string) *SHost {
 	q = q.Equals("real_external_id", eid)
 
 	host := SHost{}
-	host.SetModelManager(manager)
+	host.SetModelManager(manager, &host)
 
 	err := q.First(&host)
 

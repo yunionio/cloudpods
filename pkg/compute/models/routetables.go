@@ -109,10 +109,13 @@ func init() {
 			"route_tables",
 		),
 	}
+	RouteTableManager.SetVirtualObject(RouteTableManager)
 }
 
 type SRouteTable struct {
 	db.SVirtualResourceBase
+	db.SExternalizedResourceBase
+
 	SManagedResourceBase
 
 	VpcId         string   `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
@@ -133,12 +136,12 @@ func (man *SRouteTableManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	if err != nil {
 		return nil, err
 	}
-	userProjId := userCred.GetProjectId()
+	// userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "vpc", ModelKeyword: "vpc", ProjectId: userProjId},
-		{Key: "cloudregion", ModelKeyword: "cloudregion", ProjectId: userProjId},
-		{Key: "manager", ModelKeyword: "cloudprovider", ProjectId: userProjId},
+		{Key: "vpc", ModelKeyword: "vpc", OwnerId: userCred},
+		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
+		{Key: "manager", ModelKeyword: "cloudprovider", OwnerId: userCred},
 	})
 	if err != nil {
 		return nil, err
@@ -203,12 +206,12 @@ func (man *SRouteTableManager) validateRoutes(data *jsonutils.JSONDict, update b
 	return data, nil
 }
 
-func (man *SRouteTableManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (man *SRouteTableManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	data, err := man.validateRoutes(data, false)
 	if err != nil {
 		return nil, err
 	}
-	vpcV := validators.NewModelIdOrNameValidator("vpc", "vpc", ownerProjId)
+	vpcV := validators.NewModelIdOrNameValidator("vpc", "vpc", ownerId)
 	if err := vpcV.Validate(data); err != nil {
 		return nil, err
 	}
@@ -218,7 +221,7 @@ func (man *SRouteTableManager) ValidateCreateData(ctx context.Context, userCred 
 		return nil, httperrors.NewConflictError("failed getting region of vpc %s(%s)", vpc.Name, vpc.Id)
 	}
 	data.Set("cloudregion_id", jsonutils.NewString(cloudregion.Id))
-	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (rt *SRouteTable) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -368,8 +371,8 @@ func (rt *SRouteTable) GetExtraDetails(ctx context.Context, userCred mcclient.To
 }
 
 func (man *SRouteTableManager) SyncRouteTables(ctx context.Context, userCred mcclient.TokenCredential, vpc *SVpc, cloudRouteTables []cloudprovider.ICloudRouteTable) ([]SRouteTable, []cloudprovider.ICloudRouteTable, compare.SyncResult) {
-	lockman.LockClass(ctx, man, man.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, man, man.GetOwnerId(userCred))
+	lockman.LockClass(ctx, man, db.GetLockClassKey(man, userCred))
+	defer lockman.ReleaseClass(ctx, man, db.GetLockClassKey(man, userCred))
 
 	localRouteTables := make([]SRouteTable, 0)
 	remoteRouteTables := make([]cloudprovider.ICloudRouteTable, 0)
@@ -449,7 +452,7 @@ func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCre
 	}
 	{
 		basename := routeTableBasename(cloudRouteTable.GetName(), vpc.Name)
-		newName, err := db.GenerateName(man, userCred.GetProjectId(), basename)
+		newName, err := db.GenerateName(man, userCred, basename)
 		if err != nil {
 			return nil, err
 		}
@@ -459,7 +462,7 @@ func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCre
 	routeTable.ExternalId = cloudRouteTable.GetGlobalId()
 	routeTable.Description = cloudRouteTable.GetDescription()
 	routeTable.ProjectId = userCred.GetProjectId()
-	routeTable.SetModelManager(man)
+	routeTable.SetModelManager(man, routeTable)
 	return routeTable, nil
 }
 

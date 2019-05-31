@@ -42,6 +42,7 @@ func init() {
 				WireManager,
 			),
 		}
+		HostwireManager.SetVirtualObject(HostwireManager)
 	})
 }
 

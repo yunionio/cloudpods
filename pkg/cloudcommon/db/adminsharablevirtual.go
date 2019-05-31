@@ -43,6 +43,10 @@ func NewAdminSharableVirtualResourceBaseManager(dt interface{}, tableName string
 	return manager
 }
 
+func (manager *SAdminSharableVirtualResourceBaseManager) GetIAdminSharableVirtualModelManager() IAdminSharableVirtualModelManager {
+	return manager.GetVirtualObject().(IAdminSharableVirtualModelManager)
+}
+
 func (manager *SAdminSharableVirtualResourceBaseManager) ValidateCreateData(man IAdminSharableVirtualModelManager, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	records, err := man.ParseInputInfo(data)
 	if err != nil {
@@ -152,4 +156,8 @@ func (model *SAdminSharableVirtualResourceBase) setInfo(ctx context.Context,
 	}
 	OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
 	return err
+}
+
+func (model *SAdminSharableVirtualResourceBase) GetIAdminSharableVirtualModel() IAdminSharableVirtualModel {
+	return model.GetVirtualObject().(IAdminSharableVirtualModel)
 }

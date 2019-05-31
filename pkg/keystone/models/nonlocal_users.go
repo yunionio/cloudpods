@@ -15,15 +15,7 @@
 package models
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
-
-	"github.com/pkg/errors"
-
-	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 )
 
 type SNonlocalUserManager struct {
@@ -41,6 +33,7 @@ func init() {
 			"nonlocal_users",
 		),
 	}
+	NonlocalUserManager.SetVirtualObject(NonlocalUserManager)
 }
 
 /*
@@ -61,6 +54,7 @@ type SNonlocalUser struct {
 	UserId   string `width:"64" charset:"ascii" nullable:"false" index:"true"`
 }
 
+/*
 func (manager *SNonlocalUserManager) Register(ctx context.Context, domainId string, name string) (*SNonlocalUser, error) {
 	key := fmt.Sprintf("%s-%s", domainId, name)
 	lockman.LockRawObject(ctx, manager.Keyword(), key)
@@ -68,7 +62,7 @@ func (manager *SNonlocalUserManager) Register(ctx context.Context, domainId stri
 
 	obj, err := db.NewModelObject(manager)
 	if err != nil {
-		return nil, errors.WithMessage(err, "NewModelObject")
+		return nil, errors.Wrap(err, "NewModelObject")
 	}
 	nonlocalUser := obj.(*SNonlocalUser)
 	q := manager.Query().Equals("domain_id", domainId).Equals("name", name)
@@ -77,12 +71,12 @@ func (manager *SNonlocalUserManager) Register(ctx context.Context, domainId stri
 		return nonlocalUser, nil
 	}
 	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.WithMessage(err, "Query")
+		return nil, errors.Wrap(err, "Query")
 	}
 
 	pubId, err := IdmappingManager.registerIdMap(ctx, domainId, name, api.IdMappingEntityUser)
 	if err != nil {
-		return nil, errors.WithMessage(err, "IdmappingManager.registerIdMap")
+		return nil, errors.Wrap(err, "IdmappingManager.registerIdMap")
 	}
 
 	nonlocalUser.UserId = pubId
@@ -91,8 +85,9 @@ func (manager *SNonlocalUserManager) Register(ctx context.Context, domainId stri
 
 	err = manager.TableSpec().Insert(nonlocalUser)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Insert")
+		return nil, errors.Wrap(err, "Insert")
 	}
 
 	return nonlocalUser, nil
 }
+*/

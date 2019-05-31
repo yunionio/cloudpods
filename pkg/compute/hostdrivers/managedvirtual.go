@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -246,7 +247,7 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 		if err != nil {
 			return nil, err
 		}
-		err = disk.SetExternalId(task.GetUserCred(), iDisk.GetGlobalId())
+		err = db.SetExternalId(disk, task.GetUserCred(), iDisk.GetGlobalId())
 		if err != nil {
 			log.Errorf("Update disk externalId err: %v", err)
 			return nil, err

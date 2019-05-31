@@ -41,6 +41,7 @@ func init() {
 				SchedtagManager,
 			),
 		}
+		HostschedtagManager.SetVirtualObject(HostschedtagManager)
 	})
 }
 

@@ -52,6 +52,7 @@ func init() {
 			"loadbalanceragents",
 		),
 	}
+	LoadbalancerAgentManager.SetVirtualObject(LoadbalancerAgentManager)
 }
 
 // TODO
@@ -275,7 +276,7 @@ func (self *SLoadbalancerAgent) AllowDeleteItem(ctx context.Context, userCred mc
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	{
 		keyV := map[string]validators.IValidator{
 			"hb_timeout": validators.NewNonNegativeValidator("hb_timeout").Default(3600),
@@ -287,7 +288,7 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 			}
 		}
 	}
-	return man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {

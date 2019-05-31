@@ -144,6 +144,8 @@ const (
 	ACT_IMAGE_SAVE  = "上传镜像"
 	ACT_IMAGE_PROBE = "镜像检测"
 
+	ACT_AUTHENTICATE = "认证登录"
+
 	ACT_RECYCLE_PREPAID      = "池化预付费主机"
 	ACT_UNDO_RECYCLE_PREPAID = "取消池化预付费主机"
 
@@ -153,6 +155,12 @@ const (
 
 	ACT_HOST_IMPORT_LIBVIRT_SERVERS = "libvirt托管虚拟机导入"
 	ACT_GUEST_CREATE_FROM_IMPORT    = "导入虚拟机创建"
+)
+
+type SessionGenerator func(ctx context.Context, token mcclient.TokenCredential, region, apiVersion string) *mcclient.ClientSession
+
+var (
+	DefaultSessionGenerator = auth.GetSession
 )
 
 // golang 不支持 const 的string array, http://t.cn/EzAvbw8
@@ -172,7 +180,7 @@ type IObject interface {
 
 type IVirtualObject interface {
 	IObject
-	GetOwnerProjectId() string
+	GetOwnerId() mcclient.IIdentityProvider
 }
 
 type IModule interface {
@@ -237,6 +245,8 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	logentry.Add(jsonutils.NewString(userCred.GetTenantName()), "tenant")
 	logentry.Add(jsonutils.NewString(userCred.GetDomainId()), "domain_id")
 	logentry.Add(jsonutils.NewString(userCred.GetDomainName()), "domain")
+	logentry.Add(jsonutils.NewString(userCred.GetProjectDomainId()), "project_domain_id")
+	logentry.Add(jsonutils.NewString(userCred.GetProjectDomain()), "project_domain")
 	logentry.Add(jsonutils.NewString(strings.Join(userCred.GetRoles(), ",")), "roles")
 
 	service := consts.GetServiceType()
@@ -249,9 +259,16 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 	}
 
 	if virtualModel, ok := model.(IVirtualObject); ok {
-		ownerProjId := virtualModel.GetOwnerProjectId()
-		if len(ownerProjId) > 0 {
-			logentry.Add(jsonutils.NewString(ownerProjId), "owner_tenant_id")
+		ownerId := virtualModel.GetOwnerId()
+		if ownerId != nil {
+			projectId := ownerId.GetProjectId()
+			if len(projectId) > 0 {
+				logentry.Add(jsonutils.NewString(projectId), "owner_tenant_id")
+			}
+			domainId := ownerId.GetProjectDomainId()
+			if len(domainId) > 0 {
+				logentry.Add(jsonutils.NewString(domainId), "owner_domain_id")
+			}
 		}
 	}
 
@@ -265,7 +282,7 @@ func addLog(model IObject, action string, iNotes interface{}, userCred mcclient.
 
 	logentry.Add(jsonutils.NewString(notes), "notes")
 	logclientWorkerMan.Run(func() {
-		s := auth.GetSession(context.Background(), userCred, "", "")
+		s := DefaultSessionGenerator(context.Background(), userCred, "", "")
 		_, err := api.Create(s, logentry)
 		if err != nil {
 			log.Errorf("create action log failed %s", err)

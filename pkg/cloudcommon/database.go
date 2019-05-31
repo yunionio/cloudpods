@@ -25,7 +25,6 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 )
@@ -35,11 +34,8 @@ const (
 )
 
 func InitDB(options *common_options.DBOptions) {
-	if options.GlobalVirtualResourceNamespace {
-		consts.EnableGlobalVirtualResourceNamespace()
-	}
-
 	if options.DebugSqlchemy {
+		log.Warningf("debug Sqlchemy is turned on")
 		sqlchemy.DEBUG_SQLCHEMY = true
 	}
 

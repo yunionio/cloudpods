@@ -41,6 +41,7 @@ func init() {
 				NetworkManager,
 			),
 		}
+		HostnetworkManager.SetVirtualObject(HostnetworkManager)
 	})
 }
 
@@ -139,7 +140,7 @@ func (man *SHostnetworkManager) GetHostByAddress(addr string) *SHost {
 		sqlchemy.Equals(networks.Field("baremetal_id"), hosts.Field("id")),
 	))
 	host := &SHost{}
-	host.SetModelManager(HostManager)
+	host.SetModelManager(HostManager, host)
 	err := q.First(host)
 	if err == nil {
 		return host

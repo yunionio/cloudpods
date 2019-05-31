@@ -31,6 +31,8 @@ import (
 func InitHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
+	db.RegistUserCredCacheUpdater()
+
 	quotas.AddQuotaHandler(models.QuotaManager, "", app)
 	usages.AddUsageHandler("", app)
 	capabilities.AddCapabilityHandler("", app)
@@ -45,7 +47,6 @@ func InitHandlers(app *appsrv.Application) {
 		taskman.TaskObjectManager,
 		db.UserCacheManager,
 		db.TenantCacheManager,
-		db.Metadata,
 		models.GuestcdromManager,
 		models.NetInterfaceManager,
 		models.VCenterManager,
@@ -53,11 +54,9 @@ func InitHandlers(app *appsrv.Application) {
 		db.RegisterModelManager(manager)
 	}
 
-	metadatahandler := db.NewModelHandler(db.Metadata)
-	dispatcher.AddModelDispatcher("", app, metadatahandler)
-
 	for _, manager := range []db.IModelManager{
 		db.OpsLog,
+		db.Metadata,
 		models.CloudaccountManager,
 		models.CloudproviderManager,
 		models.CloudregionManager,
@@ -123,7 +122,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.CloudproviderRegionManager,
 	} {
 		db.RegisterModelManager(manager)
-		// log.Infof("Register handler %s", manager.KeywordPlural())
 		handler := db.NewJointModelHandler(manager)
 		dispatcher.AddJointModelDispatcher("", app, handler)
 	}

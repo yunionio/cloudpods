@@ -19,7 +19,6 @@ import (
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/tristate"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	policyman "yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -28,20 +27,21 @@ import (
 )
 
 type SPolicyManager struct {
-	db.SStandaloneResourceBaseManager
+	SEnabledIdentityBaseResourceManager
 }
 
 var PolicyManager *SPolicyManager
 
 func init() {
 	PolicyManager = &SPolicyManager{
-		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
+		SEnabledIdentityBaseResourceManager: NewEnabledIdentityBaseResourceManager(
 			SPolicy{},
 			"policy",
 			"policy",
 			"policies",
 		),
 	}
+	PolicyManager.SetVirtualObject(PolicyManager)
 }
 
 /*
@@ -56,15 +56,10 @@ func init() {
 */
 
 type SPolicy struct {
-	db.SStandaloneResourceBase
+	SEnabledIdentityBaseResource
 
-	Type string `width:"255" charset:"utf8" nullable:"false" list:"user" update:"admin"`
-
+	Type string               `width:"255" charset:"utf8" nullable:"false" list:"user" update:"admin"`
 	Blob jsonutils.JSONObject `nullable:"false" list:"user" update:"admin"`
-
-	Extra *jsonutils.JSONDict `nullable:"true" list:"user"`
-
-	Enabled tristate.TriState `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
 }
 
 func (manager *SPolicyManager) InitializeData() error {
@@ -97,7 +92,7 @@ func (manager *SPolicyManager) FetchEnabledPolicies() ([]SPolicy, error) {
 	return policies, nil
 }
 
-func (manager *SPolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SPolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	typeStr, _ := data.GetString("type")
 	if len(typeStr) == 0 {
 		return nil, httperrors.NewInputParameterError("missing input field type")
@@ -105,11 +100,11 @@ func (manager *SPolicyManager) ValidateCreateData(ctx context.Context, userCred 
 	if !data.Contains("name") {
 		data.Set("name", jsonutils.NewString(typeStr))
 	}
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
-func (policy *SPolicy) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	policy.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (policy *SPolicy) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	policy.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	policyman.PolicyManager.SyncOnce()
 }
 

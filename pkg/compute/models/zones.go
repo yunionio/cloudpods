@@ -49,10 +49,12 @@ func init() {
 		),
 	}
 	ZoneManager.NameRequireAscii = false
+	ZoneManager.SetVirtualObject(ZoneManager)
 }
 
 type SZone struct {
 	db.SStatusStandaloneResourceBase
+	db.SExternalizedResourceBase
 
 	Location string `width:"256" charset:"utf8" get:"user" list:"user" update:"admin"` // = Column(VARCHAR(256, charset='utf8'))
 	Contacts string `width:"256" charset:"utf8" get:"user" update:"admin"`             // = Column(VARCHAR(256, charset='utf8'))
@@ -260,8 +262,8 @@ func (manager *SZoneManager) GetZonesByRegion(region *SCloudregion) ([]SZone, er
 }
 
 func (manager *SZoneManager) SyncZones(ctx context.Context, userCred mcclient.TokenCredential, region *SCloudregion, zones []cloudprovider.ICloudZone) ([]SZone, []cloudprovider.ICloudZone, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	localZones := make([]SZone, 0)
 	remoteZones := make([]cloudprovider.ICloudZone, 0)
@@ -352,7 +354,7 @@ func (self *SZone) syncWithCloudZone(ctx context.Context, userCred mcclient.Toke
 
 func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mcclient.TokenCredential, extZone cloudprovider.ICloudZone, region *SCloudregion) (*SZone, error) {
 	zone := SZone{}
-	zone.SetModelManager(manager)
+	zone.SetModelManager(manager, &zone)
 
 	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extZone.GetName())
 	if err != nil {
@@ -687,7 +689,7 @@ func (self *SZone) getMaxDataDiskCount() int {
 	return options.Options.MaxDataDiskCount
 }
 
-func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	regionStr := jsonutils.GetAnyString(data, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
 	var regionId string
 	if len(regionStr) > 0 {
@@ -705,5 +707,5 @@ func (manager *SZoneManager) ValidateCreateData(ctx context.Context, userCred mc
 	}
 	data.Add(jsonutils.NewString(regionId), "cloudregion_id")
 	data.Set("status", jsonutils.NewString(api.ZONE_ENABLE))
-	return manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }

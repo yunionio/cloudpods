@@ -178,10 +178,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancer(ctx co
 		if err != nil {
 			return nil, err
 		}
-		if err := lb.SetExternalId(userCred, iLoadbalancer.GetGlobalId()); err != nil {
+		if err := db.SetExternalId(lb, userCred, iLoadbalancer.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, ""); err != nil {
+		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil); err != nil {
 			return nil, err
 		}
 		lbbgs, err := iLoadbalancer.GetILoadBalancerBackendGroups()
@@ -286,10 +286,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerAcl(ctx
 		if err != nil {
 			return nil, err
 		}
-		if err := lbacl.SetExternalId(userCred, iLoadbalancerAcl.GetGlobalId()); err != nil {
+		if err := db.SetExternalId(lbacl, userCred, iLoadbalancerAcl.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		return nil, lbacl.SyncWithCloudLoadbalancerAcl(ctx, userCred, iLoadbalancerAcl, "")
+		return nil, lbacl.SyncWithCloudLoadbalancerAcl(ctx, userCred, iLoadbalancerAcl, nil)
 	})
 	return nil
 }
@@ -354,10 +354,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerCertifi
 		if err != nil {
 			return nil, err
 		}
-		if err := lbcert.SetExternalId(userCred, iLoadbalancerCert.GetGlobalId()); err != nil {
+		if err := db.SetExternalId(lbcert, userCred, iLoadbalancerCert.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		return nil, lbcert.SyncWithCloudLoadbalancerCertificate(ctx, userCred, iLoadbalancerCert, "")
+		return nil, lbcert.SyncWithCloudLoadbalancerCertificate(ctx, userCred, iLoadbalancerCert, nil)
 	})
 	return nil
 }
@@ -406,7 +406,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 		if err != nil {
 			return nil, err
 		}
-		if err := lbbg.SetExternalId(userCred, iLoadbalancerBackendGroup.GetGlobalId()); err != nil {
+		if err := db.SetExternalId(lbbg, userCred, iLoadbalancerBackendGroup.GetGlobalId()); err != nil {
 			return nil, err
 		}
 		iBackends, err := iLoadbalancerBackendGroup.GetILoadbalancerBackends()
@@ -484,10 +484,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerBackend
 		if err != nil {
 			return nil, err
 		}
-		if err := lbb.SetExternalId(userCred, iLoadbalancerBackend.GetGlobalId()); err != nil {
+		if err := db.SetExternalId(lbb, userCred, iLoadbalancerBackend.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iLoadbalancerBackend, "")
+		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iLoadbalancerBackend, nil)
 	})
 	return nil
 }
@@ -572,7 +572,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerBackend(c
 			return nil, err
 		}
 
-		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, "")
+		return nil, lbb.SyncWithCloudLoadbalancerBackend(ctx, userCred, iBackend, nil)
 	})
 	return nil
 }
@@ -599,10 +599,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 		if err != nil {
 			return nil, err
 		}
-		if err := lblis.SetExternalId(userCred, iListener.GetGlobalId()); err != nil {
+		if err := db.SetExternalId(lblis, userCred, iListener.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, "")
+		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil)
 	})
 	return nil
 }
@@ -687,7 +687,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestSyncLoadbalancerListener(
 		if err := iListener.Refresh(); err != nil {
 			return nil, err
 		}
-		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, "")
+		return nil, lblis.SyncWithCloudLoadbalancerListener(ctx, userCred, loadbalancer, iListener, nil)
 	})
 	return nil
 }
@@ -781,10 +781,10 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancerListene
 		if err != nil {
 			return nil, err
 		}
-		if err := lbr.SetExternalId(userCred, iListenerRule.GetGlobalId()); err != nil {
+		if err := db.SetExternalId(lbr, userCred, iListenerRule.GetGlobalId()); err != nil {
 			return nil, err
 		}
-		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, "")
+		return nil, lbr.SyncWithCloudLoadbalancerListenerRule(ctx, userCred, iListenerRule, nil)
 	})
 	return nil
 }
@@ -848,7 +848,7 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateSnapshotPolicy(ctx 
 		if err != nil {
 			return nil, err
 		}
-		sp.SetExternalId(userCred, policyId)
+		err = db.SetExternalId(sp, userCred, policyId)
 		if err != nil {
 			return nil, err
 		}

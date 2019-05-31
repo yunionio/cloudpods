@@ -33,17 +33,30 @@ type SPolicyTokenCredential struct {
 
 func (self *SPolicyTokenCredential) HasSystemAdminPrivilege() bool {
 	if consts.IsRbacEnabled() {
-		return PolicyManager.IsAdminCapable(self.TokenCredential)
+		return PolicyManager.IsScopeCapable(self.TokenCredential, rbacutils.ScopeSystem)
 	}
 	return self.TokenCredential.HasSystemAdminPrivilege()
 }
 
-func (self *SPolicyTokenCredential) IsAdminAllow(service string, resource string, action string, extra ...string) bool {
+func (self *SPolicyTokenCredential) IsAllow(targetScope rbacutils.TRbacScope, service string, resource string, action string, extra ...string) bool {
 	if consts.IsRbacEnabled() {
-		result := PolicyManager.Allow(true, self.TokenCredential, service, resource, action, extra...)
-		return result == rbacutils.AdminAllow
+		for _, scope := range []rbacutils.TRbacScope{
+			rbacutils.ScopeSystem,
+			rbacutils.ScopeDomain,
+			rbacutils.ScopeProject,
+			rbacutils.ScopeUser,
+		} {
+			if targetScope.HigherThan(scope) {
+				break
+			}
+			result := PolicyManager.Allow(scope, self.TokenCredential, service, resource, action, extra...)
+			if result == rbacutils.Allow {
+				return true
+			}
+		}
+		return false
 	}
-	return self.TokenCredential.IsAdminAllow(service, resource, action, extra...)
+	return self.TokenCredential.IsAllow(targetScope, service, resource, action, extra...)
 }
 
 func init() {

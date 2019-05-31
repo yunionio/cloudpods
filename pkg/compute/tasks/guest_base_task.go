@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SGuestBaseTask struct {
@@ -41,7 +42,7 @@ func (self *SGuestBaseTask) finalReleasePendingUsage(ctx context.Context) {
 	if err != nil {
 		if !pendingUsage.IsEmpty() {
 			guest := self.getGuest()
-			models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, guest.ProjectId, &pendingUsage, &pendingUsage)
+			models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, guest.GetOwnerId(), &pendingUsage, &pendingUsage)
 		}
 	}
 }

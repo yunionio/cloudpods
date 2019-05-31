@@ -49,6 +49,7 @@ func init() {
 			"secgrouprules",
 		),
 	}
+	SecurityGroupRuleManager.SetVirtualObject(SecurityGroupRuleManager)
 }
 
 type SSecurityGroupRule struct {
@@ -145,7 +146,7 @@ func (self *SSecurityGroupRule) BeforeInsert() {
 	}
 }
 
-func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	defsecgroup, _ := data.GetString("secgroup")
 	if len(defsecgroup) == 0 {
 		return nil, httperrors.NewMissingParameterError("secgroup")
@@ -186,7 +187,7 @@ func (manager *SSecurityGroupRuleManager) ValidateCreateData(ctx context.Context
 	if err := rule.ValidateRule(); err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())
 	}
-	return manager.SResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SSecurityGroupRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -312,8 +313,8 @@ func (self *SSecurityGroupRule) SingleRules() ([]secrules.SecurityRule, error) {
 	return rules, nil
 }
 
-func (self *SSecurityGroupRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (self *SSecurityGroupRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	log.Debugf("POST Create %s", data)
 	if secgroup := self.GetSecGroup(); secgroup != nil {
@@ -361,8 +362,8 @@ func (manager *SSecurityGroupRuleManager) SyncRules(ctx context.Context, userCre
 }
 
 func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, rule secrules.SecurityRule, secgroup *SSecurityGroup) (*SSecurityGroupRule, error) {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	protocol := rule.Protocol
 	if len(protocol) == 0 {
@@ -405,14 +406,14 @@ func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(ctx context.
 	return secrule, nil
 }
 
-func (manager *SSecurityGroupRuleManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
-	return userCred.GetProjectId()
+func (manager *SSecurityGroupRuleManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
+	return userCred
 }
 
-func (self *SSecurityGroupRule) GetOwnerProjectId() string {
+func (self *SSecurityGroupRule) GetOwnerId() mcclient.IIdentityProvider {
 	secgrp := self.GetSecGroup()
 	if secgrp != nil {
-		return secgrp.ProjectId
+		return secgrp.GetOwnerId()
 	}
-	return ""
+	return nil
 }

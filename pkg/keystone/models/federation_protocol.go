@@ -33,6 +33,7 @@ func init() {
 			"federation_protocols",
 		),
 	}
+	FederationProtocolManager.SetVirtualObject(FederationProtocolManager)
 }
 
 /*

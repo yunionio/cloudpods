@@ -37,7 +37,8 @@ type QuotaBaseOptions struct {
 
 func init() {
 	type QuotaOptions struct {
-		Tenant string `help:"Tenant name of ID"`
+		Tenant string `help:"Tenant name or ID"`
+		Domain string `help:"Domain name or ID"`
 	}
 	R(&QuotaOptions{}, "quota", "Show quota for current user or tenant", func(s *mcclient.ClientSession, args *QuotaOptions) error {
 		params := jsonutils.Marshal(args)
@@ -60,6 +61,7 @@ func init() {
 
 	type QuotaSetOptions struct {
 		Tenant string `help:"Tenant name or ID to set quota" json:"tenant,omitempty"`
+		Domain string `help:"Domain name or ID to set quota" json:"domain,omitempty"`
 		QuotaBaseOptions
 	}
 	R(&QuotaSetOptions{}, "quota-set", "Set quota for tenant", func(s *mcclient.ClientSession, args *QuotaSetOptions) error {
@@ -72,7 +74,7 @@ func init() {
 		return nil
 	})
 
-	type QuotaCheckOptions struct {
+	/*type QuotaCheckOptions struct {
 		TENANT string `help:"Tenant name or ID to check quota" json:"tenant,omitempty"`
 		QuotaBaseOptions
 	}
@@ -84,6 +86,6 @@ func init() {
 		}
 		printObject(result)
 		return nil
-	})
+	})*/
 
 }

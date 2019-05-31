@@ -23,17 +23,22 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SModelBase struct {
-	// empty struct
+	object.SObject
+
 	manager IModelManager `ignore:"true"` // pointer to modelmanager
 }
 
 type SModelBaseManager struct {
+	object.SObject
+
 	tableSpec     *sqlchemy.STableSpec
 	keyword       string
 	keywordPlural string
@@ -45,6 +50,10 @@ func NewModelBaseManager(model interface{}, tableName string, keyword string, ke
 	ts := sqlchemy.NewTableSpecFromStruct(model, tableName)
 	modelMan := SModelBaseManager{tableSpec: ts, keyword: keyword, keywordPlural: keywordPlural}
 	return modelMan
+}
+
+func (manager *SModelBaseManager) GetIModelManager() IModelManager {
+	return manager.GetVirtualObject().(IModelManager)
 }
 
 func (manager *SModelBaseManager) SetAlias(alias string, aliasPlural string) {
@@ -127,12 +136,12 @@ func (manager *SModelBaseManager) FilterByName(q *sqlchemy.SQuery, name string) 
 	return q
 }
 
-func (manager *SModelBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner string) *sqlchemy.SQuery {
+func (manager *SModelBaseManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
 	return q
 }
 
-func (manager *SModelBaseManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
-	return ""
+func (manager *SModelBaseManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
+	return nil
 }
 
 func (manager *SModelBaseManager) FetchById(idStr string) (IModel, error) {
@@ -152,7 +161,7 @@ func (manager *SModelBaseManager) AllowCreateItem(ctx context.Context, userCred 
 	return false
 }
 
-func (manager *SModelBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SModelBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return data, nil
 }
 
@@ -169,7 +178,7 @@ func (manager *SModelBaseManager) PerformAction(ctx context.Context, userCred mc
 }
 
 func (manager *SModelBaseManager) AllowPerformCheckCreateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return IsAdminAllowClassPerform(userCred, manager, "check-create-data")
+	return IsAllowClassPerform(rbacutils.ScopeSystem, userCred, manager, "check-create-data")
 }
 
 func (manager *SModelBaseManager) InitializeData() error {
@@ -216,6 +225,18 @@ func (manager *SModelBaseManager) FetchCustomizeColumns(ctx context.Context, use
 	return ret
 }
 
+func (manager *SModelBaseManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return nil, nil
+}
+
+func (manager *SModelBaseManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeSystem
+}
+
+func (manager *SModelBaseManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeSystem
+}
+
 func (model *SModelBase) GetId() string {
 	return ""
 }
@@ -232,12 +253,17 @@ func (model *SModelBase) GetName() string {
 	return ""
 }
 
-func (model *SModelBase) SetModelManager(man IModelManager) {
+func (model *SModelBase) SetModelManager(man IModelManager, virtual IModel) {
 	model.manager = man
+	model.SetVirtualObject(virtual)
 }
 
 func (model *SModelBase) GetModelManager() IModelManager {
 	return model.manager
+}
+
+func (model *SModelBase) GetIModel() IModel {
+	return model.GetVirtualObject().(IModel)
 }
 
 func (model *SModelBase) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
@@ -265,11 +291,11 @@ func (model *SModelBase) GetExtraDetailsHeaders(ctx context.Context, userCred mc
 }
 
 // create hooks
-func (model *SModelBase) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+func (model *SModelBase) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	return nil
 }
 
-func (model *SModelBase) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+func (model *SModelBase) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 
 }
 
@@ -333,8 +359,8 @@ func (model *SModelBase) Delete(ctx context.Context, userCred mcclient.TokenCred
 	return nil
 }
 
-func (model *SModelBase) GetOwnerProjectId() string {
-	return ""
+func (model *SModelBase) GetOwnerId() mcclient.IIdentityProvider {
+	return nil
 }
 
 func (model *SModelBase) IsSharable() bool {

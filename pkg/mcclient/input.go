@@ -14,6 +14,18 @@
 
 package mcclient
 
+const (
+	AuthSourceWeb = "web"
+	AuthSourceAPI = "api"
+	AuthSourceCli = "cli"
+	AuthSourceSrv = "srv"
+)
+
+type SAuthContext struct {
+	Source string `json:"source,omitempty"`
+	Ip     string `json:"ip,omitempty"`
+}
+
 type SAuthenticationInputV2 struct {
 	Auth struct {
 		PasswordCredentials struct {
@@ -25,6 +37,7 @@ type SAuthenticationInputV2 struct {
 		Token      struct {
 			Id string
 		} `json:"token,omitempty"`
+		Context SAuthContext `json:"context,omitempty"`
 	} `json:"auth,omitempty"`
 }
 
@@ -63,5 +76,6 @@ type SAuthenticationInputV3 struct {
 				Name string `json:"name,omitempty"`
 			} `json:"domain,omitempty"`
 		} `json:"scope,omitempty"`
+		Context SAuthContext `json:"context,omitempty"`
 	} `json:"auth,omitempty"`
 }

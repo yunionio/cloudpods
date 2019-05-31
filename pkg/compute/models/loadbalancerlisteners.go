@@ -51,6 +51,7 @@ func init() {
 			"loadbalancerlisteners",
 		),
 	}
+	LoadbalancerListenerManager.SetVirtualObject(LoadbalancerListenerManager)
 }
 
 type SLoadbalancerHTTPRateLimiter struct {
@@ -107,6 +108,8 @@ type SLoadbalancerHTTPSListener struct {
 
 type SLoadbalancerListener struct {
 	db.SVirtualResourceBase
+	db.SExternalizedResourceBase
+
 	SManagedResourceBase
 	SCloudregionResourceBase
 
@@ -175,14 +178,14 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(ctx context.Context, q *
 	if err != nil {
 		return nil, err
 	}
-	userProjId := userCred.GetProjectId()
+	// userProjId := userCred.GetProjectId()
 	data := query.(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "loadbalancer", ModelKeyword: "loadbalancer", ProjectId: userProjId},
-		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", ProjectId: userProjId},
-		{Key: "acl", ModelKeyword: "loadbalanceracl", ProjectId: userProjId},
-		{Key: "cloudregion", ModelKeyword: "cloudregion", ProjectId: userProjId},
-		{Key: "manager", ModelKeyword: "cloudprovider", ProjectId: userProjId},
+		{Key: "loadbalancer", ModelKeyword: "loadbalancer", OwnerId: userCred},
+		{Key: "backend_group", ModelKeyword: "loadbalancerbackendgroup", OwnerId: userCred},
+		{Key: "acl", ModelKeyword: "loadbalanceracl", OwnerId: userCred},
+		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
+		{Key: "manager", ModelKeyword: "cloudprovider", OwnerId: userCred},
 	})
 	if err != nil {
 		return nil, err
@@ -190,14 +193,14 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(ctx context.Context, q *
 	return q, nil
 }
 
-func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", ownerProjId)
+func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", ownerId)
 	listenerTypeV := validators.NewStringChoicesValidator("listener_type", api.LB_LISTENER_TYPES)
 	listenerPortV := validators.NewPortValidator("listener_port")
-	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerProjId)
+	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
 	aclStatusV := validators.NewStringChoicesValidator("acl_status", api.LB_BOOL_VALUES)
 	aclTypeV := validators.NewStringChoicesValidator("acl_type", api.LB_ACL_TYPES)
-	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerProjId)
+	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
 	keyV := map[string]validators.IValidator{
 		"status": validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
 
@@ -267,7 +270,7 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 	}
 	{
 		if listenerType == api.LB_LISTENER_TYPE_HTTPS {
-			certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerProjId)
+			certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
 			tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
 			httpsV := map[string]validators.IValidator{
 				"certificate":       certV,
@@ -307,7 +310,10 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 			}
 		}
 	}
-	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data); err != nil {
+	// if err := man.validateAcl(aclStatusV, aclTypeV, aclV, data); err != nil {
+	// 	return nil, err
+	// }
+	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
 		return nil, err
 	}
 	region := lb.GetRegion()
@@ -407,19 +413,19 @@ func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncstatusTask(ctx 
 }
 
 func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	ownerProjId := lblis.GetOwnerProjectId()
-	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerProjId)
+	ownerId := lblis.GetOwnerId()
+	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
 	aclStatusV := validators.NewStringChoicesValidator("acl_status", api.LB_BOOL_VALUES)
 	aclStatusV.Default(lblis.AclStatus)
 	aclTypeV := validators.NewStringChoicesValidator("acl_type", api.LB_ACL_TYPES)
 	if api.LB_ACL_TYPES.Has(lblis.AclType) {
 		aclTypeV.Default(lblis.AclType)
 	}
-	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerProjId)
+	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
 	if len(lblis.AclId) > 0 {
 		aclV.Default(lblis.AclId)
 	}
-	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerProjId)
+	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
 	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
 	keyV := map[string]validators.IValidator{
 		"backend_group": backendGroupV,
@@ -551,8 +557,8 @@ func (lblis *SLoadbalancerListener) GetExtraDetails(ctx context.Context, userCre
 	return extra, nil
 }
 
-func (lblis *SLoadbalancerListener) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	lblis.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (lblis *SLoadbalancerListener) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	lblis.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	lblis.SetStatus(userCred, api.LB_CREATING, "")
 	if err := lblis.StartLoadBalancerListenerCreateTask(ctx, userCred, ""); err != nil {
@@ -608,10 +614,10 @@ func (lblis *SLoadbalancerListener) LBPendingDelete(ctx context.Context, userCre
 
 func (lblis *SLoadbalancerListener) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
 	subMan := LoadbalancerListenerRuleManager
-	ownerProjId := lblis.GetOwnerProjectId()
+	ownerId := lblis.GetOwnerId()
 
-	lockman.LockClass(ctx, subMan, ownerProjId)
-	defer lockman.ReleaseClass(ctx, subMan, ownerProjId)
+	lockman.LockClass(ctx, subMan, db.GetLockClassKey(subMan, ownerId))
+	defer lockman.ReleaseClass(ctx, subMan, db.GetLockClassKey(subMan, ownerId))
 	q := subMan.Query().IsFalse("pending_deleted").Equals("listener_id", lblis.Id)
 	subMan.pendingDeleteSubs(ctx, userCred, q)
 }
@@ -750,10 +756,10 @@ func (man *SLoadbalancerListenerManager) getLoadbalancerListenersByLoadbalancer(
 }
 
 func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, lb *SLoadbalancer, listeners []cloudprovider.ICloudLoadbalancerListener, syncRange *SSyncRange) ([]SLoadbalancerListener, []cloudprovider.ICloudLoadbalancerListener, compare.SyncResult) {
-	syncOwnerId := provider.ProjectId
+	syncOwnerId := provider.GetOwnerId()
 
-	lockman.LockClass(ctx, man, syncOwnerId)
-	defer lockman.ReleaseClass(ctx, man, syncOwnerId)
+	lockman.LockClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
+	defer lockman.ReleaseClass(ctx, man, db.GetLockClassKey(man, syncOwnerId))
 
 	localListeners := []SLoadbalancerListener{}
 	remoteListeners := []cloudprovider.ICloudLoadbalancerListener{}
@@ -785,7 +791,7 @@ func (man *SLoadbalancerListenerManager) SyncLoadbalancerListeners(ctx context.C
 		}
 	}
 	for i := 0; i < len(commondb); i++ {
-		err = commondb[i].SyncWithCloudLoadbalancerListener(ctx, userCred, lb, commonext[i], provider.ProjectId)
+		err = commondb[i].SyncWithCloudLoadbalancerListener(ctx, userCred, lb, commonext[i], syncOwnerId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -822,7 +828,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 	lblis.AclStatus = extListener.GetAclStatus()
 	lblis.AclType = extListener.GetAclType()
 	if aclID := extListener.GetAclId(); len(aclID) > 0 {
-		if acl, err := LoadbalancerAclManager.FetchByExternalId(aclID); err == nil {
+		if acl, err := db.FetchByExternalId(LoadbalancerAclManager, aclID); err == nil {
 			lblis.AclId = acl.GetId()
 		}
 	}
@@ -841,7 +847,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 		lblis.TLSCipherPolicy = extListener.GetTLSCipherPolicy()
 		lblis.EnableHttp2 = extListener.HTTP2Enabled()
 		if certificateId := extListener.GetCertificateId(); len(certificateId) > 0 {
-			if certificate, err := LoadbalancerCertificateManager.FetchByExternalId(certificateId); err == nil {
+			if certificate, err := db.FetchByExternalId(LoadbalancerCertificateManager, certificateId); err == nil {
 				lblis.CertificateId = certificate.GetId()
 			}
 		}
@@ -860,7 +866,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 		ilbbg, err := LoadbalancerBackendGroupManager.FetchById(lblis.BackendGroupId)
 		lbbg := ilbbg.(*SLoadbalancerBackendGroup)
 		if err == nil && (len(lbbg.ExternalId) == 0 || lbbg.ExternalId != groupId) {
-			err = lbbg.SetExternalId(userCred, groupId)
+			err = db.SetExternalId(lbbg, userCred, groupId)
 			if err != nil {
 				log.Errorf("Update loadbalancer BackendGroup(%s) external id failed: %s", lbbg.GetId(), err)
 			}
@@ -869,7 +875,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 
 	if len(groupId) == 0 {
 		lblis.BackendGroupId = lb.BackendGroupId
-	} else if group, err := LoadbalancerBackendGroupManager.FetchByExternalId(groupId); err == nil {
+	} else if group, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
 		lblis.BackendGroupId = group.GetId()
 	}
 }
@@ -887,7 +893,7 @@ func (lblis *SLoadbalancerListener) syncRemoveCloudLoadbalancerListener(ctx cont
 	return err
 }
 
-func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string) error {
+func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, syncOwnerId mcclient.IIdentityProvider) error {
 	diff, err := db.UpdateWithLock(ctx, lblis, func() error {
 		lblis.constructFieldsFromCloudListener(userCred, lb, extListener)
 		return nil
@@ -898,19 +904,19 @@ func (lblis *SLoadbalancerListener) SyncWithCloudLoadbalancerListener(ctx contex
 
 	db.OpsLog.LogSyncUpdate(lblis, diff, userCred)
 
-	SyncCloudProject(userCred, lblis, projectId, extListener, lblis.ManagerId)
+	SyncCloudProject(userCred, lblis, syncOwnerId, extListener, lblis.ManagerId)
 
 	return nil
 }
 
-func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, projectId string) (*SLoadbalancerListener, error) {
+func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer, extListener cloudprovider.ICloudLoadbalancerListener, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerListener, error) {
 	lblis := &SLoadbalancerListener{}
-	lblis.SetModelManager(man)
+	lblis.SetModelManager(man, lblis)
 
 	lblis.LoadbalancerId = lb.Id
 	lblis.ExternalId = extListener.GetGlobalId()
 
-	newName, err := db.GenerateName(man, projectId, extListener.GetName())
+	newName, err := db.GenerateName(man, syncOwnerId, extListener.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -923,7 +929,7 @@ func (man *SLoadbalancerListenerManager) newFromCloudLoadbalancerListener(ctx co
 		return nil, err
 	}
 
-	SyncCloudProject(userCred, lblis, projectId, extListener, lblis.ManagerId)
+	SyncCloudProject(userCred, lblis, syncOwnerId, extListener, lblis.ManagerId)
 
 	db.OpsLog.LogEvent(lblis, db.ACT_CREATE, lblis.GetShortDesc(ctx), userCred)
 

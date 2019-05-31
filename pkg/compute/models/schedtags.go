@@ -79,6 +79,7 @@ func init() {
 		),
 		jointsManager: make(map[string]ISchedtagJointManager),
 	}
+	SchedtagManager.SetVirtualObject(SchedtagManager)
 }
 
 func (manager *SSchedtagManager) InitializeData() error {
@@ -183,7 +184,7 @@ func validateDefaultStrategy(defStrategy string) error {
 	return nil
 }
 
-func (manager *SSchedtagManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SSchedtagManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	defStrategy, _ := data.GetString("default_strategy")
 	if len(defStrategy) > 0 {
 		err := validateDefaultStrategy(defStrategy)
@@ -200,7 +201,7 @@ func (manager *SSchedtagManager) ValidateCreateData(ctx context.Context, userCre
 	if !utils.IsInStringArray(resourceType, manager.GetResourceTypes()) {
 		return nil, httperrors.NewInputParameterError("Not support resource_type %s", resourceType)
 	}
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (manager *SSchedtagManager) GetResourceSchedtags(resType string) ([]SSchedtag, error) {

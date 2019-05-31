@@ -39,6 +39,7 @@ func init() {
 			"guestcdroms",
 		),
 	}
+	GuestcdromManager.SetVirtualObject(GuestcdromManager)
 }
 
 type SGuestcdrom struct {

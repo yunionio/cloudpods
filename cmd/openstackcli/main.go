@@ -27,16 +27,17 @@ import (
 )
 
 type BaseOptions struct {
-	Debug        bool   `help:"debug mode"`
-	Help         bool   `help:"Show help"`
-	AuthURL      string `help:"Auth URL" default:"$OPENSTACK_AUTH_URL"`
-	Username     string `help:"Username" default:"$OPENSTACK_USERNAME"`
-	Password     string `help:"Password" default:"$OPENSTACK_PASSWORD"`
-	Project      string `help:"Project" default:"$OPENSTACK_PROJECT"`
-	EndpointType string `help:"Project" default:"$OPENSTACK_ENDPOINT_TYPE|internal"`
-	DomainName   string `help:"DomainName" default:"$OPENSTACK_DOMAIN_NAME"`
-	RegionID     string `help:"RegionId" default:"$OPENSTACK_REGION_ID"`
-	SUBCOMMAND   string `help:"openstackcli subcommand" subcommand:"true"`
+	Debug         bool   `help:"debug mode"`
+	Help          bool   `help:"Show help"`
+	AuthURL       string `help:"Auth URL" default:"$OPENSTACK_AUTH_URL"`
+	Username      string `help:"Username" default:"$OPENSTACK_USERNAME"`
+	Password      string `help:"Password" default:"$OPENSTACK_PASSWORD"`
+	Project       string `help:"Project" default:"$OPENSTACK_PROJECT"`
+	EndpointType  string `help:"Project" default:"$OPENSTACK_ENDPOINT_TYPE|internal"`
+	DomainName    string `help:"Domain of user" default:"$OPENSTACK_DOMAIN_NAME"`
+	ProjectDomain string `help:"Domain of project" default:"$OPENSTACK_PROJECT_DOMAIN"`
+	RegionID      string `help:"RegionId" default:"$OPENSTACK_REGION_ID"`
+	SUBCOMMAND    string `help:"openstackcli subcommand" subcommand:"true"`
 }
 
 func getSubcommandParser() (*structarg.ArgumentParser, error) {
@@ -92,7 +93,7 @@ func newClient(options *BaseOptions) (*openstack.SRegion, error) {
 		return nil, fmt.Errorf("Missing Password")
 	}
 
-	cli, err := openstack.NewOpenStackClient("", "", options.AuthURL, options.Username, options.Password, options.Project, options.EndpointType, options.DomainName, options.Debug)
+	cli, err := openstack.NewOpenStackClient("", "", options.AuthURL, options.Username, options.Password, options.Project, options.EndpointType, options.DomainName, options.ProjectDomain, options.Debug)
 	if err != nil {
 		return nil, err
 	}

@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -31,7 +32,7 @@ const (
 
 type IQuota interface {
 	FetchSystemQuota()
-	FetchUsage(ctx context.Context, projectId string) error
+	FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) error
 	Update(quota IQuota)
 	Add(quota IQuota)
 	Sub(quota IQuota)
@@ -62,23 +63,23 @@ func (manager *SQuotaManager) newQuota() IQuota {
 	return val.Interface().(IQuota)
 }
 
-func (manager *SQuotaManager) CancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, projectId string, localUsage IQuota, cancelUsage IQuota) error {
-	lockman.LockClass(ctx, manager, projectId)
-	defer lockman.ReleaseClass(ctx, manager, projectId)
+func (manager *SQuotaManager) CancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, localUsage IQuota, cancelUsage IQuota) error {
+	lockman.LockClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
+	defer lockman.ReleaseClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 
-	return manager._cancelPendingUsage(ctx, userCred, projectId, localUsage, cancelUsage)
+	return manager._cancelPendingUsage(ctx, userCred, scope, ownerId, localUsage, cancelUsage)
 }
 
-func (manager *SQuotaManager) _cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, projectId string, localUsage IQuota, cancelUsage IQuota) error {
+func (manager *SQuotaManager) _cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, localUsage IQuota, cancelUsage IQuota) error {
 
 	quota := manager.newQuota()
-	err := manager.pendingStore.GetQuota(ctx, projectId, quota)
+	err := manager.pendingStore.GetQuota(ctx, scope, ownerId, quota)
 	if err != nil {
 		log.Errorf("%s", err)
 		return err
 	}
 	quota.Sub(cancelUsage)
-	err = manager.pendingStore.SetQuota(ctx, userCred, projectId, quota)
+	err = manager.pendingStore.SetQuota(ctx, userCred, scope, ownerId, quota)
 	if err != nil {
 		log.Errorf("%s", err)
 	}
@@ -88,12 +89,12 @@ func (manager *SQuotaManager) _cancelPendingUsage(ctx context.Context, userCred 
 	return err
 }
 
-func (manager *SQuotaManager) GetPendingUsage(ctx context.Context, projectId string, quota IQuota) error {
-	return manager.pendingStore.GetQuota(ctx, projectId, quota)
+func (manager *SQuotaManager) GetPendingUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error {
+	return manager.pendingStore.GetQuota(ctx, scope, ownerId, quota)
 }
 
-func (manager *SQuotaManager) GetQuota(ctx context.Context, projectId string, quota IQuota) error {
-	err := manager.persistenStore.GetQuota(ctx, projectId, quota)
+func (manager *SQuotaManager) GetQuota(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error {
+	err := manager.persistenStore.GetQuota(ctx, scope, ownerId, quota)
 	if err != nil {
 		return err
 	}
@@ -103,41 +104,41 @@ func (manager *SQuotaManager) GetQuota(ctx context.Context, projectId string, qu
 	return nil
 }
 
-func (manager *SQuotaManager) SetQuota(ctx context.Context, userCred mcclient.TokenCredential, projectId string, quota IQuota) error {
-	lockman.LockClass(ctx, manager, projectId)
-	defer lockman.ReleaseClass(ctx, manager, projectId)
+func (manager *SQuotaManager) SetQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error {
+	lockman.LockClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
+	defer lockman.ReleaseClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 
-	return manager._setQuota(ctx, userCred, projectId, quota)
+	return manager._setQuota(ctx, userCred, scope, ownerId, quota)
 }
 
-func (manager *SQuotaManager) _setQuota(ctx context.Context, userCred mcclient.TokenCredential, projectId string, quota IQuota) error {
+func (manager *SQuotaManager) _setQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error {
 
-	return manager.persistenStore.SetQuota(ctx, userCred, projectId, quota)
+	return manager.persistenStore.SetQuota(ctx, userCred, scope, ownerId, quota)
 }
 
-func (manager *SQuotaManager) CheckQuota(ctx context.Context, userCred mcclient.TokenCredential, projectId string, request IQuota) (IQuota, error) {
-	lockman.LockClass(ctx, manager, projectId)
-	defer lockman.ReleaseClass(ctx, manager, projectId)
+func (manager *SQuotaManager) CheckQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, request IQuota) (IQuota, error) {
+	lockman.LockClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
+	defer lockman.ReleaseClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 
-	return manager._checkQuota(ctx, userCred, projectId, request)
+	return manager._checkQuota(ctx, userCred, scope, ownerId, request)
 }
 
-func (manager *SQuotaManager) _checkQuota(ctx context.Context, userCred mcclient.TokenCredential, projectId string, request IQuota) (IQuota, error) {
+func (manager *SQuotaManager) _checkQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, request IQuota) (IQuota, error) {
 	stored := manager.newQuota()
-	err := manager.GetQuota(ctx, projectId, stored)
+	err := manager.GetQuota(ctx, scope, ownerId, stored)
 	if err != nil {
 		log.Errorf("fail to get quota %s", err)
 		return nil, err
 	}
 	used := manager.newQuota()
-	err = used.FetchUsage(ctx, projectId)
+	err = used.FetchUsage(ctx, scope, ownerId)
 	if err != nil {
 		log.Errorf("fail to get quota usage %s", err)
 		return nil, err
 	}
 
 	pending := manager.newQuota()
-	err = manager.GetPendingUsage(ctx, projectId, pending)
+	err = manager.GetPendingUsage(ctx, scope, ownerId, pending)
 	if err != nil {
 		log.Errorf("fail to get pending usage %s", err)
 		return nil, err
@@ -154,24 +155,24 @@ func (manager *SQuotaManager) _checkQuota(ctx context.Context, userCred mcclient
 	return used, nil
 }
 
-func (manager *SQuotaManager) CheckSetPendingQuota(ctx context.Context, userCred mcclient.TokenCredential, projectId string, quota IQuota) error {
-	lockman.LockClass(ctx, manager, projectId)
-	defer lockman.ReleaseClass(ctx, manager, projectId)
+func (manager *SQuotaManager) CheckSetPendingQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error {
+	lockman.LockClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
+	defer lockman.ReleaseClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 
-	return manager._checkSetPendingQuota(ctx, userCred, projectId, quota)
+	return manager._checkSetPendingQuota(ctx, userCred, scope, ownerId, quota)
 }
 
-func (manager *SQuotaManager) _checkSetPendingQuota(ctx context.Context, userCred mcclient.TokenCredential, projectId string, quota IQuota) error {
-	_, err := manager._checkQuota(ctx, userCred, projectId, quota)
+func (manager *SQuotaManager) _checkSetPendingQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error {
+	_, err := manager._checkQuota(ctx, userCred, scope, ownerId, quota)
 	if err != nil {
 		return err
 	}
 	pending := manager.newQuota()
-	err = manager.pendingStore.GetQuota(ctx, projectId, pending)
+	err = manager.pendingStore.GetQuota(ctx, scope, ownerId, pending)
 	if err != nil {
 		log.Errorf("GetQuota fail %s", err)
 		return err
 	}
 	pending.Add(quota)
-	return manager.pendingStore.SetQuota(ctx, userCred, projectId, pending)
+	return manager.pendingStore.SetQuota(ctx, userCred, scope, ownerId, pending)
 }

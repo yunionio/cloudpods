@@ -45,6 +45,7 @@ func init() {
 				DiskManager,
 			),
 		}
+		GuestdiskManager.SetVirtualObject(GuestdiskManager)
 		GuestdiskManager.TableSpec().AddIndex(true, "disk_id", "guest_id")
 	})
 

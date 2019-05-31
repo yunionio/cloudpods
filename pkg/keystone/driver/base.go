@@ -15,36 +15,51 @@
 package driver
 
 import (
-	"yunion.io/x/onecloud/pkg/keystone/models"
+	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 )
 
-type SBaseDomainDriver struct {
-	virtual interface{}
+var (
+	idpDriverClasses = make(map[string]IIdentityBackendClass)
+)
 
-	config   models.TDomainConfigs
-	domainId string
+func RegisterDriverClass(drv IIdentityBackendClass) {
+	idpDriverClasses[drv.Name()] = drv
 }
 
-func (base *SBaseDomainDriver) IIdentityBackend() IIdentityBackend {
-	return base.virtual.(IIdentityBackend)
-}
-
-func NewBaseDomainDriver(domainId string, conf models.TDomainConfigs) SBaseDomainDriver {
-	return SBaseDomainDriver{
-		domainId: domainId,
-		config:   conf,
+func GetDriverClass(drv string) IIdentityBackendClass {
+	if cls, ok := idpDriverClasses[drv]; ok {
+		return cls
 	}
+	return nil
 }
 
-func GetDriver(domainId string, conf models.TDomainConfigs) (IIdentityBackend, error) {
-	if ident, ok := conf["identity"]; ok {
-		if driverJson, ok := ident["driver"]; ok {
-			driver, _ := driverJson.GetString()
-			switch driver {
-			case "ldap":
-				return NewLDAPDriver(domainId, conf)
-			}
-		}
+func GetDriver(driver string, idpId, idpName, template string, conf api.TIdentityProviderConfigs) (IIdentityBackend, error) {
+	drvCls := GetDriverClass(driver)
+	if drvCls == nil {
+		return nil, ErrNoSuchDriver
 	}
-	return NewSQLDriver(domainId, conf)
+	return drvCls.NewDriver(idpId, idpName, template, conf)
+}
+
+type SBaseIdentityDriver struct {
+	object.SObject
+
+	Config   api.TIdentityProviderConfigs
+	IdpId    string
+	IdpName  string
+	Template string
+}
+
+func (base *SBaseIdentityDriver) IIdentityBackend() IIdentityBackend {
+	return base.GetVirtualObject().(IIdentityBackend)
+}
+
+func NewBaseIdentityDriver(idpId, idpName, template string, conf api.TIdentityProviderConfigs) (SBaseIdentityDriver, error) {
+	drv := SBaseIdentityDriver{}
+	drv.IdpId = idpId
+	drv.IdpName = idpName
+	drv.Template = template
+	drv.Config = conf
+	return drv, nil
 }

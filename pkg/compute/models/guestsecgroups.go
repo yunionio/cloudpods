@@ -42,6 +42,7 @@ func init() {
 				SecurityGroupManager,
 			),
 		}
+		GuestsecgroupManager.SetVirtualObject(GuestsecgroupManager)
 	})
 }
 
@@ -58,7 +59,7 @@ func (self *SGuestsecgroup) getSecgroup() *SSecurityGroup {
 		return nil
 	}
 	secgroup := secgrp.(*SSecurityGroup)
-	secgroup.SetModelManager(SecurityGroupManager)
+	secgroup.SetModelManager(SecurityGroupManager, secgroup)
 	return secgroup
 }
 
@@ -74,7 +75,7 @@ func (manager *SGuestsecgroupManager) newGuestSecgroup(ctx context.Context, user
 	}
 
 	gs := SGuestsecgroup{SecgroupId: secgroup.Id}
-	gs.SetModelManager(manager)
+	gs.SetModelManager(manager, &gs)
 	gs.GuestId = guest.Id
 
 	lockman.LockObject(ctx, secgroup)

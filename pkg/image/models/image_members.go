@@ -31,6 +31,7 @@ func init() {
 			"image_members",
 		),
 	}
+	ImageMemberManager.SetVirtualObject(ImageMemberManager)
 
 	ImageMemberManager.TableSpec().AddIndex(true, "image_id", "member")
 }

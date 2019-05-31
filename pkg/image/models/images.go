@@ -45,6 +45,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/streamutils"
 )
 
@@ -69,6 +70,7 @@ func init() {
 			"images",
 		),
 	}
+	ImageManager.SetVirtualObject(ImageManager)
 
 	imgStreamingWorkerMan = appsrv.NewWorkerManager("image_streaming_worker", 20, 1024, true)
 }
@@ -310,22 +312,22 @@ func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclien
 	return headers
 }
 
-func (manager *SImageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	_, err := manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+func (manager *SImageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	_, err := manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return nil, err
 	}
 
 	pendingUsage := SQuota{Image: 1}
-	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, userCred.GetProjectId(), &pendingUsage); err != nil {
+	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError("%s", err)
 	}
 
 	return data, nil
 }
 
-func (self *SImage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	err := self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
+func (self *SImage) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	err := self.SVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 	if err != nil {
 		return err
 	}
@@ -429,11 +431,11 @@ func (self *SImage) SaveImageFromStream(reader io.Reader, calChecksum bool) erro
 	return nil
 }
 
-func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	pendingUsage := SQuota{Image: 1}
-	QuotaManager.CancelPendingUsage(ctx, userCred, userCred.GetProjectId(), &pendingUsage, &pendingUsage)
+	QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, userCred, &pendingUsage, &pendingUsage)
 
 	if data.Contains("properties") {
 		// update properties
@@ -710,10 +712,15 @@ type SImageUsage struct {
 	Size  int64
 }
 
-func (manager *SImageManager) count(projectId string, status string, isISO tristate.TriState, pendingDelete bool) map[string]SImageUsage {
+func (manager *SImageManager) count(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, status string, isISO tristate.TriState, pendingDelete bool) map[string]SImageUsage {
 	sq := manager.Query("id")
-	if len(projectId) > 0 {
-		sq = sq.Equals("tenant_id", projectId)
+	switch scope {
+	case rbacutils.ScopeSystem:
+		// do nothing
+	case rbacutils.ScopeDomain:
+		sq = sq.Equals("domain_id", ownerId.GetProjectDomainId())
+	case rbacutils.ScopeProject:
+		sq = sq.Equals("tenant_id", ownerId.GetProjectId())
 	}
 	if len(status) > 0 {
 		sq = sq.Equals("status", status)
@@ -774,19 +781,19 @@ func expandUsageCount(usages map[string]int64, prefix, imgType, state string, co
 	}
 }
 
-func (manager *SImageManager) Usage(projectId string, prefix string) map[string]int64 {
+func (manager *SImageManager) Usage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, prefix string) map[string]int64 {
 	usages := make(map[string]int64)
-	count := manager.count(projectId, api.IMAGE_STATUS_ACTIVE, tristate.False, false)
+	count := manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.False, false)
 	expandUsageCount(usages, prefix, "img", "", count)
-	count = manager.count(projectId, api.IMAGE_STATUS_ACTIVE, tristate.True, false)
+	count = manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.True, false)
 	expandUsageCount(usages, prefix, "iso", "", count)
-	count = manager.count(projectId, api.IMAGE_STATUS_ACTIVE, tristate.None, false)
+	count = manager.count(scope, ownerId, api.IMAGE_STATUS_ACTIVE, tristate.None, false)
 	expandUsageCount(usages, prefix, "imgiso", "", count)
-	count = manager.count(projectId, "", tristate.False, true)
+	count = manager.count(scope, ownerId, "", tristate.False, true)
 	expandUsageCount(usages, prefix, "img", "pending_delete", count)
-	count = manager.count(projectId, "", tristate.True, true)
+	count = manager.count(scope, ownerId, "", tristate.True, true)
 	expandUsageCount(usages, prefix, "iso", "pending_delete", count)
-	count = manager.count(projectId, "", tristate.None, true)
+	count = manager.count(scope, ownerId, "", tristate.None, true)
 	expandUsageCount(usages, prefix, "imgiso", "pending_delete", count)
 	return usages
 }
@@ -801,7 +808,7 @@ func (self *SImage) GetImageType() api.TImageType {
 
 func (self *SImage) newSubformat(format qemuimg.TImageFormat, migrate bool) error {
 	subformat := &SImageSubformat{}
-	subformat.SetModelManager(ImageSubformatManager)
+	subformat.SetModelManager(ImageSubformatManager, subformat)
 
 	subformat.ImageId = self.Id
 	subformat.Format = string(format)

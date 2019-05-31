@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
@@ -39,10 +41,12 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SCloudproviderManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SProjectizedResourceBaseManager
 }
 
 var CloudproviderManager *SCloudproviderManager
@@ -56,10 +60,12 @@ func init() {
 			"cloudproviders",
 		),
 	}
+	CloudproviderManager.SetVirtualObject(CloudproviderManager)
 }
 
 type SCloudprovider struct {
 	db.SEnabledStatusStandaloneResourceBase
+	db.SProjectizedResourceBase
 
 	SSyncableBaseResource
 
@@ -75,19 +81,11 @@ type SCloudprovider struct {
 
 	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
-	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" list:"admin"`
+	// ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" list:"admin"`
 
 	// LastSync time.Time `get:"admin" list:"admin"` // = Column(DateTime, nullable=True)
 
 	Provider string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
-}
-
-func (manager *SCloudproviderManager) GetOwnerId(userCred mcclient.IIdentityProvider) string {
-	return userCred.GetProjectId()
-}
-
-func (self *SCloudprovider) GetOwnerProjectId() string {
-	return self.ProjectId
 }
 
 func (self *SCloudproviderManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -216,7 +214,7 @@ func (self *SCloudprovider) ValidateUpdateData(ctx context.Context, userCred mcc
 	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
-func (self *SCloudproviderManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (self *SCloudproviderManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewUnsupportOperationError("Directly creating cloudprovider is not supported, create cloudaccount instead")
 }
 
@@ -241,6 +239,7 @@ func (self *SCloudprovider) syncProject(ctx context.Context, userCred mcclient.T
 		_, err := db.TenantCacheManager.FetchTenantById(ctx, self.ProjectId)
 		if err != nil && err != sql.ErrNoRows {
 			log.Errorf("fetch existing tenant by id fail %s", err)
+			return errors.Wrap(err, "db.TenantCacheManager.FetchTenantById")
 		} else if err == nil {
 			return nil // find the project, skip sync
 		}
@@ -248,20 +247,26 @@ func (self *SCloudprovider) syncProject(ctx context.Context, userCred mcclient.T
 
 	if len(self.Name) == 0 {
 		log.Errorf("syncProject: provider name is empty???")
-		return fmt.Errorf("cannot syncProject for empty name")
+		return errors.New("cannot syncProject for empty name")
 	}
 
 	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, self.Name)
 	if err != nil && err != sql.ErrNoRows {
 		log.Errorf("fetchTenantByIdorName error %s: %s", self.Name, err)
-		return err
+		return errors.Wrap(err, "db.TenantCacheManager.FetchTenantByIdOrName")
 	}
 
-	var projectId string
+	var projectId, domainId string
 	if err == sql.ErrNoRows { // create one
 		s := auth.GetAdminSession(ctx, options.Options.Region, "")
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(self.Name), "name")
+		account := self.GetCloudaccount()
+		if account == nil {
+			return errors.New("no valid cloudaccount???")
+		}
+		domainId = account.DomainId
+		params.Add(jsonutils.NewString(domainId), "domain_id")
 		params.Add(jsonutils.NewString(fmt.Sprintf("auto create from cloud provider %s (%s)", self.Name, self.Id)), "description")
 
 		project, err := modules.Projects.Create(s, params)
@@ -275,15 +280,17 @@ func (self *SCloudprovider) syncProject(ctx context.Context, userCred mcclient.T
 			return err
 		}
 	} else {
+		domainId = tenant.DomainId
 		projectId = tenant.Id
 	}
 
-	return self.saveProject(userCred, projectId)
+	return self.saveProject(userCred, domainId, projectId)
 }
 
-func (self *SCloudprovider) saveProject(userCred mcclient.TokenCredential, projectId string) error {
+func (self *SCloudprovider) saveProject(userCred mcclient.TokenCredential, domainId, projectId string) error {
 	if projectId != self.ProjectId {
 		diff, err := db.Update(self, func() error {
+			self.DomainId = domainId
 			self.ProjectId = projectId
 			return nil
 		})
@@ -490,7 +497,7 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 		NewProject:   tenant.Name,
 	}
 
-	err = self.saveProject(userCred, tenant.Id)
+	err = self.saveProject(userCred, tenant.DomainId, tenant.Id)
 	if err != nil {
 		log.Errorf("Update cloudprovider error: %v", err)
 		return nil, httperrors.NewGeneralError(err)
@@ -715,10 +722,10 @@ func (self *SCloudprovider) getProject(ctx context.Context) *db.STenant {
 
 func (self *SCloudprovider) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra.Update(jsonutils.Marshal(self.getUsage()))
-	project := self.getProject(ctx)
-	if project != nil {
-		extra.Add(jsonutils.NewString(project.Name), "tenant")
-	}
+	// project := self.getProject(ctx)
+	// if project != nil {
+	// 	extra.Add(jsonutils.NewString(project.Name), "tenant")
+	// }
 	account := self.GetCloudaccount()
 	if account != nil {
 		extra.Add(jsonutils.NewString(account.GetName()), "cloudaccount")
@@ -797,9 +804,9 @@ func (manager *SCloudproviderManager) InitializeData() error {
 
 func (manager *SCloudproviderManager) migrateVCenterInfo(vc *SVCenter) error {
 	cp := SCloudprovider{}
-	cp.SetModelManager(manager)
+	cp.SetModelManager(manager, &cp)
 
-	newName, err := db.GenerateName(manager, "", vc.Name)
+	newName, err := db.GenerateName(manager, nil, vc.Name)
 	if err != nil {
 		return err
 	}
@@ -1081,4 +1088,31 @@ func (self *SCloudprovider) PerformDisable(ctx context.Context, userCred mcclien
 		}
 	}
 	return nil, nil
+}
+
+func (manager *SCloudproviderManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
+	rows := manager.SEnabledStatusStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
+	projectIds := stringutils2.SSortedStrings{}
+	for i := range objs {
+		idStr := objs[i].GetOwnerId().GetProjectId()
+		projectIds = stringutils2.Append(projectIds, idStr)
+	}
+	if len(fields) == 0 || fields.Contains("tenant") || fields.Contains("domain") {
+		projects := db.FetchProjects(projectIds, false)
+		if projects != nil {
+			for i := range rows {
+				idStr := objs[i].GetOwnerId().GetProjectId()
+				if proj, ok := projects[idStr]; ok {
+					if len(fields) == 0 || fields.Contains("domain") {
+						rows[i].Add(jsonutils.NewString(proj.Domain), "domain")
+					}
+					if len(fields) == 0 || fields.Contains("tenant") {
+						rows[i].Add(jsonutils.NewString(proj.Name), "tenant")
+					}
+				}
+
+			}
+		}
+	}
+	return rows
 }

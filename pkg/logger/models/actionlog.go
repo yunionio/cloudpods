@@ -52,15 +52,16 @@ type SActionlog struct {
 	Service   string    `width:"32" charset:"utf8" nullable:"true" list:"user" create:"optional"` //= Column(VARCHAR(32, charset='utf8'), nullable=False)
 }
 
-var ActonLog *SActionlogManager
+var ActionLog *SActionlogManager
 var logQueue = make(chan *SActionlog, 50)
 
 func init() {
 	InitActionWhiteList()
-	ActonLog = &SActionlogManager{db.SOpsLogManager{db.NewModelBaseManager(SActionlog{}, "action_tbl", "action", "actions")}}
+	ActionLog = &SActionlogManager{db.SOpsLogManager{db.NewModelBaseManager(SActionlog{}, "action_tbl", "action", "actions")}}
+	ActionLog.SetVirtualObject(ActionLog)
 }
 
-func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	now := time.Now().UTC()
 	action.OpsTime = now
 	if action.StartTime.IsZero() {

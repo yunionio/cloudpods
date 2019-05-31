@@ -17,6 +17,8 @@ package jsonutils
 import (
 	"reflect"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/pkg/gotypes"
 )
 
@@ -67,18 +69,18 @@ func init() {
 func JSONDeserialize(objType reflect.Type, strVal string) (gotypes.ISerializable, error) {
 	objPtr, err := gotypes.NewSerializable(objType)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "gotypes.NewSerializable")
 	}
 	json, err := ParseString(strVal)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ParseString")
 	}
 	if objPtr == nil {
 		return json, nil
 	}
 	err = json.Unmarshal(objPtr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "json.Unmarshal")
 	}
 	objPtr = gotypes.Transform(objType, objPtr)
 	return objPtr, nil

@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SUserCacheManager struct {
@@ -38,8 +39,15 @@ func (user *SUser) GetModelManager() IModelManager {
 var UserCacheManager *SUserCacheManager
 
 func init() {
-	UserCacheManager = &SUserCacheManager{NewKeystoneCacheObjectManager(SUser{}, "users_cache_tbl", "user", "users")}
+	UserCacheManager = &SUserCacheManager{
+		NewKeystoneCacheObjectManager(SUser{}, "users_cache_tbl", "user", "users")}
 	// log.Debugf("initialize user cache manager %s", UserCacheManager.KeywordPlural())
+	UserCacheManager.SetVirtualObject(UserCacheManager)
+}
+
+func (manager *SUserCacheManager) updateUserCache(userCred mcclient.TokenCredential) {
+	manager.Save(context.Background(), userCred.GetUserId(), userCred.GetUserName(),
+		userCred.GetDomainId(), userCred.GetDomainName())
 }
 
 func (manager *SUserCacheManager) FetchUserByIdOrName(idStr string) (*SUser, error) {

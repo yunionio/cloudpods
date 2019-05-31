@@ -48,11 +48,14 @@ func InitAuth(options *common_options.CommonOptions, authComplete auth.AuthCompl
 		os.Exit(1)
 	}
 
-	a := auth.NewAuthInfo(options.AuthURL,
+	a := auth.NewAuthInfo(
+		options.AuthURL,
 		options.AdminDomain,
 		options.AdminUser,
 		options.AdminPassword,
-		options.AdminProject)
+		options.AdminProject,
+		options.AdminProjectDomain,
+	)
 
 	// debug := options.LogLevel == "debug"
 

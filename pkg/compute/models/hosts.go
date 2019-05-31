@@ -135,11 +135,14 @@ func init() {
 			"hosts",
 		),
 	}
+	HostManager.SetVirtualObject(HostManager)
 	HostManager.SetAlias("baremetal", "baremetals")
 }
 
 type SHost struct {
 	db.SEnabledStatusStandaloneResourceBase
+	db.SExternalizedResourceBase
+
 	SManagedResourceBase
 	SBillingResourceBase
 
@@ -591,7 +594,7 @@ func (self *SHost) GetHoststorages() []SHoststorage {
 
 func (self *SHost) GetHoststorageOfId(storageId string) *SHoststorage {
 	hoststorage := SHoststorage{}
-	hoststorage.SetModelManager(HoststorageManager)
+	hoststorage.SetModelManager(HoststorageManager, &hoststorage)
 	err := self.GetHoststoragesQuery().Equals("storage_id", storageId).First(&hoststorage)
 	if err != nil {
 		log.Errorf("GetHoststorageOfId fail %s", err)
@@ -602,7 +605,7 @@ func (self *SHost) GetHoststorageOfId(storageId string) *SHoststorage {
 
 func (self *SHost) GetHoststorageByExternalId(extId string) *SHoststorage {
 	hoststorage := SHoststorage{}
-	hoststorage.SetModelManager(HoststorageManager)
+	hoststorage.SetModelManager(HoststorageManager, &hoststorage)
 
 	hoststorages := HoststorageManager.Query().SubQuery()
 	storages := StorageManager.Query().SubQuery()
@@ -650,7 +653,7 @@ func (self *SHost) GetBaremetalstorage() *SHoststorage {
 	}
 	if cnt == 1 {
 		hs := SHoststorage{}
-		hs.SetModelManager(HoststorageManager)
+		hs.SetModelManager(HoststorageManager, &hs)
 		err := q.First(&hs)
 		if err != nil {
 			log.Errorf("error %s", err)
@@ -713,7 +716,7 @@ func (self *SHost) PerformUpdateStorage(
 		if err != nil {
 			return nil, fmt.Errorf("Create baremetal storage error: %v", err)
 		}
-		storage.SetModelManager(StorageManager)
+		storage.SetModelManager(StorageManager, &storage)
 		db.OpsLog.LogEvent(&storage, db.ACT_CREATE, storage.GetShortDesc(ctx), userCred)
 		// 2. create host storage
 		bmStorage := SHoststorage{}
@@ -725,7 +728,7 @@ func (self *SHost) PerformUpdateStorage(
 		if err != nil {
 			return nil, fmt.Errorf("Create baremetal hostStorage error: %v", err)
 		}
-		bmStorage.SetModelManager(HoststorageManager)
+		bmStorage.SetModelManager(HoststorageManager, &bmStorage)
 		db.OpsLog.LogAttachEvent(ctx, self, &storage, userCred, bmStorage.GetShortDesc(ctx))
 		return nil, nil
 	}
@@ -1135,7 +1138,7 @@ func (self *SHost) getAttachedWires() []SWire {
 
 func (self *SHost) GetMasterHostwire() *SHostwire {
 	hw := SHostwire{}
-	hw.SetModelManager(HostwireManager)
+	hw.SetModelManager(HostwireManager, &hw)
 
 	q := self.GetWiresQuery().IsTrue("is_master")
 	err := q.First(&hw)
@@ -1155,7 +1158,7 @@ func (self *SHost) GetMasterWire() *SWire {
 	q = q.Filter(sqlchemy.Equals(hostwires.Field("host_id"), self.Id))
 	q = q.Filter(sqlchemy.IsTrue(hostwires.Field("is_master")))
 	wire := SWire{}
-	wire.SetModelManager(WireManager)
+	wire.SetModelManager(WireManager, &wire)
 
 	err := q.First(&wire)
 	if err != nil {
@@ -1179,7 +1182,7 @@ func (self *SHost) getHostwiresOfId(wireId string) []SHostwire {
 
 func (self *SHost) getHostwireOfIdAndMac(wireId string, mac string) *SHostwire {
 	hostwire := SHostwire{}
-	hostwire.SetModelManager(HostwireManager)
+	hostwire.SetModelManager(HostwireManager, &hostwire)
 
 	q := self.GetWiresQuery().Equals("wire_id", wireId)
 	q = q.Equals("mac_addr", mac)
@@ -1258,7 +1261,7 @@ func (self *SHost) GetAttach2Network(network *SNetwork) *SHostnetwork {
 	q := self.GetBaremetalnetworksQuery()
 	q = q.Equals("network_id", network.Id)
 	hn := SHostnetwork{}
-	hn.SetModelManager(HostnetworkManager)
+	hn.SetModelManager(HostnetworkManager, &hn)
 
 	err := q.First(&hn)
 	if err != nil {
@@ -1286,7 +1289,7 @@ func (self *SHost) GetNetInterfaces() []SNetInterface {
 
 func (self *SHost) GetAdminNetInterface() *SNetInterface {
 	netif := SNetInterface{}
-	netif.SetModelManager(NetInterfaceManager)
+	netif.SetModelManager(NetInterfaceManager, &netif)
 
 	q := NetInterfaceManager.Query().Equals("baremetal_id", self.Id).Equals("nic_type", api.NIC_TYPE_ADMIN)
 	err := q.First(&netif)
@@ -1342,8 +1345,8 @@ func (manager *SHostManager) getHostsByZoneProvider(zone *SZone, provider *SClou
 }
 
 func (manager *SHostManager) SyncHosts(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, zone *SZone, hosts []cloudprovider.ICloudHost) ([]SHost, []cloudprovider.ICloudHost, compare.SyncResult) {
-	lockman.LockClass(ctx, manager, manager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, manager, manager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	localHosts := make([]SHost, 0)
 	remoteHosts := make([]cloudprovider.ICloudHost, 0)
@@ -1484,7 +1487,7 @@ func (self *SHost) syncWithCloudPrepaidVM(extVM cloudprovider.ICloudVM, host *SH
 
 func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mcclient.TokenCredential, extHost cloudprovider.ICloudHost, provider *SCloudprovider, izone *SZone) (*SHost, error) {
 	host := SHost{}
-	host.SetModelManager(manager)
+	host.SetModelManager(manager, &host)
 
 	if izone == nil {
 		// onpremise host
@@ -1547,8 +1550,8 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 }
 
 func (self *SHost) SyncHostStorages(ctx context.Context, userCred mcclient.TokenCredential, storages []cloudprovider.ICloudStorage, provider *SCloudprovider) ([]SStorage, []cloudprovider.ICloudStorage, compare.SyncResult) {
-	lockman.LockClass(ctx, StorageManager, StorageManager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, StorageManager, StorageManager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, StorageManager, db.GetLockClassKey(StorageManager, userCred))
+	defer lockman.ReleaseClass(ctx, StorageManager, db.GetLockClassKey(StorageManager, userCred))
 
 	localStorages := make([]SStorage, 0)
 	remoteStorages := make([]cloudprovider.ICloudStorage, 0)
@@ -1650,7 +1653,7 @@ func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCr
 	}
 
 	hs := SHoststorage{}
-	hs.SetModelManager(HoststorageManager)
+	hs.SetModelManager(HoststorageManager, &hs)
 
 	hs.StorageId = storage.Id
 	hs.HostId = self.Id
@@ -1666,7 +1669,7 @@ func (self *SHost) Attach2Storage(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (self *SHost) newCloudHostStorage(ctx context.Context, userCred mcclient.TokenCredential, extStorage cloudprovider.ICloudStorage, provider *SCloudprovider) (*SStorage, error) {
-	storageObj, err := StorageManager.FetchByExternalId(extStorage.GetGlobalId())
+	storageObj, err := db.FetchByExternalId(StorageManager, extStorage.GetGlobalId())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// no cloud storage found, this may happen for on-premise host
@@ -1768,7 +1771,7 @@ func (self *SHost) syncWithCloudHostWire(extWire cloudprovider.ICloudWire) error
 
 func (self *SHost) Attach2Wire(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire) error {
 	hs := SHostwire{}
-	hs.SetModelManager(HostwireManager)
+	hs.SetModelManager(HostwireManager, &hs)
 
 	hs.WireId = wire.Id
 	hs.HostId = self.Id
@@ -1781,7 +1784,7 @@ func (self *SHost) Attach2Wire(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (self *SHost) newCloudHostWire(ctx context.Context, userCred mcclient.TokenCredential, extWire cloudprovider.ICloudWire) error {
-	wireObj, err := WireManager.FetchByExternalId(extWire.GetGlobalId())
+	wireObj, err := db.FetchByExternalId(WireManager, extWire.GetGlobalId())
 	if err != nil {
 		log.Errorf("%s", err)
 		return nil
@@ -1797,11 +1800,9 @@ type SGuestSyncResult struct {
 	IsNew  bool
 }
 
-func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, projectId string) ([]SGuestSyncResult, compare.SyncResult) {
-	syncOwnerId := projectId
-
-	lockman.LockClass(ctx, GuestManager, syncOwnerId)
-	defer lockman.ReleaseClass(ctx, GuestManager, syncOwnerId)
+func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCredential, iprovider cloudprovider.ICloudProvider, vms []cloudprovider.ICloudVM, syncOwnerId mcclient.IIdentityProvider) ([]SGuestSyncResult, compare.SyncResult) {
+	lockman.LockClass(ctx, GuestManager, db.GetLockClassKey(GuestManager, syncOwnerId))
+	defer lockman.ReleaseClass(ctx, GuestManager, db.GetLockClassKey(GuestManager, syncOwnerId))
 
 	syncVMPairs := make([]SGuestSyncResult, 0)
 	syncResult := compare.SyncResult{}
@@ -1851,7 +1852,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		vm, err := GuestManager.FetchByExternalId(added[i].GetGlobalId())
+		vm, err := db.FetchByExternalId(GuestManager, added[i].GetGlobalId())
 		if err != nil && err != sql.ErrNoRows {
 			log.Errorf("failed to found guest by externalId %s error: %v", added[i].GetGlobalId(), err)
 			continue
@@ -1863,7 +1864,7 @@ func (self *SHost) SyncHostVMs(ctx context.Context, userCred mcclient.TokenCrede
 				log.Errorf("failed to found ihost from vm %s", added[i].GetGlobalId())
 				continue
 			}
-			_host, err := HostManager.FetchByExternalId(ihost.GetGlobalId())
+			_host, err := db.FetchByExternalId(HostManager, ihost.GetGlobalId())
 			if err != nil {
 				log.Errorf("failed to found host by externalId %s", ihost.GetGlobalId())
 				continue
@@ -1959,7 +1960,7 @@ func (self *SHost) GetNetworkWithIdAndCredential(netId string, userCred mcclient
 	q = q.Filter(sqlchemy.Equals(networks.Field("id"), netId))
 
 	net := SNetwork{}
-	net.SetModelManager(NetworkManager)
+	net.SetModelManager(NetworkManager, &net)
 	err := q.First(&net)
 	if err != nil {
 		return nil, err
@@ -1979,7 +1980,7 @@ func (self *SHost) GetNetworkWithIdAndCredential(netId string, userCred mcclient
 
 func (manager *SHostManager) FetchHostById(hostId string) *SHost {
 	host := SHost{}
-	host.SetModelManager(manager)
+	host.SetModelManager(manager, &host)
 	err := manager.Query().Equals("id", hostId).First(&host)
 	if err != nil {
 		log.Errorf("fetchHostById fail %s", err)
@@ -1990,12 +1991,12 @@ func (manager *SHostManager) FetchHostById(hostId string) *SHost {
 }
 
 func (manager *SHostManager) totalCountQ(
-	userCred mcclient.TokenCredential,
+	userCred mcclient.IIdentityProvider,
 	rangeObj db.IStandaloneModel,
 	hostStatus, status string,
 	hostTypes []string,
 	resourceTypes []string,
-	providers []string,
+	providers []string, cloudEnv string,
 	enabled, isBaremetal tristate.TriState,
 ) *sqlchemy.SQuery {
 	hosts := manager.Query().SubQuery()
@@ -2020,7 +2021,7 @@ func (manager *SHostManager) totalCountQ(
 		}
 		q = q.Filter(cond(hosts.Field("is_baremetal")))
 	}
-	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, rangeObj)
+	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, cloudEnv, rangeObj)
 	return q
 }
 
@@ -2098,15 +2099,15 @@ func (manager *SHostManager) calculateCount(q *sqlchemy.SQuery) HostsCountStat {
 }
 
 func (manager *SHostManager) TotalCount(
-	userCred mcclient.TokenCredential,
+	userCred mcclient.IIdentityProvider,
 	rangeObj db.IStandaloneModel,
 	hostStatus, status string,
 	hostTypes []string,
 	resourceTypes []string,
-	providers []string,
+	providers []string, cloudEnv string,
 	enabled, isBaremetal tristate.TriState,
 ) HostsCountStat {
-	return manager.calculateCount(manager.totalCountQ(userCred, rangeObj, hostStatus, status, hostTypes, resourceTypes, providers, enabled, isBaremetal))
+	return manager.calculateCount(manager.totalCountQ(userCred, rangeObj, hostStatus, status, hostTypes, resourceTypes, providers, cloudEnv, enabled, isBaremetal))
 }
 
 /*
@@ -2199,7 +2200,7 @@ func (self *SHost) GetBaremetalServer() *SGuest {
 		return nil
 	}
 	guest := SGuest{}
-	guest.SetModelManager(GuestManager)
+	guest.SetModelManager(GuestManager, &guest)
 	q := GuestManager.Query().Equals("host_id", self.Id).Equals("hypervisor", api.HOST_TYPE_BAREMETAL)
 	err := q.First(&guest)
 	if err != nil {
@@ -2412,8 +2413,8 @@ func (self *SHost) GetLocalStoragecache() *SStoragecache {
 	return nil
 }
 
-func (self *SHost) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (self *SHost) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	kwargs := data.(*jsonutils.JSONDict)
 	ipmiInfo, err := fetchIpmiInfo(kwargs, self.Id)
 	if err != nil {
@@ -2514,7 +2515,7 @@ func inputUniquenessCheck(data *jsonutils.JSONDict, zoneId string, hostId string
 	return data, nil
 }
 
-func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	zoneId := jsonutils.GetAnyString(data, []string{"zone_id", "zone"})
 	if len(zoneId) > 0 {
 		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, zoneId)
@@ -2561,7 +2562,7 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 	if len(ipmiIpAddr) > 0 && !NetworkManager.IsValidOnPremiseNetworkIP(ipmiIpAddr) {
 		return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
 	}
-	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -2989,7 +2990,7 @@ func (self *SHost) PerformInitialize(
 	if err != nil || self.GetBaremetalServer() != nil {
 		return nil, nil
 	}
-	err = db.NewNameValidator(GuestManager, userCred.GetProjectId(), name)
+	err = db.NewNameValidator(GuestManager, userCred, name)
 	if err != nil {
 		return nil, err
 	}
@@ -3008,7 +3009,7 @@ func (self *SHost) PerformInitialize(
 	guest.ProjectId = userCred.GetProjectId()
 	guest.Status = api.VM_RUNNING
 	guest.OsType = "Linux"
-	guest.SetModelManager(GuestManager)
+	guest.SetModelManager(GuestManager, guest)
 	err = GuestManager.TableSpec().Insert(guest)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("Guest Insert error: %s", err)
@@ -3600,8 +3601,8 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 		return nil, httperrors.NewNotAcceptableError("Convert error: %s", err.Error())
 	}
 	params := input.JSON(input)
-	ownerProjId := userCred.GetProjectId()
-	guest, err := db.DoCreate(GuestManager, ctx, userCred, nil, params, ownerProjId)
+	// ownerId := userCred.GetProjectId()
+	guest, err := db.DoCreate(GuestManager, ctx, userCred, nil, params, userCred)
 	if err != nil {
 		return nil, err
 	}
@@ -3609,7 +3610,7 @@ func (self *SHost) PerformConvertHypervisor(ctx context.Context, userCred mcclie
 		lockman.LockObject(ctx, guest)
 		defer lockman.ReleaseObject(ctx, guest)
 
-		guest.PostCreate(ctx, userCred, ownerProjId, nil, params)
+		guest.PostCreate(ctx, userCred, userCred, nil, params)
 	}()
 	log.Infof("Host convert to %s", guest.GetName())
 	db.OpsLog.LogEvent(self, db.ACT_CONVERT_START, "", userCred)
@@ -3958,7 +3959,7 @@ func (manager *SHostManager) PingDetectionTask(ctx context.Context, userCred mcc
 	for rows.Next() {
 		var host = SHost{}
 		q.Row2Struct(rows, &host)
-		host.SetModelManager(manager)
+		host.SetModelManager(manager, &host)
 		host.PerformOffline(ctx, userCred, nil, nil)
 		host.MarkGuestUnknown(userCred)
 	}

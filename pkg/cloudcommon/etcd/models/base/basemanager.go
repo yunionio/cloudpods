@@ -28,6 +28,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/etcd"
+	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 )
 
 var (
@@ -40,6 +41,8 @@ const (
 )
 
 type SEtcdBaseModelManager struct {
+	object.SObject
+
 	keyword       string
 	keywordPlural string
 	dataType      reflect.Type
@@ -158,7 +161,7 @@ func (manager *SEtcdBaseModelManager) json2Model(jsonObj jsonutils.JSONObject, m
 	if err != nil {
 		return err
 	}
-	model.SetModelManager(manager)
+	model.SetModelManager(manager, model)
 	return nil
 }
 

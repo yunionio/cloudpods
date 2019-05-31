@@ -3,6 +3,6 @@ projects:
   - system
 roles:
   - admin
-is_admin: true
+scope: system
 policy:
   *: allow

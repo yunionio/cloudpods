@@ -19,7 +19,8 @@ import (
 	"net/http"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -28,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func AddHandler(app *appsrv.Application) {
@@ -35,6 +37,23 @@ func AddHandler(app *appsrv.Application) {
 	app.AddHandler2("POST", "/v3/auth/tokens", authenticateTokensV3, nil, "auth_tokens_v3", nil)
 	app.AddHandler2("GET", "/v2.0/tokens/<token>", authenticateToken(verifyTokensV2), nil, "verify_tokens_v2", nil)
 	app.AddHandler2("GET", "/v3/auth/tokens", authenticateToken(verifyTokensV3), nil, "verify_tokens_v3", nil)
+}
+
+func FetchAuthContext(authCtx mcclient.SAuthContext, r *http.Request) mcclient.SAuthContext {
+	if len(authCtx.Source) == 0 {
+		authCtx.Source = mcclient.AuthSourceAPI
+	}
+	if len(authCtx.Ip) == 0 || authCtx.Ip == "0.0.0.0" {
+		ipStr := r.Header.Get("X-Real-Ip")
+		if len(ipStr) == 0 {
+			ipStr = r.Header.Get("X-Forwarded-For")
+			if len(ipStr) == 0 {
+				ipStr = r.RemoteAddr
+			}
+		}
+		authCtx.Ip = ipStr
+	}
+	return authCtx
 }
 
 func authenticateTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -45,6 +64,7 @@ func authenticateTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Re
 		httperrors.InvalidInputError(w, "unrecognized input %s", err)
 		return
 	}
+	input.Auth.Context = FetchAuthContext(input.Auth.Context, r)
 	token, err := AuthenticateV2(ctx, input)
 	if token == nil {
 		httperrors.UnauthorizedError(w, "unauthorized %s", err)
@@ -53,10 +73,11 @@ func authenticateTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Re
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.Marshal(token), "access")
 	appsrv.SendJSON(w, ret)
+
+	models.UserManager.TraceLoginV2(ctx, token)
 }
 
 func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request) {
-	log.Infof("authenticateTokensV3")
 	_, _, body := appsrv.FetchEnv(ctx, w, r)
 	input := mcclient.SAuthenticationInputV3{}
 	err := body.Unmarshal(&input)
@@ -64,10 +85,14 @@ func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Re
 		httperrors.InvalidInputError(w, "unrecognized input %s", err)
 		return
 	}
-	log.Debugf("%s", jsonutils.Marshal(&input))
+	input.Auth.Context = FetchAuthContext(input.Auth.Context, r)
 	token, err := AuthenticateV3(ctx, input)
 	if err != nil {
-		httperrors.UnauthorizedError(w, "unauthorized %s", err)
+		if errors.Cause(err) == sqlchemy.ErrDuplicateEntry {
+			httperrors.ConflictError(w, "duplicate username")
+		} else {
+			httperrors.UnauthorizedError(w, "unauthorized %s", err)
+		}
 		return
 	}
 	if token == nil {
@@ -75,8 +100,9 @@ func authenticateTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Re
 		return
 	}
 	w.Header().Set(api.AUTH_SUBJECT_TOKEN_HEADER, token.Id)
-	token.Id = ""
 	appsrv.SendJSON(w, jsonutils.Marshal(token))
+
+	models.UserManager.TraceLoginV3(ctx, token)
 }
 
 func verifyTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -97,7 +123,12 @@ func verifyTokensV2(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		httperrors.InvalidCredentialError(w, "invalid project")
 		return
 	}
-	v2token, err := token.getTokenV2(user, project)
+	projExt, err := project.FetchExtend()
+	if err != nil {
+		httperrors.InvalidCredentialError(w, "invalid project")
+		return
+	}
+	v2token, err := token.getTokenV2(ctx, user, projExt)
 	if err != nil {
 		httperrors.InternalServerError(w, "internal server error %s", err)
 		return
@@ -141,7 +172,7 @@ func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	v3token, err := token.getTokenV3(user, projExt, domain)
+	v3token, err := token.getTokenV3(ctx, user, projExt, domain)
 	if err != nil {
 		httperrors.InternalServerError(w, "internal server error %s", err)
 		return
@@ -153,7 +184,7 @@ func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request)
 
 func verifyCommon(ctx context.Context, w http.ResponseWriter, tokenStr string) (*SAuthToken, error) {
 	adminToken := policy.FetchUserCredential(ctx)
-	if !adminToken.IsAdminAllow(api.SERVICE_TYPE, "tokens", "perform", "auth") {
+	if !adminToken.IsAllow(rbacutils.ScopeSystem, api.SERVICE_TYPE, "tokens", "perform", "auth") {
 		return nil, httperrors.NewForbiddenError("not allow to auth")
 	}
 	token := SAuthToken{}

@@ -72,7 +72,7 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		self.taskFailed(ctx, network, "createinetwork", err)
 		return
 	}
-	network.SetExternalId(self.UserCred, inet.GetGlobalId())
+	db.SetExternalId(network, self.UserCred, inet.GetGlobalId())
 
 	err = cloudprovider.WaitStatus(inet, api.NETWORK_STATUS_AVAILABLE, 10*time.Second, 300*time.Second)
 	if err != nil {
@@ -80,7 +80,7 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		return
 	}
 
-	err = network.SyncWithCloudNetwork(ctx, self.UserCred, inet, "")
+	err = network.SyncWithCloudNetwork(ctx, self.UserCred, inet, nil)
 
 	if err != nil {
 		self.taskFailed(ctx, network, "SyncWithCloudNetwork", err)

@@ -31,6 +31,7 @@ func init() {
 			"image_tags",
 		),
 	}
+	ImageTagManager.SetVirtualObject(ImageTagManager)
 	ImageTagManager.TableSpec().AddIndex(true, "image_id", "value")
 }
 

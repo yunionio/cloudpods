@@ -12,4 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ttlpool // import "yunion.io/x/pkg/util/ttlpool"
+package rbacutils
+
+import "github.com/pkg/errors"
+
+var (
+	ErrEmptyPolicy = errors.New("empty policy")
+
+	ErrUnsuportRuleData = errors.New("unsupport rule data")
+
+	ErrConflict = errors.New("conflict?")
+
+	ErrInvalidRules = errors.New("invalid rules")
+)

@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var (
@@ -72,10 +73,12 @@ func init() {
 	}
 	NetworkManager.NameLength = 9
 	NetworkManager.NameRequireAscii = true
+	NetworkManager.SetVirtualObject(NetworkManager)
 }
 
 type SNetwork struct {
 	db.SSharableVirtualResourceBase
+	db.SExternalizedResourceBase
 
 	GuestIpStart string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
 	GuestIpEnd   string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"` // Column(VARCHAR(16, charset='ascii'), nullable=False)
@@ -476,11 +479,9 @@ func (manager *SNetworkManager) getNetworksByWire(wire *SWire) ([]SNetwork, erro
 	return nets, nil */
 }
 
-func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork, projectId string) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
-	ownerProjId := projectId
-
-	lockman.LockClass(ctx, manager, ownerProjId)
-	defer lockman.ReleaseClass(ctx, manager, ownerProjId)
+func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mcclient.TokenCredential, wire *SWire, nets []cloudprovider.ICloudNetwork, syncOwnerId mcclient.IIdentityProvider) ([]SNetwork, []cloudprovider.ICloudNetwork, compare.SyncResult) {
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 
 	localNets := make([]SNetwork, 0)
 	remoteNets := make([]cloudprovider.ICloudNetwork, 0)
@@ -519,7 +520,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(commondb); i += 1 {
-		err = commondb[i].SyncWithCloudNetwork(ctx, userCred, commonext[i], projectId)
+		err = commondb[i].SyncWithCloudNetwork(ctx, userCred, commonext[i], syncOwnerId)
 		if err != nil {
 			syncResult.UpdateError(err)
 		} else {
@@ -530,7 +531,7 @@ func (manager *SNetworkManager) SyncNetworks(ctx context.Context, userCred mccli
 		}
 	}
 	for i := 0; i < len(added); i += 1 {
-		new, err := manager.newFromCloudNetwork(ctx, userCred, added[i], wire, ownerProjId)
+		new, err := manager.newFromCloudNetwork(ctx, userCred, added[i], wire, syncOwnerId)
 		if err != nil {
 			syncResult.AddError(err)
 		} else {
@@ -558,7 +559,7 @@ func (self *SNetwork) syncRemoveCloudNetwork(ctx context.Context, userCred mccli
 	return err
 }
 
-func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, projectId string) error {
+func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, syncOwnerId mcclient.IIdentityProvider) error {
 	vpc := self.GetWire().getVpc()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extNet.Refresh()
@@ -581,16 +582,16 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
-	SyncCloudProject(userCred, self, projectId, extNet, vpc.ManagerId)
+	SyncCloudProject(userCred, self, syncOwnerId, extNet, vpc.ManagerId)
 
 	return nil
 }
 
-func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, wire *SWire, projectId string) (*SNetwork, error) {
+func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, extNet cloudprovider.ICloudNetwork, wire *SWire, syncOwnerId mcclient.IIdentityProvider) (*SNetwork, error) {
 	net := SNetwork{}
-	net.SetModelManager(manager)
+	net.SetModelManager(manager, &net)
 
-	newName, err := db.GenerateName(manager, projectId, extNet.GetName())
+	newName, err := db.GenerateName(manager, syncOwnerId, extNet.GetName())
 	if err != nil {
 		return nil, err
 	}
@@ -614,7 +615,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	}
 
 	vpc := wire.getVpc()
-	SyncCloudProject(userCred, &net, projectId, extNet, vpc.ManagerId)
+	SyncCloudProject(userCred, &net, syncOwnerId, extNet, vpc.ManagerId)
 
 	db.OpsLog.LogEvent(&net, db.ACT_CREATE, net.GetShortDesc(ctx), userCred)
 
@@ -679,7 +680,7 @@ func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverTyp
 	return nil, sql.ErrNoRows
 }
 
-func (manager *SNetworkManager) allNetworksQ(providers []string, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
+func (manager *SNetworkManager) allNetworksQ(providers []string, cloudEnv string, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
 	networks := manager.Query().SubQuery()
 	hostwires := HostwireManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
@@ -690,15 +691,17 @@ func (manager *SNetworkManager) allNetworksQ(providers []string, rangeObj db.ISt
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.Equals(hosts.Field("host_type"), api.HOST_TYPE_BAREMETAL),
 		sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE)))
-	return AttachUsageQuery(q, hosts, nil, nil, providers, rangeObj)
+	return AttachUsageQuery(q, hosts, nil, nil, providers, cloudEnv, rangeObj)
 }
 
-func (manager *SNetworkManager) totalPortCountQ(userCred mcclient.TokenCredential, providers []string, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
-	q := manager.allNetworksQ(providers, rangeObj)
-	if userCred != nil && !db.IsAdminAllowList(userCred, manager) {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.Equals(q.Field("tenant_id"), userCred.GetProjectId()),
-			sqlchemy.IsTrue(q.Field("is_public"))))
+func (manager *SNetworkManager) totalPortCountQ(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, providers []string, cloudEnv string, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
+	q := manager.allNetworksQ(providers, cloudEnv, rangeObj)
+	switch scope {
+	case rbacutils.ScopeSystem:
+	case rbacutils.ScopeDomain:
+		q = q.Equals("domain_id", userCred.GetProjectDomainId())
+	case rbacutils.ScopeProject:
+		q = q.Equals("tenant_id", userCred.GetProjectId())
 	}
 	return manager.Query().In("id", q.Distinct().SubQuery())
 }
@@ -709,12 +712,13 @@ type NetworkPortStat struct {
 }
 
 func (manager *SNetworkManager) TotalPortCount(
-	userCred mcclient.TokenCredential,
-	providers []string,
+	scope rbacutils.TRbacScope,
+	userCred mcclient.IIdentityProvider,
+	providers []string, cloudEnv string,
 	rangeObj db.IStandaloneModel,
 ) NetworkPortStat {
 	nets := make([]SNetwork, 0)
-	err := manager.totalPortCountQ(userCred, providers, rangeObj).All(&nets)
+	err := manager.totalPortCountQ(scope, userCred, providers, cloudEnv, rangeObj).All(&nets)
 	if err != nil {
 		log.Errorf("TotalPortCount: %v", err)
 	}
@@ -1020,7 +1024,7 @@ func isValidMaskLen(maskLen int64) bool {
 	}
 }
 
-func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	prefixStr, _ := data.GetString("guest_ip_prefix")
 	var maskLen64 int64
 	var err error
@@ -1185,7 +1189,7 @@ func (manager *SNetworkManager) ValidateCreateData(ctx context.Context, userCred
 	}
 	data.Add(jsonutils.NewString(serverTypeStr), "server_type")
 
-	return manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return manager.SSharableVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SNetwork) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -1313,17 +1317,17 @@ func isOverlapNetworks(nets []SNetwork, startIp netutils.IPV4Addr, endIp netutil
 	return false
 }
 
-func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if db.IsAdminAllowCreate(userCred, self.GetModelManager()) && ownerProjId == userCred.GetProjectId() && self.ServerType == api.NETWORK_TYPE_GUEST {
+func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if db.IsAdminAllowCreate(userCred, self.GetModelManager()) && ownerId.GetProjectId() == userCred.GetProjectId() && self.ServerType == api.NETWORK_TYPE_GUEST {
 		self.IsPublic = true
 	} else {
 		self.IsPublic = false
 	}
-	return self.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerProjId, query, data)
+	return self.SSharableVirtualResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
-func (self *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (self *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	wire := self.GetWire()
 	if wire == nil {
 		log.Errorf("cannot find wire???")
@@ -1618,8 +1622,8 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 		return nil, httperrors.NewBadRequestError(note, self.Name, net.Name)
 	}
 
-	lockman.LockClass(ctx, NetworkManager, NetworkManager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, NetworkManager, NetworkManager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, NetworkManager, db.GetLockClassKey(NetworkManager, userCred))
+	defer lockman.ReleaseClass(ctx, NetworkManager, db.GetLockClassKey(NetworkManager, userCred))
 
 	_, err = db.Update(net, func() error {
 		net.GuestIpStart = startIp
@@ -1742,15 +1746,15 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 		return nil, httperrors.NewInputParameterError("Split IP %s out of range", splitIp)
 	}
 
-	lockman.LockClass(ctx, NetworkManager, NetworkManager.GetOwnerId(userCred))
-	defer lockman.ReleaseClass(ctx, NetworkManager, NetworkManager.GetOwnerId(userCred))
+	lockman.LockClass(ctx, NetworkManager, db.GetLockClassKey(NetworkManager, userCred))
+	defer lockman.ReleaseClass(ctx, NetworkManager, db.GetLockClassKey(NetworkManager, userCred))
 
 	if len(name) > 0 {
-		if err := db.NewNameValidator(NetworkManager, userCred.GetProjectId(), name); err != nil {
+		if err := db.NewNameValidator(NetworkManager, userCred, name); err != nil {
 			return nil, httperrors.NewInputParameterError("Duplicate name %s", name)
 		}
 	} else {
-		newName, err := db.GenerateName(NetworkManager, userCred.GetProjectId(), fmt.Sprintf("%s#", self.Name))
+		newName, err := db.GenerateName(NetworkManager, userCred, fmt.Sprintf("%s#", self.Name))
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("GenerateName fail %s", err)
 		}
@@ -1780,7 +1784,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	if err != nil {
 		return nil, err
 	}
-	network.SetModelManager(NetworkManager)
+	network.SetModelManager(NetworkManager, network)
 
 	db.Update(self, func() error {
 		self.GuestIpEnd = iSplitIp.StepDown().String()
