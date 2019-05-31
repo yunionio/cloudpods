@@ -79,6 +79,12 @@ paths:
         - instance
     put:
       summary: 更新实实例信息
+      parameters:
+        - in: body
+          name: server
+          required: true
+          schema:
+            $ref: '#/definitions/InstanceUpdate' 
       responses:
         200:
           description: 实例信息
@@ -173,22 +179,6 @@ paths:
           schema:
             $ref: '#/definitions/InstanceResponse'
       tags:
-        - instance
-  # /servers/{serverId}/clone:
-  #   parameters: 
-  #   - name: serverId
-  #     type: string
-  #     in: path
-  #     required: true
-
-  #   post:
-  #     summary: 克隆实例
-  #     responses:
-  #       200:
-  #         description: 实例信息
-  #         schema:
-  #           $ref: '#/definitions/InstanceResponse'
-  #     tags:
         - instance
   /servers/{serverId}/deploy:
     parameters: 
@@ -901,7 +891,48 @@ parameters:
     enum: [desc, asc]
     description: 根据宿主机名称排序
 
+
 definitions:
+  InstanceUpdate:
+    type: object
+    properties:
+      name:
+        type: string
+        example: other-name
+      vmem_size:
+        type: string
+        example: 2G
+      vcpu_count:
+        type: integer
+        example: 2
+      vga:
+        type: string
+        example: std
+        enum: [std,vmware,cirrus,qxl]
+      vdi:
+        type: string
+        example: spice
+        enum: [vnc,spice]
+      bios:
+        type: string
+        example: UEFI
+        enum: [BIOS,UEFI]
+      description:
+        example: test
+        type: string
+      boot:
+        type: string
+        example: cdrom
+        enum: [disk,cdrom]
+      delete:
+        type: string 
+        example: disable
+        enum: [enable,disable]
+      shutdown_behavior:
+        type: string
+        example: terminate
+        enum: [stop,terminate]
+
   InstanceSecgroup:
     properties:
       id:
