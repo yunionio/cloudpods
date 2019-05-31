@@ -289,6 +289,10 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 		}
 	}
 	{
+		listenerSendProxy, err := agentutils.HaproxySendProxy(listener.SendProxy)
+		if err != nil {
+			return fmt.Errorf("listener %s(%s): %v", listener.Name, listener.Id, err)
+		}
 		serverLines := []string{}
 		for _, backend := range backendGroup.backends {
 			serverLine := fmt.Sprintf("server %s %s:%d", backend.Id, backend.Address, backend.Port)
@@ -303,6 +307,15 @@ func (b *LoadbalancerCorpus) genHaproxyConfigBackend(data map[string]interface{}
 			}
 			if stickySessionEnable {
 				serverLine += fmt.Sprintf(" cookie %q", backend.Id)
+			}
+			if listenerSendProxy != "" {
+				serverLine += " " + listenerSendProxy
+			} else if sendProxy, err := agentutils.HaproxySendProxy(backend.SendProxy); err != nil {
+				return fmt.Errorf("backend %s(%s): %v", backend.Name, backend.Id, err)
+			} else if sendProxy != "" {
+				serverLine += " " + sendProxy
+			} else {
+				// nothing to do
 			}
 			serverLines = append(serverLines, serverLine)
 		}

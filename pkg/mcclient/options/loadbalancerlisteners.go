@@ -25,6 +25,8 @@ type LoadbalancerListenerCreateOptions struct {
 
 	Scheduler string `required:"true" choices:"rr|wrr|wlc|sch|tch"`
 
+	SendProxy string `choices:"off|v1|v2|v2-ssl|v2-ssl-cn"`
+
 	ClientRequestTimeout  *int
 	ClientIdleTimeout     *int
 	BackendConnectTimeout *int
@@ -77,6 +79,8 @@ type LoadbalancerListenerListOptions struct {
 
 	Scheduler string `choices:"rr|wrr|wlc|sch|tch"`
 
+	SendProxy string `choices:"off|v1|v2|v2-ssl|v2-ssl-cn"`
+
 	ClientRequestTimeout  *int
 	ClientIdleTimeout     *int
 	BackendConnectTimeout *int
@@ -124,6 +128,8 @@ type LoadbalancerListenerUpdateOptions struct {
 	BackendGroup string
 
 	Scheduler string `choices:"rr|wrr|wlc|sch|tch"`
+
+	SendProxy string `choices:"off|v1|v2|v2-ssl|v2-ssl-cn"`
 
 	ClientRequestTimeout  *int
 	ClientIdleTimeout     *int

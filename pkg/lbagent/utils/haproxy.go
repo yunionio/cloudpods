@@ -17,6 +17,8 @@ package utils
 import (
 	"fmt"
 	"strings"
+
+	"yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 const HaproxyCfgExt = "cfg"
@@ -82,4 +84,21 @@ func HaproxyConfigHttpCheckExpect(s string) string {
 	s = strings.Join(ss, "|")
 	s = fmt.Sprintf("http-check expect rstatus %s", s)
 	return s
+}
+
+func HaproxySendProxy(s string) (r string, err error) {
+	switch s {
+	case compute.LB_SENDPROXY_OFF, "":
+	case compute.LB_SENDPROXY_V1:
+		r = "send-proxy"
+	case compute.LB_SENDPROXY_V2:
+		r = "send-proxy-v2"
+	case compute.LB_SENDPROXY_V2_SSL:
+		r = "send-proxy-v2-ssl"
+	case compute.LB_SENDPROXY_V2_SSL_CN:
+		r = "send-proxy-v2-ssl-cn"
+	default:
+		err = fmt.Errorf("unknown SendProxy: %s", s)
+	}
+	return
 }
