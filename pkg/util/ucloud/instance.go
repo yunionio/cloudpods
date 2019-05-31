@@ -20,9 +20,11 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/pkg/util/osprofile"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -93,7 +95,9 @@ func (self *SInstance) GetError() error {
 
 type DiskSet struct {
 	DiskID    string `json:"DiskId"`
+	DiskType  string `json:"DiskType"`
 	Drive     string `json:"Drive"`
+	IsBoot    bool   `json:"IsBoot"`
 	Size      int    `json:"Size"`
 	Encrypted string `json:"Encrypted"`
 	Type      string `json:"Type"`
@@ -220,10 +224,38 @@ func (self *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return self.host
 }
 
+func (self *SInstance) GetLocalDisk(diskId, storageType string, sizeGB int, isBoot bool) SDisk {
+	diskType := ""
+	if isBoot {
+		diskType = "SystemDisk"
+	}
+
+	disk := SDisk{
+		SDisk:      multicloud.SDisk{},
+		Status:     "Available",
+		UHostID:    self.GetId(),
+		Name:       diskId,
+		Zone:       self.host.zone.GetId(),
+		DiskType:   diskType,
+		UDiskID:    diskId,
+		UHostName:  self.GetName(),
+		CreateTime: self.CreateTime,
+		SizeGB:     sizeGB,
+	}
+
+	disk.storage = &SStorage{zone: self.host.zone, storageType: storageType}
+	return disk
+}
+
 func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
+	localDisks := make([]SDisk, 0)
 	diskIds := make([]string, 0)
 	for _, disk := range self.DiskSet {
-		diskIds = append(diskIds, disk.DiskID)
+		if utils.IsInStringArray(disk.DiskType, []string{api.STORAGE_UCLOUD_LOCAL_NORMAL, api.STORAGE_UCLOUD_LOCAL_SSD}) {
+			localDisks = append(localDisks, self.GetLocalDisk(disk.DiskID, disk.DiskType, disk.Size, disk.IsBoot))
+		} else {
+			diskIds = append(diskIds, disk.DiskID)
+		}
 	}
 
 	disks, err := self.host.zone.region.GetDisks("", "", diskIds)
@@ -231,19 +263,22 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		return nil, err
 	}
 
+	disks = append(disks, localDisks...)
 	idisks := make([]cloudprovider.ICloudDisk, len(disks))
 	for i := 0; i < len(disks); i += 1 {
-		var category string
-		if strings.Contains(disks[i].DiskType, "SSD") {
-			category = api.STORAGE_UCLOUD_CLOUD_SSD
-		} else {
-			category = api.STORAGE_UCLOUD_CLOUD_NORMAL
+		if disks[i].storage == nil {
+			var category string
+			if strings.Contains(disks[i].DiskType, "SSD") {
+				category = api.STORAGE_UCLOUD_CLOUD_SSD
+			} else {
+				category = api.STORAGE_UCLOUD_CLOUD_NORMAL
+			}
+			storage, err := self.host.zone.getStorageByCategory(category)
+			if err != nil {
+				return nil, err
+			}
+			disks[i].storage = storage
 		}
-		storage, err := self.host.zone.getStorageByCategory(category)
-		if err != nil {
-			return nil, err
-		}
-		disks[i].storage = storage
 		idisks[i] = &disks[i]
 		// 将系统盘放到第0个位置
 		if disks[i].GetDiskType() == api.DISK_TYPE_SYS {

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"yunion.io/x/log"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -124,7 +125,7 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			log.Errorf("GetImageStatus error %s", err)
 		}
-		if img.GetStatus() == cloudprovider.IMAGE_STATUS_ACTIVE && !isForce {
+		if img.GetStatus() == api.CACHED_IMAGE_STATUS_READY && !isForce {
 			return image.ExternalId, nil
 		}
 	} else {
