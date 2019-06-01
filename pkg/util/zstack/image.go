@@ -15,11 +15,9 @@
 package zstack
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"sort"
 	"time"
@@ -28,6 +26,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/multipart"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
@@ -219,13 +218,6 @@ func (region *SRegion) CreateImage(imageName, format, osType, desc string, reade
 		},
 	}
 
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("", imageName)
-	if err != nil {
-		return nil, err
-	}
-
 	if reader == nil {
 		return nil, fmt.Errorf("invalid reader")
 	}
@@ -234,15 +226,7 @@ func (region *SRegion) CreateImage(imageName, format, osType, desc string, reade
 		return nil, fmt.Errorf("invalid image size")
 	}
 
-	_, err = io.Copy(part, reader)
-	if err != nil {
-		return nil, err
-	}
-
-	err = writer.Close()
-	if err != nil {
-		return nil, err
-	}
+	body := multipart.NewReader(reader, "", imageName)
 
 	image := &SImage{storageCache: region.getStorageCache()}
 	err = region.client.create("images", jsonutils.Marshal(parmas), image)
@@ -256,7 +240,11 @@ func (region *SRegion) CreateImage(imageName, format, osType, desc string, reade
 	header := http.Header{}
 	header.Add("X-IMAGE-UUID", image.UUID)
 	header.Add("X-IMAGE-SIZE", fmt.Sprintf("%d", size))
-	header.Add("Content-Type", writer.FormDataContentType())
-	_, err = httputils.Request(httputils.GetDefaultClient(), context.Background(), "POST", image.BackupStorageRefs[0].InstallPath, header, body, false)
-	return image, err
+	header.Add("Content-Type", body.FormDataContentType())
+	resp, err := httputils.Request(httputils.GetDefaultClient(), context.Background(), "POST", image.BackupStorageRefs[0].InstallPath, header, body, false)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return image, nil
 }
