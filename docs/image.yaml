@@ -1,0 +1,453 @@
+swagger: "2.0"
+info:
+  title: "OneCloud API"
+  version: "1.0"
+  termsOfService: ""
+  contact:
+    email: zhouyousong@yunion.cn
+  license:
+    name: "Apache 2.0"
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+
+host: "10.168.222.136:9292"
+basePath: "/v1"
+
+schemes:
+  - https
+  - http
+consumes:
+  - application/json
+produces:
+  - application/json
+
+securityDefinitions:
+  keystone:
+    type: apiKey
+    in: header
+    name: X-Auth-Token
+security:
+  - keystone: []
+
+tags:
+  - name: glance
+
+paths:
+  /images:
+    get:
+      summary: 按指定条件列出镜像
+      parameters:
+        - $ref: '#/parameters/offsetParam'
+        - $ref: '#/parameters/limitParam'
+        - $ref: '#/parameters/isPublicParam'
+        - $ref: '#/parameters/ownerParam'
+        - $ref: '#/parameters/nameParam'
+        - $ref: '#/parameters/diskFormatParam'
+        - $ref: '#/parameters/diskFormatsParam'
+      responses:
+        200:
+          description: 镜像列表信息
+          schema:
+            $ref: '#/definitions/ImageListResponse'
+      tags:
+        - glance
+
+  /images/{imageId}:
+    parameters: 
+    - name: imageId
+      type: string
+      in: path
+      required: true
+    head:
+      summary: 获取指定镜像详情信息
+      responses:
+        200:
+          description: 镜像信息
+          headers:
+            x-image-meta-checksum:
+              type: string
+              #example: ef7a1c502ee2c9a288486f91d24330f0
+              description: 镜像md5值   
+            x-image-meta-created_at:
+              type: string
+              #example: 2019-05-30T09:23:16.000000Z
+              description: 镜像创建时间  
+            x-image-meta-disk_format:
+              type: string
+              #example: qcow2
+              description: 镜像格式 
+            x-image-meta-fast_hash:
+              type: string
+              #example: da6b40721d34676116d6ad8c446e7d29
+              description: 待补充
+            x-image-meta-id:
+              type: string
+              #example: b66e2776-5eca-4330-8706-f340415adf03
+              description: 镜像ID
+            x-image-meta-is_public:
+              type: boolean
+              #example: true
+              description: 是否是标准镜像
+            x-image-meta-min_disk:
+              type: integer
+              #example: 30720
+              description: 磁盘最低大小
+            x-image-meta-min_ram:
+              type: integer
+              #example: 0
+              description: 内存最低要求
+            x-image-meta-name:
+              type: string
+              #example: ubuntu-16.04.5-server-20181117.qcow2
+              description: 镜像名称
+            x-image-meta-owner:
+              type: string
+              #example: a7f2e2a81a1e4850a41eae5f140ceb14
+              description: 所属用户
+            x-image-meta-pending_deleted:
+              type: boolean
+              #example: true
+              description: 是否是在回收站
+            x-image-meta-property-os_arch:
+              type: string
+              #example: x86
+              description: 操作系统架构
+            x-image-meta-property-os_distribution:
+              type: string
+              #example: Ubuntu
+              description: 操作系统发行版
+            x-image-meta-property-os_type:
+              type: string
+              #example: Linux
+              description: 操作系统类型
+            x-image-meta-property-os_version:
+              type: string
+              #example: 16.0
+              description: 操作系统版本
+            x-image-meta-protected:
+              type: boolean
+              #example: true
+              description: 镜像是否受保护
+            x-image-meta-size:
+              type: integer
+              #example: 792592384
+              description: 镜像大小
+            x-image-meta-status:
+              type: string
+              #example: active
+              description: 镜像状态
+            x-image-meta-tenant_id:
+              type: string
+              #example: true
+              description: 镜像所属项目ID
+            x-image-meta-updated_at:
+              type: string
+              #example: 2019-05-30T09:26:41.000000Z
+              description: 镜像最近一次更新时间
+      tags:
+        - glance
+
+
+    put:
+      parameters:
+        - $ref: '#/parameters/nameHeader'
+        - $ref: '#/parameters/isPublicHeader'
+        - $ref: '#/parameters/descHeader'
+        - $ref: '#/parameters/osArchHeader'
+        - $ref: '#/parameters/osDistributionHeader'
+        - $ref: '#/parameters/osVersionHeader'
+      summary: 更新镜像信息
+      responses:
+        200:
+          description: 镜像信息
+
+          schema:
+            $ref: '#/definitions/ImageResponse'
+      tags:
+        - glance
+    get:
+      parameters:
+        - in: query
+          name: format
+          type: string
+        - in: query
+          name: torrent
+          type: boolean
+      tags:
+        - glance
+
+      summary: 下载镜像
+      responses:
+        200:
+          description: 镜像信息
+          schema:
+            type: file
+          headers:
+            x-image-meta-checksum:
+              type: string
+              #example: ef7a1c502ee2c9a288486f91d24330f0
+              description: 镜像md5值   
+            x-image-meta-created_at:
+              type: string
+              #example: 2019-05-30T09:23:16.000000Z
+              description: 镜像创建时间  
+            x-image-meta-disk_format:
+              type: string
+              #example: qcow2
+              description: 镜像格式 
+            x-image-meta-fast_hash:
+              type: string
+              #example: da6b40721d34676116d6ad8c446e7d29
+              description: 待补充
+            x-image-meta-id:
+              type: string
+              #example: b66e2776-5eca-4330-8706-f340415adf03
+              description: 镜像ID
+            x-image-meta-is_public:
+              type: boolean
+              #example: true
+              description: 是否是标准镜像
+            x-image-meta-min_disk:
+              type: integer
+              #example: 30720
+              description: 磁盘最低大小
+            x-image-meta-min_ram:
+              type: integer
+              #example: 0
+              description: 内存最低要求
+            x-image-meta-name:
+              type: string
+              #example: ubuntu-16.04.5-server-20181117.qcow2
+              description: 镜像名称
+            x-image-meta-owner:
+              type: string
+              #example: a7f2e2a81a1e4850a41eae5f140ceb14
+              description: 所属用户
+            x-image-meta-pending_deleted:
+              type: boolean
+              #example: true
+              description: 是否是在回收站
+            x-image-meta-property-os_arch:
+              type: string
+              #example: x86
+              description: 操作系统架构
+            x-image-meta-property-os_distribution:
+              type: string
+              #example: Ubuntu
+              description: 操作系统发行版
+            x-image-meta-property-os_type:
+              type: string
+              #example: Linux
+              description: 操作系统类型
+            x-image-meta-property-os_version:
+              type: string
+              #example: 16.0
+              description: 操作系统版本
+            x-image-meta-protected:
+              type: boolean
+              #example: true
+              description: 镜像是否受保护
+            x-image-meta-size:
+              type: integer
+              #example: 792592384
+              description: 镜像大小
+            x-image-meta-status:
+              type: string
+              #example: active
+              description: 镜像状态
+            x-image-meta-tenant_id:
+              type: string
+              #example: true
+              description: 镜像所属项目ID
+            x-image-meta-updated_at:
+              type: string
+              #example: 2019-05-30T09:26:41.000000Z
+              description: 镜像最近一次更新时间
+
+parameters:
+  offsetParam:
+    name: offset
+    in: query
+    type: integer
+    default: 0
+    description: 查询偏移量
+  limitParam:
+    name: limit
+    in: query
+    type: integer
+    default: 20
+    description: 查询限制量
+  isPublicParam:
+    name: is_public
+    in: query
+    type: boolean
+    description: 查询标准镜像
+  ownerParam:
+    name: owner
+    in: query
+    type: string
+    description: 查询某个项目的镜像列表
+  nameParam:
+    name: name
+    in: query
+    type: string
+    description: 查询某个镜像
+  diskFormatParam:
+    name: disk_format
+    in: query
+    type: string
+    description: 查询指定格式的镜像
+  diskFormatsParam:
+    name: disk_formats
+    in: query
+    type: array
+    items:
+      type: string
+    description: 查询某些格式的镜像
+  
+  nameHeader:
+    name: x-image-meta-name
+    type: string
+    in: header
+    description: 镜像名称
+  isPublicHeader:
+    name: x-image-meta-is_public
+    type: boolean
+    in: header
+    description: 是否是标准镜像
+  descHeader:
+    name: x-image-meta-description
+    type: string
+    in: header
+    description: 镜像描述信息
+  osArchHeader:
+    name: x-image-meta-property-os_arch
+    type: string
+    in: header
+    description: 操作系统架构 
+  osDistributionHeader:
+    name: x-image-meta-property-os_distribution
+    type: string
+    in: header
+    description: 操作系统发行版
+  osVersionHeader:
+    name: x-image-meta-property-os_version
+    type: string
+    in: header
+    description: 操作系统版本
+
+definitions:
+  ImageListResponse:
+    type: object
+    properties:
+      limit: 
+        type: integer
+        example: 20
+      images:
+        type: array
+        items:
+          $ref: '#/definitions/Image'
+      total:
+        type: integer
+        example: 124
+  ImageResponse:
+    type: object
+    properties:
+      image:
+        type: object
+        $ref: '#/definitions/Image'
+
+  Image:
+    type: object
+    description: 镜像
+    properties:
+      id:
+        type: string
+        example: ea27c0ce-5870-49f3-8d57-f53e63f40361
+        description: 镜像ID
+        readOnly: true
+      can_delete:
+        type: boolean
+        example: true
+        description: 镜像是否可以删除
+      can_update:
+        type: boolean
+        example: true
+        description: 镜像是否可以更新
+      checksum:
+        type: string
+        example: ef7a1c502ee2c9a288486f91d24330f0
+        description: 镜像MD5值
+      created_at:
+        type: string
+        example: 2019-05-30T09:23:16.000000Z
+        description: 镜像创建时间
+      disk_format:
+        type: string
+        example: qcow2
+        description: 镜像上传时的格式
+      is_public: 
+        type: boolean
+        example: true
+        description: 是否是标准镜像
+      min_disk:
+        type: integer
+        example: 30720
+        description: 镜像要求的最低磁盘大小,单位Mb
+      min_ram:
+        type: integer
+        example: 0
+        description: 镜像要求的最低内存大小
+      name:
+        type: string
+        example: ubuntu-16.04.5-server-20181117.qcow2
+        description: 镜像名称
+      properties:
+        type: object
+        $ref: '#/definitions/ImageProperties'
+      protected:
+        type: boolean
+        example: true
+        description: 是否受保护
+      size:
+        type: integer
+        example: 792592384
+        description: 镜像实际大小,单位Byte
+      status:
+        type: string
+        example: active
+        enum: [queued,saving,active,converting]
+        description: 镜像状态, queued(队列中), saving(保存中), active(可用), converting(格式转换中)
+      tenant: 
+        type: string
+        example: system
+        description: 所属项目名称
+      tenant_id: 
+        type: string
+        example: a7f2e2a81a1e4850a41eae5f140ceb14
+        description: 所属项目ID
+      updated_at:
+        type: string
+        example: 2019-05-30T09:26:41.000000Z
+        description: 最近一次更新时间
+      
+
+  ImageProperties:
+    type: object
+    description: 镜像属性
+    properties:
+      os_arch:
+        type: string
+        example: x86
+        description: 操作系统架构
+      os_distribution:
+        type: string
+        example: Ubuntu
+        description: 操作系统发行版     
+      os_type:
+        type: string
+        example: Linux
+        description: 操作系统类型
+      os_version:
+        type: string
+        example: 16.0
+        description: 操作系统版本
