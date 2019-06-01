@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -274,10 +275,14 @@ func init() {
 		Role       []string `help:"Roles"`
 		Request    []string `help:"explain request, in format of key:scope:service:resource:action:extra"`
 		Name       string   `help:"policy name"`
+		Debug      bool     `help:"enable RBAC debug"`
 	}
 	R(&PolicyExplainOptions{}, "policy-explain", "Explain policy result", func(s *mcclient.ClientSession, args *PolicyExplainOptions) error {
 		auth.InitFromClientSession(s)
 		policy.EnableGlobalRbac(15*time.Second, 15*time.Second, false)
+		if args.Debug {
+			consts.EnableRbacDebug()
+		}
 
 		req := jsonutils.NewDict()
 		for i := 0; i < len(args.Request); i += 1 {

@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	defaultPolicies = []rbacutils.SRbacPolicy{
+	predefinedDefaultPolicies = []rbacutils.SRbacPolicy{
 		{
 			Auth:  true,
 			Scope: rbacutils.ScopeSystem,

@@ -148,14 +148,18 @@ func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterva
 	log.Infof("PolicyManager start to fetch policies ...")
 	manager.refreshInterval = refreshInterval
 	manager.failedRetryInterval = retryInterval
-	if len(defaultPolicies) > 0 {
-		manager.defaultPolicies = make(map[rbacutils.TRbacScope][]*rbacutils.SRbacPolicy)
-		for _, policy := range defaultPolicies {
-			if _, ok := manager.defaultPolicies[policy.Scope]; !ok {
-				manager.defaultPolicies[policy.Scope] = make([]*rbacutils.SRbacPolicy, 0)
+	if len(predefinedDefaultPolicies) > 0 {
+		policiesMap := make(map[rbacutils.TRbacScope][]*rbacutils.SRbacPolicy)
+		for i := range predefinedDefaultPolicies {
+			policy := predefinedDefaultPolicies[i]
+			if _, ok := policiesMap[policy.Scope]; !ok {
+				policiesMap[policy.Scope] = make([]*rbacutils.SRbacPolicy, 0)
 			}
-			manager.defaultPolicies[policy.Scope] = append(manager.defaultPolicies[policy.Scope], &policy)
+			policies := policiesMap[policy.Scope]
+			policies = append(policies, &policy)
+			policiesMap[policy.Scope] = policies
 		}
+		manager.defaultPolicies = policiesMap
 	}
 
 	manager.cache = hashcache.NewCache(2048, manager.refreshInterval/2)
