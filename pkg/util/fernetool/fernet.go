@@ -53,6 +53,10 @@ func (m *SFernetKeyManager) PrimaryKeyHash() string {
 	return hex.EncodeToString(sum[:])
 }
 
+func (m *SFernetKeyManager) SetKeys(keys []*fernet.Key) {
+	m.keys = keys
+}
+
 func (m *SFernetKeyManager) LoadKeys(path string) error {
 	filesInfos, err := ioutil.ReadDir(path)
 	if err != nil {

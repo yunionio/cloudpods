@@ -82,7 +82,9 @@ type CommonOptions struct {
 
 type DBOptions struct {
 	SqlConnection string `help:"SQL connection string" alias:"connection"`
-	AutoSyncTable bool   `help:"Automatically synchronize table changes if differences are detected"`
+
+	AutoSyncTable   bool `help:"Automatically synchronize table changes if differences are detected"`
+	ExitAfterDBInit bool `help:"Exit program after db initialization" default:"false"`
 
 	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources" default:"false"`
 	DebugSqlchemy                  bool `default:"false" help:"Print SQL executed by sqlchemy"`
