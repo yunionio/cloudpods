@@ -1211,7 +1211,8 @@ type SDiskConfig struct {
 	Medium          string            `json:"medium"`
 	ImageProperties map[string]string `json:"image_properties"`
 
-	DiskId string `json:"-"` // import only
+	Storage string `json:"storage_id"`
+	DiskId  string `json:"-"` // import only
 }
 
 func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info jsonutils.JSONObject) (*SDiskConfig, error) {

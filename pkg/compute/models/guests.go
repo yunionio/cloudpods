@@ -2637,7 +2637,19 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 
 func (self *SGuest) createDiskOnHost(ctx context.Context, userCred mcclient.TokenCredential, host *SHost,
 	diskConfig *SDiskConfig, pendingUsage quotas.IQuota, inheritBilling bool, isWithServerCreate bool) (*SDisk, error) {
-	storage := self.GetDriver().ChooseHostStorage(host, diskConfig.Backend)
+	var storage *SStorage
+	if len(diskConfig.Storage) > 0 {
+		_storage, err := StorageManager.FetchByIdOrName(userCred, diskConfig.Storage)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("storage", diskConfig.Storage)
+			}
+			return nil, fmt.Errorf("get storage(%s) error: %v", diskConfig.Storage, err)
+		}
+		storage = _storage.(*SStorage)
+	} else {
+		storage = self.GetDriver().ChooseHostStorage(host, diskConfig.Backend)
+	}
 	if storage == nil {
 		return nil, fmt.Errorf("No storage on %s to create disk for %s", host.GetName(), diskConfig.Backend)
 	}
