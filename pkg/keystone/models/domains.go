@@ -61,6 +61,7 @@ type SDomain struct {
 	// IdpId string `token:"parent_id" width:"64" charset:"ascii" index:"true" list:"admin"`
 
 	DomainId string `width:"64" charset:"ascii" default:"default" nullable:"false" index:"true"`
+	ParentId string `width:"64" charset:"ascii"`
 }
 
 func (manager *SDomainManager) InitializeData() error {

@@ -69,7 +69,8 @@ func init() {
 type SBaseProject struct {
 	SEnabledIdentityBaseResource
 
-	ParentId string            `width:"64" charset:"ascii" index:"true" list:"admin" create:"admin_optional"`
+	ParentId string `width:"64" charset:"ascii" list:"admin" create:"admin_optional"`
+
 	IsDomain tristate.TriState `default:"false" nullable:"false" create:"admin_optional"`
 }
 

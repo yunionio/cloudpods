@@ -87,6 +87,11 @@ var (
 		"policies",
 	}
 
+	itsmSystemResources = []string{
+		"process-definitions",
+	}
+	itsmDomainResources = []string{}
+
 	systemResources = map[string][]string{
 		"compute":     computeSystemResources,
 		"notify":      notifySystemResources,
@@ -96,6 +101,7 @@ var (
 		"yunionconf":  yunionconfSystemResources,
 		"log":         logSystemResources,
 		"identity":    identitySystemResources,
+		"itsm":        itsmSystemResources,
 	}
 
 	domainResources = map[string][]string{
@@ -107,6 +113,7 @@ var (
 		"yunionconf":  yunionconfDomainResources,
 		"log":         logDomainResources,
 		"identity":    identityDomainResources,
+		"itsm":        itsmDomainResources,
 	}
 )
 

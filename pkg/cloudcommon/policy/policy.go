@@ -271,7 +271,7 @@ func (manager *SPolicyManager) allowWithoutCache(scope rbacutils.TRbacScope, use
 	policies, ok := manager.policies[scope]
 	if !ok {
 		log.Warningf("no policies fetched for scope %s", scope)
-		return rbacutils.Deny
+		// return rbacutils.Deny
 	}
 	findMatchRule := false
 	findMatchPolicy := false
