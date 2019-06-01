@@ -417,10 +417,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if consts.IsRbacEnabled() {
 		allowScope = getListRbacAllowedScope(manager, userCred)
 		if isAdmin {
-			switch allowScope {
-			case rbacutils.ScopeSystem, rbacutils.ScopeDomain:
-				isAllow = true
-			}
+			isAllow = true
 		} else {
 			if !resScope.HigherThan(allowScope) {
 				isAllow = true
@@ -446,9 +443,8 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			return nil, httperrors.NewGeneralError(err)
 		}
 		if ownerId != nil {
-			// if scope == domain && ownerId.DomainId != userCred.DomainId, list across domains, which is forbidden
-			if allowScope == rbacutils.ScopeDomain && ownerId.GetProjectDomainId() != userCred.GetProjectDomainId() {
-				return nil, httperrors.NewForbiddenError("Not allow to list")
+			if (allowScope == rbacutils.ScopeProject && ownerId.GetProjectId() != userCred.GetProjectId()) || (allowScope == rbacutils.ScopeDomain && ownerId.GetProjectDomainId() != userCred.GetProjectDomainId()) {
+				return nil, httperrors.NewForbiddenError("Not allow to list: out of scope")
 			}
 			if allowScope == rbacutils.ScopeDomain {
 				ownerId = &SOwnerId{DomainId: userCred.GetProjectDomainId(),

@@ -482,3 +482,7 @@ func (self *SOpsLog) GetOwnerId() mcclient.IIdentityProvider {
 func (self *SOpsLog) IsSharable() bool {
 	return false
 }
+
+func (manager *SOpsLogManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
