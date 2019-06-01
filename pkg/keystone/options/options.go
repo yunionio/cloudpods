@@ -25,9 +25,10 @@ type SKeystoneOptions struct {
 
 	AdminPort int `default:"35357" help:"listening port for admin API(deprecated)"`
 
-	TokenExpirationSeconds  int    `default:"86400" help:"token expiration seconds" token:"expiration"`
-	TokenKeyRepository      string `help:"fernet key repo directory" token:"key_repository" default:"/etc/yunion/keystone/fernet-keys"`
-	CredentialKeyRepository string `help:"fernet key repo directory for credentials" token:"credential_key_repository"`
+	TokenExpirationSeconds int    `default:"86400" help:"token expiration seconds" token:"expiration"`
+	FernetKeyRepository    string `help:"fernet key repo directory" token:"key_repository" default:"/etc/yunion/keystone/fernet-keys"`
+	SetupCredentialKeys    bool   `help:"setup standalone fernet keys for credentials" token:"setup_credential_key" default:"false"`
+	// SetupStateKey          bool   `help:"setup standalone fernet keys for openid state" token:"setup_state_key"`
 
 	BootstrapAdminUserPassword string `help:"bootstreap sysadmin user password" default:"sysadmin"`
 

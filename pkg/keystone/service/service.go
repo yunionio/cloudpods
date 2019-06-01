@@ -30,7 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
-	"yunion.io/x/onecloud/pkg/keystone/keys"
+	// "yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
@@ -63,10 +63,11 @@ func StartService() {
 		opts.Port = 5000 // keystone well-known port
 	}
 
-	err := keys.Init(opts.TokenKeyRepository, opts.CredentialKeyRepository)
+	/* err := keys.Init(opts.FernetKeyRepository, opts.SetupCredentialKey)
 	if err != nil {
 		log.Fatalf("init fernet keys fail %s", err)
 	}
+	*/
 
 	app := app_common.InitApp(&opts.BaseOptions, true)
 	initHandlers(app)
@@ -78,6 +79,11 @@ func StartService() {
 	}
 
 	models.InitDB()
+
+	if opts.ExitAfterDBInit {
+		log.Infof("Exiting after db initialization ...")
+		os.Exit(0)
+	}
 
 	app_common.InitBaseAuth(&opts.BaseOptions)
 

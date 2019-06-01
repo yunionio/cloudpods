@@ -52,6 +52,6 @@ func (manager *SDomainizedResourceBaseManager) FetchOwnerId(ctx context.Context,
 }
 
 func (model *SDomainizedResourceBase) GetOwnerId() mcclient.IIdentityProvider {
-	owner := SOwnerId{Domain: model.DomainId}
+	owner := SOwnerId{DomainId: model.DomainId}
 	return &owner
 }

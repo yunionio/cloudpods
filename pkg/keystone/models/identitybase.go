@@ -35,8 +35,6 @@ type IIdentityModelManager interface {
 	db.IStandaloneModelManager
 
 	GetIIdentityModelManager() IIdentityModelManager
-
-	IsDomainReadonly(domain *SDomain) bool
 }
 
 type IIdentityModel interface {
@@ -109,10 +107,6 @@ func (manager *SIdentityBaseResourceManager) GetIIdentityModelManager() IIdentit
 	return manager.GetVirtualObject().(IIdentityModelManager)
 }
 
-func (manager *SIdentityBaseResourceManager) IsDomainReadonly(domain *SDomain) bool {
-	return false
-}
-
 func (manager *SIdentityBaseResourceManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (db.IModel, error) {
 	return db.FetchByName(manager, userCred, idStr)
 }
@@ -150,9 +144,6 @@ func (manager *SIdentityBaseResourceManager) ValidateCreateData(ctx context.Cont
 	if domain.Enabled.IsFalse() {
 		return nil, httperrors.NewInvalidStatusError("domain is disabled")
 	}
-	// if manager.GetIIdentityModelManager().IsDomainReadonly(domain) {
-	// 	return nil, httperrors.NewForbiddenError("domain is readonly")
-	// }
 	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
@@ -162,14 +153,15 @@ func (manager *SIdentityBaseResourceManager) NamespaceScope() rbacutils.TRbacSco
 
 func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
 	rows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	domainIds := stringutils2.SSortedStrings{}
-	for i := range objs {
-		idStr := objs[i].GetOwnerId().GetProjectDomainId()
-		if idStr != api.KeystoneDomainRoot {
-			domainIds = stringutils2.Append(domainIds, idStr)
-		}
-	}
 	if len(fields) == 0 || fields.Contains("domain") {
+		domainIds := stringutils2.SSortedStrings{}
+		for i := range objs {
+			idStr := objs[i].GetOwnerId().GetProjectDomainId()
+			if idStr != api.KeystoneDomainRoot {
+				domainIds = stringutils2.Append(domainIds, idStr)
+			}
+		}
+		log.Debugf("expand domain ... %s", domainIds)
 		domains := fetchDomain(domainIds)
 		if domains != nil {
 			for i := range rows {
@@ -207,20 +199,20 @@ func (model *SIdentityBaseResource) CustomizeCreate(ctx context.Context, userCre
 }
 
 func (self *SIdentityBaseResource) ValidateDeleteCondition(ctx context.Context) error {
-	domain := self.GetDomain()
-	if self.GetIIdentityModelManager().IsDomainReadonly(domain) {
-		return httperrors.NewForbiddenError("readonly domain")
-	}
+	// domain := self.GetDomain()
+	// if self.GetIIdentityModelManager().IsDomainReadonly(domain) {
+	// 	return httperrors.NewForbiddenError("readonly domain")
+	// }
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SIdentityBaseResource) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if data.Contains("name") {
-		domain := self.GetDomain()
-		if self.GetIIdentityModelManager().IsDomainReadonly(domain) {
-			return nil, httperrors.NewForbiddenError("cannot update name in readonly domain")
-		}
-	}
+	// if data.Contains("name") {
+	//	domain := self.GetDomain()
+	//	if self.GetIIdentityModelManager().IsDomainReadonly(domain) {
+	//		return nil, httperrors.NewForbiddenError("cannot update name in readonly domain")
+	// 	}
+	// }
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 

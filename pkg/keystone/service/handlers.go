@@ -52,10 +52,11 @@ func initHandlers(app *appsrv.Application) {
 
 		models.FederatedUserManager,
 		models.FederationProtocolManager,
-		models.IdentityProviderManager,
 		models.ImpliedRoleManager,
 		models.UserOptionManager,
 		models.IdpRemoteIdsManager,
+
+		models.FernetKeyManager,
 	} {
 		db.RegisterModelManager(manager)
 	}
