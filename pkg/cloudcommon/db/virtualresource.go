@@ -85,44 +85,6 @@ func (manager *SVirtualResourceBaseManager) FetchByIdOrName(userCred mcclient.II
 	return FetchByIdOrName(manager, userCred, idStr)
 }
 
-/*
-func (manager *SVirtualResourceBaseManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	tenantId := jsonutils.GetAnyString(data, []string{"project", "project_id", "tenant", "tenant_id"})
-	if len(tenantId) > 0 {
-		t, err := TenantCacheManager.FetchTenantByIdOrName(ctx, tenantId)
-		if err != nil {
-			if err != sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("project", tenantId)
-			}
-			return nil, errors.Wrap(err, "FetchTenantByIdOrName")
-		}
-		ownerId := SOwnerId{
-			Domain:    t.Domain,
-			DomainId:  t.DomainId,
-			ProjectId: t.Id,
-			Project:   t.Name,
-		}
-		return &ownerId, nil
-	}
-	domainId := jsonutils.GetAnyString(data, []string{"domain", "domain_id"})
-	if len(domainId) > 0 {
-		d, err := FetchDomain(ctx, domainId)
-		if err != nil {
-			if err != sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2("domain", domainId)
-			}
-			return nil, errors.Wrap(err, "FetchDomain")
-		}
-		ownerId := SOwnerId{
-			DomainId: d.Id,
-			Domain:   d.Name,
-		}
-		return &ownerId, nil
-	}
-	return nil, nil
-}
-*/
-
 func (manager *SVirtualResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {

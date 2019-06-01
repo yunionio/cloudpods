@@ -39,18 +39,14 @@ func (model *SProjectizedResourceBase) GetOwnerId() mcclient.IIdentityProvider {
 }
 
 func (manager *SProjectizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
-	if owner != nil && len(owner.GetProjectId()) > 0 {
-		q = q.Equals("tenant_id", owner.GetProjectId())
-	} else if owner != nil && len(owner.GetProjectDomainId()) > 0 {
-		q = q.Equals("domain_id", owner.GetProjectDomainId())
+	if owner != nil {
+		if len(owner.GetProjectId()) > 0 {
+			q = q.Equals("tenant_id", owner.GetProjectId())
+		} else if len(owner.GetProjectDomainId()) > 0 {
+			q = q.Equals("domain_id", owner.GetProjectDomainId())
+		}
 	}
 	return q
-}
-
-func (manager *SProjectizedResourceBaseManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
-	owner := SOwnerId{DomainId: userCred.GetProjectDomainId(), Domain: userCred.GetProjectDomain(),
-		ProjectId: userCred.GetProjectId(), Project: userCred.GetProjectName()}
-	return &owner
 }
 
 func (manager *SProjectizedResourceBaseManager) ResourceScope() rbacutils.TRbacScope {

@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SUserManager struct {
@@ -325,9 +326,9 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	if user.IsAdminUser() {
 		return nil, httperrors.NewForbiddenError("system admin user is protected")
 	}
-	// if user.IsReadOnly() {
-	// 	return nil, httperrors.NewForbiddenError("readonly")
-	// }
+	if user.IsReadOnly() {
+		return nil, httperrors.NewForbiddenError("readonly")
+	}
 	return user.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
 }
 
@@ -596,4 +597,9 @@ func (user *SUser) IsReadOnly() bool {
 		return true
 	}
 	return false
+}
+
+func (manager *SUserManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
+	rows := manager.SEnabledIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
+	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityUser)
 }

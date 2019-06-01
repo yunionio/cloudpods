@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SGroupManager struct {
@@ -242,4 +243,9 @@ func (group *SGroup) IsReadOnly() bool {
 		return true
 	}
 	return false
+}
+
+func (manager *SGroupManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
+	rows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
+	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityGroup)
 }
