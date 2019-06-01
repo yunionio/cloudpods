@@ -20,6 +20,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -27,7 +29,8 @@ import (
 type SSharableVirtualResourceBase struct {
 	SVirtualResourceBase
 
-	IsPublic bool `default:"false" nullable:"false" index:"true" create:"admin_optional" list:"user" update:"admin"`
+	IsPublic    bool   `default:"false" nullable:"false" index:"true" create:"admin_optional" list:"user" update:"admin"`
+	PublicScope string `width:"16" charset:"ascii" nullable:"false" default:"system" create:"admin_optional" list:"user" update:"admin"`
 }
 
 type SSharableVirtualResourceBaseManager struct {
@@ -43,7 +46,30 @@ func (manager *SSharableVirtualResourceBaseManager) GetISharableVirtualModelMana
 }
 
 func (manager *SSharableVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
-	q = q.Filter(sqlchemy.OR(sqlchemy.Equals(q.Field("tenant_id"), owner.GetProjectId()), sqlchemy.IsTrue(q.Field("is_public"))))
+	if owner != nil {
+		if len(owner.GetProjectId()) > 0 {
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.Equals(q.Field("tenant_id"), owner.GetProjectId()),
+				sqlchemy.AND(
+					sqlchemy.IsTrue(q.Field("is_public")),
+					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
+				),
+				sqlchemy.AND(
+					sqlchemy.IsTrue(q.Field("is_public")),
+					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
+					sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
+				),
+			))
+		} else if len(owner.GetProjectDomainId()) > 0 {
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
+				sqlchemy.AND(
+					sqlchemy.IsTrue(q.Field("is_public")),
+					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
+				),
+			))
+		}
+	}
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
 	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
 	return q
@@ -67,8 +93,10 @@ func (model *SSharableVirtualResourceBase) AllowPerformPrivate(ctx context.Conte
 
 func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !model.IsPublic {
+		scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), "public")
 		diff, err := Update(model, func() error {
 			model.IsPublic = true
+			model.PublicScope = string(scope)
 			return nil
 		})
 		if err == nil {
