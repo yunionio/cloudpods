@@ -458,6 +458,11 @@ func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.I
 				sqlchemy.Equals(q.Field("owner_tenant_id"), ownerId.GetProjectId()),
 				sqlchemy.Equals(q.Field("tenant_id"), ownerId.GetProjectId()),
 			))
+		} else if len(ownerId.GetProjectDomainId()) > 0 {
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.Equals(q.Field("owner_domain_id"), ownerId.GetProjectDomainId()),
+				sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()),
+			))
 		}
 	}
 	return q
@@ -476,4 +481,8 @@ func (self *SOpsLog) GetOwnerId() mcclient.IIdentityProvider {
 
 func (self *SOpsLog) IsSharable() bool {
 	return false
+}
+
+func (manager *SOpsLogManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
 }

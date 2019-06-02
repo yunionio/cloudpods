@@ -16,22 +16,23 @@ package models
 
 import (
 	"context"
-	"yunion.io/x/onecloud/pkg/mcclient/auth"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/yunionconf/options"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
-	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+
+	"yunion.io/x/onecloud/pkg/yunionconf/options"
 )
 
 const (
@@ -214,7 +215,12 @@ func (manager *SParameterManager) GetOwnerId(userCred mcclient.IIdentityProvider
 }
 
 func (manager *SParameterManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
-	return q.Equals("created_by", owner.GetUserId())
+	if owner != nil {
+		if len(owner.GetUserId()) > 0 {
+			q = q.Equals("created_by", owner.GetUserId())
+		}
+	}
+	return q
 }
 
 func (manager *SParameterManager) FilterById(q *sqlchemy.SQuery, idStr string) *sqlchemy.SQuery {

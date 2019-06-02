@@ -410,19 +410,16 @@ func fetchContextObject(manager IModelManager, ctx context.Context, userCred mcc
 
 func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modules.ListResult, error) {
 	var isAllow bool
-	scope := manager.ResourceScope()
+	resScope := manager.ResourceScope()
+	var allowScope rbacutils.TRbacScope
 	isAdmin := jsonutils.QueryBoolean(query, "admin", false)
 
 	if consts.IsRbacEnabled() {
-		scope = getListRbacAllowedScope(manager, userCred)
+		allowScope = getListRbacAllowedScope(manager, userCred)
 		if isAdmin {
-			switch scope {
-			case rbacutils.ScopeSystem, rbacutils.ScopeDomain:
-				isAllow = true
-			}
+			isAllow = true
 		} else {
-			resScope := manager.GetIModelManager().ResourceScope()
-			if !resScope.HigherThan(scope) {
+			if !resScope.HigherThan(allowScope) {
 				isAllow = true
 			}
 		}
@@ -446,14 +443,16 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 			return nil, httperrors.NewGeneralError(err)
 		}
 		if ownerId != nil {
-			// if scope == domain && ownerId.DomainId != userCred.DomainId, list across domains, which is forbidden
-			if scope == rbacutils.ScopeDomain && ownerId.GetProjectDomainId() != userCred.GetProjectDomainId() {
-				return nil, httperrors.NewForbiddenError("Not allow to list")
+			if (allowScope == rbacutils.ScopeProject && ownerId.GetProjectId() != userCred.GetProjectId()) || (allowScope == rbacutils.ScopeDomain && ownerId.GetProjectDomainId() != userCred.GetProjectDomainId()) {
+				return nil, httperrors.NewForbiddenError("Not allow to list: out of scope")
 			}
-		} else if scope == rbacutils.ScopeDomain {
-			ownerId = &SOwnerId{DomainId: userCred.GetProjectDomainId()}
+			if allowScope == rbacutils.ScopeDomain {
+				ownerId = &SOwnerId{DomainId: userCred.GetProjectDomainId(),
+					Domain: ownerId.GetProjectDomain()}
+			} else if allowScope == rbacutils.ScopeSystem {
+				ownerId = nil
+			}
 		}
-
 	} else {
 		ownerId = userCred
 	}

@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/tristate"
@@ -123,22 +122,6 @@ func (manager *SIdentityBaseResourceManager) ListItemFilter(ctx context.Context,
 	return q, nil
 }
 
-func (manager *SIdentityBaseResourceManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	domainId := jsonutils.GetAnyString(data, []string{"domain", "domain_id", "project_domain", "project_domain_id"})
-	if len(domainId) > 0 {
-		domain, err := DomainManager.FetchDomainByIdOrName(domainId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), domainId)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		owner := db.SOwnerId{DomainId: domain.Id, Domain: domain.Name}
-		return &owner, nil
-	}
-	return nil, nil
-}
-
 func (manager *SIdentityBaseResourceManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	domain, _ := DomainManager.FetchDomainById(ownerId.GetProjectDomainId())
 	if domain.Enabled.IsFalse() {
@@ -161,7 +144,6 @@ func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(ctx context.C
 				domainIds = stringutils2.Append(domainIds, idStr)
 			}
 		}
-		log.Debugf("expand domain ... %s", domainIds)
 		domains := fetchDomain(domainIds)
 		if domains != nil {
 			for i := range rows {

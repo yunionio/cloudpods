@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -274,19 +275,23 @@ func init() {
 		Role       []string `help:"Roles"`
 		Request    []string `help:"explain request, in format of key:scope:service:resource:action:extra"`
 		Name       string   `help:"policy name"`
+		Debug      bool     `help:"enable RBAC debug"`
 	}
 	R(&PolicyExplainOptions{}, "policy-explain", "Explain policy result", func(s *mcclient.ClientSession, args *PolicyExplainOptions) error {
 		auth.InitFromClientSession(s)
 		policy.EnableGlobalRbac(15*time.Second, 15*time.Second, false)
+		if args.Debug {
+			consts.EnableRbacDebug()
+		}
 
 		req := jsonutils.NewDict()
 		for i := 0; i < len(args.Request); i += 1 {
 			parts := strings.Split(args.Request[i], ":")
 			if len(parts) < 3 {
-				return fmt.Errorf("invalid request, should be in the form of key:is_admin:service[:resource:action:extra]")
+				return fmt.Errorf("invalid request, should be in the form of key:[system|domain|project]:service[:resource:action:extra]")
 			}
 			key := parts[0]
-			data := make([]jsonutils.JSONObject, 1)
+			data := make([]jsonutils.JSONObject, 0)
 			for i := 1; i < len(parts); i += 1 {
 				data = append(data, jsonutils.NewString(parts[i]))
 			}
