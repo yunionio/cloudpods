@@ -134,11 +134,10 @@ func (self *STask) GetOwnerId() mcclient.IIdentityProvider {
 
 func (manager *STaskManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
 	if owner != nil {
-		if len(owner.GetProjectDomainId()) > 0 {
-			q = q.Contains("user_cred", owner.GetProjectDomainId())
-		}
 		if len(owner.GetProjectId()) > 0 {
 			q = q.Contains("user_cred", owner.GetProjectId())
+		} else if len(owner.GetProjectDomainId()) > 0 {
+			q = q.Contains("user_cred", owner.GetProjectDomainId())
 		}
 	}
 	return q

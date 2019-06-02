@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -44,14 +45,7 @@ func FetchAuthContext(authCtx mcclient.SAuthContext, r *http.Request) mcclient.S
 		authCtx.Source = mcclient.AuthSourceAPI
 	}
 	if len(authCtx.Ip) == 0 || authCtx.Ip == "0.0.0.0" {
-		ipStr := r.Header.Get("X-Real-Ip")
-		if len(ipStr) == 0 {
-			ipStr = r.Header.Get("X-Forwarded-For")
-			if len(ipStr) == 0 {
-				ipStr = r.RemoteAddr
-			}
-		}
-		authCtx.Ip = ipStr
+		authCtx.Ip = netutils2.GetHttpRequestIp(r)
 	}
 	return authCtx
 }

@@ -204,7 +204,12 @@ func totalKeypairCount(userId string) (int, error) {
 }
 
 func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
-	return q.Equals("owner_id", owner.GetUserId())
+	if owner != nil {
+		if len(owner.GetUserId()) > 0 {
+			q = q.Equals("owner_id", owner.GetUserId())
+		}
+	}
+	return q
 }
 
 func (self *SKeypair) GetOwnerId() mcclient.IIdentityProvider {

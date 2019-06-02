@@ -80,19 +80,16 @@ func policyWriteFilter(session *mcclient.ClientSession, s jsonutils.JSONObject, 
 		// ret.Add(jsonutils.NewString(blobJson.String()), "blob")
 		ret.Add(blobJson, "blob")
 	}
-	if s.Contains("type") {
-		typeStr, err := s.GetString("type")
-		if err != nil {
-			return nil, err
+	for _, k := range []string{
+		"type", "enabled", "domain", "domain_id",
+	} {
+		if s.Contains(k) {
+			val, err := s.Get(k)
+			if err != nil {
+				return nil, err
+			}
+			ret.Add(val, k)
 		}
-		ret.Add(jsonutils.NewString(typeStr), "type")
-	}
-	if s.Contains("enabled") {
-		enabled, err := s.Get("enabled")
-		if err != nil {
-			return nil, err
-		}
-		ret.Add(enabled, "enabled")
 	}
 	return ret, nil
 }

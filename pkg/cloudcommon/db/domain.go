@@ -42,11 +42,6 @@ func (manager *SDomainizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery,
 	return q
 }
 
-func (manager *SDomainizedResourceBaseManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
-	owner := SOwnerId{DomainId: userCred.GetProjectDomainId(), Domain: userCred.GetProjectDomain()}
-	return &owner
-}
-
 func (manager *SDomainizedResourceBaseManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	return FetchDomainInfo(ctx, data)
 }
