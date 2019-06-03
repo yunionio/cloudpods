@@ -66,6 +66,16 @@ func (ts *STableSpec) Columns() []IColumnSpec {
 	return ts.columns
 }
 
+func (ts *STableSpec) PrimaryColumns() []IColumnSpec {
+	ret := make([]IColumnSpec, 0)
+	for i := range ts.columns {
+		if ts.columns[i].IsPrimary() {
+			ret = append(ret, ts.columns[i])
+		}
+	}
+	return ret
+}
+
 func (ts *STableSpec) DataType() reflect.Type {
 	return ts.structType
 }

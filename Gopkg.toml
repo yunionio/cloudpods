@@ -105,10 +105,6 @@
   version = "1.0.0"
 
 [[constraint]]
-  name = "github.com/jinzhu/gorm"
-  version = "1.9.1"
-
-[[constraint]]
   name = "github.com/kr/pty"
   version = "1.1.3"
 

@@ -20,6 +20,7 @@ const (
 	SQL_OP_NOT      = "NOT"
 	SQL_OP_LIKE     = "LIKE"
 	SQL_OP_IN       = "IN"
+	SQL_OP_NOTIN    = "NOT IN"
 	SQL_OP_EQUAL    = "="
 	SQL_OP_LT       = "<"
 	SQL_OP_LE       = "<="
