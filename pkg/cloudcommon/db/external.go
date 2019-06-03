@@ -16,13 +16,14 @@ package db
 
 import (
 	"database/sql"
-	"yunion.io/x/onecloud/pkg/mcclient"
+
 	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SExternalizedResourceBase struct {
 	ExternalId string `width:"256" charset:"utf8" index:"true" list:"user" create:"admin_optional"`
-	IsEmulated bool   `nullable:"false" default:"false" list:"admin" create:"admin_optional"`
 }
 
 func (model SExternalizedResourceBase) GetExternalId() string {

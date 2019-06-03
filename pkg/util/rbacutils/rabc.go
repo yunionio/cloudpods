@@ -305,6 +305,9 @@ func (policy *SRbacPolicy) Decode(policyJson jsonutils.JSONObject) error {
 		ipStrs := jsonutils.JSONArray2StringArray(ipsJson)
 		policy.Ips = make([]netutils.IPV4Prefix, 0)
 		for _, ipStr := range ipStrs {
+			if len(ipStr) == 0 || ipStr == "0.0.0.0" {
+				continue
+			}
 			prefix, err := netutils.NewIPV4Prefix(ipStr)
 			if err != nil {
 				continue

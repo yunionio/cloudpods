@@ -280,7 +280,7 @@ func mergeFields(metaFields, queryFields []string, isSysAdmin bool) stringutils2
 	return stringutils2.Merge(mAndQ, qNoM)
 }
 
-func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query jsonutils.JSONObject) ([]jsonutils.JSONObject, error) {
+func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery, query jsonutils.JSONObject, delayFetch bool) ([]jsonutils.JSONObject, error) {
 	metaFields := listFields(manager, userCred)
 	fieldFilter := jsonutils.GetQueryStringArray(query, "field")
 	listF := mergeFields(metaFields, fieldFilter, IsAllowList(rbacutils.ScopeSystem, userCred, manager))
@@ -304,6 +304,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		if err != nil {
 			return nil, err
 		}
+
 		extraData := jsonutils.NewDict()
 		if query.Contains("export_keys") {
 			RowMap, err := q.Row2Map(rows)
@@ -322,6 +323,12 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			err = q.Row2Struct(rows, item)
 			if err != nil {
 				return nil, err
+			}
+			if delayFetch {
+				err = Fetch(item)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 
@@ -462,6 +469,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if !ok {
 		return nil, fmt.Errorf("invalid query format")
 	}
+
 	if len(ctxIds) > 0 {
 		queryDict, err = fetchContextObjectsIds(manager, ctx, userCred, ctxIds, queryDict)
 		if err != nil {
@@ -473,10 +481,12 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, err
 	}
+
 	q, err = listItemQueryFilters(manager, ctx, q, userCred, queryDict)
 	if err != nil {
 		return nil, err
 	}
+
 	totalCnt, err := q.CountWithError()
 	if err != nil {
 		return nil, err
@@ -489,15 +499,19 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if int64(totalCnt) > maxLimit && (limit <= 0 || limit > maxLimit) {
 		limit = maxLimit
 	}
+
+	var primaryCol sqlchemy.IColumnSpec
+	primaryCols := manager.TableSpec().PrimaryColumns()
+	if len(primaryCols) == 1 {
+		primaryCol = primaryCols[0]
+	}
+
 	orderBy := jsonutils.GetQueryStringArray(queryDict, "order_by")
 	if len(orderBy) == 0 {
-		colSpec := manager.TableSpec().ColumnSpec("id")
-		if err == nil && colSpec != nil && colSpec.IsNumeric() {
-			orderBy = []string{"id"}
-		} else {
-			if manager.TableSpec().ColumnSpec("created_at") != nil {
-				orderBy = []string{"created_at"}
-			}
+		if primaryCol != nil && primaryCol.IsNumeric() {
+			orderBy = []string{primaryCol.Name()}
+		} else if manager.TableSpec().ColumnSpec("created_at") != nil {
+			orderBy = []string{"created_at"}
 		}
 	}
 	order := sqlchemy.SQL_ORDER_DESC
@@ -518,15 +532,21 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if err != nil {
 		return nil, err
 	}
+	delayFetch := false
 	if customizeFilters.IsEmpty() {
 		if limit > 0 {
 			q = q.Limit(int(limit))
 		}
 		if offset > 0 {
 			q = q.Offset(int(offset))
+			if primaryCol != nil && !query.Contains("export_keys") && consts.QueryOffsetOptimization {
+				q.AppendField(q.Field(primaryCol.Name())) // query primary key only
+				delayFetch = true
+				log.Debugf("apply queryOffsetOptimization")
+			}
 		}
 	}
-	retList, err := Query2List(manager, ctx, userCred, q, queryDict)
+	retList, err := Query2List(manager, ctx, userCred, q, queryDict, delayFetch)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}

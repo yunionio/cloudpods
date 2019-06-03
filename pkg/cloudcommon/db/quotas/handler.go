@@ -109,14 +109,15 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 	var scope rbacutils.TRbacScope
 	var err error
 
+	log.Debugf("%s", params)
 	projectId := params["<tenantid>"]
 	domainId := params["<domainid>"]
 	if len(projectId) > 0 || len(domainId) > 0 {
 		data := jsonutils.NewDict()
-		if len(projectId) > 0 {
-			data.Add(jsonutils.NewString(projectId), "project")
-		} else if len(domainId) > 0 {
+		if len(domainId) > 0 {
 			data.Add(jsonutils.NewString(domainId), "domain")
+		} else if len(projectId) > 0 {
+			data.Add(jsonutils.NewString(projectId), "project")
 		}
 		ownerId, scope, err = db.FetchQueryOwnerScope(ctx, userCred, data, _manager.Keyword(), policy.PolicyActionGet)
 		if err != nil {

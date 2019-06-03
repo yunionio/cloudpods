@@ -24,6 +24,7 @@ var (
 		"wires",
 		"vpcs",
 		"networks",
+		"route_tables",
 		"cloudregions",
 		"recyclebins",
 		"schedtags",

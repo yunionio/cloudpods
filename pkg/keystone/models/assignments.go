@@ -265,6 +265,18 @@ func (manager *SAssignmentManager) projectRemoveUser(ctx context.Context, userCr
 	if project.IsAdminProject() && user.IsAdminUser() && role.IsSystemRole() {
 		return httperrors.NewForbiddenError("sysadmin is protected")
 	}
+	if project.DomainId != user.DomainId {
+		// if project.DomainId != api.DEFAULT_DOMAIN_ID {
+		//    return httperrors.NewInputParameterError("join user into project of default domain or identical domain")
+		// } else
+		if !db.IsAllowPerform(rbacutils.ScopeSystem, userCred, user, "leave-project") {
+			return httperrors.NewForbiddenError("not enough privilege")
+		}
+	} else {
+		if !db.IsAllowPerform(rbacutils.ScopeDomain, userCred, user, "leave-project") {
+			return httperrors.NewForbiddenError("not enough privilege")
+		}
+	}
 	err := manager.remove(api.AssignmentUserProject, user.Id, project.Id, role.Id)
 	if err == nil {
 		db.OpsLog.LogEvent(user, db.ACT_DETACH, project.GetShortDesc(ctx), userCred)
@@ -294,6 +306,18 @@ func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred
 }
 
 func (manager *SAssignmentManager) projectRemoveGroup(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, group *SGroup, role *SRole) error {
+	if project.DomainId != group.DomainId {
+		// if project.DomainId != api.DEFAULT_DOMAIN_ID {
+		//    return httperrors.NewInputParameterError("join group into project of default domain or identical domain")
+		// } else
+		if !db.IsAllowPerform(rbacutils.ScopeSystem, userCred, group, "leave-project") {
+			return httperrors.NewForbiddenError("not enough privilege")
+		}
+	} else {
+		if !db.IsAllowPerform(rbacutils.ScopeDomain, userCred, group, "leave-project") {
+			return httperrors.NewForbiddenError("not enough privilege")
+		}
+	}
 	err := manager.remove(api.AssignmentGroupProject, group.Id, project.Id, role.Id)
 	if err == nil {
 		db.OpsLog.LogEvent(group, db.ACT_DETACH, project.GetShortDesc(ctx), userCred)
