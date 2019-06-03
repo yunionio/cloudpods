@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/stringutils"
@@ -60,8 +61,8 @@ func NewMegaRaidPhyDev() *MegaRaidPhyDev {
 	}
 }
 
-func (dev *MegaRaidPhyDev) ToBaremetalStorage() *baremetal.BaremetalStorage {
-	s := dev.RaidBasePhyDev.ToBaremetalStorage()
+func (dev *MegaRaidPhyDev) ToBaremetalStorage(index int) *baremetal.BaremetalStorage {
+	s := dev.RaidBasePhyDev.ToBaremetalStorage(index)
 	s.Enclosure = dev.enclosure
 	s.Slot = dev.slot
 	s.Size = dev.GetSize()
@@ -182,16 +183,130 @@ func GetSpecString(dev *baremetal.BaremetalStorage) string {
 }
 
 type MegaRaidAdaptor struct {
-	index int
-	raid  *MegaRaid
-	devs  []*MegaRaidPhyDev
+	index        int
+	storcliIndex int
+	raid         *MegaRaid
+	devs         []*MegaRaidPhyDev
+	sn           string
+	busNumber    string
+	deviceNumber string
+	funcNumber   string
+	// used by sg_map
+	hostNum int
+	//channelNum int
 }
 
-func NewMegaRaidAdaptor(index int, raid *MegaRaid) *MegaRaidAdaptor {
-	return &MegaRaidAdaptor{
-		index: index,
-		raid:  raid,
+func NewMegaRaidAdaptor(index int, raid *MegaRaid) (*MegaRaidAdaptor, error) {
+	adapter := &MegaRaidAdaptor{
+		index:        index,
+		storcliIndex: -1,
+		raid:         raid,
 	}
+	if err := adapter.fillInfo(); err != nil {
+		return adapter, errors.Wrapf(err, "%d fill info", adapter.index)
+	}
+	return adapter, nil
+}
+
+func (adapter *MegaRaidAdaptor) fillInfo() error {
+	cmd := GetCommand("-AdpAllInfo", fmt.Sprintf("-a%d", adapter.index))
+	ret, err := adapter.remoteRun(cmd)
+	if err != nil {
+		return errors.Wrap(err, "remote get SN")
+	}
+	for _, l := range ret {
+		key, val := stringutils.SplitKeyValue(l)
+		if len(key) == 0 {
+			continue
+		}
+		switch key {
+		case "Serial No":
+			adapter.sn = val
+		}
+	}
+	if len(adapter.sn) == 0 {
+		return errors.New("Not found Serial No")
+	}
+	return adapter.fillPCIInfo()
+}
+
+func (adapter *MegaRaidAdaptor) fillPCIInfo() error {
+	cmd := GetCommand("-adpgetpciinfo", fmt.Sprintf("-a%d", adapter.index))
+	ret, err := adapter.remoteRun(cmd)
+	if err != nil {
+		return errors.Wrapf(err, "%d remote run get pci info", adapter.index)
+	}
+	for _, l := range ret {
+		key, val := stringutils.SplitKeyValue(l)
+		if len(key) == 0 {
+			continue
+		}
+		switch key {
+		case "Bus Number":
+			if len(val) == 1 {
+				val = fmt.Sprintf("0%s", val)
+			}
+			if len(val) != 2 {
+				return errors.Errorf("Invalid bus number: %s", val)
+			}
+			adapter.busNumber = val
+		case "Device Number":
+			if len(val) == 1 {
+				val = fmt.Sprintf("0%s", val)
+			}
+			if len(val) != 2 {
+				return errors.Errorf("Invalid device number: %s", val)
+			}
+			adapter.deviceNumber = val
+		case "Function Number":
+			if len(val) != 1 {
+				return errors.Errorf("Invalid function number: %s", val)
+			}
+			adapter.funcNumber = val
+		}
+	}
+	if len(adapter.busNumber) == 0 || len(adapter.deviceNumber) == 0 || len(adapter.funcNumber) == 0 {
+		return errors.New("Not found bus number")
+	}
+	pciDir := fmt.Sprintf("/sys/bus/pci/devices/0000:%s:%s.%s/", adapter.busNumber, adapter.deviceNumber, adapter.funcNumber)
+	cmd = raiddrivers.GetCommand("ls", pciDir, "|", "grep", "host")
+	ret, err = adapter.remoteRun(cmd)
+	if err != nil {
+		return errors.Wrapf(err, "find pci host number")
+	}
+	if len(ret) == 0 {
+		return errors.Errorf("Not find pci host dir")
+	}
+	hostNumStr := ret[0]
+	hostNum, err := strconv.Atoi(strings.TrimLeft(hostNumStr, "host"))
+	if err != nil {
+		return errors.Errorf("Invalid hostNum %s", hostNumStr)
+	}
+	adapter.hostNum = hostNum
+	pciHostDir := fmt.Sprintf("%s%s/", pciDir, hostNumStr)
+	// $ ls /sys/bus/pci/devices/0000:03:00.0/host0/ | grep target | head -n 1
+	// target0:2:0
+	targetCmd := raiddrivers.GetCommand("ls", pciHostDir, "|", "grep", "target", "|", "head", "-n", "1")
+	ret, err = adapter.remoteRun(targetCmd)
+	if err != nil {
+		return errors.Wrapf(err, "find target %q", targetCmd)
+	}
+	if len(ret) == 0 {
+		return errors.Errorf("Not find target dir")
+	}
+	//targetStr := ret[0]
+	//parts := strings.Split(targetStr, ":")
+	//if len(parts) != 3 {
+	//// not build raid logical volume yet
+	//log.Warningf("Cmd %q invalid target string %q, skip fill logical volume info", targetCmd, targetStr)
+	//return nil
+	//}
+	//channelNum, err := strconv.Atoi(parts[1])
+	//if err != nil {
+	//return errors.Errorf("Invalid channel number %s", parts[1])
+	//}
+	//adapter.channelNum = channelNum
+	return nil
 }
 
 func (adapter *MegaRaidAdaptor) GetIndex() int {
@@ -213,31 +328,61 @@ func (adapter *MegaRaidAdaptor) AddPhyDev(dev *MegaRaidPhyDev) {
 
 func (adapter *MegaRaidAdaptor) GetDevices() []*baremetal.BaremetalStorage {
 	ret := []*baremetal.BaremetalStorage{}
-	for _, dev := range adapter.devs {
-		ret = append(ret, dev.ToBaremetalStorage())
+	for idx, dev := range adapter.devs {
+		ret = append(ret, dev.ToBaremetalStorage(idx))
 	}
 	return ret
 }
 
-func (adapter *MegaRaidAdaptor) GetLogicVolumes() ([]int, error) {
+func (adapter *MegaRaidAdaptor) GetLogicVolumes() ([]*raiddrivers.RaidLogicalVolume, error) {
 	cmd := GetCommand("-LDInfo", "-Lall", fmt.Sprintf("-a%d", adapter.index))
 	ret, err := adapter.remoteRun(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("GetLogicVolumes error: %v", err)
 	}
-	return adapter.parseLogicVolumes(ret), nil
+	return adapter.parseLogicVolumes(ret)
 }
 
-func (adapter *MegaRaidAdaptor) parseLogicVolumes(lines []string) []int {
-	lvIdx := []int{}
+var logicalVolumeIdRegexp = regexp.MustCompile(`.*(Target Id: (?P<idx>[0-9]+))`)
+
+func (adapter *MegaRaidAdaptor) parseLogicVolumes(lines []string) ([]*raiddrivers.RaidLogicalVolume, error) {
+	lvs := make([]*raiddrivers.RaidLogicalVolume, 0)
 	for _, line := range lines {
 		key, val := stringutils.SplitKeyValue(line)
 		if key != "" && key == "Virtual Drive" {
-			idx, _ := strconv.Atoi(strings.Split(val, " ")[0])
-			lvIdx = append(lvIdx, idx)
+			idxStr := regutils2.GetParams(logicalVolumeIdRegexp, val)["idx"]
+			idx, err := strconv.Atoi(idxStr)
+			if err != nil {
+				return nil, errors.Errorf("index %q to int: %v", idxStr, err)
+			}
+			blockDev, err := getLogicVolumeDeviceById(adapter.hostNum, idx, adapter.getTerm())
+			if err != nil {
+				return nil, err
+			}
+			lvs = append(lvs, &raiddrivers.RaidLogicalVolume{
+				Index:    idx,
+				Adapter:  adapter.index,
+				BlockDev: blockDev,
+			})
 		}
 	}
-	return lvIdx
+	return lvs, nil
+}
+
+func getLogicVolumeDeviceById(hostNum, scsiId int, term *ssh.Client) (string, error) {
+	items, err := raiddrivers.SGMap(term)
+	if err != nil {
+		return "", err
+	}
+	isMatch := func(item api.SGMapItem) bool {
+		return item.HostNumber == hostNum && item.SCSIId == scsiId
+	}
+	for _, item := range items {
+		if isMatch(item) {
+			return item.LinuxDeviceName, nil
+		}
+	}
+	return "", errors.Errorf("Not found SG item by id: %d:%d", hostNum, scsiId)
 }
 
 func (adapter *MegaRaidAdaptor) PreBuildRaid(confs []*api.BaremetalDiskConfig) error {
@@ -384,7 +529,6 @@ func (adapter *MegaRaidAdaptor) megacliBuildRaid10(devs []*baremetal.BaremetalSt
 
 func (adapter *MegaRaidAdaptor) storcliBuildRaid(devs []*baremetal.BaremetalStorage, conf *api.BaremetalDiskConfig, level uint) error {
 	args := []string{}
-	args = append(args, fmt.Sprintf("/c%d", adapter.index))
 	args = append(args, "add", "vd", fmt.Sprintf("type=r%d", level))
 	args = append(args, adapter.conf2ParamsStorcliSize(conf)...)
 	labels := []string{}
@@ -396,9 +540,12 @@ func (adapter *MegaRaidAdaptor) storcliBuildRaid(devs []*baremetal.BaremetalStor
 		args = append(args, "PDperArray=2")
 	}
 	args = append(args, adapter.conf2ParamsStorcli(conf)...)
-	cmd := GetCommand2(args...)
+	cmd, err := adapter.GetStorcliCommand(args...)
+	if err != nil {
+		return errors.Wrapf(err, "build raid %d", level)
+	}
 	log.Infof("_storcliBuildRaid command: %s", cmd)
-	_, err := adapter.remoteRun(cmd)
+	_, err = adapter.remoteRun(cmd)
 	return err
 }
 
@@ -451,8 +598,86 @@ func (adapter *MegaRaidAdaptor) BuildNoneRaid(devs []*baremetal.BaremetalStorage
 	return cliBuildRaid(devs, nil, adapter.megacliBuildNoRaid, adapter.storcliBuildNoRaid)
 }
 
+type StorcliAdaptor struct {
+	Controller int
+	SN         string
+}
+
+func newStorcliAdaptor() *StorcliAdaptor {
+	return &StorcliAdaptor{
+		Controller: -1,
+		SN:         "",
+	}
+}
+
+func (a *StorcliAdaptor) isComplete() bool {
+	return a.Controller >= 0 && a.SN != ""
+}
+
+func (a *StorcliAdaptor) parseLine(l string) {
+	parts := strings.Split(l, " = ")
+	if len(parts) != 2 {
+		return
+	}
+	key := parts[0]
+	val := parts[1]
+	switch key {
+	case "Controller":
+		a.Controller, _ = strconv.Atoi(val)
+	case "Serial Number":
+		a.SN = val
+	}
+}
+
+func (raid *MegaRaid) GetStorcliAdaptor() (map[string]*StorcliAdaptor, error) {
+	ret := make(map[string]*StorcliAdaptor)
+	cmd := GetCommand2("/call", "show", "|", "grep", "-iE", `'^(Controller|Serial Number)\s='`)
+	lines, err := raid.term.Run(cmd)
+	if err != nil {
+		return nil, errors.Wrap(err, "Get storcli adapter")
+	}
+	adapter := newStorcliAdaptor()
+	for _, l := range lines {
+		adapter.parseLine(l)
+		if adapter.isComplete() {
+			ret[adapter.SN] = adapter
+			adapter = newStorcliAdaptor()
+		}
+	}
+	return ret, nil
+}
+
+func (adapter *MegaRaidAdaptor) storcliCtrlIndex() (int, error) {
+	if adapter.storcliIndex >= 0 {
+		return adapter.storcliIndex, nil
+	}
+	storcliAdaps, err := adapter.raid.GetStorcliAdaptor()
+	if err != nil {
+		return -1, errors.Wrap(err, "Get all Storcli adaptor")
+	}
+	storAdap, ok := storcliAdaps[adapter.sn]
+	if !ok {
+		return -1, errors.Errorf("Not found storcli adaptor by SN %q", adapter.sn)
+	}
+	return storAdap.Controller, nil
+}
+
+func (adapter *MegaRaidAdaptor) GetStorcliCommand(args ...string) (string, error) {
+	controllerIdx, err := adapter.storcliCtrlIndex()
+	if err != nil {
+		return "", errors.Errorf("Adapter %d get storcli controller index: %v", adapter.index, err)
+	}
+	nargs := []string{fmt.Sprintf("/c%d", controllerIdx)}
+	nargs = append(nargs, args...)
+	return GetCommand2(nargs...), nil
+}
+
 func (adapter *MegaRaidAdaptor) storcliIsJBODEnabled() bool {
-	cmd := GetCommand2(fmt.Sprintf("/c%d", adapter.index), "show", "jbod")
+	cmd, err := adapter.GetStorcliCommand("show", "jbod")
+	if err != nil {
+		log.Errorf("get storcli controller cmd: %v", err)
+		return false
+	}
 	lines, err := adapter.remoteRun(cmd)
 	if err != nil {
 		log.Errorf("storcliIsJBODEnabled error: %s", err)
@@ -476,8 +701,12 @@ func (adapter *MegaRaidAdaptor) storcliEnableJBOD(enable bool) bool {
 	if enable {
 		val = "on"
 	}
-	cmd := GetCommand2(fmt.Sprintf("/c%d", adapter.index), "set", fmt.Sprintf("jbod=%s", val))
-	_, err := adapter.remoteRun(cmd)
+	cmd, err := adapter.GetStorcliCommand("set", fmt.Sprintf("jbod=%s", val))
+	if err != nil {
+		log.Errorf("get storcli controller cmd: %v", err)
+		return false
+	}
+	_, err = adapter.remoteRun(cmd)
 	if err != nil {
 		log.Errorf("EnableJBOD %v fail: %v", enable, err)
 		return false
@@ -496,7 +725,7 @@ func (adapter *MegaRaidAdaptor) storcliBuildJBOD(devs []*baremetal.BaremetalStor
 	}
 	cmds := []string{}
 	for _, d := range devs {
-		cmd := GetCommand2(fmt.Sprintf("/c%d/e%d/s%d", adapter.index, d.Enclosure, d.Slot))
+		cmd := GetCommand2(fmt.Sprintf("/c%d/e%d/s%d", adapter.storcliIndex, d.Enclosure, d.Slot))
 		cmds = append(cmds, cmd)
 	}
 	log.Infof("storcliBuildJBOD cmds: %v", cmds)
@@ -518,12 +747,14 @@ func (adapter *MegaRaidAdaptor) storcliBuildNoRaid(devs []*baremetal.BaremetalSt
 		labels = append(labels, GetSpecString(dev))
 	}
 	args := []string{
-		fmt.Sprintf("/c%d", adapter.index),
 		"add", "vd", "each", "type=raid0",
 		fmt.Sprintf("drives=%s", strings.Join(labels, ",")),
 		"wt", "nora", "direct",
 	}
-	cmd := GetCommand2(args...)
+	cmd, err := adapter.GetStorcliCommand(args...)
+	if err != nil {
+		return errors.Wrapf(err, "build none raid")
+	}
 	_, err = adapter.remoteRun(cmd)
 	return err
 }
@@ -602,8 +833,8 @@ func (adapter *MegaRaidAdaptor) RemoveLogicVolumes() error {
 	if err != nil {
 		return err
 	}
-	for _, i := range raiddrivers.ReverseIntArray(lvIdx) {
-		cmd := GetCommand("-CfgLdDel", fmt.Sprintf("-L%d", i), "-Force", fmt.Sprintf("-a%d", adapter.index))
+	for _, i := range raiddrivers.ReverseLogicalArray(lvIdx) {
+		cmd := GetCommand("-CfgLdDel", fmt.Sprintf("-L%d", i.Index), "-Force", fmt.Sprintf("-a%d", adapter.index))
 		cmds = append(cmds, cmd)
 	}
 	if len(cmds) > 0 {
@@ -630,8 +861,8 @@ def _storcli_clear_jbod_disks(self):
 
 func (adapter *MegaRaidAdaptor) megacliClearJBODDisks() error {
 	devIds := []string{}
-	for _, dev := range adapter.devs {
-		devIds = append(devIds, GetSpecString(dev.ToBaremetalStorage()))
+	for idx, dev := range adapter.devs {
+		devIds = append(devIds, GetSpecString(dev.ToBaremetalStorage(idx)))
 	}
 	cmd := GetCommand("-PDMakeGood", fmt.Sprintf("-PhysDrv[%s]", strings.Join(devIds, ",")), "-Force", fmt.Sprintf("-a%d", adapter.index))
 	_, err := adapter.remoteRun(cmd)
@@ -674,7 +905,7 @@ func (raid *MegaRaid) GetName() string {
 }
 
 func (raid *MegaRaid) ParsePhyDevs() error {
-	if !utils.IsInStringArray("megaraid_sas", raiddrivers.GetModules(raid.term)) {
+	if !utils.IsInStringArray(raiddrivers.MODULE_MEGARAID, raiddrivers.GetModules(raid.term)) {
 		return fmt.Errorf("Not found megaraid_sas module")
 	}
 	cmd := GetCommand("-PDList", "-aALL")
@@ -692,11 +923,15 @@ func (raid *MegaRaid) ParsePhyDevs() error {
 func (raid *MegaRaid) parsePhyDevs(lines []string) error {
 	phyDev := NewMegaRaidPhyDev()
 	var adapter *MegaRaidAdaptor
+	var err error
 	for _, line := range lines {
 		adapterStr := regutils2.GetParams(adapterPatter, line)["idx"]
 		if adapterStr != "" {
 			adapterInt, _ := strconv.Atoi(adapterStr)
-			adapter = NewMegaRaidAdaptor(adapterInt, raid)
+			adapter, err = NewMegaRaidAdaptor(adapterInt, raid)
+			if err != nil {
+				return errors.Wrapf(err, "New raid adapter %d", adapterInt)
+			}
 			raid.adapters = append(raid.adapters, adapter)
 		} else if phyDev.parseLine(line) && phyDev.isComplete() {
 			if adapter == nil {
@@ -732,24 +967,6 @@ func (adapter *MegaRaidAdaptor) addPhyDevsStripSize() error {
 	}
 	return nil
 }
-
-/*func (raid *MegaRaid) GetPhyDevs() []*MegaRaidPhyDev {
-	devs := make([]*MegaRaidPhyDev, 0)
-	for _, ada := range raid.adapters {
-		devs = append(devs, ada.GetPhyDevs()...)
-	}
-	return devs
-}*/
-
-//func (raid *MegaRaid) ParseLogicVolumes() bool {
-//cmd := GetCommand("-LDInfo", "-Lall", "-aALL")
-//ret, err := raid.term.Run(cmd)
-//if err != nil {
-//return false
-//}
-//raid.parseLogicVolumes(ret)
-//return true
-//}
 
 func (raid *MegaRaid) CleanRaid() error {
 	for _, adapter := range raid.adapters {

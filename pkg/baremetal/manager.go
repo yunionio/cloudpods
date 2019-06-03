@@ -284,7 +284,7 @@ func (b *SBaremetalInstance) GetClientSession() *mcclient.ClientSession {
 func (b *SBaremetalInstance) GetId() string {
 	id, err := b.desc.GetString("id")
 	if err != nil {
-		log.Fatalf("Get id from desc error: %v", err)
+		log.Errorf("Get id from desc %s error: %v", b.desc.String(), err)
 	}
 	return id
 }
@@ -292,7 +292,7 @@ func (b *SBaremetalInstance) GetId() string {
 func (b *SBaremetalInstance) GetName() string {
 	id, err := b.desc.GetString("name")
 	if err != nil {
-		log.Fatalf("Get name from desc error: %v", err)
+		log.Fatalf("Get name from desc %s error: %v", b.desc.String(), err)
 	}
 	return id
 }
@@ -1185,7 +1185,7 @@ func (server *SBaremetalServer) GetId() string {
 func (server *SBaremetalServer) GetName() string {
 	id, err := server.desc.GetString("name")
 	if err != nil {
-		log.Fatalf("Get name from desc error: %v", err)
+		log.Errorf("Get name from desc %s error: %v", server.desc.String(), err)
 	}
 	return id
 }
@@ -1418,15 +1418,18 @@ func (s *SBaremetalServer) DoRebuildRootDisk(term *ssh.Client) ([]*disktool.Part
 
 	rootDisk := disks[0]
 	rootSize, _ := rootDisk.Int("size")
-	err = s.doCreateRoot(term, tool.GetRootDisk().GetDevName())
+	rd := tool.GetRootDisk()
+	err = s.doCreateRoot(term, rd.GetDevName())
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create root: %v", err)
 	}
-
 	tool.RetrievePartitionInfo()
+	if err := rd.ReInitInfo(); err != nil {
+		return nil, errors.Wrap(err, "Reinit root disk after create root")
+	}
 
 	log.Infof("Resize root to %d MB", rootSize)
-	if err := tool.ResizePartition(0, rootSize); err != nil {
+	if err := rd.ResizePartition(rootSize); err != nil {
 		return nil, fmt.Errorf("Fail to resize root to %d, err: %v", rootSize, err)
 	}
 	if len(disks) > 1 {
@@ -1437,17 +1440,24 @@ func (s *SBaremetalServer) DoRebuildRootDisk(term *ssh.Client) ([]*disktool.Part
 			}
 			fs, _ := disk.GetString("fs")
 			uuid, _ := disk.GetString("disk_id")
-			driver, _ := disk.GetString("driver")
 			log.Infof("Create partition %d %s", sz, fs)
-			if err := tool.CreatePartition(0, sz, fs, false, driver, uuid); err != nil {
-				log.Errorf("Rebuild root create (%s, %d, %s, %s) partition error: %v", uuid, sz, fs, driver, err)
+			if err := rd.CreatePartition(sz, fs, false, uuid); err != nil {
+				log.Errorf("Rebuild root create (%s, %d, %s) partition error: %v", uuid, sz, fs, err)
 				break
 			}
 		}
 	}
 	log.Infof("Finish create partitions")
 
-	return tool.GetPartitions(), nil
+	parts := rd.GetPartitions()
+	restDisks := tool.Disks()
+	if len(restDisks) > 1 {
+		restDisks = restDisks[1:]
+	}
+	for _, d := range restDisks {
+		parts = append(parts, d.GetPartitions()...)
+	}
+	return parts, nil
 }
 
 func (s *SBaremetalServer) SyncPartitionSize(term *ssh.Client, parts []*disktool.Partition) ([]jsonutils.JSONObject, error) {
