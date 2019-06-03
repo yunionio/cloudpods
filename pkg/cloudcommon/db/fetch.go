@@ -41,11 +41,11 @@ func FetchJointByIds(manager IJointModelManager, masterId, slaveId string, query
 		return nil, fmt.Errorf("FetchByIds not a IJointModel")
 	}
 	q := manager.Query()
-	masterField := queryField(q, manager.GetMasterManager())
+	masterField := q.Field(manager.GetIJointModelManager().GetMasterFieldName()) // queryField(q, manager.GetMasterManager())
 	if masterField == nil {
 		return nil, fmt.Errorf("cannot find master id")
 	}
-	slaveField := queryField(q, manager.GetSlaveManager())
+	slaveField := q.Field(manager.GetIJointModelManager().GetSlaveFieldName()) // queryField(q, manager.GetSlaveManager())
 	if slaveField == nil {
 		return nil, fmt.Errorf("cannot find slave id")
 	}

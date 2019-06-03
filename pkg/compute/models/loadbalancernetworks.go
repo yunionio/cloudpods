@@ -58,6 +58,14 @@ type SLoadbalancerNetwork struct {
 	IpAddr         string `width:"16" charset:"ascii" list:"admin"`
 }
 
+func (manager *SLoadbalancernetworkManager) GetMasterFieldName() string {
+	return "loadbalancer_id"
+}
+
+func (manager *SLoadbalancernetworkManager) GetSlaveFieldName() string {
+	return "network_id"
+}
+
 func (ln *SLoadbalancerNetwork) Network() *SNetwork {
 	network, _ := ln.GetModelManager().FetchById(ln.NetworkId)
 	if network != nil {

@@ -90,8 +90,8 @@ func (manager *SVirtualJointResourceBaseManager) ListItemFilter(ctx context.Cont
 	if err != nil {
 		return nil, err
 	}
-	masterField := manager.MasterField(q)
-	slaveField := manager.SlaveField(q)
+	masterField := q.Field(manager.GetIJointModelManager().GetMasterFieldName())
+	slaveField := q.Field(manager.GetIJointModelManager().GetSlaveFieldName())
 	if masterField == nil || slaveField == nil {
 		msg := "cannot find master or slave fields!!!"
 		log.Errorf(msg)

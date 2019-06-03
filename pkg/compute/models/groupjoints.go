@@ -36,10 +36,14 @@ func NewGroupJointsManager(dt interface{}, tableName string, keyword string, key
 type SGroupJointsBase struct {
 	db.SVirtualJointResourceBase
 
-	SrvtagId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	GroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+}
+
+func (manager *SGroupJointsManager) GetMasterFieldName() string {
+	return "group_id"
 }
 
 func (self *SGroupJointsBase) GetGroup() *SGroup {
-	guest, _ := GroupManager.FetchById(self.SrvtagId)
+	guest, _ := GroupManager.FetchById(self.GroupId)
 	return guest.(*SGroup)
 }

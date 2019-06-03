@@ -72,6 +72,14 @@ type SStoragecachedimage struct {
 	DownloadRefcnt int       `get:"admin"`                                                                                                    // = Column(Integer)
 }
 
+func (manager *SStoragecachedimageManager) GetMasterFieldName() string {
+	return "storagecache_id"
+}
+
+func (manager *SStoragecachedimageManager) GetSlaveFieldName() string {
+	return "cachedimage_id"
+}
+
 func (joint *SStoragecachedimage) Master() db.IStandaloneModel {
 	return db.JointMaster(joint)
 }

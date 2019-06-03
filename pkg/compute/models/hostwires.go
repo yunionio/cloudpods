@@ -58,6 +58,14 @@ type SHostwire struct {
 	WireId string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
 }
 
+func (manager *SHostwireManager) GetMasterFieldName() string {
+	return "host_id"
+}
+
+func (manager *SHostwireManager) GetSlaveFieldName() string {
+	return "wire_id"
+}
+
 func (joint *SHostwire) Master() db.IStandaloneModel {
 	return db.JointMaster(joint)
 }

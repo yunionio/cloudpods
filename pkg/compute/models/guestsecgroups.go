@@ -52,6 +52,10 @@ type SGuestsecgroup struct {
 	SecgroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
+func (manager *SGuestsecgroupManager) GetSlaveFieldName() string {
+	return "secgroup_id"
+}
+
 func (self *SGuestsecgroup) getSecgroup() *SSecurityGroup {
 	secgrp, err := SecurityGroupManager.FetchById(self.SecgroupId)
 	if err != nil {

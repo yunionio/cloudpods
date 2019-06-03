@@ -72,6 +72,7 @@ func (manager *SJointResourceBaseManager) GetSlaveManager() IStandaloneModelMana
 	return manager._slave
 }
 
+/*
 func queryField(q *sqlchemy.SQuery, manager IModelManager) sqlchemy.IQueryField {
 	field := q.Field(fmt.Sprintf("%s_id", manager.Keyword()))
 	if field == nil && len(manager.Alias()) > 0 {
@@ -87,6 +88,7 @@ func (manager *SJointResourceBaseManager) MasterField(q *sqlchemy.SQuery) sqlche
 func (manager *SJointResourceBaseManager) SlaveField(q *sqlchemy.SQuery) sqlchemy.IQueryField {
 	return queryField(q, manager.GetSlaveManager())
 }
+*/
 
 func (manager *SJointResourceBaseManager) FilterByParams(q *sqlchemy.SQuery, params jsonutils.JSONObject) *sqlchemy.SQuery {
 	return q

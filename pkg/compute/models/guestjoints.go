@@ -43,3 +43,7 @@ func (self *SGuestJointsBase) getGuest() *SGuest {
 	guest, _ := GuestManager.FetchById(self.GuestId)
 	return guest.(*SGuest)
 }
+
+func (manager *SGuestJointsManager) GetMasterFieldName() string {
+	return "guest_id"
+}
