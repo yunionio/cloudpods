@@ -165,6 +165,10 @@ func (manager *SParameterManager) AllowListItems(ctx context.Context, userCred m
 	return db.IsAdminAllowList(userCred, manager)
 }
 
+func (manager *SParameterManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeUser
+}
+
 func (manager *SParameterManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	if !isAdminQuery(query) {
 		return true

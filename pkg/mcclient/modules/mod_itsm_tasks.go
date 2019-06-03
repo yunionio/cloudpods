@@ -14,14 +14,38 @@
 
 package modules
 
+import (
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
+)
+
+type SProcessTasksManager struct {
+	ResourceManager
+}
+
 var (
-	ProcessTasks ResourceManager
+	ProcessTasks SProcessTasksManager
 )
 
 func init() {
-	ProcessTasks = NewITSMManager("process-task", "process-tasks",
+	ProcessTasks = SProcessTasksManager{NewITSMManager("process-task", "process-tasks",
 		[]string{"id", "name", "description", "owner", "priority", "tenant_id"},
 		[]string{},
-	)
+	)}
+
 	register(&ProcessTasks)
+}
+
+func (this *SProcessTasksManager) QuickComplete(s *mcclient.ClientSession, params jsonutils.JSONObject) error {
+	path := fmt.Sprintf("/%s/quick-complete", this.KeywordPlural)
+	if params != nil {
+		qs := params.QueryString()
+		if len(qs) > 0 {
+			path = fmt.Sprintf("%s?%s", path, qs)
+		}
+	}
+	_, err := this._get(s, path, "")
+	return err
 }
