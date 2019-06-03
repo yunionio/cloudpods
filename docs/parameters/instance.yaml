@@ -1,0 +1,62 @@
+instanceId:
+  name: instanceId
+  required: true
+  in: path
+  type: string
+  description: 实例名称或ID,建议使用ID
+baremetal:
+  name: baremetal
+  in: query
+  type: boolean
+  description: 过滤裸金属类型实例
+hypervisor:
+  name: hypervisor
+  in: query
+  type: string
+  enum: [kvm,esxi,container,baremetal,aliyun,azure,aws,huawei,ucloud,qcloud,openstack,zstack]
+  description: 过滤虚拟化平台底下的实例
+host:
+  name: host
+  in: query
+  type: string
+  description: 过滤宿主机上的实例
+secgroup:
+  name: secgroup
+  in: query
+  type: string
+  description: 过滤关联了此安全组的实例
+disk:
+  name: disk
+  in: query
+  type: string
+  description: 过滤挂载此硬盘的实例
+with_eip:
+  name: with_eip
+  in: query
+  type: boolean
+  enum: [true]
+  description: 过滤关联的eip的实例
+without_eip:
+  name: without_eip
+  in: query
+  type: boolean
+  enum: [true]
+  description: 过滤未关联eip的实例
+gpu:
+  name: gpu
+  in: query
+  type: boolean
+  enum: [true, false]
+  description: 过滤关联GPU卡的实例
+order_by_disk:
+  name: order_by_disk
+  in: query
+  type: string
+  enum: [desc, asc]
+  description: 根据磁盘大小排序
+order_by_host:
+  name: order_by_host
+  in: query
+  type: string
+  enum: [desc, asc]
+  description: 根据宿主机名称排序

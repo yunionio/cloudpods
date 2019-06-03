@@ -1,0 +1,170 @@
+swagger: "2.0"
+info:
+  title: "OneCloud API"
+  version: "1.0"
+  termsOfService: ""
+  contact:
+    email: zhouyousong@yunion.cn
+  license:
+    name: "Apache 2.0"
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+
+host: "10.168.222.136:8889"
+basePath: "/"
+
+schemes:
+  - https
+  - http
+consumes:
+  - application/json
+produces:
+  - application/json
+
+securityDefinitions:
+  keystone:
+    type: apiKey
+    in: header
+    name: X-Auth-Token
+security:
+  - keystone: []
+
+tags:
+  - name: instance
+
+
+paths:
+  /servers:
+    $ref: '/instance/instances.yaml'
+  /servers/{instanceId}/add-secgroup:
+    $ref: '/instance/add-secgroup.yaml'
+  /servers/{instanceId}/assign-secgroup:
+    $ref: '/instance/assign-secgroup.yaml'
+  /servers/{instanceId}/associate-eip:
+    $ref: '/instance/associate-eip.yaml'
+  /servers/{instanceId}/attachdisk:
+    $ref: '/instance/attachdisk.yaml'
+  /servers/{instanceId}/attach-isolate-device:
+    $ref: '/instance/attach-isolate-device.yaml'
+  /servers/{instanceId}/attachnetwork:
+    $ref: '/instance/attachnetwork.yaml'
+  /servers/{instanceId}/cancel-delete:
+    $ref: '/instance/cancel-delete.yaml'
+  /servers/{instanceId}/change-bandwidth:
+    $ref: '/instance/change-bandwidth.yaml'
+  /servers/{instanceId}/change-config:
+    $ref: '/instance/change-bandwidth.yaml'
+  /servers/{instanceId}/change-ip-addr:
+    $ref: '/instance/change-ip-addr.yaml'
+  /servers/{instanceId}/create-backup:
+    $ref: '/instance/create-backup.yaml'
+  /servers/{instanceId}/createdisk:
+    $ref: '/instance/createdisk.yaml'
+  /servers/{instanceId}/create-eip:
+    $ref: '/instance/create-eip.yaml'
+  /servers/{instanceId}/del-extra-option:
+    $ref: '/instance/del-extra-option.yaml'
+  /servers/{instanceId}/delete-backup:
+    $ref: '/instance/delete-backup.yaml'
+  /servers/{instanceId}/deploy:
+    $ref: '/instance/deploy.yaml'
+  /servers/{instanceId}/detachdisk:
+    $ref: '/instance/detachdisk.yaml'
+  /servers/{instanceId}/detach-isolate-device:
+    $ref: '/instance/detach-isolate-device.yaml'
+  /servers/{instanceId}/detachnetwork:
+    $ref: '/instance/detachnetwork.yaml'
+  /servers/{instanceId}/dissociate-eip:
+    $ref: '/instance/dissociate-eip.yaml'
+  /servers/{instanceId}/ejectiso:
+    $ref: '/instance/ejectiso.yaml'
+  /servers/{instanceId}/insertiso:
+    $ref: '/instance/insertiso.yaml'
+  /servers/{instanceId}/live-migrate:
+    $ref: '/instance/live-migrate.yaml'
+  /servers/{instanceId}/migrate:
+    $ref: '/instance/migrate.yaml'
+  /servers/{instanceId}/monitor:
+    $ref: '/instance/monitor.yaml'
+  /servers/{instanceId}/purge:
+    $ref: '/instance/purge.yaml'
+  /servers/{instanceId}/rebuild-root:
+    $ref: '/instance/rebuild-root.yaml'
+  /servers/{instanceId}/renew:
+    $ref: '/instance/renew.yaml'
+  /servers/{instanceId}/reset:
+    $ref: '/instance/reset.yaml'
+  /servers/{instanceId}/restart:
+    $ref: '/instance/restart.yaml'
+  /servers/{instanceId}/revoke-secgroup:
+    $ref: '/instance/revoke-secgroup.yaml'
+  /servers/{instanceId}/save-image:
+    $ref: '/instance/save-image.yaml'
+  /servers/{instanceId}/send-keys:
+    $ref: '/instance/send-keys.yaml'
+  /servers/{instanceId}/set-extra-option:
+    $ref: '/instance/set-extra-option.yaml'
+  /servers/{instanceId}/set-secgroup:
+    $ref: '/instance/set-secgroup.yaml'
+  /servers/{instanceId}:
+    $ref: '/instance/instance.yaml'
+  /servers/{instanceId}/start:
+    $ref: '/instance/start.yaml'
+  /servers/{instanceId}/status:
+    $ref: '/instance/status.yaml'
+  /servers/{instanceId}/stop:
+    $ref: '/instance/stop.yaml'
+  /servers/{instanceId}/suspend:
+    $ref: '/instance/suspend.yaml'
+  /servers/{instanceId}/switch-to-backup:
+    $ref: '/instance/switch-to-backup.yaml'
+  /servers/{instanceId}/sync:
+    $ref: '/instance/sync.yaml'
+  /servers/{instanceId}/syncstatus:
+    $ref: '/instance/syncstatus.yaml'
+  /servers/{instanceId}/user-data:
+    $ref: '/instance/user-data.yaml'
+  /servers/{instanceId}/vnc:
+    $ref: '/instance/vnc.yaml'
+
+
+
+  /images:
+    $ref: '/image/images.yaml'
+  /images/{imageId}:
+    $ref: '/image/image.yaml'
+
+
+
+  /natgateways:
+    $ref: '/natgateway/natgateways.yaml'
+  /natgateways/{natgatewayId}:
+    $ref: '/natgateway/natgateway.yaml'
+  /natdtables:
+    $ref: '/natgateway/dtables.yaml'
+  /natdtables/{dtableId}:
+    $ref: '/natgateway/dtable.yaml'
+  /natstables:
+    $ref: '/natgateway/stables.yaml'
+  /natstables/{stableId}:
+    $ref: '/natgateway/stable.yaml'
+
+
+  /loadbalancers:
+    $ref: '/loadbalancer/loadbalancers.yaml'
+  /loadbalancers/{loadbalancerId}:
+    $ref: '/loadbalancer/loadbalancer.yaml'
+
+  /loadbalancerlisteners:
+    $ref: '/loadbalancer/loadbalancerlisteners.yaml'
+  /loadbalancerlisteners/{loadbalancerlistenerId}:
+    $ref: '/loadbalancer/loadbalancerlistener.yaml'
+
+  /loadbalancerbackendgroups:
+    $ref: '/loadbalancer/loadbalancerbackendgroups.yaml'
+  /loadbalancerbackendgroups/{loadbalancerbackendgroupId}:
+    $ref: '/loadbalancer/loadbalancerbackendgroup.yaml'
+
+  /loadbalancerbackends:
+    $ref: '/loadbalancer/loadbalancerbackends.yaml'
+  /loadbalancerbackends/{loadbalancerbackendId}:
+    $ref: '/loadbalancer/loadbalancerbackend.yaml'

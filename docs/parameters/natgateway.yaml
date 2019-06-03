@@ -1,0 +1,29 @@
+natgatewayId:
+  name: natgatewayId
+  required: true
+  in: path
+  type: string
+  description: NAT网关名称或ID,建议使用ID
+dtableId:
+  name: dtableId
+  required: true
+  in: path
+  type: string
+  description: DNAT名称或ID,建议使用ID
+stableId:
+  name: stableId
+  required: true
+  in: path
+  type: string
+  description: SNAT名称或ID,建议使用ID
+  
+natgateway:
+  name: natgateway
+  in: query
+  type: string
+  description: 根据NAT过滤
+network:
+  name: network
+  in: query
+  type: string
+  description: 根据子网过滤列表
