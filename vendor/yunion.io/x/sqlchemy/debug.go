@@ -29,7 +29,7 @@ func (tq *SQuery) DebugQuery() {
 }
 
 func (sqf *SSubQuery) DebugQuery() {
-	sqlstr := sqf.query.String()
+	sqlstr := sqf.Expression()
 	vars := sqf.query.Variables()
 	log.Debugf("SQuery %s with vars: %s", sqlstr, vars)
 }

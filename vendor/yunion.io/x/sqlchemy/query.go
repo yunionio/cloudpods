@@ -25,25 +25,39 @@ import (
 )
 
 type IQuery interface {
-	String() string
+	// queryString
+	String(fields ...IQueryField) string
+	// fields after select
 	QueryFields() []IQueryField
+	// variables in statement
 	Variables() []interface{}
+	// convert to a subquery
 	SubQuery() *SSubQuery
+	// reference to a field by name
 	Field(name string) IQueryField
 }
 
 type IQuerySource interface {
+	// string in select ... from (expresson here)
 	Expression() string
+	// alias in select ... from (express) as alias
 	Alias() string
+	// variables in statement
 	Variables() []interface{}
+	// reference to a field by name, optionally giving an alias name
 	Field(id string, alias ...string) IQueryField
+	// return all the fields that this source provides
 	Fields() []IQueryField
 }
 
 type IQueryField interface {
+	// the string after select
 	Expression() string
+	// the name of thie field
 	Name() string
+	// the string in where clause
 	Reference() string
+	// give this field an alias name
 	Label(label string) IQueryField
 }
 
@@ -86,11 +100,15 @@ type SQuery struct {
 	having   ICondition
 	limit    int
 	offset   int
+
+	fieldCache map[string]IQueryField
 }
 
 type SSubQuery struct {
 	query IQuery
 	alias string
+
+	referedFields map[string]IQueryField
 }
 
 type SSubQueryField struct {
@@ -116,7 +134,7 @@ func (sqf *SSubQueryField) Name() string {
 }
 
 func (sqf *SSubQueryField) Reference() string {
-	return fmt.Sprintf("%s.%s", sqf.query.alias, sqf.Name())
+	return fmt.Sprintf("`%s`.`%s`", sqf.query.alias, sqf.Name())
 }
 
 func (sqf *SSubQueryField) Label(label string) IQueryField {
@@ -127,7 +145,11 @@ func (sqf *SSubQueryField) Label(label string) IQueryField {
 }
 
 func (sq *SSubQuery) Expression() string {
-	return fmt.Sprintf("(%s)", sq.query.String())
+	fields := make([]IQueryField, 0)
+	for k := range sq.referedFields {
+		fields = append(fields, sq.referedFields[k])
+	}
+	return fmt.Sprintf("(%s)", sq.query.String(fields...))
 }
 
 func (sq *SSubQuery) Alias() string {
@@ -138,17 +160,33 @@ func (sq *SSubQuery) Variables() []interface{} {
 	return sq.query.Variables()
 }
 
-func (sq *SSubQuery) Field(id string, alias ...string) IQueryField {
-	for _, f := range sq.query.QueryFields() {
-		if f.Name() == id {
-			sqf := SSubQueryField{query: sq, field: f}
-			if len(alias) > 0 {
-				sqf.Label(alias[0])
-			}
-			return &sqf
+func (sq *SSubQuery) findField(id string) IQueryField {
+	if sq.referedFields == nil {
+		sq.referedFields = make(map[string]IQueryField)
+	}
+	if _, ok := sq.referedFields[id]; ok {
+		return sq.referedFields[id]
+	}
+	queryFields := sq.query.QueryFields()
+	for i := range queryFields {
+		if queryFields[i].Name() == id {
+			sq.referedFields[id] = sq.query.Field(queryFields[i].Name())
+			return queryFields[i]
 		}
 	}
 	return nil
+}
+
+func (sq *SSubQuery) Field(id string, alias ...string) IQueryField {
+	f := sq.findField(id)
+	if f == nil {
+		return nil
+	}
+	sqf := SSubQueryField{query: sq, field: f}
+	if len(alias) > 0 {
+		sqf.Label(alias[0])
+	}
+	return &sqf
 }
 
 func (sq *SSubQuery) Fields() []IQueryField {
@@ -161,15 +199,16 @@ func (sq *SSubQuery) Fields() []IQueryField {
 }
 
 func DoQuery(from IQuerySource, f ...IQueryField) *SQuery {
-	if len(f) == 0 {
-		f = from.Fields()
-	}
+	// if len(f) == 0 {
+	// 	f = from.Fields()
+	// }
 	tq := SQuery{fields: f, from: from}
 	return &tq
 }
 
-func (q *SQuery) AppendField(f ...IQueryField) {
+func (q *SQuery) AppendField(f ...IQueryField) *SQuery {
 	q.fields = append(q.fields, f...)
+	return q
 }
 
 func (table *SSubQuery) Query(f ...IQueryField) *SQuery {
@@ -200,8 +239,8 @@ func (tq *SQuery) _orderBy(order QueryOrderType, fields []IQueryField) *SQuery {
 	if tq.orderBy == nil {
 		tq.orderBy = make([]SQueryOrder, 0)
 	}
-	for _, f := range fields {
-		tq.orderBy = append(tq.orderBy, SQueryOrder{field: f, order: order})
+	for i := range fields {
+		tq.orderBy = append(tq.orderBy, SQueryOrder{field: fields[i], order: order})
 	}
 	return tq
 }
@@ -259,16 +298,20 @@ func (tq *SQuery) Offset(offset int) *SQuery {
 }
 
 func (tq *SQuery) QueryFields() []IQueryField {
-	return tq.fields
+	if len(tq.fields) > 0 {
+		return tq.fields
+	} else {
+		return tq.from.Fields()
+	}
 }
 
-func (tq *SQuery) String() string {
-	sql := queryString(tq)
+func (tq *SQuery) String(fields ...IQueryField) string {
+	sql := queryString(tq, fields...)
 	// log.Debugf("Query: %s", sql)
 	return sql
 }
 
-func queryString(tq *SQuery) string {
+func queryString(tq *SQuery, tmpFields ...IQueryField) string {
 	if len(tq.rawSql) > 0 {
 		return tq.rawSql
 	}
@@ -278,11 +321,21 @@ func queryString(tq *SQuery) string {
 	if tq.distinct {
 		buf.WriteString("DISTINCT ")
 	}
-	for i, f := range tq.fields {
+	fields := tq.fields
+	if len(fields) == 0 {
+		fields = tmpFields
+	}
+	if len(fields) == 0 {
+		fields = tq.QueryFields()
+		for i := range fields {
+			tq.from.Field(fields[i].Name())
+		}
+	}
+	for i := range fields {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
-		buf.WriteString(f.Expression())
+		buf.WriteString(fields[i].Expression())
 	}
 	buf.WriteString(" FROM ")
 	buf.WriteString(fmt.Sprintf("%s AS `%s`", tq.from.Expression(), tq.from.Alias()))
@@ -422,24 +475,53 @@ func (tq *SQuery) CountWithError() (int, error) {
 }
 
 func (tq *SQuery) Field(name string) IQueryField {
+	f := tq.findField(name)
+	if f == nil {
+		log.Errorf("cannot find field %s for query", name)
+	}
+	return f
+}
+
+func (tq *SQuery) findField(name string) IQueryField {
+	if tq.fieldCache == nil {
+		tq.fieldCache = make(map[string]IQueryField)
+	}
+	if _, ok := tq.fieldCache[name]; ok {
+		return tq.fieldCache[name]
+	}
+	f := tq.internalFindField(name)
+	if f != nil {
+		tq.fieldCache[name] = f
+	}
+	return f
+}
+
+func (tq *SQuery) internalFindField(name string) IQueryField {
 	for _, f := range tq.fields {
 		if f.Name() == name {
 			return f
 		}
 	}
-	for _, f := range tq.from.Fields() {
+	f := tq.from.Field(name)
+	if f != nil {
+		return f
+	}
+	/* for _, f := range tq.from.Fields() {
 		if f.Name() == name {
 			return f
 		}
-	}
+	}*/
 	for _, join := range tq.joins {
-		for _, f := range join.from.Fields() {
+		f = join.from.Field(name)
+		if f != nil {
+			return f
+		}
+		/* for _, f := range join.from.Fields() {
 			if f.Name() == name {
 				return f
 			}
-		}
+		}*/
 	}
-	log.Errorf("cannot find field %s for query", name)
 	return nil
 }
 
@@ -472,8 +554,9 @@ func rowScan2StringMap(fields []string, row IRowScanner) (map[string]string, err
 }
 
 func (q *SQuery) rowScan2StringMap(row IRowScanner) (map[string]string, error) {
-	fields := make([]string, len(q.fields))
-	for i, f := range q.fields {
+	queryFields := q.QueryFields()
+	fields := make([]string, len(queryFields))
+	for i, f := range queryFields {
 		fields[i] = f.Name()
 	}
 	return rowScan2StringMap(fields, row)
