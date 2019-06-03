@@ -72,6 +72,9 @@ func NewClient(authUrl string, timeout int, debug bool, insecure bool, certFile,
 		debug:   debug,
 		httpconn: &http.Client{
 			Transport: tr,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			}, // 不自动处理重定向请求
 		},
 	}
 	return &client
