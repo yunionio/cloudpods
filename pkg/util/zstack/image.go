@@ -22,6 +22,8 @@ import (
 	"sort"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/util/imagetools"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -137,7 +139,11 @@ func (image *SImage) GetOsType() string {
 }
 
 func (image *SImage) GetOsDist() string {
-	return ""
+	osDist := imagetools.NormalizeImageInfo(image.URL, "", "", "", "").OsDistro
+	if len(osDist) > 0 {
+		return osDist
+	}
+	return image.Platform
 }
 
 func (image *SImage) GetOsVersion() string {
