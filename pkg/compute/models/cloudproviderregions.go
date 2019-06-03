@@ -68,6 +68,14 @@ type SCloudproviderregion struct {
 	LastDeepSyncAt time.Time `list:"admin"`
 }
 
+func (manager *SCloudproviderregionManager) GetMasterFieldName() string {
+	return "cloudprovider_id"
+}
+
+func (manager *SCloudproviderregionManager) GetSlaveFieldName() string {
+	return "cloudregion_id"
+}
+
 func (joint *SCloudproviderregion) Master() db.IStandaloneModel {
 	return db.JointMaster(joint)
 }

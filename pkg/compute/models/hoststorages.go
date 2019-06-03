@@ -63,6 +63,14 @@ type SHoststorage struct {
 	RealCapacity int64                `nullable:"true" list:"admin"` // Column(Integer, nullable=True)
 }
 
+func (manager *SHoststorageManager) GetMasterFieldName() string {
+	return "host_id"
+}
+
+func (manager *SHoststorageManager) GetSlaveFieldName() string {
+	return "storage_id"
+}
+
 func (joint *SHoststorage) Master() db.IStandaloneModel {
 	return db.JointMaster(joint)
 }

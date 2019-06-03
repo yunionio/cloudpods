@@ -83,6 +83,10 @@ type SGuestnetwork struct {
 	TeamWith string `width:"32" charset:"ascii" nullable:"false" list:"user"`
 }
 
+func (manager *SGuestnetworkManager) GetSlaveFieldName() string {
+	return "network_id"
+}
+
 func (joint *SGuestnetwork) Master() db.IStandaloneModel {
 	return db.JointMaster(joint)
 }

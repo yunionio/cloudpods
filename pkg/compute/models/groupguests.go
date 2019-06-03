@@ -51,6 +51,10 @@ type SGroupguest struct {
 	GuestId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`               // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
+func (manager *SGroupguestManager) GetSlaveFieldName() string {
+	return "guest_id"
+}
+
 func (joint *SGroupguest) Master() db.IStandaloneModel {
 	return db.JointMaster(joint)
 }

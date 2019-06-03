@@ -58,6 +58,10 @@ type SGroupnetwork struct {
 	EipId string `width:"36" charset:"ascii" nullable:"true"` // Column(VARCHAR(36, charset='ascii'), nullable=True)
 }
 
+func (manager *SGroupnetworkManager) GetSlaveFieldName() string {
+	return "network_id"
+}
+
 func (joint *SGroupnetwork) Master() db.IStandaloneModel {
 	return db.JointMaster(joint)
 }

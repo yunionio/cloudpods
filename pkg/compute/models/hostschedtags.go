@@ -51,6 +51,10 @@ type SHostschedtag struct {
 	HostId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
+func (manager *SHostschedtagManager) GetSlaveFieldName() string {
+	return "host_id"
+}
+
 func (self *SHostschedtag) GetHost() *SHost {
 	return self.Master().(*SHost)
 }

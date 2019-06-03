@@ -50,6 +50,10 @@ type SStorageschedtag struct {
 	StorageId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
+func (manager *SStorageschedtagManager) GetSlaveFieldName() string {
+	return "storage_id"
+}
+
 func (s *SStorageschedtag) GetStorage() *SStorage {
 	return s.Master().(*SStorage)
 }

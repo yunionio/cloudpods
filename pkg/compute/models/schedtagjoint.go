@@ -56,6 +56,10 @@ type SSchedtagJointsBase struct {
 	SchedtagId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // =Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
+func (manager *SSchedtagJointsManager) GetMasterFieldName() string {
+	return "schedtag_id"
+}
+
 func (man *SSchedtagJointsManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return db.IsAdminAllowList(userCred, man)
 }
