@@ -1875,9 +1875,6 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		}
 		if diskConf.SizeMb > 0 {
 			if diskIdx >= len(disks) {
-				newDisks = append(newDisks, diskConf)
-				newDiskIdx += 1
-				addDisk += diskConf.SizeMb
 				storage := host.GetLeastUsedStorage(diskConf.Backend)
 				if storage == nil {
 					return nil, httperrors.NewResourceNotReadyError("host not connect storage %s", diskConf.Backend)
@@ -1887,6 +1884,10 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 					diskSizes[storage.Id] = 0
 				}
 				diskSizes[storage.Id] = diskSizes[storage.Id] + diskConf.SizeMb
+				diskConf.Storage = storage.Id
+				newDisks = append(newDisks, diskConf)
+				newDiskIdx += 1
+				addDisk += diskConf.SizeMb
 			} else {
 				disk := disks[diskIdx].GetDisk()
 				oldSize := disk.DiskSize
