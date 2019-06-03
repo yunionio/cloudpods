@@ -88,6 +88,8 @@ type DBOptions struct {
 
 	GlobalVirtualResourceNamespace bool `help:"Per project namespace or global namespace for virtual resources" default:"false"`
 	DebugSqlchemy                  bool `default:"false" help:"Print SQL executed by sqlchemy"`
+
+	QueryOffsetOptimization bool `help:"apply query offset optimization"`
 }
 
 func (this *DBOptions) GetDBConnection() (dialect, connstr string, err error) {
