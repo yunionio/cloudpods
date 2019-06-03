@@ -25,6 +25,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/errors"
@@ -3336,7 +3337,7 @@ func (self *SGuest) GetJsonDescAtBaremetal(ctx context.Context, host *SHost) *js
 	desc.Add(jsonutils.NewInt(int64(self.VmemSize)), "mem")
 	desc.Add(jsonutils.NewInt(int64(self.VcpuCount)), "cpu")
 	diskConf := host.getDiskConfig()
-	if diskConf != nil {
+	if !gotypes.IsNil(diskConf) {
 		desc.Add(diskConf, "disk_config")
 	}
 
@@ -3689,8 +3690,7 @@ func (self *SGuest) isAllDisksReady() bool {
 	ready := true
 	disks := self.GetDisks()
 	if disks == nil || len(disks) == 0 {
-		log.Errorf("No valid disks")
-		return false
+		return true
 	}
 	for i := 0; i < len(disks); i += 1 {
 		disk := disks[i].GetDisk()
