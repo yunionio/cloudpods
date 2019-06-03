@@ -31,7 +31,7 @@ func (ff *SFunctionField) Expression() string {
 	for _, f := range ff.fields {
 		fieldRefs = append(fieldRefs, f.Reference())
 	}
-	return fmt.Sprintf("%s AS %s", fmt.Sprintf(ff.function, fieldRefs...), ff.Name())
+	return fmt.Sprintf("%s AS `%s`", fmt.Sprintf(ff.function, fieldRefs...), ff.Name())
 }
 
 func (ff *SFunctionField) Name() string {

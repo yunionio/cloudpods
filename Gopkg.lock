@@ -794,25 +794,6 @@
   version = "v0.3.6"
 
 [[projects]]
-  digest = "1:420ec120a74b22e8a967f2a2928d89503e373848c0d4447d16ddbbbef9a9965c"
-  name = "github.com/jinzhu/gorm"
-  packages = [
-    ".",
-    "dialects/mysql",
-  ]
-  pruneopts = "UT"
-  revision = "472c70caa40267cb89fd8facb07fe6454b578626"
-  version = "v1.9.2"
-
-[[projects]]
-  branch = "master"
-  digest = "1:fd97437fbb6b7dce04132cf06775bd258cce305c44add58eb55ca86c6c325160"
-  name = "github.com/jinzhu/inflection"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "04140366298a54a039076d798123ffa108fff46c"
-
-[[projects]]
   digest = "1:e22af8c7518e1eab6f2eab2b7d7558927f816262586cd6ed9f349c97a6c285c4"
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
@@ -1803,11 +1784,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a1d55c54bf4a9a83c1d955b9038a003cf1edc7c8707d07799608c796b2790034"
+  digest = "1:f67d95f842ddb77714c26571745cbb99e19f0062c9c8766542a533906f64591e"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "4e836c2494cbadad5c5a22f83abbf1d87df6d439"
+  revision = "107c9ed7e001c2b6bcf793af3ceb5b551216296a"
 
 [[projects]]
   branch = "master"
@@ -1885,9 +1866,6 @@
     "github.com/gorilla/websocket",
     "github.com/gosuri/uitable",
     "github.com/hako/durafmt",
-    "github.com/jinzhu/gorm",
-    "github.com/jinzhu/gorm/dialects/mysql",
-    "github.com/json-iterator/go",
     "github.com/koding/websocketproxy",
     "github.com/kr/pty",
     "github.com/libvirt/libvirt-go-xml",
