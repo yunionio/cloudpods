@@ -217,7 +217,7 @@ func (manager *SParameterManager) GetOwnerId(userCred mcclient.IIdentityProvider
 func (manager *SParameterManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
 	if owner != nil {
 		if len(owner.GetUserId()) > 0 {
-			q = q.Equals("created_by", owner.GetUserId())
+			q = q.Equals("namespace_id", owner.GetUserId())
 		}
 	}
 	return q
@@ -315,6 +315,6 @@ func (model *SParameter) AllowGetDetails(ctx context.Context, userCred mcclient.
 }
 
 func (model *SParameter) GetOwnerId() mcclient.IIdentityProvider {
-	owner := db.SOwnerId{UserId: model.CreatedBy}
+	owner := db.SOwnerId{UserId: model.NamespaceId}
 	return &owner
 }
