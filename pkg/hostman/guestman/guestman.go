@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
-	"yunion.io/x/pkg/util/seclib"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
@@ -42,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
@@ -327,7 +327,7 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 		password, _ := deployParams.Body.GetString("password")
 		resetPassword := jsonutils.QueryBoolean(deployParams.Body, "reset_password", false)
 		if resetPassword && len(password) == 0 {
-			password = seclib.RandomPassword(12)
+			password = seclib2.RandomPassword2(12)
 		}
 		enableCloudInit := jsonutils.QueryBoolean(deployParams.Body, "enable_cloud_init", false)
 
