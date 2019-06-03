@@ -444,3 +444,17 @@ func (manager *SPolicyManager) MatchedPolicies(scope rbacutils.TRbacScope, userC
 	}
 	return ret
 }
+
+func (manager *SPolicyManager) AllPolicies() map[string][]string {
+	ret := make(map[string][]string)
+	for scope, p := range manager.policies {
+		k := string(scope)
+		ret[k] = make([]string, len(p))
+		i := 0
+		for pn := range p {
+			ret[k][i] = pn
+			i += 1
+		}
+	}
+	return ret
+}

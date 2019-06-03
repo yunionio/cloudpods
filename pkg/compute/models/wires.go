@@ -341,7 +341,7 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 	gNics := GuestnetworkManager.Query().SubQuery()
 	gNicQ := gNics.Query(
 		gNics.Field("network_id"),
-		sqlchemy.COUNT("id").Label("gnic_count"),
+		sqlchemy.COUNT("gnic_count"),
 	)
 	gNicQ = gNicQ.Join(guests, sqlchemy.Equals(guests.Field("id"), gNics.Field("guest_id")))
 	gNicQ = gNicQ.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))
@@ -350,13 +350,16 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 	hNics := HostnetworkManager.Query().SubQuery()
 	hNicQ := hNics.Query(
 		hNics.Field("network_id"),
-		sqlchemy.COUNT("id").Label("hnic_count"),
+		sqlchemy.COUNT("hnic_count"),
 	)
 	hNicQ = hNicQ.Join(hosts, sqlchemy.Equals(hNics.Field("baremetal_id"), hosts.Field("id")))
 	hNicQ = hNicQ.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 
 	revIps := ReservedipManager.Query().SubQuery()
-	revQ := revIps.Query(revIps.Field("network_id"), sqlchemy.COUNT("id").Label("rnic_count"))
+	revQ := revIps.Query(
+		revIps.Field("network_id"),
+		sqlchemy.COUNT("rnic_count"),
+	)
 
 	gNicSQ := gNicQ.GroupBy(gNics.Field("network_id")).SubQuery()
 	hNicSQ := hNicQ.GroupBy(hNics.Field("network_id")).SubQuery()

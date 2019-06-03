@@ -302,7 +302,7 @@ func (t *SAuthToken) getTokenV2(
 	if len(roles) > 0 {
 		token.Token.Tenant.Id = project.Id
 		token.Token.Tenant.Name = project.Name
-		token.Token.Tenant.Enabled = project.Enabled.Bool()
+		// token.Token.Tenant.Enabled = project.Enabled.Bool()
 		token.Token.Tenant.Description = project.Description
 		token.Token.Tenant.Domain.Id = project.DomainId
 		token.Token.Tenant.Domain.Name = project.DomainName

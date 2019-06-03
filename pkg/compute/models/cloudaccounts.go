@@ -146,17 +146,21 @@ func (self *SCloudaccount) getCloudprovidersInternal(enabled tristate.TriState) 
 
 func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 	if self.EnableAutoSync {
+		log.Debugf("self.EnableAutoSync")
 		return httperrors.NewInvalidStatusError("automatic syncing is enabled")
 	}
 	if self.Enabled {
+		log.Debugf("self.Enabled")
 		return httperrors.NewInvalidStatusError("account is enabled")
 	}
 	if self.getSyncStatus() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+		log.Debugln("self.getSyncStatus() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE")
 		return httperrors.NewInvalidStatusError("account is not idle")
 	}
 	cloudproviders := self.GetCloudproviders()
 	for i := 0; i < len(cloudproviders); i++ {
 		if err := cloudproviders[i].ValidateDeleteCondition(ctx); err != nil {
+			log.Debugf("cloudproviders[%d].ValidateDeleteCondition", i)
 			return err
 		}
 	}
@@ -301,6 +305,7 @@ func (self *SCloudaccount) CustomizeCreate(ctx context.Context, userCred mcclien
 	if len(self.Brand) == 0 {
 		self.Brand = self.Provider
 	}
+	self.DomainId = ownerId.GetProjectDomainId()
 	// self.EnableAutoSync = false
 	return self.SEnabledStatusStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }

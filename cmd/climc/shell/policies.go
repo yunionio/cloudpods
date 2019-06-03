@@ -269,13 +269,15 @@ func init() {
 	})
 
 	type PolicyExplainOptions struct {
-		User       string   `help:"For user"`
-		UserDomain string   `help:"Domain for user"`
-		Project    string   `help:"Role assignments for project"`
-		Role       []string `help:"Roles"`
-		Request    []string `help:"explain request, in format of key:scope:service:resource:action:extra"`
-		Name       string   `help:"policy name"`
-		Debug      bool     `help:"enable RBAC debug"`
+		User          string   `help:"For user"`
+		UserDomain    string   `help:"Domain for user"`
+		Project       string   `help:"Role assignments for project"`
+		Role          []string `help:"Roles"`
+		Request       []string `help:"explain request, in format of key:scope:service:resource:action:extra"`
+		Name          string   `help:"policy name"`
+		Debug         bool     `help:"enable RBAC debug"`
+		ProjectDomain string   `help:"Domain name"`
+		Ip            string   `help:"login IP"`
 	}
 	R(&PolicyExplainOptions{}, "policy-explain", "Explain policy result", func(s *mcclient.ClientSession, args *PolicyExplainOptions) error {
 		auth.InitFromClientSession(s)
@@ -301,11 +303,54 @@ func init() {
 
 		var token mcclient.TokenCredential
 		if len(args.User) > 0 {
+			usrParams := jsonutils.NewDict()
+			if len(args.UserDomain) > 0 {
+				usrDom, err := modules.Domains.Get(s, args.UserDomain, nil)
+				if err != nil {
+					return fmt.Errorf("search user domain %s fail %s", args.UserDomain, err)
+				}
+				usrDomId, _ := usrDom.Get("id")
+				usrParams.Add(usrDomId, "domain_id")
+			}
+			usr, err := modules.UsersV3.Get(s, args.User, usrParams)
+			if err != nil {
+				return fmt.Errorf("search user %s fail %s", args.User, err)
+			}
+			usrId, _ := usr.GetString("id")
+			usrName, _ := usr.GetString("name")
+			usrDomId, _ := usr.GetString("domain_id")
+			usrDom, _ := usr.GetString("domain")
+
+			projParams := jsonutils.NewDict()
+			if len(args.ProjectDomain) > 0 {
+				projDom, err := modules.Domains.Get(s, args.ProjectDomain, nil)
+				if err != nil {
+					return fmt.Errorf("search project domain %s fail %s", args.ProjectDomain, err)
+				}
+				projDomId, _ := projDom.Get("id")
+				projParams.Add(projDomId, "domain_id")
+			}
+			proj, err := modules.Projects.Get(s, args.Project, projParams)
+			if err != nil {
+				return fmt.Errorf("search project %s fail %s", args.Project, err)
+			}
+			projId, _ := proj.GetString("id")
+			projName, _ := proj.GetString("name")
+			projDom, _ := proj.GetString("domain")
+			projDomId, _ := proj.GetString("domain_id")
 			token = &mcclient.SSimpleToken{
-				Domain:  args.UserDomain,
-				User:    args.User,
-				Project: args.Project,
-				Roles:   strings.Join(args.Role, ","),
+				Domain:          usrDom,
+				DomainId:        usrDomId,
+				User:            usrName,
+				UserId:          usrId,
+				Project:         projName,
+				ProjectId:       projId,
+				ProjectDomain:   projDom,
+				ProjectDomainId: projDomId,
+				Roles:           strings.Join(args.Role, ","),
+				Context: mcclient.SAuthContext{
+					Ip: args.Ip,
+				},
 			}
 		} else {
 			token = s.GetToken()
@@ -328,6 +373,8 @@ func init() {
 			m := policy.PolicyManager.MatchedPolicies(scope, token)
 			fmt.Println("matched", scope, "policies:", m)
 		}
+
+		fmt.Println("all_policies", policy.PolicyManager.AllPolicies())
 		return nil
 	})
 }

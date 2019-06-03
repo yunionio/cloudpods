@@ -208,9 +208,9 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 		if err != nil {
 			return nil, errors.Wrap(err, "ProjectManager.FetchProject")
 		}
-		if project.Enabled.IsFalse() {
-			return nil, ErrProjectDisabled
-		}
+		// if project.Enabled.IsFalse() {
+		// 	return nil, ErrProjectDisabled
+		// }
 		projExt, err = project.FetchExtend()
 		if err != nil {
 			return nil, errors.Wrap(err, "project.FetchExtend")
@@ -281,9 +281,9 @@ func AuthenticateV2(ctx context.Context, input mcclient.SAuthenticationInputV2) 
 	if err != nil {
 		return nil, errors.Wrap(err, "ProjectManager.FetchProject")
 	}
-	if project.Enabled.IsFalse() {
-		return nil, ErrProjectDisabled
-	}
+	// if project.Enabled.IsFalse() {
+	// 	return nil, ErrProjectDisabled
+	// }
 	token.ProjectId = project.Id
 	projExt, err := project.FetchExtend()
 	if err != nil {

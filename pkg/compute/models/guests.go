@@ -4193,7 +4193,7 @@ func (guest *SGuest) GetDetailsTasks(ctx context.Context, userCred mcclient.Toke
 		isOpen = &isOpenVal
 	}
 	q := taskman.TaskManager.QueryTasksOfObject(guest, since, isOpen)
-	objs, err := db.Query2List(taskman.TaskManager, ctx, userCred, q, query)
+	objs, err := db.Query2List(taskman.TaskManager, ctx, userCred, q, query, false)
 	if err != nil {
 		return nil, err
 	}

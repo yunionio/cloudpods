@@ -32,3 +32,7 @@ func UpdateWithLock(ctx context.Context, model IModel, updateFunc func() error) 
 
 	return Update(model, updateFunc)
 }
+
+func Fetch(model IModel) error {
+	return model.GetModelManager().TableSpec().Fetch(model)
+}
