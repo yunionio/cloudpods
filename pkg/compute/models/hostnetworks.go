@@ -54,6 +54,14 @@ type SHostnetwork struct {
 	MacAddr     string `width:"18" charset:"ascii" list:"admin"`                  // Column(VARCHAR(18, charset='ascii'))
 }
 
+func (manager *SHostnetworkManager) GetMasterFieldName() string {
+	return "baremetal_id"
+}
+
+func (manager *SHostnetworkManager) GetSlaveFieldName() string {
+	return "network_id"
+}
+
 func (bn *SHostnetwork) Master() db.IStandaloneModel {
 	return db.JointMaster(bn)
 }

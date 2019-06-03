@@ -2926,7 +2926,7 @@ func (self *SGuest) LeaveAllGroups(ctx context.Context, userCred mcclient.TokenC
 		gg.Delete(context.Background(), userCred)
 		var group SGroup
 		gq := GroupManager.Query()
-		err := gq.Filter(sqlchemy.Equals(gq.Field("id"), gg.SrvtagId)).First(&group)
+		err := gq.Filter(sqlchemy.Equals(gq.Field("id"), gg.GroupId)).First(&group)
 		if err != nil {
 			log.Errorln(err.Error())
 			return
