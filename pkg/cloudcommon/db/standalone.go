@@ -44,6 +44,8 @@ type SStandaloneResourceBase struct {
 	Name string `width:"128" charset:"utf8" nullable:"false" index:"true" list:"user" update:"user" create:"required"`
 
 	Description string `width:"256" charset:"utf8" get:"user" list:"user" update:"user" create:"optional"`
+
+	IsEmulated bool `nullable:"false" default:"false" list:"admin" create:"admin_optional"`
 }
 
 func (model *SStandaloneResourceBase) BeforeInsert() {
@@ -113,10 +115,7 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Contex
 
 	showEmulated := jsonutils.QueryBoolean(query, "show_emulated", false)
 	if !showEmulated {
-		emulatedField := q.Field("is_emulated")
-		if emulatedField != nil {
-			q = q.Filter(sqlchemy.IsFalse(emulatedField))
-		}
+		q = q.Filter(sqlchemy.IsFalse(q.Field("is_emulated")))
 	}
 
 	tags := map[string]STagValue{}

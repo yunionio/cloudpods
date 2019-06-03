@@ -2000,7 +2000,24 @@ func (manager *SHostManager) totalCountQ(
 	enabled, isBaremetal tristate.TriState,
 ) *sqlchemy.SQuery {
 	hosts := manager.Query().SubQuery()
-	q := hosts.Query()
+	/*
+			    MemSize     int
+		    MemReserved int
+		    MemCmtbound float32
+		    CpuCount    int8
+		    CpuReserved int8
+		    CpuCmtbound float32
+		    StorageSize int
+	*/
+	q := hosts.Query(
+		hosts.Field("mem_size"),
+		hosts.Field("mem_reserved"),
+		hosts.Field("mem_cmtbound"),
+		hosts.Field("cpu_count"),
+		hosts.Field("cpu_reserved"),
+		hosts.Field("cpu_cmtbound"),
+		hosts.Field("storage_size"),
+	)
 	if len(status) > 0 {
 		q = q.Filter(sqlchemy.Equals(hosts.Field("status"), status))
 	}

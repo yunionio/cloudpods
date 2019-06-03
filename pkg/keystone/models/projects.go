@@ -33,14 +33,14 @@ import (
 )
 
 type SProjectManager struct {
-	SEnabledIdentityBaseResourceManager
+	SIdentityBaseResourceManager
 }
 
 var ProjectManager *SProjectManager
 
 func init() {
 	ProjectManager = &SProjectManager{
-		SEnabledIdentityBaseResourceManager: NewEnabledIdentityBaseResourceManager(
+		SIdentityBaseResourceManager: NewIdentityBaseResourceManager(
 			SProject{},
 			"project",
 			"project",
@@ -67,7 +67,7 @@ func init() {
 */
 
 type SBaseProject struct {
-	SEnabledIdentityBaseResource
+	SIdentityBaseResource
 
 	ParentId string `width:"64" charset:"ascii" list:"admin" create:"admin_optional"`
 
@@ -107,7 +107,7 @@ func (manager *SProjectManager) initSysProject() error {
 	project := SProject{}
 	project.Name = api.SystemAdminProject
 	project.DomainId = api.DEFAULT_DOMAIN_ID
-	project.Enabled = tristate.True
+	// project.Enabled = tristate.True
 	project.Description = "Boostrap system default admin project"
 	project.IsDomain = tristate.False
 	project.ParentId = api.DEFAULT_DOMAIN_ID
@@ -121,7 +121,7 @@ func (manager *SProjectManager) initSysProject() error {
 }
 
 func (manager *SProjectManager) Query(fields ...string) *sqlchemy.SQuery {
-	return manager.SEnabledIdentityBaseResourceManager.Query(fields...).IsFalse("is_domain")
+	return manager.SIdentityBaseResourceManager.Query(fields...).IsFalse("is_domain")
 }
 
 func (manager *SProjectManager) FetchProjectByName(projectName string, domainId, domainName string) (*SProject, error) {
@@ -205,7 +205,7 @@ func (proj *SProject) FetchExtend() (*SProjectExtended, error) {
 }
 
 func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := manager.SIdentityBaseResourceManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func (proj *SProject) ValidateDeleteCondition(ctx context.Context) error {
 	if proj.IsAdminProject() {
 		return httperrors.NewForbiddenError("cannot delete system project")
 	}
-	return proj.SEnabledIdentityBaseResource.ValidateDeleteCondition(ctx)
+	return proj.SIdentityBaseResource.ValidateDeleteCondition(ctx)
 }
 
 func (proj *SProject) IsAdminProject() bool {
@@ -282,16 +282,16 @@ func (proj *SProject) ValidateUpdateData(ctx context.Context, userCred mcclient.
 			return nil, httperrors.NewForbiddenError("cannot alter system project name")
 		}
 	}
-	return proj.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
+	return proj.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
 }
 
 func (proj *SProject) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := proj.SEnabledIdentityBaseResource.GetCustomizeColumns(ctx, userCred, query)
+	extra := proj.SIdentityBaseResource.GetCustomizeColumns(ctx, userCred, query)
 	return projectExtra(proj, extra)
 }
 
 func (proj *SProject) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := proj.SEnabledIdentityBaseResource.GetExtraDetails(ctx, userCred, query)
+	extra, err := proj.SIdentityBaseResource.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}

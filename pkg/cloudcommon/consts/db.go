@@ -13,3 +13,7 @@
 // limitations under the License.
 
 package consts
+
+var (
+	QueryOffsetOptimization = false
+)
