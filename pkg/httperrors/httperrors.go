@@ -28,8 +28,16 @@ func SendHTTPErrorHeader(w http.ResponseWriter, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
+func SetHTTPRedirectLocationHeader(w http.ResponseWriter, location string) {
+	w.Header().Set("Location", location)
+}
+
 func HTTPError(w http.ResponseWriter, msg string, statusCode int, class string, error httputils.Error) {
 	SendHTTPErrorHeader(w, statusCode)
+	if statusCode >= 300 && statusCode <= 400 {
+		SetHTTPRedirectLocationHeader(w, msg)
+	}
+
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.NewInt(int64(statusCode)), "code")
 	body.Add(jsonutils.NewString(msg), "details")
