@@ -67,6 +67,10 @@ type SGuestdisk struct {
 	Index int8 `nullable:"false" default:"0" list:"user" update:"user"` // Column(TINYINT(4), nullable=False, default=0)
 }
 
+func (manager *SGuestdiskManager) GetSlaveFieldName() string {
+	return "disk_id"
+}
+
 func (manager *SGuestdiskManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
 }

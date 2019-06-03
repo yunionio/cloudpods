@@ -183,6 +183,8 @@ type IJointModelManager interface {
 	GetMasterManager() IStandaloneModelManager
 	GetSlaveManager() IStandaloneModelManager
 
+	GetMasterFieldName() string
+	GetSlaveFieldName() string
 	// FetchByIds(masterId string, slaveId string, query jsonutils.JSONObject) (IJointModel, error)
 	FilterByParams(q *sqlchemy.SQuery, params jsonutils.JSONObject) *sqlchemy.SQuery
 

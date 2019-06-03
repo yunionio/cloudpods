@@ -50,6 +50,10 @@ type SNetworkschedtag struct {
 	NetworkId string `width:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
 }
 
+func (manager *SNetworkschedtagManager) GetSlaveFieldName() string {
+	return "network_id"
+}
+
 func (s *SNetworkschedtag) GetNetwork() *SNetwork {
 	return s.Master().(*SNetwork)
 }
