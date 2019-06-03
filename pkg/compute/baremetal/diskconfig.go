@@ -82,8 +82,18 @@ func RetrieveStorages(diskConfig *api.BaremetalDiskConfig, storages []*Baremetal
 	selected = make([]*BaremetalStorage, 0)
 	rest = make([]*BaremetalStorage, 0)
 	idx := 0
+	curAdapter := 0
+	adapterChange := false
 
 	for _, storage := range storages {
+		if storage.Adapter != curAdapter {
+			adapterChange = true
+			curAdapter = storage.Adapter
+		}
+		if adapterChange {
+			idx = 0
+			adapterChange = false
+		}
 		if storage.Index == 0 {
 			storage.Index = int64(idx)
 		}
@@ -535,10 +545,11 @@ func GetDiskSpecV2(storages []*BaremetalStorage) api.DiskDriverSpec {
 }
 
 type DiskConfiguration struct {
-	Driver  string
-	Adapter int
-	Block   int64
-	Size    int64
+	Driver     string
+	Adapter    int
+	RaidConfig string
+	Block      int64
+	Size       int64
 }
 
 func GetDiskConfigurations(layouts []Layout) []DiskConfiguration {
@@ -550,15 +561,33 @@ func GetDiskConfigurations(layouts []Layout) []DiskConfiguration {
 		raidConf := rr.Conf.Conf
 		if raidConf == DISK_CONF_NONE {
 			for _, d := range rr.Disks {
-				disks = append(disks, DiskConfiguration{Driver: driver, Adapter: adapter, Block: block, Size: d.Size})
+				disks = append(disks, DiskConfiguration{
+					Driver:     driver,
+					Adapter:    adapter,
+					RaidConfig: raidConf,
+					Block:      block,
+					Size:       d.Size,
+				})
 			}
 		} else {
 			if len(rr.Conf.Size) != 0 {
 				for _, sz := range rr.Conf.Size {
-					disks = append(disks, DiskConfiguration{Driver: driver, Adapter: adapter, Block: block, Size: sz})
+					disks = append(disks, DiskConfiguration{
+						Driver:     driver,
+						Adapter:    adapter,
+						RaidConfig: raidConf,
+						Block:      block,
+						Size:       sz,
+					})
 				}
 			} else {
-				disks = append(disks, DiskConfiguration{Driver: driver, Adapter: adapter, Block: block, Size: rr.Size})
+				disks = append(disks, DiskConfiguration{
+					Driver:     driver,
+					Adapter:    adapter,
+					RaidConfig: raidConf,
+					Block:      block,
+					Size:       rr.Size,
+				})
 			}
 		}
 	}

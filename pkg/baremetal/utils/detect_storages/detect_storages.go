@@ -36,8 +36,8 @@ func GetRaidDevices(drv raid.IRaidDriver) []*baremetal.BaremetalStorage {
 	return devs
 }
 
-func GetRaidLogicVolumes(drv raid.IRaidDriver) ([]int, error) {
-	lvs := []int{}
+func GetRaidLogicVolumes(drv raid.IRaidDriver) ([]*raid.RaidLogicalVolume, error) {
+	lvs := []*raid.RaidLogicalVolume{}
 	for _, adapter := range drv.GetAdapters() {
 		lv, err := adapter.GetLogicVolumes()
 		if err != nil {
@@ -50,7 +50,7 @@ func GetRaidLogicVolumes(drv raid.IRaidDriver) ([]int, error) {
 
 func DetectStorageInfo(term *ssh.Client, wait bool) ([]*baremetal.BaremetalStorage, []*baremetal.BaremetalStorage, []*baremetal.BaremetalStorage, error) {
 	raidDiskInfo := make([]*baremetal.BaremetalStorage, 0)
-	lvDiskInfo := make([]int, 0)
+	lvDiskInfo := make([]*raid.RaidLogicalVolume, 0)
 
 	raidDrivers := []string{}
 	for _, drv := range drivers.GetDrivers(term) {

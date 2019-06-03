@@ -202,7 +202,7 @@ var (
 			Adapter: 2,
 		},
 
-		// 12-13 disk on adapter0
+		// 0-1 disk on adapter0
 		{
 			Driver:  DISK_DRIVER_MEGARAID,
 			Rotate:  true,
@@ -294,7 +294,7 @@ var (
 
 func TestCalculateLayout(t *testing.T) {
 	confs, err := NewBaremetalDiskConfigs(
-		"[12-13]:raid1:(100g,32g,):adapter0",
+		"[0-1]:raid1:(100g,32g,):adapter0",
 		"6:raid5:adapter2",
 		"6:raid5:adapter2",
 	)
@@ -310,13 +310,13 @@ func TestCalculateLayout(t *testing.T) {
         "rotate": true,
         "driver": "MegaRaid",
         "size": 953344,
-        "index": 12
+        "index": 0
       },
       {
         "rotate": true,
         "driver": "MegaRaid",
         "size": 953344,
-        "index": 13
+        "index": 1
       }
     ],
     "conf": {
@@ -324,8 +324,8 @@ func TestCalculateLayout(t *testing.T) {
       "conf": "raid1",
       "count": 0,
       "range": [
-        12,
-        13
+        0,
+        1
       ],
       "splits": "100g,32g,",
       "size": [
@@ -471,7 +471,7 @@ func TestCalculateLayout(t *testing.T) {
 
 func TestCheckDisksAllocable(t *testing.T) {
 	confs, err := NewBaremetalDiskConfigs(
-		"[12-13]:raid1:(100g,32g,):adapter0",
+		"[0-1]:raid1:(100g,32g,):adapter0",
 		"6:raid5:adapter2",
 		"6:raid5:adapter2",
 	)

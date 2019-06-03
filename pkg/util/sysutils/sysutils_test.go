@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"yunion.io/x/jsonutils"
-
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
@@ -304,6 +304,99 @@ func TestGetSecureTTYs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetSecureTTYs(tt.lines); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetSecureTTYs() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseDiskInfo(t *testing.T) {
+	type args struct {
+		lines  []string
+		driver string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []*types.SDiskInfo
+	}{
+		{
+			name: "raid",
+			args: args{
+				lines: []string{
+					"sda 15625879552 512 1 megaraid_sas 0x010400 DELL PERC H730P Mini 4.26",
+				},
+				driver: "raid",
+			},
+			want: []*types.SDiskInfo{
+				{
+					Dev:        "sda",
+					Sector:     15625879552,
+					Block:      512,
+					Size:       15625879552 * 512 / 1024 / 1024,
+					Rotate:     true,
+					Kernel:     "megaraid_sas",
+					PCIClass:   "0x010400",
+					ModuleInfo: "DELL PERC H730P Mini 4.26",
+					Driver:     "raid",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParseDiskInfo(tt.args.lines, tt.args.driver)
+			gotStr := jsonutils.Marshal(got).PrettyString()
+			wantStr := jsonutils.Marshal(tt.want).PrettyString()
+			if !reflect.DeepEqual(gotStr, wantStr) {
+				t.Errorf("ParseDiskInfo() = %v, want %v", gotStr, wantStr)
+			}
+		})
+	}
+}
+
+func TestParseSGMap(t *testing.T) {
+	tests := []struct {
+		name  string
+		lines []string
+		want  []compute.SGMapItem
+	}{
+		{
+			name:  "empty",
+			lines: []string{""},
+			want:  []compute.SGMapItem{},
+		},
+		{
+			name: "normal",
+			lines: []string{
+				"/dev/sg0  0 0 3 0  0  /dev/sda",
+				"/dev/sg1 2 0 4 0 5 /dev/sr0",
+			},
+			want: []compute.SGMapItem{
+				{
+					SGDeviceName:    "/dev/sg0",
+					HostNumber:      0,
+					Bus:             0,
+					SCSIId:          3,
+					Lun:             0,
+					Type:            0,
+					LinuxDeviceName: "/dev/sda",
+				},
+				{
+					SGDeviceName:    "/dev/sg1",
+					HostNumber:      2,
+					Bus:             0,
+					SCSIId:          4,
+					Lun:             0,
+					Type:            5,
+					LinuxDeviceName: "/dev/sr0",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ParseSGMap(tt.lines); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseSGMap() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 )
@@ -259,6 +260,37 @@ func GetSerialPorts(lines []string) []string {
 			idx := l[0:pos]
 			ret = append(ret, fmt.Sprintf("ttyS%s", idx))
 		}
+	}
+	return ret
+}
+
+// ParseSGMap parse command 'sg_map -x' outputs:
+//
+//  /dev/sg1 0 2 0 0 0 /dev/sda
+//  /dev/sg2 0 2 1 0 0 /dev/sdb
+//  /dev/sg3 0 2 2 0 0 /dev/sdc
+//
+func ParseSGMap(lines []string) []compute.SGMapItem {
+	ret := make([]compute.SGMapItem, 0)
+	for _, l := range lines {
+		items := strings.Fields(l)
+		if len(items) != 7 {
+			continue
+		}
+		hostNum, _ := strconv.Atoi(items[1])
+		bus, _ := strconv.Atoi(items[2])
+		scsiId, _ := strconv.Atoi(items[3])
+		lun, _ := strconv.Atoi(items[4])
+		typ, _ := strconv.Atoi(items[5])
+		ret = append(ret, compute.SGMapItem{
+			SGDeviceName:    items[0],
+			HostNumber:      hostNum,
+			Bus:             bus,
+			SCSIId:          scsiId,
+			Lun:             lun,
+			Type:            typ,
+			LinuxDeviceName: items[6],
+		})
 	}
 	return ret
 }
