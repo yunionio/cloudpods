@@ -319,6 +319,10 @@ func (model *SParameter) AllowGetDetails(ctx context.Context, userCred mcclient.
 }
 
 func (model *SParameter) GetOwnerId() mcclient.IIdentityProvider {
+	if model.Namespace == NAMESPACE_SERVICE {
+		return nil
+	}
+
 	owner := db.SOwnerId{UserId: model.NamespaceId}
 	return &owner
 }
