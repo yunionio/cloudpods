@@ -19,56 +19,18 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type UserListOptions struct {
-		System           bool   `help:"system mode"`
-		Admin            bool   `help:"admin mode"`
-		Domain           string `help:"Filter by domain"`
-		Name             string `help:"Filter by name"`
-		Limit            int64  `help:"Limit, default 0, i.e. no limit"`
-		Offset           int64  `help:"Offset, default 0, i.e. no offset"`
-		Search           string `help:"Search by name"`
-		DefaultProject   string `help:"Filter by default_project_id"`
-		NoDefaultProject bool   `help:"Filter users without valid default_project_id"`
+		options.BaseListOptions
+		Name string `help:"Filter by name"`
 	}
 	R(&UserListOptions{}, "user-list", "List users", func(s *mcclient.ClientSession, args *UserListOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.Domain) > 0 {
-			domainId, err := modules.Domains.GetId(s, args.Domain, nil)
-			if err != nil {
-				return err
-			}
-			params.Add(jsonutils.NewString(domainId), "domain_id")
-			params.Add(jsonutils.JSONTrue, "admin")
-		}
-		if args.Admin {
-			params.Add(jsonutils.JSONTrue, "admin")
-		}
-		if args.System {
-			params.Add(jsonutils.JSONTrue, "system")
-		}
-		if len(args.Name) > 0 {
-			params.Add(jsonutils.NewString(args.Name), "name")
-		}
-		if len(args.Search) > 0 {
-			params.Add(jsonutils.NewString(args.Search), "name__icontains")
-		}
-		if args.Limit > 0 {
-			params.Add(jsonutils.NewInt(args.Limit), "limit")
-		}
-		if args.Offset > 0 {
-			params.Add(jsonutils.NewInt(args.Offset), "offset")
-		}
-		if len(args.DefaultProject) > 0 {
-			projId, err := modules.Projects.GetId(s, args.DefaultProject, nil)
-			if err != nil {
-				return err
-			}
-			params.Add(jsonutils.NewString(projId), "default_project_id")
-		} else if args.NoDefaultProject {
-			params.Add(jsonutils.NewString(""), "default_project_id__iempty")
+		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
 		}
 		result, err := modules.UsersV3.List(s, params)
 		if err != nil {

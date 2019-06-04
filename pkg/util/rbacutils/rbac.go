@@ -90,6 +90,8 @@ type SRbacPolicy struct {
 
 	DomainId string
 
+	IsPublic bool
+
 	Projects []string
 	Roles    []string
 	Ips      []netutils.IPV4Prefix
@@ -550,6 +552,10 @@ type IRbacIdentity interface {
 	GetLoginIp() string
 }
 
+func (policy *SRbacPolicy) IsSystemWidePolicy() bool {
+	return len(policy.Roles) == 0 && len(policy.Projects) == 0
+}
+
 func (policy *SRbacPolicy) Match(userCred IRbacIdentity) bool {
 	if !policy.Auth && len(policy.Projects) == 0 && len(policy.Roles) == 0 && len(policy.Ips) == 0 {
 		return true
@@ -557,7 +563,10 @@ func (policy *SRbacPolicy) Match(userCred IRbacIdentity) bool {
 	if userCred == nil {
 		return false
 	}
-	if (len(policy.Projects) == 0 || (policy.DomainId == userCred.GetProjectDomainId() && contains(policy.Projects, userCred.GetProjectName()))) && (len(policy.Roles) == 0 || (policy.DomainId == userCred.GetProjectDomainId() && intersect(policy.Roles, userCred.GetRoles()))) && (len(policy.Ips) == 0 || containsIp(policy.Ips, userCred.GetLoginIp())) {
+	if !policy.IsPublic && policy.DomainId != userCred.GetProjectDomainId() {
+		return false
+	}
+	if (len(policy.Projects) == 0 || contains(policy.Projects, userCred.GetProjectName())) && (len(policy.Roles) == 0 || intersect(policy.Roles, userCred.GetRoles())) && (len(policy.Ips) == 0 || containsIp(policy.Ips, userCred.GetLoginIp())) {
 		return true
 	}
 	return false

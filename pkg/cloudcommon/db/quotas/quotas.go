@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -54,6 +55,10 @@ func (manager *SQuotaManager) KeywordPlural() string {
 
 func (manager *SQuotaManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeProject
+}
+
+func (manager *SQuotaManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return db.FetchProjectInfo(ctx, data)
 }
 
 func (manager *SQuotaManager) Keyword() string {

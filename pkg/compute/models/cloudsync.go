@@ -35,9 +35,9 @@ import (
 )
 
 type SSyncableBaseResource struct {
-	SyncStatus    string    `width:"10" charset:"ascii" default:"idle" list:"admin"`
-	LastSync      time.Time `list:"admin"` // = Column(DateTime, nullable=True)
-	LastSyncEndAt time.Time `list:"admin"`
+	SyncStatus    string    `width:"10" charset:"ascii" default:"idle" list:"domain"`
+	LastSync      time.Time `list:"domain"` // = Column(DateTime, nullable=True)
+	LastSyncEndAt time.Time `list:"domain"`
 }
 
 func (self *SSyncableBaseResource) CanSync() bool {

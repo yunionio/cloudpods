@@ -103,7 +103,10 @@ func (manager *SVirtualResourceBaseManager) FilterBySystemAttributes(q *sqlchemy
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
 	}
 
-	pendingDelete, _ := query.GetString("pending_delete")
+	var pendingDelete string
+	if query != nil {
+		pendingDelete, _ = query.GetString("pending_delete")
+	}
 	pendingDeleteLower := strings.ToLower(pendingDelete)
 	if pendingDeleteLower == "all" || pendingDeleteLower == "any" || utils.ToBool(pendingDeleteLower) {
 		var isAllow bool

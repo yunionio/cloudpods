@@ -19,15 +19,17 @@ import (
 	"database/sql"
 	"math/rand"
 	"time"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/sqlchemy"
+
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/timeutils"
-	"yunion.io/x/sqlchemy"
 )
 
 type SCloudproviderregionManager struct {
@@ -57,15 +59,15 @@ type SCloudproviderregion struct {
 
 	SSyncableBaseResource
 
-	CloudproviderId string `width:"36" charset:"ascii" nullable:"false" list:"admin"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
-	CloudregionId   string `width:"36" charset:"ascii" nullable:"false" list:"admin"`
+	CloudproviderId string `width:"36" charset:"ascii" nullable:"false" list:"domain"` // Column(VARCHAR(36, charset='ascii'), nullable=False)
+	CloudregionId   string `width:"36" charset:"ascii" nullable:"false" list:"domain"`
 
-	Enabled bool `nullable:"false" list:"admin" update:"admin"`
+	Enabled bool `nullable:"false" list:"domain" update:"domain"`
 
-	// SyncIntervalSeconds int `list:"admin"`
-	SyncResults jsonutils.JSONObject `list:"admin"`
+	// SyncIntervalSeconds int `list:"domain"`
+	SyncResults jsonutils.JSONObject `list:"domain"`
 
-	LastDeepSyncAt time.Time `list:"admin"`
+	LastDeepSyncAt time.Time `list:"domain"`
 }
 
 func (manager *SCloudproviderregionManager) GetMasterFieldName() string {

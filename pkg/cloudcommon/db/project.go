@@ -64,9 +64,5 @@ func (manager *SProjectizedResourceBaseManager) ResourceScope() rbacutils.TRbacS
 }
 
 func (manager *SProjectizedResourceBaseManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	ownerId, err := FetchProjectInfo(ctx, data)
-	if err == nil && ownerId == nil {
-		ownerId, err = FetchDomainInfo(ctx, data)
-	}
-	return nil, nil
+	return FetchProjectInfo(ctx, data)
 }
