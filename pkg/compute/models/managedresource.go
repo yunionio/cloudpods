@@ -185,19 +185,30 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObje
 	if len(brandStr) > 0 {
 		queryDict.Remove("brand")
 
-		account := CloudaccountManager.Query().SubQuery()
-		_subq := CloudproviderManager.Query("id")
-		subq := _subq.Join(account, sqlchemy.Equals(account.Field("id"), _subq.Field("cloudaccount_id"))).
-			Filter(sqlchemy.Equals(account.Field("brand"), brandStr)).SubQuery()
-
-		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-			queryDict.Remove("manager_id")
+		if brandStr == api.CLOUD_PROVIDER_ONECLOUD {
+			if len(filterField) == 0 {
+				q = q.Filter(sqlchemy.IsNullOrEmpty(q.Field("manager_id")))
+			} else {
+				sq := subqFunc()
+				sq = sq.Filter(sqlchemy.IsNullOrEmpty(sq.Field("manager_id")))
+				q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+				queryDict.Remove(filterField)
+			}
 		} else {
-			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq))
-			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
-			queryDict.Remove(filterField)
+			account := CloudaccountManager.Query().SubQuery()
+			_subq := CloudproviderManager.Query("id")
+			subq := _subq.Join(account, sqlchemy.Equals(account.Field("id"), _subq.Field("cloudaccount_id"))).
+				Filter(sqlchemy.Equals(account.Field("brand"), brandStr)).SubQuery()
+
+			if len(filterField) == 0 {
+				q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+				queryDict.Remove("manager_id")
+			} else {
+				sq := subqFunc()
+				sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq))
+				q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+				queryDict.Remove(filterField)
+			}
 		}
 	}
 
