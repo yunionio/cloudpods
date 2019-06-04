@@ -38,6 +38,10 @@ func (self *SAliyunHostDriver) GetHostType() string {
 	return api.HOST_TYPE_ALIYUN
 }
 
+func (self *SAliyunHostDriver) GetHypervisor() string {
+	return api.HYPERVISOR_ALIYUN
+}
+
 func (self *SAliyunHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
 	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }

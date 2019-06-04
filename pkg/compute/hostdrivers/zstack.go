@@ -35,6 +35,10 @@ func (self *SZStackHostDriver) GetHostType() string {
 	return api.HOST_TYPE_ZSTACK
 }
 
+func (self *SZStackHostDriver) GetHypervisor() string {
+	return api.HYPERVISOR_ZSTACK
+}
+
 func (self *SZStackHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
 	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }

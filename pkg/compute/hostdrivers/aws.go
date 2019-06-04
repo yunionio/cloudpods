@@ -38,6 +38,10 @@ func (self *SAwsHostDriver) GetHostType() string {
 	return api.HOST_TYPE_AWS
 }
 
+func (self *SAwsHostDriver) GetHypervisor() string {
+	return api.HYPERVISOR_AWS
+}
+
 func (self *SAwsHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
 	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }

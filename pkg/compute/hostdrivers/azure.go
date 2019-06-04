@@ -41,6 +41,10 @@ func (self *SAzureHostDriver) GetHostType() string {
 	return api.HOST_TYPE_AZURE
 }
 
+func (self *SAzureHostDriver) GetHypervisor() string {
+	return api.HYPERVISOR_AZURE
+}
+
 func (self *SAzureHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
 	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }

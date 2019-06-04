@@ -42,6 +42,10 @@ func (self *SESXiHostDriver) GetHostType() string {
 	return api.HOST_TYPE_ESXI
 }
 
+func (self *SESXiHostDriver) GetHypervisor() string {
+	return api.HYPERVISOR_ESXI
+}
+
 func (self *SESXiHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
 	return nil
 }

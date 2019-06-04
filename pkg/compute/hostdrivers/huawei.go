@@ -37,6 +37,10 @@ func (self *SHuaweiHostDriver) GetHostType() string {
 	return api.HOST_TYPE_HUAWEI
 }
 
+func (self *SHuaweiHostDriver) GetHypervisor() string {
+	return api.HYPERVISOR_HUAWEI
+}
+
 func (self *SHuaweiHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
 	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }

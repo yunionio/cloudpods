@@ -47,6 +47,10 @@ func (self *SKVMHostDriver) GetHostType() string {
 	return api.HOST_TYPE_HYPERVISOR
 }
 
+func (self *SKVMHostDriver) GetHypervisor() string {
+	return api.HYPERVISOR_KVM
+}
+
 func (self *SKVMHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
 	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL, api.STORAGE_RBD, api.STORAGE_NFS}) {
 		return httperrors.NewUnsupportOperationError("Unsupport attach %s storage for %s host", storage.StorageType, host.HostType)
