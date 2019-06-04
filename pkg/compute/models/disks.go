@@ -388,6 +388,11 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		}
 		storage := storageObj.(*SStorage)
 
+		host := storage.GetMasterHost()
+		if host == nil {
+			return nil, httperrors.NewResourceNotFoundError("storage %s(%s) need onlne and attach host for create disk", storage.Name, storage.Id)
+		}
+		input.Hypervisor = host.GetHostDriver().GetHypervisor()
 		if len(diskConfig.Backend) == 0 {
 			diskConfig.Backend = storage.StorageType
 		}

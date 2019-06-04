@@ -35,6 +35,10 @@ func (self *SOpenStackHostDriver) GetHostType() string {
 	return api.HOST_TYPE_OPENSTACK
 }
 
+func (self *SOpenStackHostDriver) GetHypervisor() string {
+	return api.HYPERVISOR_OPENSTACK
+}
+
 func (self *SOpenStackHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
 	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }
