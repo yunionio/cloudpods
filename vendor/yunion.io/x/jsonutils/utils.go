@@ -56,6 +56,9 @@ func NewTimeString(tm time.Time) *JSONString {
 }
 
 func GetQueryStringArray(query JSONObject, key string) []string {
+	if query == nil {
+		return nil
+	}
 	var arr []string
 	searchObj, _ := query.Get(key)
 	if searchObj != nil {
@@ -101,6 +104,9 @@ func CheckRequiredFields(data JSONObject, fields []string) error {
 }
 
 func GetAnyString(json JSONObject, keys []string) string {
+	if json == nil {
+		return ""
+	}
 	for _, key := range keys {
 		val, _ := json.GetString(key)
 		if len(val) > 0 {
@@ -111,6 +117,10 @@ func GetAnyString(json JSONObject, keys []string) string {
 }
 
 func GetArrayOfPrefix(json JSONObject, prefix string) []JSONObject {
+	if json == nil {
+		return nil
+	}
+
 	retArray := make([]JSONObject, 0)
 	idx := 0
 	for {
