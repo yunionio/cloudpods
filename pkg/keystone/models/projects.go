@@ -19,10 +19,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
@@ -66,16 +65,12 @@ func init() {
 +-------------+-------------+------+-----+---------+-------+
 */
 
-type SBaseProject struct {
+type SProject struct {
 	SIdentityBaseResource
 
-	ParentId string `width:"64" charset:"ascii" list:"admin" create:"admin_optional"`
+	ParentId string `width:"64" charset:"ascii" list:"domain" create:"domain_optional"`
 
-	IsDomain tristate.TriState `default:"false" nullable:"false" create:"admin_optional"`
-}
-
-type SProject struct {
-	SBaseProject
+	IsDomain tristate.TriState `default:"false" nullable:"false" create:"domain_optional"`
 }
 
 func (manager *SProjectManager) GetContextManagers() [][]db.IModelManager {
@@ -244,7 +239,7 @@ func (manager *SProjectManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 func (model *SProject) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
 	model.ParentId = ownerId.GetProjectDomainId()
 	model.IsDomain = tristate.False
-	return model.SBaseProject.CustomizeCreate(ctx, userCred, ownerId, query, data)
+	return model.SIdentityBaseResource.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 func (proj *SProject) GetUserCount() (int, error) {

@@ -66,7 +66,7 @@ func init() {
 type SGroup struct {
 	SIdentityBaseResource
 
-	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SGroupManager) GetContextManagers() [][]db.IModelManager {
@@ -209,8 +209,11 @@ func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, idpId s
 	return &group, nil
 }
 
-func (group *SGroup) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return group.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
+func (group *SGroup) ValidateUpdateCondition(ctx context.Context) error {
+	if group.IsReadOnly() {
+		return httperrors.NewForbiddenError("readonly")
+	}
+	return group.SIdentityBaseResource.ValidateUpdateCondition(ctx)
 }
 
 func (manager *SGroupManager) fetchGroupById(gid string) *SGroup {

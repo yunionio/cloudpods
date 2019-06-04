@@ -67,37 +67,37 @@ type SCloudaccount struct {
 	db.SDomainizedResourceBase
 
 	SSyncableBaseResource
-	LastAutoSync time.Time `list:"admin"`
+	LastAutoSync time.Time `list:"domain"`
 
-	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
-	Account string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
-	Secret  string `width:"256" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
+	Account string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
+	Secret  string `width:"256" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
-	// BalanceKey string `width:"256" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	// BalanceKey string `width:"256" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
 	IsPublicCloud *bool `nullable:"false" get:"user" create:"optional" list:"user" default:"true"`
 	IsOnPremise   bool  `nullable:"false" get:"user" create:"optional" list:"user" default:"false"`
 
-	Provider string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
+	Provider string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
 
-	EnableAutoSync      bool `default:"false" create:"admin_optional" list:"admin"`
-	SyncIntervalSeconds int  `create:"admin_optional" list:"admin" update:"admin"`
+	EnableAutoSync      bool `default:"false" create:"domain_optional" list:"domain"`
+	SyncIntervalSeconds int  `create:"domain_optional" list:"domain" update:"domain"`
 
-	Balance      float64   `list:"admin"`
-	ProbeAt      time.Time `list:"admin"`
-	HealthStatus string    `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"admin"`
+	Balance      float64   `list:"domain"`
+	ProbeAt      time.Time `list:"domain"`
+	HealthStatus string    `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"domain"`
 
-	ErrorCount int `list:"admin"`
+	ErrorCount int `list:"domain"`
 
-	AutoCreateProject bool `list:"admin" create:"admin_optional"`
+	AutoCreateProject bool `list:"domain" create:"domain_optional"`
 
-	Version string               `width:"32" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
-	Sysinfo jsonutils.JSONObject `get:"admin"`                                             // Column(JSONEncodedDict, nullable=True)
+	Version string               `width:"32" charset:"ascii" nullable:"true" list:"domain"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
+	Sysinfo jsonutils.JSONObject `get:"domain"`                                             // Column(JSONEncodedDict, nullable=True)
 
-	Brand string `width:"64" charset:"utf8" nullable:"true" list:"admin" create:"optional"`
+	Brand string `width:"64" charset:"utf8" nullable:"true" list:"domain" create:"optional"`
 
-	Options *jsonutils.JSONDict `get:"admin" create:"admin_optional" update:"admin"`
+	Options *jsonutils.JSONDict `get:"domain" create:"domain_optional" update:"domain"`
 }
 
 func (self *SCloudaccountManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

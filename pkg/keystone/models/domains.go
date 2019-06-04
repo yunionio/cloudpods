@@ -245,11 +245,14 @@ func (domain *SDomain) ValidateDeleteCondition(ctx context.Context) error {
 	return domain.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (domain *SDomain) ValidateUpdateCondition(ctx context.Context) error {
 	if domain.Id == api.DEFAULT_DOMAIN_ID {
-		return nil, httperrors.NewForbiddenError("default domain is protected")
+		return httperrors.NewForbiddenError("default domain is protected")
 	}
-	return domain.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	if domain.IsReadOnly() {
+		return httperrors.NewForbiddenError("readonly")
+	}
+	return domain.SStandaloneResourceBase.ValidateUpdateCondition(ctx)
 }
 
 /*func (domain *SDomain) isReadOnly() bool {

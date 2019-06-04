@@ -255,7 +255,7 @@ func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.
 		}
 		return &ownerId, nil
 	}
-	return nil, nil
+	return FetchDomainInfo(ctx, data)
 }
 
 func FetchDomainInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
@@ -284,6 +284,10 @@ func (m *sUsageManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeProject
 }
 
+func (m *sUsageManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return FetchProjectInfo(ctx, data)
+}
+
 func FetchUsageOwnerScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error) {
 	return FetchQueryOwnerScope(ctx, userCred, data, &sUsageManager{}, policy.PolicyActionGet)
 }
@@ -291,6 +295,7 @@ func FetchUsageOwnerScope(ctx context.Context, userCred mcclient.TokenCredential
 type IScopedResourceManager interface {
 	KeywordPlural() string
 	ResourceScope() rbacutils.TRbacScope
+	FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error)
 }
 
 func FetchQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, manager IScopedResourceManager, action string) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error) {
@@ -315,65 +320,43 @@ func FetchQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCredential
 		}
 	}
 
-	ownerId, err := FetchProjectInfo(ctx, data)
+	// var ownerId mcclient.IIdentityProvider
+	// var err error
+
+	ownerId, err := manager.FetchOwnerId(ctx, data)
 	if err != nil {
 		return nil, queryScope, err
 	}
 	if ownerId != nil {
-		if resScope == rbacutils.ScopeProject {
-			queryScope = rbacutils.ScopeProject
-			if ownerId.GetProjectId() == userCred.GetProjectId() {
-				requireScope = rbacutils.ScopeProject
-			} else if ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
-				requireScope = rbacutils.ScopeDomain
-			} else {
-				requireScope = rbacutils.ScopeSystem
-			}
-		} else if resScope == rbacutils.ScopeDomain {
-			queryScope = rbacutils.ScopeDomain
-			if ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
-				requireScope = rbacutils.ScopeDomain
-			} else {
-				requireScope = rbacutils.ScopeSystem
-			}
-		} else {
-			return nil, queryScope, httperrors.NewInputParameterError("query scope out of resource scope")
-		}
-	} else {
-		ownerId, err = FetchUserInfo(ctx, data)
-		if err != nil {
-			return nil, queryScope, err
-		}
-		if ownerId != nil {
-			if resScope == rbacutils.ScopeUser {
-				queryScope = rbacutils.ScopeUser
-				if ownerId.GetUserId() == userCred.GetUserId() {
-					requireScope = rbacutils.ScopeUser
+		switch resScope {
+		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
+			if len(ownerId.GetProjectId()) > 0 {
+				queryScope = rbacutils.ScopeProject
+				if ownerId.GetProjectId() == userCred.GetProjectId() {
+					requireScope = rbacutils.ScopeProject
+				} else if ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+					requireScope = rbacutils.ScopeDomain
 				} else {
 					requireScope = rbacutils.ScopeSystem
 				}
-			} else {
-				return nil, queryScope, httperrors.NewInputParameterError("query scope out of resource scope")
-			}
-		} else {
-			ownerId, err = FetchDomainInfo(ctx, data)
-			if err != nil {
-				return nil, queryScope, err
-			}
-			if ownerId != nil {
-				if resScope == rbacutils.ScopeDomain {
-					queryScope = rbacutils.ScopeDomain
-					if ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
-						requireScope = rbacutils.ScopeDomain
-					} else {
-						requireScope = rbacutils.ScopeSystem
-					}
+			} else if len(ownerId.GetProjectDomainId()) > 0 {
+				queryScope = rbacutils.ScopeDomain
+				if ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+					requireScope = rbacutils.ScopeDomain
 				} else {
-					return nil, queryScope, httperrors.NewInputParameterError("query scope out of resource scope")
+					requireScope = rbacutils.ScopeSystem
 				}
+			}
+		case rbacutils.ScopeUser:
+			queryScope = rbacutils.ScopeUser
+			if ownerId.GetUserId() == userCred.GetUserId() {
+				requireScope = rbacutils.ScopeUser
+			} else {
+				requireScope = rbacutils.ScopeSystem
 			}
 		}
 	}
+
 	if ownerId == nil {
 		ownerId = userCred
 		reqScopeStr, _ := data.GetString("scope")
@@ -391,7 +374,7 @@ func FetchQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCredential
 		requireScope = queryScope
 	}
 	if requireScope.HigherThan(allowScope) {
-		return nil, scope, httperrors.NewForbiddenError("not enough privilleges")
+		return nil, scope, httperrors.NewForbiddenError(fmt.Sprintf("not enough privilleges(require:%s,allow:%s:query:%s)", requireScope, allowScope, queryScope))
 	}
 	return ownerId, queryScope, nil
 }

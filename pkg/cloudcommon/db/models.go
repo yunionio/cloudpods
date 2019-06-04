@@ -35,11 +35,11 @@ func RegisterModelManager(modelMan IModelManager) {
 
 func mustCheckModelManager(modelMan IModelManager) {
 	allowedTags := map[string][]string{
-		"create": {"required", "optional", "admin_required", "admin_optional"},
-		"search": {"user", "admin"},
-		"get":    {"user", "admin"},
-		"list":   {"user", "admin"},
-		"update": {"user", "admin"},
+		"create": {"required", "optional", "domain_required", "domain_optional", "admin_required", "admin_optional"},
+		"search": {"user", "domain", "admin"},
+		"get":    {"user", "domain", "admin"},
+		"list":   {"user", "domain", "admin"},
+		"update": {"user", "domain", "admin"},
 	}
 	for _, col := range modelMan.TableSpec().Columns() {
 		tags := col.Tags()
