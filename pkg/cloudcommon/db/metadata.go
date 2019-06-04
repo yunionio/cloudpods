@@ -163,10 +163,7 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 			field := sqlchemy.CONCAT(manager.Keyword(), prefix, resourceView.Field("id"))
 			sq := resourceView.Query(field)
 			if !admin || !IsAllowList(rbacutils.ScopeSystem, userCred, manager) {
-				ownerId := manager.GetOwnerId(userCred)
-				if ownerId != nil {
-					sq = manager.FilterByOwner(sq, ownerId)
-				}
+				sq = manager.FilterByOwner(sq, userCred, manager.ResourceScope())
 			}
 			conditions = append(conditions, sqlchemy.In(q.Field("id"), sq))
 		} else {

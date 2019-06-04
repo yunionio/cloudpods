@@ -98,7 +98,7 @@ func (man *SLoadbalancerManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	if err != nil {
 		return nil, err
 	}
-	ownerId := man.GetOwnerId(userCred)
+	ownerId := userCred
 	data := query.(*jsonutils.JSONDict)
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "network", ModelKeyword: "network", OwnerId: ownerId},

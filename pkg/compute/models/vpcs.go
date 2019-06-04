@@ -357,7 +357,7 @@ func (manager *SVpcManager) newFromCloudVpc(ctx context.Context, userCred mcclie
 	vpc := SVpc{}
 	vpc.SetModelManager(manager, &vpc)
 
-	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extVPC.GetName())
+	newName, err := db.GenerateName(manager, userCred, extVPC.GetName())
 	if err != nil {
 		return nil, err
 	}

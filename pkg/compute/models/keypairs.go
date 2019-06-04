@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
@@ -182,7 +183,7 @@ func (manager *SKeypairManager) ValidateCreateData(ctx context.Context, userCred
 
 	data.Set("fingerprint", jsonutils.NewString(ssh.FingerprintLegacyMD5(pubKey)))
 	data.Set("scheme", jsonutils.NewString(scheme))
-	// data.Set("owner_id", jsonutils.NewString(userCred.GetUserId()))
+	data.Set("owner_id", jsonutils.NewString(userCred.GetUserId()))
 
 	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
@@ -203,10 +204,12 @@ func totalKeypairCount(userId string) (int, error) {
 	return q.CountWithError()
 }
 
-func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
+func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
-		if len(owner.GetUserId()) > 0 {
-			q = q.Equals("owner_id", owner.GetUserId())
+		if scope == rbacutils.ScopeUser {
+			if len(owner.GetUserId()) > 0 {
+				q = q.Equals("owner_id", owner.GetUserId())
+			}
 		}
 	}
 	return q
@@ -214,11 +217,6 @@ func (manager *SKeypairManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient
 
 func (self *SKeypair) GetOwnerId() mcclient.IIdentityProvider {
 	owner := db.SOwnerId{UserId: self.OwnerId}
-	return &owner
-}
-
-func (manager *SKeypairManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
-	owner := db.SOwnerId{User: userCred.GetUserName(), UserId: userCred.GetUserId()}
 	return &owner
 }
 
@@ -252,4 +250,16 @@ func (keypair *SKeypair) GetDetailsPrivatekey(ctx context.Context, userCred mccl
 		logclient.AddActionLogWithContext(ctx, keypair, logclient.ACT_FETCH, nil, userCred, true)
 	}
 	return retval, nil
+}
+
+func (manager *SKeypairManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
+	return db.FetchUserInfo(ctx, data)
+}
+
+func (manager *SKeypairManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeUser
+}
+
+func (manager *SKeypairManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeUser
 }

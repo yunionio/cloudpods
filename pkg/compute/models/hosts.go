@@ -1500,7 +1500,7 @@ func (manager *SHostManager) newFromCloudHost(ctx context.Context, userCred mccl
 		izone = wire.GetZone()
 	}
 
-	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extHost.GetName())
+	newName, err := db.GenerateName(manager, userCred, extHost.GetName())
 	if err != nil {
 		return nil, fmt.Errorf("generate name fail %s", err)
 	}
