@@ -26,10 +26,13 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -70,10 +73,64 @@ func (manager *SVirtualResourceBaseManager) GetIVirtualModelManager() IVirtualMo
 	return manager.GetVirtualObject().(IVirtualModelManager)
 }
 
-func (manager *SVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
-	q = manager.SProjectizedResourceBaseManager.FilterByOwner(q, owner)
-	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
-	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
+/*func (manager *SVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SProjectizedResourceBaseManager.FilterByOwner(q, owner, scope)
+	return q
+}
+*/
+
+func (manager *SVirtualResourceBaseManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SStatusStandaloneResourceBaseManager.FilterBySystemAttributes(q, userCred, query, scope)
+
+	isSystem := jsonutils.QueryBoolean(query, "system", false)
+	if isSystem {
+		var isAllow bool
+		if consts.IsRbacEnabled() {
+			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "system")
+			if !scope.HigherThan(allowScope) {
+				isAllow = true
+			}
+		} else {
+			if userCred.HasSystemAdminPrivilege() {
+				isAllow = true
+			}
+		}
+		if !isAllow {
+			isSystem = false
+		}
+	}
+	if !isSystem {
+		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
+	}
+
+	var pendingDelete string
+	if query != nil {
+		pendingDelete, _ = query.GetString("pending_delete")
+	}
+	pendingDeleteLower := strings.ToLower(pendingDelete)
+	if pendingDeleteLower == "all" || pendingDeleteLower == "any" || utils.ToBool(pendingDeleteLower) {
+		var isAllow bool
+		if consts.IsRbacEnabled() {
+			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "pending_delete")
+			if !scope.HigherThan(allowScope) {
+				isAllow = true
+			}
+		} else {
+			if userCred.HasSystemAdminPrivilege() {
+				isAllow = true
+			}
+		}
+		if !isAllow {
+			pendingDeleteLower = ""
+		}
+	}
+
+	if pendingDeleteLower == "all" || pendingDeleteLower == "any" {
+	} else if utils.ToBool(pendingDeleteLower) {
+		q = q.IsTrue("pending_deleted")
+	} else {
+		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
+	}
 	return q
 }
 
@@ -83,34 +140,6 @@ func (manager *SVirtualResourceBaseManager) FetchByName(userCred mcclient.IIdent
 
 func (manager *SVirtualResourceBaseManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
 	return FetchByIdOrName(manager, userCred, idStr)
-}
-
-func (manager *SVirtualResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
-	if err != nil {
-		return nil, err
-	}
-	// admin, _ := query.GetString("admin")
-	if jsonutils.QueryBoolean(query, "admin", false) { // admin mode
-		isSystem, err := query.Bool("system")
-		if err == nil && isSystem {
-			// no filter
-		} else {
-			q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
-		}
-		pendingDelete, _ := query.GetString("pending_delete")
-		pendingDeleteLower := strings.ToLower(pendingDelete)
-		if pendingDeleteLower == "all" || pendingDeleteLower == "any" {
-			// no filter
-		} else {
-			if utils.ToBool(pendingDelete) {
-				q = q.IsTrue("pending_deleted")
-			} else {
-				q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
-			}
-		}
-	}
-	return q, nil
 }
 
 func (manager *SVirtualResourceBaseManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -278,7 +307,8 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	}
 	manager := model.GetModelManager()
 	q := manager.Query().Equals("name", model.GetName())
-	q = manager.FilterByOwner(q, ownerId)
+	q = manager.FilterByOwner(q, ownerId, manager.NamespaceScope())
+	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 	q = q.NotEquals("id", model.GetId())
 	cnt, err := q.CountWithError()
 	if err != nil {

@@ -195,7 +195,7 @@ func (manager *SStoragecacheManager) newFromCloudStoragecache(ctx context.Contex
 	local := SStoragecache{}
 	local.SetModelManager(manager, &local)
 
-	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), cloudCache.GetName())
+	newName, err := db.GenerateName(manager, userCred, cloudCache.GetName())
 	if err != nil {
 		return nil, err
 	}

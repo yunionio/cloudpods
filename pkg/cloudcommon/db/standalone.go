@@ -26,6 +26,8 @@ import (
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -80,6 +82,31 @@ func (manager *SStandaloneResourceBaseManager) FilterByName(q *sqlchemy.SQuery, 
 	return q.Equals("name", name)
 }
 
+func (manager *SStandaloneResourceBaseManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SResourceBaseManager.FilterBySystemAttributes(q, userCred, query, scope)
+	showEmulated := jsonutils.QueryBoolean(query, "show_emulated", false)
+	if showEmulated {
+		var isAllow bool
+		if consts.IsRbacEnabled() {
+			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "show_emulated")
+			if !scope.HigherThan(allowScope) {
+				isAllow = true
+			}
+		} else {
+			if userCred.HasSystemAdminPrivilege() {
+				isAllow = true
+			}
+		}
+		if !isAllow {
+			showEmulated = false
+		}
+	}
+	if !showEmulated {
+		q = q.IsFalse("is_emulated")
+	}
+	return q
+}
+
 func (manager *SStandaloneResourceBaseManager) ValidateName(name string) error {
 	if manager.NameRequireAscii && !regutils.MatchName(name) {
 		return httperrors.NewInputParameterError("name starts with letter, and contains letter, number and ._@- only")
@@ -111,11 +138,6 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Contex
 	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return q, err
-	}
-
-	showEmulated := jsonutils.QueryBoolean(query, "show_emulated", false)
-	if !showEmulated {
-		q = q.Filter(sqlchemy.IsFalse(q.Field("is_emulated")))
 	}
 
 	tags := map[string]STagValue{}

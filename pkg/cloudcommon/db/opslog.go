@@ -451,9 +451,25 @@ func (self *SOpsLogManager) FilterByName(q *sqlchemy.SQuery, name string) *sqlch
 	return q
 }
 
-func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
+func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if ownerId != nil {
-		if len(ownerId.GetProjectId()) > 0 {
+		switch scope {
+		case rbacutils.ScopeProject:
+			if len(ownerId.GetProjectId()) > 0 {
+				q = q.Filter(sqlchemy.OR(
+					sqlchemy.Equals(q.Field("owner_tenant_id"), ownerId.GetProjectId()),
+					sqlchemy.Equals(q.Field("tenant_id"), ownerId.GetProjectId()),
+				))
+			}
+		case rbacutils.ScopeDomain:
+			if len(ownerId.GetProjectDomainId()) > 0 {
+				q = q.Filter(sqlchemy.OR(
+					sqlchemy.Equals(q.Field("owner_domain_id"), ownerId.GetProjectDomainId()),
+					sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()),
+				))
+			}
+		}
+		/* if len(ownerId.GetProjectId()) > 0 {
 			q = q.Filter(sqlchemy.OR(
 				sqlchemy.Equals(q.Field("owner_tenant_id"), ownerId.GetProjectId()),
 				sqlchemy.Equals(q.Field("tenant_id"), ownerId.GetProjectId()),
@@ -464,14 +480,9 @@ func (self *SOpsLogManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.I
 				sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()),
 			))
 		}
+		*/
 	}
 	return q
-}
-
-func (manager *SOpsLogManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
-	owner := SOwnerId{DomainId: userCred.GetProjectDomainId(), Domain: userCred.GetProjectDomain(),
-		ProjectId: userCred.GetProjectId(), Project: userCred.GetProjectName()}
-	return &owner
 }
 
 func (self *SOpsLog) GetOwnerId() mcclient.IIdentityProvider {

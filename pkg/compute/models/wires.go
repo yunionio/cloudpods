@@ -303,7 +303,7 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	wire := SWire{}
 	wire.SetModelManager(manager, &wire)
 
-	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extWire.GetName())
+	newName, err := db.GenerateName(manager, userCred, extWire.GetName())
 	if err != nil {
 		return nil, err
 	}

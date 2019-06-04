@@ -19,41 +19,18 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type GroupListOptions struct {
-		Admin  bool   `help:"admin mode"`
-		Name   string `help:"Name of the groups to filter"`
-		Domain string `help:"Domain to filter"`
-		Limit  int64  `help:"Items per page" default:"20"`
-		Offset int64  `help:"Offset"`
-		Search string `help:"search text"`
+		options.BaseListOptions
+		Name string `help:"Filter by name"`
 	}
 	R(&GroupListOptions{}, "group-list", "List groups", func(s *mcclient.ClientSession, args *GroupListOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.Name) > 0 {
-			params.Add(jsonutils.NewString(args.Name), "name")
-		}
-		if len(args.Domain) > 0 {
-			domainId, e := modules.Domains.GetId(s, args.Domain, nil)
-			if e != nil {
-				return e
-			}
-			params.Add(jsonutils.NewString(domainId), "domain_id")
-			params.Add(jsonutils.JSONTrue, "admin")
-		}
-		if args.Admin {
-			params.Add(jsonutils.JSONTrue, "admin")
-		}
-		if args.Limit > 0 {
-			params.Add(jsonutils.NewInt(args.Limit), "limit")
-		}
-		if args.Offset > 0 {
-			params.Add(jsonutils.NewInt(args.Offset), "offset")
-		}
-		if len(args.Search) > 0 {
-			params.Add(jsonutils.NewString(args.Search), "name__icontains")
+		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
 		}
 		result, err := modules.Groups.List(s, params)
 		if err != nil {

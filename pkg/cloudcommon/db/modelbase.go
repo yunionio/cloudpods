@@ -136,12 +136,12 @@ func (manager *SModelBaseManager) FilterByName(q *sqlchemy.SQuery, name string) 
 	return q
 }
 
-func (manager *SModelBaseManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
+func (manager *SModelBaseManager) FilterByOwner(q *sqlchemy.SQuery, ownerId mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	return q
 }
 
-func (manager *SModelBaseManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
-	return nil
+func (manager *SModelBaseManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	return q
 }
 
 func (manager *SModelBaseManager) FetchById(idStr string) (IModel, error) {

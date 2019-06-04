@@ -21,10 +21,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -89,6 +88,8 @@ func parseJsonPolicy(obj jsonutils.JSONObject) (string, *rbacutils.SRbacPolicy, 
 		return "", nil, errors.Wrap(err, "missing domain_id")
 	}
 
+	isPublic := jsonutils.QueryBoolean(obj, "is_public", false)
+
 	blob, err := obj.Get("policy")
 	if err != nil {
 		log.Errorf("get blob error %s", err)
@@ -103,6 +104,7 @@ func parseJsonPolicy(obj jsonutils.JSONObject) (string, *rbacutils.SRbacPolicy, 
 	}
 
 	policy.DomainId = domainId
+	policy.IsPublic = isPublic
 
 	return typeStr, &policy, nil
 }
@@ -118,6 +120,7 @@ func remotePolicyFetcher() (map[rbacutils.TRbacScope]map[string]*rbacutils.SRbac
 		params.Add(jsonutils.NewInt(2048), "limit")
 		params.Add(jsonutils.NewInt(int64(offset)), "offset")
 		params.Add(jsonutils.JSONTrue, "admin")
+		params.Add(jsonutils.JSONTrue, "enabled")
 		result, err := modules.Policies.List(s, params)
 		if err != nil {
 			return nil, errors.Wrap(err, "modules.Policies.List")

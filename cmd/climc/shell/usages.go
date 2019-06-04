@@ -26,7 +26,8 @@ type GeneralUsageOptions struct {
 	Provider []string `help:"Provider" choices:"VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|ZStack"`
 	Project  string   `help:"show usage of specified project"`
 	Domain   string   `help:"show usage of specified domain"`
-	CloudEnv string   `help:"show usage of specified cloudenv, e.g public_cloud/private_cloud/on_premise" choices:"public|private|onpremise"`
+	CloudEnv string   `help:"show usage of specified cloudenv, e.g. public_cloud/private_cloud/on_premise" choices:"public|private|onpremise"`
+	Scope    string   `help:"show usage of specified privilege scope, e.g. system/domain/project" choices:"system|domain|project"`
 }
 
 func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {
@@ -50,6 +51,9 @@ func init() {
 			params.Add(jsonutils.NewString(args.Project), "project")
 		} else if args.Domain != "" {
 			params.Add(jsonutils.NewString(args.Domain), "domain")
+		}
+		if len(args.Scope) > 0 {
+			params.Add(jsonutils.NewString(args.Scope), "scope")
 		}
 		result, err := modules.Usages.GetGeneralUsage(s, params)
 		if err != nil {

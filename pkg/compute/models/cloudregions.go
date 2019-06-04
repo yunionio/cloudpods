@@ -252,8 +252,8 @@ func (manager *SCloudregionManager) SyncRegions(
 	[]SCloudproviderregion,
 	compare.SyncResult,
 ) {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, manager.GetOwnerId(userCred)))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, manager.GetOwnerId(userCred)))
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	syncResult := compare.SyncResult{}
 	localRegions := make([]SCloudregion, 0)

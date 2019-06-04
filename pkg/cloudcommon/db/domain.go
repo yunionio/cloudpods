@@ -35,9 +35,14 @@ func (manager *SDomainizedResourceBaseManager) ResourceScope() rbacutils.TRbacSc
 	return rbacutils.ScopeDomain
 }
 
-func (manager *SDomainizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
-	if owner != nil && len(owner.GetProjectDomainId()) > 0 {
-		q = q.Equals("domain_id", owner.GetProjectDomainId())
+func (manager *SDomainizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
+		switch scope {
+		case rbacutils.ScopeDomain:
+			if len(owner.GetProjectDomainId()) > 0 {
+				q = q.Equals("domain_id", owner.GetProjectDomainId())
+			}
+		}
 	}
 	return q
 }

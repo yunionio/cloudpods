@@ -2600,12 +2600,11 @@ func (manager *SGuestManager) getGuests(userCred mcclient.TokenCredential, data 
 		return nil, httperrors.NewMissingParameterError("guests")
 	}
 	guests := []SGuest{}
-	q := manager.Query()
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.In(q.Field("id"), _guests),
-		sqlchemy.In(q.Field("name"), _guests),
-	))
-	q = manager.FilterByOwner(q, manager.GetOwnerId(userCred))
+	q1 := manager.Query().In("id", _guests)
+	q2 := manager.Query().In("name", _guests)
+	q2 = manager.FilterByOwner(q2, userCred, manager.NamespaceScope())
+	q2 = manager.FilterBySystemAttributes(q2, userCred, data, manager.ResourceScope())
+	q := sqlchemy.Union(q1, q2).Query().Distinct()
 	err := db.FetchModelObjects(manager, q, &guests)
 	if err != nil {
 		return nil, err

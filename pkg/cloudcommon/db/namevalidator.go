@@ -21,15 +21,13 @@ import (
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func isNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, name string) (bool, error) {
 	q := manager.Query()
 	q = manager.FilterByName(q, name)
-	if manager.NamespaceScope() != rbacutils.ScopeSystem {
-		q = manager.FilterByOwner(q, ownerId)
-	}
+	q = manager.FilterByOwner(q, ownerId, manager.NamespaceScope())
+	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 	cnt, err := q.CountWithError()
 	if err != nil {
 		return false, err
@@ -56,9 +54,8 @@ func isAlterNameUnique(model IModel, name string) (bool, error) {
 	manager := model.GetModelManager()
 	q := manager.Query()
 	q = manager.FilterByName(q, name)
-	if manager.NamespaceScope() != rbacutils.ScopeSystem {
-		q = manager.FilterByOwner(q, model.GetOwnerId())
-	}
+	q = manager.FilterByOwner(q, model.GetOwnerId(), manager.NamespaceScope())
+	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 	q = manager.FilterByNotId(q, model.GetId())
 	cnt, err := q.CountWithError()
 	if err != nil {

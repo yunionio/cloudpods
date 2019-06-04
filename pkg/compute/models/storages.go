@@ -724,7 +724,7 @@ func (manager *SStorageManager) newFromCloudStorage(ctx context.Context, userCre
 	storage := SStorage{}
 	storage.SetModelManager(manager, &storage)
 
-	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extStorage.GetName())
+	newName, err := db.GenerateName(manager, userCred, extStorage.GetName())
 	if err != nil {
 		return nil, err
 	}

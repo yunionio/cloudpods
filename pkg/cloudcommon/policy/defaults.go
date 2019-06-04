@@ -16,7 +16,6 @@ package policy
 
 import (
 	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
-
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
@@ -200,6 +199,33 @@ var (
 					Resource: "images",
 					Action:   PolicyActionPerform,
 					Extra:    []string{"update-torrent-status"},
+					Result:   rbacutils.Allow,
+				},
+			},
+		},
+		{
+			// for domain
+			Auth:  true,
+			Scope: rbacutils.ScopeDomain,
+			Rules: []rbacutils.SRbacRule{
+				{
+					// quotas for any services
+					// Service:  "compute",
+					Resource: "quotas",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					// usages for any services
+					// Service:  "compute",
+					Resource: "usages",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "yunionconf",
+					Resource: "parameters",
+					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
 			},

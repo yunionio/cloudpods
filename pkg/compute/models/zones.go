@@ -356,7 +356,7 @@ func (manager *SZoneManager) newFromCloudZone(ctx context.Context, userCred mccl
 	zone := SZone{}
 	zone.SetModelManager(manager, &zone)
 
-	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extZone.GetName())
+	newName, err := db.GenerateName(manager, userCred, extZone.GetName())
 	if err != nil {
 		return nil, err
 	}

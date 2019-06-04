@@ -180,31 +180,36 @@ const (
 )
 
 type BaseListOptions struct {
-	Limit            *int     `default:"20" help:"Page limit"`
-	Offset           *int     `default:"0" help:"Page offset"`
-	OrderBy          []string `help:"Name of the field to be ordered by"`
-	Order            string   `help:"List order" choices:"desc|asc"`
-	Details          *bool    `help:"Show more details" default:"false"`
-	Search           string   `help:"Filter results by a simple keyword search"`
-	Meta             *bool    `help:"Piggyback metadata information" json:"with_meta" token:"meta"`
-	Filter           []string `help:"Filters"`
-	JointFilter      []string `help:"Filters with joint table col; joint_tbl.related_key(origin_key).filter_col.filter_cond(filters)"`
-	FilterAny        *bool    `help:"If true, match if any of the filters matches; otherwise, match if all of the filters match"`
-	Admin            *bool    `help:"Is an admin call?"`
-	Tenant           string   `help:"Tenant ID or Name" alias:"project"`
-	ProjectDomain    string   `help:"Project domain filter"`
-	User             string   `help:"User ID or Name"`
-	System           *bool    `help:"Show system resource"`
-	PendingDelete    *bool    `help:"Show only pending deleted resource"`
-	PendingDeleteAll *bool    `help:"Show all resources including pending deleted" json:"-"`
-	Field            []string `help:"Show only specified fields"`
-	ShowEmulated     *bool    `help:"Show all resources including the emulated resources"`
-	ExportFile       string   `help:"Export to file" metavar:"<EXPORT_FILE_PATH>" json:"-"`
-	ExportKeys       string   `help:"Export field keys"`
-	ExportTexts      string   `help:"Export field displayname texts" json:"-"`
-	Tags             []string `help:"Tags info, eg: hypervisor=aliyun, os_type=Linux, os_version" json:"-"`
-	UserTags         []string `help:"UserTags info, eg: group=rd" json:"-"`
-	CloudTags        []string `help:"CloudTags info, eg: price_key=cn-beijing" json:"-"`
+	Limit       *int     `default:"20" help:"Page limit"`
+	Offset      *int     `default:"0" help:"Page offset"`
+	OrderBy     []string `help:"Name of the field to be ordered by"`
+	Order       string   `help:"List order" choices:"desc|asc"`
+	Details     *bool    `help:"Show more details" default:"false"`
+	Search      string   `help:"Filter results by a simple keyword search"`
+	Meta        *bool    `help:"Piggyback metadata information" json:"with_meta" token:"meta"`
+	Filter      []string `help:"Filters"`
+	JointFilter []string `help:"Filters with joint table col; joint_tbl.related_key(origin_key).filter_col.filter_cond(filters)"`
+	FilterAny   *bool    `help:"If true, match if any of the filters matches; otherwise, match if all of the filters match"`
+
+	Admin         *bool    `help:"Is an admin call?"`
+	Tenant        string   `help:"Tenant ID or Name" alias:"project"`
+	ProjectDomain string   `help:"Project domain filter"`
+	User          string   `help:"User ID or Name"`
+	Field         []string `help:"Show only specified fields"`
+	Scope         string   `help:"resource scope" choices:"system|domain|project|user"`
+
+	System           *bool `help:"Show system resource"`
+	PendingDelete    *bool `help:"Show only pending deleted resource"`
+	PendingDeleteAll *bool `help:"Show all resources including pending deleted" json:"-"`
+	ShowEmulated     *bool `help:"Show all resources including the emulated resources"`
+
+	ExportFile  string `help:"Export to file" metavar:"<EXPORT_FILE_PATH>" json:"-"`
+	ExportKeys  string `help:"Export field keys"`
+	ExportTexts string `help:"Export field displayname texts" json:"-"`
+
+	Tags      []string `help:"Tags info, eg: hypervisor=aliyun, os_type=Linux, os_version" json:"-"`
+	UserTags  []string `help:"UserTags info, eg: group=rd" json:"-"`
+	CloudTags []string `help:"CloudTags info, eg: price_key=cn-beijing" json:"-"`
 
 	Manager      string `help:"List objects belonging to the cloud provider" json:"manager,omitempty"`
 	Account      string `help:"List objects belonging to the cloud account" json:"account,omitempty"`

@@ -117,6 +117,9 @@ func (this *JSONDict) QueryString() string {
 }
 
 func QueryBoolean(query JSONObject, key string, defVal bool) bool {
+	if query == nil {
+		return defVal
+	}
 	jsonVal, _ := query.Get(key)
 	if jsonVal != nil {
 		str, _ := jsonVal.GetString()
