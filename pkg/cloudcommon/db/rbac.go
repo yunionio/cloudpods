@@ -21,10 +21,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-func getListRbacAllowedScope(manager IModelManager, userCred mcclient.TokenCredential) rbacutils.TRbacScope {
-	return policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
-}
-
 func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action string, extra ...string) bool {
 	manager := model.GetModelManager()
 	objOwnerId := model.GetOwnerId()
@@ -43,6 +39,12 @@ func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action
 		// objOwnerId should not be nil
 		if ownerId != nil && ownerId.GetProjectDomainId() == objOwnerId.GetProjectDomainId() {
 			requireScope = rbacutils.ScopeDomain
+		} else {
+			requireScope = rbacutils.ScopeSystem
+		}
+	case rbacutils.ScopeUser:
+		if ownerId != nil && ownerId.GetUserId() == objOwnerId.GetUserId() {
+			requireScope = rbacutils.ScopeUser
 		} else {
 			requireScope = rbacutils.ScopeSystem
 		}

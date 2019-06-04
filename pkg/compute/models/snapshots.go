@@ -82,7 +82,8 @@ func init() {
 func ValidateSnapshotName(hypervisor, name string, owner mcclient.IIdentityProvider) error {
 	q := SnapshotManager.Query()
 	q = SnapshotManager.FilterByName(q, name)
-	q = SnapshotManager.FilterByOwner(q, owner)
+	q = SnapshotManager.FilterByOwner(q, owner, SnapshotManager.NamespaceScope())
+	q = SnapshotManager.FilterBySystemAttributes(q, nil, nil, SnapshotManager.ResourceScope())
 	cnt, err := q.CountWithError()
 	if err != nil {
 		return err

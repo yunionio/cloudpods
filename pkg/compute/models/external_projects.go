@@ -215,7 +215,7 @@ func (manager *SExternalProjectManager) newFromCloudProject(ctx context.Context,
 	project := SExternalProject{}
 	project.SetModelManager(manager, &project)
 
-	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extProject.GetName())
+	newName, err := db.GenerateName(manager, userCred, extProject.GetName())
 	if err != nil {
 		return nil, err
 	}

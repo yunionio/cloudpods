@@ -77,7 +77,7 @@ func NewEnabledIdentityBaseResourceManager(dt interface{}, tableName string, key
 type SEnabledIdentityBaseResource struct {
 	SIdentityBaseResource
 
-	Enabled tristate.TriState `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
+	Enabled tristate.TriState `nullable:"false" default:"true" list:"user" update:"domain" create:"domain_optional"`
 }
 
 func (model *SIdentityBaseResource) GetIIdentityModelManager() IIdentityModelManager {
@@ -197,23 +197,15 @@ func (model *SIdentityBaseResource) CustomizeCreate(ctx context.Context, userCre
 	return model.SStandaloneResourceBase.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
+/*
 func (self *SIdentityBaseResource) ValidateDeleteCondition(ctx context.Context) error {
-	// domain := self.GetDomain()
-	// if self.GetIIdentityModelManager().IsDomainReadonly(domain) {
-	// 	return httperrors.NewForbiddenError("readonly domain")
-	// }
 	return self.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (self *SIdentityBaseResource) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	// if data.Contains("name") {
-	//	domain := self.GetDomain()
-	//	if self.GetIIdentityModelManager().IsDomainReadonly(domain) {
-	//		return nil, httperrors.NewForbiddenError("cannot update name in readonly domain")
-	// 	}
-	// }
 	return self.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
+*/
 
 func (self *SEnabledIdentityBaseResource) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Enabled.IsTrue() {

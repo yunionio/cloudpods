@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -29,8 +30,8 @@ import (
 type SSharableVirtualResourceBase struct {
 	SVirtualResourceBase
 
-	IsPublic    bool   `default:"false" nullable:"false" index:"true" create:"admin_optional" list:"user" update:"admin"`
-	PublicScope string `width:"16" charset:"ascii" nullable:"false" default:"system" create:"admin_optional" list:"user" update:"admin"`
+	IsPublic    bool   `default:"false" nullable:"false" create:"domain_optional" list:"user"`
+	PublicScope string `width:"16" charset:"ascii" nullable:"false" default:"system" create:"domain_optional" list:"user"`
 }
 
 type SSharableVirtualResourceBaseManager struct {
@@ -45,33 +46,36 @@ func (manager *SSharableVirtualResourceBaseManager) GetISharableVirtualModelMana
 	return manager.GetVirtualObject().(ISharableVirtualModelManager)
 }
 
-func (manager *SSharableVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
+func (manager *SSharableVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
-		if len(owner.GetProjectId()) > 0 {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.Equals(q.Field("tenant_id"), owner.GetProjectId()),
-				sqlchemy.AND(
-					sqlchemy.IsTrue(q.Field("is_public")),
-					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
-				),
-				sqlchemy.AND(
-					sqlchemy.IsTrue(q.Field("is_public")),
-					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
+		switch scope {
+		case rbacutils.ScopeProject:
+			if len(owner.GetProjectId()) > 0 {
+				q = q.Filter(sqlchemy.OR(
+					sqlchemy.Equals(q.Field("tenant_id"), owner.GetProjectId()),
+					sqlchemy.AND(
+						sqlchemy.IsTrue(q.Field("is_public")),
+						sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
+					),
+					sqlchemy.AND(
+						sqlchemy.IsTrue(q.Field("is_public")),
+						sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
+						sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
+					),
+				))
+			}
+		case rbacutils.ScopeDomain:
+			if len(owner.GetProjectDomainId()) > 0 {
+				q = q.Filter(sqlchemy.OR(
 					sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
-				),
-			))
-		} else if len(owner.GetProjectDomainId()) > 0 {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
-				sqlchemy.AND(
-					sqlchemy.IsTrue(q.Field("is_public")),
-					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
-				),
-			))
+					sqlchemy.AND(
+						sqlchemy.IsTrue(q.Field("is_public")),
+						sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
+					),
+				))
+			}
 		}
 	}
-	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
-	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
 	return q
 }
 
@@ -87,13 +91,12 @@ func (model *SSharableVirtualResourceBase) AllowPerformPublic(ctx context.Contex
 	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "public")
 }
 
-func (model *SSharableVirtualResourceBase) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "private")
-}
-
 func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "public")
+	if !scope.HigherThan(rbacutils.ScopeProject) {
+		return nil, httperrors.NewForbiddenError("not enough privilege")
+	}
 	if !model.IsPublic {
-		scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), "public")
 		diff, err := Update(model, func() error {
 			model.IsPublic = true
 			model.PublicScope = string(scope)
@@ -107,7 +110,15 @@ func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, us
 	return nil, nil
 }
 
+func (model *SSharableVirtualResourceBase) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "private")
+}
+
 func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "private")
+	if !scope.HigherThan(rbacutils.ScopeProject) {
+		return nil, httperrors.NewForbiddenError("not enough privilege")
+	}
 	if model.IsPublic {
 		diff, err := Update(model, func() error {
 			model.IsPublic = false

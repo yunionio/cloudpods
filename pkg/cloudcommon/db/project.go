@@ -38,13 +38,23 @@ func (model *SProjectizedResourceBase) GetOwnerId() mcclient.IIdentityProvider {
 	return &owner
 }
 
-func (manager *SProjectizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
+func (manager *SProjectizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
-		if len(owner.GetProjectId()) > 0 {
+		switch scope {
+		case rbacutils.ScopeProject:
+			if len(owner.GetProjectId()) > 0 {
+				q = q.Equals("tenant_id", owner.GetProjectId())
+			}
+		case rbacutils.ScopeDomain:
+			if len(owner.GetProjectDomainId()) > 0 {
+				q = q.Equals("domain_id", owner.GetProjectDomainId())
+			}
+		}
+		/*if len(owner.GetProjectId()) > 0 {
 			q = q.Equals("tenant_id", owner.GetProjectId())
 		} else if len(owner.GetProjectDomainId()) > 0 {
 			q = q.Equals("domain_id", owner.GetProjectDomainId())
-		}
+		}*/
 	}
 	return q
 }

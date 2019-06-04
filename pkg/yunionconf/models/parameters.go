@@ -169,6 +169,10 @@ func (manager *SParameterManager) NamespaceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeUser
 }
 
+func (manager *SParameterManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeUser
+}
+
 func (manager *SParameterManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	if !isAdminQuery(query) {
 		return true
@@ -212,13 +216,7 @@ func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCr
 	return data, nil
 }
 
-func (manager *SParameterManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
-	owner := db.SOwnerId{UserId: userCred.GetUserId(), User: userCred.GetUserName(),
-		UserDomainId: userCred.GetDomainId(), UserDomain: userCred.GetDomainName()}
-	return &owner
-}
-
-func (manager *SParameterManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
+func (manager *SParameterManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		if len(owner.GetUserId()) > 0 {
 			q = q.Equals("namespace_id", owner.GetUserId())

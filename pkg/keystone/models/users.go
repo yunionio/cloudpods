@@ -73,22 +73,22 @@ func init() {
 type SUser struct {
 	SEnabledIdentityBaseResource
 
-	Email  string `width:"64" charset:"ascii" nullable:"true" index:"true" list:"admin" update:"admin" create:"admin_optional"`
-	Mobile string `width:"20" charset:"ascii" nullable:"true" index:"true" list:"admin" update:"admin" create:"admin_optional"`
+	Email  string `width:"64" charset:"ascii" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
+	Mobile string `width:"20" charset:"ascii" nullable:"true" index:"true" list:"domain" update:"domain" create:"domain_optional"`
 
-	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
+	Displayname string `with:"128" charset:"utf8" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
-	LastActiveAt time.Time `nullable:"true" list:"admin"`
+	LastActiveAt time.Time `nullable:"true" list:"domain"`
 
-	LastLoginIp     string `nullable:"true" list:"admin"`
-	LastLoginSource string `nullable:"true" list:"admin"`
+	LastLoginIp     string `nullable:"true" list:"domain"`
+	LastLoginSource string `nullable:"true" list:"domain"`
 
-	IsSystemAccount tristate.TriState `nullable:"false" default:"false" list:"admin" update:"admin" create:"admin_optional"`
+	IsSystemAccount tristate.TriState `nullable:"false" default:"false" list:"domain" update:"domain" create:"domain_optional"`
 
 	DefaultProjectId string `width:"64" charset:"ascii" nullable:"true"`
 
-	AllowWebConsole tristate.TriState `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
-	EnableMfa       tristate.TriState `nullable:"false" default:"true" list:"admin" update:"admin" create:"admin_optional"`
+	AllowWebConsole tristate.TriState `nullable:"false" default:"true" list:"domain" update:"domain" create:"domain_optional"`
+	EnableMfa       tristate.TriState `nullable:"false" default:"true" list:"domain" update:"domain" create:"domain_optional"`
 }
 
 func (manager *SUserManager) GetContextManagers() [][]db.IModelManager {
@@ -110,7 +110,10 @@ func (manager *SUserManager) InitializeData() error {
 		if err != nil {
 			return errors.Wrap(err, "FetchUserExtended")
 		}
-		name := extUser.Name
+		name := extUser.LocalName
+		if len(name) == 0 {
+			name = extUser.IdpName
+		}
 		desc, _ := users[i].Extra.GetString("description")
 		email, _ := users[i].Extra.GetString("email")
 		mobile, _ := users[i].Extra.GetString("mobile")
@@ -218,6 +221,7 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 		users.Field("last_active_at"),
 		users.Field("domain_id"),
 		localUsers.Field("id", "local_id"),
+		localUsers.Field("name", "local_name"),
 		domains.Field("name", "domain_name"),
 		domains.Field("enabled", "domain_enabled"),
 		idmappings.Field("domain_id", "idp_id"),
@@ -323,13 +327,19 @@ func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 }
 
 func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	if user.IsAdminUser() {
-		return nil, httperrors.NewForbiddenError("system admin user is protected")
-	}
-	if user.IsReadOnly() {
-		return nil, httperrors.NewForbiddenError("readonly")
+	if data.Contains("name") {
+		if user.IsAdminUser() {
+			return nil, httperrors.NewForbiddenError("cannot alter sysadmin user name")
+		}
 	}
 	return user.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
+}
+
+func (user *SUser) ValidateUpdateCondition(ctx context.Context) error {
+	if user.IsReadOnly() {
+		return httperrors.NewForbiddenError("readonly")
+	}
+	return user.SEnabledIdentityBaseResource.ValidateUpdateCondition(ctx)
 }
 
 func (manager *SUserManager) fetchUserById(uid string) (*SUser, error) {

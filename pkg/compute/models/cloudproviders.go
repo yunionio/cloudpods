@@ -69,23 +69,23 @@ type SCloudprovider struct {
 
 	SSyncableBaseResource
 
-	HealthStatus string `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"admin"` // 云端服务健康状态。例如欠费、项目冻结都属于不健康状态。
+	HealthStatus string `width:"16" charset:"ascii" default:"normal" nullable:"false" list:"domain"` // 云端服务健康状态。例如欠费、项目冻结都属于不健康状态。
 	// Hostname string `width:"64" charset:"ascii" nullable:"true"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
 	// port = Column(Integer, nullable=False)
-	// Version string `width:"32" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
-	// Sysinfo jsonutils.JSONObject `get:"admin"` // Column(JSONEncodedDict, nullable=True)
+	// Version string `width:"32" charset:"ascii" nullable:"true" list:"domain"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
+	// Sysinfo jsonutils.JSONObject `get:"domain"` // Column(JSONEncodedDict, nullable=True)
 
-	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"admin" update:"admin" create:"admin_optional"`
-	Account   string `width:"128" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
-	Secret    string `width:"256" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
+	AccessUrl string `width:"64" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
+	Account   string `width:"128" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"` // Column(VARCHAR(64, charset='ascii'), nullable=False)
+	Secret    string `width:"256" charset:"ascii" nullable:"false" list:"domain" create:"domain_required"` // Column(VARCHAR(256, charset='ascii'), nullable=False)
 
 	CloudaccountId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 
-	// ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" list:"admin"`
+	// ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"true" list:"domain"`
 
-	// LastSync time.Time `get:"admin" list:"admin"` // = Column(DateTime, nullable=True)
+	// LastSync time.Time `get:"domain" list:"domain"` // = Column(DateTime, nullable=True)
 
-	Provider string `width:"64" charset:"ascii" list:"admin" create:"admin_required"`
+	Provider string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
 }
 
 func (self *SCloudproviderManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {

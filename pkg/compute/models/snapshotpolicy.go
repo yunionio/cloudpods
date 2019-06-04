@@ -23,7 +23,6 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -66,7 +65,7 @@ func init() {
 }
 
 func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	input := &compute.SSnapshotPolicyCreateInput{}
+	input := &api.SSnapshotPolicyCreateInput{}
 	err := data.Unmarshal(input)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("Unmarshal input failed %s", err)
@@ -114,7 +113,7 @@ func (self *SSnapshotPolicy) StartCreateSnapshotPolicy(ctx context.Context, user
 }
 
 func (self *SSnapshotPolicy) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	self.SetStatus(userCred, compute.SNAPSHOT_POLICY_DELETING, "")
+	self.SetStatus(userCred, api.SNAPSHOT_POLICY_DELETING, "")
 	return self.StartSnapshotPolicyDeleteTask(ctx, userCred, jsonutils.NewDict(), "")
 }
 
@@ -375,7 +374,7 @@ func (self *SSnapshotPolicy) preCheck(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject, data jsonutils.JSONObject,
 ) ([]string, error) {
-	if self.Status != compute.SNAPSHOT_POLICY_READY {
+	if self.Status != api.SNAPSHOT_POLICY_READY {
 		return nil, httperrors.NewInvalidStatusError("Snapshot policy status %s can't do apply", self.Status)
 	}
 	jsonDiskIds, err := data.Get("disks")

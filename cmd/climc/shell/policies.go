@@ -40,6 +40,7 @@ func init() {
 		Type   string `help:"filter by type"`
 		Format string `help:"policy format, default to yaml" default:"yaml" choices:"yaml|json"`
 		Admin  bool   `help:"admin mode"`
+		Scope  string `help:""`
 	}
 	R(&PolicyListOptions{}, "policy-list", "List all policies", func(s *mcclient.ClientSession, args *PolicyListOptions) error {
 		params := jsonutils.NewDict()
@@ -133,6 +134,27 @@ func init() {
 
 		printObject(result)
 
+		return nil
+	})
+
+	type PolicyPerformOptions struct {
+		ID string `help:"ID of policy to update"`
+	}
+	R(&PolicyPerformOptions{}, "policy-public", "Mark a policy public", func(s *mcclient.ClientSession, args *PolicyPerformOptions) error {
+		result, err := modules.Policies.PerformAction(s, args.ID, "public", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&PolicyPerformOptions{}, "policy-private", "Mark a policy private", func(s *mcclient.ClientSession, args *PolicyPerformOptions) error {
+		result, err := modules.Policies.PerformAction(s, args.ID, "private", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
 		return nil
 	})
 
