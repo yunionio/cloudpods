@@ -17,8 +17,8 @@ package zstack
 import (
 	"fmt"
 	"strings"
-	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -250,56 +250,54 @@ func (region *SRegion) cleanDisks(diskIds []string) {
 	}
 }
 
-func (region *SRegion) createDataDisks(name, hostId string, storages []cloudprovider.ICloudStorage, disks []cloudprovider.SDiskInfo) ([]string, error) {
+func (region *SRegion) createDataDisks(disks []cloudprovider.SDiskInfo) ([]string, error) {
 	diskIds := []string{}
 	for i := 0; i < len(disks); i++ {
-		for j := 0; j < len(storages); j++ {
-			poolName := ""
-			if storages[i].GetStorageType() == disks[i].StorageType {
-				switch disks[i].StorageType {
-				case "localstorage":
-					poolName = ""
-				case "ceph":
-					hostId = ""
-					storage := storages[j].(*SStorage)
-					poolName, _ := storage.GetDataPoolName()
-					if len(poolName) == 0 {
-						return []string{}, fmt.Errorf("failed to found data pool for ceph storage %s", storage.Name)
-					}
-				default:
-					return diskIds, fmt.Errorf("not support storageType %s", disks[i].StorageType)
-				}
-				name := fmt.Sprintf("vdisk_%s_%d", name, time.Now().UnixNano())
-				disk, err := region.CreateDisk(name, storages[j].GetId(), hostId, poolName, disks[i].SizeGB, "")
-				if err != nil {
-					return diskIds, err
-				}
-				diskIds = append(diskIds, disk.UUID)
-			}
+		storageInfo := strings.Split(disks[i].StorageExternalId, "/")
+		if len(storageInfo) == 0 {
+			return diskIds, fmt.Errorf("invalidate storage externalId: %s", disks[i].StorageExternalId)
 		}
+		storage, err := region.GetStorage(storageInfo[0])
+		if err != nil {
+			return diskIds, errors.Wrapf(err, "createDataDisks")
+		}
+
+		hostId, poolName := "", ""
+		switch storage.Type {
+		case StorageTypeCeph:
+			for _, pool := range storage.Pools {
+				if pool.Type == CephPoolTypeData {
+					poolName = pool.PoolName
+				}
+			}
+			if len(poolName) == 0 {
+				return diskIds, fmt.Errorf("failed to found ceph data pool for storage %s to createDataDisk", storage.Name)
+			}
+		case StorageTypeLocal:
+			hostId = storageInfo[1]
+		default:
+			return diskIds, fmt.Errorf("not support storageType %s", disks[i].StorageType)
+		}
+
+		disk, err := region.CreateDisk(disks[i].Name, storage.UUID, hostId, poolName, disks[i].SizeGB, "")
+		if err != nil {
+			return diskIds, err
+		}
+		diskIds = append(diskIds, disk.UUID)
 	}
 	return diskIds, nil
 }
 
 func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	storages, err := host.GetIStorages()
-	if err != nil {
-		return nil, err
-	}
-	diskIds, err := host.zone.region.createDataDisks(desc.Name, host.UUID, storages, desc.DataDisks)
+	diskIds, err := host.zone.region.createDataDisks(desc.DataDisks)
 	if err != nil {
 		defer host.zone.region.cleanDisks(diskIds)
 		return nil, err
 	}
-	rootStorageId := ""
-	for i := 0; i < len(storages); i++ {
-		if storages[i].GetStorageType() == desc.SysDisk.StorageType {
-			rootStorageId = storages[i].GetId()
-		}
+	if len(desc.SysDisk.StorageExternalId) == 0 {
+		return nil, fmt.Errorf("invalidate root disk storage externalId")
 	}
-	if len(rootStorageId) == 0 {
-		return nil, fmt.Errorf("failed to found appropriate storage for root disk")
-	}
+	rootStorageId := strings.Split(desc.SysDisk.StorageExternalId, "/")[0]
 	instance, err := host.zone.region._createVM(desc, host.UUID, rootStorageId)
 	if err != nil {
 		defer host.zone.region.cleanDisks(diskIds)

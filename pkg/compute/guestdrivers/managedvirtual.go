@@ -71,6 +71,7 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 		storage := disk.GetStorage()
 		if i == 0 {
 			config.SysDisk.Name = disk.Name
+			config.SysDisk.StorageExternalId = storage.ExternalId
 			config.SysDisk.StorageType = storage.StorageType
 			config.SysDisk.SizeGB = int(math.Ceil(float64(disk.DiskSize) / 1024))
 			cache := storage.GetStoragecache()
@@ -86,9 +87,10 @@ func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Contex
 			}
 		} else {
 			dataDisk := cloudprovider.SDiskInfo{
-				SizeGB:      disk.DiskSize / 1024,
-				StorageType: storage.StorageType,
-				Name:        disk.Name,
+				SizeGB:            disk.DiskSize / 1024,
+				StorageType:       storage.StorageType,
+				StorageExternalId: storage.ExternalId,
+				Name:              disk.Name,
 			}
 			config.DataDisks = append(config.DataDisks, dataDisk)
 		}
