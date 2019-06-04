@@ -27,9 +27,10 @@ import (
 )
 
 type SDiskInfo struct {
-	StorageType string
-	SizeGB      int
-	Name        string
+	StorageExternalId string
+	StorageType       string
+	SizeGB            int
+	Name              string
 }
 
 const (
