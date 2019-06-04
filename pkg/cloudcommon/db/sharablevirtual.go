@@ -45,33 +45,36 @@ func (manager *SSharableVirtualResourceBaseManager) GetISharableVirtualModelMana
 	return manager.GetVirtualObject().(ISharableVirtualModelManager)
 }
 
-func (manager *SSharableVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
+func (manager *SSharableVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
-		if len(owner.GetProjectId()) > 0 {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.Equals(q.Field("tenant_id"), owner.GetProjectId()),
-				sqlchemy.AND(
-					sqlchemy.IsTrue(q.Field("is_public")),
-					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
-				),
-				sqlchemy.AND(
-					sqlchemy.IsTrue(q.Field("is_public")),
-					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
+		switch scope {
+		case rbacutils.ScopeProject:
+			if len(owner.GetProjectId()) > 0 {
+				q = q.Filter(sqlchemy.OR(
+					sqlchemy.Equals(q.Field("tenant_id"), owner.GetProjectId()),
+					sqlchemy.AND(
+						sqlchemy.IsTrue(q.Field("is_public")),
+						sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
+					),
+					sqlchemy.AND(
+						sqlchemy.IsTrue(q.Field("is_public")),
+						sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
+						sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
+					),
+				))
+			}
+		case rbacutils.ScopeDomain:
+			if len(owner.GetProjectDomainId()) > 0 {
+				q = q.Filter(sqlchemy.OR(
 					sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
-				),
-			))
-		} else if len(owner.GetProjectDomainId()) > 0 {
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
-				sqlchemy.AND(
-					sqlchemy.IsTrue(q.Field("is_public")),
-					sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
-				),
-			))
+					sqlchemy.AND(
+						sqlchemy.IsTrue(q.Field("is_public")),
+						sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeSystem),
+					),
+				))
+			}
 		}
 	}
-	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("pending_deleted")), sqlchemy.IsFalse(q.Field("pending_deleted"))))
-	q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
 	return q
 }
 

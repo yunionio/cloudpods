@@ -406,10 +406,6 @@ func (manager *SSecurityGroupRuleManager) newFromCloudSecurityGroup(ctx context.
 	return secrule, nil
 }
 
-func (manager *SSecurityGroupRuleManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
-	return userCred
-}
-
 func (self *SSecurityGroupRule) GetOwnerId() mcclient.IIdentityProvider {
 	secgrp := self.GetSecGroup()
 	if secgrp != nil {

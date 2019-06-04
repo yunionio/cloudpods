@@ -48,6 +48,14 @@ type SQuotaManager struct {
 	pendingStore   IQuotaStore
 }
 
+func (manager *SQuotaManager) KeywordPlural() string {
+	return manager.keyword
+}
+
+func (manager *SQuotaManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeProject
+}
+
 func (manager *SQuotaManager) Keyword() string {
 	return manager.keyword
 }

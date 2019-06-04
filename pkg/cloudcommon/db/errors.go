@@ -14,8 +14,9 @@
 
 package db
 
-import "github.com/pkg/errors"
+import "yunion.io/x/pkg/errors"
 
 var (
-	ErrInconsistentDataType = errors.New("inconsistent data type")
+	ErrInconsistentDataType = errors.Error("inconsistent data type")
+	ErrQueryOutOfScope      = errors.Error("query scope is out of resource scope")
 )

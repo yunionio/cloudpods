@@ -110,7 +110,10 @@ func (manager *SUserManager) InitializeData() error {
 		if err != nil {
 			return errors.Wrap(err, "FetchUserExtended")
 		}
-		name := extUser.Name
+		name := extUser.LocalName
+		if len(name) == 0 {
+			name = extUser.IdpName
+		}
 		desc, _ := users[i].Extra.GetString("description")
 		email, _ := users[i].Extra.GetString("email")
 		mobile, _ := users[i].Extra.GetString("mobile")
@@ -218,6 +221,7 @@ func (manager *SUserManager) FetchUserExtended(userId, userName, domainId, domai
 		users.Field("last_active_at"),
 		users.Field("domain_id"),
 		localUsers.Field("id", "local_id"),
+		localUsers.Field("name", "local_name"),
 		domains.Field("name", "domain_name"),
 		domains.Field("enabled", "domain_enabled"),
 		idmappings.Field("domain_id", "idp_id"),

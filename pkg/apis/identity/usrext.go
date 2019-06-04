@@ -26,6 +26,7 @@ type SUserExtended struct {
 	DomainId         string
 
 	LocalId       int
+	LocalName     string
 	DomainName    string
 	DomainEnabled bool
 	IsLocal       bool

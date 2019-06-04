@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 const (
@@ -121,23 +122,23 @@ func (manager *STaskManager) PerformAction(ctx context.Context, userCred mcclien
 	return resp, nil
 }
 
-func (manager *STaskManager) GetOwnerId(userCred mcclient.IIdentityProvider) mcclient.IIdentityProvider {
-	owner := db.SOwnerId{DomainId: userCred.GetProjectDomainId(), ProjectId: userCred.GetProjectId()}
-	return &owner
-}
-
 func (self *STask) GetOwnerId() mcclient.IIdentityProvider {
 	owner := db.SOwnerId{DomainId: self.UserCred.GetProjectDomainId(), Domain: self.UserCred.GetProjectDomain(),
 		ProjectId: self.UserCred.GetProjectId(), Project: self.UserCred.GetProjectName()}
 	return &owner
 }
 
-func (manager *STaskManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider) *sqlchemy.SQuery {
+func (manager *STaskManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
-		if len(owner.GetProjectId()) > 0 {
-			q = q.Contains("user_cred", owner.GetProjectId())
-		} else if len(owner.GetProjectDomainId()) > 0 {
-			q = q.Contains("user_cred", owner.GetProjectDomainId())
+		switch scope {
+		case rbacutils.ScopeProject:
+			if len(owner.GetProjectId()) > 0 {
+				q = q.Contains("user_cred", owner.GetProjectId())
+			}
+		case rbacutils.ScopeDomain:
+			if len(owner.GetProjectDomainId()) > 0 {
+				q = q.Contains("user_cred", owner.GetProjectDomainId())
+			}
 		}
 	}
 	return q
