@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/imagetools"
 )
 
 const (
@@ -167,6 +168,10 @@ func (image *SImage) GetOsType() string {
 }
 
 func (image *SImage) GetOsDist() string {
+	osDist := imagetools.NormalizeImageInfo(image.Name, "", "", "", "").OsDistro
+	if len(osDist) > 0 {
+		return osDist
+	}
 	return "Linux"
 }
 
