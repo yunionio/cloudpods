@@ -39,6 +39,10 @@ func (self *SQcloudHostDriver) GetHostType() string {
 	return api.HOST_TYPE_QCLOUD
 }
 
+func (self *SQcloudHostDriver) GetHypervisor() string {
+	return api.HYPERVISOR_OPENSTACK
+}
+
 func (self *SQcloudHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
 	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }

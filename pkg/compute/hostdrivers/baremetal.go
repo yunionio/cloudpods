@@ -39,6 +39,10 @@ func (self *SBaremetalHostDriver) GetHostType() string {
 	return api.HOST_TYPE_BAREMETAL
 }
 
+func (self *SBaremetalHostDriver) GetHypervisor() string {
+	return api.HYPERVISOR_BAREMETAL
+}
+
 func (self *SBaremetalHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
 	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }
