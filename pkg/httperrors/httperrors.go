@@ -24,8 +24,8 @@ import (
 )
 
 func SendHTTPErrorHeader(w http.ResponseWriter, statusCode int) {
-	w.WriteHeader(statusCode)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
 }
 
 func SetHTTPRedirectLocationHeader(w http.ResponseWriter, location string) {
@@ -33,10 +33,12 @@ func SetHTTPRedirectLocationHeader(w http.ResponseWriter, location string) {
 }
 
 func HTTPError(w http.ResponseWriter, msg string, statusCode int, class string, error httputils.Error) {
-	SendHTTPErrorHeader(w, statusCode)
 	if statusCode >= 300 && statusCode <= 400 {
 		SetHTTPRedirectLocationHeader(w, msg)
 	}
+
+	// 需要在调用w.WriteHeader方法之前，设置header才能生效
+	SendHTTPErrorHeader(w, statusCode)
 
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.NewInt(int64(statusCode)), "code")
