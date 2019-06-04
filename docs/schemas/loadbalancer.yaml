@@ -1,0 +1,211 @@
+Loadbalancer:
+  type: object
+  description: Loadbalancer实例
+  properties:
+    id:
+      type: string
+      description: 实例uuid
+      readOnly: true
+    address:
+      type: string
+      description: 实例IP地址，即virtual ip
+      readOnly: true
+
+LoadbalancerListener:
+  type: object
+  description: Loadbalancer监听实例
+  properties:
+    id:
+      type: string
+      description: 实例uuid
+      readOnly: true
+    loadbalancer_id:
+      type: string
+      description: 所属的loadbalancer的uuid
+      readOnly: true
+    listener_type:
+      type: string
+      description: 监听协议类型
+      enum:
+        - tcp
+      readOnly: true
+    listener_port:
+      type: integer
+      description: 监听端口，即virtual port
+      readOnly: true
+    scheduler:
+      type: string
+      description: 调度算法
+      readOnly: true
+      
+LoadbalancerBackendGroup:
+  type: object
+  description: Loadbalancer后端服务器组实例
+  properties:
+    id:
+      type: string
+      description: 实例uuid
+      readOnly: true
+    loadbalancer_id:
+      type: string
+      description: 所属的loadbalancer的uuid
+      readOnly: true
+
+LoadbalancerBackend:
+  type: object
+  description: Loadbalancer后端实例
+  properties:
+    id:
+      type: string
+      description: 实例uuid
+      readOnly: true
+    backend_group_id:
+      type: string
+      description: 所属的loadbalancer后端服务器组uuid
+      readOnly: true
+    backend_type:
+      type: string
+      description: 后端服务器类型
+      readOnly: true
+      enum:
+        - guest
+        - host
+        - ip
+    address:
+      type: string
+      description: 后端IP地址，即real ip
+      readOnly: true
+    port:
+      type: string
+      description: 后端端口，即real port
+      readOnly: true
+    weight:
+      type: integer
+      description: 后端权重
+
+LoadbalancerListResponse:
+  type: object
+  properties:
+    loadbalancers:
+      type: array
+      items:
+        $ref: '#/Loadbalancer'
+LoadbalancerResponse:
+  type: object
+  properties:
+    loadbalancer:
+      type: object
+      $ref: '#/Loadbalancer'
+
+LoadbalancerListenerCreateRequest:
+  type: object
+  properties:
+    loadbalancerlistener:
+      type: object
+      required:
+        - loadbalancer
+        - listener_type
+        - listener_port
+        - scheduler
+      properties:
+        loadbalancer:
+          type: string
+          description: 指定loadbalaner实例uuid
+        listener_type:
+          type: string
+          enum:
+            - tcp
+          description: 指定loadbalaner监听协议
+        listener_port:
+          type: integer
+          description: 指定loadbalaner监听端口
+        scheduler:
+          type: string
+          description: 指定监听的调度算法
+          enum:
+            - rr
+            - wrr
+            - wlc
+            - sch
+            - tch
+        backend_group:
+          type: string
+          description: 指定后端服务器组uuid
+LoadbalancerListenerListResponse:
+  type: object
+  properties:
+    loadbalancerlisteners:
+      type: array
+      items:
+        $ref: '#/LoadbalancerListener'
+LoadbalancerListenerResponse:
+  type: object
+  properties:
+    loadbalancerlistener:
+      type: object
+      $ref: '#/LoadbalancerListener'
+        
+LoadbalancerBackendGroupListResponse:
+  type: object
+  properties:
+    loadbalancerbackendgroups:
+      type: array
+      items:
+        $ref: '#/LoadbalancerBackendGroup'
+LoadbalancerBackendGroupResponse:
+  type: object
+  properties:
+    loadbalancerbackendgroup:
+      type: object
+      $ref: '#/LoadbalancerBackendGroup'
+
+LoadbalancerBackendCreateRequest:
+  type: object
+  properties:
+    loadbalancerbackend:
+      type: object
+      required:
+        - backend_group
+        - backend_type
+        - backend
+        - port
+        - weight
+      properties:
+        backend_group:
+          type: string
+          description: 指定loadbalaner后端服务器组uuid
+        backend_type:
+          type: string
+          enum:
+            - guest
+            - host
+            - ip
+          description: 指定后端服务器的类型。仅管理员能够指定host, ip为后端服务器
+        backend:
+          type: string
+          description: 后端服务器的标识信息
+
+            当backend_type为guest时，该字段的值应当是服务器的uuid
+
+            当backend_type为host时，该字段的值应为宿主机的uuid
+
+            当backend_type为ip时，该字段的值应为有效的IP地址
+        port:
+          type: integer
+          description: 后端服务器的端口
+        weight:
+          type: integer
+          description: 后端服务器的权重
+LoadbalancerBackendListResponse:
+  type: object
+  properties:
+    loadbalancerbackends:
+      type: array
+      items:
+        $ref: '#/LoadbalancerBackend'
+LoadbalancerBackendResponse:
+  type: object
+  properties:
+    loadbalancerbackend:
+      type: object
+      $ref: '#/LoadbalancerBackend'

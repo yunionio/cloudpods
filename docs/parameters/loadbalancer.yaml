@@ -1,0 +1,56 @@
+loadbalancerId:
+  name: loadbalancerId
+  type: string
+  in: path
+  required: true
+loadbalancerlistenerId:
+  name: loadbalancerlistenerId
+  type: string
+  in: path
+  required: true
+loadbalancerbackendgroupId:
+  name: loadbalancerbackendgroupId
+  type: string
+  in: path
+  required: true
+  description: 后端服务器组ID
+loadbalancerbackendId:
+  name: loadbalancerbackendId
+  type: string
+  in: path
+  required: true
+
+address:
+  name: address
+  in: query
+  type: string
+  description: 指定virtual ip地址
+
+loadbalancer:
+  name: loadbalancer
+  in: query
+  type: string
+  description: 指定loadbalaner实例uuid
+listener_type:
+  name: listener_type
+  in: query
+  type: string
+  enum:
+    - tcp
+  description: 指定loadbalaner监听协议
+listener_port:
+  name: listener_port
+  in: query
+  type: integer
+  description: 指定loadbalaner监听端口
+  
+backend_group:
+  name: backend_group
+  in: query
+  type: string
+  description: 指定loadbalaner后端服务器组uuid
+port:
+  name: port
+  in: query
+  type: integer
+  description: 指定real port
