@@ -27,6 +27,7 @@ import (
 
 type IHostDriver interface {
 	GetHostType() string
+	GetHypervisor() string
 
 	CheckAndSetCacheImage(ctx context.Context, host *SHost, storagecache *SStoragecache, task taskman.ITask) error
 	RequestUncacheImage(ctx context.Context, host *SHost, storageCache *SStoragecache, task taskman.ITask) error
