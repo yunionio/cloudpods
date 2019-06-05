@@ -490,7 +490,7 @@ func (self *SOpsLog) GetOwnerId() mcclient.IIdentityProvider {
 	return &owner
 }
 
-func (self *SOpsLog) IsSharable() bool {
+func (self *SOpsLog) IsSharable(reqCred mcclient.IIdentityProvider) bool {
 	return false
 }
 

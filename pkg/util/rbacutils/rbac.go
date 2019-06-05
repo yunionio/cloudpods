@@ -204,17 +204,21 @@ func (policy *SRbacPolicy) getMatchRule(req []string) *SRbacRule {
 }
 
 func (policy *SRbacPolicy) GetMatchRule(service string, resource string, action string, extra ...string) *SRbacRule {
+	return GetMatchRule(policy.Rules, service, resource, action, extra...)
+}
+
+func GetMatchRule(rules []SRbacRule, service string, resource string, action string, extra ...string) *SRbacRule {
 	maxMatchCnt := 0
 	minWeight := 1000000
 	var matchRule *SRbacRule
-	for i := 0; i < len(policy.Rules); i += 1 {
-		match, matchCnt, weight := policy.Rules[i].match(service, resource, action, extra...)
+	for i := 0; i < len(rules); i += 1 {
+		match, matchCnt, weight := rules[i].match(service, resource, action, extra...)
 		if match && (maxMatchCnt < matchCnt ||
 			(maxMatchCnt == matchCnt && minWeight > weight) ||
-			(maxMatchCnt == matchCnt && minWeight == weight && matchRule.stricterThan(&policy.Rules[i]))) {
+			(maxMatchCnt == matchCnt && minWeight == weight && matchRule.stricterThan(&rules[i]))) {
 			maxMatchCnt = matchCnt
 			minWeight = weight
-			matchRule = &policy.Rules[i]
+			matchRule = &rules[i]
 		}
 	}
 	return matchRule
@@ -563,7 +567,7 @@ func (policy *SRbacPolicy) Match(userCred IRbacIdentity) bool {
 	if userCred == nil {
 		return false
 	}
-	if !policy.IsPublic && policy.DomainId != userCred.GetProjectDomainId() {
+	if !policy.IsPublic && len(policy.DomainId) > 0 && policy.DomainId != userCred.GetProjectDomainId() {
 		return false
 	}
 	if (len(policy.Projects) == 0 || contains(policy.Projects, userCred.GetProjectName())) && (len(policy.Roles) == 0 || intersect(policy.Roles, userCred.GetRoles())) && (len(policy.Ips) == 0 || containsIp(policy.Ips, userCred.GetLoginIp())) {

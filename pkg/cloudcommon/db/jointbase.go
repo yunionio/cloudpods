@@ -218,3 +218,11 @@ func (joint *SJointResourceBase) GetExtraDetails(ctx context.Context, userCred m
 	return JointModelExtra(joint, extra)
 }
 */
+
+func (manager *SJointResourceBaseManager) ResourceScope() rbacutils.TRbacScope {
+	return manager.GetMasterManager().ResourceScope()
+}
+
+func (manager *SJointResourceBaseManager) NamespaceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeSystem
+}

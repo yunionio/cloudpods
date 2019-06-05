@@ -16,10 +16,13 @@ package modules
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -192,10 +195,12 @@ func _register(version string, mod BaseManagerInterface) {
 	if !ok {
 		mods = make([]BaseManagerInterface, 0)
 	}
-	for _, m := range mods {
-		ensureModuleNotRegistered(m, mod)
+	for i := range mods {
+		ensureModuleNotRegistered(mods[i], mod)
 	}
-	modtable[mod.KeyString()] = append(mods, mod)
+	mods = append(mods, mod)
+	modules[version][mod.KeyString()] = mods
+	// modtable[mod.KeyString()] = append(mods, mod)
 }
 
 func _registerJointModule(version string, mod BaseManagerInterface) {
@@ -212,22 +217,23 @@ func _registerJointModule(version string, mod BaseManagerInterface) {
 		if !ok {
 			jointMods = make([]JointManager, 0)
 		}
-		for _, m := range jointMods {
-			if m == jointMod {
-				ensureModuleNotRegistered(m, jointMod)
-			}
+		for i := range jointMods {
+			// if m == jointMod {
+			ensureModuleNotRegistered(jointMods[i], jointMod)
+			//}
 		}
-		modtable[jointKey] = append(jointMods, jointMod)
+		// modtable[jointKey] = append(jointMods, jointMod)
+		jointModules[version][jointKey] = append(jointMods, jointMod)
 	}
 }
 
 func registerAllJointModules() {
 	if jointModules == nil {
 		jointModules = make(map[string]map[string][]JointManager)
-		for version, modtable := range modules {
-			for _, mods := range modtable {
-				for _, mod := range mods {
-					_registerJointModule(version, mod)
+		for version := range modules {
+			for modname := range modules[version] {
+				for i := range modules[version][modname] {
+					_registerJointModule(version, modules[version][modname][i])
 				}
 			}
 		}
@@ -246,9 +252,10 @@ func _getModule(session *mcclient.ClientSession, name string) (BaseManagerInterf
 	for _, mod := range mods {
 		url, e := session.GetServiceURL(mod.ServiceType(), mod.EndpointType())
 		if e != nil {
-			return nil, e
+			return nil, errors.Wrap(e, "session.GetServiceURL")
 		}
 		_, ver := mcclient.SplitVersionedURL(url)
+		log.Debugf("url: %s ver: %s mod.Version: %s", url, ver, mod.Version())
 		if strings.EqualFold(ver, mod.Version()) {
 			return mod, nil
 		}
@@ -304,4 +311,30 @@ func GetJointModule2(session *mcclient.ClientSession, mod1 Manager, mod2 Manager
 		}
 	}
 	return nil, fmt.Errorf("Version mismatch")
+}
+
+func GetRegisterdModules() (map[string][]string, map[string][]string) {
+	registerAllJointModules()
+
+	ret := make(map[string][]string)
+	for k, v := range modules {
+		ret[k] = make([]string, 0)
+		for m := range v {
+			ret[k] = append(ret[k], m)
+		}
+	}
+	for k := range ret {
+		sort.Strings(ret[k])
+	}
+	ret2 := make(map[string][]string)
+	for k, v := range jointModules {
+		ret2[k] = make([]string, 0)
+		for m := range v {
+			ret2[k] = append(ret2[k], m)
+		}
+	}
+	for k := range ret2 {
+		sort.Strings(ret2[k])
+	}
+	return ret, ret2
 }

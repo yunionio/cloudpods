@@ -19,36 +19,17 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type ProjectListOptions struct {
-		Admin  bool   `help:"admin mode"`
-		Domain string `help:"Domain ID or Name"`
-		Search string `help:"Search project name"`
-		Limit  int64  `help:"Items per page" default:"20"`
-		Offset int64  `help:"Offset"`
+		options.BaseListOptions
 	}
 	R(&ProjectListOptions{}, "project-list", "List projects", func(s *mcclient.ClientSession, args *ProjectListOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.Domain) > 0 {
-			domainId, err := modules.Domains.GetId(s, args.Domain, nil)
-			if err != nil {
-				return err
-			}
-			params.Add(jsonutils.NewString(domainId), "domain_id")
-		}
-		if args.Admin {
-			params.Add(jsonutils.JSONTrue, "admin")
-		}
-		if len(args.Search) > 0 {
-			params.Add(jsonutils.NewString(args.Search), "name__icontains")
-		}
-		if args.Limit > 0 {
-			params.Add(jsonutils.NewInt(args.Limit), "limit")
-		}
-		if args.Offset > 0 {
-			params.Add(jsonutils.NewInt(args.Offset), "offset")
+		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
 		}
 		result, err := modules.Projects.List(s, params)
 		if err != nil {

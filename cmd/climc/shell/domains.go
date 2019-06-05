@@ -19,24 +19,17 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type DomainListOptions struct {
-		Search string `help:"search domain name"`
-		Limit  int64  `help:"Items per page" default:"20"`
-		Offset int64  `help:"Offset"`
+		options.BaseListOptions
 	}
 	R(&DomainListOptions{}, "domain-list", "List domains", func(s *mcclient.ClientSession, args *DomainListOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.Search) > 0 {
-			params.Add(jsonutils.NewString(args.Search), "name__icontains")
-		}
-		if args.Limit > 0 {
-			params.Add(jsonutils.NewInt(args.Limit), "limit")
-		}
-		if args.Offset > 0 {
-			params.Add(jsonutils.NewInt(args.Offset), "offset")
+		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
 		}
 		result, err := modules.Domains.List(s, params)
 		if err != nil {

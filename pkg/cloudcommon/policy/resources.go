@@ -41,24 +41,30 @@ var (
 	computeDomainResources = []string{
 		"cloudaccounts",
 	}
+	computeUserResources = []string{
+		"keypairs",
+	}
 
 	notifySystemResources = []string{
 		"configs",
 		"contacts",
 	}
 	notifyDomainResources = []string{}
+	notifyUserResources   = []string{}
 
 	meterSystemResources = []string{
 		"rates",
 		"res_results",
 	}
 	meterDomainResources = []string{}
+	meterUserResources   = []string{}
 
 	k8sSystemResources = []string{
 		"kube_clusters",
 		"kube_nodes",
 	}
 	k8sDomainResources = []string{}
+	k8sUserResources   = []string{}
 
 	yunionagentSystemResources = []string{
 		"notices",
@@ -66,12 +72,17 @@ var (
 		"infos",
 	}
 	yunionagentDomainResources = []string{}
+	yunionagentUserResources   = []string{}
 
 	yunionconfSystemResources = []string{}
 	yunionconfDomainResources = []string{}
+	yunionconfUserResources   = []string{
+		"parameters",
+	}
 
 	logSystemResources = []string{}
 	logDomainResources = []string{}
+	logUserResources   = []string{}
 
 	identitySystemResources = []string{
 		"identity_providers",
@@ -79,7 +90,6 @@ var (
 		"services",
 		"endpoints",
 	}
-
 	identityDomainResources = []string{
 		"users",
 		"groups",
@@ -87,11 +97,13 @@ var (
 		"roles",
 		"policies",
 	}
+	identityUserResources = []string{}
 
 	itsmSystemResources = []string{
 		"process-definitions",
 	}
 	itsmDomainResources = []string{}
+	itsmUserResources   = []string{}
 
 	systemResources = map[string][]string{
 		"compute":     computeSystemResources,
@@ -116,6 +128,18 @@ var (
 		"identity":    identityDomainResources,
 		"itsm":        itsmDomainResources,
 	}
+
+	userResources = map[string][]string{
+		"compute":     computeUserResources,
+		"notify":      notifyUserResources,
+		"meter":       meterUserResources,
+		"k8s":         k8sUserResources,
+		"yunionagent": yunionagentUserResources,
+		"yunionconf":  yunionconfUserResources,
+		"log":         logUserResources,
+		"identity":    identityUserResources,
+		"itsm":        itsmUserResources,
+	}
 )
 
 func GetSystemResources() map[string][]string {
@@ -123,10 +147,11 @@ func GetSystemResources() map[string][]string {
 }
 
 func GetResources() map[string]map[string][]string {
-	ret := make(map[string]map[string][]string)
-	ret["system"] = systemResources
-	ret["domain"] = domainResources
-	return ret
+	return map[string]map[string][]string{
+		"system": systemResources,
+		"domain": domainResources,
+		"user":   userResources,
+	}
 }
 
 func isSystemResource(service string, resource string) bool {
@@ -149,11 +174,24 @@ func isDomainResource(service string, resource string) bool {
 	return false
 }
 
+func isUserResource(service string, resource string) bool {
+	resList, ok := userResources[service]
+	if ok {
+		if utils.IsInStringArray(resource, resList) {
+			return true
+		}
+	}
+	return false
+}
+
 func isProjectResource(service string, resource string) bool {
 	if isSystemResource(service, resource) {
 		return false
 	}
 	if isDomainResource(service, resource) {
+		return false
+	}
+	if isUserResource(service, resource) {
 		return false
 	}
 	return true

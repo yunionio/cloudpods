@@ -584,7 +584,21 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 		newCloudprovider.HealthStatus = self.HealthStatus
 		newCloudprovider.Name = newName
 		if !self.AutoCreateProject {
-			newCloudprovider.ProjectId = auth.AdminCredential().GetProjectId()
+			ownerId := self.GetOwnerId()
+			if ownerId == nil || ownerId.GetProjectDomainId() == userCred.GetProjectDomainId() {
+				ownerId = userCred
+			} else {
+				// find default project of domain
+				t, err := db.TenantCacheManager.FindFirstProjectOfDomain(ownerId.GetProjectDomainId())
+				if err != nil {
+					log.Fatalf("cannot find a valid porject for domain %s", ownerId.GetProjectDomainId())
+				}
+				ownerId = &db.SOwnerId{
+					DomainId:  t.DomainId,
+					ProjectId: t.Id,
+				}
+			}
+			newCloudprovider.ProjectId = ownerId.GetProjectId()
 		}
 
 		newCloudprovider.SetModelManager(CloudproviderManager, &newCloudprovider)
