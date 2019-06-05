@@ -56,6 +56,7 @@ type SWriteFile struct {
 type SUser struct {
 	Name              string
 	Passwd            string
+	HashedPasswd      string
 	LockPasswd        string
 	SshAuthorizedKeys []string
 	Sudo              string
@@ -161,6 +162,7 @@ func (u *SUser) Password(passwd string) *SUser {
 			log.Errorf("GeneratePassword error %s", err)
 		} else {
 			u.Passwd = hash
+			u.HashedPasswd = hash
 		}
 		u.LockPasswd = "false"
 	}
@@ -281,6 +283,7 @@ func (conf *SCloudConfig) MergeUser(u SUser) {
 			// replace conf user password with input
 			if len(u.Passwd) > 0 {
 				conf.Users[i].Passwd = u.Passwd
+				conf.Users[i].HashedPasswd = u.HashedPasswd
 				conf.Users[i].LockPasswd = u.LockPasswd
 			}
 
