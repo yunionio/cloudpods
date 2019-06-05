@@ -137,6 +137,9 @@ func (disk *SDisk) GetId() string {
 }
 
 func (disk *SDisk) Delete(ctx context.Context) error {
+	if disk.Status == "Deleted" {
+		return disk.region.ExpungeDisk(disk.UUID)
+	}
 	return disk.region.DeleteDisk(disk.UUID)
 }
 
@@ -175,6 +178,8 @@ func (disk *SDisk) GetStatus() string {
 		return api.DISK_INIT
 	case "Creating":
 		return api.DISK_ALLOCATING
+	case "Deleted":
+		return api.DISK_DEALLOC
 	default:
 		log.Errorf("Unknown disk %s(%s) status %s", disk.Name, disk.UUID, disk.Status)
 		return api.DISK_UNKNOWN
@@ -272,16 +277,20 @@ func (region *SRegion) CreateDisk(name string, storageId string, hostId string, 
 	return disk, resp.Unmarshal(disk, "inventory")
 }
 
+func (region *SRegion) ExpungeDisk(diskId string) error {
+	params := map[string]interface{}{
+		"expungeDataVolume": jsonutils.NewDict(),
+	}
+	_, err := region.client.put("volumes", diskId, jsonutils.Marshal(params))
+	return err
+}
+
 func (region *SRegion) DeleteDisk(diskId string) error {
 	err := region.client.delete("volumes", diskId, "Enforcing")
 	if err != nil {
 		return err
 	}
-	params := map[string]interface{}{
-		"expungeDataVolume": jsonutils.NewDict(),
-	}
-	_, err = region.client.put("volumes", diskId, jsonutils.Marshal(params))
-	return err
+	return region.ExpungeDisk(diskId)
 }
 
 func (region *SRegion) ResizeDisk(diskId string, sizeMb int64) error {

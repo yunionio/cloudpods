@@ -34,7 +34,7 @@ import (
 )
 
 type SBackupStorageRef struct {
-	NackupStorageUUID string    `json:"backupStorageUuid"`
+	BackupStorageUUID string    `json:"backupStorageUuid"`
 	CreateDate        time.Time `json:"createDate"`
 	ImageUUID         string    `json:"ImageUuid"`
 	InstallPath       string    `json:"installPath"`
@@ -86,11 +86,23 @@ func (image *SImage) IsEmulated() bool {
 }
 
 func (image *SImage) Delete(ctx context.Context) error {
-	return cloudprovider.ErrNotImplemented
+	return image.storageCache.region.DeleteImage(image.UUID)
 }
 
 func (image *SImage) GetGlobalId() string {
 	return image.UUID
+}
+
+func (region *SRegion) DeleteImage(imageId string) error {
+	err := region.client.delete("images", imageId, "")
+	if err != nil {
+		return err
+	}
+	params := map[string]interface{}{
+		"expungeImage": jsonutils.NewDict(),
+	}
+	_, err = region.client.put("images", imageId, jsonutils.Marshal(params))
+	return err
 }
 
 func (image *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
@@ -103,6 +115,8 @@ func (image *SImage) GetStatus() string {
 		return api.CACHED_IMAGE_STATUS_READY
 	case "Downloading":
 		return api.CACHED_IMAGE_STATUS_CACHING
+	case "Deleted":
+		return api.CACHED_IMAGE_STATUS_DELETING
 	default:
 		log.Errorf("Unknown image status: %s", image.Status)
 		return api.CACHED_IMAGE_STATUS_CACHE_FAILED
@@ -113,6 +127,8 @@ func (image *SImage) GetImageStatus() string {
 	switch image.Status {
 	case "Ready":
 		return cloudprovider.IMAGE_STATUS_ACTIVE
+	case "Deleted":
+		return cloudprovider.IMAGE_STATUS_DELETED
 	default:
 		return cloudprovider.IMAGE_STATUS_KILLED
 	}
