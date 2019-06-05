@@ -55,7 +55,7 @@ func DetectStorageInfo(term *ssh.Client, wait bool) ([]*baremetal.BaremetalStora
 	raidDrivers := []string{}
 	for _, drv := range drivers.GetDrivers(term) {
 		if err := drv.ParsePhyDevs(); err != nil {
-			log.V(2).Warningf("ParsePhyDevs: %v", err)
+			log.Warningf("Raid driver %s ParsePhyDevs: %v", drv.GetName(), err)
 			continue
 		}
 		raidDiskInfo = append(raidDiskInfo, GetRaidDevices(drv)...)
