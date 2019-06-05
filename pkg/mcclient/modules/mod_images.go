@@ -455,13 +455,6 @@ func (this *ImageManager) _create(s *mcclient.ClientSession, params jsonutils.JS
 	path := fmt.Sprintf("/%s", this.URLPath())
 	method := httputils.POST
 	if len(imageId) == 0 {
-		osType, err := params.GetString("properties", "os_type")
-		if err != nil {
-			return nil, httperrors.NewMissingParameterError("os_type")
-		}
-		if !utils.IsInStringArray(strings.ToLower(osType), []string{"windows", "linux", "freebsd", "android", "macos", "vmware"}) {
-			return nil, fmt.Errorf("OS type must be specified")
-		}
 		name, _ := params.GetString("name")
 		if len(name) == 0 {
 			return nil, httperrors.NewMissingParameterError("name")
