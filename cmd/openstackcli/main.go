@@ -34,8 +34,8 @@ type BaseOptions struct {
 	Password      string `help:"Password" default:"$OPENSTACK_PASSWORD"`
 	Project       string `help:"Project" default:"$OPENSTACK_PROJECT"`
 	EndpointType  string `help:"Project" default:"$OPENSTACK_ENDPOINT_TYPE|internal"`
-	DomainName    string `help:"Domain of user" default:"$OPENSTACK_DOMAIN_NAME"`
-	ProjectDomain string `help:"Domain of project" default:"$OPENSTACK_PROJECT_DOMAIN"`
+	DomainName    string `help:"Domain of user" default:"$OPENSTACK_DOMAIN_NAME|Default"`
+	ProjectDomain string `help:"Domain of project" default:"$OPENSTACK_PROJECT_DOMAIN|Default"`
 	RegionID      string `help:"RegionId" default:"$OPENSTACK_REGION_ID"`
 	SUBCOMMAND    string `help:"openstackcli subcommand" subcommand:"true"`
 }
