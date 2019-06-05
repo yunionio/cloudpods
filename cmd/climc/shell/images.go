@@ -316,9 +316,6 @@ func init() {
 		// if len(args.Format) == 0 {
 		// 	return fmt.Errorf("Please specify image format")
 		//}
-		if len(args.OsType) == 0 {
-			return fmt.Errorf("Please specify OS type")
-		}
 		err := addImageOptionalOptions(s, params, args.ImageOptionalOptions)
 		if err != nil {
 			return err
