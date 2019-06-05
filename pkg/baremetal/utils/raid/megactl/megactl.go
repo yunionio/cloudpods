@@ -693,15 +693,8 @@ func (raid *MegaRaid) parsePhyDevs(lines []string) error {
 	phyDev := NewMegaRaidPhyDev()
 	var adapter *MegaRaidAdaptor
 	for _, line := range lines {
-		matches := adapterPatter.FindStringSubmatch(line)
-		if len(matches) != 0 {
-			paramsMap := make(map[string]string)
-			for i, name := range sizePattern.SubexpNames() {
-				if i > 0 && i <= len(matches) {
-					paramsMap[name] = matches[i]
-				}
-			}
-			adapterStr := paramsMap["idx"]
+		adapterStr := regutils2.GetParams(adapterPatter, line)["idx"]
+		if adapterStr != "" {
 			adapterInt, _ := strconv.Atoi(adapterStr)
 			adapter = NewMegaRaidAdaptor(adapterInt, raid)
 			raid.adapters = append(raid.adapters, adapter)
@@ -715,24 +708,29 @@ func (raid *MegaRaid) parsePhyDevs(lines []string) error {
 			phyDev = NewMegaRaidPhyDev()
 		}
 	}
-	for _, dev := range adapter.devs {
-		if err := raid.addPhyDevStripSize(dev); err != nil {
-			return fmt.Errorf("addPhyDevStripSize: %v", err)
+	for _, adapter := range raid.adapters {
+		if err := adapter.addPhyDevsStripSize(); err != nil {
+			log.Errorf("Adapter %d fill phsical devices strip size: %v", adapter.GetIndex(), err)
 		}
 	}
 	return nil
 }
 
-func (raid *MegaRaid) addPhyDevStripSize(phyDev *MegaRaidPhyDev) error {
+func (adapter *MegaRaidAdaptor) addPhyDevsStripSize() error {
 	grepCmd := []string{"grep", "-iE", "'^(Min|Max) Strip Size'"}
-	args := []string{"-adpallinfo", "-aall", "|"}
+	args := []string{"-adpallinfo", fmt.Sprintf("-a%d", adapter.index), "|"}
 	args = append(args, grepCmd...)
 	cmd := GetCommand(args...)
-	ret, err := raid.term.Run(cmd)
+	ret, err := adapter.remoteRun(cmd)
 	if err != nil {
 		return fmt.Errorf("addPhyDevStripSize error: %v", err)
 	}
-	return phyDev.parseStripSize(ret)
+	for _, dev := range adapter.devs {
+		if err := dev.parseStripSize(ret); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 /*func (raid *MegaRaid) GetPhyDevs() []*MegaRaidPhyDev {
