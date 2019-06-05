@@ -112,9 +112,9 @@ func (self *SOpenStackProviderFactory) GetProvider(providerId, providerName, url
 	if len(accountInfo) < 2 {
 		return nil, fmt.Errorf("Missing username or project name %s", account)
 	}
-	project, username, endpointType, domainName, projectDomainName := accountInfo[0], accountInfo[1], "internal", "", ""
+	project, username, endpointType, domainName, projectDomainName := accountInfo[0], accountInfo[1], "internal", "Default", "Default"
 	if len(accountInfo) == 3 {
-		domainName = accountInfo[2]
+		domainName, projectDomainName = accountInfo[2], accountInfo[2]
 	}
 	client, err := openstack.NewOpenStackClient(providerId, providerName, url, username, password, project, endpointType, domainName, projectDomainName, false)
 	if err != nil {
