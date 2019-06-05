@@ -106,7 +106,8 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	if candidate.BackupCandidate != nil {
 		backupCandidateDisks = candidate.BackupCandidate.Disks
 	}
-	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, input.Disks, &pendingUsage, true, true, candidate.Disks, backupCandidateDisks)
+	// 纳管的云需要有关联关系后,在做deploy时才有磁盘的信息
+	err = guest.CreateDisksOnHost(ctx, self.UserCred, host, input.Disks, &pendingUsage, true, true, candidate.Disks, backupCandidateDisks, true)
 	self.SetPendingUsage(&pendingUsage)
 
 	if err != nil {

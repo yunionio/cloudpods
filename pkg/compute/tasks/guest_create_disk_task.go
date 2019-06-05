@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -115,6 +116,11 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 			diskReady = false
 			break
 		}
+		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint)
+		if err != nil {
+			self.SetStageFailed(ctx, err.Error())
+			return
+		}
 	}
 	if diskReady {
 		guest := obj.(*models.SGuest)
@@ -142,6 +148,22 @@ func (self *SGuestCreateDiskBaseTask) GetInputDisks() ([]api.DiskConfig, error) 
 	disks := make([]api.DiskConfig, 0)
 	err := self.GetParams().Unmarshal(&disks, "disks")
 	return disks, err
+}
+
+func (self *SGuestCreateDiskBaseTask) attachDisk(ctx context.Context, disk *models.SDisk, driver, cache, mountpoint string) error {
+	guest := self.getGuest()
+	attached, err := guest.IsAttach2Disk(disk)
+	if err != nil {
+		return errors.Wrapf(err, "IsAttach2Disk")
+	}
+	if attached {
+		return nil
+	}
+	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint)
+	if err != nil {
+		return errors.Wrapf(err, "AttachDisk")
+	}
+	return nil
 }
 
 type ManagedGuestCreateDiskTask struct {
@@ -203,7 +225,13 @@ func (self *ManagedGuestCreateDiskTask) OnManagedDiskPrepared(ctx context.Contex
 		err = iVM.AttachDisk(ctx, disk.GetExternalId())
 		if err != nil {
 			log.Debugf("Attach Disk %s to guest fail: %s", diskId, err)
-			self.SetStageFailed(ctx, "Attach Disk to guest fail")
+			self.SetStageFailed(ctx, fmt.Sprintf("Attach iDisk to guest fail error: %v", err))
+			return
+		}
+		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint)
+		if err != nil {
+			log.Debugf("Attach Disk %s to guest fail: %s", diskId, err)
+			self.SetStageFailed(ctx, fmt.Sprintf("Attach Disk to guest fail error: %v", err))
 			return
 		}
 		time.Sleep(time.Second * 5)
@@ -237,33 +265,39 @@ func (self *ESXiGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandal
 	}
 	for _, d := range disks {
 		diskId := d.DiskId
-		guestDisk := guest.GetGuestDisk(diskId)
-		if guestDisk == nil {
-			self.SetStageFailed(ctx, "fail to find guestdisk")
+		iDisk, err := models.DiskManager.FetchById(diskId)
+		if err != nil {
+			self.SetStageFailed(ctx, err.Error())
 			return
 		}
-		disk := guestDisk.GetDisk()
-		if disk == nil {
-			self.SetStageFailed(ctx, fmt.Sprintf("Disk %s not found", diskId))
-			return
-		}
+		disk := iDisk.(*models.SDisk)
 		if disk.Status != api.DISK_INIT {
 			self.SetStageFailed(ctx, fmt.Sprintf("Disk %s already created??", diskId))
 			return
 		}
 		ivm, err := guest.GetIVM()
 		if err != nil {
-			self.SetStageFailed(ctx, fmt.Sprintf("fail to find iVM for %s", guest.GetName()))
+			self.SetStageFailed(ctx, fmt.Sprintf("fail to find iVM for %s, error: %v", guest.GetName(), err))
 			return
 		}
-		err = ivm.CreateDisk(ctx, disk.DiskSize, disk.Id, guestDisk.Driver)
+		if len(d.Driver) == 0 {
+			osProf := guest.GetOSProfile()
+			d.Driver = osProf.DiskDriver
+		}
+		err = ivm.CreateDisk(ctx, disk.DiskSize, disk.Id, d.Driver)
 		if err != nil {
-			self.SetStageFailed(ctx, fmt.Sprintf("ivm.CreateDisk fail %s", guest.GetName()))
+			self.SetStageFailed(ctx, fmt.Sprintf("ivm.CreateDisk fail %s, error: %v", guest.GetName(), err))
 			return
 		}
 		idisks, err := ivm.GetIDisks()
 		if err != nil {
 			self.SetStageFailed(ctx, fmt.Sprintf("ivm.GetIDisks fail %s", err))
+			return
+		}
+
+		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint)
+		if err != nil {
+			self.SetStageFailed(ctx, fmt.Sprintf("self.attachDisk fail %v", err))
 			return
 		}
 
