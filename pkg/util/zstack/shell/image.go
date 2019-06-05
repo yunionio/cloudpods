@@ -59,4 +59,12 @@ func init() {
 		return nil
 	})
 
+	type ImageIdOptions struct {
+		ID string
+	}
+
+	shellutils.R(&ImageIdOptions{}, "image-delete", "Delete image", func(cli *zstack.SRegion, args *ImageIdOptions) error {
+		return cli.DeleteImage(args.ID)
+	})
+
 }
