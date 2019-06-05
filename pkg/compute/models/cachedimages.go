@@ -646,6 +646,7 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
 	}
+	*/
 
 	regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
 	if len(regionStr) > 0 {
@@ -695,7 +696,7 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		subq = subq.Filter(sqlchemy.Equals(storages.Field("zone_id"), zoneObj.GetId())).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
-	}*/
+	}
 
 	return q, nil
 }
