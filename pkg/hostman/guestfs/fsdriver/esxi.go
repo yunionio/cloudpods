@@ -16,9 +16,9 @@ package fsdriver
 
 import (
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SEsxiRootFs struct {
@@ -56,7 +56,7 @@ func (m *SEsxiRootFs) GetOs() string {
 }
 
 func (m *SEsxiRootFs) ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string) (string, error) {
-	return seclib2.EncryptBase64(gid, "(blank)")
+	return utils.EncryptAESBase64(gid, "(blank)")
 }
 
 func (m *SEsxiRootFs) DeployHostname(part IDiskPartition, hostname, domain string) error {
