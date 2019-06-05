@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -28,7 +28,9 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -319,11 +321,32 @@ func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", subq.SubQuery())
 	}
 
-	if !(jsonutils.QueryBoolean(query, "admin", false) && jsonutils.QueryBoolean(query, "system", false)) {
-		q = q.IsFalse("is_system_account")
-	}
-
 	return q, nil
+}
+
+func (manager *SUserManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SEnabledIdentityBaseResourceManager.FilterBySystemAttributes(q, userCred, query, scope)
+	isSystem := jsonutils.QueryBoolean(query, "system", false)
+	if isSystem {
+		var isAllow bool
+		if consts.IsRbacEnabled() {
+			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList, "system")
+			if !scope.HigherThan(allowScope) {
+				isAllow = true
+			}
+		} else {
+			if userCred.HasSystemAdminPrivilege() {
+				isAllow = true
+			}
+		}
+		if !isAllow {
+			isSystem = false
+		}
+	}
+	if !isSystem {
+		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system_account")), sqlchemy.IsFalse(q.Field("is_system_account"))))
+	}
+	return q
 }
 
 func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {

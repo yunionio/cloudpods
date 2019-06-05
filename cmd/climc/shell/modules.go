@@ -12,24 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package netutils2
+package shell
 
 import (
-	"net/http"
-	"strings"
+	"fmt"
+
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
-func GetHttpRequestIp(r *http.Request) string {
-	ipStr := r.Header.Get("X-Real-Ip")
-	if len(ipStr) == 0 {
-		ipStr = r.Header.Get("X-Forwarded-For")
-		if len(ipStr) == 0 {
-			ipStr = r.RemoteAddr
-			colonPos := strings.Index(ipStr, ":")
-			if colonPos > 0 {
-				ipStr = ipStr[:colonPos]
-			}
-		}
+func init() {
+	type ModuleListOptions struct {
 	}
-	return ipStr
+	R(&ModuleListOptions{}, "module-list", "List all modules", func(s *mcclient.ClientSession, args *ModuleListOptions) error {
+		modules, jointModules := modules.GetRegisterdModules()
+		json := jsonutils.Marshal(modules)
+		fmt.Println("Modules")
+		fmt.Println(json.PrettyString())
+		json2 := jsonutils.Marshal(jointModules)
+		fmt.Println("Joint modules")
+		fmt.Println(json2.PrettyString())
+		return nil
+	})
 }

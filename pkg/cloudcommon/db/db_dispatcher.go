@@ -224,13 +224,23 @@ func applyListItemsGeneralJointFilters(manager IModelManager, q *sqlchemy.SQuery
 
 func ListItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery,
 	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	return listItemQueryFilters(manager, ctx, q, userCred, query)
+	return listItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionList)
 }
 
-func listItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery,
-	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func listItemQueryFilters(manager IModelManager,
+	ctx context.Context, q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	action string,
+) (*sqlchemy.SQuery, error) {
+	ownerId, queryScope, err := FetchQueryOwnerScope(ctx, userCred, query, manager, action) // policy.PolicyActionList)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	q = manager.FilterByOwner(q, ownerId, queryScope)
+	q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
 
-	q, err := manager.ListItemFilter(ctx, q, userCred, query)
+	q, err = manager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -416,18 +426,11 @@ func fetchContextObject(manager IModelManager, ctx context.Context, userCred mcc
 }
 
 func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, ctxIds []dispatcher.SResourceContext) (*modules.ListResult, error) {
-	ownerId, queryScope, err := FetchQueryOwnerScope(ctx, userCred, query, manager, policy.PolicyActionList)
-	if err != nil {
-		return nil, httperrors.NewGeneralError(err)
-	}
-
+	var err error
 	var maxLimit int64 = 2048
 	limit, _ := query.Int("limit")
 	offset, _ := query.Int("offset")
 	q := manager.Query()
-
-	q = manager.FilterByOwner(q, ownerId, queryScope)
-	q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
 
 	queryDict, ok := query.(*jsonutils.JSONDict)
 	if !ok {
@@ -446,7 +449,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		return nil, err
 	}
 
-	q, err = listItemQueryFilters(manager, ctx, q, userCred, queryDict)
+	q, err = listItemQueryFilters(manager, ctx, q, userCred, queryDict, policy.PolicyActionList)
 	if err != nil {
 		return nil, err
 	}
@@ -886,7 +889,7 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 			return nil, err
 		}
 		dataDict.Add(jsonutils.NewString(newName), "name")
-	} else {
+	} /*else {
 		name, _ := data.GetString("name")
 		if len(name) > 0 {
 			err = NewNameValidator(manager, ownerId, name)
@@ -894,12 +897,22 @@ func doCreateItem(manager IModelManager, ctx context.Context, userCred mcclient.
 				return nil, err
 			}
 		}
-	}
+	}*/
 
 	dataDict, err = manager.ValidateCreateData(ctx, userCred, ownerId, query, dataDict)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
+
+	// run name validation after validate create data
+	name, _ := dataDict.GetString("name")
+	if len(name) > 0 {
+		err = NewNameValidator(manager, ownerId, name)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	err = jsonutils.CheckRequiredFields(dataDict, createRequireFields(manager, userCred))
 	if err != nil {
 		return nil, httperrors.NewInputParameterError(err.Error())

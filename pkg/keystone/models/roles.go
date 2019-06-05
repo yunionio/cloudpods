@@ -27,12 +27,14 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
 type SRoleManager struct {
 	SIdentityBaseResourceManager
+	SSharableBaseResourceManager
 }
 
 var RoleManager *SRoleManager
@@ -63,6 +65,7 @@ func init() {
 
 type SRole struct {
 	SIdentityBaseResource
+	SSharableBaseResource
 }
 
 func (manager *SRoleManager) GetContextManagers() [][]db.IModelManager {
@@ -272,7 +275,7 @@ func (role *SRole) UpdateInContext(ctx context.Context, userCred mcclient.TokenC
 	if !ok {
 		return nil, httperrors.NewInputParameterError("not supported update context %s", ctxObjs[0].Keyword())
 	}
-	if project.DomainId != role.DomainId {
+	if project.DomainId != role.DomainId && !role.GetIsPublic() {
 		return nil, httperrors.NewInputParameterError("inconsistent domain for project and roles")
 	}
 	switch obj := ctxObjs[1].(type) {
@@ -341,4 +344,28 @@ func (manager *SRoleManager) FetchRole(roleId, roleName string, domainId, domain
 		return manager.FetchRoleByName(roleName, domainId, domainName)
 	}
 	return nil, fmt.Errorf("no role Id or name provided")
+}
+
+func (role *SRole) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return sharableAllowPerformPublic(role, userCred)
+}
+
+func (role *SRole) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	res, err := sharablePerformPublic(role, ctx, userCred, query, data)
+	if err == nil {
+		policy.PolicyManager.SyncOnce()
+	}
+	return res, err
+}
+
+func (role *SRole) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return sharableAllowPerformPrivate(role, userCred)
+}
+
+func (role *SRole) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	res, err := sharablePerformPrivate(role, ctx, userCred, query, data)
+	if err == nil {
+		policy.PolicyManager.SyncOnce()
+	}
+	return res, err
 }

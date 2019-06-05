@@ -19,7 +19,6 @@ import (
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -31,6 +30,7 @@ import (
 
 type SPolicyManager struct {
 	SEnabledIdentityBaseResourceManager
+	SSharableBaseResourceManager
 }
 
 var PolicyManager *SPolicyManager
@@ -60,11 +60,10 @@ func init() {
 
 type SPolicy struct {
 	SEnabledIdentityBaseResource
+	SSharableBaseResource
 
 	Type string               `width:"255" charset:"utf8" nullable:"false" list:"user" update:"domain"`
 	Blob jsonutils.JSONObject `nullable:"false" list:"user" update:"domain"`
-
-	IsPublic bool `default:"false" nullable:"false" list:"user"`
 }
 
 func (manager *SPolicyManager) InitializeData() error {
@@ -102,9 +101,7 @@ func (manager *SPolicyManager) ValidateCreateData(ctx context.Context, userCred 
 	if len(typeStr) == 0 {
 		return nil, httperrors.NewInputParameterError("missing input field type")
 	}
-	if !data.Contains("name") {
-		data.Set("name", jsonutils.NewString(typeStr))
-	}
+	data.Set("name", jsonutils.NewString(typeStr))
 	blobJson, err := data.Get("blob")
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("invalid policy data")
@@ -117,7 +114,7 @@ func (manager *SPolicyManager) ValidateCreateData(ctx context.Context, userCred 
 	if policy.IsSystemWidePolicy() && policyman.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(), manager.KeywordPlural(), policyman.PolicyActionCreate) == rbacutils.Deny {
 		return nil, httperrors.NewNotSufficientPrivilegeError("not allow to create system-wide policy")
 	}
-	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	return manager.SEnabledIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -144,92 +141,44 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 			data.Set("name", jsonutils.NewString(typeStr))
 		}
 	}
-	return policy.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	return policy.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
 }
 
 func (policy *SPolicy) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	policy.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	policy.SEnabledIdentityBaseResource.PostCreate(ctx, userCred, ownerId, query, data)
 	policyman.PolicyManager.SyncOnce()
 }
 
 func (policy *SPolicy) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	policy.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	policy.SEnabledIdentityBaseResource.PostUpdate(ctx, userCred, query, data)
 	policyman.PolicyManager.SyncOnce()
 }
 
 func (policy *SPolicy) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	policy.SStandaloneResourceBase.PostDelete(ctx, userCred)
+	policy.SEnabledIdentityBaseResource.PostDelete(ctx, userCred)
 	policyman.PolicyManager.SyncOnce()
 }
 
 func (policy *SPolicy) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, policy, "public")
+	return sharableAllowPerformPublic(policy, userCred)
 }
 
 func (policy *SPolicy) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if policy.IsPublic {
-		return nil, nil
-	}
-
-	scope := policyman.PolicyManager.AllowScope(userCred, consts.GetServiceType(), policy.GetModelManager().KeywordPlural(), policyman.PolicyActionPerform, "public")
-	if scope != rbacutils.ScopeSystem {
-		return nil, httperrors.NewForbiddenError("not enough privilege")
-	}
-
-	p := rbacutils.SRbacPolicy{}
-	err := p.Decode(policy.Blob)
-	if err != nil {
-		return nil, httperrors.NewInputParameterError("fail to decode policy data")
-	}
-	if !p.IsSystemWidePolicy() {
-		return nil, httperrors.NewInvalidStatusError("only system-wide policy (no roles and projects constraints) is sharable")
-	}
-
-	diff, err := db.Update(policy, func() error {
-		policy.IsPublic = true
-		return nil
-	})
+	res, err := sharablePerformPublic(policy, ctx, userCred, query, data)
 	if err == nil {
-		db.OpsLog.LogEvent(policy, db.ACT_UPDATE, diff, userCred)
+		policyman.PolicyManager.SyncOnce()
 	}
-	return nil, err
+	return res, err
 }
 
 func (policy *SPolicy) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, policy, "private")
+	return sharableAllowPerformPrivate(policy, userCred)
 }
 
 func (policy *SPolicy) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !policy.IsPublic {
-		return nil, nil
-	}
-
-	scope := policyman.PolicyManager.AllowScope(userCred, consts.GetServiceType(), policy.GetModelManager().KeywordPlural(), policyman.PolicyActionPerform, "private")
-	if scope != rbacutils.ScopeSystem {
-		return nil, httperrors.NewForbiddenError("not enough privilege")
-	}
-
-	diff, err := db.Update(policy, func() error {
-		policy.IsPublic = false
-		return nil
-	})
+	res, err := sharablePerformPrivate(policy, ctx, userCred, query, data)
 	if err == nil {
-		db.OpsLog.LogEvent(policy, db.ACT_UPDATE, diff, userCred)
+		policyman.PolicyManager.SyncOnce()
 	}
-	return nil, err
-}
-
-func (manager *SPolicyManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
-	if owner != nil {
-		switch scope {
-		case rbacutils.ScopeDomain:
-			if len(owner.GetProjectDomainId()) > 0 {
-				q = q.Filter(sqlchemy.OR(
-					sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
-					sqlchemy.IsTrue(q.Field("is_public")),
-				))
-			}
-		}
-	}
-	return q
+	return res, err
 }

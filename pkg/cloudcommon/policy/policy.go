@@ -163,6 +163,7 @@ func (manager *SPolicyManager) start(refreshInterval time.Duration, retryInterva
 			policiesMap[policy.Scope] = policies
 		}
 		manager.defaultPolicies = policiesMap
+		log.Debugf("%#v", manager.defaultPolicies)
 	}
 
 	manager.cache = hashcache.NewCache(2048, manager.refreshInterval/2)
@@ -241,7 +242,7 @@ func (manager *SPolicyManager) AllowScope(userCred mcclient.TokenCredential, ser
 		rbacutils.ScopeProject,
 		rbacutils.ScopeUser,
 	} {
-		result := manager.Allow(scope, userCred, service, resource, action, extra...)
+		result := manager.allow(scope, userCred, service, resource, action, extra...)
 		if result == rbacutils.Allow {
 			return scope
 		}
@@ -249,7 +250,40 @@ func (manager *SPolicyManager) AllowScope(userCred mcclient.TokenCredential, ser
 	return rbacutils.ScopeNone
 }
 
-func (manager *SPolicyManager) Allow(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
+func (manager *SPolicyManager) Allow(targetScope rbacutils.TRbacScope, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
+	var retryScopes []rbacutils.TRbacScope
+	switch targetScope {
+	case rbacutils.ScopeSystem:
+		retryScopes = []rbacutils.TRbacScope{
+			rbacutils.ScopeSystem,
+		}
+	case rbacutils.ScopeDomain:
+		retryScopes = []rbacutils.TRbacScope{
+			rbacutils.ScopeSystem,
+			rbacutils.ScopeDomain,
+		}
+	case rbacutils.ScopeProject:
+		retryScopes = []rbacutils.TRbacScope{
+			rbacutils.ScopeSystem,
+			rbacutils.ScopeDomain,
+			rbacutils.ScopeProject,
+		}
+	case rbacutils.ScopeUser:
+		retryScopes = []rbacutils.TRbacScope{
+			rbacutils.ScopeSystem,
+			rbacutils.ScopeUser,
+		}
+	}
+	for _, scope := range retryScopes {
+		result := manager.allow(scope, userCred, service, resource, action, extra...)
+		if result == rbacutils.Allow {
+			return rbacutils.Allow
+		}
+	}
+	return rbacutils.Deny
+}
+
+func (manager *SPolicyManager) allow(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
 	if manager.cache != nil && userCred != nil {
 		key := queryKey(scope, userCred, service, resource, action, extra...)
 		val := manager.cache.Get(key)
@@ -274,68 +308,85 @@ func (manager *SPolicyManager) findPolicyByName(scope rbacutils.TRbacScope, name
 }
 
 func (manager *SPolicyManager) allowWithoutCache(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential, service string, resource string, action string, extra ...string) rbacutils.TRbacResult {
-	// var policies map[string]*rbacutils.SRbacPolicy
+	matchRules := make([]rbacutils.SRbacRule, 0)
+
+	findMatchPolicy := false
+
 	policies, ok := manager.policies[scope]
 	if !ok {
 		log.Warningf("no policies fetched for scope %s", scope)
-		// return rbacutils.Deny
-	}
-	findMatchRule := false
-	findMatchPolicy := false
-	currentPriv := rbacutils.Deny
-	for _, p := range policies {
-		if !p.Match(userCred) {
-			continue
-		}
-		findMatchPolicy = true
-		rule := p.GetMatchRule(service, resource, action, extra...)
-		if rule != nil {
-			findMatchRule = true
-			if currentPriv.StricterThan(rule.Result) {
-				currentPriv = rule.Result
+	} else {
+		for i := range policies {
+			if !policies[i].Match(userCred) {
+				continue
+			}
+			findMatchPolicy = true
+			rule := policies[i].GetMatchRule(service, resource, action, extra...)
+			if rule != nil {
+				matchRules = append(matchRules, *rule)
 			}
 		}
 	}
-	if !findMatchPolicy {
-		currentPriv = rbacutils.Deny
-	} else if !findMatchRule {
-		currentPriv = rbacutils.Allow
+
+	scopedDeny := false
+	switch scope {
+	case rbacutils.ScopeUser:
+		if !isUserResource(service, resource) {
+			scopedDeny = true
+		}
+	case rbacutils.ScopeProject:
+		if !isProjectResource(service, resource) {
+			scopedDeny = true
+		}
+	case rbacutils.ScopeDomain:
+		if isSystemResource(service, resource) {
+			scopedDeny = true
+		}
+	case rbacutils.ScopeSystem:
+		// no deny at all for system scope
 	}
-	if currentPriv == rbacutils.Allow {
-		return currentPriv
+	if scopedDeny {
+		rule := rbacutils.SRbacRule{
+			Service:  service,
+			Resource: resource,
+			Result:   rbacutils.Deny,
+		}
+		matchRules = append(matchRules, rule)
 	}
+
 	// try default policies
 	defaultPolicies, ok := manager.defaultPolicies[scope]
-	if !ok {
-		return currentPriv
-	}
-	for _, p := range defaultPolicies {
-		if !p.Match(userCred) {
-			continue
+	if ok {
+		for i := range defaultPolicies {
+			if !defaultPolicies[i].Match(userCred) {
+				continue
+			}
+			rule := defaultPolicies[i].GetMatchRule(service, resource, action, extra...)
+			if rule != nil {
+				matchRules = append(matchRules, *rule)
+			}
 		}
-		rule := p.GetMatchRule(service, resource, action, extra...)
-		if rule != nil && currentPriv.StricterThan(rule.Result) {
-			currentPriv = rule.Result
-		}
 	}
+
+	var result rbacutils.TRbacResult
+	if len(matchRules) > 0 {
+		rule := rbacutils.GetMatchRule(matchRules, service, resource, action, extra...)
+		result = rule.Result
+	} else if findMatchPolicy {
+		// if find matched policy, but no rule matching, allow anyway
+		result = rbacutils.Allow
+	} else {
+		result = rbacutils.Deny
+	}
+
 	if consts.IsRbacDebug() {
-		log.Debugf("[RBAC: %s] %s %s %s %#v permission %s userCred: %s", scope, service, resource, action, extra, currentPriv, userCred)
+		log.Debugf("[RBAC: %s] %s %s %s %#v permission %s userCred: %s MatchRules: %d(%s) %s", scope, service, resource, action, extra, result, userCred, len(matchRules), jsonutils.Marshal(matchRules), jsonutils.Marshal(policies))
 	}
-	return currentPriv
+	return result
 }
 
 func (manager *SPolicyManager) explainPolicy(userCred mcclient.TokenCredential, policyReq jsonutils.JSONObject, name string) ([]string, rbacutils.TRbacResult, error) {
-	scope, request, result, err := manager.explainPolicyInternal(userCred, policyReq, name)
-	if err != nil {
-		return request, result, err
-	}
-	if result == rbacutils.Allow {
-		if scope == rbacutils.ScopeProject && !isProjectResource(request[0], request[1]) {
-			result = rbacutils.Deny
-		} else if scope == rbacutils.ScopeDomain && isSystemResource(request[0], request[1]) {
-			result = rbacutils.Deny
-		}
-	}
+	_, request, result, err := manager.explainPolicyInternal(userCred, policyReq, name)
 	return request, result, err
 }
 
@@ -380,7 +431,7 @@ func (manager *SPolicyManager) explainPolicyInternal(userCred mcclient.TokenCred
 	}
 
 	if len(name) == 0 {
-		return scope, reqStrs, manager.allowWithoutCache(scope, userCred, service, resource, action, extra...), nil
+		return scope, reqStrs, manager.Allow(scope, userCred, service, resource, action, extra...), nil
 	}
 
 	policy := manager.findPolicyByName(scope, name)

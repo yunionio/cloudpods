@@ -81,7 +81,7 @@ func init() {
 
 	RolesV3 = RolesManager{ResourceManager: NewIdentityV3Manager("role", "roles",
 		[]string{},
-		[]string{"ID", "Name", "Domain_Id", "Domain", "Description"})}
+		[]string{"ID", "Name", "Domain_Id", "Domain", "Description", "is_public"})}
 
 	register(&RolesV3)
 }

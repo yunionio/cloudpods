@@ -462,11 +462,55 @@ func TestSRbacPolicyMatch(t *testing.T) {
 			},
 			true,
 		},
+		{
+			SRbacPolicy{
+				Projects: []string{},
+				Roles:    []string{"domain_admin"},
+				Auth:     true,
+			},
+			&sRbacIdentity{
+				Project: "ldapproj",
+				Roles:   []string{"domain_admin"},
+			},
+			true,
+		},
 	}
 	for _, c := range cases {
 		got := c.policy.Match(c.userCred)
 		if got != c.want {
 			t.Errorf("%#v %#v got %v want %v", c.policy, c.userCred, got, c.want)
+		}
+	}
+}
+
+func TestGetMatchRules(t *testing.T) {
+	cases := []struct {
+		rules    []SRbacRule
+		service  string
+		resource string
+		action   string
+		want     bool
+	}{
+		{
+			[]SRbacRule{
+				{
+					Service:  "yunionconf",
+					Resource: "parameters",
+					Action:   "list",
+					Result:   Allow,
+				},
+			},
+			"yunionconf",
+			"parameters",
+			"list",
+			true,
+		},
+	}
+	for _, c := range cases {
+		rule := GetMatchRule(c.rules, c.service, c.resource, c.action)
+		got := rule != nil
+		if got != c.want {
+			t.Errorf("want %v got %v", c.want, got)
 		}
 	}
 }

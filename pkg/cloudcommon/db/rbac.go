@@ -37,20 +37,20 @@ func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action
 		requireScope = rbacutils.ScopeSystem
 	case rbacutils.ScopeDomain:
 		// objOwnerId should not be nil
-		if ownerId != nil && ownerId.GetProjectDomainId() == objOwnerId.GetProjectDomainId() {
+		if ownerId != nil && (ownerId.GetProjectDomainId() == objOwnerId.GetProjectDomainId() || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
 			requireScope = rbacutils.ScopeDomain
 		} else {
 			requireScope = rbacutils.ScopeSystem
 		}
 	case rbacutils.ScopeUser:
-		if ownerId != nil && ownerId.GetUserId() == objOwnerId.GetUserId() {
+		if ownerId != nil && (ownerId.GetUserId() == objOwnerId.GetUserId() || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
 			requireScope = rbacutils.ScopeUser
 		} else {
 			requireScope = rbacutils.ScopeSystem
 		}
 	default:
 		// objOwnerId should not be nil
-		if ownerId != nil && (ownerId.GetProjectId() == objOwnerId.GetProjectId() || (model.IsSharable() && action == policy.PolicyActionGet)) {
+		if ownerId != nil && (ownerId.GetProjectId() == objOwnerId.GetProjectId() || (model.IsSharable(ownerId) && action == policy.PolicyActionGet)) {
 			requireScope = rbacutils.ScopeProject
 		} else if ownerId != nil && ownerId.GetProjectDomainId() == objOwnerId.GetProjectDomainId() {
 			requireScope = rbacutils.ScopeDomain
