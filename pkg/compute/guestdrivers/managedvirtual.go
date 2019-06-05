@@ -25,7 +25,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/util/compare"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -776,50 +775,14 @@ func (self *SManagedVirtualizedGuestDriver) RequestSyncSecgroupsOnHost(ctx conte
 
 func (self *SManagedVirtualizedGuestDriver) RequestSyncConfigOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		ihost, err := host.GetIHost()
-		if err != nil {
-			return nil, err
-		}
-		iVM, err := ihost.GetIVMById(guest.ExternalId)
-		if err != nil {
-			return nil, err
-		}
 
 		if jsonutils.QueryBoolean(task.GetParams(), "fw_only", false) {
-			err = guest.GetDriver().RequestSyncSecgroupsOnHost(ctx, guest, host, task)
+			err := guest.GetDriver().RequestSyncSecgroupsOnHost(ctx, guest, host, task)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		iDisks, err := iVM.GetIDisks()
-		if err != nil {
-			return nil, err
-		}
-		disks := make([]models.SDisk, 0)
-		for _, guestdisk := range guest.GetDisks() {
-			disk := guestdisk.GetDisk()
-			disks = append(disks, *disk)
-		}
-
-		added := make([]models.SDisk, 0)
-		commondb := make([]models.SDisk, 0)
-		commonext := make([]cloudprovider.ICloudDisk, 0)
-		removed := make([]cloudprovider.ICloudDisk, 0)
-
-		if err := compare.CompareSets(disks, iDisks, &added, &commondb, &commonext, &removed); err != nil {
-			return nil, err
-		}
-		for _, disk := range removed {
-			if err := iVM.DetachDisk(ctx, disk.GetGlobalId()); err != nil {
-				return nil, err
-			}
-		}
-		for _, disk := range added {
-			if err := iVM.AttachDisk(ctx, disk.ExternalId); err != nil {
-				return nil, err
-			}
-		}
 		return nil, nil
 	})
 	return nil

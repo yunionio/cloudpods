@@ -3036,7 +3036,7 @@ func (self *SHost) PerformInitialize(
 
 	caps := self.GetAttachedStorageCapacity()
 	diskConfig := &api.DiskConfig{SizeMb: int(caps.GetFree())}
-	err = guest.CreateDisksOnHost(ctx, userCred, self, []*api.DiskConfig{diskConfig}, nil, true, true, nil, nil)
+	err = guest.CreateDisksOnHost(ctx, userCred, self, []*api.DiskConfig{diskConfig}, nil, true, true, nil, nil, true)
 	if err != nil {
 		log.Errorf("Host perform initialize failed on create disk %s", err)
 	}
