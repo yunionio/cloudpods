@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 )
 
 func (self *SAliyunClient) businessRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
@@ -109,4 +110,18 @@ func (self *SAliyunClient) QueryPrepaidCards() ([]SPrepaidCard, error) {
 		return nil, err
 	}
 	return cards, nil
+}
+
+func (self *SAliyunClient) SubscribeBillToOSS(bucket string) error {
+	params := make(map[string]string)
+	params["SubscribeBucket"] = bucket
+	params["SubscribeType.0"] = "BillingItemDetailForBillingPeriod"
+	params["SubscribeType.1"] = "InstanceDetailForBillingPeriod"
+	body, err := self.businessRequest("SubscribeBillToOSS", params)
+	if err != nil {
+		log.Errorf("SubscribeBillToOSS fail %s", err)
+		return errors.Wrap(err, "SubscribeBillToOSS")
+	}
+	log.Debugf("%s", body)
+	return nil
 }

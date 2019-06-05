@@ -42,4 +42,16 @@ func init() {
 		printList(result3, len(result3), 0, 0, nil)
 		return nil
 	})
+
+	type AliyunSubscribeBillOptions struct {
+		BUCKET string `help:"bucket name to store billing records"`
+	}
+	shellutils.R(&AliyunSubscribeBillOptions{}, "subscribe-bill", "Subscribe bill to OSS storage", func(cli *aliyun.SRegion, args *AliyunSubscribeBillOptions) error {
+		err := cli.GetClient().SubscribeBillToOSS(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 }
