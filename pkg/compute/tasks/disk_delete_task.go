@@ -71,8 +71,16 @@ func (self *DiskDeleteTask) startDeleteDisk(ctx context.Context, disk *models.SD
 		self.OnGuestDiskDeleteComplete(ctx, disk, nil)
 		return
 	}
-	storage := disk.GetStorage()
-	host := storage.GetMasterHost()
+	var (
+		storage *models.SStorage
+		host    *models.SHost
+	)
+
+	storage = disk.GetStorage()
+	if storage != nil {
+		host = storage.GetMasterHost()
+	}
+
 	isPurge := false
 	if (host == nil || !host.Enabled) && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		isPurge = true
