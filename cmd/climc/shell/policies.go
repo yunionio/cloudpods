@@ -29,36 +29,20 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 func init() {
 	type PolicyListOptions struct {
-		Limit  int64  `help:"Limit, default 0, i.e. no limit"`
-		Offset int64  `help:"Offset, default 0, i.e. no offset"`
-		Search string `help:"Search by name"`
+		options.BaseListOptions
 		Type   string `help:"filter by type"`
 		Format string `help:"policy format, default to yaml" default:"yaml" choices:"yaml|json"`
-		Admin  bool   `help:"admin mode"`
-		Scope  string `help:""`
 	}
 	R(&PolicyListOptions{}, "policy-list", "List all policies", func(s *mcclient.ClientSession, args *PolicyListOptions) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.Format), "format")
-		if len(args.Search) > 0 {
-			params.Add(jsonutils.NewString(args.Search), "type__icontains")
-		}
-		if args.Limit > 0 {
-			params.Add(jsonutils.NewInt(args.Limit), "limit")
-		}
-		if args.Offset > 0 {
-			params.Add(jsonutils.NewInt(args.Offset), "offset")
-		}
-		if len(args.Type) > 0 {
-			params.Add(jsonutils.NewString(args.Type), "type")
-		}
-		if args.Admin {
-			params.Add(jsonutils.JSONTrue, "admin")
+		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
 		}
 		result, err := modules.Policies.List(s, params)
 		if err != nil {
@@ -69,6 +53,7 @@ func init() {
 	})
 
 	type PolicyCreateOptions struct {
+		Domain   string `help:"domain of the policy"`
 		TYPE     string `help:"type of the policy"`
 		FILE     string `help:"path to policy file"`
 		Enabled  bool   `help:"create policy enabled"`
@@ -83,6 +68,9 @@ func init() {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.TYPE), "type")
 		params.Add(jsonutils.NewString(string(policyBytes)), "policy")
+		if len(args.Domain) > 0 {
+			params.Add(jsonutils.NewString(args.Domain), "domain")
+		}
 		if args.Enabled {
 			params.Add(jsonutils.JSONTrue, "enabled")
 		} else if args.Disabled {
@@ -106,7 +94,7 @@ func init() {
 		Enabled  bool   `help:"update policy enabled"`
 		Disabled bool   `help:"update policy disabled"`
 	}
-	R(&PolicyPatchOptions{}, "policy-patch", "Patch policy", func(s *mcclient.ClientSession, args *PolicyPatchOptions) error {
+	updateFunc := func(s *mcclient.ClientSession, args *PolicyPatchOptions) error {
 		policyId, err := modules.Policies.GetId(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -135,7 +123,9 @@ func init() {
 		printObject(result)
 
 		return nil
-	})
+	}
+	R(&PolicyPatchOptions{}, "policy-patch", "Patch policy", updateFunc)
+	R(&PolicyPatchOptions{}, "policy-update", "Patch policy", updateFunc)
 
 	type PolicyPerformOptions struct {
 		ID string `help:"ID of policy to update"`

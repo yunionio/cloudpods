@@ -132,6 +132,30 @@ var (
 					Action:   PolicyActionCreate,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  identityapi.SERVICE_TYPE,
+					Resource: "policies",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  identityapi.SERVICE_TYPE,
+					Resource: "policies",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+			},
+		},
+		{
+			Auth:  true,
+			Scope: rbacutils.ScopeUser,
+			Rules: []rbacutils.SRbacRule{
+				{
+					Service:  "yunionconf",
+					Resource: "parameters",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{
@@ -154,12 +178,6 @@ var (
 					// usages for any services
 					// Service:  "compute",
 					Resource: "usages",
-					Action:   PolicyActionGet,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  "yunionconf",
-					Resource: "parameters",
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
@@ -223,15 +241,15 @@ var (
 					Result:   rbacutils.Allow,
 				},
 				{
-					Service:  "yunionconf",
-					Resource: "parameters",
+					Service:  identityapi.SERVICE_TYPE,
+					Resource: "domains",
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
 			},
 		},
 		{
-			// for policies
+			// for policies administration
 			Auth:     true,
 			Scope:    rbacutils.ScopeSystem,
 			DomainId: identityapi.DEFAULT_DOMAIN_ID,
@@ -247,19 +265,7 @@ var (
 				{
 					Service:  identityapi.SERVICE_TYPE,
 					Resource: "policies",
-					Action:   PolicyActionList,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  identityapi.SERVICE_TYPE,
-					Resource: "policies",
 					Action:   PolicyActionUpdate,
-					Result:   rbacutils.Allow,
-				},
-				{
-					Service:  identityapi.SERVICE_TYPE,
-					Resource: "policies",
-					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
 			},

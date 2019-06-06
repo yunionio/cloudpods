@@ -363,7 +363,7 @@ func (model *SModelBase) GetOwnerId() mcclient.IIdentityProvider {
 	return nil
 }
 
-func (model *SModelBase) IsSharable() bool {
+func (model *SModelBase) IsSharable(ownerId mcclient.IIdentityProvider) bool {
 	return false
 }
 

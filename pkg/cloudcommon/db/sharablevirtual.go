@@ -83,8 +83,19 @@ func (model *SSharableVirtualResourceBase) AllowGetDetails(ctx context.Context, 
 	return model.IsOwner(userCred) || model.IsPublic || IsAllowGet(rbacutils.ScopeSystem, userCred, model)
 }
 
-func (model *SSharableVirtualResourceBase) IsSharable() bool {
-	return model.IsPublic
+func (model *SSharableVirtualResourceBase) IsSharable(reqUsrId mcclient.IIdentityProvider) bool {
+	if model.IsPublic {
+		switch rbacutils.String2Scope(model.PublicScope) {
+		case rbacutils.ScopeSystem:
+			return true
+		case rbacutils.ScopeDomain:
+			ownerId := model.GetOwnerId()
+			if ownerId != nil && ownerId.GetProjectDomainId() == reqUsrId.GetProjectDomainId() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (model *SSharableVirtualResourceBase) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
