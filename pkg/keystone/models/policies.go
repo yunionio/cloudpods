@@ -20,7 +20,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	policyman "yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -111,9 +110,9 @@ func (manager *SPolicyManager) ValidateCreateData(ctx context.Context, userCred 
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("fail to decode policy data")
 	}
-	if policy.IsSystemWidePolicy() && policyman.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(), manager.KeywordPlural(), policyman.PolicyActionCreate) == rbacutils.Deny {
+	/*if policy.IsSystemWidePolicy() && policyman.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(), manager.KeywordPlural(), policyman.PolicyActionCreate) == rbacutils.Deny {
 		return nil, httperrors.NewNotSufficientPrivilegeError("not allow to create system-wide policy")
-	}
+	}*/
 	return manager.SEnabledIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
@@ -128,9 +127,9 @@ func (policy *SPolicy) ValidateUpdateData(ctx context.Context, userCred mcclient
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("fail to decode policy data")
 		}
-		if p.IsSystemWidePolicy() && policyman.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(), policy.GetModelManager().KeywordPlural(), policyman.PolicyActionUpdate) == rbacutils.Deny {
+		/* if p.IsSystemWidePolicy() && policyman.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(), policy.GetModelManager().KeywordPlural(), policyman.PolicyActionUpdate) == rbacutils.Deny {
 			return nil, httperrors.NewNotSufficientPrivilegeError("not allow to update system-wide policy")
-		}
+		} */
 	}
 	if data.Contains("type") {
 		typeStr, _ := data.GetString("type")

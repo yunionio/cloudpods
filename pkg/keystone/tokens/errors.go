@@ -26,4 +26,5 @@ const (
 	ErrUserNotFound       = errors.Error("user not found")
 	ErrDomainDisabled     = errors.Error("domain is disabled")
 	ErrEmptyAuth          = errors.Error("empty auth request")
+	ErrUserNotInProject   = errors.Error("user not in project")
 )

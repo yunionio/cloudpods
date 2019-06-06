@@ -115,6 +115,18 @@ var (
 					Result:   rbacutils.Allow,
 				},
 				{
+					Service:  "compute",
+					Resource: "secgrouprules",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "secgrouprules",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
 					Service:  "yunionagent",
 					Resource: "notices",
 					Action:   PolicyActionList,
