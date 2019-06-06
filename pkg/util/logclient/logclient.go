@@ -140,6 +140,7 @@ const (
 	ACT_DELETE_BACKUP                = "删除备份机"
 	ACT_APPLY_SNAPSHOT_POLICY        = "绑定快照策略"
 	ACT_CANCEL_SNAPSHOT_POLICY       = "取消快照策略"
+	ACT_ATTACH_HOST                  = "关联宿主机"
 
 	ACT_IMAGE_SAVE  = "上传镜像"
 	ACT_IMAGE_PROBE = "镜像检测"
