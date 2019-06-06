@@ -222,9 +222,14 @@ func applyListItemsGeneralJointFilters(manager IModelManager, q *sqlchemy.SQuery
 	return q, nil
 }
 
-func ListItemQueryFilters(manager IModelManager, ctx context.Context, q *sqlchemy.SQuery,
-	userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	return listItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionList)
+func ListItemQueryFilters(manager IModelManager,
+	ctx context.Context,
+	q *sqlchemy.SQuery,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	action string,
+) (*sqlchemy.SQuery, error) {
+	return listItemQueryFilters(manager, ctx, q, userCred, query, action, false)
 }
 
 func listItemQueryFilters(manager IModelManager,
@@ -232,11 +237,13 @@ func listItemQueryFilters(manager IModelManager,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	action string,
+	doCheckRbac bool,
 ) (*sqlchemy.SQuery, error) {
-	ownerId, queryScope, err := FetchQueryOwnerScope(ctx, userCred, query, manager, action) // policy.PolicyActionList)
+	ownerId, queryScope, err := FetchCheckQueryOwnerScope(ctx, userCred, query, manager, action, doCheckRbac)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
+
 	q = manager.FilterByOwner(q, ownerId, queryScope)
 	q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
 
@@ -449,7 +456,7 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		return nil, err
 	}
 
-	q, err = listItemQueryFilters(manager, ctx, q, userCred, queryDict, policy.PolicyActionList)
+	q, err = listItemQueryFilters(manager, ctx, q, userCred, queryDict, policy.PolicyActionList, true)
 	if err != nil {
 		return nil, err
 	}

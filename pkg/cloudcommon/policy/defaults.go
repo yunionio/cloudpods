@@ -156,6 +156,24 @@ var (
 					Action:   PolicyActionGet,
 					Result:   rbacutils.Allow,
 				},
+				{
+					Service:  "yunionconf",
+					Resource: "parameters",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "yunionconf",
+					Resource: "parameters",
+					Action:   PolicyActionCreate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "yunionconf",
+					Resource: "parameters",
+					Action:   PolicyActionUpdate,
+					Result:   rbacutils.Allow,
+				},
 			},
 		},
 		{
