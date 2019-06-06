@@ -34,7 +34,7 @@ func (self *SKVMHostDriver) GetHostType() string {
 }
 
 func (self *SKVMHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
-	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL, api.STORAGE_RBD, api.STORAGE_NFS}) {
+	if !utils.IsInStringArray(storage.StorageType, api.ATTACHABLE_STORAGE) {
 		return httperrors.NewUnsupportOperationError("Unsupport attach %s storage for %s host", storage.StorageType, host.HostType)
 	}
 	if storage.StorageType == api.STORAGE_RBD {
@@ -43,7 +43,7 @@ func (self *SKVMHostDriver) ValidateAttachStorage(host *models.SHost, storage *m
 		}
 		pool, _ := storage.StorageConf.GetString("pool")
 		data.Set("mount_point", jsonutils.NewString(fmt.Sprintf("rbd:%s", pool)))
-	} else if storage.StorageType == api.STORAGE_NFS {
+	} else if utils.IsInStringArray(storage.StorageType, api.SHARED_FILE_STORAGE) {
 		if host.HostStatus != api.HOST_ONLINE {
 			return httperrors.NewInvalidStatusError("Attach nfs storage require host status is online")
 		}
@@ -53,7 +53,7 @@ func (self *SKVMHostDriver) ValidateAttachStorage(host *models.SHost, storage *m
 
 func (self *SKVMHostDriver) RequestAttachStorage(ctx context.Context, hoststorage *models.SHoststorage, host *models.SHost, storage *models.SStorage, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_NFS, api.STORAGE_RBD}) {
+		if utils.IsInStringArray(storage.StorageType, api.ATTACHABLE_STORAGE) {
 			log.Infof("Attach SharedStorage[%s] on host %s ...", storage.Name, host.Name)
 			url := fmt.Sprintf("%s/storages/attach", host.ManagerUri)
 			headers := mcclient.GetTokenHeaders(task.GetUserCred())
@@ -81,7 +81,7 @@ func (self *SKVMHostDriver) RequestAttachStorage(ctx context.Context, hoststorag
 
 func (self *SKVMHostDriver) RequestDetachStorage(ctx context.Context, host *models.SHost, storage *models.SStorage, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_NFS, api.STORAGE_RBD}) && host.HostStatus == api.HOST_ONLINE {
+		if utils.IsInStringArray(storage.StorageType, api.ATTACHABLE_STORAGE) && host.HostStatus == api.HOST_ONLINE {
 			log.Infof("Detach SharedStorage[%s] on host %s ...", storage.Name, host.Name)
 			url := fmt.Sprintf("%s/storages/detach", host.ManagerUri)
 			headers := mcclient.GetTokenHeaders(task.GetUserCred())

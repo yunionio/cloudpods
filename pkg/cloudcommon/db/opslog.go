@@ -18,16 +18,18 @@ import (
 )
 
 const (
-	ACT_CREATE  = "create"
-	ACT_DELETE  = "delete"
-	ACT_UPDATE  = "update"
-	ACT_FETCH   = "fetch"
-	ACT_ENABLE  = "enable"
-	ACT_DISABLE = "disable"
-	ACT_OFFLINE = "offline"
-	ACT_ONLINE  = "online"
-	ACT_ATTACH  = "attach"
-	ACT_DETACH  = "detach"
+	ACT_CREATE      = "create"
+	ACT_DELETE      = "delete"
+	ACT_UPDATE      = "update"
+	ACT_FETCH       = "fetch"
+	ACT_ENABLE      = "enable"
+	ACT_DISABLE     = "disable"
+	ACT_OFFLINE     = "offline"
+	ACT_ONLINE      = "online"
+	ACT_ATTACH      = "attach"
+	ACT_DETACH      = "detach"
+	ACT_ATTACH_FAIL = "attach_fail"
+	ACT_DETACH_FAIL = "detach_fail"
 
 	ACT_SYNC_UPDATE = "sync_update"
 	ACT_SYNC_CREATE = "sync_create"

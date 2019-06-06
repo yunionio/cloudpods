@@ -9,6 +9,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type HostStorageAttachTask struct {
@@ -24,7 +25,8 @@ func (self *HostStorageAttachTask) taskFail(ctx context.Context, host *models.SH
 		storage := hoststorage.GetStorage()
 		hoststorage.Detach(ctx, self.GetUserCred())
 		note := fmt.Sprintf("attach host %s failed: %s", host.Name, reason)
-		db.OpsLog.LogEvent(storage, db.ACT_ATTACH, note, self.GetUserCred())
+		db.OpsLog.LogEvent(storage, db.ACT_ATTACH_FAIL, note, self.GetUserCred())
+		logclient.AddActionLogWithContext(ctx, storage, logclient.ACT_ATTACH_HOST, note, self.GetUserCred(), false)
 	}
 	self.SetStageFailed(ctx, reason)
 }
@@ -56,6 +58,11 @@ func (self *HostStorageAttachTask) OnInit(ctx context.Context, obj db.IStandalon
 }
 
 func (self *HostStorageAttachTask) OnAttachStorageComplete(ctx context.Context, host *models.SHost, data jsonutils.JSONObject) {
+	storageId, _ := self.GetParams().GetString("storage_id")
+	storage := models.StorageManager.FetchStorageById(storageId)
+	db.OpsLog.LogEvent(storage, db.ACT_ATTACH, "", self.GetUserCred())
+	logclient.AddActionLogWithContext(ctx, storage, logclient.ACT_ATTACH_HOST,
+		fmt.Sprintf("Attach host %s success", host.Name), self.GetUserCred(), true)
 	self.SetStageComplete(ctx, nil)
 }
 
