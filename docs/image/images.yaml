@@ -3,6 +3,7 @@ get:
   parameters:
     - $ref: '/parameters/common.yaml#offset'
     - $ref: '/parameters/common.yaml#limit'
+    - $ref: '/parameters/common.yaml#pending_delete'
     - $ref: '/parameters/image.yaml#is_public'
     - $ref: '/parameters/image.yaml#owner'
     - $ref: '/parameters/image.yaml#name'
