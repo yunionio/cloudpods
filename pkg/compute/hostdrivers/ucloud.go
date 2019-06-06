@@ -47,6 +47,18 @@ func (self *SUCloudHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb
 		if sizeGb < 20 || sizeGb > 4000 {
 			return fmt.Errorf("The %s disk size must be in the range of 20G ~ 4000GB", storage.StorageType)
 		}
+	} else if storage.StorageType == api.STORAGE_UCLOUD_LOCAL_SSD {
+		if sizeGb < 20 || sizeGb > 1000 {
+			return fmt.Errorf("The %s disk size must be in the range of 20G ~ 1000GB", storage.StorageType)
+		}
+
+		return fmt.Errorf("Not support create/resize %s disk", storage.StorageType)
+	} else if storage.StorageType == api.STORAGE_UCLOUD_LOCAL_NORMAL {
+		if sizeGb < 20 || sizeGb > 2000 {
+			return fmt.Errorf("The %s disk size must be in the range of 20G ~ 2000GB", storage.StorageType)
+		}
+
+		return fmt.Errorf("Not support create/resize %s disk", storage.StorageType)
 	} else {
 		return fmt.Errorf("Not support create %s disk", storage.StorageType)
 	}

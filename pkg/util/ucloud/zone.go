@@ -28,6 +28,8 @@ import (
 var StorageTypes = []string{
 	api.STORAGE_UCLOUD_CLOUD_NORMAL,
 	api.STORAGE_UCLOUD_CLOUD_SSD,
+	api.STORAGE_UCLOUD_LOCAL_NORMAL, // 本地盘
+	api.STORAGE_UCLOUD_LOCAL_SSD,    // 本地SSD盘
 }
 
 type SZone struct {
