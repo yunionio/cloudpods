@@ -102,6 +102,8 @@ type SHostOptions struct {
 	WindowsDefaultAdminUser bool `default:"true" help:"Default account for Windows system is Administrator"`
 
 	HostCpuPassthrough bool `default:"true" help:"if it is true, set qemu cpu type as -cpu host, otherwise, qemu64. default is true"`
+
+	MaxReservedMemory int `default:"10240" help:"host reserved memory"`
 }
 
 var HostOptions SHostOptions
