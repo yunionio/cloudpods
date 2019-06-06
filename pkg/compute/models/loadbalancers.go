@@ -349,7 +349,7 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 		params.ZoneID = iZone.GetId()
 	}
 	if lb.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
-		lb.EgressMbps = lb.EgressMbps
+		params.EgressMbps = lb.EgressMbps
 	}
 	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET {
 		vpc := lb.GetVpc()
