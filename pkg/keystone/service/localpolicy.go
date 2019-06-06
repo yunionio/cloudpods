@@ -52,6 +52,7 @@ func localPolicyFetcher() (map[rbacutils.TRbacScope]map[string]*rbacutils.SRbacP
 		}
 
 		policy.DomainId = policyList[i].DomainId
+		policy.IsPublic = policyList[i].IsPublic
 
 		if _, ok := policies[policy.Scope]; !ok {
 			policies[policy.Scope] = make(map[string]*rbacutils.SRbacPolicy)

@@ -19,42 +19,19 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type RoleListOptions struct {
-		Name   string `help:"Name filter"`
-		Domain string `help:"Domain filter"`
-		Limit  int64  `help:"Items per page" default:"20"`
-		Offset int64  `help:"Offset"`
-		Search string `help:"search text"`
-		Admin  bool   `help:"admin mode"`
+		options.BaseListOptions
 	}
 	R(&RoleListOptions{}, "role-list", "List keystone Roles", func(s *mcclient.ClientSession, args *RoleListOptions) error {
-		query := jsonutils.NewDict()
-		if len(args.Name) > 0 {
-			query.Add(jsonutils.NewString(args.Name), "name")
+		params, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
 		}
-		if len(args.Domain) > 0 {
-			domainId, err := modules.Domains.GetId(s, args.Domain, nil)
-			if err != nil {
-				return err
-			}
-			query.Add(jsonutils.NewString(domainId), "domain_id")
-		}
-		if args.Limit > 0 {
-			query.Add(jsonutils.NewInt(args.Limit), "limit")
-		}
-		if args.Offset > 0 {
-			query.Add(jsonutils.NewInt(args.Offset), "offset")
-		}
-		if len(args.Search) > 0 {
-			query.Add(jsonutils.NewString(args.Search), "name__icontains")
-		}
-		if args.Admin {
-			query.Add(jsonutils.JSONTrue, "admin")
-		}
-		result, err := modules.RolesV3.List(s, query)
+		result, err := modules.RolesV3.List(s, params)
 		if err != nil {
 			return err
 		}
@@ -160,6 +137,27 @@ func init() {
 			return err
 		}
 		printObject(role)
+		return nil
+	})
+
+	type RolePerformOptions struct {
+		ID string `help:"ID of role to update"`
+	}
+	R(&RolePerformOptions{}, "role-public", "Mark a role public", func(s *mcclient.ClientSession, args *RolePerformOptions) error {
+		result, err := modules.RolesV3.PerformAction(s, args.ID, "public", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&RolePerformOptions{}, "role-private", "Mark a role private", func(s *mcclient.ClientSession, args *RolePerformOptions) error {
+		result, err := modules.RolesV3.PerformAction(s, args.ID, "private", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
 		return nil
 	})
 }

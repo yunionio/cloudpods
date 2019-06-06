@@ -272,3 +272,14 @@ func (tenant *STenant) GetDomainId() string {
 	}
 	return tenant.DomainId
 }
+
+func (manager *STenantCacheManager) FindFirstProjectOfDomain(domainId string) (*STenant, error) {
+	q := manager.Query().Equals("domain_id", domainId)
+	tenant := STenant{}
+	tenant.SetModelManager(manager, &tenant)
+	err := q.First(&tenant)
+	if err != nil {
+		return nil, errors.Wrap(err, "queryFirst")
+	}
+	return &tenant, nil
+}

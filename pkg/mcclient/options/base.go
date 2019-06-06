@@ -250,7 +250,7 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 		params.Set("pending_delete", jsonutils.NewString("all"))
 		params.Set("details", jsonutils.JSONTrue) // required to get pending_deleted field
 	}
-	if opts.Admin == nil {
+	/*if opts.Admin == nil {
 		requiresSystem := len(opts.Tenant) > 0 ||
 			len(opts.ProjectDomain) > 0 ||
 			BoolV(opts.System) ||
@@ -259,7 +259,7 @@ func (opts *BaseListOptions) Params() (*jsonutils.JSONDict, error) {
 		if requiresSystem {
 			params.Set("admin", jsonutils.JSONTrue)
 		}
-	}
+	}*/
 	tagIdx := 0
 	for _, tag := range opts.Tags {
 		err = opts.addTag("", tag, tagIdx, params)

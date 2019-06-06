@@ -142,7 +142,7 @@ func fetchItemById(manager IModelManager, ctx context.Context, userCred mcclient
 		// if isListRbacAllowed(manager, userCred, true) {
 		// 	query.(*jsonutils.JSONDict).Set("admin", jsonutils.JSONTrue)
 		// }
-		q, err = listItemQueryFilters(manager, ctx, q, userCred, query)
+		q, err = listItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionGet)
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +173,7 @@ func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclie
 	q := manager.Query()
 	var err error
 	if query != nil && !query.IsZero() {
-		q, err = listItemQueryFilters(manager, ctx, q, userCred, query)
+		q, err = listItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionGet)
 		if err != nil {
 			return nil, err
 		}
@@ -374,7 +374,7 @@ func FetchQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCredential
 		requireScope = queryScope
 	}
 	if requireScope.HigherThan(allowScope) {
-		return nil, scope, httperrors.NewForbiddenError(fmt.Sprintf("not enough privilleges(require:%s,allow:%s:query:%s)", requireScope, allowScope, queryScope))
+		return nil, scope, httperrors.NewForbiddenError(fmt.Sprintf("not enough privilleges(require:%s,allow:%s,query:%s)", requireScope, allowScope, queryScope))
 	}
 	return ownerId, queryScope, nil
 }

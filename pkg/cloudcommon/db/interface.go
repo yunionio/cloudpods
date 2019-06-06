@@ -159,7 +159,7 @@ type IModel interface {
 
 	GetOwnerId() mcclient.IIdentityProvider
 
-	IsSharable() bool
+	IsSharable(reqCred mcclient.IIdentityProvider) bool
 
 	CustomizedGetDetailsBody(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error)
 }
@@ -262,7 +262,6 @@ type ISharableVirtualModelManager interface {
 
 type ISharableVirtualModel interface {
 	IVirtualModel
-	// IsSharable() bool
 
 	GetISharableVirtualModel() ISharableVirtualModel
 }

@@ -249,9 +249,9 @@ func (domain *SDomain) ValidateUpdateCondition(ctx context.Context) error {
 	if domain.Id == api.DEFAULT_DOMAIN_ID {
 		return httperrors.NewForbiddenError("default domain is protected")
 	}
-	if domain.IsReadOnly() {
-		return httperrors.NewForbiddenError("readonly")
-	}
+	// if domain.IsReadOnly() {
+	// 	return httperrors.NewForbiddenError("readonly")
+	// }
 	return domain.SStandaloneResourceBase.ValidateUpdateCondition(ctx)
 }
 

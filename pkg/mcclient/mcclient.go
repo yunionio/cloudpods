@@ -152,7 +152,7 @@ func (this *Client) _authV3(domainName, uname, passwd, projectId, projectName, p
 	if len(projectName) > 0 {
 		input.Auth.Scope.Project.Name = projectName
 		if len(projectDomain) > 0 {
-			input.Auth.Scope.Project.Domain.Name = domainName
+			input.Auth.Scope.Project.Domain.Name = projectDomain
 		}
 		// else {
 		// 	input.Auth.Scope.Project.Domain.Id = api.DEFAULT_DOMAIN_ID

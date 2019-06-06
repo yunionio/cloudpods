@@ -574,12 +574,6 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		return subq
 	})
 
-	q, err = managedResourceFilterByAccount(q, query, "", nil)
-	if err != nil {
-		return nil, err
-	}
-	q = managedResourceFilterByCloudType(q, query, "", nil)
-
 	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
