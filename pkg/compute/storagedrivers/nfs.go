@@ -59,7 +59,7 @@ func (self *SNfsStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 
 func (self *SNfsStorageDriver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, data jsonutils.JSONObject) {
 	sc := &models.SStoragecache{}
-	sc.Path = options.Options.NfsDefaultImageCacheDir
+	sc.Path = options.Options.DefaultImageCacheDir
 	sc.ExternalId = storage.Id
 	sc.Name = "nfs-" + storage.Name + time.Now().Format("2006-01-02 15:04:05")
 	if err := models.StoragecacheManager.TableSpec().Insert(sc); err != nil {
