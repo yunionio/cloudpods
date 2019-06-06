@@ -137,6 +137,7 @@ const (
 	ACT_LB_ADD_LISTENER_RULE         = "添加负载均衡转发规则"
 	ACT_LB_REMOVE_LISTENER_RULE      = "移除负载均衡转发规则"
 	ACT_DELETE_BACKUP                = "删除备份机"
+	ACT_ATTACH_HOST                  = "关联宿主机"
 
 	ACT_IMAGE_SAVE = "上传镜像"
 

@@ -633,6 +633,11 @@ func (self *SDisk) PerformCreateSnapshot(ctx context.Context, userCred mcclient.
 	if len(guests) != 1 {
 		return nil, httperrors.NewBadRequestError("Disk dosen't attach guest??")
 	}
+	storage := self.GetStorage()
+	if guests[0].Hypervisor == api.HYPERVISOR_KVM && storage.StorageType != api.STORAGE_LOCAL {
+		return nil, httperrors.NewBadRequestError("storage %s not support snapshot", storage.StorageType)
+	}
+
 	dataDict := data.(*jsonutils.JSONDict)
 	dataDict.Set("disk_id", jsonutils.NewString(self.Id))
 	return guests[0].PerformDiskSnapshot(ctx, userCred, query, dataDict)
