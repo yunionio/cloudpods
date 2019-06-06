@@ -225,7 +225,7 @@ func TestBaseListOptions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %s", err)
 		}
-		for _, f := range []string{"details", "admin"} {
+		for _, f := range []string{"details"} {
 			got, err := params.Bool(f)
 			if err != nil {
 				t.Fatalf("getting %s field failed: %s", f, err)
