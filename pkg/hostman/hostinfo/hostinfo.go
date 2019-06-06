@@ -788,7 +788,7 @@ func (h *SHostInfo) onUpdateHostInfoSucc(body jsonutils.JSONObject) {
 
 func (h *SHostInfo) updateHostReservedMem() {
 	content := jsonutils.NewDict()
-	content.Set("mem_reserved", jsonutils.NewInt(h.getReservedMem()))
+	content.Set("mem_reserved", jsonutils.NewInt(int64(h.getReservedMem())))
 	res, err := modules.Hosts.Update(h.GetSession(),
 		h.HostId, content)
 	if err != nil {
@@ -799,12 +799,12 @@ func (h *SHostInfo) updateHostReservedMem() {
 	}
 }
 
-func (h *SHostInfo) getReservedMem() int64 {
+func (h *SHostInfo) getReservedMem() int {
 	reserved := h.Mem.MemInfo.Total / 10
-	if reserved > 4096 {
-		return 4096
+	if reserved > options.HostOptions.MaxReservedMemory {
+		return options.HostOptions.MaxReservedMemory
 	}
-	return int64(reserved)
+	return reserved
 }
 
 func (h *SHostInfo) PutHostOffline() {
