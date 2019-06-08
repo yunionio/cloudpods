@@ -90,6 +90,12 @@ func isClassRbacAllowed(manager IModelManager, userCred mcclient.TokenCredential
 		} else {
 			requireScope = rbacutils.ScopeSystem
 		}
+	case rbacutils.ScopeUser:
+		if ownerId != nil && ownerId.GetUserId() == objOwnerId.GetUserId() {
+			requireScope = rbacutils.ScopeUser
+		} else {
+			requireScope = rbacutils.ScopeSystem
+		}
 	default:
 		// objOwnerId should not be nil
 		if ownerId != nil && ownerId.GetProjectId() == objOwnerId.GetProjectId() {
@@ -101,9 +107,9 @@ func isClassRbacAllowed(manager IModelManager, userCred mcclient.TokenCredential
 		}
 	}
 
-	scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), action, extra...)
+	allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), action, extra...)
 
-	if !requireScope.HigherThan(scope) {
+	if !requireScope.HigherThan(allowScope) {
 		return true
 	}
 

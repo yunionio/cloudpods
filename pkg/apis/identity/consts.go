@@ -45,6 +45,7 @@ const (
 	EndpointInterfacePublic   = "public"
 	EndpointInterfaceInternal = "internal"
 	EndpointInterfaceAdmin    = "admin"
+	EndpointInterfaceConsole  = "console"
 
 	KeystoneDomainRoot = "<<keystone.domain.root>>"
 

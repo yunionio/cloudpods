@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -114,7 +115,7 @@ func ListItems(manager db.IModelManager, ctx context.Context, userCred mcclient.
 	if err != nil {
 		return nil, err
 	}
-	q, err = db.ListItemQueryFilters(manager, ctx, q, userCred, queryDict)
+	q, err = db.ListItemQueryFilters(manager, ctx, q, userCred, queryDict, policy.PolicyActionList)
 	if err != nil {
 		return nil, err
 	}

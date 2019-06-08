@@ -230,7 +230,7 @@ func (catalog KeystoneServiceCatalogV3) getExternalServices(region string) []Ext
 	for i := 0; i < len(catalog); i++ {
 		for j := 0; j < len(catalog[i].Endpoints); j++ {
 			if catalog[i].Endpoints[j].RegionId == region &&
-				catalog[i].Endpoints[j].Interface == "public" &&
+				catalog[i].Endpoints[j].Interface == "console" &&
 				len(catalog[i].Endpoints[j].Name) > 0 {
 				srv := ExternalService{Name: catalog[i].Endpoints[j].Name,
 					Url: catalog[i].Endpoints[j].Url}

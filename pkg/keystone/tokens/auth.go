@@ -201,10 +201,12 @@ func AuthenticateV3(ctx context.Context, input mcclient.SAuthenticationInputV3) 
 	var projExt *models.SProjectExtended
 	var domain *models.SDomain
 	if len(input.Auth.Scope.Project.Id) > 0 || len(input.Auth.Scope.Project.Name) > 0 {
-		project, err := models.ProjectManager.FetchProject(input.Auth.Scope.Project.Id,
+		project, err := models.ProjectManager.FetchProject(
+			input.Auth.Scope.Project.Id,
 			input.Auth.Scope.Project.Name,
 			input.Auth.Scope.Project.Domain.Id,
-			input.Auth.Scope.Project.Domain.Name)
+			input.Auth.Scope.Project.Domain.Name,
+		)
 		if err != nil {
 			return nil, errors.Wrap(err, "ProjectManager.FetchProject")
 		}
