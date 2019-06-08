@@ -109,6 +109,8 @@ func ParseDiskConfig(diskStr string, idx int) (*compute.DiskConfig, error) {
 			diskConfig.Mountpoint = p
 		} else if p == "autoextend" {
 			diskConfig.SizeMb = -1
+		} else if utils.IsInStringArray(p, compute.STORAGE_ALL_TYPES) {
+			diskConfig.Backend = p
 		} else if strings.HasPrefix(p, "snapshot-") {
 			// HACK: use snapshot creat disk format snapshot-id
 			// example: snapshot-3140cecb-ccc4-4865-abae-3a5ba8c69d9b
