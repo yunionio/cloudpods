@@ -119,7 +119,7 @@ func getQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request
 		} else if len(projectId) > 0 {
 			data.Add(jsonutils.NewString(projectId), "project")
 		}
-		ownerId, scope, err = db.FetchQueryOwnerScope(ctx, userCred, data, _manager, policy.PolicyActionGet)
+		ownerId, scope, err = db.FetchCheckQueryOwnerScope(ctx, userCred, data, _manager, policy.PolicyActionGet, true)
 		if err != nil {
 			httperrors.GeneralServerError(w, err)
 			return

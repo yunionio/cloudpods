@@ -142,7 +142,7 @@ func fetchItemById(manager IModelManager, ctx context.Context, userCred mcclient
 		// if isListRbacAllowed(manager, userCred, true) {
 		// 	query.(*jsonutils.JSONDict).Set("admin", jsonutils.JSONTrue)
 		// }
-		q, err = listItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionGet)
+		q, err = listItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionGet, false)
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +173,7 @@ func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclie
 	q := manager.Query()
 	var err error
 	if query != nil && !query.IsZero() {
-		q, err = listItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionGet)
+		q, err = listItemQueryFilters(manager, ctx, q, userCred, query, policy.PolicyActionGet, false)
 		if err != nil {
 			return nil, err
 		}
@@ -289,7 +289,7 @@ func (m *sUsageManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObj
 }
 
 func FetchUsageOwnerScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error) {
-	return FetchQueryOwnerScope(ctx, userCred, data, &sUsageManager{}, policy.PolicyActionGet)
+	return FetchCheckQueryOwnerScope(ctx, userCred, data, &sUsageManager{}, policy.PolicyActionGet, true)
 }
 
 type IScopedResourceManager interface {
@@ -298,7 +298,7 @@ type IScopedResourceManager interface {
 	FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error)
 }
 
-func FetchQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, manager IScopedResourceManager, action string) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error) {
+func FetchCheckQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, manager IScopedResourceManager, action string, doCheckRbac bool) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error) {
 	var scope rbacutils.TRbacScope
 
 	var allowScope rbacutils.TRbacScope
@@ -373,7 +373,7 @@ func FetchQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCredential
 		}
 		requireScope = queryScope
 	}
-	if requireScope.HigherThan(allowScope) {
+	if doCheckRbac && requireScope.HigherThan(allowScope) {
 		return nil, scope, httperrors.NewForbiddenError(fmt.Sprintf("not enough privilleges(require:%s,allow:%s,query:%s)", requireScope, allowScope, queryScope))
 	}
 	return ownerId, queryScope, nil

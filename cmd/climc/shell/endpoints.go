@@ -19,36 +19,20 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type EndpointListOptions struct {
-		Limit     int64  `help:"Limit, default 0, i.e. no limit" default:"20"`
-		Offset    int64  `help:"Offset, default 0, i.e. no offset"`
+		options.BaseListOptions
 		Region    string `help:"Search by region"`
 		Service   string `help:"Search by service id or name"`
 		Interface string `help:"Search by interface"`
 	}
 	R(&EndpointListOptions{}, "endpoint-list", "List service endpoints", func(s *mcclient.ClientSession, args *EndpointListOptions) error {
-		query := jsonutils.NewDict()
-		if args.Limit > 0 {
-			query.Add(jsonutils.NewInt(args.Limit), "limit")
-		}
-		if args.Offset > 0 {
-			query.Add(jsonutils.NewInt(args.Offset), "offset")
-		}
-		if len(args.Region) > 0 {
-			query.Add(jsonutils.NewString(args.Region), "region_id")
-		}
-		if len(args.Service) > 0 {
-			srvId, err := modules.ServicesV3.GetId(s, args.Service, nil)
-			if err != nil {
-				return err
-			}
-			query.Add(jsonutils.NewString(srvId), "service_id")
-		}
-		if len(args.Interface) > 0 {
-			query.Add(jsonutils.NewString(args.Interface), "interface")
+		query, err := options.ListStructToParams(args)
+		if err != nil {
+			return err
 		}
 		result, err := modules.EndpointsV3.List(s, query)
 		if err != nil {
@@ -82,7 +66,7 @@ func init() {
 	type EndpointCreateOptions struct {
 		SERVICE   string `help:"Service ID or Name"`
 		REGION    string `help:"Region"`
-		INTERFACE string `help:"Interface types" choices:"internal|public|admin"`
+		INTERFACE string `help:"Interface types" choices:"internal|public|admin|console"`
 		URL       string `help:"URL"`
 		Zone      string `help:"Zone"`
 		Name      string `help:"Name"`

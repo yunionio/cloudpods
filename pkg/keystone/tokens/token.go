@@ -245,7 +245,11 @@ func (t *SAuthToken) getTokenV3(
 		return nil, errors.Wrap(err, "getRoles")
 	}
 
-	if len(roles) > 0 {
+	if len(roles) == 0 {
+		if project != nil || domain != nil {
+			return nil, ErrUserNotInProject
+		}
+	} else {
 		if project != nil {
 			token.Token.IsDomain = false
 			token.Token.Project.Id = project.Id
@@ -272,7 +276,6 @@ func (t *SAuthToken) getTokenV3(
 			token.Token.Catalog = endpoints.GetKeystoneCatalogV3()
 		}
 	}
-
 	return &token, nil
 }
 
@@ -299,7 +302,11 @@ func (t *SAuthToken) getTokenV2(
 		return nil, errors.Wrap(err, "getRoles")
 	}
 
-	if len(roles) > 0 {
+	if len(roles) == 0 {
+		if project != nil {
+			return nil, ErrUserNotInProject
+		}
+	} else {
 		token.Token.Tenant.Id = project.Id
 		token.Token.Tenant.Name = project.Name
 		// token.Token.Tenant.Enabled = project.Enabled.Bool()

@@ -115,6 +115,18 @@ var (
 					Result:   rbacutils.Allow,
 				},
 				{
+					Service:  "compute",
+					Resource: "secgrouprules",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "secgrouprules",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
 					Service:  "yunionagent",
 					Resource: "notices",
 					Action:   PolicyActionList,
@@ -154,6 +166,24 @@ var (
 					Service:  "yunionconf",
 					Resource: "parameters",
 					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "yunionconf",
+					Resource: "parameters",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "yunionconf",
+					Resource: "parameters",
+					Action:   PolicyActionCreate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "yunionconf",
+					Resource: "parameters",
+					Action:   PolicyActionUpdate,
 					Result:   rbacutils.Allow,
 				},
 			},
