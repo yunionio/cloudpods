@@ -331,6 +331,9 @@ func (p *DiskSchedtagPredicate) GetHypervisorDriver() models.IGuestDriver {
 }
 
 func (p *DiskSchedtagPredicate) isStorageFitDisk(storage *api.CandidateStorage, c core.Candidater, d *computeapi.DiskConfig) bool {
+	if storage.Status == computeapi.STORAGE_OFFLINE || !storage.Enabled {
+		return false
+	}
 	if d.Storage != "" {
 		if storage.Id == d.Storage || storage.Name == d.Storage {
 			return true

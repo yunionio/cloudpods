@@ -930,6 +930,9 @@ func parseDiskDriverSpec(driver string, adapterSpecs api.DiskAdapterSpec) []stri
 }
 
 func ConvertStorageInfo2BaremetalStorages(storageInfo jsonutils.JSONObject) []*baremetal.BaremetalStorage {
+	if storageInfo == nil {
+		return nil
+	}
 	storages := []baremetal.BaremetalStorage{}
 	err := storageInfo.Unmarshal(&storages)
 	if err != nil {

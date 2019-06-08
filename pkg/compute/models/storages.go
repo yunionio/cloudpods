@@ -266,6 +266,7 @@ func (self *SStorage) PerformEnable(ctx context.Context, userCred mcclient.Token
 			return nil, err
 		}
 		db.OpsLog.LogEvent(self, db.ACT_ENABLE, "", userCred)
+		self.ClearSchedDescCache()
 	}
 	return nil, nil
 }
@@ -285,6 +286,7 @@ func (self *SStorage) PerformDisable(ctx context.Context, userCred mcclient.Toke
 			return nil, err
 		}
 		db.OpsLog.LogEvent(self, db.ACT_DISABLE, "", userCred)
+		self.ClearSchedDescCache()
 	}
 	return nil, nil
 }
@@ -300,6 +302,7 @@ func (self *SStorage) PerformOnline(ctx context.Context, userCred mcclient.Token
 			return nil, err
 		}
 		db.OpsLog.LogEvent(self, db.ACT_ONLINE, "", userCred)
+		self.ClearSchedDescCache()
 	}
 	return nil, nil
 }
@@ -315,6 +318,7 @@ func (self *SStorage) PerformOffline(ctx context.Context, userCred mcclient.Toke
 			return nil, err
 		}
 		db.OpsLog.LogEvent(self, db.ACT_OFFLINE, "", userCred)
+		self.ClearSchedDescCache()
 	}
 	return nil, nil
 }
@@ -347,7 +351,7 @@ func (self *SStorage) IsLocal() bool {
 }
 
 func (self *SStorage) GetStorageCachePath(mountPoint, imageCachePath string) string {
-	if self.StorageType == api.STORAGE_NFS {
+	if utils.IsInStringArray(self.StorageType, api.SHARED_FILE_STORAGE) {
 		return path.Join(mountPoint, imageCachePath)
 	} else {
 		return imageCachePath
@@ -534,6 +538,8 @@ func (self *SStorage) SyncStatusWithHosts() {
 		status = self.Status
 		if online == 0 {
 			status = api.STORAGE_OFFLINE
+		} else {
+			status = api.STORAGE_ONLINE
 		}
 	} else if online > 0 {
 		status = api.STORAGE_ONLINE

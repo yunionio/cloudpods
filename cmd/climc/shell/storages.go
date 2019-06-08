@@ -80,7 +80,7 @@ func init() {
 		ZONE         string `help:"Zone id of storage"`
 		Capacity     int64  `help:"Capacity of the Storage"`
 		MediumType   string `help:"Medium type, either ssd or rotate" choices:"ssd|rotate"`
-		StorageType  string `help:"Storage type" choices:"local|nas|vsan|rbd|nfs|baremetal"`
+		StorageType  string `help:"Storage type" choices:"local|nas|vsan|rbd|nfs|gpfs|baremetal"`
 		MonHost      string `help:"Ceph mon_host config"`
 		Key          string `help:"Ceph key config"`
 		Pool         string `help:"Ceph Poll Name"`
