@@ -274,7 +274,8 @@ func (model *SModelBase) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 
 // list hooks
 func (model *SModelBase) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	return jsonutils.NewDict()
+	extra := jsonutils.NewDict()
+	return getModelExtraDetails(model.GetIModel(), ctx, extra)
 }
 
 // get hooks
@@ -283,7 +284,8 @@ func (model *SModelBase) AllowGetDetails(ctx context.Context, userCred mcclient.
 }
 
 func (model *SModelBase) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	return jsonutils.NewDict(), nil
+	extra := jsonutils.NewDict()
+	return getModelExtraDetails(model.GetIModel(), ctx, extra), nil
 }
 
 func (model *SModelBase) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string {
