@@ -259,7 +259,8 @@ func (self *SImage) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string {
 	headers := make(map[string]string)
 
-	extra, _ := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	extra, _ := self.GetExtraDetails(ctx, userCred, query)
+	log.Infof("%s", extra)
 	if extra != nil {
 		for _, k := range extra.SortedKeys() {
 			log.Infof("%s", k)
