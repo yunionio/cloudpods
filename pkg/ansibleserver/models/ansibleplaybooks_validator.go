@@ -15,15 +15,18 @@
 package models
 
 import (
+	"context"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/regutils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient"
+	mcclient "yunion.io/x/onecloud/pkg/mcclient"
+	mcclient_auth "yunion.io/x/onecloud/pkg/mcclient/auth"
+	mcclient_models "yunion.io/x/onecloud/pkg/mcclient/models"
+	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 )
 
@@ -59,29 +62,22 @@ func (v *ValidatorAnsiblePlaybook) Validate(data *jsonutils.JSONDict) error {
 		case regutils.MatchIP4Addr(name):
 			continue
 		case strings.HasPrefix(name, "host:"):
+			var err error
 			name = strings.TrimSpace(name[len("host:"):])
-			m, err := db.FetchByIdOrName(HostManager, v.userCred, name)
+			name, err = v.getHostAccessIp(name)
 			if err != nil {
-				return httperrors.NewBadRequestError("cannot find host %s", name)
+				return err
 			}
-			if m.(*SHost).AccessIp == "" {
-				return httperrors.NewBadRequestError("host %s has no access ip", name)
-			}
-			name = m.(*SHost).AccessIp
 		case strings.HasPrefix(name, "server:"):
 			name = name[len("server:"):]
 			fallthrough
 		default:
+			var err error
 			name = strings.TrimSpace(name)
-			m, err := db.FetchByIdOrName(GuestManager, v.userCred, name)
+			name, err = v.getServerIp(name)
 			if err != nil {
-				return httperrors.NewBadRequestError("cannot find guest %s", name)
+				return err
 			}
-			ips := m.(*SGuest).GetPrivateIPs()
-			if len(ips) == 0 {
-				return httperrors.NewBadRequestError("guest %s has no private ips", name)
-			}
-			name = ips[0]
 		}
 		hosts[i].Name = name
 		if username, _ := hosts[i].GetVar("ansible_user"); username == "" {
@@ -92,4 +88,42 @@ func (v *ValidatorAnsiblePlaybook) Validate(data *jsonutils.JSONDict) error {
 	pbJson := jsonutils.Marshal(pb)
 	data.Set("playbook", pbJson)
 	return nil
+}
+
+func (v *ValidatorAnsiblePlaybook) getHostAccessIp(name string) (string, error) {
+	sess := mcclient_auth.GetSession(context.Background(), v.userCred, "", "")
+	hostJson, err := mcclient_modules.Hosts.Get(sess, name, nil)
+	if err != nil {
+		return "", httperrors.NewBadRequestError("cannot find host %s", name)
+	}
+	host := &mcclient_models.Host{}
+	if err := hostJson.Unmarshal(host); err != nil {
+		return "", httperrors.NewBadRequestError("unmarshal host %s: %v", name, err)
+	}
+	if host.AccessIp == "" {
+		return "", httperrors.NewBadRequestError("host %s has no access ip", name)
+	}
+	return host.AccessIp, nil
+}
+
+func (v *ValidatorAnsiblePlaybook) getServerIp(name string) (string, error) {
+	sess := mcclient_auth.GetSession(context.Background(), v.userCred, "", "")
+	serverJson, err := mcclient_modules.Servers.Get(sess, name, nil)
+	if err != nil {
+		return "", httperrors.NewBadRequestError("find server %s: %v", name, err)
+	}
+	server := &mcclient_models.Server{}
+	if err := serverJson.Unmarshal(server); err != nil {
+		return "", httperrors.NewBadRequestError("unmarshal server %s: %v", name, err)
+	}
+	serverNetworks, err := mcclient_models.ParseServerNetworkDetailedString(server.Networks)
+	if err != nil {
+		return "", httperrors.NewConflictError("parse networks of %s: %v", name, err)
+	}
+	ips := serverNetworks.GetPrivateIPs()
+	if len(ips) == 0 {
+		return "", httperrors.NewBadRequestError("server %s has no private ips", name)
+	}
+	name = ips[0].String()
+	return name, nil
 }

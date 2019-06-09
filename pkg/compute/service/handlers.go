@@ -93,7 +93,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.LoadbalancerAclManager,
 		models.LoadbalancerAgentManager,
 		models.RouteTableManager,
-		models.AnsiblePlaybookManager,
 
 		models.SchedpolicyManager,
 		models.DynamicschedtagManager,

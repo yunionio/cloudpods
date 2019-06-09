@@ -26,25 +26,7 @@ func InitDB() error {
 		 * Important!!!
 		 * initialization order matters, do not change the order
 		 */
-		db.TenantCacheManager,
-		CloudproviderManager,
-		CloudaccountManager,
-		CloudregionManager,
-		ZoneManager,
-		VpcManager,
-		WireManager,
-		StorageManager,
-		SecurityGroupManager,
-		NetworkManager,
-		LoadbalancerCertificateManager,
-		LoadbalancerManager,
-		LoadbalancerListenerManager,
-		LoadbalancerListenerRuleManager,
-		LoadbalancerBackendGroupManager,
-		LoadbalancerBackendManager,
-		SchedtagManager,
-		DynamicschedtagManager,
-		ServerSkuManager,
+		AnsiblePlaybookManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {

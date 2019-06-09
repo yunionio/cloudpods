@@ -79,17 +79,17 @@ func init() {
 	}
 }
 
-func (man *SAnsiblePlaybookManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (man *SAnsiblePlaybookManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	v := NewAnsiblePlaybookValidator("playbook", userCred)
 	if err := v.Validate(data); err != nil {
 		return nil, err
 	}
 	data.Set("status", jsonutils.NewString(AnsiblePlaybookStatusInit))
-	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerProjId, query, data)
+	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
-func (apb *SAnsiblePlaybook) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	apb.SVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
+func (apb *SAnsiblePlaybook) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	apb.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	err := apb.runPlaybook(ctx, userCred)
 	if err != nil {
 		log.Errorf("postCreate: runPlaybook: %v", err)
