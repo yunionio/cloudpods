@@ -1,3 +1,5 @@
+package service
+
 // Copyright 2019 Yunion
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,30 +14,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package modules
-
-type AnsiblePlaybookManager struct {
-	ResourceManager
-}
-
-var (
-	AnsiblePlaybooks AnsiblePlaybookManager
+import (
+	"yunion.io/x/onecloud/pkg/ansibleserver/models"
+	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/appsrv/dispatcher"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
-func init() {
-	AnsiblePlaybooks = AnsiblePlaybookManager{
-		NewAnsibleManager(
-			"ansibleplaybook",
-			"ansibleplaybooks",
-			[]string{
-				"id",
-				"name",
-				"status",
-				"start_time",
-				"end_time",
-			},
-			[]string{},
-		),
+func InitHandlers(app *appsrv.Application) {
+	db.InitAllManagers()
+
+	for _, manager := range []db.IModelManager{
+		models.AnsiblePlaybookManager,
+	} {
+		db.RegisterModelManager(manager)
+		handler := db.NewModelHandler(manager)
+		dispatcher.AddModelDispatcher("", app, handler)
 	}
-	register(&AnsiblePlaybooks)
 }

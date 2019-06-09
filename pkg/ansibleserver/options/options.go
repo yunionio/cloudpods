@@ -12,30 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package modules
+package options
 
-type AnsiblePlaybookManager struct {
-	ResourceManager
+import common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+
+type AnsibleServerOptions struct {
+	common_options.CommonOptions
+	common_options.DBOptions
 }
 
 var (
-	AnsiblePlaybooks AnsiblePlaybookManager
+	Options AnsibleServerOptions
 )
-
-func init() {
-	AnsiblePlaybooks = AnsiblePlaybookManager{
-		NewAnsibleManager(
-			"ansibleplaybook",
-			"ansibleplaybooks",
-			[]string{
-				"id",
-				"name",
-				"status",
-				"start_time",
-				"end_time",
-			},
-			[]string{},
-		),
-	}
-	register(&AnsiblePlaybooks)
-}
