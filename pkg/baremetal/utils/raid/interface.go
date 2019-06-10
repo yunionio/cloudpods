@@ -31,7 +31,7 @@ type IRaidDriver interface {
 type IRaidAdapter interface {
 	GetIndex() int
 	PreBuildRaid(confs []*api.BaremetalDiskConfig) error
-	GetLogicVolumes() ([]int, error)
+	GetLogicVolumes() ([]*RaidLogicalVolume, error)
 	RemoveLogicVolumes() error
 	GetDevices() []*baremetal.BaremetalStorage
 
