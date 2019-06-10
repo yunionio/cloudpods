@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
@@ -332,6 +334,10 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 			}
 			return nil, httperrors.NewGeneralError(err)
 		}
+		region := regionObj.(*SCloudregion)
+		if !region.GetDriver().IsSupportCreateServerSku() {
+			return nil, httperrors.NewUnsupportOperationError("Not support create server sku in region %s", region.Name)
+		}
 		data.Add(jsonutils.NewString(regionObj.GetId()), "cloudregion_id")
 	} else {
 		data.Add(jsonutils.NewString(api.DEFAULT_REGION_ID), "cloudregion_id")
@@ -394,6 +400,30 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 	}
 
 	return self.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+}
+
+func (self *SServerSku) GetRegion() (*SCloudregion, error) {
+	regionObj, err := CloudregionManager.FetchById(self.CloudregionId)
+	if err != nil {
+		return nil, err
+	}
+	return regionObj.(*SCloudregion), nil
+}
+
+func (self *SServerSku) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	region, err := self.GetRegion()
+	if err != nil {
+		return
+	}
+	if region.IsManaged() {
+		task, err := taskman.TaskManager.NewTask(ctx, "ServerSkuCreateTask", self, userCred, nil, "", "", nil)
+		if err != nil {
+			log.Errorf("failed to create ServerSkuCreateTask error: %v", err)
+			return
+		}
+		task.ScheduleRun(nil)
+	}
 }
 
 func (self *SServerSkuManager) FetchByZoneExtId(zoneExtId string, name string) (db.IModel, error) {
