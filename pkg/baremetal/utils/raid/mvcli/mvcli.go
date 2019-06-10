@@ -87,8 +87,8 @@ func (dev *MarvelRaidPhyDev) isComplete() bool {
 	return true
 }
 
-func (dev *MarvelRaidPhyDev) ToBaremetalStorage() *baremetal.BaremetalStorage {
-	s := dev.RaidBasePhyDev.ToBaremetalStorage()
+func (dev *MarvelRaidPhyDev) ToBaremetalStorage(idx int) *baremetal.BaremetalStorage {
+	s := dev.RaidBasePhyDev.ToBaremetalStorage(idx)
 	s.Slot = dev.slot
 	return s
 }
@@ -137,13 +137,13 @@ func (adapter *MarvelRaidAdaptor) parsePhyDevs(lines []string) error {
 
 func (adapter *MarvelRaidAdaptor) GetDevices() []*baremetal.BaremetalStorage {
 	ret := []*baremetal.BaremetalStorage{}
-	for _, dev := range adapter.devs {
-		ret = append(ret, dev.ToBaremetalStorage())
+	for idx, dev := range adapter.devs {
+		ret = append(ret, dev.ToBaremetalStorage(idx))
 	}
 	return ret
 }
 
-func (adapter *MarvelRaidAdaptor) GetLogicVolumes() ([]int, error) {
+func (adapter *MarvelRaidAdaptor) GetLogicVolumes() ([]*raid.RaidLogicalVolume, error) {
 	cmd := GetCommand("info", "-o", "vd")
 	ret, err := adapter.raid.term.Run(cmd)
 	if err != nil {
@@ -152,9 +152,9 @@ func (adapter *MarvelRaidAdaptor) GetLogicVolumes() ([]int, error) {
 	return adapter.parseLogicVolumes(ret)
 }
 
-func (adapter *MarvelRaidAdaptor) parseLogicVolumes(lines []string) ([]int, error) {
-	lvIdx := []int{}
-	usedDevs := []int{}
+func (adapter *MarvelRaidAdaptor) parseLogicVolumes(lines []string) ([]*raid.RaidLogicalVolume, error) {
+	lvIdx := make([]*raid.RaidLogicalVolume, 0)
+	usedDevs := make([]*raid.RaidLogicalVolume, 0)
 	for _, line := range lines {
 		key, val := stringutils.SplitKeyValue(line)
 		if key != "" {
@@ -163,14 +163,20 @@ func (adapter *MarvelRaidAdaptor) parseLogicVolumes(lines []string) ([]int, erro
 				if err != nil {
 					return nil, err
 				}
-				lvIdx = append(lvIdx, idx)
+				lvIdx = append(lvIdx, &raid.RaidLogicalVolume{
+					Index:   idx,
+					Adapter: adapter.index,
+				})
 			} else if key == "PD RAID setup" {
 				for _, d := range strings.Split(val, " ") {
 					idx, err := strconv.Atoi(d)
 					if err != nil {
 						return nil, err
 					}
-					usedDevs = append(usedDevs, idx)
+					usedDevs = append(usedDevs, &raid.RaidLogicalVolume{
+						Index:   idx,
+						Adapter: adapter.index,
+					})
 				}
 			}
 		}
@@ -186,9 +192,9 @@ func (adapter *MarvelRaidAdaptor) RemoveLogicVolumes() error {
 	if err != nil {
 		return fmt.Errorf("Failed to get logic volumes: %v", err)
 	}
-	for _, i := range raid.ReverseIntArray(lvs) {
-		if err := adapter.removeLogicVolume(i); err != nil {
-			return fmt.Errorf("Remove %d logical volume: %v", i, err)
+	for _, i := range raid.ReverseLogicalArray(lvs) {
+		if err := adapter.removeLogicVolume(i.Index); err != nil {
+			return fmt.Errorf("Remove %#v logical volume: %v", i, err)
 		}
 	}
 	return nil

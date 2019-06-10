@@ -19,26 +19,32 @@ import (
 	"testing"
 )
 
-func TestReverseIntArray(t *testing.T) {
+func TestReverseLogicalArray(t *testing.T) {
 	tests := []struct {
 		name  string
-		input []int
-		want  []int
+		input []*RaidLogicalVolume
+		want  []*RaidLogicalVolume
 	}{
 		{
 			name:  "empty input",
-			input: []int{},
-			want:  []int{},
+			input: []*RaidLogicalVolume{},
+			want:  []*RaidLogicalVolume{},
 		},
 		{
-			name:  "reverse",
-			input: []int{1, 2, 3},
-			want:  []int{3, 2, 1},
+			name: "reverse",
+			input: []*RaidLogicalVolume{
+				{Index: 1},
+				{Index: 2},
+			},
+			want: []*RaidLogicalVolume{
+				{Index: 2},
+				{Index: 1},
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ReverseIntArray(tt.input); !reflect.DeepEqual(got, tt.want) {
+			if got := ReverseLogicalArray(tt.input); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ReverseIntArray() = %v, want %v", got, tt.want)
 			}
 		})

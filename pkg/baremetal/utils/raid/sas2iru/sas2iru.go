@@ -115,8 +115,8 @@ func (dev *Mpt2SASRaidPhyDev) isComplete() bool {
 	return true
 }
 
-func (dev *Mpt2SASRaidPhyDev) ToBaremetalStorage() *baremetal.BaremetalStorage {
-	s := dev.RaidBasePhyDev.ToBaremetalStorage()
+func (dev *Mpt2SASRaidPhyDev) ToBaremetalStorage(idx int) *baremetal.BaremetalStorage {
+	s := dev.RaidBasePhyDev.ToBaremetalStorage(idx)
 	s.Slot = dev.slot
 	s.Enclosure = dev.enclosure
 	s.Block = int64(dev.block)
@@ -176,13 +176,13 @@ func (adapter *Mpt2SASRaidAdaptor) parsePhyDevs(lines []string) error {
 
 func (adapter *Mpt2SASRaidAdaptor) GetDevices() []*baremetal.BaremetalStorage {
 	ret := []*baremetal.BaremetalStorage{}
-	for _, dev := range adapter.devs {
-		ret = append(ret, dev.ToBaremetalStorage())
+	for idx, dev := range adapter.devs {
+		ret = append(ret, dev.ToBaremetalStorage(idx))
 	}
 	return ret
 }
 
-func (adapter *Mpt2SASRaidAdaptor) GetLogicVolumes() ([]int, error) {
+func (adapter *Mpt2SASRaidAdaptor) GetLogicVolumes() ([]*raid.RaidLogicalVolume, error) {
 	cmd := adapter.raid.GetCommand(fmt.Sprintf("%d", adapter.index), "DISPLAY")
 	ret, err := adapter.raid.term.Run(cmd)
 	if err != nil {
@@ -191,24 +191,33 @@ func (adapter *Mpt2SASRaidAdaptor) GetLogicVolumes() ([]int, error) {
 	return adapter.parseLogicVolumes(ret)
 }
 
-func (adapter *Mpt2SASRaidAdaptor) parseLogicVolumes(lines []string) ([]int, error) {
-	lvIdx := []int{}
-	usedDevs := []int{}
+func (adapter *Mpt2SASRaidAdaptor) parseLogicVolumes(lines []string) ([]*raid.RaidLogicalVolume, error) {
+	lvIdx := []*raid.RaidLogicalVolume{}
+	usedDevs := []*raid.RaidLogicalVolume{}
 	for _, line := range lines {
 		key, val := stringutils.SplitKeyValue(line)
 		if key != "" && key == "Volume ID" {
 			idx, _ := strconv.Atoi(val)
-			lvIdx = append(lvIdx, idx)
+			lvIdx = append(lvIdx, &raid.RaidLogicalVolume{
+				Index:   idx,
+				Adapter: adapter.index,
+			})
 		} else if regexp.MustCompile(`PHY\[\d+\] Enclosure#/Slot#`).MatchString(key) {
 			idx, _ := strconv.Atoi(val)
-			usedDevs = append(usedDevs, idx)
+			usedDevs = append(usedDevs, &raid.RaidLogicalVolume{
+				Index:   idx,
+				Adapter: adapter.index,
+			})
 		}
 	}
 	if len(adapter.devs) < len(usedDevs) {
 		return nil, fmt.Errorf("adapter current dev %d < usedDevs %d", len(adapter.devs), len(usedDevs))
 	}
 	for i := 0; i < len(adapter.devs)-len(usedDevs); i++ {
-		lvIdx = append(lvIdx, -1)
+		lvIdx = append(lvIdx, &raid.RaidLogicalVolume{
+			Index:   -1,
+			Adapter: adapter.index,
+		})
 	}
 	return lvIdx, nil
 }
@@ -231,8 +240,8 @@ func (adapter *Mpt2SASRaidAdaptor) setBootIR() error {
 	if err != nil {
 		return err
 	}
-	if len(lvs) > 0 && lvs[0] > 0 {
-		args := []string{fmt.Sprintf("%d", adapter.index), "BOOTIR", fmt.Sprintf("%d", lvs[0])}
+	if len(lvs) > 0 && lvs[0].Index > 0 {
+		args := []string{fmt.Sprintf("%d", adapter.index), "BOOTIR", fmt.Sprintf("%d", lvs[0].Index)}
 		cmd := adapter.raid.GetCommand(args...)
 		_, err := adapter.raid.term.Run(cmd)
 		return err
@@ -315,9 +324,9 @@ func (r *Mpt2SASRaid) GetName() string {
 }
 
 func (r *Mpt2SASRaid) ParsePhyDevs() error {
-	if r.modulePCIProbed("mpt2sas") {
+	if r.modulePCIProbed(raid.MODULE_MPT2SAS) {
 		r.utility = "/opt/lsi/sas2ircu"
-	} else if r.modulePCIProbed("mpt3sas") {
+	} else if r.modulePCIProbed(raid.MODULE_MPT3SAS) {
 		r.utility = "/opt/lsi/sas3ircu"
 	} else {
 		return fmt.Errorf("Not probe mpt2sas or mpt3sas kernel module")

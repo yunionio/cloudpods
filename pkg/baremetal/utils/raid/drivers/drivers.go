@@ -17,6 +17,10 @@ package drivers
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/raid"
 	_ "yunion.io/x/onecloud/pkg/baremetal/utils/raid/hpssactl"
@@ -33,6 +37,30 @@ func GetDriver(name string, term *ssh.Client) raid.IRaidDriver {
 		return nil
 	}
 	return factory(term)
+}
+
+func GetDriverWithInit(name string, term *ssh.Client) (raid.IRaidDriver, error) {
+	drv := GetDriver(name, term)
+	if drv == nil {
+		return nil, errors.Errorf("Not found raid driver %q", name)
+	}
+	return drv, drv.ParsePhyDevs()
+}
+
+func GetDriverByKernelModule(module string, term *ssh.Client) (raid.IRaidDriver, error) {
+	name := ""
+	switch module {
+	case raid.MODULE_MEGARAID:
+		name = baremetal.DISK_DRIVER_MEGARAID
+	case raid.MODULE_HPSA:
+		name = baremetal.DISK_DRIVER_HPSARAID
+	case raid.MODULE_MPT2SAS, raid.MODULE_MPT3SAS:
+		name = baremetal.DISK_DRIVER_MPT2SAS
+	}
+	if name == "" {
+		return nil, errors.Errorf("Not support module %q", module)
+	}
+	return GetDriverWithInit(name, term)
 }
 
 func GetDrivers(term *ssh.Client) []raid.IRaidDriver {
@@ -110,4 +138,42 @@ func buildRaid(adapter raid.IRaidAdapter, confs []*api.BaremetalDiskConfig) erro
 		}
 	}
 	return nil
+}
+
+func GetFirstLogicalVolume(drv raid.IRaidDriver, adapterIdx int) (*raid.RaidLogicalVolume, error) {
+	var adapter raid.IRaidAdapter = nil
+	for _, ada := range drv.GetAdapters() {
+		if ada.GetIndex() == adapterIdx {
+			adapter = ada
+		}
+	}
+	if adapter == nil {
+		return nil, errors.Errorf("Not found raid %s adapter %d", drv.GetName(), adapterIdx)
+	}
+	lvs, err := adapter.GetLogicVolumes()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get adapter logical volume")
+	}
+	if len(lvs) == 0 {
+		return nil, errors.Errorf("Adapter %d empty logical volume", adapterIdx)
+	}
+	return lvs[0], nil
+}
+
+func GetBlockDeviceLogicalVolume(drv raid.IRaidDriver, blockDev string) (*raid.RaidLogicalVolume, error) {
+	lvs := make([]*raid.RaidLogicalVolume, 0)
+	for _, ada := range drv.GetAdapters() {
+		aLvs, err := ada.GetLogicVolumes()
+		if err != nil {
+			return nil, errors.Errorf("Get adapter %d logical volumes: %v", ada.GetIndex(), err)
+		}
+		lvs = append(lvs, aLvs...)
+	}
+	log.Debugf("Get logic volumes: %s", jsonutils.Marshal(lvs).String())
+	for _, lv := range lvs {
+		if lv.BlockDev == blockDev {
+			return lv, nil
+		}
+	}
+	return nil, errors.Errorf("Not found logical volume by block device %s", blockDev)
 }

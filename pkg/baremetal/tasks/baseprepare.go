@@ -205,7 +205,7 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 				if lanConf.IPAddr == nic.IpAddr {
 					break
 				}
-				log.Infof("waiting IPMI DHCP address %s %s", lanConf.IPAddr, nic.IpAddr)
+				log.Infof("waiting IPMI DHCP address old:%s expect:%s", lanConf.IPAddr, nic.IpAddr)
 				tried += 2
 			}
 			if tried >= maxTries {

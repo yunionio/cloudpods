@@ -24,6 +24,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
@@ -524,9 +525,13 @@ func MountSSHRootfs(term *ssh.Client, layouts []baremetal.Layout) (*SSHPartition
 		return nil, nil, err
 	}
 	tool.RetrievePartitionInfo()
-	parts := tool.GetPartitions()
+	rootDisk := tool.GetRootDisk()
+	if err := rootDisk.ReInitInfo(); err != nil {
+		return nil, nil, errors.Wrapf(err, "Reinit root disk")
+	}
+	parts := rootDisk.GetPartitions()
 	if len(parts) == 0 {
-		return nil, nil, fmt.Errorf("Not found partitions")
+		return nil, nil, fmt.Errorf("Not found root disk partitions")
 	}
 	for _, part := range parts {
 		dev := NewSSHPartition(term, part.GetDev())
