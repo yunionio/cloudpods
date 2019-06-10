@@ -75,6 +75,10 @@ func (p *StatusPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 		if cloudprovider.HealthStatus != api.CLOUD_PROVIDER_HEALTH_NORMAL {
 			h.Exclude2("cloud_provider_health_status", cloudprovider.HealthStatus, api.CLOUD_PROVIDER_HEALTH_NORMAL)
 		}
+		domainId := getter.DomainId()
+		if domainId != u.SchedInfo.Domain {
+			h.Exclude2("domain_belong", domainId, u.SchedInfo.Domain)
+		}
 	}
 
 	return h.GetResult()
