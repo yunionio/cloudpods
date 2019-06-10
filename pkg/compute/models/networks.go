@@ -1311,12 +1311,6 @@ func (self *SNetwork) CustomizeCreate(ctx context.Context, userCred mcclient.Tok
 
 func (self *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SSharableVirtualResourceBase.PostCreate(ctx, userCred, ownerProjId, query, data)
-	wire := self.GetWire()
-	if wire == nil {
-		log.Errorf("cannot find wire???")
-	} else {
-		wire.clearHostSchedDescCache()
-	}
 	vpc := self.GetVpc()
 	if vpc != nil && vpc.IsManaged() {
 		task, err := taskman.TaskManager.NewTask(ctx, "NetworkCreateTask", self, userCred, nil, "", "", nil)
@@ -1327,6 +1321,7 @@ func (self *SNetwork) PostCreate(ctx context.Context, userCred mcclient.TokenCre
 		}
 	} else {
 		self.SetStatus(userCred, api.NETWORK_STATUS_AVAILABLE, "")
+		self.ClearSchedDescCache()
 	}
 }
 
@@ -1356,6 +1351,7 @@ func (self *SNetwork) CustomizeDelete(ctx context.Context, userCred mcclient.Tok
 func (self *SNetwork) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
 	self.SetStatus(userCred, api.NETWORK_STATUS_DELETED, "real delete")
+	self.ClearSchedDescCache()
 	return self.SSharableVirtualResourceBase.Delete(ctx, userCred)
 }
 
