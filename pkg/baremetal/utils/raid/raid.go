@@ -17,11 +17,27 @@ package raid
 import (
 	"strings"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/util/ssh"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
+)
+
+const (
+	MODULE_MEGARAID = "megaraid_sas"
+	MODULE_HPSA     = "hpsa"
+	MODULE_MPT2SAS  = "mpt2sas"
+	MODULE_MPT3SAS  = "mpt3sas"
+)
+
+const (
+	MaxUint                   = ^uint(0)
+	MaxInt                    = int(MaxUint >> 1)
+	UnknownLogicalVolumeIndex = MaxInt
 )
 
 type RaidDriverFactory func(term *ssh.Client) IRaidDriver
@@ -74,7 +90,7 @@ func (dev *RaidBasePhyDev) IsComplete() bool {
 	return true
 }
 
-func (dev *RaidBasePhyDev) ToBaremetalStorage() *baremetal.BaremetalStorage {
+func (dev *RaidBasePhyDev) ToBaremetalStorage(index int) *baremetal.BaremetalStorage {
 	return &baremetal.BaremetalStorage{
 		Adapter: dev.Adapter,
 		Status:  dev.Status,
@@ -104,8 +120,8 @@ func GetModules(term *ssh.Client) []string {
 	return ret
 }
 
-func ReverseIntArray(input []int) []int {
-	s := make([]int, len(input))
+func ReverseLogicalArray(input []*RaidLogicalVolume) []*RaidLogicalVolume {
+	s := make([]*RaidLogicalVolume, len(input))
 	for i := range input {
 		s[i] = input[i]
 	}
@@ -113,4 +129,18 @@ func ReverseIntArray(input []int) []int {
 		s[i], s[j] = s[j], s[i]
 	}
 	return s
+}
+
+type RaidLogicalVolume struct {
+	Index    int
+	Adapter  int
+	BlockDev string
+}
+
+func SGMap(term *ssh.Client) ([]compute.SGMapItem, error) {
+	lines, err := term.Run("/usr/bin/sg_map -x")
+	if err != nil {
+		return nil, errors.Wrap(err, "run sg_map")
+	}
+	return sysutils.ParseSGMap(lines), nil
 }

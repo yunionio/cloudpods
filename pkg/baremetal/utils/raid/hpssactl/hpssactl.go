@@ -53,8 +53,8 @@ func newHPSARaidPhyDev(addr string, adapter int, rotate bool) *HPSARaidPhyDev {
 	}
 }
 
-func (dev *HPSARaidPhyDev) ToBaremetalStorage() *baremetal.BaremetalStorage {
-	s := dev.RaidBasePhyDev.ToBaremetalStorage()
+func (dev *HPSARaidPhyDev) ToBaremetalStorage(index int) *baremetal.BaremetalStorage {
+	s := dev.RaidBasePhyDev.ToBaremetalStorage(index)
 	s.Addr = dev.addr
 
 	return s
@@ -184,8 +184,8 @@ func (adapter *HPSARaidAdaptor) getPhyDevByAddr(addr string) *HPSARaidPhyDev {
 
 func (adapter *HPSARaidAdaptor) GetDevices() []*baremetal.BaremetalStorage {
 	ret := []*baremetal.BaremetalStorage{}
-	for _, dev := range adapter.devs {
-		ret = append(ret, dev.ToBaremetalStorage())
+	for idx, dev := range adapter.devs {
+		ret = append(ret, dev.ToBaremetalStorage(idx))
 	}
 	return ret
 }
@@ -297,7 +297,7 @@ func (adapter *HPSARaidAdaptor) removeLogicVolume(idx int) error {
 	return err
 }
 
-func (adapter *HPSARaidAdaptor) GetLogicVolumes() ([]int, error) {
+func (adapter *HPSARaidAdaptor) GetLogicVolumes() ([]*raid.RaidLogicalVolume, error) {
 	cmd := GetCommand("controller", fmt.Sprintf("slot=%d", adapter.index), "logicaldrive", "all", "show")
 	ret, err := adapter.raid.term.Run(cmd)
 	if err != nil {
@@ -306,8 +306,8 @@ func (adapter *HPSARaidAdaptor) GetLogicVolumes() ([]int, error) {
 	return adapter.parseLogicalVolumes(ret)
 }
 
-func (adapter *HPSARaidAdaptor) parseLogicalVolumes(lines []string) ([]int, error) {
-	lvs := []int{}
+func (adapter *HPSARaidAdaptor) parseLogicalVolumes(lines []string) ([]*raid.RaidLogicalVolume, error) {
+	lvs := []*raid.RaidLogicalVolume{}
 	for _, line := range lines {
 		m := regutils2.SubGroupMatch(`logicaldrive\s+(?P<addr>\w+)`, line)
 		if len(m) > 0 {
@@ -316,7 +316,10 @@ func (adapter *HPSARaidAdaptor) parseLogicalVolumes(lines []string) ([]int, erro
 			if err != nil {
 				return nil, fmt.Errorf("%s not int: %v", idxStr, err)
 			}
-			lvs = append(lvs, idx)
+			lvs = append(lvs, &raid.RaidLogicalVolume{
+				Index:   idx,
+				Adapter: adapter.index,
+			})
 		}
 	}
 	return lvs, nil
@@ -327,9 +330,9 @@ func (adapter *HPSARaidAdaptor) RemoveLogicVolumes() error {
 	if err != nil {
 		return fmt.Errorf("Failed to get logic volumes: %v", err)
 	}
-	for _, i := range raid.ReverseIntArray(lvs) {
-		if err := adapter.removeLogicVolume(i); err != nil {
-			return fmt.Errorf("Remove %d logical volume: %v", i, err)
+	for _, i := range raid.ReverseLogicalArray(lvs) {
+		if err := adapter.removeLogicVolume(i.Index); err != nil {
+			return fmt.Errorf("Remove %#v logical volume: %v", i, err)
 		}
 	}
 	return nil
@@ -348,7 +351,7 @@ func NewHPSARaid(term *ssh.Client) raid.IRaidDriver {
 }
 
 func (r *HPSARaid) ParsePhyDevs() error {
-	if !utils.IsInStringArray("hpsa", raid.GetModules(r.term)) {
+	if !utils.IsInStringArray(raid.MODULE_HPSA, raid.GetModules(r.term)) {
 		return fmt.Errorf("Not found hpsa module")
 	}
 	cmd := GetCommand("controller", "all", "show")

@@ -19,8 +19,11 @@ import (
 	"math"
 	"strings"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 
+	raiddrivers "yunion.io/x/onecloud/pkg/baremetal/utils/raid/drivers"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	fileutils "yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -205,6 +208,7 @@ func (p *Partition) GetSizeMB() (int64, error) {
 type DiskPartitions struct {
 	driver     string
 	adapter    int
+	raidConfig string
 	sizeMB     int64 // MB
 	tool       *PartitionTool
 	dev        string
@@ -217,15 +221,25 @@ type DiskPartitions struct {
 	partitions []*Partition
 }
 
-func newDiskPartitions(driver string, adapter int, sizeMB int64, blockSize int64, tool *PartitionTool) *DiskPartitions {
+func newDiskPartitions(driver string, adapter int, raidConfig string, sizeMB int64, blockSize int64, tool *PartitionTool) *DiskPartitions {
 	ps := new(DiskPartitions)
 	ps.driver = driver
 	ps.adapter = adapter
+	ps.raidConfig = raidConfig
 	ps.sizeMB = sizeMB
 	ps.tool = tool
 	ps.blockSize = blockSize
 	ps.partitions = make([]*Partition, 0)
 	return ps
+}
+
+func (p *DiskPartitions) IsRaidDriver() bool {
+	return utils.IsInStringArray(p.driver, []string{
+		baremetal.DISK_DRIVER_MEGARAID,
+		baremetal.DISK_DRIVER_HPSARAID,
+		baremetal.DISK_DRIVER_MARVELRAID,
+		baremetal.DISK_DRIVER_MPT2SAS,
+	})
 }
 
 func (p *DiskPartitions) SetInfo(info *types.SDiskInfo) *DiskPartitions {
@@ -238,6 +252,20 @@ func (p *DiskPartitions) SetInfo(info *types.SDiskInfo) *DiskPartitions {
 		p.sectors = (p.sectors >> 3)
 	}
 	return p
+}
+
+func (p *DiskPartitions) ReInitInfo() error {
+	cmd := "/lib/mos/lsdisk"
+	lines, err := p.tool.Run(cmd)
+	if err != nil {
+		return errors.Wrapf(err, "Disk %#v reset info list disk", p)
+	}
+	for _, disk := range sysutils.ParseDiskInfo(lines, p.driver) {
+		if disk.Dev == p.GetDevName() {
+			p.SetInfo(disk)
+		}
+	}
+	return p.RetrievePartitionInfo()
 }
 
 func (ps *DiskPartitions) MBSectors() int64 {
@@ -264,7 +292,27 @@ func (ps *DiskPartitions) IsReady() bool {
 }
 
 func (ps *DiskPartitions) GetDevName() string {
-	return ps.devName
+	devName := ps.devName
+	if !ps.IsRaidDriver() || ps.raidConfig == baremetal.DISK_CONF_NONE {
+		return devName
+	}
+	raidDrv, err := raiddrivers.GetDriverWithInit(ps.driver, ps.tool.runner.Term())
+	if err != nil {
+		log.Errorf("Failed to find %s raid driver: %v", ps.driver, err)
+		return devName
+	}
+	// find first raid adapter logical volume
+	lv, err := raiddrivers.GetFirstLogicalVolume(raidDrv, ps.adapter)
+	if err != nil {
+		log.Errorf("Failed to find raid %s adapter %d first logical volume: %v", raidDrv.GetName(), ps.adapter, err)
+		return devName
+	}
+	if len(lv.BlockDev) == 0 {
+		log.Warningf("Raid %s adapter %d first logical volume block device is empty", raidDrv.GetName(), ps.adapter)
+		return devName
+	}
+	devName = strings.TrimLeft(lv.BlockDev, "/dev/")
+	return devName
 }
 
 func (ps *DiskPartitions) RetrievePartitionInfo() error {
@@ -310,6 +358,10 @@ func (ps *DiskPartitions) doResize(dev string, cmd string) error {
 		return err
 	}
 	return ps.RetrievePartitionInfo()
+}
+
+func (ps *DiskPartitions) GetPartitions() []*Partition {
+	return ps.partitions
 }
 
 func (ps *DiskPartitions) ResizePartition(offsetMB int64) error {
@@ -512,6 +564,7 @@ func (ps *DiskPartitions) CreatePartition(sizeMB int64, fs string, doformat bool
 
 type IPartitionRunner interface {
 	Run(cmds ...string) ([]string, error)
+	Term() *ssh.Client
 }
 
 type PartitionTool struct {
@@ -543,6 +596,10 @@ func (tool *PartitionTool) DebugString() string {
 	return strings.Join(ret, "\n")
 }
 
+func (tool *PartitionTool) Disks() []*DiskPartitions {
+	return tool.disks
+}
+
 func (tool *PartitionTool) parseLsDisk(lines []string, driver string) {
 	disks := sysutils.ParseDiskInfo(lines, driver)
 	if len(disks) == 0 {
@@ -556,7 +613,7 @@ func (tool *PartitionTool) parseLsDisk(lines []string, driver string) {
 
 func (tool *PartitionTool) FetchDiskConfs(diskConfs []baremetal.DiskConfiguration) *PartitionTool {
 	for _, d := range diskConfs {
-		disk := newDiskPartitions(d.Driver, d.Adapter, d.Size, d.Block, tool)
+		disk := newDiskPartitions(d.Driver, d.Adapter, d.RaidConfig, d.Size, d.Block, tool)
 		tool.disks = append(tool.disks, disk)
 		var key string
 		if d.Driver == baremetal.DISK_DRIVER_LINUX {
@@ -575,9 +632,9 @@ func (tool *PartitionTool) FetchDiskConfs(diskConfs []baremetal.DiskConfiguratio
 }
 
 func (tool *PartitionTool) IsAllDisksReady() bool {
-	for _, d := range tool.disks {
+	for idx, d := range tool.disks {
 		if !d.IsReady() {
-			log.Errorf("disk %#v not ready", d)
+			log.Errorf("disk.%d %#v not ready", idx, d)
 			return false
 		}
 	}
@@ -680,4 +737,8 @@ func NewSSHPartitionTool(term *ssh.Client) *SSHPartitionTool {
 
 func (tool *SSHPartitionTool) Run(cmds ...string) ([]string, error) {
 	return tool.term.Run(cmds...)
+}
+
+func (tool *SSHPartitionTool) Term() *ssh.Client {
+	return tool.term
 }
