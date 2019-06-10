@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -393,5 +394,11 @@ func (self *SessionPendingUsage) StartTimer() {
 }
 
 func (self *SessionPendingUsage) StopTimer() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("SessionPendingUsage %#v stop timer: %v", self, r)
+			debug.PrintStack()
+		}
+	}()
 	self.cancelCh <- self.SessionId
 }
