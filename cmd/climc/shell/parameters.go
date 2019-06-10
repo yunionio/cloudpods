@@ -39,10 +39,13 @@ func init() {
 		var result *modules.ListResult
 		if len(args.NamespaceId) > 0 {
 			params.Add(jsonutils.NewString(args.NamespaceId), "namespace_id")
+			params.Add(jsonutils.NewString("system"), "scope")
 			result, err = modules.Parameters.List(s, params)
 		} else if len(args.User) > 0 {
+			params.Add(jsonutils.NewString("system"), "scope")
 			result, err = modules.Parameters.ListInContext(s, params, &modules.UsersV3, args.User)
 		} else if len(args.Service) > 0 {
+			params.Add(jsonutils.NewString("system"), "scope")
 			result, err = modules.Parameters.ListInContext(s, params, &modules.ServicesV3, args.Service)
 		} else {
 			result, err = modules.Parameters.List(s, params)
@@ -64,19 +67,22 @@ func init() {
 
 	R(&ParametersShowOptions{}, "parameter-show", "show a parameter", func(s *mcclient.ClientSession, args *ParametersShowOptions) error {
 		params := jsonutils.NewDict()
-		if len(args.NamespaceId) > 0 {
+		/*if len(args.NamespaceId) > 0 {
 			params.Add(jsonutils.JSONTrue, "admin")
 			params.Add(jsonutils.NewString(args.NamespaceId), "namespace_id")
-		}
+		}*/
 
 		var parameter jsonutils.JSONObject
 		var err error
 		if len(args.NamespaceId) > 0 {
+			params.Add(jsonutils.NewString("system"), "scope")
 			params.Add(jsonutils.NewString(args.NamespaceId), "namespace_id")
 			parameter, err = modules.Parameters.Get(s, args.NAME, params)
 		} else if len(args.User) > 0 {
+			params.Add(jsonutils.NewString("system"), "scope")
 			parameter, err = modules.Parameters.GetInContext(s, args.NAME, params, &modules.UsersV3, args.User)
 		} else if len(args.Service) > 0 {
+			params.Add(jsonutils.NewString("system"), "scope")
 			parameter, err = modules.Parameters.GetInContext(s, args.NAME, params, &modules.ServicesV3, args.Service)
 		} else {
 			parameter, err = modules.Parameters.Get(s, args.NAME, params)

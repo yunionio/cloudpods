@@ -29,7 +29,7 @@ import (
 
 type SPolicyManager struct {
 	SEnabledIdentityBaseResourceManager
-	SSharableBaseResourceManager
+	db.SSharableBaseResourceManager
 }
 
 var PolicyManager *SPolicyManager
@@ -59,7 +59,7 @@ func init() {
 
 type SPolicy struct {
 	SEnabledIdentityBaseResource
-	SSharableBaseResource
+	db.SSharableBaseResource
 
 	Type string               `width:"255" charset:"utf8" nullable:"false" list:"user" update:"domain"`
 	Blob jsonutils.JSONObject `nullable:"false" list:"user" update:"domain"`
@@ -159,11 +159,11 @@ func (policy *SPolicy) PostDelete(ctx context.Context, userCred mcclient.TokenCr
 }
 
 func (policy *SPolicy) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return sharableAllowPerformPublic(policy, userCred)
+	return db.SharableAllowPerformPublic(policy, userCred)
 }
 
 func (policy *SPolicy) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	res, err := sharablePerformPublic(policy, ctx, userCred, query, data)
+	res, err := db.SharablePerformPublic(policy, ctx, userCred, query, data)
 	if err == nil {
 		policyman.PolicyManager.SyncOnce()
 	}
@@ -171,11 +171,11 @@ func (policy *SPolicy) PerformPublic(ctx context.Context, userCred mcclient.Toke
 }
 
 func (policy *SPolicy) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return sharableAllowPerformPrivate(policy, userCred)
+	return db.SharableAllowPerformPrivate(policy, userCred)
 }
 
 func (policy *SPolicy) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	res, err := sharablePerformPrivate(policy, ctx, userCred, query, data)
+	res, err := db.SharablePerformPrivate(policy, ctx, userCred, query, data)
 	if err == nil {
 		policyman.PolicyManager.SyncOnce()
 	}
