@@ -44,6 +44,8 @@ const (
 	CLOUD_PROVIDER_HEALTH_SUSPENDED    = "suspended"    // 远端处于冻结状态
 	CLOUD_PROVIDER_HEALTH_ARREARS      = "arrears"      // 远端处于欠费状态
 	CLOUD_PROVIDER_HEALTH_UNKNOWN      = "unknown"      // 未知状态，查询失败
+
+	ZSTACK_BRAND_DSTACK = "DStack"
 )
 
 var (

@@ -39,6 +39,10 @@ func (self *SZStackProviderFactory) GetName() string {
 	return zstack.CLOUD_PROVIDER_ZSTACK
 }
 
+func (self *SZStackProviderFactory) GetSupportedBrands() []string {
+	return []string{api.ZSTACK_BRAND_DSTACK}
+}
+
 func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	username, _ := data.GetString("username")
 	if len(username) == 0 {
