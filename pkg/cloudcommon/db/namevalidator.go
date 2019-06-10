@@ -25,6 +25,9 @@ import (
 
 func isNameUnique(manager IModelManager, ownerId mcclient.IIdentityProvider, name string) (bool, error) {
 	q := manager.Query()
+	if f := q.Field("pending_deleted"); f != nil {
+		q = q.IsFalse("pending_deleted")
+	}
 	q = manager.FilterByName(q, name)
 	q = manager.FilterByOwner(q, ownerId, manager.NamespaceScope())
 	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
@@ -53,6 +56,9 @@ func NewNameValidator(manager IModelManager, ownerId mcclient.IIdentityProvider,
 func isAlterNameUnique(model IModel, name string) (bool, error) {
 	manager := model.GetModelManager()
 	q := manager.Query()
+	if f := q.Field("pending_deleted"); f != nil {
+		q = q.IsFalse("pending_deleted")
+	}
 	q = manager.FilterByName(q, name)
 	q = manager.FilterByOwner(q, model.GetOwnerId(), manager.NamespaceScope())
 	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
