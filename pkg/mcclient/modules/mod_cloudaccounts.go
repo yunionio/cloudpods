@@ -25,7 +25,8 @@ func init() {
 			"Sync_Status", "Last_sync",
 			"guest_count", "domain", "domain_id",
 			"Provider", "Brand",
-			"Enable_Auto_Sync", "Sync_Interval_Seconds"},
+			"Enable_Auto_Sync", "Sync_Interval_Seconds",
+			"Is_Public"},
 		[]string{})
 
 	registerCompute(&Cloudaccounts)

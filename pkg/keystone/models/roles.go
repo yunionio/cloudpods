@@ -34,7 +34,7 @@ import (
 
 type SRoleManager struct {
 	SIdentityBaseResourceManager
-	SSharableBaseResourceManager
+	db.SSharableBaseResourceManager
 }
 
 var RoleManager *SRoleManager
@@ -65,7 +65,7 @@ func init() {
 
 type SRole struct {
 	SIdentityBaseResource
-	SSharableBaseResource
+	db.SSharableBaseResource
 }
 
 func (manager *SRoleManager) GetContextManagers() [][]db.IModelManager {
@@ -347,11 +347,11 @@ func (manager *SRoleManager) FetchRole(roleId, roleName string, domainId, domain
 }
 
 func (role *SRole) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return sharableAllowPerformPublic(role, userCred)
+	return db.SharableAllowPerformPublic(role, userCred)
 }
 
 func (role *SRole) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	res, err := sharablePerformPublic(role, ctx, userCred, query, data)
+	res, err := db.SharablePerformPublic(role, ctx, userCred, query, data)
 	if err == nil {
 		policy.PolicyManager.SyncOnce()
 	}
@@ -359,11 +359,11 @@ func (role *SRole) PerformPublic(ctx context.Context, userCred mcclient.TokenCre
 }
 
 func (role *SRole) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return sharableAllowPerformPrivate(role, userCred)
+	return db.SharableAllowPerformPrivate(role, userCred)
 }
 
 func (role *SRole) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	res, err := sharablePerformPrivate(role, ctx, userCred, query, data)
+	res, err := db.SharablePerformPrivate(role, ctx, userCred, query, data)
 	if err == nil {
 		policy.PolicyManager.SyncOnce()
 	}

@@ -116,14 +116,16 @@ func (this *ProjectManagerV3) DoJoinProject(s *mcclient.ClientSession, params js
 	if e != nil {
 		return ret, e
 	}
-	rid, e := params.GetString("rid")
+	ridsA, e := params.Get("rid")
 	if e != nil {
 		return ret, e
 	}
-	pids, e := params.GetArray("pids")
+	rids := ridsA.(*jsonutils.JSONArray).GetStringArray()
+	pidsA, e := params.Get("pids")
 	if e != nil {
 		return ret, e
 	}
+	pids := pidsA.(*jsonutils.JSONArray).GetStringArray()
 
 	resource, _ := params.GetString("resource")
 
@@ -133,17 +135,15 @@ func (this *ProjectManagerV3) DoJoinProject(s *mcclient.ClientSession, params js
 
 	chs := make([]chan int, len(pids))
 
-	for i, pid := range pids {
-		_pid, e := pid.GetString()
-		if e != nil {
-			return ret, e
+	for _, rid := range rids {
+		for i, pid := range pids {
+			chs[i] = make(chan int)
+			go this._join(s, pid, uid, rid, resource, chs[i])
 		}
-		chs[i] = make(chan int)
-		go this._join(s, _pid, uid, rid, resource, chs[i])
-	}
 
-	for _, ch := range chs {
-		<-ch
+		for _, ch := range chs {
+			<-ch
+		}
 	}
 	return ret, nil
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models
+package db
 
 import (
 	"context"
@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -50,7 +49,7 @@ type SSharableBaseResource struct {
 }
 
 type SSharableBaseInterface interface {
-	db.IModel
+	IModel
 	SetIsPublic(pub bool)
 	GetIsPublic() bool
 }
@@ -67,11 +66,11 @@ func (m SSharableBaseResource) GetIsPublic() bool {
 	return m.IsPublic
 }
 
-func sharableAllowPerformPublic(model SSharableBaseInterface, userCred mcclient.TokenCredential) bool {
-	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "public")
+func SharableAllowPerformPublic(model SSharableBaseInterface, userCred mcclient.TokenCredential) bool {
+	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "public")
 }
 
-func sharablePerformPublic(model SSharableBaseInterface, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func SharablePerformPublic(model SSharableBaseInterface, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if model.GetIsPublic() {
 		return nil, nil
 	}
@@ -86,21 +85,21 @@ func sharablePerformPublic(model SSharableBaseInterface, ctx context.Context, us
 		return nil, httperrors.NewForbiddenError("not owner")
 	}
 
-	diff, err := db.Update(model, func() error {
+	diff, err := Update(model, func() error {
 		model.SetIsPublic(true)
 		return nil
 	})
 	if err == nil {
-		db.OpsLog.LogEvent(model, db.ACT_UPDATE, diff, userCred)
+		OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
 	}
 	return nil, err
 }
 
-func sharableAllowPerformPrivate(model SSharableBaseInterface, userCred mcclient.TokenCredential) bool {
-	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "private")
+func SharableAllowPerformPrivate(model SSharableBaseInterface, userCred mcclient.TokenCredential) bool {
+	return IsAllowPerform(rbacutils.ScopeSystem, userCred, model, "private")
 }
 
-func sharablePerformPrivate(model SSharableBaseInterface, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func SharablePerformPrivate(model SSharableBaseInterface, ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !model.GetIsPublic() {
 		return nil, nil
 	}
@@ -115,12 +114,12 @@ func sharablePerformPrivate(model SSharableBaseInterface, ctx context.Context, u
 		return nil, httperrors.NewForbiddenError("not owner")
 	}
 
-	diff, err := db.Update(model, func() error {
+	diff, err := Update(model, func() error {
 		model.SetIsPublic(false)
 		return nil
 	})
 	if err == nil {
-		db.OpsLog.LogEvent(model, db.ACT_UPDATE, diff, userCred)
+		OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
 	}
 	return nil, err
 }

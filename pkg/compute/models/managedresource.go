@@ -109,6 +109,32 @@ func (self *SManagedResourceBase) IsManaged() bool {
 	return len(self.ManagerId) > 0
 }
 
+func managedResourceFilterByDomain(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+	domainStr := jsonutils.GetAnyString(query, []string{"domain", "domain_id", "project_domain", "project_domain_id"})
+	if len(domainStr) > 0 {
+		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("domains", domainStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		accounts := CloudaccountManager.Query().SubQuery()
+		providers := CloudproviderManager.Query().SubQuery()
+		subq := providers.Query(providers.Field("id"))
+		subq = subq.Join(accounts, sqlchemy.Equals(providers.Field("cloudaccount_id"), accounts.Field("id")))
+		subq = subq.Filter(sqlchemy.Equals(accounts.Field("domain_id"), domain.GetId()))
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq.SubQuery()))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq.SubQuery()))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
+	return q, nil
+}
+
 func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	queryDict := query.(*jsonutils.JSONDict)
 
@@ -196,22 +222,69 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObje
 			}
 		} else {
 			account := CloudaccountManager.Query().SubQuery()
-			_subq := CloudproviderManager.Query("id")
-			subq := _subq.Join(account, sqlchemy.Equals(account.Field("id"), _subq.Field("cloudaccount_id"))).
-				Filter(sqlchemy.Equals(account.Field("brand"), brandStr)).SubQuery()
+			providers := CloudproviderManager.Query().SubQuery()
+			subq := providers.Query(providers.Field("id"))
+			subq = subq.Join(account, sqlchemy.Equals(
+				account.Field("id"), providers.Field("cloudaccount_id"),
+			))
+			subq = subq.Filter(sqlchemy.Equals(account.Field("brand"), brandStr))
 
 			if len(filterField) == 0 {
-				q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+				q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq.SubQuery()))
 				queryDict.Remove("manager_id")
 			} else {
 				sq := subqFunc()
-				sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq))
+				sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq.SubQuery()))
 				q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 				queryDict.Remove(filterField)
 			}
 		}
 	}
 
+	return q, nil
+}
+
+func managedResourceFilterByZone(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
+	if len(zoneStr) > 0 {
+		zoneObj, err := ZoneManager.FetchByIdOrName(nil, zoneStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), zoneStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.Equals(q.Field("zone_id"), zoneObj.GetId()))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.Equals(sq.Field("zone_id"), zoneObj.GetId()))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
+	return q, nil
+}
+
+func managedResourceFilterByRegion(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
+	regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
+	if len(regionStr) > 0 {
+		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		if len(filterField) == 0 {
+			q = q.Filter(sqlchemy.In(q.Field("cloudregion_id"), regionObj.GetId()))
+		} else {
+			sq := subqFunc()
+			sq = sq.Filter(sqlchemy.In(sq.Field("cloudregion_id"), regionObj.GetId()))
+			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
+		}
+	}
 	return q, nil
 }
 

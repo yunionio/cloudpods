@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
@@ -163,7 +164,8 @@ func (self *SCachedimage) GetImage() (*cloudprovider.SImage, error) {
 
 	err := self.Info.Unmarshal(&image)
 	if err != nil {
-		return nil, err
+		log.Errorf("unmarshal %s fail %s", self.Info, err)
+		return nil, errors.Wrap(err, "self.Info.Unmarshal")
 	} else {
 		// hack, make cached image ID consistent
 		image.Id = self.Id
@@ -251,11 +253,11 @@ func (manager *SCachedimageManager) GetImageById(ctx context.Context, userCred m
 	obj, err := modules.Images.Get(s, imageId, nil)
 	if err != nil {
 		log.Errorf("GetImageById %s error %s", imageId, err)
-		return nil, err
+		return nil, errors.Wrap(err, "modules.Images.Get")
 	}
 	cachedImage, err := manager.cacheGlanceImageInfo(ctx, userCred, obj)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "manager.cacheGlanceImageInfo")
 	}
 	return cachedImage.GetImage()
 }
@@ -273,11 +275,11 @@ func (manager *SCachedimageManager) getImageByName(ctx context.Context, userCred
 	s := auth.GetSession(ctx, userCred, options.Options.Region, "")
 	obj, err := modules.Images.GetByName(s, imageId, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "modules.Images.GetByName")
 	}
 	cachedImage, err := manager.cacheGlanceImageInfo(ctx, userCred, obj)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "manager.cacheGlanceImageInfo")
 	}
 	return cachedImage.GetImage()
 }
@@ -579,70 +581,39 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		return nil, err
 	}
 
-	/*providerStr := jsonutils.GetAnyString(query, []string{"provider"})
-	if len(providerStr) > 0 {
-		cachedImages := CachedimageManager.Query().SubQuery()
+	q, err = managedResourceFilterByRegion(q, query, "id", func() *sqlchemy.SQuery {
 		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
 		storageCaches := StoragecacheManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
+		storages := StorageManager.Query().SubQuery()
+		zones := ZoneManager.Query().SubQuery()
 
-		subq := cachedImages.Query(cachedImages.Field("id"))
-		subq = subq.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
+		subq := storagecachedImages.Query(storagecachedImages.Field("cachedimage_id"))
 		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
-		subq = subq.Join(cloudproviders, sqlchemy.Equals(storageCaches.Field("manager_id"), cloudproviders.Field("id")))
-		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("provider"), providerStr)).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
-
-		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
+		subq = subq.Join(storages, sqlchemy.Equals(storageCaches.Field("id"), storages.Field("storagecache_id")))
+		subq = subq.Join(zones, sqlchemy.Equals(storages.Field("zone_id"), zones.Field("id")))
+		subq = subq.Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
+		return subq
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id"})
-	if len(accountStr) > 0 {
-		accountObj, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudaccountManager.Keyword(), accountStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		cachedImages := CachedimageManager.Query().SubQuery()
+	q, err = managedResourceFilterByZone(q, query, "id", func() *sqlchemy.SQuery {
 		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
 		storageCaches := StoragecacheManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
+		storages := StorageManager.Query().SubQuery()
 
-		subq := cachedImages.Query(cachedImages.Field("id"))
-		subq = subq.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
+		subq := storagecachedImages.Query(storagecachedImages.Field("cachedimage_id"))
 		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
-		subq = subq.Join(cloudproviders, sqlchemy.Equals(storageCaches.Field("manager_id"), cloudproviders.Field("id")))
-		subq = subq.Filter(sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), accountObj.GetId())).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
-
-		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
+		subq = subq.Join(storages, sqlchemy.Equals(storageCaches.Field("id"), storages.Field("storagecache_id")))
+		subq = subq.Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
+		return subq
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	managerStr := jsonutils.GetAnyString(query, []string{"manager", "manager_id"})
-	if len(managerStr) > 0 {
-		managerObj, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
-			} else {
-				return nil, httperrors.NewGeneralError(err)
-			}
-		}
-		cachedImages := CachedimageManager.Query().SubQuery()
-		storagecachedImages := StoragecachedimageManager.Query().SubQuery()
-		storageCaches := StoragecacheManager.Query().SubQuery()
-
-		subq := cachedImages.Query(cachedImages.Field("id"))
-		subq = subq.Join(storagecachedImages, sqlchemy.Equals(cachedImages.Field("id"), storagecachedImages.Field("cachedimage_id")))
-		subq = subq.Join(storageCaches, sqlchemy.Equals(storagecachedImages.Field("storagecache_id"), storageCaches.Field("id")))
-		subq = subq.Filter(sqlchemy.Equals(storageCaches.Field("manager_id"), managerObj.GetId())).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
-
-		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
-	}
-	*/
-
-	regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
+	/*regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
 	if len(regionStr) > 0 {
 		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
 		if err != nil {
@@ -666,9 +637,9 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		subq = subq.Filter(sqlchemy.Equals(zones.Field("cloudregion_id"), regionObj.GetId())).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
-	}
+	}*/
 
-	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
+	/* zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
 	if len(zoneStr) > 0 {
 		zoneObj, err := ZoneManager.FetchByIdOrName(nil, zoneStr)
 		if err != nil {
@@ -690,7 +661,7 @@ func (manager *SCachedimageManager) ListItemFilter(ctx context.Context, q *sqlch
 		subq = subq.Filter(sqlchemy.Equals(storages.Field("zone_id"), zoneObj.GetId())).Filter(sqlchemy.Equals(storagecachedImages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
 
 		q = q.Filter(sqlchemy.In(q.Field("id"), subq.SubQuery()))
-	}
+	}*/
 
 	return q, nil
 }

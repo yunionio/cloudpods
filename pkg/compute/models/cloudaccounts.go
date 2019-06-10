@@ -40,12 +40,14 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type SCloudaccountManager struct {
 	db.SEnabledStatusStandaloneResourceBaseManager
 	db.SDomainizedResourceBaseManager
+	db.SSharableBaseResourceManager
 }
 
 var CloudaccountManager *SCloudaccountManager
@@ -65,6 +67,7 @@ func init() {
 type SCloudaccount struct {
 	db.SEnabledStatusStandaloneResourceBase
 	db.SDomainizedResourceBase
+	db.SSharableBaseResource
 
 	SSyncableBaseResource
 	LastAutoSync time.Time `list:"domain"`
@@ -1377,4 +1380,26 @@ func (manager *SCloudaccountManager) FetchCustomizeColumns(ctx context.Context, 
 		}
 	}
 	return rows
+}
+
+func (account *SCloudaccount) AllowPerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.SharableAllowPerformPublic(account, userCred)
+}
+
+func (account *SCloudaccount) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	res, err := db.SharablePerformPublic(account, ctx, userCred, query, data)
+	return res, err
+}
+
+func (account *SCloudaccount) AllowPerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.SharableAllowPerformPrivate(account, userCred)
+}
+
+func (account *SCloudaccount) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	res, err := db.SharablePerformPrivate(account, ctx, userCred, query, data)
+	return res, err
+}
+
+func (manager *SCloudaccountManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	return manager.SSharableBaseResourceManager.FilterByOwner(q, owner, scope)
 }
