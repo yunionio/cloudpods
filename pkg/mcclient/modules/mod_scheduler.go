@@ -88,8 +88,25 @@ func (this *SchedulerManager) Test(s *mcclient.ClientSession, params *api.Schedu
 }
 
 func (this *SchedulerManager) DoForecast(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	projectId := s.GetProjectId()
+	domainId := s.GetDomainId()
+	cliProjectId, _ := params.GetString("project_id")
+	if cliProjectId != "" {
+		projectId = cliProjectId
+		domainId = ""
+	}
+	if domainId == "" {
+		ret, err := Projects.Get(s, projectId, nil)
+		if err != nil {
+			return nil, err
+		}
+		domainId, _ = ret.GetString("domain_id")
+	}
+	data := params.(*jsonutils.JSONDict)
+	data.Set("domain_id", jsonutils.NewString(domainId))
+	data.Set("project_id", jsonutils.NewString(projectId))
 	url := newSchedURL("forecast")
-	_, obj, err := this.jsonRequest(s, "POST", url, nil, params)
+	_, obj, err := this.jsonRequest(s, "POST", url, nil, data)
 	if err != nil {
 		return nil, err
 	}

@@ -67,6 +67,14 @@ func (b baseHostGetter) Cloudprovider() *computemodels.SCloudprovider {
 	return b.h.Cloudprovider
 }
 
+func (b baseHostGetter) DomainId() string {
+	provider := b.Cloudprovider()
+	if provider == nil {
+		return ""
+	}
+	return provider.DomainId
+}
+
 func (b baseHostGetter) Region() *computemodels.SCloudregion {
 	return b.h.Region
 }
