@@ -260,6 +260,22 @@ func (this *ClientSession) GetTenantName() string {
 	return this.token.GetTenantName()
 }
 
+func (this *ClientSession) GetProjectId() string {
+	return this.GetTenantId()
+}
+
+func (this *ClientSession) GetProjectName() string {
+	return this.GetTenantName()
+}
+
+func (this *ClientSession) GetDomainId() string {
+	return this.token.GetDomainId()
+}
+
+func (this *ClientSession) GetDomainName() string {
+	return this.token.GetDomainName()
+}
+
 func (this *ClientSession) SetTaskNotifyUrl(url string) {
 	this.Header.Add(TASK_NOTIFY_URL, url)
 }
