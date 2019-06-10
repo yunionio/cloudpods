@@ -7,6 +7,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/onecloud/pkg/util/cloudinit"
 
 	"yunion.io/x/jsonutils"
@@ -268,7 +269,10 @@ func (self *SManagedVirtualizedGuestDriver) GetLinuxDefaultAccount(desc cloudpro
 }
 
 func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost, desc cloudprovider.SManagedVMCreateConfig) (jsonutils.JSONObject, error) {
-	ihost, _ := host.GetIHost()
+	ihost, err := host.GetIHost()
+	if err != nil {
+		return nil, errors.Wrapf(err, "RemoteDeployGuestForCreate.GetIHost")
+	}
 
 	iVM, err := func() (cloudprovider.ICloudVM, error) {
 		lockman.LockObject(ctx, host)
