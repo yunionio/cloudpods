@@ -71,3 +71,7 @@ func (self *SOpenStackRegionDriver) ValidateCreateEipData(ctx context.Context, u
 	}
 	return data, nil
 }
+
+func (self *SOpenStackRegionDriver) IsSupportCreateServerSku() bool {
+	return true
+}

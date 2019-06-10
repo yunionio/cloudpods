@@ -28,6 +28,7 @@ const (
 const (
 	SkuStatusAvailable = "available"
 	SkuStatusSoldout   = "soldout"
+	SkuStatusCreating  = "creating"
 )
 
 var InstanceFamilies = map[string]string{
