@@ -37,7 +37,7 @@ func NewPEMValidator(key string) *ValidatorPEM {
 	v := &ValidatorPEM{
 		Validator: Validator{Key: key},
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
 
@@ -101,7 +101,7 @@ func NewCertificateValidator(key string) *ValidatorCertificate {
 	v := &ValidatorCertificate{
 		ValidatorPEM: *NewPEMValidator(key),
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
 
@@ -232,7 +232,7 @@ func NewPrivateKeyValidator(key string) *ValidatorPrivateKey {
 	v := &ValidatorPrivateKey{
 		ValidatorPEM: *NewPEMValidator(key),
 	}
-	v.parent = v
+	v.SetParent(v)
 	return v
 }
 

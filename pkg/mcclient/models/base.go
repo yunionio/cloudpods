@@ -69,6 +69,12 @@ type StatusStandaloneResource struct {
 	Status string
 }
 
+type EnabledStatusStandaloneResourceBase struct {
+	StatusStandaloneResource
+
+	Enabled bool
+}
+
 type VirtualResource struct {
 	StatusStandaloneResource
 
