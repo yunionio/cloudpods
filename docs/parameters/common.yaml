@@ -66,3 +66,15 @@ cloudregion:
   in: query
   type: string
   description: 根据区域过滤列表
+pending_delete:
+  name: pending_delete
+  in: query
+  type: string
+  default: true
+  enum: [true,false,all]
+  description: 默认不显示回收站资源，true则只显示回收站资源，all则显示所有资源，含不再回收站和在回收站的资源支持实例,磁盘,镜像过滤
+override_pending_delete:
+  name: override_pending_delete
+  in: query
+  type: boolean
+  description: 从回收站删除资源时需要指定此参数为true, 回收站资源到期会自动释放。到期清理时间由服务参数PendingDeleteExpireSeconds确定。默认是259200秒（3天）

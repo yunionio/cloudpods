@@ -12,6 +12,7 @@ get:
     - $ref: '/parameters/common.yaml#network'
     - $ref: '/parameters/common.yaml#vpc'
     - $ref: '/parameters/common.yaml#region'
+    - $ref: '/parameters/common.yaml#pending_delete'
 
     - $ref: '/parameters/instance.yaml#host'
     - $ref: '/parameters/instance.yaml#with_eip'
