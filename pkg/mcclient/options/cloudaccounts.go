@@ -75,7 +75,7 @@ type SCloudAccountCreateBaseOptions struct {
 	Name string `help:"Name of cloud account" positional:"true"`
 	// PROVIDER string `help:"Driver for cloud account" choices:"VMware|Aliyun|Azure|Qcloud|OpenStack|Huawei|Aws"`
 	Desc  string `help:"Description" token:"desc" json:"description"`
-	Brand string `help:"Brand of cloud account"`
+	Brand string `help:"Brand of cloud account" choices:"DStack"`
 
 	AutoCreateProject bool `help:"Enable the account with same name project"`
 	EnableAutoSync    bool `help:"Enable automatically synchronize resources of this account"`

@@ -44,6 +44,7 @@ type ICloudProviderFactory interface {
 	ValidateChangeBandwidth(instanceId string, bandwidth int64) error
 	ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error
 	ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*SCloudaccount, error)
+	GetSupportedBrands() []string
 
 	IsPublicCloud() bool
 	IsOnPremise() bool
@@ -177,6 +178,10 @@ type baseProviderFactory struct {
 
 func (factory *baseProviderFactory) ValidateChangeBandwidth(instanceId string, bandwidth int64) error {
 	return nil
+}
+
+func (factory *baseProviderFactory) GetSupportedBrands() []string {
+	return []string{}
 }
 
 func (factory *baseProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {

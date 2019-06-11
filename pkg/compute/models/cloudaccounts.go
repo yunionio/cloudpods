@@ -256,6 +256,16 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 	if err := providerDriver.ValidateCreateCloudaccountData(ctx, userCred, data); err != nil {
 		return nil, err
 	}
+	brand, _ := data.GetString("brand")
+	if len(brand) > 0 && brand != providerDriver.GetName() {
+		brands := providerDriver.GetSupportedBrands()
+		if !utils.IsInStringArray(providerDriver.GetName(), brands) {
+			brands = append(brands, providerDriver.GetName())
+		}
+		if !utils.IsInStringArray(brand, brands) {
+			return nil, httperrors.NewUnsupportOperationError("Not support brand %s, only support %s", brand, brands)
+		}
+	}
 	data.Set("is_public_cloud", jsonutils.NewBool(providerDriver.IsPublicCloud()))
 	data.Set("is_on_premise", jsonutils.NewBool(providerDriver.IsOnPremise()))
 	// check duplication
