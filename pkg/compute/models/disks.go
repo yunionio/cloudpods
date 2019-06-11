@@ -1380,7 +1380,7 @@ func fillDiskConfigByImage(ctx context.Context, userCred mcclient.TokenCredentia
 	} else {
 		image, err := CachedimageManager.getImageInfo(ctx, userCred, imageId, false)
 		if err != nil {
-			log.Errorf("getImageInfo fail %s", err)
+			log.Errorf("getImageInfo %s fail %s", imageId, err)
 			return err
 		}
 		if image.Status != cloudprovider.IMAGE_STATUS_ACTIVE {

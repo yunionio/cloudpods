@@ -101,8 +101,16 @@ func init() {
 		return nil
 	})
 
-	R(&ZoneShowOptions{}, "zone-capability", "Show zone's capacibilities", func(s *mcclient.ClientSession, args *ZoneShowOptions) error {
-		result, err := modules.Zones.GetSpecific(s, args.ID, "capability", nil)
+	type ZoneCapabilityOptions struct {
+		ID     string `help:"Zone ID or Name" json:"-"`
+		Domain string `help:"domain Id or name"`
+	}
+	R(&ZoneCapabilityOptions{}, "zone-capability", "Show zone's capacibilities", func(s *mcclient.ClientSession, args *ZoneCapabilityOptions) error {
+		query, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		result, err := modules.Zones.GetSpecific(s, args.ID, "capability", query)
 		if err != nil {
 			return err
 		}

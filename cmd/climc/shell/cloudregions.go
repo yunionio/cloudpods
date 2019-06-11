@@ -173,8 +173,13 @@ func init() {
 		return nil
 	})
 
-	R(&CloudregionShowOptions{}, "cloud-region-capability", "Show region's capacibilities", func(s *mcclient.ClientSession, args *CloudregionShowOptions) error {
-		result, err := modules.Cloudregions.GetSpecific(s, args.ID, "capability", nil)
+	type CloudregionCapabiltyOptions struct {
+		ID     string `help:"ID or name of cloud region to check" json:"-"`
+		Domain string `help:"cloud region domain"`
+	}
+	R(&CloudregionCapabiltyOptions{}, "cloud-region-capability", "Show region's capacibilities", func(s *mcclient.ClientSession, args *CloudregionCapabiltyOptions) error {
+		query, err := options.StructToParams(args)
+		result, err := modules.Cloudregions.GetSpecific(s, args.ID, "capability", query)
 		if err != nil {
 			return err
 		}

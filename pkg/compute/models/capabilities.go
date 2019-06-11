@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -23,6 +24,8 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -43,17 +46,31 @@ type SCapabilities struct {
 
 func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
 	capa := SCapabilities{}
-	capa.Hypervisors = getHypervisors(region, zone)
-	capa.ResourceTypes = getResourceTypes(region, zone)
-	capa.StorageTypes = getStorageTypes(region, zone, true)
-	capa.DataStorageTypes = getStorageTypes(region, zone, false)
-	capa.GPUModels = getGPUs(region, zone)
+	var domainId string
+	domainStr := jsonutils.GetAnyString(query, []string{"domain", "domain_id", "project_domain", "project_domain_id"})
+	if len(domainStr) > 0 {
+		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(ctx, domainStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return capa, httperrors.NewResourceNotFoundError2("domains", domainStr)
+			}
+			return capa, httperrors.NewGeneralError(err)
+		}
+		domainId = domain.GetId()
+	} else {
+		domainId = userCred.GetProjectDomainId()
+	}
+	capa.Hypervisors = getHypervisors(region, zone, domainId)
+	capa.ResourceTypes = getResourceTypes(region, zone, domainId)
+	capa.StorageTypes = getStorageTypes(region, zone, true, domainId)
+	capa.DataStorageTypes = getStorageTypes(region, zone, false, domainId)
+	capa.GPUModels = getGPUs(region, zone, domainId)
 	capa.SchedPolicySupport = isSchedPolicySupported(region, zone)
 	capa.MinNicCount = getMinNicCount(region, zone)
 	capa.MaxNicCount = getMaxNicCount(region, zone)
 	capa.MinDataDiskCount = getMinDataDiskCount(region, zone)
 	capa.MaxDataDiskCount = getMaxDataDiskCount(region, zone)
-	capa.Usable = isUsable(region, zone)
+	capa.Usable = isUsable(region, zone, domainId)
 	if query == nil {
 		query = jsonutils.NewDict()
 	}
@@ -64,6 +81,9 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	if zone != nil {
 		query.(*jsonutils.JSONDict).Add(jsonutils.NewString(zone.GetId()), "zone")
 	}
+	if len(domainId) > 0 {
+		query.(*jsonutils.JSONDict).Add(jsonutils.NewString(domainId), "domain_id")
+	}
 	mans := []ISpecModelManager{HostManager, IsolatedDeviceManager}
 	capa.Specs, err = GetModelsSpecs(ctx, userCred, query.(*jsonutils.JSONDict), mans...)
 	return capa, err
@@ -73,7 +93,22 @@ func getRegionZoneSubq(region *SCloudregion) *sqlchemy.SSubQuery {
 	return ZoneManager.Query("id").Equals("cloudregion_id", region.GetId()).SubQuery()
 }
 
-func getHypervisors(region *SCloudregion, zone *SZone) []string {
+func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
+	providers := CloudproviderManager.Query().SubQuery()
+	accounts := CloudaccountManager.Query().SubQuery()
+
+	q := providers.Query(providers.Field("id"))
+	q = q.Join(accounts, sqlchemy.Equals(accounts.Field("id"), providers.Field("cloudaccount_id")))
+	q = q.Filter(sqlchemy.OR(
+		sqlchemy.Equals(accounts.Field("domain_id"), domainId),
+		sqlchemy.IsTrue(accounts.Field("is_public")),
+	))
+	q = q.Filter(sqlchemy.Equals(accounts.Field("status"), api.CLOUD_PROVIDER_CONNECTED))
+
+	return q.SubQuery()
+}
+
+func getHypervisors(region *SCloudregion, zone *SZone, domainId string) []string {
 	q := HostManager.Query("host_type", "manager_id")
 	if region != nil {
 		subq := getRegionZoneSubq(region)
@@ -81,6 +116,13 @@ func getHypervisors(region *SCloudregion, zone *SZone) []string {
 	}
 	if zone != nil {
 		q = q.Equals("zone_id", zone.Id)
+	}
+	if len(domainId) > 0 {
+		subq := getDomainManagerSubq(domainId)
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("manager_id"), subq),
+			sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
+		))
 	}
 	q = q.IsNotEmpty("host_type").IsNotNull("host_type")
 	// q = q.Equals("host_status", HOST_ONLINE)
@@ -106,7 +148,7 @@ func getHypervisors(region *SCloudregion, zone *SZone) []string {
 	return hypervisors
 }
 
-func getResourceTypes(region *SCloudregion, zone *SZone) []string {
+func getResourceTypes(region *SCloudregion, zone *SZone, domainId string) []string {
 	q := HostManager.Query("resource_type", "manager_id")
 	if region != nil {
 		subq := getRegionZoneSubq(region)
@@ -114,6 +156,13 @@ func getResourceTypes(region *SCloudregion, zone *SZone) []string {
 	}
 	if zone != nil {
 		q = q.Equals("zone_id", zone.Id)
+	}
+	if len(domainId) > 0 {
+		subq := getDomainManagerSubq(domainId)
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(q.Field("manager_id"), subq),
+			sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
+		))
 	}
 	q = q.IsNotEmpty("resource_type").IsNotNull("resource_type")
 	q = q.IsTrue("enabled")
@@ -137,7 +186,7 @@ func getResourceTypes(region *SCloudregion, zone *SZone) []string {
 	return resourceTypes
 }
 
-func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool) []string {
+func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool, domainId string) []string {
 	storages := StorageManager.Query().SubQuery()
 	hostStorages := HoststorageManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
@@ -157,6 +206,13 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool) []string
 	}
 	if zone != nil {
 		q = q.Filter(sqlchemy.Equals(storages.Field("zone_id"), zone.Id))
+	}
+	if len(domainId) > 0 {
+		subq := getDomainManagerSubq(domainId)
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(hosts.Field("manager_id"), subq),
+			sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")),
+		))
 	}
 	q = q.Filter(sqlchemy.Equals(hosts.Field("resource_type"), api.HostResourceTypeShared))
 	q = q.Filter(sqlchemy.IsNotEmpty(storages.Field("storage_type")))
@@ -186,7 +242,7 @@ func getStorageTypes(region *SCloudregion, zone *SZone, isSysDisk bool) []string
 	return storageTypes
 }
 
-func getGPUs(region *SCloudregion, zone *SZone) []string {
+func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
 	devices := IsolatedDeviceManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
 
@@ -199,6 +255,13 @@ func getGPUs(region *SCloudregion, zone *SZone) []string {
 	if zone != nil {
 		q = q.Join(hosts, sqlchemy.Equals(devices.Field("host_id"), hosts.Field("id")))
 		q = q.Filter(sqlchemy.Equals(hosts.Field("zone_id"), zone.Id))
+	}
+	if len(domainId) > 0 {
+		subq := getDomainManagerSubq(domainId)
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(hosts.Field("manager_id"), subq),
+			sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")),
+		))
 	}
 	q = q.Distinct()
 
@@ -218,19 +281,27 @@ func getGPUs(region *SCloudregion, zone *SZone) []string {
 	return gpus
 }
 
-func getNetworkCount(region *SCloudregion, zone *SZone) (int, error) {
+func getNetworkCount(region *SCloudregion, zone *SZone, domainId string) (int, error) {
+	vpcs := VpcManager.Query().SubQuery()
 	wires := WireManager.Query().SubQuery()
 	networks := NetworkManager.Query().SubQuery()
 
 	q := networks.Query()
+	q = q.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
 	if region != nil {
 		subq := getRegionZoneSubq(region)
-		q = q.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
 		q = q.Filter(sqlchemy.In(wires.Field("zone_id"), subq))
 	}
 	if zone != nil {
-		q = q.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
 		q = q.Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id))
+	}
+	if len(domainId) > 0 {
+		subq := getDomainManagerSubq(domainId)
+		q = q.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.In(vpcs.Field("manager_id"), subq),
+			sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")),
+		))
 	}
 	q = q.Filter(sqlchemy.Equals(networks.Field("status"), api.NETWORK_STATUS_AVAILABLE))
 
@@ -281,8 +352,8 @@ func getMaxDataDiskCount(region *SCloudregion, zone *SZone) int {
 	return 0
 }
 
-func isUsable(region *SCloudregion, zone *SZone) bool {
-	cnt, err := getNetworkCount(region, zone)
+func isUsable(region *SCloudregion, zone *SZone, domainId string) bool {
+	cnt, err := getNetworkCount(region, zone, domainId)
 	if err != nil {
 		return false
 	}

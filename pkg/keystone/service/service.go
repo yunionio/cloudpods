@@ -87,6 +87,13 @@ func StartService() {
 
 	app_common.InitBaseAuth(&opts.BaseOptions)
 
+	cloudcommon.AppDBInit(app)
+
+	err := models.InitDB()
+	if err != nil {
+		log.Errorf("InitDB fail: %s", err)
+	}
+
 	if !opts.IsSlaveNode {
 		cron := cronman.GetCronJobManager(true)
 
@@ -95,8 +102,6 @@ func StartService() {
 		cron.Start()
 		defer cron.Stop()
 	}
-
-	cloudcommon.AppDBInit(app)
 
 	go func() {
 		app_common.ServeForeverExtended(app, &opts.BaseOptions, options.Options.AdminPort, nil, false)

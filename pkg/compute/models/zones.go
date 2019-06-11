@@ -216,7 +216,7 @@ func (zone *SZone) getStorageCount() (int, error) {
 }
 
 func (zone *SZone) getNetworkCount() (int, error) {
-	return getNetworkCount(nil, zone)
+	return getNetworkCount(nil, zone, "")
 }
 
 func zoneExtra(zone *SZone, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
