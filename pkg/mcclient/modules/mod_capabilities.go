@@ -25,7 +25,14 @@ type SCapabilityManager struct {
 }
 
 func (this *SCapabilityManager) List(s *mcclient.ClientSession, params jsonutils.JSONObject) (*ListResult, error) {
-	body, err := this._get(s, "/capabilities", "")
+	url := "/capabilities"
+	if params != nil {
+		qs := params.QueryString()
+		if len(qs) > 0 {
+			url += "?" + qs
+		}
+	}
+	body, err := this._get(s, url, "")
 	if err != nil {
 		return nil, err
 	}

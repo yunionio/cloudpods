@@ -176,6 +176,8 @@ func init() {
 	type CloudregionCapabiltyOptions struct {
 		ID     string `help:"ID or name of cloud region to check" json:"-"`
 		Domain string `help:"cloud region domain"`
+
+		ShowEmulated bool `help:"show emulated cloud region"`
 	}
 	R(&CloudregionCapabiltyOptions{}, "cloud-region-capability", "Show region's capacibilities", func(s *mcclient.ClientSession, args *CloudregionCapabiltyOptions) error {
 		query, err := options.StructToParams(args)
