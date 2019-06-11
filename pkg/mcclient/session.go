@@ -268,6 +268,14 @@ func (this *ClientSession) GetProjectName() string {
 	return this.GetTenantName()
 }
 
+func (this *ClientSession) GetProjectDomain() string {
+	return this.token.GetProjectDomain()
+}
+
+func (this *ClientSession) GetProjectDomainId() string {
+	return this.token.GetProjectDomainId()
+}
+
 func (this *ClientSession) GetDomainId() string {
 	return this.token.GetDomainId()
 }
