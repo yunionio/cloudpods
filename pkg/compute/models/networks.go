@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/utils"
@@ -1560,6 +1561,29 @@ func (self *SNetwork) AllowPerformMerge(ctx context.Context, userCred mcclient.T
 	return db.IsAdminAllowPerform(userCred, self, "merge")
 }
 
+func (manager *SNetworkManager) handleNetworkIdChange(ctx context.Context, args *networkIdChangeArgs) error {
+	var handlers = []networkIdChangeHandler{
+		GuestnetworkManager,
+		HostnetworkManager,
+		ReservedipManager,
+		GroupnetworkManager,
+		LoadbalancernetworkManager,
+		LoadbalancerManager,
+	}
+
+	errs := []error{}
+	for _, h := range handlers {
+		if err := h.handleNetworkIdChange(ctx, args); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		err := errors.NewAggregate(errs)
+		return httperrors.NewGeneralError(err)
+	}
+	return nil
+}
+
 func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	target, err := data.GetString("target")
 	if err != nil {
@@ -1617,80 +1641,13 @@ func (self *SNetwork) PerformMerge(ctx context.Context, userCred mcclient.TokenC
 		return nil, err
 	}
 
-	guestnetworks := make([]SGuestnetwork, 0)
-	err = db.FetchModelObjects(GuestnetworkManager, GuestnetworkManager.Query().Equals("network_id", self.Id), &guestnetworks)
-	if err != nil {
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
+	if err := NetworkManager.handleNetworkIdChange(ctx, &networkIdChangeArgs{
+		action:   logclient.ACT_MERGE,
+		oldNet:   self,
+		newNet:   net,
+		userCred: userCred,
+	}); err != nil {
 		return nil, err
-	}
-	for _, gn := range guestnetworks {
-		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
-		if self.isAddressInRange(addr) {
-			_, err = db.Update(&gn, func() error {
-				gn.NetworkId = net.Id
-				return nil
-			})
-			if err != nil {
-				log.Errorln(err)
-			}
-		}
-	}
-
-	hostnetworks := make([]SHostnetwork, 0)
-	err = db.FetchModelObjects(HostnetworkManager, HostnetworkManager.Query().Equals("network_id", self.Id), &hostnetworks)
-	if err != nil {
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
-		return nil, err
-	}
-	for _, gn := range hostnetworks {
-		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
-		if self.isAddressInRange(addr) {
-			_, err = db.Update(&gn, func() error {
-				gn.NetworkId = net.Id
-				return nil
-			})
-			if err != nil {
-				log.Errorln(err)
-			}
-		}
-	}
-
-	reservedips := make([]SReservedip, 0)
-	err = db.FetchModelObjects(ReservedipManager, ReservedipManager.Query().Equals("network_id", self.Id), &reservedips)
-	if err != nil {
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
-		return nil, err
-	}
-	for _, gn := range reservedips {
-		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
-		if self.isAddressInRange(addr) {
-			_, err = db.Update(&gn, func() error {
-				gn.NetworkId = net.Id
-				return nil
-			})
-			if err != nil {
-				log.Errorln(err)
-			}
-		}
-	}
-
-	groupnetwroks := make([]SGroupnetwork, 0)
-	err = db.FetchModelObjects(GroupnetworkManager, GroupnetworkManager.Query().Equals("network_id", self.Id), &groupnetwroks)
-	if err != nil {
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_MERGE, err.Error(), userCred, false)
-		return nil, err
-	}
-	for _, gn := range groupnetwroks {
-		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
-		if self.isAddressInRange(addr) {
-			_, err = db.Update(&gn, func() error {
-				gn.NetworkId = net.Id
-				return nil
-			})
-			if err != nil {
-				log.Errorln(err)
-			}
-		}
 	}
 
 	note := map[string]string{"start_ip": startIp, "end_ip": endIp}
@@ -1773,81 +1730,13 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 		return nil
 	})
 
-	guestnetworks := make([]SGuestnetwork, 0)
-	err = db.FetchModelObjects(GuestnetworkManager, GuestnetworkManager.Query().Equals("network_id", self.Id), &guestnetworks)
-	if err != nil {
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, err.Error(), userCred, false)
+	if err := NetworkManager.handleNetworkIdChange(ctx, &networkIdChangeArgs{
+		action:   logclient.ACT_SPLIT,
+		oldNet:   self,
+		newNet:   network,
+		userCred: userCred,
+	}); err != nil {
 		return nil, err
-	}
-	for _, gn := range guestnetworks {
-		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
-		if network.isAddressInRange(addr) {
-			_, err := db.Update(&gn, func() error {
-				gn.NetworkId = network.Id
-				return nil
-			})
-			if err != nil {
-				log.Errorln(err)
-			}
-		}
-	}
-
-	hostnetworks := make([]SHostnetwork, 0)
-	err = db.FetchModelObjects(HostnetworkManager, HostnetworkManager.Query().Equals("network_id", self.Id), &hostnetworks)
-	if err != nil {
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, err.Error(), userCred, false)
-		return nil, err
-	}
-	for _, gn := range hostnetworks {
-		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
-		if network.isAddressInRange(addr) {
-			_, err = db.Update(&gn, func() error {
-				gn.NetworkId = network.Id
-				return nil
-			})
-			if err != nil {
-				log.Errorln(err)
-			}
-		}
-	}
-
-	reservedips := make([]SReservedip, 0)
-	err = db.FetchModelObjects(ReservedipManager, ReservedipManager.Query().Equals("network_id", self.Id), &reservedips)
-	if err != nil {
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, err.Error(), userCred, false)
-		return nil, err
-	}
-	for _, gn := range reservedips {
-		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
-		if network.isAddressInRange(addr) {
-			_, err = db.Update(&gn, func() error {
-				gn.NetworkId = network.Id
-				return nil
-			})
-			if err != nil {
-				log.Errorln(err)
-			}
-		}
-	}
-
-	groupnetworks := make([]SGroupnetwork, 0)
-	err = db.FetchModelObjects(
-		GroupnetworkManager, GroupnetworkManager.Query().Equals("network_id", self.Id), &groupnetworks)
-	if err != nil {
-		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_SPLIT, err.Error(), userCred, false)
-		return nil, err
-	}
-	for _, gn := range groupnetworks {
-		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
-		if network.isAddressInRange(addr) {
-			_, err = db.Update(&gn, func() error {
-				gn.NetworkId = network.Id
-				return nil
-			})
-			if err != nil {
-				log.Errorln(err)
-			}
-		}
 	}
 
 	note := map[string]string{"split_ip": splitIp, "end_ip": network.GuestIpEnd}
