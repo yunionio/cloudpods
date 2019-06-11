@@ -113,7 +113,8 @@ type SImage struct {
 	Owner      string `width:"255" charset:"ascii" nullable:"true" get:"user"`
 	MinDiskMB  int32  `name:"min_disk" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
 	MinRamMB   int32  `name:"min_ram" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
-	Protected  *bool  `nullable:"true" list:"user" get:"user" create:"optional" update:"user"`
+
+	Protected tristate.TriState `nullable:"true" list:"user" get:"user" create:"optional" update:"user"`
 }
 
 func (manager *SImageManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
@@ -261,6 +262,7 @@ func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclien
 	extra, _ := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
 	if extra != nil {
 		for _, k := range extra.SortedKeys() {
+			log.Infof("%s", k)
 			val, _ := extra.GetString(k)
 			if len(val) > 0 {
 				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, k)] = val
@@ -551,7 +553,7 @@ func (self *SImage) ValidateDeleteCondition(ctx context.Context) error {
 	if self.IsPublic {
 		return httperrors.NewInvalidStatusError("image is shared")
 	}
-	if self.Protected != nil && *self.Protected {
+	if self.Protected.IsTrue() {
 		return httperrors.NewForbiddenError("image is protected")
 	}
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
@@ -1118,10 +1120,14 @@ func (self *SImage) PerformMarkPublicProtected(
 ) (jsonutils.JSONObject, error) {
 	isPublic := jsonutils.QueryBoolean(data, "is-public", false)
 	protected := jsonutils.QueryBoolean(data, "protected", false)
-	if isPublic != self.IsPublic || (self.Protected == nil && protected) || (self.Protected != nil && *self.Protected != protected) {
+	if isPublic != self.IsPublic || (!self.Protected.IsTrue() && protected) || (self.Protected.IsTrue() && !protected) {
 		_, err := db.Update(self, func() error {
 			self.IsPublic = isPublic
-			self.Protected = &protected
+			if protected {
+				self.Protected = tristate.True
+			} else {
+				self.Protected = tristate.False
+			}
 			return nil
 		})
 		if err != nil {
