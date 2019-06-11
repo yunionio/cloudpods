@@ -1,12 +1,12 @@
 get:
   summary: 按指定条件列出loadbalancer实例
   parameters:
-    - $ref: '/parameters/loadbalancer.yaml#address'
+    - $ref: "../parameters/loadbalancer.yaml#/address"
   responses:
     200:
       description: 实例列表信息
       schema:
-        $ref: '/schemas/loadbalancer.yaml#LoadbalancerListResponse'
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerListResponse"
   tags:
     - loadbalancers
 post:
@@ -15,6 +15,6 @@ post:
     200:
       description: 新创建的实例信息
       schema:
-        $ref: '/schemas/loadbalancer.yaml#LoadbalancerResponse'
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerResponse"
   tags:
     - loadbalancers

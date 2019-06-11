@@ -1,18 +1,18 @@
 get:
   summary: 按指定条件列出镜像
   parameters:
-    - $ref: '/parameters/common.yaml#offset'
-    - $ref: '/parameters/common.yaml#limit'
-    - $ref: '/parameters/common.yaml#pending_delete'
-    - $ref: '/parameters/image.yaml#is_public'
-    - $ref: '/parameters/image.yaml#owner'
-    - $ref: '/parameters/image.yaml#name'
-    - $ref: '/parameters/image.yaml#disk_format'
-    - $ref: '/parameters/image.yaml#disk_formats'
+    - $ref: '../parameters/common.yaml#/offset'
+    - $ref: '../parameters/common.yaml#/limit'
+    - $ref: '../parameters/common.yaml#/pending_delete'
+    - $ref: '../parameters/image.yaml#/is_public'
+    - $ref: '../parameters/image.yaml#/owner'
+    - $ref: '../parameters/image.yaml#/name'
+    - $ref: '../parameters/image.yaml#/disk_format'
+    - $ref: '../parameters/image.yaml#/disk_formats'
   responses:
     200:
       description: 镜像列表信息
       schema:
-        $ref: '/schemas/image.yaml#ImageListResponse'
+        $ref: "../schemas/image.yaml#/ImageListResponse"
   tags:
     - glance

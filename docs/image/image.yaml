@@ -1,7 +1,7 @@
 head:
   summary: 获取指定镜像详情信息
   parameters: 
-    - $ref: '/parameters/image.yaml#imageId'
+    - $ref: '../parameters/image.yaml#/imageId'
   responses:
     200:
       description: 镜像信息
@@ -91,19 +91,19 @@ head:
 
 put:
   parameters:
-    - $ref: '/parameters/image.yaml#x-image-meta-name'
-    - $ref: '/parameters/image.yaml#x-image-meta-is_public'
-    - $ref: '/parameters/image.yaml#x-image-meta-description'
-    - $ref: '/parameters/image.yaml#x-image-meta-property-os_arch'
-    - $ref: '/parameters/image.yaml#x-image-meta-property-os_distribution'
-    - $ref: '/parameters/image.yaml#x-image-meta-property-os_version'
+    - $ref: '../parameters/image.yaml#/x-image-meta-name'
+    - $ref: '../parameters/image.yaml#/x-image-meta-is_public'
+    - $ref: '../parameters/image.yaml#/x-image-meta-description'
+    - $ref: '../parameters/image.yaml#/x-image-meta-property-os_arch'
+    - $ref: '../parameters/image.yaml#/x-image-meta-property-os_distribution'
+    - $ref: '../parameters/image.yaml#/x-image-meta-property-os_version'
   summary: 更新镜像信息
   responses:
     200:
       description: 镜像信息
 
       schema:
-        $ref: '/schemas/image.yaml#ImageResponse'
+        $ref: '../schemas/image.yaml#/ImageResponse'
   tags:
     - glance
 get:
