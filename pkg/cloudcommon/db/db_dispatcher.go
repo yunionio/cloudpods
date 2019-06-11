@@ -357,7 +357,7 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			if extraDict != nil {
 				jsonDict.Update(extraDict)
 			}
-			jsonDict = getModelExtraDetails(item, ctx, jsonDict)
+			// jsonDict = getModelExtraDetails(item, ctx, jsonDict)
 		}
 		results = append(results, jsonDict)
 		items = append(items, item)
@@ -638,7 +638,7 @@ func getItemDetails(manager IModelManager, item IModel, ctx context.Context, use
 	jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
 	jsonDict = jsonDict.CopyIncludes(getFields...)
 	jsonDict.Update(extraDict)
-	jsonDict = getModelExtraDetails(item, ctx, jsonDict)
+	// jsonDict = getModelExtraDetails(item, ctx, jsonDict)
 
 	extraRows := manager.FetchCustomizeColumns(ctx, userCred, query, []IModel{item}, stringutils2.NewSortedStrings(fieldFilter))
 	if len(extraRows) == 1 {
