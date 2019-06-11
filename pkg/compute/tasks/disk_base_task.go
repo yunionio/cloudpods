@@ -47,7 +47,11 @@ func (self *SDiskBaseTask) finalReleasePendingUsage(ctx context.Context) {
 }
 
 func (self *SDiskBaseTask) CleanHostSchedCache(disk *models.SDisk) {
-	disk.GetStorage().ClearSchedDescCache()
+	storage := disk.GetStorage()
+	if storage == nil {
+		return
+	}
+	storage.ClearSchedDescCache()
 	if len(disk.BackupStorageId) > 0 {
 		bkStorage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
 		if bkStorage != nil {
