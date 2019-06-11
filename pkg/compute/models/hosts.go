@@ -231,6 +231,8 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 	q = managedResourceFilterByCloudType(q, query, "", nil)
 
+	q, err = managedResourceFilterByDomain(q, query, "", nil)
+
 	queryDict := query.(*jsonutils.JSONDict)
 
 	resType, _ := query.GetString("resource_type")
@@ -303,7 +305,8 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", scopeQuery)
 	}
 
-	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
+	q, err = managedResourceFilterByZone(q, query, "", nil)
+	/*zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
 	if len(zoneStr) > 0 {
 		zone, err := ZoneManager.FetchByIdOrName(nil, zoneStr)
 		if err != nil {
@@ -315,9 +318,13 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.Filter(sqlchemy.Equals(q.Field("zone_id"), zone.GetId()))
 
 		queryDict.Remove("zone_id")
-	}
+	}*/
 
-	regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id"})
+	q, err = managedResourceFilterByRegion(q, query, "zone_id", func() *sqlchemy.SQuery {
+		return ZoneManager.Query("id")
+	})
+
+	/*regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id"})
 	if len(regionStr) > 0 {
 		region, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
 		if err != nil {
@@ -328,7 +335,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		}
 		subq := ZoneManager.Query("id").Equals("cloudregion_id", region.GetId()).SubQuery()
 		q = q.Filter(sqlchemy.In(q.Field("zone_id"), subq))
-	}
+	}*/
 
 	hypervisorStr := jsonutils.GetAnyString(query, []string{"hypervisor"})
 	if len(hypervisorStr) > 0 {

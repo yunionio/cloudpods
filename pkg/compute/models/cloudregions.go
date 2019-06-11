@@ -598,7 +598,7 @@ func (self *SCloudregion) GetDetailsCapability(ctx context.Context, userCred mcc
 }
 
 func (self *SCloudregion) GetNetworkCount() (int, error) {
-	return getNetworkCount(self, nil)
+	return getNetworkCount(self, nil, "")
 }
 
 func (self *SCloudregion) getMinNicCount() int {

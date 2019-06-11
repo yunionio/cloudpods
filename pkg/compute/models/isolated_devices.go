@@ -129,6 +129,11 @@ func (manager *SIsolatedDeviceManager) ListItemFilter(ctx context.Context, q *sq
 	if err != nil {
 		return nil, err
 	}
+
+	q, err = managedResourceFilterByDomain(q, query, "host_id", func() *sqlchemy.SQuery {
+		return HostManager.Query("id")
+	})
+
 	if jsonutils.QueryBoolean(query, "gpu", false) {
 		q = q.Startswith("dev_type", "GPU")
 	}

@@ -16,12 +16,12 @@ package models
 
 import (
 	"context"
-	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/timeutils"
-	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
+	// "yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -218,8 +218,11 @@ func (manager *SParameterManager) ValidateCreateData(ctx context.Context, userCr
 
 func (manager *SParameterManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
-		if len(owner.GetUserId()) > 0 {
-			q = q.Equals("namespace_id", owner.GetUserId())
+		switch scope {
+		case rbacutils.ScopeUser:
+			if len(owner.GetUserId()) > 0 {
+				q = q.Equals("namespace_id", owner.GetUserId()).Equals("namespace", NAMESPACE_USER)
+			}
 		}
 	}
 	return q
@@ -249,17 +252,17 @@ func (manager *SParameterManager) ListItemFilter(ctx context.Context, q *sqlchem
 			} else {
 				q = q.Equals("namespace_id", uid).Equals("namespace", NAMESPACE_USER)
 			}
-		} else {
+		}
+		/*else {
 			//  not admin
 			admin, _ := query.GetString("admin")
 			if !utils.ToBool(admin) {
 				q = q.Equals("namespace_id", userCred.GetUserId()).Equals("namespace", NAMESPACE_USER)
 			}
-		}
+		} */
 
-		return q, nil
 	}
-	return q.Equals("namespace_id", userCred.GetUserId()).Equals("namespace", NAMESPACE_USER), nil
+	return q, nil
 }
 
 func (model *SParameter) IsOwner(userCred mcclient.TokenCredential) bool {

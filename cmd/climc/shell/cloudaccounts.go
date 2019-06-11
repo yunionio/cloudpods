@@ -544,4 +544,24 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type CloudaccountPublicOptions struct {
+		ID string `help:"ID or name of cloud account"`
+	}
+	R(&CloudaccountPublicOptions{}, "cloud-account-public", "Mark this cloud account public ", func(s *mcclient.ClientSession, args *CloudaccountPublicOptions) error {
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "public", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+	R(&CloudaccountPublicOptions{}, "cloud-account-private", "Mark this cloud account private", func(s *mcclient.ClientSession, args *CloudaccountPublicOptions) error {
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "private", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

@@ -59,44 +59,39 @@ func mustCheckModelManager(modelMan IModelManager) {
 
 func CheckSync(autoSync bool) bool {
 	log.Infof("Start check database ...")
-	examinedTables := make(map[string]bool)
-	allDropFKSqls := make([]string, 0)
-	allSqls := make([]string, 0)
+	inSync := true
 	for modelName, modelMan := range globalTables {
 		log.Infof("# check table of model %s", modelName)
 		tableSpec := modelMan.TableSpec()
-		if _, ok := examinedTables[tableSpec.Name()]; ok {
-			continue
-		}
-		examinedTables[tableSpec.Name()] = true
 		dropFKSqls := tableSpec.DropForeignKeySQL()
-		if len(dropFKSqls) > 0 {
-			allDropFKSqls = append(allDropFKSqls, dropFKSqls...)
-		}
 		sqls := tableSpec.SyncSQL()
-		if len(sqls) > 0 {
-			allSqls = append(allSqls, sqls...)
-		}
-	}
-	allSqls = append(allDropFKSqls, allSqls...)
-	if len(allSqls) > 0 {
-		if autoSync {
-			err := commitSqlDIffs(allSqls)
-			if err == nil {
-				return true
+		if len(dropFKSqls) > 0 || len(sqls) > 0 {
+			log.Infof("model %s is not in SYNC!!!", modelName)
+			if autoSync {
+				err := commitSqlDIffs(dropFKSqls)
+				if err != nil {
+					log.Errorf("commit sql error %s", err)
+					return false
+				}
+				err = commitSqlDIffs(sqls)
+				if err != nil {
+					log.Errorf("commit sql error %s", err)
+					return false
+				}
 			} else {
-				log.Errorln(err)
+				for _, sql := range dropFKSqls {
+					fmt.Println(sql)
+				}
+				for _, sql := range sqls {
+					fmt.Println(sql)
+				}
+				inSync = false
 			}
+		} else {
+			log.Infof("model %s is in SYNC!!!", modelName)
 		}
-		for _, sql := range allSqls {
-			fmt.Println(sql)
-		}
-		log.Fatalf("Database not in sync!")
-		return false
-	} else {
-		log.Infof("Database is in SYNC!!!")
-		return true
 	}
+	return inSync
 }
 
 func GetModelManager(keyword string) IModelManager {
