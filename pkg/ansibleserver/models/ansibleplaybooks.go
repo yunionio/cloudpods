@@ -175,8 +175,8 @@ func (apb *SAnsiblePlaybook) PerformStop(ctx context.Context, userCred mcclient.
 func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.TokenCredential) error {
 	man := AnsiblePlaybookManager
 	man.sessionsMux.Lock()
+	defer man.sessionsMux.Unlock()
 	if man.sessions.Has(apb.Id) {
-		man.sessionsMux.Unlock()
 		return fmt.Errorf("playbook is already running")
 	}
 
@@ -197,7 +197,6 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 	}
 
 	man.sessions.Add(apb.Id, pb)
-	man.sessionsMux.Unlock()
 
 	_, err := db.Update(apb, func() error {
 		apb.StartTime = time.Now()
