@@ -27,9 +27,11 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
-	"yunion.io/x/onecloud/pkg/compute/sshkeys"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	mcclient_models "yunion.io/x/onecloud/pkg/mcclient/models"
+	mcclient_modules "yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/ansible"
 )
 
@@ -172,6 +174,34 @@ func (apb *SAnsiblePlaybook) PerformStop(ctx context.Context, userCred mcclient.
 	return nil, nil
 }
 
+func (apb *SAnsiblePlaybook) fetchPrivateKey(ctx context.Context, userCred mcclient.TokenCredential) (string, error) {
+	s := auth.GetSession(ctx, userCred, "", "")
+	jd := jsonutils.NewDict()
+	var jr jsonutils.JSONObject
+	if userCred.HasSystemAdminPrivilege() {
+		jd.Set("admin", jsonutils.JSONTrue)
+		r, err := mcclient_modules.Sshkeypairs.List(s, jd)
+		if err != nil {
+			return "", errors.WithMessage(err, "get admin ssh key")
+		}
+		jr = r.Data[0]
+	} else {
+		r, err := mcclient_modules.Sshkeypairs.GetById(s, userCred.GetProjectId(), jd)
+		if err != nil {
+			return "", errors.WithMessage(err, "get project ssh key")
+		}
+		jr = r
+	}
+	kp := &mcclient_models.SshKeypair{}
+	if err := jr.Unmarshal(kp); err != nil {
+		return "", errors.WithMessage(err, "unmarshal ssh key")
+	}
+	if kp.PrivateKey == "" {
+		return "", errors.New("empty ssh key")
+	}
+	return kp.PrivateKey, nil
+}
+
 func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.TokenCredential) error {
 	man := AnsiblePlaybookManager
 	man.sessionsMux.Lock()
@@ -182,17 +212,9 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 
 	// init private key
 	pb := apb.Playbook.Copy()
-	if userCred.HasSystemAdminPrivilege() {
-		k, _, err := sshkeys.GetSshAdminKeypair(ctx)
-		if err != nil {
-			return errors.WithMessage(err, "get admin ssh key")
-		}
-		pb.PrivateKey = []byte(k)
+	if k, err := apb.fetchPrivateKey(ctx, userCred); err != nil {
+		return err
 	} else {
-		k, _, err := sshkeys.GetSshProjectKeypair(ctx, userCred.GetTenantId())
-		if err != nil {
-			return errors.WithMessage(err, "get project ssh key")
-		}
 		pb.PrivateKey = []byte(k)
 	}
 
