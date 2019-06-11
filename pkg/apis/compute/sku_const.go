@@ -14,6 +14,8 @@
 
 package compute
 
+import "yunion.io/x/onecloud/pkg/util/choices"
+
 const (
 	SkuCategoryGeneralPurpose      = "general_purpose"      // 通用型
 	SkuCategoryBurstable           = "burstable"            // 突发性能型
@@ -26,9 +28,14 @@ const (
 )
 
 const (
-	SkuStatusAvailable = "available"
-	SkuStatusSoldout   = "soldout"
-	SkuStatusCreating  = "creating"
+	SkuStatusAvailable    = "available"
+	SkuStatusSoldout      = "soldout"
+	SkuStatusCreating     = "creating"
+	SkuStatusCreatFailed  = "create_failed"
+	SkuStatusDeleting     = "deleting"
+	SkuStatusDeleteFailed = "delete_failed"
+	SkuStatusUnknown      = "unknown"
+	SkuStatusReady        = "ready"
 )
 
 var InstanceFamilies = map[string]string{
@@ -41,3 +48,14 @@ var InstanceFamilies = map[string]string{
 	SkuCategoryHighStorage:         "hc1",
 	SkuCategoryHighMemory:          "hr1",
 }
+
+var SKU_FAMILIES = choices.NewChoices(
+	SkuCategoryGeneralPurpose,
+	SkuCategoryBurstable,
+	SkuCategoryComputeOptimized,
+	SkuCategoryMemoryOptimized,
+	SkuCategoryStorageIOOptimized,
+	SkuCategoryHardwareAccelerated,
+	SkuCategoryHighStorage,
+	SkuCategoryHighMemory,
+)
