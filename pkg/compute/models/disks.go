@@ -379,7 +379,7 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		return nil, err
 	}
 	input.Project = ownerId.GetProjectId()
-	input.Domain = ownerId.GetDomainId()
+	input.Domain = ownerId.GetProjectDomainId()
 
 	storageID := input.Storage
 	if storageID != "" {
