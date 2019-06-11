@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"time"
 
 	"gopkg.in/gin-gonic/gin.v1"
 
@@ -62,6 +63,21 @@ func StartService() error {
 	defer cloudcommon.CloseDB()
 
 	db.InitAllManagers()
+
+	checkDBSyncRetries := 5
+	count := 1
+	for {
+		if count == checkDBSyncRetries {
+			log.Fatalf("database schema not in sync!!!")
+		}
+		if !db.CheckSync(false) {
+			log.Errorf("database schema not in sync, wait region sync database")
+			time.Sleep(2 * time.Second)
+		} else {
+			break
+		}
+		count++
+	}
 
 	if err := computemodels.InitDB(); err != nil {
 		log.Fatalf("InitDB fail: %s", err)
