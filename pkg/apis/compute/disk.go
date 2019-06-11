@@ -33,6 +33,7 @@ type DiskCreateInput struct {
 	Description string `json:"description"`
 	Hypervisor  string `json:"hypervisor"`
 	Project     string `json:"project"`
+	Domain      string `json:"domain_id"`
 }
 
 // ToServerCreateInput used by disk schedule
@@ -46,6 +47,7 @@ func (req *DiskCreateInput) ToServerCreateInput() *ServerCreateInput {
 			Hypervisor:   req.Hypervisor,
 			Disks:        []*DiskConfig{req.DiskConfig},
 			Project:      req.Project,
+			Domain:       req.Domain,
 		},
 		Name: req.Name,
 	}

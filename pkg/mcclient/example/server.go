@@ -50,7 +50,7 @@ func CreateServerExample() error {
 		"vcpu_count": 1,
 		"vmem_size":  2048,
 		"disks": []map[string]string{
-			map[string]string{
+			{
 				"image_id":  "a4171f87-7e70-43bf-852e-4a3e1bf7deab",
 				"disk_type": "sys",
 				"backend":   "local",
