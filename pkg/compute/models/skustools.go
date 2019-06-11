@@ -159,6 +159,8 @@ func (self *SkusZone) doCreate(data SServerSku) error {
 	data.CloudregionId = self.RegionId
 	data.ZoneId = self.ZoneId
 	data.Provider = self.Provider
+	data.Status = api.SkuStatusReady
+	data.Enabled = true
 	if err := ServerSkuManager.TableSpec().Insert(&data); err != nil {
 		log.Debugf("SkusZone doCreate fail: %s", err.Error())
 		return err
@@ -176,6 +178,9 @@ func (self *SkusZone) doUpdate(odata *SServerSku, sku jsonutils.JSONObject) erro
 		odata.CloudregionId = self.RegionId
 		odata.ZoneId = self.ZoneId
 		odata.Provider = self.Provider
+		// 公有云默认都是ready并启用
+		odata.Status = api.SkuStatusReady
+		odata.Enabled = true
 		return nil
 	})
 

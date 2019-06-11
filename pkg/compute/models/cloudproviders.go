@@ -140,7 +140,23 @@ func (manager *SCloudproviderManager) GetOnPremiseProviderIdsQuery() *sqlchemy.S
 }
 
 func (manager *SCloudproviderManager) GetProviderIdsQuery(isPublic tristate.TriState, isOnPremise tristate.TriState) *sqlchemy.SSubQuery {
-	q := manager.Query("id")
+	return manager.GetProviderFieldQuery("id", isPublic, isOnPremise)
+}
+
+func (manager *SCloudproviderManager) GetPublicProviderProvidersQuery() *sqlchemy.SSubQuery {
+	return manager.GetProviderProvidersQuery(tristate.True, tristate.None)
+}
+
+func (manager *SCloudproviderManager) GetPrivateProviderProvidersQuery() *sqlchemy.SSubQuery {
+	return manager.GetProviderProvidersQuery(tristate.False, tristate.False)
+}
+
+func (manager *SCloudproviderManager) GetProviderProvidersQuery(isPublic tristate.TriState, isOnPremise tristate.TriState) *sqlchemy.SSubQuery {
+	return manager.GetProviderFieldQuery("provider", isPublic, isOnPremise)
+}
+
+func (manager *SCloudproviderManager) GetProviderFieldQuery(field string, isPublic tristate.TriState, isOnPremise tristate.TriState) *sqlchemy.SSubQuery {
+	q := manager.Query(field).Distinct()
 	account := CloudaccountManager.Query().SubQuery()
 	q = q.Join(account, sqlchemy.Equals(
 		account.Field("id"), q.Field("cloudaccount_id")),

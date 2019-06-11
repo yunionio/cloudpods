@@ -81,8 +81,6 @@ type IRegionDriver interface {
 	RequestDeleteSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *SSnapshotPolicy, task taskman.ITask) error
 	RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *SSnapshotPolicy, task taskman.ITask, diskIds []string) error
 	RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, region cloudprovider.ICloudRegion, task taskman.ITask, diskIds []string) error
-
-	IsSupportCreateServerSku() bool
 }
 
 var regionDrivers map[string]IRegionDriver

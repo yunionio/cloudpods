@@ -17,13 +17,19 @@ package openstack
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SFlavor struct {
-	region       *SRegion
+	multicloud.SServerSku
+	region *SRegion
+
 	ID           string
 	Disk         int
 	Ephemeral    int
@@ -83,6 +89,14 @@ func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (strin
 	return "", fmt.Errorf("failed to find right flavor(name: %s cpu: %d memory: %d)", name, cpu, memoryMb)
 }
 
+func (region *SRegion) CreateISku(sku *cloudprovider.SServerSku) (cloudprovider.ICloudSku, error) {
+	isku, err := region.CreateFlavor(sku.Name, sku.CpuCoreCount, sku.MemorySizeMB, 30)
+	if err != nil {
+		return nil, errors.Wrapf(err, "region.CreateFlavor")
+	}
+	return isku, nil
+}
+
 func (region *SRegion) CreateFlavor(name string, cpu int, memoryMb int, diskGB int) (*SFlavor, error) {
 	if diskGB < 30 {
 		diskGB = 30
@@ -99,13 +113,17 @@ func (region *SRegion) CreateFlavor(name string, cpu int, memoryMb int, diskGB i
 	if err != nil {
 		return nil, err
 	}
-	flavor := &SFlavor{}
+	flavor := &SFlavor{region: region}
 	return flavor, resp.Unmarshal(flavor, "flavor")
 }
 
 func (region *SRegion) DeleteFlavor(flavorId string) error {
 	_, err := region.Delete("compute", "/flavors/"+flavorId, "")
 	return err
+}
+
+func (flavor *SFlavor) Delete() error {
+	return flavor.region.DeleteFlavor(flavor.ID)
 }
 
 func (flavor *SFlavor) GetMetadata() *jsonutils.JSONDict {
@@ -129,10 +147,6 @@ func (flavor *SFlavor) GetName() string {
 		return flavor.OriginalName
 	}
 	return flavor.Name
-}
-
-func (flavor *SFlavor) GetStatus() string {
-	return ""
 }
 
 func (flavor *SFlavor) GetId() string {

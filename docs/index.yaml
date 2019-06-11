@@ -172,3 +172,12 @@ paths:
     $ref: "./loadbalancer/loadbalancerbackends.yaml"
   /loadbalancerbackends/{loadbalancerbackendId}:
     $ref: "./loadbalancer/loadbalancerbackend.yaml"
+
+  /serverskus:
+    $ref: "./serversku/serverskus.yaml"
+  /serverskus/{serverskuId}:
+    $ref: "./serversku/serversku.yaml"
+  /serverskus/{serverskuId}/enable:
+    $ref: "./serversku/enable.yaml"
+  /serverskus/{serverskuId}/disable:
+    $ref: "./serversku/disable.yaml"

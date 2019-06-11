@@ -3,17 +3,17 @@ ResourceBaseResponse:
   properties:
     created_at:
       type: string
-      example: 2019-06-10T03:39:02.000000Z
+      example: "2019-06-10T03:39:02.000000Z"
       description: 创建时间
       readOnly: true
     updated_at:
       type: string
-      example: 2019-06-11T03:39:02.000000Z
+      example: "2019-06-11T03:39:02.000000Z"
       description: 更新时间
       readOnly: true
     deleted_at:
       type: string
-      example: 2019-06-12T03:39:02.000000Z
+      example: "2019-06-12T03:39:02.000000Z"
       description: 删除时间
       readOnly: true
     deleted:
@@ -23,30 +23,30 @@ ResourceBaseResponse:
       readOnly: true
 
 ProjectizedResourceBaseResponse:
-    - type: object
-      properties:
-        project_id:
-          type: string
-          example: cb58813d83284a7f95040901639013d3
-          description: 资源所属项目ID
-          readOnly: true  
-        domain_id:
-          type: string
-          example: 9c06c2082007459f81b6e355eedf22fd
-          description: 资源所属域ID
-          readOnly: true   
+  type: object
+  properties:
+    project_id:
+      type: string
+      example: cb58813d83284a7f95040901639013d3
+      description: 资源所属项目ID
+      readOnly: true  
+    domain_id:
+      type: string
+      example: 9c06c2082007459f81b6e355eedf22fd
+      description: 资源所属域ID
+      readOnly: true   
 
 ExternalizedResourceBaseResponse:
-    - type: object
-      properties:
-        external_id:
-          type: string
-          example: i-7948b8d96f
-          description: 资源External ID
-          readOnly: true  
+  type: object
+  properties:
+    external_id:
+      type: string
+      example: "i-7948b8d96f"
+      description: 资源External ID
+      readOnly: true  
 
 StandaloneResponse:
-    allOf:
+  allOf:
     - $ref: '#/ResourceBaseResponse'
     - type: object
       properties:
@@ -67,7 +67,7 @@ StandaloneResponse:
           readOnly: true                   
 
 StatusStandaloneResponse:
-    allOf:
+  allOf:
     - $ref: '#/StandaloneResponse'
     - type: object
       properties:
@@ -77,8 +77,19 @@ StatusStandaloneResponse:
           description: 资源状态
           readOnly: true          
 
+EnabledStatusStandaloneResponse:
+  allOf:
+    - $ref: '#/StatusStandaloneResponse'
+    - type: object
+      properties:
+        enabled:
+          type: boolean
+          example: true
+          desciption: 资源是否启用
+          readOnly: false
+
 VirtualResourceBaseResponse:
-    allOf:
+  allOf:
     - $ref: '#/StatusStandaloneResponse'
     - $ref: '#/ProjectizedResourceBaseResponse'
     - type: object
@@ -94,7 +105,7 @@ VirtualResourceBaseResponse:
           readOnly: true   
 
 SharableVirtualResourceBaseResponse:
-    allOf:
+  allOf:
     - $ref: '#/VirtualResourceBaseResponse'
     - $ref: '#/ProjectizedResourceBaseResponse'
     - type: object
@@ -108,4 +119,4 @@ SharableVirtualResourceBaseResponse:
           example: system
           description: public_scope
           readOnly: true           
-         
+          

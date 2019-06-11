@@ -139,7 +139,3 @@ func (self *SBaseRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, u
 func (self *SBaseRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, region cloudprovider.ICloudRegion, task taskman.ITask, diskIds []string) error {
 	return fmt.Errorf("Not Implement RequestApplySnapshotPolicy")
 }
-
-func (self *SBaseRegionDriver) IsSupportCreateServerSku() bool {
-	return false
-}

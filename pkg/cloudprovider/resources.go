@@ -101,7 +101,9 @@ type ICloudRegion interface {
 	CreateILoadBalancerAcl(acl *SLoadbalancerAccessControlList) (ICloudLoadbalancerAcl, error)
 	CreateILoadBalancerCertificate(cert *SLoadbalancerCertificate) (ICloudLoadbalancerCertificate, error)
 
-	GetSkus(zoneId string) ([]ICloudSku, error)
+	GetISkuById(skuId string) (ICloudSku, error)
+	GetISkus(zoneId string) ([]ICloudSku, error)
+	CreateISku(sku *SServerSku) (ICloudSku, error)
 
 	GetProvider() string
 }
@@ -615,6 +617,8 @@ type ICloudSku interface {
 	GetGpuSpec() string
 	GetGpuCount() int
 	GetGpuMaxCount() int
+
+	Delete() error
 }
 
 type ICloudProject interface {

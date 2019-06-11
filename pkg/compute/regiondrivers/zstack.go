@@ -71,7 +71,3 @@ func (self *SZStackRegionDriver) ValidateCreateEipData(ctx context.Context, user
 	}
 	return data, nil
 }
-
-func (self *SZStackRegionDriver) IsSupportCreateServerSku() bool {
-	return true
-}
