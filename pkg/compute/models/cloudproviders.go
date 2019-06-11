@@ -487,14 +487,24 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 		return nil, nil
 	}
 
+	if self.DomainId != tenant.DomainId {
+		return nil, httperrors.NewForbiddenError("not allow change project across domain")
+	}
+
 	notes := struct {
 		OldProjectId string
+		OldDomainId  string
 		NewProjectId string
 		NewProject   string
+		NewDomainId  string
+		NewDomain    string
 	}{
 		OldProjectId: self.ProjectId,
+		OldDomainId:  self.DomainId,
 		NewProjectId: tenant.Id,
 		NewProject:   tenant.Name,
+		NewDomainId:  tenant.DomainId,
+		NewDomain:    tenant.Domain,
 	}
 
 	err = self.saveProject(userCred, tenant.DomainId, tenant.Id)
