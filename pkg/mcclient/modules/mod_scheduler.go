@@ -15,11 +15,13 @@
 package modules
 
 import (
+	"context"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 
 	api "yunion.io/x/onecloud/pkg/apis/scheduler"
 )
@@ -89,14 +91,15 @@ func (this *SchedulerManager) Test(s *mcclient.ClientSession, params *api.Schedu
 
 func (this *SchedulerManager) DoForecast(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	projectId := s.GetProjectId()
-	domainId := s.GetDomainId()
+	domainId := s.GetProjectDomainId()
 	cliProjectId, _ := params.GetString("project_id")
 	if cliProjectId != "" {
 		projectId = cliProjectId
 		domainId = ""
 	}
 	if domainId == "" {
-		ret, err := Projects.Get(s, projectId, nil)
+		adminSession := auth.GetAdminSession(context.TODO(), "", "")
+		ret, err := Projects.Get(adminSession, projectId, nil)
 		if err != nil {
 			return nil, err
 		}

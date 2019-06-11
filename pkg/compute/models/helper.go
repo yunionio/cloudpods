@@ -54,6 +54,18 @@ func RunBatchCreateTask(
 	}
 }
 
+func allowAssignHost(userCred mcclient.TokenCredential) bool {
+	for _, scope := range []rbacutils.TRbacScope{
+		rbacutils.ScopeSystem,
+		rbacutils.ScopeDomain,
+	} {
+		if userCred.IsAllow(scope, consts.GetServiceType(), GuestManager.KeywordPlural(), policy.PolicyActionPerform, "assign-host") {
+			return true
+		}
+	}
+	return false
+}
+
 func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput, hypervisor string) (*api.ServerCreateInput, error) {
 	var err error
 
@@ -64,7 +76,7 @@ func ValidateScheduleCreateData(ctx context.Context, userCred mcclient.TokenCred
 	// base validate_create_data
 	if (input.PreferHost != "") && hypervisor != api.HYPERVISOR_CONTAINER {
 
-		if !userCred.IsAllow(rbacutils.ScopeSystem, consts.GetServiceType(), GuestManager.KeywordPlural(), policy.PolicyActionPerform, "assign-host") {
+		if !allowAssignHost(userCred) {
 			return nil, httperrors.NewNotSufficientPrivilegeError("Only system admin can specify preferred host")
 		}
 		bmName := input.PreferHost
