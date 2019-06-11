@@ -645,9 +645,9 @@ func syncVMSecgroups(ctx context.Context, userCred mcclient.TokenCredential, pro
 }
 
 func syncZoneSkusFromCloud(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localZone *SZone, remoteRegion cloudprovider.ICloudRegion, remoteZone cloudprovider.ICloudZone) {
-	skus, err := remoteRegion.GetSkus(remoteZone.GetId())
+	skus, err := remoteRegion.GetISkus(remoteZone.GetId())
 	if err != nil {
-		msg := fmt.Sprintf("GetSkus for zone %s failed %v", localZone.Name, err)
+		msg := fmt.Sprintf("GetISkus for zone %s failed %v", localZone.Name, err)
 		log.Errorf(msg)
 		return
 	}

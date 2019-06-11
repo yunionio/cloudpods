@@ -43,10 +43,10 @@ func init() {
 		return nil
 	})
 
-	type ServerSkusShowOptions struct {
+	type ServerSkusIdOptions struct {
 		ID string `help:"ID or Name of SKU to show"`
 	}
-	R(&ServerSkusShowOptions{}, "server-sku-show", "show details of a avaiable Server SKU", func(s *mcclient.ClientSession, args *ServerSkusShowOptions) error {
+	R(&ServerSkusIdOptions{}, "server-sku-show", "show details of a avaiable Server SKU", func(s *mcclient.ClientSession, args *ServerSkusIdOptions) error {
 		result, err := modules.ServerSkus.Get(s, args.ID, nil)
 		if err != nil {
 			return err
@@ -55,9 +55,28 @@ func init() {
 		return nil
 	})
 
+	R(&ServerSkusIdOptions{}, "server-sku-enable", "Enable Server SKU", func(s *mcclient.ClientSession, args *ServerSkusIdOptions) error {
+		result, err := modules.ServerSkus.PerformAction(s, args.ID, "enable", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&ServerSkusIdOptions{}, "server-sku-disable", "Disable Server SKU", func(s *mcclient.ClientSession, args *ServerSkusIdOptions) error {
+		result, err := modules.ServerSkus.PerformAction(s, args.ID, "disable", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type ServerSkusCreateOptions struct {
-		CpuCoreCount int `help:"Cpu Count" required:"true" positional:"true"`
-		MemorySizeMB int `help:"Memory MB" required:"true" positional:"true"`
+		Name         string `help:"ServerSku name"`
+		CpuCoreCount int    `help:"Cpu Count" required:"true" positional:"true"`
+		MemorySizeMB int    `help:"Memory MB" required:"true" positional:"true"`
 
 		OsName               *string `help:"OS name/type" choices:"Linux|Windows|Any" default:"Any"`
 		InstanceTypeCategory *string `help:"instance type category" choices:"general_purpose|compute_optimized|memory_optimized|storage_optimized|hardware_accelerated|high_memory|high_storage"`
@@ -79,8 +98,8 @@ func init() {
 		GPUCount      *int    `help:"GPU count"`
 		GPUAttachable *bool   `help:"Allow attach GPU"`
 
-		Zone   *string `help:"Zone ID or name"`
-		Region *string `help:"Region ID or name"`
+		Zone        *string `help:"Zone ID or name"`
+		Cloudregion *string `help:"Cloudregion ID or name"`
 	}
 	R(&ServerSkusCreateOptions{}, "server-sku-create", "Create a server sku record", func(s *mcclient.ClientSession, args *ServerSkusCreateOptions) error {
 		params, err := options.StructToParams(args)

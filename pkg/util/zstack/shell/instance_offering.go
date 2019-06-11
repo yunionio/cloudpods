@@ -34,4 +34,29 @@ func init() {
 		printList(offerings, len(offerings), 0, 0, []string{})
 		return nil
 	})
+
+	type InstanceOfferingCreateOptions struct {
+		NAME      string
+		CPU       int
+		MEMORY_MB int
+		TYPE      string `choices:"UserVm"`
+	}
+
+	shellutils.R(&InstanceOfferingCreateOptions{}, "instance-offering-create", "Create instance offerings", func(cli *zstack.SRegion, args *InstanceOfferingCreateOptions) error {
+		offer, err := cli.CreateInstanceOffering(args.NAME, args.CPU, args.MEMORY_MB, args.TYPE)
+		if err != nil {
+			return err
+		}
+		printObject(offer)
+		return nil
+	})
+
+	type InstanceOfferingIdOptions struct {
+		ID string
+	}
+
+	shellutils.R(&InstanceOfferingIdOptions{}, "instance-offering-delete", "Delete instance offerings", func(cli *zstack.SRegion, args *InstanceOfferingIdOptions) error {
+		return cli.DeleteOffering(args.ID)
+	})
+
 }
