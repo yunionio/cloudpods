@@ -24,6 +24,7 @@ import (
 func InitHandlers(app *appsrv.Application) {
 	db.InitAllManagers()
 
+	db.RegisterModelManager(db.OpsLog)
 	for _, manager := range []db.IModelManager{
 		models.AnsiblePlaybookManager,
 	} {
