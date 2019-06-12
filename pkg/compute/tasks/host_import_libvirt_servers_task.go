@@ -90,7 +90,11 @@ func (self *HostImportLibvirtServersTask) StartImportServers(
 		success bool
 	)
 	for i := 0; i < len(guestsDesc); i++ {
-		var guest *models.SGuest = nil
+		var (
+			guest    *models.SGuest = nil
+			originId string         = guestsDesc[i].Id
+		)
+
 		err := self.FillLibvirtGuestDesc(ctx, host, &guestsDesc[i])
 		if err != nil {
 			note = fmt.Sprintf("Guest %s desc fill failed: %s", guestsDesc[i].Id, err)
@@ -101,6 +105,12 @@ func (self *HostImportLibvirtServersTask) StartImportServers(
 				note = fmt.Sprintf("Guest %s import failed: %s", guestsDesc[i].Id, err)
 				success = false
 			} else {
+				meta := map[string]interface{}{
+					"__is_import":    "true",
+					"__origin_id":    originId,
+					"__monitor_path": guestsDesc[i].MonitorPath,
+				}
+				guest.SetAllMetadata(ctx, meta, self.UserCred)
 				if err := self.CreateImportedLibvirtGuestOnHost(ctx, host, guest, &guestsDesc[i]); err != nil {
 					note = fmt.Sprintf("Guest  %s create on host failed: %s", guestsDesc[i].Id, err)
 					success = false
@@ -112,7 +122,6 @@ func (self *HostImportLibvirtServersTask) StartImportServers(
 		}
 
 		if success {
-			guest.SetMetadata(ctx, "__is_import", "ture", self.UserCred)
 			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_LIBVIRT_SERVERS, note, self.UserCred)
 		} else {
 			log.Errorln(note)
@@ -163,6 +172,9 @@ func (self *HostImportLibvirtServersTask) CreateImportedLibvirtGuestOnHost(
 	body := jsonutils.NewDict()
 	body.Set("desc", guest.GetJsonDescAtHypervisor(ctx, host))
 	body.Set("disks_path", disksPath)
+	if len(guestDesc.MonitorPath) > 0 {
+		body.Set("monitor_path", jsonutils.NewString(guestDesc.MonitorPath))
+	}
 
 	_, err = host.Request(ctx, self.UserCred, "POST",
 		fmt.Sprintf("/servers/%s/create-from-libvirt", guest.Id),

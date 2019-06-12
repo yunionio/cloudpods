@@ -343,6 +343,10 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 	cmd += fmt.Sprintf("PID_FILE=%s\n", s.GetPidFilePath())
 
 	var qemuCmd = qemutils.GetQemu(qemuVersion)
+	if len(qemuCmd) == 0 {
+		qemuCmd = qemutils.GetQemu("")
+	}
+
 	cmd += fmt.Sprintf("DEFAULT_QEMU_CMD='%s'\n", qemuCmd)
 	cmd += "if [ -n \"$STATE_FILE\" ]; then\n"
 	cmd += "    QEMU_VER=`echo $STATE_FILE" +
@@ -626,18 +630,18 @@ func (s *SKVMGuestInstance) generateStopScript(data *jsonutils.JSONDict) string 
 	cmd += fmt.Sprintf("  MON=$(($VNC + %d))\n", MONITOR_PORT_BASE)
 	cmd += "  echo quit | nc -w 1 127.0.0.1 $MON > /dev/null\n"
 	cmd += "  sleep 1\n"
-	cmd += "  if [ -f $PID_FILE ]; then\n"
-	cmd += "    PID=`cat $PID_FILE`\n"
-	cmd += "    ps -p $PID > /dev/null\n"
-	cmd += "    if [ $? -eq 0 ]; then\n"
-	cmd += "      echo \"Kill process $PID\"\n"
-	cmd += "      kill -9 $PID > /dev/null 2>&1\n"
-	cmd += "    fi\n"
-	cmd += "    echo \"Remove PID $PID_FILE\"\n"
-	cmd += "    rm -f $PID_FILE\n"
-	cmd += "  fi\n"
 	cmd += "  echo \"Remove VNC $VNC_FILE\"\n"
 	cmd += "  rm -f $VNC_FILE\n"
+	cmd += "fi\n"
+	cmd += "if [ -f $PID_FILE ]; then\n"
+	cmd += "  PID=`cat $PID_FILE`\n"
+	cmd += "  ps -p $PID > /dev/null\n"
+	cmd += "  if [ $? -eq 0 ]; then\n"
+	cmd += "    echo \"Kill process $PID\"\n"
+	cmd += "    kill -9 $PID > /dev/null 2>&1\n"
+	cmd += "  fi\n"
+	cmd += "  echo \"Remove PID $PID_FILE\"\n"
+	cmd += "  rm -f $PID_FILE\n"
 	cmd += "fi\n"
 
 	if options.HostOptions.HugepagesOption == "native" {
