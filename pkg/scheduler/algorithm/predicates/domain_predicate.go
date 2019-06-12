@@ -20,7 +20,7 @@ func (p *DomainPredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core
 	h := NewPredicateHelper(p, u, c)
 	getter := c.Getter()
 	cloudprovider := getter.Cloudprovider()
-	if cloudprovider == nil {
+	if cloudprovider == nil || getter.IsPublic() {
 		return h.GetResult()
 	}
 	domainId := getter.DomainId()
