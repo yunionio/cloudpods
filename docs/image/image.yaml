@@ -1,7 +1,8 @@
+parameters:
+  - $ref: "../parameters/image.yaml#/imageId"
+
 head:
   summary: 获取指定镜像详情信息
-  parameters:
-    - $ref: "../parameters/image.yaml#/imageId"
   responses:
     200:
       description: 镜像信息
@@ -91,7 +92,6 @@ head:
 
 put:
   parameters:
-    - $ref: "../parameters/image.yaml#/imageId"
     - $ref: "../parameters/image.yaml#/x-image-meta-name"
     - $ref: "../parameters/image.yaml#/x-image-meta-is_public"
     - $ref: "../parameters/image.yaml#/x-image-meta-description"
@@ -109,7 +109,6 @@ put:
     - glance
 get:
   parameters:
-    - $ref: "../parameters/image.yaml#/imageId"
     - in: query
       name: format
       type: string

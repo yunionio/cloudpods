@@ -148,6 +148,16 @@ paths:
   /loadbalancers/{loadbalancerId}:
     $ref: "./loadbalancer/loadbalancer.yaml"
 
+  /cached_loadbalancer_acls:
+    $ref: "./loadbalancer/loadbalancercachedacl.yaml"
+  /cached_loadbalancer_acls/{loadbalancerlistenerId}:
+    $ref: "./loadbalancer/loadbalancercachedacls.yaml"
+
+  /cached_loadbalancercertificates:
+    $ref: "./loadbalancer/loadbalancercachedcertificate.yaml"
+  /cached_loadbalancercertificates/{loadbalancerlistenerId}:
+    $ref: "./loadbalancer/loadbalancercachedcertificates.yaml"  
+
   /loadbalancerlisteners:
     $ref: "./loadbalancer/loadbalancerlisteners.yaml"
   /loadbalancerlisteners/{loadbalancerlistenerId}:

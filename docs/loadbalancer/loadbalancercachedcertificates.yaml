@@ -1,0 +1,11 @@
+get:
+  summary: 按指定条件列出证书缓存
+  parameters:
+    - $ref: "../parameters/loadbalancer.yaml#/certificate_id"
+  responses:
+    200:
+      description: 证书缓存列表
+      schema:
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerCachedCertificateListResponse"
+  tags:
+    - loadbalancercertificates
