@@ -57,6 +57,7 @@ type CandidatePropertyGetter interface {
 	Name() string
 	Zone() *computemodels.SZone
 	Cloudprovider() *computemodels.SCloudprovider
+	IsPublic() bool
 	DomainId() string
 	Region() *computemodels.SCloudregion
 	HostType() string

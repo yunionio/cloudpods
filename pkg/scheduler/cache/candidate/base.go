@@ -67,6 +67,18 @@ func (b baseHostGetter) Cloudprovider() *computemodels.SCloudprovider {
 	return b.h.Cloudprovider
 }
 
+func (b baseHostGetter) IsPublic() bool {
+	provider := b.Cloudprovider()
+	if provider == nil {
+		return false
+	}
+	account := provider.GetCloudaccount()
+	if account == nil {
+		return false
+	}
+	return account.GetIsPublic()
+}
+
 func (b baseHostGetter) DomainId() string {
 	provider := b.Cloudprovider()
 	if provider == nil {
