@@ -375,6 +375,10 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 	params["Region"] = self.Region
 	params["DiskType"] = category
 	params["DiskChargeType"] = "POSTPAID_BY_HOUR"
+	// [TencentCloudSDKError] Code=InvalidParameter, Message=DiskName: vdisk_stress-testvm-qcloud-1_1560117118026502729, length is 48, out of range [0,20] (e11d6c4007e4), RequestId=a8409994-0357-42e9-b028-e11d6c4007e4
+	if len(name) > 20 {
+		name = name[:20]
+	}
 	params["DiskName"] = name
 	params["Placement.Zone"] = zoneId
 	//params["Encrypted"] = "false"
