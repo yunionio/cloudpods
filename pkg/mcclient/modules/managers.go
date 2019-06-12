@@ -192,3 +192,11 @@ func NewCloudmetaManager(keyword, keywordPlural string, columns, adminColumns []
 			serviceType:  "cloudmeta"},
 		Keyword: keyword, KeywordPlural: keywordPlural}
 }
+
+func NewAnsibleManager(keyword, keywordPlural string, columns, adminColumns []string) ResourceManager {
+	return ResourceManager{
+		BaseManager: BaseManager{columns: columns,
+			adminColumns: adminColumns,
+			serviceType:  "ansible"},
+		Keyword: keyword, KeywordPlural: keywordPlural}
+}
