@@ -20,6 +20,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 )
@@ -28,6 +30,7 @@ type StringCallback func(string)
 
 type Monitor interface {
 	Connect(host string, port int) error
+	ConnectWithSocket(address string) error
 	Disconnect()
 	IsConnected() bool
 
@@ -98,17 +101,29 @@ func NewBaseMonitor(OnMonitorConnected MonitorSuccFunc, OnMonitorDisConnect, OnM
 	}
 }
 
-func (m *SBaseMonitor) Connect(host string, port int) error {
-	address := fmt.Sprintf("%s:%d", host, port)
-	conn, err := net.Dial("tcp", address)
+func (m *SBaseMonitor) connect(protocol, address string) error {
+	conn, err := net.Dial(protocol, address)
 	if err != nil {
-		log.Errorf("Connect monitor error: %s", err)
-		return err
+		return errors.Errorf("Connect to %s %s failed %s", protocol, address, err)
 	}
+	log.Infof("Connect %s %s success", protocol, address)
+	m.onConnectSuccess(conn)
+	return nil
+}
+
+func (m *SBaseMonitor) onConnectSuccess(conn net.Conn) {
 	// Setup reader timeout
 	conn.SetReadDeadline(time.Now().Add(90 * time.Second))
+	// set rwc hand
 	m.rwc = conn
-	return nil
+}
+
+func (m *SBaseMonitor) Connect(host string, port int) error {
+	return m.connect("tcp", fmt.Sprintf("%s:%d", host, port))
+}
+
+func (m *SBaseMonitor) ConnectWithSocket(address string) error {
+	return m.connect("unix", address)
 }
 
 func (m *SBaseMonitor) Disconnect() {

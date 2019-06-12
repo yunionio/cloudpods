@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -31,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
@@ -73,9 +75,54 @@ func (m *SGuestManager) GuestCreateFromLibvirt(
 		return nil, err
 	}
 
+	if len(createConfig.MonitorPath) > 0 {
+		if pid := findGuestProcessPid(guest.getOriginId(), "monitor.sock"); len(pid) > 0 {
+			fileutils2.FilePutContents(guest.GetPidFilePath(), pid, false)
+			guest.StartMonitorWithImportGuestSocketFile(ctx, createConfig.MonitorPath)
+			stopScript := guest.generateStopScript(nil)
+			if err := fileutils2.FilePutContents(guest.GetStopScriptPath(), stopScript, false); err != nil {
+				return nil, fmt.Errorf("Save stop script error %s", err)
+			}
+		}
+	}
+
 	ret := jsonutils.NewDict()
 	ret.Set("disks_path", disksPath)
 	return ret, nil
+}
+
+func findGuestProcessPid(originId, sufix string) string {
+	output, err := procutils.NewCommand(
+		"sh", "-c", fmt.Sprintf("ps -A -o pid,args | grep [q]emu | grep %s | grep %s", originId, sufix)).Run()
+	if err != nil {
+		log.Errorf("find guest %s error: %s", originId, output)
+		return ""
+	}
+	var spid string
+	s1 := strings.Split(string(output), "\n")
+	for i := 0; i < len(s1); i++ {
+		if len(s1[i]) > 0 {
+			if len(spid) > 0 {
+				log.Errorf("can't find guest %s pid, has multi process", originId)
+				return ""
+			}
+			s2 := strings.Fields(s1[i])
+			if len(s2) > 1 {
+				spid = s2[0]
+			}
+		}
+	}
+	if len(spid) > 0 {
+		_, err := strconv.Atoi(spid)
+		if err != nil {
+			log.Errorf("Pid atoi failed %s", err)
+			return ""
+		} else {
+			return spid
+		}
+	} else {
+		return ""
+	}
 }
 
 func (m *SGuestManager) PrepareImportFromLibvirt(
@@ -121,12 +168,31 @@ func setAttributeFromLibvirtConfig(
 			for idx, nic := range guestConfig.Nics {
 				guestConfig.Nics[idx].Ip = macMap[netutils.FormatMacAddr(nic.Mac)]
 			}
-
-			log.Infof("Import guest %s", guestConfig.Name)
+			if len(libvirtConfig.MonitorPath) > 0 {
+				files, _ := ioutil.ReadDir(libvirtConfig.MonitorPath)
+				for i := 0; i < len(files); i++ {
+					if files[i].Mode().IsDir() &&
+						strings.HasPrefix(files[i].Name(), "domain") &&
+						strings.HasSuffix(files[i].Name(), guestConfig.Name) {
+						monitorPath := path.Join(libvirtConfig.MonitorPath, files[i].Name(), "monitor.sock")
+						if fileutils2.Exists(monitorPath) && isServerRunning("monitor.sock", guestConfig.Id) {
+							guestConfig.MonitorPath = monitorPath
+						}
+						break
+					}
+				}
+			}
+			log.Infof("Import guest %s, monitor is %s", guestConfig.Name, guestConfig.MonitorPath)
 			return i, nil
 		}
 	}
-	return -1, fmt.Errorf("No guest %s found in import config", guestConfig.Id)
+	return -1, fmt.Errorf("Config not match guest %s", guestConfig.Id)
+}
+
+func isServerRunning(sufix, uuid string) bool {
+	_, err := procutils.NewCommand("sh", "-c",
+		fmt.Sprintf("ps -ef | grep [q]emu | grep %s | grep %s", uuid, sufix)).Run()
+	return err == nil
 }
 
 func (m *SGuestManager) GenerateDescFromXml(libvirtConfig *compute.SLibvirtHostConfig) (jsonutils.JSONObject, error) {
