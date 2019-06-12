@@ -24,6 +24,7 @@ import (
 func init() {
 	type RoleAssignmentsOptions struct {
 		Effective     bool   `help:"Include role assignment of group members"`
+		System        bool   `help:"Include system user account"`
 		Domain        string `help:"Role assignments for domain"`
 		User          string `help:"For user"`
 		UserDomain    string `help:"Domain for user"`
@@ -33,12 +34,17 @@ func init() {
 		ProjectDomain string `help:"Domain for project"`
 		Role          string `help:"Role assignments for role"`
 		RoleDomain    string `help:"Domain for role"`
+		Limit         int64  `help:"maximal returned number of rows"`
+		Offset        int64  `help:"offset index of returned results"`
 	}
 	R(&RoleAssignmentsOptions{}, "role-assignments", "List all role assignments", func(s *mcclient.ClientSession, args *RoleAssignmentsOptions) error {
 		query := jsonutils.NewDict()
 		query.Add(jsonutils.JSONNull, "include_names")
 		if args.Effective {
 			query.Add(jsonutils.JSONNull, "effective")
+		}
+		if args.System {
+			query.Add(jsonutils.JSONNull, "include_system")
 		}
 		if len(args.Domain) > 0 {
 			domainId, err := modules.Domains.GetId(s, args.Domain, nil)
@@ -74,6 +80,12 @@ func init() {
 				return err
 			}
 			query.Add(jsonutils.NewString(rid), "role", "id")
+		}
+		if args.Limit > 0 {
+			query.Add(jsonutils.NewInt(args.Limit), "limit")
+		}
+		if args.Offset > 0 {
+			query.Add(jsonutils.NewInt(args.Offset), "offset")
 		}
 		result, err := modules.RoleAssignments.List(s, query)
 		if err != nil {

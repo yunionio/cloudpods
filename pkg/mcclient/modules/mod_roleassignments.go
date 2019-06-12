@@ -69,7 +69,6 @@ var (
 // get project users for given project
 func (this *RoleAssignmentManagerV3) GetProjectUsers(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 
-	data := jsonutils.NewDict()
 	query := jsonutils.NewDict()
 
 	effective, e := params.GetString("effective")
@@ -141,6 +140,8 @@ func (this *RoleAssignmentManagerV3) GetProjectUsers(s *mcclient.ClientSession, 
 	for _, proj := range projects {
 		projJson.Add(proj.json())
 	}
+
+	data := jsonutils.NewDict()
 	data.Add(projJson, "data")
 	data.Add(jsonutils.NewInt(int64(len(projects))), "total")
 	return data, nil

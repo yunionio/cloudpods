@@ -23,7 +23,6 @@ var (
 		"storages",
 		"wires",
 		"vpcs",
-		"networks",
 		"route_tables",
 		"cloudregions",
 		"recyclebins",

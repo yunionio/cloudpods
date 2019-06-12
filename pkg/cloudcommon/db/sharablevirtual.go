@@ -103,14 +103,19 @@ func (model *SSharableVirtualResourceBase) AllowPerformPublic(ctx context.Contex
 }
 
 func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "public")
-	if !scope.HigherThan(rbacutils.ScopeProject) {
-		return nil, httperrors.NewForbiddenError("not enough privilege")
-	}
 	if !model.IsPublic {
+		targetScopeStr, _ := query.GetString("scope")
+		targetScope := rbacutils.String2ScopeDefault(targetScopeStr, rbacutils.ScopeSystem)
+		allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "public")
+		if targetScope.HigherThan(allowScope) {
+			return nil, httperrors.NewForbiddenError("not enough privilege")
+		}
+		if targetScope != rbacutils.ScopeSystem && targetScope != rbacutils.ScopeDomain {
+			return nil, httperrors.NewInputParameterError("invalid scope %s", targetScope)
+		}
 		diff, err := Update(model, func() error {
 			model.IsPublic = true
-			model.PublicScope = string(scope)
+			model.PublicScope = string(targetScope)
 			return nil
 		})
 		if err == nil {
@@ -126,11 +131,12 @@ func (model *SSharableVirtualResourceBase) AllowPerformPrivate(ctx context.Conte
 }
 
 func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	scope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "private")
-	if !scope.HigherThan(rbacutils.ScopeProject) {
-		return nil, httperrors.NewForbiddenError("not enough privilege")
-	}
 	if model.IsPublic {
+		allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "private")
+		requireScope := rbacutils.String2ScopeDefault(model.PublicScope, rbacutils.ScopeSystem)
+		if requireScope.HigherThan(allowScope) {
+			return nil, httperrors.NewForbiddenError("not enough privileges: allow %s require %s", allowScope, requireScope)
+		}
 		diff, err := Update(model, func() error {
 			model.IsPublic = false
 			return nil
