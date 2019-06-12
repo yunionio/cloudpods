@@ -53,6 +53,7 @@ type SImportGuestDesc struct {
 	BootOrder   string            `json:"boot_order"`
 	IsSystem    bool              `json:"is_system"`
 	Description string            `json:"description"`
+	MonitorPath string            `json:"monitor_path"`
 }
 
 type SLibvirtServerConfig struct {
@@ -62,6 +63,7 @@ type SLibvirtServerConfig struct {
 type SLibvirtHostConfig struct {
 	Servers     []SLibvirtServerConfig `json:"servers"`
 	XmlFilePath string                 `json:"xml_file_path"`
+	MonitorPath string                 `json:"monitor_path"`
 	HostIp      string                 `json:"host_ip"`
 }
 
