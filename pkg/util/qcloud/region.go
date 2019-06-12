@@ -614,6 +614,11 @@ func (self *SRegion) vpcRequest(apiName string, params map[string]string) (jsonu
 	return self.client.vpcRequest(apiName, params)
 }
 
+func (self *SRegion) vpc2017Request(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	params["Region"] = self.Region
+	return self.client.vpc2017Request(apiName, params)
+}
+
 func (self *SRegion) cvmRequest(apiName string, params map[string]string, retry bool) (jsonutils.JSONObject, error) {
 	params["Region"] = self.Region
 	return self.client.jsonRequest(apiName, params, retry)

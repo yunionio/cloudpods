@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type AddressSpace struct {
@@ -46,6 +47,8 @@ type VirtualNetworkPropertiesFormat struct {
 }
 
 type SVpc struct {
+	multicloud.SVpc
+
 	region *SRegion
 
 	iwires    []cloudprovider.ICloudWire

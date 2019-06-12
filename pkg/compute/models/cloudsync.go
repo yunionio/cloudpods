@@ -198,7 +198,7 @@ func syncRegionVPCs(ctx context.Context, userCred mcclient.TokenCredential, sync
 			syncVpcWires(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			syncVpcSecGroup(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 			syncVpcRouteTables(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
-
+			syncVpcNatgateways(ctx, userCred, syncResults, provider, &localVpcs[j], remoteVpcs[j], syncRange)
 		}()
 	}
 }
@@ -232,6 +232,84 @@ func syncVpcRouteTables(ctx context.Context, userCred mcclient.TokenCredential, 
 	if result.IsError() {
 		return
 	}
+}
+
+func syncVpcNatgateways(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, syncRange *SSyncRange) {
+	natGateways, err := remoteVpc.GetINatGateways()
+	if err != nil {
+		msg := fmt.Sprintf("GetINatGateways for vpc %s failed %s", remoteVpc.GetId(), err)
+		log.Errorf(msg)
+		return
+	}
+	localNatGateways, remoteNatGateways, result := NatGatewayManager.SyncNatGateways(ctx, userCred, provider, localVpc, natGateways)
+
+	syncResults.Add(NatGatewayManager, result)
+
+	msg := result.Result()
+	notes := fmt.Sprintf("SyncNatGateways for VPC %s result: %s", localVpc.Name, msg)
+	log.Infof(notes)
+	if result.IsError() {
+		return
+	}
+
+	for i := 0; i < len(localNatGateways); i++ {
+		func() {
+			lockman.LockObject(ctx, &localNatGateways[i])
+			defer lockman.ReleaseObject(ctx, &localNatGateways[i])
+
+			syncNatGatewayEips(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i])
+			syncNatDtables(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i])
+			syncNatStables(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i])
+		}()
+	}
+}
+
+func syncNatGatewayEips(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localNatGateway *SNatGateway, remoteNatGateway cloudprovider.ICloudNatGateway) {
+	eips, err := remoteNatGateway.GetIEips()
+	if err != nil {
+		msg := fmt.Sprintf("GetIEIPs for NatGateway %s failed %s", remoteNatGateway.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+	result := localNatGateway.SyncNatGatewayEips(ctx, userCred, provider, eips)
+	msg := result.Result()
+	log.Infof("SyncNatGatewayEips for NatGateway %s result: %s", localNatGateway.Name, msg)
+	if result.IsError() {
+		return
+	}
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
+}
+
+func syncNatDtables(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localNatGateway *SNatGateway, remoteNatGateway cloudprovider.ICloudNatGateway) {
+	dtables, err := remoteNatGateway.GetINatDTables()
+	if err != nil {
+		msg := fmt.Sprintf("GetINatDTables for NatGateway %s failed %s", remoteNatGateway.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+	result := NatDTableManager.SyncNatDTables(ctx, userCred, provider.GetOwnerId(), provider, localNatGateway, dtables)
+	msg := result.Result()
+	log.Infof("SyncNatDTables for NatGateway %s result: %s", localNatGateway.Name, msg)
+	if result.IsError() {
+		return
+	}
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
+}
+
+func syncNatStables(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localNatGateway *SNatGateway, remoteNatGateway cloudprovider.ICloudNatGateway) {
+	stables, err := remoteNatGateway.GetINatSTables()
+	if err != nil {
+		msg := fmt.Sprintf("GetINatSTables for NatGateway %s failed %s", remoteNatGateway.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+	result := NatSTableManager.SyncNatSTables(ctx, userCred, provider.GetOwnerId(), provider, localNatGateway, stables)
+	msg := result.Result()
+	log.Infof("SyncNatSTables for NatGateway %s result: %s", localNatGateway.Name, msg)
+	if result.IsError() {
+		return
+	}
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
 func syncVpcWires(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, syncRange *SSyncRange) {

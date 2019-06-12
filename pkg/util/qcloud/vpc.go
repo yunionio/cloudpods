@@ -21,9 +21,12 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SVpc struct {
+	multicloud.SVpc
+
 	region *SRegion
 
 	iwires []cloudprovider.ICloudWire
@@ -113,6 +116,26 @@ func (self *SVpc) getWireByZoneId(zoneId string) *SWire {
 		}
 	}
 	return nil
+}
+
+func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
+	nats := []SNatGateway{}
+	for {
+		part, total, err := self.region.GetNatGateways(self.VpcId, len(nats), 50)
+		if err != nil {
+			return nil, err
+		}
+		nats = append(nats, part...)
+		if len(nats) >= total {
+			break
+		}
+	}
+	inats := []cloudprovider.ICloudNatGateway{}
+	for i := 0; i < len(nats); i++ {
+		nats[i].vpc = self
+		inats = append(inats, &nats[i])
+	}
+	return inats, nil
 }
 
 func (self *SVpc) fetchNetworks() error {

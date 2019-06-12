@@ -439,12 +439,26 @@ func (self *SElasticip) IsAssociated() bool {
 	if self.GetAssociateVM() != nil {
 		return true
 	}
+	if self.GetAssociateNatGateway() != nil {
+		return true
+	}
 	return false
 }
 
 func (self *SElasticip) GetAssociateVM() *SGuest {
-	if self.AssociateType == "server" && len(self.AssociateId) > 0 {
+	if self.AssociateType == api.EIP_ASSOCIATE_TYPE_SERVER && len(self.AssociateId) > 0 {
 		return GuestManager.FetchGuestById(self.AssociateId)
+	}
+	return nil
+}
+
+func (self *SElasticip) GetAssociateNatGateway() *SNatGateway {
+	if self.AssociateType == api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY && len(self.AssociateId) > 0 {
+		natGateway, err := NatGatewayManager.FetchById(self.AssociateId)
+		if err != nil {
+			return nil
+		}
+		return natGateway.(*SNatGateway)
 	}
 	return nil
 }
@@ -453,10 +467,21 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 	if len(self.AssociateType) == 0 {
 		return nil
 	}
-	vm := self.GetAssociateVM()
-	if vm == nil {
-		log.Errorf("dissociate VM not exists???")
+	var vm *SGuest
+	var nat *SNatGateway
+	switch self.AssociateType {
+	case api.EIP_ASSOCIATE_TYPE_SERVER:
+		vm = self.GetAssociateVM()
+		if vm == nil {
+			log.Errorf("dissociate VM not exists???")
+		}
+	case api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY:
+		nat = self.GetAssociateNatGateway()
+		if nat == nil {
+			log.Errorf("dissociate Nat gateway not exists???")
+		}
 	}
+
 	_, err := db.Update(self, func() error {
 		self.AssociateId = ""
 		self.AssociateType = ""
@@ -470,6 +495,13 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 		db.OpsLog.LogEvent(self, db.ACT_EIP_DETACH, vm.GetShortDesc(ctx), userCred)
 		db.OpsLog.LogEvent(vm, db.ACT_EIP_DETACH, self.GetShortDesc(ctx), userCred)
 	}
+
+	if nat != nil {
+		db.OpsLog.LogDetachEvent(ctx, nat, self, userCred, self.GetShortDesc(ctx))
+		db.OpsLog.LogEvent(self, db.ACT_EIP_DETACH, nat.GetShortDesc(ctx), userCred)
+		db.OpsLog.LogEvent(nat, db.ACT_EIP_DETACH, self.GetShortDesc(ctx), userCred)
+	}
+
 	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		self.Delete(ctx, userCred)
 	}
@@ -484,7 +516,7 @@ func (self *SElasticip) AssociateVM(ctx context.Context, userCred mcclient.Token
 		return fmt.Errorf("EIP has been associated!!")
 	}
 	_, err := db.Update(self, func() error {
-		self.AssociateType = "server"
+		self.AssociateType = api.EIP_ASSOCIATE_TYPE_SERVER
 		self.AssociateId = vm.Id
 		return nil
 	})
@@ -495,6 +527,29 @@ func (self *SElasticip) AssociateVM(ctx context.Context, userCred mcclient.Token
 	db.OpsLog.LogAttachEvent(ctx, vm, self, userCred, self.GetShortDesc(ctx))
 	db.OpsLog.LogEvent(self, db.ACT_EIP_ATTACH, vm.GetShortDesc(ctx), userCred)
 	db.OpsLog.LogEvent(vm, db.ACT_EIP_ATTACH, self.GetShortDesc(ctx), userCred)
+
+	return nil
+}
+
+func (self *SElasticip) AssociateNatGateway(ctx context.Context, userCred mcclient.TokenCredential, nat *SNatGateway) error {
+	if nat.Deleted {
+		return fmt.Errorf("nat gateway is deleted")
+	}
+	if len(self.AssociateType) > 0 {
+		return fmt.Errorf("Eip has been associated!!")
+	}
+	_, err := db.Update(self, func() error {
+		self.AssociateType = api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY
+		self.AssociateId = nat.Id
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	db.OpsLog.LogAttachEvent(ctx, nat, self, userCred, self.GetShortDesc(ctx))
+	db.OpsLog.LogEvent(self, db.ACT_EIP_ATTACH, nat.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(nat, db.ACT_EIP_ATTACH, self.GetShortDesc(ctx), userCred)
 
 	return nil
 }

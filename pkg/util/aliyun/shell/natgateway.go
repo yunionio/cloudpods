@@ -47,4 +47,18 @@ func init() {
 		return nil
 	})
 
+	type DNatEntryListOptions struct {
+		ID     string `help:"DNat Table ID"`
+		Limit  int    `help:"page size"`
+		Offset int    `help:"page offset"`
+	}
+	shellutils.R(&DNatEntryListOptions{}, "dnat-entry-list", "List DNAT entries", func(cli *aliyun.SRegion, args *DNatEntryListOptions) error {
+		entries, total, e := cli.GetForwardTableEntries(args.ID, args.Offset, args.Limit)
+		if e != nil {
+			return e
+		}
+		printList(entries, total, args.Offset, args.Limit, []string{})
+		return nil
+	})
+
 }

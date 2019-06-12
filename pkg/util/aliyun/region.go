@@ -115,7 +115,7 @@ func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonut
 	if err != nil {
 		return nil, err
 	}
-	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params, self.Debug)
+	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params, self.client.Debug)
 }
 
 type LBRegion struct {
@@ -689,13 +689,13 @@ func (self *SRegion) UpdateInstancePassword(instId string, passwd string) error 
 // }
 
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
-	eips, total, err := self.GetEips("", 0, 50)
+	eips, total, err := self.GetEips("", "", 0, 50)
 	if err != nil {
 		return nil, err
 	}
 	for len(eips) < total {
 		var parts []SEipAddress
-		parts, total, err = self.GetEips("", len(eips), 50)
+		parts, total, err = self.GetEips("", "", len(eips), 50)
 		if err != nil {
 			return nil, err
 		}
@@ -709,7 +709,7 @@ func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 }
 
 func (self *SRegion) GetIEipById(eipId string) (cloudprovider.ICloudEIP, error) {
-	eips, total, err := self.GetEips(eipId, 0, 1)
+	eips, total, err := self.GetEips(eipId, "", 0, 1)
 	if err != nil {
 		return nil, err
 	}

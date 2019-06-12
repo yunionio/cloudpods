@@ -18,7 +18,11 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
+
 	"yunion.io/x/log"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type SBandwidthPackageIds struct {
@@ -34,21 +38,117 @@ type SSnatTableIds struct {
 }
 
 type SNatGetway struct {
+	multicloud.SNatGatewayBase
+
 	vpc *SVpc
 
 	BandwidthPackageIds SBandwidthPackageIds
 	BusinessStatus      string
 	CreationTime        time.Time
+	ExpiredTime         time.Time
 	Description         string
 	ForwardTableIds     SForwardTableIds
 	SnatTableIds        SSnatTableIds
-	InstanceChargeType  string
+	InstanceChargeType  TChargeType
 	Name                string
 	NatGatewayId        string
 	RegionId            string
 	Spec                string
 	Status              string
 	VpcId               string
+}
+
+func (nat *SNatGetway) GetId() string {
+	return nat.NatGatewayId
+}
+
+func (nat *SNatGetway) GetGlobalId() string {
+	return nat.NatGatewayId
+}
+
+func (nat *SNatGetway) GetName() string {
+	if len(nat.Name) > 0 {
+		return nat.Name
+	}
+	return nat.NatGatewayId
+}
+
+func (nat *SNatGetway) GetStatus() string {
+	switch nat.Status {
+	case "Initiating":
+		return api.NAT_STATUS_ALLOCATE
+	case "Available":
+		return api.NAT_STAUTS_AVAILABLE
+	case "Pending":
+		return api.NAT_STATUS_DEPLOYING
+	default:
+		return api.NAT_STATUS_UNKNOWN
+	}
+
+}
+
+func (nat *SNatGetway) GetBillingType() string {
+	return convertChargeType(nat.InstanceChargeType)
+}
+
+func (nat *SNatGetway) GetNatSpec() string {
+	return nat.Spec
+}
+
+func (nat *SNatGetway) GetCreatedAt() time.Time {
+	return nat.CreationTime
+}
+
+func (nat *SNatGetway) GetExpiredAt() time.Time {
+	return nat.ExpiredTime
+}
+
+func (nat *SNatGetway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
+	eips := []SEipAddress{}
+	for {
+		parts, total, err := nat.vpc.region.GetEips("", nat.NatGatewayId, len(eips), 50)
+		if err != nil {
+			return nil, err
+		}
+		eips = append(eips, parts...)
+		if len(eips) >= total {
+			break
+		}
+	}
+	ieips := []cloudprovider.ICloudEIP{}
+	for i := 0; i < len(eips); i++ {
+		eips[i].region = nat.vpc.region
+		ieips = append(ieips, &eips[i])
+	}
+	return ieips, nil
+}
+
+func (nat *SNatGetway) GetINatDTables() ([]cloudprovider.ICloudNatDTable, error) {
+	itables := []cloudprovider.ICloudNatDTable{}
+	for _, dtableId := range nat.ForwardTableIds.ForwardTableId {
+		dtables, err := nat.vpc.region.GetAllDTables(dtableId)
+		if err != nil {
+			return nil, err
+		}
+		for i := 0; i < len(dtables); i++ {
+			dtables[i].nat = nat
+			itables = append(itables, &dtables[i])
+		}
+	}
+	return itables, nil
+}
+
+func (nat *SNatGetway) GetINatSTables() ([]cloudprovider.ICloudNatSTable, error) {
+	stables, err := nat.getSnatEntries()
+	if err != nil {
+		return nil, err
+	}
+	itables := []cloudprovider.ICloudNatSTable{}
+	for i := 0; i < len(stables); i++ {
+		stables[i].nat = nat
+		itables = append(itables, &stables[i])
+	}
+	return itables, nil
 }
 
 func (self *SRegion) GetNatGateways(vpcId string, natGwId string, offset, limit int) ([]SNatGetway, int, error) {
@@ -84,97 +184,4 @@ func (self *SRegion) GetNatGateways(vpcId string, natGwId string, offset, limit 
 	}
 	total, _ := body.Int("TotalCount")
 	return gateways, int(total), nil
-}
-
-type SSNATTableEntry struct {
-	SnatEntryId     string
-	SnatIp          string
-	SnatTableId     string `json:"snat_table_id"`
-	SourceCIDR      string `json:"source_cidr"`
-	SourceVSwitchId string `json:"source_vswitch_id"`
-	Status          string
-}
-
-func (self *SRegion) GetSNATEntries(tableId string, offset, limit int) ([]SSNATTableEntry, int, error) {
-	if limit > 50 || limit <= 0 {
-		limit = 50
-	}
-	params := make(map[string]string)
-	params["RegionId"] = self.RegionId
-	params["PageSize"] = fmt.Sprintf("%d", limit)
-	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
-	params["SnatTableId"] = tableId
-
-	body, err := self.vpcRequest("DescribeSnatTableEntries", params)
-	if err != nil {
-		log.Errorf("DescribeSnatTableEntries fail %s", err)
-		return nil, 0, err
-	}
-
-	if self.client.Debug {
-		log.Debugf("%s", body.PrettyString())
-	}
-
-	entries := make([]SSNATTableEntry, 0)
-	err = body.Unmarshal(&entries, "SnatTableEntries", "SnatTableEntry")
-	if err != nil {
-		log.Errorf("Unmarshal entries fail %s", err)
-		return nil, 0, err
-	}
-	total, _ := body.Int("TotalCount")
-	return entries, int(total), nil
-}
-
-func (region *SRegion) DeleteSnatEntry(tableId string, entryId string) error {
-	params := make(map[string]string)
-	params["RegionId"] = region.RegionId
-	params["SnatTableId"] = tableId
-	params["SnatEntryId"] = entryId
-	_, err := region.vpcRequest("DeleteSnatEntry", params)
-	return err
-}
-
-func (nat *SNatGetway) getSnatEntriesForTable(tblId string) ([]SSNATTableEntry, error) {
-	entries := make([]SSNATTableEntry, 0)
-	entryTotal := -1
-	for entryTotal < 0 || len(entries) < entryTotal {
-		parts, total, err := nat.vpc.region.GetSNATEntries(tblId, len(entries), 50)
-		if err != nil {
-			return nil, err
-		}
-		if len(parts) > 0 {
-			entries = append(entries, parts...)
-		}
-		entryTotal = total
-	}
-	return entries, nil
-}
-
-func (nat *SNatGetway) getSnatEntries() ([]SSNATTableEntry, error) {
-	entries := make([]SSNATTableEntry, 0)
-	for i := range nat.SnatTableIds.SnatTableId {
-		sentries, err := nat.getSnatEntriesForTable(nat.SnatTableIds.SnatTableId[i])
-		if err != nil {
-			return nil, err
-		}
-		entries = append(entries, sentries...)
-	}
-	return entries, nil
-}
-
-func (nat *SNatGetway) dissociateWithVswitch(vswitchId string) error {
-	entries, err := nat.getSnatEntries()
-	if err != nil {
-		return err
-	}
-	for i := range entries {
-		log.Debugf("%s", entries[i])
-		if entries[i].SourceVSwitchId == vswitchId {
-			err := nat.vpc.region.DeleteSnatEntry(entries[i].SnatTableId, entries[i].SnatEntryId)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
