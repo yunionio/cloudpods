@@ -611,6 +611,7 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 					ProjectId: t.Id,
 				}
 			}
+			newCloudprovider.DomainId = ownerId.GetProjectDomainId()
 			newCloudprovider.ProjectId = ownerId.GetProjectId()
 		}
 

@@ -24,9 +24,12 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SCapabilities struct {
@@ -46,6 +49,8 @@ type SCapabilities struct {
 
 func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, region *SCloudregion, zone *SZone) (SCapabilities, error) {
 	capa := SCapabilities{}
+	scopeStr := jsonutils.GetAnyString(query, []string{"scope"})
+	scope := rbacutils.String2Scope(scopeStr)
 	var domainId string
 	domainStr := jsonutils.GetAnyString(query, []string{"domain", "domain_id", "project_domain", "project_domain_id"})
 	if len(domainStr) > 0 {
@@ -59,6 +64,13 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 		domainId = domain.GetId()
 	} else {
 		domainId = userCred.GetProjectDomainId()
+	}
+	if scope == rbacutils.ScopeSystem {
+		result := policy.PolicyManager.Allow(scope, userCred, consts.GetServiceType(), "capabilities", policy.PolicyActionList)
+		if result != rbacutils.Allow {
+			return capa, httperrors.NewForbiddenError("not allow to query system capability")
+		}
+		domainId = ""
 	}
 	capa.Hypervisors = getHypervisors(region, zone, domainId)
 	capa.ResourceTypes = getResourceTypes(region, zone, domainId)
@@ -104,6 +116,7 @@ func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
 		sqlchemy.IsTrue(accounts.Field("is_public")),
 	))
 	q = q.Filter(sqlchemy.Equals(accounts.Field("status"), api.CLOUD_PROVIDER_CONNECTED))
+	q = q.Filter(sqlchemy.IsTrue(accounts.Field("enabled")))
 
 	return q.SubQuery()
 }
