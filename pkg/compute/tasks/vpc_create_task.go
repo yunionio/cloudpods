@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type VpcCreateTask struct {
@@ -26,6 +27,7 @@ func (self *VpcCreateTask) TaskFailed(ctx context.Context, vpc *models.SVpc, err
 	log.Errorf("vpc create task fail: %s", err)
 	vpc.SetStatus(self.UserCred, api.VPC_STATUS_FAILED, err.Error())
 	db.OpsLog.LogEvent(vpc, db.ACT_ALLOCATE_FAIL, err.Error(), self.UserCred)
+	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_ALLOCATE, err.Error(), self.UserCred, false)
 	self.SetStageFailed(ctx, err.Error())
 }
 
@@ -63,5 +65,6 @@ func (self *VpcCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 		return
 	}
 
+	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_ALLOCATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }

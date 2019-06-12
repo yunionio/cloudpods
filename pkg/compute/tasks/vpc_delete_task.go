@@ -12,6 +12,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type VpcDeleteTask struct {
@@ -26,6 +27,7 @@ func (self *VpcDeleteTask) taskFailed(ctx context.Context, vpc *models.SVpc, err
 	log.Errorf("vpc delete task fail: %s", err)
 	vpc.SetStatus(self.UserCred, api.VPC_STATUS_DELETE_FAILED, err.Error())
 	db.OpsLog.LogEvent(vpc, db.ACT_DELOCATE_FAIL, err.Error(), self.UserCred)
+	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_DELETE, err.Error(), self.UserCred, false)
 	self.SetStageFailed(ctx, err.Error())
 }
 
@@ -65,5 +67,6 @@ func (self *VpcDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 		return
 	}
 
+	logclient.AddActionLogWithStartable(self, vpc, logclient.ACT_DELETE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
