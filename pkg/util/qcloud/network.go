@@ -17,6 +17,7 @@ package qcloud
 import (
 	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
@@ -75,8 +76,30 @@ func (self *SRegion) DeleteNetwork(networkId string) error {
 	params := make(map[string]string)
 	params["SubnetId"] = networkId
 
+	interfaces := []SNetworkInterface{}
+	for {
+		_interfaces, total, err := self.GetNetworkInterfaces([]string{}, networkId, len(interfaces), 50)
+		if err != nil {
+			return errors.Wrapf(err, "DeleteNetwork.GetNetworkInterfaces")
+		}
+		interfaces = append(interfaces, _interfaces...)
+		if len(interfaces) >= total {
+			break
+		}
+	}
+
+	for _, nic := range interfaces {
+		err := self.DeleteNetworkInterface(nic.NetworkInterfaceId)
+		if err != nil {
+			return errors.Wrapf(err, "DeleteNetwork.DeleteNetworkInterface")
+		}
+	}
+
 	_, err := self.vpcRequest("DeleteSubnet", params)
-	return err
+	if err != nil {
+		return errors.Wrapf(err, "vpcRequest.DeleteSubnet")
+	}
+	return nil
 }
 
 func (self *SNetwork) GetIWire() cloudprovider.ICloudWire {
