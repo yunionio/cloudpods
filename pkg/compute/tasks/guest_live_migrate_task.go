@@ -97,7 +97,7 @@ func (self *GuestMigrateTask) SaveScheduleResult(ctx context.Context, obj ISched
 			return
 		}
 	}
-	self.OnSrcPrepareComplete(ctx, guest, nil)
+	self.OnCachedImageComplete(ctx, guest, nil)
 }
 
 // For local storage get disk info

@@ -843,6 +843,7 @@ func init() {
 	type Hosts struct {
 		HostIp      string    `yaml:"host_ip"`
 		XmlFilePath string    `yaml:"xml_file_path"`
+		MonitorPath string    `yaml:"monitor_path"`
 		Servers     []Servers `yaml:"servers"`
 	}
 

@@ -153,11 +153,19 @@ func (m *HmpMonitor) Query(cmd string, cb StringCallback) {
 			go m.read(m.rwc)
 		}
 	}
+}
 
+func (m *HmpMonitor) ConnectWithSocket(address string) error {
+	err := m.SBaseMonitor.connect("unix", address)
+	if err != nil {
+		return err
+	}
+	go m.read(m.rwc)
+	return nil
 }
 
 func (m *HmpMonitor) Connect(host string, port int) error {
-	err := m.SBaseMonitor.Connect(host, port)
+	err := m.SBaseMonitor.connect("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		return err
 	}

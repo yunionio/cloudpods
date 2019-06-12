@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -123,7 +124,14 @@ func (m *QmpMonitor) callBack(res *Response) {
 	m.callbackQueue = m.callbackQueue[1:]
 	m.mutex.Unlock()
 	if cb != nil {
-		go cb(res)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Errorf("PANIC %v:\n%s", debug.Stack(), r)
+				}
+			}()
+			cb(res)
+		}()
 	}
 }
 
@@ -259,11 +267,19 @@ func (m *QmpMonitor) Query(cmd *Command, cb qmpMonitorCallBack) {
 			go m.read(m.rwc)
 		}
 	}
+}
 
+func (m *QmpMonitor) ConnectWithSocket(address string) error {
+	err := m.SBaseMonitor.connect("unix", address)
+	if err != nil {
+		return err
+	}
+	go m.read(m.rwc)
+	return nil
 }
 
 func (m *QmpMonitor) Connect(host string, port int) error {
-	err := m.SBaseMonitor.Connect(host, port)
+	err := m.SBaseMonitor.connect("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		return err
 	}

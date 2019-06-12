@@ -3,6 +3,7 @@ package guesthandlers
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -128,6 +129,14 @@ func guestPrepareImportFormLibvirt(ctx context.Context, w http.ResponseWriter, r
 	if len(config.Servers) == 0 {
 		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("servers"))
 		return
+	}
+
+	if len(config.MonitorPath) > 0 {
+		if _, err := ioutil.ReadDir(config.MonitorPath); err != nil {
+			hostutils.Response(ctx, w,
+				httperrors.NewBadRequestError("Monitor path %s can't open as dir: %s", config.MonitorPath, err))
+			return
+		}
 	}
 
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().PrepareImportFromLibvirt, config)
@@ -395,8 +404,13 @@ func guestCreateFromLibvirt(ctx context.Context, sid string, body jsonutils.JSON
 		return nil, httperrors.NewInputParameterError("disks_path is not dict")
 	}
 
+	monitorPath, _ := body.GetString("monitor_path")
+	if len(monitorPath) > 0 && !fileutils2.Exists(monitorPath) {
+		return nil, httperrors.NewBadRequestError("Monitor path %s not found", monitorPath)
+	}
+
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().GuestCreateFromLibvirt,
-		&guestman.SGuestCreateFromLibvirt{sid, guestDesc, disksPath})
+		&guestman.SGuestCreateFromLibvirt{sid, monitorPath, guestDesc, disksPath})
 	return nil, nil
 }
 
