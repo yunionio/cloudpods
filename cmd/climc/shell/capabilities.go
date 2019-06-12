@@ -17,13 +17,20 @@ package shell
 import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/mcclient/options"
 )
 
 func init() {
 	type CapabilitiesOptions struct {
+		Domain string `help:"ID or name of domain"`
+		Scope  string `help:"query scope" choices:"system|domain|project"`
 	}
 	R(&CapabilitiesOptions{}, "capabilities", "Show backend capabilities", func(s *mcclient.ClientSession, args *CapabilitiesOptions) error {
-		result, err := modules.Capabilities.List(s, nil)
+		query, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		result, err := modules.Capabilities.List(s, query)
 		if err != nil {
 			return err
 		}

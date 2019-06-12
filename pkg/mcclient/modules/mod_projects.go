@@ -50,11 +50,16 @@ func (this *ProjectManagerV3) _join(s *mcclient.ClientSession, pid, uid, rid, re
 	return nil
 }
 
-func (this *ProjectManagerV3) _leave(s *mcclient.ClientSession, pid string, uid string, rid string, ch chan int) error {
+func (this *ProjectManagerV3) _leave(s *mcclient.ClientSession, pid string, resource string, uid string, rid string, ch chan int) error {
 	defer func() {
 		ch <- 1
 	}()
-	_, err := RolesV3.DeleteInContexts(s, rid, nil, []ManagerContext{{&Projects, pid}, {&UsersV3, uid}})
+	var err error
+	if resource == "users" {
+		_, err = RolesV3.DeleteInContexts(s, rid, nil, []ManagerContext{{&Projects, pid}, {&UsersV3, uid}})
+	} else if resource == "groups" {
+		_, err = RolesV3.DeleteInContexts(s, rid, nil, []ManagerContext{{&Projects, pid}, {&Groups, uid}})
+	}
 	if err != nil {
 		return err
 	}
@@ -79,6 +84,12 @@ func (this *ProjectManagerV3) DoLeaveProject(s *mcclient.ClientSession, params j
 		return ret, e
 	}
 
+	resource, _ := params.GetString("resource")
+
+	if len(resource) == 0 {
+		resource = "users"
+	}
+
 	chs := make([]chan int, len(pids))
 
 	for i, pid := range pids {
@@ -92,7 +103,7 @@ func (this *ProjectManagerV3) DoLeaveProject(s *mcclient.ClientSession, params j
 		}
 
 		chs[i] = make(chan int)
-		go this._leave(s, _pid, uid, _rid, chs[i])
+		go this._leave(s, _pid, resource, uid, _rid, chs[i])
 	}
 
 	for _, ch := range chs {
