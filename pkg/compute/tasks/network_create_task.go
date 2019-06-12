@@ -73,5 +73,7 @@ func (self *NetworkCreateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		return
 	}
 
+	network.ClearSchedDescCache()
+
 	self.SetStageComplete(ctx, nil)
 }
