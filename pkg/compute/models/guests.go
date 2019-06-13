@@ -2126,7 +2126,7 @@ func (self *SGuest) setOSProfile(ctx context.Context, userCred mcclient.TokenCre
 	return self.SetMetadata(ctx, "__os_profile__", profile, userCred)
 }
 
-func (self *SGuest) getOSProfile() osprofile.SOSProfile {
+func (self *SGuest) GetOSProfile() osprofile.SOSProfile {
 	osName := self.GetOS()
 	osProf := osprofile.GetOSProfile(osName, self.Hypervisor)
 	val := self.GetMetadata("__os_profile__", nil)
@@ -2185,7 +2185,7 @@ func (self *SGuest) attach2NetworkOnce(ctx context.Context, userCred mcclient.To
 		nicConf.Index = self.getMaxNicIndex()
 	}
 	if len(driver) == 0 {
-		osProf := self.getOSProfile()
+		osProf := self.GetOSProfile()
 		driver = osProf.NetDriver
 	}
 	lockman.LockClass(ctx, QuotaManager, self.ProjectId)
@@ -2354,6 +2354,10 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 	return result
 }
 
+func (self *SGuest) IsAttach2Disk(disk *SDisk) (bool, error) {
+	return self.isAttach2Disk(disk)
+}
+
 func (self *SGuest) isAttach2Disk(disk *SDisk) (bool, error) {
 	q := GuestdiskManager.Query().Equals("disk_id", disk.Id).Equals("guest_id", self.Id)
 	cnt, err := q.CountWithError()
@@ -2401,7 +2405,7 @@ func (self *SGuest) attach2Disk(ctx context.Context, disk *SDisk, userCred mccli
 	}
 
 	if len(driver) == 0 {
-		osProf := self.getOSProfile()
+		osProf := self.GetOSProfile()
 		driver = osProf.DiskDriver
 	}
 	guestdisk := SGuestdisk{}
@@ -2619,7 +2623,7 @@ func totalGuestResourceCount(
 func (self *SGuest) getDefaultNetworkConfig() *api.NetworkConfig {
 	netConf := api.NetworkConfig{}
 	netConf.BwLimit = options.Options.DefaultBandwidth
-	osProf := self.getOSProfile()
+	osProf := self.GetOSProfile()
 	netConf.Driver = osProf.NetDriver
 	return &netConf
 }
@@ -2729,6 +2733,7 @@ func (self *SGuest) CreateDisksOnHost(
 	isWithServerCreate bool,
 	candidateDisks []*schedapi.CandidateDisk,
 	backupCandidateDisks []*schedapi.CandidateDisk,
+	autoAttach bool,
 ) error {
 	for idx := 0; idx < len(disks); idx += 1 {
 		diskConfig, err := parseDiskInfo(ctx, userCred, disks[idx])
@@ -2743,7 +2748,7 @@ func (self *SGuest) CreateDisksOnHost(
 		if len(backupCandidateDisks) != 0 && len(backupCandidateDisks) > idx {
 			backupCandidateDisk = backupCandidateDisks[idx]
 		}
-		disk, err := self.createDiskOnHost(ctx, userCred, host, diskConfig, pendingUsage, inheritBilling, isWithServerCreate, candidateDisk, backupCandidateDisk)
+		disk, err := self.createDiskOnHost(ctx, userCred, host, diskConfig, pendingUsage, inheritBilling, isWithServerCreate, candidateDisk, backupCandidateDisk, autoAttach)
 		if err != nil {
 			return err
 		}
@@ -2805,6 +2810,7 @@ func (self *SGuest) createDiskOnHost(
 	isWithServerCreate bool,
 	candidate *schedapi.CandidateDisk,
 	backupCandidate *schedapi.CandidateDisk,
+	autoAttach bool,
 ) (*SDisk, error) {
 	var storage *SStorage
 	if len(diskConfig.Storage) > 0 {
@@ -2840,7 +2846,9 @@ func (self *SGuest) createDiskOnHost(
 		}
 		db.OpsLog.LogEvent(disk, db.ACT_UPDATE, diff, userCred)
 	}
-	err = self.attach2Disk(ctx, disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint)
+	if autoAttach {
+		err = self.attach2Disk(ctx, disk, userCred, diskConfig.Driver, diskConfig.Cache, diskConfig.Mountpoint)
+	}
 	return disk, err
 }
 
