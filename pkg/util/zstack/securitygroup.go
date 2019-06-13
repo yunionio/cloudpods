@@ -229,7 +229,7 @@ func (region *SRegion) AddSecurityGroupRule(secgroupId string, rules []secrules.
 	}
 	if len(ruleParam) > 0 {
 		params := map[string]interface{}{
-			"parms": map[string]interface{}{
+			"params": map[string]interface{}{
 				"rules": ruleParam,
 			},
 		}
