@@ -187,7 +187,7 @@ func (manager *SVirtualResourceBaseManager) AllowCreateItem(ctx context.Context,
 
 func (manager *SVirtualResourceBaseManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
 	rows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	if len(fields) == 0 || fields.Contains("tenant") || fields.Contains("domain") {
+	if len(fields) == 0 || fields.Contains("tenant") || fields.Contains("project_domain") {
 		projectIds := stringutils2.SSortedStrings{}
 		for i := range objs {
 			idStr := objs[i].GetOwnerId().GetProjectId()
@@ -198,8 +198,8 @@ func (manager *SVirtualResourceBaseManager) FetchCustomizeColumns(ctx context.Co
 			for i := range rows {
 				idStr := objs[i].GetOwnerId().GetProjectId()
 				if proj, ok := projects[idStr]; ok {
-					if len(fields) == 0 || fields.Contains("domain") {
-						rows[i].Add(jsonutils.NewString(proj.Domain), "domain")
+					if len(fields) == 0 || fields.Contains("project_domain") {
+						rows[i].Add(jsonutils.NewString(proj.Domain), "project_domain")
 					}
 					if len(fields) == 0 || fields.Contains("tenant") {
 						rows[i].Add(jsonutils.NewString(proj.Name), "tenant")
