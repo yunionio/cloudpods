@@ -28,9 +28,10 @@ type SSshkeypairManager struct {
 
 func (this *SSshkeypairManager) List(s *mcclient.ClientSession, params jsonutils.JSONObject) (*ListResult, error) {
 	url := "/sshkeypairs"
-	queryStr := params.QueryString()
-	if len(queryStr) > 0 {
-		url = fmt.Sprintf("%s?%s", url, queryStr)
+	if params != nil {
+		if queryStr := params.QueryString(); queryStr != "" {
+			url = fmt.Sprintf("%s?%s", url, queryStr)
+		}
 	}
 	body, err := this._get(s, url, "sshkeypair")
 	if err != nil {

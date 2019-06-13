@@ -1,1 +1,5 @@
-DESCRIPTION="Yunion Cloud Ansible Server"
+DESCRIPTION="Yunion Ansible Controller"
+
+REQUIRES=(
+	"ansible"
+)
