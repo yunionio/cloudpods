@@ -1,0 +1,11 @@
+get:
+  summary: 按指定条件列出ACL缓存
+  parameters:
+    - $ref: "../parameters/loadbalancer.yaml#/acl_id"
+  responses:
+    200:
+      description: ACL缓存列表
+      schema:
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerCachedAclListResponse"
+  tags:
+    - loadbalanceracls

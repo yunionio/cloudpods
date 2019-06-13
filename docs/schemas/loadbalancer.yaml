@@ -209,3 +209,108 @@ LoadbalancerBackendResponse:
     loadbalancerbackend:
       type: object
       $ref: '#/LoadbalancerBackend'
+
+LoadbalancerAclEntry:
+  type: object
+  properties:
+    cidr:
+      type: string
+      example: 192.168.0.1/24
+      description: 网段
+      readOnly: true
+    comment:
+      type: string
+      description: 注释
+      readOnly: true  
+
+LoadbalancerAclEntries:
+  type: array
+  items:
+    $ref: '#/LoadbalancerAclEntry'
+
+LoadbalancerCachedAcl:
+    allOf:
+    - $ref: "./common.yaml#/SharableVirtualResourceBaseResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      properties:
+        acl_id:
+          type: string
+          description: 所属的本地访问控制uuid
+        acl_entries:
+            $ref: "#/LoadbalancerAclEntries"
+
+LoadbalancerCachedAclResponse:
+    $ref: "#/LoadbalancerCachedAcl"
+
+LoadbalancerCachedAclListResponse:
+  type: object
+  properties:
+    cached_loadbalancer_acls:
+      type: array
+      items:
+        $ref: "#/LoadbalancerCachedAcl"
+
+LoadbalancerCachedCertificate:
+    allOf:
+    - $ref: "./common.yaml#/SharableVirtualResourceBaseResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      properties:
+        certificate_id:
+          type: string
+          example: ab58813d83284a7f95040901639013d3
+          description: 所属的本地证书uuid
+          readOnly: true
+        private_key:
+          type: string
+          description: 私钥内容
+          readOnly: true
+        publicKey_algorithm:
+          type: string
+          description: 公钥算法
+          readOnly: true
+        publicKey_bitLen:
+          type: int
+          description: 公钥长度
+          readOnly: true  
+        signature_algorithm:
+          type: string
+          description: 签名算法
+          readOnly: true  
+        fingerprint:
+          type: string
+          example: sha1:da:39:a3:ee:5e:6b:4b:0d:32:55:bf:ef:95:60:18:90:af:d8:07:09
+          description: 证书指纹
+          readOnly: true
+        not_before:
+          type: string
+          example: 2019-05-23T11:50:33.000000Z
+          description: 最早生效时间
+          readOnly: true  
+        not_after:
+          type: string
+          example: 2020-05-23T11:50:33.000000Z
+          description: 失效时间
+          readOnly: true  
+        common_name:
+          type: string
+          example: www.onecloud.com
+          description: 域名
+          readOnly: true  
+        subject_alternative_names:
+          type: string
+          example: ''
+          description: 附加域名
+          readOnly: true             
+
+LoadbalancerCachedCertificateResponse:
+    $ref: "#/LoadbalancerCachedCertificate"
+
+LoadbalancerCachedCertificateListResponse:
+  type: object
+  properties:
+    cached_loadbalancercertificates:
+      type: array
+      items:
+        $ref: "#/LoadbalancerCachedCertificate"        

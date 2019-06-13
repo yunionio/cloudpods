@@ -1,7 +1,8 @@
+parameters:
+  - $ref: "../parameters/image.yaml#/imageId"
+
 head:
   summary: 获取指定镜像详情信息
-  parameters: 
-    - $ref: '/parameters/image.yaml#imageId'
   responses:
     200:
       description: 镜像信息
@@ -9,15 +10,15 @@ head:
         x-image-meta-checksum:
           type: string
           #example: ef7a1c502ee2c9a288486f91d24330f0
-          description: 镜像md5值   
+          description: 镜像md5值
         x-image-meta-created_at:
           type: string
           #example: 2019-05-30T09:23:16.000000Z
-          description: 镜像创建时间  
+          description: 镜像创建时间
         x-image-meta-disk_format:
           type: string
           #example: qcow2
-          description: 镜像格式 
+          description: 镜像格式
         x-image-meta-fast_hash:
           type: string
           #example: da6b40721d34676116d6ad8c446e7d29
@@ -91,19 +92,19 @@ head:
 
 put:
   parameters:
-    - $ref: '/parameters/image.yaml#x-image-meta-name'
-    - $ref: '/parameters/image.yaml#x-image-meta-is_public'
-    - $ref: '/parameters/image.yaml#x-image-meta-description'
-    - $ref: '/parameters/image.yaml#x-image-meta-property-os_arch'
-    - $ref: '/parameters/image.yaml#x-image-meta-property-os_distribution'
-    - $ref: '/parameters/image.yaml#x-image-meta-property-os_version'
+    - $ref: "../parameters/image.yaml#/x-image-meta-name"
+    - $ref: "../parameters/image.yaml#/x-image-meta-is_public"
+    - $ref: "../parameters/image.yaml#/x-image-meta-description"
+    - $ref: "../parameters/image.yaml#/x-image-meta-property-os_arch"
+    - $ref: "../parameters/image.yaml#/x-image-meta-property-os_distribution"
+    - $ref: "../parameters/image.yaml#/x-image-meta-property-os_version"
   summary: 更新镜像信息
   responses:
     200:
       description: 镜像信息
 
       schema:
-        $ref: '/schemas/image.yaml#ImageResponse'
+        $ref: "../schemas/image.yaml#/ImageResponse"
   tags:
     - glance
 get:
@@ -127,15 +128,15 @@ get:
         x-image-meta-checksum:
           type: string
           #example: ef7a1c502ee2c9a288486f91d24330f0
-          description: 镜像md5值   
+          description: 镜像md5值
         x-image-meta-created_at:
           type: string
           #example: 2019-05-30T09:23:16.000000Z
-          description: 镜像创建时间  
+          description: 镜像创建时间
         x-image-meta-disk_format:
           type: string
           #example: qcow2
-          description: 镜像格式 
+          description: 镜像格式
         x-image-meta-fast_hash:
           type: string
           #example: da6b40721d34676116d6ad8c446e7d29

@@ -1,11 +1,11 @@
 post:
   summary: 同步实例状态
   parameters: 
-    - $ref: '/parameters/instance.yaml#instanceId'
+    - $ref: '../parameters/instance.yaml#/instanceId'
   responses:
     200:
       description: 实例信息
       schema:
-        $ref: '/schemas/instance.yaml#InstanceResponse'
+        $ref: '../schemas/instance.yaml#/InstanceResponse'
   tags:
     - instance

@@ -1,0 +1,111 @@
+ResourceBaseResponse:
+  type: object
+  properties:
+    created_at:
+      type: string
+      example: 2019-06-10T03:39:02.000000Z
+      description: 创建时间
+      readOnly: true
+    updated_at:
+      type: string
+      example: 2019-06-11T03:39:02.000000Z
+      description: 更新时间
+      readOnly: true
+    deleted_at:
+      type: string
+      example: 2019-06-12T03:39:02.000000Z
+      description: 删除时间
+      readOnly: true
+    deleted:
+      type: boolean
+      example: true
+      description: 已删除
+      readOnly: true
+
+ProjectizedResourceBaseResponse:
+    - type: object
+      properties:
+        project_id:
+          type: string
+          example: cb58813d83284a7f95040901639013d3
+          description: 资源所属项目ID
+          readOnly: true  
+        domain_id:
+          type: string
+          example: 9c06c2082007459f81b6e355eedf22fd
+          description: 资源所属域ID
+          readOnly: true   
+
+ExternalizedResourceBaseResponse:
+    - type: object
+      properties:
+        external_id:
+          type: string
+          example: i-7948b8d96f
+          description: 资源External ID
+          readOnly: true  
+
+StandaloneResponse:
+    allOf:
+    - $ref: '#/ResourceBaseResponse'
+    - type: object
+      properties:
+        id:
+          type: string
+          example: fc06c2082007459f81b6e355eedf22fd
+          description: 资源ID
+          readOnly: true
+        name:
+          type: string
+          example: webserver
+          description: 资源名称
+          readOnly: true
+        description:
+          type: string
+          example: onecloud webserver
+          description: 资源描述
+          readOnly: true                   
+
+StatusStandaloneResponse:
+    allOf:
+    - $ref: '#/StandaloneResponse'
+    - type: object
+      properties:
+        status:
+          type: string
+          example: running
+          description: 资源状态
+          readOnly: true          
+
+VirtualResourceBaseResponse:
+    allOf:
+    - $ref: '#/StatusStandaloneResponse'
+    - $ref: '#/ProjectizedResourceBaseResponse'
+    - type: object
+      properties:
+        project_src:
+          type: string
+          example: local
+          description: 资源Src
+          readOnly: true 
+        is_system:
+          type: boolean
+          description: 系统资源
+          readOnly: true   
+
+SharableVirtualResourceBaseResponse:
+    allOf:
+    - $ref: '#/VirtualResourceBaseResponse'
+    - $ref: '#/ProjectizedResourceBaseResponse'
+    - type: object
+      properties:
+        is_public:
+          type: boolean
+          description: Is Public?
+          readOnly: true 
+        public_scope:
+          type: string
+          example: system
+          description: public_scope
+          readOnly: true           
+         
