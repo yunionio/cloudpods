@@ -51,6 +51,7 @@ type NetworkConfig struct {
 	StandbyAddrCount int `json:"standby_addr_count"`
 
 	Project   string            `json:"project_id"`
+	Domain    string            `json:"domain_id"`
 	Ifname    string            `json:"ifname"`
 	Schedtags []*SchedtagConfig `json:"schedtags"`
 }
