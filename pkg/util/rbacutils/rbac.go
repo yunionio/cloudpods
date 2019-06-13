@@ -577,6 +577,10 @@ func (policy *SRbacPolicy) Match(userCred IRbacIdentity) bool {
 }
 
 func String2Scope(str string) TRbacScope {
+	return String2ScopeDefault(str, ScopeProject)
+}
+
+func String2ScopeDefault(str string, defScope TRbacScope) TRbacScope {
 	switch strings.ToLower(str) {
 	case string(ScopeSystem):
 		return ScopeSystem
@@ -587,6 +591,6 @@ func String2Scope(str string) TRbacScope {
 	case "true":
 		return ScopeSystem
 	default:
-		return ScopeProject
+		return defScope
 	}
 }

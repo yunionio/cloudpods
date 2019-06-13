@@ -186,7 +186,7 @@ func (this *ProjectManagerV3) DoProjectBatchJoin(s *mcclient.ClientSession, para
 	if resource != "users" && resource != "groups" {
 		return ret, fmt.Errorf("不支持的 resource type")
 	}
-	rid, e := params.GetString("rid")
+	_rids, e := params.GetArray("rid")
 	if e != nil {
 		return ret, e
 	}
@@ -195,8 +195,19 @@ func (this *ProjectManagerV3) DoProjectBatchJoin(s *mcclient.ClientSession, para
 		return ret, e
 	}
 
-	BatchDo(ids, func(id string) (jsonutils.JSONObject, error) {
-		if resource == "users" {
+	for i := range _rids {
+		rid, _ := _rids[i].GetString()
+		BatchDo(ids, func(id string) (jsonutils.JSONObject, error) {
+			if resource == "users" {
+				return RolesV3.PutInContexts(
+					s,
+					rid,
+					nil,
+					[]ManagerContext{
+						{&Projects,
+							pid},
+						{&UsersV3, id}})
+			}
 			return RolesV3.PutInContexts(
 				s,
 				rid,
@@ -204,18 +215,10 @@ func (this *ProjectManagerV3) DoProjectBatchJoin(s *mcclient.ClientSession, para
 				[]ManagerContext{
 					{&Projects,
 						pid},
-					{&UsersV3, id}})
-		}
-		return RolesV3.PutInContexts(
-			s,
-			rid,
-			nil,
-			[]ManagerContext{
-				{&Projects,
-					pid},
-				{&Groups, id}})
+					{&Groups, id}})
 
-	})
+		})
+	}
 
 	return ret, nil
 }

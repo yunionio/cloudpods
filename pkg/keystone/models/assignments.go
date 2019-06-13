@@ -370,14 +370,24 @@ func roleAssignmentHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 	includeNames := query.Contains("include_names")
 	effective := query.Contains("effective")
 	includeSub := query.Contains("include_subtree")
+	includeSystem := query.Contains("include_system")
+	limit, _ := query.Int("limit")
+	offset, _ := query.Int("offset")
 
-	results, err := AssignmentManager.FetchAll(userId, groupId, roleId, domainId, projectId, includeNames, effective, includeSub)
+	results, total, err := AssignmentManager.FetchAll(userId, groupId, roleId, domainId, projectId, includeNames, effective, includeSub, includeSystem, int(limit), int(offset))
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
 	}
 	body := jsonutils.NewDict()
 	body.Add(jsonutils.Marshal(results), "role_assignments")
+	body.Add(jsonutils.NewInt(total), "total")
+	if limit > 0 {
+		body.Add(jsonutils.NewInt(limit), "limit")
+	}
+	if offset > 0 {
+		body.Add(jsonutils.NewInt(offset), "offset")
+	}
 	appsrv.SendJSON(w, body)
 }
 
@@ -470,7 +480,7 @@ func (assign *SAssignment) getRoleAssignment(domains, projects, groups, users, r
 	return ra
 }
 
-func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, projectId string, includeNames, effective, includeSub bool) ([]SRoleAssignment, error) {
+func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, projectId string, includeNames, effective, includeSub, includeSystem bool, limit, offset int) ([]SRoleAssignment, int64, error) {
 	var q *sqlchemy.SQuery
 	if effective {
 		usrq := manager.queryAll(userId, "", roleId, domainId, projectId).In("type", []string{api.AssignmentUserProject, api.AssignmentUserDomain})
@@ -501,10 +511,32 @@ func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, p
 	} else {
 		q = manager.queryAll(userId, groupId, roleId, domainId, projectId).Distinct()
 	}
+
+	if !includeSystem {
+		users := UserManager.Query().SubQuery()
+		q = q.LeftJoin(users, sqlchemy.AND(
+			sqlchemy.Equals(q.Field("actor_id"), users.Field("id")),
+			sqlchemy.In(q.Field("type"), []string{api.AssignmentUserProject, api.AssignmentUserDomain}),
+		))
+		q = q.Filter(sqlchemy.IsFalse(users.Field("is_system_account")))
+	}
+
+	total, err := q.CountWithError()
+	if err != nil {
+		return nil, -1, errors.Wrap(err, "q.Count")
+	}
+
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	if offset > 0 {
+		q = q.Offset(offset)
+	}
+
 	assigns := make([]SAssignment, 0)
-	err := q.All(&assigns)
+	err = q.All(&assigns)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, httperrors.NewInternalServerError("query error %s", err)
+		return nil, -1, httperrors.NewInternalServerError("query error %s", err)
 	}
 
 	domainIds := stringutils2.SSortedStrings{}
@@ -533,30 +565,30 @@ func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, p
 
 	domains, err := fetchObjects(DomainManager, domainIds)
 	if err != nil {
-		return nil, errors.Wrap(err, "fetchObjects DomainManager")
+		return nil, -1, errors.Wrap(err, "fetchObjects DomainManager")
 	}
 	projects, err := fetchObjects(ProjectManager, projectIds)
 	if err != nil {
-		return nil, errors.Wrap(err, "fetchObjects ProjectManager")
+		return nil, -1, errors.Wrap(err, "fetchObjects ProjectManager")
 	}
 	groups, err := fetchObjects(GroupManager, groupIds)
 	if err != nil {
-		return nil, errors.Wrap(err, "fetchObjects GroupManager")
+		return nil, -1, errors.Wrap(err, "fetchObjects GroupManager")
 	}
 	users, err := fetchObjects(UserManager, userIds)
 	if err != nil {
-		return nil, errors.Wrap(err, "fetchObjects UserManager")
+		return nil, -1, errors.Wrap(err, "fetchObjects UserManager")
 	}
 	roles, err := fetchObjects(RoleManager, roleIds)
 	if err != nil {
-		return nil, errors.Wrap(err, "fetchObjects RoleManager")
+		return nil, -1, errors.Wrap(err, "fetchObjects RoleManager")
 	}
 
 	results := make([]SRoleAssignment, len(assigns))
 	for i := range assigns {
 		results[i] = assigns[i].getRoleAssignment(domains, projects, groups, users, roles)
 	}
-	return results, nil
+	return results, int64(total), nil
 }
 
 func fetchObjects(manager db.IModelManager, idList []string) (map[string]SFetchDomainObject, error) {

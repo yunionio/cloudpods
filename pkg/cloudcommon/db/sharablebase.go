@@ -80,10 +80,10 @@ func SharablePerformPublic(model SSharableBaseInterface, ctx context.Context, us
 		return nil, httperrors.NewForbiddenError("not enough privilege")
 	}
 
-	ownerId := model.GetOwnerId()
+	/*ownerId := model.GetOwnerId()
 	if userCred.GetProjectDomainId() != ownerId.GetProjectDomainId() {
 		return nil, httperrors.NewForbiddenError("not owner")
-	}
+	}*/
 
 	diff, err := Update(model, func() error {
 		model.SetIsPublic(true)
@@ -109,10 +109,10 @@ func SharablePerformPrivate(model SSharableBaseInterface, ctx context.Context, u
 		return nil, httperrors.NewForbiddenError("not enough privilege")
 	}
 
-	ownerId := model.GetOwnerId()
+	/*ownerId := model.GetOwnerId()
 	if userCred.GetProjectDomainId() != ownerId.GetProjectDomainId() {
 		return nil, httperrors.NewForbiddenError("not owner")
-	}
+	}*/
 
 	diff, err := Update(model, func() error {
 		model.SetIsPublic(false)
