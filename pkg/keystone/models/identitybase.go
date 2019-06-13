@@ -153,7 +153,7 @@ func (manager *SIdentityBaseResourceManager) NamespaceScope() rbacutils.TRbacSco
 
 func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
 	rows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
-	if len(fields) == 0 || fields.Contains("domain") {
+	if len(fields) == 0 || fields.Contains("project_domain") {
 		domainIds := stringutils2.SSortedStrings{}
 		for i := range objs {
 			idStr := objs[i].GetOwnerId().GetProjectDomainId()
@@ -167,8 +167,8 @@ func (manager *SIdentityBaseResourceManager) FetchCustomizeColumns(ctx context.C
 				idStr := objs[i].GetOwnerId().GetProjectDomainId()
 				if idStr != api.KeystoneDomainRoot {
 					if domain, ok := domains[idStr]; ok {
-						if len(fields) == 0 || fields.Contains("domain") {
-							rows[i].Add(jsonutils.NewString(domain.Name), "domain")
+						if len(fields) == 0 || fields.Contains("project_domain") {
+							rows[i].Add(jsonutils.NewString(domain.Name), "project_domain")
 						}
 					}
 				}
