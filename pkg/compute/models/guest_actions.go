@@ -1334,7 +1334,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 	lockman.LockObject(ctx, host)
 	defer lockman.ReleaseObject(ctx, host)
 
-	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage, false, false, nil, nil)
+	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage, false, false, nil, nil, false)
 	if err != nil {
 		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), nil, pendingUsage)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, err.Error(), userCred, false)
@@ -2002,7 +2002,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 
 	if len(newDisks) > 0 {
-		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage, false, false, nil, nil)
+		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage, false, false, nil, nil, false)
 		if err != nil {
 			QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), nil, pendingUsage)
 			return nil, httperrors.NewBadRequestError("Create disk on host error: %s", err)
@@ -3159,7 +3159,7 @@ func (self *SGuest) importDisks(ctx context.Context, userCred mcclient.TokenCred
 		return httperrors.NewInputParameterError("Empty import disks")
 	}
 	for _, disk := range disks {
-		disk, err := self.createDiskOnHost(ctx, userCred, self.GetHost(), ToDiskConfig(&disk), nil, true, true, nil, nil)
+		disk, err := self.createDiskOnHost(ctx, userCred, self.GetHost(), ToDiskConfig(&disk), nil, true, true, nil, nil, true)
 		if err != nil {
 			return err
 		}
