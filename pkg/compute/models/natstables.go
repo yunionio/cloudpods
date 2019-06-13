@@ -167,7 +167,7 @@ func (manager *SNatSTableManager) SyncNatSTables(ctx context.Context, userCred m
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		routeTableNew, err := manager.newFromCloudNatSTable(ctx, userCred, nat, added[i])
+		routeTableNew, err := manager.newFromCloudNatSTable(ctx, userCred, syncOwnerId, nat, added[i])
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -210,11 +210,11 @@ func (self *SNatSTable) SyncWithCloudNatSTable(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (manager *SNatSTableManager) newFromCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential, nat *SNatGateway, extTable cloudprovider.ICloudNatSTable) (*SNatSTable, error) {
+func (manager *SNatSTableManager) newFromCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, nat *SNatGateway, extTable cloudprovider.ICloudNatSTable) (*SNatSTable, error) {
 	table := SNatSTable{}
 	table.SetModelManager(manager, &table)
 
-	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extTable.GetName())
+	newName, err := db.GenerateName(manager, ownerId, extTable.GetName())
 	if err != nil {
 		return nil, err
 	}

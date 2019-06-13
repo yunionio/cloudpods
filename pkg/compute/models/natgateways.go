@@ -173,7 +173,7 @@ func (self *SNatGateway) GetCustomizeColumns(ctx context.Context, userCred mccli
 	return extra
 }
 
-func (manager *SNatGetewayManager) SyncNatGateways(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, vpc *SVpc, cloudNatGateways []cloudprovider.ICloudNatGateway) ([]SNatGateway, []cloudprovider.ICloudNatGateway, compare.SyncResult) {
+func (manager *SNatGetewayManager) SyncNatGateways(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, vpc *SVpc, cloudNatGateways []cloudprovider.ICloudNatGateway) ([]SNatGateway, []cloudprovider.ICloudNatGateway, compare.SyncResult) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
 
@@ -218,7 +218,7 @@ func (manager *SNatGetewayManager) SyncNatGateways(ctx context.Context, userCred
 	}
 
 	for i := 0; i < len(added); i += 1 {
-		routeTableNew, err := manager.newFromCloudNatGateway(ctx, userCred, provider, vpc, added[i])
+		routeTableNew, err := manager.newFromCloudNatGateway(ctx, userCred, syncOwnerId, provider, vpc, added[i])
 		if err != nil {
 			syncResult.AddError(err)
 			continue
@@ -262,7 +262,7 @@ func (self *SNatGateway) SyncWithCloudNatGateway(ctx context.Context, userCred m
 	return nil
 }
 
-func (manager *SNatGetewayManager) newFromCloudNatGateway(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, vpc *SVpc, extNat cloudprovider.ICloudNatGateway) (*SNatGateway, error) {
+func (manager *SNatGetewayManager) newFromCloudNatGateway(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, provider *SCloudprovider, vpc *SVpc, extNat cloudprovider.ICloudNatGateway) (*SNatGateway, error) {
 	nat := SNatGateway{}
 	nat.SetModelManager(manager, &nat)
 
@@ -271,7 +271,7 @@ func (manager *SNatGetewayManager) newFromCloudNatGateway(ctx context.Context, u
 		return nil, err
 	}
 
-	newName, err := db.GenerateName(manager, manager.GetOwnerId(userCred), extNat.GetName())
+	newName, err := db.GenerateName(manager, ownerId, extNat.GetName())
 	if err != nil {
 		return nil, err
 	}
