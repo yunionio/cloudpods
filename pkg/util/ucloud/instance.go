@@ -357,7 +357,12 @@ func (self *SInstance) GetMachine() string {
 }
 
 func (self *SInstance) GetInstanceType() string {
-	return self.UHostType
+	// C1.c8.m24
+	if strings.HasPrefix(self.HostType, "G") {
+		return fmt.Sprintf("%s.c%d.m%d.g%d", self.HostType, self.CPU, self.MemoryMB/1014, self.GPU)
+	} else {
+		return fmt.Sprintf("%s.c%d.m%d", self.HostType, self.CPU, self.MemoryMB/1014)
+	}
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
