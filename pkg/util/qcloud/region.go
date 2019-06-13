@@ -164,14 +164,17 @@ func (self *SRegion) GetILoadBalancerAclById(aclId string) (cloudprovider.ICloud
 // todo: 2. 支持指定Project。 ProjectId可以通过 DescribeProject 接口获取。不填则属于默认项目。
 func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (cloudprovider.ICloudLoadbalancer, error) {
 	LoadBalancerType := "INTERNAL"
-	if loadbalancer.AddressType == "public" {
+	if loadbalancer.AddressType == api.LB_ADDR_TYPE_INTERNET {
 		LoadBalancerType = "OPEN"
 	}
 	params := map[string]string{
 		"LoadBalancerType": LoadBalancerType,
 		"LoadBalancerName": loadbalancer.Name,
 		"VpcId":            loadbalancer.VpcID,
-		"SubnetId":         loadbalancer.NetworkID,
+	}
+
+	if loadbalancer.AddressType != api.LB_ADDR_TYPE_INTERNET  {
+		params["SubnetId"] = loadbalancer.NetworkID
 	}
 
 	resp, err := self.clbRequest("CreateLoadBalancer", params)
@@ -195,7 +198,12 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 		return nil, err
 	}
 
-	return self.GetLoadbalancer(lbs[0].String())
+	lbId, err := lbs[0].GetString()
+	if err != nil {
+		return nil, err
+	}
+
+	return self.GetLoadbalancer(lbId)
 }
 
 func (self *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
