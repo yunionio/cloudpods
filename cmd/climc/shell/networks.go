@@ -165,8 +165,16 @@ func init() {
 		return nil
 	})
 
-	R(&NetworkShowOptions{}, "network-public", "Make a network public", func(s *mcclient.ClientSession, args *NetworkShowOptions) error {
-		result, err := modules.Networks.PerformAction(s, args.ID, "public", nil)
+	type NetworkShareOptions struct {
+		NetworkShowOptions
+		Scope string `help:"sharing scope" choices:"system|domain"`
+	}
+	R(&NetworkShareOptions{}, "network-public", "Make a network public", func(s *mcclient.ClientSession, args *NetworkShareOptions) error {
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		result, err := modules.Networks.PerformAction(s, args.ID, "public", params)
 		if err != nil {
 			return err
 		}
