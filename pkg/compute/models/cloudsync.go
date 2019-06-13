@@ -241,7 +241,7 @@ func syncVpcNatgateways(ctx context.Context, userCred mcclient.TokenCredential, 
 		log.Errorf(msg)
 		return
 	}
-	localNatGateways, remoteNatGateways, result := NatGatewayManager.SyncNatGateways(ctx, userCred, provider, localVpc, natGateways)
+	localNatGateways, remoteNatGateways, result := NatGatewayManager.SyncNatGateways(ctx, userCred, provider.GetOwnerId(), provider, localVpc, natGateways)
 
 	syncResults.Add(NatGatewayManager, result)
 
