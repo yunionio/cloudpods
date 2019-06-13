@@ -124,8 +124,9 @@ func (manager *SIdentityBaseResourceManager) ListItemFilter(ctx context.Context,
 }
 
 func (manager *SIdentityBaseResourceManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	domainId := jsonutils.GetAnyString(data, []string{"domain", "domain_id", "project_domain", "project_domain_id"})
+	domainId, key := jsonutils.GetAnyString2(data, []string{"domain_id", "project_domain", "project_domain_id"})
 	if len(domainId) > 0 {
+		data.(*jsonutils.JSONDict).Remove(key)
 		domain, err := DomainManager.FetchDomainByIdOrName(domainId)
 		if err != nil {
 			if err == sql.ErrNoRows {

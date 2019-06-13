@@ -217,8 +217,9 @@ func fetchItem(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 }
 
 func FetchUserInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	userStr := jsonutils.GetAnyString(data, []string{"user", "user_id"})
+	userStr, key := jsonutils.GetAnyString2(data, []string{"user", "user_id"})
 	if len(userStr) > 0 {
+		data.(*jsonutils.JSONDict).Remove(key)
 		u, err := UserCacheManager.FetchUserByIdOrName(userStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -238,8 +239,9 @@ func FetchUserInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IId
 }
 
 func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	tenantId := jsonutils.GetAnyString(data, []string{"project", "project_id", "tenant", "tenant_id"})
+	tenantId, key := jsonutils.GetAnyString2(data, []string{"project", "project_id", "tenant", "tenant_id"})
 	if len(tenantId) > 0 {
+		data.(*jsonutils.JSONDict).Remove(key)
 		t, err := TenantCacheManager.FetchTenantByIdOrName(ctx, tenantId)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -259,8 +261,9 @@ func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.
 }
 
 func FetchDomainInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	domainId := jsonutils.GetAnyString(data, []string{"domain_id", "project_domain", "project_domain_id"})
+	domainId, key := jsonutils.GetAnyString2(data, []string{"domain_id", "project_domain", "project_domain_id"})
 	if len(domainId) > 0 {
+		data.(*jsonutils.JSONDict).Remove(key)
 		domain, err := TenantCacheManager.FetchDomainByIdOrName(ctx, domainId)
 		if err != nil {
 			if err == sql.ErrNoRows {
