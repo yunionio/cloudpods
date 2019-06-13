@@ -259,7 +259,7 @@ func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.
 }
 
 func FetchDomainInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
-	domainId := jsonutils.GetAnyString(data, []string{"domain", "domain_id", "project_domain", "project_domain_id"})
+	domainId := jsonutils.GetAnyString(data, []string{"domain_id", "project_domain", "project_domain_id"})
 	if len(domainId) > 0 {
 		domain, err := TenantCacheManager.FetchDomainByIdOrName(ctx, domainId)
 		if err != nil {
