@@ -36,7 +36,7 @@ var (
 func init() {
 	Groups = GroupManager{NewIdentityV3Manager("group", "groups",
 		[]string{},
-		[]string{"ID", "Name", "Domain_Id", "domain", "domain_readonly",
+		[]string{"ID", "Name", "Domain_Id", "project_domain",
 			"User_Count", "Description"})}
 
 	register(&Groups)
