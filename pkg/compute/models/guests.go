@@ -1069,6 +1069,8 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		if len(netConfig.Driver) == 0 {
 			netConfig.Driver = osProf.NetDriver
 		}
+		netConfig.Project = ownerId.GetProjectId()
+		netConfig.Domain = ownerId.GetProjectDomainId()
 		input.Networks[idx] = netConfig
 	}
 

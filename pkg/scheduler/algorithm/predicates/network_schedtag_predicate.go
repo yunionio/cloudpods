@@ -16,6 +16,7 @@ package predicates
 
 import (
 	"fmt"
+	"sort"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
@@ -151,12 +152,62 @@ func (p *NetworkSchedtagPredicate) GetCandidateResourceSortScore(selectRes ISche
 	return int64(cnt)
 }
 
+type SortNetworks struct {
+	requireNet *netW
+	nets       []*api.CandidateNetwork
+}
+
+func newSortNetworks(req *netW, nets []*api.CandidateNetwork) *SortNetworks {
+	return &SortNetworks{
+		requireNet: req,
+		nets:       nets,
+	}
+}
+
+func (ns *SortNetworks) Len() int {
+	return len(ns.nets)
+}
+
+func (ns *SortNetworks) Swap(i, j int) {
+	ns.nets[i], ns.nets[j] = ns.nets[j], ns.nets[i]
+}
+
+func (ns *SortNetworks) Less(i, j int) bool {
+	// match order by project_id, domain_id
+	n1 := ns.nets[i]
+	n2 := ns.nets[j]
+	reqProject := ns.requireNet.Project
+	reqDomain := ns.requireNet.Domain
+	if n1.ProjectId == reqProject && n2.ProjectId != reqProject {
+		return true
+	}
+	if n1.DomainId == reqDomain && n2.DomainId != reqDomain {
+		return true
+	}
+	return false
+}
+
+func (ns *SortNetworks) Results() []ISchedtagCandidateResource {
+	res := make([]ISchedtagCandidateResource, 0)
+	for _, n := range ns.nets {
+		res = append(res, n)
+	}
+	return res
+}
+
 func (p *NetworkSchedtagPredicate) DoSelect(
 	c core.Candidater,
 	input ISchedtagCustomer,
 	res []ISchedtagCandidateResource,
 ) []ISchedtagCandidateResource {
-	return res
+	networks := make([]*api.CandidateNetwork, 0)
+	reqNet := input.(*netW)
+	for _, netObj := range res {
+		networks = append(networks, netObj.(*api.CandidateNetwork))
+	}
+	sNets := newSortNetworks(reqNet, networks)
+	sort.Sort(sNets)
+	return sNets.Results()
 }
 
 func (p *NetworkSchedtagPredicate) AddSelectResult(index int, selectRes []ISchedtagCandidateResource, output *core.AllocatedResource) {

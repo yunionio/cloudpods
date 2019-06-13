@@ -1803,3 +1803,12 @@ func (network *SNetwork) ClearSchedDescCache() error {
 	}
 	return wire.clearHostSchedDescCache()
 }
+
+func (network *SNetwork) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ret, err := network.SSharableVirtualResourceBase.PerformChangeOwner(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+	network.ClearSchedDescCache()
+	return ret, nil
+}
