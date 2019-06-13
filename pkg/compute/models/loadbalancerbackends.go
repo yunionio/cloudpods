@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
 type SLoadbalancerBackendManager struct {
@@ -212,13 +213,16 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	default:
 		return nil, fmt.Errorf("internal error: unexpected backend type %s", backendType)
 	}
-	// name it
-	//
-	// NOTE it's okay for name to be not unique.
-	//
-	//  - Mix in loadbalancer name if needed
-	//  - Use name from input query
-	name := fmt.Sprintf("%s-%s-%s", backendGroup.Name, backendType, basename)
+	name, _ := data.GetString("name")
+	if name == "" {
+		// name it
+		//
+		// NOTE it's okay for name to be not unique.
+		//
+		//  - Mix in loadbalancer name if needed
+		//  - Use name from input query
+		name = fmt.Sprintf("%s-%s-%s-%s", backendGroup.Name, backendType, basename, rand.String(4))
+	}
 	data.Set("name", jsonutils.NewString(name))
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
 		return nil, err
