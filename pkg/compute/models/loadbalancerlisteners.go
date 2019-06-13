@@ -258,12 +258,14 @@ func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context,
 		} else {
 			// 腾讯云backend group只能1v1关联
 			if lb.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
-				count, err := lbbg.RefCount()
-				if err != nil {
-					return nil, httperrors.NewInternalServerError("get lbbg RefCount fail %s", err)
-				}
-				if count > 0 {
-					return nil, httperrors.NewResourceBusyError("backendgroup aready related with other listener/rule")
+				if lbbg != nil {
+					count, err := lbbg.RefCount()
+					if err != nil {
+						return nil, httperrors.NewInternalServerError("get lbbg RefCount fail %s", err)
+					}
+					if count > 0 {
+						return nil, httperrors.NewResourceBusyError("backendgroup aready related with other listener/rule")
+					}
 				}
 			}
 		}
