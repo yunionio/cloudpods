@@ -110,8 +110,9 @@ func (self *SManagedResourceBase) IsManaged() bool {
 }
 
 func managedResourceFilterByDomain(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	domainStr := jsonutils.GetAnyString(query, []string{"domain", "domain_id", "project_domain", "project_domain_id"})
+	domainStr, key := jsonutils.GetAnyString2(query, []string{"domain_id", "project_domain", "project_domain_id"})
 	if len(domainStr) > 0 {
+		query.(*jsonutils.JSONDict).Remove(key)
 		domain, err := db.TenantCacheManager.FetchDomainByIdOrName(context.Background(), domainStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -138,9 +139,10 @@ func managedResourceFilterByDomain(q *sqlchemy.SQuery, query jsonutils.JSONObjec
 func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
 	queryDict := query.(*jsonutils.JSONDict)
 
-	managerStr := jsonutils.GetAnyString(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
+	managerStr, key := jsonutils.GetAnyString2(query, []string{"manager", "cloudprovider", "cloudprovider_id", "manager_id"})
 	if len(managerStr) > 0 {
 		queryDict.Remove("manager")
+		queryDict.Remove(key)
 		provider, err := CloudproviderManager.FetchByIdOrName(nil, managerStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -159,9 +161,10 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObje
 		}
 	}
 
-	accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
+	accountStr, key := jsonutils.GetAnyString2(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
 	if len(accountStr) > 0 {
 		queryDict.Remove("account")
+		queryDict.Remove(key)
 		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -245,8 +248,9 @@ func managedResourceFilterByAccount(q *sqlchemy.SQuery, query jsonutils.JSONObje
 }
 
 func managedResourceFilterByZone(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	zoneStr := jsonutils.GetAnyString(query, []string{"zone", "zone_id"})
+	zoneStr, key := jsonutils.GetAnyString2(query, []string{"zone", "zone_id"})
 	if len(zoneStr) > 0 {
+		query.(*jsonutils.JSONDict).Remove(key)
 		zoneObj, err := ZoneManager.FetchByIdOrName(nil, zoneStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -267,8 +271,9 @@ func managedResourceFilterByZone(q *sqlchemy.SQuery, query jsonutils.JSONObject,
 }
 
 func managedResourceFilterByRegion(q *sqlchemy.SQuery, query jsonutils.JSONObject, filterField string, subqFunc func() *sqlchemy.SQuery) (*sqlchemy.SQuery, error) {
-	regionStr := jsonutils.GetAnyString(query, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
+	regionStr, key := jsonutils.GetAnyString2(query, []string{"region", "region_id", "cloudregion", "cloudregion_id"})
 	if len(regionStr) > 0 {
+		query.(*jsonutils.JSONDict).Remove(key)
 		regionObj, err := CloudregionManager.FetchByIdOrName(nil, regionStr)
 		if err != nil {
 			if err == sql.ErrNoRows {

@@ -1450,8 +1450,6 @@ func deleteItem(manager IModelManager, model IModel, ctx context.Context, userCr
 
 	model.PreDelete(ctx, userCred)
 
-	log.Debugf("deleteItem before Delete %s %s", jsonutils.Marshal(model), reflect.TypeOf(model))
-
 	// err = DeleteModel(ctx, userCred, model)
 	err = model.Delete(ctx, userCred)
 	if err != nil {

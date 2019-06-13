@@ -104,16 +104,21 @@ func CheckRequiredFields(data JSONObject, fields []string) error {
 }
 
 func GetAnyString(json JSONObject, keys []string) string {
+	val, _ := GetAnyString2(json, keys)
+	return val
+}
+
+func GetAnyString2(json JSONObject, keys []string) (string, string) {
 	if json == nil {
-		return ""
+		return "", ""
 	}
 	for _, key := range keys {
 		val, _ := json.GetString(key)
 		if len(val) > 0 {
-			return val
+			return val, key
 		}
 	}
-	return ""
+	return "", ""
 }
 
 func GetArrayOfPrefix(json JSONObject, prefix string) []JSONObject {
