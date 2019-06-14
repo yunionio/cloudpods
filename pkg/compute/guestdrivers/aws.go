@@ -22,7 +22,6 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -124,10 +123,6 @@ func (self *SAwsGuestDriver) GetChangeConfigStatus() ([]string, error) {
 
 func (self *SAwsGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
-}
-
-func (self *SAwsGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
 func (self *SAwsGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {

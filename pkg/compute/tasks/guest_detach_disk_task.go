@@ -72,7 +72,7 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	}
 	if utils.IsInStringArray(guest.Status, detachStatus) && !purge {
 		self.SetStage("on_sync_config_complete", nil)
-		guest.GetDriver().RequestDetachDisk(ctx, guest, self)
+		guest.GetDriver().RequestDetachDisk(ctx, guest, disk, self)
 	} else {
 		self.OnSyncConfigComplete(ctx, guest, nil)
 	}
