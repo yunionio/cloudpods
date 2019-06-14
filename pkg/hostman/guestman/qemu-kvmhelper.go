@@ -464,7 +464,7 @@ func (s *SKVMGuestInstance) generateStartScript(data *jsonutils.JSONDict) (strin
 
 	cmd += " -device virtio-serial"
 	cmd += " -usb"
-	cmd += " -device usb-kbd"
+	// cmd += " -device usb-kbd"
 	// # if osname == self.OS_NAME_ANDROID:
 	// #     cmd += " -device usb-mouse"
 	// # else:
