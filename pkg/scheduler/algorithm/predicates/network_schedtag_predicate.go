@@ -26,6 +26,7 @@ import (
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
 	"yunion.io/x/onecloud/pkg/scheduler/core"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type NetworkSchedtagPredicate struct {
@@ -102,6 +103,13 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, _ core.Candi
 	} else {
 		if !network.IsPublic {
 			return fmt.Errorf("Network %s is private", network.Name)
+		}
+		if rbacutils.TRbacScope(network.PublicScope) == rbacutils.ScopeDomain {
+			netDomain := network.DomainId
+			reqDomain := net.Domain
+			if netDomain != reqDomain {
+				return fmt.Errorf("Network domain scope %s not owner by %s", netDomain, reqDomain)
+			}
 		}
 	}
 	if len(net.Address) > 0 {
