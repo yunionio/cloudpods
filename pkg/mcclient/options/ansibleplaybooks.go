@@ -16,6 +16,8 @@ package options
 
 import (
 	"fmt"
+	"io/ioutil"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 
@@ -33,6 +35,7 @@ type AnsiblePlaybookListOptions struct {
 type AnsiblePlaybookCommonOptions struct {
 	Host []string `help:"name or id of server or host in format '<[server:]id|host:id>|ipaddr var=val'"`
 	Mod  []string `help:"ansible modules and their arguments in format 'name k1=v1 k2=v2'"`
+	File []string `help:"files for use by modules, e.g. name=content, name=@file"`
 }
 
 func (opts *AnsiblePlaybookCommonOptions) params() (jsonutils.JSONObject, error) {
@@ -59,6 +62,29 @@ func (opts *AnsiblePlaybookCommonOptions) params() (jsonutils.JSONObject, error)
 		}
 		pb.Modules = append(pb.Modules, module)
 	}
+	files := map[string][]byte{}
+	for _, s := range opts.File {
+		i := strings.IndexByte(s, '=')
+		if i < 0 {
+			return nil, fmt.Errorf("missing '=' in argument for --file.  Read command help")
+		}
+		name := strings.TrimSpace(s[:i])
+		if name == "" {
+			return nil, fmt.Errorf("empty file name: %s", s)
+		}
+		v := s[i+1:]
+		if len(v) > 0 && v[0] == '@' {
+			path := v[1:]
+			d, err := ioutil.ReadFile(path)
+			if err != nil {
+				return nil, fmt.Errorf("read file %s: %v", path, err)
+			}
+			files[name] = d
+		} else {
+			files[name] = []byte(v)
+		}
+	}
+	pb.Files = files
 	pbJson := jsonutils.Marshal(pb)
 	return pbJson, nil
 }
