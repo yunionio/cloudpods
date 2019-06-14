@@ -24,7 +24,6 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -104,10 +103,6 @@ func (self *SAzureGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *mo
 		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
 	}
 	return nil
-}
-
-func (self *SAzureGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
 func (self *SAzureGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {

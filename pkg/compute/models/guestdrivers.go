@@ -119,7 +119,7 @@ type IGuestDriver interface {
 	GetGuestVncInfo(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, host *SHost) (*jsonutils.JSONDict, error)
 
 	RequestAttachDisk(ctx context.Context, guest *SGuest, task taskman.ITask) error
-	RequestDetachDisk(ctx context.Context, guest *SGuest, task taskman.ITask) error
+	RequestDetachDisk(ctx context.Context, guest *SGuest, disk *SDisk, task taskman.ITask) error
 	GetDetachDiskStatus() ([]string, error)
 	GetAttachDiskStatus() ([]string, error)
 	GetRebuildRootStatus() ([]string, error)

@@ -87,7 +87,7 @@ func (self *SBaseGuestDriver) OnDeleteGuestFinalCleanup(ctx context.Context, gue
 	return guest.DeleteAllDisksInDB(ctx, userCred)
 }
 
-func (self *SBaseGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (self *SBaseGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
 }
