@@ -13,6 +13,7 @@ import (
 
 type INasStorage interface {
 	newDisk(diskId string) IDisk
+	StorageType() string
 }
 
 type SNasStorage struct {
@@ -60,7 +61,7 @@ func (s *SNasStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	}
 	content := jsonutils.NewDict()
 	content.Set("capacity", jsonutils.NewInt(int64(s.GetAvailSizeMb())))
-	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
+	content.Set("storage_type", jsonutils.NewString(s.ins.StorageType()))
 	content.Set("zone", jsonutils.NewString(s.GetZone()))
 	log.Infof("Sync storage info %s", s.StorageId)
 	res, err := modules.Storages.Put(

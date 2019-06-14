@@ -71,6 +71,7 @@ func (self *HostStorageDetachTask) OnDetachStorageComplete(ctx context.Context, 
 		fmt.Sprintf("Detach host %s success", host.Name), self.GetUserCred(), true)
 	self.SetStageComplete(ctx, nil)
 	storage.SyncStatusWithHosts()
+	host.ClearSchedDescCache()
 }
 
 func (self *HostStorageDetachTask) OnDetachStorageCompleteFailed(ctx context.Context, host *models.SHost, reason jsonutils.JSONObject) {

@@ -12,7 +12,7 @@ type SGPFSStorageFactory struct {
 }
 
 func (factory *SGPFSStorageFactory) NewStorage(manager *SStorageManager, mountPoint string) IStorage {
-	return NewNFSStorage(manager, mountPoint)
+	return NewGPFSStorage(manager, mountPoint)
 }
 
 func (factory *SGPFSStorageFactory) StorageType() string {
