@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -44,8 +45,8 @@ type SStorageManager struct {
 	LocalStorageImagecacheManager IImageCacheManger
 	// AgentStorageImagecacheManager IImageCacheManger
 
-	RbdStorageImagecacheManagers map[string]IImageCacheManger
-	NfsStorageImagecacheManagers map[string]IImageCacheManger
+	RbdStorageImagecacheManagers        map[string]IImageCacheManger
+	SharedFileStorageImagecacheManagers map[string]IImageCacheManger
 }
 
 func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
@@ -87,8 +88,8 @@ func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 }
 
 func (s *SStorageManager) Remove(storage IStorage) {
-	if storage.StorageType() == api.STORAGE_NFS {
-		delete(s.NfsStorageImagecacheManagers, storage.GetStoragecacheId())
+	if utils.IsInStringArray(storage.StorageType(), api.SHARED_FILE_STORAGE) {
+		delete(s.SharedFileStorageImagecacheManagers, storage.GetStoragecacheId())
 	} else if storage.StorageType() == api.STORAGE_RBD {
 		delete(s.RbdStorageImagecacheManagers, storage.GetStoragecacheId())
 	}
@@ -167,40 +168,6 @@ func (s *SStorageManager) initLocalStorageImagecache() error {
 	}
 }
 
-// func (s *SStorageManager) initAgentStorageImagecache() {
-// 	s.AgentStorageImagecacheManager = NewAgentImageCacheManager(s)
-// }
-
-// func (s *SStorageManager) initAgentStorage() error {
-// 	var cacheDir = "agent_tmp"
-// 	var spath = options.HostOptions.AgentTempPath
-// 	var limit = options.HostOptions.AgentTempLimit
-// 	if len(spath) == 0 {
-// 		var err error
-// 		spath, err = s.getLeasedUsedLocalStorage(cacheDir, limit)
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-// 	if len(spath) != nil {
-// 		// TODO: NewAgentStorage
-// 		s.AgentStorage = NewAgentStorage(s, spath)
-// 	} else {
-// 		return fmt.Errorf("Cannot allocate agent storage")
-// 	}
-// }
-
-// func (s *SStorageManager) AddNfsStorage(storagecacheId, cachePath string) {
-// 	if len(cachePath) == 0 {
-// 		return
-// 	}
-// 	if s.NfsStorageImagecacheManagers == nil {
-// 		s.NfsStorageImagecacheManagers = make(map[string]IImageCacheManger, 0)
-// 	}
-// 	s.NfsStorageImagecacheManagers[storagecacheId] = NewLocalImageCacheManager(s, cachePath,
-// 		options.HostOptions.ImageCacheLimit, true, storagecacheId)
-// }
-
 func (s *SStorageManager) GetStorage(storageId string) IStorage {
 	for _, storage := range s.Storages {
 		if storage.GetId() == storageId {
@@ -253,7 +220,7 @@ func (s *SStorageManager) GetStoragecacheById(scId string) IImageCacheManger {
 	if s.LocalStorageImagecacheManager.GetId() == scId {
 		return s.LocalStorageImagecacheManager
 	}
-	if sc, ok := s.NfsStorageImagecacheManagers[scId]; ok {
+	if sc, ok := s.SharedFileStorageImagecacheManagers[scId]; ok {
 		return sc
 	}
 	if sc, ok := s.RbdStorageImagecacheManagers[scId]; ok {
@@ -267,25 +234,24 @@ func (s *SStorageManager) NewSharedStorageInstance(mountPoint, storageType strin
 }
 
 func (s *SStorageManager) InitSharedStorageImageCache(storageType, storagecacheId, imagecachePath string, storage IStorage) {
-	if storageType == api.STORAGE_NFS {
-		s.InitNfsStorageImagecache(storagecacheId, imagecachePath)
+	if utils.IsInStringArray(storageType, api.SHARED_FILE_STORAGE) {
+		s.InitSharedFileStorageImagecache(storagecacheId, imagecachePath)
 	} else if storageType == api.STORAGE_RBD {
 		if rbdStorage := s.GetStoragecacheById(storagecacheId); rbdStorage == nil {
-			// Done
 			s.AddRbdStorageImagecache(imagecachePath, storage, storagecacheId)
 		}
 	}
 }
 
-func (s *SStorageManager) InitNfsStorageImagecache(storagecacheId, path string) {
+func (s *SStorageManager) InitSharedFileStorageImagecache(storagecacheId, path string) {
 	if len(path) == 0 {
 		return
 	}
-	if s.NfsStorageImagecacheManagers == nil {
-		s.NfsStorageImagecacheManagers = map[string]IImageCacheManger{}
+	if s.SharedFileStorageImagecacheManagers == nil {
+		s.SharedFileStorageImagecacheManagers = map[string]IImageCacheManger{}
 	}
-	if _, ok := s.NfsStorageImagecacheManagers[storagecacheId]; !ok {
-		s.NfsStorageImagecacheManagers[storagecacheId] = NewLocalImageCacheManager(s, path, options.HostOptions.ImageCacheLimit, true, storagecacheId)
+	if _, ok := s.SharedFileStorageImagecacheManagers[storagecacheId]; !ok {
+		s.SharedFileStorageImagecacheManagers[storagecacheId] = NewLocalImageCacheManager(s, path, options.HostOptions.ImageCacheLimit, true, storagecacheId)
 	}
 }
 

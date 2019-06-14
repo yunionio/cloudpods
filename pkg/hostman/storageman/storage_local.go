@@ -186,6 +186,10 @@ func (s *SLocalStorage) getSubdirPath(subdir string) string {
 	return path.Join(spath, today)
 }
 
+func (s *SLocalStorage) GetImgsaveBackupPath() string {
+	return s.getSubdirPath(_IMGSAVE_BACKUPS_)
+}
+
 func (s *SLocalStorage) SaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	data, ok := params.(*jsonutils.JSONDict)
 	if !ok {
@@ -479,4 +483,59 @@ func (s *SLocalStorage) requestDeleteSnapshot(
 	}
 }
 
-/*******************************  END  *****************************/
+func (s *SLocalStorage) DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string, desc, disksBackingFile, srcSnapshots jsonutils.JSONObject) error {
+	disks, _ := desc.GetArray("disks")
+	for i, diskinfo := range disks {
+		var (
+			diskId, _    = diskinfo.GetString("disk_id")
+			snapshots, _ = srcSnapshots.GetArray(diskId)
+			disk         = s.CreateDisk(diskId)
+		)
+
+		if disk == nil {
+			return fmt.Errorf(
+				"Storage %s create disk %s failed", s.GetId(), diskId)
+		}
+
+		// prepare disk snapshot dir
+		if len(snapshots) > 0 && !fileutils2.Exists(disk.GetSnapshotDir()) {
+			_, err := procutils.NewCommand("mkdir", "-p", disk.GetSnapshotDir()).Run()
+			if err != nil {
+				return err
+			}
+		}
+
+		// create snapshots form remote url
+		diskStorageId, _ := diskinfo.GetString("storage_id")
+		for _, snapshotId := range snapshots {
+			snapId, _ := snapshotId.GetString()
+
+			snapshotUrl := fmt.Sprintf("%s/%s/%s/%s",
+				snapshotsUri, diskStorageId, diskId, snapId)
+			snapshotPath := path.Join(disk.GetSnapshotDir(), snapId)
+			log.Infof("Disk %s snapshot %s url: %s", diskId, snapId, snapshotUrl)
+			s.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath)
+		}
+
+		if liveMigrate {
+			// create local disk
+			backingFile, _ := disksBackingFile.GetString(diskId)
+			size, _ := diskinfo.Int("size")
+			_, err := disk.CreateRaw(ctx, int(size), "qcow2", "", false, "", backingFile)
+			if err != nil {
+				log.Errorln(err)
+				return err
+			}
+		} else {
+			// download disk form remote url
+			diskUrl := fmt.Sprintf("%s/%s/%s", disksUri, diskStorageId, diskId)
+			if err := disk.CreateFromUrl(ctx, diskUrl); err != nil {
+				log.Errorln(err)
+				return err
+			}
+		}
+		diskDesc, _ := disks[i].(*jsonutils.JSONDict)
+		diskDesc.Set("path", jsonutils.NewString(disk.GetPath()))
+	}
+	return nil
+}
