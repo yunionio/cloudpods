@@ -57,7 +57,6 @@ func NewLocalStorage(manager *SStorageManager, path string, index int) *SLocalSt
 	var ret = new(SLocalStorage)
 	ret.SBaseStorage = *NewBaseStorage(manager, path)
 	ret.Index = index
-	ret.StartSnapshotRecycle()
 	return ret
 }
 

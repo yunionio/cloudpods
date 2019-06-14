@@ -2839,10 +2839,10 @@ func (self *SGuest) createDiskOnHost(
 	} else {
 		storage = self.ChooseHostStorage(host, diskConfig.Backend, candidate)
 	}
-	log.Debugf("Choose storage %s:%s for disk %#v", storage.Name, storage.Id, diskConfig)
 	if storage == nil {
 		return nil, fmt.Errorf("No storage on %s to create disk for %s", host.GetName(), diskConfig.Backend)
 	}
+	log.Debugf("Choose storage %s:%s for disk %#v", storage.Name, storage.Id, diskConfig)
 	disk, err := self.createDiskOnStorage(ctx, userCred, storage, diskConfig, pendingUsage, inheritBilling, isWithServerCreate)
 	if err != nil {
 		return nil, err

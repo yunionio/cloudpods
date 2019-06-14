@@ -78,6 +78,7 @@ func (self *HostStorageAttachTask) OnAttachStorageComplete(ctx context.Context, 
 	logclient.AddActionLogWithContext(ctx, storage, logclient.ACT_ATTACH_HOST,
 		fmt.Sprintf("Attach host %s success", host.Name), self.GetUserCred(), true)
 	storage.SyncStatusWithHosts()
+	host.ClearSchedDescCache()
 	self.SetStageComplete(ctx, nil)
 }
 
