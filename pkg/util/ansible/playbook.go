@@ -41,6 +41,7 @@ type Playbook struct {
 	Inventory  Inventory
 	Modules    []Module
 	PrivateKey []byte
+	Files      map[string][]byte
 
 	tmpdir        string
 	noCleanOnExit bool
@@ -63,6 +64,7 @@ func (pb *Playbook) Copy() *Playbook {
 	pb1.Inventory = gotypes.DeepCopy(pb.Inventory).(Inventory)
 	pb1.Modules = gotypes.DeepCopy(pb.Modules).([]Module)
 	pb1.PrivateKey = gotypes.DeepCopy(pb.PrivateKey).([]byte)
+	pb1.Files = gotypes.DeepCopy(pb.Files).(map[string][]byte)
 	return pb1
 }
 
@@ -146,6 +148,22 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 		}
 	}
 
+	// write out files
+	for name, content := range pb.Files {
+		path := filepath.Join(tmpdir, "files", name)
+		dir := filepath.Dir(path)
+		err = os.MkdirAll(dir, os.FileMode(0700))
+		if err != nil {
+			err = errors.WithMessagef(err, "mkdir -p %s", dir)
+			return
+		}
+		err = ioutil.WriteFile(path, content, os.FileMode(0600))
+		if err != nil {
+			err = errors.WithMessagef(err, "writing file %s", name)
+			return
+		}
+	}
+
 	// run modules one by one
 	var errs []error
 	defer func() {
@@ -171,6 +189,7 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 			args = append(args, "--private-key", privateKey)
 		}
 		cmd := exec.CommandContext(ctx, "ansible", args...)
+		cmd.Dir = pb.tmpdir
 		cmd.Env = os.Environ()
 		cmd.Env = append(cmd.Env, "ANSIBLE_HOST_KEY_CHECKING=False")
 		stdout, _ := cmd.StdoutPipe()
