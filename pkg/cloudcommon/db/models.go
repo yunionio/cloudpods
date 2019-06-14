@@ -29,7 +29,6 @@ func RegisterModelManager(modelMan IModelManager) {
 		globalTables = make(map[string]IModelManager)
 	}
 	mustCheckModelManager(modelMan)
-	log.Infof("Register model %s", modelMan.Keyword())
 	globalTables[modelMan.Keyword()] = modelMan
 }
 
@@ -61,7 +60,6 @@ func CheckSync(autoSync bool) bool {
 	log.Infof("Start check database ...")
 	inSync := true
 	for modelName, modelMan := range globalTables {
-		log.Infof("# check table of model %s", modelName)
 		tableSpec := modelMan.TableSpec()
 		dropFKSqls := tableSpec.DropForeignKeySQL()
 		sqls := tableSpec.SyncSQL()
@@ -87,8 +85,6 @@ func CheckSync(autoSync bool) bool {
 				}
 				inSync = false
 			}
-		} else {
-			log.Infof("model %s is in SYNC!!!", modelName)
 		}
 	}
 	return inSync
