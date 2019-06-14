@@ -16,15 +16,12 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -85,64 +82,27 @@ func (self *SVirtualJointResourceBase) AllowUpdateItem(ctx context.Context, user
 	return masterVirtual.IsOwner(userCred) || IsAllowUpdate(rbacutils.ScopeSystem, userCred, self)
 }
 
-func (manager *SVirtualJointResourceBaseManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SJointResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
-	if err != nil {
-		return nil, err
+func (manager *SVirtualJointResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
+		masterQ := manager.GetMasterManager().Query("id")
+		masterQ = manager.GetMasterManager().FilterByOwner(masterQ, owner, scope)
+		slaveQ := manager.GetSlaveManager().Query("id")
+		slaveQ = manager.GetSlaveManager().FilterByOwner(slaveQ, owner, scope)
+		iManager := manager.GetIJointModelManager()
+		q = q.In(iManager.GetMasterFieldName(), masterQ.SubQuery())
+		q = q.In(iManager.GetSlaveFieldName(), slaveQ.SubQuery())
 	}
-	masterField := q.Field(manager.GetIJointModelManager().GetMasterFieldName())
-	slaveField := q.Field(manager.GetIJointModelManager().GetSlaveFieldName())
-	if masterField == nil || slaveField == nil {
-		msg := "cannot find master or slave fields!!!"
-		log.Errorf(msg)
-		return nil, fmt.Errorf(msg)
-	}
-	masterTable := manager.GetMasterManager().Query().SubQuery()
-	slaveTable := manager.GetSlaveManager().Query().SubQuery()
-	masterQueryId, _ := query.GetString(fmt.Sprintf("%s_id", manager.GetMasterManager().Keyword()))
-	if len(masterQueryId) == 0 && len(manager.GetMasterManager().Alias()) > 0 {
-		masterQueryId, _ = query.GetString(fmt.Sprintf("%s_id", manager.GetMasterManager().Alias()))
-	}
-	slaveQueryId, _ := query.GetString(fmt.Sprintf("%s_id", manager.GetSlaveManager().Keyword()))
-	if len(slaveQueryId) == 0 && len(manager.GetSlaveManager().Alias()) > 0 {
-		slaveQueryId, _ = query.GetString(fmt.Sprintf("%s_id", manager.GetSlaveManager().Alias()))
-	}
-	q = q.Join(masterTable, sqlchemy.AND(sqlchemy.Equals(masterField, masterTable.Field("id")),
-		sqlchemy.IsFalse(masterTable.Field("deleted"))))
-	q = q.Join(slaveTable, sqlchemy.AND(sqlchemy.Equals(slaveField, slaveTable.Field("id")),
-		sqlchemy.IsFalse(slaveTable.Field("deleted"))))
-	if jsonutils.QueryBoolean(query, "admin", false) && IsAdminAllowList(userCred, manager) {
-		isSystem := jsonutils.QueryBoolean(query, "system", false)
-		if !isSystem {
-			if len(slaveQueryId) == 0 {
-				q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(slaveTable.Field("is_system")),
-					sqlchemy.IsFalse(slaveTable.Field("is_system"))))
-			}
-			if len(masterQueryId) == 0 {
-				q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(masterTable.Field("is_system")),
-					sqlchemy.IsFalse(masterTable.Field("is_system"))))
-			}
-		}
-		tenant, _ := query.GetString("tenant")
-		if len(tenant) > 0 {
-			tc, _ := TenantCacheManager.FetchTenantByIdOrName(ctx, tenant)
-			if tc == nil {
-				return nil, httperrors.NewTenantNotFoundError("tenant %s not found", tenant)
-			}
-			q = q.Filter(sqlchemy.OR(sqlchemy.Equals(masterTable.Field("tenant_id"), tc.GetId()),
-				sqlchemy.Equals(slaveTable.Field("tenant_id"), tc.GetId())))
-		}
-	} else {
-		q = q.Filter(sqlchemy.OR(sqlchemy.Equals(masterTable.Field("tenant_id"), userCred.GetProjectId()),
-			sqlchemy.Equals(slaveTable.Field("tenant_id"), userCred.GetProjectId())))
-		if len(slaveQueryId) == 0 {
-			q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(slaveTable.Field("is_system")),
-				sqlchemy.IsFalse(slaveTable.Field("is_system"))))
-		}
-		if len(masterQueryId) == 0 {
-			q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(masterTable.Field("is_system")),
-				sqlchemy.IsFalse(masterTable.Field("is_system"))))
-		}
-	}
-	return q, nil
+	return q
+}
+
+func (manager *SVirtualJointResourceBaseManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SJointResourceBaseManager.FilterBySystemAttributes(q, userCred, query, scope)
+	masterQ := manager.GetMasterManager().Query("id")
+	masterQ = manager.GetMasterManager().FilterBySystemAttributes(masterQ, userCred, query, scope)
+	slaveQ := manager.GetSlaveManager().Query("id")
+	slaveQ = manager.GetSlaveManager().FilterBySystemAttributes(slaveQ, userCred, query, scope)
+	iManager := manager.GetIJointModelManager()
+	q = q.In(iManager.GetMasterFieldName(), masterQ.SubQuery())
+	q = q.In(iManager.GetSlaveFieldName(), slaveQ.SubQuery())
+	return q
 }
