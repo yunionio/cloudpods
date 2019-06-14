@@ -799,3 +799,7 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 	}
 	return instance.InstanceState, nil
 }
+
+func (self *SRegion) QueryAccountBalance() (*SAccountBalance, error) {
+	return self.client.QueryAccountBalance()
+}

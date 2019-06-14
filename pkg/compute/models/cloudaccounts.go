@@ -1204,11 +1204,14 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 	}
 	balance, status, err := manager.GetBalance()
 	if err != nil {
-		if err != cloudprovider.ErrNotSupported {
+		switch err {
+		case cloudprovider.ErrNotSupported:
+			status = api.CLOUD_PROVIDER_HEALTH_NORMAL
+		case cloudprovider.ErrNoBalancePermission:
+			status = api.CLOUD_PROVIDER_HEALTH_NO_PERMISSION
+		default:
 			log.Errorf("manager.GetBalance %s fail %s", account.Name, err)
 			status = api.CLOUD_PROVIDER_HEALTH_UNKNOWN
-		} else {
-			status = api.CLOUD_PROVIDER_HEALTH_NORMAL
 		}
 	}
 	version := manager.GetVersion()
