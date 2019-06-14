@@ -467,6 +467,26 @@ func (manager *SCloudregionManager) InitializeData() error {
 	return nil
 }
 
+func getCloudRegionIdByDomainId(domainId string) *sqlchemy.SSubQuery {
+	accounts := CloudaccountManager.Query().SubQuery()
+	cloudproviderregions := CloudproviderRegionManager.Query().SubQuery()
+	providers := CloudproviderManager.Query().SubQuery()
+
+	// not managed region
+	q1 := CloudregionManager.Query("id").IsNullOrEmpty("provider")
+
+	// managed region
+	q2 := cloudproviderregions.Query(cloudproviderregions.Field("cloudregion_id", "id"))
+	q2 = q2.Join(providers, sqlchemy.Equals(providers.Field("id"), cloudproviderregions.Field("cloudprovider_id")))
+	q2 = q2.Join(accounts, sqlchemy.Equals(providers.Field("cloudaccount_id"), accounts.Field("id")))
+	q2 = q2.Filter(sqlchemy.OR(
+		sqlchemy.Equals(accounts.Field("domain_id"), domainId),
+		sqlchemy.IsTrue(accounts.Field("is_public")),
+	))
+
+	return sqlchemy.Union(q1, q2).Query().SubQuery()
+}
+
 func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
 	if len(providerStr) > 0 {
@@ -520,6 +540,11 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 	if len(accountStr) > 0 {
 		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountStr)
 		q = q.In("id", subq)
+	}
+
+	domainId, err := db.FetchQueryDomain(ctx, userCred, query)
+	if len(domainId) > 0 {
+		q = q.In("id", getCloudRegionIdByDomainId(domainId))
 	}
 
 	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {

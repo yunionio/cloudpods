@@ -55,6 +55,9 @@ func init() {
 
 		Usable    *bool `help:"List regions where networks are usable"`
 		UsableVpc *bool `help:"List regions where VPC are usable"`
+
+		Scope         string `help:"query scope" choices:"system|domain"`
+		ProjectDomain string `help:"query domain"`
 	}
 	R(&CloudregionCityListOptions{}, "cloud-region-cities", "List cities where cloud region resides", func(s *mcclient.ClientSession, args *CloudregionCityListOptions) error {
 		params, err := options.StructToParams(args)

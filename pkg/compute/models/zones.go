@@ -604,6 +604,11 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.IsNotEmpty("external_id")
 	}
 
+	domainId, err := db.FetchQueryDomain(ctx, userCred, query)
+	if len(domainId) > 0 {
+		q = q.In("cloudregion_id", getCloudRegionIdByDomainId(domainId))
+	}
+
 	if jsonutils.QueryBoolean(query, "usable", false) || jsonutils.QueryBoolean(query, "usable_vpc", false) {
 		usableNet := jsonutils.QueryBoolean(query, "usable", false)
 		usableVpc := jsonutils.QueryBoolean(query, "usable_vpc",
