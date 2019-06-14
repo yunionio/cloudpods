@@ -18,7 +18,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
@@ -249,9 +251,10 @@ func (self *SManagedVirtualizationHostDriver) RequestAllocateDiskOnStorage(ctx c
 		}
 		err = db.SetExternalId(disk, task.GetUserCred(), iDisk.GetGlobalId())
 		if err != nil {
-			log.Errorf("Update disk externalId err: %v", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "db.SetExternalId")
 		}
+
+		cloudprovider.WaitStatus(iDisk, api.DISK_READY, time.Second*5, time.Minute*5)
 
 		models.SyncMetadata(ctx, task.GetUserCred(), disk, iDisk)
 
