@@ -478,6 +478,9 @@ func (client *SQcloudClient) QueryAccountBalance() (*SAccountBalance, error) {
 	balance := SAccountBalance{}
 	body, err := client.billingRequest("DescribeAccountBalance", nil)
 	if err != nil {
+		if isError(err, []string{"UnauthorizedOperation.NotFinanceAuth"}) {
+			return nil, cloudprovider.ErrNoBalancePermission
+		}
 		log.Errorf("DescribeAccountBalance fail %s", err)
 		return nil, err
 	}
