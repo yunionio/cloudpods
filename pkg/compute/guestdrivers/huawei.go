@@ -15,13 +15,11 @@
 package guestdrivers
 
 import (
-	"context"
 	"fmt"
 
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -78,10 +76,6 @@ func (self *SHuaweiGuestDriver) GetChangeConfigStatus() ([]string, error) {
 
 func (self *SHuaweiGuestDriver) GetDeployStatus() ([]string, error) {
 	return []string{api.VM_READY, api.VM_RUNNING}, nil
-}
-
-func (self *SHuaweiGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
 func (self *SHuaweiGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {

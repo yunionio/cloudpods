@@ -91,7 +91,7 @@ func (self *SContainerDriver) RequestSoftReset(ctx context.Context, guest *model
 	return containerUseKubectlError
 }
 
-func (self *SContainerDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (self *SContainerDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
 	return containerUseKubectlError
 }
 
