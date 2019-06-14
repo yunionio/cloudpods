@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SNetwork struct {
@@ -190,6 +191,10 @@ func (network *SNetwork) GetIpMask() int8 {
 func (network *SNetwork) GetIsPublic() bool {
 	// return network.IsDefault
 	return true
+}
+
+func (self *SNetwork) GetPublicScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeDomain
 }
 
 func (network *SNetwork) GetServerType() string {

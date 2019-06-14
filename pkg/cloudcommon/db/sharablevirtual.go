@@ -104,7 +104,7 @@ func (model *SSharableVirtualResourceBase) AllowPerformPublic(ctx context.Contex
 
 func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if !model.IsPublic {
-		targetScopeStr, _ := query.GetString("scope")
+		targetScopeStr, _ := data.GetString("scope")
 		targetScope := rbacutils.String2ScopeDefault(targetScopeStr, rbacutils.ScopeSystem)
 		allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "public")
 		if targetScope.HigherThan(allowScope) {
