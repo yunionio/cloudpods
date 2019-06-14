@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type ICloudResource interface {
@@ -419,6 +420,7 @@ type ICloudNetwork interface {
 	GetGateway() string
 	GetServerType() string
 	GetIsPublic() bool
+	GetPublicScope() rbacutils.TRbacScope
 
 	Delete() error
 

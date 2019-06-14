@@ -23,6 +23,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type AllocationPool struct {
@@ -140,6 +141,10 @@ func (network *SNetwork) GetIpMask() int8 {
 
 func (network *SNetwork) GetIsPublic() bool {
 	return true
+}
+
+func (network *SNetwork) GetPublicScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeDomain
 }
 
 func (network *SNetwork) GetServerType() string {

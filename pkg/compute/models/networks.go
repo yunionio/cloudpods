@@ -572,6 +572,7 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 		self.GuestGateway = extNet.GetGateway()
 		self.ServerType = extNet.GetServerType()
 		self.IsPublic = extNet.GetIsPublic()
+		self.PublicScope = string(extNet.GetPublicScope())
 
 		self.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
@@ -606,6 +607,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	net.GuestGateway = extNet.GetGateway()
 	net.ServerType = extNet.GetServerType()
 	net.IsPublic = extNet.GetIsPublic()
+	net.PublicScope = string(extNet.GetPublicScope())
 
 	net.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
