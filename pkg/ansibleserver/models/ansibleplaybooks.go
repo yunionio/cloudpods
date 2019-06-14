@@ -82,8 +82,8 @@ func init() {
 }
 
 func (man *SAnsiblePlaybookManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	v := NewAnsiblePlaybookValidator("playbook", userCred)
-	if err := v.Validate(data); err != nil {
+	pbV := NewAnsiblePlaybookValidator("playbook", userCred)
+	if err := pbV.Validate(data); err != nil {
 		return nil, err
 	}
 	data.Set("status", jsonutils.NewString(AnsiblePlaybookStatusInit))
@@ -244,6 +244,7 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 			if err != nil {
 				apb.Status = AnsiblePlaybookStatusCanceled
 			} else if runErr != nil {
+				log.Warningf("playbook %s(%s) failed: %v", apb.Name, apb.Id, runErr)
 				apb.Status = AnsiblePlaybookStatusFailed
 			} else {
 				apb.Status = AnsiblePlaybookStatusSucceeded
