@@ -29,7 +29,6 @@ func RegisterModelManager(modelMan IModelManager) {
 		globalTables = make(map[string]IModelManager)
 	}
 	mustCheckModelManager(modelMan)
-	log.Infof("Register model %s", modelMan.Keyword())
 	globalTables[modelMan.Keyword()] = modelMan
 }
 
@@ -60,8 +59,7 @@ func mustCheckModelManager(modelMan IModelManager) {
 func CheckSync(autoSync bool) bool {
 	log.Infof("Start check database ...")
 	allSqls := make([]string, 0)
-	for modelName, modelMan := range globalTables {
-		log.Infof("# check table of model %s", modelName)
+	for _, modelMan := range globalTables {
 		tableSpec := modelMan.TableSpec()
 		sqls := tableSpec.SyncSQL()
 		for _, sql := range sqls {
