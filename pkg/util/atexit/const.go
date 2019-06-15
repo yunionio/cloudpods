@@ -15,5 +15,6 @@
 package atexit
 
 const (
+	PRIO_LOG_OTHER = 20000
 	PRIO_LOG_CLOSE = 40000
 )
