@@ -26,18 +26,19 @@ import (
 )
 
 type SDiskInfo struct {
-	DiskType    string
-	Size        int
-	Uuid        string
-	BillingType string
-	FsFromat    string
-	AutoDelete  bool
-	TemplateId  string
-	DiskFormat  string
-	Path        string
-	Driver      string
-	CacheMode   string
-	ExpiredAt   time.Time
+	DiskType          string
+	Size              int
+	Uuid              string
+	BillingType       string
+	FsFromat          string
+	AutoDelete        bool
+	TemplateId        string
+	DiskFormat        string
+	Path              string
+	Driver            string
+	CacheMode         string
+	ExpiredAt         time.Time
+	StorageExternalId string
 
 	Metadata map[string]string
 }
@@ -86,6 +87,7 @@ func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.I
 			dinfo.TemplateId = idisks[i].GetTemplateId()
 			dinfo.FsFromat = idisks[i].GetFsFormat()
 			dinfo.ExpiredAt = idisks[i].GetExpiredAt()
+			dinfo.StorageExternalId = idisks[i].GetIStorageId()
 			if metaData := idisks[i].GetMetadata(); metaData != nil {
 				dinfo.Metadata = make(map[string]string, 0)
 				metadata := map[string]string{}

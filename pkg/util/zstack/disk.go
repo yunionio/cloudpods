@@ -169,6 +169,21 @@ func (disk *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 	return nil, cloudprovider.ErrNotFound
 }
 
+func (disk *SDisk) GetIStorageId() string {
+	storage, err := disk.region.GetStorage(disk.PrimaryStorageUUID)
+	if err != nil {
+		return disk.PrimaryStorageUUID
+	} else if storage.Type == StorageTypeLocal && len(disk.VMInstanceUUID) > 0 {
+		instnace, err := disk.region.GetInstance(disk.VMInstanceUUID)
+		if err != nil {
+			log.Warningf("failed to get instance %s for disk %s(%s) error: %v", disk.VMInstanceUUID, disk.Name, disk.UUID, err)
+			return ""
+		}
+		return fmt.Sprintf("%s/%s", disk.PrimaryStorageUUID, instnace.LastHostUUID)
+	}
+	return disk.PrimaryStorageUUID
+}
+
 func (disk *SDisk) GetStatus() string {
 	switch disk.Status {
 	case "Ready":

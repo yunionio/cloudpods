@@ -27,6 +27,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
@@ -131,6 +132,8 @@ type ClassicVirtualMachineProperties struct {
 }
 
 type SClassicInstance struct {
+	multicloud.SInstanceBase
+
 	host *SClassicHost
 
 	idisks []cloudprovider.ICloudDisk
