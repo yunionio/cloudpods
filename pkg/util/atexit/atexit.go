@@ -32,14 +32,14 @@ type ExitHandlerFunc func(ExitHandler)
 // Prio at exit time.  Handler func will receive a copy of the ExitHandler
 // struct previously registered
 type ExitHandler struct {
-	Prio   int
+	Prio   Prio
 	Reason string
 	Func   ExitHandlerFunc
 	Value  interface{}
 }
 
 var (
-	handlers     = map[int][]ExitHandler{}
+	handlers     = map[Prio][]ExitHandler{}
 	handlersLock = &sync.Mutex{}
 	once         = &sync.Once{}
 )
@@ -79,12 +79,13 @@ func Handle() {
 		handlersLock.Lock()
 		defer handlersLock.Unlock()
 
-		prios := make([]int, 0, len(handlers))
+		ints := make([]int, 0, len(handlers))
 		for prio := range handlers {
-			prios = append(prios, prio)
+			ints = append(ints, int(prio))
 		}
-		sort.Ints(prios)
-		for _, prio := range prios {
+		sort.Ints(ints)
+		for _, i := range ints {
+			prio := Prio(i)
 			ehs := handlers[prio]
 			for _, eh := range ehs {
 				print("atexit: prio=", prio, ", reason=", eh.Reason, "\n")
