@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -112,7 +113,7 @@ func (cli *SZStackClient) connect() error {
 	})
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "PUT", authURL, header, body, cli.debug)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "connect")
 	}
 	cli.sessionID, err = resp.GetString("inventory", "uuid")
 	return err
@@ -155,7 +156,10 @@ func (cli *SZStackClient) _list(resource string, start int, limit int, params []
 	params = append(params, fmt.Sprintf("limit=%d", limit))
 	requestURL := cli.getRequestURL(resource, params)
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "GET", requestURL, header, nil, cli.debug)
-	return resp, err
+	if err != nil {
+		return nil, errors.Wrapf(err, fmt.Sprintf("GET %s params: %s", resource, params))
+	}
+	return resp, nil
 }
 
 func (cli *SZStackClient) getDeleteURL(resource, resourceId, deleteMode string) string {
@@ -182,13 +186,13 @@ func (cli *SZStackClient) _delete(resource, resourceId, deleteMode string) (json
 	requestURL := cli.getDeleteURL(resource, resourceId, deleteMode)
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "DELETE", requestURL, header, nil, cli.debug)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, fmt.Sprintf("DELETE %s %s %s", resource, resourceId, deleteMode))
 	}
 	if resp.Contains("location") {
 		location, _ := resp.GetString("location")
 		return cli.wait(client, header, "delete", requestURL, jsonutils.NewDict(), location)
 	}
-	return resp, err
+	return resp, nil
 }
 
 func (cli *SZStackClient) getURL(resource, resourceId, spec string) string {
@@ -259,7 +263,7 @@ func (cli *SZStackClient) _get(resource, resourceId string, spec string) (jsonut
 	requestURL := cli.getURL(resource, resourceId, spec)
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "GET", requestURL, header, nil, cli.debug)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, fmt.Sprintf("GET %s %s %s", resource, resourceId, spec))
 	}
 	if resp.Contains("location") {
 		location, _ := resp.GetString("location")
@@ -289,7 +293,7 @@ func (cli *SZStackClient) wait(client *http.Client, header http.Header, action s
 	for {
 		resp, err := httputils.Request(client, context.Background(), "GET", location, header, nil, cli.debug)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, fmt.Sprintf("wait location %s", location))
 		}
 		_, result, err := httputils.ParseJSONResponse(resp, err, cli.debug)
 		if err != nil {
@@ -315,7 +319,7 @@ func (cli *SZStackClient) _post(resource string, params jsonutils.JSONObject) (j
 	requestURL := cli.getPostURL(resource)
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "POST", requestURL, header, params, cli.debug)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, fmt.Sprintf("POST %s %s", resource, params.String()))
 	}
 	if resp.Contains("location") {
 		location, _ := resp.GetString("location")
