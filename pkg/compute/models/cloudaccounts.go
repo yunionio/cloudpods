@@ -149,22 +149,18 @@ func (self *SCloudaccount) getCloudprovidersInternal(enabled tristate.TriState) 
 
 func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 	if self.EnableAutoSync {
-		log.Debugf("self.EnableAutoSync")
 		return httperrors.NewInvalidStatusError("automatic syncing is enabled")
 	}
 	if self.Enabled {
-		log.Debugf("self.Enabled")
 		return httperrors.NewInvalidStatusError("account is enabled")
 	}
 	if self.getSyncStatus() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
-		log.Debugln("self.getSyncStatus() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE")
 		return httperrors.NewInvalidStatusError("account is not idle")
 	}
 	cloudproviders := self.GetCloudproviders()
 	for i := 0; i < len(cloudproviders); i++ {
 		if err := cloudproviders[i].ValidateDeleteCondition(ctx); err != nil {
-			log.Debugf("cloudproviders[%d].ValidateDeleteCondition", i)
-			return err
+			return httperrors.NewInvalidStatusError("provider %s: %v", cloudproviders[i].Name, err)
 		}
 	}
 
@@ -1166,8 +1162,6 @@ func (account *SCloudaccount) needSync() bool {
 }
 
 func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	log.Debugf("AutoSyncCloudaccountTask")
-
 	if isStart {
 		// mark all the records to be init
 		CloudproviderRegionManager.initAllRecords()
