@@ -17,6 +17,9 @@ package aliyun
 import (
 	"time"
 
+	"github.com/pkg/errors"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 )
@@ -65,14 +68,15 @@ type SPrepaidCard struct {
 func (self *SAliyunClient) QueryAccountBalance() (*SAccountBalance, error) {
 	body, err := self.businessRequest("QueryAccountBalance", nil)
 	if err != nil {
-		log.Errorf("QueryAccountBalance fail %s", err)
-		return nil, err
+		if isError(err, "NotApplicable") {
+			return nil, cloudprovider.ErrNoBalancePermission
+		}
+		return nil, errors.Wrapf(err, "QueryAccountBalance")
 	}
 	balance := SAccountBalance{}
 	err = body.Unmarshal(&balance, "Data")
 	if err != nil {
-		log.Errorf("Unmarshal AccountBalance fail %s", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "Unmarshal AccountBalance")
 	}
 	return &balance, nil
 }

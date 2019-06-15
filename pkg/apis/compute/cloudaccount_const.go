@@ -24,15 +24,17 @@ const (
 	CLOUD_PROVIDER_OPENSTACK = "OpenStack"
 	CLOUD_PROVIDER_UCLOUD    = "Ucloud"
 
-	CLOUD_PROVIDER_HEALTH_NORMAL       = "normal"       // 远端处于健康状态
-	CLOUD_PROVIDER_HEALTH_INSUFFICIENT = "insufficient" // 不足按需资源余额
-	CLOUD_PROVIDER_HEALTH_SUSPENDED    = "suspended"    // 远端处于冻结状态
-	CLOUD_PROVIDER_HEALTH_ARREARS      = "arrears"      // 远端处于欠费状态
-	CLOUD_PROVIDER_HEALTH_UNKNOWN      = "unknown"      // 未知状态，查询失败
+	CLOUD_PROVIDER_HEALTH_NORMAL        = "normal"        // 远端处于健康状态
+	CLOUD_PROVIDER_HEALTH_INSUFFICIENT  = "insufficient"  // 不足按需资源余额
+	CLOUD_PROVIDER_HEALTH_SUSPENDED     = "suspended"     // 远端处于冻结状态
+	CLOUD_PROVIDER_HEALTH_ARREARS       = "arrears"       // 远端处于欠费状态
+	CLOUD_PROVIDER_HEALTH_UNKNOWN       = "unknown"       // 未知状态，查询失败
+	CLOUD_PROVIDER_HEALTH_NO_PERMISSION = "no permission" // 没有权限获取账单信息
 )
 
 var (
-	CLOUD_PROVIDER_VALID_STATUS = []string{CLOUD_PROVIDER_CONNECTED}
+	CLOUD_PROVIDER_VALID_STATUS        = []string{CLOUD_PROVIDER_CONNECTED}
+	CLOUD_PROVIDER_VALID_HEALTH_STATUS = []string{CLOUD_PROVIDER_HEALTH_NORMAL, CLOUD_PROVIDER_HEALTH_NO_PERMISSION}
 
 	CLOUD_PROVIDERS = []string{
 		CLOUD_PROVIDER_ONECLOUD,
