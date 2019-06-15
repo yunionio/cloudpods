@@ -173,7 +173,7 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 		"VpcId":            loadbalancer.VpcID,
 	}
 
-	if loadbalancer.AddressType != api.LB_ADDR_TYPE_INTERNET  {
+	if loadbalancer.AddressType != api.LB_ADDR_TYPE_INTERNET {
 		params["SubnetId"] = loadbalancer.NetworkID
 	}
 
@@ -801,4 +801,8 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 		return "", err
 	}
 	return instance.InstanceState, nil
+}
+
+func (self *SRegion) QueryAccountBalance() (*SAccountBalance, error) {
+	return self.client.QueryAccountBalance()
 }
