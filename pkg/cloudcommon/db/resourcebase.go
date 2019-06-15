@@ -100,5 +100,5 @@ func (model *SResourceBase) MarkDelete() error {
 }
 
 func (model *SResourceBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return DeleteModel(ctx, userCred, model)
+	return DeleteModel(ctx, userCred, model.GetIResourceModel())
 }

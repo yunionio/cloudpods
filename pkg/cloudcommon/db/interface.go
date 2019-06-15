@@ -264,6 +264,7 @@ type ISharableVirtualModel interface {
 	IVirtualModel
 
 	GetISharableVirtualModel() ISharableVirtualModel
+	GetSharedProjects() []string
 }
 
 type IAdminSharableVirtualModelManager interface {
