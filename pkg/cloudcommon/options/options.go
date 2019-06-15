@@ -138,7 +138,6 @@ func ParseOptions(optStruct interface{}, args []string, configFileName string, s
 	if len(optionsRef.Config) == 0 {
 		for _, p := range []string{"./etc", "/etc/yunion"} {
 			confTmp := path.Join(p, configFileName)
-			log.Infof(confTmp)
 			if _, err := os.Stat(confTmp); err == nil {
 				optionsRef.Config = confTmp
 				break
