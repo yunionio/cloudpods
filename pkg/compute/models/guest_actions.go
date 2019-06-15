@@ -2464,8 +2464,8 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		chargeType = api.EIP_CHARGE_TYPE_DEFAULT
 	}
 
+	bw, _ = data.Int("bandwidth")
 	if chargeType == api.EIP_CHARGE_TYPE_BY_BANDWIDTH {
-		bw, _ = data.Int("bandwidth")
 		if bw == 0 {
 			return nil, httperrors.NewMissingParameterError("bandwidth")
 		}

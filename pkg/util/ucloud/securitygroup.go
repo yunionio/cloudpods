@@ -193,7 +193,7 @@ func (self *SRegion) CreateDefaultSecurityGroup(name, description string) (strin
 		// 避免与default安全组名称冲突
 		name = name + stringutils.UUID4()
 	}
-	return self.CreateSecurityGroup(name, description, []string{"TCP|22|0.0.0.0/0|ACCEPT|LOW"})
+	return self.CreateSecurityGroup(name, description, []string{"TCP|1-65535|0.0.0.0/0|ACCEPT|LOW", "UDP|1-65535|0.0.0.0/0|ACCEPT|LOW", "ICMP||0.0.0.0/0|ACCEPT|LOW"})
 }
 
 // https://docs.ucloud.cn/api/unet-api/create_firewall

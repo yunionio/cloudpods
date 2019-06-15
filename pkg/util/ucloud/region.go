@@ -16,6 +16,7 @@ package ucloud
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"strings"
 
@@ -186,7 +187,7 @@ func (self *SRegion) DeleteSecurityGroup(vpcId, secgroupId string) error {
 func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
 	if len(secgroupId) > 0 {
 		_, err := self.GetSecurityGroupById(secgroupId)
-		if err == cloudprovider.ErrNotSupported {
+		if err == cloudprovider.ErrNotFound {
 			secgroupId = ""
 		} else if err != nil {
 			return "", err
@@ -201,6 +202,21 @@ func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name str
 		secgroupId = extID
 	}
 
+	// 如果是空规则，onecloud。默认拒绝所有流量
+	if len(rules) == 0 {
+		_, IpNet, _ := net.ParseCIDR("0.0.0.0/0")
+		rules = []secrules.SecurityRule{{
+			Priority:    0,
+			Action:      secrules.SecurityRuleDeny,
+			IPNet:       IpNet,
+			Protocol:    secrules.PROTO_ANY,
+			Direction:   secrules.SecurityRuleIngress,
+			PortStart:   0,
+			PortEnd:     0,
+			Ports:       nil,
+			Description: "",
+		}}
+	}
 	return secgroupId, self.syncSecgroupRules(secgroupId, rules)
 }
 

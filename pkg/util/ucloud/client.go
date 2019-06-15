@@ -143,7 +143,7 @@ func GetSignature(params SParams, privateKey string) string {
 	return sign
 }
 
-func parseUcloudResponse(resp jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+func parseUcloudResponse(params SParams, resp jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	err := &SUcloudError{}
 	e := resp.Unmarshal(err)
 	if e != nil {
@@ -151,6 +151,7 @@ func parseUcloudResponse(resp jsonutils.JSONObject) (jsonutils.JSONObject, error
 	}
 
 	if err.RetCode > 0 {
+		log.Debugf("Ucloud json request err %s", params.PrettyString())
 		return nil, err
 	}
 
@@ -173,7 +174,7 @@ func jsonRequest(client *SUcloudClient, params SParams) (jsonutils.JSONObject, e
 			client.Debug)
 
 		if err == nil {
-			return parseUcloudResponse(resp)
+			return parseUcloudResponse(params, resp)
 		}
 
 		switch e := err.(type) {
