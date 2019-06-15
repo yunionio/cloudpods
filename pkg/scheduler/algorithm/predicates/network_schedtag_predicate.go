@@ -88,30 +88,34 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, _ core.Candi
 			return fmt.Errorf("Wire %s != %s", net.Wire, network.WireId)
 		}
 	}
-	netTypes := p.GetNetworkTypes(net.NetType)
-	if net.Network == "" && !utils.IsInStringArray(network.ServerType, netTypes) {
-		return fmt.Errorf("Network %s type %s not in %v", network.Name, network.ServerType, netTypes)
-	}
-	schedData := u.SchedData()
-	if net.Private {
-		if network.IsPublic {
-			return fmt.Errorf("Network %s is public", network.Name)
+
+	if net.Network == "" {
+		netTypes := p.GetNetworkTypes(net.NetType)
+		if !utils.IsInStringArray(network.ServerType, netTypes) {
+			return fmt.Errorf("Network %s type %s not in %v", network.Name, network.ServerType, netTypes)
 		}
-		if network.ProjectId != schedData.Project {
-			return fmt.Errorf("Network project %s not owner by %s", network.ProjectId, schedData.Project)
-		}
-	} else {
-		if !network.IsPublic {
-			return fmt.Errorf("Network %s is private", network.Name)
-		}
-		if rbacutils.TRbacScope(network.PublicScope) == rbacutils.ScopeDomain {
-			netDomain := network.DomainId
-			reqDomain := net.Domain
-			if netDomain != reqDomain {
-				return fmt.Errorf("Network domain scope %s not owner by %s", netDomain, reqDomain)
+		schedData := u.SchedData()
+		if net.Private {
+			if network.IsPublic {
+				return fmt.Errorf("Network %s is public", network.Name)
+			}
+			if network.ProjectId != schedData.Project {
+				return fmt.Errorf("Network project %s not owner by %s", network.ProjectId, schedData.Project)
+			}
+		} else {
+			if !network.IsPublic {
+				return fmt.Errorf("Network %s is private", network.Name)
+			}
+			if rbacutils.TRbacScope(network.PublicScope) == rbacutils.ScopeDomain {
+				netDomain := network.DomainId
+				reqDomain := net.Domain
+				if netDomain != reqDomain {
+					return fmt.Errorf("Network domain scope %s not owner by %s", netDomain, reqDomain)
+				}
 			}
 		}
 	}
+
 	if len(net.Address) > 0 {
 		ipAddr, err := netutils.NewIPV4Addr(net.Address)
 		if err != nil {
