@@ -263,7 +263,7 @@ func (self *SRegion) AssociateEip(eipId string, instanceId string) error {
 	params := NewUcloudParams()
 	params.Set("EIPId", eipId)
 	params.Set("ResourceType", "uhost")
-	params.Set("ResourceId", "instanceId")
+	params.Set("ResourceId", instanceId)
 
 	return self.DoAction("BindEIP", params, nil)
 }

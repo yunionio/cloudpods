@@ -98,7 +98,7 @@ func (self *SLoadbalancer) Delete() error {
 
 // 腾讯云loadbalance不支持启用/禁用
 func (self *SLoadbalancer) Start() error {
-	return cloudprovider.ErrNotSupported
+	return nil
 }
 
 func (self *SLoadbalancer) Stop() error {
