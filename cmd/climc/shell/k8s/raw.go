@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/ghodss/yaml"
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -74,7 +75,11 @@ func initRaw() {
 		if err != nil {
 			return err
 		}
-		body, err := jsonutils.Parse(content)
+		jsonBytes, err := yaml.YAMLToJSON(content)
+		if err != nil {
+			return err
+		}
+		body, err := jsonutils.Parse(jsonBytes)
 		if err != nil {
 			return err
 		}
@@ -90,16 +95,16 @@ func initRaw() {
 	})
 
 	R(&RawOpt{}, "k8s-edit", "Edit k8s resource instance", func(s *mcclient.ClientSession, args *RawOpt) error {
-		obj, err := k8s.RawResource.Get(s, args.KIND, args.Namespace, args.NAME, args.Cluster)
+		yamlBytes, err := k8s.RawResource.GetYAML(s, args.KIND, args.Namespace, args.NAME, args.Cluster)
 		if err != nil {
 			return err
 		}
-		tempfile, err := ioutil.TempFile("", fmt.Sprintf("k8s-%s-%s.json", args.KIND, args.NAME))
+		tempfile, err := ioutil.TempFile("", fmt.Sprintf("k8s-%s-%s.yaml", args.KIND, args.NAME))
 		if err != nil {
 			return err
 		}
 		defer os.Remove(tempfile.Name())
-		if _, err := tempfile.Write([]byte(obj.PrettyString())); err != nil {
+		if _, err := tempfile.Write(yamlBytes); err != nil {
 			return err
 		}
 		if err := tempfile.Close(); err != nil {
