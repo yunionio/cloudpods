@@ -57,6 +57,13 @@ func FetchSchedInfo(req *http.Request) (*SchedInfo, error) {
 
 	data := NewSchedInfo(input)
 
+	domainId := data.Domain
+	for _, net := range data.Networks {
+		if net.Domain == "" {
+			net.Domain = domainId
+		}
+	}
+
 	return data, nil
 }
 
