@@ -317,6 +317,15 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		}
 		db.SetExternalId(guest, userCred, iVM.GetGlobalId())
 
+		if hostId := iVM.GetIHostId(); len(hostId) > 0 {
+			host, err := db.FetchByExternalId(models.HostManager, hostId)
+			if err != nil {
+				log.Warningf("failed to found new hostId(%s) for ivm %s(%s) error: %v", hostId, guest.Name, guest.Id, err)
+			} else if host.GetId() != guest.HostId {
+				guest.OnScheduleToHost(ctx, userCred, host.GetId())
+			}
+		}
+
 		return iVM, nil
 	}()
 
@@ -703,6 +712,15 @@ func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx co
 				if !recycle {
 					disk.BillingType = diskInfo[i].BillingType
 					disk.ExpiredAt = diskInfo[i].ExpiredAt
+				}
+
+				if len(diskInfo[i].StorageExternalId) > 0 {
+					storage, err := db.FetchByExternalId(models.StorageManager, diskInfo[i].StorageExternalId)
+					if err != nil {
+						log.Warningf("failed to found storage by externalId %s error: %v", diskInfo[i].StorageExternalId, err)
+					} else if disk.StorageId != storage.GetId() {
+						disk.StorageId = storage.GetId()
+					}
 				}
 
 				if len(diskInfo[i].Metadata) > 0 {

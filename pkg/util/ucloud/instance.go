@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
@@ -34,6 +35,8 @@ import (
 )
 
 type SInstance struct {
+	multicloud.SInstanceBase
+
 	host *SHost
 
 	UHostID            string    `json:"UHostId"`

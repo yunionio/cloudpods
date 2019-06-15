@@ -108,6 +108,13 @@ func (instance *SInstance) GetIHost() cloudprovider.ICloudHost {
 	return instance.host
 }
 
+func (instance *SInstance) GetIHostId() string {
+	if len(instance.LastHostUUID) > 0 {
+		return instance.LastHostUUID
+	}
+	return instance.HostUUID
+}
+
 func (instance *SInstance) GetId() string {
 	return instance.UUID
 }

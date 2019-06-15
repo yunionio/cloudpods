@@ -14,12 +14,10 @@
 
 package multicloud
 
-type SDisk struct{}
-
-func (self *SDisk) GetExtSnapshotPolicyId() string {
-	return ""
+type SInstanceBase struct {
+	SResourceBase
 }
 
-func (self *SDisk) GetIStorageId() string {
+func (instance *SInstanceBase) GetIHostId() string {
 	return ""
 }

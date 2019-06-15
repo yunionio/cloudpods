@@ -49,7 +49,7 @@ func (v ImageServers) Less(i, j int) bool {
 
 func (region *SRegion) GetImageServers(zoneId string) ([]SImageServer, error) {
 	servers := []SImageServer{}
-	params := []string{"q=state=Enabled", "q=status=Connected", "q=type=ImageStoreBackupStorage"}
+	params := []string{"q=state=Enabled", "q=status=Connected"}
 	if SkipEsxi {
 		params = append(params, "q=type!=VCenter")
 	}

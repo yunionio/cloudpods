@@ -173,7 +173,7 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 		"VpcId":            loadbalancer.VpcID,
 	}
 
-	if loadbalancer.AddressType != api.LB_ADDR_TYPE_INTERNET  {
+	if loadbalancer.AddressType != api.LB_ADDR_TYPE_INTERNET {
 		params["SubnetId"] = loadbalancer.NetworkID
 	}
 

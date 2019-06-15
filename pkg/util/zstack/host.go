@@ -250,8 +250,25 @@ func (region *SRegion) cleanDisks(diskIds []string) {
 	}
 }
 
-func (region *SRegion) createDataDisks(disks []cloudprovider.SDiskInfo) ([]string, error) {
+func (region *SRegion) createDataDisks(disks []cloudprovider.SDiskInfo, hostId string) ([]string, error) {
 	diskIds := []string{}
+
+	storages, err := region.GetStorages("", "", "")
+	if err != nil {
+		return nil, errors.Wrapf(err, "createDataDisks.GetStorages")
+	}
+
+	localstorages := []SLocalStorage{}
+
+	for _, storage := range storages {
+		if storage.Type == StorageTypeLocal {
+			localstorage, _ := region.GetLocalStorage(storage.UUID, hostId)
+			if localstorage != nil {
+				localstorages = append(localstorages, *localstorage)
+			}
+		}
+	}
+
 	for i := 0; i < len(disks); i++ {
 		storageInfo := strings.Split(disks[i].StorageExternalId, "/")
 		if len(storageInfo) == 0 {
@@ -262,9 +279,9 @@ func (region *SRegion) createDataDisks(disks []cloudprovider.SDiskInfo) ([]strin
 			return diskIds, errors.Wrapf(err, "createDataDisks")
 		}
 
-		hostId, poolName := "", ""
 		switch storage.Type {
 		case StorageTypeCeph:
+			poolName := ""
 			for _, pool := range storage.Pools {
 				if pool.Type == CephPoolTypeData {
 					poolName = pool.PoolName
@@ -273,36 +290,49 @@ func (region *SRegion) createDataDisks(disks []cloudprovider.SDiskInfo) ([]strin
 			if len(poolName) == 0 {
 				return diskIds, fmt.Errorf("failed to found ceph data pool for storage %s to createDataDisk", storage.Name)
 			}
+			disk, err := region.CreateDisk(disks[i].Name, storage.UUID, "", poolName, disks[i].SizeGB, "")
+			if err != nil {
+				return diskIds, err
+			}
+			diskIds = append(diskIds, disk.UUID)
 		case StorageTypeLocal:
-			hostId = storageInfo[1]
+			if len(localstorages) == 0 {
+				return nil, fmt.Errorf("No validate localstorage")
+			}
+			var disk *SDisk
+			var err error
+			for _, localstorage := range localstorages {
+				disk, err = region.CreateDisk(disks[i].Name, localstorage.primaryStorageID, hostId, "", disks[i].SizeGB, "")
+				if err != nil {
+					log.Warningf("createDataDisks error: %v", err)
+				} else {
+					diskIds = append(diskIds, disk.UUID)
+					break
+				}
+			}
+			if err != nil {
+				return diskIds, err
+			}
 		default:
 			return diskIds, fmt.Errorf("not support storageType %s", disks[i].StorageType)
 		}
-
-		disk, err := region.CreateDisk(disks[i].Name, storage.UUID, hostId, poolName, disks[i].SizeGB, "")
-		if err != nil {
-			return diskIds, err
-		}
-		diskIds = append(diskIds, disk.UUID)
 	}
 	return diskIds, nil
 }
 
 func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudprovider.ICloudVM, error) {
-	diskIds, err := host.zone.region.createDataDisks(desc.DataDisks)
+	instance, err := host.zone.region._createVM(desc, host.ZoneUUID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "host.zone.region._createVM")
+	}
+
+	diskIds, err := host.zone.region.createDataDisks(desc.DataDisks, instance.HostUUID)
 	if err != nil {
 		defer host.zone.region.cleanDisks(diskIds)
-		return nil, err
+		defer host.zone.region.DeleteVM(instance.UUID)
+		return nil, errors.Wrapf(err, "host.zone.region.createDataDisks")
 	}
-	if len(desc.SysDisk.StorageExternalId) == 0 {
-		return nil, fmt.Errorf("invalidate root disk storage externalId")
-	}
-	rootStorageId := strings.Split(desc.SysDisk.StorageExternalId, "/")[0]
-	instance, err := host.zone.region._createVM(desc, host.UUID, rootStorageId)
-	if err != nil {
-		defer host.zone.region.cleanDisks(diskIds)
-		return nil, err
-	}
+
 	for i := 0; i < len(diskIds); i++ {
 		err = host.zone.region.AttachDisk(instance.UUID, diskIds[i])
 		if err != nil {
@@ -316,7 +346,7 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 	return host.GetIVMById(instance.UUID)
 }
 
-func (region *SRegion) _createVM(desc *cloudprovider.SManagedVMCreateConfig, hostId string, rootStorageId string) (*SInstance, error) {
+func (region *SRegion) _createVM(desc *cloudprovider.SManagedVMCreateConfig, zoneId string) (*SInstance, error) {
 	l3Id := strings.Split(desc.ExternalNetworkId, "/")[0]
 	if len(l3Id) == 0 {
 		return nil, fmt.Errorf("invalid networkid: %s", desc.ExternalNetworkId)
@@ -345,13 +375,13 @@ func (region *SRegion) _createVM(desc *cloudprovider.SManagedVMCreateConfig, hos
 			return nil, fmt.Errorf("instance type %dC%dMB not avaiable", desc.Cpu, desc.MemoryMB)
 		}
 	}
-	return region.CreateInstance(desc, l3Id, hostId, rootStorageId, offerings)
+	return region.CreateInstance(desc, l3Id, zoneId, offerings)
 }
 
-func (region *SRegion) CreateInstance(desc *cloudprovider.SManagedVMCreateConfig, l3Id, hostId, rootStorageId string, offerings map[string]string) (*SInstance, error) {
+func (region *SRegion) CreateInstance(desc *cloudprovider.SManagedVMCreateConfig, l3Id, zoneId string, offerings map[string]string) (*SInstance, error) {
 	instance := &SInstance{}
 	systemTags := []string{
-		"cdroms::Empty::None::None",
+		"createWithoutCdRom::true",
 		"usbRedirect::false",
 		fmt.Sprintf("staticIp::%s::%s", l3Id, desc.IpAddr),
 		"vmConsoleMode::vnc",
@@ -374,18 +404,18 @@ func (region *SRegion) CreateInstance(desc *cloudprovider.SManagedVMCreateConfig
 				"l3NetworkUuids": []string{
 					l3Id,
 				},
-				"hostUuid":                        hostId,
-				"dataVolumeSystemTags":            []string{},
-				"rootVolumeSystemTags":            []string{},
-				"vmMachineType":                   "",
-				"tagUuids":                        []string{},
-				"defaultL3NetworkUuid":            l3Id,
-				"primaryStorageUuidForRootVolume": rootStorageId,
-				"dataDiskOfferingUuids":           []string{},
-				"systemTags":                      systemTags,
-				"vmNicConfig":                     []string{},
+				"zoneUuid":              zoneId,
+				"dataVolumeSystemTags":  []string{},
+				"rootVolumeSystemTags":  []string{},
+				"vmMachineType":         "",
+				"tagUuids":              []string{},
+				"defaultL3NetworkUuid":  l3Id,
+				"dataDiskOfferingUuids": []string{},
+				"systemTags":            systemTags,
+				"vmNicConfig":           []string{},
 			},
 		}
+
 		log.Debugf("Try instanceOffering : %s", offerName)
 		err = region.client.create("vm-instances", jsonutils.Marshal(params), instance)
 		if err == nil {
