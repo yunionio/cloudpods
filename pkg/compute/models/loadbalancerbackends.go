@@ -362,6 +362,7 @@ func (lbb *SLoadbalancerBackend) getVpc(ctx context.Context) (*SVpc, error) {
 	}
 	guestM, err := GuestManager.FetchById(lbb.BackendId)
 	if err != nil {
+		theLbbJanitor.Signal()
 		return nil, errors.WithMessagef(err, "find guest %s", lbb.BackendId)
 	}
 	guest := guestM.(*SGuest)
