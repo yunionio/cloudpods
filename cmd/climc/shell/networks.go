@@ -167,7 +167,8 @@ func init() {
 
 	type NetworkShareOptions struct {
 		NetworkShowOptions
-		Scope string `help:"sharing scope" choices:"system|domain"`
+		Scope          string   `help:"sharing scope" choices:"system|domain"`
+		ShareToProject []string `help:"Share to prject"`
 	}
 	R(&NetworkShareOptions{}, "network-public", "Make a network public", func(s *mcclient.ClientSession, args *NetworkShareOptions) error {
 		params, err := options.StructToParams(args)
