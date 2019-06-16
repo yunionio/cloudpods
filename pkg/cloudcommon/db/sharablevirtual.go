@@ -16,10 +16,10 @@ package db
 
 import (
 	"context"
-	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
@@ -113,68 +113,97 @@ func (model *SSharableVirtualResourceBase) AllowPerformPublic(ctx context.Contex
 }
 
 func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if !model.IsPublic {
-		targetScopeStr, _ := data.GetString("scope")
-		targetScope := rbacutils.String2ScopeDefault(targetScopeStr, rbacutils.ScopeSystem)
-		if targetScope == rbacutils.ScopeProject {
-			if sharedWithProject, err := data.GetString("shared_with"); err == nil {
-				tenant, err := TenantCacheManager.FetchTenantByIdOrName(ctx, sharedWithProject)
+	targetScopeStr, _ := data.GetString("scope")
+	targetScope := rbacutils.String2ScopeDefault(targetScopeStr, rbacutils.ScopeSystem)
+	if targetScope == rbacutils.ScopeProject {
+		if sharedProjects, err := data.GetArray("shared_projects"); err == nil {
+			delProjects := make([]*SSharedResource, 0)
+			addProjects := make([]string, 0)
+			ops := make(map[string]*SSharedResource, 0)
+			nps := make([]string, 0)
+			srs := make([]SSharedResource, 0)
+			q := SharedResourceManager.Query()
+			err := q.Filter(sqlchemy.AND(
+				sqlchemy.Equals(q.Field("owner_project_id"), model.ProjectId),
+				sqlchemy.Equals(q.Field("resource_id"), model.GetId()),
+				sqlchemy.Equals(q.Field("resource_type"), model.GetModelManager().Keyword()),
+			)).All(&srs)
+			if err != nil {
+				return nil, httperrors.NewInternalServerError("Fetch project error %s", err)
+			}
+			for i := 0; i < len(srs); i++ {
+				ops[srs[i].TargetProjectId] = &srs[i]
+			}
+			for i := 0; i < len(sharedProjects); i++ {
+				sharedProject, _ := sharedProjects[i].GetString()
+				tenant, err := TenantCacheManager.FetchTenantByIdOrName(ctx, sharedProject)
 				if err != nil {
-					return nil, httperrors.NewInternalServerError("fetch tenant error %s", err)
+					return nil, httperrors.NewBadRequestError("fetch tenant %s error %s", sharedProject, err)
 				}
 				if tenant.DomainId != model.DomainId {
 					return nil, httperrors.NewBadRequestError("can't shared project to other domain")
 				}
-				sharedResource := new(SSharedResource)
-				err = SharedResourceManager.Query().
-					Equals("resource_type", model.GetModelManager().Keyword()).
-					Equals("resource_id", model.Id).Equals("owner_project_id", model.ProjectId).
-					Equals("target_project_id", tenant.GetId()).First(sharedResource)
-				if err != nil {
-					if err != sql.ErrNoRows {
-						return nil, httperrors.NewInternalServerError("query resource failed %s", err)
-					} else {
-						sharedResource.ResourceType = model.GetModelManager().Keyword()
-						sharedResource.ResourceId = model.Id
-						sharedResource.OwnerProjectId = model.ProjectId
-						sharedResource.TargetProjectId = tenant.GetId()
-						if insetErr := SharedResourceManager.TableSpec().Insert(sharedResource); insetErr != nil {
-							return nil, httperrors.NewInternalServerError("Insert shared resource failed %s", insetErr)
-						}
-						diff, err := Update(model, func() error {
-							model.PublicScope = string(targetScope)
-							return nil
-						})
-						if err == nil {
-							OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
-						}
-						return nil, err
-					}
-				} else {
-					return nil, httperrors.NewBadRequestError("Resource has been shared to %s", tenant.GetName())
+				nps = append(nps, tenant.GetId())
+				if _, ok := ops[tenant.GetId()]; !ok {
+					addProjects = append(addProjects, tenant.GetId())
 				}
-			} else {
-				return nil, httperrors.NewMissingParameterError("shared_with")
+			}
+			for k, v := range ops {
+				if !utils.IsInStringArray(k, nps) {
+					delProjects = append(delProjects, v)
+				}
+			}
+
+			for i := 0; i < len(addProjects); i++ {
+				sharedResource := new(SSharedResource)
+				sharedResource.ResourceType = model.GetModelManager().Keyword()
+				sharedResource.ResourceId = model.Id
+				sharedResource.OwnerProjectId = model.ProjectId
+				sharedResource.TargetProjectId = addProjects[i]
+				if insetErr := SharedResourceManager.TableSpec().Insert(sharedResource); insetErr != nil {
+					return nil, httperrors.NewInternalServerError("Insert shared resource failed %s", insetErr)
+				}
+			}
+			for i := 0; i < len(delProjects); i++ {
+				delProjects[i].SetModelManager(SharedResourceManager, delProjects[i])
+				if err := delProjects[i].Delete(ctx, userCred); err != nil {
+					return nil, httperrors.NewInternalServerError("Unshare project failed %s", err)
+				}
+			}
+
+			if (len(addProjects) + len(srs) - len(delProjects)) > 0 {
+				diff, err := Update(model, func() error {
+					model.IsPublic = false
+					model.PublicScope = string(targetScope)
+					return nil
+				})
+				if err == nil {
+					OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
+				}
+				return nil, err
 			}
 		} else {
-			allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "public")
-			if targetScope.HigherThan(allowScope) {
-				return nil, httperrors.NewForbiddenError("not enough privilege")
-			}
-			if targetScope != rbacutils.ScopeSystem && targetScope != rbacutils.ScopeDomain {
-				return nil, httperrors.NewInputParameterError("invalid scope %s", targetScope)
-			}
-			diff, err := Update(model, func() error {
-				model.IsPublic = true
-				model.PublicScope = string(targetScope)
-				return nil
-			})
-			if err == nil {
-				OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
-			}
-			return nil, err
+			return nil, httperrors.NewMissingParameterError("shared_projects")
 		}
+	} else {
+		allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "public")
+		if targetScope.HigherThan(allowScope) {
+			return nil, httperrors.NewForbiddenError("not enough privilege")
+		}
+		if targetScope != rbacutils.ScopeSystem && targetScope != rbacutils.ScopeDomain {
+			return nil, httperrors.NewInputParameterError("invalid scope %s", targetScope)
+		}
+		diff, err := Update(model, func() error {
+			model.IsPublic = true
+			model.PublicScope = string(targetScope)
+			return nil
+		})
+		if err == nil {
+			OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
+		}
+		return nil, err
 	}
+	model.GetIStandaloneModel().ClearSchedDescCache()
 	return nil, nil
 }
 
@@ -183,7 +212,6 @@ func (model *SSharableVirtualResourceBase) AllowPerformPrivate(ctx context.Conte
 }
 
 func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-
 	if model.IsPublic {
 		allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), model.GetModelManager().KeywordPlural(), policy.PolicyActionPerform, "private")
 		requireScope := rbacutils.String2ScopeDefault(model.PublicScope, rbacutils.ScopeSystem)
@@ -191,7 +219,7 @@ func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, u
 			return nil, httperrors.NewForbiddenError("not enough privileges: allow %s require %s", allowScope, requireScope)
 		}
 		diff, err := Update(model, func() error {
-			model.PublicScope = string(rbacutils.ScopeProject)
+			model.PublicScope = string(rbacutils.ScopeNone)
 			model.IsPublic = false
 			return nil
 		})
@@ -201,22 +229,23 @@ func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, u
 			return nil, httperrors.NewInternalServerError("Update shared resource error: %s", err)
 		}
 	}
-
-	var errStr string
 	srs := make([]SSharedResource, 0)
-	err := SharedResourceManager.Query().Equals("owner_project_id", model.ProjectId).All(&srs)
+	q := SharedResourceManager.Query()
+	err := q.Filter(sqlchemy.AND(
+		sqlchemy.Equals(q.Field("owner_project_id"), model.ProjectId),
+		sqlchemy.Equals(q.Field("resource_id"), model.GetId()),
+		sqlchemy.Equals(q.Field("resource_type"), model.GetModelManager().Keyword()),
+	)).All(&srs)
 	if err != nil {
-		log.Errorln(err)
+		return nil, httperrors.NewInternalServerError("Fetch project error %s", err)
 	}
 	for i := 0; i < len(srs); i++ {
 		srs[i].SetModelManager(SharedResourceManager, &srs[i])
 		if err := srs[i].Delete(ctx, userCred); err != nil {
-			errStr += err.Error()
+			return nil, httperrors.NewInternalServerError("Unshare project failed %s", err)
 		}
 	}
-	if len(errStr) > 0 {
-		return nil, httperrors.NewInternalServerError("Update shared resource error: %s", errStr)
-	}
+	model.GetIStandaloneModel().ClearSchedDescCache()
 	return nil, nil
 }
 
@@ -235,9 +264,21 @@ func (model *SSharableVirtualResourceBase) GetSharedProjects() []string {
 }
 
 func (model *SSharableVirtualResourceBase) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	sharedProjects := jsonutils.NewArray()
 	projects := model.GetSharedProjects()
-	if len(projects) > 0 {
-		extra.Set("shared_projects", jsonutils.NewStringArray(projects))
+	for i := 0; i < len(projects); i++ {
+		tenant, err := TenantCacheManager.FetchTenantByIdOrName(ctx, projects[i])
+		if err != nil {
+			log.Errorf("failed fetch tenant by id %s", projects[i])
+			continue
+		}
+		p := jsonutils.NewDict()
+		p.Set("id", jsonutils.NewString(tenant.GetId()))
+		p.Set("name", jsonutils.NewString(tenant.GetName()))
+		sharedProjects.Add(p)
+	}
+	if sharedProjects.Length() > 0 {
+		extra.Set("shared_projects", sharedProjects)
 	}
 	return extra
 }
