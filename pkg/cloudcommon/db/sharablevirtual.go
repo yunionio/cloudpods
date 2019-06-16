@@ -179,8 +179,9 @@ func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, us
 				})
 				if err == nil {
 					OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
+				} else {
+					return nil, err
 				}
-				return nil, err
 			}
 		} else {
 			return nil, httperrors.NewMissingParameterError("shared_projects")
@@ -200,8 +201,9 @@ func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, us
 		})
 		if err == nil {
 			OpsLog.LogEvent(model, ACT_UPDATE, diff, userCred)
+		} else {
+			return nil, err
 		}
-		return nil, err
 	}
 	model.GetIStandaloneModel().ClearSchedDescCache()
 	return nil, nil
