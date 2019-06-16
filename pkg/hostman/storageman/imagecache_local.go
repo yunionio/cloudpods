@@ -180,7 +180,7 @@ func (l *SLocalImageCache) prepare(ctx context.Context, zone, srcUrl, format str
 	if len(format) == 0 {
 		format = "qcow2"
 	}
-	url += fmt.Sprintf("?format=%s", format)
+	url += fmt.Sprintf("?format=%s&scope=system", format)
 
 	l.remoteFile = remotefile.NewRemoteFile(ctx, url,
 		l.GetPath(), false, "", -1, nil, l.GetTmpPath(), srcUrl)
