@@ -260,17 +260,7 @@ func convertQueryField(tq IQuery, fields []interface{}) []IQueryField {
 		case string:
 			nFields = append(nFields, tq.Field(ff))
 		case IQueryField:
-			find := false
-			for _, f := range tq.QueryFields() {
-				if f.Name() == ff.Name() {
-					find = true
-					nFields = append(nFields, ff)
-					break
-				}
-			}
-			if !find {
-				log.Errorf("Fail to find query field %s in query", f)
-			}
+			nFields = append(nFields, ff)
 		default:
 			log.Errorf("Invalid query field %s neither string nor IQueryField", f)
 		}
