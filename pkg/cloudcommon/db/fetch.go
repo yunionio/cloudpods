@@ -370,6 +370,8 @@ func FetchCheckQueryOwnerScope(ctx context.Context, userCred mcclient.TokenCrede
 			if isAdmin && allowScope.HigherThan(rbacutils.ScopeProject) {
 				queryScope = allowScope
 			}
+		} else if action == policy.PolicyActionGet {
+			queryScope = allowScope
 		}
 		if resScope.HigherThan(queryScope) {
 			queryScope = resScope
