@@ -30,6 +30,7 @@ import (
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/huawei/client/modules"
 )
@@ -95,6 +96,8 @@ type SysTag struct {
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0094148849.html
 // https://support.huaweicloud.com/api-bpconsole/zh-cn_topic_0100166287.html v1.1 支持创建包年/包月的弹性云服务器
 type SInstance struct {
+	multicloud.SInstanceBase
+
 	host *SHost
 
 	ID          string                 `json:"id"`

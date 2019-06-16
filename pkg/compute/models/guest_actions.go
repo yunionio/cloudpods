@@ -1946,14 +1946,14 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 
 	provider, e := self.GetHost().GetProviderFactory()
-	if e != nil || provider.IsOnPremise() {
+	if e != nil || !provider.IsPublicCloud() {
 		for storageId, needSize := range diskSizes {
 			iStorage, err := StorageManager.FetchById(storageId)
 			if err != nil {
 				return nil, httperrors.NewBadRequestError("Fetch storage error: %s", err)
 			}
 			storage := iStorage.(*SStorage)
-			if storage.GetFreeCapacity() < int64(needSize) {
+			if storage.GetFreeCapacity() > 0 && storage.GetFreeCapacity() < int64(needSize) {
 				return nil, httperrors.NewInsufficientResourceError("Not enough free space")
 			}
 		}

@@ -176,6 +176,10 @@ func (self *SVirtualMachine) GetIHost() cloudprovider.ICloudHost {
 	return self.ihost
 }
 
+func (self *SVirtualMachine) GetIHostId() string {
+	return ""
+}
+
 func (self *SVirtualMachine) getIHost() cloudprovider.ICloudHost {
 	vm := self.getVmObj()
 

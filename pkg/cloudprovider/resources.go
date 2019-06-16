@@ -215,6 +215,7 @@ type ICloudVM interface {
 
 	GetCreateTime() time.Time
 	GetIHost() ICloudHost
+	GetIHostId() string
 
 	GetIDisks() ([]ICloudDisk, error)
 	GetINics() ([]ICloudNic, error)
@@ -331,6 +332,7 @@ type ICloudDisk interface {
 	IVirtualResource
 
 	GetIStorage() (ICloudStorage, error)
+	GetIStorageId() string
 
 	// GetStatus() string
 	GetDiskFormat() string
