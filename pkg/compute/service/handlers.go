@@ -47,6 +47,7 @@ func InitHandlers(app *appsrv.Application) {
 		taskman.TaskObjectManager,
 		db.UserCacheManager,
 		db.TenantCacheManager,
+		db.SharedResourceManager,
 		models.GuestcdromManager,
 		models.NetInterfaceManager,
 		models.VCenterManager,
