@@ -228,6 +228,7 @@ type IStandaloneModel interface {
 	// GetExternalId() string
 
 	GetIStandaloneModel() IStandaloneModel
+	ClearSchedDescCache() error
 }
 
 type IMetadataModel interface {
