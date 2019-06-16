@@ -26,7 +26,9 @@ import (
 
 func init() {
 	type SecGroupsListOptions struct {
-		Equals string `help:"Secgroup ID or Name, filter secgroups whose rules equals the specified one"`
+		Equals       string `help:"Secgroup ID or Name, filter secgroups whose rules equals the specified one"`
+		OrderByCache string `help:"Order by cache count" choices:"desc|asc"`
+		OrderByGuest string `help:"Order by guest count" choices:"desc|asc"`
 		options.BaseListOptions
 	}
 
@@ -42,6 +44,12 @@ func init() {
 		}
 		if len(args.Equals) > 0 {
 			params.Add(jsonutils.NewString(args.Equals), "equals")
+		}
+		if len(args.OrderByCache) > 0 {
+			params.Add(jsonutils.NewString(args.OrderByCache), "order_by_cache")
+		}
+		if len(args.OrderByGuest) > 0 {
+			params.Add(jsonutils.NewString(args.OrderByGuest), "order_by_guest")
 		}
 		result, err := modules.SecGroups.List(s, params)
 		if err != nil {

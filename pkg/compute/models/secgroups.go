@@ -91,6 +91,41 @@ func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sql
 		}
 		q = q.In("id", secgroupIds)
 	}
+
+	orderByCache, _ := query.GetString("order_by_cache")
+	if orderByCache == "asc" || orderByCache == "desc" {
+		caches := SecurityGroupCacheManager.Query().SubQuery()
+		cacheQ := caches.Query(
+			caches.Field("secgroup_id"),
+			sqlchemy.COUNT("cache_cnt"),
+		)
+		cacheSQ := cacheQ.GroupBy(caches.Field("secgroup_id")).SubQuery()
+		q = q.LeftJoin(cacheSQ, sqlchemy.Equals(q.Field("id"), cacheSQ.Field("secgroup_id")))
+		switch orderByCache {
+		case "asc":
+			q = q.Asc(cacheSQ.Field("cache_cnt"))
+		case "desc":
+			q = q.Desc(cacheSQ.Field("cache_cnt"))
+		}
+	}
+
+	orderByGuest, _ := query.GetString("order_by_guest")
+	if orderByGuest == "asc" || orderByGuest == "desc" {
+		guests := GuestManager.Query().SubQuery()
+		guestQ := guests.Query(
+			guests.Field("secgrp_id"),
+			sqlchemy.COUNT("guest_cnt"),
+		)
+		guestSQ := guestQ.GroupBy(guests.Field("secgrp_id")).SubQuery()
+		q = q.LeftJoin(guestSQ, sqlchemy.Equals(q.Field("id"), guestSQ.Field("secgrp_id")))
+		switch orderByGuest {
+		case "asc":
+			q = q.Asc(guestSQ.Field("guest_cnt"))
+		case "desc":
+			q = q.Desc(guestSQ.Field("guest_cnt"))
+		}
+	}
+
 	return q, nil
 }
 
@@ -158,8 +193,6 @@ func (self *SSecurityGroup) GetCustomizeColumns(ctx context.Context, userCred mc
 	extra.Add(jsonutils.NewInt(int64(cnt)), "cache_cnt")
 	extra.Add(jsonutils.NewTimeString(self.CreatedAt), "created_at")
 	extra.Add(jsonutils.NewString(self.Description), "description")
-	extra.Add(jsonutils.NewString(self.getSecurityRuleString("in")), "in_rules")
-	extra.Add(jsonutils.NewString(self.getSecurityRuleString("out")), "out_rules")
 	return extra
 }
 
