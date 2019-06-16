@@ -55,7 +55,12 @@ func (manager *SSharableVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQ
 			ownerProjectid := owner.GetProjectId()
 			if len(ownerProjectid) > 0 {
 				rq := SharedResourceManager.Query().SubQuery()
-				q.LeftJoin(rq, sqlchemy.Equals(q.Field("id"), rq.Field("resource_id")))
+				q.LeftJoin(rq, sqlchemy.AND(
+					sqlchemy.Equals(q.Field("id"), rq.Field("resource_id")),
+					sqlchemy.Equals(rq.Field("resource_type"), manager.Keyword()),
+					sqlchemy.Equals(rq.Field("target_project_id"), ownerProjectid),
+					sqlchemy.Equals(q.Field("tenant_id"), rq.Field("owner_project_id")),
+				))
 				q = q.Filter(sqlchemy.OR(
 					sqlchemy.Equals(q.Field("tenant_id"), ownerProjectid),
 					sqlchemy.AND(
@@ -66,11 +71,6 @@ func (manager *SSharableVirtualResourceBaseManager) FilterByOwner(q *sqlchemy.SQ
 						sqlchemy.IsTrue(q.Field("is_public")),
 						sqlchemy.Equals(q.Field("public_scope"), rbacutils.ScopeDomain),
 						sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
-					),
-					sqlchemy.AND(
-						sqlchemy.Equals(rq.Field("resource_type"), manager.Keyword()),
-						sqlchemy.Equals(rq.Field("target_project_id"), ownerProjectid),
-						sqlchemy.Equals(q.Field("tenant_id"), rq.Field("owner_project_id")),
 					),
 				))
 			}
