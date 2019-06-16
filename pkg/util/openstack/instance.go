@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/multicloud"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
@@ -92,6 +94,8 @@ type SFault struct {
 }
 
 type SInstance struct {
+	multicloud.SInstanceBase
+
 	host *SHost
 
 	DiskConfig         string    `json:"OS-DCF:diskConfig,omitempty"`

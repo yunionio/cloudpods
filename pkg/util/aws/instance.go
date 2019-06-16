@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/multicloud"
+
 	"github.com/aws/aws-sdk-go/service/ec2"
 
 	"yunion.io/x/jsonutils"
@@ -70,6 +72,8 @@ type SVpcAttributes struct {
 }
 
 type SInstance struct {
+	multicloud.SInstanceBase
+
 	host       *SHost
 	RegionId   string
 	ZoneId     string
