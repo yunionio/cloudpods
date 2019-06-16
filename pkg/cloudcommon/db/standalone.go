@@ -391,6 +391,10 @@ func (model *SStandaloneResourceBase) Delete(ctx context.Context, userCred mccli
 	return DeleteModel(ctx, userCred, model)
 }
 
+func (model *SStandaloneResourceBase) ClearSchedDescCache() error {
+	return nil
+}
+
 /*
 func (model SStandaloneResourceBase) GetExternalId() string {
 	return model.ExternalId
