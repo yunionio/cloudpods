@@ -122,6 +122,10 @@ func (t *STableSpec) insertSqlPrep(dataFields reflectutils.SStructFieldValueSet,
 					panic(fmt.Sprintf("multiple auto_increment columns: %q, %q", autoIncField, k))
 				}
 				autoIncField = k
+			} else if c.IsText() {
+				values = append(values, "")
+				names = append(names, fmt.Sprintf("`%s`", k))
+				format = append(format, "?")
 			} else {
 				return "", nil, fmt.Errorf("cannot insert for null primary key %q", k)
 			}
