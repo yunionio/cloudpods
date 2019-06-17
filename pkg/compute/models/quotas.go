@@ -21,10 +21,6 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/tristate"
 
-	"database/sql"
-	"github.com/pkg/errors"
-	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
