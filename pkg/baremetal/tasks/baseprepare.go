@@ -46,36 +46,47 @@ func newBaremetalPrepareTask(baremetal IBaremetal) *sBaremetalPrepareTask {
 	}
 }
 
-func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
+type baremetalPrepareInfo struct {
+	sysInfo       *types.SDMISystemInfo
+	cpuInfo       *types.SCPUInfo
+	dmiCpuInfo    *types.SDMICPUInfo
+	memInfo       *types.SDMIMemInfo
+	nicsInfo      []*types.SNicDevInfo
+	diskInfo      []*baremetal.BaremetalStorage
+	storageDriver string
+	ipmiInfo      *types.SIPMIInfo
+}
+
+func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*baremetalPrepareInfo, error) {
 	_, err := cli.Run("/lib/mos/sysinit.sh")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	sysInfo, err := getDMISysinfo(cli)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	cpuInfo, err := getCPUInfo(cli)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	dmiCPUInfo, err := getDMICPUInfo(cli)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	memInfo, err := getDMIMemInfo(cli)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	nicsInfo, err := getNicsInfo(cli)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	raidDiskInfo, nonRaidDiskInfo, pcieDiskInfo, err := detect_storages.DetectStorageInfo(cli, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	diskInfo := make([]*baremetal.BaremetalStorage, 0)
 	diskInfo = append(diskInfo, raidDiskInfo...)
@@ -94,168 +105,201 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 
 	ipmiEnable, err := isIPMIEnable(cli)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ipmiInfo := &types.SIPMIInfo{
 		Present: ipmiEnable,
 	}
-	// set ipmi nic DHCP
-	if ipmiEnable {
-		sshIPMI := ipmitool.NewSSHIPMI(cli)
-		// ipmitool.SetSysInfo
-		ipmiSysInfo := sysInfo.ToIPMISystemInfo()
-		SetIPMILanPortShared(sshIPMI, ipmiSysInfo)
-		ipmiUser, ipmiPasswd, ipmiIpAddr := task.getIPMIUserPasswd(ipmiSysInfo)
-		ipmiInfo.Username = ipmiUser
-		ipmiInfo.Password = ipmiPasswd
 
-		var ipmiLanChannel int = -1
-		for _, lanChannel := range ipmitool.GetLanChannels(ipmiSysInfo) {
-			log.Infof("Try lan channel %d ...", lanChannel)
-			conf, err := ipmitool.GetLanConfig(sshIPMI, lanChannel)
-			if err != nil {
-				log.Errorf("Get lan channel %d config error: %v", lanChannel, err)
-				continue
-			}
-			if conf.Mac == nil {
-				log.Errorf("Lan channel %d MAC address is empty", lanChannel)
-				continue
-			}
+	return &baremetalPrepareInfo{
+		sysInfo, cpuInfo, dmiCPUInfo, memInfo, nicsInfo, diskInfo, storageDriver, ipmiInfo,
+	}, nil
+}
 
-			ipmiNic := &types.SNicDevInfo{
-				Mac:   conf.Mac,
-				Up:    false,
-				Speed: 100,
-				Mtu:   1500,
-			}
-			task.sendNicInfo(ipmiNic, -1, types.NIC_TYPE_IPMI, true, "")
-			rootId := ipmitool.GetRootId(ipmiSysInfo)
-			err = ipmitool.SetLanUserPasswd(sshIPMI, lanChannel, rootId, ipmiUser, ipmiPasswd)
-			if err != nil {
-				// ignore the error
-				log.Errorf("Lan channel %d set user password error: %v", lanChannel, err)
-			}
-			err = ipmitool.EnableLanAccess(sshIPMI, lanChannel)
-			if err != nil {
-				// ignore the error
-				log.Errorf("Lan channel %d enable lan access error: %v", lanChannel, err)
-			}
-
-			tryAddrs := make([]string, 0)
-			if ipmiIpAddr != "" {
-				tryAddrs = append(tryAddrs, ipmiIpAddr)
-			}
-			if conf.IPAddr != "" && conf.IPAddr != ipmiIpAddr {
-				tryAddrs = append(tryAddrs, conf.IPAddr)
-			}
-			if len(tryAddrs) > 0 && !o.Options.ForceDhcpProbeIpmi {
-				for _, tryAddr := range tryAddrs {
-					tryResult := task.tryLocalIpmiAddr(sshIPMI, ipmiNic, lanChannel,
-						ipmiUser, ipmiPasswd, tryAddr)
-					if tryResult {
-						ipmiInfo.IpAddr = tryAddr
-						ipmiLanChannel = lanChannel
-						break
-					}
-				}
-				if ipmiLanChannel >= 0 {
-					// found and set config on lanChannel
-					break
-				}
-			}
-
-			if len(tryAddrs) > 0 {
-				task.baremetal.SetExistingIPMIIPAddr(tryAddrs[0])
-			}
-
-			err = ipmitool.SetLanDHCP(sshIPMI, lanChannel)
-			if err != nil {
-				log.Errorf("Set lan channel %d dhcp error: %v", lanChannel, err)
-			}
-			time.Sleep(1 * time.Second)
-			nic := task.baremetal.GetIPMINic(conf.Mac)
-			maxTries := 180 // wait 3 minutes
-			for tried := 0; nic != nil && nic.IpAddr == "" && tried < maxTries; tried++ {
-				nic = task.baremetal.GetIPMINic(conf.Mac)
-			}
-			if len(nic.IpAddr) == 0 {
-				err = ipmitool.DoBMCReset(sshIPMI) // do BMC reset to force DHCP request
-				if err != nil {
-					log.Errorf("Do BMC reset error: %v", err)
-				}
-			}
-			for tried := 0; nic != nil && nic.IpAddr == "" && tried < maxTries; tried++ {
-				nic = task.baremetal.GetIPMINic(conf.Mac)
-			}
-			if nic != nil && len(nic.IpAddr) == 0 {
-				log.Errorf("DHCP wait IPMI address fail, retry ...")
-				continue
-			}
-			log.Infof("DHCP get IPMI address succ, wait 2 seconds ...")
-			var tried int = 0
-			for tried < maxTries {
-				time.Sleep(2 * time.Second)
-				lanConf, err := ipmitool.GetLanConfig(sshIPMI, lanChannel)
-				if err != nil {
-					log.Errorf("Get lan config at channel %d error: %v", lanChannel, err)
-					tried += 2
-					continue
-				}
-				if lanConf.IPAddr == nic.IpAddr {
-					break
-				}
-				log.Infof("waiting IPMI DHCP address old:%s expect:%s", lanConf.IPAddr, nic.IpAddr)
-				tried += 2
-			}
-			if tried >= maxTries {
-				continue
-			}
-			err = ipmitool.SetLanStatic(
-				sshIPMI,
-				lanChannel,
-				nic.IpAddr,
-				nic.GetNetMask(),
-				nic.Gateway,
-			)
-			if err != nil {
-				log.Errorf("Set lanChannel %d static net %#v error: %v", lanChannel, nic, err)
-				continue
-			}
-			ipmiInfo.IpAddr = nic.IpAddr
-			ipmiLanChannel = lanChannel
-		}
-		if ipmiLanChannel == -1 {
-			return fmt.Errorf("Fail to get IPMI address from DHCP")
-		}
-		ipmiInfo.LanChannel = ipmiLanChannel
+func (task *sBaremetalPrepareTask) ipmiNicDHCP(cli *ssh.Client, i *baremetalPrepareInfo) error {
+	if !i.ipmiInfo.Present {
+		return nil
 	}
 
-	adminNic := task.baremetal.GetAdminNic()
+	var (
+		sysInfo  = i.sysInfo
+		ipmiInfo = i.ipmiInfo
+	)
+	sshIPMI := ipmitool.NewSSHIPMI(cli)
+	// ipmitool.SetSysInfo
+	ipmiSysInfo := sysInfo.ToIPMISystemInfo()
+	SetIPMILanPortShared(sshIPMI, ipmiSysInfo)
+	ipmiUser, ipmiPasswd, ipmiIpAddr := task.getIPMIUserPasswd(ipmiSysInfo)
+	ipmiInfo.Username = ipmiUser
+	ipmiInfo.Password = ipmiPasswd
 
+	var ipmiLanChannel int = -1
+	for _, lanChannel := range ipmitool.GetLanChannels(ipmiSysInfo) {
+		log.Infof("Try lan channel %d ...", lanChannel)
+		conf, err := ipmitool.GetLanConfig(sshIPMI, lanChannel)
+		if err != nil {
+			log.Errorf("Get lan channel %d config error: %v", lanChannel, err)
+			continue
+		}
+		if conf.Mac == nil {
+			log.Errorf("Lan channel %d MAC address is empty", lanChannel)
+			continue
+		}
+
+		ipmiNic := &types.SNicDevInfo{
+			Mac:   conf.Mac,
+			Up:    false,
+			Speed: 100,
+			Mtu:   1500,
+		}
+		task.sendNicInfo(ipmiNic, -1, types.NIC_TYPE_IPMI, true, "")
+		rootId := ipmitool.GetRootId(ipmiSysInfo)
+		err = ipmitool.SetLanUserPasswd(sshIPMI, lanChannel, rootId, ipmiUser, ipmiPasswd)
+		if err != nil {
+			// ignore the error
+			log.Errorf("Lan channel %d set user password error: %v", lanChannel, err)
+		}
+		err = ipmitool.EnableLanAccess(sshIPMI, lanChannel)
+		if err != nil {
+			// ignore the error
+			log.Errorf("Lan channel %d enable lan access error: %v", lanChannel, err)
+		}
+
+		tryAddrs := make([]string, 0)
+		if ipmiIpAddr != "" {
+			tryAddrs = append(tryAddrs, ipmiIpAddr)
+		}
+		if conf.IPAddr != "" && conf.IPAddr != ipmiIpAddr {
+			tryAddrs = append(tryAddrs, conf.IPAddr)
+		}
+		if len(tryAddrs) > 0 && !o.Options.ForceDhcpProbeIpmi {
+			for _, tryAddr := range tryAddrs {
+				tryResult := task.tryLocalIpmiAddr(sshIPMI, ipmiNic, lanChannel,
+					ipmiUser, ipmiPasswd, tryAddr)
+				if tryResult {
+					ipmiInfo.IpAddr = tryAddr
+					ipmiLanChannel = lanChannel
+					break
+				}
+			}
+			if ipmiLanChannel >= 0 {
+				// found and set config on lanChannel
+				break
+			}
+		}
+
+		if len(tryAddrs) > 0 {
+			task.baremetal.SetExistingIPMIIPAddr(tryAddrs[0])
+		}
+
+		err = ipmitool.SetLanDHCP(sshIPMI, lanChannel)
+		if err != nil {
+			log.Errorf("Set lan channel %d dhcp error: %v", lanChannel, err)
+		}
+		time.Sleep(1 * time.Second)
+		nic := task.baremetal.GetIPMINic(conf.Mac)
+		maxTries := 180 // wait 3 minutes
+		for tried := 0; nic != nil && nic.IpAddr == "" && tried < maxTries; tried++ {
+			nic = task.baremetal.GetIPMINic(conf.Mac)
+		}
+		if len(nic.IpAddr) == 0 {
+			err = ipmitool.DoBMCReset(sshIPMI) // do BMC reset to force DHCP request
+			if err != nil {
+				log.Errorf("Do BMC reset error: %v", err)
+			}
+		}
+		for tried := 0; nic != nil && nic.IpAddr == "" && tried < maxTries; tried++ {
+			nic = task.baremetal.GetIPMINic(conf.Mac)
+		}
+		if nic != nil && len(nic.IpAddr) == 0 {
+			log.Errorf("DHCP wait IPMI address fail, retry ...")
+			continue
+		}
+		log.Infof("DHCP get IPMI address succ, wait 2 seconds ...")
+		var tried int = 0
+		for tried < maxTries {
+			time.Sleep(2 * time.Second)
+			lanConf, err := ipmitool.GetLanConfig(sshIPMI, lanChannel)
+			if err != nil {
+				log.Errorf("Get lan config at channel %d error: %v", lanChannel, err)
+				tried += 2
+				continue
+			}
+			if lanConf.IPAddr == nic.IpAddr {
+				break
+			}
+			log.Infof("waiting IPMI DHCP address old:%s expect:%s", lanConf.IPAddr, nic.IpAddr)
+			tried += 2
+		}
+		if tried >= maxTries {
+			continue
+		}
+		err = ipmitool.SetLanStatic(
+			sshIPMI,
+			lanChannel,
+			nic.IpAddr,
+			nic.GetNetMask(),
+			nic.Gateway,
+		)
+		if err != nil {
+			log.Errorf("Set lanChannel %d static net %#v error: %v", lanChannel, nic, err)
+			continue
+		}
+		ipmiInfo.IpAddr = nic.IpAddr
+		ipmiLanChannel = lanChannel
+	}
+	if ipmiLanChannel == -1 {
+		return fmt.Errorf("Fail to get IPMI address from DHCP")
+	}
+	ipmiInfo.LanChannel = ipmiLanChannel
+	return nil
+}
+
+func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
+	infos, err := task.prepareBaremetalInfo(cli)
+	if err != nil {
+		return err
+	}
+
+	// set ipmi nic DHCP
+	if err = task.ipmiNicDHCP(cli, infos); err != nil {
+		return err
+	}
+
+	if err = task.updateBmInfo(cli, infos); err != nil {
+		return err
+	}
+
+	log.Infof("Prepare complete")
+	return nil
+}
+
+func (task *sBaremetalPrepareTask) updateBmInfo(cli *ssh.Client, i *baremetalPrepareInfo) error {
+	adminNic := task.baremetal.GetAdminNic()
 	// collect params
 	updateInfo := make(map[string]interface{})
 	oname := fmt.Sprintf("BM%s", strings.Replace(adminNic.Mac, ":", "", -1))
 	if task.baremetal.GetName() == oname {
-		updateInfo["name"] = fmt.Sprintf("BM-%s", strings.Replace(ipmiInfo.IpAddr, ".", "-", -1))
+		updateInfo["name"] = fmt.Sprintf("BM-%s", strings.Replace(i.ipmiInfo.IpAddr, ".", "-", -1))
 	}
 	updateInfo["access_ip"] = adminNic.IpAddr
-	updateInfo["cpu_count"] = cpuInfo.Count
-	updateInfo["node_count"] = dmiCPUInfo.Nodes
-	updateInfo["cpu_desc"] = cpuInfo.Model
-	updateInfo["cpu_mhz"] = cpuInfo.Freq
-	updateInfo["cpu_cache"] = cpuInfo.Cache
-	updateInfo["mem_size"] = memInfo.Total
-	updateInfo["storage_driver"] = storageDriver
-	updateInfo["storage_info"] = diskInfo
-	updateInfo["sys_info"] = sysInfo
-	updateInfo["sn"] = sysInfo.SN
-	size, diskType := task.collectDiskInfo(diskInfo)
+	updateInfo["cpu_count"] = i.cpuInfo.Count
+	updateInfo["node_count"] = i.dmiCpuInfo.Nodes
+	updateInfo["cpu_desc"] = i.cpuInfo.Model
+	updateInfo["cpu_mhz"] = i.cpuInfo.Freq
+	updateInfo["cpu_cache"] = i.cpuInfo.Cache
+	updateInfo["mem_size"] = i.memInfo.Total
+	updateInfo["storage_driver"] = i.storageDriver
+	updateInfo["storage_info"] = i.diskInfo
+	updateInfo["sys_info"] = i.sysInfo
+	updateInfo["sn"] = i.sysInfo.SN
+	size, diskType := task.collectDiskInfo(i.diskInfo)
 	updateInfo["storage_size"] = size
 	updateInfo["storage_type"] = diskType
 	updateData := jsonutils.Marshal(updateInfo)
-	updateData.(*jsonutils.JSONDict).Update(ipmiInfo.ToPrepareParams())
-	_, err = modules.Hosts.Update(task.getClientSession(), task.baremetal.GetId(), updateData)
+	updateData.(*jsonutils.JSONDict).Update(i.ipmiInfo.ToPrepareParams())
+	_, err := modules.Hosts.Update(task.getClientSession(), task.baremetal.GetId(), updateData)
 	if err != nil {
 		log.Errorf("Update baremetal info error: %v", err)
 	}
@@ -275,13 +319,13 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 	if err != nil {
 		return err
 	}
-	for i := range nicsInfo {
-		err = task.sendNicInfo(nicsInfo[i], i, "", false, "")
+	for idx := range i.nicsInfo {
+		err = task.sendNicInfo(i.nicsInfo[idx], idx, "", false, "")
 		if err != nil {
-			log.Errorf("Send nicinfo idx: %d, %#v error: %v", i, nicsInfo[i], err)
+			log.Errorf("Send nicinfo idx: %d, %#v error: %v", idx, i.nicsInfo[idx], err)
 		}
 	}
-	for _, nicInfo := range nicsInfo {
+	for _, nicInfo := range i.nicsInfo {
 		if nicInfo.Mac.String() != adminNic.GetMac().String() && nicInfo.Up {
 			err = task.doNicWireProbe(cli, nicInfo)
 			if err != nil {
@@ -289,8 +333,6 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 			}
 		}
 	}
-
-	log.Infof("Prepare complete")
 	return nil
 }
 
