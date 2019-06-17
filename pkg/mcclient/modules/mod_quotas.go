@@ -87,7 +87,7 @@ func (this *QuotaManager) GetQuotaList(s *mcclient.ClientSession, params jsonuti
 	var reqUrl string
 	domainId := jsonutils.GetAnyString(params, []string{"domain", "project_domain", "domain_id", "project_domain_id"})
 	if len(domainId) > 0 {
-		reqUrl = "/quotas/projects?domain_id=" + domainId
+		reqUrl = "/quotas/projects?project_domain=" + domainId
 	} else {
 		reqUrl = "/quotas/domains"
 	}
