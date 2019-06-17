@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/tristate"
@@ -27,20 +26,29 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-var QuotaManager *quotas.SQuotaManager
-
-func init() {
-	dbStore := quotas.NewDBQuotaStore()
-	pendingStore := quotas.NewMemoryQuotaStore()
-
-	QuotaManager = quotas.NewQuotaManager("quotas", SQuota{}, dbStore, pendingStore)
+type SQuotaManager struct {
+	quotas.SQuotaBaseManager
 }
 
-var (
-	ErrOutOfImage = errors.New("out of image quota")
-)
+var QuotaManager *SQuotaManager
+var QuotaUsageManager *SQuotaManager
+
+func init() {
+	pendingStore := quotas.NewMemoryQuotaStore()
+
+	QuotaUsageManager = &SQuotaManager{
+		SQuotaBaseManager: quotas.NewQuotaBaseManager(SQuota{}, "quota_usage_tbl", nil, nil),
+	}
+
+	// QuotaManager = quotas.NewQuotaManager("quotas", SQuota{}, dbStore, pendingStore)
+	QuotaManager = &SQuotaManager{
+		SQuotaBaseManager: quotas.NewQuotaBaseManager(SQuota{}, "quota_tbl", pendingStore, QuotaUsageManager),
+	}
+}
 
 type SQuota struct {
+	quotas.SQuotaBase
+
 	Image int
 }
 
@@ -48,7 +56,7 @@ func (self *SQuota) FetchSystemQuota() {
 	self.Image = options.Options.DefaultImageQuota
 }
 
-func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) error {
+func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string) error {
 	count := ImageManager.count(scope, ownerId, "", tristate.None, false)
 	self.Image = int(count["total"].Count)
 	return nil
@@ -79,12 +87,17 @@ func (self *SQuota) Update(quota quotas.IQuota) {
 }
 
 func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
+	err := quotas.NewOutOfQuotaError()
 	sreq := request.(*SQuota)
 	squota := quota.(*SQuota)
 	if sreq.Image > 0 && self.Image > squota.Image {
-		return ErrOutOfImage
+		err.Add("image", squota.Image, self.Image)
 	}
-	return nil
+	if err.IsError() {
+		return err
+	} else {
+		return nil
+	}
 }
 
 func (self *SQuota) ToJSON(prefix string) jsonutils.JSONObject {

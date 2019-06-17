@@ -321,7 +321,7 @@ func (manager *SImageManager) ValidateCreateData(ctx context.Context, userCred m
 	}
 
 	pendingUsage := SQuota{Image: 1}
-	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, &pendingUsage); err != nil {
+	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, nil, &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError("%s", err)
 	}
 
@@ -437,7 +437,7 @@ func (self *SImage) PostCreate(ctx context.Context, userCred mcclient.TokenCrede
 	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 
 	pendingUsage := SQuota{Image: 1}
-	QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, userCred, &pendingUsage, &pendingUsage)
+	QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, userCred, nil, &pendingUsage, &pendingUsage)
 
 	if data.Contains("properties") {
 		// update properties

@@ -106,16 +106,19 @@ func StartService() {
 
 	nbd.Init() // init nbd module for image probe
 
-	cron := cronman.GetCronJobManager(true)
-	cron.AddJob1("CleanPendingDeleteImages", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)
+	if !opts.IsSlaveNode {
+		cron := cronman.GetCronJobManager(true)
+		cron.AddJob1("CleanPendingDeleteImages", time.Duration(options.Options.PendingDeleteCheckSeconds)*time.Second, models.ImageManager.CleanPendingDeleteImages)
+		cron.AddJob1("CalculateQuotaUsages", time.Duration(opts.CalculateQuotaUsageIntervalSeconds)*time.Second, models.QuotaManager.CalculateQuotaUsages)
 
-	cron.Start()
+		cron.Start()
+	}
 
 	cloudcommon.AppDBInit(app)
 	app_common.ServeForeverWithCleanup(app, baseOpts, func() {
 		cloudcommon.CloseDB()
 
-		cron.Stop()
+		// cron.Stop()
 
 		if options.Options.EnableTorrentService {
 			torrent.StopTorrents()
