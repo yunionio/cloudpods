@@ -15,10 +15,12 @@
 package models
 
 import (
+	"context"
+	"fmt"
+	"time"
+
 	"yunion.io/x/jsonutils"
 
-	"context"
-	"time"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/keystone/keys"
@@ -98,8 +100,10 @@ func (manager *SCredentialManager) ValidateCreateData(ctx context.Context, userC
 		return nil, httperrors.NewInputParameterError("missing input feild type")
 	}
 	if !data.Contains("name") {
-		typeStr, _ := data.Get("type")
-		data.Add(typeStr, "name")
+		typeStr, _ := data.GetString("type")
+		userId, _ := data.GetString("user_id")
+		projectId, _ := data.GetString("project_id")
+		data.Add(jsonutils.NewString(fmt.Sprintf("%s-%s-%s", typeStr, projectId, userId)), "name")
 	}
 	blob, _ := data.GetString("blob")
 	if len(blob) == 0 {
