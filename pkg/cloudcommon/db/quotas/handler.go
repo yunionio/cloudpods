@@ -342,9 +342,20 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId
 		}
 		if len(projectId) > 0 {
 			quota.Set("tenant_id", jsonutils.NewString(projectId))
-		}
-		if len(domainId) > 0 {
 			quota.Set("domain_id", jsonutils.NewString(domainId))
+			project, err := db.TenantCacheManager.FetchTenantById(ctx, projectId)
+			if err != nil {
+				return nil, err
+			}
+			quota.Set("tenant", jsonutils.NewString(project.Name))
+			quota.Set("project_domain", jsonutils.NewString(project.Domain))
+		} else {
+			quota.Set("domain_id", jsonutils.NewString(domainId))
+			domain, err := db.TenantCacheManager.FetchDomainById(ctx, domainId)
+			if err != nil {
+				return nil, err
+			}
+			quota.Set("project_domain", jsonutils.NewString(domain.Name))
 		}
 		if len(platformStr) > 0 {
 			quota.Set("platform", jsonutils.NewString(platformStr))
