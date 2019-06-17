@@ -105,6 +105,8 @@ type ComputeOptions struct {
 
 	DisconnectedCloudAccountRetryProbeIntervalHours int `help:"interval to wait to probe status of a disconnected cloud account" default:"24"`
 
+	CalculateQuotaUsageIntervalSeconds int `help:"interval to calculate quota usages" default:"900"`
+
 	SCapabilityOptions
 	common_options.CommonOptions
 	common_options.DBOptions
