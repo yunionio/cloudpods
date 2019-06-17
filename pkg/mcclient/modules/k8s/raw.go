@@ -16,6 +16,7 @@ package k8s
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strings"
 
 	"yunion.io/x/jsonutils"
@@ -35,6 +36,7 @@ func init() {
 type rawResource struct {
 	kind  string
 	name  string
+	segs  []string
 	query jsonutils.JSONObject
 }
 
@@ -43,13 +45,18 @@ func newRawResource(kind, namespace, name, cluster string) *rawResource {
 	if cluster != "" {
 		nsQuery.Add(jsonutils.NewString(cluster), "cluster")
 	}
-	ctx := &rawResource{kind: kind, name: name, query: nsQuery}
+	ctx := &rawResource{kind: kind, name: name, segs: make([]string, 0), query: nsQuery}
 	return ctx
+}
+
+func (ctx *rawResource) addSegs(seg ...string) {
+	ctx.segs = append(ctx.segs, seg...)
 }
 
 func (ctx rawResource) path() string {
 	segs := make([]string, 0)
 	segs = append(segs, "_raw", ctx.kind, ctx.name)
+	segs = append(segs, ctx.segs...)
 	path := fmt.Sprintf("/%s", strings.Join(segs, "/"))
 	if ctx.query != nil {
 		qs := ctx.query.QueryString()
@@ -80,6 +87,17 @@ func getNamespaceQuery(namespace string) *jsonutils.JSONDict {
 func (m *RawResourceManager) Get(s *mcclient.ClientSession, kind string, namespace string, name string, cluster string) (jsonutils.JSONObject, error) {
 	ctx := newRawResource(kind, namespace, name, cluster)
 	return m.request(s, "GET", ctx.path(), nil)
+}
+
+func (m *RawResourceManager) GetYAML(s *mcclient.ClientSession, kind string, namespace string, name string, cluster string) ([]byte, error) {
+	ctx := newRawResource(kind, namespace, name, cluster)
+	ctx.addSegs("yaml")
+	resp, err := s.RawRequest(m.serviceType, "", "GET", ctx.path(), nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return ioutil.ReadAll(resp.Body)
 }
 
 func (m *RawResourceManager) Put(s *mcclient.ClientSession, kind string, namespace string, name string, body jsonutils.JSONObject, cluster string) error {

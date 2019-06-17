@@ -29,7 +29,8 @@ type MachineCreateOptions struct {
 	Type     string `help:"Resource type" choices:"vm|baremetal" json:"resource_type"`
 	Instance string `help:"VM or host instance id" json:"resource_id"`
 	Name     string `help:"Name of node"`
-	DiskSize string `help:"VM root disk size, e.g. 100G"`
+	Disk     string `help:"VM root disk size, e.g. 100G"`
+	Net      string `help:"VM network config"`
 	Cpu      int    `help:"VM cpu count"`
 	Memory   string `help:"VM memory size, e.g. 1G"`
 }
@@ -53,12 +54,19 @@ func (o MachineCreateOptions) Params() (*jsonutils.JSONDict, error) {
 		return params, nil
 	}
 	vmConfig := jsonutils.NewDict()
-	if len(o.DiskSize) != 0 {
-		diskConf, err := cmdline.ParseDiskConfig(o.DiskSize, 0)
+	if len(o.Disk) != 0 {
+		diskConf, err := cmdline.ParseDiskConfig(o.Disk, 0)
 		if err != nil {
-			return nil, errors.Wrapf(err, "Parse disk %s", o.DiskSize)
+			return nil, errors.Wrapf(err, "Parse disk %s", o.Disk)
 		}
 		vmConfig.Add(jsonutils.NewArray(diskConf.JSON(diskConf)), "disks")
+	}
+	if len(o.Net) != 0 {
+		netConf, err := cmdline.ParseNetworkConfig(o.Net, 0)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Parse network %s", o.Net)
+		}
+		vmConfig.Add(jsonutils.NewArray(netConf.JSON(netConf)), "nets")
 	}
 	if len(o.Memory) != 0 {
 		memSize, err := fileutils.GetSizeMb(o.Memory, 'M', 1024)

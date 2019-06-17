@@ -73,10 +73,11 @@ func (o ClusterCreateOptions) Params() *jsonutils.JSONDict {
 }
 
 type AddMachineOptions struct {
-	Machine         []string `help:"Machine create desc, e.g. host01:baremetal:controlplane"`
-	MachineDiskSize string   `help:"Machine root disk size, e.g. 100G"`
-	MachineCpu      int      `help:"Machine cpu count"`
-	MachineMemory   string   `help:"Machine memory size, e.g. 1G"`
+	Machine       []string `help:"Machine create desc, e.g. host01:baremetal:controlplane"`
+	MachineNet    string   `help:"Machine net config"`
+	MachineDisk   string   `help:"Machine root disk size, e.g. 100G"`
+	MachineCpu    int      `help:"Machine cpu count"`
+	MachineMemory string   `help:"Machine memory size, e.g. 1G"`
 }
 
 type KubeClusterCreateOptions struct {
@@ -94,7 +95,7 @@ type KubeClusterCreateOptions struct {
 	AddMachineOptions
 }
 
-func parseMachineDesc(desc string, diskSize string, ncpu int, memorySize string) (*MachineCreateOptions, error) {
+func parseMachineDesc(desc string, disk string, netConf string, ncpu int, memorySize string) (*MachineCreateOptions, error) {
 	matchType := func(p string) bool {
 		switch p {
 		case "baremetal", "vm":
@@ -128,9 +129,10 @@ func parseMachineDesc(desc string, diskSize string, ncpu int, memorySize string)
 	if mo.Type == "" {
 		return nil, fmt.Errorf("Machine type is empty")
 	}
-	mo.DiskSize = diskSize
+	mo.Disk = disk
 	mo.Cpu = ncpu
 	mo.Memory = memorySize
+	mo.Net = netConf
 	return mo, nil
 }
 
@@ -252,7 +254,7 @@ func (o AddMachineOptions) Params() (*jsonutils.JSONArray, error) {
 		return machineObjs, nil
 	}
 	for _, m := range o.Machine {
-		machine, err := parseMachineDesc(m, o.MachineDiskSize, o.MachineCpu, o.MachineMemory)
+		machine, err := parseMachineDesc(m, o.MachineDisk, o.MachineNet, o.MachineCpu, o.MachineMemory)
 		if err != nil {
 			return nil, err
 		}
