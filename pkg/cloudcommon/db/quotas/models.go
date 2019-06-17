@@ -30,18 +30,23 @@ const (
 
 	quotaKeyword  = "quota"
 	quotaKeywords = "quotas"
+
+	quotaUsageKeyword  = "quota-usage"
+	quotaUsageKeywords = "quota-usages"
 )
 
 func NewQuotaBaseManager(model interface{}, tableName string, pendingStore IQuotaStore, usageStore IQuotaStore) SQuotaBaseManager {
-	autoCreate := false
-	if usageStore != nil {
-		autoCreate = true
-	}
 	return SQuotaBaseManager{
 		SModelBaseManager: db.NewModelBaseManager(model, tableName, quotaKeyword, quotaKeywords),
 		pendingStore:      pendingStore,
 		usageStore:        usageStore,
-		autoCreate:        autoCreate,
+		autoCreate:        true,
+	}
+}
+
+func NewQuotaUsageManager(model interface{}, tableName string) SQuotaBaseManager {
+	return SQuotaBaseManager{
+		SModelBaseManager: db.NewModelBaseManager(model, tableName, quotaUsageKeyword, quotaUsageKeywords),
 	}
 }
 

@@ -37,10 +37,9 @@ func init() {
 	pendingStore := quotas.NewMemoryQuotaStore()
 
 	QuotaUsageManager = &SQuotaManager{
-		SQuotaBaseManager: quotas.NewQuotaBaseManager(SQuota{}, "quota_usage_tbl", nil, nil),
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{}, "quota_usage_tbl"),
 	}
 
-	// QuotaManager = quotas.NewQuotaManager("quotas", SQuota{}, dbStore, pendingStore)
 	QuotaManager = &SQuotaManager{
 		SQuotaBaseManager: quotas.NewQuotaBaseManager(SQuota{}, "quota_tbl", pendingStore, QuotaUsageManager),
 	}
