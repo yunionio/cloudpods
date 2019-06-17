@@ -616,7 +616,9 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 
 	//避免参数重名后还有pending.eip残留
 	eipPendingUsage := &SQuota{Eip: 1}
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, eipPendingUsage)
+
+	quotaPlatform := provider.(*SCloudprovider).GetQuotaPlatformID()
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, quotaPlatform, eipPendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
 	}

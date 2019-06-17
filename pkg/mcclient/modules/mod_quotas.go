@@ -56,6 +56,23 @@ func (this *QuotaManager) GetQuota(s *mcclient.ClientSession, params jsonutils.J
 	return computeQuotaDict, nil
 }
 
+func (this *QuotaManager) GetQuotaList(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	var reqUrl string
+	domainId := jsonutils.GetAnyString(params, []string{"domain", "project_domain"})
+	if len(domainId) > 0 {
+		reqUrl = "/quotas/projects?project_domain=" + domainId
+	} else {
+		reqUrl = "/quotas/domains"
+	}
+	computeQuotaList, err := this._list(s, reqUrl, this.KeywordPlural)
+	if err != nil {
+		return nil, err
+	}
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewArray(computeQuotaList.Data...), "data")
+	return ret, nil
+}
+
 func (this *QuotaManager) doPost(s *mcclient.ClientSession, params jsonutils.JSONObject, url string) (jsonutils.JSONObject, error) {
 	quotas, ok := params.(*jsonutils.JSONDict)
 	if !ok {

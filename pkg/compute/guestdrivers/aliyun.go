@@ -45,6 +45,13 @@ func (self *SAliyunGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ALIYUN
 }
 
+func (self *SAliyunGuestDriver) GetQuotaPlatformID() []string {
+	return []string{
+		api.CLOUD_ENV_PUBLIC_CLOUD,
+		api.CLOUD_PROVIDER_ALIYUN,
+	}
+}
+
 func (self *SAliyunGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_CLOUD_EFFICIENCY
 }

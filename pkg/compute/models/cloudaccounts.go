@@ -645,17 +645,17 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 	return newCloudprovider, isNew, nil
 }
 
-func (self *SCloudaccount) AllowPerformImport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return db.IsAdminAllowPerform(userCred, self, "import")
-}
+//func (self *SCloudaccount) AllowPerformImport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+//	return db.IsAdminAllowPerform(userCred, self, "import")
+//}
 
-func (self *SCloudaccount) PerformImport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	// autoCreateProject := jsonutils.QueryBoolean(data, "auto_create_project", false)
-	// autoSync := jsonutils.QueryBoolean(data, "auto_sync", false)
-	// err := self.startImportSubAccountTask(ctx, userCred, autoCreateProject, autoSync, "")
-	// noop
-	return nil, nil
-}
+//func (self *SCloudaccount) PerformImport(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+// autoCreateProject := jsonutils.QueryBoolean(data, "auto_create_project", false)
+// autoSync := jsonutils.QueryBoolean(data, "auto_sync", false)
+// err := self.startImportSubAccountTask(ctx, userCred, autoCreateProject, autoSync, "")
+// noop
+// return nil, nil
+//}
 
 func (manager *SCloudaccountManager) FetchCloudaccountById(accountId string) *SCloudaccount {
 	providerObj, err := manager.FetchById(accountId)
@@ -751,6 +751,16 @@ func (self *SCloudaccount) getProjectIds() []string {
 	return ret
 }
 
+func (self *SCloudaccount) getCloudEnv() string {
+	if self.IsOnPremise {
+		return api.CLOUD_ENV_ON_PREMISE
+	} else if self.IsPublicCloud != nil && *self.IsPublicCloud == true {
+		return api.CLOUD_ENV_PUBLIC_CLOUD
+	} else {
+		return api.CLOUD_ENV_PRIVATE_CLOUD
+	}
+}
+
 func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra = db.FetchModelExtraCountProperties(self, extra)
 	// cnt, _ := self.getProviderCount()
@@ -771,6 +781,7 @@ func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.
 	extra.Add(projects, "projects")
 	extra.Set("sync_interval_seconds", jsonutils.NewInt(int64(self.getSyncIntervalSeconds())))
 	extra.Set("sync_status2", jsonutils.NewString(self.getSyncStatus()))
+	extra.Set("cloud_env", jsonutils.NewString(self.getCloudEnv()))
 	return extra
 }
 

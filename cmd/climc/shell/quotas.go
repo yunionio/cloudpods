@@ -74,6 +74,19 @@ func init() {
 		return nil
 	})
 
+	type QuotaListOptions struct {
+		ProjectDomain string `help:"domain name or ID to query project quotas"`
+	}
+	R(&QuotaListOptions{}, "quota-list", "List quota of domains or projects of a domain", func(s *mcclient.ClientSession, args *QuotaListOptions) error {
+		params := jsonutils.Marshal(args)
+		result, e := modules.Quotas.GetQuotaList(s, params)
+		if e != nil {
+			return e
+		}
+		printList(modules.JSON2ListResult(result), nil)
+		return nil
+	})
+
 	/*type QuotaCheckOptions struct {
 		TENANT string `help:"Tenant name or ID to check quota" json:"tenant,omitempty"`
 		QuotaBaseOptions

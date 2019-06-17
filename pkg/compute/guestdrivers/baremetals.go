@@ -53,6 +53,14 @@ func (self *SBaremetalGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ONECLOUD
 }
 
+func (self *SBaremetalGuestDriver) GetQuotaPlatformID() []string {
+	return []string{
+		api.CLOUD_ENV_ON_PREMISE,
+		api.CLOUD_PROVIDER_ONECLOUD,
+		api.HYPERVISOR_BAREMETAL,
+	}
+}
+
 func (self *SBaremetalGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_LOCAL
 }

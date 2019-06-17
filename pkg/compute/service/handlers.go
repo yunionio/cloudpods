@@ -33,7 +33,8 @@ func InitHandlers(app *appsrv.Application) {
 
 	db.RegistUserCredCacheUpdater()
 
-	quotas.AddQuotaHandler(models.QuotaManager, "", app)
+	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, "", app)
+
 	usages.AddUsageHandler("", app)
 	capabilities.AddCapabilityHandler("", app)
 	specs.AddSpecHandler("", app)
@@ -51,6 +52,9 @@ func InitHandlers(app *appsrv.Application) {
 		models.GuestcdromManager,
 		models.NetInterfaceManager,
 		models.VCenterManager,
+
+		models.QuotaManager,
+		models.QuotaUsageManager,
 	} {
 		db.RegisterModelManager(manager)
 	}

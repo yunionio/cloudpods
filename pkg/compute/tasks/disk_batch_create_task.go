@@ -93,10 +93,13 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 		log.Errorf("GetPendingUsage fail %s", err)
 	}
 
+	input, _ := self.GetCreateInput()
+	quotaPlatform := models.GetQuotaPlatformID(input.Hypervisor)
+
 	quotaStorage := models.SQuota{Storage: disk.DiskSize}
 
 	onError := func(err error) {
-		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), &pendingUsage, &quotaStorage)
+		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), quotaPlatform, &pendingUsage, &quotaStorage)
 		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())
 		self.SetStageFailed(ctx, err.Error())
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
@@ -117,7 +120,7 @@ func (self *DiskBatchCreateTask) SaveScheduleResult(ctx context.Context, obj ISc
 	}
 	err = disk.SetStorageByHost(hostId, diskConfig, storageIds)
 	if err != nil {
-		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), &pendingUsage, &quotaStorage)
+		models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), quotaPlatform, &pendingUsage, &quotaStorage)
 		disk.SetStatus(self.UserCred, api.DISK_ALLOC_FAILED, err.Error())
 		self.SetStageFailed(ctx, err.Error())
 		db.OpsLog.LogEvent(disk, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
@@ -134,8 +137,12 @@ func (self *DiskBatchCreateTask) startCreateDisk(ctx context.Context, disk *mode
 	if err != nil {
 		log.Errorf("GetPendingUsage fail %s", err)
 	}
+
+	input, _ := self.GetCreateInput()
+	quotaPlatform := models.GetQuotaPlatformID(input.Hypervisor)
+
 	quotaStorage := models.SQuota{Storage: disk.DiskSize}
-	models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), &pendingUsage, &quotaStorage)
+	models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), quotaPlatform, &pendingUsage, &quotaStorage)
 	self.SetPendingUsage(&pendingUsage)
 
 	disk.StartDiskCreateTask(ctx, self.GetUserCred(), false, "", self.GetTaskId())

@@ -42,7 +42,8 @@ func (self *SGuestBaseTask) finalReleasePendingUsage(ctx context.Context) {
 	if err != nil {
 		if !pendingUsage.IsEmpty() {
 			guest := self.getGuest()
-			models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, guest.GetOwnerId(), &pendingUsage, &pendingUsage)
+			quotaPlatform := guest.GetQuotaPlatformID()
+			models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, guest.GetOwnerId(), quotaPlatform, &pendingUsage, &pendingUsage)
 		}
 	}
 }

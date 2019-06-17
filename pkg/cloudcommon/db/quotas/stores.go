@@ -19,14 +19,15 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"strings"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type IQuotaStore interface {
-	GetQuota(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error
-	SetQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error
+	GetQuota(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, quota IQuota) error
+	SetQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, quota IQuota) error
 }
 
 type SMemoryQuotaStore struct {
@@ -39,33 +40,33 @@ func NewMemoryQuotaStore() *SMemoryQuotaStore {
 	}
 }
 
-func (self *SMemoryQuotaStore) GetQuota(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error {
-	var tenantId string
-	switch scope {
-	case rbacutils.ScopeDomain:
-		tenantId = ownerId.GetProjectDomainId()
-	default:
-		tenantId = ownerId.GetProjectId()
+func getMemoryStoreKey(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, name []string) string {
+	keys := make([]string, 0)
+	keys = append(keys, ownerId.GetProjectDomainId())
+	if scope == rbacutils.ScopeProject {
+		keys = append(keys, ownerId.GetProjectId())
 	}
-	json, ok := self.store[tenantId]
+	if len(name) > 0 {
+		keys = append(keys, name...)
+	}
+	return strings.Join(keys, nameSeparator)
+}
+
+func (self *SMemoryQuotaStore) GetQuota(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, name []string, quota IQuota) error {
+	key := getMemoryStoreKey(scope, ownerId, name)
+	json, ok := self.store[key]
 	if ok {
 		return json.Unmarshal(quota)
 	}
 	return nil
 }
 
-func (self *SMemoryQuotaStore) SetQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error {
-	var tenantId string
-	switch scope {
-	case rbacutils.ScopeDomain:
-		tenantId = ownerId.GetProjectDomainId()
-	default:
-		tenantId = ownerId.GetProjectId()
-	}
+func (self *SMemoryQuotaStore) SetQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, name []string, quota IQuota) error {
+	key := getMemoryStoreKey(scope, ownerId, name)
 	if quota.IsEmpty() {
-		delete(self.store, tenantId)
+		delete(self.store, key)
 	} else {
-		self.store[tenantId] = jsonutils.Marshal(quota)
+		self.store[key] = jsonutils.Marshal(quota)
 	}
 	return nil
 }
@@ -99,7 +100,7 @@ func (store *SDBQuotaStore) GetQuota(ctx context.Context, scope rbacutils.TRbacS
 	return nil
 }
 
-func (store *SDBQuotaStore) SetQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error {
+/*func (store *SDBQuotaStore) SetQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, quota IQuota) error {
 	var tenant *db.STenant
 	var err error
 
@@ -115,4 +116,4 @@ func (store *SDBQuotaStore) SetQuota(ctx context.Context, userCred mcclient.Toke
 	}
 	quotaJson := jsonutils.Marshal(quota)
 	return tenant.SetMetadata(ctx, METADATA_KEY, quotaJson, userCred)
-}
+}*/

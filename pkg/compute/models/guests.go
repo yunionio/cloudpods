@@ -1204,7 +1204,11 @@ func (manager *SGuestManager) validateEip(userCred mcclient.TokenCredential, inp
 
 func (manager *SGuestManager) checkCreateQuota(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.ServerCreateInput, hasBackup bool) error {
 	req := getGuestResourceRequirements(ctx, userCred, input, 1, hasBackup)
-	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, &req)
+	quotaPlatform := make([]string, 0)
+	if len(input.Hypervisor) > 0 {
+		quotaPlatform = GetDriver(input.Hypervisor).GetQuotaPlatformID()
+	}
+	err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatform, &req)
 	if err != nil {
 		return httperrors.NewOutOfQuotaError(err.Error())
 	} else {
@@ -1223,7 +1227,8 @@ func (self *SGuest) checkUpdateQuota(ctx context.Context, userCred mcclient.Toke
 		req.Memory = vmemSize - self.VmemSize
 	}
 
-	_, err := QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), &req)
+	quotaPlatform := self.GetQuotaPlatformID()
+	_, err := QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, &req)
 
 	return err
 }
@@ -2215,7 +2220,8 @@ func (self *SGuest) attach2NetworkOnce(ctx context.Context, userCred mcclient.To
 			cancelUsage.Port = 1
 			cancelUsage.Bw = bwLimit
 		}
-		err = QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), pendingUsage, &cancelUsage)
+		quotaPlatform := self.GetQuotaPlatformID()
+		err = QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, pendingUsage, &cancelUsage)
 		if err != nil {
 			log.Warningf("QuotaManager.CancelPendingUsage fail %s", err)
 		}
@@ -2792,9 +2798,11 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 		return nil, err
 	}
 
+	quotaPlatform := self.GetQuotaPlatformID()
+
 	cancelUsage := SQuota{}
 	cancelUsage.Storage = disk.DiskSize
-	err = QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), pendingUsage, &cancelUsage)
+	err = QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, pendingUsage, &cancelUsage)
 
 	return disk, nil
 }
@@ -2877,8 +2885,10 @@ func (self *SGuest) createIsolatedDeviceOnHost(ctx context.Context, userCred mcc
 		return err
 	}
 
+	quotaPlatform := self.GetQuotaPlatformID()
+
 	cancelUsage := SQuota{IsolatedDevice: 1}
-	err = QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), pendingUsage, &cancelUsage)
+	err = QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, pendingUsage, &cancelUsage)
 	return err
 }
 
