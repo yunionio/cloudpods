@@ -279,13 +279,12 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	wire.VpcId = vpc.Id
 	izone := extWire.GetIZone()
 	if izone != nil {
-		zoneObj, err := ZoneManager.FetchByExternalId(izone.GetGlobalId())
+		zone, err := vpc.getZoneByExternalId(izone.GetGlobalId())
 		if err != nil {
 			log.Errorf("cannot find zone for wire %s", err)
 			return nil, err
 		}
-
-		wire.ZoneId = zoneObj.(*SZone).Id
+		wire.ZoneId = zone.Id
 	}
 
 	wire.IsEmulated = extWire.IsEmulated()
