@@ -107,6 +107,7 @@ func (m *SHostMetricsCollector) reportUsageToTelegraf(data string) {
 		log.Errorf("Upload guest metric failed: %s", err)
 		return
 	}
+	defer res.Body.Close()
 	if res.StatusCode != 204 {
 		log.Errorf("upload guest metric failed %d", res.StatusCode)
 		timestamp := time.Now().UnixNano()
@@ -119,6 +120,9 @@ func (m *SHostMetricsCollector) reportUsageToTelegraf(data string) {
 			oldDatas := strings.Join(m.waitingReportData, "\n")
 			body = strings.NewReader(oldDatas)
 			res, err = httputils.Request(httputils.GetDefaultClient(), context.Background(), "POST", TelegrafServer, nil, body, false)
+			if err == nil {
+				defer res.Body.Close()
+			}
 			if res.StatusCode == 204 {
 				m.waitingReportData = m.waitingReportData[len(m.waitingReportData):]
 			} else {
