@@ -364,6 +364,7 @@ type SCloudProviderInfo struct {
 	Zone             string `json:",omitempty"`
 	ZoneId           string `json:",omitempty"`
 	ZoneExtId        string `json:",omitempty"`
+	CloudEnv         string `json:",omitempty"`
 }
 
 var (
@@ -382,6 +383,7 @@ var (
 		"zone",
 		"zone_id",
 		"zone_ext_id",
+		"cloud_env",
 	}
 )
 
@@ -425,6 +427,7 @@ func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudpr
 
 		info.Provider = provider.Provider
 		info.Brand = account.Brand
+		info.CloudEnv = account.getCloudEnv()
 
 		if region != nil {
 			info.RegionExtId = fetchExternalId(region.ExternalId)
@@ -432,6 +435,10 @@ func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudpr
 				info.ZoneExtId = fetchExternalId(zone.ExternalId)
 			}
 		}
+	} else {
+		info.CloudEnv = api.CLOUD_ENV_ON_PREMISE
+		info.Provider = api.CLOUD_PROVIDER_ONECLOUD
+		info.Brand = api.CLOUD_PROVIDER_ONECLOUD
 	}
 
 	return info

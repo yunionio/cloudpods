@@ -46,6 +46,13 @@ func (self *SZStackGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ZSTACK
 }
 
+func (self *SZStackGuestDriver) GetQuotaPlatformID() []string {
+	return []string{
+		api.CLOUD_ENV_PRIVATE_CLOUD,
+		api.CLOUD_PROVIDER_ZSTACK,
+	}
+}
+
 func (self *SZStackGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_ZSTACK_LOCAL_STORAGE
 }

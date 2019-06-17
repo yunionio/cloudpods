@@ -41,7 +41,7 @@ func init() {
 }
 
 func (self *EipAllocateTask) onFailed(ctx context.Context, eip *models.SElasticip, reason string) {
-	self.finalReleasePendingUsage(ctx)
+	self.finalReleasePendingUsage(ctx, eip)
 	self.setGuestAllocateEipFailed(eip, reason)
 	self.SetStageFailed(ctx, reason)
 }
@@ -63,10 +63,11 @@ func (self *EipAllocateTask) setGuestAllocateEipFailed(eip *models.SElasticip, r
 	}
 }
 
-func (self *EipAllocateTask) finalReleasePendingUsage(ctx context.Context) {
+func (self *EipAllocateTask) finalReleasePendingUsage(ctx context.Context, eip *models.SElasticip) {
 	pendingUsage := models.SQuota{}
 	if err := self.GetPendingUsage(&pendingUsage); err == nil && !pendingUsage.IsEmpty() {
-		if err := models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, self.UserCred, nil, &pendingUsage); err != nil {
+		quotaPlatform := eip.GetQuotaPlatformID()
+		if err := models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, self.UserCred, quotaPlatform, nil, &pendingUsage); err != nil {
 			log.Errorf("CancelPendingUsage error: %v", err)
 		}
 	}
@@ -144,7 +145,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		return
 	}
 
-	self.finalReleasePendingUsage(ctx)
+	self.finalReleasePendingUsage(ctx, eip)
 
 	if self.Params != nil && self.Params.Contains("instance_id") {
 		self.SetStage("on_eip_associate_complete", nil)

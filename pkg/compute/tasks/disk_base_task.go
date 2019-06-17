@@ -42,7 +42,8 @@ func (self *SDiskBaseTask) finalReleasePendingUsage(ctx context.Context) {
 	if err == nil {
 		if !pendingUsage.IsEmpty() {
 			disk := self.getDisk()
-			models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), &pendingUsage, &pendingUsage)
+			quotaPlatform := disk.GetQuotaPlatformID()
+			models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, disk.GetOwnerId(), quotaPlatform, &pendingUsage, &pendingUsage)
 		}
 	}
 }
