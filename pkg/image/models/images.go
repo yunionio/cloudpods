@@ -115,6 +115,9 @@ type SImage struct {
 	MinRamMB   int32  `name:"min_ram" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
 
 	Protected tristate.TriState `nullable:"true" list:"user" get:"user" create:"optional" update:"user"`
+
+	// image copy from url, save origin checksum before probe
+	OssChecksum string `width:"32" charset:"ascii" nullable:"true" get:"user" list:"user"`
 }
 
 func (manager *SImageManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
@@ -219,6 +222,15 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 	return nil, nil
 }
 
+func (self *SImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
+	var ossChksum = self.OssChecksum
+	if len(self.OssChecksum) == 0 {
+		ossChksum = self.Checksum
+	}
+	extra.Set("oss_checksum", jsonutils.NewString(ossChksum))
+	return extra
+}
+
 func (self *SImage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	properties, _ := ImagePropertyManager.GetProperties(self.Id)
@@ -229,7 +241,7 @@ func (self *SImage) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 		}
 		extra.Add(jsonProps, "properties")
 	}
-	return extra
+	return self.getMoreDetails(ctx, userCred, query, extra)
 }
 
 func (self *SImage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
@@ -253,7 +265,7 @@ func (self *SImage) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 		extra.Add(jsonutils.NewString(timeutils.FullIsoTime(pendingDeletedAt)), "auto_delete_at")
 	}
 
-	return extra, nil
+	return self.getMoreDetails(ctx, userCred, query, extra), nil
 }
 
 func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) map[string]string {
@@ -298,6 +310,13 @@ func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclien
 			}
 		}
 	}
+
+	// none of subimage business
+	var ossChksum = self.OssChecksum
+	if len(self.OssChecksum) == 0 {
+		ossChksum = self.Checksum
+	}
+	headers[fmt.Sprintf("%s%s", modules.IMAGE_META, "oss_checksum")] = ossChksum
 
 	properties, _ := ImagePropertyManager.GetProperties(self.Id)
 	if len(properties) > 0 {
