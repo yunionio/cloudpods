@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
@@ -237,6 +238,26 @@ func (self *SVpc) GetRegion() (*SCloudregion, error) {
 		return nil, err
 	}
 	return region.(*SCloudregion), nil
+}
+
+func (self *SVpc) getZoneByExternalId(externalId string) (*SZone, error) {
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, errors.Wrapf(err, "getZoneByExternalId.GetRegion")
+	}
+	zones := []SZone{}
+	q := ZoneManager.Query().Equals("cloudregion_id", region.Id).Equals("external_id", externalId)
+	err = db.FetchModelObjects(ZoneManager, q, &zones)
+	if err != nil {
+		return nil, errors.Wrapf(err, "getZoneByExternalId.FetchModelObjects")
+	}
+	if len(zones) == 1 {
+		return &zones[0], nil
+	}
+	if len(zones) == 0 {
+		return nil, fmt.Errorf("failed to found zone by externalId %s in cloudregion %s(%s)", externalId, region.Name, region.Id)
+	}
+	return nil, fmt.Errorf("found %d duplicate zones by externalId %s in cloudregion %s(%s)", len(zones), externalId, region.Name, region.Id)
 }
 
 func (self *SVpc) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
