@@ -21,9 +21,11 @@ import (
 var ErrNoDataToUpdate error
 var ErrDuplicateEntry error
 var ErrEmptyQuery error
+var ErrEmptyPrimaryKey error
 
 func init() {
 	ErrNoDataToUpdate = errors.New("No data to update")
 	ErrDuplicateEntry = errors.New("duplicate entry")
 	ErrEmptyQuery = errors.New("empty query")
+	ErrEmptyPrimaryKey = errors.New("empty primary keys")
 }
