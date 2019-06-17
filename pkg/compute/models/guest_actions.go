@@ -2137,7 +2137,7 @@ func (self *SGuest) AllowPerformSyncstatus(ctx context.Context, userCred mcclien
 
 func (self *SGuest) PerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	var openTask = true
-	count := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-1*time.Hour), &openTask).Count()
+	count := taskman.TaskManager.QueryTasksOfObject(self, time.Now().Add(-3*time.Minute), &openTask).Count()
 	if count > 0 {
 		return nil, httperrors.NewBadRequestError("Guest has %d task active, can't sync status", count)
 	}
