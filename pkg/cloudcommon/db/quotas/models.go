@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
 
@@ -94,4 +95,53 @@ func (manager *SQuotaBaseManager) setQuotaInternal(ctx context.Context, userCred
 	}
 
 	return manager.TableSpec().InsertOrUpdate(quota)
+}
+
+func (manager *SQuotaBaseManager) InitializeData() error {
+	quotaCnt, err := manager.Query().CountWithError()
+	if err != nil {
+		return errors.Wrap(err, "SQuotaManager.CountWithError")
+	}
+	if quotaCnt > 0 {
+		// initlaized, quit
+		return nil
+	}
+
+	metaQuota := newDBQuotaStore()
+
+	tenants := make([]db.STenant, 0)
+	err = db.TenantCacheManager.Query().All(&tenants)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.Wrap(err, "Query")
+	}
+
+	for i := range tenants {
+		ownerId := db.SOwnerId{
+			DomainId:  tenants[i].DomainId,
+			Domain:    tenants[i].Domain,
+			ProjectId: tenants[i].Id,
+			Project:   tenants[i].Name,
+		}
+		quota := manager.newQuota()
+		err := metaQuota.GetQuota(context.Background(), rbacutils.ScopeProject, &ownerId, quota)
+		if err != nil && err != sql.ErrNoRows {
+			log.Errorf("metaQuota.GetQuota error %s for %s", err, ownerId)
+			continue
+		}
+		if !quota.IsEmpty() {
+			baseQuota := SQuotaBase{}
+			baseQuota.DomainId = ownerId.DomainId
+			baseQuota.ProjectId = ownerId.ProjectId
+			baseQuota.SetModelManager(manager, quota.(db.IModel))
+			reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseQuota))
+
+			err = manager.TableSpec().Insert(quota)
+			if err != nil {
+				log.Errorf("insert error %s", err)
+				continue
+			}
+		}
+	}
+
+	return nil
 }

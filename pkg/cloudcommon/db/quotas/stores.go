@@ -74,7 +74,7 @@ func (self *SMemoryQuotaStore) SetQuota(ctx context.Context, userCred mcclient.T
 type SDBQuotaStore struct {
 }
 
-func NewDBQuotaStore() *SDBQuotaStore {
+func newDBQuotaStore() *SDBQuotaStore {
 	return &SDBQuotaStore{}
 }
 

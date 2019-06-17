@@ -28,6 +28,8 @@ func InitDB() error {
 		 */
 		db.TenantCacheManager,
 		ImageManager,
+
+		QuotaManager,
 	} {
 		err := manager.InitializeData()
 		if err != nil {
