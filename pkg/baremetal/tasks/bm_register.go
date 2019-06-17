@@ -1,0 +1,174 @@
+package tasks
+
+import (
+	"fmt"
+	"strings"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+
+	o "yunion.io/x/onecloud/pkg/baremetal/options"
+	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/ssh"
+	"yunion.io/x/onecloud/pkg/util/sysutils"
+)
+
+type sBaremetalRegisterTask struct {
+	sBaremetalPrepareTask
+
+	BmManager IBmManager
+	SshCli    *ssh.Client
+
+	Hostname string
+	RemoteIp string
+
+	IpmiUsername string
+	IpmiPassword string
+	IpmiIpAddr   string
+
+	accessNic *types.SNicDevInfo
+}
+
+func NewBaremetalRegisterTask(bmManager IBmManager, sshCli *ssh.Client, hostname, remoteIp, ipmiUsername, ipmiPassword, ipmiIpAddr string) *sBaremetalRegisterTask {
+	return &sBaremetalRegisterTask{
+		BmManager:    bmManager,
+		SshCli:       sshCli,
+		Hostname:     hostname,
+		RemoteIp:     remoteIp,
+		IpmiUsername: ipmiUsername,
+		IpmiPassword: ipmiPassword,
+		IpmiIpAddr:   ipmiIpAddr,
+	}
+}
+
+func (s *sBaremetalRegisterTask) CreateBaremetal() error {
+	zoneId := s.BmManager.GetZoneId()
+	ret, err := s.SshCli.Run("/lib/mos/lsnic")
+	if err != nil {
+		return fmt.Errorf("Register baremeatl failed on lsnic: %s", err)
+	}
+	nicinfo := sysutils.ParseNicInfo(ret)
+	for _, nic := range nicinfo {
+		if nic.Up {
+			s.accessNic = nic
+			break
+		}
+	}
+	if s.accessNic == nil {
+		return fmt.Errorf("Register baremeatl failed: NO nic up ???")
+	}
+
+	params := jsonutils.NewDict()
+	params.Set("name", jsonutils.NewString("BM"+strings.Replace(s.accessNic.Mac.String(), ":", "", -1)))
+	params.Set("access_mac", jsonutils.NewString(s.accessNic.Mac.String()))
+	params.Set("host_type", jsonutils.NewString("baremetal"))
+	params.Set("is_baremetal", jsonutils.JSONTrue)
+	params.Set("is_import", jsonutils.JSONTrue)
+	res, err := modules.Hosts.CreateInContext(s.BmManager.GetClientSession(), params, &modules.Zones, zoneId)
+	if err != nil {
+		return fmt.Errorf("Create baremetal failed: %s", err)
+	}
+	pxeBm, err := s.BmManager.AddBaremetal(res)
+	if err != nil {
+		return fmt.Errorf("BmManager add baremetal failed: %s", err)
+	}
+	s.baremetal = pxeBm.(IBaremetal)
+	return nil
+}
+
+func (s *sBaremetalRegisterTask) update() {
+
+}
+
+func (s *sBaremetalRegisterTask) DoPrepare(cli *ssh.Client) error {
+	infos, err := s.prepareBaremetalInfo(cli)
+	if err != nil {
+		return err
+	}
+
+	infos.ipmiInfo.IpAddr = s.IpmiIpAddr
+	infos.ipmiInfo.Username = s.IpmiUsername
+	infos.ipmiInfo.Password = s.IpmiPassword
+	s.updateIpmiInfo(cli)
+
+	return s.updateBmInfo(cli, infos)
+}
+
+func (s *sBaremetalRegisterTask) updateIpmiInfo(cli *ssh.Client) {
+	ipmiTool := ipmitool.NewSSHIPMI(cli)
+	sysInfo, err := ipmitool.GetSysInfo(ipmiTool)
+	if err == nil && o.Options.IpmiLanPortShared {
+		oemName := strings.ToLower(sysInfo.Manufacture)
+		if strings.Contains(oemName, "huawei") {
+			ipmitool.SetHuaweiIPMILanPortShared(ipmiTool)
+		} else if strings.Contains(oemName, "dell") {
+			ipmitool.SetDellIPMILanPortShared(ipmiTool)
+		}
+	}
+	var nic = &types.SNicDevInfo{
+		Up:    true,
+		Speed: 100,
+		Mtu:   1500,
+	}
+
+	var conf *types.SIPMILanConfig
+	for _, lanChannel := range ipmitool.GetLanChannels(sysInfo) {
+		conf, err = ipmitool.GetLanConfig(ipmiTool, lanChannel)
+		if err == nil || len(conf.Mac) == 0 {
+			continue
+		}
+	}
+	if conf == nil || len(conf.Mac) == 0 {
+		log.Errorln("Fail to get IPMI lan config !!!")
+	} else {
+		nic.Mac = conf.Mac
+	}
+	s.sendNicInfo(nic, -1, types.NIC_TYPE_IPMI, true, "")
+}
+
+func (s *sBaremetalRegisterTask) updateBmInfo(cli *ssh.Client, i *baremetalPrepareInfo) error {
+	updateInfo := make(map[string]interface{})
+	updateInfo["access_ip"] = s.RemoteIp
+	updateInfo["cpu_count"] = i.cpuInfo.Count
+	updateInfo["node_count"] = i.dmiCpuInfo.Nodes
+	updateInfo["cpu_desc"] = i.cpuInfo.Model
+	updateInfo["cpu_mhz"] = i.cpuInfo.Freq
+	updateInfo["cpu_cache"] = i.cpuInfo.Cache
+	updateInfo["mem_size"] = i.memInfo.Total
+	updateInfo["storage_driver"] = i.storageDriver
+	updateInfo["storage_info"] = i.diskInfo
+	updateInfo["sys_info"] = i.sysInfo
+	updateInfo["sn"] = i.sysInfo.SN
+	size, diskType := s.collectDiskInfo(i.diskInfo)
+	updateInfo["storage_size"] = size
+	updateInfo["storage_type"] = diskType
+	updateData := jsonutils.Marshal(updateInfo)
+	updateData.(*jsonutils.JSONDict).Update(i.ipmiInfo.ToPrepareParams())
+	_, err := modules.Hosts.Update(s.getClientSession(), s.baremetal.GetId(), updateData)
+	if err != nil {
+		log.Errorf("Update baremetal info error: %v", err)
+	}
+	if err := s.sendStorageInfo(size); err != nil {
+		log.Errorf("sendStorageInfo error: %v", err)
+	}
+	for idx := range i.nicsInfo {
+		err = s.sendNicInfo(i.nicsInfo[idx], idx, "", false, "")
+		if err != nil {
+			log.Errorf("Send nicinfo idx: %d, %#v error: %v", idx, i.nicsInfo[idx], err)
+		}
+	}
+	if err := s.baremetal.InitializeServer(s.Hostname); err != nil {
+		return fmt.Errorf("Baremteal Create Server Failed %s", err)
+	}
+	// if err := s.baremetal.SaveSSHConfig("", ""); err != nil {
+	// 	log.Errorf("Save ssh config failed %s", err)
+	// }
+	if err := s.baremetal.ServerLoadDesc(); err != nil {
+		log.Errorf("Server load desc failed %s", err)
+	}
+	s.baremetal.SyncStatus("running", "Register success")
+	log.Infof("%s Load baremetal info success ...", s.baremetal.GetId())
+	return nil
+}

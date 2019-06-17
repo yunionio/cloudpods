@@ -58,5 +58,7 @@ func executeDelayProcess(task *delayTask) {
 		modules.ComputeTasks.TaskFailed(task.session, task.taskId, err)
 		return
 	}
-	modules.ComputeTasks.TaskComplete(task.session, task.taskId, ret)
+	if len(task.taskId) > 0 {
+		modules.ComputeTasks.TaskComplete(task.session, task.taskId, ret)
+	}
 }
