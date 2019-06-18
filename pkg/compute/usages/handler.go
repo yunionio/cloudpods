@@ -461,6 +461,9 @@ func WireUsage(rangeObj db.IStandaloneModel, hostTypes []string, providers []str
 	count["all.nics.guest"] = result.GuestNicCount
 	count["all.nics.host"] = result.HostNicCount
 	count["all.nics.reserve"] = result.ReservedCount
+	count["all.nics.group"] = result.GroupNicCount
+	count["all.nics.lb"] = result.LbNicCount
+	count["all.nics"] = result.NicCount()
 	return count
 }
 
@@ -606,6 +609,7 @@ func EipUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, ra
 	count[getKey(projectId, "eip.public_ip")] = eipUsage.PublicIPCount
 	count[getKey(projectId, "eip.floating_ip")] = eipUsage.EIPCount
 	count[getKey(projectId, "eip.floating_ip.used")] = eipUsage.EIPUsedCount
+	count[getKey(projectId, "eip.used")] = eipUsage.EIPUsedCount + eipUsage.PublicIPCount
 	return count
 }
 
