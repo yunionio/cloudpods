@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/baremetal/profiles"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -307,17 +308,58 @@ func EnableLanAccess(exector IPMIExecutor, channel int) error {
 	return setLanAccess(exector, channel, "on")
 }
 
-func SetLanUserPasswd(exector IPMIExecutor, channel int, rootId int, user string, password string) error {
+func ListLanUsers(exector IPMIExecutor, channel int) ([]compute.IPMIUser, error) {
+	args := newArgs("user", "list", channel)
+	ret, err := ExecuteCommands(exector, args)
+	if err != nil {
+		return nil, errors.Wrapf(err, "list user at channel %d", channel)
+	}
+	return sysutils.ParseIPMIUser(ret), nil
+}
+
+func CreateOrSetAdminUser(exector IPMIExecutor, channel int, rootId int, username string, password string) error {
+	users, err := ListLanUsers(exector, channel)
+	if err != nil {
+		return errors.Wrap(err, "List users")
+	}
+	if len(users) == 0 {
+		return errors.Errorf("Empty users at channel %d", channel)
+	}
+	var foundUser *compute.IPMIUser = nil
+	for _, user := range users {
+		tmp := user
+		if user.Name == username {
+			foundUser = &tmp
+			break
+		}
+	}
+	if foundUser == nil {
+		minEmptyUserId := -1
+		for _, user := range users {
+			if user.Name == "" {
+				minEmptyUserId = user.Id
+				break
+			}
+		}
+		if minEmptyUserId == -1 {
+			log.Warningf("Not found min empty user id, use root id %d to set", rootId)
+			minEmptyUserId = rootId
+		}
+		return SetIdUserPasswd(exector, channel, minEmptyUserId, username, password)
+	}
+	return SetLanUserAdminPasswd(exector, channel, foundUser.Id, password)
+}
+
+func SetLanUserAdminPasswd(exector IPMIExecutor, channel int, id int, password string) error {
 	var err error
 	password, err = stage_stringutils.EscapeEchoString(password)
 	if err != nil {
 		return fmt.Errorf("EscapeEchoString for password: %s, error: %v", password, err)
 	}
 	args := []Args{
-		newArgs("user", "enable", rootId),
-		newArgs("user", "set", "name", rootId, user),
-		newArgs("user", "set", "password", rootId, fmt.Sprintf("\"%s\"", password)),
-		newArgs("user", "priv", rootId, 4, channel),
+		newArgs("user", "enable", id),
+		newArgs("user", "set", "password", id, fmt.Sprintf("\"%s\"", password)),
+		newArgs("user", "priv", id, 4, channel),
 	}
 	err = doActions(exector, "set_lan_user_password", args...)
 	if err != nil {
@@ -326,17 +368,25 @@ func SetLanUserPasswd(exector IPMIExecutor, channel int, rootId int, user string
 	args = []Args{newArgs(
 		"raw", "0x06", "0x43",
 		fmt.Sprintf("0x%02x", 0xb0+channel),
-		fmt.Sprintf("0x%02x", rootId), "0x04", "0x00")}
+		fmt.Sprintf("0x%02x", id), "0x04", "0x00")}
 	err = doActions(exector, "set_lan_user_password2", args...)
 	if err == nil {
 		return nil
 	}
 	args = []Args{newArgs(
 		"channel", "setaccess", channel,
-		rootId, "link=on", "ipmi=on",
+		id, "link=on", "ipmi=on",
 		"callin=on", "privilege=4",
 	)}
 	return doActions(exector, "set_lan_user_password3", args...)
+}
+
+func SetIdUserPasswd(exector IPMIExecutor, channel int, id int, user string, password string) error {
+	args := newArgs("user", "set", "name", id, user)
+	if err := doActions(exector, fmt.Sprintf("set_id%d_name", id), args); err != nil {
+		return errors.Wrapf(err, "change root id %d to name %s", id, user)
+	}
+	return SetLanUserAdminPasswd(exector, channel, id, password)
 }
 
 func SetLanPasswd(exector IPMIExecutor, rootId int, password string) error {

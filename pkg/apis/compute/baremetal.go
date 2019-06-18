@@ -23,3 +23,17 @@ type SGMapItem struct {
 	Type            int
 	LinuxDeviceName string
 }
+
+const (
+	IPMIUserPrivUser  = "USER"
+	IPMIUSERPrivAdmin = "ADMINISTRATOR"
+)
+
+type IPMIUser struct {
+	Id       int
+	Name     string
+	Callin   bool
+	LinkAuth bool
+	IPMIMsg  bool
+	Priv     string
+}

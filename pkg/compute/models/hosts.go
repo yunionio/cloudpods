@@ -50,6 +50,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 /*
@@ -2593,6 +2594,10 @@ func (manager *SHostManager) ValidateCreateData(ctx context.Context, userCred mc
 	ipmiIpAddr, _ := ipmiInfo.GetString("ip_addr")
 	if len(ipmiIpAddr) > 0 && !NetworkManager.IsValidOnPremiseNetworkIP(ipmiIpAddr) {
 		return nil, httperrors.NewInputParameterError("%s is out of network IP ranges", ipmiIpAddr)
+	}
+	ipmiPasswd, _ := ipmiInfo.GetString("password")
+	if len(ipmiPasswd) > 0 && !seclib2.MeetComplxity(ipmiPasswd) {
+		return nil, httperrors.NewWeakPasswordError()
 	}
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
