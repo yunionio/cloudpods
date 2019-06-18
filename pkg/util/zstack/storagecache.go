@@ -31,6 +31,7 @@ import (
 )
 
 type SStoragecache struct {
+	ZoneId string
 	region *SRegion
 }
 
@@ -39,11 +40,11 @@ func (scache *SStoragecache) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (scache *SStoragecache) GetId() string {
-	return fmt.Sprintf("%s-%s", scache.region.client.providerID, scache.region.GetId())
+	return fmt.Sprintf("%s-%s/%s", scache.region.client.providerID, scache.region.GetId(), scache.ZoneId)
 }
 
 func (scache *SStoragecache) GetName() string {
-	return fmt.Sprintf("%s-%s", scache.region.client.providerName, scache.region.GetId())
+	return fmt.Sprintf("%s-%s/%s", scache.region.client.providerName, scache.region.GetId(), scache.ZoneId)
 }
 
 func (scache *SStoragecache) GetStatus() string {
@@ -55,7 +56,7 @@ func (scache *SStoragecache) Refresh() error {
 }
 
 func (scache *SStoragecache) GetGlobalId() string {
-	return fmt.Sprintf("%s-%s", scache.region.client.providerID, scache.region.GetGlobalId())
+	return scache.GetId()
 }
 
 func (scache *SStoragecache) IsEmulated() bool {
@@ -63,7 +64,7 @@ func (scache *SStoragecache) IsEmulated() bool {
 }
 
 func (scache *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
-	images, err := scache.region.GetImages("")
+	images, err := scache.region.GetImages(scache.ZoneId, "")
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +119,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	log.Infof("meta data %s", meta)
 
 	size, _ := meta.Int("size")
-	img, err := self.region.CreateImage(image.ImageName, string(qemuimg.QCOW2), image.OsType, "", reader, size)
+	img, err := self.region.CreateImage(self.ZoneId, image.ImageName, string(qemuimg.QCOW2), image.OsType, "", reader, size)
 	if err != nil {
 		return "", err
 	}

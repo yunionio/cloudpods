@@ -35,8 +35,6 @@ type SRegion struct {
 
 	izones []cloudprovider.ICloudZone
 	ivpcs  []cloudprovider.ICloudVpc
-
-	storageCache *SStoragecache
 }
 
 func (region *SRegion) GetClient() *SZStackClient {
@@ -127,12 +125,15 @@ func (region *SRegion) GetIStoragecacheById(id string) (cloudprovider.ICloudStor
 }
 
 func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, error) {
-	region.storageCache = &SStoragecache{region: region}
-	return []cloudprovider.ICloudStoragecache{region.storageCache}, nil
-}
-
-func (region *SRegion) getStorageCache() *SStoragecache {
-	return &SStoragecache{region: region}
+	zones, err := region.GetZones("")
+	if err != nil {
+		return nil, err
+	}
+	icaches := []cloudprovider.ICloudStoragecache{}
+	for i := 0; i < len(zones); i++ {
+		icaches = append(icaches, &SStoragecache{ZoneId: zones[i].UUID, region: region})
+	}
+	return icaches, nil
 }
 
 func (region *SRegion) GetIVpcById(vpcId string) (cloudprovider.ICloudVpc, error) {

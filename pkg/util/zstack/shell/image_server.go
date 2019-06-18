@@ -21,10 +21,11 @@ import (
 
 func init() {
 	type ImageServerListOptions struct {
-		ZoneId string
+		ZoneId   string
+		ServerId string
 	}
 	shellutils.R(&ImageServerListOptions{}, "image-server-list", "List image servers", func(cli *zstack.SRegion, args *ImageServerListOptions) error {
-		servers, err := cli.GetImageServers(args.ZoneId)
+		servers, err := cli.GetImageServers(args.ZoneId, args.ServerId)
 		if err != nil {
 			return err
 		}

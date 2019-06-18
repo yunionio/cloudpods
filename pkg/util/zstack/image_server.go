@@ -47,7 +47,7 @@ func (v ImageServers) Less(i, j int) bool {
 	return true
 }
 
-func (region *SRegion) GetImageServers(zoneId string) ([]SImageServer, error) {
+func (region *SRegion) GetImageServers(zoneId, serverId string) ([]SImageServer, error) {
 	servers := []SImageServer{}
 	params := []string{"q=state=Enabled", "q=status=Connected"}
 	if SkipEsxi {
@@ -55,6 +55,9 @@ func (region *SRegion) GetImageServers(zoneId string) ([]SImageServer, error) {
 	}
 	if len(zoneId) > 0 {
 		params = append(params, "q=zone.uuid="+zoneId)
+	}
+	if len(serverId) > 0 {
+		params = append(params, "q=uuid="+serverId)
 	}
 	return servers, region.client.listAll("backup-storage", params, &servers)
 }
