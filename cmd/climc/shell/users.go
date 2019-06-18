@@ -43,6 +43,7 @@ func init() {
 	type UserDetailOptions struct {
 		ID     string `help:"ID of user"`
 		Domain string `help:"Domain"`
+		System bool   `help:"show system user"`
 	}
 	R(&UserDetailOptions{}, "user-show", "Show details of user", func(s *mcclient.ClientSession, args *UserDetailOptions) error {
 		query := jsonutils.NewDict()
@@ -52,6 +53,9 @@ func init() {
 				return err
 			}
 			query.Add(jsonutils.NewString(domainId), "domain_id")
+		}
+		if args.System {
+			query.Add(jsonutils.JSONTrue, "system")
 		}
 		user, e := modules.UsersV3.Get(s, args.ID, query)
 		if e != nil {
