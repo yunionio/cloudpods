@@ -25,7 +25,6 @@ var (
 		"vpcs",
 		"route_tables",
 		"cloudregions",
-		"recyclebins",
 		"schedtags",
 		"serverskus",
 		"cachedimages",
@@ -39,6 +38,7 @@ var (
 	}
 	computeDomainResources = []string{
 		"cloudaccounts",
+		"recyclebins",
 	}
 	computeUserResources = []string{
 		"keypairs",
