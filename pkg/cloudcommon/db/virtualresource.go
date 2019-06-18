@@ -329,6 +329,12 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		formerObj := NewTenant(model.ProjectId, "unknown", model.DomainId, "unknown")
 		former = &formerObj
 	}
+
+	// clean shared projects before update project id
+	if err := SharedResourceManager.CleanModelSharedProjects(ctx, userCred, model); err != nil {
+		return nil, err
+	}
+
 	_, err = Update(model, func() error {
 		model.DomainId = ownerId.GetProjectDomainId()
 		model.ProjectId = ownerId.GetProjectId()
@@ -338,6 +344,7 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 	if err != nil {
 		return nil, err
 	}
+
 	OpsLog.SyncOwner(model, former, userCred)
 	notes := struct {
 		OldProjectId string
