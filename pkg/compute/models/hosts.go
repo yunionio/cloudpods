@@ -295,6 +295,7 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	}
 
 	storageStr := jsonutils.GetAnyString(query, []string{"storage", "storage_id"})
+	notAttached := jsonutils.QueryBoolean(query, "storage_not_attached", false)
 	if len(storageStr) > 0 {
 		storage, _ := StorageManager.FetchByIdOrName(nil, storageStr)
 		if storage == nil {
@@ -302,7 +303,11 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		}
 		hoststorages := HoststorageManager.Query().SubQuery()
 		scopeQuery := hoststorages.Query(hoststorages.Field("host_id")).Equals("storage_id", storage.GetId()).SubQuery()
-		q = q.In("id", scopeQuery)
+		if !notAttached {
+			q = q.In("id", scopeQuery)
+		} else {
+			q = q.NotIn("id", scopeQuery)
+		}
 	}
 
 	q, err = managedResourceFilterByZone(q, query, "", nil)
