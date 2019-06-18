@@ -16,6 +16,8 @@ package azure
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -48,8 +50,8 @@ type SRegion struct {
 	SubscriptionID string
 	Name           string
 	DisplayName    string
-	Latitude       float32
-	Longitude      float32
+	Latitude       string
+	Longitude      string
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -137,8 +139,17 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	if geographicInfo, ok := AzureGeographicInfo[self.Name]; ok {
 		info = geographicInfo
 	}
-	info.Latitude = self.Latitude
-	info.Longitude = self.Longitude
+	self.Latitude = strings.TrimFunc(self.Latitude, func(r rune) bool {
+		return !((r >= '0' && r <= '9') || r == '.' || r == '-')
+	})
+	self.Longitude = strings.TrimFunc(self.Longitude, func(r rune) bool {
+		return !((r >= '0' && r <= '9') || r == '.' || r == '-')
+	})
+
+	latitude, _ := strconv.ParseFloat(self.Latitude, 32)
+	info.Latitude = float32(latitude)
+	longitude, _ := strconv.ParseFloat(self.Longitude, 32)
+	info.Longitude = float32(longitude)
 	return info
 }
 
