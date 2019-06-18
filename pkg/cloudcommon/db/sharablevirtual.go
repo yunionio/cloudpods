@@ -144,6 +144,9 @@ func (model *SSharableVirtualResourceBase) PerformPublic(ctx context.Context, us
 				if tenant.DomainId != model.DomainId {
 					return nil, httperrors.NewBadRequestError("can't shared project to other domain")
 				}
+				if tenant.GetId() == model.ProjectId {
+					return nil, httperrors.NewBadRequestError("Can't share project to yourself")
+				}
 				nps = append(nps, tenant.GetId())
 				if _, ok := ops[tenant.GetId()]; !ok {
 					addProjects = append(addProjects, tenant.GetId())
@@ -232,21 +235,9 @@ func (model *SSharableVirtualResourceBase) PerformPrivate(ctx context.Context, u
 			return nil, httperrors.NewInternalServerError("Update shared resource error: %s", err)
 		}
 	}
-	srs := make([]SSharedResource, 0)
-	q := SharedResourceManager.Query()
-	err := q.Filter(sqlchemy.AND(
-		sqlchemy.Equals(q.Field("owner_project_id"), model.ProjectId),
-		sqlchemy.Equals(q.Field("resource_id"), model.GetId()),
-		sqlchemy.Equals(q.Field("resource_type"), model.GetModelManager().Keyword()),
-	)).All(&srs)
-	if err != nil {
-		return nil, httperrors.NewInternalServerError("Fetch project error %s", err)
-	}
-	for i := 0; i < len(srs); i++ {
-		srs[i].SetModelManager(SharedResourceManager, &srs[i])
-		if err := srs[i].Delete(ctx, userCred); err != nil {
-			return nil, httperrors.NewInternalServerError("Unshare project failed %s", err)
-		}
+
+	if err := SharedResourceManager.CleanModelSharedProjects(ctx, userCred, &model.SVirtualResourceBase); err != nil {
+		return nil, err
 	}
 	model.GetIStandaloneModel().ClearSchedDescCache()
 	return nil, nil
