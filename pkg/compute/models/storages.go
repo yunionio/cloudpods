@@ -931,7 +931,7 @@ func (manager *SStorageManager) TotalCapacity(rangeObj db.IStandaloneModel, host
 }
 
 func (self *SStorage) createDisk(name string, diskConfig *api.DiskConfig, userCred mcclient.TokenCredential,
-	ownerProjId string, autoDelete bool, isSystem bool,
+	ownerId mcclient.IIdentityProvider, autoDelete bool, isSystem bool,
 	billingType string, billingCycle string,
 ) (*SDisk, error) {
 	disk := SDisk{}
@@ -942,7 +942,8 @@ func (self *SStorage) createDisk(name string, diskConfig *api.DiskConfig, userCr
 
 	disk.StorageId = self.Id
 	disk.AutoDelete = autoDelete
-	disk.ProjectId = ownerProjId
+	disk.ProjectId = ownerId.GetProjectId()
+	disk.DomainId = ownerId.GetProjectDomainId()
 	disk.IsSystem = isSystem
 
 	disk.BillingType = billingType

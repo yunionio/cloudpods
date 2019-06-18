@@ -455,7 +455,7 @@ func StorageUsage(prefix string, rangeObj db.IStandaloneModel, hostTypes []strin
 
 func WireUsage(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, cloudEnv string) Usage {
 	count := make(map[string]interface{})
-	result := models.WireManager.TotalCount(rangeObj, hostTypes, providers, cloudEnv)
+	result := models.WireManager.TotalCount(rangeObj, hostTypes, providers, cloudEnv, rbacutils.ScopeSystem, nil)
 	count["wires"] = result.WiresCount
 	count["networks"] = result.NetCount
 	count["all.nics.guest"] = result.GuestNicCount

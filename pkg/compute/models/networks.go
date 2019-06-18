@@ -571,8 +571,8 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 		self.GuestIpMask = extNet.GetIpMask()
 		self.GuestGateway = extNet.GetGateway()
 		self.ServerType = extNet.GetServerType()
-		self.IsPublic = extNet.GetIsPublic()
-		self.PublicScope = string(extNet.GetPublicScope())
+		// self.IsPublic = extNet.GetIsPublic()
+		// self.PublicScope = string(extNet.GetPublicScope())
 
 		self.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 

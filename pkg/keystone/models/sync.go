@@ -45,20 +45,24 @@ func AutoSyncIdentityProviderTask(ctx context.Context, userCred mcclient.TokenCr
 
 func syncIdentityProvider(ctx context.Context, userCred mcclient.TokenCredential, idp *SIdentityProvider) error {
 	if idp.SyncStatus != api.IdentitySyncStatusIdle {
+		log.Debugf("IDP %s cannot sync in non-idle status", idp.Name)
 		return nil
 	}
 
 	if !idp.CanSync() {
+		log.Debugf("IDP %s cannot sync", idp.Name)
 		return nil
 	}
 
 	if !idp.NeedSync() {
+		log.Debugf("IDP %s no need to sync", idp.Name)
 		return nil
 	}
 
 	drvCls := driver.GetDriverClass(idp.Driver)
 	if drvCls.SyncMethod() == api.IdentityProviderSyncLocal {
 		// skip, no need to sync
+		log.Debugf("IDP %s is local, no need to sync", idp.Name)
 		return nil
 	}
 	submitIdpSyncTask(ctx, userCred, idp)
