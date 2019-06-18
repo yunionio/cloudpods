@@ -415,7 +415,9 @@ func (manager *SDiskManager) ValidateCreateData(ctx context.Context, userCred mc
 		return nil, err
 	}
 	pendingUsage := SQuota{Storage: diskConfig.SizeMb}
-	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, &pendingUsage); err != nil {
+
+	quotaName := GetDriver(input.Hypervisor).GetQuotaPlatformID()
+	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, quotaName, &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError("%s", err)
 	}
 	return input.JSON(input), nil
@@ -743,7 +745,9 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 		}
 	}
 	pendingUsage := SQuota{Storage: int(addDisk)}
-	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, &pendingUsage); err != nil {
+
+	quotaName := storage.getQuotaPlatformID()
+	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, quotaName, &pendingUsage); err != nil {
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
 	}
 

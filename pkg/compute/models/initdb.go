@@ -27,6 +27,9 @@ func InitDB() error {
 		 * initialization order matters, do not change the order
 		 */
 		db.TenantCacheManager,
+
+		QuotaManager,
+
 		CloudproviderManager,
 		CloudaccountManager,
 		CloudregionManager,

@@ -1325,7 +1325,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 	pendingUsage := &SQuota{
 		Storage: diskSize,
 	}
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), pendingUsage)
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), host.GetQuotaPlatformID(), pendingUsage)
 	if err != nil {
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, err.Error(), userCred, false)
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
@@ -1336,7 +1336,7 @@ func (self *SGuest) PerformCreatedisk(ctx context.Context, userCred mcclient.Tok
 
 	err = self.CreateDisksOnHost(ctx, userCred, host, disksConf, pendingUsage, false, false, nil, nil, false)
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), nil, pendingUsage)
+		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), host.GetQuotaPlatformID(), nil, pendingUsage)
 		logclient.AddActionLogWithContext(ctx, self, logclient.ACT_CREATE, err.Error(), userCred, false)
 		return nil, httperrors.NewBadRequestError(err.Error())
 	}
@@ -1731,14 +1731,15 @@ func (self *SGuest) PerformAttachnetwork(ctx context.Context, userCred mcclient.
 			Ebw:   ebw,
 		}
 		ownerId := self.GetOwnerId()
-		err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, pendingUsage)
+		quotaPlatform := self.GetQuotaPlatformID()
+		err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatform, pendingUsage)
 		if err != nil {
 			return nil, httperrors.NewOutOfQuotaError(err.Error())
 		}
 		host := self.GetHost()
 		_, err = self.attach2NetworkDesc(ctx, userCred, host, conf, pendingUsage, nil)
 		if err != nil {
-			QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, ownerId, nil, pendingUsage)
+			QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatform, nil, pendingUsage)
 			return nil, httperrors.NewBadRequestError(err.Error())
 		}
 		host.ClearSchedDescCache()
@@ -1994,8 +1995,11 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if addDisk > 0 {
 		pendingUsage.Storage = addDisk
 	}
+
+	quotaPlatform := self.GetQuotaPlatformID()
+
 	if !pendingUsage.IsEmpty() {
-		err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, pendingUsage)
+		err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, quotaPlatform, pendingUsage)
 		if err != nil {
 			return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
 		}
@@ -2004,7 +2008,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	if len(newDisks) > 0 {
 		err := self.CreateDisksOnHost(ctx, userCred, host, newDisks, pendingUsage, false, false, nil, nil, false)
 		if err != nil {
-			QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), nil, pendingUsage)
+			QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, nil, pendingUsage)
 			return nil, httperrors.NewBadRequestError("Create disk on host error: %s", err)
 		}
 		confs.Add(jsonutils.Marshal(newDisks), "create")
@@ -2163,7 +2167,8 @@ func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewNotFoundError("Guest disk %s not found", diskId)
 	}
 	pendingUsage := &SQuota{Snapshot: 1}
-	_, err = QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), pendingUsage)
+	quotaPlatform := self.GetQuotaPlatformID()
+	_, err = QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, pendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Out of snapshot quota %s", err)
 	}
@@ -2494,15 +2499,17 @@ func (self *SGuest) PerformCreateEip(ctx context.Context, userCred mcclient.Toke
 		return nil, err
 	}
 
+	quotaPlatform := self.GetQuotaPlatformID()
+
 	eipPendingUsage := &SQuota{Eip: 1}
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, eipPendingUsage)
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, quotaPlatform, eipPendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Out of eip quota: %s", err)
 	}
 
 	err = ElasticipManager.AllocateEipAndAssociateVM(ctx, userCred, self, int(bw), chargeType, eipPendingUsage)
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, userCred, eipPendingUsage, eipPendingUsage)
+		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, userCred, quotaPlatform, eipPendingUsage, eipPendingUsage)
 		return nil, httperrors.NewGeneralError(err)
 	}
 
@@ -2808,8 +2815,10 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewBadRequestError("Cannot create backup with snapshot")
 	}
 
+	quotaPlatform := self.GetQuotaPlatformID()
+
 	req := self.getGuestBackupResourceRequirements(ctx, userCred)
-	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), &req)
+	err = QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, &req)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError(err.Error())
 	}
@@ -2818,7 +2827,7 @@ func (self *SGuest) PerformCreateBackup(ctx context.Context, userCred mcclient.T
 	params.Set("guest_status", jsonutils.NewString(self.Status))
 	task, err := taskman.TaskManager.NewTask(ctx, "GuestCreateBackupTask", self, userCred, params, "", "", &req)
 	if err != nil {
-		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), nil, &req)
+		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, nil, &req)
 		log.Errorln(err)
 		return nil, err
 	} else {

@@ -33,7 +33,7 @@ func initHandlers(app *appsrv.Application) {
 
 	db.RegistUserCredCacheUpdater()
 
-	quotas.AddQuotaHandler(models.QuotaManager, API_VERSION, app)
+	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, API_VERSION, app)
 	usages.AddUsageHandler(API_VERSION, app)
 	taskman.AddTaskHandler(API_VERSION, app)
 
@@ -48,6 +48,9 @@ func initHandlers(app *appsrv.Application) {
 		models.ImageMemberManager,
 		models.ImagePropertyManager,
 		models.ImageSubformatManager,
+
+		models.QuotaManager,
+		models.QuotaUsageManager,
 	} {
 		db.RegisterModelManager(manager)
 	}

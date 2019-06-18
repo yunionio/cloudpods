@@ -283,8 +283,11 @@ func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCre
 			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", disk.Id)
 		}
 	}
+
+	quotaPlatform := guest.GetQuotaPlatformID()
+
 	pendingUsage := &SQuota{Snapshot: 1}
-	_, err = QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, pendingUsage)
+	_, err = QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatform, pendingUsage)
 	if err != nil {
 		return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
 	}

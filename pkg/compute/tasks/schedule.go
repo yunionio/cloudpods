@@ -174,7 +174,8 @@ func cancelPendingUsage(ctx context.Context, task IScheduleTask) {
 		ProjectId: schedInput.ServerConfig.Project,
 		DomainId:  schedInput.ServerConfig.Domain,
 	}
-	err = models.QuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), rbacutils.ScopeProject, &ownerId, &pendingUsage, &pendingUsage)
+	quotaPlatform := models.GetQuotaPlatformID(schedInput.Hypervisor)
+	err = models.QuotaManager.CancelPendingUsage(ctx, task.GetUserCred(), rbacutils.ScopeProject, &ownerId, quotaPlatform, &pendingUsage, &pendingUsage)
 	if err != nil {
 		log.Errorf("cancelpendingusage error %s", err)
 	}

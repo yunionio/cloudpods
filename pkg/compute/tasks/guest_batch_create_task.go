@@ -68,13 +68,19 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 	if err != nil {
 		log.Errorf("GetPendingUsage fail %s", err)
 	}
-	quotaCpuMem := models.SQuota{Cpu: int(guest.VcpuCount), Memory: guest.VmemSize}
-	err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, guest.GetOwnerId(), &pendingUsage, &quotaCpuMem)
-	self.SetPendingUsage(&pendingUsage)
 
 	host := guest.GetHost()
 
+	quotaPlatform := host.GetQuotaPlatformID()
+
+	quotaCpuMem := models.SQuota{Cpu: int(guest.VcpuCount), Memory: guest.VmemSize}
+	err = models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, guest.GetOwnerId(), quotaPlatform, &pendingUsage, &quotaCpuMem)
+	self.SetPendingUsage(&pendingUsage)
+
 	input, err := self.GetCreateInput()
+	if err != nil {
+		log.Errorf("GetCreateInput fail %s", err)
+	}
 
 	if host.IsPrepaidRecycle() {
 		input, err = host.SetGuestCreateNetworkAndDiskParams(ctx, self.UserCred, input)

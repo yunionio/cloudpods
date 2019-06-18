@@ -52,6 +52,14 @@ func (self *SKVMGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ONECLOUD
 }
 
+func (self *SKVMGuestDriver) GetQuotaPlatformID() []string {
+	return []string{
+		api.CLOUD_ENV_ON_PREMISE,
+		api.CLOUD_PROVIDER_ONECLOUD,
+		api.HYPERVISOR_KVM,
+	}
+}
+
 func (self *SKVMGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_LOCAL
 }
