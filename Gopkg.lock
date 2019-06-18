@@ -1754,7 +1754,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:04187b7fe2d9788ad901137fd8976272f464bd4080963e7a7f28aa9615d1e47a"
+  digest = "1:32f6aaab9d4749fc52eb490cf758e955994f2a77b2753976ba93533c3bcf9240"
   name = "yunion.io/x/pkg"
   packages = [
     "errors",
@@ -1788,7 +1788,7 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "3afb7f847aad0b254d5768f961d226b24aa24cea"
+  revision = "aef5d070532643f55f6f60cf79b63b29d95c6ceb"
 
 [[projects]]
   branch = "master"
