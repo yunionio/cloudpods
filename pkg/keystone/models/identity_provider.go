@@ -361,7 +361,11 @@ func (self *SIdentityProvider) getSyncIntervalSeconds() int {
 }
 
 func (self *SIdentityProvider) NeedSync() bool {
-	if self.Driver != api.IdentityProviderSyncFull {
+	drvCls := driver.GetDriverClass(self.Driver)
+	if drvCls == nil {
+		return false
+	}
+	if drvCls.SyncMethod() != api.IdentityProviderSyncFull {
 		return false
 	}
 	if !self.LastSync.IsZero() && time.Now().Sub(self.LastSync) < time.Duration(self.getSyncIntervalSeconds())*time.Second {

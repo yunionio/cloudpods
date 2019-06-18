@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SWireManager struct {
@@ -334,9 +335,22 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	return &wire, nil
 }
 
-func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, cloudEnv string) *sqlchemy.SQuery {
+func filterByScopeOwnerId(q *sqlchemy.SQuery, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
+	switch scope {
+	case rbacutils.ScopeSystem:
+	case rbacutils.ScopeDomain:
+		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+	case rbacutils.ScopeProject:
+		q = q.Equals("tenant_id", ownerId.GetProjectId())
+	}
+	return q
+}
+
+func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
 	guests := GuestManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
+	groups := GroupManager.Query().SubQuery()
+	lbs := LoadbalancerManager.Query().SubQuery()
 
 	gNics := GuestnetworkManager.Query().SubQuery()
 	gNicQ := gNics.Query(
@@ -346,6 +360,7 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 	gNicQ = gNicQ.Join(guests, sqlchemy.Equals(guests.Field("id"), gNics.Field("guest_id")))
 	gNicQ = gNicQ.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))
 	gNicQ = gNicQ.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
+	gNicQ = filterByScopeOwnerId(gNicQ, scope, ownerId)
 
 	hNics := HostnetworkManager.Query().SubQuery()
 	hNicQ := hNics.Query(
@@ -362,20 +377,26 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 	)
 
 	groupNics := GroupnetworkManager.Query().SubQuery()
-	grpNicSQ := groupNics.Query(
+	grpNicQ := groupNics.Query(
 		groupNics.Field("network_id"),
 		sqlchemy.COUNT("grpnic_count"),
-	).GroupBy(groupNics.Field("network_id")).SubQuery()
+	)
+	grpNicQ = grpNicQ.Join(groups, sqlchemy.Equals(groups.Field("id"), groupNics.Field("group_id")))
+	grpNicQ = filterByScopeOwnerId(grpNicQ, scope, ownerId)
 
 	lbNics := LoadbalancernetworkManager.Query().SubQuery()
-	lbNicSQ := lbNics.Query(
+	lbNicQ := lbNics.Query(
 		lbNics.Field("network_id"),
 		sqlchemy.COUNT("lbnic_count"),
-	).GroupBy(lbNics.Field("network_id")).SubQuery()
+	)
+	lbNicQ = lbNicQ.Join(lbs, sqlchemy.Equals(lbs.Field("id"), lbNics.Field("loadbalancer_id")))
+	lbNicQ = filterByScopeOwnerId(lbNicQ, scope, ownerId)
 
 	gNicSQ := gNicQ.GroupBy(gNics.Field("network_id")).SubQuery()
 	hNicSQ := hNicQ.GroupBy(hNics.Field("network_id")).SubQuery()
 	revSQ := revQ.GroupBy(revIps.Field("network_id")).SubQuery()
+	grpNicSQ := grpNicQ.GroupBy(groupNics.Field("network_id")).SubQuery()
+	lbNicSQ := lbNicQ.GroupBy(lbNics.Field("network_id")).SubQuery()
 
 	networks := NetworkManager.Query().SubQuery()
 	netQ := networks.Query(
@@ -461,9 +482,9 @@ func (wstat WiresCountStat) NicCount() int {
 	return wstat.GuestNicCount + wstat.HostNicCount + wstat.ReservedCount + wstat.GroupNicCount + wstat.LbNicCount
 }
 
-func (manager *SWireManager) TotalCount(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, cloudEnv string) WiresCountStat {
+func (manager *SWireManager) TotalCount(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) WiresCountStat {
 	stat := WiresCountStat{}
-	err := manager.totalCountQ(rangeObj, hostTypes, providers, cloudEnv).First(&stat)
+	err := manager.totalCountQ(rangeObj, hostTypes, providers, cloudEnv, scope, ownerId).First(&stat)
 	if err != nil {
 		log.Errorf("Wire total count: %v", err)
 	}

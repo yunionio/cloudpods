@@ -66,7 +66,7 @@ func (manager *SQuotaBaseManager) CancelPendingUsage(ctx context.Context, userCr
 	lockman.LockClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 	defer lockman.ReleaseClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 
-	return manager._cancelPendingUsage(ctx, userCred, scope, ownerId, platform, localUsage, cancelUsage)
+	return manager._cancelPendingUsage(ctx, userCred, scope, ownerId, nil, localUsage, cancelUsage)
 }
 
 func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, localUsage IQuota, cancelUsage IQuota) error {
@@ -92,11 +92,11 @@ func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userC
 }
 
 func (manager *SQuotaBaseManager) GetPendingUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, quota IQuota) error {
-	return manager.pendingStore.GetQuota(ctx, scope, ownerId, platform, quota)
+	return manager.pendingStore.GetQuota(ctx, scope, ownerId, nil, quota)
 }
 
 func (manager *SQuotaBaseManager) GetQuota(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, quota IQuota) error {
-	err := manager.getQuotaInternal(ctx, scope, ownerId, platform, quota)
+	err := manager.getQuotaInternal(ctx, scope, ownerId, nil, quota)
 	if err != nil && err != sql.ErrNoRows {
 		return err
 	}
@@ -110,7 +110,7 @@ func (manager *SQuotaBaseManager) SetQuota(ctx context.Context, userCred mcclien
 	lockman.LockClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 	defer lockman.ReleaseClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 
-	return manager._setQuota(ctx, userCred, scope, ownerId, platform, quota)
+	return manager._setQuota(ctx, userCred, scope, ownerId, nil, quota)
 }
 
 func (manager *SQuotaBaseManager) _setQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, quota IQuota) error {
@@ -122,7 +122,7 @@ func (manager *SQuotaBaseManager) CheckQuota(ctx context.Context, userCred mccli
 	lockman.LockClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 	defer lockman.ReleaseClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 
-	return manager._checkQuota(ctx, userCred, scope, ownerId, platform, request)
+	return manager._checkQuota(ctx, userCred, scope, ownerId, nil, request)
 }
 
 func (manager *SQuotaBaseManager) _checkQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, request IQuota) (IQuota, error) {
@@ -161,7 +161,7 @@ func (manager *SQuotaBaseManager) CheckSetPendingQuota(ctx context.Context, user
 	lockman.LockClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 	defer lockman.ReleaseClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 
-	return manager._checkSetPendingQuota(ctx, userCred, scope, ownerId, platform, quota)
+	return manager._checkSetPendingQuota(ctx, userCred, scope, ownerId, nil, quota)
 }
 
 func (manager *SQuotaBaseManager) _checkSetPendingQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, quota IQuota) error {
