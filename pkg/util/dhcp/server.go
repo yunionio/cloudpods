@@ -19,8 +19,47 @@ import (
 	"net"
 	"runtime/debug"
 
+	"golang.org/x/net/bpf"
 	"yunion.io/x/log"
 )
+
+const (
+	PORT_67        = 67
+	PORT_67_AND_68 = 67 + 68
+)
+
+var UDP_BPF_PORT_MAP = map[uint16][]bpf.RawInstruction{
+	// ip and udp and dst port 67
+	PORT_67: []bpf.RawInstruction{
+		{0x28, 0, 0, 0x0000000c},
+		{0x15, 0, 8, 0x00000800},
+		{0x30, 0, 0, 0x00000017},
+		{0x15, 0, 6, 0x00000011},
+		{0x28, 0, 0, 0x00000014},
+		{0x45, 4, 0, 0x00001fff},
+		{0xb1, 0, 0, 0x0000000e},
+		{0x48, 0, 0, 0x00000010},
+		{0x15, 0, 1, 0x00000043},
+		{0x6, 0, 0, 0x00040000},
+		{0x6, 0, 0, 0x00000000},
+	},
+	// ip and udp and dst port 67 and port 68
+	PORT_67_AND_68: []bpf.RawInstruction{
+		{0x28, 0, 0, 0x0000000c},
+		{0x15, 0, 10, 0x00000800},
+		{0x30, 0, 0, 0x00000017},
+		{0x15, 0, 8, 0x00000011},
+		{0x28, 0, 0, 0x00000014},
+		{0x45, 6, 0, 0x00001fff},
+		{0xb1, 0, 0, 0x0000000e},
+		{0x48, 0, 0, 0x00000010},
+		{0x15, 0, 3, 0x00000043},
+		{0x48, 0, 0, 0x0000000e},
+		{0x15, 0, 1, 0x00000044},
+		{0x6, 0, 0, 0x00040000},
+		{0x6, 0, 0, 0x00000000},
+	},
+}
 
 type DHCPServer struct {
 	Address string
@@ -35,15 +74,17 @@ func NewDHCPServer(address string, port int) *DHCPServer {
 	}
 }
 
-func NewDHCPServer2(address string, port int, disableBroadcast bool) (*DHCPServer, *Conn, error) {
-	conn, err := NewSocketConn(fmt.Sprintf("%s:%d", address, port), disableBroadcast)
+func NewDHCPServer2(iface string, portDesc uint16) (*DHCPServer, *Conn, error) {
+	bpf, ok := UDP_BPF_PORT_MAP[portDesc]
+	if !ok {
+		return nil, nil, fmt.Errorf("BPF not found %d", portDesc)
+	}
+	conn, err := NewSocketConn(iface, bpf)
 	if err != nil {
 		return nil, nil, err
 	}
 	return &DHCPServer{
-		Address: address,
-		Port:    port,
-		conn:    conn,
+		conn: conn,
 	}, conn, nil
 }
 
@@ -64,9 +105,13 @@ func (s *DHCPServer) ListenAndServe(handler DHCPHandler) error {
 	return s.serveDHCP(handler)
 }
 
+func (s *DHCPServer) GetConn() *Conn {
+	return s.conn
+}
+
 func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
 	for {
-		pkt, addr, intf, err := s.conn.RecvDHCP()
+		pkt, addr, mac, intf, err := s.conn.RecvDHCP()
 		if err != nil {
 			return fmt.Errorf("Receiving DHCP packet: %s", err)
 		}
@@ -92,7 +137,7 @@ func (s *DHCPServer) serveDHCP(handler DHCPHandler) error {
 				return
 			}
 			//log.Debugf("[DHCP] send response packet: %s to interface: %#v", resp.DebugString(), intf)
-			if err = s.conn.SendDHCP(resp, addr, intf); err != nil {
+			if err = s.conn.SendDHCP(resp, addr, mac, intf); err != nil {
 				log.Errorf("[DHCP] failed to response packet for %s: %v", pkt.CHAddr(), err)
 				return
 			}

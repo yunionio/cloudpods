@@ -35,10 +35,14 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"syscall"
 	"time"
 
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/mdlayher/raw"
+	"golang.org/x/net/bpf"
 	"golang.org/x/net/ipv4"
+	"golang.org/x/sys/unix"
 )
 
 // defined as a var so tests can override it.
@@ -70,8 +74,8 @@ const (
 
 type conn interface {
 	io.Closer
-	Recv([]byte) (b []byte, addr *net.UDPAddr, ifidx int, err error)
-	Send(b []byte, addr *net.UDPAddr, ifidx int) error
+	Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr, ifidx int) error
+	Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error)
 	SetReadDeadline(t time.Time) error
 	SetWriteDeadline(t time.Time) error
 }
@@ -84,13 +88,17 @@ type Conn struct {
 	ifIndex int
 }
 
+func NewSocketConn(iface string, filter []bpf.RawInstruction) (*Conn, error) {
+	conn, err := newSocketConn(iface, filter)
+	if err != nil {
+		return nil, err
+	}
+	return &Conn{conn, 0}, nil
+}
+
 // NewConn creates a Conn bound to the given UDP ip:port.
 func NewConn(addr string, disableBroadcast bool) (*Conn, error) {
 	return newConn(addr, disableBroadcast, newPortableConn)
-}
-
-func NewSocketConn(addr string, disableBroadcast bool) (*Conn, error) {
-	return newConn(addr, disableBroadcast, newSocketConn)
 }
 
 func newConn(addr string, disableBroadcast bool, n func(net.IP, int, bool) (conn, error)) (*Conn, error) {
@@ -154,11 +162,11 @@ func (c *Conn) Close() error {
 
 // RecvDHCP reads a Packet from the connection. It returns the
 // packet and the interface it was received on.
-func (c *Conn) RecvDHCP() (Packet, *net.UDPAddr, *net.Interface, error) {
+func (c *Conn) RecvDHCP() (Packet, *net.UDPAddr, net.HardwareAddr, *net.Interface, error) {
 	var buf [1500]byte
-	b, addr, _, err := c.conn.Recv(buf[:])
+	b, addr, mac, _, err := c.conn.Recv(buf[:])
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	/*if c.ifIndex != 0 && ifidx != c.ifIndex {
 		log.Errorf("======= ifIndex continue, c.ifIndex: %d, ifidx: %d", c.ifIndex, ifidx)
@@ -172,14 +180,14 @@ func (c *Conn) RecvDHCP() (Packet, *net.UDPAddr, *net.Interface, error) {
 
 	// TODO: possibly more validation that the source lines up
 	// with what the packet says.
-	return pkt, addr, nil, nil
+	return pkt, addr, mac, nil, nil
 }
 
 // SendDHCP sends pkt. The precise transmission mechanism depends
 // on pkt.txType(). intf should be the net.Interface returned by
 // RecvDHCP if responding to a DHCP client, or the interface for
 // which configuration is desired if acting as a client.
-func (c *Conn) SendDHCP(pkt Packet, addr *net.UDPAddr, intf *net.Interface) error {
+func (c *Conn) SendDHCP(pkt Packet, addr *net.UDPAddr, mac net.HardwareAddr, intf *net.Interface) error {
 	b := pkt.Marshal()
 
 	ipStr, portStr, err := net.SplitHostPort(addr.String())
@@ -191,7 +199,7 @@ func (c *Conn) SendDHCP(pkt Packet, addr *net.UDPAddr, intf *net.Interface) erro
 		port, _ := strconv.Atoi(portStr)
 		addr = &net.UDPAddr{IP: net.IPv4bcast, Port: port}
 	}
-	return c.conn.Send(b, addr, 0)
+	return c.conn.Send(b, addr, mac, 0)
 
 	/*
 		switch pkt.txType() {
@@ -256,15 +264,15 @@ func (c *portableConn) Close() error {
 	return c.conn.Close()
 }
 
-func (c *portableConn) Recv(b []byte) (rb []byte, addr *net.UDPAddr, ifidx int, err error) {
+func (c *portableConn) Recv(b []byte) (rb []byte, addr *net.UDPAddr, mac net.HardwareAddr, ifidx int, err error) {
 	n, cm, a, err := c.conn.ReadFrom(b)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, nil, 0, err
 	}
-	return b[:n], a.(*net.UDPAddr), cm.IfIndex, nil
+	return b[:n], a.(*net.UDPAddr), nil, cm.IfIndex, nil
 }
 
-func (c *portableConn) Send(b []byte, addr *net.UDPAddr, ifidx int) error {
+func (c *portableConn) Send(b []byte, addr *net.UDPAddr, _ net.HardwareAddr, ifidx int) error {
 	if ifidx <= 0 {
 		_, err := c.conn.WriteTo(b, nil, addr)
 		return err
@@ -285,82 +293,161 @@ func (c *portableConn) SetWriteDeadline(t time.Time) error {
 }
 
 type socketConn struct {
-	sock int
+	conn *raw.Conn
+
+	iface *net.Interface
+	ip    net.IP
 }
 
-func newSocketConn(addr net.IP, port int, disableBroadcast bool) (conn, error) {
-	var broadcastOpt = 1
-	if disableBroadcast {
-		broadcastOpt = 0
+func interfaceToIPv4Addr(ifi *net.Interface) (net.IP, error) {
+	if ifi == nil {
+		return net.IPv4zero, nil
 	}
-	sock, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM, 0)
+	ifat, err := ifi.Addrs()
 	if err != nil {
 		return nil, err
 	}
-	err = syscall.SetsockoptInt(sock, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+	for _, ifa := range ifat {
+		switch v := ifa.(type) {
+		case *net.IPAddr:
+			if v.IP.To4() != nil {
+				return v.IP, nil
+			}
+		case *net.IPNet:
+			if v.IP.To4() != nil {
+				return v.IP, nil
+			}
+		}
+	}
+	return nil, errors.New("no such network interface")
+}
+
+func newSocketConn(iface string, filter []bpf.RawInstruction) (conn, error) {
+	ifi, err := net.InterfaceByName(iface)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("interface by name: %v", err)
 	}
-	err = syscall.SetsockoptInt(sock, syscall.SOL_SOCKET, syscall.SO_BROADCAST, broadcastOpt)
+
+	ip, err := interfaceToIPv4Addr(ifi)
 	if err != nil {
-		return nil, err
-	}
-	byteAddr := [4]byte{}
-	copy(byteAddr[:], addr.To4()[:4])
-	lsa := &syscall.SockaddrInet4{
-		Port: port,
-		Addr: byteAddr,
-	}
-	if err = syscall.Bind(sock, lsa); err != nil {
-		return nil, err
-	}
-	if err = syscall.SetNonblock(sock, false); err != nil {
 		return nil, err
 	}
 
-	// Its equal syscall.CloseOnExec
-	// most file descriptors are getting set to close-on-exec
-	// apart from syscall open, socket etc.
-	syscall.Syscall(syscall.SYS_FCNTL, uintptr(sock), syscall.F_SETFD, syscall.FD_CLOEXEC)
-	return &socketConn{sock}, nil
+	// unix.ETH_P_ALL
+	conn, err := raw.ListenPacket(ifi, unix.ETH_P_ALL, &raw.Config{
+		NoCumulativeStats: true,
+		Filter:            filter,
+	})
+	return &socketConn{conn, ifi, ip}, nil
 }
 
 func (s *socketConn) Close() error {
-	return syscall.Close(s.sock)
+	return s.conn.Close()
 }
 
-func (s *socketConn) Recv(b []byte) (rb []byte, addr *net.UDPAddr, ifidx int, err error) {
-	n, a, err := syscall.Recvfrom(s.sock, b, 0)
+func (s *socketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error) {
+	// read packet
+	n, addr, err := s.conn.ReadFrom(b)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, nil, 0, fmt.Errorf("Read from errror: %s", err)
 	}
-	if addr, ok := a.(*syscall.SockaddrInet4); !ok {
-		return nil, nil, 0, errors.New("Recvfrom recevice address is not famliy Inet4")
+	b = b[:n]
+
+	srcMac, err := net.ParseMAC(addr.String())
+	if err != nil {
+		return nil, nil, nil, 0, fmt.Errorf("Parse mac error: %s", err)
+	}
+
+	p := gopacket.NewPacket(b, layers.LayerTypeEthernet, gopacket.Default)
+	if p.ErrorLayer() != nil {
+		return nil, nil, nil, 0, fmt.Errorf("Failed to decode packet: %v", p.ErrorLayer().Error())
+	}
+
+	var srcIp net.IP
+	ipLayer := p.Layer(layers.LayerTypeIPv4)
+	if ipLayer != nil {
+		ip4 := ipLayer.(*layers.IPv4)
+		srcIp = ip4.SrcIP
 	} else {
-		ip := net.IP{addr.Addr[0], addr.Addr[1], addr.Addr[2], addr.Addr[3]}
-		udpAddr := &net.UDPAddr{
-			IP:   ip,
-			Port: addr.Port,
+		return nil, nil, nil, 0, fmt.Errorf("Fetch ip layer failed")
+	}
+
+	var srcPort uint16
+	udpLayer := p.Layer(layers.LayerTypeUDP)
+	if udpLayer != nil {
+		udpInfo := udpLayer.(*layers.UDP)
+		srcPort = uint16(udpInfo.SrcPort)
+	} else {
+		return nil, nil, nil, 0, fmt.Errorf("Fetch upd layer failed")
+	}
+
+	dhcpLayer := p.Layer(layers.LayerTypeDHCPv4)
+	if dhcpLayer != nil {
+		dhcp4 := dhcpLayer.(*layers.DHCPv4)
+		sbf := gopacket.NewSerializeBuffer()
+		if err := dhcp4.SerializeTo(sbf, gopacket.SerializeOptions{}); err != nil {
+			return nil, nil, nil, 0, fmt.Errorf("Serialize dhcp packet error %s", err)
 		}
-		// there is no interface index info
-		return b[:n], udpAddr, 0, nil
+		return sbf.Bytes(), &net.UDPAddr{srcIp, int(srcPort), ""}, srcMac, 0, nil
+	} else {
+		return nil, nil, nil, 0, fmt.Errorf("Fetch dhcp layer failed")
 	}
 }
 
-func (s *socketConn) Send(b []byte, addr *net.UDPAddr, ifidx int) error {
-	destIp := [4]byte{}
-	copy(destIp[:], addr.IP.To4()[:4])
-	destAddr := &syscall.SockaddrInet4{
-		Addr: destIp,
-		Port: addr.Port,
+func (s *socketConn) Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr, ifidx int) error {
+	var dhcp = new(layers.DHCPv4)
+	if err := dhcp.DecodeFromBytes(b, gopacket.NilDecodeFeedback); err != nil {
+		return fmt.Errorf("Decode dhcp bytes error %s", err)
 	}
-	return syscall.Sendto(s.sock, b, 0, destAddr)
+
+	var eth = &layers.Ethernet{
+		EthernetType: layers.EthernetTypeIPv4,
+		SrcMAC:       s.iface.HardwareAddr,
+		DstMAC:       destMac,
+	}
+
+	var ip = &layers.IPv4{
+		Version:  4,
+		TTL:      64,
+		SrcIP:    s.ip,
+		DstIP:    addr.IP,
+		Protocol: layers.IPProtocolUDP,
+	}
+
+	var (
+		srcPort layers.UDPPort
+		dstPort = layers.UDPPort(addr.Port)
+	)
+	if dstPort == 67 {
+		srcPort = 68
+	} else {
+		srcPort = 67
+	}
+	var udp = &layers.UDP{
+		SrcPort: srcPort,
+		DstPort: dstPort,
+	}
+	udp.SetNetworkLayerForChecksum(ip)
+
+	var (
+		buf  = gopacket.NewSerializeBuffer()
+		opts = gopacket.SerializeOptions{ComputeChecksums: true, FixLengths: true}
+	)
+	if err := gopacket.SerializeLayers(buf, opts, eth, ip, udp, dhcp); err != nil {
+		return fmt.Errorf("SerializeLayers error: %s", err)
+	}
+
+	// s.conn.SetWriteDeadline(time.Now().Add(DefaultWriteTimeout)) // 2 second
+	if _, err := s.conn.WriteTo(buf.Bytes(), &raw.Addr{HardwareAddr: destMac}); err != nil {
+		return fmt.Errorf("Send dhcp packet error %s", err)
+	}
+	return nil
 }
 
 func (s *socketConn) SetReadDeadline(t time.Time) error {
-	return errors.New("Not Implement")
+	return s.conn.SetReadDeadline(t)
 }
 
 func (s *socketConn) SetWriteDeadline(t time.Time) error {
-	return errors.New("Not Implement")
+	return s.conn.SetWriteDeadline(t)
 }

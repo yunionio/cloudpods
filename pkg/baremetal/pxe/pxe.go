@@ -19,7 +19,6 @@ import (
 	"net"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -102,6 +101,7 @@ type Server struct {
 	// Address to listen on, or empty for all interfaces
 	Address          string
 	DHCPPort         int
+	ListenIface      string
 	TFTPPort         int
 	TFTPRootDir      string
 	errs             chan error
@@ -128,8 +128,11 @@ func (s *Server) Serve() error {
 		return err
 	}
 
-	log.Infof("DHCPServer Bind %s %d", s.Address, s.DHCPPort)
-	dhcpSrv, _, err := dhcp.NewDHCPServer2(s.Address, s.DHCPPort, false)
+	if s.DHCPPort != 67 {
+		return fmt.Errorf("DHCP listen port %d is not support", s.DHCPPort)
+	}
+
+	dhcpSrv, _, err := dhcp.NewDHCPServer2(s.ListenIface, dhcp.PORT_67)
 	if err != nil {
 		return err
 	}
