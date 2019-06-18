@@ -142,6 +142,7 @@ func init() {
 	type ImageUsageOptions struct {
 		Project string `help:"check image usage of a project"`
 		Domain  string `help:"check image usage of a domain"`
+		Scope   string `help:"query scope" choices:"project|domain|system"`
 	}
 	R(&ImageUsageOptions{}, "image-usage", "Show general usage of images", func(s *mcclient.ClientSession, args *ImageUsageOptions) error {
 		params := jsonutils.NewDict()
@@ -149,6 +150,9 @@ func init() {
 			params.Add(jsonutils.NewString(args.Project), "project")
 		} else if args.Domain != "" {
 			params.Add(jsonutils.NewString(args.Domain), "domain")
+		}
+		if args.Scope != "" {
+			params.Add(jsonutils.NewString(args.Scope), "scope")
 		}
 		result, err := modules.Images.GetUsage(s, params)
 		if err != nil {
