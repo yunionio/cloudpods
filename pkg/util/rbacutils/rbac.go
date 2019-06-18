@@ -576,6 +576,13 @@ func (policy *SRbacPolicy) Match(userCred IRbacIdentity) bool {
 	return false
 }
 
+func (policy *SRbacPolicy) MatchRole(roleName string) bool {
+	if len(policy.Roles) == 0 || contains(policy.Roles, roleName) {
+		return true
+	}
+	return false
+}
+
 func String2Scope(str string) TRbacScope {
 	return String2ScopeDefault(str, ScopeProject)
 }

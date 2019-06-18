@@ -23,7 +23,7 @@ func (es *SOutOfQuotaErrors) Error() string {
 	qs := make([]string, len(es.errors))
 	for i := range es.errors {
 		e := es.errors[i]
-		qs = append(qs, e.Error())
+		qs[i] = e.Error()
 	}
 	return fmt.Sprintf("Out of quota: %s", strings.Join(qs, ", "))
 }

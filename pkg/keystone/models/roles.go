@@ -213,6 +213,10 @@ func roleExtra(role *SRole, extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra.Add(jsonutils.NewInt(int64(grpCnt)), "group_count")
 	prjCnt, _ := role.GetProjectCount()
 	extra.Add(jsonutils.NewInt(int64(prjCnt)), "project_count")
+	policies := policy.PolicyManager.RoleMatchPolicies(role.Name)
+	if len(policies) > 0 {
+		extra.Add(jsonutils.NewStringArray(policies), "match_policies")
+	}
 	return extra
 }
 

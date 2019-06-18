@@ -11,6 +11,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/reflectutils"
 
+	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -78,7 +79,7 @@ func (manager *SQuotaBaseManager) getQuotaInternal(ctx context.Context, scope rb
 	if err != nil && err != sql.ErrNoRows {
 		return err
 	} else if err == sql.ErrNoRows && manager.autoCreate {
-		quota.FetchSystemQuota()
+		quota.FetchSystemQuota(scope)
 		return manager.setQuotaInternal(ctx, nil, scope, ownerId, platform, quota)
 	}
 	return nil
@@ -121,30 +122,46 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 	}
 
 	for i := range tenants {
-		ownerId := db.SOwnerId{
-			DomainId:  tenants[i].DomainId,
-			Domain:    tenants[i].Domain,
-			ProjectId: tenants[i].Id,
-			Project:   tenants[i].Name,
+		obj := tenants[i]
+		var scope rbacutils.TRbacScope
+		var ownerId mcclient.IIdentityProvider
+		if obj.DomainId == identityapi.KeystoneDomainRoot {
+			// domain
+			scope = rbacutils.ScopeDomain
+			ownerId = &db.SOwnerId{
+				DomainId: tenants[i].Id,
+				Domain:   tenants[i].Name,
+			}
+		} else {
+			// project
+			scope = rbacutils.ScopeProject
+			ownerId = &db.SOwnerId{
+				DomainId:  tenants[i].DomainId,
+				Domain:    tenants[i].Domain,
+				ProjectId: tenants[i].Id,
+				Project:   tenants[i].Name,
+			}
 		}
+
 		quota := manager.newQuota()
-		err := metaQuota.GetQuota(context.Background(), rbacutils.ScopeProject, &ownerId, quota)
+		err := metaQuota.GetQuota(context.Background(), scope, ownerId, quota)
 		if err != nil && err != sql.ErrNoRows {
 			log.Errorf("metaQuota.GetQuota error %s for %s", err, ownerId)
 			continue
 		}
-		if !quota.IsEmpty() {
-			baseQuota := SQuotaBase{}
-			baseQuota.DomainId = ownerId.DomainId
-			baseQuota.ProjectId = ownerId.ProjectId
-			baseQuota.SetModelManager(manager, quota.(db.IModel))
-			reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseQuota))
+		if quota.IsEmpty() {
+			quota.FetchSystemQuota(scope)
+		}
+		baseQuota := SQuotaBase{}
+		baseQuota.DomainId = ownerId.GetProjectDomainId()
+		baseQuota.ProjectId = ownerId.GetProjectId()
+		baseQuota.SetModelManager(manager, quota.(db.IModel))
+		reflectutils.FillEmbededStructValue(reflect.Indirect(reflect.ValueOf(quota)), reflect.ValueOf(baseQuota))
 
-			err = manager.TableSpec().Insert(quota)
-			if err != nil {
-				log.Errorf("insert error %s", err)
-				continue
-			}
+		err = manager.TableSpec().Insert(quota)
+		if err != nil {
+			log.Errorf("insert error %s", err)
+			continue
 		}
 	}
 

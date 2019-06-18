@@ -51,8 +51,12 @@ type SQuota struct {
 	Image int
 }
 
-func (self *SQuota) FetchSystemQuota() {
-	self.Image = options.Options.DefaultImageQuota
+func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope) {
+	base := 1
+	if scope == rbacutils.ScopeDomain {
+		base = 10
+	}
+	self.Image = options.Options.DefaultImageQuota * base
 }
 
 func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string) error {
