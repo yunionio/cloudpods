@@ -361,6 +361,18 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 		sqlchemy.COUNT("rnic_count"),
 	)
 
+	groupNics := GroupnetworkManager.Query().SubQuery()
+	grpNicSQ := groupNics.Query(
+		groupNics.Field("network_id"),
+		sqlchemy.COUNT("grpnic_count"),
+	).GroupBy(groupNics.Field("network_id")).SubQuery()
+
+	lbNics := LoadbalancernetworkManager.Query().SubQuery()
+	lbNicSQ := lbNics.Query(
+		lbNics.Field("network_id"),
+		sqlchemy.COUNT("lbnic_count"),
+	).GroupBy(lbNics.Field("network_id")).SubQuery()
+
 	gNicSQ := gNicQ.GroupBy(gNics.Field("network_id")).SubQuery()
 	hNicSQ := hNicQ.GroupBy(hNics.Field("network_id")).SubQuery()
 	revSQ := revQ.GroupBy(revIps.Field("network_id")).SubQuery()
@@ -371,10 +383,15 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 		sqlchemy.COUNT("id").Label("net_count"),
 		sqlchemy.SUM("gnic_count", gNicQ.Field("gnic_count")),
 		sqlchemy.SUM("hnic_count", hNicQ.Field("hnic_count")),
-		sqlchemy.SUM("rev_count", revQ.Field("rnic_count")))
+		sqlchemy.SUM("rev_count", revQ.Field("rnic_count")),
+		sqlchemy.SUM("grpnic_count", grpNicSQ.Field("grpnic_count")),
+		sqlchemy.SUM("lbnic_count", lbNicSQ.Field("lbnic_count")),
+	)
 	netQ = netQ.LeftJoin(gNicSQ, sqlchemy.Equals(gNicSQ.Field("network_id"), networks.Field("id")))
 	netQ = netQ.LeftJoin(hNicSQ, sqlchemy.Equals(hNicSQ.Field("network_id"), networks.Field("id")))
 	netQ = netQ.LeftJoin(revSQ, sqlchemy.Equals(revSQ.Field("network_id"), networks.Field("id")))
+	netQ = netQ.LeftJoin(grpNicSQ, sqlchemy.Equals(grpNicSQ.Field("network_id"), networks.Field("id")))
+	netQ = netQ.LeftJoin(lbNicSQ, sqlchemy.Equals(lbNicSQ.Field("network_id"), networks.Field("id")))
 	netQ = netQ.GroupBy(networks.Field("wire_id"))
 	netSQ := netQ.SubQuery()
 
@@ -385,6 +402,8 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 		sqlchemy.SUM("guest_nic_count", netSQ.Field("gnic_count")),
 		sqlchemy.SUM("host_nic_count", netSQ.Field("hnic_count")),
 		sqlchemy.SUM("reserved_count", netSQ.Field("rev_count")),
+		sqlchemy.SUM("group_nic_count", netSQ.Field("grpnic_count")),
+		sqlchemy.SUM("lb_nic_count", netSQ.Field("lbnic_count")),
 	)
 	q = q.LeftJoin(netSQ, sqlchemy.Equals(wires.Field("id"), netSQ.Field("wire_id")))
 
@@ -434,6 +453,12 @@ type WiresCountStat struct {
 	GuestNicCount int
 	HostNicCount  int
 	ReservedCount int
+	GroupNicCount int
+	LbNicCount    int
+}
+
+func (wstat WiresCountStat) NicCount() int {
+	return wstat.GuestNicCount + wstat.HostNicCount + wstat.ReservedCount + wstat.GroupNicCount + wstat.LbNicCount
 }
 
 func (manager *SWireManager) TotalCount(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, cloudEnv string) WiresCountStat {
