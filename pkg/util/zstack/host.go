@@ -99,6 +99,7 @@ func (host *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	}
 	istorages := []cloudprovider.ICloudStorage{}
 	for i := 0; i < len(storages); i++ {
+		storages[i].region = host.zone.region
 		switch storages[i].Type {
 		case StorageTypeLocal:
 			localStorages, err := host.zone.region.getILocalStorages(storages[i].UUID, host.UUID)

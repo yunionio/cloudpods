@@ -23,10 +23,11 @@ import (
 
 func init() {
 	type ImageListOptions struct {
+		ZoneId  string
 		ImageId string
 	}
 	shellutils.R(&ImageListOptions{}, "image-list", "List images", func(cli *zstack.SRegion, args *ImageListOptions) error {
-		images, err := cli.GetImages(args.ImageId)
+		images, err := cli.GetImages(args.ZoneId, args.ImageId)
 		if err != nil {
 			return err
 		}
@@ -35,6 +36,7 @@ func init() {
 	})
 
 	type ImageCreateOptions struct {
+		ZONE     string
 		FILE     string
 		FORMAT   string `choices:"qcow2|raw|iso"`
 		PLATFORM string `choices:"Linux|Windows|Other"`
@@ -51,7 +53,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		image, err := cli.CreateImage(args.FILE, args.FORMAT, args.PLATFORM, args.Desc, f, finfo.Size())
+		image, err := cli.CreateImage(args.ZONE, args.FILE, args.FORMAT, args.PLATFORM, args.Desc, f, finfo.Size())
 		if err != nil {
 			return err
 		}
