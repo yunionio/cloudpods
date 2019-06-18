@@ -55,6 +55,14 @@ func (self *SContainerDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_ONECLOUD
 }
 
+func (self *SContainerDriver) GetQuotaPlatformID() []string {
+	return []string{
+		api.CLOUD_ENV_ON_PREMISE,
+		api.CLOUD_PROVIDER_ONECLOUD,
+		api.HYPERVISOR_CONTAINER,
+	}
+}
+
 func (self *SContainerDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_LOCAL
 }

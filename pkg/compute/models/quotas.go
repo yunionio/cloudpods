@@ -16,7 +16,6 @@ package models
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
@@ -28,33 +27,28 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
-var QuotaManager *quotas.SQuotaManager
-
-func init() {
-	dbStore := quotas.NewDBQuotaStore()
-	pendingStore := quotas.NewMemoryQuotaStore()
-
-	QuotaManager = quotas.NewQuotaManager("quotas", SQuota{}, dbStore, pendingStore)
+type SQuotaManager struct {
+	quotas.SQuotaBaseManager
 }
 
-var (
-	ErrOutOfCPU     = errors.New("out of CPU quota")
-	ErrOutOfMemory  = errors.New("out of memory quota")
-	ErrOutOfStorage = errors.New("out of storage quota")
-	ErrOutOfPort    = errors.New("out of internal port quota")
-	ErrOutOfEip     = errors.New("out of eip quota")
-	ErrOutOfEport   = errors.New("out of external port quota")
-	ErrOutOfBw      = errors.New("out of internal bandwidth quota")
-	ErrOutOfEbw     = errors.New("out of external bandwidth quota")
-	ErrOutOfKeypair = errors.New("out of keypair quota")
-	// ErrOutOfImage          = errors.New("out of image quota")
-	ErrOutOfGroup          = errors.New("out of group quota")
-	ErrOutOfSecgroup       = errors.New("out of secgroup quota")
-	ErrOutOfIsolatedDevice = errors.New("out of isolated device quota")
-	ErrOutOfSnapshot       = errors.New("out of snapshot quota")
-)
+var QuotaManager *SQuotaManager
+var QuotaUsageManager *SQuotaManager
+
+func init() {
+	pendingStore := quotas.NewMemoryQuotaStore()
+
+	QuotaUsageManager = &SQuotaManager{
+		SQuotaBaseManager: quotas.NewQuotaUsageManager(SQuota{}, "quota_usage_tbl"),
+	}
+
+	QuotaManager = &SQuotaManager{
+		SQuotaBaseManager: quotas.NewQuotaBaseManager(SQuota{}, "quota_tbl", pendingStore, QuotaUsageManager),
+	}
+}
 
 type SQuota struct {
+	quotas.SQuotaBase
+
 	Cpu     int
 	Memory  int
 	Storage int
@@ -63,7 +57,7 @@ type SQuota struct {
 	Eport   int
 	Bw      int
 	Ebw     int
-	Keypair int
+	// Keypair int
 	// Image          int
 	Group          int
 	Secgroup       int
@@ -71,23 +65,26 @@ type SQuota struct {
 	Snapshot       int
 }
 
-func (self *SQuota) FetchSystemQuota() {
-	self.Cpu = options.Options.DefaultCpuQuota
-	self.Memory = options.Options.DefaultMemoryQuota
-	self.Storage = options.Options.DefaultStorageQuota
-	self.Port = options.Options.DefaultPortQuota
-	self.Eip = options.Options.DefaultEipQuota
-	self.Eport = options.Options.DefaultEportQuota
-	self.Bw = options.Options.DefaultBwQuota
-	self.Ebw = options.Options.DefaultEbwQuota
-	self.Keypair = options.Options.DefaultKeypairQuota
-	self.Group = options.Options.DefaultGroupQuota
-	self.Secgroup = options.Options.DefaultSecgroupQuota
-	self.IsolatedDevice = options.Options.DefaultIsolatedDeviceQuota
-	self.Snapshot = options.Options.DefaultSnapshotQuota
+func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope) {
+	base := 1
+	if scope == rbacutils.ScopeDomain {
+		base = 10
+	}
+	self.Cpu = options.Options.DefaultCpuQuota * base
+	self.Memory = options.Options.DefaultMemoryQuota * base
+	self.Storage = options.Options.DefaultStorageQuota * base
+	self.Port = options.Options.DefaultPortQuota * base
+	self.Eip = options.Options.DefaultEipQuota * base
+	self.Eport = options.Options.DefaultEportQuota * base
+	self.Bw = options.Options.DefaultBwQuota * base
+	self.Ebw = options.Options.DefaultEbwQuota * base
+	self.Group = options.Options.DefaultGroupQuota * base
+	self.Secgroup = options.Options.DefaultSecgroupQuota * base
+	self.IsolatedDevice = options.Options.DefaultIsolatedDeviceQuota * base
+	self.Snapshot = options.Options.DefaultSnapshotQuota * base
 }
 
-func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) error {
+func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, name []string) error {
 	diskSize := totalDiskSize(scope, ownerId, tristate.None, tristate.None, false)
 	net := totalGuestNicCount(scope, ownerId, nil, false)
 	guest := totalGuestResourceCount(scope, ownerId, nil, nil, nil, false, false, nil, nil, nil, "")
@@ -105,7 +102,6 @@ func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, 
 	self.Eport = net.ExternalNicCount + net.ExternalVirtualNicCount
 	self.Bw = net.InternalBandwidth
 	self.Ebw = net.ExternalBandwidth
-	self.Keypair = 0 // keypair
 	self.Group = 0
 	self.Secgroup, _ = totalSecurityGroupCount(scope, ownerId)
 	self.IsolatedDevice = guest.TotalIsolatedCount
@@ -138,9 +134,6 @@ func (self *SQuota) IsEmpty() bool {
 	if self.Ebw > 0 {
 		return false
 	}
-	if self.Keypair > 0 {
-		return false
-	}
 	if self.Group > 0 {
 		return false
 	}
@@ -166,7 +159,6 @@ func (self *SQuota) Add(quota quotas.IQuota) {
 	self.Eport = self.Eport + squota.Eport
 	self.Bw = self.Bw + squota.Bw
 	self.Ebw = self.Ebw + squota.Ebw
-	self.Keypair = self.Keypair + squota.Keypair
 	self.Group = self.Group + squota.Group
 	self.Secgroup = self.Secgroup + squota.Secgroup
 	self.IsolatedDevice = self.IsolatedDevice + squota.IsolatedDevice
@@ -187,7 +179,6 @@ func (self *SQuota) Sub(quota quotas.IQuota) {
 	self.Eport = nonNegative(self.Eport - squota.Eport)
 	self.Bw = nonNegative(self.Bw - squota.Bw)
 	self.Ebw = nonNegative(self.Ebw - squota.Ebw)
-	self.Keypair = nonNegative(self.Keypair - squota.Keypair)
 	self.Group = nonNegative(self.Group - squota.Group)
 	self.Secgroup = nonNegative(self.Secgroup - squota.Secgroup)
 	self.IsolatedDevice = nonNegative(self.IsolatedDevice - squota.IsolatedDevice)
@@ -220,9 +211,6 @@ func (self *SQuota) Update(quota quotas.IQuota) {
 	if squota.Ebw > 0 {
 		self.Ebw = squota.Ebw
 	}
-	if squota.Keypair > 0 {
-		self.Keypair = squota.Keypair
-	}
 	if squota.Group > 0 {
 		self.Group = squota.Group
 	}
@@ -238,48 +226,50 @@ func (self *SQuota) Update(quota quotas.IQuota) {
 }
 
 func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
+	err := quotas.NewOutOfQuotaError()
 	sreq := request.(*SQuota)
 	squota := quota.(*SQuota)
 	if sreq.Cpu > 0 && self.Cpu > squota.Cpu {
-		return ErrOutOfCPU
+		err.Add("cpu", squota.Cpu, self.Cpu)
 	}
 	if sreq.Memory > 0 && self.Memory > squota.Memory {
-		return ErrOutOfMemory
+		err.Add("memory", squota.Memory, self.Memory)
 	}
 	if sreq.Storage > 0 && self.Storage > squota.Storage {
-		return ErrOutOfStorage
+		err.Add("storage", squota.Storage, self.Storage)
 	}
 	if sreq.Port > 0 && self.Port > squota.Port {
-		return ErrOutOfPort
+		err.Add("port", squota.Port, self.Port)
 	}
 	if sreq.Eip > 0 && self.Eip > squota.Eip {
-		return ErrOutOfEip
+		err.Add("eip", squota.Eip, self.Eip)
 	}
 	if sreq.Eport > 0 && self.Eport > squota.Eport {
-		return ErrOutOfEport
+		err.Add("eport", squota.Eport, self.Eport)
 	}
 	if sreq.Bw > 0 && self.Bw > squota.Bw {
-		return ErrOutOfBw
+		err.Add("bw", squota.Bw, self.Bw)
 	}
 	if sreq.Ebw > 0 && self.Ebw > squota.Ebw {
-		return ErrOutOfEbw
-	}
-	if sreq.Keypair > 0 && self.Keypair > squota.Keypair {
-		return ErrOutOfKeypair
+		err.Add("ebw", squota.Ebw, self.Ebw)
 	}
 	if sreq.Group > 0 && self.Group > squota.Group {
-		return ErrOutOfGroup
+		err.Add("group", squota.Group, self.Group)
 	}
 	if sreq.Secgroup > 0 && self.Secgroup > squota.Secgroup {
-		return ErrOutOfSecgroup
+		err.Add("secgroup", squota.Secgroup, self.Secgroup)
 	}
 	if sreq.IsolatedDevice > 0 && self.IsolatedDevice > squota.IsolatedDevice {
-		return ErrOutOfIsolatedDevice
+		err.Add("isolated_device", squota.IsolatedDevice, self.IsolatedDevice)
 	}
 	if sreq.Snapshot > 0 && self.Snapshot > squota.Snapshot {
-		return ErrOutOfSnapshot
+		err.Add("snapshot", squota.Snapshot, self.Snapshot)
 	}
-	return nil
+	if err.IsError() {
+		return err
+	} else {
+		return nil
+	}
 }
 
 func keyName(prefix, name string) string {
@@ -315,9 +305,6 @@ func (self *SQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	}
 	if self.Ebw > 0 {
 		ret.Add(jsonutils.NewInt(int64(self.Ebw)), keyName(prefix, "ebw"))
-	}
-	if self.Keypair > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Keypair)), keyName(prefix, "keypair"))
 	}
 	if self.Group > 0 {
 		ret.Add(jsonutils.NewInt(int64(self.Group)), keyName(prefix, "group"))

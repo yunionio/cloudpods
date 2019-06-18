@@ -355,13 +355,27 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 			return nil, httperrors.NewForbiddenError("cannot alter sysadmin user name")
 		}
 	}
+	if user.IsReadOnly() {
+		for _, k := range []string{
+			"name",
+			"enabled",
+			"displayname",
+			"email",
+			"mobile",
+			"pasword",
+		} {
+			if data.Contains(k) {
+				return nil, httperrors.NewForbiddenError("field %s is readonly", k)
+			}
+		}
+	}
 	return user.SEnabledIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
 }
 
 func (user *SUser) ValidateUpdateCondition(ctx context.Context) error {
-	if user.IsReadOnly() {
-		return httperrors.NewForbiddenError("readonly")
-	}
+	// if user.IsReadOnly() {
+	// 	return httperrors.NewForbiddenError("readonly")
+	// }
 	return user.SEnabledIdentityBaseResource.ValidateUpdateCondition(ctx)
 }
 

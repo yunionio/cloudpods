@@ -512,3 +512,15 @@ func (manager *SPolicyManager) AllPolicies() map[string][]string {
 	}
 	return ret
 }
+
+func (manager *SPolicyManager) RoleMatchPolicies(roleName string) []string {
+	ret := make([]string, 0)
+	for _, policies := range manager.policies {
+		for name, policy := range policies {
+			if policy.MatchRole(roleName) {
+				ret = append(ret, name)
+			}
+		}
+	}
+	return ret
+}

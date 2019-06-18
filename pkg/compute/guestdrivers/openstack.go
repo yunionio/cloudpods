@@ -44,6 +44,13 @@ func (self *SOpenStackGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_OPENSTACK
 }
 
+func (self *SOpenStackGuestDriver) GetQuotaPlatformID() []string {
+	return []string{
+		api.CLOUD_ENV_PRIVATE_CLOUD,
+		api.CLOUD_PROVIDER_OPENSTACK,
+	}
+}
+
 func (self *SOpenStackGuestDriver) IsSupportEip() bool {
 	return false
 }

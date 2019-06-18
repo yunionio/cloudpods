@@ -33,7 +33,7 @@ func (this *QuotaManager) getURL(params jsonutils.JSONObject) string {
 		if len(tenant) > 0 {
 			url = fmt.Sprintf("%s/projects/%s", url, tenant)
 		} else {
-			domain, _ := params.GetString("domain")
+			domain := jsonutils.GetAnyString(params, []string{"domain", "project_domain"})
 			if len(domain) > 0 {
 				url = fmt.Sprintf("%s/domains/%s", url, domain)
 			}
@@ -54,6 +54,55 @@ func (this *QuotaManager) GetQuota(s *mcclient.ClientSession, params jsonutils.J
 	computeQuotaDict := computeQuota.(*jsonutils.JSONDict)
 	computeQuotaDict.Update(imageQuota)
 	return computeQuotaDict, nil
+}
+
+func getQuotaKey(quota jsonutils.JSONObject) string {
+	domainId, _ := quota.GetString("domain_id")
+	tenantId, _ := quota.GetString("tenant_id")
+	platform, _ := quota.GetString("platform")
+	return fmt.Sprintf("%s-%s-%s", domainId, tenantId, platform)
+}
+
+func quotaListToMap(list []jsonutils.JSONObject) map[string]jsonutils.JSONObject {
+	ret := make(map[string]jsonutils.JSONObject)
+	for i := range list {
+		key := getQuotaKey(list[i])
+		ret[key] = list[i]
+	}
+	return ret
+}
+
+func mergeQuotaList(list1 []jsonutils.JSONObject, list2 []jsonutils.JSONObject) []jsonutils.JSONObject {
+	list2map := quotaListToMap(list2)
+	for i := range list1 {
+		key := getQuotaKey(list1[i])
+		if quota, ok := list2map[key]; ok {
+			list1[i].(*jsonutils.JSONDict).Update(quota)
+		}
+	}
+	return list1
+}
+
+func (this *QuotaManager) GetQuotaList(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	var reqUrl string
+	domainId := jsonutils.GetAnyString(params, []string{"domain", "project_domain", "domain_id", "project_domain_id"})
+	if len(domainId) > 0 {
+		reqUrl = "/quotas/projects?project_domain=" + domainId
+	} else {
+		reqUrl = "/quotas/domains"
+	}
+	computeQuotaList, err := this._list(s, reqUrl, this.KeywordPlural)
+	if err != nil {
+		return nil, err
+	}
+	imageQuotaList, err := ImageQuotas._list(s, reqUrl, this.KeywordPlural)
+	if err != nil {
+		return nil, err
+	}
+	data := mergeQuotaList(computeQuotaList.Data, imageQuotaList.Data)
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewArray(data...), "data")
+	return ret, nil
 }
 
 func (this *QuotaManager) doPost(s *mcclient.ClientSession, params jsonutils.JSONObject, url string) (jsonutils.JSONObject, error) {

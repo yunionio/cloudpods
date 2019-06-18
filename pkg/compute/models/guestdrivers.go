@@ -32,6 +32,7 @@ import (
 type IGuestDriver interface {
 	GetHypervisor() string
 	GetProvider() string
+	GetQuotaPlatformID() []string
 
 	GetMaxVCpuCount() int
 	GetMaxVMemSizeGB() int

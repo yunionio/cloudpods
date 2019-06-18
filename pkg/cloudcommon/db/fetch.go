@@ -100,7 +100,7 @@ func FetchByName(manager IModelManager, userCred mcclient.IIdentityProvider, idS
 	if err != nil {
 		return nil, err
 	}
-	if count > 1 && userCred != nil {
+	if count > 0 && userCred != nil {
 		q = manager.FilterByOwner(q, userCred, manager.NamespaceScope())
 		q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 		count, err = q.CountWithError()
@@ -183,7 +183,7 @@ func fetchItemByName(manager IModelManager, ctx context.Context, userCred mcclie
 	if err != nil {
 		return nil, err
 	}
-	if count > 1 {
+	if count > 0 {
 		q = manager.FilterByOwner(q, userCred, manager.NamespaceScope())
 		q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
 		count, err = q.CountWithError()

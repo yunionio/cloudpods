@@ -83,6 +83,13 @@ func (self *SAwsGuestDriver) GetProvider() string {
 	return api.CLOUD_PROVIDER_AWS
 }
 
+func (self *SAwsGuestDriver) GetQuotaPlatformID() []string {
+	return []string{
+		api.CLOUD_ENV_PUBLIC_CLOUD,
+		api.CLOUD_PROVIDER_AWS,
+	}
+}
+
 func (self *SAwsGuestDriver) GetDefaultSysDiskBackend() string {
 	return api.STORAGE_GP2_SSD
 }

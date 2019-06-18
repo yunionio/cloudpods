@@ -265,6 +265,10 @@ func (manager *SAssignmentManager) projectRemoveUser(ctx context.Context, userCr
 	if project.IsAdminProject() && user.IsAdminUser() && role.IsSystemRole() {
 		return httperrors.NewForbiddenError("sysadmin is protected")
 	}
+	// prevent remove current user from current project
+	if project.Id == userCred.GetProjectId() && user.Id == userCred.GetUserId() {
+		return httperrors.NewForbiddenError("cannot remove current user from current project")
+	}
 	if project.DomainId != user.DomainId {
 		// if project.DomainId != api.DEFAULT_DOMAIN_ID {
 		//    return httperrors.NewInputParameterError("join user into project of default domain or identical domain")

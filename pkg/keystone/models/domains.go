@@ -255,6 +255,19 @@ func (domain *SDomain) ValidateUpdateCondition(ctx context.Context) error {
 	return domain.SStandaloneResourceBase.ValidateUpdateCondition(ctx)
 }
 
+func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if domain.IsReadOnly() {
+		for _, k := range []string{
+			"name",
+		} {
+			if data.Contains(k) {
+				return nil, httperrors.NewForbiddenError("field %s is readonly", k)
+			}
+		}
+	}
+	return domain.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+}
+
 /*func (domain *SDomain) isReadOnly() bool {
 	if domain.GetDriver() == api.IdentityDriverSQL {
 		return false
