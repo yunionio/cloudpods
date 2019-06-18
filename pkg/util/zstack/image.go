@@ -22,6 +22,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/onecloud/pkg/util/imagetools"
 
 	"yunion.io/x/jsonutils"
@@ -183,13 +184,20 @@ func (image *SImage) GetCreateTime() time.Time {
 }
 
 func (region *SRegion) GetImage(imageId string) (*SImage, error) {
-	image := &SImage{storageCache: region.getStorageCache()}
-	return image, region.client.getResource("images", imageId, image)
+	image := &SImage{}
+	err := region.client.getResource("images", imageId, image)
+	if err != nil {
+		return nil, errors.Wrapf(err, "region.GetImage")
+	}
+	return image, nil
 }
 
-func (region *SRegion) GetImages(imageId string) ([]SImage, error) {
+func (region *SRegion) GetImages(zoneId string, imageId string) ([]SImage, error) {
 	images := []SImage{}
 	params := []string{"q=system=false"}
+	if len(zoneId) > 0 {
+		params = append(params, "q=backupStorage.zone.uuid="+zoneId)
+	}
 	if len(imageId) > 0 {
 		params = append(params, "q=uuid="+imageId)
 	}
@@ -199,8 +207,8 @@ func (region *SRegion) GetImages(imageId string) ([]SImage, error) {
 	return images, region.client.listAll("images", params, &images)
 }
 
-func (region *SRegion) GetBackupStorageUUID() ([]string, error) {
-	imageServers, err := region.GetImageServers("")
+func (region *SRegion) GetBackupStorageUUID(zondId string) ([]string, error) {
+	imageServers, err := region.GetImageServers(zondId, "")
 	if err != nil {
 		return nil, err
 	}
@@ -212,8 +220,8 @@ func (region *SRegion) GetBackupStorageUUID() ([]string, error) {
 	return []string{servers[0].UUID}, nil
 }
 
-func (region *SRegion) CreateImage(imageName, format, osType, desc string, reader io.Reader, size int64) (*SImage, error) {
-	backupStorageUUIDs, err := region.GetBackupStorageUUID()
+func (region *SRegion) CreateImage(zoneId string, imageName, format, osType, desc string, reader io.Reader, size int64) (*SImage, error) {
+	backupStorageUUIDs, err := region.GetBackupStorageUUID(zoneId)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +258,7 @@ func (region *SRegion) CreateImage(imageName, format, osType, desc string, reade
 
 	body := multipart.NewReader(reader, "", imageName)
 
-	image := &SImage{storageCache: region.getStorageCache()}
+	image := &SImage{}
 	err = region.client.create("images", jsonutils.Marshal(parmas), image)
 	if err != nil {
 		return nil, err
