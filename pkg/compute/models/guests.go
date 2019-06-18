@@ -2791,7 +2791,7 @@ func (self *SGuest) createDiskOnStorage(ctx context.Context, userCred mcclient.T
 	if storage.IsLocal() || billingType == billing_api.BILLING_TYPE_PREPAID || isWithServerCreate {
 		autoDelete = true
 	}
-	disk, err := storage.createDisk(diskName, diskConfig, userCred, self.ProjectId, autoDelete, self.IsSystem,
+	disk, err := storage.createDisk(diskName, diskConfig, userCred, self.GetOwnerId(), autoDelete, self.IsSystem,
 		billingType, billingCycle)
 
 	if err != nil {
@@ -3294,6 +3294,8 @@ func (self *SGuest) GetJsonDescAtHypervisor(ctx context.Context, host *SHost) *j
 	tc, _ := self.GetTenantCache(ctx)
 	if tc != nil {
 		desc.Add(jsonutils.NewString(tc.GetName()), "tenant")
+		desc.Add(jsonutils.NewString(tc.DomainId), "domain_id")
+		desc.Add(jsonutils.NewString(tc.Domain), "project_domain")
 	}
 	desc.Add(jsonutils.NewString(self.ProjectId), "tenant_id")
 
@@ -3429,6 +3431,8 @@ func (self *SGuest) GetJsonDescAtBaremetal(ctx context.Context, host *SHost) *js
 	tc, _ := self.GetTenantCache(ctx)
 	if tc != nil {
 		desc.Add(jsonutils.NewString(tc.GetName()), "tenant")
+		desc.Add(jsonutils.NewString(tc.DomainId), "domain_id")
+		desc.Add(jsonutils.NewString(tc.Domain), "project_domain")
 	}
 
 	desc.Add(jsonutils.NewString(self.ProjectId), "tenant_id")

@@ -340,6 +340,8 @@ func (manager *SQuotaBaseManager) getDomainTotalQuota(ctx context.Context, targe
 	if len(excludes) > 0 {
 		q = q.NotIn("tenant_id", excludes)
 	}
+	// dsable platform
+	q = q.IsNullOrEmpty("platform")
 	rows, err := q.Rows()
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err

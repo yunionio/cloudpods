@@ -358,6 +358,8 @@ type SCloudProviderInfo struct {
 	ManagerId        string `json:",omitempty"`
 	ManagerProject   string `json:",omitempty"`
 	ManagerProjectId string `json:",omitempty"`
+	ManagerDomain    string `json:",omitempty"`
+	ManagerDomainId  string `json:",omitempty"`
 	Region           string `json:",omitempty"`
 	RegionId         string `json:",omitempty"`
 	RegionExtId      string `json:",omitempty"`
@@ -418,6 +420,8 @@ func MakeCloudProviderInfo(region *SCloudregion, zone *SZone, provider *SCloudpr
 			tc, err := db.TenantCacheManager.FetchTenantById(appctx.Background, provider.ProjectId)
 			if err == nil {
 				info.ManagerProject = tc.GetName()
+				info.ManagerDomain = tc.Domain
+				info.ManagerDomainId = tc.DomainId
 			}
 		}
 

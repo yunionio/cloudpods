@@ -144,3 +144,7 @@ func TimeoutError(w http.ResponseWriter, msg string, params ...interface{}) {
 func ProtectedResourceError(w http.ResponseWriter, msg string, params ...interface{}) {
 	JsonClientError(w, NewProtectedResourceError(msg, params...))
 }
+
+func NoProjectError(w http.ResponseWriter, msg string, params ...interface{}) {
+	JsonClientError(w, NewNoProjectError(msg, params...))
+}
