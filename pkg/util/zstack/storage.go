@@ -210,8 +210,7 @@ func (storage *SStorage) GetEnabled() bool {
 }
 
 func (storage *SStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
-	storage.region.GetIStoragecaches()
-	return storage.region.storageCache
+	return &SStoragecache{ZoneId: storage.ZoneUUID, region: storage.region}
 }
 
 func (storage *SStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {

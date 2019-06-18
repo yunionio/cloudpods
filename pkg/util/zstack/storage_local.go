@@ -182,8 +182,17 @@ func (storage *SLocalStorage) GetEnabled() bool {
 }
 
 func (storage *SLocalStorage) GetIStoragecache() cloudprovider.ICloudStoragecache {
-	storage.region.GetIStoragecaches()
-	return storage.region.storageCache
+	cache := &SStoragecache{region: storage.region}
+	host, _ := storage.region.GetHost(storage.HostUUID)
+	if host != nil {
+		cache.ZoneId = host.ZoneUUID
+	} else {
+		_storage, _ := storage.region.GetStorage(storage.primaryStorageID)
+		if _storage != nil {
+			cache.ZoneId = _storage.ZoneUUID
+		}
+	}
+	return cache
 }
 
 func (storage *SLocalStorage) CreateIDisk(name string, sizeGb int, desc string) (cloudprovider.ICloudDisk, error) {
