@@ -52,6 +52,8 @@ var AzureGeographicInfo = map[string]cloudprovider.SGeographicInfo{
 	"westeurope":         {City: api.CITY_HOLLAND, CountryCode: api.COUNTRY_CODE_NL},     //荷兰
 	"canadaeast":         {City: api.CITY_QUEBEC, CountryCode: api.COUNTRY_CODE_CA},      //加拿大 魁北克市
 	"southindia":         {City: api.CITY_KANCHIPURAM, CountryCode: api.COUNTRY_CODE_IN}, //印度 甘吉布勒姆
+	"uaenorth":           {City: api.CITY_DUBAI, CountryCode: api.COUNTRY_CODE_AE},
+	"uaecentral":         {City: api.CITY_DUBAI, CountryCode: api.COUNTRY_CODE_AE},
 
 	"chinaeast":   {City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
 	"chinaeast2":  {City: api.CITY_SHANG_HAI, CountryCode: api.COUNTRY_CODE_CN},
