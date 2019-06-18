@@ -34,6 +34,8 @@ func init() {
 
 		Hypervisor string `help:"filter hosts by hypervisor"`
 
+		StorageNotAttached bool `help:"List hosts not attach specified storage"`
+
 		options.BaseListOptions
 	}
 	R(&HostListOptions{}, "host-list", "List hosts", func(s *mcclient.ClientSession, opts *HostListOptions) error {
