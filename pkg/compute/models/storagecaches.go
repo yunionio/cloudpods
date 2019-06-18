@@ -76,6 +76,19 @@ func (self *SStoragecache) getStorages() []SStorage {
 	return storages
 }
 
+func (self *SStoragecache) getValidStorages() []SStorage {
+	storages := []SStorage{}
+	q := StorageManager.Query()
+	q = q.Equals("storagecache_id", self.Id).
+		Filter(sqlchemy.In(q.Field("status"), []string{api.STORAGE_ENABLED, api.STORAGE_ONLINE})).
+		Filter(sqlchemy.IsTrue(q.Field("enabled")))
+	err := db.FetchModelObjects(StorageManager, q, &storages)
+	if err != nil {
+		return nil
+	}
+	return storages
+}
+
 func (self *SStoragecache) getStorageNames() []string {
 	storages := self.getStorages()
 	if storages == nil {
@@ -341,7 +354,7 @@ func (self *SStoragecache) StartImageUncacheTask(ctx context.Context, userCred m
 }
 
 func (self *SStoragecache) GetIStorageCache() (cloudprovider.ICloudStoragecache, error) {
-	storages := self.getStorages()
+	storages := self.getValidStorages()
 	if len(storages) == 0 {
 		msg := "no storages for this storagecache???"
 		log.Errorf(msg)
