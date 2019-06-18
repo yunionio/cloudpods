@@ -207,7 +207,7 @@ func (self *SHoststorage) getExtraDetails(extra *jsonutils.JSONDict) *jsonutils.
 	extra.Add(jsonutils.NewInt(int64(storage.GetFreeCapacity())), "free_capacity")
 	extra.Add(jsonutils.NewString(storage.StorageType), "storage_type")
 	extra.Add(jsonutils.NewString(storage.MediumType), "medium_type")
-	extra.Add(jsonutils.NewBool(storage.Enabled), "enabled")
+	extra.Add(jsonutils.NewBool(storage.Enabled.Bool()), "enabled")
 	extra.Add(jsonutils.NewFloat(float64(storage.GetOvercommitBound())), "cmtbound")
 
 	//extra.Add(jsonutils.NewInt(int64(self.GetGuestDiskCount())), "guest_disk_count")
