@@ -50,9 +50,20 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 		if err != nil {
 			return nil, err
 		}
+		defer resp.Body.Close()
 		err = image.SaveImageFromStream(resp.Body, false)
 		if err != nil {
 			return nil, err
+		}
+		md5 := resp.Header.Get("Content-Md5")
+		if len(md5) == 0 {
+			md5 = resp.Header.Get("x-oss-meta-yunion-os-checksum")
+		}
+		if len(md5) > 0 {
+			db.Update(image, func() error {
+				image.OssChecksum = md5
+				return nil
+			})
 		}
 		return nil, nil
 	})
