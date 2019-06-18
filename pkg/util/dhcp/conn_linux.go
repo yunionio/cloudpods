@@ -105,19 +105,19 @@ func (c *linuxConn) Close() error {
 	return c.conn.Close()
 }
 
-func (c *linuxConn) Recv(b []byte) (rb []byte, addr *net.UDPAddr, ifidx int, err error) {
+func (c *linuxConn) Recv(b []byte) (rb []byte, addr *net.UDPAddr, mac net.HardwareAddr, ifidx int, err error) {
 	hdr, p, cm, err := c.conn.ReadFrom(b)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, nil, 0, err
 	}
 	if len(p) < 8 {
-		return nil, nil, 0, errors.New("not a UDP packet, too short")
+		return nil, nil, nil, 0, errors.New("not a UDP packet, too short")
 	}
 	sport := int(binary.BigEndian.Uint16(p[:2]))
-	return p[8:], &net.UDPAddr{IP: hdr.Src, Port: sport}, cm.IfIndex, nil
+	return p[8:], &net.UDPAddr{IP: hdr.Src, Port: sport}, nil, cm.IfIndex, nil
 }
 
-func (c *linuxConn) Send(b []byte, addr *net.UDPAddr, ifidx int) error {
+func (c *linuxConn) Send(b []byte, addr *net.UDPAddr, _ net.HardwareAddr, ifidx int) error {
 	raw := make([]byte, 8+len(b))
 	// src port
 	binary.BigEndian.PutUint16(raw[:2], c.port)

@@ -680,6 +680,17 @@
   revision = "24818f796faf91cd76ec7bddd72458fbced7a6c1"
 
 [[projects]]
+  digest = "1:46ac2ef51e55915049c84595ad6451ef86186696a96947946d5918ca9f3169a6"
+  name = "github.com/google/gopacket"
+  packages = [
+    ".",
+    "layers",
+  ]
+  pruneopts = "UT"
+  revision = "6d3e2615da4ed2ed2a349918fe74e7e6d03482fa"
+  version = "v1.1.17"
+
+[[projects]]
   digest = "1:236d7e1bdb50d8f68559af37dbcf9d142d56b431c9b2176d41e2a009b664cda8"
   name = "github.com/google/uuid"
   packages = ["."]
@@ -911,6 +922,30 @@
   pruneopts = "UT"
   revision = "c12348ce28de40eed0136aa2b644d0ee0650e56c"
   version = "v1.0.1"
+
+[[projects]]
+  branch = "master"
+  digest = "1:506499efad62d26456e7ee45ff409603439cd7edafbe35c334a33e10c818cb44"
+  name = "github.com/mdlayher/arp"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "98a83c8a27177c5179d02d41ad50b0cce8e59338"
+
+[[projects]]
+  branch = "master"
+  digest = "1:34275a1f6f60d46dd507bf9b420c0abeff8bf71027fc06c6f6eda2b0c0a4bad4"
+  name = "github.com/mdlayher/ethernet"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "0394541c37b7f86a10e0b49492f6d4f605c34163"
+
+[[projects]]
+  branch = "master"
+  digest = "1:31127d1c9e4a361b10601b4ebf64116c60c0e6c5322385d945ca22c1d802141f"
+  name = "github.com/mdlayher/raw"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "a54781e5f38fd990ef58ac93981e1a9767d39693"
 
 [[projects]]
   branch = "master"
@@ -1401,14 +1436,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:ba8cbf57cfd92d5f8592b4aca1a35d92c162363d32aeabd5b12555f8896635e7"
+  digest = "1:887c8f729841e19be77a3584a51e0249a04dc8c55f184c450995ca24770364d4"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "UT"
-  revision = "dcdaa6325bcb8d3c07805583fe12153f08a41e2b"
+  revision = "6f217b454f458f9c81d48c1fff9e6f5ea6b0bbf2"
 
 [[projects]]
   digest = "1:a2ab62866c75542dd18d2b069fec854577a20211d7c0ea6ae746072a1dccdd18"
@@ -1870,6 +1905,8 @@
     "github.com/go-sql-driver/mysql",
     "github.com/golang-plus/errors",
     "github.com/golang-plus/uuid",
+    "github.com/google/gopacket",
+    "github.com/google/gopacket/layers",
     "github.com/googollee/go-socket.io",
     "github.com/gorilla/mux",
     "github.com/gorilla/websocket",
@@ -1878,6 +1915,9 @@
     "github.com/koding/websocketproxy",
     "github.com/kr/pty",
     "github.com/libvirt/libvirt-go-xml",
+    "github.com/mdlayher/arp",
+    "github.com/mdlayher/ethernet",
+    "github.com/mdlayher/raw",
     "github.com/mholt/caddy",
     "github.com/mholt/caddy/startupshutdown",
     "github.com/miekg/dns",
