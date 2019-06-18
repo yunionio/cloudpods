@@ -130,7 +130,6 @@ func (manager *SQuotaBaseManager) getQuotaHanlder(ctx context.Context, w http.Re
 	var scope rbacutils.TRbacScope
 	var err error
 
-	log.Debugf("%s", params)
 	projectId := params["<tenantid>"]
 	domainId := params["<domainid>"]
 	if len(projectId) > 0 || len(domainId) > 0 {
@@ -311,7 +310,8 @@ func (manager *SQuotaBaseManager) listProjectQuotaHanlder(ctx context.Context, w
 
 	if consts.IsRbacEnabled() {
 		allowScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), manager.KeywordPlural(), policy.PolicyActionList)
-		if (allowScope == rbacutils.ScopeDomain && userCred.GetProjectDomainId() != owner.GetProjectDomainId()) || allowScope != rbacutils.ScopeSystem {
+		if (allowScope == rbacutils.ScopeDomain && userCred.GetProjectDomainId() == owner.GetProjectDomainId()) || allowScope == rbacutils.ScopeSystem {
+		} else {
 			httperrors.ForbiddenError(w, "not allow to list project quotas")
 			return
 		}

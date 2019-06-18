@@ -20,7 +20,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/tristate"
+	"yunion.io/x/pkg/util/sets"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -87,7 +89,9 @@ func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope) {
 func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, name []string) error {
 	diskSize := totalDiskSize(scope, ownerId, tristate.None, tristate.None, false)
 	net := totalGuestNicCount(scope, ownerId, nil, false)
-	guest := totalGuestResourceCount(scope, ownerId, nil, nil, nil, false, false, nil, nil, nil, "")
+	hypervisors := sets.NewString(api.HYPERVISORS...)
+	hypervisors.Delete(api.HYPERVISOR_CONTAINER)
+	guest := totalGuestResourceCount(scope, ownerId, nil, nil, hypervisors.List(), false, false, nil, nil, nil, "")
 	eipUsage := ElasticipManager.TotalCount(scope, ownerId, nil, nil, "")
 	snapshotCount, _ := TotalSnapshotCount(scope, ownerId, nil, nil, "")
 	// XXX
