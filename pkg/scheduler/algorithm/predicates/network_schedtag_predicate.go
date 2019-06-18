@@ -99,8 +99,8 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, _ core.Candi
 			if network.IsPublic {
 				return fmt.Errorf("Network %s is public", network.Name)
 			}
-			if network.ProjectId != schedData.Project && utils.IsInStringArray(schedData.Project, network.GetSharedProjects()) {
-				return fmt.Errorf("Network project %s not owner by %s", network.ProjectId, schedData.Project)
+			if network.ProjectId != schedData.Project && !utils.IsInStringArray(schedData.Project, network.GetSharedProjects()) {
+				return fmt.Errorf("Network project %s + %v not owner by %s", network.ProjectId, network.GetSharedProjects(), schedData.Project)
 			}
 		} else {
 			if !network.IsPublic {
