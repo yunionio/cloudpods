@@ -746,6 +746,7 @@ func (manager *SImageManager) count(scope rbacutils.TRbacScope, ownerId mcclient
 	if len(status) > 0 {
 		sq = sq.Equals("status", status)
 	}
+	sq = sq.NotEquals("status", api.IMAGE_STATUS_KILLED)
 	if pendingDelete {
 		sq = sq.IsTrue("pending_deleted")
 	} else {

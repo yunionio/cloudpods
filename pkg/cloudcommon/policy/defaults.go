@@ -193,6 +193,13 @@ var (
 					Result:   rbacutils.Allow,
 				},
 				{
+					// quotas for any services
+					// Service:  "compute",
+					Resource: "quotas",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
 					// usages for any services
 					// Service:  "compute",
 					Resource: "usages",
@@ -249,6 +256,13 @@ var (
 					// Service:  "compute",
 					Resource: "quotas",
 					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					// quotas for any services
+					// Service:  "compute",
+					Resource: "quotas",
+					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
 				},
 				{
