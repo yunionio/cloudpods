@@ -65,66 +65,23 @@ type SQuota struct {
 	Snapshot       int
 }
 
-/*func (manager *SQuotaManager) InitializeData() error {
-	quotaCnt, err := manager.Query().CountWithError()
-	if err != nil {
-		return errors.Wrap(err, "SQuotaManager.CountWithError")
+func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope) {
+	base := 1
+	if scope == rbacutils.ScopeDomain {
+		base = 10
 	}
-	if quotaCnt > 0 {
-		// initlaized, quit
-		return nil
-	}
-
-	metaQuota := quotas.NewDBQuotaStore()
-
-	tenants := make([]db.STenant, 0)
-	err = db.TenantCacheManager.Query().All(&tenants)
-	if err != nil && err != sql.ErrNoRows {
-		return errors.Wrap(err, "Query")
-	}
-
-	for i := range tenants {
-		ownerId := db.SOwnerId{
-			DomainId:  tenants[i].DomainId,
-			Domain:    tenants[i].Domain,
-			ProjectId: tenants[i].Id,
-			Project:   tenants[i].Name,
-		}
-		quota := SQuota{}
-		err := metaQuota.GetQuota(context.Background(), rbacutils.ScopeProject, &ownerId, &quota)
-		if err != nil && err != sql.ErrNoRows {
-			log.Errorf("metaQuota.GetQuota error %s for %s", err, ownerId)
-			continue
-		}
-		if !quota.IsEmpty() {
-			quota.DomainId = ownerId.DomainId
-			quota.ProjectId = ownerId.ProjectId
-			quota.SetModelManager(manager, &quota)
-
-			err = manager.TableSpec().Insert(&quota)
-			if err != nil {
-				log.Errorf("insert error %s", err)
-				continue
-			}
-		}
-	}
-
-	return nil
-}*/
-
-func (self *SQuota) FetchSystemQuota() {
-	self.Cpu = options.Options.DefaultCpuQuota
-	self.Memory = options.Options.DefaultMemoryQuota
-	self.Storage = options.Options.DefaultStorageQuota
-	self.Port = options.Options.DefaultPortQuota
-	self.Eip = options.Options.DefaultEipQuota
-	self.Eport = options.Options.DefaultEportQuota
-	self.Bw = options.Options.DefaultBwQuota
-	self.Ebw = options.Options.DefaultEbwQuota
-	self.Group = options.Options.DefaultGroupQuota
-	self.Secgroup = options.Options.DefaultSecgroupQuota
-	self.IsolatedDevice = options.Options.DefaultIsolatedDeviceQuota
-	self.Snapshot = options.Options.DefaultSnapshotQuota
+	self.Cpu = options.Options.DefaultCpuQuota * base
+	self.Memory = options.Options.DefaultMemoryQuota * base
+	self.Storage = options.Options.DefaultStorageQuota * base
+	self.Port = options.Options.DefaultPortQuota * base
+	self.Eip = options.Options.DefaultEipQuota * base
+	self.Eport = options.Options.DefaultEportQuota * base
+	self.Bw = options.Options.DefaultBwQuota * base
+	self.Ebw = options.Options.DefaultEbwQuota * base
+	self.Group = options.Options.DefaultGroupQuota * base
+	self.Secgroup = options.Options.DefaultSecgroupQuota * base
+	self.IsolatedDevice = options.Options.DefaultIsolatedDeviceQuota * base
+	self.Snapshot = options.Options.DefaultSnapshotQuota * base
 }
 
 func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, name []string) error {

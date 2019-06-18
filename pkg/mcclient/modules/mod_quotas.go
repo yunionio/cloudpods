@@ -33,7 +33,7 @@ func (this *QuotaManager) getURL(params jsonutils.JSONObject) string {
 		if len(tenant) > 0 {
 			url = fmt.Sprintf("%s/projects/%s", url, tenant)
 		} else {
-			domain, _ := params.GetString("domain")
+			domain := jsonutils.GetAnyString(params, []string{"domain", "project_domain"})
 			if len(domain) > 0 {
 				url = fmt.Sprintf("%s/domains/%s", url, domain)
 			}

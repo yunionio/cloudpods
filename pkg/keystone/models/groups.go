@@ -210,10 +210,24 @@ func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, idpId s
 }
 
 func (group *SGroup) ValidateUpdateCondition(ctx context.Context) error {
-	if group.IsReadOnly() {
-		return httperrors.NewForbiddenError("readonly")
-	}
+	// if group.IsReadOnly() {
+	// 	return httperrors.NewForbiddenError("readonly")
+	// }
 	return group.SIdentityBaseResource.ValidateUpdateCondition(ctx)
+}
+
+func (group *SGroup) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if group.IsReadOnly() {
+		for _, k := range []string{
+			"name",
+			"displayname",
+		} {
+			if data.Contains(k) {
+				return nil, httperrors.NewForbiddenError("field %s is readonly", k)
+			}
+		}
+	}
+	return group.SIdentityBaseResource.ValidateUpdateData(ctx, userCred, query, data)
 }
 
 func (manager *SGroupManager) fetchGroupById(gid string) *SGroup {
