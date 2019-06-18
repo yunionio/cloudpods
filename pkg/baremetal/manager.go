@@ -1056,7 +1056,7 @@ func (b *SBaremetalInstance) enableWire(mac net.HardwareAddr, ipAddr string, nic
 	if len(netType) > 0 {
 		params.Add(jsonutils.NewString(netType), "net_type")
 	}
-	log.Errorf("enable net if params: %s", params.String())
+	log.Infof("enable net if params: %s", params.String())
 	return modules.Hosts.PerformAction(session, b.GetId(), "enable-netif", params)
 }
 

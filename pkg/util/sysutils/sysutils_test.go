@@ -401,3 +401,57 @@ func TestParseSGMap(t *testing.T) {
 		})
 	}
 }
+
+func TestParseIPMIUser(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want []compute.IPMIUser
+	}{
+		{
+			name: "empty line",
+			args: []string{"ID  Name             Callin  Link Auth  IPMI Msg   Channel Priv Limit"},
+			want: []compute.IPMIUser{},
+		},
+		{
+			name: "users",
+			args: []string{
+				"ID  Name             Callin  Link Auth  IPMI Msg   Channel Priv Limit",
+				"1   root             true    false      true       ADMINISTRATOR",
+				"2   admin            true    false      true       ADMINISTRATOR",
+				"3                    true    false      true       USER",
+				"4   (Empty User)     true    false      false      NO ACCESS",
+				"5   (Empty User)     true    false      false      NO ACCESS",
+			},
+			want: []compute.IPMIUser{
+				{
+					Id:   1,
+					Name: "root",
+					Priv: "ADMINISTRATOR",
+				},
+				{
+					Id:   2,
+					Name: "admin",
+					Priv: "ADMINISTRATOR",
+				},
+				{
+					Id:   4,
+					Name: "",
+					Priv: "",
+				},
+				{
+					Id:   5,
+					Name: "",
+					Priv: "",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ParseIPMIUser(tt.args); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseIPMIUser() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

@@ -311,3 +311,34 @@ func Start(closeFd bool, args ...string) (p *os.Process, err error) {
 	}
 	return nil, err
 }
+
+func ParseIPMIUser(lines []string) []compute.IPMIUser {
+	ret := make([]compute.IPMIUser, 0)
+	for _, l := range lines {
+		if strings.HasPrefix(l, "ID") {
+			continue
+		}
+		fields := strings.Fields(l)
+		if strings.Contains(l, "Empty User") {
+			id, err := strconv.Atoi(fields[0])
+			if err != nil {
+				continue
+			}
+			ret = append(ret, compute.IPMIUser{Id: id})
+			continue
+		}
+		if len(fields) != 6 {
+			continue
+		}
+		id, err := strconv.Atoi(fields[0])
+		if err != nil {
+			continue
+		}
+		ret = append(ret, compute.IPMIUser{
+			Id:   id,
+			Name: fields[1],
+			Priv: fields[5],
+		})
+	}
+	return ret
+}
