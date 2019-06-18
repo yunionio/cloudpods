@@ -267,5 +267,10 @@ func NewGeneralError(err error) *httputils.JSONClientError {
 
 func NewProtectedResourceError(msg string, params ...interface{}) *httputils.JSONClientError {
 	msg, err := errorMessage(msg, params...)
-	return NewJsonClientError(403, "ProtectedResourceError(", msg, err)
+	return NewJsonClientError(403, "ProtectedResourceError", msg, err)
+}
+
+func NewNoProjectError(msg string, params ...interface{}) *httputils.JSONClientError {
+	msg, err := errorMessage(msg, params...)
+	return NewJsonClientError(403, "NoProjectError", msg, err)
 }

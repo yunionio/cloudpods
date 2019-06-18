@@ -600,7 +600,8 @@ func (self *SCloudaccount) importSubAccount(ctx context.Context, userCred mcclie
 				// find default project of domain
 				t, err := db.TenantCacheManager.FindFirstProjectOfDomain(ownerId.GetProjectDomainId())
 				if err != nil {
-					log.Fatalf("cannot find a valid porject for domain %s", ownerId.GetProjectDomainId())
+					log.Errorf("cannot find a valid porject for domain %s", ownerId.GetProjectDomainId())
+					return nil, err
 				}
 				ownerId = &db.SOwnerId{
 					DomainId:  t.DomainId,
