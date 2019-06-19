@@ -208,6 +208,26 @@ func (self *SVpc) GetRegion() (*SCloudregion, error) {
 	return region.(*SCloudregion), nil
 }
 
+func (self *SVpc) getZoneByExternalId(externalId string) (*SZone, error) {
+	region, err := self.GetRegion()
+	if err != nil {
+		return nil, err
+	}
+	zones := []SZone{}
+	q := ZoneManager.Query().Equals("cloudregion_id", region.Id).Equals("external_id", externalId)
+	err = db.FetchModelObjects(ZoneManager, q, &zones)
+	if err != nil {
+		return nil, err
+	}
+	if len(zones) == 1 {
+		return &zones[0], nil
+	}
+	if len(zones) == 0 {
+		return nil, fmt.Errorf("failed to found zone by externalId %s in cloudregion %s(%s)", externalId, region.Name, region.Id)
+	}
+	return nil, fmt.Errorf("found %d duplicate zones by externalId %s in cloudregion %s(%s)", len(zones), externalId, region.Name, region.Id)
+}
+
 func (self *SVpc) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	return self.getMoreDetails(extra)
