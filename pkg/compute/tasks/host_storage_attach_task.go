@@ -63,6 +63,7 @@ func (self *HostStorageAttachTask) OnAttachStorageComplete(ctx context.Context, 
 	db.OpsLog.LogEvent(storage, db.ACT_ATTACH, "", self.GetUserCred())
 	logclient.AddActionLogWithContext(ctx, storage, logclient.ACT_ATTACH_HOST,
 		fmt.Sprintf("Attach host %s success", host.Name), self.GetUserCred(), true)
+	storage.SyncStatusWithHosts()
 	self.SetStageComplete(ctx, nil)
 }
 
