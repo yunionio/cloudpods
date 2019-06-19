@@ -67,7 +67,7 @@ func (self *SZStackProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 		cloudaccount = username
 	}
 	password, _ := data.GetString("password")
-	if len(password) > 0 {
+	if len(password) == 0 {
 		return nil, httperrors.NewMissingParameterError("password")
 	}
 	account := &cloudprovider.SCloudaccount{
