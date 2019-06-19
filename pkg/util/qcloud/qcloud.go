@@ -262,8 +262,9 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 			break
 		}
 		needRetry := false
-		for _, msg := range []string{"EOF", "TLS handshake timeout", "Code=InternalError", "retry later", "Code=MutexOperation.TaskRunning", "Code=InvalidInstance.NotSupported", "i/o timeout"} {
+		for _, msg := range []string{"EOF", "TLS handshake timeout", "Code=InternalError", "try later", "Code=MutexOperation.TaskRunning", "Code=InvalidInstance.NotSupported", "i/o timeout"} {
 			// Code=InvalidInstance.NotSupported, Message=The request does not support the instances `ins-bg54517v` which are in operation or in a special state., RequestId=79d02048-a8c9-4b59-b442-3c6f01fb728e
+			// Code=DesOperation.MutexTaskRunning, Message=Mutex task is running, please try later, RequestId=4529e365-b466-4239-ab56-ad36da70d982
 			// 重装系统后立即关机有可能会引发 Code=InvalidInstance.NotSupported 错误, 重试可以避免任务失败
 			if strings.Contains(err.Error(), msg) {
 				needRetry = true
