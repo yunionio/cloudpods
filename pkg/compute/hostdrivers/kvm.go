@@ -62,6 +62,17 @@ func (self *SKVMHostDriver) ValidateAttachStorage(host *models.SHost, storage *m
 		pool, _ := storage.StorageConf.GetString("pool")
 		data.Set("mount_point", jsonutils.NewString(fmt.Sprintf("rbd:%s", pool)))
 	} else if utils.IsInStringArray(storage.StorageType, api.SHARED_FILE_STORAGE) {
+		mountPoint, err := data.GetString("mount_point")
+		if err != nil {
+			return httperrors.NewMissingParameterError("mount_point")
+		}
+		count, err := models.HoststorageManager.Query().Equals("host_id", host.Id).Equals("mount_point", mountPoint).CountWithError()
+		if err != nil {
+			return httperrors.NewInternalServerError("Query host storage error %s", err)
+		}
+		if count > 0 {
+			return httperrors.NewBadRequestError("Host %s already have mount point %s with other storage", host.Name, mountPoint)
+		}
 		if host.HostStatus != api.HOST_ONLINE {
 			return httperrors.NewInvalidStatusError("Attach nfs storage require host status is online")
 		}
