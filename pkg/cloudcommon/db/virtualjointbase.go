@@ -106,3 +106,15 @@ func (manager *SVirtualJointResourceBaseManager) FilterBySystemAttributes(q *sql
 	q = q.In(iManager.GetSlaveFieldName(), slaveQ.SubQuery())
 	return q
 }
+
+func (manager *SVirtualJointResourceBaseManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SJointResourceBaseManager.FilterByHiddenSystemAttributes(q, userCred, query, scope)
+	masterQ := manager.GetMasterManager().Query("id")
+	masterQ = manager.GetMasterManager().FilterByHiddenSystemAttributes(masterQ, userCred, query, scope)
+	slaveQ := manager.GetSlaveManager().Query("id")
+	slaveQ = manager.GetSlaveManager().FilterByHiddenSystemAttributes(slaveQ, userCred, query, scope)
+	iManager := manager.GetIJointModelManager()
+	q = q.In(iManager.GetMasterFieldName(), masterQ.SubQuery())
+	q = q.In(iManager.GetSlaveFieldName(), slaveQ.SubQuery())
+	return q
+}
