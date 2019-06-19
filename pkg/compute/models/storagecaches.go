@@ -378,7 +378,7 @@ func (self *SStoragecache) StartImageUncacheTask(ctx context.Context, userCred m
 func (self *SStoragecache) GetIStorageCache() (cloudprovider.ICloudStoragecache, error) {
 	storages := self.getValidStorages()
 	if len(storages) == 0 {
-		msg := "no storages for this storagecache???"
+		msg := fmt.Sprintf("no storages for this storagecache %s(%s)???", self.Name, self.Id)
 		log.Errorf(msg)
 		return nil, fmt.Errorf(msg)
 	}
