@@ -16,6 +16,8 @@ package azure
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -48,8 +50,8 @@ type SRegion struct {
 	SubscriptionID string
 	Name           string
 	DisplayName    string
-	Latitude       float32
-	Longitude      float32
+	Latitude       string
+	Longitude      string
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -132,13 +134,34 @@ func (self *SRegion) GetProvider() string {
 	return CLOUD_PROVIDER_AZURE
 }
 
+func (self *SRegion) trimGeographicString(geographic string) string {
+	return strings.TrimFunc(geographic, func(r rune) bool {
+		return !((r >= '0' && r <= '9') || r == '.' || r == '-')
+	})
+}
+
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	info := cloudprovider.SGeographicInfo{}
 	if geographicInfo, ok := AzureGeographicInfo[self.Name]; ok {
 		info = geographicInfo
 	}
-	info.Latitude = self.Latitude
-	info.Longitude = self.Longitude
+
+	self.Latitude = self.trimGeographicString(self.Latitude)
+	self.Longitude = self.trimGeographicString(self.Longitude)
+
+	latitude, err := strconv.ParseFloat(self.Latitude, 32)
+	if err != nil {
+		log.Errorf("Parse azure region %s latitude %s error: %v", self.Name, self.Latitude, err)
+	} else {
+		info.Latitude = float32(latitude)
+	}
+
+	longitude, err := strconv.ParseFloat(self.Longitude, 32)
+	if err != nil {
+		log.Errorf("Parse azure region %s longitude %s error: %v", self.Name, self.Longitude, err)
+	} else {
+		info.Latitude = float32(longitude)
+	}
 	return info
 }
 
