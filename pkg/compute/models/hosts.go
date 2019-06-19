@@ -2061,8 +2061,8 @@ type HostStat struct {
 	MemSize     int
 	MemReserved int
 	MemCmtbound float32
-	CpuCount    int8
-	CpuReserved int8
+	CpuCount    int
+	CpuReserved int
 	CpuCmtbound float32
 	StorageSize int
 }

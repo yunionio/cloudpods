@@ -245,7 +245,9 @@ func listItemQueryFilters(manager IModelManager,
 	}
 
 	q = manager.FilterByOwner(q, ownerId, queryScope)
+	// apply all filters
 	q = manager.FilterBySystemAttributes(q, userCred, query, queryScope)
+	q = manager.FilterByHiddenSystemAttributes(q, userCred, query, queryScope)
 
 	q, err = manager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {

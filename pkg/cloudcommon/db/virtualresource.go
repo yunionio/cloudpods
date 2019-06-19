@@ -85,8 +85,8 @@ func (manager *SVirtualResourceBaseManager) FilterByName(q *sqlchemy.SQuery, nam
 	return q
 }
 
-func (manager *SVirtualResourceBaseManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
-	q = manager.SStatusStandaloneResourceBaseManager.FilterBySystemAttributes(q, userCred, query, scope)
+func (manager *SVirtualResourceBaseManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SStatusStandaloneResourceBaseManager.FilterByHiddenSystemAttributes(q, userCred, query, scope)
 
 	isSystem := jsonutils.QueryBoolean(query, "system", false)
 	if isSystem {
@@ -108,6 +108,11 @@ func (manager *SVirtualResourceBaseManager) FilterBySystemAttributes(q *sqlchemy
 	if !isSystem {
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(q.Field("is_system")), sqlchemy.IsFalse(q.Field("is_system"))))
 	}
+	return q
+}
+
+func (manager *SVirtualResourceBaseManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SStatusStandaloneResourceBaseManager.FilterBySystemAttributes(q, userCred, query, scope)
 
 	var pendingDelete string
 	if query != nil {

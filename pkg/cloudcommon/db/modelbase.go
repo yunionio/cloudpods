@@ -144,6 +144,10 @@ func (manager *SModelBaseManager) FilterBySystemAttributes(q *sqlchemy.SQuery, u
 	return q
 }
 
+func (manager *SModelBaseManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	return q
+}
+
 func (manager *SModelBaseManager) FetchById(idStr string) (IModel, error) {
 	return nil, sql.ErrNoRows
 }
