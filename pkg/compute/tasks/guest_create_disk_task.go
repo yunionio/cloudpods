@@ -59,6 +59,30 @@ type KVMGuestCreateDiskTask struct {
 }
 
 func (self *KVMGuestCreateDiskTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	// disk do attach guest before create
+	// if create failed, disk will not delete with guest
+	disks, err := self.GetInputDisks()
+	if err != nil {
+		self.SetStageFailed(ctx, err.Error())
+		return
+	}
+	for _, d := range disks {
+		diskId := d.DiskId
+		iDisk, err := models.DiskManager.FetchById(diskId)
+		if err != nil {
+			self.SetStageFailed(ctx, err.Error())
+			return
+		}
+		if iDisk == nil {
+			self.SetStageFailed(ctx, "Disk not found")
+			return
+		}
+		disk := iDisk.(*models.SDisk)
+		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint)
+		if err != nil {
+			self.SetStageFailed(ctx, "attach to guest failed")
+		}
+	}
 	self.SetStage("on_kvm_disk_prepared", nil)
 	self.OnKvmDiskPrepared(ctx, obj, data)
 }
@@ -85,6 +109,7 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 			self.SetStageFailed(ctx, "Disk not found")
 			return
 		}
+
 		disk := iDisk.(*models.SDisk)
 		if disk.Status == api.DISK_INIT {
 			snapshotId := d.SnapshotId
@@ -115,11 +140,6 @@ func (self *KVMGuestCreateDiskTask) OnKvmDiskPrepared(ctx context.Context, obj d
 		if disk.Status != api.DISK_READY {
 			diskReady = false
 			break
-		}
-		err = self.attachDisk(ctx, disk, d.Driver, d.Cache, d.Mountpoint)
-		if err != nil {
-			self.SetStageFailed(ctx, err.Error())
-			return
 		}
 	}
 	if diskReady {
