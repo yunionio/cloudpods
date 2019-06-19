@@ -57,7 +57,7 @@ func (self *SZStackProviderFactory) ValidateCreateCloudaccountData(ctx context.C
 		return httperrors.NewMissingParameterError("auth_url")
 	}
 	data.Set("account", jsonutils.NewString(username))
-	data.Set("secret", jsonutils.NewString("password"))
+	data.Set("secret", jsonutils.NewString(password))
 	data.Set("access_url", jsonutils.NewString(authURL))
 	return nil
 }
