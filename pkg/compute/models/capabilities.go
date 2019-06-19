@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
@@ -44,6 +45,7 @@ type SCapabilities struct {
 	MaxDataDiskCount   int
 	SchedPolicySupport bool
 	Usable             bool
+	PublicNetworkCount int
 	Specs              jsonutils.JSONObject
 }
 
@@ -96,6 +98,8 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	if len(domainId) > 0 {
 		query.(*jsonutils.JSONDict).Add(jsonutils.NewString(domainId), "domain_id")
 	}
+	publicNetworkCount, _ := getNetworkPublicCount(region, zone, domainId)
+	capa.PublicNetworkCount = publicNetworkCount
 	mans := []ISpecModelManager{HostManager, IsolatedDeviceManager}
 	capa.Specs, err = GetModelsSpecs(ctx, userCred, query.(*jsonutils.JSONDict), mans...)
 	return capa, err
@@ -295,11 +299,26 @@ func getGPUs(region *SCloudregion, zone *SZone, domainId string) []string {
 }
 
 func getNetworkCount(region *SCloudregion, zone *SZone, domainId string) (int, error) {
+	return getNetworkCountByFilter(region, zone, domainId, tristate.None)
+}
+
+func getNetworkPublicCount(region *SCloudregion, zone *SZone, domainId string) (int, error) {
+	return getNetworkCountByFilter(region, zone, domainId, tristate.True)
+}
+
+func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string, isPublic tristate.TriState) (int, error) {
 	vpcs := VpcManager.Query().SubQuery()
 	wires := WireManager.Query().SubQuery()
 	networks := NetworkManager.Query().SubQuery()
 
 	q := networks.Query()
+	if !isPublic.IsNone() {
+		if isPublic.IsTrue() {
+			q = q.IsTrue("is_public")
+		} else {
+			q = q.IsFalse("is_public")
+		}
+	}
 	q = q.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
 	if region != nil {
 		subq := getRegionZoneSubq(region)
