@@ -195,10 +195,6 @@ func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Contex
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
-// func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-// 	return nil
-// }
-
 func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
 	ihost, e := host.GetIHost()
 	if e != nil {
