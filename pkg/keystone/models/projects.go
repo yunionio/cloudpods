@@ -261,6 +261,10 @@ func (proj *SProject) ValidateDeleteCondition(ctx context.Context) error {
 	if grpCnt > 0 {
 		return httperrors.NewNotEmptyError("project contains group")
 	}
+	external, _ := proj.getExternalResources()
+	if len(external) > 0 {
+		return httperrors.NewNotEmptyError("project contains external resources")
+	}
 	if proj.IsAdminProject() {
 		return httperrors.NewForbiddenError("cannot delete system project")
 	}
@@ -298,5 +302,13 @@ func projectExtra(proj *SProject, extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	extra.Add(jsonutils.NewInt(int64(grpCnt)), "group_count")
 	usrCnt, _ := proj.GetUserCount()
 	extra.Add(jsonutils.NewInt(int64(usrCnt)), "user_count")
+	external, _ := proj.getExternalResources()
+	if len(external) > 0 {
+		extra.Add(jsonutils.Marshal(external), "ext_resources")
+	}
 	return extra
+}
+
+func (proj *SProject) getExternalResources() (map[string]int, error) {
+	return ProjectResourceManager.getProjectResource(proj.Id)
 }

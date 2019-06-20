@@ -30,10 +30,13 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
+
 	// "yunion.io/x/onecloud/pkg/keystone/keys"
+	"yunion.io/x/onecloud/pkg/keystone/cronjobs"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/keystone/tokens"
+
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/logclient"
 
@@ -98,6 +101,7 @@ func StartService() {
 		cron := cronman.GetCronJobManager(true)
 
 		cron.AddJob1WithStartRun("AutoSyncIdentityProviderTask", time.Duration(opts.AutoSyncIntervalSeconds)*time.Second, models.AutoSyncIdentityProviderTask, true)
+		cron.AddJob1("FetchProjectResourceCount", time.Duration(opts.FetchProjectResourceCountIntervalSeconds)*time.Second, cronjobs.FetchProjectResourceCount)
 
 		cron.Start()
 		defer cron.Stop()
