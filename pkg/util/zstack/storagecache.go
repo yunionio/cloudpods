@@ -77,12 +77,18 @@ func (scache *SStoragecache) GetIImages() ([]cloudprovider.ICloudImage, error) {
 }
 
 func (scache *SStoragecache) GetIImageById(extId string) (cloudprovider.ICloudImage, error) {
-	image, err := scache.region.GetImage(extId)
+	images, err := scache.region.GetImages(scache.ZoneId, extId)
 	if err != nil {
 		return nil, err
 	}
-	image.storageCache = scache
-	return image, nil
+	if len(images) == 1 {
+		images[0].storageCache = scache
+		return &images[0], nil
+	}
+	if len(images) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return nil, cloudprovider.ErrDuplicateId
 }
 
 func (scache *SStoragecache) GetPath() string {
