@@ -82,8 +82,8 @@ func (manager *SStandaloneResourceBaseManager) FilterByName(q *sqlchemy.SQuery, 
 	return q.Equals("name", name)
 }
 
-func (manager *SStandaloneResourceBaseManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
-	q = manager.SResourceBaseManager.FilterBySystemAttributes(q, userCred, query, scope)
+func (manager *SStandaloneResourceBaseManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SResourceBaseManager.FilterByHiddenSystemAttributes(q, userCred, query, scope)
 	showEmulated := jsonutils.QueryBoolean(query, "show_emulated", false)
 	if showEmulated {
 		var isAllow bool

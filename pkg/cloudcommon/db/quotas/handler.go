@@ -254,7 +254,20 @@ func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.Re
 		err = total.Exceed(quota, domainQuota)
 		if err != nil {
 			log.Errorf("project quota exeed domain quota: %s", err)
-			httperrors.GeneralServerError(w, fmt.Errorf("project quota exeed domain quota: %s", err))
+			httperrors.OutOfQuotaError(w, "project quota exeed domain quota")
+			return
+		}
+	} else {
+		total, err := manager.getDomainTotalQuota(ctx, ownerId.GetProjectDomainId(), nil)
+		if err != nil {
+			log.Errorf("get total quota fail %s", err)
+			httperrors.GeneralServerError(w, err)
+			return
+		}
+		err = total.Exceed(quota, oquota)
+		if err != nil {
+			log.Errorf("project quota exeed domain quota: %s", err)
+			httperrors.OutOfQuotaError(w, "project quota exeed domain quota")
 			return
 		}
 	}
