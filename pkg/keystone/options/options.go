@@ -35,6 +35,8 @@ type SKeystoneOptions struct {
 	AutoSyncIntervalSeconds int `help:"frequency to check auto sync tasks" default:"30"`
 
 	DefaultSyncIntervalSeoncds int `help:"frequency to do auto sync tasks" default:"900"`
+
+	FetchProjectResourceCountIntervalSeconds int `help:"frequency tp fetch project resource counts" default:"900"`
 }
 
 var (

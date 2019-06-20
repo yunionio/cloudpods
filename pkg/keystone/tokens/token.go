@@ -21,12 +21,33 @@ import (
 
 	"github.com/pkg/errors"
 
+	"yunion.io/x/pkg/utils"
+
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/keystone/keys"
 	"yunion.io/x/onecloud/pkg/keystone/models"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
+
+var (
+	defaultAuthToken *SAuthToken
+)
+
+func GetDefaultToken() (string, error) {
+	now := time.Now()
+	if defaultAuthToken == nil || defaultAuthToken.ExpiresAt.Sub(now) < time.Duration(3600) {
+		simpleToken := models.GetDefaultAdminCred()
+		defaultAuthToken = &SAuthToken{
+			UserId:    simpleToken.GetUserId(),
+			Method:    api.AUTH_METHOD_TOKEN,
+			ProjectId: simpleToken.GetProjectId(),
+			ExpiresAt: now.Add(24 * time.Hour),
+			AuditIds:  []string{utils.GenRequestId(16)},
+		}
+	}
+	return defaultAuthToken.EncodeFernetToken()
+}
 
 type SAuthToken struct {
 	UserId    string
