@@ -247,8 +247,15 @@ func (region *SRegion) AddSecurityGroupRule(secgroupId string, rules []secrules.
 }
 
 func (region *SRegion) DeleteSecurityGroupRules(ruleIds []string) error {
-	resource := fmt.Sprintf("security-groups/rules?ruleUuids=%s", strings.Join(ruleIds, ","))
-	return region.client.delete(resource, "", "")
+	if len(ruleIds) > 0 {
+		ids := []string{}
+		for _, ruleId := range ruleIds {
+			ids = append(ids, fmt.Sprintf("ruleUuids=%s", ruleId))
+		}
+		resource := fmt.Sprintf("security-groups/rules?%s", strings.Join(ids, "&"))
+		return region.client.delete(resource, "", "")
+	}
+	return nil
 }
 
 func (region *SRegion) CreateSecurityGroup(name, desc string) (*SSecurityGroup, error) {
