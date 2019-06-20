@@ -1172,7 +1172,7 @@ func (manager *SServerSkuManager) FetchAllAvailableSkuIdByZoneId(zoneId string) 
 }
 
 func (manager *SServerSkuManager) InitializeData() error {
-	count, err := manager.Query().IsNullOrEmpty("zone_id").CountWithError()
+	count, err := manager.Query().Equals("cloudregion_id", api.DEFAULT_REGION_ID).IsNullOrEmpty("zone_id").CountWithError()
 	if err == nil {
 		if count == 0 {
 			type Item struct {
@@ -1229,6 +1229,7 @@ func (manager *SServerSkuManager) InitializeData() error {
 				sku.CloudregionId = api.DEFAULT_REGION_ID
 				sku.CpuCoreCount = item.CPU
 				sku.MemorySizeMB = item.MemMB
+				sku.IsEmulated = false
 				sku.InstanceTypeCategory = api.SkuCategoryGeneralPurpose
 				sku.LocalCategory = api.SkuCategoryGeneralPurpose
 				sku.InstanceTypeFamily = api.InstanceFamilies[api.SkuCategoryGeneralPurpose]
