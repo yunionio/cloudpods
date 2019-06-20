@@ -536,14 +536,14 @@ func (image *SCachedimage) GetRegions() ([]SCloudregion, error) {
 	return regions, nil
 }
 
-func (image *SCachedimage) GetUsableZones() ([]SZone, error) {
+func (image *SCachedimage) GetUsableZoneIds() ([]string, error) {
 	zones := ZoneManager.Query().SubQuery()
 	storages := StorageManager.Query().SubQuery()
 	storagecaches := StoragecacheManager.Query().SubQuery()
 	storagecacheimages := StoragecachedimageManager.Query().SubQuery()
 	providers := CloudproviderManager.Query().SubQuery()
 
-	q := zones.Query()
+	q := zones.Query(zones.Field("id"))
 	q = q.Join(storages, sqlchemy.Equals(q.Field("id"), storages.Field("zone_id")))
 	q = q.Join(storagecaches, sqlchemy.Equals(storages.Field("storagecache_id"), storagecaches.Field("id")))
 	q = q.Join(providers, sqlchemy.Equals(providers.Field("id"), storagecaches.Field("manager_id")))
@@ -555,11 +555,23 @@ func (image *SCachedimage) GetUsableZones() ([]SZone, error) {
 	q = q.Filter(sqlchemy.Equals(storagecacheimages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
 	q = q.Filter(sqlchemy.Equals(q.Field("status"), api.ZONE_ENABLE))
 
-	result := []SZone{}
-	err := db.FetchModelObjects(ZoneManager, q, &result)
+	result := []string{}
+	rows, err := q.Rows()
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, err
 	}
+	defer rows.Close()
+	for rows.Next() {
+		var zoneId string
+		if err := rows.Scan(&zoneId); err != nil {
+			return nil, err
+		}
+		result = append(result, zoneId)
+	}
+
 	return result, nil
 }
 
