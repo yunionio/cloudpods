@@ -12,19 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models
-
-import (
-	"time"
-
-	"yunion.io/x/onecloud/pkg/util/ansible"
-)
-
-type AnsiblePlaybook struct {
-	VirtualResource
-
-	Playbook  *ansible.Playbook
-	Output    string
-	StartTime time.Time
-	EndTime   time.Time
-}
+package models // import "yunion.io/x/onecloud/pkg/ansibleserver/models"

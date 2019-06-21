@@ -57,6 +57,8 @@ func initHandlers(app *appsrv.Application) {
 		models.IdpRemoteIdsManager,
 
 		models.FernetKeyManager,
+
+		models.ProjectResourceManager,
 	} {
 		db.RegisterModelManager(manager)
 	}

@@ -362,7 +362,7 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 			"displayname",
 			"email",
 			"mobile",
-			"pasword",
+			"password",
 		} {
 			if data.Contains(k) {
 				return nil, httperrors.NewForbiddenError("field %s is readonly", k)
