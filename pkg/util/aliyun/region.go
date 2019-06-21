@@ -61,6 +61,10 @@ type SRegion struct {
 	fetchLocation bool
 }
 
+func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
 func (self *SRegion) GetClient() *SAliyunClient {
 	return self.client
 }
@@ -849,8 +853,8 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 		params["VpcId"] = loadbalancer.VpcID
 	}
 
-	if len(loadbalancer.NetworkID) > 0 {
-		params["VSwitchId"] = loadbalancer.NetworkID
+	if len(loadbalancer.NetworkIDs) > 0 {
+		params["VSwitchId"] = loadbalancer.NetworkIDs[0]
 	}
 
 	if len(loadbalancer.Address) > 0 {

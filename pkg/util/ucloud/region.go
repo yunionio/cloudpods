@@ -45,6 +45,10 @@ type SRegion struct {
 	fetchLocation bool
 }
 
+func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
 func (self *SRegion) GetId() string {
 	return self.RegionID
 }

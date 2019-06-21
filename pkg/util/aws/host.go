@@ -74,7 +74,7 @@ func (self *SHost) GetIVMs() ([]cloudprovider.ICloudVM, error) {
 func (self *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
 	if len(gid) == 0 {
 		log.Errorf("GetIVMById guest id is empty")
-		return nil, cloudprovider.ErrNotFound
+		return nil, ErrorNotFound()
 	}
 
 	ivms, _, err := self.zone.region.GetInstances(self.zone.ZoneId, []string{gid}, 0, 1)
@@ -82,7 +82,7 @@ func (self *SHost) GetIVMById(gid string) (cloudprovider.ICloudVM, error) {
 		return nil, err
 	}
 	if len(ivms) == 0 {
-		return nil, cloudprovider.ErrNotFound
+		return nil, ErrorNotFound()
 	}
 	if len(ivms) > 1 {
 		return nil, cloudprovider.ErrDuplicateId

@@ -136,7 +136,7 @@ func (m *SLoadbalancernetworkManager) DeleteLoadbalancerNetwork(ctx context.Cont
 		if err != nil {
 			return err
 		}
-		if req.reserve && regutils.MatchIP4Addr(ln.IpAddr) {
+		if req.reserve && len(ln.IpAddr) > 0 && regutils.MatchIP4Addr(ln.IpAddr) {
 			note := fmt.Sprintf("reserved from loadbalancer delete: %s",
 				req.loadbalancer.Id)
 			reservedIpMan := db.GetModelManager("reservedip").(*SReservedipManager)
@@ -151,18 +151,21 @@ func (m *SLoadbalancernetworkManager) DeleteLoadbalancerNetwork(ctx context.Cont
 }
 
 func (m *SLoadbalancernetworkManager) syncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential, req *SLoadbalancerNetworkRequestData) error {
-	_network, err := NetworkManager.FetchById(req.NetworkId)
+	_network, err := db.FetchByExternalId(NetworkManager, req.NetworkId)
 	if err != nil {
 		return err
 	}
 	network := _network.(*SNetwork)
-	ip, err := netutils.NewIPV4Addr(req.Address)
-	if err != nil {
-		return err
+	if len(req.Address) > 0 {
+		ip, err := netutils.NewIPV4Addr(req.Address)
+		if err != nil {
+			return err
+		}
+		if !network.IsAddressInRange(ip) {
+			return fmt.Errorf("address %s is not in the range of network %s(%s)", req.Address, network.Id, network.Name)
+		}
 	}
-	if !network.IsAddressInRange(ip) {
-		return fmt.Errorf("address %s is not in the range of network %s(%s)", req.Address, network.Id, network.Name)
-	}
+
 	q := m.Query().Equals("loadbalancer_id", req.Loadbalancer.Id).Equals("network_id", req.NetworkId)
 	lns := []SLoadbalancerNetwork{}
 	if err := db.FetchModelObjects(m, q, &lns); err != nil {

@@ -52,14 +52,15 @@ func (self *LoadbalancerListenerSyncTask) OnInit(ctx context.Context, obj db.ISt
 		return
 	}
 
-	if lblis.GetProviderName() != api.CLOUD_PROVIDER_HUAWEI {
+	// todo: 这个if应该可以删除
+	if lblis.GetProviderName() != api.CLOUD_PROVIDER_HUAWEI || lblis.GetProviderName() != api.CLOUD_PROVIDER_AWS {
 		self.OnLoadbalancerBackendgroupSyncComplete(ctx, lblis, data)
 		return
 	}
 
 	lbbg := lblis.GetLoadbalancerBackendGroup()
 	if lbbg == nil {
-		self.taskFail(ctx, lblis, fmt.Sprintf("failed to find region for lblis %s", lblis.Name))
+		self.taskFail(ctx, lblis, fmt.Sprintf("failed to find lbbg for lblis %s", lblis.Name))
 		return
 	}
 

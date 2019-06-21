@@ -57,6 +57,14 @@ type SRegion struct {
 	fetchLocation bool
 }
 
+func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
 func (self *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
 	lbs, err := self.GetLoadbalancers(nil)
 	if err != nil {
@@ -181,7 +189,7 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 	}
 
 	if loadbalancer.AddressType != api.LB_ADDR_TYPE_INTERNET {
-		params["SubnetId"] = loadbalancer.NetworkID
+		params["SubnetId"] = loadbalancer.NetworkIDs[0]
 	}
 
 	resp, err := self.clbRequest("CreateLoadBalancer", params)

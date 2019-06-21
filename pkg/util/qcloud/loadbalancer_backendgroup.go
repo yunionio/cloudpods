@@ -32,6 +32,10 @@ type SLBBackendGroup struct {
 	rule     *SLBListenerRule // tcp、udp、tcp_ssl监听rule 为nil
 }
 
+func (self *SLBBackendGroup) GetLoadbalancerId() string {
+	return self.lb.GetId()
+}
+
 func (self *SLBBackendGroup) GetProtocolType() string {
 	return ""
 }

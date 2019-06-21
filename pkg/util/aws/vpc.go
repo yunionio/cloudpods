@@ -151,7 +151,7 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 			return self.iwires[i], nil
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, ErrorNotFound()
 }
 
 func (self *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
@@ -255,7 +255,7 @@ func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {
 		return nil, err
 	}
 	if total != 1 {
-		return nil, cloudprovider.ErrNotFound
+		return nil, ErrorNotFound()
 	}
 	vpcs[0].region = self
 	return &vpcs[0], nil

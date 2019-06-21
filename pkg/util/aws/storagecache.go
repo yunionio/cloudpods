@@ -224,7 +224,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	for {
 		_, err = self.region.GetImageByName(imageName, ImageOwnerSelf)
 		if err != nil {
-			if err == cloudprovider.ErrNotFound {
+			if err == ErrorNotFound() {
 				break
 			} else {
 				return "", err

@@ -101,22 +101,18 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerBacken
 	return data, nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	return data, nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+	return data, nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
 	_, err := self.ValidateManagerId(ctx, userCred, data)
 	if err != nil {
 		return nil, err
-	}
-	loadbalancerId, _ := data.GetString("loadbalancer_id")
-	_, err = models.LoadbalancerManager.FetchById(loadbalancerId)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError("failed to find loadbalancer %s", loadbalancerId)
-		}
-		return nil, httperrors.NewGeneralError(err)
 	}
 
 	if aclStatus, _ := data.GetString("acl_status"); aclStatus == api.LB_BOOL_ON {
@@ -507,7 +503,25 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteLoadbalancerBackend
 			}
 			return nil, err
 		}
-		return nil, iLoadbalancerBackendGroup.Delete()
+
+		err = iLoadbalancerBackendGroup.Delete()
+		if err != nil {
+			return nil, err
+		}
+
+		cachedLbbgs, err := models.AwsCachedLbbgManager.GetCachedBackendGroups(lbbg.GetId())
+		if err != nil {
+			return nil, err
+		}
+
+		for i := range cachedLbbgs {
+			err = cachedLbbgs[i].Delete(ctx, userCred)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return nil, nil
 	})
 	return nil
 }

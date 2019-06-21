@@ -27,10 +27,10 @@ func init() {
 	}
 	shellutils.R(&ElbCreateOptions{}, "elb-create", "create loadbalancer", func(cli *huawei.SRegion, args *ElbCreateOptions) error {
 		loadbalancer := &cloudprovider.SLoadbalancer{
-			Name:      args.Name,
-			NetworkID: args.SUBNET,
-			EipID:     args.EipID,
-			Address:   args.PrivateIP,
+			Name:       args.Name,
+			NetworkIDs: []string{args.SUBNET},
+			EipID:      args.EipID,
+			Address:    args.PrivateIP,
 		}
 
 		elb, err := cli.CreateLoadBalancer(loadbalancer)

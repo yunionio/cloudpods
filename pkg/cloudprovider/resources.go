@@ -97,6 +97,7 @@ type ICloudRegion interface {
 	GetILoadBalancers() ([]ICloudLoadbalancer, error)
 	GetILoadBalancerAcls() ([]ICloudLoadbalancerAcl, error)
 	GetILoadBalancerCertificates() ([]ICloudLoadbalancerCertificate, error)
+	GetILoadBalancerBackendGroups() ([]ICloudLoadbalancerBackendGroup, error) // for aws only
 
 	GetILoadBalancerById(loadbalancerId string) (ICloudLoadbalancer, error)
 	GetILoadBalancerAclById(aclId string) (ICloudLoadbalancerAcl, error)
@@ -458,7 +459,7 @@ type ICloudLoadbalancer interface {
 	GetAddress() string
 	GetAddressType() string
 	GetNetworkType() string
-	GetNetworkId() string
+	GetNetworkIds() []string
 	GetVpcId() string
 	GetZoneId() string
 	GetLoadbalancerSpec() string
@@ -538,6 +539,7 @@ type ICloudLoadbalancerListenerRule interface {
 
 	GetDomain() string
 	GetPath() string
+	GetCondition() string
 	GetBackendGroupId() string
 
 	Delete() error
@@ -548,6 +550,7 @@ type ICloudLoadbalancerBackendGroup interface {
 
 	IsDefault() bool
 	GetType() string
+	GetLoadbalancerId() string
 	GetILoadbalancerBackends() ([]ICloudLoadbalancerBackend, error)
 	GetILoadbalancerBackendById(backendId string) (ICloudLoadbalancerBackend, error)
 	GetProtocolType() string                                // huawei only .后端云服务器组的后端协议。

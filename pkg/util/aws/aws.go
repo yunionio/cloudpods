@@ -187,7 +187,7 @@ func (self *SAwsClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, e
 			return self.iregions[i], nil
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, ErrorNotFound()
 }
 
 func (self *SAwsClient) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
@@ -195,11 +195,11 @@ func (self *SAwsClient) GetIHostById(id string) (cloudprovider.ICloudHost, error
 		ihost, err := self.iregions[i].GetIHostById(id)
 		if err == nil {
 			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if err != ErrorNotFound() {
 			return nil, err
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, ErrorNotFound()
 }
 
 func (self *SAwsClient) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
@@ -207,11 +207,11 @@ func (self *SAwsClient) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) 
 		ihost, err := self.iregions[i].GetIVpcById(id)
 		if err == nil {
 			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if err != ErrorNotFound() {
 			return nil, err
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, ErrorNotFound()
 }
 
 func (self *SAwsClient) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {
@@ -219,11 +219,11 @@ func (self *SAwsClient) GetIStorageById(id string) (cloudprovider.ICloudStorage,
 		ihost, err := self.iregions[i].GetIStorageById(id)
 		if err == nil {
 			return ihost, nil
-		} else if err != cloudprovider.ErrNotFound {
+		} else if err != ErrorNotFound() {
 			return nil, err
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, ErrorNotFound()
 }
 
 type SAccountBalance struct {

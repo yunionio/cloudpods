@@ -615,6 +615,10 @@ func chooseCandidateNetworksByNetworkType(nets []SNetwork, isExit bool, serverTy
 }
 
 func (self *SWire) GetZone() *SZone {
+	if self.ZoneId == "" {
+		return nil
+	}
+
 	return ZoneManager.FetchZoneById(self.ZoneId)
 }
 

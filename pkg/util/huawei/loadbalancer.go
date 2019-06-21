@@ -65,7 +65,7 @@ type Pool struct {
 }
 
 func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
-	return nil, cloudprovider.ErrNotImplemented
+	return self.eip, nil
 }
 
 func (self *SLoadbalancer) GetId() string {
@@ -120,8 +120,8 @@ func (self *SLoadbalancer) GetNetworkType() string {
 	return api.LB_NETWORK_TYPE_VPC
 }
 
-func (self *SLoadbalancer) GetNetworkId() string {
-	return self.VipSubnetID
+func (self *SLoadbalancer) GetNetworkIds() []string {
+	return []string{self.VipSubnetID}
 }
 
 func (self *SLoadbalancer) GetNetwork() *SNetwork {

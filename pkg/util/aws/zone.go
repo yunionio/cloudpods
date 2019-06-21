@@ -140,7 +140,7 @@ func (self *SZone) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	if host.GetGlobalId() == id {
 		return host, nil
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, ErrorNotFound()
 }
 
 func (self *SZone) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
@@ -159,7 +159,7 @@ func (self *SZone) GetIStorageById(id string) (cloudprovider.ICloudStorage, erro
 			return self.istorages[i], nil
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, ErrorNotFound()
 }
 
 func (self *SZone) getStorageByCategory(category string) (*SStorage, error) {

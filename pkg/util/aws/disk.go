@@ -188,7 +188,7 @@ func (self *SDisk) GetMountpoint() string {
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	if _, err := self.storage.zone.region.GetDisk(self.DiskId); err == cloudprovider.ErrNotFound {
+	if _, err := self.storage.zone.region.GetDisk(self.DiskId); err == ErrorNotFound() {
 		log.Errorf("Failed to find disk %s when delete", self.DiskId)
 		return nil
 	}
@@ -256,7 +256,7 @@ func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
 	if snapshots, total, err := self.storage.zone.region.GetSnapshots("", "", "", []string{snapshotId}, 0, 1); err != nil {
 		return nil, err
 	} else if total != 1 {
-		return nil, cloudprovider.ErrNotFound
+		return nil, ErrorNotFound()
 	} else {
 		return &snapshots[0], nil
 	}
@@ -359,18 +359,18 @@ func (self *SRegion) GetDisks(instanceId string, zoneId string, storageType stri
 func (self *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	if len(diskId) == 0 {
 		// return nil, fmt.Errorf("GetDisk diskId should not be empty.")
-		return nil, cloudprovider.ErrNotFound
+		return nil, ErrorNotFound()
 	}
 	disks, total, err := self.GetDisks("", "", "", []string{diskId}, 0, 1)
 	if err != nil {
 		if strings.Contains(err.Error(), "InvalidVolume.NotFound") {
-			return nil, cloudprovider.ErrNotFound
+			return nil, ErrorNotFound()
 		} else {
 			return nil, err
 		}
 	}
 	if total != 1 {
-		return nil, cloudprovider.ErrNotFound
+		return nil, ErrorNotFound()
 	}
 	return &disks[0], nil
 }

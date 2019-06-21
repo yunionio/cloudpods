@@ -119,6 +119,10 @@ func (self *SElbListenerPolicy) GetDomain() string {
 	return ""
 }
 
+func (self *SElbListenerPolicy) GetCondition() string {
+	return ""
+}
+
 func (self *SElbListenerPolicy) GetPath() string {
 	rules, err := self.GetRules()
 	if err != nil {

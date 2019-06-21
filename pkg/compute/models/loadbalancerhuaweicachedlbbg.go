@@ -76,7 +76,7 @@ func (lbbg *SHuaweiCachedLbbg) GetLoadbalancer() *SLoadbalancer {
 
 func (lbbg *SHuaweiCachedLbbg) GetCachedBackends() ([]SHuaweiCachedLb, error) {
 	ret := []SHuaweiCachedLb{}
-	err := HuaweiCachedLbManager.TableSpec().Query().Equals("cached_backend_group_id", lbbg.GetId()).All(&ret)
+	err := HuaweiCachedLbManager.Query().Equals("cached_backend_group_id", lbbg.GetId()).IsFalse("pending_deleted").All(&ret)
 	if err != nil {
 		log.Errorf("failed to get cached backends for backendgroup %s", lbbg.Name)
 		return nil, err

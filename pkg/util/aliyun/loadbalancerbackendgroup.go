@@ -56,6 +56,10 @@ type SLoadbalancerBackendGroup struct {
 	AssociatedObjects AssociatedObjects
 }
 
+func (backendgroup *SLoadbalancerBackendGroup) GetLoadbalancerId() string {
+	return backendgroup.lb.GetId()
+}
+
 func (backendgroup *SLoadbalancerBackendGroup) GetProtocolType() string {
 	return ""
 }

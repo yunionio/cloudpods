@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"fmt"
-	"regexp"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -143,7 +142,7 @@ type SLoadbalancerListener struct {
 	SLoadbalancerHTTPRateLimiter
 }
 
-func (man *SLoadbalancerListenerManager) checkListenerUniqueness(ctx context.Context, lb *SLoadbalancer, listenerType string, listenerPort int64) error {
+func (man *SLoadbalancerListenerManager) CheckListenerUniqueness(ctx context.Context, lb *SLoadbalancer, listenerType string, listenerPort int64) error {
 	q := man.Query().
 		IsFalse("pending_deleted").
 		Equals("loadbalancer_id", lb.Id).
@@ -155,6 +154,24 @@ func (man *SLoadbalancerListenerManager) checkListenerUniqueness(ctx context.Con
 		q = q.Equals("listener_type", api.LB_LISTENER_TYPE_UDP)
 	default:
 		return fmt.Errorf("unexpected listener type: %s", listenerType)
+	}
+	var listener SLoadbalancerListener
+	q.First(&listener)
+	if len(listener.Id) > 0 {
+		return httperrors.NewConflictError("%s listener port %d is already taken by listener %s(%s)",
+			listenerType, listenerPort, listener.Name, listener.Id)
+	}
+	return nil
+}
+
+func (man *SLoadbalancerListenerManager) CheckAwsListenerUniqueness(ctx context.Context, lb *SLoadbalancer, lblis *SLoadbalancerListener, listenerType string, listenerPort int64) error {
+	q := man.Query().
+		IsFalse("pending_deleted").
+		Equals("loadbalancer_id", lb.Id).
+		Equals("listener_port", listenerPort)
+
+	if lblis != nil {
+		q = q.NotEquals("id", lblis.GetId())
 	}
 	var listener SLoadbalancerListener
 	q.First(&listener)
@@ -195,132 +212,26 @@ func (man *SLoadbalancerListenerManager) ListItemFilter(ctx context.Context, q *
 
 func (man *SLoadbalancerListenerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	lbV := validators.NewModelIdOrNameValidator("loadbalancer", "loadbalancer", ownerId)
-	listenerTypeV := validators.NewStringChoicesValidator("listener_type", api.LB_LISTENER_TYPES)
-	listenerPortV := validators.NewPortValidator("listener_port")
+	if err := lbV.Validate(data); err != nil {
+		return nil, err
+	}
+
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
-	aclStatusV := validators.NewStringChoicesValidator("acl_status", api.LB_BOOL_VALUES)
-	aclTypeV := validators.NewStringChoicesValidator("acl_type", api.LB_ACL_TYPES)
-	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
-	keyV := map[string]validators.IValidator{
-		"status": validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
-
-		"loadbalancer":  lbV,
-		"listener_type": listenerTypeV,
-		"listener_port": listenerPortV,
-		"backend_group": backendGroupV.Optional(true),
-
-		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Default(api.LB_SENDPROXY_OFF),
-
-		"acl_status": aclStatusV.Default(api.LB_BOOL_OFF),
-		"acl_type":   aclTypeV.Optional(true),
-		"acl":        aclV.Optional(true),
-
-		"scheduler":   validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
-		"egress_mbps": validators.NewRangeValidator("egress_mbps", api.LB_MbpsMin, api.LB_MbpsMax).Optional(true),
-
-		"client_request_timeout":  validators.NewRangeValidator("client_request_timeout", 0, 600).Default(10),
-		"client_idle_timeout":     validators.NewRangeValidator("client_idle_timeout", 0, 600).Default(90),
-		"backend_connect_timeout": validators.NewRangeValidator("backend_connect_timeout", 0, 180).Default(5),
-		"backend_idle_timeout":    validators.NewRangeValidator("backend_idle_timeout", 0, 600).Default(90),
-
-		"sticky_session":                validators.NewStringChoicesValidator("sticky_session", api.LB_BOOL_VALUES).Default(api.LB_BOOL_OFF),
-		"sticky_session_type":           validators.NewStringChoicesValidator("sticky_session_type", api.LB_STICKY_SESSION_TYPES).Default(api.LB_STICKY_SESSION_TYPE_INSERT),
-		"sticky_session_cookie":         validators.NewRegexpValidator("sticky_session_cookie", regexp.MustCompile(`\w+`)).Optional(true),
-		"sticky_session_cookie_timeout": validators.NewNonNegativeValidator("sticky_session_cookie_timeout").Optional(true),
-
-		"x_forwarded_for": validators.NewBoolValidator("x_forwarded_for").Default(true),
-		"gzip":            validators.NewBoolValidator("gzip").Default(false),
-
-		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate").Default(0),
-		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
+	if err := backendGroupV.Validate(data); err != nil {
+		return nil, err
 	}
-	for _, v := range keyV {
-		if err := v.Validate(data); err != nil {
-			return nil, err
-		}
-	}
-	lb := lbV.Model.(*SLoadbalancer)
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
-	listenerPort := listenerPortV.Value
-	listenerType := listenerTypeV.Value
-	{
-		err := man.checkListenerUniqueness(ctx, lb, listenerType, listenerPort)
-		if err != nil {
-			// duplicate?
-			return nil, err
-		}
-	}
-	{
-		if lbbg, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != lb.Id {
-			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
-				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, lb.Id)
-		} else {
-			// 腾讯云backend group只能1v1关联
-			if lb.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
-				if lbbg != nil {
-					count, err := lbbg.RefCount()
-					if err != nil {
-						return nil, httperrors.NewInternalServerError("get lbbg RefCount fail %s", err)
-					}
-					if count > 0 {
-						return nil, httperrors.NewResourceBusyError("backendgroup aready related with other listener/rule")
-					}
-				}
-			}
-		}
-	}
-	{
-		if listenerType == api.LB_LISTENER_TYPE_HTTPS {
-			certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
-			tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
-			httpsV := map[string]validators.IValidator{
-				"certificate":       certV,
-				"tls_cipher_policy": tlsCipherPolicyV,
-				"enable_http2":      validators.NewBoolValidator("enable_http2").Default(true),
-			}
-			for _, v := range httpsV {
-				if err := v.Validate(data); err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	{
-		// health check default depends on input parameters
-		checkTypeV := man.CheckTypeV(listenerType)
-		keyVHealth := map[string]validators.IValidator{
-			"health_check":      validators.NewStringChoicesValidator("health_check", api.LB_BOOL_VALUES).Default(api.LB_BOOL_ON),
-			"health_check_type": checkTypeV,
 
-			"health_check_domain":    validators.NewDomainNameValidator("health_check_domain").AllowEmpty(true).Default(""),
-			"health_check_path":      validators.NewURLPathValidator("health_check_path").Default(""),
-			"health_check_http_code": validators.NewStringMultiChoicesValidator("health_check_http_code", api.LB_HEALTH_CHECK_HTTP_CODES).Sep(",").Default(api.LB_HEALTH_CHECK_HTTP_CODE_DEFAULT),
-
-			"health_check_rise":     validators.NewRangeValidator("health_check_rise", 1, 1000).Default(3),
-			"health_check_fall":     validators.NewRangeValidator("health_check_fall", 1, 1000).Default(3),
-			"health_check_timeout":  validators.NewRangeValidator("health_check_timeout", 1, 300).Default(5),
-			"health_check_interval": validators.NewRangeValidator("health_check_interval", 1, 1000).Default(5),
-		}
-		for _, v := range keyVHealth {
-			if err := v.Validate(data); err != nil {
-				return nil, err
-			}
-		}
-	}
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
 		return nil, err
 	}
+
+	lb := lbV.Model.(*SLoadbalancer)
 	region := lb.GetRegion()
 	if region == nil {
 		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
 	}
 
-	if err := man.validateAcl(aclStatusV, aclTypeV, aclV, data, lb.GetProviderName()); err != nil {
-		return nil, err
-	}
-
-	return region.GetDriver().ValidateCreateLoadbalancerListenerData(ctx, userCred, data, backendGroupV.Model)
+	return region.GetDriver().ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, data, lb, backendGroupV.Model)
 }
 
 func (man *SLoadbalancerListenerManager) CheckTypeV(listenerType string) validators.IValidator {
@@ -336,7 +247,7 @@ func (man *SLoadbalancerListenerManager) CheckTypeV(listenerType string) validat
 	return nil
 }
 
-func (man *SLoadbalancerListenerManager) validateAcl(aclStatusV *validators.ValidatorStringChoices, aclTypeV *validators.ValidatorStringChoices, aclV *validators.ValidatorModelIdOrName, data *jsonutils.JSONDict, providerName string) error {
+func (man *SLoadbalancerListenerManager) ValidateAcl(aclStatusV *validators.ValidatorStringChoices, aclTypeV *validators.ValidatorStringChoices, aclV *validators.ValidatorModelIdOrName, data *jsonutils.JSONDict, providerName string) error {
 	if aclStatusV.Value == api.LB_BOOL_ON {
 		if aclV.Model == nil {
 			return httperrors.NewMissingParameterError("acl")
@@ -408,83 +319,10 @@ func (lblis *SLoadbalancerListener) StartLoadBalancerListenerSyncstatusTask(ctx 
 func (lblis *SLoadbalancerListener) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	ownerId := lblis.GetOwnerId()
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
-	aclStatusV := validators.NewStringChoicesValidator("acl_status", api.LB_BOOL_VALUES)
-	aclStatusV.Default(lblis.AclStatus)
-	aclTypeV := validators.NewStringChoicesValidator("acl_type", api.LB_ACL_TYPES)
-	if api.LB_ACL_TYPES.Has(lblis.AclType) {
-		aclTypeV.Default(lblis.AclType)
-	}
-	var aclV *validators.ValidatorModelIdOrName
-	if _acl, _ := data.GetString("acl"); len(_acl) > 0 {
-		aclV = validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
-	} else {
-		aclV = validators.NewModelIdOrNameValidator("acl", "cachedloadbalanceracl", ownerId)
-		if len(lblis.AclId) > 0 {
-			aclV.Default(lblis.AclId)
-		}
-	}
-	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
-	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
-	keyV := map[string]validators.IValidator{
-		"backend_group": backendGroupV,
-
-		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES),
-
-		"acl_status": aclStatusV,
-		"acl_type":   aclTypeV,
-		"acl":        aclV,
-
-		"scheduler":   validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
-		"egress_mbps": validators.NewRangeValidator("egress_mbps", api.LB_MbpsMin, api.LB_MbpsMax),
-
-		"client_request_timeout":  validators.NewRangeValidator("client_request_timeout", 0, 600),
-		"client_idle_timeout":     validators.NewRangeValidator("client_idle_timeout", 0, 600),
-		"backend_connect_timeout": validators.NewRangeValidator("backend_connect_timeout", 0, 180),
-		"backend_idle_timeout":    validators.NewRangeValidator("backend_idle_timeout", 0, 600),
-
-		"sticky_session":                validators.NewStringChoicesValidator("sticky_session", api.LB_BOOL_VALUES),
-		"sticky_session_type":           validators.NewStringChoicesValidator("sticky_session_type", api.LB_STICKY_SESSION_TYPES),
-		"sticky_session_cookie":         validators.NewRegexpValidator("sticky_session_cookie", regexp.MustCompile(`\w+`)),
-		"sticky_session_cookie_timeout": validators.NewNonNegativeValidator("sticky_session_cookie_timeout"),
-
-		"health_check":      validators.NewStringChoicesValidator("health_check", api.LB_BOOL_VALUES),
-		"health_check_type": LoadbalancerListenerManager.CheckTypeV(lblis.ListenerType),
-
-		"health_check_domain":    validators.NewDomainNameValidator("health_check_domain").AllowEmpty(true),
-		"health_check_path":      validators.NewURLPathValidator("health_check_path"),
-		"health_check_http_code": validators.NewStringMultiChoicesValidator("health_check_http_code", api.LB_HEALTH_CHECK_HTTP_CODES).Sep(","),
-
-		"health_check_rise":     validators.NewRangeValidator("health_check_rise", 1, 1000),
-		"health_check_fall":     validators.NewRangeValidator("health_check_fall", 1, 1000),
-		"health_check_timeout":  validators.NewRangeValidator("health_check_timeout", 1, 300),
-		"health_check_interval": validators.NewRangeValidator("health_check_interval", 1, 1000),
-
-		"x_forwarded_for": validators.NewBoolValidator("x_forwarded_for"),
-		"gzip":            validators.NewBoolValidator("gzip"),
-
-		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate"),
-		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src"),
-
-		"certificate":       certV,
-		"tls_cipher_policy": tlsCipherPolicyV,
-		"enable_http2":      validators.NewBoolValidator("enable_http2"),
-	}
-	for _, v := range keyV {
-		v.Optional(true)
-		if err := v.Validate(data); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := LoadbalancerListenerManager.validateAcl(aclStatusV, aclTypeV, aclV, data, lblis.GetProviderName()); err != nil {
+	if err := backendGroupV.Validate(data); err != nil {
 		return nil, err
 	}
-	{
-		if backendGroup, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && backendGroup.LoadbalancerId != lblis.LoadbalancerId {
-			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
-				backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, lblis.LoadbalancerId)
-		}
-	}
+
 	if _, err := lblis.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data); err != nil {
 		return nil, err
 	}
@@ -659,6 +497,7 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovi
 		HealthCheckExp: lblis.HealthCheckExp,
 
 		HealthCheck:         lblis.HealthCheck,
+		HealthCheckType:     lblis.HealthCheckType,
 		HealthCheckTimeout:  lblis.HealthCheckTimeout,
 		HealthCheckDomain:   lblis.HealthCheckDomain,
 		HealthCheckHttpCode: lblis.HealthCheckHttpCode,
@@ -731,16 +570,46 @@ func (lblis *SLoadbalancerListener) GetHuaweiLoadbalancerListenerParams() (*clou
 	return listener, nil
 }
 
+func (lblis *SLoadbalancerListener) GetAwsLoadbalancerListenerParams() (*cloudprovider.SLoadbalancerListener, error) {
+	listener, err := lblis.GetLoadbalancerListenerParams()
+	if err != nil {
+		return nil, err
+	}
+
+	lb := lblis.GetLoadbalancer()
+	if lb != nil {
+		listener.LoadbalancerID = lb.ExternalId
+	}
+
+	if backendgroup := lblis.GetLoadbalancerBackendGroup(); backendgroup != nil {
+		cachedLbbg, err := AwsCachedLbbgManager.GetUsableCachedBackendGroup(lb.GetId(), lblis.BackendGroupId, listener.ListenerType, listener.HealthCheckType, listener.HealthCheckInterval)
+		if err != nil {
+			return nil, err
+		}
+
+		if cachedLbbg == nil {
+			return nil, fmt.Errorf("backendgroup %s related cached loadbalancer backendgroup not found", backendgroup.GetId())
+		}
+
+		listener.BackendGroupID = cachedLbbg.ExternalId
+		listener.BackendGroupType = backendgroup.Type
+	}
+
+	return listener, nil
+}
+
 func (lblis *SLoadbalancerListener) GetLoadbalancerCertificate() *SCachedLoadbalancerCertificate {
 	if len(lblis.CertificateId) == 0 {
 		return nil
 	}
 
-	certificate, err := CachedLoadbalancerCertificateManager.FetchById(lblis.CertificateId)
+	ret := &SCachedLoadbalancerCertificate{}
+	err := CachedLoadbalancerCertificateManager.Query().Equals("certificate_id", lblis.CertificateId).Equals("cloudregion_id", lblis.CloudregionId).IsFalse("pending_deleted").First(ret)
 	if err != nil {
 		return nil
 	}
-	return certificate.(*SCachedLoadbalancerCertificate)
+
+	return ret
 }
 
 func (lblis *SLoadbalancerListener) GetLoadbalancerAcl() *SCachedLoadbalancerAcl {
@@ -946,6 +815,15 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 			}
 
 			lblis.BackendGroupId = group.(*SHuaweiCachedLbbg).BackendGroupId
+		}
+	} else if lblis.GetProviderName() == api.CLOUD_PROVIDER_AWS {
+		if len(groupId) > 0 {
+			group, err := db.FetchByExternalId(AwsCachedLbbgManager, groupId)
+			if err != nil {
+				log.Errorf("Fetch aws loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+			}
+
+			lblis.BackendGroupId = group.(*SAwsCachedLbbg).BackendGroupId
 		}
 	} else if group, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
 		lblis.BackendGroupId = group.GetId()

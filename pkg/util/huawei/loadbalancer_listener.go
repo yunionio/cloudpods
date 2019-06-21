@@ -557,7 +557,7 @@ func (self *SRegion) UpdateLoadBalancerListener(listenerId string, listener *clo
 	if len(listener.BackendGroupID) > 0 {
 		listenerObj.Set("default_pool_id", jsonutils.NewString(listener.BackendGroupID))
 	} else {
-		listenerObj.Set("zdefault_pool_id", jsonutils.JSONNull)
+		listenerObj.Set("default_pool_id", jsonutils.JSONNull)
 	}
 
 	if listener.ListenerType == api.LB_LISTENER_TYPE_HTTPS {

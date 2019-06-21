@@ -17,11 +17,12 @@ package models
 import (
 	"context"
 	"fmt"
+	"net"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -72,10 +73,10 @@ type SLoadbalancer struct {
 	SZoneResourceBase
 	SLoadbalancerRateLimiter
 
-	Address     string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
+	Address     string `width:"128" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 	AddressType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	NetworkType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	NetworkId   string `width:"147" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	VpcId       string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	ClusterId   string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
@@ -115,158 +116,38 @@ func (man *SLoadbalancerManager) ListItemFilter(ctx context.Context, q *sqlchemy
 }
 
 func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
-	addressType, _ := data.GetString("address_type")
-	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
-	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerId)
-	if addressType == api.LB_ADDR_TYPE_INTERNET {
-		networkV.Optional(true)
-	} else {
-		zoneV.Optional(true)
-		managerIdV.Optional(true)
-	}
-	addressV := validators.NewIPv4AddrValidator("address")
-	chargeTypeV := validators.NewStringChoicesValidator("charge_type", api.LB_CHARGE_TYPES)
-	chargeTypeV.Default(api.LB_CHARGE_TYPE_BY_TRAFFIC)
-	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
-	clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId)
-	{
-		keyV := map[string]validators.IValidator{
-			"status": validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
-
-			"charge_type":  chargeTypeV,
-			"address":      addressV.Optional(true),
-			"address_type": addressTypeV.Default(api.LB_ADDR_TYPE_INTRANET),
-			"network":      networkV,
-			"zone":         zoneV,
-			"manager":      managerIdV,
-			"cluster":      clusterV.Optional(true),
-		}
-		for _, v := range keyV {
-			if err := v.Validate(data); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	var (
-		region *SCloudregion
-		zone   *SZone
-	)
-	var wire *SWire
-	network := networkV.Model.(*SNetwork)
-	if network != nil {
-		wire = network.GetWire()
-		if wire == nil {
-			return nil, fmt.Errorf("getting wire failed")
-		}
-		vpc := wire.getVpc()
-		if vpc == nil {
+	var region *SCloudregion
+	if id, _ := data.GetString("vpc"); len(id) > 0 {
+		vpc, err := db.FetchById(VpcManager, id)
+		if err != nil {
 			return nil, fmt.Errorf("getting vpc failed")
 		}
-		data.Set("vpc_id", jsonutils.NewString(vpc.Id))
-		if len(vpc.ManagerId) > 0 {
-			if managerIdV.Model != nil && managerIdV.Model.GetId() != vpc.ManagerId {
-				return nil, httperrors.NewInputParameterError("Loadbalancer's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)", managerIdV.Model.GetName(), managerIdV.Model.GetId(), vpc.GetName(), vpc.GetId(), vpc.ManagerId)
-			}
-			data.Set("manager_id", jsonutils.NewString(vpc.ManagerId))
-		}
-	}
 
-	if addressTypeV.Value == api.LB_ADDR_TYPE_INTRANET {
-		if chargeTypeV.Value == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
-			return nil, httperrors.NewUnsupportOperationError("intranet loadbalancer not support bandwidth charge type")
-		}
-
-		if ipAddr := addressV.IP; ipAddr != nil {
-			ipS := ipAddr.String()
-			ip, err := netutils.NewIPV4Addr(ipS)
-			if err != nil {
-				return nil, err
-			}
-			if !network.IsAddressInRange(ip) {
-				return nil, httperrors.NewInputParameterError("address %s is not in the range of network %s(%s)",
-					ipS, network.Name, network.Id)
-			}
-			used, err := network.isAddressUsed(ipS)
-			if err != nil {
-				return nil, httperrors.NewInternalServerError("isAddressUsed fail %s", err)
-			}
-			if used {
-				return nil, httperrors.NewInputParameterError("address %s is already occupied", ipS)
-			}
-		}
-		freeCnt, err := network.getFreeAddressCount()
+		region, _ = vpc.(*SVpc).GetRegion()
+	} else if id, _ := data.GetString("zone"); len(id) > 0 {
+		zone, err := db.FetchById(ZoneManager, id)
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("getFreeAddressCount fail %s", err)
-		}
-		if freeCnt <= 0 {
-			return nil, httperrors.NewNotAcceptableError("network %s(%s) has no free addresses",
-				network.Name, network.Id)
+			return nil, fmt.Errorf("getting zone failed")
 		}
 
-		zone := wire.GetZone()
-		if zone == nil {
-			if provider := managerIdV.Model.(*SCloudprovider); provider.Provider != api.CLOUD_PROVIDER_HUAWEI {
-				return nil, fmt.Errorf("getting zone failed")
-			}
-		} else {
-			data.Set("zone_id", jsonutils.NewString(zone.GetId()))
+		region = zone.(*SZone).GetRegion()
+	} else if id, _ := data.GetString("network"); len(id) > 0 {
+		network, err := db.FetchById(NetworkManager, strings.Split(id, ",")[0])
+		if err != nil {
+			return nil, fmt.Errorf("getting network failed")
 		}
+		region = network.(*SNetwork).getRegion()
+	}
 
-		region = wire.getRegion()
-		if region == nil {
-			return nil, fmt.Errorf("getting region failed")
-		}
-		data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
-		// TODO validate network is of classic type
-		data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_CLASSIC))
-		data.Set("address_type", jsonutils.NewString(api.LB_ADDR_TYPE_INTRANET))
-	} else {
-		zone = zoneV.Model.(*SZone)
-		region = zone.GetRegion()
-		if region == nil {
-			return nil, fmt.Errorf("getting region failed")
-		}
-		if chargeTypeV.Value == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
-			egressMbpsV := validators.NewNonNegativeValidator("egress_mpbs")
-			if err := egressMbpsV.Validate(data); err != nil {
-				return nil, err
-			}
-		}
+	if region == nil {
+		return nil, fmt.Errorf("getting region failed")
+	}
 
-		// 公网 lb 实例和vpc、network无关联
-		data.Set("zone_id", jsonutils.NewString(zone.GetId()))
-		data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
-		data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
-		data.Set("address_type", jsonutils.NewString(api.LB_ADDR_TYPE_INTERNET))
-	}
-	if zone == nil {
-		return nil, httperrors.NewInputParameterError("zone info missing")
-	}
-	if managerIdV.Model == nil {
-		if clusterV.Model == nil {
-			clusters := LoadbalancerClusterManager.findByZoneId(zone.Id)
-			if len(clusters) == 0 {
-				return nil, httperrors.NewInputParameterError("zone %s(%s) has no lbcluster", zone.Name, zone.Id)
-			}
-			if len(clusters) > 1 {
-				log.Warningf("found %d lbclusters, randomly select 1", len(clusters))
-			}
-			data.Set("cluster_id", jsonutils.NewString(clusters[0].Id))
-		} else {
-			cluster := clusterV.Model.(*SLoadbalancerCluster)
-			if cluster.ZoneId != zone.Id {
-				return nil, httperrors.NewInputParameterError("cluster zone %s does not match network zone %s ",
-					cluster.ZoneId, zone.Id)
-			}
-		}
-	} else {
-		data.Remove("cluster_id")
-	}
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
 		return nil, err
 	}
+
+	ctx = context.WithValue(ctx, "ownerId", ownerId)
 	return region.GetDriver().ValidateCreateLoadbalancerData(ctx, userCred, data)
 }
 
@@ -367,12 +248,23 @@ func (lb *SLoadbalancer) GetVpc() *SVpc {
 	return vpc.(*SVpc)
 }
 
-func (lb *SLoadbalancer) GetNetwork() *SNetwork {
-	network, err := NetworkManager.FetchById(lb.NetworkId)
+func (lb *SLoadbalancer) GetNetworks() ([]SNetwork, error) {
+	networks := []SNetwork{}
+	networkIds := strings.Split(lb.NetworkId, ",")
+	err := NetworkManager.Query().In("id", networkIds).IsFalse("pending_deleted").All(&networks)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return network.(*SNetwork)
+
+	if len(networks) == 0 {
+		return nil, fmt.Errorf("loadbalancer has no releated network found")
+	}
+
+	if len(networks) != len(networkIds) {
+		return nil, fmt.Errorf("expected %d networks, %d found", len(networkIds), len(networks))
+	}
+
+	return networks, nil
 }
 
 func (lb *SLoadbalancer) GetIRegion() (cloudprovider.ICloudRegion, error) {
@@ -413,7 +305,7 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 	if lb.ChargeType == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
 		params.EgressMbps = lb.EgressMbps
 	}
-	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || lb.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI {
+	if lb.AddressType == api.LB_ADDR_TYPE_INTRANET || lb.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI || lb.GetProviderName() == api.CLOUD_PROVIDER_AWS {
 		vpc := lb.GetVpc()
 		if vpc == nil {
 			return nil, fmt.Errorf("failed to find vpc for lb %s", lb.Name)
@@ -423,15 +315,19 @@ func (lb *SLoadbalancer) GetCreateLoadbalancerParams(iRegion cloudprovider.IClou
 			return nil, err
 		}
 		params.VpcID = iVpc.GetId()
-		network := lb.GetNetwork()
-		if network == nil {
-			return nil, fmt.Errorf("failed to find network for lb %s", lb.Name)
-		}
-		iNetwork, err := network.GetINetwork()
+		networks, err := lb.GetNetworks()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to find network for lb %s: %s", lb.Name, err)
 		}
-		params.NetworkID = iNetwork.GetId()
+
+		for i := range networks {
+			iNetwork, err := networks[i].GetINetwork()
+			if err != nil {
+				return nil, err
+			}
+			params.NetworkIDs = append(params.NetworkIDs, iNetwork.GetId())
+		}
+
 	}
 	return params, nil
 }
@@ -682,11 +578,15 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 	lb.ChargeType = extLb.GetChargeType()
 	lb.EgressMbps = extLb.GetEgressMbps()
 	lb.ExternalId = extLb.GetGlobalId()
-	if networkId := extLb.GetNetworkId(); len(networkId) > 0 {
+	networkIds := extLb.GetNetworkIds()
+	lbNetworkIds := []string{}
+	for _, networkId := range networkIds {
 		if network, err := db.FetchByExternalId(NetworkManager, networkId); err == nil && network != nil {
-			lb.NetworkId = network.GetId()
+			lbNetworkIds = append(lbNetworkIds, network.GetId())
 		}
 	}
+	lb.NetworkId = strings.Join(lbNetworkIds, ",")
+
 	if vpcId := extLb.GetVpcId(); len(vpcId) > 0 {
 		if vpc, err := db.FetchByExternalId(VpcManager, vpcId); err == nil && vpc != nil {
 			lb.VpcId = vpc.GetId()
@@ -711,7 +611,7 @@ func (man *SLoadbalancerManager) newFromCloudLoadbalancer(ctx context.Context, u
 
 	db.OpsLog.LogEvent(&lb, db.ACT_CREATE, lb.GetShortDesc(ctx), userCred)
 
-	lb.syncLoadbalancerNetwork(ctx, userCred)
+	lb.syncLoadbalancerNetwork(ctx, userCred, networkIds)
 	return &lb, nil
 }
 
@@ -728,16 +628,23 @@ func (lb *SLoadbalancer) syncRemoveCloudLoadbalancer(ctx context.Context, userCr
 	}
 }
 
-func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential) {
+func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred mcclient.TokenCredential, networkIds []string) {
 	if len(lb.NetworkId) > 0 {
-		lbNetReq := &SLoadbalancerNetworkRequestData{
-			Loadbalancer: lb,
-			NetworkId:    lb.NetworkId,
-			Address:      lb.Address,
+		ip := ""
+		if net.ParseIP(lb.Address) != nil {
+			ip = lb.Address
 		}
-		err := LoadbalancernetworkManager.syncLoadbalancerNetwork(ctx, userCred, lbNetReq)
-		if err != nil {
-			log.Errorf("failed to create loadbalancer network: %v", err)
+
+		for i := range networkIds {
+			lbNetReq := &SLoadbalancerNetworkRequestData{
+				Loadbalancer: lb,
+				NetworkId:    networkIds[i],
+				Address:      ip,
+			}
+			err := LoadbalancernetworkManager.syncLoadbalancerNetwork(ctx, userCred, lbNetReq)
+			if err != nil {
+				log.Errorf("failed to create loadbalancer network: %v", err)
+			}
 		}
 	}
 }
@@ -863,8 +770,7 @@ func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred
 	db.OpsLog.LogSyncUpdate(lb, diff, userCred)
 
 	SyncCloudProject(userCred, lb, syncOwnerId, extLb, lb.ManagerId)
-
-	lb.syncLoadbalancerNetwork(ctx, userCred)
+	lb.syncLoadbalancerNetwork(ctx, userCred, extLb.GetNetworkIds())
 
 	return err
 }

@@ -134,10 +134,13 @@ func init() {
 
 type SLoadbalancerAcl struct {
 	db.SSharableVirtualResourceBase
-	// db.SExternalizedResourceBase
+	db.SExternalizedResourceBase
+
+	SManagedResourceBase
+	SCloudregionResourceBase
 
 	AclEntries  *SLoadbalancerAclEntries `list:"user" update:"user" create:"required"`
-	Fingerprint string                   `name:"fingerprint" width:"64" charset:"ascii" nullable:"false" index:"true" list:"user"`
+	Fingerprint string                   `name:"fingerprint" width:"64" charset:"ascii" nullable:"false" index:"true" list:"user" update:"user" create:"required"`
 }
 
 func loadbalancerAclsValidateAclEntries(data *jsonutils.JSONDict, update bool) (*jsonutils.JSONDict, error) {
@@ -157,7 +160,7 @@ func loadbalancerAclsValidateAclEntries(data *jsonutils.JSONDict, update bool) (
 
 func (man *SLoadbalancerAclManager) FetchByFingerPrint(fingerprint string) (*SLoadbalancerAcl, error) {
 	ret := &SLoadbalancerAcl{}
-	q := man.TableSpec().Query()
+	q := man.Query().IsFalse("pending_deletetd")
 	q = q.Equals("fingerprint", fingerprint).Asc("created_at").Limit(1)
 	err := q.First(ret)
 	if err != nil {
@@ -168,7 +171,7 @@ func (man *SLoadbalancerAclManager) FetchByFingerPrint(fingerprint string) (*SLo
 }
 
 func (man *SLoadbalancerAclManager) CountByFingerPrint(fingerprint string) int {
-	q := man.TableSpec().Query()
+	q := man.Query().IsFalse("pending_deletetd")
 	return q.Equals("fingerprint", fingerprint).Asc("created_at").Count()
 }
 
@@ -384,4 +387,32 @@ func (man *SLoadbalancerAclManager) SyncLoadbalancerAcls(ctx context.Context, us
 func (manager *SLoadbalancerAclManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
 	virts := manager.Query().IsFalse("pending_deleted")
 	return db.CalculateProjectResourceCount(virts)
+}
+
+func (manager *SLoadbalancerAclManager) InitializeData() error {
+	// sync acl to  acl cache
+	acls := []SLoadbalancerAcl{}
+	cachedAcls := CachedLoadbalancerAclManager.Query("acl_id").SubQuery()
+	q := manager.Query().IsNotEmpty("external_id").IsNotEmpty("cloudregion_id").NotIn("id", cachedAcls)
+	if err := q.All(&acls); err != nil {
+		return err
+	}
+
+	for i := range acls {
+		acl := acls[i]
+		aclObj := jsonutils.Marshal(acl)
+		cachedAcl := &SCachedLoadbalancerAcl{}
+		err := aclObj.Unmarshal(cachedAcl)
+		if err != nil {
+			return err
+		}
+		cachedAcl.Id = ""
+		cachedAcl.AclId = acl.Id
+		err = CachedLoadbalancerAclManager.TableSpec().Insert(cachedAcl)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
