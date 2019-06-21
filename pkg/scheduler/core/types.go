@@ -114,10 +114,23 @@ func (h HostPriorityList) Len() int {
 }
 
 func (h HostPriorityList) Less(i, j int) bool {
-	if score.Equal(h[i].Score.ScoreBucket, h[j].Score.ScoreBucket) {
+	s1 := h[i].Score.ScoreBucket
+	s2 := h[j].Score.ScoreBucket
+	preferLess := score.PreferLess(s1, s2)
+	avoidLess := score.AvoidLess(s1, s2)
+	normalLess := score.NormalLess(s1, s2)
+
+	if !(preferLess || avoidLess || normalLess) {
 		return h[i].Host < h[j].Host
 	}
-	return score.Less(h[i].Score.ScoreBucket, h[j].Score.ScoreBucket)
+
+	if preferLess {
+		return true
+	}
+	if avoidLess {
+		return false
+	}
+	return normalLess
 }
 
 func (h HostPriorityList) Swap(i, j int) {
