@@ -32,7 +32,18 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
+type SBaseGuestScheduleDriver struct{}
+
+func (d SBaseGuestScheduleDriver) DoScheduleSKUFilter() bool { return true }
+
+func (d SBaseGuestScheduleDriver) DoScheduleCPUFilter() bool { return true }
+
+func (d SBaseGuestScheduleDriver) DoScheduleMemoryFilter() bool { return true }
+
+func (d SBaseGuestScheduleDriver) DoScheduleStorageFilter() bool { return true }
+
 type SBaseGuestDriver struct {
+	SBaseGuestScheduleDriver
 }
 
 func (self *SBaseGuestDriver) StartGuestCreateTask(guest *models.SGuest, ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, pendingUsage quotas.IQuota, parentTaskId string) error {

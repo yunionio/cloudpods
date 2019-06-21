@@ -292,15 +292,20 @@ func doSyncSchedule(c *gin.Context) {
 		resp = transToRegionSchedResult(result.Data, count, sid)
 	}
 
-	if err := setSchedPendingUsage(schedInfo, resp); err != nil {
+	driver := result.Unit.GetHypervisorDriver()
+	if err := setSchedPendingUsage(driver, schedInfo, resp); err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 	c.JSON(http.StatusOK, resp)
 }
 
-func setSchedPendingUsage(req *api.SchedInfo, resp *schedapi.ScheduleOutput) error {
-	if req.IsSuggestion || req.SkipDirtyMarkHost() {
+func IsDriverSkipScheduleDirtyMark(driver computemodels.IGuestDriver) bool {
+	return driver.DoScheduleCPUFilter() || driver.DoScheduleMemoryFilter() || driver.DoScheduleStorageFilter()
+}
+
+func setSchedPendingUsage(driver computemodels.IGuestDriver, req *api.SchedInfo, resp *schedapi.ScheduleOutput) error {
+	if req.IsSuggestion || IsDriverSkipScheduleDirtyMark(driver) || req.SkipDirtyMarkHost() {
 		return nil
 	}
 	for _, item := range resp.Candidates {
