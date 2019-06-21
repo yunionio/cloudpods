@@ -34,7 +34,7 @@ func defaultPredicates() sets.String {
 		factory.RegisterFitPredicate("c-GuestAggregateFilter", &predicates.AggregatePredicate{}),
 		factory.RegisterFitPredicate("d-GuestMigrateFilter", &predicateguest.MigratePredicate{}),
 		factory.RegisterFitPredicate("e-GuestDomainFilter", &predicates.DomainPredicate{}),
-		//factory.RegisterFitPredicate("e-GuestNestFilter", &predicateguest.NestPredicate{}),
+		factory.RegisterFitPredicate("e-GuestImageFilter", &predicateguest.ImagePredicate{}),
 		//factory.RegisterFitPredicate("f-GuestGroupFilter", &predicateguest.GroupPredicate{}),
 		factory.RegisterFitPredicate("g-GuestCPUFilter", &predicateguest.CPUPredicate{}),
 		factory.RegisterFitPredicate("h-GuestMemoryFilter", &predicateguest.MemoryPredicate{}),
