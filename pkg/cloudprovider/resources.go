@@ -427,6 +427,7 @@ type ICloudNetwork interface {
 	Delete() error
 
 	GetAllocTimeoutSeconds() int
+	GetReservedIps() ([]SReservedIp, error)
 }
 
 type ICloudHostNetInterface interface {
