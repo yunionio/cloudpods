@@ -83,18 +83,25 @@ func (p *SchedtagPredicate) Check(candidate ISchedtagCandidate) error {
 func GetSchedtagCount(inTags []computeapi.SchedtagConfig, objTags []models.SSchedtag, strategy string) (countMap map[string]int) {
 	countMap = make(map[string]int)
 
-	in := func(objTag models.SSchedtag, inTags []computeapi.SchedtagConfig) bool {
+	in := func(objTag models.SSchedtag, inTags []computeapi.SchedtagConfig) (bool, int) {
 		for _, tag := range inTags {
 			if tag.Id == objTag.Id || tag.Id == objTag.Name {
-				return true
+				return true, tag.Weight
 			}
 		}
-		return false
+		return false, 0
 	}
 
 	for _, objTag := range objTags {
-		if in(objTag, inTags) {
-			countMap[fmt.Sprintf("%s:%s:%s", objTag.Id, objTag.Name, strategy)]++
+		if ok, weight := in(objTag, inTags); ok {
+			key := fmt.Sprintf("%s:%s:%s", objTag.Id, objTag.Name, strategy)
+			score, ok := countMap[key]
+			if ok {
+				score += weight
+			} else {
+				score = weight
+			}
+			countMap[key] = score
 		}
 	}
 	return
@@ -116,7 +123,10 @@ func GetRequestSchedtags(reqTags []*computeapi.SchedtagConfig, allTags []models.
 
 	appendedTagIds := make(map[string]int)
 
-	appendTagByStrategy := func(tag *computeapi.SchedtagConfig) {
+	appendTagByStrategy := func(tag *computeapi.SchedtagConfig, defaultWeight int) {
+		if tag.Weight <= 0 {
+			tag.Weight = defaultWeight
+		}
 		switch tag.Strategy {
 		case models.STRATEGY_REQUIRE:
 			requireTags = append(requireTags, *tag)
@@ -130,7 +140,7 @@ func GetRequestSchedtags(reqTags []*computeapi.SchedtagConfig, allTags []models.
 	}
 
 	for _, tag := range reqTags {
-		appendTagByStrategy(tag)
+		appendTagByStrategy(tag, 10)
 
 		appendedTagIds[tag.Id] = 1
 	}
@@ -141,7 +151,7 @@ func GetRequestSchedtags(reqTags []*computeapi.SchedtagConfig, allTags []models.
 
 		if !(nameOk || idOk) {
 			apiTag := &computeapi.SchedtagConfig{Id: tag.Id, Strategy: tag.DefaultStrategy}
-			appendTagByStrategy(apiTag)
+			appendTagByStrategy(apiTag, 1)
 		}
 	}
 

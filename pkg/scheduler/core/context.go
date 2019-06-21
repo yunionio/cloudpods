@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"yunion.io/x/pkg/tristate"
 
 	"yunion.io/x/log"
 
@@ -209,7 +210,7 @@ func newScore() *Score {
 
 func newZeroScore() Score {
 	s := newScore()
-	s.Append(score.NewZeroScore())
+	s.SetScore(score.NewZeroScore(), tristate.None)
 	return *s
 }
 
@@ -554,7 +555,7 @@ type ScoreValue struct {
 	value score.TScore
 }
 
-func (u *Unit) setScore(id string, val score.SScore, tofront bool) {
+func (u *Unit) setScore(id string, val score.SScore, prefer tristate.TriState) {
 	u.scoreLock.Lock()
 	defer u.scoreLock.Unlock()
 
@@ -568,21 +569,21 @@ func (u *Unit) setScore(id string, val score.SScore, tofront bool) {
 		u.ScoreMap[id] = scoreObj
 	}
 
-	if tofront {
-		scoreObj.AddToFirst(val)
-	} else {
-		scoreObj.SetScore(val)
-	}
+	scoreObj.ScoreBucket.SetScore(val, prefer)
 
 	log.V(10).Infof("SetScore: %q -> %s", id, val.String())
 }
 
 func (u *Unit) SetScore(id string, val score.SScore) {
-	u.setScore(id, val, false)
+	u.setScore(id, val, tristate.None)
 }
 
-func (u *Unit) SetFrontScore(id string, val score.SScore) {
-	u.setScore(id, val, true)
+func (u *Unit) SetPreferScore(id string, val score.SScore) {
+	u.setScore(id, val, tristate.True)
+}
+
+func (u *Unit) SetAvoidScore(id string, val score.SScore) {
+	u.setScore(id, val, tristate.False)
 }
 
 func (u *Unit) GetScore(id string) Score {
