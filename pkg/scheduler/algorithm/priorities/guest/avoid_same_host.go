@@ -22,7 +22,7 @@ func (p *AvoidSameHostPriority) Map(u *core.Unit, c core.Candidater) (core.HostP
 
 	ownerTenantID := u.SchedData().Project
 	if count, ok := c.Getter().ProjectGuests()[ownerTenantID]; ok && count > 0 {
-		h.SetFrontRawScore(-1 * int(count))
+		h.SetScore(-1 * int(count))
 	}
 
 	return h.GetResult()
