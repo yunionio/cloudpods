@@ -16,12 +16,19 @@ package models
 
 import (
 	"context"
+	"fmt"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/util/netutils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -96,15 +103,14 @@ func (manager *SReservedipManager) GetReservedIP(network *SNetwork, ip string) *
 	return &rip
 }
 
-func (manager *SReservedipManager) GetReservedIPs(network *SNetwork) []SReservedip {
+func (manager *SReservedipManager) GetReservedIPs(network *SNetwork) ([]SReservedip, error) {
 	rips := make([]SReservedip, 0)
 	q := manager.Query().Equals("network_id", network.Id)
 	err := db.FetchModelObjects(manager, q, &rips)
 	if err != nil {
-		log.Errorf("GetReservedIPs fail: %s", err)
-		return nil
+		return nil, errors.Wrapf(err, "GetReservedIPs.FetchModelObjects")
 	}
-	return rips
+	return rips, nil
 }
 
 func (self *SReservedip) GetNetwork() *SNetwork {
@@ -151,4 +157,65 @@ func (manager *SReservedipManager) ListItemFilter(ctx context.Context, q *sqlche
 		q = q.Equals("network_id", netObj.GetId())
 	}
 	return q, nil
+}
+
+func (manager *SReservedipManager) SyncReservedIps(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork, _reservedIps []cloudprovider.SReservedIp) compare.SyncResult {
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
+
+	syncResult := compare.SyncResult{}
+	_dbReservedIps, err := manager.GetReservedIPs(network)
+	if err != nil {
+		syncResult.Error(err)
+		return syncResult
+	}
+
+	dbReservedIps := map[string]*SReservedip{}
+
+	for i := 0; i < len(_dbReservedIps); i++ {
+		dbReservedIps[_dbReservedIps[i].IpAddr] = &_dbReservedIps[i]
+	}
+
+	reservedIps := map[string]string{}
+	for _, reservedIp := range _reservedIps {
+		reservedIps[reservedIp.IP] = reservedIp.Notes
+	}
+
+	for ip, notes := range reservedIps {
+		if _, exist := dbReservedIps[ip]; !exist {
+			err = manager.newFromCloudNetwork(ctx, userCred, network, ip, notes)
+			if err != nil {
+				syncResult.AddError(err)
+			} else {
+				syncResult.Add()
+			}
+		} else {
+			syncResult.Update()
+		}
+	}
+
+	for ip, dbReservedIp := range dbReservedIps {
+		if _, exist := reservedIps[ip]; !exist {
+			err = dbReservedIp.Delete(ctx, userCred)
+			if err != nil {
+				syncResult.DeleteError(err)
+			} else {
+				syncResult.Delete()
+			}
+		}
+	}
+
+	return syncResult
+}
+
+func (manager *SReservedipManager) newFromCloudNetwork(ctx context.Context, userCred mcclient.TokenCredential, network *SNetwork, ip, notes string) error {
+	ipAddr, err := netutils.NewIPV4Addr(ip)
+	if err != nil {
+		return errors.Wrapf(err, "newFromCloudNetwork.NewIPV4Addr")
+	}
+
+	if !network.isAddressInRange(ipAddr) {
+		return fmt.Errorf("ip %s not in network %s(%s) ip range", ip, network.Name, network.Id)
+	}
+	return manager.ReserveIP(userCred, network, ip, notes)
 }

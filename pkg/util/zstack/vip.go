@@ -53,11 +53,14 @@ func (region *SRegion) GetNetworkId(vip *SVirtualIP) string {
 	return ""
 }
 
-func (region *SRegion) GetVirtualIPs(vipId string) ([]SVirtualIP, error) {
+func (region *SRegion) GetVirtualIPs(networkId, vipId string) ([]SVirtualIP, error) {
 	vips := []SVirtualIP{}
 	params := []string{}
 	if len(vipId) > 0 {
 		params = append(params, "q=uuid="+vipId)
+	}
+	if len(networkId) > 0 {
+		params = append(params, "q=l3Network.ipRanges.uuid="+networkId)
 	}
 	return vips, region.client.listAll("vips", params, &vips)
 }

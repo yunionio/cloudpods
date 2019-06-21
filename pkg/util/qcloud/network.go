@@ -24,10 +24,12 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SNetwork struct {
+	multicloud.SNetworkBase
 	wire *SWire
 
 	CidrBlock               string

@@ -350,7 +350,7 @@ func syncWireNetworks(ctx context.Context, userCred mcclient.TokenCredential, sy
 		log.Errorf(msg)
 		return
 	}
-	_, _, result := NetworkManager.SyncNetworks(ctx, userCred, localWire, nets, provider.GetOwnerId())
+	localNetwork, remoteNetwork, result := NetworkManager.SyncNetworks(ctx, userCred, localWire, nets, provider.GetOwnerId())
 
 	if syncResults != nil {
 		syncResults.Add(NetworkManager, result)
@@ -362,8 +362,37 @@ func syncWireNetworks(ctx context.Context, userCred mcclient.TokenCredential, sy
 	if result.IsError() {
 		return
 	}
+
+	for i := 0; i < len(localNetwork); i++ {
+		func() {
+			lockman.LockObject(ctx, &localNetwork[i])
+			defer lockman.ReleaseObject(ctx, &localNetwork[i])
+
+			syncNetworkReservedIps(ctx, userCred, syncResults, &localNetwork[i], remoteNetwork[i])
+		}()
+	}
+
 	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 	// logclient.AddActionLog(provider, getAction(task.GetParams()), notes, task.GetUserCred(), true)
+}
+
+func syncNetworkReservedIps(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localNetwork *SNetwork, remoteNetwork cloudprovider.ICloudNetwork) {
+	reservedIps, err := remoteNetwork.GetReservedIps()
+	if err != nil {
+		msg := fmt.Sprintf("GetReservedIps for netowkr %s failed %s", localNetwork.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+
+	result := ReservedipManager.SyncReservedIps(ctx, userCred, localNetwork, reservedIps)
+	syncResults.Add(ReservedipManager, result)
+
+	msg := result.Result()
+	notes := fmt.Sprintf("SyncReservedIps for network %s result: %s", localNetwork.Name, msg)
+	log.Infof(notes)
+	if result.IsError() {
+		return
+	}
 }
 
 func syncZoneStorages(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, driver cloudprovider.ICloudProvider, localZone *SZone, remoteZone cloudprovider.ICloudZone, syncRange *SSyncRange, storageCachePairs []sStoragecacheSyncPair) []sStoragecacheSyncPair {
