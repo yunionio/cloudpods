@@ -52,7 +52,7 @@ type SQuota struct {
 }
 
 func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope) {
-	base := 1
+	base := 0
 	if scope == rbacutils.ScopeDomain {
 		base = 10
 	}

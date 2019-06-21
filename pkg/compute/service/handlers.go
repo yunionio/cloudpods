@@ -33,6 +33,8 @@ func InitHandlers(app *appsrv.Application) {
 
 	db.RegistUserCredCacheUpdater()
 
+	db.AddProjectResourceCountHandler("", app)
+
 	quotas.AddQuotaHandler(&models.QuotaManager.SQuotaBaseManager, "", app)
 
 	usages.AddUsageHandler("", app)

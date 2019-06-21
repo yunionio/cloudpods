@@ -12,19 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models
+package modules
 
 import (
-	"time"
+	"io/ioutil"
 
-	"yunion.io/x/onecloud/pkg/util/ansible"
+	"yunion.io/x/jsonutils"
+
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-type AnsiblePlaybook struct {
-	VirtualResource
-
-	Playbook  *ansible.Playbook
-	Output    string
-	StartTime time.Time
-	EndTime   time.Time
+func GetProjectResources(s *mcclient.ClientSession, serviceType string) (jsonutils.JSONObject, error) {
+	man := &BaseManager{serviceType: serviceType}
+	resp, err := man.rawRequest(s, "GET", "/project-resources", nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Parse(body)
 }

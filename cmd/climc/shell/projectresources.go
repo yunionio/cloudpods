@@ -12,19 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package models
+package shell
 
 import (
-	"time"
+	"fmt"
 
-	"yunion.io/x/onecloud/pkg/util/ansible"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
-type AnsiblePlaybook struct {
-	VirtualResource
-
-	Playbook  *ansible.Playbook
-	Output    string
-	StartTime time.Time
-	EndTime   time.Time
+func init() {
+	type ProjectResourceOptions struct {
+		SERVICE string `help:"Service type"`
+	}
+	R(&ProjectResourceOptions{}, "project-resource-show", "query backend service for its project resource count", func(s *mcclient.ClientSession, args *ProjectResourceOptions) error {
+		body, err := modules.GetProjectResources(s, args.SERVICE)
+		if err != nil {
+			return err
+		}
+		fmt.Println(body.PrettyString())
+		return nil
+	})
 }

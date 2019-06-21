@@ -393,6 +393,8 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId
 		// domain only
 		q = q.IsNullOrEmpty("tenant_id")
 	}
+	// dsable platform
+	q = q.IsNullOrEmpty("platform")
 	rows, err := q.Rows()
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -421,14 +423,14 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId
 			scope = rbacutils.ScopeDomain
 		}
 		platform := strings.Split(platformStr, nameSeparator)
-		quota, _, err := manager.queryQuota(ctx, scope, &owner, platform)
+		quota, usage, err := manager.queryQuota(ctx, scope, &owner, platform)
 		if err != nil {
 			log.Errorf("query quota for %s fail %s", getMemoryStoreKey(scope, &owner, platform), err)
 			continue
 		}
-		// if usage.IsEmpty() {
-		// 	continue
-		// }
+		if usage.IsEmpty() {
+			continue
+		}
 		if len(projectId) > 0 {
 			quota.Set("tenant_id", jsonutils.NewString(projectId))
 			quota.Set("domain_id", jsonutils.NewString(domainId))
