@@ -110,16 +110,14 @@ func (p *AggregatePredicate) exec(h *PredicateHelper) string {
 	return ""
 }
 
-func SetCandidateScoreBySchedtag(u *core.Unit, c core.Candidater, aggCountMap map[string]int, postiveScore bool) {
+func SetCandidateScoreBySchedtag(u *core.Unit, c core.Candidater, aggCountMap map[string]int, prefer bool) {
 	stepScore := core.PriorityStep
-	if !postiveScore {
-		stepScore = -stepScore
+	doSet := u.SetPreferScore
+	if !prefer {
+		doSet = u.SetAvoidScore
 	}
 	for n, count := range aggCountMap {
-		u.SetFrontScore(
-			c.IndexKey(),
-			score.NewScore(score.TScore(count*stepScore), n),
-		)
+		doSet(c.IndexKey(), score.NewScore(score.TScore(count*stepScore), n))
 	}
 }
 

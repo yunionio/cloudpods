@@ -36,13 +36,6 @@ func NewPriorityHelper(p core.Priority, u *core.Unit, c core.Candidater) *Priori
 	}
 }
 
-func (h *PriorityHelper) setIntervalScore(val int) score.SScore {
-	h.score = score.NewScore(
-		h.priority.ScoreIntervals().ToScore(int64(val)),
-		h.priority.Name())
-	return h.score
-}
-
 func (h *PriorityHelper) setRawScore(val int) score.SScore {
 	h.score = score.NewScore(
 		score.TScore(val),
@@ -51,23 +44,18 @@ func (h *PriorityHelper) setRawScore(val int) score.SScore {
 }
 
 func (h *PriorityHelper) SetScore(val int) {
-	h.setIntervalScore(val)
-	h.unit.SetScore(h.Candidate.IndexKey(), h.score)
-}
-
-func (h *PriorityHelper) SetFrontScore(val int) {
-	h.setIntervalScore(val)
-	h.unit.SetFrontScore(h.Candidate.IndexKey(), h.score)
-}
-
-func (h *PriorityHelper) SetRawScore(val int) {
 	h.setRawScore(val)
 	h.unit.SetScore(h.Candidate.IndexKey(), h.score)
 }
 
-func (h *PriorityHelper) SetFrontRawScore(val int) {
+func (h *PriorityHelper) SetPreferScore(val int) {
 	h.setRawScore(val)
-	h.unit.SetFrontScore(h.Candidate.IndexKey(), h.score)
+	h.unit.SetPreferScore(h.Candidate.IndexKey(), h.score)
+}
+
+func (h *PriorityHelper) SetAvoidScore(val int) {
+	h.setRawScore(val)
+	h.unit.SetAvoidScore(h.Candidate.IndexKey(), h.score)
 }
 
 func (h *PriorityHelper) SetError(err error) {
