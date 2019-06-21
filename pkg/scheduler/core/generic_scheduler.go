@@ -180,7 +180,7 @@ func newSchedResultByCtx(u *Unit, count int64, c Candidater) *SchedResultItem {
 		Count:             count,
 		Capacity:          u.GetCapacity(id),
 		Name:              c.Getter().Name(),
-		Score:             u.GetScore(id).DigitString(),
+		Score:             u.GetScore(id).String(),
 		Data:              u.GetFiltedData(id, count),
 		Candidater:        c,
 		AllocatedResource: u.GetAllocatedResource(id),
@@ -652,7 +652,7 @@ func PrioritizeCandidates(
 	}
 	if log.V(10) {
 		for i := range result {
-			log.Infof("Host %s => Score %s", result[i].Host, result[i].Score.DigitString())
+			log.Infof("Host %s => Score %s", result[i].Host, result[i].Score.String())
 		}
 	}
 	return result, nil
