@@ -59,7 +59,10 @@ func init() {
 //  - ca info: self-signed, public ca
 type SLoadbalancerCertificate struct {
 	db.SVirtualResourceBase
-	// db.SExternalizedResourceBase
+	db.SExternalizedResourceBase
+
+	SManagedResourceBase
+	SCloudregionResourceBase
 
 	Certificate string `create:"required" list:"user" update:"user"`
 	PrivateKey  string `create:"required" list:"admin" update:"user"`
@@ -217,6 +220,8 @@ func (man *SLoadbalancerCertificateManager) ValidateCreateData(ctx context.Conte
 		return nil, err
 	}
 
+	data.Remove("cloudregion_id")
+	data.Remove("manager_id")
 	return data, nil
 }
 
@@ -254,22 +259,45 @@ func (man *SLoadbalancerCertificateManager) InitializeData() error {
 			return err
 		}
 	}
+
+	// sync certificate to  certificate cache
+	lbcerts = []SLoadbalancerCertificate{}
+	cachedCerts := CachedLoadbalancerCertificateManager.Query("certificate_id").SubQuery()
+	q2 := man.Query().IsNotEmpty("external_id").IsNotEmpty("cloudregion_id").NotIn("id", cachedCerts)
+	if err := q2.All(&lbcerts); err != nil {
+		return err
+	}
+
+	for i := range lbcerts {
+		cert := lbcerts[i]
+		certObj := jsonutils.Marshal(cert)
+		cachedCert := &SCachedLoadbalancerCertificate{}
+		err := certObj.Unmarshal(cachedCert)
+		if err != nil {
+			return err
+		}
+		cachedCert.Id = ""
+		cachedCert.CertificateId = cert.Id
+		err = CachedLoadbalancerCertificateManager.TableSpec().Insert(cachedCert)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (man *SLoadbalancerCertificateManager) GetOrCreateCertificate(name string, publicKey string, privateKey string) (*SLoadbalancerCertificate, error) {
+func (man *SLoadbalancerCertificateManager) CreateCertificate(name string, publicKey string, privateKey, fingerprint string) (*SLoadbalancerCertificate, error) {
+	if len(fingerprint) == 0 {
+		return nil, fmt.Errorf("CreateCertificate fingerprint can not be empty")
+	}
+
 	data := jsonutils.NewDict()
 	data.Set("certificate", jsonutils.NewString(publicKey))
 	data.Set("private_key", jsonutils.NewString(privateKey))
-	data, err := man.validateCertKey(nil, data)
-	if err != nil {
-		return nil, err
-	}
-
-	data.Set("Name", jsonutils.NewString(name))
-
-	fp, _ := data.GetString("fingerprint")
-	count := man.TableSpec().Query().Equals("fingerprint", fp).Asc("created_at").Count()
+	data.Set("name", jsonutils.NewString(name))
+	data.Set("fingerprint", jsonutils.NewString(fingerprint))
+	count := man.Query().Equals("fingerprint", fingerprint).Asc("created_at").Count()
 	if count == 0 {
 		cert := &SLoadbalancerCertificate{}
 		err := data.Unmarshal(cert)
@@ -284,7 +312,7 @@ func (man *SLoadbalancerCertificateManager) GetOrCreateCertificate(name string, 
 	}
 
 	ret := &SLoadbalancerCertificate{}
-	err = man.TableSpec().Query().Equals("fingerprint", fp).Asc("created_at").First(ret)
+	err := man.Query().Equals("Name", name).Equals("fingerprint", fingerprint).Asc("created_at").IsFalse("pending_deleted").First(ret)
 	if err != nil {
 		return nil, err
 	}

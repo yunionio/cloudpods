@@ -17,6 +17,7 @@ package regiondrivers
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"yunion.io/x/jsonutils"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -27,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
 type SHuaWeiRegionDriver struct {
@@ -43,8 +45,37 @@ func (self *SHuaWeiRegionDriver) GetProvider() string {
 }
 
 func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	addressType, _ := data.GetString("address_type")
-	if addressType == api.LB_ADDR_TYPE_INTERNET {
+	ownerId := ctx.Value("ownerId").(mcclient.IIdentityProvider)
+	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
+	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", ownerId)
+	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
+	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
+
+	keyV := map[string]validators.IValidator{
+		"status":       validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
+		"address_type": addressTypeV.Default(api.LB_ADDR_TYPE_INTRANET),
+		"network":      networkV,
+		"zone":         zoneV,
+		"manager":      managerIdV,
+	}
+
+	if err := RunValidators(keyV, data); err != nil {
+		return nil, err
+	}
+
+	//  检查网络可用
+	network := networkV.Model.(*models.SNetwork)
+	_, _, vpc, _, err := network.ValidateElbNetwork(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if managerIdV.Model.GetId() != vpc.ManagerId {
+		return nil, httperrors.NewInputParameterError("Loadbalancer's manager (%s(%s)) does not match vpc's(%s(%s)) (%s)", managerIdV.Model.GetName(), managerIdV.Model.GetId(), vpc.GetName(), vpc.GetId(), vpc.ManagerId)
+	}
+
+	// 公网ELB需要指定EIP
+	if addressTypeV.Value == api.LB_ADDR_TYPE_INTERNET {
 		eipV := validators.NewModelIdOrNameValidator("eip", "eip", nil)
 		if err := eipV.Validate(data); err != nil {
 			return nil, err
@@ -62,6 +93,13 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 		data.Set("eip_id", jsonutils.NewString(eip.ExternalId))
 	}
 
+	region := zoneV.Model.(*models.SZone).GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("getting region failed")
+	}
+
+	data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
+	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
 	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerData(ctx, userCred, data)
 }
 
@@ -151,20 +189,213 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerAclData(ctx context.C
 // }
 
 func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendType string, lb *models.SLoadbalancer, backendGroup *models.SLoadbalancerBackendGroup, backend db.IModel) (*jsonutils.JSONDict, error) {
-	// required：backend,backend_group,port,weight
-	// be3a5b845e604decb9005e6643f688af/ports?network_id=28bf47f5-5999-45dd-9546-9f964b2fac80&tenant_id=be3a5b845e604decb9005e6643f688af&limit=2000 ,验证binding:vif_details primary_interface: true
+	ownerId := ctx.Value("ownerId").(mcclient.IIdentityProvider)
+	man := models.LoadbalancerBackendManager
+	backendTypeV := validators.NewStringChoicesValidator("backend_type", api.LB_BACKEND_TYPES)
+	keyV := map[string]validators.IValidator{
+		"backend_type": backendTypeV,
+		"weight":       validators.NewRangeValidator("weight", 0, 100).Default(10),
+		"port":         validators.NewPortValidator("port"),
+		"send_proxy":   validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Default(api.LB_SENDPROXY_OFF),
+	}
+
+	if err := RunValidators(keyV, data); err != nil {
+		return nil, err
+	}
+
+	var basename string
+	switch backendType {
+	case api.LB_BACKEND_GUEST:
+		backendV := validators.NewModelIdOrNameValidator("backend", "server", ownerId)
+		err := backendV.Validate(data)
+		if err != nil {
+			return nil, err
+		}
+		guest := backendV.Model.(*models.SGuest)
+		err = man.ValidateBackendVpc(lb, guest, backendGroup)
+		if err != nil {
+			return nil, err
+		}
+		basename = guest.Name
+		backend = backendV.Model
+	case api.LB_BACKEND_HOST:
+		if !db.IsAdminAllowCreate(userCred, man) {
+			return nil, fmt.Errorf("only sysadmin can specify host as backend")
+		}
+		backendV := validators.NewModelIdOrNameValidator("backend", "host", userCred)
+		err := backendV.Validate(data)
+		if err != nil {
+			return nil, err
+		}
+		host := backendV.Model.(*models.SHost)
+		{
+			if len(host.AccessIp) == 0 {
+				return nil, fmt.Errorf("host %s has no access ip", host.GetId())
+			}
+			data.Set("address", jsonutils.NewString(host.AccessIp))
+		}
+		basename = host.Name
+		backend = backendV.Model
+	case api.LB_BACKEND_IP:
+		if !db.IsAdminAllowCreate(userCred, man) {
+			return nil, fmt.Errorf("only sysadmin can specify ip address as backend")
+		}
+		backendV := validators.NewIPv4AddrValidator("backend")
+		err := backendV.Validate(data)
+		if err != nil {
+			return nil, err
+		}
+		ip := backendV.IP.String()
+		data.Set("address", jsonutils.NewString(ip))
+		basename = ip
+	default:
+		return nil, fmt.Errorf("internal error: unexpected backend type %s", backendType)
+	}
+
+	name, _ := data.GetString("name")
+	if name == "" {
+		name = fmt.Sprintf("%s-%s-%s-%s", backendGroup.Name, backendType, basename, rand.String(4))
+	}
+
+	data.Set("name", jsonutils.NewString(name))
+	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
 	return data, nil
 }
 
-// func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
-// 	// required: protocol,protocol_port,loadbalancer_id
-// 	// others: name, description,connection_limit?,http2_enable,default_pool_id,
-//
-// 	return nil, nil
-// }
+func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, lb *models.SLoadbalancer, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+	listenerTypeV := validators.NewStringChoicesValidator("listener_type", api.LB_LISTENER_TYPES)
+	listenerPortV := validators.NewPortValidator("listener_port")
+	aclStatusV := validators.NewStringChoicesValidator("acl_status", api.LB_BOOL_VALUES)
+	aclTypeV := validators.NewStringChoicesValidator("acl_type", api.LB_ACL_TYPES)
+	aclV := validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
+	keyV := map[string]validators.IValidator{
+		"status": validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
 
-func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
-	data, err := self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, data, backendGroup)
+		"listener_type": listenerTypeV,
+		"listener_port": listenerPortV,
+
+		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Default(api.LB_SENDPROXY_OFF),
+		"acl_status": aclStatusV.Default(api.LB_BOOL_OFF),
+		"acl_type":   aclTypeV.Optional(true),
+		"acl":        aclV.Optional(true),
+		"scheduler":  validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
+
+		"sticky_session":                validators.NewStringChoicesValidator("sticky_session", api.LB_BOOL_VALUES).Default(api.LB_BOOL_OFF),
+		"sticky_session_type":           validators.NewStringChoicesValidator("sticky_session_type", api.LB_STICKY_SESSION_TYPES).Default(api.LB_STICKY_SESSION_TYPE_INSERT),
+		"sticky_session_cookie":         validators.NewRegexpValidator("sticky_session_cookie", regexp.MustCompile(`\w+`)).Optional(true),
+		"sticky_session_cookie_timeout": validators.NewNonNegativeValidator("sticky_session_cookie_timeout").Optional(true),
+
+		"x_forwarded_for": validators.NewBoolValidator("x_forwarded_for").Default(true),
+		"gzip":            validators.NewBoolValidator("gzip").Default(false),
+	}
+
+	if err := RunValidators(keyV, data); err != nil {
+		return nil, err
+	}
+
+	//  listener uniqueness
+	listenerType := listenerTypeV.Value
+	err := models.LoadbalancerListenerManager.CheckListenerUniqueness(ctx, lb, listenerType, listenerPortV.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	// backendgroup check
+	if lbbg, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != lb.Id {
+		return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
+			lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, lb.Id)
+	}
+
+	// https additional certificate check
+	if listenerType == api.LB_LISTENER_TYPE_HTTPS {
+		certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
+		tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
+		httpsV := map[string]validators.IValidator{
+			"certificate":       certV,
+			"tls_cipher_policy": tlsCipherPolicyV,
+			"enable_http2":      validators.NewBoolValidator("enable_http2").Default(true),
+		}
+
+		if err := RunValidators(httpsV, data); err != nil {
+			return nil, err
+		}
+	}
+
+	// health check default depends on input parameters
+	checkTypeV := models.LoadbalancerListenerManager.CheckTypeV(listenerType)
+	keyVHealth := map[string]validators.IValidator{
+		"health_check":      validators.NewStringChoicesValidator("health_check", api.LB_BOOL_VALUES).Default(api.LB_BOOL_ON),
+		"health_check_type": checkTypeV,
+
+		"health_check_domain":    validators.NewDomainNameValidator("health_check_domain").AllowEmpty(true).Default(""),
+		"health_check_path":      validators.NewURLPathValidator("health_check_path").Default(""),
+		"health_check_http_code": validators.NewStringMultiChoicesValidator("health_check_http_code", api.LB_HEALTH_CHECK_HTTP_CODES).Sep(",").Default(api.LB_HEALTH_CHECK_HTTP_CODE_DEFAULT),
+
+		"health_check_rise":     validators.NewRangeValidator("health_check_rise", 1, 10).Default(3),
+		"health_check_fall":     validators.NewRangeValidator("health_check_fall", 1, 10).Default(3),
+		"health_check_timeout":  validators.NewRangeValidator("health_check_timeout", 1, 50).Default(10),
+		"health_check_interval": validators.NewRangeValidator("health_check_interval", 1, 50).Default(5),
+	}
+
+	if err := RunValidators(keyVHealth, data); err != nil {
+		return nil, err
+	}
+
+	// acl check
+	if err := models.LoadbalancerListenerManager.ValidateAcl(aclStatusV, aclTypeV, aclV, data, api.CLOUD_PROVIDER_HUAWEI); err != nil {
+		return nil, err
+	}
+
+	data.Set("acl_status", jsonutils.NewString(api.LB_BOOL_OFF))
+	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
+	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
+	return self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerListenerData(ctx, userCred, ownerId, data, lb, backendGroup)
+}
+
+func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+	domainV := validators.NewDomainNameValidator("domain")
+	pathV := validators.NewURLPathValidator("path")
+	keyV := map[string]validators.IValidator{
+		"status": validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
+		"domain": domainV.AllowEmpty(true).Default(""),
+		"path":   pathV.Default(""),
+
+		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate").Default(0),
+		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
+	}
+
+	if err := RunValidators(keyV, data); err != nil {
+		return nil, err
+	}
+
+	listenerId, err := data.GetString("listener_id")
+	if err != nil {
+		return nil, err
+	}
+
+	ilistener, err := db.FetchById(models.LoadbalancerListenerManager, listenerId)
+	if err != nil {
+		return nil, err
+	}
+
+	listener := ilistener.(*models.SLoadbalancerListener)
+	listenerType := listener.ListenerType
+	if listenerType != api.LB_LISTENER_TYPE_HTTP && listenerType != api.LB_LISTENER_TYPE_HTTPS {
+		return nil, httperrors.NewInputParameterError("listener type must be http/https, got %s", listenerType)
+	}
+
+	if lbbg, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != listener.LoadbalancerId {
+		return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
+			lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, listener.LoadbalancerId)
+	}
+
+	err = models.LoadbalancerListenerRuleCheckUniqueness(ctx, listener, domainV.Value, pathV.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = self.SManagedVirtualizationRegionDriver.ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, ownerId, data, backendGroup)
 	if err != nil {
 		return data, err
 	}
@@ -175,6 +406,25 @@ func (self *SHuaWeiRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx 
 		return data, fmt.Errorf("'domain' or 'path' should not be empty.")
 	}
 
+	data.Set("cloudregion_id", jsonutils.NewString(listener.CloudregionId))
+	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
+	return data, nil
+}
+
+func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerListenerRuleData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
+	lbr := ctx.Value("lbr").(*models.SLoadbalancerListenerRule)
+	if backendGroup, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && backendGroup.Id != lbr.BackendGroupId {
+		listenerM, err := models.LoadbalancerListenerManager.FetchById(lbr.ListenerId)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("loadbalancerlistenerrule %s(%s): fetching listener %s failed",
+				lbr.Name, lbr.Id, lbr.ListenerId)
+		}
+		listener := listenerM.(*models.SLoadbalancerListener)
+		if backendGroup.LoadbalancerId != listener.LoadbalancerId {
+			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
+				backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, listener.LoadbalancerId)
+		}
+	}
 	return data, nil
 }
 
@@ -198,6 +448,16 @@ func (self *SHuaWeiRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition
 }
 
 func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lbbg *models.SLoadbalancerBackendGroup) (*jsonutils.JSONDict, error) {
+	keyV := map[string]validators.IValidator{
+		"weight":     validators.NewRangeValidator("weight", 0, 100).Optional(true),
+		"port":       validators.NewPortValidator("port").Optional(true),
+		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Optional(true),
+	}
+
+	if err := RunValidators(keyV, data); err != nil {
+		return nil, err
+	}
+
 	// 只能更新权重。不能更新端口
 	port, err := data.Int("port")
 	if err == nil && port != 0 {
@@ -213,16 +473,65 @@ func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx conte
 // }
 
 func (self *SHuaWeiRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, lblis *models.SLoadbalancerListener, backendGroup db.IModel) (*jsonutils.JSONDict, error) {
-	/*
-		default_pool_id有如下限制：
-		不能更新为其他监听器的default_pool。
-		不能更新为其他监听器的关联的转发策略所使用的pool。
-		default_pool_id对应的后端云服务器组的protocol和监听器的protocol有如下关系：
-		监听器的protocol为TCP时，后端云服务器组的protocol必须为TCP。
-		监听器的protocol为UDP时，后端云服务器组的protocol必须为UDP。
-		监听器的protocol为HTTP或TERMINATED_HTTPS时，后端云服务器组的protocol必须为HTTP。
-	*/
-	return data, nil
+	ownerId := lblis.GetOwnerId()
+	aclStatusV := validators.NewStringChoicesValidator("acl_status", api.LB_BOOL_VALUES)
+	aclStatusV.Default(lblis.AclStatus)
+	aclTypeV := validators.NewStringChoicesValidator("acl_type", api.LB_ACL_TYPES)
+	if api.LB_ACL_TYPES.Has(lblis.AclType) {
+		aclTypeV.Default(lblis.AclType)
+	}
+	var aclV *validators.ValidatorModelIdOrName
+	if _acl, _ := data.GetString("acl"); len(_acl) > 0 {
+		aclV = validators.NewModelIdOrNameValidator("acl", "loadbalanceracl", ownerId)
+	} else {
+		aclV = validators.NewModelIdOrNameValidator("acl", "cachedloadbalanceracl", ownerId)
+		if len(lblis.AclId) > 0 {
+			aclV.Default(lblis.AclId)
+		}
+	}
+	certV := validators.NewModelIdOrNameValidator("certificate", "loadbalancercertificate", ownerId)
+	tlsCipherPolicyV := validators.NewStringChoicesValidator("tls_cipher_policy", api.LB_TLS_CIPHER_POLICIES).Default(api.LB_TLS_CIPHER_POLICY_1_2)
+	keyV := map[string]validators.IValidator{
+		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES),
+		"scheduler":  validators.NewStringChoicesValidator("scheduler", api.LB_SCHEDULER_TYPES),
+
+		"sticky_session":                validators.NewStringChoicesValidator("sticky_session", api.LB_BOOL_VALUES),
+		"sticky_session_type":           validators.NewStringChoicesValidator("sticky_session_type", api.LB_STICKY_SESSION_TYPES),
+		"sticky_session_cookie":         validators.NewRegexpValidator("sticky_session_cookie", regexp.MustCompile(`\w+`)),
+		"sticky_session_cookie_timeout": validators.NewNonNegativeValidator("sticky_session_cookie_timeout"),
+
+		"health_check":      validators.NewStringChoicesValidator("health_check", api.LB_BOOL_VALUES),
+		"health_check_type": models.LoadbalancerListenerManager.CheckTypeV(lblis.ListenerType),
+
+		"health_check_domain":    validators.NewDomainNameValidator("health_check_domain").AllowEmpty(true).Default(""),
+		"health_check_path":      validators.NewURLPathValidator("health_check_path").Default(""),
+		"health_check_http_code": validators.NewStringMultiChoicesValidator("health_check_http_code", api.LB_HEALTH_CHECK_HTTP_CODES).Sep(",").Default(api.LB_HEALTH_CHECK_HTTP_CODE_DEFAULT),
+
+		"health_check_rise":     validators.NewRangeValidator("health_check_rise", 1, 10).Default(3),
+		"health_check_fall":     validators.NewRangeValidator("health_check_fall", 1, 10).Default(3),
+		"health_check_timeout":  validators.NewRangeValidator("health_check_timeout", 1, 50).Default(10),
+		"health_check_interval": validators.NewRangeValidator("health_check_interval", 1, 50).Default(5),
+
+		"x_forwarded_for": validators.NewBoolValidator("x_forwarded_for"),
+		"gzip":            validators.NewBoolValidator("gzip"),
+
+		"certificate":       certV,
+		"tls_cipher_policy": tlsCipherPolicyV,
+		"enable_http2":      validators.NewBoolValidator("enable_http2"),
+	}
+
+	if err := RunValidators(keyV, data); err != nil {
+		return nil, err
+	}
+
+	{
+		if lbbg, ok := backendGroup.(*models.SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != lblis.LoadbalancerId {
+			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
+				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, lblis.LoadbalancerId)
+		}
+	}
+
+	return self.SManagedVirtualizationRegionDriver.ValidateUpdateLoadbalancerListenerData(ctx, userCred, data, lblis, backendGroup)
 }
 
 func (self *SHuaWeiRegionDriver) createLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lblis *models.SLoadbalancerListener, lbr *models.SLoadbalancerListenerRule, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend) (jsonutils.JSONObject, error) {
@@ -269,7 +578,7 @@ func (self *SHuaWeiRegionDriver) createLoadbalancerBackendGroup(ctx context.Cont
 		return nil, err
 	}
 
-	iLoadbalancerBackendGroup, err := iLoadbalancer.CreateILoadBalancerBackendGroup(&group)
+	iLoadbalancerBackendGroup, err := iLoadbalancer.CreateILoadBalancerBackendGroup(group)
 	if err != nil {
 		return nil, err
 	}
@@ -318,11 +627,14 @@ func (self *SHuaWeiRegionDriver) createLoadbalancerBackendGroup(ctx context.Cont
 }
 
 func (self *SHuaWeiRegionDriver) RequestCreateLoadbalancerBackendGroup(ctx context.Context, userCred mcclient.TokenCredential, lbbg *models.SLoadbalancerBackendGroup, backends []cloudprovider.SLoadbalancerBackend, task taskman.ITask) error {
-	// 未指定后端协议类型的情况下，跳过创建步骤
+	// 未指定listenerId或ruleId情况下，跳过远端创建步骤
 	listenerId, _ := task.GetParams().GetString("listenerId")
 	ruleId, _ := task.GetParams().GetString("ruleId")
 	if len(listenerId) == 0 && len(ruleId) == 0 {
-		return fmt.Errorf("CreateLoadbalancerBackendGroup listener/rule id should not be emtpy")
+		taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+			return nil, nil
+		})
+		return nil
 	}
 
 	var rule *models.SLoadbalancerListenerRule
@@ -458,7 +770,7 @@ func (self *SHuaWeiRegionDriver) RequestSyncLoadbalancerBackendGroup(ctx context
 				return nil, err
 			}
 
-			if err := ilbbg.Sync(&group); err != nil {
+			if err := ilbbg.Sync(group); err != nil {
 				return nil, err
 			}
 

@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -61,14 +62,298 @@ type SLoadbalancerListenerRule struct {
 	ListenerId     string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	BackendGroupId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
 
-	Domain string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	Path   string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	Domain    string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	Path      string `width:"128" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	Condition string `charset:"ascii" nullable:"false" list:"user" create:"optional"`
 
 	SLoadbalancerHealthCheck // 目前只有腾讯云HTTP、HTTPS类型的健康检查是和规则绑定的。
 	SLoadbalancerHTTPRateLimiter
 }
 
-func loadbalancerListenerRuleCheckUniqueness(ctx context.Context, lbls *SLoadbalancerListener, domain, path string) error {
+func ValidateListenerRuleConditions(condition string) error {
+	// total limit 5
+	// host-header  limit 1
+	// path-pattern limit 1
+	// source-ip limit 1
+	// http-request-method limit 1
+	// http-header  no limit
+	// query-string no limit
+	limitations := &map[string]int{
+		"rules":               5,
+		"http-header":         5,
+		"query-string":        5,
+		"path-pattern":        1,
+		"http-request-method": 1,
+		"host-header":         1,
+		"source-ip":           1,
+	}
+
+	obj, err := jsonutils.ParseString(condition)
+	if err != nil {
+		return httperrors.NewInputParameterError("invalid conditions format,required json")
+	}
+
+	conditionArray, ok := obj.(*jsonutils.JSONArray)
+	if !ok {
+		return httperrors.NewInputParameterError("invalid conditions fromat,required json array")
+	}
+
+	if conditionArray.Length() > 5 {
+		return httperrors.NewInputParameterError("condition values limit (5 per rule). %d given.", conditionArray.Length())
+	}
+
+	cs := conditionArray.Value()
+	for i := range cs {
+		err := validateListenerRuleCondition(cs[i], limitations)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateListenerRuleCondition(condition jsonutils.JSONObject, limitations *map[string]int) error {
+	conditionDict, ok := condition.(*jsonutils.JSONDict)
+	if !ok {
+		return fmt.Errorf("invalid condition fromat,required dict. %#v", condition)
+	}
+
+	dict := conditionDict.Value()
+	field, ok := dict["field"]
+	if !ok {
+		return fmt.Errorf("parseCondition invalid condition, missing field: %#v", condition)
+	}
+
+	f, _ := field.GetString()
+	switch f {
+	case "http-header":
+		return parseHttpHeaderCondition(conditionDict, limitations)
+	case "path-pattern":
+		return parsePathPatternCondition(conditionDict, limitations)
+	case "http-request-method":
+		return parseRequestModthdCondition(conditionDict, limitations)
+	case "host-header":
+		return parseHostHeaderCondition(conditionDict, limitations)
+	case "query-string":
+		return parseQueryStringCondition(conditionDict, limitations)
+	case "source-ip":
+		return parseSourceIpCondition(conditionDict, limitations)
+	default:
+		return fmt.Errorf("parseCondition invalid condition key %#v", field)
+	}
+}
+
+func parseHttpHeaderCondition(conditon *jsonutils.JSONDict, limitations *map[string]int) error {
+	(*limitations)["http-header"] = (*limitations)["http-header"] - 1
+	if (*limitations)["http-header"] < 0 {
+		return fmt.Errorf("http-header exceeded limiation.")
+	}
+
+	values, err := conditon.GetMap("httpHeaderConfig")
+	if err != nil {
+		return err
+	}
+
+	name, ok := values["HttpHeaderName"]
+	if !ok {
+		return fmt.Errorf("parseHttpHeaderCondition missing filed HttpHeaderName")
+	}
+
+	_, ok = name.(*jsonutils.JSONString)
+	if !ok {
+		return fmt.Errorf("parseHttpHeaderCondition missing invalid data %#v", name)
+	}
+
+	vs, ok := values["values"]
+	if !ok {
+		return fmt.Errorf("parseHttpHeaderCondition missing filed values")
+	}
+
+	err = parseConditionStringArrayValues(vs, limitations)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func parsePathPatternCondition(condition *jsonutils.JSONDict, limitations *map[string]int) error {
+	(*limitations)["path-pattern"] = (*limitations)["path-pattern"] - 1
+	if (*limitations)["path-pattern"] < 0 {
+		return fmt.Errorf("path-pattern exceeded limiation.")
+	}
+
+	values, err := condition.GetMap("pathPatternConfig")
+	if err != nil {
+		return err
+	}
+
+	vs, ok := values["values"]
+	if !ok {
+		return fmt.Errorf("parsePathPatternCondition missing filed values")
+	}
+
+	err = parseConditionStringArrayValues(vs, limitations)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func parseRequestModthdCondition(condition *jsonutils.JSONDict, limitations *map[string]int) error {
+	(*limitations)["http-request-method"] = (*limitations)["http-request-method"] - 1
+	if (*limitations)["http-request-method"] < 0 {
+		return fmt.Errorf("http-request-method exceeded limiation.")
+	}
+
+	values, err := condition.GetMap("httpRequestMethodConfig")
+	if err != nil {
+		return err
+	}
+
+	vs, ok := values["values"]
+	if !ok {
+		return fmt.Errorf("parseRequestModthdCondition missing filed values")
+	}
+
+	err = parseConditionStringArrayValues(vs, limitations)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func parseHostHeaderCondition(condition *jsonutils.JSONDict, limitations *map[string]int) error {
+	(*limitations)["host-header"] = (*limitations)["host-header"] - 1
+	if (*limitations)["host-header"] < 0 {
+		return fmt.Errorf("host-header exceeded limiation.")
+	}
+
+	values, err := condition.GetMap("hostHeaderConfig")
+	if err != nil {
+		return err
+	}
+
+	vs, ok := values["values"]
+	if !ok {
+		return fmt.Errorf("parseHostHeaderCondition missing filed values")
+	}
+
+	err = parseConditionStringArrayValues(vs, limitations)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func parseQueryStringCondition(condition *jsonutils.JSONDict, limitations *map[string]int) error {
+	(*limitations)["query-string"] = (*limitations)["query-string"] - 1
+	if (*limitations)["query-string"] < 0 {
+		return fmt.Errorf("query-string exceeded limiation.")
+	}
+
+	values, err := condition.GetMap("queryStringConfig")
+	if err != nil {
+		return err
+	}
+
+	vs, ok := values["values"]
+	if !ok {
+		return fmt.Errorf("parseQueryStringCondition missing filed values")
+	}
+
+	err = parseConditionDictArrayValues(vs, limitations)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func parseSourceIpCondition(condition *jsonutils.JSONDict, limitations *map[string]int) error {
+	(*limitations)["source-ip"] = (*limitations)["source-ip"] - 1
+	if (*limitations)["source-ip"] < 0 {
+		return fmt.Errorf("source-ip exceeded limiation.")
+	}
+
+	values, err := condition.GetMap("sourceIpConfig")
+	if err != nil {
+		return err
+	}
+
+	vs, ok := values["values"]
+	if !ok {
+		return fmt.Errorf("parseSourceIpCondition missing filed values")
+	}
+
+	err = parseConditionStringArrayValues(vs, limitations)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func parseConditionStringArrayValues(values jsonutils.JSONObject, limitations *map[string]int) error {
+	objs, ok := values.(*jsonutils.JSONArray)
+	if !ok {
+		return fmt.Errorf("parseConditionStringArrayValues invalid values format, required array: %#v", values)
+	}
+
+	vs := objs.Value()
+	for i := range vs {
+		(*limitations)["rules"] = (*limitations)["rules"] - 1
+		if (*limitations)["rules"] < 0 {
+			return fmt.Errorf("rules exceeded limiation.")
+		}
+
+		v, ok := vs[i].(*jsonutils.JSONString)
+		if !ok {
+			return fmt.Errorf("parseConditionStringArrayValues invalid value, required string: %#v", v)
+		}
+	}
+
+	return nil
+}
+
+func parseConditionDictArrayValues(values jsonutils.JSONObject, limitations *map[string]int) error {
+	objs, ok := values.(*jsonutils.JSONArray)
+	if !ok {
+		return fmt.Errorf("parseConditionDictArrayValues invalid values format, required array: %#v", values)
+	}
+
+	vs := objs.Value()
+	for i := range vs {
+		(*limitations)["rules"] = (*limitations)["rules"] - 1
+		if (*limitations)["rules"] < 0 {
+			return fmt.Errorf("rules exceeded limiation.")
+		}
+
+		v, ok := vs[i].(*jsonutils.JSONDict)
+		if !ok {
+			return fmt.Errorf("parseConditionDictArrayValues invalid value, required dict: %#v", v)
+		}
+
+		_, err := v.GetString("key")
+		if err != nil {
+			return err
+		}
+
+		_, err = v.GetString("value")
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func LoadbalancerListenerRuleCheckUniqueness(ctx context.Context, lbls *SLoadbalancerListener, domain, path string) error {
 	q := LoadbalancerListenerRuleManager.Query().
 		IsFalse("pending_deleted").
 		Equals("listener_id", lbls.Id).
@@ -108,63 +393,30 @@ func (man *SLoadbalancerListenerRuleManager) ListItemFilter(ctx context.Context,
 }
 
 func (man *SLoadbalancerListenerRuleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
+		return nil, err
+	}
+
 	listenerV := validators.NewModelIdOrNameValidator("listener", "loadbalancerlistener", ownerId)
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
-	domainV := validators.NewDomainNameValidator("domain")
-	pathV := validators.NewURLPathValidator("path")
 	keyV := map[string]validators.IValidator{
-		"status": validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
-
 		"listener":      listenerV,
 		"backend_group": backendGroupV,
-		"domain":        domainV.AllowEmpty(true).Default(""),
-		"path":          pathV.Default(""),
-
-		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate").Default(0),
-		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
 	}
+
 	for _, v := range keyV {
 		if err := v.Validate(data); err != nil {
 			return nil, err
 		}
 	}
+
 	listener := listenerV.Model.(*SLoadbalancerListener)
-	data.Set("cloudregion_id", jsonutils.NewString(listener.CloudregionId))
-	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
-	listenerType := listener.ListenerType
-	if listenerType != api.LB_LISTENER_TYPE_HTTP && listenerType != api.LB_LISTENER_TYPE_HTTPS {
-		return nil, httperrors.NewInputParameterError("listener type must be http/https, got %s", listenerType)
-	}
-	{
-		if lbbg, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && lbbg.LoadbalancerId != listener.LoadbalancerId {
-			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
-				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, listener.LoadbalancerId)
-		} else {
-			// 腾讯云backend group只能1v1关联
-			if listener.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD {
-				count, err := lbbg.RefCount()
-				if err != nil {
-					return nil, httperrors.NewInternalServerError("get lbbg RefCount fail %s", err)
-				}
-				if count > 0 {
-					return nil, httperrors.NewResourceBusyError("backendgroup already related with other listener/rule")
-				}
-			}
-		}
-	}
-	err := loadbalancerListenerRuleCheckUniqueness(ctx, listener, domainV.Value, pathV.Value)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
-		return nil, err
-	}
 	region := listener.GetRegion()
 	if region == nil {
 		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer listener %s", listener.Name)
 	}
 
-	return region.GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, data, backendGroupV.Model)
+	return region.GetDriver().ValidateCreateLoadbalancerListenerRuleData(ctx, userCred, ownerId, data, backendGroupV.Model)
 }
 
 func (lbr *SLoadbalancerListenerRule) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -215,30 +467,21 @@ func (lbr *SLoadbalancerListenerRule) AllowPerformStatus(ctx context.Context, us
 
 func (lbr *SLoadbalancerListenerRule) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", lbr.GetOwnerId())
-	keyV := map[string]validators.IValidator{
-		"backend_group":             backendGroupV,
-		"http_request_rate":         validators.NewNonNegativeValidator("http_request_rate"),
-		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src"),
+	if err := backendGroupV.Optional(true).Validate(data); err != nil {
+		return nil, err
 	}
-	for _, v := range keyV {
-		v.Optional(true)
-		if err := v.Validate(data); err != nil {
-			return nil, err
-		}
+
+	if _, err := lbr.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data); err != nil {
+		return nil, err
 	}
-	if backendGroup, ok := backendGroupV.Model.(*SLoadbalancerBackendGroup); ok && backendGroup.Id != lbr.BackendGroupId {
-		listenerM, err := LoadbalancerListenerManager.FetchById(lbr.ListenerId)
-		if err != nil {
-			return nil, httperrors.NewInputParameterError("loadbalancerlistenerrule %s(%s): fetching listener %s failed",
-				lbr.Name, lbr.Id, lbr.ListenerId)
-		}
-		listener := listenerM.(*SLoadbalancerListener)
-		if backendGroup.LoadbalancerId != listener.LoadbalancerId {
-			return nil, httperrors.NewInputParameterError("backend group %s(%s) belongs to loadbalancer %s instead of %s",
-				backendGroup.Name, backendGroup.Id, backendGroup.LoadbalancerId, listener.LoadbalancerId)
-		}
+
+	region := lbr.GetRegion()
+	if region == nil {
+		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer listener rule %s", lbr.Name)
 	}
-	return lbr.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+
+	ctx = context.WithValue(ctx, "lbr", lbr)
+	return region.GetDriver().ValidateUpdateLoadbalancerListenerRuleData(ctx, userCred, data, backendGroupV.Model)
 }
 
 func (lbr *SLoadbalancerListenerRule) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -367,6 +610,7 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 	lbr.Domain = extRule.GetDomain()
 	lbr.Path = extRule.GetPath()
 	lbr.Status = extRule.GetStatus()
+	lbr.Condition = extRule.GetCondition()
 	if groupId := extRule.GetBackendGroupId(); len(groupId) > 0 {
 		// 腾讯云兼容代码。主要目的是在关联listener rule时回写一个fake的backend group external id
 		if lbr.GetProviderName() == api.CLOUD_PROVIDER_QCLOUD && len(groupId) > 0 && len(lbr.BackendGroupId) > 0 {
@@ -387,6 +631,15 @@ func (lbr *SLoadbalancerListenerRule) constructFieldsFromCloudListenerRule(userC
 			}
 
 			lbr.BackendGroupId = group.(*SHuaweiCachedLbbg).BackendGroupId
+		} else if lbr.GetProviderName() == api.CLOUD_PROVIDER_AWS {
+			if len(groupId) > 0 {
+				group, err := db.FetchByExternalId(AwsCachedLbbgManager, groupId)
+				if err != nil {
+					log.Errorf("Fetch aws loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+				}
+
+				lbr.BackendGroupId = group.(*SAwsCachedLbbg).BackendGroupId
+			}
 		} else if backendgroup, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
 			lbr.BackendGroupId = backendgroup.GetId()
 		}

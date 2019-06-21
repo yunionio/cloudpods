@@ -26,6 +26,10 @@ type SElbBackendGroup struct {
 	SessionPersistence StickySession `json:"session_persistence"`
 }
 
+func (self *SElbBackendGroup) GetLoadbalancerId() string {
+	return self.lb.GetId()
+}
+
 type StickySession struct {
 	Type               string `json:"type"`
 	CookieName         string `json:"cookie_name"`

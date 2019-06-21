@@ -88,6 +88,9 @@ const (
 	LB_ALIYUN_SPEC_S2_MEDIUM = "slb.s2.medium"
 	LB_ALIYUN_SPEC_S3_MEDIUM = "slb.s3.medium"
 	LB_ALIYUN_SPEC_S3_LARGE  = "slb.s3.large"
+
+	LB_AWS_SPEC_APPLICATION = "application"
+	LB_AWS_SPEC_NETWORK     = "network"
 )
 
 const (
@@ -103,6 +106,11 @@ var LB_ALIYUN_SPECS = choices.NewChoices(
 	LB_ALIYUN_SPEC_S2_MEDIUM,
 	LB_ALIYUN_SPEC_S3_MEDIUM,
 	LB_ALIYUN_SPEC_S3_LARGE,
+)
+
+var LB_AWS_SPECS = choices.NewChoices(
+	LB_AWS_SPEC_APPLICATION,
+	LB_AWS_SPEC_NETWORK,
 )
 
 // Load Balancer network type (vpc or classic) determines viable backend
@@ -134,15 +142,29 @@ var LB_NETWORK_TYPES = choices.NewChoices(
 
 // TODO https_direct sni
 const (
-	LB_LISTENER_TYPE_TCP   = "tcp"
-	LB_LISTENER_TYPE_UDP   = "udp"
-	LB_LISTENER_TYPE_HTTP  = "http"
-	LB_LISTENER_TYPE_HTTPS = "https"
+	LB_LISTENER_TYPE_TCP     = "tcp"
+	LB_LISTENER_TYPE_UDP     = "udp"
+	LB_LISTENER_TYPE_TCP_UDP = "tcp_udp"
+	LB_LISTENER_TYPE_HTTP    = "http"
+	LB_LISTENER_TYPE_HTTPS   = "https"
 )
 
 var LB_LISTENER_TYPES = choices.NewChoices(
 	LB_LISTENER_TYPE_TCP,
 	LB_LISTENER_TYPE_UDP,
+	LB_LISTENER_TYPE_HTTP,
+	LB_LISTENER_TYPE_HTTPS,
+)
+
+// aws_network_lb_listener
+var AWS_NETWORK_LB_LISTENER_TYPES = choices.NewChoices(
+	LB_LISTENER_TYPE_TCP,
+	LB_LISTENER_TYPE_UDP,
+	// LB_LISTENER_TYPE_TCP_UDP
+)
+
+// aws_application_lb_listener
+var AWS_APPLICATION_LB_LISTENER_TYPES = choices.NewChoices(
 	LB_LISTENER_TYPE_HTTP,
 	LB_LISTENER_TYPE_HTTPS,
 )
@@ -212,9 +234,10 @@ var LB_STICKY_SESSION_TYPES = choices.NewChoices(
 
 // TODO maybe https check when field need comes ;)
 const (
-	LB_HEALTH_CHECK_TCP  = "tcp"
-	LB_HEALTH_CHECK_UDP  = "udp"
-	LB_HEALTH_CHECK_HTTP = "http"
+	LB_HEALTH_CHECK_TCP   = "tcp"
+	LB_HEALTH_CHECK_UDP   = "udp"
+	LB_HEALTH_CHECK_HTTP  = "http"
+	LB_HEALTH_CHECK_HTTPS = "https"
 )
 
 var LB_HEALTH_CHECK_TYPES = choices.NewChoices(

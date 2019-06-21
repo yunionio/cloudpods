@@ -22,7 +22,7 @@ require (
 	github.com/anacrolix/torrent v0.0.0-20181129073333-cc531b8c4a80
 	github.com/aokoli/goutils v1.0.1
 	github.com/apache/thrift v0.0.0-20180514124809-e59b73d3c2bf // indirect
-	github.com/aws/aws-sdk-go v1.15.73
+	github.com/aws/aws-sdk-go v1.21.4
 	github.com/baiyubin/aliyun-sts-go-sdk v0.0.0-20180326062324-cfa1a18b161f // indirect
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect

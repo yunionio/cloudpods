@@ -35,6 +35,8 @@ func init() {
 			"cachedloadbalancercertificates",
 		),
 	}
+
+	CachedLoadbalancerCertificateManager.SetVirtualObject(CachedLoadbalancerCertificateManager)
 }
 
 type SCachedLoadbalancerCertificate struct {
@@ -241,11 +243,18 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 	lbcert.PrivateKey = extCertificate.GetPrivateKey()
 
 	// check local cert
-	localcert, err := LoadbalancerCertificateManager.GetOrCreateCertificate(lbcert.Name, lbcert.Certificate, lbcert.PrivateKey)
-	if err != nil {
-		log.Debugf("newFromCloudLoadbalancerCertificate GetOrCreateCertificate %s", err)
+	// todo: check fingerprint not empty & aws 证书不区分region，需要去除重复数据？
+	c := SCachedLoadbalancerCertificate{}
+	err = CachedLoadbalancerCertificateManager.Query().IsFalse("pending_deleted").Equals("fingerprint", lbcert.Fingerprint).First(&c)
+	if err != nil && len(c.CertificateId) == 0 {
+		localcert, err := LoadbalancerCertificateManager.CreateCertificate(lbcert.Name, lbcert.Certificate, lbcert.PrivateKey, lbcert.Fingerprint)
+		if err != nil {
+			log.Debugf("newFromCloudLoadbalancerCertificate CreateCertificate %s", err)
+		}
+
+		lbcert.Certificate = localcert.Id
 	} else {
-		lbcert.CertificateId = localcert.Id
+		lbcert.CertificateId = c.CertificateId
 	}
 
 	err = man.TableSpec().Insert(&lbcert)

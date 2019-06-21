@@ -170,7 +170,7 @@ func (self *SRegion) getNetwork(networkId string) (*SNetwork, error) {
 		return nil, err
 	}
 	if total != 1 {
-		return nil, cloudprovider.ErrNotFound
+		return nil, ErrorNotFound()
 	}
 	return &networks[0], nil
 }

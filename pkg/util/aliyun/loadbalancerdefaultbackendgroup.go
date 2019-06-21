@@ -27,6 +27,10 @@ type SLoadbalancerDefaultBackendGroup struct {
 	lb *SLoadbalancer
 }
 
+func (backendgroup *SLoadbalancerDefaultBackendGroup) GetLoadbalancerId() string {
+	return backendgroup.lb.GetId()
+}
+
 func (backendgroup *SLoadbalancerDefaultBackendGroup) GetProtocolType() string {
 	return ""
 }

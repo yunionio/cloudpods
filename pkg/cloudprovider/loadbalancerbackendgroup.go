@@ -26,6 +26,9 @@ type SLoadbalancerBackendGroup struct {
 	Scheduler      string
 	StickySession  *SLoadbalancerStickySession
 	HealthCheck    *SLoadbalancerHealthCheck
+	// aws
+	ListenPort int    // 后端端口
+	VpcId      string // vpc id
 }
 
 type SLoadbalancerHealthCheck struct {

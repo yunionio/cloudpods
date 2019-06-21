@@ -221,7 +221,7 @@ func (self *SRegion) GetEip(eipId string) (*SEipAddress, error) {
 		return nil, err
 	}
 	if total != 1 {
-		return nil, cloudprovider.ErrNotFound
+		return nil, ErrorNotFound()
 	}
 	return &eips[0], nil
 }
@@ -233,7 +233,7 @@ func (self *SRegion) GetEipByIpAddress(eipAddress string) (*SEipAddress, error) 
 	}
 
 	if total != 1 {
-		return nil, cloudprovider.ErrNotFound
+		return nil, ErrorNotFound()
 	}
 	return &eips[0], nil
 }

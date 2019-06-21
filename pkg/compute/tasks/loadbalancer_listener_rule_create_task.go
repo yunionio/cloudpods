@@ -35,6 +35,117 @@ func init() {
 	taskman.RegisterTask(LoadbalancerListenerRuleCreateTask{})
 }
 
+func getOnPrepareLoadbalancerBackendgroupFunc(provider string) func(ctx context.Context, region *models.SCloudregion, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject, self *LoadbalancerListenerRuleCreateTask) {
+	switch provider {
+	case api.CLOUD_PROVIDER_HUAWEI:
+		return onHuaiweiPrepareLoadbalancerBackendgroup
+	case api.CLOUD_PROVIDER_AWS:
+		return onAwsPrepareLoadbalancerBackendgroup
+	default:
+		return onPrepareLoadbalancerBackendgroup
+	}
+}
+
+func onPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SCloudregion, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject, self *LoadbalancerListenerRuleCreateTask) {
+	self.OnCreateLoadbalancerListenerRule(ctx, lbr, data)
+	return
+}
+
+func onHuaiweiPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SCloudregion, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject, self *LoadbalancerListenerRuleCreateTask) {
+	lbbg := lbr.GetLoadbalancerBackendGroup()
+	if lbbg == nil {
+		self.taskFail(ctx, lbr, "huawei loadbalancer listener rule releated backend group not found")
+		return
+	}
+
+	lblis := lbr.GetLoadbalancerListener()
+	if lblis == nil {
+		self.taskFail(ctx, lbr, "huawei loadbalancer listener rule releated listener not found")
+		return
+	}
+
+	params := jsonutils.NewDict()
+	params.Set("ruleId", jsonutils.NewString(lbr.GetId()))
+	group, _ := models.HuaweiCachedLbbgManager.GetUsableCachedBackendGroup(lbbg.GetId(), lblis.ListenerType)
+	if group != nil {
+		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
+		if err != nil {
+			self.taskFail(ctx, lbr, err.Error())
+			return
+		}
+
+		groupParams, err := lbbg.GetHuaweiBackendGroupParams(lblis, lbr)
+		if err != nil {
+			self.taskFail(ctx, lbr, err.Error())
+			return
+		}
+		groupParams.ListenerID = ""
+		// 服务器组已经存在，直接同步即可
+		if err := ilbbg.Sync(groupParams); err != nil {
+			self.taskFail(ctx, lbr, err.Error())
+			return
+		} else {
+			group.SetModelManager(models.HuaweiCachedLbbgManager, group)
+			if _, err := db.UpdateWithLock(ctx, group, func() error {
+				group.AssociatedId = lbr.GetId()
+				group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
+				return nil
+			}); err != nil {
+				self.taskFail(ctx, lbr, err.Error())
+				return
+			}
+
+			self.OnCreateLoadbalancerListenerRule(ctx, lbr, data)
+		}
+	} else {
+		// 服务器组不存在
+		self.SetStage("OnCreateLoadbalancerListenerRule", nil)
+		lbbg.StartHuaweiLoadBalancerBackendGroupCreateTask(ctx, self.GetUserCred(), params, self.GetTaskId())
+	}
+}
+
+func onAwsPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SCloudregion, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject, self *LoadbalancerListenerRuleCreateTask) {
+	lbbg := lbr.GetLoadbalancerBackendGroup()
+	if lbbg == nil {
+		self.taskFail(ctx, lbr, "aws loadbalancer listener rule releated backend group not found")
+		return
+	}
+
+	lblis := lbr.GetLoadbalancerListener()
+	if lblis == nil {
+		self.taskFail(ctx, lbr, "aws loadbalancer listener rule releated listener not found")
+		return
+	}
+
+	params, err := lbbg.GetAwsBackendGroupParams(lblis, lbr)
+	if err != nil {
+		self.taskFail(ctx, lbr, err.Error())
+		return
+	}
+
+	group, _ := models.AwsCachedLbbgManager.GetUsableCachedBackendGroup(lblis.LoadbalancerId, lblis.BackendGroupId, lblis.ListenerType, lblis.HealthCheckType, lblis.HealthCheckInterval)
+	if group != nil {
+		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
+		if err != nil {
+			self.taskFail(ctx, lbr, err.Error())
+			return
+		}
+
+		// 服务器组已经存在，直接同步即可
+		if err := ilbbg.Sync(params); err != nil {
+			self.taskFail(ctx, lbr, err.Error())
+			return
+		}
+
+		self.OnCreateLoadbalancerListenerRule(ctx, lbr, data)
+	} else {
+		paramsObj := jsonutils.Marshal(params).(*jsonutils.JSONDict)
+		// 服务器组不存在
+		self.SetStage("OnCreateLoadbalancerListenerRule", nil)
+		lbbg.StartAwsLoadBalancerBackendGroupCreateTask(ctx, self.GetUserCred(), paramsObj, self.GetTaskId())
+	}
+}
+
 func (self *LoadbalancerListenerRuleCreateTask) taskFail(ctx context.Context, lbr *models.SLoadbalancerListenerRule, reason string) {
 	lbr.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason)
 	db.OpsLog.LogEvent(lbr, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
@@ -59,63 +170,8 @@ func (self *LoadbalancerListenerRuleCreateTask) OnInit(ctx context.Context, obj 
 }
 
 func (self *LoadbalancerListenerRuleCreateTask) OnPrepareLoadbalancerBackendgroup(ctx context.Context, region *models.SCloudregion, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject) {
-	lbbg := lbr.GetLoadbalancerBackendGroup()
-	// 目前只有华为才需要在创建监听器规则时创建服务器组,其他云直接绕过此步骤
-	if lbr.GetProviderName() != api.CLOUD_PROVIDER_HUAWEI {
-		self.OnCreateLoadbalancerListenerRule(ctx, lbr, data)
-		return
-	}
-
-	lblis := lbr.GetLoadbalancerListener()
-	if lblis == nil {
-		self.taskFail(ctx, lbr, "huawei loadbalancer listener rule releated listener not found")
-		return
-	}
-
-	params := jsonutils.NewDict()
-	params.Set("ruleId", jsonutils.NewString(lbr.GetId()))
-
-	if lbr.GetProviderName() == api.CLOUD_PROVIDER_HUAWEI && lbbg == nil {
-		self.taskFail(ctx, lbr, "huawei loadbalancer listener rule releated backend group not found")
-		return
-	}
-
-	group, _ := models.HuaweiCachedLbbgManager.GetUsableCachedBackendGroup(lbbg.GetId(), lblis.ListenerType)
-	if group != nil {
-		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
-		if err != nil {
-			self.taskFail(ctx, lbr, err.Error())
-			return
-		}
-
-		groupParams, err := lbbg.GetHuaweiBackendGroupParams(lblis, lbr)
-		if err != nil {
-			self.taskFail(ctx, lbr, err.Error())
-			return
-		}
-		groupParams.ListenerID = ""
-		// 服务器组已经存在，直接同步即可
-		if err := ilbbg.Sync(&groupParams); err != nil {
-			self.taskFail(ctx, lbr, err.Error())
-			return
-		} else {
-			group.SetModelManager(models.HuaweiCachedLbbgManager, group)
-			if _, err := db.UpdateWithLock(ctx, group, func() error {
-				group.AssociatedId = lbr.GetId()
-				group.AssociatedType = api.LB_ASSOCIATE_TYPE_RULE
-				return nil
-			}); err != nil {
-				self.taskFail(ctx, lbr, err.Error())
-				return
-			}
-
-			self.OnCreateLoadbalancerListenerRule(ctx, lbr, data)
-		}
-	} else {
-		// 服务器组不存在
-		self.SetStage("OnCreateLoadbalancerListenerRule", nil)
-		lbbg.StartHuaweiLoadBalancerBackendGroupCreateTask(ctx, self.GetUserCred(), params, self.GetTaskId())
-	}
+	call := getOnPrepareLoadbalancerBackendgroupFunc(lbr.GetProviderName())
+	call(ctx, region, lbr, data, self)
 }
 
 func (self *LoadbalancerListenerRuleCreateTask) OnCreateLoadbalancerListenerRule(ctx context.Context, lbr *models.SLoadbalancerListenerRule, data jsonutils.JSONObject) {

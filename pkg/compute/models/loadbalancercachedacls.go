@@ -50,6 +50,8 @@ func init() {
 			"cachedloadbalanceracls",
 		),
 	}
+
+	CachedLoadbalancerAclManager.SetVirtualObject(CachedLoadbalancerAclManager)
 }
 
 type SCachedLoadbalancerAcl struct {
@@ -540,4 +542,9 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 	db.OpsLog.LogEvent(&acl, db.ACT_CREATE, acl.GetShortDesc(ctx), userCred)
 
 	return &acl, nil
+}
+
+func (manager *SCachedLoadbalancerAclManager) InitializeData() error {
+	// todo: sync old data from acls
+	return nil
 }

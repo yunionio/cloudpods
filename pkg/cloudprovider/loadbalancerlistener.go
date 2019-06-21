@@ -35,6 +35,7 @@ type SLoadbalancerListener struct {
 	HealthCheckExp string
 
 	HealthCheck         string
+	HealthCheckType     string
 	HealthCheckTimeout  int
 	HealthCheckDomain   string
 	HealthCheckHttpCode string
@@ -62,4 +63,6 @@ type SLoadbalancerListenerRule struct {
 	Path             string
 	BackendGroupID   string
 	BackendGroupType string
+
+	Condition string // for aws only
 }

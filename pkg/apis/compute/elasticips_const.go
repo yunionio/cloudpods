@@ -40,8 +40,8 @@ const (
 	EIP_CHARGE_TYPE_DEFAULT      = EIP_CHARGE_TYPE_BY_TRAFFIC
 
 	// EIP associate resource type
-	EIP_ASSOCIATE_TYPE_VM  = "SERVER"
-	EIP_ASSOCIATE_TYPE_ELB = "ELB"
+	EIP_ASSOCIATE_TYPE_VM  = "server"
+	EIP_ASSOCIATE_TYPE_ELB = "elb"
 )
 
 var (

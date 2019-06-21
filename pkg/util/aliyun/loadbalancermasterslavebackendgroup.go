@@ -30,6 +30,10 @@ type SLoadbalancerMasterSlaveBackendGroup struct {
 	MasterSlaveServerGroupName string
 }
 
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetLoadbalancerId() string {
+	return backendgroup.lb.GetId()
+}
+
 func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetProtocolType() string {
 	return ""
 }

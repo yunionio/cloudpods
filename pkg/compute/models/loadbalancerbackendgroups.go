@@ -62,14 +62,6 @@ type SLoadbalancerBackendGroup struct {
 
 	Type           string `width:"36" charset:"ascii" nullable:"false" list:"user" default:"normal" create:"optional"`
 	LoadbalancerId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
-	//
-	//// 目前只有华为云用到。
-	//ProtocolType string `width:"16" charset:"ascii" nullable:"true" list:"user" create:"optional"`
-	//Scheduler    string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional" update:"user"`
-	//SLoadbalancerTCPListener
-	//SLoadbalancerUDPListener
-	//SLoadbalancerHTTPListener
-	//SLoadbalancerHealthCheck
 }
 
 func (man *SLoadbalancerBackendGroupManager) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential, q *sqlchemy.SQuery) {
@@ -291,7 +283,6 @@ func (man *SLoadbalancerBackendGroupManager) FilterZeroRefBackendGroup(q *sqlche
 
 	for _, m := range lbbgRefManagers() {
 		_ids := m.Query("backend_group_id").In("backend_group_id", ids).SubQuery()
-		_ids.DebugQuery()
 		q = q.NotIn("id", _ids)
 	}
 
@@ -325,9 +316,9 @@ func (lbbg *SLoadbalancerBackendGroup) GetCustomizeColumns(ctx context.Context, 
 		if err != nil {
 			log.Errorf("loadbalancer backend group %s(%s): fetch loadbalancer (%s) error: %s",
 				lbbg.Name, lbbg.Id, lbbg.LoadbalancerId, err)
-			return extra
+		} else {
+			extra.Set("loadbalancer", jsonutils.NewString(lb.GetName()))
 		}
-		extra.Set("loadbalancer", jsonutils.NewString(lb.GetName()))
 	}
 	regionInfo := lbbg.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	if regionInfo != nil {
@@ -365,6 +356,15 @@ func (lbbg *SLoadbalancerBackendGroup) StartLoadBalancerBackendGroupCreateTask(c
 
 func (lbbg *SLoadbalancerBackendGroup) StartHuaweiLoadBalancerBackendGroupCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
 	task, err := taskman.TaskManager.NewTask(ctx, "HuaweiLoadbalancerLoadbalancerBackendGroupCreateTask", lbbg, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (lbbg *SLoadbalancerBackendGroup) StartAwsLoadBalancerBackendGroupCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "AwsLoadbalancerLoadbalancerBackendGroupCreateTask", lbbg, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		return err
 	}
@@ -435,10 +435,10 @@ func (lbbg *SLoadbalancerBackendGroup) GetListener() *SLoadbalancerListener {
 	return ret
 }
 
-func (lbbg *SLoadbalancerBackendGroup) GetBackendGroupParams() (cloudprovider.SLoadbalancerBackendGroup, error) {
+func (lbbg *SLoadbalancerBackendGroup) GetBackendGroupParams() (*cloudprovider.SLoadbalancerBackendGroup, error) {
 	backends, err := lbbg.GetBackendsParams()
 	if err != nil {
-		return cloudprovider.SLoadbalancerBackendGroup{}, err
+		return &cloudprovider.SLoadbalancerBackendGroup{}, err
 	}
 
 	listener := lbbg.GetListener()
@@ -447,24 +447,23 @@ func (lbbg *SLoadbalancerBackendGroup) GetBackendGroupParams() (cloudprovider.SL
 		listenerId = listener.ExternalId
 	}
 
-	loadbalancer := lbbg.GetLoadbalancer()
-	loadbalancerId := ""
-	if loadbalancer != nil {
-		loadbalancerId = loadbalancer.ExternalId
+	ret := &cloudprovider.SLoadbalancerBackendGroup{
+		Name:       lbbg.Name,
+		GroupType:  lbbg.Type,
+		Backends:   backends,
+		ListenerID: listenerId,
 	}
 
-	ret := cloudprovider.SLoadbalancerBackendGroup{
-		Name:           lbbg.Name,
-		GroupType:      lbbg.Type,
-		Backends:       backends,
-		LoadbalancerID: loadbalancerId,
-		ListenerID:     listenerId,
+	loadbalancer := lbbg.GetLoadbalancer()
+	if loadbalancer != nil {
+		ret.VpcId = loadbalancer.VpcId
+		ret.LoadbalancerID = loadbalancer.ExternalId
 	}
 
 	return ret, nil
 }
 
-func (lbbg *SLoadbalancerBackendGroup) GetHuaweiBackendGroupParams(lblis *SLoadbalancerListener, lbr *SLoadbalancerListenerRule) (cloudprovider.SLoadbalancerBackendGroup, error) {
+func (lbbg *SLoadbalancerBackendGroup) GetHuaweiBackendGroupParams(lblis *SLoadbalancerListener, lbr *SLoadbalancerListenerRule) (*cloudprovider.SLoadbalancerBackendGroup, error) {
 	ret, err := lbbg.GetBackendGroupParams()
 	if err != nil {
 		return ret, err
@@ -505,6 +504,45 @@ func (lbbg *SLoadbalancerBackendGroup) GetHuaweiBackendGroupParams(lblis *SLoadb
 	ret.ListenType = lblis.ListenerType
 	ret.Scheduler = lblis.Scheduler
 	ret.StickySession = stickySession
+	ret.HealthCheck = healthCheck
+
+	return ret, nil
+}
+
+func (lbbg *SLoadbalancerBackendGroup) GetAwsBackendGroupParams(lblis *SLoadbalancerListener, lbr *SLoadbalancerListenerRule) (*cloudprovider.SLoadbalancerBackendGroup, error) {
+	ret, err := lbbg.GetBackendGroupParams()
+	if err != nil {
+		return ret, err
+	}
+
+	healthCheck := &cloudprovider.SLoadbalancerHealthCheck{
+		HealthCheckType:     lblis.HealthCheckType,
+		HealthCheckReq:      lblis.HealthCheckReq,
+		HealthCheckExp:      lblis.HealthCheckExp,
+		HealthCheck:         lblis.HealthCheck,
+		HealthCheckTimeout:  lblis.HealthCheckTimeout,
+		HealthCheckDomain:   lblis.HealthCheckDomain,
+		HealthCheckHttpCode: lblis.HealthCheckHttpCode,
+		HealthCheckURI:      lblis.HealthCheckURI,
+		HealthCheckInterval: lblis.HealthCheckInterval,
+		HealthCheckRise:     lblis.HealthCheckRise,
+		HealthCheckFail:     lblis.HealthCheckFall,
+	}
+
+	ret.ListenerID = lblis.GetExternalId()
+
+	lb := lblis.GetLoadbalancer()
+	if lb != nil {
+		vpc := lb.GetVpc()
+		if vpc != nil {
+			ret.VpcId = vpc.GetExternalId()
+		} else {
+			return nil, fmt.Errorf("loadbalancer %s related vpc not found", lb.GetId())
+		}
+	}
+	ret.ListenType = lblis.ListenerType
+	ret.ListenPort = lblis.ListenerPort
+	ret.Scheduler = lblis.Scheduler
 	ret.HealthCheck = healthCheck
 
 	return ret, nil
@@ -567,6 +605,16 @@ func (lbbg *SLoadbalancerBackendGroup) GetICloudLoadbalancerBackendGroup() (clou
 	}
 
 	return ilbbg, nil
+}
+
+func (man *SLoadbalancerBackendGroupManager) getLoadbalancerBackendgroupsByRegion(regonId string) ([]SLoadbalancerBackendGroup, error) {
+	lbbgs := []SLoadbalancerBackendGroup{}
+	q := man.Query().Equals("cloudregion_id", regonId).IsFalse("pending_deleted")
+	if err := db.FetchModelObjects(man, q, &lbbgs); err != nil {
+		log.Errorf("failed to get lbbgs for region: %s error: %v", regonId, err)
+		return nil, err
+	}
+	return lbbgs, nil
 }
 
 func (man *SLoadbalancerBackendGroupManager) getLoadbalancerBackendgroupsByLoadbalancer(lb *SLoadbalancer) ([]SLoadbalancerBackendGroup, error) {

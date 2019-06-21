@@ -57,6 +57,10 @@ type SRegion struct {
 	storageCache *SStoragecache
 }
 
+func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
 func (self *SRegion) GetClient() *SHuaweiClient {
 	return self.client
 }
@@ -836,7 +840,7 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 // https://support.huaweicloud.com/api-elb/zh-cn_topic_0096561535.html
 func (self *SRegion) CreateLoadBalancer(loadbalancer *cloudprovider.SLoadbalancer) (SLoadbalancer, error) {
 	ret := SLoadbalancer{}
-	subnet, err := self.getNetwork(loadbalancer.NetworkID)
+	subnet, err := self.getNetwork(loadbalancer.NetworkIDs[0])
 	if err != nil {
 		return ret, err
 	}

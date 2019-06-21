@@ -35,7 +35,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
 type SLoadbalancerBackendManager struct {
@@ -147,86 +146,19 @@ func (man *SLoadbalancerBackendManager) ValidateBackendVpc(lb *SLoadbalancer, gu
 
 func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	backendGroupV := validators.NewModelIdOrNameValidator("backend_group", "loadbalancerbackendgroup", ownerId)
+	if err := backendGroupV.Validate(data); err != nil {
+		return nil, err
+	}
+
 	backendTypeV := validators.NewStringChoicesValidator("backend_type", api.LB_BACKEND_TYPES)
-	keyV := map[string]validators.IValidator{
-		"backend_group": backendGroupV,
-		"backend_type":  backendTypeV,
-		"weight":        validators.NewRangeValidator("weight", 1, 256).Default(1),
-		"port":          validators.NewPortValidator("port"),
-		"send_proxy":    validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Default(api.LB_SENDPROXY_OFF),
+	if err := backendTypeV.Validate(data); err != nil {
+		return nil, err
 	}
-	for _, v := range keyV {
-		if err := v.Validate(data); err != nil {
-			return nil, err
-		}
-	}
+
+	backendType := backendTypeV.Value
 	backendGroup := backendGroupV.Model.(*SLoadbalancerBackendGroup)
 	lb := backendGroup.GetLoadbalancer()
-	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
-	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
-	backendType := backendTypeV.Value
-	var (
-		basename     string
-		backendModel db.IModel
-	)
-	switch backendType {
-	case api.LB_BACKEND_GUEST:
-		backendV := validators.NewModelIdOrNameValidator("backend", "server", ownerId)
-		err := backendV.Validate(data)
-		if err != nil {
-			return nil, err
-		}
-		guest := backendV.Model.(*SGuest)
-		err = man.ValidateBackendVpc(lb, guest, backendGroup)
-		if err != nil {
-			return nil, err
-		}
-		basename = guest.Name
-		backendModel = backendV.Model
-	case api.LB_BACKEND_HOST:
-		if !db.IsAdminAllowCreate(userCred, man) {
-			return nil, fmt.Errorf("only sysadmin can specify host as backend")
-		}
-		backendV := validators.NewModelIdOrNameValidator("backend", "host", userCred)
-		err := backendV.Validate(data)
-		if err != nil {
-			return nil, err
-		}
-		host := backendV.Model.(*SHost)
-		{
-			if len(host.AccessIp) == 0 {
-				return nil, fmt.Errorf("host %s has no access ip", host.GetId())
-			}
-			data.Set("address", jsonutils.NewString(host.AccessIp))
-		}
-		basename = host.Name
-		backendModel = backendV.Model
-	case api.LB_BACKEND_IP:
-		if !db.IsAdminAllowCreate(userCred, man) {
-			return nil, fmt.Errorf("only sysadmin can specify ip address as backend")
-		}
-		backendV := validators.NewIPv4AddrValidator("backend")
-		err := backendV.Validate(data)
-		if err != nil {
-			return nil, err
-		}
-		ip := backendV.IP.String()
-		data.Set("address", jsonutils.NewString(ip))
-		basename = ip
-	default:
-		return nil, fmt.Errorf("internal error: unexpected backend type %s", backendType)
-	}
-	name, _ := data.GetString("name")
-	if name == "" {
-		// name it
-		//
-		// NOTE it's okay for name to be not unique.
-		//
-		//  - Mix in loadbalancer name if needed
-		//  - Use name from input query
-		name = fmt.Sprintf("%s-%s-%s-%s", backendGroup.Name, backendType, basename, rand.String(4))
-	}
-	data.Set("name", jsonutils.NewString(name))
+	var backendModel db.IModel
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
 		return nil, err
 	}
@@ -234,6 +166,8 @@ func (man *SLoadbalancerBackendManager) ValidateCreateData(ctx context.Context, 
 	if region == nil {
 		return nil, httperrors.NewResourceNotFoundError("failed to find region for loadbalancer %s", lb.Name)
 	}
+
+	ctx = context.WithValue(ctx, "ownerId", ownerId)
 	return region.GetDriver().ValidateCreateLoadbalancerBackendData(ctx, userCred, data, backendType, lb, backendGroup, backendModel)
 }
 
@@ -286,17 +220,6 @@ func (man *SLoadbalancerBackendManager) GetGuestAddress(guest *SGuest) (string, 
 }
 
 func (lbb *SLoadbalancerBackend) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	keyV := map[string]validators.IValidator{
-		"weight":     validators.NewRangeValidator("weight", 1, 256),
-		"port":       validators.NewPortValidator("port"),
-		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES),
-	}
-	for _, v := range keyV {
-		v.Optional(true)
-		if err := v.Validate(data); err != nil {
-			return nil, err
-		}
-	}
 	_, err := lbb.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 	if err != nil {
 		return nil, err
