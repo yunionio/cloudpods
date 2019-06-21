@@ -41,7 +41,7 @@ func (p *StoragePredicate) Clone() core.FitPredicate {
 }
 
 func (p *StoragePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
-	if u.IsPublicCloudProvider() {
+	if !u.GetHypervisorDriver().DoScheduleStorageFilter() {
 		return false, nil
 	}
 	return true, nil

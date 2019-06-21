@@ -34,7 +34,7 @@ func (f *CPUPredicate) Clone() core.FitPredicate {
 }
 
 func (f *CPUPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
-	if u.IsPublicCloudProvider() {
+	if !u.GetHypervisorDriver().DoScheduleCPUFilter() {
 		return false, nil
 	}
 

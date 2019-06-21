@@ -42,6 +42,10 @@ func init() {
 	models.RegisterGuestDriver(&driver)
 }
 
+func (self *SESXiGuestDriver) DoScheduleSKUFilter() bool {
+	return false
+}
+
 func (self *SESXiGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_ESXI
 }
