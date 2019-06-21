@@ -21,7 +21,7 @@ func (p *CapacityPriority) Map(u *core.Unit, c core.Candidater) (core.HostPriori
 	h := priorities.NewPriorityHelper(p, u, c)
 
 	capacity := u.GetCapacity(c.IndexKey())
-	h.SetRawScore(int(capacity))
+	h.SetScore(int(capacity))
 
 	return h.GetResult()
 }
