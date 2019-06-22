@@ -41,7 +41,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
-	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
@@ -482,61 +481,14 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 			return nil, fmt.Errorf("Target storage %s not found", migParams.TargetStorageId)
 		}
 
-		disks, _ := migParams.Desc.GetArray("disks")
-		for i, diskinfo := range disks {
-			var (
-				diskId, _    = diskinfo.GetString("disk_id")
-				snapshots, _ = migParams.SrcSnapshots.GetArray(diskId)
-				disk         = iStorage.CreateDisk(diskId)
-			)
-
-			if disk == nil {
-				return nil, fmt.Errorf(
-					"Storage %s create disk %s failed", iStorage.GetId(), diskId)
-			}
-
-			// prepare disk snapshot dir
-			if len(snapshots) > 0 && !fileutils2.Exists(disk.GetSnapshotDir()) {
-				_, err := procutils.NewCommand("mkdir", "-p", disk.GetSnapshotDir()).Run()
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			// create snapshots form remote url
-			diskStorageId, _ := diskinfo.GetString("storage_id")
-			for _, snapshotId := range snapshots {
-				snapId, _ := snapshotId.GetString()
-
-				snapshotUrl := fmt.Sprintf("%s/%s/%s/%s",
-					migParams.SnapshotsUri, diskStorageId, diskId, snapId)
-				snapshotPath := path.Join(disk.GetSnapshotDir(), snapId)
-				log.Infof("Disk %s snapshot %s url: %s", diskId, snapId, snapshotUrl)
-				iStorage.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath)
-			}
-
-			if migParams.LiveMigrate {
-				// create local disk
-				backingFile, _ := migParams.DisksBackingFile.GetString(diskId)
-				size, _ := diskinfo.Int("size")
-				_, err := disk.CreateRaw(ctx, int(size), "qcow2", "", false, "", backingFile)
-				if err != nil {
-					log.Errorln(err)
-					return nil, err
-				}
-			} else {
-				// download disk form remote url
-				diskUrl := fmt.Sprintf("%s/%s/%s", migParams.DisksUri, diskStorageId, diskId)
-				if err := disk.CreateFromUrl(ctx, diskUrl); err != nil {
-					log.Errorln(err)
-					return nil, err
-				}
-			}
-			diskDesc, _ := disks[i].(*jsonutils.JSONDict)
-			diskDesc.Set("path", jsonutils.NewString(disk.GetPath()))
+		err := iStorage.DestinationPrepareMigrate(
+			ctx, migParams.LiveMigrate, migParams.DisksUri, migParams.SnapshotsUri,
+			migParams.Desc, migParams.DisksBackingFile, migParams.SrcSnapshots)
+		if err != nil {
+			return nil, fmt.Errorf("dest prepare migrate failed %s", err)
 		}
 
-		if err := guest.SaveDesc(migParams.Desc); err != nil {
+		if err = guest.SaveDesc(migParams.Desc); err != nil {
 			log.Errorln(err)
 			return nil, err
 		}

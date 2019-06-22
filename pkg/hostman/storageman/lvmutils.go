@@ -51,9 +51,9 @@ func NewLVMImageConnectUniqueToolSet() *SLVMImageConnectUniqueToolSet {
 
 func (s *SLVMImageConnectUniqueToolSet) CacheNonLvmImagePath(imagePath string) {
 	s.lock.Lock()
-	defer s.lock.Unlock()
-
 	s.nonLvms[imagePath] = struct{}{}
+	s.lock.Unlock()
+	s.Release(imagePath)
 }
 
 func (s *SLVMImageConnectUniqueToolSet) GetPathType(imagePath string) int {
