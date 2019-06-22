@@ -113,11 +113,18 @@ func (task *sBaremetalPrepareTask) prepareBaremetalInfo(cli *ssh.Client) (*barem
 	}
 
 	return &baremetalPrepareInfo{
-		sysInfo, cpuInfo, dmiCPUInfo, memInfo, nicsInfo, diskInfo, storageDriver, ipmiInfo,
+		sysInfo,
+		cpuInfo,
+		dmiCPUInfo,
+		memInfo,
+		nicsInfo,
+		diskInfo,
+		storageDriver,
+		ipmiInfo,
 	}, nil
 }
 
-func (task *sBaremetalPrepareTask) ipmiNicDHCP(cli *ssh.Client, i *baremetalPrepareInfo) error {
+func (task *sBaremetalPrepareTask) configIPMISetting(cli *ssh.Client, i *baremetalPrepareInfo) error {
 	if !i.ipmiInfo.Present {
 		return nil
 	}
@@ -153,9 +160,11 @@ func (task *sBaremetalPrepareTask) ipmiNicDHCP(cli *ssh.Client, i *baremetalPrep
 			Speed: 100,
 			Mtu:   1500,
 		}
-		task.sendNicInfo(ipmiNic, -1, types.NIC_TYPE_IPMI, true, "")
+		if err := task.sendNicInfo(ipmiNic, -1, types.NIC_TYPE_IPMI, true, ""); err != nil {
+			log.Errorf("Send IPMI nic %#v info: %v", ipmiNic, err)
+		}
 		rootId := ipmitool.GetRootId(ipmiSysInfo)
-		err = ipmitool.SetLanUserPasswd(sshIPMI, lanChannel, rootId, ipmiUser, ipmiPasswd)
+		err = ipmitool.CreateOrSetAdminUser(sshIPMI, lanChannel, rootId, ipmiUser, ipmiPasswd)
 		if err != nil {
 			// ignore the error
 			log.Errorf("Lan channel %d set user password error: %v", lanChannel, err)
@@ -197,7 +206,7 @@ func (task *sBaremetalPrepareTask) ipmiNicDHCP(cli *ssh.Client, i *baremetalPrep
 		if err != nil {
 			log.Errorf("Set lan channel %d dhcp error: %v", lanChannel, err)
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(2 * time.Second)
 		nic := task.baremetal.GetIPMINic(conf.Mac)
 		maxTries := 180 // wait 3 minutes
 		for tried := 0; nic != nil && nic.IpAddr == "" && tried < maxTries; tried++ {
@@ -208,9 +217,11 @@ func (task *sBaremetalPrepareTask) ipmiNicDHCP(cli *ssh.Client, i *baremetalPrep
 			if err != nil {
 				log.Errorf("Do BMC reset error: %v", err)
 			}
+			time.Sleep(1 * time.Second)
 		}
 		for tried := 0; nic != nil && nic.IpAddr == "" && tried < maxTries; tried++ {
 			nic = task.baremetal.GetIPMINic(conf.Mac)
+			time.Sleep(1 * time.Second)
 		}
 		if nic != nil && len(nic.IpAddr) == 0 {
 			log.Errorf("DHCP wait IPMI address fail, retry ...")
@@ -262,8 +273,8 @@ func (task *sBaremetalPrepareTask) DoPrepare(cli *ssh.Client) error {
 		return err
 	}
 
-	// set ipmi nic DHCP
-	if err = task.ipmiNicDHCP(cli, infos); err != nil {
+	// set ipmi nic address and user password
+	if err = task.configIPMISetting(cli, infos); err != nil {
 		return err
 	}
 
@@ -550,8 +561,7 @@ func (task *sBaremetalPrepareTask) sendNicInfo(nic *types.SNicDevInfo, idx int, 
 	if err != nil {
 		return err
 	}
-	task.baremetal.SaveDesc(resp)
-	return nil
+	return task.baremetal.SaveDesc(resp)
 }
 
 func (task *sBaremetalPrepareTask) sendStorageInfo(size int64) error {
