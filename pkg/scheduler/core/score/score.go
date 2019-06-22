@@ -15,10 +15,11 @@
 package score
 
 import (
-	"container/list"
 	"fmt"
 	"math"
-	//"yunion.io/x/log"
+	"strings"
+
+	"yunion.io/x/pkg/tristate"
 )
 
 type TScore int
@@ -68,200 +69,67 @@ func (v SScore) String() string {
 	return fmt.Sprintf("%s: %d", v.Name, v.Score)
 }
 
-type Scores struct {
-	scores *list.List
-}
+type scores map[string]int
 
-func newScores() *Scores {
-	return &Scores{
-		scores: list.New(),
+func (ss scores) Total() int {
+	ret := 0
+	for _, s := range ss {
+		ret += s
 	}
-}
-
-func (s *Scores) Append(scores ...SScore) *Scores {
-	for _, score := range scores {
-		s.scores.PushBack(score)
-	}
-	return s
-}
-
-func (s *Scores) AddToFirst(score SScore) *Scores {
-	s.scores.PushFront(score)
-	return s
-}
-
-func (s *Scores) Range(iterFunc func(ele *list.Element, score SScore) bool) {
-	for ele := s.scores.Front(); ele != nil; ele = ele.Next() {
-		cont := iterFunc(ele, ele.Value.(SScore))
-		if !cont {
-			break
-		}
-	}
-}
-
-func (s *Scores) SetScore(score SScore) *Scores {
-	exists := false
-	rf := func(ele *list.Element, oscore SScore) bool {
-		if oscore.Name == score.Name {
-			exists = true
-			oscore.Score = score.Score
-			ele.Value = oscore
-			return false
-		}
-		return true
-	}
-	s.Range(rf)
-	if !exists {
-		s.Append(score)
-	}
-	return s
-}
-
-func (s *Scores) AddScore(score SScore) *Scores {
-	exists := false
-	rf := func(ele *list.Element, oscore SScore) bool {
-		if oscore.Name == score.Name {
-			exists = true
-			oscore.Score += score.Score
-			ele.Value = oscore
-			return false
-		}
-		return true
-	}
-	s.Range(rf)
-	if !exists {
-		s.Append(score)
-	}
-	return s
-}
-
-func (s *Scores) Len() int {
-	return s.scores.Len()
-}
-
-func (s *Scores) GetScores() []SScore {
-	ret := make([]SScore, 0)
-	rf := func(_ *list.Element, score SScore) bool {
-		ret = append(ret, score)
-		return true
-	}
-	s.Range(rf)
 	return ret
 }
 
 type ScoreBucket struct {
-	scores *Scores
+	preferScore scores
+	avoidScore  scores
+	normalScore scores
 }
 
 func NewScoreBuckets() *ScoreBucket {
 	return &ScoreBucket{
-		scores: newScores(),
+		preferScore: make(map[string]int),
+		avoidScore:  make(map[string]int),
+		normalScore: make(map[string]int),
 	}
 }
 
-func (b *ScoreBucket) AddToFirst(score SScore) *ScoreBucket {
-	b.scores.AddToFirst(score)
+func (b *ScoreBucket) SetScore(score SScore, prefer tristate.TriState) *ScoreBucket {
+	scoreToSet := b.normalScore
+	if prefer.IsTrue() {
+		scoreToSet = b.preferScore
+	} else if prefer.IsFalse() {
+		scoreToSet = b.avoidScore
+	}
+	scoreToSet[score.Name] = int(score.Score)
 	return b
 }
 
-func (b *ScoreBucket) Append(scores ...SScore) *ScoreBucket {
-	b.scores.Append(scores...)
-	return b
+func PreferLess(b1, b2 *ScoreBucket) bool {
+	return b1.preferScore.Total() < b2.preferScore.Total()
 }
 
-func (b *ScoreBucket) GetScores() []SScore {
-	return b.scores.GetScores()
+func AvoidLess(b1, b2 *ScoreBucket) bool {
+	return b1.avoidScore.Total() < b2.avoidScore.Total()
 }
 
-func (b *ScoreBucket) SetScore(score SScore) *ScoreBucket {
-	b.scores.SetScore(score)
-	return b
+func NormalLess(b1, b2 *ScoreBucket) bool {
+	return b1.normalScore.Total() < b2.normalScore.Total()
 }
 
-func (b *ScoreBucket) AddScore(score SScore) *ScoreBucket {
-	b.scores.AddScore(score)
-	return b
-}
-
-func (b *ScoreBucket) GetScore(scoreName string) (int, SScore) {
-	for i, oscore := range b.scores.GetScores() {
-		if oscore.Name == scoreName {
-			return i, oscore
-		}
-	}
-	return -1, SScore{}
-}
-
-func (b *ScoreBucket) Len() int {
-	return b.scores.Len()
-}
-
-func (b *ScoreBucket) DigitString() string {
-	s := ""
-	rf := func(_ *list.Element, score SScore) bool {
-		s = fmt.Sprintf("%s%d", s, score.Score)
-		return true
-	}
-	b.scores.Range(rf)
-	return s
-}
-
-func extend(scores []SScore, length int) []SScore {
-	olen := len(scores)
-	if olen >= length {
-		return scores
-	}
-	ret := make([]SScore, 0)
-	zeroDigits := length - olen
-	for i := 0; i < zeroDigits; i++ {
-		ret = append(ret, NewZeroScore())
-	}
-	ret = append(ret, scores...)
-	return ret
-}
-
-func Equal(b1, b2 *ScoreBucket) bool {
-	return compare(b1, b2, func(s1, s2 TScore) bool { return s1 == s2 })
-}
-
-func Less(b1, b2 *ScoreBucket) bool {
-	return compare(b1, b2, func(s1, s2 TScore) bool { return s1 < s2 })
-}
-
-func compare(b1, b2 *ScoreBucket, cf func(s1, s2 TScore) bool) bool {
-	maxLen := int(math.Max(float64(b1.Len()), float64(b2.Len())))
-	s1 := b1.GetScores()
-	s2 := b2.GetScores()
-	s1 = extend(s1, maxLen)
-	s2 = extend(s2, maxLen)
-	for i := range s1 {
-		v1 := s1[i].GetScore()
-		v2 := s2[i].GetScore()
-		ok := cf(v1, v2)
-		if ok {
-			return true
-		} else if !ok {
-			return false
-		}
-	}
-	return false
-}
-
-func (b *ScoreBucket) debugString(vals []SScore, ret string) string {
-	if len(vals) == 0 {
-		return ret
-	}
-	restVal := vals[1:]
-	if len(restVal) == 0 {
-		return vals[0].String()
-	}
-	str := b.debugString(restVal, ret)
-	str = fmt.Sprintf("%s, %s", vals[0].String(), str)
-	return str
+func (b *ScoreBucket) debugString(kind string, vals map[string]int) string {
+	return fmt.Sprintf("%s: %v", kind, vals)
 }
 
 func (b *ScoreBucket) String() string {
-	return b.debugString(b.GetScores(), "")
+	kinds := make([]string, 0)
+	for kind, ss := range map[string]map[string]int{
+		"prefer": b.preferScore,
+		"avoid":  b.avoidScore,
+		"normal": b.normalScore,
+	} {
+		kinds = append(kinds, b.debugString(kind, ss))
+	}
+	return strings.Join(kinds, "\n")
 }
 
 type Interval struct {

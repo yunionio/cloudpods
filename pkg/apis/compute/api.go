@@ -25,6 +25,7 @@ type SchedtagConfig struct {
 
 	Id       string `json:"id"`
 	Strategy string `json:"strategy"`
+	Weight   int    `json:"weight"`
 }
 
 type NetworkConfig struct {

@@ -314,7 +314,6 @@ func (lbbg *SLoadbalancerBackendGroup) LBPendingDelete(ctx context.Context, user
 }
 
 func (lbbg *SLoadbalancerBackendGroup) pendingDeleteSubs(ctx context.Context, userCred mcclient.TokenCredential) {
-	lbbg.DoPendingDelete(ctx, userCred)
 	subMan := LoadbalancerBackendManager
 	ownerId := lbbg.GetOwnerId()
 
