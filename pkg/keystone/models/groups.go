@@ -204,6 +204,14 @@ func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, idpId s
 		if err != nil {
 			return nil, errors.Wrap(err, "Insert")
 		}
+	} else if group.Displayname != groupName {
+		_, err = db.Update(&group, func() error {
+			group.Displayname = groupName
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "update")
+		}
 	}
 
 	return &group, nil

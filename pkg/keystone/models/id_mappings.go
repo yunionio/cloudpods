@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/golang-plus/uuid"
 	"github.com/pkg/errors"
@@ -73,9 +74,10 @@ func (manager *SIdmappingManager) RegisterIdMapWithId(ctx context.Context, idpId
 	lockman.LockRawObject(ctx, manager.Keyword(), key)
 	defer lockman.ReleaseRawObject(ctx, manager.Keyword(), key)
 
-	q := manager.Query().Equals("domain_id", idpId).Equals("local_id", entityId).Equals("entity_type", entityType)
+	q := manager.RawQuery().Equals("domain_id", idpId).Equals("local_id", entityId).Equals("entity_type", entityType)
 
 	mapping := SIdmapping{}
+	mapping.SetModelManager(manager, &mapping)
 	err := q.First(&mapping)
 	if err != nil && err != sql.ErrNoRows {
 		return "", errors.Wrap(err, "Query")
@@ -95,6 +97,17 @@ func (manager *SIdmappingManager) RegisterIdMapWithId(ctx context.Context, idpId
 		if err != nil {
 			return "", errors.Wrap(err, "Insert")
 		}
+	} else {
+		if mapping.Deleted {
+			_, err = db.Update(&mapping, func() error {
+				mapping.Deleted = false
+				mapping.DeletedAt = time.Time{}
+				return nil
+			})
+			if err != nil {
+				return "", errors.Wrap(err, "undelete")
+			}
+		}
 	}
 
 	return mapping.PublicId, nil
@@ -112,7 +125,17 @@ func (manager *SIdmappingManager) FetchEntity(idStr string, entType string) (*SI
 }
 
 func (manager *SIdmappingManager) deleteByIdpId(idpId string) error {
+	return manager.DeleteAny(idpId, "", nil)
+}
+
+func (manager *SIdmappingManager) DeleteAny(idpId string, entityType string, excludeLocalIds []string) error {
 	q := manager.Query().Equals("domain_id", idpId)
+	if len(entityType) > 0 {
+		q = q.Equals("entity_type", entityType)
+	}
+	if len(excludeLocalIds) > 0 {
+		q = q.NotIn("local_id", excludeLocalIds)
+	}
 	idmappings := make([]SIdmapping, 0)
 	err := db.FetchModelObjects(manager, q, &idmappings)
 	if err != nil && err != sql.ErrNoRows {

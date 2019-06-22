@@ -485,3 +485,39 @@ func (model *SVirtualResourceBase) SyncCloudProjectId(userCred mcclient.TokenCre
 		}
 	}
 }
+
+func (manager *SVirtualResourceBaseManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	orderByTenant, _ := query.GetString("order_by_tenant")
+	if sqlchemy.SQL_ORDER_ASC.Equals(orderByTenant) || sqlchemy.SQL_ORDER_DESC.Equals(orderByTenant) {
+		tenantCaches := TenantCacheManager.Query().SubQuery()
+		q = q.LeftJoin(tenantCaches, sqlchemy.AND(
+			sqlchemy.Equals(q.Field("tenant_id"), tenantCaches.Field("id")),
+			sqlchemy.NotEquals(tenantCaches.Field("domain_id"), identityapi.KeystoneDomainRoot),
+		))
+		if sqlchemy.SQL_ORDER_ASC.Equals(orderByTenant) {
+			q = q.Asc(tenantCaches.Field("name"))
+		} else {
+			q = q.Desc(tenantCaches.Field("name"))
+		}
+	}
+
+	orderByDomain, _ := query.GetString("order_by_domain")
+	if sqlchemy.SQL_ORDER_ASC.Equals(orderByDomain) || sqlchemy.SQL_ORDER_DESC.Equals(orderByDomain) {
+		tenantCaches := TenantCacheManager.Query().SubQuery()
+		q = q.LeftJoin(tenantCaches, sqlchemy.AND(
+			sqlchemy.Equals(q.Field("domain_id"), tenantCaches.Field("id")),
+			sqlchemy.Equals(tenantCaches.Field("domain_id"), identityapi.KeystoneDomainRoot),
+		))
+		if sqlchemy.SQL_ORDER_ASC.Equals(orderByTenant) {
+			q = q.Asc(tenantCaches.Field("name"))
+		} else {
+			q = q.Desc(tenantCaches.Field("name"))
+		}
+	}
+
+	return q, nil
+}

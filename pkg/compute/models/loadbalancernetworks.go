@@ -22,10 +22,12 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/regutils"
+	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SLoadbalancernetworkManager struct {
@@ -210,4 +212,19 @@ func (ln *SLoadbalancerNetwork) Detach(ctx context.Context, userCred mcclient.To
 func (ln *SLoadbalancerNetwork) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := jsonutils.NewDict()
 	return db.JointModelExtra(ln, extra)
+}
+
+func totalLBNicCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) (int, error) {
+	lbs := LoadbalancerManager.Query().SubQuery()
+	lbnics := LoadbalancernetworkManager.Query().SubQuery()
+	q := lbnics.Query().Join(lbs, sqlchemy.Equals(lbs.Field("id"), lbnics.Field("loadbalancer_id")))
+	switch scope {
+	case rbacutils.ScopeSystem:
+		// do nothing
+	case rbacutils.ScopeDomain:
+		q = q.Filter(sqlchemy.Equals(lbs.Field("domain_id"), ownerId.GetProjectDomainId()))
+	case rbacutils.ScopeProject:
+		q = q.Filter(sqlchemy.Equals(lbs.Field("tenant_id"), ownerId.GetProjectId()))
+	}
+	return q.CountWithError()
 }

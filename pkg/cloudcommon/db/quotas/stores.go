@@ -16,10 +16,10 @@ package quotas
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 
-	"strings"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
@@ -28,6 +28,7 @@ import (
 type IQuotaStore interface {
 	GetQuota(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, quota IQuota) error
 	SetQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, quota IQuota) error
+	DeleteQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string) error
 }
 
 type SMemoryQuotaStore struct {
@@ -68,6 +69,12 @@ func (self *SMemoryQuotaStore) SetQuota(ctx context.Context, userCred mcclient.T
 	} else {
 		self.store[key] = jsonutils.Marshal(quota)
 	}
+	return nil
+}
+
+func (self *SMemoryQuotaStore) DeleteQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, name []string) error {
+	key := getMemoryStoreKey(scope, ownerId, name)
+	delete(self.store, key)
 	return nil
 }
 

@@ -25,6 +25,7 @@ import (
 func init() {
 	type RoleListOptions struct {
 		options.BaseListOptions
+		OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
 	}
 	R(&RoleListOptions{}, "role-list", "List keystone Roles", func(s *mcclient.ClientSession, args *RoleListOptions) error {
 		params, err := options.ListStructToParams(args)

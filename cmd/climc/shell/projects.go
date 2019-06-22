@@ -25,6 +25,7 @@ import (
 func init() {
 	type ProjectListOptions struct {
 		options.BaseListOptions
+		OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
 	}
 	R(&ProjectListOptions{}, "project-list", "List projects", func(s *mcclient.ClientSession, args *ProjectListOptions) error {
 		params, err := options.ListStructToParams(args)

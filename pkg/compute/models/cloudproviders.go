@@ -41,6 +41,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -1126,4 +1127,35 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(ctx context.Context,
 		}
 	}
 	return rows
+}
+
+func (manager *SCloudproviderManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	if owner != nil {
+		switch scope {
+		case rbacutils.ScopeProject:
+			if len(owner.GetProjectId()) > 0 {
+				subq := CloudaccountManager.Query("id")
+				subq = CloudaccountManager.FilterByOwner(subq, owner, scope)
+				q = q.Filter(sqlchemy.OR(
+					sqlchemy.Equals(q.Field("tenant_id"), owner.GetProjectId()),
+					sqlchemy.In(q.Field("cloudaccount_id"), subq.SubQuery()),
+				))
+			}
+		case rbacutils.ScopeDomain:
+			if len(owner.GetProjectDomainId()) > 0 {
+				subq := CloudaccountManager.Query("id")
+				subq = CloudaccountManager.FilterByOwner(subq, owner, scope)
+				q = q.Filter(sqlchemy.OR(
+					sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
+					sqlchemy.In(q.Field("cloudaccount_id"), subq.SubQuery()),
+				))
+			}
+		}
+		/*if len(owner.GetProjectId()) > 0 {
+		      q = q.Equals("tenant_id", owner.GetProjectId())
+		  } else if len(owner.GetProjectDomainId()) > 0 {
+		      q = q.Equals("domain_id", owner.GetProjectDomainId())
+		  }*/
+	}
+	return q
 }

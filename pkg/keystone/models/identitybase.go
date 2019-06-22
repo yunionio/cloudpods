@@ -123,6 +123,24 @@ func (manager *SIdentityBaseResourceManager) ListItemFilter(ctx context.Context,
 	return q, nil
 }
 
+func (manager *SIdentityBaseResourceManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	orderByDomain, _ := query.GetString("order_by_domain")
+	if sqlchemy.SQL_ORDER_ASC.Equals(orderByDomain) || sqlchemy.SQL_ORDER_DESC.Equals(orderByDomain) {
+		domains := DomainManager.Query().SubQuery()
+		q = q.LeftJoin(domains, sqlchemy.Equals(q.Field("domain_id"), domains.Field("id")))
+		if sqlchemy.SQL_ORDER_ASC.Equals(orderByDomain) {
+			q = q.Asc(domains.Field("name"))
+		} else {
+			q = q.Desc(domains.Field("name"))
+		}
+	}
+	return q, nil
+}
+
 func (manager *SIdentityBaseResourceManager) FetchOwnerId(ctx context.Context, data jsonutils.JSONObject) (mcclient.IIdentityProvider, error) {
 	domainId, key := jsonutils.GetAnyString2(data, []string{"domain_id", "project_domain", "project_domain_id"})
 	if len(domainId) > 0 {
