@@ -27,7 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 )
 
-var (
+const (
 	_RECYCLE_BIN_     = "recycle_bin"
 	_IMGSAVE_BACKUPS_ = "imgsave_backups"
 )
@@ -41,6 +41,7 @@ var (
 	storagesFactories = make([]IStorageFactory, 0)
 )
 
+// for shared storages
 func registerStorageFactory(factory IStorageFactory) {
 	storagesFactories = append(storagesFactories, factory)
 }
@@ -94,6 +95,8 @@ type IStorage interface {
 	GetFuseTmpPath() string
 	GetFuseMountPath() string
 	GetImgsaveBackupPath() string
+
+	DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string, desc, disksBackingFile, srcSnapshots jsonutils.JSONObject) error
 }
 
 type SBaseStorage struct {
@@ -296,6 +299,6 @@ func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, c
 	return disk.GetDiskDesc(), nil
 }
 
-func (s *SLocalStorage) GetImgsaveBackupPath() string {
-	return s.getSubdirPath(_IMGSAVE_BACKUPS_)
+func (s *SBaseStorage) DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string, desc, disksBackingFile, srcSnapshots jsonutils.JSONObject) error {
+	return nil
 }

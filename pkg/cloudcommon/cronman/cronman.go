@@ -109,6 +109,7 @@ func GetCronJobManager(idDbWorker bool) *SCronJobManager {
 	if manager == nil {
 		manager = &SCronJobManager{
 			jobs:    make([]*SCronJob, 0),
+			add:     make(chan *SCronJob),
 			workers: appsrv.NewWorkerManager("CronJobWorkers", 1, 1024, idDbWorker),
 		}
 	}

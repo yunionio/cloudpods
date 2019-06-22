@@ -57,44 +57,18 @@ func NewNFSStorage(manager *SStorageManager, path string) *SNFSStorage {
 	return ret
 }
 
+func (s *SNFSStorage) newDisk(diskId string) IDisk {
+	return NewNFSDisk(s, diskId)
+}
+
 func (s *SNFSStorage) StorageType() string {
 	return api.STORAGE_NFS
-}
-
-func (s *SNFSStorage) CreateDisk(diskId string) IDisk {
-	s.DiskLock.Lock()
-	defer s.DiskLock.Unlock()
-	disk := NewNFSDisk(s, diskId)
-	s.Disks = append(s.Disks, disk)
-	return disk
-}
-
-func (s *SNFSStorage) GetDiskById(diskId string) IDisk {
-	s.DiskLock.Lock()
-	defer s.DiskLock.Unlock()
-	for i := 0; i < len(s.Disks); i++ {
-		if s.Disks[i].GetId() == diskId {
-			if s.Disks[i].Probe() == nil {
-				return s.Disks[i]
-			} else {
-				return nil
-			}
-		}
-	}
-	var disk = NewNFSDisk(s, diskId)
-	if disk.Probe() == nil {
-		s.Disks = append(s.Disks, disk)
-		return disk
-	} else {
-		return nil
-	}
 }
 
 func (s *SNFSStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	if len(s.StorageId) == 0 {
 		return nil, fmt.Errorf("Sync nfs storage without storage id")
 	}
-
 	content := jsonutils.NewDict()
 	content.Set("capacity", jsonutils.NewInt(int64(s.GetAvailSizeMb())))
 	content.Set("storage_type", jsonutils.NewString(s.StorageType()))
@@ -130,7 +104,7 @@ func (s *SNFSStorage) checkAndMount() error {
 	}
 	sharedDir, err := s.StorageConf.GetString("nfs_shared_dir")
 	if err != nil {
-		return fmt.Errorf("Storage conf missing nfs_shared_dir ")
+		return fmt.Errorf("Storage conf missing nfs_shared_dir")
 	}
 	output, err := procutils.NewCommand(
 		"mount", "-t", "nfs", fmt.Sprintf("%s:%s", host, sharedDir), s.Path).RunWithTimeout(10 * time.Second)
