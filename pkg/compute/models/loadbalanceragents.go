@@ -77,6 +77,8 @@ type SLoadbalancerAgent struct {
 	LoadbalancerBackends      time.Time `nullable:"true" list:"admin" update:"admin"`
 	LoadbalancerAcls          time.Time `nullable:"true" list:"admin" update:"admin"`
 	LoadbalancerCertificates  time.Time `nullable:"true" list:"admin" update:"admin"`
+
+	Deployment *SLoadbalancerAgentDeployment `create:"optional" list:"admin" get:"admin"`
 }
 
 type SLoadbalancerAgentParamsVrrp struct {
