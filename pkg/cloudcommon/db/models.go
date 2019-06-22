@@ -57,21 +57,15 @@ func mustCheckModelManager(modelMan IModelManager) {
 }
 
 func CheckSync(autoSync bool) bool {
-	log.Infof("Start check database ...")
+	log.Infof("Start check database schema ...")
 	inSync := true
 	for modelName, modelMan := range globalTables {
 		tableSpec := modelMan.TableSpec()
 		dropFKSqls := tableSpec.DropForeignKeySQL()
-		sqls := tableSpec.SyncSQL()
-		if len(dropFKSqls) > 0 || len(sqls) > 0 {
-			log.Infof("model %s is not in SYNC!!!", modelName)
+		if len(dropFKSqls) > 0 {
+			log.Infof("model %s drop foreign key constraints!!!", modelName)
 			if autoSync {
 				err := commitSqlDIffs(dropFKSqls)
-				if err != nil {
-					log.Errorf("commit sql error %s", err)
-					return false
-				}
-				err = commitSqlDIffs(sqls)
 				if err != nil {
 					log.Errorf("commit sql error %s", err)
 					return false
@@ -80,6 +74,22 @@ func CheckSync(autoSync bool) bool {
 				for _, sql := range dropFKSqls {
 					fmt.Println(sql)
 				}
+				inSync = false
+			}
+		}
+	}
+	for modelName, modelMan := range globalTables {
+		tableSpec := modelMan.TableSpec()
+		sqls := tableSpec.SyncSQL()
+		if len(sqls) > 0 {
+			log.Infof("model %s is not in SYNC!!!", modelName)
+			if autoSync {
+				err := commitSqlDIffs(sqls)
+				if err != nil {
+					log.Errorf("commit sql error %s", err)
+					return false
+				}
+			} else {
 				for _, sql := range sqls {
 					fmt.Println(sql)
 				}

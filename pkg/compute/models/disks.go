@@ -1322,12 +1322,16 @@ func totalDiskSize(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvide
 			sqlchemy.IsFalse(disks.Field("is_system"))))
 	}
 	row := q.Row()
-	size := 0
+	size := sql.NullInt64{}
 	err := row.Scan(&size)
 	if err != nil {
-		log.Errorf("totalDiskSize error %s", err)
+		log.Errorf("totalDiskSize error %s: %s", err, q.String())
 	}
-	return size
+	if size.Valid {
+		return int(size.Int64)
+	} else {
+		return 0
+	}
 }
 
 func parseDiskInfo(ctx context.Context, userCred mcclient.TokenCredential, info *api.DiskConfig) (*api.DiskConfig, error) {

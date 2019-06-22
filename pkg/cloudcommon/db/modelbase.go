@@ -193,6 +193,10 @@ func (manager *SModelBaseManager) ListItemExportKeys(ctx context.Context, q *sql
 	return q, nil
 }
 
+func (manager *SModelBaseManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	return q, nil
+}
+
 func (manager *SModelBaseManager) GetExportExtraKeys(ctx context.Context, query jsonutils.JSONObject, rowMap map[string]string) *jsonutils.JSONDict {
 	return jsonutils.NewDict()
 }
