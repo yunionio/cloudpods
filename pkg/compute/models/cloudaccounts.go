@@ -79,8 +79,8 @@ type SCloudaccount struct {
 
 	// BalanceKey string `width:"256" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
-	IsPublicCloud *bool `nullable:"false" get:"user" create:"optional" list:"user" default:"true"`
-	IsOnPremise   bool  `nullable:"false" get:"user" create:"optional" list:"user" default:"false"`
+	IsPublicCloud tristate.TriState `nullable:"false" get:"user" create:"optional" list:"user" default:"true"`
+	IsOnPremise   bool              `nullable:"false" get:"user" create:"optional" list:"user" default:"false"`
 
 	Provider string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
 
@@ -755,7 +755,7 @@ func (self *SCloudaccount) getProjectIds() []string {
 func (self *SCloudaccount) getCloudEnv() string {
 	if self.IsOnPremise {
 		return api.CLOUD_ENV_ON_PREMISE
-	} else if self.IsPublicCloud != nil && *self.IsPublicCloud == true {
+	} else if self.IsPublicCloud.IsTrue() {
 		return api.CLOUD_ENV_PUBLIC_CLOUD
 	} else {
 		return api.CLOUD_ENV_PRIVATE_CLOUD
@@ -1229,7 +1229,7 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 	factory := manager.GetFactory()
 	diff, err := db.Update(account, func() error {
 		isPublic := factory.IsPublicCloud()
-		account.IsPublicCloud = &isPublic
+		account.IsPublicCloud = tristate.NewFromBool(isPublic)
 		account.IsOnPremise = factory.IsOnPremise()
 		account.Balance = balance
 		account.HealthStatus = status

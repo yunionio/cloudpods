@@ -74,7 +74,7 @@ func (p *DiskSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCandi
 
 func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) error {
 	storage := res.(*api.CandidateStorage)
-	if storage.Status == computeapi.STORAGE_OFFLINE || !storage.Enabled {
+	if storage.Status == computeapi.STORAGE_OFFLINE || storage.Enabled.IsFalse() {
 		return fmt.Errorf("Storage status is %s, enable is %v", storage.Status, storage.Enabled)
 	}
 
