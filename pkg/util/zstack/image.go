@@ -172,7 +172,7 @@ func (image *SImage) GetOsArch() string {
 }
 
 func (image *SImage) GetMinOsDiskSizeGb() int {
-	return 10
+	return image.Size / 1024 / 1024 / 1024
 }
 
 func (image *SImage) GetImageFormat() string {
