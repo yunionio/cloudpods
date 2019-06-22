@@ -202,7 +202,7 @@ func (region *SRegion) AddSecurityGroupRule(secgroupId string, rules []secrules.
 		if rule.Protocol != secrules.PROTO_ANY {
 			protocol = strings.ToUpper(rule.Protocol)
 		}
-		if rule.Protocol == secrules.PROTO_ICMP {
+		if rule.Protocol == secrules.PROTO_ICMP || rule.Protocol == secrules.PROTO_ANY {
 			rule.PortStart = -1
 			rule.PortEnd = -1
 			rule.Ports = []int{}
@@ -218,13 +218,21 @@ func (region *SRegion) AddSecurityGroupRule(secgroupId string, rules []secrules.
 				})
 			}
 		} else {
-			ruleParam = append(ruleParam, map[string]interface{}{
-				"type":        Type,
-				"startPort":   rule.PortStart,
-				"endPort":     rule.PortEnd,
-				"protocol":    protocol,
-				"allowedCidr": rule.IPNet.String(),
-			})
+			if protocol != "ALL" {
+				ruleParam = append(ruleParam, map[string]interface{}{
+					"type":        Type,
+					"startPort":   rule.PortStart,
+					"endPort":     rule.PortEnd,
+					"protocol":    protocol,
+					"allowedCidr": rule.IPNet.String(),
+				})
+			} else {
+				ruleParam = append(ruleParam, map[string]interface{}{
+					"type":        Type,
+					"protocol":    protocol,
+					"allowedCidr": rule.IPNet.String(),
+				})
+			}
 		}
 	}
 	if len(ruleParam) > 0 {
@@ -239,8 +247,15 @@ func (region *SRegion) AddSecurityGroupRule(secgroupId string, rules []secrules.
 }
 
 func (region *SRegion) DeleteSecurityGroupRules(ruleIds []string) error {
-	resource := fmt.Sprintf("security-groups/rules?ruleUuids=%s", strings.Join(ruleIds, ","))
-	return region.client.delete(resource, "", "")
+	if len(ruleIds) > 0 {
+		ids := []string{}
+		for _, ruleId := range ruleIds {
+			ids = append(ids, fmt.Sprintf("ruleUuids=%s", ruleId))
+		}
+		resource := fmt.Sprintf("security-groups/rules?%s", strings.Join(ids, "&"))
+		return region.client.delete(resource, "", "")
+	}
+	return nil
 }
 
 func (region *SRegion) CreateSecurityGroup(name, desc string) (*SSecurityGroup, error) {

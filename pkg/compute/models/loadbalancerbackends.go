@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
@@ -341,23 +343,34 @@ func (lbb *SLoadbalancerBackend) GetCustomizeColumns(ctx context.Context, userCr
 	if providerInfo != nil {
 		extra.Update(providerInfo)
 	}
-	_guest, err := GuestManager.FetchById(lbb.BackendId)
-	if err != nil {
-		log.Errorf("failed to find guest for loadbalancer backend %s(%s)", lbb.Name, lbb.Id)
-		return extra
-	}
-	guest := _guest.(*SGuest)
-	vpc, err := guest.GetVpc()
-	if err != nil {
-		log.Errorf("failed to find vpc for guest %s(%s)", guest.Name, guest.Id)
-		return extra
-	}
-	extra.Set("vpc_id", jsonutils.NewString(vpc.Id))
 	regionInfo := lbb.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	if regionInfo != nil {
 		extra.Update(regionInfo)
 	}
+
+	if vpc, err := lbb.getVpc(ctx); err != nil {
+		log.Warningf("loadbalancer backend %s(%s): get vpc: %v", lbb.Name, lbb.Id, err)
+	} else if vpc != nil {
+		extra.Set("vpc_id", jsonutils.NewString(vpc.Id))
+	}
 	return extra
+}
+
+func (lbb *SLoadbalancerBackend) getVpc(ctx context.Context) (*SVpc, error) {
+	if lbb.BackendType != api.LB_BACKEND_GUEST {
+		return nil, nil
+	}
+	guestM, err := GuestManager.FetchById(lbb.BackendId)
+	if err != nil {
+		theLbbJanitor.Signal()
+		return nil, errors.WithMessagef(err, "find guest %s", lbb.BackendId)
+	}
+	guest := guestM.(*SGuest)
+	vpc, err := guest.GetVpc()
+	if err != nil {
+		return nil, errors.WithMessagef(err, "find guest %s(%s) vpc", guest.Name, guest.Id)
+	}
+	return vpc, nil
 }
 
 func (lbb *SLoadbalancerBackend) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {

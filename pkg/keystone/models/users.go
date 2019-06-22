@@ -324,8 +324,8 @@ func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	return q, nil
 }
 
-func (manager *SUserManager) FilterBySystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
-	q = manager.SEnabledIdentityBaseResourceManager.FilterBySystemAttributes(q, userCred, query, scope)
+func (manager *SUserManager) FilterByHiddenSystemAttributes(q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
+	q = manager.SEnabledIdentityBaseResourceManager.FilterByHiddenSystemAttributes(q, userCred, query, scope)
 	isSystem := jsonutils.QueryBoolean(query, "system", false)
 	if isSystem {
 		var isAllow bool
@@ -362,7 +362,7 @@ func (user *SUser) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 			"displayname",
 			"email",
 			"mobile",
-			"pasword",
+			"password",
 		} {
 			if data.Contains(k) {
 				return nil, httperrors.NewForbiddenError("field %s is readonly", k)

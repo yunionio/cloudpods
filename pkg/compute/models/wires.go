@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/netutils"
@@ -314,13 +315,11 @@ func (manager *SWireManager) newFromCloudWire(ctx context.Context, userCred mccl
 	wire.VpcId = vpc.Id
 	izone := extWire.GetIZone()
 	if izone != nil {
-		zoneObj, err := db.FetchByExternalId(ZoneManager, izone.GetGlobalId())
+		zone, err := vpc.getZoneByExternalId(izone.GetGlobalId())
 		if err != nil {
-			log.Errorf("cannot find zone for wire %s", err)
-			return nil, err
+			return nil, errors.Wrapf(err, "newFromCloudWire.getZoneByExternalId")
 		}
-
-		wire.ZoneId = zoneObj.(*SZone).Id
+		wire.ZoneId = zone.Id
 	}
 
 	wire.IsEmulated = extWire.IsEmulated()

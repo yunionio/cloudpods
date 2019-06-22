@@ -16,7 +16,6 @@ package guestdrivers
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"math"
 	"time"
@@ -134,38 +133,6 @@ func (self *SManagedVirtualizedGuestDriver) ValidateCreateData(ctx context.Conte
 	if input.Cdrom != "" {
 		return nil, httperrors.NewInputParameterError("%s not support cdrom params", input.Hypervisor)
 	}
-
-	_image, err := models.CachedimageManager.FetchById(input.Disks[0].ImageId)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, httperrors.NewResourceNotFoundError2("image", input.Disks[0].ImageId)
-		}
-		return nil, httperrors.NewGeneralError(err)
-	}
-	image := _image.(*models.SCachedimage)
-	if image.ImageType == cloudprovider.CachedImageTypeSystem {
-		cloudprovider, err := image.GetCloudprovider()
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError("failed to found image %s(%s) provider", image.Name, image.Id)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-		provider := models.GetDriver(input.Hypervisor).GetProvider()
-		if provider != cloudprovider.Provider {
-			return nil, httperrors.NewInputParameterError("image %s(%s) not support provider %s only support %s", image.Name, image.Id, provider, cloudprovider.Provider)
-		}
-		if len(input.PreferRegion) == 0 && len(input.PreferZone) == 0 && len(input.PreferHost) == 0 {
-			regions, err := image.GetRegions()
-			if err != nil {
-				log.Warningf("failed to get regions for image %s(%s) error: %v", image.Name, image.Id, err)
-			}
-			if len(regions) > 0 {
-				input.PreferRegion = regions[0].Id
-			}
-		}
-	}
-
 	return input, nil
 }
 
@@ -194,10 +161,6 @@ func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Contex
 func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
-
-// func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
-// 	return nil
-// }
 
 func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
 	ihost, e := host.GetIHost()

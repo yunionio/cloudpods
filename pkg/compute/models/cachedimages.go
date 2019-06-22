@@ -536,6 +536,45 @@ func (image *SCachedimage) GetRegions() ([]SCloudregion, error) {
 	return regions, nil
 }
 
+func (image *SCachedimage) GetUsableZoneIds() ([]string, error) {
+	zones := ZoneManager.Query().SubQuery()
+	storages := StorageManager.Query().SubQuery()
+	storagecaches := StoragecacheManager.Query().SubQuery()
+	storagecacheimages := StoragecachedimageManager.Query().SubQuery()
+	providers := CloudproviderManager.Query().SubQuery()
+
+	q := zones.Query(zones.Field("id"))
+	q = q.Join(storages, sqlchemy.Equals(q.Field("id"), storages.Field("zone_id")))
+	q = q.Join(storagecaches, sqlchemy.Equals(storages.Field("storagecache_id"), storagecaches.Field("id")))
+	q = q.Join(providers, sqlchemy.Equals(providers.Field("id"), storagecaches.Field("manager_id")))
+	q = q.Join(storagecacheimages, sqlchemy.Equals(storagecaches.Field("id"), storagecacheimages.Field("storagecache_id")))
+	q = q.Filter(sqlchemy.IsTrue(providers.Field("enabled")))
+	q = q.Filter(sqlchemy.In(providers.Field("status"), api.CLOUD_PROVIDER_VALID_STATUS))
+	q = q.Filter(sqlchemy.In(providers.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS))
+	q = q.Filter(sqlchemy.Equals(storagecacheimages.Field("cachedimage_id"), image.Id))
+	q = q.Filter(sqlchemy.Equals(storagecacheimages.Field("status"), api.CACHED_IMAGE_STATUS_READY))
+	q = q.Filter(sqlchemy.Equals(q.Field("status"), api.ZONE_ENABLE))
+
+	result := []string{}
+	rows, err := q.Rows()
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var zoneId string
+		if err := rows.Scan(&zoneId); err != nil {
+			return nil, err
+		}
+		result = append(result, zoneId)
+	}
+
+	return result, nil
+}
+
 func (image *SCachedimage) GetCloudprovider() (*SCloudprovider, error) {
 	caches := image.getValidStoragecache()
 	if len(caches) == 0 {

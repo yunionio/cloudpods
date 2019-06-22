@@ -21,7 +21,6 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type ProjectManagerV3 struct {
@@ -260,42 +259,6 @@ func (this *ProjectManagerV3) DoProjectBatchDeleteUserGroup(s *mcclient.ClientSe
 
 	wg.Wait()
 	return ret, nil
-}
-
-func (this *ProjectManagerV3) Delete(session *mcclient.ClientSession, id string, body jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	return this.DeleteInContexts(session, id, body, nil)
-}
-
-func (this *ProjectManagerV3) DeleteInContexts(session *mcclient.ClientSession, id string, body jsonutils.JSONObject, ctxs []ManagerContext) (jsonutils.JSONObject, error) {
-	if ctxs == nil {
-		p := jsonutils.NewDict()
-		p.Add(jsonutils.JSONTrue, "admin")
-		p.Add(jsonutils.JSONTrue, "system")
-		p.Add(jsonutils.NewString(id), "tenant")
-		ret, e := Servers.List(session, p)
-		if e != nil {
-			return nil, e
-		} else {
-			if ret.Total > 0 {
-				err := &httputils.JSONClientError{}
-				err.Code = 403
-				err.Details = fmt.Sprintf("该项目（%s）下存在云服务器，请清除后重试", id)
-				return nil, err
-			}
-		}
-	}
-
-	return this.deleteInContexts(session, id, nil, body, ctxs)
-}
-
-func (this *ProjectManagerV3) BatchDelete(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject) []SubmitResult {
-	return this.BatchDeleteInContexts(session, idlist, body, nil)
-}
-
-func (this *ProjectManagerV3) BatchDeleteInContexts(session *mcclient.ClientSession, idlist []string, body jsonutils.JSONObject, ctxs []ManagerContext) []SubmitResult {
-	return BatchDo(idlist, func(id string) (jsonutils.JSONObject, error) {
-		return this.DeleteInContexts(session, id, body, ctxs)
-	})
 }
 
 func (this *ProjectManagerV3) AddTags(session *mcclient.ClientSession, id string, tags []string) error {
