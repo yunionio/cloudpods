@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"strconv"
@@ -970,14 +971,8 @@ func removeCharacters(input, charSet string) string {
 	return strings.Map(filter, input)
 }
 
-func (this *ArgumentParser) ParseFile(filepath string) error {
-	file, e := os.Open(filepath)
-	if e != nil {
-		return e
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
+func (this *ArgumentParser) parseReader(r io.Reader) error {
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
 		line = strings.TrimSpace(removeComments(line))
@@ -1000,6 +995,16 @@ func (this *ArgumentParser) ParseFile(filepath string) error {
 	}
 
 	return nil
+}
+
+func (this *ArgumentParser) ParseFile(filepath string) error {
+	file, e := os.Open(filepath)
+	if e != nil {
+		return e
+	}
+	defer file.Close()
+
+	return this.parseReader(file)
 }
 
 func (this *ArgumentParser) GetSubcommand() *SubcommandArgument {

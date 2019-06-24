@@ -549,9 +549,10 @@
   revision = "22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae"
 
 [[projects]]
-  digest = "1:ff09f03ca12c4d23c28c596eb0738745e36c1cac111f62f64819210f40607cd2"
+  digest = "1:d5083934eb25e45d17f72ffa86cae3814f4a9d6c073c4f16b64147169b245606"
   name = "github.com/gin-gonic/gin"
   packages = [
+    ".",
     "binding",
     "json",
     "render",
@@ -1754,7 +1755,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:04187b7fe2d9788ad901137fd8976272f464bd4080963e7a7f28aa9615d1e47a"
+  digest = "1:b84f9c69408595c7659a66445b676388540d8913704ae3c08a58a20b91a18c21"
   name = "yunion.io/x/pkg"
   packages = [
     "errors",
@@ -1788,23 +1789,23 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "3afb7f847aad0b254d5768f961d226b24aa24cea"
+  revision = "945c25821dbf4831f5158484d2c5ea478fae0e99"
 
 [[projects]]
   branch = "master"
-  digest = "1:01f3312e3e5efad1527fa9f65a2c8a23f1b88228b2898d5b695f8223c80147a3"
+  digest = "1:3c9b16cb59b9241a990130da5efc6569abb5e1a81e959b5c09aa4ac4e66d9ea2"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "e67c599d9d7a81a1a08738924b74c881ce6a5a57"
+  revision = "a2ed237bb1f72f7c073aef3cdbf8fe6f4f73ca12"
 
 [[projects]]
   branch = "master"
-  digest = "1:1675fa8745954519c295e45a04529f77f4a1801e5cab3b9c17aeb48ff22a8171"
+  digest = "1:599570c30484ada923130468fdc44e9d1fa7a4aa755f3e5ff854368e258dd1d4"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "ab732d688d05e720930da068681231623854817d"
+  revision = "20d0c9b7b3cdc7eb64689f8f18eb20d37f16e643"
 
 [solve-meta]
   analyzer-name = "dep"
