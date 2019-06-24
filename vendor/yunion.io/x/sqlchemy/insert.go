@@ -140,7 +140,7 @@ func (t *STableSpec) insertSqlPrep(dataFields reflectutils.SStructFieldValueSet,
 		strings.Join(format, ", "))
 
 	if update {
-		insertSql += "ON DUPLICATE KEY UPDATE " + strings.Join(updates, ", ")
+		insertSql += " ON DUPLICATE KEY UPDATE " + strings.Join(updates, ", ")
 		values = append(values, updateValues...)
 	}
 	return insertSql, values, nil

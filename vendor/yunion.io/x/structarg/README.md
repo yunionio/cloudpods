@@ -10,7 +10,7 @@ An example of a struct definition is shown as follows:
 type Options struct {
     Help bool       `help:"Show help messages" short-token:"h"`
     Debug bool      `help:"Show extra debug information"`
-    Timeout int     `default:"600" help: "Number of seconds to wait for a response"`
+    Timeout int     `default:"600" help:"Number of seconds to wait for a response"`
     SUBCOMMAND string `help:"subcommand" subcommand:"true"`
 }
 ```

@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
@@ -115,8 +116,10 @@ func (this *QuotaManager) doPost(s *mcclient.ClientSession, params jsonutils.JSO
 	if data.Size() > 0 {
 		body := jsonutils.NewDict()
 		body.Add(data, this.KeywordPlural)
+		log.Debugf("set compute quota %s", body)
 		_, err = this._post(s, url, body, this.KeywordPlural)
 		if err != nil {
+			log.Errorf("set compute quota fail %s %s", data, err)
 			return nil, err
 		}
 	}
@@ -124,8 +127,10 @@ func (this *QuotaManager) doPost(s *mcclient.ClientSession, params jsonutils.JSO
 	if data.Size() > 0 {
 		body := jsonutils.NewDict()
 		body.Add(data, ImageQuotas.KeywordPlural)
+		log.Debugf("set image quota %s", body)
 		_, err = ImageQuotas._post(s, url, body, ImageQuotas.KeywordPlural)
 		if err != nil {
+			log.Errorf("set quota fail %s %s", data, err)
 			return nil, err
 		}
 	}

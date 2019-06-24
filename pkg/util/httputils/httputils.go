@@ -80,6 +80,17 @@ func (e *JSONClientError) Error() string {
 	return jsonutils.Marshal(errMsg).String()
 }
 
+func ErrorCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	switch je := err.(type) {
+	case *JSONClientError:
+		return je.Code
+	}
+	return -1
+}
+
 func headerExists(header *http.Header, key string) bool {
 	keyu := strings.ToUpper(key)
 	for k := range *header {

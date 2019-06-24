@@ -387,9 +387,9 @@ func (model *SStandaloneResourceBase) PostDelete(ctx context.Context, userCred m
 	model.SResourceBase.PostDelete(ctx, userCred)
 }
 
-func (model *SStandaloneResourceBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return DeleteModel(ctx, userCred, model)
-}
+// func (model *SStandaloneResourceBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+// 	return DeleteModel(ctx, userCred, model)
+// }
 
 func (model *SStandaloneResourceBase) ClearSchedDescCache() error {
 	return nil

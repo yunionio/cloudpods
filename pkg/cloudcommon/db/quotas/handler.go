@@ -97,7 +97,7 @@ func (manager *SQuotaBaseManager) queryQuota(ctx context.Context, scope rbacutil
 	}
 	if usage.IsEmpty() {
 		usageChan := make(chan IQuota)
-		manager.PostUsageJob(scope, ownerId, nil, usageChan)
+		manager.PostUsageJob(scope, ownerId, nil, usageChan, false)
 
 		usage = <-usageChan
 	}
@@ -423,14 +423,14 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId
 			scope = rbacutils.ScopeDomain
 		}
 		platform := strings.Split(platformStr, nameSeparator)
-		quota, usage, err := manager.queryQuota(ctx, scope, &owner, platform)
+		quota, _, err := manager.queryQuota(ctx, scope, &owner, platform)
 		if err != nil {
 			log.Errorf("query quota for %s fail %s", getMemoryStoreKey(scope, &owner, platform), err)
 			continue
 		}
-		if usage.IsEmpty() {
-			continue
-		}
+		// if usage.IsEmpty() {
+		//	continue
+		// }
 		if len(projectId) > 0 {
 			quota.Set("tenant_id", jsonutils.NewString(projectId))
 			quota.Set("domain_id", jsonutils.NewString(domainId))

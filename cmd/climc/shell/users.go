@@ -25,7 +25,8 @@ import (
 func init() {
 	type UserListOptions struct {
 		options.BaseListOptions
-		Name string `help:"Filter by name"`
+		Name          string `help:"Filter by name"`
+		OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
 	}
 	R(&UserListOptions{}, "user-list", "List users", func(s *mcclient.ClientSession, args *UserListOptions) error {
 		params, err := options.ListStructToParams(args)

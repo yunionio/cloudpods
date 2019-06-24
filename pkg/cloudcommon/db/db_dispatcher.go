@@ -483,25 +483,38 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	}
 
 	orderBy := jsonutils.GetQueryStringArray(queryDict, "order_by")
-	if len(orderBy) == 0 {
-		if primaryCol != nil && primaryCol.IsNumeric() {
-			orderBy = []string{primaryCol.Name()}
-		} else if manager.TableSpec().ColumnSpec("created_at") != nil {
-			orderBy = []string{"created_at"}
-		}
-	}
 	order := sqlchemy.SQL_ORDER_DESC
 	orderStr, _ := queryDict.GetString("order")
 	if orderStr == "asc" {
 		order = sqlchemy.SQL_ORDER_ASC
 	}
-	if order == sqlchemy.SQL_ORDER_ASC {
-		for _, orderByField := range orderBy {
-			q = q.Asc(orderByField)
+	orderQuery := query.(*jsonutils.JSONDict).Copy()
+	for _, orderByField := range orderBy {
+		colSpec := manager.TableSpec().ColumnSpec(orderByField)
+		if colSpec == nil {
+			orderQuery.Set(fmt.Sprintf("order_by_%s", orderByField), jsonutils.NewString(string(order)))
 		}
-	} else {
-		for _, orderByField := range orderBy {
-			q = q.Desc(orderByField)
+	}
+	q, err = manager.OrderByExtraFields(ctx, q, userCred, orderQuery)
+	if err != nil {
+		return nil, err
+	}
+	if orderBy == nil {
+		orderBy = []string{}
+	}
+	if primaryCol != nil && primaryCol.IsNumeric() {
+		orderBy = append(orderBy, primaryCol.Name())
+	} else if manager.TableSpec().ColumnSpec("created_at") != nil {
+		orderBy = append(orderBy, "created_at")
+	}
+	for _, orderByField := range orderBy {
+		colSpec := manager.TableSpec().ColumnSpec(orderByField)
+		if colSpec != nil {
+			if order == sqlchemy.SQL_ORDER_ASC {
+				q = q.Asc(orderByField)
+			} else {
+				q = q.Desc(orderByField)
+			}
 		}
 	}
 	customizeFilters, err := manager.CustomizeFilterList(ctx, q, userCred, queryDict)
@@ -1426,7 +1439,9 @@ func DeleteModel(ctx context.Context, userCred mcclient.TokenCredential, item IM
 		log.Errorf(msg)
 		return httperrors.NewGeneralError(err)
 	}
-	OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(ctx), userCred)
+	if userCred != nil {
+		OpsLog.LogEvent(item, ACT_DELETE, item.GetShortDesc(ctx), userCred)
+	}
 	return nil
 }
 
