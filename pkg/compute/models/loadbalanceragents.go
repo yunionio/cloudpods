@@ -517,7 +517,7 @@ vrrp_instance YunionLB {
 		auth_type PASS
 		auth_pass {{ .vrrp.pass }}
 	}
-	{{ if .vrrp.notify_script -}} notify {{ .vrrp.notify_script }} {{- end }}
+	{{ if .vrrp.notify_script -}} notify {{ .vrrp.notify_script }} root {{- end }}
 	{{ if .vrrp.unicast_peer -}} unicast_peer { {{- println }}
 		{{- range .vrrp.unicast_peer }}		{{ println . }} {{- end }}
 	}
