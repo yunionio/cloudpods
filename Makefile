@@ -26,7 +26,7 @@ LDFLAGS := "-w \
 
 #####################################################
 
-GO_BUILD := go build -ldflags $(LDFLAGS)
+GO_BUILD := go build -mod vendor -ldflags $(LDFLAGS)
 GO_INSTALL := go install -ldflags $(LDFLAGS)
 GO_TEST := go test
 
@@ -40,6 +40,7 @@ ifdef LIBQEMUIO_PATH
     X_CGO_LDFLAGS := ${CGO_LDFLAGS_ENV} -laio -lqemuio -lpthread  -L ${LIBQEMUIO_PATH}/src
 endif
 
+export GO111MODULE:=on
 export CGO_CFLAGS = ${X_CGO_CFLAGS}
 export CGO_LDFLAGS = ${X_CGO_LDFLAGS}
 
@@ -94,12 +95,6 @@ bin_dir: output_dir
 output_dir:
 	@mkdir -p $(BUILD_DIR)
 
-dep_clean:
-	rm -fr $(GOPATH)/pkg/dep/sources/*
-
-dep_install:
-	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-
 
 .PHONY: all build prepare_dir clean fmt rpm
 
@@ -112,8 +107,28 @@ fmt:
 	@find . -type f -name "*.go" -not -path "./_output/*" \
 		-not -path "./vendor/*" | xargs gofmt -s -w
 
+define depDeprecated
+OneCloud now requires using go-mod for dependency management.  dep target,
+vendor files will be removed in future versions
+
+Follow the following link to find out more about go-mod
+
+ - https://blog.golang.org/using-go-modules
+ - https://github.com/golang/go/wiki/Modules
+
+Switching to "make mod"...
+
+endef
+
+dep: export depDeprecated:=$(depDeprecated)
 dep:
-	cd $(ROOT_DIR) && dep ensure -v -update $(shell for p in $$(ls vendor/yunion.io/x/); do echo "yunion.io/x/$$p"; done | xargs)
+	@echo "$$depDeprecated"
+	@$(MAKE) mod
+
+mod:
+	go get $(patsubst %,%@master,$(shell go mod edit -print  | sed -n -r -e 's|.*(yunion.io/x/[a-z]+) v.*|\1|p'))
+	go mod tidy
+	go mod vendor -v
 
 %:
 	@:
