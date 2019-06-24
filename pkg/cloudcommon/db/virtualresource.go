@@ -486,6 +486,16 @@ func (model *SVirtualResourceBase) SyncCloudProjectId(userCred mcclient.TokenCre
 	}
 }
 
+// GetPendingDeleted implements IPendingDeltable
+func (model *SVirtualResourceBase) GetPendingDeleted() bool {
+	return model.PendingDeleted
+}
+
+// GetPendingDeletedAt implements IPendingDeltable
+func (model *SVirtualResourceBase) GetPendingDeletedAt() time.Time {
+	return model.PendingDeletedAt
+}
+
 func (manager *SVirtualResourceBaseManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStatusStandaloneResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query)
 	if err != nil {
