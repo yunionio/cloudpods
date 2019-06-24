@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/reflectutils"
@@ -229,6 +230,14 @@ const (
 	SQL_ORDER_ASC  QueryOrderType = "ASC"
 	SQL_ORDER_DESC QueryOrderType = "DESC"
 )
+
+func (qot QueryOrderType) Equals(orderType string) bool {
+	if strings.ToUpper(orderType) == string(qot) {
+		return true
+	} else {
+		return false
+	}
+}
 
 type SQueryOrder struct {
 	field IQueryField

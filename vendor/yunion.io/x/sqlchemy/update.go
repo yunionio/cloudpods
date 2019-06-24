@@ -45,7 +45,7 @@ func (ts *STableSpec) prepareUpdate(dt interface{}) (*SUpdateSession, error) {
 		if !ok {
 			continue
 		}
-		if c.IsPrimary() && c.IsZero(ov) {
+		if c.IsPrimary() && c.IsZero(ov) && !c.IsText() {
 			zeroPrimary = append(zeroPrimary, k)
 		}
 	}
