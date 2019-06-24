@@ -377,3 +377,13 @@ func (model *SVirtualResourceBase) SyncCloudProjectId(userCred mcclient.TokenCre
 		}
 	}
 }
+
+// GetPendingDeleted implements IPendingDeltable
+func (model *SVirtualResourceBase) GetPendingDeleted() bool {
+	return model.PendingDeleted
+}
+
+// GetPendingDeletedAt implements IPendingDeltable
+func (model *SVirtualResourceBase) GetPendingDeletedAt() time.Time {
+	return model.PendingDeletedAt
+}
