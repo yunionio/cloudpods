@@ -26,7 +26,8 @@ LDFLAGS := "-w \
 
 #####################################################
 
-GO_BUILD := go build -mod vendor -ldflags $(LDFLAGS)
+GO_BUILD_FLAGS:=-mod vendor -ldflags $(LDFLAGS)
+GO_BUILD := go build $(GO_BUILD_FLAGS)
 GO_INSTALL := go install -ldflags $(LDFLAGS)
 GO_TEST := go test
 
@@ -64,7 +65,7 @@ gencopyright:
 	@sh scripts/gencopyright.sh pkg cmd
 
 test:
-	@go test $(shell GO111MODULE=on go list ./... | egrep -v 'host-image|hostimage')
+	@go test $(GO_BUILD_FLAGS) $(shell go list ./... | egrep -v 'host-image|hostimage')
 
 vet:
 	go vet ./...
