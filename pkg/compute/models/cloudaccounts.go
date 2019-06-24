@@ -26,6 +26,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
@@ -154,7 +155,7 @@ func (self *SCloudaccount) ValidateDeleteCondition(ctx context.Context) error {
 	if self.Enabled {
 		return httperrors.NewInvalidStatusError("account is enabled")
 	}
-	if self.getSyncStatus() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+	if self.getSyncStatus2() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
 		return httperrors.NewInvalidStatusError("account is not idle")
 	}
 	cloudproviders := self.GetCloudproviders()
@@ -471,7 +472,14 @@ func (self *SCloudaccount) markStartSync(userCred mcclient.TokenCredential) erro
 	})
 	if err != nil {
 		log.Errorf("Failed to markStartSync error: %v", err)
-		return err
+		return errors.Wrap(err, "Update")
+	}
+	providers := self.GetCloudproviders()
+	for i := range providers {
+		err := providers[i].markStartingSync(userCred)
+		if err != nil {
+			return errors.Wrap(err, "providers.markStartSync")
+		}
 	}
 	return nil
 }
@@ -498,12 +506,10 @@ func (self *SCloudaccount) MarkEndSyncWithLock(ctx context.Context, userCred mcc
 		return nil
 	}
 
-	providers := self.GetCloudproviders()
-	for i := range providers {
-		if providers[i].SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
-			return nil
-		}
+	if self.getSyncStatus2() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+		return nil
 	}
+
 	return self.markEndSync(userCred)
 }
 
@@ -781,7 +787,7 @@ func (self *SCloudaccount) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.
 	}
 	extra.Add(projects, "projects")
 	extra.Set("sync_interval_seconds", jsonutils.NewInt(int64(self.getSyncIntervalSeconds())))
-	extra.Set("sync_status2", jsonutils.NewString(self.getSyncStatus()))
+	extra.Set("sync_status2", jsonutils.NewString(self.getSyncStatus2()))
 	extra.Set("cloud_env", jsonutils.NewString(self.getCloudEnv()))
 	return extra
 }
@@ -1173,10 +1179,31 @@ func (account *SCloudaccount) needSync() bool {
 	return false
 }
 
+func (manager *SCloudaccountManager) fetchRecordsByQuery(q *sqlchemy.SQuery) []SCloudaccount {
+	recs := make([]SCloudaccount, 0)
+	err := db.FetchModelObjects(manager, q, &recs)
+	if err != nil {
+		return nil
+	}
+	return recs
+}
+
+func (manager *SCloudaccountManager) initAllRecords() {
+	recs := manager.fetchRecordsByQuery(manager.Query())
+	for i := range recs {
+		db.Update(&recs[i], func() error {
+			recs[i].SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+			return nil
+		})
+	}
+}
+
 func (manager *SCloudaccountManager) AutoSyncCloudaccountTask(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	if isStart {
-		// mark all the records to be init
+	if isStart && !options.Options.IsSlaveNode {
+		// mark all the records to be idle
 		CloudproviderRegionManager.initAllRecords()
+		CloudproviderManager.initAllRecords()
+		CloudaccountManager.initAllRecords()
 	}
 
 	q := manager.Query()
@@ -1361,7 +1388,7 @@ func (self *SCloudaccount) StartCloudaccountDeleteTask(ctx context.Context, user
 	return nil
 }
 
-func (self *SCloudaccount) getSyncStatus() string {
+func (self *SCloudaccount) getSyncStatus2() string {
 	cprs := CloudproviderRegionManager.Query().SubQuery()
 	providers := CloudproviderManager.Query().SubQuery()
 
