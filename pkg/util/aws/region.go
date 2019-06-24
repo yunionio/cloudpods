@@ -23,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"yunion.io/x/jsonutils"
@@ -63,6 +64,7 @@ type SRegion struct {
 	ec2Client *ec2.EC2
 	iamClient *iam.IAM
 	s3Client  *s3.S3
+	rdsClient *rds.RDS
 
 	izones []cloudprovider.ICloudZone
 	ivpcs  []cloudprovider.ICloudVpc
@@ -114,6 +116,20 @@ func (self *SRegion) getIamClient() (*iam.IAM, error) {
 	}
 
 	return self.iamClient, nil
+}
+
+func (self *SRegion) getRdsClient() (*rds.RDS, error) {
+	if self.rdsClient == nil {
+		s, err := self.getAwsSession()
+
+		if err != nil {
+			return nil, err
+		}
+
+		self.rdsClient = rds.New(s)
+	}
+
+	return self.rdsClient, nil
 }
 
 func (self *SRegion) GetS3Client() (*s3.S3, error) {

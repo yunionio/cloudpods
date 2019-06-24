@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
+
 	"github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Microsoft/azure-vhd-utils/vhdcore/common"
 	"github.com/Microsoft/azure-vhd-utils/vhdcore/diskstream"
@@ -77,6 +79,7 @@ type AccountProperties struct {
 }
 
 type SStorageAccount struct {
+	objectstore.SBucket
 	region *SRegion
 
 	accountKey string

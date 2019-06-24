@@ -113,6 +113,12 @@ func InitHandlers(app *appsrv.Application) {
 		models.ExternalProjectManager,
 		models.NetworkInterfaceManager,
 		models.NetworkinterfacenetworkManager,
+		models.DBInstanceManager,
+		models.DBInstanceBackupManager,
+		models.DBInstanceParameterManager,
+		models.DBInstanceDatabaseManager,
+		models.DBInstanceAccountManager,
+		models.ServiceIpManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)
@@ -134,6 +140,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.GroupguestManager,
 		models.StoragecachedimageManager,
 		models.CloudproviderRegionManager,
+		models.DBInstanceNetworkManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)

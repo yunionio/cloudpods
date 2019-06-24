@@ -20,6 +20,8 @@ import (
 	"io"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
+
 	"github.com/tencentyun/cos-go-sdk-v5"
 
 	"yunion.io/x/pkg/errors"
@@ -29,6 +31,7 @@ import (
 )
 
 type SBucket struct {
+	objectstore.SBucket
 	region *SRegion
 
 	Name       string

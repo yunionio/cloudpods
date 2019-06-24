@@ -1,0 +1,14 @@
+get:
+  summary: 按指定条件列出RDS实例参数列表
+  parameters:
+    - $ref: '../parameters/common.yaml#/limit'
+    - $ref: '../parameters/common.yaml#/offset'
+    - $ref: '../parameters/dbinstance.yaml#/dbinstance'
+
+  responses:
+    200:
+      description: RDS实例参数列表信息
+      schema:
+        $ref: '../schemas/dbinstance.yaml#/DBInstanceParameterListResponse'
+  tags:
+    - dbinstanceparameter

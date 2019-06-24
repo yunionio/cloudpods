@@ -1,0 +1,280 @@
+DBInstance:
+  allOf:
+    - $ref: "./common.yaml#/VirtualResourceBaseResponse"
+    - $ref: "./common.yaml#/BillingResourceBaseResponse"
+    - $ref: "./common.yaml#/ManagedResourceBaseResponse"
+    - $ref: "./common.yaml#/CloudregionResourceBaseResponse"
+    - $ref: "./common.yaml#/ZoneResourceBaseResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: RDS实例
+      properties:
+        disk_size_gb:
+          type: integer
+          example: 20
+          description: RDS实例存储大小
+        engine:
+          type: string
+          example: MySQL
+          description: RDS实例引擎
+          readOnly: true
+        engine_version:
+          type: string
+          example: "5.7"
+          description: RDS实例引擎版本
+        instance_type:
+          type: string
+          example: mysql.n1.micro.1
+          description: RDS实例规格
+        port:
+          type: integer
+          example: 3306
+          description: RDS实例连接端口
+        vcpu_count:
+          type: integer
+          example: 1
+          description: RDS实例CPU核数
+        vmem_size_mb:
+          type: integer
+          example: 1024
+          description: RDS实例内存大小
+        vpc_id:
+          type: string
+          example: 5d0a3589-4ec5-4509-8e53-6505457577b0
+          description: RDS实例VPC ID
+        vpc:
+          type: string
+          example: vpc-2zecuo9v4idebme295ofy
+          description: RDS实例VPC ID
+
+
+DBInstanceListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    dbinstances:
+      type: array
+      items:
+        $ref: '#/DBInstance'
+    total:
+      type: integer
+      example: 124
+
+DBInstanceResponse:
+  type: object
+  properties:
+    dbinstance:
+      type: object
+      $ref: '#/DBInstance'
+
+DBInstanceNetwork:
+  allOf:
+    - $ref: "./common.yaml#/ResourceBaseResponse"
+    - type: object
+      description: RDS实例网络
+      properties:
+        dbinstance_id:
+          type: string
+          example: "20f8b552-1b86-4595-89e3-49d123b25215"
+          description: RDS实例ID
+        ip_addr:
+          type: string
+          example: 10.10.140.141
+          description: 实例内网IP地址
+        network_id:
+          type: string
+          example: "38897a74-17b4-4c21-86b3-4f8528ced003"
+          description: 实例子网ID
+
+
+DBInstanceNetworkListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    dbinstancenetworks:
+      type: array
+      items:
+        $ref: '#/DBInstanceNetwork'
+    total:
+      type: integer
+      example: 124
+
+DBInstanceNetworkResponse:
+  type: object
+  properties:
+    dbinstancenetwork:
+      type: object
+      $ref: '#/DBInstanceNetwork'
+
+
+
+DBInstanceParameter:
+  allOf:
+    - $ref: "./common.yaml#/StandaloneResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: RDS实例参数
+      properties:
+        key:
+          type: string
+          example: read_buffer_size
+          description: RDS实例参数
+        value:
+          type: string
+          example: "131072"
+          description: RDS实例参数值
+          readOnly: true
+        dbinstance_id:
+          type: string
+          example: d0fe1519-8de5-4e13-844a-7367f4210f83
+          description: RDS实例ID
+          readOnly: true
+
+DBInstanceParameterListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    dbinstanceparameters:
+      type: array
+      items:
+        $ref: '#/DBInstanceParameter'
+    total:
+      type: integer
+      example: 124
+
+DBInstanceParameterResponse:
+  type: object
+  properties:
+    dbinstanceparameter:
+      type: object
+      $ref: '#/DBInstanceParameter'
+
+
+DBInstanceDatabase:
+  allOf:
+    - $ref: "./common.yaml#/StatusStandaloneResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: RDS实例参数
+      properties:
+        character_set:
+          type: string
+          example: utf8
+          description: RDS实例参数
+        dbinstance_id:
+          type: string
+          example: d0fe1519-8de5-4e13-844a-7367f4210f83
+          description: RDS实例ID
+          readOnly: true
+
+DBInstanceDatabaseListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    dbinstancedatabases:
+      type: array
+      items:
+        $ref: '#/DBInstanceDatabase'
+    total:
+      type: integer
+      example: 124
+
+DBInstanceDatabaseResponse:
+  type: object
+  properties:
+    dbinstancedatabase:
+      type: object
+      $ref: '#/DBInstanceDatabase'
+
+DBInstanceBackup:
+  allOf:
+    - $ref: "./common.yaml#/StatusStandaloneResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: RDS实例参数
+      properties:
+        start_time:
+          type: string
+          example: "2019-06-22T02:31:08.000000Z"
+          description: RDS实例备份开始时间
+        end_time:
+          type: string
+          example: "2019-06-22T02:33:24.000000Z"
+          description: RDS实例备份结束时间
+        backup_type:
+          type: string
+          example: full_backup
+          description: RDS实例备份类型，增量 or 全量
+        intranet_download_url:
+          type: string
+          example: http://rdsbak-bj-v3.oss-cn-beijing-internal.aliyuncs.com/custins1131839/hins6172779_data_20190622103022.tar.gz?OSSAccessKeyId=Kid&Expires=1561814291&Signature=4YxhdryPvGHbPzZkt3TW6Z4kfa4%3D
+          desritpion: 内网下载URL
+        download_url:
+          type: string
+          example: https://rdsbak-bj-v3.oss-cn-beijing.aliyuncs.com/custins1131839/hins6172779_data_20190622103022.tar.gz?OSSAccessKeyId=Kid&Expires=1561814291&Signature=4YxhdryPvGHbPzZjt3TW6Z4kfa4%3D
+          description: 外网下载URL
+        backup_size_mb:
+          type: integer
+          example: 21
+          description: 备份大小
+        dbinstance_id:
+          type: string
+          example: d0fe1519-8de5-4e13-844a-7367f4210f83
+          description: RDS实例ID
+          readOnly: true
+
+DBInstanceBackupListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    dbinstancebackups:
+      type: array
+      items:
+        $ref: '#/DBInstanceBackup'
+    total:
+      type: integer
+      example: 124
+
+DBInstanceBackupResponse:
+  type: object
+  properties:
+    dbinstancebackup:
+      type: object
+      $ref: '#/DBInstanceBackup'
+
+
+DBInstanceAccount:
+  allOf:
+    - $ref: "./common.yaml#/StandaloneResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+
+DBInstanceAccountListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    dbinstanceaccounts:
+      type: array
+      items:
+        $ref: '#/DBInstanceAccount'
+    total:
+      type: integer
+      example: 124
+
+DBInstanceAccountResponse:
+  type: object
+  properties:
+    dbinstanceaccount:
+      type: object
+      $ref: '#/DBInstanceAccount'

@@ -1,0 +1,48 @@
+ServiceIp:
+  allOf:
+    - $ref: "./common.yaml#/ResourceBaseResponse"
+    - type: object
+      description: 服务IP信息
+      properties:
+        id:
+          type: string
+          example: 80d8e168-fc51-45f8-8d8d-f072ed27b390
+          description: 资源UUID
+        service_id:
+          type: string
+          example: 53c2dc1e-d799-40fc-8c16-d49ded656930
+          description: 服务ID
+        service_type:
+          type: string
+          example: dbinstance
+          description: 服务类型
+        ip_addr:
+          type: string
+          example: "100.118.3.23"
+          description: 服务IP地址
+        url:
+          type: string
+          example: rr-2zej70lc855hk07rq.mysql.rds.aliyuncs.com
+          description: 服务域名地址
+
+
+ServiceIpListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    serviceips:
+      type: array
+      items:
+        $ref: '#/ServiceIp'
+    total:
+      type: integer
+      example: 124
+
+ServiceIpResponse:
+  type: object
+  properties:
+    serviceip:
+      type: object
+      $ref: '#/ServiceIp'

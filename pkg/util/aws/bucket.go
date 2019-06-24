@@ -29,9 +29,11 @@ import (
 	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
 )
 
 type SBucket struct {
+	objectstore.SBucket
 	region *SRegion
 
 	Name         string

@@ -1,0 +1,15 @@
+get:
+  summary: 按指定条件列出服务的IP信息列表
+  parameters:
+    - $ref: '../parameters/common.yaml#/limit'
+    - $ref: '../parameters/common.yaml#/offset'
+    - $ref: '../parameters/serviceip.yaml#/service_type'
+    - $ref: '../parameters/serviceip.yaml#/service_id'
+
+  responses:
+    200:
+      description: 服务IP信息列表
+      schema:
+        $ref: '../schemas/serviceip.yaml#/ServiceIpListResponse'
+  tags:
+    - serviceip

@@ -21,6 +21,8 @@ import (
 	"path"
 	"time"
 
+	"yunion.io/x/jsonutils"
+
 	"github.com/minio/minio-go"
 
 	"yunion.io/x/pkg/errors"
@@ -38,8 +40,28 @@ type SBucket struct {
 	Acl          string
 }
 
+func (bucket *SBucket) GetId() string {
+	return ""
+}
+
+func (bucket *SBucket) GetStatus() string {
+	return ""
+}
+
+func (bucket *SBucket) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
 func (bucket *SBucket) GetProjectId() string {
 	return ""
+}
+
+func (bucket *SBucket) IsEmulated() bool {
+	return false
+}
+
+func (bucket *SBucket) Refresh() error {
+	return nil
 }
 
 func (bucket *SBucket) GetGlobalId() string {
