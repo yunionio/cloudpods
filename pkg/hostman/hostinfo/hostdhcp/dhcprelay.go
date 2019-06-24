@@ -15,11 +15,13 @@
 package hostdhcp
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/mdlayher/arp"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/util/dhcp"
@@ -40,27 +42,24 @@ type SRelayCache struct {
 type SDHCPRelay struct {
 	server *dhcp.DHCPServer
 	OnRecv recvFunc
-	conn   *dhcp.Conn
 
 	guestDHCPConn *dhcp.Conn
-
-	srcaddr     string
-	ipv4srcAddr net.IP
+	ipv4srcAddr   net.IP
 
 	destaddr net.IP
 	destport int
+	destmac  net.HardwareAddr
 
 	cache sync.Map
 }
 
-func NewDHCPRelay(guestDHCPConn *dhcp.Conn, addrs []string) (*SDHCPRelay, error) {
+func NewDHCPRelay(guestDHCPConn *dhcp.Conn, addrs []string, iface string) (*SDHCPRelay, error) {
 	relay := new(SDHCPRelay)
 	relay.guestDHCPConn = guestDHCPConn
 	addr := addrs[0]
 	port, err := strconv.Atoi(addrs[1])
 	if err != nil {
-		log.Errorln(err)
-		return nil, err
+		return nil, fmt.Errorf("Pares dhcp relay addrs error %s", err)
 	}
 
 	log.Infof("Set Relay To Address: %s, %d", addr, port)
@@ -68,34 +67,69 @@ func NewDHCPRelay(guestDHCPConn *dhcp.Conn, addrs []string) (*SDHCPRelay, error)
 	relay.destport = port
 	relay.cache = sync.Map{}
 
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, fmt.Errorf("Get interfaces error %s", err)
+	}
+
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			log.Warningf("iface get addrs error %s", err)
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip.Equal(relay.destaddr) {
+				relay.destmac = i.HardwareAddr
+				break
+			}
+		}
+		if len(relay.destmac) > 0 {
+			break
+		}
+	}
+
+	if len(relay.destmac) == 0 {
+		ifi, err := net.InterfaceByName(iface)
+		if err != nil {
+			return nil, fmt.Errorf("Interface by name error %s", err)
+		}
+
+		cli, err := arp.Dial(ifi)
+		if err != nil {
+			return nil, fmt.Errorf("ARP Dial error %s", err)
+		}
+
+		go func() {
+			defer cli.Close()
+			for len(relay.destmac) == 0 {
+				var e error
+				relay.destmac, e = cli.Resolve(relay.destaddr)
+				if e != nil {
+					log.Errorf("ARP resolve dest mac error %s", e)
+				} else {
+					log.Infof("Relay mac address fetch success %s", relay.destmac)
+				}
+			}
+		}()
+	}
+
 	return relay, nil
 }
 
-func (r *SDHCPRelay) Start() {
-	log.Infof("DHCPRelay starting ...")
-	go func() {
-		err := r.server.ListenAndServe(r)
-		if err != nil {
-			log.Errorf("DHCP Relay error %s", err)
-		}
-	}()
-}
-
 func (r *SDHCPRelay) Setup(addr string) error {
-	var err error
-	r.srcaddr = addr
 	r.ipv4srcAddr = net.ParseIP(addr)
-	log.Infof("DHCP Relay Server Bind addr %s port %d", r.srcaddr, DEFAULT_DHCP_RELAY_PORT)
-	r.server, r.conn, err = dhcp.NewDHCPServer2(r.srcaddr, DEFAULT_DHCP_RELAY_PORT, false)
-	if err != nil {
-		log.Errorln(err)
-		return err
-	}
-	r.Start()
 	return nil
 }
 
-func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
+func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, _ *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
 	log.Infof("DHCP Relay Reply TO %s", pkt.CHAddr())
 	v, ok := r.cache.Load(pkt.TransactionID())
 	if ok {
@@ -105,7 +139,7 @@ func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Int
 			IP:   pkt.CIAddr(),
 			Port: val.srcPort,
 		}
-		if err := r.guestDHCPConn.SendDHCP(pkt, udpAddr, intf); err != nil {
+		if err := r.guestDHCPConn.SendDHCP(pkt, udpAddr, pkt.CHAddr(), intf); err != nil {
 			log.Errorln(err)
 		}
 	}
@@ -114,6 +148,11 @@ func (r *SDHCPRelay) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Int
 
 func (r *SDHCPRelay) Relay(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
 	if addr.IP.Equal(r.ipv4srcAddr) {
+		return nil, nil
+	}
+
+	if len(r.destmac) == 0 {
+		log.Warningf("DHCP relay mac address not ready")
 		return nil, nil
 	}
 
@@ -136,6 +175,7 @@ func (r *SDHCPRelay) Relay(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interfa
 	})
 
 	pkt.SetGIAddr(r.ipv4srcAddr)
-	err := r.conn.SendDHCP(pkt, &net.UDPAddr{IP: r.destaddr, Port: r.destport}, intf)
+
+	err := r.guestDHCPConn.SendDHCP(pkt, &net.UDPAddr{IP: r.destaddr, Port: r.destport}, r.destmac, intf)
 	return nil, err
 }
