@@ -45,6 +45,10 @@ func FetchProjectResourceCount(ctx context.Context, userCred mcclient.TokenCrede
 	}
 	serviceTbl := make(map[string]*sServiceEndpoints)
 	for _, ep := range eps {
+		if ep.ServiceType == api.SERVICE_TYPE {
+			// skip self
+			continue
+		}
 		key := fmt.Sprintf("%s-%s", ep.RegionId, ep.ServiceId)
 		if _, ok := serviceTbl[key]; !ok {
 			serviceTbl[key] = &sServiceEndpoints{
@@ -79,7 +83,8 @@ func FetchProjectResourceCount(ctx context.Context, userCred mcclient.TokenCrede
 			hdr,
 			nil, false)
 		if err != nil {
-			log.Errorf("fetch from %s fail: %s", url, err)
+			// ignore errors
+			// log.Errorf("fetch from %s fail: %s", url, err)
 			continue
 		}
 		projectResCounts := make(map[string][]db.SProjectResourceCount)
@@ -108,7 +113,7 @@ func syncProjectResourceCount(regionId string, serviceId string, projResCnt map[
 
 			projList = append(projList, resCnts[i].TenantId)
 
-			err := models.ProjectResourceManager.TableSpec().Insert(&projRes)
+			err := models.ProjectResourceManager.TableSpec().InsertOrUpdate(&projRes)
 			if err != nil {
 				log.Errorf("table insert error %s", err)
 			}

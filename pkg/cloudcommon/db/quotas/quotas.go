@@ -87,7 +87,7 @@ func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userC
 	}
 
 	// update usage
-	manager.PostUsageJob(scope, ownerId, platform, nil)
+	manager.PostUsageJob(scope, ownerId, platform, nil, false)
 	return err
 }
 
@@ -110,12 +110,14 @@ func (manager *SQuotaBaseManager) SetQuota(ctx context.Context, userCred mcclien
 	lockman.LockClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 	defer lockman.ReleaseClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 
-	return manager._setQuota(ctx, userCred, scope, ownerId, nil, quota)
+	return manager.setQuotaInternal(ctx, userCred, scope, ownerId, nil, quota)
 }
 
-func (manager *SQuotaBaseManager) _setQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, quota IQuota) error {
+func (manager *SQuotaBaseManager) DeleteQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string) error {
+	lockman.LockClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
+	defer lockman.ReleaseClass(ctx, manager, mcclient.OwnerIdString(ownerId, scope))
 
-	return manager.setQuotaInternal(ctx, userCred, scope, ownerId, platform, quota)
+	return manager.deleteQuotaInternal(ctx, userCred, scope, ownerId, nil)
 }
 
 func (manager *SQuotaBaseManager) CheckQuota(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, request IQuota) (IQuota, error) {

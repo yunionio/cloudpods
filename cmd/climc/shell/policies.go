@@ -36,8 +36,9 @@ import (
 func init() {
 	type PolicyListOptions struct {
 		options.BaseListOptions
-		Type   string `help:"filter by type"`
-		Format string `help:"policy format, default to yaml" default:"yaml" choices:"yaml|json"`
+		Type          string `help:"filter by type"`
+		Format        string `help:"policy format, default to yaml" default:"yaml" choices:"yaml|json"`
+		OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
 	}
 	R(&PolicyListOptions{}, "policy-list", "List all policies", func(s *mcclient.ClientSession, args *PolicyListOptions) error {
 		params, err := options.ListStructToParams(args)

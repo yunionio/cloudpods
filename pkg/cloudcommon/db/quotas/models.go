@@ -19,7 +19,6 @@ import (
 	"database/sql"
 	"reflect"
 	"strings"
-	"time"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -32,7 +31,7 @@ import (
 )
 
 type SQuotaBaseManager struct {
-	db.SModelBaseManager
+	db.SResourceBaseManager
 
 	pendingStore IQuotaStore
 	usageStore   IQuotaStore
@@ -52,28 +51,25 @@ const (
 
 func NewQuotaBaseManager(model interface{}, tableName string, pendingStore IQuotaStore, usageStore IQuotaStore) SQuotaBaseManager {
 	return SQuotaBaseManager{
-		SModelBaseManager: db.NewModelBaseManager(model, tableName, quotaKeyword, quotaKeywords),
-		pendingStore:      pendingStore,
-		usageStore:        usageStore,
-		autoCreate:        true,
+		SResourceBaseManager: db.NewResourceBaseManager(model, tableName, quotaKeyword, quotaKeywords),
+		pendingStore:         pendingStore,
+		usageStore:           usageStore,
+		autoCreate:           true,
 	}
 }
 
 func NewQuotaUsageManager(model interface{}, tableName string) SQuotaBaseManager {
 	return SQuotaBaseManager{
-		SModelBaseManager: db.NewModelBaseManager(model, tableName, quotaUsageKeyword, quotaUsageKeywords),
+		SResourceBaseManager: db.NewResourceBaseManager(model, tableName, quotaUsageKeyword, quotaUsageKeywords),
 	}
 }
 
 type SQuotaBase struct {
-	db.SModelBase
+	db.SResourceBase
 
 	DomainId  string `width:"128" charset:"ascii" nullable:"false" primary:"true" list:"user"`
 	ProjectId string `name:"tenant_id" width:"128" charset:"ascii" nullable:"false" primary:"true" list:"user"`
 	Platform  string `width:"128" charset:"utf8" nullable:"false" primary:"true" list:"user"`
-
-	UpdatedAt     time.Time `nullable:"false" updated_at:"true" list:"user"`
-	UpdateVersion int       `default:"0" nullable:"false" auto_version:"true" list:"user"`
 }
 
 func (manager *SQuotaBaseManager) getQuotaInternal(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, quota IQuota) error {
@@ -115,6 +111,47 @@ func (manager *SQuotaBaseManager) setQuotaInternal(ctx context.Context, userCred
 	}
 
 	return manager.TableSpec().InsertOrUpdate(quota)
+}
+
+func (manager *SQuotaBaseManager) deleteQuotaInternal(ctx context.Context, userCred mcclient.TokenCredential, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string) error {
+	q := manager.Query("domain_id", "tenant_id", "platform")
+	q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+	if scope == rbacutils.ScopeProject {
+		q = q.Equals("tenant_id", ownerId.GetProjectId())
+	}
+	if platform != nil {
+		q = q.Equals("platform", strings.Join(platform, nameSeparator))
+	}
+
+	rows, err := q.Rows()
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return errors.Wrap(err, "sql.Rows")
+		} else {
+			return nil
+		}
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var domainId, tenantId, platform string
+		err := rows.Scan(&domainId, &tenantId, &platform)
+		if err != nil {
+			return errors.Wrap(err, "rows.Scan")
+		}
+		base := SQuotaBase{
+			DomainId:  domainId,
+			ProjectId: tenantId,
+			Platform:  platform,
+		}
+		base.SetModelManager(manager, &base)
+		err = base.Delete(ctx, nil)
+		if err != nil {
+			return errors.Wrap(err, "Update")
+		}
+	}
+	return nil
 }
 
 func (manager *SQuotaBaseManager) InitializeData() error {

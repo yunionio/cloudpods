@@ -206,6 +206,21 @@ func (manager *STenantCacheManager) fetchDomainFromKeystone(ctx context.Context,
 	return manager.Save(ctx, tenantId, tenantName, identityapi.KeystoneDomainRoot, identityapi.KeystoneDomainRoot)
 }
 
+func (manager *STenantCacheManager) Delete(ctx context.Context, idStr string) error {
+	lockman.LockRawObject(ctx, manager.KeywordPlural(), idStr)
+	defer lockman.ReleaseRawObject(ctx, manager.KeywordPlural(), idStr)
+
+	objo, err := manager.FetchById(idStr)
+	if err != nil && err != sql.ErrNoRows {
+		log.Errorf("FetchTenantbyId fail %s", err)
+		return err
+	}
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	return objo.Delete(ctx, nil)
+}
+
 func (manager *STenantCacheManager) Save(ctx context.Context, idStr string, name string, domainId string, domain string) (*STenant, error) {
 	lockman.LockRawObject(ctx, manager.KeywordPlural(), idStr)
 	defer lockman.ReleaseRawObject(ctx, manager.KeywordPlural(), idStr)

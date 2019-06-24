@@ -15,8 +15,8 @@
 package prometheus
 
 import (
+	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
-	"gopkg.in/gin-gonic/gin.v1"
 )
 
 func InstallHandler(r *gin.Engine) {

@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/sets"
 
@@ -88,8 +89,9 @@ func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope) {
 
 func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, name []string) error {
 	diskSize := totalDiskSize(scope, ownerId, tristate.None, tristate.None, false)
-	// net := totalGuestNicCount(scope, ownerId, nil, false)
-	net := WireManager.TotalCount(nil, nil, nil, "", scope, ownerId)
+	net := totalGuestNicCount(scope, ownerId, nil, false)
+	lbnic, _ := totalLBNicCount(scope, ownerId)
+	// net := WireManager.TotalCount(nil, nil, nil, "", scope, ownerId)
 	hypervisors := sets.NewString(api.HYPERVISORS...)
 	hypervisors.Delete(api.HYPERVISOR_CONTAINER)
 	guest := totalGuestResourceCount(scope, ownerId, nil, nil, hypervisors.List(), false, false, nil, nil, nil, "")
@@ -103,14 +105,15 @@ func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, 
 	self.Memory = guest.TotalMemSize
 	self.Storage = diskSize
 	self.Eip = eipUsage.Total()
-	// self.Port = net.InternalNicCount + net.InternalVirtualNicCount
-	// self.Eport = net.ExternalNicCount + net.ExternalVirtualNicCount
-	// self.Bw = net.InternalBandwidth
-	// self.Ebw = net.ExternalBandwidth
-	self.Port = net.GuestNicCount + net.GroupNicCount + net.LbNicCount
-	if scope == rbacutils.ScopeSystem {
-		self.Port += net.HostNicCount + net.ReservedCount
-	}
+	log.Debugf("%d %d %d\n", net.InternalNicCount, net.InternalVirtualNicCount, lbnic)
+	self.Port = net.InternalNicCount + net.InternalVirtualNicCount + lbnic
+	self.Eport = net.ExternalNicCount + net.ExternalVirtualNicCount
+	self.Bw = net.InternalBandwidth
+	self.Ebw = net.ExternalBandwidth
+	// self.Port = net.GuestNicCount + net.GroupNicCount + net.LbNicCount
+	// if scope == rbacutils.ScopeSystem {
+	// 	self.Port += net.HostNicCount + net.ReservedCount
+	// }
 	self.Group = 0
 	self.Secgroup, _ = totalSecurityGroupCount(scope, ownerId)
 	self.IsolatedDevice = guest.TotalIsolatedCount
