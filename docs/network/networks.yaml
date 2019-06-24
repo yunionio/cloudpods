@@ -21,13 +21,13 @@ get:
     - $ref: '../parameters/common.yaml#/offset'
     - $ref: '../parameters/common.yaml#/zone'
     - $ref: '../parameters/common.yaml#/region'
-    - $ref: '../parameters/common.yaml#/brand'
+    - $ref: '../parameters/common.yaml#/brand'    
+    - $ref: '../parameters/common.yaml#/city'
     - $ref: '../parameters/network.yaml#/ip'
     - $ref: '../parameters/network.yaml#/zone'
     - $ref: '../parameters/network.yaml#/wire'
     - $ref: '../parameters/network.yaml#/vpc'
     - $ref: '../parameters/network.yaml#/region'
-    - $ref: '../parameters/network.yaml#/city'
     - $ref: '../parameters/network.yaml#/server_type'
   responses:
     200:

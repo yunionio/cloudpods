@@ -29,11 +29,6 @@ region:
   in: query
   type: string
   description: 查询在这个region中的网络
-city:
-  name: city
-  in: query
-  type: string
-  description: 查询在这个city中的网络
 server_type:
   name: server_type
   in: query
