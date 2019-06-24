@@ -32,7 +32,7 @@ type SSharableBaseResourceManager struct{}
 func (manager *SSharableBaseResourceManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
 		switch scope {
-		case rbacutils.ScopeDomain:
+		case rbacutils.ScopeProject, rbacutils.ScopeDomain:
 			if len(owner.GetProjectDomainId()) > 0 {
 				q = q.Filter(sqlchemy.OR(
 					sqlchemy.Equals(q.Field("domain_id"), owner.GetProjectDomainId()),
