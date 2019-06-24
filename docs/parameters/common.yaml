@@ -78,11 +78,6 @@ region:
   in: query
   type: string
   description: 过滤此区域底下的资源
-cloudregion:
-  name: cloudregion
-  in: query
-  type: string
-  description: 过滤此区域底下的资源
 cloud_env:
   name: cloud_env
   in: query

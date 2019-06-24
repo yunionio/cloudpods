@@ -9,6 +9,7 @@ get:
     - $ref: '../parameters/common.yaml#/city'
     - $ref: '../parameters/serversku.yaml#/provider'
     - $ref: '../parameters/serversku.yaml#/memory_size_mb'
+    - $ref: '../parameters/serversku.yaml#/usable'
   responses:
     200:
       description: 实例套餐列表信息

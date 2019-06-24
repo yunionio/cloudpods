@@ -10,7 +10,12 @@ memory_size_mb:
   type: integer
   description: 根据内存大小过滤套餐
 provider:
-  name: string
+  name: provider
   in: query
   type: string
   description: 根据平台过滤套餐信息,若平台是Huawei,建议加上instance_type_family.notin(e1, e2, e3, d1, d2, i3, h2, g1, g3, p2v, p1, pi1, fp1, fp1c)过滤FPGA镜像
+usable:
+  name: usable
+  in: query
+  type: boolean
+  description: 过滤所在region底下有ip子网的套餐

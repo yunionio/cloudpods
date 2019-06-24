@@ -739,12 +739,24 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 		return nil, err
 	}
 
+	publicCloud := false
+	provider, _ := query.GetString("provider")
+
 	cloudEnvStr, _ := query.GetString("cloud_env")
 	if cloudEnvStr == api.CLOUD_ENV_PUBLIC_CLOUD || jsonutils.QueryBoolean(query, "public_cloud", false) || jsonutils.QueryBoolean(query, "is_public", false) {
+		publicCloud = true
 		q = q.Filter(sqlchemy.In(q.Field("provider"), CloudproviderManager.GetPublicProviderProvidersQuery()))
 	}
 	if cloudEnvStr == api.CLOUD_ENV_PRIVATE_CLOUD || jsonutils.QueryBoolean(query, "private_cloud", false) || jsonutils.QueryBoolean(query, "is_private", false) {
 		q = q.Filter(sqlchemy.In(q.Field("provider"), CloudproviderManager.GetPrivateProviderProvidersQuery()))
+	}
+
+	if utils.IsInStringArray(provider, cloudprovider.GetPublicProviders()) {
+		publicCloud = true
+	}
+
+	if usable, _ := query.Bool("usable"); usable {
+		q = providerFilter(q, provider, publicCloud)
 	}
 
 	data := query.(*jsonutils.JSONDict)
