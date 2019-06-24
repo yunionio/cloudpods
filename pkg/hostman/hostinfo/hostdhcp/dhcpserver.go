@@ -31,6 +31,8 @@ import (
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
+const DHCP_RELAY_SERVER_PORT = 68
+
 type SGuestDHCPServer struct {
 	server *dhcp.DHCPServer
 	relay  *SDHCPRelay
@@ -45,18 +47,22 @@ func NewGuestDHCPServer(iface string, relay []string) (*SGuestDHCPServer, error)
 		guestdhcp = new(SGuestDHCPServer)
 	)
 
-	if options.HostOptions.DhcpServerPort != 67 {
-		return nil, fmt.Errorf("DHCP server listen port %d is not support", options.HostOptions.DhcpServerPort)
-	}
-
-	// port 67 for dhcp server, 68 for dhcp relay server
-	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(iface, dhcp.PORT_67_AND_68)
-	if err != nil {
-		return nil, err
+	if len(relay) > 0 && len(relay) != 2 {
+		return nil, fmt.Errorf("Wrong dhcp relay address")
 	}
 
 	if len(relay) == 2 {
+		// port 67 for dhcp server, 68 for dhcp relay server
+		guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServerWithRelay(iface, uint16(options.HostOptions.DhcpServerPort), DHCP_RELAY_SERVER_PORT)
+		if err != nil {
+			return nil, err
+		}
 		guestdhcp.relay, err = NewDHCPRelay(guestdhcp.conn, relay, iface)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(iface, uint16(options.HostOptions.DhcpServerPort))
 		if err != nil {
 			return nil, err
 		}
