@@ -128,11 +128,7 @@ func (s *Server) Serve() error {
 		return err
 	}
 
-	if s.DHCPPort != 67 {
-		return fmt.Errorf("DHCP listen port %d is not support", s.DHCPPort)
-	}
-
-	dhcpSrv, _, err := dhcp.NewDHCPServer2(s.ListenIface, dhcp.PORT_67)
+	dhcpSrv, _, err := dhcp.NewDHCPServer2(s.ListenIface, uint16(s.DHCPPort))
 	if err != nil {
 		return err
 	}
