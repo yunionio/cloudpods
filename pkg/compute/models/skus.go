@@ -1173,8 +1173,83 @@ func (manager *SServerSkuManager) FetchAllAvailableSkuIdByZoneId(zoneId string) 
 }
 
 func (manager *SServerSkuManager) InitializeData() error {
+	count, err := manager.Query().Equals("cloudregion_id", api.DEFAULT_REGION_ID).IsNullOrEmpty("zone_id").CountWithError()
+	if err == nil {
+		if count == 0 {
+			type Item struct {
+				CPU   int
+				MemMB int
+			}
+
+			items := []Item{
+				{1, 1 * 1024},
+				{1, 2 * 1024},
+				{1, 4 * 1024},
+				{1, 8 * 1024},
+				{2, 2 * 1024},
+				{2, 4 * 1024},
+				{2, 8 * 1024},
+				{2, 12 * 1024},
+				{2, 16 * 1024},
+				{4, 4 * 1024},
+				{4, 8 * 1024},
+				{4, 12 * 1024},
+				{4, 16 * 1024},
+				{4, 24 * 1024},
+				{4, 32 * 1024},
+				{8, 8 * 1024},
+				{8, 12 * 1024},
+				{8, 16 * 1024},
+				{8, 24 * 1024},
+				{8, 32 * 1024},
+				{8, 64 * 1024},
+				{12, 12 * 1024},
+				{12, 16 * 1024},
+				{12, 24 * 1024},
+				{12, 32 * 1024},
+				{12, 64 * 1024},
+				{16, 16 * 1024},
+				{16, 24 * 1024},
+				{16, 32 * 1024},
+				{16, 48 * 1024},
+				{16, 64 * 1024},
+				{24, 24 * 1024},
+				{24, 32 * 1024},
+				{24, 48 * 1024},
+				{24, 64 * 1024},
+				{24, 128 * 1024},
+				{32, 32 * 1024},
+				{32, 48 * 1024},
+				{32, 64 * 1024},
+				{32, 128 * 1024},
+			}
+
+			for i := range items {
+				item := items[i]
+				sku := &SServerSku{}
+				sku.CloudregionId = api.DEFAULT_REGION_ID
+				sku.CpuCoreCount = item.CPU
+				sku.MemorySizeMB = item.MemMB
+				sku.IsEmulated = false
+				sku.InstanceTypeCategory = api.SkuCategoryGeneralPurpose
+				sku.LocalCategory = api.SkuCategoryGeneralPurpose
+				sku.InstanceTypeFamily = api.InstanceFamilies[api.SkuCategoryGeneralPurpose]
+				name, _ := genInstanceType(sku.InstanceTypeFamily, int64(item.CPU), int64(item.MemMB))
+				sku.Name = name
+				sku.PrepaidStatus = api.SkuStatusAvailable
+				sku.PostpaidStatus = api.SkuStatusAvailable
+				err := manager.TableSpec().Insert(sku)
+				if err != nil {
+					log.Errorf("ServerSkuManager Initialize local sku %s", err)
+				}
+			}
+		}
+	} else {
+		log.Errorf("ServerSkuManager InitializeData %s", err)
+	}
+
 	privateSkus := make([]SServerSku, 0)
-	err := manager.Query().IsNullOrEmpty("local_category").IsNullOrEmpty("zone_id").All(&privateSkus)
+	err = manager.Query().IsNullOrEmpty("local_category").IsNullOrEmpty("zone_id").All(&privateSkus)
 	if err != nil {
 		return err
 	}
