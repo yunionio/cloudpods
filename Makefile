@@ -64,7 +64,7 @@ gencopyright:
 	@sh scripts/gencopyright.sh pkg cmd
 
 test:
-	@go test $(shell go list ./... | egrep -v 'host-image|hostimage')
+	@go test $(shell GO111MODULE=on go list ./... | egrep -v 'host-image|hostimage')
 
 vet:
 	go vet ./...
@@ -126,7 +126,7 @@ dep:
 	@$(MAKE) mod
 
 mod:
-	go get $(patsubst %,%@master,$(shell go mod edit -print  | sed -n -r -e 's|.*(yunion.io/x/[a-z]+) v.*|\1|p'))
+	go get $(patsubst %,%@master,$(shell GO111MODULE=on go mod edit -print  | sed -n -r -e 's|.*(yunion.io/x/[a-z]+) v.*|\1|p'))
 	go mod tidy
 	go mod vendor -v
 
