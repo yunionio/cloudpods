@@ -564,15 +564,12 @@ func (self *SNetwork) SyncWithCloudNetwork(ctx context.Context, userCred mcclien
 	vpc := self.GetWire().getVpc()
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		extNet.Refresh()
-		self.Name = extNet.GetName()
 		self.Status = extNet.GetStatus()
 		self.GuestIpStart = extNet.GetIpStart()
 		self.GuestIpEnd = extNet.GetIpEnd()
 		self.GuestIpMask = extNet.GetIpMask()
 		self.GuestGateway = extNet.GetGateway()
 		self.ServerType = extNet.GetServerType()
-		// self.IsPublic = extNet.GetIsPublic()
-		// self.PublicScope = string(extNet.GetPublicScope())
 
 		self.AllocTimoutSeconds = extNet.GetAllocTimeoutSeconds()
 
