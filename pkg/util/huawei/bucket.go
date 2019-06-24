@@ -18,15 +18,19 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
+
 	"yunion.io/x/pkg/errors"
 
 	"context"
 	"io"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/huawei/obs"
 )
 
 type SBucket struct {
+	objectstore.SBucket
 	region *SRegion
 
 	Name         string

@@ -1,0 +1,11 @@
+get:
+  summary: 获取服务IP详细信息
+  parameters:
+    - $ref: '../parameters/serviceip.yaml#/serviceipId'
+  responses:
+    200:
+      description: 服务IP详细信息
+      schema:
+        $ref: '../schemas/serviceip.yaml#/ServiceIpResponse'
+  tags:
+    - serviceip
