@@ -18,11 +18,10 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 
 	"yunion.io/x/jsonutils"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
