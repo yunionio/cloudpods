@@ -30,7 +30,7 @@ const (
 
 var UDP_BPF_PORT_MAP = map[uint16][]bpf.RawInstruction{
 	// ip and udp and dst port 67
-	PORT_67: []bpf.RawInstruction{
+	PORT_67: {
 		{0x28, 0, 0, 0x0000000c},
 		{0x15, 0, 8, 0x00000800},
 		{0x30, 0, 0, 0x00000017},
@@ -44,7 +44,7 @@ var UDP_BPF_PORT_MAP = map[uint16][]bpf.RawInstruction{
 		{0x6, 0, 0, 0x00000000},
 	},
 	// ip and udp and dst port 67 and port 68
-	PORT_67_AND_68: []bpf.RawInstruction{
+	PORT_67_AND_68: {
 		{0x28, 0, 0, 0x0000000c},
 		{0x15, 0, 10, 0x00000800},
 		{0x30, 0, 0, 0x00000017},
