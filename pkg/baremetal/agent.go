@@ -156,6 +156,7 @@ func (agent *SBaremetalAgent) startPXEServices(manager *SBaremetalManager) {
 		TFTPRootDir:      o.Options.TftpRoot,
 		Address:          dhcpListenIp.String(),
 		BaremetalManager: manager,
+		ListenIface:      agent.ListenInterface.Name,
 	}
 	go func() {
 		err := agent.PXEServer.Serve()

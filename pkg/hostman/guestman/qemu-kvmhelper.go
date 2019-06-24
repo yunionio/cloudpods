@@ -20,14 +20,14 @@ import (
 	"path"
 	"time"
 
+	"github.com/mdlayher/arp"
+	"github.com/mdlayher/ethernet"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
-	"yunion.io/x/onecloud/pkg/util/ethernet"
-	"yunion.io/x/onecloud/pkg/util/ethernet/arp"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"

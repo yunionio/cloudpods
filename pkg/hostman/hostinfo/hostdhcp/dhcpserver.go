@@ -15,6 +15,7 @@
 package hostdhcp
 
 import (
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -30,8 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
-var DEFAULT_DHCP_BIND_ADDR = "0.0.0.0"
-
 type SGuestDHCPServer struct {
 	server *dhcp.DHCPServer
 	relay  *SDHCPRelay
@@ -46,16 +45,18 @@ func NewGuestDHCPServer(iface string, relay []string) (*SGuestDHCPServer, error)
 		guestdhcp = new(SGuestDHCPServer)
 	)
 
-	log.Infof("DHCP Server Bind: %s %d",
-		DEFAULT_DHCP_BIND_ADDR, options.HostOptions.DhcpServerPort)
-	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(
-		DEFAULT_DHCP_BIND_ADDR, options.HostOptions.DhcpServerPort, false)
+	if options.HostOptions.DhcpServerPort != 67 {
+		return nil, fmt.Errorf("DHCP server listen port %d is not support", options.HostOptions.DhcpServerPort)
+	}
+
+	// port 67 for dhcp server, 68 for dhcp relay server
+	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(iface, dhcp.PORT_67_AND_68)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(relay) == 2 {
-		guestdhcp.relay, err = NewDHCPRelay(guestdhcp.conn, relay)
+		guestdhcp.relay, err = NewDHCPRelay(guestdhcp.conn, relay, iface)
 		if err != nil {
 			return nil, err
 		}
@@ -154,15 +155,21 @@ func (s *SGuestDHCPServer) getConfig(pkt dhcp.Packet) *dhcp.ResponseConfig {
 }
 
 func (s *SGuestDHCPServer) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
-	var conf = s.getConfig(pkt)
-	if conf != nil {
-		log.Infof("Make DHCP Reply %s TO %s", conf.ClientIP, pkt.CHAddr())
-
-		// Guest request ip
-		return dhcp.MakeReplyPacket(pkt, conf)
-	} else if s.relay != nil {
-		// Host agent as dhcp relay, relay to baremetal
-		return s.relay.Relay(pkt, addr, intf)
+	if addr.Port == 67 {
+		// dhcp relay
+		s.relay.ServeDHCP(pkt, addr, intf)
+		return nil, nil
+	} else {
+		var conf = s.getConfig(pkt)
+		if conf != nil {
+			log.Infof("Make DHCP Reply %s TO %s", conf.ClientIP, pkt.CHAddr())
+			// Guest request ip
+			return dhcp.MakeReplyPacket(pkt, conf)
+		} else if s.relay != nil {
+			// Host agent as dhcp relay, relay to baremetal
+			return s.relay.Relay(pkt, addr, intf)
+		}
+		return nil, nil
 	}
-	return nil, nil
+
 }
