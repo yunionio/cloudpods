@@ -15,7 +15,7 @@
 package middleware
 
 import (
-	gin "gopkg.in/gin-gonic/gin.v1"
+	gin "github.com/gin-gonic/gin"
 )
 
 func ErrorHandler(c *gin.Context) {
