@@ -312,6 +312,10 @@ func (region *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Sec
 			ruleStr := rules[i].String()
 			cmp := strings.Compare(_ruleStr, ruleStr)
 			if cmp == 0 {
+				if len(secgroup.Rules[j].RemoteSecurityGroupUUID) > 0 {
+					delRuleIds = append(delRuleIds, secgroup.Rules[j].UUID)
+					addRules = append(addRules, rules[i])
+				}
 				i++
 				j++
 			} else if cmp > 0 {
