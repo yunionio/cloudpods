@@ -47,13 +47,14 @@ type LoadbalancerPurgeOptions struct {
 
 type LoadbalancerListOptions struct {
 	BaseListOptions
-	Zone         string
 	Address      string
 	AddressType  string `choices:"intranet|internet"`
 	NetworkType  string `choices:"classic|vpc"`
 	Network      string
 	BackendGroup string
 	Cloudregion  string
+	Zone         string
+	Cluster      string
 }
 
 type LoadbalancerActionStatusOptions struct {

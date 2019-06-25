@@ -127,10 +127,13 @@ func (h *ApiHelper) agentPeekOnce(ctx context.Context) (*models.LoadbalancerAgen
 	return agent, nil
 }
 
-func (h *ApiHelper) agentPeekPeers(ctx context.Context, vri int) ([]*models.LoadbalancerAgent, error) {
+func (h *ApiHelper) agentPeekPeers(ctx context.Context, agent *models.LoadbalancerAgent) ([]*models.LoadbalancerAgent, error) {
+	vri := agent.Params.Vrrp.VirtualRouterId
+	clusterId := agent.ClusterId
 	s := h.adminClientSession(ctx)
 	params := jsonutils.NewDict()
 	params.Set(api.LBAGENT_QUERY_ORIG_KEY, jsonutils.NewString(api.LBAGENT_QUERY_ORIG_VAL))
+	params.Set("cluster_id", jsonutils.NewString(clusterId))
 	listResult, err := modules.LoadbalancerAgents.List(s, params)
 	if err != nil {
 		err := fmt.Errorf("agent listing error: %s", err)
@@ -138,16 +141,20 @@ func (h *ApiHelper) agentPeekPeers(ctx context.Context, vri int) ([]*models.Load
 	}
 	peers := []*models.LoadbalancerAgent{}
 	for _, data := range listResult.Data {
-		agent := &models.LoadbalancerAgent{}
-		err := data.Unmarshal(agent)
+		peerAgent := &models.LoadbalancerAgent{}
+		err := data.Unmarshal(peerAgent)
 		if err != nil {
 			err := fmt.Errorf("agent data unmarshal error: %s", err)
 			return nil, err
 		}
-		if agent.Params.Vrrp.VirtualRouterId != vri {
+		// just in case
+		if peerAgent.ClusterId != clusterId {
 			continue
 		}
-		peers = append(peers, agent)
+		if peerAgent.Params.Vrrp.VirtualRouterId != vri {
+			continue
+		}
+		peers = append(peers, peerAgent)
 	}
 	return peers, nil
 }
@@ -344,7 +351,7 @@ func (h *ApiHelper) doSyncAgentParams(ctx context.Context) bool {
 		log.Errorf("agent params get failure: %s", err)
 		return false
 	}
-	peers, err := h.agentPeekPeers(ctx, agent.Params.Vrrp.VirtualRouterId)
+	peers, err := h.agentPeekPeers(ctx, agent)
 	if err != nil {
 		log.Errorf("agent get peers failure: %s", err)
 		return false
