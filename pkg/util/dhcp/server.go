@@ -23,44 +23,6 @@ import (
 	"yunion.io/x/log"
 )
 
-const (
-	PORT_67        = 67
-	PORT_67_AND_68 = 67 + 68
-)
-
-var UDP_BPF_PORT_MAP = map[uint16][]bpf.RawInstruction{
-	// ip and udp and dst port 67
-	PORT_67: {
-		{0x28, 0, 0, 0x0000000c},
-		{0x15, 0, 8, 0x00000800},
-		{0x30, 0, 0, 0x00000017},
-		{0x15, 0, 6, 0x00000011},
-		{0x28, 0, 0, 0x00000014},
-		{0x45, 4, 0, 0x00001fff},
-		{0xb1, 0, 0, 0x0000000e},
-		{0x48, 0, 0, 0x00000010},
-		{0x15, 0, 1, 0x00000043},
-		{0x6, 0, 0, 0x00040000},
-		{0x6, 0, 0, 0x00000000},
-	},
-	// ip and udp and dst port 67 and port 68
-	PORT_67_AND_68: {
-		{0x28, 0, 0, 0x0000000c},
-		{0x15, 0, 10, 0x00000800},
-		{0x30, 0, 0, 0x00000017},
-		{0x15, 0, 8, 0x00000011},
-		{0x28, 0, 0, 0x00000014},
-		{0x45, 6, 0, 0x00001fff},
-		{0xb1, 0, 0, 0x0000000e},
-		{0x48, 0, 0, 0x00000010},
-		{0x15, 0, 3, 0x00000043},
-		{0x48, 0, 0, 0x0000000e},
-		{0x15, 0, 1, 0x00000044},
-		{0x6, 0, 0, 0x00040000},
-		{0x6, 0, 0, 0x00000000},
-	},
-}
-
 type DHCPServer struct {
 	Address string
 	Port    int
@@ -74,10 +36,48 @@ func NewDHCPServer(address string, port int) *DHCPServer {
 	}
 }
 
-func NewDHCPServer2(iface string, portDesc uint16) (*DHCPServer, *Conn, error) {
-	bpf, ok := UDP_BPF_PORT_MAP[portDesc]
-	if !ok {
-		return nil, nil, fmt.Errorf("BPF not found %d", portDesc)
+func NewDHCPServer2(iface string, port uint16) (*DHCPServer, *Conn, error) {
+	bpf := []bpf.RawInstruction{ // ip and udp and dst port 67
+		{0x28, 0, 0, 0x0000000c},
+		{0x15, 0, 8, 0x00000800},
+		{0x30, 0, 0, 0x00000017},
+		{0x15, 0, 6, 0x00000011},
+		{0x28, 0, 0, 0x00000014},
+		{0x45, 4, 0, 0x00001fff},
+		{0xb1, 0, 0, 0x0000000e},
+		{0x48, 0, 0, 0x00000010},
+		{0x15, 0, 1, uint32(port)},
+		{0x6, 0, 0, 0x00040000},
+		{0x6, 0, 0, 0x00000000},
+	}
+	conn, err := NewSocketConn(iface, bpf)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &DHCPServer{
+		conn: conn,
+	}, conn, nil
+}
+
+func NewDHCPServerWithRelay(iface string, dhcpServerPort, dhcpRelayPort uint16) (*DHCPServer, *Conn, error) {
+	// ip and udp and port 67 and port 68
+	bpf := []bpf.RawInstruction{
+		{0x28, 0, 0, 0x0000000c},
+		{0x15, 0, 13, 0x00000800},
+		{0x30, 0, 0, 0x00000017},
+		{0x15, 0, 11, 0x00000011},
+		{0x28, 0, 0, 0x00000014},
+		{0x45, 9, 0, 0x00001fff},
+		{0xb1, 0, 0, 0x0000000e},
+		{0x48, 0, 0, 0x0000000e},
+		{0x15, 0, 2, uint32(dhcpServerPort)},
+		{0x48, 0, 0, 0x00000010},
+		{0x15, 3, 4, uint32(dhcpRelayPort)},
+		{0x15, 0, 3, uint32(dhcpRelayPort)},
+		{0x48, 0, 0, 0x00000010},
+		{0x15, 0, 1, uint32(dhcpServerPort)},
+		{0x6, 0, 0, 0x00040000},
+		{0x6, 0, 0, 0x00000000},
 	}
 	conn, err := NewSocketConn(iface, bpf)
 	if err != nil {
