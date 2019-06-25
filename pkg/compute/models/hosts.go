@@ -2595,6 +2595,14 @@ func (self *SHost) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	return data, nil
 }
 
+func (self *SHost) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SEnabledStatusStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+
+	if data.Contains("cpu_cmtbound") || data.Contains("mem_cmtbound") {
+		self.ClearSchedDescCache()
+	}
+}
+
 func (self *SHost) UpdateDnsRecords(isAdd bool) {
 	for _, netif := range self.GetNetInterfaces() {
 		self.UpdateDnsRecord(&netif, isAdd)
