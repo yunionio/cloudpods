@@ -19,11 +19,11 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	// "yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/sets"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -68,10 +68,12 @@ type SQuota struct {
 	Snapshot       int
 }
 
-func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope) {
+func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) {
 	base := 0
 	if scope == rbacutils.ScopeDomain {
 		base = 10
+	} else if ownerId.GetProjectDomainId() == identityapi.DEFAULT_DOMAIN_ID && ownerId.GetProjectName() == identityapi.SystemAdminProject {
+		base = 1
 	}
 	self.Cpu = options.Options.DefaultCpuQuota * base
 	self.Memory = options.Options.DefaultMemoryQuota * base

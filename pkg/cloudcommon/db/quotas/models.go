@@ -89,7 +89,7 @@ func (manager *SQuotaBaseManager) getQuotaInternal(ctx context.Context, scope rb
 	if err != nil && err != sql.ErrNoRows {
 		return err
 	} else if err == sql.ErrNoRows && manager.autoCreate {
-		quota.FetchSystemQuota(scope)
+		quota.FetchSystemQuota(scope, ownerId)
 		return manager.setQuotaInternal(ctx, nil, scope, ownerId, platform, quota)
 	}
 	return nil
@@ -201,7 +201,7 @@ func (manager *SQuotaBaseManager) InitializeData() error {
 			continue
 		}
 		if quota.IsEmpty() {
-			quota.FetchSystemQuota(scope)
+			quota.FetchSystemQuota(scope, ownerId)
 		}
 		baseQuota := SQuotaBase{}
 		baseQuota.DomainId = ownerId.GetProjectDomainId()
