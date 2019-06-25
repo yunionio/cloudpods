@@ -311,6 +311,8 @@ type SSysInfo struct {
 	QemuVersion    string `json:"qemu_version"`
 	OvsVersion     string `json:"ovs_version"`
 	KvmModule      string `json:"kvm_module"`
+	CpuModelName   string `json:"cpu_model_name"`
+	CpuMicrocode   string `json:"cpu_microcode"`
 
 	StorageType string `json:"storage_type"`
 }

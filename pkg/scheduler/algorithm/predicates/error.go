@@ -31,14 +31,16 @@ const (
 	ErrNoEnoughAvailableGPUs = `no enough available GPUs`
 	ErrNotSupportNest        = `nested function not supported`
 
-	ErrRequireMvs                      = `require mvs`
-	ErrRequireNoMvs                    = `require not mvs`
-	ErrHostIsSpecifiedForMigration     = `host_id specified for migration`
-	ErrMoreThanOneSizeUnspecificSplit  = `more than 1 size unspecific split`
-	ErrNoMoreSpaceForUnspecificSplit   = `no more space for an unspecific split`
-	ErrSubtotalOfSplitExceedsDiskSize  = `subtotal of split exceeds disk size`
-	ErrBaremetalHasAlreadyBeenOccupied = `baremetal has already been occupied`
-	ErrPrepaidHostOccupied             = `prepaid host occupied`
+	ErrRequireMvs                             = `require mvs`
+	ErrRequireNoMvs                           = `require not mvs`
+	ErrHostIsSpecifiedForMigration            = `host_id specified for migration`
+	ErrHostCpuModelIsNotMatchForLiveMigrate   = `host cpu mode not match for live migrate`
+	ErrHostCpuMicrocodeNotMatchForLiveMigrate = `host cpu microcode not match for live migrate`
+	ErrMoreThanOneSizeUnspecificSplit         = `more than 1 size unspecific split`
+	ErrNoMoreSpaceForUnspecificSplit          = `no more space for an unspecific split`
+	ErrSubtotalOfSplitExceedsDiskSize         = `subtotal of split exceeds disk size`
+	ErrBaremetalHasAlreadyBeenOccupied        = `baremetal has already been occupied`
+	ErrPrepaidHostOccupied                    = `prepaid host occupied`
 
 	ErrUnknown = `unknown error`
 )
