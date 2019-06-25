@@ -381,11 +381,12 @@ func NewNonNegativeValidator(key string) *ValidatorRange {
 
 type ValidatorModelIdOrName struct {
 	Validator
-	ModelKeyword string
-	OwnerId      mcclient.IIdentityProvider
-	ModelManager db.IModelManager
-	Model        db.IModel
-	modelIdKey   string
+	ModelKeyword     string
+	OwnerId          mcclient.IIdentityProvider
+	ModelManager     db.IModelManager
+	Model            db.IModel
+	modelIdKey       string
+	noPendingDeleted bool
 }
 
 func (v *ValidatorModelIdOrName) GetProjectId() string {
@@ -434,10 +435,11 @@ func (v *ValidatorModelIdOrName) getValue() interface{} {
 
 func NewModelIdOrNameValidator(key string, modelKeyword string, ownerId mcclient.IIdentityProvider) *ValidatorModelIdOrName {
 	v := &ValidatorModelIdOrName{
-		Validator:    Validator{Key: key},
-		OwnerId:      ownerId,
-		ModelKeyword: modelKeyword,
-		modelIdKey:   key + "_id",
+		Validator:        Validator{Key: key},
+		OwnerId:          ownerId,
+		ModelKeyword:     modelKeyword,
+		modelIdKey:       key + "_id",
+		noPendingDeleted: true,
 	}
 	v.SetParent(v)
 	return v
@@ -445,6 +447,12 @@ func NewModelIdOrNameValidator(key string, modelKeyword string, ownerId mcclient
 
 func (v *ValidatorModelIdOrName) ModelIdKey(modelIdKey string) *ValidatorModelIdOrName {
 	v.modelIdKey = modelIdKey
+	return v
+}
+
+// AllowPendingDeleted allows the to-be-validated id or name to be of a pending deleted model
+func (v *ValidatorModelIdOrName) AllowPendingDeleted(b bool) *ValidatorModelIdOrName {
+	v.noPendingDeleted = !b
 	return v
 }
 
@@ -465,6 +473,11 @@ func (v *ValidatorModelIdOrName) validate(data *jsonutils.JSONDict) error {
 	model, err := modelManager.FetchByIdOrName(v, modelIdOrName)
 	if err != nil {
 		return newModelNotFoundError(v.ModelKeyword, modelIdOrName, err)
+	}
+	if v.noPendingDeleted {
+		if pd, ok := model.(db.IPendingDeletable); ok && pd.GetPendingDeleted() {
+			return newModelNotFoundError(v.ModelKeyword, modelIdOrName, nil)
+		}
 	}
 	v.Model = model
 	return nil
