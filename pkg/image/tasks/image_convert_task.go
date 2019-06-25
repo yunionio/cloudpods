@@ -58,7 +58,7 @@ func (self *ImageConvertTask) OnInit(ctx context.Context, obj db.IStandaloneMode
 			kwargs := jsonutils.NewDict()
 			kwargs.Set("name", jsonutils.NewString(image.GetName()))
 			osType, err := models.ImagePropertyManager.GetProperty(image.Id, api.IMAGE_OS_TYPE)
-			if err != nil {
+			if err == nil {
 				kwargs.Set("os_type", jsonutils.NewString(osType.Value))
 			}
 			notifyclient.SystemNotify(notify.NotifyPriorityNormal, notifyclient.IMAGE_ACTIVED, kwargs)

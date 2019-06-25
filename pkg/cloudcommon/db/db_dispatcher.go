@@ -334,7 +334,6 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 			if extraKeys != nil {
 				extraData.Update(extraKeys)
 			}
-			log.Errorf("RAWMAP %#v", RowMap)
 			err = q.RowMap2Struct(RowMap, item)
 			if err != nil {
 				return nil, err
@@ -353,7 +352,6 @@ func Query2List(manager IModelManager, ctx context.Context, userCred mcclient.To
 		}
 
 		jsonDict := jsonutils.Marshal(item).(*jsonutils.JSONDict)
-		log.Errorln(jsonDict)
 		jsonDict = jsonDict.CopyIncludes([]string(listF)...)
 		jsonDict.Update(extraData)
 		if showDetails && !query.Contains("export_keys") {
