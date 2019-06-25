@@ -21,10 +21,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
@@ -248,7 +247,7 @@ func (self *SCloudprovider) syncProject(ctx context.Context, userCred mcclient.T
 
 	if len(self.Name) == 0 {
 		log.Errorf("syncProject: provider name is empty???")
-		return errors.New("cannot syncProject for empty name")
+		return errors.Error("cannot syncProject for empty name")
 	}
 
 	tenant, err := db.TenantCacheManager.FetchTenantByIdOrName(ctx, self.Name)
@@ -264,7 +263,7 @@ func (self *SCloudprovider) syncProject(ctx context.Context, userCred mcclient.T
 		params.Add(jsonutils.NewString(self.Name), "name")
 		account := self.GetCloudaccount()
 		if account == nil {
-			return errors.New("no valid cloudaccount???")
+			return errors.Error("no valid cloudaccount???")
 		}
 		domainId = account.DomainId
 		params.Add(jsonutils.NewString(domainId), "domain_id")
@@ -523,6 +522,25 @@ func (self *SCloudprovider) PerformChangeProject(ctx context.Context, userCred m
 	return nil, self.StartSyncCloudProviderInfoTask(ctx, userCred, &SSyncRange{FullSync: true, DeepSync: true}, "")
 }
 
+func (self *SCloudprovider) markStartingSync(userCred mcclient.TokenCredential) error {
+	_, err := db.Update(self, func() error {
+		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_QUEUING
+		return nil
+	})
+	if err != nil {
+		log.Errorf("Failed to markStartSync error: %v", err)
+		return errors.Wrap(err, "Update")
+	}
+	cprs := self.GetCloudproviderRegions()
+	for i := range cprs {
+		err := cprs[i].markStartingSync(userCred)
+		if err != nil {
+			return errors.Wrap(err, "cprs[i].markStartingSync")
+		}
+	}
+	return nil
+}
+
 func (self *SCloudprovider) markStartSync(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_QUEUED
@@ -531,6 +549,13 @@ func (self *SCloudprovider) markStartSync(userCred mcclient.TokenCredential) err
 	if err != nil {
 		log.Errorf("Failed to markStartSync error: %v", err)
 		return err
+	}
+	cprs := self.GetCloudproviderRegions()
+	for i := range cprs {
+		err := cprs[i].markStartingSync(userCred)
+		if err != nil {
+			return errors.Wrap(err, "cprs[i].markStartingSync")
+		}
 	}
 	return nil
 }
@@ -554,11 +579,12 @@ func (self *SCloudprovider) markEndSyncWithLock(ctx context.Context, userCred mc
 		lockman.LockObject(ctx, self)
 		defer lockman.ReleaseObject(ctx, self)
 
-		cprs := self.GetCloudproviderRegions()
-		for i := range cprs {
-			if cprs[i].SyncStatus != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
-				return nil
-			}
+		if self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+			return nil
+		}
+
+		if self.getSyncStatus2() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
+			return nil
 		}
 
 		err := self.markEndSync(userCred)
@@ -741,6 +767,7 @@ func (self *SCloudprovider) getMoreDetails(ctx context.Context, extra *jsonutils
 	if account != nil {
 		extra.Add(jsonutils.NewString(account.GetName()), "cloudaccount")
 	}
+	extra.Set("sync_status2", jsonutils.NewString(self.getSyncStatus2()))
 	return extra
 }
 
@@ -1131,6 +1158,7 @@ func (manager *SCloudproviderManager) FetchCustomizeColumns(ctx context.Context,
 
 func (manager *SCloudproviderManager) FilterByOwner(q *sqlchemy.SQuery, owner mcclient.IIdentityProvider, scope rbacutils.TRbacScope) *sqlchemy.SQuery {
 	if owner != nil {
+		// log.Debugf("SCloudproviderManager.FilterByOwner scope:%s project:%s domain:%s", scope, owner.GetProjectId(), owner.GetProjectDomainId())
 		switch scope {
 		case rbacutils.ScopeProject:
 			if len(owner.GetProjectId()) > 0 {
@@ -1158,4 +1186,39 @@ func (manager *SCloudproviderManager) FilterByOwner(q *sqlchemy.SQuery, owner mc
 		  }*/
 	}
 	return q
+}
+
+func (self *SCloudprovider) getSyncStatus2() string {
+	q := CloudproviderRegionManager.Query()
+	q = q.Equals("cloudprovider_id", self.Id)
+	q = q.NotEquals("sync_status", api.CLOUD_PROVIDER_SYNC_STATUS_IDLE)
+
+	cnt, err := q.CountWithError()
+	if err != nil {
+		return api.CLOUD_PROVIDER_SYNC_STATUS_ERROR
+	}
+	if cnt > 0 {
+		return api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
+	} else {
+		return api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+	}
+}
+
+func (manager *SCloudproviderManager) fetchRecordsByQuery(q *sqlchemy.SQuery) []SCloudprovider {
+	recs := make([]SCloudprovider, 0)
+	err := db.FetchModelObjects(manager, q, &recs)
+	if err != nil {
+		return nil
+	}
+	return recs
+}
+
+func (manager *SCloudproviderManager) initAllRecords() {
+	recs := manager.fetchRecordsByQuery(manager.Query())
+	for i := range recs {
+		db.Update(&recs[i], func() error {
+			recs[i].SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+			return nil
+		})
+	}
 }
