@@ -339,7 +339,7 @@ func (self *SRegion) CreateInstance(name, imageId, hostType, password, vpcId, Su
 	// data disk
 	for i, disk := range disks[1:] {
 		N := i + 1
-		params.Set(fmt.Sprintf("Disks.%d.IsBoot", N), false)
+		params.Set(fmt.Sprintf("Disks.%d.IsBoot", N), "False")
 		params.Set(fmt.Sprintf("Disks.%d.Type", N), disk.DiskType)
 		params.Set(fmt.Sprintf("Disks.%d.Size", N), disk.SizeGB)
 	}

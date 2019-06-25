@@ -587,13 +587,18 @@ func (self *SInstance) GetVNCInfo() (jsonutils.JSONObject, error) {
 }
 
 func (self *SInstance) NextDeviceName() (string, error) {
+	prefix := "s"
+	if strings.Contains(self.OSEXTSRVATTRRootDeviceName, "/vd") {
+		prefix = "v"
+	}
+
 	currents := []string{}
 	for _, item := range self.OSExtendedVolumesVolumesAttached {
 		currents = append(currents, strings.ToLower(item.Device))
 	}
 
 	for i := 0; i < 25; i++ {
-		device := fmt.Sprintf("/dev/sd%s", string(98+i))
+		device := fmt.Sprintf("/dev/%sd%s", prefix, string(98+i))
 		if ok, _ := utils.InStringArray(device, currents); !ok {
 			return device, nil
 		}
