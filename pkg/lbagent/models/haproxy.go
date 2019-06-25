@@ -109,6 +109,9 @@ func (b *LoadbalancerCorpus) GenHaproxyConfigs(dir string, opts *AgentParams) (*
 		LoadbalancersEnabled: []*Loadbalancer{},
 	}
 	for _, lb := range b.Loadbalancers {
+		if lb.ClusterId != opts.AgentModel.ClusterId {
+			continue
+		}
 		if lb.Status != "enabled" {
 			continue
 		}

@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -79,6 +80,7 @@ type SLoadbalancerAgent struct {
 	LoadbalancerCertificates  time.Time `nullable:"true" list:"admin" update:"admin"`
 
 	Deployment *SLoadbalancerAgentDeployment `create:"optional" list:"admin" get:"admin"`
+	ClusterId  string                        `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
 type SLoadbalancerAgentParamsVrrp struct {
@@ -283,6 +285,7 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 		keyV := map[string]validators.IValidator{
 			"hb_timeout": validators.NewNonNegativeValidator("hb_timeout").Default(3600),
 			"params":     validators.NewStructValidator("params", &SLoadbalancerAgentParams{}),
+			"cluster":    validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId),
 		}
 		for _, v := range keyV {
 			if err := v.Validate(data); err != nil {
@@ -291,6 +294,21 @@ func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, us
 		}
 	}
 	return man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+}
+
+func (man *SLoadbalancerAgentManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	data := query.(*jsonutils.JSONDict)
+	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+		{Key: "cluster", ModelKeyword: "loadbalancercluster", OwnerId: userCred},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return q, nil
 }
 
 func (man *SLoadbalancerAgentManager) CleanPendingDeleteLoadbalancers(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
