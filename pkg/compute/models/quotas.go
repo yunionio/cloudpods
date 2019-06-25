@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
+	// "yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/sets"
 
@@ -105,7 +105,7 @@ func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, 
 	self.Memory = guest.TotalMemSize
 	self.Storage = diskSize
 	self.Eip = eipUsage.Total()
-	log.Debugf("%d %d %d\n", net.InternalNicCount, net.InternalVirtualNicCount, lbnic)
+	// log.Debugf("%d %d %d\n", net.InternalNicCount, net.InternalVirtualNicCount, lbnic)
 	self.Port = net.InternalNicCount + net.InternalVirtualNicCount + lbnic
 	self.Eport = net.ExternalNicCount + net.ExternalVirtualNicCount
 	self.Bw = net.InternalBandwidth

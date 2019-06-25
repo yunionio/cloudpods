@@ -222,6 +222,18 @@ func (manager *SCloudproviderregionManager) FetchByIdsOrCreate(providerId string
 	return cpr
 }
 
+func (self *SCloudproviderregion) markStartingSync(userCred mcclient.TokenCredential) error {
+	_, err := db.Update(self, func() error {
+		self.SyncStatus = compute.CLOUD_PROVIDER_SYNC_STATUS_QUEUING
+		return nil
+	})
+	if err != nil {
+		log.Errorf("Failed to markStartingSync error: %v", err)
+		return err
+	}
+	return nil
+}
+
 func (self *SCloudproviderregion) markStartSync(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = compute.CLOUD_PROVIDER_SYNC_STATUS_QUEUED
