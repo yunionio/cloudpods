@@ -32,7 +32,7 @@ const (
 )
 
 type IQuota interface {
-	FetchSystemQuota(scope rbacutils.TRbacScope)
+	FetchSystemQuota(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider)
 	FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string) error
 	Update(quota IQuota)
 	Add(quota IQuota)

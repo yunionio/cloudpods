@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/tristate"
 
+	identityapi "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/image/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -51,10 +52,12 @@ type SQuota struct {
 	Image int
 }
 
-func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope) {
+func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) {
 	base := 0
 	if scope == rbacutils.ScopeDomain {
 		base = 10
+	} else if ownerId.GetProjectDomainId() == identityapi.DEFAULT_DOMAIN_ID && ownerId.GetProjectName() == identityapi.SystemAdminProject {
+		base = 1
 	}
 	self.Image = options.Options.DefaultImageQuota * base
 }

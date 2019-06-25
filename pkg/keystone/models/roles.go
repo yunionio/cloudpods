@@ -187,6 +187,9 @@ func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
 	if grpCnt > 0 {
 		return httperrors.NewNotEmptyError("role is being assigned to group")
 	}
+	if role.IsPublic {
+		return httperrors.NewInvalidStatusError("cannot delete shared role")
+	}
 	if role.IsSystemRole() {
 		return httperrors.NewForbiddenError("cannot delete system role")
 	}
