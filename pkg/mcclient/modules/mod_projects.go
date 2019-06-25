@@ -16,10 +16,10 @@ package modules
 
 import (
 	"fmt"
-	"sync"
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -31,10 +31,7 @@ var (
 	Projects ProjectManagerV3
 )
 
-func (this *ProjectManagerV3) _join(s *mcclient.ClientSession, pid, uid, rid, resource string, ch chan int) error {
-	defer func() {
-		ch <- 1
-	}()
+func (this *ProjectManagerV3) _join(s *mcclient.ClientSession, pid, uid, rid, resource string) error {
 	if resource == "users" {
 		_, err := RolesV3.PutInContexts(s, rid, nil, []ManagerContext{{&Projects, pid}, {&UsersV3, uid}})
 		if err != nil {
@@ -49,10 +46,7 @@ func (this *ProjectManagerV3) _join(s *mcclient.ClientSession, pid, uid, rid, re
 	return nil
 }
 
-func (this *ProjectManagerV3) _leave(s *mcclient.ClientSession, pid string, resource string, uid string, rid string, ch chan int) error {
-	defer func() {
-		ch <- 1
-	}()
+func (this *ProjectManagerV3) _leave(s *mcclient.ClientSession, pid string, resource string, uid string, rid string) error {
 	var err error
 	if resource == "users" {
 		_, err = RolesV3.DeleteInContexts(s, rid, nil, []ManagerContext{{&Projects, pid}, {&UsersV3, uid}})
@@ -76,11 +70,11 @@ func (this *ProjectManagerV3) DoLeaveProject(s *mcclient.ClientSession, params j
 	ret := jsonutils.NewDict()
 	uid, e := params.GetString("uid")
 	if e != nil {
-		return ret, e
+		return nil, httperrors.NewInputParameterError("missing uid")
 	}
 	pids, e := params.GetArray("pids")
 	if e != nil {
-		return ret, e
+		return nil, httperrors.NewInputParameterError("missing pids")
 	}
 
 	resource, _ := params.GetString("resource")
@@ -89,25 +83,22 @@ func (this *ProjectManagerV3) DoLeaveProject(s *mcclient.ClientSession, params j
 		resource = "users"
 	}
 
-	chs := make([]chan int, len(pids))
-
-	for i, pid := range pids {
+	for _, pid := range pids {
 		_pid, e := pid.GetString("pid")
 		if e != nil {
-			return ret, e
+			return nil, httperrors.NewInputParameterError("missing pid in pids")
 		}
 		_rid, e := pid.GetString("rid")
 		if e != nil {
-			return ret, e
+			return nil, httperrors.NewInputParameterError("missing rid in pids")
 		}
 
-		chs[i] = make(chan int)
-		go this._leave(s, _pid, resource, uid, _rid, chs[i])
+		err := this._leave(s, _pid, resource, uid, _rid)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	for _, ch := range chs {
-		<-ch
-	}
 	return ret, nil
 }
 
@@ -124,16 +115,16 @@ func (this *ProjectManagerV3) DoJoinProject(s *mcclient.ClientSession, params js
 	ret := jsonutils.NewDict()
 	uid, e := params.GetString("uid")
 	if e != nil {
-		return ret, e
+		return nil, httperrors.NewInputParameterError("missing uid")
 	}
 	ridsA, e := params.Get("rid")
 	if e != nil {
-		return ret, e
+		return nil, httperrors.NewInputParameterError("missing rid")
 	}
 	rids := ridsA.(*jsonutils.JSONArray).GetStringArray()
 	pidsA, e := params.Get("pids")
 	if e != nil {
-		return ret, e
+		return nil, httperrors.NewInputParameterError("missing pids")
 	}
 	pids := pidsA.(*jsonutils.JSONArray).GetStringArray()
 
@@ -143,16 +134,12 @@ func (this *ProjectManagerV3) DoJoinProject(s *mcclient.ClientSession, params js
 		resource = "users"
 	}
 
-	chs := make([]chan int, len(pids))
-
 	for _, rid := range rids {
-		for i, pid := range pids {
-			chs[i] = make(chan int)
-			go this._join(s, pid, uid, rid, resource, chs[i])
-		}
-
-		for _, ch := range chs {
-			<-ch
+		for _, pid := range pids {
+			err := this._join(s, pid, uid, rid, resource)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return ret, nil
@@ -173,11 +160,11 @@ func (this *ProjectManagerV3) DoProjectBatchJoin(s *mcclient.ClientSession, para
 	if e != nil {
 		return ret, e
 	}
-	ids := make([]string, 0)
-	for _, u := range _ids {
-		name, _ := u.GetString()
-		ids = append(ids, name)
-	}
+	// ids := make([]string, 0)
+	// for _, u := range _ids {
+	// 	name, _ := u.GetString()
+	// 	ids = append(ids, name)
+	// }
 	resource, e := params.GetString("resource")
 	if e != nil {
 		return ret, e
@@ -196,9 +183,10 @@ func (this *ProjectManagerV3) DoProjectBatchJoin(s *mcclient.ClientSession, para
 
 	for i := range _rids {
 		rid, _ := _rids[i].GetString()
-		BatchDo(ids, func(id string) (jsonutils.JSONObject, error) {
+		for _, u := range _ids {
+			id, _ := u.GetString()
 			if resource == "users" {
-				return RolesV3.PutInContexts(
+				_, err := RolesV3.PutInContexts(
 					s,
 					rid,
 					nil,
@@ -206,17 +194,23 @@ func (this *ProjectManagerV3) DoProjectBatchJoin(s *mcclient.ClientSession, para
 						{&Projects,
 							pid},
 						{&UsersV3, id}})
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				_, err := RolesV3.PutInContexts(
+					s,
+					rid,
+					nil,
+					[]ManagerContext{
+						{&Projects,
+							pid},
+						{&Groups, id}})
+				if err != nil {
+					return nil, err
+				}
 			}
-			return RolesV3.PutInContexts(
-				s,
-				rid,
-				nil,
-				[]ManagerContext{
-					{&Projects,
-						pid},
-					{&Groups, id}})
-
-		})
+		}
 	}
 
 	return ret, nil
@@ -232,7 +226,6 @@ func (this *ProjectManagerV3) DoProjectBatchDeleteUserGroup(s *mcclient.ClientSe
 	//     ]}
 	// }
 
-	var wg sync.WaitGroup
 	ret := jsonutils.NewDict()
 	items, e := params.GetArray("items")
 
@@ -242,22 +235,23 @@ func (this *ProjectManagerV3) DoProjectBatchDeleteUserGroup(s *mcclient.ClientSe
 
 	for _, item := range items {
 
-		wg.Add(1)
 		id, _ := item.GetString("id")
 		role_id, _ := item.GetString("role_id")
 		res_type, _ := item.GetString("res_type")
 
-		go func(id string) {
-			defer wg.Done()
-			if res_type == "user" {
-				RolesV3.DeleteInContexts(s, role_id, nil, []ManagerContext{{&Projects, pid}, {&UsersV3, id}})
-			} else if res_type == "group" {
-				RolesV3.DeleteInContexts(s, role_id, nil, []ManagerContext{{&Projects, pid}, {&Groups, id}})
+		if res_type == "user" {
+			_, err := RolesV3.DeleteInContexts(s, role_id, nil, []ManagerContext{{&Projects, pid}, {&UsersV3, id}})
+			if err != nil {
+				return nil, err
 			}
-		}(id)
+		} else if res_type == "group" {
+			_, err := RolesV3.DeleteInContexts(s, role_id, nil, []ManagerContext{{&Projects, pid}, {&Groups, id}})
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
-	wg.Wait()
 	return ret, nil
 }
 

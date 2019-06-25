@@ -331,7 +331,7 @@ func init() {
 		return nil
 	})
 
-	R(&ProjectShowOptions{}, "project-shared-images", "Show shared images of a project", func(s *mcclient.ClientSession, args *ProjectShowOptions) error {
+	/*R(&ProjectShowOptions{}, "project-shared-images", "Show shared images of a project", func(s *mcclient.ClientSession, args *ProjectShowOptions) error {
 		query := jsonutils.NewDict()
 		if len(args.Domain) > 0 {
 			domainId, err := modules.Domains.GetId(s, args.Domain, nil)
@@ -358,6 +358,21 @@ func init() {
 	}
 	R(&ProjectAddTagsOptions{}, "project-add-tags", "Add project with tags", func(s *mcclient.ClientSession, args *ProjectAddTagsOptions) error {
 		err := modules.Projects.AddTags(s, args.ID, args.Tags)
+		if err != nil {
+			return err
+		}
+		return nil
+	})*/
+
+	type ProjectBatchJoinOptions struct {
+		Ids      []string `help:"user ids or group ids"`
+		Resource string   `help:"resource type" choices:"users|groups"`
+		Rid      string   `help:"role id"`
+		Pid      string   `help:"project id"`
+	}
+	R(&ProjectBatchJoinOptions{}, "project-batch-join", "Batch join users or groups into project with role", func(s *mcclient.ClientSession, args *ProjectBatchJoinOptions) error {
+		params := jsonutils.Marshal(args)
+		_, err := modules.Projects.DoProjectBatchJoin(s, params)
 		if err != nil {
 			return err
 		}
