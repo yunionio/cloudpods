@@ -113,7 +113,7 @@ func newModelManagerError(modelKeyword string) error {
 func newModelNotFoundError(modelKeyword, idOrName string, err error) error {
 	errFmt := "cannot find %q with id/name %q"
 	params := []interface{}{modelKeyword, idOrName}
-	if err != sql.ErrNoRows {
+	if err != nil && err != sql.ErrNoRows {
 		errFmt += ": %s"
 		params = append(params, err.Error())
 	}
