@@ -15,6 +15,7 @@
 package guest
 
 import (
+	"database/sql"
 	"fmt"
 
 	"yunion.io/x/pkg/utils"
@@ -54,6 +55,10 @@ func (f *ImagePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, e
 	}
 	obj, err := models.CachedimageManager.FetchById(imageId)
 	if err != nil {
+		// 忽略第一次上传到glance镜像后未缓存的记录
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
 		return false, fmt.Errorf("Fetch CachedImage %s: %v", imageId, err)
 	}
 	cacheImage := obj.(*models.SCachedimage)
