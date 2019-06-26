@@ -181,3 +181,10 @@ func (policy *SPolicy) PerformPrivate(ctx context.Context, userCred mcclient.Tok
 	}
 	return res, err
 }
+
+func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context) error {
+	if policy.IsPublic {
+		return httperrors.NewInvalidStatusError("cannot delete shared policy")
+	}
+	return policy.SEnabledIdentityBaseResource.ValidateDeleteCondition(ctx)
+}
