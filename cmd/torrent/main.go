@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/pkg/util/version"
 	"yunion.io/x/structarg"
 
+	"yunion.io/x/onecloud/pkg/util/atexit"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/nodeid"
 	"yunion.io/x/onecloud/pkg/util/torrentutils"
@@ -62,6 +63,8 @@ func exitSignalHandlers(client *torrent.Client) {
 }
 
 func main() {
+	defer atexit.Handle()
+
 	options := Options{}
 
 	parser, err := structarg.NewArgumentParser(&options, "torrent-srv", "bit-torrent server", "2018")
