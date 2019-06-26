@@ -17,6 +17,8 @@ package models
 import (
 	"context"
 
+	"yunion.io/x/log"
+
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -25,8 +27,24 @@ import (
 var (
 	defaultAdminCred mcclient.TokenCredential
 
-	defaultClient = mcclient.NewClient("", 300, options.Options.DebugClient, true, "", "")
+	defaultClient *mcclient.Client = nil
 )
+
+func getDefaultClient() *mcclient.Client {
+	if defaultClient == nil {
+		defaultClient = mcclient.NewClient("", 300, options.Options.DebugClient, true, "", "")
+		refreshDefaultClientServiceCatalog()
+	}
+	return defaultClient
+}
+
+func refreshDefaultClientServiceCatalog() {
+	cata, err := EndpointManager.FetchAll()
+	if err != nil {
+		log.Fatalf("fail to fetch endpoints")
+	}
+	defaultClient.SetServiceCatalog(cata.GetKeystoneCatalogV3())
+}
 
 func GetDefaultAdminCred() mcclient.TokenCredential {
 	if defaultAdminCred == nil {
@@ -52,5 +70,5 @@ func getDefaultAdminCred() mcclient.TokenCredential {
 }
 
 func GetDefaultClientSession(ctx context.Context, token mcclient.TokenCredential, region, apiVersion string) *mcclient.ClientSession {
-	return defaultClient.NewSession(ctx, region, "", "", token, apiVersion)
+	return getDefaultClient().NewSession(ctx, region, "", "", token, apiVersion)
 }

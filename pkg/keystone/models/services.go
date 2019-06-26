@@ -23,6 +23,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SServiceManager struct {
@@ -119,4 +120,19 @@ func serviceExtra(service *SService, extra *jsonutils.JSONDict) *jsonutils.JSOND
 	epCnt, _ := service.GetEndpointCount()
 	extra.Add(jsonutils.NewInt(int64(epCnt)), "endpoint_count")
 	return extra
+}
+
+func (service *SService) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	service.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	logclient.AddActionLogWithContext(ctx, service, logclient.ACT_CREATE, data, userCred, true)
+}
+
+func (service *SService) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	service.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	logclient.AddActionLogWithContext(ctx, service, logclient.ACT_UPDATE, data, userCred, true)
+}
+
+func (service *SService) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	service.SStandaloneResourceBase.PostDelete(ctx, userCred)
+	logclient.AddActionLogWithContext(ctx, service, logclient.ACT_DELETE, nil, userCred, true)
 }

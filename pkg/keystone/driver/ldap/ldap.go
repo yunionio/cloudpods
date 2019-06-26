@@ -144,26 +144,26 @@ func (self *SLDAPDriver) domainAttributeList() []string {
 func (self *SLDAPDriver) entry2Domain(entry *ldap.Entry) SDomainInfo {
 	info := SDomainInfo{}
 	info.DN = entry.DN
-	info.Id = entry.GetAttributeValue(self.ldapConfig.DomainIdAttribute)
-	info.Name = entry.GetAttributeValue(self.ldapConfig.DomainNameAttribute)
+	info.Id = ldaputils.GetAttributeValue(entry, self.ldapConfig.DomainIdAttribute)
+	info.Name = ldaputils.GetAttributeValue(entry, self.ldapConfig.DomainNameAttribute)
 	return info
 }
 
 func (self *SLDAPDriver) entry2Group(entry *ldap.Entry) SGroupInfo {
 	info := SGroupInfo{}
 	info.DN = entry.DN
-	info.Id = entry.GetAttributeValue(self.ldapConfig.GroupIdAttribute)
-	info.Name = entry.GetAttributeValue(self.ldapConfig.GroupNameAttribute)
-	info.Members = entry.GetAttributeValues(self.ldapConfig.GroupMemberAttribute)
+	info.Id = ldaputils.GetAttributeValue(entry, self.ldapConfig.GroupIdAttribute)
+	info.Name = ldaputils.GetAttributeValue(entry, self.ldapConfig.GroupNameAttribute)
+	info.Members = ldaputils.GetAttributeValues(entry, self.ldapConfig.GroupMemberAttribute)
 	return info
 }
 
 func (self *SLDAPDriver) entry2User(entry *ldap.Entry) SUserInfo {
 	info := SUserInfo{}
 	info.DN = entry.DN
-	info.Id = entry.GetAttributeValue(self.ldapConfig.UserIdAttribute)
-	info.Name = entry.GetAttributeValue(self.ldapConfig.UserNameAttribute)
-	enabledStr := entry.GetAttributeValue(self.ldapConfig.UserEnabledAttribute)
+	info.Id = ldaputils.GetAttributeValue(entry, self.ldapConfig.UserIdAttribute)
+	info.Name = ldaputils.GetAttributeValue(entry, self.ldapConfig.UserNameAttribute)
+	enabledStr := ldaputils.GetAttributeValue(entry, self.ldapConfig.UserEnabledAttribute)
 	if len(enabledStr) == 0 {
 		enabledStr = self.ldapConfig.UserEnabledDefault
 	}
@@ -182,7 +182,7 @@ func (self *SLDAPDriver) entry2User(entry *ldap.Entry) SUserInfo {
 	for _, m := range self.ldapConfig.UserAdditionalAttribute {
 		parts := strings.Split(m, ":")
 		if len(parts) == 2 {
-			info.Extra[parts[1]] = entry.GetAttributeValue(parts[0])
+			info.Extra[parts[1]] = ldaputils.GetAttributeValue(entry, parts[0])
 		}
 	}
 	return info

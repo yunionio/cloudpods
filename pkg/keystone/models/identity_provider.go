@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/keystone/driver"
 	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 )
 
 type SIdentityProviderManager struct {
@@ -314,6 +315,8 @@ func (ident *SIdentityProvider) CustomizeCreate(ctx context.Context, userCred mc
 
 func (ident *SIdentityProvider) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	ident.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+
+	logclient.AddActionLogWithContext(ctx, ident, logclient.ACT_CREATE, data, userCred, true)
 
 	opts := api.TIdentityProviderConfigs{}
 	err := data.Unmarshal(&opts, "config")
