@@ -60,7 +60,6 @@ func (v *ValidatorAnsiblePlaybook) Validate(data *jsonutils.JSONDict) error {
 		}
 		switch {
 		case regutils.MatchIP4Addr(name):
-			continue
 		case strings.HasPrefix(name, "host:"):
 			var err error
 			name = strings.TrimSpace(name[len("host:"):])
