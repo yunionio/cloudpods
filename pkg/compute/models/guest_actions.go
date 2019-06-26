@@ -2261,7 +2261,9 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 
 	status, _ := data.GetString("status")
 	if len(self.BackupHostId) > 0 && status == api.VM_RUNNING {
-		self.SetMetadata(ctx, "__mirror_job_status", "ready", userCred)
+		if len(self.GetMetadata("__mirror_job_status", userCred)) == 0 {
+			self.SetMetadata(ctx, "__mirror_job_status", "ready", userCred)
+		}
 	}
 
 	if preStatus != self.Status && !self.isNotRunningStatus(preStatus) && self.isNotRunningStatus(self.Status) {
@@ -3257,6 +3259,7 @@ func (manager *SGuestManager) PerformImportFromLibvirt(ctx context.Context, user
 	taskData := jsonutils.NewDict()
 	taskData.Set("xml_file_path", jsonutils.NewString(host.XmlFilePath))
 	taskData.Set("servers", jsonutils.Marshal(host.Servers))
+	taskData.Set("monitor_path", jsonutils.NewString(host.MonitorPath))
 	task, err := taskman.TaskManager.NewTask(ctx, "HostImportLibvirtServersTask", sHost, userCred,
 		taskData, "", "", nil)
 	if err != nil {
