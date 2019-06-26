@@ -531,6 +531,9 @@ func (user *SUser) UpdateInContext(ctx context.Context, userCred mcclient.TokenC
 	if user.DomainId != group.DomainId {
 		return nil, httperrors.NewInputParameterError("cannot join user and group in differnt domain")
 	}
+	if group.IsReadOnly() {
+		return nil, httperrors.NewForbiddenError("cannot join read-only group")
+	}
 	return nil, UsergroupManager.add(ctx, userCred, user, group)
 }
 
@@ -541,6 +544,9 @@ func (user *SUser) DeleteInContext(ctx context.Context, userCred mcclient.TokenC
 	group, ok := ctxObjs[0].(*SGroup)
 	if !ok {
 		return nil, httperrors.NewInputParameterError("not supported update context %s", ctxObjs[0].Keyword())
+	}
+	if group.IsReadOnly() {
+		return nil, httperrors.NewForbiddenError("cannot leave read-only group")
 	}
 	return nil, UsergroupManager.remove(ctx, userCred, user, group)
 }
