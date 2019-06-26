@@ -124,8 +124,7 @@ func (data *SchedInfo) reviseData() {
 }
 
 func (d *SchedInfo) SkipDirtyMarkHost() bool {
-	isSharePublicCloudProvider := d.IsPublicCloudProvider() && (d.ResourceType == "" || d.ResourceType == computeapi.HostResourceTypeShared)
-	skipByHypervisor := isSharePublicCloudProvider || d.IsContainer || d.Hypervisor == SchedTypeContainer
+	skipByHypervisor := d.IsContainer || d.Hypervisor == SchedTypeContainer
 	skipByBackup := d.Backup
 	return skipByHypervisor || skipByBackup
 }
@@ -137,10 +136,6 @@ func (d *SchedInfo) GetCandidateHostTypes() []string {
 	default:
 		return []string{d.Hypervisor}
 	}
-}
-
-func (d *SchedInfo) IsPublicCloudProvider() bool {
-	return PublicCloudProviders.Has(d.Hypervisor)
 }
 
 func (d *SchedInfo) getDiskSize(backend string) int64 {

@@ -34,6 +34,10 @@ type SVirtualizedGuestDriver struct {
 	SBaseGuestDriver
 }
 
+func (d *SVirtualizedGuestDriver) DoScheduleSKUFilter() bool {
+	return false
+}
+
 func (self *SVirtualizedGuestDriver) GetMaxVCpuCount() int {
 	return 128
 }

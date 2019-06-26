@@ -35,7 +35,7 @@ func (p *MemoryPredicate) Clone() core.FitPredicate {
 }
 
 func (p *MemoryPredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
-	if u.IsPublicCloudProvider() {
+	if !u.GetHypervisorDriver().DoScheduleMemoryFilter() {
 		return false, nil
 	}
 

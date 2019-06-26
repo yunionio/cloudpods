@@ -29,7 +29,16 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
+type IGuestScheduleDriver interface {
+	DoScheduleSKUFilter() bool
+	DoScheduleCPUFilter() bool
+	DoScheduleMemoryFilter() bool
+	DoScheduleStorageFilter() bool
+}
+
 type IGuestDriver interface {
+	IGuestScheduleDriver
+
 	GetHypervisor() string
 	GetProvider() string
 	GetQuotaPlatformID() []string

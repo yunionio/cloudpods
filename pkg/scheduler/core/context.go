@@ -19,6 +19,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/pkg/tristate"
 
 	"yunion.io/x/log"
@@ -432,12 +434,16 @@ func (u *Unit) ShouldExecuteSchedtagFilter(hostId string) bool {
 	return true
 }
 
-func (u *Unit) IsPublicCloudProvider() bool {
-	return u.SchedData().IsPublicCloudProvider()
+func (u *Unit) GetHypervisor() string {
+	hypervisor := compute.HOSTTYPE_HYPERVISOR[u.SchedData().Hypervisor]
+	if hypervisor == "" {
+		hypervisor = u.SchedData().Hypervisor
+	}
+	return hypervisor
 }
 
-func (u *Unit) SkipDirtyMarkHost() bool {
-	return u.SchedData().SkipDirtyMarkHost()
+func (u *Unit) GetHypervisorDriver() models.IGuestDriver {
+	return models.GetDriver(u.GetHypervisor())
 }
 
 func (u *Unit) AppendFailedCandidates(fcs []FailedCandidate) {
