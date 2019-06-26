@@ -51,7 +51,8 @@ type SLDAPIdpConfigOptions struct {
 	User     string `json:"user,omitempty"`
 	Password string `json:"password,omitempty"`
 
-	ImportDomain bool `json:"import_domain,omitfalse"`
+	AutoCreateProject bool `json:"auto_create_project,omitfalse"`
+	ImportDomain      bool `json:"import_domain,omitfalse"`
 
 	DomainTreeDN        string `json:"domain_tree_dn,omitempty" help:"Domain tree root node dn(distinguished name)"`
 	DomainFilter        string `json:"domain_filter,omitempty"`

@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -370,4 +371,19 @@ func (domain *SDomain) IsReadOnly() bool {
 func (manager *SDomainManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
 	rows := manager.SStandaloneResourceBaseManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
 	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityDomain)
+}
+
+func (domain *SDomain) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	domain.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	logclient.AddActionLogWithContext(ctx, domain, logclient.ACT_CREATE, data, userCred, true)
+}
+
+func (domain *SDomain) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	domain.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	logclient.AddActionLogWithContext(ctx, domain, logclient.ACT_UPDATE, data, userCred, true)
+}
+
+func (domain *SDomain) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	domain.SStandaloneResourceBase.PostDelete(ctx, userCred)
+	logclient.AddActionLogWithContext(ctx, domain, logclient.ACT_DELETE, nil, userCred, true)
 }

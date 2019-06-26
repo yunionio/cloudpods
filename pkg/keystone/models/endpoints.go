@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
@@ -321,4 +322,22 @@ func (manager *SEndpointManager) ValidateCreateData(ctx context.Context, userCre
 		return nil, httperrors.NewInputParameterError("missing input field service/service_id")
 	}
 	return manager.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+}
+
+func (endpoint *SEndpoint) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	endpoint.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	logclient.AddActionLogWithContext(ctx, endpoint, logclient.ACT_CREATE, data, userCred, true)
+	refreshDefaultClientServiceCatalog()
+}
+
+func (endpoint *SEndpoint) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	endpoint.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	logclient.AddActionLogWithContext(ctx, endpoint, logclient.ACT_UPDATE, data, userCred, true)
+	refreshDefaultClientServiceCatalog()
+}
+
+func (endpoint *SEndpoint) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	endpoint.SStandaloneResourceBase.PostDelete(ctx, userCred)
+	logclient.AddActionLogWithContext(ctx, endpoint, logclient.ACT_DELETE, nil, userCred, true)
+	refreshDefaultClientServiceCatalog()
 }

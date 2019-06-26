@@ -155,6 +155,27 @@ func (self *SLDAPDriver) syncDomainInfo(ctx context.Context, info SDomainInfo) (
 		return nil, errors.Wrap(err, "insert")
 	}
 
+	if self.ldapConfig.AutoCreateProject {
+		project := &models.SProject{}
+		project.SetModelManager(models.ProjectManager, project)
+		projectName := models.NormalizeProjectName(fmt.Sprintf("%s_default_project", info.Name))
+		newName, err := db.GenerateName(models.ProjectManager, nil, projectName)
+		if err != nil {
+			// ignore the error
+			log.Errorf("db.GenerateName error %s for default domain project %s", err, projectName)
+			newName = projectName
+		}
+		project.Name = newName
+		project.DomainId = domain.Id
+		project.Description = fmt.Sprintf("Default project for domain %s", info.Name)
+		project.IsDomain = tristate.False
+		project.ParentId = domain.Id
+		err = models.ProjectManager.TableSpec().Insert(project)
+		if err != nil {
+			log.Errorf("models.ProjectManager.Insert fail %s", err)
+		}
+	}
+
 	return domain, nil
 }
 
