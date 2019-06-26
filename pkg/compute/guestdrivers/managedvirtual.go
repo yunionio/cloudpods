@@ -42,6 +42,14 @@ type SManagedVirtualizedGuestDriver struct {
 	SVirtualizedGuestDriver
 }
 
+func (d SManagedVirtualizedGuestDriver) DoScheduleCPUFilter() bool { return false }
+
+func (d SManagedVirtualizedGuestDriver) DoScheduleSKUFilter() bool { return true }
+
+func (d SManagedVirtualizedGuestDriver) DoScheduleMemoryFilter() bool { return false }
+
+func (d SManagedVirtualizedGuestDriver) DoScheduleStorageFilter() bool { return false }
+
 func (self *SManagedVirtualizedGuestDriver) GetJsonDescAtHost(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, host *models.SHost) jsonutils.JSONObject {
 	config := cloudprovider.SManagedVMCreateConfig{}
 	config.Name = guest.Name

@@ -36,6 +36,10 @@ func init() {
 	models.RegisterGuestDriver(&driver)
 }
 
+func (self *SOpenStackGuestDriver) DoScheduleCPUFilter() bool { return true }
+
+func (self *SOpenStackGuestDriver) DoScheduleMemoryFilter() bool { return true }
+
 func (self *SOpenStackGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_OPENSTACK
 }

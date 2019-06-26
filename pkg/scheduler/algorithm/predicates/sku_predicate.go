@@ -34,7 +34,7 @@ func (p *InstanceTypePredicate) Clone() core.FitPredicate {
 }
 
 func (p *InstanceTypePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, error) {
-	if u.SchedData().InstanceType == "" || !u.IsPublicCloudProvider() {
+	if u.SchedData().InstanceType == "" || !u.GetHypervisorDriver().DoScheduleSKUFilter() {
 		return false, nil
 	}
 	return true, nil
