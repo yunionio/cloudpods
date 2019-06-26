@@ -1321,11 +1321,13 @@ func totalDiskSize(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvide
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(disks.Field("is_system")),
 			sqlchemy.IsFalse(disks.Field("is_system"))))
 	}
+
 	row := q.Row()
 	size := sql.NullInt64{}
 	err := row.Scan(&size)
 	if err != nil {
 		log.Errorf("totalDiskSize error %s: %s", err, q.String())
+		return 0
 	}
 	if size.Valid {
 		return int(size.Int64)

@@ -98,6 +98,33 @@ func (self *SGuest) PerformMonitor(ctx context.Context, userCred mcclient.TokenC
 	return nil, httperrors.NewInvalidStatusError("Cannot send command in status %s", self.Status)
 }
 
+func (self *SGuest) AllowPerformEvent(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject, data jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowPerform(userCred, self, "event")
+}
+
+func (self *SGuest) PerformEvent(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject,
+	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	event, err := data.GetString("event")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("event")
+	}
+	if event == "GUEST_PANICKED" {
+		kwargs := jsonutils.NewDict()
+		kwargs.Set("name", jsonutils.NewString(self.Name))
+		kwargs.Set("id", jsonutils.NewString(self.Id))
+		kwargs.Set("event", jsonutils.NewString(event))
+		kwargs.Set("reason", data)
+
+		db.OpsLog.LogEvent(self, db.ACT_GUEST_PANICKED, data.String(), userCred)
+		logclient.AddSimpleActionLog(self, logclient.ACT_GUEST_PANICKED, data.String(), userCred, true)
+		notifyclient.SystemNotify(notify.NotifyPriorityNormal, notifyclient.SERVER_PANICKED, kwargs)
+	}
+	return nil, nil
+}
+
 func (self *SGuest) AllowGetDetailsDesc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowGetSpec(userCred, self, "desc")
 }
@@ -2745,17 +2772,26 @@ func (manager *SGuestManager) PerformDirtyServerVerify(ctx context.Context, user
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("guest_id")
 	}
-	guest := manager.FetchGuestById(guestId)
-	if guest == nil {
-		return nil, httperrors.NewNotFoundError("Guest %s not found", guestId)
-	}
-	hostId, _ := data.GetString("host_id")
-	if len(hostId) == 0 {
-		return nil, httperrors.NewMissingParameterError("host_id")
-	}
+	iguest, err := manager.FetchById(guestId)
+	if err == sql.ErrNoRows {
+		ret := jsonutils.NewDict()
+		ret.Set("guest_unknown_need_clean", jsonutils.JSONTrue)
+		return ret, nil
+	} else {
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("Fetch guest error %s", err)
+		} else {
+			guest := iguest.(*SGuest)
 
-	if guest.HostId != hostId && guest.BackupHostId != hostId {
-		return nil, guest.StartGuestDeleteOnHostTask(ctx, userCred, hostId, false, "")
+			hostId, _ := data.GetString("host_id")
+			if len(hostId) == 0 {
+				return nil, httperrors.NewMissingParameterError("host_id")
+			}
+
+			if guest.HostId != hostId && guest.BackupHostId != hostId {
+				return nil, guest.StartGuestDeleteOnHostTask(ctx, userCred, hostId, false, "")
+			}
+		}
 	}
 	return nil, nil
 }
