@@ -30,7 +30,7 @@ import (
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
@@ -341,7 +341,9 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 			action = "suspend"
 		}
 		log.Infof("%s is %s, pending_delete=%t", s.GetName(), action, pendingDelete)
-		s.SyncStatus()
+		if !s.IsSlave() {
+			s.SyncStatus()
+		}
 	}
 }
 
@@ -452,28 +454,56 @@ func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
 }
 
 func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
-	if event.Event == `"BLOCK_JOB_READY"` && s.IsMaster() {
+	switch {
+	case event.Event == `"BLOCK_JOB_READY"` && s.IsMaster():
 		if itype, ok := event.Data["type"]; ok {
 			stype, _ := itype.(string)
 			if stype == "mirror" {
-				if s.IsMirrorJobSucc() {
-					_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), "running")
+				mirrorStatus := s.MirrorJobStatus()
+				if mirrorStatus.IsSucc() {
+					_, err := hostutils.UpdateServerStatus(context.Background(), s.GetId(), compute.VM_RUNNING)
 					if err != nil {
 						log.Errorf("onReceiveQMPEvent update server status error: %s", err)
 					}
+				} else if mirrorStatus.IsFailed() {
+					s.SyncMirrorJobFailed("Block job missing")
 				}
 			}
 		}
-	} else if event.Event == `"BLOCK_JOB_ERROR"` {
+	case event.Event == `"BLOCK_JOB_ERROR"`:
+		s.SyncMirrorJobFailed("BLOCK_JOB_ERROR")
+	case event.Event == `"GUEST_PANICKED"`:
+		// qemu runc state event source qemu/src/qapi/run-state.json
 		params := jsonutils.NewDict()
-		params.Set("reason", jsonutils.NewString("BLOCK_JOB_ERROR"))
-		_, err := modules.Servers.PerformAction(
-			hostutils.GetComputeSession(context.Background()),
-			s.GetId(), "block-stream-failed", params,
-		)
-		if err != nil {
-			log.Errorf("Server %s perform block-stream-failed got error %s", s.GetId(), err)
+		if action, ok := event.Data["action"]; ok {
+			sAction, _ := action.(string)
+			params.Set("action", jsonutils.NewString(sAction))
 		}
+		if info, ok := event.Data["info"]; ok {
+			params.Set("info", jsonutils.Marshal(info))
+		}
+		params.Set("event", jsonutils.NewString(strings.Trim(event.Event, "\"")))
+		modules.Servers.PerformAction(
+			hostutils.GetComputeSession(context.Background()),
+			s.GetId(), "event", params)
+		// case utils.IsInStringArray(event.Event, []string{`"SHUTDOWN"`, `"POWERDOWN"`, `"RESET"`}):
+		// 	params := jsonutils.NewDict()
+		// 	params.Set("event", jsonutils.NewString(strings.Trim(event.Event, "\"")))
+		// 	modules.Servers.PerformAction(
+		// 		hostutils.GetComputeSession(context.Background()),
+		// 		s.GetId(), "event", params)
+	}
+}
+
+func (s *SKVMGuestInstance) SyncMirrorJobFailed(reason string) {
+	params := jsonutils.NewDict()
+	params.Set("reason", jsonutils.NewString(reason))
+	_, err := modules.Servers.PerformAction(
+		hostutils.GetComputeSession(context.Background()),
+		s.GetId(), "block-stream-failed", params,
+	)
+	if err != nil {
+		log.Errorf("Server %s perform block-stream-failed got error %s", s.GetId(), err)
 	}
 }
 
@@ -498,7 +528,7 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 		}
 	} else if jsonutils.QueryBoolean(s.Desc, "is_master", false) {
 		s.startDiskBackupMirror(ctx)
-		if ctx != nil {
+		if ctx != nil && len(appctx.AppContextTaskId(ctx)) > 0 {
 			s.DoResumeTask(ctx)
 		} else {
 			if options.HostOptions.SetVncPassword {
@@ -524,9 +554,13 @@ func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
 
 func (s *SKVMGuestInstance) startDiskBackupMirror(ctx context.Context) {
 	if ctx == nil || len(appctx.AppContextTaskId(ctx)) == 0 {
-		status := "running"
-		if !s.IsMirrorJobSucc() {
-			status = "block_stream"
+		status := compute.VM_RUNNING
+		mirrorStatus := s.MirrorJobStatus()
+		if mirrorStatus.InProcess() {
+			status = compute.VM_BLOCK_STREAM
+		} else if mirrorStatus.IsFailed() {
+			status = compute.VM_BLOCK_STREAM_FAIL
+			s.SyncMirrorJobFailed("mirror job missing")
 		}
 		hostutils.UpdateServerStatus(context.Background(), s.GetId(), status)
 	} else {
@@ -577,24 +611,39 @@ func (s *SKVMGuestInstance) IsMaster() bool {
 	return jsonutils.QueryBoolean(s.Desc, "is_master", false)
 }
 
+func (s *SKVMGuestInstance) IsSlave() bool {
+	return jsonutils.QueryBoolean(s.Desc, "is_slave", false)
+}
+
 func (s *SKVMGuestInstance) DiskCount() int {
 	disks, _ := s.Desc.GetArray("disks")
 	return len(disks)
 }
 
-func (s *SKVMGuestInstance) IsMirrorJobSucc() bool {
+type MirrorJob int
+
+func (ms MirrorJob) IsSucc() bool {
+	return ms == 1
+}
+
+func (ms MirrorJob) IsFailed() bool {
+	return ms == -1
+}
+
+func (ms MirrorJob) InProcess() bool {
+	return ms == 0
+}
+
+func (s *SKVMGuestInstance) MirrorJobStatus() MirrorJob {
 	res := make(chan *jsonutils.JSONArray)
 	s.Monitor.GetBlockJobs(func(jobs *jsonutils.JSONArray) {
 		res <- jobs
 	})
 	select {
 	case <-time.After(time.Second * 3):
-		return false
+		return 0
 	case v := <-res:
-		if v != nil {
-			if len(v.Value()) == 0 {
-				return true
-			}
+		if v != nil && v.Length() >= s.DiskCount() {
 			mirrorSuccCount := 0
 			for _, val := range v.Value() {
 				jobType, _ := val.GetString("type")
@@ -603,9 +652,13 @@ func (s *SKVMGuestInstance) IsMirrorJobSucc() bool {
 					mirrorSuccCount += 1
 				}
 			}
-			return mirrorSuccCount == s.DiskCount()
+			if mirrorSuccCount == s.DiskCount() {
+				return 1
+			} else {
+				return 0
+			}
 		} else {
-			return false
+			return -1
 		}
 	}
 }
@@ -687,12 +740,14 @@ func (s *SKVMGuestInstance) SyncStatus() {
 }
 
 func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
-	var status = "running"
+	var status = compute.VM_RUNNING
 	if jobs > 0 {
-		if s.IsMaster() && s.IsMirrorJobSucc() {
-			status = "running"
-		} else {
-			status = "block_stream"
+		mirrorStatus := s.MirrorJobStatus()
+		if mirrorStatus.InProcess() {
+			status = compute.VM_BLOCK_STREAM
+		} else if mirrorStatus.IsFailed() {
+			status = compute.VM_BLOCK_STREAM_FAIL
+			s.SyncMirrorJobFailed("Block job missing")
 		}
 	}
 	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, status)
@@ -802,7 +857,7 @@ func (s *SKVMGuestInstance) delTmpDisks(ctx context.Context, migrated bool) erro
 		if disk.Contains("path") {
 			diskPath, _ := disk.GetString("path")
 			d := storageman.GetManager().GetDiskByPath(diskPath)
-			if d != nil && d.GetType() == api.STORAGE_LOCAL && migrated {
+			if d != nil && d.GetType() == compute.STORAGE_LOCAL && migrated {
 				if err := d.DeleteAllSnapshot(); err != nil {
 					log.Errorln(err)
 					return err
@@ -1356,7 +1411,7 @@ func (s *SKVMGuestInstance) PrepareMigrate(liveMigrage bool) (*jsonutils.JSONDic
 		if disk.Contains("path") {
 			diskPath, _ := disk.GetString("path")
 			d := storageman.GetManager().GetDiskByPath(diskPath)
-			if d.GetType() == api.STORAGE_LOCAL {
+			if d.GetType() == compute.STORAGE_LOCAL {
 				back, err := d.PrepareMigrate(liveMigrage)
 				if err != nil {
 					return nil, err

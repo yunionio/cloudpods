@@ -1446,9 +1446,14 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 }
 
 func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	var err error
+	q, err = manager.SModelBaseManager.ListItemExportKeys(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+
 	exportKeys, _ := query.GetString("export_keys")
 	keys := strings.Split(exportKeys, ",")
-
 	// guest_id as filter key
 	if utils.IsInStringArray("ips", keys) {
 		guestIpsQuery := GuestnetworkManager.Query("guest_id").GroupBy("guest_id")
@@ -4066,7 +4071,7 @@ func (self *SGuest) ToSchedDesc() *schedapi.ScheduleInput {
 	self.FillDiskSchedDesc(config.ServerConfigs)
 	self.FillNetSchedDesc(config.ServerConfigs)
 	if len(self.HostId) > 0 && regutils.MatchUUID(self.HostId) {
-		config.HostId = self.HostId
+		desc.HostId = self.HostId
 	}
 	config.Project = self.ProjectId
 	/*tags := self.GetApptags()

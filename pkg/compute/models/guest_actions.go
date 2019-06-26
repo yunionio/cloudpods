@@ -2649,7 +2649,7 @@ func (self *SGuest) PerformBlockStreamFailed(ctx context.Context, userCred mccli
 	if len(self.BackupHostId) > 0 {
 		self.SetMetadata(ctx, "__mirror_job_status", "failed", userCred)
 	}
-	if self.Status == api.VM_BLOCK_STREAM {
+	if self.Status == api.VM_BLOCK_STREAM || self.Status == api.VM_RUNNING {
 		reason, _ := data.GetString("reason")
 		return nil, self.SetStatus(userCred, api.VM_BLOCK_STREAM_FAIL, reason)
 	}
