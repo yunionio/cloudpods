@@ -60,3 +60,8 @@ order_by_host:
   type: string
   enum: [desc, asc]
   description: 根据宿主机名称排序
+usable_server_for_eip:
+  name: usable_server_for_eip
+  in: query
+  type: string
+  description: 过滤此EIP可绑定的server列表(实例和弹性IP属于同一个账号同一个区域,若是私有云则弹性IP和实例需要在同一个可用区)
