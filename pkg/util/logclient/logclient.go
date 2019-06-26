@@ -157,6 +157,7 @@ const (
 
 	ACT_HOST_IMPORT_LIBVIRT_SERVERS = "libvirt托管虚拟机导入"
 	ACT_GUEST_CREATE_FROM_IMPORT    = "导入虚拟机创建"
+	ACT_GUEST_PANICKED              = "GuestPanicked"
 )
 
 type SessionGenerator func(ctx context.Context, token mcclient.TokenCredential, region, apiVersion string) *mcclient.ClientSession

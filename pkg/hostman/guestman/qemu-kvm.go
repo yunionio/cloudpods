@@ -212,18 +212,6 @@ func (s *SKVMGuestInstance) DirtyServerRequestStart() {
 	}
 }
 
-func (s *SKVMGuestInstance) RequestVerifyDirtyServer() {
-	hostId, _ := s.Desc.GetString("host_id")
-	var body = jsonutils.NewDict()
-	body.Set("guest_id", jsonutils.NewString(s.Id))
-	body.Set("host_id", jsonutils.NewString(hostId))
-	_, err := modules.Servers.PerformClassAction(
-		hostutils.GetComputeSession(context.Background()), "dirty-server-verify", body)
-	if err != nil {
-		log.Errorf("Dirty server request start error: %s", err)
-	}
-}
-
 func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	data, ok := params.(*jsonutils.JSONDict)
 	if !ok {
@@ -380,7 +368,8 @@ func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
 }
 
 func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
-	if event.Event == `"BLOCK_JOB_READY"` && s.IsMaster() {
+	switch {
+	case event.Event == `"BLOCK_JOB_READY"` && s.IsMaster():
 		if itype, ok := event.Data["type"]; ok {
 			stype, _ := itype.(string)
 			if stype == "mirror" {
@@ -392,7 +381,7 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 				}
 			}
 		}
-	} else if event.Event == `"BLOCK_JOB_ERROR"` {
+	case event.Event == `"BLOCK_JOB_ERROR"`:
 		params := jsonutils.NewDict()
 		params.Set("reason", jsonutils.NewString("BLOCK_JOB_ERROR"))
 		_, err := modules.Servers.PerformAction(
@@ -402,6 +391,26 @@ func (s *SKVMGuestInstance) onReceiveQMPEvent(event *monitor.Event) {
 		if err != nil {
 			log.Errorf("Server %s perform block-stream-failed got error %s", s.GetId(), err)
 		}
+	case event.Event == `"GUEST_PANICKED"`:
+		// qemu runc state event source qemu/src/qapi/run-state.json
+		params := jsonutils.NewDict()
+		if action, ok := event.Data["action"]; ok {
+			sAction, _ := action.(string)
+			params.Set("action", jsonutils.NewString(sAction))
+		}
+		if info, ok := event.Data["info"]; ok {
+			params.Set("info", jsonutils.Marshal(info))
+		}
+		params.Set("event", jsonutils.NewString(strings.Trim(event.Event, "\"")))
+		modules.Servers.PerformAction(
+			hostutils.GetComputeSession(context.Background()),
+			s.GetId(), "event", params)
+		// case utils.IsInStringArray(event.Event, []string{`"SHUTDOWN"`, `"POWERDOWN"`, `"RESET"`}):
+		// 	params := jsonutils.NewDict()
+		// 	params.Set("event", jsonutils.NewString(strings.Trim(event.Event, "\"")))
+		// 	modules.Servers.PerformAction(
+		// 		hostutils.GetComputeSession(context.Background()),
+		// 		s.GetId(), "event", params)
 	}
 }
 

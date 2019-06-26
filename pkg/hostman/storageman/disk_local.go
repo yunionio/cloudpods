@@ -501,9 +501,16 @@ func (d *SLocalDisk) CleanupSnapshots(ctx context.Context, params interface{}) (
 
 func (d *SLocalDisk) DeleteAllSnapshot() error {
 	snapshotDir := d.GetSnapshotDir()
-	log.Infof("Delete disk(%s) snapshot dir %s", d.Id, snapshotDir)
-	_, err := procutils.NewCommand("rm", "-rf", snapshotDir).Run()
-	return err
+	if !fileutils2.Exists(snapshotDir) {
+		return nil
+	}
+	if options.HostOptions.RecycleDiskfile {
+		return d.Storage.DeleteDiskfile(snapshotDir)
+	} else {
+		log.Infof("Delete disk(%s) snapshot dir %s", d.Id, snapshotDir)
+		_, err := procutils.NewCommand("rm", "-rf", snapshotDir).Run()
+		return err
+	}
 }
 
 func (d *SLocalDisk) PrepareMigrate(liveMigrate bool) (string, error) {
