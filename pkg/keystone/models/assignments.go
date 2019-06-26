@@ -522,7 +522,10 @@ func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, p
 			sqlchemy.Equals(q.Field("actor_id"), users.Field("id")),
 			sqlchemy.In(q.Field("type"), []string{api.AssignmentUserProject, api.AssignmentUserDomain}),
 		))
-		q = q.Filter(sqlchemy.IsFalse(users.Field("is_system_account")))
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsFalse(users.Field("is_system_account")),
+			sqlchemy.IsNull(users.Field("is_system_account")),
+		))
 	}
 
 	total, err := q.CountWithError()
