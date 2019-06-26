@@ -20,9 +20,12 @@ Yunion Conf Service
 */
 
 import (
+	"yunion.io/x/onecloud/pkg/util/atexit"
 	"yunion.io/x/onecloud/pkg/yunionconf/service"
 )
 
 func main() {
+	defer atexit.Handle()
+
 	service.StartService()
 }
