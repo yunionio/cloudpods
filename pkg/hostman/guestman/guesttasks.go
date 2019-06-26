@@ -339,7 +339,12 @@ func (s *SGuestLiveMigrateTask) Start() {
 	s.Monitor.MigrateSetCapability("zero-blocks", "on", s.startMigrate)
 }
 
-func (s *SGuestLiveMigrateTask) startMigrate(string) {
+func (s *SGuestLiveMigrateTask) startMigrate(res string) {
+	if strings.Contains(strings.ToLower(res), "error") {
+		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate set capability error: %s", res))
+		return
+	}
+
 	var copyIncremental = false
 	if s.params.IsLocal {
 		copyIncremental = true
@@ -348,7 +353,12 @@ func (s *SGuestLiveMigrateTask) startMigrate(string) {
 		copyIncremental, false, s.startMigrateStatusCheck)
 }
 
-func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(string) {
+func (s *SGuestLiveMigrateTask) startMigrateStatusCheck(res string) {
+	if strings.Contains(strings.ToLower(res), "error") {
+		hostutils.TaskFailed(s.ctx, fmt.Sprintf("Migrate error: %s", res))
+		return
+	}
+
 	s.c = make(chan struct{})
 	for {
 		select {
@@ -455,7 +465,7 @@ func (s *SGuestResumeTask) onStartRunning() {
 	if options.HostOptions.SetVncPassword {
 		s.SetVncPassword()
 	}
-	s.SyncMetadataInfo()
+	s.OnResumeSyncMetadataInfo()
 	s.SyncStatus()
 	s.optimizeOom()
 	timeutils2.AddTimeout(time.Second*5, s.SetCgroup)

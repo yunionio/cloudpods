@@ -168,7 +168,8 @@ func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuest(ctx context.Contex
 }
 
 func (self *GuestStartAndSyncToBackupTask) OnStartBackupGuestFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	db.OpsLog.LogEvent(guest, db.ACT_BACKUP_START_FAILED, "", self.UserCred)
+	guest.SetMetadata(ctx, "__mirror_job_status", "failed", self.UserCred)
+	db.OpsLog.LogEvent(guest, db.ACT_BACKUP_START_FAILED, data.String(), self.UserCred)
 	self.SetStageFailed(ctx, data.String())
 }
 
@@ -301,6 +302,10 @@ func (self *GuestCreateBackupTask) OnGuestStart(ctx context.Context, guest *mode
 
 func (self *GuestCreateBackupTask) OnSyncToBackup(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	self.TaskCompleted(ctx, guest, "")
+}
+
+func (self *GuestCreateBackupTask) OnSyncToBackupFailed(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	self.TaskFailed(ctx, guest, data.String())
 }
 
 func (self *GuestCreateBackupTask) TaskCompleted(ctx context.Context, guest *models.SGuest, reason string) {

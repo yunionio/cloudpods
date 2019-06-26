@@ -1,14 +1,26 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tasks
 
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/stringutils"
-	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -50,9 +62,9 @@ func (self *HostImportLibvirtServersTask) OnRequestHostPrepareImport(
 ) {
 	serversNotMatch, _ := body.GetArray("servers_not_match")
 	if len(serversNotMatch) > 0 {
-		db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT,
+		db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_LIBVIRT_SERVERS,
 			fmt.Sprintf("Servers %s not match host xml description", serversNotMatch), self.UserCred)
-		logclient.AddActionLogWithContext(ctx, host, logclient.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT,
+		logclient.AddActionLogWithContext(ctx, host, logclient.ACT_HOST_IMPORT_LIBVIRT_SERVERS,
 			fmt.Sprintf("Servers %s not match host xml description", serversNotMatch), self.UserCred, false)
 	}
 
@@ -78,53 +90,67 @@ func (self *HostImportLibvirtServersTask) StartImportServers(
 		success bool
 	)
 	for i := 0; i < len(guestsDesc); i++ {
-		self.FillLibvirtGuestDesc(ctx, host, &guestsDesc[i])
-		guest, err := models.GuestManager.DoImport(ctx, self.UserCred, &guestsDesc[i])
+		var (
+			guest    *models.SGuest = nil
+			originId string         = guestsDesc[i].Id
+		)
+
+		err := self.FillLibvirtGuestDesc(ctx, host, &guestsDesc[i])
 		if err != nil {
-			note = fmt.Sprintf("Guest %s import failed: %s", guestsDesc[i].Id, err)
+			note = fmt.Sprintf("Guest %s desc fill failed: %s", guestsDesc[i].Id, err)
 			success = false
 		} else {
-			if err := self.CreateImportedLibvirtGuestOnHost(ctx, host, guest, &guestsDesc[i]); err != nil {
-				note = fmt.Sprintf("Guest  %s create on host failed: %s", guestsDesc[i].Id, err)
+			guest, err = models.GuestManager.DoImport(ctx, self.UserCred, &guestsDesc[i])
+			if err != nil {
+				note = fmt.Sprintf("Guest %s import failed: %s", guestsDesc[i].Id, err)
 				success = false
 			} else {
-				note = fmt.Sprintf("Guest %s import success, started create on host", guestsDesc[i].Id)
-				success = true
+				meta := map[string]interface{}{
+					"__is_import":    "true",
+					"__origin_id":    originId,
+					"__monitor_path": guestsDesc[i].MonitorPath,
+				}
+				guest.SetAllMetadata(ctx, meta, self.UserCred)
+				if err := self.CreateImportedLibvirtGuestOnHost(ctx, host, guest, &guestsDesc[i]); err != nil {
+					note = fmt.Sprintf("Guest  %s create on host failed: %s", guestsDesc[i].Id, err)
+					success = false
+				} else {
+					note = fmt.Sprintf("Guest %s import success, started create on host", guestsDesc[i].Id)
+					success = true
+				}
 			}
 		}
 
 		if success {
-			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT, note, self.UserCred)
-			guest.SetMetadata(ctx, "__is_import", "ture", self.UserCred)
+			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_LIBVIRT_SERVERS, note, self.UserCred)
 		} else {
 			log.Errorln(note)
 			if guest != nil {
 				guest.SetStatus(self.UserCred, compute.VM_IMPORT_FAILED, note)
 			}
-			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT_FAIL, note, self.UserCred)
+			db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_LIBVIRT_SERVERS_FAIL, note, self.UserCred)
 		}
 		logclient.AddActionLogWithContext(ctx, host,
-			logclient.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT, note, self.UserCred, success)
+			logclient.ACT_HOST_IMPORT_LIBVIRT_SERVERS, note, self.UserCred, success)
 	}
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *HostImportLibvirtServersTask) FillLibvirtGuestDesc(
 	ctx context.Context, host *models.SHost, guestDesc *compute.SImportGuestDesc,
-) {
+) error {
 	// Generate new uuid for guest to prevent duplicate
 	guestDesc.Id = stringutils.UUID4()
 	guestDesc.HostId = host.Id
-	g, _ := models.GuestManager.FetchByName(self.UserCred, guestDesc.Name)
-	if g != nil {
-		guestDesc.Name = guestDesc.Name + timeutils.IsoTime(time.Now())
-	}
+	newName := db.GenerateName(models.GuestManager, self.UserCred.GetProjectId(), guestDesc.Name)
+	guestDesc.Name = newName
 	for i := 0; i < len(guestDesc.Disks); i++ {
 		guestDesc.Disks[i].DiskId = stringutils.UUID4()
 		if len(guestDesc.Disks[i].Backend) == 0 {
 			guestDesc.Disks[i].Backend = api.STORAGE_LOCAL
 		}
 	}
+	return nil
 }
 
 // Create sub task to create guest on host, and feedback disk real access path
@@ -143,6 +169,9 @@ func (self *HostImportLibvirtServersTask) CreateImportedLibvirtGuestOnHost(
 	body := jsonutils.NewDict()
 	body.Set("desc", guest.GetJsonDescAtHypervisor(ctx, host))
 	body.Set("disks_path", disksPath)
+	if len(guestDesc.MonitorPath) > 0 {
+		body.Set("monitor_path", jsonutils.NewString(guestDesc.MonitorPath))
+	}
 
 	_, err = host.Request(ctx, self.UserCred, "POST",
 		fmt.Sprintf("/servers/%s/create-from-libvirt", guest.Id),
@@ -154,9 +183,9 @@ func (self *HostImportLibvirtServersTask) TaskFailed(
 	ctx context.Context, host *models.SHost, reason string,
 ) {
 	self.SetStageFailed(ctx, reason)
-	db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT_FAIL, reason, self.UserCred)
+	db.OpsLog.LogEvent(host, db.ACT_HOST_IMPORT_LIBVIRT_SERVERS_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithContext(ctx, host,
-		logclient.ACT_HOST_IMPORT_SERVERS_FROM_LIBVIRT, reason, self.UserCred, false)
+		logclient.ACT_HOST_IMPORT_LIBVIRT_SERVERS, reason, self.UserCred, false)
 }
 
 type CreateImportedLibvirtGuestTask struct {

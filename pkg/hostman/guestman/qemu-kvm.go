@@ -1,7 +1,6 @@
 package guestman
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -49,12 +48,12 @@ type SKVMGuestInstance struct {
 	QemuVersion string
 	VncPassword string
 
-	Desc    *jsonutils.JSONDict
-	Monitor monitor.Monitor
-	manager *SGuestManager
-
+	Desc        *jsonutils.JSONDict
+	Monitor     monitor.Monitor
+	manager     *SGuestManager
 	startupTask *SGuestResumeTask
 	stopping    bool
+	syncMeta    *jsonutils.JSONDict
 }
 
 func NewKVMGuestInstance(id string, manager *SGuestManager) *SKVMGuestInstance {
@@ -104,10 +103,23 @@ func (s *SKVMGuestInstance) GetVncFilePath() string {
 	return path.Join(s.HomeDir(), "vnc")
 }
 
-func (s *SKVMGuestInstance) GetPid() int {
-	return s.getPid(s.GetPidFilePath(), s.Id)
+func (s *SKVMGuestInstance) getOriginId() string {
+	originId, _ := s.Desc.GetString("metadata", "__origin_id")
+	if len(originId) == 0 {
+		originId = s.Id
+	}
+	return originId
 }
 
+func (s *SKVMGuestInstance) GetPid() int {
+	return s.getPid(s.GetPidFilePath(), s.getOriginId())
+}
+
+/*
+ pid -> running qemu's pid
+ -1 -> pid file does not exists
+ -2 -> pid file ok but content does not match any qemu process
+*/
 func (s *SKVMGuestInstance) getPid(pidFile, uuid string) int {
 	if !fileutils2.Exists(pidFile) {
 		return -1
@@ -156,8 +168,13 @@ func (s *SKVMGuestInstance) isSelfQemuPid(pid, uuid string) bool {
 		log.Warningf("IsSelfQemuPid Read File %s error %s", cmdlineFile, err)
 		return false
 	}
-	return bytes.Index(cmdline, []byte("qemu-system")) >= 0 &&
-		bytes.Index(cmdline, []byte(uuid)) >= 0
+	return s.isSelfCmdline(string(cmdline), uuid)
+}
+
+func (s *SKVMGuestInstance) isSelfCmdline(cmdline, uuid string) bool {
+	return (strings.Index(cmdline, "qemu-system") >= 0 ||
+		strings.Index(cmdline, "qemu-kvm") >= 0) &&
+		strings.Index(cmdline, uuid) >= 0
 }
 
 func (s *SKVMGuestInstance) GetDescFilePath() string {
@@ -252,9 +269,7 @@ func (s *SKVMGuestInstance) asyncScriptStart(ctx context.Context, params interfa
 	// is on_async_script_start
 	if isStarted {
 		log.Infof("Async start server %s success!", s.GetName())
-		meta := jsonutils.NewDict()
-		meta.Set("hotplug_cpu_mem", jsonutils.NewString("enable"))
-		go s.SyncMetadata(meta)
+		s.syncMeta = s.CleanImportMetadata()
 		s.StartMonitor(ctx)
 		return nil, nil
 	} else {
@@ -301,7 +316,7 @@ func (s *SKVMGuestInstance) ImportServer(pendingDelete bool) {
 	if s.IsRunning() {
 		log.Infof("%s is running, pending_delete=%t", s.GetName(), pendingDelete)
 		if !pendingDelete {
-			s.StartMonitor(nil)
+			s.StartMonitor(context.Background())
 		}
 	} else {
 		var action = "stopped"
@@ -346,19 +361,76 @@ func (s *SKVMGuestInstance) IsMonitorAlive() bool {
 // 	return nil
 // }
 
-func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
-	timeutils2.AddTimeout(100*time.Millisecond, func() { s.delayStartMonitor(ctx) })
+func (s *SKVMGuestInstance) onImportGuestMonitorDisConnect(err error) {
+	log.Infof("Import Guest %s monitor disconnect", s.Id)
+	s.SyncStatus()
+
+	// clean import pid file
+	if s.GetPid() == -2 {
+		spath := s.GetPidFilePath()
+		if fileutils2.Exists(spath) {
+			os.Remove(spath)
+		}
+	}
 }
 
-func (s *SKVMGuestInstance) delayStartMonitor(ctx context.Context) {
-	if options.HostOptions.EnableQmpMonitor && s.GetQmpMonitorPort(-1) > 0 {
+func (s *SKVMGuestInstance) onImportGuestMonitorTimeout(ctx context.Context, err error) {
+	log.Errorf("Import guest %s monitor connect timeout: %s", s.Id, err)
+	// clean import pid file
+	if s.GetPid() == -2 {
+		spath := s.GetPidFilePath()
+		if fileutils2.Exists(spath) {
+			os.Remove(spath)
+		}
+	}
+}
+
+func (s *SKVMGuestInstance) onImportGuestMonitorConnected(ctx context.Context) {
+	log.Infof("Guest %s Monitor connect success", s.Id)
+	s.Monitor.GetVersion(func(version string) {
+		log.Infof("Guest %s qemu version %s", s.Id, version)
+		s.QemuVersion = version
+		meta := jsonutils.NewDict()
+		meta.Set("hotplug_cpu_mem", jsonutils.NewString("disable"))
+		meta.Set("__qemu_version", jsonutils.NewString(s.GetQemuVersionStr()))
+		s.SyncMetadata(meta)
+		s.SyncStatus()
+	})
+}
+
+func (s *SKVMGuestInstance) GetMonitorPath() string {
+	monitorPath, _ := s.Desc.GetString("metadata", "__monitor_path")
+	return monitorPath
+}
+
+func (s *SKVMGuestInstance) StartMonitorWithImportGuestSocketFile(ctx context.Context, socketFile string) {
+	timeutils2.AddTimeout(100*time.Millisecond, func() {
 		s.Monitor = monitor.NewQmpMonitor(
-			s.onMonitorDisConnect,                            // on monitor disconnect
-			func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
-			func() { s.onMonitorConnected(ctx) },             // on monitor connected
-			s.onReceiveQMPEvent,                              // on reveive qmp event
+			s.onImportGuestMonitorDisConnect,                            // on monitor disconnect
+			func(err error) { s.onImportGuestMonitorTimeout(ctx, err) }, // on monitor timeout
+			func() { s.onImportGuestMonitorConnected(ctx) },             // on monitor connected
+			s.onReceiveQMPEvent,                                         // on reveive qmp event
 		)
-		s.Monitor.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
+		s.Monitor.ConnectWithSocket(socketFile)
+	})
+}
+
+func (s *SKVMGuestInstance) StartMonitor(ctx context.Context) {
+	if options.HostOptions.EnableQmpMonitor && s.GetQmpMonitorPort(-1) > 0 {
+		timeutils2.AddTimeout(100*time.Millisecond, func() {
+			s.Monitor = monitor.NewQmpMonitor(
+				s.onMonitorDisConnect,                            // on monitor disconnect
+				func(err error) { s.onMonitorTimeout(ctx, err) }, // on monitor timeout
+				func() { s.onMonitorConnected(ctx) },             // on monitor connected
+				s.onReceiveQMPEvent,                              // on reveive qmp event
+			)
+			s.Monitor.Connect("127.0.0.1", s.GetQmpMonitorPort(-1))
+
+		})
+	} else if monitorPath := s.GetMonitorPath(); len(monitorPath) > 0 {
+		s.StartMonitorWithImportGuestSocketFile(ctx, monitorPath)
+	} else {
+		log.Errorf("Guest start monitor failed, can't get qmp monitor port or monitor path")
 	}
 }
 
@@ -415,7 +487,7 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 			if options.HostOptions.SetVncPassword {
 				s.SetVncPassword()
 			}
-			s.SyncMetadataInfo()
+			s.OnResumeSyncMetadataInfo()
 		}
 	} else {
 		s.DoResumeTask(ctx)
@@ -423,7 +495,7 @@ func (s *SKVMGuestInstance) onGetQemuVersion(ctx context.Context, version string
 }
 
 func (s *SKVMGuestInstance) onMonitorDisConnect(err error) {
-	log.Infof("On Monitor Disconnect")
+	log.Infof("Guest %s on Monitor Disconnect", s.Id)
 	s.CleanStartupTask()
 	s.scriptStop()
 	if !jsonutils.QueryBoolean(s.Desc, "is_slave", false) {
@@ -530,7 +602,7 @@ func (s *SKVMGuestInstance) CleanStartupTask() {
 }
 
 func (s *SKVMGuestInstance) onMonitorTimeout(ctx context.Context, err error) {
-	log.Errorf("Monitor connect timeout, VM %s frozen!! force restart!!!!", s.Id)
+	log.Errorf("Monitor connect timeout, VM %s frozen: %s force restart!!!!", s.Id, err)
 	s.ForceStop()
 	timeutils2.AddTimeout(
 		time.Second*3, func() { s.StartGuest(ctx, jsonutils.NewDict()) })
@@ -1091,16 +1163,42 @@ func (s *SKVMGuestInstance) SetVncPassword() {
 		func() { s.Monitor.SetVncPassword(s.GetVdiProtocol(), password, callback) })
 }
 
-func (s *SKVMGuestInstance) SyncMetadataInfo() {
+func (s *SKVMGuestInstance) OnResumeSyncMetadataInfo() {
 	meta := jsonutils.NewDict()
 	meta.Set("__qemu_version", jsonutils.NewString(s.GetQemuVersionStr()))
 	meta.Set("__vnc_port", jsonutils.NewInt(int64(s.GetVncPort())))
-
+	meta.Set("hotplug_cpu_mem", jsonutils.NewString("enable"))
 	if len(s.VncPassword) > 0 {
 		meta.Set("__vnc_password", jsonutils.NewString(s.VncPassword))
 	}
-
+	if s.syncMeta != nil {
+		meta.Update(s.syncMeta)
+	}
 	s.SyncMetadata(meta)
+}
+
+func (s *SKVMGuestInstance) CleanImportMetadata() *jsonutils.JSONDict {
+	meta := jsonutils.NewDict()
+	if originId, _ := s.Desc.GetString("metadata", "__origin_id"); len(originId) > 0 {
+		meta.Set("__origin_id", jsonutils.NewString(""))
+	}
+	if monitorPath, _ := s.Desc.GetString("metadata", "__monitor_path"); len(monitorPath) > 0 {
+		meta.Set("__monitor_path", jsonutils.NewString(""))
+	}
+
+	if meta.Length() > 0 {
+		// update local metadata record, after monitor started updata region record
+		metadata, err := s.Desc.GetMap("metadata")
+		if err == nil {
+			updateMeta, _ := meta.GetMap()
+			for k, v := range updateMeta {
+				metadata[k] = v
+			}
+		}
+		s.SaveDesc(s.Desc)
+		return meta
+	}
+	return nil
 }
 
 func (s *SKVMGuestInstance) ListStateFilePaths() []string {

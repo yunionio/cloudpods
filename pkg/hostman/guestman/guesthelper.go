@@ -85,7 +85,8 @@ type SLibvirtDomainImportConfig struct {
 }
 
 type SGuestCreateFromLibvirt struct {
-	Sid       string
-	GuestDesc *jsonutils.JSONDict
-	DisksPath *jsonutils.JSONDict
+	Sid         string
+	MonitorPath string
+	GuestDesc   *jsonutils.JSONDict
+	DisksPath   *jsonutils.JSONDict
 }
