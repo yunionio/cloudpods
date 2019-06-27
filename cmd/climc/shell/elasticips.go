@@ -24,9 +24,11 @@ import (
 
 func init() {
 	type ElasticipListOptions struct {
-		Region string `help:"Show servers in cloudregion"`
+		Region string `help:"List eips in cloudregion"`
 
-		Usable *bool `help:"List all zones that is usable"`
+		Usable                    *bool  `help:"List all zones that is usable"`
+		UsableEipForAssociateType string `help:"With associate id filter which eip can associate"`
+		UsableEipForAssociateId   string `help:"With associate type filter which eip can associate"`
 
 		options.BaseListOptions
 	}
