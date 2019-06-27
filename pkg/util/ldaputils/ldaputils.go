@@ -15,18 +15,23 @@
 package ldaputils
 
 import (
+	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"gopkg.in/ldap.v3"
 
 	"github.com/pkg/errors"
-	"strings"
 )
 
 var (
 	ErrUserNotFound      = errors.New("not found")
 	ErrUserDuplicate     = errors.New("user id duplicate")
 	ErrUserBadCredential = errors.New("bad credential")
+
+	binaryAttributes = []string{
+		"objectGUID",
+	}
 )
 
 type SLDAPClient struct {
@@ -114,6 +119,9 @@ func (cli *SLDAPClient) Search(base string, objClass string, condition map[strin
 		searches.WriteString("(")
 		searches.WriteString(k)
 		searches.WriteString("=")
+		if isBinaryAttr(k) {
+			v = toBinary(v)
+		}
 		searches.WriteString(v)
 		searches.WriteString(")")
 	}
@@ -143,4 +151,44 @@ func (cli *SLDAPClient) Search(base string, objClass string, condition map[strin
 	}
 
 	return sr.Entries, nil
+}
+
+func isBinaryAttr(attrName string) bool {
+	for _, attr := range binaryAttributes {
+		if strings.EqualFold(attr, attrName) {
+			return true
+		}
+	}
+	return false
+}
+
+func toBinary(val string) string {
+	ret, err := hex.DecodeString(val)
+	if err != nil {
+		return val
+	} else {
+		return string(ret)
+	}
+}
+
+func toHex(val string) string {
+	return hex.EncodeToString([]byte(val))
+}
+
+func GetAttributeValue(e *ldap.Entry, key string) string {
+	val := e.GetAttributeValue(key)
+	if isBinaryAttr(key) {
+		val = toHex(val)
+	}
+	return val
+}
+
+func GetAttributeValues(e *ldap.Entry, key string) []string {
+	vals := e.GetAttributeValues(key)
+	if isBinaryAttr(key) {
+		for i := range vals {
+			vals[i] = toHex(vals[i])
+		}
+	}
+	return vals
 }

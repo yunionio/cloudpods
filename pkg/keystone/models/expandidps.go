@@ -28,19 +28,20 @@ import (
 
 func expandIdpAttributes(rows []*jsonutils.JSONDict, objs []db.IModel, fields stringutils2.SSortedStrings, entType string) []*jsonutils.JSONDict {
 	if len(fields) == 0 || fields.Contains("idp_id") || fields.Contains("idp") || fields.Contains("idp_entity_id") || fields.Contains("idp_driver") {
+		log.Debugf("objs %d", len(objs))
 		idList := make([]string, len(objs))
 		for i := range objs {
-			idList = append(idList, objs[i].GetId())
+			idList[i] = objs[i].GetId()
 		}
 		idps, err := fetchIdmappings(idList, entType)
 		if err == nil && idps != nil {
 			for i := range rows {
 				if idp, ok := idps[objs[i].GetId()]; ok {
 					if len(fields) == 0 || fields.Contains("idp_id") {
-						rows[i].Set("idp_id", jsonutils.NewString(idp.Id))
+						rows[i].Set("idp_id", jsonutils.NewString(idp.IdpId))
 					}
 					if len(fields) == 0 || fields.Contains("idp") {
-						rows[i].Set("idp", jsonutils.NewString(idp.Name))
+						rows[i].Set("idp", jsonutils.NewString(idp.IdpName))
 					}
 					if len(fields) == 0 || fields.Contains("idp_entity_id") {
 						rows[i].Set("idp_entity_id", jsonutils.NewString(idp.EntityId))
@@ -58,8 +59,8 @@ func expandIdpAttributes(rows []*jsonutils.JSONDict, objs []db.IModel, fields st
 }
 
 type sIdpInfo struct {
-	Id       string
-	Name     string
+	IdpId    string
+	IdpName  string
 	EntityId string
 	Driver   string
 	PublicId string
@@ -69,13 +70,13 @@ func fetchIdmappings(idList []string, resType string) (map[string]sIdpInfo, erro
 	idmappings := IdmappingManager.Query().SubQuery()
 	idps := IdentityProviderManager.Query().SubQuery()
 
-	q := idmappings.Query(idmappings.Field("domain_id", "id"),
+	q := idmappings.Query(idmappings.Field("domain_id", "idp_id"),
 		idmappings.Field("local_id", "entity_id"),
-		idps.Field("name"),
+		idps.Field("name", "idp_name"),
 		idps.Field("driver"),
 		idmappings.Field("public_id"),
-	).Join(idps, sqlchemy.Equals(idps.Field("id"),
-		idmappings.Field("domain_id")))
+	)
+	q = q.Join(idps, sqlchemy.Equals(idps.Field("id"), idmappings.Field("domain_id")))
 	q = q.Filter(sqlchemy.In(idmappings.Field("public_id"), idList))
 	q = q.Filter(sqlchemy.Equals(idmappings.Field("entity_type"), resType))
 

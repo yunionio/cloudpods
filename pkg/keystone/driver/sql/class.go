@@ -29,8 +29,8 @@ func (self *SSQLDriverClass) SyncMethod() string {
 	return api.IdentityProviderSyncLocal
 }
 
-func (self *SSQLDriverClass) NewDriver(idpId, idpName, template string, conf api.TIdentityProviderConfigs) (driver.IIdentityBackend, error) {
-	return NewSQLDriver(idpId, idpName, template, conf)
+func (self *SSQLDriverClass) NewDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TIdentityProviderConfigs) (driver.IIdentityBackend, error) {
+	return NewSQLDriver(idpId, idpName, template, targetDomainId, autoCreateProject, conf)
 }
 
 func (self *SSQLDriverClass) Name() string {

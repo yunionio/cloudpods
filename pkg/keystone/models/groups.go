@@ -274,3 +274,7 @@ func (manager *SGroupManager) FetchCustomizeColumns(ctx context.Context, userCre
 	rows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
 	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityGroup)
 }
+
+func (manager *SGroupManager) FetchGroupLocalIdsInDomain(domainId string, excludes []string) ([]string, error) {
+	return fetchLocalIdsInDomain(manager, domainId, excludes)
+}
