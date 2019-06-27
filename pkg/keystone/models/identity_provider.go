@@ -19,10 +19,10 @@ import (
 	"database/sql"
 	"time"
 
-	"yunion.io/x/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -72,6 +72,10 @@ type SIdentityProvider struct {
 
 	Driver   string `width:"32" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
 	Template string `width:"32" charset:"ascii" nullable:"true" list:"admin" create:"admin_optional"`
+
+	TargetDomainId string `width:"64" charset:"ascii" nullable:"true" list:"admin" create:"admin_optional" update:"admin"`
+
+	AutoCreateProject tristate.TriState `default:"true" nullable:"true" list:"admin" create:"admin_optional" update:"admin"`
 
 	ErrorCount int `list:"admin"`
 
@@ -300,6 +304,19 @@ func (manager *SIdentityProviderManager) ValidateCreateData(ctx context.Context,
 		}
 	}
 
+	targetDomainStr, _ := data.GetString("target_domain")
+	if len(targetDomainStr) > 0 {
+		domain, err := DomainManager.FetchDomainById(targetDomainStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(DomainManager.Keyword(), targetDomainStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		data.Set("target_domain_id", jsonutils.NewString(domain.Id))
+	}
+
 	opts := api.TIdentityProviderConfigs{}
 	err := data.Unmarshal(&opts, "config")
 	if err != nil {
@@ -408,6 +425,12 @@ func (self *SIdentityProvider) GetExtraDetails(ctx context.Context, userCred mcc
 func (self *SIdentityProvider) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSONDict {
 	extra = db.FetchModelExtraCountProperties(self, extra)
 	extra.Set("sync_interval_seconds", jsonutils.NewInt(int64(self.getSyncIntervalSeconds())))
+	if len(self.TargetDomainId) > 0 {
+		domain, _ := DomainManager.FetchDomainById(self.TargetDomainId)
+		if domain != nil {
+			extra.Set("target_domain", jsonutils.NewString(domain.Name))
+		}
+	}
 	return extra
 }
 

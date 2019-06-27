@@ -140,7 +140,7 @@ func authUserByIdentity(ctx context.Context, ident mcclient.SAuthenticationIdent
 		return nil, errors.Wrap(err, "GetConfig")
 	}
 
-	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, conf)
+	backend, err := driver.GetDriver(idp.Driver, idp.Id, idp.Name, idp.Template, idp.TargetDomainId, idp.AutoCreateProject.Bool(), conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "driver.GetDriver")
 	}

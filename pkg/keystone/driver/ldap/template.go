@@ -20,8 +20,6 @@ import (
 
 var (
 	MicrosoftActiveDirectorySingleDomainTemplate = api.SLDAPIdpConfigOptions{
-		ImportDomain:         false,
-		AutoCreateProject:    true,
 		UserObjectclass:      "organizationalPerson",
 		UserIdAttribute:      "sAMAccountName",
 		UserNameAttribute:    "sAMAccountName",
@@ -44,8 +42,6 @@ var (
 	}
 
 	MicrosoftActiveDirectoryMultipleDomainTemplate = api.SLDAPIdpConfigOptions{
-		ImportDomain:         true,
-		AutoCreateProject:    true,
 		DomainObjectclass:    "organizationalUnit",
 		DomainIdAttribute:    "objectGUID",
 		DomainNameAttribute:  "name",
@@ -72,8 +68,6 @@ var (
 	}
 
 	OpenLdapSingleDomainTemplate = api.SLDAPIdpConfigOptions{
-		ImportDomain:         false,
-		AutoCreateProject:    true,
 		UserObjectclass:      "person",
 		UserIdAttribute:      "uid",
 		UserNameAttribute:    "uid",

@@ -153,10 +153,14 @@ func (manager *SDomainManager) FetchDomainByIdOrName(domain string) (*SDomain, e
 		return nil, err
 	}
 	q := manager.Query().NotEquals("id", api.KeystoneDomainRoot)
-	q = q.Filter(sqlchemy.OR(
-		sqlchemy.Equals(q.Field("id"), domain),
-		sqlchemy.Equals(q.Field("name"), domain),
-	))
+	if stringutils2.IsUtf8(domain) {
+		q = q.Equals("name", domain)
+	} else {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.Equals(q.Field("id"), domain),
+			sqlchemy.Equals(q.Field("name"), domain),
+		))
+	}
 	err = q.First(obj)
 	if err != nil {
 		return nil, err
@@ -202,6 +206,11 @@ func (domain *SDomain) GetUserCount() (int, error) {
 
 func (domain *SDomain) GetGroupCount() (int, error) {
 	q := GroupManager.Query().Equals("domain_id", domain.Id)
+	return q.CountWithError()
+}
+
+func (domain *SDomain) GetIdpCount() (int, error) {
+	q := IdentityProviderManager.Query().Equals("target_domain_id", domain.Id)
 	return q.CountWithError()
 }
 
@@ -301,6 +310,12 @@ func domainExtra(domain *SDomain, extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	extra.Add(jsonutils.NewInt(int64(grpCnt)), "group_count")
 	prjCnt, _ := domain.GetProjectCount()
 	extra.Add(jsonutils.NewInt(int64(prjCnt)), "project_count")
+	roleCnt, _ := domain.GetRoleCount()
+	extra.Add(jsonutils.NewInt(int64(roleCnt)), "role_count")
+	policyCnt, _ := domain.GetPolicyCount()
+	extra.Add(jsonutils.NewInt(int64(policyCnt)), "policy_count")
+	idpCnt, _ := domain.GetIdpCount()
+	extra.Add(jsonutils.NewInt(int64(idpCnt)), "idp_count")
 	return extra
 }
 

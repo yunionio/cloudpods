@@ -12,24 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package driver
+package stringutils2
 
 import (
-	"context"
-
-	api "yunion.io/x/onecloud/pkg/apis/identity"
-	"yunion.io/x/onecloud/pkg/mcclient"
+	"testing"
 )
 
-type IIdentityBackendClass interface {
-	SingletonInstance() bool
-	SyncMethod() string
-	Name() string
-	NewDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TIdentityProviderConfigs) (IIdentityBackend, error)
-}
-
-type IIdentityBackend interface {
-	Authenticate(ctx context.Context, identity mcclient.SAuthenticationIdentity) (*api.SUserExtended, error)
-	Sync(ctx context.Context) error
-	Probe(ctx context.Context) error
+func TestIsUtf8(t *testing.T) {
+	cases := []struct {
+		In   string
+		Want bool
+	}{
+		{"中文", true},
+		{"this is eng", false},
+	}
+	for _, c := range cases {
+		got := IsUtf8(c.In)
+		if got != c.Want {
+			t.Errorf("IsUtf8 %s got %v want %v", c.In, got, c.Want)
+		}
+	}
 }

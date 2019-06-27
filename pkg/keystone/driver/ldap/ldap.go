@@ -21,10 +21,9 @@ import (
 
 	"gopkg.in/ldap.v3"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -40,8 +39,8 @@ type SLDAPDriver struct {
 	ldapConfig *api.SLDAPIdpConfigOptions
 }
 
-func NewLDAPDriver(idpId, idpName, template string, conf api.TIdentityProviderConfigs) (driver.IIdentityBackend, error) {
-	base, err := driver.NewBaseIdentityDriver(idpId, idpName, template, conf)
+func NewLDAPDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TIdentityProviderConfigs) (driver.IIdentityBackend, error) {
+	base, err := driver.NewBaseIdentityDriver(idpId, idpName, template, targetDomainId, autoCreateProject, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewBaseIdentityDriver")
 	}
@@ -242,12 +241,20 @@ func (self *SLDAPDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 	}
 
 	var userTreeDN string
-	if self.ldapConfig.ImportDomain {
+	if len(self.ldapConfig.DomainTreeDN) > 0 {
+		// import domains
 		idMap, err := models.IdmappingManager.FetchEntity(usrExt.DomainId, api.IdMappingEntityDomain)
 		if err != nil {
 			return nil, errors.Wrap(err, "IdmappingManager.FetchEntity for domain")
 		}
-		userTreeDN = idMap.IdpEntityId
+		entries, err := self.searchDomainEntries(cli, idMap.IdpEntityId)
+		if err != nil {
+			return nil, errors.Wrap(err, "self.searchDomainEntries")
+		}
+		if len(entries) == 0 {
+			return nil, errors.Error("fail to find domain DN")
+		}
+		userTreeDN = entries[0].DN
 	} else {
 		userTreeDN = self.getUserTreeDN()
 	}

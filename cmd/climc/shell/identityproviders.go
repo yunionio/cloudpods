@@ -116,11 +116,27 @@ func init() {
 
 	type IdentityProviderCreateOptions struct {
 		NAME string `help:"name of identity provider" json:"-"`
+
+		AutoCreateProject   bool `help:"automatically create a default project when importing domain" json:"-"`
+		NoAutoCreateProject bool `help:"do not create default project when importing domain" json:"-"`
+
+		TargetDomain string `help:"target domain without creating new domain"`
+
 		api.SLDAPIdpConfigOptions
 	}
 	R(&IdentityProviderCreateOptions{}, "idp-create-ldap", "Create an identity provider with LDAP driver", func(s *mcclient.ClientSession, args *IdentityProviderCreateOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
+
+		if len(args.TargetDomain) > 0 {
+			params.Add(jsonutils.NewString(args.TargetDomain), "target_domain")
+		}
+		if args.AutoCreateProject {
+			params.Add(jsonutils.JSONTrue, "auto_create_project")
+		} else if args.NoAutoCreateProject {
+			params.Add(jsonutils.JSONFalse, "auto_create_project")
+		}
+
 		params.Add(jsonutils.NewString("ldap"), "driver")
 		params.Add(jsonutils.Marshal(args), "config", "ldap")
 
@@ -150,6 +166,12 @@ func init() {
 	type IdentityProviderCreateLDAPSingleDomainOptions struct {
 		NAME     string `help:"name of identity provider" json:"-"`
 		TEMPLATE string `help:"configuration template name" choices:"msad_one_domain|openldap_one_domain" json:"-"`
+
+		AutoCreateProject   bool `help:"automatically create a default project when importing domain" json:"-"`
+		NoAutoCreateProject bool `help:"do not create default project when importing domain" json:"-"`
+
+		TargetDomain string `help:"target domain without creating new domain"`
+
 		api.SLDAPIdpConfigSingleDomainOptions
 	}
 	R(&IdentityProviderCreateLDAPSingleDomainOptions{}, "idp-create-ldap-single-domain", "Create an identity provider with LDAP driver/single domain template", func(s *mcclient.ClientSession, args *IdentityProviderCreateLDAPSingleDomainOptions) error {
@@ -157,6 +179,16 @@ func init() {
 		params.Add(jsonutils.NewString(args.NAME), "name")
 		params.Add(jsonutils.NewString("ldap"), "driver")
 		params.Add(jsonutils.NewString(args.TEMPLATE), "template")
+
+		if len(args.TargetDomain) > 0 {
+			params.Add(jsonutils.NewString(args.TargetDomain), "target_domain")
+		}
+		if args.AutoCreateProject {
+			params.Add(jsonutils.JSONTrue, "auto_create_project")
+		} else if args.NoAutoCreateProject {
+			params.Add(jsonutils.JSONFalse, "auto_create_project")
+		}
+
 		params.Add(jsonutils.Marshal(args), "config", "ldap")
 
 		idp, err := modules.IdentityProviders.Create(s, params)
@@ -185,6 +217,10 @@ func init() {
 	type IdentityProviderCreateLDAPMultiDomainOptions struct {
 		NAME     string `help:"name of identity provider" json:"-"`
 		TEMPLATE string `help:"configuration template name" choices:"msad_multi_domain" json:"-"`
+
+		AutoCreateProject   bool `help:"automatically create a default project when importing domain" json:"-"`
+		NoAutoCreateProject bool `help:"do not create default project when importing domain" json:"-"`
+
 		api.SLDAPIdpConfigMultiDomainOptions
 	}
 	R(&IdentityProviderCreateLDAPMultiDomainOptions{}, "idp-create-ldap-multi-domain", "Create an identity provider with LDAP driver/single domain template", func(s *mcclient.ClientSession, args *IdentityProviderCreateLDAPMultiDomainOptions) error {
@@ -192,6 +228,13 @@ func init() {
 		params.Add(jsonutils.NewString(args.NAME), "name")
 		params.Add(jsonutils.NewString("ldap"), "driver")
 		params.Add(jsonutils.NewString(args.TEMPLATE), "template")
+
+		if args.AutoCreateProject {
+			params.Add(jsonutils.JSONTrue, "auto_create_project")
+		} else if args.NoAutoCreateProject {
+			params.Add(jsonutils.JSONFalse, "auto_create_project")
+		}
+
 		params.Add(jsonutils.Marshal(args), "config", "ldap")
 
 		idp, err := modules.IdentityProviders.Create(s, params)
