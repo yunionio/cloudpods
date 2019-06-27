@@ -38,9 +38,23 @@ func (p *MigratePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool,
 
 func (p *MigratePredicate) Execute(u *core.Unit, c core.Candidater) (bool, []core.PredicateFailureReason, error) {
 	h := predicates.NewPredicateHelper(p, u, c)
+	schedData := u.SchedData()
 
-	if u.SchedData().HostId == c.IndexKey() {
+	if schedData.HostId == c.IndexKey() {
 		h.Exclude(predicates.ErrHostIsSpecifiedForMigration)
+		return h.GetResult()
+	}
+
+	if schedData.LiveMigrate {
+		host := c.Getter().Host()
+		if schedData.CpuDesc != host.CpuDesc {
+			h.Exclude(predicates.ErrHostCpuModelIsNotMatchForLiveMigrate)
+			return h.GetResult()
+		}
+		if len(schedData.CpuMicrocode) > 0 && schedData.CpuMicrocode != host.CpuMicrocode {
+			h.Exclude(predicates.ErrHostCpuMicrocodeNotMatchForLiveMigrate)
+			return h.GetResult()
+		}
 	}
 
 	return h.GetResult()

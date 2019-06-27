@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
@@ -47,11 +48,12 @@ import (
 const (
 	VNC_PORT_BASE = 5900
 
-	GUEST_RUNNING      = "running"
-	GUEST_BLOCK_STREAM = "block_stream"
-	GUEST_SUSPEND      = "suspend"
-	GUSET_STOPPED      = "stopped"
-	GUEST_NOT_FOUND    = "notfound"
+	GUEST_RUNNING           = compute.VM_RUNNING
+	GUEST_BLOCK_STREAM      = compute.VM_BLOCK_STREAM
+	GUEST_BLOCK_STREAM_FAIL = compute.VM_BLOCK_STREAM_FAIL
+	GUEST_SUSPEND           = compute.VM_SUSPEND
+	GUSET_STOPPED           = "stopped"
+	GUEST_NOT_FOUND         = "notfound"
 )
 
 type SGuestManager struct {
@@ -360,8 +362,15 @@ func (m *SGuestManager) Status(sid string) string {
 
 func (m *SGuestManager) GetStatus(sid string) string {
 	if guest, ok := m.Servers[sid]; ok {
-		if guest.Monitor != nil && guest.IsMaster() && !guest.IsMirrorJobSucc() {
-			return GUEST_BLOCK_STREAM
+		if guest.IsRunning() && guest.Monitor != nil && guest.IsMaster() {
+			mirrorStatus := guest.MirrorJobStatus()
+			if mirrorStatus.InProcess() {
+				return GUEST_BLOCK_STREAM
+			} else if mirrorStatus.IsFailed() {
+				timeutils2.AddTimeout(1*time.Second,
+					func() { guest.SyncMirrorJobFailed("Block job missing") })
+				return GUEST_BLOCK_STREAM_FAIL
+			}
 		}
 		if guest.IsRunning() {
 			return GUEST_RUNNING

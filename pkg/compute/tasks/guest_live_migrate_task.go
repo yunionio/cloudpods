@@ -56,6 +56,13 @@ func (self *GuestMigrateTask) GetSchedParams() (*schedapi.ScheduleInput, error) 
 		preferHostId, _ := self.Params.GetString("prefer_host_id")
 		schedDesc.ServerConfig.PreferHost = preferHostId
 	}
+	guestStatus, _ := self.Params.GetString("guest_status")
+	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) && (guestStatus == api.VM_RUNNING || guestStatus == api.VM_SUSPEND) {
+		schedDesc.LiveMigrate = true
+		host := guest.GetHost()
+		schedDesc.CpuDesc = host.CpuDesc
+		schedDesc.CpuMicrocode = host.CpuMicrocode
+	}
 	return schedDesc, nil
 }
 
