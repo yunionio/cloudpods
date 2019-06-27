@@ -245,7 +245,6 @@ func (lbbg *SLoadbalancerBackendGroup) refCount(men db.IModelManager) (int, erro
 func (lbbg *SLoadbalancerBackendGroup) getRefManagers() []db.IModelManager {
 	// 引用Backend Group的数据库
 	return []db.IModelManager{
-		LoadbalancerManager,
 		LoadbalancerListenerManager,
 		LoadbalancerListenerRuleManager,
 	}
@@ -318,6 +317,16 @@ func (lbbg *SLoadbalancerBackendGroup) StartLoadBalancerBackendGroupCreateTask(c
 }
 
 func (lbbg *SLoadbalancerBackendGroup) LBPendingDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	if lb := lbbg.GetLoadbalancer(); lb != nil && lb.BackendGroupId == lbbg.Id {
+		if _, err := db.UpdateWithLock(ctx, lb, func() error {
+			lb.BackendGroupId = ""
+			return nil
+		}); err != nil {
+			log.Errorf("loadbalancer %s(%s): clear up backend group %s(%s): %v",
+				lb.Name, lb.Id, lbbg.Name, lbbg.Id, err)
+			return
+		}
+	}
 	lbbg.pendingDeleteSubs(ctx, userCred)
 	lbbg.DoPendingDelete(ctx, userCred)
 }
