@@ -29,8 +29,8 @@ type SSQLDriver struct {
 	driver.SBaseIdentityDriver
 }
 
-func NewSQLDriver(idpId, idpName, template string, conf api.TIdentityProviderConfigs) (driver.IIdentityBackend, error) {
-	base, err := driver.NewBaseIdentityDriver(idpId, idpName, template, conf)
+func NewSQLDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TIdentityProviderConfigs) (driver.IIdentityBackend, error) {
+	base, err := driver.NewBaseIdentityDriver(idpId, idpName, template, targetDomainId, autoCreateProject, conf)
 	if err != nil {
 		return nil, err
 	}

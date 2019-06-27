@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 func FetchJointByIds(manager IJointModelManager, masterId, slaveId string, query jsonutils.JSONObject) (IJointModel, error) {
@@ -127,6 +128,9 @@ func FetchByName(manager IModelManager, userCred mcclient.IIdentityProvider, idS
 }
 
 func FetchByIdOrName(manager IModelManager, userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
+	if stringutils2.IsUtf8(idStr) {
+		return FetchByName(manager, userCred, idStr)
+	}
 	obj, err := FetchById(manager, idStr)
 	if err == sql.ErrNoRows {
 		return FetchByName(manager, userCred, idStr)

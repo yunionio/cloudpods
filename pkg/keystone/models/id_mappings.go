@@ -125,16 +125,19 @@ func (manager *SIdmappingManager) FetchEntity(idStr string, entType string) (*SI
 }
 
 func (manager *SIdmappingManager) deleteByIdpId(idpId string) error {
-	return manager.DeleteAny(idpId, "", nil)
+	return manager.DeleteAny(idpId, "", nil, nil)
 }
 
-func (manager *SIdmappingManager) DeleteAny(idpId string, entityType string, excludeLocalIds []string) error {
+func (manager *SIdmappingManager) DeleteAny(idpId string, entityType string, excludeLocalIds []string, includeLocalIds []string) error {
 	q := manager.Query().Equals("domain_id", idpId)
 	if len(entityType) > 0 {
 		q = q.Equals("entity_type", entityType)
 	}
 	if len(excludeLocalIds) > 0 {
 		q = q.NotIn("local_id", excludeLocalIds)
+	}
+	if len(includeLocalIds) > 0 {
+		q = q.In("local_id", includeLocalIds)
 	}
 	idmappings := make([]SIdmapping, 0)
 	err := db.FetchModelObjects(manager, q, &idmappings)

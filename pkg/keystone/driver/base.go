@@ -34,12 +34,12 @@ func GetDriverClass(drv string) IIdentityBackendClass {
 	return nil
 }
 
-func GetDriver(driver string, idpId, idpName, template string, conf api.TIdentityProviderConfigs) (IIdentityBackend, error) {
+func GetDriver(driver string, idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TIdentityProviderConfigs) (IIdentityBackend, error) {
 	drvCls := GetDriverClass(driver)
 	if drvCls == nil {
 		return nil, ErrNoSuchDriver
 	}
-	return drvCls.NewDriver(idpId, idpName, template, conf)
+	return drvCls.NewDriver(idpId, idpName, template, targetDomainId, autoCreateProject, conf)
 }
 
 type SBaseIdentityDriver struct {
@@ -49,17 +49,22 @@ type SBaseIdentityDriver struct {
 	IdpId    string
 	IdpName  string
 	Template string
+
+	TargetDomainId    string
+	AutoCreateProject bool
 }
 
 func (base *SBaseIdentityDriver) IIdentityBackend() IIdentityBackend {
 	return base.GetVirtualObject().(IIdentityBackend)
 }
 
-func NewBaseIdentityDriver(idpId, idpName, template string, conf api.TIdentityProviderConfigs) (SBaseIdentityDriver, error) {
+func NewBaseIdentityDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TIdentityProviderConfigs) (SBaseIdentityDriver, error) {
 	drv := SBaseIdentityDriver{}
 	drv.IdpId = idpId
 	drv.IdpName = idpName
 	drv.Template = template
+	drv.TargetDomainId = targetDomainId
+	drv.AutoCreateProject = autoCreateProject
 	drv.Config = conf
 	return drv, nil
 }

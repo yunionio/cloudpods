@@ -20,6 +20,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/keystone/models"
@@ -39,6 +40,7 @@ func (self *IdentityProviderDeleteTask) OnInit(ctx context.Context, obj db.IStan
 
 	err := idp.Purge(ctx, self.UserCred)
 	if err != nil {
+		idp.SetStatus(self.UserCred, api.IdentityDriverStatusDeleteFailed, err.Error())
 		self.SetStageFailed(ctx, fmt.Sprintf("purge failed %s", err))
 		logclient.AddActionLogWithStartable(self, idp, logclient.ACT_DELETE, err, self.UserCred, false)
 		return

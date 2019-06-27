@@ -19,6 +19,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"gopkg.in/ldap.v3"
+
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
@@ -46,7 +48,7 @@ func (self *SLDAPDriver) Sync(ctx context.Context) error {
 	}
 	defer cli.Close()
 
-	if self.ldapConfig.ImportDomain {
+	if len(self.ldapConfig.DomainTreeDN) > 0 {
 		return self.syncDomains(ctx, cli)
 	} else {
 		return self.syncSingleDomain(ctx, cli)
@@ -54,10 +56,25 @@ func (self *SLDAPDriver) Sync(ctx context.Context) error {
 }
 
 func (self *SLDAPDriver) syncSingleDomain(ctx context.Context, cli *ldaputils.SLDAPClient) error {
-	domainInfo := SDomainInfo{DN: self.ldapConfig.Suffix, Id: api.DefaultRemoteDomainId, Name: self.IdpName}
-	domain, err := self.syncDomainInfo(ctx, domainInfo)
-	if err != nil {
-		return errors.Wrap(err, "syncDomainInfo")
+	var domain *models.SDomain
+	if len(self.TargetDomainId) > 0 {
+		targetDomain, err := models.DomainManager.FetchDomainById(self.TargetDomainId)
+		if err != nil && err != sql.ErrNoRows {
+			return errors.Wrap(err, "models.DomainManager.FetchDomainById")
+		}
+		if targetDomain == nil {
+			log.Warningln("target domain not exist!")
+		} else {
+			domain = targetDomain
+		}
+	}
+	if domain == nil {
+		domainInfo := SDomainInfo{DN: self.ldapConfig.Suffix, Id: api.DefaultRemoteDomainId, Name: self.IdpName}
+		newDomain, err := self.syncDomainInfo(ctx, domainInfo)
+		if err != nil {
+			return errors.Wrap(err, "syncDomainInfo")
+		}
+		domain = newDomain
 	}
 	userIdMap, err := self.syncUsers(ctx, cli, domain.Id, self.getUserTreeDN())
 	if err != nil {
@@ -70,14 +87,22 @@ func (self *SLDAPDriver) syncSingleDomain(ctx context.Context, cli *ldaputils.SL
 	return nil
 }
 
-func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPClient) error {
-	entries, err := cli.Search(self.getDomainTreeDN(),
+func (self *SLDAPDriver) searchDomainEntries(cli *ldaputils.SLDAPClient, domainid string) ([]*ldap.Entry, error) {
+	attrMap := make(map[string]string)
+	if len(domainid) > 0 {
+		attrMap[self.ldapConfig.DomainIdAttribute] = domainid
+	}
+	return cli.Search(self.getDomainTreeDN(),
 		self.ldapConfig.DomainObjectclass,
-		nil,
+		attrMap,
 		self.ldapConfig.DomainFilter,
 		self.domainAttributeList(),
 		self.domainQueryScope(),
 	)
+}
+
+func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPClient) error {
+	entries, err := self.searchDomainEntries(cli, "")
 	if err != nil {
 		return errors.Wrap(err, "searchLDAP")
 	}
@@ -99,7 +124,7 @@ func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPCl
 		}
 	}
 	// remove any obsolete domain Id_mappings
-	err = models.IdmappingManager.DeleteAny(self.IdpId, api.IdMappingEntityDomain, domainLocalIds)
+	err = models.IdmappingManager.DeleteAny(self.IdpId, api.IdMappingEntityDomain, domainLocalIds, nil)
 	if err != nil {
 		log.Errorf("delete remvoed remote domain fail %s", err)
 	}
@@ -155,7 +180,7 @@ func (self *SLDAPDriver) syncDomainInfo(ctx context.Context, info SDomainInfo) (
 		return nil, errors.Wrap(err, "insert")
 	}
 
-	if self.ldapConfig.AutoCreateProject {
+	if self.AutoCreateProject {
 		project := &models.SProject{}
 		project.SetModelManager(models.ProjectManager, project)
 		projectName := models.NormalizeProjectName(fmt.Sprintf("%s_default_project", info.Name))
@@ -205,9 +230,15 @@ func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClie
 			userIdMap[userInfo.DN] = userId
 		}
 	}
-	err = models.IdmappingManager.DeleteAny(self.IdpId, api.IdMappingEntityUser, userLocalIds)
+	deleteUsrIds, err := models.UserManager.FetchUserLocalIdsInDomain(domainId, userLocalIds)
 	if err != nil {
-		log.Errorf("delete removed remote user fail %s", err)
+		return nil, errors.Wrap(err, "models.UserManager.FetchUserIdsInDomain")
+	}
+	if len(deleteUsrIds) > 0 {
+		err = models.IdmappingManager.DeleteAny(self.IdpId, api.IdMappingEntityUser, nil, deleteUsrIds)
+		if err != nil {
+			log.Errorf("delete removed remote user fail %s", err)
+		}
 	}
 	return userIdMap, nil
 }
@@ -272,6 +303,8 @@ func (self *SLDAPDriver) syncUserDB(ctx context.Context, ui SUserInfo, domainId 
 		return "", errors.Wrap(err, "models.IdmappingManager.RegisterIdMap")
 	}
 
+	log.Debugf("syncUserDB: %s", userId)
+
 	// insert nonlocal user
 	err = registerNonlocalUser(ctx, ui, userId, domainId)
 	if err != nil {
@@ -301,9 +334,15 @@ func (self *SLDAPDriver) syncGroups(ctx context.Context, cli *ldaputils.SLDAPCli
 			return errors.Wrap(err, "syncGroupDB")
 		}
 	}
-	err = models.IdmappingManager.DeleteAny(self.IdpId, api.IdMappingEntityGroup, groupLocalIds)
+	deleteGroupIds, err := models.GroupManager.FetchGroupLocalIdsInDomain(domainId, groupLocalIds)
 	if err != nil {
-		log.Errorf("delete removed remote group fail %s", err)
+		return errors.Wrap(err, "models.GroupManager.FetchGroupIdsInDomain")
+	}
+	if len(groupLocalIds) > 0 {
+		err = models.IdmappingManager.DeleteAny(self.IdpId, api.IdMappingEntityGroup, nil, deleteGroupIds)
+		if err != nil {
+			log.Errorf("delete removed remote group fail %s", err)
+		}
 	}
 	return nil
 }
