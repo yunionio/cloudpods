@@ -29,37 +29,35 @@ type DHCPServer struct {
 	conn    *Conn
 }
 
-func NewDHCPServer(address string, port int) *DHCPServer {
+// net.ListenPacket
+func NewDHCPServer(address string, port int) (*DHCPServer, error) {
+	dhcpAddr := fmt.Sprintf("%s:%d", address, port)
+	dhcpConn, err := NewConn(dhcpAddr, false)
+	if err != nil {
+		return nil, fmt.Errorf("New DHCP connection error: %v", err)
+	}
 	return &DHCPServer{
 		Address: address,
 		Port:    port,
-	}
+		conn:    dhcpConn,
+	}, nil
 }
 
-func NewDHCPServer2(iface string, port uint16) (*DHCPServer, *Conn, error) {
-	bpf := []bpf.RawInstruction{ // ip and udp and dst port 67
-		{0x28, 0, 0, 0x0000000c},
-		{0x15, 0, 8, 0x00000800},
-		{0x30, 0, 0, 0x00000017},
-		{0x15, 0, 6, 0x00000011},
-		{0x28, 0, 0, 0x00000014},
-		{0x45, 4, 0, 0x00001fff},
-		{0xb1, 0, 0, 0x0000000e},
-		{0x48, 0, 0, 0x00000010},
-		{0x15, 0, 1, uint32(port)},
-		{0x6, 0, 0, 0x00040000},
-		{0x6, 0, 0, 0x00000000},
-	}
-	conn, err := NewSocketConn(iface, bpf)
+// udp socket
+func NewDHCPServer3(address string, port int) (*DHCPServer, error) {
+	dhcpConn, err := NewSocketConn(address, port)
 	if err != nil {
-		return nil, nil, err
+		return nil, fmt.Errorf("New DHCP connection error: %v", err)
 	}
 	return &DHCPServer{
-		conn: conn,
-	}, conn, nil
+		Address: address,
+		Port:    port,
+		conn:    dhcpConn,
+	}, nil
 }
 
-func NewDHCPServerWithRelay(iface string, dhcpServerPort, dhcpRelayPort uint16) (*DHCPServer, *Conn, error) {
+// raw socket
+func NewDHCPServer2(iface string, dhcpServerPort, dhcpRelayPort uint16) (*DHCPServer, *Conn, error) {
 	// ip and udp and port 67 and port 68
 	bpf := []bpf.RawInstruction{
 		{0x28, 0, 0, 0x0000000c},
@@ -79,7 +77,7 @@ func NewDHCPServerWithRelay(iface string, dhcpServerPort, dhcpRelayPort uint16) 
 		{0x6, 0, 0, 0x00040000},
 		{0x6, 0, 0, 0x00000000},
 	}
-	conn, err := NewSocketConn(iface, bpf)
+	conn, err := NewRawSocketConn(iface, bpf)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -93,14 +91,6 @@ type DHCPHandler interface {
 }
 
 func (s *DHCPServer) ListenAndServe(handler DHCPHandler) error {
-	if s.conn == nil {
-		dhcpAddr := fmt.Sprintf("%s:%d", s.Address, s.Port)
-		dhcpConn, err := NewConn(dhcpAddr, false)
-		if err != nil {
-			return fmt.Errorf("Listen DHCP connection error: %v", err)
-		}
-		s.conn = dhcpConn
-	}
 	defer s.conn.Close()
 	return s.serveDHCP(handler)
 }
