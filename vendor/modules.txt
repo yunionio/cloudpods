@@ -337,9 +337,9 @@ github.com/kr/pty
 github.com/libvirt/libvirt-go-xml
 # github.com/marstr/guid v1.1.0
 github.com/marstr/guid
-# github.com/mattn/go-colorable v0.0.9
+# github.com/mattn/go-colorable v0.1.2
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.4
+# github.com/mattn/go-isatty v0.0.8
 github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.4
 github.com/mattn/go-runewidth
@@ -372,6 +372,8 @@ github.com/modern-go/reflect2
 github.com/mohae/deepcopy
 # github.com/moul/http2curl v1.0.0
 github.com/moul/http2curl
+# github.com/mozillazg/go-pinyin v0.15.0
+github.com/mozillazg/go-pinyin
 # github.com/mschoch/smat v0.0.0-20160514031455-90eadee771ae
 github.com/mschoch/smat
 # github.com/nelsonken/cos-go-sdk-v5 v0.0.0-20180622024522-5247afdb7a80
@@ -436,7 +438,7 @@ github.com/shirou/gopsutil/process
 github.com/shirou/gopsutil/internal/common
 # github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4
 github.com/shirou/w32
-# github.com/sirupsen/logrus v1.2.0
+# github.com/sirupsen/logrus v1.4.2
 github.com/sirupsen/logrus
 # github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72
 github.com/spaolacci/murmur3
@@ -489,7 +491,7 @@ github.com/willf/bitset
 github.com/willf/bloom
 # go.etcd.io/etcd v3.3.10+incompatible
 go.etcd.io/etcd/clientv3
-# golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
+# golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4
 golang.org/x/crypto/ssh
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/ssh/terminal
@@ -720,7 +722,7 @@ k8s.io/kubernetes/pkg/scheduler/api/v1
 k8s.io/kubernetes/pkg/scheduler/api
 # sigs.k8s.io/yaml v1.1.0
 sigs.k8s.io/yaml
-# yunion.io/x/jsonutils v0.0.0-20190613101330-71384b7a9233
+# yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051
 yunion.io/x/jsonutils
 # yunion.io/x/log v0.0.0-20190514041436-04ce53b17c6b
 yunion.io/x/log
@@ -757,5 +759,5 @@ yunion.io/x/pkg/util/runtime
 yunion.io/x/pkg/util/clock
 # yunion.io/x/sqlchemy v0.0.0-20190624021043-a2ed237bb1f7
 yunion.io/x/sqlchemy
-# yunion.io/x/structarg v0.0.0-20190622051356-20d0c9b7b3cd
+# yunion.io/x/structarg v0.0.0-20190625074850-3c0636a9fffe
 yunion.io/x/structarg
