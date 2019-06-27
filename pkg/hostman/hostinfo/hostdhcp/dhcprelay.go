@@ -21,7 +21,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mdlayher/arp"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/util/dhcp"
@@ -48,12 +47,11 @@ type SDHCPRelay struct {
 
 	destaddr net.IP
 	destport int
-	destmac  net.HardwareAddr
 
 	cache sync.Map
 }
 
-func NewDHCPRelay(guestDHCPConn *dhcp.Conn, addrs []string, iface string) (*SDHCPRelay, error) {
+func NewDHCPRelay(guestDHCPConn *dhcp.Conn, addrs []string) (*SDHCPRelay, error) {
 	relay := new(SDHCPRelay)
 	relay.guestDHCPConn = guestDHCPConn
 	addr := addrs[0]
@@ -67,65 +65,21 @@ func NewDHCPRelay(guestDHCPConn *dhcp.Conn, addrs []string, iface string) (*SDHC
 	relay.destport = port
 	relay.cache = sync.Map{}
 
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return nil, fmt.Errorf("Get interfaces error %s", err)
-	}
-
-	for _, i := range ifaces {
-		addrs, err := i.Addrs()
-		if err != nil {
-			log.Warningf("iface get addrs error %s", err)
-			continue
-		}
-		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
-			}
-			if ip.Equal(relay.destaddr) {
-				relay.destmac = i.HardwareAddr
-				break
-			}
-		}
-		if len(relay.destmac) > 0 {
-			break
-		}
-	}
-
-	if len(relay.destmac) == 0 {
-		ifi, err := net.InterfaceByName(iface)
-		if err != nil {
-			return nil, fmt.Errorf("Interface by name error %s", err)
-		}
-
-		cli, err := arp.Dial(ifi)
-		if err != nil {
-			return nil, fmt.Errorf("ARP Dial error %s", err)
-		}
-
-		go func() {
-			defer cli.Close()
-			for len(relay.destmac) == 0 {
-				var e error
-				relay.destmac, e = cli.Resolve(relay.destaddr)
-				if e != nil {
-					log.Errorf("ARP resolve dest mac error %s", e)
-				} else {
-					log.Infof("Relay mac address fetch success %s", relay.destmac)
-				}
-			}
-		}()
-	}
-
 	return relay, nil
 }
 
 func (r *SDHCPRelay) Setup(addr string) error {
 	r.ipv4srcAddr = net.ParseIP(addr)
+	if len(r.ipv4srcAddr) == 0 {
+		return fmt.Errorf("Wrong ip address %s", addr)
+	}
+	log.Infof("DHCP Relay Setup on %s %d", addr, DEFAULT_DHCP_RELAY_PORT)
+	var err error
+	r.server, err = dhcp.NewDHCPServer3(addr, DEFAULT_DHCP_RELAY_PORT)
+	if err != nil {
+		return err
+	}
+	go r.server.ListenAndServe(r)
 	return nil
 }
 
@@ -151,11 +105,6 @@ func (r *SDHCPRelay) Relay(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interfa
 		return nil, nil
 	}
 
-	if len(r.destmac) == 0 {
-		log.Warningf("DHCP relay mac address not ready")
-		return nil, nil
-	}
-
 	log.Infof("Receive DHCP Relay Rquest FROM %s %s", addr.IP, pkt.CHAddr())
 	// clean cache first
 	var now = time.Now().Add(time.Second * -30)
@@ -176,6 +125,6 @@ func (r *SDHCPRelay) Relay(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interfa
 
 	pkt.SetGIAddr(r.ipv4srcAddr)
 
-	err := r.guestDHCPConn.SendDHCP(pkt, &net.UDPAddr{IP: r.destaddr, Port: r.destport}, r.destmac, intf)
+	err := r.server.GetConn().SendDHCP(pkt, &net.UDPAddr{IP: r.destaddr, Port: r.destport}, nil, intf)
 	return nil, err
 }
