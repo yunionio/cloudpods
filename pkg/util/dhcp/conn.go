@@ -35,6 +35,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/google/gopacket"
@@ -88,8 +89,16 @@ type Conn struct {
 	ifIndex int
 }
 
-func NewSocketConn(iface string, filter []bpf.RawInstruction) (*Conn, error) {
-	conn, err := newSocketConn(iface, filter)
+func NewRawSocketConn(iface string, filter []bpf.RawInstruction) (*Conn, error) {
+	conn, err := newRawSocketConn(iface, filter)
+	if err != nil {
+		return nil, err
+	}
+	return &Conn{conn, 0}, nil
+}
+
+func NewSocketConn(addr string, port int) (*Conn, error) {
+	conn, err := newSocketConn(net.ParseIP(addr), port, false)
 	if err != nil {
 		return nil, err
 	}
@@ -252,6 +261,7 @@ func newPortableConn(_ net.IP, port int, _ bool) (conn, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	l := ipv4.NewPacketConn(c)
 	if err = l.SetControlMessage(ipv4.FlagInterface, true); err != nil {
 		l.Close()
@@ -292,7 +302,7 @@ func (c *portableConn) SetWriteDeadline(t time.Time) error {
 	return c.conn.SetWriteDeadline(t)
 }
 
-type socketConn struct {
+type rawSocketConn struct {
 	conn *raw.Conn
 
 	iface *net.Interface
@@ -322,7 +332,7 @@ func interfaceToIPv4Addr(ifi *net.Interface) (net.IP, error) {
 	return nil, errors.New("no such network interface")
 }
 
-func newSocketConn(iface string, filter []bpf.RawInstruction) (conn, error) {
+func newRawSocketConn(iface string, filter []bpf.RawInstruction) (conn, error) {
 	ifi, err := net.InterfaceByName(iface)
 	if err != nil {
 		return nil, fmt.Errorf("interface by name: %v", err)
@@ -338,14 +348,14 @@ func newSocketConn(iface string, filter []bpf.RawInstruction) (conn, error) {
 		NoCumulativeStats: true,
 		Filter:            filter,
 	})
-	return &socketConn{conn, ifi, ip}, nil
+	return &rawSocketConn{conn, ifi, ip}, nil
 }
 
-func (s *socketConn) Close() error {
+func (s *rawSocketConn) Close() error {
 	return s.conn.Close()
 }
 
-func (s *socketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error) {
+func (s *rawSocketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error) {
 	// read packet
 	n, addr, err := s.conn.ReadFrom(b)
 	if err != nil {
@@ -394,7 +404,7 @@ func (s *socketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int
 	}
 }
 
-func (s *socketConn) Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr, ifidx int) error {
+func (s *rawSocketConn) Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr, ifidx int) error {
 	var dhcp = new(layers.DHCPv4)
 	if err := dhcp.DecodeFromBytes(b, gopacket.NilDecodeFeedback); err != nil {
 		return fmt.Errorf("Decode dhcp bytes error %s", err)
@@ -444,10 +454,91 @@ func (s *socketConn) Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr,
 	return nil
 }
 
-func (s *socketConn) SetReadDeadline(t time.Time) error {
+func (s *rawSocketConn) SetReadDeadline(t time.Time) error {
 	return s.conn.SetReadDeadline(t)
 }
 
-func (s *socketConn) SetWriteDeadline(t time.Time) error {
+func (s *rawSocketConn) SetWriteDeadline(t time.Time) error {
 	return s.conn.SetWriteDeadline(t)
+}
+
+type socketConn struct {
+	sock int
+}
+
+func newSocketConn(addr net.IP, port int, disableBroadcast bool) (conn, error) {
+	var broadcastOpt = 1
+	if disableBroadcast {
+		broadcastOpt = 0
+	}
+	sock, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM, 0)
+	if err != nil {
+		return nil, err
+	}
+	err = syscall.SetsockoptInt(sock, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+	if err != nil {
+		return nil, err
+	}
+	err = syscall.SetsockoptInt(sock, syscall.SOL_SOCKET, syscall.SO_BROADCAST, broadcastOpt)
+	if err != nil {
+		return nil, err
+	}
+	byteAddr := [4]byte{}
+	copy(byteAddr[:], addr.To4()[:4])
+	lsa := &syscall.SockaddrInet4{
+		Port: port,
+		Addr: byteAddr,
+	}
+	if err = syscall.Bind(sock, lsa); err != nil {
+		return nil, err
+	}
+	if err = syscall.SetNonblock(sock, false); err != nil {
+		return nil, err
+	}
+
+	// Its equal syscall.CloseOnExec
+	// most file descriptors are getting set to close-on-exec
+	// apart from syscall open, socket etc.
+	syscall.Syscall(syscall.SYS_FCNTL, uintptr(sock), syscall.F_SETFD, syscall.FD_CLOEXEC)
+	return &socketConn{sock}, nil
+}
+
+func (s *socketConn) Close() error {
+	return syscall.Close(s.sock)
+}
+
+func (s *socketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error) {
+	n, a, err := syscall.Recvfrom(s.sock, b, 0)
+	if err != nil {
+		return nil, nil, nil, 0, err
+	}
+	if addr, ok := a.(*syscall.SockaddrInet4); !ok {
+		return nil, nil, nil, 0, errors.New("Recvfrom recevice address is not famliy Inet4")
+	} else {
+		ip := net.IP{addr.Addr[0], addr.Addr[1], addr.Addr[2], addr.Addr[3]}
+		udpAddr := &net.UDPAddr{
+			IP:   ip,
+			Port: addr.Port,
+		}
+		// there is no interface index info
+		return b[:n], udpAddr, nil, 0, nil
+	}
+}
+
+func (s *socketConn) Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr, ifidx int) error {
+	destIp := [4]byte{}
+	copy(destIp[:], addr.IP.To4()[:4])
+	destAddr := &syscall.SockaddrInet4{
+		Addr: destIp,
+		Port: addr.Port,
+	}
+	return syscall.Sendto(s.sock, b, 0, destAddr)
+}
+
+func (s *socketConn) SetReadDeadline(t time.Time) error {
+	return errors.New("Not Implement")
+}
+
+func (s *socketConn) SetWriteDeadline(t time.Time) error {
+	return errors.New("Not Implement")
 }

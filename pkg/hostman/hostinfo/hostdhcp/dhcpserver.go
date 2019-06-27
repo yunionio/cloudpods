@@ -31,7 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 )
 
-const DHCP_RELAY_SERVER_PORT = 68
+const DEFAULT_DHCP_CLIENT_PORT = 68
 
 type SGuestDHCPServer struct {
 	server *dhcp.DHCPServer
@@ -51,18 +51,13 @@ func NewGuestDHCPServer(iface string, relay []string) (*SGuestDHCPServer, error)
 		return nil, fmt.Errorf("Wrong dhcp relay address")
 	}
 
+	guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(iface, uint16(options.HostOptions.DhcpServerPort), DEFAULT_DHCP_CLIENT_PORT)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(relay) == 2 {
-		// port 67 for dhcp server, 68 for dhcp relay server
-		guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServerWithRelay(iface, uint16(options.HostOptions.DhcpServerPort), DHCP_RELAY_SERVER_PORT)
-		if err != nil {
-			return nil, err
-		}
-		guestdhcp.relay, err = NewDHCPRelay(guestdhcp.conn, relay, iface)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		guestdhcp.server, guestdhcp.conn, err = dhcp.NewDHCPServer2(iface, uint16(options.HostOptions.DhcpServerPort))
+		guestdhcp.relay, err = NewDHCPRelay(guestdhcp.conn, relay)
 		if err != nil {
 			return nil, err
 		}
@@ -160,22 +155,22 @@ func (s *SGuestDHCPServer) getConfig(pkt dhcp.Packet) *dhcp.ResponseConfig {
 	return nil
 }
 
+func (s *SGuestDHCPServer) IsDhcpPacket(pkt dhcp.Packet) bool {
+	return pkt != nil && (pkt.Type() == dhcp.Request || pkt.Type() == dhcp.Discover)
+}
+
 func (s *SGuestDHCPServer) ServeDHCP(pkt dhcp.Packet, addr *net.UDPAddr, intf *net.Interface) (dhcp.Packet, error) {
-	if addr.Port == 67 {
-		// dhcp relay
-		s.relay.ServeDHCP(pkt, addr, intf)
-		return nil, nil
-	} else {
-		var conf = s.getConfig(pkt)
-		if conf != nil {
-			log.Infof("Make DHCP Reply %s TO %s", conf.ClientIP, pkt.CHAddr())
-			// Guest request ip
-			return dhcp.MakeReplyPacket(pkt, conf)
-		} else if s.relay != nil {
-			// Host agent as dhcp relay, relay to baremetal
-			return s.relay.Relay(pkt, addr, intf)
-		}
+	if !s.IsDhcpPacket(pkt) {
 		return nil, nil
 	}
-
+	var conf = s.getConfig(pkt)
+	if conf != nil {
+		log.Infof("Make DHCP Reply %s TO %s", conf.ClientIP, pkt.CHAddr())
+		// Guest request ip
+		return dhcp.MakeReplyPacket(pkt, conf)
+	} else if s.relay != nil && s.relay.server != nil {
+		// Host agent as dhcp relay, relay to baremetal
+		return s.relay.Relay(pkt, addr, intf)
+	}
+	return nil, nil
 }
