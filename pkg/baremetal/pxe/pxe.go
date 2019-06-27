@@ -128,10 +128,7 @@ func (s *Server) Serve() error {
 		return err
 	}
 
-	dhcpSrv, _, err := dhcp.NewDHCPServer2(s.ListenIface, uint16(s.DHCPPort))
-	if err != nil {
-		return err
-	}
+	dhcpSrv := dhcp.NewDHCPServer(s.Address, s.DHCPPort)
 
 	s.errs = make(chan error)
 
