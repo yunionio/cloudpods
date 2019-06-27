@@ -2440,6 +2440,14 @@ func (self *SGuest) PerformAssociateEip(ctx context.Context, userCred mcclient.T
 		return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different region")
 	}
 
+	eipZone := eip.GetZone()
+	if eipZone != nil {
+		insZone := self.getZone()
+		if eipZone.Id != insZone.Id {
+			return nil, httperrors.NewInputParameterError("cannot associate eip and instance in different zone")
+		}
+	}
+
 	host := self.GetHost()
 	if host == nil {
 		return nil, httperrors.NewInputParameterError("server host is not found???")

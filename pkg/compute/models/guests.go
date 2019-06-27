@@ -378,6 +378,38 @@ func (manager *SGuestManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 		}
 	}
 
+	usableServerForEipFilter, _ := queryDict.GetString("usable_server_for_eip")
+	if len(usableServerForEipFilter) > 0 {
+		eipObj, err := ElasticipManager.FetchByIdOrName(userCred, usableServerForEipFilter)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError("eip %s not found", usableServerForEipFilter)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		eip := eipObj.(*SElasticip)
+		hostTable := HostManager.Query().SubQuery()
+		zoneTable := ZoneManager.Query().SubQuery()
+		hostQ := hostTable.Query(hostTable.Field("id")).Join(zoneTable,
+			sqlchemy.Equals(zoneTable.Field("id"), hostTable.Field("zone_id"))).Equals("manager_id", eip.ManagerId)
+
+		if len(eip.NetworkId) > 0 {
+			network, err := eip.GetNetwork()
+			if err != nil {
+				return nil, err
+			}
+			zone := network.getZone()
+			sq := hostQ.Filter(sqlchemy.Equals(zoneTable.Field("id"), zone.GetId())).SubQuery()
+			q = q.In("host_id", sq)
+		} else {
+			region := eip.GetRegion()
+			regionTable := CloudregionManager.Query().SubQuery()
+			sq := hostQ.Join(regionTable, sqlchemy.Equals(zoneTable.Field("cloudregion_id"), regionTable.Field("id"))).
+				Filter(sqlchemy.Equals(regionTable.Field("id"), region.GetId())).SubQuery()
+			q = q.In("host_id", sq)
+		}
+	}
+
 	zoneFilter, _ := queryDict.GetString("zone")
 	if len(zoneFilter) > 0 {
 		zone, _ := ZoneManager.FetchByIdOrName(nil, zoneFilter)

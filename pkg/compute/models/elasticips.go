@@ -122,6 +122,38 @@ func (manager *SElasticipManager) ListItemFilter(ctx context.Context, q *sqlchem
 		q = q.Equals("cloudregion_id", regionObj.GetId())
 	}
 
+	associateType, _ := query.GetString("usable_eip_for_associate_type")
+	associateId, _ := query.GetString("usable_eip_for_associate_id")
+	if len(associateType) > 0 && len(associateId) > 0 {
+		switch associateType {
+		case api.EIP_ASSOCIATE_TYPE_SERVER:
+			serverObj, err := GuestManager.FetchByIdOrName(userCred, associateId)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					return nil, httperrors.NewResourceNotFoundError("server %s not found", regionFilter)
+				}
+				return nil, httperrors.NewGeneralError(err)
+			}
+			guest := serverObj.(*SGuest)
+			if utils.IsInStringArray(guest.Hypervisor, api.PRIVATE_CLOUD_HYPERVISORS) {
+				zone := guest.getZone()
+				networks := NetworkManager.Query().SubQuery()
+				wires := WireManager.Query().SubQuery()
+
+				sq := networks.Query(networks.Field("id")).Join(wires, sqlchemy.Equals(wires.Field("id"), networks.Field("wire_id"))).
+					Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id)).SubQuery()
+				q = q.Filter(sqlchemy.In(q.Field("network_id"), sq))
+			} else {
+				region := guest.getRegion()
+				q = q.Equals("cloudregion_id", region.Id)
+			}
+			managerId := guest.GetHost().ManagerId
+			q = q.Equals("manager_id", managerId)
+		default:
+			return nil, httperrors.NewInputParameterError("Not support associate type %s, only support %s", associateType, api.EIP_ASSOCIATE_VALID_TYPES)
+		}
+	}
+
 	/*accountStr := jsonutils.GetAnyString(query, []string{"account", "account_id", "cloudaccount", "cloudaccount_id"})
 	if len(accountStr) > 0 {
 		account, err := CloudaccountManager.FetchByIdOrName(nil, accountStr)
@@ -167,6 +199,25 @@ func (manager *SElasticipManager) getEipsByRegion(region *SCloudregion, provider
 
 func (self *SElasticip) GetRegion() *SCloudregion {
 	return CloudregionManager.FetchRegionById(self.CloudregionId)
+}
+
+func (self *SElasticip) GetNetwork() (*SNetwork, error) {
+	network, err := NetworkManager.FetchById(self.NetworkId)
+	if err != nil {
+		return nil, err
+	}
+	return network.(*SNetwork), nil
+}
+
+func (self *SElasticip) GetZone() *SZone {
+	if len(self.NetworkId) == 0 {
+		return nil
+	}
+	network, err := self.GetNetwork()
+	if err != nil {
+		return nil
+	}
+	return network.getZone()
 }
 
 func (self *SElasticip) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
@@ -693,6 +744,14 @@ func (self *SElasticip) PerformAssociate(ctx context.Context, userCred mcclient.
 
 	if serverRegion.Id != eipRegion.Id {
 		return nil, httperrors.NewInputParameterError("eip and server are not in the same region")
+	}
+
+	eipZone := self.GetZone()
+	if eipZone != nil {
+		serverZone := server.getZone()
+		if serverZone.Id != eipZone.Id {
+			return nil, httperrors.NewInputParameterError("eip and server are not in the same zone")
+		}
 	}
 
 	srvHost := server.GetHost()
