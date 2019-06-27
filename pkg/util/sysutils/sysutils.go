@@ -63,9 +63,10 @@ func ParseDMISysinfo(lines []string) (*types.SDMISystemInfo, error) {
 func ParseCPUInfo(lines []string) (*types.SCPUInfo, error) {
 	cnt := 0
 	var (
-		model string
-		freq  string
-		cache string
+		model     string
+		freq      string
+		cache     string
+		microcode string
 	)
 	lv := func(line string) string {
 		return strings.TrimSpace(line[strings.Index(line, ":")+1:])
@@ -79,6 +80,9 @@ func ParseCPUInfo(lines []string) (*types.SCPUInfo, error) {
 		}
 		if len(cache) == 0 && strings.HasPrefix(line, "cache size") {
 			cache = strings.TrimSpace(line[strings.Index(line, ":")+1 : strings.Index(line, " KB")])
+		}
+		if len(microcode) == 0 && strings.HasPrefix(line, "microcode") {
+			microcode = lv(line)
 		}
 		if strings.HasPrefix(line, "processor") {
 			cnt += 1
@@ -95,8 +99,9 @@ func ParseCPUInfo(lines []string) (*types.SCPUInfo, error) {
 	}
 	model = strings.TrimSpace(model)
 	info := &types.SCPUInfo{
-		Count: cnt,
-		Model: model,
+		Count:     cnt,
+		Model:     model,
+		Microcode: microcode,
 	}
 	info.Cache, _ = strconv.Atoi(cache)
 	freqF, _ := strconv.ParseFloat(freq, 32)

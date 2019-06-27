@@ -25,10 +25,11 @@ func (info *SDMISystemInfo) ToIPMISystemInfo() *SIPMISystemInfo {
 }
 
 type SCPUInfo struct {
-	Count int    `json:"count"`
-	Model string `json:"desc"`
-	Freq  int    `json:"freq"`
-	Cache int    `json:"cache"`
+	Count     int    `json:"count"`
+	Model     string `json:"desc"`
+	Freq      int    `json:"freq"`
+	Cache     int    `json:"cache"`
+	Microcode string `json:"microcode"`
 }
 
 type SDMICPUInfo struct {
