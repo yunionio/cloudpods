@@ -181,20 +181,22 @@ func (h *ApiHelper) agentPeek(ctx context.Context) *agentPeekResult {
 
 func (h *ApiHelper) runInit(ctx context.Context) {
 	h.haState = <-h.haStateProvider.StateChannel()
-	r := h.agentPeek(ctx)
-	if r == nil {
-		return
-	}
-	if !r.staleInFuture(h.opts.ApiLbagentHbTimeoutRelaxation) {
-		log.Warningf("agent will stale in %d seconds, ignore old corpus",
-			h.opts.ApiLbagentHbTimeoutRelaxation)
-	} else {
-		h.doHb(ctx)
-		corpus, err := h.loadLocalData(ctx)
-		if err == nil {
-			h.corpus = corpus
+	if false {
+		r := h.agentPeek(ctx)
+		if r == nil {
+			return
+		}
+		if !r.staleInFuture(h.opts.ApiLbagentHbTimeoutRelaxation) {
+			log.Warningf("agent will stale in %d seconds, ignore old corpus",
+				h.opts.ApiLbagentHbTimeoutRelaxation)
 		} else {
-			log.Errorf("load local api data failed: %s", err)
+			h.doHb(ctx)
+			corpus, err := h.loadLocalData(ctx)
+			if err == nil {
+				h.corpus = corpus
+			} else {
+				log.Errorf("load local api data failed: %s", err)
+			}
 		}
 	}
 	// better reload now because agent data is not in corpus yet
