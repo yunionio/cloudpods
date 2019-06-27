@@ -47,11 +47,9 @@ type SLDAPIdpConfigOptions struct {
 	Url        string `json:"url,omitempty" help:"LDAP server URL" required:"true"`
 	Suffix     string `json:"suffix,omitempty" required:"true"`
 	QueryScope string `json:"query_scope,omitempty" help:"Query scope, either one or sub" choices:"one|sub"`
-	// PageSize   int    `json:"page_size,omitzero" help:"Page size, default 20" default:"20"`
+
 	User     string `json:"user,omitempty"`
 	Password string `json:"password,omitempty"`
-
-	ImportDomain bool `json:"import_domain,omitfalse"`
 
 	DomainTreeDN        string `json:"domain_tree_dn,omitempty" help:"Domain tree root node dn(distinguished name)"`
 	DomainFilter        string `json:"domain_filter,omitempty"`

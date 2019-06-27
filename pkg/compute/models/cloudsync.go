@@ -925,7 +925,8 @@ func syncPublicCloudProviderInfo(
 
 	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 	for i := range storageCachePairs {
-		if storageCachePairs[i].isNew || syncRange.DeepSync {
+		// always sync private cloud cached images
+		if storageCachePairs[i].isNew || syncRange.DeepSync || !driver.GetFactory().IsPublicCloud() {
 			result := storageCachePairs[i].syncCloudImages(ctx, userCred)
 
 			syncResults.Add(StoragecachedimageManager, result)
@@ -991,12 +992,13 @@ func syncOnPremiseCloudProviderInfo(
 
 	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 	for i := range storageCachePairs {
-		if storageCachePairs[i].isNew || syncRange.DeepSync {
-			result := storageCachePairs[i].syncCloudImages(ctx, userCred)
-			syncResults.Add(StoragecachedimageManager, result)
-			msg := result.Result()
-			log.Infof("syncCloudImages result: %s", msg)
-		}
+		// alway sync on-premise cached images
+		// if storageCachePairs[i].isNew || syncRange.DeepSync {
+		result := storageCachePairs[i].syncCloudImages(ctx, userCred)
+		syncResults.Add(StoragecachedimageManager, result)
+		msg := result.Result()
+		log.Infof("syncCloudImages result: %s", msg)
+		// }
 	}
 	return nil
 }

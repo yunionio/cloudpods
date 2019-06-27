@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -29,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 )
 
 type SProjectManager struct {
@@ -311,4 +313,14 @@ func projectExtra(proj *SProject, extra *jsonutils.JSONDict) *jsonutils.JSONDict
 
 func (proj *SProject) getExternalResources() (map[string]int, error) {
 	return ProjectResourceManager.getProjectResource(proj.Id)
+}
+
+func NormalizeProjectName(name string) string {
+	name = pinyinutils.Text2Pinyin(name)
+	for _, illChar := range []string{
+		"/", ".", " ",
+	} {
+		name = strings.ReplaceAll(name, illChar, "")
+	}
+	return name
 }

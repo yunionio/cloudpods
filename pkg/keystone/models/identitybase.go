@@ -19,14 +19,15 @@ import (
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/log"
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/logclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -231,4 +232,19 @@ func (self *SEnabledIdentityBaseResource) ValidateDeleteCondition(ctx context.Co
 		return httperrors.NewResourceBusyError("resource is enabled")
 	}
 	return self.SIdentityBaseResource.ValidateDeleteCondition(ctx)
+}
+
+func (model *SIdentityBaseResource) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	model.SStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_CREATE, data, userCred, true)
+}
+
+func (model *SIdentityBaseResource) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	model.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_UPDATE, data, userCred, true)
+}
+
+func (model *SIdentityBaseResource) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
+	model.SStandaloneResourceBase.PostDelete(ctx, userCred)
+	logclient.AddActionLogWithContext(ctx, model, logclient.ACT_DELETE, nil, userCred, true)
 }

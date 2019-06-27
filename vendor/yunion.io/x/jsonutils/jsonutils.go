@@ -39,7 +39,6 @@ type JSONObject interface {
 	YAMLString() string
 	QueryString() string
 	_queryString(key string) string
-	yamlLines() []string
 	Contains(keys ...string) bool
 	ContainsIgnoreCases(keys ...string) bool
 	Get(keys ...string) (JSONObject, error)

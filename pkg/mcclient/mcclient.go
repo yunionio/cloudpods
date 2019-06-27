@@ -93,6 +93,10 @@ func (this *Client) AuthVersion() string {
 	}
 }
 
+func (this *Client) SetServiceCatalog(catalog IServiceCatalog) {
+	this.serviceCatalog = catalog
+}
+
 func (this *Client) NewAuthTokenCredential() TokenCredential {
 	if this.AuthVersion() == "v3" {
 		return &TokenCredentialV3{}

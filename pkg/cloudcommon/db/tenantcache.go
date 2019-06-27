@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/httputils"
+	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
 type STenantCacheManager struct {
@@ -123,10 +124,14 @@ func (manager *STenantCacheManager) fetchTenant(ctx context.Context, idStr strin
 
 func (manager *STenantCacheManager) FetchTenantByIdOrName(ctx context.Context, idStr string) (*STenant, error) {
 	return manager.fetchTenant(ctx, idStr, false, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		return q.Filter(sqlchemy.OR(
-			sqlchemy.Equals(q.Field("id"), idStr),
-			sqlchemy.Equals(q.Field("name"), idStr),
-		))
+		if stringutils2.IsUtf8(idStr) {
+			return q.Equals("name", idStr)
+		} else {
+			return q.Filter(sqlchemy.OR(
+				sqlchemy.Equals(q.Field("id"), idStr),
+				sqlchemy.Equals(q.Field("name"), idStr),
+			))
+		}
 	})
 }
 
@@ -167,10 +172,14 @@ func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context,
 
 func (manager *STenantCacheManager) FetchDomainByIdOrName(ctx context.Context, idStr string) (*STenant, error) {
 	return manager.fetchTenant(ctx, idStr, true, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
-		return q.Filter(sqlchemy.OR(
-			sqlchemy.Equals(q.Field("id"), idStr),
-			sqlchemy.Equals(q.Field("name"), idStr),
-		))
+		if stringutils2.IsUtf8(idStr) {
+			return q.Equals("name", idStr)
+		} else {
+			return q.Filter(sqlchemy.OR(
+				sqlchemy.Equals(q.Field("id"), idStr),
+				sqlchemy.Equals(q.Field("name"), idStr),
+			))
+		}
 	})
 }
 

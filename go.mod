@@ -86,21 +86,19 @@ require (
 	github.com/kr/pty v1.1.3
 	github.com/libvirt/libvirt-go-xml v5.2.0+incompatible
 	github.com/marstr/guid v1.1.0 // indirect
-	github.com/mattn/go-colorable v0.0.9 // indirect
-	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0 // indirect
 	github.com/mattn/go-tty v0.0.0-20181127064339-e4f871175a2f // indirect
 	github.com/mdlayher/arp v0.0.0-20190313224443-98a83c8a2717
 	github.com/mdlayher/ethernet v0.0.0-20190606142754-0394541c37b7
 	github.com/mdlayher/raw v0.0.0-20190606144222-a54781e5f38f
-	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
 	github.com/mholt/caddy v0.10.11
 	github.com/miekg/dns v1.1.1
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/moul/http2curl v1.0.0
+	github.com/mozillazg/go-pinyin v0.15.0
 	github.com/nelsonken/cos-go-sdk-v5 v0.0.0-20180622024522-5247afdb7a80
 	github.com/opentracing-contrib/go-observer v0.0.0-20170622124052-a52f23424492 // indirect
 	github.com/opentracing/opentracing-go v1.0.2 // indirect
@@ -116,13 +114,11 @@ require (
 	github.com/serialx/hashring v0.0.0-20180504054112-49a4782e9908
 	github.com/shirou/gopsutil v2.18.10+incompatible
 	github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 // indirect
-	github.com/sirupsen/logrus v1.2.0 // indirect
 	github.com/soheilhy/cmux v0.1.4 // indirect
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72 // indirect
 	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/stretchr/testify v1.3.0
 	github.com/tencentcloud/tencentcloud-sdk-go v0.0.0-20181108132626-805d01dd0e2e
-	github.com/texttheater/golang-levenshtein v0.0.0-20180516184445-d188e65d659e // indirect
 	github.com/tinylib/msgp v1.1.0 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
 	github.com/tredoe/osutil v0.0.0-20161130133508-7d3ee1afa71c
@@ -135,7 +131,7 @@ require (
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0 // indirect
-	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
+	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4
 	golang.org/x/net v0.0.0-20190603091049-60506f45cf65
 	golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890 // indirect
 	golang.org/x/sys v0.0.0-20190620070143-6f217b454f45
@@ -154,9 +150,9 @@ require (
 	k8s.io/klog v0.1.0 // indirect
 	k8s.io/kubernetes v1.12.3
 	sigs.k8s.io/yaml v1.1.0 // indirect
-	yunion.io/x/jsonutils v0.0.0-20190613101330-71384b7a9233
+	yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051
 	yunion.io/x/log v0.0.0-20190514041436-04ce53b17c6b
 	yunion.io/x/pkg v0.0.0-20190620104149-945c25821dbf
 	yunion.io/x/sqlchemy v0.0.0-20190624021043-a2ed237bb1f7
-	yunion.io/x/structarg v0.0.0-20190622051356-20d0c9b7b3cd
+	yunion.io/x/structarg v0.0.0-20190625074850-3c0636a9fffe
 )

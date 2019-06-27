@@ -21,10 +21,9 @@ import (
 
 	"gopkg.in/ldap.v3"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
@@ -40,8 +39,8 @@ type SLDAPDriver struct {
 	ldapConfig *api.SLDAPIdpConfigOptions
 }
 
-func NewLDAPDriver(idpId, idpName, template string, conf api.TIdentityProviderConfigs) (driver.IIdentityBackend, error) {
-	base, err := driver.NewBaseIdentityDriver(idpId, idpName, template, conf)
+func NewLDAPDriver(idpId, idpName, template, targetDomainId string, autoCreateProject bool, conf api.TIdentityProviderConfigs) (driver.IIdentityBackend, error) {
+	base, err := driver.NewBaseIdentityDriver(idpId, idpName, template, targetDomainId, autoCreateProject, conf)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewBaseIdentityDriver")
 	}
@@ -144,26 +143,26 @@ func (self *SLDAPDriver) domainAttributeList() []string {
 func (self *SLDAPDriver) entry2Domain(entry *ldap.Entry) SDomainInfo {
 	info := SDomainInfo{}
 	info.DN = entry.DN
-	info.Id = entry.GetAttributeValue(self.ldapConfig.DomainIdAttribute)
-	info.Name = entry.GetAttributeValue(self.ldapConfig.DomainNameAttribute)
+	info.Id = ldaputils.GetAttributeValue(entry, self.ldapConfig.DomainIdAttribute)
+	info.Name = ldaputils.GetAttributeValue(entry, self.ldapConfig.DomainNameAttribute)
 	return info
 }
 
 func (self *SLDAPDriver) entry2Group(entry *ldap.Entry) SGroupInfo {
 	info := SGroupInfo{}
 	info.DN = entry.DN
-	info.Id = entry.GetAttributeValue(self.ldapConfig.GroupIdAttribute)
-	info.Name = entry.GetAttributeValue(self.ldapConfig.GroupNameAttribute)
-	info.Members = entry.GetAttributeValues(self.ldapConfig.GroupMemberAttribute)
+	info.Id = ldaputils.GetAttributeValue(entry, self.ldapConfig.GroupIdAttribute)
+	info.Name = ldaputils.GetAttributeValue(entry, self.ldapConfig.GroupNameAttribute)
+	info.Members = ldaputils.GetAttributeValues(entry, self.ldapConfig.GroupMemberAttribute)
 	return info
 }
 
 func (self *SLDAPDriver) entry2User(entry *ldap.Entry) SUserInfo {
 	info := SUserInfo{}
 	info.DN = entry.DN
-	info.Id = entry.GetAttributeValue(self.ldapConfig.UserIdAttribute)
-	info.Name = entry.GetAttributeValue(self.ldapConfig.UserNameAttribute)
-	enabledStr := entry.GetAttributeValue(self.ldapConfig.UserEnabledAttribute)
+	info.Id = ldaputils.GetAttributeValue(entry, self.ldapConfig.UserIdAttribute)
+	info.Name = ldaputils.GetAttributeValue(entry, self.ldapConfig.UserNameAttribute)
+	enabledStr := ldaputils.GetAttributeValue(entry, self.ldapConfig.UserEnabledAttribute)
 	if len(enabledStr) == 0 {
 		enabledStr = self.ldapConfig.UserEnabledDefault
 	}
@@ -182,7 +181,7 @@ func (self *SLDAPDriver) entry2User(entry *ldap.Entry) SUserInfo {
 	for _, m := range self.ldapConfig.UserAdditionalAttribute {
 		parts := strings.Split(m, ":")
 		if len(parts) == 2 {
-			info.Extra[parts[1]] = entry.GetAttributeValue(parts[0])
+			info.Extra[parts[1]] = ldaputils.GetAttributeValue(entry, parts[0])
 		}
 	}
 	return info
@@ -242,12 +241,20 @@ func (self *SLDAPDriver) Authenticate(ctx context.Context, ident mcclient.SAuthe
 	}
 
 	var userTreeDN string
-	if self.ldapConfig.ImportDomain {
+	if len(self.ldapConfig.DomainTreeDN) > 0 {
+		// import domains
 		idMap, err := models.IdmappingManager.FetchEntity(usrExt.DomainId, api.IdMappingEntityDomain)
 		if err != nil {
 			return nil, errors.Wrap(err, "IdmappingManager.FetchEntity for domain")
 		}
-		userTreeDN = idMap.IdpEntityId
+		entries, err := self.searchDomainEntries(cli, idMap.IdpEntityId)
+		if err != nil {
+			return nil, errors.Wrap(err, "self.searchDomainEntries")
+		}
+		if len(entries) == 0 {
+			return nil, errors.Error("fail to find domain DN")
+		}
+		userTreeDN = entries[0].DN
 	} else {
 		userTreeDN = self.getUserTreeDN()
 	}

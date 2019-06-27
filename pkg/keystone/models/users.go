@@ -656,3 +656,37 @@ func (manager *SUserManager) FetchCustomizeColumns(ctx context.Context, userCred
 	rows := manager.SEnabledIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
 	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityUser)
 }
+
+func (manager *SUserManager) FetchUserLocalIdsInDomain(domainId string, excludes []string) ([]string, error) {
+	return fetchLocalIdsInDomain(manager, domainId, excludes)
+}
+
+func fetchLocalIdsInDomain(manager db.IModelManager, domainId string, excludes []string) ([]string, error) {
+	idmappings := IdmappingManager.Query().SubQuery()
+	users := manager.Query().SubQuery()
+	q := idmappings.Query(idmappings.Field("local_id"))
+	q = q.Join(users, sqlchemy.AND(
+		sqlchemy.Equals(idmappings.Field("entity_type"), manager.Keyword()),
+		sqlchemy.Equals(idmappings.Field("public_id"), users.Field("id")),
+	))
+	q = q.Filter(sqlchemy.Equals(users.Field("domain_id"), domainId))
+	q = q.Filter(sqlchemy.NotIn(idmappings.Field("local_id"), excludes))
+	rows, err := q.Rows()
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "query")
+	}
+	if rows == nil {
+		return nil, nil
+	}
+	defer rows.Close()
+	ret := make([]string, 0)
+	for rows.Next() {
+		var idStr string
+		err = rows.Scan(&idStr)
+		if err != nil {
+			return nil, errors.Wrap(err, "scan")
+		}
+		ret = append(ret, idStr)
+	}
+	return ret, nil
+}

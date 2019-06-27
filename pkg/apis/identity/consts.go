@@ -59,6 +59,7 @@ const (
 	IdentityDriverStatusConnected    = "connected"
 	IdentityDriverStatusDisconnected = "disconnected"
 	IdentityDriverStatusDeleting     = "deleting"
+	IdentityDriverStatusDeleteFailed = "delete_fail"
 
 	IdentityProviderSyncLocal  = "local"
 	IdentityProviderSyncFull   = "full"
