@@ -18,6 +18,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -1407,23 +1409,62 @@ func (self *SNetwork) isManaged() bool {
 	}
 }
 
+func parseIpToIntArray(ip string) ([]int, error) {
+	ipSp := strings.Split(strings.Trim(ip, "."), ".")
+	if len(ipSp) > 4 {
+		return nil, httperrors.NewInputParameterError("Parse Ip Failed")
+	}
+	ipIa := []int{}
+	for i := 0; i < len(ipSp); i++ {
+		val, err := strconv.Atoi(ipSp[i])
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("Parse Ip Failed")
+		}
+		if val < 0 || val > 255 {
+			return nil, httperrors.NewInputParameterError("Parse Ip Failed")
+		}
+		ipIa = append(ipIa, val)
+	}
+	return ipIa, nil
+}
+
 func (manager *SNetworkManager) CustomizeFilterList(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*db.CustomizeListFilters, error) {
 	filters := db.NewCustomizeListFilters()
 
 	if query.Contains("ip") {
-		ip, _ := query.GetString("ip")
-		ipInt, err := netutils.NewIPV4Addr(ip)
+		// ipv4 only
+		ip, err := query.GetString("ip")
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("Get ip fail")
+		}
+		ipIa, err := parseIpToIntArray(ip)
 		if err != nil {
 			return nil, err
 		}
 
 		ipFilter := func(obj jsonutils.JSONObject) (bool, error) {
-			guestIpStart, _ := obj.GetString("guest_ip_start")
-			guestIpEnd, _ := obj.GetString("guest_ip_end")
-			guestIpStartInt, _ := netutils.NewIPV4Addr(guestIpStart)
-			guestIpEndInt, _ := netutils.NewIPV4Addr(guestIpEnd)
-			ipRange := netutils.NewIPV4AddrRange(guestIpStartInt, guestIpEndInt)
-			return ipRange.Contains(ipInt), nil
+			guestIpStart, err := obj.GetString("guest_ip_start")
+			if err != nil {
+				return false, httperrors.NewInternalServerError("Get guest ip start error %s", err)
+			}
+			guestIpEnd, err := obj.GetString("guest_ip_end")
+			if err != nil {
+				return false, httperrors.NewInternalServerError("Get guest ip end error %s", err)
+			}
+			ipStartIa, err := parseIpToIntArray(guestIpStart)
+			if err != nil {
+				return false, httperrors.NewInternalServerError("Parse guest ip start error %s", err)
+			}
+			ipEndIa, err := parseIpToIntArray(guestIpEnd)
+			if err != nil {
+				return false, httperrors.NewInternalServerError("Parse guest ip end error %s", err)
+			}
+			for i := 0; i < len(ipIa); i++ {
+				if ipIa[i] < ipStartIa[i] || ipIa[i] > ipEndIa[i] {
+					return false, nil
+				}
+			}
+			return true, nil
 		}
 
 		filters.Append(ipFilter)
