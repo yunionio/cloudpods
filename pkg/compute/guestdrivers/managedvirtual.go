@@ -614,10 +614,27 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		if len(instanceType) > 0 {
-			return nil, iVM.ChangeConfig2(ctx, instanceType)
+			err = iVM.ChangeConfig2(ctx, instanceType)
+			if err != nil {
+				return nil, err
+			}
 		} else {
-			return nil, iVM.ChangeConfig(ctx, int(vcpuCount), int(vmemSize))
+			err = iVM.ChangeConfig(ctx, int(vcpuCount), int(vmemSize))
+			if err != nil {
+				return nil, err
+			}
 		}
+		return nil, cloudprovider.WaitCreated(time.Second*5, time.Minute*5, func() bool {
+			err := iVM.Refresh()
+			if err != nil {
+				return false
+			}
+			status := iVM.GetStatus()
+			if status == api.VM_READY || status == api.VM_RUNNING {
+				return true
+			}
+			return false
+		})
 	})
 
 	return nil
