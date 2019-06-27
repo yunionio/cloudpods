@@ -63,6 +63,10 @@ func (b baseHostGetter) Zone() *computemodels.SZone {
 	return b.h.Zone
 }
 
+func (b baseHostGetter) Host() *computemodels.SHost {
+	return b.h.SHost
+}
+
 func (b baseHostGetter) Cloudprovider() *computemodels.SCloudprovider {
 	return b.h.Cloudprovider
 }
