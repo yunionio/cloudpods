@@ -741,6 +741,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	content.Set("cpu_count", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Count)))
 	content.Set("node_count", jsonutils.NewInt(int64(h.Cpu.cpuInfoDmi.Nodes)))
 	content.Set("cpu_desc", jsonutils.NewString(h.Cpu.cpuInfoProc.Model))
+	content.Set("cpu_microcode", jsonutils.NewString(h.Cpu.cpuInfoProc.Microcode))
 	content.Set("cpu_mhz", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Freq)))
 	content.Set("cpu_cache", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Cache)))
 	content.Set("mem_size", jsonutils.NewInt(int64(h.Mem.MemInfo.Total)))
@@ -1351,6 +1352,8 @@ func NewHostInfo() (*SHostInfo, error) {
 	} else {
 		res.Cpu = cpu
 	}
+
+	log.Infof("CPU Model %s Microcode %s", cpu.cpuInfoProc.Model, cpu.cpuInfoProc.Microcode)
 
 	mem, err := DetectMemoryInfo()
 	if err != nil {

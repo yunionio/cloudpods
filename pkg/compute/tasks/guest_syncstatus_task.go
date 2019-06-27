@@ -62,7 +62,7 @@ func (self *GuestSyncstatusTask) OnGetStatusSucc(ctx context.Context, guest *mod
 		statusStr = api.VM_SUSPEND
 	case cloudprovider.CloudVMStatusStopped:
 		statusStr = api.VM_READY
-	case api.VM_BLOCK_STREAM: /// XXX ???
+	case api.VM_BLOCK_STREAM, api.VM_BLOCK_STREAM_FAIL:
 		break
 	default:
 		statusStr = api.VM_UNKNOWN
