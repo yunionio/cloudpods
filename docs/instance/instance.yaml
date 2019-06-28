@@ -11,7 +11,7 @@ get:
   tags:
     - instance
 put:
-  summary: 更新实实例信息
+  summary: 更新实例信息
   parameters:
     - $ref: '../parameters/instance.yaml#/instanceId'
     - in: body

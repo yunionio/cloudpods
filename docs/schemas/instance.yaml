@@ -641,8 +641,8 @@ InstanceCreate:
       type: array
       items:
         $ref: '#/InstanceDisk'
-    
-  
+
+
 InstanceDisk:
   type: object
   properties:

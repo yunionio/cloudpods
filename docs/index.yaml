@@ -32,6 +32,41 @@ tags:
   - name: instance
 
 paths:
+  /storages:
+    $ref: "./storage/storages.yaml"
+  /storages/{storageId}:
+    $ref: "./storage/storage.yaml"
+  /storages/{storageId}/enable:
+    $ref: "./storage/storage.yaml#/enable"
+  /storages/{storageId}/disable:
+    $ref: "./storage/storage.yaml#/disable"
+  /storages/{storageId}/online:
+    $ref: "./storage/storage.yaml#/online"
+  /storages/{storageId}/offline:
+    $ref: "./storage/storage.yaml#/offline"
+
+  /hoststorages:
+    $ref: "./hoststorage/hoststorage.yaml"
+  /hosts/{hostId}/storages/{storageId}:
+    $ref: "./hoststorage/hoststorages.yaml"
+
+  /networks:
+    $ref: "./network/networks.yaml"
+  /networks/{networkId}:
+    $ref: "./network/network.yaml"
+  /networks/{networkId}/private:
+    $ref: "./network/network.yaml#/private"
+  /networks/{networkId}/public:
+    $ref: "./network/network.yaml#/public"
+  /networks/{networkId}/split:
+    $ref: "./network/network.yaml#/split"
+  /networks/{networkId}/merge:
+    $ref: "./network/network.yaml#/merge"
+  /networks/{networkId}/reserve-ip:
+    $ref: "./network/network.yaml#/reserve-ip"
+  /networks/{networkId}/release-reserve-ip:
+    $ref: "./network/network.yaml#/release-reserve-ip"
+
   /servers:
     $ref: "./instance/instances.yaml"
   /servers/{instanceId}/add-secgroup:
