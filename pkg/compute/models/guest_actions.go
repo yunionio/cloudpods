@@ -1167,6 +1167,11 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 				return nil, httperrors.NewGeneralError(err)
 			}
 		}
+	} else {
+		err = self.setKeypairId(userCred, "")
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
 	}
 
 	allDisks := jsonutils.QueryBoolean(data, "all_disks", false)
