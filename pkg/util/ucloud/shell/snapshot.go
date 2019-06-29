@@ -34,11 +34,12 @@ func init() {
 	})
 
 	type SnapshotDeleteOptions struct {
-		ID string `help:"Snapshot ID"`
+		ID   string `help:"Snapshot ID"`
+		Zone string `help:"Snapshot zone id"`
 	}
 
 	shellutils.R(&SnapshotDeleteOptions{}, "snapshot-delete", "Delete snapshot", func(cli *ucloud.SRegion, args *SnapshotDeleteOptions) error {
-		return cli.DeleteSnapshot(args.ID)
+		return cli.DeleteSnapshot(args.ID, args.Zone)
 	})
 
 	type SnapshotCreateOptions struct {
