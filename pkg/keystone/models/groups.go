@@ -19,7 +19,6 @@ import (
 	"database/sql"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/sqlchemy"
 
@@ -123,37 +122,25 @@ func (group *SGroup) GetProjectCount() (int, error) {
 	return q.CountWithError()
 }
 
-func (group *SGroup) ValidatePurgeCondition(ctx context.Context) error {
-	prjCnt, _ := group.GetProjectCount()
-	if prjCnt > 0 {
-		return httperrors.NewNotEmptyError("group joins project")
-	}
-	return nil
-}
-
 func (group *SGroup) ValidateDeleteCondition(ctx context.Context) error {
-	// usrCnt, _ := group.GetUserCount()
-	// if usrCnt > 0 {
-	// 	return httperrors.NewNotEmptyError("group contains user")
-	// }
-	err := group.ValidatePurgeCondition(ctx)
-	if err != nil {
-		return err
-	}
 	if group.IsReadOnly() {
 		return httperrors.NewForbiddenError("readonly")
 	}
 	return group.SIdentityBaseResource.ValidateDeleteCondition(ctx)
 }
 
-func (group *SGroup) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	group.SIdentityBaseResource.PostDelete(ctx, userCred)
-
-	err := UsergroupManager.delete("", group.Id)
+func (group *SGroup) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := AssignmentManager.projectRemoveAllGroup(ctx, userCred, group)
 	if err != nil {
-		log.Errorf("PasswordManager.delete fail %s", err)
-		return
+		return errors.Wrap(err, "AssignmentManager.projectRemoveAllGroup")
 	}
+
+	err = UsergroupManager.delete("", group.Id)
+	if err != nil {
+		return errors.Wrap(err, "UsergroupManager.delete")
+	}
+
+	return group.SIdentityBaseResource.Delete(ctx, userCred)
 }
 
 func (group *SGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
@@ -250,14 +237,6 @@ func (manager *SGroupManager) NamespaceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
 }
 
-func (group *SGroup) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	err := UsergroupManager.delete("", group.Id)
-	if err != nil {
-		return errors.Wrap(err, "UsergroupManager.delete")
-	}
-	return group.Delete(ctx, userCred)
-}
-
 func (group *SGroup) getIdmapping() (*SIdmapping, error) {
 	return IdmappingManager.FetchEntity(group.Id, api.IdMappingEntityGroup)
 }
@@ -275,6 +254,16 @@ func (manager *SGroupManager) FetchCustomizeColumns(ctx context.Context, userCre
 	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityGroup)
 }
 
-func (manager *SGroupManager) FetchGroupLocalIdsInDomain(domainId string, excludes []string) ([]string, error) {
-	return fetchLocalIdsInDomain(manager, domainId, excludes)
+func (manager *SGroupManager) FetchGroupsInDomain(domainId string, excludes []string) ([]SGroup, error) {
+	q := manager.Query().Equals("domain_id", domainId).NotIn("id", excludes)
+	grps := make([]SGroup, 0)
+	err := db.FetchModelObjects(manager, q, &grps)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return grps, nil
+}
+
+func (group *SGroup) UnlinkIdp(idpId string) error {
+	return IdmappingManager.deleteAny(idpId, api.IdMappingEntityGroup, group.Id)
 }

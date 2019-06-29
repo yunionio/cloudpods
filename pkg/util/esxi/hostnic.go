@@ -25,7 +25,7 @@ type SHostNicInfo struct {
 	Index   int8
 	LinkUp  bool
 	IpAddr  string
-	Mtu     int16
+	Mtu     int32
 	NicType string
 }
 
@@ -56,7 +56,7 @@ func (nic *SHostNicInfo) GetIpAddr() string {
 	return nic.IpAddr
 }
 
-func (nic *SHostNicInfo) GetMtu() int16 {
+func (nic *SHostNicInfo) GetMtu() int32 {
 	return nic.Mtu
 }
 

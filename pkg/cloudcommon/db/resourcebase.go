@@ -99,6 +99,12 @@ func (model *SResourceBase) MarkDelete() error {
 	return nil
 }
 
+func (model *SResourceBase) MarkUnDelete() error {
+	model.Deleted = false
+	model.DeletedAt = time.Time{}
+	return nil
+}
+
 func (model *SResourceBase) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	return DeleteModel(ctx, userCred, model.GetIResourceModel())
 }

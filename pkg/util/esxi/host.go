@@ -318,15 +318,33 @@ func (self *SHost) fetchNicInfo() []SHostNicInfo {
 		nicInfoList = append(nicInfoList, info)
 	}
 
+	findMaster := false
 	for _, nic := range moHost.Config.Network.Vnic {
 		mac := netutils.FormatMacAddr(nic.Spec.Mac)
 		pnic := findHostNicByMac(nicInfoList, mac)
 		if pnic != nil {
+			findMaster = true
 			pnic.IpAddr = nic.Spec.Ip.IpAddress
 			if nic.Spec.Portgroup == "Management Network" {
 				pnic.NicType = api.NIC_TYPE_ADMIN
 			}
 			pnic.LinkUp = true
+			pnic.Mtu = nic.Spec.Mtu
+		}
+	}
+
+	if !findMaster && len(nicInfoList) > 0 {
+		// no match pnic found for master nic
+		// choose the first pnic
+		pnic := &nicInfoList[0]
+		for _, nic := range moHost.Config.Network.Vnic {
+			if nic.Spec.Portgroup == "Management Network" {
+				pnic.NicType = api.NIC_TYPE_ADMIN
+				pnic.IpAddr = nic.Spec.Ip.IpAddress
+				pnic.LinkUp = true
+				pnic.Mtu = nic.Spec.Mtu
+				break
+			}
 		}
 	}
 

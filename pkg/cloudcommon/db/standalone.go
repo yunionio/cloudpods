@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/pkg/utils"
@@ -392,6 +393,21 @@ func (model *SStandaloneResourceBase) PostDelete(ctx context.Context, userCred m
 // }
 
 func (model *SStandaloneResourceBase) ClearSchedDescCache() error {
+	return nil
+}
+
+func (model *SStandaloneResourceBase) AppendDescription(userCred mcclient.TokenCredential, msg string) error {
+	_, err := Update(model.GetIStandaloneModel(), func() error {
+		if len(model.Description) > 0 {
+			model.Description += ";"
+		}
+		model.Description += msg
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "db.Update")
+	}
+	OpsLog.LogEvent(model, "append_desc", msg, userCred)
 	return nil
 }
 

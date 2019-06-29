@@ -3858,7 +3858,7 @@ func (host *SHost) SyncHostExternalNics(ctx context.Context, userCred mcclient.T
 	for i := 0; i < len(adds); i += 1 {
 		extNic := adds[i].netif
 		err = host.addNetif(ctx, userCred, extNic.GetMac(), "", extNic.GetIpAddr(), 0, extNic.GetNicType(), extNic.GetIndex(),
-			extNic.IsLinkUp(), extNic.GetMtu(), false, "", "", false, true)
+			extNic.IsLinkUp(), int16(extNic.GetMtu()), false, "", "", false, true)
 		if err != nil {
 			result.AddError(err)
 		} else {

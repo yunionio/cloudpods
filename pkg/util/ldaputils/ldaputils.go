@@ -22,6 +22,8 @@ import (
 	"gopkg.in/ldap.v3"
 
 	"github.com/pkg/errors"
+
+	"yunion.io/x/log"
 )
 
 var (
@@ -31,6 +33,7 @@ var (
 
 	binaryAttributes = []string{
 		"objectGUID",
+		"objectSid",
 	}
 )
 
@@ -120,7 +123,7 @@ func (cli *SLDAPClient) Search(base string, objClass string, condition map[strin
 		searches.WriteString(k)
 		searches.WriteString("=")
 		if isBinaryAttr(k) {
-			v = toBinary(v)
+			v = toBinarySearchString(v)
 		}
 		searches.WriteString(v)
 		searches.WriteString(")")
@@ -137,6 +140,8 @@ func (cli *SLDAPClient) Search(base string, objClass string, condition map[strin
 	if queryScope != ldap.ScopeWholeSubtree && queryScope != ldap.ScopeSingleLevel && queryScope != ldap.ScopeBaseObject {
 		queryScope = ldap.ScopeWholeSubtree
 	}
+
+	log.Debugf("ldapSearch: %s", searchStr)
 
 	searchRequest := ldap.NewSearchRequest(
 		base, // The base dn to search
@@ -169,6 +174,15 @@ func toBinary(val string) string {
 	} else {
 		return string(ret)
 	}
+}
+
+func toBinarySearchString(val string) string {
+	ret := strings.Builder{}
+	for i := 0; i < len(val); i += 2 {
+		ret.WriteString(`\`)
+		ret.WriteString(val[i : i+2])
+	}
+	return ret.String()
 }
 
 func toHex(val string) string {

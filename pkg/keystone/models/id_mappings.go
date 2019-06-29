@@ -125,19 +125,16 @@ func (manager *SIdmappingManager) FetchEntity(idStr string, entType string) (*SI
 }
 
 func (manager *SIdmappingManager) deleteByIdpId(idpId string) error {
-	return manager.DeleteAny(idpId, "", nil, nil)
+	return manager.deleteAny(idpId, "", "")
 }
 
-func (manager *SIdmappingManager) DeleteAny(idpId string, entityType string, excludeLocalIds []string, includeLocalIds []string) error {
+func (manager *SIdmappingManager) deleteAny(idpId string, entityType string, publicId string) error {
 	q := manager.Query().Equals("domain_id", idpId)
 	if len(entityType) > 0 {
 		q = q.Equals("entity_type", entityType)
 	}
-	if len(excludeLocalIds) > 0 {
-		q = q.NotIn("local_id", excludeLocalIds)
-	}
-	if len(includeLocalIds) > 0 {
-		q = q.In("local_id", includeLocalIds)
+	if len(publicId) > 0 {
+		q = q.Equals("public_id", publicId)
 	}
 	idmappings := make([]SIdmapping, 0)
 	err := db.FetchModelObjects(manager, q, &idmappings)
@@ -153,4 +150,28 @@ func (manager *SIdmappingManager) DeleteAny(idpId string, entityType string, exc
 		}
 	}
 	return nil
+}
+
+func (manager *SIdmappingManager) FetchPublicIdsExcludes(idpId string, entityType string, excludes []string) ([]string, error) {
+	q := manager.Query("public_id").Equals("domain_id", idpId)
+	q = q.Equals("entity_type", entityType)
+	q = q.NotIn("public_id", excludes)
+	rows, err := q.Rows()
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "q.Rows")
+	}
+	if rows == nil {
+		return nil, nil
+	}
+	defer rows.Close()
+	ret := make([]string, 0)
+	for rows.Next() {
+		var idStr string
+		err = rows.Scan(&idStr)
+		if err != nil {
+			return nil, errors.Wrap(err, "rows.Scan")
+		}
+		ret = append(ret, idStr)
+	}
+	return ret, nil
 }
