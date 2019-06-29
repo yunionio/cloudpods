@@ -16,9 +16,12 @@ package shell
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"os"
+
+	"github.com/aws/aws-sdk-go/service/s3"
+
 	"yunion.io/x/onecloud/pkg/util/aws"
+	"yunion.io/x/onecloud/pkg/util/printutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 	"yunion.io/x/onecloud/pkg/util/streamutils"
 )
@@ -27,15 +30,34 @@ func init() {
 	type S3BucketListOptions struct {
 	}
 	shellutils.R(&S3BucketListOptions{}, "s3-list", "List all buckets", func(cli *aws.SRegion, args *S3BucketListOptions) error {
-		s3cli, err := cli.GetS3Client()
+		buckets, err := cli.GetIBuckets()
 		if err != nil {
 			return err
 		}
-		output, err := s3cli.ListBuckets(&s3.ListBucketsInput{})
+		printList(buckets, 0, 0, 0, nil)
+		printutils.PrintGetterList(buckets, nil)
+		return nil
+	})
+
+	type S3CreateBucketOptions struct {
+		BUCKET string `help:"bucket name"`
+	}
+	shellutils.R(&S3CreateBucketOptions{}, "s3-create-bucket", "Create a bucket", func(cli *aws.SRegion, args *S3CreateBucketOptions) error {
+		err := cli.CreateIBucket(args.BUCKET, "", "")
 		if err != nil {
 			return err
 		}
-		printList(output.Buckets, 0, 0, 0, nil)
+		return nil
+	})
+
+	type S3DeleteBucketOptions struct {
+		BUCKET string `help:"bucket name"`
+	}
+	shellutils.R(&S3DeleteBucketOptions{}, "s3-delete-bucket", "Delete a bucket", func(cli *aws.SRegion, args *S3DeleteBucketOptions) error {
+		err := cli.DeleteIBucket(args.BUCKET)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 

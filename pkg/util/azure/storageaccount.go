@@ -26,8 +26,10 @@ import (
 	"github.com/Microsoft/azure-vhd-utils/vhdcore/diskstream"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/utils"
 )
 
 type SContainer struct {
@@ -35,7 +37,7 @@ type SContainer struct {
 	Name           string
 }
 
-type Sku struct {
+type SSku struct {
 	Name         string
 	Tier         string
 	Kind         string
@@ -48,7 +50,7 @@ type Identity struct {
 	Type        string
 }
 
-type PrimaryEndpoints struct {
+type SStorageEndpoints struct {
 	Blob  string
 	Queue string
 	Table string
@@ -60,10 +62,11 @@ type AccountProperties struct {
 	ClassicStorageProperties
 
 	//normal
-	PrimaryEndpoints  PrimaryEndpoints `json:"primaryEndpoints,omitempty"`
-	ProvisioningState string
-	PrimaryLocation   string
-	SecondaryLocation string
+	PrimaryEndpoints   SStorageEndpoints `json:"primaryEndpoints,omitempty"`
+	ProvisioningState  string
+	PrimaryLocation    string
+	SecondaryEndpoints SStorageEndpoints `json:"secondaryEndpoints,omitempty"`
+	SecondaryLocation  string
 	//CreationTime           time.Time
 	AccessTier               string `json:"accessTier,omitempty"`
 	EnableHTTPSTrafficOnly   *bool  `json:"supportsHttpsTrafficOnly,omitempty"`
@@ -74,7 +77,7 @@ type AccountProperties struct {
 type SStorageAccount struct {
 	region     *SRegion
 	accountKey string
-	Sku        Sku    `json:"sku,omitempty"`
+	Sku        SSku   `json:"sku,omitempty"`
 	Kind       string `json:"kind,omitempty"`
 	Identity   *Identity
 	Properties AccountProperties
@@ -125,6 +128,119 @@ func (self *SRegion) GetUniqStorageAccountName() string {
 	}
 }
 
+type sStorageAccountCheckNameAvailabilityInput struct {
+	Name string
+	Type string
+}
+
+type sStorageAccountCheckNameAvailabilityOutput struct {
+	NameAvailable bool   `json:"nameAvailable"`
+	Reason        string `json:"reason"`
+	Message       string `json:"message"`
+}
+
+func (self *SRegion) checkStorageAccountNameExist(name string) (bool, error) {
+	url := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Storage/checkNameAvailability?api-version=2019-04-01", self.client.subscriptionId)
+	body := jsonutils.Marshal(sStorageAccountCheckNameAvailabilityInput{
+		Name: name,
+		Type: "Microsoft.Storage/storageAccounts",
+	})
+	resp, err := self.client.jsonRequest("POST", url, body.String())
+	if err != nil {
+		return false, errors.Wrap(err, "jsonRequest")
+	}
+	output := sStorageAccountCheckNameAvailabilityOutput{}
+	err = resp.Unmarshal(&output)
+	if err != nil {
+		return false, errors.Wrap(err, "Unmarshal")
+	}
+	if output.NameAvailable {
+		return false, nil
+	} else {
+		if output.Reason == "AlreadyExists" {
+			return true, nil
+		} else {
+			return false, errors.Error(output.Reason)
+		}
+	}
+}
+
+type SStorageAccountSku struct {
+	ResourceType string   `json:"resourceType"`
+	Name         string   `json:"name"`
+	Tier         string   `json:"tier"`
+	Kind         string   `json:"kind"`
+	Locations    []string `json:"locations"`
+	Capabilities []struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	} `json:"capabilities"`
+	Restrictions []struct {
+		Type       string   `json:"type"`
+		Values     []string `json:"values"`
+		ReasonCode string   `json:"reasonCode"`
+	} `json:"restrictions"`
+}
+
+func (self *SRegion) GetStorageAccountSkus() ([]SStorageAccountSku, error) {
+	skus := make([]SStorageAccountSku, 0)
+	err := self.client.List("providers/Microsoft.Storage/skus?api-version=2019-04-01", &skus)
+	if err != nil {
+		return nil, errors.Wrap(err, "List")
+	}
+	ret := make([]SStorageAccountSku, 0)
+	for i := range skus {
+		if utils.IsInStringArray(self.GetId(), skus[i].Locations) {
+			ret = append(ret, skus[i])
+		}
+	}
+	return ret, nil
+}
+
+func (self *SRegion) getStorageAccountSkuByName(name string) (*SStorageAccountSku, error) {
+	skus, err := self.GetStorageAccountSkus()
+	if err != nil {
+		return nil, errors.Wrap(err, "getStorageAccountSkus")
+	}
+	for _, kind := range []string{
+		"StorageV2",
+		"Storage",
+	} {
+		for i := range skus {
+			if skus[i].Name == name && skus[i].Kind == kind {
+				return &skus[i], nil
+			}
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SRegion) createStorageAccount(name string, skuName string) (*SStorageAccount, error) {
+	sku, err := self.getStorageAccountSkuByName(skuName)
+	if err != nil {
+		return nil, errors.Wrap(err, "getStorageAccountSkuByName")
+	}
+	stoargeaccount := SStorageAccount{
+		region: self,
+		Sku: SSku{
+			Name: sku.Name,
+		},
+		Location: self.Name,
+		Kind:     "Storage",
+		Properties: AccountProperties{
+			IsHnsEnabled:             true,
+			AzureFilesAadIntegration: true,
+		},
+		Name: name,
+		Type: "Microsoft.Storage/storageAccounts",
+	}
+	err = self.client.Create(jsonutils.Marshal(stoargeaccount), &stoargeaccount)
+	if err != nil {
+		return nil, errors.Wrap(err, "Create")
+	}
+	return &stoargeaccount, nil
+}
+
 func (self *SRegion) CreateStorageAccount(storageAccount string) (*SStorageAccount, error) {
 	account, err := self.getStorageAccountID(storageAccount)
 	if err == nil {
@@ -134,7 +250,7 @@ func (self *SRegion) CreateStorageAccount(storageAccount string) (*SStorageAccou
 		uniqName := self.GetUniqStorageAccountName()
 		stoargeaccount := SStorageAccount{
 			region: self,
-			Sku: Sku{
+			Sku: SSku{
 				Name: "Standard_GRS",
 			},
 			Location: self.Name,
@@ -429,4 +545,82 @@ func (self *SStorageAccount) UploadFile(containerName string, filePath string) (
 		}
 	}
 	return container.UploadFile(filePath)
+}
+
+func (b *SStorageAccount) GetProjectId() string {
+	return ""
+}
+
+func (b *SStorageAccount) GetGlobalId() string {
+	return b.Name
+}
+
+func (b *SStorageAccount) GetName() string {
+	return b.Name
+}
+
+func (b *SStorageAccount) GetLocation() string {
+	return b.Location
+}
+
+func (b *SStorageAccount) GetIRegion() cloudprovider.ICloudRegion {
+	return b.region
+}
+
+func (b *SStorageAccount) GetCreateAt() time.Time {
+	return time.Time{}
+}
+
+func (b *SStorageAccount) GetStorageClass() string {
+	return b.Sku.Tier
+}
+
+func (b *SStorageAccount) GetAcl() string {
+	return ""
+}
+
+func getDesc(prefix, name string) string {
+	if len(prefix) > 0 {
+		return prefix + "-" + name
+	} else {
+		return name
+	}
+}
+
+func (ep SStorageEndpoints) getUrls(prefix string) []cloudprovider.SBucketAccessUrl {
+	ret := make([]cloudprovider.SBucketAccessUrl, 0)
+	if len(ep.Blob) > 0 {
+		ret = append(ret, cloudprovider.SBucketAccessUrl{
+			Url:         ep.Blob,
+			Description: getDesc(prefix, "blob"),
+		})
+	}
+	if len(ep.Queue) > 0 {
+		ret = append(ret, cloudprovider.SBucketAccessUrl{
+			Url:         ep.Queue,
+			Description: getDesc(prefix, "queue"),
+		})
+	}
+	if len(ep.Table) > 0 {
+		ret = append(ret, cloudprovider.SBucketAccessUrl{
+			Url:         ep.Table,
+			Description: getDesc(prefix, "table"),
+		})
+	}
+	if len(ep.File) > 0 {
+		ret = append(ret, cloudprovider.SBucketAccessUrl{
+			Url:         ep.File,
+			Description: getDesc(prefix, "file"),
+		})
+	}
+	return ret
+}
+
+func (b *SStorageAccount) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
+	primary := b.Properties.PrimaryEndpoints.getUrls("")
+	secondary := b.Properties.SecondaryEndpoints.getUrls("secondary")
+	if len(secondary) > 0 {
+		primary = append(primary, secondary...)
+	}
+	return primary
 }

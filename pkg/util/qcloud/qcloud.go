@@ -20,16 +20,22 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/pkg/utils"
+
+	coslib "github.com/nelsonken/cos-go-sdk-v5/cos"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
+	sdkerrors "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	tchttp "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/appctx"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/util/timeutils"
 )
 
 const (
@@ -179,7 +185,7 @@ func (r *vpc2017JsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error
 		return
 	}
 	if resp.Code != 0 {
-		return errors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
+		return sdkerrors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
 	}
 
 	return nil
@@ -212,7 +218,7 @@ func (r *wssJsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
 		return
 	}
 	if resp.Code != 0 {
-		return errors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
+		return sdkerrors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
 	}
 
 	return nil
@@ -234,7 +240,7 @@ func (r *lbJsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
 		return
 	}
 	if resp.Code != 0 {
-		return errors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
+		return sdkerrors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
 	}
 
 	// hook 由于目前只能从这个方法中拿到原始的body.这里将原始body hook 到 Response
@@ -580,4 +586,104 @@ func (client *SQcloudClient) GetIProjects() ([]cloudprovider.ICloudProject, erro
 		iprojects = append(iprojects, &projects[i])
 	}
 	return iprojects, nil
+}
+
+func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	ctx := appctx.Background
+	cos, err := region.GetCosClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCosClient")
+	}
+	result, err := cos.GetBucketList(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetBucketList")
+	}
+	ret := make([]cloudprovider.ICloudBucket, 0)
+	for i := range result.Buckets.Bucket {
+		bInfo := result.Buckets.Bucket[i]
+		// ignore buckets not belong to this region
+		if bInfo.Location != region.GetId() {
+			continue
+		}
+		createAt, _ := timeutils.ParseTimeStr(bInfo.CreateDate)
+		name := bInfo.Name
+		// name = name[:len(name)-len(result.Owner.ID)-1]
+		name = name[:strings.LastIndexByte(name, '-')]
+		b := SBucket{
+			region: region,
+
+			Name:       name,
+			FullName:   bInfo.Name,
+			Location:   bInfo.Location,
+			CreateDate: createAt,
+		}
+		ret = append(ret, &b)
+	}
+	return ret, nil
+}
+
+func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr string) error {
+	ctx := appctx.Background
+	cos, err := region.GetCosClient()
+	if err != nil {
+		return errors.Wrap(err, "GetCosClient")
+	}
+	acl := &coslib.AccessControl{}
+	if len(aclStr) > 0 {
+		if utils.IsInStringArray(aclStr, []string{
+			"private", "public-read", "public-read-write", "authenticated-read",
+		}) {
+			acl.ACL = aclStr
+		} else {
+			return errors.Error("invalid acl")
+		}
+	}
+	err = cos.CreateBucket(ctx, name, acl)
+	if err != nil {
+		return errors.Wrap(err, "oss.CreateBucket")
+	}
+	return nil
+}
+
+func cosHttpCode(err error) int {
+	if httpErr, ok := err.(coslib.HTTPError); ok {
+		return httpErr.Code
+	}
+	if httpErr, ok := err.(*coslib.HTTPError); ok {
+		return httpErr.Code
+	}
+	return -1
+}
+
+func (region *SRegion) DeleteIBucket(name string) error {
+	ctx := appctx.Background
+	cos, err := region.GetCosClient()
+	if err != nil {
+		return errors.Wrap(err, "GetCosClient")
+	}
+	err = cos.DeleteBucket(ctx, name)
+	if err != nil {
+		if cosHttpCode(err) == 404 {
+			return nil
+		}
+		return errors.Wrap(err, "DeleteBucket")
+	}
+	return nil
+}
+
+func (region *SRegion) IBucketExist(name string) (bool, error) {
+	ctx := appctx.Background
+	cos, err := region.GetCosClient()
+	if err != nil {
+		return false, errors.Wrap(err, "GetCosClient")
+	}
+	err = cos.BucketExists(ctx, name)
+	if err != nil {
+		return false, errors.Wrap(err, "BucketExists")
+	}
+	return true, nil
+}
+
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return cloudprovider.GetIBucketByName(region, name)
 }
