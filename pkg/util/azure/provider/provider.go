@@ -17,6 +17,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 
@@ -25,7 +26,6 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/azure"
-	// "yunion.io/x/log"
 )
 
 type SAzureProviderFactory struct {
@@ -87,8 +87,23 @@ func (self *SAzureProviderFactory) ValidateUpdateCloudaccountCredential(ctx cont
 	return account, nil
 }
 
+func parseAccount(account, secret string) (tenantId string, appId string, appKey string, subId string) {
+	clientInfo := strings.Split(secret, "/")
+	accountInfo := strings.Split(account, "/")
+	tenantId = accountInfo[0]
+	if len(accountInfo) > 1 {
+		subId = strings.Join(accountInfo[1:], "/")
+	}
+	appId = clientInfo[0]
+	if len(clientInfo) > 1 {
+		appKey = strings.Join(clientInfo[1:], "/")
+	}
+	return
+}
+
 func (self *SAzureProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	if client, err := azure.NewAzureClient(providerId, providerName, account, secret, url, false); err != nil {
+	tenantId, appId, appKey, subId := parseAccount(account, secret)
+	if client, err := azure.NewAzureClient(providerId, providerName, url, tenantId, appId, appKey, subId, false); err != nil {
 		return nil, err
 	} else {
 		return &SAzureProvider{
@@ -96,6 +111,18 @@ func (self *SAzureProviderFactory) GetProvider(providerId, providerName, url, ac
 			client:        client,
 		}, nil
 	}
+}
+
+func (self *SAzureProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+	tenantId, appId, appKey, subId := parseAccount(account, secret)
+	return map[string]string{
+		"AZURE_DIRECTORY_ID":    tenantId,
+		"AZURE_SUBSCRIPTION_ID": subId,
+		"AZURE_APPLICATION_ID":  appId,
+		"AZURE_APPLICATION_KEY": appKey,
+		"AZURE_REGION_ID":       "",
+		"AZURE_CLOUD_ENV":       url,
+	}, nil
 }
 
 func init() {

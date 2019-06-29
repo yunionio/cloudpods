@@ -21,7 +21,6 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -35,6 +34,7 @@ type SDatacenter struct {
 
 	ihosts    []cloudprovider.ICloudHost
 	istorages []cloudprovider.ICloudStorage
+	inetworks []IVMNetwork
 
 	Name string
 }
@@ -58,7 +58,7 @@ func (dc *SDatacenter) scanHosts() error {
 		var hosts []mo.HostSystem
 		err := dc.manager.scanMObjects(dc.object.Entity().Self, HOST_SYSTEM_PROPS, &hosts)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "dc.manager.scanMObjects")
 		}
 		dc.ihosts = make([]cloudprovider.ICloudHost, len(hosts))
 		for i := 0; i < len(hosts); i += 1 {
@@ -71,7 +71,7 @@ func (dc *SDatacenter) scanHosts() error {
 func (dc *SDatacenter) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 	err := dc.scanHosts()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "dc.scanHosts")
 	}
 	return dc.ihosts, nil
 }
@@ -83,8 +83,7 @@ func (dc *SDatacenter) scanDatastores() error {
 		if dsList != nil {
 			err := dc.manager.references2Objects(dsList, DATASTORE_PROPS, &stores)
 			if err != nil {
-				log.Errorf("references2Objects dsList fail %s", err)
-				return err
+				return errors.Wrap(err, "dc.manager.references2Objects")
 			}
 		}
 		dc.istorages = make([]cloudprovider.ICloudStorage, 0)
@@ -110,7 +109,7 @@ func (dc *SDatacenter) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 func (dc *SDatacenter) GetIHostByMoId(idstr string) (cloudprovider.ICloudHost, error) {
 	ihosts, err := dc.GetIHosts()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "dc.GetIHosts")
 	}
 	for i := 0; i < len(ihosts); i += 1 {
 		if ihosts[i].GetId() == idstr {
@@ -123,7 +122,7 @@ func (dc *SDatacenter) GetIHostByMoId(idstr string) (cloudprovider.ICloudHost, e
 func (dc *SDatacenter) GetIStorageByMoId(idstr string) (cloudprovider.ICloudStorage, error) {
 	istorages, err := dc.GetIStorages()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "dc.GetIStorages")
 	}
 	for i := 0; i < len(istorages); i += 1 {
 		if istorages[i].GetId() == idstr {
@@ -142,8 +141,7 @@ func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool)
 	if vmRefs != nil {
 		err := dc.manager.references2Objects(vmRefs, VIRTUAL_MACHINE_PROPS, &vms)
 		if err != nil {
-			log.Errorf("references2Objects fail %s", err)
-			return nil, err
+			return nil, errors.Wrap(err, "dc.manager.references2Objects")
 		}
 	}
 
@@ -154,4 +152,38 @@ func (dc *SDatacenter) fetchVms(vmRefs []types.ManagedObjectReference, all bool)
 		}
 	}
 	return retVms, nil
+}
+
+func (dc *SDatacenter) scanNetworks() error {
+	if dc.inetworks == nil {
+		dc.inetworks = make([]IVMNetwork, 0)
+
+		netMOBs := dc.getDatacenter().Network
+		for i := range netMOBs {
+			dvport := mo.DistributedVirtualPortgroup{}
+			err := dc.manager.reference2Object(netMOBs[i], DVPORTGROUP_PROPS, &dvport)
+			if err == nil {
+				net := NewDistributedVirtualPortgroup(dc.manager, &dvport, dc)
+				dc.inetworks = append(dc.inetworks, net)
+			} else {
+				net := mo.Network{}
+				err = dc.manager.reference2Object(netMOBs[i], NETWORK_PROPS, &net)
+				if err == nil {
+					vnet := NewNetwork(dc.manager, &net, dc)
+					dc.inetworks = append(dc.inetworks, vnet)
+				} else {
+					return errors.Wrap(err, "dc.manager.reference2Object")
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (dc *SDatacenter) GetNetworks() ([]IVMNetwork, error) {
+	err := dc.scanNetworks()
+	if err != nil {
+		return nil, errors.Wrap(err, "dc.scanNetworks")
+	}
+	return dc.inetworks, nil
 }

@@ -100,9 +100,11 @@ func newClient(options *BaseOptions) (*azure.SRegion, error) {
 		return nil, fmt.Errorf("Missing Cloud Environment")
 	}
 
-	account := fmt.Sprintf("%s/%s", options.DirectoryID, options.SubscriptionID)
-	secret := fmt.Sprintf("%s/%s", options.ApplicationID, options.ApplicationKey)
-	cli, err := azure.NewAzureClient("", "", account, secret, options.CloudEnv, options.Debug)
+	cli, err := azure.NewAzureClient("", "", options.CloudEnv,
+		options.DirectoryID,
+		options.ApplicationID, options.ApplicationKey,
+		options.SubscriptionID,
+		options.Debug)
 	if err != nil {
 		return nil, err
 	}

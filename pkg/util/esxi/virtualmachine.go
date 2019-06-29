@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/util/regutils"
 
+	"github.com/pkg/errors"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -38,7 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
-var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest"}
+var VIRTUAL_MACHINE_PROPS = []string{"name", "parent", "runtime", "summary", "config", "guest", "resourcePool"}
 
 type SVirtualMachine struct {
 	SManagedObject
@@ -64,7 +65,24 @@ func (self *SVirtualMachine) GetSecurityGroupIds() ([]string, error) {
 }
 
 func (self *SVirtualMachine) GetMetadata() *jsonutils.JSONDict {
-	return nil
+	meta := jsonutils.NewDict()
+	meta.Set("datacenter", jsonutils.NewString(self.GetDatacenterPathString()))
+	rp, _ := self.getResourcePool()
+	if rp != nil {
+		rpPath := rp.GetPath()
+		rpOffset := -1
+		for i := range rpPath {
+			if rpPath[i] == "Resources" {
+				if i > 0 {
+					meta.Set("cluster", jsonutils.NewString(rpPath[i-1]))
+					rpOffset = i
+				}
+			} else if rpOffset >= 0 && i > rpOffset {
+				meta.Set(fmt.Sprintf("pool%d", i-rpOffset-1), jsonutils.NewString(rpPath[i]))
+			}
+		}
+	}
+	return meta
 }
 
 func (self *SVirtualMachine) getVirtualMachine() *mo.VirtualMachine {
@@ -796,4 +814,15 @@ func (self *SVirtualMachine) GetProjectId() string {
 
 func (self *SVirtualMachine) GetError() error {
 	return nil
+}
+
+func (self *SVirtualMachine) getResourcePool() (*SResourcePool, error) {
+	vm := self.getVirtualMachine()
+	morp := mo.ResourcePool{}
+	err := self.manager.reference2Object(*vm.ResourcePool, RESOURCEPOOL_PROPS, &morp)
+	if err != nil {
+		return nil, errors.Wrap(err, "self.manager.reference2Object")
+	}
+	rp := NewResourcePool(self.manager, &morp, self.datacenter)
+	return rp, nil
 }

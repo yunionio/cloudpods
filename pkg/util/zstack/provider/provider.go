@@ -88,6 +88,15 @@ func (self *SZStackProviderFactory) GetProvider(providerId, providerName, url, u
 	}, nil
 }
 
+func (self *SZStackProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+	return map[string]string{
+		"ZSTACK_AUTH_URL":  url,
+		"ZSTACK_USERNAME":  account,
+		"ZSTACK_PASSWORD":  secret,
+		"ZSTACK_REGION_ID": zstack.ZSTACK_DEFAULT_REGION,
+	}, nil
+}
+
 func init() {
 	factory := SZStackProviderFactory{}
 	cloudprovider.RegisterFactory(&factory)

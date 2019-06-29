@@ -30,6 +30,9 @@ const (
 	CLOUD_PROVIDER_AWS    = api.CLOUD_PROVIDER_AWS
 	CLOUD_PROVIDER_AWS_CN = "AWS"
 
+	AWS_INTERNATIONAL_CLOUDENV = "InternationalCloud"
+	AWS_CHINA_CLOUDENV         = "ChinaCloud"
+
 	AWS_INTERNATIONAL_DEFAULT_REGION = "us-west-1"
 	AWS_CHINA_DEFAULT_REGION         = "cn-north-1"
 	AWS_API_VERSION                  = "2018-10-10"
@@ -54,16 +57,20 @@ func NewAwsClient(providerId string, providerName string, accessUrl string, acce
 	return &client, nil
 }
 
-func (self *SAwsClient) getDefaultRegionId() string {
+func GetDefaultRegionId(accessUrl string) string {
 	defaultRegion := AWS_INTERNATIONAL_DEFAULT_REGION
-	switch self.accessUrl {
-	case "InternationalCloud":
+	switch accessUrl {
+	case AWS_INTERNATIONAL_CLOUDENV:
 		defaultRegion = AWS_INTERNATIONAL_DEFAULT_REGION
-	case "ChinaCloud":
+	case AWS_CHINA_CLOUDENV:
 		defaultRegion = AWS_CHINA_DEFAULT_REGION
 	}
 
 	return defaultRegion
+}
+
+func (self *SAwsClient) getDefaultRegionId() string {
+	return GetDefaultRegionId(self.accessUrl)
 }
 
 func (self *SAwsClient) getDefaultSession() (*session.Session, error) {

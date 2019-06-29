@@ -16,6 +16,7 @@ package provider
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 
@@ -73,14 +74,39 @@ func (self *SHuaweiProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 	return account, nil
 }
 
+func parseAccount(account string) (accessKey string, projectId string) {
+	segs := strings.Split(account, "/")
+	if len(segs) == 2 {
+		accessKey = segs[0]
+		projectId = segs[1]
+	} else {
+		accessKey = account
+		projectId = ""
+	}
+
+	return
+}
+
 func (self *SHuaweiProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := huawei.NewHuaweiClient(providerId, providerName, url, account, secret, false)
+	accessKey, projectId := parseAccount(account)
+	client, err := huawei.NewHuaweiClient(providerId, providerName, url, accessKey, secret, projectId, false)
 	if err != nil {
 		return nil, err
 	}
 	return &SHuaweiProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(self),
 		client:        client,
+	}, nil
+}
+
+func (self *SHuaweiProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+	accessKey, projectId := parseAccount(account)
+	return map[string]string{
+		"HUAWEI_CLOUD_ENV":  url,
+		"HUAWEI_ACCESS_KEY": accessKey,
+		"HUAWEI_SECRET":     secret,
+		"HUAWEI_REGION":     huawei.HUAWEI_DEFAULT_REGION,
+		"HUAWEI_PROJECT":    projectId,
 	}, nil
 }
 
