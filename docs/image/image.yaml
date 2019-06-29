@@ -88,7 +88,7 @@ head:
           #example: 2019-05-30T09:26:41.000000Z
           description: 镜像最近一次更新时间
   tags:
-    - glance
+    - images
 
 put:
   parameters:
@@ -106,7 +106,7 @@ put:
       schema:
         $ref: "../schemas/image.yaml#/ImageResponse"
   tags:
-    - glance
+    - images 
 get:
   parameters:
     - in: query
@@ -116,7 +116,7 @@ get:
       name: torrent
       type: boolean
   tags:
-    - glance
+    - images 
 
   summary: 下载镜像
   responses:

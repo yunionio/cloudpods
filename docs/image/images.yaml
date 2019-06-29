@@ -15,4 +15,4 @@ get:
       schema:
         $ref: "../schemas/image.yaml#/ImageListResponse"
   tags:
-    - glance
+    - images

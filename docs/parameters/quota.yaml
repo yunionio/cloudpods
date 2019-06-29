@@ -1,0 +1,20 @@
+scope:
+  name: scope
+  in: query
+  type: string
+  description: 指定所查询的配额的作用范围，可能的值为project|domain。如果为project，则查询当前项目的配额，缺省为project。如果为domain，则查询当前项目的配额。
+
+project_id:
+  name: project_id
+  in: path
+  required: true
+  type: string
+  description: 查询指定项目的配额
+
+domain_id:
+  name: domain_id
+  in: path
+  required: true
+  type: string
+  description: 查询指定域的配额
+
