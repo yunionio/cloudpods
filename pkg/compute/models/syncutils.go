@@ -21,11 +21,13 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
 type IMetadataSetter interface {
-	SetAllMetadata(ctx context.Context, meta map[string]interface{}, userCred mcclient.TokenCredential) error
-	SetMetadata(ctx context.Context, key string, value interface{}, userCred mcclient.TokenCredential) error
+	// SetAllMetadata(ctx context.Context, meta map[string]interface{}, userCred mcclient.TokenCredential) error
+	// SetMetadata(ctx context.Context, key string, value interface{}, userCred mcclient.TokenCredential) error
+	SetCloudMetadataAll(ctx context.Context, meta map[string]interface{}, userCred mcclient.TokenCredential) error
 }
 
 func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model IMetadataSetter, remote cloudprovider.ICloudResource) error {
@@ -37,9 +39,13 @@ func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model 
 			log.Errorf("Get VM Metadata error: %v", err)
 			return err
 		}
+		store := make(map[string]interface{}, 0)
 		for key, value := range meta {
-			model.SetMetadata(ctx, "ext:"+key, value, userCred)
+			store[db.CLOUD_TAG_PREFIX + key] = value
 		}
+		// model.SetMetadata(ctx, "ext:"+key, value, userCred)
+		// replace all ext keys
+		model.SetCloudMetadataAll(ctx, store, userCred)
 	}
 	return nil
 }
