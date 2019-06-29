@@ -65,35 +65,44 @@ func TestVariadic(t *testing.T) {
 	}
 }
 
-func TestMsgToTemplate(t *testing.T) {
+func TestMsgFmtTmplConversion(t *testing.T) {
 	cases := []struct {
-		name   string
-		msg    string
-		params []interface{}
-		out    string
+		name    string
+		msgFmt  string
+		msgTmpl string
+		msgFmt2 string
+		params  []interface{}
+		out     string
 	}{
 		{
-			name: "non-empty msg to template",
-			msg:  "%% baremetals %s delete.time %d%",
-			out:  "% baremetals {0} delete.time {1}%",
+			name:    "empty",
+			msgFmt:  "",
+			msgTmpl: "",
+			msgFmt2: "",
 		},
 		{
-			name: "empty msg to template",
-			msg:  "",
-			out:  "",
+			name:    "non-empty",
+			msgFmt:  "%% baremetals %s delete.time %d%",
+			msgTmpl: "% baremetals {0} delete.time {1}%",
+			msgFmt2: "% baremetals %s delete.time %s%",
 		},
 		{
-			name: "non-empty with zh-utf8 characters msg to template",
-			msg:  "%% baremetals %s 中文%d ¥%%",
-			out:  "% baremetals {0} 中文{1} ¥%",
+			name:    "non-empty with zh-utf8",
+			msgFmt:  "%% baremetals %s 中文%d ¥%%",
+			msgTmpl: "% baremetals {0} 中文{1} ¥%",
+			msgFmt2: "% baremetals %s 中文%s ¥%",
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			resp := msgToTemplate(c.msg)
-			if resp != c.out {
-				t.Errorf("want %s, got %s", c.out, resp)
+			msgTmpl := msgFmtToTmpl(c.msgFmt)
+			if msgTmpl != c.msgTmpl {
+				t.Errorf("msgFmtToTmpl: want %s, got %s", c.msgTmpl, msgTmpl)
+			}
+			msgFmt2 := msgTmplToFmt(msgTmpl)
+			if msgFmt2 != c.msgFmt2 {
+				t.Errorf("msgTmplToFmt: want %s, got %s", c.msgFmt2, msgFmt2)
 			}
 		})
 	}
