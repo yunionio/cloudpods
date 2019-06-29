@@ -26,13 +26,13 @@ func NewJsonClientError(code int, title string, msg string, error httputils.Erro
 	return &err
 }
 
-func msgToTemplate(msg string) string {
+func msgFmtToTmpl(msgFmt string) string {
 	// 将%s %d之类格式化字符串转换成{0}、{1}格式
 	// 注意： 1.不支持复杂类型的转换例如%.2f , %[1]d, % x
-	//       2.原始msg中如果包含{0},{1}形式的字符串同样会引发错误。
-	// 在抛出error msg时应注意避免
+	//       2.原始msgFmt中如果包含{0},{1}形式的字符串同样会引发错误。
+	// 在抛出error msgFmt时应注意避免
 	fmtstr := false
-	lst := []rune(msg)
+	lst := []rune(msgFmt)
 	lastIndex := len(lst) - 1
 	temp := bytes.Buffer{}
 	index := 0
@@ -68,18 +68,58 @@ func msgToTemplate(msg string) string {
 	return temp.String()
 }
 
-func errorMessage(msg string, params ...interface{}) (string, httputils.Error) {
+func MsgTmplToFmt(tmpl string) string {
+	return msgTmplToFmt(tmpl)
+}
+
+func msgTmplToFmt(tmpl string) string {
+	b := &bytes.Buffer{}
+	for i := 0; i < len(tmpl); {
+		r := tmpl[i]
+		if r != '{' {
+			b.WriteByte(r)
+			i++
+			continue
+		}
+
+		j := i + 1
+		for ; j < len(tmpl); j++ {
+			r := tmpl[j]
+			if r < '0' || r > '9' {
+				break
+			}
+		}
+		if j == len(tmpl) {
+			b.WriteString(tmpl[i:])
+			return b.String()
+		}
+		if j > i+1 && tmpl[j] == '}' {
+			b.WriteString("%s")
+			i = j + 1
+		} else {
+			b.WriteString(tmpl[i:j])
+			i = j
+		}
+	}
+	return b.String()
+}
+
+func errorMessage(msgFmt string, params ...interface{}) (string, httputils.Error) {
 	fields := make([]string, len(params))
 	for i, v := range params {
 		fields[i] = fmt.Sprint(v)
 	}
 
-	error := httputils.Error{Id: msgToTemplate(msg), Fields: fields}
+	err := httputils.Error{
+		Id:     msgFmtToTmpl(msgFmt),
+		Fields: fields,
+	}
+
+	msg := msgFmt
 	if len(params) > 0 {
 		msg = fmt.Sprintf(msg, params...)
 	}
-
-	return msg, error
+	return msg, err
 }
 
 func NewBadGatewayError(msg string, params ...interface{}) *httputils.JSONClientError {
