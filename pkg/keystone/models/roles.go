@@ -179,6 +179,12 @@ func (role *SRole) IsSystemRole() bool {
 }
 
 func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
+	if role.IsPublic {
+		return httperrors.NewInvalidStatusError("cannot delete shared role")
+	}
+	if role.IsSystemRole() {
+		return httperrors.NewForbiddenError("cannot delete system role")
+	}
 	usrCnt, _ := role.GetUserCount()
 	if usrCnt > 0 {
 		return httperrors.NewNotEmptyError("role is being assigned to user")
@@ -186,12 +192,6 @@ func (role *SRole) ValidateDeleteCondition(ctx context.Context) error {
 	grpCnt, _ := role.GetGroupCount()
 	if grpCnt > 0 {
 		return httperrors.NewNotEmptyError("role is being assigned to group")
-	}
-	if role.IsPublic {
-		return httperrors.NewInvalidStatusError("cannot delete shared role")
-	}
-	if role.IsSystemRole() {
-		return httperrors.NewForbiddenError("cannot delete system role")
 	}
 	return role.SIdentityBaseResource.ValidateDeleteCondition(ctx)
 }

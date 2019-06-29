@@ -186,5 +186,8 @@ func (policy *SPolicy) ValidateDeleteCondition(ctx context.Context) error {
 	if policy.IsPublic {
 		return httperrors.NewInvalidStatusError("cannot delete shared policy")
 	}
+	if policy.Enabled.IsTrue() {
+		return httperrors.NewInvalidStatusError("cannot delete enabled policy")
+	}
 	return policy.SEnabledIdentityBaseResource.ValidateDeleteCondition(ctx)
 }

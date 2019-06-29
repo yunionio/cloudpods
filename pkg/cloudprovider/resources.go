@@ -437,7 +437,7 @@ type ICloudHostNetInterface interface {
 	GetIndex() int8
 	IsLinkUp() tristate.TriState
 	GetIpAddr() string
-	GetMtu() int16
+	GetMtu() int32
 	GetNicType() string
 }
 
