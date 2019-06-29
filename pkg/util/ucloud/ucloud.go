@@ -65,23 +65,9 @@ type SUcloudClient struct {
 	Debug      bool
 }
 
-func parseAccount(account string) (accessKey string, projectId string) {
-	segs := strings.Split(account, "::")
-	if len(segs) == 2 {
-		accessKey = segs[0]
-		projectId = segs[1]
-	} else {
-		accessKey = account
-		projectId = ""
-	}
-
-	return
-}
-
 // 进行资源操作时参数account 对应数据库cloudprovider表中的account字段,由accessKey和projectID两部分组成，通过"/"分割。
 // 初次导入Subaccount时，参数account对应cloudaccounts表中的account字段，即accesskey。此时projectID为空，只能进行同步子账号（项目）、查询region列表等projectId无关的操作。
-func NewUcloudClient(providerId string, providerName string, account string, secret string, isDebug bool) (*SUcloudClient, error) {
-	accessKey, projectId := parseAccount(account)
+func NewUcloudClient(providerId string, providerName string, accessKey string, secret string, projectId string, isDebug bool) (*SUcloudClient, error) {
 	client := SUcloudClient{
 		providerId:      providerId,
 		providerName:    providerName,

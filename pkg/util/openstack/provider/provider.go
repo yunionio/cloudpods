@@ -126,6 +126,28 @@ func (self *SOpenStackProviderFactory) GetProvider(providerId, providerName, url
 	}, nil
 }
 
+func (self *SOpenStackProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+	accountInfo := strings.Split(account, "/")
+	if len(accountInfo) < 2 {
+		return nil, fmt.Errorf("Missing username or project name %s", account)
+	}
+	project, username, endpointType, domainName, projectDomainName := accountInfo[0], accountInfo[1], "internal", "Default", "Default"
+	if len(accountInfo) == 3 {
+		domainName, projectDomainName = accountInfo[2], accountInfo[2]
+	}
+
+	return map[string]string{
+		"OPENSTACK_AUTH_URL":       url,
+		"OPENSTACK_USERNAME":       username,
+		"OPENSTACK_PASSWORD":       secret,
+		"OPENSTACK_PROJECT":        project,
+		"OPENSTACK_ENDPOINT_TYPE":  endpointType,
+		"OPENSTACK_DOMAIN_NAME":    domainName,
+		"OPENSTACK_PROJECT_DOMAIN": projectDomainName,
+		"OPENSTACK_REGION_ID":      openstack.OPENSTACK_DEFAULT_REGION,
+	}, nil
+}
+
 func init() {
 	factory := SOpenStackProviderFactory{}
 	cloudprovider.RegisterFactory(&factory)

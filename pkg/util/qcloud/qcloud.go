@@ -54,11 +54,14 @@ type SQcloudClient struct {
 	Debug bool
 }
 
-func NewQcloudClient(providerId string, providerName string, secretID string, secretKey string, isDebug bool) (*SQcloudClient, error) {
-	client := SQcloudClient{providerId: providerId, providerName: providerName, SecretID: secretID, SecretKey: secretKey, Debug: isDebug}
-	if account := strings.Split(secretID, "/"); len(account) == 2 {
-		client.SecretID = account[0]
-		client.AppID = account[1]
+func NewQcloudClient(providerId string, providerName string, secretID string, secretKey string, appID string, isDebug bool) (*SQcloudClient, error) {
+	client := SQcloudClient{
+		providerId:   providerId,
+		providerName: providerName,
+		SecretID:     secretID,
+		SecretKey:    secretKey,
+		AppID:        appID,
+		Debug:        isDebug,
 	}
 	err := client.fetchRegions()
 	if err != nil {
