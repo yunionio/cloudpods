@@ -50,10 +50,10 @@ func doListPart(client *SUcloudClient, action string, params SParams, resultKey 
 		return 0, 0, err
 	}
 
-	total, err := ret.Int("TotalCount")
-	if err != nil {
-		log.Debugf("%s TotalCount %s", action, err.Error())
-	}
+	total, _ := ret.Int("TotalCount")
+	// if err != nil {
+	//	log.Debugf("%s TotalCount %s", action, err.Error())
+	//}
 
 	var lst []jsonutils.JSONObject
 	lst, err = ret.GetArray(resultKey)

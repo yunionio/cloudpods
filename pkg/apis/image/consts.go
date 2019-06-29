@@ -17,6 +17,8 @@ package image
 type TImageType string
 
 const (
+	SERVICE_TYPE = "image"
+
 	// https://docs.openstack.org/glance/pike/user/statuses.html
 	//
 	IMAGE_STATUS_QUEUED     = "queued"

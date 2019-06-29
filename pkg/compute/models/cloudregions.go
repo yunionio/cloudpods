@@ -654,3 +654,7 @@ func (self *SCloudregion) getMinDataDiskCount() int {
 func (self *SCloudregion) getMaxDataDiskCount() int {
 	return options.Options.MaxDataDiskCount
 }
+
+func (manager *SCloudregionManager) FetchDefaultRegion() *SCloudregion {
+	return manager.FetchRegionById(api.DEFAULT_REGION_ID)
+}

@@ -23,14 +23,12 @@ import (
 
 func init() {
 	type StorageAccountListOptions struct {
-		Limit  int `help:"page size"`
-		Offset int `help:"page offset"`
 	}
 	shellutils.R(&StorageAccountListOptions{}, "storage-account-list", "List storage account", func(cli *azure.SRegion, args *StorageAccountListOptions) error {
 		if accounts, err := cli.GetStorageAccounts(); err != nil {
 			return err
 		} else {
-			printList(accounts, len(accounts), args.Offset, args.Limit, []string{})
+			printList(accounts, len(accounts), 0, 0, []string{})
 			return nil
 		}
 	})
@@ -152,4 +150,14 @@ func init() {
 		return nil
 	})
 
+	type SStorageAccountSkuOptions struct {
+	}
+	shellutils.R(&SStorageAccountSkuOptions{}, "storage-account-skus", "List skus of storage account", func(cli *azure.SRegion, args *SStorageAccountSkuOptions) error {
+		skus, err := cli.GetStorageAccountSkus()
+		if err != nil {
+			return err
+		}
+		printList(skus, 0, 0, 0, nil)
+		return nil
+	})
 }

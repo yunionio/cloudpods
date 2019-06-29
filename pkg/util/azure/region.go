@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -607,4 +608,49 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 
 func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	accounts, err := region.GetStorageAccounts()
+	if err != nil {
+		return nil, errors.Wrap(err, "region.GetStorageAccounts")
+	}
+	ret := make([]cloudprovider.ICloudBucket, len(accounts))
+	for i := range accounts {
+		ret[i] = &accounts[i]
+	}
+	return ret, nil
+}
+
+func (region *SRegion) CreateIBucket(name string, storageClassStr string, acl string) error {
+	_, err := region.createStorageAccount(name, storageClassStr)
+	if err != nil {
+		return errors.Wrap(err, "region.createStorageAccount")
+	}
+	return nil
+}
+
+func (region *SRegion) DeleteIBucket(name string) error {
+	accounts, err := region.GetStorageAccounts()
+	if err != nil {
+		return errors.Wrap(err, "GetStorageAccounts")
+	}
+	for i := range accounts {
+		if accounts[i].Name == name {
+			err = region.client.Delete(accounts[i].ID)
+			if err != nil {
+				return errors.Wrap(err, "region.client.Delete")
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
+func (region *SRegion) IBucketExist(name string) (bool, error) {
+	return region.checkStorageAccountNameExist(name)
+}
+
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return cloudprovider.GetIBucketByName(region, name)
 }

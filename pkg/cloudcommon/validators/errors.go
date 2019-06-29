@@ -128,6 +128,8 @@ func newError(typ ErrType, errFmt string, params ...interface{}) error {
 			return nil
 		case ERR_GENERAL, ERR_MODEL_MANAGER:
 			return httperrors.NewInternalServerError(errFmt, params...)
+		case ERR_MODEL_NOT_FOUND:
+			return httperrors.NewResourceNotFoundError(errFmt, params...)
 		default:
 			return httperrors.NewInputParameterError(errFmt, params...)
 		}

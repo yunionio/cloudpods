@@ -21,6 +21,7 @@ package validators
 // uri
 
 import (
+	"database/sql"
 	"math"
 	"net"
 	"reflect"
@@ -35,6 +36,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/choices"
 )
@@ -472,7 +474,11 @@ func (v *ValidatorModelIdOrName) validate(data *jsonutils.JSONDict) error {
 	v.ModelManager = modelManager
 	model, err := modelManager.FetchByIdOrName(v, modelIdOrName)
 	if err != nil {
-		return newModelNotFoundError(v.ModelKeyword, modelIdOrName, err)
+		if err == sql.ErrNoRows {
+			return newModelNotFoundError(v.ModelKeyword, modelIdOrName, err)
+		} else {
+			return httperrors.NewGeneralError(err)
+		}
 	}
 	if v.noPendingDeleted {
 		if pd, ok := model.(db.IPendingDeletable); ok && pd.GetPendingDeleted() {

@@ -40,6 +40,8 @@ const (
 	CLOUD_PROVIDER_UCLOUD    = "Ucloud"
 	CLOUD_PROVIDER_ZSTACK    = "ZStack"
 
+	CLOUD_PROVIDER_GENERICS3 = "S3"
+
 	CLOUD_PROVIDER_HEALTH_NORMAL        = "normal"        // 远端处于健康状态
 	CLOUD_PROVIDER_HEALTH_INSUFFICIENT  = "insufficient"  // 不足按需资源余额
 	CLOUD_PROVIDER_HEALTH_SUSPENDED     = "suspended"     // 远端处于冻结状态
