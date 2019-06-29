@@ -28,10 +28,14 @@ securityDefinitions:
 security:
   - keystone: []
 
-tags:
-  - name: instance
-
 paths:
+  /v2.0/tokens:
+    $ref: "./identity/auth_v2.yaml"
+  /v2.0/tokens/{token}:
+    $ref: "./identity/verify_v2.yaml"
+  /v3/auth/tokens:
+    $ref: "./identity/auth_v3.yaml"
+
   /storages:
     $ref: "./storage/storages.yaml"
   /storages/{storageId}:
@@ -207,3 +211,78 @@ paths:
     $ref: "./loadbalancer/loadbalancerbackends.yaml"
   /loadbalancerbackends/{loadbalancerbackendId}:
     $ref: "./loadbalancer/loadbalancerbackend.yaml"
+
+  /identity_providers:
+    $ref: "./identity/identity_providers.yaml"
+  /identity_providers/{idp_id}:
+    $ref: "./identity/identity_provider.yaml"
+
+  /domains:
+    $ref: "./identity/domains.yaml"
+  /domains/{domain_id}:
+    $ref: "./identity/domain.yaml"
+
+  /users:
+    $ref: "./identity/users.yaml" 
+  /users/{user_id}:
+    $ref: "./identity/user.yaml" 
+
+  /groups:
+    $ref: "./identity/groups.yaml"
+  /groups/{group_id}:
+    $ref: "./identity/group.yaml"
+  /groups/{group_id}/users/{user_id}:
+    $ref: "./identity/groupuser.yaml"
+
+  /projects:
+    $ref: "./identity/projects.yaml"
+  /projects/{project_id}:
+    $ref: "./identity/project.yaml"
+
+  /roles:
+    $ref: "./identity/roles.yaml"
+  /roles/{role_id}:
+    $ref: "./identity/role.yaml"
+  /projects/{project_id}/users/{user_id}/roles/{role_id}:
+    $ref: "./identity/projectuserrole.yaml"
+  /projects/{project_id}/groups/{group_id}/roles/{role_id}:
+    $ref: "./identity/projectgrouprole.yaml"
+
+  /policies:
+    $ref: "./identity/policies.yaml"
+  /policies/{policy_id}:
+    $ref: "./identity/policy.yaml"
+
+  /credentials:
+    $ref: "./identity/credentials.yaml"
+
+  /role_assignments:
+    $ref: "./identity/roleassignments.yaml"
+
+  /regions:
+    $ref: "./identity/regions.yaml"
+  /regions/{region_id}:
+    $ref: "./identity/region.yaml"
+
+  /services:
+    $ref: "./identity/services.yaml"
+  /services/{service_id}:
+    $ref: "./identity/service.yaml"
+
+  /endpoints:
+    $ref: "./identity/endpoints.yaml"
+  /endpoints/{endpoint_id}:
+    $ref: "./identity/endpoint.yaml"
+
+  /quotas:
+    $ref: "./quotas/quotas.yaml"
+  /quotas/{project_id}:
+    $ref: "./quotas/projectquotas.yaml"
+  /quotas/projects/{project_id}:
+    $ref: "./quotas/projectquotas.yaml"
+  /quotas/domains/{domain_id}:
+    $ref: "./quotas/projectquotas.yaml"
+  /quotas/domains:
+    $ref: "./quotas/quotalist.yaml"
+  /quotas/projects:
+    $ref: "./quotas/quotalist.yaml"

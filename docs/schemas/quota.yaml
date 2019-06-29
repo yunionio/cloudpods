@@ -1,0 +1,29 @@
+QuotaGetResponse:
+  type: object
+  properties:
+    quotas:
+      type: object
+      $ref: '#/Quota'
+
+Quota:
+  type: object
+  description: 配额信息
+  properties:
+    cpu:
+      type: integer
+      description: CPU配额
+    memory:
+      type: integer
+      description: 内存配额
+    usage.cpu:
+      type: integer
+      description: CPU使用量
+    usage.memory:
+      type: integer
+      description: 内存使用量
+    total.cpu:
+      type: integer
+      description: 该字段只有域配额才有，代表该域分配给下属项目的CPU配额的总和
+    total.memory:
+      type: integer
+      description: 该字段只有域配额才有，代表该域分配给下属项目的内存配额的总和
