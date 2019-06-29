@@ -33,6 +33,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -66,7 +67,7 @@ func (self *SDatastore) getDatastore() *mo.Datastore {
 func (self *SDatastore) GetGlobalId() string {
 	volId, err := self.getVolumeId()
 	if err != nil {
-		log.Fatalf("datastore global ID error %s", err)
+		log.Errorf("get datastore global ID error %s", err)
 	}
 	return volId
 }
@@ -119,13 +120,11 @@ func (self *SDatastore) getVolumeId() (string, error) {
 	case *types.VmfsDatastoreInfo:
 		if fsInfo.Vmfs.Local == nil || *fsInfo.Vmfs.Local {
 			host, err := self.getLocalHost()
-			if err != nil {
-				return "", err
+			if err == nil {
+				return fmt.Sprintf("%s:%s", host.GetAccessIp(), fsInfo.Vmfs.Uuid), nil
 			}
-			return fmt.Sprintf("%s:%s", host.GetAccessIp(), fsInfo.Vmfs.Uuid), nil
-		} else {
-			return fsInfo.Vmfs.Uuid, nil
 		}
+		return fsInfo.Vmfs.Uuid, nil
 	case *types.NasDatastoreInfo:
 		return fmt.Sprintf("%s:%s", fsInfo.Nas.RemoteHost, fsInfo.Nas.RemotePath), nil
 	}
@@ -196,7 +195,7 @@ func (self *SDatastore) GetAttachedHosts() ([]cloudprovider.ICloudHost, error) {
 func (self *SDatastore) getLocalHost() (cloudprovider.ICloudHost, error) {
 	hosts, err := self.GetAttachedHosts()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "self.GetAttachedHosts")
 	}
 	if len(hosts) == 1 {
 		return hosts[0], nil
@@ -286,7 +285,10 @@ func (self *SDatastore) isLocalVMFS() bool {
 	switch vmfsInfo := moStore.Info.(type) {
 	case *types.VmfsDatastoreInfo:
 		if vmfsInfo.Vmfs.Local == nil || *vmfsInfo.Vmfs.Local == true {
-			return true
+			_, err := self.getLocalHost()
+			if err == nil {
+				return true
+			}
 		}
 	}
 	return false

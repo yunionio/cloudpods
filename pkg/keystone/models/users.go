@@ -472,25 +472,9 @@ func (user *SUser) PostUpdate(ctx context.Context, userCred mcclient.TokenCreden
 	}
 }
 
-func (user *SUser) ValidatePurgeCondition(ctx context.Context) error {
-	prjCnt, _ := user.GetProjectCount()
-	if prjCnt > 0 {
-		return httperrors.NewNotEmptyError("user joins project")
-	}
+func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {
 	if user.IsAdminUser() {
 		return httperrors.NewForbiddenError("cannot delete system user")
-	}
-	return nil
-}
-
-func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {
-	// grpCnt, _ := user.GetGroupCount()
-	// if grpCnt > 0 {
-	// 	return httperrors.NewNotEmptyError("group contains user")
-	// }
-	err := user.ValidatePurgeCondition(ctx)
-	if err != nil {
-		return err
 	}
 	if user.IsReadOnly() {
 		return httperrors.NewForbiddenError("readonly")
@@ -498,26 +482,30 @@ func (user *SUser) ValidateDeleteCondition(ctx context.Context) error {
 	return user.SIdentityBaseResource.ValidateDeleteCondition(ctx)
 }
 
-func (user *SUser) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
-	user.SEnabledIdentityBaseResource.PostDelete(ctx, userCred)
-
-	localUser, err := LocalUserManager.delete(user.Id, user.DomainId)
+func (user *SUser) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := AssignmentManager.projectRemoveAllUser(ctx, userCred, user)
 	if err != nil {
-		log.Errorf("LocalUserManager.delete fail %s", err)
-		return
-	}
-
-	err = PasswordManager.delete(localUser.Id)
-	if err != nil {
-		log.Errorf("PasswordManager.delete fail %s", err)
-		return
+		return errors.Wrap(err, "AssignmentManager.projectRemoveAllUser")
 	}
 
 	err = UsergroupManager.delete(user.Id, "")
 	if err != nil {
-		log.Errorf("UsergroupManager.delete fail %s", err)
-		return
+		return errors.Wrap(err, "UsergroupManager.delete")
 	}
+
+	localUser, err := LocalUserManager.delete(user.Id, user.DomainId)
+	if err != nil {
+		return errors.Wrap(err, "LocalUserManager.delete")
+	}
+
+	if localUser != nil {
+		err = PasswordManager.delete(localUser.Id)
+		if err != nil {
+			return errors.Wrap(err, "PasswordManager.delete")
+		}
+	}
+
+	return user.SEnabledIdentityBaseResource.Delete(ctx, userCred)
 }
 
 func (user *SUser) UpdateInContext(ctx context.Context, userCred mcclient.TokenCredential, ctxObjs []db.IModel, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
@@ -619,27 +607,6 @@ func (manager *SUserManager) NamespaceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
 }
 
-func (user *SUser) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	localUser, err := LocalUserManager.delete(user.Id, user.DomainId)
-	if err != nil {
-		return errors.Wrap(err, "LocalUserManager.delete")
-	}
-
-	if localUser != nil {
-		err = PasswordManager.delete(localUser.Id)
-		if err != nil {
-			return errors.Wrap(err, "PasswordManager.delete")
-		}
-	}
-
-	err = UsergroupManager.delete(user.Id, "")
-	if err != nil {
-		return errors.Wrap(err, "UsergroupManager.delete")
-	}
-
-	return user.Delete(ctx, userCred)
-}
-
 func (user *SUser) getIdmapping() (*SIdmapping, error) {
 	return IdmappingManager.FetchEntity(user.Id, api.IdMappingEntityUser)
 }
@@ -657,36 +624,16 @@ func (manager *SUserManager) FetchCustomizeColumns(ctx context.Context, userCred
 	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityUser)
 }
 
-func (manager *SUserManager) FetchUserLocalIdsInDomain(domainId string, excludes []string) ([]string, error) {
-	return fetchLocalIdsInDomain(manager, domainId, excludes)
+func (manager *SUserManager) FetchUsersInDomain(domainId string, excludes []string) ([]SUser, error) {
+	q := manager.Query().Equals("domain_id", domainId).NotIn("id", excludes)
+	usrs := make([]SUser, 0)
+	err := db.FetchModelObjects(manager, q, &usrs)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
+	}
+	return usrs, nil
 }
 
-func fetchLocalIdsInDomain(manager db.IModelManager, domainId string, excludes []string) ([]string, error) {
-	idmappings := IdmappingManager.Query().SubQuery()
-	users := manager.Query().SubQuery()
-	q := idmappings.Query(idmappings.Field("local_id"))
-	q = q.Join(users, sqlchemy.AND(
-		sqlchemy.Equals(idmappings.Field("entity_type"), manager.Keyword()),
-		sqlchemy.Equals(idmappings.Field("public_id"), users.Field("id")),
-	))
-	q = q.Filter(sqlchemy.Equals(users.Field("domain_id"), domainId))
-	q = q.Filter(sqlchemy.NotIn(idmappings.Field("local_id"), excludes))
-	rows, err := q.Rows()
-	if err != nil && err != sql.ErrNoRows {
-		return nil, errors.Wrap(err, "query")
-	}
-	if rows == nil {
-		return nil, nil
-	}
-	defer rows.Close()
-	ret := make([]string, 0)
-	for rows.Next() {
-		var idStr string
-		err = rows.Scan(&idStr)
-		if err != nil {
-			return nil, errors.Wrap(err, "scan")
-		}
-		ret = append(ret, idStr)
-	}
-	return ret, nil
+func (user *SUser) UnlinkIdp(idpId string) error {
+	return IdmappingManager.deleteAny(idpId, api.IdMappingEntityUser, user.Id)
 }

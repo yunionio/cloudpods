@@ -255,6 +255,13 @@ func (proj *SProject) GetGroupCount() (int, error) {
 }
 
 func (proj *SProject) ValidateDeleteCondition(ctx context.Context) error {
+	if proj.IsAdminProject() {
+		return httperrors.NewForbiddenError("cannot delete system project")
+	}
+	external, _ := proj.getExternalResources()
+	if len(external) > 0 {
+		return httperrors.NewNotEmptyError("project contains external resources")
+	}
 	usrCnt, _ := proj.GetUserCount()
 	if usrCnt > 0 {
 		return httperrors.NewNotEmptyError("project contains user")
@@ -262,13 +269,6 @@ func (proj *SProject) ValidateDeleteCondition(ctx context.Context) error {
 	grpCnt, _ := proj.GetGroupCount()
 	if grpCnt > 0 {
 		return httperrors.NewNotEmptyError("project contains group")
-	}
-	external, _ := proj.getExternalResources()
-	if len(external) > 0 {
-		return httperrors.NewNotEmptyError("project contains external resources")
-	}
-	if proj.IsAdminProject() {
-		return httperrors.NewForbiddenError("cannot delete system project")
 	}
 	return proj.SIdentityBaseResource.ValidateDeleteCondition(ctx)
 }
