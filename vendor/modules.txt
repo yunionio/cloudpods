@@ -724,10 +724,10 @@ k8s.io/kubernetes/pkg/scheduler/api
 sigs.k8s.io/yaml
 # yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051
 yunion.io/x/jsonutils
-# yunion.io/x/log v0.0.0-20190514041436-04ce53b17c6b
+# yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
 yunion.io/x/log
 yunion.io/x/log/hooks
-# yunion.io/x/pkg v0.0.0-20190620104149-945c25821dbf
+# yunion.io/x/pkg v0.0.0-20190628082551-f4033ba2ea30
 yunion.io/x/pkg/util/version
 yunion.io/x/pkg/utils
 yunion.io/x/pkg/util/regutils
@@ -757,7 +757,7 @@ yunion.io/x/pkg/util/prometheus
 yunion.io/x/pkg/prettytable
 yunion.io/x/pkg/util/runtime
 yunion.io/x/pkg/util/clock
-# yunion.io/x/sqlchemy v0.0.0-20190624021043-a2ed237bb1f7
+# yunion.io/x/sqlchemy v0.0.0-20190629024351-0b058bbe38b9
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20190625074850-3c0636a9fffe
 yunion.io/x/structarg
