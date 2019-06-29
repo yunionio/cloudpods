@@ -114,7 +114,8 @@ func getSubcommandsParser() (*structarg.ArgumentParser, error) {
 }
 
 func showErrorAndExit(e error) {
-	fmt.Fprintf(os.Stderr, "Error: %s\n", e)
+	fmt.Fprintf(os.Stderr, "%s", e)
+	fmt.Fprintln(os.Stderr)
 	os.Exit(1)
 }
 

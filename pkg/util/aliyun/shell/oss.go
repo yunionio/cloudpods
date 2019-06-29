@@ -59,15 +59,11 @@ func init() {
 	type OssListOptions struct {
 	}
 	shellutils.R(&OssListOptions{}, "oss-list", "List OSS buckets", func(cli *aliyun.SRegion, args *OssListOptions) error {
-		oss, err := cli.GetOssClient()
+		buckets, err := cli.GetIBuckets()
 		if err != nil {
 			return err
 		}
-		result, err := oss.ListBuckets()
-		if err != nil {
-			return err
-		}
-		printList(result.Buckets, len(result.Buckets), 0, 50, nil)
+		printList(buckets, len(buckets), 0, 50, nil)
 		return nil
 	})
 
@@ -92,12 +88,25 @@ func init() {
 		return nil
 	})
 
-	shellutils.R(&OssListBucketOptions{}, "oss-create-bucket", "Create a OSS bucket", func(cli *aliyun.SRegion, args *OssListBucketOptions) error {
-		oss, err := cli.GetOssClient()
+	type OssCreateBucketOptions struct {
+		BUCKET       string `help:"bucket name"`
+		StorageClass string `help:"storage class" choices:"Standard|IA|Archive"`
+
+		Acl string `help:"ACL" choices:"private|public-read|public-read-write"`
+	}
+	shellutils.R(&OssCreateBucketOptions{}, "oss-create-bucket", "Create a OSS bucket", func(cli *aliyun.SRegion, args *OssCreateBucketOptions) error {
+		err := cli.CreateIBucket(args.BUCKET, args.StorageClass, args.Acl)
 		if err != nil {
 			return err
 		}
-		err = oss.CreateBucket(args.BUCKET)
+		return nil
+	})
+
+	type OssDeleteBucketOptions struct {
+		BUCKET string `help:"bucket name"`
+	}
+	shellutils.R(&OssDeleteBucketOptions{}, "oss-delete-bucket", "Delete a OSS bucket", func(cli *aliyun.SRegion, args *OssDeleteBucketOptions) error {
+		err := cli.DeleteIBucket(args.BUCKET)
 		if err != nil {
 			return err
 		}

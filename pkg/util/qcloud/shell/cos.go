@@ -20,6 +20,7 @@ import (
 
 	coslib "github.com/nelsonken/cos-go-sdk-v5/cos"
 
+	"yunion.io/x/onecloud/pkg/util/printutils"
 	"yunion.io/x/onecloud/pkg/util/qcloud"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -28,15 +29,43 @@ func init() {
 	type CosListOptions struct {
 	}
 	shellutils.R(&CosListOptions{}, "cos-list", "List COS buckets", func(cli *qcloud.SRegion, args *CosListOptions) error {
-		cos, err := cli.GetCosClient()
+		buckets, err := cli.GetIBuckets()
 		if err != nil {
 			return err
 		}
-		result, err := cos.GetBucketList(context.Background())
+		printList(buckets, 0, 0, 0, nil)
+		return nil
+	})
+
+	shellutils.R(&CosListOptions{}, "bucket-list", "List COS buckets", func(cli *qcloud.SRegion, args *CosListOptions) error {
+		buckets, err := cli.GetIBuckets()
 		if err != nil {
 			return err
 		}
-		printList(result.Buckets.Bucket, len(result.Buckets.Bucket), 0, len(result.Buckets.Bucket), nil)
+		printutils.PrintGetterList(buckets, nil)
+		return nil
+	})
+
+	type CosCreateBucketOptions struct {
+		BUCKET string `help:"name of bucket to create"`
+		Acl    string `help:"Acl"`
+	}
+	shellutils.R(&CosCreateBucketOptions{}, "cos-create-bucket", "Create a COS bucket", func(cli *qcloud.SRegion, args *CosCreateBucketOptions) error {
+		err := cli.CreateIBucket(args.BUCKET, "", args.Acl)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	type CosDeleteBucketOptions struct {
+		BUCKET string `help:"name of bucket to delete"`
+	}
+	shellutils.R(&CosDeleteBucketOptions{}, "cos-delete-bucket", "Delete a COS bucket", func(cli *qcloud.SRegion, args *CosDeleteBucketOptions) error {
+		err := cli.DeleteIBucket(args.BUCKET)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 

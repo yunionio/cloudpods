@@ -132,9 +132,10 @@ func GetClient(insecure bool, timeout time.Duration) *http.Client {
 		DialContext: (&net.Dialer{
 			Timeout: 5 * time.Second,
 		}).DialContext,
-		IdleConnTimeout:     5 * time.Second,
-		TLSHandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: insecure},
+		IdleConnTimeout:       5 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		TLSClientConfig:       &tls.Config{InsecureSkipVerify: insecure},
 	}
 	return &http.Client{
 		Transport: tr,
@@ -223,6 +224,26 @@ func JSONRequest(client *http.Client, ctx context.Context, method THttpMethod, u
 	return ParseJSONResponse(resp, err, debug)
 }
 
+// closeResponse close non nil response with any response Body.
+// convenient wrapper to drain any remaining data on response body.
+//
+// Subsequently this allows golang http RoundTripper
+// to re-use the same connection for future requests.
+func closeResponse(resp *http.Response) {
+	// Callers should close resp.Body when done reading from it.
+	// If resp.Body is not closed, the Client's underlying RoundTripper
+	// (typically Transport) may not be able to re-use a persistent TCP
+	// connection to the server for a subsequent "keep-alive" request.
+	if resp != nil && resp.Body != nil {
+		// Drain any remaining Body and then close the connection.
+		// Without this closing connection would disallow re-using
+		// the same connection for future uses.
+		//  - http://stackoverflow.com/a/17961593/4465767
+		io.Copy(ioutil.Discard, resp.Body)
+		resp.Body.Close()
+	}
+}
+
 func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header, jsonutils.JSONObject, error) {
 	if err != nil {
 		ce := JSONClientError{}
@@ -230,7 +251,7 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 		ce.Details = err.Error()
 		return nil, nil, &ce
 	}
-	defer resp.Body.Close()
+	defer closeResponse(resp)
 	if debug {
 		if resp.StatusCode < 300 {
 			green("Status:", resp.StatusCode)

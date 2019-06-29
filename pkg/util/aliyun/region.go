@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/regutils"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
@@ -916,4 +917,137 @@ func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAc
 		return nil, err
 	}
 	return iAcl, region.AddAccessControlListEntry(aclId, acl.Entrys)
+}
+
+func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	osscli, err := region.GetOssClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "region.GetOssClient")
+	}
+	result, err := osscli.ListBuckets()
+	if err != nil {
+		return nil, errors.Wrap(err, "oss.ListBuckets")
+	}
+
+	ret := make([]cloudprovider.ICloudBucket, 0)
+	for _, bInfo := range result.Buckets {
+		if bInfo.Location[4:] != region.GetId() {
+			continue
+		}
+		acl := string(oss.ACLPrivate)
+		aclResp, err := osscli.GetBucketACL(bInfo.Name)
+		if err == nil {
+			acl = aclResp.ACL
+		}
+		b := SBucket{
+			region: region,
+
+			Name:         bInfo.Name,
+			Location:     bInfo.Location,
+			CreationDate: bInfo.CreationDate,
+			StorageClass: bInfo.StorageClass,
+			Acl:          acl,
+		}
+		ret = append(ret, &b)
+	}
+	return ret, nil
+}
+
+func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr string) error {
+	osscli, err := region.GetOssClient()
+	if err != nil {
+		return errors.Wrap(err, "region.GetOssClient")
+	}
+	opts := make([]oss.Option, 0)
+	if len(storageClassStr) > 0 {
+		storageClass := oss.StorageStandard
+		if strings.EqualFold(storageClassStr, string(oss.StorageStandard)) {
+			//
+		} else if strings.EqualFold(storageClassStr, string(oss.StorageIA)) {
+			storageClass = oss.StorageIA
+		} else if strings.EqualFold(storageClassStr, string(oss.StorageArchive)) {
+			storageClass = oss.StorageArchive
+		} else {
+			return errors.Error("not supported storageClass")
+		}
+		opt := oss.StorageClass(storageClass)
+		opts = append(opts, opt)
+	}
+	if len(aclStr) > 0 {
+		acl := oss.ACLPrivate
+		if strings.EqualFold(aclStr, string(oss.ACLPrivate)) {
+			// private, default
+		} else if strings.EqualFold(aclStr, string(oss.ACLPublicRead)) {
+			acl = oss.ACLPublicRead
+		} else if strings.EqualFold(aclStr, string(oss.ACLPublicReadWrite)) {
+			acl = oss.ACLPublicReadWrite
+		} else {
+			return errors.Error("not supported acl")
+		}
+		opt := oss.ACL(acl)
+		opts = append(opts, opt)
+	}
+	err = osscli.CreateBucket(name, opts...)
+	if err != nil {
+		return errors.Wrap(err, "oss.CreateBucket")
+	}
+	return nil
+}
+
+func ossErrorCode(err error) int {
+	if srvErr, ok := err.(oss.ServiceError); ok {
+		return srvErr.StatusCode
+	}
+	if srvErr, ok := err.(*oss.ServiceError); ok {
+		return srvErr.StatusCode
+	}
+	return -1
+}
+
+func (region *SRegion) DeleteIBucket(name string) error {
+	osscli, err := region.GetOssClient()
+	if err != nil {
+		return errors.Wrap(err, "region.GetOssClient")
+	}
+	err = osscli.DeleteBucket(name)
+	if err != nil {
+		if ossErrorCode(err) == 404 {
+			return nil
+		}
+		return errors.Wrap(err, "DeleteBucket")
+	}
+	return nil
+}
+
+func (region *SRegion) IBucketExist(name string) (bool, error) {
+	osscli, err := region.GetOssClient()
+	if err != nil {
+		return false, errors.Wrap(err, "region.GetOssClient")
+	}
+	exist, err := osscli.IsBucketExist(name)
+	if err != nil {
+		return false, errors.Wrap(err, "IsBucketExist")
+	}
+	return exist, nil
+}
+
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	osscli, err := region.GetOssClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "region.GetOssClient")
+	}
+	bi, err := osscli.GetBucketInfo(name)
+	if err != nil {
+		return nil, errors.Wrap(err, "Bucket")
+	}
+	bInfo := bi.BucketInfo
+	b := SBucket{
+		region:       region,
+		Name:         bInfo.Name,
+		Location:     bInfo.Location,
+		CreationDate: bInfo.CreationDate,
+		StorageClass: bInfo.StorageClass,
+		Acl:          bInfo.ACL,
+	}
+	return &b, nil
 }
