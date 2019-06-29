@@ -29,6 +29,7 @@ type Loadbalancer struct {
 	NetworkId   string
 	VpcId       string
 	ZoneId      string
+	ClusterId   string
 
 	BackendGroupId   string
 	CloudregionId    string
@@ -180,6 +181,11 @@ type LoadbalancerCertificate struct {
 	SubjectAlternativeNames string
 }
 
+type LoadbalancerCluster struct {
+	StandaloneResource
+	ZoneId string
+}
+
 type LoadbalancerAgent struct {
 	StandaloneResource
 
@@ -197,6 +203,9 @@ type LoadbalancerAgent struct {
 	LoadbalancerAcls          time.Time
 	LoadbalancerCertificates  time.Time
 	Params                    LoadbalancerAgentParams
+
+	ClusterId  string
+	Deployment LoadbalancerDeployment
 }
 
 type LoadbalancerAgentParamsVrrp struct {
@@ -231,4 +240,9 @@ type LoadbalancerAgentParams struct {
 	Vrrp               LoadbalancerAgentParamsVrrp
 	Haproxy            LoadbalancerAgentParamsHaproxy
 	Telegraf           LoadbalancerAgentParamsTelegraf
+}
+
+type LoadbalancerDeployment struct {
+	Host            string
+	AnsiblePlaybook string
 }
