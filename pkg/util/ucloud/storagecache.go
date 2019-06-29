@@ -288,9 +288,9 @@ func (self *SRegion) GetImageByName(name string) (*SImage, error) {
 		return nil, err
 	}
 
-	for _, image := range images {
-		if image.GetName() == name {
-			return &image, nil
+	for i := range images {
+		if images[i].GetName() == name {
+			return &images[i], nil
 		}
 	}
 

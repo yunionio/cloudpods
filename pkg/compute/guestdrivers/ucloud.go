@@ -15,6 +15,10 @@
 package guestdrivers
 
 import (
+	"fmt"
+
+	"yunion.io/x/pkg/utils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
@@ -72,6 +76,17 @@ func (self *SUCloudGuestDriver) GetRebuildRootStatus() ([]string, error) {
 
 func (self *SUCloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_RUNNING
+}
+
+func (self *SUCloudGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY}) {
+		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	if !utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_UCLOUD_CLOUD_SSD, api.STORAGE_UCLOUD_CLOUD_NORMAL}) {
+		return fmt.Errorf("Cannot resize disk with unsupported volumes type %s", storage.StorageType)
+	}
+
+	return nil
 }
 
 func init() {

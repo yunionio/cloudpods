@@ -921,6 +921,7 @@ func (manager *SElasticipManager) AllocateEipAndAssociateVM(ctx context.Context,
 	eip.Bandwidth = bw
 	eip.ChargeType = chargeType
 	eip.ProjectId = vm.ProjectId
+	eip.ProjectSrc = string(db.PROJECT_SOURCE_LOCAL)
 	eip.ManagerId = host.ManagerId
 	eip.CloudregionId = region.Id
 	eip.Name = fmt.Sprintf("eip-for-%s", vm.GetName())
