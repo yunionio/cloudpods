@@ -21,6 +21,8 @@ jobs:
             echo $targets | tr ' ' '\n'
             make $targets
             ls -lh _output/bin/
+      - store_artifacts:
+          path: _output/
 
   test:
     docker:
