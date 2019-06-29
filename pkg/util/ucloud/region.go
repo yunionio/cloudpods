@@ -247,9 +247,9 @@ func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 	}
 
 	isnapshots := make([]cloudprovider.ICloudSnapshot, 0)
-	for _, snapshot := range snapshots {
-		snapshot.region = self
-		isnapshots = append(isnapshots, &snapshot)
+	for i := range snapshots {
+		snapshots[i].region = self
+		isnapshots = append(isnapshots, &snapshots[i])
 	}
 
 	return isnapshots, nil
