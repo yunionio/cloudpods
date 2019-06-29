@@ -22,12 +22,13 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
-var DATACENTER_PROPS = []string{"name", "parent", "datastore"}
+var DATACENTER_PROPS = []string{"name", "parent", "datastore", "network"}
 
 type SDatacenter struct {
 	SManagedObject
@@ -86,9 +87,13 @@ func (dc *SDatacenter) scanDatastores() error {
 				return err
 			}
 		}
-		dc.istorages = make([]cloudprovider.ICloudStorage, len(stores))
+		dc.istorages = make([]cloudprovider.ICloudStorage, 0)
 		for i := 0; i < len(stores); i += 1 {
-			dc.istorages[i] = NewDatastore(dc.manager, &stores[i], dc)
+			ds := NewDatastore(dc.manager, &stores[i], dc)
+			dsId := ds.GetGlobalId()
+			if len(dsId) > 0 {
+				dc.istorages = append(dc.istorages, ds)
+			}
 		}
 	}
 	return nil
@@ -97,7 +102,7 @@ func (dc *SDatacenter) scanDatastores() error {
 func (dc *SDatacenter) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
 	err := dc.scanDatastores()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "dc.scanDatastores")
 	}
 	return dc.istorages, nil
 }

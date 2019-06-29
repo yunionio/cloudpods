@@ -106,14 +106,14 @@ func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPCl
 	if err != nil {
 		return errors.Wrap(err, "searchLDAP")
 	}
-	domainLocalIds := make([]string, len(entries))
+	domainIds := make([]string, len(entries))
 	for i := range entries {
 		domainInfo := self.entry2Domain(entries[i])
-		domainLocalIds[i] = domainInfo.Id
 		domain, err := self.syncDomainInfo(ctx, domainInfo)
 		if err != nil {
 			return errors.Wrap(err, "syncDomainInfo")
 		}
+		domainIds[i] = domain.Id
 		userIdMap, err := self.syncUsers(ctx, cli, domain.Id, domainInfo.DN)
 		if err != nil {
 			return errors.Wrap(err, "syncUsers")
@@ -123,10 +123,40 @@ func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPCl
 			return errors.Wrap(err, "syncGroups")
 		}
 	}
-	// remove any obsolete domain Id_mappings
-	err = models.IdmappingManager.DeleteAny(self.IdpId, api.IdMappingEntityDomain, domainLocalIds, nil)
+	// remove any obsolete domains
+	obsoleteDomainIds, err := models.IdmappingManager.FetchPublicIdsExcludes(self.IdpId, api.IdMappingEntityDomain, domainIds)
 	if err != nil {
-		log.Errorf("delete remvoed remote domain fail %s", err)
+		return errors.Wrap(err, "models.IdmappingManager.FetchPublicIdsExcludes")
+	}
+	for _, obsoleteDomainId := range obsoleteDomainIds {
+		obsoleteDomain, err := models.DomainManager.FetchDomainById(obsoleteDomainId)
+		if err != nil {
+			log.Errorf("models.DomainManager.FetchDomainById error %s", err)
+			continue
+		}
+		obsoleteDomain.AppendDescription(models.GetDefaultAdminCred(), "domain source removed")
+		// unlink with Idp
+		err = obsoleteDomain.UnlinkIdp(self.IdpId)
+		if err != nil {
+			log.Errorf("obsoleteDomain.UnlinkIdp error %s", err)
+			continue
+		}
+		// remove any user and groups
+		err = obsoleteDomain.DeleteUserGroups(ctx, models.GetDefaultAdminCred())
+		if err != nil {
+			log.Errorf("domain.DeleteUserGroups error %s", err)
+			continue
+		}
+		err = obsoleteDomain.ValidateDeleteCondition(ctx)
+		if err != nil {
+			log.Errorf("obsoleteDomain.ValidateDeleteCondition error %s", err)
+			continue
+		}
+		err = obsoleteDomain.Delete(ctx, models.GetDefaultAdminCred())
+		if err != nil {
+			log.Errorf("obsoleteDomain.Delete error %s", err)
+			continue
+		}
 	}
 	return nil
 }
@@ -215,29 +245,40 @@ func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClie
 	if err != nil {
 		return nil, errors.Wrap(err, "searchLDAP")
 	}
-	userLocalIds := make([]string, len(entries))
+	userIds := make([]string, len(entries))
 	userIdMap := make(map[string]string)
 	for i := range entries {
 		userInfo := self.entry2User(entries[i])
-		userLocalIds[i] = userInfo.Id
 		userId, err := self.syncUserDB(ctx, userInfo, domainId)
 		if err != nil {
 			return nil, errors.Wrap(err, "syncUserDB")
 		}
+		userIds[i] = userId
 		if self.ldapConfig.GroupMembersAreIds {
 			userIdMap[userInfo.Id] = userId
 		} else {
 			userIdMap[userInfo.DN] = userId
 		}
 	}
-	deleteUsrIds, err := models.UserManager.FetchUserLocalIdsInDomain(domainId, userLocalIds)
+	deleteUsers, err := models.UserManager.FetchUsersInDomain(domainId, userIds)
 	if err != nil {
 		return nil, errors.Wrap(err, "models.UserManager.FetchUserIdsInDomain")
 	}
-	if len(deleteUsrIds) > 0 {
-		err = models.IdmappingManager.DeleteAny(self.IdpId, api.IdMappingEntityUser, nil, deleteUsrIds)
+	for i := range deleteUsers {
+		err := deleteUsers[i].UnlinkIdp(self.IdpId)
 		if err != nil {
-			log.Errorf("delete removed remote user fail %s", err)
+			log.Errorf("deleteUser.UnlinkIdp error %s", err)
+			continue
+		}
+		err = deleteUsers[i].ValidateDeleteCondition(ctx)
+		if err != nil {
+			log.Errorf("deleteUser.ValidateDeleteCondition error %s", err)
+			continue
+		}
+		err = deleteUsers[i].Delete(ctx, models.GetDefaultAdminCred())
+		if err != nil {
+			log.Errorf("deleteUser.Delete error %s", err)
+			continue
 		}
 	}
 	return userIdMap, nil
@@ -272,7 +313,7 @@ func registerNonlocalUser(ctx context.Context, ui SUserInfo, userId string, doma
 		return errors.Wrap(err, "db.NewModelObject")
 	}
 	user := userObj.(*models.SUser)
-	q := models.UserManager.Query().Equals("id", userId)
+	q := models.UserManager.RawQuery().Equals("id", userId)
 	err = q.First(user)
 	if err != nil && err != sql.ErrNoRows {
 		return errors.Wrap(err, "Query user")
@@ -281,6 +322,7 @@ func registerNonlocalUser(ctx context.Context, ui SUserInfo, userId string, doma
 		// update
 		_, err := db.Update(user, func() error {
 			copyUserInfo(ui, userId, domainId, user)
+			user.MarkUnDelete()
 			return nil
 		})
 		if err != nil {
@@ -325,32 +367,43 @@ func (self *SLDAPDriver) syncGroups(ctx context.Context, cli *ldaputils.SLDAPCli
 	if err != nil {
 		return errors.Wrap(err, "searchLDAP")
 	}
-	groupLocalIds := make([]string, len(entries))
+	groupIds := make([]string, len(entries))
 	for i := range entries {
 		groupInfo := self.entry2Group(entries[i])
-		groupLocalIds[i] = groupInfo.Id
-		err := self.syncGroupDB(ctx, groupInfo, domainId, userIdMap)
+		groupId, err := self.syncGroupDB(ctx, groupInfo, domainId, userIdMap)
 		if err != nil {
 			return errors.Wrap(err, "syncGroupDB")
 		}
+		groupIds[i] = groupId
 	}
-	deleteGroupIds, err := models.GroupManager.FetchGroupLocalIdsInDomain(domainId, groupLocalIds)
+	deleteGroups, err := models.GroupManager.FetchGroupsInDomain(domainId, groupIds)
 	if err != nil {
-		return errors.Wrap(err, "models.GroupManager.FetchGroupIdsInDomain")
+		return errors.Wrap(err, "models.GroupManager.FetchGroupsInDomain")
 	}
-	if len(groupLocalIds) > 0 {
-		err = models.IdmappingManager.DeleteAny(self.IdpId, api.IdMappingEntityGroup, nil, deleteGroupIds)
+	for i := range deleteGroups {
+		err := deleteGroups[i].UnlinkIdp(self.IdpId)
 		if err != nil {
-			log.Errorf("delete removed remote group fail %s", err)
+			log.Errorf("deleteGroup.UnlinkIdp error %s", err)
+			continue
+		}
+		err = deleteGroups[i].ValidateDeleteCondition(ctx)
+		if err != nil {
+			log.Errorf("deleteGroup.ValidateDeleteCondition error %s", err)
+			continue
+		}
+		err = deleteGroups[i].Delete(ctx, models.GetDefaultAdminCred())
+		if err != nil {
+			log.Errorf("deleteGroup.Delete error %s", err)
+			continue
 		}
 	}
 	return nil
 }
 
-func (self *SLDAPDriver) syncGroupDB(ctx context.Context, groupInfo SGroupInfo, domainId string, userIdMap map[string]string) error {
+func (self *SLDAPDriver) syncGroupDB(ctx context.Context, groupInfo SGroupInfo, domainId string, userIdMap map[string]string) (string, error) {
 	grp, err := models.GroupManager.RegisterExternalGroup(ctx, self.IdpId, domainId, groupInfo.Id, groupInfo.Name)
 	if err != nil {
-		return errors.Wrap(err, "GroupManager.RegisterExternalGroup")
+		return "", errors.Wrap(err, "GroupManager.RegisterExternalGroup")
 	}
 	userIds := make([]string, 0)
 	for _, userExtId := range groupInfo.Members {
@@ -359,5 +412,5 @@ func (self *SLDAPDriver) syncGroupDB(ctx context.Context, groupInfo SGroupInfo, 
 		}
 	}
 	models.UsergroupManager.SyncGroupUsers(ctx, models.GetDefaultAdminCred(), grp.Id, userIds)
-	return nil
+	return grp.Id, nil
 }

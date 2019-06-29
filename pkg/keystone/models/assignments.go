@@ -261,6 +261,52 @@ func (manager *SAssignmentManager) projectAddUser(ctx context.Context, userCred 
 	return err
 }
 
+func (manager *SAssignmentManager) batchRemove(actorId string, typeStrs []string) error {
+	q := manager.Query()
+	q = q.In("type", typeStrs)
+	q = q.Equals("actor_id", actorId)
+	q = q.IsFalse("inherited")
+	assigns := make([]SAssignment, 0)
+	err := db.FetchModelObjects(manager, q, &assigns)
+	if err != nil && err != sql.ErrNoRows {
+		return errors.Wrap(err, "db.FetchModelObjects")
+	}
+	for i := range assigns {
+		_, err := db.Update(&assigns[i], func() error {
+			assigns[i].MarkDelete()
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "db.Update")
+		}
+	}
+	return nil
+}
+
+func (manager *SAssignmentManager) projectRemoveAllUser(ctx context.Context, userCred mcclient.TokenCredential, user *SUser) error {
+	if user.IsAdminUser() {
+		return httperrors.NewForbiddenError("sysadmin is protected")
+	}
+	if user.Id == userCred.GetUserId() {
+		return httperrors.NewForbiddenError("cannot remove current user from current project")
+	}
+	err := manager.batchRemove(user.Id, []string{api.AssignmentUserProject, api.AssignmentUserDomain})
+	if err != nil {
+		return errors.Wrap(err, "manager.batchRemove")
+	}
+	db.OpsLog.LogEvent(user, "leave_all_projects", user.GetShortDesc(ctx), userCred)
+	return nil
+}
+
+func (manager *SAssignmentManager) projectRemoveAllGroup(ctx context.Context, userCred mcclient.TokenCredential, group *SGroup) error {
+	err := manager.batchRemove(group.Id, []string{api.AssignmentGroupProject, api.AssignmentGroupDomain})
+	if err != nil {
+		return errors.Wrap(err, "manager.batchRemove")
+	}
+	db.OpsLog.LogEvent(group, "leave_all_projects", group.GetShortDesc(ctx), userCred)
+	return nil
+}
+
 func (manager *SAssignmentManager) projectRemoveUser(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, user *SUser, role *SRole) error {
 	if project.IsAdminProject() && user.IsAdminUser() && role.IsSystemRole() {
 		return httperrors.NewForbiddenError("sysadmin is protected")

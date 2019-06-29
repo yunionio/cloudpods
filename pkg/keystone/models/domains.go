@@ -215,6 +215,9 @@ func (domain *SDomain) GetIdpCount() (int, error) {
 }
 
 func (domain *SDomain) ValidatePurgeCondition(ctx context.Context) error {
+	if domain.Id == api.DEFAULT_DOMAIN_ID {
+		return httperrors.NewForbiddenError("cannot delete default domain")
+	}
 	if domain.Enabled.IsTrue() {
 		return httperrors.NewInvalidStatusError("domain is enabled")
 	}
@@ -230,27 +233,16 @@ func (domain *SDomain) ValidatePurgeCondition(ctx context.Context) error {
 	if policyCnt > 0 {
 		return httperrors.NewNotEmptyError("domain is in use by policy")
 	}
-	if domain.Id == api.DEFAULT_DOMAIN_ID {
-		return httperrors.NewForbiddenError("cannot delete default domain")
-	}
 	return nil
 }
 
 func (domain *SDomain) ValidateDeleteCondition(ctx context.Context) error {
-	// usrCnt, _ := domain.GetUserCount()
-	// if usrCnt > 0 {
-	// 	return httperrors.NewNotEmptyError("domain is in use")
-	// }
-	// grpCnt, _ := domain.GetGroupCount()
-	// if grpCnt > 0 {
-	// 	return httperrors.NewNotEmptyError("domain is in use")
-	// }
+	if domain.IsReadOnly() {
+		return httperrors.NewForbiddenError("readonly")
+	}
 	err := domain.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return err
-	}
-	if domain.IsReadOnly() {
-		return httperrors.NewForbiddenError("readonly")
 	}
 	return domain.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
@@ -259,9 +251,6 @@ func (domain *SDomain) ValidateUpdateCondition(ctx context.Context) error {
 	if domain.Id == api.DEFAULT_DOMAIN_ID {
 		return httperrors.NewForbiddenError("default domain is protected")
 	}
-	// if domain.IsReadOnly() {
-	// 	return httperrors.NewForbiddenError("readonly")
-	// }
 	return domain.SStandaloneResourceBase.ValidateUpdateCondition(ctx)
 }
 
@@ -277,13 +266,6 @@ func (domain *SDomain) ValidateUpdateData(ctx context.Context, userCred mcclient
 	}
 	return domain.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
-
-/*func (domain *SDomain) isReadOnly() bool {
-	if domain.GetDriver() == api.IdentityDriverSQL {
-		return false
-	}
-	return true
-}*/
 
 func (domain *SDomain) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := domain.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
@@ -339,19 +321,19 @@ func (domain *SDomain) getGroups() ([]SGroup, error) {
 	return grps, nil
 }
 
-func (domain *SDomain) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (domain *SDomain) DeleteUserGroups(ctx context.Context, userCred mcclient.TokenCredential) error {
 	usrs, err := domain.getUsers()
 	if err != nil {
 		return errors.Wrap(err, "domain.getUsers")
 	}
 	for i := range usrs {
-		err = usrs[i].ValidatePurgeCondition(ctx)
+		err = usrs[i].ValidateDeleteCondition(ctx)
 		if err != nil {
-			return errors.Wrap(err, "usr.ValidatePurgeCondition")
+			return errors.Wrap(err, "usr.ValidateDeleteCondition")
 		}
-		err = usrs[i].purge(ctx, userCred)
+		err = usrs[i].Delete(ctx, userCred)
 		if err != nil {
-			return errors.Wrap(err, "usr.purge")
+			return errors.Wrap(err, "usr.Delete")
 		}
 	}
 	grps, err := domain.getGroups()
@@ -359,16 +341,24 @@ func (domain *SDomain) purge(ctx context.Context, userCred mcclient.TokenCredent
 		return errors.Wrap(err, "domain.getGroups")
 	}
 	for i := range grps {
-		err = grps[i].ValidatePurgeCondition(ctx)
+		err = grps[i].ValidateDeleteCondition(ctx)
 		if err != nil {
-			return errors.Wrap(err, "grp.ValidatePurgeCondition")
+			return errors.Wrap(err, "grp.ValidateDeleteCondition")
 		}
-		err = grps[i].purge(ctx, userCred)
+		err = grps[i].Delete(ctx, userCred)
 		if err != nil {
-			return errors.Wrap(err, "grp.purge")
+			return errors.Wrap(err, "grp.Delete")
 		}
 	}
-	return domain.Delete(ctx, userCred)
+	return nil
+}
+
+func (domain *SDomain) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := domain.DeleteUserGroups(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "domain.DeleteUserGroups")
+	}
+	return domain.SStandaloneResourceBase.Delete(ctx, userCred)
 }
 
 func (domain *SDomain) getIdmapping() (*SIdmapping, error) {
@@ -401,4 +391,28 @@ func (domain *SDomain) PostUpdate(ctx context.Context, userCred mcclient.TokenCr
 func (domain *SDomain) PostDelete(ctx context.Context, userCred mcclient.TokenCredential) {
 	domain.SStandaloneResourceBase.PostDelete(ctx, userCred)
 	logclient.AddActionLogWithContext(ctx, domain, logclient.ACT_DELETE, nil, userCred, true)
+}
+
+func (domain *SDomain) UnlinkIdp(idpId string) error {
+	usrs, err := domain.getUsers()
+	if err != nil {
+		return errors.Wrap(err, "domain.getUsers")
+	}
+	for i := range usrs {
+		err = usrs[i].UnlinkIdp(idpId)
+		if err != nil {
+			return errors.Wrap(err, "usr.UnlinkIdp")
+		}
+	}
+	grps, err := domain.getGroups()
+	if err != nil {
+		return errors.Wrap(err, "domain.getGroups")
+	}
+	for i := range grps {
+		err = grps[i].UnlinkIdp(idpId)
+		if err != nil {
+			return errors.Wrap(err, "grp.UnlinkIdp")
+		}
+	}
+	return IdmappingManager.deleteAny(idpId, api.IdMappingEntityDomain, domain.Id)
 }
