@@ -231,18 +231,28 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
 		data.Set("address_type", jsonutils.NewString(api.LB_ADDR_TYPE_INTERNET))
 	}
-	if clusterV.Model == nil {
-		if zone == nil {
-			return nil, httperrors.NewInputParameterError("zone info missing")
+	if zone == nil {
+		return nil, httperrors.NewInputParameterError("zone info missing")
+	}
+	if managerIdV.Model == nil {
+		if clusterV.Model == nil {
+			clusters := LoadbalancerClusterManager.findByZoneId(zone.Id)
+			if len(clusters) == 0 {
+				return nil, httperrors.NewInputParameterError("zone %s(%s) has no lbcluster", zone.Name, zone.Id)
+			}
+			if len(clusters) > 1 {
+				log.Warningf("found %d lbclusters, randomly select 1", len(clusters))
+			}
+			data.Set("cluster_id", jsonutils.NewString(clusters[0].Id))
+		} else {
+			cluster := clusterV.Model.(*SLoadbalancerCluster)
+			if cluster.ZoneId != zone.Id {
+				return nil, httperrors.NewInputParameterError("cluster zone %s does not match network zone %s ",
+					cluster.ZoneId, zone.Id)
+			}
 		}
-		clusters := LoadbalancerClusterManager.findByZoneId(zone.Id)
-		if len(clusters) == 0 {
-			return nil, httperrors.NewInputParameterError("zone %s(%s) has no lbcluster", zone.Name, zone.Id)
-		}
-		if len(clusters) > 1 {
-			log.Warningf("found %d lbclusters, randomly select 1", len(clusters))
-		}
-		data.Set("cluster_id", jsonutils.NewString(clusters[0].Id))
+	} else {
+		data.Remove("cluster_id")
 	}
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
 		return nil, err
