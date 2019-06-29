@@ -16,10 +16,10 @@
 package log
 
 import (
+	"runtime"
 	"sync"
 
 	"github.com/sirupsen/logrus"
-
 	"yunion.io/x/log/hooks"
 )
 
@@ -149,8 +149,10 @@ func DisableColors() {
 }
 
 func AddHookFormatter(logger *logrus.Logger) {
-	logger.Hooks.Add(new(hooks.CallerHook))
-
+	pcs := make([]uintptr, 2)
+	runtime.Callers(0, pcs)
+	logrusPackage := hooks.GetPackageName(runtime.FuncForPC(pcs[1]).Name())
+	logger.Hooks.Add(&hooks.CallerHook{logrusPackage})
 	logger.Formatter = &TextFormatter{
 		TimestampFormat: "060102 15:04:05",
 		SpacePadding:    0,
