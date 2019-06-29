@@ -226,7 +226,17 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string
 		return nil, err
 	}
 
-	return self.GetISnapshot(snapshot)
+	isnapshot, err := self.GetISnapshot(snapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cloudprovider.WaitStatus(isnapshot, api.SNAPSHOT_READY, time.Second*10, time.Second*300)
+	if err != nil {
+		return nil, err
+	}
+
+	return isnapshot, nil
 }
 
 func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
@@ -329,9 +339,9 @@ func (self *SRegion) GetDisks(zoneId string, diskType string, diskIds []string) 
 
 	if len(diskIds) > 0 {
 		filtedDisks := make([]SDisk, 0)
-		for _, disk := range disks {
-			if utils.IsInStringArray(disk.UDiskID, diskIds) {
-				filtedDisks = append(filtedDisks, disk)
+		for i := range disks {
+			if utils.IsInStringArray(disks[i].UDiskID, diskIds) {
+				filtedDisks = append(filtedDisks, disks[i])
 			}
 		}
 
@@ -411,7 +421,7 @@ func (self *SRegion) resetDisk(zoneId, diskId, snapshotId string) error {
 		params.Set("SnapshotId", snapshotId)
 	}
 
-	return self.DoAction("UDisk-RestoreUDisk", params, nil)
+	return self.DoAction("RestoreUDisk", params, nil)
 }
 
 // https://docs.ucloud.cn/api/udisk-api/attach_udisk
@@ -426,6 +436,15 @@ func (self *SRegion) AttachDisk(zoneId string, instanceId string, diskId string)
 
 // https://docs.ucloud.cn/api/udisk-api/detach_udisk
 func (self *SRegion) DetachDisk(zoneId string, instanceId string, diskId string) error {
+	idisks, err := self.GetDisk(diskId)
+	if err != nil {
+		return err
+	}
+
+	if idisks.Status == "Available" {
+		return nil
+	}
+
 	params := NewUcloudParams()
 	params.Set("Zone", zoneId)
 	params.Set("UHostId", instanceId)
