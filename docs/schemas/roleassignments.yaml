@@ -62,7 +62,7 @@ DomainObject:
     domain:
       type: object
       description: 资源归属的域信息
-      $ref: '#/Domain'
+      $ref: './roleassignments.yaml#/Domain'
 
 Domain:
   type: object
