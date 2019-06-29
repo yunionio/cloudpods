@@ -77,6 +77,7 @@ type SLoadbalancer struct {
 	NetworkType string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	NetworkId   string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 	VpcId       string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	ClusterId   string `width:"36" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
 	ChargeType string `list:"user" get:"user" create:"optional" update:"user"`
 
@@ -105,6 +106,7 @@ func (man *SLoadbalancerManager) ListItemFilter(ctx context.Context, q *sqlchemy
 		{Key: "zone", ModelKeyword: "zone", OwnerId: ownerId},
 		{Key: "manager", ModelKeyword: "cloudprovider", OwnerId: ownerId},
 		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: ownerId},
+		{Key: "cluster", ModelKeyword: "loadbalancercluster", OwnerId: userCred},
 	})
 	if err != nil {
 		return nil, err
@@ -127,6 +129,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 	chargeTypeV := validators.NewStringChoicesValidator("charge_type", api.LB_CHARGE_TYPES)
 	chargeTypeV.Default(api.LB_CHARGE_TYPE_BY_TRAFFIC)
 	addressTypeV := validators.NewStringChoicesValidator("address_type", api.LB_ADDR_TYPES)
+	clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId)
 	{
 		keyV := map[string]validators.IValidator{
 			"status": validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
@@ -137,6 +140,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 			"network":      networkV,
 			"zone":         zoneV,
 			"manager":      managerIdV,
+			"cluster":      clusterV.Optional(true),
 		}
 		for _, v := range keyV {
 			if err := v.Validate(data); err != nil {
@@ -145,7 +149,10 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		}
 	}
 
-	var region *SCloudregion
+	var (
+		region *SCloudregion
+		zone   *SZone
+	)
 	if addressTypeV.Value == api.LB_ADDR_TYPE_INTRANET {
 		if chargeTypeV.Value == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
 			return nil, httperrors.NewUnsupportOperationError("intranet loadbalancer not support bandwidth charge type")
@@ -193,7 +200,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 			}
 			data.Set("manager_id", jsonutils.NewString(vpc.ManagerId))
 		}
-		zone := wire.GetZone()
+		zone = wire.GetZone()
 		if zone == nil {
 			return nil, fmt.Errorf("getting zone failed")
 		}
@@ -207,7 +214,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_CLASSIC))
 		data.Set("address_type", jsonutils.NewString(api.LB_ADDR_TYPE_INTRANET))
 	} else {
-		zone := zoneV.Model.(*SZone)
+		zone = zoneV.Model.(*SZone)
 		region = zone.GetRegion()
 		if region == nil {
 			return nil, fmt.Errorf("getting region failed")
@@ -223,6 +230,19 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 		data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
 		data.Set("network_type", jsonutils.NewString(api.LB_NETWORK_TYPE_VPC))
 		data.Set("address_type", jsonutils.NewString(api.LB_ADDR_TYPE_INTERNET))
+	}
+	if clusterV.Model == nil {
+		if zone == nil {
+			return nil, httperrors.NewInputParameterError("zone info missing")
+		}
+		clusters := LoadbalancerClusterManager.findByZoneId(zone.Id)
+		if len(clusters) == 0 {
+			return nil, httperrors.NewInputParameterError("zone %s(%s) has no lbcluster", zone.Name, zone.Id)
+		}
+		if len(clusters) > 1 {
+			log.Warningf("found %d lbclusters, randomly select 1", len(clusters))
+		}
+		data.Set("cluster_id", jsonutils.NewString(clusters[0].Id))
 	}
 	if _, err := man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data); err != nil {
 		return nil, err

@@ -80,6 +80,7 @@ func (opts *LoadbalancerAgentParamsOptions) Params() (*jsonutils.JSONDict, error
 type LoadbalancerAgentCreateOptions struct {
 	NAME      string
 	HbTimeout *int
+	Cluster   string `required:"true"`
 
 	LoadbalancerAgentParamsOptions
 }
@@ -99,6 +100,8 @@ func (opts *LoadbalancerAgentCreateOptions) Params() (*jsonutils.JSONDict, error
 
 type LoadbalancerAgentListOptions struct {
 	BaseListOptions
+
+	Cluster string
 }
 
 type LoadbalancerAgentGetOptions struct {
