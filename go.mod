@@ -52,6 +52,7 @@ require (
 	github.com/gin-contrib/sse v0.0.0-20170109093832-22d885f9ecc7 // indirect
 	github.com/gin-gonic/gin v1.3.0
 	github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2 // indirect
+	github.com/go-ini/ini v1.44.0 // indirect
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-ole/go-ole v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.4.1
@@ -95,6 +96,8 @@ require (
 	github.com/mdlayher/raw v0.0.0-20190606144222-a54781e5f38f
 	github.com/mholt/caddy v0.10.11
 	github.com/miekg/dns v1.1.1
+	github.com/minio/minio-go v6.0.14+incompatible
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
@@ -141,9 +144,7 @@ require (
 	google.golang.org/genproto v0.0.0-20181218023534-67d6565462c5 // indirect
 	google.golang.org/grpc v1.19.0
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
-	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v8 v8.18.2 // indirect
-	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ldap.v3 v3.0.3
 	gopkg.in/yaml.v2 v2.2.2
 	k8s.io/api v0.0.0-20181004124137-fd83cbc87e76

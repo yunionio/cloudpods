@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
@@ -37,16 +38,12 @@ import (
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
-const (
-	SERVICE_TYPE = "image"
-)
-
 func StartService() {
 	opts := &options.Options
 	commonOpts := &opts.CommonOptions
 	baseOpts := &opts.BaseOptions
 	dbOpts := &opts.DBOptions
-	common_options.ParseOptions(opts, os.Args, "glance-api.conf", SERVICE_TYPE)
+	common_options.ParseOptions(opts, os.Args, "glance-api.conf", api.SERVICE_TYPE)
 
 	isRoot := sysutils.IsRootPermission()
 	if !isRoot {

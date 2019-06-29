@@ -29,6 +29,8 @@ import (
 
 type SRegion struct {
 	multicloud.SRegion
+	multicloud.SNoObjectStorageRegion
+
 	client *SZStackClient
 
 	Name string

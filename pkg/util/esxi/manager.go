@@ -45,6 +45,7 @@ const (
 type SESXiClient struct {
 	cloudprovider.SFakeOnPremiseRegion
 	multicloud.SRegion
+	multicloud.SNoObjectStorageRegion
 
 	providerId   string
 	providerName string

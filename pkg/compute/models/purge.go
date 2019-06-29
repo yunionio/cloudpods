@@ -1039,3 +1039,30 @@ func (manager *SNetworkInterfaceManager) purgeAll(ctx context.Context, userCred 
 	}
 	return nil
 }
+
+func (bucket *SBucket) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, bucket)
+	defer lockman.ReleaseObject(ctx, bucket)
+
+	err := bucket.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+
+	return bucket.RealDelete(ctx, userCred)
+}
+
+func (bucketManager *SBucketManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	buckets := make([]SBucket, 0)
+	err := fetchByManagerId(bucketManager, providerId, &buckets)
+	if err != nil {
+		return err
+	}
+	for i := range buckets {
+		err := buckets[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

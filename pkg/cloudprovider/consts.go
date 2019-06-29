@@ -15,7 +15,7 @@
 package cloudprovider
 
 import (
-	"errors"
+	"yunion.io/x/pkg/errors"
 )
 
 const (
@@ -25,13 +25,13 @@ const (
 	CloudVMStatusChangeFlavor = "change_flavor"
 	CloudVMStatusDeploying    = "deploying"
 	CloudVMStatusOther        = "other"
-)
 
-var ErrNotFound = errors.New("id not found")
-var ErrDuplicateId = errors.New("duplicate id")
-var ErrInvalidStatus = errors.New("invalid status")
-var ErrTimeout = errors.New("timeout")
-var ErrNotImplemented = errors.New("Not implemented")
-var ErrNotSupported = errors.New("Not supported")
-var ErrInvalidProvider = errors.New("Invalid provider")
-var ErrNoBalancePermission = errors.New("No balance permission")
+	ErrNotFound            = errors.Error("id not found")
+	ErrDuplicateId         = errors.Error("duplicate id")
+	ErrInvalidStatus       = errors.Error("invalid status")
+	ErrTimeout             = errors.Error("timeout")
+	ErrNotImplemented      = errors.Error("Not implemented")
+	ErrNotSupported        = errors.Error("Not supported")
+	ErrInvalidProvider     = errors.Error("Invalid provider")
+	ErrNoBalancePermission = errors.Error("No balance permission")
+)

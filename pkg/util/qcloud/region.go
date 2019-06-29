@@ -816,3 +816,7 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 func (self *SRegion) QueryAccountBalance() (*SAccountBalance, error) {
 	return self.client.QueryAccountBalance()
 }
+
+func (self *SRegion) getCosEndpoint() string {
+	return fmt.Sprintf("cos.%s.myqcloud.com", self.GetId())
+}

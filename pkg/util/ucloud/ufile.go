@@ -19,16 +19,21 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"github.com/coredns/coredns/plugin/pkg/log"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SBucket struct {
+	region *SRegion
+
 	Domain        Domain   `json:"Domain"`
 	BucketID      string   `json:"BucketId"`
 	Region        string   `json:"Region"`
@@ -142,4 +147,54 @@ func (self *SFile) request(req *http.Request) error {
 	}
 
 	return nil
+}
+
+func (b *SBucket) GetProjectId() string {
+	return ""
+}
+
+func (b *SBucket) GetGlobalId() string {
+	return b.BucketName
+}
+
+func (b *SBucket) GetName() string {
+	return b.BucketName
+}
+
+func (b *SBucket) GetLocation() string {
+	return b.Region
+}
+
+func (b *SBucket) GetIRegion() cloudprovider.ICloudRegion {
+	return b.region
+}
+
+func (b *SBucket) GetCreateAt() time.Time {
+	return time.Unix(b.CreateTime, 0)
+}
+
+func (b *SBucket) GetStorageClass() string {
+	return ""
+}
+
+func (b *SBucket) GetAcl() string {
+	return b.Type
+}
+
+func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
+	ret := make([]cloudprovider.SBucketAccessUrl, 0)
+	regionId := b.region.GetId()
+	// hack, remove trailing digits
+	for len(regionId) > 0 {
+		lastDigit := regionId[len(regionId)-1]
+		if lastDigit >= '0' && lastDigit <= '9' {
+			regionId = regionId[:len(regionId)-1]
+		} else {
+			break
+		}
+	}
+	ret = append(ret, cloudprovider.SBucketAccessUrl{
+		Url: fmt.Sprintf("https://%s.%s.ufileos.com", b.BucketName, regionId),
+	})
+	return ret
 }
