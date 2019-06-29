@@ -97,7 +97,7 @@ func init() {
 		StorageType  string `help:"Storage type" choices:"local|nas|vsan|rbd|nfs|gpfs|baremetal"`
 		MonHost      string `help:"Ceph mon_host config"`
 		Key          string `help:"Ceph key config"`
-		Pool         string `help:"Ceph Poll Name"`
+		Pool         string `help:"Ceph Pool Name"`
 		NfsHost      string `help:"NFS host"`
 		NfsSharedDir string `help:"NFS shared dir"`
 	}
