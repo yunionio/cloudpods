@@ -5,7 +5,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: yunionio/onecloud-ci:20190328
+      - image: yunionio/onecloud-ci:v1.0.2
 
     #### TEMPLATE_NOTE: go expects specific checkout path representing url
     #### expecting it in the form of
@@ -21,10 +21,12 @@ jobs:
             echo $targets | tr ' ' '\n'
             make $targets
             ls -lh _output/bin/
+      - store_artifacts:
+          path: _output/
 
   test:
     docker:
-      - image: yunionio/onecloud-ci:20190328
+      - image: yunionio/onecloud-ci:v1.0.2
     working_directory: /home/build/go/src/yunion.io/x/onecloud
     steps:
       - checkout
