@@ -2013,7 +2013,7 @@ func (manager *SHostManager) totalCountQ(
 	hostStatus, status string,
 	hostTypes []string,
 	resourceTypes []string,
-	providers []string, cloudEnv string,
+	providers []string, brands []string, cloudEnv string,
 	enabled, isBaremetal tristate.TriState,
 ) *sqlchemy.SQuery {
 	hosts := manager.Query().SubQuery()
@@ -2055,7 +2055,7 @@ func (manager *SHostManager) totalCountQ(
 		}
 		q = q.Filter(cond(hosts.Field("is_baremetal")))
 	}
-	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, cloudEnv, rangeObj)
+	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObj)
 	return q
 }
 
@@ -2138,10 +2138,10 @@ func (manager *SHostManager) TotalCount(
 	hostStatus, status string,
 	hostTypes []string,
 	resourceTypes []string,
-	providers []string, cloudEnv string,
+	providers []string, brands []string, cloudEnv string,
 	enabled, isBaremetal tristate.TriState,
 ) HostsCountStat {
-	return manager.calculateCount(manager.totalCountQ(userCred, rangeObj, hostStatus, status, hostTypes, resourceTypes, providers, cloudEnv, enabled, isBaremetal))
+	return manager.calculateCount(manager.totalCountQ(userCred, rangeObj, hostStatus, status, hostTypes, resourceTypes, providers, brands, cloudEnv, enabled, isBaremetal))
 }
 
 /*
