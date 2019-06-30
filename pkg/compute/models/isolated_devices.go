@@ -405,7 +405,7 @@ func (manager *SIsolatedDeviceManager) ReleaseDevicesOfGuest(ctx context.Context
 
 func (manager *SIsolatedDeviceManager) totalCountQ(
 	devType []string, hostTypes []string,
-	resourceTypes []string, providers []string, cloudEnv string,
+	resourceTypes []string, providers []string, brands []string, cloudEnv string,
 	rangeObj db.IStandaloneModel,
 ) *sqlchemy.SQuery {
 	hosts := HostManager.Query().SubQuery()
@@ -415,7 +415,7 @@ func (manager *SIsolatedDeviceManager) totalCountQ(
 	if len(devType) != 0 {
 		q = q.Filter(sqlchemy.In(devs.Field("dev_type"), devType))
 	}
-	return AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, cloudEnv, rangeObj)
+	return AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObj)
 }
 
 type IsolatedDeviceCountStat struct {
@@ -423,17 +423,17 @@ type IsolatedDeviceCountStat struct {
 	Gpus    int
 }
 
-func (manager *SIsolatedDeviceManager) totalCount(devType, hostTypes []string, resourceTypes []string, providers []string, cloudEnv string, rangeObj db.IStandaloneModel) (int, error) {
-	return manager.totalCountQ(devType, hostTypes, resourceTypes, providers, cloudEnv, rangeObj).CountWithError()
+func (manager *SIsolatedDeviceManager) totalCount(devType, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, rangeObj db.IStandaloneModel) (int, error) {
+	return manager.totalCountQ(devType, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObj).CountWithError()
 }
 
-func (manager *SIsolatedDeviceManager) TotalCount(hostType []string, resourceTypes []string, providers []string, cloudEnv string, rangeObj db.IStandaloneModel) (IsolatedDeviceCountStat, error) {
+func (manager *SIsolatedDeviceManager) TotalCount(hostType []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, rangeObj db.IStandaloneModel) (IsolatedDeviceCountStat, error) {
 	stat := IsolatedDeviceCountStat{}
-	devCnt, err := manager.totalCount(nil, hostType, resourceTypes, providers, cloudEnv, rangeObj)
+	devCnt, err := manager.totalCount(nil, hostType, resourceTypes, providers, brands, cloudEnv, rangeObj)
 	if err != nil {
 		return stat, err
 	}
-	gpuCnt, err := manager.totalCount(VALID_GPU_TYPES, hostType, resourceTypes, providers, cloudEnv, rangeObj)
+	gpuCnt, err := manager.totalCount(VALID_GPU_TYPES, hostType, resourceTypes, providers, brands, cloudEnv, rangeObj)
 	if err != nil {
 		return stat, err
 	}

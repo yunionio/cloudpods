@@ -27,7 +27,7 @@ func AttachUsageQuery(
 	hosts *sqlchemy.SSubQuery,
 	hostTypes []string,
 	resourceTypes []string,
-	providers []string, cloudEnv string,
+	providers []string, brands []string, cloudEnv string,
 	rangeObj db.IStandaloneModel,
 ) *sqlchemy.SQuery {
 	if len(hostTypes) > 0 {
@@ -43,26 +43,9 @@ func AttachUsageQuery(
 			q = q.Filter(sqlchemy.In(hosts.Field("resource_type"), resourceTypes))
 		}
 	}
-	if len(providers) > 0 {
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		subq := cloudproviders.Query(cloudproviders.Field("id")).In("provider", providers).SubQuery()
-		q = q.Filter(sqlchemy.In(hosts.Field("manager_id"), subq))
-	}
-	if len(cloudEnv) > 0 {
-		switch cloudEnv {
-		case api.CLOUD_ENV_PUBLIC_CLOUD:
-			q = q.Filter(sqlchemy.In(hosts.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
-		case api.CLOUD_ENV_PRIVATE_CLOUD:
-			q = q.Filter(sqlchemy.In(hosts.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
-		case api.CLOUD_ENV_ON_PREMISE:
-			q = q.Filter(
-				sqlchemy.OR(
-					sqlchemy.In(hosts.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
-					sqlchemy.IsNullOrEmpty(hosts.Field("manager_id")),
-				),
-			)
-		}
-	}
+
+	q = CloudProviderFilter(q, hosts.Field("manager_id"), providers, brands, cloudEnv)
+
 	if rangeObj == nil {
 		return q
 	}

@@ -591,7 +591,7 @@ func (self *SSnapshot) Delete(ctx context.Context, userCred mcclient.TokenCreden
 	return nil
 }
 
-func TotalSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, providers []string, cloudEnv string) (int, error) {
+func TotalSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, providers []string, brands []string, cloudEnv string) (int, error) {
 	q := SnapshotManager.Query()
 
 	switch scope {
@@ -614,28 +614,8 @@ func TotalSnapshotCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityPr
 			q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), rangeObj.GetId()))
 		}
 	}
-	if len(providers) > 0 {
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		subq := cloudproviders.Query(cloudproviders.Field("id"))
-		subq = subq.In("provider", providers)
-		q = q.In("manager_id", subq.SubQuery())
-	}
 
-	if len(cloudEnv) > 0 {
-		switch cloudEnv {
-		case api.CLOUD_ENV_PUBLIC_CLOUD:
-			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
-		case api.CLOUD_ENV_PRIVATE_CLOUD:
-			q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
-		case api.CLOUD_ENV_ON_PREMISE:
-			q = q.Filter(
-				sqlchemy.OR(
-					sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
-					sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
-				),
-			)
-		}
-	}
+	q = CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
 
 	q = q.Equals("fake_deleted", false)
 	return q.CountWithError()
