@@ -80,6 +80,14 @@ func (self *SAliyunProviderFactory) GetProvider(providerId, providerName, url, a
 	}, nil
 }
 
+func (self *SAliyunProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+	return map[string]string{
+		"ALIYUN_ACCESS_KEY": account,
+		"ALIYUN_SECRET":     secret,
+		"ALIYUN_REGION":     aliyun.ALIYUN_DEFAULT_REGION,
+	}, nil
+}
+
 func init() {
 	factory := SAliyunProviderFactory{}
 	cloudprovider.RegisterFactory(&factory)

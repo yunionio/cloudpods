@@ -38,8 +38,9 @@ const (
 	CLOUD_TAG_PREFIX    = "ext:"
 	USER_TAG_PREFIX     = "user:"
 
-	TAG_DELETE_RANGE_USER  = "user"
-	TAG_DELETE_RANGE_CLOUD = "cloud"
+	// TAG_DELETE_RANGE_USER  = "user"
+	// TAG_DELETE_RANGE_CLOUD = CLOUD_TAG_PREFIX // "cloud"
+
 	TAG_DELETE_RANGE_ALL   = "all"
 )
 
@@ -332,9 +333,9 @@ func (manager *SMetadataManager) SetAll(ctx context.Context, obj IModel, store m
 	records := []SMetadata{}
 	q := manager.Query().Equals("id", idStr).NotLike("key", `\_\_%`) //避免删除系统内置的metadata, _ 在mysql里面有特殊含义,需要转义
 	switch delRange {
-	case TAG_DELETE_RANGE_USER:
+	case USER_TAG_PREFIX:
 		q = q.Like("key", USER_TAG_PREFIX+"%")
-	case TAG_DELETE_RANGE_CLOUD:
+	case CLOUD_TAG_PREFIX:
 		q = q.Like("key", CLOUD_TAG_PREFIX+"%")
 	}
 	q = q.Filter(sqlchemy.NOT(sqlchemy.In(q.Field("key"), keys)))

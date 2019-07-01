@@ -15,6 +15,8 @@
 package shell
 
 import (
+	"fmt"
+
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -185,6 +187,25 @@ func init() {
 			return err
 		}
 		printObject(result)
+		return nil
+	})
+
+	type CloudproviderClientRCOptions struct {
+		ID string `help:"ID or name of cloud provider"`
+	}
+	R(&CloudproviderClientRCOptions{}, "cloud-provider-clirc", "Get client RC file of the cloud provider", func(s *mcclient.ClientSession, args *CloudproviderClientRCOptions) error {
+		result, err := modules.Cloudproviders.GetSpecific(s, args.ID, "clirc", nil)
+		if err != nil {
+			return err
+		}
+		rc := make(map[string]string)
+		err = result.Unmarshal(&rc)
+		if err != nil {
+			return err
+		}
+		for k, v := range rc {
+			fmt.Printf("export %s='%s'\n", k, v)
+		}
 		return nil
 	})
 }
