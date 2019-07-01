@@ -174,7 +174,7 @@ func (self *SLDAPDriver) syncDomainInfo(ctx context.Context, info SDomainInfo) (
 	if err == nil {
 		if domain.Name != info.Name {
 			// sync domain name
-			newName, err := db.GenerateName(models.DomainManager, nil, info.Name)
+			newName, err := db.GenerateName2(models.DomainManager, nil, info.Name, domain)
 			if err != nil {
 				log.Errorf("sync existing domain name (%s=%s) generate fail %s", domain.Name, info.Name, err)
 			} else {

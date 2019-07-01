@@ -1584,9 +1584,9 @@ func (manager *SNetworkManager) InitializeData() error {
 }
 
 func (self *SNetwork) ValidateUpdateCondition(ctx context.Context) error {
-	if len(self.ExternalId) > 0 {
+	/*if len(self.ExternalId) > 0 {
 		return httperrors.NewConflictError("Cannot update external resource")
-	}
+	}*/
 	return self.SSharableVirtualResourceBase.ValidateUpdateCondition(ctx)
 }
 
