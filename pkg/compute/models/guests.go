@@ -2136,9 +2136,9 @@ func (manager *SGuestManager) TotalCount(
 	rangeObj db.IStandaloneModel,
 	status []string, hypervisors []string,
 	includeSystem bool, pendingDelete bool,
-	hostTypes []string, resourceTypes []string, providers []string, cloudEnv string,
+	hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string,
 ) SGuestCountStat {
-	return totalGuestResourceCount(scope, ownerId, rangeObj, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, cloudEnv)
+	return totalGuestResourceCount(scope, ownerId, rangeObj, status, hypervisors, includeSystem, pendingDelete, hostTypes, resourceTypes, providers, brands, cloudEnv)
 }
 
 func (self *SGuest) detachNetworks(ctx context.Context, userCred mcclient.TokenCredential, gns []SGuestnetwork, reserve bool, deploy bool) error {
@@ -2548,14 +2548,14 @@ func (self *SGuest) SyncVMDisks(ctx context.Context, userCred mcclient.TokenCred
 	return result
 }
 
-func filterGuestByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, cloudEnv string) *sqlchemy.SQuery {
+func filterGuestByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
 	hosts := HostManager.Query().SubQuery()
 
 	q = q.Join(hosts, sqlchemy.Equals(hosts.Field("id"), q.Field("host_id")))
 	//q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 	// q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), HOST_ONLINE))
 
-	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, cloudEnv, rangeObj)
+	q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, providers, brands, cloudEnv, rangeObj)
 	return q
 }
 
@@ -2581,7 +2581,7 @@ func totalGuestResourceCount(
 	pendingDelete bool,
 	hostTypes []string,
 	resourceTypes []string,
-	providers []string, cloudEnv string,
+	providers []string, brands []string, cloudEnv string,
 ) SGuestCountStat {
 
 	guestdisks := GuestdiskManager.Query().SubQuery()
@@ -2633,7 +2633,7 @@ func totalGuestResourceCount(
 
 	q = q.LeftJoin(isoDevSubQuery, sqlchemy.Equals(isoDevSubQuery.Field("guest_id"), guests.Field("id")))
 
-	q = filterGuestByRange(q, rangeObj, hostTypes, resourceTypes, providers, cloudEnv)
+	q = filterGuestByRange(q, rangeObj, hostTypes, resourceTypes, providers, brands, cloudEnv)
 
 	switch scope {
 	case rbacutils.ScopeSystem:

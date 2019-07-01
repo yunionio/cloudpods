@@ -23,7 +23,8 @@ import (
 
 type GeneralUsageOptions struct {
 	HostType []string `help:"Host types" choices:"hypervisor|baremetal|esxi|xen|kubelet|hyperv|aliyun|azure|aws|huawei|qcloud|openstack|ucloud|zstack"`
-	Provider []string `help:"Provider" choices:"VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|ZStack"`
+	Provider []string `help:"Provider" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|ZStack"`
+	Brand    []string `help:"Brands" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|ZStack|DStack"`
 	Project  string   `help:"show usage of specified project"`
 	Domain   string   `help:"show usage of specified domain"`
 	CloudEnv string   `help:"show usage of specified cloudenv, e.g. public_cloud/private_cloud/on_premise" choices:"public|private|onpremise"`
@@ -37,6 +38,9 @@ func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {
 	}
 	if len(args.Provider) > 0 {
 		params.Add(jsonutils.NewStringArray(args.Provider), "provider")
+	}
+	if len(args.Brand) > 0 {
+		params.Add(jsonutils.NewStringArray(args.Brand), "brand")
 	}
 	if len(args.CloudEnv) > 0 {
 		params.Add(jsonutils.NewString(args.CloudEnv), "cloud_env")

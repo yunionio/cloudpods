@@ -682,7 +682,7 @@ func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverTyp
 	return nil, sql.ErrNoRows
 }
 
-func (manager *SNetworkManager) allNetworksQ(providers []string, cloudEnv string, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
+func (manager *SNetworkManager) allNetworksQ(providers []string, brands []string, cloudEnv string, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
 	networks := manager.Query().SubQuery()
 	hostwires := HostwireManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
@@ -693,11 +693,11 @@ func (manager *SNetworkManager) allNetworksQ(providers []string, cloudEnv string
 	q = q.Filter(sqlchemy.OR(
 		sqlchemy.Equals(hosts.Field("host_type"), api.HOST_TYPE_BAREMETAL),
 		sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE)))
-	return AttachUsageQuery(q, hosts, nil, nil, providers, cloudEnv, rangeObj)
+	return AttachUsageQuery(q, hosts, nil, nil, providers, brands, cloudEnv, rangeObj)
 }
 
-func (manager *SNetworkManager) totalPortCountQ(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, providers []string, cloudEnv string, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
-	q := manager.allNetworksQ(providers, cloudEnv, rangeObj)
+func (manager *SNetworkManager) totalPortCountQ(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, providers []string, brands []string, cloudEnv string, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
+	q := manager.allNetworksQ(providers, brands, cloudEnv, rangeObj)
 	switch scope {
 	case rbacutils.ScopeSystem:
 	case rbacutils.ScopeDomain:
@@ -716,11 +716,11 @@ type NetworkPortStat struct {
 func (manager *SNetworkManager) TotalPortCount(
 	scope rbacutils.TRbacScope,
 	userCred mcclient.IIdentityProvider,
-	providers []string, cloudEnv string,
+	providers []string, brands []string, cloudEnv string,
 	rangeObj db.IStandaloneModel,
 ) NetworkPortStat {
 	nets := make([]SNetwork, 0)
-	err := manager.totalPortCountQ(scope, userCred, providers, cloudEnv, rangeObj).All(&nets)
+	err := manager.totalPortCountQ(scope, userCred, providers, brands, cloudEnv, rangeObj).All(&nets)
 	if err != nil {
 		log.Errorf("TotalPortCount: %v", err)
 	}

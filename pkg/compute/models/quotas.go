@@ -96,9 +96,9 @@ func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, 
 	// net := WireManager.TotalCount(nil, nil, nil, "", scope, ownerId)
 	hypervisors := sets.NewString(api.HYPERVISORS...)
 	hypervisors.Delete(api.HYPERVISOR_CONTAINER)
-	guest := totalGuestResourceCount(scope, ownerId, nil, nil, hypervisors.List(), false, false, nil, nil, nil, "")
-	eipUsage := ElasticipManager.TotalCount(scope, ownerId, nil, nil, "")
-	snapshotCount, _ := TotalSnapshotCount(scope, ownerId, nil, nil, "")
+	guest := totalGuestResourceCount(scope, ownerId, nil, nil, hypervisors.List(), false, false, nil, nil, nil, nil, "")
+	eipUsage := ElasticipManager.TotalCount(scope, ownerId, nil, nil, nil, "")
+	snapshotCount, _ := TotalSnapshotCount(scope, ownerId, nil, nil, nil, "")
 	// XXX
 	// keypair belongs to user
 	// keypair := totalKeypairCount(projectId)
