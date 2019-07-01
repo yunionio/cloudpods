@@ -19,9 +19,9 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/mcclient"
-	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 )
 
 type IMetadataSetter interface {
@@ -41,7 +41,7 @@ func syncMetadata(ctx context.Context, userCred mcclient.TokenCredential, model 
 		}
 		store := make(map[string]interface{}, 0)
 		for key, value := range meta {
-			store[db.CLOUD_TAG_PREFIX + key] = value
+			store[db.CLOUD_TAG_PREFIX+key] = value
 		}
 		// model.SetMetadata(ctx, "ext:"+key, value, userCred)
 		// replace all ext keys
