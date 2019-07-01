@@ -218,7 +218,8 @@ func (manager *SVirtualResourceBaseManager) FetchCustomizeColumns(ctx context.Co
 }
 
 func FetchProjects(projectIds []string, isDomain bool) map[string]STenant {
-	q := TenantCacheManager.Query().In("id", projectIds)
+	deadline := time.Now().UTC().Add(-consts.GetTenantCacheExpireSeconds())
+	q := TenantCacheManager.Query().In("id", projectIds).GT("last_check", deadline)
 	if isDomain {
 		q = q.Equals("domain_id", identityapi.KeystoneDomainRoot)
 	} else {
@@ -232,6 +233,21 @@ func FetchProjects(projectIds []string, isDomain bool) map[string]STenant {
 	ret := make(map[string]STenant)
 	for i := range projects {
 		ret[projects[i].Id] = projects[i]
+	}
+	ctx := context.Background()
+	for _, pid := range projectIds {
+		if _, ok := ret[pid]; !ok {
+			// not found
+			var t *STenant
+			if isDomain {
+				t, _ = TenantCacheManager.fetchDomainFromKeystone(ctx, pid)
+			} else {
+				t, _ = TenantCacheManager.fetchTenantFromKeystone(ctx, pid)
+			}
+			if t != nil {
+				ret[t.Id] = *t
+			}
+		}
 	}
 	return ret
 }
