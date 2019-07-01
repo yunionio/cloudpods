@@ -35,6 +35,7 @@ import (
 
 type SCapabilities struct {
 	Hypervisors        []string `json:",allowempty"`
+	Brands             []string `json:",allowempty"`
 	ResourceTypes      []string `json:",allowempty"`
 	StorageTypes       []string `json:",allowempty"`
 	DataStorageTypes   []string `json:",allowempty"`
@@ -75,6 +76,7 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 		domainId = ""
 	}
 	capa.Hypervisors = getHypervisors(region, zone, domainId)
+	capa.Brands = getBrands(region, zone, domainId, capa.Hypervisors)
 	capa.ResourceTypes = getResourceTypes(region, zone, domainId)
 	capa.StorageTypes = getStorageTypes(region, zone, true, domainId)
 	capa.DataStorageTypes = getStorageTypes(region, zone, false, domainId)
@@ -123,6 +125,47 @@ func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
 	q = q.Filter(sqlchemy.IsTrue(accounts.Field("enabled")))
 
 	return q.SubQuery()
+}
+
+func getBrands(region *SCloudregion, zone *SZone, domainId string, hypervisors []string) []string {
+	q := CloudaccountManager.Query("brand").IsTrue("enabled")
+	if zone != nil {
+		region = zone.GetRegion()
+	}
+	if region != nil {
+		providers := CloudproviderManager.Query().SubQuery()
+		providerregions := CloudproviderRegionManager.Query().SubQuery()
+		q = q.Join(providers, sqlchemy.Equals(q.Field("id"), providers.Field("cloudaccount_id")))
+		q = q.Join(providerregions, sqlchemy.Equals(providers.Field("id"), providerregions.Field("cloudprovider_id")))
+		q = q.Filter(sqlchemy.Equals(providerregions.Field("region_id"), region.Id))
+	}
+	if len(domainId) > 0 {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsTrue(q.Field("is_public")),
+			sqlchemy.Equals(q.Field("domain_id"), domainId),
+		))
+	}
+	q = q.Distinct()
+	rows, err := q.Rows()
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	brands := make([]string, 0)
+	for rows.Next() {
+		var brand string
+		rows.Scan(&brand)
+		if len(brand) > 0 {
+			brands = append(brands, brand)
+		}
+	}
+	for _, hyper := range api.ONECLOUD_HYPERVISORS {
+		if utils.IsInStringArray(hyper, hypervisors) {
+			brands = append(brands, api.CLOUD_PROVIDER_ONECLOUD)
+			break
+		}
+	}
+	return brands
 }
 
 func getHypervisors(region *SCloudregion, zone *SZone, domainId string) []string {
