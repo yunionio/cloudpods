@@ -280,6 +280,14 @@ func (self *SRegion) getZoneById(id string) (*SZone, error) {
 	return nil, fmt.Errorf("no such zone %s", id)
 }
 
+func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	return self.GetInstance(id)
+}
+
+func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+	return self.getDisk(id)
+}
+
 func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	if self.ivpcs == nil {
 		err := self.fetchInfrastructure()

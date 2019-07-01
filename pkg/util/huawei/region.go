@@ -136,6 +136,18 @@ func (self *SRegion) fetchIVpcs() error {
 	return nil
 }
 
+func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	instance, err := self.GetInstanceByID(id)
+	if err != nil {
+		return nil, err
+	}
+	return &instance, err
+}
+
+func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+	return self.GetDisk(id)
+}
+
 func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	if info, ok := LatitudeAndLongitude[self.ID]; ok {
 		return info

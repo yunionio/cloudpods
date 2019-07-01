@@ -1156,16 +1156,48 @@ func (self *SDisk) syncDiskStorage(ctx context.Context, userCred mcclient.TokenC
 	return nil
 }
 
+func (self *SDisk) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	storage := self.GetStorage()
+	if storage == nil {
+		return nil, fmt.Errorf("failed to get storage for disk %s(%s)", self.Name, self.Id)
+	}
+
+	provider, err := storage.GetDriver()
+	if err != nil {
+		return nil, fmt.Errorf("No cloudprovider for storage %s(%s) error: %v", storage.Name, storage.Id, err)
+	}
+
+	if provider.GetFactory().IsOnPremise() {
+		return provider.GetOnPremiseIRegion()
+	}
+	region := storage.GetRegion()
+	if region == nil {
+		msg := "fail to find region of storage???"
+		log.Errorf(msg)
+		return nil, fmt.Errorf(msg)
+	}
+	return provider.GetIRegionById(region.ExternalId)
+}
+
 func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
-	err := self.ValidatePurgeCondition(ctx)
+	iregion, err := self.GetIRegion()
 	if err != nil {
-		return self.SetStatus(userCred, api.DISK_UNKNOWN, "missing original disk after sync")
-	} else {
-		return self.RealDelete(ctx, userCred)
+		return err
 	}
+	_, err = iregion.GetIDiskById(self.ExternalId)
+	if err != cloudprovider.ErrNotFound {
+		return err
+	}
+
+	err = self.ValidatePurgeCondition(ctx)
+	if err != nil {
+		self.SetStatus(userCred, api.DISK_UNKNOWN, "missing original disk after sync")
+		return err
+	}
+	return self.RealDelete(ctx, userCred)
 }
 
 func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.TokenCredential, provider cloudprovider.ICloudProvider, extDisk cloudprovider.ICloudDisk, index int, syncOwnerId mcclient.IIdentityProvider) error {
