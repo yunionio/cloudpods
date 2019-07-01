@@ -77,7 +77,7 @@ func NewDHCPServer2(iface string, dhcpServerPort, dhcpRelayPort uint16) (*DHCPSe
 		{0x6, 0, 0, 0x00040000},
 		{0x6, 0, 0, 0x00000000},
 	}
-	conn, err := NewRawSocketConn(iface, bpf)
+	conn, err := NewRawSocketConn(iface, bpf, dhcpServerPort)
 	if err != nil {
 		return nil, nil, err
 	}
