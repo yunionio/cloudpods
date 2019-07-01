@@ -627,6 +627,10 @@ func (self *SIdentityProvider) Purge(ctx context.Context, userCred mcclient.Toke
 		if err != nil {
 			return errors.Wrap(err, "domain.ValidatePurgeCondition")
 		}
+		err = domains[i].UnlinkIdp(self.Id)
+		if err != nil {
+			return errors.Wrap(err, "domains[i].UnlinkIdp")
+		}
 		err = domains[i].Delete(ctx, userCred)
 		if err != nil {
 			return errors.Wrap(err, "delete domain")
