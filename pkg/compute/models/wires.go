@@ -345,7 +345,7 @@ func filterByScopeOwnerId(q *sqlchemy.SQuery, scope rbacutils.TRbacScope, ownerI
 	return q
 }
 
-func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
+func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
 	guests := GuestManager.Query().SubQuery()
 	hosts := HostManager.Query().SubQuery()
 	groups := GroupManager.Query().SubQuery()
@@ -432,35 +432,15 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 		sq := hostwires.Query(hostwires.Field("wire_id"))
 		sq = sq.Join(hosts, sqlchemy.Equals(hosts.Field("id"), hostwires.Field("host_id")))
 		sq = sq.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
-		sq = AttachUsageQuery(sq, hosts, hostTypes, nil, nil, "", rangeObj)
+		sq = AttachUsageQuery(sq, hosts, hostTypes, nil, nil, nil, "", rangeObj)
 		q = q.Filter(sqlchemy.In(wires.Field("id"), sq.Distinct()))
 	}
 
-	if len(providers) > 0 {
+	if len(providers) > 0 || len(brands) > 0 || len(cloudEnv) > 0 {
 		vpcs := VpcManager.Query().SubQuery()
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		subq := vpcs.Query(vpcs.Field("id"))
-		subq = subq.Join(cloudproviders, sqlchemy.Equals(vpcs.Field("manager_id"), cloudproviders.Field("id")))
-		subq = subq.Filter(sqlchemy.In(cloudproviders.Field("provider"), providers))
-		q = q.Filter(sqlchemy.In(wires.Field("vpc_id"), subq.SubQuery()))
-	}
 
-	if len(cloudEnv) > 0 {
-		vpcs := VpcManager.Query().SubQuery()
 		subq := vpcs.Query(vpcs.Field("id"))
-		switch cloudEnv {
-		case api.CLOUD_ENV_PUBLIC_CLOUD:
-			subq = subq.In("manager_id", CloudproviderManager.GetPublicProviderIdsQuery())
-		case api.CLOUD_ENV_PRIVATE_CLOUD:
-			subq = subq.In("manager_id", CloudproviderManager.GetPrivateProviderIdsQuery())
-		case api.CLOUD_ENV_ON_PREMISE:
-			subq = subq.Filter(
-				sqlchemy.OR(
-					sqlchemy.In(vpcs.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
-					sqlchemy.IsNullOrEmpty(vpcs.Field("manager_id")),
-				),
-			)
-		}
+		subq = CloudProviderFilter(subq, vpcs.Field("manager_id"), providers, brands, cloudEnv)
 		q = q.Filter(sqlchemy.In(wires.Field("vpc_id"), subq.SubQuery()))
 	}
 
@@ -481,9 +461,9 @@ func (wstat WiresCountStat) NicCount() int {
 	return wstat.GuestNicCount + wstat.HostNicCount + wstat.ReservedCount + wstat.GroupNicCount + wstat.LbNicCount
 }
 
-func (manager *SWireManager) TotalCount(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) WiresCountStat {
+func (manager *SWireManager) TotalCount(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) WiresCountStat {
 	stat := WiresCountStat{}
-	err := manager.totalCountQ(rangeObj, hostTypes, providers, cloudEnv, scope, ownerId).First(&stat)
+	err := manager.totalCountQ(rangeObj, hostTypes, providers, brands, cloudEnv, scope, ownerId).First(&stat)
 	if err != nil {
 		log.Errorf("Wire total count: %v", err)
 	}

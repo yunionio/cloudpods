@@ -1075,35 +1075,8 @@ func (u EipUsage) Total() int {
 	return u.PublicIPCount + u.EIPCount
 }
 
-func (manager *SElasticipManager) usageQByProvider(q *sqlchemy.SQuery, providers []string) *sqlchemy.SQuery {
-	if len(providers) == 0 {
-		return q
-	}
-	cloudproviders := CloudproviderManager.Query().SubQuery()
-	subq := cloudproviders.Query(cloudproviders.Field("id")).In("provider", providers).SubQuery()
-	q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
-	return q
-}
-
-func (manager *SElasticipManager) usageQByCloudEnv(q *sqlchemy.SQuery, cloudEnv string) *sqlchemy.SQuery {
-	if len(cloudEnv) == 0 {
-		return q
-	}
-
-	switch cloudEnv {
-	case api.CLOUD_ENV_PUBLIC_CLOUD:
-		q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
-	case api.CLOUD_ENV_PRIVATE_CLOUD:
-		q = q.Filter(sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
-	case api.CLOUD_ENV_ON_PREMISE:
-		q = q.Filter(
-			sqlchemy.OR(
-				sqlchemy.In(q.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
-				sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
-			),
-		)
-	}
-	return q
+func (manager *SElasticipManager) usageQByCloudEnv(q *sqlchemy.SQuery, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
+	return CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
 }
 
 func (manager *SElasticipManager) usageQByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
@@ -1138,21 +1111,20 @@ func (manager *SElasticipManager) usageQByRange(q *sqlchemy.SQuery, rangeObj db.
 	return q
 }
 
-func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, providers []string, cloudEnv string) *sqlchemy.SQuery {
+func (manager *SElasticipManager) usageQ(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
 	q = manager.usageQByRange(q, rangeObj)
-	q = manager.usageQByProvider(q, providers)
-	q = manager.usageQByCloudEnv(q, cloudEnv)
+	q = manager.usageQByCloudEnv(q, providers, brands, cloudEnv)
 	return q
 }
 
-func (manager *SElasticipManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, providers []string, cloudEnv string) EipUsage {
+func (manager *SElasticipManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, providers []string, brands []string, cloudEnv string) EipUsage {
 	usage := EipUsage{}
 	q1 := manager.Query().Equals("mode", api.EIP_MODE_INSTANCE_PUBLICIP)
-	q1 = manager.usageQ(q1, rangeObj, providers, cloudEnv)
+	q1 = manager.usageQ(q1, rangeObj, providers, brands, cloudEnv)
 	q2 := manager.Query().Equals("mode", api.EIP_MODE_STANDALONE_EIP)
-	q2 = manager.usageQ(q2, rangeObj, providers, cloudEnv)
+	q2 = manager.usageQ(q2, rangeObj, providers, brands, cloudEnv)
 	q3 := manager.Query().Equals("mode", api.EIP_MODE_STANDALONE_EIP).IsNotEmpty("associate_id")
-	q3 = manager.usageQ(q3, rangeObj, providers, cloudEnv)
+	q3 = manager.usageQ(q3, rangeObj, providers, brands, cloudEnv)
 	switch scope {
 	case rbacutils.ScopeSystem:
 		// do nothing

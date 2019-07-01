@@ -812,7 +812,7 @@ func (manager *SStorageManager) disksFailedQ() *sqlchemy.SSubQuery {
 
 func (manager *SStorageManager) totalCapacityQ(
 	rangeObj db.IStandaloneModel, hostTypes []string,
-	resourceTypes []string, providers []string, cloudEnv string,
+	resourceTypes []string, providers []string, brands []string, cloudEnv string,
 ) *sqlchemy.SQuery {
 	stmt := manager.disksReadyQ()
 	stmt2 := manager.disksFailedQ()
@@ -842,31 +842,10 @@ func (manager *SStorageManager) totalCapacityQ(
 		q = q.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
 		q = q.Filter(sqlchemy.Equals(hosts.Field("host_status"), api.HOST_ONLINE))
 
-		q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, nil, "", rangeObj)
+		q = AttachUsageQuery(q, hosts, hostTypes, resourceTypes, nil, nil, "", rangeObj)
 	}
 
-	if len(providers) > 0 {
-		cloudproviders := CloudproviderManager.Query().SubQuery()
-		subq := cloudproviders.Query(cloudproviders.Field("id"))
-		subq = subq.Filter(sqlchemy.In(cloudproviders.Field("provider"), providers))
-		q = q.Filter(sqlchemy.In(storages.Field("manager_id"), subq.SubQuery()))
-	}
-
-	if len(cloudEnv) > 0 {
-		switch cloudEnv {
-		case api.CLOUD_ENV_PUBLIC_CLOUD:
-			q = q.Filter(sqlchemy.In(storages.Field("manager_id"), CloudproviderManager.GetPublicProviderIdsQuery()))
-		case api.CLOUD_ENV_PRIVATE_CLOUD:
-			q = q.Filter(sqlchemy.In(storages.Field("manager_id"), CloudproviderManager.GetPrivateProviderIdsQuery()))
-		case api.CLOUD_ENV_ON_PREMISE:
-			q = q.Filter(
-				sqlchemy.OR(
-					sqlchemy.In(storages.Field("manager_id"), CloudproviderManager.GetOnPremiseProviderIdsQuery()),
-					sqlchemy.IsNullOrEmpty(storages.Field("manager_id")),
-				),
-			)
-		}
-	}
+	q = CloudProviderFilter(q, storages.Field("manager_id"), providers, brands, cloudEnv)
 
 	return q
 }
@@ -925,8 +904,8 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 	}
 }
 
-func (manager *SStorageManager) TotalCapacity(rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, cloudEnv string) StoragesCapacityStat {
-	res1 := manager.calculateCapacity(manager.totalCapacityQ(rangeObj, hostTypes, resourceTypes, providers, cloudEnv))
+func (manager *SStorageManager) TotalCapacity(rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) StoragesCapacityStat {
+	res1 := manager.calculateCapacity(manager.totalCapacityQ(rangeObj, hostTypes, resourceTypes, providers, brands, cloudEnv))
 	return res1
 }
 

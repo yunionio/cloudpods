@@ -127,18 +127,18 @@ func (self *SCloudprovider) ValidateDeleteCondition(ctx context.Context) error {
 }
 
 func (manager *SCloudproviderManager) GetPublicProviderIdsQuery() *sqlchemy.SSubQuery {
-	return manager.GetProviderIdsQuery(tristate.True, tristate.None)
+	return manager.GetProviderIdsQuery(tristate.True, tristate.None, nil, nil)
 }
 
 func (manager *SCloudproviderManager) GetPrivateProviderIdsQuery() *sqlchemy.SSubQuery {
-	return manager.GetProviderIdsQuery(tristate.False, tristate.False)
+	return manager.GetProviderIdsQuery(tristate.False, tristate.False, nil, nil)
 }
 
 func (manager *SCloudproviderManager) GetOnPremiseProviderIdsQuery() *sqlchemy.SSubQuery {
-	return manager.GetProviderIdsQuery(tristate.None, tristate.True)
+	return manager.GetProviderIdsQuery(tristate.None, tristate.True, nil, nil)
 }
 
-func (manager *SCloudproviderManager) GetProviderIdsQuery(isPublic tristate.TriState, isOnPremise tristate.TriState) *sqlchemy.SSubQuery {
+func (manager *SCloudproviderManager) GetProviderIdsQuery(isPublic tristate.TriState, isOnPremise tristate.TriState, providers []string, brands []string) *sqlchemy.SSubQuery {
 	q := manager.Query("id")
 	account := CloudaccountManager.Query().SubQuery()
 	q = q.Join(account, sqlchemy.Equals(
@@ -154,7 +154,49 @@ func (manager *SCloudproviderManager) GetProviderIdsQuery(isPublic tristate.TriS
 	} else if isOnPremise.IsFalse() {
 		q = q.Filter(sqlchemy.IsFalse(account.Field("is_on_premise")))
 	}
+	if len(providers) > 0 {
+		q = q.Filter(sqlchemy.In(account.Field("provider"), providers))
+	}
+	if len(brands) > 0 {
+		q = q.Filter(sqlchemy.In(account.Field("brand"), brands))
+	}
 	return q.SubQuery()
+}
+
+func CloudProviderFilter(q *sqlchemy.SQuery, managerIdField sqlchemy.IQueryField, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
+	if len(cloudEnv) == 0 && len(providers) == 0 && len(brands) == 0 {
+		return q
+	}
+	isPublic := tristate.None
+	isOnPremise := tristate.None
+	includeOneCloud := false
+	switch cloudEnv {
+	case api.CLOUD_ENV_PUBLIC_CLOUD:
+		isPublic = tristate.True
+	case api.CLOUD_ENV_PRIVATE_CLOUD:
+		isPublic = tristate.False
+		isOnPremise = tristate.False
+	case api.CLOUD_ENV_ON_PREMISE:
+		isOnPremise = tristate.True
+		includeOneCloud = true
+	default:
+		includeOneCloud = true
+	}
+	if includeOneCloud && len(providers) > 0 && !utils.IsInStringArray(api.CLOUD_PROVIDER_ONECLOUD, providers) {
+		includeOneCloud = false
+	}
+	if includeOneCloud && len(brands) > 0 && !utils.IsInStringArray(api.CLOUD_PROVIDER_ONECLOUD, brands) {
+		includeOneCloud = false
+	}
+	subq := CloudproviderManager.GetProviderIdsQuery(isPublic, isOnPremise, providers, brands)
+	if includeOneCloud {
+		return q.Filter(sqlchemy.OR(
+			sqlchemy.In(managerIdField, subq),
+			sqlchemy.IsNullOrEmpty(managerIdField),
+		))
+	} else {
+		return q.Filter(sqlchemy.In(managerIdField, subq))
+	}
 }
 
 func (self *SCloudprovider) CleanSchedCache() {
