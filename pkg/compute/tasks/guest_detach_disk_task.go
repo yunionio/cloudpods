@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
@@ -120,7 +122,8 @@ func (self *GuestDetachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context,
 	diskId, _ := self.Params.GetString("disk_id")
 	objDisk, err := models.DiskManager.FetchById(diskId)
 	if err != nil {
-		self.OnTaskFail(ctx, guest, nil, err)
+		log.Warningf("failed to fetch disk by id %s error: %v", diskId, err)
+		self.OnTaskFail(ctx, guest, nil, errors.New(reason.String()))
 		return
 	}
 	disk := objDisk.(*models.SDisk)
@@ -128,9 +131,9 @@ func (self *GuestDetachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context,
 	disk.SetDiskReady(ctx, self.UserCred, "")
 	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint)
 	if err != nil {
-		self.OnTaskFail(ctx, guest, disk, err)
-		return
+		log.Warningf("recover attach disk %s(%s) for guest %s(%s) error: %v", disk.Name, disk.Id, guest.Name, guest.Id, err)
 	}
+	self.OnTaskFail(ctx, guest, nil, errors.New(reason.String()))
 }
 
 func (self *GuestDetachDiskTask) OnTaskFail(ctx context.Context, guest *models.SGuest, disk *models.SDisk, err error) {
