@@ -158,7 +158,7 @@ func verifyTokensV3(ctx context.Context, w http.ResponseWriter, r *http.Request)
 			httperrors.InvalidCredentialError(w, "invalid project")
 			return
 		}
-	} else {
+	} else if len(token.DomainId) > 0 {
 		domain, err = models.DomainManager.FetchDomainById(token.DomainId)
 		if err != nil {
 			httperrors.InvalidCredentialError(w, "invalid domain")

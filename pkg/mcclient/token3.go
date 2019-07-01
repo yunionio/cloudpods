@@ -176,6 +176,10 @@ func (this *TokenCredentialV3) GetRegions() []string {
 	return this.Token.Catalog.getRegions()
 }
 
+func (this *TokenCredentialV3) Len() int {
+	return this.Token.Catalog.Len()
+}
+
 func (this *TokenCredentialV3) GetServiceURL(service, region, zone, endpointType string) (string, error) {
 	return this.Token.Catalog.GetServiceURL(service, region, zone, endpointType)
 }
@@ -291,6 +295,10 @@ func Id2RegionZone(id string) (string, string) {
 	} else {
 		return id, ""
 	}
+}
+
+func (catalog KeystoneServiceCatalogV3) Len() int {
+	return len(catalog)
 }
 
 func (catalog KeystoneServiceCatalogV3) GetServiceURL(service, region, zone, endpointType string) (string, error) {

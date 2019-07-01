@@ -36,6 +36,11 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
+const (
+	QUOTA_ACTION_ADD   = "add"
+	QUOTA_ACTION_RESET = "reset"
+)
+
 func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Application) {
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s", prefix, manager.KeywordPlural()),
@@ -232,7 +237,15 @@ func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.Re
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	oquota.Update(quota)
+	action, _ := body.GetString(manager.KeywordPlural(), "action")
+	switch action {
+	case QUOTA_ACTION_ADD:
+		oquota.Add(quota)
+	case QUOTA_ACTION_RESET:
+		oquota.FetchSystemQuota(scope, ownerId)
+	default:
+		oquota.Update(quota)
+	}
 
 	if scope == rbacutils.ScopeProject {
 		total, err := manager.getDomainTotalQuota(ctx, ownerId.GetProjectDomainId(), []string{ownerId.GetProjectId()})
@@ -396,13 +409,9 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId
 	// dsable platform
 	q = q.IsNullOrEmpty("platform")
 	rows, err := q.Rows()
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Errorf("query quotas fail %s", err)
-			return nil, httperrors.NewInternalServerError("query quotas %s", err)
-		} else {
-			return []jsonutils.JSONObject{}, nil
-		}
+	if err != nil && err != sql.ErrNoRows {
+		log.Errorf("query quotas fail %s", err)
+		return nil, httperrors.NewInternalServerError("query quotas %s", err)
 	}
 	defer rows.Close()
 
@@ -453,7 +462,25 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId
 		}
 		ret = append(ret, quota)
 	}
-
+	if len(ret) == 0 && len(targetDomainId) > 0 {
+		// return the initial quota of targetDomainId
+		scope := rbacutils.ScopeDomain
+		owner := db.SOwnerId{
+			DomainId: targetDomainId,
+		}
+		platform := []string{}
+		quota, _, err := manager.queryQuota(ctx, scope, &owner, platform)
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("query domain initial quotas %s", err)
+		}
+		quota.Set("domain_id", jsonutils.NewString(targetDomainId))
+		domain, err := db.TenantCacheManager.FetchDomainById(ctx, targetDomainId)
+		if err != nil {
+			return nil, err
+		}
+		quota.Set("project_domain", jsonutils.NewString(domain.Name))
+		ret = append(ret, quota)
+	}
 	return ret, nil
 }
 

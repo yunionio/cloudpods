@@ -14,6 +14,10 @@
 
 package db
 
+import (
+	"time"
+)
+
 type SKeystoneCacheObjectManager struct {
 	SStandaloneResourceBaseManager
 }
@@ -23,6 +27,8 @@ type SKeystoneCacheObject struct {
 
 	DomainId string `width:"128" charset:"ascii" nullable:"true"`
 	Domain   string `width:"128" charset:"utf8" nullable:"true"`
+
+	LastCheck time.Time `nullable:"true"`
 }
 
 func NewKeystoneCacheObjectManager(dt interface{}, tableName string, keyword string, keywordPlural string) SKeystoneCacheObjectManager {
@@ -36,17 +42,4 @@ func NewKeystoneCacheObject(id string, name string, domainId string, domain stri
 	obj.Domain = domain
 	obj.DomainId = domainId
 	return obj
-}
-
-func (manager *SKeystoneCacheObjectManager) BatchFetchNames(idStrs []string) []string {
-	t := manager.TableSpec().Instance()
-	results, err := t.Query(t.Field("name")).In("id", idStrs).AllStringMap()
-	if err != nil {
-		return nil
-	}
-	ret := make([]string, len(results))
-	for i, obj := range results {
-		ret[i] = obj["name"]
-	}
-	return ret
 }
