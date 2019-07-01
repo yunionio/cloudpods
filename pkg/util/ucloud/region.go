@@ -82,6 +82,18 @@ func (self *SRegion) GetGeographicInfo() cloudprovider.SGeographicInfo {
 	return cloudprovider.SGeographicInfo{}
 }
 
+func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	instance, err := self.GetInstanceByID(id)
+	if err != nil {
+		return nil, err
+	}
+	return &instance, nil
+}
+
+func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+	return self.GetDisk(id)
+}
+
 func (self *SRegion) GetIZones() ([]cloudprovider.ICloudZone, error) {
 	if self.izones == nil {
 		var err error

@@ -46,6 +46,34 @@ func (cli *SESXiClient) GetIHosts() ([]cloudprovider.ICloudHost, error) {
 	return ihosts, nil
 }
 
+func (cli *SESXiClient) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	hosts, err := cli.GetIHosts()
+	if err != nil {
+		return nil, err
+	}
+	for _, host := range hosts {
+		vm, err := host.GetIVMById(id)
+		if err != cloudprovider.ErrNotFound {
+			return vm, err
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SESXiClient) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+	storages, err := self.GetIStorages()
+	if err != nil {
+		return nil, err
+	}
+	for _, storage := range storages {
+		disk, err := storage.GetIDiskById(id)
+		if err != cloudprovider.ErrNotFound {
+			return disk, err
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
 func (cli *SESXiClient) GetIHostById(id string) (cloudprovider.ICloudHost, error) {
 	return cli.FindHostByIp(id)
 }

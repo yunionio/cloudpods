@@ -257,6 +257,14 @@ func (self *SRegion) GetIVpcs() ([]cloudprovider.ICloudVpc, error) {
 	return self.ivpcs, nil
 }
 
+func (self *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	return self.GetInstance(id)
+}
+
+func (self *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+	return self.GetDisk(id)
+}
+
 func (self *SRegion) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	_, err := self.getEc2Client()
 	if err != nil {

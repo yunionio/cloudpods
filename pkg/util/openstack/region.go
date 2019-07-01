@@ -188,6 +188,14 @@ func (region *SRegion) GetIStoragecaches() ([]cloudprovider.ICloudStoragecache, 
 	return []cloudprovider.ICloudStoragecache{storageCache}, nil
 }
 
+func (region *SRegion) GetIVMById(id string) (cloudprovider.ICloudVM, error) {
+	return region.GetInstance(id)
+}
+
+func (region *SRegion) GetIDiskById(id string) (cloudprovider.ICloudDisk, error) {
+	return region.GetDisk(id)
+}
+
 func (region *SRegion) GetIVpcById(id string) (cloudprovider.ICloudVpc, error) {
 	ivpcs, err := region.GetIVpcs()
 	if err != nil {
