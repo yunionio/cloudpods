@@ -176,7 +176,7 @@ func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, idpId s
 	group := SGroup{}
 	group.SetModelManager(manager, &group)
 
-	q := manager.Query().Equals("id", pubId)
+	q := manager.RawQuery().Equals("id", pubId)
 	err = q.First(&group)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, errors.Wrap(err, "Query")
@@ -191,9 +191,12 @@ func (manager *SGroupManager) RegisterExternalGroup(ctx context.Context, idpId s
 		if err != nil {
 			return nil, errors.Wrap(err, "Insert")
 		}
-	} else if group.Displayname != groupName {
+	} else {
 		_, err = db.Update(&group, func() error {
+			group.DomainId = domainId
+			group.Name = groupName
 			group.Displayname = groupName
+			group.MarkUnDelete()
 			return nil
 		})
 		if err != nil {
