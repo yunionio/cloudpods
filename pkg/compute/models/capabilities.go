@@ -137,7 +137,7 @@ func getBrands(region *SCloudregion, zone *SZone, domainId string, hypervisors [
 		providerregions := CloudproviderRegionManager.Query().SubQuery()
 		q = q.Join(providers, sqlchemy.Equals(q.Field("id"), providers.Field("cloudaccount_id")))
 		q = q.Join(providerregions, sqlchemy.Equals(providers.Field("id"), providerregions.Field("cloudprovider_id")))
-		q = q.Filter(sqlchemy.Equals(providerregions.Field("region_id"), region.Id))
+		q = q.Filter(sqlchemy.Equals(providerregions.Field("cloudregion_id"), region.Id))
 	}
 	if len(domainId) > 0 {
 		q = q.Filter(sqlchemy.OR(
