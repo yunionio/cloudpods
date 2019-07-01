@@ -31,6 +31,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -229,8 +230,7 @@ func (cli *SESXiClient) reference2Object(ref types.ManagedObjectReference, props
 	pc := property.DefaultCollector(cli.client.Client)
 	err := pc.RetrieveOne(cli.context, ref, props, dst)
 	if err != nil {
-		log.Errorf("pc.RetrieveOne fail %s", err)
-		return err
+		return errors.Wrap(err, "pc.RetrieveOne")
 	}
 	return nil
 }

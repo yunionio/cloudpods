@@ -125,6 +125,24 @@ func (self *SESXiProviderFactory) GetProvider(providerId, providerName, urlStr, 
 	}, nil
 }
 
+func (self *SESXiProviderFactory) GetClientRC(urlStr, account, secret string) (map[string]string, error) {
+	parts, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+	host, port, err := parseHostPort(parts.Host, 443)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]string{
+		"VMWARE_HOST":     host,
+		"VMWARE_PORT":     fmt.Sprintf("%d", port),
+		"VMWARE_ACCOUNT":  account,
+		"VMWARE_PASSWORD": secret,
+	}, nil
+}
+
 func init() {
 	factory := SESXiProviderFactory{}
 	cloudprovider.RegisterFactory(&factory)

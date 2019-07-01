@@ -55,25 +55,11 @@ type SHuaweiClient struct {
 	iregions     []cloudprovider.ICloudRegion
 }
 
-func parseAccount(account string) (accessKey string, projectId string) {
-	segs := strings.Split(account, "/")
-	if len(segs) == 2 {
-		accessKey = segs[0]
-		projectId = segs[1]
-	} else {
-		accessKey = account
-		projectId = ""
-	}
-
-	return
-}
-
 // 进行资源操作时参数account 对应数据库cloudprovider表中的account字段,由accessKey和projectID两部分组成，通过"/"分割。
 // 初次导入Subaccount时，参数account对应cloudaccounts表中的account字段，即accesskey。此时projectID为空，
 // 只能进行同步子账号、查询region列表等projectId无关的操作。
 // todo: 通过accessurl支持国际站。目前暂时未支持国际站
-func NewHuaweiClient(providerId, providerName, accessurl, account, secret string, debug bool) (*SHuaweiClient, error) {
-	accessKey, projectId := parseAccount(account)
+func NewHuaweiClient(providerId, providerName, accessurl, accessKey, secret, projectId string, debug bool) (*SHuaweiClient, error) {
 	client := SHuaweiClient{
 		providerId:   providerId,
 		providerName: providerName,

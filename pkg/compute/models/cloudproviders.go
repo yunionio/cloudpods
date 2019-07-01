@@ -1222,3 +1222,24 @@ func (manager *SCloudproviderManager) initAllRecords() {
 		})
 	}
 }
+
+func (provider *SCloudprovider) AllowGetDetailsClirc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGetSpec(userCred, provider, "client-rc")
+}
+
+func (provider *SCloudprovider) GetDetailsClirc(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	accessUrl := provider.getAccessUrl()
+	passwd, err := provider.getPassword()
+	if err != nil {
+		return nil, err
+	}
+	rc, err := cloudprovider.GetClientRC(accessUrl, provider.Account, passwd, provider.Provider)
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(rc), nil
+}
+
+func (manager *SCloudproviderManager) ResourceScope() rbacutils.TRbacScope {
+	return rbacutils.ScopeDomain
+}

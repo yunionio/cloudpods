@@ -16,18 +16,18 @@ package cloudprovider
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-var (
-	ErrNoSuchProvder = errors.New("no such provider")
+const (
+	ErrNoSuchProvder = errors.Error("no such provider")
 )
 
 type SCloudaccount struct {
@@ -37,6 +37,8 @@ type SCloudaccount struct {
 
 type ICloudProviderFactory interface {
 	GetProvider(providerId, providerName, url, account, secret string) (ICloudProvider, error)
+
+	GetClientRC(url, account, secret string) (map[string]string, error)
 
 	GetId() string
 	GetName() string
@@ -103,9 +105,17 @@ func GetRegistedProviderIds() []string {
 func GetProvider(providerId, providerName, accessUrl, account, secret, provider string) (ICloudProvider, error) {
 	driver, err := GetProviderFactory(provider)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetProviderFactory")
 	}
 	return driver.GetProvider(providerId, providerName, accessUrl, account, secret)
+}
+
+func GetClientRC(accessUrl, account, secret, provider string) (map[string]string, error) {
+	driver, err := GetProviderFactory(provider)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetProviderFactory")
+	}
+	return driver.GetClientRC(accessUrl, account, secret)
 }
 
 func IsSupported(provider string) bool {

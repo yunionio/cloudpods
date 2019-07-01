@@ -16,6 +16,7 @@ package provider
 
 import (
 	"context"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 
@@ -70,14 +71,38 @@ func (self *SUcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 	return account, nil
 }
 
+func parseAccount(account string) (accessKey string, projectId string) {
+	segs := strings.Split(account, "::")
+	if len(segs) == 2 {
+		accessKey = segs[0]
+		projectId = segs[1]
+	} else {
+		accessKey = account
+		projectId = ""
+	}
+
+	return
+}
+
 func (self *SUcloudProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := ucloud.NewUcloudClient(providerId, providerName, account, secret, false)
+	accessKey, projectId := parseAccount(account)
+	client, err := ucloud.NewUcloudClient(providerId, providerName, accessKey, secret, projectId, false)
 	if err != nil {
 		return nil, err
 	}
 	return &SUcloudProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(self),
 		client:        client,
+	}, nil
+}
+
+func (self *SUcloudProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+	accessKey, projectId := parseAccount(account)
+	return map[string]string{
+		"UCLOUD_ACCESS_KEY": accessKey,
+		"UCLOUD_SECRET":     secret,
+		"UCLOUD_REGION":     ucloud.UCLOUD_DEFAULT_REGION,
+		"UCLOUD_PROJECT":    projectId,
 	}, nil
 }
 

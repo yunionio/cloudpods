@@ -88,6 +88,15 @@ func (self *SAwsProviderFactory) GetProvider(providerId, providerName, url, acco
 	}, nil
 }
 
+func (self *SAwsProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+	return map[string]string{
+		"AWS_ACCESS_URL": url,
+		"AWS_ACCESS_KEY": account,
+		"AWS_SECRET":     secret,
+		"AWS_REGION":     aws.GetDefaultRegionId(url),
+	}, nil
+}
+
 func init() {
 	factory := SAwsProviderFactory{}
 	cloudprovider.RegisterFactory(&factory)

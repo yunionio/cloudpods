@@ -90,13 +90,34 @@ func (self *SQcloudProviderFactory) ValidateUpdateCloudaccountCredential(ctx con
 }
 
 func (self *SQcloudProviderFactory) GetProvider(providerId, providerName, url, account, secret string) (cloudprovider.ICloudProvider, error) {
-	client, err := qcloud.NewQcloudClient(providerId, providerName, account, secret, false)
+	secretId := account
+	appId := ""
+	if tmp := strings.Split(account, "/"); len(tmp) == 2 {
+		secretId = tmp[0]
+		appId = tmp[1]
+	}
+	client, err := qcloud.NewQcloudClient(providerId, providerName, secretId, secret, appId, false)
 	if err != nil {
 		return nil, err
 	}
 	return &SQcloudProvider{
 		SBaseProvider: cloudprovider.NewBaseProvider(self),
 		client:        client,
+	}, nil
+}
+
+func (self *SQcloudProviderFactory) GetClientRC(url, account, secret string) (map[string]string, error) {
+	secretId := account
+	appId := ""
+	if tmp := strings.Split(account, "/"); len(tmp) == 2 {
+		secretId = tmp[0]
+		appId = tmp[1]
+	}
+	return map[string]string{
+		"QCLOUD_APPID":      appId,
+		"QCLOUD_SECRET_ID":  secretId,
+		"QCLOUD_SECRET_KEY": secret,
+		"QCLOUD_REGION":     qcloud.QCLOUD_DEFAULT_REGION,
 	}, nil
 }
 

@@ -31,7 +31,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
+	// "yunion.io/x/onecloud/pkg/httperrors"
 )
 
 const (
@@ -42,16 +42,16 @@ const (
 )
 
 type SAzureClient struct {
-	client              autorest.Client
-	providerId          string
-	providerName        string
-	subscriptionId      string
-	tenantId            string
-	clientId            string
-	clientScret         string
-	domain              string
-	baseUrl             string
-	secret              string
+	client         autorest.Client
+	providerId     string
+	providerName   string
+	subscriptionId string
+	tenantId       string
+	clientId       string
+	clientScret    string
+	domain         string
+	baseUrl        string
+	// secret              string
 	envName             string
 	ressourceGroups     []SResourceGroup
 	fetchResourceGroups bool
@@ -87,29 +87,22 @@ var DEFAULT_API_VERSION = map[string]string{
 	"Microsoft.Compute/locations":                    "2018-06-01",
 }
 
-func NewAzureClient(providerId string, providerName string, accessKey string, secret string, envName string, debug bool) (*SAzureClient, error) {
-	clientInfo := strings.Split(secret, "/")
-	accountInfo := strings.Split(accessKey, "/")
-	if len(clientInfo) >= 2 && len(accountInfo) >= 1 {
-		client := SAzureClient{
-			providerId:   providerId,
-			providerName: providerName,
-			secret:       secret,
-			envName:      envName,
-			debug:        debug,
-		}
-		client.clientId, client.clientScret = clientInfo[0], strings.Join(clientInfo[1:], "/")
-		client.tenantId = accountInfo[0]
-		if len(accountInfo) == 2 {
-			client.subscriptionId = accountInfo[1]
-		}
-		err := client.fetchRegions()
-		if err != nil {
-			return nil, err
-		}
-		return &client, nil
+func NewAzureClient(providerId string, providerName string, envName, tenantId, clientId, clientSecret, subscriptionId string, debug bool) (*SAzureClient, error) {
+	client := SAzureClient{
+		providerId:     providerId,
+		providerName:   providerName,
+		envName:        envName,
+		tenantId:       tenantId,
+		clientId:       clientId,
+		clientScret:    clientSecret,
+		subscriptionId: subscriptionId,
+		debug:          debug,
 	}
-	return nil, httperrors.NewUnauthorizedError("clientId、clientScret or subscriptId input error")
+	err := client.fetchRegions()
+	if err != nil {
+		return nil, err
+	}
+	return &client, nil
 }
 
 func (self *SAzureClient) getDefaultClient() (*autorest.Client, error) {
@@ -678,7 +671,7 @@ func _jsonRequest(client *autorest.Client, method, domain, baseURL, body string)
 	return jsonutils.Parse([]byte(_data))
 }
 
-func (self *SAzureClient) UpdateAccount(tenantId, secret, envName string) error {
+/*func (self *SAzureClient) UpdateAccount(envName, tenantId, appId, appKey, subscriptionId string) error {
 	if self.tenantId != tenantId || self.secret != secret || self.envName != envName {
 		if clientInfo, accountInfo := strings.Split(secret, "/"), strings.Split(tenantId, "/"); len(clientInfo) >= 2 && len(accountInfo) >= 1 {
 			self.clientId, self.clientScret = clientInfo[0], strings.Join(clientInfo[1:], "/")
@@ -696,7 +689,7 @@ func (self *SAzureClient) UpdateAccount(tenantId, secret, envName string) error 
 		}
 	}
 	return nil
-}
+}*/
 
 func (self *SAzureClient) fetchRegions() error {
 	if len(self.subscriptionId) > 0 {

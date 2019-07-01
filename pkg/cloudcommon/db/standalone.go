@@ -258,7 +258,11 @@ func (model *SStandaloneResourceBase) SetUserMetadataValues(ctx context.Context,
 }
 
 func (model *SStandaloneResourceBase) SetUserMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
-	return Metadata.SetAll(ctx, model, dictstore, userCred, "user")
+	return Metadata.SetAll(ctx, model, dictstore, userCred, USER_TAG_PREFIX)
+}
+
+func (model *SStandaloneResourceBase) SetCloudMetadataAll(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
+	return Metadata.SetAll(ctx, model, dictstore, userCred, CLOUD_TAG_PREFIX)
 }
 
 func (model *SStandaloneResourceBase) RemoveMetadata(ctx context.Context, key string, userCred mcclient.TokenCredential) error {
@@ -343,7 +347,7 @@ func (model *SStandaloneResourceBase) PerformSetUserMetadata(ctx context.Context
 	}
 	dictStore := make(map[string]interface{})
 	for k, v := range dictMap {
-		dictStore["user:"+k], _ = v.GetString()
+		dictStore[USER_TAG_PREFIX+k], _ = v.GetString()
 	}
 	err = model.SetUserMetadataAll(ctx, dictStore, userCred)
 	return nil, err
