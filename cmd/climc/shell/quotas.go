@@ -62,6 +62,7 @@ func init() {
 	type QuotaSetOptions struct {
 		Tenant        string `help:"Tenant name or ID to set quota" json:"tenant,omitempty"`
 		ProjectDomain string `help:"Domain name or ID to set quota" json:"domain,omitempty"`
+		Action        string `help:"quota set action" choices:"add|reset"`
 		QuotaBaseOptions
 	}
 	R(&QuotaSetOptions{}, "quota-set", "Set quota for tenant", func(s *mcclient.ClientSession, args *QuotaSetOptions) error {

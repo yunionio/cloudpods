@@ -1,14 +1,28 @@
+QuotaListResponse: 
+  type: object
+  properties:
+    quotas:
+      type: array
+      items:
+        $ref: '#/quota'
+
 QuotaGetResponse:
   type: object
   properties:
     quotas:
       type: object
-      $ref: '#/Quota'
+      $ref: '#/quota'
 
-Quota:
+quota:
   type: object
   description: 配额信息
   properties:
+    domain_id:
+      type: string
+      description: 在配额列表中，只是当前配额的适用域ID
+    project_id:
+      type: string
+      description: 在配额列表中，只是当前配额的适用项目ID
     cpu:
       type: integer
       description: CPU配额

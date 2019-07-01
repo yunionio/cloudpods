@@ -14,10 +14,16 @@
 
 package consts
 
+import (
+	"time"
+)
+
 var (
 	globalRegion = ""
 
 	globalServiceType = ""
+
+	tenantCacheExpireSeconds = 900
 )
 
 func SetRegion(region string) {
@@ -34,4 +40,12 @@ func SetServiceType(srvType string) {
 
 func GetServiceType() string {
 	return globalServiceType
+}
+
+func SetTenantCacheExpireSeconds(sec int) {
+	tenantCacheExpireSeconds = sec
+}
+
+func GetTenantCacheExpireSeconds() time.Duration {
+	return time.Duration(tenantCacheExpireSeconds) * time.Second
 }

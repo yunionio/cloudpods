@@ -281,8 +281,8 @@ paths:
   /quotas/projects/{project_id}:
     $ref: "./quotas/projectquotas.yaml"
   /quotas/domains/{domain_id}:
-    $ref: "./quotas/projectquotas.yaml"
-  /quotas/domains:
-    $ref: "./quotas/quotalist.yaml"
+    $ref: "./quotas/domainquotas.yaml"
   /quotas/projects:
+    $ref: "./quotas/projectquotalist.yaml"
+  /quotas/domains:
     $ref: "./quotas/quotalist.yaml"
