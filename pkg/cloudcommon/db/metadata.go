@@ -41,7 +41,7 @@ const (
 	// TAG_DELETE_RANGE_USER  = "user"
 	// TAG_DELETE_RANGE_CLOUD = CLOUD_TAG_PREFIX // "cloud"
 
-	TAG_DELETE_RANGE_ALL   = "all"
+	TAG_DELETE_RANGE_ALL = "all"
 )
 
 type SMetadataManager struct {
