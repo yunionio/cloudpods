@@ -80,6 +80,10 @@ func alterNameValidator(model IModel, name string) error {
 }
 
 func GenerateName(manager IModelManager, ownerId mcclient.IIdentityProvider, hint string) (string, error) {
+	return GenerateName2(manager, ownerId, hint, nil)
+}
+
+func GenerateName2(manager IModelManager, ownerId mcclient.IIdentityProvider, hint string, model IModel) (string, error) {
 	_, pattern, patternLen := stringutils.ParseNamePattern(hint)
 	var name string
 	idx := 1
@@ -90,7 +94,13 @@ func GenerateName(manager IModelManager, ownerId mcclient.IIdentityProvider, hin
 		idx += 1
 	}
 	for {
-		uniq, err := isNameUnique(manager, ownerId, name)
+		var uniq bool
+		var err error
+		if model == nil {
+			uniq, err = isNameUnique(manager, ownerId, name)
+		} else {
+			uniq, err = isAlterNameUnique(model, name)
+		}
 		if err != nil {
 			return "", err
 		}
