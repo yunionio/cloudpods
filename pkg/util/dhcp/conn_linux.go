@@ -38,9 +38,147 @@ import (
 	"net"
 	"time"
 
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/mdlayher/raw"
 	"golang.org/x/net/bpf"
 	"golang.org/x/net/ipv4"
+	"golang.org/x/sys/unix"
 )
+
+type rawSocketConn struct {
+	conn *raw.Conn
+
+	iface          *net.Interface
+	ip             net.IP
+	dhcpServerPort uint16
+}
+
+func newRawSocketConn(iface string, filter []bpf.RawInstruction, dhcpServerPort uint16) (conn, error) {
+	ifi, err := net.InterfaceByName(iface)
+	if err != nil {
+		return nil, fmt.Errorf("interface by name: %v", err)
+	}
+
+	ip, err := interfaceToIPv4Addr(ifi)
+	if err != nil {
+		return nil, err
+	}
+
+	// unix.ETH_P_ALL
+	conn, err := raw.ListenPacket(ifi, unix.ETH_P_ALL, &raw.Config{
+		NoCumulativeStats: true,
+		Filter:            filter,
+	})
+	return &rawSocketConn{conn, ifi, ip, dhcpServerPort}, nil
+}
+
+func (s *rawSocketConn) Close() error {
+	return s.conn.Close()
+}
+
+func (s *rawSocketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, int, error) {
+	// read packet
+	n, addr, err := s.conn.ReadFrom(b)
+	if err != nil {
+		return nil, nil, nil, 0, fmt.Errorf("Read from errror: %s", err)
+	}
+	b = b[:n]
+
+	srcMac, err := net.ParseMAC(addr.String())
+	if err != nil {
+		return nil, nil, nil, 0, fmt.Errorf("Parse mac error: %s", err)
+	}
+
+	p := gopacket.NewPacket(b, layers.LayerTypeEthernet, gopacket.Default)
+	if p.ErrorLayer() != nil {
+		return nil, nil, nil, 0, fmt.Errorf("Failed to decode packet: %v", p.ErrorLayer().Error())
+	}
+
+	var srcIp net.IP
+	ipLayer := p.Layer(layers.LayerTypeIPv4)
+	if ipLayer != nil {
+		ip4 := ipLayer.(*layers.IPv4)
+		srcIp = ip4.SrcIP
+	} else {
+		return nil, nil, nil, 0, fmt.Errorf("Fetch ip layer failed")
+	}
+
+	var srcPort uint16
+	udpLayer := p.Layer(layers.LayerTypeUDP)
+	if udpLayer != nil {
+		udpInfo := udpLayer.(*layers.UDP)
+		srcPort = uint16(udpInfo.SrcPort)
+	} else {
+		return nil, nil, nil, 0, fmt.Errorf("Fetch upd layer failed")
+	}
+
+	dhcpLayer := p.Layer(layers.LayerTypeDHCPv4)
+	if dhcpLayer != nil {
+		dhcp4 := dhcpLayer.(*layers.DHCPv4)
+		sbf := gopacket.NewSerializeBuffer()
+		if err := dhcp4.SerializeTo(sbf, gopacket.SerializeOptions{}); err != nil {
+			return nil, nil, nil, 0, fmt.Errorf("Serialize dhcp packet error %s", err)
+		}
+		return sbf.Bytes(), &net.UDPAddr{srcIp, int(srcPort), ""}, srcMac, 0, nil
+	} else {
+		return nil, nil, nil, 0, fmt.Errorf("Fetch dhcp layer failed")
+	}
+}
+
+func (s *rawSocketConn) Send(b []byte, addr *net.UDPAddr, destMac net.HardwareAddr, ifidx int) error {
+	var dhcp = new(layers.DHCPv4)
+	if err := dhcp.DecodeFromBytes(b, gopacket.NilDecodeFeedback); err != nil {
+		return fmt.Errorf("Decode dhcp bytes error %s", err)
+	}
+
+	var eth = &layers.Ethernet{
+		EthernetType: layers.EthernetTypeIPv4,
+		SrcMAC:       s.iface.HardwareAddr,
+		DstMAC:       destMac,
+	}
+
+	var ip = &layers.IPv4{
+		Version:  4,
+		TTL:      64,
+		SrcIP:    s.ip,
+		DstIP:    addr.IP,
+		Protocol: layers.IPProtocolUDP,
+	}
+
+	var (
+		srcPort = layers.UDPPort(s.dhcpServerPort)
+		dstPort = layers.UDPPort(addr.Port)
+	)
+
+	var udp = &layers.UDP{
+		SrcPort: srcPort,
+		DstPort: dstPort,
+	}
+	udp.SetNetworkLayerForChecksum(ip)
+
+	var (
+		buf  = gopacket.NewSerializeBuffer()
+		opts = gopacket.SerializeOptions{ComputeChecksums: true, FixLengths: true}
+	)
+	if err := gopacket.SerializeLayers(buf, opts, eth, ip, udp, dhcp); err != nil {
+		return fmt.Errorf("SerializeLayers error: %s", err)
+	}
+
+	// s.conn.SetWriteDeadline(time.Now().Add(DefaultWriteTimeout)) // 2 second
+	if _, err := s.conn.WriteTo(buf.Bytes(), &raw.Addr{HardwareAddr: destMac}); err != nil {
+		return fmt.Errorf("Send dhcp packet error %s", err)
+	}
+	return nil
+}
+
+func (s *rawSocketConn) SetReadDeadline(t time.Time) error {
+	return s.conn.SetReadDeadline(t)
+}
+
+func (s *rawSocketConn) SetWriteDeadline(t time.Time) error {
+	return s.conn.SetWriteDeadline(t)
+}
 
 type linuxConn struct {
 	port uint16
