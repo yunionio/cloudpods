@@ -166,8 +166,22 @@ func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Contex
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
-	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
+func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iVM, err := guest.GetIVM()
+		if err != nil {
+			return nil, errors.Wrapf(err, "guest.GetIVM")
+		}
+		if len(disk.ExternalId) == 0 {
+			return nil, fmt.Errorf("disk %s(%s) is not a managed resource", disk.Name, disk.Id)
+		}
+		err = iVM.AttachDisk(ctx, disk.ExternalId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "iVM.AttachDisk")
+		}
+		return nil, nil
+	})
+	return nil
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
