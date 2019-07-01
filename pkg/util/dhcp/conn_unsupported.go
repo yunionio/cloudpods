@@ -31,7 +31,11 @@
 
 package dhcp
 
-import "errors"
+import (
+	"errors"
+
+	"golang.org/x/net/bpf"
+)
 
 // NewSnooperConn creates a Conn that listens on the given UDP ip:port.
 //
@@ -39,4 +43,8 @@ import "errors"
 // enabling the Conn to coexist with other services on the machine.
 func NewSnooperConn(addr string) (*Conn, error) {
 	return nil, errors.New("snooper Conns not supported on this OS")
+}
+
+func newRawSocketConn(iface string, filter []bpf.RawInstruction, dhcpServerPort uint16) (conn, error) {
+	return nil, errors.New("raw socket Conns not supported on this OS")
 }
