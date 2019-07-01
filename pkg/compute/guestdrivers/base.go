@@ -103,7 +103,7 @@ func (self *SBaseGuestDriver) RequestDetachDisk(ctx context.Context, guest *mode
 	return nil
 }
 
-func (self *SBaseGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (self *SBaseGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
 	task.ScheduleRun(nil)
 	return nil
 }

@@ -321,7 +321,7 @@ func (self *SKVMGuestDriver) RequestDetachDisk(ctx context.Context, guest *model
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
-func (self *SKVMGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, task taskman.ITask) error {
+func (self *SKVMGuestDriver) RequestAttachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 
