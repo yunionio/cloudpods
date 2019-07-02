@@ -231,7 +231,7 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 		if ok {
 			fw := newResponseWriterChannel(w)
 			worker := make(chan *SWorker)
-			to := hand.processTimeout
+			to := hand.FetchProcessTimeout(r)
 			if to == 0 {
 				to = app.processTimeout
 			}
