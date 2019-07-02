@@ -478,6 +478,13 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 	if int64(totalCnt) > maxLimit && (limit <= 0 || limit > maxLimit) {
 		limit = maxLimit
 	}
+
+	// export data only
+	exportLimit, err := query.Int("export_limit")
+	if query.Contains("export_keys") && err == nil {
+		limit = exportLimit
+	}
+
 	orderBy := jsonutils.GetQueryStringArray(queryDict, "order_by")
 	if len(orderBy) == 0 {
 		colSpec := manager.TableSpec().ColumnSpec("id")
