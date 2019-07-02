@@ -17,12 +17,16 @@ package zstack
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
+	"github.com/pkg/errors"
 
+	"yunion.io/x/jsonutils"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SInstanceOffering struct {
+	multicloud.SServerSku
 	region *SRegion
 
 	ZStackBasic
@@ -53,6 +57,31 @@ func (region *SRegion) GetInstanceOfferingByType(instanceType string) (*SInstanc
 		return nil, fmt.Errorf("instanceType %s not found", instanceType)
 	}
 	return nil, fmt.Errorf("duplicate instanceType %s", instanceType)
+}
+
+func (region *SRegion) CreateISku(sku *cloudprovider.SServerSku) (cloudprovider.ICloudSku, error) {
+	return region.CreateInstanceOffering(sku.Name, sku.CpuCoreCount, sku.MemorySizeMB, "UserVm")
+}
+
+func (region *SRegion) CreateInstanceOffering(name string, cpu int, memoryMb int, offeringType string) (*SInstanceOffering, error) {
+	parmas := map[string]interface{}{
+		"params": map[string]interface{}{
+			"name":       name,
+			"cpuNum":     cpu,
+			"memorySize": memoryMb * 1024 * 1024,
+			"type":       offeringType,
+		},
+	}
+	resp, err := region.client.post("instance-offerings", jsonutils.Marshal(parmas))
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateInstanceOffering")
+	}
+	offering := &SInstanceOffering{region: region}
+	err = resp.Unmarshal(offering, "inventory")
+	if err != nil {
+		return nil, errors.Wrapf(err, "resp.Unmarshal")
+	}
+	return offering, nil
 }
 
 func (region *SRegion) GetInstanceOfferings(offerId string, name string, cpu int, memorySizeMb int) ([]SInstanceOffering, error) {
@@ -102,7 +131,7 @@ func (offering *SInstanceOffering) GetName() string {
 func (offering *SInstanceOffering) GetStatus() string {
 	switch offering.State {
 	case "Enabled":
-		return api.SkuStatusAvailable
+		return api.SkuStatusReady
 	}
 	return api.SkuStatusSoldout
 }
@@ -113,6 +142,14 @@ func (offering *SInstanceOffering) GetId() string {
 
 func (offering *SInstanceOffering) GetGlobalId() string {
 	return offering.UUID
+}
+
+func (offering *SInstanceOffering) Delete() error {
+	return offering.region.DeleteOffering(offering.UUID)
+}
+
+func (region *SRegion) DeleteOffering(offeringId string) error {
+	return region.client.delete("instance-offerings", offeringId, "")
 }
 
 func (offering *SInstanceOffering) GetInstanceTypeFamily() string {

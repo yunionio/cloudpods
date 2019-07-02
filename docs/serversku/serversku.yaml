@@ -1,0 +1,11 @@
+get:
+  summary: 获取指定套餐详情信息
+  parameters: 
+    - $ref: "../parameters/serversku.yaml#/serverskuId"
+  responses:
+    200:
+      description: 套餐详情信息
+      schema:
+        $ref: "../schemas/serversku.yaml#/ServerSkuResponse"
+  tags:
+    - serverskus
