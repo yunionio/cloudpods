@@ -50,6 +50,7 @@ func (host *SHostService) InitService() {
 	}
 
 	options.HostOptions.EnableRbac = false // disable rbac
+	// init base option for pid file
 	host.SServiceBase.O = &options.HostOptions.BaseOptions
 }
 

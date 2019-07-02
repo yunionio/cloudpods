@@ -63,7 +63,7 @@ type SHostOptions struct {
 	LocalImagePath  []string `help:"Local image storage paths"`
 	SharedStorages  []string `help:"Path of shared storages"`
 
-	DefaultQemuVersion string `help:"Default qemu version" default:"2.9.1"`
+	DefaultQemuVersion string `help:"Default qemu version" default:"2.12.1"`
 
 	DhcpRelay       []string `help:"DHCP relay upstream"`
 	DhcpLeaseTime   int      `default:"100663296" help:"DHCP lease time in seconds"`

@@ -69,13 +69,13 @@ func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 		}
 	}
 
-	for _, d := range options.HostOptions.SharedStorages {
-		s := ret.NewSharedStorageInstance(d, "")
-		if s != nil {
-			ret.Storages = append(ret.Storages, s)
-			allFull = false
-		}
-	}
+	// for _, d := range options.HostOptions.SharedStorages {
+	// 	s := ret.NewSharedStorageInstance(d, "")
+	// 	if s != nil {
+	// 		ret.Storages = append(ret.Storages, s)
+	// 		allFull = false
+	// 	}
+	// }
 
 	if allFull {
 		return nil, fmt.Errorf("Not enough storage space!")
