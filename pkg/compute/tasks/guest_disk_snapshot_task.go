@@ -253,7 +253,6 @@ func (self *SnapshotDeleteTask) OnDeleteSnapshot(ctx context.Context, snapshot *
 			snapshot.RealDelete(ctx, self.UserCred)
 			self.TaskComplete(ctx, snapshot, nil)
 		} else {
-			guest, _ := snapshot.GetGuest()
 			var FakeDelete = false
 			if snapshot.CreatedBy == api.SNAPSHOT_MANUAL && snapshot.FakeDeleted == false {
 				FakeDelete = true
@@ -266,8 +265,7 @@ func (self *SnapshotDeleteTask) OnDeleteSnapshot(ctx context.Context, snapshot *
 			} else {
 				snapshot.RealDelete(ctx, self.UserCred)
 			}
-			self.SetStage("TaskComplete", nil)
-			guest.StartSyncstatus(ctx, self.UserCred, "")
+			self.TaskComplete(ctx, snapshot, nil)
 		}
 	} else {
 		snapshot.SetStatus(self.UserCred, api.SNAPSHOT_READY, "OnDeleteSnapshot")
@@ -282,35 +280,40 @@ func (self *SnapshotDeleteTask) OnDeleteSnapshotFailed(ctx context.Context, snap
 
 func (self *SnapshotDeleteTask) OnReloadDiskSnapshot(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
 	if !jsonutils.QueryBoolean(data, "reopen", false) {
-		log.Infof("OnDeleteSnapshot with no reopen")
+		log.Infof("OnReloadDiskSnapshot with no reopen")
 		return
 	}
-	if snapshot.CreatedBy == api.SNAPSHOT_AUTO {
-		err := snapshot.RealDelete(ctx, self.UserCred)
-		if err != nil {
-			self.TaskFailed(ctx, snapshot, err.Error())
-			return
-		}
-	} else {
-		err := snapshot.FakeDelete()
-		if err != nil {
-			self.TaskFailed(ctx, snapshot, err.Error())
-			return
-		}
-	}
-	self.SetStage("TaskComplete", nil)
+
 	guest, err := snapshot.GetGuest()
 	if err != nil {
-		self.SetStageFailed(ctx, err.Error())
+		self.TaskFailed(ctx, snapshot, err.Error())
 		return
 	}
-	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
+	if snapshot.FakeDeleted {
+		params := jsonutils.NewDict()
+		params.Set("delete_snapshot", jsonutils.NewString(snapshot.Id))
+		params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
+		params.Set("auto_deleted", jsonutils.JSONTrue)
+		self.SetStage("OnDeleteSnapshot", nil)
+		err = guest.GetDriver().RequestDeleteSnapshot(ctx, guest, self, params)
+		if err != nil {
+			self.TaskFailed(ctx, snapshot, err.Error())
+		}
+	} else {
+		self.TaskComplete(ctx, snapshot, nil)
+	}
 }
 
 func (self *SnapshotDeleteTask) TaskComplete(ctx context.Context, snapshot *models.SSnapshot, data jsonutils.JSONObject) {
 	db.OpsLog.LogEvent(snapshot, db.ACT_SNAPSHOT_DELETE, snapshot.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, snapshot, logclient.ACT_DELOCATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
+	guest, err := snapshot.GetGuest()
+	if err != nil {
+		log.Errorln(err.Error())
+		return
+	}
+	guest.StartSyncstatus(ctx, self.UserCred, "")
 }
 
 func (self *SnapshotDeleteTask) TaskFailed(ctx context.Context, snapshot *models.SSnapshot, reason string) {

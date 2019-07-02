@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+package apis;
+
+message GuestDesc {
+  string name = 1;
+  string uuid = 2;
+  string domain = 3;
+
+  repeated Nic nics = 4;
+  repeated Nic nics_standby = 5;
+  repeated Disk disks = 6;
+}
+
+message Disk {
+  string disk_id = 1;
+  string driver = 2;
+  string cache_mode = 3;
+  string aio_mode = 4;
+  int64 size = 5;
+  string template_id = 6;
+  string image_path = 7;
+  string storage_id = 8;
+  bool migrating = 9;
+  string target_storage_id = 10;
+  string path = 11;
+  string format = 12;
+  int32 index = 13;
+  bool merge_snapshot = 14;
+  string fs = 15;
+  string mountpoint = 16;
+  string dev = 17;
+}
+
+
+message Nic {
+  string mac = 1;
+  string ip = 2;
+  string net = 3;
+  string net_id = 4;
+  bool virtual = 5;
+  string gateway = 6;
+  string dns = 7;
+  string domain = 8;
+  repeated Routes routes = 9;
+  string ifname = 10;
+  int32 masklen = 11;
+  string driver = 12;
+  string bridge = 13;
+  string wire_id = 14;
+  int32 vlan = 15;
+  string interface = 16;
+  int32 bw = 17;
+  int32 index = 18;
+  repeated string virtual_ips = 19;
+  string externel_id = 20;
+  string team_with = 21;
+  bool manual = 22;
+  string nic_type = 23;
+  bool link_up = 24;
+  int64 mtu = 25;
+  string name = 26;
+}
+
+message Routes {
+  repeated string route = 1;
+}
+
+message DeployInfo {
+  SSHKeys public_key = 1;
+  repeated DeployContent deploys = 2;
+  string password = 3;
+  bool is_init = 4;
+  bool enable_tty = 5;
+  bool default_root_user = 6;
+  bool windows_default_admin_user = 7;
+  bool enable_cloud_init = 8;
+}
+
+message SSHKeys {
+  string public_key = 1;
+  string delete_public_key = 2;
+  string admin_public_key = 3;
+  string project_public_key = 4;
+}
+
+message DeployContent {
+  string path = 1;
+  string content = 2;
+  string action = 3;
+}
+
+message Empty {
+}
+
+message DeployGuestFsResponse {
+  string distro = 1;
+  string version = 2;
+  string arch = 3;
+  string language = 4;
+  string os = 5;
+  string account = 6;
+  string key = 7;
+}
+
+message DeployParams {
+  string disk_path = 1;
+  GuestDesc guest_desc = 2;
+  DeployInfo deploy_info = 3;
+}
+
+message ResizeFsParams {
+  string disk_path = 1;
+}
+
+message FormatFsParams {
+  string disk_path = 1;
+  string fs_format = 2;
+  string uuid = 3;
+}
+
+message ReleaseInfo {
+  string distro = 1;
+  string version = 2;
+  string arch = 3;
+  string language = 4;
+}
+
+message SaveToGlanceParams {
+  string disk_path = 1;
+  bool compress = 2;
+}
+
+message SaveToGlanceResponse {
+  string os_info = 1;
+  ReleaseInfo release_info = 2;
+}
+
+message ProbeImageInfoPramas {
+  string disk_path = 1;
+}
+
+message ImageInfo {
+  ReleaseInfo os_info = 1;
+  string os_type = 2;
+  bool is_uefi_support = 3;
+  bool is_lvm_partition = 4;
+  bool is_readonly = 5;
+  string physical_partition_type = 6;
+  bool is_installed_cloud_init = 7;
+}
+
+service DeployAgent {
+  rpc DeployGuestFs (DeployParams) returns (DeployGuestFsResponse);
+  rpc ResizeFs (ResizeFsParams) returns (Empty);
+  rpc FormatFs (FormatFsParams) returns (Empty);
+  rpc SaveToGlance (SaveToGlanceParams) returns (SaveToGlanceResponse);
+  rpc ProbeImageInfo(ProbeImageInfoPramas) returns (ImageInfo);
+}

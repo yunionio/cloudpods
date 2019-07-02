@@ -16,14 +16,18 @@ package service
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
+	"syscall"
+
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
+	"yunion.io/x/pkg/util/signalutils"
+	"yunion.io/x/pkg/utils"
 )
 
 type IService interface {
@@ -36,6 +40,10 @@ type SServiceBase struct {
 	Service IService
 
 	O *options.BaseOptions
+}
+
+func NewBaseService(service IService) *SServiceBase {
+	return &SServiceBase{Service: service}
 }
 
 func (s *SServiceBase) StartService() {
@@ -77,4 +85,16 @@ func (s *SServiceBase) RemovePid() {
 	if s.O != nil && len(s.O.PidFile) > 0 && fileutils2.Exists(s.O.PidFile) {
 		os.Remove(s.O.PidFile)
 	}
+}
+
+func (s *SServiceBase) SignalTrap(onExit func()) {
+	// dump goroutine stack
+	signalutils.RegisterSignal(func() {
+		utils.DumpAllGoroutineStack(log.Logger().Out)
+	}, syscall.SIGUSR1)
+	if onExit != nil {
+		quitSignals := []os.Signal{syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM}
+		signalutils.RegisterSignal(onExit, quitSignals...)
+	}
+	signalutils.StartTrap()
 }

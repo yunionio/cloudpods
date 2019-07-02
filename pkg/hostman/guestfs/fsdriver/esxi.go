@@ -15,10 +15,9 @@
 package fsdriver
 
 import (
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 type SEsxiRootFs struct {
@@ -67,19 +66,19 @@ func (m *SEsxiRootFs) DeployHosts(part IDiskPartition, hn, domain string, ips []
 	return nil
 }
 
-func (m *SEsxiRootFs) GetReleaseInfo(IDiskPartition) *SReleaseInfo {
+func (m *SEsxiRootFs) GetReleaseInfo(IDiskPartition) *deployapi.ReleaseInfo {
 	spath := "/boot.cfg"
 	lines, _ := m.rootFs.FileGetContents(spath, false)
 	prop := ParsePropStr(string(lines))
 	version, _ := prop["build"]
-	return &SReleaseInfo{
+	return &deployapi.ReleaseInfo{
 		Distro:  "ESXi",
 		Version: version,
 		Arch:    "x86_64",
 	}
 }
 
-func (m *SEsxiRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *sshkeys.SSHKeys) error {
+func (m *SEsxiRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *deployapi.SSHKeys) error {
 	return nil
 }
 
@@ -87,6 +86,6 @@ func (m *SEsxiRootFs) PrepareFsForTemplate(IDiskPartition) error {
 	return nil
 }
 
-func (m *SEsxiRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []jsonutils.JSONObject) error {
+func (m *SEsxiRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*deployapi.Nic) error {
 	return nil
 }

@@ -25,24 +25,24 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/regutils"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/appsrv"
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
-	"yunion.io/x/onecloud/pkg/hostman/guestfs"
-	"yunion.io/x/onecloud/pkg/hostman/hostutils"
-	"yunion.io/x/onecloud/pkg/hostman/options"
-	"yunion.io/x/onecloud/pkg/hostman/storageman"
-	"yunion.io/x/onecloud/pkg/httperrors"
-	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/util/cgrouputils"
-	"yunion.io/x/onecloud/pkg/util/fileutils2"
-	"yunion.io/x/onecloud/pkg/util/netutils2"
-	"yunion.io/x/onecloud/pkg/util/seclib2"
-	"yunion.io/x/onecloud/pkg/util/timeutils2"
+	compute "yunion.io/x/onecloud/pkg/apis/compute"
+	appsrv "yunion.io/x/onecloud/pkg/appsrv"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	hostutils "yunion.io/x/onecloud/pkg/hostman/hostutils"
+	options "yunion.io/x/onecloud/pkg/hostman/options"
+	storageman "yunion.io/x/onecloud/pkg/hostman/storageman"
+	httperrors "yunion.io/x/onecloud/pkg/httperrors"
+	modules "yunion.io/x/onecloud/pkg/mcclient/modules"
+	cgrouputils "yunion.io/x/onecloud/pkg/util/cgrouputils"
+	fileutils2 "yunion.io/x/onecloud/pkg/util/fileutils2"
+	netutils2 "yunion.io/x/onecloud/pkg/util/netutils2"
+	seclib2 "yunion.io/x/onecloud/pkg/util/seclib2"
+	timeutils2 "yunion.io/x/onecloud/pkg/util/timeutils2"
 )
 
 const (
@@ -323,7 +323,7 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 		if jsonutils.QueryBoolean(deployParams.Body, "k8s_pod", false) {
 			return nil, nil
 		}
-		publicKey := sshkeys.GetKeys(deployParams.Body)
+		publicKey := deployapi.GetKeys(deployParams.Body)
 		deploys, _ := deployParams.Body.GetArray("deploys")
 		password, _ := deployParams.Body.GetString("password")
 		resetPassword := jsonutils.QueryBoolean(deployParams.Body, "reset_password", false)
@@ -332,12 +332,11 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 		}
 		enableCloudInit := jsonutils.QueryBoolean(deployParams.Body, "enable_cloud_init", false)
 
-		guestInfo, err := guest.DeployFs(guestfs.NewDeployInfo(
-			publicKey, deploys, password, deployParams.IsInit, false,
+		guestInfo, err := guest.DeployFs(deployapi.NewDeployInfo(
+			publicKey, deployapi.JsonDeploysToStructs(deploys), password, deployParams.IsInit, false,
 			options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser, enableCloudInit))
 		if err != nil {
-			log.Errorf("Deploy guest fs error: %s", err)
-			return nil, err
+			return nil, errors.Wrap(err, "Deploy guest fs")
 		} else {
 			return guestInfo, nil
 		}

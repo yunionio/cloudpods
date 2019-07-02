@@ -31,7 +31,8 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -476,34 +477,9 @@ func (s *SRbdStorage) onSaveToGlanceFailed(ctx context.Context, imageId string) 
 }
 
 func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath string, compress bool, format string) error {
-	var (
-		kvmDisk = NewKVMGuestDisk(imagePath)
-		osInfo  string
-		relInfo *fsdriver.SReleaseInfo
-	)
-
-	if err := func() error {
-		defer kvmDisk.Disconnect()
-		if kvmDisk.Connect() {
-			if root := kvmDisk.MountKvmRootfs(); root != nil {
-				defer kvmDisk.UmountKvmRootfs(root)
-
-				osInfo = root.GetOs()
-				relInfo = root.GetReleaseInfo(root.GetPartition())
-				if compress {
-					if err := root.PrepareFsForTemplate(root.GetPartition()); err != nil {
-						log.Errorln(err)
-						return err
-					}
-				}
-			}
-
-			if compress {
-				kvmDisk.Zerofree()
-			}
-		}
-		return nil
-	}(); err != nil {
+	ret, err := deployclient.GetDeployClient().SaveToGlance(context.Background(),
+		&deployapi.SaveToGlanceParams{DiskPath: imagePath, Compress: compress})
+	if err != nil {
 		return err
 	}
 
@@ -512,7 +488,7 @@ func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 		format = options.HostOptions.DefaultImageSaveFormat
 	}
 
-	_, err := procutils.NewCommand(qemutils.GetQemuImg(), "convert", "-f", "raw", "-O", format, imagePath, tmpImageFile).Run()
+	_, err = procutils.NewCommand(qemutils.GetQemuImg(), "convert", "-f", "raw", "-O", format, imagePath, tmpImageFile).Run()
 	if err != nil {
 		return err
 	}
@@ -521,8 +497,8 @@ func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 	if err != nil {
 		return err
 	}
-
 	defer os.Remove(tmpImageFile)
+	defer f.Close()
 
 	finfo, err := f.Stat()
 	if err != nil {
@@ -531,9 +507,10 @@ func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 	size := finfo.Size()
 
 	var params = jsonutils.NewDict()
-	if len(osInfo) > 0 {
-		params.Set("os_type", jsonutils.NewString(osInfo))
+	if len(ret.OsInfo) > 0 {
+		params.Set("os_type", jsonutils.NewString(ret.OsInfo))
 	}
+	relInfo := ret.ReleaseInfo
 	if relInfo != nil {
 		params.Set("os_distribution", jsonutils.NewString(relInfo.Distro))
 		if len(relInfo.Version) > 0 {
@@ -550,9 +527,6 @@ func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath strin
 
 	_, err = modules.Images.Upload(hostutils.GetImageSession(ctx, s.GetZone()),
 		params, f, size)
-	f.Close()
-	// TODO
-	// notify_template_ready
 	return err
 }
 

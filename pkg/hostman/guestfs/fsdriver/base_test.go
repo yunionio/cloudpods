@@ -17,13 +17,13 @@ package fsdriver
 import (
 	"testing"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 func TestMergeAuthorizedKeys(t *testing.T) {
 	type args struct {
 		oldKeys string
-		pubkeys *sshkeys.SSHKeys
+		pubkeys *deployapi.SSHKeys
 	}
 	tests := []struct {
 		name string
@@ -34,7 +34,7 @@ func TestMergeAuthorizedKeys(t *testing.T) {
 			name: "MergeAuthorizedKeys",
 			args: args{
 				oldKeys: "Test KEY",
-				pubkeys: &sshkeys.SSHKeys{},
+				pubkeys: &deployapi.SSHKeys{},
 			},
 			want: "Test KEY\n",
 		},

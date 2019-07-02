@@ -12,4 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package guesthandlers // import "yunion.io/x/onecloud/pkg/hostman/guesthandlers"
+package deployserver
+
+import "yunion.io/x/onecloud/pkg/cloudcommon/options"
+
+type SDeployOptions struct {
+	options.BaseOptions
+
+	DeployServerSocketPath string   `help:"Deploy server listen socket path"`
+	PrivatePrefixes        []string `help:"IPv4 private prefixes"`
+	ChntpwPath             string   `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
+}
+
+var DeployOption SDeployOptions
