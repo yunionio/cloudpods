@@ -41,6 +41,14 @@ type SHandlerInfo struct {
 	skipLog        bool
 }
 
+func (this *SHandlerInfo) FetchProcessTimeout(r *http.Request) time.Duration {
+	if r.Method == http.MethodGet && r.Header.Get("X-Export-Keys") == "true" {
+		return time.Hour * 2
+	} else {
+		return this.processTimeout
+	}
+}
+
 func (this *SHandlerInfo) GetName(params map[string]string) string {
 	if len(this.name) > 0 {
 		return this.name
