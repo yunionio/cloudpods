@@ -93,7 +93,7 @@ func (manager *SQuotaBaseManager) PostUsageJob(scope rbacutils.TRbacScope, owner
 			// check existence of project
 			s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
 			if scope == rbacutils.ScopeDomain {
-				domain, err := modules.Domains.Get(s, ownerId.GetProjectDomainId(), nil)
+				domain, err := modules.Domains.GetById(s, ownerId.GetProjectDomainId(), nil)
 				if err == nil {
 					// update cache
 					domainId, _ := domain.GetString("id")
@@ -106,7 +106,7 @@ func (manager *SQuotaBaseManager) PostUsageJob(scope rbacutils.TRbacScope, owner
 					save = false
 				}
 			} else {
-				proj, err := modules.Projects.Get(s, ownerId.GetProjectId(), nil)
+				proj, err := modules.Projects.GetById(s, ownerId.GetProjectId(), nil)
 				if err == nil {
 					// update cache
 					projId, _ := proj.GetString("id")

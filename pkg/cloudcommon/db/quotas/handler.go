@@ -36,6 +36,11 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
+const (
+	QUOTA_ACTION_ADD   = "add"
+	QUOTA_ACTION_RESET = "reset"
+)
+
 func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Application) {
 	app.AddHandler2("GET",
 		fmt.Sprintf("%s/%s", prefix, manager.KeywordPlural()),
@@ -162,15 +167,15 @@ func (manager *SQuotaBaseManager) getQuotaHanlder(ctx context.Context, w http.Re
 	appsrv.SendJSON(w, body)
 }
 
-func FetchSetQuotaScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (mcclient.IIdentityProvider, rbacutils.TRbacScope, error) {
+func FetchSetQuotaScope(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) (mcclient.IIdentityProvider, rbacutils.TRbacScope, rbacutils.TRbacScope, error) {
 	var scope rbacutils.TRbacScope
 	ownerId, err := db.FetchProjectInfo(ctx, data)
 	if err != nil {
-		return nil, scope, err
+		return nil, scope, scope, err
 	}
+	var requestScope rbacutils.TRbacScope
 	ownerScope := policy.PolicyManager.AllowScope(userCred, consts.GetServiceType(), quotaKeywords, policy.PolicyActionUpdate)
 	if ownerId != nil {
-		var requestScope rbacutils.TRbacScope
 		if len(ownerId.GetProjectId()) > 0 {
 			// project level
 			scope = rbacutils.ScopeProject
@@ -184,14 +189,15 @@ func FetchSetQuotaScope(ctx context.Context, userCred mcclient.TokenCredential, 
 			scope = rbacutils.ScopeDomain
 			requestScope = rbacutils.ScopeSystem
 		}
-		if requestScope.HigherThan(ownerScope) {
-			return nil, scope, httperrors.NewForbiddenError("not enough privilleges")
-		}
 	} else {
 		ownerId = userCred
 		scope = rbacutils.ScopeProject
+		requestScope = rbacutils.ScopeDomain
 	}
-	return ownerId, scope, nil
+	if requestScope.HigherThan(ownerScope) {
+		return nil, scope, scope, httperrors.NewForbiddenError("not enough privilleges")
+	}
+	return ownerId, scope, ownerScope, nil
 }
 
 func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -206,7 +212,7 @@ func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.Re
 	} else if len(domainId) > 0 {
 		data.Add(jsonutils.NewString(domainId), "project_domain")
 	}
-	ownerId, scope, err := FetchSetQuotaScope(ctx, userCred, data)
+	ownerId, scope, allowScope, err := FetchSetQuotaScope(ctx, userCred, data)
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -232,7 +238,15 @@ func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.Re
 		httperrors.GeneralServerError(w, err)
 		return
 	}
-	oquota.Update(quota)
+	action, _ := body.GetString(manager.KeywordPlural(), "action")
+	switch action {
+	case QUOTA_ACTION_ADD:
+		oquota.Add(quota)
+	case QUOTA_ACTION_RESET:
+		oquota.FetchSystemQuota(scope, ownerId)
+	default:
+		oquota.Update(quota)
+	}
 
 	if scope == rbacutils.ScopeProject {
 		total, err := manager.getDomainTotalQuota(ctx, ownerId.GetProjectDomainId(), []string{ownerId.GetProjectId()})
@@ -253,9 +267,26 @@ func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.Re
 		total.Add(oquota)
 		err = total.Exceed(quota, domainQuota)
 		if err != nil {
-			log.Errorf("project quota exeed domain quota: %s", err)
-			httperrors.OutOfQuotaError(w, "project quota exeed domain quota")
-			return
+			// exeed domain quota
+			cascade, _ := body.Bool(manager.KeywordPlural(), "cascade")
+			if !cascade {
+				log.Errorf("project quota exeed domain quota: %s", err)
+				httperrors.OutOfQuotaError(w, "project quota exeed domain quota")
+				return
+			} else {
+				if allowScope != rbacutils.ScopeSystem {
+					httperrors.OutOfQuotaError(w, "project quota exeed domain quota, no previlige to cascade set")
+					return
+				} else {
+					// cascade set domain quota
+					err = manager.SetQuota(ctx, userCred, rbacutils.ScopeDomain, ownerId, nil, total)
+					if err != nil {
+						log.Errorf("cascade set quota fail %s", err)
+						httperrors.GeneralServerError(w, err)
+						return
+					}
+				}
+			}
 		}
 	} else {
 		total, err := manager.getDomainTotalQuota(ctx, ownerId.GetProjectDomainId(), nil)
@@ -396,13 +427,9 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId
 	// dsable platform
 	q = q.IsNullOrEmpty("platform")
 	rows, err := q.Rows()
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Errorf("query quotas fail %s", err)
-			return nil, httperrors.NewInternalServerError("query quotas %s", err)
-		} else {
-			return []jsonutils.JSONObject{}, nil
-		}
+	if err != nil && err != sql.ErrNoRows {
+		log.Errorf("query quotas fail %s", err)
+		return nil, httperrors.NewInternalServerError("query quotas %s", err)
 	}
 	defer rows.Close()
 
@@ -453,7 +480,25 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId
 		}
 		ret = append(ret, quota)
 	}
-
+	if len(ret) == 0 && len(targetDomainId) > 0 {
+		// return the initial quota of targetDomainId
+		scope := rbacutils.ScopeDomain
+		owner := db.SOwnerId{
+			DomainId: targetDomainId,
+		}
+		platform := []string{}
+		quota, _, err := manager.queryQuota(ctx, scope, &owner, platform)
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("query domain initial quotas %s", err)
+		}
+		quota.Set("domain_id", jsonutils.NewString(targetDomainId))
+		domain, err := db.TenantCacheManager.FetchDomainById(ctx, targetDomainId)
+		if err != nil {
+			return nil, err
+		}
+		quota.Set("project_domain", jsonutils.NewString(domain.Name))
+		ret = append(ret, quota)
+	}
 	return ret, nil
 }
 

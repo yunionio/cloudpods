@@ -172,6 +172,10 @@ func (this *TokenCredentialV2) IsAllow(scope rbacutils.TRbacScope, service strin
 	}
 }
 
+func (this *TokenCredentialV2) Len() int {
+	return this.ServiceCatalog.Len()
+}
+
 func (this *TokenCredentialV2) GetServiceURL(service, region, zone, endpointType string) (string, error) {
 	return this.ServiceCatalog.GetServiceURL(service, region, zone, endpointType)
 }
@@ -270,6 +274,10 @@ func (catalog KeystoneServiceCatalogV2) getServiceEndpoint(service, region, zone
 	} else {
 		return selected, fmt.Errorf("No such service %s", service)
 	}
+}
+
+func (catalog KeystoneServiceCatalogV2) Len() int {
+	return len(catalog)
 }
 
 func (catalog KeystoneServiceCatalogV2) GetServiceURL(service, region, zone, endpointType string) (string, error) {

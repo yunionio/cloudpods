@@ -5,12 +5,12 @@ post:
       name: storage
       required: true
       schema:
-        $ref: '../schemas/storage.yaml#StorageCreate'
+        $ref: '../schemas/storage.yaml#/StorageCreate'
   response:
     200:
       description: 新建存储的信息
       schema:
-        $ref: '../schemas/storage.yaml#StorageResponse'
+        $ref: '../schemas/storage.yaml#/StorageResponse'
   tags:
     - storages
 

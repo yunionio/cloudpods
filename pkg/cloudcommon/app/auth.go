@@ -20,6 +20,7 @@ import (
 	"os"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
@@ -69,6 +70,8 @@ func InitAuth(options *common_options.CommonOptions, authComplete auth.AuthCompl
 	notifyclient.FetchNotifyAdminRecipients(context.Background(), options.Region, users, groups)
 
 	authComplete()
+
+	consts.SetTenantCacheExpireSeconds(options.TenantCacheExpireSeconds)
 
 	InitBaseAuth(&options.BaseOptions)
 }
