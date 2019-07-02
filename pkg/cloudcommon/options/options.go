@@ -79,6 +79,8 @@ type CommonOptions struct {
 	AdminProjectDomain string `help:"Domain of Admin project"`
 	AuthTokenCacheSize uint32 `help:"Auth token Cache Size" default:"2048"`
 
+	TenantCacheExpireSeconds int `help:"expire seconds of cached tenant/domain info. defailt 15 minutes" default:"900"`
+
 	BaseOptions
 }
 
