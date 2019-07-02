@@ -476,6 +476,12 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		limit = maxLimit
 	}
 
+	// export data only
+	exportLimit, err := query.Int("export_limit")
+	if query.Contains("export_keys") && err == nil {
+		limit = exportLimit
+	}
+
 	var primaryCol sqlchemy.IColumnSpec
 	primaryCols := manager.TableSpec().PrimaryColumns()
 	if len(primaryCols) == 1 {
