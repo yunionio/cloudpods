@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
@@ -191,6 +192,14 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 	}
 	if aCnt != 1 {
 		return nil, fmt.Errorf("affected rows %d != 1", aCnt)
+	}
+	q := us.tableSpec.Query()
+	for k, v := range primaries {
+		q = q.Equals(k, v)
+	}
+	err = q.First(dt)
+	if err != nil {
+		return nil, errors.Wrap(err, "query after update failed")
 	}
 	return setters, nil
 }
