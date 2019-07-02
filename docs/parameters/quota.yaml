@@ -35,6 +35,9 @@ quotas:
       type: string
       description: 设置配额的方式，可能值为set，add和reset，分别代表设置，增加和重置为初始值
       default: set
+    cascade:
+      type: boolean
+      description: 设置项目配额时，如果项目总配额超过域配额，则自动调整域配额
     cpu:
       type: integer
       description: 设置CPU配额，单位为个
