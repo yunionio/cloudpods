@@ -757,7 +757,7 @@ yunion.io/x/pkg/util/prometheus
 yunion.io/x/pkg/prettytable
 yunion.io/x/pkg/util/runtime
 yunion.io/x/pkg/util/clock
-# yunion.io/x/sqlchemy v0.0.0-20190629024351-0b058bbe38b9
+# yunion.io/x/sqlchemy v0.0.0-20190701085445-12b2b4318f7d
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20190625074850-3c0636a9fffe
 yunion.io/x/structarg
