@@ -137,6 +137,10 @@ func (self *SZStackGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovi
 	return true
 }
 
+func (self *SZStackGuestDriver) GetUserDataType() string {
+	return cloudprovider.CLOUD_SHELL
+}
+
 func (self *SZStackGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	userName := "root"
 	if desc.ImageType == "system" && desc.OsType == "Windows" {
