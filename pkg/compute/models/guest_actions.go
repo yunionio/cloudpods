@@ -582,6 +582,8 @@ func (self *SGuest) PerformAttachdisk(ctx context.Context, userCred mcclient.Tok
 	taskData := data.(*jsonutils.JSONDict)
 	taskData.Set("disk_id", jsonutils.NewString(disk.GetId()))
 
+	self.SetStatus(userCred, api.VM_ATTACH_DISK, "")
+
 	if err := self.GetDriver().StartGuestAttachDiskTask(ctx, userCred, self, taskData, ""); err != nil {
 		return nil, err
 	}
@@ -1422,6 +1424,7 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 				return nil, httperrors.NewInputParameterError("Cannot keep detached disk")
 			}
 			if utils.IsInStringArray(self.Status, detachDiskStatus) {
+				self.SetStatus(userCred, api.VM_DETACH_DISK, "")
 				err = self.StartGuestDetachdiskTask(ctx, userCred, disk, keepDisk, "")
 				return nil, err
 			} else {
