@@ -141,3 +141,7 @@ func (cli *SESXiClient) GetIStoragecacheById(idstr string) (cloudprovider.ICloud
 	}
 	return nil, cloudprovider.ErrNotFound
 }
+
+func (cli *SESXiClient) GetISkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
+	return nil, cloudprovider.ErrNotSupported
+}

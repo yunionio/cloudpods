@@ -251,7 +251,7 @@ LoadbalancerCachedAclListResponse:
       items:
         $ref: "#/LoadbalancerCachedAcl"
 
-LoadbalancerCachedCertificate:
+LoadbalancerCachedCertificateResponse:
     allOf:
     - $ref: "./common.yaml#/SharableVirtualResourceBaseResponse"
     - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
@@ -304,13 +304,10 @@ LoadbalancerCachedCertificate:
           description: 附加域名
           readOnly: true             
 
-LoadbalancerCachedCertificateResponse:
-    $ref: "#/LoadbalancerCachedCertificate"
-
 LoadbalancerCachedCertificateListResponse:
   type: object
   properties:
     cached_loadbalancercertificates:
       type: array
       items:
-        $ref: "#/LoadbalancerCachedCertificate"        
+        $ref: "#/LoadbalancerCachedCertificateResponse"        

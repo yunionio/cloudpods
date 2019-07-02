@@ -466,7 +466,7 @@ func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAc
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
+func (region *SRegion) GetISkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
 	flavors, err := region.GetFlavors()
 	if err != nil {
 		return nil, err
@@ -477,4 +477,8 @@ func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error)
 		iskus[i] = &flavors[i]
 	}
 	return iskus, nil
+}
+
+func (region *SRegion) GetISkuById(skuId string) (cloudprovider.ICloudSku, error) {
+	return region.GetFlavor(skuId)
 }

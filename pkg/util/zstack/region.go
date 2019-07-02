@@ -316,7 +316,7 @@ func (region *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloud
 	return region.GetSnapshot(snapshotId)
 }
 
-func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
+func (region *SRegion) GetISkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
 	offerings, err := region.GetInstanceOfferings("", "", 0, 0)
 	if err != nil {
 		return nil, err
@@ -326,6 +326,10 @@ func (region *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error)
 		iskus = append(iskus, &offerings[i])
 	}
 	return iskus, nil
+}
+
+func (region *SRegion) GetISkuById(skuId string) (cloudprovider.ICloudSku, error) {
+	return region.GetInstanceOffering(skuId)
 }
 
 func (region *SRegion) SyncSecurityGroup(secgroupId string, vpcId string, name string, desc string, rules []secrules.SecurityRule) (string, error) {
