@@ -375,7 +375,7 @@ func (self *SIdentityProvider) CanSync() bool {
 
 func (self *SIdentityProvider) getSyncIntervalSeconds() int {
 	if self.SyncIntervalSeconds == 0 {
-		return options.Options.DefaultSyncIntervalSeoncds
+		return options.Options.DefaultSyncIntervalSeconds
 	}
 	return self.SyncIntervalSeconds
 }
