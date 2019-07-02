@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"runtime/debug"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -102,24 +103,35 @@ func (manager *STenantCacheManager) fetchTenant(ctx context.Context, idStr strin
 		q = q.NotEquals("domain_id", identityapi.KeystoneDomainRoot)
 	}
 	q = filter(q)
-	tenant, err := NewModelObject(manager)
+	tobj, err := NewModelObject(manager)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewModelObject")
 	}
-	err = q.First(tenant)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			if isDomain {
-				return manager.fetchDomainFromKeystone(ctx, idStr)
-			} else {
-				return manager.fetchTenantFromKeystone(ctx, idStr)
-			}
-		} else {
-			return nil, errors.Wrap(err, "query")
+	err = q.First(tobj)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "query")
+	} else if tobj != nil {
+		tenant := tobj.(*STenant)
+		if !tenant.IsExpired() {
+			return tenant, nil
 		}
-	} else {
-		return tenant.(*STenant), nil
 	}
+	if isDomain {
+		return manager.fetchDomainFromKeystone(ctx, idStr)
+	} else {
+		return manager.fetchTenantFromKeystone(ctx, idStr)
+	}
+}
+
+func (t *STenant) IsExpired() bool {
+	if t.LastCheck.IsZero() {
+		return true
+	}
+	now := time.Now().UTC()
+	if t.LastCheck.Add(consts.GetTenantCacheExpireSeconds()).Before(now) {
+		return true
+	}
+	return false
 }
 
 func (manager *STenantCacheManager) FetchTenantByIdOrName(ctx context.Context, idStr string) (*STenant, error) {
@@ -154,7 +166,7 @@ func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context,
 		return nil, fmt.Errorf("Empty idStr")
 	}
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
-	tenant, err := modules.Projects.Get(s, idStr, nil)
+	tenant, err := modules.Projects.GetById(s, idStr, nil)
 	if err != nil {
 		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
 			return nil, sql.ErrNoRows
@@ -162,10 +174,10 @@ func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context,
 		log.Errorf("fetch project %s fail %s", idStr, err)
 		return nil, errors.Wrap(err, "modules.Projects.Get")
 	}
-	tenantId, err := tenant.GetString("id")
-	tenantName, err := tenant.GetString("name")
-	domainId, err := tenant.GetString("domain_id")
-	domainName, err := tenant.GetString("domain")
+	tenantId, _ := tenant.GetString("id")
+	tenantName, _ := tenant.GetString("name")
+	domainId, _ := tenant.GetString("domain_id")
+	domainName, _ := tenant.GetString("project_domain")
 	// manager.Save(ctx, domainId, domainName, identityapi.KeystoneDomainRoot, identityapi.KeystoneDomainRoot)
 	return manager.Save(ctx, tenantId, tenantName, domainId, domainName)
 }
@@ -202,7 +214,7 @@ func (manager *STenantCacheManager) fetchDomainFromKeystone(ctx context.Context,
 		return nil, fmt.Errorf("Empty idStr")
 	}
 	s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
-	tenant, err := modules.Domains.Get(s, idStr, nil)
+	tenant, err := modules.Domains.GetById(s, idStr, nil)
 	if err != nil {
 		if je, ok := err.(*httputils.JSONClientError); ok && je.Code == 404 {
 			return nil, sql.ErrNoRows
@@ -239,9 +251,14 @@ func (manager *STenantCacheManager) Save(ctx context.Context, idStr string, name
 		log.Errorf("FetchTenantbyId fail %s", err)
 		return nil, err
 	}
+	now := time.Now().UTC()
 	if err == nil {
 		obj := objo.(*STenant)
 		if obj.Id == idStr && obj.Name == name && obj.Domain == domain && obj.DomainId == domainId {
+			Update(obj, func() error {
+				obj.LastCheck = now
+				return nil
+			})
 			return obj, nil
 		}
 		_, err = Update(obj, func() error {
@@ -249,6 +266,7 @@ func (manager *STenantCacheManager) Save(ctx context.Context, idStr string, name
 			obj.Name = name
 			obj.Domain = domain
 			obj.DomainId = domainId
+			obj.LastCheck = now
 			return nil
 		})
 		if err != nil {
@@ -263,6 +281,7 @@ func (manager *STenantCacheManager) Save(ctx context.Context, idStr string, name
 		obj.Name = name
 		obj.Domain = domain
 		obj.DomainId = domainId
+		obj.LastCheck = now
 		err = manager.TableSpec().Insert(obj)
 		if err != nil {
 			return nil, err

@@ -18,3 +18,41 @@ domain_id:
   type: string
   description: 查询指定域的配额
 
+project_domain:
+  name: project_domain
+  in: query
+  type: string
+  description: 指定查询的域名称或者ID
+
+quotas:
+  name: quotas
+  in: body
+  required: true
+  type: object
+  description: 设置配额信息
+  properties:
+    action:
+      type: string
+      description: 设置配额的方式，可能值为set，add和reset，分别代表设置，增加和重置为初始值
+      default: set
+    cascade:
+      type: boolean
+      description: 设置项目配额时，如果项目总配额超过域配额，则自动调整域配额
+    cpu:
+      type: integer
+      description: 设置CPU配额，单位为个
+    memory:
+      type: integer
+      description: 设置内存配额，单位为MB
+    storage:
+      type: integer
+      description: 设置磁盘配额，单位为MB
+    isolated_device:
+      type: integer
+      description: 设置GPU配额，单位为块
+    snapshot:
+      type: integer
+      description: 设置快照配额，单位为MB
+    image:
+      type: integer
+      description: 设置镜像配额，单位为个
