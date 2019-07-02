@@ -161,6 +161,34 @@ func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Contex
 		if err != nil {
 			return nil, errors.Wrapf(err, "iVM.DetachDisk")
 		}
+
+		err = cloudprovider.Wait(time.Second*5, time.Minute*3, func() (bool, error) {
+			err := iVM.Refresh()
+			if err != nil {
+				return false, errors.Wrapf(err, "iVM.Refresh")
+			}
+			iDisks, err := iVM.GetIDisks()
+			if err != nil {
+				return false, errors.Wrapf(err, "RequestDetachDisk.iVM.GetIDisks")
+			}
+
+			exist := false
+			for i := 0; i < len(iDisks); i++ {
+				if iDisks[i].GetGlobalId() == disk.ExternalId {
+					exist = true
+				}
+			}
+
+			if !exist {
+				return true, nil
+			}
+			return false, nil
+		})
+
+		if err != nil {
+			return nil, errors.Wrapf(err, "RequestDetachDisk.Wait")
+		}
+
 		return nil, nil
 	})
 	return nil
@@ -179,6 +207,31 @@ func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Contex
 		if err != nil {
 			return nil, errors.Wrapf(err, "iVM.AttachDisk")
 		}
+
+		err = cloudprovider.Wait(time.Second*5, time.Minute*3, func() (bool, error) {
+			err := iVM.Refresh()
+			if err != nil {
+				return false, errors.Wrapf(err, "iVM.Refresh")
+			}
+
+			iDisks, err := iVM.GetIDisks()
+			if err != nil {
+				return false, errors.Wrapf(err, "RequestAttachDisk.iVM.GetIDisks")
+			}
+
+			for i := 0; i < len(iDisks); i++ {
+				if iDisks[i].GetGlobalId() == disk.ExternalId {
+					return true, nil
+				}
+			}
+
+			return false, nil
+		})
+
+		if err != nil {
+			return nil, errors.Wrapf(err, "RequestAttachDisk.Wait")
+		}
+
 		return nil, nil
 	})
 	return nil
