@@ -1081,11 +1081,14 @@ func (self *SInstance) GetIEIP() (cloudprovider.ICloudEIP, error) {
 }
 
 func (self *SInstance) AssignSecurityGroup(secgroupId string) error {
-	return self.host.zone.region.AssiginSecurityGroup(self.ID, secgroupId)
+	return self.host.zone.region.SetSecurityGroup(self.ID, secgroupId)
 }
 
 func (self *SInstance) SetSecurityGroups(secgroupIds []string) error {
-	return cloudprovider.ErrNotSupported
+	if len(secgroupIds) == 1 {
+		return self.host.zone.region.SetSecurityGroup(self.ID, secgroupIds[0])
+	}
+	return fmt.Errorf("Unexpect segroup count %d", len(secgroupIds))
 }
 
 func (self *SInstance) GetBillingType() string {
