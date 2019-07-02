@@ -19,10 +19,9 @@ import (
 	"path"
 	"strings"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/macutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -72,7 +71,7 @@ func (m *SMacOSRootFs) RootSignatures() []string {
 	}
 }
 
-func (m *SMacOSRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *sshkeys.SSHKeys) error {
+func (m *SMacOSRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *deployapi.SSHKeys) error {
 	usrDir := fmt.Sprintf("/Users/%s", uname)
 	return DeployAuthorizedKeys(m.rootFs, usrDir, pubkeys, false)
 }
@@ -115,13 +114,13 @@ func (m *SMacOSRootFs) DeployHosts(part IDiskPartition, hn, domain string, ips [
 	return nil
 }
 
-func (m *SMacOSRootFs) GetReleaseInfo(IDiskPartition) *SReleaseInfo {
+func (m *SMacOSRootFs) GetReleaseInfo(IDiskPartition) *deployapi.ReleaseInfo {
 	spath := "/System/Library/CoreServices/SystemVersion.plist"
 	sInfo, _ := m.rootFs.FileGetContents(spath, false)
 	info := macutils.ParsePlist(sInfo)
 	distro, _ := info["ProductName"]
 	version, _ := info["ProductUserVisibleVersion"]
-	return &SReleaseInfo{
+	return &deployapi.ReleaseInfo{
 		Distro:  distro,
 		Version: version,
 		Arch:    "x86_64",
@@ -132,7 +131,7 @@ func (m *SMacOSRootFs) GetOs() string {
 	return "macOs"
 }
 
-func (m *SMacOSRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []jsonutils.JSONObject) error {
+func (m *SMacOSRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*deployapi.Nic) error {
 	return nil
 }
 

@@ -15,6 +15,7 @@
 package sysutils
 
 import (
+	"io/ioutil"
 	"os"
 	"path"
 	"regexp"
@@ -187,6 +188,24 @@ func IsKernelModuleLoaded(name string) bool {
 		lm := strings.Split(line, " ")
 		if len(lm) > 0 && utils.IsInStringArray(strings.Replace(name, "-", "_", -1), lm) {
 			return true
+		}
+	}
+	return false
+}
+
+func SetSysConfig(cpath, val string) bool {
+	if fileutils2.Exists(cpath) {
+		oval, err := ioutil.ReadFile(cpath)
+		if err != nil {
+			log.Errorln(err)
+			return false
+		}
+		if string(oval) != val {
+			err = fileutils2.FilePutContents(cpath, val, false)
+			if err == nil {
+				return true
+			}
+			log.Errorln(err)
 		}
 	}
 	return false

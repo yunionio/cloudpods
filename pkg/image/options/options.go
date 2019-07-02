@@ -38,7 +38,8 @@ type SImageOptions struct {
 
 	TargetImageFormats []string `help:"target image formats that the system will automatically convert to" default:"qcow2,vmdk,vhd"`
 
-	TorrentClientPath string `help:"path to torrent executable" default:"/opt/yunion/bin/torrent"`
+	TorrentClientPath      string `help:"path to torrent executable" default:"/opt/yunion/bin/torrent"`
+	DeployServerSocketPath string `help:"Deploy server listen socket path"`
 }
 
 var (

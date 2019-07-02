@@ -52,13 +52,11 @@ func NewKVMGuestDiskPartition(devPath, sourceDev string, isLVM bool) *SKVMGuestD
 func (p *SKVMGuestDiskPartition) GetPhysicalPartitionType() string {
 	dev := p.partDev
 	if p.IsLVMPart {
-		// for lvm part, sourceDev like /dev/nbdxpx
-		idx := strings.LastIndexByte(p.sourceDev, 'p')
-		if idx > 0 {
-			dev = p.sourceDev[:idx]
-		} else {
-			dev = p.sourceDev
-		}
+		dev = p.sourceDev
+	}
+	idxP := strings.LastIndexByte(dev, 'p')
+	if idxP > 0 {
+		dev = dev[:idxP]
 	}
 	cmd := fmt.Sprintf(`fdisk -l %s | grep "Disk label type:"`, dev)
 	output, err := procutils.NewCommand("sh", "-c", cmd).Run()
