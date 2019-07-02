@@ -141,7 +141,7 @@ func (this *ClientSession) GetServiceVersionURL(service, endpointType, apiVersio
 	}
 	service = this.getServiceName(service, apiVersion)
 	url, err := this.token.GetServiceURL(service, this.region, this.zone, endpointType)
-	if err != nil {
+	if err != nil && this.client.serviceCatalog != nil {
 		url, err = this.client.serviceCatalog.GetServiceURL(service, this.region, this.zone, endpointType)
 	}
 	if err != nil && service == api.SERVICE_TYPE {
@@ -161,7 +161,7 @@ func (this *ClientSession) GetServiceVersionURLs(service, endpointType, apiVersi
 	}
 	service = this.getServiceName(service, apiVersion)
 	urls, err := this.token.GetServiceURLs(service, this.region, this.zone, endpointType)
-	if err != nil {
+	if err != nil && this.client.serviceCatalog != nil {
 		urls, err = this.client.serviceCatalog.GetServiceURLs(service, this.region, this.zone, endpointType)
 	}
 	if err != nil && service == api.SERVICE_TYPE {
