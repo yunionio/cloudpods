@@ -38,6 +38,8 @@ const (
 	VM_STOP_FAILED     = "stop_fail" // # = running
 	VM_RENEWING        = "renewing"
 	VM_RENEW_FAILED    = "renew_failed"
+	VM_ATTACH_DISK     = "attach_disk"
+	VM_DETACH_DISK     = "detach_disk"
 
 	VM_BACKUP_STARTING         = "backup_starting"
 	VM_BACKUP_CREATING         = "backup_creating"
