@@ -75,7 +75,7 @@ type SDisk struct {
 
 	AutoDelete bool `nullable:"false" default:"false" get:"user" update:"user"` // Column(Boolean, nullable=False, default=False)
 
-	StorageId       string `width:"128" charset:"ascii" nullable:"true" list:"admin"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
+	StorageId       string `width:"128" charset:"ascii" nullable:"true" list:"admin" create:"optional"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
 	BackupStorageId string `width:"128" charset:"ascii" nullable:"true" list:"admin"`
 
 	// # backing template id and type
