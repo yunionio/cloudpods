@@ -63,6 +63,7 @@ func init() {
 		Tenant        string `help:"Tenant name or ID to set quota" json:"tenant,omitempty"`
 		ProjectDomain string `help:"Domain name or ID to set quota" json:"domain,omitempty"`
 		Action        string `help:"quota set action" choices:"add|reset"`
+		Cascade       bool   `help:"cascade set quota so that auto increment domain quota if total project quota exceeds parent domain quota"`
 		QuotaBaseOptions
 	}
 	R(&QuotaSetOptions{}, "quota-set", "Set quota for tenant", func(s *mcclient.ClientSession, args *QuotaSetOptions) error {
