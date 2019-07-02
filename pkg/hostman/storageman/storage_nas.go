@@ -17,6 +17,7 @@ package storageman
 import (
 	"context"
 	"fmt"
+	"path"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -37,7 +38,16 @@ type SNasStorage struct {
 }
 
 func NewNasStorage(manager *SStorageManager, path string, ins INasStorage) *SNasStorage {
-	return &SNasStorage{*NewLocalStorage(manager, path, 0), ins}
+	ret := &SNasStorage{*NewLocalStorage(manager, path, 0), ins}
+	return ret
+}
+
+func (s *SNasStorage) GetComposedName() string {
+	return fmt.Sprintf("host_%s_%s_storage_%d", s.Manager.host.GetMasterIp(), s.ins.StorageType(), s.Index)
+}
+
+func (s *SNasStorage) GetSnapshotDir() string {
+	return path.Join(s.Path, s.GetComposedName(), _SNAPSHOT_PATH_)
 }
 
 func (s *SNasStorage) CreateDisk(diskId string) IDisk {

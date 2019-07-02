@@ -452,7 +452,7 @@ func guestReloadDiskSnapshot(ctx context.Context, sid string, body jsonutils.JSO
 		return nil, httperrors.NewNotFoundError("Disk not found")
 	}
 
-	hostutils.DelayTaskWithoutReqctx(ctx, guestman.GetGuestManager().ReloadDiskSnapshot, &guestman.SReloadDisk{sid, disk})
+	hostutils.DelayTask(ctx, guestman.GetGuestManager().ReloadDiskSnapshot, &guestman.SReloadDisk{sid, disk})
 	return nil, nil
 }
 
@@ -519,7 +519,7 @@ func guestDeleteSnapshot(ctx context.Context, sid string, body jsonutils.JSONObj
 		Disk:           disk,
 	}
 
-	if !jsonutils.QueryBoolean(body, "auto_delete", false) {
+	if !jsonutils.QueryBoolean(body, "auto_deleted", false) {
 		convertSnapshot, err := body.GetString("convert_snapshot")
 		if err != nil {
 			return nil, httperrors.NewMissingParameterError("convert_snapshot")

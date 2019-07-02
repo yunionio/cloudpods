@@ -63,7 +63,7 @@ type SHostOptions struct {
 	LocalImagePath  []string `help:"Local image storage paths"`
 	SharedStorages  []string `help:"Path of shared storages"`
 
-	DefaultQemuVersion string `help:"Default qemu version" default:"2.9.1"`
+	DefaultQemuVersion string `help:"Default qemu version" default:"2.12.1"`
 
 	DhcpRelay       []string `help:"DHCP relay upstream"`
 	DhcpLeaseTime   int      `default:"100663296" help:"DHCP lease time in seconds"`
@@ -104,6 +104,8 @@ type SHostOptions struct {
 	HostCpuPassthrough bool `default:"true" help:"if it is true, set qemu cpu type as -cpu host, otherwise, qemu64. default is true"`
 
 	MaxReservedMemory int `default:"10240" help:"host reserved memory"`
+
+	DeployServerSocketPath string `help:"Deploy server listen socket path"`
 }
 
 var HostOptions SHostOptions

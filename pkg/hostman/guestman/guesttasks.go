@@ -587,8 +587,8 @@ func (s *SGuestStreamDisksTask) onBlockDrivesSucc(res *jsonutils.JSONArray) {
 	if len(s.streamDevs) == 0 {
 		s.taskComplete()
 	} else {
-		s.SyncStatus()
 		s.startDoBlockStream()
+		s.SyncStatus()
 	}
 }
 
@@ -679,8 +679,11 @@ func (s *SGuestReloadDiskTask) WaitSnapshotReplaced(callback func()) error {
 			return fmt.Errorf(
 				"SnapshotDeleteJob.deleting_disk_snapshot always has %s", s.disk.GetId())
 		}
-		if _, ok := storageman.DELETEING_SNAPSHOTS[s.disk.GetId()]; ok {
+
+		if _, ok := storageman.DELETEING_SNAPSHOTS.Load(s.disk.GetId()); ok {
 			time.Sleep(time.Second * 1)
+		} else {
+			break
 		}
 	}
 
@@ -747,7 +750,9 @@ func (s *SGuestReloadDiskTask) onReloadSucc(err string) {
 
 func (s *SGuestReloadDiskTask) onResumeSucc(results string) {
 	log.Infof("guest reload disk task resume succ %s", results)
-	hostutils.TaskComplete(s.ctx, nil)
+	params := jsonutils.NewDict()
+	params.Set("reopen", jsonutils.JSONTrue)
+	hostutils.TaskComplete(s.ctx, params)
 }
 
 func (s *SGuestReloadDiskTask) taskFailed(reason string) {
@@ -803,8 +808,7 @@ func (s *SGuestDiskSnapshotTask) onSnapshotBlkdevFail(string) {
 
 func (s *SGuestDiskSnapshotTask) onResumeSucc(res string) {
 	log.Infof("guest disk snapshot task resume succ %s", res)
-	snapshotDir := s.disk.GetSnapshotDir()
-	snapshotLocation := path.Join(snapshotDir, s.snapshotId)
+	snapshotLocation := path.Join(s.disk.GetSnapshotLocation(), s.snapshotId)
 	body := jsonutils.NewDict()
 	body.Set("location", jsonutils.NewString(snapshotLocation))
 	hostutils.TaskComplete(s.ctx, body)

@@ -45,15 +45,16 @@ func (factory *SNFSStorageFactory) StorageType() string {
 }
 
 type SNFSStorage struct {
-	SLocalStorage
+	SNasStorage
 }
 
 func NewNFSStorage(manager *SStorageManager, path string) *SNFSStorage {
 	ret := &SNFSStorage{}
-	ret.SLocalStorage = *NewLocalStorage(manager, path, 0)
+	ret.SNasStorage = *NewNasStorage(manager, path, ret)
 	if !fileutils2.Exists(path) {
 		procutils.NewCommand("mkdir", "-p", path).Run()
 	}
+	StartSnapshotRecycle(ret)
 	return ret
 }
 

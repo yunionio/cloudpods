@@ -25,8 +25,8 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
-	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -48,6 +48,7 @@ func (self *ImageProbeTask) OnInit(ctx context.Context, obj db.IStandaloneModel,
 func (self *ImageProbeTask) StartImageProbe(ctx context.Context, image *models.SImage) {
 	probeErr := self.doProbe(ctx, image)
 
+	// save chksum first
 	// if failed, set image unavailable, because size and chksum changed
 	if err := self.updateImageMetadata(ctx, image); err != nil {
 		image.SetStatus(self.UserCred, api.IMAGE_STATUS_KILLED,
@@ -65,20 +66,13 @@ func (self *ImageProbeTask) StartImageProbe(ctx context.Context, image *models.S
 
 func (self *ImageProbeTask) doProbe(ctx context.Context, image *models.SImage) error {
 	diskPath := image.GetPath("")
-	kvmDisk := storageman.NewKVMGuestDisk(diskPath)
-	defer kvmDisk.DisconnectWithoutLvm()
-	if !kvmDisk.ConnectWithoutDetectLvm() {
-		return fmt.Errorf("Disk connector failed to connect image")
+	if deployclient.GetDeployClient() == nil {
+		return fmt.Errorf("deploy client not init")
 	}
-
-	// Fsck is executed during mount
-	rootfs := kvmDisk.MountKvmRootfs()
-	if rootfs == nil {
-		return fmt.Errorf("Failed mounting rootfs for kvm disk")
+	imageInfo, err := deployclient.GetDeployClient().ProbeImageInfo(ctx, &deployapi.ProbeImageInfoPramas{DiskPath: diskPath})
+	if err != nil {
+		return err
 	}
-	defer kvmDisk.UmountKvmRootfs(rootfs)
-
-	imageInfo := self.getImageInfo(kvmDisk, rootfs)
 	self.updateImageInfo(ctx, image, imageInfo)
 	return nil
 }
@@ -120,15 +114,15 @@ func (self *ImageProbeTask) updateImageMetadata(
 	return nil
 }
 
-func (self *ImageProbeTask) updateImageInfo(ctx context.Context, image *models.SImage, imageInfo *sImageInfo) {
-	imageProperties := jsonutils.Marshal(imageInfo.osInfo).(*jsonutils.JSONDict)
+func (self *ImageProbeTask) updateImageInfo(ctx context.Context, image *models.SImage, imageInfo *deployapi.ImageInfo) {
+	imageProperties := jsonutils.Marshal(imageInfo.OsInfo).(*jsonutils.JSONDict)
 	if len(imageInfo.OsType) > 0 {
 		imageProperties.Set(api.IMAGE_OS_TYPE, jsonutils.NewString(imageInfo.OsType))
 	}
-	if imageInfo.IsUEFISupport {
+	if imageInfo.IsUefiSupport {
 		imageProperties.Set(api.IMAGE_UEFI_SUPPORT, jsonutils.JSONTrue)
 	}
-	if imageInfo.IsLVMPartition {
+	if imageInfo.IsLvmPartition {
 		imageProperties.Set(api.IMAGE_IS_LVM_PARTITION, jsonutils.JSONTrue)
 	}
 	if imageInfo.IsReadonly {
@@ -145,7 +139,7 @@ func (self *ImageProbeTask) updateImageInfo(ctx context.Context, image *models.S
 }
 
 type sImageInfo struct {
-	osInfo *fsdriver.SReleaseInfo
+	osInfo *deployapi.ReleaseInfo
 
 	OsType                string
 	IsUEFISupport         bool
@@ -153,19 +147,6 @@ type sImageInfo struct {
 	IsReadonly            bool
 	PhysicalPartitionType string // mbr or gbt or unknown
 	IsInstalledCloudInit  bool
-}
-
-func (self *ImageProbeTask) getImageInfo(kvmDisk *storageman.SKVMGuestDisk, rootfs fsdriver.IRootFsDriver) *sImageInfo {
-	partition := rootfs.GetPartition()
-	return &sImageInfo{
-		osInfo:        rootfs.GetReleaseInfo(partition),
-		OsType:        rootfs.GetOs(),
-		IsUEFISupport: kvmDisk.DetectIsUEFISupport(rootfs),
-		// IsLVMPartition:        kvmDisk.IsLVMPartition(),
-		IsReadonly:            partition.IsReadonly(),
-		PhysicalPartitionType: partition.GetPhysicalPartitionType(),
-		IsInstalledCloudInit:  rootfs.IsCloudinitInstall(),
-	}
 }
 
 func (self *ImageProbeTask) OnProbeFailed(ctx context.Context, image *models.SImage, reason string) {
