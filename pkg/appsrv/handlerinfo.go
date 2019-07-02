@@ -42,7 +42,7 @@ type SHandlerInfo struct {
 }
 
 func (this *SHandlerInfo) FetchProcessTimeout(r *http.Request) time.Duration {
-	if r.Method == http.MethodGet && r.Header.Get("X-Export-Keys") == "true" {
+	if r.Method == http.MethodGet && len(r.URL.Query().Get("export_keys")) > 0 {
 		return time.Hour * 2
 	} else {
 		return this.processTimeout
