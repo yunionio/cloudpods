@@ -75,7 +75,7 @@ func (p *NetworkSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCa
 	return ret
 }
 
-func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, _ core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) error {
+func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) error {
 	network := res.(*api.CandidateNetwork)
 	net := input.(*netW)
 	if net.Network != "" {
@@ -133,6 +133,8 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, _ core.Candi
 	if free < req {
 		return fmt.Errorf("Network %s no free IPs, free %d, require %d", network.Name, free, req)
 	}
+	h := NewPredicateHelper(p, u, c)
+	h.SetCapacity(int64(free))
 	return nil
 }
 
