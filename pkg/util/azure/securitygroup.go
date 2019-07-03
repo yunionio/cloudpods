@@ -490,7 +490,7 @@ func (region *SRegion) AttachSecurityToInterfaces(secgroupId string, nicIds []st
 	return nil
 }
 
-func (region *SRegion) AssiginSecurityGroup(instanceId, secgroupId string) error {
+func (region *SRegion) SetSecurityGroup(instanceId, secgroupId string) error {
 	instance, err := region.GetInstance(instanceId)
 	if err != nil {
 		return err
