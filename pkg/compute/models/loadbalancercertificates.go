@@ -476,3 +476,8 @@ func (lbcert *SLoadbalancerCertificate) SyncWithCloudLoadbalancerCertificate(ctx
 
 	return nil
 }
+
+func (manager *SLoadbalancerCertificateManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
+	virts := manager.Query().IsFalse("pending_deleted")
+	return db.CalculateProjectResourceCount(virts)
+}
