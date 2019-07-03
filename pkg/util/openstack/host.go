@@ -2,6 +2,7 @@ package openstack
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
@@ -94,7 +95,29 @@ func (host *SHost) GetIWires() ([]cloudprovider.ICloudWire, error) {
 }
 
 func (host *SHost) GetIStorages() ([]cloudprovider.ICloudStorage, error) {
-	return host.zone.GetIStorages()
+	istorages, err := host.zone.GetIStorages()
+	if err != nil {
+		return nil, err
+	}
+
+	schedulerPools, err := host.zone.getSchedulerStatsPool()
+	if err != nil {
+		return nil, err
+	}
+
+	result := []cloudprovider.ICloudStorage{}
+
+	for _, istorage := range istorages {
+		if storage := istorage.(*SStorage); len(storage.ExtraSpecs.VolumeBackendName) > 0 {
+			for _, pool := range schedulerPools {
+				if strings.HasPrefix(pool.Name, fmt.Sprintf("%s@%s", host.GetName(), storage.ExtraSpecs.VolumeBackendName)) {
+					result = append(result, istorage)
+					break
+				}
+			}
+		}
+	}
+	return result, nil
 }
 
 func (host *SHost) GetIStorageById(id string) (cloudprovider.ICloudStorage, error) {

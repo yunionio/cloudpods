@@ -20,6 +20,14 @@ const (
 	HYPERVISORS_VERSION = "2.28"
 )
 
+type SCapabilities struct {
+}
+
+type SPool struct {
+	Name         string
+	Capabilities SCapabilities
+}
+
 type HostState struct {
 	Available bool
 	Active    bool
@@ -35,6 +43,8 @@ type SZone struct {
 	ZoneName string
 
 	cachedHosts map[string][]string
+
+	schedulerPools []SPool
 
 	Hosts map[string]map[string]HostState
 }
@@ -74,6 +84,28 @@ func (zone *SZone) GetIRegion() cloudprovider.ICloudRegion {
 
 func (zone *SZone) GetIWires() ([]cloudprovider.ICloudWire, error) {
 	return zone.iwires, nil
+}
+
+func (zone *SZone) fetchSchedulerStatsPool() error {
+	zone.schedulerPools = []SPool{}
+	for _, service := range []string{"volumev3", "volumev2", "volume"} {
+		_, resp, err := zone.region.List(service, "/scheduler-stats/get_pools", "", nil)
+		if err == nil {
+			if err := resp.Unmarshal(&zone.schedulerPools, "pools"); err != nil {
+				return err
+			}
+			return nil
+		}
+		log.Warningf("failed to get scheduler-stats pool by service %s error: %v, try another", service, err)
+	}
+	return fmt.Errorf("failed to find scheduler-stats pool by cinder service")
+}
+
+func (zone *SZone) getSchedulerStatsPool() ([]SPool, error) {
+	if len(zone.schedulerPools) == 0 {
+		return zone.schedulerPools, zone.fetchSchedulerStatsPool()
+	}
+	return zone.schedulerPools, nil
 }
 
 func (zone *SZone) getStorageByCategory(category string) (*SStorage, error) {
