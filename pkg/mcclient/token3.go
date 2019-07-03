@@ -76,6 +76,7 @@ type KeystoneTokenV3 struct {
 	IssuedAt  time.Time                `json:"issued_at"`
 	Methods   []string                 `json:"methods"`
 	Project   KeystoneProjectV3        `json:"project"`
+	Projects  []KeystoneProjectV3      `json:"projects"`
 	Roles     []KeystoneRoleV3         `json:"roles"`
 	User      KeystoneUserV3           `json:"user"`
 	Catalog   KeystoneServiceCatalogV3 `json:"catalog"`

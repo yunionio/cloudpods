@@ -920,6 +920,7 @@ func (manager *SElasticipManager) AllocateEipAndAssociateVM(ctx context.Context,
 	// eip.AutoDellocate = tristate.True
 	eip.Bandwidth = bw
 	eip.ChargeType = chargeType
+	eip.DomainId = vm.DomainId
 	eip.ProjectId = vm.ProjectId
 	eip.ProjectSrc = string(db.PROJECT_SOURCE_LOCAL)
 	eip.ManagerId = host.ManagerId

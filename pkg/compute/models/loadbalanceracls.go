@@ -497,3 +497,8 @@ func (acl *SLoadbalancerAcl) SyncWithCloudLoadbalancerAcl(ctx context.Context, u
 
 	return nil
 }
+
+func (manager *SLoadbalancerAclManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
+	virts := manager.Query().IsFalse("pending_deleted")
+	return db.CalculateProjectResourceCount(virts)
+}
