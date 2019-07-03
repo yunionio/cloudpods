@@ -164,7 +164,7 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 
 	// write out files
 	for name, content := range pb.Files {
-		path := filepath.Join(tmpdir, "files", name)
+		path := filepath.Join(tmpdir, name)
 		dir := filepath.Dir(path)
 		err = os.MkdirAll(dir, os.FileMode(0700))
 		if err != nil {
