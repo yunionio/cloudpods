@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/hostman/diskutils"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 )
 
@@ -100,7 +101,7 @@ func (d *SBaseDisk) GetZone() string {
 
 func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,
 	deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
-	var kvmDisk = NewKVMGuestDisk(diskPath)
+	var kvmDisk = diskutils.NewKVMGuestDisk(diskPath)
 
 	defer kvmDisk.Disconnect()
 	if !kvmDisk.Connect() {
@@ -119,7 +120,7 @@ func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict
 }
 
 func (d *SBaseDisk) ResizeFs(diskPath string) error {
-	disk := NewKVMGuestDisk(diskPath)
+	disk := diskutils.NewKVMGuestDisk(diskPath)
 	defer disk.Disconnect()
 	if disk.Connect() {
 		if err := disk.ResizePartition(); err != nil {

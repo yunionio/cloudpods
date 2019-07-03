@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/hostman/diskutils"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -467,7 +468,7 @@ func (s *SRbdStorage) onSaveToGlanceFailed(ctx context.Context, imageId string) 
 
 func (s *SRbdStorage) saveToGlance(ctx context.Context, imageId, imagePath string, compress bool, format string) error {
 	var (
-		kvmDisk = NewKVMGuestDisk(imagePath)
+		kvmDisk = diskutils.NewKVMGuestDisk(imagePath)
 		osInfo  string
 		relInfo *fsdriver.SReleaseInfo
 	)

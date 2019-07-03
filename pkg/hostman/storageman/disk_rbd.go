@@ -28,6 +28,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
+	"yunion.io/x/onecloud/pkg/hostman/diskutils"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 )
 
@@ -206,7 +207,7 @@ func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFromat string,
 
 func (d *SRBDDisk) FormatFs(fsFormat, uuid string) {
 	log.Infof("Make disk %s fs %s", uuid, fsFormat)
-	gd := NewKVMGuestDisk(d.GetPath())
+	gd := diskutils.NewKVMGuestDisk(d.GetPath())
 	defer gd.Disconnect()
 	if gd.Connect() {
 		if err := gd.MakePartition(fsFormat); err == nil {

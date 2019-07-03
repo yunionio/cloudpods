@@ -65,7 +65,7 @@ func (self *DiskCreateTask) OnStorageCacheImageComplete(ctx context.Context, dis
 	storage := disk.GetStorage()
 	host := storage.GetMasterHost()
 	db.OpsLog.LogEvent(disk, db.ACT_ALLOCATING, disk.GetShortDesc(ctx), self.GetUserCred())
-	disk.SetStatus(self.GetUserCred(), api.DISK_STARTALLOC, "")
+	disk.SetStatus(self.GetUserCred(), api.DISK_STARTALLOC, fmt.Sprint("Disk start alloc use host %s(%s)", host.Name, host.Id))
 	if len(disk.BackupStorageId) > 0 {
 		self.SetStage("OnMasterStorageCreateDiskComplete", nil)
 	} else {
@@ -82,7 +82,7 @@ func (self *DiskCreateTask) OnMasterStorageCreateDiskComplete(ctx context.Contex
 	storage := models.StorageManager.FetchStorageById(disk.BackupStorageId)
 	host := storage.GetMasterHost()
 	db.OpsLog.LogEvent(disk, db.ACT_BACKUP_ALLOCATING, disk.GetShortDesc(ctx), self.GetUserCred())
-	disk.SetStatus(self.UserCred, api.DISK_BACKUP_STARTALLOC, "")
+	disk.SetStatus(self.UserCred, api.DISK_BACKUP_STARTALLOC, fmt.Sprint("Backup disk start alloc use host %s(%s)", host.Name, host.Id))
 	self.SetStage("OnDiskReady", nil)
 	if err := disk.StartAllocate(ctx, host, storage, self.GetTaskId(), self.GetUserCred(), rebuild, snapshot, self); err != nil {
 		self.OnBackupAllocateFailed(ctx, disk, jsonutils.NewString(fmt.Sprintf("Backup disk alloctate failed: %s", err.Error())))

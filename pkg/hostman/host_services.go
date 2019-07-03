@@ -35,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/metadata"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/storagehandler"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -105,7 +106,7 @@ func (host *SHostService) RunService() {
 
 func (host *SHostService) initHandlers(app *appsrv.Application) {
 	guesthandlers.AddGuestTaskHandler("", app)
-	storageman.AddStorageHandler("", app)
+	storagehandler.AddStorageHandler("", app)
 	diskhandlers.AddDiskHandler("", app)
 	downloader.AddDownloadHandler("", app)
 	kubehandlers.AddKubeAgentHandler("", app)

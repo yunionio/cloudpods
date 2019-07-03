@@ -1,0 +1,5 @@
+package storageagent
+
+func InitAgent() {
+
+}

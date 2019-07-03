@@ -61,7 +61,7 @@ func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 	for i, d := range options.HostOptions.LocalImagePath {
 		s := NewLocalStorage(ret, d, i)
 		if s.Accessible() {
-			s.StartSnapshotRecycle()
+			StartSnapshotRecycle(s)
 			ret.Storages = append(ret.Storages, s)
 			if allFull && s.GetFreeSizeMb() > MINIMAL_FREE_SPACE {
 				allFull = false
@@ -69,13 +69,13 @@ func NewStorageManager(host hostutils.IHost) (*SStorageManager, error) {
 		}
 	}
 
-	// for _, d := range options.HostOptions.SharedStorages {
-	// 	s := ret.NewSharedStorageInstance(d, "")
-	// 	if s != nil {
-	// 		ret.Storages = append(ret.Storages, s)
-	// 		allFull = false
-	// 	}
-	// }
+	for _, d := range options.HostOptions.SharedStorages {
+		s := ret.NewSharedStorageInstance(d, "")
+		if s != nil {
+			ret.Storages = append(ret.Storages, s)
+			allFull = false
+		}
+	}
 
 	if allFull {
 		return nil, fmt.Errorf("Not enough storage space!")

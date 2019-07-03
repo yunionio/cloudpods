@@ -25,8 +25,8 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/image"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/hostman/diskutils"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
-	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/logclient"
@@ -65,7 +65,7 @@ func (self *ImageProbeTask) StartImageProbe(ctx context.Context, image *models.S
 
 func (self *ImageProbeTask) doProbe(ctx context.Context, image *models.SImage) error {
 	diskPath := image.GetPath("")
-	kvmDisk := storageman.NewKVMGuestDisk(diskPath)
+	kvmDisk := diskutils.NewKVMGuestDisk(diskPath)
 	defer kvmDisk.DisconnectWithoutLvm()
 	if !kvmDisk.ConnectWithoutDetectLvm() {
 		return fmt.Errorf("Disk connector failed to connect image")
@@ -155,7 +155,7 @@ type sImageInfo struct {
 	IsInstalledCloudInit  bool
 }
 
-func (self *ImageProbeTask) getImageInfo(kvmDisk *storageman.SKVMGuestDisk, rootfs fsdriver.IRootFsDriver) *sImageInfo {
+func (self *ImageProbeTask) getImageInfo(kvmDisk *diskutils.SKVMGuestDisk, rootfs fsdriver.IRootFsDriver) *sImageInfo {
 	partition := rootfs.GetPartition()
 	return &sImageInfo{
 		osInfo:        rootfs.GetReleaseInfo(partition),
