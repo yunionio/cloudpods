@@ -841,9 +841,11 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 	data.Add(jsonutils.NewString(self.DiskFormat), "disk_format")
 	name, _ := data.GetString("name")
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	if imageList, err := modules.Images.List(s, jsonutils.Marshal(map[string]string{"name": name, "admin": "true"})); err != nil {
+	imageList, err := modules.Images.List(s, jsonutils.Marshal(map[string]string{"name": name, "admin": "true"}))
+	if err != nil {
 		return "", err
-	} else if imageList.Total > 0 {
+	}
+	if imageList.Total > 0 {
 		return "", httperrors.NewConflictError("Duplicate image name %s", name)
 	}
 	/*
@@ -853,14 +855,17 @@ func (self *SDisk) PrepareSaveImage(ctx context.Context, userCred mcclient.Token
 		if _, err := modules.ImageQuotas.DoQuotaCheck(session, jsonutils.Marshal(&quota)); err != nil {
 			return "", err
 		}*/
+	us := auth.GetSession(ctx, userCred, options.Options.Region, "")
 	data.Add(jsonutils.NewInt(int64(self.DiskSize)), "virtual_size")
-	if result, err := modules.Images.Create(s, data); err != nil {
+	result, err := modules.Images.Create(us, data)
+	if err != nil {
 		return "", err
-	} else if imageId, err := result.GetString("id"); err != nil {
-		return "", err
-	} else {
-		return imageId, nil
 	}
+	imageId, err := result.GetString("id")
+	if err != nil {
+		return "", err
+	}
+	return imageId, nil
 }
 
 func (self *SDisk) AllowPerformSave(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
