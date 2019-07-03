@@ -270,6 +270,17 @@ func (t *SAuthToken) getTokenV3(
 		if project != nil || domain != nil {
 			return nil, ErrUserNotInProject
 		}
+		extProjs, err := models.ProjectManager.FetchUserProjects(user.Id)
+		if err != nil {
+			return nil, errors.Wrap(err, "models.ProjectManager.FetchUserProjects")
+		}
+		token.Token.Projects = make([]mcclient.KeystoneProjectV3, len(extProjs))
+		for i := range extProjs {
+			token.Token.Projects[i].Id = extProjs[i].Id
+			token.Token.Projects[i].Name = extProjs[i].Name
+			token.Token.Projects[i].Domain.Id = extProjs[i].DomainId
+			token.Token.Projects[i].Domain.Name = extProjs[i].DomainName
+		}
 	} else {
 		if project != nil {
 			token.Token.IsDomain = false
@@ -326,6 +337,18 @@ func (t *SAuthToken) getTokenV2(
 	if len(roles) == 0 {
 		if project != nil {
 			return nil, ErrUserNotInProject
+		}
+		extProjs, err := models.ProjectManager.FetchUserProjects(user.Id)
+		if err != nil {
+			return nil, errors.Wrap(err, "models.ProjectManager.FetchUserProjects")
+		}
+		token.Tenants = make([]mcclient.KeystoneTenantV2, len(extProjs))
+		for i := range extProjs {
+			token.Tenants[i].Id = extProjs[i].Id
+			token.Tenants[i].Name = extProjs[i].Name
+			token.Tenants[i].Domain.Id = extProjs[i].DomainId
+			token.Tenants[i].Domain.Name = extProjs[i].DomainName
+			token.Tenants[i].Enabled = true
 		}
 	} else {
 		token.Token.Tenant.Id = project.Id

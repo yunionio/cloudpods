@@ -1772,6 +1772,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	network.IsPublic = self.IsPublic
 	network.Status = self.Status
 	network.ProjectId = self.ProjectId
+	network.DomainId = self.DomainId
 	// network.UserId = self.UserId
 	network.IsSystem = self.IsSystem
 	network.Description = self.Description

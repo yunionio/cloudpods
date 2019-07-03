@@ -62,9 +62,11 @@ func (self *SManagedResourceBase) GetCustomizeColumns(ctx context.Context, userC
 	}
 	if len(provider.ProjectId) > 0 {
 		info["manager_project_id"] = provider.ProjectId
+		info["manager_project_domain_id"] = provider.DomainId
 		tc, err := db.TenantCacheManager.FetchTenantById(appctx.Background, provider.ProjectId)
 		if err == nil {
-			info["manager_project"] = tc.GetName()
+			info["manager_project"] = tc.Name
+			info["manager_project_domain"] = tc.Domain
 		}
 	}
 
