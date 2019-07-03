@@ -85,8 +85,6 @@ func (self *SClassicNetwork) GetIpEnd() string {
 	pref, _ := netutils.NewIPV4Prefix(self.AddressPrefix)
 	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
 	endIp = endIp.StepDown()                          // 254
-	endIp = endIp.StepDown()                          // 253
-	endIp = endIp.StepDown()                          // 252
 	return endIp.String()
 }
 
@@ -95,10 +93,14 @@ func (self *SClassicNetwork) GetIpMask() int8 {
 	return pref.MaskLen
 }
 
+// https://docs.microsoft.com/en-us/azure/virtual-network/virtual-networks-faq
 func (self *SClassicNetwork) GetIpStart() string {
 	pref, _ := netutils.NewIPV4Prefix(self.AddressPrefix)
 	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
 	startIp = startIp.StepUp()                    // 1
+	startIp = startIp.StepUp()                    // 2
+	startIp = startIp.StepUp()                    // 3
+	startIp = startIp.StepUp()                    // 4
 	return startIp.String()
 }
 
