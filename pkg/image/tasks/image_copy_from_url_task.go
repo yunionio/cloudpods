@@ -32,7 +32,7 @@ func (self *ImageCopyFromUrlTask) OnInit(ctx context.Context, obj db.IStandalone
 	self.SetStage("OnImageImportComplete", nil)
 	taskman.LocalTaskRun(self, func() (jsonutils.JSONObject, error) {
 		header := http.Header{}
-		resp, err := httputils.Request(nil, ctx, httputils.GET, copyFrom, header, nil, false)
+		resp, err := httputils.Request(httputils.GetTimeoutClient(0), ctx, httputils.GET, copyFrom, header, nil, false)
 		if err != nil {
 			return nil, err
 		}
