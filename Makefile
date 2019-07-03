@@ -7,11 +7,19 @@ BUILD_DIR := $(ROOT_DIR)/_output
 BIN_DIR := $(BUILD_DIR)/bin
 BUILD_SCRIPT := $(ROOT_DIR)/build/build.sh
 
-GIT_COMMIT := $(shell git rev-parse --short HEAD)
-GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
-GIT_VERSION := $(shell git describe --tags --abbrev=14 $(GIT_COMMIT)^{commit})
-GIT_TREE_STATE := $(shell s=`git status --porcelain 2>/dev/null`; if [ -z "$$s" ]; then echo "clean"; else echo "dirty"; fi)
-BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+ifeq ($(ONECLOUD_CI_BUILD),)
+  GIT_COMMIT := $(shell git rev-parse --short HEAD)
+  GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+  GIT_VERSION := $(shell git describe --tags --abbrev=14 $(GIT_COMMIT)^{commit})
+  GIT_TREE_STATE := $(shell s=`git status --porcelain 2>/dev/null`; if [ -z "$$s" ]; then echo "clean"; else echo "dirty"; fi)
+  BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+else
+  GIT_COMMIT:=x
+  GIT_BRANCH:=x
+  GIT_VERSION:=x
+  BUILD_TREE_STATE:=clean
+  BUILD_DATE=2099-07-01T07:11:09Z
+endif
 
 LDFLAGS := "-w \
 	-X $(VERSION_PKG).gitVersion=$(GIT_VERSION) \
@@ -104,8 +112,8 @@ clean:
 
 
 fmt:
-	@find . -type f -name "*.go" -not -path "./_output/*" \
-		-not -path "./vendor/*" | xargs gofmt -s -w
+	@$(if $(ONECLOUD_CI_BUILD),:,find) . -type f -name "*.go" -not -path "./_output/*" \
+		-not -path "./vendor/*" | xargs --no-run-if-empty gofmt -s -w
 
 define depDeprecated
 OneCloud now requires using go-mod for dependency management.  dep target,
