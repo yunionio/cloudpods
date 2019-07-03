@@ -165,7 +165,7 @@ func init() {
 		SecurityGroup string `help:"Security Group ID or Name"`
 	}
 
-	shellutils.R(&InstanceSecurityGroupOptions{}, "instance-assign-secgrp", "Attach a disk to intance", func(cli *azure.SRegion, args *InstanceSecurityGroupOptions) error {
-		return cli.AssiginSecurityGroup(args.ID, args.SecurityGroup)
+	shellutils.R(&InstanceSecurityGroupOptions{}, "instance-set-secgrp", "Attach a disk to intance", func(cli *azure.SRegion, args *InstanceSecurityGroupOptions) error {
+		return cli.SetSecurityGroup(args.ID, args.SecurityGroup)
 	})
 }
