@@ -30,8 +30,8 @@ import (
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/coreosutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
@@ -117,7 +117,7 @@ func (l *sLinuxRootFs) ChangeUserPasswd(rootFs IDiskPartition, account, gid, pub
 	return secret, err
 }
 
-func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pubkeys *sshkeys.SSHKeys) error {
+func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pubkeys *deployapi.SSHKeys) error {
 	var usrDir string
 	if selUsr == "root" {
 		usrDir = "/root"
@@ -127,7 +127,7 @@ func (l *sLinuxRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pub
 	return DeployAuthorizedKeys(rootFs, usrDir, pubkeys, false)
 }
 
-func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *sshkeys.SSHKeys, isInit, enableCloudInit bool) error {
+func (l *sLinuxRootFs) DeployYunionroot(rootFs IDiskPartition, pubkeys *deployapi.SSHKeys, isInit, enableCloudInit bool) error {
 	l.DisableSelinux(rootFs)
 	if !enableCloudInit && isInit {
 		l.DisableCloudinit(rootFs)
@@ -1367,7 +1367,7 @@ func (d *SCoreOsRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string)
 	return nil
 }
 
-func (d *SCoreOsRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pubkeys *sshkeys.SSHKeys) error {
+func (d *SCoreOsRootFs) DeployPublicKey(rootFs IDiskPartition, selUsr string, pubkeys *deployapi.SSHKeys) error {
 	return nil
 }
 

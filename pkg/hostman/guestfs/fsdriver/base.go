@@ -24,7 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 type sGuestRootFsDriver struct {
@@ -81,7 +81,7 @@ func (d *sGuestRootFsDriver) IsFsCaseInsensitive() bool {
 	return false
 }
 
-func (d *sGuestRootFsDriver) DeployYunionroot(rootfs IDiskPartition, pubkeys *sshkeys.SSHKeys, isInit, enableCloudInit bool) error {
+func (d *sGuestRootFsDriver) DeployYunionroot(rootfs IDiskPartition, pubkeys *deployapi.SSHKeys, isInit, enableCloudInit bool) error {
 	return nil
 }
 
@@ -132,7 +132,7 @@ func newReleaseInfo(distro, version, arch string) *SReleaseInfo {
 	}
 }
 
-func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *sshkeys.SSHKeys, replace bool) error {
+func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *deployapi.SSHKeys, replace bool) error {
 	usrStat := rootFs.Stat(usrDir, false)
 	if usrStat != nil {
 		sshDir := path.Join(usrDir, ".ssh")
@@ -171,7 +171,7 @@ func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *sshkeys
 	return nil
 }
 
-func MergeAuthorizedKeys(oldKeys string, pubkeys *sshkeys.SSHKeys) string {
+func MergeAuthorizedKeys(oldKeys string, pubkeys *deployapi.SSHKeys) string {
 	var allkeys = make(map[string]string)
 	if len(oldKeys) > 0 {
 		for _, line := range strings.Split(oldKeys, "\n") {

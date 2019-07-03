@@ -26,8 +26,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -76,7 +76,7 @@ func (w *SWindowsRootFs) String() string {
 	return "WindowsRootFs"
 }
 
-func (w *SWindowsRootFs) DeployPublicKey(IDiskPartition, string, *sshkeys.SSHKeys) error {
+func (w *SWindowsRootFs) DeployPublicKey(IDiskPartition, string, *apis.SSHKeys) error {
 	return nil
 }
 

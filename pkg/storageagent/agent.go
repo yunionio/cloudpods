@@ -1,5 +1,0 @@
-package storageagent
-
-func InitAgent() {
-
-}

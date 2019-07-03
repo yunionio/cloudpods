@@ -22,47 +22,9 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
-	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	fsdriver "yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
-
-type SDeployInfo struct {
-	publicKey               *sshkeys.SSHKeys
-	deploys                 []jsonutils.JSONObject
-	password                string
-	isInit                  bool
-	enableTty               bool
-	defaultRootUser         bool
-	windowsDefaultAdminUser bool
-	enableCloudInit         bool
-}
-
-func NewDeployInfo(
-	publicKey *sshkeys.SSHKeys,
-	deploys []jsonutils.JSONObject,
-	password string,
-	isInit bool,
-	enableTty bool,
-	defaultRootUser bool,
-	windowsDefaultAdminUser bool,
-	enableCloudInit bool,
-) *SDeployInfo {
-	return &SDeployInfo{
-		publicKey:               publicKey,
-		deploys:                 deploys,
-		password:                password,
-		isInit:                  isInit,
-		enableTty:               enableTty,
-		defaultRootUser:         defaultRootUser,
-		windowsDefaultAdminUser: windowsDefaultAdminUser,
-		enableCloudInit:         enableCloudInit,
-	}
-}
-
-func (d *SDeployInfo) String() string {
-	return fmt.Sprintf("deplys: %s, password %s, isInit: %v, enableTty: %v, defaultRootUser: %v, enableCloudInit: %v",
-		d.deploys, d.password, d.isInit, d.enableTty, d.defaultRootUser, d.enableCloudInit)
-}
 
 func DetectRootFs(part fsdriver.IDiskPartition) fsdriver.IRootFsDriver {
 	for _, newDriverFunc := range fsdriver.GetRootfsDrivers() {
@@ -89,6 +51,11 @@ func testRootfs(d fsdriver.IRootFsDriver) bool {
 		}
 	}
 	return true
+}
+
+func DoDeployGuestFs(
+	rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDesc, deployInfo *SDeployInfo,
+) {
 }
 
 func DeployGuestFs(
@@ -187,7 +154,7 @@ func DeployGuestFs(
 	}
 	if partition.SupportSerialPorts() {
 		if deployInfo.enableTty {
-			if err = rootfs.EnableSerialConsole(partition, ret); err != nil {
+			if err = rootfs.EnableSerialConsole(partition, nil); err != nil {
 				return nil, fmt.Errorf("EnableSerialConsole: %v", err)
 			}
 		} else {

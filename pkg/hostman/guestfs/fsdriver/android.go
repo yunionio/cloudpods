@@ -21,7 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 func ParsePropStr(lines string) map[string]string {
@@ -83,7 +83,7 @@ func (m *SAndroidRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser 
 	return ""
 }
 
-func (m *SAndroidRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *sshkeys.SSHKeys) error {
+func (m *SAndroidRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *apis.SSHKeys) error {
 	return nil
 }
 

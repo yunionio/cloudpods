@@ -22,7 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/macutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
@@ -72,7 +72,7 @@ func (m *SMacOSRootFs) RootSignatures() []string {
 	}
 }
 
-func (m *SMacOSRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *sshkeys.SSHKeys) error {
+func (m *SMacOSRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *apis.SSHKeys) error {
 	usrDir := fmt.Sprintf("/Users/%s", uname)
 	return DeployAuthorizedKeys(m.rootFs, usrDir, pubkeys, false)
 }

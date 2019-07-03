@@ -31,9 +31,9 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/hostman/diskutils/nbd"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
@@ -1158,7 +1158,7 @@ func (h *SHostInfo) deployAdminAuthorizedKeys() {
 	}
 	keys := ret.Data[0]
 	adminPublicKey, _ := keys.GetString("public_key")
-	pubKeys := &sshkeys.SSHKeys{AdminPublicKey: adminPublicKey}
+	pubKeys := &deployapi.SSHKeys{AdminPublicKey: adminPublicKey}
 
 	authFile := path.Join(sshDir, "authorized_keys")
 	oldKeysBytes, _ := fileutils2.FileGetContents(authFile)

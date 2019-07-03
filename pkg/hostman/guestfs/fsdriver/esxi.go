@@ -18,7 +18,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 type SEsxiRootFs struct {
@@ -79,7 +79,7 @@ func (m *SEsxiRootFs) GetReleaseInfo(IDiskPartition) *SReleaseInfo {
 	}
 }
 
-func (m *SEsxiRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *sshkeys.SSHKeys) error {
+func (m *SEsxiRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *apis.SSHKeys) error {
 	return nil
 }
 

@@ -50,11 +50,11 @@ import (
 	"yunion.io/x/onecloud/pkg/baremetal/utils/disktool"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
 	raiddrivers "yunion.io/x/onecloud/pkg/baremetal/utils/raid/drivers"
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/compute/baremetal"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/sshpart"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
@@ -1704,14 +1704,15 @@ func (s *SBaremetalServer) SyncPartitionSize(term *ssh.Client, parts []*disktool
 }
 
 func (s *SBaremetalServer) DoDeploy(term *ssh.Client, data jsonutils.JSONObject, isInit bool) (jsonutils.JSONObject, error) {
-	publicKey := sshkeys.GetKeys(data)
+	publicKey := deployapi.GetKeys(data)
 	deploys, _ := data.GetArray("deploys")
 	password, _ := data.GetString("password")
 	resetPassword := jsonutils.QueryBoolean(data, "reset_password", false)
 	if resetPassword && len(password) == 0 {
 		password = seclib.RandomPassword(12)
 	}
-	deployInfo := guestfs.NewDeployInfo(publicKey, deploys, password, isInit, true, o.Options.LinuxDefaultRootUser, o.Options.WindowsDefaultAdminUser, false)
+	deployInfo := guestfs.NewDeployInfo(publicKey, deployapi.JsonDeploysToStructs(deploys),
+		password, isInit, true, o.Options.LinuxDefaultRootUser, o.Options.WindowsDefaultAdminUser, false)
 	return s.deployFs(term, deployInfo)
 }
 
