@@ -57,7 +57,7 @@ type SUser struct {
 	Name              string
 	Passwd            string
 	HashedPasswd      string
-	LockPasswd        string
+	LockPasswd        bool
 	SshAuthorizedKeys []string
 	Sudo              string
 }
@@ -164,7 +164,7 @@ func (u *SUser) Password(passwd string) *SUser {
 			u.Passwd = hash
 			u.HashedPasswd = hash
 		}
-		u.LockPasswd = "false"
+		u.LockPasswd = false
 	}
 	return u
 }
