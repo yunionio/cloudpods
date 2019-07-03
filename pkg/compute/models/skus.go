@@ -530,7 +530,7 @@ func networkUsableRegionQueries(f sqlchemy.IQueryField) []sqlchemy.ICondition {
 	return iconditions
 }
 
-func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sqlchemy.SQuery {
+func usableFilter(q *sqlchemy.SQuery, public_cloud bool) *sqlchemy.SQuery {
 	// 过滤出公有云provider状态健康的sku
 	if public_cloud {
 		providerTable := CloudproviderManager.Query().SubQuery()
@@ -554,21 +554,6 @@ func providerFilter(q *sqlchemy.SQuery, provider string, public_cloud bool) *sql
 		q = q.Filter(sqlchemy.OR(iconditions...))
 	}
 
-	if provider == "all" {
-		// provider 参数为all时。表示查询所有instance type.
-		return q
-	} else if len(provider) > 0 && !utils.IsInStringArray(provider, []string{api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE, "kvm", "esxi"}) {
-		q = q.Equals("provider", provider)
-	} else if public_cloud {
-		q = q.IsNotEmpty("provider")
-		q = q.NotIn("provider", []string{api.CLOUD_PROVIDER_OPENSTACK, api.CLOUD_PROVIDER_ZSTACK})
-	} else {
-		q = q.Filter(sqlchemy.OR(
-			sqlchemy.IsNull(q.Field("provider")),
-			sqlchemy.IsEmpty(q.Field("provider")),
-		))
-	}
-
 	return q
 }
 
@@ -584,8 +569,8 @@ func (manager *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, 
 	}
 
 	q := manager.Query()
-	// 未明确指定provider或者public_cloud时，默认查询私有云
-	q = providerFilter(q, params.Provider, params.PublicCloud)
+	// 仅过滤有ip子网的sku，必选显式指定provider进行过滤
+	q = usableFilter(q, params.PublicCloud)
 	q = excludeSkus(q)
 
 	// 如果是查询私有云需要忽略zone参数
@@ -756,7 +741,7 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	}
 
 	if usable, _ := query.Bool("usable"); usable {
-		q = providerFilter(q, provider, publicCloud)
+		q = usableFilter(q, publicCloud)
 	}
 
 	data := query.(*jsonutils.JSONDict)
