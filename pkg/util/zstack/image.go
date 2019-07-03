@@ -271,7 +271,7 @@ func (region *SRegion) CreateImage(zoneId string, imageName, format, osType, des
 	header.Add("X-IMAGE-UUID", image.UUID)
 	header.Add("X-IMAGE-SIZE", fmt.Sprintf("%d", size))
 	header.Add("Content-Type", body.FormDataContentType())
-	resp, err := httputils.Request(httputils.GetDefaultClient(), context.Background(), "POST", image.BackupStorageRefs[0].InstallPath, header, body, false)
+	resp, err := httputils.Request(httputils.GetTimeoutClient(0), context.Background(), "POST", image.BackupStorageRefs[0].InstallPath, header, body, false)
 	if err != nil {
 		return nil, err
 	}
