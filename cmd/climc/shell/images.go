@@ -49,7 +49,7 @@ type ImageOptionalOptions struct {
 	OsLang             string   `help:"OS Language" choices:"zh_CN|en_US"`
 	Preference         int64    `help:"Disk preferences"`
 	Notes              string   `help:"Notes about the image"`
-	Hypervisor         []string `help:"Prefer hypervisor type" choices:"kvm|esxi|baremetal|container"`
+	Hypervisor         []string `help:"Prefer hypervisor type" choices:"kvm|esxi|baremetal|container|openstack"`
 	DiskDriver         string   `help:"Perfer disk driver" choices:"virtio|scsi|pvscsi|ide|sata"`
 	NetDriver          string   `help:"Preferred network driver" choices:"virtio|e1000|vmxnet3"`
 }

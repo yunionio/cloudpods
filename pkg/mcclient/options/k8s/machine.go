@@ -24,15 +24,16 @@ import (
 )
 
 type MachineCreateOptions struct {
-	CLUSTER  string `help:"Cluster id"`
-	ROLE     string `help:"Machine role" choices:"node|controlplane"`
-	Type     string `help:"Resource type" choices:"vm|baremetal" json:"resource_type"`
-	Instance string `help:"VM or host instance id" json:"resource_id"`
-	Name     string `help:"Name of node"`
-	Disk     string `help:"VM root disk size, e.g. 100G"`
-	Net      string `help:"VM network config"`
-	Cpu      int    `help:"VM cpu count"`
-	Memory   string `help:"VM memory size, e.g. 1G"`
+	CLUSTER    string `help:"Cluster id"`
+	ROLE       string `help:"Machine role" choices:"node|controlplane"`
+	Type       string `help:"Resource type" choices:"vm|baremetal" json:"resource_type"`
+	Instance   string `help:"VM or host instance id" json:"resource_id"`
+	Name       string `help:"Name of node"`
+	Disk       string `help:"VM root disk size, e.g. 100G"`
+	Net        string `help:"VM network config"`
+	Cpu        int    `help:"VM cpu count"`
+	Memory     string `help:"VM memory size, e.g. 1G"`
+	Hypervisor string `help:"VM hypervisor"`
 }
 
 func (o MachineCreateOptions) Params() (*jsonutils.JSONDict, error) {
@@ -78,6 +79,7 @@ func (o MachineCreateOptions) Params() (*jsonutils.JSONDict, error) {
 	if o.Cpu > 0 {
 		vmConfig.Add(jsonutils.NewInt(int64(o.Cpu)), "vcpu_count")
 	}
+	vmConfig.Add(jsonutils.NewString(o.Hypervisor), "hypervisor")
 	params.Add(vmConfig, "config", "vm")
 	return params, nil
 }
