@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/tristate"
@@ -233,11 +234,59 @@ func (lb *SLoadbalancer) detachAllNetworks(ctx context.Context, userCred mcclien
 	return nil
 }
 
+func (lb *SLoadbalancer) purgeBackendGroups(ctx context.Context, userCred mcclient.TokenCredential) error {
+	backendGroups, err := lb.GetLoadbalancerBackendgroups()
+	if err != nil {
+		return err
+	}
+	for i := range backendGroups {
+		err = backendGroups[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (lb *SLoadbalancer) purgeListeners(ctx context.Context, userCred mcclient.TokenCredential) error {
+	listeners, err := lb.GetLoadbalancerListeners()
+	if err != nil {
+		return err
+	}
+	for i := range listeners {
+		err = listeners[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (lb *SLoadbalancer) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, lb)
 	defer lockman.ReleaseObject(ctx, lb)
 
-	err := lb.detachAllNetworks(ctx, userCred)
+	_, err := db.UpdateWithLock(ctx, lb, func() error {
+		//避免 purge backendgroups 时循环依赖
+		lb.BackendGroupId = ""
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("loadbalancer %s(%s): clear up backend group error: %v", lb.Name, lb.Id, err)
+	}
+
+	err = lb.detachAllNetworks(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = lb.purgeBackendGroups(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = lb.purgeListeners(ctx, userCred)
 	if err != nil {
 		return err
 	}
@@ -251,14 +300,14 @@ func (lb *SLoadbalancer) purge(ctx context.Context, userCred mcclient.TokenCrede
 	return nil
 }
 
-func (manager *SLoadbalancerListenerManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	lbls := make([]SLoadbalancerListener, 0)
-	err := fetchByManagerId(manager, providerId, &lbls)
+func (lbl *SLoadbalancerListener) purgeListenerRules(ctx context.Context, userCred mcclient.TokenCredential) error {
+	listenerRules, err := lbl.GetLoadbalancerListenerRules()
 	if err != nil {
 		return err
 	}
-	for i := range lbls {
-		err := lbls[i].purge(ctx, userCred)
+
+	for i := range listenerRules {
+		err = listenerRules[i].purge(ctx, userCred)
 		if err != nil {
 			return err
 		}
@@ -270,27 +319,17 @@ func (lbl *SLoadbalancerListener) purge(ctx context.Context, userCred mcclient.T
 	lockman.LockObject(ctx, lbl)
 	defer lockman.ReleaseObject(ctx, lbl)
 
-	err := lbl.ValidateDeleteCondition(ctx)
+	err := lbl.purgeListenerRules(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = lbl.ValidateDeleteCondition(ctx)
 	if err != nil {
 		return err
 	}
 
 	lbl.LBPendingDelete(ctx, userCred)
-	return nil
-}
-
-func (manager *SLoadbalancerListenerRuleManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	lblrs := make([]SLoadbalancerListenerRule, 0)
-	err := fetchByManagerId(manager, providerId, &lblrs)
-	if err != nil {
-		return err
-	}
-	for i := range lblrs {
-		err := lblrs[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -305,14 +344,27 @@ func (lblr *SLoadbalancerListenerRule) purge(ctx context.Context, userCred mccli
 	return lblr.DoPendingDelete(ctx, userCred)
 }
 
-func (manager *SLoadbalancerBackendGroupManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	lbbgs := make([]SLoadbalancerBackendGroup, 0)
-	err := fetchByManagerId(manager, providerId, &lbbgs)
+func (lbbg *SLoadbalancerBackendGroup) purgeBackends(ctx context.Context, userCred mcclient.TokenCredential) error {
+	backends, err := lbbg.GetBackends()
 	if err != nil {
 		return err
 	}
-	for i := range lbbgs {
-		err := lbbgs[i].purge(ctx, userCred)
+	for i := range backends {
+		err = backends[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (lbbg *SLoadbalancerBackendGroup) purgeListeners(ctx context.Context, userCred mcclient.TokenCredential) error {
+	listeners, err := lbbg.GetLoadbalancerListeners()
+	if err != nil {
+		return err
+	}
+	for i := range listeners {
+		err = listeners[i].purge(ctx, userCred)
 		if err != nil {
 			return err
 		}
@@ -324,27 +376,22 @@ func (lbbg *SLoadbalancerBackendGroup) purge(ctx context.Context, userCred mccli
 	lockman.LockObject(ctx, lbbg)
 	defer lockman.ReleaseObject(ctx, lbbg)
 
-	err := lbbg.ValidateDeleteCondition(ctx)
+	err := lbbg.purgeBackends(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = lbbg.purgeListeners(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = lbbg.ValidateDeleteCondition(ctx)
 	if err != nil {
 		return err
 	}
 
 	lbbg.LBPendingDelete(ctx, userCred)
-	return nil
-}
-
-func (manager *SLoadbalancerBackendManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	lbbs := make([]SLoadbalancerBackend, 0)
-	err := fetchByManagerId(manager, providerId, &lbbs)
-	if err != nil {
-		return err
-	}
-	for i := range lbbs {
-		err := lbbs[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
