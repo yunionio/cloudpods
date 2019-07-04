@@ -14,18 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-covermode=${COVERMODE:-atomic}
-coverdir=$(mktemp -d /tmp/coverage.XXXXXXXXXX)
-profile="${coverdir}/profile.out"
-
-function get_test_pkgs() {
-    go list ./... | egrep -v 'host-image|hostimage'
-}
-
-function generate_coverage_data() {
-    echo "mode: $covermode" > "$profile"
-    go test -coverprofile="$profile" -covermode="$covermode" $(get_test_pkgs)
-}
+set -o errexit
+set -o pipefail
 
 function push_to_codecov() {
     if [ -z "$CODECOV_TOKEN" ]; then
@@ -36,7 +26,21 @@ function push_to_codecov() {
     curl -s https://codecov.io/bash | bash -s -- -c -F aFlag -f "$profile"
 }
 
-generate_coverage_data
+
+covermode=${COVERMODE:-atomic}
+coverdir=$(mktemp -d /tmp/coverage.XXXXXXXXXX)
+profile="${coverdir}/profile.out"
+if [ -z "$pkgs" ]; then
+	pkgs="$(go list ./... | egrep -v 'host-image|hostimage')"
+fi
+
+echo "mode: $covermode" >"$profile"
+go test -v \
+	-coverprofile="$profile" \
+	-covermode="$covermode" \
+	-mod vendor \
+	-ldflags '-w' \
+	$pkgs
 go tool cover -func "$profile"
 
 case "${1-}" in
