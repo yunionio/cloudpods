@@ -293,9 +293,9 @@ func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		return nil, err
 	}
 
-	groupStr := jsonutils.GetAnyString(query, []string{"group_id"})
+	groupStr := jsonutils.GetAnyString(query, []string{"group", "group_id"})
 	if len(groupStr) > 0 {
-		groupObj, err := GroupManager.FetchById(groupStr)
+		groupObj, err := GroupManager.FetchByIdOrName(userCred, groupStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(GroupManager.Keyword(), groupStr)
@@ -307,9 +307,9 @@ func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		q = q.In("id", subq.SubQuery())
 	}
 
-	projectStr := jsonutils.GetAnyString(query, []string{"project_id"})
+	projectStr := jsonutils.GetAnyString(query, []string{"project", "project_id", "tenant", "tenant_id"})
 	if len(projectStr) > 0 {
-		project, err := ProjectManager.FetchProjectById(projectStr)
+		project, err := ProjectManager.FetchByIdOrName(userCred, projectStr)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), projectStr)
@@ -317,7 +317,21 @@ func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 				return nil, httperrors.NewGeneralError(err)
 			}
 		}
-		subq := AssignmentManager.fetchProjectUserIdsQuery(project.Id)
+		subq := AssignmentManager.fetchProjectUserIdsQuery(project.GetId())
+		q = q.In("id", subq.SubQuery())
+	}
+
+	roleStr := jsonutils.GetAnyString(query, []string{"role", "role_id"})
+	if len(roleStr) > 0 {
+		role, err := RoleManager.FetchByIdOrName(userCred, roleStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), roleStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		subq := AssignmentManager.fetchRoleUserIdsQuery(role.GetId())
 		q = q.In("id", subq.SubQuery())
 	}
 
