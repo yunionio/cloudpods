@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package regutils
 
 import (
@@ -24,6 +38,7 @@ var DATE_COMPACT_REG *regexp.Regexp
 var ISO_TIME_REG *regexp.Regexp
 var ISO_NO_SECOND_TIME_REG *regexp.Regexp
 var FULLISO_TIME_REG *regexp.Regexp
+var ZSTACK_TIME_REG *regexp.Regexp
 var COMPACT_TIME_REG *regexp.Regexp
 var MYSQL_TIME_REG *regexp.Regexp
 var NORMAL_TIME_REG *regexp.Regexp
@@ -55,6 +70,7 @@ func init() {
 	ISO_NO_SECOND_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z$`)
 	FULLISO_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$`)
 	COMPACT_TIME_REG = regexp.MustCompile(`^\d{14}$`)
+	ZSTACK_TIME_REG = regexp.MustCompile(`^\w+ \d{1,2}, \d{4} \d{1,2}:\d{1,2}:\d{1,2} (AM|PM)$`) //ZStack time format "Apr 1, 2019 3:23:17 PM"
 	MYSQL_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$`)
 	NORMAL_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$`)
 	FULLNORMAL_TIME_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}$`)
@@ -62,8 +78,8 @@ func init() {
 	EMAIL_REG = regexp.MustCompile(`^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$`)
 	CHINA_MOBILE_REG = regexp.MustCompile(`^1[0-9-]{10}$`)
 	FS_FORMAT_REG = regexp.MustCompile(`^(ext|fat|hfs|xfs|swap|ntfs|reiserfs|ufs|btrfs)`)
-	US_CURRENCY_REG = regexp.MustCompile(`^(\d{0,3}|((\d{1,3},)+\d{3}))(\.\d*)?$`)
-	EU_CURRENCY_REG = regexp.MustCompile(`^(\d{0,3}|((\d{1,3}\.)+\d{3}))(,\d*)?$`)
+	US_CURRENCY_REG = regexp.MustCompile(`^[+-]?(\d{0,3}|((\d{1,3},)+\d{3}))(\.\d*)?$`)
+	EU_CURRENCY_REG = regexp.MustCompile(`^[+-]?(\d{0,3}|((\d{1,3}\.)+\d{3}))(,\d*)?$`)
 }
 
 func MatchFunction(str string) bool {
@@ -147,6 +163,10 @@ func MatchDate(str string) bool {
 
 func MatchDateCompact(str string) bool {
 	return DATE_COMPACT_REG.MatchString(str)
+}
+
+func MatchZStackTime(str string) bool {
+	return ZSTACK_TIME_REG.MatchString(str)
 }
 
 func MatchISOTime(str string) bool {

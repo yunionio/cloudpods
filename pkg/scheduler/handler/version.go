@@ -17,7 +17,7 @@ package handler
 import (
 	"net/http"
 
-	gin "gopkg.in/gin-gonic/gin.v1"
+	"github.com/gin-gonic/gin"
 
 	"yunion.io/x/pkg/util/version"
 )
