@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -369,12 +370,38 @@ func (region *SRegion) GetSnapShots(diskId string) ([]SSnapshot, error) {
 }
 
 func (self *SDisk) Reset(ctx context.Context, snapshotId string) (string, error) {
-	return "", self.storage.zone.region.resetDisk(self.ID, snapshotId)
+	if self.Properties.DiskState != "Unattached" {
+		return "", fmt.Errorf("Azure reset disk needs to be done in the Unattached state, current status: %s", self.Properties.DiskState)
+	}
+	disk, err := self.storage.zone.region.CreateDiskBySnapshot(self.Name, snapshotId)
+	if err != nil {
+		return "", errors.Wrap(err, "Reset")
+	}
+	err = self.storage.zone.region.deleteDisk(self.ID)
+	if err != nil {
+		log.Warningf("delete old disk %s error: %v", self.ID, err)
+	}
+	return disk.ID, nil
 }
 
-func (self *SRegion) resetDisk(diskId, snapshotId string) error {
-	// TODO
-	return cloudprovider.ErrNotSupported
+func (self *SRegion) CreateDiskBySnapshot(diskName, snapshotId string) (*SDisk, error) {
+	params := map[string]interface{}{
+		"name":     diskName,
+		"location": self.Name,
+		"properties": map[string]interface{}{
+			"creationData": map[string]string{
+				"createOption":     "Copy",
+				"sourceResourceId": snapshotId,
+			},
+		},
+		"type": "Microsoft.Compute/disks",
+	}
+	disk := &SDisk{}
+	err := self.client.Create(jsonutils.Marshal(params), disk)
+	if err != nil {
+		return nil, errors.Wrapf(err, "CreateDiskBySnapshot.Create")
+	}
+	return disk, nil
 }
 
 func (disk *SDisk) GetAccessPath() string {

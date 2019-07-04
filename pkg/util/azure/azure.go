@@ -649,7 +649,7 @@ func _jsonRequest(client *autorest.Client, method, domain, baseURL, body string)
 		if resp.ContentLength != 0 {
 			data, _ = ioutil.ReadAll(resp.Body)
 		}
-		log.Errorf("failed find %s error: %s", url, string(data))
+		log.Infof("failed find %s error: %s", url, string(data))
 		return nil, cloudprovider.ErrNotFound
 	}
 	// 异步任务最多耗时半小时，否则以失败处理
