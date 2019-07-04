@@ -48,6 +48,7 @@ type ServerListOptions struct {
 	OrderByHost        string `help:"Order by host name" choices:"asc|desc"`
 	Vpc                string `help:"Vpc id or name"`
 	UsableServerForEip string `help:"Eip id or name"`
+	WithoutUserMeta    *bool  `help:"Show Servers without user metadata"`
 
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 
