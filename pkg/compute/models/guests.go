@@ -4223,6 +4223,7 @@ func (self *SGuest) ToSchedDesc() *schedapi.ScheduleInput {
 		desc.HostId = self.HostId
 	}
 	config.Project = self.ProjectId
+	config.Domain = self.DomainId
 	/*tags := self.GetApptags()
 	for i := 0; i < len(tags); i++ {
 		desc.Set(tags[i], jsonutils.JSONTrue)
@@ -4414,6 +4415,7 @@ func (self *SGuest) toCreateInput() *api.ServerCreateInput {
 	r.Hypervisor = self.Hypervisor
 	r.InstanceType = self.InstanceType
 	r.Project = self.ProjectId
+	r.Domain = self.DomainId
 	r.Count = 1
 	r.Disks = self.ToDisksConfig()
 	r.Networks = self.ToNetworksConfig()

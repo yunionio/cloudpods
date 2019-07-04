@@ -330,7 +330,8 @@ func (self *SSecurityGroup) PerformClone(ctx context.Context, userCred mcclient.
 
 	secgroup.Name = name
 	secgroup.Description, _ = data.GetString("description")
-	secgroup.ProjectId = userCred.GetTenantId()
+	secgroup.ProjectId = userCred.GetProjectId()
+	secgroup.DomainId = userCred.GetProjectDomainId()
 
 	err = SecurityGroupManager.TableSpec().Insert(secgroup)
 	if err != nil {
@@ -511,6 +512,7 @@ func (manager *SSecurityGroupManager) newFromCloudSecgroup(ctx context.Context, 
 	secgroup.Name = newName
 	secgroup.Description = extSec.GetDescription()
 	secgroup.ProjectId = userCred.GetProjectId()
+	secgroup.DomainId = userCred.GetProjectDomainId()
 
 	if err := manager.TableSpec().Insert(&secgroup); err != nil {
 		return nil, err
@@ -575,6 +577,7 @@ func (manager *SSecurityGroupManager) InitializeData() error {
 		secGrp.Id = "default"
 		secGrp.Name = "Default"
 		secGrp.ProjectId = auth.AdminCredential().GetProjectId()
+		secGrp.DomainId = auth.AdminCredential().GetProjectDomainId()
 		// secGrp.IsEmulated = false
 		secGrp.IsPublic = true
 		err = manager.TableSpec().Insert(secGrp)

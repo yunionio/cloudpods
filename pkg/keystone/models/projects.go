@@ -324,3 +324,24 @@ func NormalizeProjectName(name string) string {
 	}
 	return name
 }
+
+func (manager *SProjectManager) FetchUserProjects(userId string) ([]SProjectExtended, error) {
+	projects := manager.Query().SubQuery()
+	domains := DomainManager.Query().SubQuery()
+	q := projects.Query(
+		projects.Field("id"),
+		projects.Field("name"),
+		projects.Field("domain_id"),
+		domains.Field("name").Label("domain_name"),
+	)
+	q = q.Join(domains, sqlchemy.Equals(projects.Field("domain_id"), domains.Field("id")))
+	subq := AssignmentManager.fetchUserProjectIdsQuery(userId)
+	q = q.Filter(sqlchemy.In(projects.Field("id"), subq))
+
+	ret := make([]SProjectExtended, 0)
+	err := q.All(&ret)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "query.All")
+	}
+	return ret, nil
+}
