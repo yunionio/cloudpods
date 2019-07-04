@@ -176,6 +176,13 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Contex
 		}
 		q = q.Filter(sqlchemy.In(q.Field("id"), resourceIds))
 	}
+
+	if withoutUserMeta, _ := query.Bool("without_user_meta"); withoutUserMeta {
+		metadataView := Metadata.Query().SubQuery()
+		field := sqlchemy.CONCAT(manager.Keyword(), q.Field("id"))
+		q.Join(metadataView, sqlchemy.Equals(metadataView.Field("id"), field))
+	}
+
 	return q, nil
 }
 
