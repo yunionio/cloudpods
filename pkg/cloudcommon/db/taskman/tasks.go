@@ -755,9 +755,8 @@ func (manager *STaskManager) QueryTasksOfObject(obj db.IStandaloneModel, since t
 	// subq1 and subq2 do not intersect for the fact that they have
 	// different condition on tasks_tbl.obj_id field
 	uq := sqlchemy.Union(subq1, subq2)
-	uq = uq.Desc("created_at")
 
-	q := uq.SubQuery().Query()
+	q := uq.Query().Desc("created_at")
 	return q
 }
 

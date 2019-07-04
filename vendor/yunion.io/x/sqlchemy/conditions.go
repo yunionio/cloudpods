@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package sqlchemy
 
 import (
@@ -246,16 +260,13 @@ func questionMark(count int) string {
 }
 
 func varConditionWhereClause(v interface{}) string {
-	switch v.(type) {
+	switch q := v.(type) {
 	case IQueryField:
-		qf := v.(IQueryField)
-		return qf.Reference()
+		return q.Reference()
 	case *SQuery:
-		q := v.(*SQuery)
 		return fmt.Sprintf("(%s)", q.String())
 	case *SSubQuery:
-		q := v.(*SSubQuery)
-		return fmt.Sprintf("(%s)", q.query.String())
+		return q.Expression()
 	default:
 		expandV := reflectutils.ExpandInterface(v)
 		return questionMark(len(expandV))
@@ -287,6 +298,7 @@ func (t *STupleCondition) Variables() []interface{} {
 
 type SInCondition struct {
 	STupleCondition
+	op string
 }
 
 func inConditionWhereClause(t *STupleCondition, op string) string {
@@ -301,16 +313,23 @@ func inConditionWhereClause(t *STupleCondition, op string) string {
 }
 
 func (t *SInCondition) WhereClause() string {
-	return inConditionWhereClause(&t.STupleCondition, SQL_OP_IN)
+	return inConditionWhereClause(&t.STupleCondition, t.op)
 }
 
 func In(f IQueryField, v interface{}) ICondition {
-	c := SInCondition{NewTupleCondition(f, v)}
+	c := SInCondition{
+		NewTupleCondition(f, v),
+		SQL_OP_IN,
+	}
 	return &c
 }
 
 func NotIn(f IQueryField, v interface{}) ICondition {
-	return NOT(In(f, v))
+	c := SInCondition{
+		NewTupleCondition(f, v),
+		SQL_OP_NOTIN,
+	}
+	return &c
 }
 
 type SLikeCondition struct {

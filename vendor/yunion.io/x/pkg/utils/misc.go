@@ -1,9 +1,24 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package utils
 
 import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"net/url"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -537,8 +552,27 @@ func TransSQLAchemyURL(pySQLSrc string) (dialect, ret string, err error) {
 		err = fmt.Errorf("Incorrect mysql connection url: %s", pySQLSrc)
 		return
 	}
-	user, passwd, host, port, url := strs[1], strs[2], strs[3], strs[4], strs[5]
-	ret = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s&parseTime=True", user, passwd, host, port, url)
+	user, passwd, host, port, dburl := strs[1], strs[2], strs[3], strs[4], strs[5]
+	queryPos := strings.IndexByte(dburl, '?')
+	if queryPos == 0 {
+		err = fmt.Errorf("Missing database name")
+		return
+	}
+	var query url.Values
+	if queryPos > 0 {
+		queryStr := dburl[queryPos+1:]
+		if len(queryStr) > 0 {
+			query, err = url.ParseQuery(queryStr)
+			if err != nil {
+				return
+			}
+		}
+		dburl = dburl[:queryPos]
+	} else {
+		query = url.Values{}
+	}
+	query.Set("parseTime", "True")
+	ret = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", user, passwd, host, port, dburl, query.Encode())
 	return
 }
 
