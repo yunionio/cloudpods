@@ -290,6 +290,8 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 	snapshotUsage := SnapshotUsage(scope, cred, rangeObj, providers, brands, cloudEnv)
 
+	disksUsage := disksUsage("", rangeObj, nil, nil, providers, brands, cloudEnv, scope, cred)
+
 	count = guestNormalUsage.Include(
 		GuestNormalUsage("servers.prepaid_pool", scope, cred, rangeObj, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
 		GuestNormalUsage("servers.any_pool", scope, cred, rangeObj, hostTypes, nil, providers, brands, cloudEnv),
@@ -313,6 +315,8 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 		eipUsage,
 
 		snapshotUsage,
+
+		disksUsage,
 	)
 	return
 }
@@ -390,7 +394,7 @@ func StorageUsage(prefix string, rangeObj db.IStandaloneModel, hostTypes []strin
 		dPrefix = fmt.Sprintf("%s.%s", dPrefix, prefix)
 	}
 	count := make(map[string]interface{})
-	result := models.StorageManager.TotalCapacity(rangeObj, hostTypes, resourceTypes, providers, brands, cloudEnv)
+	result := models.StorageManager.TotalCapacity(rangeObj, hostTypes, resourceTypes, providers, brands, cloudEnv, rbacutils.ScopeSystem, nil)
 	count[sPrefix] = result.Capacity
 	count[fmt.Sprintf("%s.virtual", sPrefix)] = result.CapacityVirtual
 	count[dPrefix] = result.CapacityUsed
@@ -403,6 +407,21 @@ func StorageUsage(prefix string, rangeObj db.IStandaloneModel, hostTypes []strin
 		storageCmtRate = utils.FloatRound(float64(result.CapacityUsed)/float64(result.Capacity), 2)
 	}
 	count[fmt.Sprintf("%s.commit_rate", sPrefix)] = storageCmtRate
+
+	return count
+}
+
+func disksUsage(prefix string, rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) Usage {
+	dPrefix := "disks"
+	if len(prefix) > 0 {
+		dPrefix = fmt.Sprintf("%s.%s", dPrefix, prefix)
+	}
+	count := make(map[string]interface{})
+	result := models.StorageManager.TotalCapacity(rangeObj, hostTypes, resourceTypes, providers, brands, cloudEnv, scope, ownerId)
+	count[dPrefix] = result.CapacityUsed
+	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnready
+	count[fmt.Sprintf("%s.attached", dPrefix)] = result.AttachedCapacity
+	count[fmt.Sprintf("%s.detached", dPrefix)] = result.DetachedCapacity
 
 	return count
 }

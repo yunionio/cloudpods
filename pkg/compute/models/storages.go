@@ -34,6 +34,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 /*
@@ -767,16 +768,29 @@ type StorageCapacityStat struct {
 	TotalSizeVirtual float64
 }
 
-func (manager *SStorageManager) disksReadyQ() *sqlchemy.SSubQuery {
-	disks := DiskManager.Query().SubQuery()
+func filterDisksByScope(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SSubQuery {
+	q := DiskManager.Query()
+	switch scope {
+	case rbacutils.ScopeSystem:
+	case rbacutils.ScopeDomain:
+		q = q.Filter(sqlchemy.Equals(q.Field("domain_id"), ownerId.GetProjectDomainId()))
+	case rbacutils.ScopeProject:
+		q = q.Filter(sqlchemy.Equals(q.Field("tenant_id"), ownerId.GetProjectId()))
+	}
+	return q.SubQuery()
+}
+
+func (manager *SStorageManager) disksReadyQ(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SSubQuery {
+	disks := filterDisksByScope(scope, ownerId)
 	q := disks.Query(
 		disks.Field("storage_id"),
 		sqlchemy.SUM("used_capacity", disks.Field("disk_size")),
-	).Equals("status", api.DISK_READY).GroupBy(disks.Field("storage_id")).SubQuery()
-	return q
+	).Equals("status", api.DISK_READY)
+	q = q.GroupBy(disks.Field("storage_id"))
+	return q.SubQuery()
 }
 
-func (manager *SStorageManager) diskIsAttachedQ(isAttached bool) *sqlchemy.SSubQuery {
+func (manager *SStorageManager) diskIsAttachedQ(isAttached bool, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SSubQuery {
 	sumKey := "attached_used_capacity"
 	cond := sqlchemy.In
 	if !isAttached {
@@ -784,7 +798,7 @@ func (manager *SStorageManager) diskIsAttachedQ(isAttached bool) *sqlchemy.SSubQ
 		cond = sqlchemy.NotIn
 	}
 	sq := GuestdiskManager.Query("disk_id").SubQuery()
-	disks := DiskManager.Query().SubQuery()
+	disks := filterDisksByScope(scope, ownerId)
 	disks = disks.Query().Filter(cond(disks.Field("id"), sq)).SubQuery()
 	q := disks.Query(
 		disks.Field("storage_id"),
@@ -793,31 +807,34 @@ func (manager *SStorageManager) diskIsAttachedQ(isAttached bool) *sqlchemy.SSubQ
 	return q.SubQuery()
 }
 
-func (manager *SStorageManager) diskAttachedQ() *sqlchemy.SSubQuery {
-	return manager.diskIsAttachedQ(true)
+func (manager *SStorageManager) diskAttachedQ(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SSubQuery {
+	return manager.diskIsAttachedQ(true, scope, ownerId)
 }
 
-func (manager *SStorageManager) diskDetachedQ() *sqlchemy.SSubQuery {
-	return manager.diskIsAttachedQ(false)
+func (manager *SStorageManager) diskDetachedQ(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SSubQuery {
+	return manager.diskIsAttachedQ(false, scope, ownerId)
 }
 
-func (manager *SStorageManager) disksFailedQ() *sqlchemy.SSubQuery {
-	disks := DiskManager.Query().SubQuery()
+func (manager *SStorageManager) disksFailedQ(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SSubQuery {
+	disks := filterDisksByScope(scope, ownerId)
 	q := disks.Query(
 		disks.Field("storage_id"),
 		sqlchemy.SUM("failed_capacity", disks.Field("disk_size")),
-	).NotEquals("status", api.DISK_READY).GroupBy(disks.Field("storage_id")).SubQuery()
-	return q
+	).NotEquals("status", api.DISK_READY)
+	q = q.GroupBy(disks.Field("storage_id"))
+	return q.SubQuery()
 }
 
 func (manager *SStorageManager) totalCapacityQ(
 	rangeObj db.IStandaloneModel, hostTypes []string,
-	resourceTypes []string, providers []string, brands []string, cloudEnv string,
+	resourceTypes []string,
+	providers []string, brands []string, cloudEnv string,
+	scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider,
 ) *sqlchemy.SQuery {
-	stmt := manager.disksReadyQ()
-	stmt2 := manager.disksFailedQ()
-	attachedDisks := manager.diskAttachedQ()
-	detachedDisks := manager.diskDetachedQ()
+	stmt := manager.disksReadyQ(scope, ownerId)
+	stmt2 := manager.disksFailedQ(scope, ownerId)
+	attachedDisks := manager.diskAttachedQ(scope, ownerId)
+	detachedDisks := manager.diskDetachedQ(scope, ownerId)
 	storages := manager.Query().SubQuery()
 	q := storages.Query(
 		storages.Field("capacity"),
@@ -904,8 +921,8 @@ func (manager *SStorageManager) calculateCapacity(q *sqlchemy.SQuery) StoragesCa
 	}
 }
 
-func (manager *SStorageManager) TotalCapacity(rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string) StoragesCapacityStat {
-	res1 := manager.calculateCapacity(manager.totalCapacityQ(rangeObj, hostTypes, resourceTypes, providers, brands, cloudEnv))
+func (manager *SStorageManager) TotalCapacity(rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) StoragesCapacityStat {
+	res1 := manager.calculateCapacity(manager.totalCapacityQ(rangeObj, hostTypes, resourceTypes, providers, brands, cloudEnv, scope, ownerId))
 	return res1
 }
 
