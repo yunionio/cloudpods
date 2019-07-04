@@ -21,6 +21,7 @@ type SSnapshotCreateInput struct {
 
 	Name      string `json:"name"`
 	ProjectId string `json:"project_id"`
+	DomainId  string `json:"domain_id"`
 
 	DiskId        string `json:"disk_id"`
 	StorageId     string `json:"storage_id"`
@@ -36,6 +37,7 @@ type SSnapshotPolicyCreateInput struct {
 
 	Name      string `json:"name"`
 	ProjectId string `json:"project_id"`
+	DomainId  string `json:"domain_id"`
 
 	ManagerId     string `json:"manager_id"`
 	CloudregionId string `json:"cloudregion_id"`

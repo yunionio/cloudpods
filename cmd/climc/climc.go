@@ -133,9 +133,9 @@ func newClientSession(options *BaseOptions) (*mcclient.ClientSession, error) {
 	}
 	// if len(options.OsProjectId) == 0 && len(options.OsProjectName) == 0 {
 	//    showErrorAndExit(fmt.Errorf("Missing OS_PROEJCT_ID or OS_PROJECT_NAME"))
-	if len(options.OsProjectName) == 0 {
-		return nil, fmt.Errorf("Missing OS_PROJECT_NAME")
-	}
+	// if len(options.OsProjectName) == 0 {
+	// 	return nil, fmt.Errorf("Missing OS_PROJECT_NAME")
+	// }
 
 	logLevel := "info"
 	if options.Debug {
