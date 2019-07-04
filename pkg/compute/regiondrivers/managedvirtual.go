@@ -151,14 +151,6 @@ func (self *SManagedVirtualizationRegionDriver) ValidateUpdateLoadbalancerListen
 	return data, nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateDeleteLoadbalancerBackendCondition(ctx context.Context, lbb *models.SLoadbalancerBackend) error {
-	return nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup) error {
-	return nil
-}
-
 func (self *SManagedVirtualizationRegionDriver) GetBackendStatusForAdd() []string {
 	return []string{api.VM_RUNNING}
 }

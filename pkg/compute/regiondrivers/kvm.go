@@ -233,14 +233,6 @@ func (self *SKVMRegionDriver) RequestCreateLoadbalancerBackend(ctx context.Conte
 	return nil
 }
 
-func (self *SKVMRegionDriver) ValidateDeleteLoadbalancerBackendCondition(ctx context.Context, lbb *models.SLoadbalancerBackend) error {
-	return nil
-}
-
-func (self *SKVMRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup) error {
-	return nil
-}
-
 func (self *SKVMRegionDriver) GetBackendStatusForAdd() []string {
 	return []string{api.VM_RUNNING, api.VM_READY}
 }
