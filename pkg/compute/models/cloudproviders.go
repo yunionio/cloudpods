@@ -870,6 +870,7 @@ func (manager *SCloudproviderManager) InitializeData() error {
 	}
 	for i := 0; i < len(providers); i += 1 {
 		_, err := db.Update(&providers[i], func() error {
+			providers[i].DomainId = auth.AdminCredential().GetProjectDomainId()
 			providers[i].ProjectId = auth.AdminCredential().GetProjectId()
 			return nil
 		})

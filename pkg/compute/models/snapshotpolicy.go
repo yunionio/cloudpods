@@ -71,6 +71,7 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, u
 		return nil, httperrors.NewInputParameterError("Unmarshal input failed %s", err)
 	}
 	input.ProjectId = ownerId.GetProjectId()
+	input.DomainId = ownerId.GetProjectDomainId()
 
 	err = db.NewNameValidator(manager, ownerId, input.Name)
 	if err != nil {

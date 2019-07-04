@@ -295,6 +295,7 @@ func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCre
 	input := &api.SSnapshotCreateInput{}
 	input.Name = snapshotName
 	input.ProjectId = ownerId.GetProjectId()
+	input.DomainId = ownerId.GetProjectDomainId()
 	input.DiskId = disk.Id
 	input.CreatedBy = api.SNAPSHOT_MANUAL
 	input.Size = disk.DiskSize
@@ -435,6 +436,7 @@ func (self *SSnapshotManager) CreateSnapshot(ctx context.Context, userCred mccli
 	snapshot := &SSnapshot{}
 	snapshot.SetModelManager(self, snapshot)
 	snapshot.ProjectId = userCred.GetProjectId()
+	snapshot.DomainId = userCred.GetProjectDomainId()
 	snapshot.DiskId = disk.Id
 	if len(disk.ExternalId) == 0 {
 		snapshot.StorageId = disk.StorageId
@@ -795,4 +797,9 @@ func (self *SSnapshot) getCloudProviderInfo() SCloudProviderInfo {
 	region := self.GetRegion()
 	provider := self.GetCloudprovider()
 	return MakeCloudProviderInfo(region, nil, provider)
+}
+
+func (manager *SSnapshotManager) GetResourceCount() ([]db.SProjectResourceCount, error) {
+	virts := manager.Query().IsFalse("fake_deleted")
+	return db.CalculateProjectResourceCount(virts)
 }
