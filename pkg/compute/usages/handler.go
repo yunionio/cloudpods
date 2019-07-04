@@ -292,6 +292,8 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 	disksUsage := disksUsage("", rangeObj, nil, nil, providers, brands, cloudEnv, scope, cred)
 
+	nicsUsage := nicsUsage(rangeObj, nil, providers, brands, cloudEnv, scope, cred)
+
 	count = guestNormalUsage.Include(
 		GuestNormalUsage("servers.prepaid_pool", scope, cred, rangeObj, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
 		GuestNormalUsage("servers.any_pool", scope, cred, rangeObj, hostTypes, nil, providers, brands, cloudEnv),
@@ -317,6 +319,8 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 		snapshotUsage,
 
 		disksUsage,
+
+		nicsUsage,
 	)
 	return
 }
@@ -437,6 +441,16 @@ func WireUsage(rangeObj db.IStandaloneModel, hostTypes []string, providers []str
 	count["all.nics.group"] = result.GroupNicCount
 	count["all.nics.lb"] = result.LbNicCount
 	count["all.nics"] = result.NicCount()
+	return count
+}
+
+func nicsUsage(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) Usage {
+	count := make(map[string]interface{})
+	result := models.WireManager.TotalCount(rangeObj, hostTypes, providers, brands, cloudEnv, scope, ownerId)
+	count["nics.guest"] = result.GuestNicCount
+	count["nics.group"] = result.GroupNicCount
+	count["nics.lb"] = result.LbNicCount
+	count["nics"] = result.GuestNicCount + result.GroupNicCount + result.LbNicCount
 	return count
 }
 
