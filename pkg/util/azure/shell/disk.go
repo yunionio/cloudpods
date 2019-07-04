@@ -48,10 +48,17 @@ func init() {
 		SizeGb      int32  `help:"Disk size"`
 		Image       string `help:"Image id"`
 		Desc        string `help:"description for disk"`
+		SnapshotId  string `help:"Create disk by snapshot"`
 	}
 
 	shellutils.R(&DiskCreateOptions{}, "disk-create", "Create disk", func(cli *azure.SRegion, args *DiskCreateOptions) error {
-		disk, err := cli.CreateDisk(args.STORAGETYPE, args.NAME, args.SizeGb, args.Desc, args.Image)
+		var disk *azure.SDisk
+		var err error
+		if len(args.SnapshotId) > 0 {
+			disk, err = cli.CreateDiskBySnapshot(args.NAME, args.SnapshotId)
+		} else {
+			disk, err = cli.CreateDisk(args.STORAGETYPE, args.NAME, args.SizeGb, args.Desc, args.Image)
+		}
 		if err != nil {
 			return err
 		}
