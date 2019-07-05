@@ -116,7 +116,9 @@ func (manager *SQuotaBaseManager) queryQuota(ctx context.Context, scope rbacutil
 
 	ret.Update(quota.ToJSON(""))
 	ret.Update(usage.ToJSON("usage"))
-	ret.Update(pending.ToJSON("pending"))
+	if !pending.IsEmpty() {
+		ret.Update(pending.ToJSON("pending"))
+	}
 
 	if scope == rbacutils.ScopeDomain {
 		total, err := manager.getDomainTotalQuota(ctx, ownerId.GetProjectDomainId(), nil)
