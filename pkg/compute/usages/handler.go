@@ -290,6 +290,10 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 	snapshotUsage := SnapshotUsage(scope, cred, rangeObj, providers, brands, cloudEnv)
 
+	disksUsage := disksUsage("", rangeObj, nil, nil, providers, brands, cloudEnv, scope, cred)
+
+	nicsUsage := nicsUsage(rangeObj, nil, providers, brands, cloudEnv, scope, cred)
+
 	count = guestNormalUsage.Include(
 		GuestNormalUsage("servers.prepaid_pool", scope, cred, rangeObj, hostTypes, []string{api.HostResourceTypePrepaidRecycle}, providers, brands, cloudEnv),
 		GuestNormalUsage("servers.any_pool", scope, cred, rangeObj, hostTypes, nil, providers, brands, cloudEnv),
@@ -313,6 +317,10 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 		eipUsage,
 
 		snapshotUsage,
+
+		disksUsage,
+
+		nicsUsage,
 	)
 	return
 }
@@ -390,7 +398,7 @@ func StorageUsage(prefix string, rangeObj db.IStandaloneModel, hostTypes []strin
 		dPrefix = fmt.Sprintf("%s.%s", dPrefix, prefix)
 	}
 	count := make(map[string]interface{})
-	result := models.StorageManager.TotalCapacity(rangeObj, hostTypes, resourceTypes, providers, brands, cloudEnv)
+	result := models.StorageManager.TotalCapacity(rangeObj, hostTypes, resourceTypes, providers, brands, cloudEnv, rbacutils.ScopeSystem, nil)
 	count[sPrefix] = result.Capacity
 	count[fmt.Sprintf("%s.virtual", sPrefix)] = result.CapacityVirtual
 	count[dPrefix] = result.CapacityUsed
@@ -407,6 +415,21 @@ func StorageUsage(prefix string, rangeObj db.IStandaloneModel, hostTypes []strin
 	return count
 }
 
+func disksUsage(prefix string, rangeObj db.IStandaloneModel, hostTypes []string, resourceTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) Usage {
+	dPrefix := "disks"
+	if len(prefix) > 0 {
+		dPrefix = fmt.Sprintf("%s.%s", dPrefix, prefix)
+	}
+	count := make(map[string]interface{})
+	result := models.StorageManager.TotalCapacity(rangeObj, hostTypes, resourceTypes, providers, brands, cloudEnv, scope, ownerId)
+	count[dPrefix] = result.CapacityUsed
+	count[fmt.Sprintf("%s.unready", dPrefix)] = result.CapacityUnready
+	count[fmt.Sprintf("%s.attached", dPrefix)] = result.AttachedCapacity
+	count[fmt.Sprintf("%s.detached", dPrefix)] = result.DetachedCapacity
+
+	return count
+}
+
 func WireUsage(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string) Usage {
 	count := make(map[string]interface{})
 	result := models.WireManager.TotalCount(rangeObj, hostTypes, providers, brands, cloudEnv, rbacutils.ScopeSystem, nil)
@@ -418,6 +441,16 @@ func WireUsage(rangeObj db.IStandaloneModel, hostTypes []string, providers []str
 	count["all.nics.group"] = result.GroupNicCount
 	count["all.nics.lb"] = result.LbNicCount
 	count["all.nics"] = result.NicCount()
+	return count
+}
+
+func nicsUsage(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) Usage {
+	count := make(map[string]interface{})
+	result := models.WireManager.TotalCount(rangeObj, hostTypes, providers, brands, cloudEnv, scope, ownerId)
+	count["nics.guest"] = result.GuestNicCount
+	count["nics.group"] = result.GroupNicCount
+	count["nics.lb"] = result.LbNicCount
+	count["nics"] = result.GuestNicCount + result.GroupNicCount + result.LbNicCount
 	return count
 }
 

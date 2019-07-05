@@ -47,17 +47,17 @@ func ReportGeneralUsage(ctx context.Context, w http.ResponseWriter, r *http.Requ
 
 	usages := jsonutils.NewDict()
 	if scope == rbacutils.ScopeSystem {
-		adminUsage := models.ImageManager.Usage(scope, ownerId, "all")
+		adminUsage := models.ImageManager.Usage(rbacutils.ScopeSystem, ownerId, "all")
 		usages.Update(jsonutils.Marshal(adminUsage))
 	}
 
 	if scope.HigherEqual(rbacutils.ScopeDomain) {
-		domainUsage := models.ImageManager.Usage(scope, ownerId, "domain")
+		domainUsage := models.ImageManager.Usage(rbacutils.ScopeDomain, ownerId, "domain")
 		usages.Update(jsonutils.Marshal(domainUsage))
 	}
 
 	if scope.HigherEqual(rbacutils.ScopeProject) {
-		projectUsage := models.ImageManager.Usage(scope, ownerId, "")
+		projectUsage := models.ImageManager.Usage(rbacutils.ScopeProject, ownerId, "")
 		usages.Update(jsonutils.Marshal(projectUsage))
 	}
 
