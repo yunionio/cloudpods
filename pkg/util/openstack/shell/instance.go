@@ -78,4 +78,12 @@ func init() {
 		return cli.ChangeConfig(instance, args.FLAVOR_ID)
 	})
 
+	type InstanceDiskOptions struct {
+		ID   string `help:"Instance ID"`
+		DISK string `help:"DiskId"`
+	}
+
+	shellutils.R(&InstanceDiskOptions{}, "instance-detach-disk", "Detach instance disk", func(cli *openstack.SRegion, args *InstanceDiskOptions) error {
+		return cli.DetachDisk(args.ID, args.DISK)
+	})
 }
