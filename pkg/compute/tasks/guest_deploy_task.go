@@ -150,6 +150,8 @@ func (self *GuestDeployTask) OnDeployGuestCompleteFailed(ctx context.Context, ob
 	}
 	guest.SetStatus(self.UserCred, api.VM_DEPLOY_FAILED, data.String())
 	self.SetStageFailed(ctx, data.String())
+	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_DEPLOY, data, self.UserCred, false)
+	db.OpsLog.LogEvent(guest, db.ACT_VM_DEPLOY_FAIL, data, self.UserCred)
 }
 
 func (self *GuestDeployTask) OnDeployStartGuestComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
