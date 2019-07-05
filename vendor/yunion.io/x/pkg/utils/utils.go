@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package utils
 
 import (
@@ -18,6 +32,11 @@ func isLowerChar(ch byte) bool {
 }
 
 func CamelSplit(str string, sep string) string {
+	tokens := CamelSplitTokens(str)
+	return strings.Join(tokens, sep)
+}
+
+func CamelSplitTokens(str string) []string {
 	tokens := make([]string, 0)
 	var buf bytes.Buffer
 	upperCount := 0
@@ -53,7 +72,7 @@ func CamelSplit(str string, sep string) string {
 	if buf.Len() > 0 {
 		tokens = append(tokens, buf.String())
 	}
-	return strings.Join(tokens, sep)
+	return tokens
 }
 
 func Capitalize(str string) string {

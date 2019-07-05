@@ -133,10 +133,10 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 	conditions := []sqlchemy.ICondition{}
 	admin := jsonutils.QueryBoolean(query, "admin", false)
 	for _, resource := range resources {
-		if manager, ok := ResourceMap[resource]; ok {
-			resourceView := manager.Query().SubQuery()
-			prefix := sqlchemy.NewStringField(fmt.Sprintf("%s::", manager.Keyword()))
-			field := sqlchemy.CONCAT(manager.Keyword(), prefix, resourceView.Field("id"))
+		if man, ok := ResourceMap[resource]; ok {
+			resourceView := man.Query().SubQuery()
+			prefix := sqlchemy.NewStringField(fmt.Sprintf("%s::", man.Keyword()))
+			field := sqlchemy.CONCAT(man.Keyword(), prefix, resourceView.Field("id"))
 			sq := resourceView.Query(field)
 			if !admin || !IsAdminAllowList(userCred, manager) {
 				ownerId := manager.GetOwnerId(userCred)
@@ -157,6 +157,18 @@ func (manager *SMetadataManager) ListItemFilter(ctx context.Context, q *sqlchemy
 			q = q.Filter(sqlchemy.Startswith(q.Field("key"), prefix))
 		}
 	}
+
+	withConditions := []sqlchemy.ICondition{}
+	for args, prefix := range map[string]string{"with_sys_meta": SYS_TAG_PREFIX, "with_cloud_meta": CLOUD_TAG_PREFIX, "with_user_meta": USER_TAG_PREFIX} {
+		if jsonutils.QueryBoolean(query, args, false) {
+			withConditions = append(withConditions, sqlchemy.Startswith(q.Field("key"), prefix))
+		}
+	}
+
+	if len(withConditions) > 0 {
+		q = q.Filter(sqlchemy.OR(withConditions...))
+	}
+
 	return q, nil
 }
 

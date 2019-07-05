@@ -6,6 +6,10 @@ type MetadataListOptions struct {
 	CloudMeta *bool    `help:"Show cloud metadata olny"`
 	UserMeta  *bool    `help:"Show user metadata olny"`
 	Admin     *bool    `help:"Show all metadata"`
+
+	WithSysMeta   *bool `help:"Show sys metadata"`
+	WithCloudMeta *bool `help:"Show cloud metadata"`
+	WithUserMeta  *bool `help:"Show user metadata"`
 }
 
 type TagListOptions MetadataListOptions

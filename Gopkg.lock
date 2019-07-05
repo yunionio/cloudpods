@@ -533,9 +533,10 @@
   revision = "22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae"
 
 [[projects]]
-  digest = "1:ff09f03ca12c4d23c28c596eb0738745e36c1cac111f62f64819210f40607cd2"
+  digest = "1:d5083934eb25e45d17f72ffa86cae3814f4a9d6c073c4f16b64147169b245606"
   name = "github.com/gin-gonic/gin"
   packages = [
+    ".",
     "binding",
     "json",
     "render",
@@ -1071,12 +1072,12 @@
   version = "v2.0.7"
 
 [[projects]]
-  digest = "1:40e195917a951a8bf867cd05de2a46aaf1806c50cf92eebf4c16f78cd196f747"
+  branch = "master"
+  digest = "1:deff41c4160cc5b487a1d1a69a58925f2d3ac11befa0692b50e76940594e20f5"
   name = "github.com/pkg/errors"
   packages = ["."]
   pruneopts = "UT"
-  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
-  version = "v0.8.0"
+  revision = "27936f6d90f9c8e1145f11ed52ffffbfdb9e0af7"
 
 [[projects]]
   branch = "master"
@@ -1219,9 +1220,20 @@
   version = "v1.0.3"
 
 [[projects]]
-  digest = "1:18752d0b95816a1b777505a97f71c7467a8445b8ffb55631a7bf779f6ba4fa83"
+  digest = "1:ac83cf90d08b63ad5f7e020ef480d319ae890c208f8524622a2f3136e2686b02"
+  name = "github.com/stretchr/objx"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "477a77ecc69700c7cdeb1fa9e129548e1c1c393c"
+  version = "v0.1.1"
+
+[[projects]]
+  digest = "1:15a4a7e5afac3cea801fa24831fce3bf3b5bd3620cbf8355a07b7dbf06877883"
   name = "github.com/stretchr/testify"
-  packages = ["assert"]
+  packages = [
+    "assert",
+    "mock",
+  ]
   pruneopts = "UT"
   revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
   version = "v1.2.2"
@@ -1711,9 +1723,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:777d274ba9317e4901e544a75138520b2fb0fd88d6c66fb446262824571835a8"
+  digest = "1:0ee2765acdce51c79365752613075a04542f10433992510f45adc86dcb975b34"
   name = "yunion.io/x/pkg"
   packages = [
+    "errors",
     "gotypes",
     "prettytable",
     "trace",
@@ -1738,22 +1751,21 @@
     "util/stringutils",
     "util/timeutils",
     "util/trace",
-    "util/ttlpool",
     "util/version",
     "util/wait",
     "util/workqueue",
     "utils",
   ]
   pruneopts = "UT"
-  revision = "df1afe907f81bfa2adddae023d8577074784a964"
+  revision = "f4033ba2ea301261b5e872c38c20c15c09d226a5"
 
 [[projects]]
   branch = "master"
-  digest = "1:ff4e73f338d767968f1a664f407877a9f4e1adc21ea938387a6e93130d23be4d"
+  digest = "1:67935f7c2db32f5c6bc0b06dddccefc9a8b4a0d66a07c7217a38d87447a1e70b"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "b34ca088f7b65fa0e466e39daa9d99e01fcb073d"
+  revision = "6aff6c803fda71acb3b5b7a98fdc249ee7f2e9ed"
 
 [[projects]]
   branch = "master"
@@ -1814,7 +1826,6 @@
     "github.com/coredns/coredns/plugin/nsid",
     "github.com/coredns/coredns/plugin/pkg/dnsutil",
     "github.com/coredns/coredns/plugin/pkg/fall",
-    "github.com/coredns/coredns/plugin/pkg/log",
     "github.com/coredns/coredns/plugin/pkg/upstream",
     "github.com/coredns/coredns/plugin/proxy",
     "github.com/coredns/coredns/plugin/reload",
@@ -1842,6 +1853,7 @@
     "github.com/moul/http2curl",
     "github.com/nelsonken/cos-go-sdk-v5/cos",
     "github.com/pierrec/lz4",
+    "github.com/pkg/errors",
     "github.com/serialx/hashring",
     "github.com/shirou/gopsutil/cpu",
     "github.com/shirou/gopsutil/host",
@@ -1849,6 +1861,7 @@
     "github.com/shirou/gopsutil/net",
     "github.com/shirou/gopsutil/process",
     "github.com/stretchr/testify/assert",
+    "github.com/stretchr/testify/mock",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors",
     "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http",
@@ -1903,7 +1916,6 @@
     "yunion.io/x/pkg/util/stringutils",
     "yunion.io/x/pkg/util/timeutils",
     "yunion.io/x/pkg/util/trace",
-    "yunion.io/x/pkg/util/ttlpool",
     "yunion.io/x/pkg/util/version",
     "yunion.io/x/pkg/util/wait",
     "yunion.io/x/pkg/util/workqueue",

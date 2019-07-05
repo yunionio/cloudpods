@@ -278,7 +278,7 @@ func fetchSecgroups(guestIds []string) map[string][]sSecgroupInfo {
 	q1 = q1.Filter(sqlchemy.In(guests.Field("id"), guestIds))
 	q2 := guestsecgroups.Query(guestsecgroups.Field("guest_id"), guestsecgroups.Field("secgroup_id"))
 	q2 = q2.Filter(sqlchemy.In(guestsecgroups.Field("guest_id"), guestIds))
-	uq := sqlchemy.Union(q1, q2).SubQuery()
+	uq := sqlchemy.Union(q1, q2).Query().SubQuery()
 	q := uq.Query(uq.Field("guest_id"), uq.Field("secgroup_id"), secgroups.Field("name").Label("secgroup_name"))
 	q = q.Join(secgroups, sqlchemy.Equals(uq.Field("secgroup_id"), secgroups.Field("id")))
 

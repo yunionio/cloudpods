@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package trace
 
 import (
@@ -103,9 +117,12 @@ func StartServerTrace(w http.ResponseWriter, r *http.Request, localSpanName stri
 	shared := false
 	localEp := STraceEndpoint{ServiceName: localServiceName,
 		Addr: localAddr, Port: localPort}
-	addr, port := utils.GetAddrPort(r.RemoteAddr)
-	remoteEp := STraceEndpoint{ServiceName: peerSrvName,
-		Addr: addr, Port: port}
+	remoteEp := STraceEndpoint{ServiceName: peerSrvName}
+	if len(r.RemoteAddr) != 0 {
+		addr, port := utils.GetAddrPort(r.RemoteAddr)
+		remoteEp.Addr = addr
+		remoteEp.Port = port
+	}
 	var tags map[string]string
 	if srvTags != nil {
 		tags = make(map[string]string)
