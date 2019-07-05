@@ -30,23 +30,24 @@ import (
 )
 
 type ServerListOptions struct {
-	Zone          string `help:"Zone ID or Name"`
-	Wire          string `help:"Wire ID or Name"`
-	Network       string `help:"Network ID or Name"`
-	Disk          string `help:"Disk ID or Name"`
-	Host          string `help:"Host ID or Name"`
-	Baremetal     *bool  `help:"Show baremetal servers"`
-	Gpu           *bool  `help:"Show gpu servers"`
-	Secgroup      string `help:"Secgroup ID or Name"`
-	AdminSecgroup string `help:"AdminSecgroup ID or Name"`
-	Hypervisor    string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei|ucloud"`
-	Region        string `help:"Show servers in cloudregion"`
-	WithEip       *bool  `help:"Show Servers with EIP"`
-	WithoutEip    *bool  `help:"Show Servers without EIP"`
-	OsType        string `help:"OS Type" choices:"linux|windows|vmware"`
-	OrderByDisk   string `help:"Order by disk size" choices:"asc|desc"`
-	OrderByHost   string `help:"Order by host name" choices:"asc|desc"`
-	Vpc           string `help:"Vpc id or name"`
+	Zone            string `help:"Zone ID or Name"`
+	Wire            string `help:"Wire ID or Name"`
+	Network         string `help:"Network ID or Name"`
+	Disk            string `help:"Disk ID or Name"`
+	Host            string `help:"Host ID or Name"`
+	Baremetal       *bool  `help:"Show baremetal servers"`
+	Gpu             *bool  `help:"Show gpu servers"`
+	Secgroup        string `help:"Secgroup ID or Name"`
+	AdminSecgroup   string `help:"AdminSecgroup ID or Name"`
+	Hypervisor      string `help:"Show server of hypervisor" choices:"kvm|esxi|container|baremetal|aliyun|azure|aws|huawei|ucloud"`
+	Region          string `help:"Show servers in cloudregion"`
+	WithEip         *bool  `help:"Show Servers with EIP"`
+	WithoutEip      *bool  `help:"Show Servers without EIP"`
+	OsType          string `help:"OS Type" choices:"linux|windows|vmware"`
+	OrderByDisk     string `help:"Order by disk size" choices:"asc|desc"`
+	OrderByHost     string `help:"Order by host name" choices:"asc|desc"`
+	Vpc             string `help:"Vpc id or name"`
+	WithoutUserMeta *bool  `help:"Show Servers without user metadata"`
 
 	ResourceType string `help:"Resource type" choices:"shared|prepaid|dedicated"`
 

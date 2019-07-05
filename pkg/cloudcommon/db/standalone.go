@@ -18,7 +18,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -156,7 +155,7 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Contex
 	}
 
 	if len(tags) > 0 {
-		metadataView := Metadata.Query("id")
+		metadataView := Metadata.Query()
 		idx := 0
 		for k, v := range tags {
 			if idx == 0 {
@@ -174,25 +173,26 @@ func (manager *SStandaloneResourceBaseManager) ListItemFilter(ctx context.Contex
 			}
 			idx++
 		}
-		metadataView = metadataView.Filter(sqlchemy.Like(metadataView.Field("id"), manager.Keyword()+"::%")).Distinct()
-		resourceIds := []string{}
-		rows, err := metadataView.Rows()
-		if err != nil {
-			log.Errorf("query metadata ids error: %v", err)
-			return nil, err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var metadataID string
-			err = rows.Scan(&metadataID)
-			if err != nil {
-				log.Errorf("get metadata id scan error: %v", err)
-				return nil, err
-			}
-			resourceIds = append(resourceIds, strings.TrimPrefix(metadataID, manager.Keyword()+"::"))
-		}
-		q = q.Filter(sqlchemy.In(q.Field("id"), resourceIds))
+		metadatas := metadataView.SubQuery()
+		fieldName := fmt.Sprintf("%s_id", manager.Keyword())
+		metadataSQ := metadatas.Query(
+			sqlchemy.REPLACE(fieldName, metadatas.Field("id"), manager.Keyword()+"::", ""),
+		)
+		sq := metadataSQ.Filter(sqlchemy.Like(metadatas.Field("id"), manager.Keyword()+"::%")).Distinct()
+		q = q.Filter(sqlchemy.In(q.Field("id"), sq))
 	}
+
+	if withoutUserMeta, _ := query.Bool("without_user_meta"); withoutUserMeta {
+		metadatas := Metadata.Query().SubQuery()
+		fieldName := fmt.Sprintf("%s_id", manager.Keyword())
+		metadataSQ := metadatas.Query(
+			sqlchemy.REPLACE(fieldName, metadatas.Field("id"), manager.Keyword()+"::", ""),
+		)
+		sq := metadataSQ.Filter(sqlchemy.Like(metadatas.Field("key"), USER_TAG_PREFIX+"%")).Distinct()
+
+		q.Filter(sqlchemy.NotIn(q.Field("id"), sq))
+	}
+
 	return q, nil
 }
 

@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package sqlchemy
 
 import (
@@ -7,6 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
 	"yunion.io/x/pkg/utils"
@@ -31,7 +46,7 @@ func (ts *STableSpec) prepareUpdate(dt interface{}) (*SUpdateSession, error) {
 		if !ok {
 			continue
 		}
-		if c.IsPrimary() && c.IsZero(ov) {
+		if c.IsPrimary() && c.IsZero(ov) && !c.IsText() {
 			zeroPrimary = append(zeroPrimary, k)
 		}
 	}
@@ -87,6 +102,16 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 		k := c.Name()
 		of, _ := ofields.GetInterface(k)
 		nf, _ := fields.GetInterface(k)
+		if c.IsPrimary() {
+			if !gotypes.IsNil(of) && !c.IsZero(of) {
+				primaries[k] = of
+			} else if c.IsText() {
+				primaries[k] = ""
+			} else {
+				return nil, ErrEmptyPrimaryKey
+			}
+			continue
+		}
 		if !gotypes.IsNil(of) {
 			if c.IsPrimary() && !c.IsZero(of) { // skip update primary key
 				primaries[k] = of
@@ -142,7 +167,7 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 	buf.WriteString(" WHERE ")
 	first = true
 	if len(primaries) == 0 {
-		return nil, fmt.Errorf("primary key empty???")
+		return nil, ErrEmptyPrimaryKey
 	}
 	for k, v := range primaries {
 		if first {
@@ -155,7 +180,7 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 	}
 
 	if DEBUG_SQLCHEMY {
-		log.Infof("Update: %s", buf.String())
+		log.Infof("Update: %s %s", buf.String(), vars)
 	}
 	results, err := _db.Exec(buf.String(), vars...)
 	if err != nil {
@@ -167,6 +192,14 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 	}
 	if aCnt != 1 {
 		return nil, fmt.Errorf("affected rows %d != 1", aCnt)
+	}
+	q := us.tableSpec.Query()
+	for k, v := range primaries {
+		q = q.Equals(k, v)
+	}
+	err = q.First(dt)
+	if err != nil {
+		return nil, errors.Wrap(err, "query after update failed")
 	}
 	return setters, nil
 }
