@@ -1477,6 +1477,24 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
 	}
 
+	if jsonutils.QueryBoolean(query, "usable", false) {
+		wires := WireManager.Query().SubQuery()
+		zones := ZoneManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		regions := CloudregionManager.Query().SubQuery()
+
+		sq := wires.Query(wires.Field("id")).
+			Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
+			Join(zones, sqlchemy.Equals(wires.Field("zone_id"), zones.Field("id"))).
+			Join(regions, sqlchemy.Equals(zones.Field("cloudregion_id"), regions.Field("id"))).
+			Filter(sqlchemy.AND(
+				sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE),
+				sqlchemy.Equals(zones.Field("status"), api.ZONE_ENABLE),
+				sqlchemy.Equals(regions.Field("status"), api.CLOUD_REGION_STATUS_INSERVER),
+			))
+		q = q.In("wire_id", sq.SubQuery()).Equals("status", api.NETWORK_STATUS_AVAILABLE)
+	}
+
 	hostStr, _ := query.GetString("host")
 	if len(hostStr) > 0 {
 		hostObj, err := HostManager.FetchByIdOrName(userCred, hostStr)
