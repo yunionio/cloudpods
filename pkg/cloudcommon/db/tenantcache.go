@@ -21,6 +21,8 @@ import (
 	"runtime/debug"
 	"time"
 
+	"yunion.io/x/jsonutils"
+
 	"github.com/pkg/errors"
 
 	"yunion.io/x/log"
@@ -316,13 +318,54 @@ func (tenant *STenant) GetDomainId() string {
 	return tenant.DomainId
 }
 
-func (manager *STenantCacheManager) FindFirstProjectOfDomain(domainId string) (*STenant, error) {
+func (manager *STenantCacheManager) findFirstProjectOfDomain(domainId string) (*STenant, error) {
 	q := manager.Query().Equals("domain_id", domainId)
 	tenant := STenant{}
 	tenant.SetModelManager(manager, &tenant)
 	err := q.First(&tenant)
 	if err != nil {
-		return nil, errors.Wrap(err, "queryFirst")
+		return nil, err
 	}
 	return &tenant, nil
+}
+
+func (manager *STenantCacheManager) fetchDomainTenantsFromKeystone(domainId string) error {
+	if len(domainId) == 0 {
+		log.Debugf("fetch empty domain!!!!")
+		debug.PrintStack()
+		return fmt.Errorf("Empty domainId")
+	}
+
+	s := auth.GetAdminSession(context.Background(), consts.GetRegion(), "v1")
+	params := jsonutils.Marshal(map[string]string{"domain_id": domainId})
+	tenants, err := modules.Projects.List(s, params)
+	if err != nil {
+		return errors.Wrap(err, "Projects.List")
+	}
+	for _, tenant := range tenants.Data {
+		tenantId, _ := tenant.GetString("id")
+		tenantName, _ := tenant.GetString("name")
+		domainId, _ := tenant.GetString("domain_id")
+		domainName, _ := tenant.GetString("project_domain")
+		_, err = manager.Save(context.Background(), tenantId, tenantName, domainId, domainName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (manager *STenantCacheManager) FindFirstProjectOfDomain(domainId string) (*STenant, error) {
+	tenant, err := manager.findFirstProjectOfDomain(domainId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			err = manager.fetchDomainTenantsFromKeystone(domainId)
+			if err != nil {
+				return nil, errors.Wrap(err, "fetchDomainTenantsFromKeystone")
+			}
+			return manager.findFirstProjectOfDomain(domainId)
+		}
+		return nil, errors.Wrap(err, "findFirstProjectOfDomain.queryFirst")
+	}
+	return tenant, nil
 }
