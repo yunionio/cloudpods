@@ -27,6 +27,7 @@ func init() {
 		options.BaseListOptions
 		Name          string `help:"Filter by name"`
 		OrderByDomain string `help:"order by domain name" choices:"asc|desc"`
+		Role          string `help:"Filter by role"`
 	}
 	R(&UserListOptions{}, "user-list", "List users", func(s *mcclient.ClientSession, args *UserListOptions) error {
 		params, err := options.ListStructToParams(args)
