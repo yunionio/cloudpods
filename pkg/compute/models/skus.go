@@ -558,47 +558,16 @@ func usableFilter(q *sqlchemy.SQuery, public_cloud bool) *sqlchemy.SQuery {
 }
 
 func (manager *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	params := NewInstanceSpecQueryParams(query)
-	if !params.IngoreCache {
-		v := Cache.Get(params.GetCacheKey())
-		if v != nil {
-			if cacheRet, ok := v.(*jsonutils.JSONDict); ok {
-				return cacheRet, nil
-			}
-		}
-	}
-
-	q := manager.Query()
-	// 仅过滤有ip子网的sku，必选显式指定provider进行过滤
-	q = usableFilter(q, params.PublicCloud)
-	q = excludeSkus(q)
-
-	// 如果是查询私有云需要忽略zone参数
-	if params.PublicCloud && len(params.ZoneId) > 0 {
-		zoneObj, err := ZoneManager.FetchByIdOrName(userCred, params.ZoneId)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				return nil, httperrors.NewResourceNotFoundError2(ZoneManager.Keyword(), params.ZoneId)
-			}
-			return nil, httperrors.NewGeneralError(err)
-		}
-
-		q = q.Equals("zone_id", zoneObj.GetId())
+	q, err := manager.ListItemFilter(ctx, manager.Query(), userCred, query)
+	if err != nil {
+		return nil, err
 	}
 
 	skus := make([]SServerSku, 0)
-	if len(params.PostpaidStatus) > 0 {
-		q.Equals("postpaid_status", params.PostpaidStatus)
-	}
-
-	if len(params.PrepaidStatus) > 0 {
-		q.Equals("prepaid_status", params.PrepaidStatus)
-	}
 	q = q.GroupBy(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
 	q = q.Asc(q.Field("cpu_core_count"), q.Field("memory_size_mb"))
-	err := db.FetchModelObjects(manager, q, &skus)
+	err = db.FetchModelObjects(manager, q, &skus)
 	if err != nil {
-		log.Errorf("%s", err)
 		return nil, httperrors.NewBadRequestError("instance specs list query error")
 	}
 
@@ -639,8 +608,6 @@ func (manager *SServerSkuManager) GetPropertyInstanceSpecs(ctx context.Context, 
 
 	r_obj := jsonutils.Marshal(&cpu_mems_mb)
 	ret.Add(r_obj, "cpu_mems_mb")
-	// cache 1min
-	Cache.Set(params.GetCacheKey(), ret, time.Now().Add(60*time.Second))
 	return ret, nil
 }
 
@@ -742,9 +709,25 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 
 	if usable, _ := query.Bool("usable"); usable {
 		q = usableFilter(q, publicCloud)
+		q = q.IsTrue("enabled")
 	}
 
 	data := query.(*jsonutils.JSONDict)
+	//OneCloud忽略zone参数
+	if provider == api.CLOUD_PROVIDER_ONECLOUD && data.Contains("zone") {
+		zoneStr, _ := data.GetString("zone")
+		_zone, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2("zone", zoneStr)
+			}
+			return nil, httperrors.NewGeneralError(err)
+		}
+		zone := _zone.(*SZone)
+		data.Remove("zone")
+		data.Set("cloudregion", jsonutils.NewString(zone.CloudregionId))
+	}
+
 	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "zone", ModelKeyword: "zone", OwnerId: userCred},
 		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
