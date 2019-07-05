@@ -22,7 +22,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -67,20 +66,16 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	if host != nil && host.Status == api.HOST_DISABLED && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		purge = true
 	}
-	detachStatus, err := guest.GetDriver().GetDetachDiskStatus()
-	if err != nil {
-		self.OnTaskFail(ctx, guest, disk, err)
-		return
-	}
-	if utils.IsInStringArray(guest.Status, detachStatus) && !purge {
-		self.SetStage("on_sync_config_complete", nil)
+
+	if !purge {
+		self.SetStage("OnDetachDiskComplete", nil)
 		guest.GetDriver().RequestDetachDisk(ctx, guest, disk, self)
 	} else {
-		self.OnSyncConfigComplete(ctx, guest, nil)
+		self.OnDetachDiskComplete(ctx, guest, nil)
 	}
 }
 
-func (self *GuestDetachDiskTask) OnSyncConfigComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+func (self *GuestDetachDiskTask) OnDetachDiskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	diskId, _ := self.Params.GetString("disk_id")
 	objDisk, err := models.DiskManager.FetchById(diskId)
 	if err != nil {
@@ -92,7 +87,7 @@ func (self *GuestDetachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 		self.OnTaskFail(ctx, guest, nil, fmt.Errorf("Connot find disk %s", diskId))
 		return
 	}
-	disk.SetDiskReady(ctx, self.UserCred, "")
+	disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	keepDisk := jsonutils.QueryBoolean(self.Params, "keep_disk", true)
 	host := guest.GetHost()
 	purge := false
@@ -114,7 +109,7 @@ func (self *GuestDetachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 	self.OnDiskDeleteComplete(ctx, guest, nil)
 }
 
-func (self *GuestDetachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context, obj db.IStandaloneModel, reason jsonutils.JSONObject) {
+func (self *GuestDetachDiskTask) OnDetachDiskCompleteFailed(ctx context.Context, obj db.IStandaloneModel, reason jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	driver, _ := self.Params.GetString("driver")
 	cache, _ := self.Params.GetString("cache")
@@ -128,7 +123,7 @@ func (self *GuestDetachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context,
 	}
 	disk := objDisk.(*models.SDisk)
 	db.OpsLog.LogEvent(disk, db.ACT_DETACH, reason.String(), self.UserCred)
-	disk.SetDiskReady(ctx, self.UserCred, "")
+	disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	err = guest.AttachDisk(ctx, disk, self.UserCred, driver, cache, mountpoint)
 	if err != nil {
 		log.Warningf("recover attach disk %s(%s) for guest %s(%s) error: %v", disk.Name, disk.Id, guest.Name, guest.Id, err)
@@ -138,7 +133,7 @@ func (self *GuestDetachDiskTask) OnSyncConfigCompleteFailed(ctx context.Context,
 
 func (self *GuestDetachDiskTask) OnTaskFail(ctx context.Context, guest *models.SGuest, disk *models.SDisk, err error) {
 	if disk != nil {
-		disk.SetDiskReady(ctx, self.UserCred, "")
+		disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	}
 	guest.SetStatus(self.UserCred, api.VM_DETACH_DISK_FAILED, err.Error())
 	self.SetStageFailed(ctx, err.Error())
@@ -147,6 +142,16 @@ func (self *GuestDetachDiskTask) OnTaskFail(ctx context.Context, guest *models.S
 }
 
 func (self *GuestDetachDiskTask) OnDiskDeleteComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	guest := obj.(*models.SGuest)
+	self.SetStage("OnSyncstatusComplete", nil)
+	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
+}
+
+func (self *GuestDetachDiskTask) OnSyncstatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	self.SetStageComplete(ctx, nil)
 	logclient.AddActionLogWithStartable(self, obj, logclient.ACT_VM_DETACH_DISK, nil, self.UserCred, true)
+}
+
+func (self *GuestDetachDiskTask) OnSyncstatusCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.OnSyncstatusComplete(ctx, obj, data)
 }
