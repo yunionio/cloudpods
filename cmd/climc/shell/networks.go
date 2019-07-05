@@ -21,6 +21,7 @@ func init() {
 		Vpc        string `help:"search networks belongs to a VPC"`
 		Region     string `help:"search networks belongs to a CloudRegion" json:"cloudregion"`
 		City       string `help:"search networks belongs to a city"`
+		Usable     *bool  `help:"search usable networks"`
 		ServerType string `help:"search networks belongs to a ServerType" choices:"guest|baremetal|container|pxe|ipmi"`
 	}
 	R(&NetworkListOptions{}, "network-list", "List networks", func(s *mcclient.ClientSession, opts *NetworkListOptions) error {
