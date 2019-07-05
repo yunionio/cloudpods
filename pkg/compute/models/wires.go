@@ -346,10 +346,10 @@ func filterByScopeOwnerId(q *sqlchemy.SQuery, scope rbacutils.TRbacScope, ownerI
 }
 
 func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes []string, providers []string, brands []string, cloudEnv string, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) *sqlchemy.SQuery {
-	guests := GuestManager.Query().SubQuery()
+	guests := filterByScopeOwnerId(GuestManager.Query(), scope, ownerId).SubQuery()
 	hosts := HostManager.Query().SubQuery()
-	groups := GroupManager.Query().SubQuery()
-	lbs := LoadbalancerManager.Query().SubQuery()
+	groups := filterByScopeOwnerId(GroupManager.Query(), scope, ownerId).SubQuery()
+	lbs := filterByScopeOwnerId(LoadbalancerManager.Query(), scope, ownerId).SubQuery()
 
 	gNics := GuestnetworkManager.Query().SubQuery()
 	gNicQ := gNics.Query(
@@ -359,7 +359,6 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 	gNicQ = gNicQ.Join(guests, sqlchemy.Equals(guests.Field("id"), gNics.Field("guest_id")))
 	gNicQ = gNicQ.Join(hosts, sqlchemy.Equals(guests.Field("host_id"), hosts.Field("id")))
 	gNicQ = gNicQ.Filter(sqlchemy.IsTrue(hosts.Field("enabled")))
-	gNicQ = filterByScopeOwnerId(gNicQ, scope, ownerId)
 
 	hNics := HostnetworkManager.Query().SubQuery()
 	hNicQ := hNics.Query(
@@ -381,7 +380,6 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 		sqlchemy.COUNT("grpnic_count"),
 	)
 	grpNicQ = grpNicQ.Join(groups, sqlchemy.Equals(groups.Field("id"), groupNics.Field("group_id")))
-	grpNicQ = filterByScopeOwnerId(grpNicQ, scope, ownerId)
 
 	lbNics := LoadbalancernetworkManager.Query().SubQuery()
 	lbNicQ := lbNics.Query(
@@ -389,7 +387,6 @@ func (manager *SWireManager) totalCountQ(rangeObj db.IStandaloneModel, hostTypes
 		sqlchemy.COUNT("lbnic_count"),
 	)
 	lbNicQ = lbNicQ.Join(lbs, sqlchemy.Equals(lbs.Field("id"), lbNics.Field("loadbalancer_id")))
-	lbNicQ = filterByScopeOwnerId(lbNicQ, scope, ownerId)
 
 	gNicSQ := gNicQ.GroupBy(gNics.Field("network_id")).SubQuery()
 	hNicSQ := hNicQ.GroupBy(hNics.Field("network_id")).SubQuery()

@@ -2059,6 +2059,7 @@ func (self *SGuest) confToSchedDesc(addCpu, addMem, addDisk int) *schedapi.Sched
 			ServerConfigs: &api.ServerConfigs{
 				Hypervisor: self.Hypervisor,
 				Project:    self.ProjectId,
+				Domain:     self.DomainId,
 				PreferHost: self.HostId,
 				Disks:      []*api.DiskConfig{diskInfo},
 			},
@@ -3145,6 +3146,7 @@ func (man *SGuestManager) createImportGuest(ctx context.Context, userCred mcclie
 		return nil, httperrors.NewGeneralError(fmt.Errorf("Can't convert %#v to *SGuest model", model))
 	}
 	gst.ProjectId = userCred.GetProjectId()
+	gst.DomainId = userCred.GetProjectDomainId()
 	gst.IsSystem = desc.IsSystem
 	gst.Id = desc.Id
 	gst.Name = desc.Name

@@ -48,7 +48,7 @@ func getAllProjectResourceCounts() (map[string][]SProjectResourceCount, error) {
 	for _, manager := range globalTables {
 		virtman, ok := manager.(IVirtualModelManager)
 		if ok {
-			resCnt, err := getProjectResourceCount(virtman)
+			resCnt, err := virtman.GetResourceCount()
 			if err != nil {
 				return nil, errors.Wrap(err, "getProjectResourceCount")
 			}
@@ -65,8 +65,13 @@ type SProjectResourceCount struct {
 	ResCount int
 }
 
-func getProjectResourceCount(virtman IVirtualModelManager) ([]SProjectResourceCount, error) {
-	virts := virtman.Query().SubQuery()
+func (virtman *SVirtualResourceBaseManager) GetResourceCount() ([]SProjectResourceCount, error) {
+	virts := virtman.Query()
+	return CalculateProjectResourceCount(virts)
+}
+
+func CalculateProjectResourceCount(query *sqlchemy.SQuery) ([]SProjectResourceCount, error) {
+	virts := query.SubQuery()
 	q := virts.Query(virts.Field("tenant_id"), sqlchemy.COUNT("res_count"))
 	q = q.IsNotEmpty("tenant_id")
 	q = q.GroupBy(virts.Field("tenant_id"))

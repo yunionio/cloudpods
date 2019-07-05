@@ -79,6 +79,7 @@ type TokenCredentialV2 struct {
 	Token          KeystoneTokenV2
 	ServiceCatalog KeystoneServiceCatalogV2
 	User           KeystoneUserV2
+	Tenants        []KeystoneTenantV2
 	Metadata       KeystoneMetadataV2
 	Context        SAuthContext
 }

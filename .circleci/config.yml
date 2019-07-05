@@ -6,6 +6,8 @@ jobs:
   build:
     docker:
       - image: yunionio/onecloud-ci:v1.0.2
+        environment:
+          ONECLOUD_CI_BUILD: "1"
 
     #### TEMPLATE_NOTE: go expects specific checkout path representing url
     #### expecting it in the form of
@@ -15,27 +17,45 @@ jobs:
     parallelism: 4
     steps:
       - checkout
+      - restore_cache:
+          key: onecloud-build-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
+          paths:
+            - /home/build/.cache/go-build
       - run:
           command: |
             targets="$(circleci tests glob "cmd/*" | grep -v cmd/host-image | circleci tests split)"
             echo $targets | tr ' ' '\n'
             make $targets
             ls -lh _output/bin/
+      - save_cache:
+          key: onecloud-build-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
+          paths:
+            - /home/build/.cache/go-build
       - store_artifacts:
           path: _output/
 
   test:
     docker:
       - image: yunionio/onecloud-ci:v1.0.2
+        environment:
+          GO111MODULE: "on"
     working_directory: /home/build/go/src/yunion.io/x/onecloud
     steps:
       - checkout
+      - restore_cache:
+          key: onecloud-test-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
+          paths:
+            - /home/build/.cache/go-build
       - run:
           name: unit_test
-          command: make test
-      - run:
-          name: generate_code_coverage
-          command: ./scripts/coverage.sh --codecov
+          command: |
+            pkgs="$((go list -mod vendor ./... || true) | grep -vE '/(host-image|hostimage)\>' | circleci tests split)"
+            go test -v -mod vendor -ldflags '-w' $pkgs
+            pkgs="$pkgs" ./scripts/coverage.sh --codecov
+      - save_cache:
+          key: onecloud-test-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
+          paths:
+            - /home/build/.cache/go-build
 
 workflows:
   version: 2

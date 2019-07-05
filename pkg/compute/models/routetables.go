@@ -462,6 +462,7 @@ func (man *SRouteTableManager) newRouteTableFromCloud(userCred mcclient.TokenCre
 	routeTable.ExternalId = cloudRouteTable.GetGlobalId()
 	routeTable.Description = cloudRouteTable.GetDescription()
 	routeTable.ProjectId = userCred.GetProjectId()
+	routeTable.DomainId = userCred.GetProjectDomainId()
 	routeTable.SetModelManager(man, routeTable)
 	return routeTable, nil
 }

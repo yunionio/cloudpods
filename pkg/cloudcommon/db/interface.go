@@ -244,6 +244,7 @@ type IVirtualModelManager interface {
 	IStandaloneModelManager
 
 	GetIVirtualModelManager() IVirtualModelManager
+	GetResourceCount() ([]SProjectResourceCount, error)
 }
 
 type IVirtualModel interface {

@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -29,6 +30,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
+	"yunion.io/x/onecloud/pkg/keystone/options"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/pinyinutils"
 )
@@ -258,7 +260,7 @@ func (proj *SProject) ValidateDeleteCondition(ctx context.Context) error {
 	if proj.IsAdminProject() {
 		return httperrors.NewForbiddenError("cannot delete system project")
 	}
-	external, _ := proj.getExternalResources()
+	external, _, _ := proj.getExternalResources()
 	if len(external) > 0 {
 		return httperrors.NewNotEmptyError("project contains external resources")
 	}
@@ -304,14 +306,20 @@ func projectExtra(proj *SProject, extra *jsonutils.JSONDict) *jsonutils.JSONDict
 	extra.Add(jsonutils.NewInt(int64(grpCnt)), "group_count")
 	usrCnt, _ := proj.GetUserCount()
 	extra.Add(jsonutils.NewInt(int64(usrCnt)), "user_count")
-	external, _ := proj.getExternalResources()
+	external, update, _ := proj.getExternalResources()
 	if len(external) > 0 {
 		extra.Add(jsonutils.Marshal(external), "ext_resources")
+		extra.Add(jsonutils.NewTimeString(update), "ext_resources_last_update")
+		if update.IsZero() {
+			update = time.Now()
+		}
+		nextUpdate := update.Add(time.Duration(options.Options.FetchProjectResourceCountIntervalSeconds) * time.Second)
+		extra.Add(jsonutils.NewTimeString(nextUpdate), "ext_resources_next_update")
 	}
 	return extra
 }
 
-func (proj *SProject) getExternalResources() (map[string]int, error) {
+func (proj *SProject) getExternalResources() (map[string]int, time.Time, error) {
 	return ProjectResourceManager.getProjectResource(proj.Id)
 }
 
@@ -323,4 +331,25 @@ func NormalizeProjectName(name string) string {
 		name = strings.ReplaceAll(name, illChar, "")
 	}
 	return name
+}
+
+func (manager *SProjectManager) FetchUserProjects(userId string) ([]SProjectExtended, error) {
+	projects := manager.Query().SubQuery()
+	domains := DomainManager.Query().SubQuery()
+	q := projects.Query(
+		projects.Field("id"),
+		projects.Field("name"),
+		projects.Field("domain_id"),
+		domains.Field("name").Label("domain_name"),
+	)
+	q = q.Join(domains, sqlchemy.Equals(projects.Field("domain_id"), domains.Field("id")))
+	subq := AssignmentManager.fetchUserProjectIdsQuery(userId)
+	q = q.Filter(sqlchemy.In(projects.Field("id"), subq))
+
+	ret := make([]SProjectExtended, 0)
+	err := q.All(&ret)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "query.All")
+	}
+	return ret, nil
 }

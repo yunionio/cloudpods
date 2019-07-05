@@ -90,6 +90,10 @@ Token2:
               name:
                 type: string
                 description: 用户角色名称
+    tenants:
+      type: array
+      items:
+        $ref: '#/TenantV2'
     metadata:
       type: object
       properties:
@@ -257,6 +261,10 @@ TokenV3:
     user:
       type: object
       $ref: './roleassignments.yaml#/DomainObject'
+    projects:
+      type: array
+      items:
+        $ref: './roleassignments.yaml#/DomainObject'
     catalog:
       type: array
       items:

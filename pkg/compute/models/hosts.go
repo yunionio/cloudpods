@@ -3053,6 +3053,7 @@ func (self *SHost) PerformInitialize(
 	guest.Hypervisor = api.HYPERVISOR_BAREMETAL
 	guest.HostId = self.Id
 	guest.ProjectId = userCred.GetProjectId()
+	guest.DomainId = userCred.GetProjectDomainId()
 	guest.Status = api.VM_RUNNING
 	guest.OsType = "Linux"
 	guest.SetModelManager(GuestManager, guest)
