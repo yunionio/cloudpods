@@ -53,51 +53,42 @@ func testRootfs(d fsdriver.IRootFsDriver) bool {
 	return true
 }
 
-func DoDeployGuestFs(
-	rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDesc, deployInfo *SDeployInfo,
-) {
-}
-
-func DeployGuestFs(
-	rootfs fsdriver.IRootFsDriver,
-	guestDesc *jsonutils.JSONDict,
-	deployInfo *SDeployInfo,
-) (jsonutils.JSONObject, error) {
-	var ret = jsonutils.NewDict()
-	var ips = make([]string, 0)
-	var err error
-
-	hn, _ := guestDesc.GetString("name")
-	domain, _ := guestDesc.GetString("domain")
-	gid, _ := guestDesc.GetString("uuid")
-	nics, _ := guestDesc.GetArray("nics")
-
-	partition := rootfs.GetPartition()
-	releaseInfo := rootfs.GetReleaseInfo(partition)
-
+func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDesc, deployInfo *SDeployInfo,
+) (*deployapi.DeployGuestFsResponse, error) {
+	var (
+		err         error
+		ret         = deployapi.DeployGuestFsResponse
+		ips         = make([]string, 0)
+		hn          = guestDesc.Name
+		domain      = guestDesc.Domain
+		gid         = guestDesc.Uuid
+		nics        = guestDesc.Nics
+		nicsStandby = guestDesc.NicsStandby
+		partition   = rootfs.GetPartition()
+		releaseInfo = rootfs.GetReleaseInfo(partition)
+	)
 	for _, n := range nics {
-		ip, _ := n.GetString("ip")
 		var addr netutils.IPV4Addr
-		if addr, err = netutils.NewIPV4Addr(ip); err != nil {
+		if addr, err = netutils.NewIPV4Addr(n.Ip); err != nil {
 			return nil, fmt.Errorf("Fail to get ip addr from %s: %v", n.String(), err)
 		}
 		if netutils.IsPrivate(addr) {
-			ips = append(ips, ip)
+			ips = append(ips, n.Ip)
 		}
 	}
 	if releaseInfo != nil {
-		ret.Set("distro", jsonutils.NewString(releaseInfo.Distro))
+		ret.Distro = releaseInfo.Distro
 		if len(releaseInfo.Version) > 0 {
-			ret.Set("version", jsonutils.NewString(releaseInfo.Version))
+			ret.Version = releaseInfo.Version
 		}
 		if len(releaseInfo.Arch) > 0 {
-			ret.Set("arch", jsonutils.NewString(releaseInfo.Arch))
+			ret.Arch = releaseInfo.Arch
 		}
 		if len(releaseInfo.Language) > 0 {
-			ret.Set("language", jsonutils.NewString(releaseInfo.Language))
+			ret.Language = releaseInfo.Language
 		}
 	}
-	ret.Set("os", jsonutils.NewString(rootfs.GetOs()))
+	ret.Os = rootfs.GetOs()
 
 	if IsPartitionReadonly(partition) {
 		return ret, nil
@@ -117,7 +108,7 @@ func DeployGuestFs(
 	if err = rootfs.DeployNetworkingScripts(partition, nics); err != nil {
 		return nil, fmt.Errorf("DeployNetworkingScripts: %v", err)
 	}
-	if nicsStandby, e := guestDesc.GetArray("nics_standby"); e == nil {
+	if len(nicsStandby) > 0 {
 		if err = rootfs.DeployStandbyNetworkingScripts(partition, nics, nicsStandby); err != nil {
 			return nil, fmt.Errorf("DeployStandbyNetworkingScripts: %v", err)
 		}
@@ -126,15 +117,13 @@ func DeployGuestFs(
 		return nil, fmt.Errorf("DeployUdevSubsystemScripts: %v", err)
 	}
 	if deployInfo.isInit {
-		disks, _ := guestDesc.GetArray("disks")
-		if err = rootfs.DeployFstabScripts(partition, disks); err != nil {
+		if err = rootfs.DeployFstabScripts(partition, guestDesc.Disks); err != nil {
 			return nil, fmt.Errorf("DeployFstabScripts: %v", err)
 		}
 	}
 	if len(deployInfo.password) > 0 {
 		if account := rootfs.GetLoginAccount(partition,
 			deployInfo.defaultRootUser, deployInfo.windowsDefaultAdminUser); len(account) > 0 {
-			ret.Set("account", jsonutils.NewString(account))
 			if err = rootfs.DeployPublicKey(partition, account, deployInfo.publicKey); err != nil {
 				return nil, fmt.Errorf("DeployPublicKey: %v", err)
 			}
@@ -143,8 +132,9 @@ func DeployGuestFs(
 				deployInfo.publicKey.PublicKey, deployInfo.password); err != nil {
 				return nil, fmt.Errorf("ChangeUserPasswd: %v", err)
 			}
+			ret.Account = account
 			if len(secret) > 0 {
-				ret.Set("key", jsonutils.NewString(secret))
+				ret.Key = secret
 			}
 		}
 	}
@@ -168,7 +158,24 @@ func DeployGuestFs(
 	}
 
 	log.Debugf("Deploy finished, return: %s", ret.String())
-	return ret, nil
+	// return ret, nil
+	return nil, nil
+}
+
+func DeployGuestFs(
+	rootfs fsdriver.IRootFsDriver,
+	guestDesc *jsonutils.JSONDict,
+	deployInfo *deployapi.DeployInfo,
+) (jsonutils.JSONObject, error) {
+	desc, err := deployapi.GuestDescToDeployDesc(guestDesc)
+	if err != nil {
+		return nil, errors.Warp(err, "To deploy desc fail")
+	}
+	ret, err := DoDeployGuestFs(rootfs, desc, deployInfo)
+	if err != nil {
+		return nil, err
+	}
+	return jsonutils.Marshal(ret), nil
 }
 
 func IsPartitionReadonly(rootfs fsdriver.IDiskPartition) bool {

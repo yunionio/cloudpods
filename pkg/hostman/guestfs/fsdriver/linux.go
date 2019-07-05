@@ -191,7 +191,7 @@ func (l *sLinuxRootFs) DisableCloudinit(rootFs IDiskPartition) {
 	}
 }
 
-func (l *sLinuxRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []jsonutils.JSONObject) error {
+func (l *sLinuxRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []*deployapi.Disk) error {
 	fstabcont, err := rootFs.FileGetContents("/etc/fstab", false)
 	if err != nil {
 		return err
@@ -203,18 +203,18 @@ func (l *sLinuxRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []jsonuti
 	fstab.RemoveDevices(len(disks))
 
 	for i := 1; i < len(disks); i++ {
-		diskId, err := disks[i].GetString("disk_id")
-		if err != nil {
+		diskId := disks[i].DiskId
+		if len(diskId) == 0 {
 			diskId = "None"
 		}
 		dev := fmt.Sprintf("UUID=%s", diskId)
 		if !fstab.IsExists(dev) {
-			fs, _ := disks[i].GetString("fs")
+			fs, _ := disks[i].Fs
 			if len(fs) > 0 {
 				if fs == "swap" {
 					rec = fmt.Sprintf("%s none %s sw 0 0", dev, fs)
 				} else {
-					mtPath, _ := disks[i].GetString("mountpoint")
+					mtPath, _ := disks[i].Mountpoint
 					if len(mtPath) == 0 {
 						mtPath = "/data"
 						if dataDiskIdx > 0 {
@@ -237,7 +237,7 @@ func (l *sLinuxRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []jsonuti
 	return rootFs.FilePutContents("/etc/fstab", cf, false, false)
 }
 
-func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
 	udevPath := "/etc/udev/rules.d/"
 	if rootFs.Exists(udevPath, false) {
 		rules := rootFs.ListDir(udevPath, false)
@@ -254,9 +254,9 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jso
 		for _, nic := range nics {
 			nicRules += `KERNEL=="*", SUBSYSTEM=="net", ACTION=="add", `
 			nicRules += `DRIVERS=="?*", `
-			mac, _ := nic.GetString("mac")
+			mac := nic.Mac
 			nicRules += fmt.Sprintf(`ATTR{address}=="%s", ATTR{type}=="1", `, strings.ToLower(mac))
-			idx, _ := nic.Int("index")
+			idx := nic.Index
 			nicRules += fmt.Sprintf("NAME=\"eth%d\"\n", idx)
 		}
 		if err := rootFs.FilePutContents(path.Join(udevPath, "70-persistent-net.rules"), nicRules, false, false); err != nil {
@@ -274,12 +274,11 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jso
 	return nil
 }
 
-func (l *sLinuxRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nics, nicsStandby []jsonutils.JSONObject) error {
+func (l *sLinuxRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nics, nicsStandby []*deployapi.Nic) error {
 	var udevPath = "/etc/udev/rules.d/"
 	var nicRules string
 	for _, nic := range nicsStandby {
-		nicType, _ := nic.GetString("nic_type")
-		if !nic.Contains("nic_type") || nicType != "impi" {
+		if len(nic.NicType) == 0 || nic.NicType != "impi" {
 			nicRules += `KERNEL=="*", SUBSYSTEM=="net", ACTION=="add", `
 			nicRules += `DRIVERS=="?*", `
 			mac, _ := nic.GetString("mac")
@@ -512,7 +511,7 @@ func getNicTeamingConfigCmds(slaves []*types.SServerNic) string {
 	return cmds.String()
 }
 
-func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
 	if err := d.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err
 	}
@@ -521,7 +520,7 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 	cmds.WriteString("auto lo\n")
 	cmds.WriteString("iface lo inet loopback\n\n")
 
-	allNics, _ := convertNicConfigs(nics)
+	allNics, _ := convertNicConfigs(ToServerNics(nics))
 	mainNic, err := getMainNic(allNics)
 	if err != nil {
 		return err
@@ -946,23 +945,19 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 	return nil
 }
 
-func (r *sRedhatLikeRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nics, nicsStandby []jsonutils.JSONObject) error {
+func (r *sRedhatLikeRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nics, nicsStandby []*deployapi.Nic) error {
 	if err := r.sLinuxRootFs.DeployStandbyNetworkingScripts(rootFs, nics, nicsStandby); err != nil {
 		return err
 	}
 	for _, nic := range nicsStandby {
 		var cmds string
-		var nicdesc = new(types.SServerNic)
-		if err := nic.Unmarshal(nicdesc); err != nil {
-			return err
-		}
-		if nicType, err := nic.GetString("nic_type"); err != nil && nicType != "ipmi" {
-			cmds += fmt.Sprintf("DEVICE=eth%d\n", nicdesc.Index)
-			cmds += fmt.Sprintf("NAME=eth%d\n", nicdesc.Index)
-			cmds += fmt.Sprintf("HWADDR=%s\n", nicdesc.Mac)
-			cmds += fmt.Sprintf("MACADDR=%s\n", nicdesc.Mac)
+		if len(nic.NicType) == 0 || nic.NicType != "ipmi" {
+			cmds += fmt.Sprintf("DEVICE=eth%d\n", nic.Index)
+			cmds += fmt.Sprintf("NAME=eth%d\n", nic.Index)
+			cmds += fmt.Sprintf("HWADDR=%s\n", nic.Mac)
+			cmds += fmt.Sprintf("MACADDR=%s\n", nic.Mac)
 			cmds += "ONBOOT=no\n"
-			var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/ifcfg-eth%d", nicdesc.Index)
+			var fn = fmt.Sprintf("/etc/sysconfig/network-scripts/ifcfg-eth%d", nic.Index)
 			if err := rootFs.FilePutContents(fn, cmds, false, false); err != nil {
 				return err
 			}
@@ -1045,7 +1040,7 @@ func (c *SCentosRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
 	return newReleaseInfo(c.GetName(), version, c.GetArch(rootFs))
 }
 
-func (c *SCentosRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+func (c *SCentosRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
 	relInfo := c.GetReleaseInfo(rootFs)
 	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
@@ -1108,7 +1103,7 @@ func (c *SFedoraRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
 	return newReleaseInfo(c.GetName(), version, c.GetArch(rootFs))
 }
 
-func (c *SFedoraRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+func (c *SFedoraRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
 	relInfo := c.GetReleaseInfo(rootFs)
 	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
@@ -1152,7 +1147,7 @@ func (d *SRhelRootFs) GetReleaseInfo(rootFs IDiskPartition) *SReleaseInfo {
 	return newReleaseInfo(d.GetName(), version, d.GetArch(rootFs))
 }
 
-func (d *SRhelRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+func (d *SRhelRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
 	relInfo := d.GetReleaseInfo(rootFs)
 	if err := d.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
@@ -1199,7 +1194,7 @@ func (d *SGentooRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string)
 	return rootFs.FilePutContents(spath, content, false, false)
 }
 
-func (l *SGentooRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+func (l *SGentooRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
 	if err := l.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err
 	}
@@ -1210,8 +1205,8 @@ func (l *SGentooRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []js
 	)
 
 	for _, nic := range nics {
-		nicIndex, _ := nic.Int("index")
-		if jsonutils.QueryBoolean(nic, "virtual", false) {
+		nicIndex := nic.Index
+		if nic.Vritual {
 			cmds += fmt.Sprintf(`config_eth%d="`, nicIndex)
 			cmds += fmt.Sprintf("%s netmask 255.255.255.255", netutils2.PSEUDO_VIP)
 			cmds += `"\n`
@@ -1223,7 +1218,7 @@ func (l *SGentooRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []js
 		return err
 	}
 	for _, nic := range nics {
-		nicIndex, _ := nic.Int("index")
+		nicIndex := nic.Index
 		netname := fmt.Sprintf("net.eth%d", nicIndex)
 		procutils.NewCommand("ln", "-s", "net.lo",
 			fmt.Sprintf("%s/etc/init.d/%s", rootFs.GetMountPath(), netname)).Run()
@@ -1376,7 +1371,7 @@ func (d *SCoreOsRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain stri
 	return nil
 }
 
-func (d *SCoreOsRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+func (d *SCoreOsRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
 	cont := "[Match]\n"
 	cont += "Name=eth*\n\n"
 	cont += "[Network]\n"
@@ -1386,17 +1381,16 @@ func (d *SCoreOsRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []js
 	return nil
 }
 
-func (d *SCoreOsRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []jsonutils.JSONObject) error {
+func (d *SCoreOsRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []*deployapi.Disk) error {
 	dataDiskIdx := 0
 	for i := 1; i < len(disks); i++ {
-		diskId, _ := disks[i].GetString("disk_id")
-		dev := fmt.Sprintf("UUID=%s", diskId)
-		fs, _ := disks[i].GetString("fs")
+		dev := fmt.Sprintf("UUID=%s", disks[i].DiskId)
+		fs := disks[i].Fs
 		if len(fs) > 0 {
 			if fs == "swap" {
 				d.GetConfig().AddSwap(dev)
 			} else {
-				mtPath, _ := disks[i].GetString("mountpoint")
+				mtPath := disks[i].Mountpoint
 				if len(mtPath) == 0 {
 					mtPath = "/data"
 					if dataDiskIdx > 0 {
@@ -1428,11 +1422,9 @@ func (d *SCoreOsRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser b
 	return "core"
 }
 
-func (d *SCoreOsRootFs) DeployFiles(deploys []jsonutils.JSONObject) error {
+func (d *SCoreOsRootFs) DeployFiles(deploys []*deployapi.DeployContent) error {
 	for _, deploy := range deploys {
-		spath, _ := deploy.GetString("path")
-		content, _ := deploy.GetString("content")
-		d.GetConfig().AddWriteFile(spath, content, "", "", false)
+		d.GetConfig().AddWriteFile(deploy.Path, deploy.Content, "", "", false)
 	}
 	return nil
 }

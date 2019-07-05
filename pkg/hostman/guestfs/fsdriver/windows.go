@@ -22,12 +22,12 @@ import (
 	"strings"
 	"syscall"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
@@ -228,14 +228,14 @@ func (w *SWindowsRootFs) DeployHosts(part IDiskPartition, hn, domain string, ips
 	return w.rootFs.FilePutContents(ETC_HOSTS, hf.String(), false, true)
 }
 
-func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []jsonutils.JSONObject) error {
-	mainNic, err := netutils2.GetMainNic(nics)
+func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*deployapi.Nic) error {
+	mainNic, err := netutils2.GetMainNicFromDeployApi(nics)
 	if err != nil {
 		return err
 	}
 	mainIp := ""
 	if mainNic != nil {
-		mainIp, _ = mainNic.GetString("ip")
+		mainIp = mainNic.Ip
 	}
 	bootScript := strings.Join([]string{
 		`set NETCFG_SCRIPT=%SystemRoot%\netcfg.bat`,
@@ -255,16 +255,11 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []j
 	}
 
 	for _, nic := range nics {
-		snic := &types.SServerNic{}
-		if err := nic.Unmarshal(snic); err != nil {
-			log.Errorln(err)
-			return err
-		}
-
+		snic := &types.SServerNic{nic}
 		mac := snic.Mac
 		mac = strings.Replace(strings.ToUpper(mac), ":", "-", -1)
 		lines = append(lines, fmt.Sprintf(`    if "%%%%c" == "%s" (`, mac))
-		if jsonutils.QueryBoolean(nic, "manual", false) {
+		if snic.Manual {
 			netmask := netutils2.Netlen2Mask(snic.Masklen)
 			cfg := fmt.Sprintf(`      netsh interface ip set address "%%%%b" static %s %s`, snic.Ip, netmask)
 			if len(snic.Gateway) > 0 && snic.Ip == mainIp {
@@ -449,7 +444,7 @@ func (w *SWindowsRootFs) deploySetupCompleteScripts(uname, passwd string) bool {
 	return true
 }
 
-func (w *SWindowsRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []jsonutils.JSONObject) error {
+func (w *SWindowsRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []*deployapi.Disk) error {
 	if len(disks) == 1 {
 		return nil
 	}

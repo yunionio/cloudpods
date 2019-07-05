@@ -15,10 +15,10 @@
 package fsdriver
 
 import (
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 type SEsxiRootFs struct {
@@ -87,6 +87,6 @@ func (m *SEsxiRootFs) PrepareFsForTemplate(IDiskPartition) error {
 	return nil
 }
 
-func (m *SEsxiRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []jsonutils.JSONObject) error {
+func (m *SEsxiRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*deployapi.Nic) error {
 	return nil
 }

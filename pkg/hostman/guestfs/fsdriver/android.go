@@ -19,9 +19,8 @@ import (
 	"sort"
 	"strings"
 
-	"yunion.io/x/jsonutils"
-
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 func ParsePropStr(lines string) map[string]string {
@@ -121,7 +120,7 @@ func (m *SAndroidRootFs) PrepareFsForTemplate(IDiskPartition) error {
 	return nil
 }
 
-func (m *SAndroidRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []jsonutils.JSONObject) error {
+func (m *SAndroidRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*deployapi.Nic) error {
 	return nil
 }
 

@@ -37,19 +37,17 @@ func newGuestRootFsDriver(rootFs IDiskPartition) *sGuestRootFsDriver {
 	}
 }
 
-func (d *sGuestRootFsDriver) DeployFiles(deploys []jsonutils.JSONObject) error {
+func (d *sGuestRootFsDriver) DeployFiles(deploys []*deployapi.DeployContent) error {
 	caseInsensitive := d.IsFsCaseInsensitive()
 	for _, deploy := range deploys {
 		var modAppend = false
-		if action, _ := deploy.GetString("action"); action == "append" {
+		if deploy.Action == "append" {
 			modAppend = true
 		}
-		sPath, err := deploy.GetString("path")
-		if err != nil {
-			log.Errorln(err)
-			return err
+		if len(deploy.Path) == 0 {
+			return fmt.Errorf("Deploy file missing param path")
 		}
-		dirname := filepath.Dir(sPath)
+		dirname := filepath.Dir(deploy.Path)
 		if !d.GetPartition().Exists(dirname, caseInsensitive) {
 			modeRWXOwner := syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
 			err := d.GetPartition().Mkdir(dirname, modeRWXOwner, caseInsensitive)
@@ -58,8 +56,8 @@ func (d *sGuestRootFsDriver) DeployFiles(deploys []jsonutils.JSONObject) error {
 				return err
 			}
 		}
-		if content, err := deploy.GetString("content"); err == nil {
-			err := d.GetPartition().FilePutContents(sPath, content, modAppend, caseInsensitive)
+		if len(deploy.Content) > 0 {
+			err := d.GetPartition().FilePutContents(deploy.Path, deploy.Content, modAppend, caseInsensitive)
 			if err != nil {
 				log.Errorln(err)
 				return err
@@ -89,11 +87,11 @@ func (d *sGuestRootFsDriver) DeployUdevSubsystemScripts(rootfs IDiskPartition) e
 	return nil
 }
 
-func (d *sGuestRootFsDriver) DeployStandbyNetworkingScripts(part IDiskPartition, nics, nicsStandby []jsonutils.JSONObject) error {
+func (d *sGuestRootFsDriver) DeployStandbyNetworkingScripts(part IDiskPartition, nics, nicsStandby []*deployapi.Nic) error {
 	return nil
 }
 
-func (d *sGuestRootFsDriver) DeployFstabScripts(_ IDiskPartition, _ []jsonutils.JSONObject) error {
+func (d *sGuestRootFsDriver) DeployFstabScripts(_ IDiskPartition, _ []*deployapi.Disk) error {
 	return nil
 }
 

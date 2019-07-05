@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 func unmarshalNicConfigs(jsonNics []jsonutils.JSONObject) []types.SServerNic {
@@ -42,8 +43,16 @@ func findTeamingNic(nics []types.SServerNic, mac string) *types.SServerNic {
 	return nil
 }
 
-func convertNicConfigs(jsonNics []jsonutils.JSONObject) ([]*types.SServerNic, []*types.SServerNic) {
-	nics := unmarshalNicConfigs(jsonNics)
+func ToServerNics(nics []*deployapi.Nic) []*types.SServerNic {
+	ret := make([]*types.SServerNic, len(nics))
+	for i := 0; i < len(nics); i++ {
+		ret[i] = &types.SServerNic{Nic: nics[i]}
+	}
+	return ret
+}
+
+func convertNicConfigs(nics []*types.SServerNic) ([]*types.SServerNic, []*types.SServerNic) {
+	// nics := unmarshalNicConfigs(jsonNics)
 
 	allNics := make([]*types.SServerNic, 0)
 	bondNics := make([]*types.SServerNic, 0)

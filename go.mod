@@ -61,6 +61,7 @@ require (
 	github.com/golang-plus/testing v1.0.0 // indirect
 	github.com/golang-plus/uuid v1.0.0
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
+	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/google/btree v1.0.0 // indirect
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/google/gopacket v1.1.17

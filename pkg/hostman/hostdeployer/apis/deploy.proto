@@ -57,13 +57,12 @@ message Nic {
   string team_with = 21;
   bool manual = 22;
   string nic_type = 23;
+  bool link_up = 24;
+  int64 mtu = 25;
+  string name = 26;
 }
 
 message Routes {
-  repeated Route route = 1;
-}
-
-message Route {
   repeated string route = 1;
 }
 
@@ -88,6 +87,7 @@ message SSHKeys {
 message DeployContent {
   string path = 1;
   string content = 2;
+  string action = 3;
 }
 
 message Error {
