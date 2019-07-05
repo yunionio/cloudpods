@@ -61,7 +61,7 @@ require (
 	github.com/golang-plus/testing v1.0.0 // indirect
 	github.com/golang-plus/uuid v1.0.0
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
-	github.com/golang/protobuf v1.3.1 // indirect
+	github.com/golang/protobuf v1.3.1
 	github.com/google/btree v1.0.0 // indirect
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/google/gopacket v1.1.17
@@ -139,6 +139,7 @@ require (
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c // indirect
 	google.golang.org/appengine v1.3.0 // indirect
 	google.golang.org/genproto v0.0.0-20181218023534-67d6565462c5 // indirect
+	google.golang.org/grpc v1.19.0
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v8 v8.18.2 // indirect
@@ -154,6 +155,6 @@ require (
 	yunion.io/x/jsonutils v0.0.0-20190625054549-a964e1e8a051
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
 	yunion.io/x/pkg v0.0.0-20190628082551-f4033ba2ea30
-	yunion.io/x/sqlchemy v0.0.0-20190701085445-12b2b4318f7d
+	yunion.io/x/sqlchemy v0.0.0-20190704155352-6aff6c803fda
 	yunion.io/x/structarg v0.0.0-20190625074850-3c0636a9fffe
 )

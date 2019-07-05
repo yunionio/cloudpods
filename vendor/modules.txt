@@ -270,7 +270,7 @@ github.com/golang-plus/uuid/internal/random
 github.com/golang-plus/uuid/internal/timebased
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 github.com/golang/glog
-# github.com/golang/protobuf v1.2.0
+# github.com/golang/protobuf v1.3.1
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
@@ -509,16 +509,16 @@ golang.org/x/net/bpf
 golang.org/x/net/ipv4
 golang.org/x/net/proxy
 golang.org/x/net/ipv6
+golang.org/x/net/trace
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
 golang.org/x/net/http2
 golang.org/x/net/context
-golang.org/x/net/trace
 golang.org/x/net/internal/socks
-golang.org/x/net/http/httpguts
-golang.org/x/net/http2/hpack
-golang.org/x/net/idna
 golang.org/x/net/internal/timeseries
+golang.org/x/net/http2/hpack
+golang.org/x/net/http/httpguts
+golang.org/x/net/idna
 golang.org/x/net/context/ctxhttp
 # golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890
 golang.org/x/oauth2
@@ -551,14 +551,14 @@ google.golang.org/appengine/internal/urlfetch
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.19.0
 google.golang.org/grpc
+google.golang.org/grpc/codes
+google.golang.org/grpc/status
 google.golang.org/grpc/peer
 google.golang.org/grpc/credentials
-google.golang.org/grpc/codes
 google.golang.org/grpc/grpclog
 google.golang.org/grpc/health/grpc_health_v1
 google.golang.org/grpc/keepalive
 google.golang.org/grpc/metadata
-google.golang.org/grpc/status
 google.golang.org/grpc/balancer
 google.golang.org/grpc/balancer/roundrobin
 google.golang.org/grpc/connectivity
@@ -757,7 +757,7 @@ yunion.io/x/pkg/util/prometheus
 yunion.io/x/pkg/prettytable
 yunion.io/x/pkg/util/runtime
 yunion.io/x/pkg/util/clock
-# yunion.io/x/sqlchemy v0.0.0-20190701085445-12b2b4318f7d
+# yunion.io/x/sqlchemy v0.0.0-20190704155352-6aff6c803fda
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20190625074850-3c0636a9fffe
 yunion.io/x/structarg
