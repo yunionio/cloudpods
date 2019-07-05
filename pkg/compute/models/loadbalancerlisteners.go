@@ -664,6 +664,16 @@ func (lblis *SLoadbalancerListener) GetLoadbalancerListenerParams() (*cloudprovi
 	return listener, nil
 }
 
+func (lblis *SLoadbalancerListener) GetLoadbalancerListenerRules() ([]SLoadbalancerListenerRule, error) {
+	q := LoadbalancerListenerRuleManager.Query().Equals("listener_id", lblis.Id).IsFalse("pending_deleted")
+	rules := []SLoadbalancerListenerRule{}
+	err := db.FetchModelObjects(LoadbalancerListenerRuleManager, q, &rules)
+	if err != nil {
+		return nil, err
+	}
+	return rules, nil
+}
+
 func (lblis *SLoadbalancerListener) GetLoadbalancerCertificate() *SLoadbalancerCertificate {
 	if len(lblis.CertificateId) == 0 {
 		return nil

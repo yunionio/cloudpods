@@ -172,6 +172,16 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 	return region.GetDriver().ValidateCreateLoadbalancerBackendGroupData(ctx, userCred, data, lb, backends)
 }
 
+func (lbbg *SLoadbalancerBackendGroup) GetLoadbalancerListeners() ([]SLoadbalancerListener, error) {
+	q := LoadbalancerListenerManager.Query().Equals("backend_group_id", lbbg.Id).IsFalse("pending_deleted")
+	listeners := []SLoadbalancerListener{}
+	err := db.FetchModelObjects(LoadbalancerListenerManager, q, &listeners)
+	if err != nil {
+		return nil, err
+	}
+	return listeners, nil
+}
+
 func (lbbg *SLoadbalancerBackendGroup) GetLoadbalancer() *SLoadbalancer {
 	lb, err := LoadbalancerManager.FetchById(lbbg.LoadbalancerId)
 	if err != nil {
@@ -253,11 +263,7 @@ func (lbbg *SLoadbalancerBackendGroup) ValidateDeleteCondition(ctx context.Conte
 		}
 	}
 
-	region := lbbg.GetRegion()
-	if region == nil {
-		return nil
-	}
-	return region.GetDriver().ValidateDeleteLoadbalancerBackendGroupCondition(ctx, lbbg)
+	return nil
 }
 
 func (lbbg *SLoadbalancerBackendGroup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {

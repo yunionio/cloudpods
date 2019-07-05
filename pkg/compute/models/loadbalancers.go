@@ -489,7 +489,7 @@ func (lb *SLoadbalancer) GetLoadbalancerListeners() ([]SLoadbalancerListener, er
 func (lb *SLoadbalancer) GetLoadbalancerBackendgroups() ([]SLoadbalancerBackendGroup, error) {
 	lbbgs := []SLoadbalancerBackendGroup{}
 	q := LoadbalancerBackendGroupManager.Query().Equals("loadbalancer_id", lb.Id).IsFalse("pending_deleted")
-	if err := db.FetchModelObjects(LoadbalancerListenerManager, q, &lbbgs); err != nil {
+	if err := db.FetchModelObjects(LoadbalancerBackendGroupManager, q, &lbbgs); err != nil {
 		return nil, err
 	}
 	return lbbgs, nil
