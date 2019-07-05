@@ -1711,12 +1711,12 @@ func (s *SBaremetalServer) DoDeploy(term *ssh.Client, data jsonutils.JSONObject,
 	if resetPassword && len(password) == 0 {
 		password = seclib.RandomPassword(12)
 	}
-	deployInfo := guestfs.NewDeployInfo(publicKey, deployapi.JsonDeploysToStructs(deploys),
+	deployInfo := deployapi.NewDeployInfo(publicKey, deployapi.JsonDeploysToStructs(deploys),
 		password, isInit, true, o.Options.LinuxDefaultRootUser, o.Options.WindowsDefaultAdminUser, false)
 	return s.deployFs(term, deployInfo)
 }
 
-func (s *SBaremetalServer) deployFs(term *ssh.Client, deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
+func (s *SBaremetalServer) deployFs(term *ssh.Client, deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
 	raid, nonRaid, pcie, err := detect_storages.DetectStorageInfo(term, false)
 	if err != nil {
 		return nil, err

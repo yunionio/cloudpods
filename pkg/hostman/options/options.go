@@ -104,6 +104,8 @@ type SHostOptions struct {
 	HostCpuPassthrough bool `default:"true" help:"if it is true, set qemu cpu type as -cpu host, otherwise, qemu64. default is true"`
 
 	MaxReservedMemory int `default:"10240" help:"host reserved memory"`
+
+	DeployServerSocketPath string `help:"Deploy server listen socket path"`
 }
 
 var HostOptions SHostOptions

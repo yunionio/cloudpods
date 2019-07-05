@@ -19,11 +19,12 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/hostman/diskutils"
-	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	diskutils "yunion.io/x/onecloud/pkg/hostman/diskutils"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 )
 
 type IDisk interface {
@@ -52,7 +53,7 @@ type IDisk interface {
 	CreateSnapshot(snapshotId string) error
 	DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error
 	DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,
-		deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error)
+		deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error)
 }
 
 type SBaseDisk struct {
@@ -100,23 +101,22 @@ func (d *SBaseDisk) GetZone() string {
 }
 
 func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,
-	deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
-	var kvmDisk = diskutils.NewKVMGuestDisk(diskPath)
-
-	defer kvmDisk.Disconnect()
-	if !kvmDisk.Connect() {
-		log.Infof("Failed to connect kvm disk")
-		return nil, nil
+	deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
+	deployGuestDesc, err := deployapi.GuestDescToDeployDesc()
+	if err != nil {
+		return nil, errors.Wrap(err, "guest desc to deploy desc")
 	}
-
-	root := kvmDisk.MountKvmRootfs()
-	if root == nil {
-		log.Infof("Failed mounting rootfs for kvm disk")
-		return nil, nil
+	ret, err := deployclient.GetDeployClient().DeployGuestFs(
+		context.Background(), deployapi.DeployParams{
+			DiskPath:   diskPath,
+			GuestDesc:  deployGuestDesc,
+			DeployInfo: deployInfo,
+		},
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "request deploy guest fs")
 	}
-	defer kvmDisk.UmountKvmRootfs(root)
-
-	return guestfs.DeployGuestFs(root, guestDesc, deployInfo)
+	return jsonutils.Marshal(ret), nil
 }
 
 func (d *SBaseDisk) ResizeFs(diskPath string) error {

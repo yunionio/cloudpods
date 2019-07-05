@@ -224,6 +224,8 @@ func (h *SHostInfo) prepareEnv() error {
 	}
 	nbd.Init()
 
+	fsdriver.Init(options.HostOptions.PrivatePrefixes)
+
 	if !winutils.CheckTool(options.HostOptions.ChntpwPath) {
 		return fmt.Errorf("Failed to find chntpw tool")
 	}

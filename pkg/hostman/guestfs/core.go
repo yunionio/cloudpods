@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"math/rand"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
@@ -53,11 +54,11 @@ func testRootfs(d fsdriver.IRootFsDriver) bool {
 	return true
 }
 
-func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDesc, deployInfo *SDeployInfo,
+func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDesc, deployInfo *deployapi.DeployInfo,
 ) (*deployapi.DeployGuestFsResponse, error) {
 	var (
 		err         error
-		ret         = deployapi.DeployGuestFsResponse
+		ret         = new(deployapi.DeployGuestFsResponse)
 		ips         = make([]string, 0)
 		hn          = guestDesc.Name
 		domain      = guestDesc.Domain
@@ -94,8 +95,8 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		return ret, nil
 	}
 
-	if len(deployInfo.deploys) > 0 {
-		if err = rootfs.DeployFiles(deployInfo.deploys); err != nil {
+	if len(deployInfo.Deploys) > 0 {
+		if err = rootfs.DeployFiles(deployInfo.Deploys); err != nil {
 			return nil, fmt.Errorf("DeployFiles: %v", err)
 		}
 	}
@@ -116,20 +117,20 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 	if err = rootfs.DeployUdevSubsystemScripts(partition); err != nil {
 		return nil, fmt.Errorf("DeployUdevSubsystemScripts: %v", err)
 	}
-	if deployInfo.isInit {
+	if deployInfo.IsInit {
 		if err = rootfs.DeployFstabScripts(partition, guestDesc.Disks); err != nil {
 			return nil, fmt.Errorf("DeployFstabScripts: %v", err)
 		}
 	}
-	if len(deployInfo.password) > 0 {
+	if len(deployInfo.Password) > 0 {
 		if account := rootfs.GetLoginAccount(partition,
-			deployInfo.defaultRootUser, deployInfo.windowsDefaultAdminUser); len(account) > 0 {
-			if err = rootfs.DeployPublicKey(partition, account, deployInfo.publicKey); err != nil {
+			deployInfo.DefaultRootUser, deployInfo.WindowsDefaultAdminUser); len(account) > 0 {
+			if err = rootfs.DeployPublicKey(partition, account, deployInfo.PublicKey); err != nil {
 				return nil, fmt.Errorf("DeployPublicKey: %v", err)
 			}
 			var secret string
 			if secret, err = rootfs.ChangeUserPasswd(partition, account, gid,
-				deployInfo.publicKey.PublicKey, deployInfo.password); err != nil {
+				deployInfo.PublicKey.PublicKey, deployInfo.Password); err != nil {
 				return nil, fmt.Errorf("ChangeUserPasswd: %v", err)
 			}
 			ret.Account = account
@@ -139,11 +140,11 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		}
 	}
 
-	if err = rootfs.DeployYunionroot(partition, deployInfo.publicKey, deployInfo.isInit, deployInfo.enableCloudInit); err != nil {
+	if err = rootfs.DeployYunionroot(partition, deployInfo.PublicKey, deployInfo.IsInit, deployInfo.EnableCloudInit); err != nil {
 		return nil, fmt.Errorf("DeployYunionroot: %v", err)
 	}
 	if partition.SupportSerialPorts() {
-		if deployInfo.enableTty {
+		if deployInfo.EnableTty {
 			if err = rootfs.EnableSerialConsole(partition, nil); err != nil {
 				return nil, fmt.Errorf("EnableSerialConsole: %v", err)
 			}
@@ -169,7 +170,7 @@ func DeployGuestFs(
 ) (jsonutils.JSONObject, error) {
 	desc, err := deployapi.GuestDescToDeployDesc(guestDesc)
 	if err != nil {
-		return nil, errors.Warp(err, "To deploy desc fail")
+		return nil, errors.Wrap(err, "To deploy desc fail")
 	}
 	ret, err := DoDeployGuestFs(rootfs, desc, deployInfo)
 	if err != nil {

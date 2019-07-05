@@ -32,7 +32,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appctx"
-	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/monitor"
@@ -761,7 +761,7 @@ func (s *SKVMGuestInstance) StartGuest(ctx context.Context, params jsonutils.JSO
 		func() { s.asyncScriptStart(ctx, jsonutils.NewDict()) }, nil, nil)
 }
 
-func (s *SKVMGuestInstance) DeployFs(deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
+func (s *SKVMGuestInstance) DeployFs(deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
 	disks, _ := s.Desc.GetArray("disks")
 	if len(disks) > 0 {
 		diskPath, _ := disks[0].GetString("path")

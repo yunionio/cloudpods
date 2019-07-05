@@ -32,7 +32,6 @@ import (
 
 	compute "yunion.io/x/onecloud/pkg/apis/compute"
 	appsrv "yunion.io/x/onecloud/pkg/appsrv"
-	guestfs "yunion.io/x/onecloud/pkg/hostman/guestfs"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	hostutils "yunion.io/x/onecloud/pkg/hostman/hostutils"
 	options "yunion.io/x/onecloud/pkg/hostman/options"
@@ -333,7 +332,7 @@ func (m *SGuestManager) GuestDeploy(ctx context.Context, params interface{}) (js
 		}
 		enableCloudInit := jsonutils.QueryBoolean(deployParams.Body, "enable_cloud_init", false)
 
-		guestInfo, err := guest.DeployFs(guestfs.NewDeployInfo(
+		guestInfo, err := guest.DeployFs(deployapi.NewDeployInfo(
 			publicKey, deployapi.JsonDeploysToStructs(deploys), password, deployParams.IsInit, false,
 			options.HostOptions.LinuxDefaultRootUser, options.HostOptions.WindowsDefaultAdminUser, enableCloudInit))
 		if err != nil {

@@ -27,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/guesthandlers"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostmetrics"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -84,6 +85,10 @@ func (host *SHostService) RunService() {
 	})
 	host.initHandlers(app)
 	<-hostinfo.Instance().IsRegistered // wait host and guest init
+
+	if _, err := deployclient.InitDeployClient(options.HostOptions.DeployServerSocketPath); err != nil {
+		log.Fatalln(err)
+	}
 
 	// Init Metadata handler
 	go metadata.StartService(

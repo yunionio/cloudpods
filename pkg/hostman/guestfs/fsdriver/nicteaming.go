@@ -34,10 +34,10 @@ func unmarshalNicConfigs(jsonNics []jsonutils.JSONObject) []types.SServerNic {
 	return nics
 }
 
-func findTeamingNic(nics []types.SServerNic, mac string) *types.SServerNic {
+func findTeamingNic(nics []*types.SServerNic, mac string) *types.SServerNic {
 	for i := range nics {
 		if nics[i].TeamWith == mac {
-			return &nics[i]
+			return nics[i]
 		}
 	}
 	return nil
@@ -52,8 +52,6 @@ func ToServerNics(nics []*deployapi.Nic) []*types.SServerNic {
 }
 
 func convertNicConfigs(nics []*types.SServerNic) ([]*types.SServerNic, []*types.SServerNic) {
-	// nics := unmarshalNicConfigs(jsonNics)
-
 	allNics := make([]*types.SServerNic, 0)
 	bondNics := make([]*types.SServerNic, 0)
 
@@ -70,25 +68,25 @@ func convertNicConfigs(nics []*types.SServerNic) ([]*types.SServerNic, []*types.
 		if teamNic == nil {
 			nnic := nics[i]
 			nnic.Name = fmt.Sprintf("eth%d", nnic.Index)
-			allNics = append(allNics, &nnic)
+			allNics = append(allNics, nnic)
 			continue
 		}
 		master := nics[i]
 		nnic := nics[i]
 		tnic := *teamNic
 		nnic.Name = fmt.Sprintf("eth%d", nnic.Index)
-		nnic.TeamingMaster = &master
+		nnic.TeamingMaster = master
 		nnic.Ip = ""
 		nnic.Gateway = ""
 		tnic.Name = fmt.Sprintf("eth%d", tnic.Index)
-		tnic.TeamingMaster = &master
+		tnic.TeamingMaster = master
 		tnic.Ip = ""
 		tnic.Gateway = ""
 		master.Name = fmt.Sprintf("bond%d", len(bondNics))
-		master.TeamingSlaves = []*types.SServerNic{&nnic, &tnic}
+		master.TeamingSlaves = []*types.SServerNic{nnic, &tnic}
 		master.Mac = ""
-		allNics = append(allNics, &nnic, &tnic, &master)
-		bondNics = append(bondNics, &master)
+		allNics = append(allNics, nnic, &tnic, master)
+		bondNics = append(bondNics, master)
 	}
 	return allNics, bondNics
 }

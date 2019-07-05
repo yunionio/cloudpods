@@ -2,17 +2,24 @@ package deployserver
 
 import (
 	"context"
+	"net"
+	"os"
 
+	"google.golang.org/grpc"
 	"yunion.io/x/log"
 
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
+	"yunion.io/x/onecloud/pkg/cloudcommon/service"
 	diskutils "yunion.io/x/onecloud/pkg/hostman/diskutils"
 	guestfs "yunion.io/x/onecloud/pkg/hostman/guestfs"
+	fsdriver "yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 type DeployerServer struct{}
 
-func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployParams) (*deployapi.DeployGuestFsResponse, error) {
+func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployParams,
+) (*deployapi.DeployGuestFsResponse, error) {
 	var kvmDisk = diskutils.NewKVMGuestDisk(req.DiskPath)
 	defer kvmDisk.Disconnect()
 	if !kvmDisk.Connect() {
@@ -27,9 +34,31 @@ func (*DeployerServer) DeployGuestFs(ctx context.Context, req *deployapi.DeployP
 	}
 	defer kvmDisk.UmountKvmRootfs(root)
 
-	ret, err := guestfs.DeployGuestFs(root, guestDesc, deployInfo)
+	ret, err := guestfs.DoDeployGuestFs(root, req.GuestDesc, req.DeployInfo)
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return ret, nil
 }
+
+type SDeployService struct {
+	*service.SServiceBase
+}
+
+func (s *SDeployService) RunService() {
+	grpcServer := grpc.NewServer()
+	deployapi.RegisterDeployAgentServer(grpcServer, &DeployerServer{})
+	listener, err := net.Listen("unix", DeployOption.DeployServerSocketPath)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	grpcServer.Serve(listener)
+}
+
+func (s *SDeployService) InitService() {
+	common_options.ParseOptions(&DeployOption, os.Args, "host.conf", "deploy-server")
+	fsdriver.Init(DeployOption.PrivatePrefixes)
+	s.O = &DeployOption.BaseOptions
+}
+
+func (s *SDeployService) OnExitService() {}

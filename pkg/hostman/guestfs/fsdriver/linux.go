@@ -32,7 +32,6 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
-	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/coreosutils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/fstabutils"
@@ -209,12 +208,12 @@ func (l *sLinuxRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []*deploy
 		}
 		dev := fmt.Sprintf("UUID=%s", diskId)
 		if !fstab.IsExists(dev) {
-			fs, _ := disks[i].Fs
+			fs := disks[i].Fs
 			if len(fs) > 0 {
 				if fs == "swap" {
 					rec = fmt.Sprintf("%s none %s sw 0 0", dev, fs)
 				} else {
-					mtPath, _ := disks[i].Mountpoint
+					mtPath := disks[i].Mountpoint
 					if len(mtPath) == 0 {
 						mtPath = "/data"
 						if dataDiskIdx > 0 {
@@ -281,9 +280,9 @@ func (l *sLinuxRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nic
 		if len(nic.NicType) == 0 || nic.NicType != "impi" {
 			nicRules += `KERNEL=="*", SUBSYSTEM=="net", ACTION=="add", `
 			nicRules += `DRIVERS=="?*", `
-			mac, _ := nic.GetString("mac")
+			mac := nic.Mac
 			nicRules += fmt.Sprintf(`ATTR{address}=="%s", ATTR{type}=="1", `, strings.ToLower(mac))
-			idx, _ := nic.Int("index")
+			idx := nic.Index
 			nicRules += fmt.Sprintf("NAME=\"eth%d\"\n", idx)
 		}
 	}
@@ -542,7 +541,7 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 			cmds.WriteString("    netmask 255.255.255.255\n")
 			cmds.WriteString("\n")
 		} else if nicDesc.Manual {
-			netmask := netutils2.Netlen2Mask(nicDesc.Masklen)
+			netmask := netutils2.Netlen2Mask(int(nicDesc.Masklen))
 			cmds.WriteString(fmt.Sprintf("iface %s inet static\n", nicDesc.Name))
 			cmds.WriteString(fmt.Sprintf("    address %s\n", nicDesc.Ip))
 			cmds.WriteString(fmt.Sprintf("    netmask %s\n", netmask))
@@ -550,7 +549,7 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 				cmds.WriteString(fmt.Sprintf("    gateway %s\n", nicDesc.Gateway))
 			}
 			var routes = make([][]string, 0)
-			netutils2.AddNicRoutes(&routes, nicDesc, mainIp, len(nics), options.HostOptions.PrivatePrefixes)
+			netutils2.AddNicRoutes(&routes, nicDesc, mainIp, len(nics), privatePrefixes)
 			for _, r := range routes {
 				cmds.WriteString(fmt.Sprintf("    up route add -net %s gw %s || true\n", r[0], r[1]))
 				cmds.WriteString(fmt.Sprintf("    down route del -net %s gw %s || true\n", r[0], r[1]))
@@ -777,18 +776,14 @@ func (r *sRedhatLikeRootFs) DeployHostname(rootFs IDiskPartition, hn, domain str
 	return nil
 }
 
-func (r *sRedhatLikeRootFs) Centos5DeployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject) error {
+func (r *sRedhatLikeRootFs) Centos5DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
 	var udevPath = "/etc/udev/rules.d/"
 	if rootFs.Exists(udevPath, false) {
 		var nicRules = ""
 		for _, nic := range nics {
-			var nicdesc = new(types.SServerNic)
-			if err := nic.Unmarshal(nicdesc); err != nil {
-				return err
-			}
 			nicRules += `KERNEL=="*", `
-			nicRules += fmt.Sprintf(`SYSFS{address}=="%s", `, strings.ToLower(nicdesc.Mac))
-			nicRules += fmt.Sprintf("NAME=\"eth%d\"\n", nicdesc.Index)
+			nicRules += fmt.Sprintf(`SYSFS{address}=="%s", `, strings.ToLower(nic.Mac))
+			nicRules += fmt.Sprintf("NAME=\"eth%d\"\n", nic.Index)
 		}
 		return rootFs.FilePutContents(path.Join(udevPath, "60-net.rules"),
 			nicRules, false, false)
@@ -829,7 +824,7 @@ func (r *sRedhatLikeRootFs) enableBondingModule(rootFs IDiskPartition, bondNics 
 	return rootFs.FilePutContents("/etc/modprobe.d/bonding.conf", content.String(), false, false)
 }
 
-func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []jsonutils.JSONObject, relInfo *SReleaseInfo) error {
+func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic, relInfo *SReleaseInfo) error {
 	if err := r.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err
 	}
@@ -847,7 +842,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 	if err != nil {
 		return err
 	}
-	allNics, bondNics := convertNicConfigs(nics)
+	allNics, bondNics := convertNicConfigs(ToServerNics(nics))
 	if len(bondNics) > 0 {
 		err = r.enableBondingModule(rootFs, bondNics)
 		if err != nil {
@@ -895,7 +890,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 			cmds.WriteString(netutils2.PSEUDO_VIP)
 			cmds.WriteString("\n")
 		} else if nicDesc.Manual {
-			netmask := netutils2.Netlen2Mask(nicDesc.Masklen)
+			netmask := netutils2.Netlen2Mask(int(nicDesc.Masklen))
 			cmds.WriteString("BOOTPROTO=none\n")
 			cmds.WriteString("NETMASK=")
 			cmds.WriteString(netmask)
@@ -909,7 +904,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 				cmds.WriteString("\n")
 			}
 			var routes = make([][]string, 0)
-			netutils2.AddNicRoutes(&routes, nicDesc, mainIp, len(nics), options.HostOptions.PrivatePrefixes)
+			netutils2.AddNicRoutes(&routes, nicDesc, mainIp, len(nics), privatePrefixes)
 			var rtbl strings.Builder
 			for _, r := range routes {
 				rtbl.WriteString(r[0])
@@ -1206,7 +1201,7 @@ func (l *SGentooRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*d
 
 	for _, nic := range nics {
 		nicIndex := nic.Index
-		if nic.Vritual {
+		if nic.Virtual {
 			cmds += fmt.Sprintf(`config_eth%d="`, nicIndex)
 			cmds += fmt.Sprintf("%s netmask 255.255.255.255", netutils2.PSEUDO_VIP)
 			cmds += `"\n`

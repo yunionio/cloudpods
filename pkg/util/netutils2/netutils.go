@@ -159,9 +159,9 @@ func addRoute(routes *[][]string, net, gw string) {
 	*routes = append(*routes, []string{net, gw})
 }
 
-func extendRoutes(routes *[][]string, nicRoutes []types.SRoute) error {
+func extendRoutes(routes *[][]string, nicRoutes []*deployapi.Routes) error {
 	for i := 0; i < len(nicRoutes); i++ {
-		addRoute(routes, nicRoutes[i][0], nicRoutes[i][1])
+		addRoute(routes, nicRoutes[i].Route[0], nicRoutes[i].Route[1])
 	}
 	return nil
 }

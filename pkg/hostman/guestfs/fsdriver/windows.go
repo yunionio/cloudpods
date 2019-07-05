@@ -28,7 +28,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
-	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -255,19 +254,19 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*
 	}
 
 	for _, nic := range nics {
-		snic := &types.SServerNic{nic}
+		snic := &types.SServerNic{Nic: nic}
 		mac := snic.Mac
 		mac = strings.Replace(strings.ToUpper(mac), ":", "-", -1)
 		lines = append(lines, fmt.Sprintf(`    if "%%%%c" == "%s" (`, mac))
 		if snic.Manual {
-			netmask := netutils2.Netlen2Mask(snic.Masklen)
+			netmask := netutils2.Netlen2Mask(int(snic.Masklen))
 			cfg := fmt.Sprintf(`      netsh interface ip set address "%%%%b" static %s %s`, snic.Ip, netmask)
 			if len(snic.Gateway) > 0 && snic.Ip == mainIp {
 				cfg += fmt.Sprintf(" %s", snic.Gateway)
 			}
 			lines = append(lines, cfg)
 			routes := [][]string{}
-			netutils2.AddNicRoutes(&routes, snic, mainIp, len(nics), options.HostOptions.PrivatePrefixes)
+			netutils2.AddNicRoutes(&routes, snic, mainIp, len(nics), privatePrefixes)
 			for _, r := range routes {
 				lines = append(lines, fmt.Sprintf(`      netsh interface ip add route %s "%%%%b" %s`, r[0], r[1]))
 			}
