@@ -79,21 +79,6 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerCertificateData(ctx c
 	return data, nil
 }
 
-func (self *SAliyunRegionDriver) ValidateDeleteLoadbalancerBackendCondition(ctx context.Context, lbb *models.SLoadbalancerBackend) error {
-	backendGroup := lbb.GetLoadbalancerBackendGroup()
-	if backendGroup.Type == api.LB_BACKENDGROUP_TYPE_MASTER_SLAVE {
-		return httperrors.NewUnsupportOperationError("backend %s belong master slave backendgroup, not allow delete", lbb.Name)
-	}
-	return nil
-}
-
-func (self *SAliyunRegionDriver) ValidateDeleteLoadbalancerBackendGroupCondition(ctx context.Context, lbbg *models.SLoadbalancerBackendGroup) error {
-	if lbbg.Type == api.LB_BACKENDGROUP_TYPE_DEFAULT {
-		return httperrors.NewUnsupportOperationError("not allow to delete default backend group")
-	}
-	return nil
-}
-
 func (self *SAliyunRegionDriver) GetBackendStatusForAdd() []string {
 	return []string{api.VM_RUNNING}
 }
