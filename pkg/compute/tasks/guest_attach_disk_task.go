@@ -76,7 +76,7 @@ func (self *GuestAttachDiskTask) OnSyncConfigComplete(ctx context.Context, guest
 		self.OnTaskFail(ctx, guest, nil, fmt.Errorf("Connot find disk %s", diskId))
 		return
 	}
-	disk.SetStatus(self.UserCred, api.DISK_READY, "")
+	disk.SetDiskReady(ctx, self.UserCred, "")
 	self.SetStageComplete(ctx, nil)
 	logclient.AddActionLogWithStartable(self, guest, logclient.ACT_VM_ATTACH_DISK, nil, self.UserCred, true)
 }
