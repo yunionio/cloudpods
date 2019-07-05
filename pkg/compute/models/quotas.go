@@ -296,41 +296,41 @@ func keyName(prefix, name string) string {
 
 func (self *SQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
-	if self.Cpu > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Cpu)), keyName(prefix, "cpu"))
-	}
-	if self.Memory > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Memory)), keyName(prefix, "memory"))
-	}
-	if self.Storage > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Storage)), keyName(prefix, "storage"))
-	}
-	if self.Port > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Port)), keyName(prefix, "port"))
-	}
-	if self.Eip > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Eip)), keyName(prefix, "eip"))
-	}
-	if self.Eport > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Eport)), keyName(prefix, "eport"))
-	}
-	if self.Bw > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Bw)), keyName(prefix, "bw"))
-	}
-	if self.Ebw > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Ebw)), keyName(prefix, "ebw"))
-	}
-	if self.Group > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Group)), keyName(prefix, "group"))
-	}
-	if self.Secgroup > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Secgroup)), keyName(prefix, "secgroup"))
-	}
-	if self.IsolatedDevice > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.IsolatedDevice)), keyName(prefix, "isolated_device"))
-	}
-	if self.Snapshot > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Snapshot)), keyName(prefix, "snapshot"))
-	}
+	// if self.Cpu > 0 {
+	ret.Add(jsonutils.NewInt(int64(self.Cpu)), keyName(prefix, "cpu"))
+	//}
+	// if self.Memory > 0 {
+	ret.Add(jsonutils.NewInt(int64(self.Memory)), keyName(prefix, "memory"))
+	//}
+	//if self.Storage > 0 {
+	ret.Add(jsonutils.NewInt(int64(self.Storage)), keyName(prefix, "storage"))
+	//}
+	//if self.Port > 0 {
+	ret.Add(jsonutils.NewInt(int64(self.Port)), keyName(prefix, "port"))
+	//}
+	//if self.Eip > 0 {
+	ret.Add(jsonutils.NewInt(int64(self.Eip)), keyName(prefix, "eip"))
+	//}
+	//if self.Eport > 0 {
+	ret.Add(jsonutils.NewInt(int64(self.Eport)), keyName(prefix, "eport"))
+	//}
+	//if self.Bw > 0 {
+	ret.Add(jsonutils.NewInt(int64(self.Bw)), keyName(prefix, "bw"))
+	//}
+	//if self.Ebw > 0 {
+	ret.Add(jsonutils.NewInt(int64(self.Ebw)), keyName(prefix, "ebw"))
+	//}
+	//if self.Group > 0 {
+	ret.Add(jsonutils.NewInt(int64(self.Group)), keyName(prefix, "group"))
+	//}
+	//if self.Secgroup > 0 {
+	ret.Add(jsonutils.NewInt(int64(self.Secgroup)), keyName(prefix, "secgroup"))
+	//}
+	//if self.IsolatedDevice > 0 {
+	ret.Add(jsonutils.NewInt(int64(self.IsolatedDevice)), keyName(prefix, "isolated_device"))
+	//}
+	//if self.Snapshot > 0 {
+	ret.Add(jsonutils.NewInt(int64(self.Snapshot)), keyName(prefix, "snapshot"))
+	//}
 	return ret
 }
