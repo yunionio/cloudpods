@@ -37,8 +37,9 @@ import (
 )
 
 const (
-	QUOTA_ACTION_ADD   = "add"
-	QUOTA_ACTION_RESET = "reset"
+	QUOTA_ACTION_ADD     = "add"
+	QUOTA_ACTION_RESET   = "reset"
+	QUOTA_ACTION_REPLACE = "replace"
 )
 
 func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Application) {
@@ -244,6 +245,8 @@ func (manager *SQuotaBaseManager) setQuotaHanlder(ctx context.Context, w http.Re
 		oquota.Add(quota)
 	case QUOTA_ACTION_RESET:
 		oquota.FetchSystemQuota(scope, ownerId)
+	case QUOTA_ACTION_REPLACE:
+		oquota = quota
 	default:
 		oquota.Update(quota)
 	}
