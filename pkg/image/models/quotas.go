@@ -108,8 +108,8 @@ func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 
 func (self *SQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
-	if self.Image > 0 {
-		ret.Add(jsonutils.NewInt(int64(self.Image)), quotas.KeyName(prefix, "image"))
-	}
+	// if self.Image > 0 {
+	ret.Add(jsonutils.NewInt(int64(self.Image)), quotas.KeyName(prefix, "image"))
+	// }
 	return ret
 }
