@@ -772,15 +772,18 @@ func (manager *SServerSkuManager) FetchSkuByNameAndHypervisor(name string, hyper
 			return nil, httperrors.NewNotImplementedError("%s not supported", hypervisor)
 		case api.HYPERVISOR_KVM, api.HYPERVISOR_ESXI, api.HYPERVISOR_XEN, api.HYPERVISOR_HYPERV:
 			q = q.Filter(sqlchemy.OR(
-				sqlchemy.IsEmpty(q.Field("provider")),
-				sqlchemy.IsNull(q.Field("provider")),
+				sqlchemy.IsNullOrEmpty(q.Field("provider")),
+				sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
 				sqlchemy.Equals(q.Field("provider"), hypervisor),
 			))
 		default:
 			q = q.Equals("provider", hypervisor)
 		}
 	} else {
-		q = q.IsEmpty("provider")
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNullOrEmpty(q.Field("provider")),
+			sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
+		))
 	}
 	skus := make([]SServerSku, 0)
 	err := db.FetchModelObjects(manager, q, &skus)
@@ -806,14 +809,9 @@ func (manager *SServerSkuManager) FetchSkuByNameAndHypervisor(name string, hyper
 	return &skus[0], nil
 }
 
-func (manager *SServerSkuManager) GetSkuCountByProvider(provider string) (int, error) {
+func (manager *SServerSkuManager) GetPublicCloudSkuCount() (int, error) {
 	q := manager.Query()
-	if len(provider) == 0 {
-		q = q.IsNotEmpty("provider")
-	} else {
-		q = q.Equals("provider", provider)
-	}
-
+	q = q.Filter(sqlchemy.In(q.Field("provider"), cloudprovider.GetPrivateProviders()))
 	return q.CountWithError()
 }
 
