@@ -33,6 +33,7 @@ import (
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -41,6 +42,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -306,6 +308,20 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		syncIntervalSecs = int64(options.Options.MinimalSyncIntervalSeconds)
 	}
 	data.Set("sync_interval_seconds", jsonutils.NewInt(syncIntervalSecs))
+
+	if !jsonutils.QueryBoolean(query, "auto_create_project", false) {
+		if userCred.GetProjectDomainId() != ownerId.GetProjectDomainId() {
+			s := auth.GetAdminSession(ctx, consts.GetRegion(), "v1")
+			params := jsonutils.Marshal(map[string]string{"domain_id": ownerId.GetProjectDomainId()})
+			tenants, err := modules.Projects.List(s, params)
+			if err != nil {
+				return nil, err
+			}
+			if tenants.Total == 0 {
+				return nil, httperrors.NewInputParameterError("There are no projects under the domain %s", ownerId.GetProjectDomainId())
+			}
+		}
+	}
 
 	return manager.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
