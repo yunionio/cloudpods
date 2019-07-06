@@ -53,10 +53,23 @@ func (manager *SJointResourceBaseManager) GetSlaveManager() IStandaloneModelMana
 	return manager._slave
 }
 
+func tryGetQueryField(q *sqlchemy.SQuery, fieldName string) (field sqlchemy.IQueryField) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Errorf("cannot find field %s", fieldName)
+			field = nil
+		}
+	}()
+	field = q.Field(fieldName)
+	return
+}
+
 func queryField(q *sqlchemy.SQuery, manager IModelManager) sqlchemy.IQueryField {
-	field := q.Field(fmt.Sprintf("%s_id", manager.Keyword()))
+	colName := fmt.Sprintf("%s_id", manager.Keyword())
+	field := tryGetQueryField(q, colName)
 	if field == nil && len(manager.Alias()) > 0 {
-		field = q.Field(fmt.Sprintf("%s_id", manager.Alias()))
+		colName = fmt.Sprintf("%s_id", manager.Alias())
+		field = tryGetQueryField(q, colName)
 	}
 	return field
 }
