@@ -85,6 +85,11 @@ func GROUP_CONCAT(name string, field IQueryField) IQueryField {
 	return &ff
 }
 
+func REPLACE(name string, field IQueryField, old string, new string) IQueryField {
+	ff := NewFunctionField(name, fmt.Sprintf(`REPLACE(%s, "%s", "%s")`, "%s", old, new), field)
+	return &ff
+}
+
 type SStringField struct {
 	strConst string
 	alias    string

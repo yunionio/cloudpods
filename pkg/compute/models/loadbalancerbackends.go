@@ -426,14 +426,7 @@ func (man *SLoadbalancerBackendManager) getLoadbalancerBackendsByLoadbalancerBac
 }
 
 func (lbb *SLoadbalancerBackend) ValidateDeleteCondition(ctx context.Context) error {
-	if err := lbb.SVirtualResourceBase.ValidateDeleteCondition(ctx); err != nil {
-		return err
-	}
-	region := lbb.GetRegion()
-	if region == nil {
-		return nil
-	}
-	return region.GetDriver().ValidateDeleteLoadbalancerBackendCondition(ctx, lbb)
+	return lbb.SVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
 func (man *SLoadbalancerBackendManager) SyncLoadbalancerBackends(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, loadbalancerBackendgroup *SLoadbalancerBackendGroup, lbbs []cloudprovider.ICloudLoadbalancerBackend, syncRange *SSyncRange) compare.SyncResult {
