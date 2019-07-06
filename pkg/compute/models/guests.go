@@ -980,7 +980,8 @@ func (manager *SGuestManager) ValidateCreateData(ctx context.Context, userCred m
 		var sku *SServerSku
 		skuName := input.InstanceType
 		if len(skuName) > 0 {
-			sku, err := ServerSkuManager.FetchSkuByNameAndHypervisor(skuName, hypervisor, true)
+			provider := GetDriver(input.Hypervisor).GetProvider()
+			sku, err := ServerSkuManager.FetchSkuByNameAndProvider(skuName, provider, true)
 			if err != nil {
 				return nil, err
 			}
@@ -2032,7 +2033,7 @@ func (self *SGuest) syncWithCloudVM(ctx context.Context, userCred mcclient.Token
 		}
 
 		if extVM.GetHypervisor() == api.HYPERVISOR_AWS {
-			sku, err := ServerSkuManager.FetchSkuByNameAndHypervisor(instanceType, extVM.GetHypervisor(), false)
+			sku, err := ServerSkuManager.FetchSkuByNameAndProvider(instanceType, api.CLOUD_PROVIDER_AWS, false)
 			if err == nil {
 				self.VmemSize = sku.MemorySizeMB
 			} else {
@@ -2136,7 +2137,7 @@ func (manager *SGuestManager) newCloudVM(ctx context.Context, userCred mcclient.
 	}
 
 	if extVM.GetHypervisor() == api.HYPERVISOR_AWS {
-		sku, err := ServerSkuManager.FetchSkuByNameAndHypervisor(instanceType, extVM.GetHypervisor(), false)
+		sku, err := ServerSkuManager.FetchSkuByNameAndProvider(instanceType, api.CLOUD_PROVIDER_AWS, false)
 		if err == nil {
 			guest.VmemSize = sku.MemorySizeMB
 		} else {
