@@ -1854,7 +1854,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	confs := jsonutils.NewDict()
 	skuId := jsonutils.GetAnyString(data, []string{"instance_type", "sku", "flavor"})
 	if len(skuId) > 0 {
-		sku, err := ServerSkuManager.FetchSkuByNameAndHypervisor(skuId, self.GetHypervisor(), true)
+		sku, err := ServerSkuManager.FetchSkuByNameAndProvider(skuId, self.GetDriver().GetProvider(), true)
 		if err != nil {
 			return nil, err
 		}
