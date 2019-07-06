@@ -123,7 +123,7 @@ func (this *QuotaManager) doPost(s *mcclient.ClientSession, params jsonutils.JSO
 			return nil, err
 		}
 	}
-	data = quotas.CopyIncludes("image")
+	data = quotas.CopyIncludes("image", "action", "cascade")
 	if data.Size() > 0 {
 		body := jsonutils.NewDict()
 		body.Add(data, ImageQuotas.KeywordPlural)
