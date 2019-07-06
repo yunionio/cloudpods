@@ -763,25 +763,19 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	return q, err
 }
 
-func (manager *SServerSkuManager) FetchSkuByNameAndHypervisor(name string, hypervisor string, checkConsistency bool) (*SServerSku, error) {
+func (manager *SServerSkuManager) FetchSkuByNameAndProvider(name string, provider string, checkConsistency bool) (*SServerSku, error) {
 	q := manager.Query()
 	q = q.Equals("name", name)
-	if len(hypervisor) > 0 {
-		switch hypervisor {
-		case api.HYPERVISOR_BAREMETAL, api.HYPERVISOR_CONTAINER:
-			return nil, httperrors.NewNotImplementedError("%s not supported", hypervisor)
-		case api.HYPERVISOR_KVM, api.HYPERVISOR_ESXI, api.HYPERVISOR_XEN, api.HYPERVISOR_HYPERV:
-			q = q.Filter(sqlchemy.OR(
-				sqlchemy.IsEmpty(q.Field("provider")),
-				sqlchemy.IsNull(q.Field("provider")),
-				sqlchemy.Equals(q.Field("provider"), hypervisor),
-			))
-		default:
-			q = q.Equals("provider", hypervisor)
-		}
-	} else {
-		q = q.IsEmpty("provider")
+	switch provider {
+	case api.CLOUD_PROVIDER_ONECLOUD, api.CLOUD_PROVIDER_VMWARE, "":
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.IsNullOrEmpty(q.Field("provider")),
+			sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
+		))
+	default:
+		q = q.Equals("provider", provider)
 	}
+
 	skus := make([]SServerSku, 0)
 	err := db.FetchModelObjects(manager, q, &skus)
 	if err != nil {
@@ -789,7 +783,7 @@ func (manager *SServerSkuManager) FetchSkuByNameAndHypervisor(name string, hyper
 		return nil, err
 	}
 	if len(skus) == 0 {
-		log.Errorf("no sku found for %s %s", name, hypervisor)
+		log.Errorf("no sku found for %s %s", name, provider)
 		return nil, httperrors.NewResourceNotFoundError2(manager.Keyword(), name)
 	}
 	if len(skus) == 1 {
@@ -806,14 +800,9 @@ func (manager *SServerSkuManager) FetchSkuByNameAndHypervisor(name string, hyper
 	return &skus[0], nil
 }
 
-func (manager *SServerSkuManager) GetSkuCountByProvider(provider string) (int, error) {
+func (manager *SServerSkuManager) GetPublicCloudSkuCount() (int, error) {
 	q := manager.Query()
-	if len(provider) == 0 {
-		q = q.IsNotEmpty("provider")
-	} else {
-		q = q.Equals("provider", provider)
-	}
-
+	q = q.Filter(sqlchemy.In(q.Field("provider"), cloudprovider.GetPublicProviders()))
 	return q.CountWithError()
 }
 
