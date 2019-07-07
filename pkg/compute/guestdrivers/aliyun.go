@@ -153,7 +153,7 @@ func (self *SAliyunGuestDriver) GetGuestInitialStateAfterRebuild() string {
 
 func (self *SAliyunGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
 	userName := "root"
-	if desc.ImageType == "system" && desc.OsType == "Windows" {
+	if desc.OsType == "Windows" {
 		userName = "Administrator"
 	}
 	return userName

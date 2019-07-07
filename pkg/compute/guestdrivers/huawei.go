@@ -110,9 +110,9 @@ func (self *SHuaweiGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManag
 		if desc.OsDistribution == "Ubuntu" {
 			userName = "ubuntu"
 		}
-		if desc.OsType == "Windows" {
-			userName = "Administrator"
-		}
+	}
+	if desc.OsType == "Windows" {
+		userName = "Administrator"
 	}
 	return userName
 }
