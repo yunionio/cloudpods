@@ -559,7 +559,7 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 }
 
 func (self *SRegion) doStartVM(instanceId string) error {
-	return self.instanceOperation(instanceId, "StartInstances", nil, false)
+	return self.instanceOperation(instanceId, "StartInstances", nil, true)
 }
 
 func (self *SRegion) doStopVM(instanceId string, isForce bool) error {
