@@ -16,9 +16,13 @@ package zstack
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha1"
 	"crypto/sha512"
+	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -52,6 +56,24 @@ type SZStackClient struct {
 	iregions []cloudprovider.ICloudRegion
 
 	debug bool
+}
+
+func getTime() string {
+	return time.Now().Format("Mon, 02 Jan 2006 15:04:05 MST")
+}
+
+func sign(accessId, accessKey, method, date, url string) string {
+	h := hmac.New(sha1.New, []byte(accessKey))
+	h.Write([]byte(fmt.Sprintf("%s\n%s\n%s", method, date, url)))
+	return base64.StdEncoding.EncodeToString(h.Sum(nil))
+}
+
+func getSignUrl(uri string) (string, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimPrefix(u.Path, "/zstack"), nil
 }
 
 func NewZStackClient(providerID string, providerName string, authURL string, username string, password string, isDebug bool) (*SZStackClient, error) {
@@ -100,6 +122,15 @@ func (cli *SZStackClient) getRequestURL(resource string, params []string) string
 	return cli.authURL + fmt.Sprintf("/zstack/%s/%s", ZSTACK_API_VERSION, resource) + "?" + strings.Join(params, "&")
 }
 
+func (cli *SZStackClient) testAccessKey() error {
+	zones := []SZone{}
+	err := cli.listAll("zones", []string{}, &zones)
+	if err != nil {
+		return errors.Wrap(err, "testAccessKey")
+	}
+	return nil
+}
+
 func (cli *SZStackClient) connect() error {
 	client := httputils.GetDefaultClient()
 	header := http.Header{}
@@ -113,6 +144,10 @@ func (cli *SZStackClient) connect() error {
 	})
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "PUT", authURL, header, body, cli.debug)
 	if err != nil {
+		err = cli.testAccessKey()
+		if err == nil {
+			return nil
+		}
 		return errors.Wrapf(err, "connect")
 	}
 	cli.sessionID, err = resp.GetString("inventory", "uuid")
@@ -140,11 +175,26 @@ func (cli *SZStackClient) listAll(resource string, params []string, retVal inter
 	}
 }
 
+func (cli *SZStackClient) sign(uri, method string, header http.Header) error {
+	if len(cli.sessionID) > 0 {
+		header.Set("Authorization", "OAuth "+cli.sessionID)
+		return nil
+	}
+	url, err := getSignUrl(uri)
+	if err != nil {
+		return errors.Wrap(err, "sign.getSignUrl")
+	}
+	date := getTime()
+	signature := sign(cli.username, cli.password, method, date, url)
+	header.Add("Signature", signature)
+	header.Add("Authorization", fmt.Sprintf("ZStack %s:%s", cli.username, signature))
+	header.Add("Date", date)
+	return nil
+}
+
 func (cli *SZStackClient) _list(resource string, start int, limit int, params []string) (jsonutils.JSONObject, error) {
 	client := httputils.GetDefaultClient()
 	header := http.Header{}
-	header.Add("Content-Type", "application/json")
-	header.Add("Authorization", "OAuth "+cli.sessionID)
 	if params == nil {
 		params = []string{}
 	}
@@ -155,6 +205,10 @@ func (cli *SZStackClient) _list(resource string, start int, limit int, params []
 	}
 	params = append(params, fmt.Sprintf("limit=%d", limit))
 	requestURL := cli.getRequestURL(resource, params)
+	err := cli.sign(requestURL, "GET", header)
+	if err != nil {
+		return nil, err
+	}
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "GET", requestURL, header, nil, cli.debug)
 	if err != nil {
 		return nil, errors.Wrapf(err, fmt.Sprintf("GET %s params: %s", resource, params))
@@ -181,9 +235,11 @@ func (cli *SZStackClient) delete(resource, resourceId, deleteMode string) error 
 func (cli *SZStackClient) _delete(resource, resourceId, deleteMode string) (jsonutils.JSONObject, error) {
 	client := httputils.GetDefaultClient()
 	header := http.Header{}
-	header.Add("Content-Type", "application/json")
-	header.Add("Authorization", "OAuth "+cli.sessionID)
 	requestURL := cli.getDeleteURL(resource, resourceId, deleteMode)
+	err := cli.sign(requestURL, "DELETE", header)
+	if err != nil {
+		return nil, err
+	}
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "DELETE", requestURL, header, nil, cli.debug)
 	if err != nil {
 		return nil, errors.Wrapf(err, fmt.Sprintf("DELETE %s %s %s", resource, resourceId, deleteMode))
@@ -216,9 +272,11 @@ func (cli *SZStackClient) put(resource, resourceId string, params jsonutils.JSON
 func (cli *SZStackClient) _put(resource, resourceId string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	client := httputils.GetDefaultClient()
 	header := http.Header{}
-	header.Add("Content-Type", "application/json")
-	header.Add("Authorization", "OAuth "+cli.sessionID)
 	requestURL := cli.getURL(resource, resourceId, "actions")
+	err := cli.sign(requestURL, "PUT", header)
+	if err != nil {
+		return nil, err
+	}
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "PUT", requestURL, header, params, cli.debug)
 	if err != nil {
 		return nil, err
@@ -258,9 +316,11 @@ func (cli *SZStackClient) get(resource, resourceId string, spec string) (jsonuti
 func (cli *SZStackClient) _get(resource, resourceId string, spec string) (jsonutils.JSONObject, error) {
 	client := httputils.GetDefaultClient()
 	header := http.Header{}
-	header.Add("Content-Type", "application/json")
-	header.Add("Authorization", "OAuth "+cli.sessionID)
 	requestURL := cli.getURL(resource, resourceId, spec)
+	err := cli.sign(requestURL, "GET", header)
+	if err != nil {
+		return nil, err
+	}
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "GET", requestURL, header, nil, cli.debug)
 	if err != nil {
 		return nil, errors.Wrapf(err, fmt.Sprintf("GET %s %s %s", resource, resourceId, spec))
@@ -314,9 +374,11 @@ func (cli *SZStackClient) wait(client *http.Client, header http.Header, action s
 func (cli *SZStackClient) _post(resource string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	client := httputils.GetDefaultClient()
 	header := http.Header{}
-	header.Add("Content-Type", "application/json")
-	header.Add("Authorization", "OAuth "+cli.sessionID)
 	requestURL := cli.getPostURL(resource)
+	err := cli.sign(requestURL, "POST", header)
+	if err != nil {
+		return nil, err
+	}
 	_, resp, err := httputils.JSONRequest(client, context.Background(), "POST", requestURL, header, params, cli.debug)
 	if err != nil {
 		return nil, errors.Wrapf(err, fmt.Sprintf("POST %s %s", resource, params.String()))
