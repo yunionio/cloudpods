@@ -111,6 +111,9 @@ func (image *SImage) GetIStoragecache() cloudprovider.ICloudStoragecache {
 }
 
 func (image *SImage) GetStatus() string {
+	if image.State != "Enabled" {
+		return api.CACHED_IMAGE_STATUS_CACHING
+	}
 	switch image.Status {
 	case "Ready":
 		return api.CACHED_IMAGE_STATUS_READY
