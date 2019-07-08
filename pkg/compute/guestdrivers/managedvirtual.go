@@ -167,28 +167,28 @@ func (self *SManagedVirtualizedGuestDriver) RequestAttachDisk(ctx context.Contex
 // }
 
 func (self *SManagedVirtualizedGuestDriver) RequestStartOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, userCred mcclient.TokenCredential, task taskman.ITask) (jsonutils.JSONObject, error) {
-	ihost, e := host.GetIHost()
-	if e != nil {
-		return nil, e
+	ihost, err := host.GetIHost()
+	if err != nil {
+		return nil, err
 	}
 
-	ivm, e := ihost.GetIVMById(guest.GetExternalId())
-	if e != nil {
-		return nil, e
+	ivm, err := ihost.GetIVMById(guest.GetExternalId())
+	if err != nil {
+		return nil, err
 	}
 
 	result := jsonutils.NewDict()
 	if ivm.GetStatus() != api.VM_RUNNING {
-		if err := ivm.StartVM(ctx); err != nil {
-			return nil, e
-		} else {
-			task.ScheduleRun(result)
+		err := ivm.StartVM(ctx)
+		if err != nil {
+			return nil, err
 		}
+		task.ScheduleRun(result)
 	} else {
 		result.Add(jsonutils.NewBool(true), "is_running")
 	}
 
-	return result, e
+	return result, nil
 }
 
 func (self *SManagedVirtualizedGuestDriver) RequestDeployGuestOnHost(ctx context.Context, guest *models.SGuest, host *models.SHost, task taskman.ITask) error {
