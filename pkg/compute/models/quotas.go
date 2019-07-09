@@ -90,7 +90,7 @@ func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope, ownerId mcclien
 }
 
 func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, name []string) error {
-	diskSize := totalDiskSize(scope, ownerId, tristate.None, tristate.None, false)
+	diskSize := totalDiskSize(scope, ownerId, tristate.None, tristate.None, false, false)
 	net := totalGuestNicCount(scope, ownerId, nil, false)
 	lbnic, _ := totalLBNicCount(scope, ownerId)
 	// net := WireManager.TotalCount(nil, nil, nil, "", scope, ownerId)
