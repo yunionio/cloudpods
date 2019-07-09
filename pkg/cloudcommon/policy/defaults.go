@@ -207,6 +207,18 @@ var (
 					Result:   rbacutils.Allow,
 				},
 				{
+					Service:  "compute",
+					Resource: "networks",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "networks",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
 					Service:  "image",
 					Resource: "images",
 					Action:   PolicyActionList,
