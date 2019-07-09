@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -230,18 +231,10 @@ func (model *SStandaloneResourceBase) GetMetadataJson(key string, userCred mccli
 }
 
 func (model *SStandaloneResourceBase) SetMetadata(ctx context.Context, key string, value interface{}, userCred mcclient.TokenCredential) error {
-	if Metadata.IsSystemAdminKey(key) && !IsAdminAllowPerform(userCred, model, "metadata") {
-		return httperrors.NewNotSufficientPrivilegeError("cannot set system key")
-	}
 	return Metadata.SetValue(ctx, model, key, value, userCred)
 }
 
 func (model *SStandaloneResourceBase) SetAllMetadata(ctx context.Context, dictstore map[string]interface{}, userCred mcclient.TokenCredential) error {
-	for k := range dictstore {
-		if Metadata.IsSystemAdminKey(k) && !IsAdminAllowPerform(userCred, model, "metadata") {
-			return httperrors.NewNotSufficientPrivilegeError("not allow to set system key %s", k)
-		}
-	}
 	return Metadata.SetValuesWithLog(ctx, model, dictstore, userCred)
 }
 
@@ -293,6 +286,10 @@ func (model *SStandaloneResourceBase) PerformMetadata(ctx context.Context, userC
 	}
 	dictStore := make(map[string]interface{})
 	for k, v := range dictMap {
+		// 已双下滑线开头的metadata是系统内置，普通用户不可添加，只能查看
+		if strings.HasPrefix(k, SYS_TAG_PREFIX) && (userCred == nil || !IsAdminAllowPerform(userCred, model, "metadata")) {
+			return nil, httperrors.NewForbiddenError("not allow to set system key, please remove the underscore at the beginning")
+		}
 		dictStore[k], _ = v.GetString()
 	}
 	err = model.SetAllMetadata(ctx, dictStore, userCred)
@@ -314,7 +311,7 @@ func (model *SStandaloneResourceBase) PerformUserMetadata(ctx context.Context, u
 	}
 	dictStore := make(map[string]interface{})
 	for k, v := range dictMap {
-		dictStore["user:"+k], _ = v.GetString()
+		dictStore[USER_TAG_PREFIX+k], _ = v.GetString()
 	}
 	err = model.SetUserMetadataValues(ctx, dictStore, userCred)
 	return nil, err
