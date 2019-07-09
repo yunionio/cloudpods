@@ -243,7 +243,7 @@ func (self *GuestChangeConfigTask) OnSyncConfigComplete(ctx context.Context, obj
 func (self *GuestChangeConfigTask) OnSyncStatusComplete(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	guest := obj.(*models.SGuest)
 	if guest.Status == api.VM_READY && jsonutils.QueryBoolean(self.Params, "auto_start", false) {
-		self.SetStage("on_guest_start_complete", nil)
+		self.SetStage("OnGuestStartComplete", nil)
 		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
 	} else {
 		dt := jsonutils.NewDict()
@@ -258,6 +258,10 @@ func (self *GuestChangeConfigTask) OnGuestStartComplete(ctx context.Context, obj
 	dt := jsonutils.NewDict()
 	dt.Add(jsonutils.NewString(guest.Id), "id")
 	self.SetStageComplete(ctx, dt)
+}
+
+func (self *GuestChangeConfigTask) OnGuestStartCompleteFailed(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
+	self.SetStageFailed(ctx, data.String())
 }
 
 func (self *GuestChangeConfigTask) markStageFailed(ctx context.Context, guest *models.SGuest, reason string) {
