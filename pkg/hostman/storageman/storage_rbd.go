@@ -18,13 +18,13 @@ package storageman
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/ceph/go-ceph/rados"
 	"github.com/ceph/go-ceph/rbd"
+	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -212,8 +212,18 @@ func (s *SRbdStorage) cloneImage(srcPool string, srcImage string, destPool strin
 			if err != nil {
 				return nil, err
 			}
+
+			err = dest.Open()
+			if err != nil {
+				return nil, errors.Wrap(err, "cloneImage.Open")
+			}
 			defer dest.Close()
-			return nil, dest.Flatten()
+
+			err = dest.Flatten()
+			if err != nil {
+				return nil, errors.Wrap(err, "cloneImage.Flatten")
+			}
+			return nil, nil
 		})
 	})
 	return err
