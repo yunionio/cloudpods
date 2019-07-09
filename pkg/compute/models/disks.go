@@ -1324,7 +1324,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 	return &disk, nil
 }
 
-func totalDiskSize(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, active tristate.TriState, ready tristate.TriState, includeSystem bool) int {
+func totalDiskSize(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, active tristate.TriState, ready tristate.TriState, includeSystem bool, pendingDelete bool) int {
 	disks := DiskManager.Query().SubQuery()
 	q := disks.Query(sqlchemy.SUM("total", disks.Field("disk_size")))
 	if !active.IsNone() {
@@ -1357,6 +1357,11 @@ func totalDiskSize(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvide
 	if !includeSystem {
 		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(disks.Field("is_system")),
 			sqlchemy.IsFalse(disks.Field("is_system"))))
+	}
+	if pendingDelete {
+		q = q.Filter(sqlchemy.IsTrue(disks.Field("pending_deleted")))
+	} else {
+		q = q.Filter(sqlchemy.OR(sqlchemy.IsNull(disks.Field("pending_deleted")), sqlchemy.IsFalse(disks.Field("pending_deleted"))))
 	}
 
 	row := q.Row()
