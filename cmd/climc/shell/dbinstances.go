@@ -104,7 +104,8 @@ func init() {
 
 	type DBInstanceBackupListOptions struct {
 		options.BaseListOptions
-		DBInstance string `help:"ID or Name of DBInstance" json:"dbinstance"`
+		DBInstance  string `help:"ID or Name of DBInstance" json:"dbinstance"`
+		Cloudregion string `help:"ID or Name of cloudregion"`
 	}
 	R(&DBInstanceBackupListOptions{}, "dbinstance-backup-list", "List DB instance backups", func(s *mcclient.ClientSession, opts *DBInstanceBackupListOptions) error {
 		params, err := options.ListStructToParams(opts)

@@ -11,6 +11,7 @@ import (
 
 type SDBInstanceDatabase struct {
 	multicloud.SDBInstanceDatabaseBase
+	instance *SDBInstance
 
 	CharacterSetName string
 	DBDescription    string

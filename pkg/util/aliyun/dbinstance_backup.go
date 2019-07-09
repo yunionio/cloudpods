@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"time"
 
-	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SDBInstanceBackup struct {
 	multicloud.SDBInstanceBackupBase
+	region *SRegion
 
 	BackupDBNames             string
 	BackupIntranetDownloadURL string
@@ -53,15 +54,12 @@ func (backup *SDBInstanceBackup) GetEndTime() time.Time {
 	return backup.BackupEndTime
 }
 
-func (backup *SDBInstanceBackup) GetBackupType() string {
-	switch backup.BackupType {
-	case "FullBackup":
-		return api.BACKUP_TYPE_FULL_BACKUP
-	case "IncrementalBackup":
-		return api.BACKUP_TYPE_INCREMENTALBACKUP
+func (backup *SDBInstanceBackup) GetBackupMode() string {
+	switch backup.BackupMode {
+	case "Manual":
+		return api.BACKUP_MODE_MANUAL
 	default:
-		log.Errorf("Unknown backup type %s", backup.BackupType)
-		return api.BACKUP_TYPE_UNKNOWN
+		return api.BACKUP_MODE_AUTOMATED
 	}
 }
 
@@ -92,6 +90,10 @@ func (backup *SDBInstanceBackup) GetIntranetDownloadURL() string {
 	return backup.BackupIntranetDownloadURL
 }
 
+func (backup *SDBInstanceBackup) GetDBInstanceId() string {
+	return backup.DBInstanceId
+}
+
 func (region *SRegion) GetDBInstanceBackups(instanceId, backupId string, offset int, limit int) ([]SDBInstanceBackup, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
@@ -116,4 +118,42 @@ func (region *SRegion) GetDBInstanceBackups(instanceId, backupId string, offset 
 	}
 	total, _ := body.Int("TotalRecordCount")
 	return backups, int(total), nil
+}
+
+func (region *SRegion) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
+	dbinstnaces, err := region.GetIDBInstances()
+	if err != nil {
+		return nil, err
+	}
+	ibackups := []cloudprovider.ICloudDBInstanceBackup{}
+	for i := 0; i < len(dbinstnaces); i++ {
+		_dbinstance := dbinstnaces[i].(*SDBInstance)
+		_ibackup, err := _dbinstance.GetIDBInstanceBackups()
+		if err != nil {
+			return nil, errors.Wrapf(err, "_dbinstance(%v).GetIDBInstanceBackups", _dbinstance)
+		}
+		ibackups = append(ibackups, _ibackup...)
+	}
+	return ibackups, nil
+}
+
+func (rds *SDBInstance) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
+	backups := []SDBInstanceBackup{}
+	for {
+		parts, total, err := rds.region.GetDBInstanceBackups(rds.DBInstanceId, "", len(backups), 50)
+		if err != nil {
+			return nil, err
+		}
+		backups = append(backups, parts...)
+		if len(backups) >= total {
+			break
+		}
+	}
+
+	ibackups := []cloudprovider.ICloudDBInstanceBackup{}
+	for i := 0; i < len(backups); i++ {
+		backups[i].region = rds.region
+		ibackups = append(ibackups, &backups[i])
+	}
+	return ibackups, nil
 }

@@ -22,10 +22,6 @@ func (instance *SDBInstanceBase) GetIDBInstanceParameters() ([]cloudprovider.ICl
 	return nil, fmt.Errorf("Not Implemented GetIDBInstanceParameters")
 }
 
-func (instance *SDBInstanceBase) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
-	return nil, fmt.Errorf("Not Implemented GetIDBInstanceBackups")
-}
-
 func (instance *SDBInstanceBase) GetIDBInstanceDatabases() ([]cloudprovider.ICloudDBInstanceDatabase, error) {
 	return nil, fmt.Errorf("Not Implemented GetIDBInstanceDatabases")
 }

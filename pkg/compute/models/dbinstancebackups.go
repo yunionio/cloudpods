@@ -16,9 +16,11 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
@@ -50,11 +52,12 @@ func init() {
 
 type SDBInstanceBackup struct {
 	db.SStatusStandaloneResourceBase
+	SCloudregionResourceBase
 	db.SExternalizedResourceBase
 
 	StartTime           time.Time `list:"user"`
 	EndTime             time.Time `list:"user"`
-	BackupType          string    `width:"32" charset:"ascii" nullable:"true" list:"user"`
+	BackupMode          string    `width:"32" charset:"ascii" nullable:"true" list:"user"`
 	IntranetDownloadURL string    `width:"256" charset:"ascii" nullable:"true" list:"user"`
 	DownloadURL         string    `width:"256" charset:"ascii" nullable:"true" list:"user"`
 	DBNames             string    `width:"512" charset:"ascii" nullable:"true" list:"user"`
@@ -96,6 +99,7 @@ func (manager *SDBInstanceBackupManager) ListItemFilter(ctx context.Context, q *
 	data := query.(*jsonutils.JSONDict)
 	return validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
 		{Key: "dbinstance", ModelKeyword: "dbinstance", OwnerId: userCred},
+		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
 	})
 }
 
@@ -113,12 +117,22 @@ func (manager *SDBInstanceBackupManager) getDBInstanceBackupsByInstance(instance
 	return backups, nil
 }
 
-func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, cloudBackups []cloudprovider.ICloudDBInstanceBackup) compare.SyncResult {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, instance.GetOwnerId()))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, instance.GetOwnerId()))
+func (manager *SDBInstanceBackupManager) getDBInstanceBackupsByRegion(region *SCloudregion) ([]SDBInstanceBackup, error) {
+	backups := []SDBInstanceBackup{}
+	q := manager.Query().Equals("cloudregion_id", region.Id)
+	err := db.FetchModelObjects(manager, q, &backups)
+	if err != nil {
+		return nil, errors.Wrap(err, "getDBInstanceBackupsByRegion.FetchModelObjects")
+	}
+	return backups, nil
+}
+
+func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, region *SCloudregion, cloudBackups []cloudprovider.ICloudDBInstanceBackup) compare.SyncResult {
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 
 	result := compare.SyncResult{}
-	dbBackups, err := manager.getDBInstanceBackupsByInstance(instance)
+	dbBackups, err := manager.getDBInstanceBackupsByRegion(region)
 	if err != nil {
 		result.Error(err)
 		return result
@@ -152,7 +166,7 @@ func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(ctx context.Conte
 	}
 
 	for i := 0; i < len(added); i++ {
-		err = manager.newFromCloudDBInstanceBackup(ctx, userCred, instance, added[i])
+		err = manager.newFromCloudDBInstanceBackup(ctx, userCred, syncOwnerId, region, added[i])
 		if err != nil {
 			result.AddError(err)
 		} else {
@@ -171,7 +185,15 @@ func (self *SDBInstanceBackup) SyncWithCloudDBInstanceBackup(ctx context.Context
 		self.DownloadURL = extBackup.GetDownloadURL()
 		self.BackupSizeMb = extBackup.GetBackupSizeMb()
 		self.DBNames = extBackup.GetDBNames()
-		self.BackupType = extBackup.GetBackupType()
+
+		if dbinstanceId := extBackup.GetDBInstanceId(); len(dbinstanceId) > 0 {
+			//有可能云上删除了实例，未删除备份
+			_, err := db.FetchByExternalId(DBInstanceManager, dbinstanceId)
+			if err == sql.ErrNoRows {
+				self.DBInstanceId = ""
+			}
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -180,20 +202,20 @@ func (self *SDBInstanceBackup) SyncWithCloudDBInstanceBackup(ctx context.Context
 	return nil
 }
 
-func (manager *SDBInstanceBackupManager) newFromCloudDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, extBackup cloudprovider.ICloudDBInstanceBackup) error {
+func (manager *SDBInstanceBackupManager) newFromCloudDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, region *SCloudregion, extBackup cloudprovider.ICloudDBInstanceBackup) error {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	backup := SDBInstanceBackup{}
 	backup.SetModelManager(manager, &backup)
 
-	newName, err := db.GenerateName(manager, instance.GetOwnerId(), extBackup.GetName())
+	newName, err := db.GenerateName(manager, syncOwnerId, extBackup.GetName())
 	if err != nil {
 		return errors.Wrap(err, "newFromCloudDBInstanceBackup.GenerateName")
 	}
 
 	backup.Name = newName
-	backup.DBInstanceId = instance.Id
+	backup.CloudregionId = region.Id
 	backup.Status = extBackup.GetStatus()
 	backup.StartTime = extBackup.GetStartTime()
 	backup.EndTime = extBackup.GetEndTime()
@@ -201,8 +223,17 @@ func (manager *SDBInstanceBackupManager) newFromCloudDBInstanceBackup(ctx contex
 	backup.DownloadURL = extBackup.GetDownloadURL()
 	backup.BackupSizeMb = extBackup.GetBackupSizeMb()
 	backup.DBNames = extBackup.GetDBNames()
-	backup.BackupType = extBackup.GetBackupType()
+	backup.BackupMode = extBackup.GetBackupMode()
 	backup.ExternalId = extBackup.GetGlobalId()
+
+	if dbinstanceId := extBackup.GetDBInstanceId(); len(dbinstanceId) > 0 {
+		dbinstance, err := db.FetchByExternalId(DBInstanceManager, dbinstanceId)
+		if err != nil {
+			log.Warningf("failed to found dbinstance for backup %s by externalId: %s error: %v", backup.Name, dbinstanceId, err)
+		} else {
+			backup.DBInstanceId = dbinstance.GetId()
+		}
+	}
 
 	err = manager.TableSpec().Insert(&backup)
 	if err != nil {

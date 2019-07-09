@@ -15,15 +15,25 @@
 package aws
 
 import (
+	"encoding/xml"
 	"fmt"
+	"io"
+	"net/url"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/private/protocol/query"
+
 	sdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/client"
+	"github.com/aws/aws-sdk-go/aws/client/metadata"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
+	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/aws/aws-sdk-go/service/s3"
 
 	"yunion.io/x/jsonutils"
@@ -57,6 +67,14 @@ var RegionLocations = map[string]string{
 	"us-gov-west-1":  "AWS GovCloud(美国)",
 }
 
+const (
+	RDS_SERVICE_NAME = "rds"
+	RDS_SERVICE_ID   = "RDS"
+
+	EC2_SERVICE_NAME = "ec2"
+	EC2_SERVICE_ID   = "EC2"
+)
+
 type SRegion struct {
 	multicloud.SRegion
 
@@ -64,7 +82,6 @@ type SRegion struct {
 	ec2Client *ec2.EC2
 	iamClient *iam.IAM
 	s3Client  *s3.S3
-	rdsClient *rds.RDS
 
 	izones []cloudprovider.ICloudZone
 	ivpcs  []cloudprovider.ICloudVpc
@@ -83,9 +100,11 @@ func (self *SRegion) GetClient() *SAwsClient {
 }
 
 func (self *SRegion) getAwsSession() (*session.Session, error) {
+	disableParamValidation := true
 	return session.NewSession(&sdk.Config{
-		Region:      sdk.String(self.RegionId),
-		Credentials: credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
+		Region:                 sdk.String(self.RegionId),
+		Credentials:            credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
+		DisableParamValidation: &disableParamValidation,
 	})
 }
 
@@ -118,20 +137,6 @@ func (self *SRegion) getIamClient() (*iam.IAM, error) {
 	return self.iamClient, nil
 }
 
-func (self *SRegion) getRdsClient() (*rds.RDS, error) {
-	if self.rdsClient == nil {
-		s, err := self.getAwsSession()
-
-		if err != nil {
-			return nil, err
-		}
-
-		self.rdsClient = rds.New(s)
-	}
-
-	return self.rdsClient, nil
-}
-
 func (self *SRegion) GetS3Client() (*s3.S3, error) {
 	if self.s3Client == nil {
 		s, err := self.getAwsSession()
@@ -144,6 +149,144 @@ func (self *SRegion) GetS3Client() (*s3.S3, error) {
 	}
 
 	return self.s3Client, nil
+}
+
+var UnmarshalHandler = request.NamedHandler{Name: "yunion.query.Unmarshal", Fn: Unmarshal}
+
+func Unmarshal(r *request.Request) {
+	defer r.HTTPResponse.Body.Close()
+	if r.DataFilled() {
+		decoder := xml.NewDecoder(r.HTTPResponse.Body)
+		if r.ClientInfo.ServiceID == EC2_SERVICE_ID {
+			err := decoder.Decode(r.Data)
+			if err != nil {
+				r.Error = awserr.NewRequestFailure(
+					awserr.New("SerializationError", "failed decoding EC2 Query response", err),
+					r.HTTPResponse.StatusCode,
+					r.RequestID,
+				)
+			}
+			return
+		}
+		for {
+			tok, err := decoder.Token()
+			if err != nil {
+				if err == io.EOF {
+					break
+				} else {
+					r.Error = awserr.NewRequestFailure(
+						awserr.New("decoder.Token()", "get token", err),
+						r.HTTPResponse.StatusCode,
+						r.RequestID,
+					)
+					return
+				}
+			}
+
+			if tok == nil {
+				break
+			}
+
+			switch typed := tok.(type) {
+			case xml.CharData:
+				continue
+			case xml.StartElement:
+				if typed.Name.Local == r.Operation.Name+"Result" {
+					err = decoder.DecodeElement(r.Data, &typed)
+					r.Error = awserr.NewRequestFailure(
+						awserr.New("DecodeElement", "failed decoding Query response", err),
+						r.HTTPResponse.StatusCode,
+						r.RequestID,
+					)
+					return
+				}
+			case xml.EndElement:
+				break
+			}
+		}
+
+	}
+}
+
+var buildHandler = request.NamedHandler{Name: "yunion.query.Build", Fn: Build}
+
+func Build(r *request.Request) {
+	body := url.Values{
+		"Action":  {r.Operation.Name},
+		"Version": {r.ClientInfo.APIVersion},
+	}
+	if r.Params != nil {
+		if params, ok := r.Params.(map[string]string); ok {
+			for k, v := range params {
+				body.Add(k, v)
+			}
+		}
+	}
+
+	if !r.IsPresigned() {
+		r.HTTPRequest.Method = "POST"
+		r.HTTPRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
+		r.SetBufferBody([]byte(body.Encode()))
+	} else { // This is a pre-signed request
+		r.HTTPRequest.Method = "GET"
+		r.HTTPRequest.URL.RawQuery = body.Encode()
+	}
+}
+
+func (self *SRegion) rdsRequest(apiName string, params map[string]string, retval interface{}) error {
+	session, err := self.getAwsSession()
+	if err != nil {
+		return err
+	}
+	c := session.ClientConfig(RDS_SERVICE_NAME)
+	metadata := metadata.ClientInfo{
+		ServiceName:   RDS_SERVICE_NAME,
+		ServiceID:     RDS_SERVICE_ID,
+		SigningName:   c.SigningName,
+		SigningRegion: c.SigningRegion,
+		Endpoint:      c.Endpoint,
+		APIVersion:    "2014-10-31",
+	}
+
+	requestErr := aws.LogDebugWithRequestErrors
+
+	c.Config.LogLevel = &requestErr
+
+	client := client.New(*c.Config, metadata, c.Handlers)
+	client.Handlers.Sign.PushBackNamed(v4.SignRequestHandler)
+	client.Handlers.Build.PushBackNamed(buildHandler)
+	client.Handlers.Unmarshal.PushBackNamed(UnmarshalHandler)
+	client.Handlers.UnmarshalMeta.PushBackNamed(query.UnmarshalMetaHandler)
+	client.Handlers.UnmarshalError.PushBackNamed(query.UnmarshalErrorHandler)
+	return jsonRequest(client, apiName, params, retval, true)
+}
+
+func (self *SRegion) ec2Request(apiName string, params map[string]string, retval interface{}) error {
+	session, err := self.getAwsSession()
+	if err != nil {
+		return err
+	}
+	c := session.ClientConfig(EC2_SERVICE_NAME)
+	metadata := metadata.ClientInfo{
+		ServiceName:   EC2_SERVICE_NAME,
+		ServiceID:     EC2_SERVICE_ID,
+		SigningName:   c.SigningName,
+		SigningRegion: c.SigningRegion,
+		Endpoint:      c.Endpoint,
+		APIVersion:    "2016-11-15",
+	}
+
+	requestErr := aws.LogDebugWithRequestErrors
+
+	c.Config.LogLevel = &requestErr
+
+	client := client.New(*c.Config, metadata, c.Handlers)
+	client.Handlers.Sign.PushBackNamed(v4.SignRequestHandler)
+	client.Handlers.Build.PushBackNamed(buildHandler)
+	client.Handlers.Unmarshal.PushBackNamed(UnmarshalHandler)
+	client.Handlers.UnmarshalMeta.PushBackNamed(query.UnmarshalMetaHandler)
+	client.Handlers.UnmarshalError.PushBackNamed(query.UnmarshalErrorHandler)
+	return jsonRequest(client, apiName, params, retval, true)
 }
 
 /////////////////////////////////////////////////////////////////////////////

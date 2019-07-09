@@ -892,7 +892,7 @@ func syncRegionDBInstances(ctx context.Context, userCred mcclient.TokenCredentia
 			syncDBInstanceNetwork(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 			syncDBInstanceExtraIps(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 			syncDBInstanceParameters(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
-			syncDBInstanceBackups(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
+			// syncDBInstanceBackups(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 			syncDBInstanceDatabases(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 			syncDBInstanceAccounts(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 		}()
@@ -904,6 +904,10 @@ func syncDBInstanceNetwork(ctx context.Context, userCred mcclient.TokenCredentia
 	if err != nil {
 		msg := fmt.Sprintf("GetDBNetwork for dbinstance %s failed %s", remoteInstance.GetName(), err)
 		log.Errorf(msg)
+		return
+	}
+
+	if network == nil {
 		return
 	}
 
@@ -953,22 +957,23 @@ func syncDBInstanceParameters(ctx context.Context, userCred mcclient.TokenCreden
 	}
 }
 
-func syncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) {
-	backups, err := remoteInstance.GetIDBInstanceBackups()
+func syncRegionDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	backups, err := remoteRegion.GetIDBInstanceBackups()
 	if err != nil {
-		msg := fmt.Sprintf("GetIDBInstanceBackups for dbinstance %s failed %s", remoteInstance.GetName(), err)
+		msg := fmt.Sprintf("GetIDBInstanceBackups for dbinstance %s failed %s", remoteRegion.GetName(), err)
 		log.Errorf(msg)
 		return
 	}
 
-	result := DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, localInstance, backups)
+	result := DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, provider.GetOwnerId(), localRegion, backups)
 	syncResults.Add(DBInstanceBackupManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncDBInstanceBackups for dbinstance %s result: %s", localInstance.Name, msg)
+	log.Infof("SyncDBInstanceBackups for region %s result: %s", localRegion.Name, msg)
 	if result.IsError() {
 		return
 	}
+
 }
 
 func syncDBInstanceDatabases(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) {
@@ -1158,6 +1163,7 @@ func syncPublicCloudProviderInfo(
 	syncRegionNetworkInterfaces(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
 	syncRegionDBInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+	syncRegionDBInstanceBackups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
 	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 	for i := range storageCachePairs {

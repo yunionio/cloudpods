@@ -172,17 +172,12 @@ func (manager *SDBInstanceAccountManager) newFromCloudDBInstanceAccount(ctx cont
 	account := SDBInstanceAccount{}
 	account.SetModelManager(manager, &account)
 
-	newName, err := db.GenerateName(manager, instance.GetOwnerId(), extAccount.GetName())
-	if err != nil {
-		return errors.Wrap(err, "newFromCloudDBInstanceAccount.GenerateName")
-	}
-
-	account.Name = newName
+	account.Name = extAccount.GetName()
 	account.DBInstanceId = instance.Id
 	account.Status = extAccount.GetStatus()
 	account.ExternalId = extAccount.GetGlobalId()
 
-	err = manager.TableSpec().Insert(&account)
+	err := manager.TableSpec().Insert(&account)
 	if err != nil {
 		return errors.Wrapf(err, "newFromCloudDBInstanceAccount.Insert")
 	}

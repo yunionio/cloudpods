@@ -21,6 +21,7 @@ type SDatabasePrivileges struct {
 
 type SDBInstanceAccount struct {
 	multicloud.SDBInstanceAccountBase
+	instance *SDBInstance
 
 	AccountDescription string
 	AccountName        string

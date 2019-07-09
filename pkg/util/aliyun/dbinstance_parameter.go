@@ -6,6 +6,8 @@ import (
 )
 
 type SDBInstanceParameter struct {
+	instance *SDBInstance
+
 	ParameterDescription string
 	ParameterValue       string
 	ParameterName        string

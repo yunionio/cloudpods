@@ -52,15 +52,9 @@ type SIpAddress struct {
 	IpAddress []string
 }
 
-type SNetworkInterfaces struct {
-	NetworkInterface []SNetworkInterface
-}
-
-type SNetworkInterface struct {
-	MacAddress         string
-	NetworkInterfaceId string
-	PrimaryIpAddress   string // PrivateIpAddress
-}
+// type SNetworkInterfaces struct {
+// 	NetworkInterface []SNetworkInterface
+// }
 
 type SSecurityGroupIds struct {
 	SecurityGroupId []string
@@ -558,7 +552,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				i := SNetworkInterface{
 					MacAddress:         *n.MacAddress,
 					NetworkInterfaceId: *n.NetworkInterfaceId,
-					PrimaryIpAddress:   *n.PrivateIpAddress,
+					PrivateIpAddress:   *n.PrivateIpAddress,
 				}
 				networkInterfaces.NetworkInterface = append(networkInterfaces.NetworkInterface, i)
 
