@@ -65,3 +65,7 @@ func (self *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInter
 func (self *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error) {
 	return nil, fmt.Errorf("GetIDBInstances not implement")
 }
+
+func (self *SRegion) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
+	return nil, fmt.Errorf("Not Implemented GetIDBInstanceBackups")
+}

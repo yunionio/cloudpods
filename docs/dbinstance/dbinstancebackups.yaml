@@ -3,7 +3,9 @@ get:
   parameters:
     - $ref: '../parameters/common.yaml#/limit'
     - $ref: '../parameters/common.yaml#/offset'
+    - $ref: '../parameters/common.yaml#/cloudregion'
     - $ref: '../parameters/dbinstance.yaml#/dbinstance'
+
 
   responses:
     200:

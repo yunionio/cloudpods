@@ -382,26 +382,6 @@ func (rds *SDBInstance) GetIDBInstanceParameters() ([]cloudprovider.ICloudDBInst
 	return iparameters, nil
 }
 
-func (rds *SDBInstance) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
-	backups := []SDBInstanceBackup{}
-	for {
-		parts, total, err := rds.region.GetDBInstanceBackups(rds.DBInstanceId, "", len(backups), 50)
-		if err != nil {
-			return nil, err
-		}
-		backups = append(backups, parts...)
-		if len(backups) >= total {
-			break
-		}
-	}
-
-	ibackups := []cloudprovider.ICloudDBInstanceBackup{}
-	for i := 0; i < len(backups); i++ {
-		ibackups = append(ibackups, &backups[i])
-	}
-	return ibackups, nil
-}
-
 func (rds *SDBInstance) GetIDBInstanceDatabases() ([]cloudprovider.ICloudDBInstanceDatabase, error) {
 	databases := []SDBInstanceDatabase{}
 	for {
@@ -417,6 +397,7 @@ func (rds *SDBInstance) GetIDBInstanceDatabases() ([]cloudprovider.ICloudDBInsta
 
 	idatabase := []cloudprovider.ICloudDBInstanceDatabase{}
 	for i := 0; i < len(databases); i++ {
+		databases[i].instance = rds
 		idatabase = append(idatabase, &databases[i])
 	}
 	return idatabase, nil
@@ -437,6 +418,7 @@ func (rds *SDBInstance) GetIDBInstanceAccounts() ([]cloudprovider.ICloudDBInstan
 
 	iaccounts := []cloudprovider.ICloudDBInstanceAccount{}
 	for i := 0; i < len(accounts); i++ {
+		accounts[i].instance = rds
 		iaccounts = append(iaccounts, &accounts[i])
 	}
 	return iaccounts, nil

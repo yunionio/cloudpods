@@ -119,6 +119,7 @@ type ICloudRegion interface {
 	GetIBucketById(name string) (ICloudBucket, error)
 
 	GetIDBInstances() ([]ICloudDBInstance, error)
+	GetIDBInstanceBackups() ([]ICloudDBInstanceBackup, error)
 
 	GetProvider() string
 }
@@ -715,7 +716,6 @@ type ICloudDBInstance interface {
 	GetExtraIps() ([]SExtraIp, error)
 
 	GetIDBInstanceParameters() ([]ICloudDBInstanceParameter, error)
-	GetIDBInstanceBackups() ([]ICloudDBInstanceBackup, error)
 	GetIDBInstanceDatabases() ([]ICloudDBInstanceDatabase, error)
 	GetIDBInstanceAccounts() ([]ICloudDBInstanceAccount, error)
 }
@@ -730,13 +730,14 @@ type ICloudDBInstanceParameter interface {
 type ICloudDBInstanceBackup interface {
 	ICloudResource
 
+	GetDBInstanceId() string
 	GetStartTime() time.Time
 	GetEndTime() time.Time
 	GetBackupSizeMb() int
 	GetDBNames() string
 	GetDownloadURL() string
 	GetIntranetDownloadURL() string
-	GetBackupType() string
+	GetBackupMode() string
 }
 
 type ICloudDBInstanceDatabase interface {

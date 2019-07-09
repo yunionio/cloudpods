@@ -209,10 +209,10 @@ DBInstanceBackup:
           type: string
           example: "2019-06-22T02:33:24.000000Z"
           description: RDS实例备份结束时间
-        backup_type:
+        backup_mode:
           type: string
           example: full_backup
-          description: RDS实例备份类型，增量 or 全量
+          description: RDS实例备份类型，手动或自动
         intranet_download_url:
           type: string
           example: http://rdsbak-bj-v3.oss-cn-beijing-internal.aliyuncs.com/custins1131839/hins6172779_data_20190622103022.tar.gz?OSSAccessKeyId=Kid&Expires=1561814291&Signature=4YxhdryPvGHbPzZkt3TW6Z4kfa4%3D
@@ -229,6 +229,11 @@ DBInstanceBackup:
           type: string
           example: d0fe1519-8de5-4e13-844a-7367f4210f83
           description: RDS实例ID
+          readOnly: true
+        cloudregion_id:
+          type: string
+          example: c8b87bc0-fd97-4b28-83ad-2a8f9b755bab
+          description: RDS备份所属的region id
           readOnly: true
 
 DBInstanceBackupListResponse:

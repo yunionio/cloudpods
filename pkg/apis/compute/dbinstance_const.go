@@ -31,9 +31,8 @@ const (
 	DBINSTANCE_BACKUP_FAILED   = "failed"
 	DBINSTANCE_BACKUP_UNKNOWN  = "unknown"
 
-	BACKUP_TYPE_FULL_BACKUP       = "full_backup"
-	BACKUP_TYPE_INCREMENTALBACKUP = "incremental_backup"
-	BACKUP_TYPE_UNKNOWN           = "unknown"
+	BACKUP_MODE_AUTOMATED = "automated"
+	BACKUP_MODE_MANUAL    = "manual"
 
 	DBINSTANCE_DATABASE_CREATING = "creating"
 	DBINSTANCE_DATABASE_RUNNING  = "running"
