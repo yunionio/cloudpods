@@ -268,9 +268,6 @@ func (manager *SMetadataManager) SetValues(ctx context.Context, obj IModel, stor
 
 	changes := make([]sMetadataChange, 0)
 	for key, value := range store {
-		if strings.HasPrefix(key, SYS_TAG_PREFIX) && (userCred == nil || !IsAdminAllowGetSpec(userCred, obj, "metadata")) {
-			return nil, httperrors.NewForbiddenError("Ordinary users can't set the tags that begin with an underscore")
-		}
 
 		valStr := stringutils.Interface2String(value)
 		valStrLower := strings.ToLower(valStr)
