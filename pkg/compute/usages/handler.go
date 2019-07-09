@@ -341,9 +341,7 @@ func ReportGeneralUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityP
 		if err == nil {
 			count.Include(commonUsage)
 		}
-	}
-
-	if scope.HigherEqual(rbacutils.ScopeProject) {
+	} else if scope.HigherEqual(rbacutils.ScopeProject) {
 		commonUsage, err := getCommonGeneralUsage(rbacutils.ScopeProject, userCred, rangeObj, hostTypes, providers, brands, cloudEnv)
 		if err == nil {
 			count.Include(commonUsage)
