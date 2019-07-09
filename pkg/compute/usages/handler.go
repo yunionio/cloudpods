@@ -105,6 +105,7 @@ func rangeObjHandler(
 			httperrors.GeneralServerError(w, err)
 			return
 		}
+		log.Debugf("%s %s", ownerId, scope)
 		query := getQuery(r)
 		hostTypes := json.GetQueryStringArray(query, "host_type")
 		// resourceTypes := json.GetQueryStringArray(query, "resource_type")
