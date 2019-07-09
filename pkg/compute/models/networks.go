@@ -1444,8 +1444,20 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		if err != nil {
 			return nil, httperrors.NewNotFoundError("Zone %s not found", zoneStr)
 		}
-		sq := WireManager.Query("id").Equals("zone_id", zoneObj.GetId())
-		q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
+		zone := zoneObj.(*SZone)
+		region := zone.GetRegion()
+		if utils.IsInStringArray(region.Provider, api.REGINAL_NETWORK_PROVIDERS) {
+			wires := WireManager.Query().SubQuery()
+			vpcs := VpcManager.Query().SubQuery()
+
+			sq := wires.Query(wires.Field("id")).
+				Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
+				Filter(sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.Id))
+			q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
+		} else {
+			sq := WireManager.Query("id").Equals("zone_id", zoneObj.GetId())
+			q = q.Filter(sqlchemy.In(q.Field("wire_id"), sq.SubQuery()))
+		}
 	}
 
 	vpcStr, _ := query.GetString("vpc")
@@ -1485,7 +1497,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 
 		sq := wires.Query(wires.Field("id")).
 			Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
-			Join(zones, sqlchemy.Equals(wires.Field("zone_id"), zones.Field("id"))).
+			Join(zones, sqlchemy.OR(sqlchemy.Equals(wires.Field("zone_id"), zones.Field("id")), sqlchemy.IsNullOrEmpty(wires.Field("zone_id")))).
 			Join(regions, sqlchemy.Equals(zones.Field("cloudregion_id"), regions.Field("id"))).
 			Filter(sqlchemy.AND(
 				sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE),
