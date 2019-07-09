@@ -33,6 +33,7 @@ type GuestStartTask struct {
 
 func init() {
 	taskman.RegisterTask(GuestStartTask{})
+	taskman.RegisterTask(GuestSchedStartTask{})
 }
 
 func (self *GuestStartTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
