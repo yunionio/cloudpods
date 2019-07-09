@@ -26,9 +26,11 @@ type GeneralUsageOptions struct {
 	Provider []string `help:"Provider" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|ZStack"`
 	Brand    []string `help:"Brands" choices:"OneCloud|VMware|Aliyun|Azure|Aws|Qcloud|Huawei|OpenStack|Ucloud|ZStack|DStack"`
 	Project  string   `help:"show usage of specified project"`
-	Domain   string   `help:"show usage of specified domain"`
-	CloudEnv string   `help:"show usage of specified cloudenv, e.g. public_cloud/private_cloud/on_premise" choices:"public|private|onpremise"`
-	Scope    string   `help:"show usage of specified privilege scope, e.g. system/domain/project" choices:"system|domain|project"`
+
+	ProjectDomain string `help:"show usage of specified domain"`
+
+	CloudEnv string `help:"show usage of specified cloudenv, e.g. public_cloud/private_cloud/on_premise" choices:"public|private|onpremise"`
+	Scope    string `help:"show usage of specified privilege scope, e.g. system/domain/project" choices:"system|domain|project"`
 }
 
 func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {
@@ -53,8 +55,8 @@ func init() {
 		params := fetchHostTypeOptions(args)
 		if args.Project != "" {
 			params.Add(jsonutils.NewString(args.Project), "project")
-		} else if args.Domain != "" {
-			params.Add(jsonutils.NewString(args.Domain), "domain")
+		} else if args.ProjectDomain != "" {
+			params.Add(jsonutils.NewString(args.ProjectDomain), "project_domain")
 		}
 		if len(args.Scope) > 0 {
 			params.Add(jsonutils.NewString(args.Scope), "scope")
