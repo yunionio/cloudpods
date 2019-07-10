@@ -97,7 +97,7 @@ func (manager *STenantCacheManager) updateTenantCache(userCred mcclient.TokenCre
 		userCred.GetProjectDomainId(), userCred.GetProjectDomain())
 }
 
-func (manager *STenantCacheManager) fetchTenant(ctx context.Context, idStr string, isDomain bool, filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) (*STenant, error) {
+func (manager *STenantCacheManager) fetchTenant(ctx context.Context, idStr string, isDomain bool, noExpireCheck bool, filter func(q *sqlchemy.SQuery) *sqlchemy.SQuery) (*STenant, error) {
 	q := manager.Query()
 	if isDomain {
 		q = q.Equals("domain_id", identityapi.KeystoneDomainRoot)
@@ -114,7 +114,7 @@ func (manager *STenantCacheManager) fetchTenant(ctx context.Context, idStr strin
 		return nil, errors.Wrap(err, "query")
 	} else if tobj != nil {
 		tenant := tobj.(*STenant)
-		if !tenant.IsExpired() {
+		if noExpireCheck || !tenant.IsExpired() {
 			return tenant, nil
 		}
 	}
@@ -137,7 +137,7 @@ func (t *STenant) IsExpired() bool {
 }
 
 func (manager *STenantCacheManager) FetchTenantByIdOrName(ctx context.Context, idStr string) (*STenant, error) {
-	return manager.fetchTenant(ctx, idStr, false, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	return manager.fetchTenant(ctx, idStr, false, false, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		if stringutils2.IsUtf8(idStr) {
 			return q.Equals("name", idStr)
 		} else {
@@ -150,13 +150,21 @@ func (manager *STenantCacheManager) FetchTenantByIdOrName(ctx context.Context, i
 }
 
 func (manager *STenantCacheManager) FetchTenantById(ctx context.Context, idStr string) (*STenant, error) {
-	return manager.fetchTenant(ctx, idStr, false, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	return manager.fetchTenantById(ctx, idStr, false)
+}
+
+func (manager *STenantCacheManager) FetchTenantByIdWithoutExpireCheck(ctx context.Context, idStr string) (*STenant, error) {
+	return manager.fetchTenantById(ctx, idStr, false)
+}
+
+func (manager *STenantCacheManager) fetchTenantById(ctx context.Context, idStr string, noExpireCheck bool) (*STenant, error) {
+	return manager.fetchTenant(ctx, idStr, false, noExpireCheck, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		return q.Filter(sqlchemy.Equals(q.Field("id"), idStr))
 	})
 }
 
 func (manager *STenantCacheManager) FetchTenantByName(ctx context.Context, idStr string) (*STenant, error) {
-	return manager.fetchTenant(ctx, idStr, false, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	return manager.fetchTenant(ctx, idStr, false, false, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		return q.Filter(sqlchemy.Equals(q.Field("name"), idStr))
 	})
 }
@@ -185,7 +193,7 @@ func (manager *STenantCacheManager) fetchTenantFromKeystone(ctx context.Context,
 }
 
 func (manager *STenantCacheManager) FetchDomainByIdOrName(ctx context.Context, idStr string) (*STenant, error) {
-	return manager.fetchTenant(ctx, idStr, true, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	return manager.fetchTenant(ctx, idStr, true, false, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		if stringutils2.IsUtf8(idStr) {
 			return q.Equals("name", idStr)
 		} else {
@@ -198,13 +206,21 @@ func (manager *STenantCacheManager) FetchDomainByIdOrName(ctx context.Context, i
 }
 
 func (manager *STenantCacheManager) FetchDomainById(ctx context.Context, idStr string) (*STenant, error) {
-	return manager.fetchTenant(ctx, idStr, true, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	return manager.fetchDomainById(ctx, idStr, false)
+}
+
+func (manager *STenantCacheManager) FetchDomainByIdWithoutExpireCheck(ctx context.Context, idStr string) (*STenant, error) {
+	return manager.fetchDomainById(ctx, idStr, true)
+}
+
+func (manager *STenantCacheManager) fetchDomainById(ctx context.Context, idStr string, noExpireCheck bool) (*STenant, error) {
+	return manager.fetchTenant(ctx, idStr, true, noExpireCheck, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		return q.Filter(sqlchemy.Equals(q.Field("id"), idStr))
 	})
 }
 
 func (manager *STenantCacheManager) FetchDomainByName(ctx context.Context, idStr string) (*STenant, error) {
-	return manager.fetchTenant(ctx, idStr, true, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
+	return manager.fetchTenant(ctx, idStr, true, false, func(q *sqlchemy.SQuery) *sqlchemy.SQuery {
 		return q.Filter(sqlchemy.Equals(q.Field("name"), idStr))
 	})
 }
