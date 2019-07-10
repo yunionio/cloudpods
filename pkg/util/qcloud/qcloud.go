@@ -328,6 +328,9 @@ func _baseJsonRequest(client *common.Client, req tchttp.Request, resp qcloudResp
 				break
 			}
 		}
+		if strings.Contains(err.Error(), "Code=ResourceNotFound") {
+			return nil, cloudprovider.ErrNotFound
+		}
 		if needRetry {
 			log.Errorf("request url %s\nparams: %s\nerror: %v\ntry after %d seconds", req.GetDomain(), jsonutils.Marshal(req.GetParams()).PrettyString(), err, i*10)
 			time.Sleep(time.Second * time.Duration(i*10))
