@@ -28,7 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	"yunion.io/x/onecloud/pkg/hostman/storageman/nbd"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/image/models"
 	"yunion.io/x/onecloud/pkg/image/options"
 	_ "yunion.io/x/onecloud/pkg/image/tasks"
@@ -104,7 +104,9 @@ func StartService() {
 
 	go models.CheckImages()
 
-	nbd.Init() // init nbd module for image probe
+	if len(options.Options.DeployServerSocketPath) > 0 {
+		deployclient.Init(options.Options.DeployServerSocketPath)
+	}
 
 	if !opts.IsSlaveNode {
 		cron := cronman.GetCronJobManager(true)

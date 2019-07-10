@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package storageman
+package storagehandler
 
 import (
 	"context"
@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
+	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -76,7 +77,7 @@ func storageAttach(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	}
 
 	storageType, _ := body.GetString("storage_type")
-	storage := storageManager.NewSharedStorageInstance(mountPoint, storageType)
+	storage := storageman.GetManager().NewSharedStorageInstance(mountPoint, storageType)
 	if storage == nil {
 		return nil, httperrors.NewBadRequestError("'Not Support Storage[%s] mount_point: %s", storageType, mountPoint)
 	}
@@ -92,8 +93,8 @@ func storageAttach(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	if err != nil {
 		return nil, err
 	}
-	storageManager.InitSharedStorageImageCache(storageType, storagecacheId, imagecachePath, storage)
-	storageManager.Storages = append(storageManager.Storages, storage)
+	storageman.GetManager().InitSharedStorageImageCache(storageType, storagecacheId, imagecachePath, storage)
+	storageman.GetManager().Storages = append(storageman.GetManager().Storages, storage)
 	return resp, nil
 }
 
@@ -102,13 +103,13 @@ func storageDetach(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("mount_point")
 	}
-	storage := storageManager.GetStorageByPath(mountPoint)
+	storage := storageman.GetManager().GetStorageByPath(mountPoint)
 
 	name, _ := body.GetString("name")
 	if storage == nil {
 		return nil, httperrors.NewBadRequestError("ShareStorage[%s] Has detach from host ...", name)
 	}
-	storageManager.Remove(storage)
+	storageman.GetManager().Remove(storage)
 	return nil, nil
 }
 
@@ -121,11 +122,11 @@ func storageUpdate(ctx context.Context, body jsonutils.JSONObject) (interface{},
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("storage_conf")
 	}
-	storage := storageManager.GetStorage(storageId)
+	storage := storageman.GetManager().GetStorage(storageId)
 	params := jsonutils.NewDict()
 	params.Set("details", jsonutils.JSONTrue)
 	ret, err := modules.Hoststorages.Get(hostutils.GetComputeSession(context.Background()),
-		storageManager.GetHostId(), storageId, params)
+		storageman.GetManager().GetHostId(), storageId, params)
 	if err != nil {
 		log.Errorln(err)
 		return nil, err
@@ -143,7 +144,7 @@ func storageUpdate(ctx context.Context, body jsonutils.JSONObject) (interface{},
 func storageDeleteSnapshots(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	params, _, body := appsrv.FetchEnv(ctx, w, r)
 	var storageId = params["<storageId>"]
-	storage := storageManager.GetStorage(storageId)
+	storage := storageman.GetManager().GetStorage(storageId)
 	if storage == nil {
 		hostutils.Response(ctx, w, httperrors.NewNotFoundError("Stroage Not found"))
 		return

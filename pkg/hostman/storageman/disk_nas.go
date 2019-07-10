@@ -16,10 +16,15 @@ package storageman
 
 import (
 	"context"
+	"fmt"
+	"path"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
 type SNasDisk struct {
@@ -44,6 +49,41 @@ func (d *SNasDisk) CreateFromTemplate(ctx context.Context, imageId, format strin
 		return d.Resize(ctx, params)
 	}
 	return ret, nil
+}
+
+func (d *SNasDisk) CreateFromImageFuse(ctx context.Context, url string, size int64) error {
+	return fmt.Errorf("Not implemented")
+}
+
+func (d *SNasDisk) CreateFromSnapshotLocation(ctx context.Context, snapshotLocation string, size int64) error {
+	snapshotPath := path.Join(d.Storage.GetPath(), snapshotLocation)
+	newImg, err := qemuimg.NewQemuImage(d.GetPath())
+	if err != nil {
+		return errors.Wrap(err, "new image from snapshot")
+	}
+	if newImg.IsValid() {
+		if err := newImg.Delete(); err != nil {
+			log.Errorln(err)
+			return err
+		}
+	}
+	err = newImg.CreateQcow2(0, false, snapshotPath)
+	if err != nil {
+		return errors.Wrap(err, "create image from snapshot")
+	}
+	retSize, _ := d.GetDiskDesc().Int("disk_size")
+	log.Infof("REQSIZE: %d, RETSIZE: %d", size, retSize)
+	if size > retSize {
+		params := jsonutils.NewDict()
+		params.Set("size", jsonutils.NewInt(size))
+		_, err = d.Resize(ctx, params)
+		return err
+	}
+	return nil
+}
+
+func (d *SNasDisk) GetSnapshotLocation() string {
+	return d.GetSnapshotDir()[len(d.Storage.GetPath())+1:]
 }
 
 type SNFSDisk struct {

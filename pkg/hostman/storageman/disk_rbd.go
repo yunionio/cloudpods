@@ -147,10 +147,6 @@ func (d *SRBDDisk) PrepareMigrate(liveMigrate bool) (string, error) {
 	return "", fmt.Errorf("Not support")
 }
 
-func (d *SRBDDisk) CreateFromUrl(context.Context, string) error {
-	return fmt.Errorf("Not impl")
-}
-
 func (d *SRBDDisk) CreateFromTemplate(ctx context.Context, imageId string, format string, size int64) (jsonutils.JSONObject, error) {
 	ret, err := d.createFromTemplate(ctx, imageId, format)
 	if err != nil {
@@ -186,7 +182,7 @@ func (d *SRBDDisk) createFromTemplate(ctx context.Context, imageId, format strin
 	return d.GetDiskDesc(), nil
 }
 
-func (d *SRBDDisk) CreateFromImageFuse(context.Context, string) error {
+func (d *SRBDDisk) CreateFromImageFuse(ctx context.Context, url string, size int64) error {
 	return fmt.Errorf("Not support")
 }
 
@@ -198,26 +194,10 @@ func (d *SRBDDisk) CreateRaw(ctx context.Context, sizeMb int, diskFromat string,
 	}
 
 	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
-		d.FormatFs(fsFormat, diskId)
+		d.FormatFs(fsFormat, diskId, d.GetPath())
 	}
 
 	return d.GetDiskDesc(), nil
-}
-
-func (d *SRBDDisk) FormatFs(fsFormat, uuid string) {
-	log.Infof("Make disk %s fs %s", uuid, fsFormat)
-	gd := NewKVMGuestDisk(d.GetPath())
-	defer gd.Disconnect()
-	if gd.Connect() {
-		if err := gd.MakePartition(fsFormat); err == nil {
-			err = gd.FormatPartition(fsFormat, uuid)
-			if err != nil {
-				log.Errorln(err)
-			}
-		} else {
-			log.Errorln(err)
-		}
-	}
 }
 
 func (d *SRBDDisk) PostCreateFromImageFuse() {
