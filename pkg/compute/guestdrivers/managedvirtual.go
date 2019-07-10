@@ -152,6 +152,10 @@ func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Contex
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iVM, err := guest.GetIVM()
 		if err != nil {
+			//若guest被删除,忽略错误，否则会无限删除guest失败(有挂载的云盘)
+			if err == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
 			return nil, errors.Wrapf(err, "guest.GetIVM")
 		}
 		if len(disk.ExternalId) == 0 {
@@ -526,6 +530,10 @@ func (self *SManagedVirtualizedGuestDriver) RequestUndeployGuestOnHost(ctx conte
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		ihost, err := host.GetIHost()
 		if err != nil {
+			//私有云宿主机有可能下线,会导致虚拟机无限删除失败
+			if err == cloudprovider.ErrNotFound {
+				return nil, nil
+			}
 			log.Errorf("host.GetIHost fail %s", err)
 			return nil, err
 		}
