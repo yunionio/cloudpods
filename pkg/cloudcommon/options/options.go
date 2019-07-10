@@ -65,7 +65,7 @@ type BaseOptions struct {
 
 	IsSlaveNode bool `help:"Region service slave node"`
 
-	CalculateQuotaUsageIntervalSeconds int `help:"interval to calculate quota usages, default 5 minutes" default:"300"`
+	CalculateQuotaUsageIntervalSeconds int `help:"interval to calculate quota usages, default 30 minutes" default:"900"`
 
 	structarg.BaseOptions
 }
