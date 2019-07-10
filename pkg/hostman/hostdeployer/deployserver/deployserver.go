@@ -226,7 +226,7 @@ func (s *SDeployService) PrepareEnv() error {
 	}
 
 	if !winutils.CheckTool(DeployOption.ChntpwPath) {
-		return fmt.Errorf("Failed to find chntpw tool")
+		log.Errorf("Failed to find chntpw tool")
 	}
 
 	output, err = procutils.NewCommand("pvscan").Run()
