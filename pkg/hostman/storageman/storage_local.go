@@ -17,10 +17,8 @@ package storageman
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
-	"regexp"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -28,12 +26,11 @@ import (
 	"yunion.io/x/pkg/util/timeutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
-	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
-	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
@@ -41,10 +38,8 @@ import (
 )
 
 var (
-	_FUSE_MOUNT_PATH_   = "fusemnt"
-	_FUSE_TMP_PATH_     = "fusetmp"
-	_SNAPSHOT_PATH_     = "snapshots"
-	DELETEING_SNAPSHOTS = map[string]bool{}
+	_FUSE_MOUNT_PATH_ = "fusemnt"
+	_FUSE_TMP_PATH_   = "fusetmp"
 )
 
 type SLocalStorage struct {
@@ -229,38 +224,9 @@ func (s *SLocalStorage) SaveToGlance(ctx context.Context, params interface{}) (j
 
 func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath string,
 	compress bool, format string) error {
-	var (
-		kvmDisk = NewKVMGuestDisk(imagePath)
-		osInfo  string
-		relInfo *fsdriver.SReleaseInfo
-	)
-
-	if err := func() error {
-		defer kvmDisk.Disconnect()
-		if kvmDisk.Connect() {
-			var err error
-			func() {
-				if root := kvmDisk.MountKvmRootfs(); root != nil {
-					defer kvmDisk.UmountKvmRootfs(root)
-
-					osInfo = root.GetOs()
-					relInfo = root.GetReleaseInfo(root.GetPartition())
-					if compress {
-						err = root.PrepareFsForTemplate(root.GetPartition())
-					}
-				}
-			}()
-			if err != nil {
-				log.Errorln(err)
-				return err
-			}
-
-			if compress {
-				kvmDisk.Zerofree()
-			}
-		}
-		return nil
-	}(); err != nil {
+	ret, err := deployclient.GetDeployClient().SaveToGlance(context.Background(),
+		&deployapi.SaveToGlanceParams{DiskPath: imagePath, Compress: compress})
+	if err != nil {
 		return err
 	}
 
@@ -298,9 +264,10 @@ func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath str
 	size := finfo.Size()
 
 	var params = jsonutils.NewDict()
-	if len(osInfo) > 0 {
-		params.Set("os_type", jsonutils.NewString(osInfo))
+	if len(ret.OsInfo) > 0 {
+		params.Set("os_type", jsonutils.NewString(ret.OsInfo))
 	}
+	relInfo := ret.ReleaseInfo
 	if relInfo != nil {
 		params.Set("os_distribution", jsonutils.NewString(relInfo.Distro))
 		if len(relInfo.Version) > 0 {
@@ -317,8 +284,6 @@ func (s *SLocalStorage) saveToGlance(ctx context.Context, imageId, imagePath str
 
 	_, err = modules.Images.Upload(hostutils.GetImageSession(ctx, s.GetZone()),
 		params, f, size)
-	// TODO
-	// notify_template_ready
 	return err
 }
 
@@ -355,132 +320,6 @@ func (s *SLocalStorage) DeleteSnapshots(ctx context.Context, params interface{})
 		return nil, fmt.Errorf("Delete snapshot dir failed: %s", output)
 	}
 	return nil, nil
-}
-
-/*************************Background delete snapshot job****************************/
-
-func (s *SLocalStorage) StartSnapshotRecycle() {
-	log.Infof("Snapshot recyle job started")
-	if !fileutils2.Exists(s.GetSnapshotDir()) {
-		procutils.NewCommand("mkdir", "-p", s.GetSnapshotDir()).Run()
-	}
-	cronman.GetCronJobManager(false).AddJob2("SnapshotRecycle", options.HostOptions.SnapshotRecycleDay, 2, 0, 0, s.snapshotRecycle, true)
-}
-
-func (s *SLocalStorage) snapshotRecycle(ctx context.Context, userCred mcclient.TokenCredential, isStart bool) {
-	res, err := modules.Snapshots.GetById(hostutils.GetComputeSession(ctx), "max-count", nil)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	maxSnapshotCount, err := res.Int("max_count")
-	if err != nil {
-		log.Errorln("Request region get snapshot max count failed")
-		return
-	}
-	files, err := ioutil.ReadDir(s.GetSnapshotDir())
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	for _, file := range files {
-		s.checkSnapshots(file.Name(), int(maxSnapshotCount))
-	}
-}
-
-func (s *SLocalStorage) checkSnapshots(snapshotDir string, maxSnapshotCount int) {
-	re := regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}_snap$`)
-	if !re.MatchString(snapshotDir) {
-		log.Warningf("snapshot_dir got unexcept file %s", snapshotDir)
-		return
-	}
-
-	diskId := snapshotDir[:len(snapshotDir)-len(options.HostOptions.SnapshotDirSuffix)]
-	snapshotPath := path.Join(s.GetSnapshotDir(), snapshotDir)
-
-	// If disk is Deleted, request delete this disk all snapshots
-	if !fileutils2.Exists(path.Join(s.Path, diskId)) && fileutils2.Exists(snapshotPath) {
-		params := jsonutils.NewDict()
-		params.Set("disk_id", jsonutils.NewString(diskId))
-		_, err := modules.Snapshots.PerformClassAction(
-			hostutils.GetComputeSession(context.Background()),
-			"delete-disk-snapshots", params)
-		if err != nil {
-			log.Infof("Request delele disk %s snapshots failed %s", diskId, err)
-		}
-		return
-	}
-
-	snapshots, err := ioutil.ReadDir(snapshotPath)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-
-	// if snapshot count greater than maxsnapshot count, do convert
-	if len(snapshots) >= maxSnapshotCount {
-		s.requestConvertSnapshot(snapshotPath, diskId)
-	}
-}
-
-func (s *SLocalStorage) requestConvertSnapshot(snapshotPath, diskId string) {
-	res, err := modules.Disks.GetSpecific(
-		hostutils.GetComputeSession(context.Background()), diskId, "convert-snapshot", nil)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-
-	var (
-		deleteSnapshot, _  = res.GetString("delete_snapshot")
-		convertSnapshot, _ = res.GetString("convert_snapshot")
-		pendingDelete, _   = res.Bool("pending_delete")
-	)
-	log.Infof("start convert disk(%s) snapshot(%s), delete_snapshot is %s",
-		diskId, convertSnapshot, deleteSnapshot)
-	convertSnapshotPath := path.Join(snapshotPath, convertSnapshot)
-	outfile := convertSnapshotPath + ".tmp"
-	img, err := qemuimg.NewQemuImage(convertSnapshot)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	err = img.Convert2Qcow2To(outfile, true)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	s.requestDeleteSnapshot(
-		diskId, snapshotPath, deleteSnapshot, convertSnapshotPath, outfile, pendingDelete)
-}
-
-func (s *SLocalStorage) requestDeleteSnapshot(
-	diskId, snapshotPath, deleteSnapshot, convertSnapshotPath,
-	outfile string, pendingDelete bool,
-) {
-	deleteSnapshotPath := path.Join(snapshotPath, deleteSnapshot)
-	DELETEING_SNAPSHOTS[diskId] = true
-	defer delete(DELETEING_SNAPSHOTS, diskId)
-	_, err := modules.Snapshots.PerformAction(hostutils.GetComputeSession(context.Background()),
-		deleteSnapshot, "deleted", nil)
-	if err != nil {
-		log.Errorln(err)
-		return
-	}
-	if out, err := procutils.NewCommand("rm", "-f", convertSnapshotPath).Run(); err != nil {
-		log.Errorf("%s", out)
-		return
-	}
-	if out, err := procutils.NewCommand("mv", "-f", outfile, convertSnapshotPath).Run(); err != nil {
-		log.Errorf("%s", out)
-		return
-	}
-	if !pendingDelete {
-		if out, err := procutils.NewCommand("rm", "-f", deleteSnapshotPath).Run(); err != nil {
-			log.Errorf("%s", out)
-			return
-		}
-	}
 }
 
 func (s *SLocalStorage) DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string, desc, disksBackingFile, srcSnapshots jsonutils.JSONObject) error {
@@ -529,7 +368,7 @@ func (s *SLocalStorage) DestinationPrepareMigrate(ctx context.Context, liveMigra
 		} else {
 			// download disk form remote url
 			diskUrl := fmt.Sprintf("%s/%s/%s", disksUri, diskStorageId, diskId)
-			if err := disk.CreateFromUrl(ctx, diskUrl); err != nil {
+			if err := disk.CreateFromUrl(ctx, diskUrl, 0); err != nil {
 				log.Errorln(err)
 				return err
 			}

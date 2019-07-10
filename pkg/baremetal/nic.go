@@ -50,7 +50,7 @@ func GetNicDHCPConfig(
 
 	routes := make([][]string, 0)
 	for _, route := range n.Routes {
-		routes = append(routes, []string{route[0], route[1]})
+		routes = append(routes, []string{route.Route[0], route.Route[1]})
 	}
 
 	conf := &dhcp.ResponseConfig{

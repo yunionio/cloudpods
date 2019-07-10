@@ -24,10 +24,10 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
-	"yunion.io/x/onecloud/pkg/hostman/diskhandlers"
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
-	"yunion.io/x/onecloud/pkg/hostman/guesthandlers"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
+	"yunion.io/x/onecloud/pkg/hostman/guestman/guesthandlers"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo"
 	"yunion.io/x/onecloud/pkg/hostman/hostmetrics"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
@@ -35,6 +35,8 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/metadata"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/diskhandlers"
+	"yunion.io/x/onecloud/pkg/hostman/storageman/storagehandler"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -49,7 +51,12 @@ func (host *SHostService) InitService() {
 		log.Fatalf("host service must running with root permissions")
 	}
 
+	if len(options.HostOptions.DeployServerSocketPath) == 0 {
+		log.Fatalf("missing deploy server socket path")
+	}
+
 	options.HostOptions.EnableRbac = false // disable rbac
+	// init base option for pid file
 	host.SServiceBase.O = &options.HostOptions.BaseOptions
 }
 
@@ -64,6 +71,7 @@ func (host *SHostService) RunService() {
 		log.Fatalf(err.Error())
 	}
 
+	deployclient.Init(options.HostOptions.DeployServerSocketPath)
 	if err := storageman.Init(hostInstance); err != nil {
 		log.Fatalf(err.Error())
 	}
@@ -104,7 +112,7 @@ func (host *SHostService) RunService() {
 
 func (host *SHostService) initHandlers(app *appsrv.Application) {
 	guesthandlers.AddGuestTaskHandler("", app)
-	storageman.AddStorageHandler("", app)
+	storagehandler.AddStorageHandler("", app)
 	diskhandlers.AddDiskHandler("", app)
 	downloader.AddDownloadHandler("", app)
 	kubehandlers.AddKubeAgentHandler("", app)

@@ -19,9 +19,7 @@ import (
 	"sort"
 	"strings"
 
-	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 func ParsePropStr(lines string) map[string]string {
@@ -83,7 +81,7 @@ func (m *SAndroidRootFs) GetLoginAccount(rootFs IDiskPartition, defaultRootUser 
 	return ""
 }
 
-func (m *SAndroidRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *sshkeys.SSHKeys) error {
+func (m *SAndroidRootFs) DeployPublicKey(rootfs IDiskPartition, uname string, pubkeys *deployapi.SSHKeys) error {
 	return nil
 }
 
@@ -103,14 +101,14 @@ func (m *SAndroidRootFs) GetOs() string {
 	return "Android"
 }
 
-func (m *SAndroidRootFs) GetReleaseInfo(IDiskPartition) *SReleaseInfo {
+func (m *SAndroidRootFs) GetReleaseInfo(IDiskPartition) *deployapi.ReleaseInfo {
 	spath := "/android-*/system/build.prop"
 	lines, _ := m.rootFs.FileGetContents(spath, false)
 	prop := ParsePropStr(string(lines))
 	distro, _ := prop["ro.product.model"]
 	version, _ := prop["ro.build.version.release"]
 	arch, _ := prop["ro.product.cpu.abi"]
-	return &SReleaseInfo{
+	return &deployapi.ReleaseInfo{
 		Distro:  distro,
 		Version: version,
 		Arch:    arch,
@@ -121,7 +119,7 @@ func (m *SAndroidRootFs) PrepareFsForTemplate(IDiskPartition) error {
 	return nil
 }
 
-func (m *SAndroidRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []jsonutils.JSONObject) error {
+func (m *SAndroidRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*deployapi.Nic) error {
 	return nil
 }
 

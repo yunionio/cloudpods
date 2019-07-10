@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package storageman
+package diskutils
 
 import (
 	"fmt"
@@ -26,9 +26,9 @@ import (
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/hostman/diskutils/nbd"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
-	"yunion.io/x/onecloud/pkg/hostman/storageman/nbd"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"

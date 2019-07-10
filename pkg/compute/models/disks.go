@@ -589,6 +589,14 @@ func (self *SDisk) AllowGetDetailsConvertSnapshot(ctx context.Context, userCred 
 }
 
 func (self *SDisk) GetDetailsConvertSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	needs, err := SnapshotManager.IsDiskSnapshotsNeedConvert(self.Id)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("Fetch snapshot count failed %s", err)
+	}
+	if !needs {
+		return nil, httperrors.NewBadRequestError("Disk %s don't need convert snapshots", self.Id)
+	}
+
 	deleteSnapshot := SnapshotManager.GetDiskFirstSnapshot(self.Id)
 	if deleteSnapshot == nil {
 		return nil, httperrors.NewNotFoundError("Can not get disk snapshot")
@@ -651,7 +659,8 @@ func (self *SDisk) PerformCreateSnapshot(ctx context.Context, userCred mcclient.
 		return nil, httperrors.NewBadRequestError("Disk dosen't attach guest??")
 	}
 	storage := self.GetStorage()
-	if guests[0].Hypervisor == api.HYPERVISOR_KVM && storage.StorageType != api.STORAGE_LOCAL {
+	if guests[0].Hypervisor == api.HYPERVISOR_KVM &&
+		!utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL, api.STORAGE_NFS, api.STORAGE_GPFS}) {
 		return nil, httperrors.NewBadRequestError("storage %s not support snapshot", storage.StorageType)
 	}
 

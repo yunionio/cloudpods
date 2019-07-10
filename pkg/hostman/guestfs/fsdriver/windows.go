@@ -22,13 +22,11 @@ import (
 	"strings"
 	"syscall"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
-	"yunion.io/x/onecloud/pkg/hostman/options"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -76,7 +74,7 @@ func (w *SWindowsRootFs) String() string {
 	return "WindowsRootFs"
 }
 
-func (w *SWindowsRootFs) DeployPublicKey(IDiskPartition, string, *sshkeys.SSHKeys) error {
+func (w *SWindowsRootFs) DeployPublicKey(IDiskPartition, string, *deployapi.SSHKeys) error {
 	return nil
 }
 
@@ -90,7 +88,7 @@ func (w *SWindowsRootFs) RootSignatures() []string {
 	}
 }
 
-func (w *SWindowsRootFs) GetReleaseInfo(IDiskPartition) *SReleaseInfo {
+func (w *SWindowsRootFs) GetReleaseInfo(IDiskPartition) *deployapi.ReleaseInfo {
 	confPath := w.rootFs.GetLocalPath("/windows/system32/config", true)
 	tool := winutils.NewWinRegTool(confPath)
 	if tool.CheckPath() {
@@ -98,7 +96,12 @@ func (w *SWindowsRootFs) GetReleaseInfo(IDiskPartition) *SReleaseInfo {
 		version := tool.GetVersion()
 		arch := tool.GetArch()
 		lan := tool.GetInstallLanguage()
-		return &SReleaseInfo{distro, version, arch, lan}
+		return &deployapi.ReleaseInfo{
+			Distro:   distro,
+			Version:  version,
+			Arch:     arch,
+			Language: lan,
+		}
 	} else {
 		return nil
 	}
@@ -228,14 +231,14 @@ func (w *SWindowsRootFs) DeployHosts(part IDiskPartition, hn, domain string, ips
 	return w.rootFs.FilePutContents(ETC_HOSTS, hf.String(), false, true)
 }
 
-func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []jsonutils.JSONObject) error {
-	mainNic, err := netutils2.GetMainNic(nics)
+func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*deployapi.Nic) error {
+	mainNic, err := netutils2.GetMainNicFromDeployApi(nics)
 	if err != nil {
 		return err
 	}
 	mainIp := ""
 	if mainNic != nil {
-		mainIp, _ = mainNic.GetString("ip")
+		mainIp = mainNic.Ip
 	}
 	bootScript := strings.Join([]string{
 		`set NETCFG_SCRIPT=%SystemRoot%\netcfg.bat`,
@@ -255,24 +258,19 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []j
 	}
 
 	for _, nic := range nics {
-		snic := &types.SServerNic{}
-		if err := nic.Unmarshal(snic); err != nil {
-			log.Errorln(err)
-			return err
-		}
-
+		snic := &types.SServerNic{Nic: nic}
 		mac := snic.Mac
 		mac = strings.Replace(strings.ToUpper(mac), ":", "-", -1)
 		lines = append(lines, fmt.Sprintf(`    if "%%%%c" == "%s" (`, mac))
-		if jsonutils.QueryBoolean(nic, "manual", false) {
-			netmask := netutils2.Netlen2Mask(snic.Masklen)
+		if snic.Manual {
+			netmask := netutils2.Netlen2Mask(int(snic.Masklen))
 			cfg := fmt.Sprintf(`      netsh interface ip set address "%%%%b" static %s %s`, snic.Ip, netmask)
 			if len(snic.Gateway) > 0 && snic.Ip == mainIp {
 				cfg += fmt.Sprintf(" %s", snic.Gateway)
 			}
 			lines = append(lines, cfg)
 			routes := [][]string{}
-			netutils2.AddNicRoutes(&routes, snic, mainIp, len(nics), options.HostOptions.PrivatePrefixes)
+			netutils2.AddNicRoutes(&routes, snic, mainIp, len(nics), privatePrefixes)
 			for _, r := range routes {
 				lines = append(lines, fmt.Sprintf(`      netsh interface ip add route %s "%%%%b" %s`, r[0], r[1]))
 			}
@@ -449,7 +447,7 @@ func (w *SWindowsRootFs) deploySetupCompleteScripts(uname, passwd string) bool {
 	return true
 }
 
-func (w *SWindowsRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []jsonutils.JSONObject) error {
+func (w *SWindowsRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []*deployapi.Disk) error {
 	if len(disks) == 1 {
 		return nil
 	}

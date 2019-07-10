@@ -24,7 +24,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 type sGuestRootFsDriver struct {
@@ -37,19 +37,17 @@ func newGuestRootFsDriver(rootFs IDiskPartition) *sGuestRootFsDriver {
 	}
 }
 
-func (d *sGuestRootFsDriver) DeployFiles(deploys []jsonutils.JSONObject) error {
+func (d *sGuestRootFsDriver) DeployFiles(deploys []*deployapi.DeployContent) error {
 	caseInsensitive := d.IsFsCaseInsensitive()
 	for _, deploy := range deploys {
 		var modAppend = false
-		if action, _ := deploy.GetString("action"); action == "append" {
+		if deploy.Action == "append" {
 			modAppend = true
 		}
-		sPath, err := deploy.GetString("path")
-		if err != nil {
-			log.Errorln(err)
-			return err
+		if len(deploy.Path) == 0 {
+			return fmt.Errorf("Deploy file missing param path")
 		}
-		dirname := filepath.Dir(sPath)
+		dirname := filepath.Dir(deploy.Path)
 		if !d.GetPartition().Exists(dirname, caseInsensitive) {
 			modeRWXOwner := syscall.S_IRUSR | syscall.S_IWUSR | syscall.S_IXUSR
 			err := d.GetPartition().Mkdir(dirname, modeRWXOwner, caseInsensitive)
@@ -58,8 +56,8 @@ func (d *sGuestRootFsDriver) DeployFiles(deploys []jsonutils.JSONObject) error {
 				return err
 			}
 		}
-		if content, err := deploy.GetString("content"); err == nil {
-			err := d.GetPartition().FilePutContents(sPath, content, modAppend, caseInsensitive)
+		if len(deploy.Content) > 0 {
+			err := d.GetPartition().FilePutContents(deploy.Path, deploy.Content, modAppend, caseInsensitive)
 			if err != nil {
 				log.Errorln(err)
 				return err
@@ -81,7 +79,7 @@ func (d *sGuestRootFsDriver) IsFsCaseInsensitive() bool {
 	return false
 }
 
-func (d *sGuestRootFsDriver) DeployYunionroot(rootfs IDiskPartition, pubkeys *sshkeys.SSHKeys, isInit, enableCloudInit bool) error {
+func (d *sGuestRootFsDriver) DeployYunionroot(rootfs IDiskPartition, pubkeys *deployapi.SSHKeys, isInit, enableCloudInit bool) error {
 	return nil
 }
 
@@ -89,11 +87,11 @@ func (d *sGuestRootFsDriver) DeployUdevSubsystemScripts(rootfs IDiskPartition) e
 	return nil
 }
 
-func (d *sGuestRootFsDriver) DeployStandbyNetworkingScripts(part IDiskPartition, nics, nicsStandby []jsonutils.JSONObject) error {
+func (d *sGuestRootFsDriver) DeployStandbyNetworkingScripts(part IDiskPartition, nics, nicsStandby []*deployapi.Nic) error {
 	return nil
 }
 
-func (d *sGuestRootFsDriver) DeployFstabScripts(_ IDiskPartition, _ []jsonutils.JSONObject) error {
+func (d *sGuestRootFsDriver) DeployFstabScripts(_ IDiskPartition, _ []*deployapi.Disk) error {
 	return nil
 }
 
@@ -117,22 +115,7 @@ func (l *sGuestRootFsDriver) IsCloudinitInstall() bool {
 	return false
 }
 
-type SReleaseInfo struct {
-	Distro   string `json:"os_distribution,omitempty"`
-	Version  string `json:"os_version,omitempty"`
-	Arch     string `json:"os_arch,omitempty"`
-	Language string `json:"os_language,omitempty"`
-}
-
-func newReleaseInfo(distro, version, arch string) *SReleaseInfo {
-	return &SReleaseInfo{
-		Distro:  distro,
-		Version: version,
-		Arch:    arch,
-	}
-}
-
-func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *sshkeys.SSHKeys, replace bool) error {
+func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *deployapi.SSHKeys, replace bool) error {
 	usrStat := rootFs.Stat(usrDir, false)
 	if usrStat != nil {
 		sshDir := path.Join(usrDir, ".ssh")
@@ -171,7 +154,7 @@ func DeployAuthorizedKeys(rootFs IDiskPartition, usrDir string, pubkeys *sshkeys
 	return nil
 }
 
-func MergeAuthorizedKeys(oldKeys string, pubkeys *sshkeys.SSHKeys) string {
+func MergeAuthorizedKeys(oldKeys string, pubkeys *deployapi.SSHKeys) string {
 	var allkeys = make(map[string]string)
 	if len(oldKeys) > 0 {
 		for _, line := range strings.Split(oldKeys, "\n") {
