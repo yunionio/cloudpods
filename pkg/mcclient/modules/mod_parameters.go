@@ -14,6 +14,15 @@
 
 package modules
 
+import (
+	"context"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
+	"yunion.io/x/onecloud/pkg/httperrors"
+)
+
 type ParametersManager struct {
 	ResourceManager
 }
@@ -28,4 +37,21 @@ func init() {
 		[]string{"namespace", "namespace_id", "created_by", "updated_by"},
 	)}
 	register(&Parameters)
+}
+
+func (this *ParametersManager) GetGlobalSettings(s *mcclient.ClientSession, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	adminSession := auth.GetAdminSession(context.Background(), "", "")
+	p := jsonutils.NewDict()
+	p.Add(jsonutils.NewString("system"), "scope")
+	p.Add(jsonutils.NewString("name"), "global-settings")
+	parameters, err := this.ListInContext(adminSession, p, &ServicesV3, "yunionagent")
+	if err != nil {
+		return nil, err
+	}
+
+	if parameters.Total == 0 {
+		return nil, httperrors.NewNotFoundError("global-settings not found")
+	}
+
+	return parameters.Data[0], nil
 }
