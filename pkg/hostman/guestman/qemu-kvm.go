@@ -1354,9 +1354,9 @@ func (s *SKVMGuestInstance) StaticSaveSnapshot(
 	if err != nil {
 		return nil, err
 	}
-	location := path.Join(disk.GetSnapshotDir(), snapshotId)
+	location := path.Join(disk.GetSnapshotLocation(), snapshotId)
 	res := jsonutils.NewDict()
-	res.Set("localtion", jsonutils.NewString(location))
+	res.Set("location", jsonutils.NewString(location))
 	return res, nil
 }
 
