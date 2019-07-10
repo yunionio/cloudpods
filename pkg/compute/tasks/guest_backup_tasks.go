@@ -96,7 +96,7 @@ func (self *GuestSwitchToBackupTask) OnBackupGuestStoped(ctx context.Context, gu
 }
 
 func (self *GuestSwitchToBackupTask) OnNewMasterStarted(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	self.SetStageComplete(ctx, nil)
+	self.OnComplete(ctx, guest, nil)
 }
 
 func (self *GuestSwitchToBackupTask) OnFail(ctx context.Context, guest *models.SGuest, reason string) {
@@ -106,13 +106,18 @@ func (self *GuestSwitchToBackupTask) OnFail(ctx context.Context, guest *models.S
 	self.SetStageFailed(ctx, reason)
 }
 
+func (self *GuestSwitchToBackupTask) OnComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.SetMetadata(ctx, "__mirror_job_status", "", self.UserCred)
+	self.SetStageComplete(ctx, nil)
+}
+
 func (self *GuestSwitchToBackupTask) OnSwitched(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
 	oldStatus, _ := self.Params.GetString("old_status")
 	if utils.IsInStringArray(oldStatus, api.VM_RUNNING_STATUS) {
 		self.SetStage("OnNewMasterStarted", nil)
 		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
 	} else {
-		self.SetStageComplete(ctx, nil)
+		self.OnComplete(ctx, guest, nil)
 	}
 }
 

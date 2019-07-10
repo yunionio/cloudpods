@@ -73,6 +73,10 @@ func (d *SLocalDisk) GetSnapshotDir() string {
 	return path.Join(d.Storage.GetSnapshotDir(), d.Id+options.HostOptions.SnapshotDirSuffix)
 }
 
+func (d *SLocalDisk) GetSnapshotLocation() string {
+	return d.GetSnapshotDir()
+}
+
 func (d *SLocalDisk) Probe() error {
 	if fileutils2.Exists(d.getPath()) {
 		d.isAlter = false
@@ -137,7 +141,7 @@ func (d *SLocalDisk) Resize(ctx context.Context, params interface{}) (jsonutils.
 	return d.GetDiskDesc(), nil
 }
 
-func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string) error {
+func (d *SLocalDisk) CreateFromImageFuse(ctx context.Context, url string, size int64) error {
 	log.Infof("Create from image fuse %s", url)
 
 	var (
@@ -223,7 +227,7 @@ func (d *SLocalDisk) createFromTemplate(
 	}
 }
 
-func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string) error {
+func (d *SLocalDisk) CreateFromUrl(ctx context.Context, url string, size int64) error {
 	remoteFile := remotefile.NewRemoteFile(ctx, url, d.getPath(), false, "", -1, nil, "", "")
 	if remoteFile.Fetch() {
 		if options.HostOptions.EnableFallocateDisk {
@@ -267,26 +271,10 @@ func (d *SLocalDisk) CreateRaw(ctx context.Context, sizeMB int, diskFormat, fsFo
 	}
 
 	if utils.IsInStringArray(fsFormat, []string{"swap", "ext2", "ext3", "ext4", "xfs"}) {
-		d.FormatFs(fsFormat, uuid)
+		d.FormatFs(fsFormat, uuid, d.GetPath())
 	}
 
 	return d.GetDiskDesc(), nil
-}
-
-func (d *SLocalDisk) FormatFs(fsFormat, uuid string) {
-	log.Infof("Make disk %s fs %s", uuid, fsFormat)
-	gd := NewKVMGuestDisk(d.GetPath())
-	defer gd.Disconnect()
-	if gd.Connect() {
-		if err := gd.MakePartition(fsFormat); err == nil {
-			err = gd.FormatPartition(fsFormat, uuid)
-			if err != nil {
-				log.Errorln(err)
-			}
-		} else {
-			log.Errorln(err)
-		}
-	}
 }
 
 func (d *SLocalDisk) GetDiskDesc() jsonutils.JSONObject {

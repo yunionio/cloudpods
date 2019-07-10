@@ -45,6 +45,7 @@ var serviceMap = map[string]ISystemService{
 	"kube_agent":    NewKubeAgentService(),
 	"lxcfs":         NewLxcfsService(),
 	"docker":        NewDockerService(),
+	"host-deployer": NewHostDeployerService(),
 }
 
 func GetService(name string) ISystemService {

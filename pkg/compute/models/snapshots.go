@@ -406,6 +406,16 @@ func (self *SSnapshotManager) GetDiskSnapshots(diskId string) []SSnapshot {
 	return dest
 }
 
+func (self *SSnapshotManager) IsDiskSnapshotsNeedConvert(diskId string) (bool, error) {
+	count, err := self.Query().Equals("disk_id", diskId).
+		In("status", []string{api.SNAPSHOT_READY, api.SNAPSHOT_DELETING}).
+		Equals("out_of_chain", false).CountWithError()
+	if err != nil {
+		return false, err
+	}
+	return count >= options.Options.DefaultMaxSnapshotCount, nil
+}
+
 func (self *SSnapshotManager) GetDiskFirstSnapshot(diskId string) *SSnapshot {
 	dest := &SSnapshot{}
 	q := self.Query().SubQuery()
@@ -476,8 +486,8 @@ func (self *SSnapshot) StartSnapshotDeleteTask(ctx context.Context, userCred mcc
 }
 
 func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context) error {
-	if self.RefCount > 0 {
-		return fmt.Errorf("Snapshot reference(by disk) count > 0, can not delete")
+	if len(self.ExternalId) == 0 && self.RefCount > 0 {
+		return httperrors.NewBadRequestError("Snapshot reference(by disk) count > 0, can not delete")
 	}
 	return nil
 }
@@ -488,8 +498,10 @@ func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.To
 	}
 	if len(self.ExternalId) == 0 {
 		if self.CreatedBy == api.SNAPSHOT_MANUAL {
-			if !self.FakeDeleted {
+			if !self.OutOfChain && !self.FakeDeleted {
 				return self.FakeDelete()
+			} else if self.OutOfChain {
+				return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 			}
 			_, err := SnapshotManager.GetConvertSnapshot(self)
 			if err != nil {

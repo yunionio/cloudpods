@@ -18,6 +18,8 @@ import (
 	"net"
 
 	"yunion.io/x/pkg/util/netutils"
+
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 const (
@@ -30,21 +32,21 @@ var (
 )
 
 type SNic struct {
-	Type    string   `json:"nic_type"`
-	Domain  string   `json:"domain"`
-	Wire    string   `json:"wire"`
-	IpAddr  string   `json:"ip_addr"`
-	WireId  string   `json:"wire_id"`
-	NetId   string   `json:"net_id"`
-	Rate    int64    `json:"rate"`
-	Mtu     int64    `json:"mtu"`
-	Mac     string   `json:"mac"`
-	Dns     string   `json:"dns"`
-	MaskLen int8     `json:"masklen"`
-	Net     string   `json:"net"`
-	Gateway string   `json:"gateway"`
-	LinkUp  bool     `json:"link_up"`
-	Routes  []SRoute `json:"routes,omitempty"`
+	Type    string              `json:"nic_type"`
+	Domain  string              `json:"domain"`
+	Wire    string              `json:"wire"`
+	IpAddr  string              `json:"ip_addr"`
+	WireId  string              `json:"wire_id"`
+	NetId   string              `json:"net_id"`
+	Rate    int64               `json:"rate"`
+	Mtu     int64               `json:"mtu"`
+	Mac     string              `json:"mac"`
+	Dns     string              `json:"dns"`
+	MaskLen int8                `json:"masklen"`
+	Net     string              `json:"net"`
+	Gateway string              `json:"gateway"`
+	LinkUp  bool                `json:"link_up"`
+	Routes  []*deployapi.Routes `json:"routes,omitempty"`
 }
 
 func (n SNic) GetNetMask() string {
@@ -55,33 +57,8 @@ func (n SNic) GetMac() net.HardwareAddr {
 	return getMac(n.Mac)
 }
 
-type SRoute []string
-
 type SServerNic struct {
-	Name      string   `json:"name"`
-	Index     int      `json:"index"`
-	Bridge    string   `json:"bridge"`
-	Domain    string   `json:"domain"`
-	Ip        string   `json:"ip"`
-	Vlan      int      `json:"vlan"`
-	Driver    string   `json:"driver"`
-	Masklen   int      `json:"masklen"`
-	Virtual   bool     `json:"virtual"`
-	Manual    bool     `json:"manual"`
-	WireId    string   `json:"wire_id"`
-	NetId     string   `json:"net_id"`
-	Mac       string   `json:"mac"`
-	BandWidth int      `json:"bw"`
-	Dns       string   `json:"dns"`
-	Net       string   `json:"net"`
-	Interface string   `json:"interface"`
-	Gateway   string   `json:"gateway"`
-	Ifname    string   `json:"ifname"`
-	Routes    []SRoute `json:"routes,omitempty"`
-	NicType   string   `json:"nic_type,omitempty"`
-	LinkUp    bool     `json:"link_up,omitempty"`
-	Mtu       int64    `json:"mtu,omitempty"`
-	TeamWith  string   `json:"team_with,omitempty"`
+	*deployapi.Nic
 
 	TeamingMaster *SServerNic   `json:"-"`
 	TeamingSlaves []*SServerNic `json:"-"`

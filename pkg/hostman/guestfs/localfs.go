@@ -35,6 +35,12 @@ type SLocalGuestFS struct {
 	mountPath string
 }
 
+func NewLocalGuestFS(mountPath string) *SLocalGuestFS {
+	var ret = new(SLocalGuestFS)
+	ret.mountPath = mountPath
+	return ret
+}
+
 func (f *SLocalGuestFS) GetMountPath() string {
 	return f.mountPath
 }
@@ -255,10 +261,4 @@ func (f *SLocalGuestFS) FilePutContents(sPath, content string, modAppend, caseIn
 	} else {
 		return fmt.Errorf("Cann't put content")
 	}
-}
-
-func NewLocalGuestFS(mountPath string) *SLocalGuestFS {
-	var ret = new(SLocalGuestFS)
-	ret.mountPath = mountPath
-	return ret
 }

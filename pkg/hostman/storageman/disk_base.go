@@ -19,10 +19,12 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
-	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
+	"yunion.io/x/onecloud/pkg/hostman/hostdeployer/deployclient"
 )
 
 type IDisk interface {
@@ -33,6 +35,7 @@ type IDisk interface {
 	GetSnapshotDir() string
 	GetDiskDesc() jsonutils.JSONObject
 	GetDiskSetupScripts(idx int) string
+	GetSnapshotLocation() string
 
 	DeleteAllSnapshot() error
 	Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
@@ -42,16 +45,17 @@ type IDisk interface {
 	CleanupSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 
 	PrepareMigrate(liveMigrate bool) (string, error)
-	CreateFromUrl(context.Context, string) error
+	CreateFromUrl(ctx context.Context, url string, size int64) error
 	CreateFromTemplate(context.Context, string, string, int64) (jsonutils.JSONObject, error)
-	CreateFromImageFuse(context.Context, string) error
+	CreateFromSnapshotLocation(ctx context.Context, location string, size int64) error
+	CreateFromImageFuse(ctx context.Context, url string, size int64) error
 	CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string,
 		encryption bool, diskId string, back string) (jsonutils.JSONObject, error)
 	PostCreateFromImageFuse()
 	CreateSnapshot(snapshotId string) error
 	DeleteSnapshot(snapshotId, convertSnapshot string, pendingDelete bool) error
 	DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,
-		deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error)
+		deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error)
 }
 
 type SBaseDisk struct {
@@ -82,12 +86,16 @@ func (d *SBaseDisk) Delete(ctx context.Context, params interface{}) (jsonutils.J
 	return nil, fmt.Errorf("Not implemented")
 }
 
-func (d *SBaseDisk) CreateFromUrl(context.Context, string) error {
+func (d *SBaseDisk) CreateFromUrl(ctx context.Context, url string, size int64) error {
 	return fmt.Errorf("Not implemented")
 }
 
 func (d *SBaseDisk) CreateFromTemplate(context.Context, string, string, int64) (jsonutils.JSONObject, error) {
 	return nil, fmt.Errorf("Not implemented")
+}
+
+func (d *SBaseDisk) CreateFromSnapshotLocation(ctx context.Context, location string, size int64) error {
+	return fmt.Errorf("Not implemented")
 }
 
 func (d *SBaseDisk) Resize(context.Context, interface{}) (jsonutils.JSONObject, error) {
@@ -99,36 +107,49 @@ func (d *SBaseDisk) GetZone() string {
 }
 
 func (d *SBaseDisk) DeployGuestFs(diskPath string, guestDesc *jsonutils.JSONDict,
-	deployInfo *guestfs.SDeployInfo) (jsonutils.JSONObject, error) {
-	var kvmDisk = NewKVMGuestDisk(diskPath)
-
-	defer kvmDisk.Disconnect()
-	if !kvmDisk.Connect() {
-		log.Infof("Failed to connect kvm disk")
-		return nil, nil
+	deployInfo *deployapi.DeployInfo) (jsonutils.JSONObject, error) {
+	deployGuestDesc, err := deployapi.GuestDescToDeployDesc(guestDesc)
+	if err != nil {
+		return nil, errors.Wrap(err, "guest desc to deploy desc")
 	}
-
-	root := kvmDisk.MountKvmRootfs()
-	if root == nil {
-		log.Infof("Failed mounting rootfs for kvm disk")
-		return nil, nil
+	ret, err := deployclient.GetDeployClient().DeployGuestFs(
+		context.Background(), &deployapi.DeployParams{
+			DiskPath:   diskPath,
+			GuestDesc:  deployGuestDesc,
+			DeployInfo: deployInfo,
+		},
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "request deploy guest fs")
 	}
-	defer kvmDisk.UmountKvmRootfs(root)
-
-	return guestfs.DeployGuestFs(root, guestDesc, deployInfo)
+	return jsonutils.Marshal(ret), nil
 }
 
 func (d *SBaseDisk) ResizeFs(diskPath string) error {
-	disk := NewKVMGuestDisk(diskPath)
-	defer disk.Disconnect()
-	if disk.Connect() {
-		if err := disk.ResizePartition(); err != nil {
-			return err
-		}
-	}
-	return nil
+	_, err := deployclient.GetDeployClient().ResizeFs(
+		context.Background(), &deployapi.ResizeFsParams{DiskPath: diskPath})
+	return err
 }
 
 func (d *SBaseDisk) GetDiskSetupScripts(diskIndex int) string {
 	return ""
+}
+
+func (d *SBaseDisk) GetSnapshotLocation() string {
+	return ""
+}
+
+func (d *SBaseDisk) FormatFs(fsFormat, uuid, diskPath string) {
+	log.Infof("Make disk %s fs %s", uuid, fsFormat)
+	_, err := deployclient.GetDeployClient().FormatFs(
+		context.Background(),
+		&deployapi.FormatFsParams{
+			DiskPath: diskPath,
+			FsFormat: fsFormat,
+			Uuid:     uuid,
+		},
+	)
+	if err != nil {
+		log.Errorf("Format fs error : %s", err)
+	}
 }

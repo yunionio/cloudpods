@@ -31,14 +31,13 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
 	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/hostman/hostinfo/hostbridge"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/isolated_device"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
-	"yunion.io/x/onecloud/pkg/hostman/storageman/nbd"
 	"yunion.io/x/onecloud/pkg/hostman/system_service"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -50,7 +49,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 	"yunion.io/x/onecloud/pkg/util/timeutils2"
-	"yunion.io/x/onecloud/pkg/util/winutils"
 )
 
 type SHostInfo struct {
@@ -214,25 +212,6 @@ func (h *SHostInfo) prepareEnv() error {
 		return fmt.Errorf("Cannot initialize control group subsystem")
 	}
 
-	output, err = procutils.NewCommand("rmmod", "nbd").Run()
-	if err != nil {
-		log.Errorf("rmmod error: %s", output)
-	}
-	output, err = procutils.NewCommand("modprobe", "nbd", "max_part=16").Run()
-	if err != nil {
-		log.Errorf("Failed to activate nbd device: %s", output)
-	}
-	nbd.Init()
-
-	if !winutils.CheckTool(options.HostOptions.ChntpwPath) {
-		return fmt.Errorf("Failed to find chntpw tool")
-	}
-
-	output, err = procutils.NewCommand("pvscan").Run()
-	if err != nil {
-		log.Errorf("Failed exec lvm command pvscan: %s", output)
-	}
-
 	if err := hostbridge.Prepare(options.HostOptions.BridgeDriver); err != nil {
 		log.Errorln(err)
 		return err
@@ -261,11 +240,7 @@ func (h *SHostInfo) prepareEnv() error {
 	default:
 		return fmt.Errorf("Invalid hugepages option")
 	}
-	for i := 0; i < 16; i++ {
-		nbdBdi := fmt.Sprintf("/sys/block/nbd%d/bdi/", i)
-		h.setSysConfig(nbdBdi+"max_ratio", "0")
-		h.setSysConfig(nbdBdi+"min_ratio", "0")
-	}
+
 	h.PreventArpFlux()
 	h.TuneSystem()
 	return nil
@@ -312,7 +287,7 @@ func (h *SHostInfo) checkSystemServices() error {
 		}
 	}
 
-	for _, srv := range []string{"host_sdnagent"} {
+	for _, srv := range []string{"host_sdnagent", "host-deployer"} {
 		srvinst := system_service.GetService(srv)
 		if !srvinst.IsInstalled() {
 			log.Warningf("Service %s not installed", srv)
@@ -350,7 +325,7 @@ func (h *SHostInfo) DisableHugepages() {
 		"/sys/kernel/mm/transparent_hugepage/defrag":  "never",
 	}
 	for k, v := range kv {
-		h.setSysConfig(k, v)
+		sysutils.SetSysConfig(k, v)
 	}
 }
 
@@ -361,7 +336,7 @@ func (h *SHostInfo) EnableTransparentHugepages() {
 		"/sys/kernel/mm/transparent_hugepage/defrag":  "always",
 	}
 	for k, v := range kv {
-		h.setSysConfig(k, v)
+		sysutils.SetSysConfig(k, v)
 	}
 }
 
@@ -380,7 +355,7 @@ func (h *SHostInfo) EnableNativeHugepages() error {
 			"/sys/kernel/mm/transparent_hugepage/defrag":  "never",
 		}
 		for k, v := range kv {
-			h.setSysConfig(k, v)
+			sysutils.SetSysConfig(k, v)
 		}
 		preAllocPagesNum := h.GetMemory()/h.Mem.GetHugepagesizeMb() + 1
 		err := timeutils2.CommandWithTimeout(1, "sh", "-c", fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", preAllocPagesNum)).Run()
@@ -397,36 +372,18 @@ func (h *SHostInfo) EnableNativeHugepages() error {
 	return nil
 }
 
-func (h *SHostInfo) setSysConfig(cpath, val string) bool {
-	if fileutils2.Exists(cpath) {
-		oval, err := ioutil.ReadFile(cpath)
-		if err != nil {
-			log.Errorln(err)
-			return false
-		}
-		if string(oval) != val {
-			err = fileutils2.FilePutContents(cpath, val, false)
-			if err == nil {
-				return true
-			}
-			log.Errorln(err)
-		}
-	}
-	return false
-}
-
 func (h *SHostInfo) EnableKsm(sleepSec int) {
-	h.setSysConfig("/sys/kernel/mm/ksm/run", "1")
-	h.setSysConfig("/sys/kernel/mm/ksm/sleep_millisecs",
+	sysutils.SetSysConfig("/sys/kernel/mm/ksm/run", "1")
+	sysutils.SetSysConfig("/sys/kernel/mm/ksm/sleep_millisecs",
 		fmt.Sprintf("%d", sleepSec*1000))
 }
 
 func (h *SHostInfo) DisableKsm() {
-	h.setSysConfig("/sys/kernel/mm/ksm/run", "0")
+	sysutils.SetSysConfig("/sys/kernel/mm/ksm/run", "0")
 }
 
 func (h *SHostInfo) PreventArpFlux() {
-	h.setSysConfig("/proc/sys/net/ipv4/conf/all/arp_filter", "1")
+	sysutils.SetSysConfig("/proc/sys/net/ipv4/conf/all/arp_filter", "1")
 }
 
 // Any system wide optimizations
@@ -436,7 +393,7 @@ func (h *SHostInfo) TuneSystem() {
 		"/sys/module/kvm/parameters/ignore_msrs": "1",
 	}
 	for k, v := range kv {
-		h.setSysConfig(k, v)
+		sysutils.SetSysConfig(k, v)
 	}
 }
 
@@ -1158,7 +1115,7 @@ func (h *SHostInfo) deployAdminAuthorizedKeys() {
 	}
 	keys := ret.Data[0]
 	adminPublicKey, _ := keys.GetString("public_key")
-	pubKeys := &sshkeys.SSHKeys{AdminPublicKey: adminPublicKey}
+	pubKeys := &deployapi.SSHKeys{AdminPublicKey: adminPublicKey}
 
 	authFile := path.Join(sshDir, "authorized_keys")
 	oldKeysBytes, _ := fileutils2.FileGetContents(authFile)

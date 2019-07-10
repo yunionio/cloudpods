@@ -19,7 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/cloudcommon/sshkeys"
+	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
 type IDiskPartition interface {
@@ -61,22 +61,22 @@ type IRootFsDriver interface {
 	IsFsCaseInsensitive() bool
 	RootSignatures() []string
 	RootExcludeSignatures() []string
-	GetReleaseInfo(IDiskPartition) *SReleaseInfo
+	GetReleaseInfo(IDiskPartition) *deployapi.ReleaseInfo
 	GetOs() string
 	DeployHostname(part IDiskPartition, hn, domain string) error
 	DeployHosts(part IDiskPartition, hn, domain string, ips []string) error
-	DeployNetworkingScripts(IDiskPartition, []jsonutils.JSONObject) error
-	DeployStandbyNetworkingScripts(part IDiskPartition, nics, nicsStandby []jsonutils.JSONObject) error
+	DeployNetworkingScripts(IDiskPartition, []*deployapi.Nic) error
+	DeployStandbyNetworkingScripts(part IDiskPartition, nics, nicsStandby []*deployapi.Nic) error
 	DeployUdevSubsystemScripts(IDiskPartition) error
-	DeployFstabScripts(IDiskPartition, []jsonutils.JSONObject) error
+	DeployFstabScripts(IDiskPartition, []*deployapi.Disk) error
 	GetLoginAccount(IDiskPartition, bool, bool) string
-	DeployPublicKey(IDiskPartition, string, *sshkeys.SSHKeys) error
+	DeployPublicKey(IDiskPartition, string, *deployapi.SSHKeys) error
 	ChangeUserPasswd(part IDiskPartition, account, gid, publicKey, password string) (string, error)
-	DeployYunionroot(rootFs IDiskPartition, pubkeys *sshkeys.SSHKeys, isInit bool, enableCloudInit bool) error
+	DeployYunionroot(rootFs IDiskPartition, pubkeys *deployapi.SSHKeys, isInit bool, enableCloudInit bool) error
 	EnableSerialConsole(IDiskPartition, *jsonutils.JSONDict) error
 	DisableSerialConsole(IDiskPartition) error
 	CommitChanges(IDiskPartition) error
-	DeployFiles(deploys []jsonutils.JSONObject) error
+	DeployFiles(deploys []*deployapi.DeployContent) error
 	DetectIsUEFISupport(IDiskPartition) bool
 	IsCloudinitInstall() bool
 

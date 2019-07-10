@@ -16,13 +16,18 @@ package fsdriver
 
 type newRootFsDriverFunc func(part IDiskPartition) IRootFsDriver
 
-var rootfsDrivers = make([]newRootFsDriverFunc, 0)
+var (
+	privatePrefixes []string
+	rootfsDrivers   = make([]newRootFsDriverFunc, 0)
+)
 
 func GetRootfsDrivers() []newRootFsDriverFunc {
 	return rootfsDrivers
 }
 
-func init() {
+func Init(initPrivatePrefixes []string) {
+	privatePrefixes = make([]string, len(initPrivatePrefixes))
+	copy(privatePrefixes, initPrivatePrefixes)
 	linuxFsDrivers := []newRootFsDriverFunc{
 		NewCentosRootFs, NewFedoraRootFs, NewRhelRootFs,
 		NewDebianRootFs, NewCirrosRootFs, NewCirrosNewRootFs, NewUbuntuRootFs,
