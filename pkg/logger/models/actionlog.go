@@ -52,7 +52,7 @@ func (action *SActionlog) CustomizeCreate(ctx context.Context, userCred mcclient
 	if action.StartTime.IsZero() {
 		action.StartTime = now
 	}
-	return nil
+	return action.SOpsLog.CustomizeCreate(ctx, userCred, ownerId, query, data)
 }
 
 // Websockets 不再拉取 ActionLog 的消息，因此注释掉如下代码
