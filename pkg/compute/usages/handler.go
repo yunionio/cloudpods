@@ -274,6 +274,8 @@ func getAdminGeneralUsage(userCred mcclient.IIdentityProvider, rangeObj db.IStan
 
 		WireUsage(rangeObj, hostTypes, providers, brands, cloudEnv),
 
+		NetworkUsage("all", rbacutils.ScopeSystem, nil, providers, brands, cloudEnv, rangeObj),
+
 		EipUsage(rbacutils.ScopeSystem, nil, rangeObj, providers, brands, cloudEnv),
 
 		SnapshotUsage(rbacutils.ScopeSystem, nil, rangeObj, providers, brands, cloudEnv),
@@ -313,7 +315,7 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 
 		containerUsage,
 
-		NetworkUsage(scope, cred, providers, brands, cloudEnv, rangeObj),
+		NetworkUsage("", scope, cred, providers, brands, cloudEnv, rangeObj),
 
 		eipUsage,
 
@@ -453,11 +455,19 @@ func nicsUsage(rangeObj db.IStandaloneModel, hostTypes []string, providers []str
 	return count
 }
 
-func NetworkUsage(scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, providers []string, brands []string, cloudEnv string, rangeObj db.IStandaloneModel) Usage {
+func prefixKey(prefix string, key string) string {
+	if len(prefix) > 0 {
+		return prefix + "." + key
+	} else {
+		return key
+	}
+}
+
+func NetworkUsage(prefix string, scope rbacutils.TRbacScope, userCred mcclient.IIdentityProvider, providers []string, brands []string, cloudEnv string, rangeObj db.IStandaloneModel) Usage {
 	count := make(map[string]interface{})
 	ret := models.NetworkManager.TotalPortCount(scope, userCred, providers, brands, cloudEnv, rangeObj)
-	count["ports"] = ret.Count
-	count["ports_exit"] = ret.CountExt
+	count[prefixKey(prefix, "ports")] = ret.Count
+	count[prefixKey(prefix, "ports_exit")] = ret.CountExt
 	return count
 }
 

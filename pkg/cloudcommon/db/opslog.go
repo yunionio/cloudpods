@@ -228,7 +228,7 @@ type SOpsLog struct {
 	Project   string `name:"tenant" width:"128" charset:"utf8" list:"user" create:"required"`     // tenant    = Column(VARCHAR(128, charset='utf8'))
 
 	ProjectDomainId string `name:"project_domain_id" default:"default" width:"128" charset:"ascii" list:"user" create:"required"`
-	ProjectDomain   string `name:"project_domain" default:"Default" width:"128" charset:"ascii" list:"user" create:"required"`
+	ProjectDomain   string `name:"project_domain" default:"Default" width:"128" charset:"utf8" list:"user" create:"required"`
 
 	UserId   string `width:"128" charset:"ascii" list:"user" create:"required"` // = Column(VARCHAR(ID_LENGTH, charset='ascii'))
 	User     string `width:"128" charset:"utf8" list:"user" create:"required"`  // = Column(VARCHAR(128, charset='utf8'))
