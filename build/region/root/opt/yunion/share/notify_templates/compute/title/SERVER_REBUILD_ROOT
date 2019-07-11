@@ -1,1 +1,1 @@
-{{ .hypervisor }}主机{{ .name }}重装系统成功
+{{ .brand }}主机{{ .name }}重装系统成功
