@@ -1,1 +1,1 @@
-{{ .hypervisor }}主机{{ .Name }}创建成功
+{{ .brand }}主机{{ .Name }}创建成功
