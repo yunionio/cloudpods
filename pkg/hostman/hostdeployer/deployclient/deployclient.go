@@ -46,7 +46,7 @@ func GetDeployClient() *DeployClient {
 }
 
 func grcpDialWithUnixSocket(ctx context.Context, socketPath string) (*grpc.ClientConn, error) {
-	return grpc.DialContext(ctx, socketPath, grpc.WithInsecure(), grpc.WithBlock(),
+	return grpc.DialContext(ctx, socketPath, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(time.Second*3),
 		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
 			return net.DialTimeout("unix", addr, timeout)
 		}),
