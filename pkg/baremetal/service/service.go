@@ -28,6 +28,7 @@ import (
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 )
 
 type BaremetalService struct {
@@ -42,6 +43,7 @@ func (s *BaremetalService) StartService() {
 	common_options.ParseOptions(&o.Options, os.Args, "baremetal.conf", "baremetal")
 	app_common.InitAuth(&o.Options.CommonOptions, s.startAgent)
 
+	fsdriver.Init(nil)
 	app := app_common.InitApp(&o.Options.BaseOptions, false)
 	handler.InitHandlers(app)
 
