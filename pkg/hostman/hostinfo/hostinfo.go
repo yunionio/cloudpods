@@ -43,7 +43,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/util/cgrouputils"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
-	"yunion.io/x/onecloud/pkg/util/httputils"
 	"yunion.io/x/onecloud/pkg/util/netutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
@@ -219,7 +218,7 @@ func (h *SHostInfo) prepareEnv() error {
 
 	// err = h.resetIptables()
 	// if err != nil {
-	// 	return err
+	//  return err
 	// }
 
 	if options.HostOptions.EnableKsm {
@@ -671,13 +670,9 @@ func (h *SHostInfo) getSysInfo() *SSysInfo {
 }
 
 func (h *SHostInfo) updateHostRecord(hostId string) {
-	var method, url string
+	var isInit bool
 	if len(hostId) == 0 {
-		method = "POST"
-		url = fmt.Sprintf("/zones/%s/hosts", h.ZoneId)
-	} else {
-		method = "PUT"
-		url = fmt.Sprintf("/hosts/%s", hostId)
+		isInit = true
 	}
 	content := jsonutils.NewDict()
 	masterIp := h.GetMasterIp()
@@ -719,11 +714,16 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	}
 	content.Set("__meta__", jsonutils.Marshal(h.getSysInfo()))
 	content.Set("version", jsonutils.NewString(version.GetShortString()))
-	body := jsonutils.NewDict()
-	body.Set("host", content)
-	session := h.GetSession()
-	_, res, err := session.JSONVersionRequest("compute",
-		session.GetEndpointType(), httputils.THttpMethod(method), url, nil, body, "v2")
+
+	var (
+		res jsonutils.JSONObject
+		err error
+	)
+	if !isInit {
+		res, err = modules.Hosts.Update(h.GetSession(), hostId, content)
+	} else {
+		res, err = modules.Hosts.CreateInContext(h.GetSession(), content, &modules.Zones, h.ZoneId)
+	}
 	if err != nil {
 		log.Errorln(err)
 		h.onFail()
@@ -732,8 +732,7 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	}
 }
 
-func (h *SHostInfo) onUpdateHostInfoSucc(body jsonutils.JSONObject) {
-	hostbody, _ := body.Get("host")
+func (h *SHostInfo) onUpdateHostInfoSucc(hostbody jsonutils.JSONObject) {
 	h.HostId, _ = hostbody.GetString("id")
 	hostname, _ := hostbody.GetString("name")
 	h.setHostname(hostname)
