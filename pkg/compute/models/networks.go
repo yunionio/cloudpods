@@ -1834,6 +1834,117 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	return nil, nil
 }
 
+func (manager *SNetworkManager) AllowPerformTryCreateNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowClassPerform(userCred, manager, "try-create-network")
+}
+
+func (manager *SNetworkManager) PerformTryCreateNetwork(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	ip, err := data.GetString("ip")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("ip")
+	}
+	ipV4, err := netutils.NewIPV4Addr(ip)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("ip")
+	}
+	mask, err := data.Int("mask")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("mask")
+	}
+	serverType, err := data.GetString("server_type")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("server_type")
+	}
+	if serverType != api.NETWORK_TYPE_BAREMETAL {
+		return nil, httperrors.NewBadRequestError("Only support server type %s", api.NETWORK_TYPE_BAREMETAL)
+	}
+	if !jsonutils.QueryBoolean(data, "is_on_premise", false) {
+		return nil, httperrors.NewBadRequestError("Only support on premise network")
+	}
+
+	var (
+		ipV4NetAddr = ipV4.NetAddr(int8(mask))
+		nm          *SNetwork
+		matched     bool
+	)
+
+	q := NetworkManager.Query().Equals("server_type", serverType).Equals("guest_ip_mask", mask)
+	q = managedResourceFilterByCloudType(q, query, "wire_id", func() *sqlchemy.SQuery {
+		wires := WireManager.Query().SubQuery()
+		vpcs := VpcManager.Query().SubQuery()
+		subq := wires.Query(wires.Field("id"))
+		subq = subq.Join(vpcs, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))
+		return subq
+	})
+
+	rows, err := q.Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		item, err := db.NewModelObject(NetworkManager)
+		if err != nil {
+			return nil, err
+		}
+		err = q.Row2Struct(rows, item)
+		if err != nil {
+			return nil, err
+		}
+		n := item.(*SNetwork)
+		if n.GetIPRange().Contains(ipV4) {
+			nm = n
+			matched = true
+			break
+		} else if nIpV4, _ := netutils.NewIPV4Addr(n.GuestIpStart); nIpV4.NetAddr(n.GuestIpMask) == ipV4NetAddr {
+			nm = n
+			matched = false
+			break
+		}
+	}
+
+	ret := jsonutils.NewDict()
+	if nm == nil {
+		ret.Set("find_matched", jsonutils.JSONFalse)
+		return ret, nil
+	} else {
+		ret.Set("find_matched", jsonutils.JSONTrue)
+		ret.Set("wire_id", jsonutils.NewString(nm.WireId))
+	}
+	if !matched {
+		log.Infof("Find same subnet network %s %s/%d", nm.Name, nm.GuestGateway, nm.GuestIpMask)
+		newNetwork := new(SNetwork)
+		newNetwork.SetModelManager(NetworkManager, newNetwork)
+		newNetwork.GuestIpStart = ip
+		newNetwork.GuestIpEnd = ip
+		newNetwork.GuestGateway = nm.GuestGateway
+		newNetwork.GuestIpMask = int8(mask)
+		newNetwork.GuestDns = nm.GuestDns
+		newNetwork.GuestDhcp = nm.GuestDhcp
+		newNetwork.WireId = nm.WireId
+		newNetwork.ServerType = serverType
+		newNetwork.IsPublic = nm.IsPublic
+		newNetwork.ProjectId = userCred.GetProjectId()
+		newNetwork.DomainId = userCred.GetProjectDomainId()
+		newName, err := db.GenerateName(NetworkManager, userCred, fmt.Sprintf("%s#", nm.Name))
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("GenerateName fail %s", err)
+		}
+		newNetwork.Name = newName
+
+		err = NetworkManager.TableSpec().Insert(newNetwork)
+		if err != nil {
+			return nil, err
+		}
+		err = newNetwork.CustomizeCreate(ctx, userCred, userCred, query, data)
+		if err != nil {
+			return nil, err
+		}
+		newNetwork.PostCreate(ctx, userCred, userCred, query, data)
+	}
+	return ret, nil
+}
+
 func (network *SNetwork) getAllocTimoutDuration() time.Duration {
 	tos := network.AllocTimoutSeconds
 	if tos < options.Options.MinimalIpAddrReusedIntervalSeconds {
