@@ -58,7 +58,6 @@ func (self *SManagedResourceBase) GetCustomizeColumns(ctx context.Context, userC
 	info := map[string]string{
 		"manager":    provider.GetName(),
 		"manager_id": provider.GetId(),
-		"provider":   provider.Provider,
 	}
 	if len(provider.ProjectId) > 0 {
 		info["manager_project_id"] = provider.ProjectId
@@ -73,6 +72,14 @@ func (self *SManagedResourceBase) GetCustomizeColumns(ctx context.Context, userC
 	account := provider.GetCloudaccount()
 	info["account"] = account.GetName()
 	info["account_id"] = account.GetId()
+	info["provider"] = account.Provider
+	info["brand"] = account.Brand
+
+	info["account_domain_id"] = account.DomainId
+	dc, err := db.TenantCacheManager.FetchDomainById(appctx.Background, account.DomainId)
+	if err == nil {
+		info["account_domain"] = dc.Name
+	}
 
 	return jsonutils.Marshal(info).(*jsonutils.JSONDict)
 }
@@ -100,11 +107,19 @@ func (self *SManagedResourceBase) GetDriver() (cloudprovider.ICloudProvider, err
 }
 
 func (self *SManagedResourceBase) GetProviderName() string {
-	driver := self.GetCloudprovider()
-	if driver != nil {
-		return driver.Provider
+	account := self.GetCloudaccount()
+	if account != nil {
+		return account.Provider
 	}
-	return ""
+	return api.CLOUD_PROVIDER_ONECLOUD
+}
+
+func (self *SManagedResourceBase) GetBrand() string {
+	account := self.GetCloudaccount()
+	if account != nil {
+		return account.Brand
+	}
+	return api.CLOUD_PROVIDER_ONECLOUD
 }
 
 func (self *SManagedResourceBase) IsManaged() bool {
