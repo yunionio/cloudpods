@@ -48,12 +48,13 @@ func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.I
 
 	data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
 
+	//避免在rebuild_root时绑定秘钥,没有account信息
+	data.Add(jsonutils.NewString(account), "account")
 	if len(passwd) > 0 {
 		encpasswd, err := utils.EncryptAESBase64(guestId, passwd)
 		if err != nil {
 			log.Errorf("encrypt password failed %s", err)
 		}
-		data.Add(jsonutils.NewString(account), "account")
 		data.Add(jsonutils.NewString(encpasswd), "key")
 	}
 
