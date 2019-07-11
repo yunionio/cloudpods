@@ -95,7 +95,7 @@ func GuestDescToDeployDesc(guestDesc *jsonutils.JSONDict) (*GuestDesc, error) {
 
 	if jnicsStandby != nil {
 		nicsStandby := make([]*Nic, 0)
-		err := jnicsStandby.Unmarshal(nicsStandby)
+		err := jnicsStandby.Unmarshal(&nicsStandby)
 		if err != nil {
 			return nil, err
 		}
