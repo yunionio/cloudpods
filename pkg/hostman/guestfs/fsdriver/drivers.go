@@ -26,8 +26,11 @@ func GetRootfsDrivers() []newRootFsDriverFunc {
 }
 
 func Init(initPrivatePrefixes []string) {
-	privatePrefixes = make([]string, len(initPrivatePrefixes))
-	copy(privatePrefixes, initPrivatePrefixes)
+	if len(initPrivatePrefixes) > 0 {
+		privatePrefixes = make([]string, len(initPrivatePrefixes))
+		copy(privatePrefixes, initPrivatePrefixes)
+	}
+
 	linuxFsDrivers := []newRootFsDriverFunc{
 		NewCentosRootFs, NewFedoraRootFs, NewRhelRootFs,
 		NewDebianRootFs, NewCirrosRootFs, NewCirrosNewRootFs, NewUbuntuRootFs,
