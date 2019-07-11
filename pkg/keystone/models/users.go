@@ -278,12 +278,12 @@ func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 	if len(passes) == 0 {
 		return nil
 	}
-	for i := range passes {
-		err = seclib2.BcryptVerifyPassword(passwd, passes[i].PasswordHash)
-		if err == nil {
-			return nil
-		}
+	//for i := range passes {
+	err = seclib2.BcryptVerifyPassword(passwd, passes[0].PasswordHash)
+	if err == nil {
+		return nil
 	}
+	//}
 	return fmt.Errorf("invalid password")
 }
 
