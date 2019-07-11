@@ -15,6 +15,7 @@
 package models
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/pkg/errors"
@@ -76,14 +77,16 @@ func (manager *SPasswordManager) fetchByLocaluserId(localUserId int) ([]SPasswor
 	passes := make([]SPassword, 0)
 	passwords := manager.Query().SubQuery()
 
-	q := passwords.Query().Equals("local_user_id", localUserId).Filter(sqlchemy.OR(
+	q := passwords.Query().Equals("local_user_id", localUserId)
+	q = q.Filter(sqlchemy.OR(
 		sqlchemy.IsNullOrEmpty(passwords.Field("expires_at_int")),
 		sqlchemy.Equals(passwords.Field("expires_at_int"), 0),
 		sqlchemy.GE(passwords.Field("expires_at_int"), time.Now().UnixNano()/1000),
 	))
+	q = q.Desc(passwords.Field("created_at_int"))
 	err := db.FetchModelObjects(manager, q, &passes)
-	if err != nil {
-		return nil, err
+	if err != nil && err != sql.ErrNoRows {
+		return nil, errors.Wrap(err, "db.FetchModelObjects")
 	}
 
 	return passes, nil
