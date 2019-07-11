@@ -686,6 +686,10 @@ func (self *SGuest) NotifyServerEvent(userCred mcclient.TokenCredential, event s
 	kwargs := jsonutils.NewDict()
 	kwargs.Add(jsonutils.NewString(self.Name), "name")
 	kwargs.Add(jsonutils.NewString(self.Hypervisor), "hypervisor")
+	host := self.GetHost()
+	if host != nil {
+		kwargs.Add(jsonutils.NewString(host.GetBrand()), "brand")
+	}
 	if loginInfo {
 		kwargs.Add(jsonutils.NewString(self.getNotifyIps()), "ips")
 		osName := meta[api.VM_METADATA_OS_NAME]
