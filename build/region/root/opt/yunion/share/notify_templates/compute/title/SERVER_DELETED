@@ -1,1 +1,1 @@
-{{ .hypervisor }}主机{{ .name }}删除通知
+{{ .brand }}主机{{ .name }}删除通知
