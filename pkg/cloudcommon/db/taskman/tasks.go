@@ -76,9 +76,9 @@ type STask struct {
 	ObjName  string                   `width:"128" charset:"utf8" nullable:"false" list:"user"`               //  Column(VARCHAR(128, charset='utf8'), nullable=False)
 	ObjId    string                   `width:"128" charset:"ascii" nullable:"false" list:"user" index:"true"` // Column(VARCHAR(ID_LENGTH, charset='ascii'), nullable=False)
 	TaskName string                   `width:"64" charset:"ascii" nullable:"false" list:"user"`               // Column(VARCHAR(64, charset='ascii'), nullable=False)
-	UserCred mcclient.TokenCredential `width:"1024" charset:"ascii" nullable:"false" get:"user"`              // Column(VARCHAR(1024, charset='ascii'), nullable=False)
+	UserCred mcclient.TokenCredential `width:"1024" charset:"utf8" nullable:"false" get:"user"`               // Column(VARCHAR(1024, charset='ascii'), nullable=False)
 	// OwnerCred string `width:"512" charset:"ascii" nullable:"true"` // Column(VARCHAR(512, charset='ascii'), nullable=True)
-	Params *jsonutils.JSONDict `charset:"ascii" length:"medium" nullable:"false" get:"user"` // Column(MEDIUMTEXT(charset='ascii'), nullable=False)
+	Params *jsonutils.JSONDict `charset:"utf8" length:"medium" nullable:"false" get:"user"` // Column(MEDIUMTEXT(charset='ascii'), nullable=False)
 
 	Stage string `width:"64" charset:"ascii" nullable:"false" default:"on_init" list:"user"` // Column(VARCHAR(64, charset='ascii'), nullable=False, default='on_init')
 
