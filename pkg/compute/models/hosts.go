@@ -1069,10 +1069,13 @@ func (cap *SStorageCapacity) ToJson() *jsonutils.JSONDict {
 	return ret
 }
 
-func (self *SHost) GetAttachedStorageCapacity() SStorageCapacity {
+func (self *SHost) GetAttachedLocalStorageCapacity() SStorageCapacity {
 	ret := SStorageCapacity{}
 	storages := self.GetAttachedStorages("")
 	for _, s := range storages {
+		if !utils.IsInStringArray(s.StorageType, api.HOST_STORAGE_LOCAL_TYPES) {
+			continue
+		}
 		ret.Add(s.getStorageCapacity())
 	}
 	return ret
@@ -2350,7 +2353,7 @@ func (self *SHost) getMoreDetails(ctx context.Context, extra *jsonutils.JSONDict
 		memCommitRate = float64(usage.GuestVmemSize) * 1.0 / float64(totalMem)
 	}
 	extra.Add(jsonutils.NewFloat(memCommitRate), "mem_commit_rate")
-	capa := self.GetAttachedStorageCapacity()
+	capa := self.GetAttachedLocalStorageCapacity()
 	extra.Add(jsonutils.NewInt(int64(capa.Capacity)), "storage")
 	extra.Add(jsonutils.NewInt(int64(capa.Used)), "storage_used")
 	extra.Add(jsonutils.NewInt(int64(capa.Wasted)), "storage_waste")
@@ -3067,7 +3070,7 @@ func (self *SHost) PerformInitialize(
 	guest.SetAllMetadata(ctx, map[string]interface{}{
 		"is_fake_baremetal_server": true, "host_ip": self.AccessIp}, userCred)
 
-	caps := self.GetAttachedStorageCapacity()
+	caps := self.GetAttachedLocalStorageCapacity()
 	diskConfig := &api.DiskConfig{SizeMb: int(caps.GetFree())}
 	err = guest.CreateDisksOnHost(ctx, userCred, self, []*api.DiskConfig{diskConfig}, nil, true, true, nil, nil, true)
 	if err != nil {
