@@ -1815,7 +1815,7 @@ func (self *SGuest) getSecurityGroupsRules() string {
 		secgroupids = append(secgroupids, secgroup.Id)
 	}
 	q := SecurityGroupRuleManager.Query()
-	q.Filter(sqlchemy.In(q.Field("secgroup_id"), secgroupids)).Desc(q.Field("priority"))
+	q.Filter(sqlchemy.In(q.Field("secgroup_id"), secgroupids)).Desc(q.Field("priority"), q.Field("action"))
 	secrules := []SSecurityGroupRule{}
 	if err := db.FetchModelObjects(SecurityGroupRuleManager, q, &secrules); err != nil {
 		log.Errorf("Get rules error: %v", err)
