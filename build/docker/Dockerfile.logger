@@ -1,0 +1,10 @@
+FROM alpine:3.8
+
+MAINTAINER "Zexi Li <lizexi@yunionyun.com>"
+
+ENV TZ Asia/Shanghai
+
+RUN mkdir -p /opt/yunion/bin
+
+ADD ./_output/bin/logger /opt/yunion/bin/logger
+
