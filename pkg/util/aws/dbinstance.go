@@ -238,8 +238,15 @@ func (rds *SDBInstance) GetDBNetwork() (*cloudprovider.SDBInstanceNetwork, error
 	return nil, nil
 }
 
-func (rds *SDBInstance) GetExtraIps() ([]cloudprovider.SExtraIp, error) {
-	return nil, cloudprovider.ErrNotImplemented
+func (rds *SDBInstance) GetInternalConnectionStr() string {
+	return rds.Endpoint.Address
+}
+
+func (rds *SDBInstance) GetConnectionStr() string {
+	if rds.PubliclyAccessible {
+		return rds.Endpoint.Address
+	}
+	return ""
 }
 
 func (rds *SDBInstance) GetIDBInstanceParameters() ([]cloudprovider.ICloudDBInstanceParameter, error) {

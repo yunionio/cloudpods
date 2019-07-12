@@ -890,9 +890,7 @@ func syncRegionDBInstances(ctx context.Context, userCred mcclient.TokenCredentia
 			defer lockman.ReleaseObject(ctx, &localInstances[i])
 
 			syncDBInstanceNetwork(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
-			syncDBInstanceExtraIps(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 			syncDBInstanceParameters(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
-			// syncDBInstanceBackups(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 			syncDBInstanceDatabases(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 			syncDBInstanceAccounts(ctx, userCred, syncResults, &localInstances[i], remoteInstances[i])
 		}()
@@ -916,24 +914,6 @@ func syncDBInstanceNetwork(ctx context.Context, userCred mcclient.TokenCredentia
 
 	msg := result.Result()
 	log.Infof("SyncDBInstanceNetwork for dbinstance %s result: %s", localInstance.Name, msg)
-	if result.IsError() {
-		return
-	}
-}
-
-func syncDBInstanceExtraIps(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localInstance *SDBInstance, remoteInstance cloudprovider.ICloudDBInstance) {
-	ips, err := remoteInstance.GetExtraIps()
-	if err != nil {
-		msg := fmt.Sprintf("GetExtraIps for dbinstance %s failed %s", remoteInstance.GetName(), err)
-		log.Errorf(msg)
-		return
-	}
-
-	result := ServiceIpManager.SyncExtraIps(ctx, userCred, localInstance, ips)
-	syncResults.Add(ServiceIpManager, result)
-
-	msg := result.Result()
-	log.Infof("SyncExtraIps for dbinstance %s result: %s", localInstance.Name, msg)
 	if result.IsError() {
 		return
 	}
@@ -1002,11 +982,39 @@ func syncDBInstanceAccounts(ctx context.Context, userCred mcclient.TokenCredenti
 		return
 	}
 
-	result := DBInstanceAccountManager.SyncDBInstanceAccounts(ctx, userCred, localInstance, accounts)
+	localAccounts, remoteAccounts, result := DBInstanceAccountManager.SyncDBInstanceAccounts(ctx, userCred, localInstance, accounts)
 	syncResults.Add(DBInstanceDatabaseManager, result)
 
 	msg := result.Result()
 	log.Infof("SyncDBInstanceAccounts for dbinstance %s result: %s", localInstance.Name, msg)
+	if result.IsError() {
+		return
+	}
+
+	for i := 0; i < len(localAccounts); i++ {
+		func() {
+			lockman.LockObject(ctx, &localAccounts[i])
+			defer lockman.ReleaseObject(ctx, &localAccounts[i])
+
+			syncDBInstanceAccountPrivileges(ctx, userCred, syncResults, &localAccounts[i], remoteAccounts[i])
+
+		}()
+	}
+}
+
+func syncDBInstanceAccountPrivileges(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, localAccount *SDBInstanceAccount, remoteAccount cloudprovider.ICloudDBInstanceAccount) {
+	privileges, err := remoteAccount.GetIDBInstanceAccountPrivileges()
+	if err != nil {
+		msg := fmt.Sprintf("GetIDBInstanceAccountPrivileges for dbinstance account %s failed %s", remoteAccount.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+
+	result := DBInstanceAccountPrivilegeManager.SyncDBInstanceAccountPrivileges(ctx, userCred, localAccount, privileges)
+	syncResults.Add(DBInstanceAccountPrivilegeManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncDBInstanceAccountPrivileges for account %s result: %s", localAccount, msg)
 	if result.IsError() {
 		return
 	}

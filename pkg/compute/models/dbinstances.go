@@ -69,7 +69,9 @@ type SDBInstance struct {
 
 	MaintainTime string `width:"64" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
-	VpcId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	VpcId                 string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	ConnectionStr         string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
+	InternalConnectionStr string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`
 }
 
 func (manager *SDBInstanceManager) GetContextManagers() [][]db.IModelManager {
@@ -226,16 +228,6 @@ func (self *SDBInstance) GetDBParameters() ([]SDBInstanceParameter, error) {
 	return parameters, nil
 }
 
-func (self *SDBInstance) GetServiceIps() ([]SServiceIp, error) {
-	serviceips := []SServiceIp{}
-	q := ServiceIpManager.Query().Equals("service_id", self.Id)
-	err := db.FetchModelObjects(ServiceIpManager, q, &serviceips)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetServiceIps.FetchModelObjects")
-	}
-	return serviceips, nil
-}
-
 func (self *SDBInstance) GetDBNetwork() (*SDBInstanceNetwork, error) {
 	q := DBInstanceNetworkManager.Query().Equals("dbinstance_id", self.Id)
 	count, err := q.CountWithError()
@@ -336,6 +328,9 @@ func (self *SDBInstance) SyncWithCloudDBInstance(ctx context.Context, userCred m
 		self.DiskSizeGB = extInstance.GetDiskSizeGB()
 		self.Status = extInstance.GetStatus()
 
+		self.ConnectionStr = extInstance.GetConnectionStr()
+		self.InternalConnectionStr = extInstance.GetInternalConnectionStr()
+
 		self.MaintainTime = extInstance.GetMaintainTime()
 
 		if zoneId := extInstance.GetIZoneId(); len(zoneId) > 0 {
@@ -395,6 +390,8 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	instance.VcpuCount = extInstance.GetVcpuCount()
 	instance.VmemSizeMb = extInstance.GetVmemSizeMB()
 	instance.DiskSizeGB = extInstance.GetDiskSizeGB()
+	instance.ConnectionStr = extInstance.GetConnectionStr()
+	instance.InternalConnectionStr = extInstance.GetInternalConnectionStr()
 
 	instance.MaintainTime = extInstance.GetMaintainTime()
 
