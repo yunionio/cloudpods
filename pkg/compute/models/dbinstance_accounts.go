@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -95,6 +96,27 @@ func (manager *SDBInstanceAccountManager) ValidateCreateData(ctx context.Context
 	return nil, httperrors.NewNotImplementedError("Not Implemented")
 }
 
+func (self *SDBInstanceAccount) GetDBInstanceDatabaseByName(dbName string) (*SDBInstanceDatabase, error) {
+	q := DBInstanceDatabaseManager.Query().Equals("dbinstance_id", self.DBInstanceId).Equals("name", dbName)
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count == 1 {
+		database := &SDBInstanceDatabase{}
+		database.SetModelManager(DBInstanceDatabaseManager, database)
+		err = q.First(database)
+		if err != nil {
+			return nil, err
+		}
+		return database, nil
+	}
+	if count > 1 {
+		return nil, sqlchemy.ErrDuplicateEntry
+	}
+	return nil, sql.ErrNoRows
+}
+
 func (manager *SDBInstanceAccountManager) getDBInstanceAccountsByInstance(instance *SDBInstance) ([]SDBInstanceAccount, error) {
 	accounts := []SDBInstanceAccount{}
 	q := manager.Query().Equals("dbinstance_id", instance.Id)
@@ -105,7 +127,7 @@ func (manager *SDBInstanceAccountManager) getDBInstanceAccountsByInstance(instan
 	return accounts, nil
 }
 
-func (manager *SDBInstanceAccountManager) SyncDBInstanceAccounts(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, cloudAccounts []cloudprovider.ICloudDBInstanceAccount) compare.SyncResult {
+func (manager *SDBInstanceAccountManager) SyncDBInstanceAccounts(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, cloudAccounts []cloudprovider.ICloudDBInstanceAccount) ([]SDBInstanceAccount, []cloudprovider.ICloudDBInstanceAccount, compare.SyncResult) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, instance.GetOwnerId()))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, instance.GetOwnerId()))
 
@@ -113,8 +135,11 @@ func (manager *SDBInstanceAccountManager) SyncDBInstanceAccounts(ctx context.Con
 	dbAccounts, err := manager.getDBInstanceAccountsByInstance(instance)
 	if err != nil {
 		result.Error(err)
-		return result
+		return nil, nil, result
 	}
+
+	localAccounts := []SDBInstanceAccount{}
+	remoteAccounts := []cloudprovider.ICloudDBInstanceAccount{}
 
 	removed := make([]SDBInstanceAccount, 0)
 	commondb := make([]SDBInstanceAccount, 0)
@@ -122,7 +147,7 @@ func (manager *SDBInstanceAccountManager) SyncDBInstanceAccounts(ctx context.Con
 	added := make([]cloudprovider.ICloudDBInstanceAccount, 0)
 	if err := compare.CompareSets(dbAccounts, cloudAccounts, &removed, &commondb, &commonext, &added); err != nil {
 		result.Error(err)
-		return result
+		return nil, nil, result
 	}
 
 	for i := 0; i < len(removed); i++ {
@@ -140,18 +165,22 @@ func (manager *SDBInstanceAccountManager) SyncDBInstanceAccounts(ctx context.Con
 			result.UpdateError(err)
 		} else {
 			result.Update()
+			localAccounts = append(localAccounts, commondb[i])
+			remoteAccounts = append(remoteAccounts, commonext[i])
 		}
 	}
 
 	for i := 0; i < len(added); i++ {
-		err = manager.newFromCloudDBInstanceAccount(ctx, userCred, instance, added[i])
+		account, err := manager.newFromCloudDBInstanceAccount(ctx, userCred, instance, added[i])
 		if err != nil {
 			result.AddError(err)
 		} else {
+			localAccounts = append(localAccounts, *account)
+			remoteAccounts = append(remoteAccounts, added[i])
 			result.Add()
 		}
 	}
-	return result
+	return localAccounts, remoteAccounts, result
 }
 
 func (self *SDBInstanceAccount) SyncWithCloudDBInstanceAccount(ctx context.Context, userCred mcclient.TokenCredential, extAccount cloudprovider.ICloudDBInstanceAccount) error {
@@ -165,7 +194,7 @@ func (self *SDBInstanceAccount) SyncWithCloudDBInstanceAccount(ctx context.Conte
 	return nil
 }
 
-func (manager *SDBInstanceAccountManager) newFromCloudDBInstanceAccount(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, extAccount cloudprovider.ICloudDBInstanceAccount) error {
+func (manager *SDBInstanceAccountManager) newFromCloudDBInstanceAccount(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, extAccount cloudprovider.ICloudDBInstanceAccount) (*SDBInstanceAccount, error) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
@@ -179,7 +208,7 @@ func (manager *SDBInstanceAccountManager) newFromCloudDBInstanceAccount(ctx cont
 
 	err := manager.TableSpec().Insert(&account)
 	if err != nil {
-		return errors.Wrapf(err, "newFromCloudDBInstanceAccount.Insert")
+		return nil, errors.Wrapf(err, "newFromCloudDBInstanceAccount.Insert")
 	}
-	return nil
+	return &account, nil
 }

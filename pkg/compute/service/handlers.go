@@ -118,7 +118,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.DBInstanceParameterManager,
 		models.DBInstanceDatabaseManager,
 		models.DBInstanceAccountManager,
-		models.ServiceIpManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

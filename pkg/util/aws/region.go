@@ -173,14 +173,13 @@ func Unmarshal(r *request.Request) {
 			if err != nil {
 				if err == io.EOF {
 					break
-				} else {
-					r.Error = awserr.NewRequestFailure(
-						awserr.New("decoder.Token()", "get token", err),
-						r.HTTPResponse.StatusCode,
-						r.RequestID,
-					)
-					return
 				}
+				r.Error = awserr.NewRequestFailure(
+					awserr.New("decoder.Token()", "get token", err),
+					r.HTTPResponse.StatusCode,
+					r.RequestID,
+				)
+				return
 			}
 
 			if tok == nil {
@@ -193,11 +192,13 @@ func Unmarshal(r *request.Request) {
 			case xml.StartElement:
 				if typed.Name.Local == r.Operation.Name+"Result" {
 					err = decoder.DecodeElement(r.Data, &typed)
-					r.Error = awserr.NewRequestFailure(
-						awserr.New("DecodeElement", "failed decoding Query response", err),
-						r.HTTPResponse.StatusCode,
-						r.RequestID,
-					)
+					if err != nil {
+						r.Error = awserr.NewRequestFailure(
+							awserr.New("DecodeElement", "failed decoding Query response", err),
+							r.HTTPResponse.StatusCode,
+							r.RequestID,
+						)
+					}
 					return
 				}
 			case xml.EndElement:

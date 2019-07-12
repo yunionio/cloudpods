@@ -54,7 +54,7 @@ type SDBInstanceParameter struct {
 	DBInstanceId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 
 	Key   string `width:"64" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
-	Value string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
+	Value string `width:"256" charset:"ascii" nullable:"false" list:"user" update:"user" create:"required"`
 }
 
 func (manager *SDBInstanceParameterManager) GetContextManagers() [][]db.IModelManager {

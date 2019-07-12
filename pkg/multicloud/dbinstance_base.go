@@ -10,12 +10,16 @@ type SDBInstanceBase struct {
 	SVirtualResourceBase
 }
 
-func (instance *SDBInstanceBase) GetDBNetwork() (*cloudprovider.SDBInstanceNetwork, error) {
-	return nil, fmt.Errorf("Not Implemented GetDBNetwork")
+func (instance *SDBInstanceBase) GetConnectionStr() string {
+	return ""
 }
 
-func (instance *SDBInstanceBase) GetExtraIps() ([]cloudprovider.SExtraIp, error) {
-	return nil, fmt.Errorf("Not Implemented GetExtraIps")
+func (instance *SDBInstanceBase) GetInternalConnectionStr() string {
+	return ""
+}
+
+func (instance *SDBInstanceBase) GetDBNetwork() (*cloudprovider.SDBInstanceNetwork, error) {
+	return nil, fmt.Errorf("Not Implemented GetDBNetwork")
 }
 
 func (instance *SDBInstanceBase) GetIDBInstanceParameters() ([]cloudprovider.ICloudDBInstanceParameter, error) {

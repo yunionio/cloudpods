@@ -1155,32 +1155,6 @@ func (instance *SDBInstance) purgeParameters(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (serviceip *SServiceIp) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, serviceip)
-	defer lockman.ReleaseObject(ctx, serviceip)
-
-	err := serviceip.ValidateDeleteCondition(ctx)
-	if err != nil {
-		return err
-	}
-	return serviceip.Delete(ctx, userCred)
-}
-
-func (instance *SDBInstance) purgeServiceips(ctx context.Context, userCred mcclient.TokenCredential) error {
-	serviceips, err := instance.GetServiceIps()
-	if err != nil {
-		return err
-	}
-
-	for i := range serviceips {
-		err = serviceips[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (network *SDBInstanceNetwork) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, network)
 	defer lockman.ReleaseObject(ctx, network)
@@ -1220,11 +1194,6 @@ func (instance *SDBInstance) purge(ctx context.Context, userCred mcclient.TokenC
 	}
 
 	err = instance.purgeParameters(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
-	err = instance.purgeServiceips(ctx, userCred)
 	if err != nil {
 		return err
 	}

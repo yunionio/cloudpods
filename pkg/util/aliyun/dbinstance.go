@@ -29,6 +29,8 @@ type SDBInstanceExtra struct {
 type SDBInstance struct {
 	multicloud.SDBInstanceBase
 
+	netInfo []SDBInstanceNetwork
+
 	region *SRegion
 
 	AccountMaxQuantity        int
@@ -233,21 +235,46 @@ func (rds *SDBInstance) GetDBNetwork() (*cloudprovider.SDBInstanceNetwork, error
 	return nil, fmt.Errorf("failed to found network for aliyun rds %s", rds.DBInstanceId)
 }
 
-func (rds *SDBInstance) GetExtraIps() ([]cloudprovider.SExtraIp, error) {
+func (rds *SDBInstance) fetchNetInfo() error {
+	if len(rds.netInfo) > 0 {
+		return nil
+	}
 	netInfo, err := rds.region.GetDBInstanceNetInfo(rds.DBInstanceId)
 	if err != nil {
-		return nil, err
+		return errors.Wrap(err, "GetDBInstanceNetInfo")
 	}
-	ips := []cloudprovider.SExtraIp{}
-	for _, net := range netInfo {
-		if net.IPType == "Public" || net.IPType == "Inner" {
-			ips = append(ips, cloudprovider.SExtraIp{
-				IP:  net.IPAddress,
-				URL: net.ConnectionString,
-			})
+	rds.netInfo = netInfo
+	return nil
+}
+
+func (rds *SDBInstance) GetInternalConnectionStr() string {
+	err := rds.fetchNetInfo()
+	if err != nil {
+		log.Errorf("failed to fetch netInfo error: %v", err)
+		return ""
+	}
+
+	for _, net := range rds.netInfo {
+		if net.IPType != "Public" {
+			return net.ConnectionString
 		}
 	}
-	return ips, nil
+	return ""
+}
+
+func (rds *SDBInstance) GetConnectionStr() string {
+	err := rds.fetchNetInfo()
+	if err != nil {
+		log.Errorf("failed to fetch netInfo error: %v", err)
+		return ""
+	}
+
+	for _, net := range rds.netInfo {
+		if net.IPType == "Public" {
+			return net.ConnectionString
+		}
+	}
+	return ""
 }
 
 func (region *SRegion) GetDBInstances(ids []string, offset int, limit int) ([]SDBInstance, int, error) {

@@ -52,10 +52,6 @@ type SIpAddress struct {
 	IpAddress []string
 }
 
-// type SNetworkInterfaces struct {
-// 	NetworkInterface []SNetworkInterface
-// }
-
 type SSecurityGroupIds struct {
 	SecurityGroupId []string
 }

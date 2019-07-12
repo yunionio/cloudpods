@@ -318,7 +318,6 @@ type ICloudEIP interface {
 
 type ICloudSecurityGroup interface {
 	ICloudResource
-	//IVirtualResource
 
 	GetDescription() string
 	GetRules() ([]secrules.SecurityRule, error)
@@ -709,12 +708,12 @@ type ICloudDBInstance interface {
 
 	GetMaintainTime() string
 
+	GetConnectionStr() string
+	GetInternalConnectionStr() string
 	GetIZoneId() string
 	GetIVpcId() string
 
 	GetDBNetwork() (*SDBInstanceNetwork, error)
-	GetExtraIps() ([]SExtraIp, error)
-
 	GetIDBInstanceParameters() ([]ICloudDBInstanceParameter, error)
 	GetIDBInstanceDatabases() ([]ICloudDBInstanceDatabase, error)
 	GetIDBInstanceAccounts() ([]ICloudDBInstanceAccount, error)
@@ -748,4 +747,13 @@ type ICloudDBInstanceDatabase interface {
 
 type ICloudDBInstanceAccount interface {
 	ICloudResource
+
+	GetIDBInstanceAccountPrivileges() ([]ICloudDBInstanceAccountPrivilege, error)
+}
+
+type ICloudDBInstanceAccountPrivilege interface {
+	ICloudResource
+
+	GetPrivilege() string
+	GetDBName() string
 }

@@ -347,8 +347,3 @@ paths:
     $ref: "./dbinstance/dbinstanceaccounts.yaml"
   /dbinstanceaccounts/{accountId}:
     $ref: "./dbinstance/dbinstanceaccount.yaml"
-
-  /serviceips:
-    $ref: "./serviceip/serviceips.yaml"
-  /serviceips/{serviceipId}:
-    $ref: "./serviceip/serviceip.yaml"
