@@ -22,6 +22,7 @@ type SDeployOptions struct {
 	DeployServerSocketPath string   `help:"Deploy server listen socket path" default:"/var/run/deploy.sock"`
 	PrivatePrefixes        []string `help:"IPv4 private prefixes"`
 	ChntpwPath             string   `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
+	ExecSocketPath         string   `help:"Exec socket paht" default:"/var/run/exec.sock"`
 }
 
 var DeployOption SDeployOptions

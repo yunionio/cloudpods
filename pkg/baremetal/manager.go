@@ -88,7 +88,7 @@ func NewBaremetalManager(agent *SBaremetalAgent) (*SBaremetalManager, error) {
 }
 
 func (m *SBaremetalManager) killAllIPMITool() {
-	procutils.NewCommand("killall", "-9", "ipmitool").Run()
+	procutils.NewCommand("killall", "-9", "ipmitool").Output()
 }
 
 func (m *SBaremetalManager) GetClientSession() *mcclient.ClientSession {
@@ -176,7 +176,7 @@ func (m *SBaremetalManager) CleanBaremetal(bmId string) {
 	}
 	bm.clearBootIsoImage()
 	path := bm.GetDir()
-	procutils.NewCommand("rm", "-fr", path).Run()
+	procutils.NewCommand("rm", "-fr", path).Output()
 }
 
 func (m *SBaremetalManager) updateBaremetal(session *mcclient.ClientSession, bmId string) (jsonutils.JSONObject, error) {

@@ -180,12 +180,16 @@ func (h *SHostInfo) prepareEnv() error {
 		return fmt.Errorf("Option report_interval must no longer than 5 min")
 	}
 
-	_, err := procutils.NewCommand("mkdir", "-p", options.HostOptions.ServersPath).Run()
+	_, err := procutils.NewCommand("mkdir", "-p", options.HostOptions.ServersPath).Output()
 	if err != nil {
 		return fmt.Errorf("Failed to create path %s", options.HostOptions.ServersPath)
 	}
 
-	_, err = procutils.NewCommand(qemutils.GetQemu(""), "-version").Run()
+	if len(qemutils.GetQemu("")) == 0 {
+		return fmt.Errorf("Qemu not installed")
+	}
+
+	_, err = procutils.NewCommand(qemutils.GetQemu(""), "-version").Output()
 	if err != nil {
 		return fmt.Errorf("Qemu/Kvm not installed")
 	}
@@ -205,11 +209,11 @@ func (h *SHostInfo) prepareEnv() error {
 		ioParams["queue/iosched/quantum"] = "32"
 	}
 	fileutils2.ChangeAllBlkdevsParams(ioParams)
-	_, err = procutils.NewCommand("modprobe", "tun").Run()
+	_, err = procutils.NewCommand("modprobe", "tun").Output()
 	if err != nil {
 		return fmt.Errorf("Failed to activate tun/tap device")
 	}
-	output, err := procutils.NewCommand("modprobe", "vhost_net").Run()
+	output, err := procutils.NewCommand("modprobe", "vhost_net").Output()
 	if err != nil {
 		log.Errorf("modprobe error: %s", output)
 	}
@@ -256,7 +260,7 @@ func (h *SHostInfo) prepareEnv() error {
 }
 
 func (h *SHostInfo) detectHostInfo() error {
-	output, err := procutils.NewCommand("dmidecode", "-t", "1").Run()
+	output, err := procutils.NewCommand("dmidecode", "-t", "1").Output()
 	if err != nil {
 		return err
 	}
@@ -373,7 +377,7 @@ func (h *SHostInfo) EnableNativeHugepages() error {
 		err = timeutils2.CommandWithTimeout(1, "sh", "-c", fmt.Sprintf("echo %d > /proc/sys/vm/nr_hugepages", preAllocPagesNum)).Run()
 		if err != nil {
 			log.Errorln(err)
-			_, err = procutils.NewCommand("sh", "-c", "echo 0 > /proc/sys/vm/nr_hugepages").Run()
+			_, err = procutils.NewCommand("sh", "-c", "echo 0 > /proc/sys/vm/nr_hugepages").Output()
 			if err != nil {
 				log.Warningln(err)
 			}
@@ -411,7 +415,7 @@ func (h *SHostInfo) TuneSystem() {
 
 func (h *SHostInfo) resetIptables() error {
 	for _, tbl := range []string{"filter", "nat", "mangle"} {
-		_, err := procutils.NewCommand("iptables", "-t", tbl, "-F").Run()
+		_, err := procutils.NewCommand("iptables", "-t", tbl, "-F").Output()
 		if err != nil {
 			return fmt.Errorf("Fail to clean NAT iptable: %s", err)
 		}
@@ -433,7 +437,7 @@ func (h *SHostInfo) detectNestSupport() {
 }
 
 func (h *SHostInfo) detectiveOsDist() {
-	files, err := procutils.NewCommand("sh", "-c", "ls /etc/*elease").Run()
+	files, err := procutils.NewCommand("sh", "-c", "ls /etc/*elease").Output()
 	if err != nil {
 		log.Errorln(err)
 		return
@@ -458,7 +462,7 @@ func (h *SHostInfo) detectiveOsDist() {
 }
 
 func (h *SHostInfo) detectiveKernelVersion() {
-	out, err := procutils.NewCommand("uname", "-r").Run()
+	out, err := procutils.NewCommand("uname", "-r").Output()
 	if err != nil {
 		log.Errorln(err)
 	}
@@ -477,7 +481,7 @@ func (h *SHostInfo) detectiveSyssoftwareInfo() error {
 
 func (h *SHostInfo) detectiveQemuVersion() error {
 	cmd := qemutils.GetQemu(options.HostOptions.DefaultQemuVersion)
-	version, err := procutils.NewCommand(cmd, "--version").Run()
+	version, err := procutils.NewCommand(cmd, "--version").Output()
 	if err != nil {
 		log.Errorln(err)
 		return err
@@ -496,7 +500,7 @@ func (h *SHostInfo) detectiveQemuVersion() error {
 }
 
 func (h *SHostInfo) detectiveOvsVersion() {
-	version, err := procutils.NewCommand("ovs-vsctl", "--version").Run()
+	version, err := procutils.NewCommand("ovs-vsctl", "--version").Output()
 	if err != nil {
 		log.Errorln(err)
 	} else {
@@ -513,6 +517,7 @@ func (h *SHostInfo) detectiveOvsVersion() {
 }
 
 func (h *SHostInfo) GetMasterNicIpAndMask() (string, int) {
+	log.Errorf("MasterNic %#v", h.MasterNic)
 	if h.MasterNic != nil {
 		mask, _ := h.MasterNic.Mask.Size()
 		return h.MasterNic.Addr, mask

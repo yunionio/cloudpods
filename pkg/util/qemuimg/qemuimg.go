@@ -110,6 +110,7 @@ func (img *SQemuImage) parse() error {
 			img.ActualSizeBytes = fileInfo.Size()
 		}
 	}
+	// cmd := procutils.NewCommand(qemutils.GetQemuImg(), "info", img.Path)
 	cmd := exec.Command(qemutils.GetQemuImg(), "info", img.Path)
 	if len(img.Password) > 0 {
 		cmd.Stdin = bytes.NewBuffer([]byte(img.Password))

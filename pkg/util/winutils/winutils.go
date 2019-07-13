@@ -103,7 +103,7 @@ func (w *SWinRegTool) CheckPath() bool {
 }
 
 func (w *SWinRegTool) GetUsers() map[string]bool {
-	output, err := procutils.NewCommand(GetChntpwPath(), "-l", w.SamPath).Run()
+	output, err := procutils.NewCommand(GetChntpwPath(), "-l", w.SamPath).Output()
 	if err != nil {
 		log.Errorln(err)
 		return nil

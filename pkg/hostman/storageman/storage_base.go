@@ -439,11 +439,11 @@ func requestDeleteSnapshot(
 		log.Errorln(err)
 		return
 	}
-	if out, err := procutils.NewCommand("rm", "-f", convertSnapshotPath).Run(); err != nil {
+	if out, err := procutils.NewCommand("rm", "-f", convertSnapshotPath).Output(); err != nil {
 		log.Errorf("%s", out)
 		return
 	}
-	if out, err := procutils.NewCommand("mv", "-f", outfile, convertSnapshotPath).Run(); err != nil {
+	if out, err := procutils.NewCommand("mv", "-f", outfile, convertSnapshotPath).Output(); err != nil {
 		log.Errorf("%s", out)
 		return
 	}

@@ -144,7 +144,7 @@ func (s *SLocalStorage) CreateDisk(diskId string) IDisk {
 
 func (s *SLocalStorage) Accessible() bool {
 	if !fileutils2.Exists(s.Path) {
-		if _, err := procutils.NewCommand("mkdir", "-p", s.Path).Run(); err != nil {
+		if err := procutils.NewCommand("mkdir", "-p", s.Path).Run(); err != nil {
 			log.Errorln(err)
 		}
 	}
@@ -162,14 +162,12 @@ func (s *SLocalStorage) DeleteDiskfile(diskpath string) error {
 			destDir  = s.getRecyclePath()
 			destFile = fmt.Sprintf("%s.%d", path.Base(diskpath), time.Now().Unix())
 		)
-		if _, err := procutils.NewCommand("mkdir", "-p", destDir).Run(); err != nil {
+		if err := procutils.NewCommand("mkdir", "-p", destDir).Run(); err != nil {
 			return err
 		}
-		_, err := procutils.NewCommand("mv", "-f", diskpath, path.Join(destDir, destFile)).Run()
-		return err
+		return procutils.NewCommand("mv", "-f", diskpath, path.Join(destDir, destFile)).Run()
 	} else {
-		_, err := procutils.NewCommand("rm", "-rf", diskpath).Run()
-		return err
+		return procutils.NewCommand("rm", "-rf", diskpath).Run()
 	}
 }
 
@@ -207,11 +205,10 @@ func (s *SLocalStorage) SaveToGlance(ctx context.Context, params interface{}) (j
 
 	imagecacheManager := s.Manager.LocalStorageImagecacheManager
 	if len(imagecacheManager.GetId()) > 0 {
-		_, err := procutils.NewCommand("rm", "-f", imagePath).Run()
-		return nil, err
+		return nil, procutils.NewCommand("rm", "-f", imagePath).Run()
 	} else {
 		dstPath := path.Join(imagecacheManager.GetPath(), imageId)
-		if _, err := procutils.NewCommand("mv", imagePath, dstPath).Run(); err != nil {
+		if err := procutils.NewCommand("mv", imagePath, dstPath).Run(); err != nil {
 			log.Errorf("Fail to move saved image to cache: %s", err)
 		}
 		imagecacheManager.LoadImageCache(imageId)
@@ -317,7 +314,7 @@ func (s *SLocalStorage) DeleteSnapshots(ctx context.Context, params interface{})
 		return nil, hostutils.ParamsError
 	}
 	snapshotDir := path.Join(s.GetSnapshotDir(), diskId+options.HostOptions.SnapshotDirSuffix)
-	output, err := procutils.NewCommand("rm", "-rf", snapshotDir).Run()
+	output, err := procutils.NewCommand("rm", "-rf", snapshotDir).Output()
 	if err != nil {
 		return nil, fmt.Errorf("Delete snapshot dir failed: %s", output)
 	}
@@ -343,7 +340,7 @@ func (s *SLocalStorage) DestinationPrepareMigrate(
 		templateId, _ := diskinfo.GetString("template_id")
 		// prepare disk snapshot dir
 		if len(snapshots) > 0 && !fileutils2.Exists(disk.GetSnapshotDir()) {
-			_, err := procutils.NewCommand("mkdir", "-p", disk.GetSnapshotDir()).Run()
+			_, err := procutils.NewCommand("mkdir", "-p", disk.GetSnapshotDir()).Output()
 			if err != nil {
 				return err
 			}

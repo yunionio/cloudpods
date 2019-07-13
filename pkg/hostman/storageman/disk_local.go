@@ -322,10 +322,10 @@ func (d *SLocalDisk) GetDiskSetupScripts(diskIndex int) string {
 
 func (d *SLocalDisk) PostCreateFromImageFuse() {
 	mntPath := path.Join(d.Storage.GetFuseMountPath(), d.Id)
-	if _, err := procutils.NewCommand("umount", mntPath).Run(); err != nil {
+	if _, err := procutils.NewCommand("umount", mntPath).Output(); err != nil {
 		log.Errorln(err)
 	}
-	if _, err := procutils.NewCommand("rm", "-rf", mntPath).Run(); err != nil {
+	if _, err := procutils.NewCommand("rm", "-rf", mntPath).Output(); err != nil {
 		log.Errorln(err)
 	}
 	tmpPath := d.Storage.GetFuseTmpPath()
@@ -342,14 +342,14 @@ func (d *SLocalDisk) PostCreateFromImageFuse() {
 func (d *SLocalDisk) CreateSnapshot(snapshotId string) error {
 	snapshotDir := d.GetSnapshotDir()
 	if !fileutils2.Exists(snapshotDir) {
-		_, err := procutils.NewCommand("mkdir", "-p", snapshotDir).Run()
+		_, err := procutils.NewCommand("mkdir", "-p", snapshotDir).Output()
 		if err != nil {
 			log.Errorln(err)
 			return err
 		}
 	}
 	snapshotPath := path.Join(snapshotDir, snapshotId)
-	_, err := procutils.NewCommand("mv", "-f", d.getPath(), snapshotPath).Run()
+	_, err := procutils.NewCommand("mv", "-f", d.getPath(), snapshotPath).Output()
 	if err != nil {
 		log.Errorln(err)
 		return err
@@ -372,7 +372,7 @@ func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingD
 	snapshotDir := d.GetSnapshotDir()
 	if len(convertSnapshot) > 0 {
 		if !fileutils2.Exists(snapshotDir) {
-			_, err := procutils.NewCommand("mkdir", "-p", snapshotDir).Run()
+			err := procutils.NewCommand("mkdir", "-p", snapshotDir).Run()
 			if err != nil {
 				log.Errorln(err)
 				return err
@@ -393,16 +393,16 @@ func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingD
 			procutils.NewCommand("rm", "-f", output).Run()
 			return err
 		}
-		if _, err = procutils.NewCommand("rm", "-f", convertSnapshotPath).Run(); err != nil {
+		if err = procutils.NewCommand("rm", "-f", convertSnapshotPath).Run(); err != nil {
 			log.Errorln(err)
 			return err
 		}
-		if _, err = procutils.NewCommand("mv", "-f", output, convertSnapshotPath).Run(); err != nil {
+		if err = procutils.NewCommand("mv", "-f", output, convertSnapshotPath).Run(); err != nil {
 			log.Errorln(err)
 			return err
 		}
 		if !pendingDelete {
-			_, err = procutils.NewCommand("rm", "-f", path.Join(snapshotDir, snapshotId)).Run()
+			err = procutils.NewCommand("rm", "-f", path.Join(snapshotDir, snapshotId)).Run()
 			if err != nil {
 				log.Errorln(err)
 				return err
@@ -410,7 +410,7 @@ func (d *SLocalDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingD
 		}
 		return nil
 	} else {
-		_, err := procutils.NewCommand("rm", "-f", path.Join(snapshotDir, snapshotId)).Run()
+		err := procutils.NewCommand("rm", "-f", path.Join(snapshotDir, snapshotId)).Run()
 		if err != nil {
 			log.Errorln(err)
 			return err
@@ -428,12 +428,12 @@ func (d *SLocalDisk) PrepareSaveToGlance(ctx context.Context, params interface{}
 		return nil, err
 	}
 	destDir := d.Storage.GetImgsaveBackupPath()
-	if _, err := procutils.NewCommand("mkdir", "-p", destDir).Run(); err != nil {
+	if err := procutils.NewCommand("mkdir", "-p", destDir).Run(); err != nil {
 		log.Errorln(err)
 		return nil, err
 	}
 	backupPath := path.Join(destDir, fmt.Sprintf("%s.%s", d.Id, appctx.AppContextTaskId(ctx)))
-	if _, err := procutils.NewCommand("cp", "--sparse=always", "-f", d.GetPath(), backupPath).Run(); err != nil {
+	if err := procutils.NewCommand("cp", "--sparse=always", "-f", d.GetPath(), backupPath).Run(); err != nil {
 		log.Errorln(err)
 		procutils.NewCommand("rm", "-f", backupPath).Run()
 		return nil, err
@@ -461,7 +461,7 @@ func (d *SLocalDisk) ResetFromSnapshot(ctx context.Context, params interface{}) 
 
 func (d *SLocalDisk) resetFromSnapshot(snapshotPath string, outOfChain bool) (jsonutils.JSONObject, error) {
 	diskTmpPath := d.GetPath() + "_reset.tmp"
-	if output, err := procutils.NewCommand("mv", "-f", d.GetPath(), diskTmpPath).Run(); err != nil {
+	if output, err := procutils.NewCommand("mv", "-f", d.GetPath(), diskTmpPath).Output(); err != nil {
 		err = errors.Wrapf(err, "mv disk to tmp failed: %s", output)
 		return nil, err
 	}
@@ -478,13 +478,14 @@ func (d *SLocalDisk) resetFromSnapshot(snapshotPath string, outOfChain bool) (js
 			return nil, err
 		}
 	} else {
-		if output, err := procutils.NewCommand("cp", "-f", snapshotPath, d.GetPath()).Run(); err != nil {
+		if output, err := procutils.NewCommand("cp", "-f", snapshotPath, d.GetPath()).Output(); err != nil {
 			err = errors.Wrapf(err, "cp snapshot to disk %s", output)
 			procutils.NewCommand("mv", "-f", diskTmpPath, d.GetPath()).Run()
 			return nil, err
 		}
 	}
-	output, err := procutils.NewCommand("rm", "-f", diskTmpPath).Run()
+
+	output, err := procutils.NewCommand("rm", "-f", diskTmpPath).Output()
 	if err != nil {
 		err = errors.Wrapf(err, "rm disk tmp path %s", output)
 		return nil, err
@@ -511,7 +512,7 @@ func (d *SLocalDisk) CleanupSnapshots(ctx context.Context, params interface{}) (
 			log.Errorln(err)
 			return nil, err
 		}
-		if procutils.NewCommand("mv", "-f", output, snapshotPath).Run(); err != nil {
+		if err := procutils.NewCommand("mv", "-f", output, snapshotPath).Run(); err != nil {
 			procutils.NewCommand("rm", "-f", output).Run()
 			log.Errorln(err)
 			return nil, err
@@ -520,7 +521,7 @@ func (d *SLocalDisk) CleanupSnapshots(ctx context.Context, params interface{}) (
 
 	for _, snapshotId := range cleanupParams.DeleteSnapshots {
 		snapId, _ := snapshotId.GetString()
-		if _, err := procutils.NewCommand("rm", "-f", path.Join(snapshotDir, snapId)).Run(); err != nil {
+		if err := procutils.NewCommand("rm", "-f", path.Join(snapshotDir, snapId)).Run(); err != nil {
 			log.Errorln(err)
 			return nil, err
 		}
@@ -537,8 +538,7 @@ func (d *SLocalDisk) DeleteAllSnapshot() error {
 		return d.Storage.DeleteDiskfile(snapshotDir)
 	} else {
 		log.Infof("Delete disk(%s) snapshot dir %s", d.Id, snapshotDir)
-		_, err := procutils.NewCommand("rm", "-rf", snapshotDir).Run()
-		return err
+		return procutils.NewCommand("rm", "-rf", snapshotDir).Run()
 	}
 }
 

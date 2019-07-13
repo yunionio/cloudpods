@@ -102,7 +102,7 @@ func ModprobeKvmModule(name string, remove, nest bool) bool {
 	if nest {
 		params = append(params, "nested=1")
 	}
-	if _, err := procutils.NewCommand(params[0], params[1:]...).Run(); err != nil {
+	if err := procutils.NewCommand(params[0], params[1:]...).Run(); err != nil {
 		return false
 	}
 	return true
@@ -134,7 +134,7 @@ func detectNestSupport() string {
 }
 
 func isNestSupport(name string) bool {
-	output, err := procutils.NewCommand("modinfo", name).Run()
+	output, err := procutils.NewCommand("modinfo", name).Output()
 	if err != nil {
 		log.Errorln(err)
 		return false
@@ -188,7 +188,7 @@ func GetKernelModuleParameter(name, moduel string) string {
 }
 
 func IsKernelModuleLoaded(name string) bool {
-	output, err := procutils.NewCommand("lsmod").Run()
+	output, err := procutils.NewCommand("lsmod").Output()
 	if err != nil {
 		log.Errorln(err)
 		return false

@@ -38,18 +38,18 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 	}
 
 	// is mounted
-	if _, err := procutils.NewCommand("mountpoint", mntpath).Run(); err == nil {
-		procutils.NewCommand("umount", mntpath).Run()
+	if err := procutils.NewCommand("mountpoint", mntpath).Run(); err == nil {
+		procutils.NewCommand("umount", mntpath).Output()
 	}
 
 	if !fileutils2.Exists(tmpdir) {
-		if _, err := procutils.NewCommand("mkdir", "-p", tmpdir).Run(); err != nil {
+		if err := procutils.NewCommand("mkdir", "-p", tmpdir).Run(); err != nil {
 			return err
 		}
 	}
 
 	if !fileutils2.Exists(mntpath) {
-		if _, err := procutils.NewCommand("mkdir", "-p", mntpath).Run(); err != nil {
+		if err := procutils.NewCommand("mkdir", "-p", mntpath).Run(); err != nil {
 			return err
 		}
 	}
@@ -61,7 +61,7 @@ func MountFusefs(fetcherfsPath, url, tmpdir, token, mntpath string, blocksize in
 
 	var cmd = []string{fetcherfsPath, "-s", "-o", opts, mntpath}
 	log.Infof("%s", strings.Join(cmd, " "))
-	_, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run()
+	err := procutils.NewCommand(cmd[0], cmd[1:]...).Run()
 	if err != nil {
 		log.Errorf("Mount fetcherfs filed: %s", err)
 		procutils.NewCommand("umount", mntpath).Run()

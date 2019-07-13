@@ -107,7 +107,7 @@ func (d *SBaseBridgeDriver) BringupInterface() error {
 		if options.HostOptions.TunnelPaddingBytes > 0 {
 			cmd = append(cmd, "mtu", fmt.Sprintf("%d", options.HostOptions.TunnelPaddingBytes))
 		}
-		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
+		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
 			return err
 		}
 	}
@@ -188,12 +188,12 @@ func (d *SBaseBridgeDriver) SetupAddresses(mask net.IPMask) error {
 	if options.HostOptions.TunnelPaddingBytes > 0 {
 		cmd = append(cmd, "mtu", fmt.Sprintf("%d", options.HostOptions.TunnelPaddingBytes+1500))
 	}
-	if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
+	if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
 		log.Errorln(err)
 		return fmt.Errorf("Failed to bring up bridge %s", d.bridge)
 	}
 	if d.inter != nil {
-		if _, err := procutils.NewCommand("ifconfig", d.inter.String(), "0", "up").Run(); err != nil {
+		if _, err := procutils.NewCommand("ifconfig", d.inter.String(), "0", "up").Output(); err != nil {
 			log.Errorln(err)
 			return fmt.Errorf("Failed to bring up interface %s", d.inter)
 		}
@@ -205,13 +205,13 @@ func (d *SBaseBridgeDriver) SetupSlaveAddresses(slaveAddrs [][]string) error {
 	for _, slaveAddr := range slaveAddrs {
 		cmd := []string{"ip", "address", "del",
 			fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1]), "dev", d.inter.String()}
-		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
+		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
 			log.Errorf("Failed to remove slave address from interface %s: %s", d.inter, err)
 		}
 
 		cmd = []string{"ip", "address", "add",
 			fmt.Sprintf("%s/%s", slaveAddr[0], slaveAddr[1]), "dev", d.bridge.String()}
-		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
+		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
 			return fmt.Errorf("Failed to remove slave address from interface %s: %s", d.bridge, err)
 		}
 	}
@@ -226,7 +226,7 @@ func (d *SBaseBridgeDriver) SetupRoutes(routes [][]string) error {
 		} else {
 			cmd = []string{"route", "add", "-net", r[0], "netmask", r[2], "gw", r[1], "dev", d.bridge.String()}
 		}
-		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run(); err != nil {
+		if _, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output(); err != nil {
 			log.Errorln(err)
 			return fmt.Errorf("Failed to add slave address to bridge %s", d.bridge)
 		}

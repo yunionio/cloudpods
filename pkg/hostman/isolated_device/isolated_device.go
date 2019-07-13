@@ -333,7 +333,7 @@ func (dev *sGPUBaseDevice) GetVGACmd() string {
 func (dev *sGPUBaseDevice) CustomProbe() error {
 	// vfio kernel driver check
 	for _, driver := range []string{"vfio", "vfio_iommu_type1", "vfio-pci"} {
-		if _, err := procutils.Run("modprobe", driver); err != nil {
+		if err := procutils.NewCommand("modprobe", driver).Run(); err != nil {
 			return fmt.Errorf("modprobe %s: %v", driver, err)
 		}
 	}
@@ -422,9 +422,22 @@ func (gpu *sGPUHPCDevice) GetPassthroughCmd(index int) string {
 	return fmt.Sprintf(" -device vfio-pci,host=%s,multifunction=on", gpu.GetAddr())
 }
 
+func ParseOutput(output []byte) []string {
+	lines := make([]string, 0)
+	for _, line := range strings.Split(string(output), "\n") {
+		lines = append(lines, strings.TrimSpace(line))
+	}
+	return lines
+}
+
 func bashOutput(cmd string) ([]string, error) {
 	args := []string{"-c", cmd}
-	return procutils.Run("bash", args...)
+	output, err := procutils.NewCommand("bash", args...).Output()
+	if err != nil {
+		return nil, err
+	} else {
+		return ParseOutput(output), nil
+	}
 }
 
 func gpuPCIString() ([]string, error) {
@@ -522,10 +535,11 @@ func (d *PCIDevice) checkSameIOMMUGroupDevice() error {
 
 func (d *PCIDevice) IsBootVGA() (bool, error) {
 	addr := d.Addr
-	paths, err := procutils.Run("find", "/sys/devices", "-name", "boot_vga")
+	output, err := procutils.NewCommand("find", "/sys/devices", "-name", "boot_vga").Output()
 	if err != nil {
 		return false, err
 	}
+	paths := ParseOutput(output)
 	for _, p := range paths {
 		if strings.Contains(p, addr) {
 			if content, err := fileutils2.FileGetContents(p); err != nil {

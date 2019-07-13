@@ -79,10 +79,11 @@ func init() {
 		}, syscall.SIGHUP, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
 		signalutils.StartTrap()
 
-		cmd := procutils.NewCommand("go", "tool")
-		cmd.Args = append(cmd.Args, args...)
-		cmd.Args = append(cmd.Args, tempfile)
-		if _, err := cmd.Run(); err != nil {
+		argv := []string{"tool"}
+		argv = append(argv, args...)
+		argv = append(argv, tempfile)
+		cmd := procutils.NewCommand("go", argv...)
+		if err := cmd.Run(); err != nil {
 			return err
 		}
 		return nil

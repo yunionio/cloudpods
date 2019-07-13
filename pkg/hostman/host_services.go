@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 	"yunion.io/x/onecloud/pkg/cloudcommon/service"
+	execlient "yunion.io/x/onecloud/pkg/executor/client"
 	"yunion.io/x/onecloud/pkg/hostman/downloader"
 	"yunion.io/x/onecloud/pkg/hostman/guestman"
 	"yunion.io/x/onecloud/pkg/hostman/guestman/guesthandlers"
@@ -37,6 +38,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/diskhandlers"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storagehandler"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -58,11 +60,13 @@ func (host *SHostService) InitService() {
 	options.HostOptions.EnableRbac = false // disable rbac
 	// init base option for pid file
 	host.SServiceBase.O = &options.HostOptions.BaseOptions
+
+	// execserver.Init(options.HostOptions.ExecutorSocketPath)
+	execlient.Init(options.HostOptions.ExecutorSocketPath)
+	procutils.SetSocketExecutor()
 }
 
-func (host *SHostService) OnExitService() {
-	// TODO
-}
+func (host *SHostService) OnExitService() {}
 
 func (host *SHostService) RunService() {
 	app := app_common.InitApp(&options.HostOptions.BaseOptions, false)

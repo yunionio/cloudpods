@@ -105,7 +105,7 @@ func (s *SKVMGuestInstance) HomeDir() string {
 }
 
 func (s *SKVMGuestInstance) PrepareDir() error {
-	_, err := procutils.NewCommand("mkdir", "-p", s.HomeDir()).Run()
+	_, err := procutils.NewCommand("mkdir", "-p", s.HomeDir()).Output()
 	return err
 }
 
@@ -836,13 +836,13 @@ func (s *SKVMGuestInstance) StartDelete(ctx context.Context, migrated bool) erro
 func (s *SKVMGuestInstance) ForceStop() bool {
 	s.ExitCleanup(true)
 	if s.IsRunning() {
-		_, err := procutils.NewCommand("kill", "-9", fmt.Sprintf("%d", s.GetPid())).Run()
+		_, err := procutils.NewCommand("kill", "-9", fmt.Sprintf("%d", s.GetPid())).Output()
 		if err != nil {
 			log.Errorln(err)
 			return false
 		}
 		for _, f := range s.GetCleanFiles() {
-			_, err := procutils.NewCommand("rm", "-f", f).Run()
+			_, err := procutils.NewCommand("rm", "-f", f).Output()
 			if err != nil {
 				log.Errorln(err)
 				return false
@@ -902,7 +902,7 @@ func (s *SKVMGuestInstance) Delete(ctx context.Context, migrated bool) error {
 	if err := s.delTmpDisks(ctx, migrated); err != nil {
 		return err
 	}
-	_, err := procutils.NewCommand("rm", "-rf", s.HomeDir()).Run()
+	_, err := procutils.NewCommand("rm", "-rf", s.HomeDir()).Output()
 	return err
 }
 
@@ -916,7 +916,7 @@ func (s *SKVMGuestInstance) Stop() bool {
 }
 
 func (s *SKVMGuestInstance) scriptStart() error {
-	output, err := procutils.NewCommand("sh", s.GetStartScriptPath()).Run()
+	output, err := procutils.NewCommand("sh", s.GetStartScriptPath()).Output()
 	if err != nil {
 		s.scriptStop()
 		return fmt.Errorf("Start VM Failed %s %s", output, err)
@@ -925,7 +925,7 @@ func (s *SKVMGuestInstance) scriptStart() error {
 }
 
 func (s *SKVMGuestInstance) scriptStop() bool {
-	_, err := procutils.NewCommand("sh", s.GetStopScriptPath()).Run()
+	_, err := procutils.NewCommand("sh", s.GetStopScriptPath()).Output()
 	if err != nil {
 		log.Errorln(err)
 		return false
@@ -1323,16 +1323,16 @@ func (s *SKVMGuestInstance) ListStateFilePaths() []string {
 // 好像不用了
 func (s *SKVMGuestInstance) CleanStatefiles() {
 	for _, stateFile := range s.ListStateFilePaths() {
-		if _, err := procutils.NewCommand("mountpoint", stateFile).Run(); err == nil {
-			if _, err = procutils.NewCommand("umount", stateFile).Run(); err != nil {
+		if _, err := procutils.NewCommand("mountpoint", stateFile).Output(); err == nil {
+			if _, err = procutils.NewCommand("umount", stateFile).Output(); err != nil {
 				log.Errorln(err)
 			}
 		}
-		if _, err := procutils.NewCommand("rm", "-rf", stateFile).Run(); err != nil {
+		if _, err := procutils.NewCommand("rm", "-rf", stateFile).Output(); err != nil {
 			log.Errorln(err)
 		}
 	}
-	if _, err := procutils.NewCommand("rm", "-rf", s.GetFuseTmpPath()).Run(); err != nil {
+	if _, err := procutils.NewCommand("rm", "-rf", s.GetFuseTmpPath()).Output(); err != nil {
 		log.Errorln(err)
 	}
 }

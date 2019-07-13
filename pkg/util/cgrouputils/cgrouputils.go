@@ -81,8 +81,7 @@ func getGroupPath() string {
 }
 
 func CgroupIsMounted() bool {
-	_, err := procutils.NewCommand("mountpoint", cgroupsPath).Run()
-	return err == nil
+	return procutils.NewCommand("mountpoint", cgroupsPath).Run() == nil
 }
 
 func ModuleIsMounted(module string) bool {
@@ -97,8 +96,7 @@ func ModuleIsMounted(module string) bool {
 			log.Errorln(err)
 		}
 	}
-	_, err := procutils.NewCommand("mountpoint", fullPath).Run()
-	return err == nil
+	return procutils.NewCommand("mountpoint", fullPath).Run() == nil
 }
 
 func RootTaskPath(module string) string {
@@ -318,11 +316,11 @@ func (c *CGroupTask) PushPid(pid string, isRoot bool) {
 func (c *CGroupTask) init() bool {
 	if !CgroupIsMounted() {
 		if !fileutils2.Exists(cgroupsPath) {
-			if _, err := procutils.NewCommand("mkdir", "-p", cgroupsPath).Run(); err != nil {
+			if err := procutils.NewCommand("mkdir", "-p", cgroupsPath).Run(); err != nil {
 				log.Errorln(err)
 			}
 		}
-		if _, err := procutils.NewCommand("mount", "-t", "tmpfs", "-o", "uid=0,gid=0,mode=0755",
+		if err := procutils.NewCommand("mount", "-t", "tmpfs", "-o", "uid=0,gid=0,mode=0755",
 			"cgroup", cgroupsPath).Run(); err != nil {
 			log.Errorln(err)
 			return false
@@ -345,13 +343,12 @@ func (c *CGroupTask) init() bool {
 			if !ModuleIsMounted(module) {
 				moduleDir := path.Join(cgroupsPath, module)
 				if !fileutils2.Exists(moduleDir) {
-					if _, err := procutils.NewCommand("mkdir", moduleDir).Run(); err != nil {
+					if _, err := procutils.NewCommand("mkdir", moduleDir).Output(); err != nil {
 						log.Errorln(err)
 						return false
 					}
 				}
-				log.Errorln(module)
-				if _, err := procutils.NewCommand("mount", "-t", "cgroup", "-o",
+				if err := procutils.NewCommand("mount", "-t", "cgroup", "-o",
 					module, module, moduleDir).Run(); err != nil {
 					log.Errorln(err)
 					return false

@@ -27,13 +27,14 @@ import (
 	"yunion.io/x/log"
 
 	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
-	service "yunion.io/x/onecloud/pkg/cloudcommon/service"
-	diskutils "yunion.io/x/onecloud/pkg/hostman/diskutils"
-	nbd "yunion.io/x/onecloud/pkg/hostman/diskutils/nbd"
-	guestfs "yunion.io/x/onecloud/pkg/hostman/guestfs"
-	fsdriver "yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
+	"yunion.io/x/onecloud/pkg/cloudcommon/service"
+	execlient "yunion.io/x/onecloud/pkg/executor/client"
+	"yunion.io/x/onecloud/pkg/hostman/diskutils"
+	"yunion.io/x/onecloud/pkg/hostman/diskutils/nbd"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs"
+	"yunion.io/x/onecloud/pkg/hostman/guestfs/fsdriver"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
-	fileutils2 "yunion.io/x/onecloud/pkg/util/fileutils2"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 	"yunion.io/x/onecloud/pkg/util/winutils"
@@ -222,11 +223,11 @@ func (s *SDeployService) PrepareEnv() error {
 	if err := s.FixPathEnv(); err != nil {
 		return err
 	}
-	output, err := procutils.NewCommand("rmmod", "nbd").Run()
+	output, err := procutils.NewCommand("rmmod", "nbd").Output()
 	if err != nil {
 		log.Errorf("rmmod error: %s", output)
 	}
-	output, err = procutils.NewCommand("modprobe", "nbd", "max_part=16").Run()
+	output, err = procutils.NewCommand("modprobe", "nbd", "max_part=16").Output()
 	if err != nil {
 		return fmt.Errorf("Failed to activate nbd device: %s", output)
 	}
@@ -246,7 +247,7 @@ func (s *SDeployService) PrepareEnv() error {
 		log.Errorf("Failed to find chntpw tool")
 	}
 
-	output, err = procutils.NewCommand("pvscan").Run()
+	output, err = procutils.NewCommand("pvscan").Output()
 	if err != nil {
 		log.Errorf("Failed exec lvm command pvscan: %s", output)
 	}
@@ -255,10 +256,12 @@ func (s *SDeployService) PrepareEnv() error {
 
 func (s *SDeployService) InitService() {
 	common_options.ParseOptions(&DeployOption, os.Args, "host.conf", "deploy-server")
+	log.Errorln(DeployOption.ExecSocketPath)
+	execlient.Init(DeployOption.ExecSocketPath)
+	procutils.SetSocketExecutor()
 	if err := s.PrepareEnv(); err != nil {
 		log.Fatalln(err)
 	}
-
 	fsdriver.Init(DeployOption.PrivatePrefixes)
 	s.O = &DeployOption.BaseOptions
 	if len(DeployOption.DeployServerSocketPath) == 0 {

@@ -26,7 +26,7 @@ import (
 )
 
 func GetDbPorts(brname string) []string {
-	output, err := procutils.NewCommand("ovs-vsctl", "list-ifaces", brname).Run()
+	output, err := procutils.NewCommand("ovs-vsctl", "list-ifaces", brname).Output()
 	if err != nil {
 		log.Errorln(err)
 		return nil
@@ -43,7 +43,7 @@ func GetDbPorts(brname string) []string {
 }
 
 func GetDpPorts(brname string) []string {
-	output, err := procutils.NewCommand("ovs-dpctl", "show").Run()
+	output, err := procutils.NewCommand("ovs-dpctl", "show").Output()
 	if err != nil {
 		log.Errorln(err)
 		return nil
@@ -64,7 +64,7 @@ func GetDpPorts(brname string) []string {
 }
 
 func GetBridges() []string {
-	output, err := procutils.NewCommand("ovs-vsctl", "list-br").Run()
+	output, err := procutils.NewCommand("ovs-vsctl", "list-br").Output()
 	if err != nil {
 		log.Errorln(err)
 		return nil
@@ -82,7 +82,7 @@ func GetBridges() []string {
 
 func RemovePortFromBridge(brname, port string) {
 	log.Infof("remove_port_from_bridge %s %s", brname, port)
-	if _, err := procutils.NewCommand("ovs-vsctl", "del-port", brname, port).Run(); err != nil {
+	if err := procutils.NewCommand("ovs-vsctl", "del-port", brname, port).Run(); err != nil {
 		log.Errorln(err)
 	}
 }

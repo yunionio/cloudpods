@@ -87,7 +87,7 @@ func DetectCpuInfo() (*SCPUInfo, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "parse cpu info")
 	}
-	bret, err := procutils.NewCommand("dmidecode", "-t", "4").Run()
+	bret, err := procutils.NewCommand("dmidecode", "-t", "4").Output()
 	if err != nil {
 		return nil, errors.Wrap(err, "get dmidecode info -t 4")
 	}
@@ -154,7 +154,7 @@ func DetectMemoryInfo() (*SMemory, error) {
 	smem.Total = int(info.Total / 1024 / 1024)
 	smem.Free = int(info.Available / 1024 / 1024)
 	smem.Used = smem.Total - smem.Free
-	ret, err := procutils.NewCommand("dmidecode", "-t", "17").Run()
+	ret, err := procutils.NewCommand("dmidecode", "-t", "17").Output()
 	if err != nil {
 		return nil, err
 	}
