@@ -199,7 +199,7 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 			Args: []string{
 				"name=yunion-lbagent",
 				"enabled=yes",
-				"state=started",
+				"state=restarted",
 				"daemon_reload=yes",
 			},
 		},
