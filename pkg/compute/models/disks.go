@@ -1431,6 +1431,8 @@ func fillDiskConfigBySnapshot(userCred mcclient.TokenCredential, diskConfig *api
 		diskConfig.DiskType = snapshot.DiskType
 		diskConfig.SizeMb = snapshot.Size
 		diskConfig.Backend = storage.StorageType
+		diskConfig.Fs = ""
+		diskConfig.Mountpoint = ""
 	}
 	return nil
 }
