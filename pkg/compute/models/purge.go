@@ -1051,14 +1051,25 @@ func (account *SDBInstanceAccount) purge(ctx context.Context, userCred mcclient.
 	return account.Delete(ctx, userCred)
 }
 
-func (instance *SDBInstance) purgeAccounts(ctx context.Context, userCred mcclient.TokenCredential) error {
-	accounts, err := instance.GetDBAccounts()
+func (privilege *SDBInstancePrivilege) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, privilege)
+	defer lockman.ReleaseObject(ctx, privilege)
+
+	err := privilege.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+	return privilege.Delete(ctx, userCred)
+}
+
+func (account *SDBInstanceAccount) purgePrivileges(ctx context.Context, userCred mcclient.TokenCredential) error {
+	privileges, err := account.GetDBInstancePrivileges()
 	if err != nil {
 		return err
 	}
 
-	for i := range accounts {
-		err = accounts[i].purge(ctx, userCred)
+	for i := range privileges {
+		err = privileges[i].purge(ctx, userCred)
 		if err != nil {
 			return err
 		}
@@ -1066,25 +1077,30 @@ func (instance *SDBInstance) purgeAccounts(ctx context.Context, userCred mcclien
 	return nil
 }
 
-func (backup *SDBInstanceBackup) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, backup)
-	defer lockman.ReleaseObject(ctx, backup)
+func (account *SDBInstanceAccount) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, account)
+	defer lockman.ReleaseObject(ctx, account)
 
-	err := backup.ValidateDeleteCondition(ctx)
+	err := account.purgePrivileges(ctx, userCred)
 	if err != nil {
 		return err
 	}
-	return backup.Delete(ctx, userCred)
+
+	err = account.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+	return account.Delete(ctx, userCred)
 }
 
-func (instance *SDBInstance) purgeBackups(ctx context.Context, userCred mcclient.TokenCredential) error {
-	backups, err := instance.GetDBBackups()
+func (instance *SDBInstance) purgeAccounts(ctx context.Context, userCred mcclient.TokenCredential) error {
+	accounts, err := instance.GetDBInstanceAccounts()
 	if err != nil {
 		return err
 	}
 
-	for i := range backups {
-		err = backups[i].purge(ctx, userCred)
+	for i := range accounts {
+		err = accounts[i].purge(ctx, userCred)
 		if err != nil {
 			return err
 		}
@@ -1183,11 +1199,6 @@ func (instance *SDBInstance) purge(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 
-	err = instance.purgeBackups(ctx, userCred)
-	if err != nil {
-		return err
-	}
-
 	err = instance.purgeDatabases(ctx, userCred)
 	if err != nil {
 		return err
@@ -1233,6 +1244,31 @@ func (manager *SDBInstanceManager) purgeAll(ctx context.Context, userCred mcclie
 	}
 	for i := range instances {
 		err = instances[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (backup *SDBInstanceBackup) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, backup)
+	defer lockman.ReleaseObject(ctx, backup)
+
+	err := backup.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+	return backup.Delete(ctx, userCred)
+}
+
+func (manager *SDBInstanceBackupManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	backups, err := manager.getDBInstanceBackupsByProviderId(providerId)
+	if err != nil {
+		return err
+	}
+	for i := range backups {
+		err = backups[i].purge(ctx, userCred)
 		if err != nil {
 			return err
 		}

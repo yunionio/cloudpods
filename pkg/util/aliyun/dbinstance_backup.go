@@ -82,14 +82,6 @@ func (backup *SDBInstanceBackup) GetDBNames() string {
 	return backup.BackupDBNames
 }
 
-func (backup *SDBInstanceBackup) GetDownloadURL() string {
-	return backup.BackupDownloadURL
-}
-
-func (backup *SDBInstanceBackup) GetIntranetDownloadURL() string {
-	return backup.BackupIntranetDownloadURL
-}
-
 func (backup *SDBInstanceBackup) GetDBInstanceId() string {
 	return backup.DBInstanceId
 }

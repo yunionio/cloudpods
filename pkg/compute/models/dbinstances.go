@@ -58,10 +58,11 @@ type SDBInstance struct {
 	SCloudregionResourceBase
 	SZoneResourceBase
 
-	VcpuCount  int `nullable:"false" default:"1" list:"user" create:"optional"` // Column(TINYINT, nullable=False, default=1)
-	VmemSizeMb int `nullable:"false" list:"user" create:"required"`             // Column(Integer, nullable=False)
-	DiskSizeGB int `nullable:"false" list:"user" create:"required"`
-	Port       int `nullable:"false" list:"user" create:"required"`
+	VcpuCount  int    `nullable:"false" default:"1" list:"user" create:"optional"` // Column(TINYINT, nullable=False, default=1)
+	VmemSizeMb int    `nullable:"false" list:"user" create:"required"`             // Column(Integer, nullable=False)
+	DiskSizeGB int    `nullable:"false" list:"user" create:"required"`
+	Port       int    `nullable:"false" list:"user" create:"required"`
+	Category   string `nullable:"false" list:"user" create:"optional"` //实例类别，单机，高可用，只读
 
 	Engine        string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
 	EngineVersion string `width:"16" charset:"ascii" nullable:"false" list:"user" create:"required"`
@@ -175,35 +176,42 @@ func (manager *SDBInstanceManager) getDBInstancesByProviderId(providerId string)
 	return instances, nil
 }
 
-func (manager *SDBInstanceManager) getDBInstancesByRegion(region *SCloudregion, provider *SCloudprovider) ([]SDBInstance, error) {
-	dbInstances := []SDBInstance{}
-	q := manager.Query().Equals("cloudregion_id", region.Id)
-	if provider != nil {
-		q = q.Equals("manager_id", provider.Id)
-	}
-	err := db.FetchModelObjects(manager, q, &dbInstances)
+func (self *SDBInstance) GetDBInstanceParameters() ([]SDBInstanceParameter, error) {
+	params := []SDBInstanceParameter{}
+	q := DBInstanceParameterManager.Query().Equals("dbinstance_id", self.Id)
+	err := db.FetchModelObjects(DBInstanceParameterManager, q, &params)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "GetDBInstanceParameters.FetchModelObjects for instance %s", self.Id)
 	}
-	return dbInstances, nil
+	return params, nil
 }
 
-func (self *SDBInstance) GetDBAccounts() ([]SDBInstanceAccount, error) {
+func (self *SDBInstance) GetDBInstanceDatabases() ([]SDBInstanceDatabase, error) {
+	databases := []SDBInstanceDatabase{}
+	q := DBInstanceDatabaseManager.Query().Equals("dbinstance_id", self.Id)
+	err := db.FetchModelObjects(DBInstanceDatabaseManager, q, &databases)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDBInstanceDatabases.FetchModelObjects for instance %s", self.Id)
+	}
+	return databases, nil
+}
+
+func (self *SDBInstance) GetDBInstanceAccounts() ([]SDBInstanceAccount, error) {
 	accounts := []SDBInstanceAccount{}
 	q := DBInstanceAccountManager.Query().Equals("dbinstance_id", self.Id)
 	err := db.FetchModelObjects(DBInstanceAccountManager, q, &accounts)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetDBAccounts.FetchModelObjects")
+		return nil, errors.Wrapf(err, "GetDBInstanceAccounts.FetchModelObjects for instance %s", self.Id)
 	}
 	return accounts, nil
 }
 
-func (self *SDBInstance) GetDBBackups() ([]SDBInstanceBackup, error) {
+func (self *SDBInstance) GetDBInstanceBackups() ([]SDBInstanceBackup, error) {
 	backups := []SDBInstanceBackup{}
 	q := DBInstanceBackupManager.Query().Equals("dbinstance_id", self.Id)
 	err := db.FetchModelObjects(DBInstanceBackupManager, q, &backups)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetDBBackups.FetchModelObjects")
+		return nil, errors.Wrap(err, "GetDBInstanceBackups.FetchModelObjects")
 	}
 	return backups, nil
 }
@@ -257,7 +265,7 @@ func (manager *SDBInstanceManager) SyncDBInstances(ctx context.Context, userCred
 	remoteDBInstances := []cloudprovider.ICloudDBInstance{}
 	syncResult := compare.SyncResult{}
 
-	dbInstances, err := manager.getDBInstancesByRegion(region, provider)
+	dbInstances, err := region.GetDBInstances(provider)
 	if err != nil {
 		syncResult.Error(err)
 		return nil, nil, syncResult
@@ -387,6 +395,7 @@ func (manager *SDBInstanceManager) newFromCloudDBInstance(ctx context.Context, u
 	instance.Engine = extInstance.GetEngine()
 	instance.EngineVersion = extInstance.GetEngineVersion()
 	instance.InstanceType = extInstance.GetInstanceType()
+	instance.Category = extInstance.GetCategory()
 	instance.VcpuCount = extInstance.GetVcpuCount()
 	instance.VmemSizeMb = extInstance.GetVmemSizeMB()
 	instance.DiskSizeGB = extInstance.GetDiskSizeGB()

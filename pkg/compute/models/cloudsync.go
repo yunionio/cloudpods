@@ -945,7 +945,7 @@ func syncRegionDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCre
 		return
 	}
 
-	result := DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, provider.GetOwnerId(), localRegion, backups)
+	result := DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, provider, localRegion, backups)
 	syncResults.Add(DBInstanceBackupManager, result)
 
 	msg := result.Result()
@@ -1010,11 +1010,11 @@ func syncDBInstanceAccountPrivileges(ctx context.Context, userCred mcclient.Toke
 		return
 	}
 
-	result := DBInstanceAccountPrivilegeManager.SyncDBInstanceAccountPrivileges(ctx, userCred, localAccount, privileges)
-	syncResults.Add(DBInstanceAccountPrivilegeManager, result)
+	result := DBInstancePrivilegeManager.SyncDBInstanceAccountPrivileges(ctx, userCred, localAccount, privileges)
+	syncResults.Add(DBInstancePrivilegeManager, result)
 
 	msg := result.Result()
-	log.Infof("SyncDBInstanceAccountPrivileges for account %s result: %s", localAccount, msg)
+	log.Infof("SyncDBInstanceAccountPrivileges for account %s result: %s", localAccount.Name, msg)
 	if result.IsError() {
 		return
 	}

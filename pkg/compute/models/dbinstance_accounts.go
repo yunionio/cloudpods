@@ -81,6 +81,35 @@ func (self *SDBInstanceAccount) AllowDeleteItem(ctx context.Context, userCred mc
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
+func (self *SDBInstanceAccount) getPrivilegesDetails() (*jsonutils.JSONArray, error) {
+	result := jsonutils.NewArray()
+	privileges, err := self.GetDBInstancePrivileges()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetDBInstancePrivileges")
+	}
+	for _, privilege := range privileges {
+		detail, err := privilege.GetDetailedJson()
+		if err != nil {
+			return nil, errors.Wrap(err, "GetDetailedJson")
+		}
+		result.Add(detail)
+	}
+	return result, nil
+}
+
+func (self *SDBInstanceAccount) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra, err := self.SStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	privileges, err := self.getPrivilegesDetails()
+	if err != nil {
+		return nil, err
+	}
+	extra.Add(privileges, "dbinstanceprivileges")
+	return extra, nil
+}
+
 func (manager *SDBInstanceAccountManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	q, err := manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
@@ -94,6 +123,16 @@ func (manager *SDBInstanceAccountManager) ListItemFilter(ctx context.Context, q 
 
 func (manager *SDBInstanceAccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewNotImplementedError("Not Implemented")
+}
+
+func (self *SDBInstanceAccount) GetDBInstancePrivileges() ([]SDBInstancePrivilege, error) {
+	privileges := []SDBInstancePrivilege{}
+	q := DBInstancePrivilegeManager.Query().Equals("dbinstanceaccount_id", self.Id)
+	err := db.FetchModelObjects(DBInstancePrivilegeManager, q, &privileges)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetDBInstancePrivileges.FetchModelObjects for account %s", self.Id)
+	}
+	return privileges, nil
 }
 
 func (self *SDBInstanceAccount) GetDBInstanceDatabaseByName(dbName string) (*SDBInstanceDatabase, error) {
@@ -117,22 +156,12 @@ func (self *SDBInstanceAccount) GetDBInstanceDatabaseByName(dbName string) (*SDB
 	return nil, sql.ErrNoRows
 }
 
-func (manager *SDBInstanceAccountManager) getDBInstanceAccountsByInstance(instance *SDBInstance) ([]SDBInstanceAccount, error) {
-	accounts := []SDBInstanceAccount{}
-	q := manager.Query().Equals("dbinstance_id", instance.Id)
-	err := db.FetchModelObjects(manager, q, &accounts)
-	if err != nil {
-		return nil, errors.Wrap(err, "getDBInstanceAccountsByInstance.FetchModelObjects")
-	}
-	return accounts, nil
-}
-
 func (manager *SDBInstanceAccountManager) SyncDBInstanceAccounts(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, cloudAccounts []cloudprovider.ICloudDBInstanceAccount) ([]SDBInstanceAccount, []cloudprovider.ICloudDBInstanceAccount, compare.SyncResult) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, instance.GetOwnerId()))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, instance.GetOwnerId()))
 
 	result := compare.SyncResult{}
-	dbAccounts, err := manager.getDBInstanceAccountsByInstance(instance)
+	dbAccounts, err := instance.GetDBInstanceAccounts()
 	if err != nil {
 		result.Error(err)
 		return nil, nil, result

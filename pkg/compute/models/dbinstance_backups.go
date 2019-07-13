@@ -53,16 +53,15 @@ func init() {
 type SDBInstanceBackup struct {
 	db.SStatusStandaloneResourceBase
 	SCloudregionResourceBase
+	SManagedResourceBase
 	db.SExternalizedResourceBase
 
-	StartTime           time.Time `list:"user"`
-	EndTime             time.Time `list:"user"`
-	BackupMode          string    `width:"32" charset:"ascii" nullable:"true" list:"user"`
-	IntranetDownloadURL string    `width:"256" charset:"ascii" nullable:"true" list:"user"`
-	DownloadURL         string    `width:"256" charset:"ascii" nullable:"true" list:"user"`
-	DBNames             string    `width:"512" charset:"ascii" nullable:"true" list:"user"`
-	BackupSizeMb        int       `nullable:"false" list:"user"`
-	DBInstanceId        string    `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
+	StartTime    time.Time `list:"user"`
+	EndTime      time.Time `list:"user"`
+	BackupMode   string    `width:"32" charset:"ascii" nullable:"true" list:"user"`
+	DBNames      string    `width:"512" charset:"ascii" nullable:"true" list:"user"`
+	BackupSizeMb int       `nullable:"false" list:"user"`
+	DBInstanceId string    `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
 }
 
 func (manager *SDBInstanceBackupManager) GetContextManagers() [][]db.IModelManager {
@@ -117,22 +116,25 @@ func (manager *SDBInstanceBackupManager) getDBInstanceBackupsByInstance(instance
 	return backups, nil
 }
 
-func (manager *SDBInstanceBackupManager) getDBInstanceBackupsByRegion(region *SCloudregion) ([]SDBInstanceBackup, error) {
+func (manager *SDBInstanceBackupManager) getDBInstanceBackupsByProviderId(providerId string) ([]SDBInstanceBackup, error) {
 	backups := []SDBInstanceBackup{}
-	q := manager.Query().Equals("cloudregion_id", region.Id)
-	err := db.FetchModelObjects(manager, q, &backups)
+	err := fetchByManagerId(manager, providerId, &backups)
 	if err != nil {
-		return nil, errors.Wrap(err, "getDBInstanceBackupsByRegion.FetchModelObjects")
+		return nil, errors.Wrapf(err, "getDBInstanceBackupsByProviderId.fetchByManagerId")
 	}
 	return backups, nil
 }
 
-func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, region *SCloudregion, cloudBackups []cloudprovider.ICloudDBInstanceBackup) compare.SyncResult {
-	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
-	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
+func (self *SDBInstanceBackup) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	return self.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+}
+
+func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, cloudBackups []cloudprovider.ICloudDBInstanceBackup) compare.SyncResult {
+	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
+	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, provider.GetOwnerId()))
 
 	result := compare.SyncResult{}
-	dbBackups, err := manager.getDBInstanceBackupsByRegion(region)
+	dbBackups, err := region.GetDBInstanceBackups(provider)
 	if err != nil {
 		result.Error(err)
 		return result
@@ -166,7 +168,7 @@ func (manager *SDBInstanceBackupManager) SyncDBInstanceBackups(ctx context.Conte
 	}
 
 	for i := 0; i < len(added); i++ {
-		err = manager.newFromCloudDBInstanceBackup(ctx, userCred, syncOwnerId, region, added[i])
+		err = manager.newFromCloudDBInstanceBackup(ctx, userCred, provider, region, added[i])
 		if err != nil {
 			result.AddError(err)
 		} else {
@@ -181,8 +183,6 @@ func (self *SDBInstanceBackup) SyncWithCloudDBInstanceBackup(ctx context.Context
 		self.Status = extBackup.GetStatus()
 		self.StartTime = extBackup.GetStartTime()
 		self.EndTime = extBackup.GetEndTime()
-		self.IntranetDownloadURL = extBackup.GetIntranetDownloadURL()
-		self.DownloadURL = extBackup.GetDownloadURL()
 		self.BackupSizeMb = extBackup.GetBackupSizeMb()
 		self.DBNames = extBackup.GetDBNames()
 
@@ -202,25 +202,24 @@ func (self *SDBInstanceBackup) SyncWithCloudDBInstanceBackup(ctx context.Context
 	return nil
 }
 
-func (manager *SDBInstanceBackupManager) newFromCloudDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, region *SCloudregion, extBackup cloudprovider.ICloudDBInstanceBackup) error {
+func (manager *SDBInstanceBackupManager) newFromCloudDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, region *SCloudregion, extBackup cloudprovider.ICloudDBInstanceBackup) error {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
 	backup := SDBInstanceBackup{}
 	backup.SetModelManager(manager, &backup)
 
-	newName, err := db.GenerateName(manager, syncOwnerId, extBackup.GetName())
+	newName, err := db.GenerateName(manager, provider.GetOwnerId(), extBackup.GetName())
 	if err != nil {
 		return errors.Wrap(err, "newFromCloudDBInstanceBackup.GenerateName")
 	}
 
 	backup.Name = newName
 	backup.CloudregionId = region.Id
+	backup.ManagerId = provider.Id
 	backup.Status = extBackup.GetStatus()
 	backup.StartTime = extBackup.GetStartTime()
 	backup.EndTime = extBackup.GetEndTime()
-	backup.IntranetDownloadURL = extBackup.GetIntranetDownloadURL()
-	backup.DownloadURL = extBackup.GetDownloadURL()
 	backup.BackupSizeMb = extBackup.GetBackupSizeMb()
 	backup.DBNames = extBackup.GetDBNames()
 	backup.BackupMode = extBackup.GetBackupMode()

@@ -15,7 +15,6 @@
 package models
 
 import (
-	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/pkg/errors"
 )
@@ -25,7 +24,6 @@ type SDBInstanceJointsManager struct {
 }
 
 func NewDBInstanceJointsManager(dt interface{}, tableName string, keyword string, keywordPlural string, slave db.IVirtualModelManager) SDBInstanceJointsManager {
-	log.Errorf("NewDBInstanceJointsManager: %v", DBInstanceManager)
 	return SDBInstanceJointsManager{
 		SVirtualJointResourceBaseManager: db.NewVirtualJointResourceBaseManager(
 			dt,
