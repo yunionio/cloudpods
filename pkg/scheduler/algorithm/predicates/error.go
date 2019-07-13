@@ -94,3 +94,32 @@ func (ure *UnexceptedResourceError) Error() string {
 func (ure *UnexceptedResourceError) GetReason() string {
 	return ure.Error()
 }
+
+type FailReason struct {
+	Reason string
+	Type   string
+}
+
+func (r FailReason) GetReason() string {
+	return r.Reason
+}
+
+func (r FailReason) GetType() string {
+	return r.Type
+}
+
+const (
+	NetworkPrivate   = "network_private"
+	NetworkPublic    = "network_public"
+	NetworkTypeMatch = "network_type"
+	NetworkMatch     = "network_match"
+	NetworkWire      = "network_wire"
+	NetworkOwner     = "network_owner"
+	NetworkDomain    = "network_domain"
+	NetworkRange     = "network_range"
+	NetworkFreeCount = "network_free_count"
+
+	StorageEnable = "storage_status"
+	StorageMatch  = "storage_match"
+	StorageType   = "storage_type"
+)
