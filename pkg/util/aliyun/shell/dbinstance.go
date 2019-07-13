@@ -32,6 +32,10 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&DBInstanceIdOptions{}, "dbinstance-delete", "Delete dbintance", func(cli *aliyun.SRegion, args *DBInstanceIdOptions) error {
+		return cli.DeleteDBInstance(args.ID)
+	})
+
 	shellutils.R(&DBInstanceIdOptions{}, "dbinstance-network-list", "Show dbintance network info", func(cli *aliyun.SRegion, args *DBInstanceIdOptions) error {
 		networks, err := cli.GetDBInstanceNetInfo(args.ID)
 		if err != nil {

@@ -18,6 +18,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/url"
 	"strings"
 
@@ -156,7 +157,22 @@ var UnmarshalHandler = request.NamedHandler{Name: "yunion.query.Unmarshal", Fn: 
 func Unmarshal(r *request.Request) {
 	defer r.HTTPResponse.Body.Close()
 	if r.DataFilled() {
-		decoder := xml.NewDecoder(r.HTTPResponse.Body)
+		var decoder *xml.Decoder
+		if DEBUG {
+			body, err := ioutil.ReadAll(r.HTTPResponse.Body)
+			if err != nil {
+				r.Error = awserr.NewRequestFailure(
+					awserr.New("ioutil.ReadAll", "read response body", err),
+					r.HTTPResponse.StatusCode,
+					r.RequestID,
+				)
+				return
+			}
+			log.Debugf("response: \n%s", string(body))
+			decoder = xml.NewDecoder(strings.NewReader(string(body)))
+		} else {
+			decoder = xml.NewDecoder(r.HTTPResponse.Body)
+		}
 		if r.ClientInfo.ServiceID == EC2_SERVICE_ID {
 			err := decoder.Decode(r.Data)
 			if err != nil {
@@ -224,6 +240,10 @@ func Build(r *request.Request) {
 		}
 	}
 
+	if DEBUG {
+		log.Debugf("params: %s", body.Encode())
+	}
+
 	if !r.IsPresigned() {
 		r.HTTPRequest.Method = "POST"
 		r.HTTPRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=utf-8")
@@ -249,9 +269,10 @@ func (self *SRegion) rdsRequest(apiName string, params map[string]string, retval
 		APIVersion:    "2014-10-31",
 	}
 
-	requestErr := aws.LogDebugWithRequestErrors
-
-	c.Config.LogLevel = &requestErr
+	if DEBUG {
+		logLevel := aws.LogLevelType(uint(aws.LogDebugWithRequestErrors) + uint(aws.LogDebugWithHTTPBody))
+		c.Config.LogLevel = &logLevel
+	}
 
 	client := client.New(*c.Config, metadata, c.Handlers)
 	client.Handlers.Sign.PushBackNamed(v4.SignRequestHandler)

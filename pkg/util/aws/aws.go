@@ -40,6 +40,8 @@ const (
 	AWS_API_VERSION                  = "2018-10-10"
 )
 
+var DEBUG bool = false
+
 type SAwsClient struct {
 	providerId   string
 	providerName string
@@ -48,11 +50,18 @@ type SAwsClient struct {
 	secret       string
 	iregions     []cloudprovider.ICloudRegion
 
-	clinet *client.Client
+	debug bool
 }
 
-func NewAwsClient(providerId string, providerName string, accessUrl string, accessKey string, secret string) (*SAwsClient, error) {
-	client := SAwsClient{providerId: providerId, providerName: providerName, accessUrl: accessUrl, accessKey: accessKey, secret: secret}
+func NewAwsClient(providerId string, providerName string, accessUrl string, accessKey string, secret string, debug bool) (*SAwsClient, error) {
+	client := SAwsClient{
+		providerId:   providerId,
+		providerName: providerName,
+		accessUrl:    accessUrl,
+		accessKey:    accessKey,
+		secret:       secret,
+	}
+	DEBUG = debug
 	err := client.fetchRegions()
 	if err != nil {
 		log.Debugf("NewAwsClient %s", err.Error())

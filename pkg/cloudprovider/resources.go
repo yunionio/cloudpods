@@ -705,6 +705,7 @@ type ICloudDBInstance interface {
 	GetVcpuCount() int
 	GetVmemSizeMB() int //MB
 	GetDiskSizeGB() int
+	GetCategory() string
 
 	GetMaintainTime() string
 
@@ -735,7 +736,6 @@ type ICloudDBInstanceBackup interface {
 	GetBackupSizeMb() int
 	GetDBNames() string
 	GetDownloadURL() string
-	GetIntranetDownloadURL() string
 	GetBackupMode() string
 }
 
@@ -752,7 +752,7 @@ type ICloudDBInstanceAccount interface {
 }
 
 type ICloudDBInstanceAccountPrivilege interface {
-	ICloudResource
+	GetGlobalId() string
 
 	GetPrivilege() string
 	GetDBName() string

@@ -4,16 +4,11 @@ import (
 	"fmt"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 
 	"yunion.io/x/pkg/errors"
 )
-
-type SDatabasePrivilege struct {
-	AccountPrivilege       string
-	AccountPrivilegeDetail string
-	DBName                 string
-}
 
 type SDatabasePrivileges struct {
 	DatabasePrivilege []SDatabasePrivilege
@@ -52,6 +47,15 @@ func (account *SDBInstanceAccount) GetStatus() string {
 		return api.DBINSTANCE_USER_UNAVAILABLE
 	}
 	return account.AccountStatus
+}
+
+func (account *SDBInstanceAccount) GetIDBInstanceAccountPrivileges() ([]cloudprovider.ICloudDBInstanceAccountPrivilege, error) {
+	privileves := []cloudprovider.ICloudDBInstanceAccountPrivilege{}
+	for i := 0; i < len(account.DatabasePrivileges.DatabasePrivilege); i++ {
+		account.DatabasePrivileges.DatabasePrivilege[i].account = account
+		privileves = append(privileves, &account.DatabasePrivileges.DatabasePrivilege[i])
+	}
+	return privileves, nil
 }
 
 func (region *SRegion) GetDBInstanceAccounts(instanceId string, offset int, limit int) ([]SDBInstanceAccount, int, error) {

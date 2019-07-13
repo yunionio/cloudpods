@@ -15,13 +15,13 @@
 package modules
 
 var (
-	DBInstance ResourceManager
+	DBInstancePrivileges ResourceManager
 )
 
 func init() {
-	DBInstance = NewComputeManager("dbinstance", "dbinstances",
-		[]string{"ID", "Name", "Billing_type", "Cloudregion_Id", "Status", "Vcpu_Count", "Vmem_Size_Mb"},
+	DBInstancePrivileges = NewComputeManager("dbinstanceprivilege", "dbinstanceprivileges",
+		[]string{"DBInstanceaccount_id", "DBInstancedatabase_id", "DBInstanceaccount", "DBInstancedatabase", "Privilege"},
 		[]string{})
 
-	registerCompute(&DBInstance)
+	registerCompute(&DBInstancePrivileges)
 }

@@ -34,7 +34,7 @@ type SNetworkInterface struct {
 	Status                string              `xml:"status"`
 	MacAddress            string              `xml:"macAddress"`
 	PrivateIpAddress      string              `xml:"privateIpAddress"`
-	privateDnsName        string              `xml:"privateDnsName"`
+	PrivateDnsName        string              `xml:"privateDnsName"`
 	SourceDestCheck       bool                `xml:"sourceDestCheck"`
 	GroupSet              []SGroup            `xml:"groupSet>item"`
 	Attachment            SAttachment         `xml:"attachment"`

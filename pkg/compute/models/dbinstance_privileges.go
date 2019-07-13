@@ -29,60 +29,95 @@ import (
 	"yunion.io/x/sqlchemy"
 )
 
-type SDBInstanceAccountPrivilegeManager struct {
+type SDBInstancePrivilegeManager struct {
 	db.SResourceBaseManager
 }
 
-var DBInstanceAccountPrivilegeManager *SDBInstanceAccountPrivilegeManager
+var DBInstancePrivilegeManager *SDBInstancePrivilegeManager
 
 func init() {
-	DBInstanceAccountPrivilegeManager = &SDBInstanceAccountPrivilegeManager{
+	DBInstancePrivilegeManager = &SDBInstancePrivilegeManager{
 		SResourceBaseManager: db.NewResourceBaseManager(
-			SDBInstanceAccountPrivilege{},
-			"dbinstanceaccountprivilege_tbl",
-			"dbinstanceaccountprivilege",
-			"dbinstanceaccountprivileges",
+			SDBInstancePrivilege{},
+			"dbinstanceprivileges_tbl",
+			"dbinstanceprivilege",
+			"dbinstanceprivileges",
 		),
 	}
-	DBInstanceAccountPrivilegeManager.SetVirtualObject(DBInstanceAccountPrivilegeManager)
+	DBInstancePrivilegeManager.SetVirtualObject(DBInstancePrivilegeManager)
 }
 
-type SDBInstanceAccountPrivilege struct {
+type SDBInstancePrivilege struct {
 	db.SResourceBase
 	db.SExternalizedResourceBase
 
-	Privilege            string `width:"32" charset:"ascii" nullable:"false" list:"user"`
-	DBInstanceaccountId  string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
-	DBInstancedatabaseId string `width:"36" charset:"ascii" name:"dbinstance_id" nullable:"false" list:"user" create:"required" index:"true"`
+	Id                   string `width:"128" charset:"ascii" primary:"true" list:"user"`
+	Privilege            string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"required"`
+	DBInstanceaccountId  string `width:"36" charset:"ascii" name:"dbinstanceaccount_id" nullable:"false" list:"user" create:"required"`
+	DBInstancedatabaseId string `width:"36" charset:"ascii" name:"dbinstancedatabase_id" nullable:"false" list:"user" create:"required"`
 }
 
-func (manager *SDBInstanceAccountPrivilegeManager) GetContextManagers() [][]db.IModelManager {
+func (self *SDBInstancePrivilege) BeforeInsert() {
+	if len(self.Id) == 0 {
+		self.Id = db.DefaultUUIDGenerator()
+	}
+}
+
+func (manager *SDBInstancePrivilegeManager) GetContextManagers() [][]db.IModelManager {
 	return [][]db.IModelManager{
 		{DBInstanceAccountManager, DBInstanceDatabaseManager},
 	}
 }
 
-func (self *SDBInstanceAccountPrivilegeManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+func (self *SDBInstancePrivilegeManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return db.IsAdminAllowList(userCred, self)
 }
 
-func (self *SDBInstanceAccountPrivilegeManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (self *SDBInstancePrivilegeManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowCreate(userCred, self)
 }
 
-func (self *SDBInstanceAccountPrivilege) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+func (self *SDBInstancePrivilege) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return db.IsAdminAllowGet(userCred, self)
 }
 
-func (self *SDBInstanceAccountPrivilege) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+func (self *SDBInstancePrivilege) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	return db.IsAdminAllowUpdate(userCred, self)
 }
 
-func (self *SDBInstanceAccountPrivilege) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (self *SDBInstancePrivilege) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (manager *SDBInstanceAccountPrivilegeManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (self *SDBInstancePrivilege) GetDBInstanceAccount() (*SDBInstanceAccount, error) {
+	account, err := db.FetchById(DBInstanceAccountManager, self.DBInstanceaccountId)
+	if err != nil {
+		return nil, err
+	}
+	return account.(*SDBInstanceAccount), nil
+}
+
+func (self *SDBInstancePrivilege) GetDBInstanceDatabase() (*SDBInstanceDatabase, error) {
+	database, err := db.FetchById(DBInstanceDatabaseManager, self.DBInstancedatabaseId)
+	if err != nil {
+		return nil, err
+	}
+	return database.(*SDBInstanceDatabase), nil
+}
+
+func (self *SDBInstancePrivilege) GetDetailedJson() (*jsonutils.JSONDict, error) {
+	result := jsonutils.NewDict()
+	database, err := self.GetDBInstanceDatabase()
+	if err != nil {
+		return nil, err
+	}
+	result.Add(jsonutils.NewString(database.Name), "database")
+	result.Add(jsonutils.NewString(database.Id), "dbinstancedatabase_id")
+	result.Add(jsonutils.NewString(self.Privilege), "privileges")
+	return result, nil
+}
+
+func (manager *SDBInstancePrivilegeManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	q, err := manager.SResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
@@ -94,35 +129,25 @@ func (manager *SDBInstanceAccountPrivilegeManager) ListItemFilter(ctx context.Co
 	})
 }
 
-func (manager *SDBInstanceAccountPrivilegeManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (manager *SDBInstancePrivilegeManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewNotImplementedError("Not Implemented")
 }
 
-func (manager *SDBInstanceAccountPrivilegeManager) getPrivilegesByAccount(account *SDBInstanceAccount) ([]SDBInstanceAccountPrivilege, error) {
-	privileges := []SDBInstanceAccountPrivilege{}
-	q := manager.Query().Equals("dbinstanceaccount_id", account.Id)
-	err := db.FetchModelObjects(manager, q, &privileges)
-	if err != nil {
-		return nil, errors.Wrap(err, "getPrivilegesByAccount.FetchModelObjects")
-	}
-	return privileges, nil
-}
-
-func (manager *SDBInstanceAccountPrivilegeManager) SyncDBInstanceAccountPrivileges(ctx context.Context, userCred mcclient.TokenCredential, account *SDBInstanceAccount, cloudPrivileges []cloudprovider.ICloudDBInstanceAccountPrivilege) compare.SyncResult {
+func (manager *SDBInstancePrivilegeManager) SyncDBInstanceAccountPrivileges(ctx context.Context, userCred mcclient.TokenCredential, account *SDBInstanceAccount, cloudPrivileges []cloudprovider.ICloudDBInstanceAccountPrivilege) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, account.GetOwnerId()))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, account.GetOwnerId()))
 
 	result := compare.SyncResult{}
-	dbPrivileges, err := manager.getPrivilegesByAccount(account)
+	dbPrivileges, err := account.GetDBInstancePrivileges()
 	if err != nil {
 		result.Error(err)
 		return result
 	}
 
-	removed := make([]SDBInstanceAccountPrivilege, 0)
-	commondb := make([]SDBInstanceAccountPrivilege, 0)
-	commonext := make([]cloudprovider.ICloudDBInstanceDatabase, 0)
-	added := make([]cloudprovider.ICloudDBInstanceDatabase, 0)
+	removed := make([]SDBInstancePrivilege, 0)
+	commondb := make([]SDBInstancePrivilege, 0)
+	commonext := make([]cloudprovider.ICloudDBInstanceAccountPrivilege, 0)
+	added := make([]cloudprovider.ICloudDBInstanceAccountPrivilege, 0)
 	if err := compare.CompareSets(dbPrivileges, cloudPrivileges, &removed, &commondb, &commonext, &added); err != nil {
 		result.Error(err)
 		return result
@@ -148,11 +173,11 @@ func (manager *SDBInstanceAccountPrivilegeManager) SyncDBInstanceAccountPrivileg
 	return result
 }
 
-func (manager *SDBInstanceAccountPrivilegeManager) newFromCloudPrivileges(ctx context.Context, userCred mcclient.TokenCredential, account *SDBInstanceAccount, ext cloudprovider.ICloudDBInstanceAccountPrivilege) error {
+func (manager *SDBInstancePrivilegeManager) newFromCloudPrivileges(ctx context.Context, userCred mcclient.TokenCredential, account *SDBInstanceAccount, ext cloudprovider.ICloudDBInstanceAccountPrivilege) error {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 
-	privilege := SDBInstanceAccountPrivilege{}
+	privilege := SDBInstancePrivilege{}
 	privilege.SetModelManager(manager, &privilege)
 
 	privilege.DBInstanceaccountId = account.Id

@@ -139,4 +139,36 @@ func init() {
 		return nil
 	})
 
+	type DBInstanceAccountIdOptions struct {
+		ID string `help:"ID or Name of DBInstanceaccount"`
+	}
+
+	R(&DBInstanceAccountIdOptions{}, "dbinstance-account-show", "Show DB instance account", func(s *mcclient.ClientSession, opts *DBInstanceAccountIdOptions) error {
+		account, err := modules.DBInstanceAccounts.Get(s, opts.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(account)
+		return nil
+	})
+
+	type DBInstancePrivilegeListOptions struct {
+		options.BaseListOptions
+		DBInstanceaccount  string `help:"ID or Name of DBInstanceaccount" json:"dbinstanceaccount"`
+		DBInstancedatabase string `help:"ID or Name of DBInstancedatabase" json:"dbinstancedatabase"`
+	}
+	R(&DBInstancePrivilegeListOptions{}, "dbinstance-privilege-list", "List DB instance accounts", func(s *mcclient.ClientSession, opts *DBInstancePrivilegeListOptions) error {
+		params, err := options.ListStructToParams(opts)
+		if err != nil {
+			return err
+		}
+
+		result, err := modules.DBInstancePrivileges.List(s, params)
+		if err != nil {
+			return err
+		}
+		printList(result, modules.DBInstancePrivileges.GetColumns(s))
+		return nil
+	})
+
 }

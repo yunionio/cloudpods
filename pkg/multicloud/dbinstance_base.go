@@ -33,3 +33,7 @@ func (instance *SDBInstanceBase) GetIDBInstanceDatabases() ([]cloudprovider.IClo
 func (instance *SDBInstanceBase) GetIDBInstanceAccounts() ([]cloudprovider.ICloudDBInstanceAccount, error) {
 	return nil, fmt.Errorf("Not Implemented GetIDBInstanceAccounts")
 }
+
+func (instance *SDBInstanceBase) GetCategory() string {
+	return ""
+}

@@ -98,22 +98,12 @@ func (manager *SDBInstanceParameterManager) ValidateCreateData(ctx context.Conte
 	return nil, httperrors.NewNotImplementedError("Not Implemented")
 }
 
-func (manager *SDBInstanceParameterManager) getDBInstanceParametersByInstance(instance *SDBInstance) ([]SDBInstanceParameter, error) {
-	parameters := []SDBInstanceParameter{}
-	q := manager.Query().Equals("dbinstance_id", instance.Id)
-	err := db.FetchModelObjects(manager, q, &parameters)
-	if err != nil {
-		return nil, errors.Wrap(err, "getDBInstanceParametersByInstance.FetchModelObjects")
-	}
-	return parameters, nil
-}
-
 func (manager *SDBInstanceParameterManager) SyncDBInstanceParameters(ctx context.Context, userCred mcclient.TokenCredential, instance *SDBInstance, cloudParameters []cloudprovider.ICloudDBInstanceParameter) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, instance.GetOwnerId()))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, instance.GetOwnerId()))
 
 	result := compare.SyncResult{}
-	dbParameters, err := manager.getDBInstanceParametersByInstance(instance)
+	dbParameters, err := instance.GetDBInstanceParameters()
 	if err != nil {
 		result.Error(err)
 		return result

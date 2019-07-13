@@ -152,6 +152,18 @@ func (rds *SDBInstance) GetCreatedAt() time.Time {
 }
 
 func (rds *SDBInstance) GetEngine() string {
+	switch rds.Engine {
+	case "MySQL":
+		return api.DBINSTANCE_TYPE_MYSQL
+	case "SQLServer":
+		return api.DBINSTANCE_TYPE_SQLSERVER
+	case "PostgreSQL":
+		return api.DBINSTANCE_TYPE_POSTGRESQL
+	case "PPAS":
+		return api.DBINSTANCE_TYPE_PPAS
+	case "MariaDB":
+		return api.DBINSTANCE_TYPE_MARIADB
+	}
 	return rds.Engine
 }
 
@@ -161,6 +173,20 @@ func (rds *SDBInstance) GetEngineVersion() string {
 
 func (rds *SDBInstance) GetInstanceType() string {
 	return rds.DBInstanceClass
+}
+
+func (rds *SDBInstance) GetCategory() string {
+	switch rds.Category {
+	case "Basic":
+		return api.DBINSTANCE_CATEGORY_BASIC
+	case "HighAvailability":
+		return api.DBINSTANCE_CATEGORY_HA
+	case "AlwaysOn":
+		return api.DBINSTANCE_CATEGORY_ALWAYSON
+	case "Finance":
+		return api.DBINSTANCE_CATEGORY_FINANCE
+	}
+	return rds.Category
 }
 
 func (rds *SDBInstance) GetVcpuCount() int {
@@ -340,6 +366,14 @@ func (region *SRegion) GetDBInstanceDetail(instanceId string) (*SDBInstance, err
 		return nil, cloudprovider.ErrNotFound
 	}
 	return nil, cloudprovider.ErrDuplicateId
+}
+
+func (region *SRegion) DeleteDBInstance(instanceId string) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["DBInstanceId"] = instanceId
+	_, err := region.rdsRequest("DeleteDBInstance", params)
+	return err
 }
 
 type SDBInstanceWeight struct {
