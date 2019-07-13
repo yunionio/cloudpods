@@ -72,16 +72,22 @@ func (p *DiskSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCandi
 	return ret
 }
 
-func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) error {
+func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
 	storage := res.(*api.CandidateStorage)
 	if storage.Status == computeapi.STORAGE_OFFLINE || storage.Enabled.IsFalse() {
-		return fmt.Errorf("Storage status is %s, enable is %v", storage.Status, storage.Enabled)
+		return &FailReason{
+			fmt.Sprintf("Storage status is %s, enable is %v", storage.Status, storage.Enabled),
+			StorageEnable,
+		}
 	}
 
 	d := input.(*diskW)
 	if d.Storage != "" {
 		if storage.Id != d.Storage && storage.Name != d.Storage {
-			return fmt.Errorf("Storage name %s != (%s:%s)", d.Storage, storage.Name, storage.Id)
+			return &FailReason{
+				fmt.Sprintf("Storage name %s != (%s:%s)", d.Storage, storage.Name, storage.Id),
+				StorageMatch,
+			}
 		}
 	}
 	if c.Getter().ResourceType() == computeapi.HostResourceTypePrepaidRecycle {
@@ -89,13 +95,19 @@ func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidat
 	}
 	if !(len(d.Backend) == 0 || d.Backend == computeapi.STORAGE_LOCAL) {
 		if storage.StorageType != d.Backend {
-			return fmt.Errorf("Storage %s backend %s != %s", storage.Name, storage.StorageType, d.Backend)
+			return &FailReason{
+				fmt.Sprintf("Storage %s backend %s != %s", storage.Name, storage.StorageType, d.Backend),
+				StorageType,
+			}
 		}
 	}
 
 	storageTypes := p.GetHypervisorDriver().GetStorageTypes()
 	if len(storageTypes) != 0 && !utils.IsInStringArray(storage.StorageType, storageTypes) {
-		return fmt.Errorf("Storage %s storage type %s not in %v", storage.Name, storage.StorageType, storageTypes)
+		return &FailReason{
+			fmt.Sprintf("Storage %s storage type %s not in %v", storage.Name, storage.StorageType, storageTypes),
+			StorageType,
+		}
 	}
 	return nil
 }
