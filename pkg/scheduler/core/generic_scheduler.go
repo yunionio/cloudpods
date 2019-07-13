@@ -507,31 +507,27 @@ func unitFitsOnCandidate(
 	toLog := func(fit bool, reasons []PredicateFailureReason,
 		err error, stage string) SchedLog {
 		var (
-			sFit    string
-			message string
+			//sFit     string
+			messages = make([]*LogMessage, 0)
 		)
-		if fit {
+		/*if fit {
 			sFit = "Success."
 		} else {
 			sFit = "Failed:"
-		}
+		}*/
 		if err != nil {
-			message = fmt.Sprintf("%v", err)
+			messages = append(messages, &LogMessage{Type: "error", Info: fmt.Sprintf("%v", err)})
 		} else {
-			if len(reasons) == 0 {
-				message = ""
-			} else {
-				ss := make([]string, 0, len(reasons))
+			if len(reasons) != 0 {
 				for _, reason := range reasons {
-					ss = append(ss, reason.GetReason())
+					messages = append(messages, &LogMessage{Type: reason.GetType(), Info: reason.GetReason()})
 				}
-				message = strings.Join(ss, ", ")
 			}
 		}
 
 		candidateLogIndex := fmt.Sprintf("%v:%s", candidate.Getter().Name(), candidate.IndexKey())
 
-		return NewSchedLog(candidateLogIndex, stage, fmt.Sprintf("%v %v", sFit, message), !fit)
+		return NewSchedLog(candidateLogIndex, stage, messages, !fit)
 	}
 
 	for _, predicate := range predicates {
