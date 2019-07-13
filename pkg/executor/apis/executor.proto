@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package apis;
+
+message Command {
+  bytes path = 1;
+  repeated bytes args = 2;
+  repeated bytes env = 3;
+  bytes dir = 4;
+  bytes input = 5;
+}
+
+message Response {
+  bytes stdout = 1;
+  bytes stderr = 2;
+  int32 exit_code = 3;
+  bool is_exit = 4;
+  bytes err_content = 5;
+}
+
+service Executor {
+  rpc ExecCommand(stream Command) returns (stream Response);
+}
