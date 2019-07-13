@@ -378,7 +378,7 @@ func syncZoneStorages(ctx context.Context, userCred mcclient.TokenCredential, sy
 	syncResults.Add(StorageManager, result)
 
 	msg := result.Result()
-	notes := fmt.Sprintf("SyncZones for region %s result: %s", localZone.Name, msg)
+	notes := fmt.Sprintf("SyncStorages for zone %s result: %s", localZone.Name, msg)
 	log.Infof(notes)
 	if result.IsError() {
 		return nil
