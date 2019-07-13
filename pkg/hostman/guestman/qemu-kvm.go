@@ -730,12 +730,16 @@ func (s *SKVMGuestInstance) SyncStatus() {
 func (s *SKVMGuestInstance) CheckBlockOrRunning(jobs int) {
 	var status = compute.VM_RUNNING
 	if jobs > 0 {
-		mirrorStatus := s.MirrorJobStatus()
-		if mirrorStatus.InProcess() {
+		if s.IsMaster() {
+			mirrorStatus := s.MirrorJobStatus()
+			if mirrorStatus.InProcess() {
+				status = compute.VM_BLOCK_STREAM
+			} else if mirrorStatus.IsFailed() {
+				status = compute.VM_BLOCK_STREAM_FAIL
+				s.SyncMirrorJobFailed("Block job missing")
+			}
+		} else {
 			status = compute.VM_BLOCK_STREAM
-		} else if mirrorStatus.IsFailed() {
-			status = compute.VM_BLOCK_STREAM_FAIL
-			s.SyncMirrorJobFailed("Block job missing")
 		}
 	}
 	_, err := hostutils.UpdateServerStatus(context.Background(), s.Id, status)
