@@ -19,7 +19,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 
@@ -141,7 +140,7 @@ func (f *SLocalGuestFS) Zerofiles(dir string, caseInsensitive bool) error {
 }
 
 func (f *SLocalGuestFS) Passwd(account, password string, caseInsensitive bool) error {
-	var proc = exec.Command("chroot", f.mountPath, "passwd", account)
+	var proc = procutils.NewCommand("chroot", f.mountPath, "passwd", account)
 	stdin, err := proc.StdinPipe()
 	if err != nil {
 		return err
@@ -224,7 +223,7 @@ func (f *SLocalGuestFS) Chmod(sPath string, mode uint32, caseInsensitive bool) e
 }
 
 func (f *SLocalGuestFS) UserAdd(user string, caseInsensitive bool) error {
-	output, err := procutils.NewCommand("chroot", f.mountPath, "useradd", "-m", "-s", "/bin/bash", user).Run()
+	output, err := procutils.NewCommand("chroot", f.mountPath, "useradd", "-m", "-s", "/bin/bash", user).Output()
 	if err != nil {
 		log.Errorf("Useradd fail: %s, %s", err, output)
 		return fmt.Errorf("%s", output)

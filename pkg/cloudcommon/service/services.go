@@ -69,7 +69,7 @@ func (s *SServiceBase) CreatePid() error {
 	s.O.PidFile = absPath
 	pidDir := filepath.Dir(s.O.PidFile)
 	if !fileutils2.Exists(pidDir) {
-		output, err := procutils.NewCommand("mkdir", "-p", pidDir).Run()
+		output, err := procutils.NewCommand("mkdir", "-p", pidDir).Output()
 		if err != nil {
 			return fmt.Errorf("Make pid dir %s failed: %s", pidDir, output)
 		}

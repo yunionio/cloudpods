@@ -28,33 +28,28 @@ type SSysVServiceManager struct {
 }
 
 func (manager *SSysVServiceManager) Detect() bool {
-	_, err := procutils.NewCommand("chkconfig", "--version").Run()
-	return err == nil
+	return procutils.NewCommand("chkconfig", "--version").Run() == nil
 }
 
 func (manager *SSysVServiceManager) Start(srvname string) error {
-	_, err := procutils.NewCommand("service", srvname, "restart").Run()
-	return err
+	return procutils.NewCommand("service", srvname, "restart").Run()
 }
 
 func (manager *SSysVServiceManager) Enable(srvname string) error {
-	_, err := procutils.NewCommand("chkconfig", srvname, "on").Run()
-	return err
+	return procutils.NewCommand("chkconfig", srvname, "on").Run()
 }
 
 func (manager *SSysVServiceManager) Stop(srvname string) error {
-	_, err := procutils.NewCommand("service", srvname, "stop").Run()
-	return err
+	return procutils.NewCommand("service", srvname, "stop").Run()
 }
 
 func (manager *SSysVServiceManager) Disable(srvname string) error {
-	_, err := procutils.NewCommand("chkconfig", srvname, "off").Run()
-	return err
+	return procutils.NewCommand("chkconfig", srvname, "off").Run()
 }
 
 func (manager *SSysVServiceManager) GetStatus(srvname string) SServiceStatus {
-	res, _ := procutils.NewCommand("chkconfig", "--list", srvname).Run()
-	res2, _ := procutils.NewCommand("service", srvname, "status").Run()
+	res, _ := procutils.NewCommand("chkconfig", "--list", srvname).Output()
+	res2, _ := procutils.NewCommand("service", srvname, "status").Output()
 	return parseSysvStatus(string(res), string(res2), srvname)
 }
 

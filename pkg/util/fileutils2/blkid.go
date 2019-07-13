@@ -15,10 +15,11 @@
 package fileutils2
 
 import (
-	"os/exec"
 	"regexp"
 
 	"yunion.io/x/log"
+
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 const (
@@ -30,10 +31,9 @@ var (
 )
 
 func GetBlkidType(filepath string) string {
-	cmd := exec.Command("blkid", filepath)
-	out, err := cmd.CombinedOutput()
+	out, err := procutils.NewCommand("blkid", filepath).Output()
 	if err != nil {
-		log.Errorf("blkid fail %s %s", filepath, err)
+		log.Errorf("blkid fail %s %s", filepath, out)
 		return ""
 	}
 	matches := blkidTypeRegexp.FindStringSubmatch(string(out))

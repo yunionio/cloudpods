@@ -16,11 +16,11 @@ package qemuimg
 
 import (
 	"fmt"
-	"os/exec"
 	"regexp"
 
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/qemutils"
 	"yunion.io/x/onecloud/pkg/util/version"
 )
@@ -36,10 +36,9 @@ var (
 )
 
 func getQemuImgVersion() string {
-	cmd := exec.Command(qemutils.GetQemuImg(), "--version")
-	out, err := cmd.CombinedOutput()
+	out, err := procutils.NewCommand(qemutils.GetQemuImg(), "--version").Output()
 	if err != nil {
-		log.Errorf("check qemu-img version fail %s", err)
+		log.Errorf("check qemu-img version fail %s", out)
 		return ""
 	}
 	matches := qemuImgVersionRegexp.FindStringSubmatch(string(out))

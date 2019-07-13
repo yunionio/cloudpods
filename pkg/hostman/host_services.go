@@ -17,6 +17,7 @@ package hostman
 import (
 	"os"
 
+	execlient "yunion.io/x/executor/client"
 	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/appsrv"
@@ -37,6 +38,8 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/storageman"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/diskhandlers"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/storagehandler"
+	"yunion.io/x/onecloud/pkg/hostman/system_service"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/sysutils"
 )
 
@@ -46,6 +49,15 @@ type SHostService struct {
 
 func (host *SHostService) InitService() {
 	common_options.ParseOptions(&options.HostOptions, os.Args, "host.conf", "host")
+	if len(options.HostOptions.CommonConfigFile) > 0 {
+		baseOpt := options.HostOptions.BaseOptions.BaseOptions
+		commonCfg := new(common_options.CommonOptions)
+		commonCfg.Config = options.HostOptions.CommonConfigFile
+		common_options.ParseOptions(commonCfg, []string{"host"}, "common.conf", "host")
+		options.HostOptions.CommonOptions = *commonCfg
+		// keep base options
+		options.HostOptions.BaseOptions.BaseOptions = baseOpt
+	}
 	isRoot := sysutils.IsRootPermission()
 	if !isRoot {
 		log.Fatalf("host service must running with root permissions")
@@ -58,11 +70,17 @@ func (host *SHostService) InitService() {
 	options.HostOptions.EnableRbac = false // disable rbac
 	// init base option for pid file
 	host.SServiceBase.O = &options.HostOptions.BaseOptions
+
+	log.Infof("exec socket path: %s", options.HostOptions.ExecutorSocketPath)
+	if options.HostOptions.EnableRemoteExecutor {
+		execlient.Init(options.HostOptions.ExecutorSocketPath)
+		procutils.SetRemoteExecutor()
+	}
+
+	system_service.Init()
 }
 
-func (host *SHostService) OnExitService() {
-	// TODO
-}
+func (host *SHostService) OnExitService() {}
 
 func (host *SHostService) RunService() {
 	app := app_common.InitApp(&options.HostOptions.BaseOptions, false)

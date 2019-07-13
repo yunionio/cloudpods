@@ -131,7 +131,7 @@ func (ipmi *LanPlusIPMI) GetCommand(args ...string) *procutils.Command {
 func (ipmi *LanPlusIPMI) ExecuteCommand(args ...string) ([]string, error) {
 	cmd := ipmi.GetCommand(args...)
 	log.Debugf("[LanPlusIPMI] execute command: %s", cmd.String())
-	out, err := cmd.Run()
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}

@@ -96,7 +96,7 @@ func (d *SKVMGuestDisk) connect() bool {
 	} else {
 		cmd = []string{qemutils.GetQemuNbd(), "-c", d.nbdDev, d.imagePath}
 	}
-	_, err := procutils.NewCommand(cmd[0], cmd[1:]...).Run()
+	_, err := procutils.NewCommand(cmd[0], cmd[1:]...).Output()
 	if err != nil {
 		log.Errorln(err.Error())
 		return false
@@ -134,7 +134,7 @@ func (d *SKVMGuestDisk) Connect() bool {
 }
 
 func (d *SKVMGuestDisk) getImageFormat() string {
-	lines, err := procutils.NewCommand(qemutils.GetQemuImg(), "info", d.imagePath).Run()
+	lines, err := procutils.NewCommand(qemutils.GetQemuImg(), "info", d.imagePath).Output()
 	if err != nil {
 		return ""
 	}
@@ -228,7 +228,7 @@ func (d *SKVMGuestDisk) LvmDisconnectNotify() {
 
 func (d *SKVMGuestDisk) setupLVMS() (bool, error) {
 	// Scan all devices and send the metadata to lvmetad
-	output, err := procutils.NewCommand("pvscan", "--cache").Run()
+	output, err := procutils.NewCommand("pvscan", "--cache").Output()
 	if err != nil {
 		log.Errorf("pvscan error %s", output)
 		return false, err
@@ -278,7 +278,7 @@ func (d *SKVMGuestDisk) Disconnect() bool {
 }
 
 func (d *SKVMGuestDisk) disconnect() bool {
-	_, err := procutils.NewCommand(qemutils.GetQemuNbd(), "-d", d.nbdDev).Run()
+	_, err := procutils.NewCommand(qemutils.GetQemuNbd(), "-d", d.nbdDev).Output()
 	if err != nil {
 		log.Errorln(err.Error())
 		return false
@@ -342,15 +342,15 @@ func (d *SKVMGuestDisk) UmountKvmRootfs(fd fsdriver.IRootFsDriver) {
 }
 
 func (d *SKVMGuestDisk) MakePartition(fs string) error {
-	return fileutils2.Mkpartition(d.nbdDev, fs)
+	return Mkpartition(d.nbdDev, fs)
 }
 
 func (d *SKVMGuestDisk) FormatPartition(fs, uuid string) error {
-	return fileutils2.FormatPartition(fmt.Sprintf("%sp1", d.nbdDev), fs, uuid)
+	return FormatPartition(fmt.Sprintf("%sp1", d.nbdDev), fs, uuid)
 }
 
 func (d *SKVMGuestDisk) ResizePartition() error {
-	return fileutils2.ResizeDiskFs(d.nbdDev, 0)
+	return ResizeDiskFs(d.nbdDev, 0)
 }
 
 func (d *SKVMGuestDisk) Zerofree() {

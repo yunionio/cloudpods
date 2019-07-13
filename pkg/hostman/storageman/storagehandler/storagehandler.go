@@ -66,7 +66,7 @@ func storageVerifyMountPoint(ctx context.Context, w http.ResponseWriter, r *http
 		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("mount_point"))
 		return
 	}
-	output, err := procutils.NewCommand("mountpoint", mountPoint).Run()
+	output, err := procutils.NewCommand("mountpoint", mountPoint).Output()
 	if err == nil {
 		appsrv.SendStruct(w, map[string]interface{}{"is_mount_point": true})
 	} else {

@@ -376,7 +376,7 @@ func GetSecretInterfaceAddress() (string, []byte) {
 }
 
 func (n *SNetInterface) GetRoutes(gwOnly bool) [][]string {
-	output, err := procutils.NewCommand("route", "-n").Run()
+	output, err := procutils.NewCommand("route", "-n").Output()
 	if err != nil {
 		return nil
 	}
@@ -410,7 +410,7 @@ func (n *SNetInterface) getAddresses(output []string) [][]string {
 }
 
 func (n *SNetInterface) GetAddresses() [][]string {
-	output, err := procutils.NewCommand("ip", "address", "show", "dev", n.name).Run()
+	output, err := procutils.NewCommand("ip", "address", "show", "dev", n.name).Output()
 	if err != nil {
 		log.Errorln(err)
 		return nil
