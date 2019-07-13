@@ -107,6 +107,9 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 		if v, ok := input.Host.GetVar("repo_base_url"); !ok || v == "" {
 			return nil, httperrors.NewBadRequestError("use yum requires valid repo_base_url")
 		}
+		if v, ok := input.Host.GetVar("repo_sslverify"); !ok || v == "" {
+			input.Host.SetVar("repo_sslverify", "0")
+		}
 		pb.Files["yunionRepoTmpl"] = []byte(yunionRepoTmpl)
 		pb.Modules = append(pb.Modules,
 			ansible.Module{
@@ -125,7 +128,6 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 					"name=yunion-lbagent",
 					"state=latest",
 					"update_cache=yes",
-					"validate_certs=no",
 				},
 			},
 		)
@@ -296,6 +298,7 @@ baseurl={{ repo_base_url }}/updates
 failovermethod=priority
 enabled=1
 gpgcheck=0
+sslverify={{ repo_sslverify }}
 
 [yunion-extra]
 name=Extra Packages for Yunion - $basearch
@@ -303,6 +306,7 @@ baseurl={{ repo_base_url }}/packages
 failovermethod=priority
 enabled=1
 gpgcheck=0
+sslverify={{ repo_sslverify }}
 `
 )
 
