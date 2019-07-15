@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -223,6 +224,9 @@ func (manager *SCloudproviderregionManager) FetchByIdsOrCreate(providerId string
 }
 
 func (self *SCloudproviderregion) markStartingSync(userCred mcclient.TokenCredential) error {
+	if !self.Enabled {
+		return fmt.Errorf("Cloudprovider(%s)region(%s) disabled", self.CloudproviderId, self.CloudregionId)
+	}
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = compute.CLOUD_PROVIDER_SYNC_STATUS_QUEUING
 		return nil
@@ -235,6 +239,9 @@ func (self *SCloudproviderregion) markStartingSync(userCred mcclient.TokenCreden
 }
 
 func (self *SCloudproviderregion) markStartSync(userCred mcclient.TokenCredential) error {
+	if !self.Enabled {
+		return fmt.Errorf("Cloudprovider(%s)region(%s) disabled", self.CloudproviderId, self.CloudregionId)
+	}
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = compute.CLOUD_PROVIDER_SYNC_STATUS_QUEUED
 		return nil
@@ -247,6 +254,9 @@ func (self *SCloudproviderregion) markStartSync(userCred mcclient.TokenCredentia
 }
 
 func (self *SCloudproviderregion) markSyncing(userCred mcclient.TokenCredential) error {
+	if !self.Enabled {
+		return fmt.Errorf("Cloudprovider(%s)region(%s) disabled", self.CloudproviderId, self.CloudregionId)
+	}
 	_, err := db.Update(self, func() error {
 		self.SyncStatus = compute.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
 		self.LastSync = timeutils.UtcNow()
