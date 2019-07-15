@@ -16,6 +16,7 @@ package handler
 
 import (
 	"fmt"
+	"yunion.io/x/log"
 
 	schedapi "yunion.io/x/onecloud/pkg/apis/scheduler"
 	"yunion.io/x/onecloud/pkg/scheduler/api"
@@ -51,14 +52,18 @@ func transToSchedForecastResult(result *core.SchedResultItemList) interface{} {
 	}
 	addInfos := func(logs core.SchedLogList, item *core.SchedResultItem) {
 		for preName, cnt := range item.CapacityDetails {
-			if cnt <= 0 {
-				info, exist := getOrNewFilter(preName)
+			if cnt > 0 {
+				continue
+			}
+			failedLog := logs.Get(logIndex(item))
+			if failedLog == nil {
+				log.Errorf("predicate %q count is 0, but not found failed log", preName)
+				continue
+			}
+			for _, msg := range failedLog.Messages {
+				info, exist := getOrNewFilter(msg.Type)
 				info.Count++
-				var msg string
-				if failedLog := logs.Get(logIndex(item)); failedLog != nil {
-					msg = failedLog.String()
-				}
-				info.Messages = append(info.Messages, msg)
+				info.Messages = append(info.Messages, msg.Info)
 				if !exist {
 					filters = append(filters, info)
 				}

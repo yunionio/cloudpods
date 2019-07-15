@@ -148,8 +148,13 @@ type FitPredicate interface {
 	Execute(*Unit, Candidater) (bool, []PredicateFailureReason, error)
 }
 
-type PredicateFailureReason interface {
+type PredicateFailureError interface {
 	GetReason() string
+}
+
+type PredicateFailureReason interface {
+	PredicateFailureError
+	GetType() string
 }
 
 type PriorityPreFunction func(*Unit, []Candidater) (bool, []PredicateFailureReason, error)
