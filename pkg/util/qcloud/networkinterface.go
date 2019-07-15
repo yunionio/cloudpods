@@ -18,10 +18,15 @@ import (
 	"fmt"
 	"time"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/multicloud"
+
 	"github.com/pkg/errors"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SPrivateIpAddress struct {
+	nic              *SNetworkInterface
 	Description      string
 	Primary          bool
 	PrivateIpAddress string
@@ -30,7 +35,25 @@ type SPrivateIpAddress struct {
 	State            string
 }
 
+func (ip *SPrivateIpAddress) GetGlobalId() string {
+	return ip.PrivateIpAddress
+}
+
+func (ip *SPrivateIpAddress) GetIP() string {
+	return ip.PrivateIpAddress
+}
+
+func (ip *SPrivateIpAddress) GetINetworkId() string {
+	return ip.nic.SubnetId
+}
+
+func (ip *SPrivateIpAddress) IsPrimary() bool {
+	return ip.Primary
+}
+
 type SNetworkInterface struct {
+	multicloud.SNetworkInterfaceBase
+	region                      *SRegion
 	VpcId                       string
 	SubnetId                    string
 	NetworkInterfaceId          string
@@ -44,6 +67,75 @@ type SNetworkInterface struct {
 	Attachment                  string
 	Zone                        string
 	PrivateIpAddressSet         []SPrivateIpAddress
+}
+
+func (nic *SNetworkInterface) GetName() string {
+	return nic.NetworkInterfaceName
+}
+
+func (nic *SNetworkInterface) GetId() string {
+	return nic.NetworkInterfaceId
+}
+
+func (nic *SNetworkInterface) GetGlobalId() string {
+	return nic.NetworkInterfaceId
+}
+
+func (nic *SNetworkInterface) GetMacAddress() string {
+	return nic.MacAddress
+}
+
+func (nic *SNetworkInterface) GetAssociateType() string {
+	return api.NETWORK_INTERFACE_ASSOCIATE_TYPE_SERVER
+}
+
+func (nic *SNetworkInterface) GetAssociateId() string {
+	return nic.Attachment
+}
+
+func (nic *SNetworkInterface) GetStatus() string {
+	switch nic.State {
+	case "PENDING":
+		return api.NETWORK_INTERFACE_STATUS_CREATING
+	case "AVAILABLE":
+		return api.NETWORK_INTERFACE_STATUS_AVAILABLE
+	case "ATTACHING":
+		return api.NETWORK_INTERFACE_STATUS_ATTACHING
+	case "DETACHING":
+		return api.NETWORK_INTERFACE_STATUS_DETACHING
+	case "DELETING":
+		return api.NETWORK_INTERFACE_STATUS_DELETING
+	}
+	return nic.State
+}
+
+func (nic *SNetworkInterface) GetICloudInterfaceAddresses() ([]cloudprovider.ICloudInterfaceAddress, error) {
+	address := []cloudprovider.ICloudInterfaceAddress{}
+	for i := 0; i < len(nic.PrivateIpAddressSet); i++ {
+		nic.PrivateIpAddressSet[i].nic = nic
+		address = append(address, &nic.PrivateIpAddressSet[i])
+	}
+	return address, nil
+}
+
+func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {
+	interfaces := []SNetworkInterface{}
+	for {
+		parts, total, err := region.GetNetworkInterfaces([]string{}, "", len(interfaces), 50)
+		if err != nil {
+			return nil, err
+		}
+		interfaces = append(interfaces, parts...)
+		if len(interfaces) >= total {
+			break
+		}
+	}
+	ret := []cloudprovider.ICloudNetworkInterface{}
+	for i := 0; i < len(interfaces); i++ {
+		interfaces[i].region = region
+		ret = append(ret, &interfaces[i])
+	}
+	return ret, nil
 }
 
 func (region *SRegion) GetNetworkInterfaces(interfaceIds []string, subnetId string, offset int, limit int) ([]SNetworkInterface, int, error) {

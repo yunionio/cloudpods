@@ -662,6 +662,54 @@ func (net *SNetwork) purgeReservedIps(ctx context.Context, userCred mcclient.Tok
 	return nil
 }
 
+func (nic *SNetworkInterface) purgeNetworkAddres(ctx context.Context, userCred mcclient.TokenCredential) error {
+	networks, err := nic.GetNetworks()
+	if err != nil {
+		return err
+	}
+
+	for i := range networks {
+		err := networks[i].Delete(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (nic *SNetworkInterface) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, nic)
+	defer lockman.ReleaseObject(ctx, nic)
+
+	err := nic.purgeNetworkAddres(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = nic.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+	return nic.Delete(ctx, userCred)
+}
+
+func (net *SNetwork) purgeNetworkInterfaces(ctx context.Context, userCred mcclient.TokenCredential) error {
+	networkinterfaceIds := NetworkinterfacenetworkManager.Query("networkinterface_id").Equals("network_id", net.Id).Distinct().SubQuery()
+	q := NetworkInterfaceManager.Query().In("id", networkinterfaceIds)
+	interfaces := make([]SNetworkInterface, 0)
+	err := db.FetchModelObjects(NetworkInterfaceManager, q, &interfaces)
+	if err != nil {
+		return err
+	}
+	for i := range interfaces {
+		err = interfaces[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (net *SNetwork) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, net)
 	defer lockman.ReleaseObject(ctx, net)
@@ -687,6 +735,11 @@ func (net *SNetwork) purge(ctx context.Context, userCred mcclient.TokenCredentia
 		return err
 	}
 	err = net.purgeReservedIps(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = net.purgeNetworkInterfaces(ctx, userCred)
 	if err != nil {
 		return err
 	}
@@ -966,6 +1019,20 @@ func (manager *SNatGetewayManager) purgeAll(ctx context.Context, userCred mcclie
 	}
 	for i := range nats {
 		err = nats[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (manager *SNetworkInterfaceManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	nics, err := manager.getNetworkInterfacesByProviderId(providerId)
+	if err != nil {
+		return err
+	}
+	for i := range nics {
+		err = nics[i].purge(ctx, userCred)
 		if err != nil {
 			return err
 		}

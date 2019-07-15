@@ -182,6 +182,11 @@ func (self *SNetwork) GetTotalNicCount() (int, error) {
 		return -1, err
 	}
 	total += cnt
+	cnt, err = self.GetNetworkInterfacesCount()
+	if err != nil {
+		return -1, err
+	}
+	total += cnt
 	return total, nil
 }
 
@@ -209,6 +214,10 @@ func (self *SNetwork) GetEipsCount() (int, error) {
 	return ElasticipManager.Query().Equals("network_id", self.Id).CountWithError()
 }
 
+func (self *SNetwork) GetNetworkInterfacesCount() (int, error) {
+	return NetworkinterfacenetworkManager.Query().Equals("network_id", self.Id).CountWithError()
+}
+
 func (self *SNetwork) GetUsedAddresses() map[string]bool {
 	used := make(map[string]bool)
 
@@ -219,6 +228,7 @@ func (self *SNetwork) GetUsedAddresses() map[string]bool {
 		ReservedipManager.Query().SubQuery(),
 		LoadbalancernetworkManager.Query().SubQuery(),
 		ElasticipManager.Query().SubQuery(),
+		NetworkinterfacenetworkManager.Query().SubQuery(),
 	} {
 		q := tbl.Query(tbl.Field("ip_addr")).Equals("network_id", self.Id)
 		rows, err := q.Rows()

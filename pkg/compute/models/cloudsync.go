@@ -882,6 +882,50 @@ func syncRegionSnapshotPolicies(ctx context.Context, userCred mcclient.TokenCred
 	}
 }
 
+func syncRegionNetworkInterfaces(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
+	networkInterfaces, err := remoteRegion.GetINetworkInterfaces()
+	if err != nil {
+		msg := fmt.Sprintf("GetINetworkInterfaces for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+	localInterfaces, remoteInterfaces, result := NetworkInterfaceManager.SyncNetworkInterfaces(ctx, userCred, provider, localRegion, networkInterfaces)
+
+	syncResults.Add(NetworkInterfaceManager, result)
+
+	msg := result.Result()
+	log.Infof("SyncNetworkInterfaces for region %s result: %s", localRegion.Name, msg)
+	if result.IsError() {
+		return
+	}
+
+	for i := 0; i < len(localInterfaces); i++ {
+		func() {
+			lockman.LockObject(ctx, &localInterfaces[i])
+			defer lockman.ReleaseObject(ctx, &localInterfaces[i])
+
+			syncInterfaceAddresses(ctx, userCred, &localInterfaces[i], remoteInterfaces[i])
+		}()
+	}
+}
+
+func syncInterfaceAddresses(ctx context.Context, userCred mcclient.TokenCredential, localInterface *SNetworkInterface, remoteInterface cloudprovider.ICloudNetworkInterface) {
+	addresses, err := remoteInterface.GetICloudInterfaceAddresses()
+	if err != nil {
+		msg := fmt.Sprintf("GetICloudInterfaceAddresses for networkinterface %s failed %s", remoteInterface.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+
+	result := NetworkinterfacenetworkManager.SyncInterfaceAddresses(ctx, userCred, localInterface, addresses)
+	msg := result.Result()
+	notes := fmt.Sprintf("SyncInterfaceAddresses for networkinterface %s result: %s", localInterface.Name, msg)
+	log.Infof(notes)
+	if result.IsError() {
+		return
+	}
+}
+
 func syncPublicCloudProviderInfo(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
@@ -946,6 +990,8 @@ func syncPublicCloudProviderInfo(
 	syncRegionLoadbalancerAcls(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	syncRegionLoadbalancerCertificates(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	syncRegionLoadbalancers(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+
+	syncRegionNetworkInterfaces(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
 	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 	for i := range storageCachePairs {
