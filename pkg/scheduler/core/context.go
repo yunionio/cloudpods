@@ -221,19 +221,38 @@ type SchedContextDataItem struct {
 	Data     map[string]interface{}
 }
 
+type LogMessage struct {
+	Type string
+	Info string
+}
+
+type LogMessages []*LogMessage
+
+func (ms LogMessages) String() string {
+	ss := make([]string, 0)
+	for _, s := range ms {
+		ss = append(ss, fmt.Sprintf("%s: %s", s.Type, s.Info))
+	}
+	return strings.Join(ss, ",")
+}
+
 type SchedLog struct {
 	Candidate string
 	Action    string
-	Message   string
+	Messages  LogMessages
 	IsFailed  bool
 }
 
-func NewSchedLog(candidate, action, message string, isFailed bool) SchedLog {
-	return SchedLog{candidate, action, message, isFailed}
+func NewSchedLog(candidate, action string, messages LogMessages, isFailed bool) SchedLog {
+	return SchedLog{candidate, action, messages, isFailed}
 }
 
 func (log *SchedLog) String() string {
-	return fmt.Sprintf("%v [%v] %v", log.Candidate, log.Action, log.Message)
+	prefix := "Success"
+	if log.IsFailed {
+		prefix = "Failed"
+	}
+	return fmt.Sprintf("%s: %v [%v] %v", prefix, log.Candidate, log.Action, log.Messages.String())
 }
 
 type SchedLogList []SchedLog
@@ -257,7 +276,7 @@ func (logList SchedLogList) Less(i, j int) bool {
 		return r < 0
 	}
 
-	r = strings.Compare(logList[i].Message, logList[j].Message)
+	r = strings.Compare(logList[i].Messages.String(), logList[j].Messages.String())
 	if r != 0 {
 		return r < 0
 	}
@@ -282,12 +301,12 @@ func NewSchedLogManager() *SchedLogManager {
 	}
 }
 
-func (m *SchedLogManager) Append(candidate, action, message string, isFailed bool) {
+/*func (m *SchedLogManager) Append(candidate, action, message string, isFailed bool) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
 	m.Logs = append(m.Logs, NewSchedLog(candidate, action, message, isFailed))
-}
+}*/
 
 func (m *SchedLogManager) Appends(logs []SchedLog) {
 	m.lock.Lock()
@@ -336,7 +355,7 @@ func (m *SchedLogManager) Read() []string {
 			}
 		}
 
-		newLog := NewSchedLog(log.Candidate, strings.Join(actions, ","), log.Message, isFailed)
+		newLog := NewSchedLog(log.Candidate, strings.Join(actions, ","), log.Messages, isFailed)
 		return newLog.String()
 	}
 
@@ -346,7 +365,7 @@ func (m *SchedLogManager) Read() []string {
 			startIndex = index
 		} else {
 			log0, log := m.Logs[startIndex], m.Logs[index]
-			if log0.Candidate != log.Candidate || log0.Message != log.Message {
+			if log0.Candidate != log.Candidate || log0.Messages.String() != log.Messages.String() {
 				rets = append(rets, joinLogs(startIndex, index))
 				startIndex = index
 			}
