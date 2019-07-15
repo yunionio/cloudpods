@@ -28,6 +28,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/procutils"
 )
 
 var (
@@ -49,6 +50,27 @@ func AddStorageHandler(prefix string, app *appsrv.Application) {
 		app.AddHandler("POST",
 			fmt.Sprintf("%s/%s/<storageId>/delete-snapshots", prefix, keyWords),
 			auth.Authenticate(storageDeleteSnapshots))
+		app.AddHandler("GET",
+			fmt.Sprintf("%s/%s/is-mount-point", prefix, keyWords),
+			auth.Authenticate(storageVerifyMountPoint))
+	}
+}
+
+func storageVerifyMountPoint(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	_, query, _ := appsrv.FetchEnv(ctx, w, r)
+	mountPoint, err := query.GetString("mount_point")
+	if err != nil {
+		hostutils.Response(ctx, w, httperrors.NewMissingParameterError("mount_point"))
+		return
+	}
+	output, err := procutils.NewCommand("mountpoint", mountPoint).Run()
+	if err == nil {
+		appsrv.SendStruct(w, map[string]interface{}{"is_mount_point": true})
+	} else {
+		appsrv.SendStruct(w, map[string]interface{}{
+			"is_mount_point": false,
+			"error":          string(output),
+		})
 	}
 }
 

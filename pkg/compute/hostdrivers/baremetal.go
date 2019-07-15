@@ -23,7 +23,6 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SBaremetalHostDriver struct {
@@ -41,10 +40,6 @@ func (self *SBaremetalHostDriver) GetHostType() string {
 
 func (self *SBaremetalHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_BAREMETAL
-}
-
-func (self *SBaremetalHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
-	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }
 
 func (self *SBaremetalHostDriver) CheckAndSetCacheImage(ctx context.Context, host *models.SHost, storageCache *models.SStoragecache, task taskman.ITask) error {
