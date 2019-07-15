@@ -252,6 +252,14 @@ func (group *SGroup) IsReadOnly() bool {
 	return false
 }
 
+func (group *SGroup) LinkedWithIdp(idpId string) bool {
+	idmap, _ := group.getIdmapping()
+	if idmap != nil && idmap.IdpId == idpId {
+		return true
+	}
+	return false
+}
+
 func (manager *SGroupManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
 	rows := manager.SIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
 	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityGroup)
