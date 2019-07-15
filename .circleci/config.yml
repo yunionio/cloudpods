@@ -49,9 +49,7 @@ jobs:
       - run:
           name: unit_test
           command: |
-            pkgs="$((go list -mod vendor ./... || true) | grep -vE '/(host-image|hostimage)\>' | circleci tests split)"
-            go test -v -mod vendor -ldflags '-w' $pkgs
-            pkgs="$pkgs" ./scripts/coverage.sh --codecov
+            ./scripts/coverage.sh --codecov
       - save_cache:
           key: onecloud-test-cache-{{ checksum "go.mod" }}-{{ checksum "Makefile" }}
           paths:
