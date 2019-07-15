@@ -31,7 +31,7 @@ covermode=${COVERMODE:-atomic}
 coverdir=$(mktemp -d /tmp/coverage.XXXXXXXXXX)
 profile="${coverdir}/profile.out"
 if [ -z "$pkgs" ]; then
-	pkgs="$(go list ./... | egrep -v 'host-image|hostimage')"
+	pkgs="$(go list -mod vendor ./... | grep -vE 'host-image|hostimage')"
 fi
 
 echo "mode: $covermode" >"$profile"
@@ -48,6 +48,8 @@ case "${1-}" in
         go tool cover -html "$profile"
         ;;
     --codecov)
-        push_to_codecov
+        if ! push_to_codecov; then
+		echo "ignored: push to codecov failed" >&2
+	fi
         ;;
 esac
