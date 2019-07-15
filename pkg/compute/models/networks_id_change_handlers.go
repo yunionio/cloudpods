@@ -45,7 +45,7 @@ func (manager *SGuestnetworkManager) handleNetworkIdChange(ctx context.Context, 
 	}
 	for _, gn := range gns {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
-		if args.newNet.isAddressInRange(addr) {
+		if args.newNet.IsAddressInRange(addr) {
 			_, err = db.Update(&gn, func() error {
 				gn.NetworkId = args.newNet.Id
 				return nil
@@ -67,7 +67,7 @@ func (manager *SHostnetworkManager) handleNetworkIdChange(ctx context.Context, a
 	}
 	for _, hn := range hns {
 		addr, _ := netutils.NewIPV4Addr(hn.IpAddr)
-		if args.newNet.isAddressInRange(addr) {
+		if args.newNet.IsAddressInRange(addr) {
 			_, err = db.Update(&hn, func() error {
 				hn.NetworkId = args.newNet.Id
 				return nil
@@ -89,7 +89,7 @@ func (manager *SReservedipManager) handleNetworkIdChange(ctx context.Context, ar
 	}
 	for _, ri := range ris {
 		addr, _ := netutils.NewIPV4Addr(ri.IpAddr)
-		if args.newNet.isAddressInRange(addr) {
+		if args.newNet.IsAddressInRange(addr) {
 			_, err = db.Update(&ri, func() error {
 				ri.NetworkId = args.newNet.Id
 				return nil
@@ -111,7 +111,7 @@ func (manager *SGroupnetworkManager) handleNetworkIdChange(ctx context.Context, 
 	}
 	for _, gn := range gns {
 		addr, _ := netutils.NewIPV4Addr(gn.IpAddr)
-		if args.newNet.isAddressInRange(addr) {
+		if args.newNet.IsAddressInRange(addr) {
 			_, err = db.Update(&gn, func() error {
 				gn.NetworkId = args.newNet.Id
 				return nil
@@ -133,7 +133,7 @@ func (manager *SLoadbalancernetworkManager) handleNetworkIdChange(ctx context.Co
 	}
 	for _, lbn := range lbns {
 		addr, _ := netutils.NewIPV4Addr(lbn.IpAddr)
-		if args.newNet.isAddressInRange(addr) {
+		if args.newNet.IsAddressInRange(addr) {
 			_, err = db.Update(&lbn, func() error {
 				lbn.NetworkId = args.newNet.Id
 				return nil
@@ -155,7 +155,7 @@ func (manager *SLoadbalancerManager) handleNetworkIdChange(ctx context.Context, 
 	}
 	for _, lb := range lbs {
 		addr, _ := netutils.NewIPV4Addr(lb.Address)
-		if args.newNet.isAddressInRange(addr) {
+		if args.newNet.IsAddressInRange(addr) {
 			_, err = db.Update(&lb, func() error {
 				lb.NetworkId = args.newNet.Id
 				return nil

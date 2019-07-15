@@ -25,10 +25,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
-	"yunion.io/x/pkg/util/errors"
+	errors_aggr "yunion.io/x/pkg/util/errors"
 	"yunion.io/x/pkg/util/netutils"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/regutils"
@@ -2231,7 +2232,7 @@ func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenC
 	firstNic, err := self.attach2NetworkOnce(ctx, userCred, network, pendingUsage, address, driver, bwLimit, virtual,
 		reserved, allocDir, requireDesignatedIP, nicConfs[0], "")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "self.attach2NetworkOnce")
 	}
 	retNics := []SGuestnetwork{*firstNic}
 	if len(nicConfs) > 1 {
@@ -2243,7 +2244,7 @@ func (self *SGuest) Attach2Network(ctx context.Context, userCred mcclient.TokenC
 			gn, err := self.attach2NetworkOnce(ctx, userCred, network, pendingUsage, "", firstNic.Driver, 0, true,
 				false, allocDir, false, nicConfs[i], firstNic.MacAddr)
 			if err != nil {
-				return retNics, err
+				return retNics, errors.Wrap(err, "self.attach2NetworkOnce")
 			}
 			retNics = append(retNics, *gn)
 		}
@@ -2277,7 +2278,7 @@ func (self *SGuest) attach2NetworkOnce(ctx context.Context, userCred mcclient.To
 		nicConf.Index, address, nicConf.Mac, driver, bwLimit, virtual, reserved,
 		allocDir, requireDesignatedIP, nicConf.Ifname, teamWithMac)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GuestnetworkManager.newGuestNetwork")
 	}
 	network.updateDnsRecord(guestnic, true)
 	network.updateGuestNetmap(guestnic)
@@ -2310,21 +2311,26 @@ type sRemoveGuestnic struct {
 }
 
 type sAddGuestnic struct {
+	index   int
 	nic     cloudprovider.ICloudNic
 	net     *SNetwork
 	reserve bool
 }
 
-func getCloudNicNetwork(vnic cloudprovider.ICloudNic, host *SHost) (*SNetwork, error) {
+func getCloudNicNetwork(vnic cloudprovider.ICloudNic, host *SHost, ipList []string, index int) (*SNetwork, error) {
 	vnet := vnic.GetINetwork()
 	if vnet == nil {
 		ip := vnic.GetIP()
 		if len(ip) == 0 {
-			return nil, fmt.Errorf("Cannot find inetwork for vnics %s %s", vnic.GetMAC(), vnic.GetIP())
-		} else {
-			// find network by IP
-			return host.getNetworkOfIPOnHost(ip)
+			if index < len(ipList) {
+				ip = ipList[index]
+			}
+			if len(ip) == 0 {
+				return nil, fmt.Errorf("Cannot find inetwork for vnics %s: no ip", vnic.GetMAC())
+			}
 		}
+		// find network by IP
+		return host.getNetworkOfIPOnHost(ip)
 	}
 	localNetObj, err := db.FetchByExternalId(NetworkManager, vnet.GetGlobalId())
 	if err != nil {
@@ -2334,7 +2340,7 @@ func getCloudNicNetwork(vnic cloudprovider.ICloudNic, host *SHost) (*SNetwork, e
 	return localNet, nil
 }
 
-func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, vnics []cloudprovider.ICloudNic) compare.SyncResult {
+func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCredential, host *SHost, vnics []cloudprovider.ICloudNic, ipList []string) compare.SyncResult {
 	result := compare.SyncResult{}
 
 	guestnics, err := self.GetNetworks("")
@@ -2348,7 +2354,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 
 	for i := 0; i < len(guestnics) || i < len(vnics); i += 1 {
 		if i < len(guestnics) && i < len(vnics) {
-			localNet, err := getCloudNicNetwork(vnics[i], host)
+			localNet, err := getCloudNicNetwork(vnics[i], host, ipList, i)
 			if err != nil {
 				log.Errorf("%s", err)
 				result.Error(err)
@@ -2361,7 +2367,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 					} else if len(vnics[i].GetIP()) > 0 {
 						// ip changed
 						removed = append(removed, sRemoveGuestnic{nic: &guestnics[i]})
-						adds = append(adds, sAddGuestnic{nic: vnics[i], net: localNet})
+						adds = append(adds, sAddGuestnic{index: i, nic: vnics[i], net: localNet})
 					} else {
 						// do nothing
 						// vm maybe turned off, ignore the case
@@ -2373,20 +2379,20 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 						reserve = true
 					}
 					removed = append(removed, sRemoveGuestnic{nic: &guestnics[i], reserve: reserve})
-					adds = append(adds, sAddGuestnic{nic: vnics[i], net: localNet, reserve: reserve})
+					adds = append(adds, sAddGuestnic{index: i, nic: vnics[i], net: localNet, reserve: reserve})
 				}
 			} else {
 				removed = append(removed, sRemoveGuestnic{nic: &guestnics[i]})
-				adds = append(adds, sAddGuestnic{nic: vnics[i], net: localNet})
+				adds = append(adds, sAddGuestnic{index: i, nic: vnics[i], net: localNet})
 			}
 		} else if i < len(guestnics) {
 			removed = append(removed, sRemoveGuestnic{nic: &guestnics[i]})
 		} else if i < len(vnics) {
-			localNet, err := getCloudNicNetwork(vnics[i], host)
+			localNet, err := getCloudNicNetwork(vnics[i], host, ipList, i)
 			if err != nil {
 				log.Errorf("%s", err) // ignore this case
 			} else {
-				adds = append(adds, sAddGuestnic{nic: vnics[i], net: localNet})
+				adds = append(adds, sAddGuestnic{index: i, nic: vnics[i], net: localNet})
 			}
 		}
 	}
@@ -2401,14 +2407,18 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 	}
 
 	for _, add := range adds {
-		if len(add.nic.GetIP()) == 0 {
+		if len(add.nic.GetIP()) == 0 && len(ipList) <= add.index {
 			continue // cannot determine which network it attached to
 		}
 		if add.net == nil {
 			continue // cannot determine which network it attached to
 		}
+		ipStr := add.nic.GetIP()
+		if len(ipStr) == 0 {
+			ipStr = ipList[add.index]
+		}
 		// check if the IP has been occupied, if yes, release the IP
-		gn, err := GuestnetworkManager.getGuestNicByIP(add.nic.GetIP(), add.net.Id)
+		gn, err := GuestnetworkManager.getGuestNicByIP(ipStr, add.net.Id)
 		if err != nil {
 			result.AddError(err)
 			continue
@@ -2425,7 +2435,7 @@ func (self *SGuest) SyncVMNics(ctx context.Context, userCred mcclient.TokenCrede
 			Index:  -1,
 			Ifname: "",
 		}
-		_, err = self.Attach2Network(ctx, userCred, add.net, nil, add.nic.GetIP(),
+		_, err = self.Attach2Network(ctx, userCred, add.net, nil, ipStr,
 			add.nic.GetDriver(), 0, false, add.reserve, IPAllocationDefault, true, []SNicConfig{nicConf})
 		if err != nil {
 			result.AddError(err)
@@ -2775,7 +2785,7 @@ func (self *SGuest) attach2NetworkDesc(
 			}
 			errs = append(errs, err)
 		}
-		return nil, errors.NewAggregate(errs)
+		return nil, errors_aggr.NewAggregate(errs)
 	} else {
 		netConfig.Network = ""
 		return self.attach2RandomNetwork(ctx, userCred, host, netConfig, pendingUsage)
@@ -2789,7 +2799,7 @@ func (self *SGuest) attach2NamedNetworkDesc(ctx context.Context, userCred mcclie
 		if len(nicConfs) == 0 {
 			return nil, fmt.Errorf("no avaialble network interface?")
 		}
-		gn, err := self.Attach2Network(ctx, userCred, net, pendingUsage, netConfig.Address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netConfig.Reserved, allocDir, false, nicConfs)
+		gn, err := self.Attach2Network(ctx, userCred, net, pendingUsage, netConfig.Address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netConfig.Reserved, allocDir, netConfig.RequireDesignatedIP, nicConfs)
 		if err != nil {
 			log.Errorf("Attach2Network fail %s", err)
 			return nil, err
@@ -4517,4 +4527,37 @@ func (self *SGuest) ToIsolatedDevicesConfig() []*api.IsolatedDeviceConfig {
 
 func (self *SGuest) IsImport(userCred mcclient.TokenCredential) bool {
 	return self.GetMetadata("__is_import", userCred) == "true"
+}
+
+func (guest *SGuest) AllowGetDetailsRemoteNics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return db.IsAdminAllowGetSpec(userCred, guest, "remote-nics")
+}
+
+func (guest *SGuest) GetDetailsRemoteNics(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	iVM, err := guest.GetIVM()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	iNics, err := iVM.GetINics()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	type SVNic struct {
+		Index  int
+		Ip     string
+		Mac    string
+		Driver string
+	}
+	nics := make([]SVNic, len(iNics))
+	for i := range iNics {
+		nics[i] = SVNic{
+			Index:  i,
+			Ip:     iNics[i].GetIP(),
+			Mac:    iNics[i].GetMAC(),
+			Driver: iNics[i].GetDriver(),
+		}
+	}
+	// ret := jsonutils.NewDict()
+	// ret.Set("vnics", jsonutils.Marshal(nics))
+	return jsonutils.Marshal(nics), nil
 }

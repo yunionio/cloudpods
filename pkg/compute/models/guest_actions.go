@@ -1580,6 +1580,9 @@ func (self *SGuest) findGuestnetworkByInfo(ipStr string, macStr string, index in
 	}
 }
 
+// Change IPaddress of a guestnetwork
+// first detach the network, then attach a network with identity mac address but different IP configurations
+// TODO change IP address of a teaming NIC may fail!!
 func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
 	if self.Status != api.VM_READY && self.Status != api.VM_RUNNING {
 		return nil, httperrors.NewInvalidStatusError("Cannot change network ip_addr in status %s", self.Status)
@@ -1654,6 +1657,15 @@ func (self *SGuest) PerformChangeIpaddr(ctx context.Context, userCred mcclient.T
 		conf.Ifname = gn.Ifname
 		ngn, err := self.attach2NetworkDesc(ctx, userCred, host, conf, nil, nil)
 		if err != nil {
+			// recover detached guestnetwork
+			conf2 := gn.ToNetworkConfig()
+			if reserve {
+				conf2.Reserved = true
+			}
+			_, err2 := self.attach2NetworkDesc(ctx, userCred, host, conf2, nil, nil)
+			if err2 != nil {
+				log.Errorf("recover detached network fail %s", err2)
+			}
 			return nil, httperrors.NewBadRequestError(err.Error())
 		}
 
@@ -3398,4 +3410,39 @@ func (self *SGuest) GenerateVirtInstallCommandLine(
 	// debug print
 	cmd += "-d"
 	return cmd, nil
+}
+
+func (self *SGuest) AllowPerformSyncFixNics(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "sync-fix-nics")
+}
+
+func (self *SGuest) PerformSyncFixNics(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	iVM, err := self.GetIVM()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	vnics, err := iVM.GetINics()
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
+	}
+	host := self.GetHost()
+	if host == nil {
+		return nil, httperrors.NewInternalServerError("host not found???")
+	}
+	iplistArray, err := data.Get("ip")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("missing field ip, list of ip")
+	}
+	iplist := iplistArray.(*jsonutils.JSONArray).GetStringArray()
+	result := self.SyncVMNics(ctx, userCred, host, vnics, iplist)
+	if result.IsError() {
+		return nil, httperrors.NewInternalServerError(result.Result())
+	}
+	return nil, nil
 }

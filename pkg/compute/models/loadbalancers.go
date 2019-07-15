@@ -165,7 +165,7 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 			if err != nil {
 				return nil, err
 			}
-			if !network.isAddressInRange(ip) {
+			if !network.IsAddressInRange(ip) {
 				return nil, httperrors.NewInputParameterError("address %s is not in the range of network %s(%s)",
 					ipS, network.Name, network.Id)
 			}
