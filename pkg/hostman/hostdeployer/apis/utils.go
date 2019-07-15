@@ -15,7 +15,11 @@
 package apis
 
 import (
+	"encoding/json"
+
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 )
 
 func NewDeployInfo(
@@ -63,6 +67,19 @@ func GetKeys(data jsonutils.JSONObject) *SSHKeys {
 	ret.DeletePublicKey, _ = data.GetString("delete_public_key")
 	ret.AdminPublicKey, _ = data.GetString("admin_public_key")
 	ret.ProjectPublicKey, _ = data.GetString("project_public_key")
+	return ret
+}
+
+func ConvertRoutes(routes string) []types.SRoute {
+	if len(routes) == 0 {
+		return nil
+	}
+	ret := make([]types.SRoute, 0)
+	err := json.Unmarshal([]byte(routes), &ret)
+	if err != nil {
+		log.Errorf("Can't convert %s to types.SRoute", routes)
+		return nil
+	}
 	return ret
 }
 
