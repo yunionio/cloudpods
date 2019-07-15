@@ -236,7 +236,7 @@ func (l *sLinuxRootFs) DeployFstabScripts(rootFs IDiskPartition, disks []*deploy
 	return rootFs.FilePutContents("/etc/fstab", cf, false, false)
 }
 
-func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
+func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	udevPath := "/etc/udev/rules.d/"
 	if rootFs.Exists(udevPath, false) {
 		rules := rootFs.ListDir(udevPath, false)
@@ -273,7 +273,7 @@ func (l *sLinuxRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*de
 	return nil
 }
 
-func (l *sLinuxRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nics, nicsStandby []*deployapi.Nic) error {
+func (l *sLinuxRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nics, nicsStandby []*types.SServerNic) error {
 	var udevPath = "/etc/udev/rules.d/"
 	var nicRules string
 	for _, nic := range nicsStandby {
@@ -510,7 +510,7 @@ func getNicTeamingConfigCmds(slaves []*types.SServerNic) string {
 	return cmds.String()
 }
 
-func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
+func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	if err := d.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err
 	}
@@ -519,7 +519,8 @@ func (d *sDebianLikeRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics 
 	cmds.WriteString("auto lo\n")
 	cmds.WriteString("iface lo inet loopback\n\n")
 
-	allNics, _ := convertNicConfigs(ToServerNics(nics))
+	// ToServerNics(nics)
+	allNics, _ := convertNicConfigs(nics)
 	mainNic, err := getMainNic(allNics)
 	if err != nil {
 		return err
@@ -776,7 +777,7 @@ func (r *sRedhatLikeRootFs) DeployHostname(rootFs IDiskPartition, hn, domain str
 	return nil
 }
 
-func (r *sRedhatLikeRootFs) Centos5DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
+func (r *sRedhatLikeRootFs) Centos5DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	var udevPath = "/etc/udev/rules.d/"
 	if rootFs.Exists(udevPath, false) {
 		var nicRules = ""
@@ -824,7 +825,7 @@ func (r *sRedhatLikeRootFs) enableBondingModule(rootFs IDiskPartition, bondNics 
 	return rootFs.FilePutContents("/etc/modprobe.d/bonding.conf", content.String(), false, false)
 }
 
-func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic, relInfo *deployapi.ReleaseInfo) error {
+func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic, relInfo *deployapi.ReleaseInfo) error {
 	if err := r.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err
 	}
@@ -842,7 +843,8 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 	if err != nil {
 		return err
 	}
-	allNics, bondNics := convertNicConfigs(ToServerNics(nics))
+	// ToServerNics(nics)
+	allNics, bondNics := convertNicConfigs(nics)
 	if len(bondNics) > 0 {
 		err = r.enableBondingModule(rootFs, bondNics)
 		if err != nil {
@@ -940,7 +942,7 @@ func (r *sRedhatLikeRootFs) deployNetworkingScripts(rootFs IDiskPartition, nics 
 	return nil
 }
 
-func (r *sRedhatLikeRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nics, nicsStandby []*deployapi.Nic) error {
+func (r *sRedhatLikeRootFs) DeployStandbyNetworkingScripts(rootFs IDiskPartition, nics, nicsStandby []*types.SServerNic) error {
 	if err := r.sLinuxRootFs.DeployStandbyNetworkingScripts(rootFs, nics, nicsStandby); err != nil {
 		return err
 	}
@@ -1035,7 +1037,7 @@ func (c *SCentosRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Release
 	return deployapi.NewReleaseInfo(c.GetName(), version, c.GetArch(rootFs))
 }
 
-func (c *SCentosRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
+func (c *SCentosRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := c.GetReleaseInfo(rootFs)
 	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
@@ -1098,7 +1100,7 @@ func (c *SFedoraRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.Release
 	return deployapi.NewReleaseInfo(c.GetName(), version, c.GetArch(rootFs))
 }
 
-func (c *SFedoraRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
+func (c *SFedoraRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := c.GetReleaseInfo(rootFs)
 	if err := c.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
@@ -1142,7 +1144,7 @@ func (d *SRhelRootFs) GetReleaseInfo(rootFs IDiskPartition) *deployapi.ReleaseIn
 	return deployapi.NewReleaseInfo(d.GetName(), version, d.GetArch(rootFs))
 }
 
-func (d *SRhelRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
+func (d *SRhelRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	relInfo := d.GetReleaseInfo(rootFs)
 	if err := d.sRedhatLikeRootFs.deployNetworkingScripts(rootFs, nics, relInfo); err != nil {
 		return err
@@ -1189,7 +1191,7 @@ func (d *SGentooRootFs) DeployHostname(rootFs IDiskPartition, hn, domain string)
 	return rootFs.FilePutContents(spath, content, false, false)
 }
 
-func (l *SGentooRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
+func (l *SGentooRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	if err := l.sLinuxRootFs.DeployNetworkingScripts(rootFs, nics); err != nil {
 		return err
 	}
@@ -1366,7 +1368,7 @@ func (d *SCoreOsRootFs) DeployHosts(rootFs IDiskPartition, hostname, domain stri
 	return nil
 }
 
-func (d *SCoreOsRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*deployapi.Nic) error {
+func (d *SCoreOsRootFs) DeployNetworkingScripts(rootFs IDiskPartition, nics []*types.SServerNic) error {
 	cont := "[Match]\n"
 	cont += "Name=eth*\n\n"
 	cont += "[Network]\n"

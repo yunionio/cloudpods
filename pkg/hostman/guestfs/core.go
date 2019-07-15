@@ -63,15 +63,15 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 		hn          = guestDesc.Name
 		domain      = guestDesc.Domain
 		gid         = guestDesc.Uuid
-		nics        = guestDesc.Nics
-		nicsStandby = guestDesc.NicsStandby
+		nics        = fsdriver.ToServerNics(guestDesc.Nics)
+		nicsStandby = fsdriver.ToServerNics(guestDesc.NicsStandby)
 		partition   = rootfs.GetPartition()
 		releaseInfo = rootfs.GetReleaseInfo(partition)
 	)
 	for _, n := range nics {
 		var addr netutils.IPV4Addr
 		if addr, err = netutils.NewIPV4Addr(n.Ip); err != nil {
-			return nil, fmt.Errorf("Fail to get ip addr from %s: %v", n.String(), err)
+			return nil, fmt.Errorf("Fail to get ip addr from %#v: %s", n, err)
 		}
 		if netutils.IsPrivate(addr) {
 			ips = append(ips, n.Ip)
