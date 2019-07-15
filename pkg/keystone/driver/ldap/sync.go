@@ -265,6 +265,9 @@ func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClie
 		return nil, errors.Wrap(err, "models.UserManager.FetchUserIdsInDomain")
 	}
 	for i := range deleteUsers {
+		if !deleteUsers[i].LinkedWithIdp(self.IdpId) {
+			continue
+		}
 		err := deleteUsers[i].UnlinkIdp(self.IdpId)
 		if err != nil {
 			log.Errorf("deleteUser.UnlinkIdp error %s", err)
@@ -381,6 +384,9 @@ func (self *SLDAPDriver) syncGroups(ctx context.Context, cli *ldaputils.SLDAPCli
 		return errors.Wrap(err, "models.GroupManager.FetchGroupsInDomain")
 	}
 	for i := range deleteGroups {
+		if !deleteGroups[i].LinkedWithIdp(self.IdpId) {
+			continue
+		}
 		err := deleteGroups[i].UnlinkIdp(self.IdpId)
 		if err != nil {
 			log.Errorf("deleteGroup.UnlinkIdp error %s", err)

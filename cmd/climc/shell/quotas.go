@@ -61,7 +61,7 @@ func init() {
 
 	type QuotaSetOptions struct {
 		Tenant        string `help:"Tenant name or ID to set quota" json:"tenant,omitempty"`
-		ProjectDomain string `help:"Domain name or ID to set quota" json:"domain,omitempty"`
+		ProjectDomain string `help:"Domain name or ID to set quota" json:",omitempty"`
 		Action        string `help:"quota set action" choices:"add|reset|replace"`
 		Cascade       bool   `help:"cascade set quota so that auto increment domain quota if total project quota exceeds parent domain quota"`
 		QuotaBaseOptions
