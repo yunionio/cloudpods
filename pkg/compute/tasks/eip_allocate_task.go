@@ -112,7 +112,7 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 				return
 			}
 			if ipAddr != ip {
-				msg := fmt.Sprintf("candidate ip %s is occupoed!", ip)
+				msg := fmt.Sprintf("candidate ip %s is occupied!", ip)
 				self.onFailed(ctx, eip, msg)
 				return
 			}
