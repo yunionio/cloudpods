@@ -110,6 +110,8 @@ func InitHandlers(app *appsrv.Application) {
 
 		models.ServerSkuManager,
 		models.ExternalProjectManager,
+		models.NetworkInterfaceManager,
+		models.NetworkinterfacenetworkManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

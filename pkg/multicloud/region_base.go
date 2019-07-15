@@ -57,3 +57,7 @@ func (self *SRegion) CreateISku(*cloudprovider.SServerSku) (cloudprovider.ICloud
 func (self *SRegion) GetISkuById(skuId string) (cloudprovider.ICloudSku, error) {
 	return nil, fmt.Errorf("Not Support GetISkuById")
 }
+
+func (self *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {
+	return nil, fmt.Errorf("Not Implement GetINetworkInterfaces")
+}

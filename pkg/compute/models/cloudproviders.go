@@ -1098,6 +1098,7 @@ func (self *SCloudprovider) RealDelete(ctx context.Context, userCred mcclient.To
 		NatGatewayManager,
 		VpcManager,
 		ElasticipManager,
+		NetworkInterfaceManager,
 		CloudproviderRegionManager,
 		ExternalProjectManager,
 		CloudregionManager,
