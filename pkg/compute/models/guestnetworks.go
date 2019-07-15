@@ -188,7 +188,7 @@ func (manager *SGuestnetworkManager) newGuestNetwork(ctx context.Context, userCr
 			return nil, err
 		}
 		if len(address) > 0 && ipAddr != address && requiredDesignatedIp {
-			return nil, fmt.Errorf("candidate ip %s is occupoed!", address)
+			return nil, fmt.Errorf("candidate ip %s is occupied!", address)
 		}
 		gn.IpAddr = ipAddr
 	}
@@ -698,8 +698,14 @@ func (self *SGuestnetwork) ToNetworkConfig() *api.NetworkConfig {
 		Index:   int(self.Index),
 		Network: net.Id,
 		Wire:    net.GetWire().Id,
+		Mac:     self.MacAddr,
 		Address: self.IpAddr,
+		Driver:  self.Driver,
+		BwLimit: self.BwLimit,
 		Project: net.ProjectId,
+		Domain:  net.DomainId,
+		Ifname:  self.Ifname,
+		NetType: net.ServerType,
 	}
 	return ret
 }
