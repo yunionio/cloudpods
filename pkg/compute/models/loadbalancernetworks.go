@@ -160,7 +160,7 @@ func (m *SLoadbalancernetworkManager) syncLoadbalancerNetwork(ctx context.Contex
 	if err != nil {
 		return err
 	}
-	if !network.isAddressInRange(ip) {
+	if !network.IsAddressInRange(ip) {
 		return fmt.Errorf("address %s is not in the range of network %s(%s)", req.Address, network.Id, network.Name)
 	}
 	q := m.Query().Equals("loadbalancer_id", req.Loadbalancer.Id).Equals("network_id", req.NetworkId)

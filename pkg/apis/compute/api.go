@@ -45,6 +45,8 @@ type NetworkConfig struct {
 	Reserved bool   `json:"reserved"`
 	NetType  string `json:"net_type"`
 
+	RequireDesignatedIP bool `json:"require_designated_ip"`
+
 	RequireTeaming bool `json:"require_teaming"`
 	TryTeaming     bool `json:"try_teaming"`
 
