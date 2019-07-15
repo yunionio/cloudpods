@@ -231,7 +231,7 @@ func (w *SWindowsRootFs) DeployHosts(part IDiskPartition, hn, domain string, ips
 	return w.rootFs.FilePutContents(ETC_HOSTS, hf.String(), false, true)
 }
 
-func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*deployapi.Nic) error {
+func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*types.SServerNic) error {
 	mainNic, err := netutils2.GetMainNicFromDeployApi(nics)
 	if err != nil {
 		return err
@@ -257,8 +257,7 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*
 		`  for /f "delims=,,, tokens=1,3" %%b in ("!line!") do (`,
 	}
 
-	for _, nic := range nics {
-		snic := &types.SServerNic{Nic: nic}
+	for _, snic := range nics {
 		mac := snic.Mac
 		mac = strings.Replace(strings.ToUpper(mac), ":", "-", -1)
 		lines = append(lines, fmt.Sprintf(`    if "%%%%c" == "%s" (`, mac))

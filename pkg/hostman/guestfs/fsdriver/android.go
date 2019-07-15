@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
@@ -119,7 +120,7 @@ func (m *SAndroidRootFs) PrepareFsForTemplate(IDiskPartition) error {
 	return nil
 }
 
-func (m *SAndroidRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*deployapi.Nic) error {
+func (m *SAndroidRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*types.SServerNic) error {
 	return nil
 }
 

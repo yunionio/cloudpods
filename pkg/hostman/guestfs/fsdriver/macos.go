@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/macutils"
 	"yunion.io/x/onecloud/pkg/util/seclib2"
@@ -131,7 +132,7 @@ func (m *SMacOSRootFs) GetOs() string {
 	return "macOs"
 }
 
-func (m *SMacOSRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*deployapi.Nic) error {
+func (m *SMacOSRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []*types.SServerNic) error {
 	return nil
 }
 

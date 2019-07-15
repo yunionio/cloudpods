@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/types"
 	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 )
 
@@ -65,8 +66,8 @@ type IRootFsDriver interface {
 	GetOs() string
 	DeployHostname(part IDiskPartition, hn, domain string) error
 	DeployHosts(part IDiskPartition, hn, domain string, ips []string) error
-	DeployNetworkingScripts(IDiskPartition, []*deployapi.Nic) error
-	DeployStandbyNetworkingScripts(part IDiskPartition, nics, nicsStandby []*deployapi.Nic) error
+	DeployNetworkingScripts(IDiskPartition, []*types.SServerNic) error
+	DeployStandbyNetworkingScripts(part IDiskPartition, nics, nicsStandby []*types.SServerNic) error
 	DeployUdevSubsystemScripts(IDiskPartition) error
 	DeployFstabScripts(IDiskPartition, []*deployapi.Disk) error
 	GetLoginAccount(IDiskPartition, bool, bool) string
