@@ -575,9 +575,11 @@ func (self *SCloudprovider) markStartingSync(userCred mcclient.TokenCredential) 
 	}
 	cprs := self.GetCloudproviderRegions()
 	for i := range cprs {
-		err := cprs[i].markStartingSync(userCred)
-		if err != nil {
-			return errors.Wrap(err, "cprs[i].markStartingSync")
+		if cprs[i].Enabled {
+			err := cprs[i].markStartingSync(userCred)
+			if err != nil {
+				return errors.Wrap(err, "cprs[i].markStartingSync")
+			}
 		}
 	}
 	return nil
@@ -594,9 +596,11 @@ func (self *SCloudprovider) markStartSync(userCred mcclient.TokenCredential) err
 	}
 	cprs := self.GetCloudproviderRegions()
 	for i := range cprs {
-		err := cprs[i].markStartingSync(userCred)
-		if err != nil {
-			return errors.Wrap(err, "cprs[i].markStartingSync")
+		if cprs[i].Enabled {
+			err := cprs[i].markStartingSync(userCred)
+			if err != nil {
+				return errors.Wrap(err, "cprs[i].markStartingSync")
+			}
 		}
 	}
 	return nil
