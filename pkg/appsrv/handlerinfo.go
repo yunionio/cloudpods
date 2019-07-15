@@ -115,6 +115,11 @@ func (hi *SHandlerInfo) SetProcessTimeout(to time.Duration) *SHandlerInfo {
 	return hi
 }
 
+func (hi *SHandlerInfo) SetProcessNoTimeout() *SHandlerInfo {
+	hi.processTimeout = -1
+	return hi
+}
+
 func (hi *SHandlerInfo) SetWorkerManager(workerMan *SWorkerManager) *SHandlerInfo {
 	hi.workerMan = workerMan
 	return hi

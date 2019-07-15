@@ -15,21 +15,20 @@
 package modules
 
 import (
-	"io/ioutil"
+	"fmt"
+	"io"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-func GetVersion(s *mcclient.ClientSession, serviceType string) (string, error) {
+func GetPProfByType(s *mcclient.ClientSession, serviceType string, profileType string, seconds int) (io.Reader, error) {
 	man := &BaseManager{serviceType: serviceType}
-	resp, err := man.rawBaseUrlRequest(s, "GET", "/version", nil, nil)
-	if err != nil {
-		return "", err
+	if seconds <= 0 {
+		seconds = 15
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	resp, err := man.rawBaseUrlRequest(s, "GET", fmt.Sprintf("/debug/pprof/%s?seconds=%d", profileType, seconds), nil, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(body), nil
+	return resp.Body, nil
 }

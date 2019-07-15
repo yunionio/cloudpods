@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 
 	"yunion.io/x/pkg/util/version"
 )
@@ -47,3 +48,33 @@ func CORSHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
         w.Header().Set("Access-Control-Max-Age", "86400")
     }
 }*/
+
+func AddPProfHandler(app *Application) {
+	prefix := "/debug/pprof"
+	app.AddHandler("GET", fmt.Sprintf("%s/", prefix), profIndex).SetProcessNoTimeout()
+	app.AddHandler("GET", fmt.Sprintf("%s/cmdline", prefix), profCmdline).SetProcessNoTimeout()
+	app.AddHandler("GET", fmt.Sprintf("%s/profile", prefix), profProfile).SetProcessNoTimeout()
+	app.AddHandler("GET", fmt.Sprintf("%s/symbol", prefix), profSymbol).SetProcessNoTimeout()
+	app.AddHandler("POST", fmt.Sprintf("%s/symbol", prefix), profSymbol).SetProcessNoTimeout()
+	app.AddHandler("GET", fmt.Sprintf("%s/trace", prefix), profTrace).SetProcessNoTimeout()
+}
+
+func profIndex(_ context.Context, w http.ResponseWriter, r *http.Request) {
+	pprof.Index(w, r)
+}
+
+func profCmdline(_ context.Context, w http.ResponseWriter, r *http.Request) {
+	pprof.Cmdline(w, r)
+}
+
+func profProfile(_ context.Context, w http.ResponseWriter, r *http.Request) {
+	pprof.Profile(w, r)
+}
+
+func profSymbol(_ context.Context, w http.ResponseWriter, r *http.Request) {
+	pprof.Symbol(w, r)
+}
+
+func profTrace(_ context.Context, w http.ResponseWriter, r *http.Request) {
+	pprof.Trace(w, r)
+}
