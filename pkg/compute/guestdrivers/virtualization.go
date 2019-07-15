@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/netutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
@@ -112,6 +113,22 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 	if len(netsAvaiable) == 0 {
 		return nil, fmt.Errorf("No appropriate host virtual network...")
 	}
+	if len(netConfig.Address) > 0 {
+		addr, _ := netutils.NewIPV4Addr(netConfig.Address)
+		netsAvaiableForAddr := make([]models.SNetwork, 0)
+		for i := range netsAvaiable {
+			if netsAvaiable[i].IsAddressInRange(addr) {
+				netsAvaiableForAddr = append(netsAvaiableForAddr, netsAvaiable[i])
+			}
+		}
+		if len(netsAvaiableForAddr) == 0 {
+			if netConfig.RequireDesignatedIP {
+				return nil, fmt.Errorf("No virtual network for IP %s", netConfig.Address)
+			}
+		} else {
+			netsAvaiable = netsAvaiableForAddr
+		}
+	}
 	selNet := models.ChooseCandidateNetworks(netsAvaiable, netConfig.Exit, netTypes)
 	if selNet == nil {
 		return nil, fmt.Errorf("Not enough address in virtual network")
@@ -130,7 +147,7 @@ func (self *SVirtualizedGuestDriver) Attach2RandomNetwork(guest *models.SGuest, 
 		}
 		nicConfs = append(nicConfs, nicConf)
 	}
-	gn, err := guest.Attach2Network(ctx, userCred, selNet, pendingUsage, netConfig.Address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netConfig.Reserved, models.IPAllocationDefault, false, nicConfs)
+	gn, err := guest.Attach2Network(ctx, userCred, selNet, pendingUsage, netConfig.Address, netConfig.Driver, netConfig.BwLimit, netConfig.Vip, netConfig.Reserved, models.IPAllocationDefault, netConfig.RequireDesignatedIP, nicConfs)
 	return gn, err
 }
 

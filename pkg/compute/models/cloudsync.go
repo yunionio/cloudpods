@@ -505,7 +505,7 @@ func syncVMNics(ctx context.Context, userCred mcclient.TokenCredential, provider
 		log.Errorf(msg)
 		return
 	}
-	result := localVM.SyncVMNics(ctx, userCred, host, nics)
+	result := localVM.SyncVMNics(ctx, userCred, host, nics, nil)
 	msg := result.Result()
 	notes := fmt.Sprintf("syncVMNics for VM %s result: %s", localVM.Name, msg)
 	log.Infof(notes)

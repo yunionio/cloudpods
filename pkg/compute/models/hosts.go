@@ -3147,7 +3147,7 @@ func (self *SHost) addNetif(ctx context.Context, userCred mcclient.TokenCredenti
 				return httperrors.NewInputParameterError("no networks on wire %s", wire)
 			}
 			for i := range swNets {
-				if swNets[i].isAddressInRange(iIpAddr) {
+				if swNets[i].IsAddressInRange(iIpAddr) {
 					findAddr = true
 					break
 				}
