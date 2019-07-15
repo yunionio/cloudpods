@@ -88,8 +88,11 @@ func (host *SHostService) RunService() {
 			hostmetrics.Start()
 		})
 	})
-	host.initHandlers(app)
-	<-hostinfo.Instance().IsRegistered // wait host and guest init
+
+	go func() {
+		<-hostinfo.Instance().IsRegistered // wait host and guest init
+		host.initHandlers(app)
+	}()
 
 	// Init Metadata handler
 	go metadata.StartService(
