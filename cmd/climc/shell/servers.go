@@ -984,4 +984,29 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	R(&options.ServerIdOptions{}, "server-remote-nics", "Show remote nics of a server", func(s *mcclient.ClientSession, opts *options.ServerIdOptions) error {
+		result, err := modules.Servers.GetSpecific(s, opts.ID, "remote-nics", nil)
+		if err != nil {
+			return err
+		}
+		listResult := modules.ListResult{}
+		listResult.Data, _ = result.GetArray()
+		printList(&listResult, nil)
+		return nil
+	})
+
+	type ServerSyncFixNicsOptions struct {
+		ID string   `help:"ID or name of VM" json:"-"`
+		IP []string `help:"IP address of each NIC" json:"ip"`
+	}
+	R(&ServerSyncFixNicsOptions{}, "server-sync-fix-nics", "Fix missing IP for each nics after syncing VNICS", func(s *mcclient.ClientSession, opts *ServerSyncFixNicsOptions) error {
+		params := jsonutils.Marshal(opts)
+		result, err := modules.Servers.PerformAction(s, opts.ID, "sync-fix-nics", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

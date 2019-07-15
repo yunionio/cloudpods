@@ -624,7 +624,7 @@ func (manager *SNetworkManager) newFromCloudNetwork(ctx context.Context, userCre
 	return &net, nil
 }
 
-func (self *SNetwork) isAddressInRange(address netutils.IPV4Addr) bool {
+func (self *SNetwork) IsAddressInRange(address netutils.IPV4Addr) bool {
 	return self.getIPRange().Contains(address)
 }
 
@@ -675,7 +675,7 @@ func (manager *SNetworkManager) GetOnPremiseNetworkOfIP(ipAddr string, serverTyp
 		return nil, err
 	}
 	for _, n := range nets {
-		if n.isAddressInRange(address) {
+		if n.IsAddressInRange(address) {
 			return &n, nil
 		}
 	}
@@ -797,7 +797,7 @@ func isValidNetworkInfo(userCred mcclient.TokenCredential, netConfig *api.Networ
 			if err != nil {
 				return err
 			}
-			if !net.isAddressInRange(ipAddr) {
+			if !net.IsAddressInRange(ipAddr) {
 				return httperrors.NewInputParameterError("Address %s not in range", netConfig.Address)
 			}
 			if netConfig.Reserved {
@@ -966,7 +966,7 @@ func (self *SNetwork) PerformReserveIp(ctx context.Context, userCred mcclient.To
 		if err != nil {
 			return nil, httperrors.NewInputParameterError("not a valid ip address %s: %s", ipstr, err)
 		}
-		if !self.isAddressInRange(ipAddr) {
+		if !self.IsAddressInRange(ipAddr) {
 			return nil, httperrors.NewInputParameterError("Address %s not in network", ipstr)
 		}
 		used, err := self.isAddressUsed(ipstr)
@@ -1768,7 +1768,7 @@ func (self *SNetwork) PerformSplit(ctx context.Context, userCred mcclient.TokenC
 	if err != nil {
 		return nil, err
 	}
-	if !self.isAddressInRange(iSplitIp) {
+	if !self.IsAddressInRange(iSplitIp) {
 		return nil, httperrors.NewInputParameterError("Split IP %s out of range", splitIp)
 	}
 

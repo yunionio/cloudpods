@@ -536,7 +536,7 @@ func (self *SWire) GetCandidateNetworkForIp(userCred mcclient.TokenCredential, i
 		return nil, err
 	}
 	for _, net := range netPrivates {
-		if net.isAddressInRange(ip) {
+		if net.IsAddressInRange(ip) {
 			return &net, nil
 		}
 	}
@@ -545,7 +545,7 @@ func (self *SWire) GetCandidateNetworkForIp(userCred mcclient.TokenCredential, i
 		return nil, err
 	}
 	for _, net := range netPublics {
-		if net.isAddressInRange(ip) {
+		if net.IsAddressInRange(ip) {
 			return &net, nil
 		}
 	}

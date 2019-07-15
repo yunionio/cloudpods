@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/regutils"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/cmdline"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -220,7 +221,11 @@ func init() {
 		} else {
 			return fmt.Errorf("Please specify Ip or Mac")
 		}
-		params.Add(jsonutils.NewString(args.NETDESC), "net_desc")
+		conf, err := cmdline.ParseNetworkConfig(args.NETDESC, 0)
+		if err != nil {
+			return err
+		}
+		params.Add(conf.JSON(conf), "net_desc")
 		srv, err := modules.Servers.PerformAction(s, args.SERVER, "change-ipaddr", params)
 		if err != nil {
 			return err

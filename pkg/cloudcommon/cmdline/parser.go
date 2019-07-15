@@ -153,6 +153,8 @@ func ParseNetworkConfig(desc string, idx int) (*compute.NetworkConfig, error) {
 			netConfig.Mac = netutils.MacUnpackHex(p)
 		} else if strings.HasPrefix(p, "wire=") {
 			netConfig.Wire = p[len("wire="):]
+		} else if p == "[require_designated_ip]" {
+			netConfig.RequireDesignatedIP = true
 		} else if p == "[random_exit]" {
 			netConfig.Exit = true
 		} else if p == "[random]" {
