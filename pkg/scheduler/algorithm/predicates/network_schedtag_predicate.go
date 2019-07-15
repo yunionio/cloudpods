@@ -75,42 +75,63 @@ func (p *NetworkSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCa
 	return ret
 }
 
-func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, _ core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) error {
+func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
 	network := res.(*api.CandidateNetwork)
 	net := input.(*netW)
 	if net.Network != "" {
 		if network.Id != net.Network && network.Name != net.Network {
-			return fmt.Errorf("Network name %s != (%s:%s)", net.Network, network.Name, network.Id)
+			return &FailReason{
+				Reason: fmt.Sprintf("Network name %s != (%s:%s)", net.Network, network.Name, network.Id),
+				Type:   NetworkMatch,
+			}
 		}
 	}
 	if net.Wire != "" {
 		if network.WireId != net.Wire {
-			return fmt.Errorf("Wire %s != %s", net.Wire, network.WireId)
+			return &FailReason{
+				Reason: fmt.Sprintf("Wire %s != %s", net.Wire, network.WireId),
+				Type:   NetworkWire,
+			}
 		}
 	}
 
 	if net.Network == "" {
 		netTypes := p.GetNetworkTypes(net.NetType)
 		if !utils.IsInStringArray(network.ServerType, netTypes) {
-			return fmt.Errorf("Network %s type %s not in %v", network.Name, network.ServerType, netTypes)
+			return &FailReason{
+				Reason: fmt.Sprintf("Network %s type %s not in %v", network.Name, network.ServerType, netTypes),
+				Type:   NetworkTypeMatch,
+			}
 		}
 		schedData := u.SchedData()
 		if net.Private {
 			if network.IsPublic {
-				return fmt.Errorf("Network %s is public", network.Name)
+				return &FailReason{
+					Reason: fmt.Sprintf("Network %s is public", network.Name),
+					Type:   NetworkPublic,
+				}
 			}
 			if network.ProjectId != schedData.Project && !utils.IsInStringArray(schedData.Project, network.GetSharedProjects()) {
-				return fmt.Errorf("Network project %s + %v not owner by %s", network.ProjectId, network.GetSharedProjects(), schedData.Project)
+				return &FailReason{
+					Reason: fmt.Sprintf("Network project %s + %v not owner by %s", network.ProjectId, network.GetSharedProjects(), schedData.Project),
+					Type:   NetworkOwner,
+				}
 			}
 		} else {
 			if !network.IsPublic {
-				return fmt.Errorf("Network %s is private", network.Name)
+				return &FailReason{
+					fmt.Sprintf("Network %s is private", network.Name),
+					NetworkPrivate,
+				}
 			}
 			if rbacutils.TRbacScope(network.PublicScope) == rbacutils.ScopeDomain {
 				netDomain := network.DomainId
 				reqDomain := net.Domain
 				if netDomain != reqDomain {
-					return fmt.Errorf("Network domain scope %s not owner by %s", netDomain, reqDomain)
+					return &FailReason{
+						fmt.Sprintf("Network domain scope %s not owner by %s", netDomain, reqDomain),
+						NetworkDomain,
+					}
 				}
 			}
 		}
@@ -119,19 +140,31 @@ func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, _ core.Candi
 	if len(net.Address) > 0 {
 		ipAddr, err := netutils.NewIPV4Addr(net.Address)
 		if err != nil {
-			return fmt.Errorf("Invalid ip address %s: %v", net.Address, err)
+			return &FailReason{
+				fmt.Sprintf("Invalid ip address %s: %v", net.Address, err),
+				NetworkRange,
+			}
 		}
 		if !network.GetIPRange().Contains(ipAddr) {
-			return fmt.Errorf("Address %s not in range", net.Address)
+			return &FailReason{
+				fmt.Sprintf("Address %s not in range", net.Address),
+				NetworkRange,
+			}
 		}
 	}
 	free, err := network.GetFreeAddressCount()
 	if err != nil {
-		return err
+		return &FailReason{
+			Reason: fmt.Sprintf("get free address count: %v", err),
+			Type:   NetworkFreeCount,
+		}
 	}
 	req := u.SchedData().Count
 	if free < req {
-		return fmt.Errorf("Network %s no free IPs, free %d, require %d", network.Name, free, req)
+		return &FailReason{
+			Reason: fmt.Sprintf("Network %s no free IPs, free %d, require %d", network.Name, free, req),
+			Type:   NetworkFreeCount,
+		}
 	}
 	return nil
 }
