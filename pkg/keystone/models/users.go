@@ -633,6 +633,14 @@ func (user *SUser) IsReadOnly() bool {
 	return false
 }
 
+func (user *SUser) LinkedWithIdp(idpId string) bool {
+	idmap, _ := user.getIdmapping()
+	if idmap != nil && idmap.IdpId == idpId {
+		return true
+	}
+	return false
+}
+
 func (manager *SUserManager) FetchCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, objs []db.IModel, fields stringutils2.SSortedStrings) []*jsonutils.JSONDict {
 	rows := manager.SEnabledIdentityBaseResourceManager.FetchCustomizeColumns(ctx, userCred, query, objs, fields)
 	return expandIdpAttributes(rows, objs, fields, api.IdMappingEntityUser)
