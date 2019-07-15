@@ -207,9 +207,12 @@ func (lbbg *SLoadbalancerBackendGroup) GetIRegion() (cloudprovider.ICloudRegion,
 
 func (lbbg *SLoadbalancerBackendGroup) GetBackends() ([]SLoadbalancerBackend, error) {
 	backends := make([]SLoadbalancerBackend, 0)
-	q := LoadbalancerBackendManager.Query().IsFalse("pending_deleted")
-	err := q.Equals("backend_group_id", lbbg.GetId()).All(&backends)
-	return backends, err
+	q := LoadbalancerBackendManager.Query().Equals("backend_group_id", lbbg.GetId()).IsFalse("pending_deleted")
+	err := db.FetchModelObjects(LoadbalancerBackendManager, q, &backends)
+	if err != nil {
+		return nil, err
+	}
+	return backends, nil
 }
 
 // 返回值 TotalRef
