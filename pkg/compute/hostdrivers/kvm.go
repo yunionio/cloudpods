@@ -17,6 +17,7 @@ package hostdrivers
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 
 	"yunion.io/x/jsonutils"
@@ -51,7 +52,7 @@ func (self *SKVMHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_KVM
 }
 
-func (self *SKVMHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
+func (self *SKVMHostDriver) ValidateAttachStorage(ctx context.Context, userCred mcclient.TokenCredential, host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
 	if !utils.IsInStringArray(storage.StorageType, append([]string{api.STORAGE_LOCAL}, api.SHARED_STORAGE...)) {
 		return httperrors.NewUnsupportOperationError("Unsupport attach %s storage for %s host", storage.StorageType, host.HostType)
 	}
@@ -75,6 +76,21 @@ func (self *SKVMHostDriver) ValidateAttachStorage(host *models.SHost, storage *m
 		}
 		if host.HostStatus != api.HOST_ONLINE {
 			return httperrors.NewInvalidStatusError("Attach nfs storage require host status is online")
+		}
+		if storage.StorageType == api.STORAGE_GPFS {
+			header := http.Header{}
+			header.Set(mcclient.AUTH_TOKEN, userCred.GetTokenString())
+			header.Set(mcclient.REGION_VERSION, "v2")
+			params := jsonutils.NewDict()
+			params.Set("mount_point", jsonutils.NewString(mountPoint))
+			urlStr := fmt.Sprintf("%s/storages/is-mount-point?%s", host.ManagerUri, params.QueryString())
+			_, res, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", urlStr, header, nil, false)
+			if err != nil {
+				return err
+			}
+			if !jsonutils.QueryBoolean(res, "is_mount_point", false) {
+				return httperrors.NewBadRequestError("%s is not mount point %s", mountPoint, res)
+			}
 		}
 	}
 	return nil

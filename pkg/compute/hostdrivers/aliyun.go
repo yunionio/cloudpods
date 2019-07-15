@@ -17,12 +17,10 @@ package hostdrivers
 import (
 	"fmt"
 
-	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SAliyunHostDriver struct {
@@ -40,10 +38,6 @@ func (self *SAliyunHostDriver) GetHostType() string {
 
 func (self *SAliyunHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_ALIYUN
-}
-
-func (self *SAliyunHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
-	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }
 
 func (self *SAliyunHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
