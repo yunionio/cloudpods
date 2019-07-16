@@ -97,17 +97,17 @@ func (manager *SSchedtagManager) InitializeData() error {
 			return nil
 		})
 	}
-	manager.BindJointManagers(
-		HostschedtagManager,
-		StorageschedtagManager,
-		NetworkschedtagManager,
-	)
+	manager.BindJointManagers(map[db.IModelManager]ISchedtagJointManager{
+		HostManager:    HostschedtagManager,
+		StorageManager: StorageschedtagManager,
+		NetworkManager: NetworkschedtagManager,
+	})
 	return nil
 }
 
-func (manager *SSchedtagManager) BindJointManagers(ms ...ISchedtagJointManager) {
-	for _, m := range ms {
-		manager.jointsManager[m.GetMasterManager().KeywordPlural()] = m
+func (manager *SSchedtagManager) BindJointManagers(ms map[db.IModelManager]ISchedtagJointManager) {
+	for m, schedtagM := range ms {
+		manager.jointsManager[m.KeywordPlural()] = schedtagM
 	}
 }
 
