@@ -16,8 +16,10 @@ package ucloud
 
 import (
 	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/pkg/util/netutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -27,6 +29,7 @@ import (
 
 // https://docs.ucloud.cn/api/vpc2.0-api/describe_subnet
 type SNetwork struct {
+	multicloud.SNetworkBase
 	wire *SWire
 
 	CreateTime   int64  `json:"CreateTime"`

@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/pkg/util/netutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -26,6 +27,7 @@ import (
 )
 
 type SNetwork struct {
+	multicloud.SNetworkBase
 	wire *SWire
 
 	ZStackBasic
@@ -40,17 +42,26 @@ type SNetwork struct {
 	ZStackTime
 }
 
+type SHostRoute struct {
+	ID            int
+	L3NetworkUuid string `json:"l3NetworkUuid"`
+	Prefix        string
+	Nexthop       string
+	ZStackTime
+}
+
 type SL3Network struct {
 	ZStackBasic
-	Type          string     `json:"type"`
-	ZoneUUID      string     `json:"zoneUuid"`
-	L2NetworkUUID string     `json:"l2NetworkUuid"`
-	State         string     `json:"state"`
-	System        bool       `json:"system"`
-	Category      bool       `json:"category"`
-	IPVersion     int        `json:"ipVersion"`
-	DNS           []string   `json:"dns"`
-	Networks      []SNetwork `json:"ipRanges"`
+	Type          string       `json:"type"`
+	ZoneUUID      string       `json:"zoneUuid"`
+	L2NetworkUUID string       `json:"l2NetworkUuid"`
+	State         string       `json:"state"`
+	System        bool         `json:"system"`
+	Category      bool         `json:"category"`
+	IPVersion     int          `json:"ipVersion"`
+	DNS           []string     `json:"dns"`
+	Networks      []SNetwork   `json:"ipRanges"`
+	HostRoute     []SHostRoute `json:"hostRoute"`
 	ZStackTime
 }
 
@@ -156,6 +167,37 @@ func (network *SNetwork) GetIWire() cloudprovider.ICloudWire {
 
 func (network *SNetwork) GetAllocTimeoutSeconds() int {
 	return 120 // 2 minutes
+}
+
+func (network *SNetwork) GetReservedIps() ([]cloudprovider.SReservedIp, error) {
+	l3, err := network.wire.vpc.region.GetL3Network(network.L3NetworkUUID)
+	if err != nil {
+		return nil, err
+	}
+	reservedIps := []cloudprovider.SReservedIp{}
+
+	for _, hostRoute := range l3.HostRoute {
+		if len(hostRoute.Nexthop) > 0 && network.Contains(hostRoute.Nexthop) {
+			reservedIps = append(reservedIps, cloudprovider.SReservedIp{
+				IP:    hostRoute.Nexthop,
+				Notes: fmt.Sprintf("l3Network %s DHCP IP reserved", l3.Name),
+			})
+		}
+	}
+
+	vips, err := network.wire.vpc.region.GetVirtualIPs(network.UUID, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, vip := range vips {
+		if len(vip.UseFor) == 0 {
+			reservedIps = append(reservedIps, cloudprovider.SReservedIp{
+				IP:    vip.IP,
+				Notes: fmt.Sprintf("VIP %s reserved", vip.Name),
+			})
+		}
+	}
+	return reservedIps, nil
 }
 
 func (network *SNetwork) GetGateway() string {

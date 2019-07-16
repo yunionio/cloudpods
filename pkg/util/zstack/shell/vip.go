@@ -21,10 +21,11 @@ import (
 
 func init() {
 	type VipListOptions struct {
-		VipId string
+		VipId     string
+		NetworkId string
 	}
 	shellutils.R(&VipListOptions{}, "vip-list", "List vips", func(cli *zstack.SRegion, args *VipListOptions) error {
-		vips, err := cli.GetVirtualIPs(args.VipId)
+		vips, err := cli.GetVirtualIPs(args.NetworkId, args.VipId)
 		if err != nil {
 			return err
 		}

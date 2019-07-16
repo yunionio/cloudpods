@@ -1006,9 +1006,9 @@ func (self *SNetwork) AllowGetDetailsReservedIps(ctx context.Context, userCred m
 }
 
 func (self *SNetwork) GetDetailsReservedIps(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	rips := ReservedipManager.GetReservedIPs(self)
-	if rips == nil {
-		return nil, httperrors.NewInternalServerError("get reserved ip error")
+	rips, err := ReservedipManager.GetReservedIPs(self)
+	if err != nil {
+		return nil, httperrors.NewGeneralError(err)
 	}
 	ripArray := jsonutils.NewArray()
 	for i := 0; i < len(rips); i += 1 {
