@@ -460,6 +460,8 @@ type ICloudLoadbalancer interface {
 	GetChargeType() string
 	GetEgressMbps() int
 
+	GetIEIP() (ICloudEIP, error)
+
 	Delete() error
 
 	Start() error
