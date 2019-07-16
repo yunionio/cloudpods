@@ -1,1 +1,6 @@
 DESCRIPTION="Yunion Host Command Line Utility"
+SERVICE="yes"
+
+REQUIRES=(
+	"yunion-host-deployer"
+)
