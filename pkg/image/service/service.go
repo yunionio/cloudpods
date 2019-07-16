@@ -92,10 +92,9 @@ func StartService() {
 	}
 
 	app := app_common.InitApp(baseOpts, true)
+	initHandlers(app)
 
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
-
-	initHandlers(app)
 
 	go models.CheckImages()
 
