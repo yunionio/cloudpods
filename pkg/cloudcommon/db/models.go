@@ -16,10 +16,15 @@ package db
 
 import (
 	"fmt"
+	"os"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
+
+	"yunion.io/x/onecloud/pkg/appsrv"
+	"yunion.io/x/onecloud/pkg/cloudcommon"
+	common_options "yunion.io/x/onecloud/pkg/cloudcommon/options"
 )
 
 var globalTables map[string]IModelManager
@@ -98,6 +103,27 @@ func CheckSync(autoSync bool) bool {
 		}
 	}
 	return inSync
+}
+
+func EnsureAppInitSyncDB(app *appsrv.Application, opt *common_options.DBOptions, modelInitDBFunc func() error) {
+	cloudcommon.InitDB(opt)
+
+	if !CheckSync(opt.AutoSyncTable) {
+		log.Fatalf("database schema not in sync!")
+	}
+
+	if modelInitDBFunc != nil {
+		if err := modelInitDBFunc(); err != nil {
+			log.Fatalf("model init db: %v", err)
+		}
+	}
+
+	if opt.ExitAfterDBInit {
+		log.Infof("Exiting after db initialization ...")
+		os.Exit(0)
+	}
+
+	cloudcommon.AppDBInit(app)
 }
 
 func GetModelManager(keyword string) IModelManager {
