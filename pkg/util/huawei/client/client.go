@@ -57,6 +57,7 @@ type Client struct {
 	Users              *modules.SUserManager
 	Vpcs               *modules.SVpcManager
 	Zones              *modules.SZoneManager
+	VpcRoutes          *modules.SVpcRouteManager
 }
 
 func (self *Client) Init() error {
@@ -118,6 +119,7 @@ func (self *Client) initManagers() {
 		self.Bandwidths = modules.NewBandwidthManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Port = modules.NewPortManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Flavors = modules.NewFlavorManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.VpcRoutes = modules.NewVpcRouteManager(self.regionId, self.projectId, self.signer, self.debug)
 	}
 
 	self.init = true
