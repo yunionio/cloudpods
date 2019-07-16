@@ -143,10 +143,13 @@ func managedResourceFilterByDomain(q *sqlchemy.SQuery, query jsonutils.JSONObjec
 		subq = subq.Join(accounts, sqlchemy.Equals(providers.Field("cloudaccount_id"), accounts.Field("id")))
 		subq = subq.Filter(sqlchemy.Equals(accounts.Field("domain_id"), domain.GetId()))
 		if len(filterField) == 0 {
-			q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq.SubQuery()))
+			q = q.Filter(sqlchemy.OR(
+				sqlchemy.IsNullOrEmpty(q.Field("manager_id")),
+				sqlchemy.In(q.Field("manager_id"), subq.SubQuery()),
+			))
 		} else {
 			sq := subqFunc()
-			sq = sq.Filter(sqlchemy.In(sq.Field("manager_id"), subq.SubQuery()))
+			sq = sq.Filter(sqlchemy.OR(sqlchemy.In(sq.Field("manager_id"), subq.SubQuery()), sqlchemy.IsNullOrEmpty(sq.Field("manager_id"))))
 			q = q.Filter(sqlchemy.In(q.Field(filterField), sq.SubQuery()))
 		}
 	}
