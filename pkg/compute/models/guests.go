@@ -64,140 +64,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
 
-/*
-const (
-	VM_INIT            = api.VM_INIT
-	VM_UNKNOWN         = api.VM_UNKNOWN
-	VM_SCHEDULE        = api.VM_SCHEDULE
-	VM_SCHEDULE_FAILED = api.VM_SCHEDULE_FAILED
-	VM_CREATE_NETWORK  = api.VM_CREATE_NETWORK
-	VM_NETWORK_FAILED  = api.VM_NETWORK_FAILED
-	VM_DEVICE_FAILED   = api.VM_DEVICE_FAILED
-	VM_CREATE_FAILED   = api.VM_CREATE_FAILED
-	VM_CREATE_DISK     = api.VM_CREATE_DISK
-	VM_DISK_FAILED     = api.VM_DISK_FAILED
-	VM_START_DEPLOY    = api.VM_START_DEPLOY
-	VM_DEPLOYING       = api.VM_DEPLOYING
-	VM_DEPLOY_FAILED   = api.VM_DEPLOY_FAILED
-	VM_READY           = api.VM_READY
-	VM_START_START     = api.VM_START_START
-	VM_STARTING        = api.VM_STARTING
-	VM_START_FAILED    = api.VM_START_FAILED // # = ready
-	VM_RUNNING         = api.VM_RUNNING
-	VM_START_STOP      = api.VM_START_STOP
-	VM_STOPPING        = api.VM_STOPPING
-	VM_STOP_FAILED     = api.VM_STOP_FAILED // # = running
-	VM_RENEWING        = api.VM_RENEWING
-	VM_RENEW_FAILED    = api.VM_RENEW_FAILED
-
-	VM_BACKUP_STARTING         = api.VM_BACKUP_STARTING
-	VM_BACKUP_CREATING         = api.VM_BACKUP_CREATING
-	VM_BACKUP_CREATE_FAILED    = api.VM_BACKUP_CREATE_FAILED
-	VM_DEPLOYING_BACKUP        = api.VM_DEPLOYING_BACKUP
-	VM_DEPLOYING_BACKUP_FAILED = api.VM_DEPLOYING_BACKUP_FAILED
-	VM_DELETING_BACKUP         = api.VM_DELETING_BACKUP
-	VM_BACKUP_DELETE_FAILED    = api.VM_BACKUP_DELETE_FAILED
-	VM_SWITCH_TO_BACKUP        = api.VM_SWITCH_TO_BACKUP
-	VM_SWITCH_TO_BACKUP_FAILED = api.VM_SWITCH_TO_BACKUP_FAILED
-
-	VM_ATTACH_DISK_FAILED = api.VM_ATTACH_DISK_FAILED
-	VM_DETACH_DISK_FAILED = api.VM_DETACH_DISK_FAILED
-
-	VM_START_SUSPEND  = api.VM_START_SUSPEND
-	VM_SUSPENDING     = api.VM_SUSPENDING
-	VM_SUSPEND        = api.VM_SUSPEND
-	VM_SUSPEND_FAILED = api.VM_SUSPEND_FAILED
-
-	VM_START_DELETE = api.VM_START_DELETE
-	VM_DELETE_FAIL  = api.VM_DELETE_FAIL
-	VM_DELETING     = api.VM_DELETING
-
-	VM_DEALLOCATED = api.VM_DEALLOCATED
-
-	VM_START_MIGRATE  = api.VM_START_MIGRATE
-	VM_MIGRATING      = api.VM_MIGRATING
-	VM_MIGRATE_FAILED = api.VM_MIGRATE_FAILED
-
-	VM_CHANGE_FLAVOR      = api.VM_CHANGE_FLAVOR
-	VM_CHANGE_FLAVOR_FAIL = api.VM_CHANGE_FLAVOR_FAIL
-	VM_REBUILD_ROOT       = api.VM_REBUILD_ROOT
-	VM_REBUILD_ROOT_FAIL  = api.VM_REBUILD_ROOT_FAIL
-
-	VM_START_SNAPSHOT  = api.VM_START_SNAPSHOT
-	VM_SNAPSHOT        = api.VM_SNAPSHOT
-	VM_SNAPSHOT_DELETE = api.VM_SNAPSHOT_DELETE
-	VM_BLOCK_STREAM    = api.VM_BLOCK_STREAM
-	VM_MIRROR_FAIL     = api.VM_MIRROR_FAIL
-	VM_SNAPSHOT_SUCC   = api.VM_SNAPSHOT_SUCC
-	VM_SNAPSHOT_FAILED = api.VM_SNAPSHOT_FAILED
-
-	VM_SYNCING_STATUS = api.VM_SYNCING_STATUS
-	VM_SYNC_CONFIG    = api.VM_SYNC_CONFIG
-	VM_SYNC_FAIL      = api.VM_SYNC_FAIL
-
-	VM_RESIZE_DISK        = api.VM_RESIZE_DISK
-	VM_RESIZE_DISK_FAILED = api.VM_RESIZE_DISK_FAILED
-	VM_START_SAVE_DISK    = api.VM_START_SAVE_DISK
-	VM_SAVE_DISK          = api.VM_SAVE_DISK
-	VM_SAVE_DISK_FAILED   = api.VM_SAVE_DISK_FAILED
-
-	VM_RESTORING_SNAPSHOT = api.VM_RESTORING_SNAPSHOT
-	VM_RESTORE_DISK       = api.VM_RESTORE_DISK
-	VM_RESTORE_STATE      = api.VM_RESTORE_STATE
-	VM_RESTORE_FAILED     = api.VM_RESTORE_FAILED
-
-	VM_ASSOCIATE_EIP         = api.VM_ASSOCIATE_EIP
-	VM_ASSOCIATE_EIP_FAILED  = api.VM_ASSOCIATE_EIP_FAILED
-	VM_DISSOCIATE_EIP        = api.VM_DISSOCIATE_EIP
-	VM_DISSOCIATE_EIP_FAILED = api.VM_DISSOCIATE_EIP_FAILED
-
-	VM_REMOVE_STATEFILE = api.VM_REMOVE_STATEFILE
-
-	VM_ADMIN = api.VM_ADMIN
-
-	SHUTDOWN_STOP      = api.SHUTDOWN_STOP
-	SHUTDOWN_TERMINATE = api.SHUTDOWN_TERMINATE
-
-	HYPERVISOR_KVM       = api.HYPERVISOR_KVM
-	HYPERVISOR_CONTAINER = api.HYPERVISOR_CONTAINER
-	HYPERVISOR_BAREMETAL = api.HYPERVISOR_BAREMETAL
-	HYPERVISOR_ESXI      = api.HYPERVISOR_ESXI
-	HYPERVISOR_HYPERV    = api.HYPERVISOR_HYPERV
-	HYPERVISOR_XEN       = api.HYPERVISOR_XEN
-
-	HYPERVISOR_ALIYUN    = api.HYPERVISOR_ALIYUN
-	HYPERVISOR_QCLOUD    = api.HYPERVISOR_QCLOUD
-	HYPERVISOR_AZURE     = api.HYPERVISOR_AZURE
-	HYPERVISOR_AWS       = api.HYPERVISOR_AWS
-	HYPERVISOR_HUAWEI    = api.HYPERVISOR_HUAWEI
-	HYPERVISOR_OPENSTACK = api.HYPERVISOR_OPENSTACK
-	HYPERVISOR_UCLOUD    = api.HYPERVISOR_UCLOUD
-
-	//	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
-	HYPERVISOR_DEFAULT = HYPERVISOR_KVM
-)
-
-const (
-	VM_AWS_DEFAULT_LOGIN_USER = "ec2user"
-
-	VM_METADATA_APP_TAGS            = "app_tags"
-	VM_METADATA_CREATE_PARAMS       = "create_params"
-)
-
-var VM_RUNNING_STATUS = api.VM_RUNNING_STATUS
-var VM_CREATING_STATUS = api.VM_CREATING_STATUS
-
-var HYPERVISORS = api.HYPERVISORS
-
-var PUBLIC_CLOUD_HYPERVISORS = api.PUBLIC_CLOUD_HYPERVISORS
-
-// var HYPERVISORS = []string{HYPERVISOR_ALIYUN}
-
-var HYPERVISOR_HOSTTYPE = api.HYPERVISOR_HOSTTYPE
-
-var HOSTTYPE_HYPERVISOR = api.HOSTTYPE_HYPERVISOR
-*/
-
 type SGuestManager struct {
 	db.SVirtualResourceBaseManager
 }
@@ -587,6 +453,28 @@ func (manager *SGuestManager) ExtraSearchConditions(ctx context.Context, q *sqlc
 		return []sqlchemy.ICondition{sqlchemy.In(q.Field("id"), sq)}
 	}
 	return nil
+}
+
+func (manager *SGuestManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	orderByAccount, _ := query.GetString("order_by_account")
+	if sqlchemy.SQL_ORDER_ASC.Equals(orderByAccount) || sqlchemy.SQL_ORDER_DESC.Equals(orderByAccount) {
+		hosts := HostManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		cloudaccounts := CloudaccountManager.Query().SubQuery()
+		q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id")))
+		q = q.Join(cloudproviders, sqlchemy.Equals(hosts.Field("manager_id"), cloudproviders.Field("id")))
+		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), cloudaccounts.Field("id")))
+		if sqlchemy.SQL_ORDER_ASC.Equals(orderByAccount) {
+			q = q.Asc(cloudaccounts.Field("name"))
+		} else {
+			q = q.Desc(cloudaccounts.Field("name"))
+		}
+	}
+	return q, nil
 }
 
 func (guest *SGuest) GetHypervisor() string {
