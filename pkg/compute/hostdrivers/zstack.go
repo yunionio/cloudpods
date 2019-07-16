@@ -15,11 +15,8 @@
 package hostdrivers
 
 import (
-	"yunion.io/x/jsonutils"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/httperrors"
 )
 
 type SZStackHostDriver struct {
@@ -37,10 +34,6 @@ func (self *SZStackHostDriver) GetHostType() string {
 
 func (self *SZStackHostDriver) GetHypervisor() string {
 	return api.HYPERVISOR_ZSTACK
-}
-
-func (self *SZStackHostDriver) ValidateAttachStorage(host *models.SHost, storage *models.SStorage, data *jsonutils.JSONDict) error {
-	return httperrors.NewUnsupportOperationError("Not support attach storage for %s host", self.GetHostType())
 }
 
 func (self *SZStackHostDriver) ValidateDiskSize(storage *models.SStorage, sizeGb int) error {
