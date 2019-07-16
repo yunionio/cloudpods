@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -176,6 +177,15 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateLoadbalancer(ctx co
 		if err := lb.SyncWithCloudLoadbalancer(ctx, userCred, iLoadbalancer, nil); err != nil {
 			return nil, err
 		}
+		//公网lb,需要同步public ip
+		if lb.AddressType == api.LB_ADDR_TYPE_INTERNET {
+			publicIp, err := iLoadbalancer.GetIEIP()
+			if err != nil {
+				return nil, errors.Wrap(err, "iLoadbalancer.GetIEIP()")
+			}
+			lb.SyncLoadbalancerEip(ctx, userCred, lb.GetCloudprovider(), publicIp)
+		}
+
 		lbbgs, err := iLoadbalancer.GetILoadBalancerBackendGroups()
 		if err != nil {
 			return nil, err

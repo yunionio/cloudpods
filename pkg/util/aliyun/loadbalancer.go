@@ -17,6 +17,10 @@ package aliyun
 import (
 	"fmt"
 	"strings"
+	"time"
+
+	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -53,6 +57,7 @@ type BackendServers struct {
 }
 
 type SLoadbalancer struct {
+	multicloud.SLoadbalancerBase
 	region *SRegion
 
 	LoadBalancerId           string //负载均衡实例ID。
@@ -68,14 +73,14 @@ type SLoadbalancer struct {
 	ListenerPorts            ListenerPorts
 	ListenerPortsAndProtocol ListenerPortsAndProtocol
 	BackendServers           BackendServers
-	CreateTime               string //负载均衡实例的创建时间。
-	MasterZoneId             string //实例的主可用区ID。
-	SlaveZoneId              string //实例的备可用区ID。
-	InternetChargeType       string //公网实例的计费方式。取值：paybybandwidth：按带宽计费 paybytraffic：按流量计费（默认值） 说明 当 PayType参数的值为PrePay时，只支持按带宽计费。
-	PayType                  string //实例的计费类型，取值：PayOnDemand：按量付费 PrePay：预付费
-	ResourceGroupId          string //企业资源组ID。
-	LoadBalancerSpec         string //负载均衡实例的的性能规格
-	Bandwidth                int    //按带宽计费的公网型实例的带宽峰值
+	CreateTime               time.Time           //负载均衡实例的创建时间。
+	MasterZoneId             string              //实例的主可用区ID。
+	SlaveZoneId              string              //实例的备可用区ID。
+	InternetChargeType       TInternetChargeType //公网实例的计费方式。取值：paybybandwidth：按带宽计费 paybytraffic：按流量计费（默认值） 说明 当 PayType参数的值为PrePay时，只支持按带宽计费。
+	PayType                  string              //实例的计费类型，取值：PayOnDemand：按量付费 PrePay：预付费
+	ResourceGroupId          string              //企业资源组ID。
+	LoadBalancerSpec         string              //负载均衡实例的的性能规格
+	Bandwidth                int                 //按带宽计费的公网型实例的带宽峰值
 }
 
 func (lb *SLoadbalancer) GetName() string {
@@ -259,6 +264,10 @@ func (lb *SLoadbalancer) GetChargeType() string {
 	return "unknown"
 }
 
+func (lb *SLoadbalancer) GetCreatedAt() time.Time {
+	return lb.CreateTime
+}
+
 func (lb *SLoadbalancer) GetEgressMbps() int {
 	if lb.Bandwidth < 1 {
 		return 0
@@ -277,6 +286,32 @@ func (lb *SLoadbalancer) GetILoadBalancerBackendGroupById(groupId string) (cloud
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
+}
+
+func (lb *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	if lb.AddressType == "internet" {
+		eip := SEipAddress{
+			region:             lb.region,
+			IpAddress:          lb.Address,
+			InstanceId:         lb.GetGlobalId(),
+			InstanceType:       EIP_INTANNCE_TYPE_SLB,
+			Status:             EIP_STATUS_INUSE,
+			AllocationId:       lb.GetGlobalId(),
+			AllocationTime:     lb.CreateTime,
+			Bandwidth:          lb.Bandwidth,
+			InternetChargeType: lb.InternetChargeType,
+		}
+		return &eip, nil
+	}
+	eips, total, err := lb.region.GetEips("", lb.LoadBalancerId, 0, 1)
+	if err != nil {
+		return nil, errors.Wrapf(err, "lb.region.GetEips(%s)", lb.LoadBalancerId)
+	}
+	if total != 1 {
+		return nil, cloudprovider.ErrNotFound
+	}
+	eips[0].region = lb.region
+	return &eips[0], nil
 }
 
 func (region *SRegion) loadbalancerOperation(loadbalancerId, status string) error {
