@@ -21,8 +21,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-plus/uuid"
 
-	"yunion.io/x/log"
-
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/cloudcommon"
 	app_common "yunion.io/x/onecloud/pkg/cloudcommon/app"
@@ -75,27 +73,9 @@ func StartService() {
 	app := app_common.InitApp(&opts.BaseOptions, true)
 	initHandlers(app)
 
-	cloudcommon.InitDB(&opts.DBOptions)
-
-	if !db.CheckSync(opts.AutoSyncTable) {
-		log.Fatalf("database schema not in sync!")
-	}
-
-	models.InitDB()
-
-	if opts.ExitAfterDBInit {
-		log.Infof("Exiting after db initialization ...")
-		os.Exit(0)
-	}
+	db.EnsureAppInitSyncDB(app, &opts.DBOptions, models.InitDB)
 
 	app_common.InitBaseAuth(&opts.BaseOptions)
-
-	cloudcommon.AppDBInit(app)
-
-	err := models.InitDB()
-	if err != nil {
-		log.Errorf("InitDB fail: %s", err)
-	}
 
 	if !opts.IsSlaveNode {
 		cron := cronman.GetCronJobManager(true)
