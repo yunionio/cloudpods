@@ -42,11 +42,10 @@ func StartService() {
 	baseOpts := &opts.BaseOptions
 
 	app := common_app.InitApp(baseOpts, false)
+	InitHandlers(app)
 
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
-
-	InitHandlers(app)
 
 	common_app.ServeForever(app, baseOpts)
 }

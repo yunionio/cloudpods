@@ -65,11 +65,10 @@ func StartService() {
 	})
 
 	app := app_common.InitApp(baseOpts, true)
+	InitHandlers(app)
 
 	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 	defer cloudcommon.CloseDB()
-
-	InitHandlers(app)
 
 	err := setInfluxdbRetentionPolicy()
 	if err != nil {
