@@ -55,6 +55,10 @@ func (n netW) Keyword() string {
 	return "net"
 }
 
+func (n netW) ResourceKeyword() string {
+	return "network"
+}
+
 func (n netW) GetSchedtags() []*computeapi.SchedtagConfig {
 	return n.NetworkConfig.Schedtags
 }
@@ -73,6 +77,17 @@ func (p *NetworkSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCa
 		ret = append(ret, network)
 	}
 	return ret
+}
+
+func (p *NetworkSchedtagPredicate) IsResourceMatchInput(input ISchedtagCustomer, res ISchedtagCandidateResource) bool {
+	net := input.(*netW)
+	network := res.(*api.CandidateNetwork)
+	if net.Network != "" {
+		if !(network.Id == net.Network || network.Name == net.Network) {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *NetworkSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
