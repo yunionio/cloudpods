@@ -99,46 +99,6 @@ func (zone *SZone) ValidateDeleteCondition(ctx context.Context) error {
 	return zone.SStandaloneResourceBase.ValidateDeleteCondition(ctx)
 }
 
-/*
-@classmethod
-def tenant_id_hash(cls, tenant_id, mod):
-intval = 0
-for i in range(len(tenant_id)):
-intval += ord(tenant_id[i])
-return intval % mod
-
-@classmethod
-def get_hashed_zone_id(cls, tenant_id, excludes=None):
-from clouds.models.hosts    import Hosts
-q = Hosts.query(Hosts.zone_id, func.count('*')) \
-.filter(Hosts.enabled==True) \
-.filter(Hosts.host_status==Hosts.HOST_ONLINE)
-if excludes is not None and len(excludes) > 0:
-q = q.filter(not_(Hosts.zone_id.in_(excludes)))
-q = q.group_by(Hosts.zone_id).all()
-zones = []
-weights = {}
-for (zone_id, weight) in q:
-zones.append(zone_id)
-weights[zone_id] = weight
-ring = HashRing(zones, weights)
-return ring.get_node(tenant_id)
-
-
-def is_zone_manageable(self):
-if self.manager_uri is not None and len(self.manager_uri) > 0:
-return True
-else:
-return False
-
-def request(self, url, on_succ, on_fail, user_cred, **kwargs):
-headers = {}
-headers['X-Auth-Token'] = user_cred.token
-zoneclient.get_client().request(self, 'GET', url, headers, \
-on_succ, on_fail, **kwargs)
-
-*/
-
 func (manager *SZoneManager) Count() (int, error) {
 	return manager.Query().CountWithError()
 }
