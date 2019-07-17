@@ -189,6 +189,10 @@ func (this *TokenCredentialV3) GetServiceURLs(service, region, zone, endpointTyp
 	return this.Token.Catalog.GetServiceURLs(service, region, zone, endpointType)
 }
 
+func (this *TokenCredentialV3) GetServicesByInterface(region string, infType string) []ExternalService {
+	return this.Token.Catalog.GetServicesByInterface(region, infType)
+}
+
 func (this *TokenCredentialV3) GetInternalServices(region string) []string {
 	return this.Token.Catalog.getInternalServices(region)
 }
@@ -232,11 +236,15 @@ func (catalog KeystoneServiceCatalogV3) getInternalServices(region string) []str
 }
 
 func (catalog KeystoneServiceCatalogV3) getExternalServices(region string) []ExternalService {
+	return catalog.GetServicesByInterface(region, "console")
+}
+
+func (catalog KeystoneServiceCatalogV3) GetServicesByInterface(region string, infType string) []ExternalService {
 	services := make([]ExternalService, 0)
 	for i := 0; i < len(catalog); i++ {
 		for j := 0; j < len(catalog[i].Endpoints); j++ {
 			if catalog[i].Endpoints[j].RegionId == region &&
-				catalog[i].Endpoints[j].Interface == "console" &&
+				catalog[i].Endpoints[j].Interface == infType &&
 				len(catalog[i].Endpoints[j].Name) > 0 {
 				srv := ExternalService{Name: catalog[i].Endpoints[j].Name,
 					Url: catalog[i].Endpoints[j].Url}
