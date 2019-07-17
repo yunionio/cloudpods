@@ -39,21 +39,13 @@ func StartService() {
 	})
 
 	dbOpts := &opts.DBOptions
-	cloudcommon.InitDB(dbOpts)
-	defer cloudcommon.CloseDB()
-
 	baseOpts := &opts.BaseOptions
+
 	app := common_app.InitApp(baseOpts, false)
 	InitHandlers(app)
 
-	if !db.CheckSync(opts.AutoSyncTable) {
-		log.Fatalf("database schema not in sync!")
-	}
-
-	err := models.InitDB()
-	if err != nil {
-		log.Errorf("InitDB fail: %s", err)
-	}
+	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
+	defer cloudcommon.CloseDB()
 
 	common_app.ServeForever(app, baseOpts)
 }

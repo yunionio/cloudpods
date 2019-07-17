@@ -91,16 +91,10 @@ func StartService() {
 		return
 	}
 
-	cloudcommon.InitDB(dbOpts)
-
 	app := app_common.InitApp(baseOpts, true)
 	initHandlers(app)
 
-	if !db.CheckSync(opts.AutoSyncTable) {
-		log.Fatalf("database schema not in sync!")
-	}
-
-	models.InitDB()
+	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
 
 	go models.CheckImages()
 
