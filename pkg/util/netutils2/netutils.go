@@ -44,6 +44,19 @@ var PRIVATE_PREFIXES = []string{
 	"192.168.0.0/16",
 }
 
+func GetFreePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
 func IsTcpPortUsed(addr string, port int) bool {
 	conn, _ := net.Dial("tcp", fmt.Sprintf("%s:%d", addr, port))
 	if conn != nil {

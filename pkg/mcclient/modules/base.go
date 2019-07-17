@@ -97,6 +97,20 @@ func (this *BaseManager) rawRequest(session *mcclient.ClientSession,
 		header, body, this.GetApiVersion())
 }
 
+func (this *BaseManager) rawBaseUrlRequest(s *mcclient.ClientSession,
+	method httputils.THttpMethod, path string,
+	header http.Header, body io.Reader) (*http.Response, error) {
+	baseUrlF := func(baseurl string) string {
+		obj, _ := url.Parse(baseurl)
+		obj.Path = ""
+		return obj.String()
+	}
+	return s.RawBaseUrlRequest(
+		this.serviceType, this.endpointType,
+		method, this.versionedURL(path),
+		header, body, this.GetApiVersion(), baseUrlF)
+}
+
 type ListResult struct {
 	Data   []jsonutils.JSONObject
 	Total  int
