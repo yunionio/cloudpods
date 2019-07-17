@@ -64,23 +64,13 @@ func StartService() {
 		log.Infof("Auth complete!!")
 	})
 
-	cloudcommon.InitDB(dbOpts)
-	defer cloudcommon.CloseDB()
-
 	app := app_common.InitApp(baseOpts, true)
-	cloudcommon.AppDBInit(app)
 	InitHandlers(app)
 
-	if !db.CheckSync(opts.AutoSyncTable) {
-		log.Fatalf("database schema not in sync!")
-	}
+	db.EnsureAppInitSyncDB(app, dbOpts, models.InitDB)
+	defer cloudcommon.CloseDB()
 
-	err := models.InitDB()
-	if err != nil {
-		log.Errorf("InitDB fail: %s", err)
-	}
-
-	err = setInfluxdbRetentionPolicy()
+	err := setInfluxdbRetentionPolicy()
 	if err != nil {
 		log.Errorf("setInfluxdbRetentionPolicy fail: %s", err)
 	}
