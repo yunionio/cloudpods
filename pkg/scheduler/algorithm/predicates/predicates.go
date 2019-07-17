@@ -230,6 +230,7 @@ type ISchedtagPredicateInstance interface {
 
 	GetInputs(u *core.Unit) []ISchedtagCustomer
 	GetResources(c core.Candidater) []ISchedtagCandidateResource
+	IsResourceMatchInput(input ISchedtagCustomer, res ISchedtagCandidateResource) bool
 	IsResourceFitInput(unit *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason
 
 	DoSelect(c core.Candidater, input ISchedtagCustomer, res []ISchedtagCandidateResource) []ISchedtagCandidateResource
@@ -268,6 +269,7 @@ type ISchedtagCustomer interface {
 	JSON(interface{}) *jsonutils.JSONDict
 	Keyword() string
 	GetSchedtags() []*computeapi.SchedtagConfig
+	ResourceKeyword() string
 }
 
 type SchedtagResourceW struct {
@@ -384,7 +386,19 @@ func (p *BaseSchedtagPredicate) Execute(
 	for idx, input := range inputs {
 		fitResources := make([]ISchedtagCandidateResource, 0)
 		errs := make([]core.PredicateFailureReason, 0)
-		for _, res := range resources {
+		matchedRes := make([]ISchedtagCandidateResource, 0)
+		for _, r := range resources {
+			if sp.IsResourceMatchInput(input, r) {
+				matchedRes = append(matchedRes, r)
+			}
+		}
+		if len(matchedRes) == 0 {
+			errs = append(errs, &FailReason{
+				Reason: fmt.Sprintf("Not found matched %s, candidate: %s, %s: %s", input.ResourceKeyword(), c.Getter().Name(), input.Keyword(), input.JSON(input).String()),
+				Type:   fmt.Sprintf("%s_match", input.ResourceKeyword()),
+			})
+		}
+		for _, res := range matchedRes {
 			if err := sp.IsResourceFitInput(u, c, res, input); err == nil {
 				fitResources = append(fitResources, res)
 			} else {

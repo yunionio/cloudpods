@@ -52,6 +52,10 @@ func (d diskW) Keyword() string {
 	return "disk"
 }
 
+func (d diskW) ResourceKeyword() string {
+	return "storage"
+}
+
 func (d diskW) GetSchedtags() []*computeapi.SchedtagConfig {
 	return d.DiskConfig.Schedtags
 }
@@ -70,6 +74,10 @@ func (p *DiskSchedtagPredicate) GetResources(c core.Candidater) []ISchedtagCandi
 		ret = append(ret, storage)
 	}
 	return ret
+}
+
+func (p *DiskSchedtagPredicate) IsResourceMatchInput(input ISchedtagCustomer, res ISchedtagCandidateResource) bool {
+	return true
 }
 
 func (p *DiskSchedtagPredicate) IsResourceFitInput(u *core.Unit, c core.Candidater, res ISchedtagCandidateResource, input ISchedtagCustomer) core.PredicateFailureReason {
