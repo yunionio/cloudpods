@@ -46,7 +46,32 @@ func findTeamingNic(nics []*types.SServerNic, mac string) *types.SServerNic {
 func ToServerNics(nics []*deployapi.Nic) []*types.SServerNic {
 	ret := make([]*types.SServerNic, len(nics))
 	for i := 0; i < len(nics); i++ {
-		ret[i] = &types.SServerNic{Nic: nics[i]}
+		ret[i] = &types.SServerNic{
+			Name:      nics[i].Name,
+			Index:     int(nics[i].Index),
+			Bridge:    nics[i].Bridge,
+			Domain:    nics[i].Domain,
+			Ip:        nics[i].Ip,
+			Vlan:      int(nics[i].Vlan),
+			Driver:    nics[i].Driver,
+			Masklen:   int(nics[i].Masklen),
+			Virtual:   nics[i].Virtual,
+			Manual:    nics[i].Manual,
+			WireId:    nics[i].WireId,
+			NetId:     nics[i].NetId,
+			Mac:       nics[i].Mac,
+			BandWidth: int(nics[i].Bw),
+			Dns:       nics[i].Dns,
+			Net:       nics[i].Net,
+			Interface: nics[i].Interface,
+			Gateway:   nics[i].Gateway,
+			Ifname:    nics[i].Ifname,
+			Routes:    deployapi.ConvertRoutes(nics[i].Routes),
+			NicType:   nics[i].NicType,
+			LinkUp:    nics[i].LinkUp,
+			Mtu:       nics[i].Mtu,
+			TeamWith:  nics[i].TeamWith,
+		}
 	}
 	return ret
 }

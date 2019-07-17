@@ -30,7 +30,6 @@ import (
 	"yunion.io/x/pkg/util/regutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
-	deployapi "yunion.io/x/onecloud/pkg/hostman/hostdeployer/apis"
 	"yunion.io/x/onecloud/pkg/util/procutils"
 	"yunion.io/x/onecloud/pkg/util/regutils2"
 )
@@ -79,9 +78,9 @@ func GetPrivatePrefixes(privatePrefixes []string) []string {
 	}
 }
 
-func GetMainNicFromDeployApi(nics []*deployapi.Nic) (*deployapi.Nic, error) {
+func GetMainNicFromDeployApi(nics []*types.SServerNic) (*types.SServerNic, error) {
 	var mainIp netutils.IPV4Addr
-	var mainNic *deployapi.Nic
+	var mainNic *types.SServerNic
 	for _, n := range nics {
 		if len(n.Gateway) > 0 {
 			ip := n.Ip
@@ -159,9 +158,9 @@ func addRoute(routes *[][]string, net, gw string) {
 	*routes = append(*routes, []string{net, gw})
 }
 
-func extendRoutes(routes *[][]string, nicRoutes []*deployapi.Routes) error {
+func extendRoutes(routes *[][]string, nicRoutes []types.SRoute) error {
 	for i := 0; i < len(nicRoutes); i++ {
-		addRoute(routes, nicRoutes[i].Route[0], nicRoutes[i].Route[1])
+		addRoute(routes, nicRoutes[i][0], nicRoutes[i][1])
 	}
 	return nil
 }
