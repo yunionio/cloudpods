@@ -32,8 +32,11 @@ LDFLAGS := "-w \
 
 
 #####################################################
-
-GO_BUILD_FLAGS:=-mod vendor -ldflags $(LDFLAGS)
+ifneq ($(DLV),)
+	GO_BUILD_FLAGS += -gcflags "all=-N -l"
+	LDFLAGS = "" 
+endif
+GO_BUILD_FLAGS+=-mod vendor -ldflags $(LDFLAGS)
 GO_BUILD := go build $(GO_BUILD_FLAGS)
 GO_INSTALL := go install -ldflags $(LDFLAGS)
 GO_TEST := go test
