@@ -149,6 +149,10 @@ func (self *SSimpleToken) GetServiceURLs(service, region, zone, endpointType str
 	return nil, fmt.Errorf("Not available")
 }
 
+func (this *SSimpleToken) GetServicesByInterface(region string, infType string) []ExternalService {
+	return nil
+}
+
 func (self *SSimpleToken) GetInternalServices(region string) []string {
 	return nil
 }

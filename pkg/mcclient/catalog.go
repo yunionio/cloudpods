@@ -18,4 +18,5 @@ type IServiceCatalog interface {
 	Len() int
 	GetServiceURL(service, region, zone, endpointType string) (string, error)
 	GetServiceURLs(service, region, zone, endpointType string) ([]string, error)
+	GetServicesByInterface(region string, infType string) []ExternalService
 }
