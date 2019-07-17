@@ -42,7 +42,7 @@ message Nic {
   string gateway = 6;
   string dns = 7;
   string domain = 8;
-  repeated Routes routes = 9;
+  string routes = 9;
   string ifname = 10;
   int32 masklen = 11;
   string driver = 12;
@@ -60,10 +60,6 @@ message Nic {
   bool link_up = 24;
   int64 mtu = 25;
   string name = 26;
-}
-
-message Routes {
-  repeated string route = 1;
 }
 
 message DeployInfo {
