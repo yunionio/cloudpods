@@ -635,7 +635,9 @@ func (self *SStorage) syncWithCloudStorage(ctx context.Context, userCred mcclien
 		self.Status = extStorage.GetStatus()
 		self.StorageType = extStorage.GetStorageType()
 		self.MediumType = extStorage.GetMediumType()
-		self.Capacity = extStorage.GetCapacityMB()
+		if capacity := extStorage.GetCapacityMB(); capacity != 0 {
+			self.Capacity = capacity
+		}
 		self.StorageConf = extStorage.GetStorageConf()
 
 		self.Enabled = extStorage.GetEnabled()
