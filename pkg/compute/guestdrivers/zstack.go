@@ -38,6 +38,10 @@ func init() {
 	models.RegisterGuestDriver(&driver)
 }
 
+func (self *SZStackGuestDriver) DoScheduleCPUFilter() bool { return true }
+
+func (self *SZStackGuestDriver) DoScheduleMemoryFilter() bool { return true }
+
 func (self *SZStackGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_ZSTACK
 }

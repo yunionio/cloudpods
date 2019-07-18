@@ -42,9 +42,11 @@ func init() {
 	models.RegisterGuestDriver(&driver)
 }
 
-func (self *SESXiGuestDriver) DoScheduleSKUFilter() bool {
-	return false
-}
+func (self *SESXiGuestDriver) DoScheduleCPUFilter() bool { return true }
+
+func (self *SESXiGuestDriver) DoScheduleMemoryFilter() bool { return true }
+
+func (self *SESXiGuestDriver) DoScheduleSKUFilter() bool { return false }
 
 func (self *SESXiGuestDriver) GetHypervisor() string {
 	return api.HYPERVISOR_ESXI
