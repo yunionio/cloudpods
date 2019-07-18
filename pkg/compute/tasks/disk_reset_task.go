@@ -38,30 +38,52 @@ func init() {
 }
 
 func (self *DiskResetTask) TaskFailed(ctx context.Context, disk *models.SDisk, reason string) {
+	disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESET_DISK, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
+	guests := disk.GetGuests()
+	if len(guests) == 1 {
+		guests[0].SetStatus(self.UserCred, api.VM_DISK_RESET_FAIL, reason)
+	}
 }
 
 func (self *DiskResetTask) TaskCompleted(ctx context.Context, disk *models.SDisk, data *jsonutils.JSONDict) {
-	// data不能为空指针，否则会导致AddActionLog抛空指针异常
+	guests := disk.GetGuests()
+	if jsonutils.QueryBoolean(self.Params, "auto_start", false) {
+		if len(guests) == 1 {
+			self.SetStage("OnStartGuest", nil)
+			guests[0].StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
+		}
+	} else {
+		if len(guests) == 1 {
+			guests[0].SetStatus(self.UserCred, api.VM_READY, "")
+		}
+		// data不能为空指针，否则会导致AddActionLog抛空指针异常
+		if data == nil {
+			data = jsonutils.NewDict()
+		}
+		logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESET_DISK, data, self.UserCred, true)
+		self.SetStageComplete(ctx, data)
+	}
+}
+
+func (self *DiskResetTask) OnStartGuest(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	if data == nil {
 		data = jsonutils.NewDict()
 	}
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_RESET_DISK, data, self.UserCred, true)
-	self.SetStageComplete(ctx, data)
+	self.SetStageComplete(ctx, nil)
 }
 
 func (self *DiskResetTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
 	storage := disk.GetStorage()
 	if storage == nil {
-		disk.SetStatus(self.UserCred, api.DISK_READY, "")
 		self.TaskFailed(ctx, disk, "Disk storage not found")
 		return
 	}
 	host := storage.GetMasterHost()
 	if host == nil {
-		disk.SetStatus(self.UserCred, api.DISK_READY, "")
 		self.TaskFailed(ctx, disk, "Storage master host not found")
 		return
 	}
@@ -71,7 +93,6 @@ func (self *DiskResetTask) OnInit(ctx context.Context, obj db.IStandaloneModel, 
 func (self *DiskResetTask) RequestResetDisk(ctx context.Context, disk *models.SDisk, host *models.SHost) {
 	snapshotId, err := self.Params.GetString("snapshot_id")
 	if err != nil {
-		disk.SetStatus(self.UserCred, api.DISK_READY, "")
 		self.TaskFailed(ctx, disk, fmt.Sprintf("Get snapshotId error %s", err.Error()))
 		return
 	}
@@ -91,9 +112,12 @@ func (self *DiskResetTask) RequestResetDisk(ctx context.Context, disk *models.SD
 	self.SetStage("OnRequestResetDisk", nil)
 	err = host.GetHostDriver().RequestResetDisk(ctx, host, disk, params, self)
 	if err != nil {
-		disk.SetStatus(self.UserCred, api.DISK_READY, "")
 		self.TaskFailed(ctx, disk, err.Error())
 	}
+}
+
+func (self *DiskResetTask) OnRequestResetDiskFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
+	self.TaskFailed(ctx, disk, data.String())
 }
 
 func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
@@ -120,17 +144,6 @@ func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.
 			return
 		}
 	}
-	if jsonutils.QueryBoolean(self.Params, "auto_start", false) {
-		guest := disk.GetGuests()[0]
-		self.SetStage("OnStartGuest", nil)
-		guest.StartGueststartTask(ctx, self.UserCred, nil, self.GetTaskId())
-	} else {
-		disk.SetStatus(self.UserCred, api.DISK_READY, "")
-		self.TaskCompleted(ctx, disk, nil)
-	}
-}
-
-func (self *DiskResetTask) OnStartGuest(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
 	disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	self.TaskCompleted(ctx, disk, nil)
 }
