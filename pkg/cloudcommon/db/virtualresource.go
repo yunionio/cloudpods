@@ -317,7 +317,10 @@ func (model *SVirtualResourceBase) AllowPerformChangeOwner(ctx context.Context, 
 }
 
 func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	ownerId, err := model.GetModelManager().FetchOwnerId(ctx, data)
+	manager := model.GetModelManager()
+
+	log.Debugf("SVirtualResourceBase change_owner %s %s %#v", query, data, manager)
+	ownerId, err := manager.FetchOwnerId(ctx, data)
 	if err != nil {
 		return nil, httperrors.NewGeneralError(err)
 	}
@@ -332,7 +335,6 @@ func (model *SVirtualResourceBase) PerformChangeOwner(ctx context.Context, userC
 		})
 		return nil, nil
 	}
-	manager := model.GetModelManager()
 	q := manager.Query().Equals("name", model.GetName())
 	q = manager.FilterByOwner(q, ownerId, manager.NamespaceScope())
 	q = manager.FilterBySystemAttributes(q, nil, nil, manager.ResourceScope())
