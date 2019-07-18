@@ -164,6 +164,13 @@ func (self *GuestChangeConfigTask) OnGuestChangeCpuMemSpecComplete(ctx context.C
 	addCpu := int(vcpuCount - int64(guest.VcpuCount))
 	addMem := int(vmemSize - int64(guest.VmemSize))
 
+	if len(instanceType) == 0 {
+		skus, err := models.ServerSkuManager.GetSkus(api.CLOUD_PROVIDER_ONECLOUD, int(vcpuCount), int(vmemSize))
+		if err == nil && len(skus) > 0 {
+			instanceType = skus[0].GetName()
+		}
+	}
+
 	_, err := db.Update(guest, func() error {
 		if vcpuCount > 0 {
 			guest.VcpuCount = int(vcpuCount)

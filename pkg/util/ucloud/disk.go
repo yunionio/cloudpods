@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
@@ -233,7 +235,7 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string
 
 	err = cloudprovider.WaitStatus(isnapshot, api.SNAPSHOT_READY, time.Second*10, time.Second*300)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CreateISnapshot")
 	}
 
 	return isnapshot, nil
@@ -280,7 +282,7 @@ func (self *SDisk) Resize(ctx context.Context, newSizeMB int64) error {
 		defer self.storage.zone.region.AttachDisk(self.Zone, self.UHostID, self.UDiskID)
 		err = cloudprovider.WaitStatusWithDelay(self, api.DISK_READY, 10*time.Second, 5*time.Second, 60*time.Second)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "DiskResize")
 		}
 
 	}
