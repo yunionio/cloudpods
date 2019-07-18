@@ -698,12 +698,18 @@ func (self *SDisk) PerformDiskReset(ctx context.Context, userCred mcclient.Token
 		return nil, httperrors.NewBadRequestError("Cannot reset disk with snapshot in status %s", snapshot.Status)
 	}
 	autoStart := jsonutils.QueryBoolean(data, "auto_start", false)
-	self.StartResetDisk(ctx, userCred, snapshotId, autoStart)
+	self.StartResetDisk(ctx, userCred, snapshotId, autoStart, guests)
 	return nil, nil
 }
 
-func (self *SDisk) StartResetDisk(ctx context.Context, userCred mcclient.TokenCredential, snapshotId string, autoStart bool) error {
+func (self *SDisk) StartResetDisk(
+	ctx context.Context, userCred mcclient.TokenCredential,
+	snapshotId string, autoStart bool, guests []SGuest,
+) error {
 	self.SetStatus(userCred, api.DISK_RESET, "")
+	if len(guests) == 1 {
+		guests[0].SetStatus(userCred, api.VM_DISK_RESET, "disk reset")
+	}
 	params := jsonutils.NewDict()
 	params.Set("snapshot_id", jsonutils.NewString(snapshotId))
 	params.Set("auto_start", jsonutils.NewBool(autoStart))
