@@ -127,6 +127,8 @@ func (port *SPort) GetStatus() string {
 	switch port.Status {
 	case "ACTIVE", "DOWN":
 		return api.NETWORK_INTERFACE_STATUS_AVAILABLE
+	case "BUILD":
+		return api.NETWORK_INTERFACE_STATUS_CREATING
 	}
 	return port.Status
 }

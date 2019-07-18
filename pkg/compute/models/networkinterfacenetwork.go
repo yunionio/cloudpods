@@ -179,7 +179,7 @@ func (manager *SNetworkinterfacenetworkManager) newFromCloudInterfaceAddress(ctx
 	}
 
 	network := _network.(*SNetwork)
-	if !network.isAddressInRange(ipAddr) {
+	if !network.IsAddressInRange(ipAddr) {
 		return fmt.Errorf("ip %s not in network %s(%s) range", address.IpAddr, network.Name, network.Id)
 	}
 
