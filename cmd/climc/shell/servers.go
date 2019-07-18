@@ -535,21 +535,13 @@ func init() {
 	})
 
 	type ServerChangeOwnerOptions struct {
-		ID      string `help:"Server to change owner"`
-		PROJECT string `help:"Project ID or change"`
-		RawId   bool   `help:"User raw ID, instead of name"`
+		ID      string `help:"Server to change owner" json:"-"`
+		PROJECT string `help:"Project ID or change" json:"tenant"`
 	}
 	R(&ServerChangeOwnerOptions{}, "server-change-owner", "Change owner porject of a server", func(s *mcclient.ClientSession, opts *ServerChangeOwnerOptions) error {
-		params := jsonutils.NewDict()
-		if opts.RawId {
-			projid, err := modules.Projects.GetId(s, opts.PROJECT, nil)
-			if err != nil {
-				return err
-			}
-			params.Add(jsonutils.NewString(projid), "tenant")
-			params.Add(jsonutils.JSONTrue, "raw_id")
-		} else {
-			params.Add(jsonutils.NewString(opts.PROJECT), "tenant")
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
 		}
 		srv, err := modules.Servers.PerformAction(s, opts.ID, "change-owner", params)
 		if err != nil {

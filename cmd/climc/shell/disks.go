@@ -300,4 +300,21 @@ func init() {
 		printObject(disk)
 		return nil
 	})
+
+	type DiskChangeOwnerOptions struct {
+		ID      string `help:"Disk to change owner" json:"-"`
+		PROJECT string `help:"Project ID or change" json:"tenant"`
+	}
+	R(&DiskChangeOwnerOptions{}, "disk-change-owner", "Change owner porject of a disk", func(s *mcclient.ClientSession, opts *DiskChangeOwnerOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		srv, err := modules.Disks.PerformAction(s, opts.ID, "change-owner", params)
+		if err != nil {
+			return err
+		}
+		printObject(srv)
+		return nil
+	})
 }
