@@ -8,6 +8,7 @@ message Command {
   repeated bytes env = 3;
   bytes dir = 4;
   bytes input = 5;
+  bool kill_process = 6;
 }
 
 message Response {

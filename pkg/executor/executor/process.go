@@ -131,8 +131,18 @@ func (p *Process) Wait() error {
 	if err != nil {
 		return err
 	}
-	if p.ExitCode < 0 {
+	if len(p.ErrContent) > 0 {
 		return errors.New(p.ErrContent)
+	}
+	return nil
+}
+
+func (p *Process) Kill() error {
+	c := &execapi.Command{KillProcess: true}
+	if err := p.client.Send(c); err != nil {
+		err = errors.Wrap(err, "grpc send kill process")
+		p.streamError <- err
+		return err
 	}
 	return nil
 }

@@ -27,20 +27,22 @@ type Commander struct {
 	cmd    *execapi.Command
 
 	wg *sync.WaitGroup
-	// closeAfterStart []io.Closer
-	// closeAfterWait  []io.Closer
 
-	streamErr chan error
-	runErr    chan error
+	waitDone    chan struct{}
+	killProcess chan struct{}
+	streamErr   chan error
+	runErr      chan error
 }
 
 func NewCommander(stream execapi.Executor_ExecCommandServer, cmd *execapi.Command) *Commander {
 	return &Commander{
-		stream:    stream,
-		cmd:       cmd,
-		wg:        new(sync.WaitGroup),
-		streamErr: make(chan error, 3),
-		runErr:    make(chan error, 1),
+		stream:      stream,
+		cmd:         cmd,
+		wg:          new(sync.WaitGroup),
+		waitDone:    make(chan struct{}, 1),
+		killProcess: make(chan struct{}, 1),
+		streamErr:   make(chan error, 3),
+		runErr:      make(chan error, 1),
 	}
 }
 
@@ -128,7 +130,6 @@ func (m *Commander) Start() error {
 			} else {
 				// command not found or io problem
 				errContent = err.Error()
-				exitCode = -1
 			}
 		} else {
 			exitCode = 0
@@ -145,11 +146,19 @@ func (m *Commander) Start() error {
 
 func (m *Commander) waitProcess(c *exec.Cmd) {
 	go func() {
+		select {
+		case <-m.killProcess:
+			c.Process.Kill()
+		case <-m.waitDone:
+		}
+	}()
+	go func() {
 		if err := c.Wait(); err != nil {
 			m.runErr <- err
 		} else {
 			m.runErr <- nil
 		}
+		close(m.waitDone)
 	}()
 }
 
@@ -183,6 +192,8 @@ func (m *Commander) streamStdin(w io.Writer) {
 					m.streamErr <- errors.Wrap(e, "write to process")
 					break
 				}
+			} else if c.KillProcess {
+				close(m.killProcess)
 			} else {
 				log.Warningf("stream stdin receive cmd not input: %s", c)
 			}

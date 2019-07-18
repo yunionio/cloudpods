@@ -2,12 +2,14 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 	"syscall"
+	"time"
 
 	"yunion.io/x/log"
 
@@ -51,11 +53,9 @@ func main() {
 			continue
 		}
 		// inputCmd := utils.ArgsStringToArray(input)
-		// if len(inputCmd) == 0 {
-		// 	continue
-		// }
 		pr, pw = io.Pipe()
-		c := exec.Command("sh", "-c", input)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		c := exec.CommandContext(ctx, "sh", "-c", input)
 		c.Stdin = pr
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
@@ -66,8 +66,9 @@ func main() {
 		cmdRunning = true
 		go func() {
 			if err := c.Wait(); err != nil {
-				fmt.Printf("cmd %s exec failed: %s\n", input, err)
+				fmt.Printf("cmd %s exec failed: %s %#v\n", input, err, err)
 			}
+			cancel()
 			pr.Close()
 			cmdRunning = false
 			fmt.Print("# ")

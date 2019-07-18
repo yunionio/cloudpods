@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -35,6 +36,15 @@ func Command(path string, args ...string) *Cmd {
 	}
 }
 
+func CommandContext(ctx context.Context, path string, args ...string) *Cmd {
+	if ctx == nil {
+		panic("nil Context")
+	}
+	cmd := Command(path, args...)
+	cmd.ctx = ctx
+	return cmd
+}
+
 func NewExecutorCommand(socketPath, path string, args ...string) *Cmd {
 	return &Cmd{
 		Path:     path,
@@ -42,6 +52,65 @@ func NewExecutorCommand(socketPath, path string, args ...string) *Cmd {
 		executor: &Executor{socketPath},
 		err:      make(chan error),
 	}
+}
+
+// Convert integer to decimal string
+func itoa(val int) string {
+	if val < 0 {
+		return "-" + uitoa(uint(-val))
+	}
+	return uitoa(uint(val))
+}
+
+// Convert unsigned integer to decimal string
+func uitoa(val uint) string {
+	if val == 0 { // avoid string allocation
+		return "0"
+	}
+	var buf [20]byte // big enough for 64bit value base 10
+	i := len(buf) - 1
+	for val >= 10 {
+		q := val / 10
+		buf[i] = byte('0' + val - q*10)
+		i--
+		val = q
+	}
+	// val < 10
+	buf[i] = byte('0' + val)
+	return string(buf[i:])
+}
+
+// convert exit code to error string
+// source code in exec posix
+func exitCodeToString(exitCode int) string {
+	status := syscall.WaitStatus(exitCode)
+	res := ""
+	switch {
+	case status.Exited():
+		res = "exit status " + itoa(status.ExitStatus())
+	case status.Signaled():
+		res = "signal: " + status.Signal().String()
+	case status.Stopped():
+		res = "stop signal: " + status.StopSignal().String()
+		if status.StopSignal() == syscall.SIGTRAP && status.TrapCause() != 0 {
+			res += " (trap " + itoa(status.TrapCause()) + ")"
+		}
+	case status.Continued():
+		res = "continued"
+	}
+	if status.CoreDump() {
+		res += " (core dumped)"
+	}
+	return res
+}
+
+type ExitError struct {
+	ExitCode int
+	Stderr   []byte
+}
+
+func (e *ExitError) Error() string {
+	return exitCodeToString(e.ExitCode)
 }
 
 type Cmd struct {
@@ -61,6 +130,7 @@ type Cmd struct {
 	Proc     *Process
 	finished bool
 	err      chan error
+	waitDone chan struct{}
 }
 
 func grcpDialWithUnixSocket(ctx context.Context, socketPath string) (*grpc.ClientConn, error) {
@@ -93,15 +163,6 @@ func (c *Cmd) Run() error {
 	return c.Wait()
 }
 
-type ExitError struct {
-	ExitCode int
-	Stderr   []byte
-}
-
-func (e *ExitError) Error() string {
-	return string(e.Stderr)
-}
-
 func (c *Cmd) Output() ([]byte, error) {
 	if c.Stdout != nil {
 		return nil, errors.New("exec: Stdout already set")
@@ -115,21 +176,16 @@ func (c *Cmd) Output() ([]byte, error) {
 	// function run return err its mean grpc stream transport error
 	// cmd execute error indicate by exit code
 	if err := c.Run(); err != nil {
+		if e, ok := err.(*ExitError); ok {
+			e.Stderr = stderr.Bytes()
+		}
 		return nil, err
 	}
-
-	if c.Proc.ExitCode > 0 {
-		return stdout.Bytes(), &ExitError{c.Proc.ExitCode, stderr.Bytes()}
-	} else {
-		return stdout.Bytes(), nil
-	}
+	return stdout.Bytes(), nil
 }
 
 func (c *Cmd) Start() error {
-	if c.ctx == nil {
-		c.ctx = context.Background()
-	}
-	conn, client, err := c.initializeClient(c.ctx)
+	conn, client, err := c.initializeClient(context.Background())
 	if err != nil {
 		if conn != nil {
 			conn.Close()
@@ -139,12 +195,33 @@ func (c *Cmd) Start() error {
 		c.conn = conn
 	}
 
+	if c.ctx != nil {
+		select {
+		case <-c.ctx.Done():
+			c.conn.Close()
+			return c.ctx.Err()
+		default:
+		}
+	}
+
 	c.Proc, err = startProcess(
 		client, c.Path, c.Args, c.Env, c.Dir,
 		c.Stdin, c.Stdout, c.Stderr,
 	)
 	if err != nil {
+		c.conn.Close()
 		return err
+	}
+
+	if c.ctx != nil {
+		c.waitDone = make(chan struct{})
+		go func() {
+			select {
+			case <-c.ctx.Done():
+				c.Proc.Kill()
+			case <-c.waitDone:
+			}
+		}()
 	}
 	return nil
 }
@@ -158,6 +235,22 @@ func (c *Cmd) Wait() error {
 	}
 	err := c.Proc.Wait()
 	c.finished = true
+	if c.waitDone != nil {
+		close(c.waitDone)
+	}
 	c.conn.Close()
-	return err
+	if err != nil {
+		return err
+	}
+	if c.Proc.ExitCode > 0 {
+		return &ExitError{ExitCode: c.Proc.ExitCode}
+	}
+
+	if c.Proc.ExitCode != 0 {
+		return &ExitError{
+			ExitCode: c.Proc.ExitCode,
+		}
+	} else {
+		return nil
+	}
 }
