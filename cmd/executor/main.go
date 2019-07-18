@@ -66,7 +66,7 @@ func main() {
 		cmdRunning = true
 		go func() {
 			if err := c.Wait(); err != nil {
-				fmt.Printf("cmd %s exec failed: %s %#v\n", input, err, err)
+				fmt.Printf("cmd %s exec failed: %s\n", input, err)
 			}
 			cancel()
 			pr.Close()

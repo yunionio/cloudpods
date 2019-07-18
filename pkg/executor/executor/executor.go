@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 	"net"
-	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -52,65 +51,6 @@ func NewExecutorCommand(socketPath, path string, args ...string) *Cmd {
 		executor: &Executor{socketPath},
 		err:      make(chan error),
 	}
-}
-
-// Convert integer to decimal string
-func itoa(val int) string {
-	if val < 0 {
-		return "-" + uitoa(uint(-val))
-	}
-	return uitoa(uint(val))
-}
-
-// Convert unsigned integer to decimal string
-func uitoa(val uint) string {
-	if val == 0 { // avoid string allocation
-		return "0"
-	}
-	var buf [20]byte // big enough for 64bit value base 10
-	i := len(buf) - 1
-	for val >= 10 {
-		q := val / 10
-		buf[i] = byte('0' + val - q*10)
-		i--
-		val = q
-	}
-	// val < 10
-	buf[i] = byte('0' + val)
-	return string(buf[i:])
-}
-
-// convert exit code to error string
-// source code in exec posix
-func exitCodeToString(exitCode int) string {
-	status := syscall.WaitStatus(exitCode)
-	res := ""
-	switch {
-	case status.Exited():
-		res = "exit status " + itoa(status.ExitStatus())
-	case status.Signaled():
-		res = "signal: " + status.Signal().String()
-	case status.Stopped():
-		res = "stop signal: " + status.StopSignal().String()
-		if status.StopSignal() == syscall.SIGTRAP && status.TrapCause() != 0 {
-			res += " (trap " + itoa(status.TrapCause()) + ")"
-		}
-	case status.Continued():
-		res = "continued"
-	}
-	if status.CoreDump() {
-		res += " (core dumped)"
-	}
-	return res
-}
-
-type ExitError struct {
-	ExitCode int
-	Stderr   []byte
-}
-
-func (e *ExitError) Error() string {
-	return exitCodeToString(e.ExitCode)
 }
 
 type Cmd struct {
@@ -239,18 +179,5 @@ func (c *Cmd) Wait() error {
 		close(c.waitDone)
 	}
 	c.conn.Close()
-	if err != nil {
-		return err
-	}
-	if c.Proc.ExitCode > 0 {
-		return &ExitError{ExitCode: c.Proc.ExitCode}
-	}
-
-	if c.Proc.ExitCode != 0 {
-		return &ExitError{
-			ExitCode: c.Proc.ExitCode,
-		}
-	} else {
-		return nil
-	}
+	return err
 }

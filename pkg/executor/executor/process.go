@@ -3,6 +3,7 @@ package executor
 import (
 	"bytes"
 	"io"
+	"syscall"
 
 	"github.com/pkg/errors"
 	"yunion.io/x/log"
@@ -14,7 +15,7 @@ type Process struct {
 	client execapi.Executor_ExecCommandClient
 
 	streamError chan error
-	ExitCode    int
+	ExitStatus  syscall.WaitStatus
 	ErrContent  string
 
 	stdin  io.Reader
@@ -112,7 +113,7 @@ func (p *Process) fetchOutput() {
 		}
 		switch {
 		case res.IsExit:
-			p.ExitCode = int(res.ExitCode)
+			p.ExitStatus = syscall.WaitStatus(res.ExitStatus)
 			p.streamError <- nil
 			p.ErrContent = string(res.ErrContent)
 			return
@@ -126,17 +127,6 @@ func (p *Process) fetchOutput() {
 	}
 }
 
-func (p *Process) Wait() error {
-	err := <-p.streamError
-	if err != nil {
-		return err
-	}
-	if len(p.ErrContent) > 0 {
-		return errors.New(p.ErrContent)
-	}
-	return nil
-}
-
 func (p *Process) Kill() error {
 	c := &execapi.Command{KillProcess: true}
 	if err := p.client.Send(c); err != nil {
@@ -145,4 +135,77 @@ func (p *Process) Kill() error {
 		return err
 	}
 	return nil
+}
+
+func (p *Process) Wait() error {
+	err := <-p.streamError
+	if err != nil {
+		return err
+	}
+	if len(p.ErrContent) > 0 {
+		return errors.New(p.ErrContent)
+	}
+	if p.ExitStatus.ExitStatus() == 0 {
+		return nil
+	} else {
+		return &ExitError{ExitStatus: p.ExitStatus}
+	}
+}
+
+// Convert integer to decimal string
+func itoa(val int) string {
+	if val < 0 {
+		return "-" + uitoa(uint(-val))
+	}
+	return uitoa(uint(val))
+}
+
+// Convert unsigned integer to decimal string
+func uitoa(val uint) string {
+	if val == 0 { // avoid string allocation
+		return "0"
+	}
+	var buf [20]byte // big enough for 64bit value base 10
+	i := len(buf) - 1
+	for val >= 10 {
+		q := val / 10
+		buf[i] = byte('0' + val - q*10)
+		i--
+		val = q
+	}
+	// val < 10
+	buf[i] = byte('0' + val)
+	return string(buf[i:])
+}
+
+// Convert exit status to error string
+// Source code in exec posix
+func exitStatusToString(status syscall.WaitStatus) string {
+	res := ""
+	switch {
+	case status.Exited():
+		res = "exit status " + itoa(status.ExitStatus())
+	case status.Signaled():
+		res = "signal: " + status.Signal().String()
+	case status.Stopped():
+		res = "stop signal: " + status.StopSignal().String()
+		if status.StopSignal() == syscall.SIGTRAP && status.TrapCause() != 0 {
+			res += " (trap " + itoa(status.TrapCause()) + ")"
+		}
+	case status.Continued():
+		res = "continued"
+	}
+	if status.CoreDump() {
+		res += " (core dumped)"
+	}
+	return res
+}
+
+type ExitError struct {
+	ExitStatus syscall.WaitStatus
+	Stderr     []byte
+}
+
+func (e *ExitError) Error() string {
+	return exitStatusToString(e.ExitStatus)
 }

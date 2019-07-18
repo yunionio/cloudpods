@@ -14,7 +14,7 @@ message Command {
 message Response {
   bytes stdout = 1;
   bytes stderr = 2;
-  int32 exit_code = 3;
+  uint32 exit_status = 3;
   bool is_exit = 4;
   bytes err_content = 5;
 }

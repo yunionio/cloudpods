@@ -111,7 +111,7 @@ func (m *Commander) Start() error {
 	}
 
 	var (
-		exitCode   int32
+		exitStatus uint32
 		errContent string
 	)
 	select {
@@ -125,20 +125,19 @@ func (m *Commander) Start() error {
 				// syscall is generally platform dependent, WaitStatus is
 				// defined for both Unix and Windows and in both cases has
 				// an ExitStatus() method with the same signature.
-				status := exiterr.Sys().(syscall.WaitStatus)
-				exitCode = int32(status.ExitStatus())
+				exitStatus = uint32(exiterr.Sys().(syscall.WaitStatus))
 			} else {
 				// command not found or io problem
 				errContent = err.Error()
 			}
 		} else {
-			exitCode = 0
+			exitStatus = 0
 		}
 	}
 
 	m.wg.Wait()
 	return m.stream.Send(&execapi.Response{
-		ExitCode:   exitCode,
+		ExitStatus: exitStatus,
 		IsExit:     true,
 		ErrContent: []byte(errContent),
 	})
