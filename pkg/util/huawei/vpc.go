@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"strings"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 
@@ -30,8 +31,9 @@ type SVpc struct {
 
 	region *SRegion
 
-	iwires    []cloudprovider.ICloudWire
-	secgroups []cloudprovider.ICloudSecurityGroup
+	iwires      []cloudprovider.ICloudWire
+	secgroups   []cloudprovider.ICloudSecurityGroup
+	routeTables []cloudprovider.ICloudRouteTable
 
 	ID                  string `json:"id"`
 	Name                string `json:"name"`
@@ -169,8 +171,18 @@ func (self *SVpc) GetISecurityGroups() ([]cloudprovider.ICloudSecurityGroup, err
 }
 
 func (self *SVpc) GetIRouteTables() ([]cloudprovider.ICloudRouteTable, error) {
-	rts := []cloudprovider.ICloudRouteTable{}
-	return rts, nil
+	if self.routeTables == nil {
+		routeTables, err := self.getRouteTables()
+		if err != nil {
+			return nil, errors.Wrap(err, "get route table error")
+		}
+		ret := make([]cloudprovider.ICloudRouteTable, len(routeTables))
+		for i := range routeTables {
+			ret[i] = &routeTables[i]
+		}
+		self.routeTables = ret
+	}
+	return self.routeTables, nil
 }
 
 func (self *SVpc) Delete() error {
