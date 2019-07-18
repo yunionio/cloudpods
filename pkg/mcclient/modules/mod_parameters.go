@@ -44,7 +44,7 @@ func (this *ParametersManager) GetGlobalSettings(s *mcclient.ClientSession, para
 	adminSession := auth.GetAdminSession(context.Background(), "", "")
 	p := jsonutils.NewDict()
 	p.Add(jsonutils.NewString("system"), "scope")
-	p.Add(jsonutils.NewString("name"), "global-settings")
+	p.Add(jsonutils.NewString("global-settings"), "name")
 	parameters, err := this.ListInContext(adminSession, p, &ServicesV3, "yunionagent")
 	if err != nil {
 		return nil, err

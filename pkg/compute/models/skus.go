@@ -818,6 +818,24 @@ func (manager *SServerSkuManager) GetSkuCountByZone(zoneId string) []SServerSku 
 	return skus
 }
 
+func (manager *SServerSkuManager) GetSkus(provider string, cpu, memMB int) ([]SServerSku, error) {
+	skus := []SServerSku{}
+	q := manager.Query()
+	if provider == api.CLOUD_PROVIDER_ONECLOUD {
+		providerFilter := sqlchemy.OR(sqlchemy.Equals(q.Field("provider"), provider), sqlchemy.IsNullOrEmpty(q.Field("provider")))
+		q = q.Equals("cpu_core_count", cpu).Equals("memory_size_mb", memMB).Filter(providerFilter)
+	} else {
+		q = q.Equals("cpu_core_count", cpu).Equals("memory_size_mb", memMB).Equals("provider", provider)
+	}
+
+	if err := db.FetchModelObjects(manager, q, &skus); err != nil {
+		log.Errorf("failed to get skus with provider %s cpu %d mem %d error: %v", provider, cpu, memMB, err)
+		return nil, err
+	}
+
+	return skus, nil
+}
+
 // 删除表中zone not found的记录
 func (manager *SServerSkuManager) PendingDeleteInvalidSku() error {
 	sq := ZoneManager.Query("id").Distinct().SubQuery()
