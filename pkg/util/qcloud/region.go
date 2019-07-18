@@ -151,7 +151,8 @@ func (self *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.
 		lbs[0].region = self
 		return &lbs[0], nil
 	} else {
-		return nil, fmt.Errorf("GetILoadBalancerById %d loadbalancer found", len(lbs))
+		log.Debugf("GetILoadBalancerById %s %d loadbalancer found", loadbalancerId, len(lbs))
+		return nil, cloudprovider.ErrNotFound
 	}
 }
 

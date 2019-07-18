@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -233,7 +234,9 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 
 		return false
 	})
-
+	if err != nil {
+		return "", errors.Wrap(err, "UploadImage")
+	}
 	return imgId, err
 }
 

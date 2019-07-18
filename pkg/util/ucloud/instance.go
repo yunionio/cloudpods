@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/jsonutils"
@@ -392,7 +393,12 @@ func (self *SInstance) StartVM(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatusWithDelay(self, api.VM_RUNNING, 10*time.Second, 10*time.Second, 600*time.Second)
+	err = cloudprovider.WaitStatusWithDelay(self, api.VM_RUNNING, 10*time.Second, 10*time.Second, 600*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "StartVM")
+	}
+
+	return nil
 }
 
 func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
@@ -400,7 +406,12 @@ func (self *SInstance) StopVM(ctx context.Context, isForce bool) error {
 	if err != nil {
 		return err
 	}
-	return cloudprovider.WaitStatusWithDelay(self, api.VM_READY, 10*time.Second, 10*time.Second, 600*time.Second)
+	err = cloudprovider.WaitStatusWithDelay(self, api.VM_READY, 10*time.Second, 10*time.Second, 600*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "StopVM")
+	}
+
+	return nil
 }
 
 func (self *SInstance) DeleteVM(ctx context.Context) error {
@@ -451,7 +462,7 @@ func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd s
 
 	err = cloudprovider.WaitStatusWithDelay(self, api.VM_RUNNING, 10*time.Second, 15*time.Second, 300*time.Second)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "RebuildRoot")
 	}
 
 	disks, err := self.GetIDisks()
@@ -482,7 +493,12 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, password strin
 		}
 	}
 
-	return cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second)
+	err := cloudprovider.WaitStatus(self, api.VM_READY, 10*time.Second, 300*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "DeployVM")
+	}
+
+	return nil
 }
 
 func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
@@ -518,7 +534,12 @@ func (self *SInstance) DetachDisk(ctx context.Context, diskId string) error {
 	}
 
 	disk.storage = &SStorage{zone: self.host.zone, storageType: disk.GetStorageType()}
-	return cloudprovider.WaitStatusWithDelay(disk, api.DISK_READY, 10*time.Second, 10*time.Second, 60*time.Second)
+	err = cloudprovider.WaitStatusWithDelay(disk, api.DISK_READY, 10*time.Second, 10*time.Second, 60*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "DetachDisk")
+	}
+
+	return nil
 }
 
 func (self *SInstance) CreateDisk(ctx context.Context, sizeMb int, uuid string, driver string) error {
