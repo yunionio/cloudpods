@@ -24,6 +24,7 @@ import (
 
 func init() {
 	type ParametersListOptions struct {
+		Name        string `help:"List parameter of specificated name"`
 		NamespaceId string `help:"List parameter of specificated namespace id, ADMIN only"`
 		User        string `help:"List parameter of specificated user id, ADMIN only" token:"user-id"`
 		Service     string `help:"List parameter of specificated service id, ADMIN only"`
@@ -34,6 +35,10 @@ func init() {
 		params, err := options.ListStructToParams(args)
 		if err != nil {
 			return err
+		}
+
+		if len(args.Name) > 0 {
+			params.Add(jsonutils.NewString(args.Name), "name")
 		}
 
 		var result *modules.ListResult
