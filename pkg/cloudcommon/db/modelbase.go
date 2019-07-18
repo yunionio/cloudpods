@@ -163,6 +163,7 @@ func (manager *SModelBaseManager) InitializeData() error {
 }
 
 func (manager *SModelBaseManager) ListItemExportKeys(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q = q.AppendField(q.QueryFields()...)
 	return q, nil
 }
 
