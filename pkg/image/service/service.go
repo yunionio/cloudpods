@@ -110,7 +110,6 @@ func StartService() {
 		cron.Start()
 	}
 
-	cloudcommon.AppDBInit(app)
 	app_common.ServeForeverWithCleanup(app, baseOpts, func() {
 		cloudcommon.CloseDB()
 
