@@ -81,6 +81,8 @@ const (
 	VM_BLOCK_STREAM_FAIL = "block_stream_fail"
 	VM_SNAPSHOT_SUCC     = "snapshot_succ"
 	VM_SNAPSHOT_FAILED   = "snapshot_failed"
+	VM_DISK_RESET        = "disk_reset"
+	VM_DISK_RESET_FAIL   = "disk_reset_failed"
 
 	VM_SYNCING_STATUS = "syncing"
 	VM_SYNC_CONFIG    = "sync_config"
