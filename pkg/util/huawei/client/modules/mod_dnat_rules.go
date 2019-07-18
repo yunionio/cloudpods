@@ -18,20 +18,20 @@ import (
 	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 )
 
-type SNatSRuleManager struct {
+type SNatDRuleManager struct {
 	SResourceManager
 }
 
-func NewNatSManager(regionId string, projectId string, signer auth.Signer, debug bool) *SNatSRuleManager {
-	return &SNatSRuleManager{SResourceManager: SResourceManager{
+func NewNatDManager(regionId string, projectId string, signer auth.Signer, debug bool) *SNatDRuleManager {
+	return &SNatDRuleManager{SResourceManager: SResourceManager{
 		SBaseManager:  NewBaseManager(signer, debug),
-		ServiceName:   ServiceNameVPC,
+		ServiceName:   ServiceNameNAT,
 		Region:        regionId,
 		ProjectId:     "",
 		version:       "v2.0",
-		Keyword:       "snat_rule",
-		KeywordPlural: "snat_rules",
+		Keyword:       "dnat_rule",
+		KeywordPlural: "dnat_rules",
 
-		ResourceKeyword: "snat_rules",
+		ResourceKeyword: "dnat_rules",
 	}}
 }

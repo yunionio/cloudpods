@@ -25,7 +25,7 @@ type SNatGatewayManager struct {
 func NewNatGatewayManager(regionId string, projectId string, signer auth.Signer, debug bool) *SNatGatewayManager {
 	return &SNatGatewayManager{SResourceManager: SResourceManager{
 		SBaseManager:  NewBaseManager(signer, debug),
-		ServiceName:   ServiceNameVPC,
+		ServiceName:   ServiceNameNAT,
 		Region:        regionId,
 		ProjectId:     "",
 		version:       "v2.0",

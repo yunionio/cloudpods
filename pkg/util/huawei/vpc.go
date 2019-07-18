@@ -16,8 +16,8 @@ package huawei
 
 import (
 	"strings"
-	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -203,6 +203,18 @@ func (self *SVpc) GetIWireById(wireId string) (cloudprovider.ICloudWire, error) 
 		}
 	}
 	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SVpc) GetINatGateways() ([]cloudprovider.ICloudNatGateway, error) {
+	nats, err := self.region.GetNatGateways(self.GetId())
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]cloudprovider.ICloudNatGateway, len(nats))
+	for i := 0; i < len(nats); i++ {
+		ret[i] = &nats[i]
+	}
+	return ret, nil
 }
 
 func (self *SRegion) getVpc(vpcId string) (*SVpc, error) {

@@ -31,6 +31,8 @@ type SNatDTableEntry struct {
 	ExternalPort int    `json:"external_service_port"`
 	InternalIP   string `json:"private_ip"`
 	InternalPort int    `json:"internal_service_port"`
+	PortID       string `json:"port_id"`
+	AdminStateUp bool   `json:"admin_state_up"`
 }
 
 func (nat *SNatDTableEntry) GetId() string {
@@ -72,31 +74,35 @@ func (nat *SNatDTableEntry) GetInternalPort() int {
 
 // getSNatEntries return all snat rules of gateway
 func (gateway *SNatGateway) getDNatEntries() ([]SNatDTableEntry, error) {
-	queuies := map[string]string{
-		"nat_gateway_id": gateway.GetId(),
-	}
-	dNatSTableEntris := make([]SNatDTableEntry, 0, 2)
-	// can't make true that restapi support marker para in Huawei Cloud
-	err := doListAllWithMarker(gateway.region.ecsClient.DNatRules.List, queuies, &dNatSTableEntris)
+	ret, err := gateway.region.GetDNatTable(gateway.GetId())
 	if err != nil {
-		return nil, errors.Wrapf(err, `get dnat rule of gateway %q`, gateway.GetId())
+		return nil, err
 	}
-
-	for i := range dNatSTableEntris {
-		dNatSTableEntris[i].gateway = gateway
+	for i := range ret {
+		ret[i].gateway = gateway
 	}
-	return dNatSTableEntris, nil
+	return ret, nil
 }
 
 func (region *SRegion) GetDNatTable(natGatewayID string) ([]SNatDTableEntry, error) {
 	queuies := map[string]string{
 		"nat_gateway_id": natGatewayID,
 	}
-	dNatSTableEntris := make([]SNatDTableEntry, 0, 2)
+	dNatSTableEntries := make([]SNatDTableEntry, 0, 2)
 	// can't make true that restapi support marker para in Huawei Cloud
-	err := doListAllWithMarker(region.ecsClient.DNatRules.List, queuies, &dNatSTableEntris)
+	err := doListAllWithMarker(region.ecsClient.DNatRules.List, queuies, &dNatSTableEntries)
 	if err != nil {
 		return nil, errors.Wrapf(err, `get dnat rule of gateway %q`, natGatewayID)
 	}
-	return dNatSTableEntris, nil
+	for i := range dNatSTableEntries {
+		nat := &dNatSTableEntries[i]
+		if len(nat.InternalIP) == 0 {
+			port, err := region.GetPort(nat.PortID)
+			if err != nil {
+				return nil, errors.Wrapf(err, `get port info for transfer to ip of port_id %q error`, nat.PortID)
+			}
+			nat.InternalIP = port.FixedIPs[0].IPAddress
+		}
+	}
+	return dNatSTableEntries, nil
 }
