@@ -32,21 +32,6 @@ const (
 	InternetChargeByBandwidth = TInternetChargeType("bandwidth")
 )
 
-type Port struct {
-	ID              string    `json:"id"`
-	Name            string    `json:"name"`
-	Status          string    `json:"status"`
-	AdminStateUp    string    `json:"admin_state_up"`
-	DNSName         string    `json:"dns_name"`
-	MACAddress      string    `json:"mac_address"`
-	NetworkID       string    `json:"network_id"`
-	TenantID        string    `json:"tenant_id"`
-	DeviceID        string    `json:"device_id"`
-	DeviceOwner     string    `json:"device_owner"`
-	BindingVnicType string    `json:"binding:vnic_type"`
-	FixedIPs        []FixedIP `json:"fixed_ips"`
-}
-
 type Bandwidth struct {
 	ID                  string         `json:"id"`
 	Name                string         `json:"name"`
@@ -369,26 +354,4 @@ func (self *SRegion) GetEipBandwidth(bandwidthId string) (Bandwidth, error) {
 	bandwidth := Bandwidth{}
 	err := DoGet(self.ecsClient.Bandwidths.Get, bandwidthId, nil, &bandwidth)
 	return bandwidth, err
-}
-
-func (self *SRegion) GetPort(portId string) (Port, error) {
-	port := Port{}
-	err := DoGet(self.ecsClient.Port.Get, portId, nil, &port)
-	return port, err
-}
-
-// https://support.huaweicloud.com/api-vpc/zh-cn_topic_0030591299.html
-func (self *SRegion) GetPorts(instanceId string) ([]Port, error) {
-	ports := make([]Port, 0)
-	querys := map[string]string{}
-	if len(instanceId) > 0 {
-		querys["device_id"] = instanceId
-	}
-
-	err := doListAllWithMarker(self.ecsClient.Port.List, querys, &ports)
-	return ports, err
-}
-
-func (self *SEipAddress) GetProjectId() string {
-	return ""
 }

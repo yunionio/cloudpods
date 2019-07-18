@@ -215,7 +215,8 @@ func (self *SNetwork) GetEipsCount() (int, error) {
 }
 
 func (self *SNetwork) GetNetworkInterfacesCount() (int, error) {
-	return NetworkinterfacenetworkManager.Query().Equals("network_id", self.Id).CountWithError()
+	sq := NetworkinterfacenetworkManager.Query().Equals("network_id", self.Id).Distinct().SubQuery()
+	return NetworkInterfaceManager.Query().In("id", sq).CountWithError()
 }
 
 func (self *SNetwork) GetUsedAddresses() map[string]bool {
