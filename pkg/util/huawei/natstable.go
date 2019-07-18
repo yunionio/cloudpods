@@ -29,6 +29,7 @@ type SNatSTableEntry struct {
 	SourceCIDR   string `json:"cidr"`
 	Status       string `json:"status"`
 	SNatIP       string `json:"floating_ip_address"`
+	AdminStateUp bool   `json:"admin_state_up"`
 }
 
 func (nat *SNatSTableEntry) GetId() string {
@@ -62,22 +63,17 @@ func (nat *SNatSTableEntry) GetNetworkId() string {
 
 // getSNatEntries return all snat rules of gateway
 func (gateway *SNatGateway) getSNatEntries() ([]SNatSTableEntry, error) {
-	queuies := map[string]string{
-		"nat_gateway_id": gateway.GetId(),
-	}
-	sNatSTableEntris := make([]SNatSTableEntry, 0, 2)
-	err := doListAllWithMarker(gateway.region.ecsClient.SNatRules.List, queuies, &sNatSTableEntris)
+	ret, err := gateway.region.GetSNatTable(gateway.GetId())
 	if err != nil {
-		return nil, errors.Wrapf(err, `get snat rule of gateway %q`, gateway.GetId())
+		return nil, err
 	}
-
-	for i := range sNatSTableEntris {
-		sNatSTableEntris[i].gateway = gateway
+	for i := range ret {
+		ret[i].gateway = gateway
 	}
-	return sNatSTableEntris, nil
+	return ret, nil
 }
 
-func (region *SRegion) getSNatTable(natGatewayID string) ([]SNatSTableEntry, error) {
+func (region *SRegion) GetSNatTable(natGatewayID string) ([]SNatSTableEntry, error) {
 	queuies := map[string]string{
 		"nat_gateway_id": natGatewayID,
 	}
@@ -86,6 +82,17 @@ func (region *SRegion) getSNatTable(natGatewayID string) ([]SNatSTableEntry, err
 	if err != nil {
 		return nil, errors.Wrapf(err, `get snat rule of gateway %q`, natGatewayID)
 	}
-
+	for i := range sNatSTableEntris {
+		nat := &sNatSTableEntris[i]
+		if len(nat.SourceCIDR) != 0 {
+			continue
+		}
+		subnet := SNetwork{}
+		err := DoGet(region.ecsClient.Subnets.Get, nat.NetworkID, map[string]string{}, &subnet)
+		if err != nil {
+			return nil, errors.Wrapf(err, `get cidr of subnet %q`, nat.NetworkID)
+		}
+		nat.SourceCIDR = subnet.CIDR
+	}
 	return sNatSTableEntris, nil
 }

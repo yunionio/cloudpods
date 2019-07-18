@@ -16,12 +16,11 @@ package huawei
 
 import (
 	"time"
-	"yunion.io/x/pkg/errors"
-
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/pkg/errors"
 )
 
 type SNatGateway struct {
@@ -36,7 +35,7 @@ type SNatGateway struct {
 	Description string
 	Spec        string
 	Status      string
-	CreatedTime time.Time `json:"created_at"`
+	CreatedTime string `json:"created_at"`
 }
 
 func (nat *SNatGateway) GetId() string {
@@ -70,13 +69,18 @@ func (nat *SNatGateway) GetNatSpec() string {
 	return ""
 }
 
+func (nat *SNatGateway) GetDescription() string {
+	return nat.Description
+}
+
 func (nat *SNatGateway) GetBillingType() string {
 	// Up to 2019.07.17, only support post pay
 	return billing_api.BILLING_TYPE_POSTPAID
 }
 
 func (nat *SNatGateway) GetCreatedAt() time.Time {
-	return nat.CreatedTime
+	t, _ := time.Parse("2006-01-02 15:04:05.000000", nat.CreatedTime)
+	return t
 }
 
 func (nat *SNatGateway) GetExpiredAt() time.Time {
@@ -149,14 +153,32 @@ func (nat *SNatGateway) GetINatSTables() ([]cloudprovider.ICloudNatSTable, error
 }
 
 func (region *SRegion) GetNatGateway(natGatewayID string) ([]SNatGateway, error) {
-	queuies := make(map[string]string)
+	queues := make(map[string]string)
 	if natGatewayID != "" {
-		queuies["id"] = natGatewayID
+		queues["id"] = natGatewayID
 	}
 	natGateways := make([]SNatGateway, 0, 2)
-	err := doListAllWithMarker(region.ecsClient.NatGateways.List, queuies, &natGateways)
+	err := doListAllWithMarker(region.ecsClient.NatGateways.List, queues, &natGateways)
 	if err != nil {
 		return nil, errors.Wrapf(err, "get nat gateways error")
+	}
+	for i := range natGateways {
+		natGateways[i].region = region
+	}
+	return natGateways, nil
+}
+
+func (region *SRegion) GetNatGateways(vpcID string) ([]SNatGateway, error) {
+	queues := map[string]string{
+		"router_id": vpcID,
+	}
+	natGateways := make([]SNatGateway, 0, 2)
+	err := doListAllWithMarker(region.ecsClient.NatGateways.List, queues, &natGateways)
+	if err != nil {
+		return nil, errors.Wrapf(err, "get nat gateways error by vpcid")
+	}
+	for i := range natGateways {
+		natGateways[i].region = region
 	}
 	return natGateways, nil
 }

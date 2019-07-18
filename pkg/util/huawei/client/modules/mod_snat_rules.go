@@ -12,35 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package huawei
+package modules
 
 import (
-	"testing"
-	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/util/huawei/client/auth"
 )
 
-const (
-	PROJECT_ID = "41f6bfe48d7f4455b7754f7c1b11ae34"
-	ACCESS_KEY = "BLFG27EGJARKKG9HRKGT"
-	SECRET     = "9LzCQcE9JogwQM7t42JaFcFfmPQCuUBdjmXSDibw"
-)
-
-var region *SRegion
-
-func TestMain(m *testing.M) {
-	huaweiClient, err := NewHuaweiClient("001", "huaweiZyTest", "", ACCESS_KEY, SECRET, PROJECT_ID, true)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	regionTmp := huaweiClient.iregions[0]
-	region = regionTmp.(*SRegion)
-	m.Run()
+type SNatSRuleManager struct {
+	SResourceManager
 }
 
-func TestSRegion_GetDNatTable(t *testing.T) {
+func NewNatSManager(regionId string, projectId string, signer auth.Signer, debug bool) *SNatSRuleManager {
+	return &SNatSRuleManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
+		ServiceName:   ServiceNameNAT,
+		Region:        regionId,
+		ProjectId:     "",
+		version:       "v2.0",
+		Keyword:       "snat_rule",
+		KeywordPlural: "snat_rules",
 
-}
-
-func TestSregion_GetSNatTable(t *testing.T) {
-
+		ResourceKeyword: "snat_rules",
+	}}
 }
