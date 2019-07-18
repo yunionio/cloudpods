@@ -291,7 +291,12 @@ func (region *SRegion) CreateDisk(imageRef string, category string, name string,
 	}
 	//这里由于不好初始化disk的storage就手动循环了,如果是通过镜像创建，有个下载过程,比较慢，等待时间较长
 	startTime := time.Now()
-	for time.Now().Sub(startTime) < time.Minute*10 {
+	timeout := time.Minute * 10
+	//若是通过镜像创建，需要先下载镜像，需要的时间更长
+	if len(imageRef) > 0 {
+		timeout = time.Minute * 30
+	}
+	for time.Now().Sub(startTime) < timeout {
 		disk, err = region.GetDisk(disk.GetGlobalId())
 		if err != nil {
 			return nil, err
