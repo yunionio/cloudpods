@@ -295,6 +295,11 @@ func (lb *SLoadbalancer) purge(ctx context.Context, userCred mcclient.TokenCrede
 		return err
 	}
 
+	err = lb.DeleteEip(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
 	err = lb.purgeBackendGroups(ctx, userCred)
 	if err != nil {
 		return err

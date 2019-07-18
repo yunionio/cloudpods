@@ -21,11 +21,13 @@ import (
 
 func init() {
 	type EipListOptions struct {
-		Offset int `help:"List offset"`
-		Limit  int `help:"List limit"`
+		Id          string `help:"Id of eip"`
+		AssociateId string `help:"AssociateId of eip"`
+		Offset      int    `help:"List offset"`
+		Limit       int    `help:"List limit"`
 	}
 	shellutils.R(&EipListOptions{}, "eip-list", "List eips", func(cli *aliyun.SRegion, args *EipListOptions) error {
-		eips, total, e := cli.GetEips("", args.Offset, args.Limit)
+		eips, total, e := cli.GetEips(args.Id, args.AssociateId, args.Offset, args.Limit)
 		if e != nil {
 			return e
 		}

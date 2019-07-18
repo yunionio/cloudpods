@@ -647,10 +647,27 @@ func syncRegionLoadbalancers(ctx context.Context, userCred mcclient.TokenCredent
 			lockman.LockObject(ctx, &localLbs[i])
 			defer lockman.ReleaseObject(ctx, &localLbs[i])
 
+			syncLoadbalancerEip(ctx, userCred, provider, &localLbs[i], remoteLbs[i])
+
 			syncLoadbalancerBackendgroups(ctx, userCred, syncResults, provider, &localLbs[i], remoteLbs[i], syncRange)
 			syncLoadbalancerListeners(ctx, userCred, syncResults, provider, &localLbs[i], remoteLbs[i], syncRange)
 
 		}()
+	}
+}
+
+func syncLoadbalancerEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localLb *SLoadbalancer, remoteLb cloudprovider.ICloudLoadbalancer) {
+	eip, err := remoteLb.GetIEIP()
+	if err != nil {
+		msg := fmt.Sprintf("GetIEIP for Loadbalancer %s failed %s", remoteLb.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+	result := localLb.SyncLoadbalancerEip(ctx, userCred, provider, eip)
+	msg := result.Result()
+	log.Infof("SyncEip for Loadbalancer %s result: %s", localLb.Name, msg)
+	if result.IsError() {
+		return
 	}
 }
 
