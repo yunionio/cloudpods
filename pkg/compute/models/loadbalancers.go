@@ -485,6 +485,12 @@ func (lb *SLoadbalancer) GetCustomizeColumns(ctx context.Context, userCred mccli
 		}
 	}
 
+	eip, _ := lb.GetEip()
+	if eip != nil {
+		extra.Set("eip", jsonutils.NewString(eip.IpAddr))
+		extra.Set("eip_mode", jsonutils.NewString(eip.Mode))
+	}
+
 	if lb.BackendGroupId != "" {
 		lbbg, err := LoadbalancerBackendGroupManager.FetchById(lb.BackendGroupId)
 		if err != nil {
@@ -708,6 +714,105 @@ func (lb *SLoadbalancer) syncLoadbalancerNetwork(ctx context.Context, userCred m
 			log.Errorf("failed to create loadbalancer network: %v", err)
 		}
 	}
+}
+
+func (self *SLoadbalancer) DeleteEip(ctx context.Context, userCred mcclient.TokenCredential) error {
+	eip, err := self.GetEip()
+	if err != nil {
+		log.Errorf("Delete eip fail for get Eip %s", err)
+		return err
+	}
+	if eip == nil {
+		return nil
+	}
+	if eip.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
+		err = eip.RealDelete(ctx, userCred)
+		if err != nil {
+			log.Errorf("Delete eip on delete server fail %s", err)
+			return err
+		}
+	} else {
+		err = eip.Dissociate(ctx, userCred)
+		if err != nil {
+			log.Errorf("Dissociate eip on delete server fail %s", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (self *SLoadbalancer) GetEip() (*SElasticip, error) {
+	return ElasticipManager.getEipForInstance(api.EIP_ASSOCIATE_TYPE_LOADBALANCER, self.Id)
+}
+
+func (self *SLoadbalancer) SyncLoadbalancerEip(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, extEip cloudprovider.ICloudEIP) compare.SyncResult {
+	result := compare.SyncResult{}
+
+	eip, err := self.GetEip()
+	if err != nil {
+		result.Error(fmt.Errorf("getEip error %s", err))
+		return result
+	}
+
+	if eip == nil && extEip == nil {
+		// do nothing
+	} else if eip == nil && extEip != nil {
+		// add
+		neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, self.GetRegion(), provider.GetOwnerId())
+		if err != nil {
+			log.Errorf("getEipByExtEip error %v", err)
+			result.AddError(err)
+		} else {
+			err = neip.AssociateLoadbalancer(ctx, userCred, self)
+			if err != nil {
+				log.Errorf("AssociateVM error %v", err)
+				result.AddError(err)
+			} else {
+				result.Add()
+			}
+		}
+	} else if eip != nil && extEip == nil {
+		// remove
+		err = eip.Dissociate(ctx, userCred)
+		if err != nil {
+			result.DeleteError(err)
+		} else {
+			result.Delete()
+		}
+	} else {
+		// sync
+		if eip.IpAddr != extEip.GetIpAddr() {
+			// remove then add
+			err = eip.Dissociate(ctx, userCred)
+			if err != nil {
+				// fail to remove
+				result.DeleteError(err)
+			} else {
+				result.Delete()
+				neip, err := ElasticipManager.getEipByExtEip(ctx, userCred, extEip, provider, self.GetRegion(), provider.GetOwnerId())
+				if err != nil {
+					result.AddError(err)
+				} else {
+					err = neip.AssociateLoadbalancer(ctx, userCred, self)
+					if err != nil {
+						result.AddError(err)
+					} else {
+						result.Add()
+					}
+				}
+			}
+		} else {
+			// do nothing
+			err := eip.SyncWithCloudEip(ctx, userCred, provider, extEip, provider.GetOwnerId())
+			if err != nil {
+				result.UpdateError(err)
+			} else {
+				result.Update()
+			}
+		}
+	}
+
+	return result
 }
 
 func (lb *SLoadbalancer) SyncWithCloudLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, extLb cloudprovider.ICloudLoadbalancer, syncOwnerId mcclient.IIdentityProvider) error {

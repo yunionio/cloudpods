@@ -25,6 +25,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 const (
@@ -47,6 +48,7 @@ todo:
 
 // https://cloud.tencent.com/document/api/214/30694#LoadBalancer
 type SLoadbalancer struct {
+	multicloud.SLoadbalancerBase
 	region *SRegion
 
 	Status           int64     `json:"Status"` // 0：创建中，1：正常运行
@@ -341,6 +343,20 @@ func (self *SLoadbalancer) GetILoadBalancerBackendGroups() ([]cloudprovider.IClo
 	}
 
 	return ibgs, nil
+}
+
+func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	if self.LoadBalancerType == "OPEN" && len(self.LoadBalancerVips) > 0 {
+		return &SEipAddress{
+			region:      self.region,
+			AddressId:   self.LoadBalancerID,
+			AddressIp:   self.LoadBalancerVips[0],
+			AddressType: EIP_STATUS_BIND,
+			InstanceId:  self.LoadBalancerID,
+			CreatedTime: self.CreateTime,
+		}, nil
+	}
+	return nil, nil
 }
 
 func (self *SRegion) GetLoadbalancers(ids []string) ([]SLoadbalancer, error) {

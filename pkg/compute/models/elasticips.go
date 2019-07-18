@@ -503,6 +503,21 @@ func (self *SElasticip) GetAssociateVM() *SGuest {
 	return nil
 }
 
+func (self *SElasticip) GetAssociateLoadbalancer() *SLoadbalancer {
+	if self.AssociateType == api.EIP_ASSOCIATE_TYPE_LOADBALANCER && len(self.AssociateId) > 0 {
+		_lb, err := LoadbalancerManager.FetchById(self.AssociateId)
+		if err != nil {
+			return nil
+		}
+		lb := _lb.(*SLoadbalancer)
+		if lb.PendingDeleted {
+			return nil
+		}
+		return lb
+	}
+	return nil
+}
+
 func (self *SElasticip) GetAssociateNatGateway() *SNatGateway {
 	if self.AssociateType == api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY && len(self.AssociateId) > 0 {
 		natGateway, err := NatGatewayManager.FetchById(self.AssociateId)
@@ -520,6 +535,7 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 	}
 	var vm *SGuest
 	var nat *SNatGateway
+	var lb *SLoadbalancer
 	switch self.AssociateType {
 	case api.EIP_ASSOCIATE_TYPE_SERVER:
 		vm = self.GetAssociateVM()
@@ -530,6 +546,11 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 		nat = self.GetAssociateNatGateway()
 		if nat == nil {
 			log.Errorf("dissociate Nat gateway not exists???")
+		}
+	case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+		lb = self.GetAssociateLoadbalancer()
+		if lb == nil {
+			log.Errorf("dissociate loadbalancer not exists???")
 		}
 	}
 
@@ -553,9 +574,38 @@ func (self *SElasticip) Dissociate(ctx context.Context, userCred mcclient.TokenC
 		db.OpsLog.LogEvent(nat, db.ACT_EIP_DETACH, self.GetShortDesc(ctx), userCred)
 	}
 
+	if lb != nil {
+		db.OpsLog.LogDetachEvent(ctx, lb, self, userCred, self.GetShortDesc(ctx))
+		db.OpsLog.LogEvent(self, db.ACT_EIP_DETACH, lb.GetShortDesc(ctx), userCred)
+		db.OpsLog.LogEvent(lb, db.ACT_EIP_DETACH, self.GetShortDesc(ctx), userCred)
+	}
+
 	if self.Mode == api.EIP_MODE_INSTANCE_PUBLICIP {
 		self.Delete(ctx, userCred)
 	}
+	return nil
+}
+
+func (self *SElasticip) AssociateLoadbalancer(ctx context.Context, userCred mcclient.TokenCredential, lb *SLoadbalancer) error {
+	if lb.PendingDeleted {
+		return fmt.Errorf("loadbalancer is deleted")
+	}
+	if len(self.AssociateType) > 0 {
+		return fmt.Errorf("EIP has been associated!!")
+	}
+	_, err := db.Update(self, func() error {
+		self.AssociateType = api.EIP_ASSOCIATE_TYPE_LOADBALANCER
+		self.AssociateId = lb.Id
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	db.OpsLog.LogAttachEvent(ctx, lb, self, userCred, self.GetShortDesc(ctx))
+	db.OpsLog.LogEvent(self, db.ACT_EIP_ATTACH, lb.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(lb, db.ACT_EIP_ATTACH, self.GetShortDesc(ctx), userCred)
+
 	return nil
 }
 
