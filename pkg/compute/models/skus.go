@@ -48,19 +48,21 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/hashcache"
+	"yunion.io/x/onecloud/pkg/util/logclient"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 var Cache *hashcache.Cache
 
 type SServerSkuManager struct {
-	db.SEnabledStatusStandaloneResourceBaseManager
+	db.SStatusStandaloneResourceBaseManager
 }
 
 var ServerSkuManager *SServerSkuManager
 
 func init() {
 	ServerSkuManager = &SServerSkuManager{
-		SEnabledStatusStandaloneResourceBaseManager: db.NewEnabledStatusStandaloneResourceBaseManager(
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
 			SServerSku{},
 			"serverskus_tbl",
 			"serversku",
@@ -75,11 +77,12 @@ func init() {
 
 // SServerSku 实际对应的是instance type清单. 这里的Sku实际指的是instance type。
 type SServerSku struct {
-	db.SEnabledStatusStandaloneResourceBase
+	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 	SCloudregionResourceBase
 	SZoneResourceBase
 
+	Enabled bool `nullable:"true" list:"user" create:"optional"`
 	// SkuId       string `width:"64" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`                 // x2.large
 	InstanceTypeFamily   string `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_optional" update:"admin"`           // x2
 	InstanceTypeCategory string `width:"32" charset:"utf8" nullable:"false" list:"user" create:"admin_optional" update:"admin"`            // 通用型
@@ -265,7 +268,7 @@ func (self *SServerSku) AllowGetDetails(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SEnabledStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	// count
 	var count int
 	countKey := self.GetId() + ".total_guest_count"
@@ -298,7 +301,7 @@ func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclie
 }
 
 func (self *SServerSku) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SEnabledStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
+	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +361,7 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context, userCred 
 		data.Set("name", jsonutils.NewString(name))
 	}
 
-	return self.SEnabledStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	return self.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
 func (self *SServerSku) GetIRegion() (cloudprovider.ICloudRegion, error) {
@@ -389,7 +392,7 @@ func (self *SServerSku) GetRegion() (*SCloudregion, error) {
 }
 
 func (self *SServerSku) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
-	self.SEnabledStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	self.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
 	region, err := self.GetRegion()
 	if err != nil {
 		self.SetStatus(userCred, api.SkuStatusCreatFailed, err.Error())
@@ -624,7 +627,7 @@ func (self *SServerSku) ValidateUpdateData(ctx context.Context, userCred mcclien
 	if data.Contains("name") {
 		return nil, httperrors.NewUnsupportOperationError("Cannot change server sku name")
 	}
-	return self.SEnabledStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
+	return self.SStatusStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
 func (self *SServerSku) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
@@ -638,7 +641,7 @@ func (self *SServerSku) Delete(ctx context.Context, userCred mcclient.TokenCrede
 
 func (self *SServerSku) RealDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	ServerSkuManager.ClearSchedDescCache(true)
-	return self.SEnabledStatusStandaloneResourceBase.Delete(ctx, userCred)
+	return self.SStatusStandaloneResourceBase.Delete(ctx, userCred)
 }
 
 func (self *SServerSku) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -686,7 +689,7 @@ func (self *SServerSku) GetZoneExternalId() (string, error) {
 }
 
 func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	q, err := manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
 	}
@@ -713,8 +716,7 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 	}
 
 	data := query.(*jsonutils.JSONDict)
-	//OneCloud忽略zone参数
-	if provider == api.CLOUD_PROVIDER_ONECLOUD && data.Contains("zone") {
+	if data.Contains("zone") {
 		zoneStr, _ := data.GetString("zone")
 		_zone, err := ZoneManager.FetchByIdOrName(userCred, zoneStr)
 		if err != nil {
@@ -724,16 +726,23 @@ func (manager *SServerSkuManager) ListItemFilter(ctx context.Context, q *sqlchem
 			return nil, httperrors.NewGeneralError(err)
 		}
 		zone := _zone.(*SZone)
-		data.Remove("zone")
-		data.Set("cloudregion", jsonutils.NewString(zone.CloudregionId))
-	}
-
-	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
-		{Key: "zone", ModelKeyword: "zone", OwnerId: userCred},
-		{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
-	})
-	if err != nil {
-		return nil, err
+		region := zone.GetRegion()
+		if region == nil {
+			return nil, httperrors.NewResourceNotFoundError("failed to find cloudregion for zone %s(%s)", zone.Name, zone.Id)
+		}
+		//OneCloud忽略zone参数
+		if region.Provider == api.CLOUD_PROVIDER_ONECLOUD || region.Provider == "" {
+			q = q.Equals("cloudregion_id", region.Id)
+		} else {
+			q = q.Equals("zone_id", zone.Id)
+		}
+	} else {
+		q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+			{Key: "cloudregion", ModelKeyword: "cloudregion", OwnerId: userCred},
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	city, _ := query.GetString("city")
@@ -962,6 +971,8 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 	sku := &SServerSku{Provider: provider.Provider}
 	sku.CloudregionId = region.Id
 	sku.ZoneId = zone.Id
+	// 第一次同步新建的套餐是启用状态
+	sku.Enabled = true
 	sku.constructSku(extSku)
 
 	sku.Name = extSku.GetName()
@@ -976,6 +987,44 @@ func (manager *SServerSkuManager) newFromCloudSku(ctx context.Context, userCred 
 	db.OpsLog.LogEvent(sku, db.ACT_CREATE, sku.GetShortDesc(ctx), userCred)
 
 	return nil
+}
+
+func (self *SServerSku) AllowPerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, self, "enable")
+}
+
+func (self *SServerSku) PerformEnable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if !self.Enabled {
+		_, err := db.Update(self, func() error {
+			self.Enabled = true
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "PerformEnable.db.Update()")
+		}
+		db.OpsLog.LogEvent(self, db.ACT_ENABLE, "", userCred)
+		logclient.AddSimpleActionLog(self, logclient.ACT_ENABLE, nil, userCred, true)
+	}
+	return nil, nil
+}
+
+func (self *SServerSku) AllowPerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAllowPerform(rbacutils.ScopeSystem, userCred, self, "disable")
+}
+
+func (self *SServerSku) PerformDisable(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	if self.Enabled {
+		_, err := db.Update(self, func() error {
+			self.Enabled = false
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "PerformEnable.db.Update()")
+		}
+		db.OpsLog.LogEvent(self, db.ACT_DISABLE, "", userCred)
+		logclient.AddSimpleActionLog(self, logclient.ACT_DISABLE, nil, userCred, true)
+	}
+	return nil, nil
 }
 
 // sku标记为soldout状态。
@@ -1067,6 +1116,26 @@ func (manager *SServerSkuManager) initializeLocalSkuStatus() error {
 	return nil
 }
 
+func (manager *SServerSkuManager) initializeSkuEnableField() error {
+	skus := []SServerSku{}
+	q := manager.Query().IsNull("enabled")
+	err := db.FetchModelObjects(manager, q, &skus)
+	if err != nil {
+		return errors.Wrapf(err, "FetchModelObjects")
+	}
+	for _, sku := range skus {
+		_, err = db.Update(&sku, func() error {
+			sku.Status = api.SkuStatusReady
+			sku.Enabled = true
+			return nil
+		})
+		if err != nil {
+			return errors.Wrapf(err, "sku.Update")
+		}
+	}
+	return nil
+}
+
 func (manager *SServerSkuManager) InitializeData() error {
 	count, err := manager.Query().Equals("cloudregion_id", api.DEFAULT_REGION_ID).IsNullOrEmpty("zone_id").CountWithError()
 	if err == nil {
@@ -1126,6 +1195,7 @@ func (manager *SServerSkuManager) InitializeData() error {
 				sku.CpuCoreCount = item.CPU
 				sku.MemorySizeMB = item.MemMB
 				sku.IsEmulated = false
+				sku.Enabled = true
 				sku.InstanceTypeCategory = api.SkuCategoryGeneralPurpose
 				sku.LocalCategory = api.SkuCategoryGeneralPurpose
 				sku.InstanceTypeFamily = api.InstanceFamilies[api.SkuCategoryGeneralPurpose]
@@ -1157,6 +1227,11 @@ func (manager *SServerSkuManager) InitializeData() error {
 		if err != nil {
 			return err
 		}
+	}
+
+	err = manager.initializeSkuEnableField()
+	if err != nil {
+		return errors.Wrap(err, "initializeSkuEnableField")
 	}
 
 	return manager.initializeLocalSkuStatus()
