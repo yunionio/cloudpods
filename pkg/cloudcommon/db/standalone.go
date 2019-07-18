@@ -119,15 +119,15 @@ func (manager *SStandaloneResourceBaseManager) ValidateName(name string) error {
 }
 
 func (manager *SStandaloneResourceBaseManager) FetchById(idStr string) (IModel, error) {
-	return FetchById(manager, idStr)
+	return FetchById(manager.GetIStandaloneModelManager(), idStr)
 }
 
 func (manager *SStandaloneResourceBaseManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
-	return FetchByName(manager, userCred, idStr)
+	return FetchByName(manager.GetIStandaloneModelManager(), userCred, idStr)
 }
 
 func (manager *SStandaloneResourceBaseManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (IModel, error) {
-	return FetchByIdOrName(manager, userCred, idStr)
+	return FetchByIdOrName(manager.GetIStandaloneModelManager(), userCred, idStr)
 }
 
 type STagValue struct {
