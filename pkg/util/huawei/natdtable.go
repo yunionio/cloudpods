@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"yunion.io/x/onecloud/pkg/multicloud"
+
 	"yunion.io/x/pkg/errors"
 )
 
@@ -72,6 +73,10 @@ func (nat *SNatDTableEntry) GetInternalPort() int {
 	return nat.InternalPort
 }
 
+func (nat *SNatDTableEntry) Delete() error {
+	return nat.gateway.region.DeleteDNatTableEntry(nat.GetId())
+}
+
 // getSNatEntries return all snat rules of gateway
 func (gateway *SNatGateway) getDNatEntries() ([]SNatDTableEntry, error) {
 	ret, err := gateway.region.GetDNatTable(gateway.GetId())
@@ -105,4 +110,12 @@ func (region *SRegion) GetDNatTable(natGatewayID string) ([]SNatDTableEntry, err
 		}
 	}
 	return dNatSTableEntries, nil
+}
+
+func (region *SRegion) DeleteDNatTableEntry(entryID string) error {
+	_, err := region.ecsClient.DNatRules.Delete(entryID, nil)
+	if err != nil {
+		return errors.Wrapf(err, `delete dnat rule %q failed`, entryID)
+	}
+	return nil
 }
