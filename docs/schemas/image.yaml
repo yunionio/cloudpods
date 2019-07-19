@@ -11,12 +11,21 @@ ImageListResponse:
     total:
       type: integer
       example: 124
+
 ImageResponse:
   type: object
   properties:
     image:
       type: object
       $ref: '#/Image'
+
+ImageMarkStandard:
+  type: object
+  properties:
+    is_standard:
+      type: bool
+      example: true
+      description: 设置镜像是否为标准镜像
 
 Image:
   type: object
