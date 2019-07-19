@@ -695,7 +695,8 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 				return nil, err
 			}
 		}
-		return nil, cloudprovider.WaitCreated(time.Second*5, time.Minute*5, func() bool {
+
+		err := cloudprovider.WaitCreated(time.Second*5, time.Minute*5, func() bool {
 			err := iVM.Refresh()
 			if err != nil {
 				return false
@@ -706,6 +707,22 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 			}
 			return false
 		})
+		if err != nil {
+			return nil, err
+		}
+
+		instanceType := iVM.GetInstanceType()
+		if len(instanceType) > 0 {
+			_, err := db.Update(guest, func() error {
+				guest.InstanceType = instanceType
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return nil, nil
 	})
 
 	return nil
