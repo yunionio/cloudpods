@@ -72,6 +72,7 @@ func (p *SHostPingTask) Start() {
 		res, err := modules.Hosts.PerformAction(hostutils.GetComputeSession(context.Background()),
 			hostId, "ping", nil)
 		if err != nil {
+			log.Errorln(err)
 			div = 3
 		} else {
 			name, err := res.GetString("name")
@@ -79,7 +80,7 @@ func (p *SHostPingTask) Start() {
 				Instance().setHostname(name)
 			}
 			catalog, err := res.Get("catalog")
-			if err != nil {
+			if err == nil {
 				cl := make(mcclient.KeystoneServiceCatalogV3, 0)
 				err = catalog.Unmarshal(&cl)
 				if err != nil {
@@ -88,6 +89,8 @@ func (p *SHostPingTask) Start() {
 				}
 
 				Instance().OnCatalogChanged(cl)
+			} else {
+				log.Errorln(err)
 			}
 		}
 	}
