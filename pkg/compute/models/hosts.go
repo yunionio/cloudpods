@@ -166,6 +166,9 @@ func (manager *SHostManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 	q = managedResourceFilterByCloudType(q, query, "", nil)
 
 	q, err = managedResourceFilterByDomain(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
 
 	queryDict := query.(*jsonutils.JSONDict)
 

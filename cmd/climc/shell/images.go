@@ -33,6 +33,8 @@ type ImageOptionalOptions struct {
 	Format             string   `help:"Image format" choices:"raw|qcow2|iso|vmdk|docker|vhd"`
 	Protected          bool     `help:"Prevent image from being deleted"`
 	Unprotected        bool     `help:"Allow image to be deleted"`
+	Standard           bool     `help:"Mark image as a standard image"`
+	Nonstandard        bool     `help:"Mark image as a non-standard image"`
 	MinDisk            int64    `help:"Disk size after expanded, in MB" metavar:"MIN_DISK_SIZE_MB"`
 	MinRam             int64    `help:"Minimal memory size required" metavar:"MIN_RAM_MB"`
 	VirtualSize        int64    `help:"Disk size after expanded, in MB"`
@@ -68,6 +70,11 @@ func addImageOptionalOptions(s *mcclient.ClientSession, params *jsonutils.JSONDi
 		params.Add(jsonutils.NewString("true"), "protected")
 	} else if !args.Protected && args.Unprotected {
 		params.Add(jsonutils.NewString("false"), "protected")
+	}
+	if args.Standard && !args.Nonstandard {
+		params.Add(jsonutils.JSONTrue, "is_standard")
+	} else if !args.Standard && args.Nonstandard {
+		params.Add(jsonutils.JSONFalse, "is_standard")
 	}
 	if args.MinDisk > 0 {
 		params.Add(jsonutils.NewString(fmt.Sprintf("%d", args.MinDisk)), "min_disk")
@@ -134,9 +141,11 @@ func init() {
 	type ImageListOptions struct {
 		options.BaseListOptions
 
-		IsPublic string   `help:"filter images public or not(True, False or None)" choices:"true|false|none"`
-		Format   []string `help:"Disk formats"`
-		Name     string   `help:"Name filter"`
+		IsPublic   string   `help:"filter images public or not(True, False or None)" choices:"true|false"`
+		IsStandard string   `help:"filter images standard or non-standard" choices:"true|false"`
+		Protected  string   `help:"filter images by protected" choices:"true|false"`
+		Format     []string `help:"Disk formats"`
+		Name       string   `help:"Name filter"`
 	}
 	R(&ImageListOptions{}, "image-list", "List images", func(s *mcclient.ClientSession, args *ImageListOptions) error {
 		params, err := args.Params()
@@ -145,6 +154,12 @@ func init() {
 		}
 		if len(args.IsPublic) > 0 {
 			params.Add(jsonutils.NewString(args.IsPublic), "is_public")
+		}
+		if len(args.IsStandard) > 0 {
+			params.Add(jsonutils.NewString(args.IsStandard), "is_standard")
+		}
+		if len(args.Protected) > 0 {
+			params.Add(jsonutils.NewString(args.Protected), "protected")
 		}
 		if len(args.Tenant) > 0 {
 			tid, e := modules.Projects.GetId(s, args.Tenant, nil)
@@ -268,7 +283,7 @@ func init() {
 
 	type ImageDeleteOptions struct {
 		ID                    []string `help:"Image ID or name"`
-		OverridePendingDelete *bool    `help:"Delete image directly instead of pending delete"`
+		OverridePendingDelete *bool    `help:"Delete image directly instead of pending delete" short-token:"f"`
 	}
 	R(&ImageDeleteOptions{}, "image-delete", "Delete a image", func(s *mcclient.ClientSession, args *ImageDeleteOptions) error {
 		params, err := options.StructToParams(args)
@@ -447,18 +462,16 @@ func init() {
 
 	R(&ImageOperationOptions{}, "image-mark-standard", "Mark image standard", func(s *mcclient.ClientSession, args *ImageOperationOptions) error {
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.JSONTrue, "is-public")
-		params.Add(jsonutils.JSONTrue, "protected")
-		results := modules.Images.BatchPerformAction(s, args.ID, "mark-public-protected", params)
+		params.Add(jsonutils.JSONTrue, "is_standard")
+		results := modules.Images.BatchPerformAction(s, args.ID, "mark-standard", params)
 		printBatchResults(results, modules.Images.GetColumns(s))
 		return nil
 	})
 
 	R(&ImageOperationOptions{}, "image-mark-unstandard", "Mark image not standard", func(s *mcclient.ClientSession, args *ImageOperationOptions) error {
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.JSONFalse, "is-public")
-		params.Add(jsonutils.JSONFalse, "protected")
-		results := modules.Images.BatchPerformAction(s, args.ID, "mark-public-protected", params)
+		params.Add(jsonutils.JSONFalse, "is_standard")
+		results := modules.Images.BatchPerformAction(s, args.ID, "mark-standard", params)
 		printBatchResults(results, modules.Images.GetColumns(s))
 		return nil
 	})

@@ -78,7 +78,7 @@ func init() {
 
 	type DiskDeleteOptions struct {
 		ID                    []string `help:"ID of disks to delete" metavar:"DISK"`
-		OverridePendingDelete bool     `help:"Delete disk directly instead of pending delete"`
+		OverridePendingDelete bool     `help:"Delete disk directly instead of pending delete" short-token:"f"`
 	}
 
 	R(&DiskDeleteOptions{}, "disk-delete", "Delete a disk", func(s *mcclient.ClientSession, args *DiskDeleteOptions) error {
