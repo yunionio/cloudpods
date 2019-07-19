@@ -1,0 +1,16 @@
+post:
+  parameters:
+    - $ref: "../parameters/image.yaml#/imageId"
+    - in: body
+      name: image
+      required: true
+      schema:
+        $ref: "../schemas/image.yaml#/ImageMarkStandard"
+  summary: 设置/取消设置镜像为标准镜像
+  responses:
+    200:
+      description: 镜像信息
+      schema:
+        $ref: "../schemas/image.yaml#/ImageResponse"
+  tags:
+    - images 
