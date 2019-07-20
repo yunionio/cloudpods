@@ -188,6 +188,7 @@ type SNIC struct {
 	Ip      string
 	Network string
 	WireId  string
+	Mask    int
 
 	Bandwidth  int
 	BridgeDev  hostbridge.IBridgeDriver
@@ -250,6 +251,10 @@ func NewNIC(desc string) (*SNIC, error) {
 		for wait < max {
 			inf := netutils2.NewNetInterface(nic.Inter)
 			if inf.Addr == nic.Ip {
+				mask, _ := inf.Mask.Size()
+				if mask > 0 {
+					nic.Mask = mask
+				}
 				break
 			}
 			br := netutils2.NewNetInterface(nic.Bridge)
