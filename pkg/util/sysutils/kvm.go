@@ -210,3 +210,11 @@ func SetSysConfig(cpath, val string) bool {
 	}
 	return false
 }
+
+func IsHypervisor() bool {
+	cont, _ := fileutils2.FileGetContents("/proc/cpuinfo")
+	if strings.Index(cont, " hypervisor") > 0 {
+		return true
+	}
+	return false
+}
