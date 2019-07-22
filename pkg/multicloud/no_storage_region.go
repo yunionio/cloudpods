@@ -22,7 +22,7 @@ func (cli *SNoObjectStorageRegion) IBucketExist(name string) (bool, error) {
 	return false, cloudprovider.ErrNotSupported
 }
 
-func (cli *SNoObjectStorageRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+func (cli *SNoObjectStorageRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
 	return nil, cloudprovider.ErrNotSupported
 }
 

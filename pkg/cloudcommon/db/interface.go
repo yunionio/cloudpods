@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	"time"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
@@ -90,6 +91,8 @@ type IModelManager interface {
 	InitializeData() error
 
 	CustomizeHandlerInfo(info *appsrv.SHandlerInfo)
+	SetHandlerProcessTimeout(info *appsrv.SHandlerInfo, r *http.Request) time.Duration
+
 	FetchCreateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error)
 	FetchUpdateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error)
 	IsCustomizedGetDetailsBody() bool

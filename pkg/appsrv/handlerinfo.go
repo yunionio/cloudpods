@@ -26,27 +26,38 @@ type handlerRequestCounter struct {
 	duration float64
 }
 
+type TProcessTimeoutCallback func(*SHandlerInfo, *http.Request) time.Duration
+
 type SHandlerInfo struct {
-	method         string
-	path           []string
-	name           string
-	handler        func(context.Context, http.ResponseWriter, *http.Request)
-	metadata       map[string]interface{}
-	tags           map[string]string
-	counter2XX     handlerRequestCounter
-	counter4XX     handlerRequestCounter
-	counter5XX     handlerRequestCounter
-	processTimeout time.Duration
-	workerMan      *SWorkerManager
-	skipLog        bool
+	method     string
+	path       []string
+	name       string
+	handler    func(context.Context, http.ResponseWriter, *http.Request)
+	metadata   map[string]interface{}
+	tags       map[string]string
+	counter2XX handlerRequestCounter
+	counter4XX handlerRequestCounter
+	counter5XX handlerRequestCounter
+	workerMan  *SWorkerManager
+	skipLog    bool
+
+	processTimeout         time.Duration
+	processTimeoutCallback TProcessTimeoutCallback
 }
 
 func (this *SHandlerInfo) FetchProcessTimeout(r *http.Request) time.Duration {
-	if r.Method == http.MethodGet && len(r.URL.Query().Get("export_keys")) > 0 {
-		return time.Hour * 2
-	} else {
-		return this.processTimeout
+	var tm time.Duration
+	if this.processTimeoutCallback != nil {
+		tm = this.processTimeoutCallback(this, r)
 	}
+	if tm < this.processTimeout {
+		tm = this.processTimeout
+	}
+	return tm
+}
+
+func (this *SHandlerInfo) SetProcessTimeoutCallback(callback TProcessTimeoutCallback) {
+	this.processTimeoutCallback = callback
 }
 
 func (this *SHandlerInfo) GetName(params map[string]string) string {
