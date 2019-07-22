@@ -2050,7 +2050,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	quotaPlatform := self.GetQuotaPlatformID()
 
 	if !pendingUsage.IsEmpty() {
-		err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, userCred, quotaPlatform, pendingUsage)
+		err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, pendingUsage)
 		if err != nil {
 			return nil, httperrors.NewOutOfQuotaError("Check set pending quota error %s", err)
 		}
