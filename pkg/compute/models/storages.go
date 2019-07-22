@@ -1052,6 +1052,10 @@ func (manager *SStorageManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		return nil, err
 	}
 	q = managedResourceFilterByCloudType(q, query, "", nil)
+	q, err = managedResourceFilterByDomain(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
 
 	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {

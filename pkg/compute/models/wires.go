@@ -733,6 +733,15 @@ func (manager *SWireManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		return subq
 	})
 
+	q, err = managedResourceFilterByDomain(q, query, "vpc_id", func() *sqlchemy.SQuery {
+		vpcs := VpcManager.Query().SubQuery()
+		subq := vpcs.Query(vpcs.Field("id"))
+		return subq
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	q, err = manager.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err

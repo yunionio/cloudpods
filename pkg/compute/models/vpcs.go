@@ -651,6 +651,11 @@ func (manager *SVpcManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQue
 	}
 	q = managedResourceFilterByCloudType(q, query, "", nil)
 
+	q, err = managedResourceFilterByDomain(q, query, "", nil)
+	if err != nil {
+		return nil, err
+	}
+
 	q, err = manager.SStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
