@@ -175,10 +175,11 @@ const (
 	ACT_UNCACHE_IMAGE_FAIL = "uncache_image_fail"
 	ACT_UNCACHED_IMAGE     = "uncached_image"
 
-	ACT_SYNC_CLOUD_DISK    = "sync_cloud_disk"
-	ACT_SYNC_CLOUD_SERVER  = "sync_cloud_server"
-	ACT_SYNC_CLOUD_EIP     = "sync_cloud_eip"
-	ACT_SYNC_CLOUD_PROJECT = "sync_cloud_project"
+	ACT_SYNC_CLOUD_DISK          = "sync_cloud_disk"
+	ACT_SYNC_CLOUD_SERVER        = "sync_cloud_server"
+	ACT_SYNC_CLOUD_EIP           = "sync_cloud_eip"
+	ACT_SYNC_CLOUD_PROJECT       = "sync_cloud_project"
+	ACT_SYNC_CLOUD_ELASTIC_CACHE = "sync_cloud_elastic_cache"
 
 	ACT_PENDING_DELETE = "pending_delete"
 	ACT_CANCEL_DELETE  = "cancel_delete"

@@ -79,6 +79,10 @@ type Pool struct {
 }
 
 func (self *SLoadbalancer) GetIEIP() (cloudprovider.ICloudEIP, error) {
+	if self.GetEip() == nil {
+		return nil, nil
+	}
+
 	return self.eip, nil
 }
 
