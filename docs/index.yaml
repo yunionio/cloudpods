@@ -297,3 +297,8 @@ paths:
     $ref: "./serversku/enable.yaml"
   /serverskus/{serverskuId}/disable:
     $ref: "./serversku/disable.yaml"
+
+  /networkinterfaces:
+    $ref: "./networkinterface/networkinterfaces.yaml"
+  /networkinterfaces/{networkinterfaceId}:
+    $ref: "./networkinterface/networkinterface.yaml"
