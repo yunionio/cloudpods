@@ -43,7 +43,7 @@ type SFixedIP struct {
 }
 
 func (fixip *SFixedIP) GetGlobalId() string {
-	return fixip.SubnetID
+	return fixip.IpAddress
 }
 
 func (fixip *SFixedIP) GetIP() string {
