@@ -1322,10 +1322,12 @@ func (account *SCloudaccount) syncAccountStatus(ctx context.Context, userCred mc
 	account.markAccountConnected(ctx, userCred)
 	providers := account.importAllSubaccounts(ctx, userCred, subaccounts)
 	for i := range providers {
-		_, err := providers[i].prepareCloudproviderRegions(ctx, userCred)
-		if err != nil {
-			log.Errorf("syncCloudproviderRegion fail %s", err)
-			return err
+		if providers[i].Enabled {
+			_, err := providers[i].prepareCloudproviderRegions(ctx, userCred)
+			if err != nil {
+				log.Errorf("syncCloudproviderRegion fail %s", err)
+				return err
+			}
 		}
 	}
 	return nil
