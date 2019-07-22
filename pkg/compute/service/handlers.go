@@ -125,6 +125,12 @@ func InitHandlers(app *appsrv.Application) {
 		models.DBInstanceDatabaseManager,
 		models.DBInstanceAccountManager,
 		models.DBInstancePrivilegeManager,
+
+		models.ElasticcacheManager,
+		models.ElasticcacheAclManager,
+		models.ElasticcacheAccountManager,
+		models.ElasticcacheParameterManager,
+		models.ElasticcacheBackupManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

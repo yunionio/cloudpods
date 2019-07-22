@@ -46,7 +46,7 @@ const (
 	ServiceNameELB  ServiceNameType = "elb"  // 弹性负载均衡 ELB
 	ServiceNameBSS  ServiceNameType = "bss"  // 合作伙伴运营能力
 	ServiceNameNAT  ServiceNameType = "nat"  // Nat网关 NAT
-
+	ServiceNameDCS  ServiceNameType = "dcs"  // 分布式缓存服务
 )
 
 type SManagerContext struct {

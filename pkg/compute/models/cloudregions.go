@@ -178,6 +178,21 @@ func (self *SCloudregion) GetDBInstanceBackups(provider *SCloudprovider) ([]SDBI
 	return backups, nil
 }
 
+func (self *SCloudregion) GetElasticcaches(provider *SCloudprovider) ([]SElasticcache, error) {
+	instances := []SElasticcache{}
+	// .IsFalse("pending_deleted")
+	q := ElasticcacheManager.Query().Equals("cloudregion_id", self.Id)
+	if provider != nil {
+		q = q.Equals("manager_id", provider.Id)
+	}
+	err := db.FetchModelObjects(ElasticcacheManager, q, &instances)
+	if err != nil {
+		return nil, errors.Wrapf(err, "GetElasticcaches for region %s", self.Id)
+	}
+
+	return instances, nil
+}
+
 func (self *SCloudregion) getGuestCountInternal(increment bool) (int, error) {
 	zoneTable := ZoneManager.Query("id")
 	if self.Id == api.DEFAULT_REGION_ID {

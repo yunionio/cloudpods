@@ -1002,6 +1002,8 @@ func syncPublicCloudProviderInfo(
 	syncRegionDBInstances(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 	syncRegionDBInstanceBackups(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
+	syncElasticcaches(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
+
 	log.Debugf("storageCachePairs count %d", len(storageCachePairs))
 	for i := range storageCachePairs {
 		// always sync private cloud cached images
