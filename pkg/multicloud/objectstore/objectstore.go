@@ -9,10 +9,12 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/util/secrules"
 
+	"time"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SObjectStoreClient struct {
@@ -53,6 +55,9 @@ func NewObjectStoreClient(providerId string, providerName string, endpoint strin
 	if err != nil {
 		return nil, errors.Wrap(err, "minio.New")
 	}
+
+	tr := httputils.GetTransport(true, time.Second*5)
+	cli.SetCustomTransport(tr)
 
 	client.client = cli
 
@@ -319,6 +324,6 @@ func (cli *SObjectStoreClient) IBucketExist(name string) (bool, error) {
 	return exist, nil
 }
 
-func (cli *SObjectStoreClient) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
-	return cloudprovider.GetIBucketByName(cli, name)
+func (cli *SObjectStoreClient) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
+	return cloudprovider.GetIBucketById(cli, name)
 }

@@ -22,6 +22,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	"log"
+	"time"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -53,7 +55,11 @@ func NewModelBaseManager(model interface{}, tableName string, keyword string, ke
 }
 
 func (manager *SModelBaseManager) GetIModelManager() IModelManager {
-	return manager.GetVirtualObject().(IModelManager)
+	virt := manager.GetVirtualObject()
+	if virt == nil {
+		log.Fatalf("%s.GetIModelManager got nil!", manager.keywordPlural)
+	}
+	return virt.(IModelManager)
 }
 
 func (manager *SModelBaseManager) SetAlias(alias string, aliasPlural string) {
@@ -203,7 +209,14 @@ func (manager *SModelBaseManager) GetExportExtraKeys(ctx context.Context, query 
 }
 
 func (manager *SModelBaseManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
-	// do nothing
+	info.SetProcessTimeoutCallback(manager.GetIModelManager().SetHandlerProcessTimeout)
+}
+
+func (manager *SModelBaseManager) SetHandlerProcessTimeout(info *appsrv.SHandlerInfo, r *http.Request) time.Duration {
+	if r.Method == http.MethodGet && len(r.URL.Query().Get("export_keys")) > 0 {
+		return time.Hour * 2
+	}
+	return -time.Second
 }
 
 func (manager *SModelBaseManager) FetchCreateHeaderData(ctx context.Context, header http.Header) (jsonutils.JSONObject, error) {

@@ -705,6 +705,18 @@ func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
 	return ret, nil
 }
 
+func str2StorageClass(storageClassStr string) (obs.StorageClassType, error) {
+	if strings.EqualFold(storageClassStr, string(obs.StorageClassStandard)) {
+		return obs.StorageClassStandard, nil
+	} else if strings.EqualFold(storageClassStr, string(obs.StorageClassWarm)) {
+		return obs.StorageClassWarm, nil
+	} else if strings.EqualFold(storageClassStr, string(obs.StorageClassCold)) {
+		return obs.StorageClassCold, nil
+	} else {
+		return obs.StorageClassStandard, errors.Error("unsupported storageClass")
+	}
+}
+
 func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr string) error {
 	obsClient, err := region.getOBSClient()
 	if err != nil {
@@ -725,14 +737,9 @@ func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr
 		}
 	}
 	if len(storageClassStr) > 0 {
-		if strings.EqualFold(storageClassStr, string(obs.StorageClassStandard)) {
-			input.StorageClass = obs.StorageClassStandard
-		} else if strings.EqualFold(storageClassStr, string(obs.StorageClassWarm)) {
-			input.StorageClass = obs.StorageClassWarm
-		} else if strings.EqualFold(storageClassStr, string(obs.StorageClassCold)) {
-			input.StorageClass = obs.StorageClassCold
-		} else {
-			return errors.Error("unsupported storageClass")
+		input.StorageClass, err = str2StorageClass(storageClassStr)
+		if err != nil {
+			return err
 		}
 	}
 	_, err = obsClient.CreateBucket(input)
@@ -769,7 +776,7 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 	return true, nil
 }
 
-func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
 	obsClient, err := region.getOBSClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "region.getOBSClient")

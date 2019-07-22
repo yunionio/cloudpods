@@ -46,6 +46,7 @@ func init() {
 			"natgateways",
 		),
 	}
+	NatGatewayManager.SetVirtualObject(NatGatewayManager)
 }
 
 type SNatGateway struct {

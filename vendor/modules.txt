@@ -98,6 +98,7 @@ github.com/apache/thrift/lib/go/thrift
 # github.com/aws/aws-sdk-go v1.15.73
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/credentials
+github.com/aws/aws-sdk-go/aws/request
 github.com/aws/aws-sdk-go/aws/session
 github.com/aws/aws-sdk-go/service/ec2
 github.com/aws/aws-sdk-go/service/iam
@@ -108,14 +109,13 @@ github.com/aws/aws-sdk-go/aws/endpoints
 github.com/aws/aws-sdk-go/internal/sdkio
 github.com/aws/aws-sdk-go/internal/ini
 github.com/aws/aws-sdk-go/internal/shareddefaults
+github.com/aws/aws-sdk-go/aws/awsutil
+github.com/aws/aws-sdk-go/aws/client/metadata
 github.com/aws/aws-sdk-go/aws/client
 github.com/aws/aws-sdk-go/aws/corehandlers
 github.com/aws/aws-sdk-go/aws/credentials/stscreds
 github.com/aws/aws-sdk-go/aws/csm
 github.com/aws/aws-sdk-go/aws/defaults
-github.com/aws/aws-sdk-go/aws/request
-github.com/aws/aws-sdk-go/aws/awsutil
-github.com/aws/aws-sdk-go/aws/client/metadata
 github.com/aws/aws-sdk-go/aws/signer/v4
 github.com/aws/aws-sdk-go/internal/sdkrand
 github.com/aws/aws-sdk-go/private/protocol
@@ -170,11 +170,11 @@ github.com/coredns/coredns/plugin/pkg/dnsutil
 github.com/coredns/coredns/plugin/pkg/fall
 github.com/coredns/coredns/plugin/pkg/upstream
 github.com/coredns/coredns/request
-github.com/coredns/coredns/plugin/pkg/log
 github.com/coredns/coredns/pb
 github.com/coredns/coredns/plugin/metrics/vars
 github.com/coredns/coredns/plugin/pkg/doh
 github.com/coredns/coredns/plugin/pkg/edns
+github.com/coredns/coredns/plugin/pkg/log
 github.com/coredns/coredns/plugin/pkg/nonwriter
 github.com/coredns/coredns/plugin/pkg/parse
 github.com/coredns/coredns/plugin/pkg/rcode
@@ -245,6 +245,8 @@ github.com/gin-gonic/gin/json
 github.com/gin-gonic/gin/render
 # github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2
 github.com/glycerine/go-unsnap-stream
+# github.com/go-ini/ini v1.44.0
+github.com/go-ini/ini
 # github.com/go-logfmt/logfmt v0.4.0
 github.com/go-logfmt/logfmt
 # github.com/go-ole/go-ole v1.2.2
@@ -280,6 +282,8 @@ github.com/golang/protobuf/ptypes/timestamp
 github.com/golang/snappy
 # github.com/google/btree v1.0.0
 github.com/google/btree
+# github.com/google/go-querystring v1.0.0
+github.com/google/go-querystring/query
 # github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf
 github.com/google/gofuzz
 # github.com/google/gopacket v1.1.17
@@ -364,6 +368,15 @@ github.com/mholt/caddy/caddyfile
 github.com/mholt/caddy/onevent/hook
 # github.com/miekg/dns v1.1.1
 github.com/miekg/dns
+# github.com/minio/minio-go v6.0.14+incompatible
+github.com/minio/minio-go
+github.com/minio/minio-go/pkg/credentials
+github.com/minio/minio-go/pkg/encrypt
+github.com/minio/minio-go/pkg/s3signer
+github.com/minio/minio-go/pkg/s3utils
+github.com/minio/minio-go/pkg/set
+# github.com/mitchellh/go-homedir v1.1.0
+github.com/mitchellh/go-homedir
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742
@@ -372,12 +385,12 @@ github.com/modern-go/reflect2
 github.com/mohae/deepcopy
 # github.com/moul/http2curl v1.0.0
 github.com/moul/http2curl
+# github.com/mozillazg/go-httpheader v0.2.1
+github.com/mozillazg/go-httpheader
 # github.com/mozillazg/go-pinyin v0.15.0
 github.com/mozillazg/go-pinyin
 # github.com/mschoch/smat v0.0.0-20160514031455-90eadee771ae
 github.com/mschoch/smat
-# github.com/nelsonken/cos-go-sdk-v5 v0.0.0-20180622024522-5247afdb7a80
-github.com/nelsonken/cos-go-sdk-v5/cos
 # github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 github.com/op/go-logging
 # github.com/opentracing-contrib/go-observer v0.0.0-20170622124052-a52f23424492
@@ -456,6 +469,9 @@ github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http
 github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile
+# github.com/tencentyun/cos-go-sdk-v5 v0.0.0-20190717101923-c5c1f9751e7f
+github.com/tencentyun/cos-go-sdk-v5
+github.com/tencentyun/cos-go-sdk-v5/debug
 # github.com/texttheater/golang-levenshtein v0.0.0-20180516184445-d188e65d659e
 github.com/texttheater/golang-levenshtein/levenshtein
 # github.com/tinylib/msgp v1.1.0
@@ -503,13 +519,17 @@ golang.org/x/crypto/pkcs12
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/internal/subtle
+golang.org/x/crypto/argon2
 golang.org/x/crypto/pkcs12/internal/rc2
+golang.org/x/crypto/blake2b
 # golang.org/x/net v0.0.0-20190603091049-60506f45cf65
 golang.org/x/net/bpf
 golang.org/x/net/ipv4
 golang.org/x/net/proxy
 golang.org/x/net/ipv6
 golang.org/x/net/trace
+golang.org/x/net/http/httpguts
+golang.org/x/net/publicsuffix
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
 golang.org/x/net/http2
@@ -517,7 +537,6 @@ golang.org/x/net/context
 golang.org/x/net/internal/socks
 golang.org/x/net/internal/timeseries
 golang.org/x/net/http2/hpack
-golang.org/x/net/http/httpguts
 golang.org/x/net/idna
 golang.org/x/net/context/ctxhttp
 # golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890
@@ -731,10 +750,10 @@ yunion.io/x/log/hooks
 yunion.io/x/pkg/util/version
 yunion.io/x/pkg/utils
 yunion.io/x/pkg/util/regutils
+yunion.io/x/pkg/util/signalutils
 yunion.io/x/pkg/util/timeutils
 yunion.io/x/pkg/util/sets
 yunion.io/x/pkg/trace
-yunion.io/x/pkg/util/signalutils
 yunion.io/x/pkg/util/errors
 yunion.io/x/pkg/util/netutils
 yunion.io/x/pkg/util/seclib
@@ -759,5 +778,5 @@ yunion.io/x/pkg/util/runtime
 yunion.io/x/pkg/util/clock
 # yunion.io/x/sqlchemy v0.0.0-20190704155352-6aff6c803fda
 yunion.io/x/sqlchemy
-# yunion.io/x/structarg v0.0.0-20190625074850-3c0636a9fffe
+# yunion.io/x/structarg v0.0.0-20190717142057-5caf182cbb4d
 yunion.io/x/structarg

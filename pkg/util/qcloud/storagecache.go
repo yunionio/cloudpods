@@ -18,15 +18,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"time"
-
-	coslib "github.com/nelsonken/cos-go-sdk-v5/cos"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"github.com/pkg/errors"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -165,33 +163,16 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	// first upload image to oss
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
-	meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
+	_, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
 		return "", err
 	}
 
-	tmpFile := fmt.Sprintf("%s/%s", options.Options.TempPath, image.ImageId)
-	defer os.Remove(tmpFile)
-	f, err := os.Create(tmpFile)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	if _, err := io.Copy(f, reader); err != nil {
-		return "", err
-	}
-
-	log.Infof("meta data %s", meta)
-	cos, err := self.region.GetCosClient()
-	if err != nil {
-		log.Errorf("GetOssClient err %s", err)
-		return "", err
-	}
-	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s", self.region.GetId()))
-	err = cos.BucketExists(context.Background(), bucketName)
-	if err != nil {
+	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s-%s", self.region.GetId(), image.ImageId))
+	exists, _ := self.region.IBucketExist(bucketName)
+	if !exists {
 		log.Debugf("Bucket %s not exists, to create ...", bucketName)
-		err := cos.CreateBucket(context.Background(), bucketName, &coslib.AccessControl{ACL: "public-read"})
+		err := self.region.CreateIBucket(bucketName, "", "public-read")
 		if err != nil {
 			log.Errorf("Create bucket error %s", err)
 			return "", err
@@ -199,14 +180,19 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	} else {
 		log.Debugf("Bucket %s exists", bucketName)
 	}
+	defer self.region.DeleteIBucket(bucketName)
 	log.Debugf("To upload image to bucket %s ...", bucketName)
-	err = cos.Bucket(bucketName).UploadObjectBySlice(context.Background(), image.ImageId, tmpFile, 3, map[string]string{})
+	bucket, err := self.region.GetIBucketById(bucketName)
+	if err != nil {
+		return "", errors.Wrap(err, "GetIBucketByName")
+	}
+	err = bucket.PutObject(context.Background(), image.ImageId, reader.(io.ReadSeeker), "", "")
 	if err != nil {
 		log.Errorf("UploadObject error %s %s", image.ImageId, err)
-		return "", err
+		return "", errors.Wrap(err, "bucket.PutObject")
 	}
 
-	defer cos.Bucket(bucketName).DeleteObject(context.Background(), image.ImageId)
+	defer bucket.DeleteObject(context.Background(), image.ImageId)
 
 	// 腾讯云镜像名称需要小于20个字符
 	imageBaseName := image.ImageId[:10]

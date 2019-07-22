@@ -499,6 +499,6 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 	return false, cloudprovider.ErrNotImplemented
 }
 
-func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
