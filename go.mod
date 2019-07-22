@@ -64,6 +64,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/golang/protobuf v1.3.1
 	github.com/google/btree v1.0.0 // indirect
+	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/google/gopacket v1.1.17
 	github.com/google/uuid v1.1.0 // indirect
@@ -102,8 +103,8 @@ require (
 	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/moul/http2curl v1.0.0
+	github.com/mozillazg/go-httpheader v0.2.1 // indirect
 	github.com/mozillazg/go-pinyin v0.15.0
-	github.com/nelsonken/cos-go-sdk-v5 v0.0.0-20180622024522-5247afdb7a80
 	github.com/opentracing-contrib/go-observer v0.0.0-20170622124052-a52f23424492 // indirect
 	github.com/opentracing/opentracing-go v1.0.2 // indirect
 	github.com/openzipkin/zipkin-go-opentracing v0.3.4 // indirect
@@ -123,6 +124,7 @@ require (
 	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/stretchr/testify v1.3.0
 	github.com/tencentcloud/tencentcloud-sdk-go v0.0.0-20181108132626-805d01dd0e2e
+	github.com/tencentyun/cos-go-sdk-v5 v0.0.0-20190717101923-c5c1f9751e7f
 	github.com/tinylib/msgp v1.1.0 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
 	github.com/tredoe/osutil v0.0.0-20161130133508-7d3ee1afa71c
@@ -144,7 +146,10 @@ require (
 	google.golang.org/genproto v0.0.0-20181218023534-67d6565462c5 // indirect
 	google.golang.org/grpc v1.19.0
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
+	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v8 v8.18.2 // indirect
+	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/ini.v1 v1.44.0 // indirect
 	gopkg.in/ldap.v3 v3.0.3
 	gopkg.in/yaml.v2 v2.2.2
 	k8s.io/api v0.0.0-20181004124137-fd83cbc87e76
@@ -157,5 +162,5 @@ require (
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
 	yunion.io/x/pkg v0.0.0-20190628082551-f4033ba2ea30
 	yunion.io/x/sqlchemy v0.0.0-20190704155352-6aff6c803fda
-	yunion.io/x/structarg v0.0.0-20190625074850-3c0636a9fffe
+	yunion.io/x/structarg v0.0.0-20190717142057-5caf182cbb4d
 )

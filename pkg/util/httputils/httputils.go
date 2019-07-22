@@ -127,8 +127,8 @@ func GetAddrPort(urlStr string) (string, int, error) {
 	}
 }
 
-func GetClient(insecure bool, timeout time.Duration) *http.Client {
-	tr := &http.Transport{
+func GetTransport(insecure bool, timeout time.Duration) *http.Transport {
+	return &http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout: 5 * time.Second,
 		}).DialContext,
@@ -137,6 +137,10 @@ func GetClient(insecure bool, timeout time.Duration) *http.Client {
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: insecure},
 	}
+}
+
+func GetClient(insecure bool, timeout time.Duration) *http.Client {
+	tr := GetTransport(insecure, timeout)
 	return &http.Client{
 		Transport: tr,
 		Timeout:   timeout,

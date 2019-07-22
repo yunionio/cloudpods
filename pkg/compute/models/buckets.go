@@ -3,7 +3,11 @@ package models
 import (
 	"context"
 	"database/sql"
-	"regexp"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/minio/minio-go/pkg/s3utils"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -11,7 +15,9 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"io"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
@@ -19,6 +25,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/modules"
 )
 
 type SBucketManager struct {
@@ -50,6 +57,14 @@ type SBucket struct {
 	StorageClass string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 	Location     string `width:"36" charset:"ascii" nullable:"false" list:"user"`
 	Acl          string `width:"36" charset:"ascii" nullable:"false" list:"user"`
+}
+
+func (manager *SBucketManager) SetHandlerProcessTimeout(info *appsrv.SHandlerInfo, r *http.Request) time.Duration {
+	if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/upload") && r.Header.Get(api.BUCKET_UPLOAD_OBJECT_KEY_HEADER) != "" {
+		log.Debugf("upload object, set process timeout to 2 hour!!!")
+		return 2 * time.Hour
+	}
+	return manager.SVirtualResourceBaseManager.SetHandlerProcessTimeout(info, r)
 }
 
 func (manager *SBucketManager) fetchBuckets(provider *SCloudprovider, region *SCloudregion) ([]SBucket, error) {
@@ -267,10 +282,16 @@ func (bucket *SBucket) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	return provider.GetIRegionById(region.GetExternalId())
 }
 
-var BUCKET_NAME_REG = regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
+func (bucket *SBucket) GetIBucket() (cloudprovider.ICloudBucket, error) {
+	iregion, err := bucket.GetIRegion()
+	if err != nil {
+		return nil, errors.Wrap(err, "bucket.GetIRegion")
+	}
+	return iregion.GetIBucketById(bucket.ExternalId)
+}
 
-func isValidBucketName(name string) bool {
-	return BUCKET_NAME_REG.MatchString(name)
+func isValidBucketName(name string) error {
+	return s3utils.CheckValidBucketNameStrict(name)
 }
 
 func (manager *SBucketManager) ValidateCreateData(
@@ -293,8 +314,9 @@ func (manager *SBucketManager) ValidateCreateData(
 	if len(nameStr) == 0 {
 		return nil, httperrors.NewInputParameterError("missing name")
 	}
-	if !isValidBucketName(nameStr) {
-		return nil, httperrors.NewInputParameterError("invalid name, only alphabets, digits and hyphen(-) allowed")
+	err := isValidBucketName(nameStr)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid bucket name: %s", err)
 	}
 	return manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
@@ -323,8 +345,9 @@ func (bucket *SBucket) ValidateUpdateData(
 ) (*jsonutils.JSONDict, error) {
 	nameStr, _ := data.GetString("name")
 	if len(nameStr) > 0 {
-		if !isValidBucketName(nameStr) {
-			return nil, httperrors.NewInputParameterError("invalid name, only alphabets, digits and hyphen(-) allowed")
+		err := isValidBucketName(nameStr)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid bucket name: %s", err)
 		}
 	}
 	return bucket.SVirtualResourceBase.ValidateUpdateData(ctx, userCred, query, data)
@@ -343,7 +366,7 @@ func (bucket *SBucket) RemoteCreate(ctx context.Context, userCred mcclient.Token
 	if err != nil {
 		return errors.Wrap(err, "db.SetExternalId")
 	}
-	extBucket, err := iregion.GetIBucketByName(bucket.Name)
+	extBucket, err := iregion.GetIBucketById(bucket.Name)
 	if err != nil {
 		return errors.Wrap(err, "iregion.GetIBucketByName")
 	}
@@ -400,4 +423,187 @@ func (manager *SBucketManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	}
 
 	return q, nil
+}
+
+func (bucket *SBucket) AllowGetDetailsObjects(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) GetDetailsObjects(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+	}
+	prefix, _ := query.GetString("prefix")
+	isRecursive := jsonutils.QueryBoolean(query, "recursive", false)
+	objects, err := iBucket.GetIObjects(prefix, isRecursive)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("fail to get objects: %s", err)
+	}
+	retArray := jsonutils.NewArray()
+	for i := range objects {
+		retArray.Add(jsonutils.Marshal(cloudprovider.ICloudObject2BaseCloudObject(objects[i])))
+	}
+	return retArray, nil
+}
+
+func (bucket *SBucket) AllowPerformTempUrl(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) PerformTempUrl(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	method, _ := data.GetString("method")
+	key, _ := data.GetString("key")
+	expire, _ := data.Int("expire_seconds")
+
+	if len(method) == 0 {
+		method = "GET"
+	}
+	if len(key) == 0 {
+		return nil, httperrors.NewInputParameterError("missing key")
+	}
+	if expire == 0 {
+		expire = 60 // default 60 seconds
+	}
+
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+	}
+	tmpUrl, err := iBucket.GetTempUrl(method, key, time.Duration(expire)*time.Second)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("fail to generate temp url: %s", err)
+	}
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewString(tmpUrl), "url")
+	return ret, nil
+}
+
+func (bucket *SBucket) AllowPerformMakedir(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) PerformMakedir(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	key, _ := data.GetString("key")
+	if key[len(key)-1] != '/' {
+		return nil, httperrors.NewInputParameterError("directory must ends with /")
+	}
+	err := s3utils.CheckValidObjectName(key)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid key: %s", err)
+	}
+
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+	}
+
+	err = cloudprovider.Makedir(ctx, iBucket, key)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("fail to mkdir: %s", err)
+	}
+
+	return nil, nil
+}
+
+func (bucket *SBucket) AllowPerformDelete(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) PerformDelete(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	keys, _ := data.Get("keys")
+	if keys == nil {
+		return nil, httperrors.NewInputParameterError("missing keys")
+	}
+	keyStrs := keys.(*jsonutils.JSONArray).GetStringArray()
+	if len(keyStrs) == 0 {
+		return nil, httperrors.NewInputParameterError("empty keys")
+	}
+
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+	}
+	ok := jsonutils.NewDict()
+	results := modules.BatchDo(keyStrs, func(key string) (jsonutils.JSONObject, error) {
+		err := iBucket.DeleteObject(ctx, key)
+		if err != nil {
+			return nil, err
+		} else {
+			return ok, nil
+		}
+	})
+	return modules.SubmitResults2JSON(results), nil
+}
+
+func (bucket *SBucket) AllowPerformUpload(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) PerformUpload(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	appParams := appsrv.AppContextGetParams(ctx)
+
+	key := appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_KEY_HEADER)
+	err := s3utils.CheckValidObjectName(key)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("invalid object key: %s", err)
+	}
+
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+	}
+
+	contType := appParams.Request.Header.Get("Content-Type")
+	storageClass := appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_STORAGECLASS_HEADER)
+	err = iBucket.PutObject(ctx, key, appParams.Request.Body.(io.ReadSeeker), contType, storageClass)
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("put object error %s", err)
+	}
+
+	return nil, nil
 }

@@ -62,6 +62,7 @@ func init() {
 			"snapshotpolicies",
 		),
 	}
+	SnapshotPolicyManager.SetVirtualObject(SnapshotPolicyManager)
 }
 
 func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
