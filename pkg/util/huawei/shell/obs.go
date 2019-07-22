@@ -30,7 +30,7 @@ func init() {
 		BUCKET string `help:"bucket name to show"`
 	}
 	shellutils.R(&ObsBucketShowOptions{}, "obs-show", "Show bucket detail", func(cli *huawei.SRegion, args *ObsBucketShowOptions) error {
-		bucket, err := cli.GetIBucketByName(args.BUCKET)
+		bucket, err := cli.GetIBucketById(args.BUCKET)
 		if err != nil {
 			return err
 		}

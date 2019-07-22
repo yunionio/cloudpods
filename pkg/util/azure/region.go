@@ -651,6 +651,6 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 	return region.checkStorageAccountNameExist(name)
 }
 
-func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
-	return cloudprovider.GetIBucketByName(region, name)
+func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
+	return cloudprovider.GetIBucketById(region, name)
 }

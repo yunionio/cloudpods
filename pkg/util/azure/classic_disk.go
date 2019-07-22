@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"github.com/Azure/azure-sdk-for-go/storage"
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -67,7 +68,7 @@ func (self *SRegion) GetStorageAccountDisksWithSnapshots(storageaccount SStorage
 	}
 	for _, container := range containers {
 		if container.Name == "vhds" {
-			files, err := container.ListFiles()
+			files, err := container.ListAllFiles(&storage.IncludeBlobDataset{Snapshots: true, Metadata: true})
 			if err != nil {
 				log.Errorf("List storage %s container %s files error: %v", storageaccount.Name, container.Name, err)
 				return nil, nil, err

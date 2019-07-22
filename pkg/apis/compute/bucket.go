@@ -9,4 +9,7 @@ const (
 	BUCKET_STATUS_DELETING     = "deleting"
 	BUCKET_STATUS_DELETED      = "deleted"
 	BUCKET_STATUS_DELETE_FAIL  = "delete_fail"
+
+	BUCKET_UPLOAD_OBJECT_KEY_HEADER          = "X-Yunion-Bucket-Upload-Key"
+	BUCKET_UPLOAD_OBJECT_STORAGECLASS_HEADER = "X-Yunion-Bucket-Upload-Storageclass"
 )

@@ -114,7 +114,7 @@ type ICloudRegion interface {
 	CreateIBucket(name string, storageClassStr string, acl string) error
 	DeleteIBucket(name string) error
 	IBucketExist(name string) (bool, error)
-	GetIBucketByName(name string) (ICloudBucket, error)
+	GetIBucketById(name string) (ICloudBucket, error)
 
 	GetProvider() string
 }

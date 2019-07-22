@@ -953,6 +953,34 @@ func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
 	return ret, nil
 }
 
+func str2StorageClass(storageClassStr string) (oss.StorageClassType, error) {
+	storageClass := oss.StorageStandard
+	if strings.EqualFold(storageClassStr, string(oss.StorageStandard)) {
+		//
+	} else if strings.EqualFold(storageClassStr, string(oss.StorageIA)) {
+		storageClass = oss.StorageIA
+	} else if strings.EqualFold(storageClassStr, string(oss.StorageArchive)) {
+		storageClass = oss.StorageArchive
+	} else {
+		return storageClass, errors.Error("not supported storageClass")
+	}
+	return storageClass, nil
+}
+
+func str2Acl(aclStr string) (oss.ACLType, error) {
+	acl := oss.ACLPrivate
+	if strings.EqualFold(aclStr, string(oss.ACLPrivate)) {
+		// private, default
+	} else if strings.EqualFold(aclStr, string(oss.ACLPublicRead)) {
+		acl = oss.ACLPublicRead
+	} else if strings.EqualFold(aclStr, string(oss.ACLPublicReadWrite)) {
+		acl = oss.ACLPublicReadWrite
+	} else {
+		return acl, errors.Error("not supported acl")
+	}
+	return acl, nil
+}
+
 func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr string) error {
 	osscli, err := region.GetOssClient()
 	if err != nil {
@@ -960,32 +988,18 @@ func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr
 	}
 	opts := make([]oss.Option, 0)
 	if len(storageClassStr) > 0 {
-		storageClass := oss.StorageStandard
-		if strings.EqualFold(storageClassStr, string(oss.StorageStandard)) {
-			//
-		} else if strings.EqualFold(storageClassStr, string(oss.StorageIA)) {
-			storageClass = oss.StorageIA
-		} else if strings.EqualFold(storageClassStr, string(oss.StorageArchive)) {
-			storageClass = oss.StorageArchive
-		} else {
-			return errors.Error("not supported storageClass")
+		storageClass, err := str2StorageClass(storageClassStr)
+		if err != nil {
+			return err
 		}
-		opt := oss.StorageClass(storageClass)
-		opts = append(opts, opt)
+		opts = append(opts, oss.StorageClass(storageClass))
 	}
 	if len(aclStr) > 0 {
-		acl := oss.ACLPrivate
-		if strings.EqualFold(aclStr, string(oss.ACLPrivate)) {
-			// private, default
-		} else if strings.EqualFold(aclStr, string(oss.ACLPublicRead)) {
-			acl = oss.ACLPublicRead
-		} else if strings.EqualFold(aclStr, string(oss.ACLPublicReadWrite)) {
-			acl = oss.ACLPublicReadWrite
-		} else {
-			return errors.Error("not supported acl")
+		acl, err := str2Acl(aclStr)
+		if err != nil {
+			return err
 		}
-		opt := oss.ACL(acl)
-		opts = append(opts, opt)
+		opts = append(opts, oss.ACL(acl))
 	}
 	err = osscli.CreateBucket(name, opts...)
 	if err != nil {
@@ -1031,7 +1045,7 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 	return exist, nil
 }
 
-func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
 	osscli, err := region.GetOssClient()
 	if err != nil {
 		return nil, errors.Wrap(err, "region.GetOssClient")

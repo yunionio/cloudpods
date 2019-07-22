@@ -98,7 +98,7 @@ func init() {
 		if err != nil {
 			return err
 		}
-		blobs, err := container.ListFiles()
+		blobs, err := container.ListAllFiles(nil)
 		if err != nil {
 			return err
 		}
