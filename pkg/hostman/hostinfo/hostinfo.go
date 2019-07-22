@@ -755,7 +755,11 @@ func (h *SHostInfo) updateHostRecord(hostId string) {
 	content.Set("manager_uri", jsonutils.NewString(fmt.Sprintf("%s://%s:%d",
 		schema, masterIp, options.HostOptions.Port)))
 	content.Set("cpu_count", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Count)))
-	content.Set("node_count", jsonutils.NewInt(int64(h.Cpu.cpuInfoDmi.Nodes)))
+	if sysutils.IsHypervisor() {
+		content.Set("node_count", jsonutils.NewInt(1))
+	} else {
+		content.Set("node_count", jsonutils.NewInt(int64(h.Cpu.cpuInfoDmi.Nodes)))
+	}
 	content.Set("cpu_desc", jsonutils.NewString(h.Cpu.cpuInfoProc.Model))
 	content.Set("cpu_microcode", jsonutils.NewString(h.Cpu.cpuInfoProc.Microcode))
 	content.Set("cpu_mhz", jsonutils.NewInt(int64(h.Cpu.cpuInfoProc.Freq)))

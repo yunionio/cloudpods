@@ -19,7 +19,7 @@ import "yunion.io/x/onecloud/pkg/cloudcommon/options"
 type SDeployOptions struct {
 	options.BaseOptions
 
-	DeployServerSocketPath string   `help:"Deploy server listen socket path"`
+	DeployServerSocketPath string   `help:"Deploy server listen socket path" default:"/var/run/deploy.sock"`
 	PrivatePrefixes        []string `help:"IPv4 private prefixes"`
 	ChntpwPath             string   `help:"path to chntpw tool" default:"/usr/local/bin/chntpw.static"`
 }

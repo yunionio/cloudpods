@@ -105,7 +105,7 @@ type SHostOptions struct {
 
 	MaxReservedMemory int `default:"10240" help:"host reserved memory"`
 
-	DeployServerSocketPath string `help:"Deploy server listen socket path"`
+	DeployServerSocketPath string `help:"Deploy server listen socket path" default:"/var/run/deploy.sock"`
 }
 
 var HostOptions SHostOptions
