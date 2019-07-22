@@ -114,7 +114,8 @@ type SImage struct {
 	MinDiskMB  int32  `name:"min_disk" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
 	MinRamMB   int32  `name:"min_ram" nullable:"false" default:"0" list:"user" create:"optional" update:"user"`
 
-	Protected tristate.TriState `nullable:"true" list:"user" get:"user" create:"optional" update:"user"`
+	Protected  tristate.TriState `nullable:"false" default:"true" list:"user" get:"user" create:"optional" update:"user"`
+	IsStandard tristate.TriState `nullable:"false" default:"false" list:"user" get:"user" create:"admin_optional"`
 
 	// image copy from url, save origin checksum before probe
 	OssChecksum string `width:"32" charset:"ascii" nullable:"true" get:"user" list:"user"`
@@ -569,11 +570,14 @@ func (self *SImage) AllowDeleteItem(ctx context.Context, userCred mcclient.Token
 }
 
 func (self *SImage) ValidateDeleteCondition(ctx context.Context) error {
-	if self.IsPublic {
-		return httperrors.NewInvalidStatusError("image is shared")
+	if self.IsStandard.IsTrue() {
+		return httperrors.NewForbiddenError("image is standard image")
 	}
 	if self.Protected.IsTrue() {
 		return httperrors.NewForbiddenError("image is protected")
+	}
+	if self.IsPublic {
+		return httperrors.NewInvalidStatusError("image is shared")
 	}
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
@@ -1123,36 +1127,35 @@ func (self *SImage) DoCheckStatus(ctx context.Context, userCred mcclient.TokenCr
 	}
 }
 
-func (self *SImage) AllowPerformMarkPublicProtected(
+func (self *SImage) AllowPerformMarkStandard(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) bool {
-	return db.IsAdminAllowPerform(userCred, self, "mark-public-protected")
+	return db.IsAdminAllowPerform(userCred, self, "mark-standard")
 }
 
-func (self *SImage) PerformMarkPublicProtected(
+func (self *SImage) PerformMarkStandard(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
-	isPublic := jsonutils.QueryBoolean(data, "is-public", false)
-	protected := jsonutils.QueryBoolean(data, "protected", false)
-	if isPublic != self.IsPublic || (!self.Protected.IsTrue() && protected) || (self.Protected.IsTrue() && !protected) {
-		_, err := db.Update(self, func() error {
-			self.IsPublic = isPublic
-			if protected {
-				self.Protected = tristate.True
+	isStandard := jsonutils.QueryBoolean(data, "is_standard", false)
+	if (!self.IsStandard.IsTrue() && isStandard) || (self.IsStandard.IsTrue() && !isStandard) {
+		diff, err := db.Update(self, func() error {
+			if isStandard {
+				self.IsStandard = tristate.True
 			} else {
-				self.Protected = tristate.False
+				self.IsStandard = tristate.False
 			}
 			return nil
 		})
 		if err != nil {
 			return nil, httperrors.NewGeneralError(err)
 		}
+		db.OpsLog.LogEvent(self, db.ACT_UPDATE, diff, userCred)
 	}
 	return nil, nil
 }

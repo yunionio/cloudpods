@@ -168,6 +168,8 @@ paths:
     $ref: "./image/images.yaml"
   /images/{imageId}:
     $ref: "./image/image.yaml"
+  /images/{imageId}/mark-standard:
+    $ref: "./image/image-standard.yaml"
 
   /natgateways:
     $ref: "./natgateway/natgateways.yaml"
