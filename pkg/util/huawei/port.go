@@ -18,15 +18,17 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/pkg/utils"
 )
 
 type SFixedIP struct {
 	IpAddress string
 	SubnetID  string
+	NetworkId string
 }
 
 func (fixip *SFixedIP) GetGlobalId() string {
-	return fixip.SubnetID
+	return fixip.IpAddress
 }
 
 func (fixip *SFixedIP) GetIP() string {
@@ -34,7 +36,7 @@ func (fixip *SFixedIP) GetIP() string {
 }
 
 func (fixip *SFixedIP) GetINetworkId() string {
-	return fixip.SubnetID
+	return fixip.NetworkId
 }
 
 func (fixip *SFixedIP) IsPrimary() bool {
@@ -81,10 +83,14 @@ func (port *Port) GetAssociateType() string {
 	switch port.DeviceOwner {
 	case "compute:nova":
 		return api.NETWORK_INTERFACE_ASSOCIATE_TYPE_SERVER
-	case "network:router_gateway", "network:dhcp", "network:router_interface", "network:router_interface_distributed":
+	case "network:router_gateway", "network:router_interface", "network:router_interface_distributed":
 		return api.NETWORK_INTERFACE_ASSOCIATE_TYPE_RESERVED
+	case "network:dhcp":
+		return api.NETWORK_INTERFACE_ASSOCIATE_TYPE_DHCP
 	case "neutron:LOADBALANCERV2":
 		return api.NETWORK_INTERFACE_ASSOCIATE_TYPE_LOADBALANCER
+	case "neutron:VIP_PORT":
+		return api.NETWORK_INTERFACE_ASSOCIATE_TYPE_VIP
 	}
 	return port.DeviceOwner
 }
@@ -106,6 +112,7 @@ func (port *Port) GetStatus() string {
 func (port *Port) GetICloudInterfaceAddresses() ([]cloudprovider.ICloudInterfaceAddress, error) {
 	address := []cloudprovider.ICloudInterfaceAddress{}
 	for i := 0; i < len(port.FixedIps); i++ {
+		port.FixedIps[i].NetworkId = port.NetworkID
 		address = append(address, &port.FixedIps[i])
 	}
 	return address, nil
@@ -118,7 +125,7 @@ func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInt
 	}
 	ret := []cloudprovider.ICloudNetworkInterface{}
 	for i := 0; i < len(ports); i++ {
-		if len(ports[i].DeviceID) == 0 || (ports[i].DeviceOwner != "compute:nova" && ports[i].DeviceOwner != "neutron:LOADBALANCERV2") {
+		if len(ports[i].DeviceID) == 0 || !utils.IsInStringArray(ports[i].DeviceOwner, []string{"compute:CCI", "compute:nova", "neutron:LOADBALANCERV2"}) {
 			ports[i].region = region
 			ret = append(ret, &ports[i])
 		}

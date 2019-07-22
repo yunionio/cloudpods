@@ -53,8 +53,8 @@ type SNetworkInterface struct {
 	SManagedResourceBase
 	SCloudregionResourceBase
 
-	Mac           string `width:"36" charset:"ascii"`
-	AssociateType string `width:"36" charset:"ascii" nullable:"true" create:"required"`
+	Mac           string `width:"36" charset:"ascii" list:"user"`
+	AssociateType string `width:"36" charset:"ascii" list:"user" nullable:"true" create:"optional"`
 	AssociateId   string `width:"36" charset:"ascii" list:"user"`
 }
 
@@ -109,6 +109,12 @@ func (self *SNetworkInterface) GetCustomizeColumns(ctx context.Context, userCred
 	if regionInfo != nil {
 		extra.Update(regionInfo)
 	}
+	networks, err := self.GetNetworks()
+	if err != nil {
+		log.Errorf("failed to get network for networkinterface %s(%s) error: %v", self.Name, self.Id, err)
+		return extra
+	}
+	extra.Add(jsonutils.Marshal(networks), "networks")
 	return extra
 }
 
