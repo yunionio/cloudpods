@@ -567,8 +567,8 @@ var (
 func init() {
 	Images = ImageManager{NewImageManager("image", "images",
 		[]string{"ID", "Name", "Tags", "Disk_format",
-			"Size", "Is_public", "OS_Type",
-			"OS_Distribution", "OS_version",
+			"Size", "Is_public", "Protected", "Is_Standard",
+			"OS_Type", "OS_Distribution", "OS_version",
 			"Min_disk", "Min_ram", "Status",
 			"Notes", "OS_arch", "Preference",
 			"OS_Codename", "Description",
