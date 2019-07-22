@@ -334,7 +334,6 @@ paths:
   /keypairs/{keypairId}:
     $ref: "./keypair/keypair.yaml"
 
-
   /elasticips:
     $ref: "./elasticip/elasticips.yaml"
   /elasticips/{elasticipId}:
@@ -349,3 +348,8 @@ paths:
     $ref: "./elasticip/purge.yaml"
   /elasticips/{elasticipId}/sync:
     $ref: "./elasticip/sync.yaml"
+
+  /networkinterfaces:
+    $ref: "./networkinterface/networkinterfaces.yaml"
+  /networkinterfaces/{networkinterfaceId}:
+    $ref: "./networkinterface/networkinterface.yaml"
