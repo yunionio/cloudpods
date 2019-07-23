@@ -684,19 +684,20 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 	}
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		var err error
 		if len(instanceType) > 0 {
 			err = iVM.ChangeConfig2(ctx, instanceType)
-			if err != nil {
-				return nil, err
-			}
-		} else {
+		}
+		// no InstanceType
+		// or InstanceType failed but retry with raw cpu/mem config
+		if len(instanceType) == 0 || err != nil {
 			err = iVM.ChangeConfig(ctx, int(vcpuCount), int(vmemSize))
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		err := cloudprovider.WaitCreated(time.Second*5, time.Minute*5, func() bool {
+		err = cloudprovider.WaitCreated(time.Second*5, time.Minute*5, func() bool {
 			err := iVM.Refresh()
 			if err != nil {
 				return false
@@ -711,9 +712,9 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 			return nil, err
 		}
 
-		instanceType := iVM.GetInstanceType()
+		instanceType = iVM.GetInstanceType()
 		if len(instanceType) > 0 {
-			_, err := db.Update(guest, func() error {
+			_, err = db.Update(guest, func() error {
 				guest.InstanceType = instanceType
 				return nil
 			})
