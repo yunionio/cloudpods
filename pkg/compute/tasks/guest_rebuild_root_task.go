@@ -164,7 +164,12 @@ func (self *GuestRebuildRootTask) OnRebuildAllDisksComplete(ctx context.Context,
 		}
 	}
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT, "", self.UserCred)
-	guest.NotifyServerEvent(self.UserCred, notifyclient.SERVER_REBUILD_ROOT, notify.NotifyPriorityImportant, true)
+	guest.NotifyServerEvent(
+		self.UserCred,
+		notifyclient.SERVER_REBUILD_ROOT,
+		notify.NotifyPriorityImportant,
+		true, nil, false,
+	)
 	self.SetStage("OnSyncStatusComplete", nil)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
 }
