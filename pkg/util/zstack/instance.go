@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -449,7 +450,11 @@ func (instance *SInstance) DetachDisk(ctx context.Context, diskId string) error 
 
 func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 	url := fmt.Sprintf("volumes/%s/vm-instances?vmUuid=%s", diskId, instanceId)
-	return region.client.delete(url, "", "")
+	err := region.client.delete(url, "", "")
+	if err != nil && strings.Contains(err.Error(), "is not attached to any vm") {
+		return nil
+	}
+	return err
 }
 
 func (instance *SInstance) DeleteVM(ctx context.Context) error {
