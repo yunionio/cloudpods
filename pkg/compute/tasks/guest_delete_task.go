@@ -278,6 +278,11 @@ func (self *GuestDeleteTask) DeleteGuest(ctx context.Context, guest *models.SGue
 }
 
 func (self *GuestDeleteTask) NotifyServerDeleted(ctx context.Context, guest *models.SGuest) {
-	guest.NotifyServerEvent(self.UserCred, notifyclient.SERVER_DELETED, notify.NotifyPriorityImportant, false)
+	guest.NotifyServerEvent(
+		self.UserCred,
+		notifyclient.SERVER_DELETED,
+		notify.NotifyPriorityImportant,
+		false, nil, false,
+	)
 	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_DELETED_ADMIN, notify.NotifyPriorityImportant)
 }
