@@ -16,11 +16,13 @@ package tasks
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	o "yunion.io/x/onecloud/pkg/baremetal/options"
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
 	"yunion.io/x/onecloud/pkg/cloudcommon/types"
@@ -41,11 +43,16 @@ type sBaremetalRegisterTask struct {
 	IpmiUsername string
 	IpmiPassword string
 	IpmiIpAddr   string
+	IpmiMac      net.HardwareAddr
+	AdminWire    string
+	IpmiWire     string
 
 	accessNic *types.SNicDevInfo
 }
 
-func NewBaremetalRegisterTask(bmManager IBmManager, sshCli *ssh.Client, hostname, remoteIp, ipmiUsername, ipmiPassword, ipmiIpAddr string) *sBaremetalRegisterTask {
+func NewBaremetalRegisterTask(bmManager IBmManager, sshCli *ssh.Client,
+	hostname, remoteIp, ipmiUsername, ipmiPassword, ipmiIpAddr string,
+	ipmiMac net.HardwareAddr, adminWire, ipmiWire string) *sBaremetalRegisterTask {
 	return &sBaremetalRegisterTask{
 		BmManager:    bmManager,
 		SshCli:       sshCli,
@@ -54,6 +61,9 @@ func NewBaremetalRegisterTask(bmManager IBmManager, sshCli *ssh.Client, hostname
 		IpmiUsername: ipmiUsername,
 		IpmiPassword: ipmiPassword,
 		IpmiIpAddr:   ipmiIpAddr,
+		IpmiMac:      ipmiMac,
+		AdminWire:    adminWire,
+		IpmiWire:     ipmiWire,
 	}
 }
 
@@ -63,15 +73,22 @@ func (s *sBaremetalRegisterTask) CreateBaremetal() error {
 	if err != nil {
 		return fmt.Errorf("Register baremeatl failed on lsnic: %s", err)
 	}
+
 	nicinfo := sysutils.ParseNicInfo(ret)
 	for _, nic := range nicinfo {
-		if nic.Up {
+		ret, err := s.SshCli.RawRun("/sbin/ip a show " + nic.Dev)
+		if err != nil {
+			return fmt.Errorf("Register baremeatl failed on ip command: %s", err)
+		}
+		if strings.Index(ret[0], s.RemoteIp) >= 0 {
 			s.accessNic = nic
 			break
+		} else {
+			continue
 		}
 	}
 	if s.accessNic == nil {
-		return fmt.Errorf("Register baremeatl failed: NO nic up ???")
+		return fmt.Errorf("Register baremeatl failed: access nic not found ???")
 	}
 
 	params := jsonutils.NewDict()
@@ -87,6 +104,19 @@ func (s *sBaremetalRegisterTask) CreateBaremetal() error {
 	pxeBm, err := s.BmManager.AddBaremetal(res)
 	if err != nil {
 		return fmt.Errorf("BmManager add baremetal failed: %s", err)
+	}
+	err = pxeBm.InitAdminNetif(s.accessNic.Mac, s.AdminWire, types.NIC_TYPE_ADMIN, api.NETWORK_TYPE_PXE, true)
+	if err != nil {
+		return fmt.Errorf("BmManager add admin netif failed: %s", err)
+	}
+	err = pxeBm.InitAdminNetif(s.IpmiMac, s.IpmiWire, types.NIC_TYPE_IPMI, api.NETWORK_TYPE_IPMI, true)
+	if err != nil {
+		return fmt.Errorf("BmManager add ipmi netif failed: %s", err)
+	}
+	for _, nic := range nicinfo {
+		if nic.Dev != s.accessNic.Dev {
+			pxeBm.RegisterNetif(nic.Mac, s.AdminWire)
+		}
 	}
 	s.baremetal = pxeBm.(IBaremetal)
 	return nil
