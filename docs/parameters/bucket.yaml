@@ -1,0 +1,36 @@
+bucket_name:
+  name: bucket_name
+  type: string
+  required: true
+  in: path
+  description: 存储桶的名称
+
+prefix:
+  name: prefix
+  type: string
+  in: query
+  description: 对象的前缀过滤
+
+recursive:
+  name: recursive
+  type: bool
+  in: query
+  description: 是否展开对象列表，false则只显示当前目录层级下的对象，true则显示匹配前缀的所有对象
+
+x-bucket-object-key:
+  name: x-bucket-object-key
+  type: string
+  in: header
+  description: 对象的key
+
+x-bucket-content-type:
+  name: x-bucket-content-type
+  type: string
+  in: header
+  description: 对象的content-type
+
+x-bucket-storage-class:
+  name: x-bucket-storage-class
+  type: string
+  in: header
+  description: 对象的storage_class

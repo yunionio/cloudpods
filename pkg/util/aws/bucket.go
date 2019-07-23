@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package aws
 
 import (
@@ -6,8 +20,11 @@ import (
 	"io"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
 	"yunion.io/x/pkg/errors"
 
@@ -128,25 +145,30 @@ func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.
 	return cloudprovider.GetIObjects(b, prefix, isRecursive)
 }
 
-func (b *SBucket) PutObject(ctx context.Context, key string, reader io.ReadSeeker, contType string, storageClassStr string) error {
-	s3cli, err := b.region.GetS3Client()
+func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, contType string, storageClassStr string) error {
+	sess, err := session.NewSession(&aws.Config{Region: aws.String(b.region.GetId())})
 	if err != nil {
-		return errors.Wrap(err, "GetS3Client")
+		return errors.Wrap(err, "session.NewSession")
 	}
-	input := &s3.PutObjectInput{}
-	input.SetBucket(b.Name)
-	input.SetKey(key)
-	input.SetBody(reader)
-	if len(storageClassStr) > 0 {
-		input.SetStorageClass(storageClassStr)
+
+	svc := s3manager.NewUploader(sess)
+	input := &s3manager.UploadInput{
+		Bucket: aws.String(b.Name),
+		Key:    aws.String(key),
+		Body:   reader,
 	}
 	if len(contType) > 0 {
-		input.SetContentType(contType)
+		input.ContentType = aws.String(contType)
 	}
-	_, err = s3cli.PutObjectWithContext(ctx, input)
+	if len(storageClassStr) > 0 {
+		input.StorageClass = aws.String(storageClassStr)
+	}
+
+	_, err = svc.Upload(input)
 	if err != nil {
-		return errors.Wrap(err, "PutObjectWithContext")
+		return errors.Wrap(err, "svc.Upload")
 	}
+
 	return nil
 }
 
