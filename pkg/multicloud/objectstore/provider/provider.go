@@ -39,13 +39,13 @@ func (self *SObjectStoreProviderFactory) GetName() string {
 }
 
 func (self *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
-	accessKeyID, _ := data.GetString("access_key")
+	accessKeyID, _ := data.GetString("access_key_id")
 	if len(accessKeyID) == 0 {
-		return httperrors.NewMissingParameterError("access_key")
+		return httperrors.NewMissingParameterError("access_key_id")
 	}
-	accessKeySecret, _ := data.GetString("secret_key")
+	accessKeySecret, _ := data.GetString("access_key_secret")
 	if len(accessKeySecret) == 0 {
-		return httperrors.NewMissingParameterError("secret_key")
+		return httperrors.NewMissingParameterError("access_key_secret")
 	}
 	endpointURL, _ := data.GetString("endpoint")
 	if len(endpointURL) == 0 {
@@ -53,18 +53,18 @@ func (self *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx cont
 	}
 	data.Set("account", jsonutils.NewString(accessKeyID))
 	data.Set("secret", jsonutils.NewString(accessKeySecret))
-	data.Set("url", jsonutils.NewString(endpointURL))
+	data.Set("access_url", jsonutils.NewString(endpointURL))
 	return nil
 }
 
 func (self *SObjectStoreProviderFactory) ValidateUpdateCloudaccountCredential(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject, cloudaccount string) (*cloudprovider.SCloudaccount, error) {
-	accessKeyID, _ := data.GetString("access_key")
+	accessKeyID, _ := data.GetString("access_key_id")
 	if len(accessKeyID) == 0 {
-		return nil, httperrors.NewMissingParameterError("access_key")
+		return nil, httperrors.NewMissingParameterError("access_key_id")
 	}
-	accessKeySecret, _ := data.GetString("secret_key")
+	accessKeySecret, _ := data.GetString("access_key_secret")
 	if len(accessKeySecret) == 0 {
-		return nil, httperrors.NewMissingParameterError("secret_key")
+		return nil, httperrors.NewMissingParameterError("access_key_secret")
 	}
 	account := &cloudprovider.SCloudaccount{
 		Account: accessKeyID,

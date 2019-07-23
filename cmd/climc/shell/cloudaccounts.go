@@ -178,6 +178,17 @@ func init() {
 		return nil
 	})
 
+	R(&options.SS3CloudAccountCreateOptions{}, "cloud-account-create-s3", "Create a generaic S3 object storage account", func(s *mcclient.ClientSession, args *options.SS3CloudAccountCreateOptions) error {
+		params := jsonutils.Marshal(args)
+		params.(*jsonutils.JSONDict).Add(jsonutils.NewString("S3"), "provider")
+		result, err := modules.Cloudaccounts.Create(s, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	type CloudaccountUpdateOptions struct {
 		ID        string `help:"ID or Name of cloud account"`
 		Name      string `help:"New name to update"`
@@ -316,7 +327,33 @@ func init() {
 		return nil
 	})
 
+	R(&options.SUcloudCloudAccountUpdateOptions{}, "cloud-account-update-ucloud", "update a Ucloud cloud account", func(s *mcclient.ClientSession, args *options.SUcloudCloudAccountUpdateOptions) error {
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
+		if params.Size() == 0 {
+			return InvalidUpdateError()
+		}
+		result, err := modules.Cloudaccounts.Update(s, args.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 	R(&options.SZStackCloudAccountUpdateOptions{}, "cloud-account-update-zstack", "update a ZStack cloud account", func(s *mcclient.ClientSession, args *options.SZStackCloudAccountUpdateOptions) error {
+		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
+		if params.Size() == 0 {
+			return InvalidUpdateError()
+		}
+		result, err := modules.Cloudaccounts.Update(s, args.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SS3CloudAccountUpdateOptions{}, "cloud-account-update-s3", "update a generic S3 cloud account", func(s *mcclient.ClientSession, args *options.SS3CloudAccountUpdateOptions) error {
 		params := jsonutils.Marshal(args).(*jsonutils.JSONDict)
 		if params.Size() == 0 {
 			return InvalidUpdateError()
@@ -474,6 +511,36 @@ func init() {
 	})
 
 	R(&options.SHuaweiCloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-huawei", "Update credential of an Huawei cloud account", func(s *mcclient.ClientSession, args *options.SHuaweiCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SUcloudCloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-ucloud", "Update credential of a Ucloud cloud account", func(s *mcclient.ClientSession, args *options.SUcloudCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SZStackCloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-zstack", "Update credential of a ZStack cloud account", func(s *mcclient.ClientSession, args *options.SZStackCloudAccountUpdateCredentialOptions) error {
+		params := jsonutils.Marshal(args)
+		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	R(&options.SS3CloudAccountUpdateCredentialOptions{}, "cloud-account-update-credential-s3", "Update credential of a generic S3 cloud account", func(s *mcclient.ClientSession, args *options.SS3CloudAccountUpdateCredentialOptions) error {
 		params := jsonutils.Marshal(args)
 		result, err := modules.Cloudaccounts.PerformAction(s, args.ID, "update-credential", params)
 		if err != nil {

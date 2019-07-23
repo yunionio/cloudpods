@@ -353,3 +353,18 @@ paths:
     $ref: "./networkinterface/networkinterfaces.yaml"
   /networkinterfaces/{networkinterfaceId}:
     $ref: "./networkinterface/networkinterface.yaml"
+
+  /buckets:
+    $ref: "./bucket/buckets.yaml"
+  /buckets/{bucketName}:
+    $ref: "./bucket/bucket.yaml"
+  /buckets/{bucketName}/objects:
+    $ref: "./bucket/listobjects.yaml"
+  /buckets/{bucketName}/delete:
+    $ref: "./bucket/deleteobjects.yaml"
+  /buckets/{bucketName}/makedir:
+    $ref: "./bucket/makedir.yaml"
+  /buckets/{bucketName}/upload:
+    $ref: "./bucket/uploadobject.yaml"
+  /buckets/{bucketName}/tempurl:
+    $ref: "./bucket/tempurl.yaml"
