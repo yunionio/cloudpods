@@ -357,6 +357,9 @@ func (cli *SZStackClient) wait(client *http.Client, header http.Header, action s
 		}
 		_, result, err := httputils.ParseJSONResponse(resp, err, cli.debug)
 		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				return nil, cloudprovider.ErrNotFound
+			}
 			return nil, err
 		}
 		if time.Now().Sub(startTime) > timeout {
