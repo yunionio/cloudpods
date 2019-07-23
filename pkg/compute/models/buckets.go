@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package models
 
 import (
@@ -15,7 +29,6 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
-	"io"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -271,15 +284,19 @@ func (bucket *SBucket) GetRegion() (*SCloudregion, error) {
 }
 
 func (bucket *SBucket) GetIRegion() (cloudprovider.ICloudRegion, error) {
-	region, err := bucket.GetRegion()
-	if err != nil {
-		return nil, errors.Wrap(err, "bucket.GetRegion")
-	}
 	provider, err := bucket.GetDriver()
 	if err != nil {
 		return nil, err
 	}
-	return provider.GetIRegionById(region.GetExternalId())
+	if provider.GetFactory().IsOnPremise() {
+		return provider.GetOnPremiseIRegion()
+	} else {
+		region, err := bucket.GetRegion()
+		if err != nil {
+			return nil, errors.Wrap(err, "bucket.GetRegion")
+		}
+		return provider.GetIRegionById(region.GetExternalId())
+	}
 }
 
 func (bucket *SBucket) GetIBucket() (cloudprovider.ICloudBucket, error) {
@@ -452,7 +469,9 @@ func (bucket *SBucket) GetDetailsObjects(
 	for i := range objects {
 		retArray.Add(jsonutils.Marshal(cloudprovider.ICloudObject2BaseCloudObject(objects[i])))
 	}
-	return retArray, nil
+	ret := jsonutils.NewDict()
+	ret.Add(retArray, "objects")
+	return ret, nil
 }
 
 func (bucket *SBucket) AllowPerformTempUrl(ctx context.Context,
@@ -600,7 +619,7 @@ func (bucket *SBucket) PerformUpload(
 
 	contType := appParams.Request.Header.Get("Content-Type")
 	storageClass := appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_STORAGECLASS_HEADER)
-	err = iBucket.PutObject(ctx, key, appParams.Request.Body.(io.ReadSeeker), contType, storageClass)
+	err = iBucket.PutObject(ctx, key, appParams.Request.Body, contType, storageClass)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("put object error %s", err)
 	}

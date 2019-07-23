@@ -218,7 +218,7 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 	return result, cloudprovider.ErrNotSupported
 }
 
-func (b *SBucket) PutObject(ctx context.Context, key string, reader io.ReadSeeker, contType string, storageClassStr string) error {
+func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, contType string, storageClassStr string) error {
 	return cloudprovider.ErrNotSupported
 }
 

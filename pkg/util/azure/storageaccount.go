@@ -508,7 +508,7 @@ func (self *SContainer) CopySnapshot(snapshotId, fileName string) (*storage.Blob
 	return blobRef, blobRef.GetProperties(&storage.GetBlobPropertiesOptions{})
 }
 
-func (self *SContainer) UploadStream(key string, reader io.ReadSeeker, contType string) error {
+func (self *SContainer) UploadStream(key string, reader io.Reader, contType string) error {
 	storageaccount := self.storageaccount
 	client, err := storage.NewBasicClientOnSovereignCloud(storageaccount.Name, storageaccount.accountKey, storageaccount.region.client.env)
 	if err != nil {
@@ -640,7 +640,7 @@ func (self *SStorageAccount) getOrCreateContainer(containerName string, create b
 	return container, nil
 }
 
-func (self *SStorageAccount) UploadStream(containerName string, key string, reader io.ReadSeeker, contType string) error {
+func (self *SStorageAccount) UploadStream(containerName string, key string, reader io.Reader, contType string) error {
 	container, err := self.getOrCreateContainer(containerName, true)
 	if err != nil {
 		return errors.Wrap(err, "getOrCreateContainer")
@@ -849,7 +849,7 @@ func splitKey(key string) (string, string, error) {
 	return containerName, key, nil
 }
 
-func (b *SStorageAccount) PutObject(ctx context.Context, key string, reader io.ReadSeeker, contType string, storageClassStr string) error {
+func (b *SStorageAccount) PutObject(ctx context.Context, key string, reader io.Reader, contType string, storageClassStr string) error {
 	containerName, blob, err := splitKey(key)
 	if err != nil {
 		return errors.Wrap(err, "splitKey")
