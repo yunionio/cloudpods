@@ -43,6 +43,11 @@ account:
   in: query
   type: string
   description: 根据账号过滤
+cloudaccount:
+  name: account
+  in: query
+  type: string
+  description: 根据账号过滤
 cloudprovider:
   name: cloudprovider
   in: query
@@ -119,5 +124,10 @@ description:
 public_cloud:
   name: public_cloud
   in: query
-  type: string
+  type: boolean
+  description: 过滤公有云资源
+private_cloud:
+  name: private_cloud
+  in: query
+  type: boolean
   description: 过滤公有云资源

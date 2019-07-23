@@ -120,3 +120,16 @@ SharableVirtualResourceBaseResponse:
           description: public_scope
           readOnly: true           
           
+BillingBaseResponse:
+  type: object
+  properties:
+    billing_type:
+      type: string
+      example: postpaid
+      enum: [postpaid, prepaid]
+      description: 资源计费类型
+    expired_at:
+      type: string
+      example: "2019-06-11T03:39:02.000000Z"
+      description: 资源到期时间,仅对预付费类型资源有效
+    

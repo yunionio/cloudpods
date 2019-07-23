@@ -297,3 +297,43 @@ paths:
     $ref: "./serversku/enable.yaml"
   /serverskus/{serverskuId}/disable:
     $ref: "./serversku/disable.yaml"
+
+  /secgroups:
+    $ref: "./secgroup/secgroups.yaml"
+  /secgroups/{secgroupId}:
+    $ref: "./secgroup/secgroup.yaml"
+  /secgroups/{secgroupId}/clone:
+    $ref: "./secgroup/clone.yaml"
+  /secgroups/{secgroupId}/union:
+    $ref: "./secgroup/union.yaml"
+  /secgroups/{secgroupId}/add-rule:
+    $ref: "./secgroup/add-rule.yaml"
+  /secgroups/{secgroupId}/public:
+    $ref: "./secgroup/public.yaml"
+  /secgroups/{secgroupId}/private:
+    $ref: "./secgroup/private.yaml"
+  /secgrouprules:
+    $ref: "./secgrouprule/secgrouprules.yaml"
+  /secgrouprules/{secgroupruleId}:
+    $ref: "./secgrouprule/secgrouprule.yaml"
+
+  /keypairs:
+    $ref: "./keypair/keypairs.yaml"
+  /keypairs/{keypairId}:
+    $ref: "./keypair/keypair.yaml"
+
+
+  /elasticips:
+    $ref: "./elasticip/elasticips.yaml"
+  /elasticips/{elasticipId}:
+    $ref: "./elasticip/elasticip.yaml"
+  /elasticips/{elasticipId}/associate:
+    $ref: "./elasticip/associate.yaml"
+  /elasticips/{elasticipId}/dissociate:
+    $ref: "./elasticip/dissociate.yaml"
+  /elasticips/{elasticipId}/change-bandwidth:
+    $ref: "./elasticip/change-bandwidth.yaml"
+  /elasticips/{elasticipId}/purge:
+    $ref: "./elasticip/purge.yaml"
+  /elasticips/{elasticipId}/sync:
+    $ref: "./elasticip/sync.yaml"
