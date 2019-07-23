@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -82,6 +83,21 @@ func (self *BaremetalServerRebuildRootTask) StartRebuildRootDisk(ctx context.Con
 }
 
 func (self *BaremetalServerRebuildRootTask) OnRebuildRootDiskComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	host := guest.GetHost()
+	if host.IsImport {
+		if adminNic := host.GetAdminNetInterface(); adminNic != nil {
+			if bn := adminNic.GetBaremetalNetwork(); bn != nil {
+				_, err := db.Update(host, func() error {
+					host.AccessIp = bn.IpAddr
+					return nil
+				})
+				if err != nil {
+					log.Errorf("update baremetal access ip failed %s", err)
+				}
+			}
+		}
+	}
+
 	db.OpsLog.LogEvent(guest, db.ACT_REBUILD_ROOT, "", self.UserCred)
 	self.SetStage("OnSyncStatusComplete", nil)
 	guest.StartSyncstatus(ctx, self.UserCred, self.GetTaskId())
