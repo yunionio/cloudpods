@@ -37,10 +37,10 @@ func init() {
 	})
 
 	type DiskDeleteOptions struct {
-		Instance string `help:"Instance ID"`
+		ID string `help:"Disk ID"`
 	}
 	shellutils.R(&DiskDeleteOptions{}, "disk-delete", "List disks", func(cli *aws.SRegion, args *DiskDeleteOptions) error {
-		e := cli.DeleteDisk(args.Instance)
+		e := cli.DeleteDisk(args.ID)
 		if e != nil {
 			return e
 		}

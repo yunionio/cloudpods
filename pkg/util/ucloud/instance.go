@@ -262,9 +262,13 @@ func (self *SInstance) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 		}
 	}
 
-	disks, err := self.host.zone.region.GetDisks("", "", diskIds)
-	if err != nil {
-		return nil, err
+	disks := []SDisk{}
+	var err error
+	if len(diskIds) > 0 {
+		disks, err = self.host.zone.region.GetDisks("", "", diskIds)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	disks = append(disks, localDisks...)
