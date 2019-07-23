@@ -21,6 +21,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -37,4 +38,7 @@ type ITask interface {
 
 	SetStageComplete(ctx context.Context, data *jsonutils.JSONDict)
 	SetStageFailed(ctx context.Context, reason string)
+
+	GetPendingUsage(quota quotas.IQuota) error
+	ClearPendingUsage() error
 }
