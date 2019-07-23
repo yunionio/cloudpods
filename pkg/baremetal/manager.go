@@ -980,6 +980,7 @@ func (b *SBaremetalInstance) InitAdminNetif(
 	nicType string,
 	netType string,
 	isDoImport bool,
+	importIpAddr string,
 ) error {
 	// start prepare task
 	// sync status to PREPARE
@@ -1000,9 +1001,9 @@ func (b *SBaremetalInstance) InitAdminNetif(
 		if err != nil {
 			return err
 		}
-		return b.postAttachWire(cliMac, nicType, netType)
+		return b.postAttachWire(cliMac, nicType, netType, importIpAddr)
 	} else if nic.IpAddr == "" {
-		return b.postAttachWire(cliMac, nicType, netType)
+		return b.postAttachWire(cliMac, nicType, netType, importIpAddr)
 	}
 	return nil
 }
@@ -1036,8 +1037,7 @@ func (b *SBaremetalInstance) attachWire(mac net.HardwareAddr, wireId string, nic
 	return modules.Hosts.PerformAction(session, b.GetId(), "add-netif", params)
 }
 
-func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType string, netType string) error {
-	ipAddr := ""
+func (b *SBaremetalInstance) postAttachWire(mac net.HardwareAddr, nicType string, netType string, ipAddr string) error {
 	if nicType == types.NIC_TYPE_IPMI {
 		oldIPMIConf := b.GetRawIPMIConfig()
 		if oldIPMIConf != nil && oldIPMIConf.IpAddr != "" {
