@@ -27,6 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -1029,7 +1030,17 @@ func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	params.SetVolumeId(diskId)
 	log.Debugf("DetachDisk %s", params.String())
 	_, err := self.ec2Client.DetachVolume(params)
-	return err
+	if err != nil {
+		if strings.Contains(err.Error(), fmt.Sprintf("'%s'is in the 'available' state", diskId)) {
+			return nil
+		}
+		//InvalidVolume.NotFound: The volume 'vol-0a9eeda0a70a8d7fe' does not exist
+		if strings.Contains(err.Error(), "InvalidVolume.NotFound") {
+			return nil
+		}
+		return errors.Wrap(err, "ec2Client.DetachVolume")
+	}
+	return nil
 }
 
 func (self *SRegion) AttachDisk(instanceId string, diskId string, deviceName string) error {

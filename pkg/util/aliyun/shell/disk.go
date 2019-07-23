@@ -37,10 +37,10 @@ func init() {
 	})
 
 	type DiskDeleteOptions struct {
-		Instance string `help:"Instance ID"`
+		ID string `help:"Instance ID"`
 	}
 	shellutils.R(&DiskDeleteOptions{}, "disk-delete", "List disks", func(cli *aliyun.SRegion, args *DiskDeleteOptions) error {
-		e := cli.DeleteDisk(args.Instance)
+		e := cli.DeleteDisk(args.ID)
 		if e != nil {
 			return e
 		}

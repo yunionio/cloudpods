@@ -161,6 +161,13 @@ func (self *SManagedVirtualizedGuestDriver) RequestDetachDisk(ctx context.Contex
 		if len(disk.ExternalId) == 0 {
 			return nil, nil
 		}
+
+		_, err = disk.GetIDisk()
+		if err == cloudprovider.ErrNotFound {
+			//忽略云上磁盘已经被删除错误
+			return nil, nil
+		}
+
 		err = iVM.DetachDisk(ctx, disk.ExternalId)
 		if err != nil {
 			return nil, errors.Wrapf(err, "iVM.DetachDisk")
