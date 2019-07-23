@@ -18,10 +18,12 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -744,8 +746,12 @@ func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	log.Infof("Detach instance %s disk %s", instanceId, diskId)
 	_, err := self.cbsRequest("DetachDisks", params)
 	if err != nil {
-		log.Errorf("DetachDisks %s to %s fail %s", diskId, instanceId, err)
-		return err
+		// 可重复卸载，无报错，若磁盘被删除会有以下错误
+		//[TencentCloudSDKError] Code=InvalidDisk.NotSupported, Message=disk(disk-4g5s7zhl) deleted (39a711ce2d17), RequestId=508d7fe3-e64e-4bb8-8ad7-39a711ce2d17
+		if strings.Contains(err.Error(), fmt.Sprintf("disk(%s) deleted", diskId)) {
+			return nil
+		}
+		return errors.Wrap(err, "DetachDisks")
 	}
 
 	return nil
