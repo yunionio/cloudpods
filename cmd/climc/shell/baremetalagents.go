@@ -26,7 +26,7 @@ func init() {
 	type BaremetalAgentListOptions struct {
 		options.BaseListOptions
 	}
-	R(&BaremetalAgentListOptions{}, "baremetal-agent-list", "List baremetal agent", func(s *mcclient.ClientSession, args *BaremetalAgentListOptions) error {
+	R(&BaremetalAgentListOptions{}, "agent-list", "List all agent", func(s *mcclient.ClientSession, args *BaremetalAgentListOptions) error {
 		var params *jsonutils.JSONDict
 		{
 			var err error
@@ -47,7 +47,7 @@ func init() {
 	type BaremetalAgentOpsOperations struct {
 		ID string `help:"ID or name of agent"`
 	}
-	R(&BaremetalAgentOpsOperations{}, "baremetal-agent-enable", "Enable baremetal agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
+	R(&BaremetalAgentOpsOperations{}, "agent-enable", "Enable agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
 		result, err := modules.Baremetalagents.PerformAction(s, args.ID, "enable", nil)
 		if err != nil {
 			return err
@@ -56,7 +56,7 @@ func init() {
 		return nil
 	})
 
-	R(&BaremetalAgentOpsOperations{}, "baremetal-agent-disable", "Disable baremetal agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
+	R(&BaremetalAgentOpsOperations{}, "agent-disable", "Disable agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
 		result, err := modules.Baremetalagents.PerformAction(s, args.ID, "disable", nil)
 		if err != nil {
 			return err
@@ -65,7 +65,7 @@ func init() {
 		return nil
 	})
 
-	R(&BaremetalAgentOpsOperations{}, "baremetal-agent-delete", "Delete baremetal agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
+	R(&BaremetalAgentOpsOperations{}, "agent-delete", "Delete agent", func(s *mcclient.ClientSession, args *BaremetalAgentOpsOperations) error {
 		result, err := modules.Baremetalagents.Delete(s, args.ID, nil)
 		if err != nil {
 			return err

@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/util/version"
 
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
@@ -256,19 +257,10 @@ func (agent *SBaseAgent) createOrUpdateBaremetalAgent(session *mcclient.ClientSe
 		}
 	} else {
 		cloudBmAgent := ret.Data[0]
-		accessIP, _ := cloudBmAgent.GetString("access_ip")
-		managerUri, _ := cloudBmAgent.GetString("manager_uri")
-		zoneId, _ := cloudBmAgent.GetString("zone_id")
 		agentId, _ := cloudBmAgent.GetString("id")
-		if naccessIP.String() != accessIP ||
-			agent.GetManagerUri() != managerUri ||
-			zoneId != agent.Zone.Id {
-			cloudObj, err = agent.updateBaremetalAgent(session, agentId)
-			if err != nil {
-				return err
-			}
-		} else {
-			cloudObj = cloudBmAgent
+		cloudObj, err = agent.updateBaremetalAgent(session, agentId)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -308,6 +300,8 @@ func (agent *SBaseAgent) getCreateUpdateInfo() (jsonutils.JSONObject, error) {
 	params.Add(jsonutils.NewString(agent.GetManagerUri()), "manager_uri")
 	params.Add(jsonutils.NewString(agent.Zone.Id), "zone_id")
 	params.Add(jsonutils.NewString(agent.IAgent().GetAgentType()), "agent_type")
+	params.Add(jsonutils.NewString(version.GetShortString()), "version")
+
 	return params, nil
 }
 
