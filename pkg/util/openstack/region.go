@@ -316,8 +316,8 @@ func (region *SRegion) Delete(service, url string, microversion string) (*http.R
 func (region *SRegion) CinderList(url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	for _, service := range []string{"volumev3", "volumev2", "volume"} {
 		header, resp, err := region.Get(service, url, microversion, body)
-		if err == nil {
-			return header, resp, nil
+		if err == nil || !strings.Contains(err.Error(), "No such service") {
+			return header, resp, err
 		}
 		log.Debugf("failed to list %s by service %s error: %v, try another", url, service, err)
 	}
@@ -330,7 +330,7 @@ func (region *SRegion) CinderGet(url string, microversion string, body jsonutils
 	}
 	for _, service := range []string{"volumev3", "volumev2", "volume"} {
 		header, resp, err := region.Get(service, url, microversion, body)
-		if err == nil || err == cloudprovider.ErrNotFound {
+		if err == nil || err == cloudprovider.ErrNotFound || !strings.Contains(err.Error(), "No such service") {
 			return header, resp, err
 		}
 		log.Debugf("failed to get %s by service %s error: %v, try another", url, service, err)
@@ -341,8 +341,8 @@ func (region *SRegion) CinderGet(url string, microversion string, body jsonutils
 func (region *SRegion) CinderCreate(url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	for _, service := range []string{"volumev3", "volumev2", "volume"} {
 		header, resp, err := region.Post(service, url, microversion, body)
-		if err == nil {
-			return header, resp, nil
+		if err == nil || !strings.Contains(err.Error(), "No such service") {
+			return header, resp, err
 		}
 		log.Debugf("failed to create %s by service %s error: %v, try another", url, service, err)
 	}
@@ -355,8 +355,8 @@ func (region *SRegion) CinderDelete(url string, microversion string) (*http.Resp
 	}
 	for _, service := range []string{"volumev3", "volumev2", "volume"} {
 		resp, err := region.Delete(service, url, microversion)
-		if err == nil {
-			return resp, nil
+		if err == nil || !strings.Contains(err.Error(), "No such service") {
+			return resp, err
 		}
 		log.Debugf("failed to delete %s by service %s error: %v, try another", url, service, err)
 	}
@@ -366,8 +366,8 @@ func (region *SRegion) CinderDelete(url string, microversion string) (*http.Resp
 func (region *SRegion) CinderAction(url string, microversion string, body jsonutils.JSONObject) (http.Header, jsonutils.JSONObject, error) {
 	for _, service := range []string{"volumev3", "volumev2", "volume"} {
 		header, resp, err := region.Post(service, url, microversion, body)
-		if err == nil {
-			return header, resp, nil
+		if err == nil || !strings.Contains(err.Error(), "No such service") {
+			return header, resp, err
 		}
 		log.Debugf("failed to operate %s by service %s error: %v, try another", url, service, err)
 	}
