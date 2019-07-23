@@ -529,10 +529,12 @@ func (region *SRegion) getOfferedImage(offerId string) (SImage, error) {
 	offer := parts[1]
 	sku := parts[2]
 	version := parts[3]
-	//err := region.client.Get(fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Compute/locations/%s/publishers/%s/artifacttypes/vmimage/offers/%s/skus/%s/versions/%s", region.client.subscriptionId, region.Name, publisher, offer, sku, version), nil, &image)
-	//if err != nil {
-	//	return image, err
-	//}
+	for _publish := range publisherDrivers {
+		if strings.ToLower(_publish) == publisher {
+			publisher = _publish
+			break
+		}
+	}
 	image.ID = offerId
 	image.Location = region.Name
 	image.Type = "Microsoft.Compute/vmimage"
