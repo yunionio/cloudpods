@@ -44,6 +44,15 @@ func (self *GuestBatchCreateTask) GetCreateInput() (*api.ServerCreateInput, erro
 	return input, err
 }
 
+func (self *GuestBatchCreateTask) clearPendingUsage(ctx context.Context, guest *models.SGuest) {
+	platform := make([]string, 0)
+	input, _ := self.GetCreateInput()
+	if len(input.Hypervisor) > 0 {
+		platform = models.GetDriver(input.Hypervisor).GetQuotaPlatformID()
+	}
+	ClearTaskPendingUsage(ctx, self, rbacutils.ScopeProject, guest.GetOwnerId(), platform)
+}
+
 func (self *GuestBatchCreateTask) OnInit(ctx context.Context, objs []db.IStandaloneModel, body jsonutils.JSONObject) {
 	StartScheduleObjects(ctx, self, objs)
 }
@@ -54,6 +63,7 @@ func (self *GuestBatchCreateTask) OnScheduleFailCallback(ctx context.Context, ob
 	if guest.DisableDelete.IsTrue() {
 		guest.SetDisableDelete(self.UserCred, false)
 	}
+	self.clearPendingUsage(ctx, guest)
 }
 
 func (self *GuestBatchCreateTask) SaveScheduleResultWithBackup(ctx context.Context, obj IScheduleModel, master, slave *schedapi.CandidateResource) {
@@ -175,6 +185,7 @@ func (self *GuestBatchCreateTask) SaveScheduleResult(ctx context.Context, obj IS
 
 	err = self.allocateGuestOnHost(ctx, guest, candidate)
 	if err != nil {
+		self.clearPendingUsage(ctx, guest)
 		db.OpsLog.LogEvent(guest, db.ACT_ALLOCATE_FAIL, err, self.UserCred)
 		logclient.AddActionLogWithStartable(self, obj, logclient.ACT_ALLOCATE, err.Error(), self.GetUserCred(), false)
 		notifyclient.NotifySystemError(guest.Id, guest.Name, api.VM_CREATE_FAILED, err.Error())
