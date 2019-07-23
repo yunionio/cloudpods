@@ -18,10 +18,12 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/osprofile"
 	"yunion.io/x/pkg/util/seclib"
 	"yunion.io/x/pkg/utils"
@@ -869,8 +871,10 @@ func (self *SRegion) DetachDisk(instanceId string, diskId string) error {
 	log.Infof("Detach instance %s disk %s", instanceId, diskId)
 	_, err := self.ecsRequest("DetachDisk", params)
 	if err != nil {
-		log.Errorf("DetachDisk %s to %s fail %s", diskId, instanceId, err)
-		return err
+		if strings.Contains(err.Error(), "The specified disk has not been attached on the specified instance") {
+			return nil
+		}
+		return errors.Wrap(err, "DetachDisk")
 	}
 
 	return nil
