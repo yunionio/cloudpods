@@ -13,6 +13,8 @@ require (
 	github.com/Shopify/sarama v1.20.0 // indirect
 	github.com/Shopify/toxiproxy v2.1.4+incompatible // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
+	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
+	github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20180112035716-b5829a0278c8
 	github.com/aliyun/aliyun-oss-go-sdk v0.0.0-20181116160301-c6838fdc33ed
 	github.com/anacrolix/dht v0.0.0-20181129074040-b09db78595aa // indirect
@@ -109,7 +111,7 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/pkg/term v0.0.0-20181116001808-27bbf2edb814 // indirect
 	github.com/prometheus/client_golang v0.9.2 // indirect
-	github.com/prometheus/common v0.0.0-20181218105931-67670fe90761 // indirect
+	github.com/prometheus/common v0.0.0-20181218105931-67670fe90761
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/serialx/hashring v0.0.0-20180504054112-49a4782e9908
@@ -140,9 +142,12 @@ require (
 	google.golang.org/appengine v1.3.0 // indirect
 	google.golang.org/genproto v0.0.0-20181218023534-67d6565462c5 // indirect
 	google.golang.org/grpc v1.19.0
+	gopkg.in/alecthomas/kingpin.v2 v2.2.6 // indirect
+	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v8 v8.18.2 // indirect
+	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ldap.v3 v3.0.3
 	gopkg.in/yaml.v2 v2.2.2

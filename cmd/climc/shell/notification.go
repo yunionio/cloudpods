@@ -66,7 +66,7 @@ func init() {
 		STATUS string `help:"Notification send status" choices:"sent_ok|send_fail"`
 		Remark string `help:"Remark or description of the operation or fail reason"`
 	}
-	R(&NotificationUpdateCallbackOptions{}, "notification-update-callback", "Update send status of the notification task", func(s *mcclient.ClientSession, args *NotificationUpdateCallbackOptions) error {
+	R(&NotificationUpdateCallbackOptions{}, "notification-update-callback", "UpdateItem send status of the notification task", func(s *mcclient.ClientSession, args *NotificationUpdateCallbackOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.STATUS), "status")
 		if len(args.Remark) > 0 {

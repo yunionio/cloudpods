@@ -3077,7 +3077,7 @@ func (self *SGuest) doSaveRenewInfo(ctx context.Context, userCred mcclient.Token
 		return nil
 	})
 	if err != nil {
-		log.Errorf("Update error %s", err)
+		log.Errorf("UpdateItem error %s", err)
 		return err
 	}
 	db.OpsLog.LogEvent(self, db.ACT_RENEW, self.GetShortDesc(ctx), userCred)
