@@ -113,14 +113,16 @@ func (self *SGuest) PerformEvent(ctx context.Context, userCred mcclient.TokenCre
 	}
 	if event == "GUEST_PANICKED" {
 		kwargs := jsonutils.NewDict()
-		kwargs.Set("name", jsonutils.NewString(self.Name))
-		kwargs.Set("id", jsonutils.NewString(self.Id))
-		kwargs.Set("event", jsonutils.NewString(event))
 		kwargs.Set("reason", data)
 
 		db.OpsLog.LogEvent(self, db.ACT_GUEST_PANICKED, data.String(), userCred)
 		logclient.AddSimpleActionLog(self, logclient.ACT_GUEST_PANICKED, data.String(), userCred, true)
-		notifyclient.SystemNotify(notify.NotifyPriorityNormal, notifyclient.SERVER_PANICKED, kwargs)
+		self.NotifyServerEvent(
+			userCred,
+			notifyclient.SERVER_PANICKED,
+			notify.NotifyPriorityNormal,
+			false, kwargs, true,
+		)
 	}
 	return nil, nil
 }
@@ -678,12 +680,18 @@ func (self *SGuest) StartGuestDeployTask(ctx context.Context, userCred mcclient.
 	return nil
 }
 
-func (self *SGuest) NotifyServerEvent(userCred mcclient.TokenCredential, event string, priority notify.TNotifyPriority, loginInfo bool) {
+func (self *SGuest) NotifyServerEvent(
+	userCred mcclient.TokenCredential, event string, priority notify.TNotifyPriority,
+	loginInfo bool, kwargs *jsonutils.JSONDict, notifyAdmin bool,
+) {
 	meta, err := self.GetAllMetadata(nil)
 	if err != nil {
 		return
 	}
-	kwargs := jsonutils.NewDict()
+	if kwargs == nil {
+		kwargs = jsonutils.NewDict()
+	}
+
 	kwargs.Add(jsonutils.NewString(self.Name), "name")
 	kwargs.Add(jsonutils.NewString(self.Hypervisor), "hypervisor")
 	host := self.GetHost()
@@ -714,6 +722,9 @@ func (self *SGuest) NotifyServerEvent(userCred mcclient.TokenCredential, event s
 		}
 	}
 	notifyclient.Notify(userCred.GetUserId(), false, priority, event, kwargs)
+	if notifyAdmin {
+		notifyclient.SystemNotify(priority, event, kwargs)
+	}
 }
 
 func (self *SGuest) NotifyAdminServerEvent(ctx context.Context, event string, priority notify.TNotifyPriority) {

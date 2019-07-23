@@ -116,7 +116,10 @@ func (self *GuestCreateTask) OnDeployGuestDescComplete(ctx context.Context, obj 
 }
 
 func (self *GuestCreateTask) notifyServerCreated(ctx context.Context, guest *models.SGuest) {
-	guest.NotifyServerEvent(self.UserCred, notifyclient.SERVER_CREATED, notify.NotifyPriorityImportant, true)
+	guest.NotifyServerEvent(
+		self.UserCred, notifyclient.SERVER_CREATED,
+		notify.NotifyPriorityImportant, true, nil, false,
+	)
 	guest.NotifyAdminServerEvent(ctx, notifyclient.SERVER_CREATED_ADMIN, notify.NotifyPriorityImportant)
 }
 

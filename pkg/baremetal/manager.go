@@ -258,7 +258,14 @@ func (i *BmRegisterInput) isTimeout() bool {
 
 // delay task
 func (m *SBaremetalManager) RegisterBaremetal(input *BmRegisterInput) {
-	err := m.checkNetworkFromIps(input.RemoteIp, input.IpAddr)
+	adminWire, err := m.checkNetworkFromIp(input.RemoteIp)
+	if input.isTimeout() {
+		return
+	} else if err != nil {
+		input.responseErr(httperrors.NewBadRequestError("Verify network failed: %s", err))
+		return
+	}
+	ipmiWire, err := m.checkNetworkFromIp(input.IpAddr)
 	if input.isTimeout() {
 		return
 	} else if err != nil {
@@ -266,7 +273,7 @@ func (m *SBaremetalManager) RegisterBaremetal(input *BmRegisterInput) {
 		return
 	}
 
-	err = m.checkIpmiInfo(input.Username, input.Password, input.IpAddr)
+	ipmiMac, err := m.checkIpmiInfo(input.Username, input.Password, input.IpAddr)
 	if input.isTimeout() {
 		return
 	} else if err != nil {
@@ -293,6 +300,7 @@ func (m *SBaremetalManager) RegisterBaremetal(input *BmRegisterInput) {
 	registerTask := tasks.NewBaremetalRegisterTask(
 		m, sshCli, input.Hostname, input.RemoteIp,
 		input.Username, input.Password, input.IpAddr,
+		ipmiMac, adminWire, ipmiWire,
 	)
 	err = registerTask.CreateBaremetal()
 	if input.isTimeout() {
@@ -306,20 +314,18 @@ func (m *SBaremetalManager) RegisterBaremetal(input *BmRegisterInput) {
 	registerTask.DoPrepare(sshCli)
 }
 
-func (m *SBaremetalManager) checkNetworkFromIps(ips ...string) error {
-	// TODO ip search
-	for _, ip := range ips {
-		params := jsonutils.NewDict()
-		params.Set("ip", jsonutils.NewString(ip))
-		res, err := modules.Networks.List(m.GetClientSession(), params)
-		if err != nil {
-			return fmt.Errorf("Fetch network by ip %s failed: %s", ip, err)
-		}
-		if len(res.Data) == 0 {
-			return fmt.Errorf("Can't find network from ip %s", ip)
-		}
+func (m *SBaremetalManager) checkNetworkFromIp(ip string) (string, error) {
+	params := jsonutils.NewDict()
+	params.Set("ip", jsonutils.NewString(ip))
+	params.Set("is_on_premise", jsonutils.JSONTrue)
+	res, err := modules.Networks.List(m.GetClientSession(), params)
+	if err != nil {
+		return "", fmt.Errorf("Fetch network by ip %s failed: %s", ip, err)
 	}
-	return nil
+	if len(res.Data) != 1 {
+		return "", fmt.Errorf("Can't find network from ip %s", ip)
+	}
+	return res.Data[0].GetString("wire_id")
 }
 
 func (m *SBaremetalManager) verifyMacAddr(sshCli *ssh.Client) error {
@@ -371,11 +377,11 @@ func (m *SBaremetalManager) checkSshInfo(input *BmRegisterInput) (*ssh.Client, e
 	return sshCLi, nil
 }
 
-func (m *SBaremetalManager) checkIpmiInfo(username, password, ipAddr string) error {
+func (m *SBaremetalManager) checkIpmiInfo(username, password, ipAddr string) (net.HardwareAddr, error) {
 	lanPlusTool := ipmitool.NewLanPlusIPMI(ipAddr, username, password)
 	sysInfo, err := ipmitool.GetSysInfo(lanPlusTool)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, lanChannel := range ipmitool.GetLanChannels(sysInfo) {
@@ -387,9 +393,9 @@ func (m *SBaremetalManager) checkIpmiInfo(username, password, ipAddr string) err
 		if len(config.Mac) == 0 {
 			continue
 		}
-		return nil
+		return config.Mac, nil
 	}
-	return fmt.Errorf("Ipmi can't fetch lan config")
+	return nil, fmt.Errorf("Ipmi can't fetch lan config")
 }
 
 func (m *SBaremetalManager) Stop() {
@@ -970,13 +976,14 @@ func (b *SBaremetalInstance) SetTask(task tasks.ITask) {
 
 func (b *SBaremetalInstance) InitAdminNetif(
 	cliMac net.HardwareAddr,
-	netConf *types.SNetworkConfig,
+	wireId string,
 	nicType string,
 	netType string,
+	isDoImport bool,
 ) error {
 	// start prepare task
 	// sync status to PREPARE
-	if nicType == types.NIC_TYPE_ADMIN &&
+	if !isDoImport && nicType == types.NIC_TYPE_ADMIN &&
 		utils.IsInStringArray(b.GetStatus(),
 			[]string{baremetalstatus.INIT,
 				baremetalstatus.PREPARE,
@@ -989,7 +996,7 @@ func (b *SBaremetalInstance) InitAdminNetif(
 
 	nic := b.GetNicByMac(cliMac)
 	if nic == nil || nic.WireId == "" {
-		_, err := b.attachWire(cliMac, netConf.WireId, nicType)
+		_, err := b.attachWire(cliMac, wireId, nicType)
 		if err != nil {
 			return err
 		}
@@ -1000,13 +1007,14 @@ func (b *SBaremetalInstance) InitAdminNetif(
 	return nil
 }
 
-func (b *SBaremetalInstance) RegisterNetif(
-	cliMac net.HardwareAddr,
-	netConf *types.SNetworkConfig,
-) error {
+func (b *SBaremetalInstance) RegisterNetif(cliMac net.HardwareAddr, wireId string) error {
+	var nicType string
 	nic := b.GetNicByMac(cliMac)
-	if nic == nil || nic.WireId == "" || nic.WireId != netConf.WireId {
-		desc, err := b.attachWire(cliMac, netConf.WireId, nic.Type)
+	if nic != nil {
+		nicType = nic.Type
+	}
+	if nic == nil || nic.WireId == "" || nic.WireId != wireId {
+		desc, err := b.attachWire(cliMac, wireId, nicType)
 		if err != nil {
 			return err
 		}
