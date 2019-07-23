@@ -107,6 +107,7 @@ put:
         $ref: "../schemas/image.yaml#/ImageResponse"
   tags:
     - images 
+
 get:
   parameters:
     - in: query
