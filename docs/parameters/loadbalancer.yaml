@@ -31,6 +31,18 @@ loadbalancercachedcertificateId:
   in: path
   required: true 
   description: 证书缓存id
+loadbalancerClusterId:
+  name: loadbalancerClusterId
+  type: string
+  in: path
+  required: true
+  description: Loadbalancer集群id
+loadbalancerAgentId:
+  name: loadbalancerAgentId
+  type: string
+  in: path
+  required: true
+  description: Loadbalancer转发实例id
 
 
 address:
@@ -76,4 +88,10 @@ certificate_id:
   name: certificate_id
   in: query
   type: string
-  description: 指定loadbalaner本地证id  
+  description: 指定loadbalaner本地证书id
+
+cluster:
+  name: cluster
+  in: query
+  type: string
+  description: 指定loadbalancer集群id
