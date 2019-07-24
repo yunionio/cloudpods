@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 
-	"yunion.io/x/log"
 	"yunion.io/x/structarg"
 
 	"yunion.io/x/onecloud/pkg/baremetal/utils/ipmitool"
@@ -37,8 +36,9 @@ type BaseOptions struct {
 	SUBCOMMAND string `help:"ipmicli subcommand" subcommand:"true"`
 }
 
-func showErrorAndExit(err error) {
-	log.Errorf("%s", err)
+func showErrorAndExit(e error) {
+	fmt.Fprintf(os.Stderr, "%s", e)
+	fmt.Fprintln(os.Stderr)
 	os.Exit(1)
 }
 

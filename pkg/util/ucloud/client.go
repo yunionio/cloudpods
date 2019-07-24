@@ -151,6 +151,8 @@ func parseUcloudResponse(params SParams, resp jsonutils.JSONObject) (jsonutils.J
 		return nil, e
 	}
 
+	err.Action, _ = params.data.GetString("Action")
+
 	if err.RetCode > 0 {
 		log.Debugf("Ucloud json request err %s", params.PrettyString())
 		return nil, err

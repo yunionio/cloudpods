@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -86,9 +87,13 @@ func (self *SRegion) getECSClient() (*client.Client, error) {
 	return self.ecsClient, err
 }
 
+func (self *SRegion) getOBSEndpoint() string {
+	return fmt.Sprintf("obs.%s.myhuaweicloud.com", self.GetId())
+}
+
 func (self *SRegion) getOBSClient() (*obs.ObsClient, error) {
 	if self.obsClient == nil {
-		endpoint := fmt.Sprintf("obs.%s.myhuaweicloud.com", self.GetId())
+		endpoint := self.getOBSEndpoint()
 		obsClient, err := obs.New(self.client.accessKey, self.client.secret, endpoint)
 		if err != nil {
 			return nil, err
@@ -673,4 +678,119 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 
 func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	obsClient, err := region.getOBSClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "region.getOBSClient")
+	}
+	input := &obs.ListBucketsInput{}
+	input.QueryLocation = true
+	output, err := obsClient.ListBuckets(input)
+	if err != nil {
+		return nil, errors.Wrap(err, "ListBuckets")
+	}
+	ret := make([]cloudprovider.ICloudBucket, len(output.Buckets))
+	for i, bInfo := range output.Buckets {
+		b := SBucket{
+			region: region,
+
+			Name:         bInfo.Name,
+			Location:     bInfo.Location,
+			CreationDate: bInfo.CreationDate,
+		}
+		ret[i] = &b
+	}
+	return ret, nil
+}
+
+func str2StorageClass(storageClassStr string) (obs.StorageClassType, error) {
+	if strings.EqualFold(storageClassStr, string(obs.StorageClassStandard)) {
+		return obs.StorageClassStandard, nil
+	} else if strings.EqualFold(storageClassStr, string(obs.StorageClassWarm)) {
+		return obs.StorageClassWarm, nil
+	} else if strings.EqualFold(storageClassStr, string(obs.StorageClassCold)) {
+		return obs.StorageClassCold, nil
+	} else {
+		return obs.StorageClassStandard, errors.Error("unsupported storageClass")
+	}
+}
+
+func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr string) error {
+	obsClient, err := region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "region.getOBSClient")
+	}
+	input := &obs.CreateBucketInput{}
+	input.Bucket = name
+	input.Location = region.GetId()
+	if len(aclStr) > 0 {
+		if strings.EqualFold(aclStr, string(obs.AclPrivate)) {
+			input.ACL = obs.AclPrivate
+		} else if strings.EqualFold(aclStr, string(obs.AclPublicRead)) {
+			input.ACL = obs.AclPublicRead
+		} else if strings.EqualFold(aclStr, string(obs.AclPublicReadWrite)) {
+			input.ACL = obs.AclPublicReadWrite
+		} else {
+			return errors.Error("unsupported acl")
+		}
+	}
+	if len(storageClassStr) > 0 {
+		input.StorageClass, err = str2StorageClass(storageClassStr)
+		if err != nil {
+			return err
+		}
+	}
+	_, err = obsClient.CreateBucket(input)
+	if err != nil {
+		return errors.Wrap(err, "obsClient.CreateBucket")
+	}
+	return nil
+}
+
+func (region *SRegion) DeleteIBucket(name string) error {
+	obsClient, err := region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "region.getOBSClient")
+	}
+	_, err = obsClient.DeleteBucket(name)
+	if err != nil {
+		if strings.Index(err.Error(), "Code=NoSuchBucket") >= 0 {
+			return nil
+		}
+		return errors.Wrap(err, "DeleteBucket")
+	}
+	return nil
+}
+
+func (region *SRegion) IBucketExist(name string) (bool, error) {
+	obsClient, err := region.getOBSClient()
+	if err != nil {
+		return false, errors.Wrap(err, "region.getOBSClient")
+	}
+	_, err = obsClient.HeadBucket(name)
+	if err != nil {
+		return false, errors.Wrap(err, "HeadBucket")
+	}
+	return true, nil
+}
+
+func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
+	obsClient, err := region.getOBSClient()
+	if err != nil {
+		return nil, errors.Wrap(err, "region.getOBSClient")
+	}
+	info, err := obsClient.GetBucketStorageInfo(name)
+	if err != nil {
+		return nil, errors.Wrap(err, "obsClient.GetBucketStorageInfo")
+	}
+	b := SBucket{
+		region: region,
+
+		Name:         name,
+		Size:         info.Size,
+		ObjectNumber: info.ObjectNumber,
+	}
+	return &b, nil
 }

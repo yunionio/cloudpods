@@ -16,6 +16,7 @@ package aws
 
 import (
 	"fmt"
+	"strings"
 
 	sdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -26,6 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -523,4 +525,110 @@ func (region *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbala
 
 func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAccessControlList) (cloudprovider.ICloudLoadbalancerAcl, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	s3cli, err := region.GetS3Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetS3Client")
+	}
+	output, err := s3cli.ListBuckets(&s3.ListBucketsInput{})
+	if err != nil {
+		return nil, errors.Wrap(err, "ListBuckets")
+	}
+	ret := make([]cloudprovider.ICloudBucket, 0)
+	for _, bInfo := range output.Buckets {
+		input := &s3.GetBucketLocationInput{}
+		input.Bucket = bInfo.Name
+		output, err := s3cli.GetBucketLocation(input)
+		if err != nil {
+			log.Errorf("s3cli.GetBucketLocation error %s", err)
+			continue
+		}
+		if *output.LocationConstraint != region.GetId() {
+			continue
+		}
+		b := SBucket{
+			region:       region,
+			Name:         *bInfo.Name,
+			Location:     region.GetId(),
+			CreationDate: *bInfo.CreationDate,
+		}
+		ret = append(ret, &b)
+	}
+	return ret, nil
+}
+
+func (region *SRegion) CreateIBucket(name string, storageClassStr string, acl string) error {
+	s3cli, err := region.GetS3Client()
+	if err != nil {
+		return errors.Wrap(err, "GetS3Client")
+	}
+	input := &s3.CreateBucketInput{}
+	input.Bucket = &name
+	input.CreateBucketConfiguration = &s3.CreateBucketConfiguration{}
+	location := region.GetId()
+	input.CreateBucketConfiguration.LocationConstraint = &location
+	_, err = s3cli.CreateBucket(input)
+	if err != nil {
+		return errors.Wrap(err, "CreateBucket")
+	}
+	// if *output.Location != region.GetId() {
+	// 	log.Warningf("Request location %s != got locaiton %s", region.GetId(), *output.Location)
+	// }
+	return nil
+}
+
+func (region *SRegion) DeleteIBucket(name string) error {
+	s3cli, err := region.GetS3Client()
+	if err != nil {
+		return errors.Wrap(err, "GetS3Client")
+	}
+	input := &s3.DeleteBucketInput{}
+	input.Bucket = &name
+	_, err = s3cli.DeleteBucket(input)
+	if err != nil {
+		if strings.Index(err.Error(), "NoSuchBucket") >= 0 {
+			return nil
+		}
+		return errors.Wrap(err, "DeleteBucket")
+	}
+	return nil
+}
+
+func (region *SRegion) IBucketExist(name string) (bool, error) {
+	s3cli, err := region.GetS3Client()
+	if err != nil {
+		return false, errors.Wrap(err, "GetS3Client")
+	}
+	input := &s3.HeadBucketInput{}
+	input.Bucket = &name
+	_, err = s3cli.HeadBucket(input)
+	if err != nil {
+		return false, errors.Wrap(err, "IsBucketExist")
+	}
+	return true, nil
+}
+
+func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
+	return cloudprovider.GetIBucketById(region, name)
+}
+
+func (region *SRegion) getBaseEndpoint() string {
+	if len(region.RegionEndpoint) > 4 {
+		return region.RegionEndpoint[4:]
+	}
+	return ""
+}
+
+func (region *SRegion) getS3Endpoint() string {
+	base := region.getBaseEndpoint()
+	if len(base) > 0 {
+		return "s3." + base
+	}
+	return ""
+}
+
+func (region *SRegion) getEc2Endpoint() string {
+	return region.RegionEndpoint
 }

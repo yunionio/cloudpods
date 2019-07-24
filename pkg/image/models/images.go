@@ -122,6 +122,8 @@ type SImage struct {
 }
 
 func (manager *SImageManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
+	manager.SVirtualResourceBaseManager.CustomizeHandlerInfo(info)
+
 	switch info.GetName(nil) {
 	case "get_details", "create", "update":
 		info.SetProcessTimeout(time.Minute * 120).SetWorkerManager(imgStreamingWorkerMan)

@@ -169,6 +169,28 @@ func syncRegionEips(ctx context.Context, userCred mcclient.TokenCredential, sync
 	// db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
+func syncRegionBuckets(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion) {
+	buckets, err := remoteRegion.GetIBuckets()
+	if err != nil {
+		msg := fmt.Sprintf("GetIBuckets for region %s failed %s", remoteRegion.GetName(), err)
+		log.Errorf(msg)
+		return
+	}
+
+	result := BucketManager.syncBuckets(ctx, userCred, provider, localRegion, buckets)
+
+	syncResults.Add(BucketManager, result)
+
+	msg := result.Result()
+	notes := fmt.Sprintf("GetIBuckets for region %s result: %s", localRegion.Name, msg)
+	log.Infof(notes)
+	if result.IsError() {
+		return
+	}
+	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
+	// logclient.AddActionLog(provider, getAction(task.Params), notes, task.UserCred, true)
+}
+
 func syncRegionVPCs(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localRegion *SCloudregion, remoteRegion cloudprovider.ICloudRegion, syncRange *SSyncRange) {
 	vpcs, err := remoteRegion.GetIVpcs()
 	if err != nil {
@@ -956,6 +978,8 @@ func syncPublicCloudProviderInfo(
 
 	// no need to lock public cloud region as cloud region for public cloud is readonly
 
+	syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, remoteRegion)
+
 	// 需要先同步vpc，避免私有云eip找不到network
 	syncRegionVPCs(ctx, userCred, syncResults, provider, localRegion, remoteRegion, syncRange)
 
@@ -1018,12 +1042,18 @@ func syncOnPremiseCloudProviderInfo(
 	syncRange *SSyncRange,
 ) error {
 	log.Debugf("Start sync on-premise provider %s(%s)", provider.Name, provider.Provider)
+
+	syncProjects(ctx, userCred, syncResults, driver, provider)
+
 	iregion, err := driver.GetOnPremiseIRegion()
 	if err != nil {
 		msg := fmt.Sprintf("GetOnPremiseIRegion for provider %s failed %s", provider.GetName(), err)
 		log.Errorf(msg)
 		return err
 	}
+
+	localRegion := CloudregionManager.FetchDefaultRegion()
+	syncRegionBuckets(ctx, userCred, syncResults, provider, localRegion, iregion)
 
 	ihosts, err := iregion.GetIHosts()
 	if err != nil {

@@ -143,10 +143,14 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	bucketName := GetBucketName(self.region.GetId(), image.ImageId)
 
 	// create bucket
-	if _, err := self.region.GetBucketDomain(bucketName); err != nil {
+	exist, err := self.region.IBucketExist(bucketName)
+	if err != nil {
+		return "", errors.Wrap(err, "self.region.IBucketExist")
+	}
+	if !exist {
 		err = self.region.CreateBucket(bucketName, "private")
 		if err != nil {
-			return "", err
+			return "", errors.Wrap(err, "CreateBucket")
 		}
 	}
 	defer func() {
@@ -165,7 +169,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	log.Debugf("Images meta data %s", meta)
 	minDiskMB, _ := meta.Int("min_disk")
 	minDiskGB := int64(math.Ceil(float64(minDiskMB) / 1024))
-	// 在使用OBS桶的外部镜像文件制作镜像时生效且为必选字段。取值为40～1024GB。
+
 	if minDiskGB < 40 {
 		minDiskGB = 40
 	} else if minDiskGB > 1024 {
@@ -175,13 +179,16 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	md5, _ := meta.GetString("checksum")
 	diskFormat, _ := meta.GetString("disk_format")
 	// upload to ucloud
+	bucket, err := self.region.GetIBucketById(bucketName)
+	if err != nil {
+		return "", errors.Wrap(err, "GetIBucketByName")
+	}
 	file := SFile{
-		region:     self.region,
-		BucketName: bucketName,
-		File:       reader,
-		FileSize:   size,
-		FileName:   image.ImageId,
-		FileMD5:    md5,
+		bucket:   bucket.(*SBucket),
+		File:     reader,
+		FileSize: size,
+		FileName: image.ImageId,
+		FileMD5:  md5,
 	}
 
 	err = file.Upload()
@@ -245,8 +252,7 @@ func (self *SRegion) createIImage(snapshotId, imageName, imageDesc string) (stri
 	return "", cloudprovider.ErrNotSupported
 }
 
-// https://docs.ucloud.cn/api/ufile-api/describe_bucket
-func (self *SRegion) GetBucketDomain(name string) (string, error) {
+/*func (self *SRegion) GetBucketDomain(name string) (string, error) {
 	params := NewUcloudParams()
 	params.Set("BucketName", name)
 
@@ -261,7 +267,7 @@ func (self *SRegion) GetBucketDomain(name string) (string, error) {
 	} else {
 		return "", fmt.Errorf("GetBucketDomain failed. %v", res)
 	}
-}
+}*/
 
 // https://docs.ucloud.cn/api/ufile-api/create_bucket
 func (self *SRegion) CreateBucket(name, bucketType string) error {

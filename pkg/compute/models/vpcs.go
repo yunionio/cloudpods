@@ -476,22 +476,32 @@ func (manager *SVpcManager) InitializeData() error {
 }
 
 func (manager *SVpcManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	regionId, err := data.GetString("cloudregion_id")
-	if err != nil {
+	regionId := jsonutils.GetAnyString(data, []string{"region", "cloudregion", "cloudregion_id"})
+	if len(regionId) == 0 {
 		return nil, httperrors.NewMissingParameterError("cloudregion_id")
 	}
-	region := CloudregionManager.FetchRegionById(regionId)
-	if region == nil {
-		return nil, httperrors.NewInputParameterError("Invalid cloudregion_id")
+	regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionId)
+		} else {
+			return nil, httperrors.NewGeneralError(err)
+		}
 	}
+	region := regionObj.(*SCloudregion)
+	data.Add(jsonutils.NewString(region.GetId()), "cloudregion_id")
 	if region.isManaged() {
 		managerStr := jsonutils.GetAnyString(data, []string{"manager_id", "manager"})
 		if len(managerStr) == 0 {
 			return nil, httperrors.NewMissingParameterError("manager_id")
 		}
-		managerObj := CloudproviderManager.FetchCloudproviderByIdOrName(managerStr)
+		managerObj, err := CloudproviderManager.FetchByIdOrName(userCred, managerStr)
 		if err != nil {
-			return nil, httperrors.NewResourceNotFoundError("Cloud provider/manager %s not found", managerStr)
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudproviderManager.Keyword(), managerStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
 		}
 		data.Add(jsonutils.NewString(managerObj.GetId()), "manager_id")
 	} else {

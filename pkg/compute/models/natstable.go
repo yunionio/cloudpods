@@ -46,6 +46,7 @@ func init() {
 			"natstables",
 		),
 	}
+	NatSEntryManager.SetVirtualObject(NatSEntryManager)
 }
 
 type SNatSEntry struct {

@@ -1,0 +1,12 @@
+post:
+  summary: 上传对象
+  parameters:
+    - $ref: "../parameters/bucket.yaml#/bucket_name"
+    - $ref: "../parameters/bucket.yaml#/x-bucket-object-key"
+    - $ref: "../parameters/bucket.yaml#/x-bucket-content-type"
+    - $ref: "../parameters/bucket.yaml#/x-bucket-storage-class"
+  responses:
+    200:
+      description: 上传成功
+  tags:
+    - buckets
