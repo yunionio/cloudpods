@@ -25,6 +25,7 @@ func init() {
 	type RoleAssignmentsOptions struct {
 		Effective     bool   `help:"Include role assignment of group members"`
 		System        bool   `help:"Include system user account"`
+		Policy        bool   `help:"Show matched policies"`
 		Domain        string `help:"Role assignments for domain"`
 		User          string `help:"For user"`
 		UserDomain    string `help:"Domain for user"`
@@ -45,6 +46,9 @@ func init() {
 		}
 		if args.System {
 			query.Add(jsonutils.JSONNull, "include_system")
+		}
+		if args.Policy {
+			query.Add(jsonutils.JSONNull, "include_policies")
 		}
 		if len(args.Domain) > 0 {
 			domainId, err := modules.Domains.GetId(s, args.Domain, nil)
