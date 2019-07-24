@@ -1,0 +1,311 @@
+swagger: "2.0"
+info:
+  title: "OneCloud API"
+  version: "1.0"
+  termsOfService: ""
+  contact:
+    email: zhouyousong@yunion.cn
+  license:
+    name: "Apache 2.0"
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+
+host: "10.168.222.136:8889"
+basePath: "/"
+
+schemes:
+  - https
+  - http
+consumes:
+  - application/json
+produces:
+  - application/json
+
+securityDefinitions:
+  keystone:
+    type: apiKey
+    in: header
+    name: X-Auth-Token
+security:
+  - keystone: []
+
+paths:
+  /v2.0/tokens:
+    $ref: "./identity/auth_v2.yaml"
+  /v2.0/tokens/{token}:
+    $ref: "./identity/verify_v2.yaml"
+  /v3/auth/tokens:
+    $ref: "./identity/auth_v3.yaml"
+
+  /storages:
+    $ref: "./storage/storages.yaml"
+  /storages/{storageId}:
+    $ref: "./storage/storage.yaml"
+  /storages/{storageId}/enable:
+    $ref: "./storage/storage.yaml#/enable"
+  /storages/{storageId}/disable:
+    $ref: "./storage/storage.yaml#/disable"
+  /storages/{storageId}/online:
+    $ref: "./storage/storage.yaml#/online"
+  /storages/{storageId}/offline:
+    $ref: "./storage/storage.yaml#/offline"
+
+  /hoststorages:
+    $ref: "./hoststorage/hoststorage.yaml"
+  /hosts/{hostId}/storages/{storageId}:
+    $ref: "./hoststorage/hoststorages.yaml"
+
+  /networks:
+    $ref: "./network/networks.yaml"
+  /networks/{networkId}:
+    $ref: "./network/network.yaml"
+  /networks/{networkId}/private:
+    $ref: "./network/network.yaml#/private"
+  /networks/{networkId}/public:
+    $ref: "./network/network.yaml#/public"
+  /networks/{networkId}/split:
+    $ref: "./network/network.yaml#/split"
+  /networks/{networkId}/merge:
+    $ref: "./network/network.yaml#/merge"
+  /networks/{networkId}/reserve-ip:
+    $ref: "./network/network.yaml#/reserve-ip"
+  /networks/{networkId}/release-reserve-ip:
+    $ref: "./network/network.yaml#/release-reserve-ip"
+
+  /servers:
+    $ref: "./instance/instances.yaml"
+  /servers/{instanceId}/add-secgroup:
+    $ref: "./instance/add-secgroup.yaml"
+  /servers/{instanceId}/assign-secgroup:
+    $ref: "./instance/assign-secgroup.yaml"
+  /servers/{instanceId}/associate-eip:
+    $ref: "./instance/associate-eip.yaml"
+  /servers/{instanceId}/attachdisk:
+    $ref: "./instance/attachdisk.yaml"
+  /servers/{instanceId}/attach-isolate-device:
+    $ref: "./instance/attach-isolate-device.yaml"
+  /servers/{instanceId}/attachnetwork:
+    $ref: "./instance/attachnetwork.yaml"
+  /servers/{instanceId}/cancel-delete:
+    $ref: "./instance/cancel-delete.yaml"
+  /servers/{instanceId}/change-bandwidth:
+    $ref: "./instance/change-bandwidth.yaml"
+  /servers/{instanceId}/change-config:
+    $ref: "./instance/change-bandwidth.yaml"
+  /servers/{instanceId}/change-ip-addr:
+    $ref: "./instance/change-ip-addr.yaml"
+  /servers/{instanceId}/create-backup:
+    $ref: "./instance/create-backup.yaml"
+  /servers/{instanceId}/createdisk:
+    $ref: "./instance/createdisk.yaml"
+  /servers/{instanceId}/create-eip:
+    $ref: "./instance/create-eip.yaml"
+  /servers/{instanceId}/del-extra-option:
+    $ref: "./instance/del-extra-option.yaml"
+  /servers/{instanceId}/delete-backup:
+    $ref: "./instance/delete-backup.yaml"
+  /servers/{instanceId}/deploy:
+    $ref: "./instance/deploy.yaml"
+  /servers/{instanceId}/detachdisk:
+    $ref: "./instance/detachdisk.yaml"
+  /servers/{instanceId}/detach-isolate-device:
+    $ref: "./instance/detach-isolate-device.yaml"
+  /servers/{instanceId}/detachnetwork:
+    $ref: "./instance/detachnetwork.yaml"
+  /servers/{instanceId}/dissociate-eip:
+    $ref: "./instance/dissociate-eip.yaml"
+  /servers/{instanceId}/ejectiso:
+    $ref: "./instance/ejectiso.yaml"
+  /servers/{instanceId}/insertiso:
+    $ref: "./instance/insertiso.yaml"
+  /servers/{instanceId}/live-migrate:
+    $ref: "./instance/live-migrate.yaml"
+  /servers/{instanceId}/migrate:
+    $ref: "./instance/migrate.yaml"
+  /servers/{instanceId}/monitor:
+    $ref: "./instance/monitor.yaml"
+  /servers/{instanceId}/purge:
+    $ref: "./instance/purge.yaml"
+  /servers/{instanceId}/rebuild-root:
+    $ref: "./instance/rebuild-root.yaml"
+  /servers/{instanceId}/renew:
+    $ref: "./instance/renew.yaml"
+  /servers/{instanceId}/reset:
+    $ref: "./instance/reset.yaml"
+  /servers/{instanceId}/restart:
+    $ref: "./instance/restart.yaml"
+  /servers/{instanceId}/revoke-secgroup:
+    $ref: "./instance/revoke-secgroup.yaml"
+  /servers/{instanceId}/save-image:
+    $ref: "./instance/save-image.yaml"
+  /servers/{instanceId}/send-keys:
+    $ref: "./instance/send-keys.yaml"
+  /servers/{instanceId}/set-extra-option:
+    $ref: "./instance/set-extra-option.yaml"
+  /servers/{instanceId}/set-secgroup:
+    $ref: "./instance/set-secgroup.yaml"
+  /servers/{instanceId}:
+    $ref: "./instance/instance.yaml"
+  /servers/{instanceId}/start:
+    $ref: "./instance/start.yaml"
+  /servers/{instanceId}/status:
+    $ref: "./instance/status.yaml"
+  /servers/{instanceId}/stop:
+    $ref: "./instance/stop.yaml"
+  /servers/{instanceId}/suspend:
+    $ref: "./instance/suspend.yaml"
+  /servers/{instanceId}/switch-to-backup:
+    $ref: "./instance/switch-to-backup.yaml"
+  /servers/{instanceId}/sync:
+    $ref: "./instance/sync.yaml"
+  /servers/{instanceId}/syncstatus:
+    $ref: "./instance/syncstatus.yaml"
+  /servers/{instanceId}/user-data:
+    $ref: "./instance/user-data.yaml"
+  /servers/{instanceId}/vnc:
+    $ref: "./instance/vnc.yaml"
+
+  /images:
+    $ref: "./image/images.yaml"
+  /images/{imageId}:
+    $ref: "./image/image.yaml"
+  /images/{imageId}/mark-standard:
+    $ref: "./image/image-standard.yaml"
+
+  /natgateways:
+    $ref: "./natgateway/natgateways.yaml"
+  /natgateways/{natgatewayId}:
+    $ref: "./natgateway/natgateway.yaml"
+  /natdtables:
+    $ref: "./natgateway/dtables.yaml"
+  /natdtables/{dtableId}:
+    $ref: "./natgateway/dtable.yaml"
+  /natstables:
+    $ref: "./natgateway/stables.yaml"
+  /natstables/{stableId}:
+    $ref: "./natgateway/stable.yaml"
+
+  /loadbalancers:
+    $ref: "./loadbalancer/loadbalancers.yaml"
+  /loadbalancers/{loadbalancerId}:
+    $ref: "./loadbalancer/loadbalancer.yaml"
+
+  /cached_loadbalancer_acls:
+    $ref: "./loadbalancer/loadbalancercachedacl.yaml"
+  /cached_loadbalancer_acls/{loadbalancerlistenerId}:
+    $ref: "./loadbalancer/loadbalancercachedacls.yaml"
+
+  /cached_loadbalancercertificates:
+    $ref: "./loadbalancer/loadbalancercachedcertificate.yaml"
+  /cached_loadbalancercertificates/{loadbalancerlistenerId}:
+    $ref: "./loadbalancer/loadbalancercachedcertificates.yaml"  
+
+  /loadbalancerlisteners:
+    $ref: "./loadbalancer/loadbalancerlisteners.yaml"
+  /loadbalancerlisteners/{loadbalancerlistenerId}:
+    $ref: "./loadbalancer/loadbalancerlistener.yaml"
+
+  /loadbalancerbackendgroups:
+    $ref: "./loadbalancer/loadbalancerbackendgroups.yaml"
+  /loadbalancerbackendgroups/{loadbalancerbackendgroupId}:
+    $ref: "./loadbalancer/loadbalancerbackendgroup.yaml"
+
+  /loadbalancerbackends:
+    $ref: "./loadbalancer/loadbalancerbackends.yaml"
+  /loadbalancerbackends/{loadbalancerbackendId}:
+    $ref: "./loadbalancer/loadbalancerbackend.yaml"
+
+  /loadbalancerclusters:
+    $ref: "./loadbalancer/loadbalancerclusters.yaml"
+  /loadbalancerclusters/{loadbalancerClusterId}:
+    $ref: "./loadbalancer/loadbalancercluster.yaml"
+
+  /loadbalanceragents:
+    $ref: "./loadbalancer/loadbalanceragents.yaml"
+  /loadbalanceragents/{loadbalancerAgentId}:
+    $ref: "./loadbalancer/loadbalanceragent.yaml"
+  /loadbalanceragents/{loadbalancerAgentId}/params-patch:
+    $ref: "./loadbalancer/loadbalanceragent-params-patch.yaml"
+
+  /identity_providers:
+    $ref: "./identity/identity_providers.yaml"
+  /identity_providers/{idp_id}:
+    $ref: "./identity/identity_provider.yaml"
+
+  /domains:
+    $ref: "./identity/domains.yaml"
+  /domains/{domain_id}:
+    $ref: "./identity/domain.yaml"
+
+  /users:
+    $ref: "./identity/users.yaml" 
+  /users/{user_id}:
+    $ref: "./identity/user.yaml" 
+
+  /groups:
+    $ref: "./identity/groups.yaml"
+  /groups/{group_id}:
+    $ref: "./identity/group.yaml"
+  /groups/{group_id}/users/{user_id}:
+    $ref: "./identity/groupuser.yaml"
+
+  /projects:
+    $ref: "./identity/projects.yaml"
+  /projects/{project_id}:
+    $ref: "./identity/project.yaml"
+
+  /roles:
+    $ref: "./identity/roles.yaml"
+  /roles/{role_id}:
+    $ref: "./identity/role.yaml"
+  /projects/{project_id}/users/{user_id}/roles/{role_id}:
+    $ref: "./identity/projectuserrole.yaml"
+  /projects/{project_id}/groups/{group_id}/roles/{role_id}:
+    $ref: "./identity/projectgrouprole.yaml"
+
+  /policies:
+    $ref: "./identity/policies.yaml"
+  /policies/{policy_id}:
+    $ref: "./identity/policy.yaml"
+
+  /credentials:
+    $ref: "./identity/credentials.yaml"
+
+  /role_assignments:
+    $ref: "./identity/roleassignments.yaml"
+
+  /regions:
+    $ref: "./identity/regions.yaml"
+  /regions/{region_id}:
+    $ref: "./identity/region.yaml"
+
+  /services:
+    $ref: "./identity/services.yaml"
+  /services/{service_id}:
+    $ref: "./identity/service.yaml"
+
+  /endpoints:
+    $ref: "./identity/endpoints.yaml"
+  /endpoints/{endpoint_id}:
+    $ref: "./identity/endpoint.yaml"
+
+  /quotas:
+    $ref: "./quotas/quotas.yaml"
+  /quotas/{project_id}:
+    $ref: "./quotas/projectquotas.yaml"
+  /quotas/projects/{project_id}:
+    $ref: "./quotas/projectquotas.yaml"
+  /quotas/domains/{domain_id}:
+    $ref: "./quotas/domainquotas.yaml"
+  /quotas/projects:
+    $ref: "./quotas/projectquotalist.yaml"
+  /quotas/domains:
+    $ref: "./quotas/quotalist.yaml"
+
+  /serverskus:
+    $ref: "./serversku/serverskus.yaml"
+  /serverskus/{serverskuId}:
+    $ref: "./serversku/serversku.yaml"
+  /serverskus/{serverskuId}/enable:
+    $ref: "./serversku/enable.yaml"
+  /serverskus/{serverskuId}/disable:
+    $ref: "./serversku/disable.yaml"
