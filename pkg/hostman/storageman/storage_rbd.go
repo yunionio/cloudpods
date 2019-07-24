@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ceph/go-ceph/rados"
 	"github.com/ceph/go-ceph/rbd"
@@ -41,9 +42,8 @@ import (
 )
 
 const (
-	RBD_FEATURE     = 3
-	RBD_ORDER       = 22  //为rbd对应到rados中每个对象的大小，默认为4MB
-	DEFAULT_TIMEOUT = 240 //4 minutes
+	RBD_FEATURE = 3
+	RBD_ORDER   = 22 //为rbd对应到rados中每个对象的大小，默认为4MB
 )
 
 var (
@@ -116,12 +116,16 @@ func (s *SRbdStorage) getStorageConfString() string {
 			conf += fmt.Sprintf(":%s=%s", key, value)
 		}
 	}
-	for _, key := range []string{"rados_osd_op_timeout", "rados_mon_op_timeout", "client_mount_timeout"} {
-		var timeout int64
-		if timeout, _ = s.StorageConf.Int(key); timeout == 0 {
-			timeout = DEFAULT_TIMEOUT
+	for key, _timeout := range map[string]int64{
+		"rados_mon_op_timeout": api.RBD_DEFAULT_MON_TIMEOUT,
+		"rados_osd_op_timeout": api.RBD_DEFAULT_OSD_TIMEOUT,
+		"client_mount_timeout": api.RBD_DEFAULT_MOUNT_TIMEOUT,
+	} {
+		if timeout, _ := s.StorageConf.Int(key); timeout > 0 {
+			conf += fmt.Sprintf(":%s=%d", key, timeout)
+		} else {
+			conf += fmt.Sprintf(":%s=%d", key, _timeout)
 		}
-		conf += fmt.Sprintf(":%s=%d", key, timeout)
 	}
 	return conf
 }
@@ -159,9 +163,83 @@ func (s *SRbdStorage) deleteImage(pool string, name string) error {
 		}
 
 		image := rbd.GetImage(ioctx, name)
-		if err := image.Remove(); err != nil {
-			log.Errorf("remove image %s from pool %s error: %v", name, pool, err)
-			return nil, err
+		err = image.Open()
+		if err != nil {
+			return nil, errors.Wrap(err, "image.Open()")
+		}
+
+		//需要先删除image底下的snap
+		snapInfos, err := image.GetSnapshotNames()
+		if err != nil {
+			return nil, errors.Wrap(err, "image.GetSnapshotNames()")
+		}
+		for _, snapInfo := range snapInfos {
+			image.Close()
+
+			err = image.Open(snapInfo.Name)
+			if err != nil {
+				return nil, errors.Wrapf(err, "image.Open(%s)", snapInfo.Name)
+			}
+
+			pools, images, err := image.ListChildren()
+			if err != nil {
+				return nil, errors.Wrap(err, "image.ListChildren")
+			}
+
+			for i, _pool := range pools {
+				//需要解除snap底下的image关系
+				_, err = s.withIOContext(_pool, func(ioctx *rados.IOContext) (interface{}, error) {
+					_image := rbd.GetImage(ioctx, images[i])
+					err = _image.Open()
+					if err != nil {
+						return nil, errors.Wrap(err, "_image.Open()")
+					}
+					defer _image.Close()
+					log.Debugf("start flatten %s/%s@%s => %s/%s", pool, name, snapInfo.Name, _pool, images[i])
+					err := _image.Flatten()
+					if err != nil {
+						return nil, errors.Wrap(err, "_image.Flatten")
+					}
+					return nil, nil
+				})
+				if err != nil {
+					return nil, errors.Wrapf(err, "flatten child %s/%s", _pool, images[i])
+				}
+			}
+
+			snapshot := image.GetSnapshot(snapInfo.Name)
+			protect, err := snapshot.IsProtected()
+			if err != nil {
+				return nil, errors.Wrapf(err, "snapshot.IsProtected() %s", snapInfo.Name)
+			}
+
+			if protect {
+				for i := 0; i < 3; i++ {
+					err = snapshot.Unprotect()
+					if err == nil {
+						break
+					}
+					//Resource busy
+					if strings.Contains(err.Error(), "16") {
+						log.Warningf("snapshot is busy, try unprotect after %d seconds", (i+1)*5)
+						time.Sleep(time.Second * time.Duration(i+1) * 5)
+						continue
+					}
+					return nil, errors.Wrapf(err, "snapshot.Unprotect() %s", snapInfo.Name)
+				}
+			}
+
+			err = snapshot.Remove()
+			if err != nil {
+				return nil, errors.Wrapf(err, "snapshot.Remove() %s", snapInfo.Name)
+			}
+		}
+
+		image.Close()
+
+		err = image.Remove()
+		if err != nil {
+			return nil, errors.Wrapf(err, "image.Remove() %s/%s", pool, name)
 		}
 		return nil, nil
 	})
@@ -192,37 +270,24 @@ func (s *SRbdStorage) cloneImage(srcPool string, srcImage string, destPool strin
 	_, err := s.withImage(srcPool, srcImage, func(src *rbd.Image) (interface{}, error) {
 		snapshot, err := src.CreateSnapshot(destImage)
 		if err != nil {
-			log.Errorf("create snapshot error: %v", err)
-			return nil, err
+			return nil, errors.Wrap(err, "src.CreateSnapshot")
 		}
-		defer snapshot.Remove()
+
 		isProtect, err := snapshot.IsProtected()
 		if err != nil {
 			return nil, err
 		}
 		if !isProtect {
 			if err := snapshot.Protect(); err != nil {
-				log.Errorf("snapshot protect error: %v", err)
-				return nil, err
+				return nil, errors.Wrap(err, "snapshot.Protect")
 			}
 		}
 		defer snapshot.Unprotect()
 
 		return s.withIOContext(destPool, func(ioctx *rados.IOContext) (interface{}, error) {
-			dest, err := src.Clone(destImage, ioctx, destImage, RBD_FEATURE, RBD_ORDER)
+			_, err := src.Clone(destImage, ioctx, destImage, RBD_FEATURE, RBD_ORDER)
 			if err != nil {
-				return nil, err
-			}
-
-			err = dest.Open()
-			if err != nil {
-				return nil, errors.Wrap(err, "cloneImage.Open")
-			}
-			defer dest.Close()
-
-			err = dest.Flatten()
-			if err != nil {
-				return nil, errors.Wrap(err, "cloneImage.Flatten")
+				return nil, errors.Wrapf(err, "src.Clone")
 			}
 			return nil, nil
 		})
@@ -254,8 +319,7 @@ func (s *SRbdStorage) withIOContext(pool string, doFunc func(*rados.IOContext) (
 	return s.withCluster(func(conn *rados.Conn) (interface{}, error) {
 		ioctx, err := conn.OpenIOContext(pool)
 		if err != nil {
-			log.Errorf("get ioctx for pool %s error: %v", pool, err)
-			return nil, err
+			return nil, errors.Wrapf(err, "conn.OpenIOContext(%s)", pool)
 		}
 		return doFunc(ioctx)
 	})
@@ -280,7 +344,12 @@ func (s *SRbdStorage) withCluster(doFunc func(*rados.Conn) (interface{}, error))
 			}
 		}
 	}
-	for key, timeout := range map[string]int64{"rados_osd_op_timeout": 3, "rados_mon_op_timeout": 3, "client_mount_timeout": 3} {
+	for key, timeout := range map[string]int64{
+		"rados_osd_op_timeout": api.RBD_DEFAULT_OSD_TIMEOUT,
+		"rados_mon_op_timeout": api.RBD_DEFAULT_MON_TIMEOUT,
+		"client_mount_timeout": api.RBD_DEFAULT_MOUNT_TIMEOUT,
+	} {
+
 		_timeout, _ := s.StorageConf.Int(key)
 		if _timeout > 0 {
 			timeout = _timeout
@@ -290,8 +359,7 @@ func (s *SRbdStorage) withCluster(doFunc func(*rados.Conn) (interface{}, error))
 		}
 	}
 	if err := conn.Connect(); err != nil {
-		log.Errorf("connect rbd cluster %s error: %v", s.StorageName, err)
-		return nil, err
+		return nil, errors.Wrapf(err, "conn.Connect() %s", s.StorageName)
 	}
 	defer conn.Shutdown()
 	return doFunc(conn)
@@ -372,8 +440,7 @@ func (s *SRbdStorage) getCapacity() (uint64, error) {
 		return uint64(maxBytes) / 1024, nil
 	})
 	if err != nil {
-		log.Errorf("get capacity error: %v", err)
-		return 0, err
+		return 0, errors.Wrap(err, "getCapacity")
 	}
 	sizeKb := _sizeKb.(uint64)
 	return sizeKb / 1024, nil
