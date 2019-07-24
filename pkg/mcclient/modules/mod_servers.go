@@ -16,6 +16,7 @@ package modules
 
 import (
 	"fmt"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/gotypes"
@@ -30,38 +31,54 @@ type ServerManager struct {
 }
 
 func (this *ServerManager) GetLoginInfo(s *mcclient.ClientSession, id string, params jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	data, e := this.GetMetadata(s, id, nil)
+	data, e := this.Get(s, id, nil)
 	if e != nil {
 		return nil, e
 	}
+
 	ret := jsonutils.NewDict()
-	loginKey, e := data.GetString("login_key")
+
+	v, e := data.Get("metadata", "login_account")
+	if e == nil {
+		ret.Add(v, "username")
+	}
+	v, e = data.Get("metadata", "login_key_timestamp")
+	if e == nil {
+		ret.Add(v, "updated")
+	}
+
+	loginKey, _ := data.GetString("metadata", "login_key")
 	if e != nil {
 		return nil, fmt.Errorf("No login key: %s", e)
 	}
 
-	var privateKey string
-	if params != nil && !gotypes.IsNil(params) {
-		privateKey, _ = params.GetString("private_key")
-	}
-
-	var passwd string
-	if len(privateKey) > 0 {
-		passwd, e = seclib2.DecryptBase64(privateKey, loginKey)
-	} else {
-		passwd, e = utils.DescryptAESBase64(id, loginKey)
-	}
-	if e != nil {
-		return nil, e
-	}
-	ret.Add(jsonutils.NewString(passwd), "password")
-	v, e := data.Get("login_account")
-	if e == nil {
-		ret.Add(v, "username")
-	}
-	v, e = data.Get("login_key_timestamp")
-	if e == nil {
-		ret.Add(v, "updated")
+	if len(loginKey) > 0 {
+		ret.Add(jsonutils.NewString(loginKey), "login_key")
+		var passwd string
+		keypairId, _ := data.GetString("keypair_id")
+		if len(keypairId) > 0 && !strings.EqualFold(keypairId, "none") {
+			keypair, e := data.Get("keypair")
+			if e == nil {
+				ret.Add(keypair, "keypair")
+			}
+			if params != nil && !gotypes.IsNil(params) {
+				privateKey, _ := params.GetString("private_key")
+				if len(privateKey) > 0 {
+					passwd, e = seclib2.DecryptBase64(privateKey, loginKey)
+					if e != nil {
+						return nil, e
+					}
+				}
+			}
+		} else {
+			passwd, e = utils.DescryptAESBase64(id, loginKey)
+			if e != nil {
+				return nil, e
+			}
+		}
+		if len(passwd) > 0 {
+			ret.Add(jsonutils.NewString(passwd), "password")
+		}
 	}
 
 	return ret, nil

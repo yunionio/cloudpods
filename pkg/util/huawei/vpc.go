@@ -17,8 +17,8 @@ package huawei
 import (
 	"strings"
 
-	"yunion.io/x/pkg/errors"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
