@@ -45,3 +45,9 @@ include_system:
   type: boolean
   in: query
   description: 包含系统用户的角色项目信息
+
+include_policies:
+  name: include_policies
+  type: boolean
+  in: query
+  description: 是否在结果中包含用户在该项目的角色匹配的权限列表
