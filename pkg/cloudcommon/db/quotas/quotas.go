@@ -87,7 +87,7 @@ func (manager *SQuotaBaseManager) _cancelPendingUsage(ctx context.Context, userC
 	}
 
 	// update usage
-	manager.PostUsageJob(scope, ownerId, platform, nil, false)
+	manager.PostUsageJob(scope, ownerId, platform, nil, false, false)
 	return err
 }
 
