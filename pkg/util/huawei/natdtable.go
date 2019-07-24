@@ -15,12 +15,12 @@
 package huawei
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud"
-
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
-type SNatDTableEntry struct {
+type SNatDEntry struct {
 	multicloud.SResourceBase
 	gateway *SNatGateway
 
@@ -36,50 +36,50 @@ type SNatDTableEntry struct {
 	AdminStateUp bool   `json:"admin_state_up"`
 }
 
-func (nat *SNatDTableEntry) GetId() string {
+func (nat *SNatDEntry) GetId() string {
 	return nat.ID
 }
 
-func (nat *SNatDTableEntry) GetName() string {
+func (nat *SNatDEntry) GetName() string {
 	// No name so return id
 	return nat.GetId()
 }
 
-func (nat *SNatDTableEntry) GetGlobalId() string {
+func (nat *SNatDEntry) GetGlobalId() string {
 	return nat.GetId()
 }
 
-func (nat *SNatDTableEntry) GetStatus() string {
+func (nat *SNatDEntry) GetStatus() string {
 	return NatResouceStatusTransfer(nat.Status)
 }
 
-func (nat *SNatDTableEntry) GetIpProtocol() string {
+func (nat *SNatDEntry) GetIpProtocol() string {
 	return nat.Protocol
 }
 
-func (nat *SNatDTableEntry) GetExternalIp() string {
+func (nat *SNatDEntry) GetExternalIp() string {
 	return nat.ExternalIP
 }
 
-func (nat *SNatDTableEntry) GetExternalPort() int {
+func (nat *SNatDEntry) GetExternalPort() int {
 	return nat.ExternalPort
 }
 
-func (nat *SNatDTableEntry) GetInternalIp() string {
+func (nat *SNatDEntry) GetInternalIp() string {
 	return nat.InternalIP
 }
 
-func (nat *SNatDTableEntry) GetInternalPort() int {
+func (nat *SNatDEntry) GetInternalPort() int {
 	return nat.InternalPort
 }
 
-func (nat *SNatDTableEntry) Delete() error {
-	return nat.gateway.region.DeleteDNatTableEntry(nat.GetId())
+func (nat *SNatDEntry) Delete() error {
+	return nat.gateway.region.DeleteNatDEntry(nat.GetId())
 }
 
-// getSNatEntries return all snat rules of gateway
-func (gateway *SNatGateway) getDNatEntries() ([]SNatDTableEntry, error) {
-	ret, err := gateway.region.GetDNatTable(gateway.GetId())
+// getNatSTable return all snat rules of gateway
+func (gateway *SNatGateway) getNatDTable() ([]SNatDEntry, error) {
+	ret, err := gateway.region.GetNatDTable(gateway.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -89,11 +89,11 @@ func (gateway *SNatGateway) getDNatEntries() ([]SNatDTableEntry, error) {
 	return ret, nil
 }
 
-func (region *SRegion) GetDNatTable(natGatewayID string) ([]SNatDTableEntry, error) {
+func (region *SRegion) GetNatDTable(natGatewayID string) ([]SNatDEntry, error) {
 	queuies := map[string]string{
 		"nat_gateway_id": natGatewayID,
 	}
-	dNatSTableEntries := make([]SNatDTableEntry, 0, 2)
+	dNatSTableEntries := make([]SNatDEntry, 0, 2)
 	// can't make true that restapi support marker para in Huawei Cloud
 	err := doListAllWithMarker(region.ecsClient.DNatRules.List, queuies, &dNatSTableEntries)
 	if err != nil {
@@ -112,7 +112,7 @@ func (region *SRegion) GetDNatTable(natGatewayID string) ([]SNatDTableEntry, err
 	return dNatSTableEntries, nil
 }
 
-func (region *SRegion) DeleteDNatTableEntry(entryID string) error {
+func (region *SRegion) DeleteNatDEntry(entryID string) error {
 	_, err := region.ecsClient.DNatRules.Delete(entryID, nil)
 	if err != nil {
 		return errors.Wrapf(err, `delete dnat rule %q failed`, entryID)

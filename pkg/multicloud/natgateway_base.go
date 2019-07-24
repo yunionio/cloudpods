@@ -29,10 +29,10 @@ func (nat *SNatGatewayBase) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	return nil, fmt.Errorf("Not Implemented GetIEips")
 }
 
-func (nat *SNatGatewayBase) GetIDNatEntries() ([]cloudprovider.ICloudDNatEntry, error) {
-	return nil, fmt.Errorf("Not Implemented GetIDNatEntries")
+func (nat *SNatGatewayBase) GetIDNatEntries() ([]cloudprovider.ICloudNatDEntry, error) {
+	return nil, fmt.Errorf("Not Implemented GetINatDTable")
 }
 
-func (nat *SNatGatewayBase) GetISNatEntries() ([]cloudprovider.ICloudSNatEntry, error) {
-	return nil, fmt.Errorf("Not Implemented GetISNatEntries")
+func (nat *SNatGatewayBase) GetISNatEntries() ([]cloudprovider.ICloudNatSEntry, error) {
+	return nil, fmt.Errorf("Not Implemented GetINatSTable")
 }

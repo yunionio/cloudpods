@@ -17,13 +17,13 @@ package huawei
 import (
 	"time"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
+
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
-
-	"yunion.io/x/jsonutils"
-	"yunion.io/x/pkg/errors"
 )
 
 type SNatGateway struct {
@@ -94,11 +94,11 @@ func (gateway *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, `get all Eips of region %q error`, gateway.region.GetId())
 	}
-	dNatTables, err := gateway.GetIDNatEntries()
+	dNatTables, err := gateway.GetINatDTable()
 	if err != nil {
 		return nil, errors.Wrapf(err, `get all DNatTable of gateway %q error`, gateway.GetId())
 	}
-	sNatTables, err := gateway.GetISNatEntries()
+	sNatTables, err := gateway.GetINatSTable()
 	if err != nil {
 		return nil, errors.Wrapf(err, `get all SNatTable of gateway %q error`, gateway.GetId())
 	}
@@ -122,32 +122,32 @@ func (gateway *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	return ret, nil
 }
 
-func (gateway *SNatGateway) GetIDNatEntries() ([]cloudprovider.ICloudDNatEntry, error) {
-	dNatTable, err := gateway.getDNatEntries()
+func (gateway *SNatGateway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error) {
+	dNatTable, err := gateway.getNatDTable()
 	if err != nil {
 		return nil, errors.Wrapf(err, `get dnat table of nat gateway %q`, gateway.GetId())
 	}
-	ret := make([]cloudprovider.ICloudDNatEntry, len(dNatTable))
+	ret := make([]cloudprovider.ICloudNatDEntry, len(dNatTable))
 	for i := range dNatTable {
 		ret[i] = &dNatTable[i]
 	}
 	return ret, nil
 }
 
-func (gateway *SNatGateway) GetISNatEntries() ([]cloudprovider.ICloudSNatEntry, error) {
-	sNatTable, err := gateway.getSNatEntries()
+func (gateway *SNatGateway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error) {
+	sNatTable, err := gateway.getNatSTable()
 	if err != nil {
 		return nil, errors.Wrapf(err, `get dnat table of nat gateway %q`, gateway.GetId())
 	}
-	ret := make([]cloudprovider.ICloudSNatEntry, len(sNatTable))
+	ret := make([]cloudprovider.ICloudNatSEntry, len(sNatTable))
 	for i := range sNatTable {
 		ret[i] = &sNatTable[i]
 	}
 	return ret, nil
 }
 
-func (gateway *SNatGateway) CreateIDNatEntry(rule cloudprovider.SNatDRule) (cloudprovider.ICloudDNatEntry, error) {
-	dnat, err := gateway.region.CreateNatDTable(rule, gateway.GetId())
+func (gateway *SNatGateway) CreateINatDEntry(rule cloudprovider.SNatDRule) (cloudprovider.ICloudNatDEntry, error) {
+	dnat, err := gateway.region.CreateNatDEntry(rule, gateway.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -155,8 +155,8 @@ func (gateway *SNatGateway) CreateIDNatEntry(rule cloudprovider.SNatDRule) (clou
 	return &dnat, nil
 }
 
-func (gateway *SNatGateway) CreateISNatEntry(rule cloudprovider.SNatSRule) (cloudprovider.ICloudSNatEntry, error) {
-	snat, err := gateway.region.CreateNatSTable(rule, gateway.GetId())
+func (gateway *SNatGateway) CreateINatSEntry(rule cloudprovider.SNatSRule) (cloudprovider.ICloudNatSEntry, error) {
+	snat, err := gateway.region.CreateNatSEntry(rule, gateway.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -164,8 +164,8 @@ func (gateway *SNatGateway) CreateISNatEntry(rule cloudprovider.SNatSRule) (clou
 	return &snat, nil
 }
 
-func (gateway *SNatGateway) GetIDNatEntryByID(id string) (cloudprovider.ICloudDNatEntry, error) {
-	dnat, err := gateway.region.GetNatDTableByID(id)
+func (gateway *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEntry, error) {
+	dnat, err := gateway.region.GetNatDEntryByID(id)
 	if err != nil {
 		return nil, err
 	}
@@ -173,8 +173,8 @@ func (gateway *SNatGateway) GetIDNatEntryByID(id string) (cloudprovider.ICloudDN
 	return &dnat, nil
 }
 
-func (gateway *SNatGateway) GetISNatEntryByID(id string) (cloudprovider.ICloudSNatEntry, error) {
-	snat, err := gateway.region.GetNatSTableByID(id)
+func (gateway *SNatGateway) GetINatSEntryByID(id string) (cloudprovider.ICloudNatSEntry, error) {
+	snat, err := gateway.region.GetNatSEntryByID(id)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +213,7 @@ func (region *SRegion) GetNatGateways(vpcID string) ([]SNatGateway, error) {
 	return natGateways, nil
 }
 
-func (region *SRegion) CreateNatDTable(rule cloudprovider.SNatDRule, gatewayID string) (SNatDTableEntry, error) {
+func (region *SRegion) CreateNatDEntry(rule cloudprovider.SNatDRule, gatewayID string) (SNatDEntry, error) {
 	params := make(map[string]interface{})
 	params["nat_gateway_id"] = gatewayID
 	params["private_ip"] = rule.InternalIP
@@ -226,15 +226,15 @@ func (region *SRegion) CreateNatDTable(rule cloudprovider.SNatDRule, gatewayID s
 		"dnat_rule": params,
 	}
 
-	ret := SNatDTableEntry{}
+	ret := SNatDEntry{}
 	err := DoCreate(region.ecsClient.DNatRules.Create, jsonutils.Marshal(packParams), &ret)
 	if err != nil {
-		return SNatDTableEntry{}, errors.Wrapf(err, `create dnat rule of nat gateway %q failed`, gatewayID)
+		return SNatDEntry{}, errors.Wrapf(err, `create dnat rule of nat gateway %q failed`, gatewayID)
 	}
 	return ret, nil
 }
 
-func (region *SRegion) CreateNatSTable(rule cloudprovider.SNatSRule, gatewayID string) (SNatSTableEntry, error) {
+func (region *SRegion) CreateNatSEntry(rule cloudprovider.SNatSRule, gatewayID string) (SNatSEntry, error) {
 	params := make(map[string]interface{})
 	params["nat_gateway_id"] = gatewayID
 	params["cidr"] = rule.SourceCIDR
@@ -244,29 +244,29 @@ func (region *SRegion) CreateNatSTable(rule cloudprovider.SNatSRule, gatewayID s
 		"snat_rule": params,
 	}
 
-	ret := SNatSTableEntry{}
+	ret := SNatSEntry{}
 	err := DoCreate(region.ecsClient.SNatRules.Create, jsonutils.Marshal(packParams), &ret)
 	if err != nil {
-		return SNatSTableEntry{}, errors.Wrapf(err, `create snat rule of nat gateway %q failed`, gatewayID)
+		return SNatSEntry{}, errors.Wrapf(err, `create snat rule of nat gateway %q failed`, gatewayID)
 	}
 	return ret, nil
 }
 
-func (region *SRegion) GetNatDTableByID(id string) (SNatDTableEntry, error) {
-	dnat := SNatDTableEntry{}
+func (region *SRegion) GetNatDEntryByID(id string) (SNatDEntry, error) {
+	dnat := SNatDEntry{}
 	err := DoGet(region.ecsClient.DNatRules.Get, id, map[string]string{}, &dnat)
 
 	if err != nil {
-		return SNatDTableEntry{}, cloudprovider.ErrNotFound
+		return SNatDEntry{}, cloudprovider.ErrNotFound
 	}
 	return dnat, nil
 }
 
-func (region *SRegion) GetNatSTableByID(id string) (SNatSTableEntry, error) {
-	snat := SNatSTableEntry{}
+func (region *SRegion) GetNatSEntryByID(id string) (SNatSEntry, error) {
+	snat := SNatSEntry{}
 	err := DoGet(region.ecsClient.SNatRules.Get, id, map[string]string{}, &snat)
 	if err != nil {
-		return SNatSTableEntry{}, cloudprovider.ErrNotFound
+		return SNatSEntry{}, cloudprovider.ErrNotFound
 	}
 	return snat, nil
 }
