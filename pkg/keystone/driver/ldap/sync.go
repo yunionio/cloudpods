@@ -106,14 +106,17 @@ func (self *SLDAPDriver) syncDomains(ctx context.Context, cli *ldaputils.SLDAPCl
 	if err != nil {
 		return errors.Wrap(err, "searchLDAP")
 	}
-	domainIds := make([]string, len(entries))
+	domainIds := make([]string, 0)
 	for i := range entries {
 		domainInfo := self.entry2Domain(entries[i])
+		if !domainInfo.isValid() {
+			continue
+		}
 		domain, err := self.syncDomainInfo(ctx, domainInfo)
 		if err != nil {
 			return errors.Wrap(err, "syncDomainInfo")
 		}
-		domainIds[i] = domain.Id
+		domainIds = append(domainIds, domain.Id)
 		userIdMap, err := self.syncUsers(ctx, cli, domain.Id, domainInfo.DN)
 		if err != nil {
 			return errors.Wrap(err, "syncUsers")
@@ -245,15 +248,18 @@ func (self *SLDAPDriver) syncUsers(ctx context.Context, cli *ldaputils.SLDAPClie
 	if err != nil {
 		return nil, errors.Wrap(err, "searchLDAP")
 	}
-	userIds := make([]string, len(entries))
+	userIds := make([]string, 0)
 	userIdMap := make(map[string]string)
 	for i := range entries {
 		userInfo := self.entry2User(entries[i])
+		if !userInfo.isValid() {
+			continue
+		}
 		userId, err := self.syncUserDB(ctx, userInfo, domainId)
 		if err != nil {
 			return nil, errors.Wrap(err, "syncUserDB")
 		}
-		userIds[i] = userId
+		userIds = append(userIds, userId)
 		if self.ldapConfig.GroupMembersAreIds {
 			userIdMap[userInfo.Id] = userId
 		} else {
@@ -370,14 +376,17 @@ func (self *SLDAPDriver) syncGroups(ctx context.Context, cli *ldaputils.SLDAPCli
 	if err != nil {
 		return errors.Wrap(err, "searchLDAP")
 	}
-	groupIds := make([]string, len(entries))
+	groupIds := make([]string, 0)
 	for i := range entries {
 		groupInfo := self.entry2Group(entries[i])
+		if !groupInfo.isValid() {
+			continue
+		}
 		groupId, err := self.syncGroupDB(ctx, groupInfo, domainId, userIdMap)
 		if err != nil {
 			return errors.Wrap(err, "syncGroupDB")
 		}
-		groupIds[i] = groupId
+		groupIds = append(groupIds, groupId)
 	}
 	deleteGroups, err := models.GroupManager.FetchGroupsInDomain(domainId, groupIds)
 	if err != nil {
