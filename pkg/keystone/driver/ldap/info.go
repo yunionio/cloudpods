@@ -30,3 +30,7 @@ type SGroupInfo struct {
 	SDomainInfo
 	Members []string
 }
+
+func (info SDomainInfo) isValid() bool {
+	return len(info.DN) > 0 && len(info.Id) > 0 && len(info.Name) > 0
+}
