@@ -34,12 +34,12 @@ func init() {
 		return nil
 	})
 
-	type SNatEntryListOptions struct {
+	type NatSEntryListOptions struct {
 		ID     string `help:"SNat Table ID"`
 		Limit  int    `help:"page size"`
 		Offset int    `help:"page offset"`
 	}
-	shellutils.R(&SNatEntryListOptions{}, "snat-entry-list", "List SNAT entries", func(cli *aliyun.SRegion, args *SNatEntryListOptions) error {
+	shellutils.R(&NatSEntryListOptions{}, "snat-entry-list", "List SNAT entries", func(cli *aliyun.SRegion, args *NatSEntryListOptions) error {
 		entries, total, e := cli.GetSNATEntries(args.ID, args.Offset, args.Limit)
 		if e != nil {
 			return e
@@ -48,12 +48,12 @@ func init() {
 		return nil
 	})
 
-	type DNatEntryListOptions struct {
+	type NatDEntryListOptions struct {
 		ID     string `help:"DNat Table ID"`
 		Limit  int    `help:"page size"`
 		Offset int    `help:"page offset"`
 	}
-	shellutils.R(&DNatEntryListOptions{}, "dnat-entry-list", "List DNAT entries", func(cli *aliyun.SRegion, args *DNatEntryListOptions) error {
+	shellutils.R(&NatDEntryListOptions{}, "dnat-entry-list", "List DNAT entries", func(cli *aliyun.SRegion, args *NatDEntryListOptions) error {
 		entries, total, e := cli.GetForwardTableEntries(args.ID, args.Offset, args.Limit)
 		if e != nil {
 			return e

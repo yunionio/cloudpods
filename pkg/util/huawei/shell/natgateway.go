@@ -49,7 +49,7 @@ func init() {
 			InternalIP:   args.InternalIP,
 			InternalPort: args.InternalPort,
 		}
-		dnat, err := region.CreateNatDTable(rule, args.GatewayID)
+		dnat, err := region.CreateNatDEntry(rule, args.GatewayID)
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func init() {
 			SourceCIDR:   args.SourceCIDR,
 			ExternalIPID: args.ExternalIPID,
 		}
-		snat, err := region.CreateNatSTable(rule, args.GatewayID)
+		snat, err := region.CreateNatSEntry(rule, args.GatewayID)
 		if err != nil {
 			return err
 		}
@@ -79,7 +79,7 @@ func init() {
 		NatID string `help:"SNat ID" positional:"true"`
 	}
 	shellutils.R(&SShowSNatOptions{}, "snat-show", "Show snat", func(region *huawei.SRegion, args *SShowSNatOptions) error {
-		snat, err := region.GetNatSTableByID(args.NatID)
+		snat, err := region.GetNatSEntryByID(args.NatID)
 		if err != nil {
 			return err
 		}
@@ -91,7 +91,7 @@ func init() {
 		NatID string `help:"DNat ID" positional:"true"`
 	}
 	shellutils.R(&SShowDNatOptions{}, "dnat-show", "Show dnat", func(region *huawei.SRegion, args *SShowDNatOptions) error {
-		dnat, err := region.GetNatDTableByID(args.NatID)
+		dnat, err := region.GetNatDEntryByID(args.NatID)
 		if err != nil {
 			return err
 		}
@@ -103,7 +103,7 @@ func init() {
 		NatID string `help:"SNat ID" positional:"true"`
 	}
 	shellutils.R(&SDeleteSNatOptions{}, "snat-delete", "Delete snat", func(region *huawei.SRegion, args *SDeleteSNatOptions) error {
-		err := region.DeleteSNatTableEntry(args.NatID)
+		err := region.DeleteNatSEntry(args.NatID)
 		if err != nil {
 			return err
 		}
@@ -114,7 +114,7 @@ func init() {
 		NatID string `help:"DNat ID" positional:"true"`
 	}
 	shellutils.R(&SDeleteDNatOptions{}, "dnat-delete", "Delete dnat", func(region *huawei.SRegion, args *SDeleteDNatOptions) error {
-		err := region.DeleteDNatTableEntry(args.NatID)
+		err := region.DeleteNatDEntry(args.NatID)
 		if err != nil {
 			return err
 		}

@@ -101,16 +101,16 @@ func (nat *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	return ieips, nil
 }
 
-func (nat *SNatGateway) GetISNatEntries() ([]cloudprovider.ICloudSNatEntry, error) {
-	return []cloudprovider.ICloudSNatEntry{}, nil
+func (nat *SNatGateway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error) {
+	return []cloudprovider.ICloudNatSEntry{}, nil
 }
 
-func (nat *SNatGateway) GetIDNatEntries() ([]cloudprovider.ICloudDNatEntry, error) {
+func (nat *SNatGateway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error) {
 	tables, err := nat.vpc.region.GetDTables(nat.NatId, nat.vpc.VpcId)
 	if err != nil {
 		return nil, err
 	}
-	itables := []cloudprovider.ICloudDNatEntry{}
+	itables := []cloudprovider.ICloudNatDEntry{}
 	for i := 0; i < len(tables); i++ {
 		tables[i].nat = nat
 		itables = append(itables, &tables[i])
@@ -118,19 +118,19 @@ func (nat *SNatGateway) GetIDNatEntries() ([]cloudprovider.ICloudDNatEntry, erro
 	return itables, nil
 }
 
-func (nat *SNatGateway) GetIDNatEntryByID(id string) (cloudprovider.ICloudDNatEntry, error) {
+func (nat *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEntry, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (nat *SNatGateway) GetISNatEntryByID(id string) (cloudprovider.ICloudSNatEntry, error) {
+func (nat *SNatGateway) GetINatSEntryByID(id string) (cloudprovider.ICloudNatSEntry, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (nat *SNatGateway) CreateIDNatEntry(rule cloudprovider.SNatDRule) (cloudprovider.ICloudDNatEntry, error) {
+func (nat *SNatGateway) CreateINatDEntry(rule cloudprovider.SNatDRule) (cloudprovider.ICloudNatDEntry, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
-func (nat *SNatGateway) CreateISNatEntry(rule cloudprovider.SNatSRule) (cloudprovider.ICloudSNatEntry, error) {
+func (nat *SNatGateway) CreateINatSEntry(rule cloudprovider.SNatSRule) (cloudprovider.ICloudNatSEntry, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
 
