@@ -58,6 +58,9 @@ type Client struct {
 	Vpcs               *modules.SVpcManager
 	Zones              *modules.SZoneManager
 	VpcRoutes          *modules.SVpcRouteManager
+	SNatRules          *modules.SNatSRuleManager
+	DNatRules          *modules.SNatDRuleManager
+	NatGateways        *modules.SNatGatewayManager
 }
 
 func (self *Client) Init() error {
@@ -120,6 +123,9 @@ func (self *Client) initManagers() {
 		self.Port = modules.NewPortManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Flavors = modules.NewFlavorManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.VpcRoutes = modules.NewVpcRouteManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.SNatRules = modules.NewNatSManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.DNatRules = modules.NewNatDManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.NatGateways = modules.NewNatGatewayManager(self.regionId, self.projectId, self.signer, self.debug)
 	}
 
 	self.init = true
