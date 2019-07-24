@@ -18,9 +18,8 @@ import (
 	"fmt"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -102,21 +101,37 @@ func (nat *SNatGateway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	return ieips, nil
 }
 
-func (nat *SNatGateway) GetINatSTables() ([]cloudprovider.ICloudNatSTable, error) {
-	return []cloudprovider.ICloudNatSTable{}, nil
+func (nat *SNatGateway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error) {
+	return []cloudprovider.ICloudNatSEntry{}, nil
 }
 
-func (nat *SNatGateway) GetINatDTables() ([]cloudprovider.ICloudNatDTable, error) {
+func (nat *SNatGateway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error) {
 	tables, err := nat.vpc.region.GetDTables(nat.NatId, nat.vpc.VpcId)
 	if err != nil {
 		return nil, err
 	}
-	itables := []cloudprovider.ICloudNatDTable{}
+	itables := []cloudprovider.ICloudNatDEntry{}
 	for i := 0; i < len(tables); i++ {
 		tables[i].nat = nat
 		itables = append(itables, &tables[i])
 	}
 	return itables, nil
+}
+
+func (nat *SNatGateway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEntry, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (nat *SNatGateway) GetINatSEntryByID(id string) (cloudprovider.ICloudNatSEntry, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (nat *SNatGateway) CreateINatDEntry(rule cloudprovider.SNatDRule) (cloudprovider.ICloudNatDEntry, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (nat *SNatGateway) CreateINatSEntry(rule cloudprovider.SNatSRule) (cloudprovider.ICloudNatSEntry, error) {
+	return nil, cloudprovider.ErrNotImplemented
 }
 
 func (region *SRegion) GetNatGateways(vpcId string, offset int, limit int) ([]SNatGateway, int, error) {

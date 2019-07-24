@@ -15,11 +15,12 @@
 package huawei
 
 import (
-	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
-type SNatSTableEntry struct {
+type SNatSEntry struct {
 	multicloud.SResourceBase
 	gateway *SNatGateway
 
@@ -32,38 +33,42 @@ type SNatSTableEntry struct {
 	AdminStateUp bool   `json:"admin_state_up"`
 }
 
-func (nat *SNatSTableEntry) GetId() string {
+func (nat *SNatSEntry) GetId() string {
 	return nat.ID
 }
 
-func (nat *SNatSTableEntry) GetName() string {
+func (nat *SNatSEntry) GetName() string {
 	// Snat rule has no name in Huawei Cloud, so return ID
 	return nat.GetId()
 }
 
-func (nat *SNatSTableEntry) GetGlobalId() string {
+func (nat *SNatSEntry) GetGlobalId() string {
 	return nat.GetId()
 }
 
-func (nat *SNatSTableEntry) GetStatus() string {
+func (nat *SNatSEntry) GetStatus() string {
 	return NatResouceStatusTransfer(nat.Status)
 }
 
-func (nat *SNatSTableEntry) GetIP() string {
+func (nat *SNatSEntry) GetIP() string {
 	return nat.SNatIP
 }
 
-func (nat *SNatSTableEntry) GetSourceCIDR() string {
+func (nat *SNatSEntry) GetSourceCIDR() string {
 	return nat.SourceCIDR
 }
 
-func (nat *SNatSTableEntry) GetNetworkId() string {
+func (nat *SNatSEntry) GetNetworkId() string {
 	return nat.NetworkID
 }
 
-// getSNatEntries return all snat rules of gateway
-func (gateway *SNatGateway) getSNatEntries() ([]SNatSTableEntry, error) {
-	ret, err := gateway.region.GetSNatTable(gateway.GetId())
+func (nat *SNatSEntry) Delete() error {
+	return nat.gateway.region.DeleteNatSEntry(nat.GetId())
+}
+
+// getNatSTable return all snat rules of gateway
+func (gateway *SNatGateway) getNatSTable() ([]SNatSEntry, error) {
+	ret, err := gateway.region.GetNatSTable(gateway.GetId())
 	if err != nil {
 		return nil, err
 	}
@@ -73,11 +78,11 @@ func (gateway *SNatGateway) getSNatEntries() ([]SNatSTableEntry, error) {
 	return ret, nil
 }
 
-func (region *SRegion) GetSNatTable(natGatewayID string) ([]SNatSTableEntry, error) {
+func (region *SRegion) GetNatSTable(natGatewayID string) ([]SNatSEntry, error) {
 	queuies := map[string]string{
 		"nat_gateway_id": natGatewayID,
 	}
-	sNatSTableEntris := make([]SNatSTableEntry, 0, 2)
+	sNatSTableEntris := make([]SNatSEntry, 0, 2)
 	err := doListAllWithMarker(region.ecsClient.SNatRules.List, queuies, &sNatSTableEntris)
 	if err != nil {
 		return nil, errors.Wrapf(err, `get snat rule of gateway %q`, natGatewayID)
@@ -95,4 +100,12 @@ func (region *SRegion) GetSNatTable(natGatewayID string) ([]SNatSTableEntry, err
 		nat.SourceCIDR = subnet.CIDR
 	}
 	return sNatSTableEntris, nil
+}
+
+func (region *SRegion) DeleteNatSEntry(entryID string) error {
+	_, err := region.ecsClient.SNatRules.Delete(entryID, nil)
+	if err != nil {
+		return errors.Wrapf(err, `delete snat rule %q failed`, entryID)
+	}
+	return nil
 }

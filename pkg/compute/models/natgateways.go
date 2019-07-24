@@ -17,17 +17,17 @@ package models
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/jsonutils"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -126,20 +126,20 @@ func (manager *SNatGetewayManager) getNatgatewaysByProviderId(providerId string)
 	return nats, nil
 }
 
-func (self *SNatGateway) GetDTables() ([]SNatDTable, error) {
-	tables := []SNatDTable{}
-	q := NatDTableManager.Query().Equals("natgateway_id", self.Id)
-	err := db.FetchModelObjects(NatDTableManager, q, &tables)
+func (self *SNatGateway) GetDTables() ([]SNatDEntry, error) {
+	tables := []SNatDEntry{}
+	q := NatDEntryManager.Query().Equals("natgateway_id", self.Id)
+	err := db.FetchModelObjects(NatDEntryManager, q, &tables)
 	if err != nil {
 		return nil, err
 	}
 	return tables, nil
 }
 
-func (self *SNatGateway) GetSTables() ([]SNatSTable, error) {
-	tables := []SNatSTable{}
-	q := NatSTableManager.Query().Equals("natgateway_id", self.Id)
-	err := db.FetchModelObjects(NatSTableManager, q, &tables)
+func (self *SNatGateway) GetSTables() ([]SNatSEntry, error) {
+	tables := []SNatSEntry{}
+	q := NatSEntryManager.Query().Equals("natgateway_id", self.Id)
+	err := db.FetchModelObjects(NatSEntryManager, q, &tables)
 	if err != nil {
 		return nil, err
 	}

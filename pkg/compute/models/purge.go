@@ -883,7 +883,7 @@ func (manager *SCloudregionManager) purgeAll(ctx context.Context, userCred mccli
 	return nil
 }
 
-func (table *SNatSTable) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (table *SNatSEntry) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, table)
 	defer lockman.ReleaseObject(ctx, table)
 
@@ -910,7 +910,7 @@ func (nat *SNatGateway) purgeSTables(ctx context.Context, userCred mcclient.Toke
 	return nil
 }
 
-func (table *SNatDTable) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (table *SNatDEntry) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, table)
 	defer lockman.ReleaseObject(ctx, table)
 

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -78,6 +79,10 @@ func (table *SDTable) GetInternalPort() int {
 
 func (table *SDTable) GetIpProtocol() string {
 	return table.Proto
+}
+
+func (table *SDTable) Delete() error {
+	return cloudprovider.ErrNotImplemented
 }
 
 func (region *SRegion) GetDTables(natId, vpcId string) ([]SDTable, error) {

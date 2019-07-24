@@ -637,11 +637,21 @@ type ICloudNatGateway interface {
 	// 获取 NAT 规格
 	GetNatSpec() string
 	GetIEips() ([]ICloudEIP, error)
-	GetINatDTables() ([]ICloudNatDTable, error)
-	GetINatSTables() ([]ICloudNatSTable, error)
+	GetINatDTable() ([]ICloudNatDEntry, error)
+	GetINatSTable() ([]ICloudNatSEntry, error)
+
+	// ID is the ID of snat entry/rule or dnat entry/rule.
+	GetINatDEntryByID(id string) (ICloudNatDEntry, error)
+	GetINatSEntryByID(id string) (ICloudNatSEntry, error)
+
+	// Read the description of these two structures before using.
+	CreateINatDEntry(rule SNatDRule) (ICloudNatDEntry, error)
+	CreateINatSEntry(rule SNatSRule) (ICloudNatSEntry, error)
 }
 
-type ICloudNatDTable interface {
+// ICloudNatDEntry describe a DNat rule which transfer externalIp:externalPort to
+// internalIp:internalPort with IpProtocol(tcp/udp)
+type ICloudNatDEntry interface {
 	ICloudResource
 
 	GetIpProtocol() string
@@ -650,12 +660,17 @@ type ICloudNatDTable interface {
 
 	GetInternalIp() string
 	GetInternalPort() int
+
+	Delete() error
 }
 
-type ICloudNatSTable interface {
+// ICloudNatSEntry describe a SNat rule which transfer internalIp(GetIP()) to externalIp which from sourceCIDR
+type ICloudNatSEntry interface {
 	ICloudResource
 
 	GetIP() string
 	GetSourceCIDR() string
 	GetNetworkId() string
+
+	Delete() error
 }

@@ -265,8 +265,8 @@ func syncVpcNatgateways(ctx context.Context, userCred mcclient.TokenCredential, 
 			defer lockman.ReleaseObject(ctx, &localNatGateways[i])
 
 			syncNatGatewayEips(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i])
-			syncNatDtables(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i])
-			syncNatStables(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i])
+			syncNatDTable(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i])
+			syncNatSTable(ctx, userCred, provider, &localNatGateways[i], remoteNatGateways[i])
 		}()
 	}
 }
@@ -287,14 +287,14 @@ func syncNatGatewayEips(ctx context.Context, userCred mcclient.TokenCredential, 
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
-func syncNatDtables(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localNatGateway *SNatGateway, remoteNatGateway cloudprovider.ICloudNatGateway) {
-	dtables, err := remoteNatGateway.GetINatDTables()
+func syncNatDTable(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localNatGateway *SNatGateway, remoteNatGateway cloudprovider.ICloudNatGateway) {
+	dtable, err := remoteNatGateway.GetINatDTable()
 	if err != nil {
-		msg := fmt.Sprintf("GetINatDTables for NatGateway %s failed %s", remoteNatGateway.GetName(), err)
+		msg := fmt.Sprintf("GetINatDTable for NatGateway %s failed %s", remoteNatGateway.GetName(), err)
 		log.Errorf(msg)
 		return
 	}
-	result := NatDTableManager.SyncNatDTables(ctx, userCred, provider.GetOwnerId(), provider, localNatGateway, dtables)
+	result := NatDEntryManager.SyncNatDTables(ctx, userCred, provider.GetOwnerId(), provider, localNatGateway, dtable)
 	msg := result.Result()
 	log.Infof("SyncNatDTables for NatGateway %s result: %s", localNatGateway.Name, msg)
 	if result.IsError() {
@@ -303,14 +303,14 @@ func syncNatDtables(ctx context.Context, userCred mcclient.TokenCredential, prov
 	db.OpsLog.LogEvent(provider, db.ACT_SYNC_HOST_COMPLETE, msg, userCred)
 }
 
-func syncNatStables(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localNatGateway *SNatGateway, remoteNatGateway cloudprovider.ICloudNatGateway) {
-	stables, err := remoteNatGateway.GetINatSTables()
+func syncNatSTable(ctx context.Context, userCred mcclient.TokenCredential, provider *SCloudprovider, localNatGateway *SNatGateway, remoteNatGateway cloudprovider.ICloudNatGateway) {
+	stable, err := remoteNatGateway.GetINatSTable()
 	if err != nil {
-		msg := fmt.Sprintf("GetINatSTables for NatGateway %s failed %s", remoteNatGateway.GetName(), err)
+		msg := fmt.Sprintf("GetINatSTable for NatGateway %s failed %s", remoteNatGateway.GetName(), err)
 		log.Errorf(msg)
 		return
 	}
-	result := NatSTableManager.SyncNatSTables(ctx, userCred, provider.GetOwnerId(), provider, localNatGateway, stables)
+	result := NatSEntryManager.SyncNatSTables(ctx, userCred, provider.GetOwnerId(), provider, localNatGateway, stable)
 	msg := result.Result()
 	log.Infof("SyncNatSTables for NatGateway %s result: %s", localNatGateway.Name, msg)
 	if result.IsError() {

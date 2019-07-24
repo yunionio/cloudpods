@@ -18,11 +18,12 @@ import (
 	"fmt"
 	"time"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
-
-	"yunion.io/x/log"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type SBandwidthPackageIds struct {
@@ -123,8 +124,8 @@ func (nat *SNatGetway) GetIEips() ([]cloudprovider.ICloudEIP, error) {
 	return ieips, nil
 }
 
-func (nat *SNatGetway) GetINatDTables() ([]cloudprovider.ICloudNatDTable, error) {
-	itables := []cloudprovider.ICloudNatDTable{}
+func (nat *SNatGetway) GetINatDTable() ([]cloudprovider.ICloudNatDEntry, error) {
+	itables := []cloudprovider.ICloudNatDEntry{}
 	for _, dtableId := range nat.ForwardTableIds.ForwardTableId {
 		dtables, err := nat.vpc.region.GetAllDTables(dtableId)
 		if err != nil {
@@ -138,17 +139,51 @@ func (nat *SNatGetway) GetINatDTables() ([]cloudprovider.ICloudNatDTable, error)
 	return itables, nil
 }
 
-func (nat *SNatGetway) GetINatSTables() ([]cloudprovider.ICloudNatSTable, error) {
+func (nat *SNatGetway) GetINatSTable() ([]cloudprovider.ICloudNatSEntry, error) {
 	stables, err := nat.getSnatEntries()
 	if err != nil {
 		return nil, err
 	}
-	itables := []cloudprovider.ICloudNatSTable{}
+	itables := []cloudprovider.ICloudNatSEntry{}
 	for i := 0; i < len(stables); i++ {
 		stables[i].nat = nat
 		itables = append(itables, &stables[i])
 	}
 	return itables, nil
+}
+
+func (nat *SNatGetway) GetINatDEntryByID(id string) (cloudprovider.ICloudNatDEntry, error) {
+	dNATEntry, err := nat.vpc.region.GetForwardTableEntry(nat.ForwardTableIds.ForwardTableId[0], id)
+	if err != nil {
+		return nil, cloudprovider.ErrNotFound
+	}
+	dNATEntry.nat = nat
+	return &dNATEntry, nil
+}
+
+func (nat *SNatGetway) GetINatSEntryByID(id string) (cloudprovider.ICloudNatSEntry, error) {
+	sNATEntry, err := nat.vpc.region.GetSNATEntry(nat.SnatTableIds.SnatTableId[0], id)
+	if err != nil {
+		return nil, cloudprovider.ErrNotFound
+	}
+	sNATEntry.nat = nat
+	return &sNATEntry, nil
+}
+
+func (nat *SNatGetway) CreateINatDEntry(rule cloudprovider.SNatDRule) (cloudprovider.ICloudNatDEntry, error) {
+	entryID, err := nat.vpc.region.CreateForwardTableEntry(rule, nat.ForwardTableIds.ForwardTableId[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, `create dnat rule for nat gateway %q`, nat.GetId())
+	}
+	return nat.GetINatDEntryByID(entryID)
+}
+
+func (nat *SNatGetway) CreateINatSEntry(rule cloudprovider.SNatSRule) (cloudprovider.ICloudNatSEntry, error) {
+	entryID, err := nat.vpc.region.CreateSNATTableEntry(rule, nat.SnatTableIds.SnatTableId[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, `create snat rule for nat gateway %q`, nat.GetId())
+	}
+	return nat.GetINatSEntryByID(entryID)
 }
 
 func (self *SRegion) GetNatGateways(vpcId string, natGwId string, offset, limit int) ([]SNatGetway, int, error) {
