@@ -6,7 +6,7 @@ post:
       required: true
       schema:
         $ref: '../schemas/storage.yaml#/StorageCreate'
-  response:
+  responses:
     200:
       description: 新建存储的信息
       schema:

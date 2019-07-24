@@ -6,7 +6,7 @@ post:
       required: true
       schema:
         $ref: '../schemas/network.yaml#/NetworkCreate'
-  response:
+  responses:
     200:
       description: 新建IP子网的信息
       schema:
