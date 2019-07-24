@@ -34,9 +34,11 @@ import (
 )
 
 var (
-	usageCalculateWorker = appsrv.NewWorkerManager("usageCalculateWorker", 1, 1024, true)
-	usageDirtyMap        = make(map[string]bool, 0)
-	usageDirtyMapLock    = &sync.Mutex{}
+	usageCalculateWorker         = appsrv.NewWorkerManager("usageCalculateWorker", 1, 1024, true)
+	realTimeUsageCalculateWorker = appsrv.NewWorkerManager("realTimeUsageCalculateWorker", 1, 1024, true)
+
+	usageDirtyMap     = make(map[string]bool, 0)
+	usageDirtyMapLock = &sync.Mutex{}
 )
 
 type sUsageCalculateJob struct {
@@ -70,11 +72,18 @@ func isDirty(key string) bool {
 	return false
 }
 
-func (manager *SQuotaBaseManager) PostUsageJob(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, usageChan chan IQuota, cleanEmpty bool) {
+func (manager *SQuotaBaseManager) PostUsageJob(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platform []string, usageChan chan IQuota, cleanEmpty bool, realTime bool) {
 	key := getMemoryStoreKey(scope, ownerId, platform)
 	setDirty(key)
 
-	usageCalculateWorker.Run(func() {
+	var worker *appsrv.SWorkerManager
+	if realTime {
+		worker = realTimeUsageCalculateWorker
+	} else {
+		worker = usageCalculateWorker
+	}
+
+	worker.Run(func() {
 		ctx := context.Background()
 
 		if !isDirty(key) {
@@ -167,6 +176,6 @@ func (manager *SQuotaBaseManager) CalculateQuotaUsages(ctx context.Context, user
 		}
 		platforms := strings.Split(platform, nameSeparator)
 		// log.Debugf("PostUsageJob %s %s %s", scope, owner, platforms)
-		manager.PostUsageJob(scope, &owner, platforms, nil, true)
+		manager.PostUsageJob(scope, &owner, platforms, nil, true, false)
 	}
 }
