@@ -116,10 +116,13 @@ func (manager *SUserManager) InitializeData() error {
 		if len(name) == 0 {
 			name = extUser.IdpName
 		}
-		desc, _ := users[i].Extra.GetString("description")
-		email, _ := users[i].Extra.GetString("email")
-		mobile, _ := users[i].Extra.GetString("mobile")
-		dispName, _ := users[i].Extra.GetString("displayname")
+		var desc, email, mobile, dispName string
+		if users[i].Extra != nil {
+			desc, _ = users[i].Extra.GetString("description")
+			email, _ = users[i].Extra.GetString("email")
+			mobile, _ = users[i].Extra.GetString("mobile")
+			dispName, _ = users[i].Extra.GetString("displayname")
+		}
 		_, err = db.Update(&users[i], func() error {
 			users[i].Name = name
 			if len(email) > 0 {
