@@ -233,7 +233,7 @@ func (self *SImage) getMoreDetails(ctx context.Context, userCred mcclient.TokenC
 }
 
 func (self *SImage) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
-	extra := self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	extra := self.SSharableVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	properties, _ := ImagePropertyManager.GetProperties(self.Id)
 	if len(properties) > 0 {
 		jsonProps := jsonutils.NewDict()
@@ -246,7 +246,7 @@ func (self *SImage) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 }
 
 func (self *SImage) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
-	extra, err := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
+	extra, err := self.SSharableVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
 	}
