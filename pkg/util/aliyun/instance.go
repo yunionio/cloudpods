@@ -59,12 +59,6 @@ type SNetworkInterfaces struct {
 	NetworkInterface []SNetworkInterface
 }
 
-type SNetworkInterface struct {
-	MacAddress         string
-	NetworkInterfaceId string
-	PrimaryIpAddress   string
-}
-
 type SOperationLocks struct {
 	LockReason []string
 }

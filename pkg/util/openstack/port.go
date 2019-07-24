@@ -18,6 +18,11 @@ import (
 	"fmt"
 	"net/url"
 	"time"
+
+	"yunion.io/x/onecloud/pkg/multicloud"
+
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type DnsAssignment struct {
@@ -32,12 +37,30 @@ type ExtraDhcpOpt struct {
 	OptName   string
 }
 
-type FixedIPs struct {
+type SFixedIP struct {
 	IpAddress string
 	SubnetID  string
 }
 
+func (fixip *SFixedIP) GetGlobalId() string {
+	return fixip.IpAddress
+}
+
+func (fixip *SFixedIP) GetIP() string {
+	return fixip.IpAddress
+}
+
+func (fixip *SFixedIP) GetINetworkId() string {
+	return fixip.SubnetID
+}
+
+func (fixip *SFixedIP) IsPrimary() bool {
+	return true
+}
+
 type SPort struct {
+	multicloud.SNetworkInterfaceBase
+	region                  *SRegion
 	AdminStateUp            bool
 	AllowedAddressPairs     []string
 	CreatedAt               time.Time
@@ -49,7 +72,7 @@ type SPort struct {
 	DnsDomain               string
 	DnsName                 string
 	ExtraDhcpOpts           []ExtraDhcpOpt
-	FixedIps                []FixedIPs
+	FixedIps                []SFixedIP
 	ID                      string
 	IpAllocation            string
 	MacAddress              string
@@ -65,6 +88,72 @@ type SPort struct {
 	QosPolicyID             string
 	PortSecurityEnabled     bool
 	UplinkStatusPropagation bool
+}
+
+func (port *SPort) GetName() string {
+	if len(port.Name) > 0 {
+		return port.Name
+	}
+	return port.ID
+}
+
+func (port *SPort) GetId() string {
+	return port.ID
+}
+
+func (port *SPort) GetGlobalId() string {
+	return port.ID
+}
+
+func (port *SPort) GetMacAddress() string {
+	return port.MacAddress
+}
+
+func (port *SPort) GetAssociateType() string {
+	switch port.DeviceOwner {
+	case "compute:nova":
+		return api.NETWORK_INTERFACE_ASSOCIATE_TYPE_SERVER
+	case "network:router_gateway", "network:dhcp", "network:router_interface":
+		return api.NETWORK_INTERFACE_ASSOCIATE_TYPE_RESERVED
+	}
+	return port.DeviceOwner
+}
+
+func (port *SPort) GetAssociateId() string {
+	return port.DeviceID
+}
+
+func (port *SPort) GetStatus() string {
+	switch port.Status {
+	case "ACTIVE", "DOWN":
+		return api.NETWORK_INTERFACE_STATUS_AVAILABLE
+	case "BUILD":
+		return api.NETWORK_INTERFACE_STATUS_CREATING
+	}
+	return port.Status
+}
+
+func (port *SPort) GetICloudInterfaceAddresses() ([]cloudprovider.ICloudInterfaceAddress, error) {
+	address := []cloudprovider.ICloudInterfaceAddress{}
+	for i := 0; i < len(port.FixedIps); i++ {
+		address = append(address, &port.FixedIps[i])
+	}
+	return address, nil
+}
+
+func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {
+	ports, err := region.GetPorts("")
+	if err != nil {
+		return nil, err
+	}
+	ret := []cloudprovider.ICloudNetworkInterface{}
+	for i := 0; i < len(ports); i++ {
+		if len(ports[i].DeviceID) == 0 || ports[i].DeviceOwner != "compute:nova" {
+			ports[i].region = region
+			ret = append(ret, &ports[i])
+		}
+	}
+	return ret, nil
 }
 
 func (region *SRegion) GetPorts(macAddress string) ([]SPort, error) {

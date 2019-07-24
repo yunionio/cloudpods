@@ -49,6 +49,7 @@ var UCLOUD_API_RESULT_KEYS = map[string]string{
 	"CreateUDisk":            "UDiskId",
 	"CreateVPC":              "VPCId",
 	"CreateUDiskSnapshot":    "SnapshotId",
+	"DescribeVIP":            "VIPSet",
 }
 
 type SParams struct {

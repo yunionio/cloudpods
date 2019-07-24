@@ -1,0 +1,11 @@
+get:
+  summary: 获取指定虚拟网卡详情信息
+  parameters: 
+    - $ref: "../parameters/networkinterface.yaml#/networkinterfaceId"
+  responses:
+    200:
+      description: 虚拟网卡详情信息
+      schema:
+        $ref: "../schemas/networkinterface.yaml#/NetworkinterfaceResponse"
+  tags:
+    - networkinterfaces

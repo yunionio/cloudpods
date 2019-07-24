@@ -106,7 +106,7 @@ func (region *SRegion) GetDNatTable(natGatewayID string) ([]SNatDTableEntry, err
 			if err != nil {
 				return nil, errors.Wrapf(err, `get port info for transfer to ip of port_id %q error`, nat.PortID)
 			}
-			nat.InternalIP = port.FixedIPs[0].IPAddress
+			nat.InternalIP = port.FixedIps[0].IpAddress
 		}
 	}
 	return dNatSTableEntries, nil

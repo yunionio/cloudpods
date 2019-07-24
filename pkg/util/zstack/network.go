@@ -40,17 +40,26 @@ type SNetwork struct {
 	ZStackTime
 }
 
+type SHostRoute struct {
+	ID            int
+	L3NetworkUuid string `json:"l3NetworkUuid"`
+	Prefix        string
+	Nexthop       string
+	ZStackTime
+}
+
 type SL3Network struct {
 	ZStackBasic
-	Type          string     `json:"type"`
-	ZoneUUID      string     `json:"zoneUuid"`
-	L2NetworkUUID string     `json:"l2NetworkUuid"`
-	State         string     `json:"state"`
-	System        bool       `json:"system"`
-	Category      bool       `json:"category"`
-	IPVersion     int        `json:"ipVersion"`
-	DNS           []string   `json:"dns"`
-	Networks      []SNetwork `json:"ipRanges"`
+	Type          string       `json:"type"`
+	ZoneUUID      string       `json:"zoneUuid"`
+	L2NetworkUUID string       `json:"l2NetworkUuid"`
+	State         string       `json:"state"`
+	System        bool         `json:"system"`
+	Category      bool         `json:"category"`
+	IPVersion     int          `json:"ipVersion"`
+	DNS           []string     `json:"dns"`
+	Networks      []SNetwork   `json:"ipRanges"`
+	HostRoute     []SHostRoute `json:"hostRoute"`
 	ZStackTime
 }
 
