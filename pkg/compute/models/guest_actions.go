@@ -1891,6 +1891,10 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 			return nil, err
 		}
 
+		if self.GetDriver().GetProvider() == api.CLOUD_PROVIDER_UCLOUD && !strings.HasPrefix(self.InstanceType, sku.InstanceTypeFamily) {
+			return nil, httperrors.NewInputParameterError("Cannot change config with different instance family")
+		}
+
 		if sku.GetName() != self.InstanceType {
 			confs.Add(jsonutils.NewString(sku.GetName()), "instance_type")
 			confs.Add(jsonutils.NewInt(int64(sku.CpuCoreCount)), "vcpu_count")

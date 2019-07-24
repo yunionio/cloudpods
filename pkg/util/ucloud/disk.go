@@ -242,7 +242,7 @@ func (self *SDisk) CreateISnapshot(ctx context.Context, name string, desc string
 }
 
 func (self *SDisk) getSnapshot(snapshotId string) (*SSnapshot, error) {
-	snapshot, err := self.storage.zone.region.GetSnapshotById(snapshotId)
+	snapshot, err := self.storage.zone.region.GetSnapshotById(self.Zone, snapshotId)
 	return &snapshot, err
 }
 
