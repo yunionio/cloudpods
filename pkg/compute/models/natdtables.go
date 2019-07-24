@@ -46,7 +46,7 @@ func init() {
 			"natdtables",
 		),
 	}
-	NatDTableManager.SetVirtualObject(NatDTableManager)
+	NatDEntryManager.SetVirtualObject(NatDEntryManager)
 }
 
 type SNatDTable struct {
