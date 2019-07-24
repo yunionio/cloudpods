@@ -368,3 +368,12 @@ paths:
     $ref: "./bucket/uploadobject.yaml"
   /buckets/{bucketName}/tempurl:
     $ref: "./bucket/tempurl.yaml"
+
+  /ansibleplaybooks:
+    $ref: "./ansibleplaybook/ansibleplaybooks.yaml"
+  /ansibleplaybooks/{ansibleplaybookId}:
+    $ref: "./ansibleplaybook/ansibleplaybook.yaml"
+  /ansibleplaybooks/{ansibleplaybookId}/run:
+    $ref: "./ansibleplaybook/ansibleplaybook-run.yaml"
+  /ansibleplaybooks/{ansibleplaybookId}/stop:
+    $ref: "./ansibleplaybook/ansibleplaybook-stop.yaml"

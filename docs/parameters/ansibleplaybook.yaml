@@ -1,0 +1,5 @@
+ansibleplaybookId:
+  name: ansibleplaybookId
+  type: string
+  in: path
+  required: true
