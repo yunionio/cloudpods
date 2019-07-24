@@ -6,7 +6,7 @@ get:
     200:
       description: 实例信息
       schema:
-        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerCachedAclListResponse"
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerResponse"
   tags:
     - loadbalancers
 delete:
