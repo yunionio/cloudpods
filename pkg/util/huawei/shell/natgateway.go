@@ -15,6 +15,7 @@
 package shell
 
 import (
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/huawei"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -23,12 +24,100 @@ func init() {
 	type NatGatewayOptions struct {
 		NatGatewayID string `help:"Nat Gateway ID"`
 	}
-	shellutils.R(&NatGatewayOptions{}, "nat-gateway-list", "list nat gateway", func(region *huawei.SRegion, args *NatGatewayOptions) error {
+	shellutils.R(&NatGatewayOptions{}, "nat-gateway-list", "List nat gateway", func(region *huawei.SRegion, args *NatGatewayOptions) error {
 		natGateways, err := region.GetNatGateway(args.NatGatewayID)
 		if err != nil {
 			return err
 		}
 		printList(natGateways, 0, 0, 0, nil)
+		return nil
+	})
+
+	type SCreateDNatOptions struct {
+		GatewayID    string `help:"Nat Gateway ID" positional:"true"`
+		Protocol     string `help:"Protocol(tcp/udp)" positional:"true"`
+		ExternalIPID string `help:"External IP ID" positional:"true"`
+		ExternalPort int    `help:"External Port" positional:"true"`
+		InternalIP   string `help:"Internal IP" positional:"true"`
+		InternalPort int    `help:"Nat Gateway ID" positional:"true"`
+	}
+	shellutils.R(&SCreateDNatOptions{}, "dnat-create", "Create dnat", func(region *huawei.SRegion, args *SCreateDNatOptions) error {
+		rule := cloudprovider.SNatDRule{
+			Protocol:     args.Protocol,
+			ExternalIPID: args.ExternalIPID,
+			ExternalPort: args.ExternalPort,
+			InternalIP:   args.InternalIP,
+			InternalPort: args.InternalPort,
+		}
+		dnat, err := region.CreateNatDTable(rule, args.GatewayID)
+		if err != nil {
+			return err
+		}
+		printObject(dnat)
+		return nil
+	})
+
+	type SCreateSNatOptions struct {
+		GatewayID    string `help:"Nat Gateway ID" positional:"true"`
+		SourceCIDR   string `help:"Source cidr" positional:"true"`
+		ExternalIPID string `help:"External IP ID" positional:"true"`
+	}
+	shellutils.R(&SCreateSNatOptions{}, "snat-create", "Create snat", func(region *huawei.SRegion, args *SCreateSNatOptions) error {
+		rule := cloudprovider.SNatSRule{
+			SourceCIDR:   args.SourceCIDR,
+			ExternalIPID: args.ExternalIPID,
+		}
+		snat, err := region.CreateNatSTable(rule, args.GatewayID)
+		if err != nil {
+			return err
+		}
+		printObject(snat)
+		return nil
+	})
+
+	type SShowSNatOptions struct {
+		NatID string `help:"SNat ID" positional:"true"`
+	}
+	shellutils.R(&SShowSNatOptions{}, "snat-show", "Show snat", func(region *huawei.SRegion, args *SShowSNatOptions) error {
+		snat, err := region.GetNatSTableByID(args.NatID)
+		if err != nil {
+			return err
+		}
+		printObject(snat)
+		return nil
+	})
+
+	type SShowDNatOptions struct {
+		NatID string `help:"DNat ID" positional:"true"`
+	}
+	shellutils.R(&SShowDNatOptions{}, "dnat-show", "Show dnat", func(region *huawei.SRegion, args *SShowDNatOptions) error {
+		dnat, err := region.GetNatDTableByID(args.NatID)
+		if err != nil {
+			return err
+		}
+		printObject(dnat)
+		return nil
+	})
+
+	type SDeleteSNatOptions struct {
+		NatID string `help:"SNat ID" positional:"true"`
+	}
+	shellutils.R(&SDeleteSNatOptions{}, "snat-delete", "Delete snat", func(region *huawei.SRegion, args *SDeleteSNatOptions) error {
+		err := region.DeleteSNatTableEntry(args.NatID)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	type SDeleteDNatOptions struct {
+		NatID string `help:"DNat ID" positional:"true"`
+	}
+	shellutils.R(&SDeleteDNatOptions{}, "dnat-delete", "Delete dnat", func(region *huawei.SRegion, args *SDeleteDNatOptions) error {
+		err := region.DeleteDNatTableEntry(args.NatID)
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 }

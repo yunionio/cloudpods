@@ -121,7 +121,7 @@ func (man *SNatDTableManager) ValidateCreateData(ctx context.Context, userCred m
 	return nil, httperrors.NewNotImplementedError("Not Implemented")
 }
 
-func (manager *SNatDTableManager) SyncNatDTables(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, nat *SNatGateway, extDtables []cloudprovider.ICloudNatDTable) compare.SyncResult {
+func (manager *SNatDTableManager) SyncNatDTables(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, nat *SNatGateway, extDtables []cloudprovider.ICloudDNatEntry) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 
@@ -134,8 +134,8 @@ func (manager *SNatDTableManager) SyncNatDTables(ctx context.Context, userCred m
 
 	removed := make([]SNatDTable, 0)
 	commondb := make([]SNatDTable, 0)
-	commonext := make([]cloudprovider.ICloudNatDTable, 0)
-	added := make([]cloudprovider.ICloudNatDTable, 0)
+	commonext := make([]cloudprovider.ICloudDNatEntry, 0)
+	added := make([]cloudprovider.ICloudDNatEntry, 0)
 	if err := compare.CompareSets(dbNatDTables, extDtables, &removed, &commondb, &commonext, &added); err != nil {
 		result.Error(err)
 		return result
@@ -183,7 +183,7 @@ func (self *SNatDTable) syncRemoveCloudNatDTable(ctx context.Context, userCred m
 	return self.Delete(ctx, userCred)
 }
 
-func (self *SNatDTable) SyncWithCloudNatDTable(ctx context.Context, userCred mcclient.TokenCredential, extTable cloudprovider.ICloudNatDTable) error {
+func (self *SNatDTable) SyncWithCloudNatDTable(ctx context.Context, userCred mcclient.TokenCredential, extTable cloudprovider.ICloudDNatEntry) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
 		self.Status = extTable.GetStatus()
 		self.ExternalIP = extTable.GetExternalIp()
@@ -200,7 +200,7 @@ func (self *SNatDTable) SyncWithCloudNatDTable(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (manager *SNatDTableManager) newFromCloudNatDTable(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, nat *SNatGateway, extTable cloudprovider.ICloudNatDTable) (*SNatDTable, error) {
+func (manager *SNatDTableManager) newFromCloudNatDTable(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, nat *SNatGateway, extTable cloudprovider.ICloudDNatEntry) (*SNatDTable, error) {
 	table := SNatDTable{}
 	table.SetModelManager(manager, &table)
 

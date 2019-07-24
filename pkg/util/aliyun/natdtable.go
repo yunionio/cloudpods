@@ -19,6 +19,7 @@ import (
 	"strconv"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
@@ -98,6 +99,10 @@ func (region *SRegion) GetAllDTables(tableId string) ([]SForwardTableEntry, erro
 	return dtables, nil
 }
 
+func (dtable *SForwardTableEntry) Delete() error {
+	return dtable.nat.vpc.region.DeleteForwardTableEntry(dtable.ForwardTableId, dtable.GetId())
+}
+
 func (region *SRegion) GetForwardTableEntries(tableId string, offset int, limit int) ([]SForwardTableEntry, int, error) {
 	if limit > 50 || limit <= 0 {
 		limit = 50
@@ -120,4 +125,49 @@ func (region *SRegion) GetForwardTableEntries(tableId string, offset int, limit 
 	}
 	total, _ := body.Int("TotalCount")
 	return dtables, int(total), nil
+}
+
+func (region *SRegion) GetForwardTableEntry(tableID, forwardEntryID string) (SForwardTableEntry, error) {
+	params := make(map[string]string)
+	params["RegionId"] = region.RegionId
+	params["ForwardTableId"] = tableID
+	params["ForwardEntryId"] = forwardEntryID
+	body, err := region.vpcRequest("DescribeForwardTableEntries", params)
+	if err != nil {
+		return SForwardTableEntry{}, err
+	}
+
+	dtables := []SForwardTableEntry{}
+	err = body.Unmarshal(&dtables, "ForwardTableEntries", "ForwardTableEntry")
+	if err != nil {
+		return SForwardTableEntry{}, err
+	}
+	return dtables[0], nil
+}
+
+func (region *SRegion) DeleteForwardTableEntry(tableId string, entryId string) error {
+	params := make(map[string]string)
+	params["RegionId"] = region.RegionId
+	params["ForwardTableId"] = tableId
+	params["ForwardEntryId"] = entryId
+	_, err := region.vpcRequest("DeleteForwardEntry", params)
+	return err
+}
+
+func (region *SRegion) CreateForwardTableEntry(rule cloudprovider.SNatDRule, tableID string) (string, error) {
+	params := make(map[string]string)
+	params["RegionId"] = region.RegionId
+	params["ForwardTableId"] = tableID
+	params["ExternalIp"] = rule.ExternalIP
+	params["ExternalPort"] = strconv.Itoa(rule.ExternalPort)
+	params["InternalIp"] = rule.InternalIP
+	params["InternalPort"] = strconv.Itoa(rule.InternalPort)
+	params["IpProtocol"] = rule.Protocol
+	body, err := region.vpcRequest("CreateForwardEntry", params)
+	if err != nil {
+		return "", err
+	}
+
+	entryID, _ := body.GetString("ForwardEntryId")
+	return entryID, nil
 }

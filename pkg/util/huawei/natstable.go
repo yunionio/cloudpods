@@ -16,6 +16,7 @@ package huawei
 
 import (
 	"yunion.io/x/onecloud/pkg/multicloud"
+
 	"yunion.io/x/pkg/errors"
 )
 
@@ -61,6 +62,10 @@ func (nat *SNatSTableEntry) GetNetworkId() string {
 	return nat.NetworkID
 }
 
+func (nat *SNatSTableEntry) Delete() error {
+	return nat.gateway.region.DeleteSNatTableEntry(nat.GetId())
+}
+
 // getSNatEntries return all snat rules of gateway
 func (gateway *SNatGateway) getSNatEntries() ([]SNatSTableEntry, error) {
 	ret, err := gateway.region.GetSNatTable(gateway.GetId())
@@ -95,4 +100,12 @@ func (region *SRegion) GetSNatTable(natGatewayID string) ([]SNatSTableEntry, err
 		nat.SourceCIDR = subnet.CIDR
 	}
 	return sNatSTableEntris, nil
+}
+
+func (region *SRegion) DeleteSNatTableEntry(entryID string) error {
+	_, err := region.ecsClient.SNatRules.Delete(entryID, nil)
+	if err != nil {
+		return errors.Wrapf(err, `delete snat rule %q failed`, entryID)
+	}
+	return nil
 }
