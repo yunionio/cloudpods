@@ -475,6 +475,7 @@ func (self *SSnapshot) AllowDeleteItem(ctx context.Context, userCred mcclient.To
 func (self *SSnapshot) StartSnapshotDeleteTask(ctx context.Context, userCred mcclient.TokenCredential, reloadDisk bool, parentTaskId string) error {
 	params := jsonutils.NewDict()
 	params.Set("reload_disk", jsonutils.NewBool(reloadDisk))
+	self.SetStatus(userCred, api.SNAPSHOT_DELETING, "")
 	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotDeleteTask", self, userCred, params, parentTaskId, "", nil)
 	if err != nil {
 		log.Errorln(err)

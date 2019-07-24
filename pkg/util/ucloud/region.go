@@ -268,23 +268,26 @@ func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSnapshot, error) {
+	if len(snapshotId) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
+
 	params := NewUcloudParams()
-	params.Set("SnapshotId", snapshotId)
 	snapshots := make([]SSnapshot, 0)
 	err := self.DoListAll("DescribeUDiskSnapshot", params, &snapshots)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(snapshots) == 1 {
-		snapshot := snapshots[0]
-		snapshot.region = self
-		return &snapshot, nil
-	} else if len(snapshots) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	} else {
-		return nil, fmt.Errorf("GetISnapshotById %s %d snapshot found", snapshotId, len(snapshots))
+	for i := range snapshots {
+		if snapshots[i].SnapshotID == snapshotId {
+			snapshot := snapshots[i]
+			snapshot.region = self
+			return &snapshot, nil
+		}
 	}
+
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SRegion) GetIHosts() ([]cloudprovider.ICloudHost, error) {

@@ -439,6 +439,17 @@ func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd s
 		cloudconfig.MergeUser(loginUser)
 	}
 
+	// compare sysSizeGB
+	image, err := self.host.zone.region.GetImage(imageId)
+	if err != nil {
+		return "", err
+	} else {
+		minSizeGB := image.GetMinOsDiskSizeGb()
+		if minSizeGB > sysSizeGB {
+			sysSizeGB = minSizeGB
+		}
+	}
+
 	diskId, err := self.host.zone.region.ReplaceSystemDisk(ctx, self.InstanceId, imageId, sysSizeGB, cloudconfig.UserDataBase64())
 	if err != nil {
 		return "", err
