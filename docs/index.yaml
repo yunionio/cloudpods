@@ -214,6 +214,18 @@ paths:
   /loadbalancerbackends/{loadbalancerbackendId}:
     $ref: "./loadbalancer/loadbalancerbackend.yaml"
 
+  /loadbalancerclusters:
+    $ref: "./loadbalancer/loadbalancerclusters.yaml"
+  /loadbalancerclusters/{loadbalancerClusterId}:
+    $ref: "./loadbalancer/loadbalancercluster.yaml"
+
+  /loadbalanceragents:
+    $ref: "./loadbalancer/loadbalanceragents.yaml"
+  /loadbalanceragents/{loadbalancerAgentId}:
+    $ref: "./loadbalancer/loadbalanceragent.yaml"
+  /loadbalanceragents/{loadbalancerAgentId}/params-patch:
+    $ref: "./loadbalancer/loadbalanceragent-params-patch.yaml"
+
   /identity_providers:
     $ref: "./identity/identity_providers.yaml"
   /identity_providers/{idp_id}:
