@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/util/stringutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -249,9 +250,22 @@ var OpsLog *SOpsLogManager
 var _ IModelManager = (*SOpsLogManager)(nil)
 var _ IModel = (*SOpsLog)(nil)
 
+var opslogQueryWorkerMan *appsrv.SWorkerManager
+
 func init() {
 	OpsLog = &SOpsLogManager{NewModelBaseManager(SOpsLog{}, "opslog_tbl", "event", "events")}
 	OpsLog.SetVirtualObject(OpsLog)
+
+	opslogQueryWorkerMan = appsrv.NewWorkerManager("opslog_query_worker", 2, 1024, true)
+}
+
+func (manager *SOpsLogManager) CustomizeHandlerInfo(info *appsrv.SHandlerInfo) {
+	manager.SModelBaseManager.CustomizeHandlerInfo(info)
+
+	switch info.GetName(nil) {
+	case "list":
+		info.SetProcessTimeout(time.Minute * 15).SetWorkerManager(opslogQueryWorkerMan)
+	}
 }
 
 func (opslog *SOpsLog) GetId() string {
@@ -265,14 +279,6 @@ func (opslog *SOpsLog) GetName() string {
 func (opslog *SOpsLog) GetModelManager() IModelManager {
 	return OpsLog
 }
-
-/* @classmethod
-   def list_fields(cls, user_cred):
-       return ['id', 'obj_type', 'obj_id', 'obj_name', 'action', 'notes',
-                   'tenant_id', 'tenant', 'user_id', 'user', 'roles',
-                   'billing_type', 'ops_time', 'owner_tenant_id',
-                   'owner_user_id', ]
-*/
 
 func (manager *SOpsLogManager) LogEvent(model IModel, action string, notes interface{}, userCred mcclient.TokenCredential) {
 	if !consts.OpsLogEnabled() {
