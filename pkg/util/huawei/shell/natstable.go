@@ -20,11 +20,11 @@ import (
 )
 
 func init() {
-	type SNatTableOptions struct {
+	type SNatSTableOptions struct {
 		NatGatewayID string `help:"Nat Gateway ID" positional:"true"`
 	}
-	shellutils.R(&SNatTableOptions{}, "snat-table-list", "List snat table", func(region *huawei.SRegion, args *SNatTableOptions) error {
-		sNatTable, err := region.GetSNatTable(args.NatGatewayID)
+	shellutils.R(&SNatSTableOptions{}, "snat-table-list", "List snat table", func(region *huawei.SRegion, args *SNatSTableOptions) error {
+		sNatTable, err := region.GetNatSTable(args.NatGatewayID)
 		if err != nil {
 			return err
 		}

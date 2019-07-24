@@ -17,30 +17,30 @@ package models
 import (
 	"context"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	api "yunion.io/x/onecloud/pkg/apis/compute"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/jsonutils"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
-type SNatSTableManager struct {
+type SNatSEntryManager struct {
 	db.SStatusStandaloneResourceBaseManager
 }
 
-var NatSTableManager *SNatSTableManager
+var NatSEntryManager *SNatSEntryManager
 
 func init() {
-	NatSTableManager = &SNatSTableManager{
+	NatSEntryManager = &SNatSEntryManager{
 		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
-			SNatSTable{},
+			SNatSEntry{},
 			"natstables_tbl",
 			"natstable",
 			"natstables",
@@ -48,7 +48,7 @@ func init() {
 	}
 }
 
-type SNatSTable struct {
+type SNatSEntry struct {
 	db.SStatusStandaloneResourceBase
 	db.SExternalizedResourceBase
 
@@ -59,33 +59,33 @@ type SNatSTable struct {
 	NatgatewayId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required"`
 }
 
-func (manager *SNatSTableManager) GetContextManagers() [][]db.IModelManager {
+func (manager *SNatSEntryManager) GetContextManagers() [][]db.IModelManager {
 	return [][]db.IModelManager{
 		{NatGatewayManager},
 	}
 }
 
-func (self *SNatSTableManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+func (self *SNatSEntryManager) AllowListItems(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return db.IsAdminAllowList(userCred, self)
 }
 
-func (self *SNatSTableManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (self *SNatSEntryManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowCreate(userCred, self)
 }
 
-func (self *SNatSTable) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+func (self *SNatSEntry) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
 	return db.IsAdminAllowGet(userCred, self)
 }
 
-func (self *SNatSTable) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
+func (self *SNatSEntry) AllowUpdateItem(ctx context.Context, userCred mcclient.TokenCredential) bool {
 	return db.IsAdminAllowUpdate(userCred, self)
 }
 
-func (self *SNatSTable) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+func (self *SNatSEntry) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowDelete(userCred, self)
 }
 
-func (self *SNatSTable) GetNatgateway() (*SNatGateway, error) {
+func (self *SNatSEntry) GetNatgateway() (*SNatGateway, error) {
 	_natgateway, err := NatGatewayManager.FetchById(self.NatgatewayId)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func (self *SNatSTable) GetNatgateway() (*SNatGateway, error) {
 	return _natgateway.(*SNatGateway), nil
 }
 
-func (self *SNatSTable) GetNetwork() (*SNetwork, error) {
+func (self *SNatSEntry) GetNetwork() (*SNetwork, error) {
 	_network, err := NetworkManager.FetchById(self.NatgatewayId)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (self *SNatSTable) GetNetwork() (*SNetwork, error) {
 	return _network.(*SNetwork), nil
 }
 
-func (man *SNatSTableManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+func (man *SNatSEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
 	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
 	if err != nil {
 		return nil, err
@@ -123,11 +123,11 @@ func (man *SNatSTableManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 	return q, nil
 }
 
-func (man *SNatSTableManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+func (man *SNatSEntryManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewNotImplementedError("Not Implemented")
 }
 
-func (manager *SNatSTableManager) SyncNatSTables(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, nat *SNatGateway, extTables []cloudprovider.ICloudSNatEntry) compare.SyncResult {
+func (manager *SNatSEntryManager) SyncNatSTables(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, nat *SNatGateway, extTable []cloudprovider.ICloudNatSEntry) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 
@@ -138,11 +138,11 @@ func (manager *SNatSTableManager) SyncNatSTables(ctx context.Context, userCred m
 		return result
 	}
 
-	removed := make([]SNatSTable, 0)
-	commondb := make([]SNatSTable, 0)
-	commonext := make([]cloudprovider.ICloudSNatEntry, 0)
-	added := make([]cloudprovider.ICloudSNatEntry, 0)
-	if err := compare.CompareSets(dbNatSTables, extTables, &removed, &commondb, &commonext, &added); err != nil {
+	removed := make([]SNatSEntry, 0)
+	commondb := make([]SNatSEntry, 0)
+	commonext := make([]cloudprovider.ICloudNatSEntry, 0)
+	added := make([]cloudprovider.ICloudNatSEntry, 0)
+	if err := compare.CompareSets(dbNatSTables, extTable, &removed, &commondb, &commonext, &added); err != nil {
 		result.Error(err)
 		return result
 	}
@@ -178,7 +178,7 @@ func (manager *SNatSTableManager) SyncNatSTables(ctx context.Context, userCred m
 	return result
 }
 
-func (self *SNatSTable) syncRemoveCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (self *SNatSEntry) syncRemoveCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, self)
 	defer lockman.ReleaseObject(ctx, self)
 
@@ -189,12 +189,12 @@ func (self *SNatSTable) syncRemoveCloudNatSTable(ctx context.Context, userCred m
 	return self.Delete(ctx, userCred)
 }
 
-func (self *SNatSTable) SyncWithCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential, extTable cloudprovider.ICloudSNatEntry) error {
+func (self *SNatSEntry) SyncWithCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential, extEntry cloudprovider.ICloudNatSEntry) error {
 	diff, err := db.UpdateWithLock(ctx, self, func() error {
-		self.Status = extTable.GetStatus()
-		self.IP = extTable.GetIP()
-		self.SourceCIDR = extTable.GetSourceCIDR()
-		if extNetworkId := extTable.GetNetworkId(); len(extNetworkId) > 0 {
+		self.Status = extEntry.GetStatus()
+		self.IP = extEntry.GetIP()
+		self.SourceCIDR = extEntry.GetSourceCIDR()
+		if extNetworkId := extEntry.GetNetworkId(); len(extNetworkId) > 0 {
 			network, err := db.FetchByExternalId(NetworkManager, extNetworkId)
 			if err != nil {
 				return err
@@ -210,23 +210,23 @@ func (self *SNatSTable) SyncWithCloudNatSTable(ctx context.Context, userCred mcc
 	return nil
 }
 
-func (manager *SNatSTableManager) newFromCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, nat *SNatGateway, extTable cloudprovider.ICloudSNatEntry) (*SNatSTable, error) {
-	table := SNatSTable{}
+func (manager *SNatSEntryManager) newFromCloudNatSTable(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, nat *SNatGateway, extEntry cloudprovider.ICloudNatSEntry) (*SNatSEntry, error) {
+	table := SNatSEntry{}
 	table.SetModelManager(manager, &table)
 
-	newName, err := db.GenerateName(manager, ownerId, extTable.GetName())
+	newName, err := db.GenerateName(manager, ownerId, extEntry.GetName())
 	if err != nil {
 		return nil, err
 	}
 	table.Name = newName
-	table.Status = extTable.GetStatus()
-	table.ExternalId = extTable.GetGlobalId()
-	table.IsEmulated = extTable.IsEmulated()
+	table.Status = extEntry.GetStatus()
+	table.ExternalId = extEntry.GetGlobalId()
+	table.IsEmulated = extEntry.IsEmulated()
 	table.NatgatewayId = nat.Id
 
-	table.IP = extTable.GetIP()
-	table.SourceCIDR = extTable.GetSourceCIDR()
-	if extNetworkId := extTable.GetNetworkId(); len(extNetworkId) > 0 {
+	table.IP = extEntry.GetIP()
+	table.SourceCIDR = extEntry.GetSourceCIDR()
+	if extNetworkId := extEntry.GetNetworkId(); len(extNetworkId) > 0 {
 		network, err := db.FetchByExternalId(NetworkManager, extNetworkId)
 		if err != nil {
 			return nil, err
@@ -245,7 +245,7 @@ func (manager *SNatSTableManager) newFromCloudNatSTable(ctx context.Context, use
 	return &table, nil
 }
 
-func (self *SNatSTable) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+func (self *SNatSEntry) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
 	extra, err := self.SStatusStandaloneResourceBase.GetExtraDetails(ctx, userCred, query)
 	if err != nil {
 		return nil, err
@@ -253,7 +253,7 @@ func (self *SNatSTable) GetExtraDetails(ctx context.Context, userCred mcclient.T
 	return extra, nil
 }
 
-func (self *SNatSTable) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+func (self *SNatSEntry) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	extra := self.SStatusStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	natgateway, err := self.GetNatgateway()
 	if err != nil {
