@@ -188,6 +188,13 @@ func syncVpcSecGroup(ctx context.Context, userCred mcclient.TokenCredential, syn
 
 	_, _, result := SecurityGroupCacheManager.SyncSecurityGroupCaches(ctx, userCred, provider, secgroups, localVpc)
 	syncResults.Add(SecurityGroupCacheManager, result)
+
+	msg := result.Result()
+	notes := fmt.Sprintf("SyncSecurityGroupCaches for VPC %s result: %s", localVpc.Name, msg)
+	log.Infof(notes)
+	if result.IsError() {
+		return
+	}
 }
 
 func syncVpcRouteTables(ctx context.Context, userCred mcclient.TokenCredential, syncResults SSyncResultSet, provider *SCloudprovider, localVpc *SVpc, remoteVpc cloudprovider.ICloudVpc, syncRange *SSyncRange) {

@@ -120,9 +120,7 @@ func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context,
 	query = query.Filter(cond)
 
 	count := query.Count()
-	if count > 1 {
-		log.Errorf("duplicate secgroupcache for secgroup: %s vpcId: %s regionId: %s", secgroupId, vpcId, regionId)
-	} else if count == 0 {
+	if count == 0 {
 		return nil
 	}
 	query.First(&secgroupCache)
@@ -130,16 +128,11 @@ func (manager *SSecurityGroupCacheManager) GetSecgroupCache(ctx context.Context,
 	return &secgroupCache
 }
 
-func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId, regionId string, providerId string) *SSecurityGroupCache {
+func (manager *SSecurityGroupCacheManager) NewCache(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId, regionId string, providerId string) *SSecurityGroupCache {
 	lockman.LockClass(ctx, manager, userCred.GetProjectId())
 	defer lockman.ReleaseClass(ctx, manager, userCred.GetProjectId())
 
-	secgroupCache := manager.GetSecgroupCache(ctx, userCred, secgroupId, vpcId, regionId, providerId)
-	if secgroupCache != nil {
-		return secgroupCache
-	}
-
-	secgroupCache = &SSecurityGroupCache{
+	secgroupCache := &SSecurityGroupCache{
 		SecgroupId:    secgroupId,
 		VpcId:         vpcId,
 		CloudregionId: regionId,
@@ -151,6 +144,15 @@ func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCre
 		return nil
 	}
 	return secgroupCache
+}
+
+func (manager *SSecurityGroupCacheManager) Register(ctx context.Context, userCred mcclient.TokenCredential, secgroupId, vpcId, regionId string, providerId string) *SSecurityGroupCache {
+	secgroupCache := manager.GetSecgroupCache(ctx, userCred, secgroupId, vpcId, regionId, providerId)
+	if secgroupCache != nil {
+		return secgroupCache
+	}
+
+	return manager.NewCache(ctx, userCred, secgroupId, vpcId, regionId, providerId)
 }
 
 func (manager *SSecurityGroupCacheManager) getSecgroupcachesByProvider(provider *SCloudprovider) ([]SSecurityGroupCache, error) {
@@ -203,9 +205,9 @@ func (manager *SSecurityGroupCacheManager) SyncSecurityGroupCaches(ctx context.C
 			syncResult.AddError(err)
 			continue
 		}
-		cache := manager.Register(ctx, userCred, secgroup.Id, added[i].GetVpcId(), vpc.CloudregionId, provider.Id)
+		cache := manager.NewCache(ctx, userCred, secgroup.Id, added[i].GetVpcId(), vpc.CloudregionId, provider.Id)
 		if cache == nil {
-			syncResult.AddError(fmt.Errorf("failed to registor secgroup cache for secgroup %s(%s) provider: %s", secgroup.Name, secgroup.Name, provider.Name))
+			syncResult.AddError(fmt.Errorf("failed to create secgroup cache for secgroup %s(%s) provider: %s", secgroup.Name, secgroup.Name, provider.Name))
 			continue
 		}
 		if err := cache.SetExternalId(userCred, added[i].GetGlobalId()); err != nil {
