@@ -250,7 +250,8 @@ func (app *Application) defaultHandle(w http.ResponseWriter, r *http.Request, ri
 				to = app.processTimeout
 			}
 			var (
-				ctx    context.Context    = app.context
+				ctx = app.context
+
 				cancel context.CancelFunc = nil
 			)
 			if to > 0 {

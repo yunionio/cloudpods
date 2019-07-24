@@ -110,6 +110,12 @@ type ICloudRegion interface {
 
 	GetINetworkInterfaces() ([]ICloudNetworkInterface, error)
 
+	GetIBuckets() ([]ICloudBucket, error)
+	CreateIBucket(name string, storageClassStr string, acl string) error
+	DeleteIBucket(name string) error
+	IBucketExist(name string) (bool, error)
+	GetIBucketById(name string) (ICloudBucket, error)
+
 	GetProvider() string
 }
 

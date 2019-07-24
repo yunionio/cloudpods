@@ -482,3 +482,23 @@ func (region *SRegion) GetISkus(zoneId string) ([]cloudprovider.ICloudSku, error
 func (region *SRegion) GetISkuById(skuId string) (cloudprovider.ICloudSku, error) {
 	return region.GetFlavor(skuId)
 }
+
+func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) CreateIBucket(name string, storageClassStr string, acl string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) DeleteIBucket(name string) error {
+	return cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) IBucketExist(name string) (bool, error) {
+	return false, cloudprovider.ErrNotImplemented
+}
+
+func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}

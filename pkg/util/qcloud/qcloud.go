@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
+	sdkerrors "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 	tchttp "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 
@@ -179,7 +179,7 @@ func (r *vpc2017JsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error
 		return
 	}
 	if resp.Code != 0 {
-		return errors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
+		return sdkerrors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
 	}
 
 	return nil
@@ -212,7 +212,7 @@ func (r *wssJsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
 		return
 	}
 	if resp.Code != 0 {
-		return errors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
+		return sdkerrors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
 	}
 
 	return nil
@@ -234,7 +234,7 @@ func (r *lbJsonResponse) ParseErrorFromHTTPResponse(body []byte) (err error) {
 		return
 	}
 	if resp.Code != 0 {
-		return errors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
+		return sdkerrors.NewTencentCloudSDKError(resp.CodeDesc, resp.Message, "")
 	}
 
 	// hook 由于目前只能从这个方法中拿到原始的body.这里将原始body hook 到 Response

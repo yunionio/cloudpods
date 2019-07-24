@@ -19,16 +19,24 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"github.com/coredns/coredns/plugin/pkg/log"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"yunion.io/x/log"
+
+	"context"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SBucket struct {
+	region *SRegion
+
+	projectId string
+
 	Domain        Domain   `json:"Domain"`
 	BucketID      string   `json:"BucketId"`
 	Region        string   `json:"Region"`
@@ -50,13 +58,13 @@ type Domain struct {
 }
 
 type SFile struct {
-	region *SRegion
+	bucket *SBucket
 
-	BucketName string
-	File       io.Reader
-	FileSize   int64
-	FileName   string
-	FileMD5    string
+	// BucketName string
+	File     io.Reader
+	FileSize int64
+	FileName string
+	FileMD5  string
 }
 
 func (self *SFile) signHeader(httpMethod string) string {
@@ -71,24 +79,25 @@ func (self *SFile) signHeader(httpMethod string) string {
 	data += md5 + "\n"
 	data += contentType + "\n"
 	data += "\n"
-	data += "/" + self.BucketName + "/" + self.FileName
+	data += "/" + self.bucket.BucketName + "/" + self.FileName
 
-	h := hmac.New(sha1.New, []byte(self.region.client.accessKeySecret))
+	h := hmac.New(sha1.New, []byte(self.bucket.region.client.accessKeySecret))
 	h.Write([]byte(data))
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
 func (self *SFile) auth(httpMethod string) string {
-	return "UCloud" + " " + self.region.client.accessKeyId + ":" + self.signHeader(httpMethod)
+	return "UCloud" + " " + self.bucket.region.client.accessKeyId + ":" + self.signHeader(httpMethod)
 }
 
 func (self *SFile) GetHost() string {
-	host, err := self.region.GetBucketDomain(self.BucketName)
+	return self.bucket.Domain.Src[0]
+	/*host, err := self.bucket.region.GetBucketDomain(self.BucketName)
 	if err != nil {
 		log.Errorf("SFile GetHost %s", err)
 		return ""
 	}
-	return host
+	return host*/
 }
 
 func (self *SFile) GetUrl() string {
@@ -100,13 +109,13 @@ func (self *SFile) FetchFileUrl() string {
 	expired := strconv.FormatInt(time.Now().Add(6*time.Hour).Unix(), 10)
 	// sign
 	data := "GET\n\n\n" + expired + "\n"
-	data += "/" + self.BucketName + "/" + self.FileName
-	h := hmac.New(sha1.New, []byte(self.region.client.accessKeySecret))
+	data += "/" + self.bucket.BucketName + "/" + self.FileName
+	h := hmac.New(sha1.New, []byte(self.bucket.region.client.accessKeySecret))
 	h.Write([]byte(data))
 	sign := base64.StdEncoding.EncodeToString(h.Sum(nil))
 
 	urlEncoder := url.Values{}
-	urlEncoder.Add("UCloudPublicKey", self.region.client.accessKeyId)
+	urlEncoder.Add("UCloudPublicKey", self.bucket.region.client.accessKeyId)
 	urlEncoder.Add("Signature", sign)
 	urlEncoder.Add("Expires", expired)
 	querys := urlEncoder.Encode()
@@ -130,7 +139,7 @@ func (self *SFile) Delete() error {
 }
 
 func (self *SFile) request(req *http.Request) error {
-	res, err := http.DefaultClient.Do(req)
+	res, err := httputils.GetDefaultClient().Do(req)
 	if err != nil {
 		return err
 	}
@@ -142,4 +151,85 @@ func (self *SFile) request(req *http.Request) error {
 	}
 
 	return nil
+}
+
+func (b *SBucket) GetProjectId() string {
+	return b.projectId
+}
+
+func (b *SBucket) GetGlobalId() string {
+	return b.BucketID
+}
+
+func (b *SBucket) GetName() string {
+	return b.BucketName
+}
+
+func (b *SBucket) GetLocation() string {
+	return b.Region
+}
+
+func (b *SBucket) GetIRegion() cloudprovider.ICloudRegion {
+	return b.region
+}
+
+func (b *SBucket) GetCreateAt() time.Time {
+	return time.Unix(b.CreateTime, 0)
+}
+
+func (b *SBucket) GetStorageClass() string {
+	return ""
+}
+
+func (b *SBucket) GetAcl() string {
+	return b.Type
+}
+
+func (b *SBucket) getSrcUrl() string {
+	if len(b.Domain.Src) > 0 {
+		return b.Domain.Src[0]
+	}
+	return ""
+}
+
+func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
+	ret := make([]cloudprovider.SBucketAccessUrl, 0)
+	for i, u := range b.Domain.Src {
+		ret = append(ret, cloudprovider.SBucketAccessUrl{
+			Url:         u,
+			Description: fmt.Sprintf("src%d", i),
+		})
+	}
+	for i, u := range b.Domain.CDN {
+		ret = append(ret, cloudprovider.SBucketAccessUrl{
+			Url:         u,
+			Description: fmt.Sprintf("cdn%d", i),
+		})
+	}
+	return ret
+}
+
+func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.ICloudObject, error) {
+	return cloudprovider.GetIObjects(b, prefix, isRecursive)
+}
+
+func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {
+	result := cloudprovider.SListObjectResult{}
+	return result, cloudprovider.ErrNotSupported
+}
+
+func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, contType string, storageClassStr string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (b *SBucket) DeleteObject(ctx context.Context, key string) error {
+	file := SFile{
+		bucket:   b,
+		FileName: key,
+	}
+	return file.Delete()
+}
+
+func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (string, error) {
+	return "", cloudprovider.ErrNotSupported
 }

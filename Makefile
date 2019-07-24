@@ -55,6 +55,12 @@ export GO111MODULE:=on
 export CGO_CFLAGS = ${X_CGO_CFLAGS}
 export CGO_LDFLAGS = ${X_CGO_LDFLAGS}
 
+UNAME := $(shell uname)
+
+ifeq ($(UNAME), Linux)
+XARGS_FLAGS = --no-run-if-empty
+endif
+
 all: build
 
 
@@ -116,7 +122,7 @@ clean:
 
 fmt:
 	@$(if $(ONECLOUD_CI_BUILD),:,find) . -type f -name "*.go" -not -path "./_output/*" \
-		-not -path "./vendor/*" | xargs --no-run-if-empty gofmt -s -w
+		-not -path "./vendor/*" | xargs $(XARGS_FLAGS) gofmt -s -w
 
 define depDeprecated
 OneCloud now requires using go-mod for dependency management.  dep target,

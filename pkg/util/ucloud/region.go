@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -633,4 +634,82 @@ func (self *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Secur
 
 func (self *SRegion) GetClient() *SUcloudClient {
 	return self.client
+}
+
+// https://docs.ucloud.cn/api/ufile-api/describe_bucket
+func (region *SRegion) listBuckets(name string, offset int, limit int) ([]SBucket, error) {
+	params := NewUcloudParams()
+	if len(name) > 0 {
+		params.Set("BucketName", name)
+	} else {
+		params.Set("Limit", limit)
+		params.Set("Offset", offset)
+	}
+	buckets := make([]SBucket, 0)
+	// request without RegionId
+	err := region.client.DoAction("DescribeBucket", params, &buckets)
+	if err != nil {
+		return nil, errors.Wrap(err, "DoAction DescribeBucket")
+	}
+	return buckets, nil
+}
+
+func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	buckets := make([]SBucket, 0)
+	offset := 0
+	limit := 50
+	for {
+		parts, err := region.listBuckets("", offset, limit)
+		if err != nil {
+			return nil, errors.Wrap(err, "region.listBuckets")
+		}
+		if len(parts) > 0 {
+			buckets = append(buckets, parts...)
+		}
+		if len(parts) < limit {
+			break
+		} else {
+			offset += limit
+		}
+	}
+	ret := make([]cloudprovider.ICloudBucket, len(buckets))
+	for i := range buckets {
+		buckets[i].region = region
+		buckets[i].projectId = region.client.projectId
+		ret[i] = &buckets[i]
+	}
+	return ret, nil
+}
+
+func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr string) error {
+	if aclStr != "private" && aclStr != "public" {
+		return errors.Error("invalid acl")
+	}
+	return region.CreateBucket(name, aclStr)
+}
+
+func (region *SRegion) DeleteIBucket(name string) error {
+	err := region.DeleteBucket(name)
+	if err != nil {
+		if strings.Index(err.Error(), "bucket not found") >= 0 {
+			return nil
+		}
+		return errors.Wrap(err, "region.DeleteBucket")
+	}
+	return nil
+}
+
+func (region *SRegion) IBucketExist(name string) (bool, error) {
+	parts, err := region.listBuckets(name, 0, 1)
+	if err != nil {
+		return false, errors.Wrap(err, "region.listBuckets")
+	}
+	if len(parts) == 0 {
+		return false, cloudprovider.ErrNotFound
+	}
+	return true, nil
+}
+
+func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
+	return cloudprovider.GetIBucketById(region, name)
 }

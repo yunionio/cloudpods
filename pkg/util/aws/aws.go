@@ -154,9 +154,9 @@ func (self *SAwsClient) GetRegion(regionId string) *SRegion {
 	if len(regionId) == 0 {
 		regionId = AWS_INTERNATIONAL_DEFAULT_REGION
 		switch self.accessUrl {
-		case "InternationalCloud":
+		case AWS_INTERNATIONAL_CLOUDENV:
 			regionId = AWS_INTERNATIONAL_DEFAULT_REGION
-		case "ChinaCloud":
+		case AWS_CHINA_CLOUDENV:
 			regionId = AWS_CHINA_DEFAULT_REGION
 		}
 	}

@@ -15,15 +15,22 @@
 package qcloud
 
 import (
+	"context"
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
-	"github.com/nelsonken/cos-go-sdk-v5/cos"
+	"github.com/tencentyun/cos-go-sdk-v5"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
+	"github.com/tencentyun/cos-go-sdk-v5/debug"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -32,8 +39,7 @@ import (
 type SRegion struct {
 	multicloud.SRegion
 
-	client    *SQcloudClient
-	cosClient *cos.Client
+	client *SQcloudClient
 
 	izones []cloudprovider.ICloudZone
 	ivpcs  []cloudprovider.ICloudVpc
@@ -266,16 +272,30 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 	return self.GetIVpcById(vpcId)
 }
 
-func (self *SRegion) GetCosClient() (*cos.Client, error) {
-	if self.cosClient == nil {
-		self.cosClient = cos.New(&cos.Option{
-			AppID:     self.client.AppID,
-			SecretID:  self.client.SecretID,
-			SecretKey: self.client.SecretKey,
-			Region:    self.Region,
-		})
+func (self *SRegion) GetCosClient(bucket *SBucket) (*cos.Client, error) {
+	var baseUrl *cos.BaseURL
+	if bucket != nil {
+		u, _ := url.Parse(bucket.getBucketUrl())
+		baseUrl = &cos.BaseURL{
+			BucketURL: u,
+		}
 	}
-	return self.cosClient, nil
+	cosClient := cos.NewClient(
+		baseUrl,
+		&http.Client{
+			Transport: &cos.AuthorizationTransport{
+				SecretID:  self.client.SecretID,
+				SecretKey: self.client.SecretKey,
+				Transport: &debug.DebugRequestTransport{
+					RequestHeader:  self.client.Debug,
+					RequestBody:    self.client.Debug,
+					ResponseHeader: self.client.Debug,
+					ResponseBody:   self.client.Debug,
+				},
+			},
+		},
+	)
+	return cosClient, nil
 }
 
 func (self *SRegion) GetClient() *SQcloudClient {
@@ -815,4 +835,116 @@ func (self *SRegion) GetInstanceStatus(instanceId string) (string, error) {
 
 func (self *SRegion) QueryAccountBalance() (*SAccountBalance, error) {
 	return self.client.QueryAccountBalance()
+}
+
+func (self *SRegion) getCosEndpoint() string {
+	return fmt.Sprintf("cos.%s.myqcloud.com", self.GetId())
+}
+
+func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	coscli, err := region.GetCosClient(nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetCosClient")
+	}
+	s, _, err := coscli.Service.Get(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "coscli.Service.Get")
+	}
+	ret := make([]cloudprovider.ICloudBucket, 0)
+	for i := range s.Buckets {
+		bInfo := s.Buckets[i]
+		// ignore buckets not belong to this region
+		if bInfo.Region != region.GetId() {
+			continue
+		}
+		createAt, _ := timeutils.ParseTimeStr(bInfo.CreationDate)
+		name := bInfo.Name
+		// name = name[:len(name)-len(result.Owner.ID)-1]
+		name = name[:strings.LastIndexByte(name, '-')]
+		b := SBucket{
+			region: region,
+
+			Name:       name,
+			FullName:   bInfo.Name,
+			Location:   bInfo.Region,
+			CreateDate: createAt,
+		}
+		ret = append(ret, &b)
+	}
+	return ret, nil
+}
+
+func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr string) error {
+	bucket := &SBucket{
+		region:   region,
+		Name:     name,
+		FullName: fmt.Sprintf("%s-%s", name, region.client.AppID),
+	}
+	coscli, err := region.GetCosClient(bucket)
+	if err != nil {
+		return errors.Wrap(err, "GetCosClient")
+	}
+	opts := &cos.BucketPutOptions{}
+	if len(aclStr) > 0 {
+		if utils.IsInStringArray(aclStr, []string{
+			"private", "public-read", "public-read-write", "authenticated-read",
+		}) {
+			opts.XCosACL = aclStr
+		} else {
+			return errors.Error("invalid acl")
+		}
+	}
+	_, err = coscli.Bucket.Put(context.Background(), opts)
+	if err != nil {
+		return errors.Wrap(err, "coscli.Bucket.Put")
+	}
+	return nil
+}
+
+func cosHttpCode(err error) int {
+	if httpErr, ok := err.(*cos.ErrorResponse); ok {
+		return httpErr.Response.StatusCode
+	}
+	return -1
+}
+
+func (region *SRegion) DeleteIBucket(name string) error {
+	bucket := &SBucket{
+		region:   region,
+		Name:     name,
+		FullName: fmt.Sprintf("%s-%s", name, region.client.AppID),
+	}
+	coscli, err := region.GetCosClient(bucket)
+	if err != nil {
+		return errors.Wrap(err, "GetCosClient")
+	}
+	_, err = coscli.Bucket.Delete(context.Background())
+	if err != nil {
+		if cosHttpCode(err) == 404 {
+			return nil
+		}
+		return errors.Wrap(err, "DeleteBucket")
+	}
+	return nil
+}
+
+func (region *SRegion) IBucketExist(name string) (bool, error) {
+	bucket := &SBucket{
+		region:   region,
+		Name:     name,
+		FullName: fmt.Sprintf("%s-%s", name, region.client.AppID),
+	}
+	coscli, err := region.GetCosClient(bucket)
+	if err != nil {
+		return false, errors.Wrap(err, "GetCosClient")
+	}
+	_, err = coscli.Bucket.Head(context.Background())
+	if err != nil {
+		return false, errors.Wrap(err, "BucketExists")
+	}
+	return true, nil
+}
+
+func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
+	return cloudprovider.GetIBucketById(region, name)
 }
