@@ -141,6 +141,16 @@ func (self *SCloudregion) GetGuestIncrementCount() (int, error) {
 	return self.getGuestCountInternal(true)
 }
 
+func (self *SCloudregion) GetNetworkInterfaces() ([]SNetworkInterface, error) {
+	interfaces := []SNetworkInterface{}
+	q := NetworkInterfaceManager.Query().Equals("cloudregion_id", self.Id)
+	err := db.FetchModelObjects(NetworkInterfaceManager, q, &interfaces)
+	if err != nil {
+		return nil, err
+	}
+	return interfaces, nil
+}
+
 func (self *SCloudregion) getGuestCountInternal(increment bool) (int, error) {
 	zoneTable := ZoneManager.Query("id")
 	if self.Id == api.DEFAULT_REGION_ID {

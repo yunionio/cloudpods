@@ -17,10 +17,18 @@ package zstack
 import (
 	"fmt"
 
+	"yunion.io/x/onecloud/pkg/multicloud"
+
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/util/netutils"
 )
 
 type SVirtualIP struct {
+	multicloud.SNetworkInterfaceBase
+	region *SRegion
 	ZStackBasic
 	IPRangeUUID        string   `json:"ipRangeUuid"`
 	L3NetworkUUID      string   `json:"l3NetworkUuid"`
@@ -34,6 +42,74 @@ type SVirtualIP struct {
 	UseFor             string   `json:"useFor"`
 	UsedIPUUID         string   `json:"usedIpUuid"`
 	ZStackTime
+}
+
+type SInterfaceIP struct {
+	IP            string
+	L3NetworkUUID string
+	IPRangeUUID   string
+}
+
+func (ip *SInterfaceIP) GetIP() string {
+	return ip.IP
+}
+
+func (ip *SInterfaceIP) GetINetworkId() string {
+	return fmt.Sprintf("%s/%s", ip.L3NetworkUUID, ip.IPRangeUUID)
+}
+
+func (ip *SInterfaceIP) IsPrimary() bool {
+	return true
+}
+
+func (ip *SInterfaceIP) GetGlobalId() string {
+	return ip.IP
+}
+
+func (vip *SVirtualIP) GetName() string {
+	if len(vip.Name) > 0 {
+		return vip.Name
+	}
+	return vip.UUID
+}
+
+func (vip *SVirtualIP) GetId() string {
+	return vip.UUID
+}
+
+func (vip *SVirtualIP) GetGlobalId() string {
+	return vip.UUID
+}
+
+func (vip *SVirtualIP) GetMacAddress() string {
+	ip, _ := netutils.NewIPV4Addr(vip.IP)
+	return ip.ToMac("00:16:")
+}
+
+func (vip *SVirtualIP) GetAssociateType() string {
+	switch vip.UseFor {
+	case "LoadBalancer":
+		return api.NETWORK_INTERFACE_ASSOCIATE_TYPE_LOADBALANCER
+	case "Eip":
+		return api.NETWORK_INTERFACE_ASSOCIATE_TYPE_RESERVED
+	}
+	return vip.UseFor
+}
+
+func (vip *SVirtualIP) GetAssociateId() string {
+	return vip.UsedIPUUID
+}
+
+func (vip *SVirtualIP) GetStatus() string {
+	if vip.State == "Enabled" {
+		return api.NETWORK_INTERFACE_STATUS_AVAILABLE
+	}
+	return api.NETWORK_INTERFACE_STATUS_UNKNOWN
+}
+
+func (vip *SVirtualIP) GetICloudInterfaceAddresses() ([]cloudprovider.ICloudInterfaceAddress, error) {
+	ip := &SInterfaceIP{IP: vip.IP, IPRangeUUID: vip.IPRangeUUID, L3NetworkUUID: vip.L3NetworkUUID}
+	return []cloudprovider.ICloudInterfaceAddress{ip}, nil
 }
 
 func (region *SRegion) GetVirtualIP(vipId string) (*SVirtualIP, error) {
@@ -83,4 +159,19 @@ func (region *SRegion) CreateVirtualIP(name, desc, ip string, l3Id string) (*SVi
 
 func (region *SRegion) DeleteVirtualIP(vipId string) error {
 	return region.client.delete("vips", vipId, "")
+}
+
+func (region *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {
+	vips, err := region.GetVirtualIPs("")
+	if err != nil {
+		return nil, errors.Wrap(err, "region.GetVirtualIPs")
+	}
+	ret := []cloudprovider.ICloudNetworkInterface{}
+	for i := 0; i < len(vips); i++ {
+		if vips[i].UseFor != "Eip" {
+			vips[i].region = region
+			ret = append(ret, &vips[i])
+		}
+	}
+	return ret, nil
 }

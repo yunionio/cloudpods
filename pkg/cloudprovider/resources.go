@@ -108,6 +108,8 @@ type ICloudRegion interface {
 	GetISkus(zoneId string) ([]ICloudSku, error)
 	CreateISku(sku *SServerSku) (ICloudSku, error)
 
+	GetINetworkInterfaces() ([]ICloudNetworkInterface, error)
+
 	GetProvider() string
 }
 
@@ -673,4 +675,22 @@ type ICloudNatSEntry interface {
 	GetNetworkId() string
 
 	Delete() error
+}
+
+type ICloudNetworkInterface interface {
+	ICloudResource
+
+	GetMacAddress() string
+	GetAssociateType() string
+	GetAssociateId() string
+
+	GetICloudInterfaceAddresses() ([]ICloudInterfaceAddress, error)
+}
+
+type ICloudInterfaceAddress interface {
+	GetGlobalId() string //返回IP即可
+
+	GetINetworkId() string
+	GetIP() string
+	IsPrimary() bool
 }
