@@ -24,6 +24,7 @@ import (
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -55,10 +56,16 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 		conf.Add(jsonutils.NewString(key), "key")
 	}
 
-	if timeout, _ := data.Int("rbd_timeout"); timeout > 0 {
-		conf.Add(jsonutils.NewInt(timeout), "rados_osd_op_timeout")
-		conf.Add(jsonutils.NewInt(timeout), "rados_mon_op_timeout")
-		conf.Add(jsonutils.NewInt(timeout), "client_mount_timeout")
+	for k, v := range map[string]int64{
+		"rbd_rados_mon_op_timeout": api.RBD_DEFAULT_MON_TIMEOUT,
+		"rbd_rados_osd_op_timeout": api.RBD_DEFAULT_OSD_TIMEOUT,
+		"rbd_client_mount_timeout": api.RBD_DEFAULT_MOUNT_TIMEOUT,
+	} {
+		if timeout, _ := data.Int(k); timeout > 0 {
+			conf.Add(jsonutils.NewInt(timeout), strings.TrimPrefix(k, "rbd_"))
+		} else {
+			conf.Add(jsonutils.NewInt(v), strings.TrimPrefix(k, "rbd_"))
+		}
 	}
 
 	storages := []models.SStorage{}
@@ -78,6 +85,37 @@ func (self *SRbdStorageDriver) ValidateCreateData(ctx context.Context, userCred 
 	}
 
 	data.Set("storage_conf", conf)
+
+	return data, nil
+}
+
+func (self *SRbdStorageDriver) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, storage *models.SStorage) (*jsonutils.JSONDict, error) {
+	conf, ok := storage.StorageConf.(*jsonutils.JSONDict)
+	if !ok {
+		conf = jsonutils.NewDict()
+	}
+	data.Set("update_storage_conf", jsonutils.JSONFalse)
+	for _, k := range []string{"rbd_rados_mon_op_timeout", "rbd_rados_osd_op_timeout", "rbd_client_mount_timeout"} {
+		if timeout, _ := data.Int(k); timeout > 0 {
+			conf.Set(strings.TrimPrefix(k, "rbd_"), jsonutils.NewInt(timeout))
+			data.Set("update_storage_conf", jsonutils.JSONTrue)
+		}
+	}
+
+	if key, _ := data.GetString("rbd_key"); len(key) > 0 {
+		conf.Set("key", jsonutils.NewString(key))
+		data.Set("update_storage_conf", jsonutils.JSONTrue)
+	}
+
+	if update, _ := data.Bool("update_storage_conf"); update {
+		_, err := storage.GetModelManager().TableSpec().Update(storage, func() error {
+			storage.StorageConf = conf
+			return nil
+		})
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+	}
 
 	return data, nil
 }
@@ -123,4 +161,13 @@ func (self *SRbdStorageDriver) PostCreate(ctx context.Context, userCred mcclient
 			log.Errorf("update storagecache info for storage %s error: %v", storage.Name, err)
 		}
 	}
+}
+
+func (self *SRbdStorageDriver) DoStorageUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, task taskman.ITask) error {
+	subtask, err := taskman.TaskManager.NewTask(ctx, "RbdStorageUpdateTask", storage, task.GetUserCred(), task.GetParams(), task.GetTaskId(), "", nil)
+	if err != nil {
+		return err
+	}
+	subtask.ScheduleRun(nil)
+	return nil
 }
