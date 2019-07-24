@@ -45,6 +45,7 @@ const (
 	ServiceNameVPC  ServiceNameType = "vpc"  // 虚拟私有云 VPC
 	ServiceNameELB  ServiceNameType = "elb"  // 弹性负载均衡 ELB
 	ServiceNameBSS  ServiceNameType = "bss"  // 合作伙伴运营能力
+	ServiceNameNAT  ServiceNameType = "nat"  // Nat网关 NAT
 
 )
 

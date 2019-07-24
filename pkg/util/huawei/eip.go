@@ -33,17 +33,18 @@ const (
 )
 
 type Port struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	Status          string `json:"status"`
-	AdminStateUp    string `json:"admin_state_up"`
-	DNSName         string `json:"dns_name"`
-	MACAddress      string `json:"mac_address"`
-	NetworkID       string `json:"network_id"`
-	TenantID        string `json:"tenant_id"`
-	DeviceID        string `json:"device_id"`
-	DeviceOwner     string `json:"device_owner"`
-	BindingVnicType string `json:"binding:vnic_type"`
+	ID              string    `json:"id"`
+	Name            string    `json:"name"`
+	Status          string    `json:"status"`
+	AdminStateUp    string    `json:"admin_state_up"`
+	DNSName         string    `json:"dns_name"`
+	MACAddress      string    `json:"mac_address"`
+	NetworkID       string    `json:"network_id"`
+	TenantID        string    `json:"tenant_id"`
+	DeviceID        string    `json:"device_id"`
+	DeviceOwner     string    `json:"device_owner"`
+	BindingVnicType string    `json:"binding:vnic_type"`
+	FixedIPs        []FixedIP `json:"fixed_ips"`
 }
 
 type Bandwidth struct {
