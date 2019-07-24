@@ -88,7 +88,7 @@ func AddQuotaHandler(manager *SQuotaBaseManager, prefix string, app *appsrv.Appl
 	auth.Authenticate(checkQuotaHanlder), nil, "check_quota", nil)*/
 }
 
-func (manager *SQuotaBaseManager) queryQuota(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platforma []string) (*jsonutils.JSONDict, IQuota, error) {
+func (manager *SQuotaBaseManager) queryQuota(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, platforma []string, refresh bool) (*jsonutils.JSONDict, IQuota, error) {
 	ret := jsonutils.NewDict()
 
 	quota := manager.newQuota()
@@ -101,9 +101,9 @@ func (manager *SQuotaBaseManager) queryQuota(ctx context.Context, scope rbacutil
 	if err != nil {
 		return nil, nil, err
 	}
-	if usage.IsEmpty() {
+	if usage.IsEmpty() || refresh {
 		usageChan := make(chan IQuota)
-		manager.PostUsageJob(scope, ownerId, nil, usageChan, false)
+		manager.PostUsageJob(scope, ownerId, nil, usageChan, false, true)
 
 		usage = <-usageChan
 	}
@@ -157,7 +157,7 @@ func (manager *SQuotaBaseManager) getQuotaHanlder(ctx context.Context, w http.Re
 		scope = rbacutils.ScopeProject
 	}
 
-	quota, _, err := manager.queryQuota(ctx, scope, ownerId, nil)
+	quota, _, err := manager.queryQuota(ctx, scope, ownerId, nil, true)
 
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
@@ -455,7 +455,7 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId
 			scope = rbacutils.ScopeDomain
 		}
 		platform := strings.Split(platformStr, nameSeparator)
-		quota, _, err := manager.queryQuota(ctx, scope, &owner, platform)
+		quota, _, err := manager.queryQuota(ctx, scope, &owner, platform, false)
 		if err != nil {
 			log.Errorf("query quota for %s fail %s", getMemoryStoreKey(scope, &owner, platform), err)
 			continue
@@ -494,7 +494,7 @@ func (manager *SQuotaBaseManager) listQuotas(ctx context.Context, targetDomainId
 			DomainId: targetDomainId,
 		}
 		platform := []string{}
-		quota, _, err := manager.queryQuota(ctx, scope, &owner, platform)
+		quota, _, err := manager.queryQuota(ctx, scope, &owner, platform, false)
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("query domain initial quotas %s", err)
 		}
