@@ -17,6 +17,7 @@ package models
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net/url"
 	"reflect"
 	"text/template"
@@ -133,6 +134,42 @@ func (p *SLoadbalancerAgentParamsVrrp) Validate(data *jsonutils.JSONDict) error 
 		return httperrors.NewInputParameterError("invalid vrrp virtual_router_id %d: want [1,255]", p.VirtualRouterId)
 	}
 	return nil
+}
+
+func (p *SLoadbalancerAgentParamsVrrp) validatePeer(pp *SLoadbalancerAgentParamsVrrp) error {
+	if p.Priority == pp.Priority {
+		return fmt.Errorf("vrrp priority of peer lbagents must be different, got %d", p.Priority)
+	}
+	if p.VirtualRouterId != pp.VirtualRouterId {
+		return fmt.Errorf("vrrp virtual_router_id of peer lbagents must be the same: %d != %d", p.VirtualRouterId, pp.VirtualRouterId)
+	}
+	if p.Preempt != pp.Preempt {
+		return fmt.Errorf("vrrp preempt property of peer lbagents must be the same: %v != %v", p.Preempt, pp.Preempt)
+	}
+	if p.Pass != pp.Pass {
+		return fmt.Errorf("vrrp password of peer lbagents must be the same: %q != %q", p.Pass, pp.Pass)
+	}
+	return nil
+}
+
+func (p *SLoadbalancerAgentParamsVrrp) needsUpdatePeer(pp *SLoadbalancerAgentParamsVrrp) bool {
+	// properties no need to check: Priority
+	if p.VirtualRouterId != pp.VirtualRouterId {
+		return true
+	}
+	if p.Preempt != pp.Preempt {
+		return true
+	}
+	if p.Pass != pp.Pass {
+		return true
+	}
+	return false
+}
+
+func (p *SLoadbalancerAgentParamsVrrp) updateBy(pp *SLoadbalancerAgentParamsVrrp) {
+	p.VirtualRouterId = pp.VirtualRouterId
+	p.Preempt = pp.Preempt
+	p.Pass = pp.Pass
 }
 
 func (p *SLoadbalancerAgentParamsVrrp) initDefault(data *jsonutils.JSONDict) {
@@ -281,16 +318,43 @@ func (self *SLoadbalancerAgent) AllowDeleteItem(ctx context.Context, userCred mc
 }
 
 func (man *SLoadbalancerAgentManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId)
+	paramsV := validators.NewStructValidator("params", &SLoadbalancerAgentParams{})
 	{
 		keyV := map[string]validators.IValidator{
 			"hb_timeout": validators.NewNonNegativeValidator("hb_timeout").Default(3600),
-			"params":     validators.NewStructValidator("params", &SLoadbalancerAgentParams{}),
-			"cluster":    validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId),
+			"params":     paramsV,
+			"cluster":    clusterV,
 		}
 		for _, v := range keyV {
 			if err := v.Validate(data); err != nil {
 				return nil, err
 			}
+		}
+	}
+	{
+		cluster := clusterV.Model.(*SLoadbalancerCluster)
+		lbagents, err := LoadbalancerClusterManager.getLoadbalancerAgents(cluster.Id)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		params := paramsV.Value.(*SLoadbalancerAgentParams)
+		vrrpRouterId := params.Vrrp.VirtualRouterId
+		for i := range lbagents {
+			peerLbagent := &lbagents[i]
+			peerParams := peerLbagent.Params
+			err := params.Vrrp.validatePeer(&peerParams.Vrrp)
+			if err != nil {
+				return nil, httperrors.NewConflictError("conflict with lbagent %s(%s): %v", peerLbagent.Name, peerLbagent.Id, err)
+			}
+		}
+		otherCluster, err := LoadbalancerClusterManager.findByVrrpRouterIdInZone(cluster.ZoneId, vrrpRouterId)
+		if err != nil {
+			return nil, err
+		}
+		if otherCluster != nil && otherCluster.Id != cluster.Id {
+			return nil, httperrors.NewConflictError("lbcluster %s(%s) already has virtual_router_id %d",
+				otherCluster.Name, otherCluster.Id, vrrpRouterId)
 		}
 	}
 	return man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
@@ -516,12 +580,46 @@ func (lbagent *SLoadbalancerAgent) AllowPerformParamsPatch(ctx context.Context, 
 }
 
 func (lbagent *SLoadbalancerAgent) PerformParamsPatch(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	oldParams := lbagent.Params
 	params := gotypes.DeepCopy(*lbagent.Params).(SLoadbalancerAgentParams)
 	d := jsonutils.NewDict()
 	d.Set("params", data)
 	paramsV := validators.NewStructValidator("params", &params)
 	if err := paramsV.Validate(d); err != nil {
 		return nil, err
+	}
+	// new vrrp virtual_router_id should be unique across clusters
+	if params.Vrrp.VirtualRouterId != oldParams.Vrrp.VirtualRouterId {
+		clusterM, err := LoadbalancerClusterManager.FetchById(lbagent.ClusterId)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		cluster := clusterM.(*SLoadbalancerCluster)
+		otherCluster, err := LoadbalancerClusterManager.findByVrrpRouterIdInZone(cluster.ZoneId, params.Vrrp.VirtualRouterId)
+		if err != nil {
+			return nil, err
+		}
+		if otherCluster != nil {
+			return nil, httperrors.NewConflictError("lbcluster %s(%s) already has virtual_router_id %d",
+				otherCluster.Name, otherCluster.Id, params.Vrrp.VirtualRouterId)
+		}
+	}
+	// new vrrp priority should be unique in the cluster
+	if params.Vrrp.Priority != oldParams.Vrrp.Priority {
+		lbagents, err := LoadbalancerClusterManager.getLoadbalancerAgents(lbagent.ClusterId)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		for i := range lbagents {
+			peerLbagent := &lbagents[i]
+			if peerLbagent.Id == lbagent.Id {
+				continue
+			}
+			if peerLbagent.Params.Vrrp.Priority == params.Vrrp.Priority {
+				return nil, httperrors.NewConflictError("peer lbagent %s(%s) already has vrrp priority %d",
+					peerLbagent.Name, peerLbagent.Id, params.Vrrp.Priority)
+			}
+		}
 	}
 	{
 		diff, err := db.Update(lbagent, func() error {
@@ -532,6 +630,26 @@ func (lbagent *SLoadbalancerAgent) PerformParamsPatch(ctx context.Context, userC
 			return nil, err
 		}
 		db.OpsLog.LogEvent(lbagent, db.ACT_UPDATE, diff, userCred)
+	}
+	if oldParams.Vrrp.needsUpdatePeer(&params.Vrrp) {
+		lbagents, err := LoadbalancerClusterManager.getLoadbalancerAgents(lbagent.ClusterId)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		log.Infof("updating peer lbagents' vrrp params by those from %s(%s)", lbagent.Name, lbagent.Id)
+		for i := range lbagents {
+			peerLbagent := &lbagents[i]
+			if lbagent.Id != peerLbagent.Id {
+				diff, err := db.Update(peerLbagent, func() error {
+					peerLbagent.Params.Vrrp.updateBy(&params.Vrrp)
+					return nil
+				})
+				if err != nil {
+					return nil, err
+				}
+				db.OpsLog.LogEvent(peerLbagent, db.ACT_UPDATE, diff, userCred)
+			}
+		}
 	}
 	return nil, nil
 }
