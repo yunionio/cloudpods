@@ -217,7 +217,7 @@ func (this *RoleAssignmentManagerV3) GetProjectRole(s *mcclient.ClientSession, i
 
 func init() {
 	RoleAssignments = RoleAssignmentManagerV3{NewIdentityV3Manager("role_assignment", "role_assignments",
-		[]string{"Scope", "User", "Group", "Role"},
+		[]string{"Scope", "User", "Group", "Role", "Policies"},
 		[]string{})}
 	register(&RoleAssignments)
 }

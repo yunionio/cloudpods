@@ -485,7 +485,7 @@ func (manager *SPolicyManager) IsScopeCapable(userCred mcclient.TokenCredential,
 	return false
 }
 
-func (manager *SPolicyManager) MatchedPolicies(scope rbacutils.TRbacScope, userCred mcclient.TokenCredential) []string {
+func (manager *SPolicyManager) MatchedPolicies(scope rbacutils.TRbacScope, userCred rbacutils.IRbacIdentity) []string {
 	ret := make([]string, 0)
 	policies, ok := manager.policies[scope]
 	if !ok {
