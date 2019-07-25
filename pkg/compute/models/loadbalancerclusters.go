@@ -134,6 +134,40 @@ func (man *SLoadbalancerClusterManager) findByZoneId(zoneId string) []SLoadbalan
 	return r
 }
 
+func (man *SLoadbalancerClusterManager) findByVrrpRouterIdInZone(zoneId string, routerId int) (*SLoadbalancerCluster, error) {
+	var r *SLoadbalancerCluster
+
+	peerClusters := man.findByZoneId(zoneId)
+	for i := range peerClusters {
+		peerCluster := &peerClusters[i]
+		peerClusterLbagents, err := man.getLoadbalancerAgents(peerCluster.Id)
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+		for j := range peerClusterLbagents {
+			peerClusterLbagent := &peerClusterLbagents[j]
+			if peerClusterLbagent.Params.Vrrp.VirtualRouterId == routerId {
+				if r != nil {
+					return nil, httperrors.NewInternalServerError("lbclusters %s(%s) and %s(%s) has conflict virtual_router_id: %d ", r.Name, r.Id, peerCluster.Name, peerCluster.Id, routerId)
+				}
+				r = peerCluster
+				break
+			}
+		}
+	}
+	return r, nil
+}
+
+func (man *SLoadbalancerClusterManager) getLoadbalancerAgents(clusterId string) ([]SLoadbalancerAgent, error) {
+	r := []SLoadbalancerAgent{}
+	q := LoadbalancerAgentManager.Query().Equals("cluster_id", clusterId)
+	err := db.FetchModelObjects(LoadbalancerAgentManager, q, &r)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
 func (man *SLoadbalancerClusterManager) InitializeData() error {
 	// find existing lb with empty clusterid
 	lbs := []SLoadbalancer{}
