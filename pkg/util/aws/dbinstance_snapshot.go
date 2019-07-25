@@ -87,14 +87,6 @@ func (snapshot *SDBInstanceSnapshot) GetDBNames() string {
 	return ""
 }
 
-func (snapshot *SDBInstanceSnapshot) GetDownloadURL() string {
-	return ""
-}
-
-func (snapshot *SDBInstanceSnapshot) GetIntranetDownloadURL() string {
-	return ""
-}
-
 func (snapshot *SDBInstanceSnapshot) GetDBInstanceId() string {
 	return snapshot.DbiResourceId
 }

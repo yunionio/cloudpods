@@ -26,6 +26,10 @@ DBInstance:
           type: string
           example: mysql.n1.micro.1
           description: RDS实例规格
+        category:
+          type: string
+          example: basic
+          description: RDS实例高可用类型
         port:
           type: integer
           example: 3306
@@ -213,14 +217,6 @@ DBInstanceBackup:
           type: string
           example: full_backup
           description: RDS实例备份类型，手动或自动
-        intranet_download_url:
-          type: string
-          example: http://rdsbak-bj-v3.oss-cn-beijing-internal.aliyuncs.com/custins1131839/hins6172779_data_20190622103022.tar.gz?OSSAccessKeyId=Kid&Expires=1561814291&Signature=4YxhdryPvGHbPzZkt3TW6Z4kfa4%3D
-          desritpion: 内网下载URL
-        download_url:
-          type: string
-          example: https://rdsbak-bj-v3.oss-cn-beijing.aliyuncs.com/custins1131839/hins6172779_data_20190622103022.tar.gz?OSSAccessKeyId=Kid&Expires=1561814291&Signature=4YxhdryPvGHbPzZjt3TW6Z4kfa4%3D
-          description: 外网下载URL
         backup_size_mb:
           type: integer
           example: 21
