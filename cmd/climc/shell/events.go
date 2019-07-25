@@ -23,6 +23,7 @@ import (
 )
 
 type BaseEventListOptions struct {
+	Scope      string   `help:"scope" choices:"project|domain|system"`
 	Since      string   `help:"Show logs since specific date" metavar:"DATETIME"`
 	Until      string   `help:"Show logs until specific date" metavar:"DATETIME"`
 	Limit      int64    `help:"Limit number of logs" default:"20"`
@@ -90,6 +91,9 @@ func doEventList(man modules.ResourceManager, s *mcclient.ClientSession, args *E
 	}
 	if len(args.Action) > 0 {
 		params.Add(jsonutils.NewStringArray(args.Action), "action")
+	}
+	if len(args.Scope) > 0 {
+		params.Add(jsonutils.NewString(args.Scope), "scope")
 	}
 	logs, err := man.List(s, params)
 	if err != nil {

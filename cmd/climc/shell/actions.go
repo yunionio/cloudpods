@@ -24,6 +24,7 @@ import (
 )
 
 type BaseActionListOptions struct {
+	Scope      string   `help:"scope" choices:"project|domain|system"`
 	Since      string   `help:"Show logs since specific date" metavar:"DATETIME"`
 	Until      string   `help:"Show logs until specific date" metavar:"DATETIME"`
 	Limit      int64    `help:"Limit number of logs" default:"20"`
@@ -58,6 +59,9 @@ func doActionList(s *mcclient.ClientSession, args *ActionListOptions) error {
 	}
 	if len(args.Search) > 0 {
 		params.Add(jsonutils.NewString(args.Search), "search")
+	}
+	if len(args.Scope) > 0 {
+		params.Add(jsonutils.NewString(args.Scope), "scope")
 	}
 	if len(args.Since) > 0 {
 		params.Add(jsonutils.NewString(args.Since), "since")
