@@ -151,12 +151,7 @@ func (image *SImage) Refresh() error {
 }
 
 func (image *SImage) GetImageType() string {
-	switch image.Visibility {
-	case "public":
-		return cloudprovider.CachedImageTypeSystem
-	default:
-		return cloudprovider.CachedImageTypeCustomized
-	}
+	return cloudprovider.CachedImageTypeSystem
 }
 
 func (image *SImage) GetSizeByte() int64 {
