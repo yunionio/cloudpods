@@ -390,6 +390,9 @@ LoadbalancerAgent:
       readOnly: true
     params:
       $ref: '#/LoadbalancerAgentParams'
+    deployment:
+      $ref: '#/LoadbalancerAgentDeployment'
+      readOnly: true
     loadbalancer_acls:
       type: string
       format: date-time
@@ -418,6 +421,18 @@ LoadbalancerAgent:
       type: string
       format: date-time
       description: 转发实例当前同步到的最新LB对象时戳
+
+LoadbalancerAgentDeployment:
+  type: object
+  properties:
+    host:
+      type: string
+    ansibleplaybook:
+      type: string
+      description: |
+        部署对应的ansibleplaybook uuid
+
+        可通过此字段获取部署的执行结果
 
 LoadbalancerAgentParams:
   type: object
@@ -556,3 +571,27 @@ LoadbalancerAgentResponse:
     loadbalanceragent:
       type: object
       $ref: '#/LoadbalancerAgent'
+
+LoadbalancerAgentDeployRequest:
+  type: object
+  properties:
+    loadbalanceragent:
+      type: object
+      properties:
+        host:
+          $ref: './ansibleplaybook.yaml#AnsiblePlaybookInventoryHost'
+        deploy_method:
+          type: string
+          description: 部署方法
+          enum:
+            - yum
+            - copy
+      example:
+        host:
+          name: server:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+          vars:
+            user: lbagent
+            pass: lbagentpassword
+            proj: system
+            repo_base_url: https://10.168.222.136/yumrepo
+        deploy_method: yum

@@ -54,7 +54,7 @@ AnsiblePlaybookInventoryHost:
     name:
       type: string
       description: |
-        被制作主机描述
+        被操作主机描述
 
         支持以下几种格式
 
