@@ -4,36 +4,50 @@
 [![Build Status](https://travis-ci.com/yunionio/onecloud.svg?branch=master)](https://travis-ci.org/yunionio/onecloud) 
 [![Go Report Card](https://goreportcard.com/badge/github.com/yunionio/onecloud)](https://goreportcard.com/report/github.com/yunionio/onecloud) 
 
-## 什么是 OneCloud?
+### [README of Chinese](https://github.com/yunionio/onecloud/blob/master/README-CN.md)
 
-OneCloud 是一个开源的多云管理平台，具备以下特性:
+## What is Yunion OneCloud?
 
-- 统一全面
+Yunion OneCloud is an open source unified-IaaS cloud platform.
 
-  统一API、镜像、调度、账号体系、监控和计费等操作，能够全面管理 On premises、 私有云、公有云资源。
+As its name sugguests, 'Yun' means 'cloud' in Chinese and 'Yunion OneCloud' means to unify many clouds into the one that behaves like an integral cloud platform over many distinct cloud providers. As trends show, the enterprise IT infrastructure of the future would be unavoidably heterogeneous and the public clouds should play a major role as infrastructure providers for many enterprises. Further, the infrastructure would most likely be prepared for the cloud-native applications running on Kubernetes. Yunion OneCloud aims to provide such a cloud architecture right for the scenario that it is built to be the middle layer unifying distinct underlying cloud infrustructures into one and providing coherent IaaS interface to Kubernete clusters running across many cloud providers.
 
-- 内置私有云
+Many may consider Yunion OneCloud as a multi-cloud management platform (MCMP). Rather, we would view it as an IaaS platform as it does not only simply manage the resources and services from many clouds, but also hides the differences of underlying technologies and exposes one set of APIs that allow programatically interacting with the compute/storage/networking resources across many clouds.
 
-  OneCloud 本身就提供完备的私有云实现，提供虚拟机、物理机、容器和负载均衡等资源管理。
+Yunion OneCloud is working on abstracting APIs for the following resources:
 
-## 部署
+* Compute, including virtual machines, images, etc.
+* Storage, including disks, snapshots, object storages, etc.
+* Networking, including load balancers, VPC, virtual networks, NAT gateways, security groups, etc.
+* Accouting and billing, etc.
+* ...
 
-请参考文档 [安装部署](https://docs.yunion.io/setup/) 搭建 OneCloud 集群。
+over the following cloud providers:
 
-## 文档
+* On-premise IT resources, including kvm VM, baremetal, VMware vsphere/ESXi, etc.
+* Private clouds, including OpenStack, etc.
+* Public clouds, including Aliyun, AWS, Azure, Tencent Cloud, Huawei Cloud, etc.
 
-- [文档中心](https://docs.yunion.io/)
+You are welcome to install and try Yunion OneCloud. Looking forward to your feedback.
 
-- [Swagger API文档](https://docs.yunion.cn/api/)
+## Installation
 
-## 架构
+Please refers to [install&deployment](https://docs.yunion.io/setup/) (currently in Chinese Only).
+
+## Documentations
+
+- [Yunion OneCloud Documents](https://docs.yunion.io/)
+
+- [Swagger API](https://docs.yunion.cn/api/)
+
+## Architecture
 
 ![architecture](./docs/architecture.png)
 
-## 贡献
+## Contribution
 
-我们非常欢迎和感谢开发者向项目做贡献，流程细节请查看 [CONTRIBUTING.md](./CONTRIBUTING.md) 。
+You are welcome to contribute to the project. Please refer to [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
 ## License
 
-OneCloud 使用 Apache 2.0 license. 详情请看 [LICENSE](./LICENSE) 。
+Apache License 2.0. See [LICENSE](./LICENSE) 。
