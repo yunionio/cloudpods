@@ -536,9 +536,13 @@ func intersect(s1 []string, s2 []string) bool {
 }
 
 func containsIp(ips []netutils.IPV4Prefix, ipStr string) bool {
+	if len(ipStr) == 0 {
+		// user comes from unknown ip, assume matches
+		return true
+	}
 	ip, err := netutils.NewIPV4Addr(ipStr)
 	if err != nil {
-		log.Errorf("invalid ipv4 addr %s: %s", ipStr, err)
+		log.Errorf("user comes from invalid ipv4 addr %s: %s", ipStr, err)
 		return false
 	}
 	for i := range ips {

@@ -9,10 +9,11 @@ get:
     - $ref: '../parameters/roleassignments.yaml#/include_names'
     - $ref: '../parameters/roleassignments.yaml#/effective'
     - $ref: '../parameters/roleassignments.yaml#/include_system'
+    - $ref: '../parameters/roleassignments.yaml#/include_policies'
   responses:
     200:
       description: 用户或组加入项目的信息列表
       schema:
-        $ref: "../schemas/roleassignments.yaml#/RolAssignmentListResponse"
+        $ref: "../schemas/roleassignments.yaml#/RoleAssignmentListResponse"
   tags:
     - role_assignments

@@ -1,4 +1,4 @@
-RolAssignmentListResponse:
+RoleAssignmentListResponse:
   type: object
   properties:
     limit:
@@ -35,6 +35,22 @@ RoleAssignment:
       type: object
       description: 角色
       $ref: '#/DomainObject'
+    policies:
+      type: object
+      description: 匹配的权限列表
+      properties:
+        project:
+          type: array
+          items:
+            type: string
+        domain:
+          type: array
+          items:
+            type: string
+        system:
+          type: array
+          items:
+            type: string
 
 Scope:
   type: object

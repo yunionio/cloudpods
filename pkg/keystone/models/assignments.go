@@ -20,17 +20,18 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/pkg/errors"
-
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
+	"yunion.io/x/onecloud/pkg/cloudcommon/policy"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 	"yunion.io/x/onecloud/pkg/util/stringutils2"
 )
@@ -407,7 +408,7 @@ func (manager *SAssignmentManager) add(typeStr, actorId, projectId, roleId strin
 }
 
 func AddAdhocHandlers(version string, app *appsrv.Application) {
-	app.AddHandler2("GET", fmt.Sprintf("%s/role_assignments", version), roleAssignmentHandler, nil, "list_role_assignments", nil)
+	app.AddHandler2("GET", fmt.Sprintf("%s/role_assignments", version), auth.Authenticate(roleAssignmentHandler), nil, "list_role_assignments", nil)
 }
 
 func roleAssignmentHandler(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -421,10 +422,11 @@ func roleAssignmentHandler(ctx context.Context, w http.ResponseWriter, r *http.R
 	effective := query.Contains("effective")
 	includeSub := query.Contains("include_subtree")
 	includeSystem := query.Contains("include_system")
+	includePolicies := query.Contains("include_policies")
 	limit, _ := query.Int("limit")
 	offset, _ := query.Int("offset")
 
-	results, total, err := AssignmentManager.FetchAll(userId, groupId, roleId, domainId, projectId, includeNames, effective, includeSub, includeSystem, int(limit), int(offset))
+	results, total, err := AssignmentManager.FetchAll(userId, groupId, roleId, domainId, projectId, includeNames, effective, includeSub, includeSystem, includePolicies, int(limit), int(offset))
 	if err != nil {
 		httperrors.GeneralServerError(w, err)
 		return
@@ -485,10 +487,43 @@ type SRoleAssignment struct {
 	User  SDomainObject
 	Group SDomainObject
 	Role  SDomainObject
+
+	Policies struct {
+		Project []string
+		Domain  []string
+		System  []string
+	}
 }
 
-func (assign *SAssignment) getRoleAssignment(domains, projects, groups, users, roles map[string]SFetchDomainObject) SRoleAssignment {
+// rbacutils.IRbacIdentity interfaces
+func (ra *SRoleAssignment) GetProjectDomainId() string {
+	return ra.Scope.Project.Domain.Id
+}
+
+func (ra *SRoleAssignment) GetProjectName() string {
+	return ra.Scope.Project.Name
+}
+
+func (ra *SRoleAssignment) GetRoles() []string {
+	return []string{ra.Role.Name}
+}
+
+func (ra *SRoleAssignment) GetLoginIp() string {
+	return ""
+}
+
+func (ra *SRoleAssignment) fetchPolicies() {
+	ra.Policies.Project = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeProject, ra)
+	ra.Policies.Domain = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeDomain, ra)
+	ra.Policies.System = policy.PolicyManager.MatchedPolicies(rbacutils.ScopeSystem, ra)
+}
+
+func (assign *SAssignment) getRoleAssignment(domains, projects, groups, users, roles map[string]SFetchDomainObject, fetchPolicies bool) SRoleAssignment {
 	ra := SRoleAssignment{}
+	ra.Role.Id = assign.RoleId
+	ra.Role.Name = roles[assign.RoleId].Name
+	ra.Role.Domain.Id = roles[assign.RoleId].DomainId
+	ra.Role.Domain.Name = roles[assign.RoleId].Domain
 	switch assign.Type {
 	case api.AssignmentUserDomain:
 		ra.Scope.Domain.Id = assign.TargetId
@@ -506,6 +541,9 @@ func (assign *SAssignment) getRoleAssignment(domains, projects, groups, users, r
 		ra.User.Name = users[assign.ActorId].Name
 		ra.User.Domain.Id = users[assign.ActorId].DomainId
 		ra.User.Domain.Name = users[assign.ActorId].Domain
+		if fetchPolicies {
+			ra.fetchPolicies()
+		}
 	case api.AssignmentGroupDomain:
 		ra.Scope.Domain.Id = assign.TargetId
 		ra.Scope.Domain.Name = domains[assign.TargetId].Name
@@ -522,15 +560,14 @@ func (assign *SAssignment) getRoleAssignment(domains, projects, groups, users, r
 		ra.Group.Name = groups[assign.ActorId].Name
 		ra.Group.Domain.Id = groups[assign.ActorId].DomainId
 		ra.Group.Domain.Name = groups[assign.ActorId].Domain
+		if fetchPolicies {
+			ra.fetchPolicies()
+		}
 	}
-	ra.Role.Id = assign.RoleId
-	ra.Role.Name = roles[assign.RoleId].Name
-	ra.Role.Domain.Id = roles[assign.RoleId].DomainId
-	ra.Role.Domain.Name = roles[assign.RoleId].Domain
 	return ra
 }
 
-func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, projectId string, includeNames, effective, includeSub, includeSystem bool, limit, offset int) ([]SRoleAssignment, int64, error) {
+func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, projectId string, includeNames, effective, includeSub, includeSystem, includePolicies bool, limit, offset int) ([]SRoleAssignment, int64, error) {
 	var q *sqlchemy.SQuery
 	if effective {
 		usrq := manager.queryAll(userId, "", roleId, domainId, projectId).In("type", []string{api.AssignmentUserProject, api.AssignmentUserDomain})
@@ -639,7 +676,7 @@ func (manager *SAssignmentManager) FetchAll(userId, groupId, roleId, domainId, p
 
 	results := make([]SRoleAssignment, len(assigns))
 	for i := range assigns {
-		results[i] = assigns[i].getRoleAssignment(domains, projects, groups, users, roles)
+		results[i] = assigns[i].getRoleAssignment(domains, projects, groups, users, roles, includePolicies)
 	}
 	return results, int64(total), nil
 }
