@@ -62,6 +62,15 @@ AnsiblePlaybookInventoryHost:
           - 指定云平台宿主机：host:name-or-id
           - 直接指定IP地址
 
+        若通过直接指定IP地址的方式尝试对非纳管的机器进行操作，对于目标机器有以下要求
+
+         - ansibleserver服务能够访问目的机器
+         - 目标机器
+           - Linux操作系统
+           - 存在用户`cloudroot`
+           - 能够通过管理员或项目ssh pubkey免密登录cloudroot
+           - 若需要`ansible_become`，则要求cloudroot用户能够免密使用sudo
+
         举例
 
           - xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
