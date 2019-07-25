@@ -28,8 +28,6 @@ import (
 )
 
 type ImageOptionalOptions struct {
-	Public             bool     `help:"Make image public"`
-	Private            bool     `help:"Make image private"`
 	Format             string   `help:"Image format" choices:"raw|qcow2|iso|vmdk|docker|vhd"`
 	Protected          bool     `help:"Prevent image from being deleted"`
 	Unprotected        bool     `help:"Allow image to be deleted"`
@@ -57,11 +55,6 @@ type ImageOptionalOptions struct {
 }
 
 func addImageOptionalOptions(s *mcclient.ClientSession, params *jsonutils.JSONDict, args ImageOptionalOptions) error {
-	if args.Public && !args.Private {
-		params.Add(jsonutils.NewString("true"), "is-public")
-	} else if !args.Public && args.Private {
-		params.Add(jsonutils.NewString("false"), "is-public")
-	}
 	if len(args.Format) > 0 {
 		params.Add(jsonutils.NewString("bare"), "container-format")
 		params.Add(jsonutils.NewString(args.Format), "disk-format")
@@ -230,19 +223,7 @@ func init() {
 	}
 
 	R(&ImageUpdateOptions{}, "image-update", "Update images meta infomation", func(s *mcclient.ClientSession, args *ImageUpdateOptions) error {
-		/* img, e := modules.Images.Get(s, args.ID, nil)
-		if e != nil {
-			return e
-		}
-		idstr, e := img.GetString("id")
-		if e != nil {
-			return e
-		}*/
 		params := jsonutils.NewDict()
-		/* properties, _ := img.Get("properties")
-		if properties != nil {
-			params.Add(properties, "properties")
-		}*/
 		if len(args.Name) > 0 {
 			params.Add(jsonutils.NewString(args.Name), "name")
 		}
@@ -430,17 +411,26 @@ func init() {
 		return nil
 	})
 
-	R(&ImageOperationOptions{}, "image-public", "Make a image public", func(s *mcclient.ClientSession, args *ImageOperationOptions) error {
+	type ImagePublicOptions struct {
+		ID             []string `help:"ID or name of image" json:"-"`
+		Scope          string   `help:"sharing scope" choices:"system|domain"`
+		ShareToProject []string `help:"Share to prject"`
+	}
+	R(&ImagePublicOptions{}, "image-public", "Make a image public", func(s *mcclient.ClientSession, args *ImagePublicOptions) error {
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
 		if len(args.ID) == 0 {
 			return fmt.Errorf("No image ID provided")
 		} else if len(args.ID) == 1 {
-			result, err := modules.Images.PerformAction(s, args.ID[0], "public", nil)
+			result, err := modules.Images.PerformAction(s, args.ID[0], "public", params)
 			if err != nil {
 				return err
 			}
 			printObject(result)
 		} else {
-			results := modules.Images.BatchPerformAction(s, args.ID, "public", nil)
+			results := modules.Images.BatchPerformAction(s, args.ID, "public", params)
 			printBatchResults(results, modules.Images.GetColumns(s))
 		}
 		return nil
