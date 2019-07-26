@@ -57,3 +57,11 @@ func (r TriState) IsTrue() bool {
 func (r TriState) IsFalse() bool {
 	return r == False
 }
+
+func NewFromBool(b bool) TriState {
+	if b {
+		return True
+	} else {
+		return False
+	}
+}
