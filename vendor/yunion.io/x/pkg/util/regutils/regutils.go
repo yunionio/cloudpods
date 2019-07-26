@@ -60,8 +60,7 @@ func init() {
 	COMPACT_MACADDR_REG = regexp.MustCompile(`^[0-9a-fA-F]{12}$`)
 	NSPTR_REG = regexp.MustCompile(`^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\.in-addr\.arpa$`)
 	NAME_REG = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._@-]*$`)
-	DOMAINNAME_REG = regexp.MustCompile(`^[a-zA-Z0-9-.]+$`)
-	DOMAINSRV_REG = regexp.MustCompile(`^[a-zA-Z0-9-._]+$`)
+	DOMAINNAME_REG = regexp.MustCompile(`^([a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62}){1}(\.[a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62})*[\._]?$`)
 	SIZE_REG = regexp.MustCompile(`^\d+[bBkKmMgG]?$`)
 	MONTH_REG = regexp.MustCompile(`^\d{4}-\d{2}$`)
 	DATE_REG = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
@@ -142,11 +141,33 @@ func MatchName(str string) bool {
 }
 
 func MatchDomainName(str string) bool {
-	return DOMAINNAME_REG.MatchString(str)
+	if str == "" || len(strings.Replace(str, ".", "", -1)) > 255 {
+		return false
+	}
+	return !MatchIPAddr(str) && DOMAINNAME_REG.MatchString(str)
 }
 
 func MatchDomainSRV(str string) bool {
-	return DOMAINSRV_REG.MatchString(str)
+	if !MatchDomainName(str) {
+		return false
+	}
+
+	// Ref: https://tools.ietf.org/html/rfc2782
+	//
+	//	_Service._Proto.Name
+	parts := strings.SplitN(str, ".", 3)
+	if len(parts) != 3 {
+		return false
+	}
+	for i := 0; i < 2; i++ {
+		if len(parts[i]) < 2 || parts[i][0] != '_' {
+			return false
+		}
+	}
+	if len(parts[2]) == 0 {
+		return false
+	}
+	return true
 }
 
 func MatchSize(str string) bool {
