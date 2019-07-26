@@ -54,10 +54,14 @@ type SAnsiblePlaybook struct {
 	db.SVirtualResourceBase
 
 	Playbook  *ansible.Playbook `nullable:"false" create:"required" get:"user" update:"user"`
-	Output    string            `get:"user"`
+	Output    string            `length:"medium" get:"user"`
 	StartTime time.Time         `list:"user"`
 	EndTime   time.Time         `list:"user"`
 }
+
+const (
+	OutputMaxBytes = 64*1024*1024 - 1
+)
 
 type SAnsiblePlaybookManager struct {
 	db.SVirtualResourceBaseManager
@@ -79,6 +83,7 @@ func init() {
 		sessions:    ansible.SessionManager{},
 		sessionsMux: &sync.Mutex{},
 	}
+	AnsiblePlaybookManager.SetVirtualObject(AnsiblePlaybookManager)
 }
 
 func (man *SAnsiblePlaybookManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -217,6 +222,7 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 	} else {
 		pb.PrivateKey = []byte(k)
 	}
+	pb.OutputWriter(&ansiblePlaybookOutputRecorder{apb})
 
 	man.sessions.Add(apb.Id, pb)
 
@@ -250,13 +256,6 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 				apb.Status = AnsiblePlaybookStatusSucceeded
 			}
 			apb.EndTime = time.Now()
-			// truncate to preserve the tail
-			output := pb.Output()
-			textMax := 64*1024 - 1
-			if len(output) > textMax {
-				output = output[len(output)-textMax:]
-			}
-			apb.Output = string(output)
 			return nil
 		})
 		if err != nil {
@@ -276,4 +275,28 @@ func (apb *SAnsiblePlaybook) stopPlaybook(ctx context.Context, userCred mcclient
 	// the playbook will be removed from session map in runPlaybook() on return from run
 	man.sessions.Stop(apb.Id)
 	return nil
+}
+
+type ansiblePlaybookOutputRecorder struct {
+	apb *SAnsiblePlaybook
+}
+
+func (w *ansiblePlaybookOutputRecorder) Write(p []byte) (n int, err error) {
+	apb := w.apb
+	_, err = db.Update(apb, func() error {
+		cur := apb.Output
+		i := len(p) + len(cur) - OutputMaxBytes
+		if i > 0 {
+			// truncate to preserve the tail
+			apb.Output = cur[:len(cur)-i] + string(p)
+		} else {
+			apb.Output += string(p)
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("ansibleplaybook %s(%s): record output: %v", apb.Name, apb.Id, err)
+		return 0, err
+	}
+	return len(p), nil
 }
