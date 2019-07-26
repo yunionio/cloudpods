@@ -57,7 +57,7 @@ func init() {
 
 		RetentionDays  int   `help:"snapshot retention days"`
 		RepeatWeekdays []int `help:"snapshot create days on week"`
-		TimePoints     []int `help:"snapshot create time points on one day`
+		TimePoints     []int `help:"snapshot create time points on one day"`
 	}
 
 	R(&SnapshotPolicyCreateOptions{}, "snapshot-policy-create", "Create snapshot policy", func(s *mcclient.ClientSession, args *SnapshotPolicyCreateOptions) error {

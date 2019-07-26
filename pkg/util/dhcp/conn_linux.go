@@ -120,7 +120,7 @@ func (s *rawSocketConn) Recv(b []byte) ([]byte, *net.UDPAddr, net.HardwareAddr, 
 		if err := dhcp4.SerializeTo(sbf, gopacket.SerializeOptions{}); err != nil {
 			return nil, nil, nil, 0, fmt.Errorf("Serialize dhcp packet error %s", err)
 		}
-		return sbf.Bytes(), &net.UDPAddr{srcIp, int(srcPort), ""}, srcMac, 0, nil
+		return sbf.Bytes(), &net.UDPAddr{IP: srcIp, Port: int(srcPort)}, srcMac, 0, nil
 	} else {
 		return nil, nil, nil, 0, fmt.Errorf("Fetch dhcp layer failed")
 	}

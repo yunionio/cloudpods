@@ -326,7 +326,7 @@ type SetBucketPolicyInput struct {
 
 type GetBucketPolicyOutput struct {
 	BaseModel
-	Policy string `body`
+	Policy string
 }
 
 type CorsRule struct {
