@@ -541,8 +541,7 @@ func (m *SGuestManager) CanMigrate(sid string) bool {
 func (m *SGuestManager) GetFreePortByBase(basePort int) int {
 	var port = 1
 	for {
-		if netutils2.IsTcpPortUsed("0.0.0.0", basePort+port) ||
-			netutils2.IsTcpPortUsed("127.0.0.1", basePort+port) {
+		if netutils2.IsTcpPortUsed("0.0.0.0", basePort+port) {
 			port += 1
 		} else {
 			return basePort + port
