@@ -79,6 +79,7 @@ func init() {
 		sessions:    ansible.SessionManager{},
 		sessionsMux: &sync.Mutex{},
 	}
+	AnsiblePlaybookManager.SetVirtualObject(AnsiblePlaybookManager)
 }
 
 func (man *SAnsiblePlaybookManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
