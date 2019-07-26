@@ -15,7 +15,6 @@
 package ansible
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"io/ioutil"
@@ -59,7 +58,7 @@ type Playbook struct {
 
 	tmpdir        string
 	noCleanOnExit bool
-	stdio         *bytes.Buffer
+	outputWriter  io.Writer
 	state         pbState
 	stateMux      *sync.Mutex
 }
@@ -68,7 +67,6 @@ func NewPlaybook() *Playbook {
 	pb := &Playbook{
 		state:    pbStateInit,
 		stateMux: &sync.Mutex{},
-		stdio:    &bytes.Buffer{},
 	}
 	return pb
 }
@@ -212,21 +210,11 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 			errs = append(errs, errors.WithMessagef(err1, "run module %q, args %q", m.Name, modArgs))
 			return
 		}
-		f := func(r io.Reader) {
-			b := make([]byte, 4096)
-			for {
-				n, err := r.Read(b)
-				if n > 0 {
-					// Mix stdout, stderr
-					pb.stdio.Write(b[:n])
-				}
-				if err != nil {
-					return
-				}
-			}
+		// Mix stdout, stderr
+		if pb.outputWriter != nil {
+			go io.Copy(pb.outputWriter, stdout)
+			go io.Copy(pb.outputWriter, stderr)
 		}
-		go f(stdout)
-		go f(stderr)
 		if err1 := cmd.Wait(); err1 != nil {
 			errs = append(errs, errors.WithMessagef(err1, "wait module %q, args %q", m.Name, modArgs))
 			// continue to next
@@ -235,10 +223,6 @@ func (pb *Playbook) Run(ctx context.Context) (err error) {
 	return nil
 }
 
-// Output returns the stdio output of the playbook
-func (pb *Playbook) Output() []byte {
-	if pb.stdio != nil {
-		return pb.stdio.Bytes()
-	}
-	return nil
+func (pb *Playbook) OutputWriter(w io.Writer) {
+	pb.outputWriter = w
 }

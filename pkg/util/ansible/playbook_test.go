@@ -15,6 +15,7 @@
 package ansible
 
 import (
+	"bytes"
 	"context"
 	"os/exec"
 	"reflect"
@@ -73,8 +74,10 @@ func TestPlaybook(t *testing.T) {
 		}
 	})
 	t.Run("run", func(t *testing.T) {
+		b := &bytes.Buffer{}
+		pb.OutputWriter(b)
 		err := pb.Run(context.TODO())
-		t.Logf("%s", pb.Output())
+		t.Logf("%s", b.String())
 		if err != nil {
 			t.Fatalf("not expecting err: %v", err)
 		}
