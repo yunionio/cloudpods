@@ -170,6 +170,7 @@ func (self *SRegion) fetchIVpcs() error {
 			RegionId:  self.RegionId,
 			Status:    *vpc.State,
 			VpcId:     *vpc.VpcId,
+			InstanceTenancy: *vpc.InstanceTenancy,
 		})
 	}
 
