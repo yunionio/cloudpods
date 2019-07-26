@@ -107,3 +107,18 @@ func NewNovaServerManager(regionId, projectId string, signer auth.Signer, debug 
 		ResourceKeyword: "servers",
 	}}
 }
+
+// 重装弹性云服务器操作系统（安装Cloud-init）,请用这个manager
+func NewServerV2Manager(regionId, projectId string, signer auth.Signer, debug bool) *SServerManager {
+	return &SServerManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
+		ServiceName:   ServiceNameECS,
+		Region:        regionId,
+		ProjectId:     projectId,
+		version:       "v2",
+		Keyword:       "server",
+		KeywordPlural: "servers",
+
+		ResourceKeyword: "cloudservers",
+	}}
+}
