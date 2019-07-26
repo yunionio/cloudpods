@@ -16,6 +16,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -362,7 +363,10 @@ func (lbb *SLoadbalancerBackend) getVpc(ctx context.Context) (*SVpc, error) {
 	}
 	guestM, err := GuestManager.FetchById(lbb.BackendId)
 	if err != nil {
-		theLbbJanitor.Signal()
+		if err == sql.ErrNoRows {
+			theLbbJanitor.Signal()
+			return nil, nil
+		}
 		return nil, errors.WithMessagef(err, "find guest %s", lbb.BackendId)
 	}
 	guest := guestM.(*SGuest)
