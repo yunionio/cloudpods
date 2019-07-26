@@ -50,6 +50,7 @@ type Client struct {
 	SecurityGroups     *modules.SSecurityGroupManager
 	NovaSecurityGroups *modules.SSecurityGroupManager
 	Servers            *modules.SServerManager
+	ServersV2          *modules.SServerManager
 	NovaServers        *modules.SServerManager
 	Snapshots          *modules.SSnapshotManager
 	OsSnapshots        *modules.SSnapshotManager
@@ -97,6 +98,7 @@ func (self *Client) InitWithAccessKey(regionId, projectId, accessKey, secretKey 
 func (self *Client) initManagers() {
 	if !self.init {
 		self.Servers = modules.NewServerManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.ServersV2 = modules.NewServerV2Manager(self.regionId, self.projectId, self.signer, self.debug)
 		self.NovaServers = modules.NewNovaServerManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Snapshots = modules.NewSnapshotManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.OsSnapshots = modules.NewOsSnapshotManager(self.regionId, self.projectId, self.signer, self.debug)

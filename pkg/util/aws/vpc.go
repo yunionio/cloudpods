@@ -24,6 +24,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/secrules"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -40,13 +41,14 @@ type SVpc struct {
 	iwires    []cloudprovider.ICloudWire
 	secgroups []cloudprovider.ICloudSecurityGroup
 
-	RegionId  string
-	VpcId     string
-	VpcName   string
-	CidrBlock string
-	IsDefault bool
-	Status    string
-	Tags      map[string]string // 名称、描述等
+	RegionId        string
+	VpcId           string
+	VpcName         string
+	CidrBlock       string
+	IsDefault       bool
+	Status          string
+	InstanceTenancy string
+	Tags            map[string]string // 名称、描述等
 }
 
 func (self *SVpc) addWire(wire *SWire) {
@@ -72,6 +74,10 @@ func (self *SVpc) GetGlobalId() string {
 }
 
 func (self *SVpc) GetStatus() string {
+	// 目前不支持专用主机
+	if self.InstanceTenancy == "dedicated" {
+		return api.VPC_STATUS_UNAVAILABLE
+	}
 	return strings.ToLower(self.Status)
 }
 
@@ -321,12 +327,13 @@ func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int
 		vpcs = append(vpcs, SVpc{
 			region: self,
 			// secgroups: nil,
-			RegionId:  self.RegionId,
-			VpcId:     *item.VpcId,
-			VpcName:   *item.VpcId,
-			CidrBlock: *item.CidrBlock,
-			IsDefault: *item.IsDefault,
-			Status:    *item.State,
+			RegionId:        self.RegionId,
+			VpcId:           *item.VpcId,
+			VpcName:         *item.VpcId,
+			CidrBlock:       *item.CidrBlock,
+			IsDefault:       *item.IsDefault,
+			Status:          *item.State,
+			InstanceTenancy: *item.InstanceTenancy,
 			// Tags:      *item.Tags,
 		})
 	}

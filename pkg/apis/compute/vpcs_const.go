@@ -17,6 +17,7 @@ package compute
 const (
 	VPC_STATUS_PENDING       = "pending"
 	VPC_STATUS_AVAILABLE     = "available"
+	VPC_STATUS_UNAVAILABLE   = "unavailable"
 	VPC_STATUS_FAILED        = "failed"
 	VPC_STATUS_START_DELETE  = "start_delete"
 	VPC_STATUS_DELETING      = "deleting"

@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/osprofile"
@@ -29,6 +31,7 @@ import (
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/util/cloudinit"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/billing"
@@ -524,13 +527,22 @@ func (self *SInstance) UpdateUserData(userData string) error {
 func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd string, publicKey string, sysSizeGB int) (string, error) {
 	var err error
 	var jobId string
+
+	publicKeyName := ""
+	if len(publicKey) > 0 {
+		publicKeyName, err = self.host.zone.region.syncKeypair(publicKey)
+		if err != nil {
+			return "", err
+		}
+	}
+
 	if self.Metadata.MeteringImageID == imageId {
-		jobId, err = self.host.zone.region.RebuildRoot(ctx, self.GetId(), passwd, publicKey)
+		jobId, err = self.host.zone.region.RebuildRoot(ctx, self.UserID, self.GetId(), passwd, publicKeyName, self.OSEXTSRVATTRUserData)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		jobId, err = self.host.zone.region.ChangeRoot(ctx, self.GetId(), imageId, passwd, publicKey)
+		jobId, err = self.host.zone.region.ChangeRoot(ctx, self.UserID, self.GetId(), imageId, passwd, publicKeyName, self.OSEXTSRVATTRUserData)
 		if err != nil {
 			return "", err
 		}
@@ -738,7 +750,6 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	params.ImageRef = imageId
 	params.KeyName = keypair
 	params.AdminPass = passwd
-	params.UserData = userData
 	params.Description = desc
 	params.Count = 1
 	params.Nics = []NIC{{SubnetID: SubnetId, IpAddress: ipAddr}}
@@ -774,6 +785,14 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	} else {
 		params.Extendparam.ChargingMode = POST_PAID
 	}
+
+	// https://support.huaweicloud.com/api-ecs/zh-cn_topic_0020212668.html#ZH-CN_TOPIC_0020212668__table761103195216
+	udata, err := updateUserData(userData, "root", params.AdminPass)
+	if err != nil {
+		return "", errors.Wrap(err, "region.CreateInstance.UpdateUserData")
+	}
+
+	params.UserData = udata
 
 	serverObj := jsonutils.Marshal(params)
 	createParams := jsonutils.NewDict()
@@ -991,11 +1010,21 @@ func (self *SRegion) UpdateVM(instanceId, name string) error {
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876349.html
 // 返回job id
-func (self *SRegion) RebuildRoot(ctx context.Context, instanceId, passwd, publicKeyName string) (string, error) {
+func (self *SRegion) RebuildRoot(ctx context.Context, userId, instanceId, passwd, publicKeyName, userData string) (string, error) {
 	params := jsonutils.NewDict()
 	reinstallObj := jsonutils.NewDict()
-	// meta := jsonutils.NewDict()
-	// meta.Add(jsonutils.NewString(""), "user_data")
+
+	if len(userData) > 0 {
+		udata, err := updateUserData(userData, "root", passwd)
+		if err != nil {
+			return "", errors.Wrap(err, "region.RebuildRoot.UpdateUserData")
+		}
+
+		meta := jsonutils.NewDict()
+		meta.Add(jsonutils.NewString(udata), "user_data")
+		reinstallObj.Add(meta, "metadata")
+	}
+
 	if len(passwd) > 0 {
 		reinstallObj.Add(jsonutils.NewString(passwd), "adminpass")
 	} else if len(publicKeyName) > 0 {
@@ -1004,8 +1033,12 @@ func (self *SRegion) RebuildRoot(ctx context.Context, instanceId, passwd, public
 		return "", fmt.Errorf("both password and publicKey are empty.")
 	}
 
+	if len(userId) > 0 {
+		reinstallObj.Add(jsonutils.NewString(userId), "userid")
+	}
+
 	params.Add(reinstallObj, "os-reinstall")
-	ret, err := self.ecsClient.Servers.PerformAction2("reinstallos", instanceId, params, "")
+	ret, err := self.ecsClient.ServersV2.PerformAction2("reinstallos", instanceId, params, "")
 	if err != nil {
 		return "", err
 	}
@@ -1015,11 +1048,20 @@ func (self *SRegion) RebuildRoot(ctx context.Context, instanceId, passwd, public
 
 // https://support.huaweicloud.com/api-ecs/zh-cn_topic_0067876971.html
 // 返回job id
-func (self *SRegion) ChangeRoot(ctx context.Context, instanceId, imageId, passwd, publicKeyName string) (string, error) {
+func (self *SRegion) ChangeRoot(ctx context.Context, userId, instanceId, imageId, passwd, publicKeyName, userData string) (string, error) {
 	params := jsonutils.NewDict()
 	changeOsObj := jsonutils.NewDict()
-	// meta := jsonutils.NewDict()
-	// meta.Add(jsonutils.NewString(""), "user_data")
+	if len(userData) > 0 {
+		udata, err := updateUserData(userData, "root", passwd)
+		if err != nil {
+			return "", errors.Wrap(err, "region.ChangeRoot.UpdateUserData")
+		}
+
+		meta := jsonutils.NewDict()
+		meta.Add(jsonutils.NewString(udata), "user_data")
+		changeOsObj.Add(meta, "metadata")
+	}
+
 	if len(passwd) > 0 {
 		changeOsObj.Add(jsonutils.NewString(passwd), "adminpass")
 	} else if len(publicKeyName) > 0 {
@@ -1028,10 +1070,14 @@ func (self *SRegion) ChangeRoot(ctx context.Context, instanceId, imageId, passwd
 		return "", fmt.Errorf("both password and publicKey are empty.")
 	}
 
+	if len(userId) > 0 {
+		changeOsObj.Add(jsonutils.NewString(userId), "userid")
+	}
+
 	changeOsObj.Add(jsonutils.NewString(imageId), "imageid")
 	params.Add(changeOsObj, "os-change")
 
-	ret, err := self.ecsClient.Servers.PerformAction2("changeos", instanceId, params, "")
+	ret, err := self.ecsClient.ServersV2.PerformAction2("changeos", instanceId, params, "")
 	if err != nil {
 		return "", err
 	}
@@ -1234,4 +1280,19 @@ func (self *SInstance) GetProjectId() string {
 
 func (self *SInstance) GetError() error {
 	return nil
+}
+
+func updateUserData(userData, username, password string) (string, error) {
+	config, err := cloudinit.ParseUserDataBase64(userData)
+	if err != nil {
+		return "", fmt.Errorf("invalid userdata %s", userData)
+	}
+
+	if len(password) > 0 {
+		user := cloudinit.NewUser(username)
+		user.Password(password)
+		config.MergeUser(user)
+	}
+
+	return config.UserDataBase64(), nil
 }
