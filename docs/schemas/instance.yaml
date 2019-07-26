@@ -626,8 +626,13 @@ InstanceCreate:
     resource_type:
       type: string
       example: shared
-      enum: [shared,prepaid,dedicated]
-      description: TODO
+      enum: [shared,dedicated,prepaid]
+      description: |
+        指定实例的宿主机资源共享类型
+
+         - shared，共享型实例
+         - dedicated，专属实例
+         - prepared，从预付费资源池创建
     schedtag:
       type: array
       items:

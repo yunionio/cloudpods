@@ -490,7 +490,13 @@ LoadbalancerAgentParamsVrrp:
       example: eth0
     garp_master_refresh:
       type: integer
-      description: TODO
+      description: |
+        MASTER状态时发送免费ARP通告的最小间隔
+        
+        单位秒，默认值27，为0时表示不发送通告
+      unit: seconds
+      mininum: 0
+      example: 27
     pass:
       type: string
       description: VRRP通告共享密码
