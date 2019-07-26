@@ -178,6 +178,19 @@ func (manager *SUserManager) initSysUser() error {
 		return errors.Wrap(err, "query")
 	}
 	if cnt == 1 {
+		// if ResetAdminUserPassword is true, reset sysadmin password
+		if options.Options.ResetAdminUserPassword {
+			usr := SUser{}
+			usr.SetModelManager(manager, &usr)
+			err = q.First(&usr)
+			if err != nil {
+				return errors.Wrap(err, "ResetAdminUserPassword Query user")
+			}
+			err = usr.initLocalData(options.Options.BootstrapAdminUserPassword)
+			if err != nil {
+				return errors.Wrap(err, "initLocalData")
+			}
+		}
 		return nil
 	}
 	if cnt > 2 {
