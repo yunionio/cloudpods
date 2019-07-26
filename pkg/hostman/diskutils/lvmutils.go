@@ -53,28 +53,22 @@ func (s *SLVMImageConnectUniqueToolSet) CacheNonLvmImagePath(imagePath string) {
 	s.lock.Lock()
 	s.nonLvms[imagePath] = struct{}{}
 	s.lock.Unlock()
-	s.Release(imagePath)
 }
 
 func (s *SLVMImageConnectUniqueToolSet) GetPathType(imagePath string) int {
+	if _, ok := s.nonLvms[imagePath]; ok {
+		return NON_LVM_PATH
+	}
 	if _, ok := s.lvms[imagePath]; ok {
 		return LVM_PATH
-	} else if _, ok := s.nonLvms[imagePath]; ok {
-		return NON_LVM_PATH
-	} else {
-		return PATH_TYPE_UNKNOWN
 	}
+	return PATH_TYPE_UNKNOWN
 }
 
 func (s *SLVMImageConnectUniqueToolSet) Release(imagePath string) {
 	if _, ok := s.lvms[imagePath]; ok {
 		s.lvms[imagePath].Unlock()
 	}
-	s.lock.Lock()
-	if _, ok := s.nonLvms[imagePath]; ok {
-		delete(s.lvms, imagePath)
-	}
-	s.lock.Unlock()
 }
 
 func (s *SLVMImageConnectUniqueToolSet) Acquire(imagePath string) {
