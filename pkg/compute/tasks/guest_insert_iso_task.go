@@ -41,15 +41,12 @@ func (self *GuestInsertIsoTask) prepareIsoImage(ctx context.Context, obj db.ISta
 	guest := obj.(*models.SGuest)
 	imageId, _ := self.Params.GetString("image_id")
 	db.OpsLog.LogEvent(obj, db.ACT_ISO_PREPARING, imageId, self.UserCred)
-	var host *models.SHost
-	if self.Params.Contains("host_id") {
-		hostId, _ := self.Params.GetString("host_id")
-		iHost, _ := models.HostManager.FetchById(hostId)
-		host = iHost.(*models.SHost)
-	} else {
-		host = guest.GetHost()
-	}
-	storageCache := host.GetLocalStoragecache()
+
+	disks := guest.GetDisks()
+	disk := disks[0].GetDisk()
+	storage := disk.GetStorage()
+	storageCache := storage.GetStoragecache()
+
 	if storageCache != nil {
 		self.SetStage("OnIsoPrepareComplete", nil)
 		storageCache.StartImageCacheTask(ctx, self.UserCred, imageId, "iso", false, self.GetTaskId())
