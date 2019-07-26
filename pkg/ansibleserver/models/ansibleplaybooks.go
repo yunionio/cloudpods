@@ -54,7 +54,7 @@ type SAnsiblePlaybook struct {
 	db.SVirtualResourceBase
 
 	Playbook  *ansible.Playbook `nullable:"false" create:"required" get:"user" update:"user"`
-	Output    string            `get:"user"`
+	Output    string            `length:"medium" get:"user"`
 	StartTime time.Time         `list:"user"`
 	EndTime   time.Time         `list:"user"`
 }
@@ -253,7 +253,7 @@ func (apb *SAnsiblePlaybook) runPlaybook(ctx context.Context, userCred mcclient.
 			apb.EndTime = time.Now()
 			// truncate to preserve the tail
 			output := pb.Output()
-			textMax := 64*1024 - 1
+			textMax := 64*1024*1024 - 1
 			if len(output) > textMax {
 				output = output[len(output)-textMax:]
 			}
