@@ -4280,12 +4280,17 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	if genInput.ResourceType != "" {
 		userInput.ResourceType = genInput.ResourceType
 	}
+	if genInput.InstanceType != "" {
+		userInput.InstanceType = genInput.InstanceType
+	}
 	if genInput.PreferRegion != "" {
 		userInput.PreferRegion = genInput.PreferRegion
 	}
 	if genInput.PreferZone != "" {
 		userInput.PreferZone = genInput.PreferZone
 	}
+	// clean GenerateName
+	userInput.GenerateName = ""
 	return userInput
 }
 
