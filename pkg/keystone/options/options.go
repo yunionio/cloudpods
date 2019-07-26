@@ -31,6 +31,7 @@ type SKeystoneOptions struct {
 	// SetupStateKey          bool   `help:"setup standalone fernet keys for openid state" token:"setup_state_key"`
 
 	BootstrapAdminUserPassword string `help:"bootstreap sysadmin user password" default:"sysadmin"`
+	ResetAdminUserPassword     bool   `help:"reset sysadmin password if exists and this option is true"`
 
 	AutoSyncIntervalSeconds int `help:"frequency to check auto sync tasks" default:"30"`
 
