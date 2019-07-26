@@ -44,14 +44,12 @@ var PRIVATE_PREFIXES = []string{
 }
 
 func IsTcpPortUsed(addr string, port int) bool {
-	conn, _ := net.Dial("tcp", fmt.Sprintf("%s:%d", addr, port))
-	if conn != nil {
-		conn.Close()
-		log.Infof("Tcp port in use: %s %d", addr, port)
+	server, err := net.Listen("tcp", fmt.Sprintf("%s:%d", addr, port))
+	if err != nil {
 		return true
-	} else {
-		return false
 	}
+	server.Close()
+	return false
 }
 
 // MyIP returns source ip used to communicate with udp:114.114.114.114:53
