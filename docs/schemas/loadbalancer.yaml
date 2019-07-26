@@ -362,7 +362,7 @@ LoadbalancerAgent:
      - 同zone不同cluster中的lbagent
        - vrrp virtual_router_id必须不同
      - 创建时，若不满足以上条件，则创建失败
-     - 更新参数时（params-patch），同时更新同cluster的peer lbagents
+     - 更新参数时（`params-patch`），同时更新同cluster的peer lbagents
 
   properties:
     id:
