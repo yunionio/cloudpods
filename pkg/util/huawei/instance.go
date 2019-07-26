@@ -1038,7 +1038,7 @@ func (self *SRegion) RebuildRoot(ctx context.Context, userId, instanceId, passwd
 	}
 
 	params.Add(reinstallObj, "os-reinstall")
-	ret, err := self.ecsClient.Servers.PerformAction2("reinstallos", instanceId, params, "")
+	ret, err := self.ecsClient.ServersV2.PerformAction2("reinstallos", instanceId, params, "")
 	if err != nil {
 		return "", err
 	}
@@ -1077,7 +1077,7 @@ func (self *SRegion) ChangeRoot(ctx context.Context, userId, instanceId, imageId
 	changeOsObj.Add(jsonutils.NewString(imageId), "imageid")
 	params.Add(changeOsObj, "os-change")
 
-	ret, err := self.ecsClient.Servers.PerformAction2("changeos", instanceId, params, "")
+	ret, err := self.ecsClient.ServersV2.PerformAction2("changeos", instanceId, params, "")
 	if err != nil {
 		return "", err
 	}
