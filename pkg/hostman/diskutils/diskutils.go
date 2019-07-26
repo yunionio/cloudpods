@@ -44,10 +44,11 @@ func init() {
 }
 
 type SKVMGuestDisk struct {
-	imagePath  string
-	nbdDev     string
-	partitions []*guestfs.SKVMGuestDiskPartition
-	lvms       []*SKVMGuestLVMPartition
+	imagePath   string
+	nbdDev      string
+	partitions  []*guestfs.SKVMGuestDiskPartition
+	lvms        []*SKVMGuestLVMPartition
+	acquiredLvm bool
 
 	imageRootBackFilePath string
 }
@@ -208,6 +209,7 @@ func (d *SKVMGuestDisk) connectionPrecheck() int {
 	pathType := lvmTool.GetPathType(d.rootImagePath())
 	if pathType == LVM_PATH || pathType == PATH_TYPE_UNKNOWN {
 		lvmTool.Acquire(d.rootImagePath())
+		d.acquiredLvm = true
 	}
 	return pathType
 }
@@ -219,7 +221,7 @@ func (d *SKVMGuestDisk) LvmDisconnectNotify() {
 		}
 	}()
 	pathType := lvmTool.GetPathType(d.rootImagePath())
-	if pathType != NON_LVM_PATH {
+	if d.acquiredLvm || pathType != NON_LVM_PATH {
 		lvmTool.Release(d.rootImagePath())
 	}
 }
