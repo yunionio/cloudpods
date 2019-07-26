@@ -9,12 +9,12 @@ post:
      - `pass`，密码
      - `proj`，项目名，一般情况下该值应当为`system`
 
-    当`deploy_method`为`yum`时，需要同时指定yum源相关的言火日王
+    当`deploy_method`为`yum`时，需要同时指定yum源相关的变量
 
      - `repo_base_url`，一般情况下该值应当为`https://controller-host-ip/yumrepo`
-     - `repo_sslverify`，默认为0，表示不校验仓库tls证书
-       
-       若`repo_base_url`使用https，且使用自签名证书时一般情况下应当关闭tls证书校验
+     - `repo_sslverify`，默认为0，表示访问仓库时不校验tls证书
+     
+       若`repo_base_url`使用https，且使用自签名证书时，一般应当关闭tls证书校验
 
     该操作依赖ansibleserver执行具体的部署任务。对应的ansibleplaybook任务id记录在deployment.ansibleplaybook，可通过这个ID获得部署执行的结果
   parameters:

@@ -362,7 +362,7 @@ LoadbalancerAgent:
      - 同zone不同cluster中的lbagent
        - vrrp virtual_router_id必须不同
      - 创建时，若不满足以上条件，则创建失败
-     - 更新参数时（params-patch），同时更新同cluster的peer lbagents
+     - 更新参数时（`params-patch`），同时更新同cluster的peer lbagents
 
   properties:
     id:
@@ -490,7 +490,13 @@ LoadbalancerAgentParamsVrrp:
       example: eth0
     garp_master_refresh:
       type: integer
-      description: TODO
+      description: |
+        MASTER状态时发送免费ARP通告的最小间隔
+        
+        单位秒，默认值27，为0时表示不发送通告
+      unit: seconds
+      mininum: 0
+      example: 27
     pass:
       type: string
       description: VRRP通告共享密码
