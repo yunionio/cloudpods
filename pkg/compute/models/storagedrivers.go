@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -27,6 +28,9 @@ type IStorageDriver interface {
 	GetStorageType() string
 
 	ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
+	ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, storage *SStorage) (*jsonutils.JSONDict, error)
+
+	DoStorageUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage, task taskman.ITask) error
 
 	PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage, data jsonutils.JSONObject)
 }

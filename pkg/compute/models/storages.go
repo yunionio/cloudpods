@@ -30,6 +30,7 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -63,7 +64,7 @@ type SStorage struct {
 
 	Capacity    int64                `nullable:"false" list:"admin" update:"admin" create:"admin_required"`                           // Column(Integer, nullable=False) # capacity of disk in MB
 	Reserved    int64                `nullable:"true" default:"0" list:"admin" update:"admin"`                                        // Column(Integer, nullable=True, default=0)
-	StorageType string               `width:"32" charset:"ascii" nullable:"false" list:"user" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False)
+	StorageType string               `width:"32" charset:"ascii" nullable:"false" list:"user" create:"admin_required"`                // Column(VARCHAR(32, charset='ascii'), nullable=False)
 	MediumType  string               `width:"32" charset:"ascii" nullable:"false" list:"user" update:"admin" create:"admin_required"` // Column(VARCHAR(32, charset='ascii'), nullable=False)
 	Cmtbound    float32              `nullable:"true" default:"1" list:"admin" update:"admin"`                                        // Column(Float, nullable=True)
 	StorageConf jsonutils.JSONObject `nullable:"true" get:"admin" update:"admin"`                                                     // = Column(JSONEncodedDict, nullable=True)
@@ -102,6 +103,14 @@ func (self *SStorage) AllowUpdateItem(ctx context.Context, userCred mcclient.Tok
 	return db.IsAdminAllowUpdate(userCred, self)
 }
 
+func (self *SStorage) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	driver := GetStorageDriver(self.StorageType)
+	if driver != nil {
+		return driver.ValidateUpdateData(ctx, userCred, data, self)
+	}
+	return nil, nil
+}
+
 func (self *SStorage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SStandaloneResourceBase.PostUpdate(ctx, userCred, query, data)
 
@@ -113,6 +122,19 @@ func (self *SStorage) PostUpdate(ctx context.Context, userCred mcclient.TokenCre
 			}
 		}
 	}
+
+	if update, _ := data.Bool("update_storage_conf"); update {
+		self.StartStorageUpdateTask(ctx, userCred)
+	}
+}
+
+func (self *SStorage) StartStorageUpdateTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "StorageUpdateTask", self, userCred, nil, "", "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SStorage) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
