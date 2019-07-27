@@ -108,15 +108,29 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		guest.SetStatus(self.UserCred, api.VM_CREATE_FAILED, err.Error())
 		return err
 	}
+
+	// allocate networks
 	err = guest.CreateNetworksOnHost(ctx, self.UserCred, host, input.Networks, &pendingUsage, candidate.Nets)
 	self.SetPendingUsage(&pendingUsage)
-
 	if err != nil {
 		log.Errorf("Network failed: %s", err)
 		guest.SetStatus(self.UserCred, api.VM_NETWORK_FAILED, err.Error())
 		return err
 	}
 
+	// allocate eips
+	if input.EipBw > 0 {
+		eip, err := models.ElasticipManager.NewEipForVMOnHost(ctx, self.UserCred, guest, host, input.EipBw, input.EipChargeType, &pendingUsage)
+		self.SetPendingUsage(&pendingUsage)
+		if err != nil {
+			log.Errorf("guest.CreateElasticipOnHost failed: %s", err)
+			guest.SetStatus(self.UserCred, api.VM_NETWORK_FAILED, err.Error())
+			return err
+		}
+		input.Eip = eip.Id
+	}
+
+	// allocate disks
 	guest.GetDriver().PrepareDiskRaidConfig(self.UserCred, host, input.BaremetalDiskConfigs)
 	var backupCandidateDisks []*schedapi.CandidateDisk
 	if candidate.BackupCandidate != nil {
@@ -132,9 +146,9 @@ func (self *GuestBatchCreateTask) allocateGuestOnHost(ctx context.Context, guest
 		return err
 	}
 
+	// allocate GPUs
 	err = guest.CreateIsolatedDeviceOnHost(ctx, self.UserCred, host, input.IsolatedDevices, &pendingUsage)
 	self.SetPendingUsage(&pendingUsage)
-
 	if err != nil {
 		log.Errorf("IsolatedDevices create failed: %s", err)
 		guest.SetStatus(self.UserCred, api.VM_DEVICE_FAILED, err.Error())
