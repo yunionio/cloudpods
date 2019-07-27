@@ -81,6 +81,8 @@ type SCloudAccountCreateBaseOptions struct {
 	EnableAutoSync    bool `help:"Enable automatically synchronize resources of this account"`
 
 	SyncIntervalSeconds int `help:"Interval to synchronize if auto sync is enable" metavar:"SECONDS"`
+
+	ProjectDomain string `help:"domain for this account, default is Default" default:"Default"`
 }
 
 type SVMwareCloudAccountCreateOptions struct {

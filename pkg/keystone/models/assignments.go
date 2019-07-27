@@ -243,6 +243,10 @@ func (manager *SAssignmentManager) fetchProjectUserIdsQuery(projId string) *sqlc
 }
 
 func (manager *SAssignmentManager) projectAddUser(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, user *SUser, role *SRole) error {
+	err := db.ValidateCreateDomainId(project.DomainId)
+	if err != nil {
+		return err
+	}
 	if project.DomainId != user.DomainId {
 		if project.DomainId != api.DEFAULT_DOMAIN_ID {
 			return httperrors.NewInputParameterError("join user into project of default domain or identical domain")
@@ -254,7 +258,7 @@ func (manager *SAssignmentManager) projectAddUser(ctx context.Context, userCred 
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
-	err := manager.add(api.AssignmentUserProject, user.Id, project.Id, role.Id)
+	err = manager.add(api.AssignmentUserProject, user.Id, project.Id, role.Id)
 	if err == nil {
 		db.OpsLog.LogEvent(user, db.ACT_ATTACH, project.GetShortDesc(ctx), userCred)
 		db.OpsLog.LogEvent(project, db.ACT_ATTACH, user.GetShortDesc(ctx), userCred)
@@ -337,6 +341,10 @@ func (manager *SAssignmentManager) projectRemoveUser(ctx context.Context, userCr
 }
 
 func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, group *SGroup, role *SRole) error {
+	err := db.ValidateCreateDomainId(project.DomainId)
+	if err != nil {
+		return err
+	}
 	if project.DomainId != group.DomainId {
 		if project.DomainId != api.DEFAULT_DOMAIN_ID {
 			return httperrors.NewInputParameterError("join group into project of default domain or identical domain")
@@ -348,7 +356,7 @@ func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred
 			return httperrors.NewForbiddenError("not enough privilege")
 		}
 	}
-	err := manager.add(api.AssignmentGroupProject, group.Id, project.Id, role.Id)
+	err = manager.add(api.AssignmentGroupProject, group.Id, project.Id, role.Id)
 	if err == nil {
 		db.OpsLog.LogEvent(group, db.ACT_ATTACH, project.GetShortDesc(ctx), userCred)
 		db.OpsLog.LogEvent(project, db.ACT_ATTACH, group.GetShortDesc(ctx), userCred)
