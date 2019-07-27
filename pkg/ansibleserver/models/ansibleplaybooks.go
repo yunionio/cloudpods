@@ -288,7 +288,7 @@ func (w *ansiblePlaybookOutputRecorder) Write(p []byte) (n int, err error) {
 		i := len(p) + len(cur) - OutputMaxBytes
 		if i > 0 {
 			// truncate to preserve the tail
-			apb.Output = cur[:len(cur)-i] + string(p)
+			apb.Output = cur[i:] + string(p)
 		} else {
 			apb.Output += string(p)
 		}
