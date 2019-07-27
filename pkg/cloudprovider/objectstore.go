@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"strings"
+
 	"yunion.io/x/pkg/errors"
 )
 
@@ -47,8 +48,8 @@ type SListObjectResult struct {
 type ICloudBucket interface {
 	IVirtualResource
 
-	GetGlobalId() string
-	GetName() string
+	//GetGlobalId() string
+	//GetName() string
 	GetAcl() string
 	GetLocation() string
 	GetIRegion() ICloudRegion

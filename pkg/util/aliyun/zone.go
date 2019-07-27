@@ -28,9 +28,10 @@ import (
 type TChargeType string
 
 const (
-	PrePaidInstanceChargeType  TChargeType = "PrePaid"
-	PostPaidInstanceChargeType TChargeType = "PostPaid"
-	DefaultInstanceChargeType              = PostPaidInstanceChargeType
+	PrePaidInstanceChargeType    TChargeType = "PrePaid"
+	PostPaidInstanceChargeType   TChargeType = "PostPaid"
+	PostPaidDBInstanceChargeType TChargeType = "Postpaid"
+	DefaultInstanceChargeType                = PostPaidInstanceChargeType
 )
 
 type SpotStrategyType string

@@ -111,6 +111,14 @@ func (self *SRegion) ecsRequest(apiName string, params map[string]string) (jsonu
 	return jsonRequest(client, "ecs.aliyuncs.com", ALIYUN_API_VERSION, apiName, params, self.client.Debug)
 }
 
+func (self *SRegion) rdsRequest(apiName string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(client, "rds.aliyuncs.com", ALIYUN_API_VERION_RDS, apiName, params, self.client.Debug)
+}
+
 func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
 	client, err := self.getSdkClient()
 	if err != nil {

@@ -41,6 +41,8 @@ type ICloudResource interface {
 }
 
 type IVirtualResource interface {
+	ICloudResource
+
 	GetProjectId() string
 }
 
@@ -115,6 +117,9 @@ type ICloudRegion interface {
 	DeleteIBucket(name string) error
 	IBucketExist(name string) (bool, error)
 	GetIBucketById(name string) (ICloudBucket, error)
+
+	GetIDBInstances() ([]ICloudDBInstance, error)
+	GetIDBInstanceBackups() ([]ICloudDBInstanceBackup, error)
 
 	GetProvider() string
 }
@@ -222,7 +227,6 @@ type ICloudHost interface {
 }
 
 type ICloudVM interface {
-	ICloudResource
 	IBillingResource
 	IVirtualResource
 
@@ -291,7 +295,6 @@ type ICloudNic interface {
 }
 
 type ICloudEIP interface {
-	ICloudResource
 	IBillingResource
 	IVirtualResource
 
@@ -315,7 +318,6 @@ type ICloudEIP interface {
 
 type ICloudSecurityGroup interface {
 	ICloudResource
-	IVirtualResource
 
 	GetDescription() string
 	GetRules() ([]secrules.SecurityRule, error)
@@ -340,7 +342,6 @@ type ICloudRoute interface {
 }
 
 type ICloudDisk interface {
-	ICloudResource
 	IBillingResource
 	IVirtualResource
 
@@ -377,7 +378,6 @@ type ICloudDisk interface {
 }
 
 type ICloudSnapshot interface {
-	ICloudResource
 	IVirtualResource
 
 	GetSize() int32
@@ -387,7 +387,6 @@ type ICloudSnapshot interface {
 }
 
 type ICloudSnapshotPolicy interface {
-	ICloudResource
 	IVirtualResource
 
 	GetRetentionDays() int
@@ -425,7 +424,6 @@ type ICloudWire interface {
 }
 
 type ICloudNetwork interface {
-	ICloudResource
 	IVirtualResource
 
 	GetIWire() ICloudWire
@@ -455,7 +453,6 @@ type ICloudHostNetInterface interface {
 }
 
 type ICloudLoadbalancer interface {
-	ICloudResource
 	IVirtualResource
 
 	GetAddress() string
@@ -486,7 +483,6 @@ type ICloudLoadbalancer interface {
 }
 
 type ICloudLoadbalancerListener interface {
-	ICloudResource
 	IVirtualResource
 
 	GetListenerType() string
@@ -538,7 +534,6 @@ type ICloudLoadbalancerListener interface {
 }
 
 type ICloudLoadbalancerListenerRule interface {
-	ICloudResource
 	IVirtualResource
 
 	GetDomain() string
@@ -549,7 +544,6 @@ type ICloudLoadbalancerListenerRule interface {
 }
 
 type ICloudLoadbalancerBackendGroup interface {
-	ICloudResource
 	IVirtualResource
 
 	IsDefault() bool
@@ -564,7 +558,6 @@ type ICloudLoadbalancerBackendGroup interface {
 }
 
 type ICloudLoadbalancerBackend interface {
-	ICloudResource
 	IVirtualResource
 
 	GetWeight() int
@@ -576,7 +569,6 @@ type ICloudLoadbalancerBackend interface {
 }
 
 type ICloudLoadbalancerCertificate interface {
-	ICloudResource
 	IVirtualResource
 
 	Sync(name, privateKey, publickKey string) error
@@ -589,7 +581,6 @@ type ICloudLoadbalancerCertificate interface {
 }
 
 type ICloudLoadbalancerAcl interface {
-	ICloudResource
 	IVirtualResource
 
 	GetAclEntries() []SLoadbalancerAccessControlListEntry
@@ -699,4 +690,70 @@ type ICloudInterfaceAddress interface {
 	GetINetworkId() string
 	GetIP() string
 	IsPrimary() bool
+}
+
+type ICloudDBInstance interface {
+	IVirtualResource
+	IBillingResource
+
+	GetPort() int
+	GetEngine() string
+	GetEngineVersion() string
+	//实例规格
+	GetInstanceType() string
+
+	GetVcpuCount() int
+	GetVmemSizeMB() int //MB
+	GetDiskSizeGB() int
+	//基础版、高可用？
+	GetCategory() string
+
+	GetMaintainTime() string
+
+	GetConnectionStr() string
+	GetInternalConnectionStr() string
+	GetIZoneId() string
+	GetIVpcId() string
+
+	GetDBNetwork() (*SDBInstanceNetwork, error)
+	GetIDBInstanceParameters() ([]ICloudDBInstanceParameter, error)
+	GetIDBInstanceDatabases() ([]ICloudDBInstanceDatabase, error)
+	GetIDBInstanceAccounts() ([]ICloudDBInstanceAccount, error)
+}
+
+type ICloudDBInstanceParameter interface {
+	GetGlobalId() string
+	GetKey() string
+	GetValue() string
+	GetDescription() string
+}
+
+type ICloudDBInstanceBackup interface {
+	ICloudResource
+
+	GetDBInstanceId() string
+	GetStartTime() time.Time
+	GetEndTime() time.Time
+	GetBackupSizeMb() int
+	GetDBNames() string
+	GetBackupMode() string
+}
+
+type ICloudDBInstanceDatabase interface {
+	ICloudResource
+
+	GetCharacterSet() string
+}
+
+type ICloudDBInstanceAccount interface {
+	ICloudResource
+
+	GetIDBInstanceAccountPrivileges() ([]ICloudDBInstanceAccountPrivilege, error)
+}
+
+type ICloudDBInstanceAccountPrivilege interface {
+	GetGlobalId() string
+
+	GetPrivilege() string
+	GetDBName() string
 }

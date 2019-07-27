@@ -43,6 +43,7 @@ const (
 	ALIYUN_BSS_API_VERSION = "2017-12-14"
 
 	ALIYUN_RAM_API_VERSION = "2015-05-01"
+	ALIYUN_API_VERION_RDS  = "2014-08-15"
 )
 
 type SAliyunClient struct {

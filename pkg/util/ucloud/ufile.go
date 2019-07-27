@@ -25,14 +25,18 @@ import (
 	"strconv"
 	"time"
 
+	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
+
 	"yunion.io/x/log"
 
 	"context"
+
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SBucket struct {
+	objectstore.SBucket
 	region *SRegion
 
 	projectId string
