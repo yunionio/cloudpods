@@ -36,30 +36,42 @@ func init() {
 	taskman.RegisterTask(EipDissociateTask{})
 }
 
-func (self *EipDissociateTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg string, vm *models.SGuest) {
+func (self *EipDissociateTask) TaskFail(ctx context.Context, eip *models.SElasticip, msg string, model db.IModel) {
 	eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, msg)
 	self.SetStageFailed(ctx, msg)
-	if vm != nil {
-		vm.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg)
-		db.OpsLog.LogEvent(vm, db.ACT_EIP_DETACH, msg, self.GetUserCred())
-		logclient.AddActionLogWithStartable(self, vm, logclient.ACT_EIP_DISSOCIATE, msg, self.UserCred, false)
+	if model != nil {
+		switch srv := model.(type) {
+		case *models.SGuest:
+			srv.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP_FAILED, msg)
+		}
+		db.OpsLog.LogEvent(model, db.ACT_EIP_DETACH, msg, self.GetUserCred())
+		logclient.AddActionLogWithStartable(self, model, logclient.ACT_EIP_DISSOCIATE, msg, self.UserCred, false)
 	}
 }
 
 func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	eip := obj.(*models.SElasticip)
 
-	server := eip.GetAssociateVM()
-	if server != nil {
+	if eip.IsAssociated() {
 
-		if server.Status != api.VM_DISSOCIATE_EIP {
-			server.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP, "dissociate eip")
+		var model db.IModel
+
+		if server := eip.GetAssociateVM(); server != nil {
+			if server.Status != api.VM_DISSOCIATE_EIP {
+				server.SetStatus(self.UserCred, api.VM_DISSOCIATE_EIP, "dissociate eip")
+			}
+			model = server
+		} else if lb := eip.GetAssociateLoadbalancer(); lb != nil {
+			model = lb
+		} else {
+			self.TaskFail(ctx, eip, "unsupported associate type", nil)
+			return
 		}
 
 		extEip, err := eip.GetIEip()
 		if err != nil && err != cloudprovider.ErrNotFound {
 			msg := fmt.Sprintf("fail to find iEIP for eip %s", err)
-			self.TaskFail(ctx, eip, msg, server)
+			self.TaskFail(ctx, eip, msg, model)
 			return
 		}
 
@@ -67,7 +79,7 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 			err = extEip.Dissociate()
 			if err != nil {
 				msg := fmt.Sprintf("fail to remote dissociate eip %s", err)
-				self.TaskFail(ctx, eip, msg, server)
+				self.TaskFail(ctx, eip, msg, model)
 				return
 			}
 		}
@@ -75,14 +87,18 @@ func (self *EipDissociateTask) OnInit(ctx context.Context, obj db.IStandaloneMod
 		err = eip.Dissociate(ctx, self.UserCred)
 		if err != nil {
 			msg := fmt.Sprintf("fail to local dissociate eip %s", err)
-			self.TaskFail(ctx, eip, msg, server)
+			self.TaskFail(ctx, eip, msg, model)
 			return
 		}
 
 		eip.SetStatus(self.UserCred, api.EIP_STATUS_READY, "dissociate")
 
-		logclient.AddActionLogWithStartable(self, server, logclient.ACT_EIP_DISSOCIATE, nil, self.UserCred, true)
-		server.StartSyncstatus(ctx, self.UserCred, "")
+		logclient.AddActionLogWithStartable(self, model, logclient.ACT_EIP_DISSOCIATE, nil, self.UserCred, true)
+
+		switch srv := model.(type) {
+		case *models.SGuest:
+			srv.StartSyncstatus(ctx, self.UserCred, "")
+		}
 	}
 
 	self.SetStageComplete(ctx, nil)

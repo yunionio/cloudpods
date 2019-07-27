@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -27,9 +25,9 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/util/logclient"
-	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type EipAllocateTask struct {
@@ -41,7 +39,6 @@ func init() {
 }
 
 func (self *EipAllocateTask) onFailed(ctx context.Context, eip *models.SElasticip, reason string) {
-	self.finalReleasePendingUsage(ctx, eip)
 	self.setGuestAllocateEipFailed(eip, reason)
 	self.SetStageFailed(ctx, reason)
 }
@@ -60,16 +57,6 @@ func (self *EipAllocateTask) setGuestAllocateEipFailed(eip *models.SElasticip, r
 		}
 		guest := instance.(*models.SGuest)
 		guest.SetStatus(self.UserCred, api.VM_ASSOCIATE_EIP_FAILED, reason)
-	}
-}
-
-func (self *EipAllocateTask) finalReleasePendingUsage(ctx context.Context, eip *models.SElasticip) {
-	pendingUsage := models.SQuota{}
-	if err := self.GetPendingUsage(&pendingUsage); err == nil && !pendingUsage.IsEmpty() {
-		quotaPlatform := eip.GetQuotaPlatformID()
-		if err := models.QuotaManager.CancelPendingUsage(ctx, self.UserCred, rbacutils.ScopeProject, self.UserCred, quotaPlatform, nil, &pendingUsage); err != nil {
-			log.Errorf("CancelPendingUsage error: %v", err)
-		}
 	}
 }
 
@@ -144,8 +131,6 @@ func (self *EipAllocateTask) OnInit(ctx context.Context, obj db.IStandaloneModel
 		self.onFailed(ctx, eip, msg)
 		return
 	}
-
-	self.finalReleasePendingUsage(ctx, eip)
 
 	if self.Params != nil && self.Params.Contains("instance_id") {
 		self.SetStage("on_eip_associate_complete", nil)
