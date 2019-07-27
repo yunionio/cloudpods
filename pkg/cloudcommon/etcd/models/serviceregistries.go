@@ -52,6 +52,7 @@ func init() {
 			"service-registries",
 		),
 	}
+	ServiceRegistryManager.SetVirtualObject(ServiceRegistryManager)
 }
 
 func (manager *SServiceRegistryManager) Register(ctx context.Context, addr string, port int,
