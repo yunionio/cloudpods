@@ -17,13 +17,13 @@ package db
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
-	"log"
-	"time"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -57,9 +57,13 @@ func NewModelBaseManager(model interface{}, tableName string, keyword string, ke
 func (manager *SModelBaseManager) GetIModelManager() IModelManager {
 	virt := manager.GetVirtualObject()
 	if virt == nil {
-		log.Fatalf("%s.GetIModelManager got nil!", manager.keywordPlural)
+		panic(fmt.Sprintf("Forgot to call SetVirtualObject?"))
 	}
-	return virt.(IModelManager)
+	r, ok := virt.(IModelManager)
+	if !ok {
+		panic(fmt.Sprintf("Cannot convert virtual object to IModelManager: %#v", virt))
+	}
+	return r
 }
 
 func (manager *SModelBaseManager) SetAlias(alias string, aliasPlural string) {
