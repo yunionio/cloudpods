@@ -11,7 +11,7 @@ swagger文档，https://swagger.io/docs/specification/2-0/basic-structure/
 1. 首先启动swagger-ui
 
     sudo docker pull swaggerapi/swagger-ui
-    sudo docker run -p 80:8080 swaggerapi/swagger-ui
+    sudo docker run -d -p 80:8080 swaggerapi/swagger-ui
 
 2. 用python启动本地的http server，这是允许CORS的SimpleHTTPServer，监听在8000端口
 
