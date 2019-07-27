@@ -53,34 +53,23 @@ func init() {
 	})
 
 	type StorageUpdateOptions struct {
-		ID          string  `help:"ID or Name of storage to update"`
-		Name        string  `help:"New Name of storage"`
-		Desc        string  `help:"Description" metavar:"<DESCRIPTION>"`
-		CommitBound float64 `help:"Upper bound of storage overcommit rate"`
-		StorageType string  `help:"Storage type" choices:"local|nas|vsan|rbd|baremetal"`
-		MediumType  string  `help:"Medium type, either ssd or rotate" choices:"ssd|rotate"`
-		Reserved    string  `help:"Reserved storage space"`
+		ID                    string  `help:"ID or Name of storage to update"`
+		Name                  string  `help:"New Name of storage"`
+		Desc                  string  `help:"Description"`
+		CommitBound           float64 `help:"Upper bound of storage overcommit rate"`
+		MediumType            string  `help:"Medium type, either ssd or rotate" choices:"ssd|rotate"`
+		RbdRadosMonOpTimeout  int64   `help:"ceph rados_mon_op_timeout"`
+		RbdRadosOsdOpTimeout  int64   `help:"ceph rados_osd_op_timeout"`
+		RbdClientMountTimeout int64   `help:"ceph client_mount_timeout"`
+		RbdKey                string  `help:"ceph rbd key"`
+		Reserved              string  `help:"Reserved storage space"`
 	}
 	R(&StorageUpdateOptions{}, "storage-update", "Update a storage", func(s *mcclient.ClientSession, args *StorageUpdateOptions) error {
-		params := jsonutils.NewDict()
-		if len(args.Name) > 0 {
-			params.Add(jsonutils.NewString(args.Name), "name")
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
 		}
-		if len(args.Desc) > 0 {
-			params.Add(jsonutils.NewString(args.Desc), "description")
-		}
-		if args.CommitBound > 0 {
-			params.Add(jsonutils.NewFloat(args.CommitBound), "cmtbound")
-		}
-		if len(args.StorageType) > 0 {
-			params.Add(jsonutils.NewString(args.StorageType), "storage_type")
-		}
-		if len(args.MediumType) > 0 {
-			params.Add(jsonutils.NewString(args.MediumType), "medium_type")
-		}
-		if len(args.Reserved) > 0 {
-			params.Add(jsonutils.NewString(args.Reserved), "reserved")
-		}
+
 		result, err := modules.Storages.Update(s, args.ID, params)
 		if err != nil {
 			return err
@@ -90,37 +79,34 @@ func init() {
 	})
 
 	type StorageCreateOptions struct {
-		NAME         string `help:"Name of the Storage"`
-		ZONE         string `help:"Zone id of storage"`
-		Capacity     int64  `help:"Capacity of the Storage"`
-		MediumType   string `help:"Medium type, either ssd or rotate" choices:"ssd|rotate"`
-		StorageType  string `help:"Storage type" choices:"local|nas|vsan|rbd|nfs|gpfs|baremetal"`
-		MonHost      string `help:"Ceph mon_host config"`
-		Key          string `help:"Ceph key config"`
-		Pool         string `help:"Ceph Pool Name"`
-		NfsHost      string `help:"NFS host"`
-		NfsSharedDir string `help:"NFS shared dir"`
+		NAME                  string `help:"Name of the Storage"`
+		ZONE                  string `help:"Zone id of storage"`
+		Capacity              int64  `help:"Capacity of the Storage"`
+		MediumType            string `help:"Medium type, either ssd or rotate" choices:"ssd|rotate"`
+		StorageType           string `help:"Storage type" choices:"local|nas|vsan|rbd|nfs|gpfs|baremetal"`
+		RbdMonHost            string `help:"Ceph mon_host config"`
+		RbdRadosMonOpTimeout  int64  `help:"ceph rados_mon_op_timeout"`
+		RbdRadosOsdOpTimeout  int64  `help:"ceph rados_osd_op_timeout"`
+		RbdClientMountTimeout int64  `help:"ceph client_mount_timeout"`
+		RbdKey                string `help:"Ceph key config"`
+		RbdPool               string `help:"Ceph Pool Name"`
+		NfsHost               string `help:"NFS host"`
+		NfsSharedDir          string `help:"NFS shared dir"`
 	}
 	R(&StorageCreateOptions{}, "storage-create", "Create a Storage", func(s *mcclient.ClientSession, args *StorageCreateOptions) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.NAME), "name")
-		params.Add(jsonutils.NewString(args.ZONE), "zone")
-		params.Add(jsonutils.NewInt(args.Capacity), "capacity")
-		params.Add(jsonutils.NewString(args.StorageType), "storage_type")
-		params.Add(jsonutils.NewString(args.MediumType), "medium_type")
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+
 		if args.StorageType == "rbd" {
-			if args.MonHost == "" || args.Key == "" || args.Pool == "" {
+			if args.RbdMonHost == "" || args.RbdKey == "" || args.RbdPool == "" {
 				return fmt.Errorf("Not enough arguments, missing mon_host、key or pool")
 			}
-			params.Add(jsonutils.NewString(args.MonHost), "rbd_mon_host")
-			params.Add(jsonutils.NewString(args.Key), "rbd_key")
-			params.Add(jsonutils.NewString(args.Pool), "rbd_pool")
 		} else if args.StorageType == "nfs" {
 			if len(args.NfsHost) == 0 || len(args.NfsSharedDir) == 0 {
 				return fmt.Errorf("Storage type nfs missing conf host or shared dir")
 			}
-			params.Add(jsonutils.NewString(args.NfsHost), "nfs_host")
-			params.Add(jsonutils.NewString(args.NfsSharedDir), "nfs_shared_dir")
 		}
 		storage, err := modules.Storages.Create(s, params)
 		if err != nil {
