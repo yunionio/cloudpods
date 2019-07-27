@@ -26,6 +26,7 @@ func init() {
 	type CopyrightUpdateOptions struct {
 		Copyright string `help:"The copyright"`
 		Email     string `help:"The Email"`
+		Docs      string `help:"the Docs website address" required:"true"`
 	}
 
 	R(&CopyrightUpdateOptions{}, "copyright-update", "update copyright", func(s *mcclient.ClientSession, args *CopyrightUpdateOptions) error {
@@ -34,6 +35,7 @@ func init() {
 		}
 
 		params := jsonutils.NewDict()
+		params.Add(jsonutils.NewString(args.Docs), "docs")
 		if len(args.Copyright) > 0 {
 			params.Add(jsonutils.NewString(args.Copyright), "copyright")
 		}
@@ -42,17 +44,12 @@ func init() {
 			params.Add(jsonutils.NewString(args.Email), "email")
 		}
 
-		r, err := modules.Copyright.Create(s, params)
+		r, err := modules.Copyright.Update(s, "copyright", params)
 		if err != nil {
 			return err
 		}
 
-		pretty := jsonutils.NewDict()
-		cp, _ := r.GetString("copyright")
-		email, _ := r.GetString("email")
-		pretty.Set("copyright", jsonutils.NewString(cp))
-		pretty.Set("email", jsonutils.NewString(email))
-		printObject(pretty)
+		printObject(r)
 		return nil
 	})
 }
