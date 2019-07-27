@@ -113,6 +113,10 @@ func (manager *SPolicyManager) ValidateCreateData(ctx context.Context, userCred 
 	/*if policy.IsSystemWidePolicy() && policyman.PolicyManager.Allow(rbacutils.ScopeSystem, userCred, consts.GetServiceType(), manager.KeywordPlural(), policyman.PolicyActionCreate) == rbacutils.Deny {
 		return nil, httperrors.NewNotSufficientPrivilegeError("not allow to create system-wide policy")
 	}*/
+	err = db.ValidateCreateDomainId(ownerId.GetProjectDomainId())
+	if err != nil {
+		return nil, err
+	}
 	return manager.SEnabledIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 

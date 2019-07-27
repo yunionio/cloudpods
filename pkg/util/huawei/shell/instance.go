@@ -125,7 +125,7 @@ func init() {
 
 	shellutils.R(&InstanceRebuildRootOptions{}, "instance-rebuild-root", "Reinstall virtual server system image", func(cli *huawei.SRegion, args *InstanceRebuildRootOptions) error {
 		ctx := context.Background()
-		jobId, err := cli.ChangeRoot(ctx, args.UserId,args.ID, args.Image, args.Password, args.PublicKey, args.UserData)
+		jobId, err := cli.ChangeRoot(ctx, args.UserId, args.ID, args.Image, args.Password, args.PublicKey, args.UserData)
 		if err != nil {
 			return err
 		}

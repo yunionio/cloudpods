@@ -248,6 +248,11 @@ func (self *SCloudaccount) ValidateUpdateData(ctx context.Context, userCred mccl
 }
 
 func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	// check domainId
+	err := db.ValidateCreateDomainId(ownerId.GetProjectDomainId())
+	if err != nil {
+		return nil, err
+	}
 	// check provider
 	// name, _ := data.GetString("name")
 	provider, _ := data.GetString("provider")
