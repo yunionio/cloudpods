@@ -150,26 +150,24 @@ func (self *GuestCreateTask) TaskComplete(ctx context.Context, guest *models.SGu
 }
 
 func (self *GuestCreateTask) StartEipSubTask(ctx context.Context, guest *models.SGuest) {
-	eipId, _ := self.Params.GetString("eip_id")
+	eipId, _ := self.Params.GetString("eip")
 	if len(eipId) > 0 {
 		eipObj, err := models.ElasticipManager.FetchById(eipId)
 		if err != nil {
 			log.Errorf("fail to get eip %s %s", eipId, err)
 			return
 		}
+
 		eip := eipObj.(*models.SElasticip)
-		eip.StartEipAssociateInstanceTask(ctx, self.UserCred, guest, "")
-		return
-	}
-	eipBw, _ := self.Params.Int("eip_bw")
-	if eipBw > 0 {
-		pendingUsage := models.SQuota{}
-		err := self.GetPendingUsage(&pendingUsage)
-		if err != nil {
-			log.Errorf("GetPendingUsage fail %s", err)
+
+		eipBw, _ := self.Params.Int("eip_bw")
+		if eipBw > 0 {
+			// newly allocated eip, need allocation and associate
+			eip.AllocateAndAssociateVM(ctx, self.UserCred, guest)
+		} else {
+			// existing eip, association only
+			eip.StartEipAssociateInstanceTask(ctx, self.UserCred, guest, "")
 		}
-		eipChargeType, _ := self.Params.GetString("eip_charge_type")
-		models.ElasticipManager.AllocateEipAndAssociateVM(ctx, self.UserCred, guest, int(eipBw), eipChargeType, &pendingUsage)
-		self.SetPendingUsage(&pendingUsage)
+		return
 	}
 }

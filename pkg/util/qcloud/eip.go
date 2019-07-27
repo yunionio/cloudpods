@@ -137,11 +137,18 @@ func (self *SEipAddress) GetMode() string {
 
 func (self *SEipAddress) GetAssociationType() string {
 	if len(self.InstanceId) > 0 {
-		for prefix, instanceType := range map[string]string{"nat-": api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY, "ins-": api.EIP_ASSOCIATE_TYPE_SERVER} {
+		for prefix, instanceType := range map[string]string{
+			"nat-": api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY,
+			"ins-": api.EIP_ASSOCIATE_TYPE_SERVER,
+			"lb-":  api.EIP_ASSOCIATE_TYPE_LOADBALANCER,
+			"lbl-": api.EIP_ASSOCIATE_TYPE_LOADBALANCER,
+		} {
 			if strings.HasPrefix(prefix, self.InstanceId) {
 				return instanceType
 			}
 		}
+		log.Fatalf("unsupported type: %s", self.InstanceId)
+		return "unsupported"
 	}
 	return ""
 }
