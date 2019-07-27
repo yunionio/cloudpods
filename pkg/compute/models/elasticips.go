@@ -350,17 +350,17 @@ func (self *SElasticip) syncRemoveCloudEip(ctx context.Context, userCred mcclien
 }
 
 func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred mcclient.TokenCredential, ext cloudprovider.ICloudEIP) error {
-	vm := self.GetAssociateVM()
+	resource := self.GetAssociateResource()
 	vmExtId := ext.GetAssociationExternalId()
 
-	if vm == nil && len(vmExtId) == 0 {
+	if resource == nil && len(vmExtId) == 0 {
 		return nil
 	}
-	if vm != nil && vm.ExternalId == vmExtId {
+	if resource != nil && resource.(db.IExternalizedModel).GetExternalId() == vmExtId {
 		return nil
 	}
 
-	if vm != nil { // dissociate
+	if resource != nil { // dissociate
 		err := self.Dissociate(ctx, userCred)
 		if err != nil {
 			log.Errorf("fail to dissociate vm: %s", err)
@@ -369,12 +369,29 @@ func (self *SElasticip) SyncInstanceWithCloudEip(ctx context.Context, userCred m
 	}
 
 	if len(vmExtId) > 0 {
-		newVM, err := db.FetchByExternalId(GuestManager, vmExtId)
+		var manager db.IModelManager
+		switch ext.GetAssociationType() {
+		case api.EIP_ASSOCIATE_TYPE_SERVER:
+			manager = GuestManager
+		case api.EIP_ASSOCIATE_TYPE_LOADBALANCER:
+			manager = LoadbalancerManager
+		default:
+			return errors.Error("unsupported association type")
+		}
+
+		extRes, err := db.FetchByExternalId(manager, vmExtId)
 		if err != nil {
 			log.Errorf("fail to find vm by external ID %s", vmExtId)
 			return err
 		}
-		err = self.AssociateVM(ctx, userCred, newVM.(*SGuest))
+		switch newRes := extRes.(type) {
+		case *SGuest:
+			err = self.AssociateVM(ctx, userCred, newRes)
+		case *SLoadbalancer:
+			err = self.AssociateLoadbalancer(ctx, userCred, newRes)
+		default:
+			return errors.Error("unsupported association type")
+		}
 		if err != nil {
 			log.Errorf("fail to associate with new vm %s", err)
 			return err
@@ -490,6 +507,9 @@ func (self *SElasticip) IsAssociated() bool {
 	if self.GetAssociateVM() != nil {
 		return true
 	}
+	if self.GetAssociateLoadbalancer() != nil {
+		return true
+	}
 	return false
 }
 
@@ -510,6 +530,16 @@ func (self *SElasticip) GetAssociateLoadbalancer() *SLoadbalancer {
 		if lb.PendingDeleted {
 			return nil
 		}
+		return lb
+	}
+	return nil
+}
+
+func (self *SElasticip) GetAssociateResource() db.IModel {
+	if vm := self.GetAssociateVM(); vm != nil {
+		return vm
+	}
+	if lb := self.GetAssociateLoadbalancer(); lb != nil {
 		return lb
 	}
 	return nil
@@ -679,17 +709,19 @@ func (manager *SElasticipManager) ValidateCreateData(ctx context.Context, userCr
 
 func (self *SElasticip) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	self.SVirtualResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
-	params := jsonutils.NewDict()
-	if data.Contains("ip") {
-		ip, _ := data.GetString("ip")
-		params.Add(jsonutils.NewString(ip), "ip")
-	}
+
+	quotaPlatform := self.GetQuotaPlatformID()
 	eipPendingUsage := &SQuota{Eip: 1}
-	self.startEipAllocateTask(ctx, userCred, params, eipPendingUsage)
+	err := QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatform, eipPendingUsage, eipPendingUsage)
+	if err != nil {
+		log.Errorf("SElasticip CancelPendingUsage error: %s", err)
+	}
+
+	self.startEipAllocateTask(ctx, userCred, data.(*jsonutils.JSONDict))
 }
 
-func (self *SElasticip) startEipAllocateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, pendingUsage quotas.IQuota) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "EipAllocateTask", self, userCred, params, "", "", pendingUsage)
+func (self *SElasticip) startEipAllocateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "EipAllocateTask", self, userCred, params, "", "", nil)
 	if err != nil {
 		log.Errorf("newtask EipAllocateTask fail %s", err)
 		return err
@@ -714,7 +746,7 @@ func (self *SElasticip) CustomizeDelete(ctx context.Context, userCred mcclient.T
 
 func (self *SElasticip) ValidateDeleteCondition(ctx context.Context) error {
 	if self.IsAssociated() {
-		return fmt.Errorf("eip is associated with instance")
+		return fmt.Errorf("eip is associated with resources")
 	}
 	return self.SVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
@@ -958,9 +990,7 @@ func (self *SElasticip) getMoreDetails(extra *jsonutils.JSONDict) *jsonutils.JSO
 	return extra
 }
 
-func (manager *SElasticipManager) AllocateEipAndAssociateVM(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest, bw int, chargeType string, eipPendingUsage quotas.IQuota) error {
-
-	host := vm.GetHost()
+func (manager *SElasticipManager) NewEipForVMOnHost(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest, host *SHost, bw int, chargeType string, pendingUsage quotas.IQuota) (*SElasticip, error) {
 	region := host.GetRegion()
 
 	if len(chargeType) == 0 {
@@ -985,9 +1015,16 @@ func (manager *SElasticipManager) AllocateEipAndAssociateVM(ctx context.Context,
 	err := manager.TableSpec().Insert(&eip)
 	if err != nil {
 		log.Errorf("create EIP record fail %s", err)
-		return err
+		return nil, err
 	}
 
+	eipPendingUsage := &SQuota{Eip: 1}
+	QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, vm.GetOwnerId(), vm.GetQuotaPlatformID(), pendingUsage, eipPendingUsage)
+
+	return &eip, nil
+}
+
+func (eip *SElasticip) AllocateAndAssociateVM(ctx context.Context, userCred mcclient.TokenCredential, vm *SGuest) error {
 	params := jsonutils.NewDict()
 	params.Add(jsonutils.NewString(vm.ExternalId), "instance_external_id")
 	params.Add(jsonutils.NewString(vm.Id), "instance_id")
@@ -995,7 +1032,7 @@ func (manager *SElasticipManager) AllocateEipAndAssociateVM(ctx context.Context,
 
 	vm.SetStatus(userCred, api.VM_ASSOCIATE_EIP, "allocate and associate EIP")
 
-	return eip.startEipAllocateTask(ctx, userCred, params, eipPendingUsage)
+	return eip.startEipAllocateTask(ctx, userCred, params)
 }
 
 func (self *SElasticip) AllowPerformChangeBandwidth(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

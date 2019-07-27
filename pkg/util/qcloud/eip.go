@@ -16,6 +16,7 @@ package qcloud
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -135,15 +136,21 @@ func (self *SEipAddress) GetMode() string {
 }
 
 func (self *SEipAddress) GetAssociationType() string {
-	switch self.AddressType {
-	case EIP_TYPE_EIP, EIP_TYPE_ANYCASTEIP, EIP_TYPE_WANIP:
-		return "server"
-	case EIP_TYPE_CALCIP:
-		return "server"
-	default:
-		log.Fatalf("unsupported type: %s", self.AddressType)
+	if len(self.InstanceId) > 0 {
+		for prefix, instanceType := range map[string]string{
+			"nat-": api.EIP_ASSOCIATE_TYPE_NAT_GATEWAY,
+			"ins-": api.EIP_ASSOCIATE_TYPE_SERVER,
+			"lb-":  api.EIP_ASSOCIATE_TYPE_LOADBALANCER,
+			"lbl-": api.EIP_ASSOCIATE_TYPE_LOADBALANCER,
+		} {
+			if strings.HasPrefix(prefix, self.InstanceId) {
+				return instanceType
+			}
+		}
+		log.Fatalf("unsupported type: %s", self.InstanceId)
 		return "unsupported"
 	}
+	return ""
 }
 
 func (self *SEipAddress) GetAssociationExternalId() string {
