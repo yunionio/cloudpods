@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
@@ -149,6 +150,32 @@ func (self *SCloudregion) GetNetworkInterfaces() ([]SNetworkInterface, error) {
 		return nil, err
 	}
 	return interfaces, nil
+}
+
+func (self *SCloudregion) GetDBInstances(provider *SCloudprovider) ([]SDBInstance, error) {
+	instances := []SDBInstance{}
+	q := DBInstanceManager.Query().Equals("cloudregion_id", self.Id)
+	if provider != nil {
+		q = q.Equals("manager_id", provider.Id)
+	}
+	err := db.FetchModelObjects(DBInstanceBackupManager, q, &instances)
+	if err != nil {
+		return nil, errors.Wrapf(err, "FetchModelObjects for region %s", self.Id)
+	}
+	return instances, nil
+}
+
+func (self *SCloudregion) GetDBInstanceBackups(provider *SCloudprovider) ([]SDBInstanceBackup, error) {
+	backups := []SDBInstanceBackup{}
+	q := DBInstanceBackupManager.Query().Equals("cloudregion_id", self.Id)
+	if provider != nil {
+		q = q.Equals("manager_id", provider.Id)
+	}
+	err := db.FetchModelObjects(DBInstanceBackupManager, q, &backups)
+	if err != nil {
+		return nil, errors.Wrapf(err, "FetchModelObjects for region %s", self.Id)
+	}
+	return backups, nil
 }
 
 func (self *SCloudregion) getGuestCountInternal(increment bool) (int, error) {

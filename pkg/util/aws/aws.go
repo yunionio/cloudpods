@@ -16,7 +16,9 @@ package aws
 
 import (
 	sdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 
@@ -38,6 +40,8 @@ const (
 	AWS_API_VERSION                  = "2018-10-10"
 )
 
+var DEBUG bool = false
+
 type SAwsClient struct {
 	providerId   string
 	providerName string
@@ -45,10 +49,19 @@ type SAwsClient struct {
 	accessKey    string
 	secret       string
 	iregions     []cloudprovider.ICloudRegion
+
+	debug bool
 }
 
-func NewAwsClient(providerId string, providerName string, accessUrl string, accessKey string, secret string) (*SAwsClient, error) {
-	client := SAwsClient{providerId: providerId, providerName: providerName, accessUrl: accessUrl, accessKey: accessKey, secret: secret}
+func NewAwsClient(providerId string, providerName string, accessUrl string, accessKey string, secret string, debug bool) (*SAwsClient, error) {
+	client := SAwsClient{
+		providerId:   providerId,
+		providerName: providerName,
+		accessUrl:    accessUrl,
+		accessKey:    accessKey,
+		secret:       secret,
+	}
+	DEBUG = debug
 	err := client.fetchRegions()
 	if err != nil {
 		log.Debugf("NewAwsClient %s", err.Error())
@@ -227,4 +240,25 @@ func (self *SAwsClient) QueryAccountBalance() (*SAccountBalance, error) {
 
 func (self *SAwsClient) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func jsonRequest(cli *client.Client, apiName string, params map[string]string, retval interface{}, debug bool) error {
+	op := &request.Operation{
+		Name:       apiName,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+		Paginator: &request.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
+	}
+
+	req := cli.NewRequest(op, params, retval)
+	err := req.Send()
+	if err != nil {
+		return err
+	}
+	return nil
 }

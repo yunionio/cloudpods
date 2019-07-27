@@ -317,3 +317,33 @@ paths:
     $ref: "./bucket/uploadobject.yaml"
   /buckets/{bucketName}/tempurl:
     $ref: "./bucket/tempurl.yaml"
+
+  /dbinstances:
+    $ref: "./dbinstance/dbinstances.yaml"
+  /dbinstances/{dbinstanceId}:
+    $ref: "./dbinstance/dbinstance.yaml"
+  /dbinstances/{dbinstanceId}/networks:
+    $ref: "./dbinstance/dbinstancenetwork.yaml"
+
+  /dbinstancenetworks:
+    $ref: "./dbinstance/dbinstancenetworks.yaml"
+
+  /dbinstanceparameters:
+    $ref: "./dbinstance/dbinstanceparameters.yaml"
+  /dbinstanceparameters/{parameterId}:
+    $ref: "./dbinstance/dbinstanceparameter.yaml"
+
+  /dbinstancedatabases:
+    $ref: "./dbinstance/dbinstancedatabases.yaml"
+  /dbinstancedatabases/{databaseId}:
+    $ref: "./dbinstance/dbinstancedatabase.yaml"
+
+  /dbinstancebackups:
+    $ref: "./dbinstance/dbinstancebackups.yaml"
+  /dbinstancebackups/{backupId}:
+    $ref: "./dbinstance/dbinstancebackup.yaml"
+
+  /dbinstanceaccounts:
+    $ref: "./dbinstance/dbinstanceaccounts.yaml"
+  /dbinstanceaccounts/{accountId}:
+    $ref: "./dbinstance/dbinstanceaccount.yaml"
