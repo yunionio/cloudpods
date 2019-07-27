@@ -23,15 +23,33 @@ StorageCreate:
       example: local
       enum: [local,nas,vsan,rbd,nfs,gpfs,baremetal]
       description: 存储集群类型
-    mon_host:
+    rbd_mon_host:
       type: string
-      description: Ceph mon_host config
-    key:
+      example: 10.127.10.230,10.127.10.237,10.127.10.238
+      description: Ceph mon_host config, 仅存储类型是rbd时有用
+    rbd_key:
       type: string
-      description: Ceph key config
-    pool:
+      example: AQDigB9dtnDAKhAAxS6X4zi4BPR/lIle4nf4Dw==
+      description: Ceph key config, 仅存储类型是rbd时有用
+    rbd_pool:
       type: string
-      description: Ceph pool name
+      example: test-pool
+      description: Ceph pool name, 仅存储类型是rbd时有用
+    rbd_rados_mon_op_timeout:
+      type: string
+      example: 10
+      default: 5
+      description: Ceph集群连接超时时间, 仅存储类型是rbd时有用
+    rbd_rados_osd_op_timeout:
+      type: string
+      example: 3600
+      default: 1200
+      description: Ceph块存储操作超时时间, 仅存储类型是rbd时有用
+    rbd_client_mount_timeout:
+      type: string
+      example: 60
+      default: 120
+      description: CephFS挂载超时时间, 仅存储类型是rbd时有用
     nfs_host:
       type: string
       description: NFS host address
@@ -210,3 +228,18 @@ StorageUpdate:
       type: string
       example: this is test storage
       description: 存储描述信息
+    rbd_key:
+      type: string
+      description: Ceph key config
+    rbd_rados_mon_op_timeout:
+      type: string
+      example: 10
+      description: Ceph集群连接超时时间
+    rbd_rados_osd_op_timeout:
+      type: string
+      example: 3600
+      description: Ceph块存储操作超时时间
+    rbd_client_mount_timeout:
+      type: string
+      example: 60
+      description: CephFS挂载超时时间
