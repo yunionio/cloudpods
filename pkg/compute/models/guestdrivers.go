@@ -188,6 +188,5 @@ func GetDriver(hypervisor string) IGuestDriver {
 		return driver
 	} else {
 		panic(fmt.Sprintf("Unsupported hypervisor %q", hypervisor))
-		return nil
 	}
 }

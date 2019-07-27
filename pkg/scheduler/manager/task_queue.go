@@ -263,8 +263,8 @@ type Task struct {
 	Time          time.Time
 	SchedInfo     *api.SchedInfo
 	Consuming     time.Duration
-	taskExecutors []*TaskExecutor   `json:"-"`
-	manager       *SchedulerManager `json:"-"`
+	taskExecutors []*TaskExecutor
+	manager       *SchedulerManager
 	lock          sync.Mutex
 	waitCh        chan struct{}
 
