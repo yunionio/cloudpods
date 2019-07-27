@@ -955,7 +955,6 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 		sq = sq.Filter(sqlchemy.In(providers.Field("health_status"), api.CLOUD_PROVIDER_VALID_HEALTH_STATUS))
 		sq = sq.Filter(sqlchemy.Equals(vpcs.Field("status"), api.VPC_STATUS_AVAILABLE))
 
-
 		sq2 := providers.Query(sqlchemy.DISTINCT("id", providers.Field("id")))
 		sq2 = sq2.Join(vpcs, sqlchemy.Equals(vpcs.Field("manager_id"), providers.Field("id")))
 		sq2 = sq2.Join(wires, sqlchemy.Equals(vpcs.Field("id"), wires.Field("vpc_id")))

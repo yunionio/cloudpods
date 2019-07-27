@@ -24,6 +24,8 @@ var (
 	globalServiceType = ""
 
 	tenantCacheExpireSeconds = 900
+
+	nonDefaultDomainProjects = false
 )
 
 func SetRegion(region string) {
@@ -48,4 +50,12 @@ func SetTenantCacheExpireSeconds(sec int) {
 
 func GetTenantCacheExpireSeconds() time.Duration {
 	return time.Duration(tenantCacheExpireSeconds) * time.Second
+}
+
+func SetNonDefaultDomainProjects(val bool) {
+	nonDefaultDomainProjects = val
+}
+
+func GetNonDefaultDomainProjects() bool {
+	return nonDefaultDomainProjects
 }
