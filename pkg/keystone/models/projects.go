@@ -353,3 +353,11 @@ func (manager *SProjectManager) FetchUserProjects(userId string) ([]SProjectExte
 	}
 	return ret, nil
 }
+
+func (manager *SProjectManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	err := db.ValidateCreateDomainId(ownerId.GetProjectDomainId())
+	if err != nil {
+		return nil, err
+	}
+	return manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+}
