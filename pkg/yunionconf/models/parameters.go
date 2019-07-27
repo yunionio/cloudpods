@@ -59,7 +59,15 @@ type SParameter struct {
 var ParameterManager *SParameterManager
 
 func init() {
-	ParameterManager = &SParameterManager{SResourceBaseManager: db.NewResourceBaseManager(SParameter{}, "paramters_tbl", "parameter", "parameters")}
+	ParameterManager = &SParameterManager{
+		SResourceBaseManager: db.NewResourceBaseManager(
+			SParameter{},
+			"paramters_tbl",
+			"parameter",
+			"parameters",
+		),
+	}
+	ParameterManager.SetVirtualObject(ParameterManager)
 }
 
 func isAdminQuery(query jsonutils.JSONObject) bool {
