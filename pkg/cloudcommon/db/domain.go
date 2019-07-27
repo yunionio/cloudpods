@@ -20,6 +20,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
+	"yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
@@ -54,4 +57,11 @@ func (manager *SDomainizedResourceBaseManager) FetchOwnerId(ctx context.Context,
 func (model *SDomainizedResourceBase) GetOwnerId() mcclient.IIdentityProvider {
 	owner := SOwnerId{DomainId: model.DomainId}
 	return &owner
+}
+
+func ValidateCreateDomainId(domainId string) error {
+	if !consts.GetNonDefaultDomainProjects() && domainId != identity.DEFAULT_DOMAIN_ID {
+		return httperrors.NewForbiddenError("project in non-default domain is prohibited")
+	}
+	return nil
 }

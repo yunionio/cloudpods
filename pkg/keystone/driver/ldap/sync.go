@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 
 	api "yunion.io/x/onecloud/pkg/apis/identity"
+	"yunion.io/x/onecloud/pkg/cloudcommon/consts"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/keystone/models"
@@ -213,7 +214,7 @@ func (self *SLDAPDriver) syncDomainInfo(ctx context.Context, info SDomainInfo) (
 		return nil, errors.Wrap(err, "insert")
 	}
 
-	if self.AutoCreateProject {
+	if self.AutoCreateProject && consts.GetNonDefaultDomainProjects() {
 		project := &models.SProject{}
 		project.SetModelManager(models.ProjectManager, project)
 		projectName := models.NormalizeProjectName(fmt.Sprintf("%s_default_project", info.Name))

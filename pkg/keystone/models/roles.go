@@ -376,3 +376,11 @@ func (role *SRole) PerformPrivate(ctx context.Context, userCred mcclient.TokenCr
 	}
 	return res, err
 }
+
+func (manager *SRoleManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	err := db.ValidateCreateDomainId(ownerId.GetProjectDomainId())
+	if err != nil {
+		return nil, err
+	}
+	return manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+}
