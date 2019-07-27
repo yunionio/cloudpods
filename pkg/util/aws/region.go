@@ -162,12 +162,12 @@ func (self *SRegion) fetchIVpcs() error {
 		}
 
 		self.ivpcs = append(self.ivpcs, &SVpc{region: self,
-			CidrBlock: *vpc.CidrBlock,
-			Tags:      tags,
-			IsDefault: *vpc.IsDefault,
-			RegionId:  self.RegionId,
-			Status:    *vpc.State,
-			VpcId:     *vpc.VpcId,
+			CidrBlock:       *vpc.CidrBlock,
+			Tags:            tags,
+			IsDefault:       *vpc.IsDefault,
+			RegionId:        self.RegionId,
+			Status:          *vpc.State,
+			VpcId:           *vpc.VpcId,
 			InstanceTenancy: *vpc.InstanceTenancy,
 		})
 	}

@@ -67,6 +67,8 @@ type BaseOptions struct {
 
 	CalculateQuotaUsageIntervalSeconds int `help:"interval to calculate quota usages, default 30 minutes" default:"900"`
 
+	NonDefaultDomainProjects bool `help:"allow projects in non-default domains" default:"false"`
+
 	structarg.BaseOptions
 }
 

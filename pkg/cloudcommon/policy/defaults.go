@@ -68,6 +68,30 @@ var (
 				},
 				{
 					Service:  "compute",
+					Resource: "vpcs",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "vpcs",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "wires",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "wires",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
 					Resource: "schedtags",
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,

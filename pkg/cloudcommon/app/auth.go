@@ -83,4 +83,5 @@ func InitBaseAuth(options *common_options.BaseOptions) {
 			options.RbacDebug,
 		)
 	}
+	consts.SetNonDefaultDomainProjects(options.NonDefaultDomainProjects)
 }
