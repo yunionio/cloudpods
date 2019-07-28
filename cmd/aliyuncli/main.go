@@ -20,8 +20,8 @@ import (
 
 	"yunion.io/x/structarg"
 
-	"yunion.io/x/onecloud/pkg/util/aliyun"
-	_ "yunion.io/x/onecloud/pkg/util/aliyun/shell"
+	"yunion.io/x/onecloud/pkg/multicloud/aliyun"
+	_ "yunion.io/x/onecloud/pkg/multicloud/aliyun/shell"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 

@@ -20,8 +20,8 @@ import (
 
 	"yunion.io/x/structarg"
 
-	"yunion.io/x/onecloud/pkg/util/huawei"
-	_ "yunion.io/x/onecloud/pkg/util/huawei/shell"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei"
+	_ "yunion.io/x/onecloud/pkg/multicloud/huawei/shell"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 

@@ -17,12 +17,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"yunion.io/x/onecloud/pkg/util/ucloud"
+	"yunion.io/x/onecloud/pkg/multicloud/ucloud"
 
 	"yunion.io/x/structarg"
 
+	_ "yunion.io/x/onecloud/pkg/multicloud/ucloud/shell"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
-	_ "yunion.io/x/onecloud/pkg/util/ucloud/shell"
 )
 
 type BaseOptions struct {
