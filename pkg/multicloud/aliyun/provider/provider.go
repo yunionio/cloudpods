@@ -114,6 +114,10 @@ func (self *SAliyunProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	return self.client.GetSubAccounts()
 }
 
+func (self *SAliyunProvider) GetAccountId() string {
+	return self.client.GetAccountId()
+}
+
 func (self *SAliyunProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
@@ -138,4 +142,10 @@ func (self *SAliyunProvider) GetBalance() (float64, string, error) {
 
 func (self *SAliyunProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return self.client.GetIProjects()
+}
+
+func (self *SAliyunProvider) GetStorageClasses(regionId string) []string {
+	return []string{
+		"Standard", "IA", "Archive",
+	}
 }

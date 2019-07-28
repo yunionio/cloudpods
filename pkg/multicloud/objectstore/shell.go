@@ -39,10 +39,28 @@ func S3Shell() {
 	})
 
 	type BucketCreateOptions struct {
-		NAME string `help:"name of bucket to create"`
+		NAME         string `help:"name of bucket to create"`
+		Acl          string `help:"ACL string" choices:"private|public-read|public-read-write"`
+		StorageClass string `help:"StorageClass" choices:"STANDARD|IA|ARCHIVE"`
 	}
 	shellutils.R(&BucketCreateOptions{}, "bucket-create", "Create bucket", func(cli cloudprovider.ICloudRegion, args *BucketCreateOptions) error {
-		err := cli.CreateIBucket(args.NAME, "", "")
+		err := cli.CreateIBucket(args.NAME, args.StorageClass, args.Acl)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
+	type BucketAclOptions struct {
+		BUCKET string `help:"name of bucket"`
+		ACL    string `help:"ACL string" choices:"private|public-read|public-read-write"`
+	}
+	shellutils.R(&BucketAclOptions{}, "bucket-set-acl", "Create bucket", func(cli cloudprovider.ICloudRegion, args *BucketAclOptions) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		err = bucket.SetAcl(cloudprovider.TBucketACLType(args.ACL))
 		if err != nil {
 			return err
 		}
@@ -199,6 +217,51 @@ func S3Shell() {
 			return err
 		}
 		fmt.Println(urlStr)
+		return nil
+	})
+
+	type BucketAclOption struct {
+		BUCKET string `help:"name of bucket to put object"`
+		KEY    string `help:"key of object"`
+	}
+	shellutils.R(&BucketAclOption{}, "object-acl", "Get object acl", func(cli cloudprovider.ICloudRegion, args *BucketAclOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		objects, err := bucket.GetIObjects(args.KEY, false)
+		if err != nil {
+			return err
+		}
+		if len(objects) == 0 {
+			return cloudprovider.ErrNotFound
+		}
+		fmt.Println(objects[0].GetAcl())
+		return nil
+	})
+
+	type BucketSetAclOption struct {
+		BUCKET string `help:"name of bucket to put object"`
+		KEY    string `help:"key of object"`
+		ACL    string `help:"Target acl" choices:"default|private|public-read|public-read-write"`
+	}
+	shellutils.R(&BucketSetAclOption{}, "object-set-acl", "Get object acl", func(cli cloudprovider.ICloudRegion, args *BucketSetAclOption) error {
+		bucket, err := cli.GetIBucketById(args.BUCKET)
+		if err != nil {
+			return err
+		}
+		objects, err := bucket.GetIObjects(args.KEY, false)
+		if err != nil {
+			return err
+		}
+		if len(objects) == 0 {
+			return cloudprovider.ErrNotFound
+		}
+		err = objects[0].SetAcl(cloudprovider.TBucketACLType(args.ACL))
+		if err != nil {
+			return err
+		}
+		fmt.Println("Success!")
 		return nil
 	})
 }

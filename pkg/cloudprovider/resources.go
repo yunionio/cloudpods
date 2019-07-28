@@ -118,6 +118,7 @@ type ICloudRegion interface {
 	DeleteIBucket(name string) error
 	IBucketExist(name string) (bool, error)
 	GetIBucketById(name string) (ICloudBucket, error)
+	GetIBucketByName(name string) (ICloudBucket, error)
 
 	GetIDBInstances() ([]ICloudDBInstance, error)
 	GetIDBInstanceBackups() ([]ICloudDBInstanceBackup, error)

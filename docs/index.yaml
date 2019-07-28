@@ -441,6 +441,8 @@ paths:
     $ref: "./bucket/uploadobject.yaml"
   /buckets/{bucketName}/tempurl:
     $ref: "./bucket/tempurl.yaml"
+  /buckets/{bucketName}/acl:
+    $ref: "./bucket/acl.yaml"
 
   /ansibleplaybooks:
     $ref: "./ansibleplaybook/ansibleplaybooks.yaml"

@@ -213,4 +213,21 @@ func init() {
 		}
 		return nil
 	})
+
+	type CloudproviderStorageClassesOptions struct {
+		ID          string `help:"ID or Name of cloud provider" json:"-"`
+		Cloudregion string `help:"cloud region name or Id"`
+	}
+	R(&CloudproviderStorageClassesOptions{}, "cloud-provider-storage-classes", "Get list of supported storage classes of a cloud provider", func(s *mcclient.ClientSession, args *CloudproviderStorageClassesOptions) error {
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		result, err := modules.Cloudproviders.GetSpecific(s, args.ID, "storage-classes", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

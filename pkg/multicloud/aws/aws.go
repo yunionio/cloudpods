@@ -23,7 +23,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
+	"github.com/aws/aws-sdk-go/service/s3"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -40,7 +42,9 @@ const (
 	AWS_API_VERSION                  = "2018-10-10"
 )
 
-var DEBUG bool = false
+var (
+	DEBUG = false
+)
 
 type SAwsClient struct {
 	providerId   string
@@ -48,7 +52,12 @@ type SAwsClient struct {
 	accessUrl    string // 服务区域 ChinaCloud | InternationalCloud
 	accessKey    string
 	secret       string
-	iregions     []cloudprovider.ICloudRegion
+
+	ownerId   string
+	ownerName string
+
+	iregions []cloudprovider.ICloudRegion
+	iBuckets []cloudprovider.ICloudBucket
 
 	debug bool
 }
@@ -60,12 +69,19 @@ func NewAwsClient(providerId string, providerName string, accessUrl string, acce
 		accessUrl:    accessUrl,
 		accessKey:    accessKey,
 		secret:       secret,
+		debug:        debug,
 	}
 	DEBUG = debug
 	err := client.fetchRegions()
 	if err != nil {
-		log.Debugf("NewAwsClient %s", err.Error())
-		return nil, err
+		return nil, errors.Wrap(err, "fetchRegions")
+	}
+	err = client.fetchBuckets()
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchBuckets")
+	}
+	if debug {
+		log.Debugf("ownerId: %s ownerName: %s", client.ownerId, client.ownerName)
 	}
 	return &client, nil
 }
@@ -86,12 +102,8 @@ func (self *SAwsClient) getDefaultRegionId() string {
 	return GetDefaultRegionId(self.accessUrl)
 }
 
-func (self *SAwsClient) getDefaultSession() (*session.Session, error) {
-	defaultRegion := self.getDefaultRegionId()
-	return session.NewSession(&sdk.Config{
-		Region:      sdk.String(defaultRegion),
-		Credentials: credentials.NewStaticCredentials(self.accessKey, self.secret, ""),
-	})
+func (client *SAwsClient) getDefaultSession() (*session.Session, error) {
+	return client.getAwsSession(client.getDefaultRegionId())
 }
 
 func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
@@ -105,6 +117,10 @@ func (self *SAwsClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	subAccount.Account = self.accessKey
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 	return []cloudprovider.SSubAccount{subAccount}, nil
+}
+
+func (client *SAwsClient) GetAccountId() string {
+	return client.ownerId
 }
 
 func (self *SAwsClient) UpdateAccount(accessKey, secret string) error {
@@ -149,6 +165,81 @@ func (self *SAwsClient) fetchRegions() error {
 	return nil
 }
 
+func (client *SAwsClient) getAwsSession(regionId string) (*session.Session, error) {
+	disableParamValidation := true
+	chainVerboseErrors := true
+	return session.NewSession(&sdk.Config{
+		Region:                 sdk.String(regionId),
+		Credentials:            credentials.NewStaticCredentials(client.accessKey, client.secret, ""),
+		DisableParamValidation: &disableParamValidation,
+
+		CredentialsChainVerboseErrors: &chainVerboseErrors,
+	})
+}
+
+func (self *SAwsClient) invalidateIBuckets() {
+	self.iBuckets = nil
+}
+
+func (self *SAwsClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	if self.iBuckets == nil {
+		err := self.fetchBuckets()
+		if err != nil {
+			return nil, errors.Wrap(err, "fetchBuckets")
+		}
+	}
+	return self.iBuckets, nil
+}
+
+func (client *SAwsClient) fetchBuckets() error {
+	s, err := client.getDefaultSession()
+	if err != nil {
+		return errors.Wrap(err, "getDefaultSession")
+	}
+	s3cli := s3.New(s)
+	output, err := s3cli.ListBuckets(&s3.ListBucketsInput{})
+	if err != nil {
+		return errors.Wrap(err, "ListBuckets")
+	}
+
+	if output.Owner != nil {
+		if output.Owner.ID != nil {
+			client.ownerId = *output.Owner.ID
+		}
+		if output.Owner.DisplayName != nil {
+			client.ownerName = *output.Owner.DisplayName
+		}
+	}
+
+	ret := make([]cloudprovider.ICloudBucket, 0)
+	for _, bInfo := range output.Buckets {
+		input := &s3.GetBucketLocationInput{}
+		input.Bucket = bInfo.Name
+		output, err := s3cli.GetBucketLocation(input)
+		if err != nil {
+			log.Errorf("s3cli.GetBucketLocation error %s", err)
+			continue
+		}
+		location := *output.LocationConstraint
+		region, err := client.getIRegionByRegionId(location)
+		if err != nil {
+			log.Errorf("client.getIRegionByRegionId %s fail %s", location, err)
+			continue
+		}
+		b := SBucket{
+			region:       region.(*SRegion),
+			Name:         *bInfo.Name,
+			Location:     location,
+			CreationDate: *bInfo.CreationDate,
+		}
+		ret = append(ret, &b)
+	}
+
+	client.iBuckets = ret
+
+	return nil
+}
+
 // 只是使用fetchRegions初始化好的self.iregions. 本身并不从云服务器厂商拉取region信息
 func (self *SAwsClient) GetRegions() []SRegion {
 	regions := make([]SRegion, len(self.iregions))
@@ -179,6 +270,15 @@ func (self *SAwsClient) GetRegion(regionId string) *SRegion {
 		}
 	}
 	return nil
+}
+
+func (self *SAwsClient) getIRegionByRegionId(id string) (cloudprovider.ICloudRegion, error) {
+	for i := 0; i < len(self.iregions); i += 1 {
+		if self.iregions[i].GetId() == id {
+			return self.iregions[i], nil
+		}
+	}
+	return nil, ErrorNotFound()
 }
 
 func (self *SAwsClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {

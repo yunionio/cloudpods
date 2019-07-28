@@ -47,7 +47,7 @@ type SClassicDisk struct {
 	StorageAccount  SubResource
 }
 
-func (self *SRegion) GetStorageAccountsDisksWithSnapshots(storageaccounts ...SStorageAccount) ([]SClassicDisk, []SClassicSnapshot, error) {
+func (self *SRegion) GetStorageAccountsDisksWithSnapshots(storageaccounts ...*SStorageAccount) ([]SClassicDisk, []SClassicSnapshot, error) {
 	disks, snapshots := []SClassicDisk{}, []SClassicSnapshot{}
 	for i := 0; i < len(storageaccounts); i++ {
 		_disks, _snapshots, err := self.GetStorageAccountDisksWithSnapshots(storageaccounts[i])
@@ -60,7 +60,7 @@ func (self *SRegion) GetStorageAccountsDisksWithSnapshots(storageaccounts ...SSt
 	return disks, snapshots, nil
 }
 
-func (self *SRegion) GetStorageAccountDisksWithSnapshots(storageaccount SStorageAccount) ([]SClassicDisk, []SClassicSnapshot, error) {
+func (self *SRegion) GetStorageAccountDisksWithSnapshots(storageaccount *SStorageAccount) ([]SClassicDisk, []SClassicSnapshot, error) {
 	disks, snapshots := []SClassicDisk{}, []SClassicSnapshot{}
 	containers, err := storageaccount.GetContainers()
 	if err != nil {

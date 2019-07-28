@@ -119,6 +119,10 @@ func (self *SZStackProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	return self.client.GetSubAccounts()
 }
 
+func (self *SZStackProvider) GetAccountId() string {
+	return ""
+}
+
 func (self *SZStackProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
@@ -137,4 +141,8 @@ func (self *SZStackProvider) GetCloudRegionExternalIdPrefix() string {
 
 func (self *SZStackProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return self.client.GetIProjects()
+}
+
+func (self *SZStackProvider) GetStorageClasses(regionId string) []string {
+	return nil
 }

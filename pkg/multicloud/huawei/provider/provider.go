@@ -156,10 +156,20 @@ func (self *SHuaweiProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	return self.client.GetSubAccounts()
 }
 
+func (self *SHuaweiProvider) GetAccountId() string {
+	return self.client.GetAccountId()
+}
+
 func (self *SHuaweiProvider) GetCloudRegionExternalIdPrefix() string {
 	return self.client.GetCloudRegionExternalIdPrefix()
 }
 
 func (self *SHuaweiProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return self.client.GetIProjects()
+}
+
+func (self *SHuaweiProvider) GetStorageClasses(regionId string) []string {
+	return []string{
+		"STANDARD", "WARM", "COLD",
+	}
 }

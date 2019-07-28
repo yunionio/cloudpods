@@ -21,8 +21,34 @@ import (
 
 	"strings"
 
+	"yunion.io/x/minio-go"
 	"yunion.io/x/pkg/errors"
 )
+
+type TBucketACLType string
+
+const (
+	ACLDefault = TBucketACLType("default")
+
+	ACLPrivate         = TBucketACLType(minio.CANNED_ACL_PRIVATE)
+	ACLAuthRead        = TBucketACLType(minio.CANNED_ACL_AUTH_READ)
+	ACLPublicRead      = TBucketACLType(minio.CANNED_ACL_PUBLIC_READ)
+	ACLPublicReadWrite = TBucketACLType(minio.CANNED_ACL_PUBLIC_READ_WRITE)
+	ACLUnknown         = TBucketACLType("")
+)
+
+type SBucketStats struct {
+	SizeBytes   int64
+	ObjectCount int
+}
+
+func (s SBucketStats) Equals(s2 SBucketStats) bool {
+	if s.SizeBytes == s2.SizeBytes && s.ObjectCount == s2.ObjectCount {
+		return true
+	} else {
+		return false
+	}
+}
 
 type SBucketAccessUrl struct {
 	Url         string
@@ -50,12 +76,15 @@ type ICloudBucket interface {
 
 	//GetGlobalId() string
 	//GetName() string
-	GetAcl() string
+	GetAcl() TBucketACLType
 	GetLocation() string
 	GetIRegion() ICloudRegion
 	GetCreateAt() time.Time
 	GetStorageClass() string
 	GetAccessUrls() []SBucketAccessUrl
+	GetStats() SBucketStats
+
+	SetAcl(acl TBucketACLType) error
 
 	ListObjects(prefix string, marker string, delimiter string, maxCount int) (SListObjectResult, error)
 	GetIObjects(prefix string, isRecursive bool) ([]ICloudObject, error)
@@ -74,6 +103,9 @@ type ICloudObject interface {
 	GetStorageClass() string
 	GetETag() string
 	GetContentType() string
+
+	GetAcl() TBucketACLType
+	SetAcl(acl TBucketACLType) error
 }
 
 func ICloudObject2BaseCloudObject(obj ICloudObject) SBaseCloudObject {
@@ -122,6 +154,34 @@ func GetIBucketById(region ICloudRegion, name string) (ICloudBucket, error) {
 		}
 	}
 	return nil, ErrNotFound
+}
+
+func GetIBucketByName(region ICloudRegion, name string) (ICloudBucket, error) {
+	buckets, err := region.GetIBuckets()
+	if err != nil {
+		return nil, errors.Wrap(err, "region.GetIBuckets")
+	}
+	for i := range buckets {
+		if buckets[i].GetName() == name {
+			return buckets[i], nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+func GetIBucketStats(bucket ICloudBucket) (SBucketStats, error) {
+	stats := SBucketStats{}
+	objs, err := bucket.GetIObjects("", true)
+	if err != nil {
+		stats.ObjectCount = -1
+		stats.SizeBytes = -1
+		return stats, errors.Wrap(err, "GetIObjects")
+	}
+	for _, obj := range objs {
+		stats.SizeBytes += obj.GetSizeBytes()
+		stats.ObjectCount += 1
+	}
+	return stats, nil
 }
 
 func GetIObjects(bucket ICloudBucket, objectPrefix string, isRecursive bool) ([]ICloudObject, error) {

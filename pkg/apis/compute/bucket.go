@@ -15,6 +15,8 @@
 package compute
 
 const (
+	BUCKET_OPS_STATS_CHANGE = "stats_change"
+
 	BUCKET_STATUS_START_CREATE = "start_create"
 	BUCKET_STATUS_CREATING     = "creating"
 	BUCKET_STATUS_READY        = "ready"

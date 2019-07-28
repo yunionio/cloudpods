@@ -84,23 +84,19 @@ func (self *SRegion) getSdkClient() (*sdk.Client, error) {
 	return self.sdkClient, nil
 }
 
-// oss endpoint
-// https://help.aliyun.com/document_detail/31837.html?spm=a2c4g.11186623.2.6.6E8ZkO
-func (self *SRegion) GetOSSExternalDomain() string {
-	return fmt.Sprintf("oss-%s.aliyuncs.com", self.RegionId)
+func (self *SRegion) getOSSExternalDomain() string {
+	return getOSSExternalDomain(self.RegionId)
 }
 
-func (self *SRegion) GetOSSInternalDomain() string {
-	return fmt.Sprintf("oss-%s-internal.aliyuncs.com", self.RegionId)
+func (self *SRegion) getOSSInternalDomain() string {
+	return getOSSInternalDomain(self.RegionId)
 }
 
 func (self *SRegion) GetOssClient() (*oss.Client, error) {
 	if self.ossClient == nil {
-		// https://help.aliyun.com/document_detail/31837.html?spm=a2c4g.11186623.2.6.XqEgD1
-		ep := self.GetOSSExternalDomain()
-		cli, err := oss.New(ep, self.client.accessKey, self.client.secret)
+		cli, err := self.client.getOssClient(self.RegionId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "self.client.getOssClient")
 		}
 		self.ossClient = cli
 	}
@@ -940,35 +936,18 @@ func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAc
 }
 
 func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	osscli, err := region.GetOssClient()
+	iBuckets, err := region.client.getIBuckets()
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetOssClient")
+		return nil, errors.Wrap(err, "getIBuckets")
 	}
-	result, err := osscli.ListBuckets()
-	if err != nil {
-		return nil, errors.Wrap(err, "oss.ListBuckets")
-	}
-
 	ret := make([]cloudprovider.ICloudBucket, 0)
-	for _, bInfo := range result.Buckets {
-		if bInfo.Location[4:] != region.GetId() {
+	for i := range iBuckets {
+		loc := iBuckets[i].GetLocation()
+		// remove oss- prefix
+		if loc[4:] != region.GetId() {
 			continue
 		}
-		acl := string(oss.ACLPrivate)
-		aclResp, err := osscli.GetBucketACL(bInfo.Name)
-		if err == nil {
-			acl = aclResp.ACL
-		}
-		b := SBucket{
-			region: region,
-
-			Name:         bInfo.Name,
-			Location:     bInfo.Location,
-			CreationDate: bInfo.CreationDate,
-			StorageClass: bInfo.StorageClass,
-			Acl:          acl,
-		}
-		ret = append(ret, &b)
+		ret = append(ret, iBuckets[i])
 	}
 	return ret, nil
 }
@@ -1025,6 +1004,7 @@ func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr
 	if err != nil {
 		return errors.Wrap(err, "oss.CreateBucket")
 	}
+	region.client.invalidateIBuckets()
 	return nil
 }
 
@@ -1050,6 +1030,7 @@ func (region *SRegion) DeleteIBucket(name string) error {
 		}
 		return errors.Wrap(err, "DeleteBucket")
 	}
+	region.client.invalidateIBuckets()
 	return nil
 }
 
@@ -1081,9 +1062,12 @@ func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, 
 		Location:     bInfo.Location,
 		CreationDate: bInfo.CreationDate,
 		StorageClass: bInfo.StorageClass,
-		Acl:          bInfo.ACL,
 	}
 	return &b, nil
+}
+
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return region.GetIBucketById(name)
 }
 
 func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, error) {

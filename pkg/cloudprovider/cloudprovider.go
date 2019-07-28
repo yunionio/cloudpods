@@ -52,6 +52,8 @@ type ICloudProviderFactory interface {
 	IsOnPremise() bool
 	IsSupportPrepaidResources() bool
 	NeedSyncSkuFromCloud() bool
+
+	IsSupportObjectStorage() bool
 }
 
 type ICloudProvider interface {
@@ -69,10 +71,13 @@ type ICloudProvider interface {
 	GetBalance() (float64, string, error)
 
 	GetSubAccounts() ([]SSubAccount, error)
+	GetAccountId() string
 
 	// region external id 是以provider 做为前缀.因此可以通过该判断条件过滤出同一个provider的regions列表
 	// 但是华为云有点特殊一个provider只对应一个region,因此需要进一步指定region名字，才能找到provider对应的region
 	GetCloudRegionExternalIdPrefix() string
+
+	GetStorageClasses(regionId string) []string
 }
 
 var providerTable map[string]ICloudProviderFactory
@@ -123,13 +128,16 @@ func IsSupported(provider string) bool {
 	return ok
 }
 
-func IsValidCloudAccount(accessUrl, account, secret, provider string) error {
+func IsValidCloudAccount(accessUrl, account, secret, provider string) (string, error) {
 	factory, ok := providerTable[provider]
 	if ok {
-		_, err := factory.GetProvider("", "", accessUrl, account, secret)
-		return err
+		provider, err := factory.GetProvider("", "", accessUrl, account, secret)
+		if err != nil {
+			return "", err
+		}
+		return provider.GetAccountId(), nil
 	} else {
-		return ErrNoSuchProvder
+		return "", ErrNoSuchProvder
 	}
 }
 
@@ -226,6 +234,10 @@ func (factory *SPremiseBaseProviderFactory) IsOnPremise() bool {
 	return true
 }
 
+func (factory *SPremiseBaseProviderFactory) IsSupportObjectStorage() bool {
+	return false
+}
+
 func (factory *SPremiseBaseProviderFactory) NeedSyncSkuFromCloud() bool {
 	return false
 }
@@ -242,6 +254,10 @@ func (factory *SPublicCloudBaseProviderFactor) IsSupportPrepaidResources() bool 
 	return true
 }
 
+func (factory *SPublicCloudBaseProviderFactor) IsSupportObjectStorage() bool {
+	return true
+}
+
 func (factory *SPublicCloudBaseProviderFactor) NeedSyncSkuFromCloud() bool {
 	return false
 }
@@ -255,6 +271,10 @@ func (factory *SPrivateCloudBaseProviderFactor) IsPublicCloud() bool {
 }
 
 func (factory *SPrivateCloudBaseProviderFactor) IsSupportPrepaidResources() bool {
+	return false
+}
+
+func (factory *SPrivateCloudBaseProviderFactor) IsSupportObjectStorage() bool {
 	return false
 }
 

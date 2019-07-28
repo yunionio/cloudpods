@@ -26,6 +26,8 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
+	"github.com/pkg/errors"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -52,7 +54,12 @@ type SAliyunClient struct {
 	providerName string
 	accessKey    string
 	secret       string
-	iregions     []cloudprovider.ICloudRegion
+
+	ownerId   string
+	ownerName string
+
+	iregions []cloudprovider.ICloudRegion
+	iBuckets []cloudprovider.ICloudBucket
 
 	Debug bool
 }
@@ -67,7 +74,14 @@ func NewAliyunClient(providerId string, providerName string, accessKey string, s
 	}
 	err := client.fetchRegions()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "fetchRegions")
+	}
+	err = client.fetchBuckets()
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchBuckets")
+	}
+	if client.Debug {
+		log.Debugf("ClientID: %s ClientName: %s", client.ownerId, client.ownerName)
 	}
 	return &client, nil
 }
@@ -183,6 +197,83 @@ func (self *SAliyunClient) fetchRegions() error {
 	return nil
 }
 
+// oss endpoint
+// https://help.aliyun.com/document_detail/31837.html?spm=a2c4g.11186623.2.6.6E8ZkO
+func getOSSExternalDomain(regionId string) string {
+	return fmt.Sprintf("oss-%s.aliyuncs.com", regionId)
+}
+
+func getOSSInternalDomain(regionId string) string {
+	return fmt.Sprintf("oss-%s-internal.aliyuncs.com", regionId)
+}
+
+// https://help.aliyun.com/document_detail/31837.html?spm=a2c4g.11186623.2.6.XqEgD1
+func (client *SAliyunClient) getOssClient(regionId string) (*oss.Client, error) {
+	ep := getOSSExternalDomain(regionId)
+	cli, err := oss.New(ep, client.accessKey, client.secret)
+	if err != nil {
+		return nil, errors.Wrap(err, "oss.New")
+	}
+	return cli, nil
+}
+
+func (self *SAliyunClient) getRegionByRegionId(id string) (cloudprovider.ICloudRegion, error) {
+	for i := 0; i < len(self.iregions); i += 1 {
+		if self.iregions[i].GetId() == id {
+			return self.iregions[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SAliyunClient) invalidateIBuckets() {
+	self.iBuckets = nil
+}
+
+func (self *SAliyunClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	if self.iBuckets == nil {
+		err := self.fetchBuckets()
+		if err != nil {
+			return nil, errors.Wrap(err, "fetchBuckets")
+		}
+	}
+	return self.iBuckets, nil
+}
+
+func (self *SAliyunClient) fetchBuckets() error {
+	osscli, err := self.getOssClient(ALIYUN_DEFAULT_REGION)
+	if err != nil {
+		return errors.Wrap(err, "self.getOssClient")
+	}
+	result, err := osscli.ListBuckets()
+	if err != nil {
+		return errors.Wrap(err, "oss.ListBuckets")
+	}
+
+	self.ownerId = result.Owner.ID
+	self.ownerName = result.Owner.DisplayName
+
+	ret := make([]cloudprovider.ICloudBucket, 0)
+	for _, bInfo := range result.Buckets {
+		regionId := bInfo.Location[4:]
+		region, err := self.getRegionByRegionId(regionId)
+		if err != nil {
+			log.Errorf("cannot find bucket's region %s", regionId)
+			continue
+		}
+		b := SBucket{
+			region:       region.(*SRegion),
+			Name:         bInfo.Name,
+			Location:     bInfo.Location,
+			CreationDate: bInfo.CreationDate,
+			StorageClass: bInfo.StorageClass,
+		}
+		ret = append(ret, &b)
+	}
+	self.iBuckets = ret
+	return nil
+}
+
 func (self *SAliyunClient) GetRegions() []SRegion {
 	regions := make([]SRegion, len(self.iregions))
 	for i := 0; i < len(regions); i += 1 {
@@ -202,6 +293,10 @@ func (self *SAliyunClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	subAccount.Account = self.accessKey
 	subAccount.HealthStatus = api.CLOUD_PROVIDER_HEALTH_NORMAL
 	return []cloudprovider.SSubAccount{subAccount}, nil
+}
+
+func (self *SAliyunClient) GetAccountId() string {
+	return self.ownerId
 }
 
 func (self *SAliyunClient) GetIRegions() []cloudprovider.ICloudRegion {
