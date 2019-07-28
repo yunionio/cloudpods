@@ -20,8 +20,8 @@ import (
 
 	"yunion.io/x/structarg"
 
-	"yunion.io/x/onecloud/pkg/util/qcloud"
-	_ "yunion.io/x/onecloud/pkg/util/qcloud/shell"
+	"yunion.io/x/onecloud/pkg/multicloud/qcloud"
+	_ "yunion.io/x/onecloud/pkg/multicloud/qcloud/shell"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
 
