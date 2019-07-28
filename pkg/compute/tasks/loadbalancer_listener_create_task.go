@@ -17,7 +17,6 @@ package tasks
 import (
 	"context"
 	"fmt"
-
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -34,6 +33,66 @@ type LoadbalancerListenerCreateTask struct {
 
 func init() {
 	taskman.RegisterTask(LoadbalancerListenerCreateTask{})
+}
+
+func getOnLoadbalancerListenerCreateCompleteFunc(provider string) func(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject, self *LoadbalancerListenerCreateTask) {
+	switch provider {
+	case api.CLOUD_PROVIDER_HUAWEI:
+		return onHuaweiLoadbalancerListenerCreateComplete
+	default:
+		return onLoadbalancerListenerCreateComplete
+	}
+}
+
+func onLoadbalancerListenerCreateComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject, task *LoadbalancerListenerCreateTask) {
+	task.OnPrepareLoadbalancerBackendgroup(ctx, lblis, data)
+	return
+}
+
+func onHuaweiLoadbalancerListenerCreateComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject, self *LoadbalancerListenerCreateTask) {
+	lbbg := lblis.GetLoadbalancerBackendGroup()
+	if lbbg == nil {
+		self.taskFail(ctx, lblis, "huawei loadbalancer listener releated backend group not found")
+		return
+	}
+
+	groupParams, err := lbbg.GetHuaweiBackendGroupParams(lblis, nil)
+	if err != nil {
+		self.taskFail(ctx, lblis, err.Error())
+		return
+	}
+
+	params := jsonutils.NewDict()
+	params.Set("listenerId", jsonutils.NewString(lblis.GetId()))
+	group, _ := models.HuaweiCachedLbbgManager.GetUsableCachedBackendGroup(lbbg.GetId(), lblis.ListenerType)
+	if group != nil {
+		// 服务器组存在
+		ilbbg, err := group.GetICloudLoadbalancerBackendGroup()
+		if err != nil {
+			self.taskFail(ctx, lblis, err.Error())
+			return
+		}
+		// 服务器组已经存在，直接同步即可
+		if err := ilbbg.Sync(groupParams); err != nil {
+			self.taskFail(ctx, lblis, err.Error())
+			return
+		} else {
+			if _, err := db.UpdateWithLock(ctx, group, func() error {
+				group.AssociatedId = lblis.GetId()
+				group.AssociatedType = api.LB_ASSOCIATE_TYPE_LISTENER
+				return nil
+			}); err != nil {
+				self.taskFail(ctx, lblis, err.Error())
+				return
+			}
+
+			self.OnPrepareLoadbalancerBackendgroup(ctx, lblis, data)
+		}
+	} else {
+		// 服务器组不存在
+		self.SetStage("OnPrepareLoadbalancerBackendgroup", nil)
+		lbbg.StartHuaweiLoadBalancerBackendGroupCreateTask(ctx, self.GetUserCred(), params, self.GetTaskId())
+	}
 }
 
 func (self *LoadbalancerListenerCreateTask) taskFail(ctx context.Context, lblis *models.SLoadbalancerListener, reason string) {
@@ -57,12 +116,22 @@ func (self *LoadbalancerListenerCreateTask) OnInit(ctx context.Context, obj db.I
 	}
 }
 
-func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerCreateComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
+func (self *LoadbalancerListenerCreateTask) OnPrepareLoadbalancerBackendgroup(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
 	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lblis, db.ACT_ALLOCATE, lblis.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lblis, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStage("OnLoadbalancerListenerStartComplete", nil)
 	lblis.StartLoadBalancerListenerStartTask(ctx, self.GetUserCred(), self.GetTaskId())
+}
+
+func (self *LoadbalancerListenerCreateTask) OnPrepareLoadbalancerBackendgroupFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {
+	lblis.SetStatus(self.GetUserCred(), api.LB_STATUS_DISABLED, "")
+	self.taskFail(ctx, lblis, reason.String())
+}
+
+func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerCreateComplete(ctx context.Context, lblis *models.SLoadbalancerListener, data jsonutils.JSONObject) {
+	call := getOnLoadbalancerListenerCreateCompleteFunc(lblis.GetProviderName())
+	call(ctx, lblis, data, self)
 }
 
 func (self *LoadbalancerListenerCreateTask) OnLoadbalancerListenerCreateCompleteFailed(ctx context.Context, lblis *models.SLoadbalancerListener, reason jsonutils.JSONObject) {

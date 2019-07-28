@@ -90,6 +90,10 @@ func (self *SLBListenerRule) GetDomain() string {
 	return self.Domain
 }
 
+func (self *SLBListenerRule) GetCondition() string {
+	return ""
+}
+
 func (self *SLBListenerRule) GetPath() string {
 	return self.URL
 }

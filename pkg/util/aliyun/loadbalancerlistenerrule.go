@@ -79,6 +79,10 @@ func (lbr *SLoadbalancerListenerRule) Refresh() error {
 	return jsonutils.Update(lbr, rule)
 }
 
+func (lbr *SLoadbalancerListenerRule) GetCondition() string {
+	return ""
+}
+
 func (lbr *SLoadbalancerListenerRule) GetDomain() string {
 	return lbr.Domain
 }

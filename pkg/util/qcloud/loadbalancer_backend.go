@@ -190,5 +190,5 @@ func (self *SLBBackend) GetProjectId() string {
 }
 
 func (self *SLBBackend) SyncConf(port, weight int) error {
-	return cloudprovider.ErrNotImplemented
+	return self.group.UpdateBackendServer(self.InstanceID, weight, port)
 }

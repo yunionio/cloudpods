@@ -273,8 +273,8 @@ func (self *SLoadbalancer) GetNetworkType() string {
 	return api.LB_NETWORK_TYPE_VPC
 }
 
-func (self *SLoadbalancer) GetNetworkId() string {
-	return self.SubnetId
+func (self *SLoadbalancer) GetNetworkIds() []string {
+	return []string{self.SubnetId}
 }
 
 func (self *SLoadbalancer) GetVpcId() string {

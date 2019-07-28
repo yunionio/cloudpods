@@ -104,6 +104,12 @@ func InitHandlers(app *appsrv.Application) {
 		models.LoadbalancerAclManager,
 		models.LoadbalancerAgentManager,
 		models.LoadbalancerClusterManager,
+		models.CachedLoadbalancerAclManager,
+		models.CachedLoadbalancerCertificateManager,
+		models.HuaweiCachedLbManager,
+		models.HuaweiCachedLbbgManager,
+		models.AwsCachedLbManager,
+		models.AwsCachedLbbgManager,
 		models.RouteTableManager,
 
 		models.SchedpolicyManager,

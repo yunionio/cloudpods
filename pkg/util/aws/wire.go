@@ -90,7 +90,7 @@ func (self *SWire) GetINetworkById(netid string) (cloudprovider.ICloudNetwork, e
 			return networks[i], nil
 		}
 	}
-	return nil, cloudprovider.ErrNotFound
+	return nil, ErrorNotFound()
 }
 
 func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudprovider.ICloudNetwork, error) {
@@ -103,7 +103,7 @@ func (self *SWire) CreateINetwork(name string, cidr string, desc string) (cloudp
 	network := self.getNetworkById(networkId)
 	if network == nil {
 		log.Errorf("cannot find network after create????")
-		return nil, cloudprovider.ErrNotFound
+		return nil, ErrorNotFound()
 	}
 	return network, nil
 }

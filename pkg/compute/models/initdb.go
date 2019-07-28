@@ -40,6 +40,7 @@ func InitDB() error {
 		SecurityGroupManager,
 		NetworkManager,
 		LoadbalancerCertificateManager,
+		LoadbalancerAclManager,
 		LoadbalancerManager,
 		LoadbalancerListenerManager,
 		LoadbalancerListenerRuleManager,

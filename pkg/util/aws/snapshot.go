@@ -84,7 +84,7 @@ func (self *SSnapshot) Refresh() error {
 	if snapshots, total, err := self.region.GetSnapshots("", "", "", []string{self.SnapshotId}, 0, 1); err != nil {
 		return err
 	} else if total != 1 {
-		return cloudprovider.ErrNotFound
+		return ErrorNotFound()
 	} else if err := jsonutils.Update(self, snapshots[0]); err != nil {
 		return err
 	}
@@ -141,7 +141,7 @@ func (self *SRegion) GetSnapshots(instanceId string, diskId string, snapshotName
 	err = parseNotFoundError(err)
 	if err != nil {
 		if strings.Contains(err.Error(), "InvalidSnapshot.NotFound") {
-			return nil, 0, cloudprovider.ErrNotFound
+			return nil, 0, ErrorNotFound()
 		}
 
 		return nil, 0, err
@@ -176,7 +176,7 @@ func (self *SRegion) GetISnapshotById(snapshotId string) (cloudprovider.ICloudSn
 	if snapshots, total, err := self.GetSnapshots("", "", "", []string{snapshotId}, 0, 1); err != nil {
 		return nil, err
 	} else if total != 1 {
-		return nil, cloudprovider.ErrNotFound
+		return nil, ErrorNotFound()
 	} else {
 		return &snapshots[0], nil
 	}

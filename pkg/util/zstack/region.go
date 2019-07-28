@@ -39,6 +39,10 @@ type SRegion struct {
 	ivpcs  []cloudprovider.ICloudVpc
 }
 
+func (region *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
 func (region *SRegion) GetClient() *SZStackClient {
 	return region.client
 }

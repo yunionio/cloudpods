@@ -32,6 +32,26 @@ type SLBBackendGroup struct {
 	rule     *SLBListenerRule // tcp、udp、tcp_ssl监听rule 为nil
 }
 
+func (self *SLBBackendGroup) GetLoadbalancerId() string {
+	return self.lb.GetId()
+}
+
+func (self *SLBBackendGroup) GetProtocolType() string {
+	return ""
+}
+
+func (self *SLBBackendGroup) GetScheduler() string {
+	return ""
+}
+
+func (self *SLBBackendGroup) GetHealthCheck() (*cloudprovider.SLoadbalancerHealthCheck, error) {
+	return nil, nil
+}
+
+func (self *SLBBackendGroup) GetStickySession() (*cloudprovider.SLoadbalancerStickySession, error) {
+	return nil, nil
+}
+
 // 返回requestid
 func (self *SLBBackendGroup) appLBBackendServer(action string, serverId string, weight int, port int) (string, error) {
 	if len(serverId) == 0 {
@@ -48,6 +68,28 @@ func (self *SLBBackendGroup) appLBBackendServer(action string, serverId string, 
 
 	if self.rule != nil {
 		params["LocationId"] = self.rule.GetId()
+	}
+
+	resp, err := self.lb.region.clbRequest(action, params)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.GetString("RequestId")
+}
+
+// 返回requestid
+func (self *SLBBackendGroup) appLBSeventhBackendServer(action string, serverId string, weight int, port int) (string, error) {
+	if len(serverId) == 0 {
+		return "", fmt.Errorf("loadbalancer backend instance id should not be empty.")
+	}
+
+	params := map[string]string{
+		"loadBalancerId":        self.lb.GetId(),
+		"listenerId":            self.listener.GetId(),
+		"backends.0.InstanceId": serverId,
+		"backends.0.Port":       strconv.Itoa(port),
+		"backends.0.Weight":     strconv.Itoa(weight),
 	}
 
 	resp, err := self.lb.region.clbRequest(action, params)
@@ -135,13 +177,36 @@ func (self *SLBBackendGroup) RemoveBackendServer(serverId string, weight int, po
 	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
 }
 
+func (self *SLBBackendGroup) UpdateBackendServer(serverId string, weight int, port int) error {
+	var requestId string
+	var err error
+	if self.lb.Forward == LB_TYPE_APPLICATION {
+		if self.listener.Protocol == api.LB_LISTENER_TYPE_HTTPS || self.listener.Protocol == api.LB_LISTENER_TYPE_HTTP {
+			requestId, err = self.appLBSeventhBackendServer("ModifyForwardSeventhBackends", serverId, weight, port)
+		} else {
+			requestId, err = self.appLBBackendServer("ModifyForwardFourthBackendsWeight", serverId, weight, port)
+		}
+	} else {
+		requestId, err = self.classicLBBackendServer("ModifyLoadBalancerBackends", serverId, weight, port)
+	}
+
+	if err != nil {
+		if strings.Contains(err.Error(), "not registered") {
+			return nil
+		}
+		return err
+	}
+
+	return self.lb.region.WaitLBTaskSuccess(requestId, 5*time.Second, 60*time.Second)
+}
+
 // 腾讯云无后端服务器组。
 func (self *SLBBackendGroup) Delete() error {
 	return fmt.Errorf("Please remove related listener/rule frist")
 }
 
 // 腾讯云无后端服务器组
-func (self *SLBBackendGroup) Sync(name string) error {
+func (self *SLBBackendGroup) Sync(group *cloudprovider.SLoadbalancerBackendGroup) error {
 	return nil
 }
 

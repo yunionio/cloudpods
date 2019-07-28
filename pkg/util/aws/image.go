@@ -272,7 +272,7 @@ func (self *SRegion) GetImage(imageId string) (*SImage, error) {
 		return nil, err
 	}
 	if len(images) == 0 {
-		return nil, cloudprovider.ErrNotFound
+		return nil, ErrorNotFound()
 	}
 	return &images[0], nil
 }
@@ -287,7 +287,7 @@ func (self *SRegion) GetImageByName(name string, owners []TImageOwnerType) (*SIm
 		return nil, err
 	}
 	if len(images) == 0 {
-		return nil, cloudprovider.ErrNotFound
+		return nil, ErrorNotFound()
 	}
 
 	log.Debugf("%d image found match name %s", len(images), name)

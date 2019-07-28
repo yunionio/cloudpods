@@ -57,6 +57,14 @@ type SRegion struct {
 	fetchLocation bool
 }
 
+func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
 func (self *SRegion) GetILoadBalancers() ([]cloudprovider.ICloudLoadbalancer, error) {
 	lbs, err := self.GetLoadbalancers(nil)
 	if err != nil {
@@ -138,6 +146,8 @@ func (self *SRegion) GetILoadBalancerCertificateById(certId string) (cloudprovid
 
 	if len(certs) == 1 {
 		return icerts[0], nil
+	} else if len(certs) == 0 {
+		return nil, cloudprovider.ErrNotFound
 	} else {
 		return nil, fmt.Errorf("GetILoadBalancerCertificateById %d certificate found, expect 1", len(certs))
 	}
@@ -152,6 +162,8 @@ func (self *SRegion) GetILoadBalancerById(loadbalancerId string) (cloudprovider.
 	if len(lbs) == 1 {
 		lbs[0].region = self
 		return &lbs[0], nil
+	} else if len(lbs) == 0 {
+		return nil, cloudprovider.ErrNotFound
 	} else {
 		log.Debugf("GetILoadBalancerById %s %d loadbalancer found", loadbalancerId, len(lbs))
 		return nil, cloudprovider.ErrNotFound
@@ -177,7 +189,7 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 	}
 
 	if loadbalancer.AddressType != api.LB_ADDR_TYPE_INTERNET {
-		params["SubnetId"] = loadbalancer.NetworkID
+		params["SubnetId"] = loadbalancer.NetworkIDs[0]
 	}
 
 	resp, err := self.clbRequest("CreateLoadBalancer", params)

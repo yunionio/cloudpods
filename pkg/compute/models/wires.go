@@ -615,6 +615,10 @@ func chooseCandidateNetworksByNetworkType(nets []SNetwork, isExit bool, serverTy
 }
 
 func (self *SWire) GetZone() *SZone {
+	if self.ZoneId == "" {
+		return nil
+	}
+
 	return ZoneManager.FetchZoneById(self.ZoneId)
 }
 
@@ -825,6 +829,13 @@ func (self *SWire) getRegion() *SCloudregion {
 	if zone != nil {
 		return zone.GetRegion()
 	}
+
+	vpc := self.getVpc()
+	if vpc != nil {
+		region, _ := vpc.GetRegion()
+		return region
+	}
+
 	return nil
 }
 

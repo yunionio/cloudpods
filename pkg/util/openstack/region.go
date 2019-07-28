@@ -41,6 +41,10 @@ type SRegion struct {
 	storageCache *SStoragecache
 }
 
+func (region *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
 func (region *SRegion) GetClient() *SOpenStackClient {
 	return region.client
 }

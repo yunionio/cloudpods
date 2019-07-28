@@ -30,6 +30,26 @@ type SLoadbalancerMasterSlaveBackendGroup struct {
 	MasterSlaveServerGroupName string
 }
 
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetLoadbalancerId() string {
+	return backendgroup.lb.GetId()
+}
+
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetProtocolType() string {
+	return ""
+}
+
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetScheduler() string {
+	return ""
+}
+
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetHealthCheck() (*cloudprovider.SLoadbalancerHealthCheck, error) {
+	return nil, nil
+}
+
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetStickySession() (*cloudprovider.SLoadbalancerStickySession, error) {
+	return nil, nil
+}
+
 func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) GetName() string {
 	return backendgroup.MasterSlaveServerGroupName
 }
@@ -165,7 +185,7 @@ func (region *SRegion) GetLoadbalancerMasterSlaveBackendgroupById(groupId string
 	return group, body.Unmarshal(group)
 }
 
-func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Sync(name string) error {
+func (backendgroup *SLoadbalancerMasterSlaveBackendGroup) Sync(group *cloudprovider.SLoadbalancerBackendGroup) error {
 	return nil
 }
 
