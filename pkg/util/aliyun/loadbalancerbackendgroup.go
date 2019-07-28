@@ -56,6 +56,26 @@ type SLoadbalancerBackendGroup struct {
 	AssociatedObjects AssociatedObjects
 }
 
+func (backendgroup *SLoadbalancerBackendGroup) GetLoadbalancerId() string {
+	return backendgroup.lb.GetId()
+}
+
+func (backendgroup *SLoadbalancerBackendGroup) GetProtocolType() string {
+	return ""
+}
+
+func (backendgroup *SLoadbalancerBackendGroup) GetScheduler() string {
+	return ""
+}
+
+func (backendgroup *SLoadbalancerBackendGroup) GetHealthCheck() (*cloudprovider.SLoadbalancerHealthCheck, error) {
+	return nil, nil
+}
+
+func (backendgroup *SLoadbalancerBackendGroup) GetStickySession() (*cloudprovider.SLoadbalancerStickySession, error) {
+	return nil, nil
+}
+
 func (backendgroup *SLoadbalancerBackendGroup) GetName() string {
 	return backendgroup.VServerGroupName
 }
@@ -190,9 +210,13 @@ func (region *SRegion) UpdateLoadBalancerBackendGroupName(name, groupId string) 
 	return err
 }
 
-func (backendgroup *SLoadbalancerBackendGroup) Sync(name string) error {
-	if backendgroup.VServerGroupName != name {
-		return backendgroup.lb.region.UpdateLoadBalancerBackendGroupName(backendgroup.VServerGroupId, name)
+func (backendgroup *SLoadbalancerBackendGroup) Sync(group *cloudprovider.SLoadbalancerBackendGroup) error {
+	if group == nil {
+		return nil
+	}
+
+	if backendgroup.VServerGroupName != group.Name {
+		return backendgroup.lb.region.UpdateLoadBalancerBackendGroupName(backendgroup.VServerGroupId, group.Name)
 	}
 	return nil
 }

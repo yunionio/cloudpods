@@ -118,8 +118,8 @@ func (lb *SLoadbalancer) GetNetworkType() string {
 	return lb.NetworkType
 }
 
-func (lb *SLoadbalancer) GetNetworkId() string {
-	return lb.VSwitchId
+func (lb *SLoadbalancer) GetNetworkIds() []string {
+	return []string{lb.VSwitchId}
 }
 
 func (lb *SLoadbalancer) GetZoneId() string {

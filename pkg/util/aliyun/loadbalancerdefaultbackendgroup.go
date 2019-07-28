@@ -27,6 +27,26 @@ type SLoadbalancerDefaultBackendGroup struct {
 	lb *SLoadbalancer
 }
 
+func (backendgroup *SLoadbalancerDefaultBackendGroup) GetLoadbalancerId() string {
+	return backendgroup.lb.GetId()
+}
+
+func (backendgroup *SLoadbalancerDefaultBackendGroup) GetProtocolType() string {
+	return ""
+}
+
+func (backendgroup *SLoadbalancerDefaultBackendGroup) GetScheduler() string {
+	return ""
+}
+
+func (backendgroup *SLoadbalancerDefaultBackendGroup) GetHealthCheck() (*cloudprovider.SLoadbalancerHealthCheck, error) {
+	return nil, nil
+}
+
+func (backendgroup *SLoadbalancerDefaultBackendGroup) GetStickySession() (*cloudprovider.SLoadbalancerStickySession, error) {
+	return nil, nil
+}
+
 func (backendgroup *SLoadbalancerDefaultBackendGroup) GetName() string {
 	return fmt.Sprintf("%s(%s)-default", backendgroup.lb.LoadBalancerName, backendgroup.lb.Address)
 }
@@ -89,7 +109,7 @@ func (backendgroup *SLoadbalancerDefaultBackendGroup) GetILoadbalancerBackendByI
 	return nil, cloudprovider.ErrNotFound
 }
 
-func (backendgroup *SLoadbalancerDefaultBackendGroup) Sync(name string) error {
+func (backendgroup *SLoadbalancerDefaultBackendGroup) Sync(group *cloudprovider.SLoadbalancerBackendGroup) error {
 	return cloudprovider.ErrNotSupported
 }
 

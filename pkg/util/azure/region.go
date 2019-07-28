@@ -57,6 +57,10 @@ type SRegion struct {
 	Longitude      string
 }
 
+func (self *SRegion) GetILoadBalancerBackendGroups() ([]cloudprovider.ICloudLoadbalancerBackendGroup, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}
+
 /////////////////////////////////////////////////////////////////////////////
 func (self *SRegion) Refresh() error {
 	// do nothing

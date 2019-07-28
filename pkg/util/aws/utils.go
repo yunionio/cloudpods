@@ -19,14 +19,15 @@ import (
 	"net"
 	"reflect"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/util/secrules"
 )
 
@@ -133,9 +134,9 @@ func AppendSingleValueFilter(filters []*ec2.Filter, name string, value string) [
 
 func ConvertedList(list []string) []*string {
 	result := make([]*string, 0)
-	for _, item := range list {
-		if len(item) > 0 {
-			result = append(result, &item)
+	for i := range list {
+		if len(list[i]) > 0 {
+			result = append(result, &list[i])
 		}
 	}
 
@@ -491,8 +492,13 @@ func parseNotFoundError(err error) error {
 	}
 
 	if strings.Contains(err.Error(), ".NotFound") {
-		return cloudprovider.ErrNotFound
+		return ErrorNotFound()
 	} else {
 		return err
 	}
+}
+
+func ErrorNotFound() error {
+	log.Errorf("Not found: %s", string(debug.Stack()))
+	return cloudprovider.ErrNotFound
 }

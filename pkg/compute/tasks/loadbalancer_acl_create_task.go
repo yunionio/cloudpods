@@ -36,7 +36,7 @@ func init() {
 	taskman.RegisterTask(LoadbalancerAclCreateTask{})
 }
 
-func (self *LoadbalancerAclCreateTask) taskFail(ctx context.Context, lbacl *models.SLoadbalancerAcl, reason string) {
+func (self *LoadbalancerAclCreateTask) taskFail(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason string) {
 	lbacl.SetStatus(self.GetUserCred(), api.LB_CREATE_FAILED, reason)
 	db.OpsLog.LogEvent(lbacl, db.ACT_ALLOCATE_FAIL, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_CREATE, reason, self.UserCred, false)
@@ -45,7 +45,7 @@ func (self *LoadbalancerAclCreateTask) taskFail(ctx context.Context, lbacl *mode
 }
 
 func (self *LoadbalancerAclCreateTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	lbacl := obj.(*models.SLoadbalancerAcl)
+	lbacl := obj.(*models.SCachedLoadbalancerAcl)
 	region := lbacl.GetRegion()
 	if region == nil {
 		self.taskFail(ctx, lbacl, fmt.Sprintf("failed to find region for lbacl %s", lbacl.Name))
@@ -57,13 +57,13 @@ func (self *LoadbalancerAclCreateTask) OnInit(ctx context.Context, obj db.IStand
 	}
 }
 
-func (self *LoadbalancerAclCreateTask) OnLoadbalancerAclCreateComplete(ctx context.Context, lbacl *models.SLoadbalancerAcl, data jsonutils.JSONObject) {
+func (self *LoadbalancerAclCreateTask) OnLoadbalancerAclCreateComplete(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, data jsonutils.JSONObject) {
 	lbacl.SetStatus(self.GetUserCred(), api.LB_STATUS_ENABLED, "")
 	db.OpsLog.LogEvent(lbacl, db.ACT_ALLOCATE, lbacl.GetShortDesc(ctx), self.UserCred)
 	logclient.AddActionLogWithStartable(self, lbacl, logclient.ACT_CREATE, nil, self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
 }
 
-func (self *LoadbalancerAclCreateTask) OnLoadbalancerAclCreateCompleteFailed(ctx context.Context, lbacl *models.SLoadbalancerAcl, reason jsonutils.JSONObject) {
+func (self *LoadbalancerAclCreateTask) OnLoadbalancerAclCreateCompleteFailed(ctx context.Context, lbacl *models.SCachedLoadbalancerAcl, reason jsonutils.JSONObject) {
 	self.taskFail(ctx, lbacl, reason.String())
 }

@@ -29,6 +29,8 @@ type LoadbalancerBackendGroupCreateOptions struct {
 	NAME         string
 	Loadbalancer string
 	Type         string   `choices:"default|normal|master_slave"`
+	ProtocolType string   `help:"Huawei backendgroup protocol type" choices:"tcp|udp|http"`
+	Scheduler    string   `help:"Huawei backendgroup scheduler algorithm" choices:"rr|sch|wlc"`
 	Backend      []string `help:"backends with separated by ',' e.g. weight:80,port:443,id:01e9d393-d2b8-4d2e-85fb-023b83889070,backend_type:guest" json:"-"`
 }
 
@@ -129,4 +131,5 @@ type LoadbalancerBackendGroupListOptions struct {
 	BaseListOptions
 	Loadbalancer string
 	Cloudregion  string
+	NoRef        bool
 }
