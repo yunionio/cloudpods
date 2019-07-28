@@ -14,7 +14,14 @@
 
 package qcloud
 
-import "yunion.io/x/onecloud/pkg/cloudprovider"
+import (
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
+	"context"
+	"github.com/tencentyun/cos-go-sdk-v5"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
 
 type SObject struct {
 	bucket *SBucket
@@ -24,4 +31,33 @@ type SObject struct {
 
 func (o *SObject) GetIBucket() cloudprovider.ICloudBucket {
 	return o.bucket
+}
+
+func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
+	acl := cloudprovider.ACLDefault
+	coscli, err := o.bucket.region.GetCosClient(o.bucket)
+	if err != nil {
+		log.Errorf("o.bucket.region.GetOssClient error %s", err)
+		return acl
+	}
+	result, _, err := coscli.Object.GetACL(context.Background(), o.Key)
+	if err != nil {
+		log.Errorf("coscli.Object.GetACL error %s", err)
+		return acl
+	}
+	return cosAcl2CannedAcl(result.AccessControlList)
+}
+
+func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
+	coscli, err := o.bucket.region.GetCosClient(o.bucket)
+	if err != nil {
+		return errors.Wrap(err, "o.bucket.region.GetCosClient")
+	}
+	opts := &cos.ObjectPutACLOptions{}
+	opts.Header.XCosACL = string(aclStr)
+	_, err = coscli.Object.PutACL(context.Background(), o.Key, opts)
+	if err != nil {
+		return errors.Wrap(err, "coscli.Object.PutACL")
+	}
+	return nil
 }

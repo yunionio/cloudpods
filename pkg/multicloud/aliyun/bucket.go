@@ -20,24 +20,24 @@ import (
 	"io"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
-
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 
 	"yunion.io/x/pkg/errors"
 
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SBucket struct {
-	objectstore.SBucket
+	multicloud.SBaseBucket
+
 	region *SRegion
 
 	Name         string
 	Location     string
 	CreationDate time.Time
 	StorageClass string
-	Acl          string
 }
 
 func (b *SBucket) GetProjectId() string {
@@ -52,8 +52,20 @@ func (b *SBucket) GetName() string {
 	return b.Name
 }
 
-func (b *SBucket) GetAcl() string {
-	return b.Acl
+func (b *SBucket) GetAcl() cloudprovider.TBucketACLType {
+	acl := cloudprovider.ACLPrivate
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		log.Errorf("b.region.GetOssClient fail %s", err)
+		return acl
+	}
+	aclResp, err := osscli.GetBucketACL(b.Name)
+	if err != nil {
+		log.Errorf("osscli.GetBucketACL fail %s", err)
+		return acl
+	}
+	acl = cloudprovider.TBucketACLType(aclResp.ACL)
+	return acl
 }
 
 func (b *SBucket) GetLocation() string {
@@ -75,14 +87,39 @@ func (b *SBucket) GetStorageClass() string {
 func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 	return []cloudprovider.SBucketAccessUrl{
 		{
-			Url:         fmt.Sprintf("https://%s.aliyuncs.com", b.Location),
+			Url:         fmt.Sprintf("%s.%s", b.Name, b.region.getOSSExternalDomain()),
 			Description: "ExtranetEndpoint",
 		},
 		{
-			Url:         fmt.Sprintf("https://%s-internal.aliyuncs.com", b.Location),
+			Url:         fmt.Sprintf("%s.%s", b.Name, b.region.getOSSInternalDomain()),
 			Description: "IntranetEndpoint",
 		},
 	}
+}
+
+func (b *SBucket) GetStats() cloudprovider.SBucketStats {
+	stats, err := cloudprovider.GetIBucketStats(b)
+	if err != nil {
+		log.Errorf("GetStats fail %s", err)
+	}
+	return stats
+}
+
+func (b *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		log.Errorf("b.region.GetOssClient fail %s", err)
+		return errors.Wrap(err, "b.region.GetOssClient")
+	}
+	acl, err := str2Acl(string(aclStr))
+	if err != nil {
+		return errors.Wrap(err, "str2Acl")
+	}
+	err = osscli.SetBucketACL(b.Name, acl)
+	if err != nil {
+		return errors.Wrap(err, "SetBucketACL")
+	}
+	return nil
 }
 
 func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {

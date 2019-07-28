@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
+	"yunion.io/x/log"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -151,6 +152,10 @@ func (self *SAzureProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error
 	return self.client.GetSubAccounts()
 }
 
+func (self *SAzureProvider) GetAccountId() string {
+	return self.client.GetAccountId()
+}
+
 func (self *SAzureProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
@@ -165,4 +170,13 @@ func (self *SAzureProvider) GetBalance() (float64, string, error) {
 
 func (self *SAzureProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return self.client.GetIProjects()
+}
+
+func (self *SAzureProvider) GetStorageClasses(regionId string) []string {
+	sc, err := self.client.GetStorageClasses(regionId)
+	if err != nil {
+		log.Errorf("Fail to find storage classes")
+		return nil
+	}
+	return sc
 }

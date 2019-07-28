@@ -147,6 +147,10 @@ func (self *SQcloudProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	return self.client.GetSubAccounts()
 }
 
+func (self *SQcloudProvider) GetAccountId() string {
+	return self.client.GetAccountId()
+}
+
 func (self *SQcloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
@@ -169,4 +173,10 @@ func (self *SQcloudProvider) GetBalance() (float64, string, error) {
 
 func (self *SQcloudProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return self.client.GetIProjects()
+}
+
+func (self *SQcloudProvider) GetStorageClasses(regionId string) []string {
+	return []string{
+		"STANDARD", "STANDARD_IA", "ARCHIVE",
+	}
 }

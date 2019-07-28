@@ -29,9 +29,9 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
+	"github.com/pkg/errors"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	// "yunion.io/x/onecloud/pkg/httperrors"
 )
 
 const (
@@ -57,7 +57,9 @@ type SAzureClient struct {
 	fetchResourceGroups bool
 	env                 azureenv.Environment
 	authorizer          autorest.Authorizer
-	iregions            []cloudprovider.ICloudRegion
+
+	iregions []cloudprovider.ICloudRegion
+	iBuckets []cloudprovider.ICloudBucket
 
 	debug bool
 }
@@ -100,7 +102,11 @@ func NewAzureClient(providerId string, providerName string, envName, tenantId, c
 	}
 	err := client.fetchRegions()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "fetchRegions")
+	}
+	err = client.fetchBuckets()
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchBuckets")
 	}
 	return &client, nil
 }
@@ -709,6 +715,41 @@ func (self *SAzureClient) fetchRegions() error {
 	return err
 }
 
+func (self *SAzureClient) invalidateIBuckets() {
+	self.iBuckets = nil
+}
+
+func (self *SAzureClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	if self.iBuckets == nil {
+		err := self.fetchBuckets()
+		if err != nil {
+			return nil, errors.Wrap(err, "fetchBuckets")
+		}
+	}
+	return self.iBuckets, nil
+}
+
+func (client *SAzureClient) fetchBuckets() error {
+	accounts := []SStorageAccount{}
+	err := client.ListAll("Microsoft.Storage/storageAccounts", &accounts)
+	if err != nil {
+		return errors.Wrap(err, "client.ListAll")
+	}
+	buckets := make([]cloudprovider.ICloudBucket, 0)
+	for i := range accounts {
+		log.Debugf("%s %s %#v", jsonutils.Marshal(accounts[i]), accounts[i].Location, accounts[i])
+		region, err := client.getIRegionByRegionId(accounts[i].Location)
+		if err != nil {
+			log.Errorf("fail to find region '%s'", accounts[i].Location)
+			continue
+		}
+		accounts[i].region = region.(*SRegion)
+		buckets = append(buckets, &accounts[i])
+	}
+	client.iBuckets = buckets
+	return nil
+}
+
 func (self *SAzureClient) GetRegions() []SRegion {
 	regions := make([]SRegion, len(self.iregions))
 	for i := 0; i < len(regions); i += 1 {
@@ -748,6 +789,10 @@ func (self *SAzureClient) GetSubAccounts() (subAccounts []cloudprovider.SSubAcco
 	return subAccounts, nil
 }
 
+func (self *SAzureClient) GetAccountId() string {
+	return self.tenantId
+}
+
 func (self *SAzureClient) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.iregions
 }
@@ -755,6 +800,15 @@ func (self *SAzureClient) GetIRegions() []cloudprovider.ICloudRegion {
 func (self *SAzureClient) getDefaultRegion() (cloudprovider.ICloudRegion, error) {
 	if len(self.iregions) > 0 {
 		return self.iregions[0], nil
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (self *SAzureClient) getIRegionByRegionId(id string) (cloudprovider.ICloudRegion, error) {
+	for i := 0; i < len(self.iregions); i += 1 {
+		if self.iregions[i].GetId() == id {
+			return self.iregions[i], nil
+		}
 	}
 	return nil, cloudprovider.ErrNotFound
 }
@@ -847,4 +901,20 @@ func (self *SAzureClient) GetIProjects() ([]cloudprovider.ICloudProject, error) 
 		iprojects = append(iprojects, &resourceGroups[i])
 	}
 	return iprojects, nil
+}
+
+func (self *SAzureClient) GetStorageClasses(regionId string) ([]string, error) {
+	iRegion, err := self.GetIRegionById(regionId)
+	if err != nil {
+		return nil, errors.Wrap(err, "getDefaultRegion")
+	}
+	skus, err := iRegion.(*SRegion).GetStorageAccountSkus()
+	if err != nil {
+		return nil, errors.Wrap(err, "GetStorageAccountSkus")
+	}
+	ret := make([]string, 0)
+	for i := range skus {
+		ret = append(ret, skus[i].Name)
+	}
+	return ret, nil
 }

@@ -20,25 +20,26 @@ import (
 	"io"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
-
 	"github.com/tencentyun/cos-go-sdk-v5"
 
+	"yunion.io/x/log"
+	"yunion.io/x/minio-go"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/timeutils"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SBucket struct {
-	objectstore.SBucket
+	multicloud.SBaseBucket
+
 	region *SRegion
 
 	Name       string
 	FullName   string
 	Location   string
 	CreateDate time.Time
-	Acl        string
 }
 
 func (b *SBucket) GetProjectId() string {
@@ -69,8 +70,64 @@ func (b *SBucket) GetStorageClass() string {
 	return ""
 }
 
-func (b *SBucket) GetAcl() string {
-	return b.Acl
+const (
+	ACL_GROUP_URI_ALL_USERS  = "http://cam.qcloud.com/groups/global/AllUsers"
+	ACL_GROUP_URI_AUTH_USERS = "http://cam.qcloud.com/groups/global/AuthenticatedUsers"
+)
+
+func cosAcl2CannedAcl(acls []cos.ACLGrant) cloudprovider.TBucketACLType {
+	switch {
+	case len(acls) == 1:
+		if acls[0].Grantee.URI == "" && acls[0].Permission == minio.PERMISSION_FULL_CONTROL {
+			return cloudprovider.ACLPrivate
+		}
+	case len(acls) == 2:
+		for _, g := range acls {
+			if g.Grantee.URI == ACL_GROUP_URI_AUTH_USERS && g.Permission == minio.PERMISSION_READ {
+				return cloudprovider.ACLAuthRead
+			}
+			if g.Grantee.URI == ACL_GROUP_URI_ALL_USERS && g.Permission == minio.PERMISSION_READ {
+				return cloudprovider.ACLPublicRead
+			}
+		}
+	case len(acls) == 3:
+		for _, g := range acls {
+			if g.Grantee.URI == ACL_GROUP_URI_ALL_USERS && g.Permission == minio.PERMISSION_WRITE {
+				return cloudprovider.ACLPublicReadWrite
+			}
+		}
+	}
+	return cloudprovider.ACLUnknown
+}
+
+func (b *SBucket) GetAcl() cloudprovider.TBucketACLType {
+	acl := cloudprovider.ACLPrivate
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		log.Errorf("GetCosClient fail %s", err)
+		return acl
+	}
+	result, _, err := coscli.Bucket.GetACL(context.Background())
+	if err != nil {
+		log.Errorf("coscli.Bucket.GetACL fail %s", err)
+		return acl
+	}
+	return cosAcl2CannedAcl(result.AccessControlList)
+}
+
+func (b *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return errors.Wrap(err, "b.region.GetCosClient")
+	}
+	opts := &cos.BucketPutACLOptions{}
+	opts.Header = &cos.ACLHeaderOptions{}
+	opts.Header.XCosACL = string(aclStr)
+	_, err = coscli.Bucket.PutACL(context.Background(), opts)
+	if err != nil {
+		return errors.Wrap(err, "PutACL")
+	}
+	return nil
 }
 
 func (b *SBucket) getBucketUrl() string {
@@ -88,6 +145,11 @@ func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 			Description: "cos domain",
 		},
 	}
+}
+
+func (b *SBucket) GetStats() cloudprovider.SBucketStats {
+	stats, _ := cloudprovider.GetIBucketStats(b)
+	return stats
 }
 
 func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.ICloudObject, error) {

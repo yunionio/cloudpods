@@ -146,6 +146,10 @@ func (self *SUcloudProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, erro
 	return self.client.GetSubAccounts()
 }
 
+func (self *SUcloudProvider) GetAccountId() string {
+	return self.client.GetAccountId()
+}
+
 func (self *SUcloudProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
@@ -160,4 +164,10 @@ func (self *SUcloudProvider) GetBalance() (float64, string, error) {
 
 func (self *SUcloudProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, error) {
 	return nil, cloudprovider.ErrNotImplemented
+}
+
+func (self *SUcloudProvider) GetStorageClasses(regionId string) []string {
+	return []string{
+		"STANDARD", "IA", "ARCHIVE",
+	}
 }

@@ -14,7 +14,13 @@
 
 package huawei
 
-import "yunion.io/x/onecloud/pkg/cloudprovider"
+import (
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/obs"
+)
 
 type SObject struct {
 	bucket *SBucket
@@ -24,4 +30,35 @@ type SObject struct {
 
 func (o *SObject) GetIBucket() cloudprovider.ICloudBucket {
 	return o.bucket
+}
+
+func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
+	acl := cloudprovider.ACLDefault
+	obscli, err := o.bucket.region.getOBSClient()
+	if err != nil {
+		log.Errorf("o.bucket.region.GetOssClient error %s", err)
+		return acl
+	}
+	input := &obs.GetObjectAclInput{}
+	input.Bucket = o.bucket.Name
+	input.Key = o.Key
+	output, err := obscli.GetObjectAcl(input)
+	acl = obsAcl2CannedAcl(output.Grants)
+	return acl
+}
+
+func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
+	obscli, err := o.bucket.region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "o.bucket.region.getOBSClient")
+	}
+	input := &obs.SetObjectAclInput{}
+	input.Bucket = o.bucket.Name
+	input.Key = o.Key
+	input.ACL = obs.AclType(string(aclStr))
+	_, err = obscli.SetObjectAcl(input)
+	if err != nil {
+		return errors.Wrap(err, "obscli.SetObjectAcl")
+	}
+	return nil
 }

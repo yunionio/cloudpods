@@ -615,13 +615,16 @@ func (region *SRegion) CreateILoadBalancerAcl(acl *cloudprovider.SLoadbalancerAc
 }
 
 func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	accounts, err := region.GetStorageAccounts()
+	iBuckets, err := region.client.getIBuckets()
 	if err != nil {
-		return nil, errors.Wrap(err, "region.GetStorageAccounts")
+		return nil, errors.Wrap(err, "getIBuckets")
 	}
-	ret := make([]cloudprovider.ICloudBucket, len(accounts))
-	for i := range accounts {
-		ret[i] = &accounts[i]
+	ret := make([]cloudprovider.ICloudBucket, 0)
+	for i := range iBuckets {
+		if iBuckets[i].GetLocation() != region.GetId() {
+			continue
+		}
+		ret = append(ret, iBuckets[i])
 	}
 	return ret, nil
 }
@@ -648,6 +651,7 @@ func (region *SRegion) DeleteIBucket(name string) error {
 			return nil
 		}
 	}
+	region.client.invalidateIBuckets()
 	return nil
 }
 
@@ -657,4 +661,8 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 
 func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
 	return cloudprovider.GetIBucketById(region, name)
+}
+
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return region.GetIBucketById(name)
 }

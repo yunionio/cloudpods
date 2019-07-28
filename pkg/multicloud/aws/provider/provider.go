@@ -111,6 +111,10 @@ func (self *SAwsProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) 
 	return self.client.GetSubAccounts()
 }
 
+func (self *SAwsProvider) GetAccountId() string {
+	return self.client.GetAccountId()
+}
+
 func (self *SAwsProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
@@ -137,4 +141,15 @@ func (self *SAwsProvider) GetBalance() (float64, string, error) {
 
 func (self *SAwsProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return self.client.GetIProjects()
+}
+
+func (self *SAwsProvider) GetStorageClasses(regionId string) []string {
+	return []string{
+		"STANDARD",
+		"STANDARD_IA",
+		"ONEZONE_IA",
+		"GLACIER",
+		"DEEP_ARCHIVE",
+		"INTELLIGENT_TIERING",
+	}
 }

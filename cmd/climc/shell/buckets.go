@@ -196,4 +196,52 @@ func init() {
 		printObject(result)
 		return nil
 	})
+
+	type BucketSetAclOptions struct {
+		ID  string `help:"ID or name of bucket" json:"-"`
+		ACL string `help:"ACL to set" choices:"default|private|public-read|public-read-write"`
+		Key string `help:"Optional object key"`
+	}
+	R(&BucketSetAclOptions{}, "bucket-set-acl", "Set ACL of bucket or object", func(s *mcclient.ClientSession, args *BucketSetAclOptions) error {
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		result, err := modules.Buckets.PerformAction(s, args.ID, "acl", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type BucketAclOptions struct {
+		ID  string `help:"ID or name of bucket" json:"-"`
+		Key string `help:"Optional object key"`
+	}
+	R(&BucketAclOptions{}, "bucket-acl", "Get ACL of bucket or object", func(s *mcclient.ClientSession, args *BucketAclOptions) error {
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		result, err := modules.Buckets.GetSpecific(s, args.ID, "acl", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type BucketSyncOptions struct {
+		ID string `help:"ID or name of bucket" json:"-"`
+	}
+	R(&BucketSyncOptions{}, "bucket-sync", "Sync bucket", func(s *mcclient.ClientSession, args *BucketSyncOptions) error {
+		result, err := modules.Buckets.PerformAction(s, args.ID, "sync", nil)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
 }

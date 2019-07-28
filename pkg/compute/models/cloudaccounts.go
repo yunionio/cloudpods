@@ -82,8 +82,12 @@ type SCloudaccount struct {
 
 	// BalanceKey string `width:"256" charset:"ascii" nullable:"true" list:"domain" update:"domain" create:"domain_optional"`
 
+	AccountId string `width:"128" charset:"utf8" nullable:"true" list:"domain" create:"domain_optional"`
+
 	IsPublicCloud tristate.TriState `nullable:"false" get:"user" create:"optional" list:"user" default:"true"`
 	IsOnPremise   bool              `nullable:"false" get:"user" create:"optional" list:"user" default:"false"`
+
+	HasObjectStorage bool `nullable:"false" get:"user" create:"optional" list:"user" default:"false"`
 
 	Provider string `width:"64" charset:"ascii" list:"domain" create:"domain_required"`
 
@@ -297,13 +301,25 @@ func (manager *SCloudaccountManager) ValidateCreateData(ctx context.Context, use
 		return nil, httperrors.NewConflictError("The account has been registered")
 	}
 
-	err = cloudprovider.IsValidCloudAccount(url, account, secret, provider)
+	accountId, err := cloudprovider.IsValidCloudAccount(url, account, secret, provider)
 	if err != nil {
 		if err == cloudprovider.ErrNoSuchProvder {
 			return nil, httperrors.NewResourceNotFoundError("no such provider %s", provider)
 		}
 		//log.Debugf("ValidateCreateData %s", err.Error())
 		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
+	}
+
+	// check accountId uniqueness
+	if len(accountId) > 0 {
+		cnt, err := manager.Query().Equals("account_id", accountId).CountWithError()
+		if err != nil {
+			return nil, httperrors.NewInternalServerError("check account_id duplication error %s", err)
+		}
+		if cnt > 0 {
+			return nil, httperrors.NewDuplicateResourceError("the account has been registerd %s", accountId)
+		}
+		data.Set("account_id", jsonutils.NewString(accountId))
 	}
 
 	syncIntervalSecs, _ := data.Int("sync_interval_seconds")
@@ -425,8 +441,12 @@ func (self *SCloudaccount) PerformUpdateCredential(ctx context.Context, userCred
 
 	originSecret, _ := self.getPassword()
 
-	if err := cloudprovider.IsValidCloudAccount(self.AccessUrl, account.Account, account.Secret, self.Provider); err != nil {
+	accountId, err := cloudprovider.IsValidCloudAccount(self.AccessUrl, account.Account, account.Secret, self.Provider)
+	if err != nil {
 		return nil, httperrors.NewInputParameterError("invalid cloud account info error: %s", err.Error())
+	}
+	if accountId != self.AccountId {
+		return nil, httperrors.NewConflictError("inconsistent account_id, previous '%s' and now '%s'", self.AccountId, accountId)
 	}
 
 	if (account.Account != self.Account) || (account.Secret != originSecret) {
@@ -1279,6 +1299,7 @@ func (account *SCloudaccount) probeAccountStatus(ctx context.Context, userCred m
 		isPublic := factory.IsPublicCloud()
 		account.IsPublicCloud = tristate.NewFromBool(isPublic)
 		account.IsOnPremise = factory.IsOnPremise()
+		account.HasObjectStorage = factory.IsSupportObjectStorage()
 		account.Balance = balance
 		account.HealthStatus = status
 		account.ProbeAt = timeutils.UtcNow()

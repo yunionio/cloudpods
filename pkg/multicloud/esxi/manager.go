@@ -141,6 +141,10 @@ func (cli *SESXiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return []cloudprovider.SSubAccount{subAccount}, nil
 }
 
+func (cli *SESXiClient) GetAccountId() string {
+	return cli.account
+}
+
 func (cli *SESXiClient) GetVersion() string {
 	return cli.client.ServiceContent.About.Version
 }

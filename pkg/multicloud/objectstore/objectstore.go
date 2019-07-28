@@ -18,9 +18,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/minio/minio-go"
-
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
+	"yunion.io/x/minio-go"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 
@@ -42,6 +42,11 @@ type SObjectStoreClient struct {
 	endpoint     string
 	accessKey    string
 	secret       string
+
+	ownerId   string
+	ownerName string
+
+	iBuckets []cloudprovider.ICloudBucket
 
 	client *minio.Client
 
@@ -65,7 +70,7 @@ func NewObjectStoreClient(providerId string, providerName string, endpoint strin
 	if parts.Scheme == "https" {
 		useSsl = true
 	}
-	cli, err := minio.New(parts.Host, accessKey, secret, useSsl)
+	cli, err := minio.New(parts.Host, accessKey, secret, useSsl, client.Debug)
 	if err != nil {
 		return nil, errors.Wrap(err, "minio.New")
 	}
@@ -74,6 +79,13 @@ func NewObjectStoreClient(providerId string, providerName string, endpoint strin
 	cli.SetCustomTransport(tr)
 
 	client.client = cli
+
+	err = client.fetchBuckets()
+	if err != nil {
+		return nil, errors.Wrap(err, "fetchBuckets")
+	}
+
+	log.Debugf("clientID: %s Name: %s", client.ownerId, client.ownerName)
 
 	return &client, nil
 }
@@ -85,6 +97,10 @@ func (cli *SObjectStoreClient) GetSubAccounts() ([]cloudprovider.SSubAccount, er
 		HealthStatus: api.CLOUD_PROVIDER_HEALTH_NORMAL,
 	}
 	return []cloudprovider.SSubAccount{subAccount}, nil
+}
+
+func (cli *SObjectStoreClient) GetAccountId() string {
+	return cli.ownerId
 }
 
 func (cli *SObjectStoreClient) GetIRegion() cloudprovider.ICloudRegion {
@@ -261,20 +277,41 @@ func (cli *SObjectStoreClient) CreateISku(sku *cloudprovider.SServerSku) (cloudp
 ////////////////////////////////// S3 API ///////////////////////////////////
 
 func (cli *SObjectStoreClient) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	buckets, err := cli.client.ListBuckets()
-	if err != nil {
-		return nil, errors.Wrap(err, "client.ListBuckets")
+	return cli.getIBuckets()
+}
+
+func (self *SObjectStoreClient) invalidateIBuckets() {
+	self.iBuckets = nil
+}
+
+func (self *SObjectStoreClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	if self.iBuckets == nil {
+		err := self.fetchBuckets()
+		if err != nil {
+			return nil, errors.Wrap(err, "fetchBuckets")
+		}
 	}
-	ret := make([]cloudprovider.ICloudBucket, len(buckets))
+	return self.iBuckets, nil
+}
+
+func (cli *SObjectStoreClient) fetchBuckets() error {
+	result, err := cli.client.ListBuckets()
+	if err != nil {
+		return errors.Wrap(err, "client.ListBuckets")
+	}
+	cli.ownerId = result.Owner.ID
+	cli.ownerName = result.Owner.DisplayName
+	buckets := result.Buckets.Bucket
+	cli.iBuckets = make([]cloudprovider.ICloudBucket, len(buckets))
 	for i := range buckets {
 		b := SBucket{
 			client:    cli,
 			Name:      buckets[i].Name,
 			CreatedAt: buckets[i].CreationDate,
 		}
-		ret[i] = &b
+		cli.iBuckets[i] = &b
 	}
-	return ret, nil
+	return nil
 }
 
 func (cli *SObjectStoreClient) CreateIBucket(name string, storageClass string, acl string) error {
@@ -282,6 +319,7 @@ func (cli *SObjectStoreClient) CreateIBucket(name string, storageClass string, a
 	if err != nil {
 		return errors.Wrap(err, "MakeBucket")
 	}
+	cli.invalidateIBuckets()
 	return nil
 }
 
@@ -302,6 +340,111 @@ func (cli *SObjectStoreClient) DeleteIBucket(name string) error {
 			return nil
 		}
 		return errors.Wrap(err, "RemoveBucket")
+	}
+	cli.invalidateIBuckets()
+	return nil
+}
+
+func (cli *SObjectStoreClient) GetIBucketLocation(name string) (string, error) {
+	info, err := cli.client.GetBucketLocation(name)
+	if err != nil {
+		return "", errors.Wrap(err, "GetBucketLocation")
+	}
+	return info, nil
+}
+
+func (cli *SObjectStoreClient) GetIBucketWebsite(name string) (string, error) {
+	info, err := cli.client.GetBucketWebsite(name)
+	if err != nil {
+		return "", errors.Wrap(err, "GetBucketWebsite")
+	}
+	return info, nil
+}
+
+func (cli *SObjectStoreClient) GetIBucketReferer(name string) (string, error) {
+	info, err := cli.client.GetBucketReferer(name)
+	if err != nil {
+		return "", errors.Wrap(err, "GetBucketReferer")
+	}
+	return info, nil
+}
+
+func (cli *SObjectStoreClient) GetIBucketCors(name string) (string, error) {
+	info, err := cli.client.GetBucketCors(name)
+	if err != nil {
+		return "", errors.Wrap(err, "GetBucketCors")
+	}
+	return info, nil
+}
+
+func (cli *SObjectStoreClient) GetIBucketLogging(name string) (*minio.BucketLoggingStatus, error) {
+	info, err := cli.client.GetBucketLogging(name)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetBucketLogging")
+	}
+	return info, nil
+}
+
+func (cli *SObjectStoreClient) SetIBucketLogging(name string, target string, targetPrefix string, email string) error {
+	conf := minio.BucketLoggingStatus{}
+	if len(target) > 0 {
+		conf.LoggingEnabled.TargetBucket = target
+		conf.LoggingEnabled.TargetPrefix = targetPrefix
+		conf.LoggingEnabled.TargetGrants.Grant = []minio.Grant{
+			{
+				Grantee: minio.Grantee{
+					Type:         minio.GRANTEE_TYPE_EMAIL,
+					EmailAddress: email,
+				},
+				Permission: minio.PERMISSION_FULL_CONTROL,
+			},
+		}
+	}
+	err := cli.client.SetBucketLogging(name, conf)
+	if err != nil {
+		return errors.Wrap(err, "SetBucketLogging")
+	}
+	return nil
+}
+
+func (cli *SObjectStoreClient) GetIBucketInfo(name string) (string, error) {
+	info, err := cli.client.GetBucketInfo(name)
+	if err != nil {
+		return "", errors.Wrap(err, "GetBucketInfo")
+	}
+	return info, nil
+}
+
+func (cli *SObjectStoreClient) GetIBucketAcl(name string) (cloudprovider.TBucketACLType, error) {
+	acl, err := cli.client.GetBucketAcl(name)
+	if err != nil {
+		return "", errors.Wrap(err, "GetBucketAcl")
+	}
+	return cloudprovider.TBucketACLType(acl.GetCannedACL()), nil
+}
+
+func (cli *SObjectStoreClient) SetIBucketAcl(name string, cannedAcl cloudprovider.TBucketACLType) error {
+	acl := minio.CannedAcl(cli.ownerId, cli.ownerName, string(cannedAcl))
+	err := cli.client.SetBucketAcl(name, acl)
+	if err != nil {
+		return errors.Wrap(err, "SetBucketAcl")
+	}
+	return nil
+}
+
+func (cli *SObjectStoreClient) GetObjectAcl(bucket, key string) (cloudprovider.TBucketACLType, error) {
+	acl, err := cli.client.GetObjectACL(bucket, key)
+	if err != nil {
+		return "", errors.Wrap(err, "GetBucketAcl")
+	}
+	return cloudprovider.TBucketACLType(acl.GetCannedACL()), nil
+}
+
+func (cli *SObjectStoreClient) SetObjectAcl(bucket, key string, cannedAcl cloudprovider.TBucketACLType) error {
+	acl := minio.CannedAcl(cli.ownerId, cli.ownerName, string(cannedAcl))
+	err := cli.client.SetObjectAcl(bucket, key, acl)
+	if err != nil {
+		return errors.Wrap(err, "SetObjectAcl")
 	}
 	return nil
 }
@@ -331,13 +474,20 @@ func (cli *SObjectStoreClient) GetIBucketLiftcycle(name string) (string, error) 
 }
 
 func (cli *SObjectStoreClient) IBucketExist(name string) (bool, error) {
-	exist, err := cli.client.BucketExists(name)
+	exist, header, err := cli.client.BucketExists(name)
 	if err != nil {
 		return false, errors.Wrap(err, "BucketExists")
+	}
+	if header != nil {
+		log.Debugf("header: %s", jsonutils.Marshal(header))
 	}
 	return exist, nil
 }
 
 func (cli *SObjectStoreClient) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
 	return cloudprovider.GetIBucketById(cli, name)
+}
+
+func (cli *SObjectStoreClient) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return cli.GetIBucketById(name)
 }

@@ -23,7 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"github.com/minio/minio-go"
+	"yunion.io/x/minio-go"
 
 	"yunion.io/x/pkg/errors"
 
@@ -72,8 +72,13 @@ func (bucket *SBucket) GetName() string {
 	return bucket.Name
 }
 
-func (bucket *SBucket) GetAcl() string {
-	return bucket.Acl
+func (bucket *SBucket) GetAcl() cloudprovider.TBucketACLType {
+	acl, _ := bucket.client.GetIBucketAcl(bucket.Name)
+	return acl
+}
+
+func (bucket *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
+	return bucket.client.SetIBucketAcl(bucket.Name, aclStr)
 }
 
 func (bucket *SBucket) GetLocation() string {
@@ -90,6 +95,11 @@ func (bucket *SBucket) GetCreateAt() time.Time {
 
 func (bucket *SBucket) GetStorageClass() string {
 	return bucket.StorageClass
+}
+
+func (bucket *SBucket) GetStats() cloudprovider.SBucketStats {
+	stats, _ := cloudprovider.GetIBucketStats(bucket)
+	return stats
 }
 
 func (bucket *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
