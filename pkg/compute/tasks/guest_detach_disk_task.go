@@ -63,7 +63,7 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 	guest.DetachDisk(ctx, disk, self.UserCred)
 	host := guest.GetHost()
 	purge := false
-	if host != nil && host.Status == api.HOST_DISABLED && jsonutils.QueryBoolean(self.Params, "purge", false) {
+	if host != nil && !host.Enabled && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		purge = true
 	}
 
@@ -91,7 +91,7 @@ func (self *GuestDetachDiskTask) OnDetachDiskComplete(ctx context.Context, guest
 	keepDisk := jsonutils.QueryBoolean(self.Params, "keep_disk", true)
 	host := guest.GetHost()
 	purge := false
-	if host != nil && host.Status == api.HOST_DISABLED && jsonutils.QueryBoolean(self.Params, "purge", false) {
+	if host != nil && !host.Enabled && jsonutils.QueryBoolean(self.Params, "purge", false) {
 		purge = true
 	}
 	if !keepDisk && disk.AutoDelete {
