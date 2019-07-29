@@ -20,10 +20,9 @@ import (
 	"fmt"
 	"time"
 
-	"yunion.io/x/pkg/errors"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/sqlchemy"
 
@@ -87,6 +86,7 @@ type SUser struct {
 
 	IsSystemAccount tristate.TriState `nullable:"false" default:"false" list:"domain" update:"domain" create:"domain_optional"`
 
+	// deprecated
 	DefaultProjectId string `width:"64" charset:"ascii" nullable:"true"`
 
 	AllowWebConsole tristate.TriState `nullable:"false" default:"true" list:"domain" update:"domain" create:"domain_optional"`
@@ -189,6 +189,9 @@ func (manager *SUserManager) initSysUser() error {
 	usr.Name = api.SystemAdminUser
 	usr.DomainId = api.DEFAULT_DOMAIN_ID
 	usr.Enabled = tristate.True
+	usr.IsSystemAccount = tristate.False
+	usr.AllowWebConsole = tristate.False
+	usr.EnableMfa = tristate.False
 	usr.Description = "Boostrap system default admin user"
 	usr.SetModelManager(manager, &usr)
 
@@ -287,7 +290,7 @@ func localUserVerifyPassword(user *api.SUserExtended, passwd string) error {
 		return nil
 	}
 	//}
-	return fmt.Errorf("invalid password")
+	return fmt.Errorf("invalid password for %s", user.Name)
 }
 
 func (manager *SUserManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
