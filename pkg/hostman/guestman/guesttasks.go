@@ -1003,7 +1003,18 @@ func (task *SGuestOnlineResizeDiskTask) OnGetBlocksSucc(results *jsonutils.JSONA
 	for i := 0; i < results.Size(); i += 1 {
 		result, _ := results.GetAt(i)
 		fileStr, _ := result.GetString("inserted", "file")
-		if len(fileStr) > 0 && strings.HasSuffix(fileStr, task.diskId) {
+		image := ""
+		if strings.HasPrefix(fileStr, "json:") {
+			//RBD磁盘格式如下
+			//json:{"driver": "raw", "file": {"pool": "testpool01", "image": "952636e3-73ed-4a19-8648-05e69e6bb57a", "driver": "rbd", "=keyvalue-pairs": "[\"mon_host\", \"10.127.10.230;10.127.10.237;10.127.10.238\", \"key\", \"AQBZ/Ddd0j5BCxAAfuvl5oHWsmuTGer6T9LzeQ==\", \"rados_mon_op_timeout\", \"5\", \"rados_osd_op_timeout\", \"1200\", \"client_mount_timeout\", \"120\"]"}
+			fileJson, err := jsonutils.ParseString(fileStr[5:])
+			if err != nil {
+				hostutils.TaskFailed(task.ctx, fmt.Sprintf("parse file json %s error: %v", fileStr, err))
+				return
+			}
+			image, _ = fileJson.GetString("file", "image")
+		}
+		if len(fileStr) > 0 && strings.HasSuffix(fileStr, task.diskId) || image == task.diskId {
 			driveName, _ := result.GetString("device")
 			task.Monitor.ResizeDisk(driveName, task.sizeMB, task.OnResizeSucc)
 			return
