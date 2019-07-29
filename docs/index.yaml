@@ -71,7 +71,7 @@ paths:
   /hosts:
     $ref: "./host/hosts.yaml"
   /hosts/{hostId}:
-    $ref: "./host/hosts.yaml"
+    $ref: "./host/host.yaml"
   /hosts/{hostId}/ping:
     $ref: "./host/ping.yaml"
   /hosts/{hostId}/enable:
@@ -84,10 +84,6 @@ paths:
     $ref: "./host/prepare.yaml"
   /hosts/{hostId}/ipmi:
     $ref: "./host/ipmi.yaml"
-  /hosts/{hostId}/logininfo:
-    $ref: "./host/logininfo.yaml"
-  /hosts/{hostId}/vnc:
-    $ref: "./host/vnc.yaml"
   /hosts/{hostId}/convert-hypervisor:
     $ref: "./host/convert-hypervisor.yaml"
   /hosts/{hostId}/undo-convert:
@@ -102,20 +98,16 @@ paths:
     $ref: "./host/start.yaml"
   /hosts/{hostId}/reset:
     $ref: "./host/reset.yaml"
-  /hosts/{hostId}/add-netif:
-    $ref: "./host/add-netif.yaml"
-  /hosts/{hostId}/remove-netif:
-    $ref: "./host/remove-netif.yaml"
-  /hosts/{hostId}/enable-netif:
-    $ref: "./host/enable-netif.yaml"
-  /hosts/{hostId}/disable-netif:
-    $ref: "./host/disable-netif.yaml"
-  /hosts/{hostId}/remove-all-netifs:
-    $ref: "./host/remove-all-netifs.yaml"
-  /hosts/{hostId}/cache-image:
-    $ref: "./host/cache-image.yaml"
-  /hosts/{hostId}/uncache-image:
-    $ref: "./host/uncache-image.yaml"
+  # /hosts/{hostId}/add-netif:
+  #   $ref: "./host/add-netif.yaml"
+  # /hosts/{hostId}/remove-netif:
+  #   $ref: "./host/remove-netif.yaml"
+  # /hosts/{hostId}/enable-netif:
+  #   $ref: "./host/enable-netif.yaml"
+  # /hosts/{hostId}/disable-netif:
+  #   $ref: "./host/disable-netif.yaml"
+  # /hosts/{hostId}/remove-all-netifs:
+  #   $ref: "./host/remove-all-netifs.yaml"
   /hosts/{hostId}/undo-prepaid-recycle:
     $ref: "./host/undo-prepaid-recycle.yaml"
   /hosts/{hostId}/renew-prepaid-recycle:

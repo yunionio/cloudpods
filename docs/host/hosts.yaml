@@ -12,7 +12,7 @@ get:
     - $ref: '../parameters/host.yaml#/disable'
     - $ref: '../parameters/host.yaml#/host_type'
     - $ref: '../parameters/host.yaml#/is_empty'
-    - $ref: '../parameters/host.yaml#/sotrage'
+    - $ref: '../parameters/host.yaml#/storage'
     - $ref: '../parameters/host.yaml#/usable'
     - $ref: '../parameters/host.yaml#/hypervisor'
     - $ref: '../parameters/host.yaml#/any_mac'
@@ -28,7 +28,7 @@ get:
   tags:
     - host
 post:
-  summary: 创建宿主机
+  summary: 注册物理机
   parameters:
     - in: body
       name: host

@@ -307,7 +307,7 @@ func init() {
 		return nil
 	})
 
-	R(&HostDetailOptions{}, "host-stop", "Power on host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
+	R(&HostDetailOptions{}, "host-stop", "Power off host", func(s *mcclient.ClientSession, args *HostDetailOptions) error {
 		result, err := modules.Hosts.PerformAction(s, args.ID, "stop", nil)
 		if err != nil {
 			return err

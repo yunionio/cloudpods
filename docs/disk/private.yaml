@@ -7,6 +7,5 @@ post:
       description: 磁盘信息
       schema:
         $ref: "../schemas/disk.yaml#DiskResponse"
-
   tags:
     - disk
