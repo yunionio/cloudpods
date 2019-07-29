@@ -21,9 +21,9 @@ import (
 )
 
 type SBillingResourceBase struct {
-	BillingType  string    `width:"36" charset:"ascii" nullable:"true" default:"postpaid" list:"user" create:"admin_optional"`
-	ExpiredAt    time.Time `nullable:"true" list:"user" create:"admin_optional"`
-	BillingCycle string    `width:"10" charset:"ascii" nullable:"true" list:"user" create:"admin_optional"`
+	BillingType  string    `width:"36" charset:"ascii" nullable:"true" default:"postpaid" list:"user" create:"optional"`
+	ExpiredAt    time.Time `nullable:"true" list:"user" create:"optional"`
+	BillingCycle string    `width:"10" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 }
 
 func (self *SBillingResourceBase) GetChargeType() string {
