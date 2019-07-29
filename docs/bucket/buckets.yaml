@@ -23,7 +23,7 @@ post:
       required: true
       schema:
         $ref: "../schemas/bucket.yaml#/BucketCreateInput"
-  response:
+  responses:
     200:
       description: 对象存储桶信息
       schema:
