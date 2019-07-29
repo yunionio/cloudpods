@@ -1440,7 +1440,7 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 			}
 			if utils.IsInStringArray(self.Status, detachDiskStatus) {
 				self.SetStatus(userCred, api.VM_DETACH_DISK, "")
-				err = self.StartGuestDetachdiskTask(ctx, userCred, disk, keepDisk, "")
+				err = self.StartGuestDetachdiskTask(ctx, userCred, disk, keepDisk, "", false)
 				return nil, err
 			} else {
 				return nil, httperrors.NewInvalidStatusError("Server in %s not able to detach disk", self.Status)
@@ -1452,10 +1452,11 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 	return nil, httperrors.NewResourceNotFoundError("Disk %s not found", diskId)
 }
 
-func (self *SGuest) StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, keepDisk bool, parentTaskId string) error {
+func (self *SGuest) StartGuestDetachdiskTask(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, keepDisk bool, parentTaskId string, purge bool) error {
 	taskData := jsonutils.NewDict()
 	taskData.Add(jsonutils.NewString(disk.Id), "disk_id")
 	taskData.Add(jsonutils.NewBool(keepDisk), "keep_disk")
+	taskData.Add(jsonutils.NewBool(purge), "purge")
 	if utils.IsInStringArray(disk.Status, []string{api.DISK_INIT, api.DISK_ALLOC_FAILED}) {
 		//删除非正常状态下的disk
 		taskData.Add(jsonutils.JSONFalse, "keep_disk")
