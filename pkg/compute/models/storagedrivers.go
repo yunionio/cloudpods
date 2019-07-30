@@ -18,7 +18,6 @@ import (
 	"context"
 
 	"yunion.io/x/jsonutils"
-	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -50,6 +49,5 @@ func GetStorageDriver(storageType string) IStorageDriver {
 	if ok {
 		return driver
 	}
-	log.Fatalf("Unsupported storageType %s", storageType)
 	return nil
 }
