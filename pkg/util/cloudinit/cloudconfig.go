@@ -300,6 +300,20 @@ func (conf *SCloudConfig) MergeUser(u SUser) {
 	conf.Users = append(conf.Users, u)
 }
 
+func (conf *SCloudConfig) RemoveUser(u SUser) {
+	for i := range conf.Users {
+		if u.Name == conf.Users[i].Name {
+			if len(conf.Users) == i {
+				conf.Users = conf.Users[0:i]
+			} else {
+				conf.Users = append(conf.Users[0:i], conf.Users[i+1:]...)
+			}
+
+			return
+		}
+	}
+}
+
 func (conf *SCloudConfig) MergeWriteFile(f SWriteFile, replace bool) {
 	for i := 0; i < len(conf.WriteFiles); i += 1 {
 		if conf.WriteFiles[i].Path == f.Path {
