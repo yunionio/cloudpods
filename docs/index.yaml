@@ -49,6 +49,72 @@ paths:
   /storages/{storageId}/offline:
     $ref: "./storage/storage.yaml#/offline"
 
+  /disks:
+    $ref: "./disk/disks.yaml"
+  /disks/{diskId}:
+    $ref: "./disk/disk.yaml"
+  /disks/{diskId}/resize:
+    $ref: "./disk/resize.yaml"
+  /disks/{diskId}/save:
+    $ref: "./disk/save.yaml"
+  /disks/{diskId}/private:
+    $ref: "./disk/private.yaml"
+  /disks/{diskId}/public:
+    $ref: "./disk/public.yaml"
+  /disks/{diskId}/purge:
+    $ref: "./disk/purge.yaml"
+  /disks/{diskId}/reset:
+    $ref: "./disk/reset.yaml"
+  /disks/{diskId}/create-snapshot:
+    $ref: "./disk/create-snapshot.yaml"
+
+  /hosts:
+    $ref: "./host/hosts.yaml"
+  /hosts/{hostId}:
+    $ref: "./host/host.yaml"
+  /hosts/{hostId}/ping:
+    $ref: "./host/ping.yaml"
+  /hosts/{hostId}/enable:
+    $ref: "./host/enable.yaml"
+  /hosts/{hostId}/disable:
+    $ref: "./host/disable.yaml"
+  /hosts/{hostId}/syncstatus:
+    $ref: "./host/syncstatus.yaml"
+  /hosts/{hostId}/prepare:
+    $ref: "./host/prepare.yaml"
+  /hosts/{hostId}/ipmi:
+    $ref: "./host/ipmi.yaml"
+  /hosts/{hostId}/convert-hypervisor:
+    $ref: "./host/convert-hypervisor.yaml"
+  /hosts/{hostId}/undo-convert:
+    $ref: "./host/undo-convert.yaml"
+  /hosts/{hostId}/maintenance:
+    $ref: "./host/maintenance.yaml"
+  /hosts/{hostId}/unmaintenance:
+    $ref: "./host/unmaintenance.yaml"
+  /hosts/{hostId}/stop:
+    $ref: "./host/stop.yaml"
+  /hosts/{hostId}/start:
+    $ref: "./host/start.yaml"
+  /hosts/{hostId}/reset:
+    $ref: "./host/reset.yaml"
+  # /hosts/{hostId}/add-netif:
+  #   $ref: "./host/add-netif.yaml"
+  # /hosts/{hostId}/remove-netif:
+  #   $ref: "./host/remove-netif.yaml"
+  # /hosts/{hostId}/enable-netif:
+  #   $ref: "./host/enable-netif.yaml"
+  # /hosts/{hostId}/disable-netif:
+  #   $ref: "./host/disable-netif.yaml"
+  # /hosts/{hostId}/remove-all-netifs:
+  #   $ref: "./host/remove-all-netifs.yaml"
+  /hosts/{hostId}/undo-prepaid-recycle:
+    $ref: "./host/undo-prepaid-recycle.yaml"
+  /hosts/{hostId}/renew-prepaid-recycle:
+    $ref: "./host/renew-prepaid-recycle.yaml"
+  /hosts/{hostId}/spec:
+    $ref: "./host/spec.yaml"
+
   /hoststorages:
     $ref: "./hoststorage/hoststorage.yaml"
   /hosts/{hostId}/storages/{storageId}:
