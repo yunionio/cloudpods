@@ -4239,29 +4239,26 @@ func (self *SGuest) ToCreateInput(userCred mcclient.TokenCredential) *api.Server
 	}
 	if self.GetHypervisor() != api.HYPERVISOR_BAREMETAL {
 		// fill missing create params like schedtags
+		disks := []*api.DiskConfig{}
 		for idx, disk := range genInput.Disks {
+			tmpD := disk
 			if idx < len(userInput.Disks) {
-				disk.Schedtags = userInput.Disks[idx].Schedtags
-				userInput.Disks[idx] = disk
-			} else {
-				userInput.Disks = append(userInput.Disks, disk)
+				tmpD.Schedtags = userInput.Disks[idx].Schedtags
 			}
+			disks = append(disks, tmpD)
 		}
+		userInput.Disks = disks
 	}
+	nets := []*api.NetworkConfig{}
 	for idx, net := range genInput.Networks {
+		tmpN := net
 		if idx < len(userInput.Networks) {
-			userInput.Networks[idx] = net
-		} else {
-			userInput.Networks = append(userInput.Networks, net)
+			tmpN.Schedtags = userInput.Disks[idx].Schedtags
 		}
+		nets = append(nets, tmpN)
 	}
-	for idx, dev := range genInput.IsolatedDevices {
-		if idx < len(userInput.IsolatedDevices) {
-			userInput.IsolatedDevices[idx] = dev
-		} else {
-			userInput.IsolatedDevices = append(userInput.IsolatedDevices, dev)
-		}
-	}
+	userInput.Networks = nets
+	userInput.IsolatedDevices = genInput.IsolatedDevices
 	userInput.Count = 1
 	// override some old userInput properties via genInput because of change config behavior
 	userInput.VmemSize = genInput.VmemSize
