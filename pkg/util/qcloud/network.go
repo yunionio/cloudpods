@@ -103,10 +103,12 @@ func (self *SNetwork) GetGateway() string {
 	return endIp.String()
 }
 
+//https://cloud.tencent.com/document/product/215/20046
 func (self *SNetwork) GetIpStart() string {
 	pref, _ := netutils.NewIPV4Prefix(self.CidrBlock)
 	startIp := pref.Address.NetAddr(pref.MaskLen) // 0
 	startIp = startIp.StepUp()                    // 1
+	startIp = startIp.StepUp()                    // 2
 	return startIp.String()
 }
 
@@ -114,8 +116,6 @@ func (self *SNetwork) GetIpEnd() string {
 	pref, _ := netutils.NewIPV4Prefix(self.CidrBlock)
 	endIp := pref.Address.BroadcastAddr(pref.MaskLen) // 255
 	endIp = endIp.StepDown()                          // 254
-	endIp = endIp.StepDown()                          // 253
-	endIp = endIp.StepDown()                          // 252
 	return endIp.String()
 }
 
