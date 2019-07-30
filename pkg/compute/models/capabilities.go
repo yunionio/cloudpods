@@ -350,6 +350,10 @@ func getNetworkPublicCount(region *SCloudregion, zone *SZone, domainId string) (
 }
 
 func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string, isPublic tristate.TriState) (int, error) {
+	if zone != nil && region == nil {
+		region = zone.GetRegion()
+	}
+
 	vpcs := VpcManager.Query().SubQuery()
 	wires := WireManager.Query().SubQuery()
 	networks := NetworkManager.Query().SubQuery()
@@ -363,11 +367,21 @@ func getNetworkCountByFilter(region *SCloudregion, zone *SZone, domainId string,
 		}
 	}
 	q = q.Join(wires, sqlchemy.Equals(networks.Field("wire_id"), wires.Field("id")))
+
 	if region != nil {
-		subq := getRegionZoneSubq(region)
-		q = q.Filter(sqlchemy.In(wires.Field("zone_id"), subq))
+		if utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
+			wires := WireManager.Query().SubQuery()
+			vpcs := VpcManager.Query().SubQuery()
+			subq := wires.Query(wires.Field("id")).
+				Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id"))).
+				Filter(sqlchemy.Equals(vpcs.Field("cloudregion_id"), region.Id))
+			q = q.Filter(sqlchemy.In(q.Field("wire_id"), subq))
+		} else {
+			subq := getRegionZoneSubq(region)
+			q = q.Filter(sqlchemy.In(wires.Field("zone_id"), subq))
+		}
 	}
-	if zone != nil {
+	if zone != nil && !utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
 		q = q.Filter(sqlchemy.Equals(wires.Field("zone_id"), zone.Id))
 	}
 	if len(domainId) > 0 {
