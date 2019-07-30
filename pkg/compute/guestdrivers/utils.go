@@ -23,6 +23,7 @@ import (
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SDiskInfo struct {
@@ -43,7 +44,7 @@ type SDiskInfo struct {
 	Metadata map[string]string
 }
 
-func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string, account, passwd string, action string) *jsonutils.JSONDict {
+func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.ICloudVM, guestId string, account, passwd string, publicKey string, action string) *jsonutils.JSONDict {
 	data := jsonutils.NewDict()
 
 	data.Add(jsonutils.NewString(iVM.GetOSType()), "os")
@@ -51,11 +52,18 @@ func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.I
 	//避免在rebuild_root时绑定秘钥,没有account信息
 	data.Add(jsonutils.NewString(account), "account")
 	if len(passwd) > 0 {
-		encpasswd, err := utils.EncryptAESBase64(guestId, passwd)
+		var encpasswd string
+		var err error
+		if len(publicKey) > 0 {
+			encpasswd, err = seclib2.EncryptBase64(publicKey, passwd)
+		} else {
+			encpasswd, err = utils.EncryptAESBase64(guestId, passwd)
+		}
 		if err != nil {
 			log.Errorf("encrypt password failed %s", err)
+		} else {
+			data.Add(jsonutils.NewString(encpasswd), "key")
 		}
-		data.Add(jsonutils.NewString(encpasswd), "key")
 	}
 
 	if len(desc.OsDistribution) > 0 {
