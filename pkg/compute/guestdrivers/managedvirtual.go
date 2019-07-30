@@ -418,7 +418,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForCreate(ctx conte
 		return nil, err
 	}
 
-	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, "create")
+	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, desc.PublicKey, "create")
 	return data, nil
 }
 
@@ -460,7 +460,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx conte
 		return nil, err
 	}
 
-	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, "deploy")
+	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, desc.PublicKey, "deploy")
 
 	return data, nil
 }
@@ -528,7 +528,7 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForRebuildRoot(ctx 
 		}
 	}
 
-	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, "rebuild")
+	data := fetchIVMinfo(desc, iVM, guest.Id, desc.Account, desc.Password, desc.PublicKey, "rebuild")
 
 	return data, nil
 }
