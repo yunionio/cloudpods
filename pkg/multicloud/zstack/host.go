@@ -334,6 +334,11 @@ func (host *SHost) CreateVM(desc *cloudprovider.SManagedVMCreateConfig) (cloudpr
 		return nil, errors.Wrapf(err, "host.zone.region.createDataDisks")
 	}
 
+	err = host.zone.region.ResizeDisk(instance.RootVolumeUUID, int64(desc.SysDisk.SizeGB)*1024)
+	if err != nil {
+		log.Warningf("failed to resize system disk %s error: %v", instance.RootVolumeUUID, err)
+	}
+
 	for i := 0; i < len(diskIds); i++ {
 		err = host.zone.region.AttachDisk(instance.UUID, diskIds[i])
 		if err != nil {
