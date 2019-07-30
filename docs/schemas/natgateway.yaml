@@ -36,7 +36,7 @@ NatGateway:
       type: string
       description: 区域ID
       example: 609c57b0-a5a7-4a5f-886c-950e1333cbd4
-    external_id: 
+    external_id:
       type: string
       description: 资源外部ID,对应纳管云上的ID
       example: ngw-2zexqebrmyohc1eqly153
@@ -64,13 +64,13 @@ NatGateway:
       type: string
       description: 区域ID
       example: f2c9efe0-b743-4de0-84ff-e40e37814ad3
-    status: 
+    status:
       type: string
       description: NAT网关状态
       example: available
     updated_at:
       $ref: '#/UpdatedAt'
-    vpc:  
+    vpc:
       type: string
       description: 网关VPC的名称
       example: test-vpc
@@ -91,13 +91,10 @@ NatGateway:
       description: 云平台类型
       example: Qcloud
 
-
-
-
 NatGatewayListResponse:
   type: object
   properties:
-    limit: 
+    limit:
       type: integer
       example: 20
     natgateways:
@@ -108,7 +105,6 @@ NatGatewayListResponse:
       type: integer
       example: 124
 
-
 NatGatewayResponse:
   type: object
   properties:
@@ -116,8 +112,7 @@ NatGatewayResponse:
       type: object
       $ref: '#/NatGateway'
 
-
-DTable:
+DNatEntry:
   type: object
   properties:
     id:
@@ -144,20 +139,20 @@ DTable:
       type: integer
       example: 8080
       description: 内网端口
-    external_ip: 
+    external_ip:
       type: string
       example: 111.230.80.43
-      description: 外网IP
+      description: 公网IP
     external_port:
       type: integer
       example: 432
-      description: 外网端口
+      description: 公网端口
     ip_protocol:
       type: string
       description: 转发协议
       enum: [udp,tcp,any]
       example: tcp
-    name: 
+    name:
       type: string
       description: DNAT名称
       example: 111.230.80.43/udp/32
@@ -173,32 +168,29 @@ DTable:
       type: string
       description: DNAT状态
       example: available
-      
-      
-DTableListResponse:
+
+DNatEntryListResponse:
   type: object
   properties:
-    limit: 
+    limit:
       type: integer
       example: 20
-    natdtables:
+    natdentries:
       type: array
       items:
-        $ref: '#/DTable'
+        $ref: '#/DNatEntry'
     total:
       type: integer
       example: 124
 
-
-DTableResponse:
+DNatEntryResponse:
   type: object
   properties:
-    natdtable:
+    natdentry:
       type: object
-      $ref: '#/DTable'
+      $ref: '#/DNatEntry'
 
-
-STable:
+SNatEntry:
   type: object
   properties:
     id:
@@ -249,24 +241,110 @@ STable:
       example: available
       description: SNAT状态
 
-STableListResponse:
+SNatEntryListResponse:
   type: object
   properties:
-    limit: 
+    limit:
       type: integer
       example: 20
-    natstables:
+    natsentries:
       type: array
       items:
-        $ref: '#/STable'
+        $ref: '#/SNatEntry'
     total:
       type: integer
       example: 124
 
-
-STableResponse:
+SNatEntryResponse:
   type: object
   properties:
-    natstable:
+    natsentry:
       type: object
-      $ref: '#/STable'
+      $ref: '#/SNatEntry'
+
+DNatEntryCreate:
+  type: object
+  properties:
+    natdentry:
+      type: object
+      required:
+        - name
+        - natgateway_id
+        - internal_ip
+        - internal_port
+        - external_ip
+        - external_ip_id
+        - external_port
+        - ip_protocol
+      properties:
+        name:
+          type: string
+          example: ones
+          description: DNat的名字
+        natgateway_id:
+          type: string
+          example: 378570ec-ded0-4b44-89ed-edce96eb32f7
+          description: 所属NAT网关ID
+        internal_ip:
+          type: string
+          example: 10.0.42.4
+          description: 内网IP
+        internal_port:
+          type: integer
+          example: 8080
+          description: 内网端口
+        external_ip:
+          type: string
+          example: 111.230.80.43
+          description: 公网IP
+        external_ip_id:
+          type: string
+          example: ""
+          description: 公网IP对应的ID，除了华为云，可以为空
+        external_port:
+          type: integer
+          example: 432
+          description: 公网端口
+        ip_protocol:
+          type: string
+          description: 转发协议
+          enum: [udp,tcp,any]
+          example: tcp
+
+SNatEntryCreate:
+  type: object
+  properties:
+    natsentry:
+      type: object
+      required:
+        - name
+        - natgateway_id
+        - network_id
+        - ip
+        - external_ip_id
+        - source_cidr
+      properties:
+        name:
+          type: string
+          example: ones
+          description: SNat的名字
+        natgateway_id:
+          type: string
+          example: 378570ec-ded0-4b44-89ed-edce96eb32f7
+          description: 所属NAT网关ID
+        network_id:
+          type: string
+          example: 648a6baa-9827-49b1-8831-278a889154a1
+          description: 所属网络ID
+        ip:
+          type: string
+          example: 49.4.12.184
+          description: 公网IP
+        external_ip_id:
+          type: string
+          example: ""
+          description: 公网IP对应的ID，除了华为云，可以为空
+        source_cidr:
+          type: string
+          example: 192.168.1.0/24
+          description: 映射到公网IP的内网网段

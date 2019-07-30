@@ -19,15 +19,16 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -42,8 +43,8 @@ func init() {
 		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
 			SNatDEntry{},
 			"natdtables_tbl",
-			"natdtable",
-			"natdtables",
+			"natdentry",
+			"natdentries",
 		),
 	}
 	NatDEntryManager.SetVirtualObject(NatDEntryManager)
@@ -119,15 +120,18 @@ func (man *SNatDEntryManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQ
 }
 
 func (man *SNatDEntryManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
-	return nil, httperrors.NewNotImplementedError("Not Implemented")
+	if !data.Contains("external_ip_id") {
+		return nil, errors.Error("Request body should contain key 'externalIpId'")
+	}
+	return data, nil
 }
 
-func (manager *SNatDEntryManager) SyncNatDTables(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, nat *SNatGateway, extDTable []cloudprovider.ICloudNatDEntry) compare.SyncResult {
+func (manager *SNatDEntryManager) SyncNatDTable(ctx context.Context, userCred mcclient.TokenCredential, syncOwnerId mcclient.IIdentityProvider, provider *SCloudprovider, nat *SNatGateway, extDTable []cloudprovider.ICloudNatDEntry) compare.SyncResult {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, syncOwnerId))
 
 	result := compare.SyncResult{}
-	dbNatDTables, err := nat.GetDTables()
+	dbNatDTables, err := nat.GetDTable()
 	if err != nil {
 		result.Error(err)
 		return result
@@ -248,4 +252,53 @@ func (self *SNatDEntry) GetCustomizeColumns(ctx context.Context, userCred mcclie
 	}
 	extra.Add(jsonutils.NewString(natgateway.Name), "natgateway")
 	return extra
+}
+
+func (self *SNatDEntry) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	if len(self.NatgatewayId) == 0 {
+		return
+	}
+	// ValidateCreateData function make data must contain 'externalIpId' key
+	externalIPID, _ := data.GetString("external_ip_id")
+	taskData := jsonutils.NewDict()
+	taskData.Set("external_ip_id", jsonutils.NewString(externalIPID))
+	task, err := taskman.TaskManager.NewTask(ctx, "SNatDEntryCreateTask", self, userCred, taskData, "", "", nil)
+	if err != nil {
+		log.Errorf("SNatDEntryCreateTask newTask error %s", err)
+	} else {
+		task.ScheduleRun(nil)
+	}
+}
+
+func (self *SNatDEntry) GetINatGateway() (cloudprovider.ICloudNatGateway, error) {
+	model, err := NatGatewayManager.FetchById(self.NatgatewayId)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Fetch NatGateway whose id is %s failed", self.NatgatewayId)
+	}
+	natgateway := model.(*SNatGateway)
+	return natgateway.GetINatGateway()
+}
+
+func (self *SNatDEntry) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	if len(self.ExternalId) > 0 {
+		return self.startDeleteVpcTask(ctx, userCred)
+	} else {
+		return self.realDelete(ctx, userCred)
+	}
+}
+
+func (self *SNatDEntry) realDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	db.OpsLog.LogEvent(self, db.ACT_DELOCATE, self.GetShortDesc(ctx), userCred)
+	self.SetStatus(userCred, api.NAT_STATUS_DELETED, "real delete")
+	return nil
+}
+
+func (self *SNatDEntry) startDeleteVpcTask(ctx context.Context, userCred mcclient.TokenCredential) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "SNatDEntryDeleteTask", self, userCred, nil, "", "", nil)
+	if err != nil {
+		log.Errorf("Start dnatEntry deleteTask fail %s", err)
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }

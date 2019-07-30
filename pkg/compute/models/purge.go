@@ -949,7 +949,7 @@ func (table *SNatSEntry) purge(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (nat *SNatGateway) purgeSTables(ctx context.Context, userCred mcclient.TokenCredential) error {
-	tables, err := nat.GetSTables()
+	tables, err := nat.GetSTable()
 	if err != nil {
 		return err
 	}
@@ -976,7 +976,7 @@ func (table *SNatDEntry) purge(ctx context.Context, userCred mcclient.TokenCrede
 }
 
 func (nat *SNatGateway) purgeDTables(ctx context.Context, userCred mcclient.TokenCredential) error {
-	tables, err := nat.GetDTables()
+	tables, err := nat.GetDTable()
 	if err != nil {
 		return err
 	}
