@@ -186,9 +186,16 @@ func (secgrouprule *SSecurityGroupRule) toRules() []secrules.SecurityRule {
 
 func (secgroup *SSecurityGroup) GetRules() ([]secrules.SecurityRule, error) {
 	rules := []secrules.SecurityRule{}
+	priority := 100
 	for _, rule := range secgroup.SecurityGroupRules {
+		if priority < 2 {
+			priority = 2
+		}
 		subRules := rule.toRules()
-		rules = append(rules, subRules...)
+		for _, subRule := range subRules {
+			subRule.Priority = priority
+			rules = append(rules, subRule)
+		}
 	}
 	defaultDenyRule := secrules.MustParseSecurityRule("out:deny any")
 	defaultDenyRule.Priority = 1
