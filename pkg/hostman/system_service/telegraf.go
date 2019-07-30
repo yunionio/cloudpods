@@ -69,7 +69,6 @@ func (s *STelegraf) GetConfig(kwargs map[string]interface{}) string {
 		conf += "[[outputs.influxdb]]\n"
 		conf += fmt.Sprintf("  urls = [%s]\n", strings.Join(urls, ", "))
 		conf += fmt.Sprintf("  database = \"%s\"\n", tdb)
-		conf += "  retention_policy = \"autogen\"\n"
 		conf += "  insecure_skip_verify = true\n"
 		conf += "\n"
 	}
