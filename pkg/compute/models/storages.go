@@ -108,7 +108,7 @@ func (self *SStorage) ValidateUpdateData(ctx context.Context, userCred mcclient.
 	if driver != nil {
 		return driver.ValidateUpdateData(ctx, userCred, data, self)
 	}
-	return nil, nil
+	return data, nil
 }
 
 func (self *SStorage) PostUpdate(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
