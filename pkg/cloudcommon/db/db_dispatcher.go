@@ -512,6 +512,9 @@ func ListItems(manager IModelManager, ctx context.Context, userCred mcclient.Tok
 		orderBy = append(orderBy, primaryCol.Name())
 	} else if manager.TableSpec().ColumnSpec("created_at") != nil {
 		orderBy = append(orderBy, "created_at")
+		if primaryCol != nil {
+			orderBy = append(orderBy, primaryCol.Name())
+		}
 	}
 	for _, orderByField := range orderBy {
 		colSpec := manager.TableSpec().ColumnSpec(orderByField)
