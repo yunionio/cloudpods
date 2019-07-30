@@ -33,3 +33,34 @@ type NatSTableListOptions struct {
 
 	BaseListOptions
 }
+
+type NatDDeleteShowOptions struct {
+	ID string `help:"ID of the DNat"`
+}
+
+type NatSDeleteShowOptions struct {
+	ID string `help:"ID of the SNat"`
+}
+
+type NatGatewayShowOptions struct {
+	ID string `help:"ID of Nat Gateway"`
+}
+
+type NatDCreateOptions struct {
+	NAME         string `help:"DNAT's name"`
+	NATGATEWAYID string `help:"The nat gateway'id to which DNat belongs"`
+	INTERNALIP   string `help:"Internal IP"`
+	INTERNALPORT string `help:"Internal Port"`
+	EXTERNALIP   string `help:"External IP"`
+	EXTERNALIPID string `help:"External IP ID, can be empty except huawei Cloud"`
+	EXTERNALPORT string `help:"External Port"`
+	IPPROTOCOL   string `help:"Transport Protocol(tcp|udp)"`
+}
+
+type NatSCreateOptions struct {
+	NAME         string `help:"SNAT's name"`
+	NATGATEWAYID string `help:"The nat gateway'id to which SNat belongs"`
+	IP           string `help:"External IP"`
+	EXTERNALIPID string `help:"External IP ID, can be empty except huawei Cloud"`
+	SOURCECIDR   string `help:"Source CIDR"`
+}

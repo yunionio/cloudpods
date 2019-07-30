@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
@@ -127,7 +128,7 @@ func (manager *SNatGetewayManager) getNatgatewaysByProviderId(providerId string)
 	return nats, nil
 }
 
-func (self *SNatGateway) GetDTables() ([]SNatDEntry, error) {
+func (self *SNatGateway) GetDTable() ([]SNatDEntry, error) {
 	tables := []SNatDEntry{}
 	q := NatDEntryManager.Query().Equals("natgateway_id", self.Id)
 	err := db.FetchModelObjects(NatDEntryManager, q, &tables)
@@ -137,7 +138,7 @@ func (self *SNatGateway) GetDTables() ([]SNatDEntry, error) {
 	return tables, nil
 }
 
-func (self *SNatGateway) GetSTables() ([]SNatSEntry, error) {
+func (self *SNatGateway) GetSTable() ([]SNatSEntry, error) {
 	tables := []SNatSEntry{}
 	q := NatSEntryManager.Query().Equals("natgateway_id", self.Id)
 	err := db.FetchModelObjects(NatSEntryManager, q, &tables)
@@ -363,4 +364,26 @@ func (self *SNatGateway) SyncNatGatewayEips(ctx context.Context, userCred mcclie
 	}
 
 	return result
+}
+
+func (self *SNatGateway) GetINatGateway() (cloudprovider.ICloudNatGateway, error) {
+	model, err := VpcManager.FetchById(self.VpcId)
+	if err != nil {
+		return nil, errors.Wrap(err, "Fetch vpc by ID failed")
+	}
+	vpc := model.(*SVpc)
+	cloudVpc, err := vpc.GetIVpc()
+	if err != nil {
+		return nil, errors.Wrap(err, "Fetch IVpc failed")
+	}
+	cloudNatGateways, err := cloudVpc.GetINatGateways()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get INatGateways of vpc %s failed", cloudVpc.GetGlobalId())
+	}
+	for i := range cloudNatGateways {
+		if cloudNatGateways[i].GetGlobalId() == self.ExternalId {
+			return cloudNatGateways[i], nil
+		}
+	}
+	return nil, errors.Error("CloudNatGateway Not Found")
 }

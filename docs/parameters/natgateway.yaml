@@ -3,20 +3,20 @@ natgatewayId:
   required: true
   in: path
   type: string
-  description: NAT网关名称或ID,建议使用ID
-dtableId:
-  name: dtableId
+  description: NAT网关的ID
+dnatentryId:
+  name: dnatentryId
   required: true
   in: path
   type: string
-  description: DNAT名称或ID,建议使用ID
-stableId:
-  name: stableId
+  description: DNAT的ID
+snatentryId:
+  name: snatentryId
   required: true
   in: path
   type: string
-  description: SNAT名称或ID,建议使用ID
-  
+  description: SNAT的ID
+
 natgateway:
   name: natgateway
   in: query

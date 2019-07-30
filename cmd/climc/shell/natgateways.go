@@ -34,4 +34,13 @@ func init() {
 		printList(result, modules.NatGateways.GetColumns(s))
 		return nil
 	})
+
+	R(&options.NatGatewayShowOptions{}, "natgateway-show", "Show a NAT gateway", func(s *mcclient.ClientSession, args *options.NatGatewayShowOptions) error {
+		results, err := modules.NatGateways.Get(s, args.ID, nil)
+		if err != nil {
+			return err
+		}
+		printObject(results)
+		return nil
+	})
 }

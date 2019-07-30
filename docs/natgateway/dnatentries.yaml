@@ -1,0 +1,34 @@
+get:
+  summary: 按指定条件列出Nat网关DNat
+  parameters:
+    - $ref: "../parameters/common.yaml#/offset"
+    - $ref: "../parameters/common.yaml#/limit"
+    - $ref: "../parameters/common.yaml#/provider"
+    - $ref: "../parameters/common.yaml#/account"
+    - $ref: "../parameters/common.yaml#/cloudprovider"
+    - $ref: "../parameters/common.yaml#/brand"
+
+    - $ref: "../parameters/natgateway.yaml#/natgateway"
+  responses:
+    200:
+      description: Nat网关 DNat
+      schema:
+        $ref: "../schemas/natgateway.yaml#/DNatEntryListResponse"
+  tags:
+    - natdentry
+
+post:
+  summary: 创建DNat
+  parameters:
+    - in: body
+      name: dnatentry
+      required: true
+      schema:
+        $ref: '../schemas/natgateway.yaml#/DNatEntryCreate'
+  responses:
+    200:
+      description: 新建DNat的信息
+      schema:
+        $ref: '../schemas/natgateway.yaml#/DNatEntryResponse'
+  tags:
+    - natdentry
