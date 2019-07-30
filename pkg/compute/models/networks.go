@@ -1508,7 +1508,7 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 		}
 		zone := zoneObj.(*SZone)
 		region := zone.GetRegion()
-		if utils.IsInStringArray(region.Provider, api.REGINAL_NETWORK_PROVIDERS) {
+		if utils.IsInStringArray(region.Provider, api.REGIONAL_NETWORK_PROVIDERS) {
 			wires := WireManager.Query().SubQuery()
 			vpcs := VpcManager.Query().SubQuery()
 
