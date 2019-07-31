@@ -105,6 +105,9 @@ func (self *SQcloudGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD}) {
 		return fmt.Errorf("Cannot resize %s disk", storage.StorageType)
 	}
+	if disk.DiskSize/1024%10 > 0 {
+		return fmt.Errorf("Resize disk size must be an integer multiple of 10G")
+	}
 	return nil
 }
 
@@ -145,8 +148,65 @@ func (self *SQcloudGuestDriver) ValidateCreateData(ctx context.Context, userCred
 				return nil, httperrors.NewInputParameterError("The %s disk size must be in the range of 100GB ~ 16000GB", disk.Backend)
 			}
 		}
+		if disk.SizeMb/1024%10 > 0 {
+			return nil, httperrors.NewInputParameterError("Data disk size must be an integer multiple of 10G")
+		}
 	}
 	return input, nil
+}
+
+func (self *SQcloudGuestDriver) ValidateChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, cpuChanged bool, memChanged bool, newDisks []*api.DiskConfig) error {
+	if cpuChanged || memChanged {
+		disk, err := guest.GetSystemDisk()
+		if err != nil {
+			return httperrors.NewResourceNotFoundError("failed to found system disk error: %v", err)
+		}
+		storage := disk.GetStorage()
+		if storage == nil {
+			return httperrors.NewResourceNotFoundError("failed to found storage for disk %s(%s)", disk.Name, disk.Id)
+		}
+		// 腾讯云系统盘为本地存储，不支持调整配置
+		if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD}) {
+			return httperrors.NewUnsupportOperationError("The system disk is locally stored and does not support changing configuration")
+		}
+	}
+
+	for _, newDisk := range newDisks {
+		switch newDisk.Backend {
+		case api.STORAGE_CLOUD_BASIC:
+			if newDisk.SizeMb < 10*1024 || newDisk.SizeMb > 16000*1024 {
+				return httperrors.NewInputParameterError("The %s disk size must be in the range of 10GB ~ 16000GB", newDisk.Backend)
+			}
+		case api.STORAGE_CLOUD_PREMIUM:
+			if newDisk.SizeMb < 50*1024 || newDisk.SizeMb > 16000*1024 {
+				return httperrors.NewInputParameterError("The %s disk size must be in the range of 50GB ~ 16000GB", newDisk.Backend)
+			}
+		case api.STORAGE_CLOUD_SSD:
+			if newDisk.SizeMb < 100*1024 || newDisk.SizeMb > 16000*1024 {
+				return httperrors.NewInputParameterError("The %s disk size must be in the range of 100GB ~ 16000GB", newDisk.Backend)
+			}
+		case api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD:
+			return httperrors.NewUnsupportOperationError("Not support create local storage disks")
+		case "": //这里Backend为空有可能会导致创建出来还是local storage,依然会出错,需要用户显式指定
+			return httperrors.NewInputParameterError("Please input new disk backend type")
+		}
+		if newDisk.SizeMb/1024%10 > 0 {
+			return httperrors.NewInputParameterError("Data disk size must be an integer multiple of 10G")
+		}
+	}
+	return nil
+}
+
+func (self *SQcloudGuestDriver) ValidateDetachDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, disk *models.SDisk) error {
+	storage := disk.GetStorage()
+	if storage == nil {
+		return httperrors.NewResourceNotFoundError("failed to found storage for disk %s(%s)", disk.Name, disk.Id)
+	}
+	// 腾讯云本地盘不支持卸载
+	if utils.IsInStringArray(storage.StorageType, []string{api.STORAGE_LOCAL_BASIC, api.STORAGE_LOCAL_SSD}) {
+		return httperrors.NewUnsupportOperationError("The disk is locally stored and does not support detach")
+	}
+	return nil
 }
 
 func (self *SQcloudGuestDriver) GetGuestInitialStateAfterCreate() string {
