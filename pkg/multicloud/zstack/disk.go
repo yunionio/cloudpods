@@ -313,6 +313,11 @@ func (region *SRegion) ResizeDisk(diskId string, sizeMb int64) error {
 	if err != nil {
 		return err
 	}
+
+	if disk.GetDiskSizeMB() == int(sizeMb) {
+		return nil
+	}
+
 	params := jsonutils.Marshal(map[string]interface{}{
 		fmt.Sprintf("resize%sVolume", disk.Type): map[string]int64{
 			"size": sizeMb * 1024 * 1024,
