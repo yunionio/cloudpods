@@ -8,6 +8,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -109,13 +110,33 @@ func (disk *SDisk) GetMetadata() *jsonutils.JSONDict {
 }
 
 func (region *SRegion) GetDisks(category, volumeBackendName string) ([]SDisk, error) {
-	_, resp, err := region.CinderList("/volumes/detail", "", nil)
-	if err != nil {
-		return nil, err
-	}
+	url := "/volumes/detail"
 	disks := []SDisk{}
-	if err := resp.Unmarshal(&disks, "volumes"); err != nil {
-		return nil, err
+	for len(url) > 0 {
+		_, resp, err := region.CinderList(url, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		_disks := []SDisk{}
+		err = resp.Unmarshal(&_disks, "volumes")
+		if err != nil {
+			return nil, errors.Wrap(err, `resp.Unmarshal(&_disks, "volumes")`)
+		}
+		disks = append(disks, _disks...)
+		url = ""
+		if resp.Contains("volumes_links") {
+			nextLink := []SNextLink{}
+			err = resp.Unmarshal(&nextLink, "volumes_links")
+			if err != nil {
+				return nil, errors.Wrap(err, `resp.Unmarshal(&nextLink, "volumes_links")`)
+			}
+			for _, next := range nextLink {
+				if next.Rel == "next" {
+					url = next.Href
+					break
+				}
+			}
+		}
 	}
 	result := []SDisk{}
 	for _, disk := range disks {
