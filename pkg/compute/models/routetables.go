@@ -224,6 +224,21 @@ func (man *SRouteTableManager) ValidateCreateData(ctx context.Context, userCred 
 	return man.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
+func (manager *SRouteTableManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	switch field {
+	case "account":
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		cloudaccounts := CloudaccountManager.Query().Distinct().SubQuery()
+		q = q.Join(cloudproviders, sqlchemy.Equals(q.Field("manager_id"), cloudproviders.Field("id")))
+		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), cloudaccounts.Field("id")))
+		q.GroupBy(cloudaccounts.Field("name"))
+		q.AppendField(cloudaccounts.Field("name", "account"))
+	default:
+		return nil, httperrors.NewBadRequestError("unsupport field %s", field)
+	}
+	return q, nil
+}
+
 func (rt *SRouteTable) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return db.IsAdminAllowPerform(userCred, rt, "purge")
 }
