@@ -132,6 +132,14 @@ func (self *SBaseGuestDriver) GetChangeConfigStatus() ([]string, error) {
 	return []string{}, fmt.Errorf("This Guest driver dose not implement GetChangeConfigStatus")
 }
 
+func (self *SBaseGuestDriver) ValidateChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, cpuChanged bool, memChanged bool, newDisks []*api.DiskConfig) error {
+	return nil
+}
+
+func (self *SBaseGuestDriver) ValidateDetachDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, disk *models.SDisk) error {
+	return nil
+}
+
 func (self *SBaseGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
 	return httperrors.NewInputParameterError("Not Implement ValidateCreateEip")
 }

@@ -1438,6 +1438,12 @@ func (self *SGuest) PerformDetachdisk(ctx context.Context, userCred mcclient.Tok
 			if keepDisk && !self.GetDriver().CanKeepDetachDisk() {
 				return nil, httperrors.NewInputParameterError("Cannot keep detached disk")
 			}
+
+			err = self.GetDriver().ValidateDetachDisk(ctx, userCred, self, disk)
+			if err != nil {
+				return nil, err
+			}
+
 			if utils.IsInStringArray(self.Status, detachDiskStatus) {
 				self.SetStatus(userCred, api.VM_DETACH_DISK, "")
 				err = self.StartGuestDetachdiskTask(ctx, userCred, disk, keepDisk, "", false)
@@ -1979,6 +1985,7 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 		}
 		if diskConf.SizeMb > 0 {
 			if diskIdx >= len(disks) {
+				// 这里backeend为空时,qcloud有可能会选择local_ssd作为后端存储,会导致报错(主要是climc)
 				storage := host.GetLeastUsedStorage(diskConf.Backend)
 				if storage == nil {
 					return nil, httperrors.NewResourceNotReadyError("host not connect storage %s", diskConf.Backend)
@@ -2005,6 +2012,10 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 					_, ok := diskSizes[storage.Id]
 					if !ok {
 						diskSizes[storage.Id] = 0
+					}
+					err = self.ValidateResizeDisk(disk, storage)
+					if err != nil {
+						return nil, httperrors.NewUnsupportOperationError(err.Error())
 					}
 					diskSizes[storage.Id] = diskSizes[storage.Id] + diskConf.SizeMb - oldSize
 				}
@@ -2037,6 +2048,11 @@ func (self *SGuest) PerformChangeConfig(ctx context.Context, userCred mcclient.T
 	}
 	if self.Status == api.VM_RUNNING {
 		confs.Set("guest_online", jsonutils.JSONTrue)
+	}
+
+	err = self.GetDriver().ValidateChangeConfig(ctx, userCred, self, cpuChanged, memChanged, newDisks)
+	if err != nil {
+		return nil, err
 	}
 
 	// schedulr forecast
