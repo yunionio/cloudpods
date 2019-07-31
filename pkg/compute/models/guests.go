@@ -1489,6 +1489,16 @@ func (manager *SGuestManager) ListItemExportKeys(ctx context.Context, q *sqlchem
 		q.AppendField(hostSubQuery.Field("name", "host"))
 	}
 
+	if utils.IsInStringArray("zone", keys) {
+		zoneQuery := ZoneManager.Query("id", "name").SubQuery()
+		hostQuery := HostManager.Query("id", "zone_id").GroupBy("id")
+		hostQuery.LeftJoin(zoneQuery, sqlchemy.Equals(hostQuery.Field("zone_id"), zoneQuery.Field("id")))
+		hostQuery.AppendField(zoneQuery.Field("name", "zone"))
+		hostSubQuery := hostQuery.SubQuery()
+		q.LeftJoin(hostSubQuery, sqlchemy.Equals(q.Field("host_id"), hostSubQuery.Field("id")))
+		q.AppendField(hostSubQuery.Field("zone"))
+	}
+
 	// host_id as filter key
 	if utils.IsInStringArray("region", keys) {
 		zoneQuery := ZoneManager.Query("id", "cloudregion_id").SubQuery()
@@ -1530,6 +1540,9 @@ func (manager *SGuestManager) GetExportExtraKeys(ctx context.Context, query json
 	}
 	if host, ok := rowMap["host"]; ok && len(host) > 0 {
 		res.Set("host", jsonutils.NewString(host))
+	}
+	if zone, ok := rowMap["zone"]; ok && len(zone) > 0 {
+		res.Set("zone", jsonutils.NewString(zone))
 	}
 	if region, ok := rowMap["region"]; ok && len(region) > 0 {
 		res.Set("region", jsonutils.NewString(region))
