@@ -1666,6 +1666,26 @@ func (manager *SNetworkManager) ListItemFilter(ctx context.Context, q *sqlchemy.
 	return q, nil
 }
 
+func (manager *SNetworkManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	switch field {
+	case "account":
+		vpcs := VpcManager.Query().SubQuery()
+		wires := WireManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		cloudaccounts := CloudaccountManager.Query().Distinct().SubQuery()
+		q = q.Join(wires, sqlchemy.Equals(q.Field("wire_id"), wires.Field("id")))
+		q = q.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
+		q = q.Join(cloudproviders, sqlchemy.Equals(vpcs.Field("manager_id"), cloudproviders.Field("id")))
+		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), cloudaccounts.Field("id")))
+		q.GroupBy(cloudaccounts.Field("name"))
+		q.AppendField(cloudaccounts.Field("name", "account"))
+	default:
+		return nil, httperrors.NewBadRequestError("unsupport field %s", field)
+	}
+
+	return q, nil
+}
+
 func (manager *SNetworkManager) InitializeData() error {
 	// set network status
 	networks := make([]SNetwork, 0)
