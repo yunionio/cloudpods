@@ -263,6 +263,92 @@ func (manager *SModelBaseManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeSystem
 }
 
+func (manager *SModelBaseManager) AllowGetPropertyDistinctField(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	allFields, _ := query.GetMap()
+	var ret = jsonutils.NewDict()
+	fns, ok := allFields["field"]
+	if ok {
+		delete(allFields, "field")
+		fn, err := fns.GetArray()
+		fields := make([]string, len(fn))
+		for i, f := range fn {
+			fields[i], err = f.GetString()
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("can't get string field")
+			}
+			var hasField = false
+			for _, field := range manager.getTable().Fields() {
+				if field.Name() == fields[i] {
+					hasField = true
+					break
+				}
+			}
+			if !hasField {
+				return nil, httperrors.NewBadRequestError("model has no field %s", fields[i])
+			}
+		}
+		im, ok := manager.GetVirtualObject().(IModelManager)
+		if !ok {
+			im = manager
+		}
+
+		if len(fields) > 0 {
+			res, err := im.Query(fields...).Distinct().AllStringMap()
+			if err == sql.ErrNoRows {
+				ret.Set(manager.Keyword(), jsonutils.NewArray())
+			}
+			if err != nil && err != sql.ErrNoRows {
+				return nil, httperrors.NewInternalServerError("Query database error %s", err)
+			}
+			ret.Set(manager.Keyword(), jsonutils.Marshal(res))
+		}
+	}
+
+	if len(allFields) > 0 {
+		var extraMap = make(map[string][]string, 0)
+		for k, v := range allFields {
+			val, err := v.GetArray()
+			if err != nil {
+				return nil, httperrors.NewInputParameterError("can't get extra field")
+			}
+			efs, ok := extraMap[k]
+			if !ok {
+				efs = make([]string, 0)
+			}
+			for i := 0; i < len(val); i++ {
+				vk, err := val[i].GetString()
+				if err != nil {
+					return nil, httperrors.NewInputParameterError("can't get extra string field")
+				}
+				efs = append(efs, vk)
+			}
+			extraMap[k] = efs
+		}
+		for k, v := range extraMap {
+			if len(v) == 0 {
+				continue
+			}
+			m, ok := globalTables[k]
+			if !ok {
+				return nil, httperrors.NewBadRequestError("Has no manager %s", k)
+			}
+			res, err := m.Query(v...).Distinct().AllStringMap()
+			if err == sql.ErrNoRows {
+				continue
+			}
+			if err != nil {
+				return nil, httperrors.NewInternalServerError("Query database error %s", err)
+			}
+			ret.Set(m.Keyword(), jsonutils.Marshal(res))
+		}
+	}
+	return ret, nil
+}
+
 func (model *SModelBase) GetId() string {
 	return ""
 }
