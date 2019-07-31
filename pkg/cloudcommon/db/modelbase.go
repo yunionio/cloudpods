@@ -246,6 +246,47 @@ func (manager *SModelBaseManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeSystem
 }
 
+func (manager *SModelBaseManager) AllowGetPropertyDistinctField(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
+	return true
+}
+
+func (manager *SModelBaseManager) GetPropertyDistinctField(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	fn, err := query.GetArray("field")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("field")
+	}
+	fields := make([]string, len(fn))
+	for i, f := range fn {
+		fields[i], err = f.GetString()
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("can't get string field")
+		}
+		var hasField = false
+		for _, field := range manager.getTable().Fields() {
+			if field.Name() == fields[i] {
+				hasField = true
+				break
+			}
+		}
+		if !hasField {
+			return nil, httperrors.NewBadRequestError("model has no field %s", fields[i])
+		}
+	}
+
+	im, ok := manager.GetVirtualObject().(IModelManager)
+	if !ok {
+		im = manager
+	}
+	res, err := im.Query(fields...).Distinct().AllStringMap()
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("Query database error %s", err)
+	}
+	return jsonutils.Marshal(res), err
+}
+
 func (model *SModelBase) GetId() string {
 	return ""
 }
