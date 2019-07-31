@@ -22,6 +22,7 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
@@ -92,12 +93,35 @@ func (region *SRegion) GetEipByIp(ip string) (*SEipAddress, error) {
 }
 
 func (region *SRegion) GetEips() ([]SEipAddress, error) {
-	_, resp, err := region.List("network", "/v2.0/floatingips", "", nil)
-	if err != nil {
-		return nil, err
-	}
+	url := "/v2.0/floatingips"
 	eips := []SEipAddress{}
-	return eips, resp.Unmarshal(&eips, "floatingips")
+	for len(url) > 0 {
+		_, resp, err := region.List("network", url, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		_eips := []SEipAddress{}
+		err = resp.Unmarshal(&_eips, "floatingips")
+		if err != nil {
+			return nil, errors.Wrap(err, `resp.Unmarshal(&_eips, "floatingips")`)
+		}
+		eips = append(eips, _eips...)
+		url = ""
+		if resp.Contains("floatingips_links") {
+			nextLink := []SNextLink{}
+			err = resp.Unmarshal(&nextLink, "floatingips_links")
+			if err != nil {
+				return nil, errors.Wrap(err, `resp.Unmarshal(&nextLink, "floatingips_links")`)
+			}
+			for _, next := range nextLink {
+				if next.Rel == "next" {
+					url = next.Href
+					break
+				}
+			}
+		}
+	}
+	return eips, nil
 }
 
 func (eip *SEipAddress) GetId() string {
