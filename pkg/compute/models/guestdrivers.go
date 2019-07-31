@@ -168,6 +168,9 @@ type IGuestDriver interface {
 	OnGuestChangeCpuMemFailed(ctx context.Context, guest *SGuest, data *jsonutils.JSONDict, task taskman.ITask) error
 	IsSupportGuestClone() bool
 
+	ValidateChangeConfig(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, cpuChanged bool, memChanged bool, newDisks []*api.DiskConfig) error
+	ValidateDetachDisk(ctx context.Context, userCred mcclient.TokenCredential, guest *SGuest, disk *SDisk) error
+
 	IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool
 	GetUserDataType() string
 }

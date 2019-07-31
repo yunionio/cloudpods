@@ -521,6 +521,31 @@ func (guest *SGuest) DiskCount() (int, error) {
 	return guest.GetDisksQuery().CountWithError()
 }
 
+func (guest *SGuest) GetSystemDisk() (*SDisk, error) {
+	q := DiskManager.Query().Equals("disk_type", api.DISK_TYPE_SYS)
+	gs := GuestdiskManager.Query().SubQuery()
+	q = q.Join(gs, sqlchemy.Equals(gs.Field("disk_id"), q.Field("id"))).
+		Filter(sqlchemy.Equals(gs.Field("guest_id"), guest.Id))
+
+	count, err := q.CountWithError()
+	if err != nil {
+		return nil, err
+	}
+	if count > 1 {
+		return nil, sqlchemy.ErrDuplicateEntry
+	}
+	if count == 0 {
+		return nil, sql.ErrNoRows
+	}
+	disk := &SDisk{}
+	err = q.First(disk)
+	if err != nil {
+		return nil, errors.Wrap(err, "q.First(disk)")
+	}
+	disk.SetModelManager(DiskManager, disk)
+	return disk, nil
+}
+
 func (guest *SGuest) GetDisks() []SGuestdisk {
 	disks := make([]SGuestdisk, 0)
 	q := guest.GetDisksQuery().Asc("index")
