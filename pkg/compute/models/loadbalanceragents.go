@@ -526,6 +526,25 @@ func (lbagent *SLoadbalancerAgent) ValidateUpdateData(ctx context.Context, userC
 	return data, nil
 }
 
+func (lbagent *SLoadbalancerAgent) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
+	extra := lbagent.SStandaloneResourceBase.GetCustomizeColumns(ctx, userCred, query)
+	{
+		lbcluster, err := LoadbalancerClusterManager.FetchById(lbagent.ClusterId)
+		if err != nil {
+			log.Errorf("loadbalancer agent %s(%s): fetch cluster (%s) error: %s",
+				lbagent.Name, lbagent.Id, lbagent.ClusterId, err)
+		} else {
+			extra.Set("cluster", jsonutils.NewString(lbcluster.GetName()))
+		}
+	}
+	return extra
+}
+
+func (lbagent *SLoadbalancerAgent) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	extra := lbagent.GetCustomizeColumns(ctx, userCred, query)
+	return extra, nil
+}
+
 func (lbagent *SLoadbalancerAgent) AllowPerformHb(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
 	return db.IsAdminAllowPerform(userCred, lbagent, "hb")
 }
