@@ -31,8 +31,10 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/mcclient/auth"
 )
 
 type SLoadbalancerAgentManager struct {
@@ -227,6 +229,11 @@ func (p *SLoadbalancerAgentParamsTelegraf) Validate(data *jsonutils.JSONDict) er
 }
 
 func (p *SLoadbalancerAgentParamsTelegraf) initDefault(data *jsonutils.JSONDict) {
+	if p.InfluxDbOutputUrl == "" {
+		baseOpts := &options.Options
+		u, _ := auth.GetServiceURL("influxdb", baseOpts.Region, "", "")
+		p.InfluxDbOutputUrl = u
+	}
 	if p.HaproxyInputInterval == 0 {
 		p.HaproxyInputInterval = 5
 	}
