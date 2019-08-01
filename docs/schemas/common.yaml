@@ -128,7 +128,7 @@ StatusStandaloneResponse:
 
 EnabledStatusStandaloneResponse:
   allOf:
-    - $ref: '#/StatusStandaloneResponse'
+    - $ref: './common.yaml#/StatusStandaloneResponse'
     - type: object
       properties:
         enabled:

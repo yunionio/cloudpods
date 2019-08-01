@@ -474,3 +474,23 @@ paths:
     $ref: "./dbinstance/dbinstanceaccounts.yaml"
   /dbinstanceaccounts/{accountId}:
     $ref: "./dbinstance/dbinstanceaccount.yaml"
+
+
+  /cloudaccounts:
+    $ref: "./cloudaccount/cloudaccounts.yaml"
+  /cloudaccounts/{cloudaccountId}:
+    $ref: "./cloudaccount/cloudaccount.yaml"
+  /cloudaccounts/{cloudaccountId}/change-project:
+    $ref: "./cloudaccount/change-project.yaml"
+  /cloudaccounts/{cloudaccountId}/disable:
+    $ref: "./cloudaccount/disable.yaml"
+  /cloudaccounts/{cloudaccountId}/enable:
+    $ref: "./cloudaccount/enable.yaml"
+  /cloudaccounts/{cloudaccountId}/sync:
+    $ref: "./cloudaccount/sync.yaml"
+  /cloudaccounts/{cloudaccountId}/update-credential:
+    $ref: "./cloudaccount/update-credential.yaml"
+  /cloudaccounts/{cloudaccountId}/enable-auto-sync:
+    $ref: "./cloudaccount/enable-auto-sync.yaml"
+  /cloudaccounts/{cloudaccountId}/disable-auto-sync:
+    $ref: "./cloudaccount/disable-auto-sync.yaml"

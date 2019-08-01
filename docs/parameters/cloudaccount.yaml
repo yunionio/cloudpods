@@ -1,0 +1,25 @@
+cloudaccountId:
+  name: cloudaccountId
+  type: string
+  required: true
+  in: path
+  description: 账号名称或ID
+
+scope:
+  name: scope
+  in: body
+  type: string
+  enum: [project, domain, system]
+  default: system
+  description: specify scope, either project, domain or system
+
+shared_projects:
+  name: shared_projects
+  in: body
+  type: array
+  items: 
+    type: string
+    example: test-project
+    description: 项目名称或ID
+  description: 共享到的项目列表, 仅scope=project有效
+

@@ -1,0 +1,12 @@
+post:
+  summary: 取消云账号共享
+  parameters: 
+    - $ref: "../parameters/cloudaccount.yaml#/cloudaccountId"
+  responses:
+    200:
+      description: 云账号信息
+      schema:
+        $ref: "../schemas/cloudaccount.yaml#CloudaccountResponse"
+
+  tags:
+    - cloudaccount

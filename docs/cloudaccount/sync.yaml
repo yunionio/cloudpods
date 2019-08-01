@@ -1,0 +1,16 @@
+post:
+  summary: 云账号信息同步
+  parameters: 
+    - $ref: '../parameters/cloudaccount.yaml#/cloudaccountId'
+    - in: body
+      name: cloudaccount
+      required: true
+      schema:
+        $ref: '../schemas/cloudaccount.yaml#/CloudaccountSync' 
+  responses:
+    200:
+      description: 云账号信息
+      schema:
+        $ref: '../schemas/cloudaccount.yaml#/CloudaccountResponse'
+  tags:
+    - cloudaccount
