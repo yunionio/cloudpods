@@ -92,8 +92,16 @@ func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sql
 		q = q.In("id", secgroupIds)
 	}
 
+	return q, nil
+}
+
+func (manager *SSecurityGroupManager) OrderByExtraFields(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := manager.SVirtualResourceBaseManager.OrderByExtraFields(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
 	orderByCache, _ := query.GetString("order_by_cache")
-	if orderByCache == "asc" || orderByCache == "desc" {
+	if sqlchemy.SQL_ORDER_ASC.Equals(orderByCache) || sqlchemy.SQL_ORDER_DESC.Equals(orderByCache) {
 		caches := SecurityGroupCacheManager.Query().SubQuery()
 		cacheQ := caches.Query(
 			caches.Field("secgroup_id"),
@@ -101,29 +109,35 @@ func (manager *SSecurityGroupManager) ListItemFilter(ctx context.Context, q *sql
 		)
 		cacheSQ := cacheQ.GroupBy(caches.Field("secgroup_id")).SubQuery()
 		q = q.LeftJoin(cacheSQ, sqlchemy.Equals(q.Field("id"), cacheSQ.Field("secgroup_id")))
-		switch orderByCache {
-		case "asc":
+		if sqlchemy.SQL_ORDER_ASC.Equals(orderByCache) {
 			q = q.Asc(cacheSQ.Field("cache_cnt"))
-		case "desc":
+		} else {
 			q = q.Desc(cacheSQ.Field("cache_cnt"))
 		}
 	}
-
 	orderByGuest, _ := query.GetString("order_by_guest")
-	if orderByGuest == "asc" || orderByGuest == "desc" {
+	if sqlchemy.SQL_ORDER_ASC.Equals(orderByGuest) || sqlchemy.SQL_ORDER_DESC.Equals(orderByGuest) {
 		guests := GuestManager.Query().SubQuery()
-		guestQ := guests.Query(
-			guests.Field("secgrp_id"),
-			sqlchemy.COUNT("guest_cnt"),
+		guestsecgroups := GuestsecgroupManager.Query().SubQuery()
+		q1 := guests.Query(guests.Field("id").Label("guest_id"),
+			guests.Field("secgrp_id").Label("secgroup_id"))
+		q2 := guestsecgroups.Query(guestsecgroups.Field("guest_id"),
+			guestsecgroups.Field("secgroup_id"))
+		uq := sqlchemy.Union(q1, q2)
+		uQ := uq.Query(
+			uq.Field("secgroup_id"),
+			sqlchemy.COUNT("guest_cnt", uq.Field("guest_id")),
 		)
-		guestSQ := guestQ.GroupBy(guests.Field("secgrp_id")).SubQuery()
-		q = q.LeftJoin(guestSQ, sqlchemy.Equals(q.Field("id"), guestSQ.Field("secgrp_id")))
-		switch orderByGuest {
-		case "asc":
-			q = q.Asc(guestSQ.Field("guest_cnt"))
-		case "desc":
-			q = q.Desc(guestSQ.Field("guest_cnt"))
+		sq := uQ.GroupBy(uq.Field("secgroup_id")).SubQuery()
+
+		q = q.LeftJoin(sq, sqlchemy.Equals(q.Field("id"), sq.Field("secgroup_id")))
+
+		if sqlchemy.SQL_ORDER_ASC.Equals(orderByGuest) {
+			q = q.Asc(sq.Field("guest_cnt"))
+		} else {
+			q = q.Desc(sq.Field("guest_cnt"))
 		}
+
 	}
 
 	return q, nil
