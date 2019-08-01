@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
@@ -36,12 +37,35 @@ type SFlavor struct {
 }
 
 func (region *SRegion) GetFlavors() ([]SFlavor, error) {
-	_, resp, err := region.List("compute", "/flavors/detail", "", nil)
-	if err != nil {
-		return nil, err
-	}
+	url := "/flavors/detail"
 	flavors := []SFlavor{}
-	return flavors, resp.Unmarshal(&flavors, "flavors")
+	for len(url) > 0 {
+		_, resp, err := region.List("compute", url, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		_flavors := []SFlavor{}
+		err = resp.Unmarshal(&_flavors, "flavors")
+		if err != nil {
+			return nil, errors.Wrap(err, `resp.Unmarshal(&_flavors, "flavors")`)
+		}
+		flavors = append(flavors, _flavors...)
+		url = ""
+		if resp.Contains("flavors_links") {
+			nextLink := []SNextLink{}
+			err = resp.Unmarshal(&nextLink, "flavors_links")
+			if err != nil {
+				return nil, errors.Wrap(err, `resp.Unmarshal(&nextLink, "flavors_links")`)
+			}
+			for _, next := range nextLink {
+				if next.Rel == "next" {
+					url = next.Href
+					break
+				}
+			}
+		}
+	}
+	return flavors, nil
 }
 
 func (region *SRegion) GetFlavor(flavorId string) (*SFlavor, error) {

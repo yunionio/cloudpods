@@ -17,6 +17,7 @@ package openstack
 import (
 	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/netutils"
@@ -28,6 +29,11 @@ import (
 type AllocationPool struct {
 	Start string
 	End   string
+}
+
+type SNextLink struct {
+	Href string
+	Rel  string
 }
 
 type SNetwork struct {
@@ -142,14 +148,35 @@ func (region *SRegion) GetNetwork(networkId string) (*SNetwork, error) {
 }
 
 func (region *SRegion) GetNetworks(vpcId string) ([]SNetwork, error) {
-	_, resp, err := region.List("network", "/v2.0/subnets", "", nil)
-	if err != nil {
-		return nil, err
-	}
+	url := "/v2.0/subnets"
 	networks := []SNetwork{}
-	if err := resp.Unmarshal(&networks, "subnets"); err != nil {
-		return nil, err
+	for len(url) > 0 {
+		_, resp, err := region.List("network", url, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		_networks := []SNetwork{}
+		err = resp.Unmarshal(&_networks, "subnets")
+		if err != nil {
+			return nil, errors.Wrap(err, `resp.Unmarshal(&_networks, "subnets")`)
+		}
+		networks = append(networks, _networks...)
+		url = ""
+		if resp.Contains("subnets_links") {
+			nextLinks := []SNextLink{}
+			err = resp.Unmarshal(&nextLinks, "subnets_links")
+			if err != nil {
+				return nil, errors.Wrapf(err, "resp.Unmarshal(subnets_links)")
+			}
+			for _, next := range nextLinks {
+				if next.Rel == "next" {
+					url = next.Href
+					break
+				}
+			}
+		}
 	}
+
 	result := []SNetwork{}
 	for i := 0; i < len(networks); i++ {
 		if len(vpcId) == 0 || vpcId == networks[i].NetworkID {
