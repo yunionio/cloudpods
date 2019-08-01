@@ -1336,6 +1336,12 @@ func (self *SGuest) GetCustomizeColumns(ctx context.Context, userCred mcclient.T
 func (self *SGuest) moreExtraInfo(extra *jsonutils.JSONDict, fields stringutils2.SSortedStrings) *jsonutils.JSONDict {
 	// extra.Add(jsonutils.NewInt(int64(self.getExtBandwidth())), "ext_bw")
 
+	if self.IsPrepaidRecycle() {
+		extra.Add(jsonutils.JSONTrue, "is_prepaid_recycle")
+	} else {
+		extra.Add(jsonutils.JSONFalse, "is_prepaid_recycle")
+	}
+
 	if len(self.BackupHostId) > 0 && (len(fields) == 0 || fields.Contains("backup_host_name") || fields.Contains("backup_host_status")) {
 		backupHost := HostManager.FetchHostById(self.BackupHostId)
 		if len(fields) == 0 || fields.Contains("backup_host_name") {
@@ -1415,12 +1421,6 @@ func (self *SGuest) GetExtraDetails(ctx context.Context, userCred mcclient.Token
 
 	if db.IsAdminAllowGet(userCred, self) {
 		extra.Add(jsonutils.NewString(self.getAdminSecurityRules()), "admin_security_rules")
-	}
-
-	if self.IsPrepaidRecycle() {
-		extra.Add(jsonutils.JSONTrue, "is_prepaid_recycle")
-	} else {
-		extra.Add(jsonutils.JSONFalse, "is_prepaid_recycle")
 	}
 
 	return self.moreExtraInfo(extra, nil), nil
