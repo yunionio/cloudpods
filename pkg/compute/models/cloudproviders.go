@@ -314,15 +314,17 @@ func (self *SCloudprovider) syncProject(ctx context.Context, userCred mcclient.T
 		return errors.Wrap(err, "db.TenantCacheManager.FetchTenantByIdOrName")
 	}
 
+	account := self.GetCloudaccount()
+	if account == nil {
+		return errors.Error("no valid cloudaccount???")
+	}
+
 	var projectId, domainId string
-	if err == sql.ErrNoRows { // create one
+	if err == sql.ErrNoRows || tenant.DomainId != account.DomainId { // create one
 		s := auth.GetAdminSession(ctx, options.Options.Region, "")
 		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(self.Name), "name")
-		account := self.GetCloudaccount()
-		if account == nil {
-			return errors.Error("no valid cloudaccount???")
-		}
+		params.Add(jsonutils.NewString(self.Name), "generate_name")
+
 		domainId = account.DomainId
 		params.Add(jsonutils.NewString(domainId), "domain_id")
 		params.Add(jsonutils.NewString(fmt.Sprintf("auto create from cloud provider %s (%s)", self.Name, self.Id)), "description")
