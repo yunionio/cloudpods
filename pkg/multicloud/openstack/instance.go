@@ -16,7 +16,6 @@ package openstack
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -24,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
 	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
@@ -155,14 +155,35 @@ func (region *SRegion) GetSecurityGroupsByInstance(instanceId string) ([]Securit
 
 func (region *SRegion) GetInstances(hostName string) ([]SInstance, error) {
 	_, maxVersion, _ := region.GetVersion("compute")
-	_, resp, err := region.List("compute", "/servers/detail?all_tenants=True", maxVersion, nil)
-	if err != nil {
-		return nil, err
+	url := "/servers/detail?all_tenants=True"
+	instances := []SInstance{}
+	for len(url) > 0 {
+		_, resp, err := region.List("compute", url, maxVersion, nil)
+		if err != nil {
+			return nil, err
+		}
+		_instances := []SInstance{}
+		err = resp.Unmarshal(&_instances, "servers")
+		if err != nil {
+			return nil, errors.Wrap(err, `resp.Unmarshal(&_instances, "servers")`)
+		}
+		instances = append(instances, _instances...)
+		url = ""
+		if resp.Contains("servers_links") {
+			nextLink := []SNextLink{}
+			err = resp.Unmarshal(&nextLink, "servers_links")
+			if err != nil {
+				return nil, errors.Wrap(err, `resp.Unmarshal(&nextLink, "servers")`)
+			}
+			for _, next := range nextLink {
+				if next.Rel == "next" {
+					url = next.Href
+					break
+				}
+			}
+		}
 	}
-	instances, result := []SInstance{}, []SInstance{}
-	if err := resp.Unmarshal(&instances, "servers"); err != nil {
-		return nil, err
-	}
+	result := []SInstance{}
 	for i := 0; i < len(instances); i++ {
 		if len(hostName) == 0 || hostName == instances[i].Host {
 			result = append(result, instances[i])
@@ -719,7 +740,7 @@ func (instance *SInstance) GetProjectId() string {
 
 func (self *SInstance) GetError() error {
 	if self.Status == INSTANCE_STATUS_ERROR && len(self.Fault.Message) > 0 {
-		return errors.New(self.Fault.Message)
+		return fmt.Errorf(self.Fault.Message)
 	}
 	return nil
 }
