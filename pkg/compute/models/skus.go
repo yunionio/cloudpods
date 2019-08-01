@@ -297,6 +297,22 @@ func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclie
 		log.Debugf("GetCustomizeColumns %s", err)
 	}
 
+	region, err := self.GetRegion()
+	if err != nil {
+		log.Errorf("failed to get region for sku %s(%s)", self.Name, self.Id)
+		return extra
+	}
+	if region.IsManaged() { //私有云
+		account := region.GetCloudaccount()
+		if account == nil {
+			log.Errorf("failed to get account for sku %s(%s)", self.Name, self.Id)
+			return extra
+		}
+		extra.Add(jsonutils.NewString(account.Brand), "brand")
+	} else { //本地IDC或公有云
+		extra.Add(jsonutils.NewString(self.Provider), "brand")
+	}
+
 	return extra
 }
 

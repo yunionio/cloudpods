@@ -87,6 +87,14 @@ ServerSku:
           type: string
           example: local
           description: 系统盘类型
+        provider:
+          type: string
+          example: OpenStack
+          description: 套餐平台
+        brand:
+          type: string
+          example: OpenStack
+          description: 品牌信息,用来区分私有云品牌信息
 
 
 ServerSkuListResponse:
