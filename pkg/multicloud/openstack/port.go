@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -163,10 +164,34 @@ func (region *SRegion) GetPorts(macAddress string) ([]SPort, error) {
 		params.Set("mac_address", macAddress)
 	}
 	url := fmt.Sprintf("%s?%s", base, params.Encode())
-	_, resp, err := region.List("network", url, "", nil)
-	if err != nil {
-		return nil, err
-	}
+
 	ports := []SPort{}
-	return ports, resp.Unmarshal(&ports, "ports")
+	for len(url) > 0 {
+		_, resp, err := region.List("network", url, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		_ports := []SPort{}
+		err = resp.Unmarshal(&_ports, "ports")
+		if err != nil {
+			return nil, errors.Wrap(err, `resp.Unmarshal(&_ports, "ports")`)
+		}
+		ports = append(ports, _ports...)
+		url = ""
+		if resp.Contains("ports_links") {
+			nextLink := []SNextLink{}
+			err = resp.Unmarshal(&nextLink, "ports_links")
+			if err != nil {
+				return nil, errors.Wrap(err, `resp.Unmarshal(&nextLink, "ports_links")`)
+			}
+			for _, next := range nextLink {
+				if next.Rel == "next" {
+					url = next.Href
+					break
+				}
+			}
+		}
+	}
+
+	return ports, nil
 }
