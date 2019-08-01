@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -189,12 +190,35 @@ func (region *SRegion) GetVpc(vpcId string) (*SVpc, error) {
 }
 
 func (region *SRegion) GetVpcs() ([]SVpc, error) {
-	_, resp, err := region.List("network", "/v2.0/networks", "", nil)
-	if err != nil {
-		return nil, err
-	}
+	url := "/v2.0/networks"
 	vpcs := []SVpc{}
-	return vpcs, resp.Unmarshal(&vpcs, "networks")
+	for len(url) > 0 {
+		_, resp, err := region.List("network", url, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		_vpcs := []SVpc{}
+		err = resp.Unmarshal(&_vpcs, "networks")
+		if err != nil {
+			return nil, errors.Wrap(err, `resp.Unmarshal(&_vpcs, "networks")`)
+		}
+		vpcs = append(vpcs, _vpcs...)
+		url = ""
+		if resp.Contains("networks_links") {
+			nextLink := []SNextLink{}
+			err = resp.Unmarshal(&nextLink, "networks_links")
+			if err != nil {
+				return nil, errors.Wrap(err, `resp.Unmarshal(&nextLink, "networks_links")`)
+			}
+			for _, next := range nextLink {
+				if next.Rel == "next" {
+					url = next.Href
+					break
+				}
+			}
+		}
+	}
+	return vpcs, nil
 }
 
 func (vpc *SVpc) Refresh() error {

@@ -9,6 +9,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
 	"yunion.io/x/pkg/utils"
 
@@ -78,12 +79,36 @@ func (region *SRegion) GetSecurityGroup(secgroupId string) (*SSecurityGroup, err
 }
 
 func (region *SRegion) GetSecurityGroups() ([]SSecurityGroup, error) {
-	_, resp, err := region.List("network", "/v2.0/security-groups", "", nil)
-	if err != nil {
-		return nil, err
-	}
+	url := "/v2.0/security-groups"
 	secgroups := []SSecurityGroup{}
-	return secgroups, resp.Unmarshal(&secgroups, "security_groups")
+	for len(url) > 0 {
+		_, resp, err := region.List("network", url, "", nil)
+		if err != nil {
+			return nil, err
+		}
+		_secgroups := []SSecurityGroup{}
+		err = resp.Unmarshal(&_secgroups, "security_groups")
+		if err != nil {
+			return nil, errors.Wrap(err, `resp.Unmarshal(&_secgroups, "security_groups")`)
+		}
+		secgroups = append(secgroups, _secgroups...)
+		url = ""
+		if resp.Contains("security_groups_links") {
+			nextLink := []SNextLink{}
+			err = resp.Unmarshal(&nextLink, "security_groups_links")
+			if err != nil {
+				return nil, errors.Wrap(err, `resp.Unmarshal(&nextLink, "security_groups_links")`)
+			}
+			for _, next := range nextLink {
+				if next.Rel == "next" {
+					url = next.Href
+					break
+				}
+			}
+		}
+	}
+
+	return secgroups, nil
 }
 
 func (secgroup *SSecurityGroup) GetMetadata() *jsonutils.JSONDict {
