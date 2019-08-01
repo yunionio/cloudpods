@@ -119,9 +119,10 @@ func (cli *SOpenStackClient) Request(region, service, method string, url string,
 	}
 	ctx := context.Background()
 	session := cli.client.NewSession(ctx, region, "", cli.endpointType, cli.tokenCredential, "")
+	uri, _ := session.GetServiceURL(service, "")
+	url = strings.TrimPrefix(url, uri)
 	header, resp, err := session.JSONRequest(service, "", httputils.THttpMethod(method), url, header, body)
 	if err != nil && body != nil {
-		uri, _ := session.GetServiceURL(service, "")
 		log.Errorf("microversion %s url: %s, params: %s", microversion, uri+url, body.PrettyString())
 	}
 	return header, resp, err
