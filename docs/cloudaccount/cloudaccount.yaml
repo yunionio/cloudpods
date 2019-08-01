@@ -1,0 +1,40 @@
+get:
+  summary: 获取指定云账号详情信息
+  parameters:
+    - $ref: '../parameters/cloudaccount.yaml#/cloudaccountId'
+  responses:
+    200:
+      description: 云账号信息
+      schema:
+        $ref: '../schemas/cloudaccount.yaml#/CloudaccountResponse'
+  tags:
+    - cloudaccount
+
+put:
+  summary: 更新云账号信息
+  parameters:
+    - $ref: '../parameters/cloudaccount.yaml#/cloudaccountId'
+    - in: body
+      name: cloudaccount
+      required: true
+      schema:
+        $ref: '../schemas/cloudaccount.yaml#/CloudaccountUpdate' 
+  responses:
+    200:
+      description: 云账号信息
+      schema:
+        $ref: '../schemas/cloudaccount.yaml#/CloudaccountResponse'
+  tags:
+    - cloudaccount
+
+delete:
+  summary: 删除指定云账号
+  parameters:
+    - $ref: '../parameters/cloudaccount.yaml#/cloudaccountId'
+  responses:
+    200:
+      description: 被删除云账号信息
+      schema:
+        $ref: '../schemas/cloudaccount.yaml#/CloudaccountResponse'
+  tags:
+    - cloudaccount

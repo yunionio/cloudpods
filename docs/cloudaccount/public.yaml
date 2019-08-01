@@ -1,0 +1,13 @@
+post:
+  summary: 云账号共享
+  parameters: 
+    - $ref: '../parameters/cloudaccount.yaml#/cloudaccountId'
+    - $ref: "../parameters/cloudaccount.yaml#/scope"
+    - $ref: "../parameters/cloudaccount.yaml#/shared_projects"
+  responses:
+    200:
+      description: 云账号信息
+      schema:
+        $ref: '../schemas/cloudaccount.yaml#/CloudaccountResponse'
+  tags:
+    - cloudaccount

@@ -1,0 +1,287 @@
+CloudaccountCreate:
+  type: object
+  properties:
+    name:
+      type: string
+      example: test-account
+      required: true
+      description: 云账号名称
+    description:
+      type: string
+      example: account-description
+      description: 云账号描述
+    provider:
+      type: string
+      example: Aliyun
+      enum: [VMware,Aliyun,Qcloud,Azure,Aws,Huawei,OpenStack,Ucloud,ZStack,S3]
+      description: 云账号平台
+    brand:
+      type: string
+      example: DStack
+      enum: [DStack]
+      description: 私有云品牌
+    sync_interval_seconds:
+      type: integer
+      example: 3600
+      description: 自动同步间隔时间
+    auto_create_project:
+      type: boolean
+      example: false
+      description: 自动在本地创建纳管云上的项目
+    access_key_id:
+      type: string
+      example: LTAI5H1wXkXeasMB
+      description: 秘钥ID(阿里云, AWS, 华为, UCloud,S3)
+    access_key_secret:
+      type: string
+      example: cByPBQM3zFVgNBMKEJLMYrKFUovVk8
+      description: 秘钥Key(阿里云, AWS， 华为, UCloud,S3)
+    client_id:
+      type: string
+      example: 0ed6d723-aea3-4034-824f-c13805690827
+      description: 客户端ID(Azure)
+    client_secret:
+      type: string
+      example: 7Q1rK+5D3GVrqkSsdggf06BsYZj6RihHn43+yk8gRc=
+      description: 客户端密码(Azure)
+    username:
+      type: string
+      example: root
+      description: 登录用户名(Esxi,OpenStack,ZStack)
+    password:
+      type: string
+      example: test-password
+      description: 登录密码(Esxi,OpenStack,ZStack)
+    project_name:
+      type: string
+      example: admin
+      description: 项目名(OpenStack)
+    domain_name:
+      type: string
+      example: Default
+      description: 域名称(OpenStack)
+    secret_id:
+      type: string
+      example: AKID6QtjkcXtc5eJJSMfMbXVuJVT4UESk6tdv
+      description: 秘钥ID(腾讯云)
+    secret_key:
+      type: string
+      example: C9rKdiYIn340iIJdokgQwCF3kCPTKxLWSG
+      description: 秘钥Key(腾讯云)
+    environment:
+      type: string
+      example: AzureChinaCloud
+      enum: [AzureChinaCloud,AzurePublicCloud,ChinaCloud]
+      description: 账号环境(Aws,Azure,Huawei)
+    host:
+      type: string
+      example: 192.168.222.203
+      description: 环境IP(Esxi)
+    port: 
+      type: integer
+      example: 443
+      description: 环境端口(Esxi)
+    endpoint:
+      type: string
+      description: 端点地址(S3)
+    auth_url:
+      type: string
+      example: http://192.168.222.203:5000/v3
+      description: 认证地址(OpenStack,ZStack)
+    app_id:
+      type: string
+      example: 123134442
+      description: 腾讯云专有的app_id
+    
+
+CloudaccountResponse:
+  type: object
+  properties:
+    cloudaccount:
+      type: object
+      $ref: '#/Cloudaccount'
+
+Cloudaccount:
+  allOf:
+    - $ref: "./common.yaml#/EnabledStatusStandaloneResponse"
+    - type: object
+      properties:
+        access_url:
+          type: string
+          example: http://test.host.com:8080
+          description: 云账号连接地址或云账号所属区域信息
+        account:
+          type: string
+          example: LTAI5H1wXkXeasMB
+          description: 云账号access id或密码
+        secret:
+          type: string
+          example: ST4AeRZjRISJ8t4v0Qm22/nUMjVTZXBuGl/P2UkcupY62sD1XKNGSwp2vLNaNTsnvaGc8cZithY=
+          description: 云账号加密后的密码
+        is_public_cloud: 
+          type: boolean
+          example: true
+          description: 是否是公有云账号
+        is_on_premise:
+          type: boolean
+          example: false
+          description: 是否是 one_premise
+        provider:
+          type: stirng
+          example: Aliyun
+          description: 云账号平台
+        enable_auto_sync:
+          type: boolean
+          example: true
+          description: 是否开启自动同步
+        sync_interval_seconds:
+          type: integer
+          example: 3600
+          description: 自动同步间隔时间
+        balance:
+          type: integer
+          example: 66.01
+          description: 账号余额
+        prob_at:
+          type: string
+          example: “2019-08-01T06:53:46.000000Z”
+          description: 上传检查账号状态时间
+        health_status:
+          type: string
+          example: normal
+          enum: [normal, insufficient, suspended, arrears, unknown, no permission]
+          description: 账号健康状态，normal->正常, insufficient->余额不足, suspended->账号冻结, arrears->欠费, unknown->未知, no permission->无权限获取余额
+        error_count:
+          type: integer
+          example: 0
+          description: 账号连接错误次数
+        auto_create_project:
+          type: boolean
+          example: false
+          default: false
+          description: 自动创建和云上项目同名的本地项目
+        brand:
+          type: string
+          example: DStack
+          description: 私有云品牌信息
+        sync_status:
+          type: string
+          example: idle
+          description: 云账号同步状态
+        last_sync:
+          type: string
+          example: ”2019-07-30T11:26:40.000000Z“
+          description: 上次同步时间
+        last_sync_end_at:
+          type: string
+          example: "2019-08-01T07:53:46.000000Z"
+          description: 上次同步完成时间
+  
+CloudaccountListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    cloudaccounts:
+      type: array
+      items:
+        $ref: '#/Cloudaccount'
+    total:
+      type: integer
+      example: 124
+
+CloudaccountUpdate:
+  type: object
+  properties:
+    name:
+      type: string
+      example: test-account
+      description: 云账号名称
+    description:
+      type: string
+      example: account-description
+      description: 云账号描述
+
+
+CloudaccountSync:
+  type: object
+  properties:
+    full_sync:
+      type: boolean
+      example: true
+      description: 是否全量同步
+    region:
+      type: string
+      example: a53adc31-7601-4ddf-8874-93639f5626db
+      description: 指定同步区域
+    zone:
+      type: string
+      example: 0ed6d723-aea3-4034-824f-c13805690827
+      description: 指定同步zone
+    host:
+      type: string
+      example: 0ed6d723-aea3-4034-824f-c13805690827
+      description: 指定同步host
+    
+
+CloudaccountUpdateCredential:
+  type: object
+  properties:
+    access_key_id:
+      type: string
+      example: LTAI5H1wXkXeasMB
+      description: 秘钥ID(阿里云, AWS, 华为, UCloud,S3)
+    access_key_secret:
+      type: string
+      example: cByPBQM3zFVgNBMKEJLMYrKFUovVk8
+      description: 秘钥Key(阿里云, AWS， 华为, UCloud,S3)
+    client_id:
+      type: string
+      example: 0ed6d723-aea3-4034-824f-c13805690827
+      description: 客户端ID(Azure)
+    client_secret:
+      type: string
+      example: 7Q1rK+5D3GVrqkSsdggf06BsYZj6RihHn43+yk8gRc=
+      description: 客户端密码(Azure)
+    username:
+      type: string
+      example: root
+      description: 登录用户名(Esxi,OpenStack,ZStack)
+    password:
+      type: string
+      example: test-password
+      description: 登录密码(Esxi,OpenStack,ZStack)
+    project_name:
+      type: string
+      example: admin
+      description: 项目名(OpenStack)
+    domain_name:
+      type: string
+      example: Default
+      description: 域名称(OpenStack)
+    secret_id:
+      type: string
+      example: AKID6QtjkcXtc5eJJSMfMbXVuJVT4UESk6tdv
+      description: 秘钥ID(腾讯云)
+    secret_key:
+      type: string
+      example: C9rKdiYIn340iIJdokgQwCF3kCPTKxLWSG
+      description: 秘钥Key(腾讯云)
+
+CloudaccountChangeProject:
+  type: object
+  properties:
+    project:
+      type: string
+      example: 7aaf3e6c-5f9c-43ad-b149-d9a14765af1c
+      description: 项目名称或ID
+
+
+CloudaccountEnableAutoSync:
+  type: object
+  properties:
+    sync_interval_seconds:
+      type: integer
+      example: 3600
+      description: 云账号自动同步间隔时间

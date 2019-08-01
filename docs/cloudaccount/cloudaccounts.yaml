@@ -1,0 +1,30 @@
+get:
+  summary: 按指定条件列出云账号
+  parameters:
+    - $ref: '../parameters/common.yaml#/limit'
+    - $ref: '../parameters/common.yaml#/offset'
+    - $ref: '../parameters/common.yaml#/provider'
+    - $ref: '../parameters/common.yaml#/cloud_env'
+
+  responses:
+    200:
+      description: 云账号列表信息
+      schema:
+        $ref: '../schemas/cloudaccount.yaml#/CloudaccountListResponse'
+  tags:
+    - cloudaccount
+post:
+  summary: 创建云账号
+  parameters:
+    - in: body
+      name: cloudaccount
+      required: true
+      schema:
+        $ref: '../schemas/cloudaccount.yaml#/CloudaccountCreate' 
+  responses:
+    200:
+      description: 新创建的云账号信息
+      schema:
+        $ref: '../schemas/cloudaccount.yaml#/CloudaccountResponse'
+  tags:
+    - cloudaccount
