@@ -72,6 +72,8 @@ type Client struct {
 	SNatRules          *modules.SNatSRuleManager
 	DNatRules          *modules.SNatDRuleManager
 	NatGateways        *modules.SNatGatewayManager
+	DBInstance         *modules.SDBInstanceManager
+	DBInstanceBackup   *modules.SDBInstanceBackupManager
 }
 
 func (self *Client) Init() error {
@@ -148,6 +150,8 @@ func (self *Client) initManagers() {
 		self.SNatRules = modules.NewNatSManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.DNatRules = modules.NewNatDManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.NatGateways = modules.NewNatGatewayManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.DBInstance = modules.NewDBInstanceManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.DBInstanceBackup = modules.NewDBInstanceBackupManager(self.regionId, self.projectId, self.signer, self.debug)
 	}
 
 	self.init = true
