@@ -69,7 +69,7 @@ func ToServerNics(nics []*deployapi.Nic) []*types.SServerNic {
 			Routes:    deployapi.ConvertRoutes(nics[i].Routes),
 			NicType:   nics[i].NicType,
 			LinkUp:    nics[i].LinkUp,
-			Mtu:       nics[i].Mtu,
+			Mtu:       int(nics[i].Mtu),
 			TeamWith:  nics[i].TeamWith,
 		}
 	}

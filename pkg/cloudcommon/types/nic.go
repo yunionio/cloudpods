@@ -72,6 +72,7 @@ type SServerNic struct {
 	NetId     string   `json:"net_id"`
 	Mac       string   `json:"mac"`
 	BandWidth int      `json:"bw"`
+	Mtu       int      `json:"mtu,omitempty"`
 	Dns       string   `json:"dns"`
 	Net       string   `json:"net"`
 	Interface string   `json:"interface"`
@@ -80,7 +81,6 @@ type SServerNic struct {
 	Routes    []SRoute `json:"routes,omitempty"`
 	NicType   string   `json:"nic_type,omitempty"`
 	LinkUp    bool     `json:"link_up,omitempty"`
-	Mtu       int64    `json:"mtu,omitempty"`
 	TeamWith  string   `json:"team_with,omitempty"`
 
 	TeamingMaster *SServerNic   `json:"-"`
@@ -109,6 +109,6 @@ func (n SServerNic) ToNic() SNic {
 		Gateway: n.Gateway,
 		Routes:  n.Routes,
 		LinkUp:  n.LinkUp,
-		Mtu:     n.Mtu,
+		Mtu:     int64(n.Mtu),
 	}
 }
