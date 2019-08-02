@@ -17,11 +17,11 @@ package db
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/sqlchemy"
 
-	"time"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
@@ -108,6 +108,8 @@ type IModelManager interface {
 	/* name uniqueness scope, system/domain/project, default is system */
 	NamespaceScope() rbacutils.TRbacScope
 	ResourceScope() rbacutils.TRbacScope
+
+	QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error)
 }
 
 type IModel interface {

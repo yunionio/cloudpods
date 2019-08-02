@@ -475,6 +475,23 @@ func (manager *SGuestManager) OrderByExtraFields(ctx context.Context, q *sqlchem
 	return q, nil
 }
 
+func (manager *SGuestManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	switch field {
+	case "account":
+		hosts := HostManager.Query().SubQuery()
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		cloudaccounts := CloudaccountManager.Query().SubQuery()
+		q = q.Join(hosts, sqlchemy.Equals(q.Field("host_id"), hosts.Field("id")))
+		q = q.Join(cloudproviders, sqlchemy.Equals(hosts.Field("manager_id"), cloudproviders.Field("id")))
+		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), cloudaccounts.Field("id")))
+		q.GroupBy(cloudaccounts.Field("name"))
+		q.AppendField(cloudaccounts.Field("name", "account"))
+	default:
+		return nil, httperrors.NewBadRequestError("unsupport field %s", field)
+	}
+	return q, nil
+}
+
 func (guest *SGuest) GetHypervisor() string {
 	if len(guest.Hypervisor) == 0 {
 		return api.HYPERVISOR_DEFAULT
