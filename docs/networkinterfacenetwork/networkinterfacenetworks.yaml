@@ -1,0 +1,12 @@
+get:
+  summary: 按指定条件列出弹性网卡IP列表
+  parameters:
+    - $ref: '../parameters/common.yaml#/limit'
+    - $ref: '../parameters/common.yaml#/offset'
+  responses:
+    200:
+      description: 弹性网卡IP列表信息
+      schema:
+        $ref: "../schemas/networkinterfacenetwork.yaml#/NetworkinterfaceNetworkListResponse"
+  tags:
+    - networkinterfaces

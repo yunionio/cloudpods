@@ -1,10 +1,22 @@
 get:
-  summary: 获取指定虚拟网卡详情信息
+  summary: 获取指定弹性网卡详情信息
   parameters: 
     - $ref: "../parameters/networkinterface.yaml#/networkinterfaceId"
   responses:
     200:
-      description: 虚拟网卡详情信息
+      description: 弹性网卡详情信息
+      schema:
+        $ref: "../schemas/networkinterface.yaml#/NetworkinterfaceResponse"
+  tags:
+    - networkinterfaces
+
+delete:
+  summary: 删除指定弹性网卡
+  parameters:
+    - $ref: "../parameters/networkinterface.yaml#/networkinterfaceId"
+  responses:
+    200:
+      description: 被删除弹性网卡的信息
       schema:
         $ref: "../schemas/networkinterface.yaml#/NetworkinterfaceResponse"
   tags:

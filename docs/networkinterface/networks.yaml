@@ -1,0 +1,11 @@
+get:
+  summary: 获取指定弹性网卡底下的IP列表
+  parameters: 
+    - $ref: "../parameters/networkinterface.yaml#/networkinterfaceId"
+  responses:
+    200:
+      description: 弹性网卡IP列表信息
+      schema:
+        $ref: "../schemas/networkinterfacenetwork.yaml#/NetworkinterfaceNetworkListResponse"
+  tags:
+    - networkinterfaces
