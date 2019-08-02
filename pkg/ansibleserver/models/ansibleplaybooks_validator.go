@@ -58,6 +58,7 @@ func (v *ValidatorAnsiblePlaybook) Validate(data *jsonutils.JSONDict) error {
 		if len(name) == 0 {
 			return httperrors.NewBadRequestError("empty host name")
 		}
+		defaultUsername := ansible.PUBLIC_CLOUD_ANSIBLE_USER
 		switch {
 		case regutils.MatchIP4Addr(name):
 		case strings.HasPrefix(name, "host:"):
@@ -67,6 +68,7 @@ func (v *ValidatorAnsiblePlaybook) Validate(data *jsonutils.JSONDict) error {
 			if err != nil {
 				return err
 			}
+			defaultUsername = "root"
 		case strings.HasPrefix(name, "server:"):
 			name = name[len("server:"):]
 			fallthrough
@@ -80,7 +82,9 @@ func (v *ValidatorAnsiblePlaybook) Validate(data *jsonutils.JSONDict) error {
 		}
 		hosts[i].Name = name
 		if username, _ := hosts[i].GetVar("ansible_user"); username == "" {
-			hosts[i].SetVar("ansible_user", ansible.PUBLIC_CLOUD_ANSIBLE_USER)
+			if defaultUsername != "" {
+				hosts[i].SetVar("ansible_user", defaultUsername)
+			}
 		}
 	}
 	v.Playbook = pb
