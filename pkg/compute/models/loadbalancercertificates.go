@@ -208,6 +208,11 @@ func (man *SLoadbalancerCertificateManager) ListItemFilter(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
+
+	if jsonutils.QueryBoolean(query, "usable", false) {
+		q = q.IsNotEmpty("certificate").IsNotEmpty("private_key")
+	}
+
 	return q, nil
 }
 

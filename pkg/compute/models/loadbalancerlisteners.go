@@ -763,6 +763,7 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 		lblis.HealthCheckTimeout = extListener.GetHealthCheckTimeout()
 		lblis.HealthCheckInterval = extListener.GetHealthCheckInterval()
 		lblis.HealthCheckRise = extListener.GetHealthCheckRise()
+		lblis.HealthCheckFall = extListener.GetHealthCheckFail()
 	}
 
 	lblis.BackendServerPort = extListener.GetBackendServerPort()
@@ -821,9 +822,9 @@ func (lblis *SLoadbalancerListener) constructFieldsFromCloudListener(userCred mc
 			group, err := db.FetchByExternalId(AwsCachedLbbgManager, groupId)
 			if err != nil {
 				log.Errorf("Fetch aws loadbalancer backendgroup by external id %s failed: %s", groupId, err)
+			} else {
+				lblis.BackendGroupId = group.(*SAwsCachedLbbg).BackendGroupId
 			}
-
-			lblis.BackendGroupId = group.(*SAwsCachedLbbg).BackendGroupId
 		}
 	} else if group, err := db.FetchByExternalId(LoadbalancerBackendGroupManager, groupId); err == nil {
 		lblis.BackendGroupId = group.GetId()
