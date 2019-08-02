@@ -1,0 +1,41 @@
+NetworkinterfaceNetwork:
+  type: object
+  properties:
+    ip_addr: 
+      type: string
+      example: "192.168.0.240"
+      description: 弹性网卡IP地址
+    network_id:
+      type: string
+      example: 19b09a31-1884-4b3f-84cd-ac03827c567d
+      description: 弹性网卡所在子网ID
+    networkinterface_id:
+      type: string
+      example: 231aab7c-9106-471a-822c-6dfa605915f7
+      description: 弹性网卡ID
+    primary: 
+      type: boolean
+      example: true
+      description: 是否是主IP
+
+NetworkinterfaceNetworkListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    networkinterfacenetworks:
+      type: array
+      items:
+        $ref: '#/NetworkinterfaceNetwork'
+    total:
+      type: integer
+      example: 124
+
+
+NetworkinterfaceResponse:
+  type: object
+  properties:
+    networkinterfacenetwork:
+      type: object
+      $ref: '#/NetworkinterfaceNetwork'

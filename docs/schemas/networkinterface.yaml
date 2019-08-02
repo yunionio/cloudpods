@@ -7,40 +7,19 @@ Networkinterface:
         mac:
           type: string
           example: fa:16:3e:f4:51:76
-          description: 虚拟网卡MAC地址
+          description: 弹性网卡MAC地址
         associate_id:
           type: string
           example: 1d18dea0-14a4-4d94-8f18-3a827a0cb124
-          description: 虚拟网卡绑定设备ID
+          description: 弹性网卡绑定设备ID
         associate_type:
           type: string
           example: vip
-          description: 虚拟网卡绑定设备类型
+          description: 弹性网卡绑定设备类型
         networks:
           type: array
           items:
-            $ref: '#/NetworkinterfaceNetwork'
-
-NetworkinterfaceNetwork:
-  type: object
-  properties:
-    ip_addr: 
-      type: string
-      example: "192.168.0.240"
-      description: 虚拟网卡IP地址
-    network_id:
-      type: string
-      example: 19b09a31-1884-4b3f-84cd-ac03827c567d
-      description: 虚拟网卡所在子网ID
-    networkinterface_id:
-      type: string
-      example: 231aab7c-9106-471a-822c-6dfa605915f7
-      description: 虚拟网卡ID
-    primary: 
-      type: boolean
-      example: true
-      description: 是否是主IP
-  
+            $ref: './networkinterfacenetwork.yaml#/NetworkinterfaceNetwork'
 
 NetworkinterfaceListResponse:
   type: object

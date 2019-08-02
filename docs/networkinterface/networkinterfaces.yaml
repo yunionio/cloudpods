@@ -1,5 +1,5 @@
 get:
-  summary: 按指定条件列出虚拟网卡列表
+  summary: 按指定条件列出弹性网卡列表
   parameters:
     - $ref: '../parameters/common.yaml#/limit'
     - $ref: '../parameters/common.yaml#/offset'
@@ -7,7 +7,7 @@ get:
     - $ref: '../parameters/common.yaml#/zone'
   responses:
     200:
-      description: 虚拟网卡列表信息
+      description: 弹性网卡列表信息
       schema:
         $ref: "../schemas/networkinterface.yaml#/NetworkinterfaceListResponse"
   tags:
