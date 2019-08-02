@@ -22,6 +22,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
@@ -189,6 +190,30 @@ func (self *SStorage) AllowDeleteItem(ctx context.Context, userCred mcclient.Tok
 func (self *SStorage) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
 	DeleteResourceJointSchedtags(self, ctx, userCred)
 	return self.SStandaloneResourceBase.Delete(ctx, userCred)
+}
+
+func (manager *SStorageManager) GetStorageTypesByHostType(hostType string) ([]string, error) {
+	q := manager.Query("storage_type")
+	hosts := HostManager.Query().SubQuery()
+	hs := HoststorageManager.Query().SubQuery()
+	q = q.Join(hs, sqlchemy.Equals(q.Field("id"), hs.Field("storage_id"))).
+		Join(hosts, sqlchemy.Equals(hosts.Field("id"), hs.Field("host_id"))).
+		Filter(sqlchemy.Equals(hosts.Field("host_type"), hostType)).Distinct()
+	storages := []string{}
+	rows, err := q.Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var storage string
+		err = rows.Scan(&storage)
+		if err != nil {
+			return nil, errors.Wrap(err, "rows.Scan(&storage)")
+		}
+		storages = append(storages, storage)
+	}
+	return storages, nil
 }
 
 func (manager *SStorageManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerProjId string, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
