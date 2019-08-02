@@ -16,6 +16,7 @@ package guestdrivers
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -25,6 +26,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/pkg/utils"
 )
 
 type SOpenStackGuestDriver struct {
@@ -68,7 +70,8 @@ func (self *SOpenStackGuestDriver) GetMinimalSysDiskSizeGb() int {
 }
 
 func (self *SOpenStackGuestDriver) GetStorageTypes() []string {
-	return []string{api.STORAGE_OPENSTACK_ISCSI}
+	storages, _ := models.StorageManager.GetStorageTypesByHostType(api.HYPERVISOR_HOSTTYPE[self.GetHypervisor()])
+	return storages
 }
 
 func (self *SOpenStackGuestDriver) ChooseHostStorage(host *models.SHost, backend string, storageIds []string) *models.SStorage {
@@ -109,6 +112,13 @@ func (self *SOpenStackGuestDriver) GetDeployStatus() ([]string, error) {
 
 func (self *SOpenStackGuestDriver) ValidateCreateEip(ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
 	return httperrors.NewInputParameterError("%s not support create eip, it only support bind eip", self.GetHypervisor())
+}
+
+func (self *SOpenStackGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *models.SDisk, storage *models.SStorage) error {
+	if !utils.IsInStringArray(guest.Status, []string{api.VM_READY}) {
+		return fmt.Errorf("Cannot resize disk when guest in status %s", guest.Status)
+	}
+	return nil
 }
 
 func (self *SOpenStackGuestDriver) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, input *api.ServerCreateInput) (*api.ServerCreateInput, error) {
