@@ -581,8 +581,8 @@ func (self *SAwsRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx con
 	}
 
 	// check backend group protocol http & https
-	data.Remove("domain")
-	data.Remove("path")
+	// data.Remove("domain")
+	// data.Remove("path")
 	data.Set("condition", jsonutils.NewString(condition))
 	data.Set("cloudregion_id", jsonutils.NewString(listener.CloudregionId))
 	data.Set("manager_id", jsonutils.NewString(listener.ManagerId))
