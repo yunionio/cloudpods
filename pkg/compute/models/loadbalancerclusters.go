@@ -57,6 +57,9 @@ func (man *SLoadbalancerClusterManager) ValidateCreateData(ctx context.Context, 
 	if err := zoneV.Validate(data); err != nil {
 		return nil, err
 	}
+	if zone := zoneV.Model.(*SZone); zone.ExternalId != "" {
+		return nil, httperrors.NewInputParameterError("allow only internal zone, got %s(%s)", zone.Name, zone.Id)
+	}
 	return man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
