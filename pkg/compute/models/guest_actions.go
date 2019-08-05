@@ -1247,6 +1247,7 @@ func (self *SGuest) PerformRebuildRoot(ctx context.Context, userCred mcclient.To
 				return nil, httperrors.NewGeneralError(err)
 			}
 		}
+		resetPasswd = true
 	} else {
 		err = self.setKeypairId(userCred, "")
 		if err != nil {

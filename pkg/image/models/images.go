@@ -107,7 +107,7 @@ type SImage struct {
 	// VirtualSize int64  `nullable:"true" list:"user" create:"optional"`
 	Location string `nullable:"true"`
 
-	DiskFormat string `width:"20" charset:"ascii" nullable:"true" list:"user" create:"optional"` // Column(VARCHAR(32, charset='ascii'), nullable=False, default='qcow2')
+	DiskFormat string `width:"20" charset:"ascii" nullable:"true" list:"user" create:"optional" default:"raw"` // Column(VARCHAR(32, charset='ascii'), nullable=False, default='qcow2')
 	Checksum   string `width:"32" charset:"ascii" nullable:"true" get:"user" list:"user"`
 	FastHash   string `width:"32" charset:"ascii" nullable:"true" get:"user"`
 	Owner      string `width:"255" charset:"ascii" nullable:"true" get:"user"`

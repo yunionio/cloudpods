@@ -62,17 +62,15 @@ func parseSystemdStatus(res string, srvname string) SServiceStatus {
 	lines := strings.Split(string(res), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if len(line) > 0 {
-			if strings.HasPrefix(line, "Loaded:") {
-				parts := strings.Split(line, " ")
-				if len(parts) > 1 && parts[1] == "loaded" {
-					ret.Loaded = true
-				}
-			} else if strings.HasPrefix(line, "Active:") {
-				parts := strings.Split(line, " ")
-				if len(parts) > 1 && parts[1] == "active" {
-					ret.Active = true
-				}
+		if strings.HasPrefix(line, "Loaded:") {
+			parts := strings.Split(line, " ")
+			if len(parts) > 1 && parts[1] == "loaded" {
+				ret.Loaded = true
+			}
+		} else if strings.HasPrefix(line, "Active:") {
+			parts := strings.Split(line, " ")
+			if len(parts) > 1 && parts[1] == "active" {
+				ret.Active = true
 			}
 		}
 	}

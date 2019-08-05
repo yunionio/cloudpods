@@ -1600,7 +1600,7 @@ func (manager *SNetworkManager) QueryDistinctExtraField(q *sqlchemy.SQuery, fiel
 		vpcs := VpcManager.Query().SubQuery()
 		wires := WireManager.Query().SubQuery()
 		cloudproviders := CloudproviderManager.Query().SubQuery()
-		cloudaccounts := CloudaccountManager.Query().Distinct().SubQuery()
+		cloudaccounts := CloudaccountManager.Query("name", "id").Distinct().SubQuery()
 		q = q.Join(wires, sqlchemy.Equals(q.Field("wire_id"), wires.Field("id")))
 		q = q.Join(vpcs, sqlchemy.Equals(wires.Field("vpc_id"), vpcs.Field("id")))
 		q = q.Join(cloudproviders, sqlchemy.Equals(vpcs.Field("manager_id"), cloudproviders.Field("id")))
