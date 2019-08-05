@@ -118,7 +118,6 @@ func InitHandlers(app *appsrv.Application) {
 		models.ServerSkuManager,
 		models.ExternalProjectManager,
 		models.NetworkInterfaceManager,
-		models.NetworkinterfacenetworkManager,
 		models.DBInstanceManager,
 		models.DBInstanceBackupManager,
 		models.DBInstanceParameterManager,
@@ -147,6 +146,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.StoragecachedimageManager,
 		models.CloudproviderRegionManager,
 		models.DBInstanceNetworkManager,
+		models.NetworkinterfacenetworkManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)
