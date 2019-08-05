@@ -16,6 +16,7 @@ package httperrors
 
 import (
 	"net/http"
+	"runtime/debug"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -50,6 +51,9 @@ func HTTPError(w http.ResponseWriter, msg string, statusCode int, class string, 
 	body.Add(err, "data")
 	w.Write([]byte(body.String()))
 	log.Errorf("Send error %s", err)
+	if statusCode >= 500 {
+		debug.PrintStack()
+	}
 }
 
 func JsonClientError(w http.ResponseWriter, e *httputils.JSONClientError) {
