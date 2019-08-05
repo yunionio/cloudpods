@@ -116,6 +116,18 @@ var (
 				},
 				{
 					Service:  "compute",
+					Resource: "cloudproviders",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "cloudproviders",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
 					Resource: "cachedimages",
 					Action:   PolicyActionList,
 					Result:   rbacutils.Allow,
@@ -174,6 +186,36 @@ var (
 			Auth:  true,
 			Scope: rbacutils.ScopeUser,
 			Rules: []rbacutils.SRbacRule{
+				{
+					Service:  "compute",
+					Resource: "keypairs",
+					Action:   PolicyActionGet,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "keypairs",
+					Action:   PolicyActionList,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "keypairs",
+					Action:   PolicyActionCreate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "keypairs",
+					Action:   PolicyActionUpdate,
+					Result:   rbacutils.Allow,
+				},
+				{
+					Service:  "compute",
+					Resource: "keypairs",
+					Action:   PolicyActionDelete,
+					Result:   rbacutils.Allow,
+				},
 				{
 					Service:  "yunionconf",
 					Resource: "parameters",
