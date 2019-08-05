@@ -681,9 +681,10 @@ func (self *SRegion) CreateInstance(name string, imageId string, instanceType st
 	var count int64 = 1
 	// disk
 	blockDevices := []*ec2.BlockDeviceMapping{}
-	for i, disk := range disks {
+	for i := range disks {
 		var ebs ec2.EbsBlockDevice
 		var deviceName string
+		disk := disks[i]
 
 		if i == 0 {
 			var size int64
