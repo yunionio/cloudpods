@@ -3,4 +3,4 @@ networkinterfaceId:
   required: true
   in: path
   type: string
-  description: 虚拟网卡名称或ID,建议使用ID
+  description: 弹性网卡名称或ID,建议使用ID

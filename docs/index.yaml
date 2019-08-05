@@ -136,6 +136,8 @@ paths:
     $ref: "./network/network.yaml#/reserve-ip"
   /networks/{networkId}/release-reserve-ip:
     $ref: "./network/network.yaml#/release-reserve-ip"
+  /networks/{networkId}/networkinterface:
+    $ref: "./network/networkinterface.yaml"
 
   /servers:
     $ref: "./instance/instances.yaml"
@@ -421,6 +423,9 @@ paths:
     $ref: "./networkinterface/networkinterfaces.yaml"
   /networkinterfaces/{networkinterfaceId}:
     $ref: "./networkinterface/networkinterface.yaml"
+  /networkinterfaces/{networkinterfaceId}/networks:
+    $ref: "./networkinterface/networks.yaml"
+
 
   /buckets:
     $ref: "./bucket/buckets.yaml"
