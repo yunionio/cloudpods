@@ -100,7 +100,7 @@ func (manager *SSecurityGroupManager) OrderByExtraFields(ctx context.Context, q 
 	if err != nil {
 		return nil, err
 	}
-	orderByCache, _ := query.GetString("order_by_cache")
+	orderByCache, _ := query.GetString("order_by_cache_cnt")
 	if sqlchemy.SQL_ORDER_ASC.Equals(orderByCache) || sqlchemy.SQL_ORDER_DESC.Equals(orderByCache) {
 		caches := SecurityGroupCacheManager.Query().SubQuery()
 		cacheQ := caches.Query(
@@ -115,7 +115,7 @@ func (manager *SSecurityGroupManager) OrderByExtraFields(ctx context.Context, q 
 			q = q.Desc(cacheSQ.Field("cache_cnt"))
 		}
 	}
-	orderByGuest, _ := query.GetString("order_by_guest")
+	orderByGuest, _ := query.GetString("order_by_guest_cnt")
 	if sqlchemy.SQL_ORDER_ASC.Equals(orderByGuest) || sqlchemy.SQL_ORDER_DESC.Equals(orderByGuest) {
 		guests := GuestManager.Query().SubQuery()
 		guestsecgroups := GuestsecgroupManager.Query().SubQuery()
