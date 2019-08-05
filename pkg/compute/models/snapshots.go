@@ -500,7 +500,7 @@ func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.To
 	if len(self.ExternalId) == 0 {
 		if self.CreatedBy == api.SNAPSHOT_MANUAL {
 			if !self.OutOfChain && !self.FakeDeleted {
-				return self.FakeDelete()
+				return self.FakeDelete(userCred)
 			} else if self.OutOfChain {
 				return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 			}
@@ -593,12 +593,15 @@ func (self *SSnapshot) RealDelete(ctx context.Context, userCred mcclient.TokenCr
 	return db.DeleteModel(ctx, userCred, self)
 }
 
-func (self *SSnapshot) FakeDelete() error {
+func (self *SSnapshot) FakeDelete(userCred mcclient.TokenCredential) error {
 	_, err := db.Update(self, func() error {
 		self.FakeDeleted = true
 		self.Name += timeutils.IsoTime(time.Now())
 		return nil
 	})
+	if err == nil {
+		db.OpsLog.LogEvent(self, db.ACT_SNAPSHOT_FAKE_DELETE, "snapshot fake delete", userCred)
+	}
 	return err
 }
 
