@@ -61,7 +61,8 @@ type SWire struct {
 	db.SStandaloneResourceBase
 	db.SExternalizedResourceBase
 
-	Bandwidth    int    `list:"admin" update:"admin" nullable:"false" create:"admin_required"`            // = Column(Integer, nullable=False) # bandwidth of network in Mbps
+	Bandwidth    int    `list:"admin" update:"admin" nullable:"false" create:"admin_required"` // = Column(Integer, nullable=False) # bandwidth of network in Mbps
+	Mtu          int    `list:"admin" update:"admin" nullable:"false" create:"admin_optional" default:"1500"`
 	ScheduleRank int    `list:"admin" update:"admin"`                                                     // = Column(Integer, default=0, nullable=True)
 	ZoneId       string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"admin_required"` // = Column(VARCHAR(36, charset='ascii'), nullable=False)
 	VpcId        string `wdith:"36" charset:"ascii" nullable:"false" list:"admin" create:"admin_required"`
@@ -96,8 +97,12 @@ func (self *SWire) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenC
 
 func (manager *SWireManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	bandwidth, err := data.Int("bandwidth")
-	if err != nil || bandwidth == 0 {
+	if err != nil || bandwidth <= 0 {
 		return nil, httperrors.NewInputParameterError("invalid bandwidth")
+	}
+	mtu, err := data.Int("mtu")
+	if err != nil || mtu <= 0 {
+		return nil, httperrors.NewInputParameterError("invalid mtu")
 	}
 
 	vpcStr := jsonutils.GetAnyString(data, []string{"vpc", "vpc_id"})
@@ -124,6 +129,10 @@ func (wire *SWire) ValidateUpdateData(ctx context.Context, userCred mcclient.Tok
 	bandwidth, err := data.Int("bandwidth")
 	if err == nil && bandwidth <= 0 {
 		return nil, httperrors.NewInputParameterError("invalid bandwidth")
+	}
+	mtu, err := data.Int("mtu")
+	if err == nil && mtu <= 0 {
+		return nil, httperrors.NewInputParameterError("invalid mtu")
 	}
 	return wire.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }

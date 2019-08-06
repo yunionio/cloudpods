@@ -349,6 +349,7 @@ func (self *SGuestnetwork) getGeneralJsonDesc(host *SHost, network *SNetwork, ho
 	desc.Add(jsonutils.NewInt(int64(network.VlanId)), "vlan")
 	desc.Add(jsonutils.NewString(hostwire.Interface), "interface")
 	desc.Add(jsonutils.NewInt(int64(self.getBandwidth())), "bw")
+	desc.Add(jsonutils.NewInt(int64(self.getMtu())), "mtu")
 	desc.Add(jsonutils.NewInt(int64(self.Index)), "index")
 	vips := self.GetVirtualIPs()
 	if len(vips) > 0 {
@@ -565,6 +566,17 @@ func (self *SGuestnetwork) getBandwidth() int {
 		}
 		return options.Options.DefaultBandwidth
 	}
+}
+
+func (self *SGuestnetwork) getMtu() int {
+	net := self.GetNetwork()
+	if net != nil {
+		wire := net.GetWire()
+		if wire != nil {
+			return wire.Mtu
+		}
+	}
+	return options.Options.DefaultMtu
 }
 
 func (self *SGuestnetwork) IsAllocated() bool {
