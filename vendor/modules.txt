@@ -127,13 +127,11 @@ github.com/aws/aws-sdk-go/private/protocol/query/queryutil
 github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/private/protocol
 github.com/aws/aws-sdk-go/private/protocol/jsonrpc
-github.com/aws/aws-sdk-go/internal/sdkrand
 github.com/aws/aws-sdk-go/private/protocol/ec2query
 github.com/aws/aws-sdk-go/internal/s3err
 github.com/aws/aws-sdk-go/private/protocol/eventstream
 github.com/aws/aws-sdk-go/private/protocol/eventstream/eventstreamapi
 github.com/aws/aws-sdk-go/private/protocol/restxml
-github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/service/s3/s3iface
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
@@ -141,7 +139,6 @@ github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds
 github.com/aws/aws-sdk-go/aws/credentials/endpointcreds
 github.com/aws/aws-sdk-go/aws/ec2metadata
 github.com/aws/aws-sdk-go/private/protocol/json/jsonutil
-github.com/aws/aws-sdk-go/private/protocol/query/queryutil
 github.com/aws/aws-sdk-go/internal/sdkuri
 # github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
 github.com/beorn7/perks/quantile
@@ -254,8 +251,6 @@ github.com/gin-gonic/gin/json
 github.com/gin-gonic/gin/render
 # github.com/glycerine/go-unsnap-stream v0.0.0-20181221182339-f9677308dec2
 github.com/glycerine/go-unsnap-stream
-# github.com/go-ini/ini v1.44.0
-github.com/go-ini/ini
 # github.com/go-logfmt/logfmt v0.4.0
 github.com/go-logfmt/logfmt
 # github.com/go-ole/go-ole v1.2.2
@@ -379,11 +374,12 @@ github.com/mholt/caddy/onevent/hook
 github.com/miekg/dns
 # github.com/minio/minio-go v6.0.14+incompatible
 github.com/minio/minio-go/pkg/s3utils
-github.com/minio/minio-go
-github.com/minio/minio-go/pkg/credentials
-github.com/minio/minio-go/pkg/encrypt
-github.com/minio/minio-go/pkg/s3signer
-github.com/minio/minio-go/pkg/set
+# github.com/minio/minio-go/v6 v6.0.33
+github.com/minio/minio-go/v6/pkg/credentials
+github.com/minio/minio-go/v6/pkg/encrypt
+github.com/minio/minio-go/v6/pkg/s3signer
+github.com/minio/minio-go/v6/pkg/s3utils
+github.com/minio/minio-go/v6/pkg/set
 # github.com/mitchellh/go-homedir v1.1.0
 github.com/mitchellh/go-homedir
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
@@ -526,27 +522,27 @@ golang.org/x/crypto/internal/chacha20
 golang.org/x/crypto/poly1305
 golang.org/x/crypto/pkcs12
 golang.org/x/crypto/blowfish
+golang.org/x/crypto/argon2
 golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/internal/subtle
-golang.org/x/crypto/argon2
 golang.org/x/crypto/pkcs12/internal/rc2
 golang.org/x/crypto/blake2b
 # golang.org/x/net v0.0.0-20190603091049-60506f45cf65
 golang.org/x/net/bpf
 golang.org/x/net/ipv4
 golang.org/x/net/proxy
+golang.org/x/net/http/httpguts
+golang.org/x/net/http2
+golang.org/x/net/publicsuffix
 golang.org/x/net/ipv6
 golang.org/x/net/trace
-golang.org/x/net/http/httpguts
-golang.org/x/net/publicsuffix
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
-golang.org/x/net/http2
 golang.org/x/net/context
 golang.org/x/net/internal/socks
-golang.org/x/net/internal/timeseries
-golang.org/x/net/http2/hpack
 golang.org/x/net/idna
+golang.org/x/net/http2/hpack
+golang.org/x/net/internal/timeseries
 golang.org/x/net/context/ctxhttp
 # golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890
 golang.org/x/oauth2
@@ -616,6 +612,8 @@ gopkg.in/asn1-ber.v1
 gopkg.in/go-playground/validator.v8
 # gopkg.in/inf.v0 v0.9.1
 gopkg.in/inf.v0
+# gopkg.in/ini.v1 v1.44.0
+gopkg.in/ini.v1
 # gopkg.in/ldap.v3 v3.0.3
 gopkg.in/ldap.v3
 # gopkg.in/yaml.v2 v2.2.2
@@ -785,6 +783,8 @@ yunion.io/x/pkg/util/prometheus
 yunion.io/x/pkg/prettytable
 yunion.io/x/pkg/util/runtime
 yunion.io/x/pkg/util/clock
+# yunion.io/x/s3cli v0.0.0-20190806141932-17a2c973cbc5
+yunion.io/x/s3cli
 # yunion.io/x/sqlchemy v0.0.0-20190704155352-6aff6c803fda
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20190717142057-5caf182cbb4d

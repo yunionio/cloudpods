@@ -21,8 +21,8 @@ import (
 
 	"strings"
 
-	"yunion.io/x/minio-go"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/s3cli"
 )
 
 type TBucketACLType string
@@ -30,10 +30,10 @@ type TBucketACLType string
 const (
 	ACLDefault = TBucketACLType("default")
 
-	ACLPrivate         = TBucketACLType(minio.CANNED_ACL_PRIVATE)
-	ACLAuthRead        = TBucketACLType(minio.CANNED_ACL_AUTH_READ)
-	ACLPublicRead      = TBucketACLType(minio.CANNED_ACL_PUBLIC_READ)
-	ACLPublicReadWrite = TBucketACLType(minio.CANNED_ACL_PUBLIC_READ_WRITE)
+	ACLPrivate         = TBucketACLType(s3cli.CANNED_ACL_PRIVATE)
+	ACLAuthRead        = TBucketACLType(s3cli.CANNED_ACL_AUTH_READ)
+	ACLPublicRead      = TBucketACLType(s3cli.CANNED_ACL_PUBLIC_READ)
+	ACLPublicReadWrite = TBucketACLType(s3cli.CANNED_ACL_PUBLIC_READ_WRITE)
 	ACLUnknown         = TBucketACLType("")
 )
 

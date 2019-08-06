@@ -22,10 +22,8 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-
-	"yunion.io/x/minio-go"
-
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/s3cli"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -149,7 +147,7 @@ func (bucket *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprov
 }
 
 func (bucket *SBucket) PutObject(ctx context.Context, key string, input io.Reader, contType string, storageClass string) error {
-	opts := minio.PutObjectOptions{}
+	opts := s3cli.PutObjectOptions{}
 	if len(contType) > 0 {
 		opts.ContentType = contType
 	}

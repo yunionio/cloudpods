@@ -20,9 +20,9 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/minio-go"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/secrules"
+	"yunion.io/x/s3cli"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/object"
@@ -48,7 +48,7 @@ type SObjectStoreClient struct {
 
 	iBuckets []cloudprovider.ICloudBucket
 
-	client *minio.Client
+	client *s3cli.Client
 
 	Debug bool
 }
@@ -70,7 +70,7 @@ func NewObjectStoreClient(providerId string, providerName string, endpoint strin
 	if parts.Scheme == "https" {
 		useSsl = true
 	}
-	cli, err := minio.New(parts.Host, accessKey, secret, useSsl, client.Debug)
+	cli, err := s3cli.New(parts.Host, accessKey, secret, useSsl, client.Debug)
 	if err != nil {
 		return nil, errors.Wrap(err, "minio.New")
 	}
@@ -324,10 +324,10 @@ func (cli *SObjectStoreClient) CreateIBucket(name string, storageClass string, a
 }
 
 func minioErrCode(err error) int {
-	if srvErr, ok := err.(minio.ErrorResponse); ok {
+	if srvErr, ok := err.(s3cli.ErrorResponse); ok {
 		return srvErr.StatusCode
 	}
-	if srvErr, ok := err.(*minio.ErrorResponse); ok {
+	if srvErr, ok := err.(*s3cli.ErrorResponse); ok {
 		return srvErr.StatusCode
 	}
 	return -1
@@ -377,7 +377,7 @@ func (cli *SObjectStoreClient) GetIBucketCors(name string) (string, error) {
 	return info, nil
 }
 
-func (cli *SObjectStoreClient) GetIBucketLogging(name string) (*minio.BucketLoggingStatus, error) {
+func (cli *SObjectStoreClient) GetIBucketLogging(name string) (*s3cli.BucketLoggingStatus, error) {
 	info, err := cli.client.GetBucketLogging(name)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetBucketLogging")
@@ -386,17 +386,17 @@ func (cli *SObjectStoreClient) GetIBucketLogging(name string) (*minio.BucketLogg
 }
 
 func (cli *SObjectStoreClient) SetIBucketLogging(name string, target string, targetPrefix string, email string) error {
-	conf := minio.BucketLoggingStatus{}
+	conf := s3cli.BucketLoggingStatus{}
 	if len(target) > 0 {
 		conf.LoggingEnabled.TargetBucket = target
 		conf.LoggingEnabled.TargetPrefix = targetPrefix
-		conf.LoggingEnabled.TargetGrants.Grant = []minio.Grant{
+		conf.LoggingEnabled.TargetGrants.Grant = []s3cli.Grant{
 			{
-				Grantee: minio.Grantee{
-					Type:         minio.GRANTEE_TYPE_EMAIL,
+				Grantee: s3cli.Grantee{
+					Type:         s3cli.GRANTEE_TYPE_EMAIL,
 					EmailAddress: email,
 				},
-				Permission: minio.PERMISSION_FULL_CONTROL,
+				Permission: s3cli.PERMISSION_FULL_CONTROL,
 			},
 		}
 	}
@@ -424,7 +424,7 @@ func (cli *SObjectStoreClient) GetIBucketAcl(name string) (cloudprovider.TBucket
 }
 
 func (cli *SObjectStoreClient) SetIBucketAcl(name string, cannedAcl cloudprovider.TBucketACLType) error {
-	acl := minio.CannedAcl(cli.ownerId, cli.ownerName, string(cannedAcl))
+	acl := s3cli.CannedAcl(cli.ownerId, cli.ownerName, string(cannedAcl))
 	err := cli.client.SetBucketAcl(name, acl)
 	if err != nil {
 		return errors.Wrap(err, "SetBucketAcl")
@@ -441,7 +441,7 @@ func (cli *SObjectStoreClient) GetObjectAcl(bucket, key string) (cloudprovider.T
 }
 
 func (cli *SObjectStoreClient) SetObjectAcl(bucket, key string, cannedAcl cloudprovider.TBucketACLType) error {
-	acl := minio.CannedAcl(cli.ownerId, cli.ownerName, string(cannedAcl))
+	acl := s3cli.CannedAcl(cli.ownerId, cli.ownerName, string(cannedAcl))
 	err := cli.client.SetObjectAcl(bucket, key, acl)
 	if err != nil {
 		return errors.Wrap(err, "SetObjectAcl")

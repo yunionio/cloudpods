@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"yunion.io/x/log"
-	"yunion.io/x/minio-go"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/s3cli"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -79,21 +79,21 @@ func (b *SBucket) GetStorageClass() string {
 func obsAcl2CannedAcl(acls []obs.Grant) cloudprovider.TBucketACLType {
 	switch {
 	case len(acls) == 1:
-		if acls[0].Grantee.URI == "" && acls[0].Permission == minio.PERMISSION_FULL_CONTROL {
+		if acls[0].Grantee.URI == "" && acls[0].Permission == s3cli.PERMISSION_FULL_CONTROL {
 			return cloudprovider.ACLPrivate
 		}
 	case len(acls) == 2:
 		for _, g := range acls {
-			if g.Grantee.URI == minio.GRANTEE_GROUP_URI_AUTH_USERS && g.Permission == minio.PERMISSION_READ {
+			if g.Grantee.URI == s3cli.GRANTEE_GROUP_URI_AUTH_USERS && g.Permission == s3cli.PERMISSION_READ {
 				return cloudprovider.ACLAuthRead
 			}
-			if g.Grantee.URI == minio.GRANTEE_GROUP_URI_ALL_USERS && g.Permission == minio.PERMISSION_READ {
+			if g.Grantee.URI == s3cli.GRANTEE_GROUP_URI_ALL_USERS && g.Permission == s3cli.PERMISSION_READ {
 				return cloudprovider.ACLPublicRead
 			}
 		}
 	case len(acls) == 3:
 		for _, g := range acls {
-			if g.Grantee.URI == minio.GRANTEE_GROUP_URI_ALL_USERS && g.Permission == minio.PERMISSION_WRITE {
+			if g.Grantee.URI == s3cli.GRANTEE_GROUP_URI_ALL_USERS && g.Permission == s3cli.PERMISSION_WRITE {
 				return cloudprovider.ACLPublicReadWrite
 			}
 		}
