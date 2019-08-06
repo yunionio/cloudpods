@@ -15,33 +15,28 @@
 package huawei
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
-
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-
-	"context"
-	"io"
+	"yunion.io/x/s3cli"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/obs"
 )
 
 type SBucket struct {
-	objectstore.SBucket
+	multicloud.SBaseBucket
+
 	region *SRegion
 
 	Name         string
 	Location     string
 	CreationDate time.Time
-
-	StorageClass string
-	Acl          string
-
-	Size         int64
-	ObjectNumber int
 }
 
 func (b *SBucket) GetProjectId() string {
@@ -69,11 +64,72 @@ func (b *SBucket) GetCreateAt() time.Time {
 }
 
 func (b *SBucket) GetStorageClass() string {
-	return b.StorageClass
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		log.Errorf("b.region.getOBSClient error %s", err)
+		return ""
+	}
+	output, err := obscli.GetBucketStoragePolicy(b.Name)
+	if err != nil {
+		log.Errorf("obscli.GetBucketStoragePolicy error %s", err)
+	}
+	return output.StorageClass
 }
 
-func (b *SBucket) GetAcl() string {
-	return b.Acl
+func obsAcl2CannedAcl(acls []obs.Grant) cloudprovider.TBucketACLType {
+	switch {
+	case len(acls) == 1:
+		if acls[0].Grantee.URI == "" && acls[0].Permission == s3cli.PERMISSION_FULL_CONTROL {
+			return cloudprovider.ACLPrivate
+		}
+	case len(acls) == 2:
+		for _, g := range acls {
+			if g.Grantee.URI == s3cli.GRANTEE_GROUP_URI_AUTH_USERS && g.Permission == s3cli.PERMISSION_READ {
+				return cloudprovider.ACLAuthRead
+			}
+			if g.Grantee.URI == s3cli.GRANTEE_GROUP_URI_ALL_USERS && g.Permission == s3cli.PERMISSION_READ {
+				return cloudprovider.ACLPublicRead
+			}
+		}
+	case len(acls) == 3:
+		for _, g := range acls {
+			if g.Grantee.URI == s3cli.GRANTEE_GROUP_URI_ALL_USERS && g.Permission == s3cli.PERMISSION_WRITE {
+				return cloudprovider.ACLPublicReadWrite
+			}
+		}
+	}
+	return cloudprovider.ACLUnknown
+}
+
+func (b *SBucket) GetAcl() cloudprovider.TBucketACLType {
+	acl := cloudprovider.ACLPrivate
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		log.Errorf("b.region.getOBSClient error %s", err)
+		return acl
+	}
+	output, err := obscli.GetBucketAcl(b.Name)
+	if err != nil {
+		log.Errorf("obscli.GetBucketAcl error %s", err)
+		return acl
+	}
+	acl = obsAcl2CannedAcl(output.Grants)
+	return acl
+}
+
+func (b *SBucket) SetAcl(acl cloudprovider.TBucketACLType) error {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "b.region.getOBSClient")
+	}
+	input := &obs.SetBucketAclInput{}
+	input.Bucket = b.Name
+	input.ACL = obs.AclType(string(acl))
+	_, err = obscli.SetBucketAcl(input)
+	if err != nil {
+		return errors.Wrap(err, "obscli.SetBucketAcl")
+	}
+	return nil
 }
 
 func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
@@ -89,12 +145,25 @@ func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 	}
 }
 
-func (b *SBucket) GetSizeByte() int64 {
-	return b.Size
-}
-
-func (b *SBucket) GetObjectNumber() int {
-	return b.ObjectNumber
+func (b *SBucket) GetStats() cloudprovider.SBucketStats {
+	stats := cloudprovider.SBucketStats{}
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		log.Errorf("b.region.getOBSClient error %s", err)
+		stats.SizeBytes = -1
+		stats.ObjectCount = -1
+		return stats
+	}
+	output, err := obscli.GetBucketStorageInfo(b.Name)
+	if err != nil {
+		log.Errorf("obscli.GetBucketStorageInfo error %s", err)
+		stats.SizeBytes = -1
+		stats.ObjectCount = -1
+		return stats
+	}
+	stats.SizeBytes = output.Size
+	stats.ObjectCount = output.ObjectNumber
+	return stats
 }
 
 func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.ICloudObject, error) {

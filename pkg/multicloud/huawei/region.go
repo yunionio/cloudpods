@@ -76,8 +76,8 @@ func (self *SRegion) getECSClient() (*client.Client, error) {
 
 		regionId := strings.Split(project.Name, "_")[0]
 		if regionId != self.ID {
-			log.Debugf("project %s not in region %s", self.client.projectId, self.ID)
-			return nil, nil
+			// log.Debugf("project %s not in region %s", self.client.projectId, self.ID)
+			return nil, errors.Error("region and project mismatch")
 		}
 	}
 
@@ -909,26 +909,15 @@ func (self *SRegion) CreateLoadBalancerAcl(acl *cloudprovider.SLoadbalancerAcces
 }
 
 func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	obsClient, err := region.getOBSClient()
+	iBuckets, err := region.client.getIBuckets()
 	if err != nil {
-		return nil, errors.Wrap(err, "region.getOBSClient")
+		return nil, errors.Wrap(err, "getIBuckets")
 	}
-	input := &obs.ListBucketsInput{}
-	input.QueryLocation = true
-	output, err := obsClient.ListBuckets(input)
-	if err != nil {
-		return nil, errors.Wrap(err, "ListBuckets")
-	}
-	ret := make([]cloudprovider.ICloudBucket, len(output.Buckets))
-	for i, bInfo := range output.Buckets {
-		b := SBucket{
-			region: region,
-
-			Name:         bInfo.Name,
-			Location:     bInfo.Location,
-			CreationDate: bInfo.CreationDate,
+	ret := make([]cloudprovider.ICloudBucket, 0)
+	for i := range iBuckets {
+		if iBuckets[i].GetLocation() == region.GetId() {
+			ret = append(ret, iBuckets[i])
 		}
-		ret[i] = &b
 	}
 	return ret, nil
 }
@@ -974,6 +963,7 @@ func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr
 	if err != nil {
 		return errors.Wrap(err, "obsClient.CreateBucket")
 	}
+	region.client.invalidateIBuckets()
 	return nil
 }
 
@@ -989,6 +979,7 @@ func (region *SRegion) DeleteIBucket(name string) error {
 		}
 		return errors.Wrap(err, "DeleteBucket")
 	}
+	region.client.invalidateIBuckets()
 	return nil
 }
 
@@ -1005,22 +996,11 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 }
 
 func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
-	obsClient, err := region.getOBSClient()
-	if err != nil {
-		return nil, errors.Wrap(err, "region.getOBSClient")
-	}
-	info, err := obsClient.GetBucketStorageInfo(name)
-	if err != nil {
-		return nil, errors.Wrap(err, "obsClient.GetBucketStorageInfo")
-	}
-	b := SBucket{
-		region: region,
+	return cloudprovider.GetIBucketById(region, name)
+}
 
-		Name:         name,
-		Size:         info.Size,
-		ObjectNumber: info.ObjectNumber,
-	}
-	return &b, nil
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return region.GetIBucketById(name)
 }
 
 func (self *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {

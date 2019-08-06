@@ -19,6 +19,9 @@ import (
 	"net/http"
 	"strings"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -59,7 +62,9 @@ type SUcloudClient struct {
 	accessKeyId     string
 	accessKeySecret string
 	projectId       string
-	iregions        []cloudprovider.ICloudRegion
+
+	iregions []cloudprovider.ICloudRegion
+	iBuckets []cloudprovider.ICloudBucket
 
 	httpClient *http.Client
 	Debug      bool
@@ -78,6 +83,11 @@ func NewUcloudClient(providerId string, providerName string, accessKey string, s
 	}
 
 	err := client.fetchRegions()
+	if err != nil {
+		return nil, err
+	}
+
+	err = client.fetchBuckets()
 	if err != nil {
 		return nil, err
 	}
@@ -167,6 +177,54 @@ func (self *SUcloudClient) fetchRegions() error {
 	return nil
 }
 
+func (client *SUcloudClient) invalidateIBuckets() {
+	client.iBuckets = nil
+}
+
+func (client *SUcloudClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	if client.iBuckets == nil {
+		err := client.fetchBuckets()
+		if err != nil {
+			return nil, errors.Wrap(err, "fetchBuckets")
+		}
+	}
+	return client.iBuckets, nil
+}
+
+func (client *SUcloudClient) fetchBuckets() error {
+	buckets := make([]SBucket, 0)
+	offset := 0
+	limit := 50
+	for {
+		parts, err := client.listBuckets("", offset, limit)
+		if err != nil {
+			return errors.Wrap(err, "client.listBuckets")
+		}
+		if len(parts) > 0 {
+			buckets = append(buckets, parts...)
+		}
+		if len(parts) < limit {
+			break
+		} else {
+			offset += limit
+		}
+	}
+	ret := make([]cloudprovider.ICloudBucket, 0)
+	for i := range buckets {
+		region, err := client.getIRegionByRegionId(buckets[i].Region)
+		if err != nil {
+			log.Errorf("fail to find iregion %s", buckets[i].Region)
+			continue
+		}
+		buckets[i].region = region.(*SRegion)
+		ret = append(ret, &buckets[i])
+	}
+
+	client.iBuckets = ret
+
+	return nil
+}
+
 func (self *SUcloudClient) GetRegions() []SRegion {
 	regions := make([]SRegion, len(self.iregions))
 	for i := 0; i < len(regions); i += 1 {
@@ -196,8 +254,36 @@ func (self *SUcloudClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	return subAccounts, nil
 }
 
+func (self *SUcloudClient) GetAccountId() string {
+	return "" // no account ID found for ucloud
+}
+
 func (self *SUcloudClient) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.iregions
+}
+
+func removeDigit(idstr string) string {
+	for len(idstr) > 0 && idstr[len(idstr)-1] >= '0' && idstr[len(idstr)-1] <= '9' {
+		idstr = idstr[:len(idstr)-1]
+	}
+	return idstr
+}
+
+func (self *SUcloudClient) getIRegionByRegionId(id string) (cloudprovider.ICloudRegion, error) {
+	for i := 0; i < len(self.iregions); i += 1 {
+		if self.iregions[i].GetId() == id {
+			return self.iregions[i], nil
+		}
+	}
+	// retry
+	for i := 0; i < len(self.iregions); i += 1 {
+		rid := removeDigit(self.iregions[i].GetId())
+		rid2 := removeDigit(id)
+		if rid == rid2 {
+			return self.iregions[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SUcloudClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {

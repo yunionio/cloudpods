@@ -14,7 +14,9 @@
 
 package azure
 
-import "yunion.io/x/onecloud/pkg/cloudprovider"
+import (
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
 
 type SObject struct {
 	container *SContainer
@@ -24,4 +26,12 @@ type SObject struct {
 
 func (o *SObject) GetIBucket() cloudprovider.ICloudBucket {
 	return o.container.storageaccount
+}
+
+func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
+	return cloudprovider.ACLDefault
+}
+
+func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
+	return nil
 }

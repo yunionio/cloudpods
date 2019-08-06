@@ -140,7 +140,7 @@ dep:
 	@$(MAKE) mod
 
 mod:
-	go get $(patsubst %,%@master,$(shell GO111MODULE=on go mod edit -print  | sed -n -e 's|.*\(yunion.io/x/[a-z][a-z]*\) v.*|\1|p'))
+	go get $(patsubst %,%@master,$(shell GO111MODULE=on go mod edit -print  | sed -n -e 's|.*\(yunion.io/x/[a-z].*\) v.*|\1|p'))
 	go mod tidy
 	go mod vendor -v
 

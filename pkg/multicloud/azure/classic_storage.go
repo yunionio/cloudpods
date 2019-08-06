@@ -96,7 +96,7 @@ func (self *SClassicStorage) GetIDiskById(diskId string) (cloudprovider.ICloudDi
 
 func (self *SClassicStorage) GetIDisks() ([]cloudprovider.ICloudDisk, error) {
 	storageaccount, err := self.zone.region.GetStorageAccountDetail(self.ID)
-	disks, _, err := self.zone.region.GetStorageAccountDisksWithSnapshots(*storageaccount)
+	disks, _, err := self.zone.region.GetStorageAccountDisksWithSnapshots(storageaccount)
 	if err != nil {
 		return nil, err
 	}

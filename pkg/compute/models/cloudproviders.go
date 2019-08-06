@@ -1340,3 +1340,43 @@ func (provider *SCloudprovider) GetDetailsClirc(ctx context.Context, userCred mc
 func (manager *SCloudproviderManager) ResourceScope() rbacutils.TRbacScope {
 	return rbacutils.ScopeDomain
 }
+
+func (provider *SCloudprovider) AllowGetDetailsStorageClasses(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowGetSpec(userCred, provider, "storage-classes")
+}
+
+func (provider *SCloudprovider) GetDetailsStorageClasses(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	driver, err := provider.GetProvider()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("fail to get provider driver %s", err)
+	}
+	extId := ""
+	regionStr := jsonutils.GetAnyString(query, []string{"cloudregion", "cloudregion_id"})
+	if len(regionStr) > 0 {
+		regionObj, err := CloudregionManager.FetchByIdOrName(userCred, regionStr)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(CloudregionManager.Keyword(), regionStr)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		extId = regionObj.(*SCloudregion).GetExternalId()
+	}
+
+	sc := driver.GetStorageClasses(extId)
+	if sc == nil {
+		return nil, httperrors.NewInternalServerError("storage classes not supported")
+	}
+	ret := jsonutils.NewDict()
+	ret.Add(jsonutils.NewStringArray(sc), "storage_classes")
+	return ret, nil
+}

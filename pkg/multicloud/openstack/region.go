@@ -506,3 +506,7 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return nil, cloudprovider.ErrNotImplemented
+}

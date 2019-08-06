@@ -644,7 +644,7 @@ func (self *SRegion) GetClient() *SUcloudClient {
 }
 
 // https://docs.ucloud.cn/api/ufile-api/describe_bucket
-func (region *SRegion) listBuckets(name string, offset int, limit int) ([]SBucket, error) {
+func (client *SUcloudClient) listBuckets(name string, offset int, limit int) ([]SBucket, error) {
 	params := NewUcloudParams()
 	if len(name) > 0 {
 		params.Set("BucketName", name)
@@ -654,36 +654,33 @@ func (region *SRegion) listBuckets(name string, offset int, limit int) ([]SBucke
 	}
 	buckets := make([]SBucket, 0)
 	// request without RegionId
-	err := region.client.DoAction("DescribeBucket", params, &buckets)
+	err := client.DoAction("DescribeBucket", params, &buckets)
 	if err != nil {
 		return nil, errors.Wrap(err, "DoAction DescribeBucket")
 	}
 	return buckets, nil
 }
 
+// https://docs.ucloud.cn/api/ufile-api/update_bucket
+func (region *SRegion) updateBucket(name string, aclType string) error {
+	params := NewUcloudParams()
+	params.Set("BucketName", name)
+	params.Set("ProjectId", region.client.projectId)
+	params.Set("Type", aclType)
+	return region.client.DoAction("UpdateBucket", params, nil)
+}
+
 func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	buckets := make([]SBucket, 0)
-	offset := 0
-	limit := 50
-	for {
-		parts, err := region.listBuckets("", offset, limit)
-		if err != nil {
-			return nil, errors.Wrap(err, "region.listBuckets")
-		}
-		if len(parts) > 0 {
-			buckets = append(buckets, parts...)
-		}
-		if len(parts) < limit {
-			break
-		} else {
-			offset += limit
-		}
+	iBuckets, err := region.client.getIBuckets()
+	if err != nil {
+		return nil, errors.Wrap(err, "getIBuckets")
 	}
-	ret := make([]cloudprovider.ICloudBucket, len(buckets))
-	for i := range buckets {
-		buckets[i].region = region
-		buckets[i].projectId = region.client.projectId
-		ret[i] = &buckets[i]
+	ret := make([]cloudprovider.ICloudBucket, 0)
+	for i := range iBuckets {
+		if iBuckets[i].GetLocation() != region.GetId() {
+			continue
+		}
+		ret = append(ret, iBuckets[i])
 	}
 	return ret, nil
 }
@@ -707,7 +704,7 @@ func (region *SRegion) DeleteIBucket(name string) error {
 }
 
 func (region *SRegion) IBucketExist(name string) (bool, error) {
-	parts, err := region.listBuckets(name, 0, 1)
+	parts, err := region.client.listBuckets(name, 0, 1)
 	if err != nil {
 		return false, errors.Wrap(err, "region.listBuckets")
 	}
@@ -717,6 +714,10 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 	return true, nil
 }
 
-func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
-	return cloudprovider.GetIBucketById(region, name)
+func (region *SRegion) GetIBucketById(bucketId string) (cloudprovider.ICloudBucket, error) {
+	return cloudprovider.GetIBucketById(region, bucketId)
+}
+
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return region.GetIBucketByName(name)
 }

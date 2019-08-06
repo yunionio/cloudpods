@@ -74,7 +74,7 @@ func (obsClient ObsClient) Close() {
 
 func (obsClient ObsClient) ListBuckets(input *ListBucketsInput) (output *ListBucketsOutput, err error) {
 	if input == nil {
-		input = &ListBucketsInput{}
+		input = &ListBucketsInput{QueryLocation: true}
 	}
 	output = &ListBucketsOutput{}
 	err = obsClient.doActionWithoutBucket("ListBuckets", HTTP_GET, input, output)

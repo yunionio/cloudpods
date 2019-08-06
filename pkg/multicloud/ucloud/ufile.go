@@ -15,6 +15,7 @@
 package ucloud
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
@@ -25,21 +26,21 @@ import (
 	"strconv"
 	"time"
 
-	"yunion.io/x/onecloud/pkg/multicloud/objectstore"
-
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-
-	"context"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SBucket struct {
-	objectstore.SBucket
+	multicloud.SBaseBucket
+
 	region *SRegion
 
-	projectId string
+	// projectId string
 
 	Domain        Domain   `json:"Domain"`
 	BucketID      string   `json:"BucketId"`
@@ -64,18 +65,21 @@ type Domain struct {
 type SFile struct {
 	bucket *SBucket
 
-	// BucketName string
-	File     io.Reader
-	FileSize int64
-	FileName string
-	FileMD5  string
+	BucketName   string `json:"BucketName"`
+	FileName     string `json:"FileName"`
+	Size         int64  `json:"Size"`
+	Hash         string `json:"Hash"`
+	MimeType     string `json:"MimeType"`
+	CreateTime   int64  `json:"CreateTime"`
+	ModifyTime   int64  `json:"ModifyTime"`
+	StorageClass string `json:"StorageClass"`
+
+	file io.Reader
 }
 
-func (self *SFile) signHeader(httpMethod string) string {
-	md5 := ""
+func (client *SUcloudClient) signHeader(httpMethod string, path string, md5 string) string {
 	contentType := ""
 	if httpMethod == http.MethodPut {
-		md5 = self.FileMD5
 		contentType = "application/octet-stream"
 	}
 
@@ -83,11 +87,16 @@ func (self *SFile) signHeader(httpMethod string) string {
 	data += md5 + "\n"
 	data += contentType + "\n"
 	data += "\n"
-	data += "/" + self.bucket.BucketName + "/" + self.FileName
+	data += path
 
-	h := hmac.New(sha1.New, []byte(self.bucket.region.client.accessKeySecret))
+	log.Debugf("sign %s", data)
+	h := hmac.New(sha1.New, []byte(client.accessKeySecret))
 	h.Write([]byte(data))
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
+}
+
+func (self *SFile) signHeader(httpMethod string) string {
+	return self.bucket.region.client.signHeader(httpMethod, "/"+self.bucket.BucketName+"/"+self.FileName, self.Hash)
 }
 
 func (self *SFile) auth(httpMethod string) string {
@@ -96,12 +105,6 @@ func (self *SFile) auth(httpMethod string) string {
 
 func (self *SFile) GetHost() string {
 	return self.bucket.Domain.Src[0]
-	/*host, err := self.bucket.region.GetBucketDomain(self.BucketName)
-	if err != nil {
-		log.Errorf("SFile GetHost %s", err)
-		return ""
-	}
-	return host*/
 }
 
 func (self *SFile) GetUrl() string {
@@ -127,38 +130,117 @@ func (self *SFile) FetchFileUrl() string {
 }
 
 func (self *SFile) Upload() error {
-	req, _ := http.NewRequest(http.MethodPut, self.GetUrl(), self.File)
+	req, _ := http.NewRequest(http.MethodPut, self.GetUrl(), self.file)
 	req.Header.Add("Authorization", self.auth(http.MethodPut))
-	req.Header.Add("Content-MD5", self.FileMD5)
+	req.Header.Add("Content-MD5", self.Hash)
 	req.Header.Add("Content-Type", "application/octet-stream")
-	req.Header.Add("Content-Length", strconv.FormatInt(self.FileSize, 10))
-
-	return self.request(req)
+	req.Header.Add("Content-Length", strconv.FormatInt(self.Size, 10))
+	_, err := doRequest(req)
+	return err
 }
 
 func (self *SFile) Delete() error {
 	req, _ := http.NewRequest(http.MethodDelete, self.GetUrl(), nil)
 	req.Header.Add("Authorization", self.auth(http.MethodDelete))
-	return self.request(req)
+	_, err := doRequest(req)
+	return err
 }
 
-func (self *SFile) request(req *http.Request) error {
-	res, err := httputils.GetDefaultClient().Do(req)
-	if err != nil {
-		return err
-	}
+func (self *SFile) GetIBucket() cloudprovider.ICloudBucket {
+	return self.bucket
+}
 
-	_, _, err = httputils.ParseJSONResponse(res, err, false)
-	if err != nil {
-		log.Errorf("SFile %s", err.Error())
-		return err
-	}
+func (self *SFile) GetKey() string {
+	return self.FileName
+}
 
+func (self *SFile) GetSizeBytes() int64 {
+	return self.Size
+}
+
+func (self *SFile) GetLastModified() time.Time {
+	return time.Unix(self.ModifyTime, 0)
+}
+
+func (self *SFile) GetStorageClass() string {
+	return self.StorageClass
+}
+
+func (self *SFile) GetETag() string {
+	return self.Hash
+}
+
+func (self *SFile) GetContentType() string {
+	return self.MimeType
+}
+
+func (self *SFile) GetAcl() cloudprovider.TBucketACLType {
+	return cloudprovider.ACLDefault
+}
+
+func (self *SFile) SetAcl(cloudprovider.TBucketACLType) error {
 	return nil
 }
 
+func doRequest(req *http.Request) (jsonutils.JSONObject, error) {
+	res, err := httputils.GetDefaultClient().Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "httpclient Do")
+	}
+	_, body, err := httputils.ParseJSONResponse(res, err, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "ParseJSONResponse")
+	}
+	return body, nil
+}
+
+type sPrefixFileListOutput struct {
+	BucketName string
+	BucketId   string
+	NextMarker string
+	DataSet    []SFile
+}
+
+func (b *SBucket) doPrefixFileList(prefix string, marker string, limit int) (*sPrefixFileListOutput, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewString(""), "list")
+	if len(prefix) > 0 {
+		params.Add(jsonutils.NewString(prefix), "prefix")
+	}
+	if len(marker) > 0 {
+		params.Add(jsonutils.NewString(marker), "marker")
+	}
+	if limit > 0 {
+		params.Add(jsonutils.NewInt(int64(limit)), "limit")
+	}
+	host := fmt.Sprintf("https://%s.ufile.ucloud.cn", b.BucketName)
+	path := fmt.Sprintf("/?%s", params.QueryString())
+
+	log.Debugf("Request %s%s", host, path)
+
+	req, _ := http.NewRequest(http.MethodGet, host+path, nil)
+
+	sign := b.region.client.signHeader(http.MethodGet, path, "")
+	auth := "UCloud" + " " + b.region.client.accessKeyId + ":" + sign
+
+	req.Header.Add("Authorization", auth)
+
+	output := sPrefixFileListOutput{}
+
+	body, err := doRequest(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "doRequest")
+	}
+	err = body.Unmarshal(&output)
+	if err != nil {
+		return nil, errors.Wrap(err, "body.Unmarshal")
+	}
+
+	return &output, nil
+}
+
 func (b *SBucket) GetProjectId() string {
-	return b.projectId
+	return b.region.client.projectId
 }
 
 func (b *SBucket) GetGlobalId() string {
@@ -170,7 +252,7 @@ func (b *SBucket) GetName() string {
 }
 
 func (b *SBucket) GetLocation() string {
-	return b.Region
+	return b.region.GetId()
 }
 
 func (b *SBucket) GetIRegion() cloudprovider.ICloudRegion {
@@ -185,8 +267,21 @@ func (b *SBucket) GetStorageClass() string {
 	return ""
 }
 
-func (b *SBucket) GetAcl() string {
-	return b.Type
+func (b *SBucket) GetAcl() cloudprovider.TBucketACLType {
+	switch b.Type {
+	case "public":
+		return cloudprovider.ACLPublicRead
+	default:
+		return cloudprovider.ACLPrivate
+	}
+}
+
+func (b *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
+	aclType := "private"
+	if aclStr == cloudprovider.ACLPublicRead || aclStr == cloudprovider.ACLPublicReadWrite {
+		aclType = "public"
+	}
+	return b.region.updateBucket(b.BucketName, aclType)
 }
 
 func (b *SBucket) getSrcUrl() string {
@@ -213,13 +308,34 @@ func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 	return ret
 }
 
+func (b *SBucket) GetStats() cloudprovider.SBucketStats {
+	stats, _ := cloudprovider.GetIBucketStats(b)
+	return stats
+}
+
 func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.ICloudObject, error) {
 	return cloudprovider.GetIObjects(b, prefix, isRecursive)
 }
 
 func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, maxCount int) (cloudprovider.SListObjectResult, error) {
 	result := cloudprovider.SListObjectResult{}
-	return result, cloudprovider.ErrNotSupported
+
+	output, err := b.doPrefixFileList(prefix, marker, maxCount)
+	if err != nil {
+		return result, errors.Wrap(err, "b.doPrefixFileList")
+	}
+
+	if len(output.NextMarker) > 0 {
+		result.NextMarker = output.NextMarker
+		result.IsTruncated = true
+	}
+
+	result.Objects = make([]cloudprovider.ICloudObject, len(output.DataSet))
+	for i := range output.DataSet {
+		result.Objects[i] = &output.DataSet[i]
+	}
+
+	return result, nil
 }
 
 func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, contType string, storageClassStr string) error {

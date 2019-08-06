@@ -15,6 +15,8 @@
 package objectstore
 
 import (
+	"github.com/pkg/errors"
+	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -26,4 +28,21 @@ type SObject struct {
 
 func (o *SObject) GetIBucket() cloudprovider.ICloudBucket {
 	return o.bucket
+}
+
+func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
+	acl, err := o.bucket.client.GetObjectAcl(o.bucket.Name, o.Key)
+	if err != nil {
+		log.Errorf("o.bucket.client.GetObjectAcl error %s", err)
+		return acl
+	}
+	return acl
+}
+
+func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
+	err := o.bucket.client.SetObjectAcl(o.bucket.Name, o.Key, aclStr)
+	if err != nil {
+		return errors.Wrap(err, "o.bucket.client.SetObjectAcl")
+	}
+	return nil
 }

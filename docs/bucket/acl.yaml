@@ -1,0 +1,32 @@
+post:
+  summary: 设置存储桶或者对象的ACL
+  parameters:
+    - $ref: '../parameters/bucket.yaml#/bucket_name'
+    - name: bucket
+      in: body
+      required: true
+      schema:
+        $ref: "../schemas/bucket.yaml#/BucketSetACLInput"
+  responses:
+    200:
+      description: 指定存储桶或者对象的ACL响应
+      schema:
+        $ref: "../schemas/bucket.yaml#/BucketGetResponse"
+  tags:
+    - buckets
+
+get:
+  summary: 获取存储桶或者对象的ACL
+  parameters:
+    - $ref: '../parameters/bucket.yaml#/bucket_name'
+    - name: key
+      in: query
+      type: string
+      description: 如果查询对象的ACL，通过key指定对象的名称
+  responses:
+    200:
+      description: 指定存储桶或者对象的ACL响应
+      schema:
+        $ref: "../schemas/bucket.yaml#/BucketGetACLResponse"
+  tags:
+    - buckets

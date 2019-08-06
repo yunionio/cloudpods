@@ -18,11 +18,15 @@ import (
 	"fmt"
 	"strings"
 
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth/credentials"
+	"yunion.io/x/onecloud/pkg/multicloud/huawei/obs"
 )
 
 /*
@@ -52,7 +56,12 @@ type SHuaweiClient struct {
 	accessUrl    string // 服务区域 ChinaCloud | InternationalCloud
 	accessKey    string
 	secret       string
-	iregions     []cloudprovider.ICloudRegion
+
+	ownerId   string
+	ownerName string
+
+	iregions []cloudprovider.ICloudRegion
+	iBuckets []cloudprovider.ICloudBucket
 }
 
 // 进行资源操作时参数account 对应数据库cloudprovider表中的account字段,由accessKey和projectID两部分组成，通过"/"分割。
@@ -78,11 +87,18 @@ func NewHuaweiClient(providerId, providerName, accessurl, accessKey, secret, pro
 func (self *SHuaweiClient) init() error {
 	err := self.fetchRegions()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "fetchRegions")
 	}
 	err = self.initSigner()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "initSigner")
+	}
+	err = self.fetchBuckets()
+	if err != nil {
+		return errors.Wrap(err, "fetchOwner")
+	}
+	if self.debug {
+		log.Debugf("OwnerId: %s OwnerName: %s", self.ownerId, self.ownerName)
 	}
 	return nil
 }
@@ -131,6 +147,58 @@ func (self *SHuaweiClient) fetchRegions() error {
 		}
 		self.iregions[i] = &filtedRegions[i]
 	}
+	return nil
+}
+
+func (self *SHuaweiClient) invalidateIBuckets() {
+	self.iBuckets = nil
+}
+
+func (self *SHuaweiClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
+	if self.iBuckets == nil {
+		err := self.fetchBuckets()
+		if err != nil {
+			return nil, errors.Wrap(err, "fetchBuckets")
+		}
+	}
+	return self.iBuckets, nil
+}
+
+func (self *SHuaweiClient) fetchBuckets() error {
+	if len(self.iregions) == 0 {
+		return errors.Error("no region???")
+	}
+	region := self.iregions[0].(*SRegion)
+	obscli, err := region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "getOBSClient")
+	}
+	input := &obs.ListBucketsInput{QueryLocation: true}
+	output, err := obscli.ListBuckets(input)
+	if err != nil {
+		return errors.Wrap(err, "obscli.ListBuckets")
+	}
+	self.ownerId = output.Owner.ID
+	self.ownerName = output.Owner.DisplayName
+
+	ret := make([]cloudprovider.ICloudBucket, 0)
+	for i := range output.Buckets {
+		bInfo := output.Buckets[i]
+		region, err := self.getIRegionByRegionId(bInfo.Location)
+		if err != nil {
+			log.Errorf("fail to find region %s", bInfo.Location)
+			continue
+		}
+		b := SBucket{
+			region: region.(*SRegion),
+
+			Name:         bInfo.Name,
+			Location:     bInfo.Location,
+			CreationDate: bInfo.CreationDate,
+		}
+		ret = append(ret, &b)
+	}
+	self.iBuckets = ret
 	return nil
 }
 
@@ -188,8 +256,21 @@ func (self *SHuaweiClient) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	return subAccounts, nil
 }
 
+func (client *SHuaweiClient) GetAccountId() string {
+	return client.ownerId
+}
+
 func (self *SHuaweiClient) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.iregions
+}
+
+func (self *SHuaweiClient) getIRegionByRegionId(id string) (cloudprovider.ICloudRegion, error) {
+	for i := 0; i < len(self.iregions); i += 1 {
+		if self.iregions[i].GetId() == id {
+			return self.iregions[i], nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (self *SHuaweiClient) GetIRegionById(id string) (cloudprovider.ICloudRegion, error) {
