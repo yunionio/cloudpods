@@ -54,6 +54,7 @@ func init() {
 		Name string `help:"Name of wire"`
 		Desc string `metavar:"<DESCRIPTION>" help:"Description"`
 		Bw   int64  `help:"Bandwidth in mbps"`
+		Mtu  int64  `help:"mtu in bytes"`
 	}
 	R(&WireUpdateOptions{}, "wire-update", "Update wire", func(s *mcclient.ClientSession, args *WireUpdateOptions) error {
 		params := jsonutils.NewDict()
@@ -65,6 +66,9 @@ func init() {
 		}
 		if args.Bw > 0 {
 			params.Add(jsonutils.NewInt(args.Bw), "bandwidth")
+		}
+		if args.Mtu > 0 {
+			params.Add(jsonutils.NewInt(args.Mtu), "mtu")
 		}
 		if params.Size() == 0 {
 			return InvalidUpdateError()
@@ -82,12 +86,16 @@ func init() {
 		Vpc  string `help:"VPC ID or Name" default:"default"`
 		NAME string `help:"Name of wire"`
 		BW   int64  `help:"Bandwidth in mbps"`
+		Mtu  int64  `help:"mtu in bytes"`
 		Desc string `metavar:"<DESCRIPTION>" help:"Description"`
 	}
 	R(&WireCreateOptions{}, "wire-create", "Create a wire", func(s *mcclient.ClientSession, args *WireCreateOptions) error {
 		params := jsonutils.NewDict()
 		params.Add(jsonutils.NewString(args.NAME), "name")
 		params.Add(jsonutils.NewInt(args.BW), "bandwidth")
+		if args.Mtu > 0 {
+			params.Add(jsonutils.NewInt(args.Mtu), "mtu")
+		}
 		if len(args.Vpc) > 0 {
 			params.Add(jsonutils.NewString(args.Vpc), "vpc")
 		}

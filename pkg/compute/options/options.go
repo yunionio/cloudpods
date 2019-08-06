@@ -48,6 +48,7 @@ type ComputeOptions struct {
 	MetricsRetentionDays    int32  `default:"30" help:"Retention days for monitoring metrics in influxdb"`
 
 	DefaultBandwidth int `default:"1000" help:"Default bandwidth"`
+	DefaultMtu       int `default:"1500" help:"Default network mtu"`
 
 	DefaultCpuQuota            int `help:"Common CPU quota per tenant, default 200" default:"200"`
 	DefaultMemoryQuota         int `default:"204800" help:"Common memory quota per tenant in MB, default 200G"`
