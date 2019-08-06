@@ -107,11 +107,11 @@ func (self *GuestSwitchToBackupTask) OnFail(ctx context.Context, guest *models.S
 }
 
 func (self *GuestSwitchToBackupTask) OnComplete(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
-	guest.SetMetadata(ctx, "__mirror_job_status", "", self.UserCred)
 	self.SetStageComplete(ctx, nil)
 }
 
 func (self *GuestSwitchToBackupTask) OnSwitched(ctx context.Context, guest *models.SGuest, data jsonutils.JSONObject) {
+	guest.SetMetadata(ctx, "__mirror_job_status", "", self.UserCred)
 	oldStatus, _ := self.Params.GetString("old_status")
 	if utils.IsInStringArray(oldStatus, api.VM_RUNNING_STATUS) {
 		self.SetStage("OnNewMasterStarted", nil)

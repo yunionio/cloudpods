@@ -96,6 +96,7 @@ const (
 	ACT_SNAPSHOT_DELETING             = "snapshot_deling"
 	ACT_SNAPSHOT_DELETE               = "snapshot_del"
 	ACT_SNAPSHOT_DELETE_FAIL          = "snapshot_del_fail"
+	ACT_SNAPSHOT_FAKE_DELETE          = "snapshot_fake_del"
 	ACT_SNAPSHOT_UNLINK               = "snapshot_unlink"
 	ACT_APPLY_SNAPSHOT_POLICY         = "apply_snapshot_policy"
 	ACT_APPLY_SNAPSHOT_POLICY_FAILED  = "apply_snapshot_policy_failed"
