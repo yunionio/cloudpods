@@ -1,0 +1,18 @@
+post:
+  summary: 下线转发实例
+  description: |
+    该操作要求被下线的转发实例之前通过lbagent-deploy部署
+
+    下线的执行操作包括
+
+     - 卸载lbagent
+     - 停止正在运行的与转发相关的守护进程
+  parameters:
+    - $ref: "../parameters/loadbalancer.yaml#/loadbalancerAgentId"
+  responses:
+    200:
+      description: 变更后的转发实例信息
+      schema:
+        $ref: "../schemas/loadbalancer.yaml#/LoadbalancerAgentResponse"
+  tags:
+    - loadbalanceragents
