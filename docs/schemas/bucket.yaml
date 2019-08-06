@@ -98,9 +98,21 @@ Bucket:
     can_delete:
       type: boolean
       description: 是否可以删除
+    acl:
+      type: string
+      description: 存储桶的默认访问权限，可能值为：private, public-read和public-read-write
     storage_class:
       type: string
       description: 存储桶的默认存储类型
+    access_urls:
+      type: object
+      description: 存储桶的访问URL信息
+    object_cnt:
+      type: integer
+      description: 对象总数量
+    size_bytes:
+      type: integer
+      description: 对象的总大小(bytes)
     tenant_id:
       type: string
       description: 存储桶归属的项目ID
@@ -167,9 +179,30 @@ BucketObjectTempUrlResponse:
           type: string
           description: 生成的临时URL
 
+BucketGetACLResponse:
+  type: object
+  properties:
+    bucket:
+      type: object
+      properties:
+        acl:
+          type: string
+          description: bucket或者对象的ACL字串，可能为private, public-read, public-read-write, default(仅object支持)
+
 BucketMakedirInput:
   type: object
   properties:
     key:
       type: string
       description: 目录的名称，必需以"/"结尾
+
+BucketSetACLInput:
+    type: object
+    properties:
+      acl:
+        type: string
+        required: true
+        description: bucket或者对象的ACL字串，可能为private, public-read, public-read-write, default(仅object支持)
+      key:
+        type: string
+        description: 如果设置对象的ACL，则此字段指定对象的key

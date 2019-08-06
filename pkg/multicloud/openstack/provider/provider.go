@@ -170,6 +170,10 @@ func (self *SOpenStackProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, e
 	return self.client.GetSubAccounts()
 }
 
+func (self *SOpenStackProvider) GetAccountId() string {
+	return ""
+}
+
 func (self *SOpenStackProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return self.client.GetIRegions()
 }
@@ -188,4 +192,8 @@ func (self *SOpenStackProvider) GetCloudRegionExternalIdPrefix() string {
 
 func (self *SOpenStackProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return self.client.GetIProjects()
+}
+
+func (self *SOpenStackProvider) GetStorageClasses(regionId string) []string {
+	return nil
 }

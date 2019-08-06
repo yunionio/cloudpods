@@ -38,6 +38,10 @@ func (self *SObjectStoreProviderFactory) GetName() string {
 	return api.CLOUD_PROVIDER_GENERICS3
 }
 
+func (factory *SObjectStoreProviderFactory) IsSupportObjectStorage() bool {
+	return true
+}
+
 func (self *SObjectStoreProviderFactory) ValidateCreateCloudaccountData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) error {
 	accessKeyID, _ := data.GetString("access_key_id")
 	if len(accessKeyID) == 0 {
@@ -133,4 +137,12 @@ func (self *SObjectStoreProvider) GetVersion() string {
 
 func (self *SObjectStoreProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error) {
 	return self.client.GetSubAccounts()
+}
+
+func (self *SObjectStoreProvider) GetAccountId() string {
+	return self.client.GetAccountId()
+}
+
+func (self *SObjectStoreProvider) GetStorageClasses(regionId string) []string {
+	return []string{}
 }

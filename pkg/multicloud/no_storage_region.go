@@ -40,4 +40,8 @@ func (cli *SNoObjectStorageRegion) GetIBucketById(name string) (cloudprovider.IC
 	return nil, cloudprovider.ErrNotSupported
 }
 
+func (cli *SNoObjectStorageRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return nil, cloudprovider.ErrNotSupported
+}
+
 ////////////////// END S3 fake API //////////

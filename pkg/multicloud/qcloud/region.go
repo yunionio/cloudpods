@@ -17,9 +17,6 @@ package qcloud
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/tencentyun/cos-go-sdk-v5"
@@ -27,10 +24,8 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
-	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
 
-	"github.com/tencentyun/cos-go-sdk-v5/debug"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -285,29 +280,7 @@ func (self *SRegion) CreateIVpc(name string, desc string, cidr string) (cloudpro
 }
 
 func (self *SRegion) GetCosClient(bucket *SBucket) (*cos.Client, error) {
-	var baseUrl *cos.BaseURL
-	if bucket != nil {
-		u, _ := url.Parse(bucket.getBucketUrl())
-		baseUrl = &cos.BaseURL{
-			BucketURL: u,
-		}
-	}
-	cosClient := cos.NewClient(
-		baseUrl,
-		&http.Client{
-			Transport: &cos.AuthorizationTransport{
-				SecretID:  self.client.SecretID,
-				SecretKey: self.client.SecretKey,
-				Transport: &debug.DebugRequestTransport{
-					RequestHeader:  self.client.Debug,
-					RequestBody:    self.client.Debug,
-					ResponseHeader: self.client.Debug,
-					ResponseBody:   self.client.Debug,
-				},
-			},
-		},
-	)
-	return cosClient, nil
+	return self.client.getCosClient(bucket)
 }
 
 func (self *SRegion) GetClient() *SQcloudClient {
@@ -854,34 +827,16 @@ func (self *SRegion) getCosEndpoint() string {
 }
 
 func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	coscli, err := region.GetCosClient(nil)
+	iBuckets, err := region.client.getIBuckets()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetCosClient")
-	}
-	s, _, err := coscli.Service.Get(context.Background())
-	if err != nil {
-		return nil, errors.Wrap(err, "coscli.Service.Get")
+		return nil, err
 	}
 	ret := make([]cloudprovider.ICloudBucket, 0)
-	for i := range s.Buckets {
-		bInfo := s.Buckets[i]
-		// ignore buckets not belong to this region
-		if bInfo.Region != region.GetId() {
+	for i := range iBuckets {
+		if iBuckets[i].GetLocation() != region.GetId() {
 			continue
 		}
-		createAt, _ := timeutils.ParseTimeStr(bInfo.CreationDate)
-		name := bInfo.Name
-		// name = name[:len(name)-len(result.Owner.ID)-1]
-		name = name[:strings.LastIndexByte(name, '-')]
-		b := SBucket{
-			region: region,
-
-			Name:       name,
-			FullName:   bInfo.Name,
-			Location:   bInfo.Region,
-			CreateDate: createAt,
-		}
-		ret = append(ret, &b)
+		ret = append(ret, iBuckets[i])
 	}
 	return ret, nil
 }
@@ -910,6 +865,7 @@ func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr
 	if err != nil {
 		return errors.Wrap(err, "coscli.Bucket.Put")
 	}
+	region.client.invalidateIBuckets()
 	return nil
 }
 
@@ -959,4 +915,8 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 
 func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
 	return cloudprovider.GetIBucketById(region, name)
+}
+
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return region.GetIBucketById(name)
 }

@@ -22,10 +22,8 @@ import (
 	"time"
 
 	"yunion.io/x/jsonutils"
-
-	"github.com/minio/minio-go"
-
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/s3cli"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
@@ -72,8 +70,13 @@ func (bucket *SBucket) GetName() string {
 	return bucket.Name
 }
 
-func (bucket *SBucket) GetAcl() string {
-	return bucket.Acl
+func (bucket *SBucket) GetAcl() cloudprovider.TBucketACLType {
+	acl, _ := bucket.client.GetIBucketAcl(bucket.Name)
+	return acl
+}
+
+func (bucket *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
+	return bucket.client.SetIBucketAcl(bucket.Name, aclStr)
 }
 
 func (bucket *SBucket) GetLocation() string {
@@ -90,6 +93,11 @@ func (bucket *SBucket) GetCreateAt() time.Time {
 
 func (bucket *SBucket) GetStorageClass() string {
 	return bucket.StorageClass
+}
+
+func (bucket *SBucket) GetStats() cloudprovider.SBucketStats {
+	stats, _ := cloudprovider.GetIBucketStats(bucket)
+	return stats
 }
 
 func (bucket *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
@@ -139,7 +147,7 @@ func (bucket *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprov
 }
 
 func (bucket *SBucket) PutObject(ctx context.Context, key string, input io.Reader, contType string, storageClass string) error {
-	opts := minio.PutObjectOptions{}
+	opts := s3cli.PutObjectOptions{}
 	if len(contType) > 0 {
 		opts.ContentType = contType
 	}

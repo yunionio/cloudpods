@@ -23,16 +23,14 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/private/protocol/query"
-
-	sdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/client/metadata"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	v4 "github.com/aws/aws-sdk-go/aws/signer/v4"
+	"github.com/aws/aws-sdk-go/private/protocol/query"
+	"github.com/aws/aws-sdk-go/service/acm"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/iam"
@@ -42,7 +40,6 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"github.com/aws/aws-sdk-go/service/acm"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
@@ -105,12 +102,7 @@ func (self *SRegion) GetClient() *SAwsClient {
 }
 
 func (self *SRegion) getAwsSession() (*session.Session, error) {
-	disableParamValidation := true
-	return session.NewSession(&sdk.Config{
-		Region:                 sdk.String(self.RegionId),
-		Credentials:            credentials.NewStaticCredentials(self.client.accessKey, self.client.secret, ""),
-		DisableParamValidation: &disableParamValidation,
-	})
+	return self.client.getAwsSession(self.RegionId)
 }
 
 func (self *SRegion) getEc2Client() (*ec2.EC2, error) {
@@ -145,14 +137,11 @@ func (self *SRegion) getIamClient() (*iam.IAM, error) {
 func (self *SRegion) GetS3Client() (*s3.S3, error) {
 	if self.s3Client == nil {
 		s, err := self.getAwsSession()
-
 		if err != nil {
 			return nil, err
 		}
-
 		self.s3Client = s3.New(s)
 	}
-
 	return self.s3Client, nil
 }
 
@@ -273,7 +262,7 @@ func (self *SRegion) rdsRequest(apiName string, params map[string]string, retval
 		APIVersion:    "2014-10-31",
 	}
 
-	if DEBUG {
+	if self.client.debug {
 		logLevel := aws.LogLevelType(uint(aws.LogDebugWithRequestErrors) + uint(aws.LogDebugWithHTTPBody))
 		c.Config.LogLevel = &logLevel
 	}
@@ -880,33 +869,16 @@ func (self *SRegion) CreateILoadBalancer(loadbalancer *cloudprovider.SLoadbalanc
 }
 
 func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	s3cli, err := region.GetS3Client()
+	iBuckets, err := region.client.getIBuckets()
 	if err != nil {
-		return nil, errors.Wrap(err, "GetS3Client")
-	}
-	output, err := s3cli.ListBuckets(&s3.ListBucketsInput{})
-	if err != nil {
-		return nil, errors.Wrap(err, "ListBuckets")
+		return nil, errors.Wrap(err, "getIBuckets")
 	}
 	ret := make([]cloudprovider.ICloudBucket, 0)
-	for _, bInfo := range output.Buckets {
-		input := &s3.GetBucketLocationInput{}
-		input.Bucket = bInfo.Name
-		output, err := s3cli.GetBucketLocation(input)
-		if err != nil {
-			log.Errorf("s3cli.GetBucketLocation error %s", err)
+	for i := range iBuckets {
+		if iBuckets[i].GetLocation() != region.GetId() {
 			continue
 		}
-		if *output.LocationConstraint != region.GetId() {
-			continue
-		}
-		b := SBucket{
-			region:       region,
-			Name:         *bInfo.Name,
-			Location:     region.GetId(),
-			CreationDate: *bInfo.CreationDate,
-		}
-		ret = append(ret, &b)
+		ret = append(ret, iBuckets[i])
 	}
 	return ret, nil
 }
@@ -917,14 +889,14 @@ func (region *SRegion) CreateIBucket(name string, storageClassStr string, acl st
 		return errors.Wrap(err, "GetS3Client")
 	}
 	input := &s3.CreateBucketInput{}
-	input.Bucket = &name
+	input.SetBucket(name)
 	input.CreateBucketConfiguration = &s3.CreateBucketConfiguration{}
-	location := region.GetId()
-	input.CreateBucketConfiguration.LocationConstraint = &location
+	input.CreateBucketConfiguration.SetLocationConstraint(region.GetId())
 	_, err = s3cli.CreateBucket(input)
 	if err != nil {
 		return errors.Wrap(err, "CreateBucket")
 	}
+	region.client.invalidateIBuckets()
 	// if *output.Location != region.GetId() {
 	// 	log.Warningf("Request location %s != got locaiton %s", region.GetId(), *output.Location)
 	// }
@@ -945,6 +917,7 @@ func (region *SRegion) DeleteIBucket(name string) error {
 		}
 		return errors.Wrap(err, "DeleteBucket")
 	}
+	region.client.invalidateIBuckets()
 	return nil
 }
 
@@ -964,6 +937,10 @@ func (region *SRegion) IBucketExist(name string) (bool, error) {
 
 func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, error) {
 	return cloudprovider.GetIBucketById(region, name)
+}
+
+func (region *SRegion) GetIBucketByName(name string) (cloudprovider.ICloudBucket, error) {
+	return region.GetIBucketById(name)
 }
 
 func (region *SRegion) getBaseEndpoint() string {

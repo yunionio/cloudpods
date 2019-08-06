@@ -14,7 +14,14 @@
 
 package aws
 
-import "yunion.io/x/onecloud/pkg/cloudprovider"
+import (
+	"github.com/aws/aws-sdk-go/service/s3"
+
+	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
+
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
 
 type SObject struct {
 	bucket *SBucket
@@ -24,4 +31,38 @@ type SObject struct {
 
 func (o *SObject) GetIBucket() cloudprovider.ICloudBucket {
 	return o.bucket
+}
+
+func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
+	acl := cloudprovider.ACLDefault
+	s3cli, err := o.bucket.region.GetS3Client()
+	if err != nil {
+		log.Errorf("o.bucket.region.GetS3Client error %s", err)
+		return acl
+	}
+	input := &s3.GetObjectAclInput{}
+	input.SetBucket(o.bucket.Name)
+	input.SetKey(o.Key)
+	output, err := s3cli.GetObjectAcl(input)
+	if err != nil {
+		log.Errorf("s3cli.GetObjectAcl error %s", err)
+		return acl
+	}
+	return s3ToCannedAcl(output.Grants)
+}
+
+func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
+	s3cli, err := o.bucket.region.GetS3Client()
+	if err != nil {
+		return errors.Wrap(err, "o.bucket.region.GetS3Client")
+	}
+	input := &s3.PutObjectAclInput{}
+	input.SetBucket(o.bucket.Name)
+	input.SetKey(o.Key)
+	input.SetACL(string(aclStr))
+	_, err = s3cli.PutObjectAcl(input)
+	if err != nil {
+		return errors.Wrap(err, "s3cli.PutObjectAcl")
+	}
+	return nil
 }

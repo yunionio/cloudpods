@@ -184,11 +184,12 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", errors.Wrap(err, "GetIBucketByName")
 	}
 	file := SFile{
-		bucket:   bucket.(*SBucket),
-		File:     reader,
-		FileSize: size,
+		bucket: bucket.(*SBucket),
+		file:   reader,
+
+		Size:     size,
 		FileName: image.ImageId,
-		FileMD5:  md5,
+		Hash:     md5,
 	}
 
 	err = file.Upload()
@@ -274,14 +275,24 @@ func (self *SRegion) CreateBucket(name, bucketType string) error {
 	params := NewUcloudParams()
 	params.Set("BucketName", name)
 	params.Set("Type", bucketType)
-	return self.DoAction("CreateBucket", params, nil)
+	err := self.DoAction("CreateBucket", params, nil)
+	if err != nil {
+		return err
+	}
+	self.client.invalidateIBuckets()
+	return nil
 }
 
 // https://docs.ucloud.cn/api/ufile-api/delete_bucket
 func (self *SRegion) DeleteBucket(name string) error {
 	params := NewUcloudParams()
 	params.Set("BucketName", name)
-	return self.DoAction("DeleteBucket", params, nil)
+	err := self.DoAction("DeleteBucket", params, nil)
+	if err != nil {
+		return err
+	}
+	self.client.invalidateIBuckets()
+	return nil
 }
 
 // https://docs.ucloud.cn/api/ufile-api/put_file

@@ -140,7 +140,7 @@ func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
 	} else {
 		for i := 0; i < len(storageaccounts); i++ {
 			if id, ok := storageaccounts[i].Tags["id"]; ok && id == self.region.Name {
-				storageaccount = &storageaccounts[i]
+				storageaccount = storageaccounts[i]
 				break
 			}
 		}

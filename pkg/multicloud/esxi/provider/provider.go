@@ -165,6 +165,10 @@ func (self *SESXiProvider) GetSubAccounts() ([]cloudprovider.SSubAccount, error)
 	return self.client.GetSubAccounts()
 }
 
+func (self *SESXiProvider) GetAccountId() string {
+	return self.client.GetAccountId()
+}
+
 func (self *SESXiProvider) GetIRegions() []cloudprovider.ICloudRegion {
 	return nil
 }
@@ -183,4 +187,8 @@ func (self *SESXiProvider) GetOnPremiseIRegion() (cloudprovider.ICloudRegion, er
 
 func (self *SESXiProvider) GetIProjects() ([]cloudprovider.ICloudProject, error) {
 	return nil, cloudprovider.ErrNotSupported
+}
+
+func (self *SESXiProvider) GetStorageClasses(regionId string) []string {
+	return nil
 }
