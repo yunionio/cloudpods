@@ -164,3 +164,7 @@ func (opts *LoadbalancerAgentActionDeployOptions) Params() (*jsonutils.JSONDict,
 	params := input.JSON(input)
 	return params, nil
 }
+
+type LoadbalancerAgentActionUndeployOptions struct {
+	ID string `json:"-"`
+}
