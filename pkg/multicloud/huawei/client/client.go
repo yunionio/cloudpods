@@ -36,6 +36,7 @@ type Client struct {
 	Disks              *modules.SDiskManager
 	Domains            *modules.SDomainManager
 	Eips               *modules.SEipManager
+	Elasticcache       *modules.SElasticcacheManager
 	Flavors            *modules.SFlavorManager
 	Images             *modules.SImageManager
 	OpenStackImages    *modules.SImageManager
@@ -118,6 +119,7 @@ func (self *Client) initManagers() {
 		self.Zones = modules.NewZoneManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Vpcs = modules.NewVpcManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Eips = modules.NewEipManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.Elasticcache = modules.NewElasticcacheManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Disks = modules.NewDiskManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.Domains = modules.NewDomainManager(self.signer, self.debug)
 		self.Keypairs = modules.NewKeypairManager(self.regionId, self.projectId, self.signer, self.debug)

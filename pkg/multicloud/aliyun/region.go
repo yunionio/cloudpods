@@ -131,6 +131,14 @@ func (self *SRegion) vpcRequest(action string, params map[string]string) (jsonut
 	return jsonRequest(client, "vpc.aliyuncs.com", ALIYUN_API_VERSION_VPC, action, params, self.client.Debug)
 }
 
+func (self *SRegion) kvsRequest(action string, params map[string]string) (jsonutils.JSONObject, error) {
+	client, err := self.getSdkClient()
+	if err != nil {
+		return nil, err
+	}
+	return jsonRequest(client, "r-kvstore.aliyuncs.com", ALIYUN_API_VERSION_KVS, action, params, self.client.Debug)
+}
+
 type LBRegion struct {
 	RegionEndpoint string
 	RegionId       string
@@ -1076,4 +1084,19 @@ func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, 
 		Acl:          bInfo.ACL,
 	}
 	return &b, nil
+}
+
+func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, error) {
+	caches, err := self.GetElasticCaches(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	icaches := make([]cloudprovider.ICloudElasticcache, len(caches))
+	for i := range caches {
+		caches[i].region = self
+		icaches[i] = &caches[i]
+	}
+
+	return icaches, nil
 }

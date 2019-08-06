@@ -69,3 +69,7 @@ func (self *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error)
 func (self *SRegion) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
 	return nil, fmt.Errorf("Not Implemented GetIDBInstanceBackups")
 }
+
+func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, error) {
+	return nil, fmt.Errorf("Not Implemented GetIElasticcaches")
+}

@@ -274,13 +274,12 @@ func (self *SServerSku) GetCustomizeColumns(ctx context.Context, userCred mcclie
 	countKey := self.GetId() + ".total_guest_count"
 	v := Cache.Get(countKey)
 	if v == nil {
-
+		count, _ = skuRelatedGuestCount(self)
 		Cache.Set(countKey, count)
 	} else {
 		count = v.(int)
 	}
 
-	count, _ = skuRelatedGuestCount(self)
 	extra.Add(jsonutils.NewInt(int64(count)), "total_guest_count")
 
 	zoneInfo := self.SZoneResourceBase.GetCustomizeColumns(ctx, userCred, query)
