@@ -295,6 +295,8 @@ paths:
     $ref: "./loadbalancer/loadbalanceragent-params-patch.yaml"
   /loadbalanceragents/{loadbalancerAgentId}/deploy:
     $ref: "./loadbalancer/loadbalanceragent-deploy.yaml"
+  /loadbalanceragents/{loadbalancerAgentId}/undeploy:
+    $ref: "./loadbalancer/loadbalanceragent-undeploy.yaml"
 
   /identity_providers:
     $ref: "./identity/identity_providers.yaml"
