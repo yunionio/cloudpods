@@ -131,4 +131,12 @@ func init() {
 		printLbagent(lbagent)
 		return nil
 	})
+	R(&options.LoadbalancerAgentActionUndeployOptions{}, "lbagent-undeploy", "Undeploy lbagent", func(s *mcclient.ClientSession, opts *options.LoadbalancerAgentActionUndeployOptions) error {
+		lbagent, err := modules.LoadbalancerAgents.PerformAction(s, opts.ID, "undeploy", nil)
+		if err != nil {
+			return err
+		}
+		printLbagent(lbagent)
+		return nil
+	})
 }
