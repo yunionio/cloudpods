@@ -37,8 +37,9 @@ import (
 )
 
 type SLoadbalancerAgentDeployment struct {
-	Host            string
-	AnsiblePlaybook string
+	Host                        string
+	AnsiblePlaybook             string
+	AnsiblePlaybookUndeployment string
 }
 
 func (p *SLoadbalancerAgentDeployment) String() string {
@@ -54,6 +55,10 @@ func (p *SLoadbalancerAgentDeployment) IsZero() bool {
 
 func (lbagent *SLoadbalancerAgent) AllowPerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
 	return db.IsAdminAllowPerform(userCred, lbagent, "deploy")
+}
+
+func (lbagent *SLoadbalancerAgent) AllowPerformUndeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) bool {
+	return db.IsAdminAllowPerform(userCred, lbagent, "undeploy")
 }
 
 func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient.TokenCredential, input *compute_apis.LoadbalancerAgentDeployInput) (*ansible.Playbook, error) {
@@ -207,6 +212,46 @@ func (lbagent *SLoadbalancerAgent) deploy(ctx context.Context, userCred mcclient
 	return pb, nil
 }
 
+func (lbagent *SLoadbalancerAgent) undeploy(ctx context.Context, userCred mcclient.TokenCredential, host ansible.Host) (*ansible.Playbook, error) {
+	pb := &ansible.Playbook{
+		Inventory: ansible.Inventory{
+			Hosts: []ansible.Host{host},
+		},
+		Modules: []ansible.Module{
+			{
+				Name: "systemd",
+				Args: []string{
+					"name=yunion-lbagent",
+					"enabled=no",
+					"state=stopped",
+					"daemon_reload=yes",
+				},
+			},
+			{
+				Name: "shell",
+				Args: []string{
+					`pkill keepalived; pkill telegraf; pkill gobetween; pkill haproxy; true`,
+				},
+			},
+			{
+				Name: "package",
+				Args: []string{
+					"name=yunion-lbagent",
+					"state=absent",
+				},
+			},
+		},
+	}
+	// we leave alone
+	//
+	//  - /etc/yum.repos.d/yunion.repo
+	//  - /etc/yunion/lbagent.conf
+	//  - state of packages keepalived, haproxy, gobetween, telegraf
+	//
+	// This decision is unlikely to cause harm.  These content are likely still needed by users
+	return pb, nil
+}
+
 func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	input := &compute_apis.LoadbalancerAgentDeployInput{}
 	if err := data.Unmarshal(input); err != nil {
@@ -230,23 +275,50 @@ func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred m
 		return nil, err
 	}
 
+	pbId := ""
+	if lbagent.Deployment != nil && lbagent.Deployment.AnsiblePlaybook != "" {
+		pbId = lbagent.Deployment.AnsiblePlaybook
+	}
+	pbModel, err := lbagent.updateOrCreatePbModel(ctx, userCred, pbId, lbagent.Name+"-"+lbagent.Id[:7], pb)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := db.Update(lbagent, func() error {
+		lbagent.Deployment = &SLoadbalancerAgentDeployment{
+			Host:            input.Host.Name,
+			AnsiblePlaybook: pbModel.Id,
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return nil, err
+}
+
+func (lbagent *SLoadbalancerAgent) updateOrCreatePbModel(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	pbId string,
+	pbName string,
+	pb *ansible.Playbook,
+) (*mcclient_models.AnsiblePlaybook, error) {
 	cliSess := auth.GetSession(ctx, userCred, "", "")
 	var pbJson jsonutils.JSONObject
-	if lbagent.Deployment != nil && lbagent.Deployment.AnsiblePlaybook != "" {
+	if pbId != "" {
 		var err error
 		ansiblePbInput := &ansible_apis.AnsiblePlaybookUpdateInput{
-			Name:     lbagent.Name + "-" + lbagent.Id[:7],
+			Name:     pbName,
 			Playbook: *pb,
 		}
 		params := ansiblePbInput.JSON(ansiblePbInput)
-		pbJson, err = mcclient_modules.AnsiblePlaybooks.Update(cliSess, lbagent.Deployment.AnsiblePlaybook, params)
+		pbJson, err = mcclient_modules.AnsiblePlaybooks.Update(cliSess, pbId, params)
 		if err != nil {
 			return nil, errors.WithMessage(err, "update ansibleplaybook")
 		}
 	} else {
 		var err error
 		ansiblePbInput := &ansible_apis.AnsiblePlaybookCreateInput{
-			Name:     lbagent.Name + "-" + lbagent.Id[:7],
+			Name:     pbName,
 			Playbook: *pb,
 		}
 		params := ansiblePbInput.JSON(ansiblePbInput)
@@ -260,17 +332,38 @@ func (lbagent *SLoadbalancerAgent) PerformDeploy(ctx context.Context, userCred m
 	if err := pbJson.Unmarshal(pbModel); err != nil {
 		return nil, errors.WithMessage(err, "unmarshal ansibleplaybook")
 	}
+	return pbModel, nil
+}
 
+func (lbagent *SLoadbalancerAgent) PerformUndeploy(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	deployment := lbagent.Deployment
+	if deployment == nil || deployment.Host == "" {
+		return nil, httperrors.NewConflictError("No previous deployment info available")
+	}
+	host := ansible.Host{
+		Name: deployment.Host,
+		Vars: map[string]string{
+			"ansible_become": "yes",
+		},
+	}
+	pb, err := lbagent.undeploy(ctx, userCred, host)
+	if err != nil {
+		return nil, err
+	}
+	pbModel, err := lbagent.updateOrCreatePbModel(ctx, userCred,
+		deployment.AnsiblePlaybookUndeployment,
+		lbagent.Name+"-"+lbagent.Id[:7]+"-undeploy",
+		pb)
+	if err != nil {
+		return nil, err
+	}
 	if _, err := db.Update(lbagent, func() error {
-		lbagent.Deployment = &SLoadbalancerAgentDeployment{
-			Host:            input.Host.Name,
-			AnsiblePlaybook: pbModel.Id,
-		}
+		lbagent.Deployment.AnsiblePlaybookUndeployment = pbModel.Id
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return nil, err
+	return nil, nil
 }
 
 const (
