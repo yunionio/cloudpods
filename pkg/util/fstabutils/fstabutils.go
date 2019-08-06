@@ -82,7 +82,7 @@ func (ft *FsTab) AddFsrec(line string) {
 	}
 }
 
-func (ft *FsTab) RemoveDevices(devCnt int) {
+func (ft *FsTab) RemoveDevices(devCnt int) *FsTab {
 	var newList = make(FsTab, 0)
 	for _, f := range *ft {
 		if strings.HasPrefix(f.Dev, VDISK_PREFIX) {
@@ -95,7 +95,7 @@ func (ft *FsTab) RemoveDevices(devCnt int) {
 			newList = append(newList, f)
 		}
 	}
-	ft = &newList
+	return &newList
 }
 
 func (ft *FsTab) ToConf() string {
