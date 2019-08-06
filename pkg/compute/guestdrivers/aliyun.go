@@ -65,6 +65,8 @@ func (self *SAliyunGuestDriver) GetStorageTypes() []string {
 		api.STORAGE_CLOUD_EFFICIENCY,
 		api.STORAGE_CLOUD_SSD,
 		api.STORAGE_CLOUD_ESSD,
+		api.STORAGE_CLOUD_ESSD_PL2,
+		api.STORAGE_CLOUD_ESSD_PL3,
 		api.STORAGE_PUBLIC_CLOUD,
 		api.STORAGE_EPHEMERAL_SSD,
 	}
@@ -121,6 +123,12 @@ func (self *SAliyunGuestDriver) ValidateCreateData(ctx context.Context, userCred
 		switch disk.Backend {
 		case api.STORAGE_CLOUD_EFFICIENCY, api.STORAGE_CLOUD_SSD, api.STORAGE_CLOUD_ESSD:
 			minGB = 20
+			maxGB = 32768
+		case api.STORAGE_CLOUD_ESSD_PL2:
+			minGB = 461
+			maxGB = 32768
+		case api.STORAGE_CLOUD_ESSD_PL3:
+			minGB = 1261
 			maxGB = 32768
 		case api.STORAGE_PUBLIC_CLOUD:
 			minGB = 5
