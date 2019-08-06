@@ -16,10 +16,11 @@ package ucloud
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"strconv"
 	"strings"
-	"yunion.io/x/pkg/util/stringutils"
+	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -188,12 +189,20 @@ func (self *SRegion) GetSecurityGroupById(secGroupId string) (*SSecurityGroup, e
 	}
 }
 
-func (self *SRegion) CreateDefaultSecurityGroup(name, description string) (string, error) {
-	if strings.ToLower(name) == "default" {
-		// 避免与default安全组名称冲突
-		name = name + stringutils.UUID4()
+func randomString(prefix string, length int) string {
+	bytes := []byte("0123456789abcdefghijklmnopqrstuvwxyz")
+	result := []byte{}
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < length; i++ {
+		result = append(result, bytes[r.Intn(len(bytes))])
 	}
-	return self.CreateSecurityGroup(name, description, []string{"TCP|22|0.0.0.0/0|ACCEPT|LOW"})
+	return prefix + string(result)
+}
+
+func (self *SRegion) CreateDefaultSecurityGroup(name, description string) (string, error) {
+	// 减少安全组名称冲突
+	name = randomString(name, 4)
+	return self.CreateSecurityGroup(name, description, []string{"TCP|1-65535|0.0.0.0/0|ACCEPT|LOW", "UDP|1-65535|0.0.0.0/0|ACCEPT|LOW", "ICMP||0.0.0.0/0|ACCEPT|LOW"})
 }
 
 // https://docs.ucloud.cn/api/unet-api/create_firewall

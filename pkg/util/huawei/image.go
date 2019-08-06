@@ -83,6 +83,7 @@ type SImage struct {
 	SupportDiskIntensive string    `json:"__support_diskintensive"`
 	SupportXENGPUType    string    `json:"__support_xen_gpu_type"`
 	SupportKVMGPUType    string    `json:"__support_kvm_gpu_type"`
+	SupportArm           string    `json:"__support_arm"`
 }
 
 func (self *SImage) GetMinRamSizeMb() int {
@@ -241,6 +242,10 @@ func excludeImage(image SImage) bool {
 	}
 
 	if len(image.SupportXENGPUType) > 0 {
+		return true
+	}
+
+	if len(image.SupportArm) > 0 {
 		return true
 	}
 
