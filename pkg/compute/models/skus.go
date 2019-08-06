@@ -164,7 +164,7 @@ func sliceToJsonObject(items []int) jsonutils.JSONObject {
 func inWhiteList(provider string) bool {
 	// provider 字段为空时表示私有云套餐
 	// 私有云套餐也允许更新删除
-	return utils.IsInStringArray(provider, []string{"", api.CLOUD_PROVIDER_OPENSTACK, api.CLOUD_PROVIDER_ZSTACK})
+	return utils.IsInStringArray(provider, []string{"", api.CLOUD_PROVIDER_OPENSTACK, api.CLOUD_PROVIDER_ZSTACK, api.CLOUD_PROVIDER_ONECLOUD})
 }
 
 func excludeSkus(q *sqlchemy.SQuery) *sqlchemy.SQuery {
@@ -378,10 +378,12 @@ func (self *SServerSkuManager) ValidateCreateData(ctx context.Context,
 
 	data.Set("name", jsonutils.NewString(name))
 
+	//因为不指定套餐名称，所以名称重复时需要提示套餐已存在
 	q := self.Query()
 	q = q.Equals("name", name).Filter(sqlchemy.OR(
 		sqlchemy.IsNull(q.Field("provider")),
 		sqlchemy.IsEmpty(q.Field("provider")),
+		sqlchemy.Equals(q.Field("provider"), api.CLOUD_PROVIDER_ONECLOUD),
 	))
 
 	cnt, err := q.CountWithError()
