@@ -120,11 +120,7 @@ func (lbc *SLoadbalancerCluster) CustomizeDelete(ctx context.Context, userCred m
 		}
 		lbagent.PostDelete(ctx, userCred)
 	}
-	return nil
-}
-
-func (lbc *SLoadbalancerCluster) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return nil
+	return lbc.SStandaloneResourceBase.CustomizeDelete(ctx, userCred, query, data)
 }
 
 func (man *SLoadbalancerClusterManager) findByZoneId(zoneId string) []SLoadbalancerCluster {
