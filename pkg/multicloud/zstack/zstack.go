@@ -142,7 +142,7 @@ func (cli *SZStackClient) connect() error {
 			"password":    fmt.Sprintf("%x", sha512.Sum512([]byte(cli.password))),
 		},
 	})
-	_, resp, err := httputils.JSONRequest(client, context.Background(), "PUT", authURL, header, body, cli.debug)
+	_, _, err := httputils.JSONRequest(client, context.Background(), "PUT", authURL, header, body, cli.debug)
 	if err != nil {
 		err = cli.testAccessKey()
 		if err == nil {
@@ -150,8 +150,7 @@ func (cli *SZStackClient) connect() error {
 		}
 		return errors.Wrapf(err, "connect")
 	}
-	cli.sessionID, err = resp.GetString("inventory", "uuid")
-	return err
+	return fmt.Errorf("password auth has been deprecated, please using ak sk auth")
 }
 
 func (cli *SZStackClient) listAll(resource string, params []string, retVal interface{}) error {

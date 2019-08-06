@@ -130,7 +130,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", err
 	}
 	img.storageCache = self
-	err = cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_READY, time.Second*5, time.Minute*10) //windows镜像转换比较慢，等待时间稍微设长一些
+	err = cloudprovider.WaitStatus(img, api.CACHED_IMAGE_STATUS_READY, time.Second*5, time.Minute*20) //windows镜像转换比较慢，等待时间稍微设长一些
 	if err != nil {
 		log.Errorf("waitting for image %s(%s) status ready timeout", img.Name, img.UUID)
 	}
