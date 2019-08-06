@@ -51,7 +51,7 @@ func fetchIVMinfo(desc cloudprovider.SManagedVMCreateConfig, iVM cloudprovider.I
 
 	//避免在rebuild_root时绑定秘钥,没有account信息
 	data.Add(jsonutils.NewString(account), "account")
-	if len(passwd) > 0 {
+	if len(passwd) > 0 || len(publicKey) > 0 {
 		var encpasswd string
 		var err error
 		if len(publicKey) > 0 {
