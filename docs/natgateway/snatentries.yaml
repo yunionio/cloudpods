@@ -1,0 +1,36 @@
+get:
+  summary: 按指定条件列出Nat网关SNat
+  parameters:
+    - $ref: "../parameters/common.yaml#/limit"
+    - $ref: "../parameters/common.yaml#/offset"
+    - $ref: "../parameters/common.yaml#/network"
+    - $ref: "../parameters/common.yaml#/provider"
+    - $ref: "../parameters/common.yaml#/account"
+    - $ref: "../parameters/common.yaml#/cloudprovider"
+    - $ref: "../parameters/common.yaml#/brand"
+
+    - $ref: "../parameters/natgateway.yaml#/natgateway"
+
+  responses:
+    200:
+      description: Nat网关 SNat
+      schema:
+        $ref: "../schemas/natgateway.yaml#/SNatEntryListResponse"
+  tags:
+    - natsentry
+
+post:
+  summary: 创建SNat
+  parameters:
+    - in: body
+      name: snatentry
+      required: true
+      schema:
+        $ref: '../schemas/natgateway.yaml#/SNatEntryCreate'
+  responses:
+    200:
+      description: 新建SNat的信息
+      schema:
+        $ref: '../schemas/natgateway.yaml#/SNatEntryResponse'
+  tags:
+    - natsentry

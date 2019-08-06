@@ -15,12 +15,16 @@
 package compute
 
 const (
-	NAT_STAUTS_AVAILABLE = "available" //可用
-	NAT_STATUS_ALLOCATE  = "allocate"  //创建中
-	NAT_STATUS_DEPLOYING = "deploying" //配置中
-	NAT_STATUS_UNKNOWN   = "unknown"
+	NAT_STAUTS_AVAILABLE     = "available" //可用
+	NAT_STATUS_ALLOCATE      = "allocate"  //创建中
+	NAT_STATUS_DEPLOYING     = "deploying" //配置中
+	NAT_STATUS_UNKNOWN       = "unknown"
+	NAT_STATUS_FAILED        = "failed"
+	NAT_STATUS_DELETED       = "deleted"
+	NAT_STATUS_DELETING      = "deleting"
+	NAT_STATUS_DELETE_FAILED = "delete_failed"
 
-	QCLOUD_NAT_SPEC_SMALL  = "Small"
-	QCLOUD_NAT_SPEC_MIDDLE = "Middle"
-	QCLOUD_NAT_SPEC_LARGE  = "Large"
+	QCLOUD_NAT_SPEC_SMALL  = "small"
+	QCLOUD_NAT_SPEC_MIDDLE = "middle"
+	QCLOUD_NAT_SPEC_LARGE  = "large"
 )

@@ -177,14 +177,14 @@ paths:
     $ref: "./natgateway/natgateways.yaml"
   /natgateways/{natgatewayId}:
     $ref: "./natgateway/natgateway.yaml"
-  /natdtables:
-    $ref: "./natgateway/dtables.yaml"
-  /natdtables/{dtableId}:
-    $ref: "./natgateway/dtable.yaml"
-  /natstables:
-    $ref: "./natgateway/stables.yaml"
-  /natstables/{stableId}:
-    $ref: "./natgateway/stable.yaml"
+  /natdentries:
+    $ref: "./natgateway/dnatentries.yaml"
+  /natdentries/{dnatentryId}:
+    $ref: "./natgateway/dnatentry.yaml"
+  /natsentries:
+    $ref: "./natgateway/snatentries.yaml"
+  /natsentries/{snatentryId}:
+    $ref: "./natgateway/snatentry.yaml"
 
   /loadbalancers:
     $ref: "./loadbalancer/loadbalancers.yaml"

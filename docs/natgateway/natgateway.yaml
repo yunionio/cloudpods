@@ -1,11 +1,11 @@
 get:
-  summary: 获取指定DNAT详情信息
+  summary: 获取指定Nat详情信息
   parameters:
     - $ref: "../parameters/natgateway.yaml#/natgatewayId"
   responses:
     200:
-      description: NAT网关信息
+      description: Nat网关信息
       schema:
         $ref: "../schemas/natgateway.yaml#/NatGatewayResponse"
   tags:
-    - NAT
+    - natgateway

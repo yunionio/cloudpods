@@ -1,0 +1,22 @@
+get:
+  summary: 获取指定DNat详情信息
+  parameters:
+    - $ref: "../parameters/natgateway.yaml#/dnatentryId"
+  responses:
+    200:
+      description: DNat信息
+      schema:
+        $ref: "../schemas/natgateway.yaml#/DNatEntryResponse"
+  tags:
+    - natdentry
+
+delete:
+  summary: 删除指定DNat
+  parameters:
+    - $ref: '../parameters/natgateway.yaml#/dnatentryId'
+  responses:
+    200:
+      schema:
+        $ref: '../schemas/natgateway.yaml#/DNatEntryResponse'
+  tags:
+    - natdentry
