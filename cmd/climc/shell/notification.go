@@ -57,7 +57,32 @@ func init() {
 		}
 		return nil
 	})
+	type NotificationBroadcastOptions struct {
 
+		// CONTACTTYPE string `help:"User's contacts type, cloud be email|mobile|dingtalk|/webconsole" choices:"email|mobile|dingtalk|webconsole"`
+		TOPIC    string `help:"Title or topic of the notification"`
+		PRIORITY string `help:"Priority of the notification maybe normal|important|fatal" choices:"normal|important|fatal"`
+		MSG      string `help:"The content of the notification"`
+		Remark   string `help:"Remark or description of the notification"`
+		// Group    bool   `help:"Send to group"`
+	}
+
+	R(&NotificationBroadcastOptions{}, "notify-broadcast", "Send a notification to all online users", func(s *mcclient.ClientSession, args *NotificationBroadcastOptions) error {
+		msg := notify.SNotifyMessage{}
+		msg.Broadcast = true
+		msg.Uid = ""
+		msg.ContactType = notify.TNotifyChannel("webconsole")
+		msg.Topic = args.TOPIC
+		msg.Priority = notify.TNotifyPriority(args.PRIORITY)
+		msg.Msg = args.MSG
+		msg.Remark = args.Remark
+
+		err := notify.Notifications.Send(s, msg)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	/**
 	 * 修改通知发送任务的状态
 	 */
