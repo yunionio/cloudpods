@@ -155,7 +155,13 @@ func (self *SElasticcache) GetVpcId() string {
 
 func (self *SElasticcache) GetZoneId() string {
 	if len(self.AvailableZones) > 0 {
-		return self.AvailableZones[0]
+		zone, err := self.region.getZoneById(self.AvailableZones[0])
+		if err != nil {
+			log.Errorf("elasticcache.GetZoneId %s", err)
+			return ""
+		}
+
+		return zone.GetGlobalId()
 	}
 
 	return ""
