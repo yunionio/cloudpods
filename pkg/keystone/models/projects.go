@@ -328,7 +328,7 @@ func NormalizeProjectName(name string) string {
 	for _, illChar := range []string{
 		"/", ".", " ",
 	} {
-		name = strings.ReplaceAll(name, illChar, "")
+		name = strings.Replace(name, illChar, "", -1)
 	}
 	return name
 }
