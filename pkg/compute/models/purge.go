@@ -1264,3 +1264,153 @@ func (manager *SDBInstanceBackupManager) purgeAll(ctx context.Context, userCred 
 	}
 	return nil
 }
+
+func (instance *SElasticcache) purgeAccounts(ctx context.Context, userCred mcclient.TokenCredential) error {
+	accounts, err := instance.GetElasticcacheAccounts()
+	if err != nil {
+		return err
+	}
+
+	for i := range accounts {
+		err = accounts[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (instance *SElasticcacheAccount) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, instance)
+	defer lockman.ReleaseObject(ctx, instance)
+
+	err := instance.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+	return instance.Delete(ctx, userCred)
+}
+
+func (instance *SElasticcache) purgeAcls(ctx context.Context, userCred mcclient.TokenCredential) error {
+	acls, err := instance.GetElasticcacheAcls()
+	if err != nil {
+		return err
+	}
+
+	for i := range acls {
+		err = acls[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (instance *SElasticcacheAcl) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, instance)
+	defer lockman.ReleaseObject(ctx, instance)
+
+	err := instance.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+	return instance.Delete(ctx, userCred)
+}
+
+func (instance *SElasticcache) purgeBackups(ctx context.Context, userCred mcclient.TokenCredential) error {
+	backups, err := instance.GetElasticcacheBackups()
+	if err != nil {
+		return err
+	}
+
+	for i := range backups {
+		err = backups[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (instance *SElasticcacheBackup) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, instance)
+	defer lockman.ReleaseObject(ctx, instance)
+
+	err := instance.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+	return instance.Delete(ctx, userCred)
+}
+
+func (instance *SElasticcache) purgeParameters(ctx context.Context, userCred mcclient.TokenCredential) error {
+	parameters, err := instance.GetElasticcacheParameters()
+	if err != nil {
+		return err
+	}
+
+	for i := range parameters {
+		err = parameters[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (instance *SElasticcacheParameter) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, instance)
+	defer lockman.ReleaseObject(ctx, instance)
+
+	err := instance.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+	return instance.Delete(ctx, userCred)
+}
+
+func (instance *SElasticcache) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, instance)
+	defer lockman.ReleaseObject(ctx, instance)
+
+	err := instance.purgeAccounts(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = instance.purgeAcls(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = instance.purgeBackups(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = instance.purgeParameters(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = instance.ValidateDeleteCondition(ctx)
+	if err != nil {
+		return err
+	}
+
+	return instance.Delete(ctx, userCred)
+}
+
+func (manager *SElasticcacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	instances, err := manager.getElasticcachesByProviderId(providerId)
+	if err != nil {
+		return err
+	}
+	for i := range instances {
+		err = instances[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
