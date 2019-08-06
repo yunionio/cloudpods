@@ -1026,3 +1026,18 @@ func (region *SRegion) GetIBucketById(name string) (cloudprovider.ICloudBucket, 
 func (self *SRegion) GetSkus(zoneId string) ([]cloudprovider.ICloudSku, error) {
 	return nil, cloudprovider.ErrNotImplemented
 }
+
+func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, error) {
+	caches, err := self.GetElasticCaches()
+	if err != nil {
+		return nil, err
+	}
+
+	icaches := make([]cloudprovider.ICloudElasticcache, len(caches))
+	for i := range caches {
+		caches[i].region = self
+		icaches[i] = &caches[i]
+	}
+
+	return icaches, nil
+}
