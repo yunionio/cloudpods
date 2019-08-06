@@ -18,7 +18,7 @@ func NewElasticcacheManager(regionId string, projectId string, signer auth.Signe
 		Region:        regionId,
 		ProjectId:     projectId,
 		version:       "v1.0",
-		Keyword:       "instance",
+		Keyword:       "",
 		KeywordPlural: "instances",
 
 		ResourceKeyword: "instances",
