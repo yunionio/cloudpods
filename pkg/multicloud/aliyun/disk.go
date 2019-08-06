@@ -43,6 +43,7 @@ type SDisk struct {
 	AttachedTime                  time.Time
 	AutoSnapshotPolicyId          string
 	Category                      string
+	PerformanceLevel              string
 	CreationTime                  time.Time
 	DeleteAutoSnapshot            bool
 	DeleteWithInstance            bool
@@ -257,6 +258,14 @@ func (self *SRegion) CreateDisk(zoneId string, category string, name string, siz
 	}
 	params["Encrypted"] = "false"
 	params["DiskCategory"] = category
+	if category == api.STORAGE_CLOUD_ESSD_PL2 {
+		params["DiskCategory"] = api.STORAGE_CLOUD_ESSD
+		params["PerformanceLevel"] = "PL2"
+	}
+	if category == api.STORAGE_CLOUD_ESSD_PL3 {
+		params["DiskCategory"] = api.STORAGE_CLOUD_ESSD
+		params["PerformanceLevel"] = "PL3"
+	}
 	params["Size"] = fmt.Sprintf("%d", sizeGb)
 	params["ClientToken"] = utils.GenRequestId(20)
 
