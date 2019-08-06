@@ -234,7 +234,7 @@ func (self *SnapshotDeleteTask) StartDeleteSnapshot(ctx context.Context, snapsho
 }
 
 func (self *SnapshotDeleteTask) DeleteStaticSnapshot(ctx context.Context, snapshot *models.SSnapshot) {
-	err := snapshot.FakeDelete()
+	err := snapshot.FakeDelete(self.UserCred)
 	if err != nil {
 		self.TaskFailed(ctx, snapshot, err.Error())
 		return

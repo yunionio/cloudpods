@@ -122,6 +122,7 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 			return nil, fmt.Errorf("DeployFstabScripts: %v", err)
 		}
 	}
+
 	if len(deployInfo.Password) > 0 {
 		if account := rootfs.GetLoginAccount(partition,
 			deployInfo.DefaultRootUser, deployInfo.WindowsDefaultAdminUser); len(account) > 0 {
@@ -133,10 +134,10 @@ func DoDeployGuestFs(rootfs fsdriver.IRootFsDriver, guestDesc *deployapi.GuestDe
 				deployInfo.PublicKey.PublicKey, deployInfo.Password); err != nil {
 				return nil, fmt.Errorf("ChangeUserPasswd: %v", err)
 			}
-			ret.Account = account
 			if len(secret) > 0 {
 				ret.Key = secret
 			}
+			ret.Account = account
 		}
 	}
 

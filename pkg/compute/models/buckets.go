@@ -442,6 +442,26 @@ func (manager *SBucketManager) ListItemFilter(ctx context.Context, q *sqlchemy.S
 	return q, nil
 }
 
+func (manager *SBucketManager) QueryDistinctExtraField(q *sqlchemy.SQuery, field string) (*sqlchemy.SQuery, error) {
+	switch field {
+	case "tenant":
+		tenantCacheQuery := db.TenantCacheManager.Query("name", "id").Distinct().SubQuery()
+		q.AppendField(tenantCacheQuery.Field("name", "tenant"))
+		q = q.Join(tenantCacheQuery, sqlchemy.Equals(q.Field("tenant_id"), tenantCacheQuery.Field("id")))
+		q.GroupBy(tenantCacheQuery.Field("name"))
+	case "account":
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		cloudaccounts := CloudaccountManager.Query("name", "id").Distinct().SubQuery()
+		q = q.Join(cloudproviders, sqlchemy.Equals(q.Field("manager_id"), cloudproviders.Field("id")))
+		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), cloudaccounts.Field("id")))
+		q.GroupBy(cloudaccounts.Field("name"))
+		q.AppendField(cloudaccounts.Field("name", "account"))
+	default:
+		return nil, httperrors.NewBadRequestError("unsupport field %s", field)
+	}
+	return q, nil
+}
+
 func (bucket *SBucket) AllowGetDetailsObjects(
 	ctx context.Context,
 	userCred mcclient.TokenCredential,
