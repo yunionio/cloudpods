@@ -160,7 +160,7 @@ func loadbalancerAclsValidateAclEntries(data *jsonutils.JSONDict, update bool) (
 
 func (man *SLoadbalancerAclManager) FetchByFingerPrint(fingerprint string) (*SLoadbalancerAcl, error) {
 	ret := &SLoadbalancerAcl{}
-	q := man.Query().IsFalse("pending_deletetd")
+	q := man.Query().IsFalse("pending_deleted")
 	q = q.Equals("fingerprint", fingerprint).Asc("created_at").Limit(1)
 	err := q.First(ret)
 	if err != nil {
@@ -171,7 +171,7 @@ func (man *SLoadbalancerAclManager) FetchByFingerPrint(fingerprint string) (*SLo
 }
 
 func (man *SLoadbalancerAclManager) CountByFingerPrint(fingerprint string) int {
-	q := man.Query().IsFalse("pending_deletetd")
+	q := man.Query().IsFalse("pending_deleted")
 	return q.Equals("fingerprint", fingerprint).Asc("created_at").Count()
 }
 

@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 )
 
@@ -87,6 +88,14 @@ func (self *SUCloudGuestDriver) ValidateResizeDisk(guest *models.SGuest, disk *m
 	}
 
 	return nil
+}
+
+func (self *SUCloudGuestDriver) GetLinuxDefaultAccount(desc cloudprovider.SManagedVMCreateConfig) string {
+	if desc.OsType == "Windows" {
+		return "Administrator"
+	}
+
+	return "root"
 }
 
 func init() {
