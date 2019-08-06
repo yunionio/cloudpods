@@ -22,6 +22,7 @@ import (
 
 	"github.com/pkg/errors"
 	"yunion.io/x/onecloud/pkg/util/cloudinit"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
@@ -454,7 +455,17 @@ func (self *SManagedVirtualizedGuestDriver) RemoteDeployGuestForDeploy(ctx conte
 			desc.Password = ""
 		}
 
-		return iVM.DeployVM(ctx, desc.Name, desc.Password, desc.PublicKey, deleteKeypair, desc.Description)
+		e := iVM.DeployVM(ctx, desc.Name, desc.Password, desc.PublicKey, deleteKeypair, desc.Description)
+		if e != nil {
+			return e
+		}
+
+		//解绑秘钥后需要重置密码
+		if deleteKeypair {
+			desc.Password = seclib2.RandomPassword2(12)
+			return iVM.DeployVM(ctx, desc.Name, desc.Password, desc.PublicKey, false, desc.Description)
+		}
+		return nil
 	}()
 	if err != nil {
 		return nil, err
