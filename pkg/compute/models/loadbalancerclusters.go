@@ -127,7 +127,7 @@ func (lbc *SLoadbalancerCluster) Delete(ctx context.Context, userCred mcclient.T
 	return nil
 }
 
-func (man *SLoadbalancerClusterManager) findByZoneId(zoneId string) []SLoadbalancerCluster {
+func (man *SLoadbalancerClusterManager) FindByZoneId(zoneId string) []SLoadbalancerCluster {
 	r := []SLoadbalancerCluster{}
 	q := man.Query().Equals("zone_id", zoneId)
 	if err := db.FetchModelObjects(man, q, &r); err != nil {
@@ -140,7 +140,7 @@ func (man *SLoadbalancerClusterManager) findByZoneId(zoneId string) []SLoadbalan
 func (man *SLoadbalancerClusterManager) findByVrrpRouterIdInZone(zoneId string, routerId int) (*SLoadbalancerCluster, error) {
 	var r *SLoadbalancerCluster
 
-	peerClusters := man.findByZoneId(zoneId)
+	peerClusters := man.FindByZoneId(zoneId)
 	for i := range peerClusters {
 		peerCluster := &peerClusters[i]
 		peerClusterLbagents, err := man.getLoadbalancerAgents(peerCluster.Id)
@@ -194,7 +194,7 @@ func (man *SLoadbalancerClusterManager) InitializeData() error {
 		}
 		lbc, ok := zoneCluster[zoneId]
 		if !ok {
-			lbcs := man.findByZoneId(zoneId)
+			lbcs := man.FindByZoneId(zoneId)
 			if len(lbcs) == 0 {
 				m, err := db.NewModelObject(man)
 				if err != nil {
