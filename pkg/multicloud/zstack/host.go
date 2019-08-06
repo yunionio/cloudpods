@@ -169,7 +169,10 @@ func (host *SHost) Refresh() error {
 }
 
 func (host *SHost) GetHostStatus() string {
-	return api.HOST_ONLINE
+	if host.Status == "Connected" {
+		return api.HOST_ONLINE
+	}
+	return api.HOST_OFFLINE
 }
 
 func (host *SHost) GetEnabled() bool {
