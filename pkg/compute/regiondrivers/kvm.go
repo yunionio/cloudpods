@@ -61,10 +61,12 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 	ownerId := ctx.Value("ownerId").(mcclient.IIdentityProvider)
 	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
 	addressV := validators.NewIPv4AddrValidator("address")
+	clusterV := validators.NewModelIdOrNameValidator("cluster", "loadbalancercluster", ownerId)
 	keyV := map[string]validators.IValidator{
 		"status":  validators.NewStringChoicesValidator("status", api.LB_STATUS_SPEC).Default(api.LB_STATUS_ENABLED),
 		"address": addressV.Optional(true),
 		"network": networkV,
+		"cluster": clusterV.Optional(true),
 	}
 	if err := RunValidators(keyV, data); err != nil {
 		return nil, err
@@ -74,6 +76,27 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 	region, zone, vpc, _, err := network.ValidateElbNetwork(addressV.IP)
 	if err != nil {
 		return nil, err
+	}
+
+	if zone == nil {
+		return nil, httperrors.NewInputParameterError("zone info missing")
+	}
+
+	if clusterV.Model == nil {
+		clusters := models.LoadbalancerClusterManager.FindByZoneId(zone.Id)
+		if len(clusters) == 0 {
+			return nil, httperrors.NewInputParameterError("zone %s(%s) has no lbcluster", zone.Name, zone.Id)
+		}
+		if len(clusters) > 1 {
+			log.Warningf("found %d lbclusters, randomly select 1", len(clusters))
+		}
+		data.Set("cluster_id", jsonutils.NewString(clusters[0].Id))
+	} else {
+		cluster := clusterV.Model.(*models.SLoadbalancerCluster)
+		if cluster.ZoneId != zone.Id {
+			return nil, httperrors.NewInputParameterError("cluster zone %s does not match network zone %s ",
+				cluster.ZoneId, zone.Id)
+		}
 	}
 
 	data.Set("cloudregion_id", jsonutils.NewString(region.GetId()))
