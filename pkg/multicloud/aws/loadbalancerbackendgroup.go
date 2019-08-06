@@ -166,6 +166,7 @@ func (self *SElbBackendGroup) GetHealthCheck() (*cloudprovider.SLoadbalancerHeal
 	health := &cloudprovider.SLoadbalancerHealthCheck{}
 	health.HealthCheck = api.LB_BOOL_ON
 	health.HealthCheckRise = self.HealthyThresholdCount
+	health.HealthCheckFail = self.UnhealthyThresholdCount
 	health.HealthCheckInterval = self.HealthCheckIntervalSeconds
 	health.HealthCheckURI = self.HealthCheckPath
 	health.HealthCheckType = self.HealthCheckProtocol
