@@ -1,5 +1,5 @@
 get:
-  summary: 按指定条件列出NAT网关
+  summary: 按指定条件列出Nat网关
   parameters:
     - $ref: "../parameters/common.yaml#/offset"
     - $ref: "../parameters/common.yaml#/limit"
@@ -11,8 +11,8 @@ get:
     - $ref: "../parameters/common.yaml#/brand"
   responses:
     200:
-      description: NAT网关列表信息
+      description: Nat网关列表信息
       schema:
         $ref: "../schemas/natgateway.yaml#/NatGatewayListResponse"
   tags:
-    - NAT
+    - natgateway

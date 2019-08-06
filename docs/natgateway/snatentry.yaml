@@ -1,0 +1,22 @@
+get:
+  summary: 获取指定SNat详情信息
+  parameters:
+    - $ref: "../parameters/natgateway.yaml#/snatentryId"
+  responses:
+    200:
+      description: SNat信息
+      schema:
+        $ref: "../schemas/natgateway.yaml#/SNatEntryResponse"
+  tags:
+    - natsentry
+
+delete:
+  summary: 删除指定SNat
+  parameters:
+    - $ref: '../parameters/natgateway.yaml#/snatentryId'
+  responses:
+    200:
+      schema:
+        $ref: '../schemas/natgateway.yaml#/SNatEntryResponse'
+  tags:
+    - natsentry

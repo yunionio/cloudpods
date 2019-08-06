@@ -316,9 +316,9 @@ func syncNatDTable(ctx context.Context, userCred mcclient.TokenCredential, provi
 		log.Errorf(msg)
 		return
 	}
-	result := NatDEntryManager.SyncNatDTables(ctx, userCred, provider.GetOwnerId(), provider, localNatGateway, dtable)
+	result := NatDEntryManager.SyncNatDTable(ctx, userCred, provider.GetOwnerId(), provider, localNatGateway, dtable)
 	msg := result.Result()
-	log.Infof("SyncNatDTables for NatGateway %s result: %s", localNatGateway.Name, msg)
+	log.Infof("SyncNatDTable for NatGateway %s result: %s", localNatGateway.Name, msg)
 	if result.IsError() {
 		return
 	}
@@ -332,9 +332,9 @@ func syncNatSTable(ctx context.Context, userCred mcclient.TokenCredential, provi
 		log.Errorf(msg)
 		return
 	}
-	result := NatSEntryManager.SyncNatSTables(ctx, userCred, provider.GetOwnerId(), provider, localNatGateway, stable)
+	result := NatSEntryManager.SyncNatSTable(ctx, userCred, provider.GetOwnerId(), provider, localNatGateway, stable)
 	msg := result.Result()
-	log.Infof("SyncNatSTables for NatGateway %s result: %s", localNatGateway.Name, msg)
+	log.Infof("SyncNatSTable for NatGateway %s result: %s", localNatGateway.Name, msg)
 	if result.IsError() {
 		return
 	}

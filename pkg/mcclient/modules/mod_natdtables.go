@@ -15,13 +15,13 @@
 package modules
 
 var (
-	NatDTables ResourceManager
+	NatDTable ResourceManager
 )
 
 func init() {
-	NatDTables = NewComputeManager("natdtable", "natdtables",
+	NatDTable = NewComputeManager("natdentry", "natdentries",
 		[]string{"ID", "Name", "Status", "Natgateway_Id", "Natgateway", "External_IP", "External_Port", "Internal_IP", "Internal_Port", "Ip_Protocol"},
 		[]string{})
 
-	registerCompute(&NatDTables)
+	registerCompute(&NatDTable)
 }
