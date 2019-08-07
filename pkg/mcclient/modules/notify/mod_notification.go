@@ -33,6 +33,7 @@ type SNotifyMessage struct {
 	Priority    TNotifyPriority `json:"priority,omitempty"`
 	Msg         string          `json:"msg,omitempty"`
 	Remark      string          `json:"remark,omitempty"`
+	Broadcast   bool            `json:"broadcast,omitempty"`
 }
 
 type NotificationManager struct {
@@ -47,7 +48,7 @@ func (manager *NotificationManager) Send(s *mcclient.ClientSession, msg SNotifyM
 func init() {
 	Notifications = NotificationManager{
 		modules.NewNotifyManager("notification", "notifications",
-			[]string{"id", "uid", "contact_type", "topic", "priority", "msg", "received_at", "send_by", "status", "create_at", "update_at", "delete_at", "create_by", "update_by", "delete_by", "is_deleted", "remark"},
+			[]string{"id", "uid", "contact_type", "topic", "priority", "msg", "received_at", "send_by", "status", "create_at", "update_at", "delete_at", "create_by", "update_by", "delete_by", "is_deleted", "broadcast", "remark"},
 			[]string{}),
 	}
 
