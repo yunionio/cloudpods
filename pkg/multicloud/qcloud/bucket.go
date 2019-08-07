@@ -37,7 +37,6 @@ type SBucket struct {
 	region *SRegion
 
 	Name       string
-	FullName   string
 	Location   string
 	CreateDate time.Time
 }
@@ -130,8 +129,12 @@ func (b *SBucket) SetAcl(aclStr cloudprovider.TBucketACLType) error {
 	return nil
 }
 
+func (b *SBucket) getFullName() string {
+	return fmt.Sprintf("%s-%s", b.Name, b.region.client.AppID)
+}
+
 func (b *SBucket) getBucketUrl() string {
-	return fmt.Sprintf("https://%s.%s", b.FullName, b.region.getCosEndpoint())
+	return fmt.Sprintf("https://%s.%s", b.getFullName(), b.region.getCosEndpoint())
 }
 
 func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
@@ -141,7 +144,7 @@ func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 			Description: "bucket domain",
 		},
 		{
-			Url:         fmt.Sprintf("https://%s/%s", b.region.getCosEndpoint(), b.FullName),
+			Url:         fmt.Sprintf("https://%s/%s", b.region.getCosEndpoint(), b.getFullName()),
 			Description: "cos domain",
 		},
 	}

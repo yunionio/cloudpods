@@ -233,7 +233,7 @@ func JSONRequest(client *http.Client, ctx context.Context, method THttpMethod, u
 //
 // Subsequently this allows golang http RoundTripper
 // to re-use the same connection for future requests.
-func closeResponse(resp *http.Response) {
+func CloseResponse(resp *http.Response) {
 	// Callers should close resp.Body when done reading from it.
 	// If resp.Body is not closed, the Client's underlying RoundTripper
 	// (typically Transport) may not be able to re-use a persistent TCP
@@ -255,7 +255,7 @@ func ParseJSONResponse(resp *http.Response, err error, debug bool) (http.Header,
 		ce.Details = err.Error()
 		return nil, nil, &ce
 	}
-	defer closeResponse(resp)
+	defer CloseResponse(resp)
 	if debug {
 		if resp.StatusCode < 300 {
 			green("Status:", resp.StatusCode)
