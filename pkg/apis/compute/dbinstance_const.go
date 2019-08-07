@@ -15,15 +15,16 @@
 package compute
 
 const (
-	DBINSTANCE_DEPLOYING = "deploying" //部署中
-	DBINSTANCE_RUNNING   = "running"   //使用中
-	DBINSTANCE_REBOOTING = "rebooting" //重启中
-	DBINSTANCE_MIGRATING = "migrating" //迁移中
-	DBINSTANCE_RESTORING = "restoring" //备份恢复中
-	DBINSTANCE_IMPORTING = "importing" //数据导入中
-	DBINSTANCE_CLONING   = "cloning"   //克隆中
-	DBINSTANCE_DELETING  = "deleting"  //删除中
-	DBINSTANCE_UNKNOWN   = "unknown"
+	DBINSTANCE_DEPLOYING  = "deploying"  //部署中
+	DBINSTANCE_RUNNING    = "running"    //使用中
+	DBINSTANCE_REBOOTING  = "rebooting"  //重启中
+	DBINSTANCE_MIGRATING  = "migrating"  //迁移中
+	DBINSTANCE_BACKING_UP = "backing_up" //备份中
+	DBINSTANCE_RESTORING  = "restoring"  //备份恢复中
+	DBINSTANCE_IMPORTING  = "importing"  //数据导入中
+	DBINSTANCE_CLONING    = "cloning"    //克隆中
+	DBINSTANCE_DELETING   = "deleting"   //删除中
+	DBINSTANCE_UNKNOWN    = "unknown"
 
 	DBINSTANCE_BACKUP_READY    = "ready"
 	DBINSTANCE_BACKUP_CREATING = "creating"
@@ -56,7 +57,9 @@ const (
 	DBINSTANCE_TYPE_PPAS       = "PPAS"
 
 	DBINSTANCE_CATEGORY_BASIC    = "basic"             //基础版
-	DBINSTANCE_CATEGORY_HA       = "high_availability" //高可用
+	DBINSTANCE_CATEGORY_HA       = "high_availability" //高可用或主备
 	DBINSTANCE_CATEGORY_ALWAYSON = "always_on"         //集群版
 	DBINSTANCE_CATEGORY_FINANCE  = "finance"
+	DBINSTANCE_CATEGORY_SINGLE   = "single"  //单机
+	DBINSTANCE_CATEGORY_Replica  = "replica" //只读
 )

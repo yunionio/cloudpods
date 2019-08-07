@@ -65,7 +65,7 @@ func unmarshalResult(resp jsonutils.JSONObject, respErr error, result interface{
 	return err
 }
 
-var pageLimit = 1000
+var pageLimit = 100
 
 func doListAllWithOffset(doList listFunc, queries map[string]string, result interface{}) error {
 	startIndex := 0
@@ -81,6 +81,24 @@ func doListAllWithOffset(doList listFunc, queries map[string]string, result inte
 			break
 		}
 		queries["offset"] = fmt.Sprintf("%d", startIndex+resultValue.Len())
+	}
+	return nil
+}
+
+func doListAllWithPage(doList listFunc, queries map[string]string, result interface{}) error {
+	startIndex := 1
+	resultValue := reflect.Indirect(reflect.ValueOf(result))
+	queries["limit"] = fmt.Sprintf("%d", pageLimit)
+	queries["page"] = fmt.Sprintf("%d", startIndex)
+	for {
+		total, part, err := doListPart(doList, queries, result)
+		if err != nil {
+			return err
+		}
+		if (total > 0 && resultValue.Len() >= total) || (total == 0 && pageLimit > part) {
+			break
+		}
+		queries["page"] = fmt.Sprintf("%d", startIndex+resultValue.Len())
 	}
 	return nil
 }

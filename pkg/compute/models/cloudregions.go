@@ -158,7 +158,7 @@ func (self *SCloudregion) GetDBInstances(provider *SCloudprovider) ([]SDBInstanc
 	if provider != nil {
 		q = q.Equals("manager_id", provider.Id)
 	}
-	err := db.FetchModelObjects(DBInstanceBackupManager, q, &instances)
+	err := db.FetchModelObjects(DBInstanceManager, q, &instances)
 	if err != nil {
 		return nil, errors.Wrapf(err, "FetchModelObjects for region %s", self.Id)
 	}
