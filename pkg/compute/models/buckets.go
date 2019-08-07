@@ -39,6 +39,7 @@ import (
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
+	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
 type SBucketManager struct {
@@ -379,6 +380,21 @@ func (manager *SBucketManager) ValidateCreateData(
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("invalid bucket name: %s", err)
 	}
+
+	managerId, _ := data.GetString("manager_id")
+	if len(managerId) == 0 {
+		return nil, httperrors.NewInternalServerError("empty manager_id???")
+	}
+	cloudprovider := CloudproviderManager.FetchCloudproviderById(managerId)
+	if cloudprovider == nil {
+		return nil, httperrors.NewInternalServerError("invalid cloudprovider???")
+	}
+	quotaPlatformId := cloudprovider.GetQuotaPlatformID()
+	pendingUsage := SQuota{Bucket: 1}
+	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatformId, &pendingUsage); err != nil {
+		return nil, httperrors.NewOutOfQuotaError("%s", err)
+	}
+
 	return manager.SVirtualResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
 
@@ -389,6 +405,14 @@ func (bucket *SBucket) PostCreate(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) {
+	cloudprovider := bucket.GetCloudprovider()
+	quotaPlatformId := cloudprovider.GetQuotaPlatformID()
+	pendingUsage := SQuota{Bucket: 1}
+	err := QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatformId, &pendingUsage, &pendingUsage)
+	if err != nil {
+		log.Errorf("CancelPendingUsage error %s", err)
+	}
+
 	bucket.SetStatus(userCred, api.BUCKET_STATUS_START_CREATE, "PostCreate")
 	task, err := taskman.TaskManager.NewTask(ctx, "BucketCreateTask", bucket, userCred, nil, "", "", nil)
 	if err != nil {
@@ -769,12 +793,14 @@ func (bucket *SBucket) PerformSync(
 	query jsonutils.JSONObject,
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
+	statsOnly := jsonutils.QueryBoolean(data, "stats_only", false)
+
 	iBucket, err := bucket.GetIBucket()
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
 	}
 
-	err = bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, false)
+	err = bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, statsOnly)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("syncWithCloudBucket error %s", err)
 	}
@@ -823,4 +849,75 @@ func (bucket *SBucket) GetDetailsAcl(
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewString(string(acl)), "acl")
 	return ret, nil
+}
+
+func (manager *SBucketManager) usageQByCloudEnv(q *sqlchemy.SQuery, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
+	return CloudProviderFilter(q, q.Field("manager_id"), providers, brands, cloudEnv)
+}
+
+func (manager *SBucketManager) usageQByRange(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel) *sqlchemy.SQuery {
+	if rangeObj == nil {
+		return q
+	}
+
+	kw := rangeObj.Keyword()
+	switch kw {
+	case "zone":
+		zone := rangeObj.(*SZone)
+		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
+	case "wire":
+		wire := rangeObj.(*SWire)
+		zone := wire.GetZone()
+		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
+	case "host":
+		host := rangeObj.(*SHost)
+		zone := host.GetZone()
+		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), zone.CloudregionId))
+	case "cloudprovider":
+		q = q.Filter(sqlchemy.Equals(q.Field("manager_id"), rangeObj.GetId()))
+	case "cloudaccount":
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		subq := cloudproviders.Query(cloudproviders.Field("id")).Equals("cloudaccount_id", rangeObj.GetId()).SubQuery()
+		q = q.Filter(sqlchemy.In(q.Field("manager_id"), subq))
+	case "cloudregion":
+		q = q.Filter(sqlchemy.Equals(q.Field("cloudregion_id"), rangeObj.GetId()))
+	}
+
+	return q
+}
+
+func (manager *SBucketManager) usageQ(q *sqlchemy.SQuery, rangeObj db.IStandaloneModel, providers []string, brands []string, cloudEnv string) *sqlchemy.SQuery {
+	q = manager.usageQByRange(q, rangeObj)
+	q = manager.usageQByCloudEnv(q, providers, brands, cloudEnv)
+	return q
+}
+
+type SBucketUsages struct {
+	Buckets int
+	Objects int
+	Bytes   int64
+}
+
+func (manager *SBucketManager) TotalCount(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, providers []string, brands []string, cloudEnv string) SBucketUsages {
+	usage := SBucketUsages{}
+	buckets := manager.Query().SubQuery()
+	q := buckets.Query(
+		sqlchemy.COUNT("buckets"),
+		sqlchemy.SUM("objects", buckets.Field("object_cnt")),
+		sqlchemy.SUM("bytes", buckets.Field("size_bytes")),
+	)
+	q = manager.usageQ(q, rangeObj, providers, brands, cloudEnv)
+	switch scope {
+	case rbacutils.ScopeSystem:
+		// do nothing
+	case rbacutils.ScopeDomain:
+		q = q.Equals("domain_id", ownerId.GetProjectDomainId())
+	case rbacutils.ScopeProject:
+		q = q.Equals("tenant_id", ownerId.GetProjectId())
+	}
+	err := q.First(&usage)
+	if err != nil {
+		log.Errorf("Query bucket usage error %s", err)
+	}
+	return usage
 }

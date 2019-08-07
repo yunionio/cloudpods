@@ -63,6 +63,7 @@ type ComputeOptions struct {
 	DefaultSecgroupQuota       int `default:"50" help:"Common security group quota per tenant, default 50"`
 	DefaultIsolatedDeviceQuota int `default:"200" help:"Common isolated device quota per tenant, default 200"`
 	DefaultSnapshotQuota       int `default:"10" help:"Common snapshot quota per tenant, default 10"`
+	DefaultBucketQuota         int `default:"100" help:"Common bucket quota per tenant, default 100"`
 
 	SystemAdminQuotaCheck bool `help:"Enable quota check for system admin, default False" default:"false"`
 

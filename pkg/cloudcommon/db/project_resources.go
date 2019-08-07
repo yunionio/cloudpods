@@ -66,7 +66,8 @@ type SProjectResourceCount struct {
 }
 
 func (virtman *SVirtualResourceBaseManager) GetResourceCount() ([]SProjectResourceCount, error) {
-	virts := virtman.Query()
+	virts := virtman.GetIVirtualModelManager().Query()
+	// log.Debugf("GetResourceCount: %s", virtman.keywordPlural)
 	return CalculateProjectResourceCount(virts)
 }
 
