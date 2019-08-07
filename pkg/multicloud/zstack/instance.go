@@ -62,12 +62,19 @@ type SInstance struct {
 
 func (region *SRegion) GetInstance(instanceId string) (*SInstance, error) {
 	instance := &SInstance{}
-	return instance, region.client.getResource("vm-instances", instanceId, instance)
+	err := region.client.getResource("vm-instances", instanceId, instance)
+	if err != nil {
+		return nil, err
+	}
+	if instance.State == "Destroyed" {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return instance, nil
 }
 
 func (region *SRegion) GetInstances(hostId string, instanceId string, nicId string) ([]SInstance, error) {
 	instance := []SInstance{}
-	params := []string{"q=type=UserVm"}
+	params := []string{"q=type=UserVm", "q=state!=Destroyed"}
 	if len(hostId) > 0 {
 		params = append(params, "q=lastHostUuid="+hostId)
 	}

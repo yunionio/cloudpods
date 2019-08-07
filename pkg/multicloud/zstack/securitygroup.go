@@ -291,8 +291,18 @@ func (region *SRegion) syncSecgroupRules(secgroupId string, rules []secrules.Sec
 	}
 
 	if len(outRules) > 0 {
-		rule := secrules.MustParseSecurityRule("out:allow any")
-		outRules = append(outRules, *rule)
+		// 避免出现 {"error":{"class":"SYS.1007","code":503,"details":"rule should not be duplicated. rule dump: {\"type\":\"Egress\",\"ipVersion\":4,\"startPort\":-1,\"endPort\":-1,\"protocol\":\"ALL\",\"allowedCidr\":\"0.0.0.0/0\"}"}}
+		find := false
+		for _, _rule := range outRules {
+			if _rule.String() == "out:allow any" {
+				find = true
+				break
+			}
+		}
+		if !find {
+			rule := secrules.MustParseSecurityRule("out:allow any")
+			outRules = append(outRules, *rule)
+		}
 	}
 
 	rules = inRules.AllowList()
