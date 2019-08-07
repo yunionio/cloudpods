@@ -318,6 +318,20 @@ func (self *SKVMGuestDriver) RequestSoftReset(ctx context.Context, guest *models
 }
 
 func (self *SKVMGuestDriver) RequestDetachDisk(ctx context.Context, guest *models.SGuest, disk *models.SDisk, task taskman.ITask) error {
+	host := guest.GetHost()
+	header := task.GetTaskRequestHeader()
+	url := fmt.Sprintf("%s/servers/%s/status", host.ManagerUri, guest.Id)
+	_, res, _ := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "GET", url, header, nil, false)
+	if res != nil {
+		status, _ := res.GetString("status")
+		if status == "notfound" {
+			taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+				return nil, nil
+			})
+			return nil
+		}
+
+	}
 	return guest.StartSyncTask(ctx, task.GetUserCred(), false, task.GetTaskId())
 }
 

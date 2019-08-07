@@ -69,7 +69,9 @@ func (self *GuestDetachDiskTask) OnInit(ctx context.Context, obj db.IStandaloneM
 
 	if !purge {
 		self.SetStage("OnDetachDiskComplete", nil)
-		guest.GetDriver().RequestDetachDisk(ctx, guest, disk, self)
+		if err := guest.GetDriver().RequestDetachDisk(ctx, guest, disk, self); err != nil {
+			self.OnTaskFail(ctx, guest, disk, err)
+		}
 	} else {
 		self.OnDetachDiskComplete(ctx, guest, nil)
 	}
