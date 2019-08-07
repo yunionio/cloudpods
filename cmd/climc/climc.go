@@ -61,6 +61,7 @@ type BaseOptions struct {
 	OsZoneName     string `default:"$OS_ZONE_NAME" help:"Defaults to env[OS_ZONE_NAME]"`
 	OsEndpointType string `default:"$OS_ENDPOINT_TYPE|internalURL" help:"Defaults to env[OS_ENDPOINT_TYPE] or internalURL" choices:"publicURL|internalURL|adminURL"`
 	ApiVersion     string `default:"$API_VERSION" help:"override default modules service api version"`
+	OutputFormat   string `default:"$CLIMC_OUTPUT_FORMAT|table" choices:"table|kv|json|flatten-table|flatten-kv" help:"output format"`
 	SUBCOMMAND     string `help:"climc subcommand" subcommand:"true"`
 }
 
@@ -273,6 +274,7 @@ func main() {
 		return
 	}
 
+	shell.OutputFormat(options.OutputFormat)
 	ensureSessionFactory := func() *mcclient.ClientSession {
 		session, err := newClientSession(options)
 		if err != nil {
