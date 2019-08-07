@@ -44,6 +44,7 @@ type SDestPrepareMigrate struct {
 	DisksUri        string
 	TargetStorageId string
 	LiveMigrate     bool
+	RebaseDisks     bool
 
 	Desc             jsonutils.JSONObject
 	DisksBackingFile jsonutils.JSONObject
