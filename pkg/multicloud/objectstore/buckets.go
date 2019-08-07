@@ -130,6 +130,9 @@ func (bucket *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprov
 		if object.Err != nil {
 			return nil, errors.Wrap(object.Err, "ListObjects")
 		}
+		if !isRecursive && prefix == object.Key {
+			continue
+		}
 		obj := &SObject{
 			bucket: bucket,
 			SBaseCloudObject: cloudprovider.SBaseCloudObject{
