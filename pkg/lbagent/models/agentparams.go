@@ -110,7 +110,7 @@ func (p *AgentParams) Equals(p2 *AgentParams) bool {
 	keys := []string{"notify_script", "unicast_peer"}
 	for _, key := range keys {
 		v := p.GetVrrpParams(key)
-		v2 := p.GetVrrpParams(key)
+		v2 := p2.GetVrrpParams(key)
 		if !reflect.DeepEqual(v, v2) {
 			return false
 		}
