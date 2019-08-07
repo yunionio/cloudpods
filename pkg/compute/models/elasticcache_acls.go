@@ -14,14 +14,14 @@ import (
 
 // SElasticcache.Acl
 type SElasticcacheAclManager struct {
-	db.SVirtualResourceBaseManager
+	db.SStandaloneResourceBaseManager
 }
 
 var ElasticcacheAclManager *SElasticcacheAclManager
 
 func init() {
 	ElasticcacheAclManager = &SElasticcacheAclManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
 			SElasticcacheAcl{},
 			"elasticcacheacls_tbl",
 			"elasticcacheacl",

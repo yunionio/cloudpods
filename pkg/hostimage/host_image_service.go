@@ -53,9 +53,9 @@ func StartService() {
 	app_common.InitAuth(&HostImageOptions.CommonOptions, func() {
 		log.Infof("Auth complete!!")
 	})
-	app := app_common.InitApp(&HostImageOptions.CommonOptions, false)
+	app := app_common.InitApp(&HostImageOptions.BaseOptions, false)
 	initHandlers(app, "")
-	app_common.ServeForever(app, &HostImageOptions.CommonOptions)
+	app_common.ServeForever(app, &HostImageOptions.BaseOptions)
 }
 
 func initHandlers(app *appsrv.Application, prefix string) {

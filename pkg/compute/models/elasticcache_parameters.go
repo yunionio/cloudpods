@@ -14,14 +14,14 @@ import (
 
 // SElasticcache.Parameter
 type SElasticcacheParameterManager struct {
-	db.SVirtualResourceBaseManager
+	db.SStandaloneResourceBaseManager
 }
 
 var ElasticcacheParameterManager *SElasticcacheParameterManager
 
 func init() {
 	ElasticcacheParameterManager = &SElasticcacheParameterManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SStandaloneResourceBaseManager: db.NewStandaloneResourceBaseManager(
 			SElasticcacheParameter{},
 			"elasticcacheparameters_tbl",
 			"elasticcacheparameter",
