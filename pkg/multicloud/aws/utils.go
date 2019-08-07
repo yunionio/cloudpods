@@ -499,6 +499,6 @@ func parseNotFoundError(err error) error {
 }
 
 func ErrorNotFound() error {
-	log.Errorf("Not found: %s", string(debug.Stack()))
+	log.Debugf("Not found: %s", string(debug.Stack()))
 	return cloudprovider.ErrNotFound
 }

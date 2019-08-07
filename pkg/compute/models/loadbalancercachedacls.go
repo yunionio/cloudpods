@@ -502,21 +502,16 @@ func (man *SCachedLoadbalancerAclManager) newFromCloudLoadbalancerAcl(ctx contex
 
 	f := acl.AclEntries.Fingerprint()
 	if LoadbalancerAclManager.CountByFingerPrint(f) == 0 {
-		loaclAcl := SLoadbalancerAcl{
-			SSharableVirtualResourceBase: db.SSharableVirtualResourceBase{
-				SVirtualResourceBase: db.SVirtualResourceBase{
-					SStatusStandaloneResourceBase: db.SStatusStandaloneResourceBase{
-						SStandaloneResourceBase: db.SStandaloneResourceBase{
-							Name:        acl.Name,
-							Description: acl.Description,
-						},
-					},
-				},
-			},
-			AclEntries:  acl.AclEntries,
-			Fingerprint: f,
-		}
-		err := LoadbalancerAclManager.TableSpec().Insert(&loaclAcl)
+		localAcl := SLoadbalancerAcl{}
+		localAcl.Name = acl.Name
+		localAcl.Description = acl.Description
+		localAcl.AclEntries = acl.AclEntries
+		localAcl.Fingerprint = f
+		// usercread
+		localAcl.DomainId = userCred.GetProjectDomainId()
+		localAcl.ProjectId = userCred.GetProjectId()
+		localAcl.ProjectSrc = string(db.PROJECT_SOURCE_CLOUD)
+		err := LoadbalancerAclManager.TableSpec().Insert(&localAcl)
 		if err != nil {
 			return nil, err
 		}
