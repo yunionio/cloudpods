@@ -170,11 +170,17 @@ func (self *SZone) fetchStorages() error {
 	// if len(self.AvailableResources.ResourcesInfo) > 0 {
 	// 	categories = self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory
 	// }
-	self.istorages = make([]cloudprovider.ICloudStorage, len(categories))
+	self.istorages = []cloudprovider.ICloudStorage{}
 
-	for i, sc := range categories {
+	for _, sc := range categories {
 		storage := SStorage{zone: self, storageType: sc}
-		self.istorages[i] = &storage
+		self.istorages = append(self.istorages, &storage)
+		if sc == api.STORAGE_CLOUD_ESSD {
+			storage_l2 := SStorage{zone: self, storageType: api.STORAGE_CLOUD_ESSD_PL2}
+			self.istorages = append(self.istorages, &storage_l2)
+			storage_l3 := SStorage{zone: self, storageType: api.STORAGE_CLOUD_ESSD_PL3}
+			self.istorages = append(self.istorages, &storage_l3)
+		}
 	}
 	return nil
 }
@@ -257,6 +263,10 @@ func (self *SZone) getNetworkById(vswitchId string) *SVSwitch {
 
 func (self *SZone) getSysDiskCategories() []string {
 	if len(self.AvailableResources.ResourcesInfo) > 0 {
+		if utils.IsInStringArray(api.STORAGE_CLOUD_ESSD, self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory) {
+			self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory = append(self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory, api.STORAGE_CLOUD_ESSD_PL2)
+			self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory = append(self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory, api.STORAGE_CLOUD_ESSD_PL3)
+		}
 		return self.AvailableResources.ResourcesInfo[0].SystemDiskCategories.SupportedSystemDiskCategory
 	}
 	return nil
