@@ -15,14 +15,14 @@ import (
 
 // SElasticcache.Backup
 type SElasticcacheBackupManager struct {
-	db.SVirtualResourceBaseManager
+	db.SStatusStandaloneResourceBaseManager
 }
 
 var ElasticcacheBackupManager *SElasticcacheBackupManager
 
 func init() {
 	ElasticcacheBackupManager = &SElasticcacheBackupManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
 			SElasticcacheBackup{},
 			"elasticcachebackups_tbl",
 			"elasticcachebackup",
