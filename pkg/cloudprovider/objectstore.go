@@ -200,9 +200,12 @@ func GetIObjects(bucket ICloudBucket, objectPrefix string, isRecursive bool) ([]
 		}
 
 		// Send all objects
-		if len(result.Objects) > 0 {
-			ret = append(ret, result.Objects...)
-			marker = result.Objects[len(result.Objects)-1].GetKey()
+		for i := range result.Objects {
+			if !isRecursive && result.Objects[i].GetKey() == objectPrefix {
+				continue
+			}
+			ret = append(ret, result.Objects[i])
+			marker = result.Objects[i].GetKey()
 		}
 
 		// Send all common prefixes if any.
