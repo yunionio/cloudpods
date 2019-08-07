@@ -33,10 +33,11 @@ import (
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/util/timeutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
-	"yunion.io/x/pkg/util/timeutils"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 const (
@@ -61,7 +62,7 @@ type SQcloudClient struct {
 	ownerName string
 
 	iregions []cloudprovider.ICloudRegion
-	iBuckets []cloudprovider.ICloudBucket
+	ibuckets []cloudprovider.ICloudBucket
 
 	Debug bool
 }
@@ -78,6 +79,10 @@ func NewQcloudClient(providerId string, providerName string, secretID string, se
 	err := client.fetchRegions()
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchRegions")
+	}
+	err = client.verifyAppId()
+	if err != nil {
+		return nil, errors.Wrap(err, "verifyAppId")
 	}
 	err = client.fetchBuckets()
 	if err != nil {
@@ -501,17 +506,41 @@ func (client *SQcloudClient) getCosClient(bucket *SBucket) (*cos.Client, error) 
 }
 
 func (self *SQcloudClient) invalidateIBuckets() {
-	self.iBuckets = nil
+	self.ibuckets = nil
 }
 
 func (self *SQcloudClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
-	if self.iBuckets == nil {
+	if self.ibuckets == nil {
 		err := self.fetchBuckets()
 		if err != nil {
 			return nil, errors.Wrap(err, "fetchBuckets")
 		}
 	}
-	return self.iBuckets, nil
+	return self.ibuckets, nil
+}
+
+func (client *SQcloudClient) verifyAppId() error {
+	region, err := client.getDefaultRegion()
+	if err != nil {
+		return errors.Wrap(err, "getDefaultRegion")
+	}
+	bucket := SBucket{
+		region: region.(*SRegion),
+		Name:   "yuniondocument",
+	}
+	cli, err := client.getCosClient(&bucket)
+	if err != nil {
+		return errors.Wrap(err, "getCosClient")
+	}
+	resp, err := cli.Bucket.Head(context.Background())
+	if resp != nil {
+		defer httputils.CloseResponse(resp.Response)
+		if resp.StatusCode < 400 || resp.StatusCode == 404 {
+			return nil
+		}
+		return errors.Error(fmt.Sprintf("invalid AppId: %d", resp.StatusCode))
+	}
+	return errors.Wrap(err, "Head")
 }
 
 func (client *SQcloudClient) fetchBuckets() error {
@@ -539,16 +568,14 @@ func (client *SQcloudClient) fetchBuckets() error {
 			continue
 		}
 		b := SBucket{
-			region: region.(*SRegion),
-
+			region:     region.(*SRegion),
 			Name:       name,
-			FullName:   bInfo.Name,
 			Location:   bInfo.Region,
 			CreateDate: createAt,
 		}
 		ret = append(ret, &b)
 	}
-	client.iBuckets = ret
+	client.ibuckets = ret
 	return nil
 }
 

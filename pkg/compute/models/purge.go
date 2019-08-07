@@ -1044,7 +1044,7 @@ func (bucket *SBucket) purge(ctx context.Context, userCred mcclient.TokenCredent
 	lockman.LockObject(ctx, bucket)
 	defer lockman.ReleaseObject(ctx, bucket)
 
-	err := bucket.ValidateDeleteCondition(ctx)
+	err := bucket.ValidatePurgeCondition(ctx)
 	if err != nil {
 		return err
 	}
