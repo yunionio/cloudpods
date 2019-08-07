@@ -317,6 +317,7 @@ func guestDestPrepareMigrate(ctx context.Context, sid string, body jsonutils.JSO
 			}
 			params.TargetStorageId = targetStorageId
 		}
+		params.RebaseDisks = jsonutils.QueryBoolean(body, "rebase_disks", false)
 	}
 	hostutils.DelayTask(ctx, guestman.GetGuestManager().DestPrepareMigrate, params)
 	return nil, nil
