@@ -14,14 +14,14 @@ import (
 
 // SElasticcache.Account
 type SElasticcacheAccountManager struct {
-	db.SVirtualResourceBaseManager
+	db.SStatusStandaloneResourceBaseManager
 }
 
 var ElasticcacheAccountManager *SElasticcacheAccountManager
 
 func init() {
 	ElasticcacheAccountManager = &SElasticcacheAccountManager{
-		SVirtualResourceBaseManager: db.NewVirtualResourceBaseManager(
+		SStatusStandaloneResourceBaseManager: db.NewStatusStandaloneResourceBaseManager(
 			SElasticcacheAccount{},
 			"elasticcacheaccounts_tbl",
 			"elasticcacheaccount",
