@@ -285,9 +285,8 @@ func (self *GuestMigrateTask) localStorageMigrateConf(ctx context.Context,
 	targetStorage := targetHost.GetHoststorageOfId(targetStorageId)
 	sourceStorage := sourceHost.GetHoststorageOfId(disks[0].GetDisk().StorageId)
 	if sourceStorage.MountPoint != targetStorage.MountPoint {
-		self.TaskFailed(ctx, guest, fmt.Sprintf("target host %s storage"+
-			"mount point is different with source storage", targetHost.Id))
-		return nil, true
+		// rebase disks backing file
+		body.Set("rebase_disks", jsonutils.JSONTrue)
 	}
 	body.Set("desc", targetDesc)
 	body.Set("is_local_storage", jsonutils.JSONTrue)

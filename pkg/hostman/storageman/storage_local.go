@@ -21,6 +21,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/timeutils"
@@ -322,7 +323,9 @@ func (s *SLocalStorage) DeleteSnapshots(ctx context.Context, params interface{})
 	return nil, nil
 }
 
-func (s *SLocalStorage) DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string, desc, disksBackingFile, srcSnapshots jsonutils.JSONObject) error {
+func (s *SLocalStorage) DestinationPrepareMigrate(
+	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
+	desc, disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool) error {
 	disks, _ := desc.GetArray("disks")
 	for i, diskinfo := range disks {
 		var (
@@ -336,6 +339,7 @@ func (s *SLocalStorage) DestinationPrepareMigrate(ctx context.Context, liveMigra
 				"Storage %s create disk %s failed", s.GetId(), diskId)
 		}
 
+		templateId, _ := diskinfo.GetString("template_id")
 		// prepare disk snapshot dir
 		if len(snapshots) > 0 && !fileutils2.Exists(disk.GetSnapshotDir()) {
 			_, err := procutils.NewCommand("mkdir", "-p", disk.GetSnapshotDir()).Run()
@@ -345,15 +349,30 @@ func (s *SLocalStorage) DestinationPrepareMigrate(ctx context.Context, liveMigra
 		}
 
 		// create snapshots form remote url
-		diskStorageId, _ := diskinfo.GetString("storage_id")
-		for _, snapshotId := range snapshots {
+		var (
+			diskStorageId, _ = diskinfo.GetString("storage_id")
+			baseImagePath    string
+		)
+		for i, snapshotId := range snapshots {
 			snapId, _ := snapshotId.GetString()
-
 			snapshotUrl := fmt.Sprintf("%s/%s/%s/%s",
 				snapshotsUri, diskStorageId, diskId, snapId)
 			snapshotPath := path.Join(disk.GetSnapshotDir(), snapId)
 			log.Infof("Disk %s snapshot %s url: %s", diskId, snapId, snapshotUrl)
-			s.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath)
+			if err := s.CreateSnapshotFormUrl(ctx, snapshotUrl, diskId, snapshotPath); err != nil {
+				return errors.Wrap(err, "create from snapshot url failed")
+			}
+			baseImagePath = snapshotPath
+			if i == 0 && len(templateId) > 0 {
+				templatePath := path.Join(storageManager.LocalStorageImagecacheManager.GetPath(), templateId)
+				if err := doRebaseDisk(snapshotPath, templatePath); err != nil {
+					return err
+				}
+			} else if rebaseDisks {
+				if err := doRebaseDisk(snapshotPath, baseImagePath); err != nil {
+					return err
+				}
+			}
 		}
 
 		if liveMigrate {
@@ -373,8 +392,30 @@ func (s *SLocalStorage) DestinationPrepareMigrate(ctx context.Context, liveMigra
 				return err
 			}
 		}
+		if rebaseDisks && len(templateId) > 0 && len(baseImagePath) == 0 {
+			templatePath := path.Join(storageManager.LocalStorageImagecacheManager.GetPath(), templateId)
+			if err := doRebaseDisk(disk.GetPath(), templatePath); err != nil {
+				return err
+			}
+		} else if rebaseDisks && len(baseImagePath) > 0 {
+			if err := doRebaseDisk(disk.GetPath(), baseImagePath); err != nil {
+				return err
+			}
+		}
 		diskDesc, _ := disks[i].(*jsonutils.JSONDict)
 		diskDesc.Set("path", jsonutils.NewString(disk.GetPath()))
 	}
+	return nil
+}
+
+func doRebaseDisk(diskPath, newBasePath string) error {
+	img, err := qemuimg.NewQemuImage(diskPath)
+	if err != nil {
+		return errors.Wrap(err, "failed open disk as qemu image")
+	}
+	if err = img.Rebase(newBasePath, true); err != nil {
+		return errors.Wrap(err, "failed rebase disk backing file")
+	}
+	log.Infof("rebase disk %s backing file to %s ", diskPath, newBasePath)
 	return nil
 }
