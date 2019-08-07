@@ -356,19 +356,18 @@ func (h *ApiHelper) doSyncAgentParams(ctx context.Context) bool {
 		log.Errorf("agent get peers failure: %s", err)
 		return false
 	}
-	useUnicast := true
 	unicastPeer := []string{}
 	for _, peer := range peers {
 		if peer.Id == agent.Id {
 			continue
 		}
 		if peer.IP == "" {
-			useUnicast = false
 			log.Warningf("agent %s(%s) has no ip, use multicast vrrp", peer.Name, peer.Id)
 			break
 		}
 		unicastPeer = append(unicastPeer, peer.IP)
 	}
+	useUnicast := len(unicastPeer) == len(peers)-1
 
 	agentParams, err := agentmodels.NewAgentParams(agent)
 	if err != nil {
@@ -380,7 +379,9 @@ func (h *ApiHelper) doSyncAgentParams(ctx context.Context) bool {
 		agentParams.SetVrrpParams("unicast_peer", unicastPeer)
 	}
 	if !agentParams.Equals(h.agentParams) {
-		log.Infof("use unicast vrrp from %s to %s", agent.IP, strings.Join(unicastPeer, ","))
+		if useUnicast {
+			log.Infof("use unicast vrrp from %s to %s", agent.IP, strings.Join(unicastPeer, ","))
+		}
 		h.agentParams = agentParams
 		return true
 	}
