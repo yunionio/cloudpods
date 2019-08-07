@@ -51,4 +51,16 @@ func init() {
 		return nil
 	})
 
+	type AggregateListOption struct {
+	}
+
+	shellutils.R(&AggregateListOption{}, "aggregate-list", "List os-aggregates", func(cli *openstack.SRegion, args *AggregateListOption) error {
+		aggregates, err := cli.GetAggregates()
+		if err != nil {
+			return err
+		}
+		printList(aggregates, 0, 0, 0, []string{})
+		return nil
+	})
+
 }

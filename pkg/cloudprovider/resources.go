@@ -218,7 +218,9 @@ type ICloudHost interface {
 	GetNodeCount() int8
 	GetCpuDesc() string
 	GetCpuMhz() int
+	GetCpuCmtbound() float32
 	GetMemSizeMB() int
+	GetMemCmtbound() float32
 	GetStorageSizeMB() int
 	GetStorageType() string
 	GetHostType() string
