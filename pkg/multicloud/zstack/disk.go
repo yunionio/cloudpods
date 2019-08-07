@@ -54,7 +54,14 @@ type SDisk struct {
 
 func (region *SRegion) GetDisk(diskId string) (*SDisk, error) {
 	disk := &SDisk{region: region}
-	return disk, region.client.getResource("volumes", diskId, disk)
+	err := region.client.getResource("volumes", diskId, disk)
+	if err != nil {
+		return nil, err
+	}
+	if disk.Status == "NotInstantiated" || disk.Status == "Deleted" {
+		return nil, cloudprovider.ErrNotFound
+	}
+	return disk, nil
 }
 
 func (region *SRegion) GetDiskWithStorage(diskId string) (*SDisk, error) {
@@ -112,7 +119,7 @@ func (region *SRegion) GetDiskWithStorage(diskId string) (*SDisk, error) {
 
 func (region *SRegion) GetDisks(storageId string, diskIds []string, diskType string) ([]SDisk, error) {
 	disks := []SDisk{}
-	params := []string{}
+	params := []string{"q=status!=Deleted", "q=status!=NotInstantiated"}
 	if len(storageId) > 0 {
 		params = append(params, "q=primaryStorageUuid="+storageId)
 	}
