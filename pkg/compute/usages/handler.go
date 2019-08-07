@@ -278,6 +278,8 @@ func getAdminGeneralUsage(userCred mcclient.IIdentityProvider, rangeObj db.IStan
 
 		EipUsage(rbacutils.ScopeSystem, nil, rangeObj, providers, brands, cloudEnv),
 
+		BucketUsage(rbacutils.ScopeSystem, nil, rangeObj, providers, brands, cloudEnv),
+
 		SnapshotUsage(rbacutils.ScopeSystem, nil, rangeObj, providers, brands, cloudEnv),
 	)
 
@@ -290,6 +292,8 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 	containerUsage := containerUsage("containers", scope, cred, rangeObj, hostTypes, nil, providers, brands, cloudEnv)
 
 	eipUsage := EipUsage(scope, cred, rangeObj, providers, brands, cloudEnv)
+
+	bucketUsage := BucketUsage(scope, cred, rangeObj, providers, brands, cloudEnv)
 
 	snapshotUsage := SnapshotUsage(scope, cred, rangeObj, providers, brands, cloudEnv)
 
@@ -318,6 +322,8 @@ func getCommonGeneralUsage(scope rbacutils.TRbacScope, cred mcclient.IIdentityPr
 		NetworkUsage("", scope, cred, providers, brands, cloudEnv, rangeObj),
 
 		eipUsage,
+
+		bucketUsage,
 
 		snapshotUsage,
 
@@ -606,6 +612,16 @@ func EipUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, ra
 	count[getKey(projectId, "eip.floating_ip")] = eipUsage.EIPCount
 	count[getKey(projectId, "eip.floating_ip.used")] = eipUsage.EIPUsedCount
 	count[getKey(projectId, "eip.used")] = eipUsage.EIPUsedCount + eipUsage.PublicIPCount
+	return count
+}
+
+func BucketUsage(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, rangeObj db.IStandaloneModel, providers []string, brands []string, cloudEnv string) Usage {
+	projectId := mcclient.OwnerIdString(ownerId, scope)
+	bucketUsage := models.BucketManager.TotalCount(scope, ownerId, rangeObj, providers, brands, cloudEnv)
+	count := make(map[string]interface{})
+	count[getKey(projectId, "buckets")] = bucketUsage.Buckets
+	count[getKey(projectId, "bucket_objects")] = bucketUsage.Objects
+	count[getKey(projectId, "bucket_bytes")] = bucketUsage.Bytes
 	return count
 }
 

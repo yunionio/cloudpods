@@ -233,10 +233,15 @@ func init() {
 	})
 
 	type BucketSyncOptions struct {
-		ID string `help:"ID or name of bucket" json:"-"`
+		ID        string `help:"ID or name of bucket" json:"-"`
+		StatsOnly bool   `help:"sync statistics only"`
 	}
 	R(&BucketSyncOptions{}, "bucket-sync", "Sync bucket", func(s *mcclient.ClientSession, args *BucketSyncOptions) error {
-		result, err := modules.Buckets.PerformAction(s, args.ID, "sync", nil)
+		params, err := options.StructToParams(args)
+		if err != nil {
+			return err
+		}
+		result, err := modules.Buckets.PerformAction(s, args.ID, "sync", params)
 		if err != nil {
 			return err
 		}

@@ -66,6 +66,8 @@ type SQuota struct {
 	Secgroup       int
 	IsolatedDevice int
 	Snapshot       int
+
+	Bucket int
 }
 
 func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) {
@@ -87,6 +89,7 @@ func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope, ownerId mcclien
 	self.Secgroup = options.Options.DefaultSecgroupQuota * base
 	self.IsolatedDevice = options.Options.DefaultIsolatedDeviceQuota * base
 	self.Snapshot = options.Options.DefaultSnapshotQuota * base
+	self.Bucket = options.Options.DefaultBucketQuota * base
 }
 
 func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, name []string) error {
@@ -99,6 +102,7 @@ func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, 
 	guest := totalGuestResourceCount(scope, ownerId, nil, nil, hypervisors.List(), false, false, nil, nil, nil, nil, "")
 	eipUsage := ElasticipManager.TotalCount(scope, ownerId, nil, nil, nil, "")
 	snapshotCount, _ := TotalSnapshotCount(scope, ownerId, nil, nil, nil, "")
+	bucketUsage := BucketManager.TotalCount(scope, ownerId, nil, nil, nil, "")
 	// XXX
 	// keypair belongs to user
 	// keypair := totalKeypairCount(projectId)
@@ -120,6 +124,7 @@ func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, 
 	self.Secgroup, _ = totalSecurityGroupCount(scope, ownerId)
 	self.IsolatedDevice = guest.TotalIsolatedCount
 	self.Snapshot = snapshotCount
+	self.Bucket = bucketUsage.Buckets
 	return nil
 }
 
@@ -160,6 +165,9 @@ func (self *SQuota) IsEmpty() bool {
 	if self.Snapshot > 0 {
 		return false
 	}
+	if self.Bucket > 0 {
+		return false
+	}
 	return true
 }
 
@@ -177,6 +185,7 @@ func (self *SQuota) Add(quota quotas.IQuota) {
 	self.Secgroup = self.Secgroup + squota.Secgroup
 	self.IsolatedDevice = self.IsolatedDevice + squota.IsolatedDevice
 	self.Snapshot = self.Snapshot + squota.Snapshot
+	self.Bucket = self.Bucket + squota.Bucket
 }
 
 func nonNegative(val int) int {
@@ -197,6 +206,7 @@ func (self *SQuota) Sub(quota quotas.IQuota) {
 	self.Secgroup = nonNegative(self.Secgroup - squota.Secgroup)
 	self.IsolatedDevice = nonNegative(self.IsolatedDevice - squota.IsolatedDevice)
 	self.Snapshot = nonNegative(self.Snapshot - squota.Snapshot)
+	self.Bucket = nonNegative(self.Bucket - squota.Bucket)
 }
 
 func (self *SQuota) Update(quota quotas.IQuota) {
@@ -236,6 +246,9 @@ func (self *SQuota) Update(quota quotas.IQuota) {
 	}
 	if squota.Snapshot > 0 {
 		self.Snapshot = squota.Snapshot
+	}
+	if squota.Bucket > 0 {
+		self.Bucket = squota.Bucket
 	}
 }
 
@@ -279,6 +292,9 @@ func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	if sreq.Snapshot > 0 && self.Snapshot > squota.Snapshot {
 		err.Add("snapshot", squota.Snapshot, self.Snapshot)
 	}
+	if sreq.Bucket > 0 && self.Bucket > squota.Bucket {
+		err.Add("bucket", squota.Bucket, self.Bucket)
+	}
 	if err.IsError() {
 		return err
 	} else {
@@ -296,41 +312,18 @@ func keyName(prefix, name string) string {
 
 func (self *SQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret := jsonutils.NewDict()
-	// if self.Cpu > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.Cpu)), keyName(prefix, "cpu"))
-	//}
-	// if self.Memory > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.Memory)), keyName(prefix, "memory"))
-	//}
-	//if self.Storage > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.Storage)), keyName(prefix, "storage"))
-	//}
-	//if self.Port > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.Port)), keyName(prefix, "port"))
-	//}
-	//if self.Eip > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.Eip)), keyName(prefix, "eip"))
-	//}
-	//if self.Eport > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.Eport)), keyName(prefix, "eport"))
-	//}
-	//if self.Bw > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.Bw)), keyName(prefix, "bw"))
-	//}
-	//if self.Ebw > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.Ebw)), keyName(prefix, "ebw"))
-	//}
-	//if self.Group > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.Group)), keyName(prefix, "group"))
-	//}
-	//if self.Secgroup > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.Secgroup)), keyName(prefix, "secgroup"))
-	//}
-	//if self.IsolatedDevice > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.IsolatedDevice)), keyName(prefix, "isolated_device"))
-	//}
-	//if self.Snapshot > 0 {
 	ret.Add(jsonutils.NewInt(int64(self.Snapshot)), keyName(prefix, "snapshot"))
-	//}
+	ret.Add(jsonutils.NewInt(int64(self.Bucket)), keyName(prefix, "bucket"))
 	return ret
 }
