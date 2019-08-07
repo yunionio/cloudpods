@@ -782,11 +782,15 @@ func (bucket *SBucket) PerformSync(
 	return nil, nil
 }
 
+func (bucket *SBucket) ValidatePurgeCondition(ctx context.Context) error {
+	return bucket.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+}
+
 func (bucket *SBucket) ValidateDeleteCondition(ctx context.Context) error {
 	if bucket.ObjectCnt > 0 {
 		return httperrors.NewNotEmptyError("not an empty bucket")
 	}
-	return bucket.SVirtualResourceBase.ValidateDeleteCondition(ctx)
+	return bucket.ValidatePurgeCondition(ctx)
 }
 
 func (bucket *SBucket) AllowGetDetailsAcl(

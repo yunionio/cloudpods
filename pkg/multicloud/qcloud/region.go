@@ -843,9 +843,8 @@ func (region *SRegion) GetIBuckets() ([]cloudprovider.ICloudBucket, error) {
 
 func (region *SRegion) CreateIBucket(name string, storageClassStr string, aclStr string) error {
 	bucket := &SBucket{
-		region:   region,
-		Name:     name,
-		FullName: fmt.Sprintf("%s-%s", name, region.client.AppID),
+		region: region,
+		Name:   name,
 	}
 	coscli, err := region.GetCosClient(bucket)
 	if err != nil {
@@ -878,9 +877,8 @@ func cosHttpCode(err error) int {
 
 func (region *SRegion) DeleteIBucket(name string) error {
 	bucket := &SBucket{
-		region:   region,
-		Name:     name,
-		FullName: fmt.Sprintf("%s-%s", name, region.client.AppID),
+		region: region,
+		Name:   name,
 	}
 	coscli, err := region.GetCosClient(bucket)
 	if err != nil {
@@ -898,9 +896,8 @@ func (region *SRegion) DeleteIBucket(name string) error {
 
 func (region *SRegion) IBucketExist(name string) (bool, error) {
 	bucket := &SBucket{
-		region:   region,
-		Name:     name,
-		FullName: fmt.Sprintf("%s-%s", name, region.client.AppID),
+		region: region,
+		Name:   name,
 	}
 	coscli, err := region.GetCosClient(bucket)
 	if err != nil {
