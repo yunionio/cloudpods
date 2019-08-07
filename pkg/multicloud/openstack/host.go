@@ -16,7 +16,11 @@ package openstack
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
+
+	"github.com/pkg/errors"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/pkg/utils"
@@ -56,6 +60,7 @@ type SHost struct {
 
 	CpuInfo string
 
+	Aggregates         []string
 	CurrentWorkload    int
 	Status             string
 	State              string
@@ -316,6 +321,50 @@ func (host *SHost) GetSN() string {
 	return ""
 }
 
+func (host *SHost) GetCpuCmtbound() float32 {
+	aggregates, err := host.zone.region.GetAggregates()
+	if err != nil || len(aggregates) == 0 {
+		return 16.0
+	}
+	CpuCmtbound := 1000000.0
+	for _, aggregate := range aggregates {
+		if utils.IsInStringArray(host.GetName(), aggregate.Hosts) {
+			if _cmtbound, ok := aggregate.Metadata["cpu_allocation_ratio"]; ok {
+				cmtbound, err := strconv.ParseFloat(_cmtbound, 32)
+				if err == nil && CpuCmtbound > cmtbound {
+					CpuCmtbound = cmtbound
+				}
+			}
+		}
+	}
+	if CpuCmtbound >= 1000000.0 {
+		return 16.0
+	}
+	return float32(CpuCmtbound)
+}
+
+func (host *SHost) GetMemCmtbound() float32 {
+	aggregates, err := host.zone.region.GetAggregates()
+	if err != nil || len(aggregates) == 0 {
+		return 1.5
+	}
+	MemCmtbound := 1000000.0
+	for _, aggregate := range aggregates {
+		if utils.IsInStringArray(host.GetName(), aggregate.Hosts) {
+			if _cmtbound, ok := aggregate.Metadata["ram_allocation_ratio"]; ok {
+				cmtbound, err := strconv.ParseFloat(_cmtbound, 32)
+				if err == nil && MemCmtbound > cmtbound {
+					MemCmtbound = cmtbound
+				}
+			}
+		}
+	}
+	if MemCmtbound >= 1000000.0 {
+		return 1.5
+	}
+	return float32(MemCmtbound)
+}
+
 func (host *SHost) GetCpuCount() int {
 	if host.Vcpus > 0 {
 		return host.Vcpus
@@ -427,4 +476,28 @@ func (host *SHost) Refresh() error {
 		}
 	}
 	return nil
+}
+
+type SAggregate struct {
+	AvailabilityZone string
+	CreatedAt        time.Time
+	Deleted          bool
+	Hosts            []string
+	Id               string
+	Metadata         map[string]string
+	Name             string
+	Uuid             string
+}
+
+func (region *SRegion) GetAggregates() ([]SAggregate, error) {
+	_, resp, err := region.List("compute", "/os-aggregates", "", nil)
+	if err != nil {
+		return nil, err
+	}
+	aggregates := []SAggregate{}
+	err = resp.Unmarshal(&aggregates, "aggregates")
+	if err != nil {
+		return nil, errors.Wrap(err, `resp.Unmarshal(&aggregates, "aggregates")`)
+	}
+	return aggregates, nil
 }
