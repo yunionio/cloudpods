@@ -463,6 +463,28 @@ func (lbb *SLoadbalancerBackend) SyncWithCloudLoadbalancerBackend(ctx context.Co
 	return nil
 }
 
+func (lbb *SLoadbalancerBackend) GetAwsCachedlbb() ([]SAwsCachedLb, error) {
+	ret := []SAwsCachedLb{}
+	q := AwsCachedLbManager.Query().Equals("backend_id", lbb.GetId())
+	err := db.FetchModelObjects(AwsCachedLbManager, q, &ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "loadbalancerBackend.GetAwsCachedlbb")
+	}
+
+	return ret, nil
+}
+
+func (lbb *SLoadbalancerBackend) GetHuaweiCachedlbb() ([]SHuaweiCachedLb, error) {
+	ret := []SHuaweiCachedLb{}
+	q := HuaweiCachedLbManager.Query().Equals("backend_id", lbb.GetId())
+	err := db.FetchModelObjects(HuaweiCachedLbManager, q, &ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "loadbalancerBackend.GetHuaweiCachedlbb")
+	}
+
+	return ret, nil
+}
+
 func (man *SLoadbalancerBackendManager) newFromCloudLoadbalancerBackend(ctx context.Context, userCred mcclient.TokenCredential, loadbalancerBackendgroup *SLoadbalancerBackendGroup, extLoadbalancerBackend cloudprovider.ICloudLoadbalancerBackend, syncOwnerId mcclient.IIdentityProvider) (*SLoadbalancerBackend, error) {
 	lbb := &SLoadbalancerBackend{}
 	lbb.SetModelManager(man, lbb)

@@ -811,3 +811,18 @@ func (manager *SLoadbalancerManager) GetResourceCount() ([]db.SProjectResourceCo
 	virts := manager.Query().IsFalse("pending_deleted")
 	return db.CalculateProjectResourceCount(virts)
 }
+
+func (manager *SLoadbalancerManager) FetchByExternalId(providerId string, extId string) (*SLoadbalancer, error) {
+	ret := []SLoadbalancer{}
+	q := manager.Query().IsFalse("pending_deleted").Equals("manager_id", providerId).Equals("external_id", extId)
+	err := db.FetchModelObjects(manager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ret) == 1 {
+		return &ret[0], nil
+	} else {
+		return nil, fmt.Errorf("loadbalancerManager.FetchByExternalId provider %s external id %s %d found", providerId, extId, len(ret))
+	}
+}

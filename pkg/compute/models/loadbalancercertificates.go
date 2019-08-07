@@ -78,6 +78,16 @@ type SLoadbalancerCertificate struct {
 	SubjectAlternativeNames string    `create:"optional" list:"user" update:"user"`
 }
 
+func (lbcert *SLoadbalancerCertificate) GetCachedCerts() ([]SCachedLoadbalancerCertificate, error) {
+	ret := []SCachedLoadbalancerCertificate{}
+	q := CachedLoadbalancerCertificateManager.Query().Equals("certificate_id", lbcert.Id)
+	err := db.FetchModelObjects(CachedLoadbalancerCertificateManager, q, &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (lbcert *SLoadbalancerCertificate) AllowPerformStatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
 }
@@ -138,12 +148,20 @@ func (lbcert *SLoadbalancerCertificate) ValidateDeleteCondition(ctx context.Cont
 	return nil
 }
 
-func (lbcert *SLoadbalancerCertificate) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return nil
+func (lbcert *SLoadbalancerCertificate) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, lbcert, "purge")
 }
 
-func (lbcert *SLoadbalancerCertificate) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return false
+func (lbcert *SLoadbalancerCertificate) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	return nil, lbcert.CustomizeDelete(ctx, userCred, query, data)
+}
+
+func (lbcert *SLoadbalancerCertificate) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if !lbcert.PendingDeleted {
+		return lbcert.DoPendingDelete(ctx, userCred)
+	}
+
+	return nil
 }
 
 func (man *SLoadbalancerCertificateManager) validateCertKey(ctx context.Context, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
@@ -292,7 +310,7 @@ func (man *SLoadbalancerCertificateManager) InitializeData() error {
 	return nil
 }
 
-func (man *SLoadbalancerCertificateManager) CreateCertificate(name string, publicKey string, privateKey, fingerprint string) (*SLoadbalancerCertificate, error) {
+func (man *SLoadbalancerCertificateManager) CreateCertificate(userCred mcclient.TokenCredential, name string, publicKey string, privateKey, fingerprint string) (*SLoadbalancerCertificate, error) {
 	if len(fingerprint) == 0 {
 		return nil, fmt.Errorf("CreateCertificate fingerprint can not be empty")
 	}
@@ -309,6 +327,11 @@ func (man *SLoadbalancerCertificateManager) CreateCertificate(name string, publi
 		if err != nil {
 			return nil, err
 		}
+
+		// usercred
+		cert.DomainId = userCred.GetProjectDomainId()
+		cert.ProjectId = userCred.GetProjectId()
+		cert.ProjectSrc = string(db.PROJECT_SOURCE_CLOUD)
 
 		err = man.TableSpec().Insert(cert)
 		if err != nil {
