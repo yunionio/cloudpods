@@ -97,6 +97,11 @@ func (region *SRegion) syncFlavor(name string, cpu, memoryMb, diskGB int) (strin
 				return flavor.ID, nil
 			}
 		}
+		flavor, err := region.CreateFlavor(name, cpu, memoryMb, 40)
+		if err != nil {
+			return "", errors.Wrap(err, "region.CreateClavor()")
+		}
+		return flavor.ID, nil
 	}
 
 	if cpu == 0 && memoryMb == 0 {
