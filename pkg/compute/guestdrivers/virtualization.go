@@ -296,12 +296,3 @@ func (self *SVirtualizedGuestDriver) StartGuestSaveImage(ctx context.Context, us
 	}
 	return nil
 }
-
-func (self *SVirtualizedGuestDriver) StartGuestDiskSnapshotTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict) error {
-	task, err := taskman.TaskManager.NewTask(ctx, "GuestDiskSnapshotTask", guest, userCred, params, "", "", nil)
-	if err != nil {
-		return err
-	}
-	task.ScheduleRun(nil)
-	return nil
-}

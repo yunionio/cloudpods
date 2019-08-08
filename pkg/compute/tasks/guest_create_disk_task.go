@@ -347,7 +347,7 @@ func (self *GuestCreateBackupDisksTask) CreateBackups(ctx context.Context, guest
 	if int(diskIndex) == len(guestDisks) {
 		self.SetStageComplete(ctx, nil)
 	} else {
-		err := guestDisks[diskIndex].GetDisk().StratCreateBackupTask(ctx, self.UserCred, self.GetTaskId())
+		err := guestDisks[diskIndex].GetDisk().StartCreateBackupTask(ctx, self.UserCred, self.GetTaskId())
 		if err != nil {
 			self.SetStageFailed(ctx, err.Error())
 		}
