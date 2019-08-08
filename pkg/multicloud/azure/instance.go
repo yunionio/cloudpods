@@ -608,9 +608,12 @@ func (region *SRegion) DetachDisk(instanceId, diskId string) error {
 	return region.client.Update(jsonutils.Marshal(instance), nil)
 }
 
-func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
+func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
+	if len(config.InstanceType) > 0 {
+		return self.ChangeConfig2(ctx, config.InstanceType)
+	}
 	status := self.GetStatus()
-	for _, vmSize := range self.host.zone.region.getHardwareProfile(ncpu, vmem) {
+	for _, vmSize := range self.host.zone.region.getHardwareProfile(config.Cpu, config.MemoryMB) {
 		self.Properties.HardwareProfile.VMSize = vmSize
 		self.Properties.ProvisioningState = ""
 		self.Properties.InstanceView = nil
@@ -654,7 +657,7 @@ func (region *SRegion) ChangeVMConfig(ctx context.Context, instanceId string, nc
 	if err != nil {
 		return err
 	}
-	return instacen.ChangeConfig(ctx, ncpu, vmem)
+	return instacen.ChangeConfig(ctx, &cloudprovider.SManagedVMChangeConfig{Cpu: ncpu, MemoryMB: vmem})
 }
 
 func (self *SInstance) DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error {

@@ -17,10 +17,9 @@ package tasks
 import (
 	"context"
 
-	"yunion.io/x/onecloud/pkg/cloudprovider"
-
 	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -47,26 +46,23 @@ func (self *ServerSkuDeleteTask) taskFail(ctx context.Context, sku *models.SServ
 
 func (self *ServerSkuDeleteTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	sku := obj.(*models.SServerSku)
-
-	iregion, err := sku.GetIRegion()
+	cloudproviders, err := sku.GetCloudproviders()
 	if err != nil {
 		self.taskFail(ctx, sku, err.Error())
 		return
 	}
 
-	if len(sku.ExternalId) > 0 {
-		isku, err := iregion.GetISkuById(sku.ExternalId)
+	for _, cloudprovider := range cloudproviders {
+		provider, err := cloudprovider.GetProvider()
 		if err != nil {
-			if err != cloudprovider.ErrNotFound {
-				self.taskFail(ctx, sku, err.Error())
-				return
-			}
+			log.Warningf("failed to get provider for cloudprovider %s error: %v", cloudprovider.Name, err)
+			continue
 		}
-		if isku != nil {
-			err = isku.Delete()
+		regions := provider.GetIRegions()
+		for _, region := range regions {
+			err = region.DeleteISkuByName(sku.Name)
 			if err != nil {
-				self.taskFail(ctx, sku, err.Error())
-				return
+				log.Warningf("failed to delete sku %s for cloudprovider %s error: %v", sku.Name, cloudprovider.Name, err)
 			}
 		}
 	}

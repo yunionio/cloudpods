@@ -101,6 +101,8 @@ func init() {
 
 		Zone        *string `help:"Zone ID or name"`
 		Cloudregion *string `help:"Cloudregion ID or name"`
+		Provider    string  `help:"provider"`
+		Brand       string  `help:"brand"`
 	}
 	R(&ServerSkusCreateOptions{}, "server-sku-create", "Create a server sku record", func(s *mcclient.ClientSession, args *ServerSkusCreateOptions) error {
 		params, err := options.StructToParams(args)

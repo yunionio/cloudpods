@@ -371,7 +371,14 @@ func (region *SRegion) _createVM(desc *cloudprovider.SManagedVMCreateConfig, zon
 	if len(desc.InstanceType) > 0 {
 		offering, err := region.GetInstanceOfferingByType(desc.InstanceType)
 		if err != nil {
-			return nil, err
+			if err == cloudprovider.ErrNotFound {
+				offering, err = region.CreateInstanceOffering(desc.InstanceType, desc.Cpu, desc.MemoryMB, "UserVm")
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
 		}
 		offerings[offering.Name] = offering.UUID
 	} else {

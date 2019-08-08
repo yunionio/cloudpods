@@ -574,8 +574,11 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, password strin
 	return self.host.zone.region.DeployVM(self.GetId(), name, password, publicKey, deleteKeypair, description)
 }
 
-func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
-	err := self.host.zone.region.ChangeVMConfig(self.OSEXTAZAvailabilityZone, self.GetId(), ncpu, vmem, nil)
+func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
+	if len(config.InstanceType) > 0 {
+		return self.ChangeConfig2(ctx, config.InstanceType)
+	}
+	err := self.host.zone.region.ChangeVMConfig(self.OSEXTAZAvailabilityZone, self.GetId(), config.Cpu, config.MemoryMB, nil)
 	if err != nil {
 		return err
 	}

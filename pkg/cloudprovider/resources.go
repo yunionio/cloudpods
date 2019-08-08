@@ -107,9 +107,8 @@ type ICloudRegion interface {
 	CreateILoadBalancerAcl(acl *SLoadbalancerAccessControlList) (ICloudLoadbalancerAcl, error)
 	CreateILoadBalancerCertificate(cert *SLoadbalancerCertificate) (ICloudLoadbalancerCertificate, error)
 
-	GetISkuById(skuId string) (ICloudSku, error)
 	GetISkus(zoneId string) ([]ICloudSku, error)
-	CreateISku(sku *SServerSku) (ICloudSku, error)
+	DeleteISkuByName(name string) error
 
 	GetINetworkInterfaces() ([]ICloudNetworkInterface, error)
 
@@ -279,8 +278,7 @@ type ICloudVM interface {
 
 	DeployVM(ctx context.Context, name string, password string, publicKey string, deleteKeypair bool, description string) error
 
-	ChangeConfig(ctx context.Context, ncpu int, vmem int) error
-	ChangeConfig2(ctx context.Context, instanceType string) error // instanceType support
+	ChangeConfig(ctx context.Context, config *SManagedVMChangeConfig) error
 
 	GetVNCInfo() (jsonutils.JSONObject, error)
 	AttachDisk(ctx context.Context, diskId string) error

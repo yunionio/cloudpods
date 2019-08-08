@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/secrules"
@@ -332,6 +333,20 @@ func (region *SRegion) GetISkus(zoneId string) ([]cloudprovider.ICloudSku, error
 		iskus = append(iskus, &offerings[i])
 	}
 	return iskus, nil
+}
+
+func (region *SRegion) DeleteISkuByName(name string) error {
+	offerings, err := region.GetInstanceOfferings("", name, 0, 0)
+	if err != nil {
+		return errors.Wrap(err, "region.GetInstanceOfferings")
+	}
+	for _, offering := range offerings {
+		err = offering.Delete()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (region *SRegion) GetISkuById(skuId string) (cloudprovider.ICloudSku, error) {

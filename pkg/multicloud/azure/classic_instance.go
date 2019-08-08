@@ -315,11 +315,7 @@ func (self *SClassicInstance) DetachDisk(ctx context.Context, diskId string) err
 	return cloudprovider.WaitStatus(self, status, 10*time.Second, 300*time.Second)
 }
 
-func (self *SClassicInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (self *SClassicInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
+func (self *SClassicInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
 	return cloudprovider.ErrNotImplemented
 }
 
