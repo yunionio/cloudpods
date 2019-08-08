@@ -27,7 +27,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/utils"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
@@ -289,33 +288,37 @@ func (s *SBaseStorage) CreateDiskFromTemplate(ctx context.Context, disk IDisk, c
 
 func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, createParams *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
 	var (
-		// diskPath            = path.Join(s.Path, createParams.DiskId)
 		snapshotUrl, _      = createParams.DiskInfo.GetString("snapshot_url")
 		transferProtocol, _ = createParams.DiskInfo.GetString("protocol")
 		diskSize, _         = createParams.DiskInfo.Int("size")
+		storageType         = createParams.Storage.StorageType()
+		srcDiskId, _        = createParams.DiskInfo.GetString("src_disk_id")
+		srcPool, _          = createParams.DiskInfo.GetString("src_pool")
 	)
 
-	if len(snapshotUrl) == 0 || len(transferProtocol) == 0 {
-		return nil, fmt.Errorf("Create disk from snapshot missing params snapshot url or protocol")
+	if len(snapshotUrl) == 0 {
+		return nil, fmt.Errorf("Create disk from snapshot missing params snapshot url")
 	}
-	if createParams.Storage.StorageType() == compute.STORAGE_LOCAL {
-		if transferProtocol == "url" {
-			// not implement
-		} else if transferProtocol == "fuse" {
+
+	switch storageType {
+	case compute.STORAGE_LOCAL:
+		if transferProtocol == "fuse" {
 			if err := disk.CreateFromImageFuse(ctx, snapshotUrl, diskSize); err != nil {
 				return nil, err
 			}
 		} else {
-			return nil, fmt.Errorf("Unkown protocol %s", transferProtocol)
+			return nil, fmt.Errorf("Unsupport protocol %s for Local storage", transferProtocol)
 		}
-	} else if utils.IsInStringArray(createParams.Storage.StorageType(), compute.SHARED_FILE_STORAGE) {
-		if transferProtocol == "location" {
-			if err := disk.CreateFromSnapshotLocation(ctx, snapshotUrl, diskSize); err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, fmt.Errorf("Unkown protocol %s", transferProtocol)
+	case compute.STORAGE_NFS, compute.STORAGE_GPFS:
+		if err := disk.CreateFromSnapshotLocation(ctx, snapshotUrl, diskSize); err != nil {
+			return nil, err
 		}
+	case compute.STORAGE_RBD:
+		if err := disk.CreateFromRbdSnapshot(ctx, snapshotUrl, srcDiskId, srcPool); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("Unsupport %s for %s", transferProtocol, storageType)
 	}
 
 	return disk.GetDiskDesc(), nil

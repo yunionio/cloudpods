@@ -115,11 +115,13 @@ func (img *SQemuImage) parse() error {
 		cmd.Stdin = bytes.NewBuffer([]byte(img.Password))
 	}
 	var out bytes.Buffer
+	var errOut bytes.Buffer
 	cmd.Stdout = &out
+	cmd.Stderr = &errOut
 	err := cmd.Run()
 	if err != nil {
-		log.Errorf("qemu-img info %s fail %s", img.Path, err)
-		return fmt.Errorf("qemu-img info error %s", err)
+		log.Errorf("qemu-img info %s fail %s: %s", img.Path, err, errOut.String())
+		return fmt.Errorf("qemu-img info error %s", errOut.String())
 	}
 	for {
 		line, err := out.ReadString('\n')

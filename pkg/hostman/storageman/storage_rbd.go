@@ -295,16 +295,36 @@ func (s *SRbdStorage) cloneImage(srcPool string, srcImage string, destPool strin
 	return err
 }
 
+func (s *SRbdStorage) cloneFromSnapshot(srcImage, srcPool, srcSnapshot, newImage, pool string) error {
+	_, err := s.withImage(srcPool, srcImage, func(src *rbd.Image) (interface{}, error) {
+		snapshot := src.GetSnapshot(srcSnapshot)
+		isProtect, err := snapshot.IsProtected()
+		if err != nil {
+			return nil, errors.Wrap(err, "snapshot is protected")
+		}
+		if !isProtect {
+			if err := snapshot.Protect(); err != nil {
+				return nil, errors.Wrap(err, "snapshot protect")
+			}
+			defer snapshot.Unprotect()
+		}
+		return s.withIOContext(pool, func(ioctx *rados.IOContext) (interface{}, error) {
+			_, err := src.Clone(srcSnapshot, ioctx, newImage, RBD_FEATURE, RBD_ORDER)
+			if err != nil {
+				return nil, errors.Wrap(err, "clone from snapshot")
+			}
+			return nil, nil
+		})
+	})
+
+	if err != nil {
+		return errors.Wrap(err, "clone from snapshot")
+	}
+	return nil
+}
+
 func (s *SRbdStorage) withImage(pool string, name string, doFunc func(*rbd.Image) (interface{}, error)) (interface{}, error) {
 	return s.withIOContext(pool, func(ioctx *rados.IOContext) (interface{}, error) {
-		names, err := rbd.GetImageNames(ioctx)
-		if err != nil {
-			return nil, err
-		}
-		if !utils.IsInStringArray(name, names) {
-			return nil, ErrNoSuchImage
-		}
-
 		image := rbd.GetImage(ioctx, name)
 		if err := image.Open(); err != nil {
 			log.Errorf("open image %s name error: %v", name, err)
@@ -384,6 +404,14 @@ func (s *SRbdStorage) renameImage(pool string, src string, dest string) error {
 	return err
 }
 
+func (s *SRbdStorage) resetDisk(pool string, diskId string, snapshotId string) error {
+	_, err := s.withImage(pool, diskId, func(image *rbd.Image) (interface{}, error) {
+		snap := image.GetSnapshot(snapshotId)
+		return nil, snap.Rollback()
+	})
+	return err
+}
+
 func (s *SRbdStorage) createSnapshot(pool string, diskId string, snapshotId string) error {
 	_, err := s.withImage(pool, diskId, func(image *rbd.Image) (interface{}, error) {
 		return image.CreateSnapshot(snapshotId)
@@ -393,16 +421,57 @@ func (s *SRbdStorage) createSnapshot(pool string, diskId string, snapshotId stri
 
 func (s *SRbdStorage) deleteSnapshot(pool string, diskId string, snapshotId string) error {
 	_, err := s.withImage(pool, diskId, func(image *rbd.Image) (interface{}, error) {
-		snapshots, err := image.GetSnapshotNames()
+		snapshot := image.GetSnapshot(snapshotId)
+		isProtect, err := snapshot.IsProtected()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "snapshot is protected")
 		}
-		for _, snapshot := range snapshots {
-			if len(snapshotId) == 0 || snapshot.Name == snapshotId {
-				if err := image.GetSnapshot(snapshot.Name).Remove(); err != nil {
-					return nil, err
+		if isProtect {
+			image.Close()
+			if err := image.Open(snapshotId); err != nil {
+				return nil, errors.Wrap(err, "image open snapshot")
+			}
+			pools, childImgs, err := image.ListChildren()
+			if err != nil {
+				return nil, errors.Wrap(err, "image list children")
+			}
+			for i, iPool := range pools {
+				_, err = s.withIOContext(iPool, func(ioctx *rados.IOContext) (interface{}, error) {
+					_image := rbd.GetImage(ioctx, childImgs[i])
+					err = _image.Open()
+					if err != nil {
+						return nil, errors.Wrap(err, "open child image")
+					}
+					defer _image.Close()
+
+					log.Infof("start flatten %s/%s@%s => %s/%s", pool, diskId, snapshotId, iPool, childImgs[i])
+					err := _image.Flatten()
+					if err != nil {
+						return nil, errors.Wrap(err, "child image flatten")
+					}
+					return nil, nil
+				})
+				if err != nil {
+					return nil, errors.Wrapf(err, "flatten child %s/%s", iPool, childImgs[i])
 				}
 			}
+			for i := 0; i < 3; i++ {
+				err = snapshot.Unprotect()
+				if err == nil {
+					break
+				}
+				//Resource busy
+				if strings.Contains(err.Error(), "16") {
+					log.Warningf("snapshot is busy, try unprotect after %d seconds", (i+1)*5)
+					time.Sleep(time.Second * time.Duration(i+1) * 5)
+					continue
+				}
+				return nil, errors.Wrapf(err, "snapshot.Unprotect() %s", snapshotId)
+			}
+		}
+		err = snapshot.Remove()
+		if err != nil {
+			return nil, errors.Wrap(err, "snapshot remove")
 		}
 		return nil, nil
 	})
@@ -602,10 +671,5 @@ func (s *SRbdStorage) CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, di
 }
 
 func (s *SRbdStorage) DeleteSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	diskId, ok := params.(string)
-	if !ok {
-		return nil, hostutils.ParamsError
-	}
-	pool, _ := s.GetStorageConf().GetString("pool")
-	return nil, s.deleteSnapshot(pool, diskId, "")
+	return nil, fmt.Errorf("Not support delete snapshots")
 }

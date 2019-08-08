@@ -105,6 +105,8 @@ const (
 
 	ACT_DISK_CLEAN_UP_SNAPSHOTS      = "disk_clean_up_snapshots"
 	ACT_DISK_CLEAN_UP_SNAPSHOTS_FAIL = "disk_clean_up_snapshots_fail"
+	ACT_DISK_AUTO_SNAPSHOT           = "disk_auto_snapshot"
+	ACT_DISK_AUTO_SNAPSHOT_FAIL      = "disk_auto_snapshot_fail"
 
 	ACT_ALLOCATING           = "allocating"
 	ACT_BACKUP_ALLOCATING    = "backup_allocating"

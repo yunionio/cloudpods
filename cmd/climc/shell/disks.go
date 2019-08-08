@@ -222,20 +222,6 @@ func init() {
 		printObject(disk)
 		return nil
 	})
-	type DiskCreateSnapshotOptions struct {
-		DISK          string `help:"ID or name of disk"`
-		SNAPSHOT_NAME string `help:"Snapshot name"`
-	}
-	R(&DiskCreateSnapshotOptions{}, "disk-create-snapshot", "Disk create snapshot", func(s *mcclient.ClientSession, args *DiskCreateSnapshotOptions) error {
-		params := jsonutils.NewDict()
-		params.Add(jsonutils.NewString(args.SNAPSHOT_NAME), "name")
-		disk, err := modules.Disks.PerformAction(s, args.DISK, "create-snapshot", params)
-		if err != nil {
-			return err
-		}
-		printObject(disk)
-		return nil
-	})
 
 	type DiskSaveOptions struct {
 		ID     string `help:"ID or name of the disk" json:"-"`
