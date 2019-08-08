@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/onecloud/pkg/util/choices"
@@ -842,6 +843,15 @@ func (self *SAliyunRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Co
 	data.TimePoints, err = daysValidate(data.TimePoints, 0, 23)
 	if err != nil {
 		return httperrors.NewInputParameterError(err.Error())
+	}
+	return nil
+}
+
+func (self *SAliyunRegionDriver) ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) error {
+	name, _ := data.GetString("name")
+	if strings.HasPrefix(name, "auto") || strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "https://") {
+		return httperrors.NewBadRequestError(
+			"Snapshot for %s name can't start with auto, http:// or https://", self.GetProvider())
 	}
 	return nil
 }

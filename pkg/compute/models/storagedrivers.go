@@ -32,6 +32,13 @@ type IStorageDriver interface {
 	DoStorageUpdateTask(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage, task taskman.ITask) error
 
 	PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *SStorage, data jsonutils.JSONObject)
+
+	ValidateSnapshotDelete(ctx context.Context, snapshot *SSnapshot) error
+	ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, data *jsonutils.JSONDict) error
+	RequestCreateSnapshot(ctx context.Context, snapshot *SSnapshot, task taskman.ITask) error
+	RequestDeleteSnapshot(ctx context.Context, snapshot *SSnapshot, task taskman.ITask) error
+	SnapshotIsOutOfChain(disk *SDisk) bool
+	OnDiskReset(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, snapshot *SSnapshot, data jsonutils.JSONObject) error
 }
 
 var storageDrivers map[string]IStorageDriver

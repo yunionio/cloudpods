@@ -96,3 +96,13 @@ func (s *SNasStorage) SyncStorageInfo() (jsonutils.JSONObject, error) {
 	}
 	return res, err
 }
+
+func (s *SNasStorage) CreateDiskFromSnapshot(
+	ctx context.Context, disk IDisk, createParams *SDiskCreateByDiskinfo,
+) error {
+	var (
+		snapshotUrl, _ = createParams.DiskInfo.GetString("snapshot_url")
+		diskSize, _    = createParams.DiskInfo.Int("size")
+	)
+	return disk.CreateFromSnapshotLocation(ctx, snapshotUrl, diskSize)
+}

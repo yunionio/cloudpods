@@ -42,5 +42,4 @@ func (self *SLocalStorageDriver) ValidateCreateData(ctx context.Context, userCre
 }
 
 func (self *SLocalStorageDriver) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, storage *models.SStorage, data jsonutils.JSONObject) {
-
 }

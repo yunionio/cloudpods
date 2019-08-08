@@ -2226,70 +2226,6 @@ func (self *SGuest) PerformReset(ctx context.Context, userCred mcclient.TokenCre
 	return nil, httperrors.NewInvalidStatusError("Cannot reset VM in status %s", self.Status)
 }
 
-func (self *SGuest) AllowPerformDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "disk-snapshot")
-}
-
-func (self *SGuest) PerformDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	if len(self.BackupHostId) > 0 {
-		return nil, httperrors.NewBadRequestError("Guest has backup, can't create snapshot")
-	}
-	if !utils.IsInStringArray(self.Status, []string{api.VM_RUNNING, api.VM_READY}) {
-		return nil, httperrors.NewInvalidStatusError("Cannot do snapshot when VM in status %s", self.Status)
-	}
-	if self.IsImport(userCred) {
-		return nil, httperrors.NewBadRequestError("VM is import form libvirt, can't do snapshot")
-	}
-
-	diskId, err := data.GetString("disk_id")
-	if err != nil {
-		return nil, httperrors.NewBadRequestError(err.Error())
-	}
-	name, err := data.GetString("name")
-	if err != nil {
-		return nil, httperrors.NewBadRequestError(err.Error())
-	}
-	err = ValidateSnapshotName(self.Hypervisor, name, userCred)
-	if err != nil {
-		return nil, httperrors.NewBadRequestError(err.Error())
-	}
-	if self.GetGuestDisk(diskId) == nil {
-		return nil, httperrors.NewNotFoundError("Guest disk %s not found", diskId)
-	}
-	pendingUsage := &SQuota{Snapshot: 1}
-	quotaPlatform := self.GetQuotaPlatformID()
-	_, err = QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, self.GetOwnerId(), quotaPlatform, pendingUsage)
-	if err != nil {
-		return nil, httperrors.NewOutOfQuotaError("Out of snapshot quota %s", err)
-	}
-	if self.GetHypervisor() == api.HYPERVISOR_KVM {
-		q := SnapshotManager.Query()
-		cnt, err := q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), diskId),
-			sqlchemy.Equals(q.Field("created_by"), api.SNAPSHOT_MANUAL),
-			sqlchemy.Equals(q.Field("fake_deleted"), false))).CountWithError()
-		if err != nil {
-			return nil, httperrors.NewInternalServerError("check disk snapshot count fail %s", err)
-		}
-		if cnt >= options.Options.DefaultMaxManualSnapshotCount {
-			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", diskId)
-		}
-		snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, api.SNAPSHOT_MANUAL, diskId, self.Id, "", name)
-		if err != nil {
-			return nil, err
-		}
-		err = self.StartDiskSnapshot(ctx, userCred, diskId, snapshot.Id)
-		return nil, err
-	} else {
-		snapshot, err := SnapshotManager.CreateSnapshot(ctx, userCred, api.SNAPSHOT_MANUAL, diskId, self.Id, "", name)
-		if err != nil {
-			return nil, err
-		}
-		err = self.StartDiskSnapshot(ctx, userCred, diskId, snapshot.Id)
-		return nil, err
-	}
-
-}
-
 func (self *SGuest) AllowPerformSyncstatus(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "syncstatus")
 }
@@ -2337,14 +2273,6 @@ func (self *SGuest) PerformStatus(ctx context.Context, userCred mcclient.TokenCr
 		}
 	}
 	return nil, nil
-}
-
-func (self *SGuest) StartDiskSnapshot(ctx context.Context, userCred mcclient.TokenCredential, diskId, snapshotId string) error {
-	self.SetStatus(userCred, api.VM_START_SNAPSHOT, "StartDiskSnapshot")
-	params := jsonutils.NewDict()
-	params.Set("disk_id", jsonutils.NewString(diskId))
-	params.Set("snapshot_id", jsonutils.NewString(snapshotId))
-	return self.GetDriver().StartGuestDiskSnapshotTask(ctx, userCred, self, params)
 }
 
 func (self *SGuest) AllowPerformStop(ctx context.Context,

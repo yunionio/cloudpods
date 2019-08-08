@@ -253,9 +253,13 @@ func (self *SKVMHostDriver) RequestAllocateDiskOnStorage(ctx context.Context, ho
 					snapshotHost.GetFetchUrl(true), snapshot.DiskId, snapshot.Id)))
 			}
 			content.Set("protocol", jsonutils.NewString(options.Options.SnapshotCreateDiskProtocol))
+		} else if snapshotStorage.StorageType == api.STORAGE_RBD {
+			pool, _ := snapshotStorage.StorageConf.GetString("pool")
+			content.Set("snapshot_url", jsonutils.NewString(snapshot.Id))
+			content.Set("src_disk_id", jsonutils.NewString(snapshot.DiskId))
+			content.Set("src_pool", jsonutils.NewString(pool))
 		} else {
 			content.Set("snapshot_url", jsonutils.NewString(snapshot.Location))
-			content.Set("protocol", jsonutils.NewString("location"))
 		}
 	}
 
