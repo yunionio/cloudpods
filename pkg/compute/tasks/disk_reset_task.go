@@ -98,17 +98,8 @@ func (self *DiskResetTask) RequestResetDisk(ctx context.Context, disk *models.SD
 	}
 	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
 	snapshot := iSnapshot.(*models.SSnapshot)
-	params := jsonutils.NewDict()
-	if len(snapshot.ExternalId) == 0 {
-		params.Set("snapshot_id", jsonutils.NewString(snapshot.Id))
-		if snapshot.OutOfChain {
-			params.Set("out_of_chain", jsonutils.JSONTrue)
-		} else {
-			params.Set("out_of_chain", jsonutils.JSONFalse)
-		}
-	} else {
-		params.Set("snapshot_id", jsonutils.NewString(snapshot.ExternalId))
-	}
+	params := snapshot.GetRegionDriver().GetDiskResetParams(snapshot)
+
 	self.SetStage("OnRequestResetDisk", nil)
 	err = host.GetHostDriver().RequestResetDisk(ctx, host, disk, params, self)
 	if err != nil {
@@ -125,25 +116,13 @@ func (self *DiskResetTask) OnRequestResetDisk(ctx context.Context, disk *models.
 	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
 	snapshot := iSnapshot.(*models.SSnapshot)
 
-	externalId, _ := data.GetString("exteranl_disk_id")
-	if disk.DiskSize != snapshot.Size || (len(externalId) > 0 && externalId != disk.GetExternalId()) {
-		_, err := db.Update(disk, func() error {
-			disk.DiskSize = snapshot.Size
-			disk.ExternalId = externalId
-			return nil
-		})
-		if err != nil {
-			log.Errorln(err)
-		}
+	err := snapshot.GetRegionDriver().OnDiskReset(ctx, self.UserCred, disk, snapshot, data)
+	if err != nil {
+		log.Errorln(err)
+		self.TaskFailed(ctx, disk, fmt.Sprintf("OnRequestResetDisk %s", err.Error()))
+		return
 	}
-	if len(snapshot.ExternalId) == 0 {
-		err := disk.CleanUpDiskSnapshots(ctx, self.UserCred, snapshot)
-		if err != nil {
-			log.Errorln(err)
-			self.TaskFailed(ctx, disk, fmt.Sprintf("OnRequestResetDisk %s", err.Error()))
-			return
-		}
-	}
+
 	disk.SetStatus(self.UserCred, api.DISK_READY, "")
 	self.TaskCompleted(ctx, disk, nil)
 }

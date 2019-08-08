@@ -27,9 +27,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/cronman"
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
@@ -104,6 +102,7 @@ type IStorage interface {
 	// *SDiskCreateByDiskinfo
 	CreateDiskByDiskinfo(context.Context, interface{}) (jsonutils.JSONObject, error)
 	SaveToGlance(context.Context, interface{}) (jsonutils.JSONObject, error)
+	CreateDiskFromSnapshot(context.Context, IDisk, *SDiskCreateByDiskinfo) error
 
 	CreateSnapshotFormUrl(ctx context.Context, snapshotUrl, diskId, snapshotPath string) error
 
@@ -288,34 +287,14 @@ func (s *SBaseStorage) CreateDiskFromTemplate(ctx context.Context, disk IDisk, c
 }
 
 func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, createParams *SDiskCreateByDiskinfo) (jsonutils.JSONObject, error) {
-	var (
-		// diskPath            = path.Join(s.Path, createParams.DiskId)
-		snapshotUrl, _      = createParams.DiskInfo.GetString("snapshot_url")
-		transferProtocol, _ = createParams.DiskInfo.GetString("protocol")
-		diskSize, _         = createParams.DiskInfo.Int("size")
-	)
-
-	if len(snapshotUrl) == 0 || len(transferProtocol) == 0 {
-		return nil, fmt.Errorf("Create disk from snapshot missing params snapshot url or protocol")
+	var storage = createParams.Storage
+	var snapshotUrl, _ = createParams.DiskInfo.GetString("snapshot_url")
+	if len(snapshotUrl) == 0 {
+		return nil, fmt.Errorf("Create disk from snapshot missing params snapshot url")
 	}
-	if createParams.Storage.StorageType() == compute.STORAGE_LOCAL {
-		if transferProtocol == "url" {
-			// not implement
-		} else if transferProtocol == "fuse" {
-			if err := disk.CreateFromImageFuse(ctx, snapshotUrl, diskSize); err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, fmt.Errorf("Unkown protocol %s", transferProtocol)
-		}
-	} else if utils.IsInStringArray(createParams.Storage.StorageType(), compute.SHARED_FILE_STORAGE) {
-		if transferProtocol == "location" {
-			if err := disk.CreateFromSnapshotLocation(ctx, snapshotUrl, diskSize); err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, fmt.Errorf("Unkown protocol %s", transferProtocol)
-		}
+
+	if err := storage.CreateDiskFromSnapshot(ctx, disk, createParams); err != nil {
+		return nil, err
 	}
 
 	return disk.GetDiskDesc(), nil

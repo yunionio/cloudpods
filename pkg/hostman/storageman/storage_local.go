@@ -419,3 +419,21 @@ func doRebaseDisk(diskPath, newBasePath string) error {
 	log.Infof("rebase disk %s backing file to %s ", diskPath, newBasePath)
 	return nil
 }
+
+func (s *SLocalStorage) CreateDiskFromSnapshot(
+	ctx context.Context, disk IDisk, createParams *SDiskCreateByDiskinfo,
+) error {
+	var (
+		snapshotUrl, _      = createParams.DiskInfo.GetString("snapshot_url")
+		transferProtocol, _ = createParams.DiskInfo.GetString("protocol")
+		diskSize, _         = createParams.DiskInfo.Int("size")
+	)
+	if transferProtocol == "fuse" {
+		if err := disk.CreateFromImageFuse(ctx, snapshotUrl, diskSize); err != nil {
+			return err
+		}
+		return nil
+	} else {
+		return fmt.Errorf("Unsupport protocol %s for Local storage", transferProtocol)
+	}
+}

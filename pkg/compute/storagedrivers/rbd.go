@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 
@@ -28,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/httputils"
 )
 
 type SRbdStorageDriver struct {
@@ -169,5 +171,57 @@ func (self *SRbdStorageDriver) DoStorageUpdateTask(ctx context.Context, userCred
 		return err
 	}
 	subtask.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SRbdStorageDriver) ValidateSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot) error {
+	return nil
+}
+
+func (self *SRbdStorageDriver) ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) error {
+	return nil
+}
+
+func (self *SRbdStorageDriver) RequestCreateSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
+	disk, err := snapshot.GetDisk()
+	if err != nil {
+		return errors.Wrap(err, "snapshot get disk")
+	}
+	storage := snapshot.GetStorage()
+	host := storage.GetMasterHost()
+	url := fmt.Sprintf("%s/disks/%s/snapshot/%s", host.ManagerUri, storage.Id, disk.Id)
+	header := task.GetTaskRequestHeader()
+	params := jsonutils.NewDict()
+	params.Set("snapshot_id", jsonutils.NewString(snapshot.Id))
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, params, false)
+	if err != nil {
+		return errors.Wrap(err, "request create snapshot")
+	}
+	return nil
+}
+
+func (self *SRbdStorageDriver) RequestDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
+	disk, err := snapshot.GetDisk()
+	if err != nil {
+		return errors.Wrap(err, "snapshot get disk")
+	}
+	storage := snapshot.GetStorage()
+	host := storage.GetMasterHost()
+	url := fmt.Sprintf("%s/disks/%s/delete-snapshot/%s", host.ManagerUri, storage.Id, disk.Id)
+	header := task.GetTaskRequestHeader()
+	params := jsonutils.NewDict()
+	params.Set("snapshot_id", jsonutils.NewString(snapshot.Id))
+	_, _, err = httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST", url, header, params, false)
+	if err != nil {
+		return errors.Wrap(err, "request create snapshot")
+	}
+	return nil
+}
+
+func (self *SRbdStorageDriver) SnapshotIsOutOfChain(disk *models.SDisk) bool {
+	return true
+}
+
+func (self *SRbdStorageDriver) OnDiskReset(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, data jsonutils.JSONObject) error {
 	return nil
 }
