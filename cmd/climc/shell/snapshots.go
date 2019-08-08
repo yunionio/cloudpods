@@ -46,14 +46,11 @@ func init() {
 	})
 
 	type SnapshotDeleteOptions struct {
-		ID string `help:"Delete snapshot id"`
+		ID []string `help:"Delete snapshot id"`
 	}
 	R(&SnapshotDeleteOptions{}, "snapshot-delete", "Delete snapshots", func(s *mcclient.ClientSession, args *SnapshotDeleteOptions) error {
-		result, err := modules.Snapshots.Delete(s, args.ID, nil)
-		if err != nil {
-			return err
-		}
-		printObject(result)
+		ret := modules.Snapshots.BatchDelete(s, args.ID, nil)
+		printBatchResults(ret, modules.Snapshots.GetColumns(s))
 		return nil
 	})
 	type DiskDeleteSnapshotsOptions struct {

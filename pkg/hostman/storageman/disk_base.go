@@ -38,6 +38,8 @@ type IDisk interface {
 	GetSnapshotLocation() string
 
 	DeleteAllSnapshot() error
+	DiskSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
+	DiskDeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	Delete(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	Resize(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
 	PrepareSaveToGlance(ctx context.Context, params interface{}) (jsonutils.JSONObject, error)
@@ -48,6 +50,7 @@ type IDisk interface {
 	CreateFromUrl(ctx context.Context, url string, size int64) error
 	CreateFromTemplate(context.Context, string, string, int64) (jsonutils.JSONObject, error)
 	CreateFromSnapshotLocation(ctx context.Context, location string, size int64) error
+	CreateFromRbdSnapshot(ctx context.Context, snapshotId, srcDiskId, srcPool string) error
 	CreateFromImageFuse(ctx context.Context, url string, size int64) error
 	CreateRaw(ctx context.Context, sizeMb int, diskFromat string, fsFormat string,
 		encryption bool, diskId string, back string) (jsonutils.JSONObject, error)
@@ -152,4 +155,16 @@ func (d *SBaseDisk) FormatFs(fsFormat, uuid, diskPath string) {
 	if err != nil {
 		log.Errorf("Format fs error : %s", err)
 	}
+}
+
+func (d *SBaseDisk) DiskSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, fmt.Errorf("Not implement disk.DiskSnapshot")
+}
+
+func (d *SBaseDisk) DiskDeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	return nil, fmt.Errorf("Not implement disk.DiskDeleteSnapshot")
+}
+
+func (d *SBaseDisk) CreateFromRbdSnapshot(ctx context.Context, napshotUrl, srcDiskId, srcPool string) error {
+	return fmt.Errorf("Not implement disk.CreateFromRbdSnapshot")
 }

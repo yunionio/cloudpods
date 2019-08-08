@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/onecloud/pkg/hostman/hostutils"
 	"yunion.io/x/onecloud/pkg/hostman/options"
 	"yunion.io/x/onecloud/pkg/hostman/storageman/remotefile"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/util/fileutils2"
 	"yunion.io/x/onecloud/pkg/util/fuseutils"
@@ -421,6 +422,11 @@ func (d *SLocalDisk) ResetFromSnapshot(ctx context.Context, params interface{}) 
 		return nil, hostutils.ParamsError
 	}
 
+	outOfChain, err := resetParams.Input.Bool("out_of_chain")
+	if err != nil {
+		return nil, httperrors.NewMissingParameterError("out_of_chain")
+	}
+
 	snapshotDir := d.GetSnapshotDir()
 	snapshotPath := path.Join(snapshotDir, resetParams.SnapshotId)
 	diskTmpPath := d.GetPath() + "_reset.tmp"
@@ -428,7 +434,7 @@ func (d *SLocalDisk) ResetFromSnapshot(ctx context.Context, params interface{}) 
 		log.Errorln(err)
 		return nil, err
 	}
-	if !resetParams.OutOfChain {
+	if !outOfChain {
 		img, err := qemuimg.NewQemuImage(d.GetPath())
 		if err != nil {
 			log.Errorln(err)
@@ -447,7 +453,7 @@ func (d *SLocalDisk) ResetFromSnapshot(ctx context.Context, params interface{}) 
 			return nil, err
 		}
 	}
-	_, err := procutils.NewCommand("rm", "-f", diskTmpPath).Run()
+	_, err = procutils.NewCommand("rm", "-f", diskTmpPath).Run()
 	return nil, err
 }
 

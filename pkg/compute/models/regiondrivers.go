@@ -78,11 +78,21 @@ type IRegionDriver interface {
 	ValidateCreateVpcData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 	ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error)
 
+	// Region Driver Snapshot Policy Apis
 	ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, data *compute.SSnapshotPolicyCreateInput) error
 	RequestCreateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *SSnapshotPolicy, task taskman.ITask) error
 	RequestDeleteSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *SSnapshotPolicy, task taskman.ITask) error
 	RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *SSnapshotPolicy, task taskman.ITask, diskIds []string) error
 	RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, region cloudprovider.ICloudRegion, task taskman.ITask, diskIds []string) error
+
+	// Region Driver Snapshot Apis
+	ValidateSnapshotDelete(ctx context.Context, snapshot *SSnapshot) error
+	ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, data *jsonutils.JSONDict) error
+	RequestCreateSnapshot(ctx context.Context, snapshot *SSnapshot, task taskman.ITask) error
+	RequestDeleteSnapshot(ctx context.Context, snapshot *SSnapshot, task taskman.ITask) error
+	SnapshotIsOutOfChain(disk *SDisk) bool
+	GetDiskResetParams(snapshot *SSnapshot) *jsonutils.JSONDict
+	OnDiskReset(ctx context.Context, userCred mcclient.TokenCredential, disk *SDisk, snapshot *SSnapshot, data jsonutils.JSONObject) error
 }
 
 var regionDrivers map[string]IRegionDriver

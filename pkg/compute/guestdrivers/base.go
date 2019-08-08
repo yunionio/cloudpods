@@ -207,10 +207,6 @@ func (self *SBaseGuestDriver) RequestRebuildRootDisk(ctx context.Context, guest 
 	return fmt.Errorf("Not Implement")
 }
 
-func (self *SBaseGuestDriver) StartGuestDiskSnapshotTask(ctx context.Context, userCred mcclient.TokenCredential, guest *models.SGuest, params *jsonutils.JSONDict) error {
-	return fmt.Errorf("Not Implement")
-}
-
 func (self *SBaseGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
 	return fmt.Errorf("Not Implement")
 }
