@@ -391,6 +391,20 @@ func (lbbg *SLoadbalancerBackendGroup) purgeListeners(ctx context.Context, userC
 	return nil
 }
 
+func (lbbg *SLoadbalancerBackendGroup) purgeListenerrules(ctx context.Context, userCred mcclient.TokenCredential) error {
+	rules, err := lbbg.GetLoadbalancerListenerRules()
+	if err != nil {
+		return err
+	}
+	for i := range rules {
+		err = rules[i].purge(ctx, userCred)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (lbbg *SLoadbalancerBackendGroup) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, lbbg)
 	defer lockman.ReleaseObject(ctx, lbbg)
@@ -401,6 +415,11 @@ func (lbbg *SLoadbalancerBackendGroup) purge(ctx context.Context, userCred mccli
 	}
 
 	err = lbbg.purgeListeners(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	err = lbbg.purgeListenerrules(ctx, userCred)
 	if err != nil {
 		return err
 	}
