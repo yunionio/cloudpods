@@ -294,9 +294,14 @@ func (b *SBucket) getSrcUrl() string {
 func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 	ret := make([]cloudprovider.SBucketAccessUrl, 0)
 	for i, u := range b.Domain.Src {
+		primary := false
+		if i == 0 {
+			primary = true
+		}
 		ret = append(ret, cloudprovider.SBucketAccessUrl{
 			Url:         u,
 			Description: fmt.Sprintf("src%d", i),
+			Primary:     primary,
 		})
 	}
 	for i, u := range b.Domain.CDN {

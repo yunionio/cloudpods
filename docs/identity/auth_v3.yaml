@@ -5,6 +5,11 @@ get:
   responses:
     200:
       description: keystone v3 token信息
+      headers:
+        X-Subject-Token:
+          schema:
+            type: string
+          description: 验证成功的token
       schema:
         $ref: "../schemas/auth.yaml#/Auth3Response"
   tags:
@@ -21,6 +26,11 @@ post:
   responses:
     200:
       description: keystone v3 token信息
+      headers:
+        X-Subject-Token:
+          schema:
+            type: string
+          description: 认证成功的token
       schema:
         $ref: "../schemas/auth.yaml#/Auth3Response"
   tags:

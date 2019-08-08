@@ -105,6 +105,7 @@ func (bucket *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 		{
 			Url:         path.Join(bucket.client.endpoint, bucket.Name),
 			Description: fmt.Sprintf("%s", bucket.Location),
+			Primary:     true,
 		},
 	}
 }

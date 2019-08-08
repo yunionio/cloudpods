@@ -89,6 +89,7 @@ func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 		{
 			Url:         fmt.Sprintf("%s.%s", b.Name, b.region.getOSSExternalDomain()),
 			Description: "ExtranetEndpoint",
+			Primary:     true,
 		},
 		{
 			Url:         fmt.Sprintf("%s.%s", b.Name, b.region.getOSSInternalDomain()),
