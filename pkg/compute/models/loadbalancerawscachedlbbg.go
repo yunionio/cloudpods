@@ -271,9 +271,9 @@ func (man *SAwsCachedLbbgManager) SyncLoadbalancerBackendgroups(ctx context.Cont
 		}
 
 		if len(elbId) > 0 {
-			ielb, err := db.FetchByExternalId(LoadbalancerManager, elbId)
-			if err == nil {
-				elb = ielb.(*SLoadbalancer)
+			elb, err = LoadbalancerManager.FetchByExternalId(provider.GetId(), elbId)
+			if err != nil {
+				log.Debugf("awsCachedLbbgManager.SyncLoadbalancerBackendgroups %s", err)
 			}
 		}
 

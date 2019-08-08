@@ -188,7 +188,7 @@ func (self *SDisk) GetMountpoint() string {
 }
 
 func (self *SDisk) Delete(ctx context.Context) error {
-	if _, err := self.storage.zone.region.GetDisk(self.DiskId); err == ErrorNotFound() {
+	if _, err := self.storage.zone.region.GetDisk(self.DiskId); err == cloudprovider.ErrNotFound {
 		log.Errorf("Failed to find disk %s when delete", self.DiskId)
 		return nil
 	}

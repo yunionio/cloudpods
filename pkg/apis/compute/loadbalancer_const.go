@@ -53,6 +53,7 @@ const (
 
 	LB_STATUS_DELETING      = "deleting"
 	LB_STATUS_DELETE_FAILED = "delete_failed"
+	LB_STATUS_DELETED       = "deleted"
 
 	LB_STATUS_START_FAILED = "start_failed"
 	LB_STATUS_STOP_FAILED  = "stop_failed"

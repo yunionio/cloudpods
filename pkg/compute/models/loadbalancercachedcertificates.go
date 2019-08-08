@@ -261,12 +261,12 @@ func (man *SCachedLoadbalancerCertificateManager) newFromCloudLoadbalancerCertif
 	c := SCachedLoadbalancerCertificate{}
 	err = CachedLoadbalancerCertificateManager.Query().IsFalse("pending_deleted").Equals("fingerprint", lbcert.Fingerprint).First(&c)
 	if err != nil && len(c.CertificateId) == 0 {
-		localcert, err := LoadbalancerCertificateManager.CreateCertificate(lbcert.Name, lbcert.Certificate, lbcert.PrivateKey, lbcert.Fingerprint)
+		localcert, err := LoadbalancerCertificateManager.CreateCertificate(userCred, lbcert.Name, lbcert.Certificate, lbcert.PrivateKey, lbcert.Fingerprint)
 		if err != nil {
 			log.Debugf("newFromCloudLoadbalancerCertificate CreateCertificate %s", err)
 		}
 
-		lbcert.Certificate = localcert.Id
+		lbcert.CertificateId = localcert.Id
 	} else {
 		lbcert.CertificateId = c.CertificateId
 	}
