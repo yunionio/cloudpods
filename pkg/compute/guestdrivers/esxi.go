@@ -163,6 +163,11 @@ func (self *SESXiGuestDriver) RequestDeployGuestOnHost(ctx context.Context, gues
 
 	config.Add(jsonutils.NewString(host.AccessIp), "host_ip")
 	config.Add(jsonutils.NewString(guest.Id), "guest_id")
+	extId := guest.Id
+	if len(guest.ExternalId) > 0 {
+		extId = guest.ExternalId
+	}
+	config.Add(jsonutils.NewString(extId), "guest_ext_id")
 
 	accessInfo, err := host.GetCloudaccount().GetVCenterAccessInfo(storage.ExternalId)
 	if err != nil {
