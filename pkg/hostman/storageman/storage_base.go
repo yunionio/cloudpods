@@ -112,7 +112,8 @@ type IStorage interface {
 	GetFuseMountPath() string
 	GetImgsaveBackupPath() string
 
-	DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string, desc, disksBackingFile, srcSnapshots jsonutils.JSONObject) error
+	DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
+		desc, disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool) error
 }
 
 type SBaseStorage struct {
@@ -320,7 +321,10 @@ func (s *SBaseStorage) CreateDiskFromSnpashot(ctx context.Context, disk IDisk, c
 	return disk.GetDiskDesc(), nil
 }
 
-func (s *SBaseStorage) DestinationPrepareMigrate(ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string, desc, disksBackingFile, srcSnapshots jsonutils.JSONObject) error {
+func (s *SBaseStorage) DestinationPrepareMigrate(
+	ctx context.Context, liveMigrate bool, disksUri string, snapshotsUri string,
+	desc, disksBackingFile, srcSnapshots jsonutils.JSONObject, rebaseDisks bool,
+) error {
 	return nil
 }
 
