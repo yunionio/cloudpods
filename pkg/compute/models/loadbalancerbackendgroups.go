@@ -175,6 +175,16 @@ func (man *SLoadbalancerBackendGroupManager) ValidateCreateData(ctx context.Cont
 	return region.GetDriver().ValidateCreateLoadbalancerBackendGroupData(ctx, userCred, data, lb, backends)
 }
 
+func (lbbg *SLoadbalancerBackendGroup) GetLoadbalancerListenerRules() ([]SLoadbalancerListenerRule, error) {
+	q := LoadbalancerListenerRuleManager.Query().Equals("backend_group_id", lbbg.Id).IsFalse("pending_deleted")
+	rules := []SLoadbalancerListenerRule{}
+	err := db.FetchModelObjects(LoadbalancerListenerRuleManager, q, &rules)
+	if err != nil {
+		return nil, err
+	}
+	return rules, nil
+}
+
 func (lbbg *SLoadbalancerBackendGroup) GetLoadbalancerListeners() ([]SLoadbalancerListener, error) {
 	q := LoadbalancerListenerManager.Query().Equals("backend_group_id", lbbg.Id).IsFalse("pending_deleted")
 	listeners := []SLoadbalancerListener{}
