@@ -491,7 +491,7 @@ func (m *SGuestManager) DestPrepareMigrate(ctx context.Context, params interface
 
 		err := iStorage.DestinationPrepareMigrate(
 			ctx, migParams.LiveMigrate, migParams.DisksUri, migParams.SnapshotsUri,
-			migParams.Desc, migParams.DisksBackingFile, migParams.SrcSnapshots)
+			migParams.Desc, migParams.DisksBackingFile, migParams.SrcSnapshots, migParams.RebaseDisks)
 		if err != nil {
 			return nil, fmt.Errorf("dest prepare migrate failed %s", err)
 		}
