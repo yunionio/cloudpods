@@ -228,6 +228,17 @@ func GetIObjects(bucket ICloudBucket, objectPrefix string, isRecursive bool) ([]
 	return ret, nil
 }
 
+func GetIObject(bucket ICloudBucket, objectPrefix string) (ICloudObject, error) {
+	objects, err := GetIObjects(bucket, objectPrefix, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetIObjects")
+	}
+	if len(objects) > 0 && objects[0].GetKey() == objectPrefix {
+		return objects[0], nil
+	}
+	return nil, ErrNotFound
+}
+
 func Makedir(ctx context.Context, bucket ICloudBucket, key string) error {
 	segs := make([]string, 0)
 	for _, seg := range strings.Split(key, "/") {
