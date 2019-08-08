@@ -602,7 +602,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 			}
 
 			host := szone.getHost()
-
+			vcpu := int(*instance.CpuOptions.CoreCount) * int(*instance.CpuOptions.ThreadsPerCore)
 			sinstance := SInstance{
 				RegionId:          self.RegionId,
 				host:              host,
@@ -610,7 +610,7 @@ func (self *SRegion) GetInstances(zoneId string, ids []string, offset int, limit
 				InstanceId:        *instance.InstanceId,
 				ImageId:           *instance.ImageId,
 				InstanceType:      *instance.InstanceType,
-				Cpu:               int(*instance.CpuOptions.CoreCount),
+				Cpu:               vcpu,
 				IoOptimized:       *instance.EbsOptimized,
 				KeyPairName:       *instance.KeyName,
 				CreationTime:      *instance.LaunchTime,
