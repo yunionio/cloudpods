@@ -766,6 +766,7 @@ func (ep SStorageEndpoints) getUrls(prefix string) []cloudprovider.SBucketAccess
 		ret = append(ret, cloudprovider.SBucketAccessUrl{
 			Url:         ep.Blob,
 			Description: getDesc(prefix, "blob"),
+			Primary:     true,
 		})
 	}
 	if len(ep.Queue) > 0 {

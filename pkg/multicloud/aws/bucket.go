@@ -135,6 +135,7 @@ func (b *SBucket) GetAccessUrls() []cloudprovider.SBucketAccessUrl {
 		{
 			Url:         fmt.Sprintf("https://%s.%s", b.Name, b.region.getS3Endpoint()),
 			Description: "bucket domain",
+			Primary:     true,
 		},
 		{
 			Url:         fmt.Sprintf("https://%s/%s", b.region.getS3Endpoint(), b.Name),

@@ -53,6 +53,7 @@ func (s SBucketStats) Equals(s2 SBucketStats) bool {
 type SBucketAccessUrl struct {
 	Url         string
 	Description string
+	Primary     bool
 }
 
 type SBaseCloudObject struct {
