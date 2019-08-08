@@ -19,6 +19,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/onecloud/pkg/multicloud"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -26,6 +27,7 @@ import (
 )
 
 type SHost struct {
+	multicloud.SHostBase
 	zone *SZone
 }
 
