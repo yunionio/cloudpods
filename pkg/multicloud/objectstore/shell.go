@@ -229,14 +229,11 @@ func S3Shell() {
 		if err != nil {
 			return err
 		}
-		objects, err := bucket.GetIObjects(args.KEY, false)
+		object, err := cloudprovider.GetIObject(bucket, args.KEY)
 		if err != nil {
 			return err
 		}
-		if len(objects) == 0 {
-			return cloudprovider.ErrNotFound
-		}
-		fmt.Println(objects[0].GetAcl())
+		fmt.Println(object.GetAcl())
 		return nil
 	})
 
@@ -250,14 +247,11 @@ func S3Shell() {
 		if err != nil {
 			return err
 		}
-		objects, err := bucket.GetIObjects(args.KEY, false)
+		object, err := cloudprovider.GetIObject(bucket, args.KEY)
 		if err != nil {
 			return err
 		}
-		if len(objects) == 0 {
-			return cloudprovider.ErrNotFound
-		}
-		err = objects[0].SetAcl(cloudprovider.TBucketACLType(args.ACL))
+		err = object.SetAcl(cloudprovider.TBucketACLType(args.ACL))
 		if err != nil {
 			return err
 		}

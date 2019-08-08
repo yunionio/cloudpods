@@ -256,8 +256,8 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 		return "", errors.Wrap(err, "GetCosClient")
 	}
 	url, err := coscli.Object.GetPresignedURL(context.Background(), method, key,
-		b.region.client.SecretKey,
 		b.region.client.SecretID,
+		b.region.client.SecretKey,
 		expire, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "coscli.Object.GetPresignedURL")
