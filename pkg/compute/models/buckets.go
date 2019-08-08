@@ -763,14 +763,15 @@ func (bucket *SBucket) PerformAcl(
 			return nil, httperrors.NewInternalServerError("syncWithCloudBucket error %s", err)
 		}
 	} else {
-		objects, err := iBucket.GetIObjects(objKey, false)
+		object, err := cloudprovider.GetIObject(iBucket, objKey)
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("iBucket.GetIObjects error %s", err)
+			if err == cloudprovider.ErrNotFound {
+				return nil, httperrors.NewResourceNotFoundError("object %s not found", objKey)
+			} else {
+				return nil, httperrors.NewInternalServerError("iBucket.GetIObjects error %s", err)
+			}
 		}
-		if len(objects) == 0 {
-			return nil, httperrors.NewResourceNotFoundError("object %s not found", objKey)
-		}
-		err = objects[0].SetAcl(cloudprovider.TBucketACLType(aclStr))
+		err = object.SetAcl(cloudprovider.TBucketACLType(aclStr))
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("setAcl error %s", err)
 		}
@@ -841,14 +842,15 @@ func (bucket *SBucket) GetDetailsAcl(
 	if len(objKey) == 0 {
 		acl = iBucket.GetAcl()
 	} else {
-		objects, err := iBucket.GetIObjects(objKey, true)
+		object, err := cloudprovider.GetIObject(iBucket, objKey)
 		if err != nil {
-			return nil, httperrors.NewInternalServerError("iBucket.GetIObjects error %s", err)
+			if err == cloudprovider.ErrNotFound {
+				return nil, httperrors.NewNotFoundError("object %s not found", objKey)
+			} else {
+				return nil, httperrors.NewInternalServerError("iBucket.GetIObjects error %s", err)
+			}
 		}
-		if len(objects) == 0 {
-			return nil, httperrors.NewNotFoundError("object %s not found", objKey)
-		}
-		acl = objects[0].GetAcl()
+		acl = object.GetAcl()
 	}
 	ret := jsonutils.NewDict()
 	ret.Add(jsonutils.NewString(string(acl)), "acl")

@@ -277,5 +277,9 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 	default:
 		return "", errors.Error("unsupported method")
 	}
-	return request.Presign(expire)
+	url, _, err := request.PresignRequest(expire)
+	if err != nil {
+		return "", errors.Wrap(err, "request.PresignRequest")
+	}
+	return url, nil
 }
