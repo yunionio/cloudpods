@@ -841,7 +841,7 @@ func (bucket *SBucket) GetDetailsAcl(
 	if len(objKey) == 0 {
 		acl = iBucket.GetAcl()
 	} else {
-		objects, err := iBucket.GetIObjects(objKey, false)
+		objects, err := iBucket.GetIObjects(objKey, true)
 		if err != nil {
 			return nil, httperrors.NewInternalServerError("iBucket.GetIObjects error %s", err)
 		}

@@ -320,7 +320,7 @@ paths:
     $ref: "./bucket/makedir.yaml"
   /buckets/{bucketName}/upload:
     $ref: "./bucket/uploadobject.yaml"
-  /buckets/{bucketName}/tempurl:
+  /buckets/{bucketName}/temp-url:
     $ref: "./bucket/tempurl.yaml"
   /buckets/{bucketName}/acl:
     $ref: "./bucket/acl.yaml"
