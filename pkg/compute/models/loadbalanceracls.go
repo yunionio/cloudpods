@@ -347,12 +347,14 @@ func (lbacl *SLoadbalancerAcl) AllowPerformPurge(ctx context.Context, userCred m
 }
 
 func (lbacl *SLoadbalancerAcl) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	parasm := jsonutils.NewDict()
-	parasm.Add(jsonutils.JSONTrue, "purge")
-	return nil, lbacl.StartLoadBalancerAclDeleteTask(ctx, userCred, parasm, "")
+	return nil, lbacl.Delete(ctx, userCred)
 }
 
-func (lbacl *SLoadbalancerAcl) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+func (lbacl *SLoadbalancerAcl) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	if !lbacl.PendingDeleted {
+		return lbacl.DoPendingDelete(ctx, userCred)
+	}
+
 	return nil
 }
 
@@ -365,14 +367,10 @@ func (lbacl *SLoadbalancerAcl) StartLoadBalancerAclDeleteTask(ctx context.Contex
 	return nil
 }
 
-func (lbacl *SLoadbalancerAcl) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
-	return nil
-}
-
 func (lbacl *SLoadbalancerAcl) GetCachedAcls() ([]SCachedLoadbalancerAcl, error) {
 	ret := []SCachedLoadbalancerAcl{}
-	q := CachedLoadbalancerAclManager.TableSpec().Query()
-	err := q.Equals("acl_id", lbacl.Id).All(&ret)
+	q := CachedLoadbalancerAclManager.Query().Equals("acl_id", lbacl.Id)
+	err := db.FetchModelObjects(CachedLoadbalancerAclManager, q, &ret)
 	if err != nil {
 		return nil, err
 	}

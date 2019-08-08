@@ -21,6 +21,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
@@ -515,6 +516,28 @@ func (lbbg *SLoadbalancerBackendGroup) GetHuaweiBackendGroupParams(lblis *SLoadb
 	ret.Scheduler = lblis.Scheduler
 	ret.StickySession = stickySession
 	ret.HealthCheck = healthCheck
+
+	return ret, nil
+}
+
+func (lbbg *SLoadbalancerBackendGroup) GetAwsCachedlbbg() ([]SAwsCachedLbbg, error) {
+	ret := []SAwsCachedLbbg{}
+	q := AwsCachedLbbgManager.Query().Equals("backend_group_id", lbbg.GetId())
+	err := db.FetchModelObjects(AwsCachedLbbgManager, q, &ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "loadbalancerBackendGroup.GetAwsCachedlbbg")
+	}
+
+	return ret, nil
+}
+
+func (lbbg *SLoadbalancerBackendGroup) GetHuaweiCachedlbbg() ([]SHuaweiCachedLbbg, error) {
+	ret := []SHuaweiCachedLbbg{}
+	q := HuaweiCachedLbbgManager.Query().Equals("backend_group_id", lbbg.GetId())
+	err := db.FetchModelObjects(AwsCachedLbbgManager, q, &ret)
+	if err != nil {
+		return nil, errors.Wrap(err, "loadbalancerBackendGroup.GetHuaweiCachedlbbg")
+	}
 
 	return ret, nil
 }
