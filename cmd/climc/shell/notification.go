@@ -57,12 +57,15 @@ func init() {
 		}
 		return nil
 	})
+	/**
+	 * 发送全局通知
+	 */
 	type NotificationBroadcastOptions struct {
 
 		// CONTACTTYPE string `help:"User's contacts type, cloud be email|mobile|dingtalk|/webconsole" choices:"email|mobile|dingtalk|webconsole"`
-		TOPIC    string `required:"true" help:"Title or topic of the notification"`
-		PRIORITY string `help:"Priority of the notification maybe normal|important|fatal" choices:"normal|important|fatal"`
-		MSG      string `help:"The content of the notification"`
+		Topic    string `required:"true" help:"Title or topic of the notification"`
+		Priority string `help:"Priority of the notification maybe normal|important|fatal" choices:"normal|important|fatal" default:"normal"`
+		Msg      string `help:"The content of the notification"`
 		Remark   string `help:"Remark or description of the notification"`
 		// Group    bool   `help:"Send to group"`
 	}
@@ -71,9 +74,9 @@ func init() {
 		msg := notify.SNotifyMessage{}
 		msg.Broadcast = true
 		msg.ContactType = notify.TNotifyChannel("webconsole")
-		msg.Topic = args.TOPIC
-		msg.Priority = notify.TNotifyPriority(args.PRIORITY)
-		msg.Msg = args.MSG
+		msg.Topic = args.Topic
+		msg.Priority = notify.TNotifyPriority(args.Priority)
+		msg.Msg = args.Msg
 		msg.Remark = args.Remark
 
 		err := notify.Notifications.Send(s, msg)
