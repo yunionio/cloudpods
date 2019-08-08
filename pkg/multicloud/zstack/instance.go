@@ -408,10 +408,22 @@ func (region *SRegion) RebuildRoot(instanceId, imageId string, sysSizeGB int) (s
 	return instance.RootVolumeUUID, nil
 }
 
-func (instance *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
-	offerings, err := instance.host.zone.region.GetInstanceOfferings("", "", ncpu, vmem)
+func (instance *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
+	offerings, err := instance.host.zone.region.GetInstanceOfferings("", "", config.Cpu, config.MemoryMB)
 	if err != nil {
 		return err
+	}
+	if len(config.InstanceType) > 0 {
+		for _, offering := range offerings {
+			if offering.Name == config.InstanceType {
+				return instance.host.zone.region.ChangeConfig(instance.UUID, offering.UUID)
+			}
+		}
+		offering, err := instance.host.zone.region.CreateInstanceOffering(config.InstanceType, config.Cpu, config.MemoryMB, "UserVm")
+		if err != nil {
+			return err
+		}
+		return instance.host.zone.region.ChangeConfig(instance.UUID, offering.UUID)
 	}
 	for _, offering := range offerings {
 		log.Debugf("try instance offering %s(%s) ...", offering.Name, offering.UUID)
@@ -423,14 +435,6 @@ func (instance *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int)
 		}
 	}
 	return fmt.Errorf("Failed to change vm config, specification not supported")
-}
-
-func (instance *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
-	offering, err := instance.host.zone.region.GetInstanceOfferingByType(instanceType)
-	if err != nil {
-		return err
-	}
-	return instance.host.zone.region.ChangeConfig(instance.UUID, offering.UUID)
 }
 
 func (region *SRegion) ChangeConfig(instanceId, offeringId string) error {

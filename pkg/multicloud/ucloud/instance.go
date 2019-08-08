@@ -505,8 +505,11 @@ func (self *SInstance) DeployVM(ctx context.Context, name string, password strin
 	return nil
 }
 
-func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
-	return self.host.zone.region.ResizeVM(self.GetId(), ncpu, vmem)
+func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
+	if len(config.InstanceType) > 0 {
+		return self.ChangeConfig2(ctx, config.InstanceType)
+	}
+	return self.host.zone.region.ResizeVM(self.GetId(), config.Cpu, config.MemoryMB)
 }
 
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {

@@ -63,6 +63,12 @@ type SManagedVMCreateConfig struct {
 	BillingCycle *billing.SBillingCycle
 }
 
+type SManagedVMChangeConfig struct {
+	Cpu          int
+	MemoryMB     int
+	InstanceType string
+}
+
 func (vmConfig *SManagedVMCreateConfig) GetConfig(config *jsonutils.JSONDict) error {
 	if err := config.Unmarshal(vmConfig, "desc"); err != nil {
 		return err

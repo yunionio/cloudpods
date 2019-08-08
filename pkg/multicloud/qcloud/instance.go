@@ -456,8 +456,11 @@ func (self *SInstance) RebuildRoot(ctx context.Context, imageId string, passwd s
 	return instance.SystemDisk.DiskId, nil
 }
 
-func (self *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
-	return self.host.zone.region.ChangeVMConfig(self.Placement.Zone, self.InstanceId, ncpu, vmem, nil)
+func (self *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
+	if len(config.InstanceType) > 0 {
+		return self.ChangeConfig2(ctx, config.InstanceType)
+	}
+	return self.host.zone.region.ChangeVMConfig(self.Placement.Zone, self.InstanceId, config.Cpu, config.MemoryMB, nil)
 }
 
 func (self *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {

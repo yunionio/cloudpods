@@ -15,16 +15,10 @@
 package multicloud
 
 import (
-	"fmt"
-
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
 type SServerSku struct{}
-
-func (self *SServerSku) Delete() error {
-	return fmt.Errorf("Not Implemented Delete")
-}
 
 func (self *SServerSku) GetStatus() string {
 	return api.SkuStatusReady

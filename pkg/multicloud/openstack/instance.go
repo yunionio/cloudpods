@@ -444,20 +444,9 @@ func (instance *SInstance) RebuildRoot(ctx context.Context, imageId string, pass
 	return sysDiskId, instance.host.zone.region.ReplaceSystemDisk(instance.ID, imageId, passwd, publicKey, sysSizeGB)
 }
 
-func (instance *SInstance) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
-	if instance.GetVcpuCount() != ncpu || instance.GetVmemSizeMB() != vmem {
-		flavorId, err := instance.host.zone.region.syncFlavor("", ncpu, vmem, 40)
-		if err != nil {
-			return err
-		}
-		return instance.host.zone.region.ChangeConfig(instance, flavorId)
-	}
-	return nil
-}
-
-func (instance *SInstance) ChangeConfig2(ctx context.Context, instanceType string) error {
-	if instance.GetInstanceType() != instanceType {
-		flavorId, err := instance.host.zone.region.syncFlavor(instanceType, 0, 0, 0)
+func (instance *SInstance) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
+	if (len(config.InstanceType) > 0 && instance.GetInstanceType() != config.InstanceType) || instance.GetVcpuCount() != config.Cpu || instance.GetVmemSizeMB() != config.MemoryMB {
+		flavorId, err := instance.host.zone.region.syncFlavor(config.InstanceType, config.Cpu, config.MemoryMB, 40)
 		if err != nil {
 			return err
 		}
