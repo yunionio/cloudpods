@@ -52,7 +52,7 @@ func init() {
 
 	type KeypairCreate struct {
 		NAME   string `help:"Name of keypair to be created"`
-		Scheme string `help:"Scheme of keypair, RSA or DSA, default is RSA" choices:"RSA|DSA" default:"RSA"`
+		Scheme string `help:"Scheme of keypair, default is RSA" choices:"RSA|DSA" default:"RSA"`
 		Desc   string `help:"Short description of keypair"`
 	}
 

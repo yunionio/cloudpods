@@ -52,7 +52,7 @@ func init() {
 		Bandwidth  int    `help:"Bandwidth in Mbps"`
 		Ip         string `help:"IP address of the EIP"`
 		Network    string `help:"Network of the EIP"`
-		ChargeType string `help:"bandwidth charge type, either traffic or bandwidth" choices:"traffic|bandwidth"`
+		ChargeType string `help:"bandwidth charge type" choices:"traffic|bandwidth"`
 	}
 	R(&EipCreateOptions{}, "eip-create", "Create an EIP", func(s *mcclient.ClientSession, args *EipCreateOptions) error {
 		params := jsonutils.NewDict()
@@ -173,7 +173,7 @@ func init() {
 	type ServerCreateEipOptions struct {
 		ID         string `help:"server ID or name"`
 		BW         int    `help:"EIP bandwidth in Mbps"`
-		ChargeType string `help:"bandwidth charge type, either traffic or bandwidth" choices:"traffic|bandwidth"`
+		ChargeType string `help:"bandwidth charge type" choices:"traffic|bandwidth"`
 	}
 	R(&ServerCreateEipOptions{}, "server-create-eip", "allocate an EIP and associate EIP to server", func(s *mcclient.ClientSession, args *ServerCreateEipOptions) error {
 		params := jsonutils.NewDict()
