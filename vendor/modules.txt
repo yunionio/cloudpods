@@ -759,5 +759,5 @@ yunion.io/x/pkg/util/runtime
 yunion.io/x/pkg/util/clock
 # yunion.io/x/sqlchemy v0.0.0-20190704155352-6aff6c803fda
 yunion.io/x/sqlchemy
-# yunion.io/x/structarg v0.0.0-20190625074850-3c0636a9fffe
+# yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 yunion.io/x/structarg

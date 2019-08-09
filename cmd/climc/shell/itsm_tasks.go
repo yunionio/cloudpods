@@ -28,7 +28,7 @@ func init() {
 	 */
 	type TaskOperOperateOptions struct {
 		ID                string `help:"ID of task"`
-		APPROVAL_DECISION bool   `help:"Approval decision" choices:"true|false"`
+		APPROVAL_DECISION bool   `help:"Approval decision"`
 		ApprovalProposal  string `help:"Approval proposal"`
 	}
 	R(&TaskOperOperateOptions{}, "process-task-operate", "Operate task", func(s *mcclient.ClientSession, args *TaskOperOperateOptions) error {

@@ -29,7 +29,7 @@ func init() {
 	 */
 	type ContactsUpdateOptions struct {
 		UID         string `help:"The user you wanna add contact to (Keystone User ID)"`
-		CONTACTTYPE string `help:"The contact type email|mobile" choices:"email|mobile"`
+		CONTACTTYPE string `help:"The contact type" choices:"email|mobile"`
 		CONTACT     string `help:"The contacts details mobile number or email address, if set it the empty str means delete"`
 		Status      string `help:"Enabled or disabled contact status" choices:"enable|disable"`
 	}
@@ -63,7 +63,7 @@ func init() {
 
 	type ContactsDeleteOptions struct {
 		UID         string `help:"The user you wanna add contact to (Keystone User ID)"`
-		CONTACTTYPE string `help:"The contact type email|mobile" choices:"email|mobile"`
+		CONTACTTYPE string `help:"The contact type" choices:"email|mobile"`
 	}
 	R(&ContactsDeleteOptions{}, "contact-delete", "Delete contact for user", func(s *mcclient.ClientSession, args *ContactsDeleteOptions) error {
 		arr := jsonutils.NewArray()

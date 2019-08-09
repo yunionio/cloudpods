@@ -537,18 +537,7 @@ func (this *SingleArgument) InChoices(val string) bool {
 
 func (this *SingleArgument) SetValue(val string) error {
 	if !this.InChoices(val) {
-		cands := FindSimilar(val, this.choices, -1, 0.5)
-		if len(cands) > 3 {
-			cands = cands[:3]
-		}
-		msg := fmt.Sprintf("Unknown argument '%s' for %s", val, this.token) //, this.MetaVar())
-		if len(cands) > 0 {
-			for i := 0; i < len(cands); i += 1 {
-				cands[i] = fmt.Sprintf("'%s'", cands[i])
-			}
-			msg = fmt.Sprintf("%s, did you mean %s?", msg, ChoicesString(cands))
-		}
-		return fmt.Errorf(msg)
+		return this.choicesErr(val)
 	}
 	e := gotypes.SetValue(this.value, val)
 	if e != nil {
@@ -556,6 +545,20 @@ func (this *SingleArgument) SetValue(val string) error {
 	}
 	this.isSet = true
 	return nil
+}
+
+func (this *SingleArgument) choicesErr(val string) error {
+	cands := FindSimilar(val, this.choices, -1, 0.5)
+	if len(cands) > 3 {
+		cands = cands[:3]
+	}
+	msg := fmt.Sprintf("Unknown argument '%s' for %s", val, this.Token())
+	if len(cands) > 0 {
+		msg += fmt.Sprintf(", did you mean %s?", quotedChoicesString(cands))
+	} else if len(this.choices) > 0 {
+		msg += fmt.Sprintf(", accepts %s", quotedChoicesString(this.choices))
+	}
+	return fmt.Errorf("%s", msg)
 }
 
 func (this *SingleArgument) Reset() {
@@ -600,7 +603,7 @@ func (this *MultiArgument) IsMulti() bool {
 
 func (this *MultiArgument) SetValue(val string) error {
 	if !this.InChoices(val) {
-		return fmt.Errorf("Unknown argument %s for %s%s", val, this.Token(), this.MetaVar())
+		return this.choicesErr(val)
 	}
 	var e error = nil
 	e = gotypes.AppendValue(this.value, val)
