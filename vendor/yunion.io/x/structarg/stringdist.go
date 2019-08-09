@@ -15,14 +15,15 @@
 package structarg
 
 import (
-	"github.com/texttheater/golang-levenshtein/levenshtein"
+	"fmt"
 	"sort"
 	"strings"
-	"fmt"
+
+	"github.com/texttheater/golang-levenshtein/levenshtein"
 )
 
 type stringDistance struct {
-	str  string
+	str string
 	/* hanming distance */
 	dist int
 	/* similarity rate, 0~1: totally different ~ identical */
@@ -73,8 +74,8 @@ func FindSimilar(niddle string, stack []string, maxDist int, minRate float64) []
 		cand := stringDistance{}
 		dist := levenshtein.DistanceForStrings([]rune(stack[i]), []rune(niddle), levenshtein.DefaultOptions)
 		rate := 1.0
-		if len(stack[i]) + len(niddle) > 0 {
-			rate = float64(len(stack[i]) + len(niddle) - dist)/float64(len(stack[i]) + len(niddle))
+		if len(stack[i])+len(niddle) > 0 {
+			rate = float64(len(stack[i])+len(niddle)-dist) / float64(len(stack[i])+len(niddle))
 		}
 		if (maxDist < 0 || dist <= maxDist) && (minRate < 0.0 || minRate > 1.0 || rate >= minRate) {
 			cand.str = stack[i]
@@ -103,4 +104,12 @@ func ChoicesString(choices []string) string {
 		return strings.Join(choices, " or ")
 	}
 	return fmt.Sprintf("%s or %s", strings.Join(choices[:len(choices)-1], ", "), choices[len(choices)-1])
+}
+
+func quotedChoicesString(choices []string) string {
+	quoted := make([]string, len(choices))
+	for i, c := range choices {
+		quoted[i] = fmt.Sprintf("%q", c)
+	}
+	return ChoicesString(quoted)
 }
