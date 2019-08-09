@@ -48,18 +48,13 @@ func StartService() {
 		log.Infof("Auth complete!!")
 	})
 
-	cloudcommon.InitDB(dbOpts)
+	app := app_common.InitApp(baseOpts, true)
+	initHandlers(app)
+
+	db.EnsureAppInitSyncDB(app, dbOpts, nil)
 	defer cloudcommon.CloseDB()
 
 	models.StartNotifyToWebsocketWorker()
-
-	app := app_common.InitApp(baseOpts, true)
-	cloudcommon.AppDBInit(app)
-	initHandlers(app)
-
-	if !db.CheckSync(opts.AutoSyncTable) {
-		log.Fatalf("database schema not in sync!")
-	}
 
 	app_common.ServeForever(app, baseOpts)
 }

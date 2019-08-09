@@ -15,10 +15,11 @@
 package mcclient
 
 const (
-	AuthSourceWeb = "web"
-	AuthSourceAPI = "api"
-	AuthSourceCli = "cli"
-	AuthSourceSrv = "srv"
+	AuthSourceWeb      = "web"
+	AuthSourceAPI      = "api"
+	AuthSourceCli      = "cli"
+	AuthSourceSrv      = "srv"
+	AuthSourceOperator = "operator"
 )
 
 type SAuthContext struct {

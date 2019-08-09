@@ -595,6 +595,10 @@ func (manager *SUserManager) traceLoginEvent(ctx context.Context, token mcclient
 		usr.LastLoginSource = authCtx.Source
 		return nil
 	})
+	// ignore operator auth source
+	if authCtx.Source == mcclient.AuthSourceOperator {
+		return
+	}
 	db.OpsLog.LogEvent(usr, "auth", &s, token)
 	logclient.AddActionLogWithContext(ctx, usr, logclient.ACT_AUTHENTICATE, &s, token, true)
 }

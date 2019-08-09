@@ -217,6 +217,10 @@ func (this *Client) AuthenticateWeb(uname, passwd, domainName, tenantName, tenan
 	return this.authenticateWithContext(uname, passwd, domainName, tenantName, tenantDomain, aCtx)
 }
 
+func (this *Client) AuthenticateOperator(uname, passwd, domainName, tenantName, tenantDomain string) (TokenCredential, error) {
+	return this.AuthenticateWithSource(uname, passwd, domainName, tenantName, tenantDomain, AuthSourceOperator)
+}
+
 func (this *Client) AuthenticateWithSource(uname, passwd, domainName, tenantName, tenantDomain string, source string) (TokenCredential, error) {
 	aCtx := SAuthContext{
 		Source: source,
