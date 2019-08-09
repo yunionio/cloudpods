@@ -30,9 +30,9 @@ func init() {
 
 	type NotificationCreateOptions struct {
 		UID         string `help:"The user you wanna sent to (Keystone User ID)"`
-		CONTACTTYPE string `help:"User's contacts type, cloud be email|mobile|dingtalk|webconsole" choices:"email|mobile|dingtalk|webconsole"`
+		CONTACTTYPE string `help:"User's contacts type" choices:"email|mobile|dingtalk|webconsole"`
 		TOPIC       string `help:"Title or topic of the notification"`
-		PRIORITY    string `help:"Priority of the notification maybe normal|important|fatal" choices:"normal|important|fatal"`
+		PRIORITY    string `help:"Priority of the notification" choices:"normal|important|fatal"`
 		MSG         string `help:"The content of the notification"`
 		Remark      string `help:"Remark or description of the notification"`
 		Group       bool   `help:"Send to group"`
@@ -64,7 +64,7 @@ func init() {
 
 		// CONTACTTYPE string `help:"User's contacts type, cloud be email|mobile|dingtalk|/webconsole" choices:"email|mobile|dingtalk|webconsole"`
 		Topic    string `required:"true" help:"Title or topic of the notification"`
-		Priority string `help:"Priority of the notification maybe normal|important|fatal" choices:"normal|important|fatal" default:"normal"`
+		Priority string `help:"Priority of the notification" choices:"normal|important|fatal" default:"normal"`
 		Msg      string `help:"The content of the notification"`
 		Remark   string `help:"Remark or description of the notification"`
 		// Group    bool   `help:"Send to group"`

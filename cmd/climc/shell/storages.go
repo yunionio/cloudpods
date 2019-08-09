@@ -57,7 +57,7 @@ func init() {
 		Name                  string  `help:"New Name of storage"`
 		Desc                  string  `help:"Description"`
 		CommitBound           float64 `help:"Upper bound of storage overcommit rate"`
-		MediumType            string  `help:"Medium type, either ssd or rotate" choices:"ssd|rotate"`
+		MediumType            string  `help:"Medium type" choices:"ssd|rotate"`
 		RbdRadosMonOpTimeout  int64   `help:"ceph rados_mon_op_timeout"`
 		RbdRadosOsdOpTimeout  int64   `help:"ceph rados_osd_op_timeout"`
 		RbdClientMountTimeout int64   `help:"ceph client_mount_timeout"`
@@ -82,7 +82,7 @@ func init() {
 		NAME                  string `help:"Name of the Storage"`
 		ZONE                  string `help:"Zone id of storage"`
 		Capacity              int64  `help:"Capacity of the Storage"`
-		MediumType            string `help:"Medium type, either ssd or rotate" choices:"ssd|rotate"`
+		MediumType            string `help:"Medium type" choices:"ssd|rotate"`
 		StorageType           string `help:"Storage type" choices:"local|nas|vsan|rbd|nfs|gpfs|baremetal"`
 		RbdMonHost            string `help:"Ceph mon_host config"`
 		RbdRadosMonOpTimeout  int64  `help:"ceph rados_mon_op_timeout"`

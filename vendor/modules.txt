@@ -787,5 +787,5 @@ yunion.io/x/pkg/util/clock
 yunion.io/x/s3cli
 # yunion.io/x/sqlchemy v0.0.0-20190704155352-6aff6c803fda
 yunion.io/x/sqlchemy
-# yunion.io/x/structarg v0.0.0-20190717142057-5caf182cbb4d
+# yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 yunion.io/x/structarg
