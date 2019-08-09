@@ -29,8 +29,8 @@ type GeneralUsageOptions struct {
 
 	ProjectDomain string `help:"show usage of specified domain"`
 
-	CloudEnv string `help:"show usage of specified cloudenv, e.g. public_cloud/private_cloud/on_premise" choices:"public|private|onpremise"`
-	Scope    string `help:"show usage of specified privilege scope, e.g. system/domain/project" choices:"system|domain|project"`
+	CloudEnv string `help:"show usage of specified cloudenv" choices:"public|private|onpremise"`
+	Scope    string `help:"show usage of specified privilege scope" choices:"system|domain|project"`
 }
 
 func fetchHostTypeOptions(args *GeneralUsageOptions) *jsonutils.JSONDict {

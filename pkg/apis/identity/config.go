@@ -46,7 +46,7 @@ type SLDAPIdpConfigMultiDomainOptions struct {
 type SLDAPIdpConfigOptions struct {
 	Url        string `json:"url,omitempty" help:"LDAP server URL" required:"true"`
 	Suffix     string `json:"suffix,omitempty" required:"true"`
-	QueryScope string `json:"query_scope,omitempty" help:"Query scope, either one or sub" choices:"one|sub"`
+	QueryScope string `json:"query_scope,omitempty" help:"Query scope" choices:"one|sub"`
 
 	User     string `json:"user,omitempty"`
 	Password string `json:"password,omitempty"`
@@ -56,7 +56,7 @@ type SLDAPIdpConfigOptions struct {
 	DomainObjectclass   string `json:"domain_objectclass,omitempty"`
 	DomainIdAttribute   string `json:"domain_id_attribute,omitempty"`
 	DomainNameAttribute string `json:"domain_name_attribute,omitempty"`
-	DomainQueryScope    string `json:"domain_query_scope,omitempty" help:"Query scope, either one or sub" choices:"one|sub"`
+	DomainQueryScope    string `json:"domain_query_scope,omitempty" help:"Query scope" choices:"one|sub"`
 
 	UserTreeDN              string   `json:"user_tree_dn,omitempty" help:"User tree distinguished name"`
 	UserFilter              string   `json:"user_filter,omitempty"`
@@ -68,7 +68,7 @@ type SLDAPIdpConfigOptions struct {
 	UserEnabledDefault      string   `json:"user_enabled_default,omitempty"`
 	UserEnabledInvert       bool     `json:"user_enabled_invert,allowfalse"`
 	UserAdditionalAttribute []string `json:"user_additional_attribute_mapping,omitempty" token:"user_additional_attribute"`
-	UserQueryScope          string   `json:"user_query_scope,omitempty" help:"Query scope, either one or sub" choices:"one|sub"`
+	UserQueryScope          string   `json:"user_query_scope,omitempty" help:"Query scope" choices:"one|sub"`
 
 	GroupTreeDN          string `json:"group_tree_dn,omitempty" help:"Group tree distinguished name"`
 	GroupFilter          string `json:"group_filter,omitempty"`
@@ -77,7 +77,7 @@ type SLDAPIdpConfigOptions struct {
 	GroupNameAttribute   string `json:"group_name_attribute,omitempty"`
 	GroupMemberAttribute string `json:"group_member_attribute,omitempty"`
 	GroupMembersAreIds   bool   `json:"group_members_are_ids,allowfalse"`
-	GroupQueryScope      string `json:"group_query_scope,omitempty" help:"Query scope, either one or sub" choices:"one|sub"`
+	GroupQueryScope      string `json:"group_query_scope,omitempty" help:"Query scope" choices:"one|sub"`
 }
 
 const (
