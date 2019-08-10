@@ -151,8 +151,18 @@ func init() {
 		return doComputeEventList(s, &nargs)
 	})
 
-	R(&TypeEventListOptions{}, "vcenter-event", "Show operation event logs of vcenter", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
-		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"vcenter"}}
+	R(&TypeEventListOptions{}, "cloud-provider-event", "Show operation event logs of cloudprovider", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"cloudprovider"}}
+		return doComputeEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "cloud-account-event", "Show operation event logs of cloudaccount", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"cloudaccount"}}
+		return doComputeEventList(s, &nargs)
+	})
+
+	R(&TypeEventListOptions{}, "bucket-event", "Show operation event logs of bucket", func(s *mcclient.ClientSession, args *TypeEventListOptions) error {
+		nargs := EventListOptions{BaseEventListOptions: args.BaseEventListOptions, Id: args.ID, Type: []string{"bucket"}}
 		return doComputeEventList(s, &nargs)
 	})
 
