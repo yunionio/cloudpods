@@ -53,6 +53,22 @@ type SLoadbalancerCluster struct {
 	WireId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional" update:"admin"`
 }
 
+func (man *SLoadbalancerClusterManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
+	q, err := man.SStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
+	if err != nil {
+		return nil, err
+	}
+	data := query.(*jsonutils.JSONDict)
+	q, err = validators.ApplyModelFilters(q, data, []*validators.ModelFilterOptions{
+		{Key: "zone", ModelKeyword: "zone", OwnerId: userCred},
+		{Key: "wire", ModelKeyword: "wire", OwnerId: userCred},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return q, nil
+}
+
 func (man *SLoadbalancerClusterManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
 	wireV := validators.NewModelIdOrNameValidator("wire", "wire", ownerId)
