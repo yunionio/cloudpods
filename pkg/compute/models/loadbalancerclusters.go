@@ -50,17 +50,54 @@ func init() {
 type SLoadbalancerCluster struct {
 	db.SStandaloneResourceBase
 	SZoneResourceBase
+	WireId string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional" update:"admin"`
 }
 
 func (man *SLoadbalancerClusterManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
-	if err := zoneV.Validate(data); err != nil {
-		return nil, err
+	wireV := validators.NewModelIdOrNameValidator("wire", "wire", ownerId)
+	vs := []validators.IValidator{
+		zoneV,
+		wireV.Optional(true),
 	}
-	if zone := zoneV.Model.(*SZone); zone.ExternalId != "" {
+	for _, v := range vs {
+		if err := v.Validate(data); err != nil {
+			return nil, err
+		}
+	}
+	zone := zoneV.Model.(*SZone)
+	if zone.ExternalId != "" {
 		return nil, httperrors.NewInputParameterError("allow only internal zone, got %s(%s)", zone.Name, zone.Id)
 	}
+	if wireV.Model != nil {
+		wire := wireV.Model.(*SWire)
+		if wire.ZoneId != zone.Id {
+			return nil, httperrors.NewInputParameterError("wire zone must match zone parameter, got %s, want %s(%s)",
+				wire.ZoneId, zone.Name, zone.Id)
+		}
+	}
 	return man.SStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+}
+
+func (lbc *SLoadbalancerCluster) ValidateUpdateData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	wireV := validators.NewModelIdOrNameValidator("wire", "wire", lbc.GetOwnerId())
+	wireV.Optional(true)
+	if err := wireV.Validate(data); err != nil {
+		return nil, err
+	}
+	if wireV.Model != nil {
+		wire := wireV.Model.(*SWire)
+		if wire.ZoneId != lbc.ZoneId {
+			return nil, httperrors.NewInputParameterError("zone of wire must be %s, got %s", lbc.ZoneId, wire.ZoneId)
+		}
+		var from string
+		if lbc.WireId != "" {
+			from = "from " + lbc.WireId + " "
+		}
+		log.Infof("changing wire attribute of lbcluster %s(%s) %sto %s(%s)",
+			lbc.Name, lbc.Id, from, wire.Name, wire.Id)
+	}
+	return lbc.SStandaloneResourceBase.ValidateUpdateData(ctx, userCred, query, data)
 }
 
 func (lbc *SLoadbalancerCluster) ValidateDeleteCondition(ctx context.Context) error {

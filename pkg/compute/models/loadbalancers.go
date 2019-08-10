@@ -32,6 +32,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
 type SLoadbalancerManager struct {
@@ -150,15 +151,16 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 	}
 
 	var (
-		region *SCloudregion
-		zone   *SZone
+		region  *SCloudregion
+		network *SNetwork
+		zone    *SZone
 	)
 	if addressTypeV.Value == api.LB_ADDR_TYPE_INTRANET {
 		if chargeTypeV.Value == api.LB_CHARGE_TYPE_BY_BANDWIDTH {
 			return nil, httperrors.NewUnsupportOperationError("intranet loadbalancer not support bandwidth charge type")
 		}
 
-		network := networkV.Model.(*SNetwork)
+		network = networkV.Model.(*SNetwork)
 		if ipAddr := addressV.IP; ipAddr != nil {
 			ipS := ipAddr.String()
 			ip, err := netutils.NewIPV4Addr(ipS)
@@ -240,15 +242,39 @@ func (man *SLoadbalancerManager) ValidateCreateData(ctx context.Context, userCre
 			if len(clusters) == 0 {
 				return nil, httperrors.NewInputParameterError("zone %s(%s) has no lbcluster", zone.Name, zone.Id)
 			}
-			if len(clusters) > 1 {
-				log.Warningf("found %d lbclusters, randomly select 1", len(clusters))
+			var (
+				wireMatched []*SLoadbalancerCluster
+				wireNeutral []*SLoadbalancerCluster
+			)
+			for i := range clusters {
+				c := &clusters[i]
+				if c.WireId != "" {
+					if c.WireId == network.WireId {
+						wireMatched = append(wireMatched, c)
+					}
+				} else {
+					wireNeutral = append(wireNeutral, c)
+				}
 			}
-			data.Set("cluster_id", jsonutils.NewString(clusters[0].Id))
+			var choices []*SLoadbalancerCluster
+			if len(wireMatched) > 0 {
+				choices = wireMatched
+			} else if len(wireNeutral) > 0 {
+				choices = wireNeutral
+			} else {
+				return nil, httperrors.NewInputParameterError("no viable lbcluster")
+			}
+			i := rand.Intn(len(choices))
+			data.Set("cluster_id", jsonutils.NewString(choices[i].Id))
 		} else {
 			cluster := clusterV.Model.(*SLoadbalancerCluster)
 			if cluster.ZoneId != zone.Id {
 				return nil, httperrors.NewInputParameterError("cluster zone %s does not match network zone %s ",
 					cluster.ZoneId, zone.Id)
+			}
+			if cluster.WireId != "" && cluster.WireId != network.WireId {
+				return nil, httperrors.NewInputParameterError("cluster wire affiliation does not match network's: %s != %s",
+					cluster.WireId, network.WireId)
 			}
 		}
 	} else {
