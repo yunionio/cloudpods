@@ -354,7 +354,7 @@ type ICloudSnapshot interface {
 	ICloudResource
 	IVirtualResource
 
-	GetSize() int32
+	GetSizeMb() int32
 	GetDiskId() string
 	GetDiskType() string
 	Delete() error
