@@ -133,7 +133,7 @@ func (self *SAwsRegionDriver) validateCreateLBCommonData(ownerId mcclient.IIdent
 		"loadbalancer_spec": loadbalancerSpecV,
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, nil, err
 	}
 
@@ -200,7 +200,7 @@ func (self *SAwsRegionDriver) validateCreateApplicationListenerData(ctx context.
 		"sticky_session_cookie_timeout": validators.NewNonNegativeValidator("sticky_session_cookie_timeout").Optional(true),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, err
 	}
 
@@ -239,7 +239,7 @@ func (self *SAwsRegionDriver) validateCreateApplicationListenerData(ctx context.
 			"enable_http2":      validators.NewBoolValidator("enable_http2").Default(true),
 		}
 
-		if err := RunValidators(httpsV, data); err != nil {
+		if err := RunValidators(httpsV, data, false); err != nil {
 			return nil, err
 		}
 	}
@@ -260,7 +260,7 @@ func (self *SAwsRegionDriver) validateCreateApplicationListenerData(ctx context.
 		"health_check_interval": validators.NewRangeValidator("health_check_interval", 5, 300).Default(30),
 	}
 
-	if err := RunValidators(keyVHealth, data); err != nil {
+	if err := RunValidators(keyVHealth, data, false); err != nil {
 		return nil, err
 	}
 
@@ -283,7 +283,7 @@ func (self *SAwsRegionDriver) validateCreateNetworkListenerData(ctx context.Cont
 		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Default(api.LB_SENDPROXY_OFF),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, err
 	}
 
@@ -328,7 +328,7 @@ func (self *SAwsRegionDriver) validateCreateNetworkListenerData(ctx context.Cont
 		"health_check_interval": validators.NewRangeValidator("health_check_interval", 10, 30).Default(30),
 	}
 
-	if err := RunValidators(keyVHealth, data); err != nil {
+	if err := RunValidators(keyVHealth, data, false); err != nil {
 		return nil, err
 	}
 
@@ -386,7 +386,7 @@ func (self *SAwsRegionDriver) validateUpdateApplicationListenerData(ctx context.
 		"sticky_session_cookie_timeout": validators.NewNonNegativeValidator("sticky_session_cookie_timeout").Optional(true),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, true); err != nil {
 		return nil, err
 	}
 
@@ -413,7 +413,7 @@ func (self *SAwsRegionDriver) validateUpdateApplicationListenerData(ctx context.
 			"enable_http2":      validators.NewBoolValidator("enable_http2").Default(true),
 		}
 
-		if err := RunValidators(httpsV, data); err != nil {
+		if err := RunValidators(httpsV, data, true); err != nil {
 			return nil, err
 		}
 	}
@@ -434,7 +434,7 @@ func (self *SAwsRegionDriver) validateUpdateApplicationListenerData(ctx context.
 		"health_check_interval": validators.NewRangeValidator("health_check_interval", 5, 300).Default(30),
 	}
 
-	if err := RunValidators(keyVHealth, data); err != nil {
+	if err := RunValidators(keyVHealth, data, true); err != nil {
 		return nil, err
 	}
 
@@ -457,7 +457,7 @@ func (self *SAwsRegionDriver) validateUpdateNetworkListenerData(ctx context.Cont
 		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Default(api.LB_SENDPROXY_OFF),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, true); err != nil {
 		return nil, err
 	}
 
@@ -491,7 +491,7 @@ func (self *SAwsRegionDriver) validateUpdateNetworkListenerData(ctx context.Cont
 		"health_check_interval": validators.NewRangeValidator("health_check_interval", 10, 30).Default(30),
 	}
 
-	if err := RunValidators(keyVHealth, data); err != nil {
+	if err := RunValidators(keyVHealth, data, true); err != nil {
 		return nil, err
 	}
 
@@ -534,7 +534,7 @@ func (self *SAwsRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx con
 		"path":   pathV.Default("").Optional(true),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, err
 	}
 
@@ -624,7 +624,7 @@ func (self *SAwsRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Default(api.LB_SENDPROXY_OFF),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, err
 	}
 
@@ -711,7 +711,7 @@ func (self *SAwsRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.
 		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Optional(true),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, true); err != nil {
 		return nil, err
 	}
 

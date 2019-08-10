@@ -60,7 +60,7 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerData(ctx context.Cont
 		"manager":      managerIdV,
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, err
 	}
 
@@ -113,7 +113,7 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		"gzip":            validators.NewBoolValidator("gzip").Default(false),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, err
 	}
 
@@ -150,7 +150,7 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 			"enable_http2":      validators.NewBoolValidator("enable_http2").Default(true),
 		}
 
-		if err := RunValidators(httpsV, data); err != nil {
+		if err := RunValidators(httpsV, data, false); err != nil {
 			return nil, err
 		}
 	}
@@ -171,7 +171,7 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerListenerData(ctx cont
 		"health_check_interval": validators.NewRangeValidator("health_check_interval", 5, 300).Default(5),
 	}
 
-	if err := RunValidators(keyVHealth, data); err != nil {
+	if err := RunValidators(keyVHealth, data, false); err != nil {
 		return nil, err
 	}
 
@@ -578,7 +578,7 @@ func (self *SQcloudRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 		"enable_http2":      validators.NewBoolValidator("enable_http2"),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, true); err != nil {
 		return nil, err
 	}
 
@@ -599,7 +599,7 @@ func (self *SQcloudRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx conte
 		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Optional(true),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, true); err != nil {
 		return nil, err
 	}
 	return data, nil
@@ -617,7 +617,7 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx 
 		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, err
 	}
 
@@ -680,7 +680,7 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerBackendData(ctx conte
 		"send_proxy":   validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Default(api.LB_SENDPROXY_OFF),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, err
 	}
 
