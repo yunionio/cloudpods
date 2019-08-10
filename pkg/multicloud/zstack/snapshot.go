@@ -55,7 +55,7 @@ func (snapshot *SSnapshot) GetStatus() string {
 	}
 }
 
-func (snapshot *SSnapshot) GetSize() int32 {
+func (snapshot *SSnapshot) GetSizeMb() int32 {
 	return int32(snapshot.Size / 1024 / 1024)
 }
 
