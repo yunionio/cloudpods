@@ -29,6 +29,9 @@ type LoadbalancerClusterUpdateOptions struct {
 
 type LoadbalancerClusterListOptions struct {
 	BaseListOptions
+
+	Zone string
+	Wire string
 }
 
 type LoadbalancerClusterGetOptions struct {
