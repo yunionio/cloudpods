@@ -105,8 +105,8 @@ func (snapshot *SSnapshot) GetMetadata() *jsonutils.JSONDict {
 	return nil
 }
 
-func (snapshot *SSnapshot) GetSize() int32 {
-	return snapshot.Size
+func (snapshot *SSnapshot) GetSizeMb() int32 {
+	return snapshot.Size * 1024
 }
 
 func (snapshot *SSnapshot) GetDiskId() string {
