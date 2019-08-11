@@ -18,10 +18,20 @@ type LoadbalancerClusterCreateOptions struct {
 	NAME string
 
 	Zone string
+	Wire string
+}
+
+type LoadbalancerClusterUpdateOptions struct {
+	ID string `json:"-"`
+
+	Wire string
 }
 
 type LoadbalancerClusterListOptions struct {
 	BaseListOptions
+
+	Zone string
+	Wire string
 }
 
 type LoadbalancerClusterGetOptions struct {
