@@ -33,6 +33,18 @@ func init() {
 		printObject(lbcluster)
 		return nil
 	})
+	R(&options.LoadbalancerClusterUpdateOptions{}, "lbcluster-update", "Update lbcluster", func(s *mcclient.ClientSession, opts *options.LoadbalancerClusterUpdateOptions) error {
+		params, err := options.StructToParams(opts)
+		if err != nil {
+			return err
+		}
+		lbcluster, err := modules.LoadbalancerClusters.Update(s, opts.ID, params)
+		if err != nil {
+			return err
+		}
+		printObject(lbcluster)
+		return nil
+	})
 	R(&options.LoadbalancerClusterGetOptions{}, "lbcluster-show", "Show lbcluster", func(s *mcclient.ClientSession, opts *options.LoadbalancerClusterGetOptions) error {
 		lbcluster, err := modules.LoadbalancerClusters.Get(s, opts.ID, nil)
 		if err != nil {
