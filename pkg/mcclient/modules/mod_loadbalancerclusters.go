@@ -31,6 +31,7 @@ func init() {
 				"id",
 				"name",
 				"zone_id",
+				"wire_id",
 			},
 			[]string{},
 		),
