@@ -35,13 +35,17 @@ if [ -z "$pkgs" ]; then
 fi
 
 echo "mode: $covermode" >"$profile"
-go test -v \
-	-coverprofile="$profile" \
-	-covermode="$covermode" \
-	-mod vendor \
-	-ldflags '-w' \
-	$pkgs
-go tool cover -func "$profile"
+echo "$pkgs" | xargs -n 8 --no-run-if-empty echo \
+	| while read batch; do \
+		go test -v \
+			-coverprofile="$profile.tmp" \
+			-covermode="$covermode" \
+			-mod vendor \
+			-ldflags '-w' \
+			$batch; \
+		tail -n +2 "$profile.tmp" >>"$profile"; \
+		rm -f "$profile.tmp"; \
+	done
 
 case "${1-}" in
     --html)
@@ -51,5 +55,8 @@ case "${1-}" in
         if ! push_to_codecov; then
 		echo "ignored: push to codecov failed" >&2
 	fi
+	;;
+    *)
+	go tool cover -func "$profile"
         ;;
 esac
