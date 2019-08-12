@@ -43,8 +43,11 @@ func init() {
 	models.RegisterRegionDriver(&driver)
 }
 
-func RunValidators(validators map[string]validators.IValidator, data *jsonutils.JSONDict) error {
+func RunValidators(validators map[string]validators.IValidator, data *jsonutils.JSONDict, optional bool) error {
 	for _, v := range validators {
+		if optional {
+			v.Optional(true)
+		}
 		if err := v.Validate(data); err != nil {
 			return err
 		}
@@ -68,7 +71,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerData(ctx context.Context
 		"network": networkV,
 		"cluster": clusterV.Optional(true),
 	}
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, err
 	}
 
@@ -167,7 +170,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerBackendData(ctx context.
 		"send_proxy":   validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Default(api.LB_SENDPROXY_OFF),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, err
 	}
 
@@ -268,7 +271,7 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerBackendData(ctx context.
 		"send_proxy": validators.NewStringChoicesValidator("send_proxy", api.LB_SENDPROXY_CHOICES).Optional(true),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, true); err != nil {
 		return nil, err
 	}
 
@@ -290,7 +293,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerRuleData(ctx con
 		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, err
 	}
 
@@ -380,7 +383,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context
 		"http_request_rate_per_src": validators.NewNonNegativeValidator("http_request_rate_per_src").Default(0),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, false); err != nil {
 		return nil, err
 	}
 
@@ -407,7 +410,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context
 			"enable_http2":      validators.NewBoolValidator("enable_http2").Default(true),
 		}
 
-		if err := RunValidators(httpsV, data); err != nil {
+		if err := RunValidators(httpsV, data, false); err != nil {
 			return nil, err
 		}
 	}
@@ -428,7 +431,7 @@ func (self *SKVMRegionDriver) ValidateCreateLoadbalancerListenerData(ctx context
 		"health_check_interval": validators.NewRangeValidator("health_check_interval", 1, 1000).Default(5),
 	}
 
-	if err := RunValidators(keyVHealth, data); err != nil {
+	if err := RunValidators(keyVHealth, data, false); err != nil {
 		return nil, err
 	}
 
@@ -504,7 +507,7 @@ func (self *SKVMRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx context
 		"enable_http2":      validators.NewBoolValidator("enable_http2"),
 	}
 
-	if err := RunValidators(keyV, data); err != nil {
+	if err := RunValidators(keyV, data, true); err != nil {
 		return nil, err
 	}
 
