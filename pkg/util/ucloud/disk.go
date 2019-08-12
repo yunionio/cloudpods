@@ -252,7 +252,7 @@ func (self *SDisk) GetISnapshot(idStr string) (cloudprovider.ICloudSnapshot, err
 }
 
 func (self *SDisk) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
-	snapshots, err := self.storage.zone.region.GetSnapshots(self.GetId(), "")
+	snapshots, err := self.storage.zone.region.GetSnapshots("", self.GetId(), "")
 	if err != nil {
 		return nil, err
 	}
