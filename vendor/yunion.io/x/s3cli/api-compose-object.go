@@ -491,8 +491,8 @@ func (c Client) ComposeObjectWithProgress(dst DestinationInfo, srcs []SourceInfo
 	}
 
 	// 4. Make final complete-multipart request.
-	_, err = c.completeMultipartUpload(ctx, dst.bucket, dst.object, uploadID,
-		completeMultipartUpload{Parts: objParts})
+	_, err = c.CompleteMultipartUpload(ctx, dst.bucket, dst.object, uploadID,
+		CompleteMultipartUpload{Parts: objParts})
 	if err != nil {
 		return err
 	}

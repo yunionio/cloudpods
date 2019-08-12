@@ -114,7 +114,7 @@ func (c Client) putObjectMultipartStreamFromReadAt(ctx context.Context, bucketNa
 	// to relinquish storage space.
 	defer func() {
 		if err != nil {
-			c.abortMultipartUpload(ctx, bucketName, objectName, uploadID)
+			c.AbortMultipartUpload(ctx, bucketName, objectName, uploadID)
 		}
 	}()
 
@@ -122,7 +122,7 @@ func (c Client) putObjectMultipartStreamFromReadAt(ctx context.Context, bucketNa
 	var totalUploadedSize int64
 
 	// Complete multipart upload.
-	var complMultipartUpload completeMultipartUpload
+	var complMultipartUpload CompleteMultipartUpload
 
 	// Declare a channel that sends the next part number to be uploaded.
 	// Buffered to 10000 because thats the maximum number of parts allowed
@@ -165,7 +165,7 @@ func (c Client) putObjectMultipartStreamFromReadAt(ctx context.Context, bucketNa
 
 				// Proceed to upload the part.
 				var objPart ObjectPart
-				objPart, err = c.uploadPart(ctx, bucketName, objectName, uploadID,
+				objPart, err = c.UploadPart(ctx, bucketName, objectName, uploadID,
 					sectionReader, uploadReq.PartNum,
 					"", "", partSize, opts.ServerSideEncryption)
 				if err != nil {
@@ -220,7 +220,7 @@ func (c Client) putObjectMultipartStreamFromReadAt(ctx context.Context, bucketNa
 
 	// Sort all completed parts.
 	sort.Sort(completedParts(complMultipartUpload.Parts))
-	_, err = c.completeMultipartUpload(ctx, bucketName, objectName, uploadID, complMultipartUpload)
+	_, err = c.CompleteMultipartUpload(ctx, bucketName, objectName, uploadID, complMultipartUpload)
 	if err != nil {
 		return totalUploadedSize, err
 	}
@@ -256,7 +256,7 @@ func (c Client) putObjectMultipartStreamNoChecksum(ctx context.Context, bucketNa
 	// storage space.
 	defer func() {
 		if err != nil {
-			c.abortMultipartUpload(ctx, bucketName, objectName, uploadID)
+			c.AbortMultipartUpload(ctx, bucketName, objectName, uploadID)
 		}
 	}()
 
@@ -278,7 +278,7 @@ func (c Client) putObjectMultipartStreamNoChecksum(ctx context.Context, bucketNa
 			partSize = lastPartSize
 		}
 		var objPart ObjectPart
-		objPart, err = c.uploadPart(ctx, bucketName, objectName, uploadID,
+		objPart, err = c.UploadPart(ctx, bucketName, objectName, uploadID,
 			io.LimitReader(hookReader, partSize),
 			partNumber, "", "", partSize, opts.ServerSideEncryption)
 		if err != nil {
@@ -300,7 +300,7 @@ func (c Client) putObjectMultipartStreamNoChecksum(ctx context.Context, bucketNa
 	}
 
 	// Complete multipart upload.
-	var complMultipartUpload completeMultipartUpload
+	var complMultipartUpload CompleteMultipartUpload
 
 	// Loop over total uploaded parts to save them in
 	// Parts array before completing the multipart request.
@@ -317,7 +317,7 @@ func (c Client) putObjectMultipartStreamNoChecksum(ctx context.Context, bucketNa
 
 	// Sort all completed parts.
 	sort.Sort(completedParts(complMultipartUpload.Parts))
-	_, err = c.completeMultipartUpload(ctx, bucketName, objectName, uploadID, complMultipartUpload)
+	_, err = c.CompleteMultipartUpload(ctx, bucketName, objectName, uploadID, complMultipartUpload)
 	if err != nil {
 		return totalUploadedSize, err
 	}
@@ -359,7 +359,7 @@ func (c Client) putObjectNoChecksum(ctx context.Context, bucketName, objectName 
 
 	// This function does not calculate sha256 and md5sum for payload.
 	// Execute put object.
-	st, err := c.putObjectDo(ctx, bucketName, objectName, readSeeker, "", "", size, opts)
+	st, err := c.PutObjectDo(ctx, bucketName, objectName, readSeeker, "", "", size, opts)
 	if err != nil {
 		return 0, err
 	}
@@ -371,7 +371,7 @@ func (c Client) putObjectNoChecksum(ctx context.Context, bucketName, objectName 
 
 // putObjectDo - executes the put object http operation.
 // NOTE: You must have WRITE permissions on a bucket to add an object to it.
-func (c Client) putObjectDo(ctx context.Context, bucketName, objectName string, reader io.Reader, md5Base64, sha256Hex string, size int64, opts PutObjectOptions) (ObjectInfo, error) {
+func (c Client) PutObjectDo(ctx context.Context, bucketName, objectName string, reader io.Reader, md5Base64, sha256Hex string, size int64, opts PutObjectOptions) (ObjectInfo, error) {
 	// Input validation.
 	if err := s3utils.CheckValidBucketName(bucketName); err != nil {
 		return ObjectInfo{}, err
