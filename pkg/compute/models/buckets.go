@@ -214,10 +214,15 @@ func (bucket *SBucket) getStats() cloudprovider.SBucketStats {
 
 func (bucket *SBucket) GetShortDesc(ctx context.Context) *jsonutils.JSONDict {
 	desc := bucket.SVirtualResourceBase.GetShortDesc(ctx)
+
 	desc.Add(jsonutils.NewInt(bucket.SizeBytes), "size_bytes")
 	desc.Add(jsonutils.NewInt(int64(bucket.ObjectCnt)), "object_cnt")
 	desc.Add(jsonutils.NewString(bucket.Acl), "acl")
 	desc.Add(jsonutils.NewString(bucket.StorageClass), "storage_class")
+
+	info := bucket.getCloudProviderInfo()
+	desc.Update(jsonutils.Marshal(&info))
+
 	return desc
 }
 
