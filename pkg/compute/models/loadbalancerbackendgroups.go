@@ -534,7 +534,7 @@ func (lbbg *SLoadbalancerBackendGroup) GetAwsCachedlbbg() ([]SAwsCachedLbbg, err
 func (lbbg *SLoadbalancerBackendGroup) GetHuaweiCachedlbbg() ([]SHuaweiCachedLbbg, error) {
 	ret := []SHuaweiCachedLbbg{}
 	q := HuaweiCachedLbbgManager.Query().Equals("backend_group_id", lbbg.GetId())
-	err := db.FetchModelObjects(AwsCachedLbbgManager, q, &ret)
+	err := db.FetchModelObjects(HuaweiCachedLbbgManager, q, &ret)
 	if err != nil {
 		return nil, errors.Wrap(err, "loadbalancerBackendGroup.GetHuaweiCachedlbbg")
 	}

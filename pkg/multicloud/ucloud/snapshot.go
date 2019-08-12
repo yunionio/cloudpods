@@ -130,7 +130,7 @@ func (self *SSnapshot) Delete() error {
 }
 
 func (self *SRegion) GetSnapshotById(zoneId string, snapshotId string) (SSnapshot, error) {
-	snapshots, err := self.GetSnapshots("", snapshotId)
+	snapshots, err := self.GetSnapshots(zoneId, "", snapshotId)
 	if err != nil {
 		return SSnapshot{}, err
 	}
@@ -144,7 +144,7 @@ func (self *SRegion) GetSnapshotById(zoneId string, snapshotId string) (SSnapsho
 	}
 }
 
-func (self *SRegion) GetSnapshots(diskId string, snapshotId string) ([]SSnapshot, error) {
+func (self *SRegion) GetSnapshots(zoneId string, diskId string, snapshotId string) ([]SSnapshot, error) {
 	params := NewUcloudParams()
 	if len(diskId) > 0 {
 		disk, err := self.GetDisk(diskId)
@@ -156,11 +156,11 @@ func (self *SRegion) GetSnapshots(diskId string, snapshotId string) ([]SSnapshot
 		params.Set("Zone", disk.Zone)
 	}
 
-	if len(snapshotId) > 0 {
-		if len(diskId) == 0 {
-			return nil, fmt.Errorf("GetSnapshots required parameter diskId.")
-		}
+	if len(zoneId) > 0 {
+		params.Set("Zone", zoneId)
+	}
 
+	if len(snapshotId) > 0 {
 		params.Set("SnapshotId", snapshotId)
 	}
 
