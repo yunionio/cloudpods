@@ -17,10 +17,10 @@ package cloudprovider
 import (
 	"context"
 	"io"
+	"strings"
 	"time"
 
-	"strings"
-
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/s3cli"
 )
@@ -28,7 +28,10 @@ import (
 type TBucketACLType string
 
 const (
-	ACLDefault = TBucketACLType("default")
+	// 100 MB
+	MAX_PUT_OBJECT_SIZEBYTES = int64(1000 * 1000 * 100)
+
+	// ACLDefault = TBucketACLType("default")
 
 	ACLPrivate         = TBucketACLType(s3cli.CANNED_ACL_PRIVATE)
 	ACLAuthRead        = TBucketACLType(s3cli.CANNED_ACL_AUTH_READ)
@@ -75,6 +78,9 @@ type SListObjectResult struct {
 type ICloudBucket interface {
 	IVirtualResource
 
+	MaxPartCount() int
+	MaxPartSizeBytes() int64
+
 	//GetGlobalId() string
 	//GetName() string
 	GetAcl() TBucketACLType
@@ -89,10 +95,15 @@ type ICloudBucket interface {
 
 	ListObjects(prefix string, marker string, delimiter string, maxCount int) (SListObjectResult, error)
 	GetIObjects(prefix string, isRecursive bool) ([]ICloudObject, error)
-	PutObject(ctx context.Context, key string, input io.Reader, contType string, storageClass string) error
+
 	DeleteObject(ctx context.Context, keys string) error
 	GetTempUrl(method string, key string, expire time.Duration) (string, error)
-	// ObjectExist(key string) (bool, error)
+
+	PutObject(ctx context.Context, key string, input io.Reader, sizeBytes int64, contType string, cannedAcl TBucketACLType, storageClassStr string) error
+	NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl TBucketACLType, storageClassStr string) (string, error)
+	UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error)
+	CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error
+	AbortMultipartUpload(ctx context.Context, key string, uploadId string) error
 }
 
 type ICloudObject interface {
@@ -247,9 +258,72 @@ func Makedir(ctx context.Context, bucket ICloudBucket, key string) error {
 		}
 	}
 	path := strings.Join(segs, "/") + "/"
-	err := bucket.PutObject(ctx, path, strings.NewReader(""), "", "")
+	err := bucket.PutObject(ctx, path, strings.NewReader(""), 0, "", ACLPrivate, "")
 	if err != nil {
 		return errors.Wrap(err, "PutObject")
+	}
+	return nil
+}
+
+func UploadObject(ctx context.Context, bucket ICloudBucket, key string, blocksz int64, input io.Reader, sizeBytes int64, contType string, cannedAcl TBucketACLType, storageClass string, debug bool) error {
+	if blocksz <= 0 {
+		blocksz = MAX_PUT_OBJECT_SIZEBYTES
+	}
+	if sizeBytes < blocksz {
+		if debug {
+			log.Debugf("too small, put object in one shot")
+		}
+		return bucket.PutObject(ctx, key, input, sizeBytes, contType, cannedAcl, storageClass)
+	}
+	partSize := blocksz
+	partCount := sizeBytes / partSize
+	if partCount*partSize < sizeBytes {
+		partCount += 1
+	}
+	if partCount > int64(bucket.MaxPartCount()) {
+		partCount = int64(bucket.MaxPartCount())
+		partSize = sizeBytes / partCount
+		if partSize*partCount < sizeBytes {
+			partSize += 1
+		}
+		if partSize > bucket.MaxPartSizeBytes() {
+			return errors.Error("too larget object")
+		}
+	}
+	if debug {
+		log.Debugf("multipart upload part count %d part size %d", partCount, partSize)
+	}
+	uploadId, err := bucket.NewMultipartUpload(ctx, key, contType, cannedAcl, storageClass)
+	if err != nil {
+		return errors.Wrap(err, "bucket.NewMultipartUpload")
+	}
+	etags := make([]string, partCount)
+	// offset := int64(0)
+	for i := 0; i < int(partCount); i += 1 {
+		if i == int(partCount)-1 {
+			partSize = sizeBytes - partSize*(partCount-1)
+		}
+		if debug {
+			log.Debugf("UploadPart %d %d", i+1, partSize)
+		}
+		etag, err := bucket.UploadPart(ctx, key, uploadId, i+1, io.LimitReader(input, partSize), partSize)
+		if err != nil {
+			err2 := bucket.AbortMultipartUpload(ctx, key, uploadId)
+			if err2 != nil {
+				log.Errorf("bucket.AbortMultipartUpload error %s", err2)
+			}
+			return errors.Wrap(err, "bucket.UploadPart")
+		}
+		// offset += partSize
+		etags[i] = etag
+	}
+	err = bucket.CompleteMultipartUpload(ctx, key, uploadId, etags)
+	if err != nil {
+		err2 := bucket.AbortMultipartUpload(ctx, key, uploadId)
+		if err2 != nil {
+			log.Errorf("bucket.AbortMultipartUpload error %s", err2)
+		}
+		return errors.Wrap(err, "CompleteMultipartUpload")
 	}
 	return nil
 }

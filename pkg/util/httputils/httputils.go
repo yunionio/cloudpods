@@ -130,12 +130,14 @@ func GetAddrPort(urlStr string) (string, int, error) {
 func GetTransport(insecure bool, timeout time.Duration) *http.Transport {
 	return &http.Transport{
 		DialContext: (&net.Dialer{
-			Timeout: 5 * time.Second,
+			Timeout:   timeout,
+			KeepAlive: timeout,
 		}).DialContext,
-		IdleConnTimeout:       5 * time.Second,
+		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: insecure},
+		DisableCompression:    true,
 	}
 }
 

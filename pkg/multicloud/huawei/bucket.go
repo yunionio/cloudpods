@@ -227,7 +227,7 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 	return result, nil
 }
 
-func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, contType string, storageClassStr string) error {
+func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
 	obscli, err := b.region.getOBSClient()
 	if err != nil {
 		return errors.Wrap(err, "GetOBSClient")
@@ -236,11 +236,18 @@ func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, c
 	input.Bucket = b.Name
 	input.Key = key
 	input.Body = reader
+
+	if sizeBytes > 0 {
+		input.ContentLength = sizeBytes
+	}
 	if len(storageClassStr) > 0 {
 		input.StorageClass, err = str2StorageClass(storageClassStr)
 		if err != nil {
 			return err
 		}
+	}
+	if len(cannedAcl) > 0 {
+		input.ACL = obs.AclType(string(cannedAcl))
 	}
 	if len(contType) > 0 {
 		input.ContentType = contType
@@ -249,6 +256,100 @@ func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, c
 	if err != nil {
 		return errors.Wrap(err, "PutObject")
 	}
+	return nil
+}
+
+func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return "", errors.Wrap(err, "GetOBSClient")
+	}
+
+	input := &obs.InitiateMultipartUploadInput{}
+	input.Bucket = b.Name
+	input.Key = key
+	if len(contType) > 0 {
+		input.ContentType = contType
+	}
+	if len(cannedAcl) > 0 {
+		input.ACL = obs.AclType(string(cannedAcl))
+	}
+	if len(storageClassStr) > 0 {
+		input.StorageClass, err = str2StorageClass(storageClassStr)
+		if err != nil {
+			return "", errors.Wrap(err, "str2StorageClass")
+		}
+	}
+	output, err := obscli.InitiateMultipartUpload(input)
+	if err != nil {
+		return "", errors.Wrap(err, "InitiateMultipartUpload")
+	}
+
+	return output.UploadId, nil
+}
+
+func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, part io.Reader, partSize int64) (string, error) {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return "", errors.Wrap(err, "GetOBSClient")
+	}
+
+	input := &obs.UploadPartInput{}
+	input.Bucket = b.Name
+	input.Key = key
+	input.UploadId = uploadId
+	input.PartNumber = partIndex
+	input.PartSize = partSize
+	input.Body = part
+	output, err := obscli.UploadPart(input)
+	if err != nil {
+		return "", errors.Wrap(err, "UploadPart")
+	}
+
+	return output.ETag, nil
+}
+
+func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOBSClient")
+	}
+	input := &obs.CompleteMultipartUploadInput{}
+	input.Bucket = b.Name
+	input.Key = key
+	input.UploadId = uploadId
+	parts := make([]obs.Part, len(partEtags))
+	for i := range partEtags {
+		parts[i] = obs.Part{
+			PartNumber: i + 1,
+			ETag:       partEtags[i],
+		}
+	}
+	input.Parts = parts
+	_, err = obscli.CompleteMultipartUpload(input)
+	if err != nil {
+		return errors.Wrap(err, "CompleteMultipartUpload")
+	}
+
+	return nil
+}
+
+func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOBSClient")
+	}
+
+	input := &obs.AbortMultipartUploadInput{}
+	input.Bucket = b.Name
+	input.Key = key
+	input.UploadId = uploadId
+
+	_, err = obscli.AbortMultipartUpload(input)
+	if err != nil {
+		return errors.Wrap(err, "AbortMultipartUpload")
+	}
+
 	return nil
 }
 

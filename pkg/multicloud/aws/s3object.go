@@ -34,7 +34,7 @@ func (o *SObject) GetIBucket() cloudprovider.ICloudBucket {
 }
 
 func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
-	acl := cloudprovider.ACLDefault
+	acl := cloudprovider.ACLPrivate
 	s3cli, err := o.bucket.region.GetS3Client()
 	if err != nil {
 		log.Errorf("o.bucket.region.GetS3Client error %s", err)

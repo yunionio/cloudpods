@@ -175,7 +175,7 @@ func (self *SFile) GetContentType() string {
 }
 
 func (self *SFile) GetAcl() cloudprovider.TBucketACLType {
-	return cloudprovider.ACLDefault
+	return self.bucket.GetAcl()
 }
 
 func (self *SFile) SetAcl(cloudprovider.TBucketACLType) error {
@@ -343,7 +343,23 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 	return result, nil
 }
 
-func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, contType string, storageClassStr string) error {
+func (b *SBucket) PutObject(ctx context.Context, key string, input io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
+	return "", cloudprovider.ErrNotSupported
+}
+
+func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
+	return "", cloudprovider.ErrNotSupported
+}
+
+func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error {
+	return cloudprovider.ErrNotSupported
+}
+
+func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
 	return cloudprovider.ErrNotSupported
 }
 
