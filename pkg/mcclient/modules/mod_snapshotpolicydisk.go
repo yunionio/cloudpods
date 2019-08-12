@@ -12,14 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package modules
 
-type SDisk struct{}
+var (
+	SnapshotPolicyDisk JointResourceManager
+)
 
-func (self *SDisk) GetExtSnapshotPolicyIds() []string {
-	return []string{""}
-}
-
-func (self *SDisk) GetIStorageId() string {
-	return ""
+func init() {
+	SnapshotPolicyDisk = NewJointComputeManager(
+		"snapshotpolicydisk",
+		"snapshotpolicydisks",
+		[]string{"Disk_ID", "Snapshotpolicy_ID"},
+		[]string{},
+		&Disks,
+		&SnapshotPoliciy)
+	registerCompute(&SnapshotPolicyDisk)
 }

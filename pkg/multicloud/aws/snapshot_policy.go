@@ -12,14 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
-
-type SDisk struct{}
-
-func (self *SDisk) GetExtSnapshotPolicyIds() []string {
-	return []string{""}
-}
-
-func (self *SDisk) GetIStorageId() string {
-	return ""
-}
+package aws

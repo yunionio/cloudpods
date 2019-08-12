@@ -153,6 +153,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.CloudproviderRegionManager,
 		models.DBInstanceNetworkManager,
 		models.NetworkinterfacenetworkManager,
+		models.SnapshotPolicyDiskManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewJointModelHandler(manager)
