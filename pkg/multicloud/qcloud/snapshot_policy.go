@@ -43,7 +43,7 @@ type SSnapshotPolicy struct {
 	AutoSnapshotPolicyState string
 	RetentionDays           int
 	Policy                  []SPolicy
-	Activated               bool `json:"is_activated"`
+	Activated               bool `json:"IsActivated"`
 	IsPermanent             bool
 }
 
@@ -90,6 +90,9 @@ func (self *SSnapshotPolicy) GetProjectId() string {
 }
 
 func (self *SSnapshotPolicy) GetRetentionDays() int {
+	if self.IsPermanent {
+		return -1
+	}
 	return self.RetentionDays
 }
 
@@ -187,7 +190,14 @@ func (self *SRegion) CreateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInp
 		return "", fmt.Errorf("Can't create snapshot policy with nil timePoints")
 	}
 	params := make(map[string]string)
-	params["RetentionDays"] = strconv.Itoa(input.RetentionDays)
+
+	// In Qcloud, that IsPermanent is true means that keep snapshot forever,
+	// In OneCloud, that RetentionDays is -1 means that keep snapshot forever.
+	if input.RetentionDays == -1 {
+		params["IsPermanent"] = strconv.FormatBool(true)
+	} else {
+		params["RetentionDays"] = strconv.Itoa(input.RetentionDays)
+	}
 	dayOfWeekPrefix, hourPrefix := "Policy.0.DayOfWeek.", "Policy.0.Hour."
 	for index, day := range input.RepeatWeekdays {
 		if day == 0 {
@@ -209,10 +219,7 @@ func (self *SRegion) CreateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInp
 	return id, nil
 }
 
-func (self *SRegion) UpdateSnapshotPolicy(
-	snapshotPolicyId string, retentionDays *int,
-	repeatWeekdays, timePoints *jsonutils.JSONArray, policyName string,
-) error {
+func (self *SRegion) UpdateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInput, snapshotPolicyId string) error {
 	// not implement
 	return nil
 }
@@ -237,4 +244,24 @@ func (self *SRegion) CancelSnapshotPolicyToDisks(snapshotPolicyId string, diskId
 		return errors.Wrapf(err, "Unbind AutoSnapshotPolicy %s of Disk failed", snapshotPolicyId)
 	}
 	return nil
+}
+
+func (self *SRegion) GetSnapshotIdByDiskId(diskID string) ([]string, error) {
+	params := make(map[string]string)
+	params["DiskId"] = diskID
+
+	rps, err := self.cbsRequest("DescribeDiskAssociatedAutoSnapshotPolicy", params)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get All SnapshotpolicyIDs of Disk %s failed", diskID)
+	}
+
+	snapshotpolicies := make([]SSnapshotPolicy, 0)
+	if err := rps.Unmarshal(&snapshotpolicies, "AutoSnapshotPolicySet"); err != nil {
+		return nil, errors.Wrapf(err, "Unmarshal snapshot policies details failed")
+	}
+	ret := make([]string, len(snapshotpolicies))
+	for i := range snapshotpolicies {
+		ret[i] = snapshotpolicies[i].GetId()
+	}
+	return ret, nil
 }

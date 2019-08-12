@@ -15,7 +15,8 @@
 package modules
 
 var (
-	SnapshotPolicyDisk JointResourceManager
+	SnapshotPolicyDisk  JointResourceManager
+	SnapshotPolicyDisk1 JointResourceManager
 )
 
 func init() {
@@ -27,4 +28,13 @@ func init() {
 		&Disks,
 		&SnapshotPoliciy)
 	registerCompute(&SnapshotPolicyDisk)
+
+	SnapshotPolicyDisk1 = NewJointComputeManager(
+		"snapshotpolicydisk",
+		"snapshotpolicydisks",
+		[]string{"Disk_ID", "Snapshotpolicy_ID"},
+		[]string{},
+		&SnapshotPoliciy,
+		&Disks)
+	registerCompute(&SnapshotPolicyDisk1)
 }
