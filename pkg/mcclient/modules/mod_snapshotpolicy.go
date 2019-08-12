@@ -19,7 +19,7 @@ var (
 )
 
 func init() {
-	SnapshotPoliciy = NewComputeManager("snapshotpolicy", "snapshotpolicies",
+	SnapshotPoliciy = NewComputeManager("snapshotpolicy.yaml", "snapshotpolicies",
 		[]string{"ID", "Name", "Status", "Retention_Days", "Repeat_Weekdays", "Time_Points"},
 		[]string{})
 

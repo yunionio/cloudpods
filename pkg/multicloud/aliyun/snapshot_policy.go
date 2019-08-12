@@ -234,23 +234,17 @@ func (self *SRegion) CreateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInp
 	}
 }
 
-func (self *SRegion) UpdateSnapshotPolicy(
-	snapshotPolicyId string, retentionDays *int,
-	repeatWeekdays, timePoints *jsonutils.JSONArray, policyName string,
-) error {
+func (self *SRegion) UpdateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInput, snapshotPolicyId string) error {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
-	if len(policyName) > 0 {
-		params["autoSnapshotPolicyName"] = policyName
+	if input.RetentionDays != 0 {
+		params["retentionDays"] = strconv.Itoa(input.RetentionDays)
 	}
-	if retentionDays != nil {
-		params["retentionDays"] = strconv.Itoa(*retentionDays)
+	if input.RepeatWeekdays != nil && len(input.RepeatWeekdays) != 0 {
+		params["repeatWeekdays"] = jsonutils.Marshal(input.GetStringArrayRepeatWeekdays()).String()
 	}
-	if repeatWeekdays != nil {
-		params["repeatWeekdays"] = repeatWeekdays.String()
-	}
-	if timePoints != nil {
-		params["timePoints"] = timePoints.String()
+	if input.TimePoints != nil && len(input.TimePoints) != 0 {
+		params["timePoints"] = jsonutils.Marshal(input.GetStringArrayTimePoints()).String()
 	}
 	_, err := self.ecsRequest("ModifyAutoSnapshotPolicyEx", params)
 	if err != nil {
@@ -258,6 +252,31 @@ func (self *SRegion) UpdateSnapshotPolicy(
 	}
 	return nil
 }
+
+//func (self *SRegion) UpdateSnapshotPolicy(
+//	snapshotPolicyId string, retentionDays *int,
+//	repeatWeekdays, timePoints *jsonutils.JSONArray, policyName string,
+//) error {
+//	params := make(map[string]string)
+//	params["RegionId"] = self.RegionId
+//	if len(policyName) > 0 {
+//		params["autoSnapshotPolicyName"] = policyName
+//	}
+//	if retentionDays != nil {
+//		params["retentionDays"] = strconv.Itoa(*retentionDays)
+//	}
+//	if repeatWeekdays != nil {
+//		params["repeatWeekdays"] = repeatWeekdays.String()
+//	}
+//	if timePoints != nil {
+//		params["timePoints"] = timePoints.String()
+//	}
+//	_, err := self.ecsRequest("ModifyAutoSnapshotPolicyEx", params)
+//	if err != nil {
+//		return fmt.Errorf("ModifyAutoSnapshotPolicyEx Fail %s", err)
+//	}
+//	return nil
+//}
 
 func (self *SRegion) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
 	params := make(map[string]string)

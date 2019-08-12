@@ -188,6 +188,17 @@ paths:
   /natsentries/{snatentryId}:
     $ref: "./natgateway/snatentry.yaml"
 
+  /snapshotpolicies:
+    $ref: "./snapshotpolicy/snapshotpolicies.yaml"
+  /snapshotpolicies/{snapshotpolicyId}:
+    $ref: "./snapshotpolicy/snapshotpolicy.yaml"
+  /disks/{disk_id}/snapshotpolicies:
+    $ref: "./snapshotpolicy/snapshotpolicydisk.yaml"
+  /snapshotpolicies/{snapshotpolicy_id}/disks:
+    $ref: "./snapshotpolicy/snapshotpolicydisk2.yaml"
+  /disks/{disk_id}/snapshotpolicies/{snapshotpolicy_id}:
+    $ref: "./snapshotpolicy/snapshotpolicydisk3.yaml"
+
   /loadbalancers:
     $ref: "./loadbalancer/loadbalancers.yaml"
   /loadbalancers/{loadbalancerId}:

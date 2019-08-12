@@ -24,6 +24,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/fileutils"
@@ -338,6 +339,14 @@ func (self *SDisk) GetRuningGuestCount() (int, error) {
 		sqlchemy.Equals(guestdisks.Field("guest_id"), guests.Field("id")))).
 		Filter(sqlchemy.Equals(guestdisks.Field("disk_id"), self.Id)).
 		Filter(sqlchemy.Equals(guests.Field("status"), api.VM_RUNNING)).CountWithError()
+}
+
+func (self *SDisk) DetachAfterDelete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	err := SnapshotPolicyDiskManager.SyncDetachByDisk(ctx, userCred, nil, self)
+	if err != nil {
+		return errors.Wrap(err, "detach after delete failed")
+	}
+	return nil
 }
 
 func (self *SDisk) CustomizeCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
@@ -1179,7 +1188,11 @@ func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.To
 		self.SetStatus(userCred, api.DISK_UNKNOWN, "missing original disk after sync")
 		return err
 	}
-	// todo detach joint modle about snapshotpolicy and disk
+	// detach joint modle about snapshotpolicy.yaml and disk
+	err = SnapshotPolicyDiskManager.SyncDetachByDisk(ctx, userCred, nil, self)
+	if err != nil {
+		return err
+	}
 	return self.RealDelete(ctx, userCred)
 }
 
@@ -1226,8 +1239,6 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 			self.CreatedAt = createdAt
 		}
 
-		// todo sync disk's snapshotpolicy
-
 		return nil
 	})
 	if err != nil {
@@ -1235,6 +1246,15 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 		return err
 	}
 
+	// sync disk's snapshotpolicy.yaml
+	snapshotpolicies, err := extDisk.GetExtSnapshotPolicyIds()
+	if err != nil {
+		return errors.Wrapf(err, "Get snapshot policies of ICloudDisk %s.", extDisk.GetId())
+	}
+	err = SnapshotPolicyDiskManager.SyncByDisk(ctx, userCred, snapshotpolicies, syncOwnerId, self, storage)
+	if err != nil {
+		return err
+	}
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 
 	SyncCloudProject(userCred, self, syncOwnerId, extDisk, storage.ManagerId)
@@ -1275,11 +1295,19 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 		disk.CreatedAt = createAt
 	}
 
-	// todo create new joint model about snapshotpolicy and disk
-
 	err = manager.TableSpec().Insert(&disk)
 	if err != nil {
 		log.Errorf("newFromCloudZone fail %s", err)
+		return nil, err
+	}
+
+	// create new joint model about snapshotpolicy.yaml and disk
+	snapshotpolicies, err := extDisk.GetExtSnapshotPolicyIds()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Get snapshot policies of ICloudDisk %s.", extDisk.GetId())
+	}
+	err = SnapshotPolicyDiskManager.SyncAttachDiskExt(ctx, userCred, snapshotpolicies, syncOwnerId, &disk, storage)
+	if err != nil {
 		return nil, err
 	}
 
@@ -1532,7 +1560,12 @@ func (self *SDisk) RealDelete(ctx context.Context, userCred mcclient.TokenCreden
 			guestdisk.Detach(ctx, userCred)
 		}
 	}
-	return self.SSharableVirtualResourceBase.Delete(ctx, userCred)
+	err := self.SSharableVirtualResourceBase.Delete(ctx, userCred)
+	if err != nil {
+		return err
+	}
+
+	return self.DetachAfterDelete(ctx, userCred)
 }
 
 func (self *SDisk) AllowPerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {

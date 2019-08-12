@@ -41,9 +41,6 @@ type SSnapshotPolicyCreateInput struct {
 	ProjectId string `json:"project_id"`
 	DomainId  string `json:"domain_id"`
 
-	ManagerId     string `json:"manager_id"`
-	CloudregionId string `json:"cloudregion_id"`
-
 	RetentionDays  int   `json:"retention_days"`
 	RepeatWeekdays []int `json:"repeat_weekdays"`
 	TimePoints     []int `json:"time_points"`
@@ -55,9 +52,6 @@ type SSnapshotPolicyCreateInternalInput struct {
 	Name      string
 	ProjectId string
 	DomainId  string
-
-	ManagerId     string
-	CloudregionId string
 
 	RetentionDays  int
 	RepeatWeekdays uint8
