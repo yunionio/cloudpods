@@ -186,7 +186,7 @@ func (c Client) putObjectMultipartStreamNoLength(ctx context.Context, bucketName
 	var totalUploadedSize int64
 
 	// Complete multipart upload.
-	var complMultipartUpload completeMultipartUpload
+	var complMultipartUpload CompleteMultipartUpload
 
 	// Calculate the optimal parts info for a given size.
 	totalPartsCount, partSize, _, err := optimalPartInfo(-1, opts.PartSize)
@@ -201,7 +201,7 @@ func (c Client) putObjectMultipartStreamNoLength(ctx context.Context, bucketName
 
 	defer func() {
 		if err != nil {
-			c.abortMultipartUpload(ctx, bucketName, objectName, uploadID)
+			c.AbortMultipartUpload(ctx, bucketName, objectName, uploadID)
 		}
 	}()
 
@@ -229,7 +229,7 @@ func (c Client) putObjectMultipartStreamNoLength(ctx context.Context, bucketName
 
 		// Proceed to upload the part.
 		var objPart ObjectPart
-		objPart, err = c.uploadPart(ctx, bucketName, objectName, uploadID, rd, partNumber,
+		objPart, err = c.UploadPart(ctx, bucketName, objectName, uploadID, rd, partNumber,
 			"", "", int64(length), opts.ServerSideEncryption)
 		if err != nil {
 			return totalUploadedSize, err
@@ -266,7 +266,7 @@ func (c Client) putObjectMultipartStreamNoLength(ctx context.Context, bucketName
 
 	// Sort all completed parts.
 	sort.Sort(completedParts(complMultipartUpload.Parts))
-	if _, err = c.completeMultipartUpload(ctx, bucketName, objectName, uploadID, complMultipartUpload); err != nil {
+	if _, err = c.CompleteMultipartUpload(ctx, bucketName, objectName, uploadID, complMultipartUpload); err != nil {
 		return totalUploadedSize, err
 	}
 

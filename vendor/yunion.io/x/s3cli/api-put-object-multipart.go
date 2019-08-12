@@ -70,7 +70,7 @@ func (c Client) putObjectMultipartNoStream(ctx context.Context, bucketName, obje
 	var totalUploadedSize int64
 
 	// Complete multipart upload.
-	var complMultipartUpload completeMultipartUpload
+	var complMultipartUpload CompleteMultipartUpload
 
 	// Calculate the optimal parts info for a given size.
 	totalPartsCount, partSize, _, err := optimalPartInfo(-1, opts.PartSize)
@@ -86,7 +86,7 @@ func (c Client) putObjectMultipartNoStream(ctx context.Context, bucketName, obje
 
 	defer func() {
 		if err != nil {
-			c.abortMultipartUpload(ctx, bucketName, objectName, uploadID)
+			c.AbortMultipartUpload(ctx, bucketName, objectName, uploadID)
 		}
 	}()
 
@@ -138,7 +138,7 @@ func (c Client) putObjectMultipartNoStream(ctx context.Context, bucketName, obje
 
 		// Proceed to upload the part.
 		var objPart ObjectPart
-		objPart, err = c.uploadPart(ctx, bucketName, objectName, uploadID, rd, partNumber,
+		objPart, err = c.UploadPart(ctx, bucketName, objectName, uploadID, rd, partNumber,
 			md5Base64, sha256Hex, int64(length), opts.ServerSideEncryption)
 		if err != nil {
 			return totalUploadedSize, err
@@ -175,7 +175,7 @@ func (c Client) putObjectMultipartNoStream(ctx context.Context, bucketName, obje
 
 	// Sort all completed parts.
 	sort.Sort(completedParts(complMultipartUpload.Parts))
-	if _, err = c.completeMultipartUpload(ctx, bucketName, objectName, uploadID, complMultipartUpload); err != nil {
+	if _, err = c.CompleteMultipartUpload(ctx, bucketName, objectName, uploadID, complMultipartUpload); err != nil {
 		return totalUploadedSize, err
 	}
 
@@ -184,13 +184,13 @@ func (c Client) putObjectMultipartNoStream(ctx context.Context, bucketName, obje
 }
 
 // initiateMultipartUpload - Initiates a multipart upload and returns an upload ID.
-func (c Client) initiateMultipartUpload(ctx context.Context, bucketName, objectName string, opts PutObjectOptions) (initiateMultipartUploadResult, error) {
+func (c Client) InitiateMultipartUpload(ctx context.Context, bucketName, objectName string, opts PutObjectOptions) (InitiateMultipartUploadResult, error) {
 	// Input validation.
 	if err := s3utils.CheckValidBucketName(bucketName); err != nil {
-		return initiateMultipartUploadResult{}, err
+		return InitiateMultipartUploadResult{}, err
 	}
 	if err := s3utils.CheckValidObjectName(objectName); err != nil {
-		return initiateMultipartUploadResult{}, err
+		return InitiateMultipartUploadResult{}, err
 	}
 
 	// Initialize url queries.
@@ -211,24 +211,24 @@ func (c Client) initiateMultipartUpload(ctx context.Context, bucketName, objectN
 	resp, err := c.executeMethod(ctx, "POST", reqMetadata)
 	defer closeResponse(resp)
 	if err != nil {
-		return initiateMultipartUploadResult{}, err
+		return InitiateMultipartUploadResult{}, err
 	}
 	if resp != nil {
 		if resp.StatusCode != http.StatusOK {
-			return initiateMultipartUploadResult{}, httpRespToErrorResponse(resp, bucketName, objectName)
+			return InitiateMultipartUploadResult{}, httpRespToErrorResponse(resp, bucketName, objectName)
 		}
 	}
 	// Decode xml for new multipart upload.
-	initiateMultipartUploadResult := initiateMultipartUploadResult{}
-	err = xmlDecoder(resp.Body, &initiateMultipartUploadResult)
+	InitiateMultipartUploadResult := InitiateMultipartUploadResult{}
+	err = xmlDecoder(resp.Body, &InitiateMultipartUploadResult)
 	if err != nil {
-		return initiateMultipartUploadResult, err
+		return InitiateMultipartUploadResult, err
 	}
-	return initiateMultipartUploadResult, nil
+	return InitiateMultipartUploadResult, nil
 }
 
 // uploadPart - Uploads a part in a multipart upload.
-func (c Client) uploadPart(ctx context.Context, bucketName, objectName, uploadID string, reader io.Reader,
+func (c Client) UploadPart(ctx context.Context, bucketName, objectName, uploadID string, reader io.Reader,
 	partNumber int, md5Base64, sha256Hex string, size int64, sse encrypt.ServerSide) (ObjectPart, error) {
 	// Input validation.
 	if err := s3utils.CheckValidBucketName(bucketName); err != nil {
@@ -300,14 +300,14 @@ func (c Client) uploadPart(ctx context.Context, bucketName, objectName, uploadID
 }
 
 // completeMultipartUpload - Completes a multipart upload by assembling previously uploaded parts.
-func (c Client) completeMultipartUpload(ctx context.Context, bucketName, objectName, uploadID string,
-	complete completeMultipartUpload) (completeMultipartUploadResult, error) {
+func (c Client) CompleteMultipartUpload(ctx context.Context, bucketName, objectName, uploadID string,
+	complete CompleteMultipartUpload) (CompleteMultipartUploadResult, error) {
 	// Input validation.
 	if err := s3utils.CheckValidBucketName(bucketName); err != nil {
-		return completeMultipartUploadResult{}, err
+		return CompleteMultipartUploadResult{}, err
 	}
 	if err := s3utils.CheckValidObjectName(objectName); err != nil {
-		return completeMultipartUploadResult{}, err
+		return CompleteMultipartUploadResult{}, err
 	}
 
 	// Initialize url queries.
@@ -316,7 +316,7 @@ func (c Client) completeMultipartUpload(ctx context.Context, bucketName, objectN
 	// Marshal complete multipart body.
 	completeMultipartUploadBytes, err := xml.Marshal(complete)
 	if err != nil {
-		return completeMultipartUploadResult{}, err
+		return CompleteMultipartUploadResult{}, err
 	}
 
 	// Instantiate all the complete multipart buffer.
@@ -334,11 +334,11 @@ func (c Client) completeMultipartUpload(ctx context.Context, bucketName, objectN
 	resp, err := c.executeMethod(ctx, "POST", reqMetadata)
 	defer closeResponse(resp)
 	if err != nil {
-		return completeMultipartUploadResult{}, err
+		return CompleteMultipartUploadResult{}, err
 	}
 	if resp != nil {
 		if resp.StatusCode != http.StatusOK {
-			return completeMultipartUploadResult{}, httpRespToErrorResponse(resp, bucketName, objectName)
+			return CompleteMultipartUploadResult{}, httpRespToErrorResponse(resp, bucketName, objectName)
 		}
 	}
 
@@ -346,10 +346,10 @@ func (c Client) completeMultipartUpload(ctx context.Context, bucketName, objectN
 	var b []byte
 	b, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return completeMultipartUploadResult{}, err
+		return CompleteMultipartUploadResult{}, err
 	}
 	// Decode completed multipart upload response on success.
-	completeMultipartUploadResult := completeMultipartUploadResult{}
+	completeMultipartUploadResult := CompleteMultipartUploadResult{}
 	err = xmlDecoder(bytes.NewReader(b), &completeMultipartUploadResult)
 	if err != nil {
 		// xml parsing failure due to presence an ill-formed xml fragment
