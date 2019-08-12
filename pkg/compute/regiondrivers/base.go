@@ -17,14 +17,11 @@ package regiondrivers
 import (
 	"context"
 	"fmt"
-
 	"yunion.io/x/jsonutils"
 
-	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
-	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -127,41 +124,20 @@ func (self *SBaseRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx context
 	return fmt.Errorf("Not Implement RequestDeleteLoadbalancerListenerRule")
 }
 
-func (self *SBaseRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSnapshotPolicyCreateInput, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) error {
-	var err error
-
-	if len(input.RepeatWeekdays) == 0 {
-		return httperrors.NewMissingParameterError("repeat_weekdays")
-	}
-	input.RepeatWeekdays, err = daysValidate(input.RepeatWeekdays, 1, 7)
-	if err != nil {
-		return httperrors.NewInputParameterError(err.Error())
-	}
-
-	if len(input.TimePoints) == 0 {
-		return httperrors.NewInputParameterError("time_points")
-	}
-	input.TimePoints, err = daysValidate(input.TimePoints, 0, 23)
-	if err != nil {
-		return httperrors.NewInputParameterError(err.Error())
-	}
-	return nil
-}
-
-func (self *SBaseRegionDriver) RequestCreateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask) error {
-	return fmt.Errorf("Not Implement RequestCreateSnapshotPolicy")
+func (self *SBaseRegionDriver) RequestUpdateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, input cloudprovider.SnapshotPolicyInput, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestUpdateSnapshotPolicy")
 }
 
 func (self *SBaseRegionDriver) RequestDeleteSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask) error {
 	return fmt.Errorf("Not Implement RequestDeleteSnapshotPolicy")
 }
 
-func (self *SBaseRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskId string) error {
+func (self *SBaseRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
 	return fmt.Errorf("Not Implement RequestApplySnapshotPolicy")
 }
 
-func (self *SBaseRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskId string) error {
-	return fmt.Errorf("Not Implement RequestApplySnapshotPolicy")
+func (self *SBaseRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
+	return fmt.Errorf("Not Implement RequestCancelSnapshotPolicy")
 }
 
 func (self *SBaseRegionDriver) ValidateSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot) error {
@@ -192,8 +168,9 @@ func (self *SBaseRegionDriver) OnDiskReset(ctx context.Context, userCred mcclien
 	return fmt.Errorf("Not Implement OnDiskReset")
 }
 
-func (self *SBaseRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context, userCred mcclient.TokenCredential, diskID string) error {
-	return fmt.Errorf("Not Implement ValidateCreateSnapshotpolicyDiskData")
+func (self *SBaseRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context,
+	userCred mcclient.TokenCredential, disk *models.SDisk, snapshotPolicy *models.SSnapshotPolicy) error {
+	return nil
 }
 
 func (self *SBaseRegionDriver) OnSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask, data jsonutils.JSONObject) error {

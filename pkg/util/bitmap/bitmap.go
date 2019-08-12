@@ -14,6 +14,7 @@
 
 package bitmap
 
+// Uint2IntArray transfer bitmap displayed as n to int array
 func Uint2IntArray(n uint32) []int {
 	ret := make([]int, 0, 2)
 	var i uint = 0
@@ -27,10 +28,24 @@ func Uint2IntArray(n uint32) []int {
 	return ret
 }
 
+// IntArray2Uint transfer int array nums to bitmap number
 func IntArray2Uint(nums []int) uint32 {
 	var ret uint32 = 0
 	for _, i := range nums {
 		ret |= (1 << uint(i))
 	}
 	return ret
+}
+
+// Determine if int slice a euqals b
+func IntSliceEqual(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

@@ -16,6 +16,7 @@ package shell
 
 import (
 	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -51,9 +52,7 @@ func init() {
 	})
 
 	type SnapshotPolicyCreateOptions struct {
-		NAME        string
-		Manager     string `help:"Manager id or name"`
-		Cloudregion string `help:"Cloudregion id or name"`
+		NAME string
 
 		RetentionDays  int   `help:"snapshot retention days"`
 		RepeatWeekdays []int `help:"snapshot create days on week"`
@@ -70,21 +69,36 @@ func init() {
 		return nil
 	})
 
-	type SnapshotPolicyApplyOptions struct {
-		ID   string   `help:"ID or Name of SnapshotPolicy" json:"-"`
-		Disk []string `help:"Disks id to apply snapshot policy"`
+	type SnapshotPolicyBindDisksOptions struct {
+		ID   string   `help:"ID"`
+		Disk []string `help:"ids of disk"`
 	}
 
-	R(&SnapshotPolicyApplyOptions{}, "snapshot-policy-apply", "Apply snapshot policy to disks", func(s *mcclient.ClientSession, args *SnapshotPolicyApplyOptions) error {
-		params, err := options.StructToParams(args)
-		if err != nil {
-			return err
-		}
-		snapshot, err := modules.SnapshotPoliciy.PerformAction(s, args.ID, "apply-to-disk", params)
-		if err != nil {
-			return err
-		}
-		printObject(snapshot)
-		return nil
-	})
+	R(&SnapshotPolicyBindDisksOptions{}, "snapshot-policy-bind-disk", "bind snapshotpolicy to disks",
+		func(s *mcclient.ClientSession, opts *SnapshotPolicyBindDisksOptions) error {
+			params, err := options.StructToParams(opts)
+			if err != nil {
+				return err
+			}
+			sp, err := modules.SnapshotPoliciy.PerformAction(s, opts.ID, "bind-disks", params)
+			if err != nil {
+				return err
+			}
+			printObject(sp)
+			return nil
+		})
+
+	R(&SnapshotPolicyBindDisksOptions{}, "snapshot-policy-unbind-disk", "bind snapshotpolicy to disks",
+		func(s *mcclient.ClientSession, opts *SnapshotPolicyBindDisksOptions) error {
+			params, err := options.StructToParams(opts)
+			if err != nil {
+				return err
+			}
+			sp, err := modules.SnapshotPoliciy.PerformAction(s, opts.ID, "unbind-disks", params)
+			if err != nil {
+				return err
+			}
+			printObject(sp)
+			return nil
+		})
 }

@@ -26,10 +26,20 @@ const (
 	SNAPSHOT_DELETING    = "deleting"
 	SNAPSHOT_UNKNOWN     = "unknown"
 
-	SNAPSHOT_POLICY_CREATING      = "creating"
+	SNAPSHOT_POLICY_CREATING = "creating"
+
 	SNAPSHOT_POLICY_READY         = "ready"
-	SNAPSHOT_POLICY_CREATE_FAILED = "create_failed"
+	SNAPSHOT_POLICY_UPDATING      = "updating"
 	SNAPSHOT_POLICY_UNKNOWN       = "unknown"
 	SNAPSHOT_POLICY_DELETING      = "deleting"
 	SNAPSHOT_POLICY_DELETE_FAILED = "delete_failed"
+
+	SNAPSHOT_POLICY_APPLY         = "applying"
+	SNAPSHOT_POLICY_APPLY_FAILED  = "apply_failed"
+	SNAPSHOT_POLICY_CANCEL        = "canceling"
+	SNAPSHOT_POLICY_CANCEL_FAILED = "cancel_failed"
+
+	SNAPSHOT_POLICY_DISK_READY         = "ready"
+	SNAPSHOT_POLICY_DISK_DELETING      = "deleting"
+	SNAPSHOT_POLICY_DISK_DELETE_FAILED = "delete_failed"
 )
