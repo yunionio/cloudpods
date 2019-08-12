@@ -17,7 +17,6 @@ package qcloud
 import (
 	"context"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
@@ -163,7 +162,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	// first upload image to oss
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
-	_, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
+	_, reader, sizeBytes, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
 		return "", err
 	}
@@ -186,7 +185,8 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return "", errors.Wrap(err, "GetIBucketByName")
 	}
-	err = bucket.PutObject(context.Background(), image.ImageId, reader.(io.ReadSeeker), "", "")
+	err = cloudprovider.UploadObject(context.Background(), bucket, image.ImageId, 0, reader, sizeBytes, "", "", "", false)
+	// err = bucket.PutObject(context.Background(), image.ImageId, reader, sizeBytes, "", "", "")
 	if err != nil {
 		log.Errorf("UploadObject error %s %s", image.ImageId, err)
 		return "", errors.Wrap(err, "bucket.PutObject")

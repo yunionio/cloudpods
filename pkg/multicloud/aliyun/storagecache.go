@@ -148,25 +148,21 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	// first upload image to oss
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
-	meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
+	meta, reader, sizeByte, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
 	if err != nil {
 		return "", err
 	}
 	log.Infof("meta data %s", meta)
-	oss, err := self.region.GetOssClient()
-	if err != nil {
-		log.Errorf("GetOssClient err %s", err)
-		return "", err
-	}
+
 	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s-%s", self.region.GetId(), image.ImageId))
-	exist, err := oss.IsBucketExist(bucketName)
+	exist, err := self.region.IBucketExist(bucketName)
 	if err != nil {
 		log.Errorf("IsBucketExist err %s", err)
 		return "", err
 	}
 	if !exist {
 		log.Debugf("Bucket %s not exists, to create ...", bucketName)
-		err = oss.CreateBucket(bucketName)
+		err = self.region.CreateIBucket(bucketName, "", "")
 		if err != nil {
 			log.Errorf("Create bucket error %s", err)
 			return "", err
@@ -175,21 +171,22 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		log.Debugf("Bucket %s exists", bucketName)
 	}
 
-	defer oss.DeleteBucket(bucketName) // remove bucket
+	defer self.region.DeleteIBucket(bucketName) // remove bucket
 
-	bucket, err := oss.Bucket(bucketName)
+	bucket, err := self.region.GetIBucketByName(bucketName)
 	if err != nil {
 		log.Errorf("Bucket error %s %s", bucketName, err)
 		return "", err
 	}
 	log.Debugf("To upload image to bucket %s ...", bucketName)
-	err = bucket.PutObject(image.ImageId, reader)
+	err = cloudprovider.UploadObject(context.Background(), bucket, image.ImageId, 0, reader, sizeByte, "", "", "", false)
+	// err = bucket.PutObject(image.ImageId, reader)
 	if err != nil {
 		log.Errorf("PutObject error %s %s", image.ImageId, err)
 		return "", err
 	}
 
-	defer bucket.DeleteObject(image.ImageId) // remove object
+	defer bucket.DeleteObject(context.Background(), image.ImageId) // remove object
 
 	imageBaseName := image.ImageId
 	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {

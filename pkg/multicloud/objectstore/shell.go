@@ -21,6 +21,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/util/printutils"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
@@ -156,6 +157,9 @@ func S3Shell() {
 		KEY    string `help:"key of object"`
 		Path   string `help:"Path of file to upload"`
 
+		BlockSize int64 `help:"blocksz in MB" default:"100"`
+
+		Acl          string `help:"acl" choices:"private|public-read|public-read-write"`
 		ContentType  string `help:"content-type"`
 		StorageClass string `help:"storage class"`
 	}
@@ -165,10 +169,16 @@ func S3Shell() {
 			return err
 		}
 		var input io.ReadSeeker
+		var fSize int64
 		if len(args.Path) > 0 {
+			finfo, err := os.Stat(args.Path)
+			if err != nil {
+				return errors.Wrap(err, "os.Stat")
+			}
+			fSize = finfo.Size()
 			file, err := os.Open(args.Path)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "os.Open")
 			}
 			defer file.Close()
 
@@ -176,7 +186,7 @@ func S3Shell() {
 		} else {
 			input = os.Stdout
 		}
-		err = bucket.PutObject(context.Background(), args.KEY, input, args.ContentType, args.StorageClass)
+		err = cloudprovider.UploadObject(context.Background(), bucket, args.KEY, args.BlockSize*1000*1000, input, fSize, args.ContentType, cloudprovider.TBucketACLType(args.Acl), args.StorageClass, true)
 		if err != nil {
 			return err
 		}

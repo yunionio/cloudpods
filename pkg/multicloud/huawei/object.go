@@ -33,7 +33,7 @@ func (o *SObject) GetIBucket() cloudprovider.ICloudBucket {
 }
 
 func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
-	acl := cloudprovider.ACLDefault
+	acl := cloudprovider.ACLPrivate
 	obscli, err := o.bucket.region.getOBSClient()
 	if err != nil {
 		log.Errorf("o.bucket.region.GetOssClient error %s", err)

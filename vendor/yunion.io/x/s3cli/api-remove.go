@@ -241,7 +241,7 @@ func (c Client) RemoveIncompleteUpload(bucketName, objectName string) error {
 
 	for _, uploadID := range uploadIDs {
 		// abort incomplete multipart upload, based on the upload id passed.
-		err := c.abortMultipartUpload(context.Background(), bucketName, objectName, uploadID)
+		err := c.AbortMultipartUpload(context.Background(), bucketName, objectName, uploadID)
 		if err != nil {
 			return err
 		}
@@ -252,7 +252,7 @@ func (c Client) RemoveIncompleteUpload(bucketName, objectName string) error {
 
 // abortMultipartUpload aborts a multipart upload for the given
 // uploadID, all previously uploaded parts are deleted.
-func (c Client) abortMultipartUpload(ctx context.Context, bucketName, objectName, uploadID string) error {
+func (c Client) AbortMultipartUpload(ctx context.Context, bucketName, objectName, uploadID string) error {
 	// Input validation.
 	if err := s3utils.CheckValidBucketName(bucketName); err != nil {
 		return err

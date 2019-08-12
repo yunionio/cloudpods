@@ -130,7 +130,7 @@ func (c Client) newUploadID(ctx context.Context, bucketName, objectName string, 
 	}
 
 	// Initiate multipart upload for an object.
-	initMultipartUploadResult, err := c.initiateMultipartUpload(ctx, bucketName, objectName, opts)
+	initMultipartUploadResult, err := c.InitiateMultipartUpload(ctx, bucketName, objectName, opts)
 	if err != nil {
 		return "", err
 	}

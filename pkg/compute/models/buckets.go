@@ -29,6 +29,7 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
+	"strconv"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -709,8 +710,27 @@ func (bucket *SBucket) PerformUpload(
 	}
 
 	contType := appParams.Request.Header.Get("Content-Type")
+	sizeStr := appParams.Request.Header.Get("Content-Length")
+	if len(sizeStr) == 0 {
+		return nil, httperrors.NewInputParameterError("missing Content-Length")
+	}
+	sizeBytes, err := strconv.ParseInt(sizeStr, 10, 64)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("Illegal Content-Length %s", sizeStr)
+	}
+	if sizeBytes <= 0 {
+		return nil, httperrors.NewInputParameterError("Content-Length not positive %d", sizeBytes)
+	}
 	storageClass := appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_STORAGECLASS_HEADER)
-	err = iBucket.PutObject(ctx, key, appParams.Request.Body, contType, storageClass)
+	aclStr := cloudprovider.TBucketACLType(appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_ACL_HEADER))
+	switch aclStr {
+	case cloudprovider.ACLPrivate, cloudprovider.ACLAuthRead, cloudprovider.ACLPublicRead, cloudprovider.ACLPublicReadWrite:
+		// do nothing
+	default:
+		return nil, httperrors.NewInputParameterError("invalid acl: %s", aclStr)
+	}
+
+	err = cloudprovider.UploadObject(ctx, iBucket, key, 0, appParams.Request.Body, sizeBytes, contType, aclStr, storageClass, false)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("put object error %s", err)
 	}
@@ -739,12 +759,8 @@ func (bucket *SBucket) PerformAcl(
 	switch cloudprovider.TBucketACLType(aclStr) {
 	case cloudprovider.ACLPrivate, cloudprovider.ACLAuthRead, cloudprovider.ACLPublicRead, cloudprovider.ACLPublicReadWrite:
 		// do nothing
-	case cloudprovider.ACLDefault:
-		if len(objKey) == 0 {
-			return nil, httperrors.NewInputParameterError("invalud acl")
-		}
 	default:
-		return nil, httperrors.NewInputParameterError("invalud acl")
+		return nil, httperrors.NewInputParameterError("invalid acl: %s", aclStr)
 	}
 
 	iBucket, err := bucket.GetIBucket()

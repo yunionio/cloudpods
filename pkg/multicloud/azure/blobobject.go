@@ -29,7 +29,7 @@ func (o *SObject) GetIBucket() cloudprovider.ICloudBucket {
 }
 
 func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
-	return cloudprovider.ACLDefault
+	return o.container.getAcl()
 }
 
 func (o *SObject) SetAcl(aclStr cloudprovider.TBucketACLType) error {
