@@ -162,7 +162,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 
 	// upload to  ucloud
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
+	meta, reader, size, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
 		return "", err
 	}
@@ -175,7 +175,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 	} else if minDiskGB > 1024 {
 		minDiskGB = 1024
 	}
-	size, _ := meta.Int("size")
+	// size, _ := meta.Int("size")
 	md5, _ := meta.GetString("checksum")
 	diskFormat, _ := meta.GetString("disk_format")
 	// upload to ucloud

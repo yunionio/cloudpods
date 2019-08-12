@@ -118,13 +118,13 @@ func (scache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.
 func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
-	meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
+	meta, reader, size, err := modules.Images.Download(s, image.ImageId, string(qemuimg.QCOW2), false)
 	if err != nil {
 		return "", err
 	}
 	log.Infof("meta data %s", meta)
 
-	size, _ := meta.Int("size")
+	// size, _ := meta.Int("size")
 	img, err := self.region.CreateImage(self.ZoneId, image.ImageName, string(qemuimg.QCOW2), image.OsType, "", reader, size)
 	if err != nil {
 		return "", err

@@ -18,19 +18,31 @@ recursive:
   description: 是否展开对象列表，false则只显示当前目录层级下的对象，true则显示匹配前缀的所有对象
 
 x-bucket-object-key:
-  name: x-bucket-object-key
+  name: X-Yunion-Bucket-Upload-Key
   type: string
   in: header
   description: 对象的key
 
 x-bucket-content-type:
-  name: x-bucket-content-type
+  name: Content-Type
   type: string
   in: header
   description: 对象的content-type
 
+x-bucket-content-length:
+  name: Content-Length
+  type: string
+  in: header
+  description: 对象的content-length
+
 x-bucket-storage-class:
-  name: x-bucket-storage-class
+  name: X-Yunion-Bucket-Upload-Storageclass
   type: string
   in: header
   description: 对象的storage_class
+
+x-bucket-acl:
+  name: X-Yunion-Bucket-Upload-Acl
+  type: string
+  in: header
+  description: 对象的acl，可能值为：private, public-read, public-read-write

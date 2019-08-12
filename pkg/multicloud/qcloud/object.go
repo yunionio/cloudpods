@@ -15,11 +15,13 @@
 package qcloud
 
 import (
+	"context"
+
+	"github.com/tencentyun/cos-go-sdk-v5"
+
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"context"
-	"github.com/tencentyun/cos-go-sdk-v5"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -34,7 +36,7 @@ func (o *SObject) GetIBucket() cloudprovider.ICloudBucket {
 }
 
 func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
-	acl := cloudprovider.ACLDefault
+	acl := cloudprovider.ACLPrivate
 	coscli, err := o.bucket.region.GetCosClient(o.bucket)
 	if err != nil {
 		log.Errorf("o.bucket.region.GetOssClient error %s", err)

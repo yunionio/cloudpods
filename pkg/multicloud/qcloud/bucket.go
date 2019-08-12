@@ -216,14 +216,23 @@ func (b *SBucket) ListObjects(prefix string, marker string, delimiter string, ma
 	return result, nil
 }
 
-func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, contType string, storageClassStr string) error {
+func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
 	coscli, err := b.region.GetCosClient(b)
 	if err != nil {
 		return errors.Wrap(err, "GetCosClient")
 	}
-	opts := &cos.ObjectPutOptions{}
+	opts := &cos.ObjectPutOptions{
+		ACLHeaderOptions:       &cos.ACLHeaderOptions{},
+		ObjectPutHeaderOptions: &cos.ObjectPutHeaderOptions{},
+	}
+	if sizeBytes > 0 {
+		opts.ContentLength = int(sizeBytes)
+	}
 	if len(contType) > 0 {
 		opts.ContentType = contType
+	}
+	if len(cannedAcl) > 0 {
+		opts.XCosACL = string(cannedAcl)
 	}
 	if len(storageClassStr) > 0 {
 		opts.XCosStorageClass = storageClassStr
@@ -232,6 +241,84 @@ func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, c
 	if err != nil {
 		return errors.Wrap(err, "coscli.Object.Put")
 	}
+	return nil
+}
+
+func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return "", errors.Wrap(err, "GetCosClient")
+	}
+	opts := &cos.InitiateMultipartUploadOptions{
+		ACLHeaderOptions:       &cos.ACLHeaderOptions{},
+		ObjectPutHeaderOptions: &cos.ObjectPutHeaderOptions{},
+	}
+	if len(contType) > 0 {
+		opts.ContentType = contType
+	}
+	if len(cannedAcl) > 0 {
+		opts.XCosACL = string(cannedAcl)
+	}
+	if len(storageClassStr) > 0 {
+		opts.XCosStorageClass = storageClassStr
+	}
+	result, _, err := coscli.Object.InitiateMultipartUpload(ctx, key, opts)
+	if err != nil {
+		return "", errors.Wrap(err, "InitiateMultipartUpload")
+	}
+
+	return result.UploadID, nil
+}
+
+func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return "", errors.Wrap(err, "GetCosClient")
+	}
+	opts := &cos.ObjectUploadPartOptions{}
+	opts.ContentLength = int(partSize)
+	resp, err := coscli.Object.UploadPart(ctx, key, uploadId, partIndex, input, opts)
+	if err != nil {
+		return "", errors.Wrap(err, "UploadPart")
+	}
+
+	return resp.Header.Get("Etag"), nil
+}
+
+func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return errors.Wrap(err, "GetCosClient")
+	}
+	opts := &cos.CompleteMultipartUploadOptions{}
+	parts := make([]cos.Object, len(partEtags))
+	for i := range partEtags {
+		parts[i] = cos.Object{
+			PartNumber: i + 1,
+			ETag:       partEtags[i],
+		}
+	}
+	opts.Parts = parts
+	_, _, err = coscli.Object.CompleteMultipartUpload(ctx, key, uploadId, opts)
+
+	if err != nil {
+		return errors.Wrap(err, "CompleteMultipartUpload")
+	}
+
+	return nil
+}
+
+func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
+	coscli, err := b.region.GetCosClient(b)
+	if err != nil {
+		return errors.Wrap(err, "GetCosClient")
+	}
+
+	_, err = coscli.Object.AbortMultipartUpload(ctx, key, uploadId)
+	if err != nil {
+		return errors.Wrap(err, "AbortMultipartUpload")
+	}
+
 	return nil
 }
 

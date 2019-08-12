@@ -23,6 +23,7 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -30,7 +31,6 @@ import (
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/auth"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
-	"yunion.io/x/onecloud/pkg/multicloud/huawei/obs"
 	"yunion.io/x/onecloud/pkg/util/qemuimg"
 )
 
@@ -162,34 +162,28 @@ func (self *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.To
 
 func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
 	bucketName := GetBucketName(self.region.GetId(), image.ImageId)
-	obsClient, err := self.region.getOBSClient()
-	if err != nil {
-		return "", err
-	}
 
-	// create bucket
-	input := &obs.CreateBucketInput{}
-	input.Bucket = bucketName
-	input.Location = self.region.GetId()
-	_, err = obsClient.CreateBucket(input)
+	exist, err := self.region.IBucketExist(bucketName)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "self.region.IBucketExist")
 	}
-	defer obsClient.DeleteBucket(bucketName)
+	if !exist {
+		err = self.region.CreateIBucket(bucketName, "", "")
+		if err != nil {
+			return "", errors.Wrap(err, "CreateIBucket")
+		}
+	}
+	defer self.region.DeleteIBucket(bucketName)
 
 	// upload to huawei cloud
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
+	meta, reader, sizeByte, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
 		return "", err
 	}
 	log.Debugf("Images meta data %s", meta)
-	_image, err := modules.Images.Get(s, image.ImageId, nil)
-	if err != nil {
-		return "", err
-	}
 
-	minDiskMB, _ := _image.Int("min_disk")
+	minDiskMB, _ := meta.Int("min_disk")
 	minDiskGB := int64(math.Ceil(float64(minDiskMB) / 1024))
 	// 在使用OBS桶的外部镜像文件制作镜像时生效且为必选字段。取值为40～1024GB。
 	if minDiskGB < 40 {
@@ -198,21 +192,17 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		minDiskGB = 1024
 	}
 
-	// upload to huawei cloud
-	obj := &obs.PutObjectInput{}
-	obj.Bucket = bucketName
-	obj.Key = image.ImageId
-	obj.Body = reader
-
-	_, err = obsClient.PutObject(obj)
+	bucket, err := self.region.GetIBucketByName(bucketName)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "GetIBucketByName")
 	}
 
-	objDelete := &obs.DeleteObjectInput{}
-	objDelete.Bucket = bucketName
-	objDelete.Key = image.ImageId
-	defer obsClient.DeleteObject(objDelete) // remove object
+	err = cloudprovider.UploadObject(context.Background(), bucket, image.ImageId, 0, reader, sizeByte, "", "", "", false)
+	if err != nil {
+		return "", errors.Wrap(err, "cloudprovider.UploadObject")
+	}
+
+	defer bucket.DeleteObject(context.Background(), image.ImageId)
 
 	// check image name, avoid name conflict
 	imageBaseName := image.ImageId

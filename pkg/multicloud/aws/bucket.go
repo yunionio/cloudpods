@@ -20,10 +20,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
@@ -31,6 +29,7 @@ import (
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/fileutils2"
 )
 
 type SBucket struct {
@@ -210,30 +209,126 @@ func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.
 	return cloudprovider.GetIObjects(b, prefix, isRecursive)
 }
 
-func (b *SBucket) PutObject(ctx context.Context, key string, reader io.Reader, contType string, storageClassStr string) error {
-	sess, err := b.region.getAwsSession()
+func (b *SBucket) PutObject(ctx context.Context, key string, body io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
+	if sizeBytes <= 0 {
+		return errors.Error("content length expected")
+	}
+	s3cli, err := b.region.GetS3Client()
 	if err != nil {
-		return errors.Wrap(err, "session.NewSession")
+		return errors.Wrap(err, "GetS3Client")
 	}
-
-	svc := s3manager.NewUploader(sess)
-	input := &s3manager.UploadInput{
-		Bucket: aws.String(b.Name),
-		Key:    aws.String(key),
-		Body:   reader,
+	input := &s3.PutObjectInput{}
+	input.SetBucket(b.Name)
+	input.SetKey(key)
+	seeker, err := fileutils2.NewReadSeeker(body, sizeBytes)
+	if err != nil {
+		return errors.Wrap(err, "newFakeSeeker")
 	}
+	defer seeker.Close()
+	input.SetBody(seeker)
+	input.SetContentLength(sizeBytes)
 	if len(contType) > 0 {
-		input.ContentType = aws.String(contType)
+		input.SetContentType(contType)
+	}
+	if len(cannedAcl) > 0 {
+		input.SetACL(string(cannedAcl))
 	}
 	if len(storageClassStr) > 0 {
-		input.StorageClass = aws.String(storageClassStr)
+		input.SetStorageClass(storageClassStr)
 	}
-
-	_, err = svc.Upload(input)
+	_, err = s3cli.PutObjectWithContext(ctx, input)
 	if err != nil {
-		return errors.Wrap(err, "svc.Upload")
+		return errors.Wrap(err, "PutObjectWithContext")
 	}
+	return nil
+}
 
+func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return "", errors.Wrap(err, "GetS3Client")
+	}
+	input := &s3.CreateMultipartUploadInput{}
+	input.SetBucket(b.Name)
+	input.SetKey(key)
+	if len(contType) > 0 {
+		input.SetContentType(contType)
+	}
+	if len(cannedAcl) > 0 {
+		input.SetACL(string(cannedAcl))
+	}
+	if len(storageClassStr) > 0 {
+		input.SetStorageClass(storageClassStr)
+	}
+	output, err := s3cli.CreateMultipartUploadWithContext(ctx, input)
+	if err != nil {
+		return "", errors.Wrap(err, "CreateMultipartUpload")
+	}
+	return *output.UploadId, nil
+}
+
+func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, part io.Reader, partSize int64) (string, error) {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return "", errors.Wrap(err, "GetS3Client")
+	}
+	input := &s3.UploadPartInput{}
+	input.SetBucket(b.Name)
+	input.SetKey(key)
+	input.SetUploadId(uploadId)
+	input.SetPartNumber(int64(partIndex))
+	seeker, err := fileutils2.NewReadSeeker(part, partSize)
+	if err != nil {
+		return "", errors.Wrap(err, "newFakeSeeker")
+	}
+	defer seeker.Close()
+	input.SetBody(seeker)
+	input.SetContentLength(partSize)
+	output, err := s3cli.UploadPartWithContext(ctx, input)
+	if err != nil {
+		return "", errors.Wrap(err, "UploadPartWithContext")
+	}
+	return *output.ETag, nil
+}
+
+func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return errors.Wrap(err, "GetS3Client")
+	}
+	input := &s3.CompleteMultipartUploadInput{}
+	input.SetBucket(b.Name)
+	input.SetKey(key)
+	input.SetUploadId(uploadId)
+	uploads := &s3.CompletedMultipartUpload{}
+	parts := make([]*s3.CompletedPart, len(partEtags))
+	for i := range partEtags {
+		parts[i] = &s3.CompletedPart{}
+		parts[i].SetPartNumber(int64(i + 1))
+		parts[i].SetETag(partEtags[i])
+	}
+	uploads.SetParts(parts)
+	input.SetMultipartUpload(uploads)
+	_, err = s3cli.CompleteMultipartUploadWithContext(ctx, input)
+	if err != nil {
+		return errors.Wrap(err, "CompleteMultipartUploadWithContext")
+	}
+	return nil
+}
+
+func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
+	s3cli, err := b.region.GetS3Client()
+	if err != nil {
+		return errors.Wrap(err, "GetS3Client")
+	}
+	input := &s3.AbortMultipartUploadInput{}
+	input.SetBucket(b.Name)
+	input.SetKey(key)
+	input.SetUploadId(uploadId)
+	_, err = s3cli.AbortMultipartUploadWithContext(ctx, input)
+	if err != nil {
+		return errors.Wrap(err, "AbortMultipartUploadWithContext")
+	}
 	return nil
 }
 

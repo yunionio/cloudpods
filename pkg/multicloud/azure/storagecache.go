@@ -160,7 +160,7 @@ func (self *SStoragecache) checkStorageAccount() (*SStorageAccount, error) {
 
 func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool, tmpPath string) (string, error) {
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VHD), false)
+	meta, reader, sizeBytes, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VHD), false)
 	if err != nil {
 		return "", err
 	}
@@ -214,9 +214,9 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", err
 	}
 
-	size, _ := meta.Int("size")
+	// size, _ := meta.Int("size")
 
-	img, err := self.region.CreateImageByBlob(image.ImageId, image.OsType, blobURI, int32(size>>30))
+	img, err := self.region.CreateImageByBlob(image.ImageId, image.OsType, blobURI, int32(sizeBytes>>30))
 	if err != nil {
 		return "", err
 	}

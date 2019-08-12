@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"yunion.io/x/log"
 
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
@@ -32,7 +33,7 @@ func (o *SObject) GetIBucket() cloudprovider.ICloudBucket {
 }
 
 func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
-	acl := cloudprovider.ACLDefault
+	acl := cloudprovider.ACLPrivate
 	osscli, err := o.bucket.region.GetOssClient()
 	if err != nil {
 		log.Errorf("o.bucket.region.GetOssClient error %s", err)
@@ -47,6 +48,9 @@ func (o *SObject) GetAcl() cloudprovider.TBucketACLType {
 	if err != nil {
 		log.Errorf("bucket.GetObjectACL error %s", err)
 		return acl
+	}
+	if result.ACL == string(oss.ACLDefault) {
+		return o.bucket.GetAcl()
 	}
 	acl = cloudprovider.TBucketACLType(result.ACL)
 	return acl

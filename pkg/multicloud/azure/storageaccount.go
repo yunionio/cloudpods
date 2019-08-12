@@ -32,6 +32,8 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"encoding/base64"
+	"strconv"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -689,6 +691,14 @@ func (self *SStorageAccount) UploadStream(containerName string, key string, read
 	return container.UploadStream(key, reader, contType)
 }
 
+func (b *SStorageAccount) MaxPartSizeBytes() int64 {
+	return 100 * 1000 * 1000
+}
+
+func (b *SStorageAccount) MaxPartCount() int {
+	return 50000
+}
+
 func (b *SStorageAccount) GetProjectId() string {
 	return ""
 }
@@ -927,7 +937,7 @@ func splitKey(key string) (string, string, error) {
 	return containerName, key, nil
 }
 
-func (b *SStorageAccount) PutObject(ctx context.Context, key string, reader io.Reader, contType string, storageClassStr string) error {
+func (b *SStorageAccount) PutObject(ctx context.Context, key string, reader io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
 	containerName, blob, err := splitKey(key)
 	if err != nil {
 		return errors.Wrap(err, "splitKey")
@@ -936,6 +946,132 @@ func (b *SStorageAccount) PutObject(ctx context.Context, key string, reader io.R
 	if err != nil {
 		return errors.Wrap(err, "UploadStream")
 	}
+	return nil
+}
+
+func (b *SStorageAccount) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
+	containerName, blob, err := splitKey(key)
+	if err != nil {
+		return "", errors.Wrap(err, "splitKey")
+	}
+	container, err := b.getOrCreateContainer(containerName, true)
+	if err != nil {
+		return "", errors.Wrap(err, "getOrCreateContainer")
+	}
+	containerRef, err := container.getContainerRef()
+	if err != nil {
+		return "", errors.Wrap(err, "getContainerRef")
+	}
+	blobRef := containerRef.GetBlobReference(blob)
+
+	err = blobRef.CreateBlockBlob(&storage.PutBlobOptions{})
+	if err != nil {
+		return "", errors.Wrap(err, "CreateBlockBlob")
+	}
+
+	uploadId, err := blobRef.AcquireLease(-1, "", nil)
+	if err != nil {
+		return "", errors.Wrap(err, "blobRef.AcquireLease")
+	}
+
+	return uploadId, nil
+}
+
+func (b *SStorageAccount) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
+	containerName, blob, err := splitKey(key)
+	if err != nil {
+		return "", errors.Wrap(err, "splitKey")
+	}
+	container, err := b.getOrCreateContainer(containerName, true)
+	if err != nil {
+		return "", errors.Wrap(err, "getOrCreateContainer")
+	}
+	containerRef, err := container.getContainerRef()
+	if err != nil {
+		return "", errors.Wrap(err, "getContainerRef")
+	}
+	blobRef := containerRef.GetBlobReference(blob)
+
+	opts := &storage.PutBlockOptions{}
+	opts.LeaseID = uploadId
+
+	blockId := base64.URLEncoding.EncodeToString([]byte(strconv.FormatInt(int64(partIndex), 10)))
+	err = blobRef.PutBlockWithLength(blockId, uint64(partSize), input, opts)
+	if err != nil {
+		return "", errors.Wrap(err, "PutBlockWithLength")
+	}
+
+	return blockId, nil
+}
+
+func (b *SStorageAccount) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, blockIds []string) error {
+	containerName, blob, err := splitKey(key)
+	if err != nil {
+		return errors.Wrap(err, "splitKey")
+	}
+	container, err := b.getOrCreateContainer(containerName, true)
+	if err != nil {
+		return errors.Wrap(err, "getOrCreateContainer")
+	}
+	containerRef, err := container.getContainerRef()
+	if err != nil {
+		return errors.Wrap(err, "getContainerRef")
+	}
+	blobRef := containerRef.GetBlobReference(blob)
+
+	blocks := make([]storage.Block, len(blockIds))
+	for i := range blockIds {
+		blocks[i] = storage.Block{
+			ID:     blockIds[i],
+			Status: storage.BlockStatusLatest,
+		}
+	}
+	opts := &storage.PutBlockListOptions{}
+	opts.LeaseID = uploadId
+	err = blobRef.PutBlockList(blocks, opts)
+	if err != nil {
+		return errors.Wrap(err, "PutBlockList")
+	}
+
+	err = blobRef.ReleaseLease(uploadId, nil)
+	if err != nil {
+		return errors.Wrap(err, "ReleaseLease")
+	}
+
+	return nil
+}
+
+func (b *SStorageAccount) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
+	containerName, blob, err := splitKey(key)
+	if err != nil {
+		return errors.Wrap(err, "splitKey")
+	}
+	container, err := b.getOrCreateContainer(containerName, false)
+	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			return nil
+		}
+		return errors.Wrap(err, "getOrCreateContainer")
+	}
+	containerRef, err := container.getContainerRef()
+	if err != nil {
+		return errors.Wrap(err, "getContainerRef")
+	}
+
+	blobRef := containerRef.GetBlobReference(blob)
+	err = blobRef.ReleaseLease(uploadId, nil)
+	if err != nil {
+		return errors.Wrap(err, "ReleaseLease")
+	}
+
+	opts := &storage.DeleteBlobOptions{}
+	deleteSnapshots := true
+	opts.DeleteSnapshots = &deleteSnapshots
+	_, err = blobRef.DeleteIfExists(opts)
+	if err != nil {
+		return errors.Wrap(err, "DeleteIfExists")
+	}
+
 	return nil
 }
 
