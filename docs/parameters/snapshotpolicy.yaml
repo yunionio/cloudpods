@@ -1,0 +1,28 @@
+snapshotpolicyId:
+  name: snapshotpolicyId
+  required: true
+  in: path
+  description: 自动快照策略的ID
+diskId:
+  name: diskId
+  in: path
+  description: 磁盘的ID
+retention_days:
+  name: retention_days
+  in: query
+  type: integer
+  description: 快照的保存时间（永久保存选-1）
+repeat_weekdays:
+  name: repeat_weekdays
+  in: query
+  type: array
+  items:
+    type: integer
+  description: 做快照的时间（周几）
+time_points:
+  name: time_points
+  in: query
+  type: array
+  items:
+    type: integer
+  description: 做快照的时间（每天几点）

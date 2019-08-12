@@ -1,0 +1,11 @@
+get:
+  summary: 列出指定自动快照策略所有绑定的磁盘
+  parameters:
+    - $ref: '../parameters/snapshotpolicy.yaml#/snapshotpolicyId'
+  responses:
+    200:
+      description: 自动快照策略ID列表
+      schema:
+        $ref: '../schemas/snapshotpolicy.yaml#/SnapshotPolicyDiskListResponse'
+  tags:
+    - snapshotpolicy

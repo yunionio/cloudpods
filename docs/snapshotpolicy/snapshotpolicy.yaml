@@ -1,0 +1,22 @@
+get:
+  summary: 获取指定自动快照策略信息
+  parameters:
+    - $ref: "../parameters/snapshotpolicy.yaml#/snapshotpolicyId"
+  responses:
+    200:
+      description: 自动快照策略信息
+      schema:
+        $ref: "../schemas/snapshotpolicy.yaml#/SnapshotPolicyResponse"
+  tags:
+    - snapshotpolicy
+
+delete:
+  summary: 删除指定自动快照
+  parameters:
+    - $ref: '../parameters/snapshotpolicy.yaml#/snapshotpolicyId'
+  responses:
+    200:
+      schema:
+        $ref: '../schemas/snapshotpolicy.yaml#/SnapshotPolicyResponse'
+  tags:
+    - snapshotpolicy

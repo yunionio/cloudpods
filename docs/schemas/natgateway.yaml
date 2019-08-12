@@ -51,7 +51,7 @@ NatGateway:
     nat_spec:
       type: string
       description: NAT网关规格
-      example: Small
+      example: small
     region:
       type: string
       description: 所属的区域
