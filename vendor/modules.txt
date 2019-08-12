@@ -110,7 +110,6 @@ github.com/aws/aws-sdk-go/service/ec2
 github.com/aws/aws-sdk-go/service/elbv2
 github.com/aws/aws-sdk-go/service/iam
 github.com/aws/aws-sdk-go/service/s3
-github.com/aws/aws-sdk-go/service/s3/s3manager
 github.com/aws/aws-sdk-go/aws/endpoints
 github.com/aws/aws-sdk-go/internal/sdkio
 github.com/aws/aws-sdk-go/internal/sdkrand
@@ -132,7 +131,6 @@ github.com/aws/aws-sdk-go/internal/s3err
 github.com/aws/aws-sdk-go/private/protocol/eventstream
 github.com/aws/aws-sdk-go/private/protocol/eventstream/eventstreamapi
 github.com/aws/aws-sdk-go/private/protocol/restxml
-github.com/aws/aws-sdk-go/service/s3/s3iface
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
 github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds
@@ -800,7 +798,7 @@ yunion.io/x/pkg/util/prometheus
 yunion.io/x/pkg/prettytable
 yunion.io/x/pkg/util/runtime
 yunion.io/x/pkg/util/clock
-# yunion.io/x/s3cli v0.0.0-20190806141932-17a2c973cbc5
+# yunion.io/x/s3cli v0.0.0-20190812030153-814f1e636a0a
 yunion.io/x/s3cli
 # yunion.io/x/sqlchemy v0.0.0-20190704155352-6aff6c803fda
 yunion.io/x/sqlchemy

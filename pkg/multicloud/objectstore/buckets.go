@@ -26,9 +26,12 @@ import (
 	"yunion.io/x/s3cli"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/multicloud"
 )
 
 type SBucket struct {
+	multicloud.SBaseBucket
+
 	client *SObjectStoreClient
 
 	Name         string
@@ -150,16 +153,75 @@ func (bucket *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprov
 	return ret, nil
 }
 
-func (bucket *SBucket) PutObject(ctx context.Context, key string, input io.Reader, contType string, storageClass string) error {
+func (bucket *SBucket) PutObject(ctx context.Context, key string, input io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
 	opts := s3cli.PutObjectOptions{}
 	if len(contType) > 0 {
 		opts.ContentType = contType
 	}
-	if len(storageClass) > 0 {
-		opts.StorageClass = storageClass
+	if len(storageClassStr) > 0 {
+		opts.StorageClass = storageClassStr
 	}
-	_, err := bucket.client.client.PutObjectWithContext(ctx, bucket.Name, key, input, -1, opts)
-	return err
+	opts.PartSize = uint64(cloudprovider.MAX_PUT_OBJECT_SIZEBYTES)
+	_, err := bucket.client.client.PutObjectDo(ctx, bucket.Name, key, input, "", "", sizeBytes, opts)
+	if err != nil {
+		return errors.Wrap(err, "PutObjectWithContext")
+	}
+	obj, err := cloudprovider.GetIObject(bucket, key)
+	if err != nil {
+		return errors.Wrap(err, "GetIObject")
+	}
+	err = obj.SetAcl(cannedAcl)
+	if err != nil {
+		return errors.Wrap(err, "obj.SetAcl")
+	}
+	return nil
+}
+
+func (bucket *SBucket) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
+	opts := s3cli.PutObjectOptions{}
+	if len(contType) > 0 {
+		opts.ContentType = contType
+	}
+	if len(storageClassStr) > 0 {
+		opts.StorageClass = storageClassStr
+	}
+	result, err := bucket.client.client.InitiateMultipartUpload(ctx, bucket.Name, key, opts)
+	if err != nil {
+		return "", errors.Wrap(err, "InitiateMultipartUpload")
+	}
+	return result.UploadID, nil
+}
+
+func (bucket *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
+	part, err := bucket.client.client.UploadPart(ctx, bucket.Name, key, uploadId, input, partIndex, "", "", partSize, nil)
+	if err != nil {
+		return "", errors.Wrap(err, "UploadPart")
+	}
+	return part.ETag, nil
+}
+
+func (bucket *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error {
+	complete := s3cli.CompleteMultipartUpload{}
+	complete.Parts = make([]s3cli.CompletePart, len(partEtags))
+	for i := 0; i < len(partEtags); i += 1 {
+		complete.Parts[i] = s3cli.CompletePart{
+			PartNumber: i + 1,
+			ETag:       partEtags[i],
+		}
+	}
+	_, err := bucket.client.client.CompleteMultipartUpload(ctx, bucket.Name, key, uploadId, complete)
+	if err != nil {
+		return errors.Wrap(err, "CompleteMultipartUpload")
+	}
+	return nil
+}
+
+func (bucket *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
+	err := bucket.client.client.AbortMultipartUpload(ctx, bucket.Name, key, uploadId)
+	if err != nil {
+		return errors.Wrap(err, "AbortMultipartUpload")
+	}
+	return nil
 }
 
 func (bucket *SBucket) DeleteObject(ctx context.Context, key string) error {

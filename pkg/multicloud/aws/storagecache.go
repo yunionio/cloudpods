@@ -23,10 +23,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
@@ -153,65 +153,46 @@ func (self *SStoragecache) fetchImages() error {
 }
 
 func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
+	err := self.region.initVmimport()
+	if err != nil {
+		return "", errors.Wrap(err, "initVmimport")
+	}
+
 	bucketName := GetBucketName(self.region.GetId(), image.ImageId)
-	err := self.region.initVmimport(bucketName)
+
+	exist, err := self.region.IBucketExist(bucketName)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "IBucketExist")
 	}
 
-	// checking remote
-	s3client, err := self.region.GetS3Client()
-	if err != nil {
-		return "", err
+	if !exist {
+		err = self.region.CreateIBucket(bucketName, "", "")
+		if err != nil {
+			return "", errors.Wrap(err, "CreateIBucket")
+		}
 	}
 
-	defer s3client.DeleteBucket(&s3.DeleteBucketInput{Bucket: &bucketName}) // remove bucket
+	defer self.region.DeleteIBucket(bucketName)
 
-	var diskFormat string
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
-	_, err = s3client.GetObject(&s3.GetObjectInput{Bucket: &bucketName, Key: &image.ImageId})
+	meta, reader, sizeBytes, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
-		// first upload image to oss
-		meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
-		if err != nil {
-			return "", err
-		}
-		log.Debugf("Images meta data %s", meta)
-
-		diskFormat, err = meta.GetString("disk_format")
-		if err != nil {
-			return "", err
-		}
-
-		// uploader to aws s3
-		input := &s3manager.UploadInput{
-			Bucket: &bucketName,
-			Key:    &image.ImageId,
-			Body:   reader,
-		}
-
-		s3Session, err := self.region.getAwsSession()
-		if err != nil {
-			return "", err
-		}
-
-		uploader := s3manager.NewUploader(s3Session)
-		_, err = uploader.Upload(input)
-		if err != nil {
-			return "", err
-		}
-		defer s3client.DeleteObject(&s3.DeleteObjectInput{Bucket: &bucketName, Key: &image.ImageId}) // remove object
-	} else {
-		meta, _, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
-		if err != nil {
-			return "", err
-		}
-
-		diskFormat, err = meta.GetString("disk_format")
-		if err != nil {
-			return "", err
-		}
+		return "", errors.Wrap(err, "Images.Download")
 	}
+	log.Debugf("Images meta data %s", meta)
+
+	diskFormat, _ := meta.GetString("disk_format")
+
+	bucket, err := self.region.GetIBucketByName(bucketName)
+	if err != nil {
+		return "", errors.Wrap(err, "GetIBucketByName")
+	}
+	err = cloudprovider.UploadObject(ctx, bucket, image.ImageId, 0, reader, sizeBytes, "", "", "", false)
+	if err != nil {
+		return "", errors.Wrap(err, "cloudprovider.UploadObject")
+	}
+
+	defer bucket.DeleteObject(ctx, image.ImageId)
 
 	imageBaseName := image.ImageId
 	if imageBaseName[0] >= '0' && imageBaseName[0] <= '9' {
@@ -477,35 +458,12 @@ func (self *SRegion) initVmimportRolePolicy() error {
 	}
 }
 
-func (self *SRegion) initVmimportBucket(bucketName string) error {
-	exists, err := self.IsBucketExist(bucketName)
-	if err != nil {
-		return err
-	}
-
-	if exists {
-		return nil
-	}
-
-	s3Client, err := self.GetS3Client()
-	if err != nil {
-		return err
-	}
-
-	_, err = s3Client.CreateBucket(&s3.CreateBucketInput{Bucket: &bucketName})
-	return err
-}
-
-func (self *SRegion) initVmimport(bucketName string) error {
+func (self *SRegion) initVmimport() error {
 	if err := self.initVmimportRole(); err != nil {
 		return err
 	}
 
 	if err := self.initVmimportRolePolicy(); err != nil {
-		return err
-	}
-
-	if err := self.initVmimportBucket(bucketName); err != nil {
 		return err
 	}
 

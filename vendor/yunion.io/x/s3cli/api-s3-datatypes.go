@@ -171,19 +171,23 @@ type ListObjectPartsResult struct {
 
 // initiateMultipartUploadResult container for InitiateMultiPartUpload
 // response.
-type initiateMultipartUploadResult struct {
-	Bucket   string
-	Key      string
+type InitiateMultipartUploadResult struct {
+	XMLName xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ InitiateMultipartUploadResult" json:"-"`
+
+	Bucket   string `xml:"Bucket"`
+	Key      string `xml:"Key"`
 	UploadID string `xml:"UploadId"`
 }
 
 // completeMultipartUploadResult container for completed multipart
 // upload response.
-type completeMultipartUploadResult struct {
-	Location string
-	Bucket   string
-	Key      string
-	ETag     string
+type CompleteMultipartUploadResult struct {
+	XMLName xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ CompleteMultipartUploadResult" json:"-"`
+
+	Location string `xml:"Location"`
+	Bucket   string `xml:"Bucket"`
+	Key      string `xml:"Key"`
+	ETag     string `xml:"ETag"`
 }
 
 // CompletePart sub container lists individual part numbers and their
@@ -192,12 +196,12 @@ type CompletePart struct {
 	XMLName xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ Part" json:"-"`
 
 	// Part number identifies the part.
-	PartNumber int
-	ETag       string
+	PartNumber int    `xml:"PartNumber"`
+	ETag       string `xml:"ETag"`
 }
 
 // completeMultipartUpload container for completing multipart upload.
-type completeMultipartUpload struct {
+type CompleteMultipartUpload struct {
 	XMLName xml.Name       `xml:"http://s3.amazonaws.com/doc/2006-03-01/ CompleteMultipartUpload" json:"-"`
 	Parts   []CompletePart `xml:"Part"`
 }

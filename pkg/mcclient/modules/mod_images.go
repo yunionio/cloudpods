@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/utils"
 
+	"strconv"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/util/httputils"
@@ -538,7 +539,7 @@ func (this *ImageManager) _update(s *mcclient.ClientSession, id string, params j
 	return json.Get("image")
 }
 
-func (this *ImageManager) Download(s *mcclient.ClientSession, id string, format string, torrent bool) (jsonutils.JSONObject, io.Reader, error) {
+func (this *ImageManager) Download(s *mcclient.ClientSession, id string, format string, torrent bool) (jsonutils.JSONObject, io.Reader, int64, error) {
 	query := jsonutils.NewDict()
 	if len(format) > 0 {
 		query.Add(jsonutils.NewString(format), "format")
@@ -553,10 +554,15 @@ func (this *ImageManager) Download(s *mcclient.ClientSession, id string, format 
 	}
 	resp, err := this.rawRequest(s, "GET", path, nil, nil)
 	if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return FetchImageMeta(resp.Header), resp.Body, nil
+		sizeBytes, err := strconv.ParseInt(resp.Header.Get("Content-Length"), 10, 64)
+		if err != nil {
+			log.Errorf("Download image unknown size")
+			sizeBytes = -1
+		}
+		return FetchImageMeta(resp.Header), resp.Body, sizeBytes, nil
 	} else {
 		_, _, err = s.ParseJSONResponse(resp, err)
-		return nil, nil, err
+		return nil, nil, -1, err
 	}
 }
 

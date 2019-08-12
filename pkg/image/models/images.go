@@ -23,11 +23,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/pkg/utils"
@@ -211,9 +213,16 @@ func (self *SImage) CustomizedGetDetailsBody(ctx context.Context, userCred mccli
 
 	appParams := appsrv.AppContextGetParams(ctx)
 
+	fstat, err := os.Stat(filePath)
+	if err != nil {
+		return nil, errors.Wrap(err, "os.Stat")
+	}
+
+	appParams.Response.Header().Set("Content-Length", strconv.FormatInt(fstat.Size(), 10))
+
 	fp, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "os.Open")
 	}
 	defer fp.Close()
 

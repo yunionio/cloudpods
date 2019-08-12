@@ -381,7 +381,7 @@ func init() {
 		} else {
 			sink = os.Stdout
 		}
-		meta, src, err := modules.Images.Download(s, imgId, args.Format, args.Torrent)
+		meta, src, size, err := modules.Images.Download(s, imgId, args.Format, args.Torrent)
 		if err != nil {
 			return err
 		}
@@ -391,6 +391,7 @@ func init() {
 		}
 		if len(args.Output) > 0 {
 			printObject(meta)
+			fmt.Println("Image size: ", size)
 		}
 		return nil
 	})

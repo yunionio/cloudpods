@@ -4,7 +4,9 @@ post:
     - $ref: "../parameters/bucket.yaml#/bucket_name"
     - $ref: "../parameters/bucket.yaml#/x-bucket-object-key"
     - $ref: "../parameters/bucket.yaml#/x-bucket-content-type"
+    - $ref: "../parameters/bucket.yaml#/x-bucket-content-length"
     - $ref: "../parameters/bucket.yaml#/x-bucket-storage-class"
+    - $ref: "../parameters/bucket.yaml#/x-bucket-acl"
   responses:
     200:
       description: 上传成功

@@ -119,7 +119,7 @@ func (cache *SStoragecache) UploadImage(ctx context.Context, userCred mcclient.T
 func (cache *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.TokenCredential, image *cloudprovider.SImageCreateOption, isForce bool) (string, error) {
 	s := auth.GetAdminSession(ctx, options.Options.Region, "")
 
-	meta, reader, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
+	meta, reader, _, err := modules.Images.Download(s, image.ImageId, string(qemuimg.VMDK), false)
 	if err != nil {
 		return "", err
 	}

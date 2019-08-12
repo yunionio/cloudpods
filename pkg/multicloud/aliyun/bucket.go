@@ -22,9 +22,9 @@ import (
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 
-	"yunion.io/x/log"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
 )
@@ -183,7 +183,7 @@ func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.
 	return cloudprovider.GetIObjects(b, prefix, isRecursive)
 }
 
-func (b *SBucket) PutObject(ctx context.Context, key string, input io.Reader, contType string, storageClassStr string) error {
+func (b *SBucket) PutObject(ctx context.Context, key string, input io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
 	osscli, err := b.region.GetOssClient()
 	if err != nil {
 		return errors.Wrap(err, "GetOssClient")
@@ -193,8 +193,18 @@ func (b *SBucket) PutObject(ctx context.Context, key string, input io.Reader, co
 		return errors.Wrap(err, "Bucket")
 	}
 	opts := make([]oss.Option, 0)
+	if sizeBytes > 0 {
+		opts = append(opts, oss.ContentLength(sizeBytes))
+	}
 	if len(contType) > 0 {
 		opts = append(opts, oss.ContentType(contType))
+	}
+	if len(cannedAcl) > 0 {
+		acl, err := str2Acl(string(cannedAcl))
+		if err != nil {
+			return errors.Wrap(err, "")
+		}
+		opts = append(opts, oss.ObjectACL(acl))
 	}
 	if len(storageClassStr) > 0 {
 		storageClass, err := str2StorageClass(storageClassStr)
@@ -204,6 +214,116 @@ func (b *SBucket) PutObject(ctx context.Context, key string, input io.Reader, co
 		opts = append(opts, oss.ObjectStorageClass(storageClass))
 	}
 	return bucket.PutObject(key, input, opts...)
+}
+
+func (b *SBucket) NewMultipartUpload(ctx context.Context, key string, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) (string, error) {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return "", errors.Wrap(err, "GetOssClient")
+	}
+	bucket, err := osscli.Bucket(b.Name)
+	if err != nil {
+		return "", errors.Wrap(err, "Bucket")
+	}
+	opts := make([]oss.Option, 0)
+	if len(contType) > 0 {
+		opts = append(opts, oss.ContentType(contType))
+	}
+	if len(cannedAcl) > 0 {
+		acl, err := str2Acl(string(cannedAcl))
+		if err != nil {
+			return "", errors.Wrap(err, "")
+		}
+		opts = append(opts, oss.ObjectACL(acl))
+	}
+	if len(storageClassStr) > 0 {
+		storageClass, err := str2StorageClass(storageClassStr)
+		if err != nil {
+			return "", errors.Wrap(err, "str2StorageClass")
+		}
+		opts = append(opts, oss.ObjectStorageClass(storageClass))
+	}
+	result, err := bucket.InitiateMultipartUpload(key, opts...)
+	if err != nil {
+		return "", errors.Wrap(err, "bucket.InitiateMultipartUpload")
+	}
+	return result.UploadID, nil
+}
+
+func (b *SBucket) UploadPart(ctx context.Context, key string, uploadId string, partIndex int, input io.Reader, partSize int64) (string, error) {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return "", errors.Wrap(err, "GetOssClient")
+	}
+	bucket, err := osscli.Bucket(b.Name)
+	if err != nil {
+		return "", errors.Wrap(err, "Bucket")
+	}
+	imur := oss.InitiateMultipartUploadResult{
+		Bucket:   b.Name,
+		Key:      key,
+		UploadID: uploadId,
+	}
+	part, err := bucket.UploadPart(imur, input, partSize, partIndex)
+	if err != nil {
+		return "", errors.Wrap(err, "bucket.UploadPart")
+	}
+	if b.region.client.Debug {
+		log.Debugf("upload part key:%s uploadId:%s partIndex:%d etag:%s", key, uploadId, partIndex, part.ETag)
+	}
+	return part.ETag, nil
+}
+
+func (b *SBucket) CompleteMultipartUpload(ctx context.Context, key string, uploadId string, partEtags []string) error {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOssClient")
+	}
+	bucket, err := osscli.Bucket(b.Name)
+	if err != nil {
+		return errors.Wrap(err, "Bucket")
+	}
+	imur := oss.InitiateMultipartUploadResult{
+		Bucket:   b.Name,
+		Key:      key,
+		UploadID: uploadId,
+	}
+	parts := make([]oss.UploadPart, len(partEtags))
+	for i := range partEtags {
+		parts[i] = oss.UploadPart{
+			PartNumber: i + 1,
+			ETag:       partEtags[i],
+		}
+	}
+	result, err := bucket.CompleteMultipartUpload(imur, parts)
+	if err != nil {
+		return errors.Wrap(err, "bucket.CompleteMultipartUpload")
+	}
+	if b.region.client.Debug {
+		log.Debugf("CompleteMultipartUpload bucket:%s key:%s etag:%s location:%s", result.Bucket, result.Key, result.ETag, result.Location)
+	}
+	return nil
+}
+
+func (b *SBucket) AbortMultipartUpload(ctx context.Context, key string, uploadId string) error {
+	osscli, err := b.region.GetOssClient()
+	if err != nil {
+		return errors.Wrap(err, "GetOssClient")
+	}
+	bucket, err := osscli.Bucket(b.Name)
+	if err != nil {
+		return errors.Wrap(err, "Bucket")
+	}
+	imur := oss.InitiateMultipartUploadResult{
+		Bucket:   b.Name,
+		Key:      key,
+		UploadID: uploadId,
+	}
+	err = bucket.AbortMultipartUpload(imur)
+	if err != nil {
+		return errors.Wrap(err, "AbortMultipartUpload")
+	}
+	return nil
 }
 
 func (b *SBucket) DeleteObject(ctx context.Context, key string) error {
