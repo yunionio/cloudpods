@@ -159,8 +159,8 @@ func (self *SSnapshot) GetRegionId() string {
 	return self.region.GetId()
 }
 
-func (self *SSnapshot) GetSize() int32 {
-	return self.DiskSize
+func (self *SSnapshot) GetSizeMb() int32 {
+	return self.DiskSize * 1024
 }
 
 func (self *SSnapshot) GetDiskId() string {

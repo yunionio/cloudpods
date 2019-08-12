@@ -50,7 +50,7 @@ func (self *SClassicSnapshot) Delete() error {
 	return self.region.DeleteClassicSnapshot(self.GetId())
 }
 
-func (self *SClassicSnapshot) GetSize() int32 {
+func (self *SClassicSnapshot) GetSizeMb() int32 {
 	return self.sizeMB
 }
 

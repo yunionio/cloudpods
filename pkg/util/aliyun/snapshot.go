@@ -54,8 +54,8 @@ func (self *SSnapshot) GetStatus() string {
 	}
 }
 
-func (self *SSnapshot) GetSize() int32 {
-	return self.SourceDiskSize
+func (self *SSnapshot) GetSizeMb() int32 {
+	return self.SourceDiskSize * 1024
 }
 
 func (self *SSnapshot) GetDiskId() string {
