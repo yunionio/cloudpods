@@ -588,15 +588,18 @@ func (manager *SZoneManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQu
 		subq := CloudproviderRegionManager.QueryRelatedRegionIds(accountStr)
 		q = q.In("cloudregion_id", subq)
 	}
-	providerStr, _ := query.GetString("provider")
-	if len(providerStr) > 0 {
-		subq := CloudregionManager.Query("id")
-		if providerStr == api.CLOUD_PROVIDER_ONECLOUD {
-			subq = subq.IsNullOrEmpty("provider")
-		} else {
-			subq = subq.Equals("provider", providerStr)
-		}
 
+	providerStrs := jsonutils.GetQueryStringArray(query, "provider")
+	if len(providerStrs) > 0 {
+		query.(*jsonutils.JSONDict).Remove("provider")
+		subq := queryCloudregionIdsByProviders("provider", providerStrs)
+		q = q.In("cloudregion_id", subq.SubQuery())
+	}
+
+	brandStrs := jsonutils.GetQueryStringArray(query, "brand")
+	if len(brandStrs) > 0 {
+		query.(*jsonutils.JSONDict).Remove("brand")
+		subq := queryCloudregionIdsByProviders("brand", brandStrs)
 		q = q.In("cloudregion_id", subq.SubQuery())
 	}
 
