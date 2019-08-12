@@ -79,6 +79,7 @@ type ICloudRegion interface {
 	GetISnapshotById(snapshotId string) (ICloudSnapshot, error)
 
 	CreateSnapshotPolicy(*SnapshotPolicyInput) (string, error)
+	UpdateSnapshotPolicy(*SnapshotPolicyInput, string) error
 	DeleteSnapshotPolicy(string) error
 	ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error
 	CancelSnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error
@@ -373,7 +374,7 @@ type ICloudDisk interface {
 	GetISnapshot(idStr string) (ICloudSnapshot, error)
 	GetISnapshots() ([]ICloudSnapshot, error)
 
-	GetExtSnapshotPolicyIds() []string
+	GetExtSnapshotPolicyIds() ([]string, error)
 
 	Resize(ctx context.Context, newSizeMB int64) error
 	Reset(ctx context.Context, snapshotId string) (string, error)

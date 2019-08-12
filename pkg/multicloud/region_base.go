@@ -26,6 +26,10 @@ func (r *SRegion) CreateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInput)
 	return "", fmt.Errorf("CreateSnapshotPolicy not implement")
 }
 
+func (r *SRegion) UpdateSnapshotPolicy(input *cloudprovider.SnapshotPolicyInput, snapshotPolicyId string) error {
+	return fmt.Errorf("UpdateSnapshotPolicy not implement")
+}
+
 func (r *SRegion) GetISnapshotPolicyById(snapshotPolicyId string) (cloudprovider.ICloudSnapshotPolicy, error) {
 	return nil, fmt.Errorf("GetISnapshotPolicyById not implement")
 }
