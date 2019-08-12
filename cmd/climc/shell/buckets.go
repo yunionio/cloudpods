@@ -15,6 +15,7 @@
 package shell
 
 import (
+	"fmt"
 	"io"
 	"os"
 
@@ -154,10 +155,12 @@ func init() {
 	type BucketUploadObjectsOptions struct {
 		ID   string `help:"ID or name of bucket" json:"-"`
 		KEY  string `help:"Key of object to upload"`
-		Path string `help:"Path to file to upload"`
+		Path string `help:"Path to file to upload" required:"true"`
 
-		ContentType  string `help:"Content type"`
-		StorageClass string `help:"storage CLass"`
+		ContentLength int64  `help:"Content lenght (bytes)"`
+		ContentType   string `help:"Content type" required:"true"`
+		StorageClass  string `help:"storage CLass"`
+		Acl           string `help:"object acl." choices:"private|public-read|public-read-write"`
 	}
 	R(&BucketUploadObjectsOptions{}, "bucket-object-upload", "Upload an object into a bucket", func(s *mcclient.ClientSession, args *BucketUploadObjectsOptions) error {
 		var body io.Reader
@@ -168,10 +171,22 @@ func init() {
 			}
 			defer file.Close()
 			body = file
+
+			fileInfo, err := file.Stat()
+			if err != nil {
+				return err
+			}
+
+			args.ContentLength = fileInfo.Size()
 		} else {
 			body = os.Stdin
 		}
-		err := modules.Buckets.Upload(s, args.ID, args.KEY, body, args.ContentType, args.StorageClass)
+
+		if args.ContentLength <= 0 {
+			return fmt.Errorf("required content-length")
+		}
+
+		err := modules.Buckets.Upload(s, args.ID, args.KEY, body, args.ContentLength, args.ContentType, args.StorageClass, args.Acl)
 		if err != nil {
 			return err
 		}
