@@ -77,6 +77,11 @@ type ComputeOptions struct {
 	DefaultMaxSnapshotCount       int `default:"9" help:"Per Disk max snapshot count, default 9"`
 	DefaultMaxManualSnapshotCount int `default:"2" help:"Per Disk max manual snapshot count, default 2"`
 
+	//snapshot policy options
+	RetentionDaysLimit  int `default:"49" help:"Days of snapshot retention, default 49 days"`
+	TimePointsLimit     int `default:"1" help:"time point of every days, default 1 point"`
+	RepeatWeekdaysLimit int `default:"7" help:"day point of every weekday, default 7 points"`
+
 	// sku sync
 	SyncSkusDay  int `default:"1" help:"Days auto sync skus data, default 1 day"`
 	SyncSkusHour int `default:"3" help:"What hour start sync skus, default 03:00"`

@@ -1,0 +1,23 @@
+post:
+  summary: 绑定指定磁盘和自动快照策略
+  parameters:
+    - $ref: '../parameters/snapshotpolicy.yaml#/diskId'
+    - $ref: '../parameters/snapshotpolicy.yaml#/snapshotpolicyId'
+  responses:
+    200:
+      schema:
+        $ref: '../schemas/snapshotpolicy.yaml#/SnapshotPolicyDiskResponse'
+  tags:
+    - snapshotpolicy
+
+delete:
+  summary: 解绑指定磁盘和自动快照策略
+  parameters:
+    - $ref: '../parameters/snapshotpolicy.yaml#/diskId'
+    - $ref: '../parameters/snapshotpolicy.yaml#/snapshotpolicyId'
+  responses:
+    200:
+      schema:
+        $ref: '../schemas/snapshotpolicy.yaml#/SnapshotPolicyDiskResponse'
+  tags:
+    - snapshotpolicy
