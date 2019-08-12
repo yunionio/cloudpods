@@ -658,6 +658,7 @@ func (self *SSnapshot) SyncWithCloudSnapshot(ctx context.Context, userCred mccli
 		// self.Name = ext.GetName()
 		self.Status = ext.GetStatus()
 		self.DiskType = ext.GetDiskType()
+		self.Size = int(ext.GetSizeMb())
 
 		self.CloudregionId = region.Id
 		return nil
@@ -694,7 +695,7 @@ func (manager *SSnapshotManager) newFromCloudSnapshot(ctx context.Context, userC
 	}
 
 	snapshot.DiskType = extSnapshot.GetDiskType()
-	snapshot.Size = int(extSnapshot.GetSize()) * 1024
+	snapshot.Size = int(extSnapshot.GetSizeMb())
 	snapshot.ManagerId = provider.Id
 	snapshot.CloudregionId = region.Id
 
