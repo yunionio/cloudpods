@@ -29,7 +29,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -1041,79 +1040,73 @@ func (self *SManagedVirtualizationRegionDriver) ValidateCreateEipData(ctx contex
 	return data, nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestCreateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask) error {
+func (self *SManagedVirtualizationRegionDriver) RequestUpdateSnapshotPolicy(ctx context.Context, userCred mcclient.
+	TokenCredential, sp *models.SSnapshotPolicy, input cloudprovider.SnapshotPolicyInput, task taskman.ITask) error {
+	// it's too cumbersome to pass parameters in taskman, so change a simple way for the moment
+
+	//spcache, err := models.SnapshotPolicyCacheManager.FetchSnapshotPolicyCache(sp.GetId(), sp.CloudregionId, sp.ManagerId)
+	//if err != nil {
+	//	return errors.Wrapf(err, "Fetch cache ofsnapshotpolicy %s", sp.GetId())
+	//}
+	//return spcache.UpdateCloudSnapshotPolicy(&input)
+
+	return nil
+}
+
+// RequestApplySnapshotPolicy apply snapshotpolicy for public cloud.
+// In our system, one disk only can hava one snapshot policy attached.
+// Default, some public cloud such as Aliyun is same with us and this function shoule be used for these public cloud.
+// But in Some public cloud such as Qcloud different with us,
+// we should wirte a new function in corressponding regiondriver which detach all snapshotpolicy of disk after
+// attache new one.
+// You can refer to the implementations of function SQcloudRegionDriver.RequestApplySnapshotPolicy().
+func (self *SManagedVirtualizationRegionDriver) RequestApplySnapshotPolicy(ctx context.Context,
+	userCred mcclient.TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy,
+	data jsonutils.JSONObject) error {
+
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := sp.GetIRegion()
+
+		spcache, err := models.SnapshotPolicyCacheManager.Register(ctx, userCred, sp.GetId(),
+			disk.GetStorage().GetRegion().GetId(),
+			disk.GetStorage().ManagerId)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "registersnapshotpolicy cache failed")
 		}
-		input, err := sp.GenerateCreateSpParams()
-		if err != nil {
-			return nil, err
-		}
-		policyId, err := iRegion.CreateSnapshotPolicy(input)
-		if err != nil {
-			return nil, err
-		}
-		err = db.SetExternalId(sp, userCred, policyId)
+
+		iRegion, err := disk.GetIRegion()
 		if err != nil {
 			return nil, err
 		}
 
-		iPolicy, err := iRegion.GetISnapshotPolicyById(policyId)
+		err = iRegion.ApplySnapshotPolicyToDisks(spcache.GetExternalId(), disk.GetExternalId())
 		if err != nil {
 			return nil, err
 		}
-		err = cloudprovider.WaitStatus(iPolicy, api.SNAPSHOT_POLICY_READY, 10*time.Second, 300*time.Second)
-		if err != nil {
-			return nil, err
-		}
-		return nil, nil
+		data := jsonutils.NewDict()
+		data.Add(jsonutils.NewString(sp.GetId()), "snapshotpolicy_id")
+		return data, nil
 	})
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestDeleteSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := sp.GetIRegion()
-		if err != nil {
-			return nil, err
-		}
-		err = iRegion.DeleteSnapshotPolicy(sp.GetExternalId())
-		if err != nil {
-			return nil, err
-		}
-		return nil, nil
-	})
-	return nil
-}
+func (self *SManagedVirtualizationRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.
+	TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
 
-func (self *SManagedVirtualizationRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskId string) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := sp.GetIRegion()
-		if err != nil {
-			return nil, err
-		}
-		err = iRegion.ApplySnapshotPolicyToDisks(sp.GetExternalId(), diskId)
-		if err != nil {
-			return nil, err
-		}
-		return nil, nil
-	})
-	return nil
-}
+		spcache, err := models.SnapshotPolicyCacheManager.FetchSnapshotPolicyCache(sp.GetId(),
+			disk.GetStorage().GetRegion().GetId(), disk.GetStorage().ManagerId)
 
-func (self *SManagedVirtualizationRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskId string) error {
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		iRegion, err := sp.GetIRegion()
+		iRegion, err := spcache.GetIRegion()
 		if err != nil {
 			return nil, err
 		}
-		err = iRegion.CancelSnapshotPolicyToDisks(sp.GetExternalId(), diskId)
+		err = iRegion.CancelSnapshotPolicyToDisks(spcache.GetExternalId(), disk.GetExternalId())
 		if err != nil {
 			return nil, err
 		}
-		return nil, nil
+		data := jsonutils.NewDict()
+		data.Add(jsonutils.NewString(sp.GetId()), "snapshotpolicy_id")
+		return data, nil
 	})
 	return nil
 }
@@ -1180,7 +1173,9 @@ func (self *SManagedVirtualizationRegionDriver) GetDiskResetParams(snapshot *mod
 	return params
 }
 
-func (self *SManagedVirtualizationRegionDriver) OnDiskReset(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, data jsonutils.JSONObject) error {
+func (self *SManagedVirtualizationRegionDriver) OnDiskReset(ctx context.Context, userCred mcclient.TokenCredential,
+	disk *models.SDisk, snapshot *models.SSnapshot, data jsonutils.JSONObject) error {
+
 	externalId, _ := data.GetString("exteranl_disk_id")
 	if len(externalId) > 0 {
 		_, err := db.Update(disk, func() error {
@@ -1211,19 +1206,11 @@ func (self *SManagedVirtualizationRegionDriver) OnDiskReset(ctx context.Context,
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context, userCred mcclient.TokenCredential, diskID string) error {
-	return nil
-}
-
-func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSnapshotPolicyCreateInput, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) error {
-
-	cloudregionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerId)
-	err := cloudregionV.Validate(data)
-	if err != nil {
-		return err
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context,
+	userCred mcclient.TokenCredential, disk *models.SDisk, snapshotPolicy *models.SSnapshotPolicy) error {
+	if snapshotPolicy.RetentionDays < -1 || snapshotPolicy.RetentionDays == 0 || snapshotPolicy.RetentionDays > 65535 {
+		return httperrors.NewInputParameterError("Retention days must in 1~65535 or -1")
 	}
-	cloudregion := cloudregionV.Model.(*models.SCloudregion)
-	input.CloudregionId = cloudregion.GetId()
 	return nil
 }
 
@@ -1241,5 +1228,15 @@ func (self *SManagedVirtualizationRegionDriver) RequestBindIPToNatgateway(ctx co
 	natgateway *models.SNatGateway, needBind bool, eipID string) error {
 
 	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Context, userCred mcclient.
+	TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
+
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+
+		return data, nil
+	})
 	return nil
 }
