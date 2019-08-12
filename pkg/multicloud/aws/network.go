@@ -62,6 +62,10 @@ func (self *SNetwork) GetGlobalId() string {
 }
 
 func (self *SNetwork) GetStatus() string {
+	if self.wire != nil && self.wire.vpc != nil && self.wire.vpc.InstanceTenancy == "dedicated" {
+		return api.NETWORK_STATUS_UNAVAILABLE
+	}
+
 	return strings.ToLower(self.Status)
 }
 

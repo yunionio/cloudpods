@@ -410,7 +410,7 @@ func (self *SDisk) Attach(device string) error {
 		return err
 	}
 
-	return cloudprovider.WaitStatus(self, api.DISK_READY, 5*time.Second, 60*time.Second)
+	return cloudprovider.WaitStatusWithDelay(self, api.DISK_READY, 10*time.Second, 5*time.Second, 60*time.Second)
 }
 
 // 在线卸载磁盘 https://support.huaweicloud.com/usermanual-ecs/zh-cn_topic_0036046828.html
