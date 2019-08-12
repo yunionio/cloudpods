@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 
@@ -805,34 +804,21 @@ func (self *SAliyunRegionDriver) ValidateUpdateLoadbalancerListenerData(ctx cont
 	return self.SManagedVirtualizationRegionDriver.ValidateUpdateLoadbalancerListenerData(ctx, userCred, data, lblis, backendGroup)
 }
 
-func daysValidate(days []int, min, max int) ([]int, error) {
-	if len(days) == 0 {
-		return days, nil
-	}
-	sort.Ints(days)
-
-	var tmp *int
-	for i := 0; i < len(days); i++ {
-		if days[i] < min || days[i] > max {
-			return days, fmt.Errorf("Day %d out of range", days[i])
-		}
-		if tmp != nil && *tmp == days[i] {
-			return days, fmt.Errorf("Has repeat day %v", days)
-		} else {
-			tmp = &days[i]
-		}
-	}
-	return days, nil
-}
-
-func (self *SAliyunRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context, userCred mcclient.TokenCredential, diskID string) error {
-	ret, err := models.SnapshotPolicyDiskManager.FetchAllSnapshotPolicyOfDisk(ctx, userCred, diskID)
-	if err != nil {
-		return err
-	}
-	if len(ret) != 0 {
-		return httperrors.NewBadRequestError("One disk could't attach two snapshot policy in aliyun; please detach last one first.")
-	}
+func (self *SAliyunRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context,
+	userCred mcclient.TokenCredential, disk *models.SDisk, snapshotPolicy *models.SSnapshotPolicy) error {
+	//err := self.SManagedVirtualizationRegionDriver.ValidateCreateSnapshopolicyDiskData(ctx, userCred, disk, snapshotPolicy)
+	//if err != nil {
+	//	return nil
+	//}
+	//// In Aliyun, One disk only apply one snapshot policy
+	//ret, err := models.SnapshotPolicyDiskManager.FetchAllByDiskID(ctx, userCred, disk.GetId())
+	//if err != nil {
+	//	return err
+	//}
+	//if len(ret) != 0 {
+	//	return httperrors.NewBadRequestError("One disk could't attach two snapshot policy in aliyun; please detach last one first.")
+	//}
+	//return nil
 	return nil
 }
 

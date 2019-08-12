@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -742,4 +741,28 @@ func (self *SQcloudRegionDriver) ValidateCreateLoadbalancerBackendData(ctx conte
 	data.Set("manager_id", jsonutils.NewString(lb.ManagerId))
 	data.Set("cloudregion_id", jsonutils.NewString(lb.CloudregionId))
 	return data, nil
+}
+
+func (self *SQcloudRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Context, userCred mcclient.
+	TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
+
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+
+		if sp == nil {
+			return data, nil
+		}
+		spcache, err := models.SnapshotPolicyCacheManager.FetchSnapshotPolicyCache(sp.GetId(),
+			disk.GetStorage().GetRegion().GetId(), disk.GetStorage().ManagerId)
+
+		iRegion, err := spcache.GetIRegion()
+		if err != nil {
+			return nil, err
+		}
+		err = iRegion.CancelSnapshotPolicyToDisks(spcache.GetExternalId(), disk.GetExternalId())
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	})
+	return nil
 }

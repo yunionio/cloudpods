@@ -35,22 +35,10 @@ func TestUint2IntArray(t *testing.T) {
 
 	for _, tc := range testCase {
 		real := Uint2IntArray(tc.input)
-		if !sliceEqual(real, tc.want) {
+		if !IntSliceEqual(real, tc.want) {
 			t.Fatalf("want %v, but %v\n", tc.want, real)
 		}
 	}
-}
-
-func sliceEqual(a, b []int) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := 0; i < len(a); i++ {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func TestIntArray2Uint(t *testing.T) {

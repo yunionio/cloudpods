@@ -16,8 +16,8 @@ package multicloud
 
 type SDisk struct{}
 
-func (self *SDisk) GetExtSnapshotPolicyIds() []string {
-	return []string{""}
+func (self *SDisk) GetExtSnapshotPolicyIds() ([]string, error) {
+	return []string{""}, nil
 }
 
 func (self *SDisk) GetIStorageId() string {

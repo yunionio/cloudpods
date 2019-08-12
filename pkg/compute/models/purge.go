@@ -625,14 +625,16 @@ func (snapshot *SSnapshot) purge(ctx context.Context, userCred mcclient.TokenCre
 	return snapshot.RealDelete(ctx, userCred)
 }
 
-func (manager *SSnapshotPolicyManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
-	sps := make([]SSnapshotPolicy, 0)
-	err := fetchByManagerId(manager, providerId, &sps)
+func (manager *SSnapshotPolicyCacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential,
+	providerId string) error {
+	// delete snapshot policy cache belong to manager
+	spCaches := make([]SSnapshotPolicyCache, 0)
+	err := fetchByManagerId(SnapshotPolicyCacheManager, providerId, &spCaches)
 	if err != nil {
 		return err
 	}
-	for i := range sps {
-		err := sps[i].purge(ctx, userCred)
+	for i := range spCaches {
+		err := spCaches[i].purge(ctx, userCred)
 		if err != nil {
 			return err
 		}
@@ -640,15 +642,19 @@ func (manager *SSnapshotPolicyManager) purgeAll(ctx context.Context, userCred mc
 	return nil
 }
 
-func (sp *SSnapshotPolicy) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, sp)
-	defer lockman.ReleaseObject(ctx, sp)
-
-	err := sp.ValidateDeleteCondition(ctx)
+func (spc *SSnapshotPolicyCache) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+	lockman.LockObject(ctx, spc)
+	defer lockman.LockObject(ctx, spc)
+	err := spc.ValidateDeleteCondition(ctx)
 	if err != nil {
 		return err
 	}
-	return sp.RealDelete(ctx, userCred)
+	return spc.RealDetele(ctx, userCred)
+}
+
+func (manager *SSnapshotPolicyManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
+	// delete snapshot policy cache belong to manager
+	return SnapshotPolicyCacheManager.purgeAll(ctx, userCred, providerId)
 }
 
 func (manager *SStoragecacheManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {

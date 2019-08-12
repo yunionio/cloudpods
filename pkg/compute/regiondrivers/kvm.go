@@ -21,7 +21,6 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
-	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -30,8 +29,10 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
 type SKVMRegionDriver struct {
@@ -774,37 +775,48 @@ func (self *SKVMRegionDriver) OnDiskReset(ctx context.Context, userCred mcclient
 	return models.GetStorageDriver(storage.StorageType).OnDiskReset(ctx, userCred, disk, snapshot, data)
 }
 
-func (self *SKVMRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSnapshotPolicyCreateInput, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) error {
-	err := self.SBaseRegionDriver.ValidateCreateSnapshotPolicyData(ctx, userCred, input, ownerId, data)
-	if err != nil {
-		return err
+func (self *SKVMRegionDriver) RequestUpdateSnapshotPolicy(ctx context.Context,
+	userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, input cloudprovider.SnapshotPolicyInput,
+	task taskman.ITask) error {
+
+	return nil
+}
+
+func (self *SKVMRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context,
+	userCred mcclient.TokenCredential, disk *models.SDisk, snapshotPolicy *models.SSnapshotPolicy) error {
+
+	if snapshotPolicy.RetentionDays < -1 || snapshotPolicy.RetentionDays == 0 || snapshotPolicy.RetentionDays > options.Options.RetentionDaysLimit {
+		return httperrors.NewInputParameterError("Retention days must in 1~%d or -1", options.Options.RetentionDaysLimit)
 	}
-	// TODO: To be determined
-	if input.RetentionDays < -1 || input.RetentionDays == 0 || input.RetentionDays > 10 {
-		return httperrors.NewInputParameterError("Retention days must in 1~10 or -1")
+
+	repeatWeekdays := models.SnapshotPolicyManager.RepeatWeekdaysToIntArray(snapshotPolicy.RepeatWeekdays)
+	timePoints := models.SnapshotPolicyManager.TimePointsToIntArray(snapshotPolicy.TimePoints)
+
+	if len(repeatWeekdays) > options.Options.RepeatWeekdaysLimit {
+		return httperrors.NewInputParameterError("repeat_weekdays only contains %d days at most",
+			options.Options.RepeatWeekdaysLimit)
+	}
+
+	if len(timePoints) > options.Options.TimePointsLimit {
+		return httperrors.NewInputParameterError("time_points only contains %d points at most", options.Options.TimePointsLimit)
 	}
 	return nil
 }
 
-func (self *SKVMRegionDriver) RequestCreateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask) error {
+func (self *SKVMRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, nil
+		data := jsonutils.NewDict()
+		data.Add(jsonutils.NewString(sp.GetId()), "snapshotpolicy_id")
+		return data, nil
 	})
 	return nil
 }
 
-func (self *SKVMRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context, userCred mcclient.TokenCredential, diskID string) error {
-	return nil
-}
-
-func (self *SKVMRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskId string) error {
-	task.ScheduleRun(nil)
-	return nil
-}
-
-func (self *SKVMRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskId string) error {
+func (self *SKVMRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		return nil, nil
+		data := jsonutils.NewDict()
+		data.Add(jsonutils.NewString(sp.GetId()), "snapshotpolicy_id")
+		return data, nil
 	})
 	return nil
 }
@@ -821,5 +833,15 @@ func (self *SKVMRegionDriver) DealNatGatewaySpec(spec string) string {
 func (self *SKVMRegionDriver) RequestBindIPToNatgateway(ctx context.Context, task taskman.ITask,
 	natgateway *models.SNatGateway, needBind bool, eipID string) error {
 
+	return nil
+}
+
+func (self *SKVMRegionDriver) RequestPreSnapshotPolicyApply(ctx context.Context, userCred mcclient.
+	TokenCredential, task taskman.ITask, disk *models.SDisk, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) error {
+
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+
+		return data, nil
+	})
 	return nil
 }

@@ -259,33 +259,6 @@ func init() {
 		printObject(disk)
 		return nil
 	})
-	type DiskApplySnapshotPolicy struct {
-		ID             string `help:"ID or name of disk" json:"-"`
-		Snapshotpolicy string `help:"ID or name of snapshot policy"`
-	}
-	R(&DiskApplySnapshotPolicy{}, "disk-apply-snapshot-policy", "Set disk snapshot policy", func(s *mcclient.ClientSession, args *DiskApplySnapshotPolicy) error {
-		params, err := options.StructToParams(args)
-		if err != nil {
-			return err
-		}
-		disk, err := modules.Disks.PerformAction(s, args.ID, "apply-snapshot-policy", params)
-		if err != nil {
-			return err
-		}
-		printObject(disk)
-		return nil
-	})
-	type DiskCancelSnapshotPolicy struct {
-		ID string `help:"ID or name of disk"`
-	}
-	R(&DiskCancelSnapshotPolicy{}, "disk-cancel-snapshot-policy", "Cancel disk snapshot policy", func(s *mcclient.ClientSession, args *DiskCancelSnapshotPolicy) error {
-		disk, err := modules.Disks.PerformAction(s, args.ID, "cancel-snapshot-policy", nil)
-		if err != nil {
-			return err
-		}
-		printObject(disk)
-		return nil
-	})
 
 	type DiskChangeOwnerOptions struct {
 		ID      string `help:"Disk to change owner" json:"-"`
