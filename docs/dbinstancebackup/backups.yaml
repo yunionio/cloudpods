@@ -1,0 +1,32 @@
+get:
+  summary: 按指定条件列出RDS实例备份列表
+  parameters:
+    - $ref: '../parameters/common.yaml#/limit'
+    - $ref: '../parameters/common.yaml#/offset'
+    - $ref: '../parameters/common.yaml#/cloudregion'
+    - $ref: '../parameters/dbinstance.yaml#/dbinstance'
+
+
+  responses:
+    200:
+      description: RDS实例备份列表信息
+      schema:
+        $ref: '../schemas/dbinstance_backup.yaml#/DBInstanceBackupListResponse'
+  tags:
+    - dbinstancebackup
+
+post:
+  summary: 创建RDS实例备份
+  parameters:
+    - in: body
+      name: dbinstancebackup
+      required: true
+      schema:
+        $ref: '../schemas/dbinstance_backup.yaml#/DBInstanceBackupCreate'
+  responses:
+    200:
+      description: 新建RDS实例账号信息
+      schema:
+        $ref: '../schemas/dbinstance_backup.yaml#/DBInstanceBackupResponse'
+  tags:
+    - dbinstancebackup

@@ -15,7 +15,9 @@
 package aliyun
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
@@ -24,8 +26,11 @@ import (
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/multicloud"
+	"yunion.io/x/onecloud/pkg/util/billing"
+	"yunion.io/x/onecloud/pkg/util/rand"
 
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 )
 
 type SReadOnlyDBInstanceIds struct {
@@ -67,6 +72,7 @@ type SDBInstance struct {
 	DBInstanceDiskUsed        int64
 	DBInstanceStorage         int
 	DBInstanceStorageType     string
+	MasterInstanceId          string
 	DBInstanceMemory          int
 	DBMaxQuantity             int
 	IPType                    string
@@ -132,8 +138,10 @@ func (rds *SDBInstance) GetGlobalId() string {
 // INS_CLONING	实例克隆中
 func (rds *SDBInstance) GetStatus() string {
 	switch rds.DBInstanceStatus {
-	case "Creating", "DBInstanceClassChanging", "GuardDBInstanceCreating", "DBInstanceNetTypeChanging", "GuardSwitching":
+	case "Creating", "GuardDBInstanceCreating", "DBInstanceNetTypeChanging", "GuardSwitching", "NET_CREATING", "NET_DELETING":
 		return api.DBINSTANCE_DEPLOYING
+	case "DBInstanceClassChanging":
+		return api.DBINSTANCE_CHANGE_CONFIG
 	case "Running":
 		return api.DBINSTANCE_RUNNING
 	case "Deleting":
@@ -149,6 +157,7 @@ func (rds *SDBInstance) GetStatus() string {
 	case "INS_CLONING":
 		return api.DBINSTANCE_CLONING
 	default:
+		log.Errorf("Unknown dbinstance status %s", rds.DBInstanceStatus)
 		return api.DBINSTANCE_UNKNOWN
 	}
 }
@@ -163,6 +172,10 @@ func (rds *SDBInstance) GetExpiredAt() time.Time {
 
 func (rds *SDBInstance) GetCreatedAt() time.Time {
 	return rds.CreateTime
+}
+
+func (rds *SDBInstance) GetStorageType() string {
+	return rds.DBInstanceStorageType
 }
 
 func (rds *SDBInstance) GetEngine() string {
@@ -192,13 +205,13 @@ func (rds *SDBInstance) GetInstanceType() string {
 func (rds *SDBInstance) GetCategory() string {
 	switch rds.Category {
 	case "Basic":
-		return api.DBINSTANCE_CATEGORY_BASIC
+		return api.ALIYUN_DBINSTANCE_CATEGORY_BASIC
 	case "HighAvailability":
-		return api.DBINSTANCE_CATEGORY_HA
+		return api.ALIYUN_DBINSTANCE_CATEGORY_HA
 	case "AlwaysOn":
-		return api.DBINSTANCE_CATEGORY_ALWAYSON
+		return api.ALIYUN_DBINSTANCE_CATEGORY_ALWAYSON
 	case "Finance":
-		return api.DBINSTANCE_CATEGORY_FINANCE
+		return api.ALIYUN_DBINSTANCE_CATEGORY_FINANCE
 	}
 	return rds.Category
 }
@@ -248,15 +261,7 @@ func (rds *SDBInstance) Refresh() error {
 }
 
 func (rds *SDBInstance) GetIZoneId() string {
-	if len(rds.ZoneId) > 0 {
-		zone, err := rds.region.getZoneById(rds.ZoneId)
-		if err != nil {
-			log.Errorf("SDBInstances.getZoneById %s error: %v", rds.ZoneId, err)
-			return ""
-		}
-		return zone.GetGlobalId()
-	}
-	return ""
+	return rds.ZoneId
 }
 
 func (rds *SDBInstance) GetDBNetwork() (*cloudprovider.SDBInstanceNetwork, error) {
@@ -339,6 +344,15 @@ func (region *SRegion) GetDBInstances(ids []string, offset int, limit int) ([]SD
 	return instances, int(total), nil
 }
 
+func (region *SRegion) GetIDBInstanceById(instanceId string) (cloudprovider.ICloudDBInstance, error) {
+	rds, err := region.GetDBInstanceDetail(instanceId)
+	if err != nil {
+		return nil, err
+	}
+	rds.region = region
+	return rds, nil
+}
+
 func (region *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error) {
 	instances := []SDBInstance{}
 	for {
@@ -360,6 +374,9 @@ func (region *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, erro
 }
 
 func (region *SRegion) GetDBInstanceDetail(instanceId string) (*SDBInstance, error) {
+	if len(instanceId) == 0 {
+		return nil, cloudprovider.ErrNotFound
+	}
 	params := map[string]string{}
 	params["RegionId"] = region.RegionId
 	params["DBInstanceId"] = instanceId
@@ -457,6 +474,35 @@ func (rds *SDBInstance) GetIDBInstanceParameters() ([]cloudprovider.ICloudDBInst
 	return iparameters, nil
 }
 
+func (region *SRegion) GetIDBInstanceBackupById(backupId string) (cloudprovider.ICloudDBInstanceBackup, error) {
+	backups, err := region.GetIDBInstanceBackups()
+	if err != nil {
+		return nil, errors.Wrap(err, "region.GetIDBInstanceBackups")
+	}
+	for _, backup := range backups {
+		if backup.GetGlobalId() == backupId {
+			return backup, nil
+		}
+	}
+	return nil, cloudprovider.ErrNotFound
+}
+
+func (rds *SDBInstance) Reboot() error {
+	return rds.region.RebootDBInstance(rds.DBInstanceId)
+}
+
+func (rds *SDBInstance) Delete() error {
+	return rds.region.DeleteDBInstance(rds.DBInstanceId)
+}
+
+func (region *SRegion) RebootDBInstance(instanceId string) error {
+	params := map[string]string{}
+	params["RegionId"] = region.RegionId
+	params["DBInstanceId"] = instanceId
+	_, err := region.rdsRequest("RestartDBInstance", params)
+	return err
+}
+
 func (rds *SDBInstance) GetIDBInstanceDatabases() ([]cloudprovider.ICloudDBInstanceDatabase, error) {
 	databases := []SDBInstanceDatabase{}
 	for {
@@ -497,4 +543,232 @@ func (rds *SDBInstance) GetIDBInstanceAccounts() ([]cloudprovider.ICloudDBInstan
 		iaccounts = append(iaccounts, &accounts[i])
 	}
 	return iaccounts, nil
+}
+
+func (rds *SDBInstance) ChangeConfig(cxt context.Context, desc *cloudprovider.SManagedDBInstanceChangeConfig) error {
+	return rds.region.ChangeDBInstanceConfig(rds.DBInstanceId, string(rds.PayType), desc)
+}
+
+func (region *SRegion) ChangeDBInstanceConfig(instanceId, payType string, desc *cloudprovider.SManagedDBInstanceChangeConfig) error {
+	params := map[string]string{
+		"RegionId":          region.RegionId,
+		"DBInstanceId":      instanceId,
+		"PayType":           payType,
+		"DBInstanceClass":   desc.InstanceType,
+		"DBInstanceStorage": fmt.Sprintf("%d", desc.DiskSizeGB),
+	}
+
+	_, err := region.rdsRequest("ModifyDBInstanceSpec", params)
+	if err != nil {
+		return errors.Wrap(err, "region.rdsRequest.ModifyDBInstanceSpec")
+	}
+	return nil
+}
+
+func (region *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {
+	params := map[string]string{
+		"RegionId":              region.RegionId,
+		"Engine":                desc.Engine,
+		"EngineVersion":         desc.EngineVersion,
+		"DBInstanceClass":       desc.InstanceType,
+		"DBInstanceStorage":     fmt.Sprintf("%d", desc.DiskSizeGB),
+		"DBInstanceNetType":     "Intranet",
+		"PayType":               "Postpaid",
+		"SecurityIPList":        "0.0.0.0/0",
+		"DBInstanceDescription": desc.Name,
+		"ClientToken":           utils.GenRequestId(20),
+		"InstanceNetworkType":   "VPC",
+		"VPCId":                 desc.VpcId,
+		"VSwitchId":             desc.NetworkId,
+		"DBInstanceStorageType": desc.StorageType,
+	}
+	switch desc.Category {
+	case api.ALIYUN_DBINSTANCE_CATEGORY_HA:
+		params["Category"] = "HighAvailability"
+	case api.ALIYUN_DBINSTANCE_CATEGORY_BASIC:
+		params["Category"] = "Basic"
+	case api.ALIYUN_DBINSTANCE_CATEGORY_ALWAYSON:
+		params["Category"] = "AlwaysOn"
+	case api.ALIYUN_DBINSTANCE_CATEGORY_FINANCE:
+		params["Category"] = "Finance"
+	}
+
+	if len(desc.Address) > 0 {
+		params["PrivateIpAddress"] = desc.Address
+	}
+	if desc.BillingCycle != nil {
+		params["PayType"] = "Prepaid"
+		if desc.BillingCycle.GetMonths() > 0 {
+			params["Period"] = "Month"
+			params["UsedTime"] = fmt.Sprintf("%d", desc.BillingCycle.GetMonths())
+		} else {
+			params["Period"] = "Year"
+			params["UsedTime"] = fmt.Sprintf("%d", desc.BillingCycle.GetYears())
+		}
+		err := billingCycle2Params(desc.BillingCycle, params)
+		if err != nil {
+			return nil, err
+		}
+		params["AutoRenew"] = "False"
+	}
+
+	action := "CreateDBInstance"
+	if len(desc.MasterInstanceId) > 0 {
+		action = "CreateReadOnlyDBInstance"
+		params["DBInstanceId"] = desc.MasterInstanceId
+	}
+
+	var err error
+	var resp jsonutils.JSONObject
+	if len(desc.InstanceType) > 0 {
+		params["DBInstanceClass"] = desc.InstanceType
+		for _, zoneId := range desc.ZoneIds {
+			params["ZoneId"] = zoneId
+			resp, err = region.rdsRequest(action, params)
+			if err == nil {
+				break
+			}
+		}
+		if len(desc.ZoneIds) == 0 {
+			resp, err = region.rdsRequest(action, params)
+		}
+		if err != nil {
+			return nil, errors.Wrapf(err, "region.rdsRequest.%s", action)
+		}
+	} else {
+		for _, spec := range desc.InstanceTypes {
+			params["DBInstanceClass"] = spec.InstanceType
+			for _, zoneId := range spec.ZoneIds {
+				params["ZoneId"] = zoneId
+				resp, err = region.rdsRequest(action, params)
+				if err == nil {
+					break
+				}
+			}
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			return nil, errors.Wrapf(err, "region.rdsRequest.%s", action)
+		}
+		if resp == nil {
+			return nil, fmt.Errorf("dbinstance type %dC%dMB not avaiable", desc.VcpuCount, desc.VmemSizeMb)
+		}
+	}
+	instanceId, err := resp.GetString("DBInstanceId")
+	if err != nil {
+		return nil, errors.Wrap(err, `resp.GetString("DBInstanceId")`)
+	}
+	return region.GetIDBInstanceById(instanceId)
+}
+
+func (rds *SDBInstance) GetMasterInstanceId() string {
+	if len(rds.MasterInstanceId) > 0 {
+		return rds.MasterInstanceId
+	}
+	rds.Refresh()
+	return rds.MasterInstanceId
+}
+
+func (region *SRegion) OpenPublicConnection(instanceId string) error {
+	rds, err := region.GetDBInstanceDetail(instanceId)
+	if err != nil {
+		return err
+	}
+	params := map[string]string{
+		"RegionId":               region.RegionId,
+		"ConnectionStringPrefix": rds.DBInstanceId + rand.String(3),
+		"DBInstanceId":           rds.DBInstanceId,
+		"Port":                   fmt.Sprintf("%d", rds.Port),
+	}
+	_, err = rds.region.rdsRequest("AllocateInstancePublicConnection", params)
+	if err != nil {
+		return errors.Wrap(err, "rdsRequest(AllocateInstancePublicConnection)")
+	}
+	return nil
+}
+
+func (rds *SDBInstance) OpenPublicConnection() error {
+	if url := rds.GetConnectionStr(); len(url) == 0 {
+		err := rds.region.OpenPublicConnection(rds.DBInstanceId)
+		if err != nil {
+			return err
+		}
+		rds.netInfo = []SDBInstanceNetwork{}
+	}
+	return nil
+}
+
+func (region *SRegion) ClosePublicConnection(instanceId string) error {
+	netInfo, err := region.GetDBInstanceNetInfo(instanceId)
+	if err != nil {
+		return errors.Wrap(err, "GetDBInstanceNetInfo")
+	}
+
+	for _, net := range netInfo {
+		if net.IPType == "Public" {
+			params := map[string]string{
+				"RegionId":                region.RegionId,
+				"CurrentConnectionString": net.ConnectionString,
+				"DBInstanceId":            instanceId,
+			}
+			_, err = region.rdsRequest("ReleaseInstancePublicConnection", params)
+			if err != nil {
+				return errors.Wrap(err, "rdsRequest(ReleaseInstancePublicConnection)")
+			}
+
+		}
+	}
+	return nil
+
+}
+
+func (rds *SDBInstance) ClosePublicConnection() error {
+	return rds.region.ClosePublicConnection(rds.DBInstanceId)
+}
+
+func (rds *SDBInstance) RecoveryFromBackup(conf *cloudprovider.SDBInstanceRecoveryConfig) error {
+	return rds.region.RecoveryDBInstanceFromBackup(rds.DBInstanceId, conf.BackupId, conf.Databases)
+}
+
+func (region *SRegion) RecoveryDBInstanceFromBackup(instanceId string, backupId string, databases map[string]string) error {
+	dbs := []string{}
+	for k, v := range databases {
+		dbs = append(dbs, fmt.Sprintf(`"%s":"%s"`, k, v))
+	}
+	params := map[string]string{
+		"RegionId":     region.RegionId,
+		"DBInstanceId": instanceId,
+		"BackupId":     backupId,
+		"DbNames":      strings.Join(dbs, ","),
+	}
+	_, err := region.rdsRequest("RecoveryDBInstance", params)
+	if err != nil {
+		return errors.Wrap(err, "rdsRequest.RecoveryDBInstance")
+	}
+	return nil
+
+}
+
+func (rds *SDBInstance) CreateDatabase(conf *cloudprovider.SDBInstanceDatabaseCreateConfig) error {
+	return rds.region.CreateDBInstanceDatabae(rds.DBInstanceId, conf.CharacterSet, conf.Name, conf.Description)
+}
+
+func (rds *SDBInstance) CreateAccount(conf *cloudprovider.SDBInstanceAccountCreateConfig) error {
+	return rds.region.CreateDBInstanceAccount(rds.DBInstanceId, conf.Name, conf.Password, conf.Description)
+}
+
+func (rds *SDBInstance) Renew(bc billing.SBillingCycle) error {
+	return rds.region.RenewInstance(rds.DBInstanceId, bc)
+}
+
+func (region *SRegion) RenewDBInstance(instanceId string, bc billing.SBillingCycle) error {
+	params := map[string]string{
+		"DBInstanceId": instanceId,
+		"Period":       fmt.Sprintf("%d", bc.GetMonths()),
+		"ClientToken":  utils.GenRequestId(20),
+	}
+	_, err := region.rdsRequest("RenewInstance", params)
+	return err
 }

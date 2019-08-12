@@ -738,6 +738,7 @@ func syncRegionDBInstances(ctx context.Context, userCred mcclient.TokenCredentia
 	localInstances, remoteInstances, result := DBInstanceManager.SyncDBInstances(ctx, userCred, provider.GetOwnerId(), provider, localRegion, instances)
 
 	syncResults.Add(DBInstanceManager, result)
+	DBInstanceManager.SyncDBInstanceMasterId(ctx, userCred, provider, instances)
 
 	msg := result.Result()
 	log.Infof("SyncDBInstances for region %s result: %s", localRegion.Name, msg)
@@ -806,7 +807,7 @@ func syncRegionDBInstanceBackups(ctx context.Context, userCred mcclient.TokenCre
 		return
 	}
 
-	result := DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, provider, localRegion, backups)
+	result := DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, provider, nil, localRegion, backups)
 	syncResults.Add(DBInstanceBackupManager, result)
 
 	msg := result.Result()

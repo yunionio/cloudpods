@@ -1,0 +1,100 @@
+DBInstanceBackup:
+  allOf:
+    - $ref: "./common.yaml#/StatusStandaloneResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: RDS实例参数
+      properties:
+        start_time:
+          type: string
+          example: "2019-06-22T02:31:08.000000Z"
+          description: RDS实例备份开始时间
+        end_time:
+          type: string
+          example: "2019-06-22T02:33:24.000000Z"
+          description: RDS实例备份结束时间
+        backup_mode:
+          type: string
+          example: full_backup
+          description: RDS实例备份类型，手动或自动
+        backup_size_mb:
+          type: integer
+          example: 21
+          description: 备份大小
+        dbinstance_id:
+          type: string
+          example: d0fe1519-8de5-4e13-844a-7367f4210f83
+          description: RDS实例ID
+          readOnly: true
+        dbinstance:
+          type: string 
+          example: test-rds 
+          description: RDS实例名称
+        engine: 
+          type: string 
+          example: MySQL 
+          description: 备份的数据库类型 
+        engine_version: 
+          type: string 
+          example: 5.6
+          description: 北京的数据库版本
+        cloudregion_id:
+          type: string
+          example: c8b87bc0-fd97-4b28-83ad-2a8f9b755bab
+          description: RDS备份所属的region id
+          readOnly: true
+        region: 
+          type: string 
+          example: 阿里云 北京
+          description: RDS备份所在的区域名称
+        dbnames:
+          type: string 
+          example: test-database1,test-database2
+          description: 备份包含的数据库列表
+
+DBInstanceBackupListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    dbinstancebackups:
+      type: array
+      items:
+        $ref: '#/DBInstanceBackup'
+    total:
+      type: integer
+      example: 124
+
+DBInstanceBackupResponse:
+  type: object
+  properties:
+    dbinstancebackup:
+      type: object
+      $ref: '#/DBInstanceBackup'
+
+DBInstanceBackupCreate:
+  type: object
+  properties:
+    dbinstance:
+      type: string
+      example: test-rds
+      required: true
+      description: RDS实例名称或ID
+    name:
+      type: string
+      example: test-backup
+      required: true
+      description: 备份名称
+    description:
+      type: string 
+      example: test-description 
+      description: 描述信息
+    databases:
+      type: array 
+      items:
+        type: string 
+        example: test-database 
+        description: 需要备份的数据库
+
+

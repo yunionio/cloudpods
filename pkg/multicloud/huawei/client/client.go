@@ -74,6 +74,8 @@ type Client struct {
 	NatGateways        *modules.SNatGatewayManager
 	DBInstance         *modules.SDBInstanceManager
 	DBInstanceBackup   *modules.SDBInstanceBackupManager
+	DBInstanceFlavor   *modules.SDBInstanceFlavorManager
+	DBInstanceJob      *modules.SDBInstanceJobManager
 }
 
 func (self *Client) Init() error {
@@ -152,6 +154,8 @@ func (self *Client) initManagers() {
 		self.NatGateways = modules.NewNatGatewayManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.DBInstance = modules.NewDBInstanceManager(self.regionId, self.projectId, self.signer, self.debug)
 		self.DBInstanceBackup = modules.NewDBInstanceBackupManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.DBInstanceFlavor = modules.NewDBInstanceFlavorManager(self.regionId, self.projectId, self.signer, self.debug)
+		self.DBInstanceJob = modules.NewDBInstanceJobManager(self.regionId, self.projectId, self.signer, self.debug)
 	}
 
 	self.init = true

@@ -15,6 +15,8 @@
 package multicloud
 
 import (
+	"fmt"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 )
 
@@ -24,4 +26,12 @@ type SDBInstanceBackupBase struct {
 
 func (backup *SDBInstanceBackupBase) GetBackMode() string {
 	return api.BACKUP_MODE_AUTOMATED
+}
+
+func (backup *SDBInstanceBackupBase) Delete() error {
+	return fmt.Errorf("Not Implement Delete")
+}
+
+func (backup *SDBInstanceBackupBase) GetProjectId() string {
+	return ""
 }

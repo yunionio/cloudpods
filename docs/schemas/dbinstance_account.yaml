@@ -1,0 +1,134 @@
+DBInstanceAccountListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    dbinstanceaccounts:
+      type: array
+      items:
+        $ref: '#/DBInstanceAccount'
+    total:
+      type: integer
+      example: 124
+
+DBInstanceAccountResponse:
+  type: object
+  properties:
+    dbinstanceaccount:
+      type: object
+      $ref: '#/DBInstanceAccount'
+
+DBInstanceAccount:
+  allOf:
+    - $ref: "./common.yaml#/StandaloneResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      properties:
+        status:
+          type: string
+          example: available
+          description: RDS实例账号状态
+        dbinstanceprivileges:
+          type: array 
+          items:
+            $ref: '#/DBInstanceAccountPrivilege'
+
+DBInstanceAccountPrivilege:
+  type: object
+  properties:
+    database: 
+      type: string
+      example: hello
+      description: 数据库名称 
+    account:
+      type: string 
+      example: root 
+      description: 账号名称
+    dbinstancedatabase_id:
+      type: string 
+      example: aad86533-a588-4342-8402-a1b11a1a7bf5 
+      description: 数据库ID 
+    privileges:
+      type: string 
+      example: ddl 
+      description: 用户对数据库所拥有的权限
+
+
+DBInstanceAccountCreate:
+  type: object
+  properties:
+    dbinstance:
+      type: string
+      example: test-rds
+      required: true
+      description: RDS实例名称或ID
+    name:
+      type: string
+      example: test-user
+      required: true
+      description: 用户名称
+    description:
+      type: string 
+      example: string 
+      description: 描述信息
+    password:
+      type: string
+      example: fjs9@33f8
+      description: 密码
+    privileges:
+      type: array
+      items:
+        $ref: '#/DBInstanceAccountPrivilegeCreate'
+
+DBInstanceAccountPrivilegeCreate:
+  type: object
+  properties:
+    database:
+      type: string
+      example: test-database
+      description: 数据库名称或ID
+    privilege:
+      type: string
+      example: rw
+      description: 数据库权限
+
+DBInstanceAccountResetPassword:
+  type: object
+  properties:
+    password:
+      type: string
+      example: 123@qweASD
+      description: 重置的账号密码，为空则自动生成
+
+DBInstanceAccountGrantPrivilege:
+  type: object
+  properties:
+    database:
+      type: string
+      example: test-database
+      required: true
+      description: 实例的数据库名称或ID
+    privilege:
+      type: string 
+      example: rw 
+      required: true
+      description: 权限
+
+DBInstanceAccountRevokePrivilege:
+  type: object
+  properties:
+    database:
+      type: string
+      example: test-database
+      required: true
+      description: 实例的数据库名称或ID
+
+DBInstanceAccountSetPrivileges:
+  type: object
+  properties:
+    privileges:
+      type: array
+      items: 
+        $ref: '#/DBInstanceAccountPrivilegeCreate'
+

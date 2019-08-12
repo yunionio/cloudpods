@@ -1,0 +1,12 @@
+post:
+  summary: 抹除RDS实例
+  description: 仅删除本地数据库记录，不删除公有云RDS实例
+  parameters: 
+    - $ref: '../parameters/dbinstance.yaml#/dbinstanceId'
+  responses:
+    200:
+      description: RDS实例信息
+      schema:
+        $ref: '../schemas/dbinstance.yaml#/DBInstanceResponse'
+  tags:
+    - dbinstance

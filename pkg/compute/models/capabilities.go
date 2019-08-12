@@ -47,6 +47,7 @@ type SCapabilities struct {
 	SchedPolicySupport bool
 	Usable             bool
 	PublicNetworkCount int
+	DBInstance         map[string]map[string]map[string][]string //map[engine][engineVersion][category][]{storage_type}
 	Specs              jsonutils.JSONObject
 }
 
@@ -86,6 +87,7 @@ func GetCapabilities(ctx context.Context, userCred mcclient.TokenCredential, que
 	capa.MaxNicCount = getMaxNicCount(region, zone)
 	capa.MinDataDiskCount = getMinDataDiskCount(region, zone)
 	capa.MaxDataDiskCount = getMaxDataDiskCount(region, zone)
+	capa.DBInstance = getDBInstanceInfo(region, zone)
 	capa.Usable = isUsable(region, zone, domainId)
 	if query == nil {
 		query = jsonutils.NewDict()
@@ -126,6 +128,47 @@ func getDomainManagerSubq(domainId string) *sqlchemy.SSubQuery {
 	q = q.Filter(sqlchemy.IsTrue(accounts.Field("enabled")))
 
 	return q.SubQuery()
+}
+
+func getDBInstanceInfo(region *SCloudregion, zone *SZone) map[string]map[string]map[string][]string {
+	if zone != nil {
+		region = zone.GetRegion()
+	}
+	if region == nil {
+		return nil
+	}
+
+	q := DBInstanceSkuManager.Query("engine", "engine_version", "category", "storage_type", "zone1", "zone2", "zone3").Equals("cloudregion_id", region.Id).IsTrue("enabled").Equals("status", api.DBINSTANCE_SKU_AVAILABLE).Distinct()
+	if zone != nil {
+		q = q.Filter(sqlchemy.OR(
+			sqlchemy.Equals(q.Field("zone1"), zone.Id),
+			sqlchemy.Equals(q.Field("zone2"), zone.Id),
+			sqlchemy.Equals(q.Field("zone3"), zone.Id),
+		))
+	}
+	rows, err := q.Rows()
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	result := map[string]map[string]map[string][]string{}
+	for rows.Next() {
+		var engine, engineVersion, category, storageType, zone1, zone2, zone3 string
+		rows.Scan(&engine, &engineVersion, &category, &storageType, &zone1, &zone2, &zone3)
+		if _, ok := result[engine]; !ok {
+			result[engine] = map[string]map[string][]string{}
+		}
+		if _, ok := result[engine][engineVersion]; !ok {
+			result[engine][engineVersion] = map[string][]string{}
+		}
+		if _, ok := result[engine][engineVersion][category]; !ok {
+			result[engine][engineVersion][category] = []string{}
+		}
+		if !utils.IsInStringArray(storageType, result[engine][engineVersion][category]) {
+			result[engine][engineVersion][category] = append(result[engine][engineVersion][category], storageType)
+		}
+	}
+	return result
 }
 
 func getBrands(region *SCloudregion, zone *SZone, domainId string, hypervisors []string) []string {

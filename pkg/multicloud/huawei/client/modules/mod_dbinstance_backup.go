@@ -29,7 +29,7 @@ func NewDBInstanceBackupManager(regionId string, projectId string, signer auth.S
 		Region:        regionId,
 		ProjectId:     projectId,
 		version:       "v3",
-		Keyword:       "backups",
+		Keyword:       "backup",
 		KeywordPlural: "backups",
 
 		ResourceKeyword: "backups",

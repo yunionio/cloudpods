@@ -16,9 +16,12 @@ package aliyun
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"yunion.io/x/pkg/errors"
+	"yunion.io/x/pkg/utils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
@@ -96,6 +99,22 @@ func (backup *SDBInstanceBackup) GetDBNames() string {
 	return backup.BackupDBNames
 }
 
+func (backup *SDBInstanceBackup) GetEngine() string {
+	instance, _ := backup.region.GetDBInstanceDetail(backup.DBInstanceId)
+	if instance != nil {
+		return instance.Engine
+	}
+	return ""
+}
+
+func (backup *SDBInstanceBackup) GetEngineVersion() string {
+	instance, _ := backup.region.GetDBInstanceDetail(backup.DBInstanceId)
+	if instance != nil {
+		return instance.EngineVersion
+	}
+	return ""
+}
+
 func (backup *SDBInstanceBackup) GetDBInstanceId() string {
 	return backup.DBInstanceId
 }
@@ -162,4 +181,95 @@ func (rds *SDBInstance) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanc
 		ibackups = append(ibackups, &backups[i])
 	}
 	return ibackups, nil
+}
+
+func (rds *SDBInstance) CreateIBackup(conf *cloudprovider.SDBInstanceBackupCreateConfig) (string, error) {
+	params := map[string]string{
+		"DBInstanceId": rds.DBInstanceId,
+		"BackupMethod": "Snapshot",
+	}
+	if len(conf.Databases) > 0 {
+		params["BackupStrategy"] = "db"
+		params["DBName"] = strings.Join(conf.Databases, ",")
+		params["BackupMethod"] = "Logical"
+	}
+	body, err := rds.region.rdsRequest("CreateBackup", params)
+	if err != nil {
+		return "", errors.Wrap(err, "CreateBackup")
+	}
+	jobId, err := body.GetString("BackupJobId")
+	if err != nil {
+		return "", errors.Wrap(err, "body.BackupJobId")
+	}
+	return "", rds.region.waitBackupCreateComplete(rds.DBInstanceId, jobId)
+}
+
+func (backup *SDBInstanceBackup) Delete() error {
+	return backup.region.DeleteDBInstanceBackup(backup.DBInstanceId, backup.BackupId)
+}
+
+func (region *SRegion) DeleteDBInstanceBackup(instanceId string, backupId string) error {
+	params := map[string]string{
+		"DBInstanceId": instanceId,
+		"BackupId":     backupId,
+	}
+	_, err := region.rdsRequest("DeleteBackup", params)
+	return err
+}
+
+type SDBInstanceBackupJob struct {
+	BackupProgressStatus string
+	Process              string
+	JobMode              string
+	TaskAction           string
+	BackupStatus         string
+	BackupJobId          string
+}
+
+type SDBInstanceBackupJobs struct {
+	BackupJob []SDBInstanceBackupJob
+}
+
+func (region *SRegion) GetDBInstanceBackupJobs(instanceId, jobId string) (*SDBInstanceBackupJobs, error) {
+	params := map[string]string{
+		"DBInstanceId": instanceId,
+		"ClientToken":  utils.GenRequestId(20),
+		"BackupMode":   "Manual",
+	}
+	if len(jobId) > 0 {
+		params["BackupJobId"] = jobId
+	}
+	body, err := region.rdsRequest("DescribeBackupTasks", params)
+	if err != nil {
+		return nil, errors.Wrap(err, "DescribeBackupTasks")
+	}
+
+	jobs := SDBInstanceBackupJobs{}
+
+	err = body.Unmarshal(&jobs, "Items")
+	if err != nil {
+		return nil, errors.Wrapf(err, "body.Unmarshal(%s)", body)
+	}
+
+	return &jobs, nil
+}
+
+func (region *SRegion) waitBackupCreateComplete(instanceId, jobId string) error {
+	for i := 0; i < 20*40; i++ {
+		jobs, err := region.GetDBInstanceBackupJobs(instanceId, jobId)
+		if err != nil {
+			return errors.Wrapf(err, "region.GetDBInstanceBackupJobs(%s, %s)", instanceId, jobId)
+		}
+		if len(jobs.BackupJob) == 0 {
+			return nil
+		}
+		for _, job := range jobs.BackupJob {
+			log.Infof("instance %s backup job %s status: %s(%s)", instanceId, jobId, job.BackupStatus, job.Process)
+			if job.BackupStatus == "Finished" && job.BackupJobId == jobId {
+				return nil
+			}
+		}
+		time.Sleep(time.Second * 3)
+	}
+	return fmt.Errorf("timeout for waiting create job complete")
 }

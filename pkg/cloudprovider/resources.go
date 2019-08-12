@@ -121,7 +121,11 @@ type ICloudRegion interface {
 	GetIBucketByName(name string) (ICloudBucket, error)
 
 	GetIDBInstances() ([]ICloudDBInstance, error)
+	GetIDBInstanceById(instanceId string) (ICloudDBInstance, error)
 	GetIDBInstanceBackups() ([]ICloudDBInstanceBackup, error)
+	GetIDBInstanceBackupById(backupId string) (ICloudDBInstanceBackup, error)
+
+	CreateIDBInstance(desc *SManagedDBInstanceCreateConfig) (ICloudDBInstance, error)
 
 	GetIElasticcaches() ([]ICloudElasticcache, error)
 
@@ -714,6 +718,10 @@ type ICloudDBInstance interface {
 	IVirtualResource
 	IBillingResource
 
+	Reboot() error
+
+	GetMasterInstanceId() string
+	GetSecurityGroupId() string
 	GetPort() int
 	GetEngine() string
 	GetEngineVersion() string
@@ -725,6 +733,7 @@ type ICloudDBInstance interface {
 	GetDiskSizeGB() int
 	//基础版、高可用？
 	GetCategory() string
+	GetStorageType() string
 
 	GetMaintainTime() string
 
@@ -737,6 +746,22 @@ type ICloudDBInstance interface {
 	GetIDBInstanceParameters() ([]ICloudDBInstanceParameter, error)
 	GetIDBInstanceDatabases() ([]ICloudDBInstanceDatabase, error)
 	GetIDBInstanceAccounts() ([]ICloudDBInstanceAccount, error)
+	GetIDBInstanceBackups() ([]ICloudDBInstanceBackup, error)
+
+	ChangeConfig(ctx context.Context, config *SManagedDBInstanceChangeConfig) error
+	Renew(bc billing.SBillingCycle) error
+
+	OpenPublicConnection() error
+	ClosePublicConnection() error
+
+	CreateDatabase(conf *SDBInstanceDatabaseCreateConfig) error
+	CreateAccount(conf *SDBInstanceAccountCreateConfig) error
+
+	CreateIBackup(conf *SDBInstanceBackupCreateConfig) (string, error)
+
+	RecoveryFromBackup(conf *SDBInstanceRecoveryConfig) error
+
+	Delete() error
 }
 
 type ICloudDBInstanceParameter interface {
@@ -747,26 +772,38 @@ type ICloudDBInstanceParameter interface {
 }
 
 type ICloudDBInstanceBackup interface {
-	ICloudResource
+	IVirtualResource
 
+	GetEngine() string
+	GetEngineVersion() string
 	GetDBInstanceId() string
 	GetStartTime() time.Time
 	GetEndTime() time.Time
 	GetBackupSizeMb() int
 	GetDBNames() string
 	GetBackupMode() string
+
+	Delete() error
 }
 
 type ICloudDBInstanceDatabase interface {
 	ICloudResource
 
 	GetCharacterSet() string
+
+	Delete() error
 }
 
 type ICloudDBInstanceAccount interface {
 	ICloudResource
 
 	GetIDBInstanceAccountPrivileges() ([]ICloudDBInstanceAccountPrivilege, error)
+
+	ResetPassword(password string) error
+	GrantPrivilege(database, privilege string) error
+	RevokePrivilege(database string) error
+
+	Delete() error
 }
 
 type ICloudDBInstanceAccountPrivilege interface {

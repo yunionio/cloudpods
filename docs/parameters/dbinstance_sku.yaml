@@ -1,0 +1,6 @@
+skuId:
+  name: skuId 
+  required: true 
+  in: path 
+  type: string 
+  description: RDS套餐ID
