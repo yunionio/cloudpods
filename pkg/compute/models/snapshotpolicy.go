@@ -17,7 +17,6 @@ package models
 import (
 	"context"
 	"fmt"
-
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
@@ -31,6 +30,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/bitmap"
 )
 
 type SSnapshotPolicyManager struct {
@@ -46,9 +46,9 @@ type SSnapshotPolicy struct {
 
 	RetentionDays int `nullable:"false" list:"user" get:"user" create:"required"`
 
-	// {repeat_weekdays: [1,2,3,4,5,6,7], time_points: [0...23]}
-	RepeatWeekdays string `charset:"utf8" list:"user" get:"user" create:"required"`
-	TimePoints     string `charset:"utf8" list:"user" get:"user" create:"required"`
+	RepeatWeekdays uint8  `charset:"utf8" create:"required"`
+	TimePoints     uint32 `charset:"utf8" create:"required"`
+	IsActivated    bool   `list:"user" get:"user" create:"optional" default:"true"`
 }
 
 var SnapshotPolicyManager *SSnapshotPolicyManager
@@ -97,8 +97,29 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, u
 	if err != nil {
 		return nil, err
 	}
-	data = input.JSON(input)
+	internalInput := manager.sSnapshotPolicyCreateInputToInternal(input)
+	data = internalInput.JSON(internalInput)
 	return data, nil
+}
+
+func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputToInternal(input *api.SSnapshotPolicyCreateInput) *api.SSnapshotPolicyCreateInternalInput {
+	ret := api.SSnapshotPolicyCreateInternalInput{
+		Meta:          input.Meta,
+		Name:          input.Name,
+		ProjectId:     input.ProjectId,
+		DomainId:      input.DomainId,
+		ManagerId:     input.ManagerId,
+		CloudregionId: input.CloudregionId,
+		RetentionDays: input.RetentionDays,
+	}
+
+	ret.RepeatWeekdays = manager.RepeatWeekdaysParseIntArray(input.RepeatWeekdays)
+	ret.TimePoints = manager.TimePointsParseIntArray(input.TimePoints)
+	return &ret
+}
+
+func (manager *SSnapshotPolicyManager) sSnapshotPolicyCreateInputFromInternal(input *api.SSnapshotPolicyCreateInternalInput) *api.SSnapshotPolicyCreateInput {
+	return nil
 }
 
 func (self *SSnapshotPolicy) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
@@ -131,7 +152,24 @@ func (self *SSnapshotPolicy) StartSnapshotPolicyDeleteTask(ctx context.Context, 
 func (self *SSnapshotPolicy) GetCustomizeColumns(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) *jsonutils.JSONDict {
 	ret := self.SCloudregionResourceBase.GetCustomizeColumns(ctx, userCred, query)
 	ret.Update(self.SVirtualResourceBase.GetCustomizeColumns(ctx, userCred, query))
+
+	// more
+	weekdays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(self.RepeatWeekdays)
+	timePoints := SnapshotPolicyManager.TimePointsToIntArray(self.TimePoints)
+	ret.Add(jsonutils.Marshal(weekdays), "repeat_weekdays")
+	ret.Add(jsonutils.Marshal(timePoints), "time_points")
 	return ret
+}
+
+func (self *SSnapshotPolicy) GetExtraDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*jsonutils.JSONDict, error) {
+	ret := jsonutils.NewDict()
+
+	// more
+	weekdays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(self.RepeatWeekdays)
+	timePoints := SnapshotPolicyManager.TimePointsToIntArray(self.TimePoints)
+	ret.Add(jsonutils.Marshal(weekdays), "repeat_weekdays")
+	ret.Add(jsonutils.Marshal(timePoints), "time_points")
+	return ret, nil
 }
 
 func (self *SSnapshotPolicy) GetIRegion() (cloudprovider.ICloudRegion, error) {
@@ -146,34 +184,25 @@ func (self *SSnapshotPolicy) GetIRegion() (cloudprovider.ICloudRegion, error) {
 	return provider.GetIRegionById(region.ExternalId)
 }
 
-func (self *SSnapshotPolicy) GenerateCreateSpParams() (*cloudprovider.SnapshotPolicyInput, error) {
-	idays, err := jsonutils.ParseString(self.RepeatWeekdays)
-	if err != nil {
-		return nil, fmt.Errorf("SnapshotPolicy %s Parse repeat weekdays error %s", self.Name, err)
-	}
-	weekdays := idays.(*jsonutils.JSONArray)
-	intWeekdays := make([]int, weekdays.Length())
-	for i, v := range weekdays.Value() {
-		t, err := v.Int()
-		if err != nil {
-			return nil, fmt.Errorf("parse weekdays error %s", weekdays)
-		}
-		intWeekdays[i] = int(t)
-	}
+func (self *SSnapshotPolicyManager) RepeatWeekdaysParseIntArray(nums []int) uint8 {
+	return uint8(bitmap.IntArray2Uint(nums))
+}
 
-	idays, err = jsonutils.ParseString(self.TimePoints)
-	if err != nil {
-		return nil, fmt.Errorf("SnapshotPolicy %s Parse time points error %s", self.Name, err)
-	}
-	timePoints := idays.(*jsonutils.JSONArray)
-	intTimePoints := make([]int, timePoints.Length())
-	for i, v := range timePoints.Value() {
-		t, err := v.Int()
-		if err != nil {
-			return nil, fmt.Errorf("parse weekdays error %s", timePoints)
-		}
-		intTimePoints[i] = int(t)
-	}
+func (self *SSnapshotPolicyManager) RepeatWeekdaysToIntArray(n uint8) []int {
+	return bitmap.Uint2IntArray(uint32(n))
+}
+
+func (self *SSnapshotPolicyManager) TimePointsParseIntArray(nums []int) uint32 {
+	return bitmap.IntArray2Uint(nums)
+}
+
+func (self *SSnapshotPolicyManager) TimePointsToIntArray(n uint32) []int {
+	return bitmap.Uint2IntArray(n)
+}
+
+func (self *SSnapshotPolicy) GenerateCreateSpParams() (*cloudprovider.SnapshotPolicyInput, error) {
+	intWeekdays := SnapshotPolicyManager.RepeatWeekdaysToIntArray(self.RepeatWeekdays)
+	intTimePoints := SnapshotPolicyManager.TimePointsToIntArray(self.TimePoints)
 
 	return &cloudprovider.SnapshotPolicyInput{
 		RetentionDays:  self.RetentionDays,
@@ -271,19 +300,20 @@ func (self *SSnapshotPolicy) SyncWithCloudSnapshotPolicy(ctx context.Context, us
 		if err != nil {
 			return err
 		}
-		self.RepeatWeekdays = jsonutils.Marshal(arw).String()
+		self.RepeatWeekdays = SnapshotPolicyManager.RepeatWeekdaysParseIntArray(arw)
 
 		atp, err := ext.GetTimePoints()
 		if err != nil {
 			return err
 		}
-		self.TimePoints = jsonutils.Marshal(atp).String()
+		self.TimePoints = SnapshotPolicyManager.TimePointsParseIntArray(atp)
 		return nil
 	})
 	db.OpsLog.LogSyncUpdate(self, diff, userCred)
 	SyncCloudProject(userCred, self, ownerId, ext, self.ManagerId)
 	return err
 }
+
 func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 	ctx context.Context, userCred mcclient.TokenCredential,
 	ext cloudprovider.ICloudSnapshotPolicy, region *SCloudregion,
@@ -307,12 +337,12 @@ func (manager *SSnapshotPolicyManager) newFromCloudSnapshotPolicy(
 	if err != nil {
 		return nil, err
 	}
-	snapshotPolicy.RepeatWeekdays = jsonutils.Marshal(arw).String()
+	snapshotPolicy.RepeatWeekdays = SnapshotPolicyManager.RepeatWeekdaysParseIntArray(arw)
 	atp, err := ext.GetTimePoints()
 	if err != nil {
 		return nil, err
 	}
-	snapshotPolicy.TimePoints = jsonutils.Marshal(atp).String()
+	snapshotPolicy.TimePoints = SnapshotPolicyManager.TimePointsParseIntArray(atp)
 
 	err = manager.TableSpec().Insert(&snapshotPolicy)
 	if err != nil {
@@ -353,24 +383,6 @@ func (self *SSnapshotPolicy) StartApplySnapshotPolicyToDisks(ctx context.Context
 	}
 	return nil
 }
-
-// func (self *SSnapshotPolicy) AllowPerformCancelToDisks(ctx context.Context,
-// 	userCred mcclient.TokenCredential,
-// 	query jsonutils.JSONObject,
-// 	data jsonutils.JSONObject) bool {
-// 	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "apply-to-disks")
-// }
-
-// func (self *SSnapshotPolicy) PerformCancelToDisks(
-// 	ctx context.Context, userCred mcclient.TokenCredential,
-// 	query jsonutils.JSONObject, data jsonutils.JSONObject,
-// ) (jsonutils.JSONObject, error) {
-// 	diskIds, err := self.preCheck(ctx, userCred, query, data)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return nil, self.StartCancelSnapshotPolicyToDisks(ctx, userCred, diskIds)
-// }
 
 func (self *SSnapshotPolicy) preCheck(
 	ctx context.Context, userCred mcclient.TokenCredential,
