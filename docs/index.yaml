@@ -158,7 +158,7 @@ paths:
   /servers/{instanceId}/change-bandwidth:
     $ref: "./instance/change-bandwidth.yaml"
   /servers/{instanceId}/change-config:
-    $ref: "./instance/change-bandwidth.yaml"
+    $ref: "./instance/change-config.yaml"
   /servers/{instanceId}/change-ip-addr:
     $ref: "./instance/change-ip-addr.yaml"
   /servers/{instanceId}/create-backup:
