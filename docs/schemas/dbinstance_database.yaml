@@ -1,0 +1,103 @@
+DBInstanceDatabase:
+  allOf:
+    - $ref: "./common.yaml#/StatusStandaloneResponse"
+    - $ref: "./common.yaml#/ExternalizedResourceBaseResponse"
+    - type: object
+      description: RDS实例数据库
+      properties:
+        character_set:
+          type: string
+          example: utf8
+          description: RDS数据库字符集
+        dbinstance_id:
+          type: string
+          example: d0fe1519-8de5-4e13-844a-7367f4210f83
+          description: RDS实例ID
+          readOnly: true
+        dbinstanceprivileges:
+          type: array 
+          items:
+            $ref: '#/DBInstanceAccountPrivilege'
+
+DBInstanceAccountPrivilege:
+  type: object
+  properties:
+    database: 
+      type: string
+      example: hello
+      description: 数据库名称 
+    account:
+      type: string 
+      example: root 
+      description: 账号名称
+    dbinstancedatabase_id:
+      type: string 
+      example: aad86533-a588-4342-8402-a1b11a1a7bf5 
+      description: 数据库ID 
+    privileges:
+      type: string 
+      example: ddl 
+      description: 用户对数据库所拥有的权限
+
+
+
+DBInstanceDatabaseListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    dbinstancedatabases:
+      type: array
+      items:
+        $ref: '#/DBInstanceDatabase'
+    total:
+      type: integer
+      example: 124
+
+DBInstanceDatabaseResponse:
+  type: object
+  properties:
+    dbinstancedatabase:
+      type: object
+      $ref: '#/DBInstanceDatabase'
+
+DBInstanceDatabaseCreate:
+  type: object
+  properties:
+    dbinstance:
+      type: string
+      example: test-rds
+      required: true
+      description: RDS实例名称或ID
+    name:
+      type: string
+      example: test-database
+      required: true
+      description: 数据库名称
+    description:
+      type: string 
+      example: test-description 
+      description: 描述信息
+    character_set: 
+      type: string 
+      example: utf8
+      description: 数据库字符集
+    accounts:
+      type: array 
+      items: 
+        $ref: '#/DBInstanceDatabaseAccountCreate'
+
+DBInstanceDatabaseAccountCreate:
+  type: object
+  properties:
+    account:
+      type: string 
+      example: test-user
+      description: 需要授予权限的账号名称
+    privilege:
+      type: string 
+      example: rw 
+      description: 账号权限
+
+

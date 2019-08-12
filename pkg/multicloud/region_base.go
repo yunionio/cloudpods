@@ -66,10 +66,22 @@ func (self *SRegion) GetIDBInstances() ([]cloudprovider.ICloudDBInstance, error)
 	return nil, fmt.Errorf("GetIDBInstances not implement")
 }
 
+func (self *SRegion) GetIDBInstanceById(instanceId string) (cloudprovider.ICloudDBInstance, error) {
+	return nil, fmt.Errorf("GetIDBInstanceById not implement")
+}
+
 func (self *SRegion) GetIDBInstanceBackups() ([]cloudprovider.ICloudDBInstanceBackup, error) {
 	return nil, fmt.Errorf("Not Implemented GetIDBInstanceBackups")
 }
 
+func (self *SRegion) GetIDBInstanceBackupById(backupId string) (cloudprovider.ICloudDBInstanceBackup, error) {
+	return nil, fmt.Errorf("Not Implemented GetIDBInstanceBackupById")
+}
+
 func (self *SRegion) GetIElasticcaches() ([]cloudprovider.ICloudElasticcache, error) {
 	return nil, fmt.Errorf("Not Implemented GetIElasticcaches")
+}
+
+func (self *SRegion) CreateIDBInstance(desc *cloudprovider.SManagedDBInstanceCreateConfig) (cloudprovider.ICloudDBInstance, error) {
+	return nil, fmt.Errorf("Not Implemented CreateIDBInstance")
 }

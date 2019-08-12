@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
@@ -77,6 +78,56 @@ func (self *SDBInstanceNetwork) Detach(ctx context.Context, userCred mcclient.To
 
 func (self *SDBInstanceNetwork) AllowDeleteItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
 	return false
+}
+
+func (self *SDBInstanceNetwork) GetNetwork() (*SNetwork, error) {
+	network, err := NetworkManager.FetchById(self.NetworkId)
+	if err != nil {
+		return nil, err
+	}
+	return network.(*SNetwork), nil
+}
+
+type SDBInstanceNetworkRequestData struct {
+	DBInstance *SDBInstance
+	NetworkId  string
+	reserved   bool                      // allocate from reserved
+	Address    string                    // the address user intends to use
+	strategy   api.IPAllocationDirection // allocate bottom up, top down, randomly
+}
+
+func (m *SDBInstanceNetworkManager) NewDBInstanceNetwork(ctx context.Context, userCred mcclient.TokenCredential, req *SDBInstanceNetworkRequestData) (*SDBInstanceNetwork, error) {
+	networkMan := db.GetModelManager("network").(*SNetworkManager)
+	if networkMan == nil {
+		return nil, fmt.Errorf("failed getting network manager")
+	}
+	im, err := networkMan.FetchById(req.NetworkId)
+	if err != nil {
+		return nil, err
+	}
+	network := im.(*SNetwork)
+	in := &SDBInstanceNetwork{
+		NetworkId: network.Id,
+	}
+	in.DBInstanceId = req.DBInstance.Id
+	in.SetModelManager(m, in)
+
+	lockman.LockObject(ctx, network)
+	defer lockman.ReleaseObject(ctx, network)
+	usedMap := network.GetUsedAddresses()
+	recentReclaimed := map[string]bool{}
+	ipAddr, err := network.GetFreeIP(ctx, userCred,
+		usedMap, recentReclaimed, req.Address, req.strategy, req.reserved)
+	if err != nil {
+		return nil, err
+	}
+	in.IpAddr = ipAddr
+	err = m.TableSpec().Insert(in)
+	if err != nil {
+		// NOTE no need to free ipAddr as GetFreeIP has no side effect
+		return nil, err
+	}
+	return in, nil
 }
 
 func (manager *SDBInstanceNetworkManager) SyncDBInstanceNetwork(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *SDBInstance, network *cloudprovider.SDBInstanceNetwork) compare.SyncResult {

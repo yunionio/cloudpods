@@ -40,11 +40,11 @@ type deleteFunc2 func(ctx manager.IManagerContext, id string, spec string, queri
 type listInCtxFunc func(ctx manager.IManagerContext, querys map[string]string) (*responses.ListResult, error)
 type listInCtxWithSpecFunc func(ctx manager.IManagerContext, spec string, querys map[string]string, responseKey string) (*responses.ListResult, error)
 
-func unmarshalResult(resp jsonutils.JSONObject, respErr error, result interface{}) error {
+func unmarshalResult(resp jsonutils.JSONObject, respErr error, result interface{}, method string) error {
 	if respErr != nil {
 		switch e := respErr.(type) {
 		case *httputils.JSONClientError:
-			if e.Code == 404 || utils.IsInStringArray(e.Class, NOT_FOUND_CODES) {
+			if (e.Code == 404 || utils.IsInStringArray(e.Class, NOT_FOUND_CODES)) && method != "POST" {
 				return cloudprovider.ErrNotFound
 			}
 			return e
@@ -163,7 +163,7 @@ func DoGet(doGet getFunc, id string, queries map[string]string, result interface
 	}
 
 	ret, err := doGet(id, queries)
-	return unmarshalResult(ret, err, result)
+	return unmarshalResult(ret, err, result, "GET")
 }
 
 func DoListInContext(listFunc listInCtxFunc, ctx manager.IManagerContext, querys map[string]string, result interface{}) error {
@@ -184,12 +184,12 @@ func DoListInContext(listFunc listInCtxFunc, ctx manager.IManagerContext, querys
 
 func DoCreate(createFunc createFunc, params jsonutils.JSONObject, result interface{}) error {
 	ret, err := createFunc(params)
-	return unmarshalResult(ret, err, result)
+	return unmarshalResult(ret, err, result, "POST")
 }
 
 func DoUpdate(updateFunc updateFunc, id string, params jsonutils.JSONObject, result interface{}) error {
 	ret, err := updateFunc(id, params)
-	return unmarshalResult(ret, err, result)
+	return unmarshalResult(ret, err, result, "PUT")
 }
 
 func DoUpdateWithSpec(updateFunc updateFunc2, id string, spec string, params jsonutils.JSONObject) error {
@@ -203,7 +203,7 @@ func DoDelete(deleteFunc deleteFunc, id string, params jsonutils.JSONObject, res
 	}
 
 	ret, err := deleteFunc(id, params)
-	return unmarshalResult(ret, err, result)
+	return unmarshalResult(ret, err, result, "DELETE")
 }
 
 func DoDeleteWithSpec(deleteFunc deleteFunc2, ctx manager.IManagerContext, id string, spec string, queries map[string]string, params jsonutils.JSONObject) error {

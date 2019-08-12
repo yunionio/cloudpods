@@ -26,6 +26,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	billing_api "yunion.io/x/onecloud/pkg/apis/billing"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -34,6 +35,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/rand"
 )
 
@@ -1460,5 +1462,298 @@ func (self *SManagedVirtualizationRegionDriver) RequestCacheSecurityGroup(ctx co
 		_, err := self.RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, secgroup)
 		return nil, err
 	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *models.SDBInstance, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iregion, err := dbinstance.GetIRegion()
+		if err != nil {
+			return nil, err
+		}
+
+		vpc, err := dbinstance.GetVpc()
+		if err != nil {
+			return nil, errors.Wrap(err, "dbinstance.GetVpc()")
+		}
+
+		params := task.GetParams()
+		networkId, _ := params.GetString("network_external_id")
+		if len(networkId) == 0 {
+			return nil, fmt.Errorf("failed to get network externalId")
+		}
+		address, _ := params.GetString("address")
+		passwd, _ := params.GetString("password")
+		desc := cloudprovider.SManagedDBInstanceCreateConfig{
+			Name:          dbinstance.Name,
+			Description:   dbinstance.Description,
+			StorageType:   dbinstance.StorageType,
+			DiskSizeGB:    dbinstance.DiskSizeGB,
+			InstanceType:  dbinstance.InstanceType,
+			VcpuCount:     dbinstance.VcpuCount,
+			VmemSizeMb:    dbinstance.VmemSizeMb,
+			VpcId:         vpc.ExternalId,
+			NetworkId:     networkId,
+			Address:       address,
+			Engine:        dbinstance.Engine,
+			EngineVersion: dbinstance.EngineVersion,
+			Category:      dbinstance.Category,
+			Port:          dbinstance.Port,
+			Password:      passwd,
+		}
+
+		if len(dbinstance.InstanceType) > 0 {
+			desc.ZoneIds, _ = dbinstance.GetAvailableZoneIds()
+		} else {
+			desc.InstanceTypes, _ = dbinstance.GetAvailableInstanceTypes()
+		}
+
+		region := dbinstance.GetRegion()
+
+		err = region.GetDriver().InitDBInstanceUser(dbinstance, task, &desc)
+		if err != nil {
+			return nil, err
+		}
+
+		secgroup, _ := dbinstance.GetSecgroup()
+		if secgroup != nil {
+			vpcId := region.GetDriver().GetSecurityGroupVpcId(ctx, userCred, region, nil, vpc, false)
+			_, err = region.GetDriver().RequestSyncSecurityGroup(ctx, userCred, vpcId, vpc, secgroup)
+			if err != nil {
+				return nil, errors.Wrap(err, "SyncSecurityGroup")
+			}
+		}
+
+		if dbinstance.BillingType == billing_api.BILLING_TYPE_PREPAID {
+			bc, err := billing.ParseBillingCycle(dbinstance.BillingCycle)
+			if err != nil {
+				log.Errorf("failed to parse billing cycle %s: %v", dbinstance.BillingCycle, err)
+			} else if bc.IsValid() {
+				desc.BillingCycle = &bc
+			}
+		}
+
+		if len(dbinstance.MasterInstanceId) > 0 {
+			master, err := dbinstance.GetMasterInstance()
+			if err != nil {
+				return nil, errors.Wrap(err, "dbinstnace.GetMasterInstance()")
+			}
+			desc.MasterInstanceId = master.ExternalId
+		}
+
+		log.Debugf("create dbinstance params: %s", jsonutils.Marshal(desc).String())
+
+		idbinstance, err := iregion.CreateIDBInstance(&desc)
+		if err != nil {
+			return nil, err
+		}
+
+		db.SetExternalId(dbinstance, userCred, idbinstance.GetGlobalId())
+
+		err = cloudprovider.WaitStatus(idbinstance, api.DBINSTANCE_RUNNING, time.Second*5, time.Hour*1)
+		if err != nil {
+			log.Errorf("timeout for waiting dbinstance running error: %v", err)
+		}
+
+		dbinstance.ZoneId = idbinstance.GetIZoneId()
+		err = dbinstance.SetZoneInfo(ctx, userCred)
+		if err != nil {
+			log.Errorf("failed to set dbinstance %s(%s) zoneInfo from cloud dbinstance: %v", dbinstance.Name, dbinstance.Id, err)
+		}
+
+		_, err = db.Update(dbinstance, func() error {
+			dbinstance.Engine = idbinstance.GetEngine()
+			dbinstance.EngineVersion = idbinstance.GetEngineVersion()
+			dbinstance.StorageType = idbinstance.GetStorageType()
+			dbinstance.DiskSizeGB = idbinstance.GetDiskSizeGB()
+			dbinstance.Category = idbinstance.GetCategory()
+			dbinstance.VcpuCount = idbinstance.GetVcpuCount()
+			dbinstance.VmemSizeMb = idbinstance.GetVmemSizeMB()
+			dbinstance.InstanceType = idbinstance.GetInstanceType()
+			dbinstance.ConnectionStr = idbinstance.GetConnectionStr()
+			dbinstance.InternalConnectionStr = idbinstance.GetInternalConnectionStr()
+			dbinstance.MaintainTime = idbinstance.GetMaintainTime()
+			dbinstance.Port = idbinstance.GetPort()
+
+			dbinstance.CreatedAt = idbinstance.GetCreatedAt()
+			dbinstance.ExpiredAt = idbinstance.GetExpiredAt()
+			return nil
+		})
+		if err != nil {
+			log.Errorf("failed to update dbinstance conf: %v", err)
+		}
+
+		network, err := idbinstance.GetDBNetwork()
+		if err != nil {
+			log.Errorf("failed to get get network for dbinstance %s(%s) error: %v", dbinstance.Name, dbinstance.Id, err)
+		} else {
+			models.DBInstanceNetworkManager.SyncDBInstanceNetwork(ctx, userCred, dbinstance, network)
+		}
+
+		parameters, err := idbinstance.GetIDBInstanceParameters()
+		if err != nil {
+			log.Errorf("failed to get parameters for dbinstance %s(%s) error: %v", dbinstance.Name, dbinstance.Id, err)
+		} else {
+			models.DBInstanceParameterManager.SyncDBInstanceParameters(ctx, userCred, dbinstance, parameters)
+		}
+
+		backups, err := idbinstance.GetIDBInstanceBackups()
+		if err != nil {
+			log.Errorf("failed to get backups for dbinstance %s(%s) error: %v", dbinstance.Name, dbinstance.Id, err)
+		} else {
+			models.DBInstanceBackupManager.SyncDBInstanceBackups(ctx, userCred, dbinstance.GetCloudprovider(), dbinstance, dbinstance.GetRegion(), backups)
+		}
+
+		databases, err := idbinstance.GetIDBInstanceDatabases()
+		if err != nil {
+			log.Errorf("failed to get databases for databases %s(%s) error: %v", dbinstance.Name, dbinstance.Id, err)
+		} else {
+			models.DBInstanceDatabaseManager.SyncDBInstanceDatabases(ctx, userCred, dbinstance, databases)
+		}
+
+		return nil, nil
+	})
+
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestChangeDBInstanceConfig(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		input := &api.SDBInstanceChangeConfigInput{}
+		err := task.GetParams().Unmarshal(input)
+		if err != nil {
+			return nil, errors.Wrap(err, "task.GetParams().Unmarshal")
+		}
+		if len(input.StorageType) > 0 {
+			instance.StorageType = input.StorageType
+		}
+
+		conf := &cloudprovider.SManagedDBInstanceChangeConfig{
+			DiskSizeGB:  input.DiskSizeGB,
+			StorageType: instance.StorageType,
+		}
+
+		instanceTypes := []string{}
+
+		if len(input.InstanceType) > 0 {
+			conf.InstanceType = input.InstanceType
+		} else if input.VCpuCount == 0 && input.VmemSizeMb == 0 {
+			conf.InstanceType = instance.InstanceType
+		} else {
+			instance.InstanceType = ""
+			if input.VCpuCount > 0 {
+				instance.VcpuCount = input.VCpuCount
+			}
+			if input.VmemSizeMb > 0 {
+				instance.VmemSizeMb = input.VmemSizeMb
+			}
+
+			skus, err := instance.GetDBInstanceSkus()
+			if err != nil {
+				return nil, errors.Wrap(err, "instance.GetDBInstanceSkus")
+			}
+			for _, sku := range skus {
+				instanceTypes = append(instanceTypes, sku.Name)
+			}
+		}
+
+		if len(conf.InstanceType) == 0 && len(instanceTypes) == 0 {
+			return nil, fmt.Errorf("No available dbinstance sku for change config")
+		}
+
+		iRds, err := instance.GetIDBInstance()
+		if err != nil {
+			return nil, errors.Wrap(err, "instance.GetIDBInstance")
+		}
+
+		log.Infof("change config: %s", jsonutils.Marshal(conf).String())
+
+		if len(conf.InstanceType) > 0 {
+			err = iRds.ChangeConfig(ctx, conf)
+			if err != nil {
+				return nil, errors.Wrapf(err, "iRds.ChangeConfig(%s)", conf.InstanceType)
+			}
+		} else {
+			for _, instanceType := range instanceTypes {
+				conf.InstanceType = instanceType
+				log.Infof("try change instance type to %s", instance.InstanceType)
+				err = iRds.ChangeConfig(ctx, conf)
+				if err != nil {
+					log.Warningf("change failed: %v try another", err)
+				}
+			}
+			return nil, fmt.Errorf("no available dbinstance sku to change")
+		}
+
+		err = cloudprovider.WaitStatus(iRds, api.DBINSTANCE_RUNNING, time.Second*10, time.Minute*40)
+		if err != nil {
+			log.Errorf("failed to wait rds %s(%s) status running", instance.Name, instance.Id)
+		}
+		_, err = db.Update(instance, func() error {
+			instance.InstanceType = iRds.GetInstanceType()
+			instance.Category = iRds.GetCategory()
+			instance.VcpuCount = iRds.GetVcpuCount()
+			instance.VmemSizeMb = iRds.GetVmemSizeMB()
+			instance.StorageType = iRds.GetStorageType()
+			instance.DiskSizeGB = iRds.GetDiskSizeGB()
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "db.Update(instance)")
+		}
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, backup *models.SDBInstanceBackup, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRds, err := instance.GetIDBInstance()
+		if err != nil {
+			return nil, errors.Wrap(err, "instance.GetIDBInstance")
+		}
+
+		iRegion, err := backup.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(err, "backup.GetIRegion")
+		}
+
+		desc := &cloudprovider.SDBInstanceBackupCreateConfig{
+			Name: backup.Name,
+		}
+
+		if len(backup.DBNames) > 0 {
+			desc.Databases = strings.Split(backup.DBNames, ",")
+		}
+
+		backupId, err := iRds.CreateIBackup(desc)
+		if err != nil {
+			return nil, errors.Wrap(err, "iRds.CreateBackup")
+		}
+
+		db.SetExternalId(backup, userCred, backupId)
+
+		iBackup, err := iRegion.GetIDBInstanceBackupById(backupId)
+		if err != nil {
+			return nil, errors.Wrapf(err, "iRegion.GetIDBInstanceBackupById(%s)", backupId)
+		}
+
+		_, err = db.Update(backup, func() error {
+			backup.StartTime = iBackup.GetStartTime()
+			backup.EndTime = iBackup.GetEndTime()
+			backup.BackupSizeMb = iBackup.GetBackupSizeMb()
+			return nil
+		})
+
+		return nil, err
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) ValidateChangeDBInstanceConfigData(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, input *api.SDBInstanceChangeConfigInput) error {
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) ValidateResetDBInstancePassword(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, account string) error {
 	return nil
 }

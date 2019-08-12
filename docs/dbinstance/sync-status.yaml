@@ -1,0 +1,11 @@
+post:
+  summary: 同步RDS实例状态
+  parameters: 
+    - $ref: '../parameters/dbinstance.yaml#/dbinstanceId'
+  responses:
+    200:
+      description: RDS实例信息
+      schema:
+        $ref: '../schemas/dbinstance.yaml#/DBInstanceResponse'
+  tags:
+    - dbinstance

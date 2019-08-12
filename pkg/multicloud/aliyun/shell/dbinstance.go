@@ -15,6 +15,9 @@
 package shell
 
 import (
+	"fmt"
+	"strings"
+
 	"yunion.io/x/onecloud/pkg/multicloud/aliyun"
 	"yunion.io/x/onecloud/pkg/util/shellutils"
 )
@@ -46,8 +49,20 @@ func init() {
 		return nil
 	})
 
+	shellutils.R(&DBInstanceIdOptions{}, "dbinstance-open-public-connection", "Open dbintance public connection", func(cli *aliyun.SRegion, args *DBInstanceIdOptions) error {
+		return cli.OpenPublicConnection(args.ID)
+	})
+
+	shellutils.R(&DBInstanceIdOptions{}, "dbinstance-close-public-connection", "Close dbintance public connection", func(cli *aliyun.SRegion, args *DBInstanceIdOptions) error {
+		return cli.ClosePublicConnection(args.ID)
+	})
+
 	shellutils.R(&DBInstanceIdOptions{}, "dbinstance-delete", "Delete dbintance", func(cli *aliyun.SRegion, args *DBInstanceIdOptions) error {
 		return cli.DeleteDBInstance(args.ID)
+	})
+
+	shellutils.R(&DBInstanceIdOptions{}, "dbinstance-restart", "Restart dbintance", func(cli *aliyun.SRegion, args *DBInstanceIdOptions) error {
+		return cli.RebootDBInstance(args.ID)
 	})
 
 	shellutils.R(&DBInstanceIdOptions{}, "dbinstance-network-list", "Show dbintance network info", func(cli *aliyun.SRegion, args *DBInstanceIdOptions) error {
@@ -59,37 +74,28 @@ func init() {
 		return nil
 	})
 
-	type DBInstanceIdExtraOptions struct {
-		ID     string `help:"ID of instances to show"`
-		Limit  int    `help:"page size"`
-		Offset int    `help:"page offset"`
+	type DBInstanceRecoveryOptions struct {
+		ID        string
+		BACKUP    string
+		Databases []string
 	}
 
-	shellutils.R(&DBInstanceIdExtraOptions{}, "dbinstance-backup-list", "List dbintance backups", func(cli *aliyun.SRegion, args *DBInstanceIdExtraOptions) error {
-		backups, _, err := cli.GetDBInstanceBackups(args.ID, "", args.Offset, args.Limit)
-		if err != nil {
-			return err
-		}
-		printList(backups, 0, 0, 0, []string{})
-		return nil
-	})
+	shellutils.R(&DBInstanceRecoveryOptions{}, "dbinstance-recovery", "Recovery dbintance from backup", func(cli *aliyun.SRegion, args *DBInstanceRecoveryOptions) error {
+		databases := map[string]string{}
+		for _, database := range args.Databases {
+			if len(database) > 0 {
+				dbInfo := strings.Split(database, ":")
+				if len(dbInfo) == 1 {
+					databases[dbInfo[0]] = dbInfo[0]
 
-	shellutils.R(&DBInstanceIdExtraOptions{}, "dbinstance-database-list", "List dbintance databases", func(cli *aliyun.SRegion, args *DBInstanceIdExtraOptions) error {
-		databases, _, err := cli.GetDBInstanceDatabases(args.ID, "", args.Offset, args.Limit)
-		if err != nil {
-			return err
+				} else if len(dbInfo) == 2 {
+					databases[dbInfo[0]] = dbInfo[1]
+				} else {
+					return fmt.Errorf("Invalid dbinfo: %s", database)
+				}
+			}
 		}
-		printList(databases, 0, 0, 0, []string{})
-		return nil
-	})
-
-	shellutils.R(&DBInstanceIdExtraOptions{}, "dbinstance-account-list", "List dbintance account", func(cli *aliyun.SRegion, args *DBInstanceIdExtraOptions) error {
-		accounts, _, err := cli.GetDBInstanceAccounts(args.ID, args.Offset, args.Limit)
-		if err != nil {
-			return err
-		}
-		printList(accounts, 0, 0, 0, []string{})
-		return nil
+		return cli.RecoveryDBInstanceFromBackup(args.ID, args.BACKUP, databases)
 	})
 
 }

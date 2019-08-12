@@ -111,7 +111,12 @@ func (self *SDBInstancePrivilege) GetDetailedJson() (*jsonutils.JSONDict, error)
 	if err != nil {
 		return nil, err
 	}
+	account, err := self.GetDBInstanceAccount()
+	if err != nil {
+		return nil, err
+	}
 	result.Add(jsonutils.NewString(database.Name), "database")
+	result.Add(jsonutils.NewString(account.Name), "account")
 	result.Add(jsonutils.NewString(database.Id), "dbinstancedatabase_id")
 	result.Add(jsonutils.NewString(self.Privilege), "privileges")
 	return result, nil

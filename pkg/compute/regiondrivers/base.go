@@ -17,6 +17,7 @@ package regiondrivers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"yunion.io/x/jsonutils"
 
@@ -26,6 +27,7 @@ import (
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/billing"
 )
 
 type SBaseRegionDriver struct {
@@ -215,4 +217,68 @@ func (self *SBaseRegionDriver) GetSecurityGroupVpcId(ctx context.Context, userCr
 
 func (self *SBaseRegionDriver) RequestSyncSecurityGroup(ctx context.Context, userCred mcclient.TokenCredential, vpcId string, vpc *models.SVpc, secgroup *models.SSecurityGroup) (string, error) {
 	return "", fmt.Errorf("Not Implemented RequestSyncSecurityGroup")
+}
+
+func (self *SBaseRegionDriver) ValidateCreateDBInstanceData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, input *api.SDBInstanceCreateInput, skus []models.SDBInstanceSku, network *models.SNetwork) (*api.SDBInstanceCreateInput, error) {
+	return input, nil
+}
+
+func (self *SBaseRegionDriver) RequestCreateDBInstance(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *models.SDBInstance, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestCreateDBInstance")
+}
+
+func (self *SBaseRegionDriver) RequestCreateDBInstanceBackup(ctx context.Context, userCred mcclient.TokenCredential, dbinstance *models.SDBInstance, backup *models.SDBInstanceBackup, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestCreateDBInstanceBackup")
+}
+
+func (self *SBaseRegionDriver) IsSupportedBillingCycle(bc billing.SBillingCycle, resource string) bool {
+	return false
+}
+
+func (self *SBaseRegionDriver) GetSecgroupVpcid(vpcId string) string {
+	return vpcId
+}
+
+func (self *SBaseRegionDriver) InitDBInstanceUser(dbinstance *models.SDBInstance, task taskman.ITask, desc *cloudprovider.SManagedDBInstanceCreateConfig) error {
+	return nil
+}
+
+func (self *SBaseRegionDriver) RequestRenewDBInstance(instance *models.SDBInstance, bc billing.SBillingCycle) (time.Time, error) {
+	return time.Time{}, fmt.Errorf("Not Implement RequestRenewDBInstance")
+}
+
+func (self *SBaseRegionDriver) RequestChangeDBInstanceConfig(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, task taskman.ITask) error {
+	return fmt.Errorf("Not Implement RequestChangeDBInstanceConfig")
+}
+
+func (self *SBaseRegionDriver) ValidateCreateDBInstanceAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceAccountCreateInput) (*api.SDBInstanceAccountCreateInput, error) {
+	return nil, fmt.Errorf("Not Implement ValidateCreateDBInstanceAccountData")
+}
+
+func (self *SBaseRegionDriver) ValidateCreateDBInstanceDatabaseData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceDatabaseCreateInput) (*api.SDBInstanceDatabaseCreateInput, error) {
+	return nil, fmt.Errorf("Not Implement ValidateCreateDBInstanceDatabaseData")
+}
+
+func (self *SBaseRegionDriver) ValidateCreateDBInstanceBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, instance *models.SDBInstance, input *api.SDBInstanceBackupCreateInput) (*api.SDBInstanceBackupCreateInput, error) {
+	return nil, fmt.Errorf("Not Implement ValidateCreateDBInstanceBackupData")
+}
+
+func (self *SBaseRegionDriver) ValidateChangeDBInstanceConfigData(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, input *api.SDBInstanceChangeConfigInput) error {
+	return fmt.Errorf("Not Implement ValidateChangeDBInstanceConfigData")
+}
+
+func (self *SBaseRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, privilege string) error {
+	return fmt.Errorf("Not Implement ValidateDBInstanceAccountPrivilege")
+}
+
+func (self *SBaseRegionDriver) IsSupportDBInstancePublicConnection() bool {
+	return true
+}
+
+func (self *SBaseRegionDriver) ValidateResetDBInstancePassword(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, account string) error {
+	return nil
+}
+
+func (self *SBaseRegionDriver) IsSupportKeepDBInstanceManualBackup() bool {
+	return false
 }

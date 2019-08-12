@@ -1,0 +1,17 @@
+post:
+  summary: 从备份恢复实例数据库
+  description: 要求RDS实例状态正常
+  parameters: 
+    - $ref: '../parameters/dbinstance.yaml#/dbinstanceId'
+    - in: body 
+      name: dbinstance
+      required: true 
+      schema:
+        $ref: '../schemas/dbinstance.yaml#DBInstanceRecovery'
+  responses:
+    200:
+      description: RDS实例信息
+      schema:
+        $ref: '../schemas/dbinstance.yaml#/DBInstanceResponse'
+  tags:
+    - dbinstance

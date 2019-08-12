@@ -22,7 +22,7 @@ var (
 
 func init() {
 	DBInstanceBackups = NewComputeManager("dbinstancebackup", "dbinstancebackups",
-		[]string{"ID", "Name", "Start_Time", "End_Time", "Backup_Type", "Intranet_Download_URL", "Download_URL", "DBNames", "Backup_Size_Mb", "DBInstance_id"},
+		[]string{"ID", "Name", "Start_Time", "End_Time", "Status", "Backup_Type", "DBNames", "Backup_Size_Mb", "DBInstance", "Engine", "EngineVersion"},
 		[]string{})
 
 	registerCompute(&DBInstanceBackups)

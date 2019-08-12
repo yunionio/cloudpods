@@ -165,11 +165,14 @@ func (self *SCloudregion) GetDBInstances(provider *SCloudprovider) ([]SDBInstanc
 	return instances, nil
 }
 
-func (self *SCloudregion) GetDBInstanceBackups(provider *SCloudprovider) ([]SDBInstanceBackup, error) {
+func (self *SCloudregion) GetDBInstanceBackups(provider *SCloudprovider, instance *SDBInstance) ([]SDBInstanceBackup, error) {
 	backups := []SDBInstanceBackup{}
 	q := DBInstanceBackupManager.Query().Equals("cloudregion_id", self.Id)
 	if provider != nil {
 		q = q.Equals("manager_id", provider.Id)
+	}
+	if instance != nil {
+		q = q.Equals("dbinstance_id", instance.Id)
 	}
 	err := db.FetchModelObjects(DBInstanceBackupManager, q, &backups)
 	if err != nil {
@@ -666,6 +669,15 @@ func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlch
 			sqlchemy.In(q.Field("id"), sq.SubQuery()),
 			sqlchemy.In(q.Field("id"), sq2.SubQuery()),
 		))
+
+		service, _ := query.GetString("service")
+		switch service {
+		case DBInstanceManager.KeywordPlural():
+			skusSQ := DBInstanceSkuManager.Query("cloudregion_id").Equals("status", api.DBINSTANCE_SKU_AVAILABLE).IsTrue("enabled").SubQuery()
+			q = q.In("id", skusSQ)
+		default:
+			break
+		}
 	}
 	return q, nil
 }

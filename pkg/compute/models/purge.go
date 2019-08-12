@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/tristate"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -1232,46 +1233,27 @@ func (bucketManager *SBucketManager) purgeAll(ctx context.Context, userCred mccl
 	return nil
 }
 
-func (privilege *SDBInstancePrivilege) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
-	lockman.LockObject(ctx, privilege)
-	defer lockman.ReleaseObject(ctx, privilege)
-
-	err := privilege.ValidateDeleteCondition(ctx)
-	if err != nil {
-		return err
-	}
-	return privilege.Delete(ctx, userCred)
-}
-
-func (account *SDBInstanceAccount) purgePrivileges(ctx context.Context, userCred mcclient.TokenCredential) error {
-	privileges, err := account.GetDBInstancePrivileges()
-	if err != nil {
-		return err
-	}
-
-	for i := range privileges {
-		err = privileges[i].purge(ctx, userCred)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (account *SDBInstanceAccount) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (account *SDBInstanceAccount) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, account)
 	defer lockman.ReleaseObject(ctx, account)
 
-	err := account.purgePrivileges(ctx, userCred)
+	privileges, err := account.GetDBInstancePrivileges()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "account.GetDBInstancePrivileges")
+	}
+
+	for _, privilege := range privileges {
+		err = privilege.Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "privilege.Delete() %s", privilege.Id)
+		}
 	}
 
 	err = account.ValidateDeleteCondition(ctx)
 	if err != nil {
 		return err
 	}
-	return account.Delete(ctx, userCred)
+	return account.RealDelete(ctx, userCred)
 }
 
 func (instance *SDBInstance) purgeAccounts(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -1281,7 +1263,7 @@ func (instance *SDBInstance) purgeAccounts(ctx context.Context, userCred mcclien
 	}
 
 	for i := range accounts {
-		err = accounts[i].purge(ctx, userCred)
+		err = accounts[i].Purge(ctx, userCred)
 		if err != nil {
 			return err
 		}
@@ -1289,15 +1271,27 @@ func (instance *SDBInstance) purgeAccounts(ctx context.Context, userCred mcclien
 	return nil
 }
 
-func (database *SDBInstanceDatabase) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (database *SDBInstanceDatabase) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, database)
 	defer lockman.ReleaseObject(ctx, database)
 
-	err := database.ValidateDeleteCondition(ctx)
+	privileges, err := database.GetDBInstancePrivileges()
+	if err != nil {
+		return errors.Wrap(err, "database.GetDBInstancePrivileges")
+	}
+
+	for _, privilege := range privileges {
+		err = privilege.Delete(ctx, userCred)
+		if err != nil {
+			return errors.Wrapf(err, "privilege.Delete() %s", privilege.Id)
+		}
+	}
+
+	err = database.ValidateDeleteCondition(ctx)
 	if err != nil {
 		return err
 	}
-	return database.Delete(ctx, userCred)
+	return database.RealDelete(ctx, userCred)
 }
 
 func (instance *SDBInstance) purgeDatabases(ctx context.Context, userCred mcclient.TokenCredential) error {
@@ -1307,7 +1301,7 @@ func (instance *SDBInstance) purgeDatabases(ctx context.Context, userCred mcclie
 	}
 
 	for i := range databases {
-		err = databases[i].purge(ctx, userCred)
+		err = databases[i].Purge(ctx, userCred)
 		if err != nil {
 			return err
 		}
@@ -1360,7 +1354,23 @@ func (instance *SDBInstance) purgeNetwork(ctx context.Context, userCred mcclient
 	return nil
 }
 
-func (instance *SDBInstance) purge(ctx context.Context, userCred mcclient.TokenCredential) error {
+func (instance *SDBInstance) purgeBackups(ctx context.Context, userCred mcclient.TokenCredential) error {
+	backups, err := instance.GetDBInstanceBackups()
+	if err != nil {
+		return errors.Wrap(err, "instance.GetDBInstanceBackups")
+	}
+	for _, backup := range backups {
+		if backup.BackupMode == api.BACKUP_MODE_AUTOMATED {
+			err = backup.purge(ctx, userCred)
+			if err != nil {
+				return errors.Wrapf(err, "backup.purge %s(%s)", backup.Name, backup.Id)
+			}
+		}
+	}
+	return nil
+}
+
+func (instance *SDBInstance) Purge(ctx context.Context, userCred mcclient.TokenCredential) error {
 	lockman.LockObject(ctx, instance)
 	defer lockman.ReleaseObject(ctx, instance)
 
@@ -1384,12 +1394,17 @@ func (instance *SDBInstance) purge(ctx context.Context, userCred mcclient.TokenC
 		return err
 	}
 
+	err = instance.purgeBackups(ctx, userCred)
+	if err != nil {
+		return errors.Wrap(err, "instance.purgeBackups")
+	}
+
 	err = instance.ValidateDeleteCondition(ctx)
 	if err != nil {
 		return err
 	}
 
-	return instance.Delete(ctx, userCred)
+	return instance.RealDelete(ctx, userCred)
 }
 
 func (manager *SDBInstanceManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {
@@ -1398,7 +1413,7 @@ func (manager *SDBInstanceManager) purgeAll(ctx context.Context, userCred mcclie
 		return err
 	}
 	for i := range instances {
-		err = instances[i].purge(ctx, userCred)
+		err = instances[i].Purge(ctx, userCred)
 		if err != nil {
 			return err
 		}
@@ -1414,7 +1429,7 @@ func (backup *SDBInstanceBackup) purge(ctx context.Context, userCred mcclient.To
 	if err != nil {
 		return err
 	}
-	return backup.Delete(ctx, userCred)
+	return backup.RealDelete(ctx, userCred)
 }
 
 func (manager *SDBInstanceBackupManager) purgeAll(ctx context.Context, userCred mcclient.TokenCredential, providerId string) error {

@@ -127,6 +127,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.DBInstanceDatabaseManager,
 		models.DBInstanceAccountManager,
 		models.DBInstancePrivilegeManager,
+		models.DBInstanceSkuManager,
 
 		models.ElasticcacheManager,
 		models.ElasticcacheAclManager,

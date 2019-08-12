@@ -402,6 +402,27 @@ paths:
     $ref: "./dbinstance/dbinstance.yaml"
   /dbinstances/{dbinstanceId}/networks:
     $ref: "./dbinstance/dbinstancenetwork.yaml"
+  /dbinstances/{dbinstanceId}/reboot:
+    $ref: "./dbinstance/reboot.yaml"
+  /dbinstances/{dbinstanceId}/sync-status:
+    $ref: "./dbinstance/sync-status.yaml"
+  /dbinstances/{dbinstanceId}/purge:
+    $ref: "./dbinstance/purge.yaml"
+  /dbinstances/{dbinstanceId}/change-config:
+    $ref: "./dbinstance/change-config.yaml"
+  /dbinstances/{dbinstanceId}/public-connection:
+    $ref: "./dbinstance/public-connection.yaml"
+  /dbinstances/{dbinstanceId}/recovery:
+    $ref: "./dbinstance/recovery.yaml"
+
+
+
+  /dbinstance_skus:
+    $ref: "./dbinstance_sku/dbinstance_skus.yaml"
+  /dbinstance_skus/{skuId}:
+    $ref: "./dbinstance_sku/dbinstance_sku.yaml"
+
+
 
   /dbinstancenetworks:
     $ref: "./dbinstance/dbinstancenetworks.yaml"
@@ -412,16 +433,46 @@ paths:
     $ref: "./dbinstance/dbinstanceparameter.yaml"
 
   /dbinstancedatabases:
-    $ref: "./dbinstance/dbinstancedatabases.yaml"
+    $ref: "./dbinstancedatabase/databases.yaml"
   /dbinstancedatabases/{databaseId}:
-    $ref: "./dbinstance/dbinstancedatabase.yaml"
+    $ref: "./dbinstancedatabase/database.yaml"
 
   /dbinstancebackups:
-    $ref: "./dbinstance/dbinstancebackups.yaml"
+    $ref: "./dbinstancebackup/backups.yaml"
   /dbinstancebackups/{backupId}:
-    $ref: "./dbinstance/dbinstancebackup.yaml"
+    $ref: "./dbinstancebackup/backup.yaml"
 
   /dbinstanceaccounts:
-    $ref: "./dbinstance/dbinstanceaccounts.yaml"
+    $ref: "./dbinstanceaccount/accounts.yaml"
   /dbinstanceaccounts/{accountId}:
-    $ref: "./dbinstance/dbinstanceaccount.yaml"
+    $ref: "./dbinstanceaccount/account.yaml"
+  /dbinstanceaccounts/{accountId}/reset-password:
+    $ref: "./dbinstanceaccount/reset-password.yaml"
+  /dbinstanceaccounts/{accountId}/grant-privilege:
+    $ref: "./dbinstanceaccount/grant-privilege.yaml"
+  /dbinstanceaccounts/{accountId}/revoke-privilege:
+    $ref: "./dbinstanceaccount/revoke-privilege.yaml"
+  /dbinstanceaccounts/{accountId}/set-privileges:
+    $ref: "./dbinstanceaccount/set-privileges.yaml"
+
+
+
+  /cloudaccounts:
+    $ref: "./cloudaccount/cloudaccounts.yaml"
+  /cloudaccounts/{cloudaccountId}:
+    $ref: "./cloudaccount/cloudaccount.yaml"
+  /cloudaccounts/{cloudaccountId}/change-project:
+    $ref: "./cloudaccount/change-project.yaml"
+  /cloudaccounts/{cloudaccountId}/disable:
+    $ref: "./cloudaccount/disable.yaml"
+  /cloudaccounts/{cloudaccountId}/enable:
+    $ref: "./cloudaccount/enable.yaml"
+  /cloudaccounts/{cloudaccountId}/sync:
+    $ref: "./cloudaccount/sync.yaml"
+  /cloudaccounts/{cloudaccountId}/update-credential:
+    $ref: "./cloudaccount/update-credential.yaml"
+  /cloudaccounts/{cloudaccountId}/enable-auto-sync:
+    $ref: "./cloudaccount/enable-auto-sync.yaml"
+  /cloudaccounts/{cloudaccountId}/disable-auto-sync:
+    $ref: "./cloudaccount/disable-auto-sync.yaml"
+>>>>>>> add rds operation

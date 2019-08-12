@@ -6,7 +6,7 @@ get:
     200:
       description: RDS实例信息
       schema:
-        $ref: '../schemas/dbinstance.yaml#/DBInstanceParameterResponse'
+        $ref: '../schemas/dbinstance_parameter.yaml#/DBInstanceParameterResponse'
   tags:
     - dbinstanceparameter
 
@@ -18,6 +18,6 @@ delete:
     200:
       description: 被删除RDS实例的参数信息
       schema:
-        $ref: '../schemas/dbinstance.yaml#/DBInstanceParameterResponse'
+        $ref: '../schemas/dbinstance_parameter.yaml#/DBInstanceParameterResponse'
   tags:
     - dbinstanceparameter

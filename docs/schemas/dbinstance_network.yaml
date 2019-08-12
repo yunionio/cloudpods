@@ -1,0 +1,42 @@
+DBInstanceNetwork:
+  allOf:
+    - $ref: "./common.yaml#/ResourceBaseResponse"
+    - type: object
+      description: RDS实例网络
+      properties:
+        dbinstance_id:
+          type: string
+          example: "20f8b552-1b86-4595-89e3-49d123b25215"
+          description: RDS实例ID
+        ip_addr:
+          type: string
+          example: 10.10.140.141
+          description: 实例内网IP地址
+        network_id:
+          type: string
+          example: "38897a74-17b4-4c21-86b3-4f8528ced003"
+          description: 实例子网ID
+
+
+DBInstanceNetworkListResponse:
+  type: object
+  properties:
+    limit: 
+      type: integer
+      example: 20
+    dbinstancenetworks:
+      type: array
+      items:
+        $ref: '#/DBInstanceNetwork'
+    total:
+      type: integer
+      example: 124
+
+DBInstanceNetworkResponse:
+  type: object
+  properties:
+    dbinstancenetwork:
+      type: object
+      $ref: '#/DBInstanceNetwork'
+
+

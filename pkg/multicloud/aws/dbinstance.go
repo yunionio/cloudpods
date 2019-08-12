@@ -156,6 +156,10 @@ func (rds *SDBInstance) GetCreatedAt() time.Time {
 	return rds.InstanceCreateTime
 }
 
+func (rds *SDBInstance) GetStorageType() string {
+	return rds.StorageType
+}
+
 func (rds *SDBInstance) GetEngine() string {
 	return rds.Engine
 }

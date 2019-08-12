@@ -9,6 +9,6 @@ get:
     200:
       description: RDS实例参数列表信息
       schema:
-        $ref: '../schemas/dbinstance.yaml#/DBInstanceParameterListResponse'
+        $ref: '../schemas/dbinstance_parameter.yaml#/DBInstanceParameterListResponse'
   tags:
     - dbinstanceparameter
