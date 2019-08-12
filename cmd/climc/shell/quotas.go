@@ -33,6 +33,7 @@ type QuotaBaseOptions struct {
 	IsolatedDevice int64 `help:"Isolated device count" json:"isolated_device,omitzero"`
 	Snapshot       int64 `help:"Snapshot count" json:"snapshot,omitzero"`
 	Image          int64 `help:"Template count" json:"image,omitzero"`
+	Secgroup       int64 `help:"Secgroup count" json:"secgroup,omitzero"`
 }
 
 func init() {
