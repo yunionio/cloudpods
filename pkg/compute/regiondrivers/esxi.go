@@ -16,8 +16,10 @@ package regiondrivers
 
 import (
 	"context"
+	"fmt"
 
 	"yunion.io/x/jsonutils"
+
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -47,4 +49,8 @@ func (self *SEsxiRegionDriver) ValidateCreateLoadbalancerAclData(ctx context.Con
 
 func (self *SEsxiRegionDriver) ValidateCreateLoadbalancerCertificateData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewNotImplementedError("%s does not support creating loadbalancer certificate", self.GetProvider())
+}
+
+func (self *SEsxiRegionDriver) ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) error {
+	return fmt.Errorf("%s does not support creating snapshot", self.GetProvider())
 }

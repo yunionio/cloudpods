@@ -1112,3 +1112,74 @@ func (self *SManagedVirtualizationRegionDriver) RequestCancelSnapshotPolicy(ctx 
 	})
 	return nil
 }
+
+func (self *SManagedVirtualizationRegionDriver) ValidateSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot) error {
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
+	cloudRegion, err := snapshot.GetISnapshotRegion()
+	if err != nil {
+		log.Errorln(err, cloudRegion, snapshot.CloudregionId)
+		return err
+	}
+	cloudSnapshot, err := cloudRegion.GetISnapshotById(snapshot.ExternalId)
+	if err != nil {
+		if err == cloudprovider.ErrNotFound {
+			return nil
+		}
+		log.Errorln(err, cloudSnapshot)
+		return err
+	}
+	if err := cloudSnapshot.Delete(); err != nil {
+		return err
+	}
+	return cloudprovider.WaitDeleted(cloudSnapshot, 10*time.Second, 300*time.Second)
+}
+
+func (self *SManagedVirtualizationRegionDriver) ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) error {
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestCreateSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
+	iDisk, _ := models.DiskManager.FetchById(snapshot.DiskId)
+	disk := iDisk.(*models.SDisk)
+	providerDisk, err := disk.GetIDisk()
+	if err != nil {
+		return err
+	}
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		cloudSnapshot, err := providerDisk.CreateISnapshot(ctx, snapshot.Name, "")
+		if err != nil {
+			return nil, err
+		}
+		res := jsonutils.NewDict()
+		res.Set("snapshot_id", jsonutils.NewString(cloudSnapshot.GetId()))
+		return res, nil
+	})
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) GetDiskResetParams(snapshot *models.SSnapshot) *jsonutils.JSONDict {
+	params := jsonutils.NewDict()
+	params.Set("snapshot_id", jsonutils.NewString(snapshot.ExternalId))
+	return params
+}
+
+func (self *SManagedVirtualizationRegionDriver) OnDiskReset(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, data jsonutils.JSONObject) error {
+	externalId, _ := data.GetString("exteranl_disk_id")
+	if len(externalId) > 0 {
+		_, err := db.Update(disk, func() error {
+			disk.ExternalId = externalId
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	iDisk, err := disk.GetIDisk()
+	if err != nil {
+		return err
+	}
+	return iDisk.Refresh()
+}

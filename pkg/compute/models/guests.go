@@ -519,6 +519,21 @@ func (guest *SGuest) validateDeleteCondition(ctx context.Context, isPurge bool) 
 	if !isPurge && guest.IsValidPrePaid() {
 		return httperrors.NewForbiddenError("not allow to delete prepaid server in valid status")
 	}
+	gd := guest.GetDisks()
+	for i := 0; i < len(gd); i++ {
+		d := gd[i].GetDisk()
+		storage := d.GetStorage()
+		if storage.StorageType == api.STORAGE_RBD {
+			scnt, err := d.GetSnapshotCount()
+			if err != nil {
+				return err
+			}
+			if scnt > 0 {
+				return httperrors.NewBadRequestError(
+					"not allow to delete guest with %s disk has snapshots", storage.StorageType)
+			}
+		}
+	}
 	return guest.SVirtualResourceBase.ValidateDeleteCondition(ctx)
 }
 
