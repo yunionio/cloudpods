@@ -1,8 +1,24 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package jsonutils
 
 import (
 	"fmt"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 func NewStringArray(arr []string) *JSONArray {
@@ -40,6 +56,9 @@ func NewTimeString(tm time.Time) *JSONString {
 }
 
 func GetQueryStringArray(query JSONObject, key string) []string {
+	if query == nil {
+		return nil
+	}
 	var arr []string
 	searchObj, _ := query.Get(key)
 	if searchObj != nil {
@@ -70,31 +89,43 @@ func GetQueryStringArray(query JSONObject, key string) []string {
 func CheckRequiredFields(data JSONObject, fields []string) error {
 	jsonMap, err := data.GetMap()
 	if err != nil {
-		return fmt.Errorf("fail to convert input to map")
+		return errors.Wrap(err, "data.GetMap") //fmt.Errorf("fail to convert input to map")
 	}
 	for _, f := range fields {
 		jsonVal, ok := jsonMap[f]
 		if !ok {
-			return fmt.Errorf("missing input field %s", f)
+			return errors.WithMessage(ErrMisingInputField, f)
 		}
 		if jsonVal == JSONNull {
-			return fmt.Errorf("input field %s is null", f)
+			return errors.WithMessage(ErrNilInputField, f)
 		}
 	}
 	return nil
 }
 
 func GetAnyString(json JSONObject, keys []string) string {
+	val, _ := GetAnyString2(json, keys)
+	return val
+}
+
+func GetAnyString2(json JSONObject, keys []string) (string, string) {
+	if json == nil {
+		return "", ""
+	}
 	for _, key := range keys {
 		val, _ := json.GetString(key)
 		if len(val) > 0 {
-			return val
+			return val, key
 		}
 	}
-	return ""
+	return "", ""
 }
 
 func GetArrayOfPrefix(json JSONObject, prefix string) []JSONObject {
+	if json == nil {
+		return nil
+	}
+
 	retArray := make([]JSONObject, 0)
 	idx := 0
 	for {

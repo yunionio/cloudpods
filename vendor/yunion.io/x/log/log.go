@@ -1,11 +1,25 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 // Just logrus wrapper, maybe replace in the future
 package log
 
 import (
+	"runtime"
 	"sync"
 
 	"github.com/sirupsen/logrus"
-
 	"yunion.io/x/log/hooks"
 )
 
@@ -135,8 +149,10 @@ func DisableColors() {
 }
 
 func AddHookFormatter(logger *logrus.Logger) {
-	logger.Hooks.Add(new(hooks.CallerHook))
-
+	pcs := make([]uintptr, 2)
+	runtime.Callers(0, pcs)
+	logrusPackage := hooks.GetPackageName(runtime.FuncForPC(pcs[1]).Name())
+	logger.Hooks.Add(&hooks.CallerHook{logrusPackage})
 	logger.Formatter = &TextFormatter{
 		TimestampFormat: "060102 15:04:05",
 		SpacePadding:    0,
