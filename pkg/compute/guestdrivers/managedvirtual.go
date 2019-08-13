@@ -751,27 +751,6 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 	return nil
 }
 
-func (self *SManagedVirtualizedGuestDriver) RequestDiskSnapshot(ctx context.Context, guest *models.SGuest, task taskman.ITask, snapshotId, diskId string) error {
-	iDisk, _ := models.DiskManager.FetchById(diskId)
-	disk := iDisk.(*models.SDisk)
-	providerDisk, err := disk.GetIDisk()
-	if err != nil {
-		return err
-	}
-	iSnapshot, _ := models.SnapshotManager.FetchById(snapshotId)
-	snapshot := iSnapshot.(*models.SSnapshot)
-	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		cloudSnapshot, err := providerDisk.CreateISnapshot(ctx, snapshot.Name, "")
-		if err != nil {
-			return nil, err
-		}
-		res := jsonutils.NewDict()
-		res.Set("snapshot_id", jsonutils.NewString(cloudSnapshot.GetId()))
-		return res, nil
-	})
-	return nil
-}
-
 func (self *SManagedVirtualizedGuestDriver) OnGuestDeployTaskDataReceived(ctx context.Context, guest *models.SGuest, task taskman.ITask, data jsonutils.JSONObject) error {
 
 	uuid, _ := data.GetString("uuid")

@@ -303,3 +303,58 @@ func (self *SKVMRegionDriver) ValidateCreateVpcData(ctx context.Context, userCre
 func (self *SKVMRegionDriver) ValidateCreateEipData(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
 	return nil, httperrors.NewNotImplementedError("Not Implement EIP")
 }
+
+func (self *SKVMRegionDriver) ValidateSnapshotDelete(ctx context.Context, snapshot *models.SSnapshot) error {
+	storage := snapshot.GetStorage()
+	if storage == nil {
+		return httperrors.NewInternalServerError("Kvm snapshot missing storage ??")
+	}
+	return models.GetStorageDriver(storage.StorageType).ValidateSnapshotDelete(ctx, snapshot)
+}
+
+func (self *SKVMRegionDriver) RequestDeleteSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
+	storage := snapshot.GetStorage()
+	if storage == nil {
+		return httperrors.NewInternalServerError("Kvm snapshot missing storage ??")
+	}
+	return models.GetStorageDriver(storage.StorageType).RequestDeleteSnapshot(ctx, snapshot, task)
+}
+
+func (self *SKVMRegionDriver) ValidateSnapshotCreate(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, data *jsonutils.JSONDict) error {
+	storage := disk.GetStorage()
+	return models.GetStorageDriver(storage.StorageType).ValidateSnapshotCreate(ctx, userCred, disk, data)
+}
+
+func (self *SKVMRegionDriver) RequestCreateSnapshot(ctx context.Context, snapshot *models.SSnapshot, task taskman.ITask) error {
+	storage := snapshot.GetStorage()
+	if storage == nil {
+		return httperrors.NewInternalServerError("Kvm snapshot missing storage ??")
+	}
+	return models.GetStorageDriver(storage.StorageType).RequestCreateSnapshot(ctx, snapshot, task)
+}
+
+func (self *SKVMRegionDriver) SnapshotIsOutOfChain(disk *models.SDisk) bool {
+	storage := disk.GetStorage()
+	return models.GetStorageDriver(storage.StorageType).SnapshotIsOutOfChain(disk)
+}
+
+func (self *SKVMRegionDriver) GetDiskResetParams(snapshot *models.SSnapshot) *jsonutils.JSONDict {
+	params := jsonutils.NewDict()
+	params.Set("snapshot_id", jsonutils.NewString(snapshot.Id))
+	params.Set("out_of_chain", jsonutils.NewBool(snapshot.OutOfChain))
+	return params
+}
+
+func (self *SKVMRegionDriver) OnDiskReset(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, data jsonutils.JSONObject) error {
+	if disk.DiskSize != snapshot.Size {
+		_, err := db.Update(disk, func() error {
+			disk.DiskSize = snapshot.Size
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	storage := disk.GetStorage()
+	return models.GetStorageDriver(storage.StorageType).OnDiskReset(ctx, userCred, disk, snapshot, data)
+}

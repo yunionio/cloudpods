@@ -18,14 +18,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/timeutils"
-	"yunion.io/x/pkg/utils"
 	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
@@ -50,12 +49,14 @@ type SSnapshot struct {
 
 	SManagedResourceBase
 
-	DiskId      string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user"`
+	DiskId string `width:"36" charset:"ascii" nullable:"true" create:"required" list:"user"`
+
+	// Only onecloud has StorageId
 	StorageId   string `width:"36" charset:"ascii" nullable:"true" list:"admin" create:"optional"`
 	CreatedBy   string `width:"36" charset:"ascii" nullable:"false" default:"manual" list:"admin" create:"optional"`
 	Location    string `charset:"ascii" nullable:"true" list:"admin" create:"optional"`
 	Size        int    `nullable:"false" list:"user" create:"required"` // MB
-	OutOfChain  bool   `nullable:"false" default:"false" list:"admin"`
+	OutOfChain  bool   `nullable:"false" default:"false" list:"admin" create:"optional"`
 	FakeDeleted bool   `nullable:"false" default:"false"`
 	DiskType    string `width:"32" charset:"ascii" nullable:"true" list:"user" create:"optional"`
 
@@ -79,7 +80,7 @@ func init() {
 	SnapshotManager.SetVirtualObject(SnapshotManager)
 }
 
-func ValidateSnapshotName(hypervisor, name string, owner mcclient.IIdentityProvider) error {
+func ValidateSnapshotName(name string, owner mcclient.IIdentityProvider) error {
 	q := SnapshotManager.Query()
 	q = SnapshotManager.FilterByName(q, name)
 	q = SnapshotManager.FilterByOwner(q, owner, SnapshotManager.NamespaceScope())
@@ -96,12 +97,6 @@ func ValidateSnapshotName(hypervisor, name string, owner mcclient.IIdentityProvi
 	}
 	if len(name) < 2 || len(name) > 128 {
 		return httperrors.NewBadRequestError("Snapshot name length must within 2~128")
-	}
-	if hypervisor == api.HYPERVISOR_ALIYUN {
-		if strings.HasPrefix(name, "auto") || strings.HasPrefix(name, "http://") || strings.HasPrefix(name, "https://") {
-			return httperrors.NewBadRequestError(
-				"Snapshot for %s name can't start with auto, http:// or https://", hypervisor)
-		}
 	}
 	return nil
 }
@@ -253,39 +248,17 @@ func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCre
 	if err != nil {
 		return nil, httperrors.NewMissingParameterError("name")
 	}
-
-	guests := disk.GetGuests()
-	if len(guests) != 1 {
-		return nil, httperrors.NewBadRequestError("Disk %s dosen't attach guest ?", disk.Id)
-	}
-
-	guest := guests[0]
-	if len(guest.BackupHostId) > 0 {
-		return nil, httperrors.NewBadRequestError(
-			"Disk attached Guest has backup, Can't create snapshot")
-	}
-	if !utils.IsInStringArray(guest.Status, []string{api.VM_RUNNING, api.VM_READY}) {
-		return nil, httperrors.NewInvalidStatusError("Cannot do snapshot when VM in status %s", guest.Status)
-	}
-	err = ValidateSnapshotName(guest.Hypervisor, snapshotName, ownerId)
+	err = ValidateSnapshotName(snapshotName, ownerId)
 	if err != nil {
 		return nil, err
 	}
-	if guest.GetHypervisor() == api.HYPERVISOR_KVM {
-		q := SnapshotManager.Query()
-		cnt, err := q.Filter(sqlchemy.AND(sqlchemy.Equals(q.Field("disk_id"), disk.Id),
-			sqlchemy.Equals(q.Field("created_by"), api.SNAPSHOT_MANUAL),
-			sqlchemy.IsFalse(q.Field("fake_deleted")))).CountWithError()
-		if err != nil {
-			return nil, httperrors.NewInternalServerError("check disk snapshot count fail %s", err)
-		}
-		if cnt >= options.Options.DefaultMaxManualSnapshotCount {
-			return nil, httperrors.NewBadRequestError("Disk %s snapshot full, cannot take any more", disk.Id)
-		}
+
+	err = disk.GetStorage().GetRegion().GetDriver().ValidateSnapshotCreate(ctx, userCred, disk, data)
+	if err != nil {
+		return nil, err
 	}
 
-	quotaPlatform := guest.GetQuotaPlatformID()
-
+	quotaPlatform := disk.GetQuotaPlatformID()
 	pendingUsage := &SQuota{Snapshot: 1}
 	_, err = QuotaManager.CheckQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatform, pendingUsage)
 	if err != nil {
@@ -300,6 +273,7 @@ func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCre
 	input.CreatedBy = api.SNAPSHOT_MANUAL
 	input.Size = disk.DiskSize
 	input.DiskType = disk.DiskType
+	input.OutOfChain = disk.GetStorage().GetRegion().GetDriver().SnapshotIsOutOfChain(disk)
 	storage := disk.GetStorage()
 	if len(disk.ExternalId) == 0 {
 		input.StorageId = disk.StorageId
@@ -316,11 +290,16 @@ func (self *SSnapshot) CustomizeCreate(ctx context.Context, userCred mcclient.To
 
 func (manager *SSnapshotManager) OnCreateComplete(ctx context.Context, items []db.IModel, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) {
 	snapshot := items[0].(*SSnapshot)
-	guest, _ := snapshot.GetGuest()
-	params := jsonutils.NewDict()
-	params.Set("snapshot_id", jsonutils.NewString(snapshot.Id))
-	params.Set("disk_id", jsonutils.NewString(snapshot.DiskId))
-	guest.GetDriver().StartGuestDiskSnapshotTask(ctx, userCred, guest, params)
+	snapshot.StartSnapshotCreateTask(ctx, userCred, nil)
+}
+
+func (self *SSnapshot) StartSnapshotCreateTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "SnapshotCreateTask", self, userCred, params, "", "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
 }
 
 func (self *SSnapshot) AllowGetDetails(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject) bool {
@@ -487,31 +466,21 @@ func (self *SSnapshot) StartSnapshotDeleteTask(ctx context.Context, userCred mcc
 }
 
 func (self *SSnapshot) ValidateDeleteCondition(ctx context.Context) error {
-	if len(self.ExternalId) == 0 && self.RefCount > 0 {
-		return httperrors.NewBadRequestError("Snapshot reference(by disk) count > 0, can not delete")
+	if self.Status == api.SNAPSHOT_DELETING {
+		return httperrors.NewBadRequestError("Cannot delete snapshot in status %s", self.Status)
 	}
-	return nil
+	return self.GetRegionDriver().ValidateSnapshotDelete(ctx, self)
+}
+
+func (self *SSnapshot) GetStorage() *SStorage {
+	return StorageManager.FetchStorageById(self.StorageId)
+}
+
+func (self *SSnapshot) GetRegionDriver() IRegionDriver {
+	return self.GetRegion().GetDriver()
 }
 
 func (self *SSnapshot) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
-	if self.Status == api.SNAPSHOT_DELETING {
-		return fmt.Errorf("Cannot delete snapshot in status %s", self.Status)
-	}
-	if len(self.ExternalId) == 0 {
-		if self.CreatedBy == api.SNAPSHOT_MANUAL {
-			if !self.OutOfChain && !self.FakeDeleted {
-				return self.FakeDelete(userCred)
-			} else if self.OutOfChain {
-				return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
-			}
-			_, err := SnapshotManager.GetConvertSnapshot(self)
-			if err != nil {
-				return fmt.Errorf("Cannot delete snapshot: %s, disk need at least one of snapshot as backing file", err.Error())
-			}
-			return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
-		}
-		return fmt.Errorf("Cannot delete snapshot created by %s", self.CreatedBy)
-	}
 	return self.StartSnapshotDeleteTask(ctx, userCred, false, "")
 }
 
@@ -606,6 +575,16 @@ func (self *SSnapshot) FakeDelete(userCred mcclient.TokenCredential) error {
 }
 
 func (self *SSnapshot) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
+func (self *SSnapshotManager) DeleteDiskSnapshots(ctx context.Context, userCred mcclient.TokenCredential, diskId string) error {
+	snapshots := self.GetDiskSnapshots(diskId)
+	for i := 0; i < len(snapshots); i++ {
+		if err := snapshots[i].RealDelete(ctx, userCred); err != nil {
+			return errors.Wrap(err, "delete snapshot")
+		}
+	}
 	return nil
 }
 
@@ -796,7 +775,7 @@ func (self *SSnapshot) AllowPerformPurge(ctx context.Context, userCred mcclient.
 }
 
 func (self *SSnapshot) PerformPurge(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
-	err := self.ValidateDeleteCondition(ctx)
+	err := self.GetRegionDriver().ValidateSnapshotDelete(ctx, self)
 	if err != nil {
 		return nil, err
 	}
