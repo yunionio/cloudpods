@@ -49,9 +49,40 @@ func (ff *SFunctionField) Label(label string) IQueryField {
 	return ff
 }
 
-func NewFunctionField(name string, funcexp string, fields ...IQueryField) SFunctionField {
-	ff := SFunctionField{function: funcexp, alias: name, fields: fields}
+type SFunctionFieldWithoutAlias struct {
+	fields   []IQueryField
+	function string
+}
+
+func (ff *SFunctionFieldWithoutAlias) Expression() string {
+	fieldRefs := make([]interface{}, 0)
+	for _, f := range ff.fields {
+		fieldRefs = append(fieldRefs, f.Reference())
+	}
+	return fmt.Sprintf(ff.function, fieldRefs...)
+}
+
+func (ff *SFunctionFieldWithoutAlias) Name() string {
+	return ff.Expression()
+}
+
+func (ff *SFunctionFieldWithoutAlias) Reference() string {
+	return ff.Expression()
+}
+
+func (ff *SFunctionFieldWithoutAlias) Label(label string) IQueryField {
+	if len(label) > 0 {
+		return &SFunctionField{ff.fields, ff.function, label}
+	}
 	return ff
+}
+
+func NewFunctionField(name string, funcexp string, fields ...IQueryField) IQueryField {
+	if len(name) > 0 {
+		return &SFunctionField{function: funcexp, alias: name, fields: fields}
+	} else {
+		return &SFunctionFieldWithoutAlias{fields: fields, function: funcexp}
+	}
 }
 
 func COUNT(name string, field ...IQueryField) IQueryField {
@@ -61,33 +92,27 @@ func COUNT(name string, field ...IQueryField) IQueryField {
 	} else {
 		expr = "COUNT(%s)"
 	}
-	ff := NewFunctionField(name, expr, field...)
-	return &ff
+	return NewFunctionField(name, expr, field...)
 }
 
 func MAX(name string, field IQueryField) IQueryField {
-	ff := NewFunctionField(name, "MAX(%s)", field)
-	return &ff
+	return NewFunctionField(name, "MAX(%s)", field)
 }
 
 func SUM(name string, field IQueryField) IQueryField {
-	ff := NewFunctionField(name, "SUM(%s)", field)
-	return &ff
+	return NewFunctionField(name, "SUM(%s)", field)
 }
 
 func DISTINCT(name string, field IQueryField) IQueryField {
-	ff := NewFunctionField(name, "DISTINCT(%s)", field)
-	return &ff
+	return NewFunctionField(name, "DISTINCT(%s)", field)
 }
 
 func GROUP_CONCAT(name string, field IQueryField) IQueryField {
-	ff := NewFunctionField(name, "GROUP_CONCAT(%s)", field)
-	return &ff
+	return NewFunctionField(name, "GROUP_CONCAT(%s)", field)
 }
 
 func REPLACE(name string, field IQueryField, old string, new string) IQueryField {
-	ff := NewFunctionField(name, fmt.Sprintf(`REPLACE(%s, "%s", "%s")`, "%s", old, new), field)
-	return &ff
+	return NewFunctionField(name, fmt.Sprintf(`REPLACE(%s, "%s", "%s")`, "%s", old, new), field)
 }
 
 type SStringField struct {
@@ -123,6 +148,25 @@ func CONCAT(name string, fields ...IQueryField) IQueryField {
 	for i := 0; i < len(fields); i++ {
 		params = append(params, "%s")
 	}
-	ff := NewFunctionField(name, `CONCAT(`+strings.Join(params, ",")+`)`, fields...)
-	return &ff
+	return NewFunctionField(name, `CONCAT(`+strings.Join(params, ",")+`)`, fields...)
+}
+
+func SubStr(name string, field IQueryField, pos, length int) IQueryField {
+	var rightStr string
+	if length <= 0 {
+		rightStr = fmt.Sprintf("%d)", pos)
+	} else {
+		rightStr = fmt.Sprintf("%d, %d)", pos, length)
+	}
+	return NewFunctionField(name, `SUBSTR(%s, `+rightStr, field)
+}
+
+func OR_Val(name string, field IQueryField, v interface{}) IQueryField {
+	rightStr := fmt.Sprintf("|%v", v)
+	return NewFunctionField(name, "%s"+rightStr, field)
+}
+
+func AND_Val(name string, field IQueryField, v interface{}) IQueryField {
+	rightStr := fmt.Sprintf("&%v", v)
+	return NewFunctionField(name, "%s"+rightStr, field)
 }
