@@ -80,8 +80,8 @@ func StartService() {
 	if !opts.IsSlaveNode {
 		cron := cronman.GetCronJobManager(true)
 
-		cron.AddJob1WithStartRun("AutoSyncIdentityProviderTask", time.Duration(opts.AutoSyncIntervalSeconds)*time.Second, models.AutoSyncIdentityProviderTask, true)
-		cron.AddJob1("FetchProjectResourceCount", time.Duration(opts.FetchProjectResourceCountIntervalSeconds)*time.Second, cronjobs.FetchProjectResourceCount)
+		cron.AddJobAtIntervalsWithStartRun("AutoSyncIdentityProviderTask", time.Duration(opts.AutoSyncIntervalSeconds)*time.Second, models.AutoSyncIdentityProviderTask, true)
+		cron.AddJobAtIntervals("FetchProjectResourceCount", time.Duration(opts.FetchProjectResourceCountIntervalSeconds)*time.Second, cronjobs.FetchProjectResourceCount)
 
 		cron.Start()
 		defer cron.Stop()
