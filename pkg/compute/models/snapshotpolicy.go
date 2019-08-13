@@ -17,10 +17,12 @@ package models
 import (
 	"context"
 	"fmt"
+
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/utils"
+	"yunion.io/x/sqlchemy"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -46,9 +48,11 @@ type SSnapshotPolicy struct {
 
 	RetentionDays int `nullable:"false" list:"user" get:"user" create:"required"`
 
-	RepeatWeekdays uint8  `charset:"utf8" create:"required"`
-	TimePoints     uint32 `charset:"utf8" create:"required"`
-	IsActivated    bool   `list:"user" get:"user" create:"optional" default:"true"`
+	// 0~6, 0 is Monday
+	RepeatWeekdays uint8 `charset:"utf8" create:"required"`
+	// 0~23
+	TimePoints  uint32 `charset:"utf8" create:"required"`
+	IsActivated bool   `list:"user" get:"user" create:"optional" default:"true"`
 }
 
 var SnapshotPolicyManager *SSnapshotPolicyManager
@@ -79,12 +83,6 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, u
 		return nil, err
 	}
 
-	managerIdV := validators.NewModelIdOrNameValidator("manager", "cloudprovider", nil)
-	if err := managerIdV.Validate(data); err != nil {
-		return nil, err
-	}
-	input.ManagerId, _ = data.GetString("manager_id")
-
 	cloudregionV := validators.NewModelIdOrNameValidator("cloudregion", "cloudregion", ownerId)
 	err = cloudregionV.Validate(data)
 	if err != nil {
@@ -93,7 +91,7 @@ func (manager *SSnapshotPolicyManager) ValidateCreateData(ctx context.Context, u
 	cloudregion := cloudregionV.Model.(*SCloudregion)
 	input.CloudregionId = cloudregion.GetId()
 
-	err = cloudregion.GetDriver().ValidateCreateSnapshotPolicyData(ctx, userCred, input)
+	err = cloudregion.GetDriver().ValidateCreateSnapshotPolicyData(ctx, userCred, input, ownerId, data)
 	if err != nil {
 		return nil, err
 	}
@@ -416,4 +414,36 @@ func (self *SSnapshotPolicy) preCheck(
 		return nil, httperrors.NewNotFoundError("Disks %v not found", notFoundDisks)
 	}
 	return diskIds, nil
+}
+
+func (manager *SSnapshotPolicyManager) GetSnapshotPoliciesAt(week, timePoint uint32) ([]string, error) {
+
+	q := manager.Query("id")
+	q = q.Filter(sqlchemy.Equals(sqlchemy.AND_Val("", q.Field("repeat_weekdays"), 1<<week), 1<<week))
+	q = q.Filter(sqlchemy.Equals(sqlchemy.AND_Val("", q.Field("time_points"), 1<<timePoint), 1<<timePoint))
+	q = q.Equals("is_activated", true)
+	q.DebugQuery()
+
+	sps := make([]SSnapshotPolicy, 0)
+	err := q.All(&sps)
+	if err != nil {
+		return nil, err
+	}
+	if len(sps) > 0 {
+		ret := make([]string, len(sps))
+		for i := 0; i < len(sps); i++ {
+			ret[i] = sps[i].Id
+		}
+		return ret, nil
+	}
+	return nil, nil
+}
+
+func (manager *SSnapshotPolicyManager) FetchSnapshotPolicyById(spId string) *SSnapshotPolicy {
+	sp, err := manager.FetchById(spId)
+	if err != nil {
+		log.Errorf("FetchBId fail %s", err)
+		return nil
+	}
+	return sp.(*SSnapshotPolicy)
 }

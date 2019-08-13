@@ -26,7 +26,6 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rand"
 	"yunion.io/x/pkg/utils"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
@@ -830,17 +829,6 @@ func (self *SAliyunRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context
 	}
 	if len(ret) != 0 {
 		return httperrors.NewBadRequestError("One disk could't attach two snapshot policy in aliyun; please detach last one first.")
-	}
-	return nil
-}
-
-func (self *SAliyunRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, data *compute.SSnapshotPolicyCreateInput) error {
-	err := self.SManagedVirtualizationRegionDriver.ValidateCreateSnapshotPolicyData(ctx, userCred, data)
-	if err != nil {
-		return err
-	}
-	if data.RetentionDays < -1 || data.RetentionDays == 0 || data.RetentionDays > 65535 {
-		return httperrors.NewInputParameterError("Retention days must in 1~65535 or -1")
 	}
 	return nil
 }

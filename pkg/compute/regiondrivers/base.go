@@ -20,10 +20,11 @@ import (
 
 	"yunion.io/x/jsonutils"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
@@ -126,8 +127,25 @@ func (self *SBaseRegionDriver) RequestDeleteLoadbalancerListenerRule(ctx context
 	return fmt.Errorf("Not Implement RequestDeleteLoadbalancerListenerRule")
 }
 
-func (self *SBaseRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, data *compute.SSnapshotPolicyCreateInput) error {
-	return fmt.Errorf("Not Implement ValidateCreateSnapshotPolicyData")
+func (self *SBaseRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, input *api.SSnapshotPolicyCreateInput, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) error {
+	var err error
+
+	if len(input.RepeatWeekdays) == 0 {
+		return httperrors.NewMissingParameterError("repeat_weekdays")
+	}
+	input.RepeatWeekdays, err = daysValidate(input.RepeatWeekdays, 1, 7)
+	if err != nil {
+		return httperrors.NewInputParameterError(err.Error())
+	}
+
+	if len(input.TimePoints) == 0 {
+		return httperrors.NewInputParameterError("time_points")
+	}
+	input.TimePoints, err = daysValidate(input.TimePoints, 0, 23)
+	if err != nil {
+		return httperrors.NewInputParameterError(err.Error())
+	}
+	return nil
 }
 
 func (self *SBaseRegionDriver) RequestCreateSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask) error {

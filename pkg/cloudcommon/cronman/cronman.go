@@ -57,6 +57,15 @@ func (t *Timer2) Next(now time.Time) time.Time {
 	return time.Date(next.Year(), next.Month(), next.Day(), t.hour, t.min, t.sec, 0, next.Location())
 }
 
+type TimerHour struct {
+	hour, min, sec int
+}
+
+func (t *TimerHour) Next(now time.Time) time.Time {
+	next := now.Add(time.Hour * time.Duration(t.hour))
+	return time.Date(next.Year(), next.Month(), next.Day(), next.Hour(), t.min, t.sec, 0, next.Location())
+}
+
 type SCronJob struct {
 	Name     string
 	job      TCronJobFunction
@@ -66,6 +75,14 @@ type SCronJob struct {
 }
 
 type CronJobTimerHeap []*SCronJob
+
+func (c CronJobTimerHeap) String() string {
+	var s string
+	for i := 0; i < len(c); i++ {
+		s += c[i].Name + " : " + c[i].Next.String() + "\n"
+	}
+	return s
+}
 
 func (cjth CronJobTimerHeap) Len() int {
 	return len(cjth)
@@ -117,11 +134,11 @@ func GetCronJobManager(idDbWorker bool) *SCronJobManager {
 	return manager
 }
 
-func (self *SCronJobManager) AddJob1(name string, interval time.Duration, jobFunc TCronJobFunction) {
-	self.AddJob1WithStartRun(name, interval, jobFunc, false)
+func (self *SCronJobManager) AddJobAtIntervals(name string, interval time.Duration, jobFunc TCronJobFunction) {
+	self.AddJobAtIntervalsWithStartRun(name, interval, jobFunc, false)
 }
 
-func (self *SCronJobManager) AddJob1WithStartRun(name string, interval time.Duration, jobFunc TCronJobFunction, startRun bool) {
+func (self *SCronJobManager) AddJobAtIntervalsWithStartRun(name string, interval time.Duration, jobFunc TCronJobFunction, startRun bool) {
 	t := Timer1{
 		dur: interval,
 	}
@@ -138,9 +155,28 @@ func (self *SCronJobManager) AddJob1WithStartRun(name string, interval time.Dura
 	}
 }
 
-func (self *SCronJobManager) AddJob2(name string, day, hour, min, sec int, jobFunc TCronJobFunction, startRun bool) {
+func (self *SCronJobManager) AddJobEveryFewDays(name string, day, hour, min, sec int, jobFunc TCronJobFunction, startRun bool) {
 	t := Timer2{
 		day:  day,
+		hour: hour,
+		min:  min,
+		sec:  sec,
+	}
+	job := SCronJob{
+		Name:     name,
+		job:      jobFunc,
+		Timer:    &t,
+		StartRun: startRun,
+	}
+	if !self.running {
+		self.jobs = append(self.jobs, &job)
+	} else {
+		self.add <- &job
+	}
+}
+
+func (self *SCronJobManager) AddJobEveryFewHour(name string, hour, min, sec int, jobFunc TCronJobFunction, startRun bool) {
+	t := TimerHour{
 		hour: hour,
 		min:  min,
 		sec:  sec,
@@ -197,14 +233,7 @@ func (self *SCronJobManager) run() {
 		}
 		select {
 		case now = <-timer.C:
-			for i, job := range self.jobs {
-				if job.Next.After(now) || job.Next.IsZero() {
-					break
-				}
-				job.runJob(false)
-				job.Next = job.Timer.Next(now)
-				heap.Fix(&self.jobs, i)
-			}
+			self.runJob(now)
 		case newJob := <-self.add:
 			now = time.Now()
 			newJob.Next = newJob.Timer.Next(now)
@@ -213,6 +242,15 @@ func (self *SCronJobManager) run() {
 			timer.Stop()
 			return
 		}
+	}
+}
+
+func (self *SCronJobManager) runJob(now time.Time) {
+	if len(self.jobs) > 0 && (self.jobs[0].Next.After(now) || self.jobs[0].Next.IsZero()) {
+		self.jobs[0].runJob(false)
+		self.jobs[0].Next = self.jobs[0].Timer.Next(now)
+		heap.Fix(&self.jobs, 0)
+		self.runJob(now)
 	}
 }
 
