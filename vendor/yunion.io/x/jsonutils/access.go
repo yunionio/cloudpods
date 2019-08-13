@@ -1,10 +1,25 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package jsonutils
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"yunion.io/x/pkg/util/timeutils"
 )
@@ -82,7 +97,7 @@ func (this *JSONDict) remove(key string, caseSensitive bool) bool {
 }
 
 func (this *JSONDict) Add(o JSONObject, keys ...string) error {
-	var obj *JSONDict = this
+	obj := this
 	for i := 0; i < len(keys); i++ {
 		if i == len(keys)-1 {
 			obj.data[keys[i]] = o
@@ -95,10 +110,10 @@ func (this *JSONDict) Add(o JSONObject, keys ...string) error {
 			if ok {
 				obj, ok = o.(*JSONDict)
 				if !ok {
-					return fmt.Errorf("%s is not a JSONDict", keys[:i])
+					return ErrInvalidJsonDict
 				}
 			} else {
-				return fmt.Errorf("Fail to insert %s", keys[i])
+				return ErrJsonDictFailInsert
 			}
 		}
 	}
@@ -120,42 +135,42 @@ func (this *JSONValue) ContainsIgnoreCases(keys ...string) bool {
 }
 
 func (this *JSONValue) Get(keys ...string) (JSONObject, error) {
-	return nil, fmt.Errorf("Unsupport operation Get")
+	return nil, ErrUnsupported
 }
 
 func (this *JSONValue) GetIgnoreCases(keys ...string) (JSONObject, error) {
-	return nil, fmt.Errorf("Unsupport operation Get")
+	return nil, ErrUnsupported
 }
 
 func (this *JSONValue) GetString(keys ...string) (string, error) {
 	if len(keys) > 0 {
-		return "", fmt.Errorf("Out of key range: %s", keys)
+		return "", ErrOutOfKeyRange
 	}
 	return this.String(), nil
 }
 
 func (this *JSONValue) GetAt(i int, keys ...string) (JSONObject, error) {
-	return nil, fmt.Errorf("Unsupport operation GetAt")
+	return nil, ErrUnsupported
 }
 
 func (this *JSONValue) Int(keys ...string) (int64, error) {
-	return 0, fmt.Errorf("Unsupport operation Int")
+	return 0, ErrUnsupported
 }
 
 func (this *JSONValue) Float(keys ...string) (float64, error) {
-	return 0.0, fmt.Errorf("Unsupport operation Float")
+	return 0.0, ErrUnsupported
 }
 
 func (this *JSONValue) Bool(keys ...string) (bool, error) {
-	return false, fmt.Errorf("Unsupport operation Bool")
+	return false, ErrUnsupported
 }
 
 func (this *JSONValue) GetMap(keys ...string) (map[string]JSONObject, error) {
-	return make(map[string]JSONObject), fmt.Errorf("Unsupport operation GetMap")
+	return nil, ErrUnsupported
 }
 
 func (this *JSONValue) GetArray(keys ...string) ([]JSONObject, error) {
-	return nil, fmt.Errorf("Unsupport operation GetMap")
+	return nil, ErrUnsupported
 }
 
 func (this *JSONDict) Contains(keys ...string) bool {
@@ -209,21 +224,21 @@ func (this *JSONDict) _get(caseSensitive bool, keys []string) (JSONObject, error
 			} else {
 				this, ok = val.(*JSONDict)
 				if !ok {
-					return nil, fmt.Errorf("%s is not a Dict", keys[:i])
+					return nil, ErrInvalidJsonDict
 				}
 			}
 		} else {
-			return nil, fmt.Errorf("No such key %s", key)
+			return nil, ErrJsonDictKeyNotFound
 		}
 	}
-	return nil, fmt.Errorf("Out of range key %s", keys)
+	return nil, ErrOutOfKeyRange
 }
 
 func (this *JSONDict) GetString(keys ...string) (string, error) {
 	if len(keys) > 0 {
 		obj, err := this.Get(keys...)
 		if err != nil {
-			return "", err
+			return "", errors.Wrap(err, "Get")
 		}
 		return obj.GetString()
 	} else {
@@ -234,18 +249,18 @@ func (this *JSONDict) GetString(keys ...string) (string, error) {
 func (this *JSONDict) GetMap(keys ...string) (map[string]JSONObject, error) {
 	obj, err := this.Get(keys...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Get")
 	}
 	dict, ok := obj.(*JSONDict)
 	if !ok {
-		return nil, fmt.Errorf("%s is not a Dict", keys)
+		return nil, ErrInvalidJsonDict
 	}
 	return dict.data, nil
 }
 
 func (this *JSONArray) GetAt(i int, keys ...string) (JSONObject, error) {
 	if len(keys) > 0 {
-		return nil, fmt.Errorf("Out of key range: %s", keys)
+		return nil, ErrOutOfKeyRange //  fmt.Errorf("Out of key range: %s", keys)
 	}
 	if i < 0 {
 		i = len(this.data) + i
@@ -253,13 +268,13 @@ func (this *JSONArray) GetAt(i int, keys ...string) (JSONObject, error) {
 	if i >= 0 && i < len(this.data) {
 		return this.data[i], nil
 	} else {
-		return nil, fmt.Errorf("Out of range GetAt(%d)", i)
+		return nil, ErrOutOfIndexRange // fmt.Errorf("Out of range GetAt(%d)", i)
 	}
 }
 
 func (this *JSONArray) GetString(keys ...string) (string, error) {
 	if len(keys) > 0 {
-		return "", fmt.Errorf("Out of key range: %s", keys)
+		return "", ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	return this.String(), nil
 }
@@ -267,18 +282,18 @@ func (this *JSONArray) GetString(keys ...string) (string, error) {
 func (this *JSONDict) GetAt(i int, keys ...string) (JSONObject, error) {
 	obj, err := this.Get(keys...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Get")
 	}
 	arr, ok := obj.(*JSONArray)
 	if !ok {
-		return nil, fmt.Errorf("%s is not an Array", keys)
+		return nil, ErrInvalidJsonArray // fmt.Errorf("%s is not an Array", keys)
 	}
 	return arr.GetAt(i)
 }
 
 func (this *JSONArray) GetArray(keys ...string) ([]JSONObject, error) {
 	if len(keys) > 0 {
-		return make([]JSONObject, 0), fmt.Errorf("Out of key range: %s", keys)
+		return make([]JSONObject, 0), ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	return this.data, nil
 }
@@ -286,7 +301,7 @@ func (this *JSONArray) GetArray(keys ...string) ([]JSONObject, error) {
 func (this *JSONDict) GetArray(keys ...string) ([]JSONObject, error) {
 	obj, err := this.Get(keys...)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Get")
 	}
 	return obj.GetArray()
 	/* arr, ok := obj.(*JSONArray)
@@ -298,7 +313,7 @@ func (this *JSONDict) GetArray(keys ...string) ([]JSONObject, error) {
 
 func _getarray(obj JSONObject, keys ...string) ([]JSONObject, error) {
 	if len(keys) > 0 {
-		return nil, fmt.Errorf("Out of key range: %s", keys)
+		return nil, ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	return []JSONObject{obj}, nil
 }
@@ -321,18 +336,18 @@ func (this *JSONBool) GetArray(keys ...string) ([]JSONObject, error) {
 
 func (this *JSONInt) Int(keys ...string) (int64, error) {
 	if len(keys) > 0 {
-		return 0, fmt.Errorf("Out of key range: %s", keys)
+		return 0, ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	return this.data, nil
 }
 
 func (this *JSONString) Int(keys ...string) (int64, error) {
 	if len(keys) > 0 {
-		return 0, fmt.Errorf("Out of key range: %s", keys)
+		return 0, ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	val, e := strconv.ParseInt(this.data, 10, 64)
 	if e != nil {
-		return 0, fmt.Errorf("Invalid number %s", this.data)
+		return 0, ErrInvalidJsonInt // fmt.Errorf("Invalid number %s", this.data)
 	} else {
 		return val, nil
 	}
@@ -340,7 +355,7 @@ func (this *JSONString) Int(keys ...string) (int64, error) {
 
 func (this *JSONInt) GetString(keys ...string) (string, error) {
 	if len(keys) > 0 {
-		return "", fmt.Errorf("Out of key range: %s", keys)
+		return "", ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	return this.String(), nil
 }
@@ -348,7 +363,7 @@ func (this *JSONInt) GetString(keys ...string) (string, error) {
 func (this *JSONDict) Int(keys ...string) (int64, error) {
 	obj, err := this.Get(keys...)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "Get")
 	}
 	return obj.Int()
 	/* jint, ok := obj.(*JSONInt)
@@ -360,18 +375,18 @@ func (this *JSONDict) Int(keys ...string) (int64, error) {
 
 func (this *JSONFloat) Float(keys ...string) (float64, error) {
 	if len(keys) > 0 {
-		return 0.0, fmt.Errorf("Out of key range: %s", keys)
+		return 0.0, ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	return this.data, nil
 }
 
 func (this *JSONString) Float(keys ...string) (float64, error) {
 	if len(keys) > 0 {
-		return 0.0, fmt.Errorf("Out of key range: %s", keys)
+		return 0.0, ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	val, err := strconv.ParseFloat(this.data, 64)
 	if err != nil {
-		return 0.0, fmt.Errorf("Not a float %s", this.data)
+		return 0.0, ErrInvalidJsonFloat // fmt.Errorf("Not a float %s", this.data)
 	} else {
 		return val, nil
 	}
@@ -379,7 +394,7 @@ func (this *JSONString) Float(keys ...string) (float64, error) {
 
 func (this *JSONFloat) GetString(keys ...string) (string, error) {
 	if len(keys) > 0 {
-		return "", fmt.Errorf("Out of key range: %s", keys)
+		return "", ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	return this.String(), nil
 }
@@ -387,7 +402,7 @@ func (this *JSONFloat) GetString(keys ...string) (string, error) {
 func (this *JSONDict) Float(keys ...string) (float64, error) {
 	obj, err := this.Get(keys...)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "Get")
 	}
 	return obj.Float()
 	/* jfloat, ok := obj.(*JSONFloat)
@@ -399,27 +414,27 @@ func (this *JSONDict) Float(keys ...string) (float64, error) {
 
 func (this *JSONBool) Bool(keys ...string) (bool, error) {
 	if len(keys) > 0 {
-		return false, fmt.Errorf("Out of key range: %s", keys)
+		return false, ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	return this.data, nil
 }
 
 func (this *JSONString) Bool(keys ...string) (bool, error) {
 	if len(keys) > 0 {
-		return false, fmt.Errorf("Out of key range: %s", keys)
+		return false, ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	if strings.EqualFold(this.data, "true") || strings.EqualFold(this.data, "on") || strings.EqualFold(this.data, "yes") || this.data == "1" {
 		return true, nil
 	} else if strings.EqualFold(this.data, "false") || strings.EqualFold(this.data, "off") || strings.EqualFold(this.data, "no") || this.data == "0" {
 		return false, nil
 	} else {
-		return false, fmt.Errorf("Invalid boolean string %s", this.data)
+		return false, ErrInvalidJsonBoolean // fmt.Errorf("Invalid boolean string %s", this.data)
 	}
 }
 
 func (this *JSONBool) GetString(keys ...string) (string, error) {
 	if len(keys) > 0 {
-		return "", fmt.Errorf("Out of key range: %s", keys)
+		return "", ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	return this.String(), nil
 }
@@ -427,7 +442,7 @@ func (this *JSONBool) GetString(keys ...string) (string, error) {
 func (this *JSONDict) Bool(keys ...string) (bool, error) {
 	obj, err := this.Get(keys...)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "Get")
 	}
 	return obj.Bool()
 	/* jbool, ok := obj.(*JSONBool)
@@ -438,12 +453,12 @@ func (this *JSONDict) Bool(keys ...string) (bool, error) {
 }
 
 func (this *JSONValue) GetTime(keys ...string) (time.Time, error) {
-	return time.Time{}, fmt.Errorf("Unsupported operation GetTime")
+	return time.Time{}, ErrUnsupported // fmt.Errorf("Unsupported operation GetTime")
 }
 
 func (this *JSONString) GetTime(keys ...string) (time.Time, error) {
 	if len(keys) > 0 {
-		return time.Time{}, fmt.Errorf("Out of key range: %s", keys)
+		return time.Time{}, ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	t, e := timeutils.ParseTimeStr(this.data)
 	if e == nil {
@@ -462,7 +477,7 @@ func (this *JSONString) GetTime(keys ...string) (time.Time, error) {
 
 func (this *JSONString) GetString(keys ...string) (string, error) {
 	if len(keys) > 0 {
-		return "", fmt.Errorf("Out of key range: %s", keys)
+		return "", ErrOutOfKeyRange // fmt.Errorf("Out of key range: %s", keys)
 	}
 	return this.data, nil
 }
@@ -470,11 +485,11 @@ func (this *JSONString) GetString(keys ...string) (string, error) {
 func (this *JSONDict) GetTime(keys ...string) (time.Time, error) {
 	obj, err := this.Get(keys...)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, errors.Wrap(err, "Get")
 	}
 	str, ok := obj.(*JSONString)
 	if !ok {
-		return time.Time{}, fmt.Errorf("%s is not a string", keys)
+		return time.Time{}, ErrInvalidJsonString // fmt.Errorf("%s is not a string", keys)
 	}
 	return str.GetTime()
 }
