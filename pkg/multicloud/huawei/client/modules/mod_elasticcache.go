@@ -17,11 +17,17 @@ package modules
 import (
 	"fmt"
 
+	"yunion.io/x/jsonutils"
+
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/auth"
 	"yunion.io/x/onecloud/pkg/multicloud/huawei/client/responses"
 )
 
 type SElasticcacheManager struct {
+	SResourceManager
+}
+
+type SDcsAvailableZoneManager struct {
 	SResourceManager
 }
 
@@ -63,4 +69,49 @@ func (self *SElasticcacheManager) ListParameters(queries map[string]string) (*re
 
 	delete(queries, "instance_id")
 	return self.ListInContextWithSpec(nil, spec, queries, "redis_config")
+}
+
+func (self *SElasticcacheManager) Restart(instanceId string) (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewArray(jsonutils.NewString(instanceId)), "instances")
+	params.Add(jsonutils.NewString("restart"), "action")
+	return self.UpdateInContextWithSpec(nil, "", "status", params, "")
+}
+
+// 当前版本，只有DCS2.0实例支持清空数据功能，即flush操作。
+func (self *SElasticcacheManager) Flush(instanceId string) (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewArray(jsonutils.NewString(instanceId)), "instances")
+	params.Add(jsonutils.NewString("flush"), "action")
+	return self.UpdateInContextWithSpec(nil, "", "status", params, "")
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423034.html
+func (self *SElasticcacheManager) RestoreInstance(instanceId string, backupId string) (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Add(jsonutils.NewArray(jsonutils.NewString(backupId)), "backup_id")
+
+	return self.CreateInContextWithSpec(nil, fmt.Sprintf("%s/restores", instanceId), params, "")
+}
+
+// https://support.huaweicloud.com/api-dcs/dcs-zh-api-180423024.html
+func (self *SElasticcacheManager) ChangeInstanceSpec(instanceId string, newCapacity string) (jsonutils.JSONObject, error) {
+	params := jsonutils.NewDict()
+	params.Set("new_capacity", jsonutils.NewString(newCapacity))
+
+	return self.CreateInContextWithSpec(nil, fmt.Sprintf("%s/extend", instanceId), params, "")
+}
+
+func NewDcsAvailableZoneManager(regionId string, signer auth.Signer, debug bool) *SDcsAvailableZoneManager {
+	return &SDcsAvailableZoneManager{SResourceManager: SResourceManager{
+		SBaseManager:  NewBaseManager(signer, debug),
+		ServiceName:   ServiceNameDCS,
+		Region:        regionId,
+		ProjectId:     "",
+		version:       "v1.0",
+		Keyword:       "available_zone",
+		KeywordPlural: "available_zones",
+
+		ResourceKeyword: "availableZones",
+	}}
 }

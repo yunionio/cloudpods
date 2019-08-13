@@ -1,16 +1,16 @@
 post:
   summary: 物理机删除网卡
-  parameters: 
+  parameters:
     - $ref: "../parameters/host.yaml#/hostId"
     - in: body
       name: host
       required: true
       schema:
-        $ref: '../schemas/host.yaml#/HostRemoveNetif'
+        $ref: "../schemas/host.yaml#/HostRemoveNetif"
   responses:
     200:
       description: 宿主机信息
       schema:
-        $ref: "../schemas/host.yaml#HostResponse"
+        $ref: "../schemas/host.yaml#/HostResponse"
   tags:
     - host

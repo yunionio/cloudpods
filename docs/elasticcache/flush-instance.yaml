@@ -1,0 +1,9 @@
+post:
+  summary: 清空ElasticCache实例
+  responses:
+    200:
+      description: ElasticCache实例信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheResponse"
+  tags:
+    - elasticcache

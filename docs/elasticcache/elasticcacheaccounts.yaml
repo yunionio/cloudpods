@@ -1,0 +1,30 @@
+get:
+  summary: 按指定条件列出ElasticCache实例用户列表
+  parameters:
+    - $ref: "../parameters/common.yaml#/limit"
+    - $ref: "../parameters/common.yaml#/offset"
+    - $ref: "../parameters/elasticcache.yaml#/elasticcache_id"
+
+  responses:
+    200:
+      description: ElasticCache实例用户列表信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheAccountListResponse"
+  tags:
+    - elasticcacheaccount
+
+post:
+  summary: 创建ElasticCache实例管理账号
+  parameters:
+    - in: body
+      name: elasticcacheaccount
+      required: true
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheAccountCreate"
+  responses:
+    200:
+      description: 新创建的ElasticCache实例账号信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheAccountResponse"
+  tags:
+    - elasticcacheaccount

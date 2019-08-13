@@ -1,0 +1,9 @@
+post:
+  summary: 释放ElasticCache实例公网访问地址
+  responses:
+    200:
+      description: ElasticCache实例信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheResponse"
+  tags:
+    - elasticcache

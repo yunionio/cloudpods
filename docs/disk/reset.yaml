@@ -1,17 +1,17 @@
 post:
   summary: 回滚磁盘到指定快照
-  parameters: 
+  parameters:
     - $ref: "../parameters/disk.yaml#/diskId"
     - in: body
       name: disk
       required: true
       schema:
-        $ref: '../schemas/disk.yaml#/DiskReset'
+        $ref: "../schemas/disk.yaml#/DiskReset"
   responses:
     200:
       description: 磁盘信息
       schema:
-        $ref: "../schemas/disk.yaml#DiskResponse"
+        $ref: "../schemas/disk.yaml#/DiskResponse"
 
   tags:
     - disk

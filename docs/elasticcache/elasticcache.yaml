@@ -1,0 +1,23 @@
+get:
+  summary: 获取指定ElasticCache实例详情信息
+  parameters:
+    - $ref: "../parameters/elasticcache.yaml#/elasticcacheId"
+  responses:
+    200:
+      description: ElasticCache实例信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheResponse"
+  tags:
+    - elasticcache
+
+delete:
+  summary: 删除指定ElasticCache实例
+  parameters:
+    - $ref: "../parameters/elasticcache.yaml#/elasticcacheId"
+  responses:
+    200:
+      description: 被删除ElasticCache实例的信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheResponse"
+  tags:
+    - elasticcache

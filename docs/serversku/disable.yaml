@@ -1,12 +1,12 @@
 post:
   summary: 禁用实例套餐
-  parameters: 
+  parameters:
     - $ref: "../parameters/serversku.yaml#/serverskuId"
   responses:
     200:
       description: 禁用的实例套餐信息
       schema:
-        $ref: "../schemas/serversku.yaml#ServerSkuResponse"
+        $ref: "../schemas/serversku.yaml#/ServerSkuResponse"
 
   tags:
     - serverskus

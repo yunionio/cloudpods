@@ -134,6 +134,7 @@ func InitHandlers(app *appsrv.Application) {
 		models.ElasticcacheAccountManager,
 		models.ElasticcacheParameterManager,
 		models.ElasticcacheBackupManager,
+		models.ElasticcacheSkuManager,
 	} {
 		db.RegisterModelManager(manager)
 		handler := db.NewModelHandler(manager)

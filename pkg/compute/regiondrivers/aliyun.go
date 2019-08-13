@@ -40,6 +40,7 @@ import (
 	"yunion.io/x/onecloud/pkg/util/billing"
 	"yunion.io/x/onecloud/pkg/util/choices"
 	"yunion.io/x/onecloud/pkg/util/rand"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 type SAliyunRegionDriver struct {
@@ -1171,4 +1172,362 @@ func (self *SAliyunRegionDriver) ValidateDBInstanceAccountPrivilege(ctx context.
 		return httperrors.NewInputParameterError("Unknown privilege %s", privilege)
 	}
 	return nil
+}
+
+func (self *SAliyunRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	zoneV := validators.NewModelIdOrNameValidator("zone", "zone", ownerId)
+	networkV := validators.NewModelIdOrNameValidator("network", "network", ownerId)
+
+	// billing cycle
+	billingTypeV := validators.NewStringChoicesValidator("billing_type", choices.NewChoices(billing_api.BILLING_TYPE_PREPAID, billing_api.BILLING_TYPE_POSTPAID))
+	networkTypeV := validators.NewStringChoicesValidator("network_type", choices.NewChoices(api.LB_NETWORK_TYPE_VPC, api.LB_NETWORK_TYPE_CLASSIC)).Default(api.LB_NETWORK_TYPE_VPC).Optional(true)
+	engineV := validators.NewStringChoicesValidator("engine", choices.NewChoices("redis", "memcache"))
+	engineVersionV := validators.NewStringChoicesValidator("engine_version", choices.NewChoices("2.8", "4.0", "5.0"))
+	privateIpV := validators.NewIPv4AddrValidator("private_ip").Optional(true)
+
+	keyV := map[string]validators.IValidator{
+		"zone":           zoneV,
+		"billing_type":   billingTypeV,
+		"network_type":   networkTypeV,
+		"network":        networkV,
+		"engine":         engineV,
+		"engine_version": engineVersionV,
+		"private_ip":     privateIpV,
+	}
+	if err := RunValidators(keyV, data, false); err != nil {
+		return nil, err
+	}
+
+	// validate password
+	if password, _ := data.GetString("password"); len(password) > 0 {
+		if !seclib2.MeetComplxity(password) {
+			return nil, httperrors.NewWeakPasswordError()
+		}
+	}
+
+	// validate sku
+	billingType, _ := data.GetString("billing_type")
+	zone := zoneV.Model.(*models.SZone)
+	if sku, err := data.GetString("instance_type"); err != nil || len(sku) == 0 {
+		return nil, httperrors.NewMissingParameterError("instance_type")
+	} else {
+		_skuModel, err := db.FetchByIdOrName(models.ElasticcacheSkuManager, userCred, sku)
+		if err != nil {
+			return nil, err
+		}
+
+		skuModel := _skuModel.(*models.SElasticcacheSku)
+		if err := ValidateElasticcacheSku(zone.Id, billingType, skuModel); err != nil {
+			return nil, err
+		} else {
+			data.Set("instance_type", jsonutils.NewString(skuModel.InstanceSpec))
+			data.Set("node_type", jsonutils.NewString(skuModel.NodeType))
+			data.Set("local_category", jsonutils.NewString(skuModel.LocalCategory))
+		}
+	}
+
+	// billing cycle
+	if billingType == billing_api.BILLING_TYPE_PREPAID {
+		billingCycle, err := data.GetString("billing_cycle")
+		if err != nil {
+			return nil, httperrors.NewMissingParameterError("billing_cycle")
+		}
+
+		cycle, err := billing.ParseBillingCycle(billingCycle)
+		if err != nil {
+			return nil, httperrors.NewInputParameterError("invalid billing_cycle %s", billingCycle)
+		}
+
+		data.Set("billing_cycle", jsonutils.NewString(cycle.String()))
+	}
+
+	network := networkV.Model.(*models.SNetwork)
+	vpc := network.GetVpc()
+	if vpc == nil {
+		return nil, httperrors.NewNotFoundError("network %s related vpc not found", network.GetId())
+	}
+	data.Set("vpc_id", jsonutils.NewString(vpc.Id))
+	data.Set("manager_id", jsonutils.NewString(vpc.ManagerId))
+	data.Set("cloudregion_id", jsonutils.NewString(zone.GetCloudRegionId()))
+	return data, nil
+}
+
+func (self *SAliyunRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		iRegion, err := ec.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetIRegion")
+		}
+
+		iprovider, err := db.FetchById(models.CloudproviderManager, ec.ManagerId)
+		if err != nil {
+			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetProvider")
+		}
+
+		provider := iprovider.(*models.SCloudprovider)
+
+		params, err := ec.GetCreateAliyunElasticcacheParams()
+		if err != nil {
+			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetCreateAliyunElasticcacheParams")
+		}
+
+		iec, err := iRegion.CreateIElasticcaches(params)
+		if err != nil {
+			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.CreateIElasticcaches")
+		}
+
+		err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 30*time.Second, 15*time.Second, 600*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.WaitStatusWithDelay")
+		}
+
+		ec.SetModelManager(models.ElasticcacheManager, ec)
+		if err := db.SetExternalId(ec, userCred, iec.GetGlobalId()); err != nil {
+			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.SetExternalId")
+		}
+
+		{
+			// todo: 开启外网访问
+		}
+
+		if err := ec.SyncWithCloudElasticcache(ctx, userCred, provider, iec); err != nil {
+			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.SyncWithCloudElasticcache")
+		}
+
+		// sync accounts
+		{
+			iaccounts, err := iec.GetICloudElasticcacheAccounts()
+			if err != nil {
+				return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetICloudElasticcacheAccounts")
+			}
+
+			result := models.ElasticcacheAccountManager.SyncElasticcacheAccounts(ctx, userCred, ec, iaccounts)
+			log.Debugf("aliyunRegionDriver.CreateElasticcache.SyncElasticcacheAccounts %s", result.Result())
+
+			account, err := ec.GetAdminAccount()
+			if err != nil {
+				return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetAdminAccount")
+			}
+
+			err = account.SavePassword(params.Password)
+			if err != nil {
+				return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.SavePassword")
+			}
+		}
+
+		// sync acl
+		{
+			iacls, err := iec.GetICloudElasticcacheAcls()
+			if err != nil {
+				return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetICloudElasticcacheAcls")
+			}
+
+			result := models.ElasticcacheAclManager.SyncElasticcacheAcls(ctx, userCred, ec, iacls)
+			log.Debugf("aliyunRegionDriver.CreateElasticcache.SyncElasticcacheAcls %s", result.Result())
+		}
+
+		// sync parameters
+		{
+			iparams, err := iec.GetICloudElasticcacheParameters()
+			if err != nil {
+				return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcache.GetICloudElasticcacheParameters")
+			}
+
+			result := models.ElasticcacheParameterManager.SyncElasticcacheParameters(ctx, userCred, ec, iparams)
+			log.Debugf("aliyunRegionDriver.CreateElasticcache.SyncElasticcacheParameters %s", result.Result())
+		}
+
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SAliyunRegionDriver) ValidateCreateElasticcacheAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	elasticCacheV := validators.NewModelIdOrNameValidator("elasticcache", "elasticcache", ownerId)
+	accountTypeV := validators.NewStringChoicesValidator("account_type", choices.NewChoices("normal", "admin")).Default("normal")
+	accountPrivilegeV := validators.NewStringChoicesValidator("account_privilege", choices.NewChoices("read", "write", "repl"))
+
+	keyV := map[string]validators.IValidator{
+		"elasticcache":      elasticCacheV,
+		"account_type":      accountTypeV,
+		"account_privilege": accountPrivilegeV.Default("read"),
+	}
+
+	for _, v := range keyV {
+		if err := v.Validate(data); err != nil {
+			return nil, err
+		}
+	}
+
+	passwd, _ := data.GetString("password")
+	if !seclib2.MeetComplxity(passwd) {
+		return nil, httperrors.NewWeakPasswordError()
+	}
+
+	if accountPrivilegeV.Value == "repl" && elasticCacheV.Model.(*models.SElasticcache).EngineVersion != "4.0" {
+		return nil, httperrors.NewInputParameterError("account_privilege %s only support redis version 4.0")
+	}
+
+	return data, nil
+}
+
+func (self *SAliyunRegionDriver) RequestCreateElasticcacheAccount(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		_ec, err := db.FetchById(models.ElasticcacheManager, ea.ElasticcacheId)
+		if err != nil {
+			return nil, errors.Wrap(nil, "aliyunRegionDriver.CreateElasticcacheAccount.GetElasticcache")
+		}
+
+		ec := _ec.(*models.SElasticcache)
+		iregion, err := ec.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(nil, "aliyunRegionDriver.CreateElasticcacheAccount.GetIRegion")
+		}
+
+		params, err := ea.GetCreateAliyunElasticcacheAccountParams()
+		if err != nil {
+			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcacheAccount.GetCreateAliyunElasticcacheAccountParams")
+		}
+
+		iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
+		if err != nil {
+			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcacheAccount.GetIElasticcacheById")
+		}
+
+		iea, err := iec.CreateAccount(params)
+		if err != nil {
+			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcacheAccount.CreateAccount")
+		}
+
+		ea.SetModelManager(models.ElasticcacheAccountManager, ea)
+		if err := db.SetExternalId(ea, userCred, iea.GetGlobalId()); err != nil {
+			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcacheAccount.SetExternalId")
+		}
+
+		if err := ea.SyncWithCloudElasticcacheAccount(ctx, userCred, iea); err != nil {
+			return nil, errors.Wrap(err, "aliyunRegionDriver.CreateElasticcacheAccount.SyncWithCloudElasticcache")
+		}
+
+		return nil, nil
+	})
+
+	return nil
+}
+
+func (self *SAliyunRegionDriver) RequestCreateElasticcacheBackup(ctx context.Context, userCred mcclient.TokenCredential, eb *models.SElasticcacheBackup, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		_ec, err := db.FetchById(models.ElasticcacheManager, eb.ElasticcacheId)
+		if err != nil {
+			return nil, errors.Wrap(nil, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.GetElasticcache")
+		}
+
+		ec := _ec.(*models.SElasticcache)
+		iregion, err := ec.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(nil, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.GetIRegion")
+		}
+
+		iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
+		if err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.GetIElasticcacheById")
+		}
+
+		oBackups, err := iec.GetICloudElasticcacheBackups()
+		if err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.GetICloudElasticcacheBackups")
+		}
+
+		backupIds := []string{}
+		for i := range oBackups {
+			backupIds = append(backupIds, oBackups[i].GetGlobalId())
+		}
+
+		_, err = iec.CreateBackup()
+		if err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.CreateBackup")
+		}
+
+		var ieb cloudprovider.ICloudElasticcacheBackup
+		cloudprovider.Wait(30*time.Second, 1800*time.Second, func() (b bool, e error) {
+			backups, err := iec.GetICloudElasticcacheBackups()
+			if err != nil {
+				return false, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.WaitCreated")
+			}
+
+			for i := range backups {
+				if !utils.IsInStringArray(backups[i].GetGlobalId(), backupIds) && backups[i].GetStatus() == api.ELASTIC_CACHE_BACKUP_STATUS_SUCCESS {
+					ieb = backups[i]
+					return true, nil
+				}
+			}
+
+			return false, nil
+		})
+
+		eb.SetModelManager(models.ElasticcacheBackupManager, eb)
+		if err := db.SetExternalId(eb, userCred, ieb.GetGlobalId()); err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.SetExternalId")
+		}
+
+		if err := eb.SyncWithCloudElasticcacheBackup(ctx, userCred, ieb); err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.SyncWithCloudElasticcacheBackup")
+		}
+
+		return nil, nil
+	})
+	return nil
+}
+
+func (self *SAliyunRegionDriver) RequestElasticcacheAccountResetPassword(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {
+	iregion, err := ea.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "aliyunRegionDriver.RequestElasticcacheAccountResetPassword.GetIRegion")
+	}
+
+	_ec, err := db.FetchById(models.ElasticcacheManager, ea.ElasticcacheId)
+	if err != nil {
+		return errors.Wrap(err, "aliyunRegionDriver.RequestElasticcacheAccountResetPassword.FetchById")
+	}
+
+	ec := _ec.(*models.SElasticcache)
+	iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
+	if err == cloudprovider.ErrNotFound {
+		return nil
+	} else if err != nil {
+		return errors.Wrap(err, "aliyunRegionDriver.RequestElasticcacheAccountResetPassword.GetIElasticcacheById")
+	}
+
+	iea, err := iec.GetICloudElasticcacheAccount(ea.GetExternalId())
+	if err != nil {
+		return errors.Wrap(err, "aliyunRegionDriver.RequestElasticcacheAccountResetPassword.GetICloudElasticcacheBackup")
+	}
+
+	data := task.GetParams()
+	if data == nil {
+		return errors.Wrap(fmt.Errorf("data is nil"), "aliyunRegionDriver.RequestElasticcacheAccountResetPassword.GetParams")
+	}
+
+	input, err := ea.GetUpdateAliyunElasticcacheAccountParams(*data)
+	if err != nil {
+		return errors.Wrap(err, "aliyunRegionDriver.RequestElasticcacheAccountResetPassword.GetUpdateAliyunElasticcacheAccountParams")
+	}
+
+	err = iea.UpdateAccount(input)
+	if err != nil {
+		return errors.Wrap(err, "aliyunRegionDriver.RequestElasticcacheAccountResetPassword.UpdateAccount")
+	}
+
+	if input.Password != nil {
+		err = ea.SavePassword(*input.Password)
+		if err != nil {
+			return errors.Wrap(err, "aliyunRegionDriver.RequestElasticcacheAccountResetPassword.SavePassword")
+		}
+	}
+
+	err = cloudprovider.WaitStatusWithDelay(iea, api.ELASTIC_CACHE_ACCOUNT_STATUS_AVAILABLE, 10*time.Second, 5*time.Second, 60*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "aliyunRegionDriver.RequestElasticcacheAccountResetPassword.WaitStatusWithDelay")
+	}
+
+	return ea.SyncWithCloudElasticcacheAccount(ctx, userCred, iea)
 }

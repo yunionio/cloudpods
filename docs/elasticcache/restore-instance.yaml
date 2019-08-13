@@ -1,0 +1,9 @@
+post:
+  summary: ElasticCache实例备份恢复
+  responses:
+    200:
+      description: ElasticCache实例信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheBackupResponse"
+  tags:
+    - elasticcachebackup

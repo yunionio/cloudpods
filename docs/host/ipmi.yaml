@@ -1,11 +1,11 @@
 get:
   summary: 获取物理机IPMI信息
-  parameters: 
+  parameters:
     - $ref: "../parameters/host.yaml#/hostId"
   responses:
     200:
       description: ipmi信息
       schema:
-        $ref: "../schemas/host.yaml#HostIpmi"
+        $ref: "../schemas/host.yaml#/HostIpmi"
   tags:
     - host

@@ -1,0 +1,40 @@
+get:
+  summary: 获取指定ElasticCache实例参数详情信息
+  parameters:
+    - $ref: "../parameters/elasticcache.yaml#/parameterId"
+  responses:
+    200:
+      description: ElasticCache实例信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheParameterResponse"
+  tags:
+    - elasticcacheparameter
+
+put:
+  summary: 更新ElasticCache实例配置参数
+  parameters:
+    - $ref: "../parameters/elasticcache.yaml#/parameterId"
+    - in: body
+      name: elasticcacheparameter
+      required: true
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheParameterUpdate"
+  responses:
+    200:
+      description: ElasticCache实例配置参数信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheParameterResponse"
+  tags:
+    - elasticcacheparameter
+
+delete:
+  summary: 删除指定ElasticCache实例参数
+  parameters:
+    - $ref: "../parameters/elasticcache.yaml#/parameterId"
+  responses:
+    200:
+      description: 被删除ElasticCache实例的参数信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheParameterResponse"
+  tags:
+    - elasticcacheparameter

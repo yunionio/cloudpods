@@ -16,14 +16,24 @@ package models
 
 import (
 	"context"
+	"fmt"
 
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
+	"yunion.io/x/pkg/utils"
 
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
+	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
+	"yunion.io/x/onecloud/pkg/util/choices"
+	"yunion.io/x/onecloud/pkg/util/seclib2"
 )
 
 // SElasticcache.Account
@@ -51,8 +61,9 @@ type SElasticcacheAccount struct {
 
 	ElasticcacheId string `width:"36" charset:"ascii" nullable:"false" list:"user" create:"required" index:"true"` // elastic cache instance id
 
-	AccountType      string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // 账号类型 normal |admin
-	AccountPrivilege string `width:"16" charset:"ascii" nullable:"true" list:"user" update:"user" create:"optional"` // 账号权限 read | write
+	AccountType      string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"optional"` // 账号类型 normal |admin
+	AccountPrivilege string `width:"16" charset:"ascii" nullable:"false" list:"user" update:"user" create:"optional"` // 账号权限 read | write | repl（复制, 复制权限支持读写，且开放SYNC/PSYNC命令）
+	Password         string `width:"256" charset:"ascii" nullable:"false" list:"user" create:"optional"`              // 账号密码
 }
 
 func (manager *SElasticcacheAccountManager) SyncElasticcacheAccounts(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, cloudElasticcacheAccounts []cloudprovider.ICloudElasticcacheAccount) compare.SyncResult {
@@ -133,6 +144,15 @@ func (self *SElasticcacheAccount) SyncWithCloudElasticcacheAccount(ctx context.C
 	return nil
 }
 
+func (self *SElasticcacheAccount) GetRegion() *SCloudregion {
+	iec, err := db.FetchById(ElasticcacheManager, self.ElasticcacheId)
+	if err != nil {
+		return nil
+	}
+
+	return iec.(*SElasticcache).GetRegion()
+}
+
 func (manager *SElasticcacheAccountManager) newFromCloudElasticcacheAccount(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *SElasticcache, extAccount cloudprovider.ICloudElasticcacheAccount) (*SElasticcacheAccount, error) {
 	lockman.LockClass(ctx, manager, db.GetLockClassKey(manager, userCred))
 	defer lockman.ReleaseClass(ctx, manager, db.GetLockClassKey(manager, userCred))
@@ -153,4 +173,223 @@ func (manager *SElasticcacheAccountManager) newFromCloudElasticcacheAccount(ctx 
 	}
 
 	return &account, nil
+}
+
+func (manager *SElasticcacheAccountManager) AllowCreateItem(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowCreate(userCred, manager)
+}
+
+func (manager *SElasticcacheAccountManager) ValidateCreateData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	var region *SCloudregion
+	if id, _ := data.GetString("elasticcache"); len(id) > 0 {
+		ec, err := db.FetchByIdOrName(ElasticcacheManager, userCred, id)
+		if err != nil {
+			return nil, fmt.Errorf("getting elastic cache instance failed")
+		}
+		region = ec.(*SElasticcache).GetRegion()
+	} else {
+		return nil, httperrors.NewMissingParameterError("elasticcache_id")
+	}
+
+	data, err := manager.SStatusStandaloneResourceBaseManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return region.GetDriver().ValidateCreateElasticcacheAccountData(ctx, userCred, ownerId, data)
+}
+
+func (self *SElasticcacheAccount) PostCreate(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, query jsonutils.JSONObject, data jsonutils.JSONObject) {
+	self.SStatusStandaloneResourceBase.PostCreate(ctx, userCred, ownerId, query, data)
+	if len(self.Password) > 0 {
+		self.SavePassword(self.Password)
+	}
+
+	self.SetStatus(userCred, api.ELASTIC_CACHE_ACCOUNT_STATUS_CREATING, "")
+	if err := self.StartElasticcacheAccountCreateTask(ctx, userCred, data.(*jsonutils.JSONDict), ""); err != nil {
+		log.Errorf("Failed to create elastic account cache error: %v", err)
+	}
+}
+
+func (self *SElasticcacheAccount) StartElasticcacheAccountCreateTask(ctx context.Context, userCred mcclient.TokenCredential, data *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheAccountCreateTask", self, userCred, jsonutils.NewDict(), parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SElasticcacheAccount) GetCreateAliyunElasticcacheAccountParams() (cloudprovider.SCloudElasticCacheAccountInput, error) {
+	ret := cloudprovider.SCloudElasticCacheAccountInput{}
+	ret.AccountName = self.Name
+	ret.Description = self.Description
+	passwd, err := self.GetDecodedPassword()
+	if err != nil {
+		return ret, err
+	}
+
+	ret.AccountPassword = passwd
+
+	switch self.AccountPrivilege {
+	case "read":
+		ret.AccountPrivilege = "RoleReadOnly"
+	case "write":
+		ret.AccountPrivilege = "RoleReadWrite"
+	case "repl":
+		ret.AccountPrivilege = "RoleRepl"
+	}
+
+	return ret, nil
+}
+
+func (self *SElasticcacheAccount) GetUpdateAliyunElasticcacheAccountParams(data jsonutils.JSONDict) (cloudprovider.SCloudElasticCacheAccountUpdateInput, error) {
+	ret := cloudprovider.SCloudElasticCacheAccountUpdateInput{}
+
+	if desc, _ := data.GetString("description"); len(desc) > 0 {
+		ret.Description = &desc
+	}
+
+	if password, _ := data.GetString("password"); len(password) > 0 {
+		ret.Password = &password
+	}
+
+	if ok := data.Contains("no_password_access"); ok {
+		passwordAccess, _ := data.Bool("no_password_access")
+		ret.NoPasswordAccess = &passwordAccess
+	}
+
+	if privilege, _ := data.GetString("account_privilege"); len(privilege) > 0 {
+		var p string
+		switch privilege {
+		case "read":
+			p = "RoleReadOnly"
+		case "write":
+			p = "RoleReadWrite"
+		case "repl":
+			p = "RoleRepl"
+		default:
+			return ret, fmt.Errorf("ElasticcacheAccount.GetUpdateAliyunElasticcacheAccountParams invalid account_privilege %s", privilege)
+		}
+
+		ret.AccountPrivilege = &p
+	}
+
+	return ret, nil
+}
+
+func (self *SElasticcacheAccount) GetUpdateHuaweiElasticcacheAccountParams(data jsonutils.JSONDict) (cloudprovider.SCloudElasticCacheAccountUpdateInput, error) {
+	ret := cloudprovider.SCloudElasticCacheAccountUpdateInput{}
+
+	if desc, _ := data.GetString("description"); len(desc) > 0 {
+		ret.Description = &desc
+	}
+
+	if password, _ := data.GetString("password"); len(password) > 0 {
+		ret.Password = &password
+		oldpasswd, err := self.GetDecodedPassword()
+		if err != nil {
+			return ret, err
+		}
+
+		ret.OldPassword = &oldpasswd
+	}
+
+	if ok := data.Contains("no_password_access"); ok {
+		passwordAccess, _ := data.Bool("no_password_access")
+		ret.NoPasswordAccess = &passwordAccess
+	}
+
+	return ret, nil
+}
+
+func (self *SElasticcacheAccount) SavePassword(passwd string) error {
+	passwd, err := utils.EncryptAESBase64(self.Id, passwd)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Update(self, func() error {
+		self.Password = passwd
+		return nil
+	})
+
+	return err
+}
+
+func (self *SElasticcacheAccount) GetDecodedPassword() (string, error) {
+	return utils.DescryptAESBase64(self.Id, self.Password)
+}
+
+func (self *SElasticcacheAccount) CustomizeDelete(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) error {
+	self.SetStatus(userCred, api.ELASTIC_CACHE_ACCOUNT_STATUS_DELETING, "")
+	return self.StartDeleteElasticcacheAccountTask(ctx, userCred, jsonutils.NewDict(), "")
+}
+
+func (self *SElasticcacheAccount) StartDeleteElasticcacheAccountTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheAccountDeleteTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+	task.ScheduleRun(nil)
+	return nil
+}
+
+func (self *SElasticcacheAccount) Delete(ctx context.Context, userCred mcclient.TokenCredential) error {
+	return nil
+}
+
+func (self *SElasticcacheAccount) GetIRegion() (cloudprovider.ICloudRegion, error) {
+	_ec, err := db.FetchById(ElasticcacheManager, self.ElasticcacheId)
+	if err != nil {
+		return nil, err
+	}
+
+	ec := _ec.(*SElasticcache)
+	provider, err := ec.GetDriver()
+	if err != nil {
+		return nil, fmt.Errorf("No cloudprovider for elastic cache %s: %s", ec.Name, err)
+	}
+	region := self.GetRegion()
+	if region == nil {
+		return nil, fmt.Errorf("failed to find region for elastic cache %s", self.Name)
+	}
+	return provider.GetIRegionById(region.ExternalId)
+}
+
+func (self *SElasticcacheAccount) AllowPerformResetPassword(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) bool {
+	return db.IsAdminAllowPerform(userCred, self, "reset_password")
+}
+
+func (self *SElasticcacheAccount) ValidatorResetPasswordData(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	passwd, err := data.GetString("password")
+	if err == nil && !seclib2.MeetComplxity(passwd) {
+		return nil, httperrors.NewWeakPasswordError()
+	}
+
+	privilegeV := validators.NewStringChoicesValidator("account_privilege", choices.NewChoices(api.ELASTIC_CACHE_ACCOUNT_PRIVILEGE_READ, api.ELASTIC_CACHE_ACCOUNT_PRIVILEGE_WRITE, api.ELASTIC_CACHE_ACCOUNT_PRIVILEGE_REPL)).Optional(true)
+	if err := privilegeV.Validate(data.(*jsonutils.JSONDict)); err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func (self *SElasticcacheAccount) PerformResetPassword(ctx context.Context, userCred mcclient.TokenCredential, query jsonutils.JSONObject, data jsonutils.JSONObject) (jsonutils.JSONObject, error) {
+	self.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_CHANGING, "")
+	data, err := self.ValidatorResetPasswordData(ctx, userCred, query, data)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, self.StartResetPasswordTask(ctx, userCred, data.(*jsonutils.JSONDict), "")
+}
+
+func (self *SElasticcacheAccount) StartResetPasswordTask(ctx context.Context, userCred mcclient.TokenCredential, params *jsonutils.JSONDict, parentTaskId string) error {
+	task, err := taskman.TaskManager.NewTask(ctx, "ElasticcacheAccountResetPasswordTask", self, userCred, params, parentTaskId, "", nil)
+	if err != nil {
+		return err
+	}
+
+	task.ScheduleRun(nil)
+	return nil
 }

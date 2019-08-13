@@ -1,12 +1,12 @@
 post:
   summary: 禁用云账号
-  parameters: 
+  parameters:
     - $ref: "../parameters/cloudaccount.yaml#/cloudaccountId"
   responses:
     200:
       description: 禁用的云账号信息
       schema:
-        $ref: "../schemas/cloudaccount.yaml#CloudaccountResponse"
+        $ref: "../schemas/cloudaccount.yaml#/CloudaccountResponse"
 
   tags:
     - cloudaccount
