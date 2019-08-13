@@ -104,9 +104,11 @@ func NewAzureClient(providerId string, providerName string, envName, tenantId, c
 	if err != nil {
 		return nil, errors.Wrap(err, "fetchRegions")
 	}
-	err = client.fetchBuckets()
-	if err != nil {
-		return nil, errors.Wrap(err, "fetchBuckets")
+	if len(subscriptionId) > 0 {
+		err = client.fetchBuckets()
+		if err != nil {
+			return nil, errors.Wrap(err, "fetchBuckets")
+		}
 	}
 	return &client, nil
 }
@@ -903,10 +905,10 @@ func (self *SAzureClient) GetIProjects() ([]cloudprovider.ICloudProject, error) 
 	return iprojects, nil
 }
 
-func (self *SAzureClient) GetStorageClasses(regionId string) ([]string, error) {
-	iRegion, err := self.GetIRegionById(regionId)
+func (self *SAzureClient) GetStorageClasses(regionExtId string) ([]string, error) {
+	iRegion, err := self.GetIRegionById(regionExtId)
 	if err != nil {
-		return nil, errors.Wrap(err, "getDefaultRegion")
+		return nil, errors.Wrap(err, "self.GetIRegionById")
 	}
 	skus, err := iRegion.(*SRegion).GetStorageAccountSkus()
 	if err != nil {

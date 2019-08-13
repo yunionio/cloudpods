@@ -525,7 +525,7 @@ func (client *SQcloudClient) verifyAppId() error {
 		return errors.Wrap(err, "getDefaultRegion")
 	}
 	bucket := SBucket{
-		region: region.(*SRegion),
+		region: region,
 		Name:   "yuniondocument",
 	}
 	cli, err := client.getCosClient(&bucket)
@@ -602,11 +602,12 @@ func (client *SQcloudClient) GetIRegions() []cloudprovider.ICloudRegion {
 	return client.iregions
 }
 
-func (client *SQcloudClient) getDefaultRegion() (cloudprovider.ICloudRegion, error) {
-	if len(client.iregions) > 0 {
-		return client.iregions[0], nil
+func (client *SQcloudClient) getDefaultRegion() (*SRegion, error) {
+	iregion, err := client.getIRegionByRegionId(QCLOUD_DEFAULT_REGION)
+	if err != nil {
+		return nil, errors.Wrap(err, "getIRegionByRegionId")
 	}
-	return nil, cloudprovider.ErrNotFound
+	return iregion.(*SRegion), nil
 }
 
 func (client *SQcloudClient) getIRegionByRegionId(id string) (cloudprovider.ICloudRegion, error) {
