@@ -127,6 +127,7 @@ func (self *SAwsClient) UpdateAccount(accessKey, secret string) error {
 	if self.accessKey != accessKey || self.secret != secret {
 		self.accessKey = accessKey
 		self.secret = secret
+		self.iregions = nil
 		return self.fetchRegions()
 	} else {
 		return nil
@@ -135,6 +136,9 @@ func (self *SAwsClient) UpdateAccount(accessKey, secret string) error {
 
 // 用于初始化region信息
 func (self *SAwsClient) fetchRegions() error {
+	if self.iregions != nil {
+		return nil
+	}
 	s, err := self.getDefaultSession()
 	if err != nil {
 		return err
@@ -148,9 +152,9 @@ func (self *SAwsClient) fetchRegions() error {
 
 	regions := make([]SRegion, 0)
 	// empty iregions
-	if self.iregions != nil {
-		self.iregions = self.iregions[:0]
-	}
+	// if self.iregions != nil {
+	// 	self.iregions = self.iregions[:0]
+	// }
 
 	for _, region := range result.Regions {
 		name := *region.RegionName

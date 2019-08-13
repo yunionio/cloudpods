@@ -23,11 +23,12 @@ import (
 
 	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
+	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/pkg/util/timeutils"
 	"yunion.io/x/sqlchemy"
 
-	"yunion.io/x/onecloud/pkg/apis/compute"
+	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/httperrors"
 	"yunion.io/x/onecloud/pkg/mcclient"
@@ -213,7 +214,7 @@ func (manager *SCloudproviderregionManager) FetchByIdsOrCreate(providerId string
 	cpr.CloudproviderId = providerId
 	cpr.CloudregionId = regionId
 	cpr.Enabled = true
-	cpr.SyncStatus = compute.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+	cpr.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 
 	err := manager.TableSpec().Insert(cpr)
 	if err != nil {
@@ -228,7 +229,7 @@ func (self *SCloudproviderregion) markStartingSync(userCred mcclient.TokenCreden
 		return fmt.Errorf("Cloudprovider(%s)region(%s) disabled", self.CloudproviderId, self.CloudregionId)
 	}
 	_, err := db.Update(self, func() error {
-		self.SyncStatus = compute.CLOUD_PROVIDER_SYNC_STATUS_QUEUING
+		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_QUEUING
 		return nil
 	})
 	if err != nil {
@@ -243,7 +244,7 @@ func (self *SCloudproviderregion) markStartSync(userCred mcclient.TokenCredentia
 		return fmt.Errorf("Cloudprovider(%s)region(%s) disabled", self.CloudproviderId, self.CloudregionId)
 	}
 	_, err := db.Update(self, func() error {
-		self.SyncStatus = compute.CLOUD_PROVIDER_SYNC_STATUS_QUEUED
+		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_QUEUED
 		return nil
 	})
 	if err != nil {
@@ -258,7 +259,7 @@ func (self *SCloudproviderregion) markSyncing(userCred mcclient.TokenCredential)
 		return fmt.Errorf("Cloudprovider(%s)region(%s) disabled", self.CloudproviderId, self.CloudregionId)
 	}
 	_, err := db.Update(self, func() error {
-		self.SyncStatus = compute.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
+		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_SYNCING
 		self.LastSync = timeutils.UtcNow()
 		self.LastSyncEndAt = time.Time{}
 		return nil
@@ -285,7 +286,7 @@ func (self *SCloudproviderregion) markEndSync(ctx context.Context, userCred mccl
 
 func (self *SCloudproviderregion) markEndSyncInternal(userCred mcclient.TokenCredential, syncResults SSyncResultSet, deepSync *bool) error {
 	_, err := db.Update(self, func() error {
-		self.SyncStatus = compute.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+		self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
 		self.LastSyncEndAt = timeutils.UtcNow()
 		self.SyncResults = jsonutils.Marshal(syncResults)
 		if *deepSync {
@@ -296,6 +297,19 @@ func (self *SCloudproviderregion) markEndSyncInternal(userCred mcclient.TokenCre
 	if err != nil {
 		log.Errorf("Failed to markEndSyncInternal error: %v", err)
 		return err
+	}
+	return nil
+}
+
+func (self *SCloudproviderregion) cancelStartingSync(userCred mcclient.TokenCredential) error {
+	if self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_QUEUING {
+		_, err := db.Update(self, func() error {
+			self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "db.Update")
+		}
 	}
 	return nil
 }
