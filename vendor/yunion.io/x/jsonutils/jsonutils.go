@@ -1,3 +1,17 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package jsonutils
 
 import (
@@ -10,33 +24,10 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/pkg/errors"
+
 	"yunion.io/x/pkg/gotypes"
 )
-
-type JSONError struct {
-	pos    int
-	substr string
-	msg    string
-}
-
-func (e *JSONError) Error() string {
-	return fmt.Sprintf("JSON error %s at %d: %s...", e.msg, e.pos, e.substr)
-}
-
-func NewJSONError(str []byte, pos int, msg string) *JSONError {
-	sublen := 10
-	start := pos - sublen
-	end := pos + sublen
-	if start < 0 {
-		start = 0
-	}
-	if end > len(str) {
-		end = len(str)
-	}
-	substr := append(str[start:pos], '^')
-	substr = append(substr, str[pos:end]...)
-	return &JSONError{pos: pos, substr: string(substr), msg: msg}
-}
 
 type JSONObject interface {
 	gotypes.ISerializable
@@ -48,7 +39,6 @@ type JSONObject interface {
 	YAMLString() string
 	QueryString() string
 	_queryString(key string) string
-	yamlLines() []string
 	Contains(keys ...string) bool
 	ContainsIgnoreCases(keys ...string) bool
 	Get(keys ...string) (JSONObject, error)
@@ -128,13 +118,13 @@ func hexchar2num(v byte) (byte, error) {
 	case v >= 'A' && v <= 'F':
 		return v - 'A' + 10, nil
 	default:
-		return 0, fmt.Errorf("Illegal char %c", v)
+		return 0, ErrInvalidChar // fmt.Errorf("Illegal char %c", v)
 	}
 }
 
 func hexstr2byte(str []byte) (byte, error) {
 	if len(str) < 2 {
-		return 0, fmt.Errorf("Input must be 2 hex chars")
+		return 0, ErrInvalidHex // fmt.Errorf("Input must be 2 hex chars")
 	}
 	v1, e := hexchar2num(str[0])
 	if e != nil {
@@ -149,7 +139,7 @@ func hexstr2byte(str []byte) (byte, error) {
 
 func hexstr2rune(str []byte) (rune, error) {
 	if len(str) < 4 {
-		return 0, fmt.Errorf("Input must be 4 hex chars")
+		return 0, ErrInvalidRune // fmt.Errorf("Input must be 4 hex chars")
 	}
 	v1, e := hexstr2byte(str[0:2])
 	if e != nil {
@@ -240,7 +230,7 @@ func parseString(str []byte, offset int) (string, bool, int, error) {
 func parseJSONValue(str []byte, offset int) (JSONObject, int, error) {
 	val, quote, i, e := parseString(str, offset)
 	if e != nil {
-		return nil, i, e
+		return nil, i, errors.Wrap(e, "parseString")
 	} else if quote {
 		return &JSONString{data: val}, i, nil
 	} else {
@@ -410,7 +400,7 @@ func parseDict(str []byte, offset int) (map[string]JSONObject, int, error) {
 		}
 		key, _, i, e = parseString(str, i)
 		if e != nil {
-			return dict, i, e
+			return dict, i, errors.Wrap(e, "parseString")
 		}
 		if i >= len(str) {
 			return dict, i, NewJSONError(str, i, "Truncated")
@@ -439,7 +429,7 @@ func parseDict(str []byte, offset int) (map[string]JSONObject, int, error) {
 			val, i, e = parseJSONValue(str, i)
 		}
 		if e != nil {
-			return dict, i, e
+			return dict, i, errors.Wrap(e, "parse misc")
 		}
 		dict[key] = val
 		i = skipEmpty(str, i)
@@ -488,7 +478,7 @@ func parseArray(str []byte, offset int) ([]JSONObject, int, error) {
 			val, i, e = parseJSONValue(str, i)
 		}
 		if e != nil {
-			return list, i, e
+			return list, i, errors.Wrap(e, "parse misc")
 		}
 		if i >= len(str) {
 			return list, i, NewJSONError(str, i, "Truncated")
@@ -516,7 +506,7 @@ func (this *JSONDict) parse(str []byte, offset int) (int, error) {
 	if e == nil {
 		this.data = val
 	}
-	return i, e
+	return i, errors.Wrap(e, "parseDict")
 }
 
 func (this *JSONDict) SortedKeys() []string {
@@ -599,7 +589,7 @@ func (this *JSONArray) parse(str []byte, offset int) (int, error) {
 	if e == nil {
 		this.data = val
 	}
-	return i, e
+	return i, errors.Wrap(e, "parseArray")
 }
 
 func (this *JSONArray) String() string {
@@ -665,11 +655,11 @@ func Parse(str []byte) (JSONObject, error) {
 			val = &JSONArray{}
 			i, e = val.parse(str, i)
 		default:
-			// val, i, e = parseJSONValue(str, i)
-			return nil, NewJSONError(str, i, "Invalid JSON string")
+			val, i, e = parseJSONValue(str, i)
+			// return nil, NewJSONError(str, i, "Invalid JSON string")
 		}
 		if e != nil {
-			return nil, e
+			return nil, errors.Wrap(e, "parse misc")
 		} else {
 			return val, nil
 		}
