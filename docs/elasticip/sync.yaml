@@ -1,0 +1,12 @@
+post:
+  summary: 同步弹性EIP状态
+  parameters: 
+    - $ref: "../parameters/elasticip.yaml#/elasticipId"
+  responses:
+    200:
+      description: 弹性IP信息
+      schema:
+        $ref: "../schemas/elasticip.yaml#/ElasticIpResponse"
+
+  tags:
+    - elasticips

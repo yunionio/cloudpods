@@ -1,0 +1,12 @@
+post:
+  summary: 取消安全组共享
+  parameters:
+    - $ref: "../parameters/secgroup.yaml#/secgroupId"
+  responses:
+    200:
+      description: 安全组信息
+      schema:
+        $ref: "../schemas/secgroup.yaml#/SecgroupResponse"
+
+  tags:
+    - secgroups

@@ -1,0 +1,16 @@
+post:
+  summary: 将物理机转换成宿主机
+  parameters:
+    - $ref: "../parameters/host.yaml#/hostId"
+    - in: body
+      name: host
+      required: true
+      schema:
+        $ref: "../schemas/host.yaml#/HostConvertHypervisor"
+  responses:
+    200:
+      description: 宿主机信息
+      schema:
+        $ref: "../schemas/host.yaml#/HostResponse"
+  tags:
+    - host

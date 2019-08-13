@@ -167,5 +167,45 @@ SharableVirtualResourceBaseResponse:
           type: string
           example: system
           description: public_scope
-          readOnly: true           
+          readOnly: true
           
+BillingBaseResponse:
+  type: object
+  properties:
+    billing_type:
+      type: string
+      example: postpaid
+      enum: [postpaid, prepaid]
+      description: 资源计费类型
+    expired_at:
+      type: string
+      example: "2019-06-11T03:39:02.000000Z"
+      description: 资源到期时间,仅对预付费类型资源有效
+
+ProviderBaseResponse:
+  type: object
+  properties:
+    region_id:
+      type: string
+      example: 5fbbdfaa-46ba-433a-81be-b3581ac55bfa
+      description: 区域ID
+    region_external_id:
+      type: string
+      example: 5fbbdfaa-46ba-433a-81be-b3581ac55bfa
+      description: 区域云端ID
+    region:
+      type: string
+      example: 阿里云 马来西亚（吉隆坡）
+      description: 区域名称
+    project_domain:
+      type: string
+      example: Default
+      description: 项目
+    manager:
+      type: string
+      example: Default
+      description: 云账号
+    manager_id:
+      type: string
+      example: 7b972be9-fd8a-43f5-8058-3820553f61c4
+      description: 云账号ID

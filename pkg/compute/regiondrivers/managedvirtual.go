@@ -31,6 +31,7 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
+	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/models"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -1601,6 +1602,492 @@ func (self *SManagedVirtualizationRegionDriver) RequestCreateDBInstance(ctx cont
 	return nil
 }
 
+func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcache(ctx context.Context, userCred mcclient.TokenCredential, elasticcache *models.SElasticcache, task taskman.ITask) error {
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return self.ValidateManagerId(ctx, userCred, data)
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestRestartElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestRestartElasticcache.GetIRegion")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestRestartElasticcache.GetIElasticcacheById")
+	}
+
+	err = iec.Restart()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestRestartElasticcache.Restart")
+	}
+
+	err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+	if err != nil {
+		return err
+	}
+
+	return ec.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_RUNNING, "")
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestSyncElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetIRegion")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetIElasticcacheById")
+	}
+
+	provider := ec.GetCloudprovider()
+	if provider == nil {
+		return errors.Wrap(fmt.Errorf("provider is nil"), "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetCloudprovider")
+	}
+
+	lockman.LockClass(ctx, models.ElasticcacheManager, db.GetLockClassKey(models.ElasticcacheManager, provider.GetOwnerId()))
+	defer lockman.ReleaseClass(ctx, models.ElasticcacheManager, db.GetLockClassKey(models.ElasticcacheManager, provider.GetOwnerId()))
+
+	err = ec.SyncWithCloudElasticcache(ctx, userCred, provider, iec)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetIElasticcacheById")
+	}
+
+	if fullsync, _ := task.GetParams().Bool("full"); fullsync {
+		lockman.LockObject(ctx, ec)
+		defer lockman.ReleaseObject(ctx, ec)
+
+		parameters, err := iec.GetICloudElasticcacheParameters()
+		if err != nil {
+			return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetICloudElasticcacheParameters")
+		}
+
+		result := models.ElasticcacheParameterManager.SyncElasticcacheParameters(ctx, userCred, ec, parameters)
+		log.Debugf("managedVirtualizationRegionDriver.RequestSyncElasticcache.SyncElasticcacheParameters %s", result.Result())
+
+		// acl
+		acls, err := iec.GetICloudElasticcacheAcls()
+		if err != nil {
+			return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetICloudElasticcacheAcls")
+		}
+
+		result = models.ElasticcacheAclManager.SyncElasticcacheAcls(ctx, userCred, ec, acls)
+		log.Debugf("managedVirtualizationRegionDriver.RequestSyncElasticcache.SyncElasticcacheAcls %s", result.Result())
+
+		// account
+		accounts, err := iec.GetICloudElasticcacheAccounts()
+		if err != nil {
+			return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetICloudElasticcacheAccounts")
+		}
+
+		result = models.ElasticcacheAccountManager.SyncElasticcacheAccounts(ctx, userCred, ec, accounts)
+		log.Debugf("managedVirtualizationRegionDriver.RequestSyncElasticcache.SyncElasticcacheAccounts %s", result.Result())
+
+		// backups
+		backups, err := iec.GetICloudElasticcacheBackups()
+		if err != nil {
+			return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSyncElasticcache.GetICloudElasticcacheBackups")
+		}
+
+		result = models.ElasticcacheBackupManager.SyncElasticcacheBackups(ctx, userCred, ec, backups)
+		log.Debugf("managedVirtualizationRegionDriver.RequestSyncElasticcache.SyncElasticcacheBackups %s", result.Result())
+	}
+
+	return ec.SetStatus(userCred, api.ELASTIC_CACHE_STATUS_RUNNING, "")
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcache(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcache.GetIRegion")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+	if err == cloudprovider.ErrNotFound {
+		return nil
+	} else if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcache.GetIElasticcacheById")
+	}
+
+	err = iec.Delete()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcache.Delete")
+	}
+
+	return cloudprovider.WaitDeleted(iec, 10*time.Second, 300*time.Second)
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestChangeElasticcacheSpec(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	sku, err := task.GetParams().GetString("sku")
+	if err != nil {
+		return errors.Wrap(fmt.Errorf("missing parameter sku"), "managedVirtualizationRegionDriver.RequestChangeElasticcacheSpec")
+	}
+
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestChangeElasticcacheSpec.GetIRegion")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestChangeElasticcacheSpec.GetIElasticcacheById")
+	}
+
+	err = iec.ChangeInstanceSpec(sku)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestChangeElasticcacheSpec.ChangeInstanceSpec")
+	}
+
+	return cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestSetElasticcacheMaintainTime(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	mStart, err := task.GetParams().GetString("maintain_start_time")
+	if err != nil {
+		return errors.Wrap(fmt.Errorf("missing parameter maintain_start_time"), "managedVirtualizationRegionDriver.RequestSetElasticcacheMaintainTime")
+	}
+
+	mEnd, err := task.GetParams().GetString("maintain_end_time")
+	if err != nil {
+		return errors.Wrap(fmt.Errorf("missing parameter maintain_end_time"), "managedVirtualizationRegionDriver.RequestSetElasticcacheMaintainTime")
+	}
+
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSetElasticcacheMaintainTime.GetIRegion")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSetElasticcacheMaintainTime.GetIElasticcacheById")
+	}
+
+	err = iec.SetMaintainTime(mStart, mEnd)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestSetElasticcacheMaintainTime.SetMaintainTime")
+	}
+
+	return cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheChangeSpec(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	sku, err := task.GetParams().GetString("sku_ext_id")
+	if err != nil {
+		return errors.Wrap(fmt.Errorf("missing parameter sku"), "managedVirtualizationRegionDriver.RequestElasticcacheChangeSpec")
+	}
+
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheChangeSpec.GetIRegion")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheChangeSpec.GetIElasticcacheById")
+	}
+
+	err = iec.ChangeInstanceSpec(sku)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheChangeSpec.ChangeInstanceSpec")
+	}
+
+	err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 1800*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheChangeSpec.ChangeInstanceSpec")
+	}
+
+	err = ec.SyncWithCloudElasticcache(ctx, userCred, nil, iec)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheChangeSpec.SyncWithCloudElasticcache")
+	}
+
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestUpdateElasticcacheAuthMode(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	authMode, err := task.GetParams().GetString("auth_mode")
+	if err != nil {
+		return errors.Wrap(fmt.Errorf("missing parameter auth_mode"), "managedVirtualizationRegionDriver.RequestUpdateElasticcacheAuthMode")
+	}
+
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestUpdateElasticcacheAuthMode.GetIRegion")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestUpdateElasticcacheAuthMode.GetIElasticcacheById")
+	}
+
+	noPassword := true
+	if authMode == "on" {
+		noPassword = false
+	}
+
+	err = iec.UpdateAuthMode(noPassword)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestUpdateElasticcacheAuthMode.UpdateAuthMode")
+	}
+
+	_, err = db.Update(ec, func() error {
+		ec.AuthMode = authMode
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestUpdateElasticcacheAuthMode.UpdatedbAuthMode")
+	}
+
+	return cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheSetMaintainTime(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	startTime, err := task.GetParams().GetString("maintain_start_time")
+	if err != nil {
+		return errors.Wrap(fmt.Errorf("missing parameter maintain_start_time"), "managedVirtualizationRegionDriver.RequestElasticcacheSetMaintainTime")
+	}
+
+	endTime, err := task.GetParams().GetString("maintain_end_time")
+	if err != nil {
+		return errors.Wrap(fmt.Errorf("missing parameter maintain_end_time"), "managedVirtualizationRegionDriver.RequestElasticcacheSetMaintainTime")
+	}
+
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheSetMaintainTime.GetIRegion")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheSetMaintainTime.GetIElasticcacheById")
+	}
+
+	err = iec.SetMaintainTime(startTime, endTime)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheSetMaintainTime.SetMaintainTime")
+	}
+
+	// todo: sync instance spec
+	return cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheAllocatePublicConnection(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	port, _ := task.GetParams().Int("port")
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAllocatePublicConnection.GetIRegion")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAllocatePublicConnection.GetIElasticcacheById")
+	}
+
+	_, err = iec.AllocatePublicConnection(int(port))
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAllocatePublicConnection.AllocatePublicConnection")
+	}
+
+	err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAllocatePublicConnection.WaitStatusWithDelay")
+	}
+
+	err = ec.SyncWithCloudElasticcache(ctx, task.GetUserCred(), nil, iec)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAllocatePublicConnection.SyncWithCloudElasticcache")
+	}
+
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheReleasePublicConnection(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheReleasePublicConnection.GetIRegion")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheReleasePublicConnection.GetIElasticcacheById")
+	}
+
+	err = iec.ReleasePublicConnection()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheReleasePublicConnection.AllocatePublicConnection")
+	}
+
+	// todo: sync instance spec
+	return cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheFlushInstance(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheFlushInstance.GetIRegion")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheFlushInstance.GetIElasticcacheById")
+	}
+
+	err = iec.FlushInstance()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheFlushInstance.FlushInstance")
+	}
+
+	// todo: sync instance spec
+	return cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheUpdateInstanceParameters(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	parameters, err := task.GetParams().Get("parameters")
+	if err != nil {
+		return errors.Wrap(fmt.Errorf("missing parameter parameters"), "managedVirtualizationRegionDriver.RequestElasticcacheUpdateInstanceParameters")
+	}
+
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheUpdateInstanceParameters.GetIRegion")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheUpdateInstanceParameters.GetIElasticcacheById")
+	}
+
+	err = iec.UpdateInstanceParameters(parameters)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheUpdateInstanceParameters.UpdateInstanceParameters")
+	}
+
+	// todo: sync instance spec
+	return cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheUpdateBackupPolicy(ctx context.Context, userCred mcclient.TokenCredential, ec *models.SElasticcache, task taskman.ITask) error {
+	backupType, _ := task.GetParams().GetString("backup_type")
+	backupReservedDays, _ := task.GetParams().Int("backup_reserved_days")
+	preferredBackupPeriod, _ := task.GetParams().GetString("preferred_backup_period")
+	preferredBackupTime, _ := task.GetParams().GetString("preferred_backup_time")
+
+	config := cloudprovider.SCloudElasticCacheBackupPolicyUpdateInput{
+		BackupType:            backupType,
+		BackupReservedDays:    int(backupReservedDays),
+		PreferredBackupPeriod: preferredBackupPeriod,
+		PreferredBackupTime:   preferredBackupTime,
+	}
+
+	iregion, err := ec.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheUpdateBackupPolicy.GetIRegion")
+	}
+
+	iec, err := iregion.GetIElasticcacheById(ec.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheUpdateBackupPolicy.GetIElasticcacheById")
+	}
+
+	err = iec.UpdateBackupPolicy(config)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheUpdateBackupPolicy.UpdateBackupPolicy")
+	}
+
+	// todo: sync instance spec
+	return cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 10*time.Second, 10*time.Second, 300*time.Second)
+}
+
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheAccountData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	return nil, nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheAclData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	ips, err := data.GetString("ip_list")
+	if err != nil || ips == "" {
+		return nil, httperrors.NewMissingParameterError("ip_list")
+	}
+
+	ipV := validators.NewIPv4AddrValidator("ip")
+	_ips := strings.Split(ips, ",")
+	for _, ip := range _ips {
+		params := jsonutils.NewDict()
+		params.Set("ip", jsonutils.NewString(ip))
+		if err := ipV.Validate(params); err != nil {
+			return nil, err
+		}
+	}
+
+	elasticcacheV := validators.NewModelIdOrNameValidator("elasticcache", "elasticcache", ownerId)
+	if err := elasticcacheV.Validate(data); err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateElasticcacheBackupData(ctx context.Context, userCred mcclient.TokenCredential, ownerId mcclient.IIdentityProvider, data *jsonutils.JSONDict) (*jsonutils.JSONDict, error) {
+	elasticcacheV := validators.NewModelIdOrNameValidator("elasticcache", "elasticcache", ownerId)
+	if err := elasticcacheV.Validate(data); err != nil {
+		return nil, err
+	}
+
+	ec := elasticcacheV.Model.(*models.SElasticcache)
+	if !utils.IsInStringArray(ec.Status, []string{api.ELASTIC_CACHE_STATUS_RUNNING}) {
+		return nil, httperrors.NewInputParameterError("can not make backup in status %s", ec.Status)
+	}
+
+	return data, nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcacheAccount(ctx context.Context, userCred mcclient.TokenCredential, elasticcacheAccount *models.SElasticcacheAccount, task taskman.ITask) error {
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcacheAcl(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAcl, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		_ec, err := db.FetchById(models.ElasticcacheManager, ea.ElasticcacheId)
+		if err != nil {
+			return nil, errors.Wrap(nil, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.GetElasticcache")
+		}
+
+		ec := _ec.(*models.SElasticcache)
+		iregion, err := ec.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(nil, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.GetIRegion")
+		}
+
+		iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
+		if err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.GetIElasticcacheById")
+		}
+
+		iea, err := iec.CreateAcl(ea.Name, ea.IpList)
+		if err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.CreateAcl")
+		}
+
+		// todo: wait elastic cache instance running
+		ea.SetModelManager(models.ElasticcacheAclManager, ea)
+		if err := db.SetExternalId(ea, userCred, iea.GetGlobalId()); err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.SetExternalId")
+		}
+
+		if err := ea.SyncWithCloudElasticcacheAcl(ctx, userCred, iea); err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.SyncWithCloudElasticcache")
+		}
+
+		return nil, nil
+	})
+
+	return nil
+}
+
 func (self *SManagedVirtualizationRegionDriver) RequestChangeDBInstanceConfig(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, task taskman.ITask) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		input := &api.SDBInstanceChangeConfigInput{}
@@ -1739,5 +2226,276 @@ func (self *SManagedVirtualizationRegionDriver) ValidateChangeDBInstanceConfigDa
 }
 
 func (self *SManagedVirtualizationRegionDriver) ValidateResetDBInstancePassword(ctx context.Context, userCred mcclient.TokenCredential, instance *models.SDBInstance, account string) error {
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestCreateElasticcacheBackup(ctx context.Context, userCred mcclient.TokenCredential, eb *models.SElasticcacheBackup, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		_ec, err := db.FetchById(models.ElasticcacheManager, eb.ElasticcacheId)
+		if err != nil {
+			return nil, errors.Wrap(nil, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.GetElasticcache")
+		}
+
+		ec := _ec.(*models.SElasticcache)
+		iregion, err := ec.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(nil, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.GetIRegion")
+		}
+
+		iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
+		if err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.GetIElasticcacheById")
+		}
+
+		ieb, err := iec.CreateBackup()
+		if err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.CreateBackup")
+		}
+
+		err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 30*time.Second, 30*time.Second, 1800*time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.WaitStatusWithDelay")
+		}
+
+		eb.SetModelManager(models.ElasticcacheBackupManager, eb)
+		if err := db.SetExternalId(eb, userCred, ieb.GetGlobalId()); err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.SetExternalId")
+		}
+
+		if err := eb.SyncWithCloudElasticcacheBackup(ctx, userCred, ieb); err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheBackup.SyncWithCloudElasticcacheBackup")
+		}
+
+		return nil, nil
+	})
+
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcacheAccount(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {
+	iregion, err := ea.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAccount.GetIRegion")
+	}
+
+	_ec, err := db.FetchById(models.ElasticcacheManager, ea.ElasticcacheId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAccount.FetchById")
+	}
+
+	ec := _ec.(*models.SElasticcache)
+	iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
+	if err == cloudprovider.ErrNotFound {
+		return nil
+	} else if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAccount.GetIElasticcacheById")
+	}
+
+	iea, err := iec.GetICloudElasticcacheAccount(ea.GetExternalId())
+	if err == cloudprovider.ErrNotFound {
+		return nil
+	} else if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAccount.GetICloudElasticcacheAccount")
+	}
+
+	err = iea.Delete()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAccount.Delete")
+	}
+
+	err = cloudprovider.WaitDeleted(iea, 10*time.Second, 300*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAccount.WaitDeleted")
+	}
+
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcacheAcl(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAcl, task taskman.ITask) error {
+	iregion, err := ea.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAcl.GetIRegion")
+	}
+
+	_ec, err := db.FetchById(models.ElasticcacheManager, ea.ElasticcacheId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAcl.FetchElasticcacheById")
+	}
+
+	ec := _ec.(*models.SElasticcache)
+
+	iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
+	if err == cloudprovider.ErrNotFound {
+		return nil
+	} else if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAcl.GetIElasticcacheById")
+	}
+
+	iea, err := iec.GetICloudElasticcacheAcl(ea.GetExternalId())
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAcl.GetICloudElasticcacheAccount")
+	}
+
+	err = iea.Delete()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheAcl.Delete")
+	}
+
+	return cloudprovider.WaitDeleted(iea, 10*time.Second, 300*time.Second)
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestDeleteElasticcacheBackup(ctx context.Context, userCred mcclient.TokenCredential, eb *models.SElasticcacheBackup, task taskman.ITask) error {
+	iregion, err := eb.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheBackup.GetIRegion")
+	}
+
+	_ec, err := db.FetchById(models.ElasticcacheAclManager, eb.ElasticcacheId)
+	if err != nil {
+		return err
+	}
+
+	ec := _ec.(*models.SElasticcache)
+	iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
+	if err == cloudprovider.ErrNotFound {
+		return nil
+	} else if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheBackup.GetIElasticcacheById")
+	}
+
+	ieb, err := iec.GetICloudElasticcacheBackup(eb.GetExternalId())
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheBackup.GetICloudElasticcacheBackup")
+	}
+
+	err = ieb.Delete()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestDeleteElasticcacheBackup.Delete")
+	}
+
+	return cloudprovider.WaitDeleted(ieb, 10*time.Second, 300*time.Second)
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheAccountResetPassword(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAccount, task taskman.ITask) error {
+	iregion, err := ea.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAccountResetPassword.GetIRegion")
+	}
+
+	_ec, err := db.FetchById(models.ElasticcacheManager, ea.ElasticcacheId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAccountResetPassword.FetchById")
+	}
+
+	ec := _ec.(*models.SElasticcache)
+	iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
+	if err == cloudprovider.ErrNotFound {
+		return nil
+	} else if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAccountResetPassword.GetIElasticcacheById")
+	}
+
+	iea, err := iec.GetICloudElasticcacheAccount(ea.GetExternalId())
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAccountResetPassword.GetICloudElasticcacheBackup")
+	}
+
+	input := cloudprovider.SCloudElasticCacheAccountUpdateInput{}
+	passwd, _ := task.GetParams().GetString("password")
+	input.Password = &passwd
+
+	err = iea.UpdateAccount(input)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAccountResetPassword.UpdateAccount")
+	}
+
+	err = ea.SavePassword(passwd)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheAccountResetPassword.SavePassword")
+	}
+
+	return ea.SetStatus(userCred, api.ELASTIC_CACHE_ACCOUNT_STATUS_AVAILABLE, "")
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheAclUpdate(ctx context.Context, userCred mcclient.TokenCredential, ea *models.SElasticcacheAcl, task taskman.ITask) error {
+	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
+		_ec, err := db.FetchById(models.ElasticcacheManager, ea.ElasticcacheId)
+		if err != nil {
+			return nil, errors.Wrap(nil, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.GetElasticcache")
+		}
+
+		ec := _ec.(*models.SElasticcache)
+		iregion, err := ec.GetIRegion()
+		if err != nil {
+			return nil, errors.Wrap(nil, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.GetIRegion")
+		}
+
+		iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
+		if err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.GetIElasticcacheById")
+		}
+
+		iea, err := iec.GetICloudElasticcacheAcl(ea.ExternalId)
+		if err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.GetICloudElasticcacheAcl")
+		}
+
+		ipList, _ := task.GetParams().GetString("ip_list")
+		err = iea.UpdateAcl(ipList)
+		if err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.UpdateAcl")
+		}
+
+		err = ea.SetStatus(userCred, api.ELASTIC_CACHE_ACL_STATUS_AVAILABLE, "")
+		if err != nil {
+			return nil, errors.Wrap(err, "managedVirtualizationRegionDriver.CreateElasticcacheAcl.UpdateAclStatus")
+		}
+		return nil, nil
+	})
+
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) RequestElasticcacheBackupRestoreInstance(ctx context.Context, userCred mcclient.TokenCredential, eb *models.SElasticcacheBackup, task taskman.ITask) error {
+	iregion, err := eb.GetIRegion()
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheBackupRestoreInstance.GetIRegion")
+	}
+
+	_ec, err := db.FetchById(models.ElasticcacheManager, eb.ElasticcacheId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheBackupRestoreInstance.FetchById")
+	}
+
+	ec := _ec.(*models.SElasticcache)
+	iec, err := iregion.GetIElasticcacheById(ec.GetExternalId())
+	if err == cloudprovider.ErrNotFound {
+		return nil
+	} else if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheBackupRestoreInstance.GetIElasticcacheById")
+	}
+
+	ieb, err := iec.GetICloudElasticcacheBackup(eb.GetExternalId())
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheBackupRestoreInstance.GetICloudElasticcacheBackup")
+	}
+
+	err = ieb.RestoreInstance(ec.ExternalId)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheBackupRestoreInstance.RestoreInstance")
+	}
+
+	_, err = db.Update(ec, func() error {
+		ec.Status = api.ELASTIC_CACHE_STATUS_BACKUPRECOVERING
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheBackupRestoreInstance.UpdateStatus")
+	}
+
+	err = cloudprovider.WaitStatusWithDelay(iec, api.ELASTIC_CACHE_STATUS_RUNNING, 30*time.Second, 30*time.Second, 1800*time.Second)
+	if err != nil {
+		return errors.Wrap(err, "managedVirtualizationRegionDriver.RequestElasticcacheBackupRestoreInstance.WaitStatusWithDelay")
+	}
 	return nil
 }

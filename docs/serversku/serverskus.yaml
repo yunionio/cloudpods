@@ -1,15 +1,15 @@
 get:
   summary: 按指定条件列出实例套餐
   parameters:
-    - $ref: '../parameters/common.yaml#/limit'
-    - $ref: '../parameters/common.yaml#/offset'
-    - $ref: '../parameters/common.yaml#/cloud_env'
-    - $ref: '../parameters/common.yaml#/cloudregion'
-    - $ref: '../parameters/common.yaml#/zone'
-    - $ref: '../parameters/common.yaml#/city'
-    - $ref: '../parameters/serversku.yaml#/provider'
-    - $ref: '../parameters/serversku.yaml#/memory_size_mb'
-    - $ref: '../parameters/serversku.yaml#/usable'
+    - $ref: "../parameters/common.yaml#/limit"
+    - $ref: "../parameters/common.yaml#/offset"
+    - $ref: "../parameters/common.yaml#/cloud_env"
+    - $ref: "../parameters/common.yaml#/cloudregion"
+    - $ref: "../parameters/common.yaml#/zone"
+    - $ref: "../parameters/common.yaml#/city"
+    - $ref: "../parameters/serversku.yaml#/provider"
+    - $ref: "../parameters/serversku.yaml#/memory_size_mb"
+    - $ref: "../parameters/serversku.yaml#/usable"
   responses:
     200:
       description: 实例套餐列表信息
@@ -24,12 +24,12 @@ post:
       name: serversku
       required: true
       schema:
-        $ref: '../schemas/serversku.yaml#/ServerSkuCreate' 
+        $ref: "../schemas/serversku.yaml#/ServerSkuCreate"
   responses:
     200:
       description: 新创建的实例套餐信息
       schema:
-        $ref: "../schemas/serversku.yaml#ServerSkuResponse"
+        $ref: "../schemas/serversku.yaml#/ServerSkuResponse"
 
   tags:
     - serverskus

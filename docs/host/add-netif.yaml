@@ -1,0 +1,16 @@
+post:
+  summary: 物理机添加网卡
+  parameters:
+    - $ref: "../parameters/host.yaml#/hostId"
+    - in: body
+      name: host
+      required: true
+      schema:
+        $ref: "../schemas/host.yaml#/HostAddNetif"
+  responses:
+    200:
+      description: 宿主机信息
+      schema:
+        $ref: "../schemas/host.yaml#/HostResponse"
+  tags:
+    - host

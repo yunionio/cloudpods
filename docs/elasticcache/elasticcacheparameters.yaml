@@ -1,0 +1,14 @@
+get:
+  summary: 按指定条件列出ElasticCache实例参数列表
+  parameters:
+    - $ref: "../parameters/common.yaml#/limit"
+    - $ref: "../parameters/common.yaml#/offset"
+    - $ref: "../parameters/elasticcache.yaml#/elasticcache_id"
+
+  responses:
+    200:
+      description: ElasticCache实例参数列表信息
+      schema:
+        $ref: "../schemas/elasticcache.yaml#/ElasticCacheParameterListResponse"
+  tags:
+    - elasticcacheparameter

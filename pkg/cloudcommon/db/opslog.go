@@ -65,6 +65,9 @@ const (
 	ACT_BACKUP_START        = "backup_start"
 	ACT_BACKUP_START_FAILED = "backup_start_fail"
 
+	ACT_RESTARING    = "restarting"
+	ACT_RESTART_FAIL = "restart_fail"
+
 	ACT_STOPPING  = "stopping"
 	ACT_STOP      = "stop"
 	ACT_STOP_FAIL = "stop_fail"

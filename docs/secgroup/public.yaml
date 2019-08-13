@@ -1,0 +1,14 @@
+post:
+  summary: 共享安全组
+  parameters:
+    - $ref: "../parameters/secgroup.yaml#/secgroupId"
+    - $ref: "../parameters/secgroup.yaml#/scope"
+    - $ref: "../parameters/secgroup.yaml#/shared_projects"
+  responses:
+    200:
+      description: 安全组信息
+      schema:
+        $ref: "../schemas/secgroup.yaml#/SecgroupResponse"
+
+  tags:
+    - secgroups

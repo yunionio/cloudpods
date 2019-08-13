@@ -227,6 +227,7 @@ LoadbalancerAclEntries:
   type: array
   items:
     $ref: "#/LoadbalancerAclEntry"
+
 LoadbalancerCachedAclCreateRequest:
   type: object
   properties:
@@ -249,6 +250,7 @@ LoadbalancerCachedAclCreateRequest:
         listener:
           type: string
           description: 指定负载均衡监听器ID，华为云必须指定该参数。
+
 LoadbalancerCachedAcl:
   allOf:
     - $ref: "./common.yaml#/SharableVirtualResourceBaseResponse"
@@ -352,3 +354,302 @@ LoadbalancerCachedCertificateListResponse:
       type: array
       items:
         $ref: "#/LoadbalancerCachedCertificateResponse"
+
+LoadbalancerCluster:
+  type: object
+  description: Loadbalancer集群实例
+  properties:
+    id:
+      type: string
+      description: 实例uuid
+      readOnly: true
+    zone_id:
+      type: string
+      description: 集群所在的zone uuid
+      readOnly: true
+
+LoadbalancerClusterCreateRequest:
+  type: object
+  properties:
+    loadbalancercluster:
+      type: object
+      required:
+        - zone
+      properties:
+        zone:
+          type: string
+          description: 指定集群所属的zone uuid
+LoadbalancerClusterListResponse:
+  type: object
+  properties:
+    loadbalancerclusters:
+      type: array
+      items:
+        $ref: "#/LoadbalancerCluster"
+LoadbalancerClusterResponse:
+  type: object
+  properties:
+    loadbalancercluster:
+      type: object
+      $ref: "#/LoadbalancerCluster"
+
+LoadbalancerAgent:
+  type: object
+  description: |
+    Loadbalancer转发实例
+
+     - 同cluster中的lbagent
+       - vrrp virtual_router_id, preempt, pass必须相同
+       - vrrp priority必须不同
+     - 同zone不同cluster中的lbagent
+       - vrrp virtual_router_id必须不同
+     - 创建时，若不满足以上条件，则创建失败
+     - 更新参数时（`params-patch`），同时更新同cluster的peer lbagents
+
+  properties:
+    id:
+      type: string
+      description: 实例uuid
+      readOnly: true
+    cluster_id:
+      type: string
+      description: 转发实例所属的集群id
+      readOnly: true
+    ha_state:
+      type: string
+      description: 转发实例的主备状态
+      readOnly: true
+      enum:
+        - MASTER
+        - BACKUP
+        - UNKNOWN
+    ha_last_seen:
+      type: string
+      format: date-time
+      description: 转发实例上次心跳UTC时间
+      readOnly: true
+      example: "2019-07-24T06:38:07.000000Z"
+    ha_timeout:
+      type: integer
+      description: |
+        转发实例心跳超时时间
+
+        若上次心跳时间距离当前时间超过此值，则认为实例已离线，进入非活跃状态
+      unit: seconds
+    ip:
+      type: string
+      description: 转发实例自上报的IP地址
+      readOnly: true
+    params:
+      $ref: "#/LoadbalancerAgentParams"
+    deployment:
+      $ref: "#/LoadbalancerAgentDeployment"
+      readOnly: true
+    loadbalancer_acls:
+      type: string
+      format: date-time
+      description: 转发实例当前同步到的最新LB访问控制对象时戳
+    loadbalancer_backend_groups:
+      type: string
+      format: date-time
+      description: 转发实例当前同步到的最新LB后端服务器组对象时戳
+    loadbalancer_backends:
+      type: string
+      format: date-time
+      description: 转发实例当前同步到的最新LB后端对象时戳
+    loadbalancer_certificates:
+      type: string
+      format: date-time
+      description: 转发实例当前同步到的最新LB证书对象时戳
+    loadbalancer_listener_rules:
+      type: string
+      format: date-time
+      description: 转发实例当前同步到的最新LB访问策略对象时戳
+    loadbalancer_listeners:
+      type: string
+      format: date-time
+      description: 转发实例当前同步到的最新LB监听对象时戳
+    loadbalancers:
+      type: string
+      format: date-time
+      description: 转发实例当前同步到的最新LB对象时戳
+
+LoadbalancerAgentDeployment:
+  type: object
+  properties:
+    host:
+      type: string
+    ansibleplaybook:
+      type: string
+      description: |
+        部署对应的ansibleplaybook uuid
+
+        可通过此字段获取部署的执行结果
+
+LoadbalancerAgentParams:
+  type: object
+  properties:
+    vrrp:
+      $ref: "#/LoadbalancerAgentParamsVrrp"
+    haproxy:
+      $ref: "#/LoadbalancerAgentParamsHaproxy"
+    telegraf:
+      $ref: "#/LoadbalancerAgentParamsTelegraf"
+    keepalived_conf_tmpl:
+      type: string
+      description: |
+        以base64编码的KeepAlived配置模板
+
+        创建时可选，服务端会设定默认值
+      example: Z2xvYmFsX2RlZnMgewoJcm91dGVyX2lkIHt7IC5hZ2VudC5pZCB9fQoJI3ZycnBfc3RyaWN0Cgl2cnJwX3NraXBfY2hlY2tfYWR2X2FkZHIKCWVuYWJsZV9zY3JpcHRfc2VjdXJpdHkKfQoKdnJycF9pbnN0YW5jZSBZdW5pb25MQiB7CglpbnRlcmZhY2Uge3sgLnZycnAuaW50ZXJmYWNlIH19Cgl2aXJ0dWFsX3JvdXRlcl9pZCB7eyAudnJycC52aXJ0dWFsX3JvdXRlcl9pZCB9fQoJYXV0aGVudGljYXRpb24gewoJCWF1dGhfdHlwZSBQQVNTCgkJYXV0aF9wYXNzIHt7IC52cnJwLnBhc3MgfX0KCX0KCXt7IGlmIC52cnJwLm5vdGlmeV9zY3JpcHQgLX19IG5vdGlmeSB7eyAudnJycC5ub3RpZnlfc2NyaXB0IH19IHJvb3Qge3stIGVuZCB9fQoJe3sgaWYgLnZycnAudW5pY2FzdF9wZWVyIC19fSB1bmljYXN0X3BlZXIgeyB7ey0gcHJpbnRsbiB9fQoJCXt7LSByYW5nZSAudnJycC51bmljYXN0X3BlZXIgfX0JCXt7IHByaW50bG4gLiB9fSB7ey0gZW5kIH19Cgl9Cgl7ey0gZW5kIH19Cglwcmlvcml0eSB7eyAudnJycC5wcmlvcml0eSB9fQoJYWR2ZXJ0X2ludCB7eyAudnJycC5hZHZlcnRfaW50IH19CglnYXJwX21hc3Rlcl9yZWZyZXNoIHt7IC52cnJwLmdhcnBfbWFzdGVyX3JlZnJlc2ggfX0KCXt7IGlmIC52cnJwLnByZWVtcHQgLX19IHByZWVtcHQge3stIGVsc2UgLX19IG5vcHJlZW1wdCB7ey0gZW5kIH19Cgl2aXJ0dWFsX2lwYWRkcmVzcyB7CgkJe3stIHByaW50ZiAiXG4iIH19CgkJe3stIHJhbmdlIC52cnJwLmFkZHJlc3NlcyB9fQkJe3sgcHJpbnRsbiAuIH19IHt7LSBlbmQgfX0KCQl7ey0gcHJpbnRmICJcdCIgLX19Cgl9Cn0K
+    haproxy_conf_tmpl:
+      type: string
+      description: |
+        以base64编码的HAProxy配置模板
+
+        创建时可选，服务端会设定默认值
+      example: Cmdsb2JhbAoJbWF4Y29ubiA0MDk2MAoJdHVuZS5zc2wuZGVmYXVsdC1kaC1wYXJhbSAyMDQ4Cgl7ey0gcHJpbnRsbiB9fQoJe3stIGlmIC5oYXByb3h5Lmdsb2JhbF9zdGF0c19zb2NrZXQgfX0Je3sgcHJpbnRsbiAuaGFwcm94eS5nbG9iYWxfc3RhdHNfc29ja2V0IH19IHt7LSBlbmQgfX0KCXt7LSBpZiAuaGFwcm94eS5nbG9iYWxfbmJ0aHJlYWQgfX0JbmJ0aHJlYWQge3sgcHJpbnRsbiAuaGFwcm94eS5nbG9iYWxfbmJ0aHJlYWQgfX0ge3stIGVuZCB9fQoJe3stIGlmIC5oYXByb3h5Lmdsb2JhbF9sb2cgfX0Je3sgcHJpbnRsbiAuaGFwcm94eS5nbG9iYWxfbG9nIH19IHt7LSBlbmQgfX0KCmRlZmF1bHRzCgl0aW1lb3V0IGNvbm5lY3QgMTBzCgl0aW1lb3V0IGNsaWVudCA2MHMKCXRpbWVvdXQgc2VydmVyIDYwcwoJdGltZW91dCB0dW5uZWwgMWgKCXt7LSBwcmludGxuIH19Cgl7ey0gaWYgLmhhcHJveHkuZ2xvYmFsX2xvZyB9fQl7eyBwcmludGxuICJsb2cgZ2xvYmFsIiB9fSB7ey0gZW5kIH19Cgl7ey0gaWYgbm90IC5oYXByb3h5LmxvZ19ub3JtYWwgfX0Je3sgcHJpbnRsbiAib3B0aW9uIGRvbnRsb2ctbm9ybWFsIiB9fSB7ey0gZW5kIH19CgpsaXN0ZW4gc3RhdHMKCW1vZGUgaHR0cAoJYmluZCA6Nzc4CglzdGF0cyBlbmFibGUKCXN0YXRzIGhpZGUtdmVyc2lvbgoJc3RhdHMgcmVhbG0gIkhhcHJveHkgU3RhdGlzdGljcyIKCXN0YXRzIGF1dGggWXVuaW9uOkxCU3RhdHMKCXN0YXRzIHVyaSAvCg==
+    telegraf_conf_tmpl:
+      type: string
+      description: |
+        以base64编码的Telegraf配置模板
+
+        创建时可选，服务端会设定默认值
+      example: Cltbb3V0cHV0cy5pbmZsdXhkYl1dCgl1cmxzID0gWyJ7eyAudGVsZWdyYWYuaW5mbHV4X2RiX291dHB1dF91cmwgfX0iXQoJZGF0YWJhc2UgPSAie3sgLnRlbGVncmFmLmluZmx1eF9kYl9vdXRwdXRfbmFtZSB9fSIKCWluc2VjdXJlX3NraXBfdmVyaWZ5ID0gdHJ1ZQoKW1tpbnB1dHMuaGFwcm94eV1dCglpbnRlcnZhbCA9ICJ7eyAudGVsZWdyYWYuaGFwcm94eV9pbnB1dF9pbnRlcnZhbCB9fXMiCglzZXJ2ZXJzID0gWyJ7eyAudGVsZWdyYWYuaGFwcm94eV9pbnB1dF9zdGF0c19zb2NrZXQgfX0iXQoJa2VlcF9maWVsZF9uYW1lcyA9IHRydWUK
+
+LoadbalancerAgentParamsVrrp:
+  type: object
+  description: VRRP参数
+  properties:
+    advert_int:
+      type: integer
+      description: VRRP通告间隔，单位秒
+      mininum: 1
+      example: 1
+    interface:
+      type: string
+      description: VRRP通告发送的网口名
+      example: eth0
+    garp_master_refresh:
+      type: integer
+      description: |
+        MASTER状态时发送免费ARP通告的最小间隔
+
+        单位秒，默认值27，为0时表示不发送通告
+      unit: seconds
+      mininum: 0
+      example: 27
+    pass:
+      type: string
+      description: VRRP通告共享密码
+      example: OneCloudLB
+    preempt:
+      type: boolean
+      description: 是否进行抢占式选举
+      example: false
+    priority:
+      type: integer
+      description: VRRP实例优先级
+      mininum: 1
+      maximum: 255
+      example: 110
+    virtual_router_id:
+      type: integer
+      description: VRRP集群ID
+      mininum: 1
+      maximum: 255
+      example: 100
+LoadbalancerAgentParamsHaproxy:
+  type: object
+  description: HAProxy参数
+  properties:
+    global_log:
+      type: string
+      description: HAProxy配置文件global段中关于日志的配置
+      example: "log /dev/log local0 info"
+    global_nbthread:
+      type: integer
+      description: HAProxy配置文件global段中关于线程数的配置
+      example: 1
+      mininum: 1
+      maximum: 64
+    log_http:
+      type: boolean
+      description: 是否记录HTTP访问日志
+    log_tcp:
+      type: boolean
+      description: 是否记录TCP访问日志
+    log_normal:
+      type: boolean
+      description: 是否记录结果正常的访问
+LoadbalancerAgentParamsTelegraf:
+  type: object
+  description: Telegraf参数
+  properties:
+    haproxy_input_interval:
+      type: integer
+      description: HAProxy统计数据的采样间隔
+      unit: seconds
+      minimum: 1
+    influx_db_output_name:
+      type: string
+      description: 存储监控数据的InfluxDB数据库的名称
+      example: "telegraf"
+    influx_db_output_unsafe_ssl:
+      type: boolean
+      description: 访问InfluxDB时是否忽略证书校验
+    influx_db_output_url:
+      type: string
+      description: InfluxDB的API地址
+      example: https://10.168.222.136:8086/
+
+LoadbalancerAgentCreateRequest:
+  type: object
+  properties:
+    loadbalanceragent:
+      type: object
+      required:
+        - cluster
+      properties:
+        cluster:
+          type: string
+          description: 指定转发实例所属的集群
+        params:
+          $ref: "#/LoadbalancerAgentParams"
+LoadbalancerAgentListResponse:
+  type: object
+  properties:
+    loadbalanceragents:
+      type: array
+      items:
+        $ref: "#/LoadbalancerAgent"
+LoadbalancerAgentResponse:
+  type: object
+  properties:
+    loadbalanceragent:
+      type: object
+      $ref: "#/LoadbalancerAgent"
+
+LoadbalancerAgentDeployRequest:
+  type: object
+  properties:
+    loadbalanceragent:
+      type: object
+      properties:
+        host:
+          $ref: "./ansibleplaybook.yaml#/AnsiblePlaybookInventoryHost"
+        deploy_method:
+          type: string
+          description: 部署方法
+          enum:
+            - yum
+            - copy
+      example:
+        host:
+          name: server:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+          vars:
+            user: lbagent
+            pass: lbagentpassword
+            proj: system
+            repo_base_url: https://10.168.222.136/yumrepo
+        deploy_method: yum
