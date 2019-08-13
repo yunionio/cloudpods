@@ -539,15 +539,43 @@ func getCloudRegionIdByDomainId(domainId string) *sqlchemy.SSubQuery {
 	return sqlchemy.Union(q1, q2).Query().SubQuery()
 }
 
+func queryCloudregionIdsByProviders(providerField string, providerStrs []string) *sqlchemy.SQuery {
+	q := CloudregionManager.Query("id")
+	oneCloud, providers := splitProviders(providerStrs)
+	conds := make([]sqlchemy.ICondition, 0)
+	if len(providers) > 0 {
+		cloudproviders := CloudproviderManager.Query().SubQuery()
+		cloudaccounts := CloudaccountManager.Query().SubQuery()
+		subq := CloudproviderRegionManager.Query("cloudregion_id")
+		subq = subq.Join(cloudproviders, sqlchemy.Equals(subq.Field("cloudprovider_id"), cloudproviders.Field("id")))
+		subq = subq.Join(cloudaccounts, sqlchemy.Equals(cloudproviders.Field("cloudaccount_id"), cloudaccounts.Field("id")))
+		subq = subq.Filter(sqlchemy.In(cloudaccounts.Field(providerField), providers))
+		conds = append(conds, sqlchemy.In(q.Field("id"), subq.SubQuery()))
+	}
+	if oneCloud {
+		conds = append(conds, sqlchemy.IsNullOrEmpty(q.Field("provider")))
+	}
+	if len(conds) == 1 {
+		q = q.Filter(conds[0])
+	} else if len(conds) == 2 {
+		q = q.Filter(sqlchemy.OR(conds...))
+	}
+	return q
+}
+
 func (manager *SCloudregionManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
-	providerStr := jsonutils.GetAnyString(query, []string{"provider"})
-	if len(providerStr) > 0 {
+	providerStrs := jsonutils.GetQueryStringArray(query, "provider")
+	if len(providerStrs) > 0 {
 		query.(*jsonutils.JSONDict).Remove("provider")
-		if providerStr == api.CLOUD_PROVIDER_ONECLOUD {
-			q = q.IsNullOrEmpty("provider")
-		} else {
-			q = q.Equals("provider", providerStr)
-		}
+		subq := queryCloudregionIdsByProviders("provider", providerStrs)
+		q = q.In("id", subq.SubQuery())
+	}
+
+	brandStrs := jsonutils.GetQueryStringArray(query, "brand")
+	if len(brandStrs) > 0 {
+		query.(*jsonutils.JSONDict).Remove("brand")
+		subq := queryCloudregionIdsByProviders("brand", brandStrs)
+		q = q.In("id", subq.SubQuery())
 	}
 
 	q, err := manager.SEnabledStatusStandaloneResourceBaseManager.ListItemFilter(ctx, q, userCred, query)
