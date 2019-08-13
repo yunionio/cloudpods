@@ -217,10 +217,6 @@ func (self *SQcloudGuestDriver) GetGuestInitialStateAfterRebuild() string {
 	return api.VM_RUNNING
 }
 
-func (self *SQcloudGuestDriver) IsNeedInjectPasswordByCloudInit(desc *cloudprovider.SManagedVMCreateConfig) bool {
-	return true
-}
-
 func (self *SQcloudGuestDriver) GetUserDataType() string {
 	return cloudprovider.CLOUD_SHELL
 }
