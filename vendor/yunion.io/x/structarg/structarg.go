@@ -1,14 +1,31 @@
+// Copyright 2019 Yunion
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package structarg
 
 import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 
+	"yunion.io/x/jsonutils"
 	"yunion.io/x/log"
 	"yunion.io/x/pkg/gotypes"
 	"yunion.io/x/pkg/util/reflectutils"
@@ -39,6 +56,7 @@ type Argument interface {
 	DoAction() error
 	Validate() error
 	SetDefault()
+	IsSet() bool
 }
 
 type SingleArgument struct {
@@ -519,18 +537,7 @@ func (this *SingleArgument) InChoices(val string) bool {
 
 func (this *SingleArgument) SetValue(val string) error {
 	if !this.InChoices(val) {
-		cands := FindSimilar(val, this.choices, -1, 0.5)
-		if len(cands) > 3 {
-			cands = cands[:3]
-		}
-		msg := fmt.Sprintf("Unknown argument '%s' for %s", val, this.token) //, this.MetaVar())
-		if len(cands) > 0 {
-			for i := 0; i < len(cands); i += 1 {
-				cands[i] = fmt.Sprintf("'%s'", cands[i])
-			}
-			msg = fmt.Sprintf("%s, did you mean %s?", msg, ChoicesString(cands))
-		}
-		return fmt.Errorf(msg)
+		return this.choicesErr(val)
 	}
 	e := gotypes.SetValue(this.value, val)
 	if e != nil {
@@ -538,6 +545,20 @@ func (this *SingleArgument) SetValue(val string) error {
 	}
 	this.isSet = true
 	return nil
+}
+
+func (this *SingleArgument) choicesErr(val string) error {
+	cands := FindSimilar(val, this.choices, -1, 0.5)
+	if len(cands) > 3 {
+		cands = cands[:3]
+	}
+	msg := fmt.Sprintf("Unknown argument '%s' for %s", val, this.Token())
+	if len(cands) > 0 {
+		msg += fmt.Sprintf(", did you mean %s?", quotedChoicesString(cands))
+	} else if len(this.choices) > 0 {
+		msg += fmt.Sprintf(", accepts %s", quotedChoicesString(this.choices))
+	}
+	return fmt.Errorf("%s", msg)
 }
 
 func (this *SingleArgument) Reset() {
@@ -572,13 +593,17 @@ func (this *SingleArgument) Validate() error {
 	return nil
 }
 
+func (this *SingleArgument) IsSet() bool {
+	return this.isSet
+}
+
 func (this *MultiArgument) IsMulti() bool {
 	return true
 }
 
 func (this *MultiArgument) SetValue(val string) error {
 	if !this.InChoices(val) {
-		return fmt.Errorf("Unknown argument %s for %s%s", val, this.Token(), this.MetaVar())
+		return this.choicesErr(val)
 	}
 	var e error = nil
 	e = gotypes.AppendValue(this.value, val)
@@ -740,21 +765,29 @@ func (this *ArgumentParser) HelpString() string {
 	return buf.String()
 }
 
-func (this *ArgumentParser) findOptionalArgument(token string) Argument {
+func tokenMatch(argToken, input string, exactMatch bool) bool {
+	if exactMatch {
+		return argToken == input
+	} else {
+		return strings.HasPrefix(argToken, input)
+	}
+}
+
+func (this *ArgumentParser) findOptionalArgument(token string, exactMatch bool) Argument {
 	var match_arg Argument = nil
 	match_len := -1
 	for _, arg := range this.optArgs {
-		if strings.HasPrefix(arg.Token(), token) {
+		if tokenMatch(arg.Token(), token, exactMatch) {
 			if match_len < 0 || match_len > len(arg.Token()) {
 				match_len = len(arg.Token())
 				match_arg = arg
 			}
-		} else if strings.HasPrefix(arg.ShortToken(), token) {
+		} else if tokenMatch(arg.ShortToken(), token, exactMatch) {
 			if match_len < 0 || match_len > len(arg.ShortToken()) {
 				match_len = len(arg.ShortToken())
 				match_arg = arg
 			}
-		} else if strings.HasPrefix(arg.AliasToken(), token) {
+		} else if tokenMatch(arg.AliasToken(), token, exactMatch) {
 			if match_len < 0 || match_len > len(arg.AliasToken()) {
 				match_len = len(arg.AliasToken())
 				match_arg = arg
@@ -811,7 +844,7 @@ func (this *ArgumentParser) ParseArgs2(args []string, ignore_unknown bool, setDe
 	for i := 0; i < len(args) && err == nil; i++ {
 		argStr = args[i]
 		if strings.HasPrefix(argStr, "-") {
-			arg = this.findOptionalArgument(strings.TrimLeft(argStr, "-"))
+			arg = this.findOptionalArgument(strings.TrimLeft(argStr, "-"), false)
 			if arg != nil {
 				if arg.NeedData() {
 					if i+1 < len(args) {
@@ -877,7 +910,7 @@ func (this *ArgumentParser) ParseArgs2(args []string, ignore_unknown bool, setDe
 }
 
 func isQuotedByChar(str string, quoteChar byte) bool {
-	return str[0] == quoteChar && str[len(str)-1] == quoteChar
+	return len(str) >= 2 && str[0] == quoteChar && str[len(str)-1] == quoteChar
 }
 
 func isQuoted(str string) bool {
@@ -885,8 +918,11 @@ func isQuoted(str string) bool {
 }
 
 func (this *ArgumentParser) parseKeyValue(key, value string) error {
-	arg := this.findOptionalArgument(key)
+	arg := this.findOptionalArgument(key, true)
 	if arg != nil {
+		if arg.IsSet() {
+			return nil
+		}
 		if arg.IsMulti() {
 			if value[0] == '(' {
 				value = strings.Trim(value, "()")
@@ -930,7 +966,7 @@ func line2KeyValue(line string) (string, string, error) {
 	// first remove comments
 	pos := strings.IndexByte(line, '=')
 	if pos > 0 && pos < len(line) {
-		key := strings.Replace(strings.Trim(line[:pos], " "), "_", "-", -1)
+		key := keyToToken(line[:pos])
 		val := strings.Trim(line[pos+1:], " ")
 		return key, val, nil
 	} else {
@@ -948,14 +984,79 @@ func removeCharacters(input, charSet string) string {
 	return strings.Map(filter, input)
 }
 
-func (this *ArgumentParser) ParseFile(filepath string) error {
-	file, e := os.Open(filepath)
-	if e != nil {
-		return e
+func (this *ArgumentParser) ParseYAMLFile(filepath string) error {
+	content, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return fmt.Errorf("read file %s: %v", filepath, err)
 	}
-	defer file.Close()
+	obj, err := jsonutils.ParseYAML(string(content))
+	if err != nil {
+		return fmt.Errorf("parse yaml to json object: %v", err)
+	}
+	dict, ok := obj.(*jsonutils.JSONDict)
+	if !ok {
+		return fmt.Errorf("object %s is not JSONDict", obj.String())
+	}
+	return this.parseJSONDict(dict)
+}
 
-	scanner := bufio.NewScanner(file)
+func (this *ArgumentParser) parseJSONDict(dict *jsonutils.JSONDict) error {
+	for key, obj := range dict.Value() {
+		if err := this.parseJSONKeyValue(key, obj); err != nil {
+			return fmt.Errorf("parse json %s: %s: %v", key, obj.String(), err)
+		}
+	}
+	return nil
+}
+
+func keyToToken(key string) string {
+	return strings.Replace(strings.Trim(key, " "), "_", "-", -1)
+}
+
+func (this *ArgumentParser) parseJSONKeyValue(key string, obj jsonutils.JSONObject) error {
+	token := keyToToken(key)
+	arg := this.findOptionalArgument(token, true)
+	if arg == nil {
+		log.Warningf("Cannot find argument %s", token)
+		return nil
+	}
+	if arg.IsSet() {
+		return nil
+	}
+	// process multi argument
+	if arg.IsMulti() {
+		array, ok := obj.(*jsonutils.JSONArray)
+		if !ok {
+			return fmt.Errorf("%s object value is not array", key)
+		}
+		for _, item := range array.Value() {
+			str, err := item.GetString()
+			if err != nil {
+				return err
+			}
+			if err := arg.SetValue(str); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	// process single argument
+	str, err := obj.GetString()
+	if err != nil {
+		return err
+	}
+	return arg.SetValue(str)
+}
+
+func (this *ArgumentParser) ParseFile(filepath string) error {
+	if err := this.ParseYAMLFile(filepath); err == nil {
+		return nil
+	}
+	return this.ParseTornadoFile(filepath)
+}
+
+func (this *ArgumentParser) parseReader(r io.Reader) error {
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
 		line = strings.TrimSpace(removeComments(line))
@@ -978,6 +1079,16 @@ func (this *ArgumentParser) ParseFile(filepath string) error {
 	}
 
 	return nil
+}
+
+func (this *ArgumentParser) ParseTornadoFile(filepath string) error {
+	file, e := os.Open(filepath)
+	if e != nil {
+		return e
+	}
+	defer file.Close()
+
+	return this.parseReader(file)
 }
 
 func (this *ArgumentParser) GetSubcommand() *SubcommandArgument {

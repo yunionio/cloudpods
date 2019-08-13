@@ -525,6 +525,14 @@
   version = "v1.4.7"
 
 [[projects]]
+  digest = "1:2cd7915ab26ede7d95b8749e6b1f933f1c6d5398030684e6505940a10f31cfda"
+  name = "github.com/ghodss/yaml"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   digest = "1:36fe9527deed01d2a317617e59304eb2c4ce9f8a24115bcc5c2e37b3aee5bae4"
   name = "github.com/gin-contrib/sse"
@@ -1497,14 +1505,6 @@
   version = "v1.17.0"
 
 [[projects]]
-  digest = "1:2655728699af00d823b0a68bd7169fd241a30c04252f456b34421908701b9c3f"
-  name = "gopkg.in/gin-gonic/gin.v1"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "d459835d2b077e44f7c9b453505ee29881d5d12d"
-  version = "v1.2"
-
-[[projects]]
   digest = "1:cbc72c4c4886a918d6ab4b95e347ffe259846260f99ebdd8a198c2331cf2b2e9"
   name = "gopkg.in/go-playground/validator.v8"
   packages = ["."]
@@ -1704,26 +1704,26 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:53c214ff8c2fd57db0962140b9a5e57b01b63066e7de7fe6897a633d15b78248"
+  digest = "1:f044fe02305a360710bcb0626b870599537514da95c9d4f4cd31df0b4c017e5f"
   name = "yunion.io/x/jsonutils"
   packages = ["."]
   pruneopts = "UT"
-  revision = "028b9007e455103eabacf3e6d71b5ce5060c3984"
+  revision = "a964e1e8a05199146284389fe6ef2d1eac2744b4"
 
 [[projects]]
   branch = "master"
-  digest = "1:20590bdd812710ad3257e92c23c7d19d9595a48ed69b200ac1d23ac76eee848e"
+  digest = "1:a872813eff1f3d353a1e4e64d745ac07387ed52cbc4cc2f6180272a7df7f21d1"
   name = "yunion.io/x/log"
   packages = [
     ".",
     "hooks",
   ]
   pruneopts = "UT"
-  revision = "3c4f24289a1b2fd39b94a9ccbd40931b3a20aab7"
+  revision = "9f6483a7103dc7b5012ae7aad2c74728e02cf650"
 
 [[projects]]
   branch = "master"
-  digest = "1:0ee2765acdce51c79365752613075a04542f10433992510f45adc86dcb975b34"
+  digest = "1:c09298fb61e83dae28b08222e20f31bd109f93c50a29517a17edcc5a5666bd1a"
   name = "yunion.io/x/pkg"
   packages = [
     "errors",
@@ -1757,23 +1757,23 @@
     "utils",
   ]
   pruneopts = "UT"
-  revision = "f4033ba2ea301261b5e872c38c20c15c09d226a5"
+  revision = "b564cfdcc2247b3f6f6bc4e818b44f08d82dc660"
 
 [[projects]]
   branch = "master"
-  digest = "1:67935f7c2db32f5c6bc0b06dddccefc9a8b4a0d66a07c7217a38d87447a1e70b"
+  digest = "1:f7386c58a1e94eddbca9b8a95167ba7b4bc7d8dfea40a01261f7443757eafb25"
   name = "yunion.io/x/sqlchemy"
   packages = ["."]
   pruneopts = "UT"
-  revision = "6aff6c803fda71acb3b5b7a98fdc249ee7f2e9ed"
+  revision = "cfa59aeabbfe47c910920a2e1d61e1eaddd92ec5"
 
 [[projects]]
   branch = "master"
-  digest = "1:cfa79b54c4ec8d1fe6b1599846b3975c50212f58114d807a6db69bbee5a16b7a"
+  digest = "1:d91515edf1e995676f635f39ed5445e45fd3d176c71546744b11cba7e0126421"
   name = "yunion.io/x/structarg"
   packages = ["."]
   pruneopts = "UT"
-  revision = "5b725f46d67547e7fb603b2118eddc5358ac2a39"
+  revision = "115bed041de33bdf3a5be5281d4a6b06607c82d8"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -1833,6 +1833,7 @@
     "github.com/coredns/coredns/request",
     "github.com/fatih/color",
     "github.com/fsnotify/fsnotify",
+    "github.com/gin-gonic/gin",
     "github.com/go-sql-driver/mysql",
     "github.com/golang-plus/errors",
     "github.com/golang-plus/uuid",
@@ -1880,7 +1881,6 @@
     "golang.org/x/net/bpf",
     "golang.org/x/net/ipv4",
     "golang.org/x/sys/unix",
-    "gopkg.in/gin-gonic/gin.v1",
     "gopkg.in/yaml.v2",
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/errors",
@@ -1894,6 +1894,7 @@
     "yunion.io/x/jsonutils",
     "yunion.io/x/log",
     "yunion.io/x/log/hooks",
+    "yunion.io/x/pkg/errors",
     "yunion.io/x/pkg/gotypes",
     "yunion.io/x/pkg/prettytable",
     "yunion.io/x/pkg/trace",
