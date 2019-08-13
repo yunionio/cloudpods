@@ -51,10 +51,16 @@ func (manager *SBucketManager) Upload(s *mcclient.ClientSession, bucketId string
 		headers.Set(api.BUCKET_UPLOAD_OBJECT_ACL_HEADER, acl)
 	}
 
-	_, err := manager.rawRequest(s, method, path, headers, body)
+	resp, err := manager.rawRequest(s, method, path, headers, body)
 	if err != nil {
 		return errors.Wrap(err, "rawRequest")
 	}
+
+	_, _, err = s.ParseJSONResponse(resp, err)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

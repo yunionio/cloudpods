@@ -277,7 +277,7 @@ func (f *ResourceHandlers) getSpecHandler(ctx context.Context, w http.ResponseWr
 			appsrv.SendJSON(w, modules.ListResult2JSON(ret))
 		}
 	} else {
-		obj, e := module.GetSpecific(session, req.Spec(), req.Spec(), query)
+		obj, e := module.GetSpecific(session, req.ResID(), req.Spec(), query)
 		if e != nil {
 			httperrors.GeneralServerError(w, e)
 		} else {
