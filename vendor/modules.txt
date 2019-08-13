@@ -798,9 +798,9 @@ yunion.io/x/pkg/util/prometheus
 yunion.io/x/pkg/prettytable
 yunion.io/x/pkg/util/runtime
 yunion.io/x/pkg/util/clock
-# yunion.io/x/s3cli v0.0.0-20190812030153-814f1e636a0a
+# yunion.io/x/s3cli v0.0.0-20190812034537-1e65a6651a3e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20190704155352-6aff6c803fda
+# yunion.io/x/sqlchemy v0.0.0-20190813100902-cfa59aeabbfe
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 yunion.io/x/structarg
