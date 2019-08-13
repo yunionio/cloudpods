@@ -106,7 +106,14 @@ func (r *SRbdImageCache) Remove(ctx context.Context) error {
 }
 
 func (r *SRbdImageCache) GetDesc() *remotefile.SImageDesc {
-	return nil
+	imageCacheManger := r.Manager.(*SRbdImageCacheManager)
+	storage := imageCacheManger.storage.(*SRbdStorage)
+
+	size := storage.getImageSizeMb(imageCacheManger.Pool, r.GetName())
+	return &remotefile.SImageDesc{
+		Size: int64(size),
+		Name: r.GetName(),
+	}
 }
 
 func (r *SRbdImageCache) GetImageId() string {

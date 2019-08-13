@@ -133,10 +133,6 @@ func (d *SRBDDisk) PrepareSaveToGlance(ctx context.Context, params interface{}) 
 	return jsonutils.Marshal(map[string]string{"backup": imageName}), nil
 }
 
-func (d *SRBDDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
-	return nil, fmt.Errorf("Not impl")
-}
-
 func (d *SRBDDisk) CleanupSnapshots(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
 	storage := d.Storage.(*SRbdStorage)
 	pool, _ := storage.StorageConf.GetString("pool")
@@ -214,4 +210,43 @@ func (d *SRBDDisk) DeleteSnapshot(snapshotId, convertSnapshot string, pendingDel
 	storage := d.Storage.(*SRbdStorage)
 	pool, _ := storage.StorageConf.GetString("pool")
 	return storage.deleteSnapshot(pool, d.Id, snapshotId)
+}
+
+func (d *SRBDDisk) DiskSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	snapshotId, ok := params.(string)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	return nil, d.CreateSnapshot(snapshotId)
+}
+
+func (d *SRBDDisk) DiskDeleteSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	snapshotId, ok := params.(string)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	err := d.DeleteSnapshot(snapshotId, "", false)
+	if err != nil {
+		return nil, err
+	} else {
+		res := jsonutils.NewDict()
+		res.Set("deleted", jsonutils.JSONTrue)
+		return res, nil
+	}
+}
+
+func (d *SRBDDisk) ResetFromSnapshot(ctx context.Context, params interface{}) (jsonutils.JSONObject, error) {
+	resetParams, ok := params.(*SDiskReset)
+	if !ok {
+		return nil, hostutils.ParamsError
+	}
+	storage := d.Storage.(*SRbdStorage)
+	pool, _ := storage.StorageConf.GetString("pool")
+	return nil, storage.resetDisk(pool, d.GetId(), resetParams.SnapshotId)
+}
+
+func (d *SRBDDisk) CreateFromRbdSnapshot(ctx context.Context, snapshot, srcDiskId, srcPool string) error {
+	storage := d.Storage.(*SRbdStorage)
+	pool, _ := storage.StorageConf.GetString("pool")
+	return storage.cloneFromSnapshot(srcDiskId, srcPool, snapshot, d.GetId(), pool)
 }
