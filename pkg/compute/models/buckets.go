@@ -624,12 +624,17 @@ func (bucket *SBucket) PerformMakedir(
 	data jsonutils.JSONObject,
 ) (jsonutils.JSONObject, error) {
 	key, _ := data.GetString("key")
-	if key[len(key)-1] != '/' {
-		return nil, httperrors.NewInputParameterError("directory must ends with /")
+	for len(key) > 0 && key[len(key)-1] == '/' {
+		key = key[:len(key)-1]
 	}
+
+	if len(key) == 0 {
+		return nil, httperrors.NewInputParameterError("empty directory name")
+	}
+
 	err := s3utils.CheckValidObjectName(key)
 	if err != nil {
-		return nil, httperrors.NewInputParameterError("invalid key: %s", err)
+		return nil, httperrors.NewInputParameterError("invalid key %s: %s", key, err)
 	}
 
 	iBucket, err := bucket.GetIBucket()
@@ -637,7 +642,7 @@ func (bucket *SBucket) PerformMakedir(
 		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
 	}
 
-	err = cloudprovider.Makedir(ctx, iBucket, key)
+	err = cloudprovider.Makedir(ctx, iBucket, key+"/")
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("fail to mkdir: %s", err)
 	}
@@ -674,9 +679,13 @@ func (bucket *SBucket) PerformDelete(
 	}
 	ok := jsonutils.NewDict()
 	results := modules.BatchDo(keyStrs, func(key string) (jsonutils.JSONObject, error) {
-		err := iBucket.DeleteObject(ctx, key)
+		if strings.HasSuffix(key, "/") {
+			err = cloudprovider.DeletePrefix(ctx, iBucket, key)
+		} else {
+			err = iBucket.DeleteObject(ctx, key)
+		}
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "DeletePrefix")
 		} else {
 			return ok, nil
 		}
@@ -704,6 +713,11 @@ func (bucket *SBucket) PerformUpload(
 	appParams := appsrv.AppContextGetParams(ctx)
 
 	key := appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_KEY_HEADER)
+
+	if strings.HasSuffix(key, "/") {
+		return nil, httperrors.NewInputParameterError("object key should not ends with /")
+	}
+
 	err := s3utils.CheckValidObjectName(key)
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("invalid object key: %s", err)
@@ -723,19 +737,21 @@ func (bucket *SBucket) PerformUpload(
 	if err != nil {
 		return nil, httperrors.NewInputParameterError("Illegal Content-Length %s", sizeStr)
 	}
-	if sizeBytes <= 0 {
-		return nil, httperrors.NewInputParameterError("Content-Length not positive %d", sizeBytes)
+	if sizeBytes < 0 {
+		return nil, httperrors.NewInputParameterError("Content-Length negative %d", sizeBytes)
 	}
 	storageClass := appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_STORAGECLASS_HEADER)
-	aclStr := cloudprovider.TBucketACLType(appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_ACL_HEADER))
-	switch aclStr {
-	case cloudprovider.ACLPrivate, cloudprovider.ACLAuthRead, cloudprovider.ACLPublicRead, cloudprovider.ACLPublicReadWrite:
-		// do nothing
-	default:
-		return nil, httperrors.NewInputParameterError("invalid acl: %s", aclStr)
+	aclStr := appParams.Request.Header.Get(api.BUCKET_UPLOAD_OBJECT_ACL_HEADER)
+	if len(aclStr) > 0 {
+		switch cloudprovider.TBucketACLType(aclStr) {
+		case cloudprovider.ACLPrivate, cloudprovider.ACLAuthRead, cloudprovider.ACLPublicRead, cloudprovider.ACLPublicReadWrite:
+			// do nothing
+		default:
+			return nil, httperrors.NewInputParameterError("invalid acl: %s", aclStr)
+		}
 	}
 
-	err = cloudprovider.UploadObject(ctx, iBucket, key, 0, appParams.Request.Body, sizeBytes, contType, aclStr, storageClass, false)
+	err = cloudprovider.UploadObject(ctx, iBucket, key, 0, appParams.Request.Body, sizeBytes, contType, cloudprovider.TBucketACLType(aclStr), storageClass, false)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("put object error %s", err)
 	}

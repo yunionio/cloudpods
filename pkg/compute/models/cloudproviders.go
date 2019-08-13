@@ -1010,6 +1010,17 @@ func (manager *SCloudproviderManager) ListItemFilter(ctx context.Context, q *sql
 		q = q.Filter(sqlchemy.IsTrue(cloudaccounts.Field("is_on_premise")))
 	}
 
+	if query.Contains("has_object_storage") {
+		hasObjectStorage, _ := query.Bool("has_object_storage")
+		cloudaccounts := CloudaccountManager.Query().SubQuery()
+		q = q.Join(cloudaccounts, sqlchemy.Equals(cloudaccounts.Field("id"), q.Field("cloudaccount_id")))
+		if hasObjectStorage {
+			q = q.Filter(sqlchemy.IsTrue(cloudaccounts.Field("has_object_storage")))
+		} else {
+			q = q.Filter(sqlchemy.IsFalse(cloudaccounts.Field("has_object_storage")))
+		}
+	}
+
 	return q, nil
 }
 

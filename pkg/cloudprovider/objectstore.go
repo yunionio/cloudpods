@@ -327,3 +327,17 @@ func UploadObject(ctx context.Context, bucket ICloudBucket, key string, blocksz 
 	}
 	return nil
 }
+
+func DeletePrefix(ctx context.Context, bucket ICloudBucket, prefix string) error {
+	objs, err := bucket.GetIObjects(prefix, true)
+	if err != nil {
+		return errors.Wrap(err, "bucket.GetIObjects")
+	}
+	for i := range objs {
+		err := bucket.DeleteObject(ctx, objs[i].GetKey())
+		if err != nil {
+			return errors.Wrap(err, "bucket.DeleteObject")
+		}
+	}
+	return nil
+}
