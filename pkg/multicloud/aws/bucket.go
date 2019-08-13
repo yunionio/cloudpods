@@ -210,7 +210,7 @@ func (b *SBucket) GetIObjects(prefix string, isRecursive bool) ([]cloudprovider.
 }
 
 func (b *SBucket) PutObject(ctx context.Context, key string, body io.Reader, sizeBytes int64, contType string, cannedAcl cloudprovider.TBucketACLType, storageClassStr string) error {
-	if sizeBytes <= 0 {
+	if sizeBytes < 0 {
 		return errors.Error("content length expected")
 	}
 	s3cli, err := b.region.GetS3Client()
