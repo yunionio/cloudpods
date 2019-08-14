@@ -67,7 +67,9 @@ type SQuota struct {
 	IsolatedDevice int
 	Snapshot       int
 
-	Bucket int
+	Bucket    int
+	ObjectGB  int
+	ObjectCnt int
 }
 
 func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider) {
@@ -90,6 +92,8 @@ func (self *SQuota) FetchSystemQuota(scope rbacutils.TRbacScope, ownerId mcclien
 	self.IsolatedDevice = options.Options.DefaultIsolatedDeviceQuota * base
 	self.Snapshot = options.Options.DefaultSnapshotQuota * base
 	self.Bucket = options.Options.DefaultBucketQuota * base
+	self.ObjectGB = options.Options.DefaultObjectGBQuota * base
+	self.ObjectCnt = options.Options.DefaultObjectCntQuota * base
 }
 
 func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, ownerId mcclient.IIdentityProvider, name []string) error {
@@ -125,6 +129,8 @@ func (self *SQuota) FetchUsage(ctx context.Context, scope rbacutils.TRbacScope, 
 	self.IsolatedDevice = guest.TotalIsolatedCount
 	self.Snapshot = snapshotCount
 	self.Bucket = bucketUsage.Buckets
+	self.ObjectGB = int(bucketUsage.Bytes / 1000 / 1000 / 1000)
+	self.ObjectCnt = bucketUsage.Objects
 	return nil
 }
 
@@ -168,6 +174,12 @@ func (self *SQuota) IsEmpty() bool {
 	if self.Bucket > 0 {
 		return false
 	}
+	if self.ObjectGB > 0 {
+		return false
+	}
+	if self.ObjectCnt > 0 {
+		return false
+	}
 	return true
 }
 
@@ -186,6 +198,8 @@ func (self *SQuota) Add(quota quotas.IQuota) {
 	self.IsolatedDevice = self.IsolatedDevice + squota.IsolatedDevice
 	self.Snapshot = self.Snapshot + squota.Snapshot
 	self.Bucket = self.Bucket + squota.Bucket
+	self.ObjectGB = self.ObjectGB + squota.ObjectGB
+	self.ObjectCnt = self.ObjectCnt + squota.ObjectCnt
 }
 
 func nonNegative(val int) int {
@@ -207,6 +221,8 @@ func (self *SQuota) Sub(quota quotas.IQuota) {
 	self.IsolatedDevice = nonNegative(self.IsolatedDevice - squota.IsolatedDevice)
 	self.Snapshot = nonNegative(self.Snapshot - squota.Snapshot)
 	self.Bucket = nonNegative(self.Bucket - squota.Bucket)
+	self.ObjectGB = nonNegative(self.ObjectGB - squota.ObjectGB)
+	self.ObjectCnt = nonNegative(self.ObjectCnt - squota.ObjectCnt)
 }
 
 func (self *SQuota) Update(quota quotas.IQuota) {
@@ -249,6 +265,12 @@ func (self *SQuota) Update(quota quotas.IQuota) {
 	}
 	if squota.Bucket > 0 {
 		self.Bucket = squota.Bucket
+	}
+	if squota.ObjectGB > 0 {
+		self.ObjectGB = squota.ObjectGB
+	}
+	if squota.ObjectCnt > 0 {
+		self.ObjectCnt = squota.ObjectCnt
 	}
 }
 
@@ -295,6 +317,12 @@ func (self *SQuota) Exceed(request quotas.IQuota, quota quotas.IQuota) error {
 	if sreq.Bucket > 0 && self.Bucket > squota.Bucket {
 		err.Add("bucket", squota.Bucket, self.Bucket)
 	}
+	if sreq.ObjectGB > 0 && self.ObjectGB > squota.ObjectGB {
+		err.Add("object_gb", squota.ObjectGB, self.ObjectGB)
+	}
+	if sreq.ObjectCnt > 0 && self.ObjectCnt > squota.ObjectCnt {
+		err.Add("object_cnt", squota.ObjectCnt, self.ObjectCnt)
+	}
 	if err.IsError() {
 		return err
 	} else {
@@ -325,5 +353,7 @@ func (self *SQuota) ToJSON(prefix string) jsonutils.JSONObject {
 	ret.Add(jsonutils.NewInt(int64(self.IsolatedDevice)), keyName(prefix, "isolated_device"))
 	ret.Add(jsonutils.NewInt(int64(self.Snapshot)), keyName(prefix, "snapshot"))
 	ret.Add(jsonutils.NewInt(int64(self.Bucket)), keyName(prefix, "bucket"))
+	ret.Add(jsonutils.NewInt(int64(self.ObjectGB)), keyName(prefix, "object_gb"))
+	ret.Add(jsonutils.NewInt(int64(self.ObjectCnt)), keyName(prefix, "object_cnt"))
 	return ret
 }
