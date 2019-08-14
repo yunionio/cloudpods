@@ -16,7 +16,7 @@ go:
 
 # Only clone the most recent commit.
 git:
-  depth: 1
+  depth: 8
 
 script:
-  - make docker_build
+  - make docker-build F="-j2 ONECLOUD_CI_BUILD=1"
