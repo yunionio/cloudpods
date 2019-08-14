@@ -264,4 +264,20 @@ func init() {
 		return nil
 	})
 
+	type BucketLimitOptions struct {
+		ID          string `help:"ID or name of bucket" json:"-"`
+		SizeBytes   int64  `help:"size limit in bytes"`
+		ObjectCount int64  `help:"object count limit"`
+	}
+	R(&BucketLimitOptions{}, "bucket-limit", "Set limit of bucket", func(s *mcclient.ClientSession, args *BucketLimitOptions) error {
+		limit := jsonutils.Marshal(args)
+		params := jsonutils.NewDict()
+		params.Set("limit", limit)
+		result, err := modules.Buckets.PerformAction(s, args.ID, "limit", params)
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }
