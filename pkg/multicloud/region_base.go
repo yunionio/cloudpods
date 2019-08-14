@@ -50,12 +50,8 @@ func (self *SRegion) GetISkus(zoneId string) ([]cloudprovider.ICloudSku, error) 
 	return nil, cloudprovider.ErrNotSupported
 }
 
-func (self *SRegion) CreateISku(*cloudprovider.SServerSku) (cloudprovider.ICloudSku, error) {
-	return nil, fmt.Errorf("Not Support Create Server Sku")
-}
-
-func (self *SRegion) GetISkuById(skuId string) (cloudprovider.ICloudSku, error) {
-	return nil, fmt.Errorf("Not Support GetISkuById")
+func (self *SRegion) DeleteISkuByName(name string) error {
+	return fmt.Errorf("Not Support DeleteISkuByName")
 }
 
 func (self *SRegion) GetINetworkInterfaces() ([]cloudprovider.ICloudNetworkInterface, error) {

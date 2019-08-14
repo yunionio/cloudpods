@@ -50,7 +50,7 @@ func (f *ImagePredicate) PreExecute(u *core.Unit, cs []core.Candidater) (bool, e
 	if len(imageId) == 0 || u.SchedData().PreferZone != "" {
 		return false, nil
 	}
-	if !utils.IsInStringArray(u.SchedData().Hypervisor, compute.PUBLIC_CLOUD_HYPERVISORS) {
+	if !utils.IsInStringArray(u.SchedData().Hypervisor, compute.PUBLIC_CLOUD_HYPERVISORS) && !utils.IsInStringArray(u.SchedData().Hypervisor, compute.PRIVATE_CLOUD_HYPERVISORS) {
 		return false, nil
 	}
 	obj, err := models.CachedimageManager.FetchById(imageId)
