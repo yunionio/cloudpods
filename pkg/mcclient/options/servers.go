@@ -236,12 +236,13 @@ type ServerCreateOptions struct {
 	ServerConfigs
 
 	NAME    string `help:"Name of server" json:"-"`
-	MEMSPEC string `help:"Memory size Or Instance Type" metavar:"MEMSPEC" json:"-"`
+	MemSpec string `help:"Memory size Or Instance Type" metavar:"MEMSPEC" json:"-"`
 
 	Keypair          string   `help:"SSH Keypair"`
 	Password         string   `help:"Default user password"`
 	Iso              string   `help:"ISO image ID" metavar:"IMAGE_ID" json:"cdrom"`
 	VcpuCount        int      `help:"#CPU cores of VM server, default 1" default:"1" metavar:"<SERVER_CPU_COUNT>" json:"vcpu_count" token:"ncpu"`
+	InstanceType     string   `help:"instance flavor"`
 	Vga              string   `help:"VGA driver" choices:"std|vmware|cirrus|qxl"`
 	Vdi              string   `help:"VDI protocool" choices:"vnc|spice"`
 	Bios             string   `help:"BIOS" choices:"BIOS|UEFI"`
@@ -274,7 +275,7 @@ func (o *ServerCreateOptions) ToScheduleInput() (*schedapi.ScheduleInput, error)
 	data := new(schedapi.ServerConfig)
 
 	// only support digit number as for now
-	memSize, err := strconv.Atoi(o.MEMSPEC)
+	memSize, err := strconv.Atoi(o.MemSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -348,14 +349,14 @@ func (opts *ServerCreateOptions) Params() (*computeapi.ServerCreateInput, error)
 	} else {
 		params.Name = opts.NAME
 	}
-	if regutils.MatchSize(opts.MEMSPEC) {
-		memSize, err := fileutils.GetSizeMb(opts.MEMSPEC, 'M', 1024)
+	if regutils.MatchSize(opts.MemSpec) {
+		memSize, err := fileutils.GetSizeMb(opts.MemSpec, 'M', 1024)
 		if err != nil {
 			return nil, err
 		}
 		params.VmemSize = memSize
 	} else {
-		params.InstanceType = opts.MEMSPEC
+		params.InstanceType = opts.InstanceType
 	}
 
 	deployInfos, err := ParseServerDeployInfoList(opts.Deploy)

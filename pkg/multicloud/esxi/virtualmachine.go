@@ -552,8 +552,8 @@ func (self *SVirtualMachine) acquireVmrcUrl() (jsonutils.JSONObject, error) {
 	return ret, nil
 }
 
-func (self *SVirtualMachine) ChangeConfig(ctx context.Context, ncpu int, vmem int) error {
-	return self.doChangeConfig(ctx, int32(ncpu), int64(vmem), "", "")
+func (self *SVirtualMachine) ChangeConfig(ctx context.Context, config *cloudprovider.SManagedVMChangeConfig) error {
+	return self.doChangeConfig(ctx, int32(config.Cpu), int64(config.MemoryMB), "", "")
 }
 
 func (self *SVirtualMachine) GetVersion() string {
@@ -597,10 +597,6 @@ func (self *SVirtualMachine) doChangeConfig(ctx context.Context, ncpu int32, vme
 }
 
 func (self *SVirtualMachine) AssignSecurityGroup(secgroupId string) error {
-	return cloudprovider.ErrNotImplemented
-}
-
-func (dc *SVirtualMachine) ChangeConfig2(ctx context.Context, instanceType string) error {
 	return cloudprovider.ErrNotImplemented
 }
 
