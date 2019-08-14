@@ -497,9 +497,11 @@ func (self *SCloudaccount) markStartSync(userCred mcclient.TokenCredential) erro
 	}
 	providers := self.GetCloudproviders()
 	for i := range providers {
-		err := providers[i].markStartingSync(userCred)
-		if err != nil {
-			return errors.Wrap(err, "providers.markStartSync")
+		if providers[i].Enabled {
+			err := providers[i].markStartingSync(userCred)
+			if err != nil {
+				return errors.Wrap(err, "providers.markStartSync")
+			}
 		}
 	}
 	return nil
@@ -527,8 +529,16 @@ func (self *SCloudaccount) MarkEndSyncWithLock(ctx context.Context, userCred mcc
 		return nil
 	}
 
+	providers := self.GetCloudproviders()
+	for i := range providers {
+		err := providers[i].cancelStartingSync(userCred)
+		if err != nil {
+			return errors.Wrap(err, "providers.cancelStartingSync")
+		}
+	}
+
 	if self.getSyncStatus2() != api.CLOUD_PROVIDER_SYNC_STATUS_IDLE {
-		return nil
+		return errors.Error("some cloud providers not idle")
 	}
 
 	return self.markEndSync(userCred)
