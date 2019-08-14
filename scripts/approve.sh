@@ -29,15 +29,22 @@ if [ "$STATE" != "open" ]; then
     exit 1
 fi
 
+CHECKED=
 COMMIT=$(last_commit $PR)
 for RESULT in $(last_check $COMMIT)
 do
+    CHECKED=yes
     echo "Last commit $COMMIT check result: $RESULT"
     if [ "$RESULT" != "success" ]; then
         echo "Cannot approve before all checks success"
         exit 1
     fi
 done
+
+if [ -z "$CHECKED" ]; then
+    echo "No check passed, give up and try later ..."
+    exit 1
+fi
 
 echo "All check passed, going to approve and lgtm the Pull Request #$PR..."
 
