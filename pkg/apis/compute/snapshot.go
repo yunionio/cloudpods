@@ -31,6 +31,7 @@ type SSnapshotCreateInput struct {
 	DiskType      string `json:"disk_type"`
 	CloudregionId string `json:"cloudregion_id"`
 	OutOfChain    bool   `json:"out_of_chain"`
+	ManagerId     string `json:"manager_id"`
 }
 
 type SSnapshotPolicyCreateInput struct {
