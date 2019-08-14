@@ -157,8 +157,8 @@ func init() {
 		KEY  string `help:"Key of object to upload"`
 		Path string `help:"Path to file to upload" required:"true"`
 
-		ContentLength int64  `help:"Content lenght (bytes)"`
-		ContentType   string `help:"Content type" required:"true"`
+		ContentLength int64  `help:"Content lenght (bytes)" default:"-1"`
+		ContentType   string `help:"Content type"`
 		StorageClass  string `help:"storage CLass"`
 		Acl           string `help:"object acl." choices:"private|public-read|public-read-write"`
 	}
@@ -182,7 +182,7 @@ func init() {
 			body = os.Stdin
 		}
 
-		if args.ContentLength <= 0 {
+		if args.ContentLength < 0 {
 			return fmt.Errorf("required content-length")
 		}
 
