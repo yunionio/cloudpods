@@ -61,6 +61,7 @@ func (h *MiscHandler) Bind(app *appsrv.Application) {
 	uploader := UploadHandlerInfo(POST, prefix+"uploads", FetchAuthToken(h.PostUploads))
 	app.AddHandler3(uploader)
 	app.AddHandler(GET, prefix+"downloads/<template_id>", FetchAuthToken(h.getDownloadsHandler))
+	app.AddHandler(POST, prefix+"piuploads", FetchAuthToken(h.postPIUploads)) // itsm process instances upload api
 }
 
 func UploadHandlerInfo(method, prefix string, handler func(context.Context, http.ResponseWriter, *http.Request)) *appsrv.SHandlerInfo {
@@ -185,6 +186,32 @@ func (mh *MiscHandler) getDownloadsHandler(ctx context.Context, w http.ResponseW
 		httperrors.InputParameterError(w, "template not found %s", template)
 		return
 	}
+}
+
+func (mh *MiscHandler) postPIUploads(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	// 5 MB
+	var maxMemory int64 = 5 << 20
+	if req.ContentLength > maxMemory {
+		httperrors.InvalidInputError(w, "request body is too large.")
+		return
+	}
+
+	if !strings.Contains(req.Header.Get("Content-Type"), "multipart/form-data") {
+		httperrors.InvalidInputError(w, "invalid multipart form")
+		return
+	}
+
+	s := FetchSession(ctx, req, "")
+	header := http.Header{}
+	header.Set("Content-Type", req.Header.Get("Content-Type"))
+	header.Set("Content-Length", req.Header.Get("Content-Length"))
+	resp, err := modules.ProcessInstance.Upload(s, header, req.Body)
+	if err != nil {
+		httperrors.GeneralServerError(w, err)
+		return
+	}
+
+	appsrv.SendJSON(w, resp)
 }
 
 func writeCsv(records [][]string) (bytes.Buffer, error) {
