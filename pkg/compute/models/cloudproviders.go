@@ -663,6 +663,26 @@ func (self *SCloudprovider) markEndSync(userCred mcclient.TokenCredential) error
 	return nil
 }
 
+func (self *SCloudprovider) cancelStartingSync(userCred mcclient.TokenCredential) error {
+	if self.SyncStatus == api.CLOUD_PROVIDER_SYNC_STATUS_QUEUING {
+		cprs := self.GetCloudproviderRegions()
+		for i := range cprs {
+			err := cprs[i].cancelStartingSync(userCred)
+			if err != nil {
+				return errors.Wrap(err, "cprs[i].cancelStartingSync")
+			}
+		}
+		_, err := db.Update(self, func() error {
+			self.SyncStatus = api.CLOUD_PROVIDER_SYNC_STATUS_IDLE
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "db.Update")
+		}
+	}
+	return nil
+}
+
 func (self *SCloudprovider) GetProviderFactory() (cloudprovider.ICloudProviderFactory, error) {
 	return cloudprovider.GetProviderFactory(self.Provider)
 }
