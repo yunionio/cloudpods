@@ -92,13 +92,12 @@ func (self *SRegion) getECSClient() (*client.Client, error) {
 }
 
 func (self *SRegion) getOBSEndpoint() string {
-	return fmt.Sprintf("obs.%s.myhuaweicloud.com", self.GetId())
+	return getOBSEndpoint(self.GetId())
 }
 
 func (self *SRegion) getOBSClient() (*obs.ObsClient, error) {
 	if self.obsClient == nil {
-		endpoint := self.getOBSEndpoint()
-		obsClient, err := obs.New(self.client.accessKey, self.client.secret, endpoint)
+		obsClient, err := self.client.getOBSClient(self.GetId())
 		if err != nil {
 			return nil, err
 		}
