@@ -28,8 +28,8 @@ import (
 type TBucketACLType string
 
 const (
-	// 100 MB
-	MAX_PUT_OBJECT_SIZEBYTES = int64(1000 * 1000 * 100)
+	// 50 MB
+	MAX_PUT_OBJECT_SIZEBYTES = int64(1000 * 1000 * 50)
 
 	// ACLDefault = TBucketACLType("default")
 

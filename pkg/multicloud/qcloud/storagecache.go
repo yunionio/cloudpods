@@ -167,7 +167,10 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", err
 	}
 
-	bucketName := strings.ToLower(fmt.Sprintf("imgcache-%s-%s", self.region.GetId(), image.ImageId))
+	bucketName := strings.ReplaceAll(strings.ToLower(self.region.GetId()+image.ImageId), "-", "")
+	if len(bucketName) > 40 {
+		bucketName = bucketName[:40]
+	}
 	exists, _ := self.region.IBucketExist(bucketName)
 	if !exists {
 		log.Debugf("Bucket %s not exists, to create ...", bucketName)
