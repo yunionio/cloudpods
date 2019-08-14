@@ -54,7 +54,7 @@ func (region *SRegion) GetInstanceOfferingByType(instanceType string) (*SInstanc
 		return &offerings[0], nil
 	}
 	if len(offerings) == 0 {
-		return nil, fmt.Errorf("instanceType %s not found", instanceType)
+		return nil, cloudprovider.ErrNotFound
 	}
 	return nil, fmt.Errorf("duplicate instanceType %s", instanceType)
 }

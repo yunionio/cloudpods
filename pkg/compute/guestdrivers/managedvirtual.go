@@ -683,13 +683,6 @@ func (self *SManagedVirtualizedGuestDriver) DoGuestCreateDisksTask(ctx context.C
 	return nil
 }
 
-type SManagedVMChangeConfig struct {
-	InstanceId   string
-	InstanceType string // InstanceType 不为空时，直接采用InstanceType更新主机。
-	Cpu          int
-	Memory       int
-}
-
 func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Context, guest *models.SGuest, task taskman.ITask, instanceType string, vcpuCount, vmemSize int64) error {
 	ihost, err := guest.GetHost().GetIHost()
 	if err != nil {
@@ -702,17 +695,14 @@ func (self *SManagedVirtualizedGuestDriver) RequestChangeVmConfig(ctx context.Co
 	}
 
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		var err error
-		if len(instanceType) > 0 {
-			err = iVM.ChangeConfig2(ctx, instanceType)
+		config := &cloudprovider.SManagedVMChangeConfig{
+			Cpu:          int(vcpuCount),
+			MemoryMB:     int(vmemSize),
+			InstanceType: instanceType,
 		}
-		// no InstanceType
-		// or InstanceType failed but retry with raw cpu/mem config
-		if len(instanceType) == 0 || err != nil {
-			err = iVM.ChangeConfig(ctx, int(vcpuCount), int(vmemSize))
-			if err != nil {
-				return nil, err
-			}
+		err := iVM.ChangeConfig(ctx, config)
+		if err != nil {
+			return nil, err
 		}
 
 		err = cloudprovider.WaitCreated(time.Second*5, time.Minute*5, func() bool {
