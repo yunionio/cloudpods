@@ -164,12 +164,17 @@ func (self *SHuaweiClient) getIBuckets() ([]cloudprovider.ICloudBucket, error) {
 	return self.iBuckets, nil
 }
 
+func getOBSEndpoint(regionId string) string {
+	return fmt.Sprintf("obs.%s.myhuaweicloud.com", regionId)
+}
+
+func (client *SHuaweiClient) getOBSClient(regionId string) (*obs.ObsClient, error) {
+	endpoint := getOBSEndpoint(regionId)
+	return obs.New(client.accessKey, client.secret, endpoint)
+}
+
 func (self *SHuaweiClient) fetchBuckets() error {
-	if len(self.iregions) == 0 {
-		return errors.Error("no region???")
-	}
-	region := self.iregions[0].(*SRegion)
-	obscli, err := region.getOBSClient()
+	obscli, err := self.getOBSClient(HUAWEI_DEFAULT_REGION)
 	if err != nil {
 		return errors.Wrap(err, "getOBSClient")
 	}
@@ -266,6 +271,7 @@ func (self *SHuaweiClient) GetIRegions() []cloudprovider.ICloudRegion {
 
 func (self *SHuaweiClient) getIRegionByRegionId(id string) (cloudprovider.ICloudRegion, error) {
 	for i := 0; i < len(self.iregions); i += 1 {
+		log.Debugf("%d ID: %s", i, self.iregions[i].GetId())
 		if self.iregions[i].GetId() == id {
 			return self.iregions[i], nil
 		}
