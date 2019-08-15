@@ -34,6 +34,9 @@ type QuotaBaseOptions struct {
 	Snapshot       int64 `help:"Snapshot count" json:"snapshot,omitzero"`
 	Image          int64 `help:"Template count" json:"image,omitzero"`
 	Secgroup       int64 `help:"Secgroup count" json:"secgroup,omitzero"`
+	Bucket         int64 `help:"bucket count" json:"bucket,omitzero"`
+	ObjectGB       int64 `help:"object size in GB" json:"object_gb,omitzero"`
+	ObjectCnt      int64 `help:"object count" json:"object_cnt,omitzero"`
 }
 
 func init() {

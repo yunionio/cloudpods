@@ -14,7 +14,10 @@
 
 package multicloud
 
-import "yunion.io/x/jsonutils"
+import (
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
+)
 
 type SBaseBucket struct{}
 
@@ -51,5 +54,13 @@ func (b *SBaseBucket) IsEmulated() bool {
 }
 
 func (b *SBaseBucket) GetMetadata() *jsonutils.JSONDict {
+	return nil
+}
+
+func (b *SBaseBucket) GetLimit() cloudprovider.SBucketStats {
+	return cloudprovider.SBucketStats{}
+}
+
+func (b *SBaseBucket) SetLimit(limit cloudprovider.SBucketStats) error {
 	return nil
 }

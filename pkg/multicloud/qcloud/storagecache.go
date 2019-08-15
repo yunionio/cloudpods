@@ -167,7 +167,7 @@ func (self *SStoragecache) uploadImage(ctx context.Context, userCred mcclient.To
 		return "", err
 	}
 
-	bucketName := strings.ReplaceAll(strings.ToLower(self.region.GetId()+image.ImageId), "-", "")
+	bucketName := strings.Replace(strings.ToLower(self.region.GetId()+image.ImageId), "-", "", -1)
 	if len(bucketName) > 40 {
 		bucketName = bucketName[:40]
 	}
