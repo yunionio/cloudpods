@@ -390,3 +390,33 @@ func (b *SBucket) GetTempUrl(method string, key string, expire time.Duration) (s
 	output, err := obscli.CreateSignedUrl(&input)
 	return output.SignedUrl, nil
 }
+
+func (b *SBucket) GetLimit() cloudprovider.SBucketStats {
+	stats := cloudprovider.SBucketStats{}
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		log.Errorf("getOBSClient error %s", err)
+		return stats
+	}
+	output, err := obscli.GetBucketQuota(b.Name)
+	if err != nil {
+		return stats
+	}
+	stats.SizeBytes = output.Quota
+	return stats
+}
+
+func (b *SBucket) SetLimit(limit cloudprovider.SBucketStats) error {
+	obscli, err := b.region.getOBSClient()
+	if err != nil {
+		return errors.Wrap(err, "getOBSClient")
+	}
+	input := &obs.SetBucketQuotaInput{}
+	input.Bucket = b.Name
+	input.Quota = limit.SizeBytes
+	_, err = obscli.SetBucketQuota(input)
+	if err != nil {
+		return errors.Wrap(err, "SetBucketQuota")
+	}
+	return nil
+}
