@@ -18,6 +18,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,7 +30,6 @@ import (
 	"yunion.io/x/pkg/util/compare"
 	"yunion.io/x/sqlchemy"
 
-	"strconv"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/appsrv"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -75,6 +75,9 @@ type SBucket struct {
 
 	SizeBytes int64 `nullable:"false" default:"0" list:"user"`
 	ObjectCnt int   `nullable:"false" default:"0" list:"user"`
+
+	SizeBytesLimit int64 `nullable:"false" default:"0" list:"user"`
+	ObjectCntLimit int   `nullable:"false" default:"0" list:"user"`
 
 	AccessUrls jsonutils.JSONObject `nullable:"true" list:"user"`
 }
@@ -189,6 +192,10 @@ func (manager *SBucketManager) newFromCloudBucket(
 	bucket.SizeBytes = stats.SizeBytes
 	bucket.ObjectCnt = stats.ObjectCount
 
+	limit := extBucket.GetLimit()
+	bucket.SizeBytesLimit = limit.SizeBytes
+	bucket.ObjectCntLimit = limit.ObjectCount
+
 	bucket.AccessUrls = jsonutils.Marshal(extBucket.GetAccessUrls())
 
 	bucket.IsEmulated = false
@@ -240,6 +247,10 @@ func (bucket *SBucket) syncWithCloudBucket(
 		bucket.ObjectCnt = stats.ObjectCount
 
 		if !statsOnly {
+			limit := extBucket.GetLimit()
+			bucket.SizeBytesLimit = limit.SizeBytes
+			bucket.ObjectCntLimit = limit.ObjectCount
+
 			bucket.Acl = string(extBucket.GetAcl())
 			bucket.Location = extBucket.GetLocation()
 			bucket.StorageClass = extBucket.GetStorageClass()
@@ -369,9 +380,11 @@ func (manager *SBucketManager) ValidateCreateData(
 	query jsonutils.JSONObject,
 	data *jsonutils.JSONDict,
 ) (*jsonutils.JSONDict, error) {
+	cloudRegionV := validators.NewModelIdOrNameValidator("cloudregion", CloudregionManager.Keyword(), ownerId)
+	managerV := validators.NewModelIdOrNameValidator("manager", CloudproviderManager.Keyword(), ownerId)
 	for _, v := range []validators.IValidator{
-		validators.NewModelIdOrNameValidator("cloudregion", CloudregionManager.Keyword(), ownerId),
-		validators.NewModelIdOrNameValidator("manager", CloudproviderManager.Keyword(), ownerId),
+		cloudRegionV,
+		managerV,
 	} {
 		err := v.Validate(data)
 		if err != nil {
@@ -387,14 +400,7 @@ func (manager *SBucketManager) ValidateCreateData(
 		return nil, httperrors.NewInputParameterError("invalid bucket name: %s", err)
 	}
 
-	managerId, _ := data.GetString("manager_id")
-	if len(managerId) == 0 {
-		return nil, httperrors.NewInternalServerError("empty manager_id???")
-	}
-	cloudprovider := CloudproviderManager.FetchCloudproviderById(managerId)
-	if cloudprovider == nil {
-		return nil, httperrors.NewInternalServerError("invalid cloudprovider???")
-	}
+	cloudprovider := managerV.Model.(*SCloudprovider)
 	quotaPlatformId := cloudprovider.GetQuotaPlatformID()
 	pendingUsage := SQuota{Bucket: 1}
 	if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, ownerId, quotaPlatformId, &pendingUsage); err != nil {
@@ -751,12 +757,48 @@ func (bucket *SBucket) PerformUpload(
 		}
 	}
 
+	inc := cloudprovider.SBucketStats{}
+	obj, err := cloudprovider.GetIObject(iBucket, key)
+	if err == nil {
+		// replace
+		inc.SizeBytes = sizeBytes - obj.GetSizeBytes()
+		if inc.SizeBytes < 0 {
+			inc.SizeBytes = 0
+		}
+	} else if err == cloudprovider.ErrNotFound {
+		// new upload
+		inc.SizeBytes = sizeBytes
+		inc.ObjectCount = 1
+	} else {
+		return nil, httperrors.NewInternalServerError("GetIObject error %s", err)
+	}
+
+	if bucket.SizeBytesLimit > 0 && inc.SizeBytes > 0 && bucket.SizeBytesLimit < bucket.SizeBytes+inc.SizeBytes {
+		return nil, httperrors.NewOutOfQuotaError("object size limit exceeds")
+	}
+	if bucket.ObjectCntLimit > 0 && inc.ObjectCount > 0 && bucket.ObjectCntLimit < bucket.ObjectCnt+inc.ObjectCount {
+		return nil, httperrors.NewOutOfQuotaError("object count limit exceeds")
+	}
+
+	manager := bucket.GetCloudprovider()
+	quotaPlatformId := manager.GetQuotaPlatformID()
+	pendingUsage := SQuota{ObjectGB: int(inc.SizeBytes / 1000 / 1000 / 1000), ObjectCnt: inc.ObjectCount}
+	if !pendingUsage.IsEmpty() {
+		if err := QuotaManager.CheckSetPendingQuota(ctx, userCred, rbacutils.ScopeProject, bucket.GetOwnerId(), quotaPlatformId, &pendingUsage); err != nil {
+			return nil, httperrors.NewOutOfQuotaError("%s", err)
+		}
+	}
+
 	err = cloudprovider.UploadObject(ctx, iBucket, key, 0, appParams.Request.Body, sizeBytes, contType, cloudprovider.TBucketACLType(aclStr), storageClass, false)
 	if err != nil {
 		return nil, httperrors.NewInternalServerError("put object error %s", err)
 	}
 
 	bucket.syncWithCloudBucket(ctx, userCred, iBucket, nil, true)
+
+	if !pendingUsage.IsEmpty() {
+		QuotaManager.CancelPendingUsage(ctx, userCred, rbacutils.ScopeProject, bucket.GetOwnerId(), quotaPlatformId, &pendingUsage, &pendingUsage)
+	}
 
 	return nil, nil
 }
@@ -963,4 +1005,49 @@ func (manager *SBucketManager) TotalCount(scope rbacutils.TRbacScope, ownerId mc
 		log.Errorf("Query bucket usage error %s", err)
 	}
 	return usage
+}
+
+func (bucket *SBucket) AllowPerformLimit(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return bucket.IsOwner(userCred)
+}
+
+func (bucket *SBucket) PerformLimit(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	limit := cloudprovider.SBucketStats{}
+	err := data.Unmarshal(&limit, "limit")
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("unmarshal limit error %s", err)
+	}
+
+	iBucket, err := bucket.GetIBucket()
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("fail to find external bucket: %s", err)
+	}
+
+	err = iBucket.SetLimit(limit)
+	if err != nil && err != cloudprovider.ErrNotSupported {
+		return nil, httperrors.NewInternalServerError("SetLimit error %s", err)
+	}
+
+	diff, err := db.Update(bucket, func() error {
+		bucket.SizeBytesLimit = limit.SizeBytes
+		bucket.ObjectCntLimit = limit.ObjectCount
+		return nil
+	})
+
+	if err != nil {
+		return nil, httperrors.NewInternalServerError("Update error %s", err)
+	}
+
+	db.OpsLog.LogEvent(bucket, db.ACT_UPDATE, diff, userCred)
+
+	return nil, nil
 }

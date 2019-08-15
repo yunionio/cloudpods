@@ -90,6 +90,8 @@ type ICloudBucket interface {
 	GetStorageClass() string
 	GetAccessUrls() []SBucketAccessUrl
 	GetStats() SBucketStats
+	GetLimit() SBucketStats
+	SetLimit(limit SBucketStats) error
 
 	SetAcl(acl TBucketACLType) error
 
