@@ -147,9 +147,6 @@ mod:
 	go mod tidy
 	go mod vendor -v
 
-%:
-	@:
-
 
 DOCKER_BUILD_IMAGE_VERSION?=latest
 
