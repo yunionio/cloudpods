@@ -52,7 +52,7 @@ func (self *SNatDEntryCreateTask) OnInit(ctx context.Context, obj db.IStandalone
 		return
 	}
 
-	externalIPID, err := body.GetString("external_ip_id")
+	externalIPID, err := self.Params.GetString("external_ip_id")
 	// construct a DNat RUle
 	dnatRule := cloudprovider.SNatDRule{
 		Protocol:     dnatEntry.IpProtocol,
