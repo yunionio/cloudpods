@@ -25,6 +25,7 @@ import (
 	"yunion.io/x/pkg/errors"
 	"yunion.io/x/pkg/utils"
 
+	"yunion.io/x/onecloud/pkg/apis/compute"
 	api "yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/lockman"
@@ -1087,13 +1088,13 @@ func (self *SManagedVirtualizationRegionDriver) RequestDeleteSnapshotPolicy(ctx 
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskIds []string) error {
+func (self *SManagedVirtualizationRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskId string) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
 		iRegion, err := sp.GetIRegion()
 		if err != nil {
 			return nil, err
 		}
-		err = iRegion.ApplySnapshotPolicyToDisks(sp.GetExternalId(), diskIds)
+		err = iRegion.ApplySnapshotPolicyToDisks(sp.GetExternalId(), diskId)
 		if err != nil {
 			return nil, err
 		}
@@ -1102,9 +1103,13 @@ func (self *SManagedVirtualizationRegionDriver) RequestApplySnapshotPolicy(ctx c
 	return nil
 }
 
-func (self *SManagedVirtualizationRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, region cloudprovider.ICloudRegion, task taskman.ITask, diskIds []string) error {
+func (self *SManagedVirtualizationRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskId string) error {
 	taskman.LocalTaskRun(task, func() (jsonutils.JSONObject, error) {
-		err := region.CancelSnapshotPolicyToDisks(diskIds)
+		iRegion, err := sp.GetIRegion()
+		if err != nil {
+			return nil, err
+		}
+		err = iRegion.CancelSnapshotPolicyToDisks(sp.GetExternalId(), diskId)
 		if err != nil {
 			return nil, err
 		}
@@ -1182,4 +1187,29 @@ func (self *SManagedVirtualizationRegionDriver) OnDiskReset(ctx context.Context,
 		return err
 	}
 	return iDisk.Refresh()
+}
+
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, data *compute.SSnapshotPolicyCreateInput) error {
+	var err error
+
+	if len(data.RepeatWeekdays) == 0 {
+		return httperrors.NewMissingParameterError("repeat_weekdays")
+	}
+	data.RepeatWeekdays, err = daysValidate(data.RepeatWeekdays, 1, 7)
+	if err != nil {
+		return httperrors.NewInputParameterError(err.Error())
+	}
+
+	if len(data.TimePoints) == 0 {
+		return httperrors.NewInputParameterError("time_points")
+	}
+	data.TimePoints, err = daysValidate(data.TimePoints, 0, 23)
+	if err != nil {
+		return httperrors.NewInputParameterError(err.Error())
+	}
+	return nil
+}
+
+func (self *SManagedVirtualizationRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context, userCred mcclient.TokenCredential, diskID string) error {
+	return nil
 }

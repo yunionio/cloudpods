@@ -41,14 +41,15 @@ type SVpc struct {
 	iwires    []cloudprovider.ICloudWire
 	secgroups []cloudprovider.ICloudSecurityGroup
 
-	RegionId        string
-	VpcId           string
-	VpcName         string
-	CidrBlock       string
-	IsDefault       bool
-	Status          string
-	InstanceTenancy string
-	Tags            map[string]string // 名称、描述等
+	RegionId                string
+	VpcId                   string
+	VpcName                 string
+	CidrBlock               string
+	CidrBlockAssociationSet []string
+	IsDefault               bool
+	Status                  string
+	InstanceTenancy         string
+	Tags                    map[string]string // 名称、描述等
 }
 
 func (self *SVpc) addWire(wire *SWire) {
@@ -106,7 +107,7 @@ func (self *SVpc) GetIsDefault() bool {
 }
 
 func (self *SVpc) GetCidrBlock() string {
-	return self.CidrBlock
+	return strings.Join(self.CidrBlockAssociationSet, ",")
 }
 
 func (self *SVpc) GetIWires() ([]cloudprovider.ICloudWire, error) {
@@ -323,17 +324,25 @@ func (self *SRegion) GetVpcs(vpcId []string, offset int, limit int) ([]SVpc, int
 		if err := FillZero(item); err != nil {
 			return nil, 0, err
 		}
+		cidrBlockAssociationSet := []string{}
+		for i := range item.CidrBlockAssociationSet {
+			cidr := item.CidrBlockAssociationSet[i]
+			if *cidr.CidrBlockState.State == "associated" {
+				cidrBlockAssociationSet = append(cidrBlockAssociationSet, *cidr.CidrBlock)
+			}
+		}
 
 		vpcs = append(vpcs, SVpc{
 			region: self,
 			// secgroups: nil,
-			RegionId:        self.RegionId,
-			VpcId:           *item.VpcId,
-			VpcName:         *item.VpcId,
-			CidrBlock:       *item.CidrBlock,
-			IsDefault:       *item.IsDefault,
-			Status:          *item.State,
-			InstanceTenancy: *item.InstanceTenancy,
+			RegionId:                self.RegionId,
+			VpcId:                   *item.VpcId,
+			VpcName:                 *item.VpcId,
+			CidrBlock:               *item.CidrBlock,
+			CidrBlockAssociationSet: cidrBlockAssociationSet,
+			IsDefault:               *item.IsDefault,
+			Status:                  *item.State,
+			InstanceTenancy:         *item.InstanceTenancy,
 			// Tags:      *item.Tags,
 		})
 	}

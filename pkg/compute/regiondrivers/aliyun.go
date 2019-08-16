@@ -823,26 +823,24 @@ func daysValidate(days []int, min, max int) ([]int, error) {
 	return days, nil
 }
 
+func (self *SAliyunRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context, userCred mcclient.TokenCredential, diskID string) error {
+	ret, err := models.SnapshotPolicyDiskManager.FetchAllSnapshotPolicyOfDisk(ctx, userCred, diskID)
+	if err != nil {
+		return err
+	}
+	if len(ret) != 0 {
+		return httperrors.NewBadRequestError("One disk could't attach two snapshot policy in aliyun; please detach last one first.")
+	}
+	return nil
+}
+
 func (self *SAliyunRegionDriver) ValidateCreateSnapshotPolicyData(ctx context.Context, userCred mcclient.TokenCredential, data *compute.SSnapshotPolicyCreateInput) error {
-	var err error
+	err := self.SManagedVirtualizationRegionDriver.ValidateCreateSnapshotPolicyData(ctx, userCred, data)
+	if err != nil {
+		return err
+	}
 	if data.RetentionDays < -1 || data.RetentionDays == 0 || data.RetentionDays > 65535 {
 		return httperrors.NewInputParameterError("Retention days must in 1~65535 or -1")
-	}
-
-	if len(data.RepeatWeekdays) == 0 {
-		return httperrors.NewMissingParameterError("repeat_weekdays")
-	}
-	data.RepeatWeekdays, err = daysValidate(data.RepeatWeekdays, 1, 7)
-	if err != nil {
-		return httperrors.NewInputParameterError(err.Error())
-	}
-
-	if len(data.TimePoints) == 0 {
-		return httperrors.NewInputParameterError("time_points")
-	}
-	data.TimePoints, err = daysValidate(data.TimePoints, 0, 23)
-	if err != nil {
-		return httperrors.NewInputParameterError(err.Error())
 	}
 	return nil
 }

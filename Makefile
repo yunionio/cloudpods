@@ -89,6 +89,8 @@ vet:
 cmd/%: prepare_dir fmt
 	$(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 
+rpm/%: cmd/%
+	$(BUILD_SCRIPT) $*
 
 pkg/%: prepare_dir fmt
 	$(GO_INSTALL) $(REPO_PREFIX)/$@
@@ -146,9 +148,6 @@ mod:
 	go get $(patsubst %,%@master,$(shell GO111MODULE=on go mod edit -print  | sed -n -e 's|.*\(yunion.io/x/[a-z].*\) v.*|\1|p'))
 	go mod tidy
 	go mod vendor -v
-
-%:
-	@:
 
 
 DOCKER_BUILD_IMAGE_VERSION?=latest

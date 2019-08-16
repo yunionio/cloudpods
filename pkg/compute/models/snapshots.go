@@ -281,6 +281,10 @@ func (manager *SSnapshotManager) ValidateCreateData(ctx context.Context, userCre
 	if cloudregion := storage.GetRegion(); cloudregion != nil {
 		input.CloudregionId = cloudregion.GetId()
 	}
+	provider := disk.GetCloudprovider()
+	if provider != nil {
+		input.ManagerId = provider.Id
+	}
 	return input.JSON(input), nil
 }
 

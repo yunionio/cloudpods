@@ -138,11 +138,11 @@ func (self *SBaseRegionDriver) RequestDeleteSnapshotPolicy(ctx context.Context, 
 	return fmt.Errorf("Not Implement RequestDeleteSnapshotPolicy")
 }
 
-func (self *SBaseRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskIds []string) error {
+func (self *SBaseRegionDriver) RequestApplySnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskId string) error {
 	return fmt.Errorf("Not Implement RequestApplySnapshotPolicy")
 }
 
-func (self *SBaseRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, region cloudprovider.ICloudRegion, task taskman.ITask, diskIds []string) error {
+func (self *SBaseRegionDriver) RequestCancelSnapshotPolicy(ctx context.Context, userCred mcclient.TokenCredential, sp *models.SSnapshotPolicy, task taskman.ITask, diskId string) error {
 	return fmt.Errorf("Not Implement RequestApplySnapshotPolicy")
 }
 
@@ -172,4 +172,8 @@ func (self *SBaseRegionDriver) GetDiskResetParams(snapshot *models.SSnapshot) *j
 
 func (self *SBaseRegionDriver) OnDiskReset(ctx context.Context, userCred mcclient.TokenCredential, disk *models.SDisk, snapshot *models.SSnapshot, data *jsonutils.JSONObject) error {
 	return fmt.Errorf("Not Implement OnDiskReset")
+}
+
+func (self *SBaseRegionDriver) ValidateCreateSnapshopolicyDiskData(ctx context.Context, userCred mcclient.TokenCredential, diskID string) error {
+	return fmt.Errorf("Not Implement ValidateCreateSnapshotpolicyDiskData")
 }

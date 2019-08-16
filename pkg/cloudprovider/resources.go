@@ -80,8 +80,8 @@ type ICloudRegion interface {
 
 	CreateSnapshotPolicy(*SnapshotPolicyInput) (string, error)
 	DeleteSnapshotPolicy(string) error
-	ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskIds []string) error
-	CancelSnapshotPolicyToDisks(diskIds []string) error
+	ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error
+	CancelSnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error
 	GetISnapshotPolicies() ([]ICloudSnapshotPolicy, error)
 	GetISnapshotPolicyById(snapshotPolicyId string) (ICloudSnapshotPolicy, error)
 
@@ -373,7 +373,7 @@ type ICloudDisk interface {
 	GetISnapshot(idStr string) (ICloudSnapshot, error)
 	GetISnapshots() ([]ICloudSnapshot, error)
 
-	GetExtSnapshotPolicyId() string
+	GetExtSnapshotPolicyIds() []string
 
 	Resize(ctx context.Context, newSizeMB int64) error
 	Reset(ctx context.Context, snapshotId string) (string, error)
@@ -393,6 +393,7 @@ type ICloudSnapshot interface {
 type ICloudSnapshotPolicy interface {
 	IVirtualResource
 
+	IsActivated() bool
 	GetRetentionDays() int
 	GetRepeatWeekdays() ([]int, error)
 	GetTimePoints() ([]int, error)
