@@ -258,6 +258,8 @@ func FetchProjectInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.
 			ProjectId: t.Id,
 			Project:   t.Name,
 		}
+		data.(*jsonutils.JSONDict).Set("tenant_id", jsonutils.NewString(t.Id))
+		data.(*jsonutils.JSONDict).Set("domain_id", jsonutils.NewString(t.DomainId))
 		return &ownerId, nil
 	}
 	return FetchDomainInfo(ctx, data)
@@ -275,6 +277,7 @@ func FetchDomainInfo(ctx context.Context, data jsonutils.JSONObject) (mcclient.I
 			return nil, httperrors.NewGeneralError(err)
 		}
 		owner := SOwnerId{DomainId: domain.Id, Domain: domain.Name}
+		data.(*jsonutils.JSONDict).Set("domain_id", jsonutils.NewString(domain.Id))
 		return &owner, nil
 	}
 	return nil, nil
