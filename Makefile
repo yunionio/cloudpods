@@ -80,6 +80,8 @@ vet:
 cmd/%: prepare_dir fmt
 	$(GO_BUILD) -o $(BIN_DIR)/$(shell basename $@) $(REPO_PREFIX)/$@
 
+rpm/%: cmd/%
+	$(BUILD_SCRIPT) $*
 
 pkg/%: prepare_dir fmt
 	$(GO_INSTALL) $(REPO_PREFIX)/$@
