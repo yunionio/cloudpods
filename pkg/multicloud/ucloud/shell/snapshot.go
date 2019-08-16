@@ -25,7 +25,7 @@ func init() {
 		Name   string `help:"Snapshot Name"`
 	}
 	shellutils.R(&SnapshotListOptions{}, "snapshot-list", "List snapshot", func(cli *ucloud.SRegion, args *SnapshotListOptions) error {
-		snapshots, err := cli.GetSnapshots(args.DiskId, args.Name)
+		snapshots, err := cli.GetSnapshots("", args.DiskId, args.Name)
 		if err != nil {
 			return err
 		}
