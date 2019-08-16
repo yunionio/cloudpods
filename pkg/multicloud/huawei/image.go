@@ -50,40 +50,42 @@ const (
 type SImage struct {
 	storageCache *SStoragecache
 
-	Schema               string    `json:"schema"`
-	MinDiskGB            int64     `json:"min_disk"`
-	CreatedAt            time.Time `json:"created_at"`
-	ImageSourceType      string    `json:"__image_source_type"`
-	ContainerFormat      string    `json:"container_format"`
-	File                 string    `json:"file"`
-	UpdatedAt            time.Time `json:"updated_at"`
-	Protected            bool      `json:"protected"`
-	Checksum             string    `json:"checksum"`
-	ID                   string    `json:"id"`
-	Isregistered         string    `json:"__isregistered"`
-	MinRamMB             int       `json:"min_ram"`
-	Lazyloading          string    `json:"__lazyloading"`
-	Owner                string    `json:"owner"`
-	OSType               string    `json:"__os_type"`
-	Imagetype            string    `json:"__imagetype"`
-	Visibility           string    `json:"visibility"`
-	VirtualEnvType       string    `json:"virtual_env_type"`
-	Platform             string    `json:"__platform"`
-	SizeGB               int       `json:"size"`
-	ImageSize            int64     `json:"__image_size"`
-	OSBit                string    `json:"__os_bit"`
-	OSVersion            string    `json:"__os_version"`
-	Name                 string    `json:"name"`
-	Self                 string    `json:"self"`
-	DiskFormat           string    `json:"disk_format"`
-	Status               string    `json:"status"`
-	SupportKVMFPGAType   string    `json:"__support_kvm_fpga_type"`
-	SupportKVMNVMEHIGHIO string    `json:"__support_nvme_highio"`
-	SupportLargeMemory   string    `json:"__support_largememory"`
-	SupportDiskIntensive string    `json:"__support_diskintensive"`
-	SupportXENGPUType    string    `json:"__support_xen_gpu_type"`
-	SupportKVMGPUType    string    `json:"__support_kvm_gpu_type"`
-	SupportArm           string    `json:"__support_arm"`
+	Schema                 string    `json:"schema"`
+	MinDiskGB              int64     `json:"min_disk"`
+	CreatedAt              time.Time `json:"created_at"`
+	ImageSourceType        string    `json:"__image_source_type"`
+	ContainerFormat        string    `json:"container_format"`
+	File                   string    `json:"file"`
+	UpdatedAt              time.Time `json:"updated_at"`
+	Protected              bool      `json:"protected"`
+	Checksum               string    `json:"checksum"`
+	ID                     string    `json:"id"`
+	Isregistered           string    `json:"__isregistered"`
+	MinRamMB               int       `json:"min_ram"`
+	Lazyloading            string    `json:"__lazyloading"`
+	Owner                  string    `json:"owner"`
+	OSType                 string    `json:"__os_type"`
+	Imagetype              string    `json:"__imagetype"`
+	Visibility             string    `json:"visibility"`
+	VirtualEnvType         string    `json:"virtual_env_type"`
+	Platform               string    `json:"__platform"`
+	SizeGB                 int       `json:"size"`
+	ImageSize              int64     `json:"__image_size"`
+	OSBit                  string    `json:"__os_bit"`
+	OSVersion              string    `json:"__os_version"`
+	Name                   string    `json:"name"`
+	Self                   string    `json:"self"`
+	DiskFormat             string    `json:"disk_format"`
+	Status                 string    `json:"status"`
+	SupportKVMFPGAType     string    `json:"__support_kvm_fpga_type"`
+	SupportKVMNVMEHIGHIO   string    `json:"__support_nvme_highio"`
+	SupportLargeMemory     string    `json:"__support_largememory"`
+	SupportDiskIntensive   string    `json:"__support_diskintensive"`
+	SupportHighPerformance string    `json:"__support_highperformance"`
+	SupportXENGPUType      string    `json:"__support_xen_gpu_type"`
+	SupportKVMGPUType      string    `json:"__support_kvm_gpu_type"`
+	SupportKVMAscend310    string    `json:"__support_kvm_ascend_310"`
+	SupportArm             string    `json:"__support_arm"`
 }
 
 func (self *SImage) GetMinRamSizeMb() int {
@@ -221,11 +223,15 @@ func (self *SRegion) GetImage(imageId string) (SImage, error) {
 }
 
 func excludeImage(image SImage) bool {
+	if image.VirtualEnvType == "Ironic" {
+		return true
+	}
+
 	if len(image.SupportDiskIntensive) > 0 {
 		return true
 	}
 
-	if len(image.SupportKVMFPGAType) > 0 {
+	if len(image.SupportKVMFPGAType) > 0 || len(image.SupportKVMAscend310) > 0 {
 		return true
 	}
 
@@ -242,6 +248,10 @@ func excludeImage(image SImage) bool {
 	}
 
 	if len(image.SupportXENGPUType) > 0 {
+		return true
+	}
+
+	if len(image.SupportHighPerformance) > 0 {
 		return true
 	}
 
