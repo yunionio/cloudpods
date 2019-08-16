@@ -50,13 +50,10 @@ func (region *SRegion) GetInstanceOfferingByType(instanceType string) (*SInstanc
 	if err != nil {
 		return nil, err
 	}
-	if len(offerings) == 1 {
+	if len(offerings) >= 1 {
 		return &offerings[0], nil
 	}
-	if len(offerings) == 0 {
-		return nil, cloudprovider.ErrNotFound
-	}
-	return nil, fmt.Errorf("duplicate instanceType %s", instanceType)
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (region *SRegion) CreateISku(sku *cloudprovider.SServerSku) (cloudprovider.ICloudSku, error) {
