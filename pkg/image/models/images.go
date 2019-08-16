@@ -273,13 +273,17 @@ func (self *SImage) GetExtraDetailsHeaders(ctx context.Context, userCred mcclien
 	headers := make(map[string]string)
 
 	extra, _ := self.SVirtualResourceBase.GetExtraDetails(ctx, userCred, query)
-	if extra != nil {
-		for _, k := range extra.SortedKeys() {
-			log.Infof("%s", k)
-			val, _ := extra.GetString(k)
-			if len(val) > 0 {
-				headers[fmt.Sprintf("%s%s", modules.IMAGE_META, k)] = val
-			}
+	if extra == nil {
+		extra = jsonutils.NewDict()
+	}
+	extraRows := self.GetModelManager().FetchCustomizeColumns(ctx, userCred, query, []db.IModel{self}, nil)
+	if len(extraRows) == 1 {
+		extra.Update(extraRows[0])
+	}
+	for _, k := range extra.SortedKeys() {
+		val, _ := extra.GetString(k)
+		if len(val) > 0 {
+			headers[fmt.Sprintf("%s%s", modules.IMAGE_META, k)] = val
 		}
 	}
 
