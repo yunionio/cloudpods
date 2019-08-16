@@ -48,3 +48,18 @@ type SSnapshotPolicyCreateInput struct {
 	RepeatWeekdays []int `json:"repeat_weekdays"`
 	TimePoints     []int `json:"time_points"`
 }
+
+type SSnapshotPolicyCreateInternalInput struct {
+	apis.Meta
+
+	Name      string
+	ProjectId string
+	DomainId  string
+
+	ManagerId     string
+	CloudregionId string
+
+	RetentionDays  int
+	RepeatWeekdays uint8
+	TimePoints     uint32
+}

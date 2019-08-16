@@ -42,8 +42,10 @@ const (
 	DISK_POST_MIGRATE  = "post_migrate"
 	DISK_MIGRATING     = "migrating"
 
-	DISK_START_SNAPSHOT = "start_snapshot"
-	DISK_SNAPSHOTING    = "snapshoting"
+	DISK_START_SNAPSHOT       = "start_snapshot"
+	DISK_SNAPSHOTING          = "snapshoting"
+	DISK_APPLY_SNAPSHOT_FAIL  = "apply_snapshot_failed"
+	DISK_CALCEL_SNAPSHOT_FAIL = "cancel_snapshot_failed"
 
 	DISK_TYPE_SYS    = "sys"
 	DISK_TYPE_SWAP   = "swap"

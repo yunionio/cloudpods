@@ -186,11 +186,11 @@ func (cli *SObjectStoreClient) DeleteSnapshotPolicy(string) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (cli *SObjectStoreClient) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskIds []string) error {
+func (cli *SObjectStoreClient) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
 	return cloudprovider.ErrNotSupported
 }
 
-func (cli *SObjectStoreClient) CancelSnapshotPolicyToDisks(diskIds []string) error {
+func (cli *SObjectStoreClient) CancelSnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
 	return cloudprovider.ErrNotSupported
 }
 

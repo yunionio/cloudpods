@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"yunion.io/x/jsonutils"
+	"yunion.io/x/log"
 
 	"yunion.io/x/onecloud/pkg/apis/compute"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db"
@@ -81,86 +82,51 @@ type SnapshotPolicyApplyTask struct {
 	taskman.STask
 }
 
-func (self *SnapshotPolicyApplyTask) taskFail(ctx context.Context, sp *models.SSnapshotPolicy, reason string) {
-	stringIds, _ := getDiskIds(self)
-	disks := make([]models.SDisk, 0)
-	q := models.DiskManager.Query().In("id", stringIds)
-	err := db.FetchModelObjects(models.DiskManager, q, &disks)
-	if err == nil {
-		for i := 0; i < len(disks); i++ {
-			db.OpsLog.LogEvent(&disks[i], db.ACT_APPLY_SNAPSHOT_POLICY_FAILED, reason, self.UserCred)
-			logclient.AddActionLogWithStartable(self, &disks[i], logclient.ACT_APPLY_SNAPSHOT_POLICY, reason, self.UserCred, false)
-		}
+func (self *SnapshotPolicyApplyTask) taskFail(ctx context.Context, disk *models.SDisk, snapshotPolicyId, reason string) {
+	jointModel, err := db.FetchJointByIds(models.SnapshotPolicyDiskManager, self.Id, snapshotPolicyId, jsonutils.JSONNull)
+	if err != nil {
+		log.Errorf("Fetch SnapshotPolicy %s Disk %s joint model failed, need to delete", self.Id, snapshotPolicyId)
+		return
 	}
+	snapshotPolicyDisk := jointModel.(*models.SSnapshotPolicyDisk)
+	err = snapshotPolicyDisk.Detach(ctx, self.UserCred)
+	if err != nil {
+		log.Errorf("Delete SnapshotPolicy %s Disk %s joint model failed, need to delete", self.Id, snapshotPolicyId)
+	}
+
+	disk.SetStatus(self.UserCred, compute.DISK_APPLY_SNAPSHOT_FAIL, reason)
+	db.OpsLog.LogEvent(disk, db.ACT_APPLY_SNAPSHOT_POLICY_FAILED, reason, self.UserCred)
+	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_APPLY_SNAPSHOT_POLICY, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
 }
 
-func getDiskIds(task *SnapshotPolicyApplyTask) ([]string, error) {
-	diskIds, err := task.Params.GetArray("disk_ids")
-	if err != nil {
-		return nil, fmt.Errorf("Missing parasm disk_ids")
-	}
-	stringIds := make([]string, len(diskIds))
-	for i := 0; i < len(diskIds); i++ {
-		stringIds[i], _ = diskIds[i].GetString()
-	}
-	return stringIds, nil
-}
-
 func (self *SnapshotPolicyApplyTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
-	snapshotPolicy := obj.(*models.SSnapshotPolicy)
+	disk := obj.(*models.SDisk)
+	snapshotPolicyID, _ := self.Params.GetString("snapshot_policy_id")
 
-	region := snapshotPolicy.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, snapshotPolicy, fmt.Sprintf("failed to find region for snapshot policy %s", snapshotPolicy.Name))
-		return
-	}
-
-	stringIds, err := getDiskIds(self)
+	iregion, err := disk.GetIRegion()
 	if err != nil {
-		self.taskFail(ctx, snapshotPolicy, err.Error())
+		self.taskFail(ctx, disk, snapshotPolicyID, fmt.Sprintf("failed to find iregion for snapshot policy %s: %s", disk.Id, err.Error()))
 		return
 	}
 
-	diskExt, err := models.DiskManager.Query("external_id").In("id", stringIds).AllStringMap()
+	// fetch disk model by diksID
+	model, err := models.SnapshotPolicyManager.FetchById(snapshotPolicyID)
 	if err != nil {
-		self.taskFail(ctx, snapshotPolicy, fmt.Sprintf("Fetch disks external_id failed %s", err))
+		self.taskFail(ctx, disk, snapshotPolicyID, fmt.Sprintf("failed to fetch disk by id %s: %s", snapshotPolicyID, err.Error()))
 		return
 	}
 
-	diskExtIds := make([]string, 0)
-	for i := 0; i < len(diskExt); i++ {
-		val, ok := diskExt[i]["external_id"]
-		if ok {
-			diskExtIds = append(diskExtIds, val)
-		}
-	}
-
+	snapshotPolicy := model.(*models.SSnapshotPolicy)
 	self.SetStage("OnSnapshotPolicyApply", nil)
-	if err := region.GetDriver().RequestApplySnapshotPolicy(ctx, self.GetUserCred(), snapshotPolicy, self, diskExtIds); err != nil {
-		self.taskFail(ctx, snapshotPolicy, err.Error())
+	if err := iregion.ApplySnapshotPolicyToDisks(snapshotPolicy.ExternalId, disk.ExternalId); err != nil {
+		self.taskFail(ctx, disk, snapshotPolicyID, fmt.Sprintf("faile to attach snapshot policy %s and disk %s: %s", snapshotPolicy.Id, disk.Id, err.Error()))
 	}
-}
 
-func (self *SnapshotPolicyApplyTask) OnSnapshotPolicyApply(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
-	stringIds, _ := getDiskIds(self)
-	disks := make([]models.SDisk, 0)
-	q := models.DiskManager.Query().In("id", stringIds)
-	err := db.FetchModelObjects(models.DiskManager, q, &disks)
-	if err != nil {
-		self.taskFail(ctx, sp, fmt.Sprintf("Fetch disks failed %s", err))
-		return
-	}
-	for i := 0; i < len(disks); i++ {
-		disks[i].SetSnapshotPolicy(sp.Id)
-		db.OpsLog.LogEvent(&disks[i], db.ACT_APPLY_SNAPSHOT_POLICY, nil, self.UserCred)
-		logclient.AddActionLogWithStartable(self, &disks[i], logclient.ACT_APPLY_SNAPSHOT_POLICY, nil, self.UserCred, true)
-	}
+	db.OpsLog.LogEvent(disk, db.ACT_APPLY_SNAPSHOT_POLICY, "", self.UserCred)
+	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_APPLY_SNAPSHOT_POLICY, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
-}
 
-func (self *SnapshotPolicyApplyTask) OnSnapshotPolicyApplyFailed(ctx context.Context, sp *models.SSnapshotPolicy, data jsonutils.JSONObject) {
-	self.taskFail(ctx, sp, data.String())
 }
 
 // -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -169,7 +135,18 @@ type SnapshotPolicyCancelTask struct {
 	taskman.STask
 }
 
-func (self *SnapshotPolicyCancelTask) taskFail(ctx context.Context, disk *models.SDisk, reason string) {
+func (self *SnapshotPolicyCancelTask) taskFail(ctx context.Context, disk *models.SDisk, snapshotPolicyId, reason string) {
+	jointModel, err := db.FetchJointByIds(models.SnapshotPolicyDiskManager, self.Id, snapshotPolicyId, jsonutils.JSONNull)
+	if err != nil {
+		log.Errorf("Fetch SnapshotPolicy %s Disk %s joint model failed, need to mark undelete", self.Id, snapshotPolicyId)
+		return
+	}
+	snapshotPolicyDisk := jointModel.(*models.SSnapshotPolicyDisk)
+	err = snapshotPolicyDisk.MarkUnDelete()
+	if err != nil {
+		log.Errorf("Mark undelete joint model snapshotPolicy %s and disk %s failes", snapshotPolicyId, disk.Id)
+	}
+	disk.SetStatus(self.UserCred, compute.DISK_CALCEL_SNAPSHOT_FAIL, reason)
 	db.OpsLog.LogEvent(disk, db.ACT_CANCEL_SNAPSHOT_POLICY_FAILED, reason, self.UserCred)
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_CANCEL_SNAPSHOT_POLICY, reason, self.UserCred, false)
 	self.SetStageFailed(ctx, reason)
@@ -177,42 +154,28 @@ func (self *SnapshotPolicyCancelTask) taskFail(ctx context.Context, disk *models
 
 func (self *SnapshotPolicyCancelTask) OnInit(ctx context.Context, obj db.IStandaloneModel, data jsonutils.JSONObject) {
 	disk := obj.(*models.SDisk)
-	storage := disk.GetStorage()
-	if storage == nil {
-		self.taskFail(ctx, disk, fmt.Sprintf("failed to find storage for disk %s", disk.Name))
-		return
-	}
-	region := storage.GetRegion()
-	if region == nil {
-		self.taskFail(ctx, disk, fmt.Sprintf("failed to find region for disk %s", disk.Name))
+	snapshotPolicyID, _ := self.GetParams().GetString("snapshot_policy_id")
+
+	// get region
+	iregion, err := disk.GetIRegion()
+	if err != nil {
+		self.taskFail(ctx, disk, snapshotPolicyID, fmt.Sprintf("failed to find iregion for disk %s: %s", disk.Name, err.Error()))
 		return
 	}
 
-	iSnapshotPolicy, err := models.SnapshotPolicyManager.FetchById(disk.SnapshotPolicyId)
+	model, err := models.SnapshotPolicyManager.FetchById(snapshotPolicyID)
 	if err != nil {
-		self.taskFail(ctx, disk, fmt.Sprintf("failed to find snapshot policy for disk %s, %s", disk.Name, err))
+		self.taskFail(ctx, disk, snapshotPolicyID, fmt.Sprintf("failed to fetch disk by id %s: %s", snapshotPolicyID, err.Error()))
 		return
 	}
-	snapshotPolicy := iSnapshotPolicy.(*models.SSnapshotPolicy)
-	iRegion, err := snapshotPolicy.GetIRegion()
-	if err != nil {
-		self.taskFail(ctx, disk, fmt.Sprintf("failed to find region for snapshot policy %s", snapshotPolicy.Name))
-		return
-	}
-	self.SetStage("OnSnapshotPolicyCancel", nil)
-	if err := region.GetDriver().RequestCancelSnapshotPolicy(
-		ctx, self.GetUserCred(), iRegion, self, []string{disk.ExternalId}); err != nil {
-		self.taskFail(ctx, disk, err.Error())
-	}
-}
 
-func (self *SnapshotPolicyCancelTask) OnSnapshotPolicyCancel(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	disk.SetSnapshotPolicy("")
+	snapshotPolicy := model.(*models.SSnapshotPolicy)
+	self.SetStage("OnSnapshotPolicyApply", nil)
+	if err := iregion.CancelSnapshotPolicyToDisks(snapshotPolicy.ExternalId, disk.ExternalId); err != nil {
+		self.taskFail(ctx, disk, snapshotPolicyID, fmt.Sprintf("faile to detach snapshot policy %s and disk %s: %s", snapshotPolicy.Id, disk.Id, err.Error()))
+	}
+
 	db.OpsLog.LogEvent(disk, db.ACT_CANCEL_SNAPSHOT_POLICY, "", self.UserCred)
 	logclient.AddActionLogWithStartable(self, disk, logclient.ACT_CANCEL_SNAPSHOT_POLICY, "", self.UserCred, true)
 	self.SetStageComplete(ctx, nil)
-}
-
-func (self *SnapshotPolicyCancelTask) OnSnapshotPolicyCancelFailed(ctx context.Context, disk *models.SDisk, data jsonutils.JSONObject) {
-	self.taskFail(ctx, disk, data.String())
 }
