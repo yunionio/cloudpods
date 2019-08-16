@@ -8,15 +8,14 @@ services:
   - docker
 
 language: go
-
 go_import_path: yunion.io/x/onecloud
-
-go:
-  - "1.12.x"
 
 # Only clone the most recent commit.
 git:
   depth: 8
 
 script:
-  - make docker-build F="-j2 ONECLOUD_CI_BUILD=1"
+- chmod -R o+w $PWD
+- docker pull yunionio/onecloud-ci:latest
+- make docker-build F="-j2 ONECLOUD_CI_BUILD=1"
+- chmod -R o-x $PWD
