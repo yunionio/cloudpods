@@ -1,5 +1,3 @@
-# This is how to tell Travis to use the fast container-based test
-# runner instead of the slow VM-based one.
 sudo: false
 
 dist: bionic
@@ -23,7 +21,6 @@ cache:
   directories:
     - $HOME/.cache/go-build
 
-# Only clone the most recent commit.
 git:
   depth: 8
 
