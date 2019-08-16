@@ -130,14 +130,18 @@ func (self *GuestMigrateTask) OnCachedImageComplete(ctx context.Context, guest *
 		body.Set("live_migrate", jsonutils.JSONTrue)
 	}
 
-	host := guest.GetHost()
-	url := fmt.Sprintf("%s/servers/%s/src-prepare-migrate", host.ManagerUri, guest.Id)
-	self.SetStage("OnSrcPrepareComplete", nil)
-	_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST",
-		url, header, body, false)
-	if err != nil {
-		self.TaskFailed(ctx, guest, fmt.Sprintf("Prepare migrage failed: %s", err))
-		return
+	if !jsonutils.QueryBoolean(self.Params, "is_rescue_mode", false) {
+		host := guest.GetHost()
+		url := fmt.Sprintf("%s/servers/%s/src-prepare-migrate", host.ManagerUri, guest.Id)
+		self.SetStage("OnSrcPrepareComplete", nil)
+		_, _, err := httputils.JSONRequest(httputils.GetDefaultClient(), ctx, "POST",
+			url, header, body, false)
+		if err != nil {
+			self.TaskFailed(ctx, guest, fmt.Sprintf("Prepare migrage failed: %s", err))
+			return
+		}
+	} else {
+		self.OnSrcPrepareComplete(ctx, guest, nil)
 	}
 }
 
