@@ -946,6 +946,7 @@ func (self *SStorage) createDisk(name string, diskConfig *api.DiskConfig, userCr
 	disk.StorageId = self.Id
 	disk.AutoDelete = autoDelete
 	disk.ProjectId = ownerProjId
+	disk.ProjectSrc = string(db.PROJECT_SOURCE_LOCAL)
 	disk.IsSystem = isSystem
 
 	disk.BillingType = billingType
