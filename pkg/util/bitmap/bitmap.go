@@ -12,14 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multicloud
+package bitmap
 
-type SDisk struct{}
-
-func (self *SDisk) GetExtSnapshotPolicyIds() []string {
-	return []string{""}
+func Uint2IntArray(n uint32) []int {
+	ret := make([]int, 0, 2)
+	var i uint = 0
+	for n != 0 {
+		if n&(1<<i) != 0 {
+			n &= uint32(^(1 << i))
+			ret = append(ret, int(i))
+		}
+		i++
+	}
+	return ret
 }
 
-func (self *SDisk) GetIStorageId() string {
-	return ""
+func IntArray2Uint(nums []int) uint32 {
+	var ret uint32 = 0
+	for _, i := range nums {
+		ret |= (1 << uint(i))
+	}
+	return ret
 }

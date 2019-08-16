@@ -135,6 +135,10 @@ func (self *SSnapshotPolicy) GetTimePoints() ([]int, error) {
 	return parsePolicy(self.TimePoints)
 }
 
+func (self *SSnapshotPolicy) IsActivated() bool {
+	return true
+}
+
 func (self *SRegion) GetISnapshotPolicies() ([]cloudprovider.ICloudSnapshotPolicy, error) {
 	snapshotPolicies, total, err := self.GetSnapshotPolicies("", 0, 50)
 	if err != nil {
@@ -159,8 +163,10 @@ func (self *SRegion) GetSnapshotPolicies(policyId string, offset int, limit int)
 	params := make(map[string]string)
 
 	params["RegionId"] = self.RegionId
-	params["PageSize"] = fmt.Sprintf("%d", limit)
-	params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
+	if limit != 0 {
+		params["PageSize"] = fmt.Sprintf("%d", limit)
+		params["PageNumber"] = fmt.Sprintf("%d", (offset/limit)+1)
+	}
 
 	if len(policyId) > 0 {
 		params["AutoSnapshotPolicyId"] = policyId
@@ -253,10 +259,11 @@ func (self *SRegion) UpdateSnapshotPolicy(
 	return nil
 }
 
-func (self *SRegion) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskIds []string) error {
+func (self *SRegion) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
 	params["autoSnapshotPolicyId"] = snapshotPolicyId
+	diskIds := []string{diskId}
 	params["diskIds"] = jsonutils.Marshal(diskIds).String()
 	_, err := self.ecsRequest("ApplyAutoSnapshotPolicy", params)
 	if err != nil {
@@ -265,9 +272,10 @@ func (self *SRegion) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskIds
 	return nil
 }
 
-func (self *SRegion) CancelSnapshotPolicyToDisks(diskIds []string) error {
+func (self *SRegion) CancelSnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
 	params := make(map[string]string)
 	params["RegionId"] = self.RegionId
+	diskIds := []string{diskId}
 	params["diskIds"] = jsonutils.Marshal(diskIds).String()
 	_, err := self.ecsRequest("CancelAutoSnapshotPolicy", params)
 	if err != nil {

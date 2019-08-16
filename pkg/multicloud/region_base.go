@@ -38,11 +38,11 @@ func (self *SRegion) DeleteSnapshotPolicy(string) error {
 	return fmt.Errorf("DeleteSnapshotPolicy not implement")
 }
 
-func (self *SRegion) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskIds []string) error {
+func (self *SRegion) ApplySnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
 	return fmt.Errorf("ApplySnapshotPolicyToDisks not implement")
 }
 
-func (self *SRegion) CancelSnapshotPolicyToDisks(diskIds []string) error {
+func (self *SRegion) CancelSnapshotPolicyToDisks(snapshotPolicyId string, diskId string) error {
 	return fmt.Errorf("ApplySnapshotPolicyToDisks not implement")
 }
 

@@ -40,7 +40,6 @@ import (
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/quotas"
 	"yunion.io/x/onecloud/pkg/cloudcommon/db/taskman"
 	"yunion.io/x/onecloud/pkg/cloudcommon/notifyclient"
-	"yunion.io/x/onecloud/pkg/cloudcommon/validators"
 	"yunion.io/x/onecloud/pkg/cloudprovider"
 	"yunion.io/x/onecloud/pkg/compute/options"
 	"yunion.io/x/onecloud/pkg/httperrors"
@@ -95,9 +94,6 @@ type SDisk struct {
 	DiskType string `width:"32" charset:"ascii" nullable:"true" list:"user" update:"admin"` // Column(VARCHAR(32, charset='ascii'), nullable=True)
 	// # is persistent
 	Nonpersistent bool `default:"false" list:"user"` // Column(Boolean, default=False)
-
-	AutoSnapshot     bool   `default:"false" nullable:"true" get:"user" update:"user"`
-	SnapshotPolicyId string `width:"128" charset:"ascii" nullable:"true" get:"user" list:"user" update:"user" create:"optional"`
 }
 
 func (manager *SDiskManager) GetContextManagers() [][]db.IModelManager {
@@ -759,51 +755,6 @@ func (self *SDisk) PerformResize(ctx context.Context, userCred mcclient.TokenCre
 	return nil, self.StartDiskResizeTask(ctx, userCred, int64(sizeMb), "", &pendingUsage, guest)
 }
 
-func (self *SDisk) AllowPerformApplySnapshotPolicy(ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "apply-snapshot-policy")
-}
-
-func (self *SDisk) PerformApplySnapshotPolicy(
-	ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject,
-) (jsonutils.JSONObject, error) {
-	spv := validators.NewModelIdOrNameValidator("snapshotpolicy", "snapshotpolicy", userCred)
-	if err := spv.Validate(data.(*jsonutils.JSONDict)); err != nil {
-		return nil, err
-	}
-	sp := spv.Model.(*SSnapshotPolicy)
-	return nil, sp.StartApplySnapshotPolicyToDisks(ctx, userCred, []string{self.Id})
-}
-
-func (self *SDisk) AllowPerformCancelSnapshotPolicy(ctx context.Context,
-	userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject,
-	data jsonutils.JSONObject) bool {
-	return self.IsOwner(userCred) || db.IsAdminAllowPerform(userCred, self, "cancel-snapshot-policy")
-}
-
-func (self *SDisk) PerformCancelSnapshotPolicy(
-	ctx context.Context, userCred mcclient.TokenCredential,
-	query jsonutils.JSONObject, data jsonutils.JSONObject,
-) (jsonutils.JSONObject, error) {
-	if len(self.SnapshotPolicyId) == 0 {
-		return nil, httperrors.NewBadRequestError("Disk dosen't apply any snapshot policy")
-	}
-	return nil, self.StartCancelSnapshotPolicyToDisks(ctx, userCred)
-}
-
-func (self *SDisk) StartCancelSnapshotPolicyToDisks(ctx context.Context, userCred mcclient.TokenCredential) error {
-	if task, err := taskman.TaskManager.NewTask(ctx, "SnapshotPolicyCancelTask", self, userCred, nil, "", "", nil); err != nil {
-		return err
-	} else {
-		task.ScheduleRun(nil)
-	}
-	return nil
-}
-
 func (self *SDisk) GetIStorage() (cloudprovider.ICloudStorage, error) {
 	storage := self.GetStorage()
 	if storage == nil {
@@ -1210,6 +1161,7 @@ func (self *SDisk) syncRemoveCloudDisk(ctx context.Context, userCred mcclient.To
 		self.SetStatus(userCred, api.DISK_UNKNOWN, "missing original disk after sync")
 		return err
 	}
+	// todo detach joint modle about snapshotpolicy and disk
 	return self.RealDelete(ctx, userCred)
 }
 
@@ -1256,13 +1208,7 @@ func (self *SDisk) syncWithCloudDisk(ctx context.Context, userCred mcclient.Toke
 			self.CreatedAt = createdAt
 		}
 
-		extPolicyId := extDisk.GetExtSnapshotPolicyId()
-		if len(extPolicyId) > 0 {
-			isp, _ := db.FetchByExternalId(SnapshotPolicyManager, extPolicyId)
-			if isp != nil {
-				self.SnapshotPolicyId = isp.GetId()
-			}
-		}
+		// todo sync disk's snapshotpolicy
 
 		return nil
 	})
@@ -1311,13 +1257,7 @@ func (manager *SDiskManager) newFromCloudDisk(ctx context.Context, userCred mccl
 		disk.CreatedAt = createAt
 	}
 
-	extPolicyId := extDisk.GetExtSnapshotPolicyId()
-	if len(extPolicyId) > 0 {
-		isp, _ := db.FetchByExternalId(SnapshotPolicyManager, extPolicyId)
-		if isp != nil {
-			disk.SnapshotPolicyId = isp.GetId()
-		}
-	}
+	// todo create new joint model about snapshotpolicy and disk
 
 	err = manager.TableSpec().Insert(&disk)
 	if err != nil {
@@ -1715,14 +1655,6 @@ func (self *SDisk) GetAttachedGuests() []SGuest {
 		return nil
 	}
 	return ret
-}
-
-func (self *SDisk) SetSnapshotPolicy(policyId string) error {
-	_, err := db.Update(self, func() error {
-		self.SnapshotPolicyId = policyId
-		return nil
-	})
-	return err
 }
 
 func (self *SDisk) SetDiskReady(ctx context.Context, userCred mcclient.TokenCredential, reason string) {
