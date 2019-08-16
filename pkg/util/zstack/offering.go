@@ -20,6 +20,7 @@ import (
 	"yunion.io/x/jsonutils"
 
 	api "yunion.io/x/onecloud/pkg/apis/compute"
+	"yunion.io/x/onecloud/pkg/cloudprovider"
 )
 
 type SInstanceOffering struct {
@@ -46,13 +47,10 @@ func (region *SRegion) GetInstanceOfferingByType(instanceType string) (*SInstanc
 	if err != nil {
 		return nil, err
 	}
-	if len(offerings) == 1 {
+	if len(offerings) >= 1 {
 		return &offerings[0], nil
 	}
-	if len(offerings) == 0 {
-		return nil, fmt.Errorf("instanceType %s not found", instanceType)
-	}
-	return nil, fmt.Errorf("duplicate instanceType %s", instanceType)
+	return nil, cloudprovider.ErrNotFound
 }
 
 func (region *SRegion) GetInstanceOfferings(offerId string, name string, cpu int, memorySizeMb int) ([]SInstanceOffering, error) {
