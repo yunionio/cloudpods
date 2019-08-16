@@ -14,14 +14,37 @@
 
 package modules
 
-var (
-	ProcessInstance ResourceManager
+import (
+	"fmt"
+	"io"
+	"net/http"
+
+	"yunion.io/x/jsonutils"
+	"yunion.io/x/onecloud/pkg/mcclient"
 )
 
+type ProcessInstanceManager struct {
+	ResourceManager
+}
+
+var (
+	ProcessInstance ProcessInstanceManager
+)
+
+func (self *ProcessInstanceManager) Upload(s *mcclient.ClientSession, header http.Header, body io.Reader) (jsonutils.JSONObject, error) {
+	path := fmt.Sprintf("/%s", self.URLPath())
+	resp, err := self.rawRequest(s, "POST", path, header, body)
+	_, json, err := s.ParseJSONResponse(resp, err)
+	if err != nil {
+		return nil, err
+	}
+	return json.Get(self.Keyword)
+}
+
 func init() {
-	ProcessInstance = NewITSMManager("process-instance", "process-instances",
+	ProcessInstance = ProcessInstanceManager{NewITSMManager("process-instance", "process-instances",
 		[]string{"id", "process_instance_id", "root_process_instance_id", "case_instance_id", "business_key", "ended", "suspended", "tenant_id"},
 		[]string{},
-	)
+	)}
 	register(&ProcessInstance)
 }
