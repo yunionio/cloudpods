@@ -249,7 +249,7 @@ func (w *SWindowsRootFs) DeployNetworkingScripts(rootfs IDiskPartition, nics []j
 		"@echo off",
 		w.MakeGuestDebugCmd("netcfg step 1"),
 		"setlocal enableDelayedExpansion",
-		`for /f "delims=" %%a in (\'getmac /fo csv /nh /v\') do (`,
+		`for /f "delims=" %%a in ('getmac /fo csv /nh /v') do (`,
 		`  set line=%%a&set line=!line:"=,!`,
 		`  for /f "delims=,,, tokens=1,3" %%b in ("!line!") do (`,
 	}
