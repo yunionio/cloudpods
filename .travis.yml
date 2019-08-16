@@ -2,20 +2,31 @@
 # runner instead of the slow VM-based one.
 sudo: false
 
-dist: xenial
+dist: bionic
 
-services:
-  - docker
+addons:
+  apt:
+    sources:
+      - sourceline: "deb https://download.ceph.com/debian-luminous/ bionic main"
+        key_url: "https://download.ceph.com/keys/release.asc"
+    packages:
+      - build-essential
+      - libcephfs-dev
+      - librbd-dev
+      - librados-dev
 
 language: go
+go:
+  - 1.12.x
 go_import_path: yunion.io/x/onecloud
+cache:
+  directories:
+    - $HOME/.cache/go-build
 
 # Only clone the most recent commit.
 git:
   depth: 8
 
 script:
-- chmod -R o+w $PWD
-- docker pull yunionio/onecloud-ci:latest
-- make docker-build F="-j2 ONECLOUD_CI_BUILD=1"
-- chmod -R o-x $PWD
+  - make -j$(nproc) ONECLOUD_CI_BUILD=1
+  - ls -lh _output/bin
