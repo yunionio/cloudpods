@@ -977,5 +977,18 @@ func (self *SManagedVirtualizationRegionDriver) OnDiskReset(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	return iDisk.Refresh()
+	err = iDisk.Refresh()
+	if err != nil {
+		return err
+	}
+	if disk.DiskSize != iDisk.GetDiskSizeMB() {
+		_, err := db.Update(disk, func() error {
+			disk.DiskSize = iDisk.GetDiskSizeMB()
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
