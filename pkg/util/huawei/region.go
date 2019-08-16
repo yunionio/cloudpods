@@ -417,6 +417,11 @@ func (self *SRegion) CreateEIP(eip *cloudprovider.SEip) (cloudprovider.ICloudEIP
 		}
 	}
 
+	// 华为云EIP名字最大长度64
+	if len(eip.Name) > 64 {
+		eip.Name = eip.Name[:64]
+	}
+
 	ieip, err := self.AllocateEIP(eip.Name, eip.BandwidthMbps, ctype, eip.BGPType)
 	ieip.region = self
 	if err != nil {
