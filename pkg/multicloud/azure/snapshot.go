@@ -180,7 +180,7 @@ func (self *SRegion) GetISnapshots() ([]cloudprovider.ICloudSnapshot, error) {
 }
 
 func (self *SSnapshot) GetDiskId() string {
-	return self.Properties.CreationData.SourceResourceID
+	return strings.ToLower(self.Properties.CreationData.SourceResourceID)
 }
 
 func (self *SSnapshot) GetDiskType() string {
