@@ -278,3 +278,45 @@ func (manager *SGroupManager) FetchGroupsInDomain(domainId string, excludes []st
 func (group *SGroup) UnlinkIdp(idpId string) error {
 	return IdmappingManager.deleteAny(idpId, api.IdMappingEntityGroup, group.Id)
 }
+
+func (group *SGroup) AllowPerformJoin(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowPerform(userCred, group, "join")
+}
+
+func (group *SGroup) PerformJoin(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	err := joinProjects(group, false, ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (group *SGroup) AllowPerformLeave(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowPerform(userCred, group, "leave")
+}
+
+func (group *SGroup) PerformLeave(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	err := leaveProjects(group, false, ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}

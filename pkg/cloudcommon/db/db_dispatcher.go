@@ -417,7 +417,7 @@ func fetchContextObject(manager IModelManager, ctx context.Context, userCred mcc
 		return nil, httperrors.NewInternalServerError("No context manager")
 	}
 	for i := 0; i < len(ctxMans); i += 1 {
-		for j := 0; j < len(ctxMans); j += 1 {
+		for j := 0; j < len(ctxMans[i]); j += 1 {
 			if ctxMans[i][j].KeywordPlural() == ctxId.Type {
 				ctxObj, err := fetchItem(ctxMans[i][j], ctx, userCred, ctxId.Id, nil)
 				if err != nil {

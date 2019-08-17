@@ -17,6 +17,7 @@ package shell
 import (
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -364,6 +365,7 @@ func init() {
 		return nil
 	})*/
 
+	// Deprecated
 	type ProjectBatchJoinOptions struct {
 		Ids      []string `help:"user ids or group ids"`
 		Resource string   `help:"resource type" choices:"users|groups"`
@@ -376,6 +378,57 @@ func init() {
 		if err != nil {
 			return err
 		}
+		return nil
+	})
+
+	type ProjectAddUserGroupOptions struct {
+		Project string   `help:"ID or name of project to add users/groups" positional:"true" optional:"false"`
+		User    []string `help:"ID of user to add"`
+		Group   []string `help:"ID of group to add"`
+		Role    []string `help:"ID of role to add"`
+	}
+	R(&ProjectAddUserGroupOptions{}, "project-add-user-group", "Batch add users/groups to project", func(s *mcclient.ClientSession, args *ProjectAddUserGroupOptions) error {
+		input := api.SProjectAddUserGroupInput{}
+		input.Users = args.User
+		input.Groups = args.Group
+		input.Roles = args.Role
+		err := input.Validate()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Projects.PerformAction(s, args.Project, "join", jsonutils.Marshal(input))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type ProjectRemoveUserGroup struct {
+		Project string   `help:"ID or name of project to remove user/group" optional:"false" positional:"true"`
+		User    string   `help:"user to remove"`
+		Group   string   `help:"group to remove"`
+		Role    []string `help:"roles to remove"`
+	}
+	R(&ProjectRemoveUserGroup{}, "project-remove-user-group", "Remove users/groups from project", func(s *mcclient.ClientSession, args *ProjectRemoveUserGroup) error {
+		input := api.SProjectRemoveUserGroupInput{}
+		input.UserRoles = make([]api.SUserRole, len(args.Role))
+		input.GroupRoles = make([]api.SGroupRole, len(args.Role))
+		for i := range args.Role {
+			input.UserRoles[i].User = args.User
+			input.UserRoles[i].Role = args.Role[i]
+			input.GroupRoles[i].Group = args.Group
+			input.GroupRoles[i].Role = args.Role[i]
+		}
+		err := input.Validate()
+		if err != nil {
+			return err
+		}
+		result, err := modules.Projects.PerformAction(s, args.Project, "leave", jsonutils.Marshal(input))
+		if err != nil {
+			return err
+		}
+		printObject(result)
 		return nil
 	})
 }

@@ -230,11 +230,19 @@ paths:
     $ref: "./identity/users.yaml" 
   /users/{user_id}:
     $ref: "./identity/user.yaml" 
+  /users/{user_id}/join:
+    $ref: "./identity/user_join.yaml"
+  /users/{user_id}/leave:
+    $ref: "./identity/user_leave.yaml"
 
   /groups:
     $ref: "./identity/groups.yaml"
   /groups/{group_id}:
     $ref: "./identity/group.yaml"
+  /groups/{group_id}/join:
+    $ref: "./identity/group_join.yaml"
+  /groups/{group_id}/leave:
+    $ref: "./identity/group_leave.yaml"
   /groups/{group_id}/users/{user_id}:
     $ref: "./identity/groupuser.yaml"
 
@@ -242,6 +250,10 @@ paths:
     $ref: "./identity/projects.yaml"
   /projects/{project_id}:
     $ref: "./identity/project.yaml"
+  /projects/{project_id}/join:
+    $ref: "./identity/project_join.yaml"
+  /projects/{project_id}/leave:
+    $ref: "./identity/project_leave.yaml"
 
   /roles:
     $ref: "./identity/roles.yaml"
