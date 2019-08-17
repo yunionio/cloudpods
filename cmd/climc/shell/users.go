@@ -17,6 +17,7 @@ package shell
 import (
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -358,6 +359,43 @@ func init() {
 		if err != nil {
 			return err
 		}
+		return nil
+	})
+
+	type UserJoinProjectOptions struct {
+		User    string   `help:"User Id or name" optional:"false" positional:"true"`
+		Project []string `help:"Projects to join" nargs:"+"`
+		Role    []string `help:"User join project with roles" nargs:"+"`
+	}
+	R(&UserJoinProjectOptions{}, "user-join-project", "User join projects with roles", func(s *mcclient.ClientSession, args *UserJoinProjectOptions) error {
+		input := api.SJoinProjectsInput{}
+		input.Projects = args.Project
+		input.Roles = args.Role
+		result, err := modules.UsersV3.PerformAction(s, args.User, "join", jsonutils.Marshal(input))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type UserLeaveProjectsOptions struct {
+		User    string   `help:"user id or name" optional:"false" positional:"true"`
+		Project string   `help:"project id or name" optional:"false" positional:"true"`
+		Role    []string `help:"roles to remove" nargs:"+"`
+	}
+	R(&UserLeaveProjectsOptions{}, "user-leave-project", "Leave a user from projects", func(s *mcclient.ClientSession, args *UserLeaveProjectsOptions) error {
+		input := api.SLeaveProjectsInput{}
+		input.ProjectRoles = make([]api.SProjectRole, len(args.Role))
+		for i := range args.Role {
+			input.ProjectRoles[i].Project = args.Project
+			input.ProjectRoles[i].Role = args.Role[i]
+		}
+		result, err := modules.UsersV3.PerformAction(s, args.User, "leave", jsonutils.Marshal(input))
+		if err != nil {
+			return err
+		}
+		printObject(result)
 		return nil
 	})
 

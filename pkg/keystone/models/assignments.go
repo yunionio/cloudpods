@@ -259,11 +259,12 @@ func (manager *SAssignmentManager) projectAddUser(ctx context.Context, userCred 
 		}
 	}
 	err = manager.add(api.AssignmentUserProject, user.Id, project.Id, role.Id)
-	if err == nil {
-		db.OpsLog.LogEvent(user, db.ACT_ATTACH, project.GetShortDesc(ctx), userCred)
-		db.OpsLog.LogEvent(project, db.ACT_ATTACH, user.GetShortDesc(ctx), userCred)
+	if err != nil {
+		return errors.Wrap(err, "manager.add")
 	}
-	return err
+	db.OpsLog.LogEvent(user, db.ACT_ATTACH, project.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(project, db.ACT_ATTACH, user.GetShortDesc(ctx), userCred)
+	return nil
 }
 
 func (manager *SAssignmentManager) batchRemove(actorId string, typeStrs []string) error {
@@ -333,11 +334,12 @@ func (manager *SAssignmentManager) projectRemoveUser(ctx context.Context, userCr
 		}
 	}
 	err := manager.remove(api.AssignmentUserProject, user.Id, project.Id, role.Id)
-	if err == nil {
-		db.OpsLog.LogEvent(user, db.ACT_DETACH, project.GetShortDesc(ctx), userCred)
-		db.OpsLog.LogEvent(project, db.ACT_DETACH, user.GetShortDesc(ctx), userCred)
+	if err != nil {
+		return errors.Wrap(err, "manager.remove")
 	}
-	return err
+	db.OpsLog.LogEvent(user, db.ACT_DETACH, project.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(project, db.ACT_DETACH, user.GetShortDesc(ctx), userCred)
+	return nil
 }
 
 func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, group *SGroup, role *SRole) error {
@@ -357,11 +359,12 @@ func (manager *SAssignmentManager) projectAddGroup(ctx context.Context, userCred
 		}
 	}
 	err = manager.add(api.AssignmentGroupProject, group.Id, project.Id, role.Id)
-	if err == nil {
-		db.OpsLog.LogEvent(group, db.ACT_ATTACH, project.GetShortDesc(ctx), userCred)
-		db.OpsLog.LogEvent(project, db.ACT_ATTACH, group.GetShortDesc(ctx), userCred)
+	if err != nil {
+		return errors.Wrap(err, "manager.add")
 	}
-	return err
+	db.OpsLog.LogEvent(group, db.ACT_ATTACH, project.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(project, db.ACT_ATTACH, group.GetShortDesc(ctx), userCred)
+	return nil
 }
 
 func (manager *SAssignmentManager) projectRemoveGroup(ctx context.Context, userCred mcclient.TokenCredential, project *SProject, group *SGroup, role *SRole) error {
@@ -378,11 +381,12 @@ func (manager *SAssignmentManager) projectRemoveGroup(ctx context.Context, userC
 		}
 	}
 	err := manager.remove(api.AssignmentGroupProject, group.Id, project.Id, role.Id)
-	if err == nil {
-		db.OpsLog.LogEvent(group, db.ACT_DETACH, project.GetShortDesc(ctx), userCred)
-		db.OpsLog.LogEvent(project, db.ACT_DETACH, group.GetShortDesc(ctx), userCred)
+	if err != nil {
+		return errors.Wrap(err, "manager.remove")
 	}
-	return err
+	db.OpsLog.LogEvent(group, db.ACT_DETACH, project.GetShortDesc(ctx), userCred)
+	db.OpsLog.LogEvent(project, db.ACT_DETACH, group.GetShortDesc(ctx), userCred)
+	return nil
 }
 
 func (manager *SAssignmentManager) remove(typeStr, actorId, projectId, roleId string) error {
@@ -412,7 +416,11 @@ func (manager *SAssignmentManager) add(typeStr, actorId, projectId, roleId strin
 		Inherited: tristate.False,
 	}
 	assign.SetModelManager(manager, &assign)
-	return manager.TableSpec().InsertOrUpdate(&assign)
+	err := manager.TableSpec().InsertOrUpdate(&assign)
+	if err != nil {
+		return errors.Wrap(err, "InsertOrUpdate")
+	}
+	return nil
 }
 
 func AddAdhocHandlers(version string, app *appsrv.Application) {
