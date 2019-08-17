@@ -775,6 +775,7 @@ yunion.io/x/pkg/util/regutils
 yunion.io/x/pkg/util/signalutils
 yunion.io/x/pkg/util/timeutils
 yunion.io/x/pkg/util/sets
+yunion.io/x/pkg/errors
 yunion.io/x/pkg/trace
 yunion.io/x/pkg/util/errors
 yunion.io/x/pkg/util/netutils
@@ -784,7 +785,6 @@ yunion.io/x/pkg/tristate
 yunion.io/x/pkg/util/stringutils
 yunion.io/x/pkg/util/fileutils
 yunion.io/x/pkg/util/osprofile
-yunion.io/x/pkg/errors
 yunion.io/x/pkg/gotypes
 yunion.io/x/pkg/util/filterclause
 yunion.io/x/pkg/util/reflectutils
@@ -800,7 +800,7 @@ yunion.io/x/pkg/util/runtime
 yunion.io/x/pkg/util/clock
 # yunion.io/x/s3cli v0.0.0-20190812034537-1e65a6651a3e
 yunion.io/x/s3cli
-# yunion.io/x/sqlchemy v0.0.0-20190813100902-cfa59aeabbfe
+# yunion.io/x/sqlchemy v0.0.0-20190817082003-905772542cba
 yunion.io/x/sqlchemy
 # yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 yunion.io/x/structarg

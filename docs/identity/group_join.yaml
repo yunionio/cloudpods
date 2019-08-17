@@ -1,0 +1,16 @@
+post:
+  summary: 将组以多个角色加入多个项目
+  parameters:
+    - $ref: '../parameters/group.yaml#/group_id'
+    - name: group
+      in: body
+      required: true
+      schema:
+        $ref: "../schemas/project.yaml#/ProjectJoinRequestInput"
+  responses:
+    200:
+      description: 组信息
+      schema:
+        $ref: "../schemas/group.yaml#/GroupGetResponse"
+  tags:
+    - groups
