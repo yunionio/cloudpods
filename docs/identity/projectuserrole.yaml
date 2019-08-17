@@ -1,4 +1,5 @@
 put:
+  deprecated: true
   summary: 将用户以指定角色加入项目
   parameters:
     - $ref: '../parameters/identity.yaml#/project_id'
@@ -11,6 +12,7 @@ put:
     - roles
 
 delete:
+  deprecated: true
   summary: 将用户在项目中的角色删除
   parameters:
     - $ref: '../parameters/identity.yaml#/project_id'

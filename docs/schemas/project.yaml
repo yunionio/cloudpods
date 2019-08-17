@@ -57,3 +57,84 @@ Project:
     can_delete:
       type: boolean
       description: 是否可以删除
+
+ProjectJoinRequestInput:
+  type: object
+  description: 用户或组批量加入项目的请求body
+  properties:
+    projects:
+      type: array
+      description: 项目列表
+      items:
+        type: string
+    roles:
+      type: array
+      description: 角色列表
+      items:
+        type: string
+
+ProjectLeaveRequestInput:
+  type: object
+  description: 用户或组批量移除项目的请求body
+  properties:
+    project_roles:
+      type: array
+      description: 移除的项目和角色列表
+      items:
+        type: object
+        properties:
+          project:
+            type: string
+            description: 项目ID或名称
+          role:
+            type: string
+            description: 角色ID或名称
+
+ProjectJoinUserGroupRequestInput:
+  type: object
+  description: 将多个用户或组批量加入指定项目的请求body
+  properties:
+    users:
+      type: array
+      description: 加入的用户列表
+      items:
+        type: string
+    groups:
+      type: array
+      description: 加入的组列表
+      items:
+        type: string
+    roles:
+      type: array
+      description: 加入的角色列表
+      items:
+        type: string
+
+ProjectRemoveUserGroupRequestInput:
+  type: object
+  description: 将多个用户或组从指定项目移除的请求body
+  properties:
+    user_roles:
+      type: array
+      description: 用户和角色列表
+      items:
+        type: object
+        properties:
+          user:
+            type: string
+            description: 用户ID或名称
+          role:
+            type: string
+            description: 角色ID或名称
+    group_roles:
+      type: array
+      description: 组和角色列表
+      items:
+        type: object
+        properties:
+          group:
+            type: string
+            description: 组ID或名称
+          role:
+            type: string
+            description: 角色ID或名称

@@ -153,6 +153,6 @@ require (
 	yunion.io/x/log v0.0.0-20190629062853-9f6483a7103d
 	yunion.io/x/pkg v0.0.0-20190726033806-b564cfdcc224
 	yunion.io/x/s3cli v0.0.0-20190812034537-1e65a6651a3e
-	yunion.io/x/sqlchemy v0.0.0-20190813100902-cfa59aeabbfe
+	yunion.io/x/sqlchemy v0.0.0-20190817082003-905772542cba
 	yunion.io/x/structarg v0.0.0-20190809075558-115bed041de3
 )
