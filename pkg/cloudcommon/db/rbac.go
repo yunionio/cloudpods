@@ -21,6 +21,10 @@ import (
 	"yunion.io/x/onecloud/pkg/util/rbacutils"
 )
 
+func IsObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action string, extra ...string) bool {
+	return isObjectRbacAllowed(model, userCred, action, extra...)
+}
+
 func isObjectRbacAllowed(model IModel, userCred mcclient.TokenCredential, action string, extra ...string) bool {
 	manager := model.GetModelManager()
 	objOwnerId := model.GetOwnerId()
