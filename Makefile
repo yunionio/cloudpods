@@ -52,6 +52,9 @@ export GO111MODULE:=on
 export CGO_CFLAGS = ${X_CGO_CFLAGS}
 export CGO_LDFLAGS = ${X_CGO_LDFLAGS}
 
+cmdTargets:=$(filter-out cmd/host-image,$(wildcard cmd/*))
+rpmTargets:=$(foreach b,$(patsubst cmd/%,%,$(cmdTargets)),$(if $(shell [ -f "$(CURDIR)/build/$(b)/vars" ] && echo 1),rpm/$(b)))
+
 all: build
 
 
@@ -61,9 +64,6 @@ install: prepare_dir
 		$(GO_INSTALL) $$PKG; \
 	done
 
-
-build: gendoc
-	$(MAKE) $(filter-out cmd/host-image, $(wildcard cmd/*))
 
 gendoc:
 	@sh build/gendoc.sh
@@ -86,11 +86,11 @@ rpm/%: cmd/%
 pkg/%: prepare_dir fmt
 	$(GO_INSTALL) $(REPO_PREFIX)/$@
 
+build: gendoc
+	$(MAKE) $(cmdTargets)
 
-# a hack
 rpm:
-	$(MAKE) $(patsubst %,cmd/%,$(filter-out $@,$(MAKECMDGOALS)))
-	$(foreach cmd,$(filter-out $@,$(MAKECMDGOALS)),$(BUILD_SCRIPT) $(cmd);)
+	$(MAKE) $(rpmTargets)
 
 rpmclean:
 	rm -fr $(BUILD_DIR)/rpms
