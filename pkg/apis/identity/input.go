@@ -63,7 +63,7 @@ type SProjectAddUserGroupInput struct {
 }
 
 func (input SProjectAddUserGroupInput) Validate() error {
-	if len(input.Users) == 0 || len(input.Groups) == 0 {
+	if len(input.Users) == 0 && len(input.Groups) == 0 {
 		return errors.Error("empty user and group")
 	}
 	if len(input.Roles) == 0 {
