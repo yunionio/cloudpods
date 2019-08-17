@@ -17,6 +17,7 @@ package shell
 import (
 	"yunion.io/x/jsonutils"
 
+	api "yunion.io/x/onecloud/pkg/apis/identity"
 	"yunion.io/x/onecloud/pkg/mcclient"
 	"yunion.io/x/onecloud/pkg/mcclient/modules"
 	"yunion.io/x/onecloud/pkg/mcclient/options"
@@ -133,4 +134,61 @@ func init() {
 		return nil
 	})
 
+	R(&GroupShowOptions{}, "group-project-list", "List projects of group", func(s *mcclient.ClientSession, args *GroupShowOptions) error {
+		query := jsonutils.NewDict()
+		if len(args.Domain) > 0 {
+			domainId, err := modules.Domains.GetId(s, args.Domain, nil)
+			if err != nil {
+				return err
+			}
+			query.Add(jsonutils.NewString(domainId), "domain_id")
+		}
+		uid, err := modules.Groups.GetId(s, args.ID, query)
+		if err != nil {
+			return err
+		}
+		projects, e := modules.Groups.GetProjects(s, uid)
+		if e != nil {
+			return e
+		}
+		printList(projects, modules.Projects.GetColumns(s))
+		return nil
+	})
+
+	type GroupJoinProjectOptions struct {
+		Group   string   `help:"Group Id or name" optional:"false" positional:"true"`
+		Project []string `help:"Projects to join" nargs:"+"`
+		Role    []string `help:"User join project with roles" nargs:"+"`
+	}
+	R(&GroupJoinProjectOptions{}, "group-join-project", "Group join projects with roles", func(s *mcclient.ClientSession, args *GroupJoinProjectOptions) error {
+		input := api.SJoinProjectsInput{}
+		input.Projects = args.Project
+		input.Roles = args.Role
+		result, err := modules.Groups.PerformAction(s, args.Group, "join", jsonutils.Marshal(input))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
+
+	type GroupLeaveProjectsOptions struct {
+		Group   string   `help:"group id or name" optional:"false" positional:"true"`
+		Project string   `help:"project id or name" optional:"false" positional:"true"`
+		Role    []string `help:"roles to remove" nargs:"+"`
+	}
+	R(&GroupLeaveProjectsOptions{}, "group-leave-project", "Leave a group from projects", func(s *mcclient.ClientSession, args *GroupLeaveProjectsOptions) error {
+		input := api.SLeaveProjectsInput{}
+		input.ProjectRoles = make([]api.SProjectRole, len(args.Role))
+		for i := range args.Role {
+			input.ProjectRoles[i].Project = args.Project
+			input.ProjectRoles[i].Role = args.Role[i]
+		}
+		result, err := modules.Groups.PerformAction(s, args.Group, "leave", jsonutils.Marshal(input))
+		if err != nil {
+			return err
+		}
+		printObject(result)
+		return nil
+	})
 }

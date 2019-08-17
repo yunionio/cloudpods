@@ -361,3 +361,154 @@ func (manager *SProjectManager) ValidateCreateData(ctx context.Context, userCred
 	}
 	return manager.SIdentityBaseResourceManager.ValidateCreateData(ctx, userCred, ownerId, query, data)
 }
+
+func (project *SProject) AllowPerformJoin(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowPerform(userCred, project, "join")
+}
+
+func (project *SProject) PerformJoin(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	input := api.SProjectAddUserGroupInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("unmarshal project add user group input error %s", err)
+	}
+	err = input.Validate()
+	if err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+	roles := make([]*SRole, 0)
+	for i := range input.Roles {
+		obj, err := RoleManager.FetchByIdOrName(userCred, input.Roles[i])
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), input.Roles[i])
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		roles = append(roles, obj.(*SRole))
+	}
+	users := make([]*SUser, 0)
+	for i := range input.Users {
+		obj, err := UserManager.FetchByIdOrName(userCred, input.Users[i])
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(UserManager.Keyword(), input.Users[i])
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		users = append(users, obj.(*SUser))
+	}
+	groups := make([]*SGroup, 0)
+	for i := range input.Groups {
+		obj, err := GroupManager.FetchByIdOrName(userCred, input.Groups[i])
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(GroupManager.Keyword(), input.Groups[i])
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		groups = append(groups, obj.(*SGroup))
+	}
+
+	for i := range users {
+		for j := range roles {
+			err = AssignmentManager.projectAddUser(ctx, userCred, project, users[i], roles[j])
+			if err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+	}
+	for i := range groups {
+		for j := range roles {
+			err = AssignmentManager.projectAddGroup(ctx, userCred, project, groups[i], roles[j])
+			if err != nil {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func (project *SProject) AllowPerformLeave(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowPerform(userCred, project, "leave")
+}
+
+func (project *SProject) PerformLeave(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	input := api.SProjectRemoveUserGroupInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return nil, httperrors.NewInputParameterError("unmarshal project remove usergroup input error %s", err)
+	}
+	err = input.Validate()
+	if err != nil {
+		return nil, httperrors.NewInputParameterError(err.Error())
+	}
+
+	for i := range input.UserRoles {
+		userObj, err := UserManager.FetchByIdOrName(userCred, input.UserRoles[i].User)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(UserManager.Keyword(), input.UserRoles[i].User)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		roleObj, err := RoleManager.FetchByIdOrName(userCred, input.UserRoles[i].Role)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), input.UserRoles[i].Role)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		err = AssignmentManager.projectRemoveUser(ctx, userCred, project, userObj.(*SUser), roleObj.(*SRole))
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+	}
+	for i := range input.GroupRoles {
+		groupObj, err := GroupManager.FetchByIdOrName(userCred, input.GroupRoles[i].Group)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(GroupManager.Keyword(), input.GroupRoles[i].Group)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		roleObj, err := RoleManager.FetchByIdOrName(userCred, input.GroupRoles[i].Role)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), input.GroupRoles[i].Role)
+			} else {
+				return nil, httperrors.NewGeneralError(err)
+			}
+		}
+		err = AssignmentManager.projectRemoveGroup(ctx, userCred, project, groupObj.(*SGroup), roleObj.(*SRole))
+		if err != nil {
+			return nil, httperrors.NewGeneralError(err)
+		}
+	}
+	return nil, nil
+}

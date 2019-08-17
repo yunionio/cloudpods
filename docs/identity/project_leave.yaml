@@ -1,0 +1,16 @@
+post:
+  summary: 将多个用户和组以多个角色从指定项目删除
+  parameters:
+    - $ref: '../parameters/project.yaml#/project_id'
+    - name: project
+      in: body
+      required: true
+      schema:
+        $ref: "../schemas/project.yaml#/ProjectRemoveUserGroupRequestInput"
+  responses:
+    200:
+      description: 项目信息
+      schema:
+        $ref: "../schemas/project.yaml#/ProjectGetResponse"
+  tags:
+    - projects

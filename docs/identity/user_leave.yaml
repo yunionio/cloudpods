@@ -1,0 +1,16 @@
+post:
+  summary: 将用户的多个角色从多个项目中删除
+  parameters:
+    - $ref: '../parameters/user.yaml#/user_id'
+    - name: user
+      in: body
+      required: true
+      schema:
+        $ref: "../schemas/project.yaml#/ProjectLeaveRequestInput"
+  responses:
+    200:
+      description: 用户信息
+      schema:
+        $ref: "../schemas/user.yaml#/UserGetResponse"
+  tags:
+    - users
