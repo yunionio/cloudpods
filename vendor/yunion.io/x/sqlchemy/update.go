@@ -16,6 +16,7 @@ package sqlchemy
 
 import (
 	"bytes"
+	"database/sql"
 	"fmt"
 	"reflect"
 	"strings"
@@ -191,7 +192,11 @@ func (us *SUpdateSession) saveUpdate(dt interface{}) (UpdateDiffs, error) {
 		return nil, err
 	}
 	if aCnt != 1 {
-		return nil, fmt.Errorf("affected rows %d != 1", aCnt)
+		if aCnt == 0 {
+			return nil, sql.ErrNoRows
+		} else {
+			return nil, fmt.Errorf("affected rows %d != 1", aCnt)
+		}
 	}
 	q := us.tableSpec.Query()
 	for k, v := range primaries {

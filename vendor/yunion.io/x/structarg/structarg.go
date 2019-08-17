@@ -910,7 +910,7 @@ func (this *ArgumentParser) ParseArgs2(args []string, ignore_unknown bool, setDe
 }
 
 func isQuotedByChar(str string, quoteChar byte) bool {
-	return str[0] == quoteChar && str[len(str)-1] == quoteChar
+	return len(str) >= 2 && str[0] == quoteChar && str[len(str)-1] == quoteChar
 }
 
 func isQuoted(str string) bool {
