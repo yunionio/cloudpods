@@ -33,6 +33,11 @@ var (
 	Groups GroupManager
 )
 
+func (this *GroupManager) GetProjects(session *mcclient.ClientSession, uid string) (*ListResult, error) {
+	url := fmt.Sprintf("/groups/%s/projects?admin=true", uid)
+	return this._list(session, url, "projects")
+}
+
 func init() {
 	Groups = GroupManager{NewIdentityV3Manager("group", "groups",
 		[]string{},

@@ -682,3 +682,134 @@ func (manager *SUserManager) FetchUsersInDomain(domainId string, excludes []stri
 func (user *SUser) UnlinkIdp(idpId string) error {
 	return IdmappingManager.deleteAny(idpId, api.IdMappingEntityUser, user.Id)
 }
+
+func (user *SUser) AllowPerformJoin(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowPerform(userCred, user, "join")
+}
+
+func (user *SUser) PerformJoin(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	err := joinProjects(user, true, ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func joinProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	input := api.SJoinProjectsInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return httperrors.NewInputParameterError("unmarshal input error %s", err)
+	}
+
+	err = input.Validate()
+	if err != nil {
+		return httperrors.NewInputParameterError(err.Error())
+	}
+
+	projects := make([]*SProject, 0)
+	roles := make([]*SRole, 0)
+
+	for i := range input.Projects {
+		obj, err := ProjectManager.FetchByIdOrName(userCred, input.Projects[i])
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), input.Projects[i])
+			} else {
+				return httperrors.NewGeneralError(err)
+			}
+		}
+		projects = append(projects, obj.(*SProject))
+	}
+	for i := range input.Roles {
+		obj, err := RoleManager.FetchByIdOrName(userCred, input.Roles[i])
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), input.Roles[i])
+			} else {
+				return httperrors.NewGeneralError(err)
+			}
+		}
+		roles = append(roles, obj.(*SRole))
+	}
+
+	for i := range projects {
+		for j := range roles {
+			if isUser {
+				err = AssignmentManager.projectAddUser(ctx, userCred, projects[i], ident.(*SUser), roles[j])
+			} else {
+				err = AssignmentManager.projectAddGroup(ctx, userCred, projects[i], ident.(*SGroup), roles[j])
+			}
+			if err != nil {
+				return httperrors.NewGeneralError(err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (user *SUser) AllowPerformLeave(ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) bool {
+	return db.IsAdminAllowPerform(userCred, user, "leave")
+}
+
+func (user *SUser) PerformLeave(
+	ctx context.Context,
+	userCred mcclient.TokenCredential,
+	query jsonutils.JSONObject,
+	data jsonutils.JSONObject,
+) (jsonutils.JSONObject, error) {
+	err := leaveProjects(user, true, ctx, userCred, data)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func leaveProjects(ident db.IModel, isUser bool, ctx context.Context, userCred mcclient.TokenCredential, data jsonutils.JSONObject) error {
+	input := api.SLeaveProjectsInput{}
+	err := data.Unmarshal(&input)
+	if err != nil {
+		return httperrors.NewInputParameterError("unmarshal leave porject input error: %s", err)
+	}
+	for i := range input.ProjectRoles {
+		projObj, err := ProjectManager.FetchByIdOrName(userCred, input.ProjectRoles[i].Project)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return httperrors.NewResourceNotFoundError2(ProjectManager.Keyword(), input.ProjectRoles[i].Project)
+			} else {
+				return httperrors.NewGeneralError(err)
+			}
+		}
+		roleObj, err := RoleManager.FetchByIdOrName(userCred, input.ProjectRoles[i].Role)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return httperrors.NewResourceNotFoundError2(RoleManager.Keyword(), input.ProjectRoles[i].Role)
+			} else {
+				return httperrors.NewGeneralError(err)
+			}
+		}
+		if isUser {
+			err = AssignmentManager.projectRemoveUser(ctx, userCred, projObj.(*SProject), ident.(*SUser), roleObj.(*SRole))
+		} else {
+			err = AssignmentManager.projectRemoveGroup(ctx, userCred, projObj.(*SProject), ident.(*SGroup), roleObj.(*SRole))
+		}
+		if err != nil {
+			return httperrors.NewGeneralError(err)
+		}
+	}
+	return nil
+}
