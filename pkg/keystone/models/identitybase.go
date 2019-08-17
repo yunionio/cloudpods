@@ -89,9 +89,9 @@ func (model *SIdentityBaseResource) GetIIdentityModel() IIdentityModel {
 	return model.GetVirtualObject().(IIdentityModel)
 }
 
-func (model *SIdentityBaseResource) IsOwner(userCred mcclient.TokenCredential) bool {
-	return userCred.GetProjectDomainId() == model.DomainId
-}
+// func (model *SIdentityBaseResource) IsOwner(userCred mcclient.TokenCredential) bool {
+// 	return userCred.GetProjectDomainId() == model.DomainId
+// }
 
 func (model *SIdentityBaseResource) GetDomain() *SDomain {
 	if len(model.DomainId) > 0 && model.DomainId != api.KeystoneDomainRoot {
@@ -109,11 +109,11 @@ func (manager *SIdentityBaseResourceManager) GetIIdentityModelManager() IIdentit
 }
 
 func (manager *SIdentityBaseResourceManager) FetchByName(userCred mcclient.IIdentityProvider, idStr string) (db.IModel, error) {
-	return db.FetchByName(manager, userCred, idStr)
+	return db.FetchByName(manager.GetIIdentityModelManager(), userCred, idStr)
 }
 
 func (manager *SIdentityBaseResourceManager) FetchByIdOrName(userCred mcclient.IIdentityProvider, idStr string) (db.IModel, error) {
-	return db.FetchByIdOrName(manager, userCred, idStr)
+	return db.FetchByIdOrName(manager.GetIIdentityModelManager(), userCred, idStr)
 }
 
 func (manager *SIdentityBaseResourceManager) ListItemFilter(ctx context.Context, q *sqlchemy.SQuery, userCred mcclient.TokenCredential, query jsonutils.JSONObject) (*sqlchemy.SQuery, error) {
