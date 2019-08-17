@@ -42,9 +42,7 @@ func (manager *SDomainizedResourceBaseManager) FilterByOwner(q *sqlchemy.SQuery,
 	if owner != nil {
 		switch scope {
 		case rbacutils.ScopeDomain:
-			if len(owner.GetProjectDomainId()) > 0 {
-				q = q.Equals("domain_id", owner.GetProjectDomainId())
-			}
+			q = q.Equals("domain_id", owner.GetProjectDomainId())
 		}
 	}
 	return q
